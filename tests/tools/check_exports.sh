@@ -1,11 +1,11 @@
 #!/usr/bin/env sh
-# check_exports.sh — falha se a biblioteca dinâmica da glintfx exportar
-# símbolo fora do namespace glintfx:: ou da allowlist mínima de runtime
-# (FUND-1, item 8 da ordem de serviço).
+# check_exports.sh - fails if the glintfx dynamic library exports a
+# symbol outside the glintfx:: namespace or the minimal runtime
+# allowlist (FUND-1, item 8 of the service order).
 #
-# Uso: check_exports.sh <caminho-da-.so>
+# Usage: check_exports.sh <path-to-.so>
 #
-# Cada função abaixo faz uma coisa (GODS_LAWS.md L-17).
+# Each function below does one thing (GODS_LAWS.md L-17).
 
 set -eu
 
@@ -18,12 +18,12 @@ fail() {
 }
 
 require_nm_present() {
-    command -v nm >/dev/null 2>&1 || fail "'nm' não encontrado no PATH (sem skip silencioso)"
+    command -v nm >/dev/null 2>&1 || fail "'nm' not found in PATH (no silent skip)"
 }
 
 require_library_path_arg() {
-    [ "$#" -eq 1 ] || fail "uso: check_exports.sh <caminho-da-.so>"
-    [ -f "$1" ] || fail "arquivo não encontrado: $1"
+    [ "$#" -eq 1 ] || fail "usage: check_exports.sh <path-to-.so>"
+    [ -f "$1" ] || fail "file not found: $1"
 }
 
 symbol_has_glintfx_prefix() {
@@ -60,17 +60,17 @@ main() {
     require_library_path_arg "$@"
 
     library_path="$1"
-    echo "check_exports.sh: símbolos dinâmicos definidos em $library_path:"
+    echo "check_exports.sh: dynamic symbols defined in $library_path:"
     defined_dynamic_symbol_names "$library_path"
 
     intruders="$(collect_intruder_symbols "$library_path")"
     if [ -n "$intruders" ]; then
-        echo "check_exports.sh: símbolos fora do contrato exportados:" >&2
+        echo "check_exports.sh: symbols exported outside the contract:" >&2
         echo "$intruders" >&2
         exit 1
     fi
 
-    echo "ok: nenhum símbolo fora do contrato."
+    echo "ok: no symbol outside the contract."
 }
 
 main "$@"

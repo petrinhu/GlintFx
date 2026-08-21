@@ -1,9 +1,9 @@
 # GlintfxCompileOptions.cmake
 #
-# Assunto único: padrão de linguagem C++23 e flags de warning aplicados
-# a um alvo da glintfx (biblioteca, harness de teste ou executável de
-# teste). Nenhuma opção de usuário nem propriedade de instalação entra
-# aqui — isso é GlintfxOptions.cmake e GlintfxLibrary.cmake.
+# Single subject: the C++23 language standard and the warning flags
+# applied to a glintfx target (library, test harness or test
+# executable). No user option and no install property belongs here;
+# that is GlintfxOptions.cmake and GlintfxLibrary.cmake.
 
 function(glintfx_apply_cxx_standard target)
     set_target_properties(${target} PROPERTIES
@@ -26,9 +26,9 @@ function(glintfx_apply_warning_flags target)
     endif()
 endfunction()
 
-# Ponto de entrada único que os arquivos de alvo (src/CMakeLists.txt,
-# tests/CMakeLists.txt, GlintfxTest.cmake) chamam. Composição das duas
-# funções acima, sem lógica própria.
+# Single entry point that the target files (src/CMakeLists.txt,
+# tests/CMakeLists.txt, GlintfxTest.cmake) call. Composition of the two
+# functions above, with no logic of its own.
 function(glintfx_apply_compile_options target)
     glintfx_apply_cxx_standard(${target})
     glintfx_apply_warning_flags(${target})

@@ -1,9 +1,9 @@
 # tests/CMakeLists.txt
 #
-# Assunto único: a suíte de testes da glintfx — harness próprio e os
-# casos que ligam contra ele. tests/package/ é projeto CMake standalone
-# e de propósito (prova find_package fora da árvore) — NÃO entra aqui
-# por design.
+# Single subject: the glintfx test suite, its own harness and the
+# cases that link against it. tests/package/ is a standalone,
+# purpose-built CMake project (proves find_package outside the tree);
+# it does NOT enter here, by design.
 
 add_library(glintfx_test_harness STATIC
     harness/test_registry.cpp
@@ -15,10 +15,10 @@ glintfx_apply_compile_options(glintfx_test_harness)
 
 glintfx_add_test(version_test)
 
-# Teste de visibilidade: só faz sentido com símbolos dinâmicos (.so) e
-# com a ferramenta `nm -D` do Unix. No Windows a exportação já é
-# controlada por __declspec via generate_export_header; provar isso
-# exigiria dumpbin, fora do escopo desta fatia.
+# Visibility test: only makes sense with dynamic symbols (.so) and the
+# Unix `nm -D` tool. On Windows the export is already controlled by
+# __declspec via generate_export_header; proving that would require
+# dumpbin, out of scope for this slice.
 if(BUILD_SHARED_LIBS AND UNIX)
     add_test(
         NAME visibility_test
@@ -26,9 +26,9 @@ if(BUILD_SHARED_LIBS AND UNIX)
     )
 endif()
 
-# Gate de camadas (GODS_LAWS.md L-19, item 1: "um gate de CI reprova a
-# violação"). POSIX sh — downgrade declarado: roda nos jobs Linux da
-# matriz, não no Windows, que não tem `sh` por padrão.
+# Layer gate (GODS_LAWS.md L-19, item 1: "a CI gate reproves the
+# violation"). POSIX sh; declared downgrade: runs in the Linux jobs of
+# the matrix, not on Windows, which does not have `sh` by default.
 if(UNIX)
     add_test(
         NAME layers_test

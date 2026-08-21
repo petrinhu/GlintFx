@@ -2,11 +2,11 @@
 
 #include <string_view>
 
-// check.hpp — assertivas não-fatais do harness próprio (FUND-1).
+// check.hpp - non-fatal assertions of the in-house harness (FUND-1).
 //
-// GLINTFX_CHECK NÃO aborta o caso ao falhar (diferente de assert): o
-// caso continua, e a falha é contada. É o harness_main que decide
-// PASS/FAIL a partir da contagem ao fim do caso.
+// GLINTFX_CHECK does NOT abort the case on failure (unlike assert): the
+// case continues, and the failure is counted. It is harness_main that
+// decides PASS/FAIL from the count at the end of the case.
 
 namespace glintfx::test {
 

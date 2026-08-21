@@ -1,15 +1,15 @@
 # src/CMakeLists.txt
 #
-# Assunto único: o alvo da biblioteca glintfx e as camadas que somam
-# fontes a ele. Propriedades, export header e include dirs vêm de
-# GlintfxLibrary.cmake; warnings e padrão de linguagem vêm de
-# GlintfxCompileOptions.cmake — nenhum dos dois é redefinido aqui.
+# Single subject: the glintfx library target and the layers that add
+# sources to it. Properties, export header and include dirs come from
+# GlintfxLibrary.cmake; warnings and language standard come from
+# GlintfxCompileOptions.cmake; neither is redefined here.
 #
-# Cada camada (GODS_LAWS.md L-19) é uma unidade CMake visível: um
-# add_subdirectory() próprio, cujo CMakeLists.txt só faz
-# target_sources(glintfx ...) sobre o alvo criado abaixo. Hoje só
-# core/ existe; a camada que toca o SO nasce como próxima entrada
-# desta lista, nunca misturada aos fontes do núcleo.
+# Each layer (GODS_LAWS.md L-19) is a visible CMake unit: its own
+# add_subdirectory(), whose CMakeLists.txt only does
+# target_sources(glintfx ...) on the target created below. Today only
+# core/ exists; the layer that touches the OS is born as the next
+# entry in this list, never mixed into the core sources.
 
 add_library(glintfx)
 add_library(glintfx::glintfx ALIAS glintfx)

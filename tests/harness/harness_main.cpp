@@ -4,11 +4,11 @@
 #include "check.hpp"
 #include "test_registry.hpp"
 
-// harness_main.cpp — ponto de entrada do harness próprio (FUND-1).
+// harness_main.cpp - entry point of the in-house harness (FUND-1).
 //
-// Sem argumento: roda todos os casos registrados. Com "--list": só
-// imprime os nomes. Com um nome exato: roda só aquele caso (e falha se
-// o nome não existir, em vez de ignorar silenciosamente).
+// With no argument: runs every registered case. With "--list": only
+// prints the names. With an exact name: runs only that case (and
+// fails if the name does not exist, instead of silently ignoring it).
 
 namespace {
 
@@ -50,14 +50,14 @@ int run_all_cases() {
 int run_named_case(std::string_view name) {
     const Case* c = find_case_by_name(name);
     if (c == nullptr) {
-        std::println(stderr, "harness: nenhum caso de teste chamado \"{}\"", name);
+        std::println(stderr, "harness: no test case named \"{}\"", name);
         return 1;
     }
     return run_single_case(*c) ? 0 : 1;
 }
 
 void print_summary(std::size_t total, int failures) {
-    std::println("--- {} caso(s), {} falha(s) ---", total, failures);
+    std::println("--- {} case(s), {} failure(s) ---", total, failures);
 }
 
 }  // namespace

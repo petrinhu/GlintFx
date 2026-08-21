@@ -1,8 +1,8 @@
 # GlintfxLibrary.cmake
 #
-# Assunto único: propriedades de alvo, export header e diretórios de
-# include da biblioteca glintfx. Instalação é GlintfxInstall.cmake;
-# padrão de linguagem e warnings são GlintfxCompileOptions.cmake.
+# Single subject: target properties, export header and include
+# directories of the glintfx library. Install is GlintfxInstall.cmake;
+# language standard and warnings are GlintfxCompileOptions.cmake.
 
 include(GenerateExportHeader)
 
@@ -39,10 +39,10 @@ function(glintfx_set_target_include_dirs target)
     )
 endfunction()
 
-# GLINTFX_STATIC_DEFINE precisa ser PUBLIC (não PRIVATE): quando a
-# glintfx é instalada estática, o export set carrega essa definição
-# para o consumidor via find_package — senão GLINTFX_API expande para
-# __declspec(dllimport) num binário que nunca foi linkado como DLL.
+# GLINTFX_STATIC_DEFINE must be PUBLIC (not PRIVATE): when glintfx is
+# installed static, the export set carries this definition to the
+# consumer via find_package; otherwise GLINTFX_API expands to
+# __declspec(dllimport) in a binary that was never linked as a DLL.
 function(glintfx_apply_static_define target)
     if(NOT BUILD_SHARED_LIBS)
         target_compile_definitions(${target} PUBLIC GLINTFX_STATIC_DEFINE)

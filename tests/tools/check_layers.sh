@@ -1,24 +1,26 @@
 #!/usr/bin/env sh
-# check_layers.sh — gate de CI da GODS_LAWS.md L-19 ("um gate de CI
-# reprova a violação" em vez de confiar na disciplina de quem escreve).
+# check_layers.sh - CI gate for GODS_LAWS.md L-19 ("a CI gate reproves
+# the violation" instead of trusting the discipline of whoever writes
+# the code).
 #
-# Verifica que a camada núcleo (src/core/, include/glintfx/core/) não
-# inclui (a) header de camada acima — hoje só glintfx/platform/, ainda
-# não criada, mas o padrão já fica pronto para quando nascer — nem
-# (b) header de sistema operacional. Núcleo puro não conhece o SO.
+# Verifies that the core layer (src/core/, include/glintfx/core/) does
+# not include (a) a header from a layer above; today only
+# glintfx/platform/, not created yet, but the pattern is ready for when
+# it is born; nor (b) an operating system header. The pure core knows
+# nothing about the OS.
 #
-# Uso: check_layers.sh <diretório-raiz-do-source>
+# Usage: check_layers.sh <source-root-directory>
 #
-# Cada função abaixo faz uma coisa (GODS_LAWS.md L-17).
+# Each function below does one thing (GODS_LAWS.md L-17).
 
 set -eu
 
-# Camada acima do núcleo que ainda não existe nesta fatia (FUND-2); o
-# padrão fica pronto para quando ela nascer.
+# Layer above the core that does not exist yet in this slice (FUND-2);
+# the pattern is ready for when it is born.
 readonly UPPER_LAYER_PATTERN='glintfx/platform/'
 
-# Cabeçalhos de SO cobertos por esta fatia: Wayland, Win32, GL/EGL e as
-# chamadas POSIX de baixo nível mais comuns.
+# OS headers covered by this slice: Wayland, Win32, GL/EGL and the most
+# common low-level POSIX calls.
 readonly OS_HEADER_PATTERN='wayland|windows\.h|winuser|GL/|EGL/|<dlfcn|<unistd|<sys/|<fcntl'
 
 fail() {
@@ -27,8 +29,8 @@ fail() {
 }
 
 require_root_dir_arg() {
-    [ "$#" -eq 1 ] || fail "uso: check_layers.sh <diretório-raiz-do-source>"
-    [ -d "$1" ] || fail "diretório não encontrado: $1"
+    [ "$#" -eq 1 ] || fail "usage: check_layers.sh <source-root-directory>"
+    [ -d "$1" ] || fail "directory not found: $1"
 }
 
 core_source_dirs() {
@@ -38,13 +40,16 @@ core_source_dirs() {
     done
 }
 
+# One find(1) call per candidate directory, so a directory whose path
+# contains whitespace is never split by word-splitting (unlike passing
+# a newline-joined string straight to `find $dirs`).
 core_source_files() {
-    dirs="$(core_source_dirs "$1")"
-    [ -z "$dirs" ] && return 0
-    # shellcheck disable=SC2086 # $dirs é lista de diretórios, split intencional.
-    find $dirs -type f \
-        \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \
-        -o -name '*.hh' -o -name '*.hxx' -o -name '*.cc' -o -name '*.cxx' \)
+    root="$1"
+    core_source_dirs "$root" | while IFS= read -r dir; do
+        find "$dir" -type f \
+            \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \
+            -o -name '*.hh' -o -name '*.hxx' -o -name '*.cc' -o -name '*.cxx' \)
+    done
 }
 
 forbidden_include_pattern() {
@@ -70,14 +75,14 @@ main() {
     fi
 
     if [ -n "$violations" ]; then
-        echo "check_layers.sh: violações de camada (GODS_LAWS.md L-19):" >&2
+        echo "check_layers.sh: layer violations (GODS_LAWS.md L-19):" >&2
         echo "$violations" >&2
         exit 1
     fi
 
     violation_count=0
     [ -n "$violations" ] && violation_count="$(printf '%s\n' "$violations" | wc -l)"
-    echo "check_layers.sh: violacoes: $violation_count em $file_count arquivos varridos"
+    echo "check_layers.sh: violations: $violation_count in $file_count files scanned"
 }
 
 main "$@"

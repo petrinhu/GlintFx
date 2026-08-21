@@ -1,10 +1,10 @@
 # tests/package/CMakeLists.txt
 #
-# Assunto único: projeto CMake standalone que prova find_package(glintfx)
-# fora da árvore da glintfx (FUND-1, item 9 da ordem de serviço). NÃO é
-# incluído pelo build principal via add_subdirectory — roda como
-# configure/build independente, apontando CMAKE_PREFIX_PATH pro prefixo
-# instalado.
+# Single subject: standalone CMake project that proves
+# find_package(glintfx) outside the glintfx tree (FUND-1, item 9 of the
+# service order). Is NOT included by the main build via
+# add_subdirectory; runs as an independent configure/build, pointing
+# CMAKE_PREFIX_PATH at the installed prefix.
 
 cmake_minimum_required(VERSION 3.28)
 

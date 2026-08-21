@@ -1,8 +1,8 @@
 # GlintfxInstall.cmake
 #
-# Assunto único: install() do alvo, dos headers públicos/gerados e do
-# pacote CMake (glintfxConfig.cmake) que um find_package(glintfx)
-# externo consome.
+# Single subject: install() of the target, of the public/generated
+# headers, and of the CMake package (glintfxConfig.cmake) that an
+# external find_package(glintfx) consumes.
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

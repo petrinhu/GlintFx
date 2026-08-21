@@ -3,12 +3,13 @@
 #include <string_view>
 #include <vector>
 
-// test_registry.hpp — registro de casos de teste do harness próprio da
-// glintfx (FUND-1, GODS_LAWS.md L-07: sem Catch2/GoogleTest).
+// test_registry.hpp - test case registry of glintfx's own harness
+// (FUND-1, GODS_LAWS.md L-07: no Catch2/GoogleTest).
 //
-// Cada TU de teste declara um caso com GLINTFX_TEST(nome); a macro cria
-// um objeto estático cujo construtor se registra na lista global antes
-// de main() rodar (idioma clássico de auto-registro por static init).
+// Each test TU declares a case with GLINTFX_TEST(name); the macro
+// creates a static object whose constructor registers it in the
+// global list before main() runs (the classic self-registration idiom
+// via static init).
 
 namespace glintfx::test {
 

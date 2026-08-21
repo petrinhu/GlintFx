@@ -1,7 +1,8 @@
 # GlintfxTest.cmake
 #
-# Assunto único: a função que registra um executável de teste ligado ao
-# harness próprio da glintfx (GODS_LAWS.md L-07: sem Catch2/GoogleTest).
+# Single subject: the function that registers a test executable linked
+# against glintfx's own harness (GODS_LAWS.md L-07: no
+# Catch2/GoogleTest).
 
 function(glintfx_add_test name)
     add_executable(${name} "${CMAKE_CURRENT_SOURCE_DIR}/${name}.cpp")

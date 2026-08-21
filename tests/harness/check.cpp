@@ -11,7 +11,7 @@ int g_failure_count = 0;
 }  // namespace
 
 void record_check_failure(std::string_view file, int line, std::string_view expr) {
-    std::println(stderr, "{}:{}: falhou: {}", file, line, expr);
+    std::println(stderr, "{}:{}: failed: {}", file, line, expr);
     ++g_failure_count;
 }
 

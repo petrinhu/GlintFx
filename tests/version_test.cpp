@@ -7,12 +7,13 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// version_test.cpp — prova que o link contra glintfx::glintfx funciona
-// nos dois modos (shared e estático) e que o export da macro
-// GLINTFX_API não quebra o símbolo (FUND-1, item 7 da ordem de serviço).
+// version_test.cpp - proves that linking against glintfx::glintfx works
+// in both modes (shared and static) and that the GLINTFX_API macro
+// export does not break the symbol (FUND-1, item 7 of the service
+// order).
 
 GLINTFX_TEST(runtime_version_matches_macros) {
-    const glintfx::Version v = glintfx::runtime_version();
+    const glintfx::version v = glintfx::runtime_version();
     GLINTFX_CHECK_EQ(v.major, static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR));
     GLINTFX_CHECK_EQ(v.minor, static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR));
     GLINTFX_CHECK_EQ(v.patch, static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH));

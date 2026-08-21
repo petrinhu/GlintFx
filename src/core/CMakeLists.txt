@@ -1,13 +1,13 @@
 # src/core/CMakeLists.txt
 #
-# Camada núcleo (GODS_LAWS.md L-19): tipos e valores puros (hoje,
-# versão em runtime) que não conhecem o sistema operacional. Nenhum
-# arquivo aqui inclui header de SO ou de camada acima — o gate em
-# tests/tools/check_layers.sh reprova a violação em vez de confiar na
-# disciplina de quem escreve.
+# Core layer (GODS_LAWS.md L-19): pure types and values (today, the
+# runtime version) that know nothing about the operating system. No
+# file here includes an OS header or a header from a layer above; the
+# gate in tests/tools/check_layers.sh reproves the violation instead
+# of trusting the discipline of whoever writes the code.
 #
-# Assunto único: os fontes desta camada. Propriedades do alvo `glintfx`
-# continuam em src/CMakeLists.txt — este arquivo só soma fontes a um
-# alvo já criado no diretório pai.
+# Single subject: the sources of this layer. Properties of the
+# `glintfx` target stay in src/CMakeLists.txt; this file only adds
+# sources to a target already created in the parent directory.
 
 target_sources(glintfx PRIVATE version.cpp)

@@ -4,8 +4,8 @@
 
 namespace glintfx {
 
-Version runtime_version() noexcept {
-    return Version{
+version runtime_version() noexcept {
+    return version{
         static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR),
         static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR),
         static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH),

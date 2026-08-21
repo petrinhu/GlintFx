@@ -38,6 +38,23 @@ if(UNIX)
     )
 endif()
 
+# Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the
+# INSTALLED package, not the in-tree build. Installs whatever this
+# build's BUILD_SHARED_LIBS mode already produced into a scratch prefix,
+# then configures/builds/runs the standalone tests/package/ consumer
+# against it via find_package(glintfx). POSIX sh; same declared downgrade
+# as layers_test above (Windows coverage is a dedicated CI step, not a
+# ctest case, because it does not have `sh` by default).
+if(UNIX)
+    add_test(
+        NAME consume_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_consume.sh"
+            "${PROJECT_BINARY_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/package"
+            "${CMAKE_CXX_COMPILER}"
+    )
+endif()
+
 # Embedding gate (FIX-CONSUMO, achado A7): proves glintfx works consumed
 # via add_subdirectory (the shape FetchContent takes after populating the
 # tree), not just via the installed package above. POSIX sh; same

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 name: CI
 
 # Cinco alvos distintos, por ordem do lider (GODS_LAWS.md, L-04):
@@ -94,18 +95,28 @@ jobs:
           ${{ matrix.cc }} -std=c++23 -o /tmp/c23 /tmp/c23.cpp
           /tmp/c23
 
-      - name: Build e testes
+      # Modo compartilhado (default, BUILD_SHARED_LIBS=ON). O ctest aqui
+      # cobre tambem o gate de consumo (consume_test) e o de embedding
+      # (embed_test, GODS_LAWS.md FIX-CONSUMO achados A2/A3/A4/A6/A7):
+      # ambos foram registrados em tests/CMakeLists.txt e rodam sob
+      # QUALQUER modo em que este build/ tenha sido configurado, o que e
+      # exatamente o eixo shared/static que este job precisa exercitar.
+      - name: Build e testes (compartilhado)
         run: |
-          set -eu
-          if [ ! -f CMakeLists.txt ]; then
-            echo "Sem CMakeLists.txt neste commit: nada a compilar."
-            echo "Este passo passa a executar configure, build e ctest assim que o build existir."
-            exit 0
-          fi
-          set -x
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }}
-          cmake --build build
-          ctest --test-dir build --output-on-failure
+          set -eux
+          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }}
+          cmake --build build-shared
+          ctest --test-dir build-shared --output-on-failure
+
+      # Mesmo eixo de testes, agora com BUILD_SHARED_LIBS=OFF: prova que
+      # o modo estatico tambem instala, exporta e e consumido por
+      # find_package (GODS_LAWS.md FIX-CONSUMO, escopo item 2).
+      - name: Build e testes (estatico)
+        run: |
+          set -eux
+          cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DBUILD_SHARED_LIBS=OFF
+          cmake --build build-static
+          ctest --test-dir build-static --output-on-failure
 
   windows:
     name: Windows
@@ -142,20 +153,41 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Remove-Item -Recurse -Force probe
 
-      - name: Build e testes
+      # Modo compartilhado (default). ctest aqui roda apenas os testes da
+      # propria arvore: consume_test/embed_test sao POSIX sh e nao
+      # compilados neste job (tests/CMakeLists.txt guarda os dois com
+      # if(UNIX)), por isso o passo seguinte fecha o caminho de consumo
+      # do Windows com um script dedicado (GODS_LAWS.md FIX-CONSUMO,
+      # achados A2/A3: o caminho dllimport so existe fora da arvore).
+      - name: Build e testes (compartilhado)
         shell: pwsh
         run: |
-          if (-not (Test-Path CMakeLists.txt)) {
-            Write-Host "Sem CMakeLists.txt neste commit: nada a compilar."
-            Write-Host "Este passo passa a executar configure, build e ctest assim que o build existir."
-            exit 0
-          }
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build --config Release
+          cmake --build build-shared --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ctest --test-dir build -C Release --output-on-failure
-          exit $LASTEXITCODE
+          ctest --test-dir build-shared -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Consumo instalado (compartilhado)
+        shell: pwsh
+        run: tools/ci/check-consume.ps1 -BuildDir build-shared -PackageSrcDir tests/package
+
+      # Mesmo eixo de testes, agora com BUILD_SHARED_LIBS=OFF (escopo
+      # item 2 desta onda).
+      - name: Build e testes (estatico)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-static -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-static --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ctest --test-dir build-static -C Release --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Consumo instalado (estatico)
+        shell: pwsh
+        run: tools/ci/check-consume.ps1 -BuildDir build-static -PackageSrcDir tests/package
 
   leis:
     name: Gate das leis

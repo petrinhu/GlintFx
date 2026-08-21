@@ -43,6 +43,7 @@
 | [L-24](#l-24) | pensar em cobertura, formatação ou auditoria | Sem meta de cobertura; clang-format LLVM; dossiê só antes da 1.0 |
 | [L-25](#l-25) | iniciar build pesado, ASan, teste de janela ou demo | Armar o `watchcode` na janela, e desarmar ao fim |
 | [L-26](#l-26) | criar tag, publicar release, ou mexer na versão | Versão e tag são `vA.B.C.D`; `SOVERSION` segue o `A` |
+| [L-27](#l-27) | escrever ordem de serviço, ou aceitar um corte proposto por agente | Fato separado de inferência; corte exige citação; passar a fonte, não o resumo |
 
 ---
 
@@ -175,6 +176,8 @@ Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global
 O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone canônico: `~/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/`. Repositório **privado**. Protocolo completo em `PROTOCOL.md` do clone; **leia o protocolo, não confie neste resumo**.
 
 **Participantes.** Slugs de sessão: `gusworld` (o jogo), **`glintfx` (este projeto)**, `site` (a revista de registro histórico), `mapeditor` (o editor de mapas). Mais **Gus Dragon**, colaborador humano, filho do líder, handle GitHub `Dragon-Drv`, que manda ideias de jogo por **issue** ou por `.txt` na raiz de `inbox/`.
+
+> ⚠ **Estes nomes são CANAIS DE COMUNICAÇÃO, não a base de consumidores do GlintFx.** Que `gusworld` e `mapeditor` existam no bus **não** os torna os consumidores da biblioteca, nem os torna os únicos. O GlintFx é público e distribuível, e a sua base de consumidores é **aberta e desconhecida** (LEI ZERO, no topo deste arquivo). **Nunca derive público-alvo, prioridade, escopo ou decisão de API da lista acima.** Esta ressalva existe porque em 21/08/2026 um agente leu esta seção e concluiu "consumidor único futuro", e a conclusão quase amputou a lente de produto do planejamento.
 
 **Aplicação, leitura:** ao abrir a sessão ou quando o líder mandar, `git pull` no clone e ler o que estiver solto em `inbox/glintfx/`. Depois de ler e agir, `git mv` para `inbox/glintfx/archive/`, commit `read: <arquivo>`, push. A pasta `archive/` do topo do repo é convenção antiga, abandonada; não mande nada para lá.
 
@@ -358,3 +361,19 @@ O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash rea
 **Aplicação:** `write_basic_package_version_file` precisa de política coerente com esta tabela. Antes da 1.0, `SameMinorVersion` é o correto, porque `B` é onde a quebra mora enquanto `A` é zero. **Ao chegar na 1.0, isso muda para `SameMajorVersion`** e a mudança não pode ser esquecida.
 
 Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11): esta lei fixa o formato, não autoriza taggear.
+
+## L-27
+
+**Data:** 21/08/2026, decisão do líder, nascida de um erro medido no mesmo dia.
+
+**O erro que originou a lei:** um agente inferiu que o projeto teria "consumidor único futuro", inferência que **não estava escrita em lugar nenhum**, e a usou para cortar a lente de produto e a tabela de scoring do planejamento. O orquestrador repassou a inferência ao agente seguinte **como se fosse fato**, sem a marca de origem. O líder pegou com uma pergunta de uma linha: *"onde está escrito?"*.
+
+**Três obrigações, todas do orquestrador:**
+
+**1. Proveniência marcada em toda ordem de serviço.** O brief separa explicitamente **`FATO`** (com arquivo e linha, ou verbatim do líder) de **`INFERÊNCIA DE AGENTE ANTERIOR`**. Subagente não distingue: tudo que chega no prompt do orquestrador é premissa dada. Inferência sem marca vira spec em silêncio.
+
+**2. Corte exige citação.** Toda premissa que sustenta um **corte** (de agente, de escopo, de item, de etapa) só é aceita com a fonte citada. Se a fonte não existir, o corte não acontece. Corte é onde premissa errada faz o estrago máximo, porque **o que foi cortado desaparece e não volta a ser questionado**.
+
+**3. Passar a fonte, não o resumo dela.** Ao encadear agentes, o seguinte recebe o **caminho do arquivo** que o anterior produziu, e lê. Resumo do orquestrador perde exatamente o marcador de incerteza que distinguia dado de conclusão.
+
+**Padrão-mãe, para reconhecer o próximo caso:** já existe registro de que **exemplo inventado pelo orquestrador numa explicação vira spec**. Esta lei é o mesmo mecanismo com outra roupa: ali a origem era o próprio orquestrador, aqui era outro agente. **A regra geral é que tudo que atravessa o orquestrador sem marca de origem chega ao destino com autoridade de fato.**

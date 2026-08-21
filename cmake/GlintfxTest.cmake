@@ -46,8 +46,12 @@ endfunction()
 # resolves, at build time, to the SHARED/MODULE libraries `tgt` actually
 # links against - not a hardcoded "glintfx.dll" name, so it keeps
 # working the day this library grows a second internal DLL. Guarded by
-# BUILD_SHARED_LIBS: in the static build there is no glintfx DLL to
-# copy, and an empty file list would make the copy command itself fail.
+# WIN32 AND BUILD_SHARED_LIBS, and both halves of that guard matter:
+# the expression resolves to an EMPTY list on any non-Windows build,
+# shared or static (ELF and Mach-O have no runtime DLL to place next to
+# the executable), and also on a Windows static build. An empty file
+# list makes `copy_if_different` itself fail, so the guard is what keeps
+# the Linux build working, not just the static one.
 #
 # Deliberately NOT fixed via a global CMAKE_RUNTIME_OUTPUT_DIRECTORY:
 # that variable is read by every target created afterward, including an

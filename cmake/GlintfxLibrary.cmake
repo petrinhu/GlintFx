@@ -37,14 +37,12 @@ endfunction()
 
 function(glintfx_set_target_include_dirs target)
     # FIX-CONSUMO achado A6: was `$<INSTALL_INTERFACE:include>`, a literal
-    # that silently drifted from CMAKE_INSTALL_INCLUDEDIR. It never broke
-    # a consumer in practice, because `install(TARGETS ... INCLUDES
-    # DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})` in GlintfxInstall.cmake
-    # already appends the correct path independently, so both entries
-    # ended up in the exported target's INTERFACE_INCLUDE_DIRECTORIES and
-    # the correct one always won. Kept as a dead, misleading literal it
-    # would have become a real landmine the day someone touches that
-    # INCLUDES DESTINATION clause without knowing this one duplicates it.
+    # that silently drifted from CMAKE_INSTALL_INCLUDEDIR. This is now the
+    # ONLY place that adds an install-time include dir to the exported
+    # target (FIX-CONSUMO-2, achado QA-1: the redundant
+    # `INCLUDES DESTINATION` clause that used to duplicate this value in
+    # GlintfxInstall.cmake was removed, because it masked a regression of
+    # this very line - proven by mutation in check_install_includedir.sh).
     target_include_directories(${target} PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${GLINTFX_GENERATED_INCLUDE_DIR}>

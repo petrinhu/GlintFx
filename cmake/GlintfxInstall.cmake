@@ -10,12 +10,20 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 function(glintfx_install_library_target target)
+    # No `INCLUDES DESTINATION` clause here (FIX-CONSUMO-2, achado QA-1):
+    # it used to duplicate, verbatim, what GlintfxLibrary.cmake's
+    # target_include_directories($<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    # already adds to the exported target's INTERFACE_INCLUDE_DIRECTORIES.
+    # The duplicate was harmless by construction (same value twice) but
+    # it also silently compensated for a wrong/hardcoded value there, so
+    # a regression of the real source of truth went uncaught (proven by
+    # mutation in check_install_includedir.sh). Single source of truth
+    # now: the target_include_directories() call in GlintfxLibrary.cmake.
     install(TARGETS ${target}
         EXPORT glintfxTargets
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
 endfunction()
 

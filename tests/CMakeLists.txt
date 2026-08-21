@@ -55,18 +55,38 @@ if(UNIX)
     )
 endif()
 
-# Embedding gate (FIX-CONSUMO, achado A7): proves glintfx works consumed
-# via add_subdirectory (the shape FetchContent takes after populating the
-# tree), not just via the installed package above. POSIX sh; same
-# declared downgrade as layers_test/consume_test (no Windows-specific
-# code path is involved in the embedding fix, so Linux coverage across
-# the four Linux CI targets is the proof; see fix-consumo.md).
+# Embedding gate (FIX-CONSUMO, achado A7; FIX-CONSUMO-2, achado QA-2):
+# proves glintfx works consumed via add_subdirectory (the shape
+# FetchContent takes after populating the tree), not just via the
+# installed package above, and that the GLINTFX_INSTALL=ON opt-in path
+# genuinely installs glintfx's headers and CMake package when an
+# embedding consumer asks for it. POSIX sh; same declared downgrade as
+# layers_test/consume_test (no Windows-specific code path is involved in
+# the embedding fix, so Linux coverage across the four Linux CI targets
+# is the proof; see fix-consumo.md).
 if(UNIX)
     add_test(
         NAME embed_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_embed.sh"
             "${PROJECT_SOURCE_DIR}"
             "${CMAKE_CURRENT_SOURCE_DIR}/embed"
+            "${CMAKE_CXX_COMPILER}"
+    )
+endif()
+
+# Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
+# proves the exported CMake target set (glintfxTargets.cmake) tracks a
+# non-default include directory on its own, with no other install() rule
+# masking a regression of it. Configures and installs a FRESH glintfx
+# build of its own (the include dir is fixed at glintfx's own configure
+# time, unlike consume_test/embed_test above, which reuse whatever build
+# this ctest run is already part of). POSIX sh; same declared downgrade
+# as the other consumption gates above.
+if(UNIX)
+    add_test(
+        NAME install_includedir_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_includedir.sh"
+            "${PROJECT_SOURCE_DIR}"
             "${CMAKE_CXX_COMPILER}"
     )
 endif()

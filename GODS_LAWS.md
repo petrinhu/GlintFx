@@ -40,6 +40,7 @@
 | [L-23](#l-23) | commitar, ou fechar uma fatia, ou dar push | Portões de qualidade e o `preci.sh` antes do push |
 | [L-24](#l-24) | pensar em cobertura, formatação ou auditoria | Sem meta de cobertura; clang-format LLVM; dossiê só antes da 1.0 |
 | [L-25](#l-25) | iniciar build pesado, ASan, teste de janela ou demo | Armar o `watchcode` na janela, e desarmar ao fim |
+| [L-26](#l-26) | criar tag, publicar release, ou mexer na versão | Versão e tag são `vA.B.C.D`; `SOVERSION` segue o `A` |
 
 ---
 
@@ -238,6 +239,8 @@ A arquitetura do GlintFx tem **três compromissos**, e nenhum deles é negociáv
 
 **3. A superfície pública é opaca.** A biblioteca é compartilhada por padrão, então **toda classe pública com layout visível ou método virtual vira contrato de ABI**. A API pública expõe handle opaco ou PIMPL. Reescrever o interior não pode quebrar consumidor.
 
+**Alcance da opacidade, confirmado pelo líder em 21/08/2026:** vale para **handle e subsistema com estado**. **Não** vale para *value type* do núcleo (`version`, `vec2`, `rect` e afins), onde o **layout estável é o próprio contrato**: esconder value type custaria alocação e indireção em caminho quente, e a lei já põe "tipos" dentro do núcleo puro. Value type do núcleo é visível, e mudá-lo é mudança de ABI assumida, sinalizada pela versão.
+
 **Sobre hexagonal, para encerrar a dúvida:** o vocabulário de portas e adaptadores está adotado; a obrigação de interface virtual em runtime **não** está. Hexagonal clássico existe para proteger regra de negócio, que um framework 2D não tem, e cobra despacho virtual justamente onde este projeto não pode pagar.
 
 **Aplicação:** assunto novo nasce em módulo estreito próprio, com fronteira declarada (ver L-17), e nunca é acrescentado a um tipo existente porque "cabia lá". Ao propor `virtual` em tipo público, pare e justifique contra este item; na dúvida, pergunte ao líder.
@@ -332,3 +335,24 @@ O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash rea
 **Fato técnico verificado em 21/08/2026:** o `core_pattern` desta máquina é `systemd-coredump`, e isso é do **kernel**, não do container. Logo, crash dentro do container de teste **aparece** no `coredumpctl` do hospedeiro, e o vigia cobre os testes de superfície da L-09.
 
 **Ruído conhecido, a descartar sem investigar:** coredump de binário sob `/var/tmp/*mutation-sandbox*` ou equivalente é mutação deliberada da revisão adversarial. Três desses foram descartados em 21/08/2026, por decisão do líder.
+
+## L-26
+
+**Data:** 21/08/2026, decisão do líder.
+
+**A versão do GlintFx tem quatro componentes, e a tag é `vA.B.C.D`.** Isto é escolha do líder e **substitui** o SemVer de três números.
+
+| Componente | Sobe quando |
+|---|---|
+| **A** | quebra de API: código de consumidor que compilava deixa de compilar |
+| **B** | recurso novo, compatível para trás |
+| **C** | correção, sem recurso novo e sem quebra |
+| **D** | build ou revisão de empacotamento, **sem mudança de código** |
+
+**`SOVERSION` acompanha o `A`.** É o único número que o consumidor precisa ler para saber que o binário dele quebrou. No CMake, `project(... VERSION A.B.C.D)` usa os quatro (o quarto é o `TWEAK`), e a versão atual `0.1.0` passa a ser **`0.1.0.0`**.
+
+**Antes da 1.0: `SOVERSION 0` e nada de estabilidade prometida.** O zero em `libglintfx.so.0` é a convenção Unix que avisa "a ABI pode quebrar a qualquer momento", e é o que permite romper à vontade até a 1.0 **sem enganar ninguém**. Depois da 1.0, a regra da tabela passa a valer integralmente.
+
+**Aplicação:** `write_basic_package_version_file` precisa de política coerente com esta tabela. Antes da 1.0, `SameMinorVersion` é o correto, porque `B` é onde a quebra mora enquanto `A` é zero. **Ao chegar na 1.0, isso muda para `SameMajorVersion`** e a mudança não pode ser esquecida.
+
+Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11): esta lei fixa o formato, não autoriza taggear.

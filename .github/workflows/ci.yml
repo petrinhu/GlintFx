@@ -97,12 +97,14 @@ jobs:
 
       # Modo compartilhado (default, BUILD_SHARED_LIBS=ON). O ctest aqui
       # cobre tambem o gate de consumo (consume_test), o de embedding
-      # (embed_test, GODS_LAWS.md FIX-CONSUMO achados A2/A3/A4/A6/A7) e o
+      # (embed_test, GODS_LAWS.md FIX-CONSUMO achados A2/A3/A4/A6/A7), o
       # de CMAKE_INSTALL_INCLUDEDIR nao-default (install_includedir_test,
-      # FIX-CONSUMO-2 achado QA-1): os tres foram registrados em
-      # tests/CMakeLists.txt e rodam sob QUALQUER modo em que este build/
-      # tenha sido configurado, o que e exatamente o eixo shared/static
-      # que este job precisa exercitar.
+      # FIX-CONSUMO-2 achado QA-1) e o de layout de empacotador Debian-
+      # multiarch (install_packager_layout_test, FIX-CONSUMO-2 achado
+      # QA-4): todos foram registrados em tests/CMakeLists.txt e rodam
+      # sob QUALQUER modo em que este build/ tenha sido configurado, o
+      # que e exatamente o eixo shared/static que este job precisa
+      # exercitar.
       - name: Build e testes (compartilhado)
         run: |
           set -eux

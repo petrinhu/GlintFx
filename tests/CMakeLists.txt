@@ -90,3 +90,20 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
 endif()
+
+# Packager layout gate (FIX-CONSUMO-2, achado QA-4): proves
+# find_package(glintfx) resolves a Debian-multiarch-style install
+# (CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR both non-default),
+# the scenario the original auditoria (A2/A6) named. Configures and
+# installs a FRESH glintfx build of its own, same reason as
+# install_includedir_test above. POSIX sh; same declared downgrade as
+# the other consumption gates above.
+if(UNIX)
+    add_test(
+        NAME install_packager_layout_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_packager_layout.sh"
+            "${PROJECT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/package"
+            "${CMAKE_CXX_COMPILER}"
+    )
+endif()

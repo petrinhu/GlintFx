@@ -1,3 +1,5 @@
+> **PROJETO PARA DISTRIBUIÇÃO. NUNCA raciocine sobre ele como projeto de consumidor único.** O GlintFx é biblioteca pública sob AGPL-3.0, com base de consumidores **aberta e desconhecida**. Toda decisão de API, ABI, empacotamento, ordem de entrega e prioridade se julga pelo consumidor externo que ainda não conhecemos, nunca por um integrador específico. Premissa de consumidor único é **erro**, e já produziu um: em 21/08/2026 ela foi inferida sem estar escrita em lugar nenhum e quase amputou a lente de produto do planejamento.
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

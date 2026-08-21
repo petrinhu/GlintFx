@@ -1,3 +1,5 @@
+> **LEI ZERO, ACIMA DE TODAS: PROJETO PARA DISTRIBUIÇÃO.** O GlintFx é biblioteca pública sob AGPL-3.0, consumida por gente que não conhecemos, em cinco plataformas. **Nunca raciocine como se houvesse um consumidor único.** Ordem do líder em 21/08/2026, verbatim: *"onde está escrito que o consumidor é único? o projeto é para distribuir"*. Qualquer análise, corte de escopo, priorização ou decisão de API que se apoie na premissa de consumidor único está **errada por construção** e deve ser refeita.
+
 # GODS_LAWS.md
 
 > Ordens expressas do líder (petrus). Este arquivo **não é declaração, é execução**: cada lei tem um **gatilho**, e o gatilho é conferido **no momento da ação**, não no fim.

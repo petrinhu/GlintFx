@@ -173,7 +173,7 @@ Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global
 
 **Data:** 21/08/2026. **Verbatim:** *"a pasta [...] gusworld_ia_autocomm e o repo https://github.com/petrinhu/gusworld_ia_autocomm [...] serve de bus entre este projeto, GusWorld, Gus Dragon (meu filho [...] ele se comunica nesse bus via issues), o site de registro historico [...] e o gusworld_mapeditor"*.
 
-O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone canônico: `~/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/`. Repositório **privado**. Protocolo completo em `PROTOCOL.md` do clone; **leia o protocolo, não confie neste resumo**.
+O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone canônico: `<vault>/gusworld_ia_autocomm/`. Repositório **privado**. Protocolo completo em `PROTOCOL.md` do clone; **leia o protocolo, não confie neste resumo**.
 
 **Participantes.** Slugs de sessão: `gusworld` (o jogo), **`glintfx` (este projeto)**, `site` (a revista de registro histórico), `mapeditor` (o editor de mapas). Mais **Gus Dragon**, colaborador humano, filho do líder, handle GitHub `Dragon-Drv`, que manda ideias de jogo por **issue** ou por `.txt` na raiz de `inbox/`.
 

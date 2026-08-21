@@ -159,7 +159,7 @@ Regras de execução:
 
 ## Bus entre projetos: `gusworld_ia_autocomm`
 
-Canal assíncrono entre as sessões do líder e o filho dele. Clone: `/home/petrus/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/`, repo **privado** `petrinhu/gusworld_ia_autocomm`. **O protocolo canônico é o `PROTOCOL.md` do clone**; leia lá antes de usar, e trate a L-16 de `GODS_LAWS.md` como o resumo operacional.
+Canal assíncrono entre as sessões do líder e o filho dele. Clone: `<vault>/gusworld_ia_autocomm/`, repo **privado** `petrinhu/gusworld_ia_autocomm`. **O protocolo canônico é o `PROTOCOL.md` do clone**; leia lá antes de usar, e trate a L-16 de `GODS_LAWS.md` como o resumo operacional.
 
 | Slug | Projeto |
 |---|---|

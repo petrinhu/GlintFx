@@ -34,6 +34,7 @@
 | [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
 | [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; agentes bigtech; fable audita e cria, sonnet implementa |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
+| [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
 
 ---
 
@@ -245,3 +246,23 @@ Cada uma destas é **achado de revisão**, não questão de gosto:
 3. **`#ifdef` dentro de função.** Adaptador escolhido em compile-time significa **um arquivo por plataforma, selecionado pelo CMake**, não bloco de pré-processador dentro do corpo da função. `#ifdef` picotando uma função é monolito montado pelo pré-processador, e some da leitura de quem revisa.
 
 Dito de forma direta: a arquitetura **reforça** a L-17 (camada e módulo estreito são atomização em escala maior), desde que estas três armadilhas sejam tratadas como violação.
+
+## L-20
+
+**Data:** 21/08/2026, decisão do líder.
+
+**TDD estrito, a partir do primeiro módulo com comportamento.** Nenhuma linha de código de comportamento entra sem um teste que **falhava antes** de ela existir.
+
+**O ciclo, na ordem, sem pular etapa:**
+
+1. **Vermelho.** Escreva o teste. **Execute** e veja falhar. Teste que nunca foi visto falhando não prova nada: pode estar medindo outra coisa, ou nem estar sendo executado.
+2. **Verde.** Escreva o mínimo que faz passar.
+3. **Refatorar.** Limpe com a suíte verde como rede, aplicando a L-17.
+
+**Aplicação ao delegar (L-18):** a ordem de serviço do agente de implementação exige **a saída real do teste falhando** antes da implementação, e a saída real dele passando depois. Relatório que só mostra o verde final não cumpriu a lei: falta a metade que prova que o teste morde.
+
+**O que está fora:** adaptador que só encaminha chamada ao sistema operacional, onde o teste honesto é de integração e não unitário, e código gerado. Fundação de build também está fora, e por isso a fundação criada em 21/08/2026 nasceu sem TDD, legitimamente: não havia comportamento a especificar. **A partir do primeiro módulo de verdade, não há mais essa saída.**
+
+**Cuidado registrado, que já custou tempo em outro projeto:** ao provar que um teste morde por mutação, **prove que a mutação chegou ao código executado**. Registro de callback capturado no import, binário desatualizado por falta de rebuild e arquivo não commitado produzem suíte verde com o mutante aplicado, e a conclusão errada é "meu teste é fraco" quando na verdade a mutação nunca rodou.
+
+O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **quando**.

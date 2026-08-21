@@ -1,0 +1,56 @@
+# Build
+build/
+build-*/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+install_manifest.txt
+compile_commands.json
+.cache/
+
+# Bindings gerados por wayland-scanner
+*-protocol.c
+*-client-protocol.h
+
+# Artefatos de compilação
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# Cobertura e análise
+coverage/
+*.info
+*.lcov
+
+# Core dumps e logs de crash
+core
+core.*
+vgcore.*
+*.core
+
+# Editor e IDE
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Scratch local (nunca versionar)
+scratch/
+tmp/

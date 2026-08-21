@@ -167,13 +167,28 @@ jobs:
       # if(UNIX)), por isso o passo seguinte fecha o caminho de consumo
       # do Windows com um script dedicado (GODS_LAWS.md FIX-CONSUMO,
       # achados A2/A3: o caminho dllimport so existe fora da arvore).
-      - name: Build e testes (compartilhado)
+      - name: Build (compartilhado)
         shell: pwsh
         run: |
           cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-shared --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # WIN-HANG: colhe evidencia real do runner (localizacao do .dll x
+      # .exe, execucao direta com limite de tempo proprio) ANTES do
+      # ctest tentar rodar version_test.exe - GODS_LAWS.md L-27, fato
+      # antes de conserto. Nunca falha o job por si so; o passo de teste
+      # seguinte e que decide passa/falha, agora limitado por
+      # DART_TESTING_TIMEOUT (cmake/GlintfxTest.cmake) em vez do default
+      # de 1500s do CTest.
+      - name: Diagnostico Windows - layout de runtime (compartilhado)
+        shell: pwsh
+        run: tools/ci/diagnose-win-runtime.ps1 -BuildDir build-shared
+
+      - name: Testes (compartilhado)
+        shell: pwsh
+        run: |
           ctest --test-dir build-shared -C Release --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

@@ -51,7 +51,13 @@ if(GLINTFX_INSTALL)
 endif()
 
 if(GLINTFX_BUILD_TESTS)
-    include(CTest)
+    # GlintfxTest before CTest, on purpose (WIN-HANG): the default
+    # timeout it sets has to exist before include(CTest) generates
+    # DartConfiguration.tcl, or CTest falls back to its own built-in
+    # 1500s default, which is exactly what let a hung Windows test run
+    # for 25 minutes before failing (GODS_LAWS.md L-04, five-platform CI).
     include(GlintfxTest)
+    glintfx_set_default_test_timeout()
+    include(CTest)
     add_subdirectory(tests)
 endif()

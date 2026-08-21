@@ -31,6 +31,8 @@
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
+| [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
+| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; agentes bigtech; fable audita e cria, sonnet implementa |
 
 ---
 
@@ -173,3 +175,46 @@ O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone c
 **Ideia do Gus, o pipe completo:** (1) absorver; (2) **ack imediato e automático** na issue marcando `@Dragon-Drv`, sem esperar o líder, para a criança não ficar sem resposta; (3) discutir viabilidade e efeito dominó **com o líder**; (4) postar o resultado na issue, automático, **sempre honesto** e adequado a uma criança de 11 anos, sem inventar nada além do decidido; (5) arquivar, fechando a issue ou movendo o `.txt` para `respondidas_do_gus/`. Ideia do Gus entra na próxima onda, sem atropelar o que está em execução. **Nunca minta para ele.**
 
 **Nunca versionar** nome de batismo de menor nem segredo, mesmo em repo privado. O filho do líder aparece só como **"Gus Dragon"**, e esse apelido pode ser citado em público.
+
+## L-17
+
+**Data:** 21/08/2026. **Verbatim:** *"projeto com proibicao de monolitos. Cada funcao é um átomo"*.
+
+**Monolito é proibido em todo nível:** função que faz mais de uma coisa, arquivo que reúne assuntos sem relação, classe que cresce até virar dona de tudo, módulo sem fronteira declarada. **Cada função é um átomo:** faz **uma** coisa, inteira, e o nome dela diz exatamente qual.
+
+**Aplicação, no momento de escrever:**
+
+- Se você consegue extrair uma sub-função com **nome próprio e honesto**, ela não era um átomo. Extraia.
+- Se o nome precisa de **"e"** para ser verdadeiro (`carrega_e_valida`, `parse_and_render`), são duas funções.
+- Se um trecho precisa de comentário explicando **o que** faz, esse trecho é uma função sem nome. Dê o nome. Comentário existe para o **porquê**.
+- Limites já normativos em `CONTRACT.md` §6.2, que esta lei torna inegociáveis: **no máximo 40 linhas** por função, **no máximo 4 parâmetros** (agrupe em struct), **no máximo 3 níveis** de aninhamento, com retorno antecipado em vez de aninhar.
+- Arquivo é átomo de assunto: um assunto por arquivo, e o nome do arquivo diz qual.
+- Módulo novo nasce **estreito**, com fronteira declarada. Assunto novo vira módulo próprio, nunca é acrescentado a um struct ou a uma classe existente porque "cabia lá".
+
+**Aplicação, no momento de revisar:** função longa, arquivo com dois assuntos ou classe que virou dona de tudo são **achado de revisão**, não questão de gosto. O reviewer nomeia o átomo que faltou ser extraído.
+
+**Aplicação, ao briefar agente:** esta lei entra no prompt de qualquer task de implementação. Agente que entrega monolito teve a task cumprida pela metade.
+
+**O que a lei não é:** licença para fatiar em funções de uma linha sem sentido próprio, nem para criar helper genérico especulativo. `CONTRACT.md` §6 continua valendo: helper genérico só com **três ocorrências reais**. Átomo é a menor unidade **com significado**, não a menor unidade possível.
+
+## L-18
+
+**Data:** 21/08/2026. **Verbatim:** *"a partir de agora, é regra, decore: main apenas orquestra, delega agentes, avalia retorno de agentes. Usa apenas agentes bigtech. Auditoria e criacao de projetos: clevel fable sempre. Implementadores sonnet."*
+
+**A thread principal (`main`) não executa trabalho de produto.** Ela faz exatamente três coisas: **orquestra**, **delega a agentes** e **avalia o retorno dos agentes**. Escrever código, escrever documento de produto, auditar, testar: nada disso é do `main`.
+
+**Aplicação, quem chamar:**
+
+| Tipo de trabalho | Agente | Modelo |
+|---|---|---|
+| Auditoria | C-level da constelação bigtech | **`fable`, sempre** |
+| Criação de projeto | C-level da constelação bigtech | **`fable`, sempre** |
+| Implementação | agente operacional bigtech (`backend-engineer`, `frontend-engineer`, `qa-engineer`, `technical-writer`, etc.) | **`sonnet`** |
+
+**Somente agentes da constelação bigtech.** Nada de agente genérico, anônimo ou improvisado.
+
+**O que continua sendo do `main`:** decidir o que delegar e em que ordem; escrever a ordem de serviço; **re-verificar o entregável** (build limpo, spot-check das afirmações arquivo:linha) porque relatório de agente não é prova (L-12); levar decisão ao líder (L-10); e falar com o líder (L-13).
+
+**Aplicação ao briefar:** a ordem de serviço leva o caminho absoluto de `GODS_LAWS.md` e o texto das leis cujo gatilho casa com a task (L-16 do protocolo do bus vale o mesmo raciocínio: subagent não herda contexto).
+
+**Papéis distintos permanecem (L-12):** o agente que implementa não é o que revisa, e nenhum dos dois é o `main` que re-verifica.

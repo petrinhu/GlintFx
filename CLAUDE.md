@@ -184,6 +184,10 @@ Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e 
 - **Teste que toca teclado, mouse ou tela roda em container, com compositor Wayland aninhado dentro dele.** Ver a seção "Isolamento obrigatório de teste" acima; é regra, não preferência. Injetor de input X11 ou de kernel está fora.
 - **Verificação de entregável visual é do `qa-engineer`**, independente de quem implementou, e o orquestrador reconfere o relatório do QA.
 
+## Pendências
+
+A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz (ordenada por execução, coluna `Onda` marca passos paralelizáveis). Scoring WSJF completo, decisões do líder ainda pendentes e itens com porta de mão única (`[PMU]`) estão documentados nos bullets do cabeçalho desse arquivo, não em coluna própria (schema de 9 colunas da skill `tab_pendencias`, sem WSJF na tabela — conflito com o guard `~/.claude/hooks/lider_bloqueios/p4.py`, resolvido pelo líder em 21/08/2026).
+
 ## Nota sobre o predecessor (não é este projeto)
 
 Existiu uma biblioteca homônima em `github.com/petrinhu/glintfx`, cuja árvore local foi descartada em 21/08/2026. **Ela não é base, referência nem canon deste repositório** - o líder determinou início do zero. Esta nota existe só para que a próxima sessão não gaste tempo investigando o achado, como já aconteceu uma vez.

@@ -1,0 +1,184 @@
+> **ESTRUTURA CANÔNICA DO ARQUIVO — NÃO QUEBRAR A TABELA:** título → preâmbulo (bullets) → `## INBOX` → `## TABELA UNIFICADA` (uma tabela só, 9 colunas, zero linha em branco dentro dela) → **EOF logo após a última linha da tabela**. Legenda, decisões pendentes e scoring WSJF vivem em bullets no preâmbulo, nunca em tabela auxiliar. **Proibido:** segunda tabela; linha em branco dentro da tabela.
+
+# TODO.md — GlintFx
+
+Tabela de pendências e planejamento, ordenada de cima para baixo na ordem de execução que minimiza retrabalho — a ordem das linhas **é** o ranking WSJF dentro de cada nível de dependência (ver bullets de scoring abaixo; o schema é o de 9 colunas da skill, sem coluna própria para o número). A coluna `Onda` marca passos de igual valor/paralelizáveis; dependência sempre vence WSJF quando os dois entram em conflito.
+
+## Proveniência (L-27) — de onde vem cada peça desta tabela
+
+- **Leis, sem exceção:** `GODS_LAWS.md` (raiz deste repo). Vence este arquivo em qualquer conflito.
+- **Grafo de dependência, tamanhos S/M/L, flags `[F]`/`[PMU]`, decisões abertas §4, ordem sugerida de ondas §5:** `/var/tmp/glintfx-plan/grafo-caetano.md` (Caetano, CTO, rev. 2).
+- **Scoring WSJF completo (Tabela A = 49 itens do grafo; Tabela B = 8 itens da auditoria) e os 4 perfis de consumidor:** `/var/tmp/glintfx-plan/lente-produto.md` (Capitolino, CPO). Os bullets de scoring abaixo reproduzem os números de lá; nenhum foi recalculado por mim.
+- **Os 11 achados A1-A11 que originaram os 8 itens da Tabela B:** `/var/tmp/glintfx-plan/auditoria-premissa.md` (Capitolino, CPO/fable).
+- **Estado real da onda FIX-CONSUMO:** `/var/tmp/glintfx-plan/fix-consumo.md`, relido nesta sessão após o main confirmar entrega, mais `.git/logs/HEAD`. **HEAD atual: `d4b48683f48e14d4bf58d1ada6c0129691472efb`, 4 commits locais, working tree limpa, sem push** — `e393279` (SPDX, A10), `1620234` (rename de campos de `version`, A8), `58def07` (`INSTALL_INTERFACE` dinâmico + suporte a embedding, A6/A7), `d4b4868` (gate de consumo no CI nos cinco alvos, shared e estático, A2/A3/A4). A implementação está **entregue e sob revisão adversarial de um `qa-engineer`** neste momento — por isso os quatro itens correspondentes entram como `🔍 Pendente verificação`, nunca `✅` direto (convenção da casa: `✅` só depois da revisão passar).
+- **Guard de escrita do `TODO.md` (`P4`, hardcoded 9 colunas, sem válvula):** `/home/petrus/.claude/hooks/lider_bloqueios/p4.py`. Motivo de esta tabela usar o schema canônico da skill em vez do desenho original de 10 colunas com WSJF embutido: decisão do líder, tomada ao ver o conflito com este guard (registrado abaixo).
+- Toda ordem de linha que **diverge** da sugestão literal de um dos agentes acima está marcada como **decisão do scrum-master**, com o porquê, na seção "Desvios desta tabela em relação às fontes" abaixo.
+
+## Vocabulário de Status (fechado)
+
+- **✅ Concluído** — finalizada.
+- **🔄 Em andamento** — em progresso.
+- **🟡 Parcial** — feito em parte.
+- **⏳ Pendente** — não iniciado.
+- **💡 Decisão tomada** — abordagem definida, implementação futura.
+- **🎨 Pendente design** — aguarda decisão do líder (L-10); **não pode ser puxado** antes da decisão registrada.
+- **🔍 Pendente verificação** — implementado, aguarda validação (revisão adversarial, teste não-unitário, ou os dois).
+
+## Marcas usadas na coluna Descrição Técnica
+
+- **[PMU]** = porta de mão única (L-19/L-26): fixa assinatura pública ou layout de value type = contrato de ABI assumido. Todo item `[PMU]` exige **revisão de API dedicada** (além do review de código normal), conferindo portabilidade da assinatura entre as cinco plataformas, **antes** do commit da fatia — carrega sempre "congela: X".
+- **dec:** = decisão do líder pendente (L-10, grafo §4). O item entra com `Status = 🎨 Pendente design` e **não pode ser puxado** por implementador antes de a decisão estar registrada em `GODS_LAWS.md`. Seis decisões abertas, todas do CTO/PM, nenhuma tomada por mim: GL-API (bloqueia `GL-LOADER`/`GL-CONTEXT`, e por dependência também `R2D-BATCH`/`R2D-TEXTURE`/`R2D-TEXT`/`R2D-SHADER`), cursor do `WL-POINTER`, fonte do DB de `GP-MAP`, fonte dos dados de `KEYMAP-COMPOSE`, PipeWire-vs-ALSA de `AUD-BACKEND`. A sexta (Adam7 em `IMG-PNG`) tem default trivial-reversível já seguido pelo CTO e **não** bloqueia — registrado para veto, não para pull.
+- Teste unitário **não é item** (L-20: anda dentro da fatia). Meta de cobertura e dossiê de auditoria pré-1.0 **não são item** (L-24). Armar o `watchcode` é nota operacional de fatia (L-25), não item.
+
+## Os 8 itens da auditoria (Tabela B do CPO) — onde entram, por ordem do líder
+
+- **Onda de fundação (consertos baratos de defeito já existente):** `CONSUME-MODES` (embedding, A7), `HDR-HYGIENE` (colisão de campos, A8), `SPDX` (A10) — **entregues e commitados, sob revisão do `qa-engineer` agora**.
+- **Onda de consumibilidade, em paralelo à cadeia técnica:** `DOCS-PUB` (README/documentação pública, ainda `⏳`), `CI-CONSUME` (gate de consumo no CI — **entregue e commitado, sob revisão**), `CLANG-JOB` (segundo compilador, ainda `⏳`).
+- **Fora dessas duas ondas, por natureza própria:** `ABI-DIFF` — "registrar agora, ativar na 1.0" (CPO); não é conserto barato nem consumibilidade paralela, é portão de release; entra na última leva técnica pré-1.0. `WIKI-DOCS-INICIANTE` — é o item fixo de fim de tabela da casa; não duplica com nenhuma das duas ondas acima.
+
+## Decisões abertas do líder (L-10) — a pedir via AskUserQuestion, sem `preview`, recomendada primeiro
+
+1. **GL-API** (bloqueia `GL-LOADER`, `GL-CONTEXT` e, por dependência, `R2D-BATCH`/`R2D-TEXTURE`/`R2D-TEXT`/`R2D-SHADER`): a) OpenGL desktop core 3.3 — recomendação do CTO; b) OpenGL 4.x core; c) OpenGL ES 3.x. Pedir **já**, é o maior bloqueio latente da tabela.
+2. **Cursor do `WL-POINTER`**: a) protocolo `cursor-shape-v1` — recomendação do CTO; b) cursor desenhado pelo cliente; c) sem cursor custom na v0.
+3. **Fonte do DB de `GP-MAP`**: a) tabela própria mínima — recomendação do CTO; b) `gamecontrollerdb` da SDL (tensão com L-07); c) só formato do usuário em runtime.
+4. **Fonte dos dados de `KEYMAP-COMPOSE`**: a) tabela embutida gerada dos dados X11 da máquina — recomendação do CTO; b) parsear o Compose do sistema em runtime; c) só teclas mortas comuns.
+5. **`AUD-BACKEND`**: a) PipeWire — recomendação do CTO; b) ALSA direto; c) as duas portas.
+6. **Adam7 em `IMG-PNG`** (trivial-reversível, default já seguido, não bloqueia): v0 rejeita PNG entrelaçado com erro claro; registrado para veto do líder, não aguarda resposta para ser puxado.
+
+## Desvios desta tabela em relação à sugestão literal das fontes (declarados, não escondidos)
+
+1. **`FUND-4` posto na primeira linha da tabela**, embora seu WSJF (11.67, ver bullets abaixo) não seja o maior da Onda 1: o próprio CTO registra que é "pré-condição prática de TODAS as ondas de comportamento" (L-23, `preci.sh` antes do push) — fundação sobe ao topo por definição do método de ordenação da casa (`AGILE.md` §17, "fundação e decisões one-way-door sobem ao topo"), não pelo WSJF isolado.
+2. **`LOOP-RUN` posto antes de `GL-CONTEXT` (ambos W6) e de `R2D-BATCH` (W7)**, embora o CTO tenha resumido o eixo crítico como `GL-CONTEXT → R2D-BATCH → LOOP-RUN`: conferido no grafo (`grafo-caetano.md` §1.5), a dependência real de `LOOP-RUN` é só `WL-WINDOW` e `CORE-TIME` — nenhuma delas é `R2D-BATCH`. Como `GL-CONTEXT` está com decisão de GL-API pendente (`🎨`), puxar `LOOP-RUN` primeiro é trabalho real disponível sem esperar o líder. `GL-CONTEXT` e `R2D-BATCH` continuam nas linhas seguintes, na ordem que o CTO propôs entre si.
+3. **Trilha Windows em bloco único pós-demo (W10-W11), não intercalada por WSJF**: ordem explícita do líder hoje — Windows depende da API de janela fixada pelo lado Wayland (`WL-WINDOW`), e o WSJF (que rankeia `WIN-GL` em 23.00, acima de boa parte da tabela) ignora essa dependência. Onda deslocada de W8-W9 para W10-W11 pelo conserto do item 7 abaixo.
+4. **`R2D-SHADER` empurrado para a última leva técnica (W12)**, apesar de topologicamente disponível assim que `R2D-BATCH` fechar: recomendação conjunta do CTO (grafo §3) e do CPO (lente-produto §4.4) — é o `[PMU]` mais arriscado da lista com base de consumidores desconhecida, ainda dentro da janela `SOVERSION 0` (L-26). Onda deslocada de W10 para W12 pelo conserto do item 7 abaixo.
+5. **Onda numerada em lotes, não um nível topológico independente por item**: sigo o modelo de ondas que o próprio CTO propôs em `grafo-caetano.md` §5, que agrupa passos pequenos dentro do mesmo lote de trabalho — mas cada lote precisa mesmo assim respeitar que **nenhum item compartilha onda com o próprio pré-requisito** (ver item 7).
+6. **Schema de 9 colunas sem coluna WSJF própria**, revertendo o desenho original pedido pelo líder hoje: o guard de escrita `P4` (`~/.claude/hooks/lider_bloqueios/p4.py`) tem a contagem de 9 colunas hardcoded, "sem válvula", e é global (todo projeto). Ao ver o conflito, o líder optou por manter o schema canônico da skill em vez de editar um hook global — decisão dele, não minha. O WSJF continua auditável: a ordem das linhas é o próprio ranking, e o número completo (Valor/Criticidade/Redução/CoD/Tamanho/WSJF) está nos bullets de "Scoring WSJF" abaixo, histórico do `product-manager`, preservado sem perda.
+7. **Renumeração de onda por achado do `todo_audit.py --profile casa` (CHK-07, 4 ocorrências, IMPORTANTE)**: a 1ª versão desta tabela batia com o texto do CTO ao pé da letra em quatro pares — `ARCH-PORTS`/`CORE-ERROR`, `WL-WINDOW`/`WL-DISPLAY`, `WL-SEAT`/`WL-DISPLAY`, `R2D-BATCH`/`GL-CONTEXT` — e colocava cada par na MESMA onda, o que o motor da skill lê como "os dois podem rodar em paralelo". Isso é semanticamente impossível quando um dos dois é pré-requisito do outro. Conserto: cada item dessa lista subiu para a onda seguinte à do próprio pré-requisito, e recalculei o efeito dominó em toda a cadeia (não só nas quatro linhas apontadas) — cada item que dependia de um dos quatro corrigidos também subiu, até o efeito se esgotar. Isso empurrou o eixo crítico de W1-W11 para **W1-W13**: `ARCH-PORTS`(W2→W3), `WL-DISPLAY`(W3→W4), `WL-WINDOW`/`WL-SEAT`(W3→W5), `LOOP-RUN`/`GL-CONTEXT`(W4→W6), `R2D-BATCH`(W4→W7), `DEMO-1`/`R2D-TEXTURE`(→W8), `R2D-TEXT`(→W9), bloco Windows(→W10-W11), leva técnica final(→W12), `WIKI-DOCS-INICIANTE`(→W13, continua sendo a última linha). Nenhum `Pré-requisito` mudou — só a coluna `Onda` e, por consequência, a posição física das linhas na tabela, reordenadas para manter onda ascendente de cima para baixo.
+
+### Scoring WSJF (referência — **não** é tabela de trabalho)
+
+Itens abaixo são registro histórico de score; o status de trabalho vive só na tabela única. Fórmula: `CoD = Valor + Criticidade + Redução de Risco`; `WSJF = CoD / Tamanho` (Tamanho em pontos: S=1, M=3, L=8). Régua Fibonacci modificada `(1,2,3,5,8,13,20)`. Fonte: `lente-produto.md` (Tabela A = itens do grafo do CTO; Tabela B, marcada, = itens da auditoria, dimensionados pelo CPO por não terem Tam do CTO). Ordem: WSJF decrescente, igual à ordem de scoring da fonte.
+
+- `CORE-ERROR`: Valor 13, Criticidade 20, Redução 20, CoD 53, Tamanho S(1), **WSJF 53.00**
+- `DEMO-1`: Valor 13, Criticidade 13, Redução 5, CoD 31, Tamanho S(1), **WSJF 31.00**
+- `VER-4C`: Valor 8, Criticidade 8, Redução 13, CoD 29, Tamanho S(1), **WSJF 29.00**
+- `CONSUME-MODES` (Tabela B): Valor 8, Criticidade 13, Redução 13, CoD 34, Tamanho S(1), **WSJF 34.00**
+- `HDR-HYGIENE` (Tabela B): Valor 5, Criticidade 8, Redução 13, CoD 26, Tamanho S(1), **WSJF 26.00**
+- `CORE-COLOR`: Valor 8, Criticidade 8, Redução 8, CoD 24, Tamanho S(1), **WSJF 24.00**
+- `CORE-TIME`: Valor 8, Criticidade 8, Redução 8, CoD 24, Tamanho S(1), **WSJF 24.00**
+- `WIN-GL`: Valor 13, Criticidade 5, Redução 5, CoD 23, Tamanho S(1), **WSJF 23.00**
+- `ASSET-LOAD`: Valor 8, Criticidade 5, Redução 8, CoD 21, Tamanho S(1), **WSJF 21.00**
+- `WL-PROTO`: Valor 2, Criticidade 13, Redução 5, CoD 20, Tamanho S(1), **WSJF 20.00**
+- `WL-WINDOW`: Valor 20, Criticidade 20, Redução 13, CoD 53, Tamanho M(3), **WSJF 17.67**
+- `R2D-BATCH`: Valor 20, Criticidade 20, Redução 13, CoD 53, Tamanho M(3), **WSJF 17.67**
+- `LOOP-RUN`: Valor 20, Criticidade 20, Redução 13, CoD 53, Tamanho M(3), **WSJF 17.67**
+- `CI-CONSUME` (Tabela B): Valor 13, Criticidade 20, Redução 20, CoD 53, Tamanho M(3), **WSJF 17.67**
+- `WL-SEAT`: Valor 2, Criticidade 8, Redução 5, CoD 15, Tamanho S(1), **WSJF 15.00**
+- `CLANG-JOB` (Tabela B): Valor 5, Criticidade 3, Redução 8, CoD 16, Tamanho S(1), **WSJF 16.00**
+- `DOCS-PUB` (Tabela B): Valor 20, Criticidade 20, Redução 8, CoD 48, Tamanho M(3), **WSJF 16.00**
+- `PKG-DIST`: Valor 13, Criticidade 13, Redução 13, CoD 39, Tamanho M(3), **WSJF 13.00**
+- `CORE-MATH2D`: Valor 13, Criticidade 13, Redução 13, CoD 39, Tamanho M(3), **WSJF 13.00**
+- `CORE-LOG`: Valor 5, Criticidade 3, Redução 5, CoD 13, Tamanho S(1), **WSJF 13.00**
+- `KEYMAP-UTF8`: Valor 5, Criticidade 3, Redução 5, CoD 13, Tamanho S(1), **WSJF 13.00**
+- `WIN-WINDOW`: Valor 20, Criticidade 8, Redução 8, CoD 36, Tamanho M(3), **WSJF 12.00**
+- `FUND-4`: Valor 2, Criticidade 20, Redução 13, CoD 35, Tamanho M(3), **WSJF 11.67**
+- `ARCH-PORTS`: Valor 2, Criticidade 20, Redução 13, CoD 35, Tamanho M(3), **WSJF 11.67**
+- `TEST-WLCONT`: Valor 1, Criticidade 13, Redução 20, CoD 34, Tamanho M(3), **WSJF 11.33**
+- `INPUT-EVENTS`: Valor 13, Criticidade 8, Redução 13, CoD 34, Tamanho M(3), **WSJF 11.33**
+- `WL-DISPLAY`: Valor 3, Criticidade 20, Redução 8, CoD 31, Tamanho M(3), **WSJF 10.33**
+- `GL-CONTEXT`: Valor 2, Criticidade 20, Redução 8, CoD 30, Tamanho M(3), **WSJF 10.00**
+- `WIN-GAMEPAD`: Valor 5, Criticidade 2, Redução 3, CoD 10, Tamanho S(1), **WSJF 10.00**
+- `ABI-DIFF` (Tabela B): Valor 3, Criticidade 1, Redução 5, CoD 9, Tamanho S(1), **WSJF 9.00**
+- `R2D-TEXTURE`: Valor 13, Criticidade 5, Redução 8, CoD 26, Tamanho M(3), **WSJF 8.67**
+- `R2D-TEXT`: Valor 13, Criticidade 5, Redução 8, CoD 26, Tamanho M(3), **WSJF 8.67**
+- `AUD-MIX`: Valor 13, Criticidade 5, Redução 8, CoD 26, Tamanho M(3), **WSJF 8.67**
+- `SPDX` (Tabela B): Valor 3, Criticidade 2, Redução 3, CoD 8, Tamanho S(1), **WSJF 8.00**
+- `GL-LOADER`: Valor 2, Criticidade 13, Redução 8, CoD 23, Tamanho M(3), **WSJF 7.67**
+- `IMG-PNG`: Valor 13, Criticidade 5, Redução 5, CoD 23, Tamanho M(3), **WSJF 7.67**
+- `WIN-INPUT`: Valor 13, Criticidade 5, Redução 5, CoD 23, Tamanho M(3), **WSJF 7.67**
+- `GP-MAP`: Valor 8, Criticidade 3, Redução 8, CoD 19, Tamanho M(3), **WSJF 6.33**
+- `WL-KEYBOARD`: Valor 8, Criticidade 5, Redução 5, CoD 18, Tamanho M(3), **WSJF 6.00**
+- `WL-POINTER`: Valor 8, Criticidade 5, Redução 5, CoD 18, Tamanho M(3), **WSJF 6.00**
+- `FONT-RASTER`: Valor 8, Criticidade 5, Redução 5, CoD 18, Tamanho M(3), **WSJF 6.00**
+- `GP-EVDEV`: Valor 8, Criticidade 3, Redução 5, CoD 16, Tamanho M(3), **WSJF 5.33**
+- `AUD-BACKEND`: Valor 8, Criticidade 3, Redução 5, CoD 16, Tamanho M(3), **WSJF 5.33**
+- `WIN-AUDIO`: Valor 8, Criticidade 2, Redução 3, CoD 13, Tamanho M(3), **WSJF 4.33**
+- `KEYMAP-MODSTATE`: Valor 3, Criticidade 3, Redução 5, CoD 11, Tamanho M(3), **WSJF 3.67**
+- `WL-SCALE`: Valor 5, Criticidade 2, Redução 3, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `KEYMAP-LEX`: Valor 2, Criticidade 3, Redução 5, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `KEYMAP-PARSE-CORE`: Valor 2, Criticidade 3, Redução 5, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `KEYMAP-RESOLVE`: Valor 2, Criticidade 3, Redução 5, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `IMG-INFLATE`: Valor 2, Criticidade 3, Redução 5, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `FONT-TABLES`: Valor 2, Criticidade 3, Redução 5, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `FONT-OUTLINE`: Valor 2, Criticidade 3, Redução 5, CoD 10, Tamanho M(3), **WSJF 3.33**
+- `DOC-ESTADO`: Valor 1, Criticidade 1, Redução 1, CoD 3, Tamanho S(1), **WSJF 3.00**
+- `R2D-SHADER`: Valor 5, Criticidade 2, Redução 2, CoD 9, Tamanho M(3), **WSJF 3.00**
+- `KEYMAP-COMPOSE`: Valor 3, Criticidade 2, Redução 3, CoD 8, Tamanho M(3), **WSJF 2.67**
+- `KEYMAP-PARSE-COMPAT`: Valor 2, Criticidade 2, Redução 3, CoD 7, Tamanho M(3), **WSJF 2.33**
+- `WIKI-DOCS-INICIANTE` (Tabela B): Valor 8, Criticidade 1, Redução 3, CoD 12, Tamanho L(8), **WSJF 1.50**
+
+## INBOX (descobertas não priorizadas)
+
+- —: nenhuma pendência residual. Tabela criada do zero nesta sessão a partir das fontes listadas em "Proveniência" acima; nada foi descoberto fora delas.
+
+## TABELA UNIFICADA
+
+| ID | Onda | Grupo | Descrição Técnica | Prioridade | Pré-requisito | Dificuldade | Status | Estado Auditado |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| FUND-4 | W1 | Fundação | `preci.sh` espelho do CI (formatação, configure com avisos estritos, compilação, clang-tidy, cppcheck, ctest) + job ASan/UBSan no CI (L-23). Instalação local das ferramentas passa pelo líder (L-14). Pré-condição prática de todas as ondas de comportamento seguintes. WSJF 11.67 (ver Scoring). | Alta | — | Média | ⏳ Pendente | — |
+| CONSUME-MODES | W1 | Consumibilidade | Auditoria A7: contradição do modo embedding (add_subdirectory/FetchContent) — variáveis globais trocadas por PROJECT_SOURCE_DIR/CMAKE_CURRENT_*, guarda de install() via GLINTFX_INSTALL (default PROJECT_IS_TOP_LEVEL, mesmo padrão de GLINTFX_BUILD_TESTS). Entregue e commitado em `58def07`; sob revisão adversarial de qa-engineer. WSJF 34.00. | Alta | — | Baixa | 🔍 Pendente verificação | — |
+| VER-4C | W1 | Fundação | project(VERSION 0.1.0.0), SOVERSION=A, SameMinorVersion (registrar no próprio CMake o lembrete de virar SameMajorVersion na 1.0). Cobre também A9: value type glintfx::version, version_macros.hpp.in e find_package(glintfx 0.1) de tests/package/CMakeLists.txt, para não sair pela metade. WSJF 29.00. | Alta | — | Baixa | ⏳ Pendente | — |
+| HDR-HYGIENE | W1 | Consumibilidade | Auditoria A8: campos major/minor de glintfx::version renomeados para major_version/minor_version/patch_version (colisão com macros de sys/sysmacros.h) + teste de higiene de header. PMU congela: nome dos campos do value type version (L-19, layout é o contrato). Entregue e commitado em `1620234`; sob revisão adversarial. WSJF 26.00. | Alta | — | Baixa | 🔍 Pendente verificação | — |
+| WL-PROTO | W1 | Fundação | Passo de build wayland-scanner a partir do XML do sistema (xdg-shell e demais), não vendorizado (L-07). WSJF 20.00. | Alta | — | Baixa | ⏳ Pendente | — |
+| PKG-DIST | W1 | Fundação | PMU congela: nome do módulo pkg-config e layout de install (GNUInstallDirs, multilib Fedora lib64 vs Debian/Ubuntu multiarch) que empacotadores das quatro distros vão referenciar; revisão de API dedicada antes do commit. Gera glintfx.pc, headers em include/glintfx, teste de consumo por pkg-config no ctest (espelha o find_package já existente). O achado A6 (INSTALL_INTERFACE hardcoded) já foi corrigido em `58def07`, fora do escopo deste item. WSJF 13.00. | Média | — | Média | ⏳ Pendente | — |
+| TEST-WLCONT | W1 | Fundação | Imagem de container de teste com kwin_wayland dentro (--virtual headless, --socket janela), mesma imagem local e CI, prova de isolamento scriptada (ss -xp, lsof), sem XDG_RUNTIME_DIR/wayland-0 do host, sem /dev/uinput, sem X11 (L-09). Precede o primeiro item cujo teste toca superfície (WL-DISPLAY, W4). WSJF 11.33. | Média | — | Média | ⏳ Pendente | — |
+| SPDX | W1 | Consumibilidade | Auditoria A10: SPDX-License-Identifier por arquivo de código/build; variante AGPL-3.0-or-later. Entregue e commitado em `e393279`; sob revisão adversarial. WSJF 8.00. | Média | — | Baixa | 🔍 Pendente verificação | — |
+| DOC-ESTADO | W1 | Fundação | Corrigir CLAUDE.md "Estado atual" (hoje diz zero commits/sem remoto; falso desde FUND-3, e mais desatualizado ainda após a onda FIX-CONSUMO). WSJF 3.00. | Baixa | — | Baixa | ⏳ Pendente | — |
+| CORE-ERROR | W2 | Núcleo | PMU congela: o tipo público de erro (std::expected na fronteira, L-22) que toda assinatura pública carrega — o contrato mais transversal do projeto; errar aqui força quebra de A. Revisão de API dedicada. WSJF 53.00. | Alta | FUND-4 | Baixa | ⏳ Pendente | — |
+| CORE-COLOR | W2 | Núcleo | PMU congela: layout do value type de cor (L-19, layout é o contrato). Revisão de API dedicada. WSJF 24.00. | Alta | FUND-4 | Baixa | ⏳ Pendente | — |
+| CORE-TIME | W2 | Núcleo | PMU congela: representação pública de tempo/duração (relógio monotônico, delta, ritmo de quadro). Revisão de API dedicada. WSJF 24.00. | Alta | FUND-4 | Baixa | ⏳ Pendente | — |
+| CI-CONSUME | W2 | Consumibilidade | Auditoria A2/A3/A4: CI instala o pacote e roda tests/package/ e tests/embed/ contra o prefixo, nos cinco alvos, shared e static. Entregue e commitado em `d4b4868`; sob revisão adversarial. WSJF 17.67. | Alta | FUND-4, PKG-DIST | Média | 🔍 Pendente verificação | — |
+| CLANG-JOB | W2 | Consumibilidade | Segundo compilador (Clang) na matriz Linux — honra a promessa da L-22 de robustez entre compiladores diferentes; hoje o CI só compila com GCC e MSVC. WSJF 16.00. | Alta | FUND-4 | Baixa | ⏳ Pendente | — |
+| DOCS-PUB | W2 | Consumibilidade | Auditoria A1/A11: README (posicionamento, como consumir, política de versão/ABI da L-26), getting started, CHANGELOG. Repo público já tem remoto e zero README hoje. WSJF 16.00. | Alta | — | Média | ⏳ Pendente | — |
+| CORE-MATH2D | W2 | Núcleo | PMU congela: layout dos value types visíveis vec2, mat3, rect, transform, ângulo, interpolação (L-19). Revisão de API dedicada. WSJF 13.00. | Média | FUND-4 | Média | ⏳ Pendente | — |
+| CORE-LOG | W2 | Núcleo | PMU congela: assinatura do sink/callback público de log estruturado, sem dependência. Revisão de API dedicada. WSJF 13.00. | Média | FUND-4 | Baixa | ⏳ Pendente | — |
+| AUD-MIX | W2 | Áudio | PMU congela: API pública de áudio (formato de amostra, modelo de voz/canal). Mixagem própria (formatos, canais, volume, resampler linear); core puro, TDD por golden buffers. Revisão de API dedicada. WSJF 8.67. | Média | FUND-4 | Média | ⏳ Pendente | — |
+| GL-LOADER | W2 | Render | dec: GL-API pendente (opção 1 da lista de decisões acima). Loader próprio de ponteiros GL, gerado de gl.xml por script nosso (mesma categoria de código gerado do wayland-scanner; leitura da L-07 registrada no item). Bloqueia GL-CONTEXT e, por dependência, R2D-*. WSJF 7.67. | Média | FUND-4 | Média | 🎨 Pendente design | — |
+| KEYMAP-LEX | W2 | Keymap | Lexer do formato XKB (L-06). Trilha paralela ao eixo crítico; não bloqueia a demo. WSJF 3.33. | Baixa | FUND-4 | Média | ⏳ Pendente | — |
+| IMG-INFLATE | W2 | Asset/Imagem | Inflate próprio (RFC 1951 + wrapper zlib RFC 1950): huffman, janela LZ77 (L-07). Trilha paralela. WSJF 3.33. | Baixa | FUND-4 | Média | ⏳ Pendente | — |
+| FONT-TABLES | W2 | Fonte | Parse sfnt: head, cmap, hhea, hmtx, maxp, loca (L-07). Trilha paralela. WSJF 3.33. | Baixa | FUND-4 | Média | ⏳ Pendente | — |
+| ASSET-LOAD | W3 | Asset/Imagem | PMU congela: API pública de carregamento. Só carregamento (arquivo para bytes, resolução de caminho, erro L-22); sem cache — otimização sem medição é especulação, cache vira item novo quando houver carga real medida. Revisão de API dedicada. WSJF 21.00. | Alta | CORE-ERROR | Baixa | ⏳ Pendente | — |
+| ARCH-PORTS | W3 | Núcleo | PMU congela: padrão estrutural interno da porta compile-time (concept C++23, um arquivo por plataforma selecionado pelo CMake, zero #ifdef em corpo de função, L-19) + exemplo mínimo com adaptador falso de teste. Não é ABI pública, mas é contrato de todo adaptador futuro. Revisão de API dedicada. Onda ajustada de W2 para W3 pelo conserto do achado CHK-07 (ver "Desvios desta tabela" item 7): não pode compartilhar onda com o próprio pré-requisito CORE-ERROR. WSJF 11.67. | Média | CORE-ERROR | Média | ⏳ Pendente | — |
+| IMG-PNG | W3 | Asset/Imagem | Chunks, CRC, filtros. v0 rejeita PNG entrelaçado (Adam7) com erro claro — default trivial-reversível seguido (decisão aberta 6, não bloqueia). Trilha paralela. WSJF 7.67. | Média | IMG-INFLATE | Média | ⏳ Pendente | — |
+| KEYMAP-PARSE-CORE | W3 | Keymap | Parse de keycodes, types e symbols. Trilha paralela. WSJF 3.33. | Baixa | KEYMAP-LEX | Média | ⏳ Pendente | — |
+| FONT-OUTLINE | W3 | Fonte | Decodificação de glyf, contornos e glifos compostos. Trilha paralela. WSJF 3.33. | Baixa | FONT-TABLES | Média | ⏳ Pendente | — |
+| WL-DISPLAY | W4 | Wayland | Conexão, registry, roundtrip, ciclo de eventos (adaptador; teste de integração no container TEST-WLCONT). Onda ajustada de W3 para W4 pelo conserto do achado CHK-07 (item 7): dependia de ARCH-PORTS, que subiu para W3 no mesmo conserto. WSJF 10.33. | Média | ARCH-PORTS, WL-PROTO, TEST-WLCONT | Média | ⏳ Pendente | — |
+| FONT-RASTER | W4 | Fonte | Rasterização scanline com AA das quadráticas TrueType. Trilha paralela. WSJF 6.00. | Média | FONT-OUTLINE, CORE-MATH2D | Média | ⏳ Pendente | — |
+| KEYMAP-RESOLVE | W4 | Keymap | Keycode para keysym com níveis e grupos. Trilha paralela. WSJF 3.33. | Baixa | KEYMAP-PARSE-CORE | Média | ⏳ Pendente | — |
+| KEYMAP-PARSE-COMPAT | W4 | Keymap | Parse de compat (regras de interpretação). Trilha paralela. WSJF 2.33. | Baixa | KEYMAP-PARSE-CORE | Média | ⏳ Pendente | — |
+| WL-WINDOW | W5 | Wayland | PMU congela: a API pública window CROSS-PLATFORM — o adaptador Win32 (WIN-WINDOW) terá de caber nela; revisão de API dedicada confere portabilidade da assinatura entre as cinco plataformas ANTES do commit. Onda ajustada de W3 para W5 pelo conserto do achado CHK-07 (item 7): não pode compartilhar onda com o próprio pré-requisito WL-DISPLAY, que também subiu. WSJF 17.67. | Alta | WL-DISPLAY | Média | ⏳ Pendente | — |
+| WL-SEAT | W5 | Wayland | wl_seat, capabilities. Onda ajustada de W3 para W5, mesmo motivo de WL-WINDOW (item 7). WSJF 15.00. | Alta | WL-DISPLAY | Baixa | ⏳ Pendente | — |
+| KEYMAP-UTF8 | W5 | Keymap | Keysym para UTF-8 (tabela derivada de keysymdef). Trilha paralela. WSJF 13.00. | Média | KEYMAP-RESOLVE | Baixa | ⏳ Pendente | — |
+| KEYMAP-MODSTATE | W5 | Keymap | Máquina de estado de modificadores, latch e lock. Trilha paralela. WSJF 3.67. | Baixa | KEYMAP-RESOLVE, KEYMAP-PARSE-COMPAT | Média | ⏳ Pendente | — |
+| LOOP-RUN | W6 | Render | PMU congela: o contrato do loop (callbacks/estrutura de frame) que organiza todo app consumidor. Loop principal público (bombear eventos, update, render, frame pacing). Sem dependência de R2D-BATCH — ver "Desvios desta tabela" item 2. Onda ajustada de W4 para W6 (segue WL-WINDOW, item 7). Revisão de API dedicada. WSJF 17.67. | Alta | WL-WINDOW, CORE-TIME | Média | ⏳ Pendente | — |
+| GL-CONTEXT | W6 | Render | dec: GL-API pendente (mesma decisão de GL-LOADER, opção 1 da lista acima). Contexto por EGL sobre a janela Wayland. Onda ajustada de W4 para W6, mesmo motivo de LOOP-RUN (item 7). WSJF 10.00. | Média | WL-WINDOW, GL-LOADER | Média | 🎨 Pendente design | — |
+| WL-KEYBOARD | W6 | Wayland | wl_keyboard, keymap por fd (mmap), eventos de tecla, repeat-info. Pós-demo. WSJF 6.00. | Média | WL-SEAT | Média | ⏳ Pendente | — |
+| WL-POINTER | W6 | Wayland | dec: cursor pendente (opção 2 da lista de decisões acima). wl_pointer, cursor, eixo de rolagem. Pós-demo. WSJF 6.00. | Média | WL-SEAT | Média | 🎨 Pendente design | — |
+| GP-EVDEV | W6 | Input Físico | Gamepad por evdev (scan /dev/input + inotify hotplug, sem libudev); teste unitário do parse com stream gravado; e2e real intestável sem uinput (proibido, L-09) — testa o seam e declara o downgrade. Pós-demo. WSJF 5.33. | Média | ARCH-PORTS, CORE-ERROR | Média | ⏳ Pendente | — |
+| AUD-BACKEND | W6 | Áudio | dec: PipeWire-vs-ALSA pendente (opção 5 da lista de decisões acima). Saída Linux. Pós-demo. WSJF 5.33. | Média | AUD-MIX, ARCH-PORTS | Média | 🎨 Pendente design | — |
+| WL-SCALE | W6 | Wayland | Fractional-scale + output, HiDPI. Máquina do líder é o alvo primário (HiDPI fracionário é realidade em Fedora/KWin), mas fora do eixo crítico. Pós-demo. WSJF 3.33. | Baixa | WL-WINDOW | Média | ⏳ Pendente | — |
+| R2D-BATCH | W7 | Render | PMU congela: a API pública de desenho 2D — a cara da lib para todo consumidor. Renderer 2D com batching de quad, shader interno embutido. Bloqueado transitivamente enquanto GL-API não é decidido (ver GL-LOADER/GL-CONTEXT). Onda ajustada de W4 para W7 pelo conserto do achado CHK-07 (item 7): não pode compartilhar onda com o próprio pré-requisito GL-CONTEXT, que também subiu. Revisão de API dedicada. WSJF 17.67. | Alta | GL-LOADER, GL-CONTEXT, CORE-MATH2D, CORE-COLOR | Média | ⏳ Pendente | — |
+| INPUT-EVENTS | W7 | Wayland | PMU congela: os value types de evento que todo consumidor vai fazer switch em cima. Tipos públicos de evento de input + fila/entrega ao consumidor — a costura entre keymap/pointer e a API pública. Bloqueado transitivamente pela decisão de cursor via WL-POINTER. Revisão de API dedicada. WSJF 11.33. | Alta | WL-KEYBOARD, WL-POINTER, KEYMAP-MODSTATE, KEYMAP-UTF8 | Média | ⏳ Pendente | — |
+| GP-MAP | W7 | Input Físico | PMU congela: API pública de gamepad. dec: fonte do banco de mapeamento pendente (opção 3 da lista de decisões acima). Mapeamento botão/eixo. Revisão de API dedicada. WSJF 6.33. | Média | GP-EVDEV | Média | 🎨 Pendente design | — |
+| DEMO-1 | W8 | Demo | Exemplo mínimo: abre janela e desenha (prova viva, não produto, L-02). Roda no container TEST-WLCONT, verificação visual por qa-engineer com screenshot (L-12), watchcode armado nesta janela (L-25). Bloqueado transitivamente pela mesma decisão GL-API via R2D-BATCH. Onda ajustada de W5 para W8 pelo conserto do achado CHK-07 (item 7): segue LOOP-RUN e R2D-BATCH, que subiram. WSJF 31.00. | Alta | LOOP-RUN, R2D-BATCH | Baixa | ⏳ Pendente | — |
+| R2D-TEXTURE | W8 | Render | PMU congela: handle público de textura e API de atlas. Textura e atlas (upload de bytes crus; PNG chega por IMG-PNG). Revisão de API dedicada. Pós-demo (grafo §5); onda ajustada de W6 para W8, segue R2D-BATCH (item 7). WSJF 8.67. | Média | R2D-BATCH | Média | ⏳ Pendente | — |
+| R2D-TEXT | W9 | Render | PMU congela: API pública de texto. Desenho de texto (glifos rasterizados para atlas). Onda ajustada de W7 para W9, segue R2D-TEXTURE (item 7). Revisão de API dedicada. WSJF 8.67. | Média | FONT-RASTER, R2D-TEXTURE | Média | ⏳ Pendente | — |
+| WIN-WINDOW | W10 | Windows | Janela Win32 satisfazendo a MESMA porta/API pública de WL-WINDOW (API já fixada). Bloco único pós-demo, não intercalado por WSJF — ver "Desvios desta tabela" item 3. Onda deslocada de W8 para W10 para o bloco Windows continuar inteiramente após o pool pós-demo não-Windows, agora maior (item 7). WSJF 12.00. | Média | ARCH-PORTS, WL-WINDOW | Média | ⏳ Pendente | — |
+| WIN-GL | W11 | Windows | Contexto WGL. Bloco Windows. WSJF 23.00. | Alta | WIN-WINDOW, GL-LOADER | Baixa | ⏳ Pendente | — |
+| WIN-GAMEPAD | W11 | Windows | XInput. Bloco Windows; bloqueado transitivamente pela decisão de fonte do DB via GP-MAP. WSJF 10.00. | Média | GP-MAP | Baixa | ⏳ Pendente | — |
+| WIN-INPUT | W11 | Windows | Teclado e mouse Win32 para INPUT-EVENTS. Bloco Windows; bloqueado transitivamente pela mesma cadeia de INPUT-EVENTS. WSJF 7.67. | Média | WIN-WINDOW, INPUT-EVENTS | Média | ⏳ Pendente | — |
+| WIN-AUDIO | W11 | Windows | WASAPI. Bloco Windows; bloqueado transitivamente pela decisão de AUD-BACKEND se o líder optar por acoplar os dois backends. WSJF 4.33. | Baixa | AUD-MIX, ARCH-PORTS | Média | ⏳ Pendente | — |
+| ABI-DIFF | W12 | Consumibilidade | Gate abidiff/abi-compliance-checker entre releases — registrar agora, ativar como portão obrigatório na 1.0 (honestidade da L-26 pós-1.0). Ferramenta é instalação de sistema, passa pelo líder (L-14). Onda deslocada de W10 para W12 (item 7). WSJF 9.00. | Média | VER-4C | Baixa | ⏳ Pendente | — |
+| R2D-SHADER | W12 | Render | PMU congela: contrato de shader que a lib promete honrar para sempre — o PMU mais arriscado da lista com base de consumidores desconhecida. Deliberadamente adiado para a última leva técnica pré-1.0 (ver "Desvios desta tabela" item 4), ainda dentro da janela SOVERSION 0 (L-26). API pública de shader custom. Revisão de API dedicada. WSJF 3.00. | Baixa | R2D-BATCH | Média | ⏳ Pendente | — |
+| KEYMAP-COMPOSE | W12 | Keymap | dec: fonte dos dados de compose pendente (opção 4 da lista de decisões acima). Compose e tecla morta. Trilha paralela, cauda final. WSJF 2.67. | Baixa | KEYMAP-MODSTATE, KEYMAP-UTF8 | Média | 🎨 Pendente design | — |
+| WIKI-DOCS-INICIANTE | W13 | Documentação | Item fixo de fim de tabela (regra da casa). Wiki do repositório (GitHub wiki-native) + documentação .md didática para iniciante em computação (explica todo jargão, passo a passo, sem assumir conhecimento prévio), derivada de docs/ do projeto (linka, não duplica). Execução sempre por technical-writer/ux-writer, nunca inline. Pré-requisito adicional não representável por ID: tag de versão publicada (ação do líder, L-11/L-26 — tag não é item desta tabela). Onda deslocada de W11 para W13 (item 7); continua sendo a última linha da tabela. WSJF 1.50. | Baixa | ABI-DIFF, R2D-SHADER | Alta | ⏳ Pendente | — |

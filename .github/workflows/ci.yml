@@ -1,0 +1,180 @@
+name: CI
+
+# Cinco alvos distintos, por ordem do lider (GODS_LAWS.md, L-04):
+# Fedora, Ubuntu, CachyOS, Arch e Windows. CachyOS NAO e coberto pelo
+# job de Arch: imagem propria, repositorios proprios, toolchain propria.
+# Verde no Arch nao autoriza declarar CachyOS suportado.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: ${{ matrix.nome }}
+    runs-on: ubuntu-latest
+    container: ${{ matrix.imagem }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nome: Fedora
+            cc: c++
+            imagem: fedora:latest
+            instalar: >-
+              dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+              wayland-devel wayland-protocols-devel
+          # O g++ padrao do 24.04 e o 13.3, que da C++23 parcial
+          # (__cplusplus=202100, sem <print>). Piso de toolchain do projeto
+          # e GCC 14, medido em 21/08/2026: 14.2 devolve 202302.
+          - nome: Ubuntu
+            imagem: ubuntu:24.04
+            cc: g++-14
+            instalar: >-
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
+              g++-14 cmake ninja-build pkg-config git ca-certificates
+              libwayland-dev libwayland-bin wayland-protocols
+          - nome: Arch
+            cc: c++
+            imagem: archlinux:latest
+            instalar: >-
+              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
+              wayland wayland-protocols
+          - nome: CachyOS
+            cc: c++
+            imagem: cachyos/cachyos:latest
+            instalar: >-
+              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
+              wayland wayland-protocols
+    steps:
+      - name: Instalar toolchain
+        run: ${{ matrix.instalar }}
+
+      - uses: actions/checkout@v4
+
+      - name: Versoes da toolchain
+        run: |
+          set -eux
+          ${{ matrix.cc }} --version
+          cmake --version
+          ninja --version
+          pkg-config --modversion wayland-client
+          pkg-config --modversion wayland-protocols
+          wayland-scanner --version
+
+      # L-05: Linux e Wayland puro. Sem xdg-shell.xml nao se abre janela,
+      # entao a ausencia dele e falha de ambiente, nao detalhe.
+      - name: Protocolos Wayland presentes
+        run: |
+          set -eu
+          xml="$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml"
+          test -f "$xml" || { echo "FALTA xdg-shell.xml em $xml"; exit 1; }
+          echo "ok: $xml"
+
+      # L-03: C++23. Compila um fragmento minimo para provar o padrao,
+      # nao apenas a versao impressa pelo compilador.
+      - name: Padrao C++23 aceito
+        run: |
+          set -eux
+          cat > /tmp/c23.cpp <<'CPP'
+          #include <cstdio>
+          constexpr int f() { if consteval { return 23; } else { return 0; } }
+          int main() { static_assert(f() == 23); std::printf("c++%ld\n", __cplusplus); }
+          CPP
+          ${{ matrix.cc }} -std=c++23 -o /tmp/c23 /tmp/c23.cpp
+          /tmp/c23
+
+      - name: Build e testes
+        run: |
+          set -eu
+          if [ ! -f CMakeLists.txt ]; then
+            echo "Sem CMakeLists.txt neste commit: nada a compilar."
+            echo "Este passo passa a executar configure, build e ctest assim que o build existir."
+            exit 0
+          fi
+          set -x
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }}
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versoes da toolchain
+        shell: pwsh
+        run: cmake --version
+
+      # Sem action de terceiro: o proprio CMake localiza o MSVC.
+      - name: Padrao C++23 aceito
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path probe | Out-Null
+          @'
+          #include <cstdio>
+          constexpr int f() { if consteval { return 23; } else { return 0; } }
+          int main() { static_assert(f() == 23); std::printf("ok\n"); }
+          '@ | Set-Content probe/main.cpp
+          @'
+          cmake_minimum_required(VERSION 3.25)
+          project(probe CXX)
+          set(CMAKE_CXX_STANDARD 23)
+          set(CMAKE_CXX_STANDARD_REQUIRED ON)
+          add_executable(probe main.cpp)
+          '@ | Set-Content probe/CMakeLists.txt
+          cmake -S probe -B probe/build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build probe/build --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & (Get-ChildItem -Recurse -Filter probe.exe probe/build)[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item -Recurse -Force probe
+
+      - name: Build e testes
+        shell: pwsh
+        run: |
+          if (-not (Test-Path CMakeLists.txt)) {
+            Write-Host "Sem CMakeLists.txt neste commit: nada a compilar."
+            Write-Host "Este passo passa a executar configure, build e ctest assim que o build existir."
+            exit 0
+          }
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ctest --test-dir build -C Release --output-on-failure
+          exit $LASTEXITCODE
+
+  leis:
+    name: Gate das leis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # L-05 (sem X11) e L-06/L-07 (parser de keymap proprio, dependencia zero).
+      # Varre so diretorio de codigo; a documentacao cita os termos de proposito.
+      - name: Sem X11 e sem libxkbcommon no codigo
+        run: |
+          set -eu
+          dirs=""
+          for d in src include tests examples demos cmake; do
+            [ -d "$d" ] && dirs="$dirs $d"
+          done
+          if [ -z "$dirs" ]; then
+            echo "Sem diretorio de codigo neste commit: nada a varrer."
+            exit 0
+          fi
+          proibidos='Xlib\.h|xcb/|XOpenDisplay|XTestFake|xkbcommon'
+          if grep -rInE "$proibidos" $dirs; then
+            echo "PROIBIDO: ver GODS_LAWS.md L-05 (Wayland puro) e L-06 (parser de keymap proprio)."
+            exit 1
+          fi
+          echo "ok: nenhuma ocorrencia."

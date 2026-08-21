@@ -1,9 +1,13 @@
 name: CI
 
 # Cinco alvos distintos, por ordem do lider (GODS_LAWS.md, L-04):
-# Fedora, Ubuntu, CachyOS, Arch e Windows. CachyOS NAO e coberto pelo
-# job de Arch: imagem propria, repositorios proprios, toolchain propria.
-# Verde no Arch nao autoriza declarar CachyOS suportado.
+# Fedora, Ubuntu, CachyOS, Arch e Windows.
+# Fedora 44 e o ALVO PRIMARIO: e o sistema que o lider usa. Fica pinado
+# na versao dele, nao em :latest, para o CI falhar quando a maquina dele
+# falharia. Os demais alvos sao de portabilidade.
+# CachyOS NAO e coberto pelo job de Arch: imagem propria, repositorios
+# proprios, toolchain propria. Verde no Arch nao autoriza declarar
+# CachyOS suportado.
 
 on:
   push:
@@ -24,9 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - nome: Fedora
+          - nome: Fedora 44 (primario)
             cc: c++
-            imagem: fedora:latest
+            imagem: fedora:44
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
               wayland-devel wayland-protocols-devel

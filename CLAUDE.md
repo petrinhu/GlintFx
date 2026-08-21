@@ -59,11 +59,13 @@ Estas foram tomadas explicitamente via AskUserQuestion e são o ponto de partida
 | Natureza | Biblioteca/framework reutilizável (não aplicação final) |
 | Domínio | Framework 2D completo (janela, loop, render2d, input, gamepad, áudio, fonte, asset, math2d) |
 | Linguagem e build | **C++23 + CMake** |
-| Plataformas | **Fedora, Ubuntu, CachyOS, Arch, Windows**. No Linux, **apenas Wayland** |
+| Plataformas | **Fedora 44 (primário)**, Ubuntu, CachyOS, Arch, Windows. No Linux, **apenas Wayland** |
 | Dependências | **Zero além da stdlib e da API do SO** |
 | Licença e visibilidade | **Público no GitHub, AGPL-3.0** |
 
-### Plataformas: CachyOS é alvo próprio
+### Plataformas: Fedora 44 é o alvo primário; CachyOS é alvo próprio
+
+**Fedora 44 é o alvo primário**, por ser o sistema que o líder usa (ordem dele, 21/08/2026). No CI a imagem fica **pinada em `fedora:44`**, não em `:latest`: o alvo primário tem de falhar quando a máquina dele falharia. Quando ele atualizar de versão, o pin sobe junto. Os outros quatro alvos são de portabilidade.
 
 **CachyOS não é "Arch renomeado" e não é coberto pelo job de Arch.** Ordem explícita do líder. Toolchain, flags de otimização, kernel e empacotamento do CachyOS diferem; a matriz de CI precisa de **cinco entradas distintas** (Fedora, Ubuntu, CachyOS, Arch, Windows), e um verde no Arch não autoriza declarar CachyOS suportado.
 

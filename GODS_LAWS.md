@@ -18,7 +18,7 @@
 | [L-01](#l-01) | procurar prior art, base de código ou "como era antes" | Projeto é do zero; o glintfx anterior não é base |
 | [L-02](#l-02) | desenhar API, escopo ou entregável | É biblioteca reutilizável, não aplicação final |
 | [L-03](#l-03) | criar build, escolher padrão de linguagem | C++23 + CMake |
-| [L-04](#l-04) | escrever CI, declarar suporte de plataforma | Cinco alvos; CachyOS é próprio, não Arch |
+| [L-04](#l-04) | escrever CI, declarar suporte de plataforma | Cinco alvos; Fedora 44 primário; CachyOS é próprio, não Arch |
 | [L-05](#l-05) | tocar janela, input, display ou exemplo de internet | Linux é Wayland puro, sem X11 |
 | [L-06](#l-06) | implementar teclado, keymap, texto digitado | Parser XKB próprio; `libxkbcommon` está fora |
 | [L-07](#l-07) | adicionar dependência, `FetchContent`, vendorizar | Zero além de stdlib e API do SO |
@@ -57,9 +57,9 @@ O GlintFx é **biblioteca/framework reutilizável**, não aplicação final. O e
 
 ## L-04
 
-**Data:** 21/08/2026, verbatim: *"Fedora, Ubuntu, CachyOs (proprio, nao um arch renomeado), Arch, Windows"*.
+**Data:** 21/08/2026, verbatim: *"Fedora, Ubuntu, CachyOs (proprio, nao um arch renomeado), Arch, Windows"* e, no mesmo dia, *"nosso OS principal é o fedora, na versao que eu uso"*.
 
-Cinco alvos, **cinco entradas distintas na matriz de CI**. **CachyOS não é Arch renomeado** e não é coberto pelo job de Arch: toolchain, flags de otimização, kernel e empacotamento diferem.
+Cinco alvos, **cinco entradas distintas na matriz de CI**. **Fedora 44 é o alvo primário**, por ser o sistema do líder: no CI a imagem fica **pinada em `fedora:44`**, nunca em `:latest`, para o alvo primário falhar quando a máquina dele falharia. Ao atualizar a versão dele, o pin sobe junto. **CachyOS não é Arch renomeado** e não é coberto pelo job de Arch: toolchain, flags de otimização, kernel e empacotamento diferem.
 
 **Aplicação:** verde no Arch **não** autoriza declarar CachyOS suportado. Declaração de suporte exige job próprio verde.
 

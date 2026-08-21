@@ -35,6 +35,10 @@
 | [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; agentes bigtech; fable audita e cria, sonnet implementa |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
+| [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit em pt-br |
+| [L-22](#l-22) | projetar assinatura pública ou tratar erro | Nenhuma exceção cruza a API pública |
+| [L-23](#l-23) | commitar, ou fechar uma fatia, ou dar push | Portões de qualidade e o `preci.sh` antes do push |
+| [L-24](#l-24) | pensar em cobertura, formatação ou auditoria | Sem meta de cobertura; clang-format LLVM; dossiê só antes da 1.0 |
 
 ---
 
@@ -266,3 +270,48 @@ Dito de forma direta: a arquitetura **reforça** a L-17 (camada e módulo estrei
 **Cuidado registrado, que já custou tempo em outro projeto:** ao provar que um teste morde por mutação, **prove que a mutação chegou ao código executado**. Registro de callback capturado no import, binário desatualizado por falta de rebuild e arquivo não commitado produzem suíte verde com o mutante aplicado, e a conclusão errada é "meu teste é fraco" quando na verdade a mutação nunca rodou.
 
 O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **quando**.
+
+## L-21
+
+**Data:** 21/08/2026, decisão do líder ao revisar o `CONTRACT.md` item a item.
+
+**Identificador e comentário de código em inglês, no estilo da biblioteca padrão de C++: `snake_case`, sem prefixo `m_`.** Isto **substitui** o `CONTRACT.md` §6.1, que manda função em pt-br, membro com `m_` e constante em ALL_CAPS. Motivo: a lib é pública e AGPL, e um consumidor estrangeiro não deve precisar de tradução para ler a API nem para abrir o arquivo.
+
+**Mensagem de commit continua em pt-br**, assim como a documentação do projeto e a conversa com o líder. O histórico é conversa dele com o projeto.
+
+**Aplicação:** `runtime_version`, `frame_buffer`, `is_valid`. Nada de `buscarItem`, nada de `m_cache`. Nome revela intenção, sem abreviação que não seja universal (`id`, `url`, `http`), e nada de letra solta fora de contador de laço.
+
+## L-22
+
+**Data:** 21/08/2026, decisão do líder.
+
+**Nenhuma exceção cruza a API pública.** Internamente exceção é permitida; na fronteira pública o erro sai como `std::expected` ou código de erro.
+
+**Por quê, e o motivo é de ABI, não de gosto:** a biblioteca é compartilhada por padrão (L-19). Exceção atravessando `.so` exige RTTI compatível entre a lib e o consumidor, e quebra quando os dois foram compilados por compiladores ou bibliotecas padrão diferentes.
+
+Continua valendo do `CONTRACT.md` §6.4: erro nunca é engolido em silêncio, sempre propagado ao chamador, e exceção não serve de fluxo de controle.
+
+## L-23
+
+**Data:** 21/08/2026, decisão do líder sobre a tabela de portões do `CONTRACT.md` §11.
+
+**Quatro portões, todos adotados:**
+
+1. **Zero aviso de compilação em todo commit.** `-Werror` no CI. Aviso não acumula.
+2. **ASan e UBSan a cada fatia fechada.** Build separado, mais lento, e é o que salva C++ de defeito silencioso.
+3. **Análise estática no CI:** `clang-tidy` e `cppcheck`.
+4. **Scan de segredo no CI:** `gitleaks`. Aviso honesto que a lei registra: `gitleaks` **não** pega nome de projeto e, por padrão, olha a árvore e não o histórico. Para dado sensível em repo público, a verificação é `git log --all -p | grep -ci <termo>`, com `-i`, nunca `git grep`.
+
+**`preci.sh` antes do push.** O `TESTES.md` T15 é adotado: existe um script local que espelha o CI (formatação, configure com avisos estritos, compilação, `clang-tidy`, `cppcheck`, `ctest`) e ele roda **antes** do push, não depois. Decisão do líder de **não** amarrá-lo a hook de pre-push, para não atrasar push de documentação. As ferramentas que ele exige são instalação de sistema, portanto passam pelo líder (L-14).
+
+## L-24
+
+**Data:** 21/08/2026, decisões do líder que ajustam os manuais.
+
+- **Sem meta numérica de cobertura.** O `TESTES.md` T1 pede 70% nos módulos críticos; **não vale aqui**. Com a L-20, todo código de comportamento nasce de um teste que falhou, então cobertura é consequência, não alvo. Métrica de cobertura premia linha executada, não comportamento verificado, e perseguir número produz teste escrito para a métrica.
+- **Formatação: `clang-format` com base LLVM, indentação de 4, colunas 100.** Formatação deixa de ser assunto de revisão.
+- **Dossiê formal de auditoria (`AUDITORIAS.md`, e A2/A10 do `TESTES.md`) só antes da 1.0**, feito pelo `internal-auditor`, como portão de release. Até lá os portões automáticos da L-23 cobrem o dia a dia.
+
+### O que dos manuais foi descartado por inaplicável (21/08/2026)
+
+Registrado para ninguém reintroduzir por engano: tudo de **Qt** (§12.1), **T10 injeção de SQL** (não há banco), **§7 UI/UX e WCAG** (é manual de aplicação com formulário, não de biblioteca), o modelo de **camadas do §5** (frontend/middleware/backend/infra é desenho de aplicação; as camadas deste projeto estão na L-19), **T5 e T12**, scan de dependência e de CVE (dependência zero, L-07), e o piso de **C++20** do §12.1, superado pela L-03.

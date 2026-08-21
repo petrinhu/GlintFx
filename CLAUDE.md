@@ -38,6 +38,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; fable audita e cria, sonnet implementa |
 | ⚖ | criar módulo, tocar a fronteira do SO, desenhar API pública | L-19 camadas, portas em compile-time, fronteira opaca |
 | ⚖ | escrever qualquer código com comportamento | L-20 TDD estrito, vermelho antes de verde |
+| ⚖ | nomear qualquer coisa, escrever comentário ou commit | L-21 inglês e `snake_case` no código, commit em pt-br |
+| ⚖ | projetar assinatura pública ou tratar erro | L-22 nenhuma exceção cruza a API pública |
+| ⚖ | commitar, fechar uma fatia, ou dar push | L-23 portões de qualidade e `preci.sh` |
+| ⚖ | pensar em cobertura, formatação ou auditoria | L-24 sem meta de cobertura, clang-format LLVM, dossiê na 1.0 |
 
 ---
 

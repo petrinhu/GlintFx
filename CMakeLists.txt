@@ -43,7 +43,9 @@ add_subdirectory(src)
 # not get glintfx's headers and CMake package injected into its own
 # `install` target as a side effect of vendoring the source.
 if(GLINTFX_INSTALL)
-    glintfx_install_library_target(glintfx)
+    # glintfx_library, not the bare glintfx (FIX-CONSUMO-2, achado QA-3):
+    # see the comment at add_library() in src/CMakeLists.txt.
+    glintfx_install_library_target(glintfx_library)
     glintfx_install_public_headers()
     glintfx_install_cmake_package()
 endif()

@@ -9,7 +9,7 @@
 # of trusting the discipline of whoever writes the code.
 #
 # Single subject: the sources of this layer. Properties of the
-# `glintfx` target stay in src/CMakeLists.txt; this file only adds
-# sources to a target already created in the parent directory.
+# `glintfx_library` target stay in src/CMakeLists.txt; this file only
+# adds sources to a target already created in the parent directory.
 
-target_sources(glintfx PRIVATE version.cpp)
+target_sources(glintfx_library PRIVATE version.cpp)

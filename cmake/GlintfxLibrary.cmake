@@ -15,6 +15,24 @@ function(glintfx_set_target_properties target)
         POSITION_INDEPENDENT_CODE ON
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN ON
+        # FIX-CONSUMO-2, achado QA-3: the CMake target itself is named
+        # glintfx_library (see src/CMakeLists.txt), not the bare
+        # glintfx, to avoid colliding with a consumer's own target of
+        # that name when embedded. Two properties keep every OTHER name
+        # a consumer or a packager can observe exactly as before:
+        #   - OUTPUT_NAME: the compiled artifact stays libglintfx.so.0 /
+        #     libglintfx.a, not libglintfx_library.*. Without it, a
+        #     consumer linking with a bare `-lglintfx` (pkg-config,
+        #     manual Makefile, distro packaging) would silently break -
+        #     a far bigger regression than the CMake target namespace
+        #     issue this rename set out to fix.
+        #   - EXPORT_NAME: the INSTALLED package's imported target stays
+        #     glintfx::glintfx, not glintfx::glintfx_library. Without
+        #     it, install(EXPORT ... NAMESPACE glintfx::) would export
+        #     this target under the wrong name, breaking the public
+        #     contract (GODS_LAWS.md L-19/L-26).
+        OUTPUT_NAME glintfx
+        EXPORT_NAME glintfx
     )
 endfunction()
 

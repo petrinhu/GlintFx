@@ -24,7 +24,7 @@ glintfx_add_test(version_test)
 if(BUILD_SHARED_LIBS AND UNIX)
     add_test(
         NAME visibility_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_exports.sh" "$<TARGET_FILE:glintfx>"
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_exports.sh" "$<TARGET_FILE:glintfx_library>"
     )
 endif()
 
@@ -104,6 +104,21 @@ if(UNIX)
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_packager_layout.sh"
             "${PROJECT_SOURCE_DIR}"
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
+            "${CMAKE_CXX_COMPILER}"
+    )
+endif()
+
+# Target name collision gate (FIX-CONSUMO-2, achado QA-3): proves an
+# embedding consumer can declare its own `glintfx` target without
+# hitting CMake Error ... policy CMP0002 against glintfx's own internal
+# library target (renamed to glintfx_library; see src/CMakeLists.txt).
+# POSIX sh; same declared downgrade as the other consumption gates above.
+if(UNIX)
+    add_test(
+        NAME no_target_collision_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_target_collision.sh"
+            "${PROJECT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
             "${CMAKE_CXX_COMPILER}"
     )
 endif()

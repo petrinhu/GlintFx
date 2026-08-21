@@ -101,11 +101,14 @@ jobs:
       # de CMAKE_INSTALL_INCLUDEDIR nao-default (install_includedir_test,
       # FIX-CONSUMO-2 achado QA-1), o de layout de empacotador Debian-
       # multiarch (install_packager_layout_test, FIX-CONSUMO-2 achado
-      # QA-4) e o de colisao de nome de alvo (no_target_collision_test,
-      # FIX-CONSUMO-2 achado QA-3): todos foram registrados em
-      # tests/CMakeLists.txt e rodam sob QUALQUER modo em que este
-      # build/ tenha sido configurado, o que e exatamente o eixo
-      # shared/static que este job precisa exercitar.
+      # QA-4; FIX-CONSUMO-3 secao 5: agora tambem prova o caminho
+      # zero-flag nativamente onde o compilador reporta arquitetura
+      # multiarch), o de colisao de nome de alvo (no_target_collision_test,
+      # FIX-CONSUMO-2 achado QA-3) e o de OUTPUT_NAME/link cru
+      # (output_name_test, FIX-CONSUMO-3 achado QA-2-2): todos foram
+      # registrados em tests/CMakeLists.txt e rodam sob QUALQUER modo em
+      # que este build/ tenha sido configurado, o que e exatamente o
+      # eixo shared/static que este job precisa exercitar.
       - name: Build e testes (compartilhado)
         run: |
           set -eux

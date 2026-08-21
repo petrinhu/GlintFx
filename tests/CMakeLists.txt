@@ -108,6 +108,26 @@ if(UNIX)
     )
 endif()
 
+# Output name gate (FIX-CONSUMO-3, achado QA-2-2): proves the
+# OUTPUT_NAME contract in cmake/GlintfxLibrary.cmake - the compiled
+# artifact basename (libglintfx.so*/libglintfx.a), not the internal
+# CMake target name glintfx_library - by installing whatever this
+# build's BUILD_SHARED_LIBS mode already produced into a scratch prefix
+# and raw-linking (-lglintfx, no CMake, no find_package, no
+# glintfx::glintfx target) against it. None of the other consumption
+# gates above go through this path: they all resolve the library via
+# the CMake target, so none of them would notice OUTPUT_NAME regressing.
+# POSIX sh; same declared downgrade as the other consumption gates above.
+if(UNIX)
+    add_test(
+        NAME output_name_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_output_name.sh"
+            "${PROJECT_BINARY_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
+            "${CMAKE_CXX_COMPILER}"
+    )
+endif()
+
 # Target name collision gate (FIX-CONSUMO-2, achado QA-3): proves an
 # embedding consumer can declare its own `glintfx` target without
 # hitting CMake Error ... policy CMP0002 against glintfx's own internal

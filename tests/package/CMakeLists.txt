@@ -21,3 +21,34 @@ set_target_properties(consumer PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
+
+# WIN-HANG: this project stands in for an EXTERNAL consumer of the
+# installed glintfx package (tools/ci/check-consume.ps1 runs it after
+# `cmake --install`). On Windows, glintfx.dll installs under
+# <prefix>/bin/ while consumer.exe builds under its own build tree - two
+# different directories, same root cause as cmake/GlintfxTest.cmake's
+# glintfx_copy_runtime_dlls_after_build() for the in-tree tests, and the
+# fix a real external consumer would also need to write: copy the
+# runtime DLLs $<TARGET_RUNTIME_DLLS:consumer> resolves to (glintfx::glintfx
+# is an IMPORTED target here, with IMPORTED_LOCATION set by
+# glintfxTargets.cmake, which is exactly what this generator expression
+# needs) next to consumer.exe.
+#
+# Guard is the imported target's OWN type, not a BUILD_SHARED_LIBS
+# variable: this is a standalone top-level project (its own
+# BUILD_SHARED_LIBS, if any, describes ITS OWN targets, not whatever
+# mode the glintfx package it just found_package()'d was actually built
+# and installed as). Querying TYPE on glintfx::glintfx directly is the
+# only way from here to know if there is a DLL at all - an empty
+# $<TARGET_RUNTIME_DLLS:...> list would make copy_if_different itself
+# fail with no source files, so the static-package case must be skipped
+# outright, not just left to resolve to nothing.
+get_target_property(_glintfx_consumer_target_type glintfx::glintfx TYPE)
+if(WIN32 AND _glintfx_consumer_target_type STREQUAL "SHARED_LIBRARY")
+    add_custom_command(TARGET consumer POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_RUNTIME_DLLS:consumer>" "$<TARGET_FILE_DIR:consumer>"
+        COMMAND_EXPAND_LISTS
+    )
+endif()
+unset(_glintfx_consumer_target_type)

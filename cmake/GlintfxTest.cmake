@@ -26,9 +26,49 @@ function(glintfx_set_default_test_timeout)
     set(DART_TESTING_TIMEOUT 120 PARENT_SCOPE)
 endfunction()
 
+# WIN-HANG, root cause: on the multi-config generator this project's
+# Windows CI job uses (no -G Ninja, so windows-latest defaults to
+# Visual Studio), each target keeps its OWN per-target output
+# subdirectory unless CMAKE_RUNTIME_OUTPUT_DIRECTORY says otherwise. The
+# glintfx SHARED library lands in src/Release/, a test executable in
+# tests/Release/ - siblings, not the same directory - and the Windows
+# loader only searches the executable's own directory (then system
+# dirs, then PATH), never a sibling one. Confirmed live on CI (run
+# 32525937090): the missing DLL makes the process exit with
+# STATUS_DLL_NOT_FOUND (-1073741515 / 0xC0000135), and under ctest's
+# output capture that crash goes on to hang instead of failing fast
+# (Windows Error Reporting inheriting the redirected stdout/stderr
+# handle is the suspected mechanism - not confirmed, and not needed to
+# be: removing the missing DLL removes the crash that triggers it).
+#
+# $<TARGET_RUNTIME_DLLS:tgt> is CMake's own generator expression for
+# this exact problem (added 3.21; this project requires 3.28): it
+# resolves, at build time, to the SHARED/MODULE libraries `tgt` actually
+# links against - not a hardcoded "glintfx.dll" name, so it keeps
+# working the day this library grows a second internal DLL. Guarded by
+# BUILD_SHARED_LIBS: in the static build there is no glintfx DLL to
+# copy, and an empty file list would make the copy command itself fail.
+#
+# Deliberately NOT fixed via a global CMAKE_RUNTIME_OUTPUT_DIRECTORY:
+# that variable is read by every target created afterward, including an
+# embedding consumer's OWN targets when glintfx is pulled in via
+# add_subdirectory/FetchContent (GODS_LAWS.md LEI ZERO - the consumer
+# base is open and unknown, and is not this project's output layout to
+# dictate). This function is scoped to test executables only.
+function(glintfx_copy_runtime_dlls_after_build target)
+    if(WIN32 AND BUILD_SHARED_LIBS)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
+endfunction()
+
 function(glintfx_add_test name)
     add_executable(${name} "${CMAKE_CURRENT_SOURCE_DIR}/${name}.cpp")
     target_link_libraries(${name} PRIVATE glintfx::glintfx glintfx_test_harness)
     glintfx_apply_compile_options(${name})
+    glintfx_copy_runtime_dlls_after_build(${name})
     add_test(NAME ${name} COMMAND ${name})
 endfunction()

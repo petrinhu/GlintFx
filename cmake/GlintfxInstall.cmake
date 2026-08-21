@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # GlintfxInstall.cmake
 #
 # Single subject: install() of the target, of the public/generated
@@ -18,7 +20,9 @@ function(glintfx_install_library_target target)
 endfunction()
 
 function(glintfx_install_public_headers)
-    install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/glintfx"
+    # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7):
+    # see the comment at the same substitution in the root CMakeLists.txt.
+    install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/glintfx"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
     install(FILES
@@ -37,8 +41,10 @@ function(glintfx_write_package_version_file)
 endfunction()
 
 function(glintfx_configure_package_config_file)
+    # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7):
+    # see the comment at the same substitution in the root CMakeLists.txt.
     configure_package_config_file(
-        "${CMAKE_SOURCE_DIR}/cmake/glintfx-config.cmake.in"
+        "${PROJECT_SOURCE_DIR}/cmake/glintfx-config.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/glintfxConfig.cmake"
         INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/glintfx"
     )

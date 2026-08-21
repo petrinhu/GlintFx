@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # tests/CMakeLists.txt
 #
 # Single subject: the glintfx test suite, its own harness and the
@@ -33,5 +35,21 @@ if(UNIX)
     add_test(
         NAME layers_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.sh" "${CMAKE_SOURCE_DIR}"
+    )
+endif()
+
+# Embedding gate (FIX-CONSUMO, achado A7): proves glintfx works consumed
+# via add_subdirectory (the shape FetchContent takes after populating the
+# tree), not just via the installed package above. POSIX sh; same
+# declared downgrade as layers_test/consume_test (no Windows-specific
+# code path is involved in the embedding fix, so Linux coverage across
+# the four Linux CI targets is the proof; see fix-consumo.md).
+if(UNIX)
+    add_test(
+        NAME embed_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_embed.sh"
+            "${PROJECT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/embed"
+            "${CMAKE_CXX_COMPILER}"
     )
 endif()

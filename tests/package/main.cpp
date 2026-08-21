@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstdint>
 #include <print>
 #include <string_view>
@@ -12,9 +13,9 @@
 
 int main() {
     const glintfx::version v = glintfx::runtime_version();
-    const bool major_ok = v.major == static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR);
-    const bool minor_ok = v.minor == static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR);
-    const bool patch_ok = v.patch == static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH);
+    const bool major_ok = v.major_version == static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR);
+    const bool minor_ok = v.minor_version == static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR);
+    const bool patch_ok = v.patch_version == static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH);
     const bool string_ok =
         glintfx::version_string() == std::string_view{GLINTFX_VERSION_STRING};
 

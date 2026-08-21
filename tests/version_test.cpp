@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstdint>
 #include <string>
 
@@ -14,9 +15,9 @@
 
 GLINTFX_TEST(runtime_version_matches_macros) {
     const glintfx::version v = glintfx::runtime_version();
-    GLINTFX_CHECK_EQ(v.major, static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR));
-    GLINTFX_CHECK_EQ(v.minor, static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR));
-    GLINTFX_CHECK_EQ(v.patch, static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH));
+    GLINTFX_CHECK_EQ(v.major_version, static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR));
+    GLINTFX_CHECK_EQ(v.minor_version, static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR));
+    GLINTFX_CHECK_EQ(v.patch_version, static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH));
 }
 
 GLINTFX_TEST(version_string_matches_macro_and_format) {

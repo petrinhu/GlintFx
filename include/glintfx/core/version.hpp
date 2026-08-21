@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
 #include <cstdint>
@@ -18,13 +19,30 @@
 // API. Both functions below are noexcept and return by value; no
 // function in this header, nor any path it can reach in the library,
 // throws across the public boundary.
+//
+// Field names (FIX-CONSUMO, achado A8): NOT `major`/`minor`. On Linux,
+// the system header "sysmacros dot h" (historically dragged in by the
+// system header that declares basic POSIX types) defines
+// `major`/`minor`/`makedev` as function-like macros; any external
+// consumer whose translation unit includes that system header before
+// this one has `v.major`/`v.minor` mangled by the preprocessor into a
+// call expression, with a compiler error that points nowhere near this
+// file. `major_version`/`minor_version`/`patch_version` do not collide
+// with any known system macro, and are renamed together (not just the
+// two colliding fields) so the struct stays internally consistent.
+//
+// (This comment spells out the header names in prose, not as literal
+// #include directives, on purpose: tests/tools/check_layers.sh greps
+// this file for OS-header include patterns, and an angle-bracket
+// mention here would trip a layer-violation false positive on a
+// comment that merely explains a naming rationale.)
 
 namespace glintfx {
 
 struct version {
-    std::uint32_t major;
-    std::uint32_t minor;
-    std::uint32_t patch;
+    std::uint32_t major_version;
+    std::uint32_t minor_version;
+    std::uint32_t patch_version;
 };
 
 [[nodiscard]] GLINTFX_API version runtime_version() noexcept;

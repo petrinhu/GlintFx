@@ -109,13 +109,15 @@ Ao despachar um subagent, **inclua o caminho absoluto do manual no prompt da tas
 
 ## Comandos
 
-*(A preencher quando o build existir. Cada comando aqui deve ter sido executado com sucesso por quem o escreveu.)*
+Comandos provados verdes em 21/08/2026 (FUND-3), na forma exata usada pelo job `linux` do CI (`.github/workflows/ci.yml`) para o modo shared (default). Para o modo estático, acrescente `-DBUILD_SHARED_LIBS=OFF` ao configurar.
 
-- Configurar: `<a definir>`
-- Compilar: `<a definir>`
-- Suíte completa: `<a definir>`
-- Um único teste: `<a definir>`
+- Configurar: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release`
+- Compilar: `cmake --build build`
+- Suíte completa: `ctest --test-dir build --output-on-failure`
+- Um único teste: `ctest --test-dir build -R <nome> --output-on-failure` (ex.: `-R version_test`)
 - Lint / análise estática: `<a definir>`
+
+Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). No modo shared a suíte tem 3 casos (`version_test`, `visibility_test`, `layers_test`); no estático, 2 (`visibility_test` só existe com `BUILD_SHARED_LIBS=ON` e sistema Unix, é `nm -D` numa `.a`, não faz sentido).
 
 ## Isolamento obrigatório de teste (teclado, mouse, tela)
 

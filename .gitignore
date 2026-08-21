@@ -37,8 +37,15 @@ coverage/
 *.lcov
 
 # Core dumps e logs de crash
-core
-core.*
+#
+# Ancorado na raiz (`/core`): sem a barra inicial, o padrão bare "core"
+# casa qualquer arquivo OU diretório chamado "core" em qualquer
+# profundidade — e por isso ignorava silenciosamente src/core/ e
+# include/glintfx/core/, a camada núcleo da GODS_LAWS.md L-19 (achado
+# FUND-2, 21/08/2026). Um dump real cai no cwd de teste (build/, já
+# ignorado acima) ou na raiz do repo, nunca dentro de src/ ou include/.
+/core
+/core.*
 vgcore.*
 *.core
 

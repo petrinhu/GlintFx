@@ -1,0 +1,10 @@
+#pragma once
+
+// Gerado por CMake a partir de cmake/version_macros.hpp.in (FUND-1).
+// Não edite este arquivo gerado; a fonte de verdade é PROJECT_VERSION
+// em CMakeLists.txt.
+
+#define GLINTFX_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define GLINTFX_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define GLINTFX_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define GLINTFX_VERSION_STRING "@PROJECT_VERSION@"

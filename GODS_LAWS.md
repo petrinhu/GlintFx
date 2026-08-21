@@ -39,6 +39,7 @@
 | [L-22](#l-22) | projetar assinatura pública ou tratar erro | Nenhuma exceção cruza a API pública |
 | [L-23](#l-23) | commitar, ou fechar uma fatia, ou dar push | Portões de qualidade e o `preci.sh` antes do push |
 | [L-24](#l-24) | pensar em cobertura, formatação ou auditoria | Sem meta de cobertura; clang-format LLVM; dossiê só antes da 1.0 |
+| [L-25](#l-25) | iniciar build pesado, ASan, teste de janela ou demo | Armar o `watchcode` na janela, e desarmar ao fim |
 
 ---
 
@@ -315,3 +316,19 @@ Continua valendo do `CONTRACT.md` §6.4: erro nunca é engolido em silêncio, se
 ### O que dos manuais foi descartado por inaplicável (21/08/2026)
 
 Registrado para ninguém reintroduzir por engano: tudo de **Qt** (§12.1), **T10 injeção de SQL** (não há banco), **§7 UI/UX e WCAG** (é manual de aplicação com formulário, não de biblioteca), o modelo de **camadas do §5** (frontend/middleware/backend/infra é desenho de aplicação; as camadas deste projeto estão na L-19), **T5 e T12**, scan de dependência e de CVE (dependência zero, L-07), e o piso de **C++20** do §12.1, superado pela L-03.
+
+## L-25
+
+**Data:** 21/08/2026, decisão do líder.
+
+O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash real (OOM, SIGSEGV, SIGABRT, coredump fora da linha de base). Ele fica armado **por janela, não permanentemente**.
+
+**Armar antes de:** build pesado, rodada de ASan ou UBSan, teste de janela ou de input em container (L-09), e execução de demo. **Desarmar ao fim da janela**, emitindo o semáforo.
+
+**Por que não deixar ligado sempre, e o motivo é das nossas próprias leis:** a L-20 manda **ver o teste falhar** antes de existir código, e a revisão adversarial da L-12 roda **mutação**, quebrando o código de propósito. As duas coisas **fabricam crash legítimo**. Vigia ligado o tempo todo grita a cada ciclo vermelho correto, e um alarme que grita sempre deixa de ser lido. Nas janelas acima ninguém está quebrando nada de propósito, então todo achado é sinal.
+
+**Ao achar crash desta sessão:** apresentar o semáforo vermelho com o que foi capturado e **perguntar ao líder** antes de abrir o ciclo de diagnóstico. Não delegar C-level por conta própria.
+
+**Fato técnico verificado em 21/08/2026:** o `core_pattern` desta máquina é `systemd-coredump`, e isso é do **kernel**, não do container. Logo, crash dentro do container de teste **aparece** no `coredumpctl` do hospedeiro, e o vigia cobre os testes de superfície da L-09.
+
+**Ruído conhecido, a descartar sem investigar:** coredump de binário sob `/var/tmp/*mutation-sandbox*` ou equivalente é mutação deliberada da revisão adversarial. Três desses foram descartados em 21/08/2026, por decisão do líder.

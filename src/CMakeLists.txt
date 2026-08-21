@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # src/CMakeLists.txt
 #
 # Single subject: the glintfx library target and the layers that add

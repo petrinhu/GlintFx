@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # check_layers.sh - CI gate for GODS_LAWS.md L-19 ("a CI gate reproves
 # the violation" instead of trusting the discipline of whoever writes
 # the code).

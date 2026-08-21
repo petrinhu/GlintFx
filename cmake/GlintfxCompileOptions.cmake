@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # GlintfxCompileOptions.cmake
 #
 # Single subject: the C++23 language standard and the warning flags

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # tests/package/CMakeLists.txt
 #
 # Single subject: standalone CMake project that proves

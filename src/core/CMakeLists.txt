@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # src/core/CMakeLists.txt
 #
 # Core layer (GODS_LAWS.md L-19): pure types and values (today, the

@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # check_exports.sh - fails if the glintfx dynamic library exports a
 # symbol outside the glintfx:: namespace or the minimal runtime
 # allowlist (FUND-1, item 8 of the service order).

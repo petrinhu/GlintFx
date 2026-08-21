@@ -33,6 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
 | ⚖ | fechar um marco ou notar a hora | L-15 nunca mandar descansar |
+| ⚖ | abrir sessão, precisar de algo de outro projeto, receber ideia do Gus | L-16 bus `gusworld_ia_autocomm` |
 
 ---
 
@@ -140,6 +141,24 @@ Regras de execução:
 5. **Prove o isolamento antes de interagir**, não depois: `ss -xp` do processo sob teste deve apontar para o socket do compositor do container, e `lsof -p <pid>` não pode mostrar nenhum caminho do `XDG_RUNTIME_DIR` do host.
 6. Quando o cenário não for testável ponta a ponta no ambiente disponível, **teste o seam de decisão e declare o downgrade**. Jamais venda teste de seam como e2e.
 7. A mesma imagem de container usada localmente é a que roda na matriz de CI das cinco plataformas. Teste que só passa fora do container não conta como passando.
+
+## Bus entre projetos: `gusworld_ia_autocomm`
+
+Canal assíncrono entre as sessões do líder e o filho dele. Clone: `/home/petrus/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/`, repo **privado** `petrinhu/gusworld_ia_autocomm`. **O protocolo canônico é o `PROTOCOL.md` do clone**; leia lá antes de usar, e trate a L-16 de `GODS_LAWS.md` como o resumo operacional.
+
+| Slug | Projeto |
+|---|---|
+| `gusworld` | o jogo |
+| **`glintfx`** | **este projeto** |
+| `site` | `petrinhu/site_gusworld`, registro histórico do jogo |
+| `mapeditor` | `petrinhu/gusworld_mapeditor` |
+| Gus Dragon (`Dragon-Drv`) | colaborador humano; manda ideias por issue ou `.txt` |
+
+Fluxo: ler o que está solto em `inbox/glintfx/`, agir, `git mv` para `inbox/glintfx/archive/`, commit `read: <arquivo>`, push. Enviar: um `.md` em `inbox/<destinatario>/` com frontmatter `de`/`para`/`assunto`/`data`, sempre depois de `git pull`. **Pedido vai sem classificação de prioridade** (quem recebe classifica).
+
+Estado em 21/08/2026: `inbox/glintfx/` **vazia**, 28 mensagens no `archive/`. As mensagens antigas endereçadas ao `glintfx` são **deprecadas por ordem do líder** e não devem ser executadas: descrevem a biblioteca anterior (L-01). Existe um hook pronto no clone, `check-inbox-hook.sh <slug>`, que faz `pull` e injeta as não lidas no contexto.
+
+**Divergência conhecida, não corrigida por mim:** o `PROTOCOL.md` descreve o `glintfx` como "a lib glintfx (RmlUi/GL)". Isso não vale mais: o projeto é do zero, Wayland puro, dependência zero. O arquivo é compartilhado com as outras sessões; a correção é decisão do líder.
 
 ## Restrições desta máquina que mordem este projeto
 

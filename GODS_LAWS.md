@@ -30,6 +30,7 @@
 | [L-13](#l-13) | escrever qualquer mensagem ao líder | Timestamp real `[DD/MM/YY - HH:MM:SS]` obtido do `date` |
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
+| [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
 
 ---
 
@@ -154,3 +155,21 @@ Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global
 **Nunca** dizer ao líder para descansar, dormir ou parar, nem comentar a hora dele, nem sugerir pausa pela hora. A cadência de trabalho é decisão dele.
 
 **Aplicação:** ao fechar um marco, oferecer o próximo passo de forma neutra e simétrica ("sigo para X ou paramos?"), sem inclinar para a pausa. Se ele manda a próxima tarefa, continuar sem re-oferecer pausa.
+
+## L-16
+
+**Data:** 21/08/2026. **Verbatim:** *"a pasta [...] gusworld_ia_autocomm e o repo https://github.com/petrinhu/gusworld_ia_autocomm [...] serve de bus entre este projeto, GusWorld, Gus Dragon (meu filho [...] ele se comunica nesse bus via issues), o site de registro historico [...] e o gusworld_mapeditor"*.
+
+O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone canônico: `~/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/`. Repositório **privado**. Protocolo completo em `PROTOCOL.md` do clone; **leia o protocolo, não confie neste resumo**.
+
+**Participantes.** Slugs de sessão: `gusworld` (o jogo), **`glintfx` (este projeto)**, `site` (a revista de registro histórico), `mapeditor` (o editor de mapas). Mais **Gus Dragon**, colaborador humano, filho do líder, handle GitHub `Dragon-Drv`, que manda ideias de jogo por **issue** ou por `.txt` na raiz de `inbox/`.
+
+**Aplicação, leitura:** ao abrir a sessão ou quando o líder mandar, `git pull` no clone e ler o que estiver solto em `inbox/glintfx/`. Depois de ler e agir, `git mv` para `inbox/glintfx/archive/`, commit `read: <arquivo>`, push. A pasta `archive/` do topo do repo é convenção antiga, abandonada; não mande nada para lá.
+
+**Aplicação, envio:** um arquivo `.md` por mensagem em `inbox/<destinatario>/`, nome `AAAAMMDD-HHMM-<de>-<slug-curto>.md`, com frontmatter `de`, `para`, `assunto`, `thread` opcional e `data`. Sempre `git pull` antes de enviar. Commit `msg: <de>-><para>: <assunto>`, push.
+
+**Proibido classificar prioridade do outro** (ordem do líder, 03/08/2026): pedido pelo bus vai **sem** "urgente", "para agora", "quando der", "sem pressa", "bloqueia X". Quem recebe é quem enxerga o próprio roadmap e classifica. Entra na mensagem **o quê** se precisa, **para quê**, e fato datado quando houver. Duas exceções: o campo `prioridade:` que o **próprio Gus** põe na ideia dele, e **aviso operacional** (quebra, armadilha, correção de fato publicado), que não disputa fila.
+
+**Ideia do Gus, o pipe completo:** (1) absorver; (2) **ack imediato e automático** na issue marcando `@Dragon-Drv`, sem esperar o líder, para a criança não ficar sem resposta; (3) discutir viabilidade e efeito dominó **com o líder**; (4) postar o resultado na issue, automático, **sempre honesto** e adequado a uma criança de 11 anos, sem inventar nada além do decidido; (5) arquivar, fechando a issue ou movendo o `.txt` para `respondidas_do_gus/`. Ideia do Gus entra na próxima onda, sem atropelar o que está em execução. **Nunca minta para ele.**
+
+**Nunca versionar** nome de batismo de menor nem segredo, mesmo em repo privado. O filho do líder aparece só como **"Gus Dragon"**, e esse apelido pode ser citado em público.

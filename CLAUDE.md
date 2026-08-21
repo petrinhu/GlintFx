@@ -36,6 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | abrir sessão, precisar de algo de outro projeto, receber ideia do Gus | L-16 bus `gusworld_ia_autocomm` |
 | ⚖ | escrever função, arquivo, classe ou módulo novo | L-17 proibido monolito, cada função é um átomo |
 | ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; fable audita e cria, sonnet implementa |
+| ⚖ | criar módulo, tocar a fronteira do SO, desenhar API pública | L-19 camadas, portas em compile-time, fronteira opaca |
 
 ---
 

@@ -33,6 +33,7 @@
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
 | [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
 | [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; agentes bigtech; fable audita e cria, sonnet implementa |
+| [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 
 ---
 
@@ -218,3 +219,29 @@ O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone c
 **Aplicação ao briefar:** a ordem de serviço leva o caminho absoluto de `GODS_LAWS.md` e o texto das leis cujo gatilho casa com a task (L-16 do protocolo do bus vale o mesmo raciocínio: subagent não herda contexto).
 
 **Papéis distintos permanecem (L-12):** o agente que implementa não é o que revisa, e nenhum dos dois é o `main` que re-verifica.
+
+## L-19
+
+**Data:** 21/08/2026, decisão do líder após comparação de alternativas.
+
+A arquitetura do GlintFx tem **três compromissos**, e nenhum deles é negociável por agente.
+
+**1. Camadas são a espinha.** Núcleo puro (math2d, geometria, tempo, tipos) não conhece o sistema operacional. **Uma única camada toca o SO**: nela vivem Wayland, GL, áudio, gamepad e arquivo. Cada camada depende só das de baixo, nunca o contrário, e **um gate de CI reprova a violação** em vez de confiar na disciplina de quem escreve.
+
+**2. Porta é `concept` de C++23, resolvida em compile-time.** A fronteira de plataforma é modelada como porta com adaptador por sistema, mas **sem despacho virtual no caminho quente**: o adaptador é escolhido na compilação. Teste substitui o adaptador por um falso, que é o benefício real que se queria da inversão de dependência. Nada de `virtual` por frame ou por draw.
+
+**3. A superfície pública é opaca.** A biblioteca é compartilhada por padrão, então **toda classe pública com layout visível ou método virtual vira contrato de ABI**. A API pública expõe handle opaco ou PIMPL. Reescrever o interior não pode quebrar consumidor.
+
+**Sobre hexagonal, para encerrar a dúvida:** o vocabulário de portas e adaptadores está adotado; a obrigação de interface virtual em runtime **não** está. Hexagonal clássico existe para proteger regra de negócio, que um framework 2D não tem, e cobra despacho virtual justamente onde este projeto não pode pagar.
+
+**Aplicação:** assunto novo nasce em módulo estreito próprio, com fronteira declarada (ver L-17), e nunca é acrescentado a um tipo existente porque "cabia lá". Ao propor `virtual` em tipo público, pare e justifique contra este item; na dúvida, pergunte ao líder.
+
+### A atomização (L-17) continua valendo, e esta arquitetura tem três armadilhas contra ela
+
+Cada uma destas é **achado de revisão**, não questão de gosto:
+
+1. **Handle opaco que vira dono de tudo.** O risco do PIMPL é a fachada que acumula: um `Context` com oitenta métodos é monolito com outro nome. **Um handle por assunto** (janela, render, input, áudio), cada método sendo **um átomo** que encaminha para **um** átomo do interior. Fachada que encaminha não é licença para fachada que decide.
+2. **Porta gorda.** Um `concept` que exige vinte operações é interface inchada, com o mesmo defeito que o hexagonal clássico teria. **Concepts pequenos, compostos**: quem só precisa desenhar não deve satisfazer o requisito de áudio.
+3. **`#ifdef` dentro de função.** Adaptador escolhido em compile-time significa **um arquivo por plataforma, selecionado pelo CMake**, não bloco de pré-processador dentro do corpo da função. `#ifdef` picotando uma função é monolito montado pelo pré-processador, e some da leitura de quem revisa.
+
+Dito de forma direta: a arquitetura **reforça** a L-17 (camada e módulo estreito são atomização em escala maior), desde que estas três armadilhas sejam tratadas como violação.

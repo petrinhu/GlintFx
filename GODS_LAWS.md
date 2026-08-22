@@ -363,6 +363,20 @@ O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash rea
 
 **Aplicação:** `write_basic_package_version_file` precisa de política coerente com esta tabela. Antes da 1.0, `SameMinorVersion` é o correto, porque `B` é onde a quebra mora enquanto `A` é zero. **Ao chegar na 1.0, isso muda para `SameMajorVersion`** e a mudança não pode ser esquecida.
 
+### O terceiro contrato: DADO
+
+Acrescentado em 21/08/2026, depois que o CTO achou um furo real nesta lei ao desenhar o formato de arquivo de mapa (L-30).
+
+Esta lei nasceu cobrindo **dois** contratos: **API** (código que compilava deixa de compilar) e **ABI** (binário incompatível). O **formato de arquivo é um terceiro**, e é o mais grave dos três: um `.so` incompatível manda o consumidor **recompilar**, mas **um arquivo salvo não se recompila**. Ele é dado do usuário final de quem consome a biblioteca, e ninguém o conserta com um rebuild.
+
+**Política decidida pelo líder:**
+
+- **Quebrar formato sobe o `A`**, do mesmo jeito que quebra de API, **e o leitor novo continua lendo os formatos antigos**. Ou seja: a lib nunca abandona um arquivo que ela mesma gravou.
+- **Acréscimo compatível sobe o `B`**, com o número menor do formato incrementado.
+- **Antes da 1.0**, o formato declara **versão zero, sem promessa**, espelhando honestamente o que o `SOVERSION 0` já faz com o binário.
+
+**Aplicação:** todo formato de arquivo que a lib publicar segue esta política, não só o de mapa. Revisão de porta de mão única sobre formato de arquivo usa **lente de dado persistido**, que é diferente da lente de ABI: a pergunta não é "quem recompila", é **"quem perde o arquivo"**.
+
 Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11): esta lei fixa o formato, não autoriza taggear.
 
 ## L-27
@@ -444,3 +458,21 @@ Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
 **Aviso de escopo, registrado porque o líder decidiu com ele à vista:** busca de caminho e visibilidade são algoritmos com **muitas variantes**, e cada consumidor costuma querer a sua. Entram como escopo próprio, quebrados em fatias (L-17), com a superfície pública tratada como porta de mão única.
 
 **O editor é projeto à parte.** `GusWorld_MapEditor` (`petrinhu/gusworld_mapeditor`) é o editor do formato e **não** faz parte deste repositório. Ele consome o formato como qualquer outro consumidor, e por decisão do líder a mudança foi comunicada pelo bus (L-16).
+
+### Decisões de escopo da v1, tomadas pelo líder em 21/08/2026
+
+1. **O arquivo é binário, organizado em blocos**, com versão no cabeçalho e a regra de pular bloco desconhecido, que é o que permite evoluir sem quebrar.
+2. **Leitor e escritor são os dois públicos.** O escritor nasce de qualquer forma para os testes, e gravar e reler o mesmo mapa é a prova mais forte que o formato tem; publicá-lo evita que cada editor escreva o seu e derivem entre si.
+3. **Posição de objeto é contínua**, em unidades de célula. Marcador de porta e de teleporte continua ancorado na célula.
+4. **O mapa aceita mudança permanente** em runtime (parede destruída, porta aberta de vez), sem a lib saber o porquê. Travessia condicional por ator é outra coisa, e já está resolvida pela máscara de consulta.
+5. **Versionamento do formato:** ver a seção "O terceiro contrato: DADO" da L-26, que esta trilha obrigou a escrever.
+
+### O requisito que veio de um consumidor humano, e o que ele virou
+
+Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor façam blocos especiais pra isso"*. O mecanismo genérico que sustenta o pedido, e que **não** nomeia nada do jogo:
+
+- **A célula carrega dois campos separados**, um com a semântica de arte ou terreno e outro com a **marcação opaca do autor do mapa**. São separados porque a marcação é independente da arte.
+- **Toda consulta aceita uma máscara de travessia.** Célula bloqueante cuja marca casa com a máscara conta como transponível **só naquela consulta**, por ator, sem estado. A lib nunca sabe o que a marca significa.
+- **"Parede rachada" e "porta do chefe" nunca aparecem na lib.** São bits que o consumidor nomeia. Propor bit nomeado dentro da biblioteca é violação desta lei e achado de revisão.
+
+**Lição de método registrada:** necessidade descrita em palavras por um consumidor é insumo **legítimo**; copiar o que a lib antiga fazia continua **proibido** (L-01 e L-28). A diferença é a forma, não a origem.

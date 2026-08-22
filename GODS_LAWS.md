@@ -46,6 +46,7 @@
 | [L-27](#l-27) | escrever ordem de serviço, ou aceitar um corte proposto por agente | Fato separado de inferência; corte exige citação; passar a fonte, não o resumo |
 | [L-28](#l-28) | tocar folha de estilo, tema, layout de UI ou parser de estilo | RCSS é o formato, implementado em casa, sem RmlUi |
 | [L-29](#l-29) | não saber como se implementa algo, ou querer ver prior art | Pode LER RmlUi e SDL3 para aprender; copiar é proibido |
+| [L-30](#l-30) | tocar mapa, grade, colisão, rota ou visibilidade | Mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
 
 ---
 
@@ -427,3 +428,19 @@ Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
 **Como declarar, quando a leitura ajudar:** dizer no comentário ou no commit que a **técnica** veio de leitura de prior art, sem colar nada. Exemplo do tipo certo: *"abordagem de cascata por especificidade calculada em três dígitos, técnica comum em motores de CSS"*. Exemplo do tipo errado: colar o código deles e citar a fonte.
 
 **Não confundir com a L-01.** Esta lei fala de **projeto de terceiro**. O **predecessor `glintfx`** continua totalmente proibido como base, referência ou canon, e o mesmo vale para o backup do GusWorld citado na L-28. A diferença é real: aprender como o mundo resolve um problema é legítimo, e ressuscitar o nosso próprio código morto é o que o líder mandou não fazer.
+
+## L-30
+
+**Data:** 21/08/2026, decisão do líder.
+
+**O GlintFx tem mecanismo de mapa.** Matriz `x,y` simples, objetos posicionados nela, hitbox, parede, porta e ponto de teleporte (escada, buraco e afins).
+
+**O GlintFx é DONO do formato de arquivo de mapa.** A lib publica o formato e o carregador; o editor e o jogo são **consumidores** dele. Consequência que a decisão assume de olhos abertos: **o formato vira API pública e contrato de ABI** (L-19 e L-26), qualquer consumidor no mundo passa a depender dele, e mudá-lo depois quebra todos. Por isso o formato nasce com revisão de API dedicada e versionamento explícito.
+
+**Escopo dentro da lib, decidido pelo líder:** matriz e objetos, hitbox e consulta de colisão, **mais busca de caminho e visibilidade**. Porta e teleporte entram como **marcador genérico com destino**.
+
+**A fronteira que separa mecanismo de conteúdo, e ela é a parte que mais se esquece.** Cidade, dungeon, estrada e floresta são **conteúdo de um jogo**, não mecanismo. A lib entrega a **matriz e as consultas**; o que se põe dentro dela é do consumidor. **A lib nunca sabe o que é uma dungeon**, nunca sabe que uma escada é uma escada: ela sabe que existe um marcador com um destino, e quem dá sentido é quem consome (L-02 e LEI ZERO). Nomear tipo de cenário dentro da lib é o mesmo erro de premissa que a LEI ZERO existe para impedir, entrando por outra porta.
+
+**Aviso de escopo, registrado porque o líder decidiu com ele à vista:** busca de caminho e visibilidade são algoritmos com **muitas variantes**, e cada consumidor costuma querer a sua. Entram como escopo próprio, quebrados em fatias (L-17), com a superfície pública tratada como porta de mão única.
+
+**O editor é projeto à parte.** `GusWorld_MapEditor` (`petrinhu/gusworld_mapeditor`) é o editor do formato e **não** faz parte deste repositório. Ele consome o formato como qualquer outro consumidor, e por decisão do líder a mudança foi comunicada pelo bus (L-16).

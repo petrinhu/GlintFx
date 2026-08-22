@@ -115,7 +115,7 @@ Os manuais na raiz são normativos e vencem qualquer preferência do agente, **e
 |---|---|
 | `CONTRACT.md` | Antes de escrever, modificar ou revisar qualquer código (SOLID, camadas, clean code, regras C++) |
 | `TESTES.md` | Antes de planejar ou executar teste, análise estática, fuzzing, sanitizer, auditoria de suíte |
-| `AUDITORIAS.md` | Auditoria técnica (a Parte I é C++; classifica achado em CRÍTICO/IMPORTANTE/COSMÉTICO) |
+| `AUDITORIAS.md` | Auditoria técnica: 10 capítulos ancorados nas leis deste projeto (dependência zero, camadas, ABI, os três contratos de versão, Wayland, isolamento de teste, licença, entrada hostil, portões de qualidade, dossiê pré-1.0); classifica achado em CRÍTICO/IMPORTANTE/COSMÉTICO |
 | `AGILE.md` | Planejamento, cadência, ondas, priorização |
 | `DEPLOY_CHECKLIST.md` | Qualquer operação irreversível (tag, release pública, rotação de chave) |
 | `ORG.md`, `pipeline_release_1.0.md`, `lideranca_pipeline_release.md` | Quem lidera o quê, qual C-level ativar, as 12 fases |

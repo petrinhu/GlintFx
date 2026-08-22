@@ -406,7 +406,7 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 - **Nada de porte linha a linha** com nomes trocados. Traduzir a mesma implementação continua sendo cópia.
 - **Nada de copiar comentário, estrutura de arquivo ou organização interna** por decalque.
 
-**O que se espera em troca:** **refazer melhor, ou diferente.** Aprendida a ideia, a implementação é nossa, julgada pelos nossos critérios — dependência zero, camadas da L-19, átomos da L-17, ABI da L-26, e o consumidor externo desconhecido da LEI ZERO. Se a nossa saída for igual à deles, ou não aprendemos nada, ou copiamos.
+**O que se espera em troca:** **refazer melhor, ou diferente.** Aprendida a ideia, a implementação é nossa, julgada pelos nossos critérios: dependência zero, camadas da L-19, átomos da L-17, ABI da L-26, e o consumidor externo desconhecido da LEI ZERO. Se a nossa saída for igual à deles, ou não aprendemos nada, ou copiamos.
 
 **Higiene de licença, que reforça a proibição em vez de relaxá-la.** RmlUi é **MIT** e SDL3 é **zlib** (verificado na fonte em 21/08/2026: o README do RmlUi diz "published under the MIT license"; o SDL declara zlib). As duas são permissivas, então **copiar seria legalmente possível mediante atribuição**, e é justamente isso que a lei recusa. Enquanto **nenhuma linha for copiada**, nenhuma obrigação de atribuição nasce, e o projeto segue AGPL-3.0 limpo (L-08). No instante em que alguém colar código, cria-se obrigação de aviso de licença **e** se viola esta lei.
 

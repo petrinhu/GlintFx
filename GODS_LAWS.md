@@ -470,6 +470,15 @@ Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
 4. **O mapa aceita mudança permanente** em runtime (parede destruída, porta aberta de vez), sem a lib saber o porquê. Travessia condicional por ator é outra coisa, e já está resolvida pela máscara de consulta.
 5. **Versionamento do formato:** ver a seção "O terceiro contrato: DADO" da L-26, que esta trilha obrigou a escrever.
 
+### Decisões de hitbox e geometria, tomadas pelo líder em 22/08/2026
+
+Vieram de necessidade levantada pelo `mapeditor` com pesquisa de prior art público (Godot, Unity, Box2D, Tiled, LDtk), não de material do predecessor.
+
+1. **Tamanho do volume de colisão: coordenada relativa configurável, e por padrão ele acompanha a escala do objeto.** Quem quiser controle grava dimensão própria.
+2. **Mitigação obrigatória do defeito silencioso, decidida junto:** escala **desigual** aplicada a forma **redonda** (círculo, cápsula) quebra a matemática de colisão, e o caso é estreito mas invisível. A lib **avisa alto e segue**: diagnóstico claro dizendo o que vai dar errado, sem recusar o arquivo. Não é preciosismo: a física 2D do Godot **não emite aviso nenhum** nessa situação, enquanto a 3D dele emite, e existe issue aberta lá por causa disso. **Padrão cômodo é permitido; padrão cômodo e mudo, não.**
+3. **Rotação existe**, em ponto flutuante e livre (não restrita a múltiplos de 90 graus), e **o volume pode ter rotação própria** além da do objeto, para o caso de a caixa de um ataque apontar para lado diferente do desenho. Prova negativa que sustentou a decisão: o LDtk **não** tem rotação de entidade, tem três issues abertas pedindo, e um usuário precisou criar **quinze variações rotacionadas à mão** da mesma entidade para fazer uma porta giratória.
+4. **Forma côncava não entra no formato.** Só forma simples; **quem autora o mapa é que reparte** em pedaços convexos. A biblioteca fica mais simples e rápida, e o trabalho fica com quem tem interface para fazê-lo. Consequência assumida: **todo** consumidor que grave mapa precisa saber repartir.
+
 ### O requisito que veio de um consumidor humano, e o que ele virou
 
 Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor façam blocos especiais pra isso"*. O mecanismo genérico que sustenta o pedido, e que **não** nomeia nada do jogo:

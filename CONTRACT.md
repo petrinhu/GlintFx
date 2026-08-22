@@ -16,19 +16,17 @@
 2. [OOP Fundamentals](#2-oop-fundamentals)
 3. [SOLID Principles](#3-solid-principles)
 4. [Design Patterns  -  Complete Reference](#4-design-patterns--complete-reference)
-5. [Architecture Layers](#5-architecture-layers)
+5. [Arquitetura de Camadas](#5-arquitetura-de-camadas)
 6. [Clean Code Rules](#6-clean-code-rules)
-7. [UI/UX Guidelines](#7-uiux-guidelines)
-8. [Security](#8-security)
-9. [Performance](#9-performance)
-10. [Git Process for AI Coders](#10-git-process-for-ai-coders)
-11. [Testing & Audit Mandate](#11-testing--audit-mandate)
-12. [Language-Specific Rules](#12-language-specific-rules)
-13. [Framework-Specific Rules](#13-framework-specific-rules)
-14. [Universal Engineering Principles](#14-universal-engineering-principles)
-15. [API Design  -  REST](#15-api-design--rest)
-16. [Logging & Observability](#16-logging--observability)
-17. [LGPD Compliance Baseline](#17-lgpd-compliance-baseline)
+7. [Security](#7-security)
+8. [Performance](#8-performance)
+9. [Git Process for AI Coders](#9-git-process-for-ai-coders)
+10. [Testing & Audit Mandate](#10-testing--audit-mandate)
+11. [Language-Specific Rules](#11-language-specific-rules)
+12. [Universal Engineering Principles](#12-universal-engineering-principles)
+13. [API Design  -  Contratos de API, ABI e Dado](#13-api-design--contratos-de-api-abi-e-dado)
+
+> **Podado em 22/08/2026:** as seções "UI/UX Guidelines" (WCAG, formulário), "Framework-Specific Rules" (nunca teve corpo, âncora morta pré-existente), "API Design - REST", "Logging & Observability" (JSON logging, endpoint `/health`) e "LGPD Compliance Baseline" descreviam outro projeto (aplicação web/desktop com formulário, servidor e dado pessoal) e foram removidas sem equivalente: GlintFx não tem UI de formulário, servidor, endpoint de health nem processa dado pessoal. "Architecture Layers" e "API Design - REST" viraram §5 e §13, reescritas para a arquitetura real deste projeto (`GODS_LAWS.md` L-19, L-22, L-26).
 
 ---
 
@@ -37,9 +35,9 @@
 **Before writing any code, the AI coder MUST:**
 
 1. Read this document fully for the first task in a project.
-2. Identify the target language and framework  -  apply sections 12 and 13 accordingly.
+2. Identify the target language  -  apply section 11 accordingly.
 3. Identify the architecture layer being modified  -  apply section 5 rules.
-4. After completing any task: run the checklist in section 11.
+4. After completing any task: run the checklist in section 10.
 
 **Decision flow:**
 
@@ -50,7 +48,7 @@ New task received
 Read existing code before modifying ──► Understand context fully
       │
       ▼
-Identify layer (Frontend / Middleware / Backend)
+Identify layer (núcleo puro / camada de SO  -  ver GODS_LAWS.md L-19)
       │
       ▼
 Apply SOLID + Design Pattern rules
@@ -90,17 +88,17 @@ Done
 // CORRECT
 class GerenciadorCache {
 public:
-    bool salvar(const QString& chave, const QByteArray& dados);
-    std::optional<QByteArray> recuperar(const QString& chave) const;
+    bool salvar(const std::string& chave, std::span<const std::byte> dados);
+    std::optional<std::vector<std::byte>> recuperar(const std::string& chave) const;
 private:
-    QHash<QString, QByteArray> m_cache;  // hidden
+    std::unordered_map<std::string, std::vector<std::byte>> m_cache;  // hidden
     int m_tamanho_max{1000};             // hidden
 };
 
 // INCORRECT  -  exposes internals
 class GerenciadorCache {
 public:
-    QHash<QString, QByteArray> cache;   // direct access = violation
+    std::unordered_map<std::string, std::vector<std::byte>> cache;   // direct access = violation
 };
 ```
 
@@ -150,7 +148,7 @@ INCORRECT: RepositorioProdutos →  fetches AND caches AND validates
 // CORRECT  -  add new API source without touching existing code
 class IRepositorioProdutos {
 public:
-    virtual QVector<Produto> buscar(const QString& nome) = 0;
+    virtual std::vector<Produto> buscar(const std::string& nome) = 0;
     virtual ~IRepositorioProdutos() = default;
 };
 class RepositorioApiA  : public IRepositorioProdutos { ... };
@@ -167,13 +165,13 @@ class RepositorioApiB : public IRepositorioProdutos { ... };  // extension, not 
 ```cpp
 // INCORRECT  -  LSP violation: override does nothing
 class RepositorioNulo : public IRepositorioProdutos {
-    QVector<Produto> buscar(const QString&) override { return {}; } // silent failure
+    std::vector<Produto> buscar(const std::string&) override { return {}; } // silent failure
 };
 
 // CORRECT  -  explicit null object that documents intent
 class RepositorioNulo : public IRepositorioProdutos {
-    QVector<Produto> buscar(const QString&) override {
-        qWarning() << "RepositorioNulo: operação não suportada";
+    std::vector<Produto> buscar(const std::string&) override {
+        log_warning("RepositorioNulo: operação não suportada");
         return {};
     }
 };
@@ -189,15 +187,15 @@ class RepositorioNulo : public IRepositorioProdutos {
 // INCORRECT  -  one fat interface
 class IRepositorio {
     virtual void salvar(Produto) = 0;
-    virtual Produto buscar(QString) = 0;
-    virtual void deletar(QString) = 0;
-    virtual QVector<Produto> listar() = 0;
+    virtual Produto buscar(std::string) = 0;
+    virtual void deletar(std::string) = 0;
+    virtual std::vector<Produto> listar() = 0;
     virtual void exportarCSV() = 0;   // unrelated to repo
     virtual void enviarEmail() = 0;   // completely unrelated
 };
 
 // CORRECT  -  segregated
-class IRepositorioLeitura  { virtual Produto buscar(QString) = 0; ... };
+class IRepositorioLeitura  { virtual Produto buscar(std::string) = 0; ... };
 class IRepositorioEscrita  { virtual void salvar(Produto) = 0; ... };
 class IExportador          { virtual void exportarCSV() = 0; ... };
 ```
@@ -242,16 +240,16 @@ Apply patterns when they solve a real problem. MUST NOT apply patterns speculati
 
 ```cpp
 // Builder example
-class QtaqueBuilder {
+class AtaqueBuilder {
     Ataque m_ataque;
 public:
-    QtaqueBuilder& nome(const QString& n)   { m_ataque.nome = n; return *this; }
-    QtaqueBuilder& dano(const QString& d)   { m_ataque.dano = d; return *this; }
-    QtaqueBuilder& custo(QStringList c)     { m_ataque.custo = std::move(c); return *this; }
+    AtaqueBuilder& nome(const std::string& n)              { m_ataque.nome = n; return *this; }
+    AtaqueBuilder& dano(const std::string& d)               { m_ataque.dano = d; return *this; }
+    AtaqueBuilder& custo(std::vector<std::string> c)        { m_ataque.custo = std::move(c); return *this; }
     Ataque build() { return std::move(m_ataque); }
 };
 // Usage:
-auto ataque = QtaqueBuilder{}.nome("Tackle").dano("10").custo({"Colorless"}).build();
+auto ataque = AtaqueBuilder{}.nome("Tackle").dano("10").custo({"Colorless"}).build();
 ```
 
 ### 4.2 Structural Patterns
@@ -272,9 +270,9 @@ class RepositorioComposto : public IRepositorioProdutos {
     std::unique_ptr<IRepositorioProdutos> m_primario;
     std::unique_ptr<IRepositorioProdutos> m_fallback;
 public:
-    Produto buscar(const QString& id) override {
+    Produto buscar(const std::string& id) override {
         auto resultado = m_primario->buscar(id);
-        if (resultado.id.isEmpty()) resultado = m_fallback->buscar(id);
+        if (resultado.id.empty()) resultado = m_fallback->buscar(id);
         return resultado;
     }
 };
@@ -289,7 +287,7 @@ public:
 | **Iterator** | Traverse collection without exposing internals | Use standard iteration protocol. |
 | **Mediator** | Reduce coupling between many objects | Central hub coordinates communication. |
 | **Memento** | Save/restore object state | Snapshot without violating encapsulation. |
-| **Observer** | Notify dependents of state changes | Qt signals/slots ARE the Observer pattern  -  use them. |
+| **Observer** | Notify dependents of state changes | Callback registration (function pointer, `std::function`) or um signal/slot leve implementado em casa; nunca dependência de terceiro. |
 | **State** | Object changes behavior based on internal state | Replace conditionals with state objects. |
 | **Strategy** | Switch algorithm at runtime | Extract algorithm family into interchangeable objects. |
 | **Template Method** | Define skeleton, let subclasses fill steps | Base class controls flow, subclasses override steps. |
@@ -308,51 +306,49 @@ public:
 | **Service Locator** | AVOID  -  hidden dependency, hard to test. Use DI instead. |
 | **MVC** | Separate Model (data), View (UI), Controller (logic). |
 | **MVP** | Like MVC but Presenter holds all UI logic, View is passive. |
-| **MVVM** | ViewModel exposes state; View binds reactively. Qt supports this. |
+| **MVVM** | ViewModel exposes state; View binds reactively. |
 | **Null Object** | Avoid null checks  -  provide do-nothing default implementation. |
 | **Specification** | Encapsulate business rules as composable predicates. |
 
 ---
 
-## 5. Architecture Layers
+## 5. Arquitetura de Camadas
 
-### 5.1 Layer Rules
+> A arquitetura de camadas deste projeto está fixada em [`GODS_LAWS.md` L-19](GODS_LAWS.md#l-19), que vence esta seção em qualquer conflito. O modelo genérico de Frontend/Middleware/Backend/Infra do template original **não se aplica**: GlintFx não é aplicação com UI, casos de uso e banco de dados, é biblioteca com núcleo puro e uma única camada de sistema operacional. Resumo operacional abaixo; a lei é a fonte de verdade.
+
+### 5.1 As duas camadas
 
 ```
-┌─────────────────────────────────────────┐
-│  FRONTEND / PRESENTATION                │  UI components, widgets, views
-│  CAN: render, handle user events        │
-│  CANNOT: call APIs, access DB, business │
-├─────────────────────────────────────────┤
-│  MIDDLEWARE / APPLICATION / SERVICE     │  Use cases, orchestration
-│  CAN: call domain & infrastructure      │
-│  CANNOT: render UI, know HTTP/SQL       │
-├─────────────────────────────────────────┤
-│  BACKEND / DOMAIN                       │  Entities, interfaces, rules
-│  CAN: pure business logic only          │
-│  CANNOT: import UI, network, DB libs    │
-├─────────────────────────────────────────┤
-│  INFRASTRUCTURE / DATA                  │  HTTP, SQL, file system, APIs
-│  CAN: implement domain interfaces       │
-│  CANNOT: contain business logic         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│  NÚCLEO PURO                                     │  math2d, geometria, tempo, tipos de valor
+│  CAN: lógica pura, sem I/O                       │
+│  CANNOT: importar Wayland, GL, áudio, gamepad,   │
+│          arquivo  -  qualquer API de plataforma  │
+├───────────────────────────────────────────────────┤
+│  CAMADA DE SO (única)                            │  Wayland, OpenGL, áudio, gamepad, arquivo
+│  CAN: implementar as portas do núcleo             │
+│  CANNOT: conter lógica que pertence ao núcleo    │
+└─────────────────────────────────────────────────┘
 ```
 
-**Dependency direction:** Frontend → Middleware → Backend ← Infrastructure
+**Direção de dependência:** só de cima para baixo. A camada de SO pode depender do núcleo puro; o núcleo puro nunca importa nada da camada de SO.
+
+**Porta é `concept` de C++23, resolvida em compile-time** (L-19): a fronteira de plataforma é modelada como porta com adaptador por sistema, sem despacho virtual no caminho quente. Teste substitui o adaptador por um falso.
+
+**Fronteira pública opaca:** handle e subsistema com estado (janela, contexto de render, dispositivo de áudio) são expostos como handle opaco ou PIMPL, nunca como classe pública com layout visível ou método virtual, porque isso vira contrato de ABI (ver §13). *Value type* do núcleo (`version`, `vec2`, `rect`) é exceção deliberada: o layout estável é o próprio contrato.
 
 **Violations the AI MUST detect and refuse to introduce:**
-- HTTP client import in a widget/view file.
-- SQL query inside a domain entity.
-- Business rule calculation inside a repository.
-- UI framework import inside a service or domain class.
+- Import de Wayland, GL, áudio ou gamepad dentro de um arquivo do núcleo puro.
+- `virtual` em tipo público fora do adaptador de porta.
+- `#ifdef` de plataforma dentro do corpo de uma função, em vez de um arquivo por plataforma selecionado pelo CMake.
 
 ### 5.2 Layer Checklist Before Committing
 
 ```
-[ ] Class belongs to exactly one layer?
-[ ] No upward dependency (lower layer importing upper layer)?
-[ ] Cross-layer calls go through interfaces only?
-[ ] No domain entity imports Qt network/SQL/widget modules?
+[ ] Módulo pertence a exatamente uma camada (núcleo puro ou camada de SO)?
+[ ] Nenhuma dependência de baixo para cima?
+[ ] Porta de plataforma é um concept resolvido em compile-time, sem despacho virtual no caminho quente?
+[ ] Handle ou subsistema com estado está atrás de superfície opaca (exceto value type do núcleo)?
 ```
 
 ---
@@ -424,13 +420,14 @@ pagina++;
 ```cpp
 // INCORRECT
 if (tentativas > 3) retry();
-QPixmap px = img.scaled(120, 160);
+image_scale(img, 120, 160);
 
 // CORRECT
 constexpr int MAX_TENTATIVAS = 3;
-constexpr QSize TAMANHO_MINIATURA{120, 160};
+constexpr int MINIATURA_LARGURA = 120;
+constexpr int MINIATURA_ALTURA = 160;
 if (tentativas > MAX_TENTATIVAS) retry();
-QPixmap px = img.scaled(TAMANHO_MINIATURA);
+image_scale(img, MINIATURA_LARGURA, MINIATURA_ALTURA);
 ```
 
 ### 6.6 RAII and Resource Management
@@ -446,13 +443,13 @@ QPixmap px = img.scaled(TAMANHO_MINIATURA);
 
 ```cpp
 // 1ª e 2ª ocorrências: duplicação aceitável (WET  -  Write Everything Twice)
-QString formatarPreco(double v)  { return QString("R$ %1").arg(v, 0, 'f', 2); }
-QString formatarSaldo(double v)  { return QString("R$ %1").arg(v, 0, 'f', 2); }
+std::string formatarPreco(double v)  { return std::format("R$ {:.2f}", v); }
+std::string formatarSaldo(double v)  { return std::format("R$ {:.2f}", v); }
 
 // 3ª ocorrência: EXTRAIA  -  nomeie a razão comum de mudança
 // Razão: "formatação de valores monetários em BRL"
-QString formatarBRL(double valor, int casas = 2) {
-    return QString("R$ %1").arg(valor, 0, 'f', casas);
+std::string formatarBRL(double valor, int casas = 2) {
+    return std::format("R$ {:.{}f}", valor, casas);
 }
 ```
 
@@ -486,126 +483,55 @@ bool validarEstoque(int estoq)   { return estoq > 0 && estoq <= 9999; }
 
 ---
 
-## 7. UI/UX Guidelines
+## 7. Security
 
-### 7.1 Responsiveness
+> Full procedures in [TESTES.md](TESTES.md)  -  section T8. O checklist OWASP Top 10 do template genérico (controle de acesso HTTP, TLS, injeção de SQL, SSRF, bibliotecas de autenticação) não se aplica: GlintFx não tem servidor, banco, autenticação nem rede própria (T5, T10 e T12 do `TESTES.md` foram removidos pelo mesmo motivo, ver `GODS_LAWS.md` L-24 e L-07). Esta seção cobre o que resta de fato aplicável a uma biblioteca nativa. **Achado desta poda:** não existe, em lugar nenhum, um checklist de segurança de entrada não confiável para os parsers escritos em casa (imagem, fonte, áudio, gamepad, XKB, RCSS, mapa  -  L-06, L-07, L-28, L-30). É decisão do líder, não inventada aqui.
 
-- MUST NEVER block the UI thread with I/O, network, or heavy computation.
-- MUST use async patterns (callbacks, signals/slots, async/await, workers).
-- All operations > 100ms MUST show a loading indicator.
-- All operations > 3s MUST be cancellable.
-
-### 7.2 Feedback
-
-- Every user action MUST produce visible feedback within 200ms.
-- Error messages MUST be human-readable, not stack traces or error codes.
-- Success and failure states MUST be visually distinct (color + icon, not color alone).
-- Empty states MUST show a helpful message, not a blank screen.
-
-### 7.3 Accessibility (WCAG AA minimum)
-
-- Text/background contrast ratio MUST be ≥ 4.5:1 for normal text.
-- Text/background contrast ratio MUST be ≥ 3:1 for large text (≥ 18pt).
-- All interactive elements MUST be reachable via keyboard (Tab + Enter/Space).
-- All images MUST have descriptive alt text or `setAccessibleName()`.
-- MUST NOT convey information using color alone (add icon or text).
-
-```
-Contrast check reference:
-  Normal text on dark (#EFF0F1 on #31363B) = 7.2:1  ✅
-  Accent on dark     (#3DAEE9 on #31363B) = 3.8:1  ✅ (large text)
-  Red error on white (#DA4453 on #EFF0F1) = 4.6:1  ✅
-```
-
-### 7.4 Consistency
-
-- MUST use the project's design token system for all colors, spacing, and typography.
-- MUST NOT hardcode color hex values in widget code  -  use theme tokens.
-- Font sizes: MUST follow the type scale (body 13px, subtitle 12px, title 16-18px).
-- Spacing: MUST use consistent margins (8px grid).
-- Interactive elements (buttons, links) MUST have hover AND pressed states.
-
-### 7.5 Forms and Inputs
-
-- MUST validate inputs at the point of submission, not silently on blur.
-- MUST show validation errors adjacent to the offending field.
-- MUST NOT clear the form on error  -  preserve user input.
-- Submit buttons MUST be disabled during async operations.
-
----
-
-## 8. Security
-
-> Full procedures in [TESTES.md](TESTES.md)  -  sections T8, T10, T12.
-
-### 8.1 OWASP Top 10  -  AI Coder Checklist
-
-| # | Risk | Rule |
-|---|------|------|
-| A01 | Broken Access Control | MUST validate authorization server-side on every request. |
-| A02 | Cryptographic Failures | MUST use AES-256+ for data at rest. MUST use TLS 1.2+ for data in transit. NEVER MD5/SHA1 for security. |
-| A03 | Injection | MUST use prepared statements for ALL SQL. MUST sanitize all inputs before use in commands/queries. |
-| A04 | Insecure Design | MUST threat-model new features before implementing. |
-| A05 | Security Misconfiguration | MUST NOT ship with debug flags, default passwords, or verbose error messages in production. |
-| A06 | Vulnerable Components | MUST check CVEs before adding any dependency (see T12 in TESTES.md). |
-| A07 | Auth Failures | MUST use established auth libraries. NEVER roll your own crypto. |
-| A08 | Software Integrity | MUST verify integrity of downloaded dependencies (checksums, signatures). |
-| A09 | Logging Failures | MUST log security events. MUST NOT log passwords, tokens, or PII. |
-| A10 | SSRF | MUST validate and allowlist all URLs before fetching. |
-
-### 8.2 Hardcoded Secrets  -  Zero Tolerance
+### 7.1 Hardcoded Secrets  -  Zero Tolerance
 
 ```cpp
 // INCORRECT  -  NEVER commit this
-const QString API_KEY = "sk-live-abc123xyz789";
-QString url = "https://api.com?token=mypassword";
+const std::string API_KEY = "sk-live-abc123xyz789";
+std::string url = "https://api.com?token=mypassword";
 
 // CORRECT  -  load from secure storage or environment
-const QString apiKey = gerenciadorChaves.recuperar("limitless_api_key");
+const std::string apiKey = gerenciadorChaves.recuperar("limitless_api_key");
 ```
 
-### 8.3 Input Validation
+### 7.2 Input Validation
 
-- MUST validate all data arriving from: user input, API responses, file reads, environment variables.
-- MUST NOT trust data from any external source.
+- MUST validate all data arriving from: argumento de API pública, leitura de arquivo (asset, RCSS, mapa, keymap XKB), variável de ambiente.
+- MUST NOT trust data from any external source, especialmente arquivo gravado por outro consumidor (formato é contrato de DADO, `GODS_LAWS.md` L-26).
 - MUST constrain string lengths, numeric ranges, and allowed characters at entry points.
 
 ---
 
-## 9. Performance
+## 8. Performance
 
-### 9.1 General Rules
+### 8.1 General Rules
 
 - MUST profile before optimizing. No premature optimization.
-- MUST cache results of expensive operations (network, disk, computation).
-- MUST NOT make redundant API calls  -  check cache first.
+- MUST cache results of expensive operations (disk, computation).
 - MUST use lazy loading for data not immediately needed.
 - MUST NOT copy large objects unnecessarily  -  use references and move semantics.
 
-### 9.2 Network
-
-- MUST debounce user-triggered searches (wait ≥ 300ms after last keystroke).
-- MUST implement request cancellation for outdated requests.
-- MUST set reasonable timeouts (connect: 10s, read: 30s).
-- MUST retry with exponential backoff on transient failures (max 3 attempts).
-
-### 9.3 Memory
+### 8.2 Memory
 
 - MUST release resources when they go out of scope (RAII).
 - MUST NOT hold large objects in memory indefinitely  -  use LRU cache with size limit.
-- MUST NOT leak Qt objects  -  ensure parent ownership or explicit deletion.
+- MUST NOT leak owned objects  -  RAII/smart pointers (§6.6); handle opaco (§5) já resolve o caso de subsistema com estado.
 
-### 9.4 Rendering
+### 8.3 Rendering
 
-- MUST NOT do layout calculations on the UI thread unnecessarily.
-- Avoid creating/destroying widgets in tight loops  -  reuse or use virtual scrolling.
-- Heavy image operations MUST be done off-thread, result posted to UI thread.
+- MUST NOT do layout calculations synchronously no caminho quente do render sem necessidade.
+- Avoid creating/destroying render objects em laço apertado  -  reuse (object pool) em vez de alocar/liberar por frame.
+- Heavy asset decode (imagem, fonte, áudio) MUST be feasible fora do caminho quente do render.
 
 ---
 
-## 10. Git Process for AI Coders
+## 9. Git Process for AI Coders
 
-### 10.1 Before Writing Any Code
+### 9.1 Before Writing Any Code
 
 ```bash
 # MUST: read current state of files to be modified
@@ -614,7 +540,7 @@ const QString apiKey = gerenciadorChaves.recuperar("limitless_api_key");
 cmake --build build -j$(nproc) 2>&1 | grep -E "error:|warning:"
 ```
 
-### 10.2 Conventional Commits (MANDATORY)
+### 9.2 Conventional Commits (MANDATORY)
 
 Format: `<type>(<scope>): <description>`
 
@@ -633,7 +559,7 @@ Format: `<type>(<scope>): <description>`
 ```bash
 # CORRECT examples
 git commit -m "feat(filtros): add real-time chip filter applied to loaded grid"
-git commit -m "fix(tema): type icon not rendering in QLabel RichText via data URI"
+git commit -m "fix(render): corrige clipping de glifo na rasterização da fonte em casa"
 git commit -m "docs: add TESTES.md with complete audit and quality guide"
 git commit -m "chore: convert type images webp→png, remove webp files"
 
@@ -643,7 +569,7 @@ git commit -m "WIP"
 git commit -m "changes"
 ```
 
-### 10.3 Branch Naming
+### 9.3 Branch Naming
 
 ```
 feat/nome-da-feature
@@ -654,7 +580,7 @@ chore/ferramenta-ou-dep
 test/modulo-testado
 ```
 
-### 10.4 Commit Checklist (MUST complete before every commit)
+### 9.4 Commit Checklist (MUST complete before every commit)
 
 ```
 [ ] Build passes with zero errors
@@ -666,16 +592,16 @@ test/modulo-testado
 [ ] No unrelated changes mixed in (separate commits for separate concerns)
 ```
 
-### 10.5 What the AI MUST NEVER Do in Git
+### 9.5 What the AI MUST NEVER Do in Git
 
 - MUST NOT force-push to `main` or `master`.
 - MUST NOT commit files containing secrets (`.env`, credentials, private keys).
 - MUST NOT amend published commits (use a new commit instead).
 - MUST NOT use `--no-verify` to skip hooks unless explicitly instructed.
 - MUST NOT batch unrelated changes into one commit.
-- MUST NOT commit generated files (build artifacts, `moc_*.cpp`, `qrc_*.cpp`).
+- MUST NOT commit generated files (build artifacts, objeto compilado, binding gerado por `wayland-scanner`, saída de `build/`).
 
-### 10.6 Pull Request Description Template
+### 9.6 Pull Request Description Template
 
 ```markdown
 ## What
@@ -698,7 +624,7 @@ test/modulo-testado
 
 ---
 
-## 11. Testing & Audit Mandate
+## 10. Testing & Audit Mandate
 
 > Full procedures, commands, and tools: **[TESTES.md](TESTES.md)**
 
@@ -708,11 +634,12 @@ test/modulo-testado
 |-------|---------------|
 | Every commit | Build passes, zero warnings |
 | Feature complete | T1 (unit), T2 (static analysis), T4 (ASan/UBSan) |
-| Before any release/deploy | T1-T12 full suite + A1-A10 full audit |
-| New dependency added | T5 (dependency scan) + T12 (CVE check) |
-| Auth/crypto code changed | T8 (secrets), T10 (SQL injection), A5 (dynamic analysis) |
+| Before any release/deploy | suíte vigente de `TESTES.md` (T1, T2, T4, T8, T14, T15) + A1-A10 full audit |
+| Auth/crypto code changed | T8 (secrets), A5 (dynamic analysis) |
 | UI changed | A3 (UX/accessibility) |
 | Architecture changed | A2 (layer audit), A7 (coupling), A9 (SOLID) |
+
+> Nota: "New dependency added" foi removida desta tabela  -  a lei de dependência zero (`GODS_LAWS.md` L-07) torna o evento inaplicável.
 
 ### Minimum Quality Gates (MUST pass before release)
 
@@ -721,7 +648,6 @@ test/modulo-testado
 [ ] T2  Static analysis: 0 security/bugprone errors
 [ ] T4  ASan: 0 ERROR SUMMARY
 [ ] T8  Secrets scan: 0 detected
-[ ] T12 CVE scan: 0 CRITICAL unpatched
 [ ] A2  Architecture: 0 layer violations
 [ ] A10 Audit report generated and reviewed
 ```
@@ -762,11 +688,11 @@ Após uma release ser efetivamente lançada (tag publicada + artefatos anexados 
 
 ---
 
-## 12. Language-Specific Rules
+## 11. Language-Specific Rules
 
-### 12.1 C++ / Qt *(Mandatory)*
+### 11.1 C++23, sem Qt e sem dependência de terceiro *(Mandatory)*
 
-**Version:** C++20 minimum. Qt 6.x.
+**Version:** C++23. Nenhum framework de terceiro (nem Qt, nem qualquer outro)  -  `GODS_LAWS.md` L-03 e L-07.
 
 **Memory:**
 ```cpp
@@ -774,32 +700,29 @@ Após uma release ser efetivamente lançada (tag publicada + artefatos anexados 
 auto obj = std::make_unique<MeuObjeto>();
 auto shared = std::make_shared<Servico>(dep);
 
-// MUST use QPointer for optional Qt object observation
-QPointer<QLabel> lbl_seguro = new QLabel(parent);
-if (lbl_seguro) lbl_seguro->setText("ok");  // safe even if deleted
+// Observação opcional e não-proprietária de um objeto: std::weak_ptr
+// (não existe equivalente a QPointer aqui; owner declara posse via shared_ptr)
+std::weak_ptr<Servico> ref_fraca = shared;
+if (auto s = ref_fraca.lock()) s->fazer_algo();  // safe even if deleted
 
 // MUST NOT
 MeuObjeto* raw = new MeuObjeto();  // who owns this?
 delete raw;                         // manual delete = leak risk
 ```
 
-**Qt Specifics:**
-- MUST use Qt parent-child ownership for widgets (parent deletes children).
-- MUST use signals/slots for cross-layer communication (Observer pattern built-in).
-- MUST NOT call network, file I/O, or database from the UI thread.
-- MUST use `QThread` + `moveToThread()` or `QtConcurrent` for background work.
-- MUST use `Qt::QueuedConnection` when emitting across threads.
-- MUST use `QSqlQuery` with `bindValue()`  -  NEVER string concatenation for SQL.
-- MUST check `QNetworkReply::error()` before reading response data.
-- MUST handle all `QFile::open()` failures.
-- Theme/style: MUST use QSS via central theme system, NEVER `setStyleSheet()` in individual widgets with hardcoded colors.
+**Regras próprias do GlintFx** (substituem as "Qt Specifics" do template genérico, que não se aplicam  -  não há Qt neste projeto):
+- MUST NOT chamar API de plataforma (Wayland, GL, áudio, gamepad, arquivo) fora da camada de SO (§5, `GODS_LAWS.md` L-19).
+- MUST rotear toda chamada de plataforma por uma porta `concept` resolvida em compile-time, sem despacho virtual no caminho quente (§5, L-19).
+- MUST NOT deixar exceção cruzar a API pública; erro na fronteira é `std::expected` ou código de erro (§13, L-22).
+- MUST verificar explicitamente toda chamada de sistema que pode falhar (criação de janela, contexto GL, abertura de arquivo, dispositivo de áudio)  -  nunca ignorar em silêncio (§6.4, princípio Fail Fast §12.3).
+- Comunicação entre módulos: callback (`std::function`) ou signal/slot leve implementado em casa (§4.4)  -  nunca dependência de terceiro para isso.
 
-**Modern C++20 MUST-use features:**
+**Modern C++23 MUST-use features:**
 ```cpp
-std::optional<Item>     // instead of nullptr checks
-std::variant<Ok, Erro>   // instead of error codes
-[[nodiscard]]            // on functions whose return value must be checked
-const auto&              // prefer const references
+std::optional<Item>            // instead of nullptr checks
+std::expected<Item, Error>     // erro esperado na fronteira pública (GODS_LAWS.md L-22)
+[[nodiscard]]                  // on functions whose return value must be checked
+const auto&                    // prefer const references
 if (auto val = buscar(); val.has_value())  // init-statement in if
 ```
 
@@ -807,18 +730,18 @@ if (auto val = buscar(); val.has_value())  // init-statement in if
 ```cpp
 NULL           // use nullptr
 (Type*)ptr     // use static_cast<Type*>(ptr)
-printf/scanf   // use qDebug() / QTextStream
+printf/scanf   // use std::print (C++23) / std::cerr
 gets()         // buffer overflow risk
-strcpy/strcat  // use QString or std::string
+strcpy/strcat  // use std::string / std::string_view
 ```
 
 ---
 
-## 14. Universal Engineering Principles
+## 12. Universal Engineering Principles
 
 > Complement to SOLID and DRY. Apply across all languages and stacks to produce robust, professional, and high-performance code.
 
-### 14.1 KISS  -  Keep It Simple, Stupid
+### 12.1 KISS  -  Keep It Simple, Stupid
 
 The simplest solution that correctly solves the problem is the right solution. Complexity is debt.
 
@@ -827,7 +750,7 @@ The simplest solution that correctly solves the problem is the right solution. C
 - MUST NOT use a design pattern just because it fits  -  only when it removes real pain.
 - When two solutions work, MUST choose the one a new team member understands in 30 seconds.
 
-### 14.2 YAGNI  -  You Aren't Gonna Need It
+### 12.2 YAGNI  -  You Aren't Gonna Need It
 
 Build what is required **now**. Future requirements arrive with their own context.
 
@@ -836,7 +759,7 @@ Build what is required **now**. Future requirements arrive with their own contex
 - MUST NOT add configuration options that no current caller uses.
 - MUST NOT generalize a function until the third real use case exists (see DRY § 6.7).
 
-### 14.3 Fail Fast
+### 12.3 Fail Fast
 
 Detect violations of preconditions as early as possible  -  at the system boundary, not buried in domain logic.
 
@@ -847,7 +770,7 @@ Detect violations of preconditions as early as possible  -  at the system bounda
 - MUST include the violated condition and the actual value in the error message.
 - MUST NOT use default values to mask missing required input.
 
-### 14.4 Law of Demeter  -  Principle of Least Knowledge
+### 12.4 Law of Demeter  -  Principle of Least Knowledge
 
 A unit MUST only talk to its immediate collaborators. No reaching through the object graph.
 
@@ -858,7 +781,7 @@ A unit MUST only talk to its immediate collaborators. No reaching through the ob
 - MUST NOT reach through an object to access its internals  -  ask the object to act.
 - SHOULD expose behavior, not structure (Tell, Don't Ask).
 
-### 14.5 CQS  -  Command-Query Separation
+### 12.5 CQS  -  Command-Query Separation
 
 A function either **changes state** (command) or **returns data** (query). Never both.
 
@@ -868,7 +791,7 @@ A function either **changes state** (command) or **returns data** (query). Never
 - MUST NOT have a function that returns meaningful data AND produces a side effect.
 - Exception: language-idiomatic patterns like `pop()` (stack), `next()` (iterator) are accepted.
 
-### 14.6 Composition over Inheritance
+### 12.6 Composition over Inheritance
 
 Prefer assembling behavior from small collaborators over deep class hierarchies.
 
@@ -877,7 +800,7 @@ Prefer assembling behavior from small collaborators over deep class hierarchies.
 - MUST NOT use inheritance to share implementation  -  use composition or free functions.
 - SHOULD use interfaces/traits/protocols to define behavior contracts.
 
-### 14.7 Immutability by Default
+### 12.7 Immutability by Default
 
 Treat data as immutable unless there is a concrete reason to mutate it.
 
@@ -887,7 +810,7 @@ Treat data as immutable unless there is a concrete reason to mutate it.
 - SHOULD return new values instead of modifying existing ones in domain logic.
 - Shared mutable state MUST be protected by a synchronization primitive (mutex, atomic, lock).
 
-### 14.8 Explicit over Implicit
+### 12.8 Explicit over Implicit
 
 Behavior MUST be visible at the call site. Magic and hidden side effects are failure modes.
 
@@ -897,7 +820,7 @@ Behavior MUST be visible at the call site. Magic and hidden side effects are fai
 - Configuration that affects runtime behavior MUST be explicit, not inferred from environment magic.
 - MUST NOT use hidden default arguments that change behavior without callers knowing.
 
-### 14.9 High Cohesion, Low Coupling
+### 12.9 High Cohesion, Low Coupling
 
 - **Cohesion:** everything inside a module belongs together  -  one clear purpose.
 - **Coupling:** modules depend on each other as little as possible, and only through stable interfaces.
@@ -908,7 +831,7 @@ Behavior MUST be visible at the call site. Magic and hidden side effects are fai
 - A module MUST be testable in isolation without instantiating the full system.
 - Circular dependencies between modules MUST NOT exist.
 
-### 14.10 Idempotency
+### 12.10 Idempotency
 
 An operation that can be retried N times MUST produce the same result as running it once.
 
@@ -918,18 +841,18 @@ An operation that can be retried N times MUST produce the same result as running
 - SHOULD use idempotency keys for operations that cannot be made naturally idempotent.
 - MUST test the "call twice" scenario for all mutation endpoints.
 
-### 14.11 Tell, Don't Ask
+### 12.11 Tell, Don't Ask
 
 Don't query an object's state to make a decision externally  -  tell the object to act and let it decide internally.
 
-> Distinct from Law of Demeter (§ 14.4): LoD governs *how far* you reach into the object graph; TDA governs *where decisions live*. Both can be violated independently.
+> Distinct from Law of Demeter (§ 12.4): LoD governs *how far* you reach into the object graph; TDA governs *where decisions live*. Both can be violated independently.
 
 **Rules:**
 - MUST NOT extract state from an object, compute a decision outside, then push the result back in.
 - MUST place the decision inside the object that owns the relevant data.
 - SHOULD expose behavior-revealing methods (`aprovar()`, `descontar()`) over state-revealing getters (`getStatus()`, `getValor()`).
 
-### 14.12 POLA  -  Principle of Least Astonishment
+### 12.12 POLA  -  Principle of Least Astonishment
 
 A function, method, or API MUST behave exactly as its name and signature lead the caller to expect. Surprising behavior is a bug, even when documented.
 
@@ -942,28 +865,34 @@ A function, method, or API MUST behave exactly as its name and signature lead th
 
 ---
 
-## 15. API Design  -  REST
+## 13. API Design  -  Contratos de API, ABI e Dado
 
-- Nouns for URLs, Plural.
-- Verbs for HTTP methods (GET, POST, PUT, PATCH, DELETE).
-- Proper Status Codes (201, 204, 404, 422, 500).
-- ISO 8601 for dates.
+> GlintFx não expõe REST nem HTTP  -  o template genérico não se aplica. Esta seção é o resumo operacional de [`GODS_LAWS.md` L-22](GODS_LAWS.md#l-22) e [L-26](GODS_LAWS.md#l-26), que são a fonte de verdade em qualquer conflito.
 
----
+### 13.1 Nenhuma exceção cruza a fronteira pública
 
-## 16. Logging & Observability
+- MUST NOT deixar exceção atravessar a API pública. O motivo é ABI, não estilo: a lib é compartilhada por padrão (§5, L-19), e exceção que atravessa `.so`/`.dll` exige RTTI compatível entre lib e consumidor.
+- MUST usar `std::expected` (ou código de erro) na fronteira pública para erro esperado.
+- Internamente exceção é permitida.
+- Continua valendo do §6.4: erro nunca é engolido em silêncio, sempre propagado ao chamador; exceção não é fluxo de controle.
 
-- Structured JSON logging.
-- NO PII in logs.
-- `/health` endpoint mandatory.
+### 13.2 Três contratos, não dois
 
----
+Toda mudança na superfície pública quebra um destes três contratos, e cada um tem um dono diferente:
 
-## 17. LGPD Compliance Baseline
+| Contrato | Quebra quando | Quem perde |
+|---|---|---|
+| **API** | código de consumidor que compilava deixa de compilar | o build do consumidor |
+| **ABI** | binário compilado contra a versão anterior deixa de funcionar | o consumidor que só troca a `.so`/`.dll` |
+| **DADO** | arquivo gravado pela lib deixa de ser lido corretamente | o usuário final de um consumidor  -  e "recompilar" não conserta |
 
-- Data Minimization.
-- Support Right to Erasure.
-- NO PII in stack traces or logs.
+- Mudança de API ou de ABI sobe o componente `A` da versão (`vA.B.C.D`, L-26).
+- Mudança de formato de arquivo que quebra leitura antiga também sobe `A`; o leitor novo continua lendo os formatos antigos.
+- Ao revisar mudança em qualquer um dos três, a pergunta certa não é "quem recompila", é **"quem perde o arquivo"**.
+
+### 13.3 Nomenclatura da API pública
+
+Ver §6.1 para o resto de clean code; a nomenclatura de código deste projeto segue [`GODS_LAWS.md` L-21](GODS_LAWS.md#l-21), que **substitui** §6.1 para nomes de código: inglês, `snake_case`, sem prefixo `m_`. Exemplo: `runtime_version`, `frame_buffer`, `is_valid`. Mensagem de commit continua em pt-br (§9.2).
 
 ---
 *This contract is the authoritative reference for all code written in this project.*

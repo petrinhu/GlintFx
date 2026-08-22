@@ -41,7 +41,7 @@
 
 **Ferramenta:** harness de teste próprio (`tests/harness/`, macro `GLINTFX_TEST`), executado via `ctest`  -  `GODS_LAWS.md` L-07 (dependência zero) exclui Catch2, GoogleTest e QtTest.
 
-**Critério de aprovação:** 0 falhas. Cobertura mínima de 70% nos módulos críticos.
+**Critério de aprovação:** 0 falhas. Sem meta numérica de cobertura (`GODS_LAWS.md` L-24, que descarta pelo nome o piso de 70% deste T1: com TDD estrito, L-20, todo código de comportamento nasce de um teste que falhou antes de existir, então cobertura é consequência do processo, não alvo perseguido à parte).
 
 ---
 
@@ -51,6 +51,8 @@
 
 **Ferramentas:** `cppcheck` + `clang-tidy`.
 
+> **Estado real (22/08/2026):** nenhuma das duas roda no CI ainda. Medido no `.github/workflows/ci.yml` pela sessão que escreveu `AUDITORIAS.md`; nenhuma das duas strings aparece lá. Entra pelo item `FUND-4` do `TODO.md` (`preci.sh` espelho do CI + job de sanitizer), hoje ⏳ Pendente.
+
 ---
 
 ## T4  -  Análise Dinâmica de Memória
@@ -59,6 +61,8 @@
 
 **Ferramentas:** AddressSanitizer (ASan) + UndefinedBehaviorSanitizer (UBSan).
 
+> **Estado real (22/08/2026):** o job de sanitizer ainda não existe no `.github/workflows/ci.yml`. Mesma medição e mesma dependência do T2: item `FUND-4` do `TODO.md`, hoje ⏳ Pendente.
+
 ---
 
 ## T8  -  Verificação de Secrets
@@ -66,6 +70,8 @@
 **Objetivo:** garantir que nenhuma credencial, token ou chave privada foi commitada no repositório.
 
 **Ferramentas:** `gitleaks` + `trufflehog`.
+
+> **Estado real (22/08/2026):** nenhuma das duas roda no CI ainda (mesma medição do T2/T4 contra `.github/workflows/ci.yml`). `GODS_LAWS.md` L-23 já adota `gitleaks` como portão do CI; falta implementar. Depende do item `FUND-4` do `TODO.md`, hoje ⏳ Pendente. Lembrete da própria L-23: `gitleaks` não pega nome de projeto e, por padrão, olha a árvore e não o histórico. Para dado sensível em repo público a verificação é `git log --all -p | grep -ci <termo>`, nunca `git grep`.
 
 ---
 

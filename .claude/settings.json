@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/petrus/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/check-inbox-hook.sh glintfx"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/petrus/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/check-inbox-hook.sh glintfx"
+          }
+        ]
+      }
+    ]
+  }
+}

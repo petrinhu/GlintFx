@@ -61,3 +61,8 @@ vgcore.*
 # Scratch local (nunca versionar)
 scratch/
 tmp/
+
+# Claude Code: versiona so o settings.json compartilhado (hook do bus).
+# O settings.local.json e o lock de tarefa sao estado de maquina.
+.claude/*
+!.claude/settings.json

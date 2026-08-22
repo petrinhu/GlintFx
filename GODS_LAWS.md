@@ -616,4 +616,31 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 
 **Ordem única aceita para pular um passo: a do líder, naquele pedido.** Agente nenhum encurta o ciclo por julgamento próprio, nem por pressa, nem por tamanho da fatia.
 
+### Modo autônomo: o `fable` senta na cadeira do líder, e o main vira escrivão
+
+**Data:** 22/08/2026, ordem do líder. **Verbatim:** *"se eu pedir modo autonomo, clevel fable assume meu papel nas decisoes e main fica registrando as decisoes para eu avaliar quando sair de modo autonomo"*.
+
+**Quando ele pedir modo autônomo, o passo 1 muda de ocupante, e só ele:** o brainstorm passa a ser **main + C-level `fable`**, e **é o `fable` quem decide** o que teria ido ao líder por `AskUserQuestion` (L-10). Os passos 2, 3 e 4 continuam **idênticos** — inclusive a exigência de que quem planeja não implementa, e de que o main verifique antes de despachar e antes de aceitar.
+
+**O main vira escrivão, e essa é a contrapartida do poder que o `fable` recebe.** Toda decisão tomada no lugar do líder é registrada **no instante em que é tomada**, em `DECISOES_AUTONOMAS.md` na raiz, com:
+
+- **data e hora reais** (L-13), a **fatia ou onda** em que caiu, e **quem decidiu**;
+- **a pergunta que teria ido a ele**, escrita como teria sido feita;
+- **as opções que estavam na mesa** e a escolhida, com o porquê em uma ou duas linhas;
+- **se é porta de mão única** (L-19, L-26), marcado como tal;
+- **o que muda se ele reverter** — barato, caro, ou irreversível.
+
+**Registro é ao vivo, nunca reconstruído no fim.** Sessão morre, contexto estoura, agente cai — e o que não estiver em disco não existiu. Log escrito de memória ao sair do modo é log inventado.
+
+**Ao sair do modo autônomo, o main apresenta o registro inteiro ao líder**, decisão por decisão, para ele ratificar ou reverter. **Enquanto esse registro não for apresentado, a saída do modo não está completa** — não é relatório opcional, é entregável.
+
+**O que o `fable` NÃO herda, e a lista é fechada:**
+
+- **Lei.** *"Agente nenhum revoga, flexibiliza ou reinterpreta lei. Só o líder."* O modo autônomo dá a cadeira das **decisões de produto**, não a caneta das leis. `GODS_LAWS.md` só muda por ordem dele.
+- **Os portões de qualidade.** Implementador ≠ revisor ≠ orquestrador; revisão adversarial que **executa**; CI vermelho **bloqueia**. Autonomia é sobre **quem decide**, nunca sobre **quanto se verifica**.
+- **A obrigação de contra-argumentar.** O `fable` na cadeira do líder continua devendo ao projeto o "problema, risco, alternativa" quando algo estiver errado — inclusive contra si mesmo.
+- **Ação irreversível de fora do repositório** que a lei já cerca: merge em `main` por PR e criação de tag seguem pedindo aval, na forma que a **L-11** fixa.
+
+**O sinal do modo é o mecanismo de flag que já existe nesta máquina** (`autonomo_mode.py`, com escopos), ou a ordem direta dele na conversa. **Na dúvida se o modo está ligado, ele está desligado** — presumir autonomia é o erro caro, e presumir que não há é o barato.
+
 **Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.

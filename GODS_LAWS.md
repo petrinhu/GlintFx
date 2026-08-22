@@ -548,6 +548,18 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 
 **O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF.
 
+### Quem ocupa o slot único: RCSS, decidido pelo líder em 22/08/2026
+
+**Decisão dele, verbatim:** *"rcss primeiro"*.
+
+**A trilha paralela em andamento é o RCSS. A trilha de mapa espera a vez**, mesmo com as suas 14 fatias já desenhadas, pontuadas e com as seis decisões de formato fechadas.
+
+**Contra o número, e ele sabia disso ao decidir.** O CPO recomendava o mapa (agregado 9,4 contra 8,4) e o CTO o endossava. A escolha do líder é dele e não precisa de justificativa, mas o registro honesto é que a recomendação dos dois C-levels apontava para o outro lado — **e que o próprio CPO declarou a margem de 1,0 dentro do erro dos julgamentos dele**, recusando desempatar pelo decimal. Ou seja: o número nunca sustentou a recomendação com folga, e o líder decidiu num espaço que o dado deixava genuinamente aberto.
+
+**Consequência que fica registrada porque é a que morde:** dois consumidores (`gusworld` e `mapeditor`) estão esperando o formato de mapa, e o `mapeditor` **não tem o que editar sem ele** — o projeto dele é editor deste formato. A ordem empurra o formato para depois de toda a trilha de RCSS. Isso foi comunicado aos dois pelo bus, sem prometer data, como manda a L-33.
+
+**O que NÃO muda:** as seis decisões de formato de 22/08/2026 continuam fechadas, e o desenho das 14 fatias continua válido. O que se adia é a **implementação**, não o contrato — e adiar implementação de um contrato já fechado é barato, ao contrário do inverso.
+
 ## L-33
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"sempre que tocar em mapa, avise o que fez a @MapEditor e se ele estiver inalcancavel, mande via bus"*.

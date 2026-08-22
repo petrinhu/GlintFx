@@ -14,32 +14,24 @@
 
 ## Índice
 
-1. [Pré-requisitos e Instalação](#1-pré-requisitos-e-instalação)
-2. [T1  -  Testes Unitários](#t1--testes-unitários)
-3. [T2  -  Análise Estática](#t2--análise-estática)
-4. [T3  -  Fuzzing de Inputs](#t3--fuzzing-de-inputs)
-5. [T4  -  Análise Dinâmica de Memória](#t4--análise-dinâmica-de-memória)
-6. [T6  -  Teste de APIs](#t6--teste-de-apis)
-7. [T7  -  Scanning de Binário](#t7--scanning-de-binário)
-8. [T8  -  Verificação de Secrets](#t8--verificação-de-secrets)
-9. [T9  -  Teste de Rede](#t9--teste-de-rede)
-10. [T11  -  Fuzzing de Protocolos de Rede](#t11--fuzzing-de-protocolos-de-rede)
-11. [T14  -  Integração (Sandbox)](#t14--integração-sandbox)
-12. [T15  -  Pré-CI · Espelhar CI Localmente](#t15--pré-ci--espelhar-ci-localmente)
-13. [A1  -  Descoberta e Modelagem](#a1--descoberta-e-modelagem)
-14. [A2  -  Auditoria de Arquitetura e Camadas](#a2--auditoria-de-arquitetura-e-camadas)
-15. [A3  -  UI/UX e Acessibilidade](#a3--uiux-e-acessibilidade)
-16. [A4  -  QA Geral C++](#a4--qa-geral-c)
-17. [A5  -  Análise Estática e Dinâmica C/C++](#a5--análise-estática-e-dinâmica-cc)
-18. [A6  -  Cobertura de Testes](#a6--cobertura-de-testes)
-19. [A7  -  Dependências e Acoplamento](#a7--dependências-e-acoplamento)
-20. [A8  -  Consistência .h vs .cpp](#a8--consistência-h-vs-cpp)
-21. [A9  -  Análise Arquitetural Geral](#a9--análise-arquitetural-geral)
-22. [A10  -  Relatório Final de Auditoria](#a10--relatório-final-de-auditoria)
-23. [Classificação de Problemas](#classificação-de-problemas)
-24. [Formato de Patch](#formato-de-patch)
+1. [T1  -  Testes Unitários](#t1-----testes-unitários)
+2. [T2  -  Análise Estática](#t2-----análise-estática)
+3. [T4  -  Análise Dinâmica de Memória](#t4-----análise-dinâmica-de-memória)
+4. [T8  -  Verificação de Secrets](#t8-----verificação-de-secrets)
+5. [T14  -  Integração (Sandbox)](#t14-----integração-sandbox)
+6. [T15  -  Pré-CI · Espelhar CI Localmente](#t15-----pré-ci--espelhar-ci-localmente)
+7. [A2  -  Auditoria de Arquitetura e Camadas](#a2-----auditoria-de-arquitetura-e-camadas)
+8. [A10  -  Relatório Final de Auditoria](#a10-----relatório-final-de-auditoria)
 
-> **Podado em 22/08/2026:** T5 (Scanning de Dependências) e T12 (Busca de CVEs) saíram por inaplicáveis  -  dependência zero (`GODS_LAWS.md` L-07) não deixa CVE de terceiro para caçar. T10 (SQL Injection) saiu por não haver banco/SQL neste projeto. As três referências foram removidas também de onde eram citadas em `CONTRACT.md`. T14 e T15 tinham corpo mas nunca entraram neste índice; foram adicionados agora porque L-23 (`GODS_LAWS.md`) torna T15 (`preci.sh`) normativo para todo commit. **Gap pré-existente, fora do escopo desta poda:** o item 1 ("Pré-requisitos e Instalação") e T3, T6, T7, T9, T11, A1, A4-A9 estão indexados aqui sem corpo no documento (nunca tiveram seção escrita), e T13/A11-A13 são citados na introdução acima sem existir em lugar nenhum. Nenhum desses é específico de Qt/SQL/PHP/web; ficam registrados para quem for tratar a integridade do índice como um todo.
+> **Índice corrigido em 22/08/2026 (achado da revisão contra a árvore).** Este índice tinha 24 entradas e as 24 estavam mortas: 9 seções tinham corpo (T1, T2, T4, T8, T10, T12, T14, T15, A2, A3, A10, sendo T10/T12 já removidas pela poda anterior) e 15 apontavam para nada; e das 9 com corpo, o próprio link estava errado por descasamento de slug (`## T1  -  Testes Unitários`, com espaço duplo dos dois lados do hífen, gera `t1-----testes-unitários` - cinco hífens, um por espaço mais o próprio hífen - e o índice escrevia só dois). Verificado gerando o slug real de cada cabeçalho com a biblioteca `github-slugger` (a mesma usada pelo ecossistema de ferramentas que replicam o GitHub) e comparando contra cada link do índice; zero mortas depois desta correção.
+>
+> **Removidas por não terem corpo, sem virar seção nova** (regra: âncora sem conteúdo sai do índice; conteúdo não se escreve de cabeça): item "Pré-requisitos e Instalação", T5 e T12 (dependência zero, `GODS_LAWS.md` L-07), T10 (sem SQL/banco no projeto), T6 (Teste de APIs, título herdado do template REST/HTTP já podado), T7 (Scanning de Binário, sem escopo definido aqui), T9 e T11 (Teste de Rede / Fuzzing de Protocolos de Rede, GlintFx não tem rede própria), "Classificação de Problemas" e "Formato de Patch" (sem corpo; a classificação de achado deste projeto já é normativa em `AUDITORIAS.md`, CRÍTICO/IMPORTANTE/COSMÉTICO). A1 e A4-A9 saem pelo mesmo motivo (sem corpo) e por precedente já registrado em L-24 (`GODS_LAWS.md`): a lei só torna A2 e A10 normativos a partir deste manual, o resto do dossiê de auditoria mora em `AUDITORIAS.md`.
+>
+> **Registrado sem virar seção, por pedido explícito (procedimento real que falta, não gap silencioso):** T3, Fuzzing de Inputs, nunca teve corpo neste manual, mas este projeto tem quatro parsers próprios que leem entrada não confiável e são candidato natural a fuzzing - XKB (`GODS_LAWS.md` L-06), RCSS (L-28), formato de mapa (L-30) e o decode de PNG que ainda vai nascer (L-07). O procedimento **ainda não foi escrito**; não inventei um aqui.
+>
+> **`A3  -  UI/UX e Acessibilidade` removida por incoerência com `CONTRACT.md`, achado da revisão.** `CONTRACT.md` já removeu a seção equivalente ("UI/UX Guidelines") por decisão registrada em `GODS_LAWS.md` L-24: "é manual de aplicação com formulário, não de biblioteca". A `A3` testava exatamente o mesmo domínio (contraste, navegação por teclado, "boas práticas" de UI/UX de aplicação) - o mesmo julgamento se aplica: GlintFx não tem tela de formulário nem paleta de cor própria para auditar; quem constrói UI com RCSS por cima da lib é o consumidor, e a paleta/contraste dele é dele, não da biblioteca (`GODS_LAWS.md` LEI ZERO, L-02). Isto estende um julgamento já feito pelo líder ao gêmeo deste manual; não é decisão nova. Se o líder discordar, é reversível: basta reintroduzir a seção em ambos os manuais.
+>
+> **T13 e A11-A13**, citados na introdução deste documento, continuam sem existir em lugar nenhum - gap pré-existente da introdução (linha 8), não específico de Qt/SQL/PHP/web, fora do escopo desta correção.
 
 ---
 
@@ -290,12 +282,6 @@ Container-level só é 100 % idêntico se a imagem do CI for pública e fixada p
 **Objetivo:** validar que nenhuma camada viola as regras de dependência da arquitetura.
 
 **Critério de aprovação:** zero violações críticas (import de API de plataforma  -  Wayland, GL, áudio, gamepad, arquivo  -  dentro do núcleo puro; `virtual` em tipo público fora do adaptador de porta; `#ifdef` de plataforma dentro do corpo de função. Ver `CONTRACT.md` §5 e `GODS_LAWS.md` L-19).
-
----
-
-## A3  -  UI/UX e Acessibilidade
-
-**Objetivo:** verificar qualidade visual, contraste, navegação por teclado e conformidade com boas práticas.
 
 ---
 

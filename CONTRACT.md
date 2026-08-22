@@ -15,7 +15,7 @@
 1. [How to Use This Document](#1-how-to-use-this-document)
 2. [OOP Fundamentals](#2-oop-fundamentals)
 3. [SOLID Principles](#3-solid-principles)
-4. [Design Patterns  -  Complete Reference](#4-design-patterns--complete-reference)
+4. [Design Patterns  -  Complete Reference](#4-design-patterns-----complete-reference)
 5. [Arquitetura de Camadas](#5-arquitetura-de-camadas)
 6. [Clean Code Rules](#6-clean-code-rules)
 7. [Security](#7-security)
@@ -24,7 +24,7 @@
 10. [Testing & Audit Mandate](#10-testing--audit-mandate)
 11. [Language-Specific Rules](#11-language-specific-rules)
 12. [Universal Engineering Principles](#12-universal-engineering-principles)
-13. [API Design  -  Contratos de API, ABI e Dado](#13-api-design--contratos-de-api-abi-e-dado)
+13. [API Design  -  Contratos de API, ABI e Dado](#13-api-design-----contratos-de-api-abi-e-dado)
 
 > **Podado em 22/08/2026:** as seções "UI/UX Guidelines" (WCAG, formulário), "Framework-Specific Rules" (nunca teve corpo, âncora morta pré-existente), "API Design - REST", "Logging & Observability" (JSON logging, endpoint `/health`) e "LGPD Compliance Baseline" descreviam outro projeto (aplicação web/desktop com formulário, servidor e dado pessoal) e foram removidas sem equivalente: GlintFx não tem UI de formulário, servidor, endpoint de health nem processa dado pessoal. "Architecture Layers" e "API Design - REST" viraram §5 e §13, reescritas para a arquitetura real deste projeto (`GODS_LAWS.md` L-19, L-22, L-26).
 

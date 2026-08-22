@@ -62,15 +62,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Biblioteca/framework **2D completo e reutilizável** em C++23. O consumidor (outro projeto) obtém janela, loop principal, render 2D, input, gamepad, áudio, fonte, carregamento de asset e math2d, e escreve apenas a lógica dele. O entregável é a **API pública + headers + pacote CMake**, não um binário final.
 
-## Estado atual do repositório (21/08/2026)
+## Estado atual do repositório (22/08/2026)
 
-**Projeto do zero.** O que existe hoje na raiz:
+**Projeto em andamento desde a fundação de 21/08/2026 - já não é "do zero".** Esta seção foi reescrita porque a versão anterior (datada de 21/08/2026) afirmava "zero commits, sem remoto, nenhum código, nenhum CMake, nenhum teste" - falso desde o primeiro dia do projeto, e cada vez mais desatualizado depois. Todo número abaixo foi medido nesta data, com o comando indicado; nada veio de memória.
 
-- 9 arquivos `.md`: os manuais canônicos do vault (ver "Autoridade documental" abaixo).
-- Repositório git inicializado, **zero commits**, **sem remoto**.
-- **Nenhum código, nenhum CMake, nenhum teste.**
+**Git e remoto:**
 
-Logo: não existe comando de build, lint ou teste para documentar aqui ainda. A seção "Comandos" abaixo é preenchida no mesmo commit em que o `CMakeLists.txt` nascer. Não invente comandos; se você precisa de um e ele não está listado, ele não existe.
+- `git rev-list --count HEAD`: **56 commits** no branch local `main`.
+- `git ls-remote origin main`: o remoto `git@github.com:petrinhu/GlintFx.git` está em `6d3b506...` - **52 commits** (`git rev-list --count origin/main`). Os outros **4 são locais, ainda não empurrados** (L-11: push só ao fechar onda completa, com aval do líder). `git log origin/main..HEAD --oneline` lista exatamente esses 4.
+- Último push, `git@github.com:petrinhu/GlintFx.git` @ `6d3b506` ("docs(testes): remove meta de cobertura instruida no T1..."), teve CI **verde nos 6 jobs** (`gh run view <id> --json jobs`): `Fedora 44 (primario)`, `Ubuntu`, `CachyOS`, `Arch`, `Windows`, `Gate das leis`. Os 4 commits locais ainda não passaram pelo CI, por não terem sido empurrados.
+
+**Árvore real** (contada por `find`, não estimada):
+
+- **12 arquivos `.md` na raiz**: os 9 manuais canônicos do vault listados em "Autoridade documental" abaixo, mais este `CLAUDE.md`, `GODS_LAWS.md` e `TODO.md`.
+- `LICENSE` (AGPL-3.0), `.gitignore`, `.github/workflows/ci.yml` (a matriz de 6 jobs acima), `.bigtech-porte` (`porte=bigtech`).
+- `CMakeLists.txt` na raiz + `cmake/`: **7 arquivos** (`GlintfxOptions.cmake`, `GlintfxCompileOptions.cmake`, `GlintfxLibrary.cmake`, `GlintfxInstall.cmake`, `GlintfxTest.cmake`, `glintfx-config.cmake.in`, `version_macros.hpp.in`).
+- `include/`: **1 header público**, `include/glintfx/core/version.hpp` (versão em runtime da lib; nenhuma exceção cruza a API pública, L-22).
+- `src/`: `CMakeLists.txt` + **1 camada** (`core/`, com `version.cpp`) - o próprio comentário do CMake da camada diz "hoje só core/ existe" (L-19: cada camada é uma unidade CMake visível, a próxima camada que toca o SO nasce como entrada nova nesta lista, nunca misturada ao core).
+- `tests/`: harness de teste **próprio** em `tests/harness/` (`check.hpp`/`check.cpp`, macro `GLINTFX_CHECK`; `test_registry.hpp`/`.cpp`, macro `GLINTFX_TEST`) - existe porque a **L-07 proíbe Catch2 e GoogleTest** (dependência externa). Casos de teste C++ (`version_test`) mais 8 gates de shell em `tests/tools/*.sh` (`check_consume.sh`, `check_embed.sh`, `check_exports.sh`, `check_install_includedir.sh`, `check_install_packager_layout.sh`, `check_layers.sh`, `check_no_target_collision.sh`, `check_output_name.sh`), registrados como `add_test` condicionais. Rodando a suíte agora (`ctest --test-dir build`): **9 casos passam em modo shared** (`version_test`, `visibility_test`, `layers_test`, `consume_test`, `embed_test`, `install_includedir_test`, `install_packager_layout_test`, `output_name_test`, `no_target_collision_test`) e **8 em modo estático** (os mesmos, menos `visibility_test`, que só existe com `BUILD_SHARED_LIBS=ON` em Unix).
+- `tools/ci/`: 2 scripts PowerShell (`check-consume.ps1`, `diagnose-win-runtime.ps1`) para o job Windows.
+
+A seção "Comandos" abaixo já era real; os comandos foram reexecutados nesta data e continuam funcionando (configure + build + ctest, shared e estático, `exit 0` nos três).
 
 ## Decisões fechadas pelo líder (21/08/2026)
 
@@ -135,7 +147,7 @@ Comandos provados verdes em 21/08/2026 (FUND-3), na forma exata usada pelo job `
 - Um único teste: `ctest --test-dir build -R <nome> --output-on-failure` (ex.: `-R version_test`)
 - Lint / análise estática: `<a definir>`
 
-Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). No modo shared a suíte tem 3 casos (`version_test`, `visibility_test`, `layers_test`); no estático, 2 (`visibility_test` só existe com `BUILD_SHARED_LIBS=ON` e sistema Unix, é `nm -D` numa `.a`, não faz sentido).
+Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). No modo shared a suíte tem **9 casos** (`version_test`, `visibility_test`, `layers_test`, `consume_test`, `embed_test`, `install_includedir_test`, `install_packager_layout_test`, `output_name_test`, `no_target_collision_test`); no estático, **8** (os mesmos, menos `visibility_test` - só existe com `BUILD_SHARED_LIBS=ON` e sistema Unix, é `nm -D` numa `.a`, não faz sentido). Contagem medida em 22/08/2026 (`ctest --test-dir build` nos dois modos); a versão anterior desta linha dizia 3/2 e estava desatualizada desde a onda FIX-CONSUMO.
 
 ## Isolamento obrigatório de teste (teclado, mouse, tela)
 
@@ -194,7 +206,9 @@ Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e 
 
 ## Pendências
 
-A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz: **57 itens em 13 ondas**, no schema de **10 colunas** da skill `tab_pendencias`, com **`WSJF` como primeira coluna**. As linhas estão na ordem de execução, e a coluna `Onda` marca os passos paralelizáveis. As parcelas do scoring que a coluna não carrega (valor, criticidade, redução de risco, CoD e tamanho) ficam em `/var/tmp/glintfx-plan/lente-produto.md`, do `product-manager`. Itens com porta de mão única trazem na descrição **o que congelam** e a exigência de revisão de API dedicada.
+A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz: **92 itens em 13 ondas** (contado em 22/08/2026 por `grep -cE '^\| [0-9]' TODO.md`; eram 57 em 21/08/2026 - os 57 originais mais **21 fatias do motor de RCSS** e **14 fatias do mecanismo de mapa**, acrescentadas nesse mesmo dia), no schema de **10 colunas** da skill `tab_pendencias`, com **`WSJF` como primeira coluna**. As linhas estão na ordem de execução, e a coluna `Onda` marca os passos paralelizáveis. As parcelas do scoring que a coluna não carrega (valor, criticidade, redução de risco, CoD e tamanho) ficam em `/var/tmp/glintfx-plan/lente-produto.md`, do `product-manager`. Itens com porta de mão única trazem na descrição **o que congelam** e a exigência de revisão de API dedicada.
+
+A trilha de mapa (14 fatias, grupo `Mapa`) está **desenhada e pontuada, com as seis decisões de formato fechadas**, mas nenhuma fatia está disponível para pull agora: o slot único de trilha paralela da L-32 é do **RCSS** hoje, por decisão do líder em 22/08/2026 ("rcss primeiro" - contra a recomendação do CPO/CTO, que apontavam o mapa pelo agregado, mas dentro de um espaço que o número deixava genuinamente aberto). As 14 linhas usam o status `💡 Decisão tomada` para marcar isso, e liberam quando o RCSS fechar (onda W10) ou o líder decidir de outra forma - ver a seção "A trilha de mapa" do próprio `TODO.md`.
 
 ## Nota sobre o predecessor (não é este projeto)
 

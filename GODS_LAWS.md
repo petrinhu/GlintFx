@@ -479,6 +479,18 @@ Vieram de necessidade levantada pelo `mapeditor` com pesquisa de prior art públ
 3. **Rotação existe**, em ponto flutuante e livre (não restrita a múltiplos de 90 graus), e **o volume pode ter rotação própria** além da do objeto, para o caso de a caixa de um ataque apontar para lado diferente do desenho. Prova negativa que sustentou a decisão: o LDtk **não** tem rotação de entidade, tem três issues abertas pedindo, e um usuário precisou criar **quinze variações rotacionadas à mão** da mesma entidade para fazer uma porta giratória.
 4. **Forma côncava não entra no formato.** Só forma simples; **quem autora o mapa é que reparte** em pedaços convexos. A biblioteca fica mais simples e rápida, e o trabalho fica com quem tem interface para fazê-lo. Consequência assumida: **todo** consumidor que grave mapa precisa saber repartir.
 
+### Identificador estável de objeto: UUID, nunca reutilizado
+
+**Data:** 22/08/2026, decisão do líder. **Escolha dele, verbatim:** UUID.
+
+Cada objeto do mapa carrega um **UUID** gravado no arquivo. Ele **não** é a posição do objeto na lista serializada, e **nunca é reutilizado** depois que o objeto é apagado.
+
+**Por que UUID e não contador:** o LDtk trocou identificador numérico por um do tipo GUID na versão 1.0, com a razão escrita na documentação deles: funcionar em projeto **compartilhado por git entre vários autores**, onde dois autores criando objeto ao mesmo tempo não podem colidir. Contador só é seguro com um autor por vez.
+
+**Por que nunca reutilizar:** é a regra literal do Tiled, *"mesmo que um objeto seja deletado, nenhum objeto recebe o mesmo id"*. A falha concreta que ela evita: um comando de desfazer antigo, ainda gravado em disco, **ressuscita por acidente** um objeto novo que herdou o identificador de um apagado.
+
+**A evidência que sustentou a decisão, e ela é do tipo que a casa exige:** **três consumidores chegaram à mesma exigência por três derivações independentes** — o jogo, para lembrar entre sessões qual objeto já foi revelado; o editor, para distinguir volume ajustado nesta instância de volume herdado do tipo; e o editor de novo, para histórico de desfazer que sobrevive a fechar e reabrir. Três ocorrências reais é o piso que o `CONTRACT.md` §6 exige para generalizar, e aqui ele foi atingido **sem** ninguém combinar.
+
 ### O requisito que veio de um consumidor humano, e o que ele virou
 
 Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor façam blocos especiais pra isso"*. O mecanismo genérico que sustenta o pedido, e que **não** nomeia nada do jogo:

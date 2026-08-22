@@ -592,3 +592,28 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 **O que a mensagem tem de trazer:** o que mudou, **por que**, e o que muda **para ele**. Estado honesto do que existe e do que não existe, sem prometer data. E **sem classificação de prioridade**: quem recebe é quem classifica (regra do bus de 03/08/2026).
 
 **O que continua proibido, e a proximidade dele não muda isso:** pedido do `mapeditor` **não vira especificação por ser de um consumidor próximo**. Cada um passa pelo mesmo julgamento da L-30: despir o conteúdo de jogo, extrair o mecanismo genérico, ou recusar. A base de consumidores é aberta e desconhecida (LEI ZERO), e o editor é um deles, não o dono do desenho.
+
+## L-34
+
+**Data:** 22/08/2026, ordem do líder. **Verbatim:** *"lei cada vez que vai fazer uma fatia ou onda (depende do que eu pedir, se pedir só a fatia ou a onda inteira): main faz brainstorm comigo, clevel fable planeja/audita, main verifica/orquestra e despacha agentes para implementar o plano."*
+
+**Todo trabalho de produto passa por este ciclo de quatro passos, na ordem, sem pular nenhum.** O ciclo abre em cada **fatia** ou em cada **onda** — **quem define a unidade é o líder no pedido**, não o agente. Na dúvida sobre qual das duas ele quis, **pergunte antes de começar**; adivinhar o tamanho é começar errado.
+
+| # | Quem | O quê |
+|---|---|---|
+| **1** | **main + líder** | **Brainstorm.** O ciclo **não abre sem esta conversa.** Não é anúncio do que vou fazer: é discussão, com as opções na mesa e o líder decidindo o que entra. |
+| **2** | **C-level, modelo `fable`** | **Planeja e audita.** Produz o plano, marca porta de mão única, separa fato de inferência (L-27), e diz o que exige o líder (L-10). |
+| **3** | **main** | **Verifica e orquestra.** Confere o plano contra a árvore antes de despachar qualquer um. |
+| **4** | **agentes, modelo `sonnet`** | **Implementam o plano.** Nunca o main, nunca o C-level (L-18). |
+
+**Nenhum passo se funde com o outro.** As três misturas que esta lei existe para impedir:
+
+- **Pular o passo 1** e ir direto ao C-level porque "o próximo item é óbvio". Se fosse óbvio, o brainstorm custaria um minuto; quando não é, é ali que o escopo errado morre antes de custar uma onda.
+- **O `fable` implementar** o que ele mesmo planejou. Planejador e implementador são pessoas diferentes, e quem audita o próprio plano não o audita.
+- **O main implementar** por ser "rápido demais para delegar". É a exceção que come a regra, e ela já foi tentada nesta casa.
+
+**O passo 3 é o que impede o resto de virar teatro.** Relatório de agente não é prova: o main confere o plano contra os arquivos reais antes de despachar, e confere o entregável contra a árvore antes de aceitar. Nesta noite isso pegou duas coisas que os relatórios não mostravam — um resumo de dossiê que listava 7 fatias quando o corpo mudava 10, e um índice de manual com 24 âncoras mortas que o relatório dava por resolvido.
+
+**Ordem única aceita para pular um passo: a do líder, naquele pedido.** Agente nenhum encurta o ciclo por julgamento próprio, nem por pressa, nem por tamanho da fatia.
+
+**Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.

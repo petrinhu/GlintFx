@@ -53,6 +53,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
 | ⚖ | escolher a próxima fatia, antes de a demo rodar | L-32 caminho principal sempre, mais no máximo UMA trilha paralela |
 | ⚖ | tocar qualquer coisa de mapa | L-33 avisar o `mapeditor`; se fora do ar, pelo bus |
+| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, fable planeja, main verifica, sonnet implementa |
 
 ---
 

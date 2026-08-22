@@ -511,6 +511,20 @@ Vieram de um dossiê do CTO consolidando **20 questões** de dois canais do bus:
 
 **Lição de método que estas seis registram:** o ângulo de **quem escreve** o arquivo é estruturalmente diferente do de quem só o lê, e **nenhum consumidor que apenas lê traz esse ângulo, por definição**. Três das seis (a 3, a 4 e a 6) só existem porque um consumidor que **regrava** o arquivo estava na conversa. Isto **não** relativiza a LEI ZERO: nenhuma delas nomeia conteúdo de jogo nem serve só a estes dois; todas se justificam pelo consumidor externo desconhecido, e é assim que foram julgadas.
 
+### Selo aberto de integridade no formato, decidido pelo líder em 22/08/2026
+
+**A regra em uma linha: DETECTAR no mapa, PROTEGER no save.**
+
+**O que entra no nosso formato:** um **selo aberto de integridade**, que **qualquer um verifica** e que o editor sabe gerar. Cobre **corrupção, truncamento e edição por ferramenta errada**. **Sem chave, sem assinatura, sem nenhum segredo dentro do formato** — a lib não gerencia segredo, e não vai passar a gerenciar.
+
+**O que NÃO é responsabilidade nossa:** a proteção contra trapaça mora no **save do jogador**, que é arquivo do consumidor, não nosso.
+
+**A frase que fechou a decisão, vinda do `mapeditor`:** *"editar mapa num jogo que distribui editor é **uso legítimo**; trapaça é editar o save"*. O corolário técnico, registrado como fato e não como opinião: **em projeto com o fonte publicado, DETECTAR alteração é alcançável e IMPEDIR não é.** O `mapeditor` proibiu por lei, do lado dele, desenhar qualquer mecanismo que prometa impedir edição, e declarou que **nunca** nos mandará pedido de assinatura com chave embarcada.
+
+**Consequência de escopo:** qualquer proposta futura de assinatura, DRM, chave embarcada ou ofuscação no formato de mapa **é achado de revisão**, não feature — e a razão está escrita aqui para não precisar ser redescoberta.
+
+**Porta de mão única:** o selo mora na taxonomia de bloco, ao lado do bit safe-to-copy da decisão 6. **Nasce em `MAP-FMT-SPEC` ou não nasce.** A escolha do algoritmo concreto é do CTO, dentro da lei de dependência zero (L-07) e implementada em casa.
+
 ### O requisito que veio de um consumidor humano, e o que ele virou
 
 Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor façam blocos especiais pra isso"*. O mecanismo genérico que sustenta o pedido, e que **não** nomeia nada do jogo:
@@ -557,6 +571,8 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 **Contra o número, e ele sabia disso ao decidir.** O CPO recomendava o mapa (agregado 9,4 contra 8,4) e o CTO o endossava. A escolha do líder é dele e não precisa de justificativa, mas o registro honesto é que a recomendação dos dois C-levels apontava para o outro lado — **e que o próprio CPO declarou a margem de 1,0 dentro do erro dos julgamentos dele**, recusando desempatar pelo decimal. Ou seja: o número nunca sustentou a recomendação com folga, e o líder decidiu num espaço que o dado deixava genuinamente aberto.
 
 **Consequência que fica registrada porque é a que morde:** dois consumidores (`gusworld` e `mapeditor`) estão esperando o formato de mapa, e o `mapeditor` **não tem o que editar sem ele** — o projeto dele é editor deste formato. A ordem empurra o formato para depois de toda a trilha de RCSS. Isso foi comunicado aos dois pelo bus, sem prometer data, como manda a L-33.
+
+**Reconfirmado em 22/08/2026, com fato novo à vista.** Pouco depois da decisão, o `mapeditor` informou que o editor dele será **utilizável headless** por ordem do líder, e que por isso, **no dia em que o nosso leitor e escritor existirem, sem uma linha de janela, desenho ou entrada**, ele já exercita o formato de ponta a ponta nos cinco alvos a cada commit. O fato foi levado ao líder porque muda o lado do **valor** no scoring (o formato deixaria de esperar a onda 6 para ter consumidor real). **Ele manteve o RCSS, sem reabrir.** Registrado assim, com o fato nomeado, para que ninguém releia a L-32 daqui a um mês e conclua que a ordem foi fixada sem essa informação.
 
 **O que NÃO muda:** as seis decisões de formato de 22/08/2026 continuam fechadas, e o desenho das 14 fatias continua válido. O que se adia é a **implementação**, não o contrato — e adiar implementação de um contrato já fechado é barato, ao contrário do inverso.
 

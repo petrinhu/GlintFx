@@ -47,6 +47,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | iniciar build pesado, ASan, teste de janela ou demo | L-25 armar o `watchcode` na janela e desarmar ao fim |
 | ⚖ | criar tag, publicar release, ou mexer na versão | L-26 versão e tag `vA.B.C.D`, `SOVERSION` segue o `A` |
 | ⚖ | escrever ordem de serviço, ou aceitar corte proposto por agente | L-27 fato separado de inferência; corte exige citação |
+| ⚖ | tocar folha de estilo, tema, layout de UI ou parser de estilo | L-28 RCSS é o formato, implementado em casa, sem RmlUi |
 
 ---
 
@@ -186,7 +187,7 @@ Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e 
 
 ## Pendências
 
-A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz (ordenada por execução, coluna `Onda` marca passos paralelizáveis). Scoring WSJF completo, decisões do líder ainda pendentes e itens com porta de mão única (`[PMU]`) estão documentados nos bullets do cabeçalho desse arquivo, não em coluna própria (schema de 9 colunas da skill `tab_pendencias`, sem WSJF na tabela — conflito com o guard `~/.claude/hooks/lider_bloqueios/p4.py`, resolvido pelo líder em 21/08/2026).
+A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz: **57 itens em 13 ondas**, no schema de **10 colunas** da skill `tab_pendencias`, com **`WSJF` como primeira coluna**. As linhas estão na ordem de execução, e a coluna `Onda` marca os passos paralelizáveis. As parcelas do scoring que a coluna não carrega (valor, criticidade, redução de risco, CoD e tamanho) ficam em `/var/tmp/glintfx-plan/lente-produto.md`, do `product-manager`. Itens com porta de mão única trazem na descrição **o que congelam** e a exigência de revisão de API dedicada.
 
 ## Nota sobre o predecessor (não é este projeto)
 

@@ -44,6 +44,7 @@
 | [L-25](#l-25) | iniciar build pesado, ASan, teste de janela ou demo | Armar o `watchcode` na janela, e desarmar ao fim |
 | [L-26](#l-26) | criar tag, publicar release, ou mexer na versão | Versão e tag são `vA.B.C.D`; `SOVERSION` segue o `A` |
 | [L-27](#l-27) | escrever ordem de serviço, ou aceitar um corte proposto por agente | Fato separado de inferência; corte exige citação; passar a fonte, não o resumo |
+| [L-28](#l-28) | tocar folha de estilo, tema, layout de UI ou parser de estilo | RCSS é o formato, implementado em casa, sem RmlUi |
 
 ---
 
@@ -377,3 +378,15 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **3. Passar a fonte, não o resumo dela.** Ao encadear agentes, o seguinte recebe o **caminho do arquivo** que o anterior produziu, e lê. Resumo do orquestrador perde exatamente o marcador de incerteza que distinguia dado de conclusão.
 
 **Padrão-mãe, para reconhecer o próximo caso:** já existe registro de que **exemplo inventado pelo orquestrador numa explicação vira spec**. Esta lei é o mesmo mecanismo com outra roupa: ali a origem era o próprio orquestrador, aqui era outro agente. **A regra geral é que tudo que atravessa o orquestrador sem marca de origem chega ao destino com autoridade de fato.**
+
+## L-28
+
+**Data:** 21/08/2026, confirmado pelo líder. **Verbatim relatado:** *"usaremos rcss, é o que quis dizer com rcss, mas sem ligar rml"*.
+
+**O GlintFx adota o RCSS como formato de folha de estilo, e o implementa em casa.** O **RmlUi está fora**: a lei de dependência zero (L-07) não abre exceção para ele, e adotar o formato não é adotar a biblioteca.
+
+**De onde a especificação sai, e de onde NÃO sai.** A lista do que o parser precisa suportar vem do **formato RCSS** e das decisões de escopo do líder por `AskUserQuestion` (L-10), julgadas pelo **consumidor externo desconhecido** (LEI ZERO e L-02). **Nunca** dos mockups, do ui-kit ou das telas de um consumidor específico.
+
+**Proibição concreta, com o caso que a originou.** Existe em `/var/tmp` um backup do GusWorld com ui-kit, mockups de tela, capturas e um `PORTING-RCSS.md` que se abre como *"notas do dev do glintfx revisando os componentes contra a versão vigente do glintfx"*. **Isso é o predecessor descrevendo o que já funcionava, e a L-01 o proíbe como base, referência ou canon.** Pior: usar aquele material como fonte da especificação é a premissa de **consumidor único** entrando por outra porta, já que a spec sairia do que **um jogo** precisava. Se em algum momento parecer mais barato "ver como o antigo fazia", **é exatamente o movimento proibido**.
+
+**Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).

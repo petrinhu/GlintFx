@@ -49,6 +49,7 @@
 | [L-30](#l-30) | tocar mapa, grade, colisão, rota ou visibilidade | Mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
 | [L-31](#l-31) | tocar contexto gráfico, shader ou carregador de GL | OpenGL 3.3 core, nativo nas duas plataformas |
 | [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar | Caminho principal sempre, mais no máximo UMA trilha paralela |
+| [L-33](#l-33) | tocar QUALQUER coisa de mapa: decisão, fatia, formato, código | Avisar o `mapeditor`; sessão fora do ar, mandar pelo bus |
 
 ---
 
@@ -505,3 +506,20 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 **Custo assumido:** havendo gente sobrando, ela fica ociosa por regra em vez de adiantar trilha. O líder escolheu isso de olhos abertos, porque cada trilha em andamento consome implementador **e** revisor, e a casa já limita quantos agentes ficam vivos ao mesmo tempo.
 
 **O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF.
+
+## L-33
+
+**Data:** 21/08/2026. **Verbatim do líder:** *"sempre que tocar em mapa, avise o que fez a @MapEditor e se ele estiver inalcancavel, mande via bus"*.
+
+**Toda vez que este projeto toca em mapa, o `mapeditor` é avisado do que foi feito.** Não é cortesia, é obrigação: o GlintFx é **dono do formato de arquivo de mapa** (L-30) e o `gusworld_mapeditor` é quem **grava** nesse formato. Mudança nossa que ele descobre tarde é retrabalho dele, ou pior, arquivo gravado errado.
+
+**O gatilho é largo, de propósito:** decisão de escopo, fatia nova ou alterada, mudança no formato, campo acrescentado ou removido, política de versão, implementação entregue, revisão que achou defeito no formato. Na dúvida sobre se conta como "tocar em mapa", **avise**: o custo de avisar demais é uma mensagem, o de avisar de menos é um editor gravando arquivo que não vamos conseguir ler.
+
+**Dois canais, nesta ordem:**
+
+1. **Sessão viva:** se existir uma sessão do `mapeditor` na máquina, mande por mensagem direta entre sessões. É imediato e ele responde.
+2. **Bus, quando ela estiver fora do ar:** um `.md` em `inbox/mapeditor/` do `gusworld_ia_autocomm`, com o frontmatter do protocolo, sempre depois de `git pull`, e commit mais push (L-16). A mensagem espera lá até ele abrir.
+
+**O que a mensagem tem de trazer:** o que mudou, **por que**, e o que muda **para ele**. Estado honesto do que existe e do que não existe, sem prometer data. E **sem classificação de prioridade**: quem recebe é quem classifica (regra do bus de 03/08/2026).
+
+**O que continua proibido, e a proximidade dele não muda isso:** pedido do `mapeditor` **não vira especificação por ser de um consumidor próximo**. Cada um passa pelo mesmo julgamento da L-30: despir o conteúdo de jogo, extrair o mecanismo genérico, ou recusar. A base de consumidores é aberta e desconhecida (LEI ZERO), e o editor é um deles, não o dono do desenho.

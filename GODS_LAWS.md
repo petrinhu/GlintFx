@@ -392,6 +392,20 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
 
+### Decisões de escopo da v1, tomadas pelo líder em 21/08/2026
+
+Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
+
+1. **Como o motor enxerga a árvore do consumidor: contrato preenchido pelo consumidor**, sem template na superfície pública. Motivo dele: não obriga quem já tem programa pronto a trocar o que tem, e não solda a biblioteca ao código dele. O motor funciona com qualquer árvore.
+2. **Folha imutável após o parse.** A única dinâmica é o estado de pseudo-classe do nó, com recomputação sob demanda. Simples, seguro entre threads por construção, e cobre `:hover`, `:focus` e `:checked`.
+3. **Seletor: o formato COMPLETO na v1.** Atributo com os sete operadores, `:not()` com lista de seletores complexos, os quatro combinadores, a família estrutural inteira, `:placeholder-shown` e `:scope`.
+4. **`@media` fica FORA da v1**, ignorada com diagnóstico.
+5. **Animação, transição e `@keyframes` ficam FORA da v1**, ignorados com diagnóstico. Entram como escopo próprio quando o loop principal e o relógio existirem.
+
+**Defaults registrados para veto, que o líder não vetou:** namespace `glintfx::style` com IDs de item `RCSS-*`; as cores modernas `lab()`, `lch()`, `oklab()` e `oklch()` fora da v1; e, quanto a aspas no valor de seletor de atributo, seguir a convenção do CSS (aceitar identificador sem aspas e string com aspas), já que a documentação do formato não especifica.
+
+**Fatos do formato, verificados na documentação pública sob a L-29 e não de memória:** o formato **não tem `!important`**, **não tem a palavra `inherit`** e **não tem folha de estilo embutida do próprio motor**, o que simplifica cascata e herança; **pseudo-elementos não existem** no formato; a especificidade de `:not()` é a do sub-seletor mais específico, sem contar a si mesma; as cores nomeadas são **19**, não a tabela completa do CSS.
+
 ## L-29
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*

@@ -50,6 +50,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | tocar folha de estilo, tema, layout de UI ou parser de estilo | L-28 RCSS é o formato, implementado em casa, sem RmlUi |
 | ⚖ | não saber como implementar algo, ou querer ver prior art | L-29 pode ler RmlUi e SDL3 para aprender; copiar é proibido |
 | ⚖ | tocar mapa, grade, colisão, rota ou visibilidade | L-30 mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
+| ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
+| ⚖ | escolher a próxima fatia, antes de a demo rodar | L-32 caminho principal sempre, mais no máximo UMA trilha paralela |
 
 ---
 

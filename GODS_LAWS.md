@@ -47,6 +47,8 @@
 | [L-28](#l-28) | tocar folha de estilo, tema, layout de UI ou parser de estilo | RCSS é o formato, implementado em casa, sem RmlUi |
 | [L-29](#l-29) | não saber como se implementa algo, ou querer ver prior art | Pode LER RmlUi e SDL3 para aprender; copiar é proibido |
 | [L-30](#l-30) | tocar mapa, grade, colisão, rota ou visibilidade | Mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
+| [L-31](#l-31) | tocar contexto gráfico, shader ou carregador de GL | OpenGL 3.3 core, nativo nas duas plataformas |
+| [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar | Caminho principal sempre, mais no máximo UMA trilha paralela |
 
 ---
 
@@ -476,3 +478,30 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 - **"Parede rachada" e "porta do chefe" nunca aparecem na lib.** São bits que o consumidor nomeia. Propor bit nomeado dentro da biblioteca é violação desta lei e achado de revisão.
 
 **Lição de método registrada:** necessidade descrita em palavras por um consumidor é insumo **legítimo**; copiar o que a lib antiga fazia continua **proibido** (L-01 e L-28). A diferença é a forma, não a origem.
+
+## L-31
+
+**Data:** 21/08/2026, decisão do líder.
+
+**A API gráfica do GlintFx é OpenGL 3.3 core.**
+
+**Por quê, na razão que decidiu:** roda **nativo nas duas plataformas** (por EGL no Linux, por WGL no Windows), sem camada de tradução, o que preserva a lei de dependência zero (L-07). E o piso de placa de vídeo é amplo, o que importa quando a base de consumidores é **aberta e desconhecida** (LEI ZERO).
+
+**O que foi recusado, e por quê:** OpenGL 4.x traz recursos que um render 2D de quadrados não exige e corta máquina mais velha de consumidor que não conhecemos. OpenGL ES 3.x **não existe no Windows** sem camada de tradução de terceiro, e isso colide de frente com a L-07.
+
+**Nota de processo, registrada porque custou caro:** esta decisão foi levantada pelo CTO no **primeiro grafo do projeto**, com o pedido explícito de que fosse pedida na onda zero, e o orquestrador **não a levou ao líder**. Ela ficou parada o dia inteiro travando `GL-LOADER` (onda 2) e, por consequência, o caminho até a demo. Foi o CPO quem mediu o custo. **Decisão marcada como pendente de líder é bloqueio, não anotação**, e o orquestrador que a acumula está parando o projeto sem perceber.
+
+## L-32
+
+**Data:** 21/08/2026, decisão do líder, com o número que ele fixou.
+
+**Enquanto a demo não estiver rodando: o caminho principal anda sempre, mais no máximo UMA trilha paralela.**
+
+- **Caminho principal** é a cadeia até uma janela desenhando: janela, contexto gráfico, render 2D, loop, demo. **Nunca conta no teto**, porque ele anda sempre.
+- **Trilha paralela** é qualquer caminho de núcleo puro independente: estilo, mapa, teclado, PNG, fonte. **No máximo uma delas em andamento por vez**, e as outras esperam a vez.
+
+**O problema que o teto resolve, medido pelo CPO em 21/08/2026:** as trilhas paralelas somavam **105 pontos de trabalho, todos livres para começar**, contra **35 pontos do caminho principal, que estava travado** por uma decisão pendente. Trabalho flui para onde está desbloqueado. Sem o teto, o estado natural do projeto era chegar com teclado, PNG, fonte, metade do estilo e metade do mapa prontos **e nenhuma janela na tela**, que é a primeira coisa que qualquer consumidor verifica.
+
+**Custo assumido:** havendo gente sobrando, ela fica ociosa por regra em vez de adiantar trilha. O líder escolheu isso de olhos abertos, porque cada trilha em andamento consome implementador **e** revisor, e a casa já limita quantos agentes ficam vivos ao mesmo tempo.
+
+**O teto cai quando a demo estiver verde.** A partir daí a ordem volta a ser a da tabela, pelo WSJF.

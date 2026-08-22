@@ -48,6 +48,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | criar tag, publicar release, ou mexer na versão | L-26 versão e tag `vA.B.C.D`, `SOVERSION` segue o `A` |
 | ⚖ | escrever ordem de serviço, ou aceitar corte proposto por agente | L-27 fato separado de inferência; corte exige citação |
 | ⚖ | tocar folha de estilo, tema, layout de UI ou parser de estilo | L-28 RCSS é o formato, implementado em casa, sem RmlUi |
+| ⚖ | não saber como implementar algo, ou querer ver prior art | L-29 pode ler RmlUi e SDL3 para aprender; copiar é proibido |
 
 ---
 

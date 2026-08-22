@@ -45,6 +45,7 @@
 | [L-26](#l-26) | criar tag, publicar release, ou mexer na versão | Versão e tag são `vA.B.C.D`; `SOVERSION` segue o `A` |
 | [L-27](#l-27) | escrever ordem de serviço, ou aceitar um corte proposto por agente | Fato separado de inferência; corte exige citação; passar a fonte, não o resumo |
 | [L-28](#l-28) | tocar folha de estilo, tema, layout de UI ou parser de estilo | RCSS é o formato, implementado em casa, sem RmlUi |
+| [L-29](#l-29) | não saber como se implementa algo, ou querer ver prior art | Pode LER RmlUi e SDL3 para aprender; copiar é proibido |
 
 ---
 
@@ -390,3 +391,25 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **Proibição concreta, com o caso que a originou.** Existe em `/var/tmp` um backup do GusWorld com ui-kit, mockups de tela, capturas e um `PORTING-RCSS.md` que se abre como *"notas do dev do glintfx revisando os componentes contra a versão vigente do glintfx"*. **Isso é o predecessor descrevendo o que já funcionava, e a L-01 o proíbe como base, referência ou canon.** Pior: usar aquele material como fonte da especificação é a premissa de **consumidor único** entrando por outra porta, já que a spec sairia do que **um jogo** precisava. Se em algum momento parecer mais barato "ver como o antigo fazia", **é exatamente o movimento proibido**.
 
 **Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
+
+## L-29
+
+**Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*
+
+**O que está PERMITIDO:** ler o código-fonte e a documentação do **RmlUi** e do **SDL3** para **aprender a técnica**: como um problema costuma ser atacado, que armadilhas existem, que estrutura de dados serve. Aprender de prior art é engenharia normal, e a lei de dependência zero (L-07) proíbe **depender**, não proíbe **saber**.
+
+**Sem clonar.** Leitura pela web. Nada de `git clone`, nada de vendorizar, nada de baixar a árvore para dentro do repositório ou do disco de trabalho.
+
+**O que está PROIBIDO, e o líder chamou pelo nome: plágio.**
+
+- **Nada de código verbatim**, nem trecho, nem função, nem tabela de constantes.
+- **Nada de porte linha a linha** com nomes trocados. Traduzir a mesma implementação continua sendo cópia.
+- **Nada de copiar comentário, estrutura de arquivo ou organização interna** por decalque.
+
+**O que se espera em troca:** **refazer melhor, ou diferente.** Aprendida a ideia, a implementação é nossa, julgada pelos nossos critérios — dependência zero, camadas da L-19, átomos da L-17, ABI da L-26, e o consumidor externo desconhecido da LEI ZERO. Se a nossa saída for igual à deles, ou não aprendemos nada, ou copiamos.
+
+**Higiene de licença, que reforça a proibição em vez de relaxá-la.** RmlUi é **MIT** e SDL3 é **zlib** (verificado na fonte em 21/08/2026: o README do RmlUi diz "published under the MIT license"; o SDL declara zlib). As duas são permissivas, então **copiar seria legalmente possível mediante atribuição**, e é justamente isso que a lei recusa. Enquanto **nenhuma linha for copiada**, nenhuma obrigação de atribuição nasce, e o projeto segue AGPL-3.0 limpo (L-08). No instante em que alguém colar código, cria-se obrigação de aviso de licença **e** se viola esta lei.
+
+**Como declarar, quando a leitura ajudar:** dizer no comentário ou no commit que a **técnica** veio de leitura de prior art, sem colar nada. Exemplo do tipo certo: *"abordagem de cascata por especificidade calculada em três dígitos, técnica comum em motores de CSS"*. Exemplo do tipo errado: colar o código deles e citar a fonte.
+
+**Não confundir com a L-01.** Esta lei fala de **projeto de terceiro**. O **predecessor `glintfx`** continua totalmente proibido como base, referência ou canon, e o mesmo vale para o backup do GusWorld citado na L-28. A diferença é real: aprender como o mundo resolve um problema é legítimo, e ressuscitar o nosso próprio código morto é o que o líder mandou não fazer.

@@ -36,7 +36,7 @@
 | [L-15](#l-15) | fechar um marco ou notar a hora | Nunca mandar o líder descansar, dormir ou parar |
 | [L-16](#l-16) | abrir sessão, precisar de algo de outro projeto, ou receber ideia do Gus | Bus `gusworld_ia_autocomm`: como ler, enviar e responder |
 | [L-17](#l-17) | escrever função, arquivo, classe ou módulo novo | Proibido monolito; cada função é um átomo |
-| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; agentes bigtech; fable audita e cria, sonnet implementa |
+| [L-18](#l-18) | ir executar qualquer trabalho de produto | Main só orquestra; C-level fable audita e cria; sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes e revisão de agente sonnet high bigtech de QA estiver verde |
 | [L-19](#l-19) | criar módulo, tocar a fronteira do SO, ou desenhar API pública | Camadas, portas em compile-time, fronteira pública opaca |
 | [L-20](#l-20) | escrever qualquer código com comportamento | TDD estrito: vermelho antes de verde, sem exceção |
 | [L-21](#l-21) | nomear qualquer coisa, ou escrever comentário e commit | Identificador e comentário em inglês, `snake_case`; commit em pt-br |
@@ -646,3 +646,44 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 **O sinal do modo é o mecanismo de flag que já existe nesta máquina** (`autonomo_mode.py`, com escopos), ou a ordem direta dele na conversa. **Na dúvida se o modo está ligado, ele está desligado** — presumir autonomia é o erro caro, e presumir que não há é o barato.
 
 **Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
+
+### Aviso proativo ao Gus Dragon, decidido em 23/08/2026
+
+**O pedido, dele, na issue 8 do bus, verbatim:** *"nao precisa dizer algo so quando falo, pode falar quando por exemplo @petrinhu atualiza algo, ou por exemplo quando ele aprova/rejeita/muda algo das minhas ideias"*.
+
+**A resposta veio do próprio Gus Dragon**, consultado pelo líder, e o escopo é dele: **ele é avisado, sem precisar perguntar, sobre (a) tudo que é ideia DELE** — quando o líder aprova, rejeita ou muda — **e (b) o que for de alta prioridade dos projetos**, pela régua de WSJF que a `TODO.md` já usa.
+
+**O que isso NÃO é:** um fluxo de aviso sobre toda decisão técnica. O corte por prioridade existe justamente para o que interessa a ele não se afogar no que não interessa.
+
+**O limite honesto, que se diz a ele em vez de prometer o impossível:** sessão não é serviço rodando. Aviso proativo só sai enquanto alguém está com a sessão aberta; decisão tomada com tudo fechado chega depois. Ele prefere a verdade a promessa de aviso instantâneo.
+
+**Nota de descumprimento, registrada porque é a causa do pedido:** o `PROTOCOL.md` do bus **já obrigava** a "Resposta 2" automática — o resultado da decisão do líder vai a ele sem reaprovação de texto. **Ele não deveria ter precisado pedir.** Se pediu, a resposta automática não estava saindo, e vale conferir se alguma ideia dele ficou sem retorno.
+
+**Formato, quando a resposta for na discussion 7** (o catálogo de bugs que ele mantém): timestamp, uma das três classificações que ele fixou (**Bug Consertado**, **Bug Funcional**, **Bug Possível**) e itens numerados entre parênteses. Ele tem 11 anos, programa, usa Manjaro e git — **o que ele não merece é resposta vaga**, e "não existe código disso ainda" é melhor resposta que estimativa inventada.
+
+## L-35
+
+**Data:** 23/08/2026, decisão do líder. **Origem:** cobrança do **Gus Dragon** na discussion 7 do bus, item (1), endereçada nominalmente ao GlintFx e ao GusWorld.
+
+**A entrega de evento de entrada é uma PROMESSA PÚBLICA do contrato: determinística, sem duplicação e sem reordenação.** Nasce com teste que a prova, antes de existir a implementação (L-20).
+
+**O caso concreto que a originou, e ele não é teórico:** o jogador aperta confirmar duas vezes rápido numa tela de carregamento que dura vários quadros, e entra em dois saves ao mesmo tempo. O Gus Dragon descreveu o bug e escreveu que **a lib e o consumidor são os dois responsáveis** — e estava certo, com a divisão que o `gusworld` fez e que adotamos:
+
+- **Do consumidor, e é a maior parte:** o guarda "estou carregando, não aceito outro carregar" é regra de jogo. Pedir que a lib impeça isso exigiria que ela entendesse save, config e tela de carregamento — conceito de jogo que a **L-02** recusa. **Ninguém está pedindo isso.**
+- **Nossa, e é o que esta lei fixa:** se o mesmo evento chegar duas vezes, ou se a ordem variar entre quadros, **o guarda do consumidor deixa de ser suficiente** — ele estaria filtrando um comando duplicado que nunca deveria ter existido.
+
+**Por que virou promessa escrita e não "qualidade de implementação":** promessa dá ao consumidor em que se apoiar ao desenhar a lógica dele, e dá a nós um teste guardando. E é **barato agora**, porque não existe uma linha de código de entrada escrita — depois, endurecer vira quebra e afrouxar vira perda silenciosa.
+
+**Aplicação:** a garantia entra na revisão de API dedicada da superfície de entrada, tratada como porta de mão única (L-19), e o teste que a prova nasce vermelho.
+
+## L-36
+
+**Data:** 23/08/2026, quatro decisões de escopo do líder por `AskUserQuestion` (L-10). **Não são mais perguntas** — os itens correspondentes saem de `🎨 Pendente design`.
+
+1. **Cursor do ponteiro (`WL-POINTER`): as DUAS opções, e quem escolhe é o consumidor.** Ou a lib lê o **tema de cursor do sistema**, e o ponteiro fica igual ao resto do desktop do usuário (inclusive o tema grande de quem depende dele por acessibilidade), ou o **consumidor fornece a própria imagem**. Nenhuma das duas é imposta. A leitura do tema depende de como classificamos a biblioteca de cursor do Wayland sob a **L-07** — se ela não contar como API do SO, lemos o formato de arquivo em casa.
+
+2. **Áudio no Linux (`AUD-BACKEND`): ALSA agora, PipeWire depois.** ALSA é a interface do próprio kernel e existe em **toda** máquina Linux, inclusive nas que não têm servidor de som moderno; o PipeWire intercepta ALSA, então o caminho funciona também no desktop atual. O PipeWire nativo entra **depois**, como caminho adicional escolhido em tempo de execução — **aditivo, nunca substituto**. Motivo que decidiu: base de consumidores aberta e desconhecida (LEI ZERO), e nenhuma máquina pode ficar de fora em nenhum momento.
+
+3. **Gamepad (`GP-MAP`): só o cru e a dedução própria. NENHUM banco de dados.** A lib entrega eixos e botões numerados mais o identificador do aparelho, e por cima disso deduz um layout genérico do que o próprio dispositivo declara. **Banco de mapeamento não entra**, nem de terceiro nem nosso. O de terceiro foi recusado por quebrar a **L-07** (dado externo dentro da lib) e a **L-29** (ler para aprender é permitido, copiar não) — e a recusa ficou registrada porque a tentação vai voltar: o banco comunitário cobre milhares de controles no primeiro dia, e é exatamente por isso que ele é atraente. **Consequência assumida:** controle que se declara errado não fica coberto, e o consumidor que quiser um banco pluga o dele por fora.
+
+4. **Compose e tecla morta (`KEYMAP-COMPOSE`): ler o arquivo de dados do sistema.** A tabela padrão vive em pasta cujo nome carrega "X11" por história, e o líder decidiu que **ler um arquivo de texto não é usar X11** — a **L-05** proíbe o protocolo, a biblioteca e o backend, não um arquivo de dados. Transcrever milhares de sequências em casa foi recusado por tamanho, e cortar compose da v1 foi recusado porque quem escreve em português, francês ou alemão sente na primeira tecla.

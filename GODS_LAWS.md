@@ -647,20 +647,6 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 
 **Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
 
-### Aviso proativo ao Gus Dragon, decidido em 23/08/2026
-
-**O pedido, dele, na issue 8 do bus, verbatim:** *"nao precisa dizer algo so quando falo, pode falar quando por exemplo @petrinhu atualiza algo, ou por exemplo quando ele aprova/rejeita/muda algo das minhas ideias"*.
-
-**A resposta veio do próprio Gus Dragon**, consultado pelo líder, e o escopo é dele: **ele é avisado, sem precisar perguntar, sobre (a) tudo que é ideia DELE** — quando o líder aprova, rejeita ou muda — **e (b) o que for de alta prioridade dos projetos**, pela régua de WSJF que a `TODO.md` já usa.
-
-**O que isso NÃO é:** um fluxo de aviso sobre toda decisão técnica. O corte por prioridade existe justamente para o que interessa a ele não se afogar no que não interessa.
-
-**O limite honesto, que se diz a ele em vez de prometer o impossível:** sessão não é serviço rodando. Aviso proativo só sai enquanto alguém está com a sessão aberta; decisão tomada com tudo fechado chega depois. Ele prefere a verdade a promessa de aviso instantâneo.
-
-**Nota de descumprimento, registrada porque é a causa do pedido:** o `PROTOCOL.md` do bus **já obrigava** a "Resposta 2" automática — o resultado da decisão do líder vai a ele sem reaprovação de texto. **Ele não deveria ter precisado pedir.** Se pediu, a resposta automática não estava saindo, e vale conferir se alguma ideia dele ficou sem retorno.
-
-**Formato, quando a resposta for na discussion 7** (o catálogo de bugs que ele mantém): timestamp, uma das três classificações que ele fixou (**Bug Consertado**, **Bug Funcional**, **Bug Possível**) e itens numerados entre parênteses. Ele tem 11 anos, programa, usa Manjaro e git — **o que ele não merece é resposta vaga**, e "não existe código disso ainda" é melhor resposta que estimativa inventada.
-
 ## L-35
 
 **Data:** 23/08/2026, decisão do líder. **Origem:** cobrança do **Gus Dragon** na discussion 7 do bus, item (1), endereçada nominalmente ao GlintFx e ao GusWorld.
@@ -687,3 +673,19 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 3. **Gamepad (`GP-MAP`): só o cru e a dedução própria. NENHUM banco de dados.** A lib entrega eixos e botões numerados mais o identificador do aparelho, e por cima disso deduz um layout genérico do que o próprio dispositivo declara. **Banco de mapeamento não entra**, nem de terceiro nem nosso. O de terceiro foi recusado por quebrar a **L-07** (dado externo dentro da lib) e a **L-29** (ler para aprender é permitido, copiar não) — e a recusa ficou registrada porque a tentação vai voltar: o banco comunitário cobre milhares de controles no primeiro dia, e é exatamente por isso que ele é atraente. **Consequência assumida:** controle que se declara errado não fica coberto, e o consumidor que quiser um banco pluga o dele por fora.
 
 4. **Compose e tecla morta (`KEYMAP-COMPOSE`): ler o arquivo de dados do sistema.** A tabela padrão vive em pasta cujo nome carrega "X11" por história, e o líder decidiu que **ler um arquivo de texto não é usar X11** — a **L-05** proíbe o protocolo, a biblioteca e o backend, não um arquivo de dados. Transcrever milhares de sequências em casa foi recusado por tamanho, e cortar compose da v1 foi recusado porque quem escreve em português, francês ou alemão sente na primeira tecla.
+
+## L-37
+
+**Data:** 23/08/2026, decisão do líder: esta regra sai de dentro da L-16 e vira lei própria, porque **avisar o Gus Dragon é obrigação permanente e não detalhe de protocolo de bus**.
+
+**O pedido, dele, na issue 8 do bus, verbatim:** *"nao precisa dizer algo so quando falo, pode falar quando por exemplo @petrinhu atualiza algo, ou por exemplo quando ele aprova/rejeita/muda algo das minhas ideias"*.
+
+**A resposta veio do próprio Gus Dragon**, consultado pelo líder, e o escopo é dele: **ele é avisado, sem precisar perguntar, sobre (a) tudo que é ideia DELE** — quando o líder aprova, rejeita ou muda — **e (b) o que for de alta prioridade dos projetos**, pela régua de WSJF que a `TODO.md` já usa.
+
+**O que isso NÃO é:** um fluxo de aviso sobre toda decisão técnica. O corte por prioridade existe justamente para o que interessa a ele não se afogar no que não interessa.
+
+**O limite honesto, que se diz a ele em vez de prometer o impossível:** sessão não é serviço rodando. Aviso proativo só sai enquanto alguém está com a sessão aberta; decisão tomada com tudo fechado chega depois. Ele prefere a verdade a promessa de aviso instantâneo.
+
+**Nota de descumprimento, registrada porque é a causa do pedido:** o `PROTOCOL.md` do bus **já obrigava** a "Resposta 2" automática — o resultado da decisão do líder vai a ele sem reaprovação de texto. **Ele não deveria ter precisado pedir.** Se pediu, a resposta automática não estava saindo, e vale conferir se alguma ideia dele ficou sem retorno.
+
+**Formato, quando a resposta for na discussion 7** (o catálogo de bugs que ele mantém): timestamp, uma das três classificações que ele fixou (**Bug Consertado**, **Bug Funcional**, **Bug Possível**) e itens numerados entre parênteses. Ele tem 11 anos, programa, usa Manjaro e git — **o que ele não merece é resposta vaga**, e "não existe código disso ainda" é melhor resposta que estimativa inventada.

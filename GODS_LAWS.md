@@ -513,6 +513,25 @@ Vieram de um dossiê do CTO consolidando **20 questões** de dois canais do bus:
 
 **Lição de método que estas seis registram:** o ângulo de **quem escreve** o arquivo é estruturalmente diferente do de quem só o lê, e **nenhum consumidor que apenas lê traz esse ângulo, por definição**. Três das seis (a 3, a 4 e a 6) só existem porque um consumidor que **regrava** o arquivo estava na conversa. Isto **não** relativiza a LEI ZERO: nenhuma delas nomeia conteúdo de jogo nem serve só a estes dois; todas se justificam pelo consumidor externo desconhecido, e é assim que foram julgadas.
 
+### Ordem dos elementos no arquivo: campo explícito, decidido pelo líder em 24/08/2026
+
+**Os elementos são gravados na ordem de um CAMPO EXPLÍCITO de ordem que cada objeto carrega**, e não na ordem em que aparecem na estrutura de quem gravou.
+
+**O problema que isto resolve, trazido pelo `mapeditor` com o uso concreto que a L-27 exige.** O critério anterior era "ordem da lista do modelo", e ele quebra no caso mais banal que existe num editor: **apagar um objeto e desfazer**. O mapa fica semanticamente idêntico, mas quase toda pilha de comando reanexa o objeto restaurado ao **fim** da lista, porque devolvê-lo ao índice original é bem mais difícil. O arquivo então sai diferente, o diff acusa todos os objetos seguintes como alterados, **e o portão de ida e volta byte a byte falha sem existir defeito nenhum no formato nem no escritor** — perdendo justamente a prova mais forte que o formato tem.
+
+**Por que o campo explícito, e não a ordenação por UUID que o `mapeditor` propôs.** As duas resolvem o desfazer, e as duas honram o princípio que ele mesmo formulou e que esta casa adota: ***significado implícito em posição é a categoria de contrato que quebra em silêncio***. A diferença é o custo para o consumidor externo desconhecido (LEI ZERO): ordenar por UUID **descarta a ordem de autoria**, e numa biblioteca **2D** ordem de desenho não é caso raro — é o que praticamente todo consumidor precisa. Empurrá-la para as propriedades nomeadas transformaria uma necessidade universal em convenção que cada um resolve do seu jeito, e reabriria por baixo a divergência entre editores que publicar o escritor existe para fechar. Com o campo, **a ordem de serialização serve à revisão de mudança e a ordem de desenho serve ao jogo, sem uma sequestrar a outra**.
+
+**Por que o desfazer não morde o campo:** o número **viaja com o objeto**, em vez de ser a posição dele. Restaurar um valor guardado é trivialmente correto; restaurar um índice não é.
+
+**Consequências assumidas, e as duas são porta de mão única:**
+
+- **`MAP-OBJECTS`** ganha o campo no registro de objeto — o registro é contrato **duplo**, de API e de formato, e o layout congela quando a especificação sair.
+- **`MAP-FMT-CONF`** troca o critério canônico: a ordenação normativa passa a ser por esse campo. A promessa de saída canônica continua, com fundamento diferente.
+
+**O que o `mapeditor` ganha, e era o pedido dele:** apagar e desfazer volta a ser byte-nulo, e dois editores com estruturas internas diferentes gravam o mesmo mapa byte a byte igual.
+
+**Nota de método, registrada porque é o padrão que se quer:** ele trouxe a objeção **com o caso de uso**, e **levantou a objeção contra a própria proposta** antes que nós a levantássemos. Foi isso que tornou a contribuição utilizável em vez de discutível.
+
 ### Selo aberto de integridade no formato, decidido pelo líder em 22/08/2026
 
 **A regra em uma linha: DETECTAR no mapa, PROTEGER no save.**

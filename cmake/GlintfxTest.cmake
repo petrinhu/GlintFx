@@ -69,10 +69,21 @@ function(glintfx_copy_runtime_dlls_after_build target)
     endif()
 endfunction()
 
+# LABELS unit (FUND-4): the CI sanitizer job (GODS_LAWS.md L-23 portao 2)
+# runs `ctest -L unit` under GLINTFX_SANITIZE, never the full suite - the
+# shell-script consumption gates in tests/CMakeLists.txt link a plain,
+# non-sanitized consumer against the sanitized library on purpose, and
+# that fails by construction under ASan (see the comment on
+# GLINTFX_SANITIZE in GlintfxOptions.cmake). Only a case registered
+# through THIS function - the in-tree C++ harness cases, today just
+# version_test - is safe to run sanitized, so only this function sets
+# the label; tests/CMakeLists.txt sets LABELS consume on its own
+# add_test() calls instead.
 function(glintfx_add_test name)
     add_executable(${name} "${CMAKE_CURRENT_SOURCE_DIR}/${name}.cpp")
     target_link_libraries(${name} PRIVATE glintfx::glintfx glintfx_test_harness)
     glintfx_apply_compile_options(${name})
     glintfx_copy_runtime_dlls_after_build(${name})
     add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES LABELS unit)
 endfunction()

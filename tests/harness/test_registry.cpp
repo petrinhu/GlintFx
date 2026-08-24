@@ -12,6 +12,9 @@ std::vector<Case> &mutable_cases() {
 
 } // namespace
 
+// cppcheck-suppress passedByValue ; reason: Case is trivially copyable
+// (string_view + function pointer); clang-tidy's performance-move-const-arg
+// independently confirms std::move(c) here would be a no-op, not a real win.
 void register_case(Case c) { mutable_cases().push_back(c); }
 
 const std::vector<Case> &all_cases() { return mutable_cases(); }

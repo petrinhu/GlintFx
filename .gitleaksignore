@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# .gitleaksignore - known false positives for the gitleaks gate
+# (GODS_LAWS.md L-23 portao 4; FUND-4). Format: one gitleaks fingerprint
+# per line (gitleaks detect --report-format json to regenerate one if a
+# listed file/commit ever changes).
+#
+# gitleaks detect (no flags) scans the FULL git log by default on this
+# machine's gitleaks 8.30.0, not just the working tree - verified live
+# against a throwaway repo before wiring this gate in (a secret added in
+# one commit and removed in the next was still found). That is MORE
+# protective than GODS_LAWS.md L-23's own text describes ("por padrao,
+# olha a arvore e nao o historico") - a discrepancy worth flagging to
+# the lider, not silently working around; reported alongside this file.
+#
+# Both entries below are the SAME documentation example, at two
+# different commits (CONTRACT.md 7.1 "Hardcoded Secrets - Zero
+# Tolerance", showing what NOT to do): "sk-live-abc123xyz789" is not a
+# real credential, has never been a real credential, and CONTRACT.md is
+# out of this fatia's file scope (main owns it) - so this ignorefile is
+# the correct fix, not editing that file.
+40ec0cc4cc44a49213f3016c38239166175fd277:CONTRACT.md:generic-api-key:494
+ae3943c7ba07c1eb43d43ca459f4a960cbff20e5:CONTRACT.md:generic-api-key:560

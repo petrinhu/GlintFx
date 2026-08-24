@@ -26,6 +26,7 @@ if(BUILD_SHARED_LIBS AND UNIX)
         NAME visibility_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_exports.sh" "$<TARGET_FILE:glintfx_library>"
     )
+    set_tests_properties(visibility_test PROPERTIES LABELS consume)
 endif()
 
 # Layer gate (GODS_LAWS.md L-19, item 1: "a CI gate reproves the
@@ -36,6 +37,7 @@ if(UNIX)
         NAME layers_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.sh" "${CMAKE_SOURCE_DIR}"
     )
+    set_tests_properties(layers_test PROPERTIES LABELS consume)
 endif()
 
 # Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the
@@ -53,6 +55,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
             "${CMAKE_CXX_COMPILER}"
     )
+    set_tests_properties(consume_test PROPERTIES LABELS consume)
 endif()
 
 # Embedding gate (FIX-CONSUMO, achado A7; FIX-CONSUMO-2, achado QA-2):
@@ -72,6 +75,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/embed"
             "${CMAKE_CXX_COMPILER}"
     )
+    set_tests_properties(embed_test PROPERTIES LABELS consume)
 endif()
 
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
@@ -89,6 +93,7 @@ if(UNIX)
             "${PROJECT_SOURCE_DIR}"
             "${CMAKE_CXX_COMPILER}"
     )
+    set_tests_properties(install_includedir_test PROPERTIES LABELS consume)
 endif()
 
 # Packager layout gate (FIX-CONSUMO-2, achado QA-4): proves
@@ -106,6 +111,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
             "${CMAKE_CXX_COMPILER}"
     )
+    set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume)
 endif()
 
 # Output name gate (FIX-CONSUMO-3, achado QA-2-2): proves the
@@ -126,6 +132,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
             "${CMAKE_CXX_COMPILER}"
     )
+    set_tests_properties(output_name_test PROPERTIES LABELS consume)
 endif()
 
 # Target name collision gate (FIX-CONSUMO-2, achado QA-3): proves an
@@ -141,4 +148,37 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
             "${CMAKE_CXX_COMPILER}"
     )
+    set_tests_properties(no_target_collision_test PROPERTIES LABELS consume)
+endif()
+
+# preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
+# itself (three controls - clean fixture passes, dirty fixture is
+# reproved, empty directory fails the enumeration floor - see
+# tools/preci.sh and tests/preci_fixtures/). Registered ONLY when the
+# three tools tools/preci.sh's cheap stages need are actually present
+# (clang-format, clang-tidy, cppcheck): the four Linux CI matrix jobs in
+# `linux` (Fedora/Ubuntu/Arch/CachyOS) install a plain C++ toolchain, not
+# the LLVM tooling - registering this test unconditionally would turn a
+# missing tool on those jobs into a spurious ctest failure that has
+# nothing to do with the code. The dedicated `lint` CI job (Fedora 44,
+# GODS_LAWS.md L-04 primary target) DOES install the three tools, and a
+# developer's own machine typically has them too (TESTES.md T15.0); both
+# get this test for free. POSIX sh (bash); same declared Windows
+# downgrade as every other gate in this file.
+if(UNIX)
+    find_program(GLINTFX_CLANG_FORMAT_EXE clang-format)
+    find_program(GLINTFX_CLANG_TIDY_EXE clang-tidy)
+    find_program(GLINTFX_CPPCHECK_EXE cppcheck)
+    if(GLINTFX_CLANG_FORMAT_EXE AND GLINTFX_CLANG_TIDY_EXE AND GLINTFX_CPPCHECK_EXE)
+        add_test(
+            NAME preci_selftest
+            COMMAND "${PROJECT_SOURCE_DIR}/tools/preci.sh" --selftest
+        )
+        set_tests_properties(preci_selftest PROPERTIES LABELS selftest)
+    else()
+        message(STATUS
+            "preci_selftest not registered: clang-format/clang-tidy/cppcheck "
+            "not all found (TESTES.md T15.0 installs them)."
+        )
+    endif()
 endif()

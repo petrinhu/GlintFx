@@ -16,7 +16,7 @@ namespace glintfx::test {
 
 struct Case {
     std::string_view name;
-    void (*fn)();
+    void (*fn)() = nullptr;
 };
 
 void register_case(Case c);

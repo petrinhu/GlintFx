@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# .clang-tidy - static analysis policy (GODS_LAWS.md L-23 portao 3;
+# FUND-4). Curated start, not the full check catalog turned on: a first
+# pass with every group enabled drowns real findings in noise, and this
+# is a young codebase where the signal-to-noise ratio of the ruleset
+# matters more than maximal coverage on day one. Widen the enabled
+# groups later as the codebase grows past the core layer, not now.
+#
+# NOLINT policy (mandatory, not mechanically enforced by clang-tidy
+# itself): every NOLINT/NOLINTNEXTLINE in this tree MUST carry a
+# `reason: ...` justification on the same line, e.g.
+#   x = f(); // NOLINT(bugprone-foo) reason: <why this is not a bug here>
+# tools/preci.sh's clang-tidy stage greps the same file list for
+# NOLINT/NOLINTNEXTLINE and fails the build if one is missing the
+# "reason:" marker - a suppression with no recorded reason is exactly
+# the kind of finding a reviewer cannot audit later.
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  cert-*,
+  misc-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-throwing-static-initialization,
+  -cert-err58-cpp,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner,
+  -misc-use-anonymous-namespace
+# cert-err58-cpp and bugprone-throwing-static-initialization excluded
+# together: both fire on the SAME static-init self-registration object
+# that tests/harness/test_registry.hpp's GLINTFX_TEST macro expands to
+# in every single test file (GODS_LAWS.md L-07 "no Catch2/GoogleTest"
+# is exactly why that idiom exists here). Measured live building this
+# slice: run-clang-tidy against the two-case tests/version_test.cpp
+# alone produced one finding per check per case (2+2) before this
+# exclusion - that is not two isolated bugs, it is the harness idiom
+# repeating at every call site, forever, project-wide.
+#
+# misc-use-anonymous-namespace excluded for the same macro, same
+# measurement: GLINTFX_TEST forward-declares its per-case function as
+# `static void glintfx_test_fn_##name();` (test_registry.hpp) rather
+# than inside the anonymous namespace the check wants, because the
+# later out-of-namespace definition has to match that exact forward
+# declaration. Moving it would mean redesigning the harness macro, not
+# fixing a lint finding.
+#
+# misc-non-private-member-variables-in-classes excluded: GODS_LAWS.md
+# L-19 explicitly makes core value types (glintfx::version, and future
+# vec2/rect) PUBLIC-layout on purpose ("value type do nucleo e visivel,
+# e muda-lo e mudanca de ABI assumida") - the check's premise (public
+# data members are an encapsulation smell) is the opposite of this
+# project's own architectural decision for that category of type.
+#
+# misc-include-cleaner and bugprone-easily-swappable-parameters
+# excluded as pure noise-to-signal calls for a codebase this size: both
+# fire on nearly every translation unit and every multi-parameter
+# function respectively, with a false-positive rate that would train
+# reviewers to stop reading clang-tidy output rather than sharpen it.
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(include|src)/.*'
+FormatStyle: none

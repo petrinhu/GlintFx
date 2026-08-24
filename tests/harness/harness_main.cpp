@@ -63,6 +63,15 @@ void print_summary(std::size_t total, int failures) {
 
 } // namespace
 
+// The only calls below that clang-tidy's analysis considers throwing are
+// std::println's internal std::format_error path (print_case_list and
+// print_summary above). A std::format_error can only be thrown by a
+// runtime-parsed format string, and every format string this harness ever
+// calls println with is a string literal, validated at COMPILE time by
+// consteval (P2216). clang-tidy's static analysis does not model that
+// guarantee and flags the throw path unconditionally; there is no runtime
+// input here that could make the literal "{}" pattern invalid.
+// NOLINTNEXTLINE(bugprone-exception-escape) reason: literal format string, compile-time checked
 int main(int argc, char **argv) {
     if (argc == 2 && std::string_view{argv[1]} == "--list") {
         print_case_list();

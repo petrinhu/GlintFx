@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# .clang-format - formatting policy (GODS_LAWS.md L-24, literal):
+# "clang-format com base LLVM, indentacao de 4, colunas 100." Formatting
+# stops being a code-review subject: tools/preci.sh and the CI `lint`
+# job both run `clang-format --dry-run -Werror` against every tracked
+# .cpp/.hpp file (GODS_LAWS.md L-23 portao 1 is compiler warnings; this
+# is the separate, but sibling, formatting gate of L-24).
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 100

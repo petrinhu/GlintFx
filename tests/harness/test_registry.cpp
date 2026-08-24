@@ -5,23 +5,17 @@ namespace glintfx::test {
 
 namespace {
 
-std::vector<Case>& mutable_cases() {
+std::vector<Case> &mutable_cases() {
     static std::vector<Case> cases;
     return cases;
 }
 
-}  // namespace
+} // namespace
 
-void register_case(Case c) {
-    mutable_cases().push_back(c);
-}
+void register_case(Case c) { mutable_cases().push_back(c); }
 
-const std::vector<Case>& all_cases() {
-    return mutable_cases();
-}
+const std::vector<Case> &all_cases() { return mutable_cases(); }
 
-CaseRegistrar::CaseRegistrar(std::string_view name, void (*fn)()) {
-    register_case(Case{name, fn});
-}
+CaseRegistrar::CaseRegistrar(std::string_view name, void (*fn)()) { register_case(Case{name, fn}); }
 
-}  // namespace glintfx::test
+} // namespace glintfx::test

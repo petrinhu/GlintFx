@@ -20,18 +20,17 @@ struct Case {
 };
 
 void register_case(Case c);
-[[nodiscard]] const std::vector<Case>& all_cases();
+[[nodiscard]] const std::vector<Case> &all_cases();
 
 struct CaseRegistrar {
     CaseRegistrar(std::string_view name, void (*fn)());
 };
 
-}  // namespace glintfx::test
+} // namespace glintfx::test
 
-#define GLINTFX_TEST(name)                                                  \
-    static void glintfx_test_fn_##name();                                  \
-    namespace {                                                             \
-    const ::glintfx::test::CaseRegistrar glintfx_test_reg_##name(           \
-        #name, &glintfx_test_fn_##name);                                   \
-    }                                                                       \
+#define GLINTFX_TEST(name)                                                                         \
+    static void glintfx_test_fn_##name();                                                          \
+    namespace {                                                                                    \
+    const ::glintfx::test::CaseRegistrar glintfx_test_reg_##name(#name, &glintfx_test_fn_##name);  \
+    }                                                                                              \
     static void glintfx_test_fn_##name()

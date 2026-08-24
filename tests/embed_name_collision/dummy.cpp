@@ -7,8 +7,6 @@
 
 namespace collision_consumer {
 
-int dummy_symbol() {
-    return 0;
-}
+int dummy_symbol() { return 0; }
 
-}  // namespace collision_consumer
+} // namespace collision_consumer

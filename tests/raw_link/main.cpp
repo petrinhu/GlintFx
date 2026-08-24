@@ -21,8 +21,7 @@ int main() {
     const bool major_ok = v.major_version == static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR);
     const bool minor_ok = v.minor_version == static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR);
     const bool patch_ok = v.patch_version == static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH);
-    const bool string_ok =
-        glintfx::version_string() == std::string_view{GLINTFX_VERSION_STRING};
+    const bool string_ok = glintfx::version_string() == std::string_view{GLINTFX_VERSION_STRING};
 
     std::println("glintfx {} (raw -lglintfx link)", glintfx::version_string());
 

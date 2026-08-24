@@ -48,4 +48,4 @@ struct version {
 [[nodiscard]] GLINTFX_API version runtime_version() noexcept;
 [[nodiscard]] GLINTFX_API std::string_view version_string() noexcept;
 
-}  // namespace glintfx
+} // namespace glintfx

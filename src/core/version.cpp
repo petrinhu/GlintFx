@@ -13,8 +13,6 @@ version runtime_version() noexcept {
     };
 }
 
-std::string_view version_string() noexcept {
-    return GLINTFX_VERSION_STRING;
-}
+std::string_view version_string() noexcept { return GLINTFX_VERSION_STRING; }
 
-}  // namespace glintfx
+} // namespace glintfx

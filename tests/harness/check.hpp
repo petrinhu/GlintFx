@@ -15,13 +15,13 @@ void record_check_failure(std::string_view file, int line, std::string_view expr
 [[nodiscard]] int failure_count();
 void reset_failure_count();
 
-}  // namespace glintfx::test
+} // namespace glintfx::test
 
-#define GLINTFX_CHECK(cond)                                                 \
-    do {                                                                    \
-        if (!(cond)) {                                                      \
-            ::glintfx::test::record_check_failure(__FILE__, __LINE__, #cond); \
-        }                                                                   \
+#define GLINTFX_CHECK(cond)                                                                        \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            ::glintfx::test::record_check_failure(__FILE__, __LINE__, #cond);                      \
+        }                                                                                          \
     } while (false)
 
 #define GLINTFX_CHECK_EQ(a, b) GLINTFX_CHECK((a) == (b))

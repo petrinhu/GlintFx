@@ -16,12 +16,12 @@ namespace {
 using glintfx::test::Case;
 
 void print_case_list() {
-    for (const Case& c : glintfx::test::all_cases()) {
+    for (const Case &c : glintfx::test::all_cases()) {
         std::println("{}", c.name);
     }
 }
 
-bool run_single_case(const Case& c) {
+bool run_single_case(const Case &c) {
     glintfx::test::reset_failure_count();
     c.fn();
     const bool passed = glintfx::test::failure_count() == 0;
@@ -29,8 +29,8 @@ bool run_single_case(const Case& c) {
     return passed;
 }
 
-const Case* find_case_by_name(std::string_view name) {
-    for (const Case& c : glintfx::test::all_cases()) {
+const Case *find_case_by_name(std::string_view name) {
+    for (const Case &c : glintfx::test::all_cases()) {
         if (c.name == name) {
             return &c;
         }
@@ -40,7 +40,7 @@ const Case* find_case_by_name(std::string_view name) {
 
 int run_all_cases() {
     int failures = 0;
-    for (const Case& c : glintfx::test::all_cases()) {
+    for (const Case &c : glintfx::test::all_cases()) {
         if (!run_single_case(c)) {
             ++failures;
         }
@@ -49,7 +49,7 @@ int run_all_cases() {
 }
 
 int run_named_case(std::string_view name) {
-    const Case* c = find_case_by_name(name);
+    const Case *c = find_case_by_name(name);
     if (c == nullptr) {
         std::println(stderr, "harness: no test case named \"{}\"", name);
         return 1;
@@ -61,9 +61,9 @@ void print_summary(std::size_t total, int failures) {
     std::println("--- {} case(s), {} failure(s) ---", total, failures);
 }
 
-}  // namespace
+} // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     if (argc == 2 && std::string_view{argv[1]} == "--list") {
         print_case_list();
         return 0;

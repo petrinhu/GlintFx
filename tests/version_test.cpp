@@ -22,10 +22,9 @@ GLINTFX_TEST(runtime_version_matches_macros) {
 
 GLINTFX_TEST(version_string_matches_macro_and_format) {
     const std::string from_macro = GLINTFX_VERSION_STRING;
-    const std::string formatted_from_parts =
-        std::to_string(GLINTFX_VERSION_MAJOR) + "." +
-        std::to_string(GLINTFX_VERSION_MINOR) + "." +
-        std::to_string(GLINTFX_VERSION_PATCH);
+    const std::string formatted_from_parts = std::to_string(GLINTFX_VERSION_MAJOR) + "." +
+                                             std::to_string(GLINTFX_VERSION_MINOR) + "." +
+                                             std::to_string(GLINTFX_VERSION_PATCH);
 
     const std::string runtime = std::string(glintfx::version_string());
     GLINTFX_CHECK_EQ(runtime, from_macro);

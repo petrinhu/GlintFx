@@ -92,7 +92,9 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
-- —: nenhuma pendência residual. Tabela criada do zero nesta sessão a partir das fontes listadas em "Proveniência" acima; nada foi descoberto fora delas.
+- **Portão de SPDX no CI** — não existe verificação automática de cabeçalho de licença. O item `SPDX` **não prometia** isso, então não foi reprovação; achado da revisão adversarial de 22/08/2026, que deixou pronto um verificador já provado com os três controles (positivo, negativo e **varredura vazia**) para servir de base.
+- **A linha do achado A10 credita a um commit só o que foram quatro** — a descrição diz "entregue e commitado em `e393279`", mas esse commit cobriu 14 de 24 arquivos (58%); os 10 restantes fecharam por efeito colateral de commits de outros itens da mesma onda. A cobertura de 100% é real, mas só a partir do HEAD, nunca de `e393279` isolado. Achado da mesma revisão.
+- **Portão de âncora morta e título duplicado nos manuais** — em 23/08/2026 o líder mandou auditar as âncoras do `GODS_LAWS.md`; deu zero mortas, mas apareceu um título duplicado (dois `### Decisões de escopo da v1` com conteúdos diferentes, um em L-28 e outro em L-30), já desambiguado. O verificador foi escrito e usado, e **não virou portão** — o líder recusou o escopo naquele momento. Registrado para não se perder: o defeito que ele pega é o mesmo do `AUDITORIAS.md` que prometia 12 seções e tinha zero.
 
 ## TABELA UNIFICADA
 

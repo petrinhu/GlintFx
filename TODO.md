@@ -28,8 +28,10 @@ Tabela de pendências e planejamento, ordenada de cima para baixo na ordem de ex
 - **⏳ Pendente** — não iniciado.
 - **💡 Decisão tomada** — abordagem definida, implementação futura.
 - **🎨 Pendente design** — aguarda decisão do líder (L-10); **não pode ser puxado** antes da decisão registrada.
+- **⛔ Bloqueado** — parou por causa externa; não avança até a causa sair.
 - **❌ Reprovado** — foi entregue, passou por revisão adversarial e **falhou**. Volta para a fila com o motivo escrito na descrição. Distingue-se de `⏳ Pendente` (nunca começou) e de `🔍 Pendente verificação` (entregue, ninguém olhou ainda). Criado por decisão do líder em 24/08/2026, ao ver o `HDR-HYGIENE` reprovado exibindo `🔍`, que significa o oposto.
 - **🔍 Pendente verificação** — implementado, aguarda validação (revisão adversarial, teste não-unitário, ou os dois).
+- **🚫 Cancelado** — decidiu-se **não** fazer; nada foi entregue e não está na fila. Distingue-se de `✅ Concluído` (nada entregue), `⏳ Pendente` (não está na fila), `⛔ Bloqueado` (não vai destravar) e `❌ Reprovado` (ninguém tentou).
 
 ## Marcas usadas na coluna Descrição Técnica
 

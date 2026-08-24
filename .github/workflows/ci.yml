@@ -9,6 +9,19 @@ name: CI
 # CachyOS NAO e coberto pelo job de Arch: imagem propria, repositorios
 # proprios, toolchain propria. Verde no Arch nao autoriza declarar
 # CachyOS suportado.
+#
+# GODS_LAWS.md L-23, os quatro portoes, FUND-4: portao 1 (-Werror) esta
+# em TODO build abaixo (linux e windows, via -DGLINTFX_WERROR=ON / /WX);
+# portao 2 (ASan/UBSan) e o job `sanitizer`; portao 3 (analise estatica)
+# e o job `lint`; portao 4 (scan de segredo) e o job `gitleaks`. Os tres
+# jobs novos rodam so no Fedora 44 pinado (alvo primario, L-04) - nao
+# nos quatro alvos Linux da matriz - porque nenhum deles prova algo
+# especifico de distro: clang-tidy/cppcheck/gitleaks analisam a mesma
+# arvore de codigo-fonte em qualquer lugar, e ASan/UBSan e comportamento
+# de runtime do compilador, ja coberto pelo GCC do alvo primario. `lint`
+# e `sanitizer` chamam tools/preci.sh --lint-only/--sanitizer-only, a
+# mesma logica de estagio que um desenvolvedor roda localmente (TESTES.md
+# T15.2) - nao ha segunda copia da logica de estagio vivendo so aqui.
 
 on:
   push:
@@ -109,10 +122,14 @@ jobs:
       # registrados em tests/CMakeLists.txt e rodam sob QUALQUER modo em
       # que este build/ tenha sido configurado, o que e exatamente o
       # eixo shared/static que este job precisa exercitar.
+      # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1 ("zero aviso de
+      # compilacao em todo commit"), em todo build deste job a partir do
+      # FUND-4 - ausente ate aqui (cmake/GlintfxOptions.cmake:11 tinha o
+      # default OFF e nenhum passo deste arquivo o ligava).
       - name: Build e testes (compartilhado)
         run: |
           set -eux
-          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }}
+          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DGLINTFX_WERROR=ON
           cmake --build build-shared
           ctest --test-dir build-shared --output-on-failure
 
@@ -122,7 +139,7 @@ jobs:
       - name: Build e testes (estatico)
         run: |
           set -eux
-          cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DBUILD_SHARED_LIBS=OFF
+          cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON
           cmake --build build-static
           ctest --test-dir build-static --output-on-failure
 
@@ -167,10 +184,13 @@ jobs:
       # if(UNIX)), por isso o passo seguinte fecha o caminho de consumo
       # do Windows com um script dedicado (GODS_LAWS.md FIX-CONSUMO,
       # achados A2/A3: o caminho dllimport so existe fora da arvore).
+      # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1. No MSVC,
+      # cmake/GlintfxCompileOptions.cmake ja mapeia esta mesma flag para
+      # /WX (avisos como erro) - nao ha um segundo flag /WX a passar aqui.
       - name: Build (compartilhado)
         shell: pwsh
         run: |
-          cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-shared --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -201,7 +221,7 @@ jobs:
       - name: Build e testes (estatico)
         shell: pwsh
         run: |
-          cmake -S . -B build-static -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+          cmake -S . -B build-static -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-static --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -211,6 +231,74 @@ jobs:
       - name: Consumo instalado (estatico)
         shell: pwsh
         run: tools/ci/check-consume.ps1 -BuildDir build-static -PackageSrcDir tests/package
+
+  lint:
+    name: Lint (Fedora 44 - clang-format, clang-tidy, cppcheck)
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Instalar toolchain e ferramentas de lint
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel clang-tools-extra cppcheck
+
+      - uses: actions/checkout@v4
+
+      # GODS_LAWS.md L-23 portao 3 (analise estatica). Mesma logica de
+      # estagio que tools/preci.sh roda localmente (TESTES.md T15.2) -
+      # format, configure -Werror, build, clang-tidy, cppcheck, NOLINT.
+      - name: preci.sh --lint-only
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          tools/preci.sh --lint-only
+
+  sanitizer:
+    name: Sanitizer (Fedora 44 - ASan/UBSan)
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Instalar toolchain
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel
+
+      - uses: actions/checkout@v4
+
+      # GODS_LAWS.md L-23 portao 2 ("ASan e UBSan a cada fatia fechada").
+      # `ctest -L unit` apenas (dentro de tools/preci.sh): os gates de
+      # consumo (LABELS consume, tests/CMakeLists.txt) linkam um
+      # consumidor comum contra a lib sanitizada de proposito, o que
+      # falha por construcao sob ASan - downgrade declarado, nao um
+      # portao mais fraco escondido atras de um nome generico.
+      - name: preci.sh --sanitizer-only
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          tools/preci.sh --sanitizer-only
+
+  gitleaks:
+    name: Gitleaks (scan de segredo)
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth 0: `gitleaks detect` (sem flags) varre o git log
+      # inteiro por padrao (verificado ao vivo nesta versao, 8.30.0 - ver
+      # .gitleaksignore); o checkout raso default (profundidade 1) so
+      # exporia o ultimo commit ao scanner, dando falsa sensacao de
+      # cobertura completa.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar gitleaks
+        run: sudo apt-get update && sudo apt-get install -y gitleaks
+
+      # GODS_LAWS.md L-23 portao 4. .gitleaksignore na raiz supre os dois
+      # falsos positivos conhecidos (a chave de exemplo de CONTRACT.md
+      # 7.1, documentacao do que NAO fazer) por fingerprint de commit -
+      # nenhum termo generico e ignorado.
+      - name: gitleaks detect
+        run: gitleaks detect --no-banner --source .
 
   leis:
     name: Gate das leis

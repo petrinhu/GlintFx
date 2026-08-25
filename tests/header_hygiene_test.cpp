@@ -72,7 +72,7 @@
 #include <cstdint>
 #include <string>
 
-#include <glintfx/core/error_code.hpp>
+#include <glintfx/core/err_code.hpp>
 #include <glintfx/core/version.hpp>
 #include <glintfx/version_macros.hpp>
 

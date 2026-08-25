@@ -108,6 +108,34 @@ require_nonempty() {
     echo "$stage_name: ${#FILES[@]} arquivo(s) varrido(s)"
 }
 
+# Sibling floor to require_nonempty above, for the two stages whose
+# unit of work is a TEST, not a file (stage_ctest, stage_sanitizer).
+# `ctest` itself exits 0 and prints "No tests were found!!!" when a
+# build has zero registered tests, or zero tests matching a `-L`
+# filter - require_nonempty (file-count based) never covered this,
+# and that gap is what reproved this fatia's first revision (adversarial
+# review, FUND-4). `ctest -N` reports the count WITHOUT running
+# anything, so counting is itself cheap.
+count_ctest_tests() {
+    build_dir="$1"
+    shift
+    ctest --test-dir "$build_dir" -N "$@" 2>/dev/null         | awk -F': ' '/^Total Tests:/ { print $2; found=1 } END { if (!found) print 0 }'
+}
+
+# Same contract as require_nonempty, but for a test count instead of a
+# file count: prints and returns non-zero on empty, never exits by
+# itself (selftest's negative controls below need to observe the
+# failure and keep running).
+require_nonempty_tests() {
+    stage_name="$1"
+    count="$2"
+    if [ "$count" -eq 0 ]; then
+        echo "$stage_name: varredura vazia (0 testes)" >&2
+        return 1
+    fi
+    echo "$stage_name: $count teste(s) varrido(s)"
+}
+
 # --- real-pipeline stages (operate on the tracked tree) ---
 
 stage_format() {
@@ -116,9 +144,20 @@ stage_format() {
     clang-format --dry-run -Werror "${FILES[@]}"
 }
 
+# -DGLINTFX_BUILD_TESTS=ON forced explicitly (defense in depth, not a
+# replacement for the count floor in stage_ctest below): the option's
+# own default is ${PROJECT_IS_TOP_LEVEL} (cmake/GlintfxOptions.cmake),
+# which stays ON for every fresh configure of this script's OWN build
+# directories - but a build directory left over from a manual
+# `-DGLINTFX_BUILD_TESTS=OFF` reconfigure would otherwise silently keep
+# that cached value on the next `cmake -S -B` here, and stage_ctest
+# would then find zero tests. Forcing it removes that path entirely for
+# THIS script's own build dirs; a developer who genuinely wants a
+# tests-off build uses plain `cmake` directly, not preci.sh, whose
+# entire purpose is running the test suite.
 stage_configure() {
     cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
 }
 
 stage_build() {
@@ -188,6 +227,8 @@ stage_gitleaks() {
 }
 
 stage_ctest() {
+    count="$(count_ctest_tests "$BUILD_DIR")"
+    require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
     ctest --test-dir "$BUILD_DIR" --output-on-failure
 }
 
@@ -201,9 +242,12 @@ stage_ctest() {
 # portao 2), so it never shares a build tree with stage_configure above.
 stage_sanitizer() {
     cmake -S "$ROOT_DIR" -B "$SANITIZE_BUILD_DIR" -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON \
         -DGLINTFX_SANITIZE=address,undefined
     cmake --build "$SANITIZE_BUILD_DIR"
+    count="$(count_ctest_tests "$SANITIZE_BUILD_DIR" -L unit)"
+    require_nonempty_tests "ctest -L unit (sanitizer)" "$count" \
+        || fail "estagio sanitizer recusado (varredura vazia de testes rotulados unit - o rotulo sumiu ou o build nao tem teste nenhum)"
     ctest --test-dir "$SANITIZE_BUILD_DIR" -L unit --output-on-failure
 }
 
@@ -273,10 +317,103 @@ run_selftest_empty_scan_control() {
     echo "selftest: controle de varredura vazia OK (0 arquivos foi recusado, nao aprovado)"
 }
 
+# --- selftest controls for the two ctest-based stages (stage_ctest,
+# stage_sanitizer): GODS_LAWS.md L-20, the finding that reproved this
+# fatia's first revision (adversarial review, FUND-4). `ctest` exits 0
+# and prints "No tests were found!!!" on a build with zero registered
+# tests, or zero tests matching a `-L` filter - the file-count floor
+# above never covered this, because the unit of work here is a TEST,
+# not a file. These controls run against a throwaway CMake project
+# (language NONE, tests that just run `${CMAKE_COMMAND} -E true`), not
+# the real $BUILD_DIR, so --selftest stays cheap: no compiler is
+# invoked, only `cmake -S -B` (configure only) and `ctest -N` (counts
+# without running anything).
+
+selftest_ctest_project_dir() {
+    mktemp -d "${TMPDIR}/glintfx-preci-ctest-selftest.XXXXXX"
+}
+
+# $2 (mode): with-unit-label registers one test carrying LABELS unit
+# (mirrors glintfx_add_test in cmake/GlintfxTest.cmake); no-tests
+# registers none (mirrors GLINTFX_BUILD_TESTS=OFF, or an empty suite);
+# wrong-label registers one test WITHOUT the `unit` label (mirrors the
+# exact defect the review found: `set_tests_properties(... LABELS
+# unit)` disappearing from GlintfxTest.cmake in a future refactor -
+# stage_sanitizer's `ctest -L unit` then matches zero tests even though
+# the build has one).
+selftest_write_ctest_project() {
+    dir="$1"
+    mode="$2"
+    {
+        echo 'cmake_minimum_required(VERSION 3.28)'
+        echo 'project(preci_selftest_ctest_probe NONE)'
+        echo 'include(CTest)'
+        case "$mode" in
+            with-unit-label)
+                echo 'add_test(NAME dummy COMMAND ${CMAKE_COMMAND} -E true)'
+                echo 'set_tests_properties(dummy PROPERTIES LABELS unit)'
+                ;;
+            wrong-label)
+                echo 'add_test(NAME dummy COMMAND ${CMAKE_COMMAND} -E true)'
+                echo 'set_tests_properties(dummy PROPERTIES LABELS consume)'
+                ;;
+            no-tests) ;;
+        esac
+    } > "$dir/CMakeLists.txt"
+    cmake -S "$dir" -B "$dir/build" -G Ninja >/dev/null 2>&1
+}
+
+run_selftest_ctest_count_positive_control() {
+    dir="$(selftest_ctest_project_dir)"
+    selftest_write_ctest_project "$dir" with-unit-label
+    n_all="$(count_ctest_tests "$dir/build")"
+    n_unit="$(count_ctest_tests "$dir/build" -L unit)"
+    rm -rf "$dir"
+    [ "$n_all" -eq 1 ] || fail "selftest: esperava 1 teste sem filtro, count_ctest_tests devolveu '$n_all'"
+    [ "$n_unit" -eq 1 ] || fail "selftest: esperava 1 teste com -L unit, count_ctest_tests devolveu '$n_unit'"
+    require_nonempty_tests "ctest[positivo]" "$n_all"         || fail "selftest: controle positivo (ctest) FALHOU - piso recusou 1 teste real"
+    require_nonempty_tests "ctest[positivo -L unit]" "$n_unit"         || fail "selftest: controle positivo (ctest -L unit) FALHOU - piso recusou 1 teste rotulado unit"
+    echo "selftest: controle positivo (ctest, com e sem -L unit) OK"
+}
+
+run_selftest_ctest_count_negative_control() {
+    dir="$(selftest_ctest_project_dir)"
+    selftest_write_ctest_project "$dir" no-tests
+    n="$(count_ctest_tests "$dir/build")"
+    rm -rf "$dir"
+    [ "$n" -eq 0 ] || fail "selftest: esperava 0 testes em projeto sem nenhum add_test, count_ctest_tests devolveu '$n'"
+    if require_nonempty_tests "ctest[negativo: zero testes]" "$n" 2>/dev/null; then
+        fail "selftest: controle negativo (ctest) FALHOU - piso aprovou 0 testes"
+    fi
+    echo "selftest: controle negativo (ctest, projeto sem nenhum teste registrado) OK"
+}
+
+run_selftest_ctest_count_wrong_label_control() {
+    dir="$(selftest_ctest_project_dir)"
+    selftest_write_ctest_project "$dir" wrong-label
+    n_all="$(count_ctest_tests "$dir/build")"
+    n_unit="$(count_ctest_tests "$dir/build" -L unit)"
+    rm -rf "$dir"
+    [ "$n_all" -eq 1 ] || fail "selftest: esperava 1 teste sem filtro (rotulo errado), count_ctest_tests devolveu '$n_all'"
+    [ "$n_unit" -eq 0 ] || fail "selftest: esperava 0 testes com -L unit (rotulo errado), count_ctest_tests devolveu '$n_unit'"
+    if require_nonempty_tests "ctest[-L unit, rotulo ausente]" "$n_unit" 2>/dev/null; then
+        fail "selftest: controle de rotulo ausente FALHOU - piso aprovou -L unit com 0 testes casando"
+    fi
+    echo "selftest: controle de rotulo ausente (ctest -L unit, 1 teste existe mas nenhum rotulado unit) OK"
+}
+
+run_selftest_ctest_count_controls() {
+    log "selftest: piso de contagem de testes (stage_ctest / stage_sanitizer)"
+    run_selftest_ctest_count_positive_control
+    run_selftest_ctest_count_negative_control
+    run_selftest_ctest_count_wrong_label_control
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
     run_selftest_empty_scan_control
+    run_selftest_ctest_count_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 

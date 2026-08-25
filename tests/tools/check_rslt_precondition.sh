@@ -28,15 +28,28 @@
 # tools/bench/... sibling reasoning: measure, don't assume) - the two
 # gltfx_rslt<T> forms are independent implementations, so each needs
 # its own live proof of what happens when the guard is compiled out:
-#   "primary" (gltfx_rslt<int>, std::variant storage): std::get_if
-#     returns a genuine null pointer on the wrong alternative;
-#     dereferencing it is expected to SIGSEGV in Release.
-#   "void" (gltfx_rslt<void>, std::optional storage):
+#   "primary" (gltfx_rslt<int>, std::variant<T, gltfx_err> storage):
+#     std::get_if returns a genuine null pointer on the wrong
+#     alternative; dereferencing it faults (SIGSEGV, page zero
+#     unmapped on this project's five target platforms) in Release.
+#   "void" (gltfx_rslt<void>, std::variant<std::monostate, gltfx_err>
+#     storage AS OF 25/08/2026 - was std::optional<gltfx_err> before,
+#     see include/glintfx/core/err.hpp's own comment at the
+#     gltfx_rslt<void> specialization for the full history): now
+#     dereferences std::get_if the SAME way the primary template does,
+#     so it faults the SAME way - assert_release_void_faults_via_
+#     null_dereference() below proves this by requiring the EXACT
+#     SIGSEGV exit status, not just "no debug message". THE OLD
+#     std::optional-based form did NOT have this property -
 #     std::optional::operator*() on an unengaged optional reads the
-#     optional's own buffer directly - NOT expected to reliably fault;
-#     this is the case that shows "the process dies either way" is not
-#     automatically true, and why the debug guard is MORE valuable
-#     here, not less (silent fabricated data is worse than a crash).
+#     optional's own buffer directly, which does not reliably fault
+#     (proven live before this change, distro hardening explicitly
+#     disabled: silently returned a fabricated gltfx_err, exit 0). That
+#     was the case showing "the process dies either way" is not
+#     automatically true, and it is WHY the debug-only guard stays
+#     valuable even after this storage change (structural fault is
+#     still undefined behavior, not a guarantee, on a platform this
+#     project has not measured).
 #
 # Usage:
 #   check_rslt_precondition.sh <include-dir> <generated-include-dir> <library-dir> <cxx-compiler>
@@ -131,6 +144,39 @@ assert_release_case_shows_no_debug_message() {
     echo "check_rslt_precondition.sh: release/$case_arg OK (no debug-only message - assert compiled to nothing, whatever happened is the SAME undefined behavior this code already had)"
 }
 
+# CORE-ERROR finding, 25/08/2026 (CTO-measured, leader-decided):
+# gltfx_rslt<void>'s storage moved from std::optional<gltfx_err> to
+# std::variant<std::monostate, gltfx_err>, mirroring the primary
+# template - error() now dereferences std::get_if<1>(&m_storage), a
+# GENUINE null pointer when the wrong alternative is active, the same
+# shape gltfx_rslt<T>'s own value()/error() already had. Page zero is
+# unmapped on all five of this project's target platforms, so this
+# null-pointer read is expected to SIGSEGV structurally - not because
+# any standard or library guarantees it (it remains undefined
+# behavior), but because of how virtual memory is universally laid out
+# on every real OS this project ships on. THE OLD std::optional-based
+# form did NOT have this property (its operator*() reads the
+# optional's own internal buffer directly - proven live before this
+# change, with GCC's distro-default _GLIBCXX_ASSERTIONS hardening
+# explicitly disabled, to return a FABRICATED gltfx_err with exit 0,
+# no fault at all). GODS_LAWS.md L-40: this assertion has to be SEEN
+# TO REPROVE against the code it is meant to catch a regression of,
+# before it is trusted - not adjusted after the fact to match whatever
+# the code already does.
+assert_release_void_faults_via_null_dereference() {
+    binary="$1"
+    output_file="$2"
+    readonly SIGSEGV_EXIT_STATUS=139 # 128 + SIGSEGV(11), this project's Linux gates already read exit status this way
+
+    status="$(run_capture "$binary" void "$output_file")"
+    echo "check_rslt_precondition.sh: release/void (null-dereference check) exited with status $status, output:"
+    cat "$output_file"
+
+    [ "$status" -eq "$SIGSEGV_EXIT_STATUS" ] || fail "release/void exited $status, expected $SIGSEGV_EXIT_STATUS (SIGSEGV) - gltfx_rslt<void>::error() no longer faults via a real null-pointer dereference the way gltfx_rslt<T>'s primary template already does"
+
+    echo "check_rslt_precondition.sh: release/void OK (SIGSEGV via a real null-pointer dereference, structural on this platform - page zero unmapped - not a library-level guarantee)"
+}
+
 main() {
     require_args "$@"
     includedir="$1"
@@ -156,7 +202,9 @@ main() {
     assert_release_case_shows_no_debug_message "$release_bin" primary "$ASSERT_MESSAGE_PRIMARY" "$scratch/release_primary.out"
     assert_release_case_shows_no_debug_message "$release_bin" void "$ASSERT_MESSAGE_VOID" "$scratch/release_void.out"
 
-    echo "ok: gltfx_rslt<T>'s debug-only precondition guard stops deterministically with a message in Debug, and costs nothing (no message, unchanged behavior) in Release, for both the primary template and the void specialization."
+    assert_release_void_faults_via_null_dereference "$release_bin" "$scratch/release_void_sigsegv.out"
+
+    echo "ok: gltfx_rslt<T>'s debug-only precondition guard stops deterministically with a message in Debug, and costs nothing (no message, unchanged behavior) in Release, for both the primary template and the void specialization. gltfx_rslt<void>'s release-mode fault is a real null-pointer dereference (SIGSEGV), structurally the same shape the primary template already had."
 }
 
 main "$@"

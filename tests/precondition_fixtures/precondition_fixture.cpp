@@ -16,23 +16,36 @@
 // undefined behavior this code already had before the guard still
 // happens, unchanged.
 //
-// Two cases, selected by argv[1], because the two gltfx_rslt<T> forms
-// are two SEPARATE implementations with independently-proven UB
-// shapes when the guard is compiled out:
+// Two cases, selected by argv[1], kept SEPARATE even though both
+// gltfx_rslt<T> forms now share the same std::get_if-based storage
+// mechanism (AS OF 25/08/2026 - gltfx_rslt<void> used to store
+// std::optional<gltfx_err>; see include/glintfx/core/err.hpp's own
+// comment at the gltfx_rslt<void> specialization for the full history
+// of why that changed), because they are still two INDEPENDENT
+// template instantiations - each needs its own live proof, not an
+// inference from the other one's behavior:
 //   "primary" - gltfx_rslt<int>::value() on an error-holding result.
 //               Storage is std::variant<int, gltfx_err>; std::get_if
 //               returns a genuine null pointer when the wrong
 //               alternative is active, and dereferencing it is a real
-//               null-pointer read - typically SIGSEGV in Release.
+//               null-pointer read - SIGSEGV in Release, page zero
+//               unmapped on this project's five target platforms.
 //   "void"    - gltfx_rslt<void>::error() on a success-holding
-//               (ok()) result. Storage is std::optional<gltfx_err>;
-//               std::optional::operator*() on an unengaged optional
-//               reads the optional's OWN internal buffer directly (it
-//               exists whether engaged or not) - this does NOT
-//               reliably fault, it can silently hand back a
-//               fabricated gltfx_err. Proving this case separately is
-//               the point: "the process dies either way" is NOT
-//               automatically true for this form in Release.
+//               (ok()) result. Storage is
+//               std::variant<std::monostate, gltfx_err>; the SAME
+//               std::get_if mechanism, the SAME null-pointer fault
+//               shape. This was NOT always true: the storage this
+//               case used to have (std::optional<gltfx_err>) let
+//               operator*() read the optional's own internal buffer
+//               directly on an unengaged optional, which did NOT
+//               reliably fault - proven live, with this toolchain's
+//               distro hardening explicitly disabled, to silently
+//               hand back a fabricated gltfx_err instead (exit 0, no
+//               crash at all). Both this file's own history and
+//               check_rslt_precondition.sh's own history is proof that
+//               "the process dies either way" is NEVER assumed here -
+//               it is measured per storage shape, every time the
+//               shape changes.
 int main(int argc, char **argv) {
     if (argc != 2) {
         std::fprintf(stderr, "usage: precondition_fixture <primary|void>\n");

@@ -3,7 +3,6 @@
 
 #include <cassert>
 #include <cstdint>
-#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -341,39 +340,77 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
 // The T = void specialization CE-4's "no second form" decision
 // requires: a fallible function with nothing to return on success
 // still returns gltfx_rslt<T>, here with T = void - C++ cannot store a
-// `void` value, so the storage is just "is there an error or not"
-// (std::optional<gltfx_err>), but the PUBLIC SHAPE mirrors the primary
-// template exactly minus value() (there is nothing to read on
-// success).
+// `void` value, so the storage mirrors the primary template's own
+// shape, std::variant<std::monostate, gltfx_err> instead of T's own
+// slot, and the PUBLIC SHAPE mirrors the primary template exactly
+// minus value() (there is nothing to read on success).
+//
+// STORAGE CHANGED 25/08/2026 (measured by the CTO, confirmed command
+// by command, decided by the leader) - was std::optional<gltfx_err>.
+// The framing that blocked this earlier ("touches the frozen
+// envelope") was WRONG, and worth naming so the next reviewer does not
+// re-derive the same wrong caution: no static_assert anywhere binds
+// gltfx_rslt<T>'s layout (the three that exist all bind gltfx_err,
+// which this change never touches); this header has never been
+// published (no remote, zero tags); no EXPORTED symbol carries the
+// envelope (gltfx_rslt<T> is entirely inline - see the header comment
+// above, "gltfx_rslt<T> is a TEMPLATE... entirely INLINE"), so there
+// is no ABI seam to break; and the two storage forms measured
+// byte-identical (24 bytes) with identical nothrow-move traits. The
+// PUBLIC SURFACE - every method signature, every return type - does
+// not change AT ALL; only the PRIVATE representation of a template
+// that never crossed the library boundary does.
+//
+// WHY IT WAS WORTH CHANGING: the old std::optional<gltfx_err> storage
+// gave error()'s debug-only-guard-compiled-out fallback a DIFFERENT,
+// WORSE undefined-behavior shape than the primary template's own
+// value()/error() already had - std::optional::operator*() on an
+// unengaged optional reads the optional's own internal buffer
+// directly, which does NOT reliably fault (measured live: with this
+// toolchain's distro-default _GLIBCXX_ASSERTIONS hardening explicitly
+// disabled, the exact same misuse returned a FABRICATED gltfx_err and
+// exited 0, no crash at all). std::variant<std::monostate, gltfx_err>
+// makes error() dereference std::get_if<1>(&m_storage) - a GENUINE
+// null pointer when the wrong alternative is active, the same
+// mechanism gltfx_rslt<T>'s own value()/error() already use, which
+// faults structurally (page zero unmapped) on every one of this
+// project's five target platforms, independent of any library's own
+// hardening flags. tests/tools/check_rslt_precondition.sh's
+// assert_release_void_faults_via_null_dereference() proves this live -
+// it reproved the OLD behavior first (SIGABRT via libstdc++'s own
+// check on THIS toolchain, not the SIGSEGV this new form gives) before
+// this change made it pass. THE STRUCTURE TRAVELS WITH THE CODE; THE
+// SHAPE OF THE FAULT TRAVELS WITH THE COMPILER/OS - this is still
+// undefined behavior, not a guarantee, on every platform without a
+// standard mandate for it; do not promise more than that in prose
+// anywhere this comment is cited from.
 template <> class [[nodiscard]] gltfx_rslt<void> {
   public:
-    [[nodiscard]] static gltfx_rslt ok() noexcept { return gltfx_rslt(std::nullopt); }
+    [[nodiscard]] static gltfx_rslt ok() noexcept { return gltfx_rslt(std::in_place_index<0>); }
 
     [[nodiscard]] static gltfx_rslt err(gltfx_err error) noexcept {
-        return gltfx_rslt(std::optional<gltfx_err>(std::move(error)));
+        return gltfx_rslt(std::in_place_index<1>, std::move(error));
     }
 
-    [[nodiscard]] bool has_value() const noexcept { return !m_error.has_value(); }
-    [[nodiscard]] bool has_error() const noexcept { return m_error.has_value(); }
+    [[nodiscard]] bool has_value() const noexcept { return m_storage.index() == 0; }
+    [[nodiscard]] bool has_error() const noexcept { return m_storage.index() == 1; }
 
     // Precondition: has_error(). UB otherwise if the assert below is
-    // compiled out (NDEBUG/Release) - same documented precondition as
-    // std::optional::operator*() itself uses, which is exactly what
-    // clang-tidy is flagging below (it cannot see that the assert
-    // JUST proved has_error() any more than it could see a caller-side
-    // check before a bare std::optional::operator*() call).
+    // compiled out (NDEBUG/Release) - see the storage comment above
+    // for exactly what shape that UB takes now, measured, not assumed.
     [[nodiscard]] const gltfx_err &error() const noexcept {
         assert(has_error() &&
                "gltfx_rslt<void>::error() called on a result that holds success (ok()), not an "
                "error - call has_error() first");
-        return *m_error; // NOLINT(bugprone-unchecked-optional-access) reason: documented
-                         // precondition, just asserted above
+        return *std::get_if<1>(&m_storage);
     }
 
   private:
-    explicit gltfx_rslt(std::optional<gltfx_err> error) noexcept : m_error(std::move(error)) {}
+    explicit gltfx_rslt(std::in_place_index_t<0>) noexcept : m_storage(std::in_place_index<0>) {}
+    explicit gltfx_rslt(std::in_place_index_t<1>, gltfx_err error) noexcept
+        : m_storage(std::in_place_index<1>, std::move(error)) {}
 
-    std::optional<gltfx_err> m_error;
+    std::variant<std::monostate, gltfx_err> m_storage;
 };
 
 } // namespace glintfx

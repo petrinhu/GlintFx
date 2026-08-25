@@ -6,13 +6,13 @@
 #include <string>
 #include <string_view>
 
+#include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
-#include <glintfx/core/error.hpp>
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// error_context_test.cpp - CE-3 of CORE-ERROR (TODO.md, GODS_LAWS.md
+// err_context_test.cpp - CE-3 of CORE-ERROR (TODO.md, GODS_LAWS.md
 // L-20): proves the six diagnostic accessors round-trip through their
 // matching with_*() attach method, that an absent field reads back
 // empty/zero rather than undefined behavior, that a COPY of a gltfx_err
@@ -24,7 +24,7 @@
 //
 // ALLOCATOR TOGGLE: this translation unit replaces the global
 // operator new/delete (throwing AND nothrow forms - ensure_context()
-// in error.cpp uses `new (std::nothrow)`, std::string's own internal
+// in err.cpp uses `new (std::nothrow)`, std::string's own internal
 // growth uses the throwing form) with a pass-through to malloc/free
 // that can be armed to fail on demand via g_force_alloc_failure. Only
 // the two OOM-degradation cases below arm it; every other case in this
@@ -106,7 +106,7 @@ GLINTFX_TEST(copy_owns_an_independent_context) {
     // Mutate the ORIGINAL after the copy was taken. If the copy shared
     // the original's context pointer instead of owning a deep copy,
     // this would leak into `copy` too - the exact bug the copy
-    // constructor's deep-copy branch (error.cpp) exists to prevent,
+    // constructor's deep-copy branch (err.cpp) exists to prevent,
     // and the exact bug a shallow-copy regression would reintroduce.
     original.with_path("mutated/path.txt").with_position(99, 99);
 
@@ -131,7 +131,7 @@ GLINTFX_TEST(attach_degrades_to_code_only_when_context_allocation_fails) {
     // Degrades to code-only: the ORIGINAL code survives unchanged (it
     // does NOT become out_of_memory - that translation is a SEPARATE
     // mechanism for call sites that already return a gltfx_rslt<T>,
-    // see error.hpp's own "ATTACH IS BEST-EFFORT" comment), and no
+    // see err.hpp's own "ATTACH IS BEST-EFFORT" comment), and no
     // exception escaped this noexcept call (proven simply by reaching
     // this line at all - an escaped exception from a noexcept function
     // calls std::terminate(), which would have ended the process

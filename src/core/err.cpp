@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-#include <glintfx/core/error.hpp>
+#include <glintfx/core/err.hpp>
 
 #include <cstdint>
 #include <new>
 #include <string>
 #include <string_view>
 
-// error.cpp - CE-2/CE-3 of CORE-ERROR (TODO.md, GODS_LAWS.md L-19):
+// err.cpp - CE-2/CE-3 of CORE-ERROR (TODO.md, GODS_LAWS.md L-19):
 // defines err_context and every gltfx_err member that needs its
 // complete layout.
 
@@ -29,7 +29,7 @@ struct err_context {
 
 // Deep copy, conditional: a context-less gltfx_err copies to another
 // context-less gltfx_err with NO allocation at all - the property
-// tests/error_no_alloc_test.cpp (CE-2) counts, not just reads.
+// tests/err_no_alloc_test.cpp (CE-2) counts, not just reads.
 gltfx_err::gltfx_err(const gltfx_err &other) : m_code(other.m_code) {
     if (other.m_context != nullptr) {
         m_context = new err_context(*other.m_context);
@@ -98,7 +98,7 @@ gltfx_err &gltfx_err::with_path(std::string_view path) noexcept {
                                        // best-effort attach
         // `path` keeps whatever value it held before this call (unset,
         // or a prior successful attach) - the error itself is
-        // unaffected, see error.hpp's "ATTACH IS BEST-EFFORT" comment.
+        // unaffected, see err.hpp's "ATTACH IS BEST-EFFORT" comment.
         // Swallowing on purpose: propagating would violate `noexcept`
         // and call std::terminate(), the exact process-abort this
         // design exists to forbid.

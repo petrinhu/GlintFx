@@ -9,7 +9,7 @@
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/export.hpp>
 
-// core/error.hpp - gltfx_err (CE-2/CE-3 of CORE-ERROR, TODO.md,
+// core/err.hpp - gltfx_err (CE-2/CE-3 of CORE-ERROR, TODO.md,
 // GODS_LAWS.md L-19/L-22/L-26): the frozen-footprint error envelope
 // every fallible public call in glintfx returns (inside gltfx_rslt<T>,
 // CE-4, not written yet).
@@ -41,7 +41,7 @@
 // value, has no expected-typed return channel to carry that second
 // failure through, and inventing one here would be exactly the
 // "exception as control flow" CONTRACT.md 6.4 already forbids.
-// tests/error_context_test.cpp proves the degrade path by FORCING an
+// tests/err_context_test.cpp proves the degrade path by FORCING an
 // allocation to fail, not by inspecting the source for a try/catch.
 //
 // SEMI-OPAQUE ENVELOPE, FIXED FOOTPRINT (CTO design, CORE-ERROR plan):
@@ -53,12 +53,12 @@
 // moment a consumer compiles against it and can never shrink or grow
 // again (GODS_LAWS.md L-26). The CONTENT behind the opaque pointer
 // does not carry that constraint - it lives entirely inside
-// error.cpp, on the library's side of the boundary, and growing it
+// err.cpp, on the library's side of the boundary, and growing it
 // later (CE-3 and beyond) is additive, bumping B, never A.
 //
 // LIFECYCLE, AND THIS IS A SAFETY RULE, NOT STYLE: the copy
 // constructor and the destructor are declared here and DEFINED in
-// error.cpp, exported (GLINTFX_API) - so the allocation (copy ctor)
+// err.cpp, exported (GLINTFX_API) - so the allocation (copy ctor)
 // and the matching deallocation (destructor) both run INSIDE the
 // library's own compiled object code, no matter which side of the
 // .so/.dll boundary calls them. On Windows, a block allocated by one
@@ -82,7 +82,7 @@
 namespace glintfx {
 
 // Opaque (GODS_LAWS.md L-19): the full layout is a private
-// implementation detail, defined ONLY in error.cpp. A consumer never
+// implementation detail, defined ONLY in err.cpp. A consumer never
 // sees this type - gltfx_err below carries at most a pointer to one.
 struct err_context;
 
@@ -90,12 +90,12 @@ class gltfx_err {
   public:
     // Trivial: sets the code, leaves the context null. Inline, and
     // NEVER allocates - proven, not promised, by
-    // tests/error_no_alloc_test.cpp (CE-2): that executable replaces
+    // tests/err_no_alloc_test.cpp (CE-2): that executable replaces
     // the global allocator and COUNTS calls across construct, copy,
     // move and destroy of a context-less gltfx_err.
     explicit gltfx_err(gltfx_err_code code) noexcept : m_code(code) {}
 
-    // Deep copy. Declared here, DEFINED in error.cpp, exported - see
+    // Deep copy. Declared here, DEFINED in err.cpp, exported - see
     // the "LIFECYCLE" paragraph above for why this one crosses the
     // boundary instead of staying inline.
     GLINTFX_API gltfx_err(const gltfx_err &other);
@@ -133,7 +133,7 @@ class gltfx_err {
         return *this;
     }
 
-    // Frees m_context, if any. Declared here, DEFINED in error.cpp,
+    // Frees m_context, if any. Declared here, DEFINED in err.cpp,
     // exported - see the "LIFECYCLE" paragraph above.
     GLINTFX_API ~gltfx_err();
 
@@ -141,7 +141,7 @@ class gltfx_err {
     [[nodiscard]] gltfx_err_code code() const noexcept { return m_code; }
 
     // CE-3 accessors. All read err_context's real layout, so all are
-    // declared here and DEFINED in error.cpp, exported. Absent always
+    // declared here and DEFINED in err.cpp, exported. Absent always
     // reads back empty/zero - see the "DIAGNOSTIC CONTEXT" paragraph
     // above.
     [[nodiscard]] GLINTFX_API std::string_view path() const noexcept;

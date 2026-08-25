@@ -5,16 +5,16 @@
 #include <print>
 #include <utility>
 
+#include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
-#include <glintfx/core/error.hpp>
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// error_no_alloc_test.cpp - CE-2 of CORE-ERROR (TODO.md, GODS_LAWS.md
+// err_no_alloc_test.cpp - CE-2 of CORE-ERROR (TODO.md, GODS_LAWS.md
 // L-20): proves, by COUNTING, that constructing, copying, moving,
 // assigning and destroying a CONTEXT-LESS gltfx_err never touches the
-// heap. "Never allocates" in error.hpp's own comment is a claim this
+// heap. "Never allocates" in err.hpp's own comment is a claim this
 // file exists to check, not to trust.
 //
 // TECHNIQUE: this translation unit replaces the GLOBAL operator
@@ -95,7 +95,7 @@ GLINTFX_TEST(context_less_error_lifecycle_never_allocates) {
     // L-40: the counts that decide PASS/FAIL are printed even when
     // they pass - a portal that scans nothing and prints green is the
     // defect this project's gates exist to never ship.
-    std::println("error_no_alloc_test: {} allocation(s), {} deallocation(s) across construct, "
+    std::println("err_no_alloc_test: {} allocation(s), {} deallocation(s) across construct, "
                  "copy, move, copy-assign, move-assign, destroy of a context-less gltfx_err",
                  g_alloc_count, g_dealloc_count);
 

@@ -85,4 +85,34 @@ Registro exigido pela **L-34**, seção "Modo autônomo". Enquanto o modo está 
 
 ---
 
+#### D5 — o `CLAUDE.md` passa a MANDAR MEDIR em vez de afirmar número  `[25/08/26 - 00:40:18]`
+
+**Quem decidiu:** `fable` (CTO). **Fatia:** `DOC-ESTADO`, após eu reprová-lo na verificação.
+
+**O que eu medi e que abriu a decisão:** o item existiu para consertar documentação que mentia sobre o estado do projeto, e **estava mentindo de novo em 24 horas** — dizia 56 commits contra 102 reais, 9 casos de teste contra 15, e apontava o remoto para um commit que já não era o topo. **O defeito não foi do agente**, que mediu tudo e declarou o comando de cada número: foi do **desenho** do item.
+
+**A pergunta, como teria ido ao líder:** como o `CLAUDE.md` descreve o estado do projeto **sem apodrecer a cada onda**?
+
+**Opções na mesa:**
+
+- **(a) — recusada:** atualizar os números e aceitar que reapodrecem. A dívida volta na próxima onda, que neste projeto é amanhã.
+- **(b) — ESCOLHIDA, com refinamento do CTO:** todo **contador volátil** sai do texto e vira **o comando que o mede**. E — este é o refinamento, e é melhor que a minha proposta — fica como **prosa datada** o **fato estrutural e lento**: por que o harness próprio existe, quais camadas existem, onde vivem os portões, o que cada decisão do líder congelou. **Esse é o contexto que uma sessão não re-deriva barato, e ele envelhece por MARCO, não por fatia.**
+- **(c) — recusada:** retrato datado **mais** comandos. Mantém a esteira de manutenção que o incidente acabou de provar que falha em 24 horas, agora com **duas fontes para divergirem entre si**.
+
+**Como o refinamento mata a minha própria ressalva:** eu havia argumentado que o leitor com pressa ficaria sem contexto. Não fica — **o que orienta uma sessão é o fato estrutural, e ele permanece**. O número volátil está a um comando de distância, e confiar num número gravado ontem **era exatamente o defeito**.
+
+**Porta de mão única:** não. **Custo de reverter:** barato — recolocar números é um commit.
+
+#### D5.1 — NÃO criar portão mecânico para isto  `[25/08/26 - 00:40:18]`
+
+**Quem decidiu:** `fable` (CTO), com argumento que eu não tinha.
+
+**Por que não:** com a opção (b), **o portão perde o objeto** — não sobra número no documento para conferir contra a realidade. A alternativa seria um portão **semântico**, decidindo se um dígito em prosa é contador volátil — e isso é **frágil por construção**: falso positivo em **toda data, versão e número de lei**, e falso negativo no contador escrito por extenso. **Portão que grita errado deixa de ser lido; é teatro de verificação.**
+
+**O que fica no lugar, e são dois dentes baratos:** a própria seção **declara a regra de manutenção** no topo, de modo que o próximo editor tropeça nela antes de violar; e o revisor **enumera todos os dígitos** remanescentes, exigindo que cada um se justifique como data ou fato lento — **enumeração, não busca dirigida**, que é a técnica da casa.
+
+**Porta de mão única:** não. **Custo de reverter:** criar o portão depois, se a regra declarada não bastar.
+
+---
+
 **Nota de método:** a ordem `HDR-FIX` → `VER-4C` e os lotes **não** entram neste registro. São planejamento do passo 2 da L-34, mandato próprio do CTO, não cadeira do líder. Ficaram no plano, para a minha verificação.

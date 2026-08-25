@@ -22,6 +22,27 @@ name: CI
 # e `sanitizer` chamam tools/preci.sh --lint-only/--sanitizer-only, a
 # mesma logica de estagio que um desenvolvedor roda localmente (TESTES.md
 # T15.2) - nao ha segunda copia da logica de estagio vivendo so aqui.
+#
+# CI-CONSUME (decisao do lider, relatada pelo coordenador): compartilhado
+# e estatico agora sao ENTRADAS INDEPENDENTES da matriz, em `linux` e em
+# `windows`, por simetria - antes eram dois PASSOS sequenciais dentro da
+# mesma entrada de matriz, e uma falha no compartilhado abortava o job
+# inteiro, pulando o estatico sem rodar (aconteceu duas vezes na mesma
+# tarde: CI-CONSUME e CI-CONSUME-2). `fail-fast: false`, ja presente no
+# `linux`, so garante independencia ENTRE entradas de matriz - nunca
+# ajudou aqui, porque compartilhado/estatico eram passos, nao entradas.
+#
+# CONTAGEM DE CELULAS, pedida explicitamente pelo lider - "cinco alvos x
+# dois modos continua sendo dez": ANTES, `linux` tinha 4 entradas de
+# matriz (Fedora, Ubuntu, Arch, CachyOS), cada uma rodando os dois modos
+# como passos sequenciais = 4 job-runs cobrindo 8 celulas; `windows` era
+# 1 job sem matriz, tambem dois modos como passos sequenciais = 1
+# job-run cobrindo 2 celulas. Total: 5 job-runs, 10 celulas, mas so 5
+# delas independentes de verdade (uma falha em qualquer passo
+# compartilhado escondia o resultado do estatico irmao). DEPOIS: `linux`
+# tem 8 entradas de matriz (4 alvos x 2 modos) e `windows` tem 2 (1 alvo
+# x 2 modos) = 10 job-runs, 10 celulas, TODAS independentes - nenhuma
+# celula da matriz se perdeu no caminho.
 
 on:
   push:
@@ -42,34 +63,90 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - nome: Fedora 44 (primario)
+          # O g++ padrao do 24.04 e o 13.3, que da C++23 parcial
+          # (__cplusplus=202100, sem <print>). Piso de toolchain do projeto
+          # e GCC 14, medido em 21/08/2026: 14.2 devolve 202302.
+          #
+          # Oito entradas (4 alvos x 2 modos), nao quatro - CI-CONSUME:
+          # compartilhado e estatico sao entradas DISTINTAS da matriz, nao
+          # dois passos dentro da mesma entrada, para que uma falha no
+          # compartilhado de um alvo nunca esconda o resultado do
+          # estatico irmao (nem o de nenhum outro alvo - fail-fast: false
+          # ja cobria isso entre alvos; agora cobre entre modos tambem).
+          - nome: Fedora 44 (primario) - compartilhado
             cc: c++
             imagem: fedora:44
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
               wayland-devel wayland-protocols-devel
-          # O g++ padrao do 24.04 e o 13.3, que da C++23 parcial
-          # (__cplusplus=202100, sem <print>). Piso de toolchain do projeto
-          # e GCC 14, medido em 21/08/2026: 14.2 devolve 202302.
-          - nome: Ubuntu
-            imagem: ubuntu:24.04
+            modo: compartilhado
+            builddir: build-shared
+            shared_flag: ""
+          - nome: Fedora 44 (primario) - estatico
+            cc: c++
+            imagem: fedora:44
+            instalar: >-
+              dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+              wayland-devel wayland-protocols-devel
+            modo: estatico
+            builddir: build-static
+            shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+          - nome: Ubuntu - compartilhado
             cc: g++-14
+            imagem: ubuntu:24.04
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
               g++-14 cmake ninja-build pkg-config git ca-certificates
               libwayland-dev libwayland-bin wayland-protocols
-          - nome: Arch
+            modo: compartilhado
+            builddir: build-shared
+            shared_flag: ""
+          - nome: Ubuntu - estatico
+            cc: g++-14
+            imagem: ubuntu:24.04
+            instalar: >-
+              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
+              g++-14 cmake ninja-build pkg-config git ca-certificates
+              libwayland-dev libwayland-bin wayland-protocols
+            modo: estatico
+            builddir: build-static
+            shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+          - nome: Arch - compartilhado
             cc: c++
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
               wayland wayland-protocols
-          - nome: CachyOS
+            modo: compartilhado
+            builddir: build-shared
+            shared_flag: ""
+          - nome: Arch - estatico
+            cc: c++
+            imagem: archlinux:latest
+            instalar: >-
+              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
+              wayland wayland-protocols
+            modo: estatico
+            builddir: build-static
+            shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+          - nome: CachyOS - compartilhado
             cc: c++
             imagem: cachyos/cachyos:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
               wayland wayland-protocols
+            modo: compartilhado
+            builddir: build-shared
+            shared_flag: ""
+          - nome: CachyOS - estatico
+            cc: c++
+            imagem: cachyos/cachyos:latest
+            instalar: >-
+              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
+              wayland wayland-protocols
+            modo: estatico
+            builddir: build-static
+            shared_flag: "-DBUILD_SHARED_LIBS=OFF"
     steps:
       - name: Instalar toolchain
         run: ${{ matrix.instalar }}
@@ -108,10 +185,12 @@ jobs:
           ${{ matrix.cc }} -std=c++23 -o /tmp/c23 /tmp/c23.cpp
           /tmp/c23
 
-      # Modo compartilhado (default, BUILD_SHARED_LIBS=ON). O ctest aqui
-      # cobre tambem o gate de consumo (consume_test), o de embedding
-      # (embed_test, GODS_LAWS.md FIX-CONSUMO achados A2/A3/A4/A6/A7), o
-      # de CMAKE_INSTALL_INCLUDEDIR nao-default (install_includedir_test,
+      # O ctest aqui cobre tambem o gate de consumo (consume_test), o de
+      # embedding (embed_test, GODS_LAWS.md FIX-CONSUMO achados
+      # A2/A3/A4/A6/A7), o de decisao de colocacao de DLL embutida
+      # (embed_dll_colocation_test, EMBED-DLL - roda aqui tambem, nao so
+      # no Windows, porque nao tem dependencia de SO nenhuma), o de
+      # CMAKE_INSTALL_INCLUDEDIR nao-default (install_includedir_test,
       # FIX-CONSUMO-2 achado QA-1), o de layout de empacotador Debian-
       # multiarch (install_packager_layout_test, FIX-CONSUMO-2 achado
       # QA-4; FIX-CONSUMO-3 secao 5: agora tambem prova o caminho
@@ -121,31 +200,34 @@ jobs:
       # (output_name_test, FIX-CONSUMO-3 achado QA-2-2): todos foram
       # registrados em tests/CMakeLists.txt e rodam sob QUALQUER modo em
       # que este build/ tenha sido configurado, o que e exatamente o
-      # eixo shared/static que este job precisa exercitar.
+      # eixo shared/static que matrix.modo agora exercita como entradas
+      # separadas, nao mais como dois passos da mesma entrada (CI-CONSUME).
       # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1 ("zero aviso de
       # compilacao em todo commit"), em todo build deste job a partir do
       # FUND-4 - ausente ate aqui (cmake/GlintfxOptions.cmake:11 tinha o
       # default OFF e nenhum passo deste arquivo o ligava).
-      - name: Build e testes (compartilhado)
+      - name: Build e testes (${{ matrix.modo }})
         run: |
           set -eux
-          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DGLINTFX_WERROR=ON
-          cmake --build build-shared
-          ctest --test-dir build-shared --output-on-failure
-
-      # Mesmo eixo de testes, agora com BUILD_SHARED_LIBS=OFF: prova que
-      # o modo estatico tambem instala, exporta e e consumido por
-      # find_package (GODS_LAWS.md FIX-CONSUMO, escopo item 2).
-      - name: Build e testes (estatico)
-        run: |
-          set -eux
-          cmake -S . -B build-static -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON
-          cmake --build build-static
-          ctest --test-dir build-static --output-on-failure
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake --build ${{ matrix.builddir }}
+          ctest --test-dir ${{ matrix.builddir }} --output-on-failure
 
   windows:
-    name: Windows
+    name: Windows - ${{ matrix.modo }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Duas entradas, nao mais dois passos dentro de uma - mesma
+          # razao do job `linux` acima (CI-CONSUME).
+          - modo: compartilhado
+            builddir: build-shared
+            shared_flag: ""
+          - modo: estatico
+            builddir: build-static
+            shared_flag: "-DBUILD_SHARED_LIBS=OFF"
     steps:
       - uses: actions/checkout@v4
 
@@ -153,7 +235,10 @@ jobs:
         shell: pwsh
         run: cmake --version
 
-      # Sem action de terceiro: o proprio CMake localiza o MSVC.
+      # Sem action de terceiro: o proprio CMake localiza o MSVC. Sonda
+      # independente de modo (nao usa glintfx, nao le matrix.builddir);
+      # roda uma vez por entrada de matriz agora, nao mais uma vez por
+      # job - custo aceito da independencia (CI-CONSUME).
       - name: Padrao C++23 aceito
         shell: pwsh
         run: |
@@ -178,24 +263,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Remove-Item -Recurse -Force probe
 
-      # Modo compartilhado (default). ctest aqui roda apenas os testes da
-      # propria arvore: consume_test/embed_test sao POSIX sh e nao
-      # compilados neste job (tests/CMakeLists.txt guarda os dois com
-      # if(UNIX)), por isso os dois passos seguintes ("Consumo instalado"
-      # e "Consumo embutido") fecham o caminho de consumo do Windows com
-      # um script dedicado cada um (GODS_LAWS.md FIX-CONSUMO, achados
-      # A2/A3: o caminho dllimport so existe fora da arvore; e achado A7/
-      # FIX-CONSUMO-2 achado QA-2 para o embedding - CI-CONSUME fechou a
-      # lacuna em que embed_test so tinha equivalente Linux).
+      # ctest aqui roda apenas os testes da propria arvore: consume_test/
+      # embed_test/embed_dll_colocation_test's shell-dependent siblings
+      # sao POSIX sh e nao compilados neste job (tests/CMakeLists.txt
+      # guarda a maioria com if(UNIX); embed_dll_colocation_test e a
+      # excecao PURPOSEFUL sem if(UNIX) - roda aqui tambem, ver
+      # tests/CMakeLists.txt), por isso os passos "Consumo instalado" e
+      # "Consumo embutido" abaixo fecham o caminho de consumo do Windows
+      # com um script dedicado cada um (GODS_LAWS.md FIX-CONSUMO,
+      # achados A2/A3: o caminho dllimport so existe fora da arvore; e
+      # achado A7/FIX-CONSUMO-2 achado QA-2 para o embedding - CI-CONSUME
+      # fechou a lacuna em que embed_test so tinha equivalente Linux).
       # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1. No MSVC,
       # cmake/GlintfxCompileOptions.cmake ja mapeia esta mesma flag para
       # /WX (avisos como erro) - nao ha um segundo flag /WX a passar aqui.
-      - name: Build (compartilhado)
+      - name: Build (${{ matrix.modo }})
         shell: pwsh
         run: |
-          cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -DCMAKE_BUILD_TYPE=Release ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build-shared --config Release
+          cmake --build ${{ matrix.builddir }} --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # WIN-HANG: colhe evidencia real do runner (localizacao do .dll x
@@ -204,20 +291,22 @@ jobs:
       # antes de conserto. Nunca falha o job por si so; o passo de teste
       # seguinte e que decide passa/falha, agora limitado por
       # DART_TESTING_TIMEOUT (cmake/GlintfxTest.cmake) em vez do default
-      # de 1500s do CTest.
-      - name: Diagnostico Windows - layout de runtime (compartilhado)
+      # de 1500s do CTest. Roda para os dois modos agora (antes so
+      # existia para o compartilhado): o estatico nunca tinha este
+      # diagnostico, e um hang la seria tao real quanto no compartilhado.
+      - name: Diagnostico Windows - layout de runtime (${{ matrix.modo }})
         shell: pwsh
-        run: tools/ci/diagnose-win-runtime.ps1 -BuildDir build-shared
+        run: tools/ci/diagnose-win-runtime.ps1 -BuildDir ${{ matrix.builddir }}
 
-      - name: Testes (compartilhado)
+      - name: Testes (${{ matrix.modo }})
         shell: pwsh
         run: |
-          ctest --test-dir build-shared -C Release --output-on-failure
+          ctest --test-dir ${{ matrix.builddir }} -C Release --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Consumo instalado (compartilhado)
+      - name: Consumo instalado (${{ matrix.modo }})
         shell: pwsh
-        run: tools/ci/check-consume.ps1 -BuildDir build-shared -PackageSrcDir tests/package
+        run: tools/ci/check-consume.ps1 -BuildDir ${{ matrix.builddir }} -PackageSrcDir tests/package
 
       # Windows equivalent of tests/tools/check_embed.sh (embed_test,
       # UNIX-only in tests/CMakeLists.txt) - proves add_subdirectory
@@ -225,34 +314,12 @@ jobs:
       # configure is independent of BuildDir/BUILD_SHARED_LIBS (same
       # shape as check_embed.sh's configure_embed(), which does not
       # inherit the parent build's mode either), so this step's outcome
-      # does not vary between the shared and static jobs below - it
-      # still runs under both, mirroring embed_test's own execution
-      # shape on Linux, where ctest registers and runs it once per
-      # configure (build-shared and build-static) even though its
-      # result does not depend on either mode.
-      - name: Consumo embutido (compartilhado)
-        shell: pwsh
-        run: tools/ci/check-embed.ps1 -GlintfxSourceDir . -EmbedSrcDir tests/embed
-
-      # Mesmo eixo de testes, agora com BUILD_SHARED_LIBS=OFF (escopo
-      # item 2 desta onda).
-      - name: Build e testes (estatico)
-        shell: pwsh
-        run: |
-          cmake -S . -B build-static -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGLINTFX_WERROR=ON
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build-static --config Release
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ctest --test-dir build-static -C Release --output-on-failure
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Consumo instalado (estatico)
-        shell: pwsh
-        run: tools/ci/check-consume.ps1 -BuildDir build-static -PackageSrcDir tests/package
-
-      # See "Consumo embutido (compartilhado)" above for why this runs
-      # again here unchanged (its outcome does not depend on BuildDir).
-      - name: Consumo embutido (estatico)
+      # does not vary between matrix.modo entries - it runs once per
+      # entry regardless, mirroring embed_test's own execution shape on
+      # Linux, where ctest registers and runs it once per configure
+      # (build-shared and build-static) even though its result does not
+      # depend on either mode.
+      - name: Consumo embutido (${{ matrix.modo }})
         shell: pwsh
         run: tools/ci/check-embed.ps1 -GlintfxSourceDir . -EmbedSrcDir tests/embed
 

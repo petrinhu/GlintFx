@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# .yamllint - configuracao versionada, para que `yamllint <arquivo>`,
+# rodado SEM argumento de config, reproduza o resultado alegado em dois
+# commits (fed54f5, 49a4e77): "yamllint no ci.yml sem warning novo (os
+# dois pre-existentes nao sao desta mudanca)".
+#
+# O PROBLEMA QUE ESTE ARQUIVO FECHA: sem ele, `yamllint
+# .github/workflows/ci.yml` roda com o perfil `default` e devolve 22
+# ERROS de line-length (medido em 25/08/2026; linhas de ate 166
+# colunas, quase todas comentario ou `run:` de bloco com script
+# embutido). Quem tenta reproduzir a alegacao sem saber que a checagem
+# real rodou com line-length desligado conclui, ERRADO, que ela e
+# falsa - exatamente o problema que corroi confianca em relatorio
+# (GODS_LAWS.md L-27/L-40: alegacao verificavel so vale depois de
+# provada, e reproduzivel por qualquer um, nao so por quem a escreveu).
+#
+# line-length: DESLIGADA de proposito. Um workflow do GitHub Actions
+# tem `run:` com script de shell/PowerShell embutido; quebrar essas
+# linhas em 80 colunas piora a leitura do script sem ganhar nada - nao
+# e prosa. As demais regras do perfil `default` continuam de pe.
+#
+# Os dois avisos restantes ao rodar `yamllint .github/workflows/ci.yml`
+# (linha 2, "missing document start"; linha ~47, "truthy value") sao
+# PRE-EXISTENTES e conhecidos - avisos (warning), nao erros, entao nao
+# derrubam o exit code (yamllint so falha em erro, a menos que chamado
+# com -s/--strict). NAO suprimidos aqui de proposito: a alegacao dos
+# commits e "sem warning NOVO", nao "sem warning nenhum", e suprimi-los
+# apagaria a distincao que a propria alegacao faz.
+extends: default
+
+rules:
+  line-length: disable

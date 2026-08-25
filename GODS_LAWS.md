@@ -553,6 +553,18 @@ Vieram de um dossiê do CTO consolidando **20 questões** de dois canais do bus:
 
 **Nota de método, registrada porque é o padrão que se quer:** ele trouxe a objeção **com o caso de uso**, e **levantou a objeção contra a própria proposta** antes que nós a levantássemos. Foi isso que tornou a contribuição utilizável em vez de discutível.
 
+### Extensão do arquivo de mapa: `.gw.map`, decidido pelo líder em 24/08/2026
+
+**Ordem dele, verbatim:** *"nossos os mapas terão formato proprio em .gw.map"*. Repetida por ele **depois** de eu ter apresentado a objeção abaixo, o que a torna reafirmação e não engano.
+
+**A objeção que eu levantei, registrada porque decisão informada precisa mostrar o que foi pesado:** `gw` lê como **GusWorld**, e o formato de mapa é do **GlintFx** — biblioteca pública consumida por gente que não conhecemos (LEI ZERO). A extensão é a **identidade pública** do formato: quem adotar a biblioteca amanhã grava arquivos com o nome de um jogo alheio, e isso vira nota de rodapé permanente na documentação. É porta de mão única de fato — troca-se em código num minuto, mas não depois que existirem arquivos no disco de terceiros. Alternativa oferecida: um nome ancorado na biblioteca (`.gfx.map`, `.glintfx.map`).
+
+**Ele reafirmou. A decisão é dele, o dado não a impede, e o assunto não se reabre por iniciativa de agente** — só por ordem dele.
+
+**Leitura que fica em aberto e não muda a ordem:** se a intenção for que o **GusWorld** tenha um formato próprio, separado do formato da biblioteca, então `.gw.map` é o nome certo para o dele e o formato do GlintFx segue com nome próprio — seriam dois formatos, não um. Registrado como leitura possível, não como pedido de esclarecimento.
+
+**Aplicação:** a extensão entra na especificação (`MAP-FMT-SPEC`) junto do magic de 8 bytes. Extensão **não** substitui detecção por conteúdo: o arquivo se identifica pelo magic, e a extensão é conveniência do sistema de arquivos.
+
 ### Selo aberto de integridade no formato, decidido pelo líder em 22/08/2026
 
 **A regra em uma linha: DETECTAR no mapa, PROTEGER no save.**

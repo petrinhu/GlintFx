@@ -198,14 +198,79 @@ endif()
 # even starts. A fixed, deterministic build directory under this
 # project's own binary tree, not a scratch mktemp -d: there is nothing
 # to build or run here (LANGUAGES NONE), so a stale artifact from a
-# previous run cannot mask this run's result the way it could for a
-# compiled fixture, and re-configuring an existing directory is
-# idempotent.
+# previous run cannot mask this run's RESULT the way it could for a
+# compiled fixture.
+#
+# --fresh (EMBED-DLL, achado local, tools/preci.sh --selftest): the
+# claim that used to sit on this line - "re-configuring an existing
+# directory is idempotent" - was WRONG, caught by actually running
+# preci.sh, not by inspection. CMake refuses to reconfigure an EXISTING
+# build directory whose cache already recorded a DIFFERENT generator
+# ("CMake Error: generator : Ninja / Does not match the generator used
+# previously: Unix Makefiles"): a stale build-preci/tests/
+# embed_dll_colocation_check/ from before -G "${CMAKE_GENERATOR}"
+# existed on this line had defaulted, silently, to Unix Makefiles (this
+# machine has `make`, unlike the Arch CI job) - reproduced live, not
+# guessed, by inspecting that stale CMakeCache.txt's own
+# CMAKE_GENERATOR entry and its mtime, hours older than the fix.
+# --fresh (CMake >= 3.24; this project requires >= 3.28) wipes and
+# reconfigures every single ctest run of this test, closing the whole
+# CLASS of "fixed path + stale cached setting" bug this same slice
+# already hit for the generator - not just this one instance of it.
+#
+# -G "${CMAKE_GENERATOR}" (EMBED-DLL, achado do CI real, Arch nos dois
+# modos): a configuracao aninhada e um PROCESSO INDEPENDENTE que NAO
+# herda nada do build pai - nem gerador, nem compilador, nem caminho,
+# nem variavel de cache; o que ela precisa, ela precisa receber
+# explicitamente (a mesma causa ja mordeu esta fatia duas vezes antes -
+# CI-CONSUME, caminho relativo virando recursao; CI-CONSUME-2, o
+# compilador nao herdado no Ubuntu). Sem -G, o cmake aninhado cai no
+# padrao "Unix Makefiles", que so existe onde `make` esta instalado -
+# a imagem do Arch (matrix.instalar em .github/workflows/ci.yml) so
+# instala `ninja`, nunca `make`, e por isso reprovou so la, nos dois
+# modos (compartilhado e estatico), enquanto as outras quatro
+# distribuicoes tem os dois presentes e mascaravam o defeito.
+# Reproduzido ao vivo, container archlinux:latest com o MESMO comando
+# de instalacao do job real ("pacman -Syu --noconfirm gcc cmake ninja
+# pkgconf git wayland wayland-protocols", sem make): "CMake was unable
+# to find a build program corresponding to 'Unix Makefiles'" - texto
+# identico ao log do CI. Corrigido, mesmo container, verde.
+#
+# Varredura completa do que mais este fixture aninhado assume do
+# ambiente e nao recebe explicitamente (GODS_LAWS.md L-40 item 5 -
+# enumeracao fechada por construcao, nao busca dirigida - todo
+# `${...}` e todo include()/find_program()/find_package() em
+# tests/embed_dll_colocation/CMakeLists.txt E nos dois arquivos reais
+# que ele inclui, GlintfxOptions.cmake/GlintfxLibrary.cmake,
+# conferidos um a um):
+#   - Compilador: NAO se aplica. O fixture usa LANGUAGES NONE (nenhuma
+#     linguagem habilitada, nenhum compilador procurado) - por isso o
+#     Ubuntu nunca mordeu aqui, so em embed_test (achado anterior desta
+#     mesma fatia, que E compilado).
+#   - CMAKE_MODULE_PATH: o unico include() de nome nu nos dois arquivos
+#     reais e `include(GenerateExportHeader)`, dentro de uma funcao que
+#     este fixture NUNCA chama - e mesmo se chamasse, e modulo nativo
+#     do proprio CMake, resolvido sem depender de projeto nenhum. Os
+#     dois include() que o fixture realmente executa usam caminho
+#     absoluto completo (${GLINTFX_SOURCE_DIR}/cmake/...), nao nome nu.
+#   - Toolchain/plataforma cruzada, CMAKE_BUILD_TYPE: NAO se aplicam -
+#     LANGUAGES NONE nao compila nada, entao nenhum dos dois jamais e
+#     lido em caminho nenhum deste fixture.
+#   - Variavel de cache do pai: PROJECT_IS_TOP_LEVEL, WIN32,
+#     BUILD_SHARED_LIBS, CMAKE_RUNTIME_OUTPUT_DIRECTORY e
+#     CMAKE_BINARY_DIR sao TODAS definidas explicitamente pelo proprio
+#     fixture, por caso, dentro do loop das 8 combinacoes e das 3
+#     funcoes - nenhuma delas herdada implicitamente do pai.
+#   - PATH: o `cmake` do processo aninhado ja vem de "${CMAKE_COMMAND}"
+#     (caminho absoluto resolvido pelo pai), nao de um `cmake` nu que
+#     dependeria do PATH do ambiente onde o teste roda.
 add_test(
     NAME embed_dll_colocation_test
     COMMAND "${CMAKE_COMMAND}"
+        --fresh
         -S "${CMAKE_CURRENT_SOURCE_DIR}/embed_dll_colocation"
         -B "${CMAKE_CURRENT_BINARY_DIR}/embed_dll_colocation_check"
+        -G "${CMAKE_GENERATOR}"
         "-DGLINTFX_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
 )
 set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)

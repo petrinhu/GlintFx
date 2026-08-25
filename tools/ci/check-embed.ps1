@@ -30,6 +30,32 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# GLINTFX_SOURCE_DIR is forwarded as a raw string into
+# add_subdirectory("${GLINTFX_SOURCE_DIR}" glintfx-build) inside
+# tests/embed/CMakeLists.txt - it is a plain CMake CACHE VARIABLE, not a
+# -S/-B argument that cmake itself would resolve to absolute. CMake
+# resolves a RELATIVE add_subdirectory() source argument against
+# CMAKE_CURRENT_SOURCE_DIR of the CALLING CMakeLists.txt (tests/embed
+# itself, mid-configure), not against the process's original working
+# directory. A relative value here (CI-CONSUME passed "." for the
+# repository root) makes tests/embed add ITSELF as its own subdirectory,
+# which adds itself again, forever, until CMake's recursion-depth guard
+# trips - measured live: "Maximum recursion depth of 1000 exceeded" at
+# CMakeLists.txt:11 (tests/embed/CMakeLists.txt's own
+# cmake_minimum_required line), reproduced with plain cmake, no pwsh and
+# no Windows involved - this is generic CMake path-resolution semantics,
+# not an MSVC-generator quirk (CI-CONSUME-2). EmbedSrcDir does not have
+# this failure mode (it is passed straight to cmake's own -S argument,
+# which cmake resolves to absolute internally before add_subdirectory
+# ever runs), but is resolved here too: a caller should never have to
+# know which of the two parameters is the fragile one.
+function Resolve-AbsolutePath([string]$path) {
+    return (Resolve-Path -LiteralPath $path).ProviderPath
+}
+
+$GlintfxSourceDir = Resolve-AbsolutePath $GlintfxSourceDir
+$EmbedSrcDir = Resolve-AbsolutePath $EmbedSrcDir
+
 function Invoke-ConfigureEmbed([string]$embedSrc, [string]$embedBuild, [string]$glintfxSrc) {
     cmake -S $embedSrc -B $embedBuild -DGLINTFX_SOURCE_DIR="$glintfxSrc"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -117,6 +117,27 @@ if(UNIX)
     set_tests_properties(layers_test PROPERTIES LABELS consume)
 endif()
 
+# L-05/L-06 gate (GODS_LAWS.md, "Gate L-05/L-06" job of
+# .github/workflows/ci.yml): proves the repository has no forbidden
+# term (see tests/tools/check_no_x11.sh's own header for the L-40
+# findings this gate exists to close). Wiring it here too, not only in
+# the standalone CI job, gives a local `ctest -R x11` and folds it into
+# the same consume/selftest label taxonomy as the other gates in this
+# file. POSIX sh; same declared downgrade as layers_test above.
+if(UNIX)
+    add_test(
+        NAME x11_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" "${CMAKE_SOURCE_DIR}"
+    )
+    set_tests_properties(x11_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME x11_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" --selftest
+    )
+    set_tests_properties(x11_selftest PROPERTIES LABELS selftest)
+endif()
+
 # Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the
 # INSTALLED package, not the in-tree build. Installs whatever this
 # build's BUILD_SHARED_LIBS mode already produced into a scratch prefix,

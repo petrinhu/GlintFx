@@ -534,22 +534,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # L-05 (sem X11) e L-06/L-07 (parser de keymap proprio, dependencia zero).
-      # Varre so diretorio de codigo; a documentacao cita os termos de proposito.
-      - name: Sem X11 e sem libxkbcommon no codigo
-        run: |
-          set -eu
-          dirs=""
-          for d in src include tests examples demos cmake; do
-            [ -d "$d" ] && dirs="$dirs $d"
-          done
-          if [ -z "$dirs" ]; then
-            echo "Sem diretorio de codigo neste commit: nada a varrer."
-            exit 0
-          fi
-          proibidos='Xlib\.h|xcb/|XOpenDisplay|XTestFake|xkbcommon'
-          if grep -rInE "$proibidos" $dirs; then
-            echo "PROIBIDO: ver GODS_LAWS.md L-05 (Wayland puro) e L-06 (parser de keymap proprio)."
-            exit 1
-          fi
-          echo "ok: nenhuma ocorrencia."
+      # GODS_LAWS.md L-05 (Wayland puro) e L-06 (parser de keymap
+      # proprio). Logica extraida para tests/tools/check_no_x11.sh
+      # (GODS_LAWS.md L-40, piso de varredura nao-vazia: a versao
+      # anterior, embutida aqui, saia verde com varredura vazia e nao
+      # cobria tools/ nem este proprio diretorio .github/ - ver o
+      # cabecalho do script para os tres achados e --selftest para os
+      # quatro controles que provam o gate). O nome deste passo e este
+      # comentario evitam citar os termos proibidos por extenso de
+      # proposito: eles moram so no script, o unico arquivo
+      # autoexcluido da propria varredura (ver SELF_PATH_SUFFIX ali).
+      - name: Gate L-05/L-06 - nenhum termo proibido no repositorio
+        run: sh tests/tools/check_no_x11.sh "$PWD"

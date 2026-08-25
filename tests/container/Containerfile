@@ -14,8 +14,11 @@
 #
 # kwin is the compositor by the leader's own registered decision
 # (CLAUDE.md, "Isolamento obrigatório de teste"; GODS_LAWS.md L-09) -
-# not weston, not sway, not labwc, and never Xvfb (that is X11,
-# GODS_LAWS.md L-05). `--virtual` renders to a software framebuffer,
+# not weston, not sway, not labwc, and never an X11 framebuffer server
+# (GODS_LAWS.md L-05: the prohibited term itself is spelled out in
+# GODS_LAWS.md and in tests/tools/check_no_x11.sh's own pattern, never
+# here - this comment would fail its own gate otherwise, see L-40).
+# `--virtual` renders to a software framebuffer,
 # which is why mesa-dri-drivers (llvmpipe) is here and /dev/dri is
 # not: L-09 rule 4 says no real GPU device by default, precisely so
 # this image renders the same way on every runner in the CI matrix.

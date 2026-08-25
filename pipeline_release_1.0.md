@@ -2,6 +2,8 @@
 
 > Referência profissional do ciclo completo de desenvolvimento de produto digital: fases, sub-fases, caminhos paralelos, entregáveis, papéis humanos e o **agent responsável** em cada etapa. Integrado à skill /bigtech
 
+> **Sobre a contagem: são 12 fases, e a Fase 0 não entra nelas.** O documento traz **13** seções `## Fase N`, numeradas de 0 a 12, e quem contar as seções acha 13 — mas **a Fase 0 (Ideação) é pré-fase**: ela acontece antes de existir produto a construir, não tem entregável de engenharia e é a única sem gate de saída. O pipeline propriamente dito são as fases **1 a 12**. Esta nota existe porque a ambiguidade foi achada por auditoria em 25/08/2026, e o líder decidiu **manter a contagem em 12 e explicitar a exceção** em vez de renumerar — renumerar invalidaria toda citação de "12 fases" já escrita nos outros manuais.
+
 ---
 
 ## Visão geral do pipeline

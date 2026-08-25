@@ -124,30 +124,11 @@ Regra de criticidade: projeto pequeno mas crítico (saúde, dinheiro, PII) sobe 
 
 ## 6. Tabela de pendências (canônica)
 
-Status: ✅ Concluído · 🔄 Em andamento · 🟡 Parcial · ⏳ Pendente · 💡 Decisão tomada · 🎨 Pendente design · 🔍 Pendente verificação.
+> **A tabela de 20 itens `ORG-01..ORG-20` NÃO está reproduzida nesta cópia, de propósito.** Ela vive no `ORG.md` do vault (`projetos_claudebrain/ORG.md`), que é a fonte canônica, e trata da **construção da própria constelação de agentes** — criar os C-level em `~/.claude/agents/`, os operacionais de marketing, o manual de ferramentas. **Nada disso é trabalho do GlintFx.**
 
-| ID | Grupo | Descrição Técnica | Prioridade | Pré-requisito | Dificuldade | Status | Estado Auditado |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| ORG-01 | AGENTS-C | Criar 11 agents C-level + Chief of Staff em `~/.claude/agents/` (celso-ceo, capitolino-cpo, caetano-cto, camilo-cmo, cosmo-coo, narciso-ciso, candido-cdo, confucio-cfo, cicero-cro, claudio-clo, cosimo-chief-of-staff) | Alta | — | Média | ✅ Concluído | — |
-| ORG-02 | AGENTS-OP | Criar agents operacionais de MARKETING (lacuna total da Fase 10): `product-marketing-manager`, `growth-engineer`, `content-seo`, `pr-comms`, `community-manager`. Camilo (CMO) delega a eles | Alta | ORG-01 | Alta | ✅ Concluído | ✓ |
-| ORG-03 | AGENTS-OP | Criar agent de RECEITA/vendas (`revenue-ops`) para Cícero (CRO) delegar em contexto B2B | Média | ORG-01 | Média | ✅ Concluído | ✓ |
-| ORG-04 | AGENTS-OP | Criar agent `customer-success` + `support-engineer` (Fases 9 e 12, hoje sem cobertura) | Média | — | Média | ✅ Concluído | ✓ |
-| ORG-05 | AGENTS-OP | Criar agent `release-manager` (Fase 11, coordenação de execução do lançamento) | Média | ORG-01 | Baixa | ✅ Concluído | ✓ |
-| ORG-06 | AGENTS-OP | Separar `ux-researcher` de `ux-ui-designer` (pesquisa qualitativa/quantitativa dedicada) | Baixa | — | Média | ✅ Concluído | ✓ |
-| ORG-07 | AGENTS-OP | Criar `business-analyst` e `performance-engineer` dedicados (antes parcialmente cobertos por product-manager e qa-engineer) | Baixa | — | Média | ✅ Concluído | ✓ |
-| ORG-08 | AGENTS-C | Decidir promover CHRO a C-level próprio ou manter mapeado a engineering-manager + engineering-coach | Baixa | — | Baixa | 💡 Decisão tomada | — |
-| ORG-09 | DOC | Reescrita profunda de `[[pipeline_release_1.0]]` (mermaid, coluna Agent/C-level por fase, variantes por porte, wikilinks, remover em-dash) | Alta | ORG-01 | Média | ✅ Concluído | ✓ |
-| ORG-10 | DOC | Reescrita profunda de `[[lideranca_pipeline_release]]` (constelação nomeada, RACI, organograma mermaid, wikilinks) | Alta | ORG-01 | Média | ✅ Concluído | ✓ |
-| ORG-11 | DOC | Criar este `ORG.md` (constelação + RACI + variantes + pendências) e ligar ao hub | Alta | ORG-01 | Média | ✅ Concluído | — |
-| ORG-12 | PROCESSO | Integrar ORG no hub `[[Standards]]` e ponteiro no `[[TODO]]` do vault | Alta | ORG-11 | Baixa | ✅ Concluído | ✓ |
-| ORG-13 | SKILL | Criar skill orquestradora `/bigtech` que invoca Cósimo, classifica porte e devolve o mapa de ativação de agents. Camada de negócio; delega engenharia ao `/proj_software` (DRY) | Média | ORG-01 | Alta | ✅ Concluído | ✓ |
-| ORG-14 | PROCESSO | Registrar a decisão de arquitetura em memória global tipada + ponteiros MEMORY.md (global e local do projeto) | Alta | ORG-01 | Baixa | ✅ Concluído | ✓ |
-| ORG-15 | PROCESSO | Gatilho para classificar porte ao iniciar projeto: hook SessionStart `bigtech_porte_reminder.py` (lembra de rodar `/bigtech` em projeto de código sem marcador `.bigtech-porte`; silencia após classificar) | Baixa | ORG-13 | Média | ✅ Concluído | ✓ |
-| ORG-16 | AGENTS-OP | Criar agent `internal-auditor` (dono do DOSSIÊ DE AUDITORIA completo, "o livro" do projeto, ex: `docs/auditoria/` do site). Orquestra os especialistas por capítulo do `[[AUDITORIAS]]`, consolida o livro, rastreia remediação, entrega ao auditor externo. Reporta a Cláudio (CLO) + Narciso (CISO) + Caetano (CTO). Hoje só parcialmente coberto por technical-writer (monta doc, sem mandato de auditoria) | Média | ORG-01 | Média | ✅ Concluído | ✓ |
-| ORG-17 | PROCESSO | Definir e aplicar a política de ferramentas dos agents (secao 8): Read sempre; Grep/Glob sempre; Write/Edit para quem produz ou mantém artefato; Bash para quem executa; read-only documentado como exceção. Auditados os 61 agents | Alta | ORG-01 | Baixa | ✅ Concluído | ✓ |
-| ORG-18 | AGENTS-OP | Criar agent `network-engineer` (camada de rede: topologia, roteamento BGP/OSPF, VLAN, subnet/IPAM, NAT, DNS/DHCP, load balancing, VPN, SD-WAN, cloud networking VPC/peering). Sob Caetano (CTO), colabora com devops-sre. Distinto de network-security-engineer | Média | ORG-01 | Média | ✅ Concluído | ✓ |
-| ORG-19 | AGENTS-OP | Criar agent `network-security-engineer` (defesa de rede: firewall policy, segmentação/microssegmentação, zero-trust/ZTNA, IDS/IPS, WAF, DDoS, NAC, mTLS, east-west, IR de rede). Sob Narciso (CISO), compartilha com security-engineer (AppSec). Distinto de network-engineer | Média | ORG-01 | Média | ✅ Concluído | ✓ |
-| ORG-20 | TOOLING | Criar manual `[[TOOLING]]` (catálogo de ferramentas FOSS automatizáveis tool->agent->status->instalar, kit canônico por agent) e linkar seção "Ferramentas (usar SEMPRE)" nos 20 agents operacionais-chave. Survey do sistema feito; faltantes documentados com comando de instalar | Média | ORG-01 | Média | ✅ Concluído | ✓ |
+**Por que ela foi recortada daqui** (decisão do líder, 25/08/2026, via `AskUserQuestion`): esta cópia mora dentro de um repositório que tem **uma** tabela de pendências, o `TODO.md` da raiz. Duas tabelas com ID e o mesmo vocabulário de status dentro da mesma árvore dão **duas fontes da verdade para o mesmo tipo de coisa** — e a auditoria da tabela (`todo_audit.py`, `CHK-21`) reprovava por isso a cada execução. **Achado permanente que ninguém pretende consertar treina a próxima sessão a ignorar a auditoria inteira**, que era o custo real de deixar como estava.
+
+**Onde ler o conteúdo:** `ORG.md` do vault, seção 6. **O que é pendência DESTE projeto:** `TODO.md` na raiz, e só ele.
 
 ---
 

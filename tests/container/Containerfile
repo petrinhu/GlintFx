@@ -49,7 +49,12 @@ CMD ["glintfx-test"]
 # not grant CAP_SYS_NICE - without it, dbus-run-session fails to exec
 # kwin_wayland with "Operation not permitted" before the compositor
 # ever starts. Every `docker run` of this image, local or CI, needs
-# `--cap-add=SYS_NICE`. Nothing else beyond the default capability set
-# is required: no --privileged, no /dev/dri (GODS_LAWS.md L-09 rule 4:
+# `--cap-drop=ALL --cap-add=SYS_NICE` - the drop-all-then-add-one form
+# (not a bare `--cap-add`, adversarial review TEST-WLCONT fix 4) is
+# verified live to still start the compositor, and is strictly smaller
+# than the default Docker capability set. Nothing else beyond that one
+# capability is required: no --privileged, no --pid=host, no
+# --device=/dev/dri or any other --device (GODS_LAWS.md L-09 rule 4:
 # no real GPU device by default, so the render stays reproducible
-# across the whole CI matrix on software rasterization).
+# across the whole CI matrix on software rasterization; check_isolation.sh
+# allow-lists this exact HostConfig and fails on any wider grant).

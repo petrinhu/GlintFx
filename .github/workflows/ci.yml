@@ -277,13 +277,18 @@ jobs:
       # cap_sys_nice=ep (`getcap /usr/bin/kwin_wayland`), e um
       # `docker run` default nao concede CAP_SYS_NICE - sem ela o
       # dbus-run-session falha o exec do kwin_wayland com "Operation
-      # not permitted" antes mesmo de o compositor subir. Nada alem
-      # disso: sem --privileged, sem /dev/dri (GODS_LAWS.md L-09 regra
-      # 4 - render por software, reproduzivel em qualquer runner).
+      # not permitted" antes mesmo de o compositor subir.
+      # --cap-drop=ALL --cap-add=SYS_NICE (nao --cap-add puro): forma
+      # estritamente menor, verificada ao vivo que ainda sobe o
+      # compositor (revisao adversarial TEST-WLCONT, conserto 4). Nada
+      # alem disso: sem --privileged, sem --pid=host, sem /dev/dri
+      # (GODS_LAWS.md L-09 regra 4 - render por software, reproduzivel
+      # em qualquer runner); check_isolation.sh confere esse HostConfig
+      # exato por lista branca.
       - name: Sobe o compositor limpo (nenhuma montagem do host)
         run: |
           set -eux
-          docker run -d --name glintfx-wltest-clean --cap-add=SYS_NICE glintfx-wltest:ci
+          docker run -d --name glintfx-wltest-clean --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci
           for _ in $(seq 1 30); do
             docker exec glintfx-wltest-clean pgrep -x kwin_wayland >/dev/null 2>&1 && break
             sleep 1
@@ -298,29 +303,61 @@ jobs:
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean smoke.sh glintfx-test
 
-      # Controle negativo obrigatorio: um container com uma montagem
-      # deliberadamente proibida TEM que ser acusado por
-      # check_isolation.sh. Se ele passar verde aqui, o proprio gate
-      # esta quebrado - o mesmo piso que tools/preci.sh --selftest
-      # aplica aos seus proprios controles (GODS_LAWS.md L-23).
-      - name: Controle negativo (montagem proibida tem que ser acusada)
+      # Tres controles negativos obrigatorios (revisao adversarial
+      # TEST-WLCONT: FURO 1 montagem/device, FURO 2 --pid=host, FURO 3
+      # padrao de barra final). Cada um TEM que ser acusado por
+      # check_isolation.sh - se algum passar verde aqui, o proprio
+      # gate esta quebrado (mesmo piso que tools/preci.sh --selftest
+      # aplica aos seus proprios controles, GODS_LAWS.md L-23).
+      # `docker create`, nunca `docker run`, de proposito: o
+      # ENTRYPOINT jamais executa, entao mesmo o cenario mais perigoso
+      # (--pid=host) nao chega a rodar processo nenhum - os tres
+      # controles se apoiam so em `docker inspect`, o que
+      # check_isolation.sh confere ANTES de qualquer `docker exec`.
+      - name: Controle negativo 1 - montagem proibida (FURO 1/3)
         run: |
           set -eux
-          docker run -d --name glintfx-wltest-poisoned --cap-add=SYS_NICE \
+          docker create --name glintfx-wltest-poisoned-mount --cap-drop=ALL --cap-add=SYS_NICE \
             -v /tmp:/run/user/1000:ro glintfx-wltest:ci
-          for _ in $(seq 1 30); do
-            docker exec glintfx-wltest-poisoned pgrep -x kwin_wayland >/dev/null 2>&1 && break
-            sleep 1
-          done
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned glintfx-test; then
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount glintfx-test; then
             echo "ERRO: check_isolation.sh deveria ter acusado a montagem proibida" >&2
             exit 1
           fi
           echo "ok: montagem proibida foi acusada, como esperado"
 
+      - name: Controle negativo 2 - device passado (FURO 1)
+        run: |
+          set -eux
+          docker create --name glintfx-wltest-poisoned-device --cap-drop=ALL --cap-add=SYS_NICE \
+            --device=/dev/uinput glintfx-wltest:ci
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device glintfx-test; then
+            echo "ERRO: check_isolation.sh deveria ter acusado o --device proibido" >&2
+            exit 1
+          fi
+          echo "ok: --device proibido foi acusado, como esperado"
+
+      # O mais serio dos tres: sob --pid=host, um `pgrep` DENTRO do
+      # container deixa de estar escopado ao container e passa a ver
+      # todo o PID namespace do runner. `docker create` garante que
+      # isso nunca chega a acontecer aqui - o container nunca inicia,
+      # e o proprio HostConfig.PidMode="host" tem que bastar para
+      # check_isolation.sh recusar antes de cogitar um `docker exec`.
+      - name: Controle negativo 3 - --pid=host (FURO 2)
+        run: |
+          set -eux
+          docker create --name glintfx-wltest-poisoned-pid --cap-drop=ALL --cap-add=SYS_NICE \
+            --pid=host glintfx-wltest:ci
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid glintfx-test; then
+            echo "ERRO: check_isolation.sh deveria ter acusado --pid=host" >&2
+            exit 1
+          fi
+          echo "ok: --pid=host foi acusado, como esperado"
+
       - name: Limpeza
         if: always()
-        run: docker rm -f glintfx-wltest-clean glintfx-wltest-poisoned || true
+        run: |
+          docker rm -f glintfx-wltest-clean glintfx-wltest-poisoned-mount \
+            glintfx-wltest-poisoned-device glintfx-wltest-poisoned-pid || true
 
   lint:
     name: Lint (Fedora 44 - clang-format, clang-tidy, cppcheck)

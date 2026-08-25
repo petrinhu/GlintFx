@@ -141,9 +141,15 @@ endif()
 # installed package above, and that the GLINTFX_INSTALL=ON opt-in path
 # genuinely installs glintfx's headers and CMake package when an
 # embedding consumer asks for it. POSIX sh; same declared downgrade as
-# layers_test/consume_test (no Windows-specific code path is involved in
-# the embedding fix, so Linux coverage across the four Linux CI targets
-# is the proof; see fix-consumo.md).
+# layers_test/consume_test above: runs in the Linux jobs of the matrix,
+# not on Windows, which does not have `sh` by default. Windows coverage
+# of this same embedding path is a dedicated CI step, not a ctest case,
+# same shape as consume_test's own Windows counterpart above -
+# tools/ci/check-embed.ps1 proves the identical four things (configure/
+# build/run via add_subdirectory, generated headers scoped under the
+# embedded build dir, GLINTFX_INSTALL default not leaking headers, and
+# the GLINTFX_INSTALL=ON opt-in genuinely installing them), invoked from
+# the `windows` job in .github/workflows/ci.yml (CI-CONSUME).
 if(UNIX)
     add_test(
         NAME embed_test

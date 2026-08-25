@@ -181,9 +181,12 @@ jobs:
       # Modo compartilhado (default). ctest aqui roda apenas os testes da
       # propria arvore: consume_test/embed_test sao POSIX sh e nao
       # compilados neste job (tests/CMakeLists.txt guarda os dois com
-      # if(UNIX)), por isso o passo seguinte fecha o caminho de consumo
-      # do Windows com um script dedicado (GODS_LAWS.md FIX-CONSUMO,
-      # achados A2/A3: o caminho dllimport so existe fora da arvore).
+      # if(UNIX)), por isso os dois passos seguintes ("Consumo instalado"
+      # e "Consumo embutido") fecham o caminho de consumo do Windows com
+      # um script dedicado cada um (GODS_LAWS.md FIX-CONSUMO, achados
+      # A2/A3: o caminho dllimport so existe fora da arvore; e achado A7/
+      # FIX-CONSUMO-2 achado QA-2 para o embedding - CI-CONSUME fechou a
+      # lacuna em que embed_test so tinha equivalente Linux).
       # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1. No MSVC,
       # cmake/GlintfxCompileOptions.cmake ja mapeia esta mesma flag para
       # /WX (avisos como erro) - nao ha um segundo flag /WX a passar aqui.
@@ -216,6 +219,21 @@ jobs:
         shell: pwsh
         run: tools/ci/check-consume.ps1 -BuildDir build-shared -PackageSrcDir tests/package
 
+      # Windows equivalent of tests/tools/check_embed.sh (embed_test,
+      # UNIX-only in tests/CMakeLists.txt) - proves add_subdirectory
+      # consumption, not just the installed package above. Its own
+      # configure is independent of BuildDir/BUILD_SHARED_LIBS (same
+      # shape as check_embed.sh's configure_embed(), which does not
+      # inherit the parent build's mode either), so this step's outcome
+      # does not vary between the shared and static jobs below - it
+      # still runs under both, mirroring embed_test's own execution
+      # shape on Linux, where ctest registers and runs it once per
+      # configure (build-shared and build-static) even though its
+      # result does not depend on either mode.
+      - name: Consumo embutido (compartilhado)
+        shell: pwsh
+        run: tools/ci/check-embed.ps1 -GlintfxSourceDir . -EmbedSrcDir tests/embed
+
       # Mesmo eixo de testes, agora com BUILD_SHARED_LIBS=OFF (escopo
       # item 2 desta onda).
       - name: Build e testes (estatico)
@@ -231,6 +249,12 @@ jobs:
       - name: Consumo instalado (estatico)
         shell: pwsh
         run: tools/ci/check-consume.ps1 -BuildDir build-static -PackageSrcDir tests/package
+
+      # See "Consumo embutido (compartilhado)" above for why this runs
+      # again here unchanged (its outcome does not depend on BuildDir).
+      - name: Consumo embutido (estatico)
+        shell: pwsh
+        run: tools/ci/check-embed.ps1 -GlintfxSourceDir . -EmbedSrcDir tests/embed
 
   # GODS_LAWS.md L-09 / TEST-WLCONT: prova, em CI, que o container de
   # teste com compositor Wayland dentro (tests/container/) e a mesma

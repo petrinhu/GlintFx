@@ -104,7 +104,27 @@ function(glintfx_compute_pkgconfig_relocatable_prefix out_var)
         return()
     endif()
 
+    # Normalize BEFORE counting segments (adversarial review, PKG-DIST
+    # achado 1, reproduced live: -DCMAKE_INSTALL_LIBDIR=lib64/ - a
+    # trailing slash is plausible packager input). Unnormalized,
+    # "lib64/" + "/pkgconfig" is the literal string "lib64//pkgconfig";
+    # string(REPLACE "/" ";" ...) on that string produces FOUR
+    # semicolon-separated tokens, one of them empty ("lib64", "",
+    # "pkgconfig"... the trailing/doubled separator manufactures a
+    # phantom directory level that was never on disk), so
+    # list(LENGTH) over-counts by one and the emitted .pc walks ONE
+    # DIRECTORY TOO FAR UP - pkg-config reports success either way
+    # (--exists does not check that the resolved libdir/includedir
+    # actually contain anything), so this used to fail with NO error
+    # and NO warning, exactly the silent-wrong-path failure mode LEI
+    # ZERO exists to rule out. cmake_path(NORMAL_PATH) collapses
+    # repeated/trailing separators (and "." segments) before the count
+    # ever runs, so the depth always matches the REAL directory nesting
+    # CMake's own install() step produces on disk, regardless of how
+    # the caller spelled CMAKE_INSTALL_LIBDIR. Proven by
+    # malformed_libdir_test in tests/tools/check_pkgconfig.sh.
     set(pkgconfig_subdir "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+    cmake_path(NORMAL_PATH pkgconfig_subdir)
     string(REPLACE "/" ";" path_segments "${pkgconfig_subdir}")
     list(LENGTH path_segments depth)
 
@@ -118,6 +138,20 @@ function(glintfx_compute_pkgconfig_relocatable_prefix out_var)
         string(APPEND relative_prefix "/..")
     endforeach()
     set(${out_var} "${relative_prefix}" PARENT_SCOPE)
+endfunction()
+
+# Same normalization as glintfx_compute_pkgconfig_relocatable_prefix()
+# above, for the SAME reason, applied to the raw value substituted into
+# glintfx.pc's own `libdir=`/`includedir=` lines: an unnormalized
+# CMAKE_INSTALL_LIBDIR="lib64/" would otherwise leak its trailing slash
+# straight into the emitted .pc file (harmless for -L/-I in practice,
+# but a needless inconsistency with the depth count above, which DOES
+# depend on this exact string being clean - a single normalization
+# helper keeps both call sites reading the same value).
+function(glintfx_normalize_install_subdir subdir_value out_var)
+    set(normalized "${subdir_value}")
+    cmake_path(NORMAL_PATH normalized)
+    set(${out_var} "${normalized}" PARENT_SCOPE)
 endfunction()
 
 # Libs.private carries what a STATIC glintfx needs beyond -lglintfx
@@ -159,6 +193,8 @@ endfunction()
 function(glintfx_install_pkgconfig)
     glintfx_compute_pkgconfig_relocatable_prefix(GLINTFX_PC_RELOCATABLE_PREFIX)
     glintfx_compute_pkgconfig_libs_private(GLINTFX_PC_LIBS_PRIVATE)
+    glintfx_normalize_install_subdir("${CMAKE_INSTALL_LIBDIR}" GLINTFX_PC_LIBDIR)
+    glintfx_normalize_install_subdir("${CMAKE_INSTALL_INCLUDEDIR}" GLINTFX_PC_INCLUDEDIR)
 
     # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7):
     # see the comment at the same substitution in the root CMakeLists.txt.

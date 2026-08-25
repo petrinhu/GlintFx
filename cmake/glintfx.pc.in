@@ -18,8 +18,8 @@
 # back to the prefix) - never hand-typed here.
 prefix=@GLINTFX_PC_RELOCATABLE_PREFIX@
 exec_prefix=${prefix}
-libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+libdir=${exec_prefix}/@GLINTFX_PC_LIBDIR@
+includedir=${prefix}/@GLINTFX_PC_INCLUDEDIR@
 
 Name: glintfx
 Description: GlintFx - 2D application framework (window, main loop, 2D rendering, input, gamepad, audio, font, asset loading, math2d)

@@ -52,6 +52,10 @@
 | [L-31](#l-31) | tocar contexto gráfico, shader ou carregador de GL | OpenGL 3.3 core, nativo nas duas plataformas |
 | [L-32](#l-32) | escolher a próxima fatia a implementar, antes de a demo rodar | Caminho principal sempre, mais no máximo UMA trilha paralela |
 | [L-33](#l-33) | tocar QUALQUER coisa de mapa: decisão, fatia, formato, código | Avisar o `mapeditor`; sessão fora do ar, mandar pelo bus |
+| [L-34](#l-34) | iniciar uma fatia ou onda de trabalho de produto | Ciclo de 4 passos: main+líder faz brainstorm, `fable` planeja e audita, main verifica e orquestra, `sonnet` implementa; quem define fatia ou onda é o líder |
+| [L-35](#l-35) | desenhar ou implementar a entrega de evento de entrada | Promessa pública do contrato: determinística, sem duplicação, sem reordenação; nasce com teste que a prova |
+| [L-36](#l-36) | decidir cursor do ponteiro, áudio no Linux, mapeamento de gamepad ou compose/tecla morta | Quatro decisões de escopo do líder que saem de `🎨 Pendente design` |
+| [L-37](#l-37) | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | Avisar o Gus Dragon sem ele precisar perguntar |
 
 ---
 
@@ -239,6 +243,23 @@ O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone c
 **Aplicação ao briefar:** a ordem de serviço leva o caminho absoluto de `GODS_LAWS.md` e o texto das leis cujo gatilho casa com a task (L-16 do protocolo do bus vale o mesmo raciocínio: subagent não herda contexto).
 
 **Papéis distintos permanecem (L-12):** o agente que implementa não é o que revisa, e nenhum dos dois é o `main` que re-verifica.
+
+### Cadência de commit e push, e os dois portões de push
+
+Esta lei também carrega, na própria linha de gatilho do índice, o texto do líder sobre commit e push. **Verbatim dele, já registrado ali:** *"Main só orquestra; C-level fable audita e cria; sonnet implementa; commit ao fim de cada fatia; push ao fim de cada onda só se o GHA fechar verde, se todos os testes verdes."*
+
+**Desdobramento do trecho de commit e push, escrito por este corpo para tornar a frase executável — o único texto verbatim do líder nesta seção é a citação acima, o resto é interpretação do orquestrador, não citação nova:**
+
+- **Commit ao fim de cada FATIA.** Barato e frequente; tira o trabalho da zona de risco antes de a fatia seguinte começar.
+- **Push ao fim de cada ONDA**, e só quando os **dois portões** fecham verde, sem exceção e sem "está quase":
+  1. **O GitHub Actions (GHA) fechou verde.**
+  2. **Todos os testes verdes.**
+- **Os dois são conjuntivos.** Um verde e um vermelho não é push adiado por pouco: é push proibido.
+- **Alcance:** os dois portões valem para **todo** push, sem categoria de commit que não conte.
+
+**Relação com as leis vizinhas, para não se ler como conflito.** Esta seção **não substitui** a L-11 nem a L-12, **refina**: a L-11 já manda "commit local a cada fatia... push quando a onda fecha, depois do review e com os gates verdes" — aqui se nomeiam os dois portões concretos que compõem esse "gates verdes" (GHA verde e suíte de testes verde) e se fixa que valem para todo tipo de push, sem exceção de categoria. A L-12 continua sendo quem fixa que implementer, reviewer e orquestrador são agentes distintos. A L-34 fixa a ordem do ciclo (brainstorm, plano, verificação, implementação) em que este passo de commit e push se encaixa.
+
+**Aplicação:** antes de todo push, diga em qual estado está cada um dos dois portões. Silêncio sobre um deles conta como vermelho, pela mesma razão do protocolo deste arquivo: silêncio não é prova de conformidade.
 
 ## L-19
 

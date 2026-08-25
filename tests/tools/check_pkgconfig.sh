@@ -46,18 +46,25 @@
 #      DIFFERENT-but-still-wrong absolute path can coincide by
 #      accident on a single-segment layout).
 #   3. "malformed layout" (adversarial review, PKG-DIST achado 1,
-#      reproduced live before the fix): CMAKE_INSTALL_LIBDIR given with
-#      a trailing slash ("lib64/"), plausible packager input. Before
-#      cmake_path(NORMAL_PATH) was added to
+#      reproduced live before the fix; strengthened round 4, achado C):
+#      CMAKE_INSTALL_LIBDIR given as "./lib64//" - a trailing slash, a
+#      doubled path separator, AND a leading "./" all at once, the
+#      exact three malformed forms PACKAGING.md promises are tested.
+#      Before cmake_path(NORMAL_PATH) was added to
 #      glintfx_compute_pkgconfig_relocatable_prefix()
-#      (cmake/GlintfxInstall.cmake), the unnormalized double slash in
+#      (cmake/GlintfxInstall.cmake), an unnormalized doubled slash in
 #      "lib64/" + "/pkgconfig" inflated the segment count by one, and
 #      the emitted prefix walked ONE DIRECTORY TOO FAR UP -
 #      `pkg-config --exists` still reported success (it never checks
 #      that the resolved libdir/includedir contain anything), so the
 #      failure was silent: exactly the wrong-path-that-looks-right
 #      failure mode LEI ZERO exists to rule out. This scenario is the
-#      regression test for that fix.
+#      regression test for that fix - round 4 combined all three
+#      malformed forms into one value instead of testing only the
+#      trailing slash, because PACKAGING.md claims all three are
+#      tested and, before this change, two of them were not: the code
+#      already handled them (confirmed live), only the test coverage
+#      fell short of the doc's own claim.
 #   4. "absolute install dirs" (adversarial review, PKG-DIST achado 3,
 #      reproduced live before the fix): CMAKE_INSTALL_LIBDIR AND
 #      CMAKE_INSTALL_INCLUDEDIR both set to ABSOLUTE paths, independent
@@ -156,14 +163,25 @@ set -eu
 readonly LIBDIR_ARCH="x86_64-linux-gnu"
 readonly MULTIARCH_LIBDIR="lib/${LIBDIR_ARCH}"
 readonly DEFAULT_LIBDIR="lib"
-# The exact reproduction from the adversarial review (achado 1): a
-# trailing slash is plausible packager input
-# (-DCMAKE_INSTALL_LIBDIR=lib64/), and CMake's own install() already
-# normalizes it when writing to disk (the real directory is
-# "lib64/pkgconfig", not "lib64//pkgconfig") - the bug was entirely in
+# Combines the THREE malformations PACKAGING.md promises are handled -
+# a trailing slash, a doubled path separator, and a leading "./" - in
+# ONE value, so a single scenario run exercises everything the doc
+# claims (adversarial review round 4, achado C: PACKAGING.md said
+# "All of the following are tested, on every push", but the scenario
+# before this one only ever fed a bare trailing slash - two of the
+# three forms it lists were never actually run through a test, even
+# though the code already handled them; the fix here is to make the
+# claim true, not to weaken it). Confirmed live before adopting this
+# value: `./lib64//` normalizes and resolves correctly end to end
+# (configure, install, pkg-config resolution, AND a real compile+link
+# against the result) - the code already handled all three, only the
+# test coverage was short of the doc's own claim. CMake's own
+# install() already normalizes it when writing to disk (the real
+# directory is "lib64", matching MALFORMED_LIBDIR_REAL below) - the
+# bug this scenario originally targeted (achado 1) was entirely in
 # glintfx's OWN segment-counting, not in where CMake actually put the
 # file.
-readonly MALFORMED_LIBDIR="lib64/"
+readonly MALFORMED_LIBDIR="./lib64//"
 readonly MALFORMED_LIBDIR_REAL="lib64"
 
 fail() {
@@ -386,6 +404,12 @@ assert_dir_contains_expected_content() {
     label="$1"
     raw_path="$2"
     expected_content_kind="$3"
+    # Explicit empty check before realpath (adversarial review round
+    # 4, achado A): `realpath -m ""` fails with its own raw,
+    # locale-dependent OS error text instead of this file's fail() -
+    # still a failure either way (this label already never bails
+    # silently), just a worse diagnostic. Cheap to fix, so fixed.
+    [ -n "$raw_path" ] || fail "${label} is empty"
     resolved="$(realpath -m "$raw_path")"
     [ -d "$resolved" ] \
         || fail "${label} is '${raw_path}', which resolves to '${resolved}' - not a directory that exists on disk"
@@ -447,18 +471,43 @@ assert_pkgconfig_output_resolves_to_real_content() {
     cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags ${static_flag} glintfx)"
     libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs ${static_flag} glintfx)"
 
+    # Non-empty-scan floor (adversarial review round 4, achado B): a
+    # `Cflags:`/`Libs:` line with no -I/-L token at all would make the
+    # two loops below iterate zero times and this atom would still
+    # print "check passed" - the classic empty-scan-prints-green
+    # defect (TESTES.md/preci.sh's own enumeration-floor discipline,
+    # applied here). Not exploitable TODAY (the compile step right
+    # after this call would fail on a missing include/library), but
+    # that safety net is check_pkgconfig.sh's OWN later steps, not
+    # this atom's - PKG-VALIDATE (a later fatia) is expected to reuse
+    # this atom on its own, without a compile step guaranteed to catch
+    # the gap, so the floor belongs HERE, not in whatever calls it.
+    include_flag_count=0
+    library_flag_count=0
+
     for token in $cflags; do
         case "$token" in
-            -I*) assert_dir_contains_expected_content "glintfx.pc -I flag" "${token#-I}" headers ;;
+            -I*)
+                assert_dir_contains_expected_content "glintfx.pc -I flag" "${token#-I}" headers
+                include_flag_count=$((include_flag_count + 1))
+                ;;
         esac
     done
     for token in $libs; do
         case "$token" in
-            -L*) assert_dir_contains_expected_content "glintfx.pc -L flag" "${token#-L}" library ;;
+            -L*)
+                assert_dir_contains_expected_content "glintfx.pc -L flag" "${token#-L}" library
+                library_flag_count=$((library_flag_count + 1))
+                ;;
         esac
     done
 
-    echo "check_pkgconfig.sh: output-content check passed - includedir/libdir and every -I/-L token pkg-config emitted resolve to real, populated directories"
+    [ "$include_flag_count" -gt 0 ] \
+        || fail "glintfx.pc emitted ZERO -I flags in 'pkg-config --cflags ${static_flag} glintfx' ('${cflags}') - an empty Cflags: line would make this atom scan nothing and still report success"
+    [ "$library_flag_count" -gt 0 ] \
+        || fail "glintfx.pc emitted ZERO -L flags in 'pkg-config --libs ${static_flag} glintfx' ('${libs}') - an empty Libs: line would make this atom scan nothing and still report success"
+
+    echo "check_pkgconfig.sh: output-content check passed - includedir/libdir and every -I/-L token pkg-config emitted (${include_flag_count} -I, ${library_flag_count} -L) resolve to real, populated directories"
 }
 
 compile_and_run_dynamic_consumer() {
@@ -615,10 +664,11 @@ run_multiarch_layout_scenario() {
     echo "ok: multiarch-layout scenario - relocatable prefix survives a three-segment pkgconfig install dir."
 }
 
-# Scenario 3: malformed layout (adversarial review, PKG-DIST achado 1) -
-# CMAKE_INSTALL_LIBDIR given with a trailing slash, the exact
-# reproduction from the review. Regression test for
-# cmake_path(NORMAL_PATH) in
+# Scenario 3: malformed layout (adversarial review, PKG-DIST achado 1;
+# strengthened round 4, achado C) - CMAKE_INSTALL_LIBDIR given as
+# "./lib64//": a trailing slash, a doubled path separator, and a
+# leading "./" all at once, the exact three forms PACKAGING.md
+# promises are tested. Regression test for cmake_path(NORMAL_PATH) in
 # glintfx_compute_pkgconfig_relocatable_prefix()
 # (cmake/GlintfxInstall.cmake): without it, this scenario's own
 # assert_libdir_resolves_to_real_install_dir call fails, resolving one
@@ -635,13 +685,12 @@ run_malformed_libdir_scenario() {
     configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$MALFORMED_LIBDIR" ON
     build_and_install_glintfx "$build_dir" "$prefix"
 
-    # CMake's own install() already normalizes the trailing slash when
-    # writing to disk (confirmed live: -DCMAKE_INSTALL_LIBDIR=lib64/
-    # still installs into "<prefix>/lib64/pkgconfig", not
-    # "lib64//pkgconfig") - MALFORMED_LIBDIR_REAL is that real,
-    # normalized directory name, used here to locate the .pc file CMake
-    # actually wrote and to compute the CORRECT expected libdir this
-    # scenario checks against.
+    # CMake's own install() already normalizes "./lib64//" when writing
+    # to disk (confirmed live: still installs into
+    # "<prefix>/lib64/pkgconfig", not some malformed variant of it) -
+    # MALFORMED_LIBDIR_REAL is that real, normalized directory name,
+    # used here to locate the .pc file CMake actually wrote and to
+    # compute the CORRECT expected libdir this scenario checks against.
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$MALFORMED_LIBDIR_REAL")"
     assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
     assert_libdir_resolves_to_real_install_dir "$pkgconfig_dir" "${prefix}/${MALFORMED_LIBDIR_REAL}"
@@ -649,7 +698,7 @@ run_malformed_libdir_scenario() {
 
     binary="${scratch}/consumer-malformed"
     compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "${prefix}/${MALFORMED_LIBDIR_REAL}" "$binary"
-    echo "ok: malformed-layout scenario - a trailing slash in CMAKE_INSTALL_LIBDIR (lib64/) does not inflate the relocatable prefix's directory-climb count."
+    echo "ok: malformed-layout scenario - a trailing slash, a doubled path separator AND a leading ./ in CMAKE_INSTALL_LIBDIR (./lib64//), all at once, do not inflate the relocatable prefix's directory-climb count."
 }
 
 # Scenario 4: absolute install dirs (adversarial review, PKG-DIST
@@ -758,7 +807,7 @@ main() {
     run_static_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
     run_destdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
 
-    echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing-slash) layout, absolute install dirs, static mode, and a DESTDIR-staged Fedora-format install."
+    echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing slash + doubled separator + leading ./) layout, absolute install dirs, static mode, and a DESTDIR-staged Fedora-format install."
 }
 
 main "$@"

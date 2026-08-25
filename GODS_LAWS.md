@@ -648,6 +648,37 @@ Vieram de um dossiê do CTO consolidando **20 questões** de dois canais do bus:
 
 **Porta de mão única:** o selo mora na taxonomia de bloco, ao lado do bit safe-to-copy da decisão 6. **Nasce em `MAP-FMT-SPEC` ou não nasce.** A escolha do algoritmo concreto é do CTO, dentro da lei de dependência zero (L-07) e implementada em casa.
 
+### EMENDA de 25/08/2026 — a fronteira nomeada substitui a proibição absoluta
+
+**Decisão do líder por `AskUserQuestion`, depois de contra-argumento do CTO apresentado antes, como a LEI DAS LEIS exige.** Esta emenda **não apaga** o que está acima — ela corrige uma premissa falsa e troca uma proibição por uma fronteira. **Leia as duas partes juntas.**
+
+**O fato novo, verbatim do líder:** *"QUero criptografado pois não quero ninguem editando saves e mapas canonicos. O mapeditor, é ferramenta interna, para me ajudar a fazer os mapas pois um modelo llm já provou (você) que os mapas ficam todos errados, como por exemplo um poste no meio da rua"*.
+
+**O que isso derruba:** a frase que fechou a decisão acima dizia *"editar mapa num jogo que **distribui editor** é uso legítimo"*. **O jogo não distribui o editor** — ele é ferramenta interna. A premissa era falsa, e com ela cai a conclusão de que edição de mapa é uso legítimo.
+
+**O que isso NÃO derruba, e é importante não confundir:**
+
+- **O selo aberto continua no formato**, e continua certo. Ele serve o **consumidor externo desconhecido** que quer mapa em claro com detecção de corrupção, e esse consumidor não deixou de existir.
+- **O corolário técnico continua fato:** *em projeto com o fonte publicado, DETECTAR alteração é alcançável e IMPEDIR não é.* Isso é propriedade do fonte publicado, não da premissa do editor — vale com editor interno ou distribuído.
+
+**A fronteira que substitui a proibição absoluta:**
+
+| | |
+|---|---|
+| ✅ **Mecanismo, sim** | a biblioteca pode fornecer **envelope selado** e **primitivas criptográficas padrão** implementadas em casa |
+| ⛔ **Segredo, não** | a chave **sempre** vem de quem chama. A lib **não** guarda, não gera política, não deriva de identidade, não embarca chave |
+| ⛔ **Impedimento, nunca prometido** | nenhuma documentação nossa dirá "impede". O que se entrega é **detecção garantida** e **encarecimento verificável** |
+
+**Por que fronteira e não simplesmente apagar a linha** — o argumento é do CTO e o líder o acatou: a cláusula original existia para impedir que a lib prometesse o que não pode cumprir e para mantê-la fora do negócio de segredo. **Apagá-la sem substituta abriria precedente** para alguém, adiante, propor DRM de verdade citando esta emenda. A fronteira nomeada conserva a proteção e libera só o que foi decidido.
+
+**O que continua sendo achado de revisão, e não feature:** DRM, ofuscação de binário, chave embarcada, assinatura com segredo dentro da biblioteca, algoritmo criptográfico **inventado** por nós, e qualquer "embaralhamento" vendido como cifra. **Ou padrão de verdade, testado contra vetores oficiais, ou nada.**
+
+**Onde a cifra mora, e isto preserva tudo que já foi congelado:** o envelope fica **POR FORA** do formato de mapa. Um mapa cifrado é o envelope embrulhando os bytes do mapa. **O formato não muda um byte** — magic, taxonomia de bloco, bit safe-to-copy e selo aberto ficam exatamente como estão, e nenhuma porta de mão única reabre.
+
+**A divisão de responsabilidade, que envelheceu e agora está corrigida:** o texto acima diz que *"a proteção contra trapaça mora no save do jogador, que é arquivo do consumidor, não nosso"*. **Não vale mais**, porque a lei do jogo consumidor obriga a criptografia a vir de nós, e o líder quer o mapa canônico protegido também. **A divisão correta é: mecanismo é da biblioteca; chave e política são do consumidor.**
+
+**O que o líder decidiu sabendo, e fica escrito para ninguém redescobrir:** ele confirmou que **o jogo SERÁ distribuído publicamente**. Como a AGPL obriga quem nos linka a publicar o próprio fonte, **o caminho por onde a chave chega fica visível**. Contra edição casual — inclusive de uma criança que usa editor de texto e git — a cifra resolve **inteiro**. Contra quem tem depurador, **não resolve**, e quando **um** publica a ferramenta de trapaça, **todo curioso a herda**. Ele decidiu com os três níveis na mesa. **Isto tranca a porta de vidro, e a porta de vidro é a que estava sendo arrombada.**
+
 ### O requisito que veio de um consumidor humano, e o que ele virou
 
 Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor façam blocos especiais pra isso"*. O mecanismo genérico que sustenta o pedido, e que **não** nomeia nada do jogo:

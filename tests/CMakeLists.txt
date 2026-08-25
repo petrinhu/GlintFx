@@ -248,10 +248,19 @@ endif()
 #     Ubuntu nunca mordeu aqui, so em embed_test (achado anterior desta
 #     mesma fatia, que E compilado).
 #   - CMAKE_MODULE_PATH: o unico include() de nome nu nos dois arquivos
-#     reais e `include(GenerateExportHeader)`, dentro de uma funcao que
-#     este fixture NUNCA chama - e mesmo se chamasse, e modulo nativo
-#     do proprio CMake, resolvido sem depender de projeto nenhum. Os
-#     dois include() que o fixture realmente executa usam caminho
+#     reais e `include(GenerateExportHeader)`, em GlintfxLibrary.cmake
+#     linha 9 - TOPO DE ARQUIVO, fora de qualquer function(), logo ele
+#     RODA SEMPRE que o fixture inclui aquele arquivo.
+#     CORRECAO (revisao adversarial de 25/08/2026): a versao anterior
+#     deste comentario dizia "dentro de uma funcao que este fixture
+#     NUNCA chama". Era FALSO - conferido com awk, nao ha function()
+#     antes da linha 9. A conclusao de que nao ha buraco SOBREVIVE, mas
+#     por outro motivo: GenerateExportHeader e modulo NATIVO do CMake,
+#     resolvido via CMAKE_ROOT embutido no proprio binario, nunca via
+#     CMAKE_MODULE_PATH herdado do processo pai. Conclusao certa,
+#     justificativa errada - e justificativa errada envelhece pior que
+#     ausencia de justificativa, porque o proximo leitor a reusa.
+#     Os dois include() que o fixture realmente executa usam caminho
 #     absoluto completo (${GLINTFX_SOURCE_DIR}/cmake/...), nao nome nu.
 #   - Toolchain/plataforma cruzada, CMAKE_BUILD_TYPE: NAO se aplicam -
 #     LANGUAGES NONE nao compila nada, entao nenhum dos dois jamais e

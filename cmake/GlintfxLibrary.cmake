@@ -18,6 +18,23 @@ function(glintfx_set_target_properties target)
         # renders libglintfx.so.0 - identical on-disk name to before
         # this change - but the value now tracks the version instead of
         # silently staying 0 forever after the first ABI-breaking bump.
+        #
+        # UNTESTABLE TODAY, BY CONSTRUCTION (adversarial review of
+        # VER-4C, 24/08/2026, mutant 4): reverting this line to the old
+        # hardcoded literal `SOVERSION 0` survives every test in this
+        # repo right now, because PROJECT_VERSION_MAJOR IS 0 today - the
+        # two forms produce the byte-identical on-disk SONAME
+        # (libglintfx.so.0), so no observation from outside CMake can
+        # tell them apart. This is not a gap left by oversight: nothing
+        # can distinguish "follows the variable" from "hardcoded to the
+        # variable's current value" while the variable never changes.
+        # The line only becomes observable, and therefore only becomes
+        # testable, the first time PROJECT_VERSION_MAJOR leaves 0 - at
+        # that point a stale `SOVERSION 0` would keep emitting
+        # libglintfx.so.0 forever while PROJECT_VERSION climbs, and a
+        # test asserting the SONAME tracks the major version would
+        # catch exactly that regression. Until then, this comment is
+        # the only guard there is.
         SOVERSION ${PROJECT_VERSION_MAJOR}
         POSITION_INDEPENDENT_CODE ON
         CXX_VISIBILITY_PRESET hidden

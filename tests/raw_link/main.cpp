@@ -24,7 +24,13 @@ int main() {
     // VER-4C: this line is a TOOTH added alongside the field it checks,
     // not a fix for something that broke - it compares against this
     // same build's own GLINTFX_VERSION_TWEAK macro, so both sides of
-    // the comparison always move together.
+    // the comparison always move together. Scope of what this tooth
+    // proves, stated precisely (adversarial review, 24/08/2026): it
+    // proves PROPAGATION and PACKAGING - that a fourth component
+    // exists here at all, reaches this consumer's translation unit,
+    // and links. It does NOT prove the number itself is correct; that
+    // is tests/version_test.cpp's job (offsetof()/sizeof() per field,
+    // catching the two mutants a struct-wide sizeof() alone missed).
     const bool tweak_ok = v.tweak_version == static_cast<std::uint32_t>(GLINTFX_VERSION_TWEAK);
     const bool string_ok = glintfx::version_string() == std::string_view{GLINTFX_VERSION_STRING};
 

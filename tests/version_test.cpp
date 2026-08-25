@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -14,11 +15,53 @@
 // order).
 //
 // Four-component version (VER-4C, GODS_LAWS.md L-26): the `version`
-// struct carries a fourth field, tweak_version, with no padding added
-// by the compiler - four uint32_t lay out to exactly 16 bytes on every
-// target this library ships for. That is proven here, not assumed.
+// struct carries a fourth field, tweak_version, appended after the
+// three that already existed, without reordering them.
+//
+// CORRECTION (adversarial review of VER-4C, 24/08/2026): the original
+// version of this comment claimed the layout was "packed, no padding".
+// That was false, and the falseness is exactly what let two mutants
+// survive against a sizeof()-only guard:
+//   - mutant 1 (swap patch_version and tweak_version in declaration
+//     order): the total byte count is unchanged, so sizeof() == 16
+//     alone cannot see the swap.
+//   - mutant 2 (narrow tweak_version from uint32_t to uint16_t): this
+//     struct DOES carry 2 bytes of TAIL PADDING after a uint16_t last
+//     member, measured with offsetof()/alignof() - the compiler closes
+//     the gap to keep the struct's own alignment, so sizeof() stays 16
+//     either way. sizeof() alone cannot see this either.
+// Both survive a sizeof()-only check because sizeof() proves TOTAL
+// SIZE, not LAYOUT. What actually pins order and per-field width is
+// offsetof() for position plus sizeof() of the field itself for
+// width, one pair per field, below.
 static_assert(sizeof(glintfx::version) == 16,
-              "glintfx::version must stay four packed uint32_t fields, GODS_LAWS.md L-26");
+              "glintfx::version total size must stay 16 bytes, GODS_LAWS.md L-26");
+
+static_assert(offsetof(glintfx::version, major_version) == 0,
+              "major_version must stay the first field, GODS_LAWS.md L-26");
+static_assert(sizeof(glintfx::version::major_version) == sizeof(std::uint32_t),
+              "major_version must stay a uint32_t, GODS_LAWS.md L-26");
+
+static_assert(offsetof(glintfx::version, minor_version) == 4,
+              "minor_version must stay the second field, GODS_LAWS.md L-26");
+static_assert(sizeof(glintfx::version::minor_version) == sizeof(std::uint32_t),
+              "minor_version must stay a uint32_t, GODS_LAWS.md L-26");
+
+static_assert(offsetof(glintfx::version, patch_version) == 8,
+              "patch_version must stay the third field, GODS_LAWS.md L-26");
+static_assert(sizeof(glintfx::version::patch_version) == sizeof(std::uint32_t),
+              "patch_version must stay a uint32_t, GODS_LAWS.md L-26");
+
+// tweak_version is the field mutant 2 targeted: it is LAST, so no
+// field after it can reveal a gap via offsetof() the way the three
+// checks above do for each other - only this field's own sizeof()
+// catches a narrowed type here, because the tail-padding trick that
+// hid the mutation from the struct-wide sizeof() only works when
+// nothing measures the field directly.
+static_assert(offsetof(glintfx::version, tweak_version) == 12,
+              "tweak_version must stay the fourth field, GODS_LAWS.md L-26");
+static_assert(sizeof(glintfx::version::tweak_version) == sizeof(std::uint32_t),
+              "tweak_version must stay a uint32_t, GODS_LAWS.md L-26");
 
 GLINTFX_TEST(runtime_version_matches_macros) {
     const glintfx::version v = glintfx::runtime_version();

@@ -36,7 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
 | ⚖ | fechar um marco ou notar a hora | L-15 nunca mandar descansar |
 | ⚖ | abrir sessão, precisar de algo de outro projeto, receber ideia do Gus | L-16 bus `gusworld_ia_autocomm` |
-| ⚖ | escrever função, arquivo, classe ou módulo novo | L-17 proibido monolito, cada função é um átomo |
+| ⚖ | escrever função, arquivo, classe ou módulo novo, ou revisar fatia | L-17 proibido monolito **e** proibida fragmentação; números duros mais as cinco perguntas do revisor |
 | ⚖ | ir executar qualquer trabalho de produto | L-18 main só orquestra; fable audita e cria, sonnet implementa |
 | ⚖ | criar módulo, tocar a fronteira do SO, desenhar API pública | L-19 camadas, portas em compile-time, fronteira opaca |
 | ⚖ | escrever qualquer código com comportamento | L-20 TDD estrito, vermelho antes de verde |

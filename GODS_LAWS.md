@@ -220,6 +220,68 @@ O bus é o canal assíncrono entre as sessões do líder e o filho dele. Clone c
 
 **Aplicação, ao briefar agente:** esta lei entra no prompt de qualquer task de implementação. Agente que entrega monolito teve a task cumprida pela metade.
 
+### A regra QUALITATIVA: como se reconhece um monolito antes de contar
+
+**Data:** 24/08/2026. **Verbatim do líder:** *"tudo DEVE ser atomizado e NADA pode ser monolítico"*. Adaptada da L-19 do `gusworld_mapeditor`, com três divergências decididas por ele via `AskUserQuestion`: **os números acima FICAM e convivem** com esta regra; **o adaptador de plataforma NÃO tem isenção**; e a regra mora **aqui dentro**, não em lei própria.
+
+**Por que as duas metades convivem:** os números pegam o caso fácil, de forma mecânica e barata. Esta regra pega o difícil — **o monolito que respeita todos os limites**: cinco funções de trinta linhas que mudam por cinco motivos diferentes passam limpas por qualquer contagem.
+
+**A régua, em uma frase:**
+
+> **Se mudanças vindas de LEIS DIFERENTES e não relacionadas obrigam a editar a MESMA unidade, ela está virando monolito.**
+
+Aqui as razões de mudar já estão catalogadas, porque as leis as fixaram: **L-05** (Wayland), **L-07** (dependência zero), **L-19** (camadas e fronteira), **L-22** (erro na borda), **L-26** (os três contratos), **L-28** (RCSS), **L-30** (mapa), **L-31** (OpenGL).
+
+### As cinco perguntas do revisor
+
+*"Isto é monolito?"* ninguém sabe responder. Estas se respondem **olhando o código**, não opinando:
+
+1. **A pergunta das leis.** Quais leis obrigariam esta unidade a mudar? Lê-se nos `#include` e nos métodos públicos. Uma lei: unidade sã. Duas ou mais, não relacionadas: monolito em formação.
+2. **A frase sem "e".** Descreva a unidade numa frase. Se precisar de "e" ligando verbos de natureza diferente, reprova. **A frase escrita entra no relatório de revisão.**
+3. **O teste monta o mundo?** Para exercitar UM comportamento, o preparo do teste precisa de janela, arquivo, relógio ou container? Átomo se constrói sozinho. Lê-se no preparo dos testes da fatia.
+4. **O que entra pelo `#include`?** O header puxa grupos que não conversam entre si? A lista de dependências se lê em dez segundos.
+5. **Quem paga a próxima feature?** No diff da fatia (`git log --stat`), a coisa nova tocou quais arquivos? Se toda coisa nova aterrissa no mesmo arquivo, **esse arquivo é o monolito nascendo**. É a mais objetiva das cinco: responde-se com o diff, não com julgamento.
+
+### Onde o monolito vai nascer AQUI
+
+Monolito nunca nasce por burrice; nasce por conveniência local que parece razoável no dia.
+
+| Lugar de risco | Como nasce | Por que parece razoável |
+|---|---|---|
+| **Fachada pública** (`*_API`) | Cada capacidade nova vira "mais um método" na fachada | "É a porta de entrada, tem de estar lá" |
+| **Modelo de mapa** | O agregado já tem os dados, então serializar, validar, repartir e consultar viram métodos dele | "O dado já está aqui" |
+| **Adaptador Wayland** | Janela, entrada, áudio e relógio chegam todos pelo mesmo laço de evento | "Os retornos do sistema aterrissam no mesmo lugar" |
+| **Registro de propriedades do RCSS** | Cada propriedade nova acrescenta um caso ao mesmo `switch` | "É uma linha a mais na tabela" |
+| **`preci.sh`** | Cada portão novo vira mais um estágio no mesmo script | "É o script de portões, é o lugar dele" |
+
+**O adaptador de plataforma NÃO tem isenção** (decisão do líder, 24/08/2026) — e o motivo é o inverso da intuição: é a camada **mais difícil de testar** e a que **mais atrai acumulação**. Isentá-la seria isentar justamente onde o monolito nasce mais rápido.
+
+### Sinais precoces
+
+Esta regra nasce com **575 linhas** de C++ rastreado e o maior arquivo em **93**. Monolito de 3000 linhas todo mundo vê; ela existe para reconhecê-lo com 300.
+
+- **O mesmo arquivo aparece no diff de todas as fatias.** O mais barato de medir e o mais confiável.
+- **Construtor, ou preparo de teste, ganhando parâmetro a cada fatia** — a unidade precisa de cada vez mais mundo para existir.
+- **`switch` que ganha um caso por feature.**
+- **Nome sem substantivo de domínio:** `Manager`, `Service`, `Helper`, `Utils`, `Core`. A unidade que não consegue dizer o que **é**, é porque faz de tudo.
+- **A frase "é só mais um método" aparecendo como justificativa na revisão.** **Essa frase é o som do monolito crescendo: verdadeira em cada passo individual, falsa na soma.**
+
+### A contraparte, com a mesma força
+
+**Fragmentação é monolito ao contrário.** Se seguir um raciocínio exige pular por vários arquivos, o todo virou ilegível — monolito da atenção de quem lê. Dividir **por medo da lei** produz peças sem nome próprio, que é o defeito que a lei existe para impedir, entrando pela outra porta.
+
+**O árbitro entre as duas é sempre o NOME.** Nome honesto e completo, e uma razão de mudar: o corte está certo, qualquer que seja o tamanho. Nome com "e", ou vago: errado, mesmo com dez linhas.
+
+### Fiscalização — onde a regra mora no processo
+
+Regra qualitativa sem lugar no processo é regra que ninguém aplica.
+
+1. **Na revisão adversarial de cada fatia:** para **cada unidade criada ou crescida**, o revisor responde as cinco perguntas e **grava as respostas no relatório**. **Silêncio sobre uma unidade conta como unidade não revisada** — silêncio não é prova de conformidade. A quinta se responde sempre, porque o diff sempre existe.
+2. **No `AUDITORIAS.md`**, capítulo 2 ("Camadas e atomização"). O auditor **não confia nos relatórios**: pega o maior arquivo de cada camada e o que mais aparece no `git log --stat`, responde ele mesmo as cinco perguntas, e compara.
+3. **Divergência tem dono.** Implementador e revisor discordando, ou separação com custo real, **vai ao líder pela L-10** — nunca sai no silêncio de um agente.
+
+**Ao despachar subagent** que crie unidade nova, o texto desta seção vai no prompt, e a ordem de serviço do revisor cita as cinco perguntas como parte do entregável.
+
 **O que a lei não é:** licença para fatiar em funções de uma linha sem sentido próprio, nem para criar helper genérico especulativo. `CONTRACT.md` §6 continua valendo: helper genérico só com **três ocorrências reais**. Átomo é a menor unidade **com significado**, não a menor unidade possível.
 
 ## L-18

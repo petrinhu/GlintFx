@@ -4,7 +4,7 @@
 # working pkg-config module: `pkg-config --cflags --libs glintfx` alone
 # - no CMake, no find_package(glintfx), no hand-written -I/-L/-l -
 # resolves and links tests/raw_link/main.cpp against the installed
-# package, in FOUR scenarios that isolate what could silently regress:
+# package, in FIVE scenarios that isolate what could silently regress:
 #
 #   1. "default layout": the ordinary single-arch install
 #      (CMAKE_INSTALL_LIBDIR unset, GNUInstallDirs default), shared
@@ -40,35 +40,73 @@
 #      failure was silent: exactly the wrong-path-that-looks-right
 #      failure mode LEI ZERO exists to rule out. This scenario is the
 #      regression test for that fix.
-#   4. "static": BUILD_SHARED_LIBS=OFF, consumer built with
-#      `pkg-config --cflags --libs --static glintfx`. Proves the
-#      Libs.private field (-lwayland-client on Linux) has the correct
-#      CONTENT and is actually EMITTED by pkg-config's --static line -
-#      both directly observable and checked here.
-#      DECLARED DOWNGRADE (adversarial review, PKG-DIST achado 2,
-#      reproduced live: emptying Libs.private by hand still links and
-#      runs through this exact path): this scenario does NOT prove the
-#      field is load-bearing for a REAL static link today, because
+#   4. "absolute install dirs" (adversarial review, PKG-DIST achado 3,
+#      reproduced live before the fix): CMAKE_INSTALL_LIBDIR AND
+#      CMAKE_INSTALL_INCLUDEDIR both set to ABSOLUTE paths, independent
+#      of any prefix - GNUInstallDirs officially allows this (a
+#      packager staging into a fixed system location), and
+#      glintfx_compute_pkgconfig_relocatable_prefix() already handled
+#      it correctly for `prefix=` itself, but `libdir=`/`includedir=`
+#      still hand-typed a "${exec_prefix}/"/"${prefix}/" base in front
+#      of the value regardless: with an absolute
+#      CMAKE_INSTALL_LIBDIR=/var/tmp/gvabs/inst/lib64, the emitted line
+#      was "libdir=${exec_prefix}//var/tmp/gvabs/inst/lib64" - the
+#      prefix appeared TWICE, `pkg-config --libs` printed a path that
+#      does not exist on disk, and `pkg-config --exists` still reported
+#      success. Same silent failure mode as scenario 3, different input
+#      shape; both libdir and includedir are exercised here because
+#      they are independent CMake variables and the bug was independent
+#      in each. This scenario is the regression test for
+#      glintfx_compute_pkgconfig_path_expression() in
+#      cmake/GlintfxInstall.cmake.
+#   5. "static": BUILD_SHARED_LIBS=OFF. Proves the Libs.private field
+#      (-lwayland-client on Linux) has the correct CONTENT, is
+#      EMITTED by pkg-config's --static line (via
+#      tests/raw_link/main.cpp, same as before), AND is genuinely
+#      LOAD-BEARING for a real static link (adversarial review,
+#      PKG-DIST achado 4 - corrects an earlier, WRONG version of this
+#      scenario that only claimed the first two and cited
+#      GODS_LAWS.md L-19 as the reason a real link proof was
+#      impossible; L-19 governs glintfx's INSTALLED, DISTRIBUTED
+#      public surface, and does not reach a throwaway .cpp generated
+#      by THIS SCRIPT at test time, never tracked, never installed,
+#      never distributed - that citation was simply wrong, proven
+#      wrong by writing the probe below and watching it link).
+#
+#      The load-bearing proof needs its own consumer, GENERATED here
+#      (write_wayland_symbol_probe_source, below), because
 #      tests/raw_link/main.cpp only calls glintfx::runtime_version()
 #      (src/core/version.cpp.o) - it never references any symbol that
 #      would make the linker pull glintfx_library's OTHER static
 #      archive member (the Wayland xdg-shell protocol binding,
-#      src/platform/wayland/, which is what actually needs
-#      wayland-client's symbols) out of libglintfx.a, so nothing in
-#      this link currently DEMANDS Libs.private to be non-empty. Static
-#      linkers only extract archive members that resolve an outstanding
-#      undefined reference; with none pending against that member, its
-#      presence or absence in Libs.private is unobservable from this
-#      consumer. Forcing that extraction would require this test to
-#      reference a private, wayland-scanner-generated, hidden-visibility
-#      symbol (e.g. xdg_wm_base_interface) that is not, and must not
-#      become, part of glintfx's public surface (GODS_LAWS.md L-19) -
-#      ruled out on purpose, not left out by oversight. The real proof
-#      arrives naturally the day a consumer exists that calls into the
-#      Wayland-backed code path (WL-DISPLAY, a later fatia); until then,
-#      this scenario proves field CORRECTNESS and EMISSION, not LINK
-#      NECESSITY, and no claim beyond that is made anywhere in this
-#      file or in the fatia's commit history.
+#      src/platform/wayland/) out of libglintfx.a, so Libs.private's
+#      presence or absence is unobservable through that file alone.
+#      The probe instead references `xdg_wm_base_interface` directly -
+#      wayland-scanner private-code's OWN generated symbol, hidden
+#      visibility (suppresses DSO/dynamic export only, not STATIC
+#      link-time resolution within the same final link) - which forces
+#      the linker to extract that archive member, and THAT member has
+#      its own real, unresolved references to wl_surface_interface/
+#      wl_seat_interface/wl_output_interface (confirmed live: `nm -u`
+#      on the extracted xdg-shell-protocol.c.o member lists exactly
+#      those three as undefined) that only wayland-client provides.
+#      Two controls, both executed: linking the probe WITHOUT
+#      Libs.private (plain `pkg-config --cflags --libs glintfx`, no
+#      --static) FAILS with those exact undefined references
+#      (negative control - reproduced live before writing this
+#      scenario); linking it WITH Libs.private (`--cflags --libs
+#      --static`) SUCCEEDS (positive control).
+#
+#      Trade-off accepted, and it is real (this is now the actual, and
+#      only, reason the proof stays this shape rather than something
+#      broader): `xdg_wm_base_interface` is wayland-scanner
+#      private-code's own generated name, not a name glintfx chose or
+#      promises to keep - a future protocol added, or private-code mode
+#      swapped for public-code, could rename or remove it for reasons
+#      that have nothing to do with a real Libs.private regression, and
+#      this probe would need updating. That coupling is deliberate and
+#      contained to this ONE throwaway, never-shipped test file, not a
+#      law being bent.
 #
 # Usage: check_pkgconfig.sh <glintfx-source-dir> <raw-consumer-source-file> <cxx-compiler>
 #
@@ -139,6 +177,38 @@ build_and_install_glintfx() {
     cmake --install "$build_dir" --prefix "$prefix"
 }
 
+# Scenario 4 (absolute install dirs) needs its own configure call: it
+# sets BOTH CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR to
+# absolute paths, which configure_glintfx() above has no parameter for
+# (it only ever varies CMAKE_INSTALL_LIBDIR, relative, across the other
+# four scenarios).
+configure_glintfx_with_absolute_dirs() {
+    glintfx_src="$1"
+    build_dir="$2"
+    cxx="$3"
+    abs_libdir="$4"
+    abs_includedir="$5"
+    cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_COMPILER="$cxx" \
+        -DCMAKE_INSTALL_LIBDIR="$abs_libdir" \
+        -DCMAKE_INSTALL_INCLUDEDIR="$abs_includedir" \
+        -DBUILD_SHARED_LIBS=ON \
+        -DGLINTFX_BUILD_TESTS=OFF
+}
+
+# No --prefix, deliberately: CMake's install() ignores any prefix for a
+# DESTINATION that is already absolute (GNUInstallDirs semantics), and
+# both CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR are absolute
+# in this scenario - passing a --prefix here would be decorative, and
+# its absence is itself part of what this scenario proves (the files
+# land exactly at the absolute paths given, nothing else involved).
+build_and_install_glintfx_no_prefix() {
+    build_dir="$1"
+    cmake --build "$build_dir"
+    cmake --install "$build_dir"
+}
+
 pkgconfig_dir_for() {
     prefix="$1"
     libdir="$2"
@@ -194,6 +264,22 @@ assert_libdir_resolves_to_real_install_dir() {
         || fail "glintfx.pc libdir resolves to '${resolved_reported}' (raw pkg-config value: '${reported_libdir}'), expected it to resolve to the real install directory '${resolved_expected}' - the relocatable prefix expression did not walk back to the real install tree"
 }
 
+# Same check, for `includedir=` (adversarial review, PKG-DIST achado 3:
+# "o includedir tem a mesma exposicao, e o revisor o quebrou
+# separadamente" - libdir and includedir are two INDEPENDENT
+# CMAKE_INSTALL_* variables, each independently allowed to be relative
+# or absolute by GNUInstallDirs, so proving one says nothing about the
+# other).
+assert_includedir_resolves_to_real_install_dir() {
+    pkgconfig_dir="$1"
+    expected_includedir_abs="$2"
+    reported_includedir="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --variable=includedir glintfx)"
+    resolved_reported="$(realpath -m "$reported_includedir")"
+    resolved_expected="$(realpath -m "$expected_includedir_abs")"
+    [ "$resolved_reported" = "$resolved_expected" ] \
+        || fail "glintfx.pc includedir resolves to '${resolved_reported}' (raw pkg-config value: '${reported_includedir}'), expected it to resolve to the real install directory '${resolved_expected}'"
+}
+
 compile_and_run_dynamic_consumer() {
     pkgconfig_dir="$1"
     consumer_src="$2"
@@ -235,6 +321,70 @@ compile_and_run_static_consumer() {
     [ -x "$output_bin" ] || fail "static consumer binary not found after compile: $output_bin"
     echo "check_pkgconfig.sh: running $output_bin (static, pkg-config --cflags --libs --static glintfx)"
     "$output_bin"
+}
+
+# Writes a tiny .cpp INTO THE SCRATCH DIR at test-run time (adversarial
+# review, PKG-DIST achado 4) - never a tracked file in the repo, never
+# installed, never distributed. Referencing xdg_wm_base_interface
+# directly forces the linker to extract glintfx_library's Wayland
+# xdg-shell protocol-binding archive member out of libglintfx.a, the
+# ONLY way to make Libs.private's presence or absence OBSERVABLE
+# through a real link (see the file-level comment, scenario 5, for the
+# full reasoning and the trade-off this accepts).
+write_wayland_symbol_probe_source() {
+    scratch="$1"
+    probe_src="${scratch}/wayland_symbol_probe.cpp"
+    cat > "$probe_src" << 'PROBE_EOF'
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Generated at test time by check_pkgconfig.sh - never tracked, never
+// installed, never distributed (PKG-DIST achado 4). Forces the
+// linker to extract glintfx_library's Wayland xdg-shell
+// protocol-binding archive member by referencing ONE of its own
+// internal, generated symbols directly, so that member's own real
+// undefined references to wl_surface_interface/wl_seat_interface/
+// wl_output_interface become part of THIS link - proving
+// Libs.private is genuinely load-bearing, not merely present.
+extern "C" const struct wl_interface xdg_wm_base_interface;
+
+const void* const g_glintfx_wayland_symbol_probe = &xdg_wm_base_interface;
+
+int main() {
+    return 0;
+}
+PROBE_EOF
+    printf '%s' "$probe_src"
+}
+
+# Negative control: linking the probe WITHOUT Libs.private (the plain,
+# non-static pkg-config line) must FAIL - if it links, either
+# Libs.private stopped being necessary or the probe stopped forcing
+# extraction, either way this scenario's whole premise is gone.
+assert_probe_links_without_wayland_client_fails() {
+    pkgconfig_dir="$1"
+    probe_src="$2"
+    cxx="$3"
+    output_bin="$4"
+    cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags glintfx)"
+    libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs glintfx)"
+    if "$cxx" -std=c++23 ${cflags} "$probe_src" ${libs} -o "$output_bin" 2>/dev/null; then
+        fail "negative control failed: linking the Wayland-symbol probe WITHOUT Libs.private (plain 'pkg-config --cflags --libs glintfx') unexpectedly SUCCEEDED - either Libs.private is no longer necessary or the probe no longer forces extraction of the Wayland-bound archive member"
+    fi
+    echo "check_pkgconfig.sh: negative control confirmed - linking the probe without Libs.private fails (undefined wl_* symbols), as expected"
+}
+
+# Positive control: the exact same probe, linked WITH Libs.private
+# (`--static`), must SUCCEED.
+assert_probe_links_with_wayland_client_succeeds() {
+    pkgconfig_dir="$1"
+    probe_src="$2"
+    cxx="$3"
+    output_bin="$4"
+    cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags --static glintfx)"
+    libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs --static glintfx)"
+    "$cxx" -std=c++23 ${cflags} "$probe_src" ${libs} -o "$output_bin" \
+        || fail "positive control failed: linking the Wayland-symbol probe WITH Libs.private (pkg-config --cflags --libs --static glintfx) unexpectedly FAILED"
+    [ -x "$output_bin" ] || fail "probe binary not found after compile: $output_bin"
+    echo "check_pkgconfig.sh: positive control confirmed - linking the probe with Libs.private succeeds"
 }
 
 # Scenario 1: default single-arch layout, shared build.
@@ -318,10 +468,40 @@ run_malformed_libdir_scenario() {
     echo "ok: malformed-layout scenario - a trailing slash in CMAKE_INSTALL_LIBDIR (lib64/) does not inflate the relocatable prefix's directory-climb count."
 }
 
-# Scenario 4: static build - proves Libs.private's CONTENT and
-# EMISSION, not link necessity (declared downgrade, adversarial
-# review, PKG-DIST achado 2 - see the file-level comment for why, and
-# what the honest scope of this scenario is).
+# Scenario 4: absolute install dirs (adversarial review, PKG-DIST
+# achado 3) - CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR both
+# given as ABSOLUTE paths, independent of any prefix. Regression test
+# for glintfx_compute_pkgconfig_path_expression() in
+# cmake/GlintfxInstall.cmake: without it, libdir=/includedir= each
+# hand-typed a "${exec_prefix}/"/"${prefix}/" base in front of an
+# already-absolute value, duplicating the prefix (see the file-level
+# comment for the exact reproduction).
+run_absolute_dirs_scenario() {
+    glintfx_src="$1"
+    consumer_src="$2"
+    cxx="$3"
+    scratch="$4"
+
+    build_dir="${scratch}/build-absolute"
+    abs_libdir="${scratch}/abs-install/lib64"
+    abs_includedir="${scratch}/abs-install/include"
+    configure_glintfx_with_absolute_dirs "$glintfx_src" "$build_dir" "$cxx" "$abs_libdir" "$abs_includedir"
+    build_and_install_glintfx_no_prefix "$build_dir"
+
+    pkgconfig_dir="${abs_libdir}/pkgconfig"
+    assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
+    assert_libdir_resolves_to_real_install_dir "$pkgconfig_dir" "$abs_libdir"
+    assert_includedir_resolves_to_real_install_dir "$pkgconfig_dir" "$abs_includedir"
+
+    binary="${scratch}/consumer-absolute"
+    compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "$abs_libdir" "$binary"
+    echo "ok: absolute-install-dirs scenario - CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR given as absolute paths resolve to themselves, with no duplicated prefix segment."
+}
+
+# Scenario 5: static build - proves Libs.private's CONTENT, EMISSION
+# AND load-bearing NECESSITY (adversarial review, PKG-DIST achado 4;
+# see the file-level comment for the full reasoning and the trade-off
+# accepted).
 run_static_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
@@ -338,7 +518,14 @@ run_static_scenario() {
 
     binary="${scratch}/consumer-static"
     compile_and_run_static_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "$binary"
-    echo "ok: static scenario - pkg-config --libs --static glintfx carries the correct Libs.private content (-lwayland-client) and the raw link succeeds. NOT proven here: that omitting Libs.private would break this specific link - it would not, today, because tests/raw_link/main.cpp never pulls the Wayland-bound archive member (see the file-level comment, scenario 4)."
+
+    probe_src="$(write_wayland_symbol_probe_source "$scratch")"
+    probe_negative_bin="${scratch}/probe-without-libsprivate"
+    probe_positive_bin="${scratch}/probe-with-libsprivate"
+    assert_probe_links_without_wayland_client_fails "$pkgconfig_dir" "$probe_src" "$cxx" "$probe_negative_bin"
+    assert_probe_links_with_wayland_client_succeeds "$pkgconfig_dir" "$probe_src" "$cxx" "$probe_positive_bin"
+
+    echo "ok: static scenario - pkg-config --libs --static glintfx carries the correct Libs.private content (-lwayland-client), it is emitted correctly, AND it is genuinely load-bearing: a probe that forces extraction of the Wayland-bound archive member fails to link without Libs.private and succeeds with it."
 }
 
 main() {
@@ -355,9 +542,10 @@ main() {
     run_default_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
     run_multiarch_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
     run_malformed_libdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
+    run_absolute_dirs_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
     run_static_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
 
-    echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing-slash) layout and static mode."
+    echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing-slash) layout, absolute install dirs, and static mode."
 }
 
 main "$@"

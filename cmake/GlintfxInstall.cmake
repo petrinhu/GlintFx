@@ -99,8 +99,14 @@ function(glintfx_compute_pkgconfig_relocatable_prefix out_var)
         # CMAKE_INSTALL_PREFIX). ${pcfiledir}-relative relocation has no
         # defined answer there, so this falls back to the absolute,
         # configured prefix instead of guessing - correct for that one
-        # build, just not relocatable afterwards.
-        set(${out_var} "${CMAKE_INSTALL_PREFIX}" PARENT_SCOPE)
+        # build, just not relocatable afterwards. Normalized for the
+        # same reason as everything else in this file: CMAKE_INSTALL_PREFIX
+        # is a user/packager-supplied value too, and nothing here should
+        # trust it unnormalized just because it happens to be a
+        # different variable than CMAKE_INSTALL_LIBDIR.
+        set(normalized_prefix "${CMAKE_INSTALL_PREFIX}")
+        cmake_path(NORMAL_PATH normalized_prefix)
+        set(${out_var} "${normalized_prefix}" PARENT_SCOPE)
         return()
     endif()
 
@@ -140,18 +146,49 @@ function(glintfx_compute_pkgconfig_relocatable_prefix out_var)
     set(${out_var} "${relative_prefix}" PARENT_SCOPE)
 endfunction()
 
-# Same normalization as glintfx_compute_pkgconfig_relocatable_prefix()
-# above, for the SAME reason, applied to the raw value substituted into
-# glintfx.pc's own `libdir=`/`includedir=` lines: an unnormalized
-# CMAKE_INSTALL_LIBDIR="lib64/" would otherwise leak its trailing slash
-# straight into the emitted .pc file (harmless for -L/-I in practice,
-# but a needless inconsistency with the depth count above, which DOES
-# depend on this exact string being clean - a single normalization
-# helper keeps both call sites reading the same value).
-function(glintfx_normalize_install_subdir subdir_value out_var)
-    set(normalized "${subdir_value}")
+# Computes the right-hand-side VALUE for one pkg-config path variable
+# assignment (`libdir=`/`includedir=`), given the CORRESPONDING CMake
+# install-dir variable's raw value (CMAKE_INSTALL_LIBDIR /
+# CMAKE_INSTALL_INCLUDEDIR). GNUInstallDirs officially allows either
+# variable to be RELATIVE (the common case, joined under the prefix at
+# pkg-config resolve time) OR ABSOLUTE (a packager staging into a fixed
+# system location, independent of any prefix - a real, documented use,
+# not a corner case). Applied identically to libdir and includedir
+# (adversarial review, PKG-DIST achado 3: "trate os tres - prefix,
+# libdir, includedir - pela mesma regra, nao um a um" -
+# glintfx_compute_pkgconfig_relocatable_prefix() above already had this
+# exact branch for `prefix=` itself; this function is the same rule,
+# generalized, for the two call sites that were missing it).
+#
+# RELATIVE raw_value: normalized, then expressed as the LITERAL text
+# "${<base_pkgconfig_var>}/<normalized>" - backslash-escaped so
+# CMake's OWN `${}` variable expansion (which runs the instant this
+# string is built by set(), independent of configure_file()'s later
+# @ONLY pass) does not try to resolve base_pkgconfig_var as a CMake
+# variable and silently collapse it to empty. pkg-config resolves the
+# real value itself at query time - this is what stays genuinely
+# relocatable.
+#
+# ABSOLUTE raw_value (reproduced live before this fix, adversarial
+# review achado 3: -DCMAKE_INSTALL_LIBDIR=/var/tmp/gvabs/inst/lib64
+# produced "libdir=${exec_prefix}//var/tmp/gvabs/inst/lib64" - the
+# prefix appears TWICE, `pkg-config --libs` emitted a path that does
+# not exist on disk, and `pkg-config --exists` still reported success,
+# because it never checks that the resolved directory contains
+# anything): normalized and used AS-IS, with NO "${base}/" joined in
+# front at all. Concatenating any base in front of an already-absolute
+# path duplicates it; the correct pkg-config idiom for an absolute
+# install dir is the bare path, with no variable reference.
+function(glintfx_compute_pkgconfig_path_expression raw_value base_pkgconfig_var out_var)
+    set(normalized "${raw_value}")
     cmake_path(NORMAL_PATH normalized)
-    set(${out_var} "${normalized}" PARENT_SCOPE)
+
+    if(IS_ABSOLUTE "${normalized}")
+        set(${out_var} "${normalized}" PARENT_SCOPE)
+        return()
+    endif()
+
+    set(${out_var} "\${${base_pkgconfig_var}}/${normalized}" PARENT_SCOPE)
 endfunction()
 
 # Libs.private carries what a STATIC glintfx needs beyond -lglintfx
@@ -193,8 +230,8 @@ endfunction()
 function(glintfx_install_pkgconfig)
     glintfx_compute_pkgconfig_relocatable_prefix(GLINTFX_PC_RELOCATABLE_PREFIX)
     glintfx_compute_pkgconfig_libs_private(GLINTFX_PC_LIBS_PRIVATE)
-    glintfx_normalize_install_subdir("${CMAKE_INSTALL_LIBDIR}" GLINTFX_PC_LIBDIR)
-    glintfx_normalize_install_subdir("${CMAKE_INSTALL_INCLUDEDIR}" GLINTFX_PC_INCLUDEDIR)
+    glintfx_compute_pkgconfig_path_expression("${CMAKE_INSTALL_LIBDIR}" "exec_prefix" GLINTFX_PC_LIBDIR)
+    glintfx_compute_pkgconfig_path_expression("${CMAKE_INSTALL_INCLUDEDIR}" "prefix" GLINTFX_PC_INCLUDEDIR)
 
     # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7):
     # see the comment at the same substitution in the root CMakeLists.txt.

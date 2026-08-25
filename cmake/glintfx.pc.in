@@ -16,10 +16,20 @@
 # from CMAKE_INSTALL_LIBDIR's own directory depth (lib/pkgconfig vs.
 # lib/x86_64-linux-gnu/pkgconfig climb a different number of levels
 # back to the prefix) - never hand-typed here.
+#
+# GLINTFX_PC_LIBDIR/GLINTFX_PC_INCLUDEDIR (glintfx_compute_pkgconfig_path_expression()
+# in the same .cmake file) carry the WHOLE right-hand side already -
+# either "${exec_prefix}/<relative>" or a bare absolute path, never
+# both joined (adversarial review, PKG-DIST achado 3: CMAKE_INSTALL_LIBDIR/
+# CMAKE_INSTALL_INCLUDEDIR are each independently allowed to be
+# absolute by GNUInstallDirs; a hand-typed "${exec_prefix}/@..@" here
+# duplicated the prefix the moment either one was). No "${exec_prefix}/"
+# or "${prefix}/" is hand-typed on the next two lines for exactly that
+# reason.
 prefix=@GLINTFX_PC_RELOCATABLE_PREFIX@
 exec_prefix=${prefix}
-libdir=${exec_prefix}/@GLINTFX_PC_LIBDIR@
-includedir=${prefix}/@GLINTFX_PC_INCLUDEDIR@
+libdir=@GLINTFX_PC_LIBDIR@
+includedir=@GLINTFX_PC_INCLUDEDIR@
 
 Name: glintfx
 Description: GlintFx - 2D application framework (window, main loop, 2D rendering, input, gamepad, audio, font, asset loading, math2d)

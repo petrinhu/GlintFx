@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# glintfx.pc.in - pkg-config module template for glintfx (PKG-DIST).
+#
+# Relocatable by construction: prefix is expressed via `${pcfiledir}`,
+# pkg-config's own built-in variable for the directory the INSTALLED
+# .pc file itself lives in (pkg-config upstream's "Advice for
+# packagers": use it instead of an absolute install prefix baked in at
+# build time). GODS_LAWS.md LEI ZERO: this library ships to a
+# consumer whose install prefix we never know -
+# moving the whole install tree (a distro build root, a relocatable
+# package, an unpacked archive on someone else's machine) keeps this
+# file correct with zero rewriting. The exact number of `/..` segments
+# below is computed at configure time in
+# cmake/GlintfxInstall.cmake:glintfx_compute_pkgconfig_relocatable_prefix()
+# from CMAKE_INSTALL_LIBDIR's own directory depth (lib/pkgconfig vs.
+# lib/x86_64-linux-gnu/pkgconfig climb a different number of levels
+# back to the prefix) - never hand-typed here.
+prefix=@GLINTFX_PC_RELOCATABLE_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: glintfx
+Description: GlintFx - 2D application framework (window, main loop, 2D rendering, input, gamepad, audio, font, asset loading, math2d)
+URL: https://github.com/petrinhu/GlintFx
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lglintfx
+Libs.private: @GLINTFX_PC_LIBS_PRIVATE@
+Cflags: -I${includedir}

@@ -72,6 +72,11 @@ if(GLINTFX_INSTALL)
     glintfx_install_library_target(glintfx_library)
     glintfx_install_public_headers()
     glintfx_install_cmake_package()
+    # After include(GlintfxWaylandProtocols) above (UNIX only): PKG-DIST's
+    # glintfx_install_pkgconfig() reads GlintfxWaylandClient_LIBRARIES,
+    # which that include() populates at its own include-time
+    # pkg_check_modules() call, well before this line runs.
+    glintfx_install_pkgconfig()
 endif()
 
 if(GLINTFX_BUILD_TESTS)

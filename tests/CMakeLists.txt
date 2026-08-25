@@ -228,6 +228,30 @@ if(UNIX)
     set_tests_properties(no_target_collision_test PROPERTIES LABELS consume)
 endif()
 
+# pkg-config gate (PKG-DIST): proves the INSTALLED glintfx.pc, not just
+# the CMake package - a bare `pkg-config --cflags --libs glintfx`
+# resolves and links tests/raw_link/main.cpp with no CMake and no
+# find_package(glintfx) involved at all, in the default layout, a
+# Debian-multiarch layout (mirrors install_packager_layout_test's own
+# architecture) and static mode (proves Libs.private carries
+# -lwayland-client - see check_pkgconfig.sh's own header for why none
+# of the CMake-target-based gates above would ever catch that
+# regressing). POSIX sh; same declared downgrade as the other
+# consumption gates above (pkg-config's own convention is Unix/Linux
+# packaging; there is no Windows-specific coverage here because
+# glintfx has no platform layer that needs Libs.private there yet -
+# see GlintfxInstall.cmake's own comment at glintfx_install_pkgconfig()).
+if(UNIX)
+    add_test(
+        NAME pkgconfig_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig.sh"
+            "${PROJECT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
+            "${CMAKE_CXX_COMPILER}"
+    )
+    set_tests_properties(pkgconfig_test PROPERTIES LABELS consume)
+endif()
+
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
 # itself (three controls - clean fixture passes, dirty fixture is
 # reproved, empty directory fails the enumeration floor - see

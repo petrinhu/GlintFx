@@ -79,15 +79,99 @@ function Invoke-BuildEmbed([string]$embedBuild) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
+# Reports where the produced .dll(s) landed relative to the executable
+# that needs to load them - BEFORE the run, not after, so the log
+# explains a loader failure instead of only reporting its symptom.
+# Windows has no build-tree equivalent of the ELF RPATH the Linux side
+# relies on (embed_test never needed this function - CMake auto-embeds
+# a build-tree RPATH into the Linux executable, GODS_LAWS.md L-27:
+# confirmed live, not assumed, by reading the DLL search order Microsoft
+# publishes: the executable's OWN folder is searched, the rest of the
+# build tree is not - learn.microsoft.com/windows/win32/dlls/
+# dynamic-link-library-search-order). Mirrors diagnose-win-runtime.ps1's
+# Test-DllBesideExe (WIN-HANG) - same shape, generalized to a list of
+# DLLs instead of exactly one.
+function Show-RuntimeLayout([string]$exePath, [string[]]$dllPaths) {
+    $exeDir = Split-Path -Parent $exePath
+    Write-Host "check-embed.ps1: executable directory: $exeDir"
+    if (-not $dllPaths -or $dllPaths.Count -eq 0) {
+        Write-Host "check-embed.ps1: WARNING - no .dll found anywhere under the embed build tree"
+        return
+    }
+    foreach ($dll in $dllPaths) {
+        $dllDir = Split-Path -Parent $dll
+        if ($dllDir -eq $exeDir) {
+            Write-Host "check-embed.ps1: $dll is BESIDE the executable (the default Windows DLL search order will find it)"
+        } else {
+            Write-Host "check-embed.ps1: $dll is NOT beside the executable - the default Windows DLL search order will NOT find it (it searches the executable's own folder, not the rest of the build tree)"
+            Write-Host "check-embed.ps1:   exe dir: $exeDir"
+            Write-Host "check-embed.ps1:   dll dir: $dllDir"
+        }
+    }
+}
+
+# Runs the built executable with its exit code AND its stdout/stderr
+# captured and printed unconditionally, bounded so a hang cannot stall
+# the CI step forever - same shape as diagnose-win-runtime.ps1's
+# Invoke-BoundedRun (WIN-HANG precedent), reused here because a script
+# that runs a binary and can only say "exit code 1" is not a diagnosis
+# (CI-CONSUME, achado do lider: "um script que roda um binario e so
+# sabe dizer 'deu 1' e diagnostico cego"). Returns the real exit code so
+# the caller decides pass/fail; a caught launch failure or a timeout
+# both exit this script directly, since neither leaves a real exit code
+# to return.
+function Invoke-BoundedRun([string]$exePath, [int]$timeoutSeconds) {
+    $stdout = Join-Path ([System.IO.Path]::GetTempPath()) "check-embed-run-stdout.txt"
+    $stderr = Join-Path ([System.IO.Path]::GetTempPath()) "check-embed-run-stderr.txt"
+    Write-Host "check-embed.ps1: running $exePath directly, bounded to ${timeoutSeconds}s, stdout/stderr captured"
+    try {
+        $proc = Start-Process -FilePath $exePath -NoNewWindow -PassThru `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    } catch {
+        Write-Error "check-embed.ps1: the OS could not even start the process - $($_.Exception.Message)"
+        exit 1
+    }
+    $finished = $proc.WaitForExit($timeoutSeconds * 1000)
+    if (-not $finished) {
+        Write-Error "check-embed.ps1: TIMED OUT after ${timeoutSeconds}s - process did not exit on its own, killing it now"
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+    $exitCode = $proc.ExitCode
+    Write-Host ("check-embed.ps1: process exited with code {0} (0x{0:X8})" -f $exitCode)
+    # Piped through Write-Host, not left as bare pipeline output: this
+    # function is called in an ASSIGNMENT context ($exitCode = ...) by
+    # its caller, and PowerShell aggregates every uncaptured pipeline
+    # object produced during that call into the assigned variable - Get-
+    # Content's own output would silently ride along with the intended
+    # return value and corrupt it into an array (caught live: $exitCode
+    # became @(<stdout lines>, 0), and "$exitCode -ne 0" on that array
+    # evaluated true even for a clean exit, because the array held a
+    # non-zero-looking string element). Write-Host writes directly to
+    # the host and is immune to this capture, same reason the "process
+    # exited with code" line above already used it.
+    Write-Host "--- check-embed.ps1: stdout ---"
+    Get-Content $stdout -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+    Write-Host "--- check-embed.ps1: stderr ---"
+    Get-Content $stderr -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+    return $exitCode
+}
+
 function Invoke-RunEmbed([string]$embedBuild) {
     $binary = (Get-ChildItem -Recurse -Filter embed_consumer.exe $embedBuild | Select-Object -First 1).FullName
     if (-not $binary) {
         Write-Error "check-embed.ps1: embed_consumer.exe not found under $embedBuild"
         exit 1
     }
-    Write-Host "check-embed.ps1: running $binary"
-    & $binary
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $dllPaths = Get-ChildItem -Recurse -Filter *.dll -Path $embedBuild -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty FullName
+    Show-RuntimeLayout $binary $dllPaths
+
+    $exitCode = Invoke-BoundedRun $binary 20
+    if ($exitCode -ne 0) {
+        Write-Error ("check-embed.ps1: embed_consumer.exe exited with code {0} - see the runtime layout and the captured stdout/stderr above for why" -f $exitCode)
+        exit 1
+    }
 }
 
 function Assert-GeneratedHeadersScoped([string]$embedBuild) {

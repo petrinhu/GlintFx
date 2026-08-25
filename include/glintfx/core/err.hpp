@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <string_view>
@@ -59,16 +60,53 @@
 // std::optional::operator*()/std::expected::operator*(), not a new
 // idiom invented here): calling value() when has_value() is false, or
 // error() when has_error() is false, is UNDEFINED BEHAVIOR by
-// documented precondition - implemented via std::get_if/std::optional
-// dereference rather than std::variant::get(), specifically so a
-// precondition violation can NEVER throw std::bad_variant_access out of
-// a `noexcept` accessor and call std::terminate(). This is a DIFFERENT
-// category from gltfx_err's own "never UB" accessors (CE-3): those
-// answer a DATA question ("was this optional diagnostic field ever
-// attached?", always well-defined to answer with empty/zero); has_value()/
+// documented precondition. This is a DIFFERENT category from
+// gltfx_err's own "never UB" accessors (CE-3): those answer a DATA
+// question ("was this optional diagnostic field ever attached?",
+// always well-defined to answer with empty/zero); has_value()/
 // has_error() here answer a DIFFERENT, universally-checked-first
 // question ("did the call succeed?") before value()/error() are ever
 // called - the same two-step contract std::optional itself uses.
+//
+// CORRECTION (adversarial review, 25/08/2026): an earlier version of
+// this comment claimed std::get_if (returns nullptr, dereferenced by
+// the caller) was chosen over std::variant::get() (throws
+// std::bad_variant_access) specifically to avoid "killing the
+// process". That claim was WRONG, and the reviewer reproduced why:
+// get() throwing through a `noexcept` function calls std::terminate()
+// (abort) exactly as surely as dereferencing the resulting null
+// pointer segfaults - misuse kills the process EITHER WAY, only the
+// SIGNAL and the amount of information differ. What get_if genuinely
+// buys is avoiding exception machinery inside a noexcept function (a
+// simplicity, not a safety property).
+//
+// DEBUG-ONLY PRECONDITION GUARD (decision of the leader, 25/08/2026,
+// correcting the claim above): value()/error() on BOTH gltfx_rslt<T>
+// and the gltfx_rslt<void> specialization now assert() the
+// precondition before touching storage. In a build where NDEBUG is
+// undefined (this project's CMAKE_BUILD_TYPE=Debug - the STANDARD
+// language mechanism <cassert> already gives every C++ toolchain this
+// project targets, not a project invention), the assert fires FIRST,
+// with a message naming exactly which precondition the CALLER
+// violated, and calls abort() - a deterministic SIGABRT the consumer
+// can read and act on, instead of: a confusing SIGSEGV with zero
+// context (the primary template's null-pointer dereference), or worse,
+// SILENT GARBAGE (the T=void specialization's std::optional::
+// operator*() on an unengaged optional does not reliably fault at all
+// - it can hand back a fabricated gltfx_err whose m_context pointer,
+// if later copied or destroyed, corrupts the heap; this is a MORE
+// dangerous misuse than a crash, not a safer one). In a build where
+// NDEBUG IS defined (CMAKE_BUILD_TYPE=Release, this project's default
+// for CI/tools/preci.sh), assert() compiles to nothing - zero cost -
+// and the SAME undefined behavior this code already had before this
+// guard still happens, completely unchanged: this guard adds
+// diagnosability in debug, never changes the release contract.
+// tests/tools/check_rslt_precondition.sh proves both halves live -
+// see that script's own header. docs/api-conventions.md documents
+// this for the external, unknown consumer base (LEI ZERO): they need
+// to read, in prose, that this is a precondition violation and what
+// each build mode does about it, before their own program crashes and
+// they have to reverse-engineer why.
 //
 // DIAGNOSTIC CONTEXT (CE-3): six accessors - path(), line(), column(),
 // byte_offset(), rejected_value(), os_error_code() - read whatever
@@ -266,13 +304,30 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
     [[nodiscard]] bool has_value() const noexcept { return m_storage.index() == 0; }
     [[nodiscard]] bool has_error() const noexcept { return m_storage.index() == 1; }
 
-    // Precondition: has_value(). UB otherwise - see the header
-    // comment's "value()/error() PRECONDITION" paragraph.
-    [[nodiscard]] const T &value() const noexcept { return *std::get_if<0>(&m_storage); }
-    [[nodiscard]] T &value() noexcept { return *std::get_if<0>(&m_storage); }
+    // Precondition: has_value(). UB otherwise if the assert below is
+    // compiled out (NDEBUG/Release) - see the header comment's
+    // "value()/error() PRECONDITION" paragraph for both halves.
+    [[nodiscard]] const T &value() const noexcept {
+        assert(has_value() &&
+               "gltfx_rslt<T>::value() called on a result that holds an error, not a value - "
+               "call has_value() first");
+        return *std::get_if<0>(&m_storage);
+    }
+    [[nodiscard]] T &value() noexcept {
+        assert(has_value() &&
+               "gltfx_rslt<T>::value() called on a result that holds an error, not a value - "
+               "call has_value() first");
+        return *std::get_if<0>(&m_storage);
+    }
 
-    // Precondition: has_error(). UB otherwise.
-    [[nodiscard]] const gltfx_err &error() const noexcept { return *std::get_if<1>(&m_storage); }
+    // Precondition: has_error(). UB otherwise if the assert below is
+    // compiled out (NDEBUG/Release).
+    [[nodiscard]] const gltfx_err &error() const noexcept {
+        assert(has_error() &&
+               "gltfx_rslt<T>::error() called on a result that holds a value, not an error - "
+               "call has_error() first");
+        return *std::get_if<1>(&m_storage);
+    }
 
   private:
     explicit gltfx_rslt(std::in_place_index_t<0>, T value)
@@ -301,14 +356,18 @@ template <> class [[nodiscard]] gltfx_rslt<void> {
     [[nodiscard]] bool has_value() const noexcept { return !m_error.has_value(); }
     [[nodiscard]] bool has_error() const noexcept { return m_error.has_value(); }
 
-    // Precondition: has_error(). UB otherwise - same documented
-    // precondition as std::optional::operator*() itself uses, which is
-    // exactly what clang-tidy is flagging below (it cannot see the
-    // caller-side has_error() check any more than it could for a bare
-    // std::optional::operator*() call).
+    // Precondition: has_error(). UB otherwise if the assert below is
+    // compiled out (NDEBUG/Release) - same documented precondition as
+    // std::optional::operator*() itself uses, which is exactly what
+    // clang-tidy is flagging below (it cannot see that the assert
+    // JUST proved has_error() any more than it could see a caller-side
+    // check before a bare std::optional::operator*() call).
     [[nodiscard]] const gltfx_err &error() const noexcept {
+        assert(has_error() &&
+               "gltfx_rslt<void>::error() called on a result that holds success (ok()), not an "
+               "error - call has_error() first");
         return *m_error; // NOLINT(bugprone-unchecked-optional-access) reason: documented
-                         // precondition, see above
+                         // precondition, just asserted above
     }
 
   private:

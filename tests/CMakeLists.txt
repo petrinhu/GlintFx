@@ -166,6 +166,32 @@ if(UNIX)
     set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 endif()
 
+# Debug-only precondition guard (correction of 25/08/2026, GODS_LAWS.md
+# CORE-ERROR): proves BOTH halves of gltfx_rslt<T>::value()/error()'s
+# assert()-based precondition check - stops deterministically with a
+# message in a Debug-flags compile (NDEBUG undefined), costs nothing
+# and changes nothing in a Release-flags compile (NDEBUG defined) - see
+# check_rslt_precondition.sh's own header for the two independent UB
+# shapes (primary template vs. the T=void specialization) this proves
+# separately, live, rather than assumed identical. Needs the ALREADY-
+# BUILT library's directory (unlike nodiscard_rslt_test above, this
+# fixture links and RUNS, it does not stop at -c) -
+# $<TARGET_FILE_DIR:glintfx_library> resolves to the right directory in
+# both BUILD_SHARED_LIBS modes; a static-mode -Wl,-rpath entry with
+# nothing to resolve there is harmless, not an error. POSIX sh; same
+# declared downgrade as layers_test above.
+if(UNIX)
+    add_test(
+        NAME rslt_precondition_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_rslt_precondition.sh"
+            "${PROJECT_SOURCE_DIR}/include"
+            "${GLINTFX_GENERATED_INCLUDE_DIR}"
+            "$<TARGET_FILE_DIR:glintfx_library>"
+            "${CMAKE_CXX_COMPILER}"
+    )
+    set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
+endif()
+
 # Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the
 # INSTALLED package, not the in-tree build. Installs whatever this
 # build's BUILD_SHARED_LIBS mode already produced into a scratch prefix,

@@ -10,6 +10,29 @@ Toda função pública falível devolve `glintfx::gltfx_rslt<T>` — `gltfx_rslt
 
 **Provado por:** `tests/rslt_test.cpp` (ida e volta de sucesso/erro nos dois moldes, `T=int` e `T=void`, mais uma função falível de exemplo exercitando os dois caminhos incluindo o caso sem valor de retorno).
 
+### Ler o valor errado é violação de precondição — leia isto antes do seu programa quebrar
+
+`value()` só é válido a chamar quando `has_value()` é verdadeiro; `error()` só é válido a chamar quando `has_error()` é verdadeiro. Chamar um deles no lado errado **não é um erro recuperável do glintfx — é uma violação de precondição do SEU código**, a mesma categoria de contrato que `std::optional::operator*()`/`std::expected::operator*()` já usam. **Confira `has_value()`/`has_error()` antes, sempre** — não existe forma seca de "tentar e ver".
+
+**O que acontece em cada modo de build, corrigido em 25/08/2026 depois de uma revisão adversarial pegar uma simplificação que eu (a documentação de outra ordem de serviço) tinha repassado errada** — a frase anterior dizia que a biblioteca "evitava a forma que mata o processo"; **isso era falso**. Ler o valor errado **derruba o processo dos dois jeitos**; o que muda é SE a queda é determinística e legível, ou confusa:
+
+| Modo de build | O que acontece | Como reconhecer |
+|---|---|---|
+| **Depuração** (`CMAKE_BUILD_TYPE=Debug`, ou qualquer compilação sem `-DNDEBUG` — o mecanismo padrão de `<cassert>`, não algo do glintfx) | Para IMEDIATAMENTE, antes de tocar o dado — `assert()` interno dispara, imprime uma mensagem nomeando **qual precondição você violou** (`"gltfx_rslt<T>::value() called on a result that holds an error..."`), e encerra o processo com `SIGABRT`. | Uma mensagem no `stderr` citando literalmente `has_value()`/`has_error()`, seguida de "Assertion ... failed." — você sabe exatamente o que fez de errado, no arquivo e na linha certos. |
+| **Produção** (`CMAKE_BUILD_TYPE=Release`, ou qualquer compilação com `-DNDEBUG` — o padrão deste projeto para CI/`preci.sh`) | Custo zero, comportamento **inalterado** em relação a antes desta correção: a guarda de depuração vira `((void)0)`, e o comportamento indefinido pré-existente continua exatamente como sempre foi. Nas duas formas do envelope isso NÃO é a mesma coisa: `gltfx_rslt<T>` (armazenamento `std::variant`) tipicamente encerra por `SIGSEGV` (ponteiro nulo desreferenciado) — ainda uma queda, sem mensagem nossa. `gltfx_rslt<void>` (armazenamento `std::optional<gltfx_err>`) **não tem garantia de queda nenhuma** — pode devolver silenciosamente um `gltfx_err` fabricado a partir de memória não inicializada, e se esse erro for depois copiado ou destruído, o `m_context` fantasma pode corromper o heap. **Isto é mais perigoso que travar, não mais seguro.** | Nenhuma mensagem do glintfx no `stderr`. Se o processo travar mesmo assim (`SIGSEGV`, ou em alguns toolchains como o GCC empacotado pelo Fedora, um `SIGABRT` vindo de dentro de `std::optional` — endurecimento do PRÓPRIO `libstdc++`, independente do glintfx, não uma garantia dele), a mensagem não vai citar `gltfx_rslt` nem `has_value`/`has_error`. |
+
+**Como conferir antes, sempre:**
+```cpp
+glintfx::gltfx_rslt<int> r = parse_positive_int(text);
+if (r.has_value()) {
+    usa(r.value());
+} else {
+    trata(r.error());
+}
+```
+
+**Provado por:** `tests/tools/check_rslt_precondition.sh` (ctest `rslt_precondition_test`) — compila a MESMA violação de precondição duas vezes, uma sem `-DNDEBUG` e outra com, e prova ao vivo: em depuração, o processo para citando a mensagem certa; em produção, a mensagem NÃO aparece (a guarda virou custo zero, de verdade, não por promessa). As duas formas do envelope (`gltfx_rslt<T>` e `gltfx_rslt<void>`) são provadas SEPARADAMENTE, porque são implementações independentes com formas de UB diferentes quando a guarda é compilada fora — confirmado ao vivo nesta sessão: sem o endurecimento de `libstdc++` deste toolchain especificamente, `gltfx_rslt<void>::error()` sobre um resultado de sucesso devolveu um código fabricado (`io_failure`) **sem travar em nada**, saída limpa, `exit 0`.
+
 ## R2 — `[[nodiscard]]` é estrutural, não disciplina por função
 
 O atributo que impede descartar o retorno em silêncio mora na **classe template** `gltfx_rslt<T>` (e na especialização `<void>`), nunca decorando cada função individualmente. Toda função que devolver o envelope, em qualquer lugar da biblioteca ou de um consumidor que adote a mesma convenção, herda a proteção — inclusive uma função que ainda não foi escrita.

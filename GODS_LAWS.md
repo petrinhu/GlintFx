@@ -370,6 +370,23 @@ O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash rea
 
 **Ruído conhecido, a descartar sem investigar:** coredump de binário sob `/var/tmp/*mutation-sandbox*` ou equivalente é mutação deliberada da revisão adversarial. Três desses foram descartados em 21/08/2026, por decisão do líder.
 
+## L-38
+
+**Data:** 24/08/2026, decisão do líder: *"mantenha .so e .dll"*, depois de perguntar se a extensão da biblioteca dinâmica podia ser trocada.
+
+**O artefato binário do GlintFx usa as extensões que o sistema operacional espera: `.so` no Linux e `.dll` no Windows. Não se inventa extensão para binário.**
+
+**A linha que esta lei traça, e ela vale para tudo:**
+
+- **Arquivo de DADO é nosso.** Extensão própria é legítima e barata — é o caso do `.gw.map`.
+- **Artefato BINÁRIO pertence à cadeia de ferramentas do sistema.** Trocar a extensão dele é brigar com o mundo inteiro sem ganhar nada.
+
+**O que foi MEDIDO nesta máquina antes de decidir, e não deduzido:** uma biblioteca compilada como `libtst.gwso` **funciona**, mas `gcc -ltst` responde *"não foi possível localizar -ltst"*. Só linka com `-l:libtst.gwso`, que é **sintaxe exclusiva do GNU** e quebra em qualquer outra cadeia. Junto disso quebram, todos por dependerem da extensão: o `pkg-config --libs`, que emite `-lglintfx`; o `find_library` do CMake, que procura `lib<nome>.so`; e os geradores automáticos de dependência dos empacotadores das quatro distros. O cache de bibliotecas desta máquina tem **3.531 entradas**, todas na convenção `.so`.
+
+**No Windows** — registrado como **não medido**, por não haver a plataforma aqui: o carregador aceita qualquer extensão se o nome exato for dado, então **carregaria**. Mas ele **acrescenta `.dll` sozinho** quando o nome vem sem extensão, e toda ferramenta de inspeção, instalador e depurador assume `.dll`.
+
+**O argumento que decidiu, e é o da LEI ZERO:** cada consumidor desconhecido pagaria esse pedágio, para sempre, por uma escolha estética nossa.
+
 ## L-26
 
 **Data:** 21/08/2026, decisão do líder.
@@ -562,6 +579,10 @@ Vieram de um dossiê do CTO consolidando **20 questões** de dois canais do bus:
 **Ele reafirmou. A decisão é dele, o dado não a impede, e o assunto não se reabre por iniciativa de agente** — só por ordem dele.
 
 **Leitura que fica em aberto e não muda a ordem:** se a intenção for que o **GusWorld** tenha um formato próprio, separado do formato da biblioteca, então `.gw.map` é o nome certo para o dele e o formato do GlintFx segue com nome próprio — seriam dois formatos, não um. Registrado como leitura possível, não como pedido de esclarecimento.
+
+**Esclarecimento do líder em 24/08/2026, que fecha a objeção acima:** *"sim, é só a extensão"*. **Os bytes continuam sendo o formato do GlintFx**, byte a byte. Nenhuma das decisões de formato é devolvida, nenhuma porta de mão única gasta em nome de consumidor é revertida, e o papel de implementador de referência do `mapeditor` segue de pé. `.gw.map` é identidade do ecossistema **no nome do arquivo**, e nada além disso. O `mapeditor` chegou à mesma leitura por conta própria, montando o argumento contra inteiro **antes** de perguntar — e perguntou em vez de agir.
+
+**O que fica em aberto, sem urgência e sem bloquear nada:** se a biblioteca ganhar um **segundo** formato próprio (atlas de sprite, definição de animação, pacote de asset — nenhum em escopo hoje), o sobrenome dele volta a ser pergunta. Registrado para não se redescobrir.
 
 **Aplicação:** a extensão entra na especificação (`MAP-FMT-SPEC`) junto do magic de 8 bytes. Extensão **não** substitui detecção por conteúdo: o arquivo se identifica pelo magic, e a extensão é conveniência do sistema de arquivos.
 

@@ -58,6 +58,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | tocar a superfície de entrada, ou a entrega de evento | L-35 entrega determinística, sem duplicar e sem reordenar; é promessa pública |
 | ⚖ | tocar cursor, áudio, gamepad ou compose | L-36 as quatro decisões de escopo de 23/08; nenhuma é mais pergunta |
 | ⚖ | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | L-37 avisar o Gus Dragon sem ele perguntar |
+| ⚖ | nomear artefato de saída, extensão de arquivo ou formato próprio | L-38 dado é nosso e pode ter extensão própria; binário usa `.so` e `.dll` |
 
 ---
 

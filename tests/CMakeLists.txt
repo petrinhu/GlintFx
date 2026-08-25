@@ -19,6 +19,7 @@ glintfx_add_test(version_test)
 glintfx_add_test(err_code_test)
 glintfx_add_test(err_no_alloc_test)
 glintfx_add_test(err_context_test)
+glintfx_add_test(rslt_test)
 
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
@@ -139,6 +140,29 @@ if(UNIX)
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" --selftest
     )
     set_tests_properties(x11_selftest PROPERTIES LABELS selftest)
+endif()
+
+# [[nodiscard]] gate (CE-4 of CORE-ERROR, TODO.md): proves
+# glintfx::gltfx_rslt<T>'s [[nodiscard]] is a real compiler diagnostic
+# by compiling a fixture that drops the result (must FAIL) and one that
+# uses it (must succeed) - see check_nodiscard_rslt.sh's own header.
+# Two include dirs, not one (same pair glintfx_set_target_include_dirs()
+# gives every real target at BUILD_INTERFACE, cmake/GlintfxLibrary.cmake):
+# err.hpp pulls in the GENERATED glintfx/export.hpp for GLINTFX_API, which
+# only exists under GLINTFX_GENERATED_INCLUDE_DIR, not under the
+# committed include/ tree. Compile-only (-c in the script, no link), so
+# no glintfx build artifact is needed here at all - the same reason
+# PROJECT_SOURCE_DIR/include is passed directly rather than an installed
+# prefix. POSIX sh; same declared downgrade as layers_test above.
+if(UNIX)
+    add_test(
+        NAME nodiscard_rslt_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_nodiscard_rslt.sh"
+            "${PROJECT_SOURCE_DIR}/include"
+            "${GLINTFX_GENERATED_INCLUDE_DIR}"
+            "${CMAKE_CXX_COMPILER}"
+    )
+    set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 endif()
 
 # Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the

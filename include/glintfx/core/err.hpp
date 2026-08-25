@@ -2,17 +2,73 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <variant>
 
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/export.hpp>
 
-// core/err.hpp - gltfx_err (CE-2/CE-3 of CORE-ERROR, TODO.md,
-// GODS_LAWS.md L-19/L-22/L-26): the frozen-footprint error envelope
-// every fallible public call in glintfx returns (inside gltfx_rslt<T>,
-// CE-4, not written yet).
+// core/err.hpp - gltfx_err (CE-2/CE-3) and gltfx_rslt<T> (CE-4) of
+// CORE-ERROR (TODO.md, GODS_LAWS.md L-19/L-22/L-26): the frozen-
+// footprint error envelope every fallible public call in glintfx
+// returns, and the return-value envelope that carries it.
+//
+// gltfx_rslt<T> (CE-4, decision of the leader, TODO.md CORE-ERROR row,
+// 25/08/2026): ONE convention for the WHOLE library - every fallible
+// function returns gltfx_rslt<T>, INCLUDING when there is no success
+// value (gltfx_rslt<void>, the template specialization below) -
+// THERE IS NO SECOND FORM. No function anywhere in glintfx returns a
+// bare gltfx_err, a bool-plus-out-parameter, or an errno-style
+// integer. `[[nodiscard]]` sits on the CLASS TEMPLATE itself (and on
+// its <void> specialization), not on each individual function: every
+// function that returns a gltfx_rslt<T>, anywhere in this library or
+// in a consumer's own code that adopts the same convention, gets the
+// discard diagnostic FOR FREE, structurally, without anyone having to
+// remember to tag it. tests/tools/check_nodiscard_rslt.sh proves this
+// is a REAL compiler diagnostic, not decoration, by compiling a
+// fixture that drops the result and asserting the compile FAILS,
+// naming the diagnostic.
+//
+// gltfx_rslt<T> is a TEMPLATE, so - unlike gltfx_err above - it cannot
+// be PIMPL'd behind an opaque pointer (GODS_LAWS.md L-19's opacity
+// clause is scoped to "handle e subsistema com estado"; a generic
+// value type instantiated per call site, where T may be a consumer's
+// own type, has no single definition to hide behind a library-side
+// pointer). It is therefore entirely INLINE, header-only, like
+// std::optional/std::expected - there is nothing of it in err.cpp.
+//
+// noexcept AT THE FUNCTION BOUNDARY, not necessarily inside every
+// gltfx_rslt<T> member (decision of the leader: "a assinatura padrao
+// ... e noexcept, porque a fronteira captura e traduz"): every
+// FALLIBLE FUNCTION SIGNATURE in glintfx is
+// `[[nodiscard]] gltfx_rslt<T> foo(...) noexcept` - internally it may
+// use exceptions freely (GODS_LAWS.md L-22/CONTRACT.md 6.4: exceptions
+// are permitted INSIDE the library, forbidden only crossing the public
+// boundary), and its own top-level try/catch translates any of them
+// into `gltfx_rslt<T>::err(...)` before returning. gltfx_rslt<T>'s OWN
+// `ok()` factory is not unconditionally noexcept (T is caller-supplied
+// and may have a throwing move constructor, exactly like
+// std::optional/std::expected do not force T to be nothrow either) -
+// the noexcept GUARANTEE lives at the function that WRAPS the factory
+// call in that try/catch, not inside the envelope type itself.
+//
+// value()/error() PRECONDITION (same convention as
+// std::optional::operator*()/std::expected::operator*(), not a new
+// idiom invented here): calling value() when has_value() is false, or
+// error() when has_error() is false, is UNDEFINED BEHAVIOR by
+// documented precondition - implemented via std::get_if/std::optional
+// dereference rather than std::variant::get(), specifically so a
+// precondition violation can NEVER throw std::bad_variant_access out of
+// a `noexcept` accessor and call std::terminate(). This is a DIFFERENT
+// category from gltfx_err's own "never UB" accessors (CE-3): those
+// answer a DATA question ("was this optional diagnostic field ever
+// attached?", always well-defined to answer with empty/zero); has_value()/
+// has_error() here answer a DIFFERENT, universally-checked-first
+// question ("did the call succeed?") before value()/error() are ever
+// called - the same two-step contract std::optional itself uses.
 //
 // DIAGNOSTIC CONTEXT (CE-3): six accessors - path(), line(), column(),
 // byte_offset(), rejected_value(), os_error_code() - read whatever
@@ -193,5 +249,72 @@ static_assert(std::is_nothrow_move_constructible_v<gltfx_err>,
               "gltfx_err move construction must stay noexcept, CORE-ERROR CE-2");
 static_assert(std::is_nothrow_move_assignable_v<gltfx_err>,
               "gltfx_err move assignment must stay noexcept, CORE-ERROR CE-2");
+
+// CE-4: the single return-value envelope. See the header comment above
+// for the full design rationale (one convention, [[nodiscard]] on the
+// class template itself, noexcept lives at the FUNCTION boundary).
+template <typename T> class [[nodiscard]] gltfx_rslt {
+  public:
+    [[nodiscard]] static gltfx_rslt ok(T value) {
+        return gltfx_rslt(std::in_place_index<0>, std::move(value));
+    }
+
+    [[nodiscard]] static gltfx_rslt err(gltfx_err error) noexcept {
+        return gltfx_rslt(std::in_place_index<1>, std::move(error));
+    }
+
+    [[nodiscard]] bool has_value() const noexcept { return m_storage.index() == 0; }
+    [[nodiscard]] bool has_error() const noexcept { return m_storage.index() == 1; }
+
+    // Precondition: has_value(). UB otherwise - see the header
+    // comment's "value()/error() PRECONDITION" paragraph.
+    [[nodiscard]] const T &value() const noexcept { return *std::get_if<0>(&m_storage); }
+    [[nodiscard]] T &value() noexcept { return *std::get_if<0>(&m_storage); }
+
+    // Precondition: has_error(). UB otherwise.
+    [[nodiscard]] const gltfx_err &error() const noexcept { return *std::get_if<1>(&m_storage); }
+
+  private:
+    explicit gltfx_rslt(std::in_place_index_t<0>, T value)
+        : m_storage(std::in_place_index<0>, std::move(value)) {}
+    explicit gltfx_rslt(std::in_place_index_t<1>, gltfx_err error) noexcept
+        : m_storage(std::in_place_index<1>, std::move(error)) {}
+
+    std::variant<T, gltfx_err> m_storage;
+};
+
+// The T = void specialization CE-4's "no second form" decision
+// requires: a fallible function with nothing to return on success
+// still returns gltfx_rslt<T>, here with T = void - C++ cannot store a
+// `void` value, so the storage is just "is there an error or not"
+// (std::optional<gltfx_err>), but the PUBLIC SHAPE mirrors the primary
+// template exactly minus value() (there is nothing to read on
+// success).
+template <> class [[nodiscard]] gltfx_rslt<void> {
+  public:
+    [[nodiscard]] static gltfx_rslt ok() noexcept { return gltfx_rslt(std::nullopt); }
+
+    [[nodiscard]] static gltfx_rslt err(gltfx_err error) noexcept {
+        return gltfx_rslt(std::optional<gltfx_err>(std::move(error)));
+    }
+
+    [[nodiscard]] bool has_value() const noexcept { return !m_error.has_value(); }
+    [[nodiscard]] bool has_error() const noexcept { return m_error.has_value(); }
+
+    // Precondition: has_error(). UB otherwise - same documented
+    // precondition as std::optional::operator*() itself uses, which is
+    // exactly what clang-tidy is flagging below (it cannot see the
+    // caller-side has_error() check any more than it could for a bare
+    // std::optional::operator*() call).
+    [[nodiscard]] const gltfx_err &error() const noexcept {
+        return *m_error; // NOLINT(bugprone-unchecked-optional-access) reason: documented
+                         // precondition, see above
+    }
+
+  private:
+    explicit gltfx_rslt(std::optional<gltfx_err> error) noexcept : m_error(std::move(error)) {}
+
+    std::optional<gltfx_err> m_error;
+};
 
 } // namespace glintfx

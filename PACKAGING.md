@@ -13,6 +13,10 @@ that is public and unknown to the maintainers. Everything below is
 written, and tested, against that assumption: no specific packaging
 pipeline is treated as "the" pipeline.
 
+This is reference material: what gets installed, what layouts are
+supported, and how to link against it — not a walkthrough of writing
+any one distro's package.
+
 ## What gets installed
 
 - The library itself: `libglintfx.so.<A>.<B>.<C>.<D>` (shared, the
@@ -54,7 +58,8 @@ trivial program against the reported `-I`/`-L`/`-l` flags.
 ## Supported `CMAKE_INSTALL_LIBDIR` / `CMAKE_INSTALL_INCLUDEDIR` layouts
 
 All of the following are tested, on every push, against a real
-install-then-resolve-via-pkg-config round trip:
+install-then-resolve-via-pkg-config round trip (see "Where this is
+tested" below for exactly which platforms):
 
 - **Left unset.** `GNUInstallDirs` picks a sane per-platform default
   (e.g. `lib64` on Fedora, `lib` on many other Linux distros). This is
@@ -121,9 +126,29 @@ references that have nothing obviously to do with glintfx itself.
 
 ## Where this is tested
 
-`tests/tools/check_pkgconfig.sh` in the glintfx source tree exercises
-every layout above end-to-end (install, then resolve purely through
-`pkg-config`, with no CMake and no `find_package` involved at all) on
-every push, across the project's full platform matrix. If you hit a
-packaging layout this document does not cover, that script is the
-right place to add a regression test alongside a fix.
+Two scripts in the glintfx source tree back the layout and
+static-linking claims above with an automated regression test, not
+just prose:
+
+- `tests/tools/check_pkgconfig.sh` exercises every layout listed
+  under "Supported `CMAKE_INSTALL_LIBDIR` / `CMAKE_INSTALL_INCLUDEDIR`
+  layouts" above, plus the static-linking behavior described under
+  "Static linking" above, end-to-end: install, then resolve purely
+  through `pkg-config` (no CMake, no `find_package`, no hand-written
+  `-I`/`-L`/`-l` involved at all).
+- `tests/tools/check_blank_install_dir_rejected.sh` exercises the
+  blank-value rejection described under "NOT supported" above: it
+  confirms configure fails with glintfx's own error message, naming
+  the offending variable, rather than succeeding and only failing
+  later or silently.
+
+Both run on every push to `main` and on every pull request, across
+the project's Linux CI jobs — Fedora, Ubuntu, Arch, and CachyOS. They
+do **not** run on the Windows job: `pkg-config` is a Unix/Linux
+packaging convention, and glintfx has no platform layer outside Unix
+yet, so there is nothing Windows-specific for either script to cover
+today.
+
+If you hit a packaging layout this document does not cover, these
+scripts are the right place to add a regression test alongside a
+fix.

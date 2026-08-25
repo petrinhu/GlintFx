@@ -4,7 +4,25 @@
 # working pkg-config module: `pkg-config --cflags --libs glintfx` alone
 # - no CMake, no find_package(glintfx), no hand-written -I/-L/-l -
 # resolves and links tests/raw_link/main.cpp against the installed
-# package, in FIVE scenarios that isolate what could silently regress:
+# package, in SIX scenarios that isolate what could silently regress.
+#
+# adversarial review round 3 changed the STRATEGY, not just the
+# scenario count (Caetano's ruling, relayed verbatim: "parar de
+# prever a entrada e passar a validar a saida. Zero algebra de caminho
+# nova."). Rounds 1 and 2 fixed real bugs (achados 1/3/4 below) by
+# computing paths more carefully at CMake configure time; round 3
+# found a class of input - CMAKE_INSTALL_LIBDIR/INCLUDEDIR left
+# relative, prefix decided only at INSTALL time via DESTDIR - where
+# NO amount of configure-time computation can ever be correct, because
+# the final install root does not exist, and is not knowable, at
+# configure time. assert_pkgconfig_output_resolves_to_real_content
+# (below) is the answer: instead of precomputing an "expected" path
+# and comparing, it reads back whatever pkg-config actually says and
+# checks THAT against reality on disk - the only form of check that
+# still works when no expected value can be computed in advance. It
+# is applied to EVERY scenario below, not only scenario 6, per the
+# review's own generalization test ("se ele so reprovar em um, ele
+# nao generalizou").
 #
 #   1. "default layout": the ordinary single-arch install
 #      (CMAKE_INSTALL_LIBDIR unset, GNUInstallDirs default), shared
@@ -107,6 +125,27 @@
 #      this probe would need updating. That coupling is deliberate and
 #      contained to this ONE throwaway, never-shipped test file, not a
 #      law being bent.
+#   6. "DESTDIR, Fedora format" (adversarial review round 3, task 2;
+#      the concrete case behind the ruling above): CMAKE_INSTALL_PREFIX
+#      set to /usr, CMAKE_INSTALL_LIBDIR left UNSET (GNUInstallDirs'
+#      own per-distro default), install run with `DESTDIR=<staging>
+#      cmake --install` instead of `--prefix`. This is not a synthetic
+#      edge case - it is verbatim what a real Fedora .spec's %cmake/
+#      %cmake_install macros do (confirmed against
+#      /usr/lib/rpm/macros.d/macros.cmake on this machine: %cmake sets
+#      -DCMAKE_INSTALL_PREFIX:PATH=%{_prefix} and never passes
+#      CMAKE_INSTALL_LIBDIR at all; %cmake_install runs
+#      `DESTDIR="%{buildroot}" cmake --install`) - the format 100% of
+#      real Fedora packages that use CMake actually build under, and
+#      the one none of scenarios 1-5 exercise (they all use `--prefix
+#      <scratch>`, never DESTDIR). None of glintfx's own CMake code
+#      changed for this scenario - it was already correct, confirmed
+#      live before writing this scenario, because the RELATIVE
+#      `${pcfiledir}`-climbing prefix (scenarios 1-3's own mechanism)
+#      is immune to DESTDIR by construction: ${pcfiledir} resolves to
+#      wherever the .pc file physically sits when queried, which is
+#      already inside the staging tree here, no extra staging-root
+#      parameter needed anywhere in the validator.
 #
 # Usage: check_pkgconfig.sh <glintfx-source-dir> <raw-consumer-source-file> <cxx-compiler>
 #
@@ -209,6 +248,60 @@ build_and_install_glintfx_no_prefix() {
     cmake --install "$build_dir"
 }
 
+# Scenario 6 configure step: the format a REAL Linux packager actually
+# uses (confirmed against /usr/lib/rpm/macros.d/macros.cmake on this
+# Fedora machine: %cmake passes -DCMAKE_INSTALL_PREFIX:PATH=%{_prefix}
+# - typically /usr - and NEVER passes CMAKE_INSTALL_LIBDIR at all,
+# leaving GNUInstallDirs' own per-distro default in place). None of
+# the other five scenarios in this file exercise this input shape -
+# they all set CMAKE_INSTALL_LIBDIR explicitly.
+configure_glintfx_fedora_style() {
+    glintfx_src="$1"
+    build_dir="$2"
+    cxx="$3"
+    cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_COMPILER="$cxx" \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_SHARED_LIBS=ON \
+        -DGLINTFX_BUILD_TESTS=OFF
+}
+
+# DESTDIR, not --prefix - the mechanism a real packager's
+# %cmake_install/%make_install actually uses (RPM's `buildroot`, DEB's
+# `debian/tmp`). Fundamentally different from --prefix: --prefix
+# REWRITES relative destinations at install time; DESTDIR PREPENDS to
+# EVERY destination, relative and absolute alike, without touching any
+# value baked into installed file CONTENT (glintfx.pc still says
+# "prefix=/usr" from the eventual real consumer's point of view, not
+# the staging path) - and this is also the concrete case behind
+# Caetano's ruling: the staging root does not exist, and is not
+# knowable, at CMake CONFIGURE time ("o prefixo de instalacao ainda
+# nao existe quando o calculo roda"), so no destdir-aware fix belongs
+# in cmake/GlintfxInstall.cmake at all - DESTDIR is deliberately
+# invisible to configure-time code, by CMake's own design. No real
+# file ever touches the actual system /usr on this machine - DESTDIR
+# redirects every destination under the given staging root.
+build_and_install_glintfx_with_destdir() {
+    build_dir="$1"
+    destdir="$2"
+    cmake --build "$build_dir"
+    DESTDIR="$destdir" cmake --install "$build_dir"
+}
+
+# Locates the .pc file CMake actually wrote inside the staging tree -
+# deliberately NOT hand-computed: GNUInstallDirs' own per-distro
+# default for CMAKE_INSTALL_LIBDIR ("lib64" on this machine, "lib" or
+# a multiarch path elsewhere) is exactly the kind of prediction this
+# whole round moved away from making. Finding it instead of predicting
+# it is itself an instance of "validate the output".
+find_pkgconfig_dir_under_destdir() {
+    destdir="$1"
+    found="$(find "$destdir" -type d -name pkgconfig 2>/dev/null | head -n1)"
+    [ -n "$found" ] || fail "no pkgconfig/ directory found anywhere under staging root ${destdir} after install"
+    printf '%s' "$found"
+}
+
 pkgconfig_dir_for() {
     prefix="$1"
     libdir="$2"
@@ -278,6 +371,94 @@ assert_includedir_resolves_to_real_install_dir() {
     resolved_expected="$(realpath -m "$expected_includedir_abs")"
     [ "$resolved_reported" = "$resolved_expected" ] \
         || fail "glintfx.pc includedir resolves to '${resolved_reported}' (raw pkg-config value: '${reported_includedir}'), expected it to resolve to the real install directory '${resolved_expected}'"
+}
+
+# Resolves ONE directory-shaped value from pkg-config's own output (a
+# --variable=X value, or an already-stripped -I/-L flag) via
+# realpath -m and confirms it not only EXISTS but genuinely CONTAINS
+# what glintfx.pc promises there (adversarial review round 3, achados
+# 5/6 - "pare de prever a entrada e passe a validar a saida"). Two
+# content shapes only, because those are the only two things any path
+# from THIS module ever names: the installed public header tree (a
+# "glintfx" subdirectory) or the installed library artifact
+# (libglintfx.so*/libglintfx.a).
+assert_dir_contains_expected_content() {
+    label="$1"
+    raw_path="$2"
+    expected_content_kind="$3"
+    resolved="$(realpath -m "$raw_path")"
+    [ -d "$resolved" ] \
+        || fail "${label} is '${raw_path}', which resolves to '${resolved}' - not a directory that exists on disk"
+    case "$expected_content_kind" in
+        headers)
+            [ -d "${resolved}/glintfx" ] \
+                || fail "${label} is '${raw_path}' (resolves to '${resolved}'), which exists but has no 'glintfx/' subdirectory - the installed public headers are not there"
+            ;;
+        library)
+            found=""
+            for candidate in "${resolved}"/libglintfx.so* "${resolved}"/libglintfx.a; do
+                if [ -e "$candidate" ]; then
+                    found="$candidate"
+                fi
+            done
+            [ -n "$found" ] \
+                || fail "${label} is '${raw_path}' (resolves to '${resolved}'), which exists but has no libglintfx.so*/libglintfx.a - the installed library artifact is not there"
+            ;;
+        *)
+            fail "assert_dir_contains_expected_content: unknown expected_content_kind '${expected_content_kind}'"
+            ;;
+    esac
+}
+
+# THE output-validation atom (adversarial review round 3, task 1):
+# every path pkg-config emits for glintfx - --variable=includedir,
+# --variable=libdir, and every -I/-L token inside --cflags/--libs -
+# resolves to something that EXISTS and CONTAINS what it promises. Not
+# a new prediction of what a path SHOULD be (path algebra is exactly
+# what the previous two rounds of fixes were, and Caetano's ruling
+# ends that strategy: "parar de prever a entrada e passar a validar a
+# saida. Zero algebra de caminho nova."); this only asks whether what
+# pkg-config just told a real consumer actually holds up on disk -
+# which is the ONLY form of check that still works when the real
+# final location is not decidable at CMake configure time at all (a
+# DESTDIR-staged install, scenario 6, being the concrete case: the
+# install prefix does not exist yet when glintfx.pc's content is
+# computed, so no "expected path" can be precomputed to compare
+# against - only the output, read back after the fact, can be
+# checked).
+#
+# Applied to EVERY scenario in this file, not only the ones a bug was
+# found in (round-3 review: "se ele so reprovar em um, ele nao
+# generalizou" - a validator that only fires where a known bug already
+# lives is a regression test for that one bug, not a general content
+# check).
+assert_pkgconfig_output_resolves_to_real_content() {
+    pkgconfig_dir="$1"
+    static_flag="${2:-}"
+
+    includedir_var="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --variable=includedir glintfx)"
+    libdir_var="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --variable=libdir glintfx)"
+    assert_dir_contains_expected_content "glintfx.pc includedir" "$includedir_var" headers
+    assert_dir_contains_expected_content "glintfx.pc libdir" "$libdir_var" library
+
+    # shellcheck-style word-splitting, same reasoning as every other
+    # pkg-config-output consumer in this file: this is exactly the
+    # form the flags come in for a real build recipe.
+    cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags ${static_flag} glintfx)"
+    libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs ${static_flag} glintfx)"
+
+    for token in $cflags; do
+        case "$token" in
+            -I*) assert_dir_contains_expected_content "glintfx.pc -I flag" "${token#-I}" headers ;;
+        esac
+    done
+    for token in $libs; do
+        case "$token" in
+            -L*) assert_dir_contains_expected_content "glintfx.pc -L flag" "${token#-L}" library ;;
+        esac
+    done
+
+    echo "check_pkgconfig.sh: output-content check passed - includedir/libdir and every -I/-L token pkg-config emitted resolve to real, populated directories"
 }
 
 compile_and_run_dynamic_consumer() {
@@ -403,6 +584,7 @@ run_default_layout_scenario() {
     assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
     assert_version_has_four_components "$pkgconfig_dir"
     assert_libdir_resolves_to_real_install_dir "$pkgconfig_dir" "${prefix}/${DEFAULT_LIBDIR}"
+    assert_pkgconfig_output_resolves_to_real_content "$pkgconfig_dir"
 
     binary="${scratch}/consumer-default"
     compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "${prefix}/${DEFAULT_LIBDIR}" "$binary"
@@ -426,6 +608,7 @@ run_multiarch_layout_scenario() {
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$MULTIARCH_LIBDIR")"
     assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
     assert_libdir_resolves_to_real_install_dir "$pkgconfig_dir" "${prefix}/${MULTIARCH_LIBDIR}"
+    assert_pkgconfig_output_resolves_to_real_content "$pkgconfig_dir"
 
     binary="${scratch}/consumer-multiarch"
     compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "${prefix}/${MULTIARCH_LIBDIR}" "$binary"
@@ -462,6 +645,7 @@ run_malformed_libdir_scenario() {
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$MALFORMED_LIBDIR_REAL")"
     assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
     assert_libdir_resolves_to_real_install_dir "$pkgconfig_dir" "${prefix}/${MALFORMED_LIBDIR_REAL}"
+    assert_pkgconfig_output_resolves_to_real_content "$pkgconfig_dir"
 
     binary="${scratch}/consumer-malformed"
     compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "${prefix}/${MALFORMED_LIBDIR_REAL}" "$binary"
@@ -492,6 +676,7 @@ run_absolute_dirs_scenario() {
     assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
     assert_libdir_resolves_to_real_install_dir "$pkgconfig_dir" "$abs_libdir"
     assert_includedir_resolves_to_real_install_dir "$pkgconfig_dir" "$abs_includedir"
+    assert_pkgconfig_output_resolves_to_real_content "$pkgconfig_dir"
 
     binary="${scratch}/consumer-absolute"
     compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "$abs_libdir" "$binary"
@@ -515,6 +700,7 @@ run_static_scenario() {
 
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$DEFAULT_LIBDIR")"
     assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
+    assert_pkgconfig_output_resolves_to_real_content "$pkgconfig_dir" --static
 
     binary="${scratch}/consumer-static"
     compile_and_run_static_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "$binary"
@@ -526,6 +712,32 @@ run_static_scenario() {
     assert_probe_links_with_wayland_client_succeeds "$pkgconfig_dir" "$probe_src" "$cxx" "$probe_positive_bin"
 
     echo "ok: static scenario - pkg-config --libs --static glintfx carries the correct Libs.private content (-lwayland-client), it is emitted correctly, AND it is genuinely load-bearing: a probe that forces extraction of the Wayland-bound archive member fails to link without Libs.private and succeeds with it."
+}
+
+# Scenario 6: DESTDIR, Fedora format (adversarial review round 3, task
+# 2). See configure_glintfx_fedora_style/build_and_install_glintfx_with_destdir
+# above for the full reasoning; this is the concrete test of the
+# "indecidivel no configure" finding that changed the whole strategy
+# for this round.
+run_destdir_scenario() {
+    glintfx_src="$1"
+    consumer_src="$2"
+    cxx="$3"
+    scratch="$4"
+
+    build_dir="${scratch}/build-destdir"
+    destdir="${scratch}/buildroot"
+    configure_glintfx_fedora_style "$glintfx_src" "$build_dir" "$cxx"
+    build_and_install_glintfx_with_destdir "$build_dir" "$destdir"
+
+    pkgconfig_dir="$(find_pkgconfig_dir_under_destdir "$destdir")"
+    assert_pkgconfig_finds_glintfx "$pkgconfig_dir"
+    assert_pkgconfig_output_resolves_to_real_content "$pkgconfig_dir"
+
+    binary="${scratch}/consumer-destdir"
+    libdir_abs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --variable=libdir glintfx)"
+    compile_and_run_dynamic_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "$libdir_abs" "$binary"
+    echo "ok: DESTDIR scenario - the Fedora RPM packaging format (prefix=/usr at configure, DESTDIR at install, no CMAKE_INSTALL_LIBDIR override) resolves and links via pkg-config alone, validated from inside the staging tree."
 }
 
 main() {
@@ -544,8 +756,9 @@ main() {
     run_malformed_libdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
     run_absolute_dirs_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
     run_static_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
+    run_destdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
 
-    echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing-slash) layout, absolute install dirs, and static mode."
+    echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing-slash) layout, absolute install dirs, static mode, and a DESTDIR-staged Fedora-format install."
 }
 
 main "$@"

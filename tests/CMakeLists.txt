@@ -231,16 +231,18 @@ endif()
 # pkg-config gate (PKG-DIST): proves the INSTALLED glintfx.pc, not just
 # the CMake package - a bare `pkg-config --cflags --libs glintfx`
 # resolves and links tests/raw_link/main.cpp with no CMake and no
-# find_package(glintfx) involved at all, in the default layout, a
-# Debian-multiarch layout (mirrors install_packager_layout_test's own
-# architecture) and static mode (proves Libs.private carries
-# -lwayland-client - see check_pkgconfig.sh's own header for why none
-# of the CMake-target-based gates above would ever catch that
-# regressing). POSIX sh; same declared downgrade as the other
-# consumption gates above (pkg-config's own convention is Unix/Linux
-# packaging; there is no Windows-specific coverage here because
-# glintfx has no platform layer that needs Libs.private there yet -
-# see GlintfxInstall.cmake's own comment at glintfx_install_pkgconfig()).
+# find_package(glintfx) involved at all, across six scenarios (default
+# layout, Debian-multiarch, a malformed trailing-slash libdir, absolute
+# install dirs, static mode with a load-bearing Libs.private proof, and
+# a DESTDIR-staged Fedora-format install) - see check_pkgconfig.sh's
+# own header for the full reasoning behind each, and for why the
+# output-content validator it applies to all six is what makes the
+# DESTDIR scenario possible at all (no expected path to precompute).
+# POSIX sh; same declared downgrade as the other consumption gates
+# above (pkg-config's own convention is Unix/Linux packaging; there is
+# no Windows-specific coverage here because glintfx has no platform
+# layer that needs Libs.private there yet - see GlintfxInstall.cmake's
+# own comment at glintfx_install_pkgconfig()).
 if(UNIX)
     add_test(
         NAME pkgconfig_test
@@ -250,6 +252,25 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(pkgconfig_test PROPERTIES LABELS consume)
+endif()
+
+# Blank install-dir gate (adversarial review round 3, PKG-DIST task 3):
+# proves CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_INCLUDEDIR are refused at
+# CONFIGURE time when empty or whitespace-only
+# (glintfx_require_nonblank_install_subdir, cmake/GlintfxInstall.cmake) -
+# blank is never a legitimate layout (it collapses some install()
+# destinations to the filesystem root, confirmed live before the
+# guard existed), unlike a malformed-but-nonblank value, which still
+# names a real layout somewhere and is handled by the pkg-config gate
+# above instead of refused. POSIX sh; same declared downgrade as the
+# other consumption gates above.
+if(UNIX)
+    add_test(
+        NAME blank_install_dir_rejected_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_blank_install_dir_rejected.sh"
+            "${PROJECT_SOURCE_DIR}"
+    )
+    set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
 endif()
 
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves

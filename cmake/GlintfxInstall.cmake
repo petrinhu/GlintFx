@@ -9,6 +9,47 @@
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+# Refuses an install-dir CMake variable that is empty or
+# whitespace-only (adversarial review round 3, PKG-DIST). GNUInstallDirs'
+# own defaulting only fires when the cache variable is UNDEFINED, not
+# when it is explicitly set to "" or " " - confirmed live on this
+# machine: `-DCMAKE_INSTALL_LIBDIR=` slips through the ENTIRE configure
+# step unnoticed (CMakeCache.txt shows CMAKE_INSTALL_LIBDIR:UNINITIALIZED=,
+# genuinely empty, not defaulted) and only fails LATER, deep inside
+# cmake_install.cmake, with "file cannot create directory: /cmake/glintfx" -
+# because "${CMAKE_INSTALL_LIBDIR}/cmake/glintfx" collapses to the
+# ABSOLUTE path "/cmake/glintfx", the filesystem ROOT, the instant the
+# variable is empty (the SAME concatenation-without-validation category
+# as achados 1 and 3, one input shape earlier: those needed careful
+# computation because a MALFORMED-but-nonblank value still names a real
+# layout somewhere; blank never does - it is always a mistake in how
+# the value was passed, never anyone's actual layout, so this refuses
+# it outright instead of computing anything at all). Also observed to
+# behave INCONSISTENTLY across destinations before failing (some
+# artifacts DO land under a plausible-looking "lib" subdirectory,
+# masking the danger, right up until the moment the concatenated,
+# root-collapsing destination fails outright) - refusing early removes
+# that inconsistency instead of hoping every call site happens to fail
+# safely.
+function(glintfx_require_nonblank_install_subdir value var_name)
+    string(STRIP "${value}" stripped)
+    if(stripped STREQUAL "")
+        message(FATAL_ERROR
+            "glintfx: ${var_name} is empty or blank ('${value}'). This is "
+            "never a legitimate install layout - CMake concatenates it "
+            "directly into install destinations, and an empty value "
+            "collapses some of them to the filesystem ROOT (for example, "
+            "\"\${${var_name}}/cmake/glintfx\" becomes the absolute path "
+            "\"/cmake/glintfx\"). Either leave ${var_name} unset "
+            "(GNUInstallDirs picks a sane per-platform default) or set it "
+            "to a real relative or absolute directory."
+        )
+    endif()
+endfunction()
+
+glintfx_require_nonblank_install_subdir("${CMAKE_INSTALL_LIBDIR}" "CMAKE_INSTALL_LIBDIR")
+glintfx_require_nonblank_install_subdir("${CMAKE_INSTALL_INCLUDEDIR}" "CMAKE_INSTALL_INCLUDEDIR")
+
 function(glintfx_install_library_target target)
     # No `INCLUDES DESTINATION` clause here (FIX-CONSUMO-2, achado QA-1):
     # it used to duplicate, verbatim, what GlintfxLibrary.cmake's

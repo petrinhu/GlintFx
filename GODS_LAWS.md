@@ -58,6 +58,7 @@
 | [L-37](#l-37) | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | Avisar o Gus Dragon sem ele precisar perguntar |
 | [L-38](#l-38) | nomear artefato binário, ou cogitar extensão própria para qualquer arquivo | Dado é nosso e pode ter extensão própria; binário usa `.so` e `.dll`, o que o SO espera |
 | [L-39](#l-39) | ver QUALQUER coisa vinda do Gus Dragon, em qualquer dos cinco canais | É prioridade e é SEMPRE respondida; o ack não espera o líder e interrompe a onda |
+| [L-40](#l-40) | escrever, revisar ou confiar em QUALQUER portão de qualidade | Piso de varredura não-vazia: contou zero, reprova; a contagem aparece na saída mesmo quando passa |
 
 ---
 
@@ -854,3 +855,37 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 **Por que isto virou lei em vez de continuar como boa vontade.** O `PROTOCOL.md` **já obrigava** a Resposta 2 automática — e mesmo assim, medido nas quatro sessões: a issue 8, onde ele escreveu *"Irei esperar as outras 3 IAs lerem e responderem"*, ficou **dois dias sem a nossa resposta**, e o canal de issue **não tinha vigilância em nenhuma das quatro sessões**, porque o ritual de abertura só olhava a pasta da `inbox`. **A regra existia e não estava sendo cumprida.** Regra que depende de lembrar não se cumpre; por isso vira lei com gatilho, e o gatilho é *"ver qualquer coisa vinda dele"*, não *"quando der"*.
 
 **Relação com a L-37, para não se ler como duplicata.** A **L-37 é a direção de saída**: avisá-lo **sem ele perguntar**, quando o líder aprova, rejeita ou muda algo dele, ou quando item de alta prioridade fecha. A **L-39 é a direção de entrada**: o que **ele manda** tem precedência e resposta garantida. Uma não implica a outra, e as duas juntas fecham o circuito.
+
+
+## L-40
+
+**Data:** 25/08/2026, decisão do líder por `AskUserQuestion`, depois de o mesmo defeito aparecer em **seis portões diferentes na mesma semana**.
+
+**Todo portão nasce com PISO DE VARREDURA NÃO-VAZIA: contou zero itens, ele REPROVA. Nunca declara sucesso.**
+
+**O defeito, na forma exata em que ele se repete:** o portão não erra a análise — **ele não olha**, e imprime verde. Nenhum arquivo casou o padrão, nenhum teste foi registrado, o diretório mudou de nome, a variável não expandiu, o glob não casou nada. Em todos esses casos o portão **passa**, e passa **exatamente quando é mais perigoso**: no momento em que a coisa que ele deveria vigiar deixou de estar onde ele procura.
+
+**Por que isto é pior que um portão ausente:** portão que não existe é sabido e alguém compensa. **Portão que imprime verde sem olhar produz confiança falsa** — e a confiança falsa se propaga, porque relatório, tabela e mensagem de commit passam a citar aquele verde como prova.
+
+### Os seis casos medidos, e são evidência e não anedota
+
+| onde | como saía verde |
+|---|---|
+| portão local (`preci.sh`) | `ctest` sai **0** com zero teste registrado; e a varredura enumera pelo que o git já conhece, então **arquivo novo não rastreado nunca é olhado** |
+| isolamento de container | conferia **nove campos nomeados**; campo perigoso novo não aparecia |
+| higiene de header | enumerava só uma extensão — um header público com outra extensão ficava **invisível**; e aceitava inclusão **comentada** |
+| empacotamento | o átomo validava os caminhos **que existissem**, e um arquivo com as variáveis certas e as linhas de flag vazias imprimia *"passou"* |
+| documento de empacotamento | afirmava cobertura *"a cada push"* para formas que **não tinham cenário nenhum** |
+| portão da lei do Wayland | `if [ -z "$dirs" ]; then echo "nada a varrer"; exit 0; fi` — **sai verde se os diretórios não existirem** |
+
+**Nenhum deles foi descuido de uma pessoa.** Foram autores diferentes, arquivos diferentes, semanas diferentes. **É a forma natural de escrever portão**, e por isso precisa de lei em vez de convenção — convenção que depende de lembrar falhou **seis vezes**.
+
+### O que a lei obriga, em ato
+
+1. **O portão conta o que varreu**, e a contagem é comparada contra zero **antes** de qualquer veredicto.
+2. **Zero itens é FALHA**, com mensagem que diz *quantos* e *onde procurou* — nunca um sucesso silencioso.
+3. **A contagem aparece na saída**, mesmo quando passa. `"varreu 47 arquivos"` distingue *"olhou e estava tudo bem"* de *"não olhou"*, e essa distinção é invisível sem o número.
+4. **Os três controles da casa são obrigatórios no autoteste**: positivo (coisa boa passa), negativo (coisa ruim reprova) e **varredura vazia** (nada para olhar reprova). **É o terceiro que pega o defeito real** — os dois primeiros passam com o portão cego.
+5. **A enumeração é fechada por construção, não por busca dirigida.** Se o espaço é pequeno e enumerável — extensões de header, campos de configuração, células de uma matriz —, **enumere-o inteiro** em vez de procurar dentro dele. Busca dirigida encontra o que você suspeita; enumeração encontra o que você não sabia que devia suspeitar.
+
+**Corolário sobre alegação (reforça a L-27):** *"isto é testado"* é afirmação **verificável**, e só se escreve depois de ver o portão **reprovar** o caso que ela promete cobrir. Duas fatias foram reprovadas nesta semana por alegar verificação que não existia, uma delas num documento público dirigido ao consumidor externo. **Antes de escrever "isto prova X", quebre X e veja o teste falhar.**

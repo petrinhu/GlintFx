@@ -31,10 +31,39 @@
 // file runs with a normal, working allocator - safe because
 // glintfx_add_test() (cmake/GlintfxTest.cmake) gives every test case
 // its OWN executable, so there is no ODR collision with any other TU.
+//
+// DECLARED COVERAGE, honestly, not discovered by a future reader the
+// hard way (CORE-ERROR CI finding, 25/08/2026 - the same class of risk
+// tests/err_no_alloc_test.cpp already declares for its OWN use of this
+// technique, applied here to the FORCING half instead of the counting
+// half): on Windows in SHARED mode, err.cpp's ensure_context() is
+// compiled INSIDE glintfx.dll and its `new (std::nothrow)` call
+// resolves, at the DLL's OWN link time, against whatever CRT import
+// table that DLL was linked with - NOT against this executable's
+// replacement operators, because PE/COFF has no ELF-style default
+// global symbol interposition (a DLL does not defer symbol resolution
+// to whatever process eventually loads it). g_force_alloc_failure may
+// therefore have ZERO EFFECT on ensure_context()'s allocation on that
+// leg specifically - the two OOM-degradation cases below could pass
+// their "override was reached" check as false there while the library
+// still degrades correctly, or (the real risk) never actually force
+// the failure at all, making the "path stays empty" assertion measure
+// nothing. g_context_alloc_call_count below exists to tell the two
+// apart: it counts every call to THIS TU's own operator new/new(nothrow)
+// overrides, so a degradation case can assert the override was
+// actually invoked BEFORE trusting what the library did in response.
 
 namespace {
 
 bool g_force_alloc_failure = false;
+
+// Counts every call to THIS TU's own operator new/new(nothrow)
+// overrides below, regardless of whether g_force_alloc_failure is
+// armed - see the "DECLARED COVERAGE" paragraph above. A degradation
+// case reads the delta across its own armed window to prove the
+// override was actually the allocator ensure_context()/with_path()
+// reached, before trusting what happened as a result.
+std::size_t g_override_new_call_count = 0;
 
 // Long enough (well past libstdc++/libc++'s small-string-optimization
 // capacity, typically 15-22 bytes) to force std::string::assign() to
@@ -47,6 +76,7 @@ constexpr std::string_view k_long_value =
 } // namespace
 
 void *operator new(std::size_t size) {
+    ++g_override_new_call_count;
     if (g_force_alloc_failure) {
         throw std::bad_alloc();
     }
@@ -57,6 +87,7 @@ void *operator new(std::size_t size) {
 }
 
 void *operator new(std::size_t size, const std::nothrow_t & /*tag*/) noexcept {
+    ++g_override_new_call_count;
     if (g_force_alloc_failure) {
         return nullptr;
     }
@@ -119,6 +150,7 @@ GLINTFX_TEST(copy_owns_an_independent_context) {
 }
 
 GLINTFX_TEST(attach_degrades_to_code_only_when_context_allocation_fails) {
+    const std::size_t calls_before = g_override_new_call_count;
     g_force_alloc_failure = true;
     glintfx::gltfx_err err(glintfx::gltfx_err_code::parse_failure);
     // ensure_context()'s `new (std::nothrow) err_context()` is the
@@ -127,6 +159,14 @@ GLINTFX_TEST(attach_degrades_to_code_only_when_context_allocation_fails) {
     // cannot be allocated at all" branch.
     err.with_path("does/not/matter");
     g_force_alloc_failure = false;
+    const std::size_t calls_after = g_override_new_call_count;
+
+    // Proves the FORCING MECHANISM actually reached the allocator this
+    // call needed - see the "DECLARED COVERAGE" header comment. A
+    // failure HERE, not below, means this platform/configuration could
+    // not force the failure at all (Windows/SHARED is the known risk),
+    // not that the library mishandled a real one.
+    GLINTFX_CHECK(calls_after > calls_before);
 
     // Degrades to code-only: the ORIGINAL code survives unchanged (it
     // does NOT become out_of_memory - that translation is a SEPARATE
@@ -148,6 +188,7 @@ GLINTFX_TEST(attach_degrades_to_code_only_when_a_field_allocation_fails_mid_atta
     // allocation itself.
     err.with_position(3, 4);
 
+    const std::size_t calls_before = g_override_new_call_count;
     g_force_alloc_failure = true;
     // k_long_value is long enough to force std::string::assign() to
     // call the THROWING global operator new above; ensure_context()
@@ -155,6 +196,11 @@ GLINTFX_TEST(attach_degrades_to_code_only_when_a_field_allocation_fails_mid_atta
     // isolates the "string buffer growth throws mid-attach" branch.
     err.with_path(k_long_value);
     g_force_alloc_failure = false;
+    const std::size_t calls_after = g_override_new_call_count;
+
+    // Same proof as the case above, isolating the SAME risk for the
+    // "string buffer growth" allocation point specifically.
+    GLINTFX_CHECK(calls_after > calls_before);
 
     GLINTFX_CHECK(err.code() == glintfx::gltfx_err_code::unsupported);
     // The field this specific attach call was trying to set: the

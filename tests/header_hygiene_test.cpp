@@ -74,6 +74,7 @@
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/core/err_format.hpp>
 #include <glintfx/core/version.hpp>
 #include <glintfx/version_macros.hpp>
 

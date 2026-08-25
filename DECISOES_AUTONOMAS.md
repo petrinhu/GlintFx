@@ -63,4 +63,26 @@ Registro exigido pela **L-34**, seção "Modo autônomo". Enquanto o modo está 
 
 ---
 
+#### D4 — teste de higiene: blindagem preventiva DECLARADA, mais portão mecânico  `[24/08/26 - 22:49:21]`
+
+**Quem decidiu:** `fable` (CTO). **Fatia:** `HDR-HYGIENE-FIX`, após a **segunda reprovação** em revisão adversarial.
+
+**A pergunta, como teria ido ao líder:** o projeto aceita um teste de higiene que é **blindagem preventiva sem alvo vivo hoje**, desde que isso esteja declarado no próprio arquivo — ou exige que ele tenha alvo real?
+
+**O que a revisão provou:** o teste **morde** onde faz asserção (renomear campo quebra compilação; quebrar o valor falha em execução; símbolo colidente exercitado falha no link). Mas remover a ordem hostil de includes **não muda nada**, porque nada em `version.hpp` usa `major`/`minor` em forma de chamada — o mecanismo que dá nome ao teste está **inerte** no único header público de hoje. E o comentário-contrato do topo não era aplicado por script nenhum.
+
+**Opções na mesa:**
+
+- **(a) — ESCOLHIDA:** declarar no próprio arquivo que a ordem hostil é blindagem **preventiva**, mais um **portão mecânico** que falha se um header público novo não entrar no arquivo, com os três controles da casa (positivo, negativo e **varredura vazia**).
+- **(b) — recusada:** fabricar uma colisão de propósito no header, para o teste ter alvo. Recusa do CTO, com a razão: **código de produto existindo para servir a teste** contraria a lei dos átomos e a de biblioteca.
+- **(c) — RECUSADA POR ESTAR FORA DA CADEIRA DELE:** remover o arquivo e mover as asserções para o teste de versão. Isso **reverteria decisão expressa do líder** (o teste **é escrito**, guardando o header inteiro). **O modo autônomo não dá a caneta das decisões que o líder já tomou.** Se um dia (c) parecer certa, é pergunta para ele.
+
+**Porquê, em duas linhas:** o líder já aceitou blindagem sem dente contra as duas macros quando recusou o teste estreito; (a) executa a decisão dele e fecha o único buraco que a revisão provou — um contrato de cobertura que era **texto**, sem nada que o obrigasse.
+
+**Porta de mão única:** não. **Custo de reverter:** barato — apagar o portão e o parágrafo de declaração; o arquivo de teste permanece.
+
+**Anexo, e é lei e não opção (L-27):** o relatório do implementador dizia que ele **não replicou** as asserções do teste de versão; o revisor comparou linha a linha e achou **três checagens copiadas byte a byte**, mais uma de string. As asserções **ficam** — o mutante de valor prova que são necessárias —, mas passam a estar **documentadas como duplicação deliberada**, e o commit do conserto nomeia a divergência entre relato e arquivo. **O relato que não bate não vira punição de agente: vira comentário no código que impede o próximo revisor de reabrir a mesma dúvida.**
+
+---
+
 **Nota de método:** a ordem `HDR-FIX` → `VER-4C` e os lotes **não** entram neste registro. São planejamento do passo 2 da L-34, mandato próprio do CTO, não cadeira do líder. Ficaram no plano, para a minha verificação.

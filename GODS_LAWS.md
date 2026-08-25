@@ -56,6 +56,8 @@
 | [L-35](#l-35) | desenhar ou implementar a entrega de evento de entrada | Promessa pública do contrato: determinística, sem duplicação, sem reordenação; nasce com teste que a prova |
 | [L-36](#l-36) | decidir cursor do ponteiro, áudio no Linux, mapeamento de gamepad ou compose/tecla morta | Quatro decisões de escopo do líder que saem de `🎨 Pendente design` |
 | [L-37](#l-37) | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | Avisar o Gus Dragon sem ele precisar perguntar |
+| [L-38](#l-38) | nomear artefato binário, ou cogitar extensão própria para qualquer arquivo | Dado é nosso e pode ter extensão própria; binário usa `.so` e `.dll`, o que o SO espera |
+| [L-39](#l-39) | ver QUALQUER coisa vinda do Gus Dragon, em qualquer dos cinco canais | É prioridade e é SEMPRE respondida; o ack não espera o líder e interrompe a onda |
 
 ---
 
@@ -432,23 +434,6 @@ O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash rea
 
 **Ruído conhecido, a descartar sem investigar:** coredump de binário sob `/var/tmp/*mutation-sandbox*` ou equivalente é mutação deliberada da revisão adversarial. Três desses foram descartados em 21/08/2026, por decisão do líder.
 
-## L-38
-
-**Data:** 24/08/2026, decisão do líder: *"mantenha .so e .dll"*, depois de perguntar se a extensão da biblioteca dinâmica podia ser trocada.
-
-**O artefato binário do GlintFx usa as extensões que o sistema operacional espera: `.so` no Linux e `.dll` no Windows. Não se inventa extensão para binário.**
-
-**A linha que esta lei traça, e ela vale para tudo:**
-
-- **Arquivo de DADO é nosso.** Extensão própria é legítima e barata — é o caso do `.gw.map`.
-- **Artefato BINÁRIO pertence à cadeia de ferramentas do sistema.** Trocar a extensão dele é brigar com o mundo inteiro sem ganhar nada.
-
-**O que foi MEDIDO nesta máquina antes de decidir, e não deduzido:** uma biblioteca compilada como `libtst.gwso` **funciona**, mas `gcc -ltst` responde *"não foi possível localizar -ltst"*. Só linka com `-l:libtst.gwso`, que é **sintaxe exclusiva do GNU** e quebra em qualquer outra cadeia. Junto disso quebram, todos por dependerem da extensão: o `pkg-config --libs`, que emite `-lglintfx`; o `find_library` do CMake, que procura `lib<nome>.so`; e os geradores automáticos de dependência dos empacotadores das quatro distros. O cache de bibliotecas desta máquina tem **3.531 entradas**, todas na convenção `.so`.
-
-**No Windows** — registrado como **não medido**, por não haver a plataforma aqui: o carregador aceita qualquer extensão se o nome exato for dado, então **carregaria**. Mas ele **acrescenta `.dll` sozinho** quando o nome vem sem extensão, e toda ferramenta de inspeção, instalador e depurador assume `.dll`.
-
-**O argumento que decidiu, e é o da LEI ZERO:** cada consumidor desconhecido pagaria esse pedágio, para sempre, por uma escolha estética nossa.
-
 ## L-26
 
 **Data:** 21/08/2026, decisão do líder.
@@ -824,3 +809,48 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 **Nota de descumprimento, registrada porque é a causa do pedido:** o `PROTOCOL.md` do bus **já obrigava** a "Resposta 2" automática — o resultado da decisão do líder vai a ele sem reaprovação de texto. **Ele não deveria ter precisado pedir.** Se pediu, a resposta automática não estava saindo, e vale conferir se alguma ideia dele ficou sem retorno.
 
 **Formato, quando a resposta for na discussion 7** (o catálogo de bugs que ele mantém): timestamp, uma das três classificações que ele fixou (**Bug Consertado**, **Bug Funcional**, **Bug Possível**) e itens numerados entre parênteses. Ele tem 11 anos, programa, usa Manjaro e git — **o que ele não merece é resposta vaga**, e "não existe código disso ainda" é melhor resposta que estimativa inventada.
+
+## L-38
+
+**Data:** 24/08/2026, decisão do líder: *"mantenha .so e .dll"*, depois de perguntar se a extensão da biblioteca dinâmica podia ser trocada.
+
+**O artefato binário do GlintFx usa as extensões que o sistema operacional espera: `.so` no Linux e `.dll` no Windows. Não se inventa extensão para binário.**
+
+**A linha que esta lei traça, e ela vale para tudo:**
+
+- **Arquivo de DADO é nosso.** Extensão própria é legítima e barata — é o caso do `.gw.map`.
+- **Artefato BINÁRIO pertence à cadeia de ferramentas do sistema.** Trocar a extensão dele é brigar com o mundo inteiro sem ganhar nada.
+
+**O que foi MEDIDO nesta máquina antes de decidir, e não deduzido:** uma biblioteca compilada como `libtst.gwso` **funciona**, mas `gcc -ltst` responde *"não foi possível localizar -ltst"*. Só linka com `-l:libtst.gwso`, que é **sintaxe exclusiva do GNU** e quebra em qualquer outra cadeia. Junto disso quebram, todos por dependerem da extensão: o `pkg-config --libs`, que emite `-lglintfx`; o `find_library` do CMake, que procura `lib<nome>.so`; e os geradores automáticos de dependência dos empacotadores das quatro distros. O cache de bibliotecas desta máquina tem **3.531 entradas**, todas na convenção `.so`.
+
+**No Windows** — registrado como **não medido**, por não haver a plataforma aqui: o carregador aceita qualquer extensão se o nome exato for dado, então **carregaria**. Mas ele **acrescenta `.dll` sozinho** quando o nome vem sem extensão, e toda ferramenta de inspeção, instalador e depurador assume `.dll`.
+
+**O argumento que decidiu, e é o da LEI ZERO:** cada consumidor desconhecido pagaria esse pedágio, para sempre, por uma escolha estética nossa.
+
+## L-39
+
+**Data:** 24/08/2026. **Ordem do líder, chegada pelo bus** — ele a deu à sessão do `site` com a instrução explícita de comunicá-la às outras três, e o texto abaixo é o **verbatim dele conforme relatado por aquela sessão**, não uma ordem recebida aqui em primeira mão:
+
+> *"avise para criar a lei que pedidos do Gus-Dragon no bus sao prioridades e que devem ser respondidas sempre. Crie essa lei também."*
+
+**Tudo que vem do Gus Dragon é PRIORIDADE e é SEMPRE respondido.** Não existe "respondo depois", não existe "não era endereçado a nós", e não existe fila em que ele espere atrás de trabalho de agente.
+
+**Vale nos cinco canais dele, sem distinção:** issue, comentário em issue, discussion, comentário em discussion, e arquivo na `inbox/glintfx/`. Ele usa os cinco, e **o canal não muda o dever**.
+
+**O que "prioridade" significa em ato, e cada linha é uma obrigação separada:**
+
+1. **Ao abrir a sessão, o que é dele se lê PRIMEIRO** — antes de retomar fatia parada, antes de qualquer trabalho de produto. A varredura cobre a pasta **e** as issues **e** as discussions; olhar só a pasta já deixou pedido dele sem resposta por dois dias.
+2. **O ack é imediato e não espera o líder.** Ele não fica em silêncio enquanto a decisão amadurece. É o passo 2 do `PROTOCOL.md` do bus, que já obrigava isso.
+3. **A Resposta 2 é automática** depois que o líder decide: escreve-se e posta-se direto, sem reaprovar o texto com ninguém.
+4. **Interrompe a onda.** Chegou material dele no meio de trabalho, o **ack sai na hora**. O conteúdo pode esperar a fatia fechar; **o silêncio não pode.**
+5. **Endereçado a outra sessão não isenta de ler.** Se ele endereçou a outro projeto mas há parte que é nossa, responde-se a nossa parte e diz-se de quem é o resto.
+
+**Três limites que entram JUNTO, para a lei não virar promessa que não se cumpre:**
+
+- ⛔ **Prioridade não é instantaneidade.** Sessão não é serviço rodando, e isso se **diz a ele**, nunca se esconde. Nunca prometer aviso instantâneo.
+- ⛔ **Prioridade não é aprovação.** Ideia dele entra na pauta pelo caminho normal — absorve, ack, **decisão do líder**, Resposta 2. **Agente nenhum aprova ideia dele sozinho.**
+- ⛔ **Nunca mentir para uma criança.** Linguagem adequada a 11 anos **não** significa conteúdo técnico simplificado: ele programa, usa Manjaro e git, e anunciou classe de bug antes de o código existir. *"Não existe código disso ainda"* é melhor resposta que estimativa inventada.
+
+**Por que isto virou lei em vez de continuar como boa vontade.** O `PROTOCOL.md` **já obrigava** a Resposta 2 automática — e mesmo assim, medido nas quatro sessões: a issue 8, onde ele escreveu *"Irei esperar as outras 3 IAs lerem e responderem"*, ficou **dois dias sem a nossa resposta**, e o canal de issue **não tinha vigilância em nenhuma das quatro sessões**, porque o ritual de abertura só olhava a pasta da `inbox`. **A regra existia e não estava sendo cumprida.** Regra que depende de lembrar não se cumpre; por isso vira lei com gatilho, e o gatilho é *"ver qualquer coisa vinda dele"*, não *"quando der"*.
+
+**Relação com a L-37, para não se ler como duplicata.** A **L-37 é a direção de saída**: avisá-lo **sem ele perguntar**, quando o líder aprova, rejeita ou muda algo dele, ou quando item de alta prioridade fecha. A **L-39 é a direção de entrada**: o que **ele manda** tem precedência e resposta garantida. Uma não implica a outra, e as duas juntas fecham o circuito.

@@ -113,7 +113,7 @@ Registro exigido pela **L-34**, seção "Modo autônomo". Enquanto o modo está 
 
 **Porta de mão única:** não. **Custo de reverter:** criar o portão depois, se a regra declarada não bastar.
 
-### D6 — `PKG-DIST`: parar de PREVER a entrada e passar a VALIDAR a saída  `[25/08/26 - 01:46:42]`
+#### D6 — `PKG-DIST`: parar de PREVER a entrada e passar a VALIDAR a saída  `[25/08/26 - 01:46:42]`
 
 **Quem decidiu:** `fable` (CTO), no lugar do líder, sob o modo autônomo da L-34. **Eu escalei o padrão em vez de mandar a quarta rodada de remendo.**
 

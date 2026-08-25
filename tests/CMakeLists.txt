@@ -264,11 +264,25 @@ endif()
 # names a real layout somewhere and is handled by the pkg-config gate
 # above instead of refused. POSIX sh; same declared downgrade as the
 # other consumption gates above.
+#
+# ${CMAKE_CXX_COMPILER} passed through explicitly (same pattern as
+# pkgconfig_test above): the script's own nested `cmake -S -B` is a
+# SECOND, independent configure of the whole glintfx tree, and
+# project(glintfx LANGUAGES CXX) at CMakeLists.txt:18 resolves the
+# compiler before glintfx_require_nonblank_install_subdir ever runs -
+# so that nested configure needs its own -DCMAKE_CXX_COMPILER, it does
+# not inherit this one's. Confirmed live (GODS_LAWS.md L-14, container
+# only): on the Ubuntu CI job, which installs ONLY g++-14 (no plain
+# c++/g++ symlink), the un-pinned nested configure failed with "No
+# CMAKE_CXX_COMPILER could be found" before ever reaching the blank-var
+# guard - a false negative that hid the real assertion this test
+# exists to make.
 if(UNIX)
     add_test(
         NAME blank_install_dir_rejected_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_blank_install_dir_rejected.sh"
             "${PROJECT_SOURCE_DIR}"
+            "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
 endif()

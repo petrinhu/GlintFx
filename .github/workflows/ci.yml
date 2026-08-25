@@ -385,10 +385,20 @@ jobs:
     runs-on: ubuntu-latest
     container: fedora:44
     steps:
+      # libasan/libubsan: pacotes de RUNTIME, separados de gcc-c++ no
+      # Fedora. gcc-c++ traz so a copia interna em
+      # /usr/lib/gcc/x86_64-redhat-linux/16/ (usada em tempo de
+      # compilacao); o SONAME que o linker procura em tempo de link
+      # (/usr/lib64/libasan.so.8.0.0, /usr/lib64/libubsan.so.1.0.0) vem
+      # dos pacotes libasan/libubsan, que nunca foram instalados aqui -
+      # confirmado ao vivo (`dnf provides '*/libasan.so*'`) reproduzindo
+      # este job num container fedora:44 isolado, GODS_LAWS.md L-14.
+      # Isto e toolchain do ambiente de build, nao dependencia da
+      # biblioteca (L-07): nao muda o que glintfx linka em producao.
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel
+          wayland-devel wayland-protocols-devel libasan libubsan
 
       - uses: actions/checkout@v4
 

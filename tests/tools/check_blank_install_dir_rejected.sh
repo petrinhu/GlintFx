@@ -17,7 +17,21 @@
 # whitespace-only value is always a mistake in how it was passed, so
 # this is refused outright, not computed around.
 #
-# Usage: check_blank_install_dir_rejected.sh <glintfx-source-dir>
+# The second argument (compiler) exists because every configure below
+# is a FULL, SECOND, independent configure of the glintfx tree
+# (project(glintfx LANGUAGES CXX), CMakeLists.txt:18) - it does not
+# inherit whatever -DCMAKE_CXX_COMPILER the CALLER's own build used,
+# and CMake's own auto-detection only tries a short list of generic
+# names (c++, g++, ...). A job that installs a versioned compiler
+# package without that generic name in PATH (e.g. this project's own
+# Ubuntu CI job: g++-14 only, no plain g++/c++) fails compiler
+# detection before glintfx_require_nonblank_install_subdir ever runs -
+# a false negative for THIS test, confirmed live in a throwaway
+# ubuntu:24.04 container mirroring the CI job's own install line
+# (GODS_LAWS.md L-14: container only, nothing installed on the
+# developer's machine).
+#
+# Usage: check_blank_install_dir_rejected.sh <glintfx-source-dir> <cxx-compiler>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -29,8 +43,9 @@ fail() {
 }
 
 require_args() {
-    [ "$#" -eq 1 ] || fail "usage: check_blank_install_dir_rejected.sh <glintfx-source-dir>"
+    [ "$#" -eq 2 ] || fail "usage: check_blank_install_dir_rejected.sh <glintfx-source-dir> <cxx-compiler>"
     [ -d "$1" ] || fail "glintfx source dir not found: $1"
+    [ -n "$2" ] || fail "cxx-compiler argument is empty"
 }
 
 make_scratch_workdir() {
@@ -48,9 +63,11 @@ assert_configure_rejects_blank_var() {
     build_dir="$2"
     var_name="$3"
     blank_value="$4"
+    cxx_compiler="$5"
 
     output="$(cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
+        "-DCMAKE_CXX_COMPILER=${cxx_compiler}" \
         "-D${var_name}=${blank_value}" \
         -DGLINTFX_BUILD_TESTS=OFF 2>&1)" \
         && fail "configure with ${var_name}='${blank_value}' unexpectedly SUCCEEDED - the blank-value guard did not fire"
@@ -68,14 +85,15 @@ ${output}"
 main() {
     require_args "$@"
     glintfx_src="$1"
+    cxx_compiler="$2"
 
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
-    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-empty-libdir" "CMAKE_INSTALL_LIBDIR" ""
-    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-blank-libdir" "CMAKE_INSTALL_LIBDIR" " "
-    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-empty-includedir" "CMAKE_INSTALL_INCLUDEDIR" ""
-    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-blank-includedir" "CMAKE_INSTALL_INCLUDEDIR" " "
+    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-empty-libdir" "CMAKE_INSTALL_LIBDIR" "" "$cxx_compiler"
+    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-blank-libdir" "CMAKE_INSTALL_LIBDIR" " " "$cxx_compiler"
+    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-empty-includedir" "CMAKE_INSTALL_INCLUDEDIR" "" "$cxx_compiler"
+    assert_configure_rejects_blank_var "$glintfx_src" "${scratch}/build-blank-includedir" "CMAKE_INSTALL_INCLUDEDIR" " " "$cxx_compiler"
 
     echo "ok: CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR are both rejected at configure time when empty or whitespace-only, with a message naming the offending variable."
 }

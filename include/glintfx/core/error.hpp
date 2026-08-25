@@ -1,16 +1,48 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/export.hpp>
 
-// core/error.hpp - gltfx_err (CE-2 of CORE-ERROR, TODO.md,
+// core/error.hpp - gltfx_err (CE-2/CE-3 of CORE-ERROR, TODO.md,
 // GODS_LAWS.md L-19/L-22/L-26): the frozen-footprint error envelope
 // every fallible public call in glintfx returns (inside gltfx_rslt<T>,
 // CE-4, not written yet).
+//
+// DIAGNOSTIC CONTEXT (CE-3): six accessors - path(), line(), column(),
+// byte_offset(), rejected_value(), os_error_code() - read whatever
+// diagnostic detail was attached through the matching with_*()
+// method. Absent always reads back EMPTY (string_view) or ZERO
+// (numeric), NEVER undefined behavior - v1 has no separate has_*()
+// query, so the convention IS the contract: 0/empty means "not set".
+// os_error_code() is a raw platform number with DIFFERENT origins per
+// platform (POSIX errno on Linux, GetLastError() on Windows - both fit
+// in an int64_t without truncation, unlike squeezing a Win32 DWORD
+// into a signed 32-bit int); glintfx does not interpret it, only
+// carries it.
+//
+// ATTACH IS BEST-EFFORT AND noexcept (decision of the leader, TODO.md
+// CORE-ERROR row, 25/08/2026): if the context cannot be allocated, or
+// a field cannot be copied in, the with_*() call silently does
+// nothing and returns *this UNCHANGED - the ERROR BEING DECORATED
+// degrades to carrying just its code (or whatever context it already
+// had) instead of turning into a SECOND failure with no channel to
+// report it through. This is a DIFFERENT mechanism from "library-wide
+// out-of-memory becomes gltfx_err_code::out_of_memory and is
+// RETURNED" (the leader's other OOM decision, which applies to
+// call sites that already return a gltfx_rslt<T> - CE-4, not written
+// yet): attaching a diagnostic to an error that is FAILING TO
+// ALLOCATE PIECEMEAL, WHILE BEING CONSTRUCTED as a mutable in-place
+// value, has no expected-typed return channel to carry that second
+// failure through, and inventing one here would be exactly the
+// "exception as control flow" CONTRACT.md 6.4 already forbids.
+// tests/error_context_test.cpp proves the degrade path by FORCING an
+// allocation to fail, not by inspecting the source for a try/catch.
 //
 // SEMI-OPAQUE ENVELOPE, FIXED FOOTPRINT (CTO design, CORE-ERROR plan):
 // exactly two members - the code, INLINE (common-path read, zero
@@ -108,7 +140,37 @@ class gltfx_err {
     // Inline: reads a plain field, no boundary crossing needed.
     [[nodiscard]] gltfx_err_code code() const noexcept { return m_code; }
 
+    // CE-3 accessors. All read err_context's real layout, so all are
+    // declared here and DEFINED in error.cpp, exported. Absent always
+    // reads back empty/zero - see the "DIAGNOSTIC CONTEXT" paragraph
+    // above.
+    [[nodiscard]] GLINTFX_API std::string_view path() const noexcept;
+    [[nodiscard]] GLINTFX_API std::uint32_t line() const noexcept;
+    [[nodiscard]] GLINTFX_API std::uint32_t column() const noexcept;
+    [[nodiscard]] GLINTFX_API std::uint64_t byte_offset() const noexcept;
+    [[nodiscard]] GLINTFX_API std::string_view rejected_value() const noexcept;
+    [[nodiscard]] GLINTFX_API std::int64_t os_error_code() const noexcept;
+
+    // CE-3 attach, best-effort and noexcept - see the "ATTACH IS
+    // BEST-EFFORT" paragraph above. Strings are COPIED IN at the
+    // moment of attaching (the caller's buffer may not outlive this
+    // call). Returns *this by reference so calls chain:
+    //   auto err = gltfx_err(gltfx_err_code::parse_failure)
+    //                  .with_path(path)
+    //                  .with_position(line, column);
+    GLINTFX_API gltfx_err &with_path(std::string_view path) noexcept;
+    GLINTFX_API gltfx_err &with_position(std::uint32_t line, std::uint32_t column) noexcept;
+    GLINTFX_API gltfx_err &with_byte_offset(std::uint64_t offset) noexcept;
+    GLINTFX_API gltfx_err &with_rejected_value(std::string_view value) noexcept;
+    GLINTFX_API gltfx_err &with_os_error_code(std::int64_t code) noexcept;
+
   private:
+    // Lazily allocates m_context if it is still null. noexcept,
+    // best-effort: returns false (never throws, never crashes) if the
+    // allocation itself fails, which is what lets every with_*() above
+    // degrade instead of propagating a second failure.
+    bool ensure_context() noexcept;
+
     gltfx_err_code m_code;
     err_context *m_context = nullptr;
 };

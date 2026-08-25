@@ -10,7 +10,26 @@
 
 set -eu
 
-readonly EXPECTED_MANGLED_PREFIX="_ZN7glintfx"
+# CORE-ERROR CE-3 finding (25/08/2026): the mangled Itanium prefix for
+# a namespace-scoped symbol is "_ZN7glintfx..." ONLY for a free
+# function or a NON-const member function. A CONST member function
+# mangles with a "K" cv-qualifier infixed between "_ZN" and the
+# nested-name ("_ZNK7glintfx..."), per the Itanium C++ ABI. Every
+# symbol exported before CE-3 (runtime_version, version_string,
+# gltfx_err_code_name, gltfx_err's constructors/destructor) happened to
+# be a free function or a non-const special member, so this gate never
+# exercised the "K" branch until gltfx_err's first const accessor
+# (path(), line(), ...) - this is a latent bug in the PATTERN, not a
+# real intruder symbol, closed here rather than worked around in the
+# type being checked.
+#
+# DECLARED LIMITATION: only "K" (const) is covered, because that is
+# the only cv/ref-qualifier this codebase uses on an exported member
+# function today. A future exported `volatile`- or ref-qualified
+# member ("V", "O", "R" infixes) would need the same treatment; if this
+# gate ever rejects a real, correctly glintfx-scoped symbol again,
+# check the infix letter between "_ZN" and the namespace length first.
+readonly EXPECTED_MANGLED_NAMESPACE="7glintfx"
 readonly ALLOWED_RUNTIME_SYMBOLS="_init _fini _edata _end __bss_start"
 
 fail() {
@@ -29,7 +48,8 @@ require_library_path_arg() {
 
 symbol_has_glintfx_prefix() {
     case "$1" in
-        "${EXPECTED_MANGLED_PREFIX}"*) return 0 ;;
+        _ZN"${EXPECTED_MANGLED_NAMESPACE}"*) return 0 ;; # free function / non-const member
+        _ZNK"${EXPECTED_MANGLED_NAMESPACE}"*) return 0 ;; # const member function
         *) return 1 ;;
     esac
 }

@@ -17,6 +17,13 @@ glintfx_apply_compile_options(glintfx_test_harness)
 
 glintfx_add_test(version_test)
 
+# Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
+# a public header still compiles and behaves after hostile system
+# headers are included first (sys/sysmacros.h on Linux, windows.h
+# without NOMINMAX/WIN32_LEAN_AND_MEAN on Windows). See the
+# CONTRACT comment at the top of header_hygiene_test.cpp.
+glintfx_add_test(header_hygiene_test)
+
 # Visibility test: only makes sense with dynamic symbols (.so) and the
 # Unix `nm -D` tool. On Windows the export is already controlled by
 # __declspec via generate_export_header; proving that would require

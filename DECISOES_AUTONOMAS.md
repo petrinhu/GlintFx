@@ -113,6 +113,26 @@ Registro exigido pela **L-34**, seção "Modo autônomo". Enquanto o modo está 
 
 **Porta de mão única:** não. **Custo de reverter:** criar o portão depois, se a regra declarada não bastar.
 
+### D6 — `PKG-DIST`: parar de PREVER a entrada e passar a VALIDAR a saída  `[25/08/26 - 01:46:42]`
+
+**Quem decidiu:** `fable` (CTO), no lugar do líder, sob o modo autônomo da L-34. **Eu escalei o padrão em vez de mandar a quarta rodada de remendo.**
+
+**O fato que motivou, e eu reproduzi cada linha:** três rodadas de revisão adversarial, **quatro formas** da mesma família — barra final, caminho absoluto, absoluto somado a prefixo divergente na instalação, e caminho vazio resolvendo para a **raiz do sistema**. Nas quatro, `pkg-config --exists` devolve **0**. Cada conserto foi seguido de uma forma nova que ninguém tinha imaginado.
+
+**As opções que levei:** (A) continuar remendando; (B) validar a saída em vez de prever a entrada; (C) recusar o exótico no configure e documentar o suportado.
+
+**Decisão: (B) como mecanismo primário, com (C) estreito, mais o cenário `DESTDIR` que faltava** — e a peça que alcança a máquina do empacotador vira **fatia própria fora da onda** (`PKG-VALIDATE`).
+
+**O argumento que fecha a questão, e que eu não tinha:** o achado do prefixo divergente é **indecidível no configure** — o prefixo de instalação **ainda não existe** quando o cálculo roda. **Nenhuma rodada de previsão o alcança, jamais.** A família tem pelo menos um membro que a opção (A) nunca conseguiria pegar, o que a elimina por construção e não por preferência.
+
+**O fato que ele mediu CONTRA a própria hipótese, e que eu reconferi:** ele ia afirmar que o Fedora passa o diretório de biblioteca **absoluto**, o que faria do caso absoluto o caminho do alvo primário. Foi ler `/usr/lib/rpm/macros.d/macros.cmake` e é **falso** — o Fedora **não passa esse diretório**, usa os legados e instala por **`DESTDIR`**. Ou seja: **o caminho que todo empacotador real usa é justamente o único que nenhuma das três rodadas testou.** Ele registrou o próprio quase-erro como o exemplo de por que essa pergunta se responde **medindo, não lembrando**.
+
+**Onde ele me corrigiu:** eu enquadrei as rodadas 2 e 3 como gasto com hipótese de laboratório. **Não foram** — caminho absoluto é permitido e documentado pela convenção do CMake, e o código que o suporta **fica**. O gasto evitável era só a **quarta rodada de previsão**, e é essa que ele negou.
+
+**O que a decisão abre mão, declarado e não escondido:** diretório vazio passa a ser **recusado**; absoluto somado a prefixo sobrescrito na instalação fica **não suportado, mas detectado**. E existe uma **janela**: até `PKG-VALIDATE` existir, um layout imprevisto produz arquivo errado em silêncio **na máquina de um empacotador fora do nosso CI**. Esse é o preço, aceito conscientemente, de fechar a onda W1 agora.
+
+**Porta de mão única:** não. **Custo de reverter:** a assertion de saída é aditiva; o `FATAL_ERROR` do diretório vazio é a única coisa que restringe entrada, e sai num commit.
+
 ---
 
 **Nota de método:** a ordem `HDR-FIX` → `VER-4C` e os lotes **não** entram neste registro. São planejamento do passo 2 da L-34, mandato próprio do CTO, não cadeira do líder. Ficaram no plano, para a minha verificação.

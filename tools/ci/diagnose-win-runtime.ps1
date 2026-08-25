@@ -73,9 +73,9 @@ function Invoke-BoundedRun([string]$exePath, [int]$timeoutSeconds) {
         Write-Host "diagnose-win-runtime: process exited on its own with code $($proc.ExitCode)"
     }
     Write-Host "--- diagnose-win-runtime: stdout ---"
-    Get-Content $stdout -ErrorAction SilentlyContinue
+    Get-Content $stdout -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
     Write-Host "--- diagnose-win-runtime: stderr ---"
-    Get-Content $stderr -ErrorAction SilentlyContinue
+    Get-Content $stderr -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
 }
 
 $exePath = Find-First $BuildDir "version_test.exe"

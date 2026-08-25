@@ -380,7 +380,26 @@ O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **qu
 
 **Identificador e comentário de código em inglês, no estilo da biblioteca padrão de C++: `snake_case`, sem prefixo `m_`.** Isto **substitui** o `CONTRACT.md` §6.1, que manda função em pt-br, membro com `m_` e constante em ALL_CAPS. Motivo: a lib é pública e AGPL, e um consumidor estrangeiro não deve precisar de tradução para ler a API nem para abrir o arquivo.
 
-**Mensagem de commit continua em pt-br**, assim como a documentação do projeto e a conversa com o líder. O histórico é conversa dele com o projeto.
+**Mensagem de commit continua em pt-br**, assim como a conversa com o líder. O histórico é conversa dele com o projeto.
+
+### EMENDA de 25/08/2026 — o idioma de DOCUMENTO se decide pelo LEITOR, não pelo autor
+
+**Decisão do líder por `AskUserQuestion`.** A frase acima dizia *"assim como a documentação do projeto"*, sem distinguir **para quem** o documento é escrito — e o resultado foi um repositório bilíngue **que ninguém decidiu**: o `PACKAGING.md` nasceu em inglês porque o público dele é o empacotador externo, e os manuais nasceram em pt-br porque o público somos nós. **Aconteceu, não foi escolhido.** A emenda escolhe.
+
+**A régua é uma pergunta só: quem lê este documento?**
+
+| leitor | idioma |
+|---|---|
+| **consumidor externo desconhecido** — `README`, guia de primeiros passos, referência de API, convenções de API, empacotamento, wiki, registro de mudanças | **inglês internacional** |
+| **nós** — `GODS_LAWS.md`, `CONTRACT.md`, `TESTES.md`, `AUDITORIAS.md`, `AGILE.md`, `TODO.md`, `DECISOES_AUTONOMAS.md`, `CLAUDE.md`, mensagem de commit | **pt-br** |
+
+**Por que a linha passa aí, e não em "tudo em inglês":** o líder lê e escreve os manuais internos **todo dia**, e o `GODS_LAWS.md` carrega **ordens dele em verbatim**. Traduzir verbatim é adulterá-lo. O ganho de coerência não paga o custo de o dono do projeto trabalhar numa língua que não é a dele, dentro dos próprios documentos de governança.
+
+**Por que a linha não passa em "só documento novo":** o `docs/api-conventions.md` já existe em pt-br **e é exatamente o que o consumidor externo precisa ler** para usar o tipo de erro congelado em `CORE-ERROR`. Deixá-lo em pt-br seria publicar uma API cuja explicação o leitor-alvo não lê. **Ele é traduzido junto com o `README`, na fatia `DOCS-PUB`.**
+
+**Inglês internacional, não regional:** vocabulário e ortografia neutros, sem gíria, sem regionalismo, sem idiomatismo que exija cultura local para entender. O leitor-alvo em geral **não tem o inglês como primeira língua** — a clareza vence a elegância.
+
+**Regra para arquivo novo, que é o que evita a mistura voltar:** antes de criar documento, **responda a pergunta do leitor**. Se a resposta for "os dois", ele provavelmente são **dois documentos**, não um bilíngue.
 
 **Aplicação:** `runtime_version`, `frame_buffer`, `is_valid`. Nada de `buscarItem`, nada de `m_cache`. Nome revela intenção, sem abreviação que não seja universal (`id`, `url`, `http`), e nada de letra solta fora de contador de laço.
 

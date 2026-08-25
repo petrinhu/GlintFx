@@ -66,27 +66,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Biblioteca/framework **2D completo e reutilizável** em C++23. O consumidor (outro projeto) obtém janela, loop principal, render 2D, input, gamepad, áudio, fonte, carregamento de asset e math2d, e escreve apenas a lógica dele. O entregável é a **API pública + headers + pacote CMake**, não um binário final.
 
-## Estado atual do repositório (22/08/2026)
+## Estado atual do repositório
 
-**Projeto em andamento desde a fundação de 21/08/2026 - já não é "do zero".** Esta seção foi reescrita porque a versão anterior (datada de 21/08/2026) afirmava "zero commits, sem remoto, nenhum código, nenhum CMake, nenhum teste" - falso desde o primeiro dia do projeto, e cada vez mais desatualizado depois. Todo número abaixo foi medido nesta data, com o comando indicado; nada veio de memória.
+> **Regra de manutenção desta seção, para o próximo editor tropeçar nela ANTES de violá-la:** esta seção **não carrega contador**. Todo número que muda por fatia (commits, casos de teste, arquivos rastreados, estado do remoto, resultado do CI) entra como **o comando que o mede**, nunca como o valor medido — comando não apodrece, número escrito sim. **Fato estrutural** (o que existe e por quê, não quanto) continua em prosa, datado. Esta regra existe porque a versão anterior (22/08/2026) gravava número, e uma verificação de 25/08/2026 reprovou o item `DOC-ESTADO` por isso: a seção dizia 56 commits/9 casos de teste quando o real já era 102/15 — o próprio item criado para consertar documentação obsoleta ficou obsoleto em 3 dias.
 
-**Git e remoto:**
+**Voláteis — meça, não leia:**
 
-- `git rev-list --count HEAD`: **56 commits** no branch local `main`.
-- `git ls-remote origin main`: o remoto `git@github.com:petrinhu/GlintFx.git` está em `6d3b506...` - **52 commits** (`git rev-list --count origin/main`). Os outros **4 são locais, ainda não empurrados** (L-11: push só ao fechar onda completa, com aval do líder). `git log origin/main..HEAD --oneline` lista exatamente esses 4.
-- Último push, `git@github.com:petrinhu/GlintFx.git` @ `6d3b506` ("docs(testes): remove meta de cobertura instruida no T1..."), teve CI **verde nos 6 jobs** (`gh run view <id> --json jobs`): `Fedora 44 (primario)`, `Ubuntu`, `CachyOS`, `Arch`, `Windows`, `Gate das leis`. Os 4 commits locais ainda não passaram pelo CI, por não terem sido empurrados.
+| O quê | Comando |
+|---|---|
+| Commits locais | `git rev-list --count HEAD` |
+| Estado do remoto | `git ls-remote origin main` comparado com `git rev-parse HEAD` |
+| Commits ainda não empurrados | `git log origin/main..HEAD --oneline` |
+| Casos de teste por modo (shared/estático) | `ctest --test-dir build -N` e `ctest --test-dir build-static -N` |
+| Arquivos rastreados | `git ls-files` |
+| Resultado do último CI pushado | `gh run list --limit 1` (jobs de um run: `gh run view <id> --json jobs`) |
 
-**Árvore real** (contada por `find`, não estimada):
+**Fatos estruturais (confirmados em 25/08/2026, re-conferidos contra a árvore, não de memória):**
 
-- **12 arquivos `.md` na raiz**: os 9 manuais canônicos do vault listados em "Autoridade documental" abaixo, mais este `CLAUDE.md`, `GODS_LAWS.md` e `TODO.md`.
-- `LICENSE` (AGPL-3.0), `.gitignore`, `.github/workflows/ci.yml` (a matriz de 6 jobs acima), `.bigtech-porte` (`porte=bigtech`).
-- `CMakeLists.txt` na raiz + `cmake/`: **7 arquivos** (`GlintfxOptions.cmake`, `GlintfxCompileOptions.cmake`, `GlintfxLibrary.cmake`, `GlintfxInstall.cmake`, `GlintfxTest.cmake`, `glintfx-config.cmake.in`, `version_macros.hpp.in`).
-- `include/`: **1 header público**, `include/glintfx/core/version.hpp` (versão em runtime da lib; nenhuma exceção cruza a API pública, L-22).
-- `src/`: `CMakeLists.txt` + **1 camada** (`core/`, com `version.cpp`) - o próprio comentário do CMake da camada diz "hoje só core/ existe" (L-19: cada camada é uma unidade CMake visível, a próxima camada que toca o SO nasce como entrada nova nesta lista, nunca misturada ao core).
-- `tests/`: harness de teste **próprio** em `tests/harness/` (`check.hpp`/`check.cpp`, macro `GLINTFX_CHECK`; `test_registry.hpp`/`.cpp`, macro `GLINTFX_TEST`) - existe porque a **L-07 proíbe Catch2 e GoogleTest** (dependência externa). Casos de teste C++ (`version_test`) mais 8 gates de shell em `tests/tools/*.sh` (`check_consume.sh`, `check_embed.sh`, `check_exports.sh`, `check_install_includedir.sh`, `check_install_packager_layout.sh`, `check_layers.sh`, `check_no_target_collision.sh`, `check_output_name.sh`), registrados como `add_test` condicionais. Rodando a suíte agora (`ctest --test-dir build`): **9 casos passam em modo shared** (`version_test`, `visibility_test`, `layers_test`, `consume_test`, `embed_test`, `install_includedir_test`, `install_packager_layout_test`, `output_name_test`, `no_target_collision_test`) e **8 em modo estático** (os mesmos, menos `visibility_test`, que só existe com `BUILD_SHARED_LIBS=ON` em Unix).
-- `tools/ci/`: 2 scripts PowerShell (`check-consume.ps1`, `diagnose-win-runtime.ps1`) para o job Windows.
+- **Harness de teste próprio** em `tests/harness/` (`check.hpp`/`.cpp`, macro `GLINTFX_CHECK`; `test_registry.hpp`/`.cpp`, macro `GLINTFX_TEST`). Existe porque a **L-07 proíbe Catch2 e GoogleTest** — são dependência de terceiro, e a lib tem dependência zero.
+- **Camadas (L-19):** hoje só duas existem — `core/` (núcleo puro, não toca o SO) e `platform/` (a única camada que toca o SO). Dentro de `platform/`, o único backend é `platform/wayland/`; o próprio `src/platform/CMakeLists.txt` documenta que um backend novo (ex.: Windows) nasce como `add_subdirectory()` irmão, nunca misturado ao Wayland. `platform/wayland/` hoje só liga o binding gerado do `xdg-shell` ao alvo da lib (WL-PROTO) — nenhum código de conexão ou de evento ainda existe (isso é WL-DISPLAY, fatia futura).
+- **`cmake/`:** um arquivo por assunto — opções, flags de compilação, definição do alvo da lib, instalação/empacotamento, harness de teste, geração do binding Wayland via `wayland-scanner`, template do `.pc` para empacotador externo. Quantidade cresce a cada fatia de infraestrutura; meça com `ls cmake/`.
+- **`tests/tools/`:** gates de shell registrados como `add_test` condicionais, cobrindo consumo instalado, embutido (embed), exports, layout de instalação, violação de camada, colisão de nome de alvo CMake, nome do artefato de saída, cobertura de higiene de header público e o `.pc` gerado. Quantidade cresce a cada gate novo; meça com `ls tests/tools/`.
+- **`tests/container/`:** nasceu na onda W1 (item `TEST-WLCONT`) para cumprir a L-09 — sobe `kwin_wayland` **dentro** de um container Docker, com `check_isolation.sh` provando, por `docker inspect`, que nenhuma montagem do host (`XDG_RUNTIME_DIR`, socket `wayland-0`, `/dev/uinput`) atravessa a fronteira, sempre antes de qualquer interação com o compositor.
+- **Pin do alvo primário (L-04):** a imagem do job da matriz `linux` chamado `Fedora 44 (primario)` está fixada em `fedora:44`, nunca `:latest`.
+- **Os portões que a onda W1 acrescentou (L-23):** `-Werror`/`/WX` ligado nos dois modos (shared e estático) dos jobs Linux e Windows via `-DGLINTFX_WERROR=ON`; três jobs de CI dedicados — `lint` (clang-format, clang-tidy, cppcheck), `sanitizer` (ASan/UBSan) e `gitleaks` (scan de segredo, `fetch-depth 0`, histórico inteiro) — todos rodando só no alvo primário (Fedora 44); e o script local `tools/preci.sh`, espelho do CI, com os modos `--fast`, `--lint-only`, `--sanitizer-only` e `--selftest` (este último provado contra fixtures em `tests/preci_fixtures/`, não contra a árvore real).
+- **⚠️ Os jobs `lint`, `sanitizer`, `gitleaks` e `wayland-container` podem existir no `.github/workflows/ci.yml` local sem nunca terem rodado no GHA real** — CI só exerce o que já foi empurrado. **Não assuma; compare as duas listas de jobs:** a local (`grep -A1 '^  [a-z-]*:$' .github/workflows/ci.yml` ou leia o arquivo) contra a da última execução pushada (`gh run view $(gh run list --limit 1 --json databaseId -q '.[0].databaseId') --json jobs -q '.jobs[].name'`). Se a segunda lista for menor que a primeira, o job que falta na segunda ainda não foi exercido pelo GHA — o verde que existe é só o de rodada local (`tools/preci.sh`).
+- **Quarto componente de versão (item `VER-4C`, L-26):** `struct version` em `include/glintfx/core/version.hpp` ganhou `tweak_version` como quarto e último campo, casando com a tag `vA.B.C.D`. Reabertura de layout aceita só porque o projeto é pré-1.0 (`SOVERSION` 0, sem consumidor externo conhecido).
 
-A seção "Comandos" abaixo já era real; os comandos foram reexecutados nesta data e continuam funcionando (configure + build + ctest, shared e estático, `exit 0` nos três).
+A seção "Comandos" abaixo continua real; os comandos foram reexecutados em 25/08/2026 e continuam funcionando (configure + build + ctest, shared e estático, `exit 0` nos três).
 
 ## Decisões fechadas pelo líder (21/08/2026)
 
@@ -151,7 +158,7 @@ Comandos provados verdes em 21/08/2026 (FUND-3), na forma exata usada pelo job `
 - Um único teste: `ctest --test-dir build -R <nome> --output-on-failure` (ex.: `-R version_test`)
 - Lint / análise estática: `<a definir>`
 
-Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). No modo shared a suíte tem **9 casos** (`version_test`, `visibility_test`, `layers_test`, `consume_test`, `embed_test`, `install_includedir_test`, `install_packager_layout_test`, `output_name_test`, `no_target_collision_test`); no estático, **8** (os mesmos, menos `visibility_test` - só existe com `BUILD_SHARED_LIBS=ON` e sistema Unix, é `nm -D` numa `.a`, não faz sentido). Contagem medida em 22/08/2026 (`ctest --test-dir build` nos dois modos); a versão anterior desta linha dizia 3/2 e estava desatualizada desde a onda FIX-CONSUMO.
+Sempre com `export TMPDIR=/var/tmp` antes de configurar/linkar nesta máquina (`/tmp` é tmpfs). **Número de casos por modo não é fixo aqui** — meça com `ctest --test-dir build -N` (shared) e `ctest --test-dir build-static -N` (estático); os dois modos diferem só por `visibility_test`, que exige `BUILD_SHARED_LIBS=ON` em Unix (é `nm -D` numa `.a`, não faz sentido no modo estático). Esta linha já gravou "3/2" e depois "9/8" como se fossem constantes; as duas versões apodreceram em dias — não repita o erro.
 
 ## Isolamento obrigatório de teste (teclado, mouse, tela)
 
@@ -210,7 +217,7 @@ Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e 
 
 ## Pendências
 
-A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz: **92 itens em 13 ondas** (contado em 22/08/2026 por `grep -cE '^\| [0-9]' TODO.md`; eram 57 em 21/08/2026 - os 57 originais mais **21 fatias do motor de RCSS** e **14 fatias do mecanismo de mapa**, acrescentadas nesse mesmo dia), no schema de **10 colunas** da skill `tab_pendencias`, com **`WSJF` como primeira coluna**. As linhas estão na ordem de execução, e a coluna `Onda` marca os passos paralelizáveis. As parcelas do scoring que a coluna não carrega (valor, criticidade, redução de risco, CoD e tamanho) ficam em `/var/tmp/glintfx-plan/lente-produto.md`, do `product-manager`. Itens com porta de mão única trazem na descrição **o que congelam** e a exigência de revisão de API dedicada.
+A tabela de pendências e planejamento do projeto está em `TODO.md` na raiz. **A contagem de itens não é fixa aqui** — meça com `grep -cE '^\| [0-9]' TODO.md`; a proveniência de cada faixa (os itens originais da fundação, mais as fatias do motor de RCSS e do mecanismo de mapa acrescentadas em 21/08 e 22/08/2026) está documentada, com data, na seção "Proveniência (L-27)" do próprio `TODO.md` — link vale mais que número copiado, porque a proveniência não muda a cada fatia fechada e o total muda. Schema de **10 colunas** da skill `tab_pendencias`, com **`WSJF` como primeira coluna**. As linhas estão na ordem de execução, e a coluna `Onda` marca os passos paralelizáveis. As parcelas do scoring que a coluna não carrega (valor, criticidade, redução de risco, CoD e tamanho) ficam em `/var/tmp/glintfx-plan/lente-produto.md`, do `product-manager`. Itens com porta de mão única trazem na descrição **o que congelam** e a exigência de revisão de API dedicada.
 
 A trilha de mapa (14 fatias, grupo `Mapa`) está **desenhada e pontuada, com as seis decisões de formato fechadas**, mas nenhuma fatia está disponível para pull agora: o slot único de trilha paralela da L-32 é do **RCSS** hoje, por decisão do líder em 22/08/2026 ("rcss primeiro" - contra a recomendação do CPO/CTO, que apontavam o mapa pelo agregado, mas dentro de um espaço que o número deixava genuinamente aberto). As 14 linhas usam o status `💡 Decisão tomada` para marcar isso, e liberam quando o RCSS fechar (onda W10) ou o líder decidir de outra forma - ver a seção "A trilha de mapa" do próprio `TODO.md`.
 

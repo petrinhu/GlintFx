@@ -17,6 +17,52 @@ glintfx_apply_compile_options(glintfx_test_harness)
 
 glintfx_add_test(version_test)
 
+# Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
+# proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
+# src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a
+# header this TU can #include and a symbol it can reference. Linux/
+# Wayland-only slice, same declared downgrade as the other if(UNIX)
+# gates in this file: Windows has no Wayland backend by design
+# (GODS_LAWS.md L-05).
+#
+# glintfx_add_wayland_xdg_shell_binding() is called a SECOND time here,
+# on wl_proto_link_test itself, not only on glintfx_library
+# (src/platform/wayland/CMakeLists.txt) - deliberately, and NOT a
+# duplicate of that call: wayland-scanner's private-code mode marks
+# every generated interface WL_PRIVATE, i.e.
+# __attribute__((visibility("hidden"))) (measured live in the
+# generated xdg-shell-protocol.c; wayland-scanner's own --help text
+# calls private-code "strongly recommended" over public-code for
+# exactly this reason - GODS_LAWS.md L-19 wants the same thing, the
+# public surface must not move). A HIDDEN symbol never enters a shared
+# library's dynamic symbol table, so a SEPARATE executable linking
+# against glintfx::glintfx cannot resolve xdg_wm_base_interface across
+# that .so boundary - proven live: the first cut of this gate linked
+# only against the library and failed with "undefined reference to
+# `xdg_wm_base_interface'" even though the symbol existed, HIDDEN,
+# inside libglintfx.so's own object. The fix respects the hidden
+# visibility instead of fighting it (no hand-written edit of the
+# generated file, no switch to public-code, no export macro added to
+# a 100%-generated .c - any of those would either violate "no
+# hand-written C line" or reopen the exact cross-DSO symbol-collision
+# risk private-code exists to avoid): the function is idempotent
+# (cmake/GlintfxWaylandProtocols.cmake reuses the same generated
+# .h/.c the moment they already exist) and simply compiles the SAME
+# generated xdg-shell-protocol.c a second time, into THIS executable's
+# own object set - exactly the shape a real Wayland application takes
+# when it wants to unit-test its own protocol binding: header and
+# private-code compiled into the SAME link unit, no DSO boundary
+# involved. This still proves everything the fatia's scope calls for:
+# the generation step runs from the system XML, the header is reachable
+# from a plain C++ TU wrapped in extern "C", and the compiled data is
+# correct (name "xdg_wm_base") - it does not, and should not, prove
+# that a hidden private-code symbol crosses a library boundary, because
+# GODS_LAWS.md L-19 does not want it to.
+if(UNIX)
+    glintfx_add_test(wl_proto_link_test)
+    glintfx_add_wayland_xdg_shell_binding(wl_proto_link_test)
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h

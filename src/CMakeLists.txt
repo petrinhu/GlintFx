@@ -9,9 +9,11 @@
 #
 # Each layer (GODS_LAWS.md L-19) is a visible CMake unit: its own
 # add_subdirectory(), whose CMakeLists.txt only does
-# target_sources(glintfx_library ...) on the target created below. Today
-# only core/ exists; the layer that touches the OS is born as the next
-# entry in this list, never mixed into the core sources.
+# target_sources(glintfx_library ...) on the target created below.
+# platform/ (UNIX only for now, WL-PROTO) is the layer that touches the
+# OS - kept strictly separate from core/'s add_subdirectory() below, per
+# GODS_LAWS.md L-19 item 1 ("a single layer touches the OS") and the
+# check_layers.sh gate that reproves core/ reaching into it.
 #
 # The CMake target is named `glintfx_library`, not the bare `glintfx`
 # (FIX-CONSUMO-2, achado QA-3): a consumer that embeds glintfx via
@@ -28,6 +30,12 @@ add_library(glintfx_library)
 add_library(glintfx::glintfx ALIAS glintfx_library)
 
 add_subdirectory(core)
+
+# UNIX only (WL-PROTO, GODS_LAWS.md L-05: Wayland is a Linux-only
+# surface; Windows has no platform/ entry yet).
+if(UNIX)
+    add_subdirectory(platform)
+endif()
 
 glintfx_apply_compile_options(glintfx_library)
 glintfx_set_target_properties(glintfx_library)

@@ -17,6 +17,17 @@ cmake_minimum_required(VERSION 3.28)
 # resolves this exact release under the current pre-1.0 policy.
 project(glintfx VERSION 0.1.0.0 LANGUAGES CXX)
 
+# C, under UNIX only (WL-PROTO, GODS_LAWS.md L-05): the private-code
+# half of a wayland-scanner binding (cmake/GlintfxWaylandProtocols.cmake)
+# is generated C, never C++ - enable_language() has to run before ANY
+# target compiles a .c source, so it belongs here, at the top of the
+# root file, not buried inside the module that first needs it. Windows
+# has no Wayland backend by design, so the C toolchain this project
+# needs stays opt-in to the platform that actually uses it.
+if(UNIX)
+    enable_language(C)
+endif()
+
 # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7): when
 # glintfx is embedded via add_subdirectory/FetchContent, CMAKE_SOURCE_DIR
 # is the CONSUMER's root, not glintfx's own; PROJECT_SOURCE_DIR always
@@ -40,6 +51,14 @@ include(GlintfxOptions)
 include(GlintfxCompileOptions)
 include(GlintfxLibrary)
 include(GlintfxInstall)
+
+# UNIX only (GODS_LAWS.md L-05): pkg_check_modules(... REQUIRED ...)
+# inside this module would hard-fail configure on a platform with no
+# libwayland-client, which is correct on Linux/Wayland and wrong
+# everywhere else - Windows never reaches this include.
+if(UNIX)
+    include(GlintfxWaylandProtocols)
+endif()
 
 add_subdirectory(src)
 

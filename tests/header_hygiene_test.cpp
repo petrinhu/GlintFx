@@ -24,12 +24,28 @@
 // major_version/minor_version/patch_version specifically to avoid
 // that collision (HDR-HYGIENE, GODS_LAWS.md L-19 PMU), so removing
 // <sys/types.h>/<sys/sysmacros.h> from above changes NOTHING here
-// today. This TU does not prove collision-at-USE-SITE (a future
-// method actually named major()/min() being called), and it does not
-// prove that a NEW symbol added inside a header this TU already
-// covers gets exercised (mutant M4a). Both are the responsibility of
-// that feature's own TDD cycle when it lands (GODS_LAWS.md L-20), not
-// of this guard.
+// today for version.hpp - it is a plain data struct with no methods,
+// so there is no call-like USE SITE of its field names to exercise
+// this way at all.
+//
+// CLOSED FOR CORE-ERROR (CE-8, 25/08/2026): "that feature's own TDD
+// cycle when it lands" from the paragraph above - CORE-ERROR is
+// exactly that feature. core_error_use_sites_survive_hostile_system_
+// headers() below calls EVERY frozen CORE-ERROR public identifier
+// (every gltfx_err accessor/attach method, gltfx_err_code_name(),
+// both gltfx_rslt<T> forms, gltfx_err_fields()) as an ACTUAL CALL
+// EXPRESSION, not just a declaration the compiler parses - the shape
+// that would actually collide with a hostile function-like macro
+// (`identifier(` immediately followed by an open paren is what the
+// preprocessor pattern-matches on). Same honest caveat as the
+// declaration-site case above: this is preventive shielding, checked
+// live in this session against the REAL sys/sysmacros.h on Linux (no
+// collision found - see the CE-8 commit for the full enumerated
+// audit); the Windows leg of CI exercises the same use-site calls
+// against the REAL windows.h automatically, since #ifdef _WIN32
+// selects it the same way it already does for the declaration-site
+// case, but that leg was not run in THIS sandbox (no Windows
+// toolchain here).
 //
 // COVERAGE CONTRACT, now MECHANICAL, not text: every *.hpp committed
 // under include/glintfx/ has to appear as a literal `#include` line
@@ -71,6 +87,8 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
+#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -93,4 +111,74 @@ GLINTFX_TEST(version_header_survives_hostile_system_headers) {
 
     const std::string runtime = std::string(glintfx::version_string());
     GLINTFX_CHECK_EQ(runtime, std::string(GLINTFX_VERSION_STRING));
+}
+
+// core_error_use_sites_survive_hostile_system_headers - CE-8 finding:
+// closes the documented "no live target for USE-SITE collision" gap
+// above, for CORE-ERROR specifically. Every frozen public identifier
+// from err_code.hpp/err.hpp/err_format.hpp is called here, as an
+// actual expression, under the SAME hostile include order the
+// declaration-site case above already sets up - if any of them
+// collided with a hostile macro (major/minor-style, function-like,
+// pattern-matching on `identifier(`), this translation unit would fail
+// to COMPILE, not merely produce a wrong runtime value.
+GLINTFX_TEST(core_error_use_sites_survive_hostile_system_headers) {
+    // gltfx_err_code_name() - CE-1's free function.
+    const std::string_view code_name =
+        glintfx::gltfx_err_code_name(glintfx::gltfx_err_code::parse_failure);
+    GLINTFX_CHECK(code_name == std::string_view{"parse_failure"});
+
+    // gltfx_err - CE-2/CE-3's type: construction, every accessor, every
+    // with_*() attach method (chained), copy and move.
+    glintfx::gltfx_err err(glintfx::gltfx_err_code::parse_failure);
+    err.with_path("scene.rcss")
+        .with_position(1, 2)
+        .with_byte_offset(3)
+        .with_rejected_value("x")
+        .with_os_error_code(4);
+    GLINTFX_CHECK(err.code() == glintfx::gltfx_err_code::parse_failure);
+    GLINTFX_CHECK(err.path() == std::string_view{"scene.rcss"});
+    GLINTFX_CHECK(err.line() == 1);
+    GLINTFX_CHECK(err.column() == 2);
+    GLINTFX_CHECK(err.byte_offset() == 3);
+    GLINTFX_CHECK(err.rejected_value() == std::string_view{"x"});
+    GLINTFX_CHECK(err.os_error_code() == 4);
+
+    const glintfx::gltfx_err copied(err);
+    const glintfx::gltfx_err moved(std::move(err));
+    GLINTFX_CHECK(copied.code() == glintfx::gltfx_err_code::parse_failure);
+    GLINTFX_CHECK(moved.code() == glintfx::gltfx_err_code::parse_failure);
+
+    // gltfx_rslt<T> - CE-4's envelope: both the primary template and
+    // the T = void specialization, both factory forms.
+    const glintfx::gltfx_rslt<int> ok_result = glintfx::gltfx_rslt<int>::ok(7);
+    GLINTFX_CHECK(ok_result.has_value());
+    GLINTFX_CHECK(ok_result.value() == 7);
+
+    const glintfx::gltfx_rslt<int> err_result =
+        glintfx::gltfx_rslt<int>::err(glintfx::gltfx_err(glintfx::gltfx_err_code::not_found));
+    GLINTFX_CHECK(err_result.has_error());
+    GLINTFX_CHECK(err_result.error().code() == glintfx::gltfx_err_code::not_found);
+
+    const glintfx::gltfx_rslt<void> ok_void = glintfx::gltfx_rslt<void>::ok();
+    GLINTFX_CHECK(ok_void.has_value());
+
+    const glintfx::gltfx_rslt<void> err_void =
+        glintfx::gltfx_rslt<void>::err(glintfx::gltfx_err(glintfx::gltfx_err_code::unsupported));
+    GLINTFX_CHECK(err_void.has_error());
+
+    // gltfx_err_fields() - CE-5's formatter, plus gltfx_err_field's own
+    // two members (name, value). GLINTFX_CHECK is NON-FATAL (see
+    // harness/check.hpp: it records the failure and the case keeps
+    // running) - cppcheck's containerOutOfBounds caught the real
+    // consequence: indexing fields[0] unconditionally right after a
+    // failed !fields.empty() check would still execute, out of
+    // bounds. Guarding the index behind the same condition, not
+    // suppressing the finding, is the fix.
+    const auto fields = glintfx::gltfx_err_fields(copied);
+    GLINTFX_CHECK(!fields.empty());
+    if (!fields.empty()) {
+        GLINTFX_CHECK(fields[0].name == std::string_view{"code"});
+        GLINTFX_CHECK(fields[0].value == "parse_failure");
+    }
 }

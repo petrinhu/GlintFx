@@ -148,6 +148,7 @@ Os manuais na raiz são normativos e vencem qualquer preferência do agente, **e
 | `DEPLOY_CHECKLIST.md` | Qualquer operação irreversível (tag, release pública, rotação de chave) |
 | `ORG.md`, `pipeline_release_1.0.md`, `lideranca_pipeline_release.md` | Quem lidera o quê, qual C-level ativar, as 12 fases |
 | `TOOLING.md` | Qual ferramenta FOSS canônica usar por domínio antes de improvisar em shell |
+| `docs/api-conventions.md` | Antes de fechar qualquer revisão de API dedicada (PMU) - as sete regras que CORE-ERROR estabeleceu (CE-8), cada uma com o teste que a prova |
 
 Ao despachar um subagent, **inclua o caminho absoluto do manual no prompt da task** - subagents não herdam este contexto.
 

@@ -24,6 +24,30 @@ glintfx_add_test(version_test)
 # CONTRACT comment at the top of header_hygiene_test.cpp.
 glintfx_add_test(header_hygiene_test)
 
+# Header hygiene COVERAGE gate (HDR-HYGIENE-FIX-2): proves the
+# "every *.hpp under include/glintfx/ has a literal #include line in
+# header_hygiene_test.cpp" contract mechanically, instead of trusting
+# a human to read the comment at the top of that file - the previous
+# version of that comment made exactly that claim and nothing ever
+# enforced it (see tests/tools/check_hygiene_coverage.sh's own header
+# for the declared generated-header limitation). POSIX sh; same
+# declared downgrade as every other gate in this file.
+if(UNIX)
+    add_test(
+        NAME hygiene_coverage_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.sh"
+            "${PROJECT_SOURCE_DIR}/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/header_hygiene_test.cpp"
+    )
+    set_tests_properties(hygiene_coverage_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME hygiene_coverage_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.sh" --selftest
+    )
+    set_tests_properties(hygiene_coverage_selftest PROPERTIES LABELS selftest)
+endif()
+
 # Visibility test: only makes sense with dynamic symbols (.so) and the
 # Unix `nm -D` tool. On Windows the export is already controlled by
 # __declspec via generate_export_header; proving that would require

@@ -5,7 +5,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/petrus/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/check-inbox-hook.sh glintfx"
+            "command": "$HOME/.local/bin/github-gossips --bus"
+          },
+          {
+            "type": "command",
+            "command": "bash $HOME/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/check-inbox-hook.sh glintfx"
           }
         ]
       }
@@ -15,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/petrus/IDrive/Documentos/projetos_claudebrain/gusworld_ia_autocomm/check-inbox-hook.sh glintfx"
+            "command": "$HOME/.claude/skills/github-gossips/bin/check-tunnel.sh"
           }
         ]
       }

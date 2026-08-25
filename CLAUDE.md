@@ -80,12 +80,13 @@ Biblioteca/framework **2D completo e reutilizável** em C++23. O consumidor (out
 | Commits ainda não empurrados | `git log origin/main..HEAD --oneline` |
 | Casos de teste por modo (shared/estático) | `ctest --test-dir build -N` e `ctest --test-dir build-static -N` |
 | Arquivos rastreados | `git ls-files` |
+| Camadas e backends que existem | `ls src/` e `ls src/platform/` |
 | Resultado do último CI pushado | `gh run list --limit 1` (jobs de um run: `gh run view <id> --json jobs`) |
 
 **Fatos estruturais (confirmados em 25/08/2026, re-conferidos contra a árvore, não de memória):**
 
 - **Harness de teste próprio** em `tests/harness/` (`check.hpp`/`.cpp`, macro `GLINTFX_CHECK`; `test_registry.hpp`/`.cpp`, macro `GLINTFX_TEST`). Existe porque a **L-07 proíbe Catch2 e GoogleTest** — são dependência de terceiro, e a lib tem dependência zero.
-- **Camadas (L-19):** hoje só duas existem — `core/` (núcleo puro, não toca o SO) e `platform/` (a única camada que toca o SO). Dentro de `platform/`, o único backend é `platform/wayland/`; o próprio `src/platform/CMakeLists.txt` documenta que um backend novo (ex.: Windows) nasce como `add_subdirectory()` irmão, nunca misturado ao Wayland. `platform/wayland/` hoje só liga o binding gerado do `xdg-shell` ao alvo da lib (WL-PROTO) — nenhum código de conexão ou de evento ainda existe (isso é WL-DISPLAY, fatia futura).
+- **Camadas (L-19):** quais existem hoje, meça com `ls src/` (o backend ativo, com `ls src/platform/`) — `core/` (núcleo puro, não toca o SO) e `platform/` (a única camada que toca o SO). Dentro de `platform/`, o único backend é `platform/wayland/`; o próprio `src/platform/CMakeLists.txt` documenta que um backend novo (ex.: Windows) nasce como `add_subdirectory()` irmão, nunca misturado ao Wayland. `platform/wayland/` hoje só liga o binding gerado do `xdg-shell` ao alvo da lib (WL-PROTO) — nenhum código de conexão ou de evento ainda existe (isso é WL-DISPLAY, fatia futura).
 - **`cmake/`:** um arquivo por assunto — opções, flags de compilação, definição do alvo da lib, instalação/empacotamento, harness de teste, geração do binding Wayland via `wayland-scanner`, template do `.pc` para empacotador externo. Quantidade cresce a cada fatia de infraestrutura; meça com `ls cmake/`.
 - **`tests/tools/`:** gates de shell registrados como `add_test` condicionais, cobrindo consumo instalado, embutido (embed), exports, layout de instalação, violação de camada, colisão de nome de alvo CMake, nome do artefato de saída, cobertura de higiene de header público e o `.pc` gerado. Quantidade cresce a cada gate novo; meça com `ls tests/tools/`.
 - **`tests/container/`:** nasceu na onda W1 (item `TEST-WLCONT`) para cumprir a L-09 — sobe `kwin_wayland` **dentro** de um container Docker, com `check_isolation.sh` provando, por `docker inspect`, que nenhuma montagem do host (`XDG_RUNTIME_DIR`, socket `wayland-0`, `/dev/uinput`) atravessa a fronteira, sempre antes de qualquer interação com o compositor.

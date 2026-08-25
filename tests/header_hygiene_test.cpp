@@ -73,6 +73,7 @@
 #include <string>
 
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/core/error.hpp>
 #include <glintfx/core/version.hpp>
 #include <glintfx/version_macros.hpp>
 

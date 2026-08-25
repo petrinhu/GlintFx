@@ -17,6 +17,7 @@ glintfx_apply_compile_options(glintfx_test_harness)
 
 glintfx_add_test(version_test)
 glintfx_add_test(err_code_test)
+glintfx_add_test(error_no_alloc_test)
 
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,

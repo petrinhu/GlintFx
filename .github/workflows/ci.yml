@@ -232,6 +232,96 @@ jobs:
         shell: pwsh
         run: tools/ci/check-consume.ps1 -BuildDir build-static -PackageSrcDir tests/package
 
+  # GODS_LAWS.md L-09 / TEST-WLCONT: prova, em CI, que o container de
+  # teste com compositor Wayland dentro (tests/container/) e a mesma
+  # imagem que roda localmente e que ela isola de verdade a superficie
+  # do lider - nunca monta o XDG_RUNTIME_DIR nem o wayland-0 do host,
+  # nunca monta /dev/uinput, nunca fala X11 (L-05). Bloqueante como os
+  # demais jobs (L-18): job que nao consegue ficar verde nao entra no
+  # push.
+  wayland-container:
+    name: Container Wayland isolado (TEST-WLCONT, L-09)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Marca o inicio do build da imagem
+        id: build_image
+        run: echo "inicio=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      # Imagem construida sob demanda, com cache de camadas no cache
+      # de Actions do proprio GitHub (`type=gha`) - decisao do CTO:
+      # sem registry externo. `load: true` poe a imagem no daemon
+      # docker local do runner, porque os passos seguintes falam com
+      # ela via `docker run`/`docker exec`, nao via `docker push`.
+      - uses: docker/build-push-action@v6
+        with:
+          context: tests/container
+          file: tests/container/Containerfile
+          tags: glintfx-wltest:ci
+          load: true
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Tempo de build da imagem
+        run: |
+          set -eu
+          fim=$(date +%s)
+          echo "tempo de build da imagem: $((fim - ${{ steps.build_image.outputs.inicio }}))s"
+
+      # Fato medido ao vivo contra esta mesma imagem, nao suposto: o
+      # kwin_wayland do Fedora carrega a capability de arquivo
+      # cap_sys_nice=ep (`getcap /usr/bin/kwin_wayland`), e um
+      # `docker run` default nao concede CAP_SYS_NICE - sem ela o
+      # dbus-run-session falha o exec do kwin_wayland com "Operation
+      # not permitted" antes mesmo de o compositor subir. Nada alem
+      # disso: sem --privileged, sem /dev/dri (GODS_LAWS.md L-09 regra
+      # 4 - render por software, reproduzivel em qualquer runner).
+      - name: Sobe o compositor limpo (nenhuma montagem do host)
+        run: |
+          set -eux
+          docker run -d --name glintfx-wltest-clean --cap-add=SYS_NICE glintfx-wltest:ci
+          for _ in $(seq 1 30); do
+            docker exec glintfx-wltest-clean pgrep -x kwin_wayland >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec glintfx-wltest-clean pgrep -x kwin_wayland
+
+      # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
+      # interagir. Este passo roda antes do smoke test de proposito.
+      - name: Isolamento provado (controle positivo)
+        run: tests/container/check_isolation.sh glintfx-wltest-clean glintfx-test
+
+      - name: Smoke test - wayland-info dentro do container
+        run: docker exec glintfx-wltest-clean smoke.sh glintfx-test
+
+      # Controle negativo obrigatorio: um container com uma montagem
+      # deliberadamente proibida TEM que ser acusado por
+      # check_isolation.sh. Se ele passar verde aqui, o proprio gate
+      # esta quebrado - o mesmo piso que tools/preci.sh --selftest
+      # aplica aos seus proprios controles (GODS_LAWS.md L-23).
+      - name: Controle negativo (montagem proibida tem que ser acusada)
+        run: |
+          set -eux
+          docker run -d --name glintfx-wltest-poisoned --cap-add=SYS_NICE \
+            -v /tmp:/run/user/1000:ro glintfx-wltest:ci
+          for _ in $(seq 1 30); do
+            docker exec glintfx-wltest-poisoned pgrep -x kwin_wayland >/dev/null 2>&1 && break
+            sleep 1
+          done
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned glintfx-test; then
+            echo "ERRO: check_isolation.sh deveria ter acusado a montagem proibida" >&2
+            exit 1
+          fi
+          echo "ok: montagem proibida foi acusada, como esperado"
+
+      - name: Limpeza
+        if: always()
+        run: docker rm -f glintfx-wltest-clean glintfx-wltest-poisoned || true
+
   lint:
     name: Lint (Fedora 44 - clang-format, clang-tidy, cppcheck)
     runs-on: ubuntu-latest

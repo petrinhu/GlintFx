@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tests/container/Containerfile - isolated Wayland compositor for any
+# test that touches the leader's surface: keyboard, mouse or screen
+# (GODS_LAWS.md L-09, TEST-WLCONT). The container is the outer
+# boundary; the compositor lives INSIDE it, on a socket the host never
+# shares. Nothing in this image, and nothing in the `docker run`
+# invocation that starts it, may reach back into the host session -
+# see check_isolation.sh for the proof.
+#
+# Pinned on fedora:44, the primary target (GODS_LAWS.md L-04): this
+# gate has to fail exactly when the leader's own machine would fail,
+# never drift to a moving `:latest`.
+#
+# kwin is the compositor by the leader's own registered decision
+# (CLAUDE.md, "Isolamento obrigatório de teste"; GODS_LAWS.md L-09) -
+# not weston, not sway, not labwc, and never Xvfb (that is X11,
+# GODS_LAWS.md L-05). `--virtual` renders to a software framebuffer,
+# which is why mesa-dri-drivers (llvmpipe) is here and /dev/dri is
+# not: L-09 rule 4 says no real GPU device by default, precisely so
+# this image renders the same way on every runner in the CI matrix.
+FROM fedora:44
+
+RUN dnf -y install \
+        kwin \
+        mesa-dri-drivers \
+        mesa-libEGL \
+        mesa-libgbm \
+        dbus-daemon \
+        wayland-utils \
+        iproute \
+        lsof \
+        procps-ng \
+    && dnf clean all
+
+COPY run_compositor.sh /usr/local/bin/run_compositor.sh
+COPY smoke.sh /usr/local/bin/smoke.sh
+RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh
+
+# ENTRYPOINT + default CMD: `docker run <image>` alone starts the
+# compositor on the "glintfx-test" socket; overriding CMD swaps the
+# socket name without touching ENTRYPOINT.
+ENTRYPOINT ["/usr/local/bin/run_compositor.sh"]
+CMD ["glintfx-test"]
+
+# Fact measured live against this exact image, not assumed: Fedora's
+# kwin_wayland binary carries the file capability cap_sys_nice=ep
+# (`getcap /usr/bin/kwin_wayland`), and a default `docker run` does
+# not grant CAP_SYS_NICE - without it, dbus-run-session fails to exec
+# kwin_wayland with "Operation not permitted" before the compositor
+# ever starts. Every `docker run` of this image, local or CI, needs
+# `--cap-add=SYS_NICE`. Nothing else beyond the default capability set
+# is required: no --privileged, no /dev/dri (GODS_LAWS.md L-09 rule 4:
+# no real GPU device by default, so the render stays reproducible
+# across the whole CI matrix on software rasterization).

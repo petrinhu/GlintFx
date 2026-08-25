@@ -68,3 +68,63 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL
         "Export compile_commands.json" FORCE)
 endif()
+
+# EMBED-DLL (found live, CI-CONSUME - GODS_LAWS.md L-27, fact before
+# fix): an embedded (add_subdirectory), shared, Windows build configures,
+# builds and links cleanly, then the produced executable fails to even
+# start - confirmed by the real CI run's raw log (no Windows/pwsh
+# available on this machine to reproduce end to end; see the fact-
+# gathering in the commit this option ships in). Root cause: the DLL
+# lands in glintfx's OWN nested build subdirectory
+# (<embed-build>/glintfx-build/src/<Config>/glintfx.dll), while an
+# embedding consumer's own executable, un-customized, lands at the
+# OUTERMOST project's own runtime directory
+# (<embed-build>/<Config>/consumer.exe) - two different directories.
+# Windows has no build-tree equivalent of the ELF RPATH the Linux side
+# of this problem never needed (CMake auto-embeds a build-tree RPATH
+# into a Linux executable, so an embedding Linux consumer never hits
+# this), and the default Windows DLL search order does not search the
+# rest of the build tree, only the executable's own folder (confirmed
+# against learn.microsoft.com/windows/win32/dlls/
+# dynamic-link-library-search-order, not assumed).
+#
+# On by default ONLY in the exact scenario that produces the failure:
+# embedded (glintfx is not the top-level project), built shared, on
+# Windows. A standalone glintfx build, a static build, and a Linux
+# build are left untouched - none of them ever hit this failure mode,
+# so none of them need the mechanism (GODS_LAWS.md LEI ZERO: the fix
+# is scoped to the actual gap, not applied everywhere out of caution).
+#
+# A named function, not inlined (GODS_LAWS.md L-17: "se você consegue
+# extrair uma sub-funcao com nome proprio e honesto, ela nao era um
+# atomo") - the ONLY reason this is a function and not a plain if/else
+# is so tests/embed_dll_colocation/CMakeLists.txt can call it directly,
+# once per PROJECT_IS_TOP_LEVEL x WIN32 x BUILD_SHARED_LIBS combination,
+# from a SINGLE configure: option() below only computes its default
+# ONCE per build directory (it caches), so testing all eight
+# combinations without this function would need eight separate `cmake
+# -S/-B` processes instead of one.
+function(glintfx_embedded_runtime_colocate_default out_var)
+    if((NOT PROJECT_IS_TOP_LEVEL) AND WIN32 AND BUILD_SHARED_LIBS)
+        set(${out_var} ON PARENT_SCOPE)
+    else()
+        set(${out_var} OFF PARENT_SCOPE)
+    endif()
+endfunction()
+
+glintfx_embedded_runtime_colocate_default(GLINTFX_EMBEDDED_RUNTIME_COLOCATE_DEFAULT)
+
+# The escape valve the mechanism needs by design, not bolted on
+# afterward: a consumer with an existing, deliberate output layout must
+# not have it silently overridden. glintfx_colocate_embedded_runtime_dll()
+# (GlintfxLibrary.cmake) additionally never acts at all when the consumer
+# has already set CMAKE_RUNTIME_OUTPUT_DIRECTORY (the CMake-blessed
+# convention for this exact problem, which glintfx's own default output
+# directory already inherits like any other un-customized target) - this
+# option is the valve for every OTHER kind of custom layout, e.g. a
+# consumer that sets per-target RUNTIME_OUTPUT_DIRECTORY properties by
+# hand instead of the shared variable.
+option(GLINTFX_EMBEDDED_RUNTIME_COLOCATE
+    "When glintfx is embedded and built shared on Windows, place glintfx's own DLL next to the outermost project's default runtime output location, so an embedding consumer's executable finds it without any extra step"
+    ${GLINTFX_EMBEDDED_RUNTIME_COLOCATE_DEFAULT}
+)

@@ -101,3 +101,52 @@ function(glintfx_apply_static_define target)
         target_compile_definitions(${target} PUBLIC GLINTFX_STATIC_DEFINE)
     endif()
 endfunction()
+
+# EMBED-DLL: makes glintfx's own DLL discoverable, by default, to an
+# embedding consumer's Windows executable - see the option's own
+# comment in GlintfxOptions.cmake for the failure this exists to close.
+#
+# RUNTIME_OUTPUT_DIRECTORY, not LIBRARY_OUTPUT_DIRECTORY (confirmed
+# against CMake's own docs, cmake-buildsystem(7) "Output Artifacts",
+# not assumed): on DLL platforms the .dll itself is a RUNTIME artifact
+# (its import library, .lib, is the ARCHIVE artifact); on non-DLL
+# platforms the shared object is a LIBRARY artifact instead. Setting
+# RUNTIME_OUTPUT_DIRECTORY is therefore the property that actually
+# moves a Windows DLL, and a silent no-op everywhere this function's
+# own WIN32 guard does not apply.
+function(glintfx_colocate_embedded_runtime_dll target)
+    if(NOT GLINTFX_EMBEDDED_RUNTIME_COLOCATE)
+        return()
+    endif()
+    if(CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+        # The consumer already established a single runtime output
+        # location for every target of theirs, via the CMake-blessed
+        # variable for exactly this problem - glintfx's own default
+        # RUNTIME_OUTPUT_DIRECTORY already inherits it, same as any
+        # other target that does not set its own property. Overriding
+        # it here with our own guess (CMAKE_BINARY_DIR) would FIGHT
+        # their existing convention instead of joining it, and could
+        # land glintfx.dll in a DIFFERENT directory than the one they
+        # already, correctly, send everything else to.
+        return()
+    endif()
+    # CMAKE_BINARY_DIR (not PROJECT_BINARY_DIR, the opposite choice
+    # from GLINTFX_GENERATED_INCLUDE_DIR at the top of the root
+    # CMakeLists.txt, and deliberately so): the OUTERMOST project's own
+    # binary directory is exactly what any of the CONSUMER's own
+    # targets, declared directly in their top-level CMakeLists.txt,
+    # already default to when THEY do not set RUNTIME_OUTPUT_DIRECTORY
+    # either - glintfx joining that pre-existing CMake default, not
+    # inventing a new one. No per-config generator expression is
+    # written here: CMake's own multi-config generators (Visual Studio)
+    # already append the per-configuration subdirectory to a plain
+    # RUNTIME_OUTPUT_DIRECTORY value automatically, the exact same way
+    # they would for any other un-customized target - measured live
+    # (CI-CONSUME): the real Windows CI log placed an unrelated,
+    # un-customized top-level target (embed_consumer.exe) at
+    # <top-binary-dir>/Release/, with no generator expression written
+    # by tests/embed/CMakeLists.txt at all.
+    set_target_properties(${target} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+endfunction()

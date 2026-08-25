@@ -161,6 +161,34 @@ if(UNIX)
     set_tests_properties(embed_test PROPERTIES LABELS consume)
 endif()
 
+# EMBED-DLL decision-logic gate: proves glintfx_colocate_embedded_
+# runtime_dll() and glintfx_embedded_runtime_colocate_default()
+# (cmake/GlintfxLibrary.cmake / cmake/GlintfxOptions.cmake) against
+# every branch that matters - the escape valve, and all eight
+# PROJECT_IS_TOP_LEVEL x WIN32 x BUILD_SHARED_LIBS combinations - see
+# tests/embed_dll_colocation/CMakeLists.txt's own header for the full
+# reasoning. Registered WITHOUT if(UNIX), on purpose, unlike every
+# other consumption gate in this file: this one has zero shell/POSIX
+# dependency at all (LANGUAGES NONE in the fixture means the whole
+# assertion is a plain `cmake -S/-B` configure), so it is genuinely
+# cross-platform and runs on the Windows job too, catching a regression
+# to the decision logic before the far more expensive full MSVC
+# configure/build/link/run cycle (check-embed.ps1's Invoke-RunEmbed)
+# even starts. A fixed, deterministic build directory under this
+# project's own binary tree, not a scratch mktemp -d: there is nothing
+# to build or run here (LANGUAGES NONE), so a stale artifact from a
+# previous run cannot mask this run's result the way it could for a
+# compiled fixture, and re-configuring an existing directory is
+# idempotent.
+add_test(
+    NAME embed_dll_colocation_test
+    COMMAND "${CMAKE_COMMAND}"
+        -S "${CMAKE_CURRENT_SOURCE_DIR}/embed_dll_colocation"
+        -B "${CMAKE_CURRENT_BINARY_DIR}/embed_dll_colocation_check"
+        "-DGLINTFX_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)
+
 # Non-default CMAKE_INSTALL_INCLUDEDIR gate (FIX-CONSUMO-2, achado QA-1):
 # proves the exported CMake target set (glintfxTargets.cmake) tracks a
 # non-default include directory on its own, with no other install() rule

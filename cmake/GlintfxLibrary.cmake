@@ -11,7 +11,14 @@ include(GenerateExportHeader)
 function(glintfx_set_target_properties target)
     set_target_properties(${target} PROPERTIES
         VERSION ${PROJECT_VERSION}
-        SOVERSION 0
+        # SOVERSION follows PROJECT_VERSION_MAJOR, not a fixed literal
+        # (GODS_LAWS.md L-26: "SOVERSION acompanha o A. É o único número
+        # que o consumidor precisa ler para saber que o binário dele
+        # quebrou"). Today PROJECT_VERSION_MAJOR is 0, so this still
+        # renders libglintfx.so.0 - identical on-disk name to before
+        # this change - but the value now tracks the version instead of
+        # silently staying 0 forever after the first ABI-breaking bump.
+        SOVERSION ${PROJECT_VERSION_MAJOR}
         POSITION_INDEPENDENT_CODE ON
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN ON

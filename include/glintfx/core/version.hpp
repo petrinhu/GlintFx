@@ -39,10 +39,17 @@
 
 namespace glintfx {
 
+// Four fields, not three (GODS_LAWS.md L-26, VER-4C): the tag is
+// vA.B.C.D, and tweak_version is D, the packaging-only component with
+// no code change. It is the fourth and LAST field, appended rather
+// than inserted, so this one-time layout reopening (allowed only
+// pre-1.0, SOVERSION 0, zero known external consumer) does not also
+// reorder the three fields an existing reader already depends on.
 struct version {
     std::uint32_t major_version;
     std::uint32_t minor_version;
     std::uint32_t patch_version;
+    std::uint32_t tweak_version;
 };
 
 [[nodiscard]] GLINTFX_API version runtime_version() noexcept;

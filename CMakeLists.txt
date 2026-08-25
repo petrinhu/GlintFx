@@ -10,7 +10,12 @@
 
 cmake_minimum_required(VERSION 3.28)
 
-project(glintfx VERSION 0.1.0 LANGUAGES CXX)
+# Four components, not three (GODS_LAWS.md L-26, VER-4C): TWEAK is the
+# fourth, packaging-only field. write_basic_package_version_file's
+# SameMinorVersion compatibility (cmake/GlintfxInstall.cmake) only
+# compares MAJOR.MINOR, so a bare `find_package(glintfx 0.1)` still
+# resolves this exact release under the current pre-1.0 policy.
+project(glintfx VERSION 0.1.0.0 LANGUAGES CXX)
 
 # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7): when
 # glintfx is embedded via add_subdirectory/FetchContent, CMAKE_SOURCE_DIR

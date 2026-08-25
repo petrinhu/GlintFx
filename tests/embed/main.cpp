@@ -16,11 +16,16 @@ int main() {
     const bool major_ok = v.major_version == static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR);
     const bool minor_ok = v.minor_version == static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR);
     const bool patch_ok = v.patch_version == static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH);
+    // VER-4C: this line is a TOOTH added alongside the field it checks,
+    // not a fix for something that broke - it compares against this
+    // same build's own GLINTFX_VERSION_TWEAK macro, so both sides of
+    // the comparison always move together.
+    const bool tweak_ok = v.tweak_version == static_cast<std::uint32_t>(GLINTFX_VERSION_TWEAK);
     const bool string_ok = glintfx::version_string() == std::string_view{GLINTFX_VERSION_STRING};
 
     std::println("glintfx {} (embedded)", glintfx::version_string());
 
-    if (!major_ok || !minor_ok || !patch_ok || !string_ok) {
+    if (!major_ok || !minor_ok || !patch_ok || !tweak_ok || !string_ok) {
         std::println(stderr, "embed_consumer: runtime version does not match build macros");
         return 1;
     }

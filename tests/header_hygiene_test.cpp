@@ -86,6 +86,7 @@ GLINTFX_TEST(version_header_survives_hostile_system_headers) {
     GLINTFX_CHECK_EQ(v.major_version, static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR));
     GLINTFX_CHECK_EQ(v.minor_version, static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR));
     GLINTFX_CHECK_EQ(v.patch_version, static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH));
+    GLINTFX_CHECK_EQ(v.tweak_version, static_cast<std::uint32_t>(GLINTFX_VERSION_TWEAK));
 
     const std::string runtime = std::string(glintfx::version_string());
     GLINTFX_CHECK_EQ(runtime, std::string(GLINTFX_VERSION_STRING));

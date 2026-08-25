@@ -41,6 +41,13 @@ function(glintfx_install_public_headers)
 endfunction()
 
 function(glintfx_write_package_version_file)
+    # COMPATIBILITY stays SameMinorVersion for now, on purpose (VER-4C
+    # does NOT touch this policy - GODS_LAWS.md L-26: "Antes da 1.0:
+    # SameMinorVersion é o correto, porque B é onde a quebra mora
+    # enquanto A é zero. Ao chegar na 1.0, isso muda para
+    # SameMajorVersion e a mudança não pode ser esquecida."). This
+    # comment IS that reminder: when PROJECT_VERSION_MAJOR leaves 0,
+    # change the line below to SameMajorVersion, not before.
     write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/glintfxConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}

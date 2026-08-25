@@ -10,6 +10,7 @@ version runtime_version() noexcept {
         .major_version = static_cast<std::uint32_t>(GLINTFX_VERSION_MAJOR),
         .minor_version = static_cast<std::uint32_t>(GLINTFX_VERSION_MINOR),
         .patch_version = static_cast<std::uint32_t>(GLINTFX_VERSION_PATCH),
+        .tweak_version = static_cast<std::uint32_t>(GLINTFX_VERSION_TWEAK),
     };
 }
 

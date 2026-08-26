@@ -619,3 +619,32 @@ if(UNIX)
         )
     endif()
 endif()
+
+# README test-count consistency gate (DOC-DRIFT, adversarial review of
+# 2026-08-26): README.md's own "Building from source" section states
+# the ctest total for shared and static mode in prose ("N registered
+# cases in shared mode and M in static mode") - a sentence that had
+# already gone stale once, three commits earlier, with nothing to
+# catch it (README/CHANGELOG said 33/32 while the real ctest -N count
+# was already 34/33). check_readme_test_count.sh compares the prose
+# number against THIS build's own `ctest -N` total and reproves on any
+# mismatch, with GODS_LAWS.md L-40's empty-scan floor covering the
+# case where the sentence itself is rewritten or moved and the regex
+# stops matching anything. POSIX sh; same declared downgrade as every
+# other gate in this file (Windows has no `sh` by default).
+if(UNIX)
+    add_test(
+        NAME readme_test_count_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.sh"
+            "${PROJECT_SOURCE_DIR}/README.md"
+            "${PROJECT_BINARY_DIR}"
+            "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,shared,static>"
+    )
+    set_tests_properties(readme_test_count_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME readme_test_count_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.sh" --selftest
+    )
+    set_tests_properties(readme_test_count_selftest PROPERTIES LABELS selftest)
+endif()

@@ -69,19 +69,29 @@
 # on this line".
 #
 # WHAT COUNTS AS A COLLISION, DECLARED (policy decision 2): a system
-# header #define-ing one of our names is a FAILURE, UNLESS that same
-# file also #undef's the same name later (grep on that one file) - the
-# exact shape the achado's own finding was ("o header o define e o
-# desfaz no mesmo arquivo... inofensivo na pratica"). A name defined
-# and undefined within one file is gone from the preprocessor's active
-# state by the time that file's own #include finishes; the only way it
-# could still bite a consumer is if OUR header were transitively
+# header #define-ing one of our names is a FAILURE, UNLESS one of TWO
+# neutralizing shapes applies. First (the original 25/08/2026 finding):
+# that same file also #undef's the same name later (grep on that one
+# file) - the exact shape the achado's own finding was ("o header o
+# define e o desfaz no mesmo arquivo... inofensivo na pratica"). A name
+# defined and undefined within one file is gone from the preprocessor's
+# active state by the time that file's own #include finishes; the only
+# way it could still bite a consumer is if OUR header were transitively
 # #include'd by that SAME system header between the #define and the
-# #undef line, which no system header does for a third-party library
-# it does not know exists. Neutralized collisions are NOT silently
-# dropped - see report_collisions() below - they print in a separate,
-# clearly labelled section so the count is never hidden (GODS_LAWS.md
-# L-40's "a contagem aparece na saida, mesmo quando passa").
+# #undef line, which no system header does for a third-party library it
+# does not know exists. Second (added 26/08/2026, measured live in Arch
+# and CachyOS containers against attr's own error_context.h): the
+# #define is textually nested inside "#ifdef GUARD"/"#if defined(GUARD)"
+# for a symbol nothing in a NORMAL include chain ever defines, so the
+# macro never becomes active in default preprocessing - proved by
+# asking the SAME real compiler (macro_active_under_default_preprocessing
+# below), not a hand-rolled nested-#ifdef parser, echoing policy
+# decision 3's own "ask the compiler, never assume". Neither shape is
+# silently dropped - classify_matches() below tags EACH neutralized line
+# with WHICH of the two reasons applied - they print in a separate,
+# clearly labelled section so the count, and the reason, are never
+# hidden (GODS_LAWS.md L-40's "a contagem aparece na saida, mesmo quando
+# passa").
 #
 # WHERE THIS SCANS, DECLARED (policy decision 3): the compiler's OWN
 # system include search path, discovered live via
@@ -126,13 +136,18 @@
 #   check_public_name_collision.sh <include_dir> <cxx-compiler>
 #   check_public_name_collision.sh --selftest [cxx-compiler]
 #
-# --selftest runs five controls against throwaway fixtures under
+# --selftest runs seven controls against throwaway fixtures under
 # mktemp, never against the real include_dir or the real machine's
 # system headers (GODS_LAWS.md L-40's three mandatory controls -
-# positive, negative, empty-scan - plus TWO specific to this gate:
-# the same-file #undef neutralization from policy decision 2, and a
-# SECOND empty-scan floor for the system-header side, independent of
-# the "our names" side). See selftest_main() below.
+# positive, negative, empty-scan - plus FOUR specific to this gate:
+# the same-file #undef neutralization from policy decision 2; the
+# guard-inactive and guard-active pair added 26/08/2026 for policy
+# decision 2's second neutralizing shape (a macro alive only under an
+# #ifdef nothing normally defines does not reprove, but the SAME macro
+# with its guard symbol actually defined still does - the regression
+# guard against loosening this too far); and a SECOND empty-scan floor
+# for the system-header side, independent of the "our names" side).
+# See selftest_main() below.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -337,11 +352,43 @@ name_is_undef_in_same_file() {
     grep -qE "^[[:space:]]*#[[:space:]]*undef[[:space:]]+${name}\\b" "$file" 2>/dev/null
 }
 
+# A #define is NEUTRALIZED under a SECOND, independent reason (policy
+# decision 2, extended 26/08/2026 - the achado measured live in Arch
+# and CachyOS containers, attr's own error_context.h): the line is
+# textually nested inside "#ifdef GUARD" / "#if defined(GUARD)" for a
+# symbol nothing in a NORMAL include chain ever defines, so the macro
+# never becomes active. This does NOT hand-parse nested #ifdef/#elif/
+# #endif in awk - that breaks on the first "#if defined(A) && !defined
+# (B)" a real system header writes. It asks the SAME compiler this
+# whole gate already trusts for the search path (policy decision 3) to
+# preprocess that ONE file with ZERO extra flags (`-E -dM`, dumping
+# every macro alive at end-of-file) and checks whether NAME is in that
+# dump. If the compiler cannot even preprocess the file standalone
+# (missing, unreadable, or a header that needs context this gate does
+# not have), the function answers "active" - GODS_LAWS.md L-40's
+# "recusar alto e melhor que aprovar em silencio" applied here: an
+# unprovable case must never quietly turn into a neutralization.
+macro_active_under_default_preprocessing() {
+    file="$1"
+    name="$2"
+    cxx="$3"
+    dm_output="$("$cxx" -E -dM -xc++ "$file" 2>/dev/null)"
+    dm_status="$?"
+    if [ "$dm_status" -ne 0 ] || [ -z "$dm_output" ]; then
+        return 0
+    fi
+    printf '%s\n' "$dm_output" | grep -qE "^#define[[:space:]]+${name}\\b"
+}
+
 # Splits raw "file:line:content" matches into REAL and NEUTRALIZED,
 # prefixed per-line so the two callers below (real_collisions,
-# neutralized_collisions) can filter with one grep each.
+# neutralized_collisions) can filter with one grep each. NEUTRALIZED
+# lines carry a third field naming WHICH of the two reasons applied,
+# so the report stays auditable (GODS_LAWS.md L-40 "contagem nunca
+# escondida" applies to WHY, not just to the count).
 classify_matches() {
     matches="$1"
+    cxx="$2"
     printf '%s\n' "$matches" | while IFS= read -r rawline; do
         [ -n "$rawline" ] || continue
         file="$(printf '%s' "$rawline" | cut -d: -f1)"
@@ -349,7 +396,9 @@ classify_matches() {
         content="$(printf '%s' "$rawline" | cut -d: -f3-)"
         name="$(printf '%s' "$content" | sed -E 's/^[[:space:]]*#[[:space:]]*define[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/')"
         if name_is_undef_in_same_file "$file" "$name"; then
-            printf 'NEUTRALIZED %s:%s:%s\n' "$file" "$lineno" "$name"
+            printf 'NEUTRALIZED %s:%s:%s:undef-mesmo-arquivo\n' "$file" "$lineno" "$name"
+        elif ! macro_active_under_default_preprocessing "$file" "$name" "$cxx"; then
+            printf 'NEUTRALIZED %s:%s:%s:guarda-inativa-por-padrao\n' "$file" "$lineno" "$name"
         else
             printf 'REAL %s:%s:%s\n' "$file" "$lineno" "$name"
         fi
@@ -413,14 +462,14 @@ check_public_name_collision() {
     file_count="$(count_lines "$sys_files")"
 
     matches="$(scan_defines_in_dirs "$sys_dirs" "$names")"
-    classified="$(classify_matches "$matches")"
+    classified="$(classify_matches "$matches" "$cxx")"
     real="$(real_collisions "$classified")"
     neutralized="$(neutralized_collisions "$classified")"
     neutralized_count="$(count_lines "$neutralized")"
     [ -n "$neutralized" ] || neutralized_count=0
 
     if [ -n "$neutralized" ]; then
-        echo "check_public_name_collision.sh: $neutralized_count colisao(oes) NEUTRALIZADA(S) (macro definida e desfeita no mesmo arquivo de sistema, GODS_LAWS.md L-40 nao esconde a contagem):"
+        echo "check_public_name_collision.sh: $neutralized_count colisao(oes) NEUTRALIZADA(S) (define+undef no mesmo arquivo, ou define ativo so sob guarda de simbolo que a inclusao normal nao define - motivo por linha abaixo, GODS_LAWS.md L-40 nao esconde a contagem nem o motivo):"
         printf '%s\n' "$neutralized"
     fi
 
@@ -528,7 +577,7 @@ selftest_negative_control() {
     write_enumerate_names_awk "$awk_file"
     names="$(enumerate_our_names "$include_dir" "$awk_file")"
     matches="$(scan_defines_in_dirs "$sys_dir" "$names")"
-    classified="$(classify_matches "$matches")"
+    classified="$(classify_matches "$matches" "${CXX_FOR_SELFTEST:-c++}")"
     real="$(real_collisions "$classified")"
     if [ -z "$real" ]; then
         echo "selftest: controle NEGATIVO FALHOU (scan_defines_in_dirs nao achou planted_collision_name em $hostile)" >&2
@@ -566,7 +615,7 @@ selftest_undef_neutralizes_control() {
     write_enumerate_names_awk "$awk_file"
     names="$(enumerate_our_names "$include_dir" "$awk_file")"
     matches="$(scan_defines_in_dirs "$sys_dir" "$names")"
-    classified="$(classify_matches "$matches")"
+    classified="$(classify_matches "$matches" "${CXX_FOR_SELFTEST:-c++}")"
     real="$(real_collisions "$classified")"
     neutralized="$(neutralized_collisions "$classified")"
 
@@ -580,6 +629,81 @@ selftest_undef_neutralizes_control() {
         return 1
     fi
     echo "selftest: controle de NEUTRALIZACAO OK (define+undef no mesmo arquivo nao reprova, mas aparece na contagem)"
+    return 0
+}
+
+# Specific to the 26/08/2026 achado (measured live in Arch/CachyOS
+# containers, attr's own /usr/include/attr/error_context.h): a #define
+# textually nested inside "#ifdef GUARD" / "#if defined(GUARD)", where
+# GUARD is never defined anywhere a normal include chain reaches, is
+# NOT a real collision - the achado's own words, "uma macro que so
+# existe se alguem definir ERROR_CONTEXT_MACROS nao colide numa
+# inclusao normal". Fixture reproduces that exact shape: guard, define,
+# no #undef. Expected: classify_matches() puts it in NEUTRALIZED (a
+# SECOND reason, distinct from policy decision 2's same-file #undef),
+# never REAL - and the reason string says which kind, so the report
+# stays auditable (GODS_LAWS.md L-40: contagem nunca escondida).
+selftest_guard_inactive_control() {
+    scratch="$1"
+    include_dir="$(make_fixture_include_dir "$scratch" guard_inactive)"
+    printf 'class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n' \
+        > "$include_dir/widget.hpp"
+    sys_dir="$(make_fixture_system_dir "$scratch" guard_inactive)"
+    hostile="$sys_dir/hostile.h"
+    printf '#ifdef GUARD_NEVER_DEFINED\n#define planted_collision_name 1\n#endif\n' > "$hostile"
+
+    awk_file="$scratch/guard-inactive-enumerate.awk"
+    write_enumerate_names_awk "$awk_file"
+    names="$(enumerate_our_names "$include_dir" "$awk_file")"
+    matches="$(scan_defines_in_dirs "$sys_dir" "$names")"
+    classified="$(classify_matches "$matches" "${CXX_FOR_SELFTEST:-c++}")"
+    real="$(real_collisions "$classified")"
+    neutralized="$(neutralized_collisions "$classified")"
+
+    if [ -n "$real" ]; then
+        echo "selftest: controle de GUARDA INATIVA FALHOU (macro so existe sob #ifdef de simbolo nunca definido deveria ser NEUTRALIZADA, apareceu como REAL)" >&2
+        printf '%s\n' "$real" >&2
+        return 1
+    fi
+    if [ -z "$neutralized" ] || ! printf '%s\n' "$neutralized" | grep -qF "planted_collision_name"; then
+        echo "selftest: controle de GUARDA INATIVA FALHOU (nao apareceu na lista NEUTRALIZADA, ou nao citou o nome)" >&2
+        return 1
+    fi
+    echo "selftest: controle de GUARDA INATIVA OK (macro sob #ifdef de simbolo nunca definido nao reprova, mas aparece na contagem)"
+    return 0
+}
+
+# The middle case the same achado's ordem de servico demands explicitly
+# ("o caso do meio: macro guardada por simbolo que ESTA definido no
+# contexto deve reprovar"): same shape as above, but the guard symbol
+# IS defined earlier in the same fixture header - so a real translation
+# unit including it WOULD see the macro active. Expected: still REAL.
+# This is the regression guard against loosening the check too far -
+# GODS_LAWS.md L-40's own warning in this ordem de servico, "falso
+# negativo em portao e exatamente a familia que esta sessao passou o
+# dia inteiro fechando".
+selftest_guard_active_control() {
+    scratch="$1"
+    include_dir="$(make_fixture_include_dir "$scratch" guard_active)"
+    printf 'class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n' \
+        > "$include_dir/widget.hpp"
+    sys_dir="$(make_fixture_system_dir "$scratch" guard_active)"
+    hostile="$sys_dir/hostile.h"
+    printf '#define GUARD_ALWAYS_DEFINED_HERE 1\n#ifdef GUARD_ALWAYS_DEFINED_HERE\n#define planted_collision_name 1\n#endif\n' \
+        > "$hostile"
+
+    awk_file="$scratch/guard-active-enumerate.awk"
+    write_enumerate_names_awk "$awk_file"
+    names="$(enumerate_our_names "$include_dir" "$awk_file")"
+    matches="$(scan_defines_in_dirs "$sys_dir" "$names")"
+    classified="$(classify_matches "$matches" "${CXX_FOR_SELFTEST:-c++}")"
+    real="$(real_collisions "$classified")"
+    if [ -z "$real" ] || ! printf '%s\n' "$real" | grep -qF "planted_collision_name"; then
+        echo "selftest: controle de GUARDA ATIVA FALHOU (macro cujo simbolo-guarda ESTA definido no proprio arquivo deveria reprovar como REAL, nao reprovou)" >&2
+        printf '%s\n' "$real" >&2
+        return 1
+    fi
+    echo "selftest: controle de GUARDA ATIVA OK (macro cujo simbolo-guarda esta definido no contexto continua REAL)"
     return 0
 }
 
@@ -648,6 +772,8 @@ selftest_main() {
     selftest_positive_control "$scratch" || overall=1
     selftest_negative_control "$scratch" || overall=1
     selftest_undef_neutralizes_control "$scratch" || overall=1
+    selftest_guard_inactive_control "$scratch" || overall=1
+    selftest_guard_active_control "$scratch" || overall=1
     selftest_empty_our_names_control "$scratch" || overall=1
     selftest_empty_system_dirs_control "$scratch" || overall=1
 
@@ -655,7 +781,7 @@ selftest_main() {
         echo "check_public_name_collision.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_public_name_collision.sh --selftest: os cinco controles OK"
+    echo "check_public_name_collision.sh --selftest: os sete controles OK"
 }
 
 main() {

@@ -546,3 +546,22 @@ jobs:
       # autoexcluido da propria varredura (ver SELF_PATH_SUFFIX ali).
       - name: Gate L-05/L-06 - nenhum termo proibido no repositorio
         run: sh tests/tools/check_no_x11.sh "$PWD"
+
+      # GODS_LAWS.md L-08 (publico no GitHub, AGPL-3.0) e L-40 (piso de
+      # varredura nao-vazia). Item SPDX-GATE da onda W2, 25/08/2026:
+      # entre este portao e o de ancora morta nos manuais, o lider
+      # escolheu SO este - arquivo de codigo/build nascido sem cabecalho
+      # SPDX enfraquece a licenca perante quem consome a lib de fora
+      # (LEI ZERO), o que e dano juridico, nao cosmetico. Logica em
+      # tests/tools/check_spdx.sh (enumeracao fechada via `git ls-files`,
+      # excecao curta e nomeada, nunca busca dirigida - ver o cabecalho
+      # do script). `sh`, nao `bash`: este job roda em ubuntu-latest, cujo
+      # /bin/sh e dash - o mesmo motivo que levou o Gate L-05/L-06 acima a
+      # ser invocado assim, e o mesmo bashismo que quebrou dois portoes
+      # novos em tres dos cinco alvos nesta mesma semana (ver CLAUDE.md,
+      # "Estado atual do repositorio").
+      - name: Gate L-08 - cabecalho SPDX presente em todo arquivo nao isento
+        run: sh tests/tools/check_spdx.sh "$PWD"
+
+      - name: Gate L-08 - selftest (quatro controles, GODS_LAWS.md L-40)
+        run: sh tests/tools/check_spdx.sh --selftest

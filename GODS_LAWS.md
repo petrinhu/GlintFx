@@ -539,6 +539,20 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **O que NÃO mudou:** as cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora, animação e transição fora) **continuam de pé**. Layout entrar não as reabre.
 
+### Nome do motor: `gfui` — decidido em 26/08/2026
+
+**Ordem do líder, verbatim:** *"nosso motor se chamará gfui"*.
+
+**O trio de nomes fica assim, e eles são coisas diferentes:**
+
+| nome | o que é |
+|---|---|
+| **`gfui`** | **o motor** — a máquina que lê o estilo, calcula caixa e posição, e diz onde cada coisa fica |
+| **`gfss`** | **o formato de folha de estilo** que ele lê |
+| **`gfml`** | **o formato de marcação**, com as propriedades de HTML — **decidido, não aberto** |
+
+**Por que a distinção importa e não é preciosismo:** `gfss` e `gfml` são **formatos de dado** — arquivos que o consumidor escreve, e que a **L-26 governa como o terceiro contrato de versão**, aquele em que a pergunta é *"quem perde o arquivo"*. **`gfui` é código** — módulo, superfície pública, símbolo exportado, governado pelos contratos de API e de ABI. **Confundir os três é confundir três réguas de compatibilidade diferentes**, e quebrar formato não custa o mesmo que quebrar assinatura.
+
 **Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
 
 ### Decisões de escopo da v1 do RCSS, tomadas pelo líder em 21/08/2026

@@ -1,10 +1,14 @@
 > **LEI DAS LEIS, ANTERIOR ATÉ À LEI ZERO: só o líder pode quebrar uma lei deste arquivo** — agente nenhum quebra, flexibiliza, reinterpreta ou "adapta ao caso" por conta própria — **e nem a ordem direta dele dispensa a confirmação**: antes de executar, nomeie a lei que está sendo quebrada, cite o texto dela, diga o que ela protege e o que se perde ao quebrá-la, e pergunte por `AskUserQuestion` se é isso mesmo que ele quer; **quando o pedido for ALTERAR ou REVOGAR uma lei, argumente CONTRA primeiro, sempre e sem exceção**, com razões concretas, o problema que a lei existe para impedir, os trade-offs da mudança e o que fica desprotegido depois dela, e só então leve a escolha por `AskUserQuestion` entre **confirmar** a alteração e **cancelá-la**; pressa, obviedade aparente, "ele já mandou uma vez" e aprovação dada em outro contexto **nunca** substituem essa confirmação, e silêncio jamais vale como aval. (Ordem do líder, 22/08/2026.)
 
+<!-- DUP-BLOCK:LEI-ZERO:START -->
+
 > **LEI ZERO, ACIMA DE TODAS: PROJETO PARA DISTRIBUIÇÃO.** O GlintFx é biblioteca pública sob AGPL-3.0, consumida por gente que não conhecemos, em cinco plataformas. **Nunca raciocine como se houvesse um consumidor único.** Ordem do líder em 21/08/2026, verbatim: *"onde está escrito que o consumidor é único? o projeto é para distribuir"*. Qualquer análise, corte de escopo, priorização ou decisão de API que se apoie na premissa de consumidor único está **errada por construção** e deve ser refeita.
+
+<!-- DUP-BLOCK:LEI-ZERO:END -->
 
 # GODS_LAWS.md
 
-> Ordens expressas do líder (petrus). Este arquivo **não é declaração, é execução**: cada lei tem um **gatilho**, e o gatilho é conferido **no momento da ação**, não no fim.
+> Ordens expressas do líder (petrus). Este arquivo **não é declaração, é execução**: cada lei tem um **gatilho**, e o gatilho é conferido **no momento da ação**, não no fim. **Desde 26/08/2026, este arquivo trata só de CONDUTA** (como o agente trabalha); decisão de **PRODUTO** (o que o GlintFx é) mora em `ESCOPO.md`, na raiz — ordem do líder, verbatim: *"As god laws são leis minhas para você executar ao fazer o projeto, não decisões sobre o projeto."*
 
 ## Protocolo de uso (obrigatório)
 
@@ -14,6 +18,7 @@
 4. **Lei nova entra aqui no instante em que o líder a dá**, com data e o texto dele verbatim entre aspas. Não espere "um momento melhor" para registrar.
 5. **Nenhum agente revoga, flexibiliza ou reinterpreta lei.** Só o líder. Na dúvida sobre o alcance de uma lei, pergunte via `AskUserQuestion` antes de agir.
 6. Conflito entre uma lei daqui e qualquer outro documento (manual, memória, hábito, preferência do agente): **a lei daqui vence**.
+7. **`ESCOPO.md` (raiz) é o registro do que o produto É** — nome, formato, plataforma, API pública, versão. Onde uma lei aqui diz "migrado" ou "migrada" para `ESCOPO.md`, leia lá antes de decidir: a ausência de texto aqui não é ausência de decisão. Bloco marcado com âncora de comentário `DUP-BLOCK` (ver cabeçalho de `tests/tools/check_dup_laws.sh`) existe **integralmente nos dois arquivos**, byte a byte igual — o gate reprova se divergir.
 
 ## Índice de gatilhos
 
@@ -74,7 +79,7 @@ O `Projects/GlintFx` nasce sem herança. Existiu uma biblioteca homônima em `gi
 
 **Data:** 21/08/2026, via `AskUserQuestion`.
 
-O GlintFx é **biblioteca/framework reutilizável**, não aplicação final. O entregável é a **API pública, os headers e o pacote CMake**. Domínio: framework 2D completo (janela, loop, render2d, input, gamepad, áudio, fonte, asset, math2d); o consumidor escreve só a lógica dele.
+**[Migrado para `ESCOPO.md` §1 — Identidade e distribuição, 26/08/2026, fase 2 da separação LEI/ESCOPO.]** A definição de "o que é o GlintFx" (biblioteca/framework reutilizável, não aplicação; domínio 2D completo) vive lá por inteiro, verbatim.
 
 **Aplicação:** toda decisão de API se julga pelo consumidor externo, não pela conveniência interna. Regra de aplicação específica nunca entra na lib.
 
@@ -82,17 +87,19 @@ O GlintFx é **biblioteca/framework reutilizável**, não aplicação final. O e
 
 **Data:** 21/08/2026, via `AskUserQuestion`.
 
-**C++23 + CMake.** Sem exceção de linguagem sem ordem do líder.
+**[Migrada inteira para `ESCOPO.md` §1 — Identidade e distribuição, 26/08/2026.]** Esta lei não tinha conduta separável do fato de produto — só a decisão de stack (C++23 + CMake). Texto completo, verbatim, em `ESCOPO.md`.
 
 ## L-04
 
 **Data:** 21/08/2026, verbatim: *"Fedora, Ubuntu, CachyOs (proprio, nao um arch renomeado), Arch, Windows"* e, no mesmo dia, *"nosso OS principal é o fedora, na versao que eu uso"*.
 
-Cinco alvos, **cinco entradas distintas na matriz de CI**. **Fedora 44 é o alvo primário**, por ser o sistema do líder: no CI a imagem fica **pinada em `fedora:44`**, nunca em `:latest`, para o alvo primário falhar quando a máquina dele falharia. Ao atualizar a versão dele, o pin sobe junto. **CachyOS não é Arch renomeado** e não é coberto pelo job de Arch: toolchain, flags de otimização, kernel e empacotamento diferem.
+**[Migrado para `ESCOPO.md` §1 — Identidade e distribuição, 26/08/2026.]** As cinco plataformas suportadas, o alvo primário Fedora 44 pinado, e a razão de CachyOS ser entrada própria vivem lá por inteiro, verbatim.
 
 **Aplicação:** verde no Arch **não** autoriza declarar CachyOS suportado. Declaração de suporte exige job próprio verde.
 
 ## L-05
+
+<!-- DUP-BLOCK:L05-WAYLAND:START -->
 
 **Data:** 21/08/2026, verbatim: *"no linux, usaremos apenas camada wayland, sem x11"*.
 
@@ -100,7 +107,11 @@ Sem backend X11, sem fallback por XWayland, sem Xlib, XCB, XTest ou framebuffer 
 
 **Aplicação:** exemplo de internet que usa X11 não serve aqui, nem "só para o teste". Se a única forma conhecida de fazer algo é X11, isso é assunto para o líder, não contorno.
 
+<!-- DUP-BLOCK:L05-WAYLAND:END -->
+
 ## L-06
+
+<!-- DUP-BLOCK:L06-XKB:START -->
 
 **Data:** 21/08/2026, verbatim: *"usaremos nosso parser de keymap proprietario"*.
 
@@ -108,7 +119,11 @@ O compositor entrega o keymap em texto XKB por file descriptor. **Nós escrevemo
 
 **Aplicação:** escopo mínimo do parser, para não subestimar a fatia: keycode para keysym, níveis e grupos de modificador, latch e lock, sequência de compose e tecla morta, keysym para UTF-8.
 
+<!-- DUP-BLOCK:L06-XKB:END -->
+
 ## L-07
+
+<!-- DUP-BLOCK:L07-DEPZERO:START -->
 
 **Data:** 21/08/2026, via `AskUserQuestion`.
 
@@ -118,11 +133,13 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 **Aplicação:** decode de imagem, rasterização de fonte, loader de GL, mixagem de áudio e decode de gamepad são escritos em casa. Ao topar com uma lacuna, **pare e pergunte**; não improvise dependência "só por enquanto".
 
+<!-- DUP-BLOCK:L07-DEPZERO:END -->
+
 ## L-08
 
 **Data:** 21/08/2026, via `AskUserQuestion`.
 
-Repositório **público no GitHub, licença AGPL-3.0**.
+**[Migrado para `ESCOPO.md` §1 — Identidade e distribuição, 26/08/2026.]** "Repositório público no GitHub, licença AGPL-3.0" vive lá, verbatim.
 
 **Aplicação:** repo público significa que dado sensível se verifica no **histórico**, não na árvore (`git log --all -p | grep -ci <termo>`), e que screenshot ou frame derivado de captura de tela do líder passa por conferência antes de virar asset versionado.
 
@@ -328,6 +345,8 @@ Esta lei também carrega, na própria linha de gatilho do índice, o texto do l�
 
 ## L-19
 
+<!-- DUP-BLOCK:L19-OPAQUE:START -->
+
 **Data:** 21/08/2026, decisão do líder após comparação de alternativas.
 
 A arquitetura do GlintFx tem **três compromissos**, e nenhum deles é negociável por agente.
@@ -353,6 +372,8 @@ Cada uma destas é **achado de revisão**, não questão de gosto:
 3. **`#ifdef` dentro de função.** Adaptador escolhido em compile-time significa **um arquivo por plataforma, selecionado pelo CMake**, não bloco de pré-processador dentro do corpo da função. `#ifdef` picotando uma função é monolito montado pelo pré-processador, e some da leitura de quem revisa.
 
 Dito de forma direta: a arquitetura **reforça** a L-17 (camada e módulo estreito são atomização em escala maior), desde que estas três armadilhas sejam tratadas como violação.
+
+<!-- DUP-BLOCK:L19-OPAQUE:END -->
 
 ## L-20
 
@@ -405,6 +426,8 @@ O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **qu
 
 ## L-22
 
+<!-- DUP-BLOCK:L22-NOEXCEPT:START -->
+
 **Data:** 21/08/2026, decisão do líder.
 
 **Nenhuma exceção cruza a API pública.** Internamente exceção é permitida; na fronteira pública o erro sai como `std::expected` ou código de erro.
@@ -412,6 +435,8 @@ O manual `TESTES.md` continua normativo para **como** testar; esta lei fixa **qu
 **Por quê, e o motivo é de ABI, não de gosto:** a biblioteca é compartilhada por padrão (L-19). Exceção atravessando `.so` exige RTTI compatível entre a lib e o consumidor, e quebra quando os dois foram compilados por compiladores ou bibliotecas padrão diferentes.
 
 Continua valendo do `CONTRACT.md` §6.4: erro nunca é engolido em silêncio, sempre propagado ao chamador, e exceção não serve de fluxo de controle.
+
+<!-- DUP-BLOCK:L22-NOEXCEPT:END -->
 
 ## L-23
 
@@ -456,6 +481,8 @@ O `watchcode` é o daemon que varre o journal e os coredumps atrás de crash rea
 
 ## L-26
 
+<!-- DUP-BLOCK:L26-VERSION:START -->
+
 **Data:** 21/08/2026, decisão do líder.
 
 **A versão do GlintFx tem quatro componentes, e a tag é `vA.B.C.D`.** Isto é escolha do líder e **substitui** o SemVer de três números.
@@ -489,6 +516,8 @@ Esta lei nasceu cobrindo **dois** contratos: **API** (código que compilava deix
 
 Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11): esta lei fixa o formato, não autoriza taggear.
 
+<!-- DUP-BLOCK:L26-VERSION:END -->
+
 ## L-27
 
 **Data:** 21/08/2026, decisão do líder, nascida de um erro medido no mesmo dia.
@@ -507,231 +536,19 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 ## L-28
 
-**Data:** 21/08/2026, confirmado pelo líder. **Verbatim relatado:** *"usaremos rcss, é o que quis dizer com rcss, mas sem ligar rml"*.
+**Data:** 21/08/2026, confirmado pelo líder.
 
-**O GlintFx adota o RCSS como formato de folha de estilo, e o implementa em casa.** O **RmlUi está fora**: a lei de dependência zero (L-07) não abre exceção para ele, e adotar o formato não é adotar a biblioteca.
-
-**De onde a especificação sai, e de onde NÃO sai.** A lista do que o parser precisa suportar vem do **formato RCSS** e das decisões de escopo do líder por `AskUserQuestion` (L-10), julgadas pelo **consumidor externo desconhecido** (LEI ZERO e L-02). **Nunca** dos mockups, do ui-kit ou das telas de um consumidor específico.
+**[Grande parte migrada para `ESCOPO.md` §4 — `gfui`/`gfss`/`gfml`, 26/08/2026.]** A adoção do formato, os nomes `gfui`/`gfss`/`gfml`, a régua de legibilidade e as ~39+5+8+... decisões de escopo numeradas vivem lá por inteiro, verbatim. Aqui fica só a conduta desta lei:
 
 **Proibição concreta, com o caso que a originou.** Existe em `/var/tmp` um backup do GusWorld com ui-kit, mockups de tela, capturas e um `PORTING-RCSS.md` que se abre como *"notas do dev do glintfx revisando os componentes contra a versão vigente do glintfx"*. **Isso é o predecessor descrevendo o que já funcionava, e a L-01 o proíbe como base, referência ou canon.** Pior: usar aquele material como fonte da especificação é a premissa de **consumidor único** entrando por outra porta, já que a spec sairia do que **um jogo** precisava. Se em algum momento parecer mais barato "ver como o antigo fazia", **é exatamente o movimento proibido**.
-
-**Ratificação de 22/08/2026, pedida pelo próprio líder.** A sessão do `gusworld` relatou que ele queria decidir sobre esse `PORTING-RCSS.md` conosco, e a decisão dele, tomada por `AskUserQuestion`, foi **não abrir, sem exceção**. O argumento que a sustenta, e que vale como método para qualquer documento futuro do gênero: a lista de recursos que um consumidor precisou é, por construção, um **subconjunto** do que a documentação pública do formato já define, logo o documento **não pode ensinar nada que a fonte já não tenha**. O único acréscimo real dele seria **ordem de importância derivada de um consumidor**, que é exatamente o que a LEI ZERO proíbe. O risco não é copiar código: é a lista **parar a pergunta certa**, trocando "o que o formato define?" por "o que está na lista?". Precedente empírico registrado no mesmo dia: o escopo de RCSS foi fechado **sem** o documento, indo à documentação do formato, e nesse caminho o CTO **corrigiu três erros próprios** que a memória carregava.
-
-### EMENDA de 26/08/2026 — o layout entra, a marcação espera, e os dois formatos ganham nome próprio
-
-**Decisão do líder por `AskUserQuestion`, depois de eu argumentar CONTRA primeiro**, como a LEI DAS LEIS exige. **Verbatim dele:** *"Nosso \"css\" será chamado gfss e nossa marcacao se chamará gfml, com as propriedades de html."*
-
-**O que muda:**
-
-| | |
-|---|---|
-| **`gfss`** | o nome do nosso formato de folha de estilo. **Substitui o nome RCSS** em toda referência a formato. |
-| **`gfml`** | o nome da nossa marcação, **com as propriedades de HTML**. **Ainda NÃO entra** — fica decidida e escrita, sem trilha aberta. |
-| **layout** | **ENTRA no escopo.** A biblioteca passa a calcular caixa e posição, não só estilo computado. |
-
-**O que motivou, e é reconhecimento de um argumento dele:** um motor de estilo sozinho entrega pouco ao consumidor externo desconhecido. *"Eu digo a cor do seu nó, você escreve o layout"* é proposta difícil de sustentar numa biblioteca 2D — e havia risco real de entregar 21 fatias que ninguém consegue usar sem escrever motor de layout próprio. **Layout resolve a inutilidade; marcação resolveria conveniência de autoria, e custa um parser inteiro a mais.** Por isso a divisão.
-
-**O contra-argumento que apresentei antes, e que fica registrado para não ser redescoberto:** marcação mais estilo mais layout **é um motor de navegador**; a trilha de estilo sozinha já é a maior do projeto com 21 fatias, e marcação mais layout plausivelmente a igualariam, crescendo a tabela em cerca de um quinto. Pior, **a demo ainda não rodou** — janela, contexto gráfico, laço e demonstração seguem pendentes, e a **L-32** existe exatamente contra este cenário, que o próprio texto dela descreve: chegar com meia biblioteca pronta **e nenhuma janela na tela**. **O líder cortou pelo meio: pegou o que resolve o problema real, adiou o que era conveniência.**
-
-**Risco de contaminação, que continua valendo com força redobrada:** o predecessor usava RmlUi, e **construir layout do zero é onde a tentação de "ver como o antigo fazia" fica mais forte**, porque é o trabalho mais difícil e o mais parecido com o que já existia. **A L-01 e a proibição concreta desta lei continuam inteiras.** Se em algum momento parecer mais barato consultar aquele material, **é exatamente o movimento proibido.**
-
-**De onde a especificação sai agora — e isto é INFERÊNCIA minha sobre a decisão dele, não verbatim, sujeita a correção:** ao batizar os formatos de `gfss` e `gfml` e ao dizer *"com as propriedades de html"*, ele os torna **formatos nossos modelados no vocabulário dos padrões web**, e não mais o formato de terceiro que a versão original desta lei adotava. **A fonte da especificação passa a ser a documentação pública dos padrões (CSS e HTML), nunca um consumidor específico** — e a proibição de tirar a lista do que um jogo precisou **continua exatamente como está**, pelo mesmo argumento: a lista de um consumidor é subconjunto do que o padrão já define, e o risco não é copiar código, é **a lista parar a pergunta certa**.
-
-**O que NÃO mudou:** as cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora, animação e transição fora) **continuam de pé**. Layout entrar não as reabre.
-
-### Nome do motor: `gfui` — decidido em 26/08/2026
-
-**Ordem do líder, verbatim:** *"nosso motor se chamará gfui"*.
-
-**O trio de nomes fica assim, e eles são coisas diferentes:**
-
-| nome | o que é |
-|---|---|
-| **`gfui`** | **o motor** — a máquina que lê o estilo, calcula caixa e posição, e diz onde cada coisa fica |
-| **`gfss`** | **o formato de folha de estilo** que ele lê |
-| **`gfml`** | **o formato de marcação**, com as propriedades de HTML — **decidido, não aberto** |
-
-**Por que a distinção importa e não é preciosismo:** `gfss` e `gfml` são **formatos de dado** — arquivos que o consumidor escreve, e que a **L-26 governa como o terceiro contrato de versão**, aquele em que a pergunta é *"quem perde o arquivo"*. **`gfui` é código** — módulo, superfície pública, símbolo exportado, governado pelos contratos de API e de ABI. **Confundir os três é confundir três réguas de compatibilidade diferentes**, e quebrar formato não custa o mesmo que quebrar assinatura.
-
-### Legibilidade humana é REQUISITO, não gosto — 26/08/2026
-
-**Ordem do líder, verbatim:** *"gfss e gfml DEVEM ser tão simpaticos a humanos quanto css e html. quero marcacoes verbosas"*.
-
-**Os dois formatos são escritos e lidos POR PESSOAS, e o desenho se julga por isso.** Não são formato de máquina que por acaso alguém abre; são **linguagem de autoria**. Quem escreve uma folha `gfss` ou um documento `gfml` tem de conseguir **ler em voz alta e entender**, do mesmo jeito que se lê CSS e HTML.
-
-**A régua concreta, para não virar frase bonita sem consequência:**
-
-- **Verbosidade vence brevidade.** Onde houver escolha entre um nome curto e um nome que se explica, **ganha o que se explica**. `background-color` vence `bg`; `border-radius` vence `r`. **Digitar mais é barato; reler sem entender é caro**, e o texto é lido muitas vezes mais do que escrito.
-- **Nada de sigla, abreviação inventada ou código numérico** onde uma palavra serve. O leitor não deve precisar de tabela de tradução ao lado.
-- **Nada de sintaxe densa** — sem operador críptico, sem posicional obrigatório, sem "o terceiro campo é o alinhamento". **Se precisa contar vírgulas para saber o que uma linha faz, o desenho falhou.**
-- **O vocabulário segue o dos padrões web** onde eles já resolveram o problema, porque **milhões de pessoas já sabem essas palavras** — e conhecimento que o consumidor já tem é o recurso mais barato que existe. Inventar sinônimo para o que já tem nome é custo puro.
-- **Erro de escrita se diagnostica com linha, coluna e o que se esperava.** Formato amigável que falha com mensagem obscura **não é amigável** — é hostil na hora que mais importa.
 
 **O que isto NÃO autoriza:** copiar implementação de terceiro (**L-01**, **L-07** e a proibição concreta desta lei continuam inteiras). **Adotar vocabulário público não é adotar código de ninguém** — o parser é escrito em casa, do zero, como todo o resto.
 
 **Como isto entra na revisão:** proposta de sintaxe ou de nome de propriedade que **encurte às custas da clareza** é **achado de revisão**, não otimização. E a pergunta que o revisor faz não é *"funciona?"* — é ***"uma pessoa que nunca viu este formato entende esta linha lendo uma vez?"***
 
-**Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
-
-### Decisões de escopo da v1 do RCSS, tomadas pelo líder em 21/08/2026
-
-Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
-
-1. **Como o motor enxerga a árvore do consumidor: contrato preenchido pelo consumidor**, sem template na superfície pública. Motivo dele: não obriga quem já tem programa pronto a trocar o que tem, e não solda a biblioteca ao código dele. O motor funciona com qualquer árvore.
-2. **Folha imutável após o parse.** A única dinâmica é o estado de pseudo-classe do nó, com recomputação sob demanda. Simples, seguro entre threads por construção, e cobre `:hover`, `:focus` e `:checked`.
-3. **Seletor: o formato COMPLETO na v1.** Atributo com os sete operadores, `:not()` com lista de seletores complexos, os quatro combinadores, a família estrutural inteira, `:placeholder-shown` e `:scope`.
-4. **`@media` fica FORA da v1**, ignorada com diagnóstico.
-5. **Animação, transição e `@keyframes` ficam FORA da v1**, ignorados com diagnóstico. Entram como escopo próprio quando o loop principal e o relógio existirem.
-
-**Defaults registrados para veto, que o líder não vetou:** namespace `glintfx::style` com IDs de item `RCSS-*`; as cores modernas `lab()`, `lch()`, `oklab()` e `oklch()` fora da v1; e, quanto a aspas no valor de seletor de atributo, seguir a convenção do CSS (aceitar identificador sem aspas e string com aspas), já que a documentação do formato não especifica.
-
-**Fatos do formato, verificados na documentação pública sob a L-29 e não de memória:** o formato **não tem `!important`**, **não tem a palavra `inherit`** e **não tem folha de estilo embutida do próprio motor**, o que simplifica cascata e herança; **pseudo-elementos não existem** no formato; a especificidade de `:not()` é a do sub-seletor mais específico, sem contar a si mesma; as cores nomeadas são **19**, não a tabela completa do CSS.
-
-### As 22 decisões de escopo de 26/08/2026 — `gfss`, layout, render e fonte
-
-Todas por `AskUserQuestion` (L-10), na sessão em que o Caetano (CTO) derivou a lista de propriedades a partir da documentação pública dos padrões. **Não são mais perguntas.** Onde uma diverge do CSS, a divergência está declarada e vai para a documentação do formato — o consumidor não pode descobrir por acidente.
-
-**Fato que governa as onze primeiras, e precisa ser lido antes delas:** com o `gfss` sendo **formato nosso** modelado no vocabulário dos padrões, o que antes era *fato herdado do RCSS* passou a ser **decisão nossa**. Valor inicial, presença ou ausência de recurso: tudo que a versão anterior desta lei registrava como "verificado na doc do formato" precisa de ratificação, e é isso que as decisões abaixo fazem.
-
-#### Formato `gfss` — o que a folha significa
-
-| # | Decisão | Diverge do CSS? |
-|---|---|---|
-| 1 | **Fluxo da v1: `block` + `flex`.** Grid fica para **discussão posterior** — não é veto, é adiamento. Fluxo inline e `float` ficam fora. | — |
-| 2 | **`display` inicial = `block`.** O valor do CSS é `inline`, que depende de fluxo de texto e a v1 não tem. | **sim** |
-| 3 | **`box-sizing` inicial = `border-box`.** O tamanho declarado é o total na tela, borda inclusa. Declarar `content-box` continua sempre possível. | **sim** |
-| 4 | **Cor de borda inicial = cor própria fixa, independente da cor do texto.** O CSS parte de `currentColor`; aqui a borda nasce preta e só muda por ordem. Verbatim do líder: *"é obrigado a borda ser da cor do texto? devem ser idependentes"*. | **sim** |
-| 5 | **Margens verticais vizinhas SOMAM.** Sem fusão (*margin collapsing*). 20px mais 30px dá 50px. **É de mão única:** mudar depois altera o desenho de folha já escrita. Motivo aceito: uma regra só no formato inteiro, igual à do flex, sem margem de filho vazando para o pai. | **sim** |
-| 6 | **Os cinco valores iniciais que os padrões deixam em aberto ficam fixados:** cor do texto `black`; tamanho de fonte `16px`; alinhamento `left`; espaço entre itens `0`; espessuras `thin`/`medium`/`thick` = **1/3/5 px**. | — |
-| 7 | **Cores: as ~148 nomeadas do padrão**, mais `#rrggbb`, `rgb()`, `hsl()` e **`oklch()`**. **Isto REVOGA** o default registrado da versão anterior desta lei, que punha as cores modernas fora da v1. | — |
-| 8 | **`oklch()` em fatia própria**, logo depois da fatia das outras notações — ela exige conversão de espaço de cor perceptual e mapeamento de gamut, que as outras três não têm. | — |
-| 9 | **`!important` entra na v1.** Isto **reescreve** `GFSS-CASCADE`, cujo texto dizia "sem `!important`". | — |
-| 10 | **`inherit`, `initial` e `unset` entram na v1.** Isto **reescreve** `GFSS-INHERIT`, cujo texto dizia que o formato não tem a palavra-chave. | — |
-| 11 | **Pseudo-elementos `::before` e `::after` entram na v1.** É o mais caro dos três: o motor passa a **fabricar caixas** que não existem na árvore do consumidor, o que é trabalho de layout, não de folha. Não confundir com as pseudo-classes de dois-pontos simples, que já estavam dentro nas cinco fatias de seletor. | — |
-
-#### Layout — a trilha nova
-
-| # | Decisão |
-|---|---|
-| 12 | **A trilha de layout é desenhada AGORA** (13 fatias `LAYOUT-*`), executada **depois da W10**, no **mesmo slot** da L-32 — layout consome estilo computado, é continuação da mesma trilha, não uma segunda disputando o teto. Precedente: as 14 fatias de mapa esperam desenhadas sem custo. |
-| 13 | **Medir texto: interface separada e opcional.** A biblioteca pergunta o tamanho do texto a quem a usa; quem não responde continua funcionando, sem ajuste automático. **Não trava** o congelamento de `GFSS-NODE-VIEW` na W3. |
-| 14 | **Ajuste automático de caixa ao conteúdo é REQUISITO, e o motivo é i18n.** Verbatim do líder: *"portugues e ingles e outras linguas tem palavras de tamanhos diferentes. no i18n, se a palavra em outra lingua for maior, 'estoura' e clipa as margens"*. Consequência direta: **`LAYOUT-MEASURE-CONTRACT` sobe para o começo da trilha**, antes de `LAYOUT-SIZE-RESOLVE`, porque resolver largura automática passa a depender dela. |
-| 15 | **Texto que não cabe numa caixa que não pode crescer: transborda VISÍVEL, com diagnóstico.** Nunca cortar em silêncio. Erro de tradução que some sem aviso chega ao usuário final; erro que estoura na cara é consertado antes. Quebrar em linhas e reticências dependem do motor de texto e ficam para a trilha de fonte. |
-
-#### Render — o que só existe quando houver o que desenhar
-
-Critério transversal, e é ele que explica o bloco inteiro: **propriedade que a folha aceita e o motor ignora é o defeito que o líder mandou eliminar** ao dizer que biblioteca sozinha era inútil. Cada uma abaixo nasce ao lado do código que a pinta.
-
-⚠️ **CORREÇÃO da mesma sessão, decidida depois destas seis (L-32):** as seis foram aprovadas para a W7, que vem **antes** da `DEMO-1` da W8 — e isso era exatamente o cenário que a L-32 existe para impedir, *meia biblioteca pronta e nenhuma janela na tela*. Medido no ato: `DEMO-1` carrega **31,00** de pontuação, a maior da tabela inteira, contra 20,00 do segundo colocado. **O bloco inteiro passa para DEPOIS da `DEMO-1`.** Verbatim da escolha do líder: *"Depois da demo"*. Nada foi cortado — só reordenado. Onde as linhas abaixo dizem W7, leia **pós-demo**.
-
-| # | Decisão |
-|---|---|
-| 16 | **Gradiente: fatia ÚNICA, junto do render, na W7.** Gramática e pintura na mesma fatia, ao lado do shader interno de `R2D-BATCH`. Nada de linha aceita e ignorada. |
-| 17 | **Sombra de caixa e filtros seguem o mesmo destino do gradiente** — mesmo shader, mesmo momento, uma decisão só em vez de três discussões idênticas. |
-| 18 | **Moldura de nove pedaços (*nine-patch*, o `border-image` do CSS): fatia PRIORITÁRIA própria**, à frente das outras do bloco. Justificativa: é como praticamente toda caixa de diálogo, painel de inventário e balão de fala de jogo 2D é desenhado, e **não existia em lugar nenhum da tabela** — ausência medida, não lembrada. |
-| 19 | **Pixel art não borrada (`image-rendering`) entra CEDO**, na W8 com a textura, sem esperar o bloco da W7. Custa quase nada no render, e sem ela todo sprite ampliado sai borrado — o que inviabiliza o estilo visual de metade dos jogos 2D. |
-| 20 | **Transparência: a forma simples fica no eixo A** (funciona sem layout); **a de grupo** — painel inteiro translúcido como um todo, em vez de cada peça por si — **entra no bloco da W7**, porque exige desenhar fora da tela primeiro. A documentação diz qual é qual; ninguém descobre por surpresa. |
-| 21 | **`transform` entra na W7 COM o teste de clique acompanhando a transformação.** Ligar entrada e render custa uma fatia a mais e evita o defeito concreto de um botão que gira na tela e continua clicável no lugar antigo. Registrado junto: elemento transformado **continua ocupando o lugar original no layout** — é o comportamento do padrão, e é surpreendente. |
-
-#### Fonte — a trilha que faltava
-
-| # | Decisão |
-|---|---|
-| 22 | **A trilha de fonte é COMPLETADA agora, no mesmo trabalho do layout.** |
-
-⚠️ **Correção de fato, na mesma sessão, antes de a decisão 22 ser executada.** O CTO relatou que a trilha de fonte *"não tem uma única fatia na tabela hoje"*, e o orquestrador repetiu isso ao líder duas vezes antes de conferir. **É falso, e a medição desmente:** existem três — `FONT-TABLES` (W3, lê a estrutura do arquivo), `FONT-OUTLINE` (W4, extrai o contorno do glifo) e `FONT-RASTER` (W5, rasteriza com suavização). Aplicação direta da regra da casa de que **relatório de agente não é prova**, desta vez contra o próprio orquestrador, que relatou de segunda mão.
-
-**O que a correção NÃO desfaz:** o buraco é real. As três param exatamente onde o layout precisa começar — **não existe fatia que MEÇA texto**, que é de onde o ajuste automático por i18n (decisão 14) depende, nem atlas, nem montagem de linha, nem quebra de linha. Elas entregam uma letra desenhada; o layout precisa saber quanto mede uma frase.
-
-**O que a correção MUDA, e é substantivo:** a decisão sobre **como os glifos são guardados**, que eu apresentei ao líder como aberta, **já estava tomada** — `FONT-RASTER` diz *"rasterização scanline com AA"*, isto é, desenho direto, e **não** o método de guardar distância à borda. Consequência que ninguém escolheu explicitamente: contorno e sombra de texto saem pelo caminho caro, de vários desenhos por palavra, não de graça no shader. Fica registrado para revisão consciente quando a trilha for completada.
-
-**A decisão do líder, com o fato corrigido na mesa:** completar a trilha inteira — medir texto, atlas, montar linha, quebrar linha — junto com o desenho do layout. Verbatim: *"Sim, completar a trilha"*.
-
-#### O que a régua de legibilidade derrubou nesta mesma sessão
-
-Aplicação concreta da seção anterior desta lei, registrada porque é o primeiro caso em que ela mudou uma recomendação técnica já escrita:
-
-- **O shorthand `flex` fica FORA da v1.** `flex: 1` expande para `flex-grow: 1; flex-shrink: 1; flex-basis: 0` — a mudança silenciosa do `basis` é pergunta clássica de entrevista que veterano erra. É exatamente o "precisa de tabela de tradução ao lado" que a régua proíbe. Os três longhands **são** a forma verbosa que se explica, e ficam.
-- **O shorthand `inset` fica fora** pelo mesmo motivo: a palavra não se explica; `top`, `right`, `bottom` e `left` se explicam.
-- **Os demais shorthands do CSS ficam** (`margin`, `padding`, `border-width`, `border-style`, `border-color`, `border`, `border-radius`, `gap`, `overflow`): a ordem topo-direita-baixo-esquerda é vocabulário que milhões já sabem, e o longhand verboso existe sempre como alternativa. **A fronteira: shorthand posicional INVENTADO POR NÓS está proibido; os dos padrões entram por serem vocabulário público.**
-- **O tipo de diagnóstico ganha um campo obrigatório: "o que se esperava"**, além de linha e coluna. Precisa entrar **antes** de o tipo congelar em revisão de API dedicada.
-
 #### Termos de licença dos padrões — verificado em 26/08/2026
 
 **Podemos usar os mesmos nomes de propriedade e de elemento.** Nomes de propriedade são identificadores funcionais; os padrões são publicados **para serem implementados**; o que as licenças protegem é o **texto** da especificação e o **código** de implementações existentes. Nossas próprias leis (L-01, L-07, L-29) já são mais estritas que qualquer termo externo: escrevemos tudo do zero, sem consultar implementação de terceiro.
-
-### As 8 decisões de 26/08/2026 sobre movimento e luz — animação REABERTA
-
-Todas por `AskUserQuestion` (L-10), na mesma sessão, algumas horas depois das 22 anteriores. Nasceram de uma pergunta do líder — *"temos brilho? com fadein, fadeout, pulse, velocidade de fade, tempo de fade, propriedades predefinidas (heartbeat [velocidade], breath [velocidade], outros [sugira]"* — cuja resposta medida foi **não temos nada disso**: zero ocorrências de brilho, glow ou bloom na tabela inteira e nas leis, e a metade animada explicitamente fora da v1.
-
-#### ⚠️ REVOGAÇÃO da decisão 5 de 21/08/2026
-
-A quinta decisão de escopo desta lei dizia: *"Animação, transição e `@keyframes` ficam FORA da v1, ignorados com diagnóstico. Entram como escopo próprio quando o loop principal e o relógio existirem."*
-
-**A condição que ela mesma escreveu está satisfeita, e foi medida:** `CORE-TIME` (W3, pontuação **24,00**, a terceira maior da tabela — relógio monotônico, delta, ritmo de quadro) e `LOOP-RUN` (W6, o loop principal público). **A partir da W6 a fundação existe**, e o líder reabriu.
-
-**Consequência imediata na tabela:** `GFSS-SHEET-PARSE` (W6) descreve animação, transição e `@keyframes` como *"fora da v1, ignoradas com diagnóstico"* — **esse texto está revogado** e a fatia precisa ser reescrita.
-
-| # | Decisão |
-|---|---|
-| 23 | **Animação REABRE**, com a trilha desenhada agora e **executada depois da `DEMO-1`** — mesma disciplina da L-32 aplicada ao bloco de render horas antes. A demo continua na frente de tudo. |
-| 24 | **Tamanho: o conjunto COMPLETO** — transição de propriedade (ir de um valor a outro com duração e curva), presets nomeados, **e animação escrita à mão pelo autor da folha**, com quadros próprios. É a mais cara das três opções apresentadas: exige um sistema de linha do tempo **além** do de curvas. Registrado como custo aceito de olhos abertos, não como surpresa futura. |
-| 25 | **Duração e curva são parâmetros SEPARADOS.** Duração é quanto tempo leva; curva é *como* leva — começa devagar, passa do alvo e volta, chega batendo. **A curva é o que faz um botão parecer mecânico ou vivo com a mesma duração**, e é o parâmetro que quase todo formato esquece de expor. Nenhum dos dois é opcional na superfície pública. |
-| 26 | **Brilho: sombra MAIS uma peça própria de brilho intenso.** O halo simples vem de graça da sombra de caixa (sombra sem deslocamento e com cor viva **é** brilho); a peça própria é a que faz a luz vazar para fora do elemento do jeito que fogo e magia parecem em jogo. |
-| 27 | **Mistura aditiva entra como CAPACIDADE GERAL**, não como detalhe interno do brilho. **É o que separa luz de tinta:** quando uma luz brilha sobre um fundo, ela **soma** com o que está atrás; sem isso o halo fica leitoso, como vidro fosco por cima, nunca luminoso. Serve a neon, fogo, magia, explosão, faísca e raio — decidir só para o neon seria resolver um caso de uma capacidade que serve a dez. **Não existia em lugar nenhum da tabela** — ausência medida, não lembrada. |
-| 28 | **`neon` é PRESET com parâmetros**, não peça separada. A receita tem quatro camadas: **núcleo quase branco** (dessaturado — este é o segredo, e o erro comum), **halo curto e saturado**, **halo largo e fraco**, e **soma com o fundo**. Escrever o texto na cor do neon produz **adesivo colorido**; escrever quase branco com a cor no halo produz **luz**. Empacotar a receita evita que quase todo consumidor erre na primeira tentativa. Combinado com `flicker`, dá o letreiro com defeito sem nada novo. |
-| 29 | **Presets com sorteio (`flicker`, `twinkle`, `ember`): semente NO CONTRATO.** Fixada a semente, a animação repete idêntica e o teste consegue verificá-la; sem fixar, varia normalmente. Nasce da tensão com a **L-35** (entrega determinística): animação com sorteio não é reproduzível em teste a menos que a semente seja parte do contrato público. **Nenhuma outra parte da biblioteca tem esse problema hoje** — este é o primeiro. |
-| 30 | **A lista de presets da v1, treze:** `breath` (onda lenta, vivo em espera), `heartbeat` (dois pulsos e pausa, vida baixa), `pulse` (onda simples, atenção sem alarme), `throb` (sobe de golpe, desce devagar — impacto), `blink` (liga/desliga duro), `flicker` (irregular — tocha, néon quebrado), `shimmer` (faixa de luz varrendo — item raro), `twinkle` (picos curtos aleatórios — estrela), `ember` (variação lenta e fraca — brasa), `charge` (cresce ao pico e estoura), `alarm` (pulso duro e rítmico — perigo), `wave` (atraso crescente entre vizinhos — menu que acorda item a item) e `neon`. **Presets são baratos depois que o motor de curvas existir — são uma tabela.** ⚠️ **`wave` é o único que não age sobre UM elemento**, e sim coordena vários com atraso progressivo: mecanismo diferente dos outros doze, e por isso fatia própria. |
-
-### As 5 decisões de fecho de 26/08/2026 — as perguntas que o fatiamento devolveu
-
-Por `AskUserQuestion` (L-10), depois de o CTO entregar as 37 fatias e devolver cinco perguntas. **Não são mais perguntas.**
-
-| # | Decisão |
-|---|---|
-| 31 | **A pontuação das 37 fatias novas passa pelo Capitolino (CPO).** O CTO pontuou **por analogia** com a escala do CPO, e quem criou a escala revisa quem a usou. Motivo aceito: a pontuação decide a **ordem de execução** de 37 fatias, e errar nela custa meses gastos na sequência errada. Parcelas em `/var/tmp/glintfx-plan/fatias-2608-caetano.md`. |
-| 32 | **A escolha do método de guarda dos glifos é REABERTA**, antes de a trilha de fonte fechar. Ela estava tomada **por consequência** e não por decisão: `FONT-RASTER` especifica *"rasterização scanline com AA"*, o que exclui guardar distância à borda. ⚠️ **É de mão única no sentido mais literal:** só pode ser escolhida **antes de a primeira letra ser gravada**. O que está em jogo: guardar distância à borda entrega contorno, sombra e brilho de texto **de graça no shader** e escala sem borrar em qualquer tamanho; o desenho direto exige desenhar a palavra oito vezes deslocada para obter contorno, com quinas imperfeitas. |
-| 33 | **Reticências em texto truncado: fatia futura**, desenhada e esperando a trilha de fonte entregar a montagem de linha. Até lá vale a decisão 15 sem alteração — **transborda visível com diagnóstico**. Não entra dentro da fatia de montagem de linha: truncar é política própria, e fatia que faz duas coisas viola a L-17. |
-| 34 | **Filtros: os baratos numa fatia, o desfoque em outra.** Escurecer, clarear, tirar a cor, saturar, girar matiz, inverter e sépia são **uma conta por pixel** e cabem juntos; **o desfoque precisa de desenho fora da tela e dois passes**, mais memória. Misturar custos tão diferentes na mesma unidade é o que a L-17 proíbe. Uso ancorado em jogo: desfoque = fundo borrado atrás do menu de pausa; tirar a cor = item indisponível ou jogo pausado; clarear = botão sob o mouse. |
-| 35 | **As duas violações de dependência da trilha de mapa são consertadas AGORA, com o dominó.** `MAP-OBJECTS` e `MAP-COLLIDE-GRID` estão na W3 dependendo de `CORE-MATH2D`, que está na W4 — logo são **impuxáveis mesmo com o slot livre**. Confirmado contra o histórico (`git show 7ec2190:TODO.md`): **é defeito pré-existente, não introduzido pelo fatiamento de 26/08**. Conserto: mover as duas para a W5 e empurrar o que vem depois. É trabalho de tabela, não de código, e se faz enquanto a trilha está parada — deixar quebrado é tropeço garantido para quem puxar a trilha um dia. |
-
-### Decisão 36, de 26/08/2026 — o método de guarda dos glifos é HÍBRIDO
-
-Fecha a decisão 32 (reabertura). Por `AskUserQuestion` (L-10), com as quatro opções na mesa e a comparação escrita do CTO (`/var/tmp/glintfx-plan/glifos-comparacao.md`) como insumo.
-
-**A escolha do líder: HÍBRIDO desde o começo** — letra desenhada nos corpos pequenos, campo de distância nos grandes.
-
-⚠️ **O líder escolheu contra a recomendação do CTO, e contra a forma como a opção lhe foi apresentada.** O CTO recomendou o campo de distância de 3 canais puro, e classificou o híbrido como *"nota lateral (INFERÊNCIA do CTO, não é terceira opção formal)"*, *"refinamento da B, decidível depois"*. **O líder o promoveu a decisão de partida.** Registrado assim, sem suavizar: quem ler depois precisa saber que a escolha foi deliberada e informada, não um mal-entendido sobre o que estava sendo oferecido.
-
-**O que o híbrido resolve, e é o argumento a favor:** cada método tem exatamente um ponto fraco, e eles são opostos. A letra desenhada perde ao ampliar e cobra caro por efeito (contorno = desenhar a palavra oito vezes) e por tamanho novo; o campo de distância perde fidelidade em corpo pequeno — que é onde interface passa a maior parte do tempo. **O híbrido usa cada um onde ele é forte.** Adotado desde o começo, não depois, porque o depois exigiria reabrir uma porta de mão única.
-
-**O que ele cobra, declarado:** **duas implementações** e **duas vias no depósito de letras**. Não é o caminho mais barato; é o que entrega o melhor resultado nas duas pontas.
-
-**Três coisas que a escolha CRIA e que ninguém decidiu ainda** — registradas aqui para não virarem decisão silenciosa, como aconteceu com a própria escolha do método (a decisão 32 existiu porque `FONT-RASTER` tinha fechado a porta sem ninguém escolher):
-
-1. **O corpo-limite** onde um método vira o outro é **parâmetro de contrato**, não detalhe de implementação: ele muda a aparência do texto e o conteúdo do depósito. Precisa ser decidido, documentado e — se ajustável pelo consumidor — congelado na revisão de API.
-2. **A travessia do limite durante animação.** Com a decisão 24 (animação completa), um texto pode crescer de pequeno a grande **atravessando o corpo-limite no meio do movimento** e trocando de método no ar. Se as duas vias não casarem visualmente na fronteira, aparece um pulo. **Nenhum dos dois métodos puros tem este problema; é criado pelo híbrido.** Exige teste de fronteira dedicado, e a regra da casa vale aqui: teste na fronteira exata não basta, precisa também de um passo para fora dela.
-3. **Qual variante do campo de distância** entra na metade grande — a simples, que arredonda quinas, ou a de 3 canais, que as preserva pagando um gerador bem mais delicado. O CTO recomendou a de 3 canais; o líder não foi perguntado sobre isso separadamente, e a pergunta segue aberta.
-
-**Fatias afetadas** (as três que a decisão 32 já havia travado): `FONT-RASTER` (que passa a especificar os dois caminhos e o critério de escolha), `FONT-ATLAS` (duas vias no depósito) e `R2D-TEXT` (o desenho passa a ter dois caminhos). `FONT-MEASURE`, `FONT-LINE`, `FONT-WRAP`, `FONT-ELLIPSIS`, `FONT-TABLES`, `FONT-OUTLINE` e toda a trilha `LAYOUT-*` **não mudam** — métrica e layout independem de como a letra é guardada.
-
-### As 3 decisões de 26/08/2026 sobre a fronteira dos glifos — busca na web, e a decisão 36 posta à prova
-
-Por `AskUserQuestion` (L-10), depois de o líder mandar **buscar na web** o valor da fronteira. A busca não devolveu o número esperado; devolveu algo melhor e algo incômodo.
-
-**FATO 1 — não existe número universal publicado.** O guia de referência sobre a técnica declara que *"cada fonte + faixa de distância se comporta diferente em tamanhos diferentes"* e recomenda **comparar com a própria fonte**. **O corpo-limite tem de ser MEDIDO nesta casa, não copiado.** Fonte: `redblobgames.com/articles/sdf-fonts/`.
-
-**FATO 2 — a literatura já pensa em RAZÃO DE RESOLUÇÃO, não em pixels absolutos.** O autor da variante de três canais publica a fórmula da faixa mínima como **`2,5 + 1 ÷ escala`**, onde **`escala` = tamanho na tela ÷ tamanho gravado no depósito**. A pergunta do líder (*"podemos ter fronteira por resolução?"*) acertou o eixo que a própria literatura usa. Fonte: `github.com/Chlumsky/msdf-atlas-gen/discussions/69`.
-
-**FATO 3 — o autor da técnica NÃO recomenda o híbrido.** Ele diz que corpo pequeno se conserta **alargando a faixa de distância** dentro da própria técnica, e cita amostragem múltipla quando a redução é grande. Em nenhum momento sugere cair para bitmap. **Isto é contra-argumento direto à decisão 36, tomada vinte minutos antes**, e foi levado ao líder como tal, com a ressalva honesta de que o autor tem interesse na própria técnica e de que alargar a faixa **não é grátis** (a mesma informação por ponto passa a cobrir mais distância, e a precisão perto da borda cai).
-
-| # | Decisão |
-|---|---|
-| 37 | **O híbrido fica de pé, MAS ganha um passo obrigatório antes: MEDIR.** Comparar as duas saídas lado a lado em corpo pequeno **com a faixa já alargada pela fórmula do FATO 2**. ⚠️ **Se a medição mostrar que a faixa alargada basta, o caminho de bitmap se torna dispensável e a decisão 36 CAI sem ter custado nada** — por isso a medição vem antes de qualquer implementação do segundo caminho. Isto não revoga a 36; põe-na à prova com evidência, que é o oposto de decidir por autoridade (a do autor da técnica ou a minha). |
-| 38 | **A fronteira se expressa como RAZÃO DE RESOLUÇÃO EFETIVA**, não como corpo declarado na folha: **tamanho real na tela ÷ tamanho gravado**, contando a escala do monitor **e** a escala de transformação acumulada. Motivo medido: `font-size: 14px` não significa 14 pixels na tela em nenhum dos três casos que o projeto já tem — tela HiDPI (a do líder é fracionária), `transform: scale()` (decisão 21) e animação de escala (decisão 24). **Ganho de brinde:** a travessia do limite durante animação deixa de ser degrau arbitrário e vira **função contínua do tamanho real** — o problema que a própria decisão 36 criou (registrado como consequência 2) fica muito menor. Dependências, conferidas na tabela e já na ordem certa: escala do monitor (`WL-SCALE`, W6), escala de transformação (`R2D-TRANSFORM`, W10), corpo-limite (`FONT-HYBRID-THRESHOLD`, W13). |
-| 39 | **A variante do campo de distância é a de TRÊS CANAIS**, a que preserva quinas — fechando a pergunta que a decisão 36 deixou aberta. Argumento do custo de errar, que foi o eixo decisivo: **descer de três canais para o simples é trivial; subir reabre formato de depósito e shader já congelados.** Custo declarado, mantido da recomendação do CTO: a atribuição de arestas a canais é a peça mais delicada de todo o trabalho, e é exatamente onde a L-29 obriga a refazer diferente em vez de copiar. Fecha `FONT-FIELD-VARIANT` (W6), que sai de `🎨 Pendente design`. |
-
-**Nota de método, que vale além deste caso:** a busca foi ordenada para achar um número e **não achou nenhum**. O que ela achou foi (a) a confirmação de que o eixo da pergunta do líder era o certo e (b) um argumento contra uma decisão dele tomada minutos antes. **Os dois foram relatados**, o segundo com a ressalva do viés da fonte. Resultado negativo de busca é resultado — e busca que só confirma o que já se queria fazer não teria valido a chamada.
 
 ## L-29
 
@@ -759,164 +576,19 @@ Por `AskUserQuestion` (L-10), depois de o líder mandar **buscar na web** o valo
 
 **Data:** 21/08/2026, decisão do líder.
 
-**O GlintFx tem mecanismo de mapa.** Matriz `x,y` simples, objetos posicionados nela, hitbox, parede, porta e ponto de teleporte (escada, buraco e afins).
-
-**O GlintFx é DONO do formato de arquivo de mapa.** A lib publica o formato e o carregador; o editor e o jogo são **consumidores** dele. Consequência que a decisão assume de olhos abertos: **o formato vira API pública e contrato de ABI** (L-19 e L-26), qualquer consumidor no mundo passa a depender dele, e mudá-lo depois quebra todos. Por isso o formato nasce com revisão de API dedicada e versionamento explícito.
-
-**Escopo dentro da lib, decidido pelo líder:** matriz e objetos, hitbox e consulta de colisão, **mais busca de caminho e visibilidade**. Porta e teleporte entram como **marcador genérico com destino**.
-
-**A fronteira que separa mecanismo de conteúdo, e ela é a parte que mais se esquece.** Cidade, dungeon, estrada e floresta são **conteúdo de um jogo**, não mecanismo. A lib entrega a **matriz e as consultas**; o que se põe dentro dela é do consumidor. **A lib nunca sabe o que é uma dungeon**, nunca sabe que uma escada é uma escada: ela sabe que existe um marcador com um destino, e quem dá sentido é quem consome (L-02 e LEI ZERO). Nomear tipo de cenário dentro da lib é o mesmo erro de premissa que a LEI ZERO existe para impedir, entrando por outra porta.
+**[Grande parte migrada para `ESCOPO.md` §5 — Mapa, 26/08/2026.]** O mecanismo de mapa, a fronteira mecanismo/conteúdo e todas as decisões numeradas de formato/hitbox/UUID/criptografia vivem lá por inteiro, verbatim. Aqui fica só a conduta desta lei:
 
 **Aviso de escopo, registrado porque o líder decidiu com ele à vista:** busca de caminho e visibilidade são algoritmos com **muitas variantes**, e cada consumidor costuma querer a sua. Entram como escopo próprio, quebrados em fatias (L-17), com a superfície pública tratada como porta de mão única.
 
 **O editor é projeto à parte.** `GusWorld_MapEditor` (`petrinhu/gusworld_mapeditor`) é o editor do formato e **não** faz parte deste repositório. Ele consome o formato como qualquer outro consumidor, e por decisão do líder a mudança foi comunicada pelo bus (L-16).
 
-### Decisões de escopo da v1 do formato de mapa, tomadas pelo líder em 21/08/2026
-
-1. **O arquivo é binário, organizado em blocos**, com versão no cabeçalho e a regra de pular bloco desconhecido, que é o que permite evoluir sem quebrar.
-2. **Leitor e escritor são os dois públicos.** O escritor nasce de qualquer forma para os testes, e gravar e reler o mesmo mapa é a prova mais forte que o formato tem; publicá-lo evita que cada editor escreva o seu e derivem entre si.
-3. **Posição de objeto é contínua**, em unidades de célula. Marcador de porta e de teleporte continua ancorado na célula.
-4. **O mapa aceita mudança permanente** em runtime (parede destruída, porta aberta de vez), sem a lib saber o porquê. Travessia condicional por ator é outra coisa, e já está resolvida pela máscara de consulta.
-5. **Versionamento do formato:** ver a seção "O terceiro contrato: DADO" da L-26, que esta trilha obrigou a escrever.
-
-### Decisões de hitbox e geometria, tomadas pelo líder em 22/08/2026
-
-Vieram de necessidade levantada pelo `mapeditor` com pesquisa de prior art público (Godot, Unity, Box2D, Tiled, LDtk), não de material do predecessor.
-
-1. **Tamanho do volume de colisão: coordenada relativa configurável, e por padrão ele acompanha a escala do objeto.** Quem quiser controle grava dimensão própria.
-2. **Mitigação obrigatória do defeito silencioso, decidida junto:** escala **desigual** aplicada a forma **redonda** (círculo, cápsula) quebra a matemática de colisão, e o caso é estreito mas invisível. A lib **avisa alto e segue**: diagnóstico claro dizendo o que vai dar errado, sem recusar o arquivo. Não é preciosismo: a física 2D do Godot **não emite aviso nenhum** nessa situação, enquanto a 3D dele emite, e existe issue aberta lá por causa disso. **Padrão cômodo é permitido; padrão cômodo e mudo, não.**
-3. **Rotação existe**, em ponto flutuante e livre (não restrita a múltiplos de 90 graus), e **o volume pode ter rotação própria** além da do objeto, para o caso de a caixa de um ataque apontar para lado diferente do desenho. Prova negativa que sustentou a decisão: o LDtk **não** tem rotação de entidade, tem três issues abertas pedindo, e um usuário precisou criar **quinze variações rotacionadas à mão** da mesma entidade para fazer uma porta giratória.
-4. **Forma côncava não entra no formato.** Só forma simples; **quem autora o mapa é que reparte** em pedaços convexos. A biblioteca fica mais simples e rápida, e o trabalho fica com quem tem interface para fazê-lo. Consequência assumida: **todo** consumidor que grave mapa precisa saber repartir.
-
-### Identificador estável de objeto: UUID, nunca reutilizado
-
-**Data:** 22/08/2026, decisão do líder. **Escolha dele, verbatim:** UUID.
-
-Cada objeto do mapa carrega um **UUID** gravado no arquivo. Ele **não** é a posição do objeto na lista serializada, e **nunca é reutilizado** depois que o objeto é apagado.
-
-**Por que UUID e não contador:** o LDtk trocou identificador numérico por um do tipo GUID na versão 1.0, com a razão escrita na documentação deles: funcionar em projeto **compartilhado por git entre vários autores**, onde dois autores criando objeto ao mesmo tempo não podem colidir. Contador só é seguro com um autor por vez.
-
-**Por que nunca reutilizar:** é a regra literal do Tiled, *"mesmo que um objeto seja deletado, nenhum objeto recebe o mesmo id"*. A falha concreta que ela evita: um comando de desfazer antigo, ainda gravado em disco, **ressuscita por acidente** um objeto novo que herdou o identificador de um apagado.
-
-**A evidência que sustentou a decisão, e ela é do tipo que a casa exige:** **três consumidores chegaram à mesma exigência por três derivações independentes** — o jogo, para lembrar entre sessões qual objeto já foi revelado; o editor, para distinguir volume ajustado nesta instância de volume herdado do tipo; e o editor de novo, para histórico de desfazer que sobrevive a fechar e reabrir. Três ocorrências reais é o piso que o `CONTRACT.md` §6 exige para generalizar, e aqui ele foi atingido **sem** ninguém combinar.
-
-### Seis decisões de formato e colisão, tomadas pelo líder em 22/08/2026
-
-Vieram de um dossiê do CTO consolidando **20 questões** de dois canais do bus: a necessidade do lado de **quem lê** o mapa (`gusworld`) e a do lado de **quem escreve** o arquivo (`mapeditor`). As seis foram por `AskUserQuestion` (L-10), todas na recomendação do CTO. **Não são mais perguntas.** Dossiê: `/var/tmp/glintfx-plan/mapa-decisoes.md`.
-
-1. **O registro de volume de colisão é uma LISTA por objeto**, cada volume com `{forma, offset, rotação, sensor, enabled}`. `sensor` diz se o volume **bloqueia** ou apenas **notifica** sobreposição; `enabled` é alternável em runtime pela lógica do consumidor, e é o que faz uma porta abrir e fechar **sem recarregar o mapa**. Argumento que decidiu, do `mapeditor`, verbatim: *"uma área de interação é, por definição, **maior** que o volume sólido do mesmo objeto... Se o objeto só puder ter um volume, esse caso não se representa, e o consumidor é empurrado a criar dois objetos sobrepostos para simular um."* **Porta de mão única plena:** o layout do registro de objeto é contrato de DADO (L-26) — um-volume-embutido contra lista-contada não se troca depois sem subir o `A`.
-
-2. **Bit `blocks_path` separado de `blocks_move`, desde a v1.** O caso real que não se representa sem ele: célula **livre para andar** por onde a busca automática de caminho **não deve** mandar ninguém (água rasa, zona de perigo). A máscara de travessia da seção anterior **não** resolve, porque ela só **desbloqueia**, nunca desencoraja. Prazo, argumento do `mapeditor` verbatim: *"a busca de caminho é de vocês, então essa separação **nasce agora ou não nasce**. Depois que a superfície pública existir, separar vira quebra."*
-
-3. **UUID de mapa no cabeçalho, e destino de teleporte é `{map_uuid, posição}`**, não nome de arquivo. Sem isso, **renomear ou mover um arquivo quebra em silêncio todo teleporte que apontava para ele**, sem nada avisar o autor. O UUID é opaco para a lib (16 bytes não interpretados) e ainda assim dá ao editor como validar destino. Isto **corrige um default anterior do próprio CTO** (`map_ref` como string), corrigido por ele mesmo no dossiê. A regra das três ocorrências do `CONTRACT.md` §6 foi atingida por derivação independente: área estável do `gusworld`, segurança contra rename do `mapeditor`, e o nosso próprio endereçamento entre mapas.
-
-4. **Canal de propriedades nomeadas (chave → bytes) em mapa, objeto e marcador — NUNCA em célula.** A lib guarda e devolve sem interpretar. O veto à célula é de custo: um mapa tem dezenas de milhares de células, e bolso de tamanho variável em cada uma explode arquivo e tempo de leitura. Dois consumidores pediram a mesma coisa **sem combinar** (payload opaco por objeto, do jogo; referência de tipo da paleta, do editor). Fato que sustentou o canal **sancionado**, trazido pelo `mapeditor` como fato e não como recomendação: no RPG Maker, o campo de anotação livre do autor **virou canal informal de dado de jogo**, lido por plugins de terceiros, sem validação de schema nenhuma — **quando não existe canal sancionado, um canal apodrecido nasce sozinho**.
-
-5. **Camada única por célula na v1, RATIFICADA, com reserva normativa da evolução multicamada por chunk aditivo escrita na spec.** A decisão anterior do líder fica de pé; o que se acrescenta é o caminho escrito, porque o `mapeditor` precisa saber **agora** para não desenhar uma ferramenta de várias camadas que o formato não aceita. É aditivo puro: como o valor da célula já é opaco, camada extra é passagem sem interpretação. Prova pública que motivou: o RPG Maker MV cortou para uma camada, a comunidade sentiu como perda real, e o MZ voltou atrás.
-
-6. **Preservação de chunk desconhecido ao REGRAVAR é exigência NORMATIVA do formato**, com **bit safe-to-copy** na taxonomia de chunk (técnica do PNG). **Pular na leitura e preservar na escrita são capacidades diferentes**, e só a primeira estava decidida: pular exige saber onde o bloco acaba; preservar exige guardar os bytes originais intactos e reemiti-los. O cenário concreto: um autor com o editor **desatualizado** abre um mapa gravado por versão mais nova e salva — sem preservação, ele **destrói em silêncio** o dado de quem tinha a versão mais nova, sem aviso nenhum, porque do ponto de vista do editor aquele bloco nunca existiu. O bit safe-to-copy distingue o chunk que pode ser copiado às cegas do que ficaria **stale** após edição; sem ele, a escolha é entre perda silenciosa e corrupção silenciosa. **É o maior porta de mão única do dossiê:** o bit mora no ID do chunk, imutável depois do primeiro arquivo gravado no mundo — **nasce em `MAP-FMT-SPEC` ou não nasce.** Julgado pela lente do DADO (L-26), a pergunta é *"quem perde o arquivo"*, e a resposta da omissão é *"o usuário final de um terceiro, sem aviso"*.
-
 **Lição de método que estas seis registram:** o ângulo de **quem escreve** o arquivo é estruturalmente diferente do de quem só o lê, e **nenhum consumidor que apenas lê traz esse ângulo, por definição**. Três das seis (a 3, a 4 e a 6) só existem porque um consumidor que **regrava** o arquivo estava na conversa. Isto **não** relativiza a LEI ZERO: nenhuma delas nomeia conteúdo de jogo nem serve só a estes dois; todas se justificam pelo consumidor externo desconhecido, e é assim que foram julgadas.
-
-### Ordem dos elementos no arquivo: campo explícito, decidido pelo líder em 24/08/2026
-
-**Os elementos são gravados na ordem de um CAMPO EXPLÍCITO de ordem que cada objeto carrega**, e não na ordem em que aparecem na estrutura de quem gravou.
-
-**O problema que isto resolve, trazido pelo `mapeditor` com o uso concreto que a L-27 exige.** O critério anterior era "ordem da lista do modelo", e ele quebra no caso mais banal que existe num editor: **apagar um objeto e desfazer**. O mapa fica semanticamente idêntico, mas quase toda pilha de comando reanexa o objeto restaurado ao **fim** da lista, porque devolvê-lo ao índice original é bem mais difícil. O arquivo então sai diferente, o diff acusa todos os objetos seguintes como alterados, **e o portão de ida e volta byte a byte falha sem existir defeito nenhum no formato nem no escritor** — perdendo justamente a prova mais forte que o formato tem.
-
-**Por que o campo explícito, e não a ordenação por UUID que o `mapeditor` propôs.** As duas resolvem o desfazer, e as duas honram o princípio que ele mesmo formulou e que esta casa adota: ***significado implícito em posição é a categoria de contrato que quebra em silêncio***. A diferença é o custo para o consumidor externo desconhecido (LEI ZERO): ordenar por UUID **descarta a ordem de autoria**, e numa biblioteca **2D** ordem de desenho não é caso raro — é o que praticamente todo consumidor precisa. Empurrá-la para as propriedades nomeadas transformaria uma necessidade universal em convenção que cada um resolve do seu jeito, e reabriria por baixo a divergência entre editores que publicar o escritor existe para fechar. Com o campo, **a ordem de serialização serve à revisão de mudança e a ordem de desenho serve ao jogo, sem uma sequestrar a outra**.
-
-**Por que o desfazer não morde o campo:** o número **viaja com o objeto**, em vez de ser a posição dele. Restaurar um valor guardado é trivialmente correto; restaurar um índice não é.
-
-**Consequências assumidas, e as duas são porta de mão única:**
-
-- **`MAP-OBJECTS`** ganha o campo no registro de objeto — o registro é contrato **duplo**, de API e de formato, e o layout congela quando a especificação sair.
-- **`MAP-FMT-CONF`** troca o critério canônico: a ordenação normativa passa a ser por esse campo. A promessa de saída canônica continua, com fundamento diferente.
-
-**O que o `mapeditor` ganha, e era o pedido dele:** apagar e desfazer volta a ser byte-nulo, e dois editores com estruturas internas diferentes gravam o mesmo mapa byte a byte igual.
-
-**Nota de método, registrada porque é o padrão que se quer:** ele trouxe a objeção **com o caso de uso**, e **levantou a objeção contra a própria proposta** antes que nós a levantássemos. Foi isso que tornou a contribuição utilizável em vez de discutível.
-
-### Extensão do arquivo de mapa: `.gw.map`, decidido pelo líder em 24/08/2026
-
-**Ordem dele, verbatim:** *"nossos os mapas terão formato proprio em .gw.map"*. Repetida por ele **depois** de eu ter apresentado a objeção abaixo, o que a torna reafirmação e não engano.
-
-**A objeção que eu levantei, registrada porque decisão informada precisa mostrar o que foi pesado:** `gw` lê como **GusWorld**, e o formato de mapa é do **GlintFx** — biblioteca pública consumida por gente que não conhecemos (LEI ZERO). A extensão é a **identidade pública** do formato: quem adotar a biblioteca amanhã grava arquivos com o nome de um jogo alheio, e isso vira nota de rodapé permanente na documentação. É porta de mão única de fato — troca-se em código num minuto, mas não depois que existirem arquivos no disco de terceiros. Alternativa oferecida: um nome ancorado na biblioteca (`.gfx.map`, `.glintfx.map`).
-
-**Ele reafirmou. A decisão é dele, o dado não a impede, e o assunto não se reabre por iniciativa de agente** — só por ordem dele.
-
-**Leitura que fica em aberto e não muda a ordem:** se a intenção for que o **GusWorld** tenha um formato próprio, separado do formato da biblioteca, então `.gw.map` é o nome certo para o dele e o formato do GlintFx segue com nome próprio — seriam dois formatos, não um. Registrado como leitura possível, não como pedido de esclarecimento.
-
-**Esclarecimento do líder em 24/08/2026, que fecha a objeção acima:** *"sim, é só a extensão"*. **Os bytes continuam sendo o formato do GlintFx**, byte a byte. Nenhuma das decisões de formato é devolvida, nenhuma porta de mão única gasta em nome de consumidor é revertida, e o papel de implementador de referência do `mapeditor` segue de pé. `.gw.map` é identidade do ecossistema **no nome do arquivo**, e nada além disso. O `mapeditor` chegou à mesma leitura por conta própria, montando o argumento contra inteiro **antes** de perguntar — e perguntou em vez de agir.
-
-**O que fica em aberto, sem urgência e sem bloquear nada:** se a biblioteca ganhar um **segundo** formato próprio (atlas de sprite, definição de animação, pacote de asset — nenhum em escopo hoje), o sobrenome dele volta a ser pergunta. Registrado para não se redescobrir.
-
-**Aplicação:** a extensão entra na especificação (`MAP-FMT-SPEC`) junto do magic de 8 bytes. Extensão **não** substitui detecção por conteúdo: o arquivo se identifica pelo magic, e a extensão é conveniência do sistema de arquivos.
-
-### Selo aberto de integridade no formato, decidido pelo líder em 22/08/2026
-
-**A regra em uma linha: DETECTAR no mapa, PROTEGER no save.**
-
-**O que entra no nosso formato:** um **selo aberto de integridade**, que **qualquer um verifica** e que o editor sabe gerar. Cobre **corrupção, truncamento e edição por ferramenta errada**. **Sem chave, sem assinatura, sem nenhum segredo dentro do formato** — a lib não gerencia segredo, e não vai passar a gerenciar.
-
-**O que NÃO é responsabilidade nossa:** a proteção contra trapaça mora no **save do jogador**, que é arquivo do consumidor, não nosso.
-
-**A frase que fechou a decisão, vinda do `mapeditor`:** *"editar mapa num jogo que distribui editor é **uso legítimo**; trapaça é editar o save"*. O corolário técnico, registrado como fato e não como opinião: **em projeto com o fonte publicado, DETECTAR alteração é alcançável e IMPEDIR não é.** O `mapeditor` proibiu por lei, do lado dele, desenhar qualquer mecanismo que prometa impedir edição, e declarou que **nunca** nos mandará pedido de assinatura com chave embarcada.
-
-**Consequência de escopo:** qualquer proposta futura de assinatura, DRM, chave embarcada ou ofuscação no formato de mapa **é achado de revisão**, não feature — e a razão está escrita aqui para não precisar ser redescoberta.
-
-**Porta de mão única:** o selo mora na taxonomia de bloco, ao lado do bit safe-to-copy da decisão 6. **Nasce em `MAP-FMT-SPEC` ou não nasce.** A escolha do algoritmo concreto é do CTO, dentro da lei de dependência zero (L-07) e implementada em casa.
-
-### EMENDA de 25/08/2026 — a fronteira nomeada substitui a proibição absoluta
-
-**Decisão do líder por `AskUserQuestion`, depois de contra-argumento do CTO apresentado antes, como a LEI DAS LEIS exige.** Esta emenda **não apaga** o que está acima — ela corrige uma premissa falsa e troca uma proibição por uma fronteira. **Leia as duas partes juntas.**
-
-**O fato novo, verbatim do líder:** *"QUero criptografado pois não quero ninguem editando saves e mapas canonicos. O mapeditor, é ferramenta interna, para me ajudar a fazer os mapas pois um modelo llm já provou (você) que os mapas ficam todos errados, como por exemplo um poste no meio da rua"*.
-
-**O que isso derruba:** a frase que fechou a decisão acima dizia *"editar mapa num jogo que **distribui editor** é uso legítimo"*. **O jogo não distribui o editor** — ele é ferramenta interna. A premissa era falsa, e com ela cai a conclusão de que edição de mapa é uso legítimo.
-
-**O que isso NÃO derruba, e é importante não confundir:**
-
-- **O selo aberto continua no formato**, e continua certo. Ele serve o **consumidor externo desconhecido** que quer mapa em claro com detecção de corrupção, e esse consumidor não deixou de existir.
-- **O corolário técnico continua fato:** *em projeto com o fonte publicado, DETECTAR alteração é alcançável e IMPEDIR não é.* Isso é propriedade do fonte publicado, não da premissa do editor — vale com editor interno ou distribuído.
-
-**A fronteira que substitui a proibição absoluta:**
-
-| | |
-|---|---|
-| ✅ **Mecanismo, sim** | a biblioteca pode fornecer **envelope selado** e **primitivas criptográficas padrão** implementadas em casa |
-| ⛔ **Segredo, não** | a chave **sempre** vem de quem chama. A lib **não** guarda, não gera política, não deriva de identidade, não embarca chave |
-| ⛔ **Impedimento, nunca prometido** | nenhuma documentação nossa dirá "impede". O que se entrega é **detecção garantida** e **encarecimento verificável** |
-
-**Por que fronteira e não simplesmente apagar a linha** — o argumento é do CTO e o líder o acatou: a cláusula original existia para impedir que a lib prometesse o que não pode cumprir e para mantê-la fora do negócio de segredo. **Apagá-la sem substituta abriria precedente** para alguém, adiante, propor DRM de verdade citando esta emenda. A fronteira nomeada conserva a proteção e libera só o que foi decidido.
-
-**O que continua sendo achado de revisão, e não feature:** DRM, ofuscação de binário, chave embarcada, assinatura com segredo dentro da biblioteca, algoritmo criptográfico **inventado** por nós, e qualquer "embaralhamento" vendido como cifra. **Ou padrão de verdade, testado contra vetores oficiais, ou nada.**
-
-**Onde a cifra mora, e isto preserva tudo que já foi congelado:** o envelope fica **POR FORA** do formato de mapa. Um mapa cifrado é o envelope embrulhando os bytes do mapa. **O formato não muda um byte** — magic, taxonomia de bloco, bit safe-to-copy e selo aberto ficam exatamente como estão, e nenhuma porta de mão única reabre.
-
-**A divisão de responsabilidade, que envelheceu e agora está corrigida:** o texto acima diz que *"a proteção contra trapaça mora no save do jogador, que é arquivo do consumidor, não nosso"*. **Não vale mais**, porque a lei do jogo consumidor obriga a criptografia a vir de nós, e o líder quer o mapa canônico protegido também. **A divisão correta é: mecanismo é da biblioteca; chave e política são do consumidor.**
-
-**O que o líder decidiu sabendo, e fica escrito para ninguém redescobrir:** ele confirmou que **o jogo SERÁ distribuído publicamente**. Como a AGPL obriga quem nos linka a publicar o próprio fonte, **o caminho por onde a chave chega fica visível**. Contra edição casual — inclusive de uma criança que usa editor de texto e git — a cifra resolve **inteiro**. Contra quem tem depurador, **não resolve**, e quando **um** publica a ferramenta de trapaça, **todo curioso a herda**. Ele decidiu com os três níveis na mesa. **Isto tranca a porta de vidro, e a porta de vidro é a que estava sendo arrombada.**
-
-### O requisito que veio de um consumidor humano, e o que ele virou
-
-Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor façam blocos especiais pra isso"*. O mecanismo genérico que sustenta o pedido, e que **não** nomeia nada do jogo:
-
-- **A célula carrega dois campos separados**, um com a semântica de arte ou terreno e outro com a **marcação opaca do autor do mapa**. São separados porque a marcação é independente da arte.
-- **Toda consulta aceita uma máscara de travessia.** Célula bloqueante cuja marca casa com a máscara conta como transponível **só naquela consulta**, por ator, sem estado. A lib nunca sabe o que a marca significa.
-- **"Parede rachada" e "porta do chefe" nunca aparecem na lib.** São bits que o consumidor nomeia. Propor bit nomeado dentro da biblioteca é violação desta lei e achado de revisão.
-
-**Lição de método registrada:** necessidade descrita em palavras por um consumidor é insumo **legítimo**; copiar o que a lib antiga fazia continua **proibido** (L-01 e L-28). A diferença é a forma, não a origem.
 
 ## L-31
 
 **Data:** 21/08/2026, decisão do líder.
 
-**A API gráfica do GlintFx é OpenGL 3.3 core.**
-
-**Por quê, na razão que decidiu:** roda **nativo nas duas plataformas** (por EGL no Linux, por WGL no Windows), sem camada de tradução, o que preserva a lei de dependência zero (L-07). E o piso de placa de vídeo é amplo, o que importa quando a base de consumidores é **aberta e desconhecida** (LEI ZERO).
-
-**O que foi recusado, e por quê:** OpenGL 4.x traz recursos que um render 2D de quadrados não exige e corta máquina mais velha de consumidor que não conhecemos. OpenGL ES 3.x **não existe no Windows** sem camada de tradução de terceiro, e isso colide de frente com a L-07.
+**[Migrado para `ESCOPO.md` §6 — Render e gráfico, 26/08/2026.]** A escolha de OpenGL 3.3 core, o porquê, e o que foi recusado (OpenGL 4.x, GLES 3.x) vivem lá por inteiro, verbatim.
 
 **Nota de processo, registrada porque custou caro:** esta decisão foi levantada pelo CTO no **primeiro grafo do projeto**, com o pedido explícito de que fosse pedida na onda zero, e o orquestrador **não a levou ao líder**. Ela ficou parada o dia inteiro travando `GL-LOADER` (onda 2) e, por consequência, o caminho até a demo. Foi o CPO quem mediu o custo. **Decisão marcada como pendente de líder é bloqueio, não anotação**, e o orquestrador que a acumula está parando o projeto sem perceber.
 
@@ -1022,28 +694,15 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 
 **Data:** 23/08/2026, decisão do líder. **Origem:** cobrança do **Gus Dragon** na discussion 7 do bus, item (1), endereçada nominalmente ao GlintFx e ao GusWorld.
 
-**A entrega de evento de entrada é uma PROMESSA PÚBLICA do contrato: determinística, sem duplicação e sem reordenação.** Nasce com teste que a prova, antes de existir a implementação (L-20).
-
-**O caso concreto que a originou, e ele não é teórico:** o jogador aperta confirmar duas vezes rápido numa tela de carregamento que dura vários quadros, e entra em dois saves ao mesmo tempo. O Gus Dragon descreveu o bug e escreveu que **a lib e o consumidor são os dois responsáveis** — e estava certo, com a divisão que o `gusworld` fez e que adotamos:
-
-- **Do consumidor, e é a maior parte:** o guarda "estou carregando, não aceito outro carregar" é regra de jogo. Pedir que a lib impeça isso exigiria que ela entendesse save, config e tela de carregamento — conceito de jogo que a **L-02** recusa. **Ninguém está pedindo isso.**
-- **Nossa, e é o que esta lei fixa:** se o mesmo evento chegar duas vezes, ou se a ordem variar entre quadros, **o guarda do consumidor deixa de ser suficiente** — ele estaria filtrando um comando duplicado que nunca deveria ter existido.
-
-**Por que virou promessa escrita e não "qualidade de implementação":** promessa dá ao consumidor em que se apoiar ao desenhar a lógica dele, e dá a nós um teste guardando. E é **barato agora**, porque não existe uma linha de código de entrada escrita — depois, endurecer vira quebra e afrouxar vira perda silenciosa.
+**[Migrado para `ESCOPO.md` §7 — Entrada e periféricos, 26/08/2026.]** A promessa pública de entrega determinística de evento de entrada, o caso concreto do Gus Dragon e a divisão de responsabilidade consumidor/lib vivem lá por inteiro, verbatim.
 
 **Aplicação:** a garantia entra na revisão de API dedicada da superfície de entrada, tratada como porta de mão única (L-19), e o teste que a prova nasce vermelho.
 
 ## L-36
 
-**Data:** 23/08/2026, quatro decisões de escopo do líder por `AskUserQuestion` (L-10). **Não são mais perguntas** — os itens correspondentes saem de `🎨 Pendente design`.
+**Data:** 23/08/2026, quatro decisões de escopo do líder por `AskUserQuestion` (L-10).
 
-1. **Cursor do ponteiro (`WL-POINTER`): as DUAS opções, e quem escolhe é o consumidor.** Ou a lib lê o **tema de cursor do sistema**, e o ponteiro fica igual ao resto do desktop do usuário (inclusive o tema grande de quem depende dele por acessibilidade), ou o **consumidor fornece a própria imagem**. Nenhuma das duas é imposta. A leitura do tema depende de como classificamos a biblioteca de cursor do Wayland sob a **L-07** — se ela não contar como API do SO, lemos o formato de arquivo em casa.
-
-2. **Áudio no Linux (`AUD-BACKEND`): ALSA agora, PipeWire depois.** ALSA é a interface do próprio kernel e existe em **toda** máquina Linux, inclusive nas que não têm servidor de som moderno; o PipeWire intercepta ALSA, então o caminho funciona também no desktop atual. O PipeWire nativo entra **depois**, como caminho adicional escolhido em tempo de execução — **aditivo, nunca substituto**. Motivo que decidiu: base de consumidores aberta e desconhecida (LEI ZERO), e nenhuma máquina pode ficar de fora em nenhum momento.
-
-3. **Gamepad (`GP-MAP`): só o cru e a dedução própria. NENHUM banco de dados.** A lib entrega eixos e botões numerados mais o identificador do aparelho, e por cima disso deduz um layout genérico do que o próprio dispositivo declara. **Banco de mapeamento não entra**, nem de terceiro nem nosso. O de terceiro foi recusado por quebrar a **L-07** (dado externo dentro da lib) e a **L-29** (ler para aprender é permitido, copiar não) — e a recusa ficou registrada porque a tentação vai voltar: o banco comunitário cobre milhares de controles no primeiro dia, e é exatamente por isso que ele é atraente. **Consequência assumida:** controle que se declara errado não fica coberto, e o consumidor que quiser um banco pluga o dele por fora.
-
-4. **Compose e tecla morta (`KEYMAP-COMPOSE`): ler o arquivo de dados do sistema.** A tabela padrão vive em pasta cujo nome carrega "X11" por história, e o líder decidiu que **ler um arquivo de texto não é usar X11** — a **L-05** proíbe o protocolo, a biblioteca e o backend, não um arquivo de dados. Transcrever milhares de sequências em casa foi recusado por tamanho, e cortar compose da v1 foi recusado porque quem escreve em português, francês ou alemão sente na primeira tecla.
+**[Migrada inteira para `ESCOPO.md` §7 — Entrada e periféricos, 26/08/2026.]** As quatro decisões (cursor do ponteiro, áudio ALSA/PipeWire, gamepad sem banco, compose lendo arquivo do sistema) vivem lá por inteiro, verbatim, numeradas 1-4 como no original.
 
 ## L-37
 
@@ -1065,18 +724,7 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 
 **Data:** 24/08/2026, decisão do líder: *"mantenha .so e .dll"*, depois de perguntar se a extensão da biblioteca dinâmica podia ser trocada.
 
-**O artefato binário do GlintFx usa as extensões que o sistema operacional espera: `.so` no Linux e `.dll` no Windows. Não se inventa extensão para binário.**
-
-**A linha que esta lei traça, e ela vale para tudo:**
-
-- **Arquivo de DADO é nosso.** Extensão própria é legítima e barata — é o caso do `.gw.map`.
-- **Artefato BINÁRIO pertence à cadeia de ferramentas do sistema.** Trocar a extensão dele é brigar com o mundo inteiro sem ganhar nada.
-
-**O que foi MEDIDO nesta máquina antes de decidir, e não deduzido:** uma biblioteca compilada como `libtst.gwso` **funciona**, mas `gcc -ltst` responde *"não foi possível localizar -ltst"*. Só linka com `-l:libtst.gwso`, que é **sintaxe exclusiva do GNU** e quebra em qualquer outra cadeia. Junto disso quebram, todos por dependerem da extensão: o `pkg-config --libs`, que emite `-lglintfx`; o `find_library` do CMake, que procura `lib<nome>.so`; e os geradores automáticos de dependência dos empacotadores das quatro distros. O cache de bibliotecas desta máquina tem **3.531 entradas**, todas na convenção `.so`.
-
-**No Windows** — registrado como **não medido**, por não haver a plataforma aqui: o carregador aceita qualquer extensão se o nome exato for dado, então **carregaria**. Mas ele **acrescenta `.dll` sozinho** quando o nome vem sem extensão, e toda ferramenta de inspeção, instalador e depurador assume `.dll`.
-
-**O argumento que decidiu, e é o da LEI ZERO:** cada consumidor desconhecido pagaria esse pedágio, para sempre, por uma escolha estética nossa.
+**[Migrada inteira para `ESCOPO.md` §9 — Empacotamento e artefatos, 26/08/2026.]** A política de extensão de artefato (binário segue o SO, dado é nosso) e a medição que a embasou vivem lá por inteiro, verbatim.
 
 ## L-39
 

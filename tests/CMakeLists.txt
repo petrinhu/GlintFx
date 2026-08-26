@@ -202,6 +202,28 @@ if(UNIX)
     set_tests_properties(x11_selftest PROPERTIES LABELS selftest)
 endif()
 
+# Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,
+# 26/08/2026 - proposta em
+# /var/tmp/glintfx-plan/separacao-leis-escopo.md secao 5, executada na
+# fase 2): proves the DUP-BLOCK anchored text in GODS_LAWS.md and
+# ESCOPO.md stays byte-for-byte identical (see
+# tests/tools/check_dup_laws.sh's own header for the two motives of
+# duplication - decisao do lider vs. duvida do orquestrador). POSIX
+# sh; same declared downgrade as layers_test/x11_test above.
+if(UNIX)
+    add_test(
+        NAME dup_laws_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dup_laws.sh" "${CMAKE_SOURCE_DIR}"
+    )
+    set_tests_properties(dup_laws_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME dup_laws_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dup_laws.sh" --selftest
+    )
+    set_tests_properties(dup_laws_selftest PROPERTIES LABELS selftest)
+endif()
+
 # [[nodiscard]] gate (CE-4 of CORE-ERROR, TODO.md): proves
 # glintfx::gltfx_rslt<T>'s [[nodiscard]] is a real compiler diagnostic
 # by compiling a fixture that drops the result (must FAIL) and one that

@@ -6,19 +6,21 @@
 # pushing a documentation-only change is never slowed down by it.
 #
 # Usage:
-#   tools/preci.sh                   full pipeline: format, configure
+#   tools/preci.sh                   guard (no new untracked *.cpp/*.hpp),
+#                                     then full pipeline: format, configure
 #                                     (-DGLINTFX_WERROR=ON), build,
 #                                     clang-tidy, cppcheck, NOLINT
 #                                     justification, gitleaks, ctest,
 #                                     sanitizer stage.
 #   tools/preci.sh --fast            same, minus the sanitizer stage -
 #                                     for a documentation-only push.
-#   tools/preci.sh --lint-only       format + configure + build +
-#                                     clang-tidy + cppcheck + NOLINT
-#                                     justification only (what the CI
-#                                     `lint` job runs).
-#   tools/preci.sh --sanitizer-only  the sanitizer stage only (what the
-#                                     CI `sanitizer` job runs).
+#   tools/preci.sh --lint-only       guard, then format + configure +
+#                                     build + clang-tidy + cppcheck +
+#                                     NOLINT justification only (what
+#                                     the CI `lint` job runs).
+#   tools/preci.sh --sanitizer-only  guard, then the sanitizer stage
+#                                     only (what the CI `sanitizer` job
+#                                     runs).
 #   tools/preci.sh --selftest        proves the format/clang-tidy/cppcheck
 #                                     stages against tests/preci_fixtures/
 #                                     instead of the real tree: positive
@@ -26,14 +28,25 @@
 #                                     negative control (dirty fixture is
 #                                     reproved), empty-scan control
 #                                     (an empty directory is refused, not
-#                                     silently approved), and a control
-#                                     for the ROOT_DIR resolution itself
+#                                     silently approved), a control for
+#                                     the ROOT_DIR resolution itself
 #                                     (a simulated `cd` failure proves the
 #                                     old combined `readonly ROOT_DIR=$(...)`
 #                                     form masks the error while the
 #                                     current split form exits 1 with a
-#                                     diagnostic). Registered as ctest
-#                                     case `preci_selftest` when the
+#                                     diagnostic), and a control for the
+#                                     untracked-source guard itself
+#                                     (positive: clean repo passes;
+#                                     negative: a loose *.cpp is refused;
+#                                     ignored: a .gitignore'd *.cpp under
+#                                     build/ never blocks; git-failure: a
+#                                     non-repo directory aborts loud,
+#                                     never "found nothing, so pass" -
+#                                     GODS_LAWS.md L-40). --selftest never
+#                                     runs the guard against the REAL
+#                                     tree - see stage_untracked_guard's
+#                                     own comment for why. Registered as
+#                                     ctest case `preci_selftest` when the
 #                                     three tools are present (see
 #                                     tests/CMakeLists.txt).
 #
@@ -142,6 +155,62 @@ enumerate_dir_cpp_hpp() {
     done < <(find "$dir" -type f \( -name '*.cpp' -o -name '*.hpp' \) 2>/dev/null | sort)
 }
 
+# Lists NEW *.cpp/*.hpp files not yet known to git (git ls-files
+# --others), scoped to the same two extensions the real-pipeline lint
+# stages enumerate (enumerate_tracked_cpp_hpp/enumerate_tracked_cpp
+# above). GODS_LAWS.md L-40's own measured defect, first row of its
+# table: those stages walk ONLY what `git ls-files` already knows, so
+# a brand-new .cpp/.hpp dropped in the tree and never `git add`ed is
+# invisible to clang-format/clang-tidy/cppcheck/NOLINT-justification -
+# the gate prints green having never looked at it (discovered live by
+# WL-PROTO's implementer: same command, different result before and
+# after `git add`).
+#
+# `--exclude-standard` makes this respect .gitignore exactly like
+# `git status` does, so build output, scratch/, tmp/ and anything else
+# the tree already excludes on purpose never blocks a push (see
+# run_selftest_untracked_guard_ignored_control below) - a guard that
+# refuses to run over a leftover build/ directory gets disabled within
+# a week, which protects nobody.
+#
+# $1 is the directory to scan, an explicit parameter rather than the
+# global ROOT_DIR: stage_untracked_guard (the real-pipeline caller)
+# passes "$ROOT_DIR", but --selftest's controls below point this at a
+# disposable throwaway repo instead - the REAL tree can legitimately
+# have another agent's WIP untracked *.cpp mid-onda right now (not
+# hypothetical: it does, as of this slice), and gating --selftest on
+# that would make --selftest's result depend on who else is working,
+# which is itself a variant of the L-40 defect (a portal whose
+# verdict depends on something it never declares).
+#
+# A real failure of the underlying git command (not a git repository,
+# git missing, permission denied) is NEVER treated as "found nothing,
+# so pass" - that collapse is exactly what L-40 exists to forbid. It
+# fails loud immediately, in every caller, real pipeline or selftest
+# control alike (see run_selftest_untracked_guard_git_failure_control).
+enumerate_untracked_cpp_hpp() {
+    dir="$1"
+    FILES=()
+    listing="$(cd "$dir" && git ls-files --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')" \
+        || fail "untracked-guard: 'git ls-files --others' falhou em '$dir' (nao e um repositorio git, ou git indisponivel) - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
+    while IFS= read -r f; do
+        [ -n "$f" ] && FILES+=("$f")
+    done <<< "$listing"
+    # A here-string always feeds at least one byte (a trailing newline),
+    # even when $listing is "" - unlike the process-substitution form
+    # enumerate_tracked_cpp_hpp/enumerate_tracked_cpp use above. That
+    # means the loop body DOES run once on a legitimately empty scan,
+    # its last command (`[ -n "$f" ]`, false) becomes the loop's own
+    # exit status, and - because this was the function's own last
+    # statement - `set -e` would kill the whole script the instant a
+    # scan came back clean (measured live: --selftest died silently,
+    # no diagnostic, exactly when FILES was correctly empty). `return 0`
+    # decouples the function's exit status from the loop's, which is
+    # the only thing this function promises: FILES is populated,
+    # nothing about whether it ended up empty.
+    return 0
+}
+
 # Prints the file count and returns non-zero on empty - does NOT exit
 # the process: --selftest's empty-directory control needs to observe
 # this failure and keep running, so exiting here would be wrong for
@@ -184,7 +253,32 @@ require_nonempty_tests() {
     echo "$stage_name: $count teste(s) varrido(s)"
 }
 
+# Sibling floor to require_nonempty/require_nonempty_tests, but
+# INVERTED: for this one gate an EMPTY scan is the GOOD outcome
+# (nothing untracked to block on) and a NON-empty scan is the failure.
+# Prints the count and the offending paths, and returns non-zero on
+# failure - never exits by itself (--selftest's negative control needs
+# to observe the failure and keep running, same contract as its two
+# siblings above).
+require_no_untracked_source() {
+    if [ "${#FILES[@]}" -gt 0 ]; then
+        echo "untracked-guard: ${#FILES[@]} arquivo(s) *.cpp/*.hpp novo(s), fora do controle de versao:" >&2
+        printf '  %s\n' "${FILES[@]}" >&2
+        return 1
+    fi
+    echo "untracked-guard: 0 arquivo(s) *.cpp/*.hpp novo(s) fora do controle de versao"
+}
+
 # --- real-pipeline stages (operate on the tracked tree) ---
+
+# GODS_LAWS.md L-40 / TODO.md PRECI-UNTRACKED: runs before every real
+# stage below (wired in main()), never inside --selftest (which never
+# touches $ROOT_DIR - see enumerate_untracked_cpp_hpp's own comment).
+stage_untracked_guard() {
+    enumerate_untracked_cpp_hpp "$ROOT_DIR"
+    require_no_untracked_source \
+        || fail "estagio untracked-guard recusado (arquivo *.cpp/*.hpp novo fora do 'git ls-files' acima - rode 'git add' antes de preci.sh; GODS_LAWS.md L-40, TODO.md PRECI-UNTRACKED)"
+}
 
 stage_format() {
     enumerate_tracked_cpp_hpp
@@ -571,12 +665,122 @@ run_selftest_ctest_count_controls() {
     run_selftest_ctest_count_substring_control
 }
 
+# --- selftest controls for stage_untracked_guard (GODS_LAWS.md L-40 /
+# TODO.md PRECI-UNTRACKED). Every control below builds its OWN
+# throwaway git repo and points enumerate_untracked_cpp_hpp at it via
+# its directory parameter - never at $ROOT_DIR. Gating --selftest on
+# the real tree would make its result depend on whatever another agent
+# currently has in flight there (real, not hypothetical - see the
+# comment on enumerate_untracked_cpp_hpp), which is itself the shape
+# of defect L-40 exists to forbid: a verdict resting on something
+# undeclared.
+
+selftest_untracked_guard_repo_dir() {
+    mktemp -d "${TMPDIR}/glintfx-preci-untracked-repo.XXXXXX"
+}
+
+# One committed .cpp, nothing else - the baseline every control below
+# starts from.
+selftest_write_untracked_guard_repo() {
+    dir="$1"
+    git -C "$dir" init -q
+    git -C "$dir" config user.email "preci-selftest@glintfx.invalid"
+    git -C "$dir" config user.name "preci selftest"
+    printf 'int tracked_probe() { return 0; }\n' > "$dir/tracked.cpp"
+    git -C "$dir" add tracked.cpp
+    git -C "$dir" commit -q -m "selftest: tracked.cpp"
+}
+
+run_selftest_untracked_guard_positive_control() {
+    log "selftest: guarda de untracked - controle positivo (nada novo)"
+    dir="$(selftest_untracked_guard_repo_dir)"
+    selftest_write_untracked_guard_repo "$dir"
+    enumerate_untracked_cpp_hpp "$dir"
+    require_no_untracked_source \
+        || fail "controle positivo (guarda-untracked) FALHOU: repositorio so com tracked.cpp committed deveria passar, o guarda reprovou"
+    [ "${#FILES[@]}" -eq 0 ] \
+        || fail "controle positivo (guarda-untracked) FALHOU: esperava 0 arquivos, FILES tinha ${#FILES[@]}"
+    rm -rf "$dir"
+    echo "selftest: guarda de untracked - controle positivo OK"
+}
+
+run_selftest_untracked_guard_negative_control() {
+    log "selftest: guarda de untracked - controle negativo (arquivo novo solto)"
+    dir="$(selftest_untracked_guard_repo_dir)"
+    selftest_write_untracked_guard_repo "$dir"
+    printf 'int solto() { return 1; }\n' > "$dir/solto.cpp"
+    enumerate_untracked_cpp_hpp "$dir"
+    if require_no_untracked_source 2>/dev/null; then
+        rm -rf "$dir"
+        fail "controle negativo (guarda-untracked) FALHOU: solto.cpp esta untracked e o guarda aprovou mesmo assim"
+    fi
+    [ "${#FILES[@]}" -eq 1 ] && [ "${FILES[0]}" = "solto.cpp" ] \
+        || fail "controle negativo (guarda-untracked) FALHOU: esperava FILES=[solto.cpp], teve: ${FILES[*]-vazio}"
+    rm -rf "$dir"
+    echo "selftest: guarda de untracked - controle negativo OK (solto.cpp reprovado)"
+}
+
+# The "não deve bloquear demais" half of the fatia: a *.cpp covered by
+# .gitignore (the shape of every build/ directory in this tree) must
+# NEVER block, or the guard gets disabled within a week.
+run_selftest_untracked_guard_ignored_control() {
+    log "selftest: guarda de untracked - controle de arquivo ignorado (nao deve bloquear)"
+    dir="$(selftest_untracked_guard_repo_dir)"
+    selftest_write_untracked_guard_repo "$dir"
+    printf 'build/\n' > "$dir/.gitignore"
+    mkdir -p "$dir/build"
+    printf 'int gerado() { return 2; }\n' > "$dir/build/gerado.cpp"
+    enumerate_untracked_cpp_hpp "$dir"
+    require_no_untracked_source \
+        || fail "controle de arquivo ignorado (guarda-untracked) FALHOU: build/gerado.cpp esta coberto por .gitignore e nao deveria bloquear, o guarda reprovou"
+    [ "${#FILES[@]}" -eq 0 ] \
+        || fail "controle de arquivo ignorado (guarda-untracked) FALHOU: esperava 0 (respeitar .gitignore), FILES tinha ${#FILES[@]}: ${FILES[*]}"
+    rm -rf "$dir"
+    echo "selftest: guarda de untracked - controle de arquivo ignorado OK (.gitignore respeitado, nao bloqueou)"
+}
+
+# The floor's own "empty scan" control (GODS_LAWS.md L-40 §4: "os tres
+# controles da casa sao obrigatorios... e varredura vazia"), adapted to
+# this floor's inverted semantics: here an empty FILES is normally the
+# GOOD outcome, so the defect this floor could reproduce is a REAL git
+# failure silently collapsing into "found nothing, so pass" instead of
+# aborting loud. Runs enumerate_untracked_cpp_hpp in an isolated
+# subshell (own process, like run_selftest_rootdir_cd_failure_control
+# above) against a directory that is not a git repository at all.
+run_selftest_untracked_guard_git_failure_control() {
+    log "selftest: guarda de untracked - varredura vazia por falha real do comando (nao presumida)"
+    nogit_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-untracked-nogit.XXXXXX")"
+    rc=0
+    out="$(bash -c "
+        $(declare -f fail)
+        $(declare -f enumerate_untracked_cpp_hpp)
+        FILES=()
+        enumerate_untracked_cpp_hpp '$nogit_dir'
+        echo 'NAO_DEVERIA_CHEGAR_AQUI: FILES=(\${FILES[*]-vazio})'
+    " 2>&1)" || rc=$?
+    rm -rf "$nogit_dir"
+    [ "$rc" -ne 0 ] \
+        || fail "controle de falha real de git (guarda-untracked) FALHOU: diretorio sem repositorio deveria abortar a varredura, mas o subshell saiu 0: $out"
+    printf '%s\n' "$out" | grep -qF 'varredura recusada' \
+        || fail "controle de falha real de git (guarda-untracked) FALHOU: saiu $rc mas sem o diagnostico esperado, saida foi: $out"
+    echo "selftest: guarda de untracked - varredura vazia por falha real do comando OK (falha do git nunca vira aprovacao silenciosa)"
+}
+
+run_selftest_untracked_guard_controls() {
+    log "selftest: guarda de arquivo novo nao rastreado (stage_untracked_guard)"
+    run_selftest_untracked_guard_positive_control
+    run_selftest_untracked_guard_negative_control
+    run_selftest_untracked_guard_ignored_control
+    run_selftest_untracked_guard_git_failure_control
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
     run_selftest_empty_scan_control
     run_selftest_rootdir_cd_failure_control
     run_selftest_ctest_count_controls
+    run_selftest_untracked_guard_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -631,8 +835,26 @@ run_full_pipeline() {
     echo "preci.sh: TUDO VERDE"
 }
 
+# Argument validated FIRST, guard SECOND: an unknown flag fails on its
+# own usage message, not on a guard result the caller never asked for.
+# --selftest is the one mode that skips the guard entirely - it never
+# touches $ROOT_DIR (see enumerate_untracked_cpp_hpp's own comment on
+# why: the real tree can legitimately have another agent's WIP
+# untracked *.cpp mid-onda, and --selftest has to stay usable by
+# anyone, any time, regardless of who else is mid-fatia).
 main() {
-    case "${1:-}" in
+    mode="${1:-}"
+    case "$mode" in
+        ""|--fast|--lint-only|--sanitizer-only|--selftest) ;;
+        *) fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--selftest]" ;;
+    esac
+
+    if [ "$mode" != "--selftest" ]; then
+        log "estagio 0: guarda de arquivo novo nao rastreado"
+        stage_untracked_guard
+    fi
+
+    case "$mode" in
         "")
             run_full_pipeline "no"
             ;;
@@ -647,9 +869,6 @@ main() {
             ;;
         --selftest)
             run_selftest
-            ;;
-        *)
-            fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--selftest]"
             ;;
     esac
 }

@@ -206,8 +206,8 @@ class dll_alloc_hook {
         // IAT for names too is the documented tolerance for that
         // case.
         const std::uintptr_t name_thunk_rva = descriptor.OriginalFirstThunk != 0
-                                                   ? descriptor.OriginalFirstThunk
-                                                   : descriptor.FirstThunk;
+                                                  ? descriptor.OriginalFirstThunk
+                                                  : descriptor.FirstThunk;
         auto *name_thunk = reinterpret_cast<const IMAGE_THUNK_DATA *>(base + name_thunk_rva);
         auto *iat_thunk = reinterpret_cast<IMAGE_THUNK_DATA *>(base + descriptor.FirstThunk);
 
@@ -233,10 +233,10 @@ class dll_alloc_hook {
     void patch_slot(IMAGE_THUNK_DATA *iat_thunk) noexcept {
         if (m_patched_count >= m_patched.size()) {
             return; // Bounded by k_candidate_names' own size above -
-                     // unreachable in practice, kept as a hard bound
-                     // instead of an unbounded container (this hook
-                     // must not itself allocate while it is busy
-                     // redirecting the allocator).
+                    // unreachable in practice, kept as a hard bound
+                    // instead of an unbounded container (this hook
+                    // must not itself allocate while it is busy
+                    // redirecting the allocator).
         }
         auto **entry = reinterpret_cast<void **>(&iat_thunk->u1.Function);
         DWORD old_protect = 0;
@@ -278,7 +278,9 @@ class dll_alloc_hook {
 
 inline void arm_forced_failure() noexcept { detail::g_force_failure = true; }
 inline void disarm_forced_failure() noexcept { detail::g_force_failure = false; }
-[[nodiscard]] inline std::size_t hooked_call_count() noexcept { return detail::g_hooked_call_count; }
+[[nodiscard]] inline std::size_t hooked_call_count() noexcept {
+    return detail::g_hooked_call_count;
+}
 
 } // namespace glintfx_test
 

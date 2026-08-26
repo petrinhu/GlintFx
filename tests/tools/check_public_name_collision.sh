@@ -69,7 +69,7 @@
 # on this line".
 #
 # WHAT COUNTS AS A COLLISION, DECLARED (policy decision 2): a system
-# header #define-ing one of our names is a FAILURE, UNLESS one of TWO
+# header #define-ing one of our names is a FAILURE, UNLESS one of THREE
 # neutralizing shapes applies. First (the original 25/08/2026 finding):
 # that same file also #undef's the same name later (grep on that one
 # file) - the exact shape the achado's own finding was ("o header o
@@ -86,12 +86,19 @@
 # macro never becomes active in default preprocessing - proved by
 # asking the SAME real compiler (macro_active_under_default_preprocessing
 # below), not a hand-rolled nested-#ifdef parser, echoing policy
-# decision 3's own "ask the compiler, never assume". Neither shape is
-# silently dropped - classify_matches() below tags EACH neutralized line
-# with WHICH of the two reasons applied - they print in a separate,
-# clearly labelled section so the count, and the reason, are never
-# hidden (GODS_LAWS.md L-40's "a contagem aparece na saida, mesmo quando
-# passa").
+# decision 3's own "ask the compiler, never assume". Third (added the
+# SAME day, second achado: PCP's own /usr/include/pcp/builddefs, a
+# Makefile fragment, not a header, that happens to live inside a
+# directory the compiler's search path also uses for real headers): the
+# matched FILE itself is not valid C/C++ preprocessor text at all -
+# proved the same way, by asking the compiler (never guessed from
+# filename or extension: a real header can be extensionless too, see
+# file_is_not_c_or_cpp_header() below for the full reasoning and its
+# declared limitation). None of the three shapes is silently dropped -
+# classify_matches() below tags EACH neutralized line with WHICH of the
+# three reasons applied - they print in a separate, clearly labelled
+# section so the count, and the reason, are never hidden (GODS_LAWS.md
+# L-40's "a contagem aparece na saida, mesmo quando passa").
 #
 # WHERE THIS SCANS, DECLARED (policy decision 3): the compiler's OWN
 # system include search path, discovered live via
@@ -136,18 +143,22 @@
 #   check_public_name_collision.sh <include_dir> <cxx-compiler>
 #   check_public_name_collision.sh --selftest [cxx-compiler]
 #
-# --selftest runs seven controls against throwaway fixtures under
+# --selftest runs eight controls against throwaway fixtures under
 # mktemp, never against the real include_dir or the real machine's
 # system headers (GODS_LAWS.md L-40's three mandatory controls -
-# positive, negative, empty-scan - plus FOUR specific to this gate:
+# positive, negative, empty-scan - plus FIVE specific to this gate:
 # the same-file #undef neutralization from policy decision 2; the
 # guard-inactive and guard-active pair added 26/08/2026 for policy
 # decision 2's second neutralizing shape (a macro alive only under an
 # #ifdef nothing normally defines does not reprove, but the SAME macro
 # with its guard symbol actually defined still does - the regression
-# guard against loosening this too far); and a SECOND empty-scan floor
-# for the system-header side, independent of the "our names" side).
-# See selftest_main() below.
+# guard against loosening this too far); the not-a-header shape added
+# LATER THE SAME DAY for policy decision 2's third neutralizing shape
+# (a matched file that is not valid C/C++ at all - the builddefs
+# achado - does not reprove, but a genuinely clean header planting the
+# SAME name for real still does, same regression-guard logic); and a
+# SECOND empty-scan floor for the system-header side, independent of
+# the "our names" side). See selftest_main() below.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -380,6 +391,45 @@ macro_active_under_default_preprocessing() {
     printf '%s\n' "$dm_output" | grep -qE "^#define[[:space:]]+${name}\\b"
 }
 
+# THIRD neutralizing reason (policy decision 2, extended the SAME day
+# as the guard pair above - achado #2 of 26/08/2026: PCP's own
+# /usr/include/pcp/builddefs). This is NOT about the matched line - it
+# is about whether the whole FILE the match came from is valid C/C++
+# preprocessor text at all. builddefs is a Makefile fragment that
+# happens to sit inside a directory the compiler's own search path
+# also uses for real headers (the two share a package, not a
+# language); one of its comment lines, "# define a target that is
+# never up-to-date.", is BY COINCIDENCE syntactically a legal #define
+# directive - "define" really is a directive keyword - so it dumps a
+# macro named "a" into -E -dM's output despite the file being nowhere
+# near C/C++. The mechanical, compiler-verified signal that separates
+# this from a real header: a real header - even one this gate cannot
+# fully preprocess standalone because it needs context this gate does
+# not provide, a missing companion #include - NEVER contains a line
+# that starts with "#" and is not a recognised directive keyword; only
+# a file using "#" as an ordinary prose/comment marker (Makefile,
+# README, shell script) does, and the compiler calls that OUT BY NAME:
+# "invalid preprocessing directive #Copyright". Measured live on this
+# machine (LC_ALL=C forces English so the check does not depend on
+# this machine's locale, the same reason this whole gate asks the
+# REAL compiler instead of curating a list - policy decision 3):
+# builddefs alone produces 64 such diagnostics; a real header
+# (/usr/include/stdio.h, /usr/include/errno.h) produces zero. Declared
+# limitation, not silently dropped: a real header that ALSO happens to
+# contain a genuinely malformed directive elsewhere would be
+# neutralized here too, misreading a broken header as "not a header" -
+# but a real header with genuinely invalid preprocessor syntax already
+# does not compile for ANY consumer either, so this is not a gap that
+# lets a real collision through silently; it is the SAME "recusar alto"
+# posture applied to a file that cannot be trusted at all, not just to
+# one macro inside it.
+file_is_not_c_or_cpp_header() {
+    file="$1"
+    cxx="$2"
+    err="$(LC_ALL=C "$cxx" -E -dM -xc++ "$file" 2>&1 >/dev/null)"
+    printf '%s\n' "$err" | grep -q 'invalid preprocessing directive'
+}
+
 # Splits raw "file:line:content" matches into REAL and NEUTRALIZED,
 # prefixed per-line so the two callers below (real_collisions,
 # neutralized_collisions) can filter with one grep each. NEUTRALIZED
@@ -397,6 +447,8 @@ classify_matches() {
         name="$(printf '%s' "$content" | sed -E 's/^[[:space:]]*#[[:space:]]*define[[:space:]]+([A-Za-z_][A-Za-z0-9_]*).*/\1/')"
         if name_is_undef_in_same_file "$file" "$name"; then
             printf 'NEUTRALIZED %s:%s:%s:undef-mesmo-arquivo\n' "$file" "$lineno" "$name"
+        elif file_is_not_c_or_cpp_header "$file" "$cxx"; then
+            printf 'NEUTRALIZED %s:%s:%s:arquivo-nao-e-cabecalho-c\n' "$file" "$lineno" "$name"
         elif ! macro_active_under_default_preprocessing "$file" "$name" "$cxx"; then
             printf 'NEUTRALIZED %s:%s:%s:guarda-inativa-por-padrao\n' "$file" "$lineno" "$name"
         else
@@ -469,7 +521,7 @@ check_public_name_collision() {
     [ -n "$neutralized" ] || neutralized_count=0
 
     if [ -n "$neutralized" ]; then
-        echo "check_public_name_collision.sh: $neutralized_count colisao(oes) NEUTRALIZADA(S) (define+undef no mesmo arquivo, ou define ativo so sob guarda de simbolo que a inclusao normal nao define - motivo por linha abaixo, GODS_LAWS.md L-40 nao esconde a contagem nem o motivo):"
+        echo "check_public_name_collision.sh: $neutralized_count colisao(oes) NEUTRALIZADA(S) (define+undef no mesmo arquivo, ou define ativo so sob guarda de simbolo que a inclusao normal nao define, ou o proprio arquivo nao e C/C++ valido segundo o compilador - motivo por linha abaixo, GODS_LAWS.md L-40 nao esconde a contagem nem o motivo):"
         printf '%s\n' "$neutralized"
     fi
 
@@ -707,6 +759,53 @@ selftest_guard_active_control() {
     return 0
 }
 
+# Specific to the SECOND achado of 26/08/2026 (measured live against
+# PCP's own /usr/include/pcp/builddefs): the matched "system header" is
+# not C/C++ at all - it is a Makefile fragment sharing a directory with
+# real headers, whose English-prose comment lines ("# Copyright ...")
+# are not recognised directives, but one line, by coincidence, IS a
+# syntactically legal #define ("# define NAME more words here.",
+# because "define" really is a directive keyword). Fixture reproduces
+# that exact shape: an invalid-directive comment line first, then the
+# coincidental #define, no #undef, no #ifdef guard. Expected:
+# classify_matches() puts it in NEUTRALIZED under the THIRD reason
+# (file_is_not_c_or_cpp_header - distinct from both undef-neutraliza and
+# the guard pair above), never REAL - and the reason string says which
+# kind, so the count and the reason stay auditable (GODS_LAWS.md L-40:
+# contagem nunca escondida).
+selftest_not_a_header_control() {
+    scratch="$1"
+    include_dir="$(make_fixture_include_dir "$scratch" not_a_header)"
+    printf 'class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n' \
+        > "$include_dir/widget.hpp"
+    sys_dir="$(make_fixture_system_dir "$scratch" not_a_header)"
+    hostile="$sys_dir/builddefs"
+    printf '# Copyright nobody, this is a Makefile fragment, not a header.\n# define planted_collision_name a coincidental directive-shaped line.\n' \
+        > "$hostile"
+
+    awk_file="$scratch/not-a-header-enumerate.awk"
+    write_enumerate_names_awk "$awk_file"
+    names="$(enumerate_our_names "$include_dir" "$awk_file")"
+    matches="$(scan_defines_in_dirs "$sys_dir" "$names")"
+    classified="$(classify_matches "$matches" "${CXX_FOR_SELFTEST:-c++}")"
+    real="$(real_collisions "$classified")"
+    neutralized="$(neutralized_collisions "$classified")"
+
+    if [ -n "$real" ]; then
+        echo "selftest: controle de ARQUIVO-NAO-CABECALHO FALHOU (Makefile com #define coincidente deveria ser NEUTRALIZADO, apareceu como REAL)" >&2
+        printf '%s\n' "$real" >&2
+        return 1
+    fi
+    if [ -z "$neutralized" ] || ! printf '%s\n' "$neutralized" | grep -qF "planted_collision_name" \
+        || ! printf '%s\n' "$neutralized" | grep -qF "arquivo-nao-e-cabecalho-c"; then
+        echo "selftest: controle de ARQUIVO-NAO-CABECALHO FALHOU (nao apareceu na lista NEUTRALIZADA com o motivo certo)" >&2
+        printf '%s\n' "$neutralized" >&2
+        return 1
+    fi
+    echo "selftest: controle de ARQUIVO-NAO-CABECALHO OK (Makefile cujo comentario colide por coincidencia nao reprova, mas aparece na contagem)"
+    return 0
+}
+
 # Empty-scan floor, side 1: zero public headers under include_dir.
 # Expected: fail, message names "0 nomes publicos".
 selftest_empty_our_names_control() {
@@ -774,6 +873,7 @@ selftest_main() {
     selftest_undef_neutralizes_control "$scratch" || overall=1
     selftest_guard_inactive_control "$scratch" || overall=1
     selftest_guard_active_control "$scratch" || overall=1
+    selftest_not_a_header_control "$scratch" || overall=1
     selftest_empty_our_names_control "$scratch" || overall=1
     selftest_empty_system_dirs_control "$scratch" || overall=1
 
@@ -781,7 +881,7 @@ selftest_main() {
         echo "check_public_name_collision.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_public_name_collision.sh --selftest: os sete controles OK"
+    echo "check_public_name_collision.sh --selftest: os oito controles OK"
 }
 
 main() {

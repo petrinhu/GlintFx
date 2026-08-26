@@ -1,0 +1,61 @@
+# tests/container/hostconfig_baseline.txt - SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Measured baseline for check_isolation.sh's whole-block HostConfig
+# compare (GODS_LAWS.md L-40, ISO-BASELINE). This is a live capture,
+# not hand-written: `docker create --cap-drop=ALL --cap-add=SYS_NICE
+# glintfx-wltest:latest` (the exact invocation the wayland-container CI
+# job and this project's own docs use - no --security-opt, no other
+# flag), then `docker inspect --format '{{json .HostConfig}}'`,
+# normalized the same way check_isolation.sh normalizes the live
+# measurement before comparing (see normalize_host_config()):
+#
+#   1. "ConsoleSize":[W,H] replaced with a fixed placeholder. This
+#      field tracks the calling terminal's tty geometry (only ever
+#      populated by `-t`, which this project's invocations never pass;
+#      measured as [0,0] every time), not container security - keeping
+#      it literal would make the baseline depend on who ran the
+#      measurement from which terminal, for zero security benefit.
+#   2. Each "/sys/devices/system/cpu/cpuN/thermal_throttle" entry
+#      inside MaskedPaths removed (with its adjacent comma). Docker
+#      emits one such entry per CPU core VISIBLE ON THE HOST RUNNING
+#      DOCKERD - this machine has 16, a 4-core CI runner would have 4 -
+#      and no `docker run`/`create` flag controls this list's cpuN
+#      entries directly, so literal-comparing them would fail on every
+#      host with a different core count, which is exactly the "alarme
+#      constante que ninguem le" GODS_LAWS.md L-40 warns against.
+#      check_isolation.sh does NOT drop this signal silently: it
+#      separately asserts the STRIPPED entry count equals `nproc` on
+#      the host running the check (assert_cpu_masked_path_count_matches_host),
+#      which is what actually catches `--security-opt
+#      systempaths=unconfined` (or any other flag that empties
+#      MaskedPaths/ReadonlyPaths) - the exact failure mode this whole
+#      fatia exists to close, invisible to the nine named fields the
+#      previous version of this script checked (Mounts,
+#      HostConfig.Devices, Privileged, PidMode, IpcMode, NetworkMode,
+#      UsernsMode, CapAdd, CapDrop - none of which systempaths=unconfined
+#      touches).
+#   3. "OomKillDisable":false and "OomKillDisable":null both replaced
+#      with the same placeholder. Measured live comparing ci.yml's own
+#      two invocation shapes side by side on the identical clean
+#      image: `docker create` (used for the three negative controls,
+#      whose poisoned ENTRYPOINT deliberately never runs) reads back
+#      `false`; the same container after `docker run -d` (used for the
+#      positive control) reads back `null` - nothing else in the whole
+#      block differs between the two states. Neither is a widening;
+#      only the literal `true`, set by `--oom-kill-disable`, is, and
+#      that is left OUTSIDE the placeholder match on purpose.
+#
+# The FIXED (non-cpu) portion of MaskedPaths and all of ReadonlyPaths
+# are NOT normalized: they are Docker's built-in default list for this
+# Docker version and do not vary by host topology, so an exact-text
+# mismatch there is real signal, not noise.
+#
+# Measured 26/08/2026 against Docker Server version 29.7.2 (`docker
+# version --format '{{.Server.Version}}'`) on the leader's Fedora 44
+# machine, image glintfx-wltest built from this same commit's
+# Containerfile. Re-measure and replace this file whenever the pinned
+# Docker version genuinely changes the shape of `docker inspect
+# --format '{{json .HostConfig}}'` for a clean container of this
+# image - that re-measurement, and the raw diff it takes to notice one
+# is needed, is the accepted cost this fatia's own text names.
+{"Binds":null,"ContainerIDFile":"","LogConfig":{"Type":"json-file","Config":{}},"NetworkMode":"bridge","PortBindings":{},"RestartPolicy":{"Name":"no","MaximumRetryCount":0},"AutoRemove":false,"VolumeDriver":"","VolumesFrom":null,"ConsoleSize":"NORMALIZED","CapAdd":["CAP_SYS_NICE"],"CapDrop":["ALL"],"CgroupnsMode":"private","Dns":null,"DnsOptions":[],"DnsSearch":[],"ExtraHosts":null,"GroupAdd":null,"IpcMode":"private","Cgroup":"","Links":null,"OomScoreAdj":0,"PidMode":"","Privileged":false,"PublishAllPorts":false,"ReadonlyRootfs":false,"SecurityOpt":null,"UTSMode":"","UsernsMode":"","ShmSize":67108864,"Runtime":"runc","Isolation":"","CpuShares":0,"Memory":0,"NanoCpus":0,"CgroupParent":"","BlkioWeight":0,"BlkioWeightDevice":[],"BlkioDeviceReadBps":[],"BlkioDeviceWriteBps":[],"BlkioDeviceReadIOps":[],"BlkioDeviceWriteIOps":[],"CpuPeriod":0,"CpuQuota":0,"CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CpusetCpus":"","CpusetMems":"","Devices":[],"DeviceCgroupRules":null,"DeviceRequests":null,"MemoryReservation":0,"MemorySwap":0,"MemorySwappiness":null,"OomKillDisable":"NORMALIZED","PidsLimit":null,"Ulimits":[],"CpuCount":0,"CpuPercent":0,"IOMaximumIOps":0,"IOMaximumBandwidth":0,"MaskedPaths":["/proc/acpi","/proc/asound","/proc/interrupts","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/sched_debug","/proc/scsi","/proc/timer_list","/proc/timer_stats","/sys/devices/virtual/powercap","/sys/firmware"],"ReadonlyPaths":["/proc/bus","/proc/fs","/proc/irq","/proc/sys","/proc/sysrq-trigger"]}

@@ -31,18 +31,33 @@
 #     trailing slash), which does not match a mount whose path is
 #     exactly "/run/user" (no trailing component).
 #
-# The fix replaces a blacklist of "known dangerous substrings" with an
-# allow-list of "the exact HostConfig this project's own clean
-# container run produces" (Mounts and Devices empty; Privileged,
-# PidMode, IpcMode, NetworkMode, UsernsMode, CapAdd, CapDrop matching a
-# baseline measured live against THIS image, not guessed) - a
-# blacklist only ever catches what someone remembered to list, and a
-# JSON substring blacklist scoped to the wrong field (.Mounts) cannot
-# see a leak that lives in a sibling field (.HostConfig.Devices,
-# .HostConfig.PidMode). Every one of these allow-list checks runs
-# BEFORE the PID-based checks below, which is what makes calling
-# `pgrep` afterwards safe: it is never reached unless PidMode has
-# already been confirmed to be the container's own private namespace.
+# ISO-BASELINE (25-26/08/2026, GODS_LAWS.md L-40): the fix above
+# replaced a substring blacklist with an allow-list of NINE NAMED
+# fields (.Mounts, .HostConfig.Devices, Privileged, PidMode, IpcMode,
+# NetworkMode, UsernsMode, CapAdd, CapDrop). That allow-list itself
+# turned out to be the sixth of the six portoes L-40 was written
+# about: it only ever asked about the fields someone remembered to
+# name. Live proof of the gap, found while building this fatia:
+# `docker create --cap-drop=ALL --cap-add=SYS_NICE --security-opt
+# systempaths=unconfined <image>` touches NONE of the nine fields
+# above - Privileged stays false, PidMode/IpcMode/NetworkMode/
+# UsernsMode/CapAdd/CapDrop are untouched - yet it empties BOTH
+# `.HostConfig.MaskedPaths` and `.HostConfig.ReadonlyPaths`, handing
+# the container /proc/kcore (readable kernel memory), /proc/keys,
+# /proc/scsi and the rest of Docker's default hidden paths. The nine-
+# field version of this script printed "isolamento provado" for that
+# container. Per the leader's decision (25/08/2026, AskUserQuestion,
+# against keeping the named list and against a mixed approach), the
+# fix this time is not "add a tenth named field": it is comparing
+# `.HostConfig` AS A WHOLE against a live-measured baseline
+# (tests/container/hostconfig_baseline.txt), so a field nobody thought
+# to name shows up on its own the next time Docker adds one. See
+# normalize_host_config() and assert_full_hostconfig_matches_baseline()
+# below for what that costs and how the two genuinely host-dependent
+# fields (ConsoleSize, and MaskedPaths' one-entry-per-CPU-core tail)
+# are normalized without weakening the check - full reasoning is in
+# hostconfig_baseline.txt's own header, since that is the file that
+# has to be re-measured, not this script, when Docker's version moves.
 #
 # Usage: check_isolation.sh <container-name> <socket-name>
 #
@@ -50,31 +65,42 @@
 
 set -eu
 
-# Measured live against a `docker create --cap-drop=ALL
-# --cap-add=SYS_NICE <this image>` with no other flags (TEST-WLCONT
-# adversarial review response), not guessed: this project's clean
-# invocation needs exactly these HostConfig values, nothing shared
-# with the host. Any other value is a namespace or privilege leak.
-readonly EXPECTED_PRIVILEGED="false"
-readonly EXPECTED_PID_MODE=""
-readonly EXPECTED_IPC_MODE="private"
-readonly EXPECTED_NETWORK_MODE="bridge"
-readonly EXPECTED_USERNS_MODE=""
-readonly EXPECTED_CAP_ADD='["CAP_SYS_NICE"]'
-readonly EXPECTED_CAP_DROP='["ALL"]'
-
-# Defense in depth for the ss/lsof TEXT output check further down
-# (assert_output_has_no_forbidden_pattern) only - .Mounts and
-# .HostConfig.Devices are now allow-listed to "exactly empty"
-# (assert_empty_json_array), which is strictly stronger than any
-# substring blacklist. FURO 3 fix: "/run/user" with no trailing slash,
-# so it still matches a path that is exactly "/run/user".
-readonly FORBIDDEN_PATH_PATTERNS="/run/user wayland-0 /dev/uinput /tmp/.X11-unix"
-
+# fail() defined before the readonly constants below (not its usual
+# spot further down with the other small helpers): BASELINE_DIR's
+# resolution needs it to fail loud instead of "command not found" if
+# `dirname` ever errored, same ordering reason as tools/preci.sh's own
+# comment on moving fail()/log() above ROOT_DIR's resolution.
 fail() {
     echo "check_isolation.sh: $1" >&2
     exit 1
 }
+
+# Measured live 26/08/2026 against Docker Server 29.7.2 (`docker
+# version --format '{{.Server.Version}}'`), the same run that produced
+# tests/container/hostconfig_baseline.txt - not guessed. Re-measure
+# both together; a Docker version bump that changes the shape of
+# `.HostConfig` will move this count too, and the point of this
+# constant is exactly to say so with a dedicated message instead of
+# leaving that discovery to the raw diff alone (GODS_LAWS.md L-40:
+# "a contagem aparece na saida, mesmo quando passa").
+readonly BASELINE_DOCKER_VERSION="29.7.2"
+readonly EXPECTED_HOSTCONFIG_KEY_COUNT=63
+
+# Declare-and-assign kept separate from `readonly` on purpose
+# (shellcheck SC2155, same fix already applied in tools/preci.sh's
+# ROOT_DIR resolution): combining them would mask a `dirname` failure
+# behind `readonly`'s own always-0 exit status.
+BASELINE_DIR="$(dirname "$0")" || fail "nao foi possivel resolver o diretorio deste script (dirname \"\$0\" falhou)"
+readonly BASELINE_FILE="$BASELINE_DIR/hostconfig_baseline.txt"
+
+# Defense in depth for the ss/lsof TEXT output check further down
+# (assert_output_has_no_forbidden_pattern) only - the HostConfig this
+# container was created with is now proven by
+# assert_full_hostconfig_matches_baseline() below, which is strictly
+# stronger than any substring blacklist. FURO 3 fix: "/run/user" with
+# no trailing slash, so it still matches a path that is exactly
+# "/run/user".
+readonly FORBIDDEN_PATH_PATTERNS="/run/user wayland-0 /dev/uinput /tmp/.X11-unix"
 
 require_args() {
     [ "$#" -eq 2 ] || fail "usage: check_isolation.sh <container-name> <socket-name>"
@@ -93,52 +119,149 @@ inspect_field_or_fail() {
     printf '%s' "$value"
 }
 
-# Allow-list, not blacklist: the only value this check accepts for a
-# JSON array field is the literal empty array "[]". Used for both
-# .Mounts and .HostConfig.Devices (FURO 1: a --device flag never
-# touches .Mounts at all, so a blacklist scoped only to .Mounts can
-# never see it - a separate allow-listed field is required).
-assert_empty_json_array() {
+# Fetches the whole HostConfig block once, so every metadata check
+# below (key count, MaskedPaths cardinality, full-text compare) reads
+# the SAME snapshot instead of racing three separate `docker inspect`
+# calls against a container nothing else is touching in between.
+raw_host_config() {
     container="$1"
-    format="$2"
-    label="$3"
-    value="$(inspect_field_or_fail "$container" "$format" "$label")"
-    [ "$value" = "[]" ] || fail "$label nao esta vazio, e deveria estar: $value"
-    echo "check_isolation.sh: $label ok (vazio)"
+    inspect_field_or_fail "$container" '{{json .HostConfig}}' "HostConfig (bloco completo)"
 }
 
-# Allow-list for the namespace/privilege fields the adversarial review
-# named. Any value other than this project's own clean-container
-# baseline means a namespace or privilege is shared with the host -
-# FAIL, never a warning. This is FURO 2's actual fix: it runs before
-# assert_only_internal_socket, so PidMode is proven private before
-# `pgrep` is ever called inside the container.
-assert_host_config_matches_baseline() {
+# `docker inspect`'s Go template `range` over `.HostConfig` only ever
+# yields the keys actually present in the decoded JSON - Docker's own
+# `omitempty` struct tags mean a field with its zero value (like an
+# unset .Mounts, only ever populated by `--mount`) is simply ABSENT
+# from that map, not present-with-a-null-value. That is exactly what
+# makes this count a real, independent signal: a `--mount` flag this
+# project never uses would not touch any of Binds/Devices/PidMode/etc,
+# but it inserts a whole new top-level key, and this count moves.
+hostconfig_key_count() {
     container="$1"
-    privileged="$(inspect_field_or_fail "$container" '{{.HostConfig.Privileged}}' Privileged)"
-    pid_mode="$(inspect_field_or_fail "$container" '{{.HostConfig.PidMode}}' PidMode)"
-    ipc_mode="$(inspect_field_or_fail "$container" '{{.HostConfig.IpcMode}}' IpcMode)"
-    network_mode="$(inspect_field_or_fail "$container" '{{.HostConfig.NetworkMode}}' NetworkMode)"
-    userns_mode="$(inspect_field_or_fail "$container" '{{.HostConfig.UsernsMode}}' UsernsMode)"
-    cap_add="$(inspect_field_or_fail "$container" '{{json .HostConfig.CapAdd}}' CapAdd)"
-    cap_drop="$(inspect_field_or_fail "$container" '{{json .HostConfig.CapDrop}}' CapDrop)"
+    keys="$(inspect_field_or_fail "$container" '{{range $k, $v := .HostConfig}}{{println $k}}{{end}}' "HostConfig (contagem de campos)")"
+    # `sed '/^$/d'` is load-bearing, not defensive filler: verified
+    # live that `docker inspect --format` appends one more trailing
+    # newline of its own on top of whatever the template body already
+    # printed, so the naive `wc -l` (no blank-line strip) over-counts
+    # by exactly one stray blank line regardless of how many real keys
+    # exist - this is what produced 63 real keys but a naive count of
+    # 64 while this baseline was being measured.
+    printf '%s\n' "$keys" | sed '/^$/d' | wc -l
+}
 
-    [ "$privileged" = "$EXPECTED_PRIVILEGED" ] \
-        || fail "Privileged fora do baseline: '$privileged' (esperado '$EXPECTED_PRIVILEGED')"
-    [ "$pid_mode" = "$EXPECTED_PID_MODE" ] \
-        || fail "PidMode fora do baseline: '$pid_mode' (esperado vazio - namespace de PID tem que ser privado do container, GODS_LAWS.md L-09 FURO 2)"
-    [ "$ipc_mode" = "$EXPECTED_IPC_MODE" ] \
-        || fail "IpcMode fora do baseline: '$ipc_mode' (esperado '$EXPECTED_IPC_MODE')"
-    [ "$network_mode" = "$EXPECTED_NETWORK_MODE" ] \
-        || fail "NetworkMode fora do baseline: '$network_mode' (esperado '$EXPECTED_NETWORK_MODE')"
-    [ "$userns_mode" = "$EXPECTED_USERNS_MODE" ] \
-        || fail "UsernsMode fora do baseline: '$userns_mode' (esperado vazio)"
-    [ "$cap_add" = "$EXPECTED_CAP_ADD" ] \
-        || fail "CapAdd fora do baseline: '$cap_add' (esperado '$EXPECTED_CAP_ADD')"
-    [ "$cap_drop" = "$EXPECTED_CAP_DROP" ] \
-        || fail "CapDrop fora do baseline: '$cap_drop' (esperado '$EXPECTED_CAP_DROP')"
+# GODS_LAWS.md L-40: the count is printed even when this passes -
+# "distingue olhou e estava tudo bem de nao olhou" - and a mismatch
+# gets a dedicated message pointing at the baseline file, instead of
+# only ever showing up buried in the raw diff further down.
+assert_hostconfig_key_count_matches_baseline() {
+    container="$1"
+    count="$(hostconfig_key_count "$container")"
+    echo "check_isolation.sh: HostConfig tem $count campo(s) de topo (baseline: $EXPECTED_HOSTCONFIG_KEY_COUNT, medido com Docker $BASELINE_DOCKER_VERSION)"
+    [ "$count" -gt 0 ] || fail "HostConfig nao retornou NENHUM campo de topo (varredura vazia disfarcada de OK)"
+    [ "$count" -eq "$EXPECTED_HOSTCONFIG_KEY_COUNT" ] \
+        || fail "HostConfig tem $count campo(s) de topo, o baseline esperava $EXPECTED_HOSTCONFIG_KEY_COUNT - campo novo apareceu (ex.: --mount populando .HostConfig.Mounts, que fica AUSENTE quando nao usado) ou o Docker mudou de versao: reconfira tests/container/hostconfig_baseline.txt (GODS_LAWS.md L-40/ISO-BASELINE)"
+}
 
-    echo "check_isolation.sh: HostConfig ok (Privileged/PidMode/IpcMode/NetworkMode/UsernsMode/CapAdd/CapDrop batem com o baseline)"
+# Counts the "/sys/devices/system/cpu/cpuN/thermal_throttle" entries
+# inside the raw HostConfig's MaskedPaths - one per CPU core Docker
+# sees on the machine running dockerd, not something any `docker
+# create`/`run` flag sets directly. This is the check that actually
+# catches `--security-opt systempaths=unconfined` (or any other flag
+# that empties MaskedPaths/ReadonlyPaths): it is the exact hole the
+# nine-named-field version of this script had, because none of those
+# nine fields move when systempaths is set to unconfined.
+masked_paths_cpu_thermal_count() {
+    raw="$1"
+    printf '%s' "$raw" | grep -oE '/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle' | sed '/^$/d' | wc -l
+}
+
+nproc_or_fail() {
+    command -v nproc >/dev/null 2>&1 \
+        || fail "nproc ausente neste host - nao da para medir quantos nucleos o baseline de MaskedPaths precisa cobrir (GODS_LAWS.md L-40)"
+    nproc
+}
+
+assert_cpu_masked_path_count_matches_host() {
+    raw="$1"
+    actual_count="$(masked_paths_cpu_thermal_count "$raw")"
+    expected_count="$(nproc_or_fail)"
+    echo "check_isolation.sh: MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle (nucleos deste host: $expected_count)"
+    [ "$actual_count" = "$expected_count" ] \
+        || fail "MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle, esperava $expected_count (um por nucleo, 'nproc'): provavel --security-opt systempaths=unconfined (ou equivalente) esvaziando MaskedPaths/ReadonlyPaths sem tocar nenhum dos campos que este portao checava antes do ISO-BASELINE"
+}
+
+# Normalizes the three genuinely execution-dependent parts of a raw
+# HostConfig capture before comparing it to the measured baseline -
+# see hostconfig_baseline.txt's own header for the full reasoning on
+# why exactly these three, and nothing else, are excused from an exact
+# match. All three substitutions are text-level on purpose (no JSON
+# parser in this project, GODS_LAWS.md L-07): Go's json.Marshal output
+# for a fixed Docker version is a stable, deterministic single line,
+# so a plain sed pass is enough as long as it is applied identically
+# to the live capture and to how the committed baseline was produced.
+#
+# The third (OomKillDisable) was found live while proving this
+# function's OWN positive control: the CI job's positive-control step
+# uses `docker run -d` (a STARTED container), while its three negative
+# controls use `docker create` (deliberately never started, so the
+# poisoned ENTRYPOINT never runs - see ci.yml's own comment on that).
+# Measured side by side on the identical clean invocation:
+# `OomKillDisable` reads back as the literal `false` right after
+# `docker create`, and as `null` once the same container is actually
+# `docker run`-started - nothing else in the whole block moves between
+# the two states. Neither value is a security loosening (both mean
+# "OOM killer not explicitly disabled"); only `--oom-kill-disable`
+# (which sets it to the literal `true`) is, and that is left
+# unnormalized on purpose, so it still breaks the match.
+normalize_host_config() {
+    raw="$1"
+    printf '%s' "$raw" \
+        | sed -E 's#"ConsoleSize":\[[0-9]+,[0-9]+\]#"ConsoleSize":"NORMALIZED"#' \
+        | sed -E 's#,"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle"##g; s#"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle",##g' \
+        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#'
+}
+
+read_baseline_or_fail() {
+    [ -f "$BASELINE_FILE" ] \
+        || fail "baseline ausente: $BASELINE_FILE (portao sem baseline nao aprova por omissao, GODS_LAWS.md L-40)"
+    content="$(grep -v '^#' "$BASELINE_FILE")"
+    [ -n "$content" ] \
+        || fail "baseline vazio (so tinha comentario) em $BASELINE_FILE - varredura vazia disfarcada de OK"
+    printf '%s' "$content"
+}
+
+# ISO-BASELINE, the point of this whole fatia: compares the ENTIRE
+# HostConfig block (all top-level fields, GODS_LAWS.md L-40) against a
+# live-measured baseline, instead of a hand-picked list of named
+# fields. A field nobody thought to check shows up here on its own,
+# because it shows up in the raw text either way. Runs before
+# assert_only_internal_socket, same as the old
+# assert_host_config_matches_baseline did: PidMode is proven private
+# here before `pgrep` is ever called inside the container (FURO 2).
+assert_full_hostconfig_matches_baseline() {
+    container="$1"
+    raw="$2"
+    normalized="$(normalize_host_config "$raw")"
+    baseline="$(read_baseline_or_fail)"
+    if [ "$normalized" = "$baseline" ]; then
+        echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $BASELINE_DOCKER_VERSION)"
+        return 0
+    fi
+    diff_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-iso-baseline-XXXXXX")"
+    trap 'rm -rf "$diff_dir"' EXIT
+    # POSIX sh has no <(...) process substitution (bashism, dash on
+    # Ubuntu's CI does not have it either): write both sides to real
+    # files and diff those (same pattern as
+    # tests/tools/check_dup_laws.sh). One field per line (split on
+    # comma) so the diff is legible instead of a single 1500-byte line
+    # - this IS the "diff cru" this fatia's own text names as the
+    # accepted cost of comparing the whole block instead of nine named
+    # fields.
+    printf '%s\n' "$baseline" | tr ',' '\n' > "$diff_dir/baseline"
+    printf '%s\n' "$normalized" | tr ',' '\n' > "$diff_dir/atual"
+    echo "check_isolation.sh: HostConfig DIVERGE do baseline medido (um campo por linha, virgula quebrada para leitura):" >&2
+    diff -u "$diff_dir/baseline" "$diff_dir/atual" >&2 || true
+    fail "HostConfig nao bate com o baseline medido em $BASELINE_FILE (GODS_LAWS.md L-40/ISO-BASELINE)"
 }
 
 compositor_pid_in_container() {
@@ -148,7 +271,7 @@ compositor_pid_in_container() {
     # matches PID 1, the `dbus-run-session -- kwin_wayland ...`
     # wrapper, whose command line merely MENTIONS kwin_wayland as an
     # argument. Trusting "the first PID this container's own pgrep
-    # reports" is only safe because assert_host_config_matches_baseline
+    # reports" is only safe because assert_full_hostconfig_matches_baseline
     # already proved PidMode is not "host" - main() calls it first and
     # exits before reaching here otherwise (FURO 2).
     docker exec "$container" pgrep -x kwin_wayland | head -n 1
@@ -213,9 +336,12 @@ main() {
     # Metadata checks only (docker inspect, never docker exec) go
     # first and in full, on purpose: every one of them has to pass
     # before this script ever runs a command INSIDE the container.
-    assert_empty_json_array "$container" '{{json .Mounts}}' ".Mounts"
-    assert_empty_json_array "$container" '{{json .HostConfig.Devices}}' ".HostConfig.Devices"
-    assert_host_config_matches_baseline "$container"
+    # `raw` is fetched once and shared by the three checks below so
+    # they all read the same snapshot.
+    raw="$(raw_host_config "$container")"
+    assert_hostconfig_key_count_matches_baseline "$container"
+    assert_cpu_masked_path_count_matches_host "$raw"
+    assert_full_hostconfig_matches_baseline "$container" "$raw"
 
     assert_only_internal_socket "$container" "$socket_name"
 

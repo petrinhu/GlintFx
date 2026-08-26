@@ -47,6 +47,21 @@ readonly BUILD_DIR="${ROOT_DIR}/build-preci"
 readonly SANITIZE_BUILD_DIR="${ROOT_DIR}/build-preci-sanitize"
 readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 
+# GODS_LAWS.md INBOX achado (rodada 2 da revisao do FUND-4, 24/08/2026):
+# `ctest -L PATTERN` matches PATTERN as a *substring* of the label, not
+# the whole label - a test labeled e.g. `nonunit` satisfies an
+# unanchored `-L unit` (measured live: Total Tests: 1, should be 0).
+# Not exploitable today (the only labels in this tree are unit, consume
+# and selftest, none collide), but stage_sanitizer's own filter is
+# exactly what the GODS_LAWS.md L-40 empty-scan floor exists to protect:
+# if a future label ever contained "unit" as a substring, this
+# unanchored filter would keep silently matching after the real `unit`
+# label had vanished. Anchored once, here, and reused by both the real
+# pipeline stage (stage_sanitizer below) and its selftest regression
+# control (run_selftest_ctest_count_substring_control) so the two can
+# never drift apart.
+readonly CTEST_UNIT_LABEL_FILTER='^unit$'
+
 log() {
     printf '== %s ==\n' "$1"
 }
@@ -232,11 +247,12 @@ stage_ctest() {
     ctest --test-dir "$BUILD_DIR" --output-on-failure
 }
 
-# Sanitizer stage runs `ctest -L unit` only, never the full suite: the
-# shell-script consumption gates (tests/CMakeLists.txt, LABELS consume)
-# link a plain, non-sanitized consumer against the sanitized library on
-# purpose, which fails by construction under ASan (its runtime has to
-# come first in the process) - see the comment on GLINTFX_SANITIZE in
+# Sanitizer stage runs `ctest -L "$CTEST_UNIT_LABEL_FILTER"` (anchored
+# `^unit$`) only, never the full suite: the shell-script consumption
+# gates (tests/CMakeLists.txt, LABELS consume) link a plain,
+# non-sanitized consumer against the sanitized library on purpose, which
+# fails by construction under ASan (its runtime has to come first in the
+# process) - see the comment on GLINTFX_SANITIZE in
 # cmake/GlintfxOptions.cmake. Own build directory, own configure: this
 # is a heavier, slower build than the normal one (GODS_LAWS.md L-23
 # portao 2), so it never shares a build tree with stage_configure above.
@@ -245,10 +261,10 @@ stage_sanitizer() {
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON \
         -DGLINTFX_SANITIZE=address,undefined
     cmake --build "$SANITIZE_BUILD_DIR"
-    count="$(count_ctest_tests "$SANITIZE_BUILD_DIR" -L unit)"
-    require_nonempty_tests "ctest -L unit (sanitizer)" "$count" \
+    count="$(count_ctest_tests "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER")"
+    require_nonempty_tests "ctest -L ${CTEST_UNIT_LABEL_FILTER} (sanitizer)" "$count" \
         || fail "estagio sanitizer recusado (varredura vazia de testes rotulados unit - o rotulo sumiu ou o build nao tem teste nenhum)"
-    ctest --test-dir "$SANITIZE_BUILD_DIR" -L unit --output-on-failure
+    ctest --test-dir "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER" --output-on-failure
 }
 
 # --- selftest stages (operate on tests/preci_fixtures/<dir> or an
@@ -339,8 +355,11 @@ selftest_ctest_project_dir() {
 # wrong-label registers one test WITHOUT the `unit` label (mirrors the
 # exact defect the review found: `set_tests_properties(... LABELS
 # unit)` disappearing from GlintfxTest.cmake in a future refactor -
-# stage_sanitizer's `ctest -L unit` then matches zero tests even though
-# the build has one).
+# stage_sanitizer's `ctest -L "$CTEST_UNIT_LABEL_FILTER"` then matches
+# zero tests even though the build has one); substring-label registers
+# one test labeled `nonunit` (mirrors the OTHER defect the INBOX achado
+# found, rodada 2 do FUND-4: an unanchored `-L unit` matches `nonunit`
+# by substring - see run_selftest_ctest_count_substring_control below).
 selftest_write_ctest_project() {
     dir="$1"
     mode="$2"
@@ -356,6 +375,10 @@ selftest_write_ctest_project() {
             wrong-label)
                 echo 'add_test(NAME dummy COMMAND ${CMAKE_COMMAND} -E true)'
                 echo 'set_tests_properties(dummy PROPERTIES LABELS consume)'
+                ;;
+            substring-label)
+                echo 'add_test(NAME dummy COMMAND ${CMAKE_COMMAND} -E true)'
+                echo 'set_tests_properties(dummy PROPERTIES LABELS nonunit)'
                 ;;
             no-tests) ;;
         esac
@@ -402,11 +425,37 @@ run_selftest_ctest_count_wrong_label_control() {
     echo "selftest: controle de rotulo ausente (ctest -L unit, 1 teste existe mas nenhum rotulado unit) OK"
 }
 
+# GODS_LAWS.md INBOX achado (rodada 2 da revisao do FUND-4, 24/08/2026):
+# proves the substring-match danger CTEST_UNIT_LABEL_FILTER exists to
+# close. A project whose only test carries LABELS nonunit - contains
+# the word "unit" but is not the label `unit` - is the exact shape the
+# achado measured live (unanchored `-L unit` returned Total Tests: 1
+# for it, should have been 0). n_unanchored below documents that the
+# danger is real; n_anchored uses the SAME constant stage_sanitizer
+# uses, so a future edit that widens CTEST_UNIT_LABEL_FILTER back to a
+# bare `unit` fails this control instead of shipping silently.
+run_selftest_ctest_count_substring_control() {
+    dir="$(selftest_ctest_project_dir)"
+    selftest_write_ctest_project "$dir" substring-label
+    n_unanchored="$(count_ctest_tests "$dir/build" -L unit)"
+    n_anchored="$(count_ctest_tests "$dir/build" -L "$CTEST_UNIT_LABEL_FILTER")"
+    rm -rf "$dir"
+    [ "$n_unanchored" -eq 1 ] \
+        || fail "selftest: esperava que '-L unit' (sem ancora) casasse por substring o rotulo 'nonunit' (o bug que o achado mediu ao vivo), count_ctest_tests devolveu '$n_unanchored'"
+    [ "$n_anchored" -eq 0 ] \
+        || fail "selftest: controle de substring FALHOU - '-L ${CTEST_UNIT_LABEL_FILTER}' casou o rotulo 'nonunit', deveria ser 0 (a ancora nao esta protegendo), count_ctest_tests devolveu '$n_anchored'"
+    if require_nonempty_tests "ctest[-L ${CTEST_UNIT_LABEL_FILTER}, rotulo nonunit]" "$n_anchored" 2>/dev/null; then
+        fail "selftest: controle de substring FALHOU - o piso aprovou 0 testes casando com o filtro ancorado"
+    fi
+    echo "selftest: controle de substring de rotulo (nonunit vs -L unit / -L ${CTEST_UNIT_LABEL_FILTER}) OK"
+}
+
 run_selftest_ctest_count_controls() {
     log "selftest: piso de contagem de testes (stage_ctest / stage_sanitizer)"
     run_selftest_ctest_count_positive_control
     run_selftest_ctest_count_negative_control
     run_selftest_ctest_count_wrong_label_control
+    run_selftest_ctest_count_substring_control
 }
 
 run_selftest() {

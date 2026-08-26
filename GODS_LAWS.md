@@ -660,6 +660,29 @@ Aplicação concreta da seção anterior desta lei, registrada porque é o prime
 
 **Podemos usar os mesmos nomes de propriedade e de elemento.** Nomes de propriedade são identificadores funcionais; os padrões são publicados **para serem implementados**; o que as licenças protegem é o **texto** da especificação e o **código** de implementações existentes. Nossas próprias leis (L-01, L-07, L-29) já são mais estritas que qualquer termo externo: escrevemos tudo do zero, sem consultar implementação de terceiro.
 
+### As 8 decisões de 26/08/2026 sobre movimento e luz — animação REABERTA
+
+Todas por `AskUserQuestion` (L-10), na mesma sessão, algumas horas depois das 22 anteriores. Nasceram de uma pergunta do líder — *"temos brilho? com fadein, fadeout, pulse, velocidade de fade, tempo de fade, propriedades predefinidas (heartbeat [velocidade], breath [velocidade], outros [sugira]"* — cuja resposta medida foi **não temos nada disso**: zero ocorrências de brilho, glow ou bloom na tabela inteira e nas leis, e a metade animada explicitamente fora da v1.
+
+#### ⚠️ REVOGAÇÃO da decisão 5 de 21/08/2026
+
+A quinta decisão de escopo desta lei dizia: *"Animação, transição e `@keyframes` ficam FORA da v1, ignorados com diagnóstico. Entram como escopo próprio quando o loop principal e o relógio existirem."*
+
+**A condição que ela mesma escreveu está satisfeita, e foi medida:** `CORE-TIME` (W3, pontuação **24,00**, a terceira maior da tabela — relógio monotônico, delta, ritmo de quadro) e `LOOP-RUN` (W6, o loop principal público). **A partir da W6 a fundação existe**, e o líder reabriu.
+
+**Consequência imediata na tabela:** `GFSS-SHEET-PARSE` (W6) descreve animação, transição e `@keyframes` como *"fora da v1, ignoradas com diagnóstico"* — **esse texto está revogado** e a fatia precisa ser reescrita.
+
+| # | Decisão |
+|---|---|
+| 23 | **Animação REABRE**, com a trilha desenhada agora e **executada depois da `DEMO-1`** — mesma disciplina da L-32 aplicada ao bloco de render horas antes. A demo continua na frente de tudo. |
+| 24 | **Tamanho: o conjunto COMPLETO** — transição de propriedade (ir de um valor a outro com duração e curva), presets nomeados, **e animação escrita à mão pelo autor da folha**, com quadros próprios. É a mais cara das três opções apresentadas: exige um sistema de linha do tempo **além** do de curvas. Registrado como custo aceito de olhos abertos, não como surpresa futura. |
+| 25 | **Duração e curva são parâmetros SEPARADOS.** Duração é quanto tempo leva; curva é *como* leva — começa devagar, passa do alvo e volta, chega batendo. **A curva é o que faz um botão parecer mecânico ou vivo com a mesma duração**, e é o parâmetro que quase todo formato esquece de expor. Nenhum dos dois é opcional na superfície pública. |
+| 26 | **Brilho: sombra MAIS uma peça própria de brilho intenso.** O halo simples vem de graça da sombra de caixa (sombra sem deslocamento e com cor viva **é** brilho); a peça própria é a que faz a luz vazar para fora do elemento do jeito que fogo e magia parecem em jogo. |
+| 27 | **Mistura aditiva entra como CAPACIDADE GERAL**, não como detalhe interno do brilho. **É o que separa luz de tinta:** quando uma luz brilha sobre um fundo, ela **soma** com o que está atrás; sem isso o halo fica leitoso, como vidro fosco por cima, nunca luminoso. Serve a neon, fogo, magia, explosão, faísca e raio — decidir só para o neon seria resolver um caso de uma capacidade que serve a dez. **Não existia em lugar nenhum da tabela** — ausência medida, não lembrada. |
+| 28 | **`neon` é PRESET com parâmetros**, não peça separada. A receita tem quatro camadas: **núcleo quase branco** (dessaturado — este é o segredo, e o erro comum), **halo curto e saturado**, **halo largo e fraco**, e **soma com o fundo**. Escrever o texto na cor do neon produz **adesivo colorido**; escrever quase branco com a cor no halo produz **luz**. Empacotar a receita evita que quase todo consumidor erre na primeira tentativa. Combinado com `flicker`, dá o letreiro com defeito sem nada novo. |
+| 29 | **Presets com sorteio (`flicker`, `twinkle`, `ember`): semente NO CONTRATO.** Fixada a semente, a animação repete idêntica e o teste consegue verificá-la; sem fixar, varia normalmente. Nasce da tensão com a **L-35** (entrega determinística): animação com sorteio não é reproduzível em teste a menos que a semente seja parte do contrato público. **Nenhuma outra parte da biblioteca tem esse problema hoje** — este é o primeiro. |
+| 30 | **A lista de presets da v1, treze:** `breath` (onda lenta, vivo em espera), `heartbeat` (dois pulsos e pausa, vida baixa), `pulse` (onda simples, atenção sem alarme), `throb` (sobe de golpe, desce devagar — impacto), `blink` (liga/desliga duro), `flicker` (irregular — tocha, néon quebrado), `shimmer` (faixa de luz varrendo — item raro), `twinkle` (picos curtos aleatórios — estrela), `ember` (variação lenta e fraca — brasa), `charge` (cresce ao pico e estoura), `alarm` (pulso duro e rítmico — perigo), `wave` (atraso crescente entre vizinhos — menu que acorda item a item) e `neon`. **Presets são baratos depois que o motor de curvas existir — são uma tabela.** ⚠️ **`wave` é o único que não age sobre UM elemento**, e sim coordena vários com atraso progressivo: mecanismo diferente dos outros doze, e por isso fatia própria. |
+
 ## L-29
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*

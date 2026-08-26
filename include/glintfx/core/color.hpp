@@ -105,4 +105,46 @@ static_assert(alignof(gltfx_rgba) == alignof(float),
 static_assert(std::is_trivially_copyable_v<gltfx_rgba>,
               "gltfx_rgba must stay trivially copyable, CORE-COLOR (no owned resource)");
 
+// The display's 8-bit-per-channel format (design choice, see this
+// file's header comment) - NOT linear, NOT the canonical type: this
+// is what a monitor actually receives, and what #rrggbb/rgb() text
+// spells out digit by digit. Exists ONLY at the boundary between
+// gltfx_rgba and the outside world (a texture byte, a #rrggbb parse
+// result, a vertex attribute upload); nothing INSIDE the library
+// computes in this type.
+struct gltfx_rgba8 {
+    std::uint8_t r;
+    std::uint8_t g;
+    std::uint8_t b;
+    std::uint8_t a;
+};
+
+static_assert(sizeof(gltfx_rgba8) == 4 * sizeof(std::uint8_t),
+              "gltfx_rgba8 footprint is frozen ABI, GODS_LAWS.md L-19/L-26 (CORE-COLOR)");
+static_assert(alignof(gltfx_rgba8) == alignof(std::uint8_t),
+              "gltfx_rgba8 alignment is frozen ABI, GODS_LAWS.md L-19/L-26 (CORE-COLOR)");
+static_assert(std::is_trivially_copyable_v<gltfx_rgba8>,
+              "gltfx_rgba8 must stay trivially copyable, CORE-COLOR (no owned resource)");
+
+// Decision 6, first half: round-trip with the display's 8-bit format.
+// gltfx_rgba_from_srgb8() applies the sRGB opto-electronic transfer
+// function per COLOR channel (IEC 61966-2-1 - public, standard math,
+// read under GODS_LAWS.md L-29, never a line of RmlUi/SDL3 code) to
+// convert FROM the display-encoded byte INTO decision 3's linear
+// light; alpha is copied straight through with NO transfer function,
+// because alpha is a coverage fraction, not light, in this convention
+// AND in CSS Color 4's (SS13.1/13.3 never apply a color-space
+// transform to alpha, only to r/g/b).
+//
+// gltfx_rgba_to_srgb8() does the inverse and, being the one direction
+// that can receive an out-of-[0,1] linear value (decision 1's
+// headroom above white, or a negative, out-of-gamut component
+// decision 1's own rationale accepts), CLAMPS before encoding - not
+// an error, just the same lossy amputation any real display
+// eventually performs; there is no fallible signature in this header
+// (see decision 6's own text above - color_test.cpp proves the clamp
+// live, not just in prose).
+[[nodiscard]] GLINTFX_API gltfx_rgba gltfx_rgba_from_srgb8(gltfx_rgba8 encoded) noexcept;
+[[nodiscard]] GLINTFX_API gltfx_rgba8 gltfx_rgba_to_srgb8(gltfx_rgba color) noexcept;
+
 } // namespace glintfx

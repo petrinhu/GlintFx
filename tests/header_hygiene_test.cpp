@@ -114,19 +114,24 @@ GLINTFX_TEST(version_header_survives_hostile_system_headers) {
     GLINTFX_CHECK_EQ(runtime, std::string(GLINTFX_VERSION_STRING));
 }
 
-// gltfx_rgba (CORE-COLOR) is a plain aggregate with no methods in this
-// slice, so there is no call-shaped identifier here for a hostile
-// function-like macro to pattern-match on (the same "no live target
-// today" honesty the header comment above already states for
-// version.hpp's own plain fields) - this case still proves the
-// DECLARATION survives the hostile include order, and reads back the
-// four fields to prove nothing silently reordered under it.
+// gltfx_rgba/gltfx_rgba8 are plain aggregates - no call-shaped field
+// name for a hostile function-like macro to pattern-match on (the
+// same "no live target today" honesty the header comment above
+// already states for version.hpp's own plain fields). The two
+// conversion functions ARE call-shaped, so this case exercises them
+// as real call expressions too, the same CE-8 discipline
+// core_error_use_sites_survive_hostile_system_headers below already
+// applies to gltfx_err/gltfx_rslt.
 GLINTFX_TEST(color_header_survives_hostile_system_headers) {
     constexpr glintfx::gltfx_rgba color{.r = 0.1F, .g = 0.2F, .b = 0.3F, .a = 0.4F};
     GLINTFX_CHECK_EQ(color.r, 0.1F);
     GLINTFX_CHECK_EQ(color.g, 0.2F);
     GLINTFX_CHECK_EQ(color.b, 0.3F);
     GLINTFX_CHECK_EQ(color.a, 0.4F);
+
+    const glintfx::gltfx_rgba8 encoded = glintfx::gltfx_rgba_to_srgb8(color);
+    const glintfx::gltfx_rgba decoded = glintfx::gltfx_rgba_from_srgb8(encoded);
+    GLINTFX_CHECK(decoded.a == color.a);
 }
 
 // core_error_use_sites_survive_hostile_system_headers - CE-8 finding:

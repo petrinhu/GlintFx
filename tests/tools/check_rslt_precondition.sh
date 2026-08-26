@@ -51,6 +51,22 @@
 #     still undefined behavior, not a guarantee, on a platform this
 #     project has not measured).
 #
+# COREDUMP SUPPRESSION (26/08/2026, GODS_LAWS.md L-25): both fixture
+# binaries this script compiles die on purpose (SIGABRT in Debug,
+# SIGSEGV in Release) - that is the whole point of the gate. Left
+# unhandled, this machine's piped core_pattern (|systemd-coredump)
+# turned every single run into a real coredump, flooding the
+# developer's desktop with false "crashed unexpectedly" alarms
+# (measured baseline: 5 coredumps in one run of this gate, 15 in 30
+# minutes, drkonqi-coredump-launcher dropping connections). The fix
+# lives in precondition_fixture.cpp itself
+# (suppress_core_dump_for_intentional_crash(), called as the first line
+# of main): it disables PR_SET_DUMPABLE before violating either
+# precondition. Nothing in THIS script changes, and nothing it asserts
+# depends on a coredump existing or not - every proof below is the
+# process's own exit status and its captured stdout/stderr, exactly as
+# before.
+#
 # Usage:
 #   check_rslt_precondition.sh <include-dir> <generated-include-dir> <library-dir> <cxx-compiler>
 #

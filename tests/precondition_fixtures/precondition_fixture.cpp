@@ -3,6 +3,10 @@
 #include <cstdlib>
 #include <cstring>
 
+#if defined(__linux__)
+#include <sys/prctl.h>
+#endif
+
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
@@ -46,7 +50,34 @@
 //               "the process dies either way" is NEVER assumed here -
 //               it is measured per storage shape, every time the
 //               shape changes.
+// suppress_core_dump_for_intentional_crash - this program dies on
+// purpose (SIGABRT from the debug-only assert, or SIGSEGV from the
+// null-pointer read the assert guards against in Release): the proof
+// check_rslt_precondition.sh needs is the exit status and the stderr
+// message, never the corpse. Leaving core dumps enabled floods the
+// developer's crash pipeline (systemd-coredump -> drkonqi/abrt) with
+// false "crashed unexpectedly" reports every single run (measured: 15
+// dumps in 30 minutes of this gate running, drkonqi-coredump-launcher
+// dropping connections - "Too many incoming connections (16)").
+// RLIMIT_CORE=0 would NOT be enough: this machine's core_pattern is a
+// pipe to systemd-coredump (GODS_LAWS.md L-25), and a piped
+// core_pattern is invoked by the kernel regardless of RLIMIT_CORE -
+// the limit only affects the traditional on-disk dump path. Setting
+// PR_SET_DUMPABLE to 0 instead makes the kernel's own do_coredump()
+// return before any handler - piped or not - ever runs. This changes
+// nothing about what the gate actually asserts: signal delivery and
+// exit status are untouched, so debug/primary and debug/void still
+// stop with their exact message, and release/void still exits exactly
+// 139 (SIGSEGV).
+static void suppress_core_dump_for_intentional_crash() {
+#if defined(__linux__)
+    (void)prctl(PR_SET_DUMPABLE, 0);
+#endif
+}
+
 int main(int argc, char **argv) {
+    suppress_core_dump_for_intentional_crash();
+
     if (argc != 2) {
         std::fprintf(stderr, "usage: precondition_fixture <primary|void>\n");
         return 2;

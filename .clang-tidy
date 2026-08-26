@@ -59,5 +59,24 @@ Checks: >
 # function respectively, with a false-positive rate that would train
 # reviewers to stop reading clang-tidy output rather than sharpen it.
 WarningsAsErrors: '*'
-HeaderFilterRegex: '(include|src)/.*'
+# Anchored on a path-component boundary ("^" or "/" right before the
+# directory name), NOT a bare substring match - achado MEDIDO ao vivo
+# em revisao adversarial, 26/08/2026: the old '(include|src)/.*' is an
+# unanchored substring match, so a working/build directory whose
+# absolute path merely CONTAINS "src/" or "include/" as a fragment of
+# some other name (e.g. a scratch dir literally called "verify-src")
+# makes the filter "embrace" that path too. Reproduced live: building
+# under such a directory turned 11 clang-tidy findings on a generated
+# Wayland header (a plain C enum -> performance-enum-size) real, that
+# vanish the instant the scratch directory is renamed away from
+# containing "src". The anchored form requires "include" or "src" to be
+# a whole path component - preceded by the start of the string or a
+# "/" - so "verify-src/foo.hpp" no longer matches (the "src" there is
+# a suffix of "verify-", not a directory of its own), while genuine
+# "include/..." and "src/..." paths, absolute or relative, keep
+# matching exactly as before. Both halves proven with clang-tidy
+# --header-filter directly against a throwaway fixture before this
+# edit landed (see the commit message for the fixture layout and the
+# before/after diagnostic counts).
+HeaderFilterRegex: '(^|/)(include|src)/.*'
 FormatStyle: none

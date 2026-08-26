@@ -517,6 +517,28 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Ratificação de 22/08/2026, pedida pelo próprio líder.** A sessão do `gusworld` relatou que ele queria decidir sobre esse `PORTING-RCSS.md` conosco, e a decisão dele, tomada por `AskUserQuestion`, foi **não abrir, sem exceção**. O argumento que a sustenta, e que vale como método para qualquer documento futuro do gênero: a lista de recursos que um consumidor precisou é, por construção, um **subconjunto** do que a documentação pública do formato já define, logo o documento **não pode ensinar nada que a fonte já não tenha**. O único acréscimo real dele seria **ordem de importância derivada de um consumidor**, que é exatamente o que a LEI ZERO proíbe. O risco não é copiar código: é a lista **parar a pergunta certa**, trocando "o que o formato define?" por "o que está na lista?". Precedente empírico registrado no mesmo dia: o escopo de RCSS foi fechado **sem** o documento, indo à documentação do formato, e nesse caminho o CTO **corrigiu três erros próprios** que a memória carregava.
 
+### EMENDA de 26/08/2026 — o layout entra, a marcação espera, e os dois formatos ganham nome próprio
+
+**Decisão do líder por `AskUserQuestion`, depois de eu argumentar CONTRA primeiro**, como a LEI DAS LEIS exige. **Verbatim dele:** *"Nosso \"css\" será chamado gfss e nossa marcacao se chamará gfml, com as propriedades de html."*
+
+**O que muda:**
+
+| | |
+|---|---|
+| **`gfss`** | o nome do nosso formato de folha de estilo. **Substitui o nome RCSS** em toda referência a formato. |
+| **`gfml`** | o nome da nossa marcação, **com as propriedades de HTML**. **Ainda NÃO entra** — fica decidida e escrita, sem trilha aberta. |
+| **layout** | **ENTRA no escopo.** A biblioteca passa a calcular caixa e posição, não só estilo computado. |
+
+**O que motivou, e é reconhecimento de um argumento dele:** um motor de estilo sozinho entrega pouco ao consumidor externo desconhecido. *"Eu digo a cor do seu nó, você escreve o layout"* é proposta difícil de sustentar numa biblioteca 2D — e havia risco real de entregar 21 fatias que ninguém consegue usar sem escrever motor de layout próprio. **Layout resolve a inutilidade; marcação resolveria conveniência de autoria, e custa um parser inteiro a mais.** Por isso a divisão.
+
+**O contra-argumento que apresentei antes, e que fica registrado para não ser redescoberto:** marcação mais estilo mais layout **é um motor de navegador**; a trilha de estilo sozinha já é a maior do projeto com 21 fatias, e marcação mais layout plausivelmente a igualariam, crescendo a tabela em cerca de um quinto. Pior, **a demo ainda não rodou** — janela, contexto gráfico, laço e demonstração seguem pendentes, e a **L-32** existe exatamente contra este cenário, que o próprio texto dela descreve: chegar com meia biblioteca pronta **e nenhuma janela na tela**. **O líder cortou pelo meio: pegou o que resolve o problema real, adiou o que era conveniência.**
+
+**Risco de contaminação, que continua valendo com força redobrada:** o predecessor usava RmlUi, e **construir layout do zero é onde a tentação de "ver como o antigo fazia" fica mais forte**, porque é o trabalho mais difícil e o mais parecido com o que já existia. **A L-01 e a proibição concreta desta lei continuam inteiras.** Se em algum momento parecer mais barato consultar aquele material, **é exatamente o movimento proibido.**
+
+**De onde a especificação sai agora — e isto é INFERÊNCIA minha sobre a decisão dele, não verbatim, sujeita a correção:** ao batizar os formatos de `gfss` e `gfml` e ao dizer *"com as propriedades de html"*, ele os torna **formatos nossos modelados no vocabulário dos padrões web**, e não mais o formato de terceiro que a versão original desta lei adotava. **A fonte da especificação passa a ser a documentação pública dos padrões (CSS e HTML), nunca um consumidor específico** — e a proibição de tirar a lista do que um jogo precisou **continua exatamente como está**, pelo mesmo argumento: a lista de um consumidor é subconjunto do que o padrão já define, e o risco não é copiar código, é **a lista parar a pergunta certa**.
+
+**O que NÃO mudou:** as cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora, animação e transição fora) **continuam de pé**. Layout entrar não as reabre.
+
 **Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
 
 ### Decisões de escopo da v1 do RCSS, tomadas pelo líder em 21/08/2026

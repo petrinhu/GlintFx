@@ -116,6 +116,36 @@ if(UNIX)
     set_tests_properties(hygiene_coverage_selftest PROPERTIES LABELS selftest)
 endif()
 
+# Public name collision gate (docs/api-conventions.md R6; TODO.md
+# "Desvios", 25/08/2026 achado: "a auditoria de colisao de nomes
+# publicos usa LISTA CURADA, nao varredura do sistema real"). Replaces
+# trusting a hand-typed name list with a mechanical scan: every name
+# check_public_name_collision.sh's own enumerate_names.awk finds under
+# PROJECT_SOURCE_DIR/include, checked against every "#define" the
+# compiler's OWN system search path (discovered live via
+# `${cxx} -E -Wp,-v -xc++ -`, never a hardcoded /usr/include) actually
+# contains. POSIX sh, and the discovery trick is a GCC-frontend
+# convention; same declared downgrade as every other gate in this file
+# - runs on the four Linux CI legs, not Windows (see the script's own
+# header for why the Windows leg is covered by a DIFFERENT, pre-
+# existing mechanism, header_hygiene_test.cpp's hostile-windows.h
+# compile, that this gate does not replace).
+if(UNIX)
+    add_test(
+        NAME public_name_collision_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_public_name_collision.sh"
+            "${PROJECT_SOURCE_DIR}/include"
+            "${CMAKE_CXX_COMPILER}"
+    )
+    set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME public_name_collision_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_public_name_collision.sh" --selftest "${CMAKE_CXX_COMPILER}"
+    )
+    set_tests_properties(public_name_collision_selftest PROPERTIES LABELS selftest)
+endif()
+
 # Visibility test: only makes sense with dynamic symbols (.so) and the
 # Unix `nm -D` tool. On Windows the export is already controlled by
 # __declspec via generate_export_header; proving that would require

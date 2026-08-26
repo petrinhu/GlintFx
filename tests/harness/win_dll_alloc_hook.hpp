@@ -137,20 +137,47 @@
 //   visible form instead of aborting the caller), applied here to a
 //   cleanup step instead of to an allocation.
 //
-// DECLARED SCOPE OF WHAT WAS ACTUALLY PROVEN FOR BOTH FIXES (GODS_LAWS.
-// md L-09/L-20): this project has no Windows machine. The two pure
-// functions behind both findings - format_patch_diagnostic() and
-// detail::format_protect_restore_failure() - do no Windows API call
+// A THIRD INBOX FINDING FIXED THE SAME DAY, 26/08/2026 (GODS_LAWS.md
+// L-40), on a different call site than achado 2 above:
+//
+//   achado 3 - "a PRIMEIRA protecao de memoria absorve a falha em
+//   silencio": patch_slot() calls VirtualProtect TWICE. Achado 2 above
+//   fixed the SECOND call (put the original protection back
+//   afterward). This finding is about the FIRST one - the call that
+//   asks for write access to an IAT slot BEFORE the hook's function
+//   pointer is written there - which still returned silently
+//   (`return;`, nothing reported) when it failed. Unlike achado 2's
+//   call, this one is an ENTRY GATE, not a cleanup step: nothing has
+//   happened yet when it runs, so a failure here means the matched
+//   candidate simply never becomes a patched slot - INDISTINGUISHABLE,
+//   without this fix, from "this candidate's name was never present in
+//   the import table" (format_patch_diagnostic()'s own "matched
+//   NONE... searched: ..." case). THE POLICY CHOSEN: still report via
+//   stderr and keep scanning, never abort - but for reasons specific to
+//   an entry gate, not achado 2's cleanup-path reasons (see the
+//   comment on this exact VirtualProtect call, and on
+//   detail::format_write_access_failure(), below, for the full
+//   argument). detail::format_write_access_failure() renders a message
+//   that names the SPECIFIC candidate found, so it can never read the
+//   same as format_patch_diagnostic()'s "absent" message - closing the
+//   ambiguity achado 3 is about.
+//
+// DECLARED SCOPE OF WHAT WAS ACTUALLY PROVEN FOR ALL THREE FIXES
+// (GODS_LAWS.md L-09/L-20): this project has no Windows machine. The
+// three pure functions behind the three findings -
+// format_patch_diagnostic(), detail::format_protect_restore_failure()
+// and detail::format_write_access_failure() - do no Windows API call
 // and no I/O, so they are deliberately declared OUTSIDE the
 // `#if defined(_WIN32)` guard below and are red/green unit-tested on
 // every platform this project builds on, including this (Linux)
-// machine - see tests/win_dll_alloc_hook_format_test.cpp. Everything
-// inside the guard below - the IAT walk itself, the two VirtualProtect
-// call sites that now check their return value, the stderr writes that
-// consume the two functions above - is Windows-only code this session
-// could only review, never compile or run; that half remains the same
-// declared downgrade the rest of this file already carried before
-// today.
+// machine - see tests/win_dll_alloc_hook_format_test.cpp and
+// tests/win_dll_alloc_hook_protect_restore_format_test.cpp. Everything
+// inside the guard below - the IAT walk itself, the three
+// VirtualProtect call sites that now check their return value, the
+// stderr writes that consume the three functions above - is
+// Windows-only code this session could only review, never compile or
+// run; that half remains the same declared downgrade the rest of this
+// file already carried before today.
 
 #include <array>
 #include <cstddef>
@@ -229,6 +256,34 @@ namespace detail {
     message += " (GetLastError=";
     message += std::to_string(last_error);
     message += "); import table entry may be left writable";
+    return message;
+}
+
+// GODS_LAWS.md L-40, INBOX achado of 26/08/2026 (third finding on this
+// file the same day, distinct from the two format_protect_restore_
+// failure() above already closes): patch_slot()'s FIRST VirtualProtect
+// call - the one asking for write access to an IAT slot BEFORE the
+// hook's function pointer is written there - used to fail silently
+// (`return;`, nothing reported). That is a DIFFERENT failure shape
+// than the one format_protect_restore_failure() covers: this call is
+// an ENTRY GATE (nothing has happened yet when it runs), not a cleanup
+// step (both call sites format_protect_restore_failure() serves run
+// AFTER the state change that matters already succeeded). On failure
+// here, the candidate simply never becomes a matched slot - which,
+// without this function, was INDISTINGUISHABLE from "this candidate's
+// name was never present in the import table" (format_patch_
+// diagnostic()'s "matched NONE... searched: ..." case above). This
+// message is deliberately shaped to never be confusable with that one:
+// it names the SPECIFIC candidate that WAS found by name and says so
+// explicitly, instead of only listing what was searched for.
+[[nodiscard]] inline std::string format_write_access_failure(std::string_view candidate_name,
+                                                             unsigned long last_error) {
+    std::string message = "glintfx_test::dll_alloc_hook: found '";
+    message += candidate_name;
+    message += "' in the import table but VirtualProtect failed to grant write access "
+               "(GetLastError=";
+    message += std::to_string(last_error);
+    message += "); leaving this candidate unpatched";
     return message;
 }
 
@@ -379,6 +434,43 @@ class dll_alloc_hook {
         auto **entry = reinterpret_cast<void **>(&iat_thunk->u1.Function);
         DWORD old_protect = 0;
         if (::VirtualProtect(entry, sizeof(void *), PAGE_READWRITE, &old_protect) == 0) {
+            // GODS_LAWS.md L-40, INBOX achado of 26/08/2026 (entry-gate
+            // finding, distinct from the two "restore" call sites
+            // fixed earlier the same day): POLICY CHOSEN - report via
+            // stderr and continue scanning, never abort the process.
+            // The two reasons behind the earlier "report, never abort"
+            // choice for the RESTORE calls do NOT hold here (this is
+            // an entry gate, not a cleanup path: (a) there, the pointer
+            // swap had already happened before the failing call; here,
+            // nothing has happened yet - matched_name simply never
+            // becomes a patched slot, which is the correct, harmless
+            // outcome; (b) there, restore() runs from a destructor that
+            // may follow a PASSED test; here, patch() runs from the
+            // CONSTRUCTOR, before any test body has executed, so there
+            // is no passed result an abort would destroy). Kept
+            // non-fatal anyway, for two DIFFERENT reasons specific to
+            // this entry gate: first, dll_alloc_hook's constructor is
+            // deliberately noexcept and this loop still has OTHER
+            // import descriptors and OTHER candidate names left to
+            // examine - aborting here would also forfeit a candidate
+            // that might still succeed (e.g. "malloc" failing to
+            // protect must not prevent trying "_malloc_base"); second,
+            // this hook is constructed from inside a single test
+            // executable's process that GLINTFX_TEST's registry may run
+            // several cases in - killing the process here would forfeit
+            // every OTHER test case's result to report one candidate's
+            // cosmetic inability to gain write access. What changes
+            // from the restore case is not the action (report, do not
+            // abort) but the CONTENT of the report:
+            // format_write_access_failure() names the specific
+            // candidate that WAS found, so this failure reads as
+            // distinct from format_patch_diagnostic()'s "matched
+            // NONE... searched: ..." message for a name that was never
+            // present at all - see that function's own comment above
+            // for the ambiguity this closes.
+            std::fprintf(
+                stderr, "%s\n",
+                detail::format_write_access_failure(matched_name, ::GetLastError()).c_str());
             return;
         }
         // First candidate found wins the "original" slot -

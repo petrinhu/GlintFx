@@ -220,16 +220,22 @@ track_all() {
 # Arvore com um arquivo de codigo COM cabecalho e um punhado de
 # arquivos isentos SEM cabecalho - todos os seis ramos de is_exempt,
 # um por um, para que o controle positivo prove que NENHUM deles e
-# falsamente cobrado.
+# falsamente cobrado. `.claude/hooks/foo.sh` e DELIBERADAMENTE
+# nao-json: `.claude/settings.json` sozinho casaria tanto o ramo
+# `.claude/*` quanto o ramo `*.json`, e um mutante que apagasse SO
+# `.claude/*` passaria pelo controle sem ser pego (medido ao vivo na
+# protocolo de mutacao desta fatia - ver mensagem do commit). Este
+# arquivo prova o ramo `.claude/*` isoladamente.
 make_positive_fixture() {
     root="$1"
-    mkdir -p "$root/src" "$root/.claude"
+    mkdir -p "$root/src" "$root/.claude/hooks"
     printf '// SPDX-License-Identifier: AGPL-3.0-or-later\nint f();\n' > "$root/src/foo.cpp"
     printf '# doc sem cabecalho\n' > "$root/README.md"
     printf 'texto legal, sem cabecalho\n' > "$root/LICENSE"
     printf 'build/\n' > "$root/.gitignore"
     printf 'porte=bigtech\n' > "$root/.bigtech-porte"
     printf '{\n  "chave": "valor"\n}\n' > "$root/.claude/settings.json"
+    printf '#!/bin/sh\necho hook, sem cabecalho\n' > "$root/.claude/hooks/foo.sh"
     printf '{\n  "outra": true\n}\n' > "$root/config.json"
     track_all "$root"
 }
@@ -268,7 +274,7 @@ selftest_negative_control() {
         echo "selftest: controle NEGATIVO FALHOU (reprovou, mas nao citou src/bar.cpp)" >&2
         ok=0
     fi
-    for isento in README.md LICENSE .gitignore .bigtech-porte .claude/settings.json config.json; do
+    for isento in README.md LICENSE .gitignore .bigtech-porte .claude/settings.json .claude/hooks/foo.sh config.json; do
         if printf '%s\n' "$output" | grep -qF "$isento"; then
             echo "selftest: controle NEGATIVO FALHOU (cobrou arquivo isento '$isento' - excecao vazou)" >&2
             ok=0

@@ -63,12 +63,27 @@ violations_in_file() {
     done
 }
 
+# GODS_LAWS.md L-40 (piso de varredura nao-vazia): zero arquivos
+# encontrados sob src/core/ ou include/glintfx/core/ nao e "nada a
+# reportar", e reprova. Antes deste conserto, um diretorio renomeado ou
+# apagado fazia file_count cair para 0 e o portao imprimia "violations:
+# 0 in 0 files scanned" com saida 0 - exatamente a forma que a L-40
+# proibe pelo nome, medida ao vivo com `check_layers.sh <raiz sem
+# src/core nem include/glintfx/core>`.
+require_nonempty_scan() {
+    file_count="$1"
+    [ "$file_count" -gt 0 ] \
+        || fail "varredura vazia (0 arquivos em src/core ou include/glintfx/core) - GODS_LAWS.md L-40"
+}
+
 main() {
     require_root_dir_arg "$@"
 
     files="$(core_source_files "$1")"
     file_count=0
     [ -n "$files" ] && file_count="$(printf '%s\n' "$files" | wc -l)"
+
+    require_nonempty_scan "$file_count"
 
     violations=""
     if [ -n "$files" ]; then

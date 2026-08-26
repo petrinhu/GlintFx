@@ -715,6 +715,24 @@ Fecha a decisão 32 (reabertura). Por `AskUserQuestion` (L-10), com as quatro op
 
 **Fatias afetadas** (as três que a decisão 32 já havia travado): `FONT-RASTER` (que passa a especificar os dois caminhos e o critério de escolha), `FONT-ATLAS` (duas vias no depósito) e `R2D-TEXT` (o desenho passa a ter dois caminhos). `FONT-MEASURE`, `FONT-LINE`, `FONT-WRAP`, `FONT-ELLIPSIS`, `FONT-TABLES`, `FONT-OUTLINE` e toda a trilha `LAYOUT-*` **não mudam** — métrica e layout independem de como a letra é guardada.
 
+### As 3 decisões de 26/08/2026 sobre a fronteira dos glifos — busca na web, e a decisão 36 posta à prova
+
+Por `AskUserQuestion` (L-10), depois de o líder mandar **buscar na web** o valor da fronteira. A busca não devolveu o número esperado; devolveu algo melhor e algo incômodo.
+
+**FATO 1 — não existe número universal publicado.** O guia de referência sobre a técnica declara que *"cada fonte + faixa de distância se comporta diferente em tamanhos diferentes"* e recomenda **comparar com a própria fonte**. **O corpo-limite tem de ser MEDIDO nesta casa, não copiado.** Fonte: `redblobgames.com/articles/sdf-fonts/`.
+
+**FATO 2 — a literatura já pensa em RAZÃO DE RESOLUÇÃO, não em pixels absolutos.** O autor da variante de três canais publica a fórmula da faixa mínima como **`2,5 + 1 ÷ escala`**, onde **`escala` = tamanho na tela ÷ tamanho gravado no depósito**. A pergunta do líder (*"podemos ter fronteira por resolução?"*) acertou o eixo que a própria literatura usa. Fonte: `github.com/Chlumsky/msdf-atlas-gen/discussions/69`.
+
+**FATO 3 — o autor da técnica NÃO recomenda o híbrido.** Ele diz que corpo pequeno se conserta **alargando a faixa de distância** dentro da própria técnica, e cita amostragem múltipla quando a redução é grande. Em nenhum momento sugere cair para bitmap. **Isto é contra-argumento direto à decisão 36, tomada vinte minutos antes**, e foi levado ao líder como tal, com a ressalva honesta de que o autor tem interesse na própria técnica e de que alargar a faixa **não é grátis** (a mesma informação por ponto passa a cobrir mais distância, e a precisão perto da borda cai).
+
+| # | Decisão |
+|---|---|
+| 37 | **O híbrido fica de pé, MAS ganha um passo obrigatório antes: MEDIR.** Comparar as duas saídas lado a lado em corpo pequeno **com a faixa já alargada pela fórmula do FATO 2**. ⚠️ **Se a medição mostrar que a faixa alargada basta, o caminho de bitmap se torna dispensável e a decisão 36 CAI sem ter custado nada** — por isso a medição vem antes de qualquer implementação do segundo caminho. Isto não revoga a 36; põe-na à prova com evidência, que é o oposto de decidir por autoridade (a do autor da técnica ou a minha). |
+| 38 | **A fronteira se expressa como RAZÃO DE RESOLUÇÃO EFETIVA**, não como corpo declarado na folha: **tamanho real na tela ÷ tamanho gravado**, contando a escala do monitor **e** a escala de transformação acumulada. Motivo medido: `font-size: 14px` não significa 14 pixels na tela em nenhum dos três casos que o projeto já tem — tela HiDPI (a do líder é fracionária), `transform: scale()` (decisão 21) e animação de escala (decisão 24). **Ganho de brinde:** a travessia do limite durante animação deixa de ser degrau arbitrário e vira **função contínua do tamanho real** — o problema que a própria decisão 36 criou (registrado como consequência 2) fica muito menor. Dependências, conferidas na tabela e já na ordem certa: escala do monitor (`WL-SCALE`, W6), escala de transformação (`R2D-TRANSFORM`, W10), corpo-limite (`FONT-HYBRID-THRESHOLD`, W13). |
+| 39 | **A variante do campo de distância é a de TRÊS CANAIS**, a que preserva quinas — fechando a pergunta que a decisão 36 deixou aberta. Argumento do custo de errar, que foi o eixo decisivo: **descer de três canais para o simples é trivial; subir reabre formato de depósito e shader já congelados.** Custo declarado, mantido da recomendação do CTO: a atribuição de arestas a canais é a peça mais delicada de todo o trabalho, e é exatamente onde a L-29 obriga a refazer diferente em vez de copiar. Fecha `FONT-FIELD-VARIANT` (W6), que sai de `🎨 Pendente design`. |
+
+**Nota de método, que vale além deste caso:** a busca foi ordenada para achar um número e **não achou nenhum**. O que ela achou foi (a) a confirmação de que o eixo da pergunta do líder era o certo e (b) um argumento contra uma decisão dele tomada minutos antes. **Os dois foram relatados**, o segundo com a ressalva do viés da fonte. Resultado negativo de busca é resultado — e busca que só confirma o que já se queria fazer não teria valido a chamada.
+
 ## L-29
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*

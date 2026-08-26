@@ -90,6 +90,7 @@
 #include <string_view>
 #include <utility>
 
+#include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
@@ -111,6 +112,21 @@ GLINTFX_TEST(version_header_survives_hostile_system_headers) {
 
     const std::string runtime = std::string(glintfx::version_string());
     GLINTFX_CHECK_EQ(runtime, std::string(GLINTFX_VERSION_STRING));
+}
+
+// gltfx_rgba (CORE-COLOR) is a plain aggregate with no methods in this
+// slice, so there is no call-shaped identifier here for a hostile
+// function-like macro to pattern-match on (the same "no live target
+// today" honesty the header comment above already states for
+// version.hpp's own plain fields) - this case still proves the
+// DECLARATION survives the hostile include order, and reads back the
+// four fields to prove nothing silently reordered under it.
+GLINTFX_TEST(color_header_survives_hostile_system_headers) {
+    constexpr glintfx::gltfx_rgba color{.r = 0.1F, .g = 0.2F, .b = 0.3F, .a = 0.4F};
+    GLINTFX_CHECK_EQ(color.r, 0.1F);
+    GLINTFX_CHECK_EQ(color.g, 0.2F);
+    GLINTFX_CHECK_EQ(color.b, 0.3F);
+    GLINTFX_CHECK_EQ(color.a, 0.4F);
 }
 
 // core_error_use_sites_survive_hostile_system_headers - CE-8 finding:

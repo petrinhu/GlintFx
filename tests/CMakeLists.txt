@@ -22,6 +22,11 @@ glintfx_add_test(err_context_test)
 glintfx_add_test(rslt_test)
 glintfx_add_test(err_format_test)
 
+# CORE-COLOR (TODO.md, GODS_LAWS.md L-19/L-26): frozen layout of
+# gltfx_rgba plus the round-trip/premultiply conversions - see
+# color_test.cpp's own header comment.
+glintfx_add_test(color_test)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

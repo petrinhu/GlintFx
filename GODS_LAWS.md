@@ -695,6 +695,26 @@ Por `AskUserQuestion` (L-10), depois de o CTO entregar as 37 fatias e devolver c
 | 34 | **Filtros: os baratos numa fatia, o desfoque em outra.** Escurecer, clarear, tirar a cor, saturar, girar matiz, inverter e sépia são **uma conta por pixel** e cabem juntos; **o desfoque precisa de desenho fora da tela e dois passes**, mais memória. Misturar custos tão diferentes na mesma unidade é o que a L-17 proíbe. Uso ancorado em jogo: desfoque = fundo borrado atrás do menu de pausa; tirar a cor = item indisponível ou jogo pausado; clarear = botão sob o mouse. |
 | 35 | **As duas violações de dependência da trilha de mapa são consertadas AGORA, com o dominó.** `MAP-OBJECTS` e `MAP-COLLIDE-GRID` estão na W3 dependendo de `CORE-MATH2D`, que está na W4 — logo são **impuxáveis mesmo com o slot livre**. Confirmado contra o histórico (`git show 7ec2190:TODO.md`): **é defeito pré-existente, não introduzido pelo fatiamento de 26/08**. Conserto: mover as duas para a W5 e empurrar o que vem depois. É trabalho de tabela, não de código, e se faz enquanto a trilha está parada — deixar quebrado é tropeço garantido para quem puxar a trilha um dia. |
 
+### Decisão 36, de 26/08/2026 — o método de guarda dos glifos é HÍBRIDO
+
+Fecha a decisão 32 (reabertura). Por `AskUserQuestion` (L-10), com as quatro opções na mesa e a comparação escrita do CTO (`/var/tmp/glintfx-plan/glifos-comparacao.md`) como insumo.
+
+**A escolha do líder: HÍBRIDO desde o começo** — letra desenhada nos corpos pequenos, campo de distância nos grandes.
+
+⚠️ **O líder escolheu contra a recomendação do CTO, e contra a forma como a opção lhe foi apresentada.** O CTO recomendou o campo de distância de 3 canais puro, e classificou o híbrido como *"nota lateral (INFERÊNCIA do CTO, não é terceira opção formal)"*, *"refinamento da B, decidível depois"*. **O líder o promoveu a decisão de partida.** Registrado assim, sem suavizar: quem ler depois precisa saber que a escolha foi deliberada e informada, não um mal-entendido sobre o que estava sendo oferecido.
+
+**O que o híbrido resolve, e é o argumento a favor:** cada método tem exatamente um ponto fraco, e eles são opostos. A letra desenhada perde ao ampliar e cobra caro por efeito (contorno = desenhar a palavra oito vezes) e por tamanho novo; o campo de distância perde fidelidade em corpo pequeno — que é onde interface passa a maior parte do tempo. **O híbrido usa cada um onde ele é forte.** Adotado desde o começo, não depois, porque o depois exigiria reabrir uma porta de mão única.
+
+**O que ele cobra, declarado:** **duas implementações** e **duas vias no depósito de letras**. Não é o caminho mais barato; é o que entrega o melhor resultado nas duas pontas.
+
+**Três coisas que a escolha CRIA e que ninguém decidiu ainda** — registradas aqui para não virarem decisão silenciosa, como aconteceu com a própria escolha do método (a decisão 32 existiu porque `FONT-RASTER` tinha fechado a porta sem ninguém escolher):
+
+1. **O corpo-limite** onde um método vira o outro é **parâmetro de contrato**, não detalhe de implementação: ele muda a aparência do texto e o conteúdo do depósito. Precisa ser decidido, documentado e — se ajustável pelo consumidor — congelado na revisão de API.
+2. **A travessia do limite durante animação.** Com a decisão 24 (animação completa), um texto pode crescer de pequeno a grande **atravessando o corpo-limite no meio do movimento** e trocando de método no ar. Se as duas vias não casarem visualmente na fronteira, aparece um pulo. **Nenhum dos dois métodos puros tem este problema; é criado pelo híbrido.** Exige teste de fronteira dedicado, e a regra da casa vale aqui: teste na fronteira exata não basta, precisa também de um passo para fora dela.
+3. **Qual variante do campo de distância** entra na metade grande — a simples, que arredonda quinas, ou a de 3 canais, que as preserva pagando um gerador bem mais delicado. O CTO recomendou a de 3 canais; o líder não foi perguntado sobre isso separadamente, e a pergunta segue aberta.
+
+**Fatias afetadas** (as três que a decisão 32 já havia travado): `FONT-RASTER` (que passa a especificar os dois caminhos e o critério de escolha), `FONT-ATLAS` (duas vias no depósito) e `R2D-TEXT` (o desenho passa a ter dois caminhos). `FONT-MEASURE`, `FONT-LINE`, `FONT-WRAP`, `FONT-ELLIPSIS`, `FONT-TABLES`, `FONT-OUTLINE` e toda a trilha `LAYOUT-*` **não mudam** — métrica e layout independem de como a letra é guardada.
+
 ## L-29
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*

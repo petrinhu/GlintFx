@@ -26,15 +26,25 @@
 
 set -eu
 
-readonly ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-readonly BENCH_DIR="${ROOT_DIR}/tools/bench"
-readonly BENCH_MAIN_SRC="${BENCH_DIR}/core_error_cost.cpp"
-readonly BENCH_FUNCTIONS_SRC="${BENCH_DIR}/core_error_cost_functions.cpp"
-
+# fail() moved above ROOT_DIR (GODS_LAWS.md L-40 achado de revisao
+# adversarial, 25/08/2026 - mesma classe do conserto PRECI-ROOTDIR-
+# SC2155 em tools/preci.sh): "readonly ROOT_DIR=$(cmd)" combined masks
+# cmd's exit code behind the `readonly` builtin's own exit code, which
+# is 0 even when cmd failed (reproduced live: `cd` to a non-existent
+# directory left ROOT_DIR empty and the script exiting 0 instead of
+# failing loud). Assignment and its exit status are checked separately
+# from `readonly` below.
 fail() {
     echo "bench_core_error.sh: $1" >&2
     exit 1
 }
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)" \
+    || fail "nao foi possivel resolver ROOT_DIR (cd para o diretorio do script falhou)"
+readonly ROOT_DIR
+readonly BENCH_DIR="${ROOT_DIR}/tools/bench"
+readonly BENCH_MAIN_SRC="${BENCH_DIR}/core_error_cost.cpp"
+readonly BENCH_FUNCTIONS_SRC="${BENCH_DIR}/core_error_cost_functions.cpp"
 
 require_args() {
     [ "$#" -eq 4 ] || fail "usage: bench_core_error.sh <include-dir> <generated-include-dir> <library-dir> <cxx-compiler>"

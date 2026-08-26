@@ -58,15 +58,26 @@
 
 set -eu
 
-readonly ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-readonly FIXTURE_SRC="${ROOT_DIR}/tests/precondition_fixtures/precondition_fixture.cpp"
-readonly ASSERT_MESSAGE_PRIMARY="value() called on a result that holds an error"
-readonly ASSERT_MESSAGE_VOID="error() called on a result that holds success"
-
+# fail() moved above ROOT_DIR (GODS_LAWS.md L-40 achado de revisao
+# adversarial, 25/08/2026, mesmo achado da SETIMA linha-irma
+# tools/preci.sh/PRECI-ROOTDIR-SC2155): esta e um GATE DE CI wired em
+# tests/CMakeLists.txt (rslt_precondition_test) - "readonly
+# ROOT_DIR=$(cmd)" combined masks cmd's exit code behind the `readonly`
+# builtin's own exit code, which is 0 even when cmd failed (reproduced
+# live: `cd` to a non-existent directory left ROOT_DIR empty and the
+# script exiting 0 instead of failing loud). Assignment and its exit
+# status are checked separately from `readonly` below.
 fail() {
     echo "check_rslt_precondition.sh: $1" >&2
     exit 1
 }
+
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)" \
+    || fail "nao foi possivel resolver ROOT_DIR (cd para o diretorio do script falhou)"
+readonly ROOT_DIR
+readonly FIXTURE_SRC="${ROOT_DIR}/tests/precondition_fixtures/precondition_fixture.cpp"
+readonly ASSERT_MESSAGE_PRIMARY="value() called on a result that holds an error"
+readonly ASSERT_MESSAGE_VOID="error() called on a result that holds success"
 
 require_args() {
     [ "$#" -eq 4 ] || fail "usage: check_rslt_precondition.sh <include-dir> <generated-include-dir> <library-dir> <cxx-compiler>"

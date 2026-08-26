@@ -11,6 +11,7 @@
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
+#include "harness/win_dll_alloc_hook.hpp"
 
 // err_context_test.cpp - CE-3 of CORE-ERROR (TODO.md, GODS_LAWS.md
 // L-20): proves the six diagnostic accessors round-trip through their
@@ -48,10 +49,27 @@
 // their "override was reached" check as false there while the library
 // still degrades correctly, or (the real risk) never actually force
 // the failure at all, making the "path stays empty" assertion measure
-// nothing. g_context_alloc_call_count below exists to tell the two
+// nothing. g_override_new_call_count below exists to tell the two
 // apart: it counts every call to THIS TU's own operator new/new(nothrow)
 // overrides, so a degradation case can assert the override was
 // actually invoked BEFORE trusting what the library did in response.
+//
+// THE WINDOWS/SHARED GAP ITSELF, closed by harness/win_dll_alloc_hook.
+// hpp (CORE-ERROR, GODS_LAWS.md L-07/L-27/L-40 - read that header's own
+// comment before touching allocator_reach_probe below): this TU's own
+// operator-new override cannot reach glintfx.dll's internal calls, so
+// on Windows/SHARED a SECOND, DLL-side mechanism patches glintfx.dll's
+// OWN import table for the CRT allocation primitive its (statically
+// linked, per Microsoft's own current documentation) operator new
+// implementation calls - a small, closed candidate list, not one
+// guessed name, because this project cannot run the toolchain that
+// would confirm the exact symbol. allocator_reach_probe below sums
+// BOTH counters (this TU's own, and the DLL hook's) into one
+// reach-proof: on every platform except Windows/SHARED the DLL-side
+// counter is always zero-delta (the hook itself found no separate
+// glintfx.dll module, or is compiled out entirely - see that header's
+// own guard), so the sum degenerates to exactly the ORIGINAL bare
+// counter comparison this file had before this mechanism existed.
 
 namespace {
 
@@ -99,6 +117,76 @@ void operator delete(void *p) noexcept { std::free(p); }
 void operator delete(void *p, std::size_t /*size*/) noexcept { std::free(p); }
 
 void operator delete(void *p, const std::nothrow_t & /*tag*/) noexcept { std::free(p); }
+
+namespace {
+
+// Arms both forcing mechanisms for the duration of one with_*() call,
+// and proves at least one of them was reached - see the "THE
+// WINDOWS/SHARED GAP ITSELF" header comment above and
+// harness/win_dll_alloc_hook.hpp's own comment for the full reasoning.
+// Used by BOTH OOM-degradation cases below (CE-3): the second real use
+// is what crosses CONTRACT.md §6's three-occurrence bar for pulling
+// this out of each test body.
+class allocator_reach_probe {
+  public:
+    allocator_reach_probe() noexcept
+        : m_tu_calls_before(g_override_new_call_count)
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+          ,
+          m_dll_hook(L"glintfx.dll"), m_dll_calls_before(glintfx_test::hooked_call_count())
+#endif
+    {
+        g_force_alloc_failure = true;
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+        glintfx_test::arm_forced_failure();
+#endif
+    }
+
+    ~allocator_reach_probe() {
+        g_force_alloc_failure = false;
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+        glintfx_test::disarm_forced_failure();
+#endif
+    }
+
+    allocator_reach_probe(const allocator_reach_probe &) = delete;
+    allocator_reach_probe &operator=(const allocator_reach_probe &) = delete;
+
+    // True once at least one of the two mechanisms observed a call
+    // since construction. On every platform except Windows/SHARED the
+    // DLL-side term is always zero (see the class comment above), so
+    // this degenerates to the ORIGINAL bare
+    // "calls_after > calls_before" comparison this file had before the
+    // DLL hook existed.
+    [[nodiscard]] bool reached() const noexcept {
+        const std::size_t tu_delta = g_override_new_call_count - m_tu_calls_before;
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+        const std::size_t dll_delta = glintfx_test::hooked_call_count() - m_dll_calls_before;
+        return (tu_delta + dll_delta) > 0;
+#else
+        return tu_delta > 0;
+#endif
+    }
+
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    // GODS_LAWS.md L-40: zero patched is a FACT this test surfaces
+    // (this toolset's operator new does not route through anything on
+    // win_dll_alloc_hook.hpp's candidate list), never a silently
+    // accepted no-op.
+    [[nodiscard]] std::size_t dll_patched_count() const noexcept {
+        return m_dll_hook.patched_count();
+    }
+#endif
+
+  private:
+    std::size_t m_tu_calls_before;
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    glintfx_test::dll_alloc_hook m_dll_hook;
+    std::size_t m_dll_calls_before;
+#endif
+};
+
+} // namespace
 
 GLINTFX_TEST(each_field_round_trips_through_its_attach_method) {
     glintfx::gltfx_err err(glintfx::gltfx_err_code::parse_failure);
@@ -150,23 +238,27 @@ GLINTFX_TEST(copy_owns_an_independent_context) {
 }
 
 GLINTFX_TEST(attach_degrades_to_code_only_when_context_allocation_fails) {
-    const std::size_t calls_before = g_override_new_call_count;
-    g_force_alloc_failure = true;
+    const allocator_reach_probe probe;
     glintfx::gltfx_err err(glintfx::gltfx_err_code::parse_failure);
     // ensure_context()'s `new (std::nothrow) err_context()` is the
     // VERY FIRST allocation with_path() would need (err has no
     // context yet) - forcing it to fail exercises the "context itself
     // cannot be allocated at all" branch.
     err.with_path("does/not/matter");
-    g_force_alloc_failure = false;
-    const std::size_t calls_after = g_override_new_call_count;
 
     // Proves the FORCING MECHANISM actually reached the allocator this
-    // call needed - see the "DECLARED COVERAGE" header comment. A
-    // failure HERE, not below, means this platform/configuration could
-    // not force the failure at all (Windows/SHARED is the known risk),
+    // call needed - see the "DECLARED COVERAGE" / "THE WINDOWS/SHARED
+    // GAP ITSELF" header comments. A failure HERE, not below, means
+    // this platform/configuration could not force the failure at all,
     // not that the library mishandled a real one.
-    GLINTFX_CHECK(calls_after > calls_before);
+    GLINTFX_CHECK(probe.reached());
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    // GODS_LAWS.md L-40: distinguishes "the DLL hook found nothing to
+    // patch" (this check) from "it patched something but the forced
+    // value made no difference" (the check above) - two different
+    // facts, two different assertions.
+    GLINTFX_CHECK(probe.dll_patched_count() > 0);
+#endif
 
     // Degrades to code-only: the ORIGINAL code survives unchanged (it
     // does NOT become out_of_memory - that translation is a SEPARATE
@@ -188,19 +280,19 @@ GLINTFX_TEST(attach_degrades_to_code_only_when_a_field_allocation_fails_mid_atta
     // allocation itself.
     err.with_position(3, 4);
 
-    const std::size_t calls_before = g_override_new_call_count;
-    g_force_alloc_failure = true;
+    const allocator_reach_probe probe;
     // k_long_value is long enough to force std::string::assign() to
     // call the THROWING global operator new above; ensure_context()
     // itself is a no-op here (m_context is already non-null), so this
     // isolates the "string buffer growth throws mid-attach" branch.
     err.with_path(k_long_value);
-    g_force_alloc_failure = false;
-    const std::size_t calls_after = g_override_new_call_count;
 
     // Same proof as the case above, isolating the SAME risk for the
     // "string buffer growth" allocation point specifically.
-    GLINTFX_CHECK(calls_after > calls_before);
+    GLINTFX_CHECK(probe.reached());
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    GLINTFX_CHECK(probe.dll_patched_count() > 0);
+#endif
 
     GLINTFX_CHECK(err.code() == glintfx::gltfx_err_code::unsupported);
     // The field this specific attach call was trying to set: the

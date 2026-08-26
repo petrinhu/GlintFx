@@ -444,11 +444,36 @@ jobs:
           fi
           echo "ok: --pid=host foi acusado, como esperado"
 
+      # Quarto controle negativo, achado de revisao adversarial pos-
+      # ISO-BASELINE (a razao real da reescrita daquele portao):
+      # `--security-opt systempaths=unconfined` nao mexe em nenhum dos
+      # nove campos nomeados que os tres controles acima cobrem -
+      # MaskedPaths e ReadonlyPaths (que ISO-BASELINE passou a medir
+      # por CONTAGEM contra `nproc`, nao por lista fixa) sao os unicos
+      # que se esvaziam quando o flag esta presente. O script antigo,
+      # de antes do ISO-BASELINE, media isso por lista de campos
+      # nomeados e dava exit 0 ("isolamento provado") com /proc/kcore
+      # exposto - medido ao vivo pela revisao, nao suposto. Mesmo
+      # padrao dos tres controles acima: `docker create`, nunca `docker
+      # run` - o ENTRYPOINT nunca executa, o controle se apoia so em
+      # `docker inspect`.
+      - name: Controle negativo 4 - --security-opt systempaths=unconfined
+        run: |
+          set -eux
+          docker create --name glintfx-wltest-poisoned-systempaths --cap-drop=ALL --cap-add=SYS_NICE \
+            --security-opt systempaths=unconfined glintfx-wltest:ci
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths glintfx-test; then
+            echo "ERRO: check_isolation.sh deveria ter acusado --security-opt systempaths=unconfined" >&2
+            exit 1
+          fi
+          echo "ok: --security-opt systempaths=unconfined foi acusado, como esperado"
+
       - name: Limpeza
         if: always()
         run: |
           docker rm -f glintfx-wltest-clean glintfx-wltest-poisoned-mount \
-            glintfx-wltest-poisoned-device glintfx-wltest-poisoned-pid || true
+            glintfx-wltest-poisoned-device glintfx-wltest-poisoned-pid \
+            glintfx-wltest-poisoned-systempaths || true
 
   lint:
     name: Lint (Fedora 44 - clang-format, clang-tidy, cppcheck)

@@ -42,7 +42,22 @@ set -euo pipefail
 # already set TMPDIR.
 export TMPDIR="${TMPDIR:-/var/tmp}"
 
-readonly ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# GODS_LAWS.md INBOX achado (shellcheck SC2155): declare-and-assign
+# separately, not a suppression. "readonly ROOT_DIR=$(cmd)" combined
+# masks cmd's exit code behind the `readonly` builtin's own exit code,
+# which is 0 even when cmd failed (measured live: `cd` to a
+# non-existent directory left the old combined line silently swallowing
+# the failure under `set -e`, ROOT_DIR ending up empty, and the script
+# only failing later and uglier, at `cmake -S ""`). Assignment and its
+# exit status are checked separately from `readonly`, and this fails
+# loud and clear on the spot. `fail()` is not yet defined this early in
+# the file (it is declared below), hence the inline `exit 1` instead of
+# `|| fail ...`.
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)" || {
+    echo "preci.sh: nao foi possivel resolver ROOT_DIR (cd para o diretorio do script falhou)" >&2
+    exit 1
+}
+readonly ROOT_DIR
 readonly BUILD_DIR="${ROOT_DIR}/build-preci"
 readonly SANITIZE_BUILD_DIR="${ROOT_DIR}/build-preci-sanitize"
 readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"

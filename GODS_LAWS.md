@@ -587,6 +587,69 @@ Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
 
 **Fatos do formato, verificados na documentação pública sob a L-29 e não de memória:** o formato **não tem `!important`**, **não tem a palavra `inherit`** e **não tem folha de estilo embutida do próprio motor**, o que simplifica cascata e herança; **pseudo-elementos não existem** no formato; a especificidade de `:not()` é a do sub-seletor mais específico, sem contar a si mesma; as cores nomeadas são **19**, não a tabela completa do CSS.
 
+### As 22 decisões de escopo de 26/08/2026 — `gfss`, layout, render e fonte
+
+Todas por `AskUserQuestion` (L-10), na sessão em que o Caetano (CTO) derivou a lista de propriedades a partir da documentação pública dos padrões. **Não são mais perguntas.** Onde uma diverge do CSS, a divergência está declarada e vai para a documentação do formato — o consumidor não pode descobrir por acidente.
+
+**Fato que governa as onze primeiras, e precisa ser lido antes delas:** com o `gfss` sendo **formato nosso** modelado no vocabulário dos padrões, o que antes era *fato herdado do RCSS* passou a ser **decisão nossa**. Valor inicial, presença ou ausência de recurso: tudo que a versão anterior desta lei registrava como "verificado na doc do formato" precisa de ratificação, e é isso que as decisões abaixo fazem.
+
+#### Formato `gfss` — o que a folha significa
+
+| # | Decisão | Diverge do CSS? |
+|---|---|---|
+| 1 | **Fluxo da v1: `block` + `flex`.** Grid fica para **discussão posterior** — não é veto, é adiamento. Fluxo inline e `float` ficam fora. | — |
+| 2 | **`display` inicial = `block`.** O valor do CSS é `inline`, que depende de fluxo de texto e a v1 não tem. | **sim** |
+| 3 | **`box-sizing` inicial = `border-box`.** O tamanho declarado é o total na tela, borda inclusa. Declarar `content-box` continua sempre possível. | **sim** |
+| 4 | **Cor de borda inicial = cor própria fixa, independente da cor do texto.** O CSS parte de `currentColor`; aqui a borda nasce preta e só muda por ordem. Verbatim do líder: *"é obrigado a borda ser da cor do texto? devem ser idependentes"*. | **sim** |
+| 5 | **Margens verticais vizinhas SOMAM.** Sem fusão (*margin collapsing*). 20px mais 30px dá 50px. **É de mão única:** mudar depois altera o desenho de folha já escrita. Motivo aceito: uma regra só no formato inteiro, igual à do flex, sem margem de filho vazando para o pai. | **sim** |
+| 6 | **Os cinco valores iniciais que os padrões deixam em aberto ficam fixados:** cor do texto `black`; tamanho de fonte `16px`; alinhamento `left`; espaço entre itens `0`; espessuras `thin`/`medium`/`thick` = **1/3/5 px**. | — |
+| 7 | **Cores: as ~148 nomeadas do padrão**, mais `#rrggbb`, `rgb()`, `hsl()` e **`oklch()`**. **Isto REVOGA** o default registrado da versão anterior desta lei, que punha as cores modernas fora da v1. | — |
+| 8 | **`oklch()` em fatia própria**, logo depois da fatia das outras notações — ela exige conversão de espaço de cor perceptual e mapeamento de gamut, que as outras três não têm. | — |
+| 9 | **`!important` entra na v1.** Isto **reescreve** `GFSS-CASCADE`, cujo texto dizia "sem `!important`". | — |
+| 10 | **`inherit`, `initial` e `unset` entram na v1.** Isto **reescreve** `GFSS-INHERIT`, cujo texto dizia que o formato não tem a palavra-chave. | — |
+| 11 | **Pseudo-elementos `::before` e `::after` entram na v1.** É o mais caro dos três: o motor passa a **fabricar caixas** que não existem na árvore do consumidor, o que é trabalho de layout, não de folha. Não confundir com as pseudo-classes de dois-pontos simples, que já estavam dentro nas cinco fatias de seletor. | — |
+
+#### Layout — a trilha nova
+
+| # | Decisão |
+|---|---|
+| 12 | **A trilha de layout é desenhada AGORA** (13 fatias `LAYOUT-*`), executada **depois da W10**, no **mesmo slot** da L-32 — layout consome estilo computado, é continuação da mesma trilha, não uma segunda disputando o teto. Precedente: as 14 fatias de mapa esperam desenhadas sem custo. |
+| 13 | **Medir texto: interface separada e opcional.** A biblioteca pergunta o tamanho do texto a quem a usa; quem não responde continua funcionando, sem ajuste automático. **Não trava** o congelamento de `GFSS-NODE-VIEW` na W3. |
+| 14 | **Ajuste automático de caixa ao conteúdo é REQUISITO, e o motivo é i18n.** Verbatim do líder: *"portugues e ingles e outras linguas tem palavras de tamanhos diferentes. no i18n, se a palavra em outra lingua for maior, 'estoura' e clipa as margens"*. Consequência direta: **`LAYOUT-MEASURE-CONTRACT` sobe para o começo da trilha**, antes de `LAYOUT-SIZE-RESOLVE`, porque resolver largura automática passa a depender dela. |
+| 15 | **Texto que não cabe numa caixa que não pode crescer: transborda VISÍVEL, com diagnóstico.** Nunca cortar em silêncio. Erro de tradução que some sem aviso chega ao usuário final; erro que estoura na cara é consertado antes. Quebrar em linhas e reticências dependem do motor de texto e ficam para a trilha de fonte. |
+
+#### Render — o que só existe quando houver o que desenhar
+
+Critério transversal, e é ele que explica o bloco inteiro: **propriedade que a folha aceita e o motor ignora é o defeito que o líder mandou eliminar** ao dizer que biblioteca sozinha era inútil. Cada uma abaixo nasce ao lado do código que a pinta.
+
+| # | Decisão |
+|---|---|
+| 16 | **Gradiente: fatia ÚNICA, junto do render, na W7.** Gramática e pintura na mesma fatia, ao lado do shader interno de `R2D-BATCH`. Nada de linha aceita e ignorada. |
+| 17 | **Sombra de caixa e filtros seguem o mesmo destino do gradiente** — mesmo shader, mesmo momento, uma decisão só em vez de três discussões idênticas. |
+| 18 | **Moldura de nove pedaços (*nine-patch*, o `border-image` do CSS): fatia PRIORITÁRIA própria**, à frente das outras do bloco. Justificativa: é como praticamente toda caixa de diálogo, painel de inventário e balão de fala de jogo 2D é desenhado, e **não existia em lugar nenhum da tabela** — ausência medida, não lembrada. |
+| 19 | **Pixel art não borrada (`image-rendering`) entra CEDO**, na W8 com a textura, sem esperar o bloco da W7. Custa quase nada no render, e sem ela todo sprite ampliado sai borrado — o que inviabiliza o estilo visual de metade dos jogos 2D. |
+| 20 | **Transparência: a forma simples fica no eixo A** (funciona sem layout); **a de grupo** — painel inteiro translúcido como um todo, em vez de cada peça por si — **entra no bloco da W7**, porque exige desenhar fora da tela primeiro. A documentação diz qual é qual; ninguém descobre por surpresa. |
+| 21 | **`transform` entra na W7 COM o teste de clique acompanhando a transformação.** Ligar entrada e render custa uma fatia a mais e evita o defeito concreto de um botão que gira na tela e continua clicável no lugar antigo. Registrado junto: elemento transformado **continua ocupando o lugar original no layout** — é o comportamento do padrão, e é surpreendente. |
+
+#### Fonte — a trilha que faltava
+
+| # | Decisão |
+|---|---|
+| 22 | **A trilha de fonte é desenhada AGORA, no mesmo trabalho do layout.** Achado que a motivou: ela é citada como trilha futura e **não tinha uma única fatia na tabela**, enquanto nove propriedades do eixo C e a fatia `R2D-TEXT` (W9) dependem dela. A decisão de **como os glifos são guardados** é tomada no primeiro dia dessa trilha e determina se contorno, sombra e brilho de texto saem de graça ou custam oito desenhos por palavra — decidir contorno antes dela seria decidir no escuro a estrutura de dados de uma trilha que ninguém projetou. |
+
+#### O que a régua de legibilidade derrubou nesta mesma sessão
+
+Aplicação concreta da seção anterior desta lei, registrada porque é o primeiro caso em que ela mudou uma recomendação técnica já escrita:
+
+- **O shorthand `flex` fica FORA da v1.** `flex: 1` expande para `flex-grow: 1; flex-shrink: 1; flex-basis: 0` — a mudança silenciosa do `basis` é pergunta clássica de entrevista que veterano erra. É exatamente o "precisa de tabela de tradução ao lado" que a régua proíbe. Os três longhands **são** a forma verbosa que se explica, e ficam.
+- **O shorthand `inset` fica fora** pelo mesmo motivo: a palavra não se explica; `top`, `right`, `bottom` e `left` se explicam.
+- **Os demais shorthands do CSS ficam** (`margin`, `padding`, `border-width`, `border-style`, `border-color`, `border`, `border-radius`, `gap`, `overflow`): a ordem topo-direita-baixo-esquerda é vocabulário que milhões já sabem, e o longhand verboso existe sempre como alternativa. **A fronteira: shorthand posicional INVENTADO POR NÓS está proibido; os dos padrões entram por serem vocabulário público.**
+- **O tipo de diagnóstico ganha um campo obrigatório: "o que se esperava"**, além de linha e coluna. Precisa entrar **antes** de o tipo congelar em revisão de API dedicada.
+
+#### Termos de licença dos padrões — verificado em 26/08/2026
+
+**Podemos usar os mesmos nomes de propriedade e de elemento.** Nomes de propriedade são identificadores funcionais; os padrões são publicados **para serem implementados**; o que as licenças protegem é o **texto** da especificação e o **código** de implementações existentes. Nossas próprias leis (L-01, L-07, L-29) já são mais estritas que qualquer termo externo: escrevemos tudo do zero, sem consultar implementação de terceiro.
+
 ## L-29
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*

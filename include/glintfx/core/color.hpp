@@ -63,38 +63,58 @@
 // nothing in his six decisions names how the 8-bit round-trip
 // SIGNATURE should look, marked here as INFERENCE, GODS_LAWS.md
 // L-27): CONTRACT.md SS6.2 caps a function at 4 parameters and tells
-// the author to wrap the rest in a struct; a per-channel
-// std::uint8_t r/g/b/a OUTPUT would need FIVE parameters (the input
-// color plus four out-params) to convert TO the display's format. A
-// packed integer would need only one, but hides byte order behind an
-// implicit convention a consumer has to memorize or get wrong (the
-// exact class of bug an explicit field name exists to prevent -
-// CONTRACT.md SS12.12, POLA). gltfx_rgba8 is also, incidentally, the
-// exact memory layout a GL_UNSIGNED_BYTE-normalized vertex attribute
-// wants: four contiguous bytes, no gap.
+// the author to wrap the rest in a struct; a per-channel byte OUTPUT
+// would need FIVE parameters (the input color plus four out-params)
+// to convert TO the display's format. A packed integer would need
+// only one, but hides byte order behind an implicit convention a
+// consumer has to memorize or get wrong (the exact class of bug an
+// explicit field name exists to prevent - CONTRACT.md SS12.12, POLA).
+// gltfx_rgba8 is also, incidentally, the exact memory layout a
+// GL_UNSIGNED_BYTE-normalized vertex attribute wants: four contiguous
+// bytes, no gap.
+//
+// FIELD NAMES `red`/`green`/`blue`/`alpha` (design choice made HERE,
+// GODS_LAWS.md L-27, NOT one of the six decisions above - the CTO's
+// own option analysis offered this pairing as the alternative to the
+// shorter `r`/`g`/`b`/`a`, "escolha de gosto... com a checagem R6
+// obrigatoria sobre o escolhido"): docs/api-conventions.md R6's own
+// mechanical gate, tests/tools/check_public_name_collision.sh, run
+// against this header, reported a single-letter public field named
+// `a` as colliding with a Makefile COMMENT under /usr/include/pcp -
+// the English sentence "# define a target that is never up-to-date."
+// happens to spell "define a" - a false positive (verified
+// independently in this same review, GODS_LAWS.md L-40: an
+// enumeration of every real #define in every header this project's
+// compiler actually searches, 12390 files, found zero macro literally
+// named `r`, `g`, `b`, or `a`), but the gate is what this slice is
+// instructed to satisfy, and a single English article is uniquely
+// fragile against a scanner that does not distinguish a header from a
+// Makefile comment. `red`/`green`/`blue`/`alpha` carries the same
+// meaning with no such fragility, and needs no abbreviation-table
+// lookup from a reader unfamiliar with the convention either.
 
 namespace glintfx {
 
-// Decisions 1+2+3+4+5, all at once: four floats, r/g/b/a in that
-// order (matching the type's own name), alpha inside, linear light,
-// straight (never premultiplied). Trivial aggregate, same shape as
-// glintfx::version - no user-declared special member to default (Rule
-// of Zero, CONTRACT.md SS2.2's "Rule of Five/Zero": the compiler-
-// generated copy/move/destroy are already exactly correct for four
-// plain floats with no owned resource; declaring them by hand would
-// only add text nobody reads without changing behavior).
+// Decisions 1+2+3+4+5, all at once: four floats, red/green/blue/alpha
+// in that order (matching the type's own name), alpha inside, linear
+// light, straight (never premultiplied). Trivial aggregate, same
+// shape as glintfx::version - no user-declared special member to
+// default (Rule of Zero, CONTRACT.md SS2.2's "Rule of Five/Zero": the
+// compiler-generated copy/move/destroy are already exactly correct
+// for four plain floats with no owned resource; declaring them by
+// hand would only add text nobody reads without changing behavior).
 struct gltfx_rgba {
-    float r;
-    float g;
-    float b;
-    float a;
+    float red;
+    float green;
+    float blue;
+    float alpha;
 };
 
 // Frozen footprint (GODS_LAWS.md L-19/L-26, decision 1): the unit is
 // sizeof(float)/alignof(float), not a literal byte count, the same
 // relative-unit technique err.hpp's own footprint assertion uses for
-// pointers. The PER-FIELD order lock (r first, g second, ...) lives
-// in color_test.cpp, following the offsetof() precedent
+// pointers. The PER-FIELD order lock (red first, green second, ...)
+// lives in color_test.cpp, following the offsetof() precedent
 // version_test.cpp already established for glintfx::version - see
 // that file's own comment for why sizeof() alone cannot catch a field
 // reorder or a narrowed field.
@@ -113,10 +133,10 @@ static_assert(std::is_trivially_copyable_v<gltfx_rgba>,
 // result, a vertex attribute upload); nothing INSIDE the library
 // computes in this type.
 struct gltfx_rgba8 {
-    std::uint8_t r;
-    std::uint8_t g;
-    std::uint8_t b;
-    std::uint8_t a;
+    std::uint8_t red;
+    std::uint8_t green;
+    std::uint8_t blue;
+    std::uint8_t alpha;
 };
 
 static_assert(sizeof(gltfx_rgba8) == 4 * sizeof(std::uint8_t),
@@ -134,7 +154,7 @@ static_assert(std::is_trivially_copyable_v<gltfx_rgba8>,
 // light; alpha is copied straight through with NO transfer function,
 // because alpha is a coverage fraction, not light, in this convention
 // AND in CSS Color 4's (SS13.1/13.3 never apply a color-space
-// transform to alpha, only to r/g/b).
+// transform to alpha, only to red/green/blue).
 //
 // gltfx_rgba_to_srgb8() does the inverse and, being the one direction
 // that can receive an out-of-[0,1] linear value (decision 1's
@@ -148,13 +168,13 @@ static_assert(std::is_trivially_copyable_v<gltfx_rgba8>,
 [[nodiscard]] GLINTFX_API gltfx_rgba8 gltfx_rgba_to_srgb8(gltfx_rgba color) noexcept;
 
 // Decision 6, second half: the premultiply helper decision 5's own
-// text names. Multiplies r/g/b by a and leaves a itself unchanged -
-// the TRANSIENT form CSS Color 4 SS13.3 computes for the duration of
-// one interpolation, then undoes; this function only computes the
-// FORWARD half. Decision 6 freezes no "undo" signature here - the
-// reverse belongs to whichever future slice actually interpolates
-// (the plan's own P4 answer, /var/tmp/glintfx-plan/core-color-
-// opcoes.md).
+// text names. Multiplies red/green/blue by alpha and leaves alpha
+// itself unchanged - the TRANSIENT form CSS Color 4 SS13.3 computes
+// for the duration of one interpolation, then undoes; this function
+// only computes the FORWARD half. Decision 6 freezes no "undo"
+// signature here - the reverse belongs to whichever future slice
+// actually interpolates (the plan's own P4 answer,
+// /var/tmp/glintfx-plan/core-color-opcoes.md).
 [[nodiscard]] GLINTFX_API gltfx_rgba gltfx_rgba_premultiplied(gltfx_rgba color) noexcept;
 
 } // namespace glintfx

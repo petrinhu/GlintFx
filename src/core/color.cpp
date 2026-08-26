@@ -65,19 +65,19 @@ std::uint8_t unit_to_byte(float unit) {
 
 gltfx_rgba gltfx_rgba_from_srgb8(gltfx_rgba8 encoded) noexcept {
     return gltfx_rgba{
-        .r = srgb_channel_to_linear(static_cast<float>(encoded.r) / k_byte_max),
-        .g = srgb_channel_to_linear(static_cast<float>(encoded.g) / k_byte_max),
-        .b = srgb_channel_to_linear(static_cast<float>(encoded.b) / k_byte_max),
-        .a = static_cast<float>(encoded.a) / k_byte_max,
+        .red = srgb_channel_to_linear(static_cast<float>(encoded.red) / k_byte_max),
+        .green = srgb_channel_to_linear(static_cast<float>(encoded.green) / k_byte_max),
+        .blue = srgb_channel_to_linear(static_cast<float>(encoded.blue) / k_byte_max),
+        .alpha = static_cast<float>(encoded.alpha) / k_byte_max,
     };
 }
 
 gltfx_rgba8 gltfx_rgba_to_srgb8(gltfx_rgba color) noexcept {
     return gltfx_rgba8{
-        .r = unit_to_byte(linear_channel_to_srgb(color.r)),
-        .g = unit_to_byte(linear_channel_to_srgb(color.g)),
-        .b = unit_to_byte(linear_channel_to_srgb(color.b)),
-        .a = unit_to_byte(color.a),
+        .red = unit_to_byte(linear_channel_to_srgb(color.red)),
+        .green = unit_to_byte(linear_channel_to_srgb(color.green)),
+        .blue = unit_to_byte(linear_channel_to_srgb(color.blue)),
+        .alpha = unit_to_byte(color.alpha),
     };
 }
 
@@ -87,10 +87,10 @@ gltfx_rgba8 gltfx_rgba_to_srgb8(gltfx_rgba color) noexcept {
 // headroom above white.
 gltfx_rgba gltfx_rgba_premultiplied(gltfx_rgba color) noexcept {
     return gltfx_rgba{
-        .r = color.r * color.a,
-        .g = color.g * color.a,
-        .b = color.b * color.a,
-        .a = color.a,
+        .red = color.red * color.alpha,
+        .green = color.green * color.alpha,
+        .blue = color.blue * color.alpha,
+        .alpha = color.alpha,
     };
 }
 

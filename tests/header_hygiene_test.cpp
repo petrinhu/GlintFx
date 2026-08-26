@@ -123,15 +123,15 @@ GLINTFX_TEST(version_header_survives_hostile_system_headers) {
 // core_error_use_sites_survive_hostile_system_headers below already
 // applies to gltfx_err/gltfx_rslt.
 GLINTFX_TEST(color_header_survives_hostile_system_headers) {
-    constexpr glintfx::gltfx_rgba color{.r = 0.1F, .g = 0.2F, .b = 0.3F, .a = 0.4F};
-    GLINTFX_CHECK_EQ(color.r, 0.1F);
-    GLINTFX_CHECK_EQ(color.g, 0.2F);
-    GLINTFX_CHECK_EQ(color.b, 0.3F);
-    GLINTFX_CHECK_EQ(color.a, 0.4F);
+    constexpr glintfx::gltfx_rgba color{.red = 0.1F, .green = 0.2F, .blue = 0.3F, .alpha = 0.4F};
+    GLINTFX_CHECK_EQ(color.red, 0.1F);
+    GLINTFX_CHECK_EQ(color.green, 0.2F);
+    GLINTFX_CHECK_EQ(color.blue, 0.3F);
+    GLINTFX_CHECK_EQ(color.alpha, 0.4F);
 
     const glintfx::gltfx_rgba8 encoded = glintfx::gltfx_rgba_to_srgb8(color);
     const glintfx::gltfx_rgba decoded = glintfx::gltfx_rgba_from_srgb8(encoded);
-    GLINTFX_CHECK(decoded.a == color.a);
+    GLINTFX_CHECK(decoded.alpha == color.alpha);
 }
 
 // core_error_use_sites_survive_hostile_system_headers - CE-8 finding:

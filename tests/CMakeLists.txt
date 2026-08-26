@@ -22,6 +22,15 @@ glintfx_add_test(err_context_test)
 glintfx_add_test(rslt_test)
 glintfx_add_test(err_format_test)
 
+# GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
+# nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
+# lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`
+# guard on purpose, so this cross-platform gate can prove it red/green
+# here - see win_dll_alloc_hook_format_test.cpp's own header comment
+# for the declared downgrade on the Windows-only half it does not
+# touch.
+glintfx_add_test(win_dll_alloc_hook_format_test)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

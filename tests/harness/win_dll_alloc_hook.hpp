@@ -96,6 +96,90 @@
 // well-defined in practice on the only toolchain this file is ever
 // compiled by (MSVC, guarded by _WIN32) - the same accommodation
 // PE-import-table tooling in general relies on.
+//
+// INBOX FINDING FIXED 26/08/2026 (GODS_LAWS.md L-40), achado 1 - "o
+// portao passa, mas nao diz o que verificou": before this date, a run
+// that patched something never named WHICH candidate matched, and a
+// run that patched NOTHING looked, from the outside, exactly like one
+// that never ran the check at all - patched_count() == 0 either way.
+// glintfx_test::format_patch_diagnostic() below turns both cases into
+// one explicit line every dll_alloc_hook construction prints to
+// stderr: on success it names every candidate that matched; on zero
+// matches it says so in words ("matched NONE...") and enumerates the
+// WHOLE closed candidate list that was searched, so a stale list is
+// legible straight from a CI log, without attaching a debugger to a
+// Windows runner.
+//
+// DECLARED SCOPE OF WHAT WAS ACTUALLY PROVEN (GODS_LAWS.md L-09/L-20):
+// this project has no Windows machine. format_patch_diagnostic() does
+// no Windows API call and no I/O, so it is deliberately declared
+// OUTSIDE the `#if defined(_WIN32)` guard below and is red/green
+// unit-tested on every platform this project builds on, including
+// this (Linux) machine - see tests/win_dll_alloc_hook_format_test.cpp.
+// Everything inside the guard below - the IAT walk itself, the stderr
+// write that consumes the function above - is Windows-only code this
+// session could only review, never compile or run; that half remains
+// the same declared downgrade the rest of this file already carried
+// before today.
+
+#include <array>
+#include <cstddef>
+#include <span>
+#include <string>
+#include <string_view>
+
+namespace glintfx_test {
+
+namespace detail {
+
+// The candidate set (GODS_LAWS.md L-40 item 5: enumerate the closed
+// space instead of guessing one name). See this file's own header
+// comment for what is FACT and what is INFERENCE behind each name.
+// Declared OUTSIDE the Windows-only guard below: the list itself, and
+// the diagnostic built from it, are pure data with no Windows API
+// involved - only the ACT of walking a real PE import table for it is
+// Windows-only.
+inline constexpr std::array<std::string_view, 2> k_candidate_names = {
+    "_malloc_base",
+    "malloc",
+};
+
+} // namespace detail
+
+// GODS_LAWS.md L-40, achado 1 of 26/08/2026 ("o portao passa, mas nao
+// diz o que verificou"): renders the one human-readable line a
+// dll_alloc_hook construction prints, on EVERY run, patched or not.
+// `matched_names` is the subset of detail::k_candidate_names this run
+// actually found in the target module's own import table, in the
+// order they were found; empty means none of them were - the message
+// then names every candidate that WAS searched for, so a stale list
+// (or a differently-named symbol that slipped past it) is legible from
+// a CI log alone, never indistinguishable from a genuine, verified
+// pass.
+[[nodiscard]] inline std::string
+format_patch_diagnostic(std::span<const std::string_view> matched_names) {
+    if (matched_names.empty()) {
+        std::string message = "glintfx_test::dll_alloc_hook: matched NONE of the candidate "
+                               "allocation primitives; searched: ";
+        for (std::size_t i = 0; i < detail::k_candidate_names.size(); ++i) {
+            if (i > 0) {
+                message += ", ";
+            }
+            message += detail::k_candidate_names[i];
+        }
+        return message;
+    }
+    std::string message = "glintfx_test::dll_alloc_hook: patched ";
+    for (std::size_t i = 0; i < matched_names.size(); ++i) {
+        if (i > 0) {
+            message += ", ";
+        }
+        message += matched_names[i];
+    }
+    return message;
+}
+
+} // namespace glintfx_test
 
 #if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
 
@@ -107,22 +191,12 @@
 #endif
 #include <windows.h>
 
-#include <array>
-#include <cstddef>
+#include <cstdio>
 #include <cstdlib>
-#include <string_view>
 
 namespace glintfx_test {
 
 namespace detail {
-
-// The candidate set (GODS_LAWS.md L-40 item 5: enumerate the closed
-// space instead of guessing one name). See this file's own header
-// comment for what is FACT and what is INFERENCE behind each name.
-inline constexpr std::array<std::string_view, 2> k_candidate_names = {
-    "_malloc_base",
-    "malloc",
-};
 
 inline bool g_force_failure = false;
 inline std::size_t g_hooked_call_count = 0;
@@ -143,11 +217,14 @@ inline void *__cdecl hooked_malloc(std::size_t size) noexcept {
     return g_original_malloc != nullptr ? g_original_malloc(size) : std::malloc(size);
 }
 
-// One patched IAT slot: where it lives, and what was there before -
-// enough to restore it exactly on destruction.
+// One patched IAT slot: where it lives, what was there before - enough
+// to restore it exactly on destruction - and, since 26/08/2026 (achado
+// 1), the NAME of the candidate that matched here, so a successful run
+// can say what it found instead of only how many.
 struct patched_slot {
     void **iat_entry = nullptr;
     void *original_value = nullptr;
+    std::string_view name;
 };
 
 } // namespace detail
@@ -156,7 +233,10 @@ struct patched_slot {
 // actually imports, for as long as this object lives.
 class dll_alloc_hook {
   public:
-    explicit dll_alloc_hook(const wchar_t *module_name) noexcept { patch(module_name); }
+    explicit dll_alloc_hook(const wchar_t *module_name) noexcept {
+        patch(module_name);
+        report_patch_result();
+    }
 
     ~dll_alloc_hook() { restore(); }
 
@@ -168,7 +248,10 @@ class dll_alloc_hook {
     // Zero is a FACT to report (this toolset's operator new does not
     // route through anything on the candidate list above), never
     // silently treated as success by a caller that forgets to check
-    // it.
+    // it. report_patch_result() (called from the constructor above)
+    // already prints the same fact, plus the NAMES, unconditionally -
+    // this accessor lets a caller additionally gate its own assertions
+    // on it (see err_context_test.cpp's allocator_reach_probe).
     [[nodiscard]] std::size_t patched_count() const noexcept { return m_patched_count; }
 
   private:
@@ -223,14 +306,14 @@ class dll_alloc_hook {
                 reinterpret_cast<const char *>(import_by_name->Name)};
             for (std::string_view candidate : detail::k_candidate_names) {
                 if (imported_name == candidate) {
-                    patch_slot(iat_thunk);
+                    patch_slot(iat_thunk, candidate);
                     break;
                 }
             }
         }
     }
 
-    void patch_slot(IMAGE_THUNK_DATA *iat_thunk) noexcept {
+    void patch_slot(IMAGE_THUNK_DATA *iat_thunk, std::string_view matched_name) noexcept {
         if (m_patched_count >= m_patched.size()) {
             return; // Bounded by k_candidate_names' own size above -
                     // unreachable in practice, kept as a hard bound
@@ -249,7 +332,7 @@ class dll_alloc_hook {
         if (detail::g_original_malloc == nullptr) {
             detail::g_original_malloc = reinterpret_cast<detail::malloc_fn>(*entry);
         }
-        m_patched[m_patched_count] = detail::patched_slot{entry, *entry};
+        m_patched[m_patched_count] = detail::patched_slot{entry, *entry, matched_name};
         ++m_patched_count;
         *entry = reinterpret_cast<void *>(&detail::hooked_malloc);
         ::VirtualProtect(entry, sizeof(void *), old_protect, &old_protect);
@@ -269,6 +352,21 @@ class dll_alloc_hook {
         if (m_patched_count == 0) {
             detail::g_original_malloc = nullptr;
         }
+    }
+
+    // GODS_LAWS.md L-40, achado 1 of 26/08/2026: prints, unconditionally
+    // and on every construction, the one line format_patch_diagnostic()
+    // renders - which candidates matched on success, or the declared
+    // failure naming the whole searched list on zero matches. Never
+    // silent either way.
+    void report_patch_result() const noexcept {
+        std::array<std::string_view, detail::k_candidate_names.size()> matched{};
+        for (std::size_t i = 0; i < m_patched_count; ++i) {
+            matched[i] = m_patched[i].name;
+        }
+        const std::string message = format_patch_diagnostic(
+            std::span<const std::string_view>(matched.data(), m_patched_count));
+        std::fprintf(stderr, "%s\n", message.c_str());
     }
 
     // Bounded by k_candidate_names' own size - see patch_slot().

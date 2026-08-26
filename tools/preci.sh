@@ -24,10 +24,16 @@
 #                                     instead of the real tree: positive
 #                                     control (clean fixture passes),
 #                                     negative control (dirty fixture is
-#                                     reproved) and empty-scan control
+#                                     reproved), empty-scan control
 #                                     (an empty directory is refused, not
-#                                     silently approved). Registered as
-#                                     ctest case `preci_selftest` when the
+#                                     silently approved), and a control
+#                                     for the ROOT_DIR resolution itself
+#                                     (a simulated `cd` failure proves the
+#                                     old combined `readonly ROOT_DIR=$(...)`
+#                                     form masks the error while the
+#                                     current split form exits 1 with a
+#                                     diagnostic). Registered as ctest
+#                                     case `preci_selftest` when the
 #                                     three tools are present (see
 #                                     tests/CMakeLists.txt).
 #
@@ -42,6 +48,18 @@ set -euo pipefail
 # already set TMPDIR.
 export TMPDIR="${TMPDIR:-/var/tmp}"
 
+# fail()/log() moved above the ROOT_DIR resolution (they used to sit
+# below it, forcing an inline `exit 1` there instead of `|| fail ...` -
+# see the achado this comment replaces). Neither depends on ROOT_DIR.
+log() {
+    printf '== %s ==\n' "$1"
+}
+
+fail() {
+    echo "preci.sh: $1" >&2
+    exit 1
+}
+
 # GODS_LAWS.md INBOX achado (shellcheck SC2155): declare-and-assign
 # separately, not a suppression. "readonly ROOT_DIR=$(cmd)" combined
 # masks cmd's exit code behind the `readonly` builtin's own exit code,
@@ -50,10 +68,19 @@ export TMPDIR="${TMPDIR:-/var/tmp}"
 # the failure under `set -e`, ROOT_DIR ending up empty, and the script
 # only failing later and uglier, at `cmake -S ""`). Assignment and its
 # exit status are checked separately from `readonly`, and this fails
-# loud and clear on the spot. `fail()` is not yet defined this early in
-# the file (it is declared below), hence the inline `exit 1` instead of
-# `|| fail ...`.
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)" || {
+# loud and clear on the spot.
+#
+# Factored into its own function (achado IMPORTANTE de revisao
+# adversarial, 25/08/2026) so that --selftest's simulated cd-failure
+# control (run_selftest_rootdir_cd_failure_control) can import THIS
+# exact function body into an isolated subshell via `declare -f`,
+# instead of keeping a hand-copied duplicate that could silently drift
+# from the real resolution logic below.
+resolve_root_dir() {
+    cd "$(dirname "$1")/.." && pwd
+}
+
+ROOT_DIR="$(resolve_root_dir "$0")" || {
     echo "preci.sh: nao foi possivel resolver ROOT_DIR (cd para o diretorio do script falhou)" >&2
     exit 1
 }
@@ -76,15 +103,6 @@ readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 # control (run_selftest_ctest_count_substring_control) so the two can
 # never drift apart.
 readonly CTEST_UNIT_LABEL_FILTER='^unit$'
-
-log() {
-    printf '== %s ==\n' "$1"
-}
-
-fail() {
-    echo "preci.sh: $1" >&2
-    exit 1
-}
 
 # --- enumeration (GODS_LAWS.md L-23/L-24 spirit: a gate has to prove it
 # looked at something). Each *_stage function below prints how many
@@ -348,6 +366,86 @@ run_selftest_empty_scan_control() {
     echo "selftest: controle de varredura vazia OK (0 arquivos foi recusado, nao aprovado)"
 }
 
+# --- selftest control for the ROOT_DIR resolution mechanism itself
+# (achado IMPORTANTE de revisao adversarial, 25/08/2026): o conserto
+# PRECI-ROOTDIR-SC2155 (linhas 45-60 deste arquivo) foi reproduzido ao
+# vivo pelo revisor - reverter o bloco no arquivo rastreado e rodar
+# `preci.sh --selftest` e `ctest -R preci_selftest` continuavam os dois
+# verdes, porque nada na suite simulava a falha do `cd`. Este controle
+# fecha essa lacuna.
+#
+# ROOT_DIR resolve nas primeiras linhas do script, ANTES da maioria das
+# funcoes existir - por isso as duas formas sao exercitadas cada uma
+# num subprocesso bash isolado, contra um $0 cujo
+# `cd "$(dirname "$0")/.."` falha de proposito (ENOENT: o diretorio-pai
+# nem existe). Nenhuma das duas toca o ROOT_DIR real desta execucao.
+#
+# A forma NOVA nao e uma copia literal: `declare -f resolve_root_dir`
+# exporta para o subshell a MESMA funcao de producao (ver topo deste
+# arquivo), entao uma regressao na funcao real e pega por este
+# controle sem precisar manter duas copias em sincronia.
+
+# Caminho cujo dirname()/.. nao existe, garantindo que o `cd` falhe por
+# ENOENT e nao por permissao. $$ evita colisao entre execucoes
+# concorrentes.
+rootdir_cd_failure_target() {
+    printf '%s' "/glintfx-rootdir-selftest-nao-existe-$$/sub/script.sh"
+}
+
+# A forma ANTIGA, tal como existia neste arquivo antes do conserto
+# PRECI-ROOTDIR-SC2155: `readonly ROOT_DIR=$(...)` combinado mascara o
+# exit code do `cd` atras do exit code do proprio builtin `readonly`
+# (sempre 0 quando a atribuicao e valida, mesmo com o lado direito
+# vazio). Mantida como literal de proposito: e a forma DESCARTADA, que
+# este arquivo nao possui mais em lugar nenhum para reusar por funcao.
+selftest_rootdir_old_form() {
+    fake0="$1"
+    bash -c '
+        set -eu
+        readonly ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+        printf "ROOT_DIR=[%s]\n" "$ROOT_DIR"
+    ' "$fake0"
+}
+
+# A forma NOVA: reusa a funcao resolve_root_dir() REAL deste arquivo
+# via `declare -f`, e reproduz em volta dela apenas a atribuicao e o
+# `|| { ...; exit 1; }` que tambem existem, literalmente, no bloco do
+# topo (linhas logo apos a definicao de resolve_root_dir).
+selftest_rootdir_new_form() {
+    fake0="$1"
+    bash -c "
+        $(declare -f resolve_root_dir)
+        set -eu
+        ROOT_DIR=\"\$(resolve_root_dir \"\$0\")\" || {
+            echo 'preci.sh: nao foi possivel resolver ROOT_DIR (cd para o diretorio do script falhou)' >&2
+            exit 1
+        }
+        readonly ROOT_DIR
+        printf 'ROOT_DIR=[%s]\n' \"\$ROOT_DIR\"
+    " "$fake0"
+}
+
+run_selftest_rootdir_cd_failure_control() {
+    log "selftest: mascaramento de falha do cd na resolucao de ROOT_DIR"
+    fake0="$(rootdir_cd_failure_target)"
+
+    old_rc=0
+    old_out="$(selftest_rootdir_old_form "$fake0" 2>&1)" || old_rc=$?
+    [ "$old_rc" -eq 0 ] \
+        || fail "controle do ROOT_DIR FALHOU: a forma ANTIGA deveria sair 0 mascarando a falha do cd (documentando o defeito ja conhecido), saiu $old_rc: $old_out"
+    printf '%s\n' "$old_out" | grep -qF 'ROOT_DIR=[]' \
+        || fail "controle do ROOT_DIR FALHOU: a forma ANTIGA deveria imprimir ROOT_DIR vazio, saida foi: $old_out"
+
+    new_rc=0
+    new_out="$(selftest_rootdir_new_form "$fake0" 2>&1)" || new_rc=$?
+    [ "$new_rc" -eq 1 ] \
+        || fail "controle do ROOT_DIR FALHOU: a forma NOVA (atual neste arquivo) deveria sair 1 quando o cd falha, saiu $new_rc: $new_out"
+    printf '%s\n' "$new_out" | grep -qF 'nao foi possivel resolver ROOT_DIR' \
+        || fail "controle do ROOT_DIR FALHOU: a forma NOVA saiu $new_rc mas sem o diagnostico esperado, saida foi: $new_out"
+
+    echo "selftest: controle de mascaramento do cd (ROOT_DIR) OK (forma antiga sai 0 e mascara com ROOT_DIR vazio; forma atual sai 1 com diagnostico)"
+}
+
 # --- selftest controls for the two ctest-based stages (stage_ctest,
 # stage_sanitizer): GODS_LAWS.md L-20, the finding that reproved this
 # fatia's first revision (adversarial review, FUND-4). `ctest` exits 0
@@ -477,6 +575,7 @@ run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
     run_selftest_empty_scan_control
+    run_selftest_rootdir_cd_failure_control
     run_selftest_ctest_count_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }

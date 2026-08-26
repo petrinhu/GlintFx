@@ -184,3 +184,41 @@ GLINTFX_TEST(gltfx_rgba_to_srgb8_clamps_light_outside_the_displayable_range) {
     GLINTFX_CHECK_EQ(encoded.b, static_cast<std::uint8_t>(188));
     GLINTFX_CHECK_EQ(encoded.a, static_cast<std::uint8_t>(255)); // alpha clamps too, no transfer fn
 }
+
+// PREMULTIPLY SLICE: decision 6's second half, the helper decision 5's
+// own text names. gltfx_rgba_premultiplied() multiplies r/g/b by a and
+// leaves a itself unchanged - a straight-line computation (no
+// transfer function, no clamp), so exact equality is the right check,
+// not a tolerance.
+
+GLINTFX_TEST(gltfx_rgba_premultiplied_scales_color_channels_by_alpha_and_keeps_alpha) {
+    constexpr glintfx::gltfx_rgba straight{.r = 0.8F, .g = 0.4F, .b = 0.2F, .a = 0.5F};
+    const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(straight);
+
+    GLINTFX_CHECK_EQ(premultiplied.r, 0.4F);
+    GLINTFX_CHECK_EQ(premultiplied.g, 0.2F);
+    GLINTFX_CHECK_EQ(premultiplied.b, 0.1F);
+    // Straight, decision 5: the helper is a TRANSIENT conversion, not
+    // a second stored form - alpha itself never changes.
+    GLINTFX_CHECK_EQ(premultiplied.a, 0.5F);
+}
+
+GLINTFX_TEST(gltfx_rgba_premultiplied_at_zero_alpha_zeroes_color_channels) {
+    constexpr glintfx::gltfx_rgba fully_transparent{.r = 0.9F, .g = 0.6F, .b = 0.3F, .a = 0.0F};
+    const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(fully_transparent);
+
+    GLINTFX_CHECK_EQ(premultiplied.r, 0.0F);
+    GLINTFX_CHECK_EQ(premultiplied.g, 0.0F);
+    GLINTFX_CHECK_EQ(premultiplied.b, 0.0F);
+    GLINTFX_CHECK_EQ(premultiplied.a, 0.0F);
+}
+
+GLINTFX_TEST(gltfx_rgba_premultiplied_at_full_alpha_is_identity) {
+    constexpr glintfx::gltfx_rgba opaque{.r = 0.7F, .g = 0.3F, .b = 0.9F, .a = 1.0F};
+    const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(opaque);
+
+    GLINTFX_CHECK_EQ(premultiplied.r, opaque.r);
+    GLINTFX_CHECK_EQ(premultiplied.g, opaque.g);
+    GLINTFX_CHECK_EQ(premultiplied.b, opaque.b);
+    GLINTFX_CHECK_EQ(premultiplied.a, opaque.a);
+}

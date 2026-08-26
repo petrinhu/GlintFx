@@ -81,4 +81,17 @@ gltfx_rgba8 gltfx_rgba_to_srgb8(gltfx_rgba color) noexcept {
     };
 }
 
+// Decision 6's second half. Straight multiplication, no clamp: unlike
+// gltfx_rgba_to_srgb8() above, this never has to fit into 8 bits -
+// the result is still a gltfx_rgba, still allowed decision 1's own
+// headroom above white.
+gltfx_rgba gltfx_rgba_premultiplied(gltfx_rgba color) noexcept {
+    return gltfx_rgba{
+        .r = color.r * color.a,
+        .g = color.g * color.a,
+        .b = color.b * color.a,
+        .a = color.a,
+    };
+}
+
 } // namespace glintfx

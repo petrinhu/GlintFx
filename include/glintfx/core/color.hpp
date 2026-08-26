@@ -147,4 +147,14 @@ static_assert(std::is_trivially_copyable_v<gltfx_rgba8>,
 [[nodiscard]] GLINTFX_API gltfx_rgba gltfx_rgba_from_srgb8(gltfx_rgba8 encoded) noexcept;
 [[nodiscard]] GLINTFX_API gltfx_rgba8 gltfx_rgba_to_srgb8(gltfx_rgba color) noexcept;
 
+// Decision 6, second half: the premultiply helper decision 5's own
+// text names. Multiplies r/g/b by a and leaves a itself unchanged -
+// the TRANSIENT form CSS Color 4 SS13.3 computes for the duration of
+// one interpolation, then undoes; this function only computes the
+// FORWARD half. Decision 6 freezes no "undo" signature here - the
+// reverse belongs to whichever future slice actually interpolates
+// (the plan's own P4 answer, /var/tmp/glintfx-plan/core-color-
+// opcoes.md).
+[[nodiscard]] GLINTFX_API gltfx_rgba gltfx_rgba_premultiplied(gltfx_rgba color) noexcept;
+
 } // namespace glintfx

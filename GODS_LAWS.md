@@ -622,6 +622,8 @@ Todas por `AskUserQuestion` (L-10), na sessão em que o Caetano (CTO) derivou a 
 
 Critério transversal, e é ele que explica o bloco inteiro: **propriedade que a folha aceita e o motor ignora é o defeito que o líder mandou eliminar** ao dizer que biblioteca sozinha era inútil. Cada uma abaixo nasce ao lado do código que a pinta.
 
+⚠️ **CORREÇÃO da mesma sessão, decidida depois destas seis (L-32):** as seis foram aprovadas para a W7, que vem **antes** da `DEMO-1` da W8 — e isso era exatamente o cenário que a L-32 existe para impedir, *meia biblioteca pronta e nenhuma janela na tela*. Medido no ato: `DEMO-1` carrega **31,00** de pontuação, a maior da tabela inteira, contra 20,00 do segundo colocado. **O bloco inteiro passa para DEPOIS da `DEMO-1`.** Verbatim da escolha do líder: *"Depois da demo"*. Nada foi cortado — só reordenado. Onde as linhas abaixo dizem W7, leia **pós-demo**.
+
 | # | Decisão |
 |---|---|
 | 16 | **Gradiente: fatia ÚNICA, junto do render, na W7.** Gramática e pintura na mesma fatia, ao lado do shader interno de `R2D-BATCH`. Nada de linha aceita e ignorada. |
@@ -635,7 +637,15 @@ Critério transversal, e é ele que explica o bloco inteiro: **propriedade que a
 
 | # | Decisão |
 |---|---|
-| 22 | **A trilha de fonte é desenhada AGORA, no mesmo trabalho do layout.** Achado que a motivou: ela é citada como trilha futura e **não tinha uma única fatia na tabela**, enquanto nove propriedades do eixo C e a fatia `R2D-TEXT` (W9) dependem dela. A decisão de **como os glifos são guardados** é tomada no primeiro dia dessa trilha e determina se contorno, sombra e brilho de texto saem de graça ou custam oito desenhos por palavra — decidir contorno antes dela seria decidir no escuro a estrutura de dados de uma trilha que ninguém projetou. |
+| 22 | **A trilha de fonte é COMPLETADA agora, no mesmo trabalho do layout.** |
+
+⚠️ **Correção de fato, na mesma sessão, antes de a decisão 22 ser executada.** O CTO relatou que a trilha de fonte *"não tem uma única fatia na tabela hoje"*, e o orquestrador repetiu isso ao líder duas vezes antes de conferir. **É falso, e a medição desmente:** existem três — `FONT-TABLES` (W3, lê a estrutura do arquivo), `FONT-OUTLINE` (W4, extrai o contorno do glifo) e `FONT-RASTER` (W5, rasteriza com suavização). Aplicação direta da regra da casa de que **relatório de agente não é prova**, desta vez contra o próprio orquestrador, que relatou de segunda mão.
+
+**O que a correção NÃO desfaz:** o buraco é real. As três param exatamente onde o layout precisa começar — **não existe fatia que MEÇA texto**, que é de onde o ajuste automático por i18n (decisão 14) depende, nem atlas, nem montagem de linha, nem quebra de linha. Elas entregam uma letra desenhada; o layout precisa saber quanto mede uma frase.
+
+**O que a correção MUDA, e é substantivo:** a decisão sobre **como os glifos são guardados**, que eu apresentei ao líder como aberta, **já estava tomada** — `FONT-RASTER` diz *"rasterização scanline com AA"*, isto é, desenho direto, e **não** o método de guardar distância à borda. Consequência que ninguém escolheu explicitamente: contorno e sombra de texto saem pelo caminho caro, de vários desenhos por palavra, não de graça no shader. Fica registrado para revisão consciente quando a trilha for completada.
+
+**A decisão do líder, com o fato corrigido na mesa:** completar a trilha inteira — medir texto, atlas, montar linha, quebrar linha — junto com o desenho do layout. Verbatim: *"Sim, completar a trilha"*.
 
 #### O que a régua de legibilidade derrubou nesta mesma sessão
 

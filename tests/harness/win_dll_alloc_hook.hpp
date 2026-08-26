@@ -97,30 +97,60 @@
 // compiled by (MSVC, guarded by _WIN32) - the same accommodation
 // PE-import-table tooling in general relies on.
 //
-// INBOX FINDING FIXED 26/08/2026 (GODS_LAWS.md L-40), achado 1 - "o
-// portao passa, mas nao diz o que verificou": before this date, a run
-// that patched something never named WHICH candidate matched, and a
-// run that patched NOTHING looked, from the outside, exactly like one
-// that never ran the check at all - patched_count() == 0 either way.
-// glintfx_test::format_patch_diagnostic() below turns both cases into
-// one explicit line every dll_alloc_hook construction prints to
-// stderr: on success it names every candidate that matched; on zero
-// matches it says so in words ("matched NONE...") and enumerates the
-// WHOLE closed candidate list that was searched, so a stale list is
-// legible straight from a CI log, without attaching a debugger to a
-// Windows runner.
+// TWO INBOX FINDINGS FIXED 26/08/2026 (GODS_LAWS.md L-40), both about
+// this file's own silence, not about the PE-walking logic itself:
 //
-// DECLARED SCOPE OF WHAT WAS ACTUALLY PROVEN (GODS_LAWS.md L-09/L-20):
-// this project has no Windows machine. format_patch_diagnostic() does
-// no Windows API call and no I/O, so it is deliberately declared
-// OUTSIDE the `#if defined(_WIN32)` guard below and is red/green
-// unit-tested on every platform this project builds on, including
-// this (Linux) machine - see tests/win_dll_alloc_hook_format_test.cpp.
-// Everything inside the guard below - the IAT walk itself, the stderr
-// write that consumes the function above - is Windows-only code this
-// session could only review, never compile or run; that half remains
-// the same declared downgrade the rest of this file already carried
-// before today.
+//   achado 1 - "o portao passa, mas nao diz o que verificou": before
+//   this date, a run that patched something never named WHICH
+//   candidate matched, and a run that patched NOTHING looked, from the
+//   outside, exactly like one that never ran the check at all -
+//   patched_count() == 0 either way. glintfx_test::format_patch_
+//   diagnostic() below turns both cases into one explicit line every
+//   dll_alloc_hook construction prints to stderr: on success it names
+//   every candidate that matched; on zero matches it says so in words
+//   ("matched NONE...") and enumerates the WHOLE closed candidate list
+//   that was searched, so a stale list is legible straight from a CI
+//   log, without attaching a debugger to a Windows runner.
+//
+//   achado 2 - "restauracao de protecao de memoria sem conferir
+//   retorno": patch_slot() and restore() each call VirtualProtect
+//   TWICE - once to make an IAT slot writable (already checked before
+//   this date), once to put the ORIGINAL protection flags back
+//   afterward (NOT checked before this date). A failed restore left
+//   the page's protection silently wrong while the caller believed
+//   nothing had gone wrong. THE POLICY CHOSEN, and why (this file had
+//   no existing precedent for a "put it back" call specifically - the
+//   two calls that already existed are both GATES an action, which
+//   this pair is not): report visibly via stderr through
+//   glintfx_test::detail::format_protect_restore_failure(), never
+//   abort. Two reasons, not one: (a) in BOTH call sites the important
+//   state change already happened BEFORE this second VirtualProtect
+//   runs - patch_slot() has already written the hook's function
+//   pointer into the slot, restore() has already written the ORIGINAL
+//   pointer back - so a failure here is the page's protection flags
+//   staying non-original, not the pointer swap failing; (b) restore()
+//   runs from ~dll_alloc_hook(), i.e. from a test's cleanup path that
+//   may already have PASSED - killing the process there would destroy
+//   a real, correct result to report a cosmetic cleanup failure
+//   instead. This mirrors docs/api-conventions.md R3's own best-effort
+//   degradation policy (an operation that fails degrades to a poorer,
+//   visible form instead of aborting the caller), applied here to a
+//   cleanup step instead of to an allocation.
+//
+// DECLARED SCOPE OF WHAT WAS ACTUALLY PROVEN FOR BOTH FIXES (GODS_LAWS.
+// md L-09/L-20): this project has no Windows machine. The two pure
+// functions behind both findings - format_patch_diagnostic() and
+// detail::format_protect_restore_failure() - do no Windows API call
+// and no I/O, so they are deliberately declared OUTSIDE the
+// `#if defined(_WIN32)` guard below and are red/green unit-tested on
+// every platform this project builds on, including this (Linux)
+// machine - see tests/win_dll_alloc_hook_format_test.cpp. Everything
+// inside the guard below - the IAT walk itself, the two VirtualProtect
+// call sites that now check their return value, the stderr writes that
+// consume the two functions above - is Windows-only code this session
+// could only review, never compile or run; that half remains the same
+// declared downgrade the rest of this file already carried before
+// today.
 
 #include <array>
 #include <cstddef>
@@ -178,6 +208,31 @@ format_patch_diagnostic(std::span<const std::string_view> matched_names) {
     }
     return message;
 }
+
+namespace detail {
+
+// GODS_LAWS.md L-40, achado 2 of 26/08/2026 ("restauracao de protecao
+// de memoria sem conferir retorno"): pure formatting for the one
+// diagnostic line a failed VirtualProtect-restore now prints. `phase`
+// names WHICH of the two call sites failed ("patch" or "restore" - see
+// dll_alloc_hook::patch_slot()/restore() below), `last_error` is the
+// raw value ::GetLastError() returned at the point of failure. Kept
+// pure and platform-independent (unsigned long round-trips through
+// GetLastError() but is not itself a Windows type) so it is red/green
+// testable on every platform, same as format_patch_diagnostic() above.
+[[nodiscard]] inline std::string format_protect_restore_failure(std::string_view phase,
+                                                                  unsigned long last_error) {
+    std::string message =
+        "glintfx_test::dll_alloc_hook: VirtualProtect failed to restore original page "
+        "protection during ";
+    message += phase;
+    message += " (GetLastError=";
+    message += std::to_string(last_error);
+    message += "); import table entry may be left writable";
+    return message;
+}
+
+} // namespace detail
 
 } // namespace glintfx_test
 
@@ -335,7 +390,17 @@ class dll_alloc_hook {
         m_patched[m_patched_count] = detail::patched_slot{entry, *entry, matched_name};
         ++m_patched_count;
         *entry = reinterpret_cast<void *>(&detail::hooked_malloc);
-        ::VirtualProtect(entry, sizeof(void *), old_protect, &old_protect);
+        DWORD restored_protect = 0;
+        if (::VirtualProtect(entry, sizeof(void *), old_protect, &restored_protect) == 0) {
+            // GODS_LAWS.md L-40, achado 2 of 26/08/2026: the hook is
+            // already installed (the write above already succeeded) -
+            // only the page's protection flags failed to go back to
+            // what they were. Reported, never fatal: see this file's
+            // own top comment for why aborting here would be the wrong
+            // policy, not just an omission.
+            std::fprintf(stderr, "%s\n",
+                          detail::format_protect_restore_failure("patch", ::GetLastError()).c_str());
+        }
     }
 
     void restore() noexcept {
@@ -347,7 +412,23 @@ class dll_alloc_hook {
                 continue;
             }
             *slot.iat_entry = slot.original_value;
-            ::VirtualProtect(slot.iat_entry, sizeof(void *), old_protect, &old_protect);
+            DWORD restored_protect = 0;
+            if (::VirtualProtect(slot.iat_entry, sizeof(void *), old_protect, &restored_protect) ==
+                0) {
+                // GODS_LAWS.md L-40, achado 2 of 26/08/2026: the
+                // pointer this hook owns (slot.original_value) is
+                // ALREADY restored by the assignment above - the only
+                // thing that failed is putting the page's protection
+                // flags back. Reported, never fatal: this runs from
+                // the destructor, at the tail of a test that may
+                // already have PASSED, and killing the process here
+                // would destroy that real result to report a cosmetic
+                // cleanup failure instead - see this file's own top
+                // comment for the full reasoning.
+                std::fprintf(
+                    stderr, "%s\n",
+                    detail::format_protect_restore_failure("restore", ::GetLastError()).c_str());
+            }
         }
         if (m_patched_count == 0) {
             detail::g_original_malloc = nullptr;

@@ -31,6 +31,14 @@ glintfx_add_test(err_format_test)
 # touch.
 glintfx_add_test(win_dll_alloc_hook_format_test)
 
+# GODS_LAWS.md L-40, INBOX achado 2 of 26/08/2026 ("restauracao de
+# protecao de memoria sem conferir retorno"):
+# glintfx_test::detail::format_protect_restore_failure() lives OUTSIDE
+# the same guard for the same reason - see
+# win_dll_alloc_hook_protect_restore_format_test.cpp's own header
+# comment.
+glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

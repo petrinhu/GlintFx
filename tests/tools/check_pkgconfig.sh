@@ -465,10 +465,12 @@ assert_pkgconfig_output_resolves_to_real_content() {
     assert_dir_contains_expected_content "glintfx.pc includedir" "$includedir_var" headers
     assert_dir_contains_expected_content "glintfx.pc libdir" "$libdir_var" library
 
-    # shellcheck-style word-splitting, same reasoning as every other
+    # Intentional word-splitting, same reasoning as every other
     # pkg-config-output consumer in this file: this is exactly the
     # form the flags come in for a real build recipe.
+    # shellcheck disable=SC2086 # static_flag is intentionally either empty or one flag, never quoted-word-split content
     cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags ${static_flag} glintfx)"
+    # shellcheck disable=SC2086 # static_flag is intentionally either empty or one flag, never quoted-word-split content
     libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs ${static_flag} glintfx)"
 
     # Non-empty-scan floor (adversarial review round 4, achado B): a
@@ -522,6 +524,7 @@ compile_and_run_dynamic_consumer() {
     # output is a space-separated argument list, exactly what a shell
     # build recipe (Makefile, Autotools, a packager's %build) passes
     # to the compiler unquoted.
+    # shellcheck disable=SC2086 # cflags/libs are pkg-config output, a space-separated argument list meant to word-split
     "$cxx" -std=c++23 ${cflags} "$consumer_src" ${libs} -Wl,-rpath,"$libdir_abs" -o "$output_bin"
     [ -x "$output_bin" ] || fail "dynamic consumer binary not found after compile: $output_bin"
     echo "check_pkgconfig.sh: running $output_bin (dynamic, pkg-config --cflags --libs glintfx)"
@@ -544,9 +547,10 @@ compile_and_run_static_consumer() {
     cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags --static glintfx)"
     libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs --static glintfx)"
     assert_static_libs_mention_wayland_client "$libs"
-    # shellcheck-style word-splitting, same reasoning as the dynamic
+    # Intentional word-splitting, same reasoning as the dynamic
     # consumer above - and here it is load-bearing: --static is what
     # makes Libs.private (-lwayland-client) appear in $libs at all.
+    # shellcheck disable=SC2086 # cflags/libs are pkg-config output, a space-separated argument list meant to word-split
     "$cxx" -std=c++23 ${cflags} "$consumer_src" ${libs} -o "$output_bin"
     [ -x "$output_bin" ] || fail "static consumer binary not found after compile: $output_bin"
     echo "check_pkgconfig.sh: running $output_bin (static, pkg-config --cflags --libs --static glintfx)"
@@ -596,6 +600,7 @@ assert_probe_links_without_wayland_client_fails() {
     output_bin="$4"
     cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags glintfx)"
     libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs glintfx)"
+    # shellcheck disable=SC2086 # cflags/libs are pkg-config output, a space-separated argument list meant to word-split
     if "$cxx" -std=c++23 ${cflags} "$probe_src" ${libs} -o "$output_bin" 2>/dev/null; then
         fail "negative control failed: linking the Wayland-symbol probe WITHOUT Libs.private (plain 'pkg-config --cflags --libs glintfx') unexpectedly SUCCEEDED - either Libs.private is no longer necessary or the probe no longer forces extraction of the Wayland-bound archive member"
     fi
@@ -611,6 +616,7 @@ assert_probe_links_with_wayland_client_succeeds() {
     output_bin="$4"
     cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags --static glintfx)"
     libs="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --libs --static glintfx)"
+    # shellcheck disable=SC2086 # cflags/libs are pkg-config output, a space-separated argument list meant to word-split
     "$cxx" -std=c++23 ${cflags} "$probe_src" ${libs} -o "$output_bin" \
         || fail "positive control failed: linking the Wayland-symbol probe WITH Libs.private (pkg-config --cflags --libs --static glintfx) unexpectedly FAILED"
     [ -x "$output_bin" ] || fail "probe binary not found after compile: $output_bin"

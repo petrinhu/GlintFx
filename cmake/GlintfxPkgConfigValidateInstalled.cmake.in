@@ -1,0 +1,424 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# GlintfxPkgConfigValidateInstalled.cmake.in - PKG-VALIDATE.
+#
+# Configured with configure_file(@ONLY) by
+# glintfx_register_pkgconfig_validation() (cmake/GlintfxPkgConfigValidate.cmake)
+# into <build>/GlintfxPkgConfigValidateInstalled.cmake, then
+# include()-d from ONE install(CODE) line appended right after
+# glintfx.pc's own install(FILES ...) (glintfx_install_pkgconfig(),
+# cmake/GlintfxInstall.cmake). By the time this file runs, glintfx.pc,
+# the public headers and the library artifact are already on disk, in
+# whatever real layout THIS `cmake --install` invocation actually
+# produced, on the machine actually running it - a packager we have
+# never met, using a layout tests/tools/check_pkgconfig.sh (PKG-DIST)
+# never enumerated, because PKG-DIST's six scenarios only prove what
+# OUR OWN CI exercises (GODS_LAWS.md LEI ZERO: the base of consumers
+# is public and unknown, so a validator that only runs in our CI
+# leaves every layout outside it unchecked, silently).
+#
+# HOW THIS FILE LOCATES THE INSTALL, WITHOUT PREDICTING IT (adversarial
+# review round 3's ruling on check_pkgconfig.sh, relayed verbatim in
+# that file's own header: "parar de prever a entrada e passar a
+# validar a saida" - the same ruling applies here, one layer earlier):
+# @GLINTFX_NORMALIZED_INSTALL_LIBDIR@ below is the ONLY thing baked in
+# by configure_file(@ONLY) - a plain, already-normalized string read
+# from this build's own CMAKE_INSTALL_LIBDIR
+# (glintfx_register_pkgconfig_validation(), which computes it with the
+# exact same cmake_path(NORMAL_PATH) call
+# glintfx_compute_pkgconfig_relocatable_prefix() in
+# cmake/GlintfxInstall.cmake already uses for glintfx.pc's own
+# content), because that value cannot change between configure and
+# install - it is a CACHE variable, fixed once. Both
+# "${CMAKE_INSTALL_PREFIX}" and "$ENV{DESTDIR}" below stay LITERAL,
+# unsubstituted text in THIS FILE: configure_file(@ONLY) only ever
+# replaces @VAR@ forms, never ${VAR} or $ENV{VAR} - the exact escaping
+# technique glintfx_compute_pkgconfig_relocatable_prefix() already
+# uses for glintfx.pc's own "${pcfiledir}". That is what lets them
+# resolve to the REAL, INSTALL-TIME values when this file actually
+# runs: CMAKE_INSTALL_PREFIX reflects any `cmake --install --prefix
+# <p>` override (cmake_install.cmake pre-defines it before any
+# install(CODE) block runs - confirmed against a real generated
+# cmake_install.cmake on this machine), and $ENV{DESTDIR} is read
+# fresh from the environment of THIS invocation - the staging root
+# that, per PACKAGING.md, "does not exist, and is not knowable, at
+# CMake CONFIGURE time".
+#
+# WHAT THIS DOES NOT TRY TO HANDLE, DECLARED (GODS_LAWS.md L-27,
+# honest downgrade over silent overclaiming):
+#   - Cross-compilation needs nothing special here: every check below
+#     reads the filesystem and runs `pkg-config`/`pkgconf`, a HOST
+#     tool operating on text - it never executes the target-arch
+#     library or an object file, so nothing here is target-arch
+#     sensitive.
+#   - Component-scoped installs (`cmake --install --component X`)
+#     need nothing special either, and this is a property of THIS
+#     PROJECT today, not a general claim: none of glintfx's install()
+#     rules (library, headers, CMake package, glintfx.pc, and this
+#     validation's own install(CODE)) declare a COMPONENT, so they all
+#     share the implicit default component - CMake's generated
+#     cmake_install.cmake wraps every one of them, this file's
+#     include() line included, in the identical
+#     `if(NOT CMAKE_INSTALL_COMPONENT OR CMAKE_INSTALL_COMPONENT
+#     STREQUAL "Unspecified")` guard (confirmed against a real
+#     generated cmake_install.cmake on this machine). A
+#     `--component <name>` install for any OTHER name installs
+#     NOTHING for this project at all - no library, no headers, no
+#     glintfx.pc - and this validation is skipped right along with
+#     them, for the same reason, not by any special-casing here. If a
+#     future fatia splits glintfx's install() rules into distinct
+#     COMPONENTs, this file's own install(CODE) registration
+#     (glintfx_register_pkgconfig_validation(), cmake/GlintfxPkgConfigValidate.cmake)
+#     needs a COMPONENT argument added at the same time, or it would
+#     start running against a partial, intentionally-incomplete
+#     component install and misreport that as broken.
+#   - What "Libs.private carries the right linker token for a static
+#     build" MEANS (its content, and that it is genuinely load-bearing
+#     for a real static link) is PKG-DIST's own, already-tested claim
+#     (tests/tools/check_pkgconfig.sh's static scenario). This file
+#     only proves every PATH glintfx.pc emits (via a plain,
+#     non-`--static` `--cflags`/`--libs` query - the one every
+#     consumer hits) resolves to something real; re-querying
+#     `--static` here would duplicate a claim already covered
+#     elsewhere without covering any layout PKG-DIST's own scenario 5
+#     does not already reach.
+#   - Windows library-artifact naming (glintfx.lib, not
+#     libglintfx.so*/libglintfx.a) is out of scope, mirroring
+#     PACKAGING.md's own declared Windows exclusion for pkg-config
+#     ("pkg-config is a Unix/Linux packaging convention, and glintfx
+#     has no platform layer outside Unix yet"). On a Windows machine
+#     that happens to have pkg-config/pkgconf on PATH anyway (MSYS2),
+#     this file's library-artifact glob would not match glintfx.lib
+#     and would report a false failure - accepted for now because
+#     nothing in glintfx today ships a working glintfx.pc use case on
+#     Windows to begin with; whoever adds a Windows platform layer
+#     that ships pkg-config support needs to extend the glob in
+#     glintfx_pkgconfig_validate_variable() below, not silently work
+#     around it.
+#
+# Two escape hatches, both named GLINTFX_SKIP_PKGCONFIG_VALIDATION on
+# purpose (one name, two mechanisms, same intent): the CACHE option in
+# cmake/GlintfxOptions.cmake, read at CONFIGURE time by
+# glintfx_register_pkgconfig_validation() BEFORE this file is even
+# generated (skips it for good, for this build directory); and the
+# ENVIRONMENT variable read at the top of
+# glintfx_validate_installed_pkgconfig() below, at INSTALL time -
+# because a packaging pipeline that configures ONCE and installs
+# SEVERAL times against different DESTDIR/--component values (a real
+# pattern: RPM's `%install` section can invoke `%cmake_install` more
+# than once) should not have to reconfigure the whole tree just to
+# skip this one check on one of those invocations.
+#
+# Each function below does one thing (GODS_LAWS.md L-17).
+
+# Resolves the STAGED (DESTDIR-aware) pkgconfig/ directory this
+# install actually wrote glintfx.pc into - never a predicted value,
+# only the same inputs GNUInstallDirs' own install() rules already
+# used to decide where to write it for real.
+function(glintfx_pkgconfig_validate_resolve_staged_dir out_var)
+    cmake_path(SET _glintfx_configured_libdir NORMALIZE "@GLINTFX_NORMALIZED_INSTALL_LIBDIR@")
+
+    if(IS_ABSOLUTE "${_glintfx_configured_libdir}")
+        # GNUInstallDirs allows CMAKE_INSTALL_LIBDIR to be absolute
+        # (a packager staging into a fixed system location outside
+        # CMAKE_INSTALL_PREFIX) - install() ignores CMAKE_INSTALL_PREFIX
+        # entirely for an already-absolute DESTINATION, so this branch
+        # must too (same rule glintfx_compute_pkgconfig_relocatable_prefix()
+        # in cmake/GlintfxInstall.cmake already applies to glintfx.pc's
+        # OWN prefix= content).
+        set(_glintfx_dir_no_destdir "${_glintfx_configured_libdir}/pkgconfig")
+    else()
+        set(_glintfx_prefix "${CMAKE_INSTALL_PREFIX}")
+        cmake_path(APPEND _glintfx_prefix "${_glintfx_configured_libdir}" "pkgconfig"
+            OUTPUT_VARIABLE _glintfx_dir_no_destdir)
+    endif()
+
+    if(DEFINED ENV{DESTDIR} AND NOT "$ENV{DESTDIR}" STREQUAL "")
+        # DESTDIR is a plain, unconditional string PREFIX applied to
+        # an already-absolute destination - deliberately NOT
+        # cmake_path(APPEND), which treats an absolute right-hand
+        # side as "replace the base", the opposite of what DESTDIR
+        # means. This mirrors what CMake's own file(INSTALL) does
+        # internally for the SAME reason (PACKAGING.md: "DESTDIR
+        # prepends to EVERY destination, relative or absolute,
+        # without changing any path baked into the installed files'
+        # own content").
+        set(${out_var} "$ENV{DESTDIR}${_glintfx_dir_no_destdir}" PARENT_SCOPE)
+    else()
+        set(${out_var} "${_glintfx_dir_no_destdir}" PARENT_SCOPE)
+    endif()
+endfunction()
+
+# Resolves ONE pkg-config --variable=<name> value against real
+# content on disk. expected_content_kind is "headers" (must contain a
+# glintfx/ subdirectory) or "library" (must contain
+# libglintfx.so*/libglintfx.a) - the only two things any path glintfx.pc
+# emits ever names, same two shapes tests/tools/check_pkgconfig.sh's
+# own assert_dir_contains_expected_content already checks in CI.
+function(glintfx_pkgconfig_validate_variable pkgconfig_dir pc_file var_name expected_content_kind)
+    execute_process(
+        COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" "--variable=${var_name}" glintfx
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE value
+        ERROR_VARIABLE error_output
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT result EQUAL 0 OR value STREQUAL "")
+        message(FATAL_ERROR
+            "glintfx: 'pkg-config --variable=${var_name} glintfx' against "
+            "the file just installed at '${pc_file}' "
+            "(PKG_CONFIG_PATH=${pkgconfig_dir}) returned an EMPTY value "
+            "(exit ${result}, stderr: '${error_output}') - glintfx.pc "
+            "should always define ${var_name}. Skip this check with "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
+            "this `cmake --install` invocation, then verify the "
+            "install by hand."
+        )
+    endif()
+
+    cmake_path(ABSOLUTE_PATH value NORMALIZE)
+
+    if(NOT IS_DIRECTORY "${value}")
+        message(FATAL_ERROR
+            "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
+            "which does not exist on disk (installed at '${pc_file}', "
+            "PKG_CONFIG_PATH=${pkgconfig_dir}) - the packaging step "
+            "that should have created it either failed silently or "
+            "put its output somewhere else. Skip this check with "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
+            "this `cmake --install` invocation, then verify the "
+            "install by hand."
+        )
+    endif()
+
+    if(expected_content_kind STREQUAL "headers")
+        if(NOT IS_DIRECTORY "${value}/glintfx")
+            message(FATAL_ERROR
+                "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
+                "which exists but has no 'glintfx/' subdirectory - the "
+                "installed public headers are not there (pc file: "
+                "'${pc_file}'). Skip this check with "
+                "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment "
+                "of this `cmake --install` invocation, then verify the "
+                "install by hand."
+            )
+        endif()
+    elseif(expected_content_kind STREQUAL "library")
+        file(GLOB _glintfx_lib_matches "${value}/libglintfx.so*" "${value}/libglintfx.a")
+        if(_glintfx_lib_matches STREQUAL "")
+            message(FATAL_ERROR
+                "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
+                "which exists but has no libglintfx.so*/libglintfx.a - "
+                "the installed library artifact is not there (pc file: "
+                "'${pc_file}'). Skip this check with "
+                "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment "
+                "of this `cmake --install` invocation, then verify the "
+                "install by hand."
+            )
+        endif()
+    else()
+        message(FATAL_ERROR
+            "glintfx: glintfx_pkgconfig_validate_variable: unknown "
+            "expected_content_kind '${expected_content_kind}' (internal "
+            "error in glintfx's own install(CODE) validation - this is "
+            "not something a packaging layout can trigger)."
+        )
+    endif()
+endfunction()
+
+# Resolves EVERY -I/-L token pkg-config emits for a plain (non
+# --static) `--cflags`/`--libs` query - the query every real consumer
+# runs first. GODS_LAWS.md L-40 floor: a Cflags:/Libs: line with no
+# -I/-L token at all would make the loops below iterate zero times and
+# this function would still return without complaint - the exact
+# "portao que nao olha e imprime verde" defect class L-40 exists to
+# rule out, and the concrete ancestor of THIS validator (PKG-DIST's
+# own output-content atom, tests/tools/check_pkgconfig.sh) was found
+# with precisely this gap once already.
+function(glintfx_pkgconfig_validate_flags pkgconfig_dir pc_file)
+    execute_process(
+        COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --cflags glintfx
+        RESULT_VARIABLE cflags_result
+        OUTPUT_VARIABLE cflags_output
+        ERROR_VARIABLE cflags_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT cflags_result EQUAL 0)
+        message(FATAL_ERROR
+            "glintfx: 'pkg-config --cflags glintfx' against the file "
+            "just installed at '${pc_file}' (PKG_CONFIG_PATH=${pkgconfig_dir}) "
+            "failed (exit ${cflags_result}, stderr: '${cflags_error}'). "
+            "Skip this check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 "
+            "in the environment of this `cmake --install` invocation, "
+            "then verify the install by hand."
+        )
+    endif()
+
+    execute_process(
+        COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --libs glintfx
+        RESULT_VARIABLE libs_result
+        OUTPUT_VARIABLE libs_output
+        ERROR_VARIABLE libs_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(NOT libs_result EQUAL 0)
+        message(FATAL_ERROR
+            "glintfx: 'pkg-config --libs glintfx' against the file "
+            "just installed at '${pc_file}' (PKG_CONFIG_PATH=${pkgconfig_dir}) "
+            "failed (exit ${libs_result}, stderr: '${libs_error}'). "
+            "Skip this check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 "
+            "in the environment of this `cmake --install` invocation, "
+            "then verify the install by hand."
+        )
+    endif()
+
+    separate_arguments(cflags_tokens UNIX_COMMAND "${cflags_output}")
+    separate_arguments(libs_tokens UNIX_COMMAND "${libs_output}")
+
+    set(include_flag_count 0)
+    foreach(token IN LISTS cflags_tokens)
+        if(token MATCHES "^-I(.+)$")
+            set(include_path "${CMAKE_MATCH_1}")
+            cmake_path(ABSOLUTE_PATH include_path NORMALIZE)
+            if(NOT IS_DIRECTORY "${include_path}" OR NOT IS_DIRECTORY "${include_path}/glintfx")
+                message(FATAL_ERROR
+                    "glintfx: 'pkg-config --cflags glintfx' emitted "
+                    "'${token}', which resolves to '${include_path}' - "
+                    "not a directory containing a 'glintfx/' subdirectory "
+                    "(pc file: '${pc_file}'). Skip this check with "
+                    "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
+                    "environment of this `cmake --install` invocation, "
+                    "then verify the install by hand."
+                )
+            endif()
+            math(EXPR include_flag_count "${include_flag_count} + 1")
+        endif()
+    endforeach()
+
+    set(library_flag_count 0)
+    foreach(token IN LISTS libs_tokens)
+        if(token MATCHES "^-L(.+)$")
+            set(library_path "${CMAKE_MATCH_1}")
+            cmake_path(ABSOLUTE_PATH library_path NORMALIZE)
+            file(GLOB _glintfx_lib_matches "${library_path}/libglintfx.so*" "${library_path}/libglintfx.a")
+            if(NOT IS_DIRECTORY "${library_path}" OR _glintfx_lib_matches STREQUAL "")
+                message(FATAL_ERROR
+                    "glintfx: 'pkg-config --libs glintfx' emitted "
+                    "'${token}', which resolves to '${library_path}' - "
+                    "not a directory containing libglintfx.so*/libglintfx.a "
+                    "(pc file: '${pc_file}'). Skip this check with "
+                    "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
+                    "environment of this `cmake --install` invocation, "
+                    "then verify the install by hand."
+                )
+            endif()
+            math(EXPR library_flag_count "${library_flag_count} + 1")
+        endif()
+    endforeach()
+
+    if(include_flag_count EQUAL 0)
+        message(FATAL_ERROR
+            "glintfx: 'pkg-config --cflags glintfx' emitted ZERO -I "
+            "flags ('${cflags_output}', pc file: '${pc_file}') - an "
+            "empty Cflags: line would make this validator scan "
+            "nothing and still report success (GODS_LAWS.md L-40). "
+            "Skip this check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 "
+            "in the environment of this `cmake --install` invocation, "
+            "then verify the install by hand."
+        )
+    endif()
+    if(library_flag_count EQUAL 0)
+        message(FATAL_ERROR
+            "glintfx: 'pkg-config --libs glintfx' emitted ZERO -L "
+            "flags ('${libs_output}', pc file: '${pc_file}') - an "
+            "empty Libs: line would make this validator scan nothing "
+            "and still report success (GODS_LAWS.md L-40). Skip this "
+            "check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
+            "environment of this `cmake --install` invocation, then "
+            "verify the install by hand."
+        )
+    endif()
+
+    message(STATUS
+        "glintfx: post-install pkg-config validation - "
+        "${include_flag_count} -I flag(s) and ${library_flag_count} "
+        "-L flag(s) all resolve to real, populated directories."
+    )
+endfunction()
+
+function(glintfx_validate_installed_pkgconfig)
+    if(DEFINED ENV{GLINTFX_SKIP_PKGCONFIG_VALIDATION}
+       AND NOT "$ENV{GLINTFX_SKIP_PKGCONFIG_VALIDATION}" STREQUAL ""
+       AND NOT "$ENV{GLINTFX_SKIP_PKGCONFIG_VALIDATION}" STREQUAL "0")
+        message(STATUS
+            "glintfx: post-install pkg-config validation skipped - "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION is set in the "
+            "environment of this `cmake --install` invocation."
+        )
+        return()
+    endif()
+
+    glintfx_pkgconfig_validate_resolve_staged_dir(_glintfx_pkgconfig_dir)
+    set(_glintfx_pc_file "${_glintfx_pkgconfig_dir}/glintfx.pc")
+
+    if(NOT EXISTS "${_glintfx_pc_file}")
+        message(FATAL_ERROR
+            "glintfx: expected to find glintfx.pc at "
+            "'${_glintfx_pc_file}' right after installing it, and it "
+            "is not there. This usually means CMAKE_INSTALL_LIBDIR, "
+            "CMAKE_INSTALL_PREFIX or DESTDIR combined in a way this "
+            "validation step did not anticipate. Skip this check with "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
+            "this `cmake --install` invocation (or reconfigure with "
+            "-DGLINTFX_SKIP_PKGCONFIG_VALIDATION=ON to disable it "
+            "permanently for this build), then verify the install by "
+            "hand."
+        )
+    endif()
+
+    find_program(GLINTFX_PKGCONFIG_VALIDATE_EXE NAMES pkg-config pkgconf NO_CACHE)
+    if(NOT GLINTFX_PKGCONFIG_VALIDATE_EXE)
+        message(WARNING
+            "glintfx: pkg-config (and pkgconf) not found on PATH - "
+            "skipping post-install validation. glintfx.pc was written "
+            "to '${_glintfx_pc_file}', but this step has no tool to "
+            "confirm it actually resolves correctly. Install "
+            "pkg-config (or pkgconf) to get this check, or set "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 to silence this "
+            "warning intentionally."
+        )
+        return()
+    endif()
+
+    set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_dir}")
+
+    execute_process(
+        COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --print-errors --exists glintfx
+        RESULT_VARIABLE _glintfx_exists_result
+        ERROR_VARIABLE _glintfx_exists_error
+        OUTPUT_QUIET
+    )
+    if(NOT _glintfx_exists_result EQUAL 0)
+        message(FATAL_ERROR
+            "glintfx: 'pkg-config --exists glintfx' failed against "
+            "the file just installed at '${_glintfx_pc_file}' "
+            "(PKG_CONFIG_PATH=${_glintfx_pkgconfig_dir}): "
+            "${_glintfx_exists_error}. Skip this check with "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
+            "this `cmake --install` invocation, then verify the "
+            "install by hand."
+        )
+    endif()
+
+    glintfx_pkgconfig_validate_variable("${_glintfx_pkgconfig_dir}" "${_glintfx_pc_file}" includedir headers)
+    glintfx_pkgconfig_validate_variable("${_glintfx_pkgconfig_dir}" "${_glintfx_pc_file}" libdir library)
+    glintfx_pkgconfig_validate_flags("${_glintfx_pkgconfig_dir}" "${_glintfx_pc_file}")
+
+    message(STATUS
+        "glintfx: post-install pkg-config validation passed - "
+        "glintfx.pc at '${_glintfx_pc_file}' resolves via pkg-config "
+        "alone to real, populated directories."
+    )
+endfunction()
+
+glintfx_validate_installed_pkgconfig()

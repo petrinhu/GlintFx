@@ -523,6 +523,38 @@ if(UNIX)
     set_tests_properties(pkgconfig_test PROPERTIES LABELS consume)
 endif()
 
+# Post-install pkg-config VALIDATOR gate (PKG-VALIDATE): proves the
+# install(CODE) step in cmake/GlintfxPkgConfigValidate.cmake /
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in - the piece that
+# runs on a PACKAGER's own machine, at `cmake --install` time, not
+# only in this project's own CI - actually fires, actually resolves
+# the real (including DESTDIR-staged) install location, actually
+# honors both halves of its escape hatch, and fails CLOSED with a
+# self-sufficient diagnostic on a real broken library artifact, a
+# real missing glintfx.pc, and a hand-assembled empty-Cflags/Libs
+# fixture (GODS_LAWS.md L-40), while degrading to a WARNING (not a
+# FATAL_ERROR) when pkg-config itself is absent from PATH - see
+# check_pkgconfig_validate.sh's own header for the eight scenarios and
+# what is deliberately NOT independently re-proven. This is a
+# DIFFERENT claim than pkgconfig_test above: that gate proves
+# glintfx.pc's CONTENT is correct across six layouts OUR OWN CI
+# enumerates; this one proves the VALIDATOR ITSELF, which is designed
+# to reach layouts neither pkgconfig_test nor any of this project's CI
+# jobs ever try (GODS_LAWS.md LEI ZERO: the base of consumers is
+# public and unknown). POSIX sh; same declared downgrade as the other
+# consumption gates above (pkg-config's own convention is Unix/Linux
+# packaging; no Windows-specific coverage here for the same reason
+# pkgconfig_test has none - see that gate's own comment).
+if(UNIX)
+    add_test(
+        NAME pkgconfig_validate_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig_validate.sh"
+            "${PROJECT_SOURCE_DIR}"
+            "${CMAKE_CXX_COMPILER}"
+    )
+    set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume)
+endif()
+
 # Blank install-dir gate (adversarial review round 3, PKG-DIST task 3):
 # proves CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_INCLUDEDIR are refused at
 # CONFIGURE time when empty or whitespace-only

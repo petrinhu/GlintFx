@@ -128,3 +128,24 @@ option(GLINTFX_EMBEDDED_RUNTIME_COLOCATE
     "When glintfx is embedded and built shared on Windows, place glintfx's own DLL next to the outermost project's default runtime output location, so an embedding consumer's executable finds it without any extra step"
     ${GLINTFX_EMBEDDED_RUNTIME_COLOCATE_DEFAULT}
 )
+
+# PKG-VALIDATE (GODS_LAWS.md LEI ZERO): tests/tools/check_pkgconfig.sh
+# (PKG-DIST) only proves the layouts OUR OWN CI enumerates. This option
+# is the CONFIGURE-time half of the escape hatch for the install(CODE)
+# step (cmake/GlintfxPkgConfigValidate.cmake) that validates the
+# installed glintfx.pc on every OTHER machine that runs
+# `cmake --install`, including layouts nobody here has ever tried -
+# a validator that can fail an unknown packager's build has to be
+# skippable without a fight, and reconfiguring is sometimes not an
+# option (a build directory shared across tooling that only ever
+# passes `cmake --install`, never `cmake -S/-B` again). The INSTALL-time
+# half of the same hatch - the GLINTFX_SKIP_PKGCONFIG_VALIDATION
+# ENVIRONMENT variable, read fresh on every `cmake --install`
+# invocation regardless of this cache option - is documented in
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in, where it is
+# actually read; both share this exact name on purpose (one name, two
+# places to set it, same intent).
+option(GLINTFX_SKIP_PKGCONFIG_VALIDATION
+    "Skip the post-install validation that confirms the installed glintfx.pc resolves to real, populated directories (GODS_LAWS.md LEI ZERO / PKG-VALIDATE) - glintfx.pc is still installed either way, only the check is skipped"
+    OFF
+)

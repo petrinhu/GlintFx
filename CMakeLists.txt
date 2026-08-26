@@ -51,6 +51,7 @@ include(GlintfxOptions)
 include(GlintfxCompileOptions)
 include(GlintfxLibrary)
 include(GlintfxInstall)
+include(GlintfxPkgConfigValidate)
 
 # UNIX only (GODS_LAWS.md L-05): pkg_check_modules(... REQUIRED ...)
 # inside this module would hard-fail configure on a platform with no
@@ -77,6 +78,11 @@ if(GLINTFX_INSTALL)
     # which that include() populates at its own include-time
     # pkg_check_modules() call, well before this line runs.
     glintfx_install_pkgconfig()
+    # After glintfx_install_pkgconfig(), on purpose (PKG-VALIDATE):
+    # install() rules run in the order they are registered, and this
+    # step has to find glintfx.pc already written to disk when it
+    # runs at `cmake --install` time.
+    glintfx_register_pkgconfig_validation()
 endif()
 
 if(GLINTFX_BUILD_TESTS)

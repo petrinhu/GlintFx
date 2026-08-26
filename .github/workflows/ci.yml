@@ -530,6 +530,90 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --sanitizer-only
 
+  # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez
+  # entre compiladores diferentes da GODS_LAWS.md L-22 (o motivo dela e
+  # ABI: excecao atravessando .so exige RTTI compativel entre
+  # compiladores) - ate aqui o CI so compilava com GCC (`linux`) e MSVC
+  # (`windows`), nunca Clang. Fedora 44 apenas (mesmo raciocinio dos
+  # jobs `lint`/`sanitizer` acima, que tambem so rodam la): achado de
+  # COMPILADOR nao e especifico de distro, e um segundo eixo (Fedora x
+  # Ubuntu x Arch x CachyOS) so multiplicaria o tempo de CI sem provar
+  # nada novo. Duas entradas de matriz (compartilhado/estatico), mesma
+  # forma CI-CONSUME dos jobs `linux`/`windows` acima - independentes,
+  # nao passos sequenciais. -DGLINTFX_WERROR=ON: cmake/GlintfxCompileOptions.cmake
+  # ja trata Clang igual a GNU para -Wall/-Wextra/-Wpedantic/-Werror, sem
+  # ramo por-compilador a manter aqui - medido em container fedora:44
+  # antes deste job existir: os DOIS modos compilam limpos, zero aviso.
+  clang:
+    name: Clang (Fedora 44 - segundo compilador, ${{ matrix.modo }})
+    runs-on: ubuntu-latest
+    container: fedora:44
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - modo: compartilhado
+            builddir: build-shared
+            shared_flag: ""
+          - modo: estatico
+            builddir: build-static
+            shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+    steps:
+      - name: Instalar toolchain
+        run: >-
+          dnf -y install clang cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel
+
+      - uses: actions/checkout@v4
+
+      - name: Versao do Clang
+        run: clang++ --version
+
+      - name: Build (${{ matrix.modo }})
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake --build ${{ matrix.builddir }}
+
+      # DOWNGRADE DECLARADO, mesmo padrao do job `sanitizer` acima (nao
+      # um portao mais fraco escondido atras de nome generico): so
+      # `ctest -L unit`, nao a suite inteira. Achado REAL, medido em
+      # container fedora:44 (nao suposto, nunca corrigido aqui - fora de
+      # escopo desta fatia, GODS_LAWS.md L-12: quem escreve o job de CI
+      # nao conserta codigo de produto ou teste no mesmo commit): dois
+      # gates de CONSUMO (install_packager_layout_test, pkgconfig_test -
+      # LABELS consume, tests/CMakeLists.txt) reprovam sob Clang neste
+      # alvo, e o GCC do MESMO container passa nos dois. Causa raiz
+      # confirmada por medicao direta (nao suposicao): (1)
+      # install_packager_layout_test - CMake auto-detecta
+      # CMAKE_LIBRARY_ARCHITECTURE=x86_64-redhat-linux-gnu para o Clang
+      # do Fedora (o GCC do MESMO Fedora nao reporta arquitetura
+      # nenhuma - e por isso que o "hinted scenario" do teste sempre
+      # bastava ate aqui), e esse valor auto-detectado sobrepoe o hint
+      # explicito (`-DCMAKE_LIBRARY_ARCHITECTURE=x86_64-linux-gnu`) que
+      # check_install_packager_layout.sh passa para o consumidor -
+      # find_package procura em lib/x86_64-redhat-linux-gnu/cps/ em vez
+      # de lib/x86_64-linux-gnu/cmake/, onde o pacote foi instalado. (2)
+      # pkgconfig_test - o controle negativo de Libs.private
+      # (assert_probe_links_without_wayland_client_fails,
+      # tests/tools/check_pkgconfig.sh) linka a sonda SEM
+      # -lwayland-client e espera falha por simbolo indefinido; sob GCC
+      # falha como esperado, sob Clang o link "sucede" sem nenhum
+      # simbolo wl_* no binario final (confirmado por readelf/nm: o
+      # membro do arquivo estatico que contem xdg_wm_base_interface
+      # nunca chega a ser extraido do .a) - o proprio premissa da sonda
+      # ("referenciar este simbolo forca a extracao") nao se sustenta
+      # sob este compilador. Nenhum dos dois e defeito de PRODUTO
+      # (nenhuma linha de src/ ou include/ envolvida) - sao suposicoes
+      # de infraestrutura de teste que valiam sob GCC e nao sob Clang.
+      # Achados reportados na tabela de pendencias, nao consertados
+      # aqui - ver TODO.md, item CLANG-JOB.
+      - name: ctest -L unit (${{ matrix.modo }})
+        run: |
+          set -eux
+          ctest --test-dir ${{ matrix.builddir }} -L '^unit$' --output-on-failure
+
   gitleaks:
     name: Gitleaks (scan de segredo)
     runs-on: ubuntu-latest

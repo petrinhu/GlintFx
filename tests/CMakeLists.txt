@@ -137,6 +137,18 @@ if(UNIX)
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.sh" "${CMAKE_SOURCE_DIR}"
     )
     set_tests_properties(layers_test PROPERTIES LABELS consume)
+
+    # GODS_LAWS.md L-40 achado (revisao adversarial, 25/08/2026):
+    # layers_test was the ONLY test wired to this gate, and always ran
+    # against the real repo root (never empty) - the empty-scan floor
+    # inside check_layers.sh was never exercised by the suite. Wiring
+    # --selftest here closes that gap, same consume/selftest label
+    # taxonomy as the other gates in this file.
+    add_test(
+        NAME layers_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.sh" --selftest
+    )
+    set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 endif()
 
 # L-05/L-06 gate (GODS_LAWS.md, "Gate L-05/L-06" job of

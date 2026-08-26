@@ -106,6 +106,8 @@ check_dup_laws() {
 
     count=0
     mismatch=0
+    diff_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-dup-laws-diff-XXXXXX")"
+    trap 'rm -rf "$diff_dir"' EXIT
     while IFS= read -r id; do
         [ -z "$id" ] && continue
         count=$((count + 1))
@@ -113,12 +115,25 @@ check_dup_laws() {
         text_b="$(block_text "$escopo" "$id")"
         if [ "$text_a" != "$text_b" ]; then
             echo "check_dup_laws.sh: bloco '$id' DIVERGE entre os dois arquivos:" >&2
-            diff -u <(printf '%s\n' "$text_a") <(printf '%s\n' "$text_b") >&2 || true
+            # POSIX sh has no <(...) process substitution (bashism):
+            # write the two sides to real files and diff those. This
+            # is the exact defect CI hit on Ubuntu's dash /bin/sh
+            # (dup_laws_test/dup_laws_selftest, 26/08/2026): "sh" here
+            # is #!/usr/bin/env sh, so this file must actually be
+            # POSIX, not merely run correctly under whichever bash
+            # happens to answer to "sh" on the developer's own machine.
+            file_a="$diff_dir/a_$count"
+            file_b="$diff_dir/b_$count"
+            printf '%s\n' "$text_a" > "$file_a"
+            printf '%s\n' "$text_b" > "$file_b"
+            diff -u "$file_a" "$file_b" >&2 || true
             mismatch=1
         fi
     done <<EOF
 $sorted_a
 EOF
+    rm -rf "$diff_dir"
+    trap - EXIT
 
     if [ "$mismatch" -ne 0 ]; then
         return 1

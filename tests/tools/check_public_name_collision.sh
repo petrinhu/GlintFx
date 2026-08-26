@@ -382,6 +382,21 @@ check_public_name_collision() {
     cxx="$2"
     scratch="$3"
 
+    # This function OWNS writing into $scratch (the awk program below,
+    # plus whatever future scratch file a caller adds) - it creates
+    # its own workspace instead of trusting every caller to have done
+    # it. Missing on purpose before 26/08/2026: CI on Ubuntu's dash
+    # /bin/sh hit this directly (public_name_collision_selftest,
+    # "cannot create .../empty-our-names-work/enumerate_names.awk:
+    # Directory nonexistent") because dash aborts the WHOLE script on
+    # a redirection failure even without set -e, unlike bash, which
+    # merely fails that one command under set -e and let the selftest
+    # limp on to a coincidentally-matching "varredura vazia" message -
+    # masking the real bug on every developer machine that answers to
+    # "sh" with bash (this one included, and Fedora/CachyOS/Arch's own
+    # /bin/sh too, measured 26/08/2026).
+    mkdir -p "$scratch"
+
     awk_file="$scratch/enumerate_names.awk"
     write_enumerate_names_awk "$awk_file"
 

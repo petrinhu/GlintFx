@@ -153,6 +153,29 @@ Dito de forma direta: a arquitetura **reforça** a L-17 (camada e módulo estrei
 
 ---
 
+### As 6 decisões de 26/08/2026 sobre o tipo de cor (`CORE-COLOR`) — porta de mão única
+
+Por `AskUserQuestion` (L-10), com as opções escritas pelo CTO em `/var/tmp/glintfx-plan/core-color-opcoes.md` e os fatos verificados por ele na documentação pública dos padrões (seções citadas, não de memória).
+
+| # | Decisão | Régua da L-26 |
+|---|---|---|
+| 40 | **Quatro números decimais de 32 bits, 16 bytes.** Não inteiros pequenos de 4 bytes. | congela `A` (binário) |
+| 41 | **A transparência fica DENTRO do tipo.** | congela `A` (binário) |
+| 42 | **Os números representam LUZ FÍSICA** (escala linear), não o valor codificado que a tela recebe. | ⚠️ **a mais perigosa** |
+| 43 | **Nome público: `gltfx_rgba`.** | congela `A` (recompilação) |
+| 44 | **Alfa cru, não pré-multiplicado**, como o padrão faz. | muda folha já escrita |
+| 45 | **Só as conversões mínimas congelam:** ida e volta com o formato de 8 bits da tela, mais o auxiliar de multiplicação pela transparência. | fronteira mínima |
+
+**O argumento que decidiu, e é o mais importante de registrar:** com quatro números pequenos, **o branco é teto absoluto** — somar duas luzes brancas dá branco, e a conta para no limite. Mas o **brilho intenso** (decisão 26) e a **soma de luz** (decisão 27), que o líder comprou nesta mesma sessão, precisam de valores **acima do branco**: é assim que uma luz forte estoura e vaza para fora do objeto. E o **`oklch()`** (decisões 7 e 8) descreve cores que a tela não mostra, trazidas ao alcance só na hora de pintar; com inteiros pequenos elas seriam **amputadas no nascimento**, antes de qualquer conta.
+
+**Ou seja: a opção barata era cara exatamente onde o líder já tinha investido.** Custo de errar estrutural, não linear.
+
+⚠️ **Por que a decisão 42 é a mais perigosa das seis:** trocar a escala depois **quebra a cor na tela de todo consumidor SEM quebrar compilação nenhuma**. Nada acusa, nada falha, e o desenho fica errado. Por isso o significado dos números vai **escrito no cabeçalho** e provado por teste de ida e volta com valores fixados, não deixado como convenção implícita.
+
+**Fatos verificados na fonte pelo CTO em 26/08/2026** (L-27, com a seção citada): o padrão de cor guarda alfa **cru** e pré-multiplica só durante a interpolação, desfazendo ao final; somar luz de forma fisicamente correta exige espaço **linear em intensidade**; e o `oklch()` tem chroma teoricamente ilimitado, expressando cores **fora do alcance da tela**.
+
+**Descartada com razão registrada:** números decimais de 16 bits. O fornecimento deles no padrão da linguagem é **condicional**, e o projeto não controla isso nas cinco plataformas da L-04.
+
 ## §3 — Versionamento e ABI
 
 ### Versão `vA.B.C.D`, `SOVERSION`, e o terceiro contrato (DADO)

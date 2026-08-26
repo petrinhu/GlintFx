@@ -553,6 +553,24 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Por que a distinção importa e não é preciosismo:** `gfss` e `gfml` são **formatos de dado** — arquivos que o consumidor escreve, e que a **L-26 governa como o terceiro contrato de versão**, aquele em que a pergunta é *"quem perde o arquivo"*. **`gfui` é código** — módulo, superfície pública, símbolo exportado, governado pelos contratos de API e de ABI. **Confundir os três é confundir três réguas de compatibilidade diferentes**, e quebrar formato não custa o mesmo que quebrar assinatura.
 
+### Legibilidade humana é REQUISITO, não gosto — 26/08/2026
+
+**Ordem do líder, verbatim:** *"gfss e gfml DEVEM ser tão simpaticos a humanos quanto css e html. quero marcacoes verbosas"*.
+
+**Os dois formatos são escritos e lidos POR PESSOAS, e o desenho se julga por isso.** Não são formato de máquina que por acaso alguém abre; são **linguagem de autoria**. Quem escreve uma folha `gfss` ou um documento `gfml` tem de conseguir **ler em voz alta e entender**, do mesmo jeito que se lê CSS e HTML.
+
+**A régua concreta, para não virar frase bonita sem consequência:**
+
+- **Verbosidade vence brevidade.** Onde houver escolha entre um nome curto e um nome que se explica, **ganha o que se explica**. `background-color` vence `bg`; `border-radius` vence `r`. **Digitar mais é barato; reler sem entender é caro**, e o texto é lido muitas vezes mais do que escrito.
+- **Nada de sigla, abreviação inventada ou código numérico** onde uma palavra serve. O leitor não deve precisar de tabela de tradução ao lado.
+- **Nada de sintaxe densa** — sem operador críptico, sem posicional obrigatório, sem "o terceiro campo é o alinhamento". **Se precisa contar vírgulas para saber o que uma linha faz, o desenho falhou.**
+- **O vocabulário segue o dos padrões web** onde eles já resolveram o problema, porque **milhões de pessoas já sabem essas palavras** — e conhecimento que o consumidor já tem é o recurso mais barato que existe. Inventar sinônimo para o que já tem nome é custo puro.
+- **Erro de escrita se diagnostica com linha, coluna e o que se esperava.** Formato amigável que falha com mensagem obscura **não é amigável** — é hostil na hora que mais importa.
+
+**O que isto NÃO autoriza:** copiar implementação de terceiro (**L-01**, **L-07** e a proibição concreta desta lei continuam inteiras). **Adotar vocabulário público não é adotar código de ninguém** — o parser é escrito em casa, do zero, como todo o resto.
+
+**Como isto entra na revisão:** proposta de sintaxe ou de nome de propriedade que **encurte às custas da clareza** é **achado de revisão**, não otimização. E a pergunta que o revisor faz não é *"funciona?"* — é ***"uma pessoa que nunca viu este formato entende esta linha lendo uma vez?"***
+
 **Aplicação:** o parser de RCSS é escopo grande e nasce com item próprio no `TODO.md`, quebrado em fatias (L-17), sob TDD estrito (L-20), com a superfície pública julgada como porta de mão única (L-19). Card, deck, bancada e mercado são design de **aplicação**, e regra de aplicação específica nunca entra na lib (L-02).
 
 ### Decisões de escopo da v1 do RCSS, tomadas pelo líder em 21/08/2026

@@ -47,7 +47,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | iniciar build pesado, ASan, teste de janela ou demo | L-25 armar o `watchcode` na janela e desarmar ao fim |
 | ⚖ | criar tag, publicar release, ou mexer na versão | L-26 versão e tag `vA.B.C.D`, `SOVERSION` segue o `A` |
 | ⚖ | escrever ordem de serviço, ou aceitar corte proposto por agente | L-27 fato separado de inferência; corte exige citação |
-| ⚖ | tocar folha de estilo, tema, layout de UI ou parser de estilo | L-28 motor **`gfui`**, folha **`gfss`**, marcação **`gfml`** (decidida, não aberta); em casa, sem RmlUi; **layout entra** |
+| ⚖ | tocar folha de estilo, tema, layout de UI ou parser de estilo | L-28 motor **`gfui`**, folha **`gfss`**, marcação **`gfml`**; **legibilidade humana é requisito — verboso vence curto**; em casa, sem RmlUi |
 | ⚖ | não saber como implementar algo, ou querer ver prior art | L-29 pode ler RmlUi e SDL3 para aprender; copiar é proibido |
 | ⚖ | tocar mapa, grade, colisão, rota ou visibilidade | L-30 mapa é mecanismo da lib; o formato é nosso; conteúdo de jogo fica fora |
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |

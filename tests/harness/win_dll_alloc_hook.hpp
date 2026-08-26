@@ -190,7 +190,7 @@ inline constexpr std::array<std::string_view, 2> k_candidate_names = {
 format_patch_diagnostic(std::span<const std::string_view> matched_names) {
     if (matched_names.empty()) {
         std::string message = "glintfx_test::dll_alloc_hook: matched NONE of the candidate "
-                               "allocation primitives; searched: ";
+                              "allocation primitives; searched: ";
         for (std::size_t i = 0; i < detail::k_candidate_names.size(); ++i) {
             if (i > 0) {
                 message += ", ";
@@ -221,7 +221,7 @@ namespace detail {
 // GetLastError() but is not itself a Windows type) so it is red/green
 // testable on every platform, same as format_patch_diagnostic() above.
 [[nodiscard]] inline std::string format_protect_restore_failure(std::string_view phase,
-                                                                  unsigned long last_error) {
+                                                                unsigned long last_error) {
     std::string message =
         "glintfx_test::dll_alloc_hook: VirtualProtect failed to restore original page "
         "protection during ";
@@ -399,7 +399,7 @@ class dll_alloc_hook {
             // own top comment for why aborting here would be the wrong
             // policy, not just an omission.
             std::fprintf(stderr, "%s\n",
-                          detail::format_protect_restore_failure("patch", ::GetLastError()).c_str());
+                         detail::format_protect_restore_failure("patch", ::GetLastError()).c_str());
         }
     }
 

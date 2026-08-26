@@ -55,7 +55,7 @@ GLINTFX_TEST(format_patch_diagnostic_declares_failure_and_lists_the_full_candida
     GLINTFX_CHECK(message.find("NONE") != std::string::npos);
     // ...and enumerates the whole closed candidate list that was
     // searched, so a stale list is legible from this line alone.
-    for (std::string_view candidate : glintfx_test::detail::k_candidate_names) {
+    for (const std::string_view candidate : glintfx_test::detail::k_candidate_names) {
         GLINTFX_CHECK(message.find(candidate) != std::string_view::npos);
     }
 }

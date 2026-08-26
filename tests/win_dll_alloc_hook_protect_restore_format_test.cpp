@@ -27,7 +27,7 @@ GLINTFX_TEST(format_protect_restore_failure_names_the_phase_and_the_os_error) {
     const std::string message = glintfx_test::detail::format_protect_restore_failure("restore", 5);
 
     GLINTFX_CHECK(message.find("restore") != std::string::npos);
-    GLINTFX_CHECK(message.find("5") != std::string::npos);
+    GLINTFX_CHECK(message.find('5') != std::string::npos);
 }
 
 GLINTFX_TEST(format_protect_restore_failure_distinguishes_the_two_call_sites) {

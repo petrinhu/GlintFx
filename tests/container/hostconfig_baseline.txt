@@ -46,9 +46,34 @@
 #      that is left OUTSIDE the placeholder match on purpose.
 #
 # The FIXED (non-cpu) portion of MaskedPaths and all of ReadonlyPaths
-# are NOT normalized: they are Docker's built-in default list for this
-# Docker version and do not vary by host topology, so an exact-text
-# mismatch there is real signal, not noise.
+# are NOT normalized when this file was written: they are Docker's
+# built-in default list for this Docker version and do not vary by
+# host topology, so an exact-text mismatch in their CONTENT is real
+# signal, not noise.
+#
+# ORDER-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): their
+# ORDER, unlike their content, is not something Docker promises to
+# hold stable. The real `wayland-container` CI job (ubuntu-latest)
+# reproved the positive control the first time it ran anywhere but the
+# leader's own machine: same MaskedPaths entries as below, same count,
+# just shuffled ("/proc/sched_debug", "/proc/scsi", "/sys/firmware"
+# and "/sys/devices/virtual/powercap" swapping position with each
+# other). check_isolation.sh's normalize_host_config() now runs
+# sort_json_arrays() on BOTH the live capture and THIS FILE's own
+# committed text before comparing them, so the JSON below is kept
+# exactly as historically measured - it is NOT hand-sorted - and the
+# compare is symmetric and order-independent purely at compare time.
+# sort_json_arrays() is generic (any flat `[...]` array, not a named
+# list), so it also covers CapAdd and CapDrop below, and every other
+# flat string-array HostConfig field that is null/empty in THIS
+# baseline but would populate as a scalar array if used: Dns,
+# DnsOptions, DnsSearch, ExtraHosts, VolumesFrom, Links, GroupAdd,
+# SecurityOpt, DeviceCgroupRules. It deliberately does NOT touch arrays
+# that hold JSON objects (BlkioWeightDevice, BlkioDeviceReadBps/
+# WriteBps/ReadIOps/WriteIOps, Devices, Ulimits, DeviceRequests when
+# populated) - see check_isolation.sh's own comment on sort_json_arrays()
+# for why that restriction is what keeps a smuggled device/mount
+# breaking the match on content, same as before this fix.
 #
 # Measured 26/08/2026 against Docker Server version 29.7.2 (`docker
 # version --format '{{.Server.Version}}'`) on the leader's Fedora 44

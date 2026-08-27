@@ -59,6 +59,34 @@
 # hostconfig_baseline.txt's own header, since that is the file that
 # has to be re-measured, not this script, when Docker's version moves.
 #
+# ORDER-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): the real
+# `wayland-container` CI job (runs-on ubuntu-latest) reproved the
+# positive control the very first time it ran on a host other than the
+# leader's Fedora 44 machine - not because any field's CONTENT
+# differed from hostconfig_baseline.txt, but because MaskedPaths' four
+# non-cpu entries ("/proc/sched_debug", "/proc/scsi", "/sys/firmware",
+# "/sys/devices/virtual/powercap") came back in a different ORDER: same
+# four strings, same count, shuffled. `docker inspect --format
+# '{{json .HostConfig}}'` never promises a stable element order for
+# any of its list-valued fields, and a per-field named exception
+# ("MaskedPaths order does not matter") would be exactly the
+# enumeration-blindness the whole-block compare above replaced -
+# CapAdd, CapDrop, Dns, DnsOptions, DnsSearch, ExtraHosts, VolumesFrom,
+# Links, GroupAdd, SecurityOpt, DeviceCgroupRules and ReadonlyPaths are
+# the other flat string-array fields visible in this project's own
+# baseline, every one exactly as order-unguaranteed as MaskedPaths. The
+# fix is therefore generic, not a named-field list: sort_json_arrays()
+# below canonicalizes the elements of every flat `[...]` span (one
+# with no nested `[`, `]`, `{` or `}`) into sorted order before the
+# compare, so no array-of-scalars field can reopen this bug under a
+# different name. It deliberately never touches an array that holds
+# JSON objects (Devices' `[{"PathOnHost":...}]` shape from FURO 1's own
+# poisoned-device control, or Ulimits/Blkio*'s object shape), so a
+# smuggled device or mount still breaks the match on content, exactly
+# as before - only a field's own element ORDER stops being significant,
+# never whether an element is present, absent, or new. See
+# normalize_host_config() and sort_json_arrays() below.
+#
 # Usage: check_isolation.sh <container-name> <socket-name>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -211,6 +239,59 @@ assert_cpu_masked_path_count_matches_host() {
         || fail "MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle, esperava $expected_count (contagem real de /sys/devices/system/cpu/cpuN/thermal_throttle neste host, GODS_LAWS.md L-40/ISO-BASELINE - nao 'nproc': maquina virtualizada pode ter nucleos sem essa interface, e dockerd so mascara o que existe): provavel --security-opt systempaths=unconfined (ou equivalente) esvaziando MaskedPaths/ReadonlyPaths sem tocar nenhum dos campos que este portao checava antes do ISO-BASELINE"
 }
 
+# ORDER-DRIFT (27/08/2026): canonicalizes the element order of every
+# flat JSON array in `text` - a `[...]` span whose contents hold no
+# nested `[`, `]`, `{` or `}` - by sorting its comma-separated elements
+# under `LC_ALL=C`. Text-level on purpose, same reason as
+# normalize_host_config() below (no JSON parser in this project,
+# GODS_LAWS.md L-07): the restriction to bracket spans with no `{`/`}`
+# inside is exactly what keeps this safe on an object-valued array
+# (Devices, Ulimits, Blkio*) without needing to parse one - the regex
+# below simply never matches into it, so its content (and therefore
+# its presence/absence signal) passes through untouched. Piped through
+# `awk`, not sed: this needs an actual sort, not a substitution, and
+# `awk` is already this project's established host-tooling pattern for
+# text logic sed cannot express (tests/tools/check_public_name_collision.sh's
+# enumerate_names.awk) - it is host-side test tooling, not something
+# the shipped library links against, so GODS_LAWS.md L-07 does not
+# reach it. Plain POSIX awk only (`match`, `split`, string `>`): this
+# script is proven with `shellcheck -s sh` across five platforms, and
+# the CI job that runs it is Ubuntu, whose default `awk` is mawk, not
+# gawk - no `asort()`, no gawk-only extension.
+sort_json_arrays() {
+    text="$1"
+    printf '%s' "$text" | LC_ALL=C awk '
+        function sort_csv(inner,    n, i, j, tmp, tok, out) {
+            if (inner == "") return ""
+            n = split(inner, tok, ",")
+            for (i = 2; i <= n; i++) {
+                tmp = tok[i]
+                j = i - 1
+                while (j >= 1 && tok[j] > tmp) {
+                    tok[j + 1] = tok[j]
+                    j--
+                }
+                tok[j + 1] = tmp
+            }
+            out = tok[1]
+            for (i = 2; i <= n; i++) out = out "," tok[i]
+            return out
+        }
+        {
+            s = $0
+            result = ""
+            while (match(s, /\[[^][{}]*\]/)) {
+                pre = substr(s, 1, RSTART - 1)
+                grp = substr(s, RSTART, RLENGTH)
+                inner = substr(grp, 2, length(grp) - 2)
+                result = result pre "[" sort_csv(inner) "]"
+                s = substr(s, RSTART + RLENGTH)
+            }
+            printf "%s", result s
+        }
+    '
+}
+
 # Normalizes the three genuinely execution-dependent parts of a raw
 # HostConfig capture before comparing it to the measured baseline -
 # see hostconfig_baseline.txt's own header for the full reasoning on
@@ -220,6 +301,12 @@ assert_cpu_masked_path_count_matches_host() {
 # for a fixed Docker version is a stable, deterministic single line,
 # so a plain sed pass is enough as long as it is applied identically
 # to the live capture and to how the committed baseline was produced.
+# A fourth step, sort_json_arrays() above, runs last: it is idempotent
+# on already-normalized text (no ConsoleSize/cpuN/OomKillDisable
+# pattern survives to re-match), which is what lets
+# assert_full_hostconfig_matches_baseline() below run this same
+# function over the committed baseline file too, instead of requiring
+# hostconfig_baseline.txt to be hand-edited into sorted order.
 #
 # The third (OomKillDisable) was found live while proving this
 # function's OWN positive control: the CI job's positive-control step
@@ -236,10 +323,11 @@ assert_cpu_masked_path_count_matches_host() {
 # unnormalized on purpose, so it still breaks the match.
 normalize_host_config() {
     raw="$1"
-    printf '%s' "$raw" \
+    sed_normalized="$(printf '%s' "$raw" \
         | sed -E 's#"ConsoleSize":\[[0-9]+,[0-9]+\]#"ConsoleSize":"NORMALIZED"#' \
         | sed -E 's#,"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle"##g; s#"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle",##g' \
-        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#'
+        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#')"
+    sort_json_arrays "$sed_normalized"
 }
 
 read_baseline_or_fail() {
@@ -259,11 +347,23 @@ read_baseline_or_fail() {
 # assert_only_internal_socket, same as the old
 # assert_host_config_matches_baseline did: PidMode is proven private
 # here before `pgrep` is ever called inside the container (FURO 2).
+#
+# ORDER-DRIFT (27/08/2026): `normalize_host_config()` runs on BOTH
+# sides here, not just on the live capture - hostconfig_baseline.txt
+# is committed as the raw text captured on the leader's machine
+# (array elements in whatever order that Docker build happened to
+# produce), and running it through sort_json_arrays() too is what
+# makes the compare order-independent without hand-editing that file.
+# This is safe only because normalize_host_config() is idempotent on
+# already-normalized text (see its own comment) - a baseline file that
+# somehow already went through this same pipeline once would compare
+# identically either way.
 assert_full_hostconfig_matches_baseline() {
     container="$1"
     raw="$2"
     normalized="$(normalize_host_config "$raw")"
-    baseline="$(read_baseline_or_fail)"
+    baseline_raw="$(read_baseline_or_fail)"
+    baseline="$(normalize_host_config "$baseline_raw")"
     if [ "$normalized" = "$baseline" ]; then
         echo "check_isolation.sh: HostConfig completo bate com o baseline medido (Docker $BASELINE_DOCKER_VERSION)"
         return 0

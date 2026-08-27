@@ -76,6 +76,33 @@ target_sources(gfss_color_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
 )
 
+# GFSS-SEL-PARSE-CORE (TODO.md, GODS_LAWS.md L-19/L-20/L-28/L-40):
+# selector grammar core (tag/.class/#id/*, compound, the four
+# combinators, comma-separated list, every argument-less pseudo-class
+# and the five functional ones recognized by name with a raw argument)
+# built on top of GFSS-TOKEN's own token stream - see gfss_selector_
+# parse_test.cpp's own header comment. Needs src/gfss/selector_parse.hpp
+# and its own private siblings (selector_ast.hpp, selector_pseudo_
+# vocabulary.hpp, selector_diagnostic_vocabulary.hpp), none promoted to
+# include/glintfx/ (GODS_LAWS.md L-19: "o header nasce interno") - the
+# SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir gfss_tokenizer_test/
+# gfss_color_parse_test above already add for their own private headers.
+glintfx_add_test(gfss_selector_parse_test)
+target_include_directories(gfss_selector_parse_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# selector_parse.cpp defines glintfx::style::detail::parse_selector_list()
+# with NO GLINTFX_API - deliberately (GODS_LAWS.md L-19: not yet a
+# public, ABI-frozen symbol) - the SAME reason gfss_color_parse_test
+# above compiles color_parse.cpp/named_colors.cpp a second time instead
+# of linking the hidden copy inside glintfx_library's own .so. This
+# test needs named_colors.hpp's own ascii_case_insensitive_equal() too
+# (selector_pseudo_vocabulary.hpp reuses it), but that function is
+# fully defined INLINE in the header (no .cpp counterpart to compile
+# in) - only selector_parse.cpp itself needs a second compile here.
+target_sources(gfss_selector_parse_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

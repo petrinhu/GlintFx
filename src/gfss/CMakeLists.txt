@@ -19,4 +19,5 @@ target_sources(glintfx_library PRIVATE
     tokenizer.cpp
     named_colors.cpp
     color_parse.cpp
+    selector_parse.cpp
 )

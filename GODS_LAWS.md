@@ -64,6 +64,7 @@
 | [L-38](#l-38) | nomear artefato binário, ou cogitar extensão própria para qualquer arquivo | Dado é nosso e pode ter extensão própria; binário usa `.so` e `.dll`, o que o SO espera |
 | [L-39](#l-39) | ver QUALQUER coisa vinda do Gus Dragon, em qualquer dos cinco canais | É prioridade e é SEMPRE respondida; o ack não espera o líder e interrompe a onda |
 | [L-40](#l-40) | escrever, revisar ou confiar em QUALQUER portão de qualidade | Piso de varredura não-vazia: contou zero, reprova; a contagem aparece na saída mesmo quando passa |
+| [L-41](#l-41) | escrever QUALQUER coisa dirigida ao líder: mensagem, pergunta, relatório | Explique pelo EFEITO, nunca pela implementação; nome de arquivo, função ou tipo só se ele pedir |
 
 ---
 
@@ -804,3 +805,27 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 5. **A enumeração é fechada por construção, não por busca dirigida.** Se o espaço é pequeno e enumerável — extensões de header, campos de configuração, células de uma matriz —, **enumere-o inteiro** em vez de procurar dentro dele. Busca dirigida encontra o que você suspeita; enumeração encontra o que você não sabia que devia suspeitar.
 
 **Corolário sobre alegação (reforça a L-27):** *"isto é testado"* é afirmação **verificável**, e só se escreve depois de ver o portão **reprovar** o caso que ela promete cobrir. Duas fatias foram reprovadas nesta semana por alegar verificação que não existia, uma delas num documento público dirigido ao consumidor externo. **Antes de escrever "isto prova X", quebre X e veja o teste falhar.**
+
+---
+
+## L-41
+
+**Data:** 27/08/2026, ordem do líder. **Verbatim dele:** *"Já pedi para nao ficar falando em codigo. TRansforme em lei."*
+
+**Ao falar com o líder, explique pelo EFEITO, nunca pela implementação. Nome de arquivo, de função, de tipo, de variável, de macro e trecho de código NÃO entram numa explicação dirigida a ele — a menos que ele peça.**
+
+**O que isto proíbe, na forma exata em que o defeito se repete:** a explicação nomeia a peça em vez do efeito. *"O `decode_number_lexeme` não checa o `result.ec` do `from_chars`"* não diz nada a quem decide; *"uma cor com número absurdamente grande vira preto sem avisar"* diz tudo. O primeiro descreve **onde** está o defeito; o segundo descreve **o que acontece com quem usa a biblioteca** — e é sobre isso que ele decide.
+
+**Por que a lei existe, e não é preferência de estilo:** o líder decide **produto**, não implementação. Uma decisão que chega a ele vestida de código o obriga a traduzir antes de decidir, e a tradução é trabalho meu, não dele. Pior: ela **esconde a consequência**, que é justamente o que ele precisa pesar. Ele já tinha pedido isto antes desta data, mais de uma vez, e o defeito voltou — por isso virou lei.
+
+**A régua prática, para toda pergunta e todo relatório que vai a ele:**
+
+1. **Diga o que o consumidor da biblioteca vê acontecer.** Cor errada, programa que trava, instalação recusada, arquivo que não abre.
+2. **Diga o que muda para ele decidir.** O que ganha, o que perde, o que fica difícil de desfazer.
+3. **Só então, se for indispensável, aponte onde fica** — e mesmo aí, em uma linha, não como o corpo da explicação.
+
+**A exceção, e é uma só:** quando ele pede o código, o nome ou o trecho. Aí ele quer exatamente isso, e recusar seria o defeito oposto.
+
+**Isto NÃO se aplica a agente**, e a distinção importa: ordem de serviço para implementador ou revisor **precisa** de caminho, nome e linha, porque é ele quem vai mexer na peça. **A lei governa a conversa com o líder**, não a conversa entre agentes.
+
+**Corolário que fecha o buraco:** a mesma régua vale para o texto de opção de `AskUserQuestion`. Opção que só se entende sabendo a estrutura interna é opção mal escrita, e uma decisão tomada sobre ela é decisão tomada às cegas.

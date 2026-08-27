@@ -61,6 +61,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | nomear artefato de saída, extensão de arquivo ou formato próprio | L-38 dado é nosso e pode ter extensão própria; binário usa `.so` e `.dll` |
 | ⚖ | ver QUALQUER coisa vinda do Gus Dragon, em qualquer canal | L-39 é prioridade e é SEMPRE respondida; o ack interrompe a onda |
 | ⚖ | escrever, revisar ou confiar em qualquer portão de qualidade | L-40 piso de varredura não-vazia: contou zero, reprova |
+| ⚖ | escrever qualquer coisa dirigida ao líder: mensagem, pergunta, relatório | L-41 explique pelo EFEITO, nunca pela implementação |
 
 ---
 

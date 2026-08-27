@@ -8,8 +8,10 @@
 
 #include "code_point.hpp"
 #include "cursor_ops.hpp"
+#include "diagnostic_vocabulary.hpp"
 #include "lexical_rules.hpp"
 #include "token_progress_guard.hpp"
+#include "token_progress_recovery.hpp"
 
 // tokenizer.cpp - GFSS-TOKEN (TODO.md, GODS_LAWS.md L-17/L-19/L-20/
 // L-22/L-28): the CSS Syntax Module Level 3 "consume a token"
@@ -19,21 +21,30 @@
 // (closed vocabulary, raw-lexeme scope, why this never returns
 // gltfx_rslt<T>).
 //
-// EVERY "this is a parse error" IN THE SPEC BECOMES ONE OF FOUR
-// gltfx_gfss_diagnostic::expected TOKENS (design choice made HERE,
-// GODS_LAWS.md L-27, marked INFERENCE - the spec names the CONDITION,
-// never a machine-readable label for it): "closing_quote" (an
-// unterminated string, 4.3.5's newline and EOF branches),
-// "closing_parenthesis" (every dead end inside consume_url_token,
-// 4.3.6), "escape_sequence" (a lone backslash not starting a valid
-// escape, 4.3.1's own U+005C branch) - each is attached to the SAME
-// token the spec already says to return at that point, never invented
-// on a token the grammar itself does not produce. Unterminated
-// comments (4.3.2's own EOF branch) do NOT get a diagnostic in this
-// slice - the grammar produces no token of any kind for a comment, so
-// there is nothing to attach one to without inventing a mechanism the
-// service order for this fatia did not ask for (scope cut, declared,
-// not silent).
+// EVERY "this is a parse error" IN THE SPEC BECOMES ONE OF THREE
+// SPEC-DRIVEN gltfx_gfss_diagnostic::expected TOKENS (design choice
+// made HERE, GODS_LAWS.md L-27, marked INFERENCE - the spec names the
+// CONDITION, never a machine-readable label for it), each spelled from
+// diagnostic_vocabulary.hpp's own single list, never a literal of its
+// own: "closing_quote" (an unterminated string, 4.3.5's newline and
+// EOF branches), "closing_parenthesis" (every dead end inside
+// consume_url_token, 4.3.6), "escape_sequence" (a lone backslash not
+// starting a valid escape, 4.3.1's own U+005C branch) - each is
+// attached to the SAME token the spec already says to return at that
+// point, never invented on a token the grammar itself does not
+// produce. Unterminated comments (4.3.2's own EOF branch) do NOT get a
+// diagnostic in this slice - the grammar produces no token of any kind
+// for a comment, so there is nothing to attach one to without
+// inventing a mechanism the service order for this fatia did not ask
+// for (scope cut, declared, not silent).
+//
+// A FOURTH TOKEN, "internal_tokenizer_defect", NAMES SOMETHING THE
+// SPEC HAS NO CONCEPT OF: THIS LIBRARY FAILING ITS OWN INTERNAL
+// CONTRACT, NEVER A MALFORMED CONSUMER SOURCE (GODS_LAWS.md L-40, fix
+// for the CRITICO that reproved commit 95c0f20 - see
+// token_progress_recovery.hpp's own header comment, and this file's
+// own gltfx_gfss_next_token() comment further down, for the full
+// rationale and why it ends the token stream instead of continuing).
 
 namespace glintfx::style {
 
@@ -51,7 +62,11 @@ using detail::is_ident_start;
 using detail::is_non_printable;
 using detail::is_valid_escape;
 using detail::is_whitespace;
+using detail::k_expected_closing_parenthesis;
+using detail::k_expected_closing_quote;
+using detail::k_expected_escape_sequence;
 using detail::peek;
+using detail::recover_from_forward_progress_violation;
 using detail::token_made_forward_progress;
 using detail::would_start_ident_sequence;
 using detail::would_start_number;
@@ -172,7 +187,7 @@ bool consume_url_escape_or_flag_bad(gltfx_gfss_cursor &cursor,
         consume_escaped_code_point(cursor);
         return true;
     }
-    diagnostic = make_diagnostic(cursor, "closing_parenthesis");
+    diagnostic = make_diagnostic(cursor, k_expected_closing_parenthesis);
     consume_remnants_of_bad_url(cursor);
     return false;
 }
@@ -188,10 +203,10 @@ gltfx_gfss_token_kind consume_url_trailing_whitespace(gltfx_gfss_cursor &cursor,
         return gltfx_gfss_token_kind::url;
     }
     if (current == -1) {
-        diagnostic = make_diagnostic(cursor, "closing_parenthesis");
+        diagnostic = make_diagnostic(cursor, k_expected_closing_parenthesis);
         return gltfx_gfss_token_kind::url;
     }
-    diagnostic = make_diagnostic(cursor, "closing_parenthesis");
+    diagnostic = make_diagnostic(cursor, k_expected_closing_parenthesis);
     consume_remnants_of_bad_url(cursor);
     return gltfx_gfss_token_kind::bad_url;
 }
@@ -209,14 +224,14 @@ gltfx_gfss_token_kind consume_url_token(gltfx_gfss_cursor &cursor,
             return gltfx_gfss_token_kind::url;
         }
         if (current == -1) {
-            diagnostic = make_diagnostic(cursor, "closing_parenthesis");
+            diagnostic = make_diagnostic(cursor, k_expected_closing_parenthesis);
             return gltfx_gfss_token_kind::url;
         }
         if (is_whitespace(current)) {
             return consume_url_trailing_whitespace(cursor, diagnostic);
         }
         if (current == '"' || current == '\'' || current == '(' || is_non_printable(current)) {
-            diagnostic = make_diagnostic(cursor, "closing_parenthesis");
+            diagnostic = make_diagnostic(cursor, k_expected_closing_parenthesis);
             consume_remnants_of_bad_url(cursor);
             return gltfx_gfss_token_kind::bad_url;
         }
@@ -318,7 +333,7 @@ gltfx_gfss_token_kind consume_backslash_led_token(gltfx_gfss_cursor &cursor,
     if (is_valid_escape(cursor)) {
         return consume_ident_like_token(cursor, diagnostic);
     }
-    diagnostic = make_diagnostic(cursor, "escape_sequence");
+    diagnostic = make_diagnostic(cursor, k_expected_escape_sequence);
     advance_code_point(cursor); // the lone backslash
     return gltfx_gfss_token_kind::delim;
 }
@@ -350,11 +365,11 @@ gltfx_gfss_token_kind consume_string_token(gltfx_gfss_cursor &cursor,
             return gltfx_gfss_token_kind::string;
         }
         if (current == -1) {
-            diagnostic = make_diagnostic(cursor, "closing_quote");
+            diagnostic = make_diagnostic(cursor, k_expected_closing_quote);
             return gltfx_gfss_token_kind::string;
         }
         if (detail::is_newline(current)) {
-            diagnostic = make_diagnostic(cursor, "closing_quote");
+            diagnostic = make_diagnostic(cursor, k_expected_closing_quote);
             return gltfx_gfss_token_kind::bad_string; // reconsume: do NOT advance past the newline
         }
         if (current == '\\') {
@@ -443,41 +458,61 @@ bool gltfx_gfss_next_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_toke
     // own header comment has the full rationale for why the check
     // itself is a separate, testable predicate.
     //
-    // TWO REACTIONS, CORRECTED 26/08/2026 (GODS_LAWS.md L-40 achado 2:
-    // "a guarda de progresso so protege em depuracao"). The FIRST
-    // version of this guard was assert() alone, on the SAME convention
-    // gltfx_rslt<T>'s precondition guard uses (docs/api-conventions.md
-    // R1) - but that convention fits a CALLER mistake (the consumer
-    // broke a precondition; UB in Release is the accepted, documented
-    // cost, same as std::optional::value()). This guard protects
-    // against something else: an INTERNAL glintfx defect that hangs a
-    // CORRECTLY-BEHAVING consumer's process, and assert() alone gave
-    // that protection ONLY in a Debug build (NDEBUG undefined) - a
-    // build this project's OWN tooling never uses: tools/preci.sh's
-    // stage_sanitizer (the ASan/UBSan portao) and every job of
+    // TWO REACTIONS. The assert() below still gives a developer doing a
+    // genuine manual -DCMAKE_BUILD_TYPE=Debug build the exact, named
+    // diagnostic - this half has not changed since 26/08/2026. What
+    // runs in the build glintfx actually SHIPS (Release, -DNDEBUG,
+    // where the assert compiles out) has now changed TWICE:
+    //
+    // 26/08/2026 (GODS_LAWS.md L-40 achado 2, "a guarda de progresso so
+    // protege em depuracao"): the FIRST version of this guard was
+    // assert() alone, on the SAME convention gltfx_rslt<T>'s
+    // precondition guard uses (docs/api-conventions.md R1) - but that
+    // convention fits a CALLER mistake (UB in Release is the accepted,
+    // documented cost, same as std::optional::value()), and this guard
+    // protects against something else: an INTERNAL glintfx defect that
+    // hangs a CORRECTLY-BEHAVING consumer's process. Measured live:
+    // tools/preci.sh's stage_sanitizer and every job of
     // .github/workflows/ci.yml configure with
-    // -DCMAKE_BUILD_TYPE=Release, so this assert has NEVER fired in any
-    // of glintfx's own gates, not even the sanitizer one - measured
-    // live while fixing this achado, not assumed. The decision (see
-    // this fatia's own service order/commit message for the three
-    // options weighed): TURN THE GUARD INTO ONE THAT SURVIVES
-    // OPTIMIZATION, kept alongside the assert() rather than replacing
-    // it - the assert() still gives a developer doing a genuine manual
-    // -DCMAKE_BUILD_TYPE=Debug build the exact, named diagnostic; the
-    // `if` below is what actually holds the promise LEI ZERO's unknown
-    // external consumer gets in the build glintfx ships (Release):
-    // malformed input, or a future regression here, degrades to a
-    // wrong-but-terminating token stream, never a hung process. The
-    // cost is one integer comparison already computed for the assert's
-    // own condition, unconditionally, on the hot per-token path - not a
-    // product-policy call (no error code invented, no public signature
-    // touched, no behavior change for any currently-correct input).
+    // -DCMAKE_BUILD_TYPE=Release, so the assert had NEVER fired in any
+    // of glintfx's own gates, not even the sanitizer one. The fix
+    // committed then (95c0f20) forced one code point of advance on
+    // violation, so gltfx_gfss_tokenize()'s loop would always
+    // terminate.
+    //
+    // 27/08/2026 (this fatia, GODS_LAWS.md L-40 - a NEW CRITICO the
+    // adversarial review of 95c0f20 found): forcing an advance
+    // terminates the LOOP, but manufactures a token stream that LOOKS
+    // like real output - measured live, neutralizing
+    // detail::consume_optional_sign() and tokenizing a leading
+    // "-3.5e-2" through 95c0f20's own code produced
+    // kind=number/lexeme="-" then kind=number/lexeme="3.5e-2", both
+    // with diagnostic.expected EMPTY. docs/api-conventions.md's own R4
+    // fixes what an empty `expected` means project-wide: "no
+    // diagnostic was attached", i.e. "this token is fine". Handing a
+    // consumer that false "fine" for OUR bug blames their
+    // correctly-formed source for a defect that is entirely ours. The
+    // decision (project leader, executed here, not reopened - see this
+    // fatia's own commit message): on violation, do NOT advance and
+    // keep producing tokens - PIN the cursor at source.size() and
+    // return a single <EOF-token> carrying diagnostic_vocabulary.hpp's
+    // own "internal_tokenizer_defect" identifier
+    // (token_progress_recovery.hpp has the full rationale for why EOF,
+    // why pinned to the END rather than past the violation, and why
+    // this identifier names glintfx rather than the consumer's file).
+    // Every subsequent call on the same cursor then observes genuine
+    // EOF STRUCTURALLY (dispatch_token()'s own `current == -1` branch),
+    // for ANY shape of caller loop, not just the canonical `while` this
+    // file's own test happens to write. The assert() stays exactly as
+    // it was: the Debug-build diagnostic; the `if` below is the
+    // Release-build promise.
     const bool made_progress = token_made_forward_progress(kind, start_offset, cursor.byte_offset);
     assert(made_progress &&
            "gltfx_gfss_next_token(): a token production consumed zero code points - internal "
            "contract violation, would spin the caller's while loop forever");
     if (!made_progress) {
-        advance_code_point(cursor); // RELEASE SAFETY NET - see this block's own comment above.
+        out_token = recover_from_forward_progress_violation(cursor, start_line, start_column);
+        return false;
     }
 
     out_token.kind = kind;

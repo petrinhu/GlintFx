@@ -9,7 +9,9 @@
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
 
+#include "gfss/diagnostic_vocabulary.hpp"
 #include "gfss/token_progress_guard.hpp"
+#include "gfss/token_progress_recovery.hpp"
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
@@ -266,6 +268,124 @@ GLINTFX_TEST(token_made_forward_progress_false_on_a_non_eof_token_at_the_same_of
 
 // --- a realistic multi-token slice, the shape a real gfss declaration
 // will eventually be parsed from -------------------------------------
+
+// --- GFSS-TOKEN, GODS_LAWS.md L-40 CRITICO that reproved commit
+// 95c0f20: the consumer must receive a SIGNAL, never a plausible-but-
+// false token, on internal defect ------------------------------------
+//
+// T1: the recovery atom itself (src/gfss/token_progress_recovery.hpp),
+// exercised with a HAND-PICKED violation on a REAL cursor over REAL
+// source - offsets chosen so the cursor sits mid-buffer (as it would
+// after a real dispatch_token() zero-progress violation), not a
+// throwaway empty string. Asserts the WHOLE token: kind, diagnostic
+// (both non-empty AND equal to the one true identifier), position,
+// empty lexeme, and the cursor pinned at source.size(). Then calls the
+// REAL gltfx_gfss_next_token() on that now-pinned cursor and proves
+// the flow STAYS terminated - genuine <EOF-token>, false - which is
+// the guarantee that has to hold for ANY shape of caller loop, not
+// just the one this test happens to write.
+GLINTFX_TEST(recover_from_forward_progress_violation_signals_the_consumer_not_a_plausible_token) {
+    using glintfx::style::detail::k_expected_internal_tokenizer_defect;
+    using glintfx::style::detail::recover_from_forward_progress_violation;
+    using glintfx::style::gltfx_gfss_cursor;
+
+    constexpr std::string_view source{"-3.5e-2"};
+    constexpr std::uint32_t violation_line = 1;
+    constexpr std::uint32_t violation_column = 3;
+    gltfx_gfss_cursor cursor{
+        .source = source, .byte_offset = 2, .line = violation_line, .column = violation_column};
+
+    const gltfx_gfss_token recovered =
+        recover_from_forward_progress_violation(cursor, violation_line, violation_column);
+
+    GLINTFX_CHECK(recovered.kind == gltfx_gfss_token_kind::eof);
+    GLINTFX_CHECK(!recovered.diagnostic.expected.empty());
+    GLINTFX_CHECK(recovered.diagnostic.expected == k_expected_internal_tokenizer_defect);
+    GLINTFX_CHECK(recovered.diagnostic.expected == std::string_view{"internal_tokenizer_defect"});
+    GLINTFX_CHECK_EQ(recovered.diagnostic.line, violation_line);
+    GLINTFX_CHECK_EQ(recovered.diagnostic.column, violation_column);
+    GLINTFX_CHECK(recovered.lexeme.empty());
+    GLINTFX_CHECK_EQ(cursor.byte_offset, source.size());
+
+    gltfx_gfss_token next{};
+    const bool has_more = glintfx::style::gltfx_gfss_next_token(cursor, next);
+    GLINTFX_CHECK(!has_more);
+    GLINTFX_CHECK(next.kind == gltfx_gfss_token_kind::eof);
+}
+
+// T2: the vocabulary is enumerated CLOSED (GODS_LAWS.md L-40's "the
+// space is small, enumerate it whole", not a search of what call sites
+// happen to use), every identifier obeys R7 (docs/api-conventions.md:
+// snake_case, no space, never a sentence), and every one of the four
+// is PRODUCED for real - the three spec-driven ones via directed
+// malformed input, the internal one via the recovery atom.
+GLINTFX_TEST(diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_produced) {
+    using glintfx::style::detail::k_expected_vocabulary;
+    using glintfx::style::detail::k_expected_vocabulary_count;
+    using glintfx::style::detail::recover_from_forward_progress_violation;
+
+    // GODS_LAWS.md L-40: this table IS the closed enumeration - a
+    // fifth identifier added to diagnostic_vocabulary.hpp's own list
+    // without a matching row added to the directed-production block
+    // below fails to compile instead of passing silently.
+    static_assert(k_expected_vocabulary_count == 4,
+                  "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the "
+                  "directed-production coverage below to match");
+
+    std::size_t swept = 0;
+    for (const std::string_view identifier : k_expected_vocabulary) {
+        GLINTFX_CHECK(!identifier.empty());
+        bool is_snake_case = true;
+        for (const char ch : identifier) {
+            const bool is_lower = ch >= 'a' && ch <= 'z';
+            const bool is_digit_char = ch >= '0' && ch <= '9';
+            const bool is_underscore = ch == '_';
+            if (!is_lower && !is_digit_char && !is_underscore) {
+                is_snake_case = false;
+                break;
+            }
+        }
+        GLINTFX_CHECK(is_snake_case);
+        GLINTFX_CHECK(identifier.find(' ') == std::string_view::npos);
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, k_expected_vocabulary_count);
+    std::println("diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_produced: "
+                 "{} identifier(s) swept",
+                 swept);
+
+    {
+        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("'abc\n");
+        GLINTFX_CHECK(!tokens.empty());
+        if (!tokens.empty()) {
+            GLINTFX_CHECK(tokens.front().diagnostic.expected == std::string_view{"closing_quote"});
+        }
+    }
+    {
+        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("url(foo bar)");
+        GLINTFX_CHECK(!tokens.empty());
+        if (!tokens.empty()) {
+            GLINTFX_CHECK(tokens.front().diagnostic.expected ==
+                          std::string_view{"closing_parenthesis"});
+        }
+    }
+    {
+        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("\\\nfoo");
+        GLINTFX_CHECK(!tokens.empty());
+        if (!tokens.empty()) {
+            GLINTFX_CHECK(tokens.front().diagnostic.expected ==
+                          std::string_view{"escape_sequence"});
+        }
+    }
+    {
+        glintfx::style::gltfx_gfss_cursor cursor{.source = "x", .byte_offset = 0, .line = 1, .column = 1};
+        const gltfx_gfss_token recovered = recover_from_forward_progress_violation(cursor, 1, 1);
+        GLINTFX_CHECK(recovered.diagnostic.expected ==
+                      std::string_view{"internal_tokenizer_defect"});
+    }
+}
 
 GLINTFX_TEST(gltfx_gfss_tokenize_a_short_declaration_like_slice) {
     const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("color: red;");

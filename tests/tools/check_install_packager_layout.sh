@@ -91,6 +91,23 @@ build_and_install_glintfx() {
     cmake --install "$build_dir" --prefix "$prefix"
 }
 
+# PKG-WIN-SCOPE, perna Unix de regressao: CMakeLists.txt agora guarda
+# glintfx_install_pkgconfig()/glintfx_register_pkgconfig_validation()
+# atras de if(UNIX), para o Windows nunca ganhar um glintfx.pc por
+# acidente (PACKAGING.md, "Packaging on Windows"). Esta funcao prova o
+# lado de baixo dessa mesma guarda: no Linux, onde este script sempre
+# roda, o .pc TEM de continuar sendo instalado - a guarda nao pode ter
+# como efeito colateral silencioso o .pc sumir aqui tambem. Enumeracao,
+# nao busca por caminho fixo (GODS_LAWS.md L-40: a contagem aparece na
+# saida mesmo quando passa, e varredura vazia reprova).
+assert_pkgconfig_pc_installed() {
+    prefix="$1"
+    label="$2"
+    count="$(find "$prefix" -type f -name 'glintfx.pc' 2>/dev/null | wc -l | tr -d '[:space:]')"
+    echo "check_install_packager_layout.sh: [$label] varreu '$prefix' e achou $count arquivo(s) glintfx.pc"
+    [ "$count" -ge 1 ] || fail "[$label] glintfx.pc nao encontrado sob '$prefix' apos o install - a guarda if(UNIX) de PKG-WIN-SCOPE (CMakeLists.txt) nao pode fazer o .pc sumir no Linux"
+}
+
 configure_consumer_with_architecture_hint() {
     package_src="$1"
     consumer_build="$2"
@@ -167,6 +184,7 @@ run_native_zero_flag_scenario() {
 
     configure_glintfx_with_packager_layout "$glintfx_src" "$native_build" "$cxx" "lib/${native_arch}"
     build_and_install_glintfx "$native_build" "$native_prefix"
+    assert_pkgconfig_pc_installed "$native_prefix" "zero-flag ($native_arch)"
     configure_consumer_without_architecture_hint "$package_src" "$native_consumer_build" "$native_prefix" "$cxx"
     build_and_run_consumer "$native_consumer_build"
 
@@ -188,6 +206,7 @@ main() {
 
     configure_glintfx_with_packager_layout "$glintfx_src" "$hinted_build" "$cxx" "$NONDEFAULT_LIBDIR"
     build_and_install_glintfx "$hinted_build" "$hinted_prefix"
+    assert_pkgconfig_pc_installed "$hinted_prefix" "hinted"
     configure_consumer_with_architecture_hint "$package_src" "$hinted_consumer_build" "$hinted_prefix" "$cxx"
     build_and_run_consumer "$hinted_consumer_build"
     echo "ok: find_package(glintfx) resolves a non-default multiarch-style install layout when the consumer supplies the architecture hint (CMAKE_INSTALL_LIBDIR=$NONDEFAULT_LIBDIR, CMAKE_INSTALL_INCLUDEDIR=$NONDEFAULT_INCLUDEDIR)."

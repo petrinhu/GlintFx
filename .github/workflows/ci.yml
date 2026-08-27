@@ -235,6 +235,17 @@ jobs:
         shell: pwsh
         run: cmake --version
 
+      # PKG-WIN-SCOPE: passo PERMANENTE, independente de matrix.builddir
+      # (roda identico nas duas entradas, como "Padrao C++23 aceito"
+      # abaixo) - colhe dado sobre pkg-config/pkgconf neste executor e
+      # NUNCA falha o job (sempre exit 0 dentro do proprio script). Fica
+      # mesmo com glintfx.pc desinstalado do Windows: e o que transforma
+      # a proxima pergunta sobre pkg-config no Windows em leitura de log,
+      # nao em quarta adivinhacao.
+      - name: Diagnostico pkg-config no Windows (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/diagnose-win-pkgconfig.ps1
+
       # Sem action de terceiro: o proprio CMake localiza o MSVC. Sonda
       # independente de modo (nao usa glintfx, nao le matrix.builddir);
       # roda uma vez por entrada de matriz agora, nao mais uma vez por
@@ -305,8 +316,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Consumo instalado (${{ matrix.modo }})
+        id: consumo_instalado
         shell: pwsh
         run: tools/ci/check-consume.ps1 -BuildDir ${{ matrix.builddir }} -PackageSrcDir tests/package
+
+      # PKG-WIN-SCOPE: regression gate for CMakeLists.txt's if(UNIX)
+      # guard around glintfx_install_pkgconfig()/
+      # glintfx_register_pkgconfig_validation() (PACKAGING.md: "pkg-config
+      # has no role in glintfx's Windows story today"). Reads the SAME
+      # prefix the step above just installed into (its `prefix` output),
+      # instead of installing a second one - this is the whole reason
+      # that step now exposes it.
+      - name: Sem pkg-config no prefixo Windows (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/check-no-pkgconfig.ps1 -InstalledPrefix "${{ steps.consumo_instalado.outputs.prefix }}"
 
       # Windows equivalent of tests/tools/check_embed.sh (embed_test,
       # UNIX-only in tests/CMakeLists.txt) - proves add_subdirectory

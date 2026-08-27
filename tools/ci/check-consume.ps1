@@ -50,6 +50,19 @@ function New-ScratchWorkdir() {
     return $dir
 }
 
+# Exposes the prefix THIS run installed into as a GitHub Actions step
+# output named `prefix` (PKG-WIN-SCOPE), so a LATER step in the same
+# job - check-no-pkgconfig.ps1, right after this one in the `windows`
+# job of .github/workflows/ci.yml - can inspect the SAME already-real
+# installed tree instead of installing a second one of its own. A no-op
+# when $env:GITHUB_OUTPUT is unset (a local, by-hand run of this
+# script), so this stays harmless outside GitHub Actions.
+function Write-PrefixOutput([string]$prefix) {
+    if ($env:GITHUB_OUTPUT) {
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "prefix=$prefix"
+    }
+}
+
 $scratch = New-ScratchWorkdir
 try {
     $prefix = Join-Path $scratch "prefix"
@@ -61,7 +74,16 @@ try {
     Invoke-RunConsumer $consumerBuild
 
     Write-Host "ok: installed package consumed successfully via find_package."
+    Write-PrefixOutput $prefix
 }
 finally {
-    Remove-Item -Recurse -Force $scratch -ErrorAction SilentlyContinue
+    # Only $consumerBuild is removed here, on purpose: $prefix survives
+    # this script (PKG-WIN-SCOPE) precisely because check-no-pkgconfig.ps1
+    # reads it next, in the same job, via the `prefix` output above. The
+    # executor is an ephemeral GitHub Actions runner, torn down at the
+    # end of the job either way, so a leftover $prefix directory here
+    # does not accumulate across runs.
+    if (Test-Path -LiteralPath $consumerBuild) {
+        Remove-Item -Recurse -Force $consumerBuild -ErrorAction SilentlyContinue
+    }
 }

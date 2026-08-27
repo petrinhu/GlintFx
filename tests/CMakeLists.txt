@@ -88,6 +88,15 @@ glintfx_apply_compile_options(gl_proc_address_assign_test)
 add_test(NAME gl_proc_address_assign_test COMMAND gl_proc_address_assign_test)
 set_tests_properties(gl_proc_address_assign_test PROPERTIES LABELS unit)
 
+# GL-LOADER: the resolved GL 3.3 core command list rendered into the
+# TEXT of the two generated files - see gl_loader_codegen_test.cpp's own
+# header comment.
+add_executable(gl_loader_codegen_test gl_loader_codegen_test.cpp)
+target_link_libraries(gl_loader_codegen_test PRIVATE gl_registry_codegen_lib glintfx_test_harness)
+glintfx_apply_compile_options(gl_loader_codegen_test)
+add_test(NAME gl_loader_codegen_test COMMAND gl_loader_codegen_test)
+set_tests_properties(gl_loader_codegen_test PROPERTIES LABELS unit)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

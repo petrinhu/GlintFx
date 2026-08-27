@@ -18,6 +18,7 @@
 add_library(gl_registry_codegen_lib STATIC
     xml_reader.cpp
     registry_parser.cpp
+    loader_codegen.cpp
 )
 target_include_directories(gl_registry_codegen_lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 glintfx_apply_compile_options(gl_registry_codegen_lib)

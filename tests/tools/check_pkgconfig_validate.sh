@@ -18,7 +18,7 @@
 #      --install --prefix <scratch>`, no flags. Proves the mechanism
 #      is wired: install(CODE) fires, finds pkg-config, and reports
 #      success against a genuinely correct install - this is the
-#      GREEN half of GODS_LAWS.md L-20, and the only one of the eleven
+#      GREEN half of GODS_LAWS.md L-20, and the only one of the thirteen
 #      scenarios below that exercises the FULL real pipeline glintfx's
 #      own build produces (configure -> build -> install), not a
 #      hand-assembled fixture.
@@ -113,6 +113,40 @@
 #      glintfx_pkgconfig_validate_content_variable() fires for real,
 #      and that forcing WIN32 changes nothing about it: content checks
 #      never depended on platform.
+#  12. "relative libdir, attacker-controlled CWD, still REFUSES" (RED,
+#      PKG-WIN-SCOPE adversarial review round 5 regression proof,
+#      27/08/2026): a real install, its library artifact deleted (the
+#      SAME genuinely-broken precondition as scenario 5), THEN
+#      glintfx.pc's own libdir= line rewritten to a bare RELATIVE value
+#      that does not go through "${pcfiledir}" - and the validator
+#      invoked with its CURRENT WORKING DIRECTORY set to an unrelated
+#      "attacker" directory that happens to contain a decoy file
+#      matching the exact glob this validator looks for. Before this
+#      fatia's fix, cmake_path(ABSOLUTE_PATH ...) with no BASE_DIRECTORY
+#      resolved that relative value against CMAKE_CURRENT_SOURCE_DIR -
+#      which in script mode equals the CALLER's CWD, not anything this
+#      file controls - so the decoy satisfied the check and a genuinely
+#      broken install (its real library deleted) passed at EXIT=0. This
+#      scenario is the regression test: it must FATAL, closed, naming a
+#      path anchored under glintfx.pc's OWN directory (pcfiledir), and
+#      must NOT name the attacker directory anywhere in its message -
+#      the second assertion is what tells a future regression (CWD
+#      leaking back in) apart from an unrelated failure.
+#  13. "real pkg-config's own variable syntax accepted, all three at
+#      once" (GREEN, PKG-WIN-SCOPE round 5): a single hand-assembled
+#      glintfx.pc where "exec_prefix"'s definition uses whitespace
+#      around "=" AND carries a trailing "# ..." comment, and "libdir"
+#      is defined TWICE, first pointing at a directory that does not
+#      exist, then correctly - a shape chosen so the fixture can only
+#      resolve to real, populated content if whitespace-around-"=",
+#      comment-stripping, AND last-definition-wins are ALL honored at
+#      once (get any one wrong and either "exec_prefix" never resolves,
+#      corrupting "libdir" downstream, or "libdir" resolves to the
+#      first, nonexistent definition). Cross-checked against a real
+#      pkg-config/pkgconf binary on this machine's PATH, when one is
+#      available, confirming the SAME fixture is genuinely good by an
+#      implementation this project does not control - not merely
+#      "passes because our own code says so".
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -143,7 +177,7 @@
 # ~0.01s with it fully OFF (GLINTFX_SKIP_PKGCONFIG_VALIDATION=1) on this
 # same machine - a ~80ms tax per install, not the multi-second one the
 # timeout would need. The real cost was structural: NONE of this file's
-# eleven scenarios ever vary BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR
+# thirteen scenarios ever vary BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR
 # (unlike check_pkgconfig.sh's sibling gate, which genuinely needs a
 # different compiled artifact for its static scenario) - every
 # scenario here only varies CMAKE_INSTALL_PREFIX and
@@ -687,6 +721,150 @@ ${output}" ;;
     echo "ok: headers-missing RED, on both a real Unix run and a Windows-forced run - the includedir branch of the filesystem/text-only content check fires for a genuinely empty header directory, unconditionally on every platform."
 }
 
+# Scenario 12: relative libdir, attacker-controlled CWD, still REFUSES -
+# PKG-WIN-SCOPE adversarial review round 5 regression proof (27/08/2026).
+# Own throwaway prefix and own reconfigure-to-OFF, for the same
+# self-sufficiency reason as scenario 5. Reproduces the LIVE attack the
+# adversarial reviewer used against this validator's pre-fix shape: a
+# real install, its library artifact deleted (same precondition as
+# scenario 5), glintfx.pc's own libdir= line rewritten to a BARE
+# relative value (no "${pcfiledir}"), then the validator invoked with
+# its CURRENT WORKING DIRECTORY set to an "attacker" directory holding a
+# decoy file matching this validator's own library glob under that same
+# relative name. Before this fatia's fix, this exact scenario passed at
+# EXIT=0.
+run_relative_libdir_cwd_attack_scenario() {
+    glintfx_src="$1"
+    cxx="$2"
+    build_dir="$3"
+    prefix="$4"
+    scratch="$5"
+
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
+    cmake --install "$build_dir" --prefix "$prefix" >/dev/null
+
+    validator_script="$(find_generated_validator_script "$build_dir")"
+
+    # Genuinely broken install: the real library artifact deleted,
+    # exactly as scenario 5 does.
+    find "$prefix" -maxdepth 3 -name 'libglintfx.so*' -o -maxdepth 3 -name 'libglintfx.a' 2>/dev/null \
+        | while IFS= read -r artifact; do rm -f "$artifact"; done
+
+    pc_file="$(find_pc_file_under "$prefix")"
+    decoy_subdir_name="decoy-relative-libdir"
+    # Rewrite libdir= to a BARE relative value - no "${pcfiledir}" - the
+    # exact shape the adversarial review used to defeat this validator
+    # with. sed -i.bak/rm .bak instead of a GNU-only in-place edit, since
+    # this script also runs on macOS/BSD sed in some environments this
+    # project has not fully enumerated (GODS_LAWS.md L-27).
+    sed -i.bak "s#^libdir=.*#libdir=${decoy_subdir_name}#" "$pc_file"
+    rm -f "${pc_file}.bak"
+
+    # The "attacker": a directory with nothing to do with the real
+    # install, containing a decoy file that matches this validator's own
+    # library glob under the SAME relative name the rewritten glintfx.pc
+    # now uses.
+    attacker_dir="${scratch}/attacker-cwd"
+    mkdir -p "${attacker_dir}/${decoy_subdir_name}"
+    : > "${attacker_dir}/${decoy_subdir_name}/libglintfx.so.0.1.0.0"
+
+    output="$(cd "$attacker_dir" && cmake -DCMAKE_INSTALL_PREFIX="$prefix" -P "$validator_script" 2>&1)" \
+        && fail "re-running the validator, from inside an attacker-controlled CWD containing a decoy library, against a real install with its OWN library artifact REMOVED and glintfx.pc's libdir rewritten to a bare relative value, unexpectedly SUCCEEDED - the PKG-WIN-SCOPE round 5 regression (a relative path resolving against the CALLER's CWD instead of glintfx.pc's own directory) is back. Got:
+${output}"
+
+    normalized_output="$(normalize_wrapped_message "$output")"
+    case "$normalized_output" in
+        *"pkgconfig/${decoy_subdir_name}"*"does not exist on disk"*) : ;;
+        *) fail "the relative-libdir CWD-attack RED did not name a path anchored under glintfx.pc's own directory ('.../pkgconfig/${decoy_subdir_name}'). Got:
+${output}" ;;
+    esac
+    case "$output" in
+        *"$attacker_dir"*)
+            fail "the relative-libdir CWD-attack RED message named the ATTACKER directory (${attacker_dir}) - the relative value is still resolving against the caller's CWD instead of glintfx.pc's own directory, the exact regression this scenario exists to catch. Got:
+${output}"
+            ;;
+        *) : ;;
+    esac
+    echo "ok: relative-libdir CWD-attack RED - a real install with its library artifact removed and glintfx.pc's libdir rewritten to a bare relative value REFUSES even when invoked from an attacker-controlled working directory holding a decoy library under the same relative name; the resolved path is anchored under glintfx.pc's own directory, never the caller's CWD."
+}
+
+# Scenario 13: real pkg-config's own variable syntax accepted, all three
+# at once (whitespace around "=", a trailing "#" comment, and
+# last-definition-wins for a variable defined twice) - PKG-WIN-SCOPE
+# round 5. Hand-assembled fixture, same reasoning as scenario 6: needs
+# only the shared build's own generated validator script and the real
+# libdir subpath (both stable across the whole file, PERF-PKGVALIDATE) -
+# no build or install of its own. The fixture is deliberately shaped so
+# ALL THREE forms must be honored at once for it to resolve to real
+# content: "exec_prefix"'s own definition needs the whitespace-around-"="
+# AND comment-stripping fixes to resolve at all (get either wrong and
+# "libdir", which depends on it, never resolves either), and "libdir"
+# itself is defined twice, first pointing at a directory that does not
+# exist, so only last-definition-wins reaches the real one. When a real
+# pkg-config/pkgconf binary is on PATH, cross-checks the SAME fixture
+# against it too (declared downgrade otherwise, GODS_LAWS.md L-27,
+# mirroring scenario 8's own absence handling) - so this scenario's
+# claim that the fixture is "genuinely good" does not rest solely on
+# this project's own code agreeing with itself.
+run_real_pkgconfig_syntax_variants_scenario() {
+    build_dir="$1"
+    scratch="$2"
+    real_libdir="$3"
+
+    validator_script="$(find_generated_validator_script "$build_dir")"
+
+    fixture_prefix="${scratch}/prefix-syntax-variants-fixture"
+    mkdir -p "${fixture_prefix}/${real_libdir}/pkgconfig" "${fixture_prefix}/include/glintfx"
+    : > "${fixture_prefix}/${real_libdir}/libglintfx.so.0.1.0.0"
+    ln -s libglintfx.so.0.1.0.0 "${fixture_prefix}/${real_libdir}/libglintfx.so"
+    pkgconfig_dir="${fixture_prefix}/${real_libdir}/pkgconfig"
+    cat > "${pkgconfig_dir}/glintfx.pc" << EOF
+prefix=\${pcfiledir}/../..
+exec_prefix = \${prefix}   # whitespace around "=" AND a trailing comment, both on this one line
+includedir=\${prefix}/include
+libdir=\${exec_prefix}/${real_libdir}-does-not-exist-yet
+libdir=\${exec_prefix}/${real_libdir}
+
+Name: glintfx
+Description: check_pkgconfig_validate.sh L-40-adjacent syntax-variants fixture - whitespace around "=", a trailing comment, and a duplicate variable, all at once
+Version: 0.1.0.0
+Cflags: -I\${includedir}
+Libs: -L\${libdir} -lglintfx
+EOF
+
+    output="$(cmake -DCMAKE_INSTALL_PREFIX="$fixture_prefix" -P "$validator_script" 2>&1)" \
+        || fail "re-running the validator against a fixture using real pkg-config's own whitespace/comment/duplicate-variable syntax unexpectedly FAILED - this is the exact 'rejects a genuinely good install' defect class PKG-WIN-SCOPE's round 5 review found. Got:
+${output}"
+
+    case "$output" in
+        *"post-install pkg-config validation passed"*) : ;;
+        *) fail "the syntax-variants fixture installed cleanly but the validator never printed its own success message. Got:
+${output}" ;;
+    esac
+
+    real_tool=""
+    if command -v pkgconf >/dev/null 2>&1; then
+        real_tool="pkgconf"
+    elif command -v pkg-config >/dev/null 2>&1; then
+        real_tool="pkg-config"
+    fi
+
+    if [ -n "$real_tool" ]; then
+        real_output="$(PKG_CONFIG_PATH="$pkgconfig_dir" "$real_tool" --print-errors --cflags --libs glintfx 2>&1)" \
+            || fail "a REAL ${real_tool} on this machine's PATH rejected the same syntax-variants fixture this validator just accepted - the fixture is not actually 'genuinely good' by an independent implementation. Got:
+${real_output}"
+        case "$real_output" in
+            *"-lglintfx"*) : ;;
+            *) fail "a real ${real_tool} run against the syntax-variants fixture did not emit the expected -lglintfx. Got:
+${real_output}" ;;
+        esac
+        echo "ok: real pkg-config syntax variants (whitespace around '=', trailing comment, duplicate-variable-last-wins) - accepted by BOTH this validator and a real ${real_tool} on this machine's PATH, cross-checked against the same fixture."
+    else
+        echo "ok: real pkg-config syntax variants (whitespace around '=', trailing comment, duplicate-variable-last-wins) - accepted by this validator; no real pkg-config/pkgconf on PATH to additionally cross-check against (declared, GODS_LAWS.md L-27 - see scenario 8's own downgrade for the same absence)."
+    fi
+}
+
 main() {
     require_args "$@"
     glintfx_src="$1"
@@ -720,8 +898,10 @@ main() {
     run_windows_forced_broken_library_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-windows-forced-broken-library"
     run_windows_forced_healthy_conversation_warning_scenario "$build_dir" "$prefix_default"
     run_headers_missing_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-headers-missing"
+    run_relative_libdir_cwd_attack_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-relative-cwd-attack" "$scratch"
+    run_real_pkgconfig_syntax_variants_scenario "$build_dir" "$scratch" "$real_libdir"
 
-    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, and a hand-assembled empty-Cflags/Libs (L-40) fixture - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct."
+    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, a hand-assembled empty-Cflags/Libs (L-40) fixture, and a relative libdir resolved from an attacker-controlled working directory - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct; and accepts real pkg-config's own whitespace/comment/duplicate-variable syntax, cross-checked against a real pkg-config binary when one is on PATH."
 }
 
 main "$@"

@@ -171,6 +171,51 @@
 #     there, and none of it was ever binary-dependent in the first
 #     place.
 #
+#   - PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026) - CRITICAL,
+#     reproduced live, in the OTHER direction from every finding above:
+#     a genuinely BROKEN install passing as verified, not a genuinely
+#     good one being rejected. glintfx_pkgconfig_validate_content_variable()
+#     and glintfx_pkgconfig_validate_content_flags() below used to
+#     resolve every relative includedir/libdir/-I/-L value with
+#     cmake_path(ABSOLUTE_PATH ...) and no BASE_DIRECTORY, which in
+#     CMake script mode (exactly how this file always runs) resolves
+#     against the CURRENT WORKING DIRECTORY of whoever invoked
+#     `cmake --install`/`cmake -P` - the DISPATCH directory, not
+#     anything this file controls. MEASURED attack: a real install with
+#     its compiled library artifact deleted, a glintfx.pc edited to a
+#     relative libdir, and the validator invoked from an unrelated
+#     directory that happened to contain a decoy file matching the same
+#     glob pattern - PASSED at EXIT=0, "validation passed", about an
+#     install whose actual library had just been deleted. This is the
+#     exact "confirmado no disco" claim this entire validator exists to
+#     make, defeated by nothing more than the caller's own CWD. Fixed
+#     by anchoring every relative resolution to "pcfiledir" instead -
+#     glintfx.pc's OWN parent directory, read from this function's
+#     already-absolute pc_file argument via cmake_path(GET ... PARENT_PATH),
+#     never predicted and never influenced by where the command was
+#     run from. Three call sites, all fixed the same way (see each
+#     function's own comment below for the reasoning specific to it):
+#     glintfx_pkgconfig_validate_content_variable()'s "value",
+#     glintfx_pkgconfig_validate_content_flags()'s "-I" and "-L" token
+#     resolution. Confirmed this is the ONLY place in this file (and,
+#     searched, the only place in glintfx's whole cmake/ tree) that
+#     ever called cmake_path(ABSOLUTE_PATH ...) without an explicit
+#     BASE_DIRECTORY - not a pattern repeated anywhere else that would
+#     need the same fix.
+#
+#   - PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026), same pass -
+#     three SEPARATE defects in glintfx_pkgconfig_read_raw_variables()
+#     below, all in the OPPOSITE direction (rejecting a genuinely GOOD
+#     install), each measured against a real pkgconf 2.5.1 on this
+#     machine rather than reasoned about: whitespace allowed around "="
+#     in a variable assignment, a trailing "#..." comment on a variable
+#     line, and a variable defined twice resolving to its LAST
+#     definition rather than its first. See that function's own comment
+#     for the measured detail on each; PACKAGING.md's own promise that
+#     this validator resolves glintfx.pc "the same way a real pkg-config
+#     would" was false for all three cases until this fix, and is
+#     re-checked, phrase by phrase, against this fatia's own fix.
+#
 # Two escape hatches, both named GLINTFX_SKIP_PKGCONFIG_VALIDATION on
 # purpose (one name, two mechanisms, same intent): the CACHE option in
 # cmake/GlintfxOptions.cmake, read at CONFIGURE time by
@@ -256,18 +301,67 @@ endfunction()
 # involved (see this file's header, "Talking to the pkg-config BINARY
 # itself"). Comment lines ("#...") and header fields ("Name:",
 # "Cflags:", ...) never match this pattern: they do not start with an
-# identifier immediately followed by "=". Returns two PARALLEL lists
-# (CMake has no map type): out_keys and out_values, RAW - not yet
-# "${var}"-substituted; glintfx_pkgconfig_resolve_variables() below
-# does that.
+# identifier immediately followed (whitespace allowed) by "=". Returns
+# two PARALLEL lists (CMake has no map type): out_keys and out_values,
+# RAW - not yet "${var}"-substituted; glintfx_pkgconfig_resolve_variables()
+# below does that.
+#
+# PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026) - THREE
+# defects, all in the direction of REJECTING a genuinely good install,
+# each MEASURED against a real pkgconf 2.5.1 on this machine
+# (`PKG_CONFIG_PATH=<dir> pkgconf --variable=<key> <pkg>`), not
+# reasoned about:
+#   1. Whitespace around "=" ("libdir = ${prefix}/lib") is accepted by
+#      real pkgconf; the previous regex required the identifier
+#      immediately followed by "=", so this line matched NOTHING and
+#      libdir would report undefined. Fixed by allowing "[ \t]*" on
+#      both sides of "=" in the match, and never including that
+#      leading/trailing whitespace in the captured value.
+#   2. A trailing "#..." comment on a variable line ("libdir=${prefix}/lib
+#      # note") is stripped by real pkgconf before the value is used,
+#      with or without a space before "#" (measured both ways) - the
+#      previous code captured everything after "=" verbatim, so the
+#      comment text became part of the resolved directory and made a
+#      real, populated libdir look nonexistent. Fixed by stripping
+#      from the first unescaped "#" to end of line BEFORE the
+#      assignment regex ever runs, the same order real pkg-config's
+#      own tokenizer applies it in (a full comment line, "#..." with
+#      nothing before it, already correctly matched nothing here even
+#      before this fix - stripping first does not change that case).
+#   3. A variable defined twice ("libdir=..." appearing on two separate
+#      lines) resolves to the LAST definition in real pkgconf; the
+#      previous code appended both to the list and
+#      glintfx_pkgconfig_lookup_variable()'s list(FIND ...) always
+#      returns the FIRST match, so a corrected later definition was
+#      silently ignored in favor of a stale earlier one. Fixed by
+#      removing any earlier entry for the same key before appending
+#      the new one, so a key can never appear twice in out_keys and
+#      the one that survives is always the one from the LAST line that
+#      defined it, in its correct file-order position (this also
+#      makes this function's duplicate-handling match the SAME
+#      last-wins semantics glintfx_pkgconfig_read_field() below
+#      already had for repeated FIELDS - before this fix, this file
+#      carried two different semantics for "defined twice" depending
+#      on which of its two readers looked at the line, an inconsistency
+#      the adversarial reviewer named explicitly as a trap for whoever
+#      edits this file next).
 function(glintfx_pkgconfig_read_raw_variables pc_file out_keys out_values)
     file(STRINGS "${pc_file}" _glintfx_pc_lines)
     set(_glintfx_keys "")
     set(_glintfx_values "")
     foreach(_glintfx_pc_line IN LISTS _glintfx_pc_lines)
-        if(_glintfx_pc_line MATCHES "^([A-Za-z_][A-Za-z0-9_.]*)=(.*)$")
-            list(APPEND _glintfx_keys "${CMAKE_MATCH_1}")
-            list(APPEND _glintfx_values "${CMAKE_MATCH_2}")
+        string(REGEX REPLACE "#.*$" "" _glintfx_pc_line_nocomment "${_glintfx_pc_line}")
+        if(_glintfx_pc_line_nocomment MATCHES "^[ \t]*([A-Za-z_][A-Za-z0-9_.]*)[ \t]*=[ \t]*(.*)$")
+            set(_glintfx_key "${CMAKE_MATCH_1}")
+            set(_glintfx_value "${CMAKE_MATCH_2}")
+            string(REGEX REPLACE "[ \t]+$" "" _glintfx_value "${_glintfx_value}")
+            list(FIND _glintfx_keys "${_glintfx_key}" _glintfx_dup_index)
+            if(NOT _glintfx_dup_index EQUAL -1)
+                list(REMOVE_AT _glintfx_keys ${_glintfx_dup_index})
+                list(REMOVE_AT _glintfx_values ${_glintfx_dup_index})
+            endif()
+            list(APPEND _glintfx_keys "${_glintfx_key}")
+            list(APPEND _glintfx_values "${_glintfx_value}")
         endif()
     endforeach()
     set(${out_keys} "${_glintfx_keys}" PARENT_SCOPE)
@@ -385,7 +479,28 @@ function(glintfx_pkgconfig_validate_content_variable pc_file resolved_keys resol
         )
     endif()
 
-    cmake_path(ABSOLUTE_PATH value NORMALIZE)
+    # PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026) - CRITICAL,
+    # reproduced live: cmake_path(ABSOLUTE_PATH ...) with no
+    # BASE_DIRECTORY resolves a relative path against
+    # CMAKE_CURRENT_SOURCE_DIR, which in script mode (exactly how this
+    # file runs, via install(CODE)/cmake -P) equals the CURRENT WORKING
+    # DIRECTORY of whoever ran `cmake --install`/`cmake -P` - the
+    # DISPATCH directory, attacker-controlled. MEASURED: a fixture with
+    # a genuinely broken install (its compiled library artifact
+    # deleted) and a relative libdir in glintfx.pc PASSED at EXIT=0
+    # when this validator was invoked from a decoy directory that
+    # happened to contain an unrelated file matching the same glob
+    # pattern - the exact "confirmado no disco" claim this whole
+    # validator exists to make, defeated by choice of CWD. The fix
+    # anchors relative resolution to "pcfiledir" instead - the
+    # directory glintfx.pc ITSELF physically resides in, the one
+    # location pkg-config's own relocatable-prefix convention already
+    # treats as ground truth (glintfx.pc.in's own "prefix=${pcfiledir}/../.."
+    # depends on exactly this), and a value no packager's invocation
+    # directory can influence: pc_file is this function's own absolute
+    # argument, never a predicted string.
+    cmake_path(GET pc_file PARENT_PATH _glintfx_content_variable_base_dir)
+    cmake_path(ABSOLUTE_PATH value BASE_DIRECTORY "${_glintfx_content_variable_base_dir}" NORMALIZE)
 
     if(NOT IS_DIRECTORY "${value}")
         message(FATAL_ERROR
@@ -454,6 +569,15 @@ endfunction()
 # precisely this gap once already. FATAL_ERROR on every platform,
 # Windows included, unconditionally.
 function(glintfx_pkgconfig_validate_content_flags pc_file resolved_keys resolved_values)
+    # PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026): same fix,
+    # same reason, as glintfx_pkgconfig_validate_content_variable()
+    # above - a relative "-I"/"-L" token must anchor to glintfx.pc's OWN
+    # directory, never to the CWD of whoever invoked this validator.
+    # Computed once here and reused by both the Cflags: and Libs: loops
+    # below, since pc_file (and therefore its parent directory) never
+    # changes within one call to this function.
+    cmake_path(GET pc_file PARENT_PATH _glintfx_content_flags_base_dir)
+
     glintfx_pkgconfig_read_field("${pc_file}" "Cflags" _glintfx_cflags_raw)
     glintfx_pkgconfig_substitute_text("${_glintfx_cflags_raw}" "${resolved_keys}" "${resolved_values}" _glintfx_cflags_value)
 
@@ -467,7 +591,7 @@ function(glintfx_pkgconfig_validate_content_flags pc_file resolved_keys resolved
     foreach(_glintfx_token IN LISTS _glintfx_cflags_tokens)
         if(_glintfx_token MATCHES "^-I(.+)$")
             set(_glintfx_include_path "${CMAKE_MATCH_1}")
-            cmake_path(ABSOLUTE_PATH _glintfx_include_path NORMALIZE)
+            cmake_path(ABSOLUTE_PATH _glintfx_include_path BASE_DIRECTORY "${_glintfx_content_flags_base_dir}" NORMALIZE)
             if(NOT IS_DIRECTORY "${_glintfx_include_path}" OR NOT IS_DIRECTORY "${_glintfx_include_path}/glintfx")
                 message(FATAL_ERROR
                     "glintfx: glintfx.pc's Cflags: field emitted "
@@ -488,7 +612,7 @@ function(glintfx_pkgconfig_validate_content_flags pc_file resolved_keys resolved
     foreach(_glintfx_token IN LISTS _glintfx_libs_tokens)
         if(_glintfx_token MATCHES "^-L(.+)$")
             set(_glintfx_library_path "${CMAKE_MATCH_1}")
-            cmake_path(ABSOLUTE_PATH _glintfx_library_path NORMALIZE)
+            cmake_path(ABSOLUTE_PATH _glintfx_library_path BASE_DIRECTORY "${_glintfx_content_flags_base_dir}" NORMALIZE)
             glintfx_pkgconfig_library_glob_patterns(_glintfx_lib_pattern_names)
             set(_glintfx_lib_glob_patterns "")
             foreach(_glintfx_lib_pattern_name IN LISTS _glintfx_lib_pattern_names)

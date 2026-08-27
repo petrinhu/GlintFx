@@ -60,12 +60,26 @@ story:
   itself is narrower on Windows than on Unix - and the two halves run
   in a fixed order now, not by accident.** The install-time validator
   first reads `glintfx.pc` itself, directly, off disk - resolving its
-  `${...}` variables and its `Cflags:`/`Libs:` fields the same way a
-  real pkg-config would, but **without ever invoking a pkg-config
+  `${...}` variables, including whitespace around `=`, a trailing `#`
+  comment on a variable line, and a variable defined twice (the LAST
+  definition wins, matching real pkg-config in every one of those three
+  cases, measured against a real `pkgconf` binary) - and its
+  `Cflags:`/`Libs:` fields, **without ever invoking a pkg-config
   binary** - and confirms `includedir`/`libdir` and every `-I`/`-L`
   token resolve to real, populated content: the header tree and the
-  library artifact are really there. This half runs **first**, calls
-  no binary, and has full veto power on every platform, Windows
+  library artifact are really there. A relative value in any of those
+  resolves against `glintfx.pc`'s OWN directory (`pcfiledir`, pkg-config's
+  own built-in for "the directory this file is actually in"), never
+  against the working directory `cmake --install` happened to be invoked
+  from - closing a CWD-dependent false pass an adversarial review found
+  and reproduced live (see "Where this is tested" below). Two forms are
+  a known, declared gap, not silently claimed as covered: a value quoted
+  as a single token (real pkg-config strips the quotes; this reader does
+  not) and a `Cflags:`/`Libs:` field repeated on two separate lines
+  (real pkg-config concatenates both; this reader only sees the last) -
+  neither shape is ever produced by glintfx's own generated `glintfx.pc`.
+  This half runs **first**, calls no binary, and has full veto power on
+  every platform, Windows
   included, unconditionally: a broken install fails `cmake --install`
   there exactly as it would on Linux, and it never depends on whether
   any pkg-config is even installed. **Only after that** does the
@@ -234,14 +248,34 @@ in a fixed order:
 
 1. **First, unconditionally, on every platform:** it reads
    `glintfx.pc` itself, directly off disk, resolves its `${...}`
-   variables and its `Cflags:`/`Libs:` fields the same way a real
-   pkg-config would (**no pkg-config binary is invoked for this
-   part**), and walks every `-I`/`-L` token a plain (non-`--static`)
+   variables (**no pkg-config binary is invoked for this
+   part**) and its `Cflags:`/`Libs:` fields, and walks every `-I`/`-L`
+   token a plain (non-`--static`)
    query would emit - the same query any consumer runs first -
    confirming each path exists on disk and actually contains a
    `glintfx/` header tree or a `libglintfx.so*`/`libglintfx.a`
    artifact, against whatever real layout that particular `cmake
-   --install` invocation produced, including a `DESTDIR`-staged one.
+   --install` invocation produced, including a `DESTDIR`-staged one. A
+   relative value anywhere in that resolution is always resolved
+   against `glintfx.pc`'s own directory, never against whatever
+   directory `cmake --install`/`cmake -P` happened to be invoked from -
+   an earlier shape of this check resolved a relative value against the
+   INVOKER's working directory instead, which an adversarial review
+   used to make a genuinely broken install (its compiled library
+   deleted) pass by running the check from a directory that happened to
+   contain an unrelated, matching decoy file; that CWD-dependence is
+   fixed, and "Where this is tested" below proves the closed shape by
+   reproducing the same attack. On the syntax `glintfx.pc` itself is
+   written in, this reader matches real pkg-config for whitespace
+   around `=`, a trailing `#` comment on a variable line, and a
+   variable defined twice (last definition wins) - three forms
+   glintfx's own generated `glintfx.pc` never produces, but a hand-edited
+   or packager-modified one legitimately could. Two forms remain a
+   known, declared gap: a value quoted as a single token, and a
+   `Cflags:`/`Libs:` field repeated on two separate lines (real
+   pkg-config strips the quotes and concatenates the repeated field
+   respectively; this reader does neither) - again, not a shape
+   glintfx's own generator ever emits.
    An install that resolves to nothing worth checking (an empty
    `Cflags:`/`Libs:` line, for instance) counts as a failure too, not
    a silent pass. This part has full veto power everywhere, including
@@ -271,12 +305,21 @@ there (see "Packaging on Windows" above); anything
 target-architecture-specific under cross-compilation (the
 filesystem-based half never runs any binary at all, and the
 binary-conversation half only ever runs `pkg-config`/`pkgconf`, a host
-tool operating on text, never target-arch code); or a
+tool operating on text, never target-arch code); a
 `--component`-scoped install (nothing
 glintfx installs today declares a `COMPONENT`, so a `--component`
 install under any other name simply installs nothing for glintfx in
 the first place, and this check is skipped right along with it, for
-that same reason).
+that same reason); or two `glintfx.pc` syntax shapes real pkg-config
+accepts that this filesystem-based reader does not: a value quoted as
+a single token (real pkg-config strips the quotes; this reader keeps
+them, so a quoted value fails the check even when the unquoted path is
+genuinely fine), and a `Cflags:`/`Libs:` field repeated on two separate
+lines (real pkg-config concatenates both; this reader only sees the
+last one). Neither shape is ever produced by glintfx's own generated
+`glintfx.pc` - both fail CLOSED (the install is rejected, never
+silently accepted), so a packager who hits either one gets a false
+alarm on an actually-fine file, never a false pass on a broken one.
 
 **How a failure shows up:** as a hard error from `cmake --install`
 itself, not from a separate script you have to remember to run
@@ -427,7 +470,19 @@ automated regression test, not just prose:
   same broken-library and missing-header installs still FAIL, closed,
   exactly as they do unforced, and a genuinely intact install still
   gets only a WARNING when the pkg-config binary conversation itself
-  fails for a reason unrelated to content.
+  fails for a reason unrelated to content. Two more scenarios prove the
+  claims made above under "glintfx already runs this check for you":
+  a real install with its library artifact deleted AND `glintfx.pc`
+  rewritten to a relative `libdir`, re-validated from an
+  attacker-controlled working directory holding a decoy file under the
+  same relative name - it still FAILS, naming a path anchored under
+  `glintfx.pc`'s own directory, never the attacker directory; and a
+  hand-assembled `glintfx.pc` combining whitespace around `=`, a
+  trailing comment, and a variable defined twice, which the validator
+  accepts and - when a real `pkg-config`/`pkgconf` binary is on `PATH`
+  - is cross-checked against that same real binary too, so the claim
+  that the fixture is genuinely good does not rest on this project's
+  own code agreeing with itself.
 - `tests/tools/check_blank_install_dir_rejected.sh` exercises the
   blank-value rejection described under "NOT supported" above: it
   confirms configure fails with glintfx's own error message, naming

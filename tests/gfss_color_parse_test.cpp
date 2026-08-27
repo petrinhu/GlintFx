@@ -374,6 +374,200 @@ GLINTFX_TEST(gltfx_gfss_parse_color_diagnostic_carries_a_real_line_and_column) {
     GLINTFX_CHECK(later.diagnostic.column > static_cast<std::uint32_t>(1));
 }
 
+// --- CRITICAL finding, GFSS-COLOR-PARSE review (GODS_LAWS.md L-27/
+// L-40): decode_number_lexeme()'s own PRIOR version asserted
+// std::from_chars() always succeeds for a lexeme this project's own
+// tokenizer produces - true for the SYNTAX, false for the VALUE, since
+// lexical_rules.cpp's own consume_optional_exponent() does not cap the
+// exponent digit run ("1e400" is syntactically valid gfss that
+// overflows double). The boundary matrix below is enumerated
+// component by component, not sampled - GODS_LAWS.md L-40's own
+// "enumerate the small space" - covering the SAME decode path
+// rgb()/rgba()/hsl()/hsla() all four share (color_parse.cpp's own
+// parse_function_arguments()), never just one function name.
+
+GLINTFX_TEST(gltfx_gfss_parse_color_rgb_number_component_overflow_saturates_to_the_extreme) {
+    struct boundary_case {
+        std::string_view text;
+        glintfx::gltfx_rgba8 expected{};
+    };
+    constexpr boundary_case k_cases[] = {
+        // Positive overflow ("estouro por cima") - the CRITICAL
+        // finding's own first reproduction: MUST saturate to the
+        // MAXIMUM byte, never to zero.
+        {"rgb(1e400, 0, 0)", glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
+        {"rgb(0, 1e309, 0)", glintfx::gltfx_rgba8{.red = 0, .green = 255, .blue = 0, .alpha = 255}},
+        {"rgb(0, 0, 1e400)", glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 255, .alpha = 255}},
+        // Negative overflow ("estouro por baixo, valor negativo
+        // gigante") - saturates to the MINIMUM byte.
+        {"rgb(-1e400, 0, 0)", glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255}},
+        // Underflow towards zero ("estouro por baixo, magnitude
+        // minuscula") - a DIFFERENT libstdc++ code path than overflow
+        // (both report errc::result_out_of_range, this project's own
+        // measured probe) but the SAME correct outcome here: a
+        // component this close to zero clamps to zero either way.
+        {"rgb(1e-400, 0, 0)", glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255}},
+        {"rgb(-1e-400, 0, 0)", glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255}},
+        // The largest FINITE representable double - std::from_chars()
+        // itself SUCCEEDS for this one (not the out-of-range branch at
+        // all): the pre-existing in-range clamp_0_255_to_byte() path,
+        // included so the boundary table is not silently missing the
+        // one row that never touches this fatia's new code.
+        {"rgb(1.7976931348623157e308, 0, 0)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
+        // A <percentage-token> overflow - decode_percentage_lexeme()
+        // shares decode_number_lexeme() below, but the byte comes from
+        // clamp_unit_to_byte() (a DIFFERENT downstream formula than
+        // clamp_0_255_to_byte() above), so this is its own row, not
+        // redundant with the plain-number case.
+        {"rgb(1e400%, 0%, 0%)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
+    };
+    std::size_t checked = 0;
+    for (const boundary_case &c : k_cases) {
+        check_color_result(parse_color(c.text), c.expected);
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(8));
+    std::println(
+        "gltfx_gfss_parse_color_rgb_number_component_overflow_saturates_to_the_extreme: {} "
+        "case(s) checked",
+        checked);
+}
+
+// --- the alpha-specific half of the SAME finding: the reviewer's own
+// reproduction showed rgba(255,0,0,1e400) reading back FULLY
+// TRANSPARENT (alpha=0) - the extreme OPPOSITE of the intended
+// saturation - and rgba(...,1e-400) (underflow) needing the opposite
+// answer again (also transparent, but for the RIGHT reason: alpha near
+// zero really is near zero).
+
+GLINTFX_TEST(gltfx_gfss_parse_color_rgba_alpha_overflow_saturates_to_the_correct_extreme) {
+    struct boundary_case {
+        std::string_view text;
+        glintfx::gltfx_rgba8 expected{};
+    };
+    constexpr boundary_case k_cases[] = {
+        // Positive overflow: alpha MUST saturate to fully OPAQUE
+        // (255), never to fully transparent - this is the exact case
+        // color_parse.cpp's OWN prior silent bug ("valor absurdamente
+        // grande virou ZERO") got backwards.
+        {"rgba(255, 0, 0, 1e400)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
+        // Negative overflow: saturates to fully TRANSPARENT (0).
+        {"rgba(255, 0, 0, -1e400)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 0}},
+        // Underflow towards zero: also fully transparent, but for the
+        // opposite reason from the positive-overflow row above (a
+        // near-zero alpha really is near zero) - the row that proves
+        // this fatia's fix does not confuse "big" with "small".
+        {"rgba(255, 0, 0, 1e-400)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 0}},
+    };
+    std::size_t checked = 0;
+    for (const boundary_case &c : k_cases) {
+        check_color_result(parse_color(c.text), c.expected);
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(3));
+    std::println("gltfx_gfss_parse_color_rgba_alpha_overflow_saturates_to_the_correct_extreme: {} "
+                 "case(s) checked",
+                 checked);
+}
+
+// --- hsl()/hsla()'s saturation and lightness slots share the SAME
+// decode_number_lexeme() overflow path (they are <percentage-token>s,
+// component_kind_requirement::percentage_only) but a DIFFERENT
+// downstream formula (hsl_to_rgb_unit()'s own std::clamp() on
+// sat_unit/light_unit, not clamp_0_255_to_byte()/
+// clamp_unit_to_byte()) - saturation=100% and lightness=0%/100% are
+// the three hue-INDEPENDENT extremes (light=100% is always white,
+// light=0%/sat=0% both zero the `a` term in the reference formula and
+// so read back as whatever `light` alone is), so these rows are
+// hand-derivable from the formula, unlike the hue case below.
+
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_hsl_saturation_and_lightness_overflow_saturates_to_the_extreme) {
+    struct boundary_case {
+        std::string_view text;
+        glintfx::gltfx_rgba8 expected{};
+    };
+    constexpr boundary_case k_cases[] = {
+        // Lightness overflow saturates to 100% - white, at ANY hue.
+        {"hsl(123, 100%, 1e400%)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 255, .blue = 255, .alpha = 255}},
+        // Lightness AND saturation both underflow to 0% - black.
+        {"hsl(123, 1e-400%, 1e-400%)",
+         glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255}},
+        // Saturation underflows to 0% alone: `a` is zero regardless of
+        // lightness's own value, so the result is the GRAY the
+        // reference formula's own channel() collapses to (channel(n)
+        // == light for every n when a == 0) - light=0% keeps this row
+        // analytically clean (black), not a rounded mid-gray.
+        {"hsl(123, 1e-400%, 0%)",
+         glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255}},
+    };
+    std::size_t checked = 0;
+    for (const boundary_case &c : k_cases) {
+        check_color_result(parse_color(c.text), c.expected);
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(3));
+    std::println(
+        "gltfx_gfss_parse_color_hsl_saturation_and_lightness_overflow_saturates_to_the_extreme: "
+        "{} case(s) checked",
+        checked);
+}
+
+// --- the hue slot is the one component_kind_requirement::number_only
+// case (never a percentage), and hsl_to_rgb_unit()'s own
+// std::fmod(hue_deg, 360.0) is a DOMAIN ERROR (produces NaN) for an
+// INFINITE hue_deg, even though it is well-defined and FINITE for the
+// largest finite double - this is exactly why
+// saturate_out_of_range_number() (color_parse.cpp) returns
+// std::numeric_limits<double>::max()/lowest(), never +-infinity.
+// UNLIKE the rows above, CSS defines no meaning for a hue this
+// absurd, so this test does NOT hardcode a hand-derived RGB triple
+// (that would silently re-derive whatever std::fmod() happens to
+// produce on this platform instead of checking the property that
+// actually matters) - it proves the two things the finding cares
+// about instead: the call SUCCEEDS (no crash, no NaN reaching
+// std::lround()/static_cast<std::uint8_t> - THAT cast on a NaN would
+// be undefined behavior), and it is DETERMINISTIC (calling twice with
+// the SAME hostile text yields byte-identical output - a NaN or an
+// uninitialized read reaching the final byte would not reliably do
+// that).
+
+GLINTFX_TEST(gltfx_gfss_parse_color_hsl_hue_overflow_never_reaches_nan_and_stays_deterministic) {
+    constexpr std::string_view k_cases[] = {
+        "hsl(1e400, 100%, 50%)",
+        "hsl(-1e400, 100%, 50%)",
+        "hsla(1e400, 100%, 50%, 50%)",
+    };
+    std::size_t checked = 0;
+    for (const std::string_view text : k_cases) {
+        const color_parse_result first = parse_color(text);
+        const color_parse_result second = parse_color(text);
+        GLINTFX_CHECK(first.ok);
+        GLINTFX_CHECK(second.ok);
+        if (!first.ok || !second.ok) {
+            continue;
+        }
+        const glintfx::gltfx_rgba8 back_first = glintfx::gltfx_rgba_to_srgb8(first.value);
+        const glintfx::gltfx_rgba8 back_second = glintfx::gltfx_rgba_to_srgb8(second.value);
+        GLINTFX_CHECK_EQ(back_first.red, back_second.red);
+        GLINTFX_CHECK_EQ(back_first.green, back_second.green);
+        GLINTFX_CHECK_EQ(back_first.blue, back_second.blue);
+        GLINTFX_CHECK_EQ(back_first.alpha, back_second.alpha);
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(3));
+    std::println(
+        "gltfx_gfss_parse_color_hsl_hue_overflow_never_reaches_nan_and_stays_deterministic: {} "
+        "case(s) checked",
+        checked);
+}
+
 // --- color_diagnostic_vocabulary.hpp's own closed enumeration
 // (GODS_LAWS.md L-40): every identifier this fatia can ever attach to
 // gltfx_gfss_diagnostic::expected, swept whole, R7-checked

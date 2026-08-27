@@ -7,6 +7,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include <glintfx/gfss/tokenizer.hpp>
 
@@ -60,6 +61,126 @@ bool next_significant_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_tok
 
 // --- number decoding ---------------------------------------------------
 
+// Both most_significant_digit_place() and parse_saturating_exponent()
+// below clamp their own return value to this bound before
+// saturate_out_of_range_number() adds the two together - a value this
+// large already means "far outside double's own +-308-ish decimal
+// exponent range" (this project's own measured probe, GODS_LAWS.md
+// L-27), wide enough that the bound itself never changes which SIDE
+// the sum lands on, and narrow enough that the addition can never
+// overflow long long.
+constexpr long long k_saturation_exponent_bound = 1'000'000;
+
+// The place value (power of ten) of the first nonzero digit in
+// `mantissa` (a digit run with at most one '.', no sign, no exponent
+// letter - split_lexeme_at_exponent_marker()'s own mantissa half).
+// "120.045" -> 2 (the '1' sits in the hundreds place); "0.0045" -> -3.
+// A mantissa that is entirely zero digits never reaches this function
+// in practice (std::from_chars() already succeeds trivially for an
+// exact zero, so decode_number_lexeme() below never takes the
+// out-of-range branch for one) - the fallback below only guards a case
+// this project's own grammar cannot produce, and picks the SAFE
+// direction (underflow, never a fabricated overflow) if it somehow did.
+long long most_significant_digit_place(std::string_view mantissa) noexcept {
+    const std::size_t dot = mantissa.find('.');
+    const std::size_t whole_digit_count = dot == std::string_view::npos ? mantissa.size() : dot;
+    for (std::size_t i = 0; i < mantissa.size(); ++i) {
+        if (mantissa[i] == '.' || mantissa[i] == '0') {
+            continue;
+        }
+        const long long place =
+            i < whole_digit_count
+                ? static_cast<long long>(whole_digit_count - 1 - i)
+                : static_cast<long long>(whole_digit_count) - static_cast<long long>(i);
+        return std::clamp(place, -k_saturation_exponent_bound, k_saturation_exponent_bound);
+    }
+    return -k_saturation_exponent_bound;
+}
+
+// One <number-token>/<percentage-token> body, split at its own "e"/"E"
+// marker (lexical_rules.cpp's own consume_optional_exponent()) into a
+// mantissa (keeps its own optional '.') and an exponent (digits only,
+// sign lifted into `exponent_is_negative` - std::from_chars's INTEGER
+// overload has the SAME "no leading +" restriction the double overload
+// does, so the sign cannot simply be left in front of the digits).
+struct mantissa_and_exponent {
+    std::string_view mantissa;
+    std::string_view exponent_digits; // empty: no explicit "e..." suffix
+    bool exponent_is_negative = false;
+};
+
+mantissa_and_exponent split_lexeme_at_exponent_marker(std::string_view unsigned_lexeme) noexcept {
+    const std::size_t marker = unsigned_lexeme.find_first_of("eE");
+    if (marker == std::string_view::npos) {
+        return mantissa_and_exponent{
+            .mantissa = unsigned_lexeme, .exponent_digits = {}, .exponent_is_negative = false};
+    }
+    std::string_view rest = unsigned_lexeme.substr(marker + 1);
+    const bool is_negative = !rest.empty() && rest.front() == '-';
+    if (!rest.empty() && (rest.front() == '+' || rest.front() == '-')) {
+        rest.remove_prefix(1);
+    }
+    return mantissa_and_exponent{.mantissa = unsigned_lexeme.substr(0, marker),
+                                 .exponent_digits = rest,
+                                 .exponent_is_negative = is_negative};
+}
+
+// Parses `digits` (already known all-ASCII-digit by this project's own
+// tokenizer grammar) into a signed magnitude, saturating instead of
+// failing - the ONLY use saturate_out_of_range_number() below has for
+// this value is ADDING it to most_significant_digit_place()'s own
+// result and comparing the SIGN of the sum, never using it as a real
+// exponent, so an exponent run long enough to overflow long long
+// already means "far outside the bound both saturate to" before it is
+// even combined with the mantissa.
+long long parse_saturating_exponent(std::string_view digits, bool is_negative) noexcept {
+    long long magnitude = 0;
+    const std::from_chars_result result =
+        std::from_chars(digits.data(), digits.data() + digits.size(), magnitude);
+    if (result.ec == std::errc::result_out_of_range) {
+        magnitude = k_saturation_exponent_bound;
+    }
+    magnitude = std::clamp(magnitude, 0LL, k_saturation_exponent_bound);
+    return is_negative ? -magnitude : magnitude;
+}
+
+// std::from_chars() rejected the DOUBLE conversion of `unsigned_lexeme`
+// (decode_number_lexeme() below already stripped any leading '+'/'-')
+// as errc::result_out_of_range - true for BOTH directions this
+// project's own tokenizer's unbounded exponent digit run
+// (lexical_rules.cpp's own consume_optional_exponent()) can produce:
+// "1e400" (too big) and "1e-400" (too small, rounds to zero) - VERIFIED
+// against this project's own libstdc++ to return the SAME ec for both
+// (GODS_LAWS.md L-27: measured, not assumed). Distinguished the SAME
+// way scientific notation itself is - by the SIGN of the combined
+// decimal exponent (the mantissa's own most-significant-digit place,
+// PLUS any explicit "e..." suffix) - never by inspecting `value`,
+// which std::from_chars left untouched.
+double saturate_out_of_range_number(std::string_view unsigned_lexeme, bool is_negative) noexcept {
+    const mantissa_and_exponent split = split_lexeme_at_exponent_marker(unsigned_lexeme);
+    const long long mantissa_place = most_significant_digit_place(split.mantissa);
+    const long long explicit_exponent =
+        split.exponent_digits.empty()
+            ? 0
+            : parse_saturating_exponent(split.exponent_digits, split.exponent_is_negative);
+    const bool magnitude_is_at_least_one = mantissa_place + explicit_exponent >= 0;
+    if (magnitude_is_at_least_one) {
+        // CSS Color 4 SS4/13's own "the used value... MUST be clamped"
+        // rule (color_parse.hpp's own scope-cut 5) extended to a value
+        // from_chars declined to produce at all - the SAME extreme
+        // clamp_0_255_to_byte()/clamp_unit_to_byte() below already
+        // reach through std::clamp() for an in-range-but-too-large
+        // double. lowest()/max(), never +-infinity:
+        // hsl_to_rgb_unit()'s own std::fmod(hue_deg, 360.0) is a
+        // DOMAIN ERROR (NaN) for an infinite hue_deg, but well-defined
+        // and FINITE for the largest finite double - measured with
+        // this project's own probe before being trusted here.
+        return is_negative ? std::numeric_limits<double>::lowest()
+                           : std::numeric_limits<double>::max();
+    }
+    return is_negative ? -0.0 : 0.0; // underflow: rounds toward zero, never the extreme.
+}
+
 // Converts a <number-token>/<percentage-token> lexeme (WITHOUT the
 // trailing '%' for a percentage - callers strip it first) to a
 // double. std::from_chars(..., chars_format::general) implements a
@@ -73,29 +194,35 @@ bool next_significant_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_tok
 // deliberately NOT implemented in the tokenizer layer, GFSS-COLOR-PARSE
 // does its own decoding).
 //
-// noexcept, INFALLIBLE for every lexeme gltfx_gfss_next_token()
-// actually emits as a <number-token>/<percentage-token> - the grammar
-// containment argument: every code point sequence consume_number()
-// (lexical_rules.cpp) can produce is already a well-formed
-// standard-library floating-point literal once a leading '+' is
-// stripped, so from_chars succeeding is an INVARIANT of this project's
-// own tokenizer, not user input to validate a second time - the
-// assert below documents that invariant instead of inventing a dead
-// error path color_diagnostic_vocabulary.hpp would have no test able
-// to reach (GODS_LAWS.md L-40's own "isto e testado" corollary).
+// CORRECTED HERE (GODS_LAWS.md L-27/L-40 - a CRITICAL review finding
+// against an EARLIER version of this function): that version claimed
+// from_chars SUCCEEDING was an invariant of this project's own
+// tokenizer - true for the SYNTAX (every lexeme this file's own
+// tokenizer produces IS a well-formed floating-point literal), false
+// for the VALUE: lexical_rules.cpp's own consume_optional_exponent()
+// does not cap the exponent digit run, so "1e400" is syntactically
+// valid gfss that overflows double, and from_chars reports that
+// truthfully as errc::result_out_of_range instead of fabricating a
+// value. `assert()`-ing on that branch would abort the CONSUMER's
+// process on ordinary external text - this project's own "the library
+// never aborts the consumer's process" principle (ESCOPO.md SS2,
+// CORE-ERROR decision 1) extends past out-of-memory to hostile
+// external text just as directly. The branch below saturates instead,
+// per color_parse.hpp's own scope-cut 5 ("out-of-range components are
+// clamped, never rejected") - the SAME rule that already governs an
+// in-range-but-too-large value like rgb(300, -10, 0).
 double decode_number_lexeme(std::string_view lexeme) noexcept {
     std::string_view digits = lexeme;
     if (!digits.empty() && digits.front() == '+') {
         digits.remove_prefix(1);
     }
     double value = 0.0;
-    // [[maybe_unused]]: the ONLY consumer of `result` is the assert()
-    // below, which itself compiles to nothing in a build with NDEBUG
-    // defined (this project's own Release default) - without this
-    // attribute, THAT build (not Debug) would warn "set but not used"
-    // and fail this project's own -Werror gate (GODS_LAWS.md L-23).
-    [[maybe_unused]] const std::from_chars_result result =
+    const std::from_chars_result result =
         std::from_chars(digits.data(), digits.data() + digits.size(), value);
+    if (result.ec == std::errc::result_out_of_range) {
+        const bool is_negative = !digits.empty() && digits.front() == '-';
+        return saturate_out_of_range_number(is_negative ? digits.substr(1) : digits, is_negative);
+    }
     assert(result.ec == std::errc{} && result.ptr == digits.data() + digits.size() &&
            "decode_number_lexeme(): lexeme was not produced by this project's own tokenizer as a "
            "well-formed <number-token>/<percentage-token> body");

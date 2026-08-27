@@ -18,7 +18,7 @@
 #      --install --prefix <scratch>`, no flags. Proves the mechanism
 #      is wired: install(CODE) fires, finds pkg-config, and reports
 #      success against a genuinely correct install - this is the
-#      GREEN half of GODS_LAWS.md L-20, and the only one of the eight
+#      GREEN half of GODS_LAWS.md L-20, and the only one of the eleven
 #      scenarios below that exercises the FULL real pipeline glintfx's
 #      own build produces (configure -> build -> install), not a
 #      hand-assembled fixture.
@@ -55,7 +55,7 @@
 #      GODS_LAWS.md L-40's own case table ("um arquivo com as
 #      variaveis certas e as linhas de flag vazias imprimia
 #      'passou'"). Proves the floor this validator's own
-#      glintfx_pkgconfig_validate_flags() function carries actually
+#      glintfx_pkgconfig_validate_content_flags() function carries actually
 #      fires, not merely that it is written.
 #   7. "missing glintfx.pc" (RED): a real install, then glintfx.pc
 #      itself deleted (not the library) before re-running the
@@ -72,20 +72,61 @@
 #      packager's machine with no pkg-config on PATH gets a WARNING
 #      and a successful install, never a FATAL_ERROR for something
 #      that is not glintfx's own defect.
+#   9. "Windows-forced broken install still REFUSES" (RED, PKG-WIN-SCOPE
+#      regression proof, 27/08/2026): the SAME real, genuine
+#      broken-library install as scenario 5, re-validated with
+#      "-DWIN32=1" (script mode has no real target platform to force;
+#      this override is confirmed live to take the WIN32 branch, see
+#      GlintfxPkgConfigValidateInstalled.cmake.in's own header). Before
+#      this fatia's fix, this exact scenario - reproduced live by
+#      adversarial review, 27/08/2026 - printed a WARNING at exit 0
+#      claiming "Filesystem-based checks already confirmed ... the
+#      library artifact ... genuinely on disk", while the artifact had
+#      just been deleted: the WIN32 branch used to run BEFORE the
+#      filesystem/text-only content check, so one pkg-config-binary
+#      conversation failure (for ANY reason) skipped that check
+#      entirely and still reported success. This scenario is the
+#      regression test: it must FATAL, closed, on the forced-Windows
+#      path, exactly as it already does unforced (scenario 5).
+#  10. "Windows-forced, healthy content, binary conversation itself
+#      fails" (WARNING, not FATAL - the one legitimate downgrade that
+#      survives this fatia): reuses scenario 1's own intact install
+#      unmodified, re-validated with "-DWIN32=1". Forcing WIN32 makes
+#      this file append a literal trailing native list separator (";")
+#      to PKG_CONFIG_PATH (PKG-VALIDATE-WINSEP) - and the REAL
+#      pkg-config on THIS test machine's PATH is a genuine POSIX
+#      implementation that does not treat ';' as a separator, so it
+#      genuinely fails to find glintfx via `--exists`, for a reason
+#      that has nothing to do with content. Proves the WARNING branch
+#      still exists, still exits 0, and - the whole point of this
+#      fatia - now truthfully names its OWN, already-run content check
+#      as the thing that verified the filesystem, never a check that
+#      has not executed yet.
+#  11. "headers tree missing, on both a real Unix run and a
+#      Windows-forced run" (RED on both): a real install with its
+#      ENTIRE installed `glintfx/` header subdirectory removed (leaving
+#      `includedir` a real, existing, but now genuinely EMPTY
+#      directory) - the "árvore de cabeçalhos"/"um diretório vazio"
+#      case this file's own header used to declare NOT independently
+#      re-proven (only the library/-L branch, parameterized the same
+#      way, was exercised). Proves the includedir branch of
+#      glintfx_pkgconfig_validate_content_variable() fires for real,
+#      and that forcing WIN32 changes nothing about it: content checks
+#      never depended on platform.
 #
-# What this script does NOT test, declared (GODS_LAWS.md L-27): the
-# includedir/headers-missing branch of
-# glintfx_pkgconfig_validate_variable() and the -I-token-content branch
-# of glintfx_pkgconfig_validate_flags() are the SAME function/loop as
-# the libdir/library branch scenario 5 already exercises, parameterized
-# only by expected_content_kind - proving the library branch proves the
-# mechanism; the headers branch is not independently re-proven here.
-# Component-scoped installs (`cmake --install --component X`) and
-# cross-compiled TARGET binaries are not exercised either: neither one
-# is reachable through glintfx's own install() rules today (none of
-# them declare a COMPONENT, and this validator never runs target-arch
-# code) - see GlintfxPkgConfigValidateInstalled.cmake.in's own file
-# header for why those are declared, not silently assumed, safe.
+# What this script does NOT test, declared (GODS_LAWS.md L-27):
+# component-scoped installs (`cmake --install --component X`) and
+# cross-compiled TARGET binaries: neither one is reachable through
+# glintfx's own install() rules today (none of them declare a
+# COMPONENT, and this validator never runs target-arch code) - see
+# GlintfxPkgConfigValidateInstalled.cmake.in's own file header for why
+# those are declared, not silently assumed, safe. Scenarios 9 and 10
+# force WIN32 via "-DWIN32=1" rather than running on a real Windows
+# machine - the SAME, declared limitation every other scenario in this
+# POSIX shell script already has; PACKAGING.md's own Windows section is
+# additionally, separately proven on real Windows CI by
+# tools/ci/check-pkgconfig-installed.ps1 (see that file, and
+# PACKAGING.md's "Packaging on Windows" section).
 #
 # PERF-PKGVALIDATE (27/08/2026): this file used to give EVERY scenario
 # its own fresh `cmake -S <src> -B <fresh-dir>` PLUS a full
@@ -102,7 +143,7 @@
 # ~0.01s with it fully OFF (GLINTFX_SKIP_PKGCONFIG_VALIDATION=1) on this
 # same machine - a ~80ms tax per install, not the multi-second one the
 # timeout would need. The real cost was structural: NONE of this file's
-# eight scenarios ever vary BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR
+# eleven scenarios ever vary BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR
 # (unlike check_pkgconfig.sh's sibling gate, which genuinely needs a
 # different compiled artifact for its static scenario) - every
 # scenario here only varies CMAKE_INSTALL_PREFIX and
@@ -525,6 +566,127 @@ ${output}" ;;
     echo "ok: pkg-config-absent scenario - a machine with no pkg-config/pkgconf on PATH gets a WARNING and a SUCCESSFUL (exit 0) validation step, never a FATAL_ERROR for a missing tool that is not glintfx's own defect."
 }
 
+# Scenario 9: PKG-WIN-SCOPE regression proof - the SAME real, genuine
+# broken-library install as run_broken_library_scenario, re-validated
+# with "-DWIN32=1" FORCING the Windows branch (see this file's header
+# for why that override is trustworthy: confirmed live, not assumed).
+# Own throwaway prefix and own reconfigure-to-OFF, for the same
+# self-sufficiency reason as scenario 5.
+run_windows_forced_broken_library_scenario() {
+    glintfx_src="$1"
+    cxx="$2"
+    build_dir="$3"
+    prefix="$4"
+
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
+    cmake --install "$build_dir" --prefix "$prefix" >/dev/null
+
+    validator_script="$(find_generated_validator_script "$build_dir")"
+    find "$prefix" -maxdepth 3 -name 'libglintfx.so*' -o -maxdepth 3 -name 'libglintfx.a' 2>/dev/null \
+        | while IFS= read -r artifact; do rm -f "$artifact"; done
+
+    output="$(cmake -DCMAKE_INSTALL_PREFIX="$prefix" -DWIN32=1 -P "$validator_script" 2>&1)" \
+        && fail "re-running the validator against a real install with its library artifact REMOVED, with the Windows branch FORCED, unexpectedly SUCCEEDED - the PKG-WIN-SCOPE regression (a false 'already confirmed genuinely on disk' warning at exit 0) is back. Got:
+${output}"
+
+    normalized_output="$(normalize_wrapped_message "$output")"
+    case "$normalized_output" in
+        *"libglintfx.so"*"libglintfx.a"*"is not there"*) : ;;
+        *) fail "the Windows-forced broken-library RED did not name the missing artifact by its own promise ('libglintfx.so*/libglintfx.a ... is not there'). Got:
+${output}" ;;
+    esac
+    case "$output" in
+        *"genuinely on disk"*)
+            fail "the Windows-forced broken-library scenario still printed a claim that the library artifact is genuinely on disk, after deleting it - this is the exact false-verification defect PKG-WIN-SCOPE's adversarial review (27/08/2026) found and this fatia exists to fix. Got:
+${output}"
+            ;;
+        *) : ;;
+    esac
+    echo "ok: Windows-forced broken-library RED - forcing the Windows branch no longer lets a real broken install (library artifact deleted) through with a false 'already confirmed genuinely on disk' warning; it FAILS, closed, naming the missing artifact, exactly as it already does unforced."
+}
+
+# Scenario 10: the ONE legitimate downgrade that survives this fatia -
+# a GENUINELY intact install (reuses scenario 1's own, PERF-PKGVALIDATE:
+# nothing between scenario 1 and this one ever mutates that prefix),
+# re-validated with "-DWIN32=1". Forcing WIN32 makes this file append a
+# literal trailing native list separator (";") to PKG_CONFIG_PATH
+# (PKG-VALIDATE-WINSEP) - and the REAL pkg-config on THIS test
+# machine's PATH is a genuine POSIX implementation that does not treat
+# ';' as a separator, so `pkg-config --exists` genuinely fails to find
+# glintfx, for a reason that has nothing to do with content (MEASURED
+# live before writing this scenario, not assumed). Proves the WARNING
+# branch still exists, still exits 0, and now truthfully names its OWN
+# already-run content check as the thing that verified the filesystem.
+run_windows_forced_healthy_conversation_warning_scenario() {
+    build_dir="$1"
+    intact_prefix="$2"
+
+    validator_script="$(find_generated_validator_script "$build_dir")"
+
+    output="$(cmake -DCMAKE_INSTALL_PREFIX="$intact_prefix" -DWIN32=1 -P "$validator_script" 2>&1)" \
+        || fail "re-running the validator against a genuinely intact install, with only the Windows branch forced, unexpectedly FAILED instead of warning-and-succeeding. Got:
+${output}"
+
+    normalized_output="$(normalize_wrapped_message "$output")"
+    case "$normalized_output" in
+        *"CONVERSATION could not be verified on this Windows machine"*) : ;;
+        *) fail "the Windows-forced healthy-content scenario did not print the expected binary-conversation warning. Got:
+${output}" ;;
+    esac
+    case "$normalized_output" in
+        *"filesystem-only content check already ran before this point"*"already confirmed glintfx.pc, the headers and the library artifact are genuinely on disk with real content"*) : ;;
+        *) fail "the Windows-forced healthy-content warning did not honestly attribute the confirmation to its own content check having already run. Got:
+${output}" ;;
+    esac
+    case "$output" in
+        *"post-install pkg-config content check"*) : ;;
+        *) fail "the Windows-forced healthy-content scenario never printed its own content-check STATUS message before the binary-conversation warning - the content check may not have actually run first. Got:
+${output}" ;;
+    esac
+    echo "ok: Windows-forced healthy-content WARNING - with genuinely correct content on disk, only the pkg-config BINARY conversation itself failing (a real, measured quirk this file already fixes for on real Windows CI) still degrades to a WARNING at exit 0, and the warning now truthfully names its own, already-run content check as the thing that verified the filesystem."
+}
+
+# Scenario 11: headers tree missing, on both a real Unix run and a
+# Windows-forced run (RED on both) - the "árvore de cabeçalhos"/"um
+# diretório vazio" case this file's own header used to declare NOT
+# independently re-proven (only the library/-L branch, parameterized
+# the same way by glintfx_pkgconfig_validate_content_variable(), was
+# exercised, by scenario 5). Removes the ENTIRE installed `glintfx/`
+# header subdirectory, leaving includedir a real, existing, but now
+# genuinely EMPTY directory. Own throwaway prefix and own
+# reconfigure-to-OFF, for the same self-sufficiency reason as
+# scenario 5.
+run_headers_missing_scenario() {
+    glintfx_src="$1"
+    cxx="$2"
+    build_dir="$3"
+    prefix="$4"
+
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
+    cmake --install "$build_dir" --prefix "$prefix" >/dev/null
+
+    validator_script="$(find_generated_validator_script "$build_dir")"
+    headers_dir="$(find "$prefix" -maxdepth 3 -type d -name glintfx -path '*/include/*' 2>/dev/null | head -n1)"
+    [ -n "$headers_dir" ] || fail "no installed 'include/.../glintfx' header directory found anywhere under ${prefix} - cannot set up the headers-missing scenario"
+    rm -rf "$headers_dir"
+
+    for forced_win32 in "" "-DWIN32=1"; do
+        output="$(cmake -DCMAKE_INSTALL_PREFIX="$prefix" $forced_win32 -P "$validator_script" 2>&1)" \
+            && fail "re-running the validator against a real install with its ENTIRE header directory REMOVED (forced_win32='${forced_win32}') unexpectedly SUCCEEDED. Got:
+${output}"
+
+        normalized_output="$(normalize_wrapped_message "$output")"
+        case "$normalized_output" in
+            *"has no 'glintfx/' subdirectory"*"installed public headers are not there"*) : ;;
+            *) fail "the headers-missing RED (forced_win32='${forced_win32}') did not name the missing headers by its own promise. Got:
+${output}" ;;
+        esac
+    done
+    echo "ok: headers-missing RED, on both a real Unix run and a Windows-forced run - the includedir branch of the filesystem/text-only content check fires for a genuinely empty header directory, unconditionally on every platform."
+}
+
 main() {
     require_args "$@"
     glintfx_src="$1"
@@ -555,8 +717,11 @@ main() {
     run_missing_pc_file_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-missing-pc"
     run_empty_flags_floor_scenario "$build_dir" "$scratch" "$real_libdir"
     run_pkgconfig_absent_scenario "$build_dir" "$scratch" "$prefix_default"
+    run_windows_forced_broken_library_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-windows-forced-broken-library"
+    run_windows_forced_healthy_conversation_warning_scenario "$build_dir" "$prefix_default"
+    run_headers_missing_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-headers-missing"
 
-    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR), honors both halves of its escape hatch, and fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, and a hand-assembled empty-Cflags/Libs (L-40) fixture, while degrading to a WARNING (not a FATAL_ERROR) when pkg-config itself is absent."
+    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, and a hand-assembled empty-Cflags/Libs (L-40) fixture - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct."
 }
 
 main "$@"

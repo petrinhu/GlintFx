@@ -57,25 +57,40 @@ story:
   "glintfx already runs this check for you" below knows this artifact
   shape natively; it is not treated as a special case.
 - **What is, and is not, guaranteed about the pkg-config CONVERSATION
-  itself is narrower on Windows than on Unix.** Everything the
-  validator can prove by reading the filesystem alone — `glintfx.pc`
-  exists, the directories it names exist, the header tree and the
-  library artifact are really there — has full veto power on every
-  platform, Windows included: a broken install fails `cmake --install`
-  there exactly as it would on Linux. What is specifically **not**
-  guaranteed on Windows is that `pkg-config --exists glintfx` (and the
-  variable/flag queries that follow it) will successfully talk to
-  *your* pkg-config binary: the only pkg-config found on GitHub
-  Actions' `windows-latest` runner is Strawberry Perl's Pure-Perl
+  itself is narrower on Windows than on Unix - and the two halves run
+  in a fixed order now, not by accident.** The install-time validator
+  first reads `glintfx.pc` itself, directly, off disk - resolving its
+  `${...}` variables and its `Cflags:`/`Libs:` fields the same way a
+  real pkg-config would, but **without ever invoking a pkg-config
+  binary** - and confirms `includedir`/`libdir` and every `-I`/`-L`
+  token resolve to real, populated content: the header tree and the
+  library artifact are really there. This half runs **first**, calls
+  no binary, and has full veto power on every platform, Windows
+  included, unconditionally: a broken install fails `cmake --install`
+  there exactly as it would on Linux, and it never depends on whether
+  any pkg-config is even installed. **Only after that** does the
+  validator additionally try to confirm that a *real* pkg-config
+  binary on `PATH` also finds the module (`pkg-config --exists
+  glintfx`) - a genuinely different, and genuinely platform-shaped,
+  claim: the only pkg-config found on GitHub Actions'
+  `windows-latest` runner is Strawberry Perl's Pure-Perl
   reimplementation, `pkg-config.bat`, and glintfx's own install-time
   validator applies a targeted, MEASURED fix for the one quirk that
   binary was confirmed to have (see "glintfx already runs this check
   for you" below). If *your* Windows machine's pkg-config still fails
-  that conversation for a different reason, the install-time validator
-  reports it as a **warning**, not a failed install — the filesystem
-  checks already vetoed a genuinely broken install by that point, and
-  a pkg-config binary this project has never seen is not something it
-  can promise to talk to.
+  that one conversation for a different reason, the install-time
+  validator reports it as a **warning**, not a failed install - and,
+  because the content check above it already ran and already had full
+  veto power over whatever it found, the warning is never standing in
+  for a check that has not happened yet. (Before 27/08/2026, an
+  adversarial review found the order was reversed: the content check
+  ran only *after* the binary conversation had already succeeded, so
+  on Windows a single binary-conversation failure - for any reason at
+  all, including one unrelated to whether the library artifact was
+  genuinely on disk - skipped the content check entirely and still
+  reported a warning claiming it had already run. That ordering bug is
+  what the fix above corrects; see "Where this is tested" below for
+  how it is proven closed.)
 
 **Two more gates protect Windows consumption on every push**,
 independent of pkg-config, mirroring what
@@ -214,20 +229,32 @@ install glintfx with `GLINTFX_INSTALL` at its default value (see
 "Embedding via `add_subdirectory`/`FetchContent`" above for the one
 case where nothing is installed at all, and this check does not run
 either). Right after `glintfx.pc`, the public headers and the library
-artifact are written to disk, an installation step runs a real
-`pkg-config --exists glintfx`, resolves `--variable=includedir` and
-`--variable=libdir`, and walks every `-I`/`-L` token a plain
-(non-`--static`) `--cflags`/`--libs` query emits, the same query any
-consumer runs first, confirming each path exists on disk and actually
-contains a `glintfx/` header tree or a `libglintfx.so*`/`libglintfx.a`
-artifact, against whatever real layout that particular `cmake
---install` invocation produced, including a `DESTDIR`-staged one.
+artifact are written to disk, an installation step runs in two parts,
+in a fixed order:
+
+1. **First, unconditionally, on every platform:** it reads
+   `glintfx.pc` itself, directly off disk, resolves its `${...}`
+   variables and its `Cflags:`/`Libs:` fields the same way a real
+   pkg-config would (**no pkg-config binary is invoked for this
+   part**), and walks every `-I`/`-L` token a plain (non-`--static`)
+   query would emit - the same query any consumer runs first -
+   confirming each path exists on disk and actually contains a
+   `glintfx/` header tree or a `libglintfx.so*`/`libglintfx.a`
+   artifact, against whatever real layout that particular `cmake
+   --install` invocation produced, including a `DESTDIR`-staged one.
+   An install that resolves to nothing worth checking (an empty
+   `Cflags:`/`Libs:` line, for instance) counts as a failure too, not
+   a silent pass. This part has full veto power everywhere, including
+   Windows, and is not skipped even on a machine with no pkg-config
+   installed at all.
+2. **Only then**, it tries a real `pkg-config --exists glintfx` too,
+   to additionally confirm an actual pkg-config binary on your `PATH`
+   agrees. This second part is the one that can vary by platform (see
+   "Packaging on Windows" above).
+
 This runs on **your** machine, as part of the `cmake --install` you
 already run, not only in glintfx's own CI, which by construction can
 only exercise the layouts its own maintainers thought to enumerate.
-An install that resolves to nothing worth checking (an empty
-`Cflags:`/`Libs:` line, for instance) counts as a failure too, not a
-silent pass.
 
 **What this does NOT check:** that `Libs.private` carries a linker
 token genuinely load-bearing for a real static link (see "Static
@@ -235,14 +262,17 @@ linking" above; that claim is proven separately, against glintfx's own
 CI layouts, not re-checked here); that a Windows pkg-config OTHER than
 the one this project has measured (Strawberry Perl's `pkg-config.bat`
 on GitHub Actions' `windows-latest`) parses `PKG_CONFIG_PATH` the same
-way — the filesystem-based half of this check (the part that does not
-require successfully talking to a pkg-config binary at all) still runs
-and still fails the install on Windows if it is broken; only the
-binary-conversation half degrades to a warning there (see "Packaging
-on Windows" above); anything target-architecture-specific under
-cross-compilation (every check here reads the filesystem and runs
-`pkg-config`/`pkgconf`, a host tool operating on text, and never
-executes target-arch code); or a `--component`-scoped install (nothing
+way - the filesystem-based half of this check (the part that reads
+`glintfx.pc` directly and never talks to any pkg-config binary at all)
+still runs and still fails the install on Windows if it is broken;
+only the binary-conversation half - the second, separate part that
+does invoke a real `pkg-config`/`pkgconf` - degrades to a warning
+there (see "Packaging on Windows" above); anything
+target-architecture-specific under cross-compilation (the
+filesystem-based half never runs any binary at all, and the
+binary-conversation half only ever runs `pkg-config`/`pkgconf`, a host
+tool operating on text, never target-arch code); or a
+`--component`-scoped install (nothing
 glintfx installs today declares a `COMPONENT`, so a `--component`
 install under any other name simply installs nothing for glintfx in
 the first place, and this check is skipped right along with it, for
@@ -280,10 +310,16 @@ the loop of your `cmake --install` at all.
 `add_subdirectory`/`FetchContent` and never installed in the first
 place (`GLINTFX_INSTALL` defaults to off there, see "Embedding" above,
 so `glintfx.pc`, the headers, the library and this check are all
-equally absent from that build); and, on any machine where neither
-`pkg-config` nor `pkgconf` is on `PATH`, where this degrades to a
-warning instead of failing the install: `glintfx.pc` is still written,
-there is simply no tool available to confirm it resolves.
+equally absent from that build). **Where only HALF of this degrades:**
+on any machine where neither `pkg-config` nor `pkgconf` is on `PATH`.
+The filesystem-based half - reading `glintfx.pc` directly and
+confirming `includedir`/`libdir` and every `-I`/`-L` token resolve to
+real content - still runs and still fails the install if it finds a
+genuine problem, because it never needed a pkg-config binary in the
+first place; only the second, binary-conversation half (confirming a
+*real* pkg-config on `PATH` also finds the module) is skipped, with a
+warning naming exactly that - never a silent, unqualified "this could
+not be confirmed".
 
 **Where the binary-conversation half specifically degrades instead of
 running:** on Windows, if `pkg-config --exists glintfx` still fails
@@ -380,11 +416,18 @@ automated regression test, not just prose:
   install-time check described under "glintfx already runs this check
   for you, at install time, on your own machine" above: a real install
   with the library artifact deleted afterward, a real install with
-  `glintfx.pc` itself missing, a hand-assembled `glintfx.pc` with
-  empty `Cflags:`/`Libs:` lines, a `DESTDIR`-staged install in the
-  format Fedora's own RPM macros produce, both forms of the escape
-  hatch, and the warning-instead-of-failure behavior when
-  `pkg-config`/`pkgconf` is absent from `PATH`.
+  `glintfx.pc` itself missing, a real install with its entire header
+  tree deleted afterward, a hand-assembled `glintfx.pc` with empty
+  `Cflags:`/`Libs:` lines, a `DESTDIR`-staged install in the format
+  Fedora's own RPM macros produce, both forms of the escape hatch, the
+  warning-instead-of-failure behavior when `pkg-config`/`pkgconf` is
+  absent from `PATH` - and, with the validator's own Windows branch
+  forced (this script runs on Unix; forcing that one branch is how it
+  proves the Windows-specific behavior without a Windows machine): the
+  same broken-library and missing-header installs still FAIL, closed,
+  exactly as they do unforced, and a genuinely intact install still
+  gets only a WARNING when the pkg-config binary conversation itself
+  fails for a reason unrelated to content.
 - `tests/tools/check_blank_install_dir_rejected.sh` exercises the
   blank-value rejection described under "NOT supported" above: it
   confirms configure fails with glintfx's own error message, naming

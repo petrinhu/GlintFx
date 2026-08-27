@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <print>
+#include <string>
 #include <string_view>
 
 #include <glintfx/core/color.hpp>
@@ -62,6 +63,60 @@ void check_color_result(const color_parse_result &result, glintfx::gltfx_rgba8 e
 void check_color_failure(const color_parse_result &result, std::string_view expected_identifier) {
     GLINTFX_CHECK(!result.ok);
     GLINTFX_CHECK(result.diagnostic.expected == expected_identifier);
+}
+
+// --- helpers for the SECOND critical finding (GODS_LAWS.md L-27/L-40):
+// color_parse.cpp's own saturate_out_of_range_number() decided
+// overflow-vs-underflow by summing TWO separately-clamped magnitudes
+// (a mantissa's own most-significant-digit place, and an explicit "e"
+// exponent) - clamping BOTH to the SAME shared bound before adding
+// them let an adversarial digit run push one to +bound and the other
+// to -bound, summing to EXACTLY ZERO even though the TRUE (unclamped)
+// sum was nowhere near zero - a genuine underflow read back as an
+// overflow (color_parse.cpp's own SECOND CORRECTION comment has the
+// full derivation). The two builders below construct the EXACT lexeme
+// shapes that reproduction needs, never a hardcoded ~2,000,000-
+// character literal in this file's own source.
+
+// "0." + `leading_zero_count` zeros + "1" + "e" + `explicit_exponent` -
+// a fractional mantissa whose own most-significant-digit place is
+// EXACTLY -(leading_zero_count + 1) (color_parse.cpp's own
+// most_significant_digit_place(), verified by hand against this same
+// shape), combined with an explicit exponent SHORT enough in TEXT to
+// never overflow its own std::from_chars() parse (every magnitude this
+// file's own test cases pass here is well under 19 digits) - so both
+// halves reach saturate_out_of_range_number() as the mantissa/exponent
+// pair's OWN TRUE values, never a value this helper itself invented.
+std::string make_underflow_leaning_lexeme(std::size_t leading_zero_count,
+                                          long long explicit_exponent) {
+    std::string text = "0.";
+    text.append(leading_zero_count, '0');
+    text.push_back('1');
+    text += "e";
+    text += std::to_string(explicit_exponent);
+    return text;
+}
+
+// The SAME "0." + zeros + "1" shape, but with the EXPONENT's OWN digit
+// run long enough (all '9's) to overflow std::from_chars() on ITS OWN
+// parse - parse_saturating_exponent()'s OTHER saturation path
+// (color_parse.cpp), reached with only a few dozen characters of TEXT
+// despite the MAGNITUDE it stands for being far larger than anything
+// representable in a long long (2^63-ish) - the "as duas ordens de
+// grandeza invertidas" half of this fatia's own boundary matrix below:
+// here the EXPONENT is the side that saturates, not the mantissa.
+std::string make_exponent_digit_overflow_lexeme(std::size_t leading_zero_count,
+                                                bool exponent_is_negative,
+                                                std::size_t exponent_nine_count) {
+    std::string text = "0.";
+    text.append(leading_zero_count, '0');
+    text.push_back('1');
+    text += "e";
+    if (exponent_is_negative) {
+        text.push_back('-');
+    }
+    text.append(exponent_nine_count, '9');
+    return text;
 }
 
 } // namespace
@@ -566,6 +621,173 @@ GLINTFX_TEST(gltfx_gfss_parse_color_hsl_hue_overflow_never_reaches_nan_and_stays
         "gltfx_gfss_parse_color_hsl_hue_overflow_never_reaches_nan_and_stays_deterministic: {} "
         "case(s) checked",
         checked);
+}
+
+// --- SECOND CRITICAL finding, GFSS-COLOR-PARSE adversarial re-review
+// (GODS_LAWS.md L-27/L-40): the FIRST fix above (decode_number_lexeme's
+// own comment, and the boundary matrix just above this one) closed the
+// "does an out-of-range component saturate to the right extreme"
+// question. This second review found that saturate_out_of_range_number()
+// itself (color_parse.cpp) could pick the WRONG extreme when a mantissa
+// digit run and an explicit exponent digit run, both individually
+// clamped to the SAME shared bound before being ADDED, landed on
+// EXACTLY ZERO - discarding which one was actually larger. The three
+// rows below are the reviewer's OWN three reproductions (red channel,
+// alpha channel, hsl lightness), each with the ATTACK STRING that
+// triggered it and the CORRECT (post-fix) answer - GODS_LAWS.md L-20's
+// own "vermelho antes de verde": every one of these three FAILED
+// (wrong color) against the pre-fix source, verified live before this
+// file's own fix (color_parse.cpp's own SECOND CORRECTION comment) was
+// applied - not merely asserted here.
+
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_rgb_component_survives_a_mantissa_exponent_collision_at_the_old_shared_bound) {
+    // leading_zero_count = 1,999,999 -> mantissa place = -2,000,000
+    // (this project's own historical shared bound was 1,000,000, so
+    // this digit run is roughly TWICE that, deliberately past it -
+    // "corrida de dígitos muito longa" the finding names). explicit
+    // exponent = +1,000,000, opposite sign, SHORT text ("e1000000",
+    // 8 characters) - the finding's own "expoente curto de sinal
+    // oposto". TRUE combined exponent: -2,000,000 + 1,000,000 =
+    // -1,000,000 (a genuine, deep underflow - the component's real
+    // value is astronomically close to zero) - the PRE-FIX code
+    // independently clamped both summands to +-1,000,000 first, summed
+    // to EXACTLY ZERO, and read that as an OVERFLOW instead, saturating
+    // to the byte 255 the reviewer's own report table names.
+    const std::string attack = make_underflow_leaning_lexeme(1'999'999, 1'000'000);
+    check_color_result(parse_color("rgb(" + attack + ", 0, 0)"),
+                       glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255});
+}
+
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_rgba_alpha_survives_a_mantissa_exponent_collision_at_the_old_shared_bound) {
+    // SAME attack shape as the red-channel row above, in the ALPHA
+    // slot instead - the reviewer's own second reproduction, reading
+    // back fully OPAQUE (255) pre-fix where the true value is a genuine
+    // underflow (alpha component this close to zero clamps to fully
+    // TRANSPARENT, byte 0 - clamp_unit_to_byte()'s own convention,
+    // color_parse.cpp).
+    const std::string attack = make_underflow_leaning_lexeme(1'999'999, 1'000'000);
+    check_color_result(parse_color("rgba(255, 0, 0, " + attack + ")"),
+                       glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 0});
+}
+
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_hsl_lightness_survives_a_mantissa_exponent_collision_at_the_old_shared_bound) {
+    // SAME attack shape again, in the hsl() LIGHTNESS slot (a
+    // <percentage-token>, so the '%' is appended AFTER the exponent
+    // digits - decode_percentage_lexeme() strips it before this file's
+    // own decode_number_lexeme() ever sees the lexeme) - the reviewer's
+    // own third reproduction, reading back WHITE pre-fix (lightness
+    // misread as saturating toward 100%) where the true value is a
+    // genuine underflow (lightness this close to 0% is BLACK at any
+    // hue - hsl_to_rgb_unit()'s own reference formula, color_parse.cpp).
+    const std::string attack = make_underflow_leaning_lexeme(1'999'999, 1'000'000);
+    check_color_result(parse_color("hsl(123, 100%, " + attack + "%)"),
+                       glintfx::gltfx_rgba8{.red = 0, .green = 0, .blue = 0, .alpha = 255});
+}
+
+// --- the fronteira around the empate itself, enumerated rather than
+// sampled at one point (GODS_LAWS.md L-40's own "não teste um ponto
+// só"): the mantissa's OWN digit run walked through the three
+// positions relative to this project's HISTORICAL shared bound
+// (1,000,000) - "logo abaixo", "exatamente no teto", "logo acima" -
+// crossed with the explicit exponent's own magnitude relative to that
+// SAME historical bound - "menor", "igual", "maior" - plus two rows
+// where the ORDER OF MAGNITUDE is inverted (the EXPONENT is the side
+// that saturates - via a digit run long enough to overflow its OWN
+// std::from_chars() parse - and the mantissa stays small), never the
+// reverse of the first seven rows' own shape. Every row's `expected`
+// byte below was hand-derived from the TRUE, un-clamped combined
+// decimal exponent (place + exponent) BEFORE this fatia's own fix
+// existed - never copied from whatever the fixed code happens to
+// output - and two candidate rows (mantissa place and exponent exactly
+// canceling in TRUE arithmetic) are DELIBERATELY ABSENT: a literal
+// whose true combined exponent is 0 represents a magnitude near 1,
+// which is NOT out of double's own representable range at all, so
+// std::from_chars() succeeds directly and this file's own
+// saturate_out_of_range_number() is never even reached for it -
+// verified against this project's own libstdc++ before being trusted
+// here (GODS_LAWS.md L-27), never assumed.
+
+GLINTFX_TEST(gltfx_gfss_parse_color_underflow_overflow_direction_survives_the_boundary_matrix) {
+    struct boundary_case {
+        std::size_t leading_zero_count; // mantissa place = -(this + 1)
+        long long explicit_exponent;    // opposite sign, always SHORT text
+        bool byte_is_saturated_max;     // true: expect 255; false: expect 0
+        std::string_view note;
+    };
+    // clang-format off
+    const boundary_case k_cases[] = {
+        // -- mantissa dominant, exponent relative to the historical
+        // bound (1,000,000): "abaixo"/"no teto"/"acima do teto".
+        {500'000,     1'000'000, true,  "abaixo do teto, expoente igual ao teto: real +499999"},
+        {500'000,     1'500'000, true,  "abaixo do teto, expoente maior que o teto: real +999999"},
+        {999'999,       500'000, false, "no teto, expoente menor que o teto: real -500000"},
+        {999'999,     1'500'000, true,  "no teto, expoente maior que o teto: real +500000"},
+        {1'999'999,     500'000, false, "acima do teto, expoente menor: real -1500000"},
+        // the two rows that actually collided pre-fix (old-clamped sum
+        // == 0 while the true sum was deeply negative) - the SAME
+        // shape as the three reproductions above, kept here too so the
+        // matrix is self-contained without cross-referencing them.
+        {1'999'999,   1'000'000, false, "acima do teto, expoente igual: real -1000000 (empate antigo)"},
+        {1'999'999,   1'500'000, false, "acima do teto, expoente maior: real -500000 (empate antigo)"},
+    };
+    // clang-format on
+    std::size_t checked = 0;
+    for (const boundary_case &c : k_cases) {
+        const std::string attack = make_underflow_leaning_lexeme(c.leading_zero_count,
+                                                                  c.explicit_exponent);
+        const std::uint8_t expected_byte = c.byte_is_saturated_max ? 255 : 0;
+        check_color_result(parse_color("rgb(" + attack + ", 0, 0)"),
+                           glintfx::gltfx_rgba8{
+                               .red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(7));
+    std::println(
+        "gltfx_gfss_parse_color_underflow_overflow_direction_survives_the_boundary_matrix: {} "
+        "case(s) checked",
+        checked);
+}
+
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_underflow_overflow_direction_survives_with_the_inverted_order_of_magnitude) {
+    // "as duas ordens de grandeza invertidas": the SEVEN rows above all
+    // have the MANTISSA as the side whose digit run is long; these two
+    // rows invert that - the EXPONENT's own digit run is what overflows
+    // (25 '9' digits, representing a magnitude around 10^25, far beyond
+    // any long long), while the mantissa stays modest (leading_zero_
+    // count = 500,000, comfortably below the historical bound on
+    // either side of the fix). Both rows are CONTROLS in the sense that
+    // even the pre-fix code got them right (the exponent's own
+    // saturated magnitude, 1,000,000 pre-fix, still dominated a mantissa
+    // this small) - kept here because the finding's own report named
+    // this direction explicitly, and a fix that broke it silently would
+    // be exactly the kind of regression this matrix exists to catch.
+    struct inverted_case {
+        bool exponent_is_negative;
+        bool byte_is_saturated_max;
+        std::string_view note;
+    };
+    const inverted_case k_cases[] = {
+        {false, true, "expoente positivo com estouro proprio: real ~+1e25"},
+        {true, false, "expoente negativo com estouro proprio: real ~-1e25"},
+    };
+    std::size_t checked = 0;
+    for (const inverted_case &c : k_cases) {
+        const std::string attack =
+            make_exponent_digit_overflow_lexeme(500'000, c.exponent_is_negative, 25);
+        const std::uint8_t expected_byte = c.byte_is_saturated_max ? 255 : 0;
+        check_color_result(parse_color("rgb(" + attack + ", 0, 0)"),
+                           glintfx::gltfx_rgba8{
+                               .red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(2));
+    std::println("gltfx_gfss_parse_color_underflow_overflow_direction_survives_with_the_inverted_"
+                 "order_of_magnitude: {} case(s) checked",
+                 checked);
 }
 
 // --- color_diagnostic_vocabulary.hpp's own closed enumeration

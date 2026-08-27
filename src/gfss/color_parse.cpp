@@ -61,15 +61,56 @@ bool next_significant_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_tok
 
 // --- number decoding ---------------------------------------------------
 
-// Both most_significant_digit_place() and parse_saturating_exponent()
-// below clamp their own return value to this bound before
-// saturate_out_of_range_number() adds the two together - a value this
-// large already means "far outside double's own +-308-ish decimal
-// exponent range" (this project's own measured probe, GODS_LAWS.md
-// L-27), wide enough that the bound itself never changes which SIDE
-// the sum lands on, and narrow enough that the addition can never
-// overflow long long.
-constexpr long long k_saturation_exponent_bound = 1'000'000;
+// SECOND CORRECTION HERE (GODS_LAWS.md L-27/L-40 - an ADVERSARIAL
+// review against the FIRST fix below, in decode_number_lexeme()'s own
+// comment, found this one): that fix's own comment claimed the shared
+// bound below "never changes which SIDE the sum lands on" - MEASURED
+// FALSE (this project's own probe, GODS_LAWS.md L-27). A mantissa
+// digit run long enough to clamp most_significant_digit_place()'s
+// return value to EXACTLY the bound's negative extreme, summed with an
+// exponent digit run clamped by parse_saturating_exponent() to EXACTLY
+// the SAME bound's positive extreme, landed the sum on EXACTLY ZERO -
+// the TRUE, un-clamped sum was nowhere near zero (a genuine, deep
+// underflow), but clamping BOTH summands to the SAME bound BEFORE
+// adding them threw that fact away, and the sign check
+// (saturate_out_of_range_number()'s own `>= 0`) then picked the WRONG
+// side. Three real reproductions of exactly this collision are this
+// fatia's own gfss_color_parse_test.cpp.
+//
+// THE FIX IS TWO BOUNDS, NOT A BIGGER SINGLE ONE - GODS_LAWS.md L-40's
+// own review instruction ("compare as magnitudes verdadeiras, ou some
+// numa aritmetica que nao perca a informacao") ruled out the naive
+// fix: a bigger SHARED bound is attackable by a proportionally bigger
+// digit run on BOTH sides at once, the SAME collision at a new size.
+// Decoupling the two bounds by six orders of magnitude closes the
+// collision BY CONSTRUCTION - neither side's REALISTICALLY achievable
+// range can ever equal the other's, so they can never land on the
+// same magnitude with opposite sign no matter how long an attacker
+// makes either digit run:
+//
+//   - k_mantissa_place_bound only guards most_significant_digit_place()
+//     below against signed-integer wraparound converting
+//     std::string_view::size() (unsigned) to long long. It is NOT
+//     meant to ever be reached by a real mantissa: `mantissa` is a
+//     substring of ONE gfss color value's source text, bounded by
+//     whatever fits in this process's own address space - many orders
+//     of magnitude below this bound. For every input this project can
+//     actually receive, most_significant_digit_place() below returns
+//     the mantissa's TRUE, un-clamped place value, never an
+//     artificially narrowed one.
+//   - k_exponent_overflow_magnitude is the sentinel
+//     parse_saturating_exponent() below substitutes ONLY when the
+//     EXPONENT's OWN digit run overflows long long on ITS OWN
+//     std::from_chars() call (roughly 19+ significant digits - reachable
+//     with a few dozen characters of TEXT, unlike the mantissa side).
+//     Chosen with a margin wide enough above k_mantissa_place_bound
+//     that adding the two, at EITHER one's own worst case, can never
+//     cross zero from the wrong side, and can never overflow long long
+//     either (k_mantissa_place_bound + k_exponent_overflow_magnitude
+//     stays well inside long long's own range) - the sentinel therefore
+//     ALWAYS dominates the sign of the sum whenever it fires.
+constexpr long long k_mantissa_place_bound = std::numeric_limits<long long>::max() / 4;
+constexpr long long k_exponent_overflow_magnitude = std::numeric_limits<long long>::max() / 2;
 
 // The place value (power of ten) of the first nonzero digit in
 // `mantissa` (a digit run with at most one '.', no sign, no exponent
@@ -81,6 +122,14 @@ constexpr long long k_saturation_exponent_bound = 1'000'000;
 // out-of-range branch for one) - the fallback below only guards a case
 // this project's own grammar cannot produce, and picks the SAFE
 // direction (underflow, never a fabricated overflow) if it somehow did.
+//
+// Returns the TRUE place value for every mantissa this project can
+// actually receive (k_mantissa_place_bound's own header comment above:
+// the clamp below exists ONLY to guard the size_t-to-long long cast
+// against wraparound, and sits so far above any realistic digit run
+// that it never fires in practice) - deliberately NOT the same bound
+// parse_saturating_exponent() below saturates to, per this file's own
+// SECOND CORRECTION comment above.
 long long most_significant_digit_place(std::string_view mantissa) noexcept {
     const std::size_t dot = mantissa.find('.');
     const std::size_t whole_digit_count = dot == std::string_view::npos ? mantissa.size() : dot;
@@ -92,9 +141,9 @@ long long most_significant_digit_place(std::string_view mantissa) noexcept {
             i < whole_digit_count
                 ? static_cast<long long>(whole_digit_count - 1 - i)
                 : static_cast<long long>(whole_digit_count) - static_cast<long long>(i);
-        return std::clamp(place, -k_saturation_exponent_bound, k_saturation_exponent_bound);
+        return std::clamp(place, -k_mantissa_place_bound, k_mantissa_place_bound);
     }
-    return -k_saturation_exponent_bound;
+    return -k_mantissa_place_bound;
 }
 
 // One <number-token>/<percentage-token> body, split at its own "e"/"E"
@@ -127,20 +176,22 @@ mantissa_and_exponent split_lexeme_at_exponent_marker(std::string_view unsigned_
 
 // Parses `digits` (already known all-ASCII-digit by this project's own
 // tokenizer grammar) into a signed magnitude, saturating instead of
-// failing - the ONLY use saturate_out_of_range_number() below has for
-// this value is ADDING it to most_significant_digit_place()'s own
-// result and comparing the SIGN of the sum, never using it as a real
-// exponent, so an exponent run long enough to overflow long long
-// already means "far outside the bound both saturate to" before it is
-// even combined with the mantissa.
+// failing. UNLIKE most_significant_digit_place() above, this function's
+// own saturation bound (k_exponent_overflow_magnitude) is chosen to be
+// far LARGER than any mantissa place value this project can actually
+// produce - per this file's own SECOND CORRECTION comment above, that
+// asymmetry is the fix: it means this function's own saturated result
+// ALWAYS dominates the sign of the sum saturate_out_of_range_number()
+// below computes, rather than landing on the SAME bound
+// most_significant_digit_place() might independently saturate to.
 long long parse_saturating_exponent(std::string_view digits, bool is_negative) noexcept {
     long long magnitude = 0;
     const std::from_chars_result result =
         std::from_chars(digits.data(), digits.data() + digits.size(), magnitude);
     if (result.ec == std::errc::result_out_of_range) {
-        magnitude = k_saturation_exponent_bound;
+        magnitude = k_exponent_overflow_magnitude;
     }
-    magnitude = std::clamp(magnitude, 0LL, k_saturation_exponent_bound);
+    magnitude = std::clamp(magnitude, 0LL, k_exponent_overflow_magnitude);
     return is_negative ? -magnitude : magnitude;
 }
 
@@ -156,6 +207,15 @@ long long parse_saturating_exponent(std::string_view digits, bool is_negative) n
 // decimal exponent (the mantissa's own most-significant-digit place,
 // PLUS any explicit "e..." suffix) - never by inspecting `value`,
 // which std::from_chars left untouched.
+//
+// The sign check below (`>= 0`) is only as trustworthy as the two
+// summands feeding it - this file's own SECOND CORRECTION comment
+// above (k_mantissa_place_bound / k_exponent_overflow_magnitude)
+// exists SPECIFICALLY so this addition can never land on a false zero:
+// mantissa_place is the mantissa's TRUE place value for every input
+// this project can actually receive, and explicit_exponent, whenever
+// it IS saturated, saturates to a sentinel far too large for
+// mantissa_place to ever cancel.
 double saturate_out_of_range_number(std::string_view unsigned_lexeme, bool is_negative) noexcept {
     const mantissa_and_exponent split = split_lexeme_at_exponent_marker(unsigned_lexeme);
     const long long mantissa_place = most_significant_digit_place(split.mantissa);

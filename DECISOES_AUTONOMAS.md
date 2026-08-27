@@ -269,3 +269,36 @@ O revisor achou que nenhum portão da casa prova a frase do próprio `README.md`
 **O sintoma que virou regra prática, e vale citar como está:** *"o commit precisou de um parágrafo inteiro para argumentar que não era decisão de produto. Mudança que precisa defender que não é decisão de produto, é decisão de produto."*
 
 **Varredura "isolado ou padrão?", feita antes de fechar:** três pontos na superfície inteira. Os guards de precondição do `gltfx_rslt` são **classe diferente** (erro do chamador, comportamento decidido pelo líder e provado por portão próprio) — conformes. O `skip_comments`, que consome comentário não terminado **sem diagnóstico**, é da mesma família "a informação existe e não se propaga", mas é erro de **entrada**, está declarado em comentário como escolha da fatia, e vira **item próprio** em vez de ser embrulhado aqui. O achado em si é **isolado, não padrão** — com a ressalva honesta de que a superfície é jovem.
+
+#### D-PKGWIN — o `glintfx.pc` e o validador dele são artefatos Unix; no Windows nenhum dos dois existe  `[27/08/26 - 04:16:25]`
+
+**Quem decidiu:** `fable` (Caetano, CTO). **Fatia:** `PKG-WIN-SCOPE`, nascida do incidente em que **duas rodadas de CI reprovaram uma instalação CORRETA no Windows**.
+
+**A pergunta, como teria ido ao líder:** no Windows, o `pkg-config` deve ter poder de veto sobre a instalação do consumidor — e o `.pc` sequer deve ser escrito lá?
+
+**Os fatos que decidiram, e eu reconferi os quatro contra a árvore:**
+
+1. **`PACKAGING.md:173` já dizia** *"pkg-config has no role in glintfx's Windows story today"*. A promessa escrita ao empacotador **já excluía** o Windows.
+2. ⚠️ **O próprio validador já declarava falso vermelho estrutural no Windows**, no cabeçalho dele: *"this file's library-artifact glob would not match glintfx.lib and would report a false failure - accepted for now"*. **Isso mata por construção a saída de "consertar a conversa com o pkg-config"** — mesmo com a chamada consertada, o glob reprovaria a instalação correta duas funções adiante.
+3. **Zero tags, local e remoto.** Pré-1.0, sem consumidor conhecido.
+4. **O `.pc` era instalado no Windows por acidente de implementação:** as duas chamadas do `CMakeLists.txt` não têm guarda de plataforma, e **nenhuma decisão registrada jamais disse que haveria `.pc` no Windows**.
+
+**Mais um, que fecha o caso:** o `.pc` do Windows traz `Libs: -lglintfx`, nomeando um artefato **inexistente** naquela cadeia (lá é `glintfx.lib`, L-38) — e **nenhum portão nosso jamais o validou lá**. Arquivo distribuído que faz uma alegação nunca provada.
+
+**As opções e por que três caíram:**
+
+- **(a) o veto vira aviso no Windows** — recusada, e o argumento é forte: é o pior dos dois mundos, porque **continua publicando** o arquivo órfão e **deixa de vigiá-lo**, mais cria assimetria de contrato na mesma função pública.
+- **(b) consertar a conversa com o `pkg-config` do Windows, após medir** — recusada pelo fato 2: **não tem linha de chegada**.
+- **(d) só desregistrar o validador, mantendo o `.pc`** — recusada sem hesitar: arquivo distribuído que **nenhum portão olha, nunca**, é a classe exata de defeito que a L-40 existe para eliminar.
+
+**Escolhida: (c) — não instalar o `.pc` nem registrar o validador fora do Unix.** A decisão **alinha o código à promessa que o `PACKAGING.md` já fazia**; não muda contrato, conserta a implementação que o contradizia. Onde o `.pc` existe (os quatro alvos Unix), **o veto continua integral, sem rebaixamento nenhum**.
+
+**Isto NÃO é abandono do quinto alvo.** O empacotador de Windows não fica com proteção menor: fica com proteção **pela via que a plataforma dele de fato usa** — `find_package`, com dois portões dedicados rodando a cada push. O que ele perde não é proteção, é um artefato órfão que o descrevia na sintaxe de outro mundo.
+
+**Porta de mão única: não**, e o CTO pesou contra si: remover artefato de instalação normalmente é quebra, mas não há tag, release nem consumidor conhecido, e a promessa escrita nunca o incluiu. **Reverter é aditivo, um commit.**
+
+**É mudança de comportamento observável de instalação, ou seja, decisão de produto pela régua do `D-W3-6`.** Por isso está aqui para **ratificação retroativa**, e **a promoção do texto ao `ESCOPO.md` §9 ESPERA o líder** — aquele arquivo registra decisão dele, não de agente.
+
+**O que NÃO foi medido, declarado:** a causa exata de o `pkg-config` do executor recusar o arquivo. Um **passo permanente de diagnóstico** entra no job do Windows **mesmo com esta decisão**, justamente para que a próxima falha de Windows seja **leitura de log em vez da quarta adivinhação** — duas rodadas de CI já foram queimadas adivinhando.
+
+**A pergunta que vai ao líder:** *"No Windows o consumo é `find_package`; o `.pc` (convenção Unix) deixou de ser instalado lá, e o validador dele não roda lá — os quatro alvos Unix mantêm o veto integral. Ratifica, e promovo o texto ao `ESCOPO.md` §9? Ou reverte, e aí decidimos juntos o que fazer com o validador que reprova instalação boa?"*

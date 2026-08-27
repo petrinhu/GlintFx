@@ -193,6 +193,33 @@ Por `AskUserQuestion` (L-10), com as opções escritas pelo CTO em `/var/tmp/gli
 
 **Descartada com razão registrada:** números decimais de 16 bits. O fornecimento deles no padrão da linguagem é **condicional**, e o projeto não controla isso nas cinco plataformas da L-04.
 
+### Duas decisões do líder de 27/08/2026 sobre o que o consumidor recebe
+
+**Origem:** decisão dele por `AskUserQuestion`, depois de as duas opções lhe serem explicadas pelo efeito e não pela implementação (L-41).
+
+#### 1. A leitura de cor entra na API pública COM o diagnóstico rico
+
+**Verbatim da opção que ele escolheu:** *"do jeito rico"*.
+
+Quando a leitura de uma cor falha, o consumidor recebe **em que linha e em que coluna** do arquivo está o problema, e **o que se esperava encontrar ali** — não apenas "deu errado". É isso que permite a quem integra a biblioteca mostrar ao usuário final dele uma mensagem útil em vez de um erro mudo.
+
+**O custo, aceito de olhos abertos:** o consumidor passa a lidar com **duas formas** de receber erro na mesma biblioteca — a rica, na leitura de folha de estilo, e a geral, no resto. A alternativa era um mecanismo só, e ela foi **recusada**, porque caberia a informação de posição num molde que não foi feito para carregá-la, e a posição é justamente o que torna o erro acionável.
+
+**Isto congela na entrada.** Mudar depois quebra quem já escreveu código em cima.
+
+#### 2. Defeito interno NOSSO sai por CANAL SEPARADO
+
+**Verbatim da opção que ele escolheu:** *"canal separado"*.
+
+Quando a biblioteca detecta um bug **dela mesma** no meio de uma leitura — não um erro no arquivo do consumidor —, o aviso **não** sai pelo mesmo canal dos erros de sintaxe. Ele tem caminho próprio.
+
+**O problema que isto resolve, e que motivou a pergunta:** o consumidor foi ensinado, pela filosofia de recuperação que o formato documenta, a ler o canal de sintaxe como *"o arquivo do usuário tem um erro, siga em frente"*. Um defeito nosso saindo por ali faria ele **culpar um arquivo que está correto**, e reportar ao usuário final um erro de sintaxe que não existe.
+
+**O custo, declarado:** é um caminho a mais que o consumidor precisa lembrar de consultar. O líder pesou isso contra o risco de culpa trocada e escolheu a clareza.
+
+⚠️ **Isto REVISA a decisão `D-W3-6`**, tomada em modo autônomo pelo C-level, que tinha escolhido usar o mesmo canal com um identificador que nomeia a biblioteca como culpada. A implementação atual segue aquele desenho e **precisa ser migrada**; o que não se reverte é o comportamento que ela substituiu, que devolvia texto plausível e falso em silêncio.
+
+
 ## §3 — Versionamento e ABI
 
 ### Versão `vA.B.C.D`, `SOVERSION`, e o terceiro contrato (DADO)

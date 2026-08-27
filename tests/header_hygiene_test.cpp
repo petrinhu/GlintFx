@@ -96,6 +96,7 @@
 #include <glintfx/core/err_format.hpp>
 #include <glintfx/core/version.hpp>
 #include <glintfx/gfss/token.hpp>
+#include <glintfx/gfss/tokenizer.hpp>
 #include <glintfx/version_macros.hpp>
 
 #include "harness/check.hpp"
@@ -156,6 +157,22 @@ GLINTFX_TEST(gfss_token_header_survives_hostile_system_headers) {
         .diagnostic = {},
     };
     GLINTFX_CHECK(token.kind == glintfx::style::gltfx_gfss_token_kind::hash);
+    GLINTFX_CHECK(token.diagnostic.expected.empty());
+}
+
+// gfss/tokenizer.hpp (GFSS-TOKEN) survives the same hostile include
+// order - gltfx_gfss_next_token() is the call-shaped, ABI-crossing
+// primitive this header declares (see that header's own comment for
+// why it is the exported entry point and gltfx_gfss_tokenize() stays
+// inline), exercised here the same CE-8 way as gfss_token_header_
+// survives_hostile_system_headers above exercises token.hpp's own
+// call-shaped name.
+GLINTFX_TEST(gfss_tokenizer_header_survives_hostile_system_headers) {
+    glintfx::style::gltfx_gfss_cursor cursor{.source = "foo"};
+    glintfx::style::gltfx_gfss_token token;
+    const bool more = glintfx::style::gltfx_gfss_next_token(cursor, token);
+    GLINTFX_CHECK(more);
+    GLINTFX_CHECK(token.kind == glintfx::style::gltfx_gfss_token_kind::ident);
     GLINTFX_CHECK(token.diagnostic.expected.empty());
 }
 

@@ -32,6 +32,10 @@ glintfx_add_test(color_test)
 # gfss_token_test.cpp's own header comment.
 glintfx_add_test(gfss_token_test)
 
+# GFSS-TOKEN: the CSS-core scanning algorithm itself, on top of the
+# types above - see gfss_tokenizer_test.cpp's own header comment.
+glintfx_add_test(gfss_tokenizer_test)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

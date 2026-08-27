@@ -436,6 +436,24 @@ enum class component_kind_requirement : std::uint8_t {
     percentage_only
 };
 
+// The three OUT parameters read_color_component() below fills on
+// every call, success or failure, grouped into one struct -
+// CONTRACT.md SS6.2's own 4-parameter ceiling (GODS_LAWS.md L-17): the
+// bare function used to take `cursor` and `requirement` PLUS three
+// more out-parameters, five in total. `component` and `token` are
+// BOTH needed on a SUCCESSFUL call (the caller's own
+// rgb_component_type_matches_first() check needs the token's own
+// line/column to build a k_color_expected_uniform_component_types
+// diagnostic if a LATER argument fails the uniform-type check, and by
+// then read_color_component() has already moved on to that later
+// argument's own token) - `failure` is the only field that only
+// matters on the false path.
+struct color_component_read {
+    color_component component{};
+    gltfx_gfss_token token{};
+    gltfx_gfss_diagnostic failure{};
+};
+
 // One argument matching `requirement` - MUTATION-FOUND BUG, FIXED HERE
 // (this project's own first real red, captured live before this fix:
 // hsl(50%, 50%, 50%) - a PERCENTAGE in the HUE slot - was wrongly
@@ -447,28 +465,21 @@ enum class component_kind_requirement : std::uint8_t {
 // number_only slot, or a <number-token> in a percentage_only slot,
 // both now fall through to the SAME "neither branch matched" failure
 // path a genuinely wrong token kind already took.
-//
-// `out_token` receives the component token EVEN ON SUCCESS - the
-// caller needs its line/column to build a k_color_expected_uniform_
-// component_types diagnostic if a LATER check
-// (rgb_component_type_matches_first()) fails, and by then this
-// function has already moved on to the next argument's own token.
 bool read_color_component(gltfx_gfss_cursor &cursor, component_kind_requirement requirement,
-                          color_component &out_component, gltfx_gfss_token &out_token,
-                          gltfx_gfss_diagnostic &out_failure) noexcept {
-    if (!next_significant_token(cursor, out_token)) {
-        out_failure = make_diagnostic(out_token, k_color_expected_argument_count);
+                          color_component_read &out) noexcept {
+    if (!next_significant_token(cursor, out.token)) {
+        out.failure = make_diagnostic(out.token, k_color_expected_argument_count);
         return false;
     }
     const bool accepts_number = requirement != component_kind_requirement::percentage_only;
     const bool accepts_percentage = requirement != component_kind_requirement::number_only;
-    if (accepts_number && out_token.kind == gltfx_gfss_token_kind::number) {
-        out_component = color_component{.value = decode_number_lexeme(out_token.lexeme),
+    if (accepts_number && out.token.kind == gltfx_gfss_token_kind::number) {
+        out.component = color_component{.value = decode_number_lexeme(out.token.lexeme),
                                         .is_percentage = false};
         return true;
     }
-    if (accepts_percentage && out_token.kind == gltfx_gfss_token_kind::percentage) {
-        out_component = color_component{.value = decode_percentage_lexeme(out_token.lexeme),
+    if (accepts_percentage && out.token.kind == gltfx_gfss_token_kind::percentage) {
+        out.component = color_component{.value = decode_percentage_lexeme(out.token.lexeme),
                                         .is_percentage = true};
         return true;
     }
@@ -477,7 +488,7 @@ bool read_color_component(gltfx_gfss_cursor &cursor, component_kind_requirement 
                                       : requirement == component_kind_requirement::percentage_only
                                           ? k_color_expected_percentage
                                           : k_color_expected_number_or_percentage;
-    out_failure = make_diagnostic(out_token, expected);
+    out.failure = make_diagnostic(out.token, expected);
     return false;
 }
 
@@ -589,16 +600,17 @@ color_parse_result parse_function_arguments(gltfx_gfss_cursor &cursor,
             : is_saturation_or_lightness ? component_kind_requirement::percentage_only
                                          : component_kind_requirement::number_or_percentage;
 
-        gltfx_gfss_token component_token{};
-        gltfx_gfss_diagnostic failure{};
-        if (!read_color_component(cursor, requirement, components[i], component_token, failure)) {
-            return fail(failure);
+        color_component_read read{};
+        if (!read_color_component(cursor, requirement, read)) {
+            return fail(read.failure);
         }
+        components[i] = read.component;
         if (!is_hsl_family && i > 0 && i < 3 && !rgb_component_type_matches_first(components, i)) {
-            return fail(make_diagnostic(component_token, k_color_expected_uniform_component_types));
+            return fail(make_diagnostic(read.token, k_color_expected_uniform_component_types));
         }
-        if (!read_component_separator(cursor, i, required_args, failure)) {
-            return fail(failure);
+        gltfx_gfss_diagnostic separator_failure{};
+        if (!read_component_separator(cursor, i, required_args, separator_failure)) {
+            return fail(separator_failure);
         }
     }
 

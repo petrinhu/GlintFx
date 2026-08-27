@@ -133,6 +133,29 @@ fail() {
     exit 1
 }
 
+# PKG-VALIDATE-WRAP: undoes CMake's own message() text-wrapping so a
+# `case` pattern that searches for a MULTI-WORD phrase does not miss it
+# just because the wrap happened to land between two of that phrase's
+# words - the same defect CLASS this house already named for PDF text
+# extraction ("grep de frase quebra entre linhas; normalize antes de
+# contar"), here caused by cmake's own message() reflow instead of an
+# extractor. REPRODUCED live before this fix, not merely reasoned: an
+# unnormalized `case "$output"` search for "is not there"
+# (run_broken_library_scenario's own RED assertion, below) matched for
+# scratch-directory padding lengths 7+ and MISSED for lengths 0-6 -
+# and mktemp's "XXXXXX" template always produces a 6-character random
+# suffix, landing this scenario inside the miss range on every real
+# run, passing only by the accident of a lucky suffix. Confirmed
+# separately that cmake's message() wrapping never breaks INSIDE an
+# unbroken run of non-whitespace (a path with no spaces stays intact
+# on one line, however long) - only BETWEEN words - so collapsing
+# every run of whitespace (newline included) back to one space is
+# sufficient to reconstruct the original phrase; no word is ever
+# split mid-token.
+normalize_wrapped_message() {
+    printf '%s' "$1" | tr '\n' ' ' | tr -s ' '
+}
+
 require_args() {
     [ "$#" -eq 2 ] || fail "usage: check_pkgconfig_validate.sh <glintfx-source-dir> <cxx-compiler>"
     [ -d "$1" ] || fail "glintfx source dir not found: $1"
@@ -374,7 +397,8 @@ run_broken_library_scenario() {
         && fail "re-running the validator against a real install with its library artifact REMOVED unexpectedly SUCCEEDED - it did not catch the broken install. Got:
 ${output}"
 
-    case "$output" in
+    normalized_output="$(normalize_wrapped_message "$output")"
+    case "$normalized_output" in
         *"libglintfx.so"*"libglintfx.a"*"is not there"*) : ;;
         *) fail "the broken-library RED did not name the missing artifact by its own promise ('libglintfx.so*/libglintfx.a ... is not there'). Got:
 ${output}" ;;

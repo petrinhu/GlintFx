@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 
@@ -91,33 +92,71 @@ namespace glintfx::style {
 // header's own comment above on GFSS-API congealing it later), so
 // there is no reason to pay four bytes when clang-tidy's
 // performance-enum-size correctly says one suffices.
+//
+// GLINTFX_GFSS_TOKEN_KIND_LIST(X) - the SINGLE authoritative list of
+// the 25 classes above: X(name) is expanded once per class, in spec
+// order. The enum right below AND gltfx_gfss_token_kind_count right
+// after it are BOTH generated from this one list, so they can never
+// drift apart (GODS_LAWS.md L-40 achado 1 of 26/08/2026, "a
+// enumeracao fechada nao e fechada": before this macro existed, the
+// enum, token_kind.cpp's own name table and each test file's own
+// directed sample table were three INDEPENDENTLY hand-copied lists -
+// a 26th value added to the enum by hand compiled clean, and every
+// test kept printing "25 checked", because nothing actually compared
+// against the enum's own true count). Private to this header - defined
+// and #undef'd immediately below, never leaks past this translation
+// unit's parse of this file.
+#define GLINTFX_GFSS_TOKEN_KIND_LIST(X)                                                            \
+    X(ident)                                                                                       \
+    X(function)                                                                                    \
+    X(at_keyword)                                                                                  \
+    X(hash)                                                                                        \
+    X(string)                                                                                      \
+    X(bad_string)                                                                                  \
+    X(url)                                                                                         \
+    X(bad_url)                                                                                     \
+    X(delim)                                                                                       \
+    X(number)                                                                                      \
+    X(percentage)                                                                                  \
+    X(dimension)                                                                                   \
+    X(whitespace)                                                                                  \
+    X(cdo)                                                                                         \
+    X(cdc)                                                                                         \
+    X(colon)                                                                                       \
+    X(semicolon)                                                                                   \
+    X(comma)                                                                                       \
+    X(open_square)                                                                                 \
+    X(close_square)                                                                                \
+    X(open_paren)                                                                                  \
+    X(close_paren)                                                                                 \
+    X(open_curly)                                                                                  \
+    X(close_curly)                                                                                 \
+    X(eof)
+
 enum class gltfx_gfss_token_kind : std::uint8_t {
-    ident,
-    function,
-    at_keyword,
-    hash,
-    string,
-    bad_string,
-    url,
-    bad_url,
-    delim,
-    number,
-    percentage,
-    dimension,
-    whitespace,
-    cdo,
-    cdc,
-    colon,
-    semicolon,
-    comma,
-    open_square,
-    close_square,
-    open_paren,
-    close_paren,
-    open_curly,
-    close_curly,
-    eof,
+#define GLINTFX_GFSS_TOKEN_KIND_ENUMERATOR(name) name,
+    GLINTFX_GFSS_TOKEN_KIND_LIST(GLINTFX_GFSS_TOKEN_KIND_ENUMERATOR)
+#undef GLINTFX_GFSS_TOKEN_KIND_ENUMERATOR
 };
+
+// The enum's own cardinality, counted mechanically from
+// GLINTFX_GFSS_TOKEN_KIND_LIST above - never a hand-copied literal.
+// Every directed sample table that claims to cover the closed
+// vocabulary (token_kind.cpp's own name-lookup table, and both
+// gfss_token_test.cpp/gfss_tokenizer_test.cpp) static_asserts its own
+// row count against this constant, so a class added to the list above
+// and nowhere else fails to COMPILE - GODS_LAWS.md L-40's "the count is
+// compared before the verdict", now a compiler error instead of a
+// comment nobody re-reads.
+inline constexpr std::size_t gltfx_gfss_token_kind_count = [] {
+    std::size_t count = 0;
+#define GLINTFX_GFSS_TOKEN_KIND_COUNT_ONE(name) ++count;
+    GLINTFX_GFSS_TOKEN_KIND_LIST(GLINTFX_GFSS_TOKEN_KIND_COUNT_ONE)
+#undef GLINTFX_GFSS_TOKEN_KIND_COUNT_ONE
+    return count;
+}();
+
+#undef GLINTFX_GFSS_TOKEN_KIND_LIST
 
 // Returns the IDENTIFIER of `kind` (e.g. "bad_url"), never a sentence -
 // the same gltfx_err_code_name() convention (docs/api-conventions.md

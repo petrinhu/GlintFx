@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <print>
 #include <string_view>
@@ -75,12 +76,20 @@ constexpr std::array<kind_sample, 25> k_samples{{
 } // namespace
 
 GLINTFX_TEST(gltfx_gfss_tokenize_produces_every_one_of_the_25_closed_token_classes) {
-    constexpr int k_expected_count = 25;
+    // GODS_LAWS.md L-40 achado 1 of 26/08/2026: this used to compare
+    // against a hand-copied literal (25) that had no link to
+    // token.hpp's own enum - a 26th value added there compiled clean
+    // and this static_assert kept passing. gltfx_gfss_token_kind_count
+    // is mechanically counted from the SAME list the enum itself is
+    // generated from (token.hpp's GLINTFX_GFSS_TOKEN_KIND_LIST), so a
+    // class added to the enum without a row added HERE now fails to
+    // compile instead of passing silently.
+    constexpr std::size_t k_expected_count = glintfx::style::gltfx_gfss_token_kind_count;
     static_assert(k_samples.size() == k_expected_count,
                   "GODS_LAWS.md L-40: this table IS the closed enumeration - one row per "
                   "CSS Syntax Module Level 3 token class, never a sampled subset");
 
-    int checked = 0;
+    std::size_t checked = 0;
     for (const kind_sample &sample : k_samples) {
         const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize(sample.source);
         GLINTFX_CHECK(!tokens.empty());

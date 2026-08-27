@@ -20,9 +20,17 @@ struct token_kind_entry {
 
 // THE table - 25 rows, one per CSS Syntax Module Level 3 token class
 // (see token.hpp's own header comment for the source). Order matches
-// the enum declaration; tests/gfss_token_kind_enumeration_test.cpp
-// proves this table's row count against token.hpp's own enumerator
-// count with a closed enumeration (GODS_LAWS.md L-40), not by eye.
+// the enum declaration.
+//
+// CORRECTION of 26/08/2026 (GODS_LAWS.md L-40 achado 1): this comment
+// used to claim a file, tests/gfss_token_kind_enumeration_test.cpp,
+// that never existed - the row count below was compared against
+// nothing, and a 26th enum value added by hand compiled clean with
+// this table silently one row short. The static_assert right after the
+// table is the actual proof now: it fails to COMPILE the moment this
+// table's size and token.hpp's own gltfx_gfss_token_kind_count (itself
+// mechanically counted from GLINTFX_GFSS_TOKEN_KIND_LIST, never a
+// hand-copied literal) disagree.
 constexpr std::array<token_kind_entry, 25> k_table{{
     {gltfx_gfss_token_kind::ident, "ident"},
     {gltfx_gfss_token_kind::function, "function"},
@@ -50,6 +58,15 @@ constexpr std::array<token_kind_entry, 25> k_table{{
     {gltfx_gfss_token_kind::close_curly, "close_curly"},
     {gltfx_gfss_token_kind::eof, "eof"},
 }};
+
+// GODS_LAWS.md L-40 achado 1: the enumeration this table claims to
+// close is now closed BY CONSTRUCTION, not by eye - a class added to
+// GLINTFX_GFSS_TOKEN_KIND_LIST (token.hpp) without a matching row here
+// fails to compile this file.
+static_assert(k_table.size() == gltfx_gfss_token_kind_count,
+              "GODS_LAWS.md L-40: k_table's row count must track token.hpp's own "
+              "gltfx_gfss_token_kind_count - a class added to the enum without a name row here "
+              "must not compile silently");
 
 } // namespace
 

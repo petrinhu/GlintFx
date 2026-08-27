@@ -390,7 +390,60 @@ function(glintfx_validate_installed_pkgconfig)
         return()
     endif()
 
-    set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_dir}")
+    # PKG-VALIDATE-WINSEP: on Windows CI (GHA windows-latest, job
+    # "Windows - compartilhado", step "Consumo instalado"), a real,
+    # CORRECT install was reported BROKEN here - 'pkg-config --exists
+    # glintfx' failing against a glintfx.pc that genuinely existed at
+    # the path this file itself printed
+    # (C:/Users/runneradmin/AppData/Local/.../prefix/lib/pkgconfig).
+    # Not reproducible on this machine (no Windows here, GODS_LAWS.md
+    # L-27: said with no hedge) - what follows is MEASURED on POSIX
+    # (this substitution is byte-identical to the old literal
+    # assignment for every path shape tried: plain, doubled-separator,
+    # trailing-slash) plus REASONED, not verified end to end, for
+    # Windows.
+    #
+    # ${_glintfx_pkgconfig_dir} is CMake-internal-style text: forward
+    # slashes, no OS-native list separator applied - fine for every
+    # CMake-side consumer of the variable, but PKG_CONFIG_PATH is
+    # handed to an EXTERNAL tool (pkg-config/pkgconf) through the OS
+    # environment, which reads it as a NATIVE path list: ';'-separated
+    # with '\' slashes on Windows, ':'-separated with '/' on
+    # everywhere else - and a bare drive letter ("C:/...") already
+    # CONTAINS a ':' before any list-separator logic even runs. A
+    # pkg-config build that resolves its list separator to ':' on
+    # Windows (documented failure mode of some MSYS/Cygwin-linked
+    # pkg-config binaries invoked outside their own shell, where the
+    # automatic POSIX-path translation those binaries assume never
+    # happens) would read "C:/Users/.../pkgconfig" as TWO search
+    # directories, "C" and "/Users/.../pkgconfig", neither of which is
+    # where glintfx.pc actually is - explaining a FATAL 'pkg-config
+    # --exists' failure against an install this file's own resolver
+    # just proved correct one function above.
+    #
+    # cmake_path(CONVERT ... TO_NATIVE_PATH_LIST ...) is CMake's own,
+    # documented mechanism for exactly this: producing a NATIVE,
+    # OS-correct path list (';' + '\' on Windows, ':' + '/' elsewhere)
+    # from CMake-internal text - the same conversion CMake itself
+    # would need to hand a path list to any external tool through the
+    # environment. No NORMALIZE option is passed: normalizing could
+    # collapse a doubled separator or trailing slash a packager's own
+    # (possibly non-canonical, but still valid) CMAKE_INSTALL_LIBDIR
+    # produced, and this step's only job is picking the right
+    # separator and slash direction, not reshaping the path.
+    #
+    # PROVEN on POSIX (this machine): for a plain path, a path with a
+    # doubled '//' separator, and a path with a trailing '/', the
+    # converted value is BYTE-IDENTICAL to the untouched original -
+    # this substitution changes NOTHING here, on any of the four
+    # non-Windows CI targets. NOT provable here: whether this actually
+    # fixes the Windows job, which is REASONED from cmake_path's own
+    # documented behavior (native slashes, native separator) and from
+    # the failure shape above, not measured - the Windows job itself is
+    # the only true confirmation, and this comment does not claim more
+    # than that.
+    cmake_path(CONVERT "${_glintfx_pkgconfig_dir}" TO_NATIVE_PATH_LIST _glintfx_pkgconfig_path_native)
+    set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_path_native}")
 
     execute_process(
         COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --print-errors --exists glintfx

@@ -640,6 +640,20 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **O que NÃO muda:** as seis decisões de formato de 22/08/2026 continuam fechadas, e o desenho das 14 fatias continua válido. O que se adia é a **implementação**, não o contrato — e adiar implementação de um contrato já fechado é barato, ao contrário do inverso.
 
+### O teto vale para o ESCOPO também, e não só para quem implementa — 27/08/2026
+
+**Ordem do líder, verbatim:** *"Congelo até a janela desenhar"*.
+
+**Enquanto a demo não estiver rodando, escopo NOVO não entra na fila de execução.** Decisão dele continua sendo **registrada e desenhada** — isso é barato e o projeto já provou que compensa —, **mas não vira fatia disponível para pull antes de a janela desenhar**.
+
+**O número que motivou, medido pelo CTO em 27/08/2026 e não estimado:** em **dois dias** entraram **54 fatias novas**, enquanto a cadeia inteira até a primeira imagem na tela — contexto gráfico, laço principal, desenho em lote e demonstração — **continuava pendente do começo ao fim**. Palavra dele: ***"o escopo cresce por dia; a janela na tela, não"***.
+
+⚠️ **Por que isto é a MESMA lei e não uma nova:** a L-32 já limita **quantas frentes um implementador toca**, e nasceu do mesmo diagnóstico — trabalho flui para onde está desbloqueado, e desenhar é sempre mais desbloqueado que executar. **O teto de implementação sem teto de escopo só move o gargalo**: em vez de cinco trilhas meio-prontas, produz uma fila infinita e nenhuma janela.
+
+**O que NÃO é congelado, e a distinção importa:** conversar, decidir, registrar e desenhar continuam livres. **O líder não deixa de decidir; a fila é que deixa de crescer.** O custo de desenhar cedo é quase zero e o benefício é real — a trilha de mapa foi desenhada inteira meses antes de poder ser executada, e o desenho não apodreceu.
+
+**O teto cai junto com o da L-32: quando a demo estiver verde.**
+
 ## L-33
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"sempre que tocar em mapa, avise o que fez a @MapEditor e se ele estiver inalcancavel, mande via bus"*.

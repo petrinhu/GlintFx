@@ -5,8 +5,8 @@
 #include <string>
 #include <string_view>
 
+#include "gfss/diagnostic_vocabulary.hpp"
 #include "gfss/selector_ast.hpp"
-#include "gfss/selector_diagnostic_vocabulary.hpp"
 #include "gfss/selector_parse.hpp"
 #include "gfss/selector_pseudo_vocabulary.hpp"
 
@@ -18,21 +18,32 @@
 // glintfx::style::detail::parse_selector_list() (selector_parse.hpp) -
 // see that file's own header comment for the design rationale each
 // check below proves.
-
+//
+// ONE SHARED DIAGNOSTIC VOCABULARY, NOT A THIRD ONE (project leader's
+// decision, 27/08/2026, GODS_LAWS.md L-27 - reached this fatia through
+// the orchestrator mid-implementation, correcting an earlier draft of
+// this same file that DID open a separate selector_diagnostic_
+// vocabulary.hpp): every diagnostic this parser produces
+// (simple_selector, identifier_after_dot, identifier_after_colon,
+// known_pseudo_class, known_pseudo_function, comma_or_end_of_selector_
+// list) lives in diagnostic_vocabulary.hpp - the SAME list tokenizer.
+// cpp already uses, whose own k_expected_closing_parenthesis this file
+// REUSES rather than re-spelling (see this file's own duplicate-word
+// proof below for why that reuse is checked, not assumed).
 using glintfx::style::detail::gfss_combinator;
 using glintfx::style::detail::gfss_combinator_count;
 using glintfx::style::detail::gfss_combinator_table;
 using glintfx::style::detail::gfss_simple_selector_kind;
+using glintfx::style::detail::k_expected_closing_parenthesis;
+using glintfx::style::detail::k_expected_comma_or_end_of_selector_list;
+using glintfx::style::detail::k_expected_identifier_after_colon;
+using glintfx::style::detail::k_expected_identifier_after_dot;
+using glintfx::style::detail::k_expected_known_pseudo_class;
+using glintfx::style::detail::k_expected_known_pseudo_function;
+using glintfx::style::detail::k_expected_simple_selector;
+using glintfx::style::detail::k_expected_vocabulary;
+using glintfx::style::detail::k_expected_vocabulary_count;
 using glintfx::style::detail::k_functional_pseudo_count;
-using glintfx::style::detail::k_selector_expected_closing_parenthesis;
-using glintfx::style::detail::k_selector_expected_comma_or_end_of_selector_list;
-using glintfx::style::detail::k_selector_expected_identifier_after_colon;
-using glintfx::style::detail::k_selector_expected_identifier_after_dot;
-using glintfx::style::detail::k_selector_expected_known_pseudo_class;
-using glintfx::style::detail::k_selector_expected_known_pseudo_function;
-using glintfx::style::detail::k_selector_expected_simple_selector;
-using glintfx::style::detail::k_selector_expected_vocabulary;
-using glintfx::style::detail::k_selector_expected_vocabulary_count;
 using glintfx::style::detail::k_simple_pseudo_count;
 using glintfx::style::detail::k_simple_pseudo_names;
 using glintfx::style::detail::parse_selector_list;
@@ -243,12 +254,11 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_functional_pseudo_w
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_unknown_pseudo_class) {
     const auto unknown_simple = parse_selector_list(":bogus");
     GLINTFX_CHECK(!unknown_simple.ok);
-    GLINTFX_CHECK(unknown_simple.diagnostic.expected == k_selector_expected_known_pseudo_class);
+    GLINTFX_CHECK(unknown_simple.diagnostic.expected == k_expected_known_pseudo_class);
 
     const auto unknown_function = parse_selector_list(":bogus(1)");
     GLINTFX_CHECK(!unknown_function.ok);
-    GLINTFX_CHECK(unknown_function.diagnostic.expected ==
-                  k_selector_expected_known_pseudo_function);
+    GLINTFX_CHECK(unknown_function.diagnostic.expected == k_expected_known_pseudo_function);
 }
 
 // HOSTILE INPUT, ENUMERATED (GODS_LAWS.md L-40: "enumere o espaco
@@ -264,19 +274,18 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
         std::string_view label;
     };
     const hostile_sample k_samples[] = {
-        {"> a", k_selector_expected_simple_selector, "combinator at the start"},
-        {"a >", k_selector_expected_simple_selector, "combinator at the end"},
-        {"a > > b", k_selector_expected_simple_selector, "two combinators in a row"},
-        {"a,", k_selector_expected_simple_selector, "dangling comma"},
-        {":nth-child(2n+1", k_selector_expected_closing_parenthesis, "unclosed parenthesis"},
-        {"#", k_selector_expected_simple_selector, "'#' with no name"},
-        {".", k_selector_expected_identifier_after_dot, "'.' with no name"},
-        {":", k_selector_expected_identifier_after_colon, "':' with no name"},
-        {"a,,b", k_selector_expected_simple_selector, "empty chain between two commas"},
-        {"", k_selector_expected_simple_selector, "only whitespace (empty string)"},
-        {"   ", k_selector_expected_simple_selector, "only whitespace (real spaces)"},
-        {"a)", k_selector_expected_comma_or_end_of_selector_list,
-         "stray token after a complex selector"},
+        {"> a", k_expected_simple_selector, "combinator at the start"},
+        {"a >", k_expected_simple_selector, "combinator at the end"},
+        {"a > > b", k_expected_simple_selector, "two combinators in a row"},
+        {"a,", k_expected_simple_selector, "dangling comma"},
+        {":nth-child(2n+1", k_expected_closing_parenthesis, "unclosed parenthesis"},
+        {"#", k_expected_simple_selector, "'#' with no name"},
+        {".", k_expected_identifier_after_dot, "'.' with no name"},
+        {":", k_expected_identifier_after_colon, "':' with no name"},
+        {"a,,b", k_expected_simple_selector, "empty chain between two commas"},
+        {"", k_expected_simple_selector, "only whitespace (empty string)"},
+        {"   ", k_expected_simple_selector, "only whitespace (real spaces)"},
+        {"a)", k_expected_comma_or_end_of_selector_list, "stray token after a complex selector"},
     };
 
     std::size_t swept = 0;
@@ -323,63 +332,85 @@ GLINTFX_TEST(
     const std::string unbalanced_text = ":not(" + unbalanced_argument;
     const auto unbalanced_result = parse_selector_list(unbalanced_text);
     GLINTFX_CHECK(!unbalanced_result.ok);
-    GLINTFX_CHECK(unbalanced_result.diagnostic.expected == k_selector_expected_closing_parenthesis);
+    GLINTFX_CHECK(unbalanced_result.diagnostic.expected == k_expected_closing_parenthesis);
 
     std::println("gltfx_gfss_parse_selector_list_handles_deeply_nested_functional_argument_without_"
                  "recursing: depth {} checked both ways",
                  k_depth);
 }
 
-// ENUMERATION, closed-by-construction (GODS_LAWS.md L-40 achado 1, the
-// SAME technique gfss_tokenizer_test.cpp's own diagnostic_vocabulary_
-// is_enumerated_closed_and_every_identifier_is_produced and gfss_
-// color_parse_test.cpp's own color_diagnostic_vocabulary_is_enumerated_
-// closed_and_every_identifier_is_produced already use): every
-// identifier selector_diagnostic_vocabulary.hpp's own closed list
-// names is well-formed (non-empty, snake_case, no spaces) AND is
-// PRODUCED for real by a directed input - an 8th identifier added to
-// that file with no matching row here fails to COMPILE, never passes
-// silently with a stale count.
-GLINTFX_TEST(selector_diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_produced) {
-    static_assert(k_selector_expected_vocabulary_count == 7,
-                  "GODS_LAWS.md L-40: selector_diagnostic_vocabulary.hpp's list changed - update "
-                  "the directed-production coverage below to match");
+// SIX OF THE TEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md L-40 -
+// gfss_tokenizer_test.cpp's own T2 proves format for the WHOLE shared
+// list and production for the tokenizer's own original four;
+// closing_parenthesis is REUSED here, not re-proven, since that
+// identifier's own production is already that file's job). An
+// identifier this parser starts using with no directed row here fails
+// silently at review time, not at compile time - the compile-time
+// floor is the static_assert below, tied to the SAME shared count
+// gfss_tokenizer_test.cpp's own static_assert already checks, so the
+// two can never silently disagree about how many entries the list has.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_shared_vocabulary) {
+    static_assert(k_expected_vocabulary_count == 10,
+                  "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the "
+                  "directed-production coverage below to match (this is the SAME shared list "
+                  "gfss_tokenizer_test.cpp's own static_assert checks)");
 
-    std::size_t swept = 0;
-    for (const std::string_view identifier : k_selector_expected_vocabulary) {
-        GLINTFX_CHECK(!identifier.empty());
-        bool is_snake_case = true;
-        for (const char ch : identifier) {
-            const bool is_lower = ch >= 'a' && ch <= 'z';
-            const bool is_underscore = ch == '_';
-            if (!is_lower && !is_underscore) {
-                is_snake_case = false;
-                break;
-            }
-        }
-        GLINTFX_CHECK(is_snake_case);
-        GLINTFX_CHECK(identifier.find(' ') == std::string_view::npos);
-        ++swept;
-    }
-    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
-    GLINTFX_CHECK(swept > 0);
-    GLINTFX_CHECK_EQ(swept, k_selector_expected_vocabulary_count);
-    std::println("selector_diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_"
-                 "produced: {} identifier(s) swept",
-                 swept);
-
-    GLINTFX_CHECK(parse_selector_list("").diagnostic.expected ==
-                  k_selector_expected_simple_selector);
-    GLINTFX_CHECK(parse_selector_list(".").diagnostic.expected ==
-                  k_selector_expected_identifier_after_dot);
+    GLINTFX_CHECK(parse_selector_list("").diagnostic.expected == k_expected_simple_selector);
+    GLINTFX_CHECK(parse_selector_list(".").diagnostic.expected == k_expected_identifier_after_dot);
     GLINTFX_CHECK(parse_selector_list(":").diagnostic.expected ==
-                  k_selector_expected_identifier_after_colon);
+                  k_expected_identifier_after_colon);
     GLINTFX_CHECK(parse_selector_list(":bogus").diagnostic.expected ==
-                  k_selector_expected_known_pseudo_class);
+                  k_expected_known_pseudo_class);
     GLINTFX_CHECK(parse_selector_list(":bogus(1)").diagnostic.expected ==
-                  k_selector_expected_known_pseudo_function);
+                  k_expected_known_pseudo_function);
     GLINTFX_CHECK(parse_selector_list(":not(a").diagnostic.expected ==
-                  k_selector_expected_closing_parenthesis);
+                  k_expected_closing_parenthesis);
     GLINTFX_CHECK(parse_selector_list("a)").diagnostic.expected ==
-                  k_selector_expected_comma_or_end_of_selector_list);
+                  k_expected_comma_or_end_of_selector_list);
+}
+
+// NO DUPLICATE WORD IN THE CONSOLIDATED LIST (project leader's
+// decision of 27/08/2026, GODS_LAWS.md L-27 - the measured reason a
+// third, gfss-selector-only vocabulary was rejected in favor of this
+// single one): a real defect motivated this - the adversarial review
+// of the sibling GFSS-COLOR-PARSE fatia found that its OWN separate
+// list and diagnostic_vocabulary.hpp had, independently, both chosen
+// "closing_parenthesis" for two DIFFERENT conditions, and NOTHING
+// detected it, because neither list checked itself against anything
+// but itself. This sweep closes exactly that gap for THIS list: O(n^2)
+// pairwise comparison over ten short strings is not a performance
+// concern, and enumerating the whole small space beats a targeted
+// search for a suspected pair (GODS_LAWS.md L-40's own "enumere o
+// espaco pequeno, nao busque dentro dele").
+//
+// SCOPE, STATED HONESTLY (GODS_LAWS.md L-27, marked INFERENCE - a
+// decision made HERE, not itself ordered): this sweep proves the
+// shared list (diagnostic_vocabulary.hpp) has no duplicate WITHIN
+// itself. It does NOT sweep color_diagnostic_vocabulary.hpp - GFSS-
+// COLOR-PARSE's own separate list is untouched by this fatia (its
+// review is reproved on other grounds and its own consolidation, if
+// any, is that fatia's author's work) - so the ORIGINAL finding that
+// motivated this whole change (this list's own "closing_parenthesis"
+// colliding with color's) is NOT re-checked live here; it is a
+// pre-existing, already-reported fact this test does not reopen. A
+// test that swept color's file too would fail red for a defect this
+// fatia has no authority to fix, and a red gate for someone else's
+// open finding is not a gate, it is noise (GODS_LAWS.md L-12's own
+// "relatorio de agente nao e prova" cuts the other way here too: a
+// gate is not proof if it can never turn green by fixing the code it
+// claims to own).
+GLINTFX_TEST(diagnostic_vocabulary_has_no_duplicate_word) {
+    std::size_t compared = 0;
+    for (std::size_t i = 0; i < k_expected_vocabulary.size(); ++i) {
+        for (std::size_t j = i + 1; j < k_expected_vocabulary.size(); ++j) {
+            GLINTFX_CHECK(k_expected_vocabulary[i] != k_expected_vocabulary[j]);
+            ++compared;
+        }
+    }
+    // GODS_LAWS.md L-40: zero compared is a floor violation, never a pass.
+    GLINTFX_CHECK(compared > 0);
+    GLINTFX_CHECK_EQ(compared, k_expected_vocabulary_count * (k_expected_vocabulary_count - 1) / 2);
+    std::println(
+        "diagnostic_vocabulary_has_no_duplicate_word: {} pair(s) compared, {} identifier(s)",
+        compared, k_expected_vocabulary_count);
 }

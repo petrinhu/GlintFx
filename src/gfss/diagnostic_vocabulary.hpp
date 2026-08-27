@@ -29,26 +29,58 @@
 // unit's parse of this file (the same discipline token.hpp's own list
 // macro follows).
 //
-// THREE OF THE FOUR ARE SPEC FACT MADE MACHINE-READABLE, ONE IS OUR OWN
-// DEFECT SIGNAL (GODS_LAWS.md L-27, fact vs. inference): "closing_quote",
-// "closing_parenthesis" and "escape_sequence" each name a CONDITION the
-// CSS Syntax Module Level 3 grammar itself defines (see tokenizer.cpp's
-// own header comment for the section-by-section mapping) - a
-// machine-readable label for a spec condition is still this project's
-// own INFERENCE (the spec never says "give this a token"), just one
-// anchored to a real grammar rule. "internal_tokenizer_defect" names
-// something the spec has no concept of at all: THIS library failing its
-// own internal contract (token_progress_guard.hpp's
-// token_made_forward_progress()) - see token_progress_recovery.hpp's
-// own header comment for why it is glintfx, never the consumer's file,
-// that this identifier blames.
+// THREE OF THE FIRST FOUR ARE SPEC FACT MADE MACHINE-READABLE, ONE IS
+// OUR OWN DEFECT SIGNAL (GODS_LAWS.md L-27, fact vs. inference):
+// "closing_quote", "closing_parenthesis" and "escape_sequence" each
+// name a CONDITION the CSS Syntax Module Level 3 grammar itself
+// defines (see tokenizer.cpp's own header comment for the
+// section-by-section mapping) - a machine-readable label for a spec
+// condition is still this project's own INFERENCE (the spec never
+// says "give this a token"), just one anchored to a real grammar rule.
+// "internal_tokenizer_defect" names something the spec has no concept
+// of at all: THIS library failing its own internal contract
+// (token_progress_guard.hpp's token_made_forward_progress()) - see
+// token_progress_recovery.hpp's own header comment for why it is
+// glintfx, never the consumer's file, that this identifier blames.
+//
+// ONE LIST FOR THE WHOLE gfss TRACK, DECIDED BY THE PROJECT LEADER ON
+// 27/08/2026 - NOT PER PRODUCER LAYER (GODS_LAWS.md L-27, this
+// decision reached the implementer through the orchestrator, not
+// read from a spec or inferred here): this file used to be named, and
+// justified, as "GFSS-TOKEN's own" list, with the expectation that a
+// later layer (a value parser above the token stream, e.g. a color or
+// a selector parser) would open ITS OWN separate list, mirroring the
+// per-producer split GODS_LAWS.md L-17's own monolith table warns
+// against for a switch, applied here to vocabulary files instead. A
+// real, measured finding overturned that plan: the adversarial review
+// of the sibling GFSS-COLOR-PARSE fatia found that its own separate
+// list (color_diagnostic_vocabulary.hpp) and this one had ALREADY,
+// independently, chosen the identical spelling "closing_parenthesis"
+// for two DIFFERENT conditions (an unterminated CSS url()/string
+// token here, versus an unterminated rgb()/hsl() function call
+// there) - and NOTHING detected it, because each list only proved
+// itself closed against ITSELF. Per-producer splitting was solving
+// the wrong problem: it does prevent one list's own static_assert
+// from being reopened by an unrelated fatia, but it does nothing
+// against the SAME two-letter identifier meaning two different things
+// project-wide - which is a real hazard for a consumer building a
+// message catalog keyed by this string. The leader's decision: one
+// list for the track, GLINTFX_GFSS_SIMPLE_PSEUDO/GLINTFX_GFSS_
+// FUNCTIONAL_PSEUDO-adjacent additions included, so that ONE
+// enumeration proves closure AND absence of collision at once - see
+// tests/gfss_selector_parse_test.cpp's own diagnostic_vocabulary_has_
+// no_duplicate_word test case, which sweeps k_expected_vocabulary
+// below pairwise for exactly this. GFSS-SEL-PARSE-CORE (TODO.md) is
+// the first fatia to add rows here under this policy; GFSS-COLOR-
+// PARSE's own separate list is UNCHANGED by this file - its
+// consolidation, if any, is that fatia's own author's work, not this
+// one's (its review is reproved on other grounds and returns to them).
 //
 // snake_case, English, never a sentence (docs/api-conventions.md R7,
 // the SAME convention gltfx_err_fields()/gltfx_gfss_token_kind_name()
-// already use project-wide): every call site in tokenizer.cpp and
-// token_progress_recovery.hpp uses the NAMED constant below, never a
-// literal string of its own - the constant IS the spelling, checked
-// once, here.
+// already use project-wide): every call site across this track's .cpp
+// files uses the NAMED constant below, never a literal string of its
+// own - the constant IS the spelling, checked once, here.
 
 namespace glintfx::style::detail {
 
@@ -56,7 +88,13 @@ namespace glintfx::style::detail {
     X(closing_quote)                                                                               \
     X(closing_parenthesis)                                                                         \
     X(escape_sequence)                                                                             \
-    X(internal_tokenizer_defect)
+    X(internal_tokenizer_defect)                                                                   \
+    X(simple_selector)                                                                             \
+    X(identifier_after_dot)                                                                        \
+    X(identifier_after_colon)                                                                      \
+    X(known_pseudo_class)                                                                          \
+    X(known_pseudo_function)                                                                       \
+    X(comma_or_end_of_selector_list)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

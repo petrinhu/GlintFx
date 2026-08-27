@@ -83,10 +83,15 @@ target_sources(gfss_color_parse_test PRIVATE
 # built on top of GFSS-TOKEN's own token stream - see gfss_selector_
 # parse_test.cpp's own header comment. Needs src/gfss/selector_parse.hpp
 # and its own private siblings (selector_ast.hpp, selector_pseudo_
-# vocabulary.hpp, selector_diagnostic_vocabulary.hpp), none promoted to
-# include/glintfx/ (GODS_LAWS.md L-19: "o header nasce interno") - the
-# SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir gfss_tokenizer_test/
-# gfss_color_parse_test above already add for their own private headers.
+# vocabulary.hpp), none promoted to include/glintfx/ (GODS_LAWS.md L-19:
+# "o header nasce interno") - the SAME "${PROJECT_SOURCE_DIR}/src"
+# PRIVATE include dir gfss_tokenizer_test/gfss_color_parse_test above
+# already add for their own private headers. Diagnostics this parser
+# produces live in the SAME shared src/gfss/diagnostic_vocabulary.hpp
+# GFSS-TOKEN's own tokenizer already uses (project leader's decision,
+# 27/08/2026: one list for the whole gfss track, not a separate one per
+# producer layer - see diagnostic_vocabulary.hpp's own header comment),
+# so no third vocabulary header is registered here.
 glintfx_add_test(gfss_selector_parse_test)
 target_include_directories(gfss_selector_parse_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 

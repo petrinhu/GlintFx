@@ -316,21 +316,32 @@ GLINTFX_TEST(recover_from_forward_progress_violation_signals_the_consumer_not_a_
 // T2: the vocabulary is enumerated CLOSED (GODS_LAWS.md L-40's "the
 // space is small, enumerate it whole", not a search of what call sites
 // happen to use), every identifier obeys R7 (docs/api-conventions.md:
-// snake_case, no space, never a sentence), and every one of the four
-// is PRODUCED for real - the three spec-driven ones via directed
-// malformed input, the internal one via the recovery atom.
+// snake_case, no space, never a sentence), and every one of the
+// TOKENIZER's OWN four is PRODUCED for real - the three spec-driven
+// ones via directed malformed input, the internal one via the
+// recovery atom.
+//
+// SIX MORE IDENTIFIERS LIVE IN THIS SAME LIST SINCE 27/08/2026 (the
+// project leader's decision to consolidate every gfss diagnostic into
+// ONE list, GODS_LAWS.md L-27 - GFSS-SEL-PARSE-CORE's own commit),
+// and this file does NOT prove those six produced - that is
+// gfss_selector_parse_test.cpp's own job (they are produced by
+// selector_parse.cpp, a layer above THIS tokenizer, which this test
+// binary does not even link). The static_assert below still counts
+// the WHOLE list (10, not 4): this test's own closed-enumeration
+// sweep (snake_case, no space, non-empty) below is a property EVERY
+// identifier must hold regardless of which layer produces it, so it
+// stays correct un-narrowed; only the four DIRECTED production checks
+// further down are scoped to what this binary can actually exercise.
+static_assert(glintfx::style::detail::k_expected_vocabulary_count == 10,
+              "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the count "
+              "here (this file proves format only, not production, for any identifier this "
+              "tokenizer itself does not produce)");
+
 GLINTFX_TEST(diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_produced) {
     using glintfx::style::detail::k_expected_vocabulary;
     using glintfx::style::detail::k_expected_vocabulary_count;
     using glintfx::style::detail::recover_from_forward_progress_violation;
-
-    // GODS_LAWS.md L-40: this table IS the closed enumeration - a
-    // fifth identifier added to diagnostic_vocabulary.hpp's own list
-    // without a matching row added to the directed-production block
-    // below fails to compile instead of passing silently.
-    static_assert(k_expected_vocabulary_count == 4,
-                  "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the "
-                  "directed-production coverage below to match");
 
     std::size_t swept = 0;
     for (const std::string_view identifier : k_expected_vocabulary) {

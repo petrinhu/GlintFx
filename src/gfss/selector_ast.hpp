@@ -148,9 +148,9 @@ struct gfss_simple_selector {
 // GODS_LAWS.md L-29 - e.g. "button.primary#ok" is ONE compound
 // selector, three simple selectors). Never empty in a value this
 // fatia's parser returns successfully - an EMPTY compound is exactly
-// the "simple_selector" diagnostic selector_diagnostic_vocabulary.hpp
-// names instead of ever being produced (see selector_parse.cpp's own
-// header comment).
+// the "simple_selector" diagnostic diagnostic_vocabulary.hpp names
+// instead of ever being produced (see selector_parse.cpp's own header
+// comment).
 struct gfss_compound_selector {
     std::vector<gfss_simple_selector> simple_selectors;
 };

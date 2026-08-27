@@ -8,7 +8,7 @@
 
 #include <glintfx/gfss/tokenizer.hpp>
 
-#include "selector_diagnostic_vocabulary.hpp"
+#include "diagnostic_vocabulary.hpp"
 #include "selector_pseudo_vocabulary.hpp"
 
 // selector_parse.cpp - GFSS-SEL-PARSE-CORE (TODO.md, GODS_LAWS.md
@@ -181,7 +181,7 @@ capture_functional_argument(const token_vector &tokens, std::size_t start_index,
     return {.ok = false,
             .text = {},
             .next_index = 0,
-            .diagnostic = make_diagnostic(function_token, k_selector_expected_closing_parenthesis)};
+            .diagnostic = make_diagnostic(function_token, k_expected_closing_parenthesis)};
 }
 
 struct simple_selector_outcome {
@@ -203,7 +203,7 @@ struct simple_selector_outcome {
     if (!has_adjacent_ident) {
         return {.ok = false,
                 .selector = {},
-                .diagnostic = make_diagnostic(dot, k_selector_expected_identifier_after_dot)};
+                .diagnostic = make_diagnostic(dot, k_expected_identifier_after_dot)};
     }
     index = name_index + 1;
     return {.ok = true,
@@ -246,14 +246,14 @@ struct simple_selector_outcome {
     if (next_index >= tokens.size() || !tokens_are_adjacent(colon, tokens[next_index])) {
         return {.ok = false,
                 .selector = {},
-                .diagnostic = make_diagnostic(colon, k_selector_expected_identifier_after_colon)};
+                .diagnostic = make_diagnostic(colon, k_expected_identifier_after_colon)};
     }
     const gltfx_gfss_token &next = tokens[next_index];
     if (next.kind == gltfx_gfss_token_kind::ident) {
         if (!is_known_simple_pseudo(next.lexeme)) {
             return {.ok = false,
                     .selector = {},
-                    .diagnostic = make_diagnostic(next, k_selector_expected_known_pseudo_class)};
+                    .diagnostic = make_diagnostic(next, k_expected_known_pseudo_class)};
         }
         index = next_index + 1;
         return {.ok = true,
@@ -266,13 +266,13 @@ struct simple_selector_outcome {
         if (!is_known_functional_pseudo(function_name(next.lexeme))) {
             return {.ok = false,
                     .selector = {},
-                    .diagnostic = make_diagnostic(next, k_selector_expected_known_pseudo_function)};
+                    .diagnostic = make_diagnostic(next, k_expected_known_pseudo_function)};
         }
         return parse_functional_pseudo(tokens, next_index, index);
     }
     return {.ok = false,
             .selector = {},
-            .diagnostic = make_diagnostic(colon, k_selector_expected_identifier_after_colon)};
+            .diagnostic = make_diagnostic(colon, k_expected_identifier_after_colon)};
 }
 
 struct compound_parse_outcome {
@@ -345,7 +345,7 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
     if (compound.simple_selectors.empty()) {
         return {.ok = false,
                 .compound = {},
-                .diagnostic = make_diagnostic(tokens[index], k_selector_expected_simple_selector)};
+                .diagnostic = make_diagnostic(tokens[index], k_expected_simple_selector)};
     }
     return {.ok = true, .compound = std::move(compound), .diagnostic = {}};
 }
@@ -425,8 +425,7 @@ selector_parse_result parse_selector_list(std::string_view text) {
         }
         return {.ok = false,
                 .value = {},
-                .diagnostic =
-                    make_diagnostic(tok, k_selector_expected_comma_or_end_of_selector_list)};
+                .diagnostic = make_diagnostic(tok, k_expected_comma_or_end_of_selector_list)};
     }
     return {.ok = true, .value = std::move(list), .diagnostic = {}};
 }

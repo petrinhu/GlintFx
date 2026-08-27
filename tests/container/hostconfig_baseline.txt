@@ -75,6 +75,26 @@
 # for why that restriction is what keeps a smuggled device/mount
 # breaking the match on content, same as before this fix.
 #
+# NULL-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): a second
+# runner-to-runner divergence, same root cause as ORDER-DRIFT one layer
+# earlier - `docker inspect` promises neither a stable element ORDER
+# for a populated array (ORDER-DRIFT, above) nor a stable choice of
+# `null` versus `[]` for an UNSET one. Measured live: `"Dns":null`
+# below (this file, captured on the leader's own machine) against
+# `"Dns":[]` on a different `wayland-container` CI runner, same meaning
+# (no DNS override was ever set) either way. check_isolation.sh's
+# normalize_host_config() now rewrites any `:null` immediately before a
+# `,` or `}` into `:[]`, applied to BOTH the live capture and this
+# file's own committed text, so this file is kept exactly as
+# historically measured (literal `null` where Docker produced `null`)
+# rather than hand-edited to `[]` - see check_isolation.sh's own
+# comment on that step for why a generic, unnamed rewrite is provably
+# safe (it can only ever collapse two spellings of "nothing" into one;
+# a populated array is untouched either way) and for the enumeration of
+# the five other ways two builds could in principle spell an identical
+# HostConfig value differently, done at the same time this fix was
+# written.
+#
 # Measured 26/08/2026 against Docker Server version 29.7.2 (`docker
 # version --format '{{.Server.Version}}'`) on the leader's Fedora 44
 # machine, image glintfx-wltest built from this same commit's

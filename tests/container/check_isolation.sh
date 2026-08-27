@@ -87,6 +87,26 @@
 # never whether an element is present, absent, or new. See
 # normalize_host_config() and sort_json_arrays() below.
 #
+# NULL-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): the ORDER-
+# DRIFT fix above was step one of a step, not the end of the story -
+# the same `wayland-container` job reproved the positive control a
+# second time, on a different runner, with `"Dns":null` in the live
+# capture against `"Dns":[]` in the committed baseline - same meaning
+# (no DNS override was ever set), different Go encoding/json spelling
+# of a slice's zero value, the same underlying "docker inspect makes no
+# promise about this spelling" cause as ORDER-DRIFT, one layer earlier
+# (it does not promise element ORDER for a populated array, and it does
+# not promise `null` over `[]` - or vice versa - for an empty one). This
+# time the enumeration was done BEFORE writing the fix, per L-40's own
+# instruction to enumerate a small space whole rather than search
+# inside it: null-vs-empty-array is one of six ways two Docker/runner
+# builds can spell an identical HostConfig value differently, and each
+# of the other five was judged separately (observed and covered,
+# observed and covered by a pre-existing check, or not observed and
+# deliberately left uncovered rather than guessed at) - see
+# normalize_host_config()'s own trailing comment block for the full
+# six-item table and the reasoning behind each verdict.
+#
 # Usage: check_isolation.sh <container-name> <socket-name>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -292,18 +312,38 @@ sort_json_arrays() {
     '
 }
 
-# Normalizes the three genuinely execution-dependent parts of a raw
-# HostConfig capture before comparing it to the measured baseline -
-# see hostconfig_baseline.txt's own header for the full reasoning on
-# why exactly these three, and nothing else, are excused from an exact
-# match. All three substitutions are text-level on purpose (no JSON
-# parser in this project, GODS_LAWS.md L-07): Go's json.Marshal output
-# for a fixed Docker version is a stable, deterministic single line,
-# so a plain sed pass is enough as long as it is applied identically
-# to the live capture and to how the committed baseline was produced.
-# A fourth step, sort_json_arrays() above, runs last: it is idempotent
-# on already-normalized text (no ConsoleSize/cpuN/OomKillDisable
-# pattern survives to re-match), which is what lets
+# NULL-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): the
+# `wayland-container` CI job reproved the positive control a SECOND
+# time, on a runner that had never shown the ORDER-DRIFT shape - this
+# time `"Dns":null` on one side against `"Dns":[]` on the other, same
+# meaning (no DNS override, the field was never set), different Go
+# encoding/json spelling of "zero elements" for a slice field (`nil`
+# marshals as `null`, a non-nil empty slice marshals as `[]`; which one
+# a given Docker build/runner produces for an UNSET `[]string` field is
+# not a promise `docker inspect` makes, same root cause as ORDER-DRIFT's
+# array-order non-promise, one layer earlier). Per L-40's own
+# instruction to enumerate the whole space instead of patching one
+# field: this is NOT "Dns does this", it is "any field whose zero value
+# is a slice can be spelled either way", so the fix is the generic sed
+# step below, not a Dns-shaped one - see this function's own trailing
+# comment for the six other spellings-of-the-same-value forms that were
+# enumerated alongside this fix (lista vazia/null is this one; cadeia
+# vazia/null, numero/cadeia numerica, 0/false, campo ausente/presente-
+# e-nulo, maiusculas em valor de modo) and why each is or is not
+# covered.
+#
+# Normalizes the four genuinely execution- or encoding-dependent parts
+# of a raw HostConfig capture before comparing it to the measured
+# baseline - see hostconfig_baseline.txt's own header for the fuller
+# reasoning on the first three. All four substitutions are text-level
+# on purpose (no JSON parser in this project, GODS_LAWS.md L-07): Go's
+# json.Marshal output for a fixed Docker version is a stable,
+# deterministic single line, so a plain sed pass is enough as long as
+# it is applied identically to the live capture and to how the
+# committed baseline was produced. A fifth step, sort_json_arrays()
+# above, runs last: it is idempotent on already-normalized text (no
+# ConsoleSize/cpuN/OomKillDisable/null-as-empty-array pattern survives
+# to re-match), which is what lets
 # assert_full_hostconfig_matches_baseline() below run this same
 # function over the committed baseline file too, instead of requiring
 # hostconfig_baseline.txt to be hand-edited into sorted order.
@@ -321,14 +361,102 @@ sort_json_arrays() {
 # "OOM killer not explicitly disabled"); only `--oom-kill-disable`
 # (which sets it to the literal `true`) is, and that is left
 # unnormalized on purpose, so it still breaks the match.
+#
+# The fourth (NULL-DRIFT, `:null` before a `,` or `}` boundary rewritten
+# to `:[]`) is deliberately UNNAMED and UNSCOPED to any particular
+# field, same reasoning as sort_json_arrays() being generic instead of
+# a named-field list. It is provably safe to apply to every key, not
+# just slice-typed ones, because of what it can and cannot ever equate:
+# it only ever rewrites the literal 4-byte value `null` into `[]`, on
+# BOTH the live capture and the baseline text (normalize_host_config()
+# runs on both sides in assert_full_hostconfig_matches_baseline()) - it
+# never touches a populated array, and it never touches any value that
+# is not the bare word `null`. A scalar field (an `*int64` like
+# MemorySwappiness or PidsLimit) that is unset also reads back as
+# `null` and would pass through this same rewrite into `[]`, which
+# looks type-confused on paper but changes nothing about what the check
+# can catch: Docker never serializes a SET int64 pointer as `[]` (it
+# would show the real number instead), so an actual value on that field
+# is untouched by this regex and still breaks the match exactly as
+# before. In short: this step can only ever collapse two spellings of
+# "nothing" into one; it can never collapse "nothing" with "something",
+# which is the one property GODS_LAWS.md L-40's own closing warning
+# ("null e [] sao o mesmo nada; mas [] e [\"/dev/uinput\"] nunca podem
+# virar a mesma coisa") requires of it.
 normalize_host_config() {
     raw="$1"
     sed_normalized="$(printf '%s' "$raw" \
         | sed -E 's#"ConsoleSize":\[[0-9]+,[0-9]+\]#"ConsoleSize":"NORMALIZED"#' \
         | sed -E 's#,"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle"##g; s#"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle",##g' \
-        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#')"
+        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#' \
+        | sed -E 's#:null([,}])#:[]\1#g')"
     sort_json_arrays "$sed_normalized"
 }
+
+# ENUMERATION (27/08/2026, GODS_LAWS.md L-40's own instruction: an
+# enumerable space gets enumerated whole, not searched inside). Six
+# forms in which two Docker/runner builds can spell the identical
+# HostConfig meaning differently were named at the same time this
+# fatia was opened. This table is the record of that enumeration, not
+# just the one fix above:
+#
+#   1. lista vazia contra null (`[]` vs `null`) - the bug this fatia
+#      fixes. OBSERVED live (Dns, this file's own header). COBERTA by
+#      the `:null([,}])` -> `:[]\1` step above, applied to every key.
+#   2. cadeia vazia contra null (`""` vs `null`) - every string-typed
+#      HostConfig field visible in this project's own baseline
+#      (NetworkMode, VolumeDriver, PidMode, IpcMode, UTSMode,
+#      UsernsMode, Cgroup, CgroupParent, CgroupnsMode, Runtime,
+#      Isolation, CpusetCpus, CpusetMems, ContainerIDFile) is a plain
+#      Go `string`, never a `*string` - encoding/json emits a non-
+#      pointer string's zero value as `""`, and can only ever emit
+#      `null` for a pointer or interface type. NAO PODE OCORRER neste
+#      bloco, and NAO COBERTA on purpose: equating `""` with `null`
+#      would be speculative code with no red test to prove it is
+#      needed (GODS_LAWS.md L-20), and unlike the array case there is
+#      no Go-typing argument that makes it provably safe in general -
+#      only "not observed here yet" for this specific field set.
+#   3. numero contra cadeia numerica (`0` vs `"0"`) - every numeric
+#      HostConfig field visible here (ShmSize, OomScoreAdj, CpuShares,
+#      Memory, NanoCpus, and the rest of the Cpu*/Blkio*/Memory* family)
+#      is a plain Go integer type, always emitted bare, never quoted,
+#      by the same encoding/json rule as case 2. NAO OBSERVADA, NAO
+#      COBERTA, same reasoning as case 2: no evidence, so no code.
+#   4. `0` contra `false` - a real type change (bool field becoming an
+#      int, or vice versa) between Docker versions, not something this
+#      project's own history has produced (the one boolean-shaped drift
+#      actually measured, OomKillDisable's `false`/`null`, is a
+#      DIFFERENT pair and is already normalized above). NAO OBSERVADA,
+#      NAO COBERTA. If it ever happens, this check fails CLOSED (a real
+#      mismatch reported), same as case 2 and 3 - never silently open -
+#      and gets diagnosed and normalized the same way OomKillDisable
+#      was: by measuring both sides side by side, never by guessing.
+#   5. campo ausente contra campo presente-e-nulo - a key missing from
+#      the JSON entirely versus the same key present with value `null`.
+#      JA COBERTA, and not by anything in this function:
+#      assert_hostconfig_key_count_matches_baseline() (above,
+#      predating this fatia) counts the keys actually present before
+#      any content comparison runs, so a field that disappears or
+#      appears moves that count independently of what
+#      normalize_host_config() does to the values.
+#   6. maiusculas em valor de modo (`"bridge"` vs `"Bridge"`, `"no"` vs
+#      `"No"`) - every mode-like string field here (NetworkMode,
+#      IpcMode, UsernsMode, CgroupnsMode, RestartPolicy.Name, Isolation)
+#      is Docker's own enum spelling, not user input, and has not been
+#      observed to vary in case across this project's Docker Server
+#      29.7.2 measurements. NAO OBSERVADA, NAO COBERTA, same
+#      fails-closed reasoning as case 4.
+#
+# Cases 1 and 5 are covered because they were OBSERVED (this fatia and
+# the pre-existing key-count check respectively). Cases 2, 3, 4 and 6
+# are deliberately left uncovered, not overlooked: GODS_LAWS.md L-20
+# and L-27 both forbid writing normalization code to a form nobody has
+# seen this Docker version actually produce - the failure mode of doing
+# that is a normalizer with a hole nobody tested, which is the exact
+# genus L-40 exists to close, not to reopen with an "obviously safe"
+# guess. The floor stays fail-closed for all four: an unnormalized
+# genuine equivalence produces a spurious HostConfig mismatch (loud,
+# investigated, safe) never a silent pass (quiet, exploitable, unsafe).
 
 read_baseline_or_fail() {
     [ -f "$BASELINE_FILE" ] \

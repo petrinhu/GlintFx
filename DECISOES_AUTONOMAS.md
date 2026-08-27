@@ -168,3 +168,52 @@ Registro exigido pela **L-34**, seção "Modo autônomo". Enquanto o modo está 
 ### Decisões tomadas em nome do líder nesta janela
 
 *(cada uma com data, hora, o C-level que assinou, o que estava em jogo e o argumento — para confirmação retroativa)*
+
+---
+
+## Onda W3 — planejamento, decisões do CTO e o que fica parado  `[26/08/26 - 23:28:32]`
+
+**Planejou:** `fable` (Caetano, CTO), read-only, a pedido do main. **Rascunho:** `/var/tmp/glintfx-plan/w3-plano.md`.
+
+### Uma correção minha, antes das decisões dele
+
+Eu levei ao CTO a afirmação de que **a W3 não tinha nenhum item de caminho principal**, e perguntei se era erro de composição. **A afirmação era falsa, e eu a reconferi contra a tabela depois de ele apontar:**
+
+- `WL-DISPLAY` (W4) tem `ARCH-PORTS` (W3) como pré-requisito.
+- `LOOP-RUN` (W6) tem `CORE-TIME` (W3) como pré-requisito.
+
+Ou seja: **a W3 carrega dois elos do caminho principal**, e a composição está certa — é a cadeia esticada pelo conserto do CHK-07 (desvio 7 do `TODO.md`), que proíbe item de dividir onda com o próprio pré-requisito. **Nenhuma correção de composição é necessária**, e puxar `WL-DISPLAY` para a W3 teria reintroduzido justamente o defeito que o CHK-07 consertou.
+
+O que prende o caminho principal nesta janela não é a onda: é o recorte da autorização, que deixa porta de mão única com o líder, caindo exatamente sobre esses dois elos.
+
+### Classificação das cinco portas de mão única (achado do CTO, com citação)
+
+| Item | Classificação | O que congela |
+|---|---|---|
+| `CORE-TIME` | **genuína** | representação pública de tempo/duração: value type visível, contrato de ABI (L-19) |
+| `GFSS-VALUE` | **genuína, dupla** | layout do value type público (ABI) **e** a semântica do formato — número, comprimento e porcentagem são coisas distintas, e aqui quem perde é o arquivo do consumidor (terceira régua da L-26) |
+| `ASSET-LOAD` | **genuína** | assinatura pública de carregamento e o erro da L-22 |
+| `GFSS-NODE-VIEW` | **genuína, a de maior consequência** | é contrato que **o consumidor implementa**: exigência acrescentada depois quebra todo consumidor que já o implementou |
+| `ARCH-PORTS` | ⚠️ **precaucionária** | o próprio item diz **"Não é ABI pública"**, e o que ele congelaria — concept C++23, um arquivo por plataforma escolhido pelo CMake, zero `#ifdef` em corpo de função — é **texto verbatim da L-19, que o líder já fechou em 21/08**. Adaptadores existentes hoje: **zero** |
+
+**O CTO recusou destravar `ARCH-PORTS` por conta própria**, e a recusa está certa: a autorização nomeia porta de mão única pelo rótulo, e reclassificar para si mesmo o direito de executar é exatamente o conserto que favorece quem o propõe. Vira pergunta ao líder, não decisão de agente.
+
+### Decisões que o CTO assinou nesta janela
+
+- **D-W3-1 — a onda é curta, e fica curta.** A W3 desta janela são as duas fatias de `gfss`: análise de cor e núcleo do seletor. Recusadas: destravar `ARCH-PORTS` por reclassificação própria (fora da cadeira dele) e puxar item de onda futura (violaria o CHK-07 e a L-32). **Porta de mão única:** não. **Custo de reverter:** zero, é aditivo.
+- **D-W3-2 — sequencial, cor antes de seletor.** As duas editam o mesmo `src/gfss/CMakeLists.txt`, e paralelo só vale em arquivos disjuntos; mais um build pesado por vez. **Reverter:** zero.
+- **D-W3-3 — nenhuma linha nova em `include/glintfx/` nesta onda.** Header novo nasce interno em `src/gfss/`; promover a público é ato de fatia com revisão de API dedicada. **Diverge de propósito do `GFSS-TOKEN`, que já é público:** congelar forma pública agora anteciparia decisão que é do líder. **Porta de mão única:** não — é o que **evita** uma. **Reverter:** promover header é um commit; o inverso seria quebra.
+- **D-W3-4 — `oklch()` sai como erro com diagnóstico** apontando a fatia própria, e a lista de funções aceitas é enumerada fechada. Recusado aceitar-e-ignorar: linha aceita em silêncio é o defeito que o líder mandou eliminar. **Reverter:** a fatia de `oklch()` substitui o erro, já planejada.
+- **D-W3-5 — o "cerca de 148" se resolve medindo.** O implementador deriva a tabela de cores nomeadas da especificação pública e **pina o número exato no teste**, com a contagem impressa igual ao total. Nenhum número de memória entra na ordem de serviço.
+
+### O que fica parado esperando o líder
+
+Cinco perguntas, na ordem em que o CTO recomenda apresentá-las. **A primeira sozinha destrava a W4 inteira.**
+
+1. **`ARCH-PORTS`** — está rotulado porta de mão única, mas o próprio item diz que não é ABI pública, e o que ele congelaria é o padrão que a L-19 já fixou. Ratifica executá-lo sem revisão prévia sua, mantendo revisão adversarial dedicada e nada em `include/`, ou mantém como porta sua?
+2. **`GFSS-VALUE`** — ratifica o desenho do value type (palavra-chave, número, inteiro, comprimento com enum fechado de unidade, porcentagem preservada) e o **layout** dele?
+3. **`GFSS-NODE-VIEW`** — a lista de obrigações do contrato está **final**? Acrescentar depois quebra todo consumidor que já o implementou.
+4. **`CORE-TIME`** — qual representação pública de tempo e duração?
+5. **`ASSET-LOAD`** — modelo de resolução de caminho e assinatura pública?
+
+**Contra-argumento que o CTO fez questão de registrar:** encher a onda violaria a autorização ou o teto da L-32, e o maior valor desta janela não é código — é deixar os cinco dossiês prontos para o líder decidir em minutos quando voltar.

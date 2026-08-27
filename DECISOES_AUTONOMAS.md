@@ -337,3 +337,28 @@ O revisor achou que nenhum portão da casa prova a frase do próprio `README.md`
 ### O que ficou FORA desta rodada, e continua esperando
 
 As **cinco portas de mão única da W3** — `ARCH-PORTS`, `GFSS-VALUE`, `GFSS-NODE-VIEW`, `CORE-TIME`, `ASSET-LOAD` — não foram apresentadas aqui porque o pedido dele foi sobre **decisões já tomadas**, e essas nunca foram tomadas: pararam, por desenho. **`ARCH-PORTS` sozinha destrava a W4 inteira**, e o CTO a classificou como precaucionária.
+
+---
+
+## FALHA DE REGISTRO MINHA, apontada por revisão adversarial  `[27/08/26 - 08:52:43]`
+
+**Um revisor classificou como CRÍTICO que a reversão do arquivo de empacotamento tivesse ido além do que o líder autorizou.** Ele leu, aqui neste arquivo, a resposta do líder — *"decidimos juntos o que fazer com o validador que reprova instalação boa"* — e a minha própria frase logo abaixo dela: *"a fatia PARA aqui e espera o líder."* Depois viu o commit chegar **2h27min mais tarde** com o desenho do validador **decidido e implementado**, e **nenhuma entrada neste arquivo entre uma coisa e outra**.
+
+⚠️ **A conclusão dele estava certa PARA A EVIDÊNCIA QUE ELE TINHA. O que faltava era registro meu.**
+
+**O que de fato aconteceu, e que eu não gravei:** depois daquela resposta, o líder mandou uma segunda mensagem, listando o que fazer com cada pendência por número. **Verbatim dele:**
+
+> *"1- conserte*
+> *2- faça*
+> *3- askuserquestion*
+> *4- askuserquestion*
+> *5- askuserquestion*
+> *6- askuserquestion"*
+
+O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente: *"Reverter o `.pc` no Windows — **e junto, o que fazer com o validador que reprova instalação boa**."* Ou seja: **o "faça" cobria o validador**, e o desenho passou a ser trabalho de agente por ordem dele.
+
+**A falha, e ela é minha, não do agente que implementou:** eu executei a ordem e **não a gravei aqui**. Este arquivo é a única fonte de verdade sobre o que foi autorizado em modo autônomo — e ele ficou dizendo *"a fatia para e espera o líder"* enquanto a fatia andava. **Qualquer pessoa auditando o repositório chegaria à mesma conclusão do revisor.**
+
+**A regra que fica:** ordem do líder que **destrava** algo registrado aqui como travado **entra aqui no instante em que ele a dá**, com o texto dele verbatim — do mesmo jeito que a ordem que trava. **Registro que só anota o "não" e esquece o "sim" mente por omissão**, e mente exatamente contra quem confia nele.
+
+**Consequência prática, e o revisor tem razão nela também:** o `TODO.md` atribuiu o pacote inteiro a *"ordem do líder"* sem distinguir qual parte veio de qual ordem. Isso está corrigido junto com esta entrada.

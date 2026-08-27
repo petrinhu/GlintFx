@@ -56,14 +56,12 @@ function Resolve-AbsolutePath([string]$path) {
 $GlintfxSourceDir = Resolve-AbsolutePath $GlintfxSourceDir
 $EmbedSrcDir = Resolve-AbsolutePath $EmbedSrcDir
 
-# Generator is explicit (CI-WIN-GEN): without -G, plain pwsh has no
-# vcvarsall-prepared environment, and CMake's Windows default falls back
-# to a command-line generator (NMake) that cannot locate cl.exe on its
-# own - only an IDE generator self-locates MSVC. Same root cause as
-# commit 17706d9; this call already presumed a multi-config generator
-# via Invoke-BuildEmbed's --config Release below.
+# Generator is explicit (CI-WIN-GEN): Ninja is a single-config generator,
+# so the configuration is chosen here, at configure time, never at build
+# or install time. The compiler environment (cl.exe on PATH) is prepared
+# by a dedicated step earlier in the workflow file, not by this script.
 function Invoke-ConfigureEmbed([string]$embedSrc, [string]$embedBuild, [string]$glintfxSrc) {
-    cmake -S $embedSrc -B $embedBuild -G "Visual Studio 17 2022" -A x64 -DGLINTFX_SOURCE_DIR="$glintfxSrc"
+    cmake -S $embedSrc -B $embedBuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_SOURCE_DIR="$glintfxSrc"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
@@ -76,15 +74,15 @@ function Invoke-ConfigureEmbed([string]$embedSrc, [string]$embedBuild, [string]$
 # check_embed.sh's configure_embed()/configure_embed_with_install_opt_in()
 # split exactly.
 # Same generator fix as Invoke-ConfigureEmbed() above (CI-WIN-GEN):
-# explicit -G/-A, same root cause as commit 17706d9. This variant also
-# presumes multi-config, via the --config Release install call below.
+# Ninja is single-config, so this variant also chooses its configuration
+# here, at configure time, not via a later --config flag.
 function Invoke-ConfigureEmbedWithInstallOptIn([string]$embedSrc, [string]$embedBuild, [string]$glintfxSrc) {
-    cmake -S $embedSrc -B $embedBuild -G "Visual Studio 17 2022" -A x64 -DGLINTFX_SOURCE_DIR="$glintfxSrc" -DGLINTFX_INSTALL=ON
+    cmake -S $embedSrc -B $embedBuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_SOURCE_DIR="$glintfxSrc" -DGLINTFX_INSTALL=ON
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 function Invoke-BuildEmbed([string]$embedBuild) {
-    cmake --build $embedBuild --config Release
+    cmake --build $embedBuild
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
@@ -199,7 +197,7 @@ function Assert-GeneratedHeadersScoped([string]$embedBuild) {
 }
 
 function Assert-InstallDoesNotLeakHeaders([string]$embedBuild, [string]$scratchPrefix) {
-    cmake --install $embedBuild --config Release --prefix $scratchPrefix *> $null
+    cmake --install $embedBuild --prefix $scratchPrefix *> $null
     $leaked = Join-Path $scratchPrefix "include/glintfx"
     if (Test-Path $leaked) {
         Write-Error "check-embed.ps1: glintfx headers were installed by an embedded consumer's install target (GLINTFX_INSTALL guard not honored)"
@@ -214,7 +212,7 @@ function Assert-InstallDoesNotLeakHeaders([string]$embedBuild, [string]$scratchP
 # glintfx's install() rules under this script (FIX-CONSUMO-2, achado
 # QA-2), same as check_embed.sh's assert_install_opt_in_installs_glintfx().
 function Assert-InstallOptInInstallsGlintfx([string]$embedBuild, [string]$scratchPrefix) {
-    cmake --install $embedBuild --config Release --prefix $scratchPrefix
+    cmake --install $embedBuild --prefix $scratchPrefix
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     $header = Join-Path $scratchPrefix "include/glintfx/core/version.hpp"

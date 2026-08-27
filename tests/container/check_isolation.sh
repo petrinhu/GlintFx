@@ -163,31 +163,52 @@ assert_hostconfig_key_count_matches_baseline() {
 }
 
 # Counts the "/sys/devices/system/cpu/cpuN/thermal_throttle" entries
-# inside the raw HostConfig's MaskedPaths - one per CPU core Docker
-# sees on the machine running dockerd, not something any `docker
-# create`/`run` flag sets directly. This is the check that actually
-# catches `--security-opt systempaths=unconfined` (or any other flag
-# that empties MaskedPaths/ReadonlyPaths): it is the exact hole the
-# nine-named-field version of this script had, because none of those
-# nine fields move when systempaths is set to unconfined.
+# inside the raw HostConfig's MaskedPaths - one per CPU core for which
+# THAT SYSFS DIRECTORY ACTUALLY EXISTS on the machine running dockerd,
+# not something any `docker create`/`run` flag sets directly. This is
+# the check that actually catches `--security-opt
+# systempaths=unconfined` (or any other flag that empties
+# MaskedPaths/ReadonlyPaths): it is the exact hole the nine-named-field
+# version of this script had, because none of those nine fields move
+# when systempaths is set to unconfined.
 masked_paths_cpu_thermal_count() {
     raw="$1"
     printf '%s' "$raw" | grep -oE '/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle' | sed '/^$/d' | wc -l
 }
 
-nproc_or_fail() {
-    command -v nproc >/dev/null 2>&1 \
-        || fail "nproc ausente neste host - nao da para medir quantos nucleos o baseline de MaskedPaths precisa cobrir (GODS_LAWS.md L-40)"
-    nproc
+# ENV-DRIFT (27/08/2026, GODS_LAWS.md L-40/ISO-BASELINE): the first cut
+# of this check compared `actual_count` against `nproc` - one masked
+# path expected per logical CPU the scheduler reports. That is not what
+# Docker promises: moby's own default-masked-paths setup
+# (oci/defaults_linux.go) loops over CPU indices but appends the path
+# only when `os.Stat` on it succeeds, exactly mirroring the `find`
+# below - it does NOT add one per `nproc`-reported core unconditionally.
+# Caught live in the real `wayland-container` CI job: a GitHub-hosted
+# Ubuntu runner reports `nproc` > 0 while having ZERO
+# thermal_throttle directories at all - its vCPUs are virtualized and
+# never expose the Intel/AMD thermal-interrupt-status interface this
+# path walks, so dockerd masked none of them, correctly. The previous
+# version reproved that runner for not matching a number Docker never
+# produces there. Measuring the same existence check dockerd itself
+# performs - on THIS host, at check time, which is the same host
+# dockerd ran on when it built the container being inspected - is the
+# only expected value this check can legitimately hold `actual_count`
+# against; a bare-metal host with every core exposing the interface
+# (this project's own development machine, 16/16) and a virtualized CI
+# runner with none (0/0) both compare true, and an attack that empties
+# MaskedPaths on EITHER kind of host still shows up as a mismatch.
+host_thermal_throttle_dir_count() {
+    find /sys/devices/system/cpu -mindepth 1 -maxdepth 2 \
+        -type d -name thermal_throttle 2>/dev/null | sed '/^$/d' | wc -l
 }
 
 assert_cpu_masked_path_count_matches_host() {
     raw="$1"
     actual_count="$(masked_paths_cpu_thermal_count "$raw")"
-    expected_count="$(nproc_or_fail)"
-    echo "check_isolation.sh: MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle (nucleos deste host: $expected_count)"
+    expected_count="$(host_thermal_throttle_dir_count)"
+    echo "check_isolation.sh: MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle (thermal_throttle presente neste host: $expected_count)"
     [ "$actual_count" = "$expected_count" ] \
-        || fail "MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle, esperava $expected_count (um por nucleo, 'nproc'): provavel --security-opt systempaths=unconfined (ou equivalente) esvaziando MaskedPaths/ReadonlyPaths sem tocar nenhum dos campos que este portao checava antes do ISO-BASELINE"
+        || fail "MaskedPaths tem $actual_count entrada(s) de cpuN/thermal_throttle, esperava $expected_count (contagem real de /sys/devices/system/cpu/cpuN/thermal_throttle neste host, GODS_LAWS.md L-40/ISO-BASELINE - nao 'nproc': maquina virtualizada pode ter nucleos sem essa interface, e dockerd so mascara o que existe): provavel --security-opt systempaths=unconfined (ou equivalente) esvaziando MaskedPaths/ReadonlyPaths sem tocar nenhum dos campos que este portao checava antes do ISO-BASELINE"
 }
 
 # Normalizes the three genuinely execution-dependent parts of a raw

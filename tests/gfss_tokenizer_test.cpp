@@ -208,6 +208,25 @@ GLINTFX_TEST(gltfx_gfss_tokenize_treats_a_multibyte_utf8_code_point_as_one_ident
     }
 }
 
+// --- 4.3.12 "Consume a number": sign, fraction and exponent ----------
+//
+// Found MISSING by this fatia's own mutation-testing pass (GODS_LAWS.md
+// L-40's "prove the mutant reaches the code" discipline turned outward
+// on the test suite itself, not just on ONE function): the closed-
+// enumeration table above only ever fed consume_number() a bare "42",
+// which never exercises consume_optional_sign()/consume_optional_
+// fraction()/consume_optional_exponent() at all - a mutant that no-ops
+// any of the three (lexical_rules.cpp) would have passed the WHOLE
+// suite silently before this test existed.
+GLINTFX_TEST(gltfx_gfss_tokenize_number_with_sign_fraction_and_exponent) {
+    const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("-3.5e-2");
+    GLINTFX_CHECK(!tokens.empty());
+    if (!tokens.empty()) {
+        GLINTFX_CHECK(tokens.front().kind == gltfx_gfss_token_kind::number);
+        GLINTFX_CHECK(tokens.front().lexeme == std::string_view{"-3.5e-2"});
+    }
+}
+
 // --- a realistic multi-token slice, the shape a real gfss declaration
 // will eventually be parsed from -------------------------------------
 

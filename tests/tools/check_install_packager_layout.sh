@@ -91,21 +91,23 @@ build_and_install_glintfx() {
     cmake --install "$build_dir" --prefix "$prefix"
 }
 
-# PKG-WIN-SCOPE, perna Unix de regressao: CMakeLists.txt agora guarda
+# PKG-WIN-SCOPE, perna Unix de regressao: CMakeLists.txt chama
 # glintfx_install_pkgconfig()/glintfx_register_pkgconfig_validation()
-# atras de if(UNIX), para o Windows nunca ganhar um glintfx.pc por
-# acidente (PACKAGING.md, "Packaging on Windows"). Esta funcao prova o
-# lado de baixo dessa mesma guarda: no Linux, onde este script sempre
-# roda, o .pc TEM de continuar sendo instalado - a guarda nao pode ter
-# como efeito colateral silencioso o .pc sumir aqui tambem. Enumeracao,
-# nao busca por caminho fixo (GODS_LAWS.md L-40: a contagem aparece na
+# incondicionalmente hoje (o guard if(UNIX) que existiu entre a fatia
+# original de PKG-WIN-SCOPE e a reversao dela por ordem do lider foi
+# removido - ver PACKAGING.md, "Packaging on Windows", e o commit que
+# reverte). Esta funcao prova o que sempre foi verdade e continua
+# sendo: no Linux, onde este script sempre roda, o .pc TEM de ser
+# instalado - nenhuma mudanca de escopo em outra plataforma pode ter
+# como efeito colateral silencioso o .pc sumir aqui. Enumeracao, nao
+# busca por caminho fixo (GODS_LAWS.md L-40: a contagem aparece na
 # saida mesmo quando passa, e varredura vazia reprova).
 assert_pkgconfig_pc_installed() {
     prefix="$1"
     label="$2"
     count="$(find "$prefix" -type f -name 'glintfx.pc' 2>/dev/null | wc -l | tr -d '[:space:]')"
     echo "check_install_packager_layout.sh: [$label] varreu '$prefix' e achou $count arquivo(s) glintfx.pc"
-    [ "$count" -ge 1 ] || fail "[$label] glintfx.pc nao encontrado sob '$prefix' apos o install - a guarda if(UNIX) de PKG-WIN-SCOPE (CMakeLists.txt) nao pode fazer o .pc sumir no Linux"
+    [ "$count" -ge 1 ] || fail "[$label] glintfx.pc nao encontrado sob '$prefix' apos o install no Linux (PACKAGING.md)"
 }
 
 configure_consumer_with_architecture_hint() {

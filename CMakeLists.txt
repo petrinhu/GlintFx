@@ -81,41 +81,34 @@ if(GLINTFX_INSTALL)
     glintfx_install_public_headers()
     glintfx_install_cmake_package()
 
-    # UNIX only (PKG-WIN-SCOPE, decisao do CTO): pkg-config e uma
-    # convencao de empacotamento Unix/Linux, e glintfx nao tem camada de
-    # plataforma fora de UNIX ainda (src/platform/CMakeLists.txt so
-    # adiciona o backend Wayland sob if(UNIX) em src/CMakeLists.txt).
-    # PACKAGING.md ja dizia isto em prosa ("pkg-config has no role in
-    # glintfx's Windows story today"); antes desta fatia as duas chamadas
-    # abaixo rodavam SEM guarda de plataforma, e o efeito colateral era
-    # glintfx.pc sendo instalado no Windows por acidente de
-    # implementacao, nunca por decisao registrada - e o validador
-    # (cmake/GlintfxPkgConfigValidateInstalled.cmake.in) ja documentava,
-    # no proprio cabecalho, que o glob dele reprovaria falso ali (glob
-    # busca libglintfx.so*/libglintfx.a, nunca glintfx.lib). PKG-VALIDATE,
-    # ASSERT-WRAP e CORE-ERROR foram tres rodadas de conserto reativo em
-    # cima desse acidente, na mesma semana - a raiz sempre foi a ausencia
-    # desta guarda, nao o parser da saida de erro nem o separador de
-    # PKG_CONFIG_PATH.
-    if(UNIX)
-        # After include(GlintfxWaylandProtocols) above (UNIX only):
-        # PKG-DIST's glintfx_install_pkgconfig() reads
-        # GlintfxWaylandClient_LIBRARIES, which that include() populates
-        # at its own include-time pkg_check_modules() call, well before
-        # this line runs.
-        glintfx_install_pkgconfig()
-        # After glintfx_install_pkgconfig(), on purpose (PKG-VALIDATE):
-        # install() rules run in the order they are registered, and this
-        # step has to find glintfx.pc already written to disk when it
-        # runs at `cmake --install` time.
-        glintfx_register_pkgconfig_validation()
-    else()
-        message(STATUS
-            "glintfx: skipping pkg-config module and validation on this "
-            "platform - pkg-config has no role in glintfx's Windows "
-            "story today (see PACKAGING.md, 'Packaging on Windows')."
-        )
-    endif()
+    # PKG-WIN-SCOPE, revertido por ordem do lider: a fatia original
+    # (decisao do CTO, ja assinada) tinha guardado as duas chamadas
+    # abaixo atras de if(UNIX), reagindo ao fato de que
+    # cmake/GlintfxPkgConfigValidateInstalled.cmake.in so conhecia o
+    # glob libglintfx.so*/libglintfx.a e reprovaria falso contra
+    # glintfx.lib no Windows. O lider derrubou essa decisao ao acordar
+    # e ordenou "o .pc volta a ser instalado no Windows" - o glob do
+    # validador foi ensinado a reconhecer glintfx.lib (proximo
+    # comentario, cmake/GlintfxPkgConfigValidateInstalled.cmake.in), e
+    # esta guarda de plataforma saiu por inteiro: as duas chamadas
+    # rodam em TODA plataforma, sem excecao, de novo.
+    #
+    # After include(GlintfxWaylandProtocols) above (UNIX only): PKG-DIST's
+    # glintfx_install_pkgconfig() reads GlintfxWaylandClient_LIBRARIES,
+    # which that include() populates at its own include-time
+    # pkg_check_modules() call - but only under if(UNIX), well before
+    # this line runs; glintfx_compute_pkgconfig_libs_private()
+    # (cmake/GlintfxInstall.cmake) already guards its OWN read of that
+    # variable with if(UNIX) internally, so calling
+    # glintfx_install_pkgconfig() unconditionally here is safe on
+    # Windows too - it just emits an empty Libs.private there, same as
+    # it always would have if this outer guard had never existed.
+    glintfx_install_pkgconfig()
+    # After glintfx_install_pkgconfig(), on purpose (PKG-VALIDATE):
+    # install() rules run in the order they are registered, and this
+    # step has to find glintfx.pc already written to disk when it runs
+    # at `cmake --install` time.
+    glintfx_register_pkgconfig_validation()
 endif()
 
 if(GLINTFX_BUILD_TESTS)

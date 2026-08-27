@@ -6,18 +6,25 @@
 # relying on the absence of a nonzero $LASTEXITCODE, which would mask a
 # genuine syntax error in this script itself as a silent pass).
 #
-# WHY THIS EXISTS EVEN THOUGH glintfx.pc IS NOW UNINSTALLED ON WINDOWS:
-# two rounds of adivinhacao were already spent on pkg-config-on-Windows
-# behavior before this script existed - PKG-VALIDATE's PKG_CONFIG_PATH
-# separator theory (cmake/GlintfxPkgConfigValidateInstalled.cmake.in's
-# now-reverted TO_NATIVE_PATH_LIST conversion), reasoned from
-# documentation because no Windows machine exists in this repository's
-# own development environment to test it against. This script is the
-# piece that turns the NEXT pkg-config-on-Windows question - whoever
-# adds a real Windows platform layer and reopens the if(UNIX) guard in
-# CMakeLists.txt, or a packager reporting an odd MSYS2 interaction, or
-# simple curiosity about what ships on windows-latest - into a log read
-# instead of a fourth guess.
+# WHY THIS STAYS PERMANENT NOW THAT glintfx.pc IS INSTALLED ON WINDOWS
+# AGAIN (PKG-WIN-SCOPE, revertido por ordem do lider, 27/08/2026): this
+# is the script that turned a first, reasoned-only guess (PKG-VALIDATE's
+# PKG_CONFIG_PATH separator theory, cmake_path(CONVERT ...
+# TO_NATIVE_PATH_LIST ...) applied with no Windows machine anywhere in
+# this repository's own development environment to test it against)
+# into a MEASURED fact: run 33050708122, job "Windows - compartilhado",
+# found exactly one pkg-config on that runner's PATH (Strawberry Perl's
+# Pure-Perl `pkg-config.bat`), and its closed five-cell matrix showed
+# that a bare, unseparated PKG_CONFIG_PATH value fails there while the
+# same value with a trailing native ';' succeeds -
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in's own PKG_CONFIG_PATH
+# construction now applies exactly that fix. This script keeps running
+# on every push, unconditionally, for the same reason it was born
+# judgment-free: the NEXT pkg-config-on-Windows question - a different
+# GHA image swapping which pkg-config ships by default, a packager
+# reporting an odd MSYS2 interaction, or simple curiosity about what
+# windows-latest carries next year - stays a log read, not a fifth
+# guess.
 #
 # Usage: diagnose-win-pkgconfig.ps1
 #

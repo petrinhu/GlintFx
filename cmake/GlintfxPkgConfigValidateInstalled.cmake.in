@@ -82,27 +82,57 @@
 #     `--static` here would duplicate a claim already covered
 #     elsewhere without covering any layout PKG-DIST's own scenario 5
 #     does not already reach.
-#   - Windows library-artifact naming (glintfx.lib, not
-#     libglintfx.so*/libglintfx.a) is out of scope, mirroring
-#     PACKAGING.md's own declared Windows exclusion for pkg-config
-#     ("pkg-config is a Unix/Linux packaging convention, and glintfx
-#     has no platform layer outside Unix yet"). RESOLVED, not merely
-#     accepted (PKG-WIN-SCOPE, decisao do CTO): this used to be a false
-#     failure waiting to happen on a Windows machine that has
-#     pkg-config/pkgconf on PATH anyway (MSYS2), because this file's
-#     library-artifact glob would never match glintfx.lib. It cannot
-#     happen anymore, and not because the glob learned to match
-#     glintfx.lib - CMakeLists.txt now wraps BOTH
-#     glintfx_install_pkgconfig() and glintfx_register_pkgconfig_validation()
-#     (the very install(CODE) step this file backs) in if(UNIX), so this
-#     whole file is never configured, never generated and never
-#     include()-d on a Windows configure in the first place. Whoever
-#     adds a Windows platform layer that ships real pkg-config support
-#     needs to open that guard back up in CMakeLists.txt AND extend the
-#     glob in glintfx_pkgconfig_validate_variable() below at the same
-#     time - one without the other leaves either a Windows install with
-#     no glintfx.pc validation, or this file running again against a
-#     glob that still cannot see glintfx.lib.
+#   - Windows library-artifact naming: RESOLVED, not out of scope
+#     (PKG-WIN-SCOPE, revertido por ordem do lider, 27/08/2026). An
+#     earlier fatia (decisao do CTO, ja assinada) had wrapped BOTH
+#     glintfx_install_pkgconfig() and
+#     glintfx_register_pkgconfig_validation() in if(UNIX) in
+#     CMakeLists.txt specifically because this file's library-artifact
+#     glob only ever matched libglintfx.so*/libglintfx.a and would
+#     have reported a false failure against glintfx.lib. The lider
+#     derrubou essa decisao: the if(UNIX) guard in CMakeLists.txt is
+#     gone, both calls run on every platform again, and the glob below
+#     (glintfx_pkgconfig_validate_variable() and
+#     glintfx_pkgconfig_validate_flags()) now matches glintfx.lib too -
+#     the archive artifact CMakeLists.txt's OUTPUT_NAME/ARCHIVE
+#     DESTINATION rule (cmake/GlintfxLibrary.cmake,
+#     cmake/GlintfxInstall.cmake) actually produces there, for both a
+#     shared build's import library and a static build's archive (MSVC
+#     uses the same .lib extension for both).
+#   - Talking to the pkg-config BINARY itself, as opposed to reading
+#     the filesystem, is where this file draws its one platform-shaped
+#     line (glintfx_validate_installed_pkgconfig() below): every
+#     filesystem-only check - glintfx.pc exists, the staged pkgconfig/
+#     directory exists, the library/header artifacts are on disk -
+#     keeps FATAL_ERROR veto power on every platform, Windows
+#     included, because none of that depends on any pkg-config
+#     binary's own quirks. Getting `pkg-config --exists`/`--variable`/
+#     `--cflags`/`--libs` to actually RESOLVE against a real install is
+#     a different claim: on GitHub Actions' windows-latest runner, the
+#     only pkg-config on PATH is Strawberry Perl's Pure-Perl
+#     `PkgConfig` reimplementation (`pkg-config.bat`), which - MEASURED
+#     against a live fixture by tools/ci/diagnose-win-pkgconfig.ps1,
+#     GHA run 33050708122, job "Windows - compartilhado" - resolves a
+#     bare PKG_CONFIG_PATH value shaped like "C:/Users/.../pkgconfig"
+#     (no explicit list separator) by falling back to POSIX-style
+#     splitting on ':', which shreds the drive letter itself ("C:")
+#     into a bogus one-letter search directory; the SAME value with an
+#     explicit trailing ';' resolves correctly, because the presence
+#     of ';' makes it split on the Windows-native separator instead.
+#     That measured, real fix - append a native list separator before
+#     talking to pkg-config on Windows - is applied below. It is not
+#     provable in general, for every pkg-config a packager on some
+#     other Windows machine might have on PATH (a real MSYS2 pkgconf,
+#     a vcpkg-shipped one, or anything else GODS_LAWS.md LEI ZERO's
+#     public-and-unknown consumer base might combine with Windows) -
+#     so if the conversation with the binary still fails after this
+#     fix, glintfx_validate_installed_pkgconfig() reports it as a
+#     WARNING on Windows, not a FATAL_ERROR: the filesystem-based
+#     checks already vetoed a genuinely broken install, and this one
+#     extra confirmation is the part that cannot be guaranteed
+#     end-to-end on every Windows pkg-config that could exist. On
+#     every Unix target this project tests, the veto stays exactly as
+#     strict as it always was - no downgrade there.
 #
 # Two escape hatches, both named GLINTFX_SKIP_PKGCONFIG_VALIDATION on
 # purpose (one name, two mechanisms, same intent): the CACHE option in
@@ -157,12 +187,52 @@ function(glintfx_pkgconfig_validate_resolve_staged_dir out_var)
     endif()
 endfunction()
 
+# Filesystem patterns that name glintfx's own compiled library
+# artifact, one glob per platform-shaped naming convention it is known
+# to produce (cmake/GlintfxLibrary.cmake's OUTPUT_NAME "glintfx" is
+# the same string on every platform; only the prefix/suffix a linker
+# actually writes to disk differ). Both callers below
+# (glintfx_pkgconfig_validate_variable's "library" content kind, and
+# glintfx_pkgconfig_validate_flags' own -L check) call this instead of
+# each keeping their own copy of the pattern list - PKG-WIN-SCOPE's
+# first pass at Windows support (before the lider revertida it) had to
+# extend two separate globs by hand and only remembered one; a single
+# source of truth removes that failure mode (GODS_LAWS.md L-17).
+function(glintfx_pkgconfig_library_glob_patterns out_var)
+    set(${out_var}
+        "libglintfx.so*"
+        "libglintfx.a"
+        # glintfx.lib: Windows/MSVC ARCHIVE artifact
+        # (cmake/GlintfxInstall.cmake's install(TARGETS ... ARCHIVE
+        # DESTINATION ...)) - the SAME extension names both a shared
+        # build's import library and a static build's archive there,
+        # so one pattern covers both; the .dll itself is a RUNTIME
+        # artifact installed to CMAKE_INSTALL_BINDIR, not libdir, and
+        # is out of scope for a pkg-config libdir/-L check by design.
+        "glintfx.lib"
+        PARENT_SCOPE
+    )
+endfunction()
+
 # Resolves ONE pkg-config --variable=<name> value against real
 # content on disk. expected_content_kind is "headers" (must contain a
-# glintfx/ subdirectory) or "library" (must contain
-# libglintfx.so*/libglintfx.a) - the only two things any path glintfx.pc
-# emits ever names, same two shapes tests/tools/check_pkgconfig.sh's
-# own assert_dir_contains_expected_content already checks in CI.
+# glintfx/ subdirectory) or "library" (must contain one of
+# glintfx_pkgconfig_library_glob_patterns()) - the only two things any
+# path glintfx.pc emits ever names, same two shapes
+# tests/tools/check_pkgconfig.sh's own assert_dir_contains_expected_content
+# already checks in CI.
+#
+# The RESULT check below (execute_process talking to the pkg-config
+# BINARY) and the VALUE-empty check are deliberately still one
+# condition, not split by platform: an empty variable despite a
+# successful (0) exit is glintfx.pc's OWN content being wrong, not a
+# pkg-config binary quirk, so it stays FATAL_ERROR on every platform,
+# Windows included - see this file's header, "Talking to the
+# pkg-config BINARY itself", for the boundary that DOES vary by
+# platform (glintfx_validate_installed_pkgconfig()'s own --exists
+# call, the one place a genuine binary-conversation failure can be
+# told apart from a content defect before any variable is even
+# queried).
 function(glintfx_pkgconfig_validate_variable pkgconfig_dir pc_file var_name expected_content_kind)
     execute_process(
         COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" "--variable=${var_name}" glintfx
@@ -212,11 +282,16 @@ function(glintfx_pkgconfig_validate_variable pkgconfig_dir pc_file var_name expe
             )
         endif()
     elseif(expected_content_kind STREQUAL "library")
-        file(GLOB _glintfx_lib_matches "${value}/libglintfx.so*" "${value}/libglintfx.a")
+        glintfx_pkgconfig_library_glob_patterns(_glintfx_lib_pattern_names)
+        set(_glintfx_lib_glob_patterns "")
+        foreach(_glintfx_lib_pattern_name IN LISTS _glintfx_lib_pattern_names)
+            list(APPEND _glintfx_lib_glob_patterns "${value}/${_glintfx_lib_pattern_name}")
+        endforeach()
+        file(GLOB _glintfx_lib_matches ${_glintfx_lib_glob_patterns})
         if(_glintfx_lib_matches STREQUAL "")
             message(FATAL_ERROR
                 "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
-                "which exists but has no libglintfx.so*/libglintfx.a - "
+                "which exists but has none of ${_glintfx_lib_pattern_names} - "
                 "the installed library artifact is not there (pc file: "
                 "'${pc_file}'). Skip this check with "
                 "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment "
@@ -308,12 +383,18 @@ function(glintfx_pkgconfig_validate_flags pkgconfig_dir pc_file)
         if(token MATCHES "^-L(.+)$")
             set(library_path "${CMAKE_MATCH_1}")
             cmake_path(ABSOLUTE_PATH library_path NORMALIZE)
-            file(GLOB _glintfx_lib_matches "${library_path}/libglintfx.so*" "${library_path}/libglintfx.a")
+            glintfx_pkgconfig_library_glob_patterns(_glintfx_lib_pattern_names)
+            set(_glintfx_lib_glob_patterns "")
+            foreach(_glintfx_lib_pattern_name IN LISTS _glintfx_lib_pattern_names)
+                list(APPEND _glintfx_lib_glob_patterns "${library_path}/${_glintfx_lib_pattern_name}")
+            endforeach()
+            file(GLOB _glintfx_lib_matches ${_glintfx_lib_glob_patterns})
             if(NOT IS_DIRECTORY "${library_path}" OR _glintfx_lib_matches STREQUAL "")
                 message(FATAL_ERROR
                     "glintfx: 'pkg-config --libs glintfx' emitted "
                     "'${token}', which resolves to '${library_path}' - "
-                    "not a directory containing libglintfx.so*/libglintfx.a "
+                    "not a directory containing any of "
+                    "${_glintfx_lib_pattern_names} "
                     "(pc file: '${pc_file}'). Skip this check with "
                     "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
                     "environment of this `cmake --install` invocation, "
@@ -398,34 +479,64 @@ function(glintfx_validate_installed_pkgconfig)
         return()
     endif()
 
-    # PKG-VALIDATE-WINSEP, MOOTED BY PKG-WIN-SCOPE: this used to convert
-    # ${_glintfx_pkgconfig_dir} through cmake_path(CONVERT ...
-    # TO_NATIVE_PATH_LIST ...) before handing it to PKG_CONFIG_PATH, to
-    # work around a Windows CI failure where 'pkg-config --exists
-    # glintfx' rejected a genuinely correct install
-    # (C:/Users/runneradmin/AppData/Local/.../prefix/lib/pkgconfig) - a
-    # bare drive letter already contains a ':' before any list-separator
-    # logic runs, and a pkg-config build that resolves its own list
-    # separator to ':' on Windows (a documented MSYS/Cygwin-linked
-    # failure mode) would misread the whole path as two search
-    # directories. That failure can no longer happen HERE, because this
-    # entire file is Unix-only now (see the "Windows library-artifact
-    # naming" item above, and CMakeLists.txt's if(UNIX) guard around
-    # glintfx_register_pkgconfig_validation()) - the platform that
-    # motivated the conversion is out of this file's reach by
-    # construction, not by a value this code happens to compute
-    # correctly for it. Reverted to the plain literal assignment: it was
-    # already MEASURED byte-identical to the converted form on every
-    # POSIX path shape this project's own CI enumerates (plain, a
-    # doubled '//' separator, a trailing '/'), so nothing observable
-    # changes here on Linux, Fedora, Ubuntu, Arch or CachyOS. A mechanism
-    # kept alive for a platform it no longer runs on is a comment that
-    # will go on explaining a problem this file cannot have - if a
-    # future Windows platform layer reopens the if(UNIX) guard, list
-    # separator handling is exactly the kind of Windows-specific
-    # behavior that reopening needs to reconsider from scratch, not
-    # inherit unread from this paragraph.
-    set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_dir}")
+    # PKG-VALIDATE-WINSEP, REVIVED AND FIXED BY PKG-WIN-SCOPE's revert
+    # (27/08/2026): a first attempt at this (cmake_path(CONVERT ...
+    # TO_NATIVE_PATH_LIST ...), reasoned but never confirmed against a
+    # real Windows run) was reverted, and the whole file went Unix-only
+    # for a while. The lider brought the .pc back to Windows and asked
+    # for the validator to stop reprovando instalacao boa - and this
+    # time there is a MEASURED answer, not a reasoned one:
+    # tools/ci/diagnose-win-pkgconfig.ps1 (permanent diagnostic step,
+    # `windows` job) ran a closed matrix against a live fixture on GHA
+    # run 33050708122 and found that the ONLY pkg-config on that
+    # windows-latest runner's PATH is Strawberry Perl's Pure-Perl
+    # `PkgConfig` reimplementation (pkg-config.bat) - not a real
+    # pkgconf/pkg-config binary - and that it resolves a bare
+    # PKG_CONFIG_PATH value with no explicit list separator
+    # ("C:/Users/.../pkgconfig") by falling back to POSIX-style
+    # splitting on ':', which shreds the drive letter itself into a
+    # bogus one-letter search directory ("C", "/Users/.../pkgconfig")
+    # - exactly the failure this file's PREVIOUS attempt was reasoning
+    # about, confirmed for real this time. The SAME value with an
+    # explicit trailing ';' (semicolon) resolved correctly in every
+    # cell of that matrix, forward slash or backslash: the presence of
+    # ';' makes it split on the Windows-native separator instead of
+    # falling back to ':'. cmake_path(CONVERT ... TO_NATIVE_PATH_LIST
+    # ...) alone does not guarantee that trailing separator for a
+    # SINGLE-entry list (there is nothing else in the list to separate
+    # from), which is almost certainly why the earlier, reasoned-only
+    # attempt still failed on real Windows CI (GHA run for commit
+    # 9a863c7, job "Windows - compartilhado": 'pkg-config --exists'
+    # failed against a glintfx.pc this file's own resolver had just
+    # proven existed, PKG_CONFIG_PATH shown with forward slashes, no
+    # separator). The fix below is therefore explicit, not left to
+    # cmake_path alone: on WIN32, convert to native slashes AND append
+    # a literal trailing native list separator, so the value ALWAYS
+    # contains at least one, regardless of list length.
+    #
+    # PROVEN on POSIX (this machine, unchanged from before): for a
+    # plain path, a path with a doubled '//' separator, and a path
+    # with a trailing '/', cmake_path(CONVERT ... TO_NATIVE_PATH_LIST
+    # ...) is byte-identical to the untouched original - nothing
+    # observable changes here on Linux, Fedora, Ubuntu, Arch or
+    # CachyOS, and the WIN32 branch below never runs there at all.
+    #
+    # NOT proven, and not claimed: that every pkg-config a real
+    # packager might have on PATH on some OTHER Windows machine (a
+    # genuine MSYS2 pkgconf, a vcpkg-shipped one, anything else
+    # GODS_LAWS.md LEI ZERO's public-and-unknown consumer base could
+    # combine with Windows) parses PKG_CONFIG_PATH the same way
+    # Strawberry Perl's emulator does. That is exactly why the
+    # `--exists` check right below downgrades to a WARNING instead of
+    # a FATAL_ERROR on WIN32 if it still fails after this fix - see
+    # this file's header, "Talking to the pkg-config BINARY itself".
+    if(WIN32)
+        cmake_path(CONVERT "${_glintfx_pkgconfig_dir}" TO_NATIVE_PATH_LIST _glintfx_pkgconfig_path_native)
+        string(APPEND _glintfx_pkgconfig_path_native ";")
+        set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_path_native}")
+    else()
+        set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_dir}")
+    endif()
 
     execute_process(
         COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --print-errors --exists glintfx
@@ -434,6 +545,35 @@ function(glintfx_validate_installed_pkgconfig)
         OUTPUT_QUIET
     )
     if(NOT _glintfx_exists_result EQUAL 0)
+        if(WIN32)
+            # Filesystem-based checks already ran and passed by the
+            # time this line can even be reached (glintfx.pc, the
+            # headers and the library artifact are confirmed on disk -
+            # see the EXISTS check on _glintfx_pc_file above, which
+            # stays FATAL_ERROR unconditionally). What could NOT be
+            # confirmed is whether THIS pkg-config binary, on THIS
+            # machine, resolves them - a binary-specific quirk this
+            # file cannot enumerate for every Windows pkg-config that
+            # could exist (GODS_LAWS.md L-27: declared downgrade, not
+            # a silent "ok"). The message below names exactly what was
+            # and was not verified, never a generic pass.
+            message(WARNING
+                "glintfx: post-install pkg-config CONVERSATION could not "
+                "be verified on this Windows machine - 'pkg-config "
+                "--exists glintfx' failed against the file just "
+                "installed at '${_glintfx_pc_file}' "
+                "(PKG_CONFIG_PATH=$ENV{PKG_CONFIG_PATH}): "
+                "${_glintfx_exists_error}. Filesystem-based checks "
+                "already confirmed glintfx.pc, the headers and the "
+                "library artifact are genuinely on disk; only whether "
+                "THIS machine's pkg-config resolves them via "
+                "PKG_CONFIG_PATH is unverified. Set "
+                "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 to silence this "
+                "warning intentionally, or verify by hand with the "
+                "pkg-config on this machine."
+            )
+            return()
+        endif()
         message(FATAL_ERROR
             "glintfx: 'pkg-config --exists glintfx' failed against "
             "the file just installed at '${_glintfx_pc_file}' "

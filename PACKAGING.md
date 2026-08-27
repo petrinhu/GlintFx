@@ -25,9 +25,9 @@ any one distro's package.
 - Public headers under `<includedir>/glintfx/`.
 - A CMake package (`find_package(glintfx)`), under
   `<libdir>/cmake/glintfx/`.
-- A pkg-config module, `<libdir>/pkgconfig/glintfx.pc`. **Unix targets
-  only; on Windows no pkg-config module is installed** — see
-  "Packaging on Windows" below.
+- A pkg-config module, `<libdir>/pkgconfig/glintfx.pc`, **on every
+  platform, Windows included** — see "Packaging on Windows" below for
+  what is and is not guaranteed there specifically.
 
 `<libdir>` and `<includedir>` are `CMAKE_INSTALL_LIBDIR` and
 `CMAKE_INSTALL_INCLUDEDIR` (from CMake's `GNUInstallDirs` module),
@@ -38,58 +38,64 @@ is opt-in there, and off by default.
 
 ## Packaging on Windows
 
-glintfx.pc is a Unix-only artifact (see "What gets installed" above):
-on Windows, `cmake --install` writes the library, the public headers
-and the CMake package (`find_package(glintfx)`), and stops there — no
-`glintfx.pc`, no `<libdir>/pkgconfig/` directory, no pkg-config
-validation step. This is not a smaller safety net for the Windows
-packager; it is the same protection, delivered through the mechanism
-Windows actually uses:
+**glintfx.pc is installed on Windows, the same as on every other
+platform** (decision reverted by the lider, 27/08/2026 — a prior fatia
+had made it Unix-only; that guard is gone). `cmake --install` writes
+the library, the public headers, the CMake package
+(`find_package(glintfx)`) **and** `<libdir>/pkgconfig/glintfx.pc`,
+exactly as described under "What gets installed" above. Two things are
+worth being precise about, because they are not identical to the Unix
+story:
 
-- **Consumption is via `find_package(glintfx)`**, the CMake package
-  described under "What gets installed" above, not via `pkg-config
-  --cflags --libs glintfx`.
-- **Two gates protect this on every push**, mirroring what
-  `tests/tools/check_pkgconfig.sh`/`check_pkgconfig_validate.sh` prove
-  for pkg-config on Unix (see "Where this is tested" below):
-  `tools/ci/check-consume.ps1` installs glintfx and builds a consumer
-  against the installed package purely through `find_package`, and
-  `tools/ci/check-embed.ps1` proves the `add_subdirectory`/
-  `FetchContent` embedding path, running the produced executable for
-  real. `tools/ci/check-no-pkgconfig.ps1` is the regression gate for
-  this section specifically: it enumerates the entire installed prefix
-  and fails if a `*.pc` file appears anywhere in it.
-- **The DLL still needs help finding your executable** — that is a
-  Windows loader fact independent of pkg-config, and it is covered
-  separately, in "On Windows, shared (the default), glintfx places its
-  own DLL next to your executable" below.
+- **The library-artifact naming `glintfx.pc` describes is real on
+  Windows too.** `glintfx.pc`'s `Libs:` line still reads `-lglintfx`;
+  what that resolves to on disk is `glintfx.lib` (the import library
+  for a shared build, or the static archive for
+  `-DBUILD_SHARED_LIBS=OFF` — MSVC uses the same `.lib` extension for
+  both), in `<libdir>`, exactly where `glintfx.pc`'s own `libdir=`
+  variable points. The install-time validator described under
+  "glintfx already runs this check for you" below knows this artifact
+  shape natively; it is not treated as a special case.
+- **What is, and is not, guaranteed about the pkg-config CONVERSATION
+  itself is narrower on Windows than on Unix.** Everything the
+  validator can prove by reading the filesystem alone — `glintfx.pc`
+  exists, the directories it names exist, the header tree and the
+  library artifact are really there — has full veto power on every
+  platform, Windows included: a broken install fails `cmake --install`
+  there exactly as it would on Linux. What is specifically **not**
+  guaranteed on Windows is that `pkg-config --exists glintfx` (and the
+  variable/flag queries that follow it) will successfully talk to
+  *your* pkg-config binary: the only pkg-config found on GitHub
+  Actions' `windows-latest` runner is Strawberry Perl's Pure-Perl
+  reimplementation, `pkg-config.bat`, and glintfx's own install-time
+  validator applies a targeted, MEASURED fix for the one quirk that
+  binary was confirmed to have (see "glintfx already runs this check
+  for you" below). If *your* Windows machine's pkg-config still fails
+  that conversation for a different reason, the install-time validator
+  reports it as a **warning**, not a failed install — the filesystem
+  checks already vetoed a genuinely broken install by that point, and
+  a pkg-config binary this project has never seen is not something it
+  can promise to talk to.
 
-**Why no `glintfx.pc` on Windows, specifically:** a `.pc` file
-describes an artifact in the `lib<name>.so*`/`lib<name>.a` naming
-convention pkg-config was designed around — `Libs: -l<name>`, resolved
-by a Unix-style linker against a `lib<name>.*` file on a search path.
-That convention is not Windows': the artifact there is `glintfx.lib`
-(the import library) plus `glintfx.dll` (see "What gets installed"
-above and `GODS_LAWS.md` L-38), and MSVC consumers already have a
-native, complete answer in `find_package(glintfx)` — a second,
-Unix-shaped description of the same library would be redundant at
-best, and silently wrong at worst if its glob or its `-l` token ever
-drifted from what Windows actually produces.
+**Two more gates protect Windows consumption on every push**,
+independent of pkg-config, mirroring what
+`tests/tools/check_pkgconfig.sh`/`check_pkgconfig_validate.sh` prove
+for the pkg-config path on Unix (see "Where this is tested" below):
+`tools/ci/check-consume.ps1` installs glintfx and builds a consumer
+against the installed package purely through `find_package`, and
+`tools/ci/check-embed.ps1` proves the `add_subdirectory`/
+`FetchContent` embedding path, running the produced executable for
+real. `tools/ci/check-pkgconfig-installed.ps1` is the regression gate
+for *this* section specifically: it enumerates the entire installed
+prefix on the real Windows CI runner and fails if `glintfx.pc` does
+NOT appear in it — the inverse assertion of an earlier gate with
+almost the same name, retired when the Unix-only decision was
+reverted.
 
-**The way back, for whoever brings a pkg-config story to Windows
-later:** this is a deliberate, revisitable choice, not a platform
-limitation glintfx is stuck with. `CMakeLists.txt` guards both
-`glintfx_install_pkgconfig()` and
-`glintfx_register_pkgconfig_validation()` behind a single `if(UNIX)`
-block; opening that guard on Windows requires, at the same time,
-extending the library-artifact glob in
-`cmake/GlintfxPkgConfigValidateInstalled.cmake.in`'s
-`glintfx_pkgconfig_validate_variable()` to recognize `glintfx.lib` (it
-only matches `libglintfx.so*`/`libglintfx.a` today), and retiring
-`tools/ci/check-no-pkgconfig.ps1` or narrowing what it enumerates —
-opening the first without the other two either ships a Windows
-`glintfx.pc` no validation step can confirm, or leaves the regression
-gate failing a build that just gained a legitimate `.pc` on purpose.
+**The DLL still needs help finding your executable** — that is a
+Windows loader fact independent of pkg-config, and it is covered
+separately, in "On Windows, shared (the default), glintfx places its
+own DLL next to your executable" below.
 
 ## Embedding via `add_subdirectory`/`FetchContent`
 
@@ -226,16 +232,21 @@ silent pass.
 **What this does NOT check:** that `Libs.private` carries a linker
 token genuinely load-bearing for a real static link (see "Static
 linking" above; that claim is proven separately, against glintfx's own
-CI layouts, not re-checked here); anything Windows-specific — this
-check does not run on Windows at all, because `glintfx.pc` itself is
-not installed there (see "Packaging on Windows" above); anything
-target-architecture-specific under cross-compilation (every check here
-reads the filesystem and runs `pkg-config`/`pkgconf`, a host tool
-operating on text, and never executes target-arch code); or a
-`--component`-scoped install (nothing glintfx installs today declares
-a `COMPONENT`, so a `--component` install under any other name simply
-installs nothing for glintfx in the first place, and this check is
-skipped right along with it, for that same reason).
+CI layouts, not re-checked here); that a Windows pkg-config OTHER than
+the one this project has measured (Strawberry Perl's `pkg-config.bat`
+on GitHub Actions' `windows-latest`) parses `PKG_CONFIG_PATH` the same
+way — the filesystem-based half of this check (the part that does not
+require successfully talking to a pkg-config binary at all) still runs
+and still fails the install on Windows if it is broken; only the
+binary-conversation half degrades to a warning there (see "Packaging
+on Windows" above); anything target-architecture-specific under
+cross-compilation (every check here reads the filesystem and runs
+`pkg-config`/`pkgconf`, a host tool operating on text, and never
+executes target-arch code); or a `--component`-scoped install (nothing
+glintfx installs today declares a `COMPONENT`, so a `--component`
+install under any other name simply installs nothing for glintfx in
+the first place, and this check is skipped right along with it, for
+that same reason).
 
 **How a failure shows up:** as a hard error from `cmake --install`
 itself, not from a separate script you have to remember to run
@@ -273,6 +284,16 @@ equally absent from that build); and, on any machine where neither
 `pkg-config` nor `pkgconf` is on `PATH`, where this degrades to a
 warning instead of failing the install: `glintfx.pc` is still written,
 there is simply no tool available to confirm it resolves.
+
+**Where the binary-conversation half specifically degrades instead of
+running:** on Windows, if `pkg-config --exists glintfx` still fails
+after this project's own, measured `PKG_CONFIG_PATH` fix (see
+"Packaging on Windows" above) — a different pkg-config than the one
+this project tested, behaving differently for a reason this project
+has not seen. The filesystem-based half of the check (`glintfx.pc`
+exists, the directories it names exist, the library artifact is really
+there) still ran, and still fails the install if it finds a genuine
+problem, exactly as it does everywhere else.
 
 ## Supported `CMAKE_INSTALL_LIBDIR` / `CMAKE_INSTALL_INCLUDEDIR` layouts
 
@@ -372,18 +393,27 @@ automated regression test, not just prose:
 
 All three run on every push to `main` and on every pull request,
 across the project's Linux CI jobs — Fedora, Ubuntu, Arch, and
-CachyOS. They do **not** run on the Windows job: `pkg-config` is a
-Unix/Linux packaging convention, and glintfx has no platform layer
-outside Unix yet, so there is nothing Windows-specific for any of the
-three scripts to cover today.
+CachyOS. They rely on a real, hand-written shell round trip against
+`pkg-config`/`pkgconf`, so they stay Linux-only by construction (`sh`,
+not PowerShell); this is a property of how these three scripts are
+written, not a claim that pkg-config itself is unsupported anywhere
+else.
 
-The Windows job runs the other side of the same claim instead —
-`tools/ci/check-no-pkgconfig.ps1` (see "Packaging on Windows" above),
-which enumerates a real installed prefix on Windows and fails if any
-`*.pc` file, glintfx's own or otherwise, is found in it. Where the
-three scripts above prove a layout is *supported*, this one proves the
-Windows layout is *not shaped like a pkg-config packaging story at
-all* — the negative claim this section makes.
+The Windows job runs the equivalent claim through its own mechanism
+instead — `tools/ci/check-pkgconfig-installed.ps1` (see "Packaging on
+Windows" above), which enumerates a real installed prefix on a real
+Windows CI runner and fails if `glintfx.pc` is NOT found in it. Where
+the three scripts above prove pkg-config *resolves* glintfx correctly
+across every layout this document lists, this one proves the simpler,
+platform-specific claim Windows CI can make for itself today: that the
+`.pc` file this project's install rules should produce there is
+genuinely on disk, in the same real `cmake --install` run the other
+two Windows gates (`check-consume.ps1`, `check-embed.ps1`) already
+exercise. `tools/ci/diagnose-win-pkgconfig.ps1` (also covered in
+"Packaging on Windows" above) is the third piece: a permanent,
+judgment-free diagnostic that runs a closed matrix against a live
+fixture on every push, so the next real question about pkg-config on
+Windows is a log read, not a guess.
 
 If you hit a packaging layout this document does not cover, these
 scripts are the right place to add a regression test alongside a

@@ -95,6 +95,7 @@
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
 #include <glintfx/core/version.hpp>
+#include <glintfx/gfss/token.hpp>
 #include <glintfx/version_macros.hpp>
 
 #include "harness/check.hpp"
@@ -132,6 +133,30 @@ GLINTFX_TEST(color_header_survives_hostile_system_headers) {
     const glintfx::gltfx_rgba8 encoded = glintfx::gltfx_rgba_to_srgb8(color);
     const glintfx::gltfx_rgba decoded = glintfx::gltfx_rgba_from_srgb8(encoded);
     GLINTFX_CHECK(decoded.alpha == color.alpha);
+}
+
+// gfss/token.hpp (GFSS-TOKEN) survives the same hostile include order -
+// the aggregate fields have no call-shaped name for a function-like
+// macro to pattern-match on (the same "no live target today" honesty
+// color_header_survives_hostile_system_headers above already states
+// for gltfx_rgba/gltfx_rgba8), but gltfx_gfss_token_kind_name() IS
+// call-shaped, so this case exercises it as a real call expression,
+// the same CE-8 discipline the case below already applies to
+// gltfx_err/gltfx_rslt.
+GLINTFX_TEST(gfss_token_header_survives_hostile_system_headers) {
+    const std::string_view kind_name =
+        glintfx::style::gltfx_gfss_token_kind_name(glintfx::style::gltfx_gfss_token_kind::ident);
+    GLINTFX_CHECK(kind_name == std::string_view{"ident"});
+
+    constexpr glintfx::style::gltfx_gfss_token token{
+        .kind = glintfx::style::gltfx_gfss_token_kind::hash,
+        .lexeme = "#a1",
+        .line = 1,
+        .column = 1,
+        .diagnostic = {},
+    };
+    GLINTFX_CHECK(token.kind == glintfx::style::gltfx_gfss_token_kind::hash);
+    GLINTFX_CHECK(token.diagnostic.expected.empty());
 }
 
 // core_error_use_sites_survive_hostile_system_headers - CE-8 finding:

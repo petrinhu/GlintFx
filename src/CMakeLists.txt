@@ -31,6 +31,13 @@ add_library(glintfx::glintfx ALIAS glintfx_library)
 
 add_subdirectory(core)
 
+# gfss layer (GFSS-TOKEN, GODS_LAWS.md L-19/L-28): pure core, same
+# reason core/ above has no OS header - added as its own
+# add_subdirectory() rather than folded into core/'s (GODS_LAWS.md
+# L-17: a new subject gets its own module, never bolted onto an
+# existing one "because it fits").
+add_subdirectory(gfss)
+
 # UNIX only (WL-PROTO, GODS_LAWS.md L-05: Wayland is a Linux-only
 # surface; Windows has no platform/ entry yet).
 if(UNIX)

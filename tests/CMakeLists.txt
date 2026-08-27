@@ -27,6 +27,11 @@ glintfx_add_test(err_format_test)
 # color_test.cpp's own header comment.
 glintfx_add_test(color_test)
 
+# GFSS-TOKEN (TODO.md, GODS_LAWS.md L-19/L-20/L-28): the gfss tokenizer's
+# closed token-class vocabulary and its two value types - see
+# gfss_token_test.cpp's own header comment.
+glintfx_add_test(gfss_token_test)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

@@ -239,3 +239,33 @@ O revisor achou que nenhum portão da casa prova a frase do próprio `README.md`
 **3 — WSJF dos dois itens novos é estimativa minha, e está declarado como tal na descrição de cada um.** Não passou pela lente de produto. Se o líder quiser a pontuação de verdade, ela sai do `product-manager`, não de mim. **Custo de reverter:** trocar dois números.
 
 **Nota de método, porque foi um portão que me pegou:** nomeei o segundo item `AUD-CAP9`, e o `todo_audit` **reprovou** — o prefixo `AUD-*` é convenção da casa para auditoria e exige que o item declare, no pré-requisito, o que ele cobre. O item não é auditoria, é manutenção de documento: **o nome é que estava errado**, não o pré-requisito ausente. Renomeado para `DOC-AUDCAP9`; auditoria limpa, 17 checks, zero achados.
+
+#### D-W3-6 — o que o consumidor recebe quando o tokenizador detecta defeito NOSSO  `[27/08/26 - 00:29:36]`
+
+**Quem decidiu:** `fable` (Caetano, CTO). **Fatia:** `GFSS-TOKEN`, achado CRÍTICO que reprovou `95c0f20`.
+
+**O que a revisão mediu**, e é o fato de onde tudo parte: com o guard disparando em publicação, o consumidor recebia `kind=number`, `lexeme="-"` e **`diagnostic.expected` vazio** — e vazio significa, pela R4, "sem erro". O conserto anterior trocou uma trava por um fluxo de tokens fabricado e indistinguível de dado bom.
+
+**A pergunta, como teria ido ao líder:** o que uma função pública devolve quando detecta violação de contrato **interno nosso**?
+
+**Opções na mesa, e por que três caíram:**
+
+- **(a) avanço forçado mais identificador novo no vocabulário** — a proposta do revisor. **Recusada, e o motivo não é o identificador: é continuar produzindo tokens.** O consumidor foi treinado, pela filosofia de recuperação que o próprio `token.hpp` documenta, a ler diagnóstico não-vazio como *"o SEU arquivo tem erro de sintaxe, siga em frente"*. Ele atribuiria a um arquivo **correto** dele um erro que é **nosso**, reportaria ao usuário final um erro de sintaxe inexistente, e seguiria consumindo fluxo fabricado. Troca esconder o defeito por esconder o defeito com uma bandeirinha.
+- **(b) canal separado do vocabulário do formato** — **recusada, mas o argumento fica registrado**: erro interno nosso de fato não é da mesma natureza que erro de sintaxe do arquivo do consumidor. Caiu porque canal que ninguém checa por convenção é sinal que ninguém recebe, e porque seria superfície nova a congelar por um caminho que nunca deveria disparar. A tensão que (b) aponta entra **nominalmente** no checklist da revisão de API dedicada.
+- **(d) reverter** — **recusada**: devolve a trava no processo de um consumidor que se comportou corretamente, que foi o incidente medido que motivou o conserto.
+
+**Escolhida: variante de (c) — encerramento terminal do fluxo, SEM `kind` novo.** O `assert()` fica (depuração inalterada). Em publicação, o cursor é pinado no fim da fonte, o token vira o **`eof` que já existe** carregando diagnóstico populado com linha e coluna do ponto da violação e `expected = internal_tokenizer_defect`, lexema vazio. Daí em diante toda chamada é `eof` genuíno: **o fluxo termina estruturalmente, em qualquer forma de laço**, não só no canônico.
+
+**O que isso compra:** a falha volta a ser **alta e honesta** — fim prematuro, sinalizado, e **atribuível a nós** — sem voltar a ser trava. O consumidor lê o identificador, **sabe que o arquivo dele não é o culpado**, e reporta rio acima. O dano fica capado em "folha não estilizada com causa nomeada", nunca em "folha estilizada errada em silêncio".
+
+**O nome:** `internal_tokenizer_defect`, e não `internal_progress_guard`. O do revisor nomeia **o nosso mecanismo**, que não diz nada a quem lê; o escolhido nomeia **a falta e o culpado**. É o único identificador do vocabulário que não nomeia um construto esperado — nomeia a biblioteca, e é exatamente essa a informação acionável.
+
+**Porta de mão única: NÃO, e o CTO pesou os dois lados em vez de só o que lhe convinha.** Contra: o tipo de diagnóstico e o vocabulário dele **explicitamente não congelam agora** — o próprio `token.hpp` reserva o congelamento à revisão de API dedicada, que é do líder; projeto pré-1.0, `SOVERSION` 0, sem consumidor externo conhecido. A favor, e ele registrou: **é política de erro em função pública, a mesma classe que no `CORE-ERROR` foi ao líder.** Por isso a decisão não passa em silêncio: entra aqui para confirmação retroativa **e** entra nominalmente no checklist da revisão de API, onde o líder ratifica ou derruba **antes** de virar contrato. **Custo de reverter:** um identificador, um ramo e os testes, num commit, antes de qualquer congelamento.
+
+**Julgamento sobre a alegação de escopo do commit reprovado, que se autoclassificava como "mecânico":** o revisor tem razão e o commit estava errado. O teste é objetivo — **a mudança alterou o que um consumidor observa de uma função pública exportada?** Antes: trava. Depois: tokens fabricados sem sinal. Isso é contrato observável, território da L-22, que já tinha convenção documentada e foi contradita por omissão.
+
+⚠️ **A regra que nasce disto, e que vale daqui em diante:** toda mudança no comportamento observável de função pública **sob qualquer condição, inclusive as "impossíveis"** (violação de contrato interno, precondição quebrada, exaustão de recurso) é **decisão de produto**. Em modo normal vai ao líder; em modo autônomo sobe ao C-level e entra neste registro. **Nunca é autoclassificada como "mecânica" pelo agente que a implementa.**
+
+**O sintoma que virou regra prática, e vale citar como está:** *"o commit precisou de um parágrafo inteiro para argumentar que não era decisão de produto. Mudança que precisa defender que não é decisão de produto, é decisão de produto."*
+
+**Varredura "isolado ou padrão?", feita antes de fechar:** três pontos na superfície inteira. Os guards de precondição do `gltfx_rslt` são **classe diferente** (erro do chamador, comportamento decidido pelo líder e provado por portão próprio) — conformes. O `skip_comments`, que consome comentário não terminado **sem diagnóstico**, é da mesma família "a informação existe e não se propaga", mas é erro de **entrada**, está declarado em comentário como escolha da fatia, e vira **item próprio** em vez de ser embrulhado aqui. O achado em si é **isolado, não padrão** — com a ressalva honesta de que a superfície é jovem.

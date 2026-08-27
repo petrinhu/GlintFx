@@ -53,6 +53,18 @@ glintfx_add_test(win_dll_alloc_hook_format_test)
 # comment.
 glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 
+# GL-LOADER (TODO.md, GODS_LAWS.md L-07 EXCECAO No 1): the minimal XML
+# pull reader tools/gl_registry_codegen/xml_reader.hpp/.cpp uses to walk
+# the vendored gl.xml at build time - see gl_xml_reader_test.cpp's own
+# header comment. Linked against gl_registry_codegen_lib, NOT
+# glintfx::glintfx (this tool never enters the shipped library), so it
+# is registered directly instead of through glintfx_add_test().
+add_executable(gl_xml_reader_test gl_xml_reader_test.cpp)
+target_link_libraries(gl_xml_reader_test PRIVATE gl_registry_codegen_lib glintfx_test_harness)
+glintfx_apply_compile_options(gl_xml_reader_test)
+add_test(NAME gl_xml_reader_test COMMAND gl_xml_reader_test)
+set_tests_properties(gl_xml_reader_test PROPERTIES LABELS unit)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

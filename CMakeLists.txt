@@ -61,6 +61,13 @@ if(UNIX)
     include(GlintfxWaylandProtocols)
 endif()
 
+# Built unconditionally, not gated by GLINTFX_BUILD_TESTS (GL-LOADER,
+# GODS_LAWS.md L-07 EXCECAO No 1): src/render/CMakeLists.txt needs the
+# gl_registry_codegen executable target to exist to generate the GL 3.3
+# core function table at build time, whether or not the test suite is
+# also being built.
+add_subdirectory(tools/gl_registry_codegen)
+
 add_subdirectory(src)
 
 # Guarded by GLINTFX_INSTALL (FIX-CONSUMO achado A7): off by default when

@@ -362,6 +362,46 @@ jobs:
         shell: pwsh
         run: cmake --version
 
+      # CI-WIN-ENV (27/08/2026, GODS_LAWS.md L-42): prepara o ambiente do
+      # compilador ANTES de qualquer "cmake -S/-B" deste job. O gerador
+      # que este job passa a usar abaixo (Ninja, ver CI-WIN-GEN mais
+      # abaixo) e de linha de comando e NAO localiza o cl.exe sozinho -
+      # so o gerador de IDE fazia isso, via VS Setup API. Aqui achamos a
+      # instalacao com vswhere.exe (ja presente na imagem do executor,
+      # sem action de terceiro) e rodamos vcvarsall.bat para x64,
+      # exportando cada variavel resultante (PATH, INCLUDE, LIB etc.)
+      # para os passos seguintes via $env:GITHUB_ENV
+      # (scivision.dev/github-actions-use-msvc). O passo FALHA se a
+      # instalacao nao for encontrada - nunca segue em silencio, que foi
+      # o que aconteceu na primeira rodada (caiu para NMake sem ambiente
+      # preparado).
+      - name: Preparar ambiente do compilador (MSVC x64)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $installPath) {
+            Write-Error "Nenhuma instalacao do MSVC com o componente VC.Tools.x86.x64 foi encontrada por vswhere."
+            exit 1
+          }
+          $vcvarsall = Join-Path $installPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat nao encontrado em $vcvarsall"
+            exit 1
+          }
+          $envDump = cmd /c "`"$vcvarsall`" x64 && set"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "vcvarsall.bat x64 falhou com codigo $LASTEXITCODE"
+            exit 1
+          }
+          foreach ($line in $envDump) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
+            }
+          }
+
       # PKG-WIN-SCOPE: passo PERMANENTE, independente de matrix.builddir
       # (roda identico nas duas entradas, como "Padrao C++23 aceito"
       # abaixo) - colhe dado sobre pkg-config/pkgconf neste executor e
@@ -373,31 +413,36 @@ jobs:
         shell: pwsh
         run: tools/ci/diagnose-win-pkgconfig.ps1
 
-      # Sem action de terceiro: o proprio CMake localiza o MSVC. Sonda
-      # independente de modo (nao usa glintfx, nao le matrix.builddir);
-      # roda uma vez por entrada de matriz agora, nao mais uma vez por
-      # job - custo aceito da independencia (CI-CONSUME).
+      # Nao ha mais "o proprio CMake localiza o MSVC" para este passo:
+      # essa garantia so vale para o generator de IDE (Visual Studio NN),
+      # que saiu da jogada (ver CI-WIN-GEN abaixo). Quem localiza o MSVC
+      # agora e o passo "Preparar ambiente do compilador (MSVC x64)"
+      # acima (CI-WIN-ENV), rodado antes de qualquer "cmake -S/-B" do
+      # job. Sonda independente de modo (nao usa glintfx, nao le
+      # matrix.builddir); roda uma vez por entrada de matriz agora, nao
+      # mais uma vez por job - custo aceito da independencia
+      # (CI-CONSUME).
       #
-      # CI-WIN-GEN (27/08/2026, MEDIDO no run 33114884257): sem -G, o
+      # CI-WIN-GEN (27/08/2026, MEDIDO no run 33114884257; generator
+      # trocado de Visual Studio para Ninja em 27/08/2026): sem -G, o
       # CMake 4.1.6 recem-instalado (passo "Instalar CMake >= 4.1"
       # acima) escolheu "NMake Makefiles" como generator padrao neste
       # shell pwsh comum (nao um Developer Command Prompt), e o passo
       # morreu com "'nmake' '-?' failed with: no such file or
       # directory" - nmake nao esta no PATH fora de um shell com
-      # vcvarsall ja rodado. Fato documentado (ver fontes no relatorio
-      # da fatia CI-WIN-GEN): generator de LINHA DE COMANDO (NMake,
-      # Ninja, Unix Makefiles) no Windows exige ambiente ja configurado
-      # (vcvarsall/dev prompt) - o CMake NAO localiza o cl.exe sozinho
-      # para eles. So o generator de IDE (Visual Studio NN) localiza o
-      # MSVC por conta propria via VS Setup API, sem vcvarsall e sem
-      # action de terceiro - e e exatamente essa a garantia que o
-      # comentario acima ja prometia ("o proprio CMake localiza o
-      # MSVC"). -G explicito RESTAURA esse comportamento em vez de
-      # depender da deteccao implicita que acabou de quebrar; -A x64
-      # fixa a plataforma em vez de herdar o default do host em
-      # silencio (Windows2025-Readme.md, lido 27/08/2026: "Visual
-      # Studio Enterprise 2022" 17.14 e o unico VS instalado nesta
-      # imagem).
+      # vcvarsall ja rodado. O generator de IDE (Visual Studio NN) foi
+      # cogitado primeiro por localizar o MSVC sozinho via VS Setup API,
+      # sem vcvarsall, mas saiu de cena: a versao minima de CMake que
+      # este projeto declara (cmake_minimum_required) nao o conhece
+      # nesta imagem. A troca definitiva foi para Ninja - generator de
+      # LINHA DE COMANDO, de CONFIGURACAO UNICA - com o ambiente ja
+      # preparado pelo passo CI-WIN-ENV acima (vcvarsall x64 exportado
+      # via $env:GITHUB_ENV). Configuracao unica muda o contrato: a
+      # config (Release) passa a ser escolhida ao CONFIGURAR
+      # (-DCMAKE_BUILD_TYPE=Release), nunca mais ao construir
+      # (--config) nem ao testar (-C) - os generators de IDE tinham
+      # config so nesses dois pontos, e por isso as flags equivalentes
+      # sumiram dos passos "cmake --build" e "ctest" abaixo.
       - name: Padrao C++23 aceito
         shell: pwsh
         run: |
@@ -414,9 +459,9 @@ jobs:
           set(CMAKE_CXX_STANDARD_REQUIRED ON)
           add_executable(probe main.cpp)
           '@ | Set-Content probe/CMakeLists.txt
-          cmake -S probe -B probe/build -G "Visual Studio 17 2022" -A x64
+          cmake -S probe -B probe/build -G Ninja -DCMAKE_BUILD_TYPE=Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build probe/build --config Release
+          cmake --build probe/build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & (Get-ChildItem -Recurse -Filter probe.exe probe/build)[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -436,20 +481,32 @@ jobs:
       # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1. No MSVC,
       # cmake/GlintfxCompileOptions.cmake ja mapeia esta mesma flag para
       # /WX (avisos como erro) - nao ha um segundo flag /WX a passar aqui.
-      # -G "Visual Studio 17 2022" -A x64: mesmo motivo do CI-WIN-GEN no
-      # passo "Padrao C++23 aceito" acima - sem -G explicito, o CMake
-      # 4.1.6 cai para NMake Makefiles (generator de linha de comando,
-      # que exige vcvarsall) neste shell pwsh comum. O passo seguinte
-      # ("--config Release") e o ctest logo abaixo ("-C Release") ja
-      # pressupunham generator de IDE multi-config desde antes desta
-      # fatia - o gemeo aqui restaura o mesmo generator que o resto do
-      # job sempre presumiu, nao introduz um novo.
+      # -G Ninja: mesmo motivo do CI-WIN-GEN no passo "Padrao C++23
+      # aceito" acima - sem -G explicito, o CMake 4.1.6 cai para NMake
+      # Makefiles (generator de linha de comando, que tambem exige
+      # vcvarsall) neste shell pwsh comum. O ambiente ja vem preparado
+      # pelo passo CI-WIN-ENV no topo do job. Ninja e de configuracao
+      # unica: a config (Release) e escolhida aqui, ao configurar
+      # (-DCMAKE_BUILD_TYPE=Release) - por isso o passo seguinte
+      # ("cmake --build") e o ctest logo abaixo nao levam mais
+      # "--config"/"-C Release": esse par de flags e do generator de
+      # IDE (multi-config) que este job usava antes da fatia CI-WIN-GEN
+      # e que saiu de cena.
+      #
+      # FATO DE PRODUTO (CI-WIN-GEN, 27/08/2026): com a versao minima de
+      # CMake que este projeto declara, o consumidor de Windows NAO
+      # constroi pelo caminho de projeto da Microsoft (generator
+      # "Visual Studio NN") nesta versao do compilador instalada nesta
+      # imagem - a ferramenta so passou a reconhecer esse generator na
+      # versao seguinte. O caminho provado e o de linha de comando
+      # (Ninja) com o ambiente do compilador preparado antes
+      # (vcvarsall x64, via CI-WIN-ENV acima).
       - name: Build (${{ matrix.modo }})
         shell: pwsh
         run: |
-          cmake -S . -B ${{ matrix.builddir }} -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build ${{ matrix.builddir }} --config Release
+          cmake --build ${{ matrix.builddir }}
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # WIN-HANG: colhe evidencia real do runner (localizacao do .dll x
@@ -468,7 +525,7 @@ jobs:
       - name: Testes (${{ matrix.modo }})
         shell: pwsh
         run: |
-          ctest --test-dir ${{ matrix.builddir }} -C Release --output-on-failure
+          ctest --test-dir ${{ matrix.builddir }} --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Consumo instalado (${{ matrix.modo }})

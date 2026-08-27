@@ -289,6 +289,30 @@ A parte pública de carregamento faz três coisas: lê o arquivo, resolve o cami
 **A partir de agora:** o caso principal dos testes é o **relativo**; o completo vira o caso extra, testado, mas não o padrão.
 
 
+#### 9. O custo REAL da decisão 7, medido depois, e a ratificação com ele na mão
+
+**Verbatim dele:** *"Mantenha, com a ressalva ampliada"*. **27/08/2026.**
+
+⚠️ **A decisão 7 foi tomada com informação incompleta, e a falha é minha.** Eu apresentei o custo como *"corta o Ubuntu 24.04 de fábrica"*. **Ao medir, o custo real é muito maior:** a parte do mecanismo nativo de que precisamos só ficou completa numa versão **bem mais nova** do que eu supus.
+
+**O que cada alvo entrega de fábrica, medido:**
+
+| Alvo | Versão de fábrica | Atende a exigência nova? |
+|---|---|---|
+| **Fedora 44** (primário, o do líder) | 4.3 | **sim — o único** |
+| Ubuntu 24.04 | 3.28 | não |
+| Debian 12 | 3.25 | não |
+| **A máquina de teste do Windows** | 3.31 | **não** |
+
+⚠️ **Ou seja: a exigência só é atendida de fábrica pelo sistema do próprio líder.** Todos os outros, **Windows incluído**, precisam de instalação à mão — e isso significa que hoje **praticamente nenhum consumidor compila o GlintFx com a ferramenta que o sistema dele já tem**.
+
+**Eu levei isso de volta a ele em vez de seguir**, porque decisão tomada com número errado não é decisão tomada. **Ele ratificou com o número certo na mão**, escolhendo manter e **ampliar a ressalva**.
+
+**O que a ratificação obriga:** o documento do empacotador deixa de falar em *"o Ubuntu precisa de um passo extra"* e passa a dizer que **todos os sistemas, menos o Fedora, precisam instalar a ferramenta à mão** — **com a receita de cada um**. A regra da decisão 7 continua valendo e fica ainda mais exigente: **cortar alvo em silêncio é proibido**, e agora são quatro alvos com pré-requisito nomeado em vez de um.
+
+**A prova de que a receita funciona, e não é só texto:** o pipeline inteiro foi rodado dentro de um Ubuntu real — instalar dependências, baixar a ferramenta oficial, configurar, compilar, e a suíte completa — **com todos os testes verdes**. A receita do Windows **não pôde ser provada aqui** (não há máquina Windows), e isso está declarado como tal, não vendido como verificado.
+
+
 ## §3 — Versionamento e ABI
 
 ### Versão `vA.B.C.D`, `SOVERSION`, e o terceiro contrato (DADO)

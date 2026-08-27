@@ -712,9 +712,13 @@ GLINTFX_TEST(
 
 GLINTFX_TEST(gltfx_gfss_parse_color_underflow_overflow_direction_survives_the_boundary_matrix) {
     struct boundary_case {
-        std::size_t leading_zero_count; // mantissa place = -(this + 1)
-        long long explicit_exponent;    // opposite sign, always SHORT text
-        bool byte_is_saturated_max;     // true: expect 255; false: expect 0
+        // Default member initializers, not a user-declared constructor
+        // (would forfeit aggregate-init below) - the SAME cppcheck
+        // uninitMemberVarNoCtor fix named_colors.hpp's own
+        // named_color_entry already applies.
+        std::size_t leading_zero_count = 0; // mantissa place = -(this + 1)
+        long long explicit_exponent = 0;    // opposite sign, always SHORT text
+        bool byte_is_saturated_max = false; // true: expect 255; false: expect 0
         std::string_view note;
     };
     // clang-format off
@@ -736,12 +740,12 @@ GLINTFX_TEST(gltfx_gfss_parse_color_underflow_overflow_direction_survives_the_bo
     // clang-format on
     std::size_t checked = 0;
     for (const boundary_case &c : k_cases) {
-        const std::string attack = make_underflow_leaning_lexeme(c.leading_zero_count,
-                                                                  c.explicit_exponent);
+        const std::string attack =
+            make_underflow_leaning_lexeme(c.leading_zero_count, c.explicit_exponent);
         const std::uint8_t expected_byte = c.byte_is_saturated_max ? 255 : 0;
-        check_color_result(parse_color("rgb(" + attack + ", 0, 0)"),
-                           glintfx::gltfx_rgba8{
-                               .red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
+        check_color_result(
+            parse_color("rgb(" + attack + ", 0, 0)"),
+            glintfx::gltfx_rgba8{.red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
         ++checked;
     }
     GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(7));
@@ -766,8 +770,9 @@ GLINTFX_TEST(
     // this direction explicitly, and a fix that broke it silently would
     // be exactly the kind of regression this matrix exists to catch.
     struct inverted_case {
-        bool exponent_is_negative;
-        bool byte_is_saturated_max;
+        // Same cppcheck fix as boundary_case above.
+        bool exponent_is_negative = false;
+        bool byte_is_saturated_max = false;
         std::string_view note;
     };
     const inverted_case k_cases[] = {
@@ -779,9 +784,9 @@ GLINTFX_TEST(
         const std::string attack =
             make_exponent_digit_overflow_lexeme(500'000, c.exponent_is_negative, 25);
         const std::uint8_t expected_byte = c.byte_is_saturated_max ? 255 : 0;
-        check_color_result(parse_color("rgb(" + attack + ", 0, 0)"),
-                           glintfx::gltfx_rgba8{
-                               .red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
+        check_color_result(
+            parse_color("rgb(" + attack + ", 0, 0)"),
+            glintfx::gltfx_rgba8{.red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
         ++checked;
     }
     GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(2));

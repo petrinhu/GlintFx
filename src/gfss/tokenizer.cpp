@@ -2,6 +2,7 @@
 #include <glintfx/gfss/tokenizer.hpp>
 
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <string_view>
 
@@ -422,6 +423,30 @@ bool gltfx_gfss_next_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_toke
 
     gltfx_gfss_diagnostic diagnostic{};
     const gltfx_gfss_token_kind kind = dispatch_token(cursor, diagnostic);
+
+    // ZERO-PROGRESS GUARD, found by this fatia's own mutation-testing
+    // pass (GODS_LAWS.md L-20/L-40): every dispatch_token() branch
+    // above guarantees at least one code point of progress through a
+    // DIFFERENT mechanism per branch (the opening quote/bracket/at-
+    // sign/backslash is consumed unconditionally before any further
+    // check, or would_start_number()/would_start_ident_sequence()
+    // having said yes forces consume_number()/consume_ident_sequence()
+    // to consume something) - there is no SINGLE centralized check
+    // that this holds, so a future one-line regression in any ONE of
+    // them (this was measured LIVE: neutralizing consume_optional_
+    // sign() alone makes a leading "-3.5e-2" produce a ZERO-LENGTH
+    // <number-token>) turns into gltfx_gfss_tokenize()'s while loop
+    // spinning forever - a HANG, not a crash, on the CONSUMER's own
+    // process. Same convention gltfx_rslt<T>'s own precondition guard
+    // already uses (docs/api-conventions.md R1): assert() fires FIRST,
+    // naming the contract violated, in a Debug build (NDEBUG
+    // undefined); compiles to nothing in Release (this project's
+    // default for CI/tools/preci.sh), so this guard costs nothing
+    // there and changes no Release behavior - a hang either way is
+    // what this class of bug already produced without the guard.
+    assert((kind == gltfx_gfss_token_kind::eof || cursor.byte_offset > start_offset) &&
+           "gltfx_gfss_next_token(): a token production consumed zero code points - internal "
+           "contract violation, would spin the caller's while loop forever");
 
     out_token.kind = kind;
     out_token.lexeme = cursor.source.substr(start_offset, cursor.byte_offset - start_offset);

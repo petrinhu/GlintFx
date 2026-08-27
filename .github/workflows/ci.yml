@@ -377,6 +377,27 @@ jobs:
       # independente de modo (nao usa glintfx, nao le matrix.builddir);
       # roda uma vez por entrada de matriz agora, nao mais uma vez por
       # job - custo aceito da independencia (CI-CONSUME).
+      #
+      # CI-WIN-GEN (27/08/2026, MEDIDO no run 33114884257): sem -G, o
+      # CMake 4.1.6 recem-instalado (passo "Instalar CMake >= 4.1"
+      # acima) escolheu "NMake Makefiles" como generator padrao neste
+      # shell pwsh comum (nao um Developer Command Prompt), e o passo
+      # morreu com "'nmake' '-?' failed with: no such file or
+      # directory" - nmake nao esta no PATH fora de um shell com
+      # vcvarsall ja rodado. Fato documentado (ver fontes no relatorio
+      # da fatia CI-WIN-GEN): generator de LINHA DE COMANDO (NMake,
+      # Ninja, Unix Makefiles) no Windows exige ambiente ja configurado
+      # (vcvarsall/dev prompt) - o CMake NAO localiza o cl.exe sozinho
+      # para eles. So o generator de IDE (Visual Studio NN) localiza o
+      # MSVC por conta propria via VS Setup API, sem vcvarsall e sem
+      # action de terceiro - e e exatamente essa a garantia que o
+      # comentario acima ja prometia ("o proprio CMake localiza o
+      # MSVC"). -G explicito RESTAURA esse comportamento em vez de
+      # depender da deteccao implicita que acabou de quebrar; -A x64
+      # fixa a plataforma em vez de herdar o default do host em
+      # silencio (Windows2025-Readme.md, lido 27/08/2026: "Visual
+      # Studio Enterprise 2022" 17.14 e o unico VS instalado nesta
+      # imagem).
       - name: Padrao C++23 aceito
         shell: pwsh
         run: |
@@ -393,7 +414,7 @@ jobs:
           set(CMAKE_CXX_STANDARD_REQUIRED ON)
           add_executable(probe main.cpp)
           '@ | Set-Content probe/CMakeLists.txt
-          cmake -S probe -B probe/build
+          cmake -S probe -B probe/build -G "Visual Studio 17 2022" -A x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build probe/build --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -415,10 +436,18 @@ jobs:
       # -DGLINTFX_WERROR=ON: GODS_LAWS.md L-23 portao 1. No MSVC,
       # cmake/GlintfxCompileOptions.cmake ja mapeia esta mesma flag para
       # /WX (avisos como erro) - nao ha um segundo flag /WX a passar aqui.
+      # -G "Visual Studio 17 2022" -A x64: mesmo motivo do CI-WIN-GEN no
+      # passo "Padrao C++23 aceito" acima - sem -G explicito, o CMake
+      # 4.1.6 cai para NMake Makefiles (generator de linha de comando,
+      # que exige vcvarsall) neste shell pwsh comum. O passo seguinte
+      # ("--config Release") e o ctest logo abaixo ("-C Release") ja
+      # pressupunham generator de IDE multi-config desde antes desta
+      # fatia - o gemeo aqui restaura o mesmo generator que o resto do
+      # job sempre presumiu, nao introduz um novo.
       - name: Build (${{ matrix.modo }})
         shell: pwsh
         run: |
-          cmake -S . -B ${{ matrix.builddir }} -DCMAKE_BUILD_TYPE=Release ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build ${{ matrix.builddir }} --config Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

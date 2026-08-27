@@ -49,21 +49,15 @@ it: it "generates CMake variables and targets from pkg-config format
 package files natively, without needing to invoke or even require the
 presence of a pkg-config implementation."
 
-**Two of the five platforms glintfx is tested on ship an older CMake
-by default, and need an explicit upgrade before building glintfx from
-source:**
+**As of 27/08/2026, only one of the five platforms glintfx is tested on
+ships an older CMake by default and needs an explicit upgrade before
+building glintfx from source: Windows.** Fedora, Ubuntu, Arch and
+CachyOS are all now tested through their `:latest` container image
+(previously Fedora and Ubuntu were pinned to a fixed version; the
+maintainer lifted that pin - see "Supported platforms" in `README.md`
+and `GODS_LAWS.md`/`ESCOPO.md` L-04), and as of that same date all four
+ship a CMake above the 4.1 floor on their own:
 
-- **Ubuntu 24.04**: `apt-get install cmake` installs **3.28.3** -
-  measured against a real `ubuntu:24.04` container, not assumed. Install
-  a newer one either from
-  [Kitware's official APT repository](https://apt.kitware.com/) (the
-  packager-recommended route on Debian/Ubuntu), or by downloading the
-  self-contained tarball from
-  [cmake.org/download](https://cmake.org/download/) (`cmake-<version>-linux-x86_64.tar.gz`,
-  no root or package manager required) and putting its `bin/` directory
-  ahead of the system one on `PATH`. glintfx's own CI does the latter -
-  see `.github/workflows/ci.yml`'s `linux` job, Ubuntu entries, for the
-  exact, tested recipe.
 - **Windows**: GitHub Actions' `windows-latest` runner image ships
   **3.31.6** as of this writing (confirmed against
   `actions/runner-images`' own `Windows2025-Readme.md`, not assumed). A
@@ -75,16 +69,44 @@ source:**
   `.github/workflows/ci.yml`'s `windows` job, "Instalar CMake >= 4.1
   (Windows)" step.
 
-**Fedora 44 (this project's primary target, GODS_LAWS.md L-04), Arch
-and CachyOS all ship a CMake above the 4.1 floor already** (4.3.0 and
-4.4.2 respectively, measured against real container images of each) -
-no extra step needed there.
+**Fedora (this project's primary target, GODS_LAWS.md L-04), Ubuntu,
+Arch and CachyOS all ship a CMake above the 4.1 floor already**,
+measured against real `:latest` container images of each on
+27/08/2026: Fedora 4.3.0, Ubuntu 4.2.3, Arch and CachyOS 4.4.2 - no
+extra step needed on any of them.
 
-**This is not a silent platform cut.** All five platforms remain fully
-supported; two of them simply have a named prerequisite, documented
-here, with a tested recipe for satisfying it - the same principle
-`CMakeLists.txt`'s own comment on `cmake_minimum_required` states in
-full.
+⚠️ **If you specifically target Ubuntu 24.04 (an LTS release many
+consumers still run), the floor above is NOT met by its factory `apt`:
+`apt-get install cmake` there installs 3.28.3, measured against a real
+`ubuntu:24.04` container on 27/08/2026.** That fact has not changed;
+what changed is which platforms glintfx's own CI exercises. Before
+27/08/2026, the `linux` job's Ubuntu entries ran against a pinned
+`ubuntu:24.04` and carried a tested recipe for this exact gap
+(downloading the Kitware tarball, the same shape the Windows bullet
+above still uses). **That recipe was retired the same day the CI
+matrix moved to `:latest` everywhere, and glintfx's own CI no longer
+exercises Ubuntu 24.04 at all** - the `ubuntu:latest` image it tests
+today is a newer release that already meets the floor (see the sibling
+paragraph above). If you are packaging or building specifically for
+Ubuntu 24.04, the two remedies that used to work still apply and are
+not disproven by anything here - [Kitware's official APT
+repository](https://apt.kitware.com/) (the packager-recommended route
+on Debian/Ubuntu), or the self-contained tarball from
+[cmake.org/download](https://cmake.org/download/)
+(`cmake-<version>-linux-x86_64.tar.gz`, no root or package manager
+required), with its `bin/` directory ahead of the system one on
+`PATH` - **they are simply no longer proven by this project's own CI
+on every push**, the way they were before this date.
+
+**This is not a silent platform cut.** All five platforms glintfx's CI
+tests remain fully supported; one of them (Windows) has a named
+prerequisite, documented here, with a tested recipe for satisfying it -
+the same principle `CMakeLists.txt`'s own comment on
+`cmake_minimum_required` states in full. Ubuntu 24.04 specifically was
+never one of the five platforms this project promises support for (the
+promise is "Ubuntu", tracked via whichever release its CI job targets,
+see `README.md`'s "Supported platforms" table) - it was, until
+27/08/2026, simply the release that job happened to pin.
 
 ## Packaging on Windows
 

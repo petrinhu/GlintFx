@@ -3,9 +3,17 @@ name: CI
 
 # Cinco alvos distintos, por ordem do lider (GODS_LAWS.md, L-04):
 # Fedora, Ubuntu, CachyOS, Arch e Windows.
-# Fedora 44 e o ALVO PRIMARIO: e o sistema que o lider usa. Fica pinado
-# na versao dele, nao em :latest, para o CI falhar quando a maquina dele
-# falharia. Os demais alvos sao de portabilidade.
+# Fedora e o ALVO PRIMARIO: e o sistema que o lider usa. O PINO EM
+# fedora:44 FOI SOLTO em 27/08/2026, por ordem dele (ESCOPO.md S1,
+# verbatim "solte para latest estavel" e depois "ponha todos como
+# latest e instale a ferramenta nos que precisarem"): a matriz inteira
+# usa :latest agora, nao so os alvos que ja estavam assim. A razao do
+# pino continua satisfeita, nao anulada: MEDIDO ao vivo em 27/08/2026
+# que fedora:latest e a MESMA versao 44 da maquina dele, com a mesma
+# ferramenta de build na mesma versao (4.3.0) - o alvo primario ainda
+# falha quando a maquina dele falharia, so que agora acompanha sozinho
+# quando ele atualizar, em vez de exigir alguem subindo o numero a
+# mao. Os demais alvos sao de portabilidade.
 # CachyOS NAO e coberto pelo job de Arch: imagem propria, repositorios
 # proprios, toolchain propria. Verde no Arch nao autoriza declarar
 # CachyOS suportado.
@@ -14,7 +22,8 @@ name: CI
 # em TODO build abaixo (linux e windows, via -DGLINTFX_WERROR=ON / /WX);
 # portao 2 (ASan/UBSan) e o job `sanitizer`; portao 3 (analise estatica)
 # e o job `lint`; portao 4 (scan de segredo) e o job `gitleaks`. Os tres
-# jobs novos rodam so no Fedora 44 pinado (alvo primario, L-04) - nao
+# jobs novos rodam so no Fedora, alvo primario (L-04), :latest desde
+# 27/08/2026 - nao
 # nos quatro alvos Linux da matriz - porque nenhum deles prova algo
 # especifico de distro: clang-tidy/cppcheck/gitleaks analisam a mesma
 # arvore de codigo-fonte em qualquer lugar, e ASan/UBSan e comportamento
@@ -79,89 +88,84 @@ jobs:
           # C ficava por deteccao implicita do CMake, que achava "cc" de
           # graca porque o PROPRIO pacote "cmake" do apt no Ubuntu 24.04
           # traz o GCC 13 default como dependencia transitiva. Trocar o
-          # CMake do apt por um tarball oficial baixado à parte (abaixo)
-          # tira essa dependencia junto - MEDIDO ao vivo, nao suposto:
+          # CMake do apt por um tarball oficial baixado à parte tirava essa
+          # dependencia junto - MEDIDO ao vivo naquele dia, nao suposto:
           # com "cmake" fora da lista de pacotes, o mesmo container
           # Ubuntu que antes achava /usr/bin/cc (GCC 13.3) passou a
-          # reportar "No CMAKE_C_COMPILER could be found". A correcao e
+          # reportar "No CMAKE_C_COMPILER could be found". A correcao foi
           # nomear o C explicitamente, no mesmo espirito que "cc" (CXX) ja
-          # e explicito: "gcc-14" no Ubuntu (companheiro versionado de
-          # "g++-14", ja instalado por dependencia do pacote mas sem
-          # symlink "cc"/"gcc" nenhum), e "cc" nos outros tres alvos, onde
+          # era explicito. ⚠ Em 27/08/2026 o tarball do Kitware SAIU da
+          # receita do Ubuntu (ver o comentario logo acima das entradas
+          # Ubuntu, mais abaixo): "cmake" volta a entrar na lista de
+          # pacotes do apt, porque ubuntu:latest ja atende o piso sozinho.
+          # O campo c_compiler FICA mesmo assim, sem se tornar sobra: nao
+          # ha garantia de que o pacote "cmake" do apt continue trazendo
+          # GCC como dependencia transitiva pra sempre, e "gcc-14"
+          # continua sem symlink "cc"/"gcc" proprio (companheiro
+          # versionado de "g++-14", ja instalado por dependencia do
+          # pacote mas sem symlink nenhum), e "cc" nos outros tres alvos, onde
           # o pacote "gcc" do dnf/pacman ja entrega "/usr/bin/cc" ou
           # "/usr/sbin/cc" direto - MEDIDO nos tres, nao suposto.
-          - nome: Fedora 44 (primario) - compartilhado
+          - nome: Fedora (primario) - compartilhado
             cc: c++
             c_compiler: cc
-            imagem: fedora:44
+            imagem: fedora:latest
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
               wayland-devel wayland-protocols-devel
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
-          - nome: Fedora 44 (primario) - estatico
+          - nome: Fedora (primario) - estatico
             cc: c++
             c_compiler: cc
-            imagem: fedora:44
+            imagem: fedora:latest
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
               wayland-devel wayland-protocols-devel
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
-          # Ubuntu 24.04 e o UNICO dos cinco alvos cujo gerenciador de
-          # pacote de fabrica nao alcanca o piso de CMake 4.1 que
-          # cmake_pkg_config(IMPORT/POPULATE) exige (CMakeLists.txt, L-01
-          # daquele arquivo): `apt-get install cmake` da 3.28.3, MEDIDO ao
-          # vivo neste dia contra este mesmo container - exatamente a
-          # antiga exigencia minima deste projeto, nunca mais alta
-          # (ESCOPO.md paragrafo 7). Fedora 44 (4.3.0), Arch e CachyOS
-          # (4.4.2 os dois) ja vem acima do piso pelo proprio
-          # dnf/pacman - MEDIDO, sem passo extra algum. A receita abaixo
-          # baixa o tarball oficial do Kitware (cmake.org/download, sem
-          # sudo/apt, sem PPA de terceiro) e o poe em /usr/local/bin, que
-          # antecede /usr/bin no PATH default do Ubuntu - MEDIDO: depois
-          # deste passo "cmake --version" imprime 4.1.6 e nao 3.28.3.
-          # 4.1.6, nao "latest" nem 4.1.0: ultimo patch da SERIE 4.1, o
-          # piso exato que cmake_minimum_required declara - testar contra
-          # o piso de verdade, nao contra uma versao mais nova que
-          # mascararia um bug so-na-4.1.
+          # Ubuntu deixou de precisar de instalacao manual de CMake em
+          # 27/08/2026: a imagem passou de ubuntu:24.04 (pinada) para
+          # ubuntu:latest, por ordem do lider (ESCOPO.md S1, PKG-NATIVE
+          # decisao 7/9). MEDIDO ao vivo neste dia contra um container
+          # ubuntu:latest real, nao suposto: a imagem hoje e o Ubuntu
+          # 26.04 ("Resolute Raccoon"), e `apt-get install cmake` da
+          # 4.2.3 - acima do piso de CMake 4.1 que
+          # cmake_pkg_config(IMPORT/POPULATE) exige (CMakeLists.txt,
+          # L-01 daquele arquivo). O leitor caseiro do tarball do
+          # Kitware, que existia so por causa do 3.28.3 do 24.04, foi
+          # removido: "cmake" volta a entrar na lista de pacotes do
+          # apt, e nada mais baixa nada da internet neste passo. Fedora
+          # (4.3.0), Arch e CachyOS (4.4.2 os dois) continuam acima do
+          # piso pelo proprio dnf/pacman - MEDIDO, sem passo extra
+          # algum. Windows continua sendo o UNICO dos cinco alvos que
+          # ainda precisa da instalacao manual (ver o job `windows`
+          # abaixo) - PACKAGING.md, "CMake version requirement", carrega
+          # a ressalva completa, junto com a nota de que a versao
+          # antiga do Ubuntu (24.04, ainda um alvo real para quem
+          # instala pelo apt dele) deixou de ser exercitada pelo nosso
+          # CI a partir desta fatia.
           - nome: Ubuntu - compartilhado
             cc: g++-14
             c_compiler: gcc-14
-            imagem: ubuntu:24.04
+            imagem: ubuntu:latest
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
-              g++-14 gcc-14 ninja-build pkg-config git ca-certificates curl
-              libwayland-dev libwayland-bin wayland-protocols &&
-              curl -fsSL -o /var/tmp/glintfx-cmake.tar.gz
-              https://github.com/Kitware/CMake/releases/download/v4.1.6/cmake-4.1.6-linux-x86_64.tar.gz &&
-              mkdir -p /opt/glintfx-cmake &&
-              tar -xzf /var/tmp/glintfx-cmake.tar.gz --strip-components=1 -C /opt/glintfx-cmake &&
-              ln -sf /opt/glintfx-cmake/bin/cmake /usr/local/bin/cmake &&
-              ln -sf /opt/glintfx-cmake/bin/ctest /usr/local/bin/ctest &&
-              ln -sf /opt/glintfx-cmake/bin/cpack /usr/local/bin/cpack &&
-              rm -f /var/tmp/glintfx-cmake.tar.gz
+              g++-14 gcc-14 cmake ninja-build pkg-config git
+              libwayland-dev libwayland-bin wayland-protocols
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
           - nome: Ubuntu - estatico
             cc: g++-14
             c_compiler: gcc-14
-            imagem: ubuntu:24.04
+            imagem: ubuntu:latest
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
-              g++-14 gcc-14 ninja-build pkg-config git ca-certificates curl
-              libwayland-dev libwayland-bin wayland-protocols &&
-              curl -fsSL -o /var/tmp/glintfx-cmake.tar.gz
-              https://github.com/Kitware/CMake/releases/download/v4.1.6/cmake-4.1.6-linux-x86_64.tar.gz &&
-              mkdir -p /opt/glintfx-cmake &&
-              tar -xzf /var/tmp/glintfx-cmake.tar.gz --strip-components=1 -C /opt/glintfx-cmake &&
-              ln -sf /opt/glintfx-cmake/bin/cmake /usr/local/bin/cmake &&
-              ln -sf /opt/glintfx-cmake/bin/ctest /usr/local/bin/ctest &&
-              ln -sf /opt/glintfx-cmake/bin/cpack /usr/local/bin/cpack &&
-              rm -f /var/tmp/glintfx-cmake.tar.gz
+              g++-14 gcc-14 cmake ninja-build pkg-config git
+              libwayland-dev libwayland-bin wayland-protocols
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -316,22 +320,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PKG-NATIVE (27/08/2026): windows-latest is the SECOND of the five
-      # supported platforms (GODS_LAWS.md L-04) whose factory CMake does
-      # not reach the 4.1 floor cmake_pkg_config(IMPORT/POPULATE) needs
+      # PKG-NATIVE (27/08/2026, updated same day when the matrix moved to
+      # :latest): windows-latest is now the ONLY one of the five supported
+      # platforms (GODS_LAWS.md L-04) whose factory CMake does not reach
+      # the 4.1 floor cmake_pkg_config(IMPORT/POPULATE) needs
       # (CMakeLists.txt's own cmake_minimum_required comment) - MEASURED,
-      # not assumed from ESCOPO.md paragraph 7's own Linux-only text:
-      # actions/runner-images' own Windows2025-Readme.md (fetched
-      # 27/08/2026) names "CMake 3.31.6" as this image's bundled version.
-      # Same fix shape as the Ubuntu entries in the `linux` job above -
-      # the official Kitware zip from cmake.org/download, prepended to
-      # PATH via $GITHUB_PATH so every later step's plain "cmake" call
-      # (this whole job never spells out a full path) picks it up - no
+      # not assumed: actions/runner-images' own Windows2025-Readme.md
+      # (fetched 27/08/2026) names "CMake 3.31.6" as this image's bundled
+      # version. Ubuntu USED to need the same fix shape (the `linux` job's
+      # `ubuntu:24.04` entries), but that recipe was retired the same day
+      # the whole matrix moved to `:latest`: `ubuntu:latest` ships CMake
+      # above the floor already, measured (see the comment right above the
+      # Ubuntu matrix entries in the `linux` job). This step downloads the
+      # official Kitware zip from cmake.org/download, prepended to PATH
+      # via $GITHUB_PATH so every later step's plain "cmake" call (this
+      # whole job never spells out a full path) picks it up - no
       # third-party GitHub Action (this project's own convention already
       # states "sem action de terceiro: o proprio CMake localiza o
-      # MSVC", a few steps below). 4.1.6, the same pinned patch release
-      # as the Ubuntu entries, for the same reason: testing the true
-      # floor cmake_minimum_required declares, not a newer version that
+      # MSVC", a few steps below). 4.1.6, a pinned patch release, for the
+      # same reason it always was: testing the true floor
+      # cmake_minimum_required declares, not a newer version that
       # could mask a 4.1-only bug.
       - name: Instalar CMake >= 4.1 (Windows)
         shell: pwsh
@@ -642,9 +650,9 @@ jobs:
             glintfx-wltest-poisoned-systempaths || true
 
   lint:
-    name: Lint (Fedora 44 - clang-format, clang-tidy, cppcheck)
+    name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
     runs-on: ubuntu-latest
-    container: fedora:44
+    container: fedora:latest
     steps:
       - name: Instalar toolchain e ferramentas de lint
         run: >-
@@ -663,9 +671,9 @@ jobs:
           tools/preci.sh --lint-only
 
   sanitizer:
-    name: Sanitizer (Fedora 44 - ASan/UBSan)
+    name: Sanitizer (Fedora - ASan/UBSan)
     runs-on: ubuntu-latest
-    container: fedora:44
+    container: fedora:latest
     steps:
       # libasan/libubsan: pacotes de RUNTIME, separados de gcc-c++ no
       # Fedora. gcc-c++ traz so a copia interna em
@@ -700,7 +708,7 @@ jobs:
   # entre compiladores diferentes da GODS_LAWS.md L-22 (o motivo dela e
   # ABI: excecao atravessando .so exige RTTI compativel entre
   # compiladores) - ate aqui o CI so compilava com GCC (`linux`) e MSVC
-  # (`windows`), nunca Clang. Fedora 44 apenas (mesmo raciocinio dos
+  # (`windows`), nunca Clang. Fedora apenas (mesmo raciocinio dos
   # jobs `lint`/`sanitizer` acima, que tambem so rodam la): achado de
   # COMPILADOR nao e especifico de distro, e um segundo eixo (Fedora x
   # Ubuntu x Arch x CachyOS) so multiplicaria o tempo de CI sem provar
@@ -711,9 +719,9 @@ jobs:
   # ramo por-compilador a manter aqui - medido em container fedora:44
   # antes deste job existir: os DOIS modos compilam limpos, zero aviso.
   clang:
-    name: Clang (Fedora 44 - segundo compilador, ${{ matrix.modo }})
+    name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
     runs-on: ubuntu-latest
-    container: fedora:44
+    container: fedora:latest
     strategy:
       fail-fast: false
       matrix:

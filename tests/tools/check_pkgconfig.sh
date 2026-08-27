@@ -166,43 +166,72 @@
 # work to do" and costs well under a second, not a recompile (the same
 # fact PERF-PKGVALIDATE already established and reused for
 # check_pkgconfig_validate.sh's own sibling gate). This file now
-# builds glintfx TWICE, not six times: ONCE for the five scenarios
-# above that only ever vary install-time layout (shared build,
-# "$SHARED_BUILD_DIR" below), and once more for the static scenario,
-# which genuinely needs a different compiled artifact
-# (BUILD_SHARED_LIBS=OFF changes what is actually linked).
+# builds glintfx THREE times, not six: once for the four scenarios
+# that only ever vary install-time layout with an EXPLICIT
+# CMAKE_INSTALL_LIBDIR (shared build, "$shared_build_dir" below - 1
+# "default", 2 "multiarch", 3 "malformed", 4 "absolute dirs"); once,
+# on its OWN dedicated build dir, for the DESTDIR/Fedora-format
+# scenario (6, see PKG-DIST achado CRIT-2 below for why it cannot
+# share the other four's build dir); and once more for the static
+# scenario, which genuinely needs a different compiled artifact
+# (BUILD_SHARED_LIBS=OFF changes what is actually linked). Measured
+# live on this machine: one full configure+build cycle costs ~14s,
+# comfortably under the ~50s this file's own review round treats as
+# the line for "prefer an assertion over another build".
 #
-# The DESTDIR/Fedora-format scenario (6) is the one caller of the
-# shared build's OWN first, virgin configure - it is the only scenario
-# in this file that relies on CMAKE_INSTALL_LIBDIR being genuinely
-# UNSET (GNUInstallDirs' own per-distro auto-default), and a CMake
-# cache variable, once explicitly set, does not revert to "unset" on a
-# later reconfigure without deleting the cache entry - so this
-# scenario runs FIRST, against the shared build dir's first configure,
-# before any other scenario ever passes an explicit
-# -DCMAKE_INSTALL_LIBDIR. Every scenario after it reconfigures the
-# SAME shared build dir with CMAKE_INSTALL_LIBDIR (and, where it
-# matters, CMAKE_INSTALL_INCLUDEDIR) explicitly. CMAKE_INSTALL_PREFIX
-# is passed explicitly on every single reconfigure of the shared
-# build, in both this scenario's own case (needs "/usr") and every
-# other one's (does not need any specific value, since each of them
-# installs with its own `cmake --install --prefix <scratch>` override
-# - confirmed live that this overrides a cached CMAKE_INSTALL_PREFIX
-# for that one invocation - but scenario 4's absolute-dirs case DOES
-# bake whatever CMAKE_INSTALL_PREFIX was cached at configure time into
-# glintfx.pc's `prefix=` line, per
-# glintfx_compute_pkgconfig_relocatable_prefix()'s own absolute-libdir
-# fallback branch in cmake/GlintfxInstall.cmake - no scenario here
-# currently asserts on that literal value, but leaving it to whatever
-# a PREVIOUS scenario happened to cache would be exactly the kind of
-# silent cross-scenario coupling GODS_LAWS.md L-27 exists to rule out,
-# so it never is).
+# PKG-DIST achado CRIT-2 (adversarial review, 27/08/2026): the DESTDIR
+# scenario used to run FIRST against the shared build dir, on the
+# theory that it is the only scenario relying on CMAKE_INSTALL_LIBDIR
+# being genuinely UNSET (GNUInstallDirs' own per-distro auto-default),
+# and that a CMake cache variable, once explicitly set, does not
+# revert to "unset" on a later reconfigure without deleting the cache
+# entry - so putting it first, before any other scenario ever passed
+# an explicit -DCMAKE_INSTALL_LIBDIR, was believed to keep the
+# premise true. That protection lived ENTIRELY in the call order
+# inside main() below, with nothing in run_destdir_scenario() itself
+# enforcing it: reproduced live by reordering scenario 4 (absolute
+# install dirs, which caches an ABSOLUTE CMAKE_INSTALL_LIBDIR) ahead
+# of the destdir scenario on the SAME shared build dir - the destdir
+# scenario still printed "ok: DESTDIR scenario..." with exit 0, but
+# the install landed at
+# "<destdir>/<scratch>/abs-install/lib64/pkgconfig/glintfx.pc" (the
+# DESTDIR staging root prepended to scenario 4's own cached absolute
+# libdir, per GNUInstallDirs semantics - DESTDIR prepends to every
+# destination, absolute or relative), never at the real Fedora default
+# "<destdir>/usr/lib64/pkgconfig/glintfx.pc" the scenario exists to
+# prove. find_pkgconfig_dir_under_destdir() finds glintfx.pc wherever
+# it actually is, so nothing downstream ever compared the FOUND path
+# against the one this scenario's own claim depends on, and the
+# assertion suite happily validated pkg-config output that was correct
+# FOR THE WRONG LAYOUT. The fix here does not restore the old call
+# order in silence (a future reorder would reopen the exact same
+# silent pass) - it gives run_destdir_scenario() its OWN, freshly
+# created build dir, so CMAKE_INSTALL_LIBDIR is unset in it BY
+# CONSTRUCTION, immune to whatever any other scenario in this file
+# does, in any order: the scenario is now provably immune to
+# reordering rather than merely correct under one specific, undocumented
+# call sequence.
+#
+# CMAKE_INSTALL_PREFIX is passed explicitly on every single reconfigure
+# of the shared build, in every one of the four scenarios that share
+# it (none of them need any specific value, since each installs with
+# its own `cmake --install --prefix <scratch>` override - confirmed
+# live that this overrides a cached CMAKE_INSTALL_PREFIX for that one
+# invocation - but scenario 4's absolute-dirs case DOES bake whatever
+# CMAKE_INSTALL_PREFIX was cached at configure time into glintfx.pc's
+# `prefix=` line, per glintfx_compute_pkgconfig_relocatable_prefix()'s
+# own absolute-libdir fallback branch in cmake/GlintfxInstall.cmake -
+# no scenario here currently asserts on that literal value, but
+# leaving it to whatever a PREVIOUS scenario happened to cache would be
+# exactly the kind of silent cross-scenario coupling GODS_LAWS.md L-27
+# exists to rule out, so it never is).
 #
 # The net effect: the SIX scenarios below, and every assertion each
 # one makes, are byte-for-byte the same claims as before this change -
-# only the EXECUTION ORDER changed (destdir now runs first, so it can
-# be the shared build's first, unmodified configure) and the number of
-# full compiles dropped from six to two.
+# what changed is that the DESTDIR scenario no longer shares a build
+# dir, or an implicit ordering contract, with any other scenario, and
+# the number of full compiles went from six (original) to two
+# (first PERF-PKGCONFIG pass) to three (this fix).
 #
 # Usage: check_pkgconfig.sh <glintfx-source-dir> <raw-consumer-source-file> <cxx-compiler>
 #
@@ -850,11 +879,24 @@ run_static_scenario() {
 # 2). See configure_glintfx_fedora_style/build_and_install_glintfx_with_destdir
 # above for the full reasoning; this is the concrete test of the
 # "indecidivel no configure" finding that changed the whole strategy
-# for this round. Runs FIRST (PERF-PKGCONFIG, see the file-level
-# comment): it is the only scenario relying on CMAKE_INSTALL_LIBDIR
-# being genuinely unset, so it must own the shared build dir's first,
-# virgin configure, before any other scenario ever sets that variable
-# explicitly on the same cache.
+# for this round.
+#
+# Takes its OWN, dedicated build dir - never the one the other five
+# scenarios share (PKG-DIST achado CRIT-2, see the file-level PERF-
+# PKGCONFIG comment for the live reproduction). This scenario is the
+# only one in the file that relies on CMAKE_INSTALL_LIBDIR being
+# genuinely UNSET at configure time (GNUInstallDirs' own per-distro
+# auto-default), and a CMake cache variable, once explicitly set by
+# ANY reconfigure of a build dir, does not revert to "unset" on a
+# later reconfigure of that SAME dir without deleting the cache entry
+# outright. Relying on this scenario running before every other one
+# on a shared dir was an ORDERING CONTRACT enforced nowhere in code -
+# a caller who reordered main()'s scenario calls broke the premise
+# silently, and the assertions below kept passing anyway, against the
+# wrong install layout. A dedicated build dir removes the contract
+# instead of documenting it more loudly: there is no cache to inherit
+# from, so this scenario's own configure is unset by construction, in
+# any call order.
 run_destdir_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
@@ -887,16 +929,23 @@ main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
-    # PERF-PKGCONFIG: ONE shared build dir for the five scenarios that
-    # only ever vary install-time layout, reused via reconfigure
-    # (destdir MUST run first - see run_destdir_scenario's own
-    # comment), and one SEPARATE build dir for the static scenario,
-    # which genuinely needs a different compiled artifact. Two full
-    # builds total, not six.
+    # PERF-PKGCONFIG: ONE shared build dir for the four scenarios that
+    # only ever vary install-time layout with an EXPLICIT
+    # CMAKE_INSTALL_LIBDIR, reused via reconfigure; ONE dedicated build
+    # dir for the DESTDIR/Fedora-format scenario, which needs
+    # CMAKE_INSTALL_LIBDIR to stay genuinely unset and can no longer
+    # share a cache with anything that might set it (PKG-DIST achado
+    # CRIT-2 - see run_destdir_scenario's own comment); and one
+    # SEPARATE build dir for the static scenario, which genuinely needs
+    # a different compiled artifact. Three full builds total, not six -
+    # and, unlike before this fix, the order these four calls appear in
+    # below no longer matters for correctness (only for how quickly a
+    # failure surfaces).
     shared_build_dir="${scratch}/build-shared"
+    destdir_build_dir="${scratch}/build-destdir"
     static_build_dir="${scratch}/build-static"
 
-    run_destdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
+    run_destdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$destdir_build_dir"
     run_default_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
     run_multiarch_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
     run_malformed_libdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"

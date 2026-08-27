@@ -56,8 +56,14 @@ function Resolve-AbsolutePath([string]$path) {
 $GlintfxSourceDir = Resolve-AbsolutePath $GlintfxSourceDir
 $EmbedSrcDir = Resolve-AbsolutePath $EmbedSrcDir
 
+# Generator is explicit (CI-WIN-GEN): without -G, plain pwsh has no
+# vcvarsall-prepared environment, and CMake's Windows default falls back
+# to a command-line generator (NMake) that cannot locate cl.exe on its
+# own - only an IDE generator self-locates MSVC. Same root cause as
+# commit 17706d9; this call already presumed a multi-config generator
+# via Invoke-BuildEmbed's --config Release below.
 function Invoke-ConfigureEmbed([string]$embedSrc, [string]$embedBuild, [string]$glintfxSrc) {
-    cmake -S $embedSrc -B $embedBuild -DGLINTFX_SOURCE_DIR="$glintfxSrc"
+    cmake -S $embedSrc -B $embedBuild -G "Visual Studio 17 2022" -A x64 -DGLINTFX_SOURCE_DIR="$glintfxSrc"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
@@ -69,8 +75,11 @@ function Invoke-ConfigureEmbed([string]$embedSrc, [string]$embedBuild, [string]$
 # needs "and"/a conditional to stay honest is two functions) - mirrors
 # check_embed.sh's configure_embed()/configure_embed_with_install_opt_in()
 # split exactly.
+# Same generator fix as Invoke-ConfigureEmbed() above (CI-WIN-GEN):
+# explicit -G/-A, same root cause as commit 17706d9. This variant also
+# presumes multi-config, via the --config Release install call below.
 function Invoke-ConfigureEmbedWithInstallOptIn([string]$embedSrc, [string]$embedBuild, [string]$glintfxSrc) {
-    cmake -S $embedSrc -B $embedBuild -DGLINTFX_SOURCE_DIR="$glintfxSrc" -DGLINTFX_INSTALL=ON
+    cmake -S $embedSrc -B $embedBuild -G "Visual Studio 17 2022" -A x64 -DGLINTFX_SOURCE_DIR="$glintfxSrc" -DGLINTFX_INSTALL=ON
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

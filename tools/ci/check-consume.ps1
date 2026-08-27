@@ -23,8 +23,14 @@ function Install-IntoPrefix([string]$buildDir, [string]$prefix) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
+# Generator is explicit (CI-WIN-GEN): without -G, plain pwsh has no
+# vcvarsall-prepared environment, and CMake's Windows default falls back
+# to a command-line generator (NMake) that cannot locate cl.exe on its
+# own - only an IDE generator self-locates MSVC. Same root cause as
+# commit 17706d9; this call already presumed a multi-config generator
+# via Invoke-BuildConsumer's --config Release below.
 function Invoke-ConfigureConsumer([string]$packageSrc, [string]$consumerBuild, [string]$prefix) {
-    cmake -S $packageSrc -B $consumerBuild -DCMAKE_PREFIX_PATH="$prefix"
+    cmake -S $packageSrc -B $consumerBuild -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$prefix"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

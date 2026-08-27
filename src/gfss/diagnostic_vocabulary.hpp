@@ -52,10 +52,10 @@
 
 namespace glintfx::style::detail {
 
-#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                  \
-    X(closing_quote)                                                                              \
-    X(closing_parenthesis)                                                                        \
-    X(escape_sequence)                                                                            \
+#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                   \
+    X(closing_quote)                                                                               \
+    X(closing_parenthesis)                                                                         \
+    X(escape_sequence)                                                                             \
     X(internal_tokenizer_defect)
 
 // One named constexpr std::string_view per entry, spelled from the
@@ -63,7 +63,7 @@ namespace glintfx::style::detail {
 // string spelling can never drift apart - the same guarantee
 // err_code.cpp's table gives gltfx_err_code_name() by hand, here made
 // structural instead.
-#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT(name)                                           \
+#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT(name)                                            \
     inline constexpr std::string_view k_expected_##name{#name};
 GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT)
 #undef GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT

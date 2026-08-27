@@ -285,9 +285,9 @@ GLINTFX_TEST(token_made_forward_progress_false_on_a_non_eof_token_at_the_same_of
 // the guarantee that has to hold for ANY shape of caller loop, not
 // just the one this test happens to write.
 GLINTFX_TEST(recover_from_forward_progress_violation_signals_the_consumer_not_a_plausible_token) {
+    using glintfx::style::gltfx_gfss_cursor;
     using glintfx::style::detail::k_expected_internal_tokenizer_defect;
     using glintfx::style::detail::recover_from_forward_progress_violation;
-    using glintfx::style::gltfx_gfss_cursor;
 
     constexpr std::string_view source{"-3.5e-2"};
     constexpr std::uint32_t violation_line = 1;
@@ -380,7 +380,8 @@ GLINTFX_TEST(diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_
         }
     }
     {
-        glintfx::style::gltfx_gfss_cursor cursor{.source = "x", .byte_offset = 0, .line = 1, .column = 1};
+        glintfx::style::gltfx_gfss_cursor cursor{
+            .source = "x", .byte_offset = 0, .line = 1, .column = 1};
         const gltfx_gfss_token recovered = recover_from_forward_progress_violation(cursor, 1, 1);
         GLINTFX_CHECK(recovered.diagnostic.expected ==
                       std::string_view{"internal_tokenizer_defect"});

@@ -143,6 +143,79 @@ directories actually contain a `glintfx/` header tree and a
 `libglintfx.so*`/`libglintfx.a` artifact, or simply compile and run a
 trivial program against the reported `-I`/`-L`/`-l` flags.
 
+### glintfx already runs this check for you, at install time, on your own machine
+
+You do not actually have to do any of the above by hand: `cmake
+--install` already does it for you, automatically, every time you
+install glintfx with `GLINTFX_INSTALL` at its default value (see
+"Embedding via `add_subdirectory`/`FetchContent`" above for the one
+case where nothing is installed at all, and this check does not run
+either). Right after `glintfx.pc`, the public headers and the library
+artifact are written to disk, an installation step runs a real
+`pkg-config --exists glintfx`, resolves `--variable=includedir` and
+`--variable=libdir`, and walks every `-I`/`-L` token a plain
+(non-`--static`) `--cflags`/`--libs` query emits, the same query any
+consumer runs first, confirming each path exists on disk and actually
+contains a `glintfx/` header tree or a `libglintfx.so*`/`libglintfx.a`
+artifact, against whatever real layout that particular `cmake
+--install` invocation produced, including a `DESTDIR`-staged one.
+This runs on **your** machine, as part of the `cmake --install` you
+already run, not only in glintfx's own CI, which by construction can
+only exercise the layouts its own maintainers thought to enumerate.
+An install that resolves to nothing worth checking (an empty
+`Cflags:`/`Libs:` line, for instance) counts as a failure too, not a
+silent pass.
+
+**What this does NOT check:** that `Libs.private` carries a linker
+token genuinely load-bearing for a real static link (see "Static
+linking" above; that claim is proven separately, against glintfx's own
+CI layouts, not re-checked here); anything Windows-specific
+(pkg-config has no role in glintfx's Windows story today); anything
+target-architecture-specific under cross-compilation (every check here
+reads the filesystem and runs `pkg-config`/`pkgconf`, a host tool
+operating on text, and never executes target-arch code); or a
+`--component`-scoped install (nothing glintfx installs today declares
+a `COMPONENT`, so a `--component` install under any other name simply
+installs nothing for glintfx in the first place, and this check is
+skipped right along with it, for that same reason).
+
+**How a failure shows up:** as a hard error from `cmake --install`
+itself, not from a separate script you have to remember to run
+afterward. This check is one more installation step appended right
+after `glintfx.pc`'s own, so a real problem fails the whole install
+invocation (nonzero exit), with a message naming the exact resolved
+path and what was wrong with it: a directory that does not exist on
+disk, one that exists but has no `glintfx/` subdirectory or no
+`libglintfx.so*`/`libglintfx.a` artifact in it, or a `--cflags`/`--libs`
+query that emitted no `-I`/`-L` token to check in the first place.
+
+**If you need to skip it:** the same setting works two ways, both
+named `GLINTFX_SKIP_PKGCONFIG_VALIDATION`. Pass
+`-DGLINTFX_SKIP_PKGCONFIG_VALIDATION=ON` at configure time to turn it
+off for the whole build directory, so every future `cmake --install`
+run from it skips the check; or set the `GLINTFX_SKIP_PKGCONFIG_VALIDATION`
+environment variable (to anything other than empty or `0`) for one
+specific `cmake --install` invocation, with no reconfigure needed. This
+second form is what a pipeline that configures once and installs
+several times (for example, an RPM spec file's `%install` section
+invoking `%cmake_install` more than once, against different staging
+roots) needs. Either way, `glintfx.pc`, the headers and the library
+are still installed exactly as they would be otherwise; only this
+extra check is skipped. Reach for it when your own pipeline already
+verifies the install some other way, when you are intentionally
+staging a partial or non-standard layout you know this check has no
+way to make sense of, or when you simply do not want `pkg-config` in
+the loop of your `cmake --install` at all.
+
+**Where this does not run at all:** when glintfx is embedded via
+`add_subdirectory`/`FetchContent` and never installed in the first
+place (`GLINTFX_INSTALL` defaults to off there, see "Embedding" above,
+so `glintfx.pc`, the headers, the library and this check are all
+equally absent from that build); and, on any machine where neither
+`pkg-config` nor `pkgconf` is on `PATH`, where this degrades to a
+warning instead of failing the install: `glintfx.pc` is still written,
+there is simply no tool available to confirm it resolves.
+
 ## Supported `CMAKE_INSTALL_LIBDIR` / `CMAKE_INSTALL_INCLUDEDIR` layouts
 
 All of the following are tested, on every push, against a real
@@ -214,9 +287,9 @@ references that have nothing obviously to do with glintfx itself.
 
 ## Where this is tested
 
-Two scripts in the glintfx source tree back the layout and
-static-linking claims above with an automated regression test, not
-just prose:
+Three scripts in the glintfx source tree back the layout,
+static-linking and automatic-validation claims above with an
+automated regression test, not just prose:
 
 - `tests/tools/check_pkgconfig.sh` exercises every layout listed
   under "Supported `CMAKE_INSTALL_LIBDIR` / `CMAKE_INSTALL_INCLUDEDIR`
@@ -224,18 +297,27 @@ just prose:
   "Static linking" above, end-to-end: install, then resolve purely
   through `pkg-config` (no CMake, no `find_package`, no hand-written
   `-I`/`-L`/`-l` involved at all).
+- `tests/tools/check_pkgconfig_validate.sh` exercises the automatic
+  install-time check described under "glintfx already runs this check
+  for you, at install time, on your own machine" above: a real install
+  with the library artifact deleted afterward, a real install with
+  `glintfx.pc` itself missing, a hand-assembled `glintfx.pc` with
+  empty `Cflags:`/`Libs:` lines, a `DESTDIR`-staged install in the
+  format Fedora's own RPM macros produce, both forms of the escape
+  hatch, and the warning-instead-of-failure behavior when
+  `pkg-config`/`pkgconf` is absent from `PATH`.
 - `tests/tools/check_blank_install_dir_rejected.sh` exercises the
   blank-value rejection described under "NOT supported" above: it
   confirms configure fails with glintfx's own error message, naming
   the offending variable, rather than succeeding and only failing
   later or silently.
 
-Both run on every push to `main` and on every pull request, across
-the project's Linux CI jobs — Fedora, Ubuntu, Arch, and CachyOS. They
-do **not** run on the Windows job: `pkg-config` is a Unix/Linux
-packaging convention, and glintfx has no platform layer outside Unix
-yet, so there is nothing Windows-specific for either script to cover
-today.
+All three run on every push to `main` and on every pull request,
+across the project's Linux CI jobs — Fedora, Ubuntu, Arch, and
+CachyOS. They do **not** run on the Windows job: `pkg-config` is a
+Unix/Linux packaging convention, and glintfx has no platform layer
+outside Unix yet, so there is nothing Windows-specific for any of the
+three scripts to cover today.
 
 If you hit a packaging layout this document does not cover, these
 scripts are the right place to add a regression test alongside a

@@ -152,7 +152,8 @@ int main(int argc, char **argv) {
     write_file_if_changed(
         source_path, glintfx::gl_codegen::render_source(commands, header_path.filename().string()));
 
-    (void)std::printf("gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
-                       commands.size(), max_version);
+    (void)std::printf(
+        "gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
+        commands.size(), max_version);
     return 0;
 }

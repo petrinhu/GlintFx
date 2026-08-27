@@ -867,3 +867,29 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 ⚠️ **O que a lei NÃO autoriza:** copiar código de terceiro (a L-29 continua valendo — ler para aprender é permitido, copiar não), nem trocar julgamento próprio por resultado de busca. **A busca traz opções; a escolha continua sendo do projeto**, e opção que muda o que a biblioteca aceita ou exige continua sendo **decisão do líder**.
 
 **Corolário de honestidade:** o resultado da busca entra no relatório **com a fonte**, separado do que foi medido em casa. Fato de terceiro citado sem fonte é indistinguível de invenção.
+
+## L-43
+
+**Data:** 27/08/2026, ordem do líder. **Verbatim dele:** *"sempre que for iniciar onda de build, busque na web e em rmlui e sdl3 por modos de fazer o que precisa e dicas."*
+
+**Toda onda começa com uma busca. Web, mais RmlUi e SDL3, atrás de como se faz o que a onda vai fazer, e das armadilhas conhecidas. Antes da primeira linha, não depois do primeiro tropeço.**
+
+**Esta lei é o par PROATIVO da L-42, e as duas não se substituem.** A L-42 dispara **depois** de uma falha voltar pela segunda vez, e é remédio. Esta dispara **antes de existir falha**, e é prevenção. Quem cumpre a L-43 direito raramente precisa da L-42; quem só tem a L-42 paga cinco rodadas de conserto para descobrir o que uma busca de minutos entregaria.
+
+**E é o par OBRIGATÓRIO da L-29.** A L-29 **permite** ler RmlUi e SDL3 para aprender; esta lei **obriga** essa leitura no início de onda. O que a L-29 diz sobre plágio continua valendo inteiro e sem abrandamento: **lê-se para aprender a técnica, nunca para copiar**: nem verbatim, nem por porte linha a linha, nem por decalque de estrutura. **Sem clonar.**
+
+**O que a busca tem de procurar, no início de onda:**
+
+1. **Como o problema costuma ser atacado** e por quê. Estrutura de dados, ordem das etapas, o que se resolve em tempo de compilação e o que sobra para tempo de execução.
+2. **Que armadilhas são conhecidas.** Custa minutos ler o que já derrubou os outros, e custa dias descobrir sozinho.
+3. **O que a ferramenta que já está no projeto resolve sozinha.** Usar o que a ferramenta oferece **não fere a L-07**, porque não é dependência nova.
+4. **O que a documentação oficial garante, e o que ela apenas parece garantir.** Comportamento presumido sem promessa escrita é a origem recorrente de reprovação nesta casa.
+5. **O que alguém já tentou e abandonou.** Saber por que uma abordagem morreu vale mais que redescobrir.
+
+**Onde isso entra na cadência da L-34:** a busca é insumo do **planejamento**, não da implementação. Ela acontece **antes** de o `fable` fatiar a onda, e o resultado dela entra no plano; despachar implementação sem que a busca tenha acontecido é violação, ainda que o plano esteja bonito.
+
+**Corolário de honestidade, herdado da L-42 e reforçado aqui:** o que a busca trouxe entra no plano e no relatório **com a fonte**, e **separado do que foi medido em casa** (L-27). Fato de terceiro sem fonte é indistinguível de invenção. E **busca que não achou nada se declara**: "procurei X, Y e Z, não achei prior art" é resultado legítimo; **silêncio não é**, porque silêncio é indistinguível de não ter procurado.
+
+⚠️ **O que a lei NÃO autoriza:** trocar julgamento do projeto por resultado de busca. **A busca traz opções; a escolha continua sendo nossa**, e opção que muda o que a biblioteca aceita, exige ou entrega continua sendo **decisão do líder** (L-10).
+
+**Ponto de leitura que o próximo editor deve conferir com o líder em vez de presumir:** o verbatim diz *"onda de build"*. Está registrado aqui na leitura **ampla** (**toda onda que produza código**, não só onda de infraestrutura de construção), porque a ampla é o superconjunto seguro e barato. **Se o líder quis a leitura estreita, ele estreita; agente nenhum estreita sozinho.**

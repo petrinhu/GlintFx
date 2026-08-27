@@ -63,6 +63,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | escrever, revisar ou confiar em qualquer portão de qualidade | L-40 piso de varredura não-vazia: contou zero, reprova |
 | ⚖ | escrever qualquer coisa dirigida ao líder: mensagem, pergunta, relatório | L-41 explique pelo EFEITO, nunca pela implementação |
 | ⚖ | uma falha voltar para revisão pela segunda vez | L-42 buscar na web antes da terceira tentativa |
+| ⚖ | iniciar QUALQUER onda, antes de fatiar | L-43 buscar na web, no RmlUi e no SDL3 ANTES da primeira linha |
 
 ---
 

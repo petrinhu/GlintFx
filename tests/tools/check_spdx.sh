@@ -51,9 +51,66 @@
 #                  pela excecao acima - mantida como regra propria
 #                  porque um .json fora de .claude/ tambem cairia aqui
 #                  por razao tecnica, nao por ser Claude Code.
+#   third_party/khronos/<arquivo nomeado> - arquivo de TERCEIRO,
+#                  vendorizado verbatim sob a EXCECAO No 1 de
+#                  GODS_LAWS.md L-07 (gl.xml, Apache-2.0, Khronos
+#                  Group; ver third_party/khronos/README.md para a
+#                  proveniencia completa). Nao e nosso codigo, entao
+#                  nao e cabecalho AGPL nosso pra por - e por-lo
+#                  quebraria a prova de sha256 que o build usa pra
+#                  provar que o arquivo nao foi tocado (gate de
+#                  integridade em tools/gl_registry_codegen).
+#
+#                  ISENCAO ESTREITA DE PROPOSITO, com raciocinio
+#                  explicito porque a onda W2 (item SPDX-GATE,
+#                  25/08/2026) mediu o risco de terceiro: uma isencao
+#                  de DIRETORIO larga demais (ex.: `third_party/*`)
+#                  vira um esconderijo permanente onde codigo NOSSO
+#                  passaria sem cabecalho de licenca, num repositorio
+#                  publico sob AGPL - exatamente o dano juridico que
+#                  este portao existe pra evitar. Por isso a isencao
+#                  aqui NAO e "todo arquivo dentro de
+#                  third_party/khronos/": e uma ENUMERACAO FECHADA e
+#                  NOMEADA dos dois arquivos que a lei realmente abriu
+#                  (is_known_khronos_vendor_file abaixo) - pequena e
+#                  enumeravel, entao enumerada por inteiro
+#                  (GODS_LAWS.md L-40 item 5), nao coberta por busca
+#                  dirigida tipo "esta sob third_party/khronos/,
+#                  entao passa". Um arquivo QUALQUER (nosso, de outro
+#                  terceiro, ou so um nome desconhecido) que apareca
+#                  dentro de third_party/khronos/ sem estar nessa
+#                  lista continua EXIGINDO cabecalho, do mesmo jeito
+#                  que exigiria em qualquer outro lugar do repo -
+#                  status de vendorizado nao se herda do nome do
+#                  diretorio, so se concede arquivo por arquivo, e so
+#                  aos que a lei nomeia.
+#
+#                  DECISAO CONSCIENTE, registrada porque foi pedida:
+#                  um `.cpp` NOSSO colocado dentro de
+#                  third_party/khronos/ SEM cabecalho continuaria
+#                  exigindo cabecalho por esta mesma regra (nao esta
+#                  na lista fechada) - a isencao NAO escapa pra ele.
+#                  Se esse `.cpp` chegasse COM cabecalho SPDX proprio,
+#                  este portao (cuja unica responsabilidade e
+#                  cabecalho de licenca) passaria, e corretamente: o
+#                  dano juridico que L-08 protege (codigo sem licenca
+#                  clara) nao existiria. O que sobraria - um arquivo
+#                  nosso morando num diretorio nomeado "third_party",
+#                  contra o proprio README daquele diretorio ("this
+#                  directory is glintfx's ONLY vendored third-party
+#                  file") - e um problema de organizacao/revisao (L-12,
+#                  L-17: `git log --stat` mostrando arquivo estranho
+#                  aterrissando ali e um sinal e tanto pra quem
+#                  revisa), NAO um problema de cabecalho de licenca.
+#                  Misturar as duas responsabilidades neste script
+#                  seria o proprio portao virando monolito (L-17): um
+#                  portao, uma pergunta ("tem cabecalho?"), nao duas.
 #
 # Cada excecao e conferida no CAMINHO EXATO relativo a raiz do repo,
-# nunca por substring - "README.md" nao esconde "README.md.bak".
+# nunca por substring - "README.md" nao esconde "README.md.bak", e
+# "third_party/khronos-fake/x" nao e "third_party/khronos/x" so
+# porque comeca parecido (prova no selftest, ver
+# selftest_third_party_khronos_control).
 #
 # Usage:
 #   check_spdx.sh <repo-root-directory>
@@ -68,7 +125,18 @@
 # tambem passa), negativo (cabecalho ausente reprova e o caminho exato
 # aparece na mensagem), e varredura vazia (repo git sem nenhum arquivo
 # rastreado reprova, nunca passa em silencio - e o proprio motivo desta
-# lei existir, GODS_LAWS.md L-40 caso "portao da lei do Wayland").
+# lei existir, GODS_LAWS.md L-40 caso "portao da lei do Wayland"). Mais
+# dois controles proprios deste gate, alem dos tres que L-40 exige de
+# todo portao: nao-e-repo (raiz sem .git recusada, nunca presumida
+# vazia) e a isencao ISOLADA de third_party/khronos/ (item SPDX-GATE,
+# 26/08/2026, EXCECAO No 1 de GODS_LAWS.md L-07) - prova, na mesma
+# fixture, que os dois arquivos vendorizados NOMEADOS passam sem
+# cabecalho, e que um arquivo desconhecido na MESMA pasta, uma pasta
+# irma sob third_party/ e uma pasta com nome parecido continuam
+# exigindo, do mesmo jeito que `.claude/hooks/foo.sh` isola o ramo
+# `.claude/*` de `*.json` acima: sem esta fixture separada, um mutante
+# que alargasse a isencao para `third_party/*` inteiro passaria pelos
+# outros controles sem ser pego.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -86,6 +154,22 @@ fail() {
 # arquivo sem extensao conhecida". Ver o cabecalho acima para a razao
 # de cada linha. -----------------------------------------------------
 
+# Enumeracao FECHADA e NOMEADA (GODS_LAWS.md L-40 item 5: espaco
+# pequeno e enumeravel, entao enumerado por inteiro) dos unicos dois
+# arquivos que GODS_LAWS.md L-07 EXCECAO No 1 realmente vendorizou sob
+# third_party/khronos/. Deliberadamente SEPARADA de is_exempt: e o
+# unico jeito de a isencao de diretorio nao virar "todo arquivo que
+# aparecer ali passa" - ver o bloco de comentario acima
+# (EXCECOES DECLARADAS) para o raciocinio completo do risco e da
+# decisao sobre arquivo nosso na mesma pasta.
+is_known_khronos_vendor_file() {
+    case "$1" in
+        third_party/khronos/gl.xml) return 0 ;;
+        third_party/khronos/LICENSE-APACHE-2.0.txt) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 is_exempt() {
     path="$1"
     case "$path" in
@@ -95,6 +179,7 @@ is_exempt() {
         .bigtech-porte) return 0 ;;
         .claude/*) return 0 ;;
         *.json) return 0 ;;
+        third_party/khronos/*) is_known_khronos_vendor_file "$path" ;;
         *) return 1 ;;
     esac
 }
@@ -290,6 +375,77 @@ selftest_negative_control() {
     return 1
 }
 
+# Fixture ISOLADA pra o ramo third_party/khronos/*, pelo mesmo motivo
+# que make_positive_fixture isola `.claude/hooks/foo.sh` de
+# `.claude/*`/`*.json`: sem isolamento, um mutante que alargasse a
+# excecao (por exemplo trocando `third_party/khronos/*` por
+# `third_party/*`, ou trocando is_known_khronos_vendor_file por "return
+# 0" incondicional) passaria pelos controles POSITIVO/NEGATIVO de cima
+# sem ser pego, porque nenhum deles toca third_party/ em nenhuma forma.
+# Cinco arquivos, cada um provando uma coisa diferente:
+#   - src/foo.cpp             - controle: codigo nosso, com cabecalho, passa.
+#   - third_party/khronos/gl.xml                   - NOMEADO, sem cabecalho, deve passar.
+#   - third_party/khronos/LICENSE-APACHE-2.0.txt   - NOMEADO, sem cabecalho, deve passar.
+#   - third_party/khronos/mystery.cpp     - MESMA pasta isenta, mas NAO nomeado -
+#                                            deve continuar exigindo (fecha o
+#                                            "buraco permanente" que uma isencao
+#                                            so-por-diretorio abriria).
+#   - third_party/other_vendor/vendor.dat - pasta IRMA sob third_party/, fora de
+#                                            khronos/ - prova que a isencao nao
+#                                            e `third_party/*` generico.
+#   - third_party/khronos-fake/vendor.dat - nome PARECIDO, sem a barra exata
+#                                            depois de "khronos" - prova que o
+#                                            casamento e por caminho exato, nunca
+#                                            por substring (mesma disciplina que
+#                                            o cabecalho do arquivo ja documenta
+#                                            pra "README.md" vs "README.md.bak").
+make_third_party_khronos_fixture() {
+    root="$1"
+    mkdir -p "$root/src" "$root/third_party/khronos" \
+        "$root/third_party/khronos-fake" "$root/third_party/other_vendor"
+    printf '// SPDX-License-Identifier: AGPL-3.0-or-later\nint f();\n' > "$root/src/foo.cpp"
+    printf '<comment>vendored verbatim, no header on purpose</comment>\n' > "$root/third_party/khronos/gl.xml"
+    printf 'Apache License 2.0 full text, no SPDX header on purpose\n' > "$root/third_party/khronos/LICENSE-APACHE-2.0.txt"
+    printf 'int surprise();\n' > "$root/third_party/khronos/mystery.cpp"
+    printf 'not the exempt directory\n' > "$root/third_party/other_vendor/vendor.dat"
+    printf 'looks like the exempt dir, is not\n' > "$root/third_party/khronos-fake/vendor.dat"
+    track_all "$root"
+}
+
+selftest_third_party_khronos_control() {
+    scratch="$1"
+    root="$scratch/third_party_khronos"
+    make_third_party_khronos_fixture "$root"
+
+    if output="$(check_spdx "$root" 2>&1)"; then
+        echo "selftest: controle third_party/khronos FALHOU (deveria ter reprovado - ha arquivos nao isentos sem cabecalho na fixture)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+
+    ok=1
+    for exigido in third_party/khronos/mystery.cpp third_party/other_vendor/vendor.dat third_party/khronos-fake/vendor.dat; do
+        if ! printf '%s\n' "$output" | grep -qF "$exigido"; then
+            echo "selftest: controle third_party/khronos FALHOU (nao citou '$exigido', que deveria exigir cabecalho)" >&2
+            ok=0
+        fi
+    done
+    for isento in third_party/khronos/gl.xml third_party/khronos/LICENSE-APACHE-2.0.txt; do
+        if printf '%s\n' "$output" | grep -qF "$isento"; then
+            echo "selftest: controle third_party/khronos FALHOU (cobrou '$isento', que GODS_LAWS.md L-07 EXCECAO No 1 isenta - excecao vazou)" >&2
+            ok=0
+        fi
+    done
+
+    if [ "$ok" -eq 1 ]; then
+        echo "selftest: controle third_party/khronos OK (os dois arquivos vendorizados nomeados passam sem cabecalho; arquivo desconhecido na mesma pasta, pasta irma e pasta com nome parecido continuam exigindo)"
+        printf '%s\n' "$output" >&2
+        return 0
+    fi
+    printf '%s\n' "$output" >&2
+    return 1
+}
+
 # Empty-scan floor: repositorio git valido, mas SEM nenhum arquivo
 # rastreado (init sem add). Esperado: reprova com "varredura vazia" na
 # mensagem - o proprio motivo desta lei existir (GODS_LAWS.md L-40).
@@ -341,16 +497,18 @@ selftest_main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
-    # positive/negative precisam de `git init` + `git config` antes de
-    # `git add`; make_positive_fixture so cria arquivos, entao os dois
-    # controles chamam init_fixture_repo primeiro.
-    mkdir -p "$scratch/positive" "$scratch/negative"
+    # positive/negative/third_party_khronos precisam de `git init` +
+    # `git config` antes de `git add`; as make_*_fixture so criam
+    # arquivos, entao os controles chamam init_fixture_repo primeiro.
+    mkdir -p "$scratch/positive" "$scratch/negative" "$scratch/third_party_khronos"
     init_fixture_repo "$scratch/positive"
     init_fixture_repo "$scratch/negative"
+    init_fixture_repo "$scratch/third_party_khronos"
 
     overall=0
     selftest_positive_control "$scratch" || overall=1
     selftest_negative_control "$scratch" || overall=1
+    selftest_third_party_khronos_control "$scratch" || overall=1
     selftest_empty_scan_control "$scratch" || overall=1
     selftest_not_a_repo_control "$scratch" || overall=1
 
@@ -358,7 +516,7 @@ selftest_main() {
         echo "check_spdx.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_spdx.sh --selftest: os quatro controles OK"
+    echo "check_spdx.sh --selftest: os cinco controles OK"
 }
 
 main() {

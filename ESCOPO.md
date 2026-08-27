@@ -56,6 +56,23 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 **Aplicação:** decode de imagem, rasterização de fonte, loader de GL, mixagem de áudio e decode de gamepad são escritos em casa. Ao topar com uma lacuna, **pare e pergunte**; não improvise dependência "só por enquanto".
 
+
+**EXCEÇÃO Nº 1, aberta pelo líder em 26/08/2026 — o registro do OpenGL (`gl.xml`, Khronos Group).** Verbatim dele, escolhendo entre três saídas apresentadas: *"opcao A"*.
+
+**O que entra, e o escopo é ESTREITO de propósito:** **um arquivo de DADO, lido em tempo de build por script nosso, nunca linkado ao binário.** Dele saem as ~341 declarações de função do OpenGL 3.3 core (número medido, não estimado). **Não é biblioteca, não é código de terceiro executando dentro do nosso, e a exceção não se estende a mais nada.**
+
+**Por que precisou de exceção, e o precedente do Wayland NÃO se aplica:** o `xdg-shell.xml` **vem instalado com o sistema**, então nós o lemos de onde ele já está e **não redistribuímos nada**. O registro do OpenGL **não existe em pacote de nenhuma das cinco plataformas** — medido em 26/08/2026. Redistribuir é o que cria obrigação, e é exatamente essa a diferença entre os dois casos.
+
+**As três saídas que o líder pesou:** (a) vendorizar o arquivo e gerar por máquina; (b) transcrever as 341 assinaturas à mão, sem exceção à lei, ao custo de erro humano que **só aparece como travamento em tempo de execução**; (c) ler o cabeçalho já instalado no Linux, que **não existe no Windows** e deixaria dois mecanismos para manter. Escolheu (a): a única que serve as cinco plataformas **e** gera mecanicamente.
+
+**Parecer do CLO, verificado na fonte em 26/08/2026 — sem impedimento:** `SPDX-License-Identifier: Apache-2.0`, confirmado no cabeçalho do arquivo oficial. Compatível com AGPL-3.0 por **mecanismo duplo**, qualquer um bastando: a FSF declara a Apache-2.0 compatível com a GPLv3, e as obrigações dela cabem inteiras na §7 da AGPLv3; além disso, arquivo de dado de entrada de build configura **agregação** (§5), que não dispara copyleft. **O repositório do Khronos não tem `NOTICE`**, então a obrigação §4d não existe aqui — registrado para ninguém inventar um nem travar a fatia procurando o que não há.
+
+**As quatro obrigações, que são pré-condição da implementação:** (1) o texto integral da Apache-2.0 entra junto do arquivo — **o `LICENSE` da raiz NÃO é tocado, continua AGPL-3.0 puro**; (2) o cabeçalho de copyright do arquivo fica **intacto**, nunca "limpo"; (3) o arquivo entra **verbatim, byte a byte**, e não se modifica — o que elimina por construção a obrigação de marcar modificação; (4) morada em `third_party/khronos/`, com proveniência escrita: URL, commit de origem, data e `sha256`.
+
+⚠️ **A pergunta que mais preocupava, e a resposta:** a saída gerada **não contamina nada**. Não muda a licença da biblioteca, não põe obrigação no consumidor, não exige licenciamento duplo. **O fato que mais ajuda aqui é do próprio Khronos:** o cabeçalho que **eles** geram a partir do mesmo `gl.xml` sai rotulado **MIT** — licença diferente e mais permissiva que a do insumo. Quem detém o copyright do registro não trata a saída como algemada a ele. Ainda assim, pela postura conservadora e ao custo de três linhas, cada arquivo gerado leva no topo: que é gerado em build, a atribuição ao Khronos com o identificador da licença, e que o **gerador** é nosso.
+
+**Onde a análise do CLO para, dito por ele:** orientação técnica, não parecer vinculante. Advogado seria necessário para **afirmar juridicamente que a saída gerada está livre de obrigação** — a questão de derivação de API não é assentada —, para licenciamento comercial duplo da biblioteca, ou para disputa de marca. **A recomendação contorna a questão em aberto; não a resolve.**
+
 <!-- DUP-BLOCK:L07-DEPZERO:END -->
 
 ### Público, AGPL-3.0

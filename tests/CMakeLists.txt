@@ -264,6 +264,60 @@ if(UNIX)
     glintfx_add_wayland_xdg_shell_binding(wl_proto_link_test)
 endif()
 
+# ARCH-PORTS (TODO.md, GODS_LAWS.md L-19/L-20/L-22/L-40): the display
+# connection port and its two adapters (wayland_display_adapter, real;
+# fake_display_adapter, test-only). Three cases, if(UNIX)-guarded like
+# every other platform-touching gate in this file - the port headers
+# themselves (src/platform/port/) are OS-agnostic, but the two adapters
+# that satisfy the concept in this fatia are Wayland-only, and there is
+# no third, Windows-side adapter to exercise here yet (WIN-WINDOW,
+# TODO.md, still pending - see src/platform/CMakeLists.txt's own
+# three-state selection comment).
+#
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE on each: the SAME pattern
+# gfss_tokenizer_test/gfss_color_parse_test above already use to reach
+# src/gfss/'s own private headers - here it makes "platform/port/*.hpp"
+# and "platform/wayland/*.hpp" resolvable as quoted includes.
+# "fake/fake_display_adapter.hpp" needs no extra include dir: every
+# test target already inherits glintfx_test_harness's own PUBLIC
+# "${CMAKE_CURRENT_SOURCE_DIR}" (= tests/) include dir through
+# glintfx_add_test()'s PRIVATE link to it.
+if(UNIX)
+    glintfx_add_test(display_port_concept_test)
+    target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+    glintfx_add_test(display_connection_fake_test)
+    target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+    # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_
+    # LAWS.md L-19/ARCH-PORTS, "nada e exportado"), so glintfx.so's own
+    # -fvisibility=hidden (cmake/GlintfxLibrary.cmake) never puts its
+    # methods in the dynamic symbol table. This test compiles display_
+    # adapter.cpp a SECOND time, directly into its own object set - the
+    # SAME technique gfss_color_parse_test/wl_proto_link_test above
+    # already use for a symbol with no GLINTFX_API - rather than trying
+    # (and failing) to link the .so's own hidden copy.
+    glintfx_add_test(display_connect_failure_test)
+    target_include_directories(display_connect_failure_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src"
+        ${GlintfxWaylandClient_INCLUDE_DIRS}
+    )
+    target_sources(display_connect_failure_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+    )
+    # wayland-client itself, resolved by the SAME plain pkg-config
+    # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
+    # GlintfxWaylandProtocols.cmake) uses for glintfx_library - not that
+    # function itself, which also pulls in the xdg-shell PROTOCOL
+    # binding this test does not need. GlintfxWaylandClient_* were set
+    # once, at include(GlintfxWaylandProtocols) time in the ROOT
+    # CMakeLists.txt (before add_subdirectory(tests)), and are ordinary
+    # variables, inherited into this directory's scope like any other.
+    target_link_directories(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
+    target_link_libraries(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
+    target_compile_options(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h
@@ -379,6 +433,35 @@ if(UNIX)
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" --selftest
     )
     set_tests_properties(x11_selftest PROPERTIES LABELS selftest)
+endif()
+
+# Port privacy gate (ARCH-PORTS, TDD case R5, GODS_LAWS.md L-19/L-40):
+# proves the ARCH-PORTS gatilho de parada holds - nothing installed,
+# nothing exported, adapter list closed - see check_port_privacy.sh's
+# own header for the four sub-checks. The library-path argument is
+# "NONE" in static mode (sub-check (d), the dynamic-symbol scan, has no
+# artifact to inspect there and says so instead of skipping silently -
+# GODS_LAWS.md L-40). POSIX sh; same declared downgrade as layers_test
+# above.
+if(UNIX)
+    if(BUILD_SHARED_LIBS)
+        set(GLINTFX_PORT_PRIVACY_LIB_ARG "$<TARGET_FILE:glintfx_library>")
+    else()
+        set(GLINTFX_PORT_PRIVACY_LIB_ARG "NONE")
+    endif()
+    add_test(
+        NAME port_privacy_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_port_privacy.sh"
+            "${CMAKE_SOURCE_DIR}"
+            "${GLINTFX_PORT_PRIVACY_LIB_ARG}"
+    )
+    set_tests_properties(port_privacy_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME port_privacy_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_port_privacy.sh" --selftest
+    )
+    set_tests_properties(port_privacy_selftest PROPERTIES LABELS selftest)
 endif()
 
 # Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,

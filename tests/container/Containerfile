@@ -22,6 +22,32 @@
 # which is why mesa-dri-drivers (llvmpipe) is here and /dev/dri is
 # not: L-09 rule 4 says no real GPU device by default, precisely so
 # this image renders the same way on every runner in the CI matrix.
+#
+# ARCH-PORTS, TDD case R4: a SECOND, throwaway build stage compiles
+# connect_smoke.cpp against the REAL wayland_display_adapter/err.cpp/
+# err_code.cpp production sources - staged here by
+# prepare_arch_ports_fixture.sh (run BEFORE `docker build`, see
+# .github/workflows/ci.yml's own "wayland-container" job, and that
+# script's own header comment for why the docker build CONTEXT stays
+# tests/container/, never the repository root). Two stages, not one:
+# gcc-c++/wayland-devel never need to exist in the FINAL image this
+# project runs the compositor from - only the resulting static-linked
+# binary does, kept lean the same way a multi-stage container build
+# normally trims a toolchain out of a runtime image.
+FROM fedora:44 AS arch-ports-builder
+RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel && dnf clean all
+COPY _arch_ports_src /build/_arch_ports_src
+COPY connect_smoke.cpp /build/connect_smoke.cpp
+RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/arch_ports_connect_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/connect_smoke.cpp \
+        $(pkg-config --libs wayland-client)
+
 FROM fedora:44
 
 RUN dnf -y install \
@@ -34,11 +60,14 @@ RUN dnf -y install \
         iproute \
         lsof \
         procps-ng \
+        libstdc++ \
     && dnf clean all
 
 COPY run_compositor.sh /usr/local/bin/run_compositor.sh
 COPY smoke.sh /usr/local/bin/smoke.sh
-RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh
+COPY --from=arch-ports-builder /build/arch_ports_connect_smoke /usr/local/bin/arch_ports_connect_smoke
+RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
+        /usr/local/bin/arch_ports_connect_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

@@ -362,6 +362,15 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      # ARCH-PORTS, TDD case R4: stages the REAL wayland_display_
+      # adapter/err.cpp/err_code.cpp sources into tests/container/
+      # _arch_ports_src/ (gitignored, regenerated every run) so the
+      # image build below can COPY them without widening the docker
+      # build context past tests/container/ - see prepare_arch_ports_
+      # fixture.sh's own header comment for why.
+      - name: Prepara a fixture ARCH-PORTS (R4)
+        run: tests/container/prepare_arch_ports_fixture.sh "$(pwd)"
+
       - name: Marca o inicio do build da imagem
         id: build_image
         run: echo "inicio=$(date +%s)" >> "$GITHUB_OUTPUT"
@@ -417,6 +426,20 @@ jobs:
 
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean smoke.sh glintfx-test
+
+      # ARCH-PORTS, TDD case R4 (GODS_LAWS.md L-09/L-20 - integracao
+      # DECLARADA, sem rebaixamento: este e o unico dos cinco vermelhos
+      # da fatia que roda contra um compositor REAL). Passa
+      # XDG_RUNTIME_DIR/WAYLAND_DISPLAY explicitamente ao `docker exec`
+      # - o export feito dentro de run_compositor.sh (ENTRYPOINT) so
+      # vale para AQUELE processo, nao e herdado por um exec novo,
+      # mesmo padrao que smoke.sh (acima) ja segue para wayland-info.
+      - name: ARCH-PORTS - conecta e desconecta via o adaptador real (R4)
+        run: |
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean arch_ports_connect_smoke
 
       # Tres controles negativos obrigatorios (revisao adversarial
       # TEST-WLCONT: FURO 1 montagem/device, FURO 2 --pid=host, FURO 3

@@ -62,6 +62,13 @@ vgcore.*
 scratch/
 tmp/
 
+# ARCH-PORTS (TDD case R4): fixture regenerada por
+# tests/container/prepare_arch_ports_fixture.sh a cada build do
+# container - a fonte real e src/platform/wayland/, src/core/ e
+# include/glintfx/core/; este diretorio e so uma copia efemera para o
+# contexto de build do Docker (tests/container/Containerfile).
+tests/container/_arch_ports_src/
+
 # Claude Code: versiona so o settings.json compartilhado (hook do bus).
 # O settings.local.json e o lock de tarefa sao estado de maquina.
 .claude/*

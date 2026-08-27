@@ -27,8 +27,29 @@
 # negative, empty-scan) against throwaway fixture README files under
 # mktemp, with hand-picked "actual count" numbers - never a real
 # `ctest -N` invocation, so the three controls stay fast and need no
-# built tree (the one real I/O sliver, get_ctest_total(), is kept
+# built tree (the one real I/O sliver, get_ctest_raw_total(), is kept
 # separate from the comparison logic on purpose, GODS_LAWS.md L-17).
+#
+# ENV-DRIFT (27/08/2026, GODS_LAWS.md L-40): this gate's own first
+# version compared README.md's stated number against the RAW `ctest -N`
+# total, and that total is not a property of the repository - it is a
+# property of the machine that ran `cmake configure`. `preci_selftest`
+# (tests/CMakeLists.txt) is the one test in this whole suite gated by
+# find_program(): it registers only when clang-format, clang-tidy AND
+# cppcheck are all found. A developer's machine typically has all
+# three (TESTES.md T15.0) and so does the dedicated `lint` CI job; the
+# other four Linux CI matrix jobs and the two Windows ones install a
+# plain toolchain and never register it. Measured live on this same
+# commit: 47 shared / 46 static with the three tools present, 46/45
+# without them - the real `wayland-container` CI job hit exactly this,
+# reproving a sentence that was true on the machine that wrote it.
+# get_ctest_raw_total() still returns the untouched `ctest -N` figure
+# (so the empty-scan floor below keeps checking "did ctest print a
+# total at all", not "was the adjusted count non-zero");
+# count_optional_tooling_tests() measures how much of that raw total is
+# `preci_selftest`, by name, and real_main() subtracts it before ever
+# calling the comparison function - the number this gate holds README.md
+# to is therefore the one every environment agrees on.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -73,7 +94,7 @@ check_readme_test_count() {
     esac
 
     if [ "$stated" != "$actual" ]; then
-        echo "check_readme_test_count.sh: README.md diz $stated_shared shared / $stated_static static, ctest mediu $actual para o modo $mode - atualize a frase em README.md" >&2
+        echo "check_readme_test_count.sh: README.md diz $stated_shared shared / $stated_static static, ctest mediu $actual para o modo $mode (ja descontado preci_selftest, que so registra com clang-format/clang-tidy/cppcheck instalados) - atualize a frase em README.md" >&2
         return 1
     fi
 
@@ -82,9 +103,25 @@ check_readme_test_count() {
 
 # --- real mode -------------------------------------------------------
 
-get_ctest_total() {
+# Raw `ctest -N` total, untouched. Kept apart from the ENV-DRIFT
+# adjustment below on purpose: the empty-scan floor (GODS_LAWS.md L-40)
+# has to fire on "ctest printed no 'Total Tests:' line at all", never
+# on "the adjusted count happens to come out to zero".
+get_ctest_raw_total() {
     build_dir="$1"
     ctest --test-dir "$build_dir" -N 2>/dev/null | sed -n 's/^Total Tests: \([0-9][0-9]*\)$/\1/p'
+}
+
+# How many of the raw total are `preci_selftest` - the one test in
+# tests/CMakeLists.txt gated by find_program(clang-format/clang-tidy/
+# cppcheck), grep-confirmed the only one 27/08/2026 (see the ENV-DRIFT
+# comment at the top of this file). `grep -c` legitimately returns 0
+# matches with a non-zero exit status when the pattern is absent - that
+# is the expected, common case (most CI jobs), not an error here, so
+# it is closed with `|| true` rather than treated as a failure.
+count_optional_tooling_tests() {
+    build_dir="$1"
+    ctest --test-dir "$build_dir" -N 2>/dev/null | grep -c ': preci_selftest$' || true
 }
 
 real_main() {
@@ -96,11 +133,15 @@ real_main() {
     [ -f "$readme_file" ] || fail "arquivo nao encontrado: $readme_file"
     [ -d "$build_dir" ] || fail "diretorio de build nao encontrado: $build_dir"
 
-    actual="$(get_ctest_total "$build_dir")"
-    [ -n "$actual" ] || fail "ctest --test-dir $build_dir -N nao devolveu 'Total Tests: N' - GODS_LAWS.md L-40, varredura vazia"
+    raw_total="$(get_ctest_raw_total "$build_dir")"
+    [ -n "$raw_total" ] || fail "ctest --test-dir $build_dir -N nao devolveu 'Total Tests: N' - GODS_LAWS.md L-40, varredura vazia"
+
+    optional_count="$(count_optional_tooling_tests "$build_dir")"
+    actual=$((raw_total - optional_count))
 
     stated_pair="$(extract_readme_counts "$readme_file")"
-    check_readme_test_count "$stated_pair" "$actual" "$mode" || fail "contagem de testes divergente (ver mensagem acima)"
+    check_readme_test_count "$stated_pair" "$actual" "$mode" \
+        || fail "contagem de testes divergente (ver mensagem acima) - total bruto do ctest: $raw_total, testes de ferramenta opcional descontados: $optional_count"
 }
 
 # --- fixtures and controls for --selftest -----------------------------

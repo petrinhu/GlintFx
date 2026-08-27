@@ -239,6 +239,33 @@ A parte pública de carregamento faz três coisas: lê o arquivo, resolve o cami
 **A razão de produto, e é o argumento que decidiu:** escolher **como** guardar seria **impor a nossa política a todo consumidor**, e cada um tem a sua — quem carrega uma vez no início não quer pagar por memória retida, quem recarrega em laço quer. Guardar vira **item próprio** no dia em que existir carga medida que justifique, nunca por especulação.
 
 
+#### 5. As cinco naturezas de valor e as treze unidades ficam FINAIS
+
+**Verbatim dele:** *"aceito todas"*, depois de pedir para **ver a lista antes** e de ela lhe ser apresentada item a item.
+
+**As cinco naturezas, e elas NUNCA se convertem umas nas outras na leitura:** palavra-chave (incluindo as três universais de herdar, voltar ao valor de fábrica e desfazer); **número puro**, sem unidade, que não é medida de comprimento; **número inteiro**, distinto do número com casas; **comprimento**, que é número com unidade; e **porcentagem**, que **continua sendo porcentagem** e não vira comprimento na leitura.
+
+⚠️ **A separação entre as três primeiras existe porque misturá-las esconde erro:** um lugar que espera contagem receberia um número com casas decimais **calado**.
+
+**As treze unidades:** de tela (`px`, `dp`); relativas à letra (`em`, `rem`, `ex`); relativas à janela (`vw`, `vh`); e físicas (`in`, `cm`, `mm`, `pt`, `pc`), estas presas a uma **razão fixa** de 96 pontos de tela por polegada.
+
+**O que ele decidiu com o fato na mão:** foi-lhe dito, antes da escolha, que **as unidades físicas não medem centímetro de verdade** — ninguém conhece o tamanho real da tela — e que recusá-las deixaria o formato menor e mais honesto ao custo de **rejeitar folhas escritas para o padrão**. **Ele escolheu aceitá-las**, sabendo disso.
+
+#### 6. Os oito fatos que o consumidor responde sobre a árvore dele ficam FINAIS
+
+**Verbatim dele:** *"aceito tudo"*, também depois de pedir para **ver a lista antes**.
+
+**A biblioteca exige do consumidor, e só isto:** o nome do elemento; o identificador único, se houver; a lista de classes; consultar um atributo pelo nome; os cinco estados (mouse em cima, sendo clicado, com foco, com foco por teclado, marcado); quem é o pai; quem é o irmão anterior e o seguinte; quantos filhos tem e qual é o primeiro.
+
+**A biblioteca NÃO exige, porque calcula sozinha:** a posição do elemento entre os irmãos, as contagens, e a posição contando só irmãos do mesmo tipo — tudo isso sai andando pela árvore com o que os três últimos itens já dão.
+
+**O princípio que governa o corte, e é o que torna a lista defensável:** ⚠️ **pede-se ao consumidor apenas o que ninguém além dele pode responder.** Tudo que é derivável fica do nosso lado. É esse princípio, e não a contagem de itens, que deve ser aplicado se algum dia se cogitar mexer nela.
+
+**A ausência deliberada:** a âncora de *"a partir daqui"* numa busca **não entra** no contrato do nó — ela pertence à consulta, não ao elemento.
+
+⚠️ **Este é o único dos contratos que o CONSUMIDOR implementa.** Acrescentar exigência depois quebra todo consumidor que já a implementou, e por isso a lista foi mostrada inteira antes de ser fechada.
+
+
 ## §3 — Versionamento e ABI
 
 ### Versão `vA.B.C.D`, `SOVERSION`, e o terceiro contrato (DADO)

@@ -366,6 +366,50 @@ in a fixed order:
    ever rejects a hand-edited or packager-modified file that was
    already ambiguous - refusing it is exactly what "the strictest mode
    this command offers" is for.
+   Two more forms are narrower the same way, both MEASURED on
+   27/08/2026 against this machine's own real `pkgconf` (2.5.1) and
+   never named here before now:
+   - A **field** (a `Key: value` line, e.g. `Libs:` - what
+     `STRICTNESS STRICT`'s own documentation calls a "keyword" in the
+     very same sentence that names "variables": "variables and
+     keywords must be unique") defined twice is refused outright too,
+     the same way a duplicate variable is - real `pkgconf` does NOT
+     refuse it: it APPENDS the two occurrences (its own documented
+     `PERMISSIVE` behavior for a duplicate keyword, confirmed live
+     against a `Libs:` line declared twice: `-lfoo -lbar`, both
+     present, not last-one-wins). glintfx's own generated `glintfx.pc`
+     never declares a field twice, so this only ever rejects a
+     hand-edited or packager-modified file - the same deliberate
+     narrowing as the duplicate-variable case above, just extended
+     from the "variables" half of that sentence to the "keywords"
+     half, which this document had never named until now.
+   - A **REGRESSION, named as such:** a bare `$` that is not part of a
+     `${variable}` reference - a `Description:` line reading
+     `price is $5`, for instance - is accepted by real `pkgconf`, and
+     was ALSO accepted, silently, by glintfx's OWN hand-written `.pc`
+     reader that this native parser replaced on 27/08/2026
+     (PKG-WIN-SCOPE/PKG-NATIVE, see "CMake version requirement"
+     above): that old reader never validated `$` syntax at all, it
+     only ever substituted the `${known-variable}` tokens it
+     recognized and left everything else, a literal `$` included,
+     untouched. CMake's native parser under `STRICTNESS STRICT`
+     instead refuses the WHOLE FILE with a parse error, even when the
+     stray `$` sits in a field, `Description:`, that is never used to
+     build any `-I`/`-L`/`-l` flag. glintfx's own generated
+     `glintfx.pc` has never contained a lone `$` outside a `${...}`
+     reference (confirmed, live, across every `glintfx.pc` this
+     project's own build tree currently holds - shared, static, and
+     sanitizer builds alike - not merely the template), so no install
+     this project has produced has hit this - but a packager's own
+     free-text `Description:`/`URL:` override that happens to mention
+     a price, a shell variable, or a literal `$` for any other reason
+     will now fail an install that used to succeed. Unlike the
+     duplicate-variable and duplicate-field cases above, this is not
+     "the strictest mode this command offers" doing exactly its
+     documented job on an already-ambiguous file: it is a narrowing
+     this project did not have before 27/08/2026, is not required by
+     anything `STRICTNESS STRICT`'s own documentation promises, and
+     has not been worked around.
    An install that resolves to nothing worth checking (an empty
    `Cflags:`/`Libs:` line, for instance) counts as a failure too, not
    a silent pass. This part has full veto power everywhere, including

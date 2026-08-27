@@ -220,6 +220,25 @@ Quando a biblioteca detecta um bug **dela mesma** no meio de uma leitura — nã
 ⚠️ **Isto REVISA a decisão `D-W3-6`**, tomada em modo autônomo pelo C-level, que tinha escolhido usar o mesmo canal com um identificador que nomeia a biblioteca como culpada. A implementação atual segue aquele desenho e **precisa ser migrada**; o que não se reverte é o comportamento que ela substituiu, que devolvia texto plausível e falso em silêncio.
 
 
+### Mais duas decisões do líder de 27/08/2026
+
+#### 3. O relógio público é EXATO, com atalho de conveniência ao lado
+
+**Verbatim da opção que ele escolheu:** *"Exato, com atalho"*.
+
+A biblioteca informa o tempo decorrido como **contagem inteira de uma unidade minúscula**, que **nunca acumula erro**, mais uma **conversão pronta para segundos** para quem prefere conforto. A alternativa — segundos com casas decimais direto — foi **recusada**: é mais simples de usar e **acumula desvio ao longo de horas de execução**, que é exatamente o regime de um jogo.
+
+**A razão de produto:** precisão para quem precisa dela, conveniência para quem não precisa, **sem obrigar ninguém a escolher entre as duas**.
+
+#### 4. O carregamento de arquivo NÃO guarda nada para reaproveitar
+
+**Verbatim da opção que ele escolheu:** *"Ratifico, sem guardar"*.
+
+A parte pública de carregamento faz três coisas: lê o arquivo, resolve o caminho, e reporta erro pela via da L-22. **Não guarda o que já leu.**
+
+**A razão de produto, e é o argumento que decidiu:** escolher **como** guardar seria **impor a nossa política a todo consumidor**, e cada um tem a sua — quem carrega uma vez no início não quer pagar por memória retida, quem recarrega em laço quer. Guardar vira **item próprio** no dia em que existir carga medida que justifique, nunca por especulação.
+
+
 ## §3 — Versionamento e ABI
 
 ### Versão `vA.B.C.D`, `SOVERSION`, e o terceiro contrato (DADO)

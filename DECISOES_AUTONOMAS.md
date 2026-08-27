@@ -217,3 +217,25 @@ Cinco perguntas, na ordem em que o CTO recomenda apresentá-las. **A primeira so
 5. **`ASSET-LOAD`** — modelo de resolução de caminho e assinatura pública?
 
 **Contra-argumento que o CTO fez questão de registrar:** encher a onda violaria a autorização ou o teto da L-32, e o maior valor desta janela não é código — é deixar os cinco dossiês prontos para o líder decidir em minutos quando voltar.
+
+### D-W2-FECHO — três decisões do fecho da W2  `[26/08/26 - 23:55:05]`
+
+**Quem decidiu:** o main, como orquestrador, nas três abaixo. Nenhuma é porta de mão única; as três são reversíveis num commit.
+
+**1 — Atualizar o capítulo 1 do `AUDITORIAS.md` para reconhecer a EXCEÇÃO Nº 1.**
+
+**A pergunta, como teria ido ao líder:** um manual normativo contradiz uma lei que o líder abriu depois dele. Conserta-se o manual em modo autônomo, ou espera?
+
+**O fato:** o capítulo 1 lista como 🔴 CRÍTICO *"nenhum diretório `vendor/`, `third_party/` ou `external/` no repositório"*, com um comando de auditoria escrito ao lado. Rodei o comando: ele **acha** o `third_party/` legítimo. Quem seguisse o manual reportaria um crítico falso.
+
+**Escolhida: consertar.** A EXCEÇÃO Nº 1 é do líder e é posterior ao manual; alinhar o manual à lei é escrituração, não decisão de critério. **A regra não foi apagada** — diretório vendorizado segue CRÍTICO por padrão, e o que entrou foi a exceção **nomeada e enumerada fechada**, mais o comando corrigido (rodado de verdade) e o apontamento de onde está a prova de integridade que torna a exceção auditável.
+
+**O limite que respeitei:** o agente enumerou o capítulo 1 inteiro e recebeu ordem de **só reportar**, nunca consertar, o que fosse **mudança de critério** em vez de envelhecimento contra lei posterior. Critério de auditoria é decisão do líder.
+
+**2 — Abrir `VENDOR-PURITY` como item, em vez de consertar agora.**
+
+O revisor achou que nenhum portão da casa prova a frase do próprio `README.md` do vendor. **Julgamento dele, que eu aceito:** a separação do `check_spdx.sh` está **certa** pela L-17 — ele faz uma pergunta só, e misturar "tem cabeçalho" com "está no lugar certo" o tornaria monolito. O que falta é a segunda pergunta **ter dono**. Não bloqueia o push: exige item nosso, com cabeçalho correto, aterrissando por engano numa pasta de nome enganoso.
+
+**3 — WSJF dos dois itens novos é estimativa minha, e está declarado como tal na descrição de cada um.** Não passou pela lente de produto. Se o líder quiser a pontuação de verdade, ela sai do `product-manager`, não de mim. **Custo de reverter:** trocar dois números.
+
+**Nota de método, porque foi um portão que me pegou:** nomeei o segundo item `AUD-CAP9`, e o `todo_audit` **reprovou** — o prefixo `AUD-*` é convenção da casa para auditoria e exige que o item declare, no pré-requisito, o que ele cobre. O item não é auditoria, é manutenção de documento: **o nome é que estava errado**, não o pré-requisito ausente. Renomeado para `DOC-AUDCAP9`; auditoria limpa, 17 checks, zero achados.

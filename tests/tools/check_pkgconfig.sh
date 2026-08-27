@@ -154,6 +154,56 @@
 #      already inside the staging tree here, no extra staging-root
 #      parameter needed anywhere in the validator.
 #
+# PERF-PKGCONFIG (27/08/2026): this file used to give scenarios 1, 2,
+# 3, 4 and 6 (five of the six above - everything except the static
+# scenario) their OWN fresh `cmake -S <src> -B <fresh-dir>` PLUS a full
+# `cmake --build`, even though NONE of the five ever changes
+# BUILD_SHARED_LIBS or any other flag that touches a compiled object
+# file - they only vary CMAKE_INSTALL_LIBDIR, CMAKE_INSTALL_INCLUDEDIR
+# and CMAKE_INSTALL_PREFIX, all three configure-time-only, install()-
+# affecting values. Measured live: reconfiguring an already-built tree
+# with any of those three changed, then rebuilding, prints "ninja: no
+# work to do" and costs well under a second, not a recompile (the same
+# fact PERF-PKGVALIDATE already established and reused for
+# check_pkgconfig_validate.sh's own sibling gate). This file now
+# builds glintfx TWICE, not six times: ONCE for the five scenarios
+# above that only ever vary install-time layout (shared build,
+# "$SHARED_BUILD_DIR" below), and once more for the static scenario,
+# which genuinely needs a different compiled artifact
+# (BUILD_SHARED_LIBS=OFF changes what is actually linked).
+#
+# The DESTDIR/Fedora-format scenario (6) is the one caller of the
+# shared build's OWN first, virgin configure - it is the only scenario
+# in this file that relies on CMAKE_INSTALL_LIBDIR being genuinely
+# UNSET (GNUInstallDirs' own per-distro auto-default), and a CMake
+# cache variable, once explicitly set, does not revert to "unset" on a
+# later reconfigure without deleting the cache entry - so this
+# scenario runs FIRST, against the shared build dir's first configure,
+# before any other scenario ever passes an explicit
+# -DCMAKE_INSTALL_LIBDIR. Every scenario after it reconfigures the
+# SAME shared build dir with CMAKE_INSTALL_LIBDIR (and, where it
+# matters, CMAKE_INSTALL_INCLUDEDIR) explicitly. CMAKE_INSTALL_PREFIX
+# is passed explicitly on every single reconfigure of the shared
+# build, in both this scenario's own case (needs "/usr") and every
+# other one's (does not need any specific value, since each of them
+# installs with its own `cmake --install --prefix <scratch>` override
+# - confirmed live that this overrides a cached CMAKE_INSTALL_PREFIX
+# for that one invocation - but scenario 4's absolute-dirs case DOES
+# bake whatever CMAKE_INSTALL_PREFIX was cached at configure time into
+# glintfx.pc's `prefix=` line, per
+# glintfx_compute_pkgconfig_relocatable_prefix()'s own absolute-libdir
+# fallback branch in cmake/GlintfxInstall.cmake - no scenario here
+# currently asserts on that literal value, but leaving it to whatever
+# a PREVIOUS scenario happened to cache would be exactly the kind of
+# silent cross-scenario coupling GODS_LAWS.md L-27 exists to rule out,
+# so it never is).
+#
+# The net effect: the SIX scenarios below, and every assertion each
+# one makes, are byte-for-byte the same claims as before this change -
+# only the EXECUTION ORDER changed (destdir now runs first, so it can
+# be the shared build's first, unmodified configure) and the number of
+# full compiles dropped from six to two.
+#
 # Usage: check_pkgconfig.sh <glintfx-source-dir> <raw-consumer-source-file> <cxx-compiler>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -183,6 +233,12 @@ readonly DEFAULT_LIBDIR="lib"
 # file.
 readonly MALFORMED_LIBDIR="./lib64//"
 readonly MALFORMED_LIBDIR_REAL="lib64"
+# Explicit, inert default (PERF-PKGCONFIG): every shared-build
+# reconfigure below states a CMAKE_INSTALL_PREFIX, and every scenario
+# that installs with its own `--prefix <scratch>` override never reads
+# this value at all - it exists so no scenario ever inherits whatever
+# a PREVIOUS one happened to cache (see the file-level comment).
+readonly INERT_PREFIX="/usr/local"
 
 fail() {
     echo "check_pkgconfig.sh: $1" >&2
@@ -213,17 +269,23 @@ make_scratch_workdir() {
     mktemp -d "${TMPDIR:-/tmp}/glintfx-pkgconfig-XXXXXX"
 }
 
+# Reconfigures (or, the first time, configures) the SHARED build dir
+# used by scenarios 1, 2, 3, 4 and 6 (PERF-PKGCONFIG) - always with an
+# explicit libdir, shared_libs and prefix, every call, so no scenario
+# ever inherits a value a previous one happened to leave cached.
 configure_glintfx() {
     glintfx_src="$1"
     build_dir="$2"
     cxx="$3"
     libdir="$4"
     shared_libs="$5"
+    prefix_value="$6"
     cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER="$cxx" \
         -DCMAKE_INSTALL_LIBDIR="$libdir" \
         -DBUILD_SHARED_LIBS="$shared_libs" \
+        -DCMAKE_INSTALL_PREFIX="$prefix_value" \
         -DGLINTFX_BUILD_TESTS=OFF
 }
 
@@ -234,23 +296,25 @@ build_and_install_glintfx() {
     cmake --install "$build_dir" --prefix "$prefix"
 }
 
-# Scenario 4 (absolute install dirs) needs its own configure call: it
+# Scenario 4 (absolute install dirs) needs its own reconfigure call: it
 # sets BOTH CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR to
 # absolute paths, which configure_glintfx() above has no parameter for
 # (it only ever varies CMAKE_INSTALL_LIBDIR, relative, across the other
-# four scenarios).
+# scenarios that share its build dir).
 configure_glintfx_with_absolute_dirs() {
     glintfx_src="$1"
     build_dir="$2"
     cxx="$3"
     abs_libdir="$4"
     abs_includedir="$5"
+    prefix_value="$6"
     cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER="$cxx" \
         -DCMAKE_INSTALL_LIBDIR="$abs_libdir" \
         -DCMAKE_INSTALL_INCLUDEDIR="$abs_includedir" \
         -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_INSTALL_PREFIX="$prefix_value" \
         -DGLINTFX_BUILD_TESTS=OFF
 }
 
@@ -266,13 +330,16 @@ build_and_install_glintfx_no_prefix() {
     cmake --install "$build_dir"
 }
 
-# Scenario 6 configure step: the format a REAL Linux packager actually
-# uses (confirmed against /usr/lib/rpm/macros.d/macros.cmake on this
-# Fedora machine: %cmake passes -DCMAKE_INSTALL_PREFIX:PATH=%{_prefix}
-# - typically /usr - and NEVER passes CMAKE_INSTALL_LIBDIR at all,
-# leaving GNUInstallDirs' own per-distro default in place). None of
-# the other five scenarios in this file exercise this input shape -
-# they all set CMAKE_INSTALL_LIBDIR explicitly.
+# Scenario 6 (DESTDIR, Fedora format) configure step - and, since
+# PERF-PKGCONFIG, the shared build dir's FIRST, virgin configure: the
+# format a REAL Linux packager actually uses (confirmed against
+# /usr/lib/rpm/macros.d/macros.cmake on this Fedora machine: %cmake
+# passes -DCMAKE_INSTALL_PREFIX:PATH=%{_prefix} and NEVER passes
+# CMAKE_INSTALL_LIBDIR at all; %cmake_install runs
+# `DESTDIR="%{buildroot}" cmake --install`). None of the other five
+# scenarios in this file exercise this input shape - they all set
+# CMAKE_INSTALL_LIBDIR explicitly, which is exactly why this one has to
+# run before any of them ever touch the shared build dir's cache.
 configure_glintfx_fedora_style() {
     glintfx_src="$1"
     build_dir="$2"
@@ -623,16 +690,20 @@ assert_probe_links_with_wayland_client_succeeds() {
     echo "check_pkgconfig.sh: positive control confirmed - linking the probe with Libs.private succeeds"
 }
 
-# Scenario 1: default single-arch layout, shared build.
+# Scenario 1: default single-arch layout, shared build. Reconfigures
+# the SHARED build dir (PERF-PKGCONFIG) - callable only after scenario
+# 6 (destdir) has already run its own, virgin configure of the same
+# build dir, since this is the first scenario to set
+# CMAKE_INSTALL_LIBDIR explicitly.
 run_default_layout_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
     cxx="$3"
     scratch="$4"
+    build_dir="$5"
 
-    build_dir="${scratch}/build-default"
     prefix="${scratch}/prefix-default"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$DEFAULT_LIBDIR" ON
+    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$DEFAULT_LIBDIR" ON "$INERT_PREFIX"
     build_and_install_glintfx "$build_dir" "$prefix"
 
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$DEFAULT_LIBDIR")"
@@ -649,15 +720,16 @@ run_default_layout_scenario() {
 # Scenario 2: Debian-multiarch-style layout, shared build - the level
 # count in the relocatable prefix expression has three directory
 # segments to climb here, not two (see the file-level comment).
+# Reconfigures the same SHARED build dir (PERF-PKGCONFIG).
 run_multiarch_layout_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
     cxx="$3"
     scratch="$4"
+    build_dir="$5"
 
-    build_dir="${scratch}/build-multiarch"
     prefix="${scratch}/prefix-multiarch"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$MULTIARCH_LIBDIR" ON
+    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$MULTIARCH_LIBDIR" ON "$INERT_PREFIX"
     build_and_install_glintfx "$build_dir" "$prefix"
 
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$MULTIARCH_LIBDIR")"
@@ -679,16 +751,17 @@ run_multiarch_layout_scenario() {
 # (cmake/GlintfxInstall.cmake): without it, this scenario's own
 # assert_libdir_resolves_to_real_install_dir call fails, resolving one
 # directory ABOVE the real install prefix, silently ("pkg-config
-# --exists" still reports success either way).
+# --exists" still reports success either way). Reconfigures the same
+# SHARED build dir (PERF-PKGCONFIG).
 run_malformed_libdir_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
     cxx="$3"
     scratch="$4"
+    build_dir="$5"
 
-    build_dir="${scratch}/build-malformed"
     prefix="${scratch}/prefix-malformed"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$MALFORMED_LIBDIR" ON
+    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$MALFORMED_LIBDIR" ON "$INERT_PREFIX"
     build_and_install_glintfx "$build_dir" "$prefix"
 
     # CMake's own install() already normalizes "./lib64//" when writing
@@ -714,17 +787,18 @@ run_malformed_libdir_scenario() {
 # cmake/GlintfxInstall.cmake: without it, libdir=/includedir= each
 # hand-typed a "${exec_prefix}/"/"${prefix}/" base in front of an
 # already-absolute value, duplicating the prefix (see the file-level
-# comment for the exact reproduction).
+# comment for the exact reproduction). Reconfigures the same SHARED
+# build dir (PERF-PKGCONFIG).
 run_absolute_dirs_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
     cxx="$3"
     scratch="$4"
+    build_dir="$5"
 
-    build_dir="${scratch}/build-absolute"
     abs_libdir="${scratch}/abs-install/lib64"
     abs_includedir="${scratch}/abs-install/include"
-    configure_glintfx_with_absolute_dirs "$glintfx_src" "$build_dir" "$cxx" "$abs_libdir" "$abs_includedir"
+    configure_glintfx_with_absolute_dirs "$glintfx_src" "$build_dir" "$cxx" "$abs_libdir" "$abs_includedir" "$INERT_PREFIX"
     build_and_install_glintfx_no_prefix "$build_dir"
 
     pkgconfig_dir="${abs_libdir}/pkgconfig"
@@ -741,16 +815,19 @@ run_absolute_dirs_scenario() {
 # Scenario 5: static build - proves Libs.private's CONTENT, EMISSION
 # AND load-bearing NECESSITY (adversarial review, PKG-DIST achado 4;
 # see the file-level comment for the full reasoning and the trade-off
-# accepted).
+# accepted). The ONE scenario that genuinely needs its OWN, separate
+# build (PERF-PKGCONFIG): BUILD_SHARED_LIBS=OFF changes what is
+# actually compiled and linked, unlike every other scenario in this
+# file.
 run_static_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
     cxx="$3"
     scratch="$4"
+    build_dir="$5"
 
-    build_dir="${scratch}/build-static"
     prefix="${scratch}/prefix-static"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$DEFAULT_LIBDIR" OFF
+    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" "$DEFAULT_LIBDIR" OFF "$INERT_PREFIX"
     build_and_install_glintfx "$build_dir" "$prefix"
 
     pkgconfig_dir="$(pkgconfig_dir_for "$prefix" "$DEFAULT_LIBDIR")"
@@ -773,14 +850,18 @@ run_static_scenario() {
 # 2). See configure_glintfx_fedora_style/build_and_install_glintfx_with_destdir
 # above for the full reasoning; this is the concrete test of the
 # "indecidivel no configure" finding that changed the whole strategy
-# for this round.
+# for this round. Runs FIRST (PERF-PKGCONFIG, see the file-level
+# comment): it is the only scenario relying on CMAKE_INSTALL_LIBDIR
+# being genuinely unset, so it must own the shared build dir's first,
+# virgin configure, before any other scenario ever sets that variable
+# explicitly on the same cache.
 run_destdir_scenario() {
     glintfx_src="$1"
     consumer_src="$2"
     cxx="$3"
     scratch="$4"
+    build_dir="$5"
 
-    build_dir="${scratch}/build-destdir"
     destdir="${scratch}/buildroot"
     configure_glintfx_fedora_style "$glintfx_src" "$build_dir" "$cxx"
     build_and_install_glintfx_with_destdir "$build_dir" "$destdir"
@@ -806,12 +887,21 @@ main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
-    run_default_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
-    run_multiarch_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
-    run_malformed_libdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
-    run_absolute_dirs_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
-    run_static_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
-    run_destdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch"
+    # PERF-PKGCONFIG: ONE shared build dir for the five scenarios that
+    # only ever vary install-time layout, reused via reconfigure
+    # (destdir MUST run first - see run_destdir_scenario's own
+    # comment), and one SEPARATE build dir for the static scenario,
+    # which genuinely needs a different compiled artifact. Two full
+    # builds total, not six.
+    shared_build_dir="${scratch}/build-shared"
+    static_build_dir="${scratch}/build-static"
+
+    run_destdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
+    run_default_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
+    run_multiarch_layout_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
+    run_malformed_libdir_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
+    run_absolute_dirs_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$shared_build_dir"
+    run_static_scenario "$glintfx_src" "$consumer_src" "$cxx" "$scratch" "$static_build_dir"
 
     echo "ok: glintfx.pc resolves via pkg-config alone (no CMake, no find_package) in default layout, Debian-multiarch layout, a malformed (trailing slash + doubled separator + leading ./) layout, absolute install dirs, static mode, and a DESTDIR-staged Fedora-format install."
 }

@@ -87,6 +87,41 @@
 # code) - see GlintfxPkgConfigValidateInstalled.cmake.in's own file
 # header for why those are declared, not silently assumed, safe.
 #
+# PERF-PKGVALIDATE (27/08/2026): this file used to give EVERY scenario
+# its own fresh `cmake -S <src> -B <fresh-dir>` PLUS a full
+# `cmake --build` of the whole library - seven independent from-scratch
+# compiles for a single ctest case. Measured live before this change:
+# 103-111s wall clock on a fast, otherwise-idle 16-core desktop, and a
+# flat 120s DART_TESTING_TIMEOUT (cmake/GlintfxTest.cmake) timeout on
+# three of the four Linux CI matrix targets, with the fourth (Fedora,
+# the primary target) failing at 115.95s - CI machines are slower and
+# often shared, so the margin was already gone before this fatia's own
+# validation logic is even considered. Measured SEPARATELY, and this is
+# the fact that rules out "the validator itself is what got slower":
+# a single `cmake --install` with the validator ON costs ~0.09s versus
+# ~0.01s with it fully OFF (GLINTFX_SKIP_PKGCONFIG_VALIDATION=1) on this
+# same machine - a ~80ms tax per install, not the multi-second one the
+# timeout would need. The real cost was structural: NONE of this file's
+# eight scenarios ever vary BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR
+# (unlike check_pkgconfig.sh's sibling gate, which genuinely needs a
+# different compiled artifact for its static scenario) - every
+# scenario here only varies CMAKE_INSTALL_PREFIX and
+# GLINTFX_SKIP_PKGCONFIG_VALIDATION, BOTH configure-time cache
+# variables that do not touch a single compiled object file. Confirmed
+# live: reconfiguring an already-built tree with either variable
+# changed, then rebuilding, prints "ninja: no work to do" and costs
+# ~0.08s, not a recompile. So this file now configures and builds
+# glintfx exactly ONCE, and every scenario that needs a different
+# CMAKE_INSTALL_PREFIX or GLINTFX_SKIP_PKGCONFIG_VALIDATION value
+# reconfigures that SAME build directory (cheap) instead of starting a
+# new one (expensive) - the claim proven by each scenario, and its own
+# assertions, are UNCHANGED; only how the build each one installs FROM
+# gets there changed. Scenarios 6 and 8 no longer need their own
+# "third, dedicated" build either: they now reuse scenario 1's own
+# intact default-layout install and the one shared build's own
+# generated validator script, since neither one is ever mutated by any
+# scenario that runs before them.
+#
 # Usage: check_pkgconfig_validate.sh <glintfx-source-dir> <cxx-compiler>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -108,20 +143,31 @@ make_scratch_workdir() {
     mktemp -d "${TMPDIR:-/tmp}/glintfx-pkgvalidate-XXXXXX"
 }
 
-configure_glintfx() {
+# Configures the ONE shared build directory this whole file reuses.
+# ALWAYS passes both CMAKE_INSTALL_PREFIX and
+# GLINTFX_SKIP_PKGCONFIG_VALIDATION explicitly, every single call
+# (PERF-PKGVALIDATE) - never left to whatever the previous scenario's
+# reconfigure happened to cache, so no scenario can silently inherit a
+# stale value from the one before it. "/usr/local" is CMake's own
+# built-in default prefix, spelled out here instead of omitted, for
+# the same reason: every scenario that needs a specific prefix (only
+# the DESTDIR one, scenario 2) says so explicitly, and every other
+# scenario installs with its own `--prefix <scratch>` override anyway
+# (confirmed live: `cmake --install <dir> --prefix <p>` overrides a
+# CACHED CMAKE_INSTALL_PREFIX for that one invocation, regardless of
+# what configure baked in), so this value is inert for them.
+reconfigure_glintfx() {
     glintfx_src="$1"
     build_dir="$2"
     cxx="$3"
-    shift 3
-    # $@ carries any EXTRA -D flags a scenario needs (the escape
-    # hatch's cache option, a non-default CMAKE_INSTALL_PREFIX, ...) -
-    # intentional word-splitting of caller-provided -D tokens, same
-    # reasoning as every other configure wrapper in this test suite.
+    prefix_value="$4"
+    skip_validation="$5"
     cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER="$cxx" \
         -DGLINTFX_BUILD_TESTS=OFF \
-        "$@"
+        -DCMAKE_INSTALL_PREFIX="$prefix_value" \
+        -DGLINTFX_SKIP_PKGCONFIG_VALIDATION="$skip_validation"
 }
 
 build_glintfx() {
@@ -151,7 +197,10 @@ find_pc_file_under() {
 # validator (baked with THIS build's own CMAKE_INSTALL_LIBDIR at
 # configure time) will actually look under - a fixture placed under a
 # hardcoded "lib" would silently miss on any machine whose real
-# default is "lib64" and prove nothing.
+# default is "lib64" and prove nothing. This value is the SAME across
+# every scenario in this file (PERF-PKGVALIDATE: none of them ever set
+# CMAKE_INSTALL_LIBDIR), so it is computed once, from scenario 1's own
+# install, and reused rather than re-derived per scenario.
 find_libdir_relative_to_prefix() {
     prefix="$1"
     pkgconfig_dir="$(find "$prefix" -type d -name pkgconfig 2>/dev/null | head -n1)"
@@ -170,16 +219,13 @@ find_generated_validator_script() {
     printf '%s' "$script"
 }
 
-# Scenario 1: default layout, real end-to-end install.
+# Scenario 1: default layout, real end-to-end install. Runs against
+# the shared build exactly as main() left it configured (prefix
+# irrelevant - overridden below - and the escape hatch OFF), so no
+# reconfigure of its own is needed.
 run_default_layout_scenario() {
-    glintfx_src="$1"
-    cxx="$2"
-    scratch="$3"
-
-    build_dir="${scratch}/build-default"
-    prefix="${scratch}/prefix-default"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx"
-    build_glintfx "$build_dir"
+    build_dir="$1"
+    prefix="$2"
 
     output="$(cmake --install "$build_dir" --prefix "$prefix" 2>&1)" \
         || fail "default-layout install unexpectedly FAILED:
@@ -198,16 +244,20 @@ ${output}" ;;
 # Scenario 2: DESTDIR, Fedora format - see check_pkgconfig.sh's own
 # run_destdir_scenario for the packaging-format reasoning; this proves
 # the validator's OWN staged-path resolution, not glintfx.pc's content.
+# Needs CMAKE_INSTALL_PREFIX=/usr at CONFIGURE time (DESTDIR combines
+# with whatever prefix is baked into cmake_install.cmake, not with a
+# `--prefix` CLI override - confirmed live), so this is the one
+# scenario in this file that reconfigures the shared build itself.
 run_destdir_scenario() {
     glintfx_src="$1"
     cxx="$2"
-    scratch="$3"
+    build_dir="$3"
+    scratch="$4"
 
-    build_dir="${scratch}/build-destdir"
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
+
     destdir="${scratch}/buildroot"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx" -DCMAKE_INSTALL_PREFIX=/usr
-    build_glintfx "$build_dir"
-
     output="$(DESTDIR="$destdir" cmake --install "$build_dir" 2>&1)" \
         || fail "DESTDIR install unexpectedly FAILED:
 ${output}"
@@ -230,22 +280,23 @@ ${output}" ;;
 # Scenario 3: configure-time escape hatch. Proves the install(CODE)
 # step is never REGISTERED at all - checked by its absence from the
 # INSTALL log, not merely a "skipped" message from a step that still
-# ran.
+# ran. Reconfigures the shared build with the hatch ON; every scenario
+# after this one that needs the hatch OFF again reconfigures back
+# explicitly, never assuming this one already undid itself.
 run_configure_time_hatch_scenario() {
     glintfx_src="$1"
     cxx="$2"
-    scratch="$3"
+    build_dir="$3"
+    prefix="$4"
 
-    build_dir="${scratch}/build-hatch-configure"
-    prefix="${scratch}/prefix-hatch-configure"
-    configure_output="$(configure_glintfx "$glintfx_src" "$build_dir" "$cxx" -DGLINTFX_SKIP_PKGCONFIG_VALIDATION=ON 2>&1)"
+    configure_output="$(reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" ON 2>&1)"
     case "$configure_output" in
         *"post-install pkg-config validation disabled at configure time"*) : ;;
         *) fail "configuring with -DGLINTFX_SKIP_PKGCONFIG_VALIDATION=ON did not print the expected configure-time disable message. Got:
 ${configure_output}" ;;
     esac
 
-    build_glintfx "$build_dir"
+    build_glintfx "$build_dir" >/dev/null
     install_output="$(cmake --install "$build_dir" --prefix "$prefix" 2>&1)" \
         || fail "install with the configure-time hatch set unexpectedly FAILED:
 ${install_output}"
@@ -263,16 +314,18 @@ ${install_output}"
 
 # Scenario 4: install-time escape hatch, against a build NOT
 # configured with the hatch above - proves this is a genuinely
-# SEPARATE mechanism, read fresh at install time.
+# SEPARATE mechanism, read fresh at install time. Reconfigures the
+# hatch back OFF itself (never assumes scenario 3 left it that way),
+# because that is exactly the "NOT configured with the hatch"
+# precondition this scenario's own claim depends on.
 run_install_time_hatch_scenario() {
     glintfx_src="$1"
     cxx="$2"
-    scratch="$3"
+    build_dir="$3"
+    prefix="$4"
 
-    build_dir="${scratch}/build-hatch-install"
-    prefix="${scratch}/prefix-hatch-install"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx"
-    build_glintfx "$build_dir"
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
 
     output="$(GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 cmake --install "$build_dir" --prefix "$prefix" 2>&1)" \
         || fail "install with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment unexpectedly FAILED:
@@ -295,21 +348,22 @@ ${output}"
 }
 
 # Scenario 5: broken install, library artifact removed - GODS_LAWS.md
-# L-20's RED, with real, captured error output. Reuses the build from
-# scenario 1's own default-layout install (a SEPARATE, throwaway
-# prefix here) precisely so the corruption is applied to files a real
+# L-20's RED, with real, captured error output. Installs to its OWN
+# throwaway prefix (never scenario 1's, and never reused afterward)
+# precisely so the corruption is applied to files a real
 # `cmake --install` actually wrote, not a hand-assembled fixture -
 # PACKAGING.md's own "partially-removed install" example, reproduced
-# live.
+# live. Reconfigures the hatch OFF itself: this scenario's whole
+# premise is a build the validator DOES run against, so it cannot
+# inherit scenario 3's ON state by accident.
 run_broken_library_scenario() {
     glintfx_src="$1"
     cxx="$2"
-    scratch="$3"
+    build_dir="$3"
+    prefix="$4"
 
-    build_dir="${scratch}/build-broken-library"
-    prefix="${scratch}/prefix-broken-library"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx"
-    build_glintfx "$build_dir"
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
     cmake --install "$build_dir" --prefix "$prefix" >/dev/null
 
     validator_script="$(find_generated_validator_script "$build_dir")"
@@ -338,7 +392,10 @@ ${output}" ;;
 # through glintfx's own, already-correct CMake code is not possible
 # (the code never emits a blank Cflags:/Libs: line); the fixture
 # reproduces exactly the shape L-40's own case table names: correct
-# variable=includedir/libdir, blank flag lines.
+# variable=includedir/libdir, blank flag lines. Needs only the shared
+# build's own generated validator script and the real libdir subpath
+# (both stable across the whole file, PERF-PKGVALIDATE) - no build or
+# install of its own.
 run_empty_flags_floor_scenario() {
     build_dir="$1"
     scratch="$2"
@@ -377,16 +434,17 @@ ${output}" ;;
 # Scenario 7: missing glintfx.pc itself - the OTHER half of
 # "partially-removed install", and a distinct FATAL_ERROR branch
 # (the top-level EXISTS check in
-# glintfx_validate_installed_pkgconfig()) from scenario 5's.
+# glintfx_validate_installed_pkgconfig()) from scenario 5's. Own
+# throwaway prefix and its own reconfigure-to-OFF, for the same
+# self-sufficiency reason as scenario 5.
 run_missing_pc_file_scenario() {
     glintfx_src="$1"
     cxx="$2"
-    scratch="$3"
+    build_dir="$3"
+    prefix="$4"
 
-    build_dir="${scratch}/build-missing-pc"
-    prefix="${scratch}/prefix-missing-pc"
-    configure_glintfx "$glintfx_src" "$build_dir" "$cxx"
-    build_glintfx "$build_dir"
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
     cmake --install "$build_dir" --prefix "$prefix" >/dev/null
 
     validator_script="$(find_generated_validator_script "$build_dir")"
@@ -415,17 +473,20 @@ ${output}" ;;
 # find_program() to an EMPTY, throwaway root - the same legitimate
 # CMake mechanism cross-compiling toolchain files use to sandbox
 # find_program lookups to a sysroot, never a destructive edit of this
-# machine's real, installed pkg-config.
+# machine's real, installed pkg-config. Reuses scenario 1's own
+# install (PERF-PKGVALIDATE): nothing between scenario 1 and this one
+# ever mutates that prefix, so it is still exactly as intact as a
+# fresh one would be.
 run_pkgconfig_absent_scenario() {
     build_dir="$1"
     scratch="$2"
-    prefix_from_default="$3"
+    intact_prefix="$3"
 
     validator_script="$(find_generated_validator_script "$build_dir")"
     empty_root="${scratch}/empty-find-root"
     mkdir -p "$empty_root"
 
-    output="$(cmake -DCMAKE_INSTALL_PREFIX="$prefix_from_default" \
+    output="$(cmake -DCMAKE_INSTALL_PREFIX="$intact_prefix" \
         -DCMAKE_FIND_ROOT_PATH="$empty_root" \
         -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=ONLY \
         -P "$validator_script" 2>&1)" \
@@ -448,27 +509,28 @@ main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
-    run_default_layout_scenario "$glintfx_src" "$cxx" "$scratch"
-    run_destdir_scenario "$glintfx_src" "$cxx" "$scratch"
-    run_configure_time_hatch_scenario "$glintfx_src" "$cxx" "$scratch"
-    run_install_time_hatch_scenario "$glintfx_src" "$cxx" "$scratch"
-    run_broken_library_scenario "$glintfx_src" "$cxx" "$scratch"
-    run_missing_pc_file_scenario "$glintfx_src" "$cxx" "$scratch"
+    # PERF-PKGVALIDATE: ONE configure and ONE build for the whole file
+    # (see the file-level comment above for the measured before/after).
+    # "/usr/local" and OFF are CMake's/this project's own defaults,
+    # spelled out explicitly rather than omitted - every reconfigure in
+    # this file states both values, every time, so no scenario can
+    # silently inherit a value a previous scenario happened to leave
+    # cached.
+    build_dir="${scratch}/build-shared"
+    reconfigure_glintfx "$glintfx_src" "$build_dir" "$cxx" "/usr/local" OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
 
-    # Scenarios 6 and 8 reuse a THIRD, dedicated default-layout build
-    # (not scenario 1's or 5's - both of those either finish clean or
-    # get their own artifacts deleted by the time these two would run)
-    # purely to obtain a fresh GlintfxPkgConfigValidateInstalled.cmake
-    # and, for scenario 8, an intact install to validate.
-    shared_build_dir="${scratch}/build-shared-fixtures"
-    shared_prefix="${scratch}/prefix-shared-fixtures"
-    configure_glintfx "$glintfx_src" "$shared_build_dir" "$cxx"
-    build_glintfx "$shared_build_dir"
-    cmake --install "$shared_build_dir" --prefix "$shared_prefix" >/dev/null
-    real_libdir="$(find_libdir_relative_to_prefix "$shared_prefix")"
+    prefix_default="${scratch}/prefix-default"
+    run_default_layout_scenario "$build_dir" "$prefix_default"
+    real_libdir="$(find_libdir_relative_to_prefix "$prefix_default")"
 
-    run_empty_flags_floor_scenario "$shared_build_dir" "$scratch" "$real_libdir"
-    run_pkgconfig_absent_scenario "$shared_build_dir" "$scratch" "$shared_prefix"
+    run_destdir_scenario "$glintfx_src" "$cxx" "$build_dir" "$scratch"
+    run_configure_time_hatch_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-hatch-configure"
+    run_install_time_hatch_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-hatch-install"
+    run_broken_library_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-broken-library"
+    run_missing_pc_file_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-missing-pc"
+    run_empty_flags_floor_scenario "$build_dir" "$scratch" "$real_libdir"
+    run_pkgconfig_absent_scenario "$build_dir" "$scratch" "$prefix_default"
 
     echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR), honors both halves of its escape hatch, and fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, and a hand-assembled empty-Cflags/Libs (L-40) fixture, while degrading to a WARNING (not a FATAL_ERROR) when pkg-config itself is absent."
 }

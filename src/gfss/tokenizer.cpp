@@ -9,6 +9,7 @@
 #include "code_point.hpp"
 #include "cursor_ops.hpp"
 #include "lexical_rules.hpp"
+#include "token_progress_guard.hpp"
 
 // tokenizer.cpp - GFSS-TOKEN (TODO.md, GODS_LAWS.md L-17/L-19/L-20/
 // L-22/L-28): the CSS Syntax Module Level 3 "consume a token"
@@ -51,6 +52,7 @@ using detail::is_non_printable;
 using detail::is_valid_escape;
 using detail::is_whitespace;
 using detail::peek;
+using detail::token_made_forward_progress;
 using detail::would_start_ident_sequence;
 using detail::would_start_number;
 
@@ -425,28 +427,58 @@ bool gltfx_gfss_next_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_toke
     const gltfx_gfss_token_kind kind = dispatch_token(cursor, diagnostic);
 
     // ZERO-PROGRESS GUARD, found by this fatia's own mutation-testing
-    // pass (GODS_LAWS.md L-20/L-40): every dispatch_token() branch
-    // above guarantees at least one code point of progress through a
+    // pass (GODS_LAWS.md L-20): every dispatch_token() branch above
+    // guarantees at least one code point of progress through a
     // DIFFERENT mechanism per branch (the opening quote/bracket/at-
     // sign/backslash is consumed unconditionally before any further
     // check, or would_start_number()/would_start_ident_sequence()
     // having said yes forces consume_number()/consume_ident_sequence()
     // to consume something) - there is no SINGLE centralized check
-    // that this holds, so a future one-line regression in any ONE of
-    // them (this was measured LIVE: neutralizing consume_optional_
-    // sign() alone makes a leading "-3.5e-2" produce a ZERO-LENGTH
-    // <number-token>) turns into gltfx_gfss_tokenize()'s while loop
-    // spinning forever - a HANG, not a crash, on the CONSUMER's own
-    // process. Same convention gltfx_rslt<T>'s own precondition guard
-    // already uses (docs/api-conventions.md R1): assert() fires FIRST,
-    // naming the contract violated, in a Debug build (NDEBUG
-    // undefined); compiles to nothing in Release (this project's
-    // default for CI/tools/preci.sh), so this guard costs nothing
-    // there and changes no Release behavior - a hang either way is
-    // what this class of bug already produced without the guard.
-    assert((kind == gltfx_gfss_token_kind::eof || cursor.byte_offset > start_offset) &&
+    // INSIDE dispatch_token() that this holds, so a future one-line
+    // regression in any ONE of them (this was measured LIVE:
+    // neutralizing consume_optional_sign() alone makes a leading
+    // "-3.5e-2" produce a ZERO-LENGTH <number-token>) turns into
+    // gltfx_gfss_tokenize()'s while loop spinning forever - a HANG, not
+    // a crash, on the CONSUMER's own process. token_progress_guard.hpp's
+    // own header comment has the full rationale for why the check
+    // itself is a separate, testable predicate.
+    //
+    // TWO REACTIONS, CORRECTED 26/08/2026 (GODS_LAWS.md L-40 achado 2:
+    // "a guarda de progresso so protege em depuracao"). The FIRST
+    // version of this guard was assert() alone, on the SAME convention
+    // gltfx_rslt<T>'s precondition guard uses (docs/api-conventions.md
+    // R1) - but that convention fits a CALLER mistake (the consumer
+    // broke a precondition; UB in Release is the accepted, documented
+    // cost, same as std::optional::value()). This guard protects
+    // against something else: an INTERNAL glintfx defect that hangs a
+    // CORRECTLY-BEHAVING consumer's process, and assert() alone gave
+    // that protection ONLY in a Debug build (NDEBUG undefined) - a
+    // build this project's OWN tooling never uses: tools/preci.sh's
+    // stage_sanitizer (the ASan/UBSan portao) and every job of
+    // .github/workflows/ci.yml configure with
+    // -DCMAKE_BUILD_TYPE=Release, so this assert has NEVER fired in any
+    // of glintfx's own gates, not even the sanitizer one - measured
+    // live while fixing this achado, not assumed. The decision (see
+    // this fatia's own service order/commit message for the three
+    // options weighed): TURN THE GUARD INTO ONE THAT SURVIVES
+    // OPTIMIZATION, kept alongside the assert() rather than replacing
+    // it - the assert() still gives a developer doing a genuine manual
+    // -DCMAKE_BUILD_TYPE=Debug build the exact, named diagnostic; the
+    // `if` below is what actually holds the promise LEI ZERO's unknown
+    // external consumer gets in the build glintfx ships (Release):
+    // malformed input, or a future regression here, degrades to a
+    // wrong-but-terminating token stream, never a hung process. The
+    // cost is one integer comparison already computed for the assert's
+    // own condition, unconditionally, on the hot per-token path - not a
+    // product-policy call (no error code invented, no public signature
+    // touched, no behavior change for any currently-correct input).
+    const bool made_progress = token_made_forward_progress(kind, start_offset, cursor.byte_offset);
+    assert(made_progress &&
            "gltfx_gfss_next_token(): a token production consumed zero code points - internal "
            "contract violation, would spin the caller's while loop forever");
+    if (!made_progress) {
+        advance_code_point(cursor); // RELEASE SAFETY NET - see this block's own comment above.
+    }
 
     out_token.kind = kind;
     out_token.lexeme = cursor.source.substr(start_offset, cursor.byte_offset - start_offset);

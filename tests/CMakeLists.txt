@@ -34,7 +34,19 @@ glintfx_add_test(gfss_token_test)
 
 # GFSS-TOKEN: the CSS-core scanning algorithm itself, on top of the
 # types above - see gfss_tokenizer_test.cpp's own header comment.
+#
+# GODS_LAWS.md L-40 achado 2 of 26/08/2026 ("a guarda de progresso so
+# protege em depuracao"): this test also needs
+# src/gfss/token_progress_guard.hpp, a PRIVATE header, to exercise the
+# zero-progress guard's own predicate directly - the SAME
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir
+# gl_proc_address_assign_test.cpp already adds for render/
+# gl_proc_address.hpp above, added here on top of the target
+# glintfx_add_test() just created (the same pattern wl_proto_link_test
+# uses right below, calling a second setup function on an
+# already-created test target).
 glintfx_add_test(gfss_tokenizer_test)
+target_include_directories(gfss_tokenizer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()

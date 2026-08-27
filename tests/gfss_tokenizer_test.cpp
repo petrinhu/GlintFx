@@ -9,6 +9,7 @@
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
 
+#include "gfss/token_progress_guard.hpp"
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
@@ -234,6 +235,33 @@ GLINTFX_TEST(gltfx_gfss_tokenize_number_with_sign_fraction_and_exponent) {
         GLINTFX_CHECK(tokens.front().kind == gltfx_gfss_token_kind::number);
         GLINTFX_CHECK(tokens.front().lexeme == std::string_view{"-3.5e-2"});
     }
+}
+
+// --- the zero-progress guard's own predicate (GODS_LAWS.md L-40
+// achado 2 of 26/08/2026) --------------------------------------------
+//
+// token_progress_guard.hpp's own header comment has the full
+// rationale: this exercises the VIOLATION directly, with hand-picked
+// offsets, instead of needing a genuinely broken dispatch_token()
+// committed anywhere in the tree. The three rows below are the three
+// shapes gltfx_gfss_next_token() actually calls this predicate with:
+// a normal non-eof production that advanced (true), the <EOF-token>
+// case where "no advance" is CORRECT, not a violation (true), and the
+// one case this guard exists to catch - a non-eof kind reported at the
+// SAME offset it started (false).
+GLINTFX_TEST(token_made_forward_progress_true_when_a_non_eof_token_advances_the_cursor) {
+    using glintfx::style::detail::token_made_forward_progress;
+    GLINTFX_CHECK(token_made_forward_progress(gltfx_gfss_token_kind::number, 5, 6));
+}
+
+GLINTFX_TEST(token_made_forward_progress_true_at_eof_even_with_zero_advance) {
+    using glintfx::style::detail::token_made_forward_progress;
+    GLINTFX_CHECK(token_made_forward_progress(gltfx_gfss_token_kind::eof, 5, 5));
+}
+
+GLINTFX_TEST(token_made_forward_progress_false_on_a_non_eof_token_at_the_same_offset) {
+    using glintfx::style::detail::token_made_forward_progress;
+    GLINTFX_CHECK(!token_made_forward_progress(gltfx_gfss_token_kind::number, 5, 5));
 }
 
 // --- a realistic multi-token slice, the shape a real gfss declaration

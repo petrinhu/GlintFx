@@ -54,7 +54,18 @@ equivalent exists on Windows, which would mean maintaining two mechanisms).
    never "cleaned up". Read it yourself: the first lines of the file.
 3. **The file is vendored verbatim and never edited**, which removes the
    obligation to mark modifications, because there are none by construction.
-   The `sha256` gate above is the permanent proof of this.
+   The `sha256` gate above is the permanent proof of this. **Keeping this
+   promise on every platform is not automatic**: git's own default checkout
+   behavior on Windows (`core.autocrlf=true` on the `windows-latest` GitHub
+   Actions runner, absent any override) rewrites every `LF` in a text file
+   into `CRLF` during checkout, which changes the bytes of this file and
+   therefore its `sha256` - the gate caught exactly this on 2026-08-27,
+   failing loud instead of silently passing a mutated file, which is what it
+   is for. The repository's `.gitattributes` marks this file (and
+   `LICENSE-APACHE-2.0.txt` below, which travels under the same "verbatim"
+   promise per obligation 1) `binary`, which disables that conversion on
+   every platform; see `.gitattributes`'s own header comment for the full
+   reasoning and the proof that reproduces the mismatch on demand.
 4. **This README records the provenance**: URL, upstream commit, date of
    retrieval, `sha256`, and the "verbatim, not modified" statement, all four
    are in this file.

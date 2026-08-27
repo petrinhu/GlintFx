@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# .gitattributes
+#
+# GL-LOADER (TODO.md, GODS_LAWS.md L-07 EXCECAO No 1, L-27, L-40).
+#
+# THE FACT this file exists to fix: the Windows CI job's configure
+# step failed at src/render/CMakeLists.txt's sha256 gate -
+# third_party/khronos/gl.xml measured as
+# d76ff1730ba90801a0c901fa38f643fcd1ad9da475a9c5a8344010be41c30687
+# instead of the recorded
+# fba2eaa6262cededdba0dd3cd1e3b1806c24899a7c5df8158467e41c19969426.
+#
+# THE PROOF, not an assumption: recomputing sha256 of the committed
+# (LF) blob with every "\n" replaced by "\r\n" reproduces the CI's
+# reported value byte for byte. Nothing else about the file's content
+# differs between platforms - only line-ending conversion explains the
+# mismatch. This is git's own default behavior on the windows-latest
+# runner (no .gitattributes existed before this file, so git fell back
+# to its own text auto-detection + the runner's default line-ending
+# conversion), not a defect in gl_registry_codegen, in CMake's
+# file(SHA256 ...), or in the value recorded in this directory's own
+# README.md.
+#
+# WHY THIS MATTERS BEYOND ONE CI RUN: EXCECAO No 1's obligation 3
+# (GODS_LAWS.md L-07) is a textual promise - "O arquivo entra
+# verbatim, byte a byte, e nao se modifica" - that git's default
+# checkout behavior does not keep on Windows without an explicit
+# override. The sha256 gate below did exactly its job (GODS_LAWS.md
+# L-40: it counted, compared against a real expectation, and refused
+# to pass silently); the fix belongs here, in how git hands the file
+# to the gate, not in the gate itself.
+#
+# "binary" is shorthand for "-diff -merge -text": disables line-ending
+# conversion on checkout AND on checkin, on every platform equally;
+# disables line-based diff (a byte-identical vendored file should
+# never be diffed as text - "Binary files differ" is the honest
+# report for a file this law forbids editing); disables line-based
+# merge for the same reason. This is a NO-OP on every Linux CI job
+# (ubuntu-latest, all five fedora:44-based jobs, and every other
+# platform this project targets outside CI): those checkouts already
+# receive the file exactly as committed (LF), because Linux git does
+# not convert line endings by default. Only the windows-latest
+# runner's behavior changes - which is the one platform where the
+# mismatch was ever observed.
+#
+# SCOPE, deliberately narrow: this covers the two files EXCECAO No 1
+# actually vendors under third_party/khronos/ - the registry itself
+# and the upstream license text obligation 1 requires to travel with
+# it (see that directory's own README.md). It does NOT use a
+# third_party/khronos/** glob, because that directory also holds
+# README.md, which is OUR OWN prose (AGPL-3.0-or-later,
+# GODS_LAWS.md L-21) - a normal file meant to stay diffable as text.
+# A blanket glob would have silently made it binary too, for zero
+# benefit.
+#
+# THE INVERSE, checked before this file was written: no other tracked
+# file in this repository has a hash, checksum, or other byte-exact
+# comparison against its own committed content (verified by
+# enumerating every "sha256"/"md5"/"checksum"/"file(SHA" occurrence in
+# the repository - third_party/khronos/gl.xml's gate in
+# src/render/CMakeLists.txt is the only one). The two files this
+# .gitattributes protects are therefore the entire set that needed
+# protecting; no other pattern was left out.
+#
+# This file adds NO behavior for text/diff-comparing gates elsewhere
+# in the tree (tests/tools/check_dup_laws.sh's byte-for-byte DUP-BLOCK
+# comparison between GODS_LAWS.md and ESCOPO.md, gitleaks's history
+# scan, or any tests/tools/*.sh gate) - none of them match the two
+# paths below, and none of the Linux shells (bash/dash/zsh across the
+# five container images) that run those gates change behavior from
+# this file's presence, since Linux checkouts of the two paths below
+# were already byte-identical to what they are now.
+
+third_party/khronos/gl.xml binary
+third_party/khronos/LICENSE-APACHE-2.0.txt binary

@@ -44,11 +44,19 @@ add_subdirectory(gfss)
 # CMakeLists.txt's own header comment for the full reasoning.
 add_subdirectory(render)
 
-# UNIX only (WL-PROTO, GODS_LAWS.md L-05: Wayland is a Linux-only
-# surface; Windows has no platform/ entry yet).
-if(UNIX)
-    add_subdirectory(platform)
-endif()
+# Unconditional as of ARCH-PORTS (GODS_LAWS.md L-19/L-40): the
+# UNIX/WIN32/unsupported branching that used to live in THIS if(UNIX)
+# guard now lives inside src/platform/CMakeLists.txt itself, as a
+# three-state selection (UNIX selects Wayland; WIN32 is a declared
+# absence pending WIN-WINDOW; any other platform is a loud
+# FATAL_ERROR at configure time, never a silently empty platform
+# layer) - see that file's own header comment. Net effect on the two
+# platforms this project's CI already builds is UNCHANGED: Linux still
+# gets the Wayland backend, Windows still compiles glintfx with no
+# platform/ sources at all (WL-PROTO's original if(UNIX) fact, now
+# enforced one level deeper, with a printed reason instead of silent
+# absence).
+add_subdirectory(platform)
 
 glintfx_apply_compile_options(glintfx_library)
 glintfx_set_target_properties(glintfx_library)

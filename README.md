@@ -71,7 +71,7 @@ To build the static library instead of the default shared one, add `-DBUILD_SHAR
 
 Requirements: a C++23 compiler (GCC 14 or newer; GCC 13's partial C++23 support is not enough, measured against Ubuntu 24.04's default toolchain), CMake, Ninja, and, on Linux, `libwayland-client` plus `wayland-protocols` development headers.
 
-The test suite currently has 37 registered cases in shared mode and 36 in static mode (the difference is `visibility_test`, which only makes sense against a shared object). Run `ctest --test-dir build -N` yourself to get the current count: this number changes as the library grows, and the command is more reliable than any number written in prose. This project already shipped documentation that cited a stale count once (33/32, three commits behind the real 34/33) with nothing to catch it; a CI gate (`readme_test_count_test`, see `tests/tools/check_readme_test_count.sh`) now fails the build whenever this sentence and `ctest -N` disagree, so the sentence above is checked, not just trusted.
+The test suite currently has 47 registered cases in shared mode and 46 in static mode (the difference is `visibility_test`, which only makes sense against a shared object). Run `ctest --test-dir build -N` yourself to get the current count: this number changes as the library grows, and the command is more reliable than any number written in prose. This project already shipped documentation that cited a stale count once (33/32, three commits behind the real 34/33) with nothing to catch it; a CI gate (`readme_test_count_test`, see `tests/tools/check_readme_test_count.sh`) now fails the build whenever this sentence and `ctest -N` disagree, so the sentence above is checked, not just trusted.
 
 ## Versioning and compatibility
 
@@ -103,6 +103,10 @@ See [`CHANGELOG.md`](CHANGELOG.md). No version has shipped yet, so it is current
 ## License
 
 glintfx is licensed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later). See [`LICENSE`](LICENSE) for the full text.
+
+## Third-party files
+
+Almost everything in this repository is written from scratch under AGPL-3.0-or-later, with one narrow, explicitly recorded exception: [`third_party/khronos/gl.xml`](third_party/khronos/gl.xml), the Khronos Group's own machine-readable OpenGL API registry, vendored verbatim under its own Apache-2.0 license so this project's build-time code generator (`tools/gl_registry_codegen/`) can resolve the OpenGL 3.3 core function list on every one of this project's five target platforms. See [`third_party/khronos/README.md`](third_party/khronos/README.md) for the full provenance record (source URL, upstream commit, retrieval date, `sha256`) and why this one file needed an exception. Everything this generator produces at build time is glintfx's own code, licensed AGPL-3.0-or-later like the rest of the project.
 
 ## More documentation
 

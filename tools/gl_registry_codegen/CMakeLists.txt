@@ -23,3 +23,11 @@ add_library(gl_registry_codegen_lib STATIC
 )
 target_include_directories(gl_registry_codegen_lib PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 glintfx_apply_compile_options(gl_registry_codegen_lib)
+
+# The HOST executable itself - src/render/CMakeLists.txt's
+# add_custom_command() is the only caller (GODS_LAWS.md L-07 EXCECAO
+# No 1: this tool never links into glintfx_library nor is it
+# installed with it).
+add_executable(gl_registry_codegen main.cpp)
+target_link_libraries(gl_registry_codegen PRIVATE gl_registry_codegen_lib)
+glintfx_apply_compile_options(gl_registry_codegen)

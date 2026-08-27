@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+Deliberately empty fixture (GL-LOADER, GODS_LAWS.md L-40's own "varredura
+vazia" control): a well-formed gl.xml SHAPE with a <commands> section that
+declares no commands at all - proves gl_registry_codegen FAILS loud
+instead of silently succeeding when the input resolves to zero GL
+functions. Never the real vendored third_party/khronos/gl.xml.
+-->
+<registry>
+    <commands namespace="GL">
+    </commands>
+</registry>

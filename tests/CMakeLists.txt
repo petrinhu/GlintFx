@@ -106,6 +106,46 @@ glintfx_apply_compile_options(gl_sha256_test)
 add_test(NAME gl_sha256_test COMMAND gl_sha256_test)
 set_tests_properties(gl_sha256_test PROPERTIES LABELS unit)
 
+# GL-LOADER (GODS_LAWS.md L-40): the CLI itself, end to end, proving the
+# three required controls at the process-exit-code level - positive
+# (the real vendored file with its real, matching sha256 succeeds),
+# negative (a deliberately wrong --expect-sha256 reproves, GODS_LAWS.md
+# L-07 EXCECAO No 1 obligation 3), and empty-scan (a well-formed
+# registry that resolves ZERO GL functions reproves, never a silent
+# success - the exact defect class L-40 exists to forbid). WILL_FAIL
+# TRUE is CTest's own mechanism for "this process MUST exit non-zero",
+# no shell script needed. GLINTFX_GL_XML_SHA256 comes from src/render/
+# CMakeLists.txt's own file(SHA256 ...) call (CACHE INTERNAL, computed
+# once, single source of truth with the real build wiring).
+add_test(
+    NAME gl_registry_codegen_real_vendored_file_succeeds_test
+    COMMAND gl_registry_codegen
+        "${PROJECT_SOURCE_DIR}/third_party/khronos/gl.xml"
+        "${CMAKE_CURRENT_BINARY_DIR}/gl_registry_codegen_cli_out/real"
+        "3.3"
+        "--expect-sha256=${GLINTFX_GL_XML_SHA256}"
+)
+set_tests_properties(gl_registry_codegen_real_vendored_file_succeeds_test PROPERTIES LABELS unit)
+
+add_test(
+    NAME gl_registry_codegen_sha_mismatch_reproves_test
+    COMMAND gl_registry_codegen
+        "${PROJECT_SOURCE_DIR}/third_party/khronos/gl.xml"
+        "${CMAKE_CURRENT_BINARY_DIR}/gl_registry_codegen_cli_out/sha_mismatch"
+        "3.3"
+        "--expect-sha256=0000000000000000000000000000000000000000000000000000000000000000"
+)
+set_tests_properties(gl_registry_codegen_sha_mismatch_reproves_test PROPERTIES LABELS unit WILL_FAIL TRUE)
+
+add_test(
+    NAME gl_registry_codegen_empty_registry_reproves_test
+    COMMAND gl_registry_codegen
+        "${CMAKE_CURRENT_SOURCE_DIR}/gl_registry_codegen_fixtures/empty_registry.xml"
+        "${CMAKE_CURRENT_BINARY_DIR}/gl_registry_codegen_cli_out/empty"
+        "3.3"
+)
+set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES LABELS unit WILL_FAIL TRUE)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

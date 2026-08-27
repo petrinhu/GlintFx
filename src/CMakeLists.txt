@@ -38,6 +38,12 @@ add_subdirectory(core)
 # existing one "because it fits").
 add_subdirectory(gfss)
 
+# render layer (GL-LOADER, GODS_LAWS.md L-07 EXCECAO No 1/L-19/L-31):
+# NOT guarded by if(UNIX) - GL 3.3 core is a Windows target too (WGL),
+# unlike the Wayland platform/ backend below. See src/render/
+# CMakeLists.txt's own header comment for the full reasoning.
+add_subdirectory(render)
+
 # UNIX only (WL-PROTO, GODS_LAWS.md L-05: Wayland is a Linux-only
 # surface; Windows has no platform/ entry yet).
 if(UNIX)

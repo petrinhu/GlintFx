@@ -11,9 +11,7 @@ namespace glintfx::gl_codegen {
 
 namespace {
 
-bool is_whitespace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
+bool is_whitespace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 
 std::string_view trim(std::string_view text) {
     while (!text.empty() && is_whitespace(text.front())) {
@@ -110,7 +108,7 @@ std::vector<xml_attribute> parse_attributes(std::string_view tag_content) {
 // Splits the raw tag content (everything between '<' and '>', name
 // plus attributes) into the element name and its attribute list.
 void parse_element_head(std::string_view tag_content, std::string &name_out,
-                         std::vector<xml_attribute> &attributes_out) {
+                        std::vector<xml_attribute> &attributes_out) {
     std::size_t name_end = 0;
     while (name_end < tag_content.size() && !is_whitespace(tag_content[name_end])) {
         ++name_end;
@@ -177,7 +175,8 @@ bool xml_reader::next(xml_event &out) {
     if (m_document[m_pos] != '<') {
         // Text content: everything up to the next '<'.
         const std::size_t next_lt = m_document.find('<', m_pos);
-        const std::size_t text_end = (next_lt == std::string_view::npos) ? m_document.size() : next_lt;
+        const std::size_t text_end =
+            (next_lt == std::string_view::npos) ? m_document.size() : next_lt;
         out = xml_event{};
         out.kind = xml_event_kind::text;
         out.text = decode_entities(m_document.substr(m_pos, text_end - m_pos));

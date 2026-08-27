@@ -57,7 +57,8 @@ struct xml_event {
 // api-conventions.md R4's spirit: absent reads back empty, not UB) -
 // this is a build-time tool, not a public API, so it returns a plain
 // string_view rather than a gltfx_rslt<T>.
-[[nodiscard]] std::string_view find_attribute(const xml_event &event, std::string_view attribute_name);
+[[nodiscard]] std::string_view find_attribute(const xml_event &event,
+                                              std::string_view attribute_name);
 
 // Minimal non-validating pull reader. See the file header comment
 // above for the exact subset it supports.

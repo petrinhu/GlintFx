@@ -46,8 +46,8 @@ struct gl_command {
 // which double-subtracts a name re-required later and was rejected
 // after producing a different, wrong total in this project's own
 // verification).
-[[nodiscard]] std::vector<std::string> resolve_core_profile_command_names(std::string_view xml_document,
-                                                                           double max_version);
+[[nodiscard]] std::vector<std::string>
+resolve_core_profile_command_names(std::string_view xml_document, double max_version);
 
 // Convenience composing the two functions above: resolves the command
 // NAMES for the given max_version, looks each one up in the signature
@@ -59,6 +59,7 @@ struct gl_command {
 // signature table is a malformed registry, not a silent skip - see
 // build_gl_registry()'s own .cpp comment for why this is asserted
 // rather than degraded.
-[[nodiscard]] std::vector<gl_command> build_gl_registry(std::string_view xml_document, double max_version);
+[[nodiscard]] std::vector<gl_command> build_gl_registry(std::string_view xml_document,
+                                                        double max_version);
 
 } // namespace glintfx::gl_codegen

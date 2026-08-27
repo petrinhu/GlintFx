@@ -26,9 +26,7 @@ namespace {
 // std::stod, which reads the CURRENT LOCALE's decimal separator; this
 // is a build-time tool that must give the same answer regardless of
 // the machine's locale).
-bool is_whitespace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
+bool is_whitespace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 
 // Trims only the OUTER whitespace of a reconstructed C type/name
 // string (e.g. "GLbitfield " from a <ptype>...</ptype> immediately
@@ -225,7 +223,8 @@ void apply_command_block(xml_reader &reader, std::set<std::string> &names, bool 
 
 } // namespace
 
-std::vector<std::string> resolve_core_profile_command_names(std::string_view xml_document, double max_version) {
+std::vector<std::string> resolve_core_profile_command_names(std::string_view xml_document,
+                                                            double max_version) {
     std::set<std::string> names;
     xml_reader reader(xml_document);
     xml_event event;
@@ -288,13 +287,15 @@ std::vector<std::string> resolve_core_profile_command_names(std::string_view xml
 
 std::vector<gl_command> build_gl_registry(std::string_view xml_document, double max_version) {
     const std::vector<gl_command> all_signatures = parse_command_signatures(xml_document);
-    const std::vector<std::string> resolved_names = resolve_core_profile_command_names(xml_document, max_version);
+    const std::vector<std::string> resolved_names =
+        resolve_core_profile_command_names(xml_document, max_version);
 
     std::vector<gl_command> result;
     result.reserve(resolved_names.size());
     for (const std::string &name : resolved_names) {
-        const auto it = std::find_if(all_signatures.begin(), all_signatures.end(),
-                                      [&name](const gl_command &command) { return command.name == name; });
+        const auto it =
+            std::find_if(all_signatures.begin(), all_signatures.end(),
+                         [&name](const gl_command &command) { return command.name == name; });
         // A name a <feature> resolves to but that has no entry in
         // <commands> is a MALFORMED registry (GODS_LAWS.md L-27: this
         // is the checked fact - the real vendored gl.xml never hits
@@ -304,7 +305,8 @@ std::vector<gl_command> build_gl_registry(std::string_view xml_document, double 
         // at the exact file that is wrong and a loader silently
         // missing a function nobody ever notices until a consumer's
         // draw call segfaults on a null pointer.
-        assert(it != all_signatures.end() && "resolved GL command name has no signature in <commands>");
+        assert(it != all_signatures.end() &&
+               "resolved GL command name has no signature in <commands>");
         if (it != all_signatures.end()) {
             result.push_back(*it);
         }

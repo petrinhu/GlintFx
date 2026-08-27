@@ -68,7 +68,8 @@ using GLsync = gl_sync_opaque *;
 static_assert(sizeof(GLenum) == 4, "GLenum must match the real GL ABI's 32-bit unsigned int");
 static_assert(sizeof(GLboolean) == 1, "GLboolean must match the real GL ABI's 8-bit unsigned char");
 static_assert(sizeof(GLint) == 4, "GLint must match the real GL ABI's 32-bit int");
-static_assert(sizeof(GLsync) == sizeof(void *), "GLsync must stay a bare pointer, never a fat handle");
+static_assert(sizeof(GLsync) == sizeof(void *),
+              "GLsync must stay a bare pointer, never a fat handle");
 
 // APIENTRY (GODS_LAWS.md L-31: WGL on Windows, EGL on Linux) - every
 // real GL implementation uses __stdcall on 32-bit Windows and the

@@ -44,8 +44,9 @@ bool contains(const std::string &haystack, std::string_view needle) {
 GLINTFX_TEST(header_declares_a_function_pointer_typedef_per_command) {
     const std::string header = render_header(fixture_commands());
     GLINTFX_CHECK(contains(header, "using PFNGLFINISHPROC = void (GLINTFX_GL_APIENTRY *)(void);"));
-    GLINTFX_CHECK(
-        contains(header, "using PFNGLGETSTRINGPROC = const GLubyte * (GLINTFX_GL_APIENTRY *)(GLenum name);"));
+    GLINTFX_CHECK(contains(
+        header,
+        "using PFNGLGETSTRINGPROC = const GLubyte * (GLINTFX_GL_APIENTRY *)(GLenum name);"));
 }
 
 GLINTFX_TEST(header_declares_one_struct_field_named_after_the_gl_function) {
@@ -57,8 +58,8 @@ GLINTFX_TEST(header_declares_one_struct_field_named_after_the_gl_function) {
 GLINTFX_TEST(header_declares_the_load_gl_functions_entry_point) {
     const std::string header = render_header(fixture_commands());
     GLINTFX_CHECK(contains(header,
-                            "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> "
-                            "load_gl_functions(gl_proc_address_fn get_proc_address) noexcept;"));
+                           "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> "
+                           "load_gl_functions(gl_proc_address_fn get_proc_address) noexcept;"));
 }
 
 GLINTFX_TEST(header_carries_the_three_mandatory_attribution_lines) {
@@ -75,7 +76,8 @@ GLINTFX_TEST(header_includes_the_hand_written_abi_and_proc_address_headers) {
 }
 
 GLINTFX_TEST(source_includes_the_header_by_the_given_path) {
-    const std::string source = render_source(fixture_commands(), "generated/render/gl_functions.hpp");
+    const std::string source =
+        render_source(fixture_commands(), "generated/render/gl_functions.hpp");
     GLINTFX_CHECK(contains(source, "#include \"generated/render/gl_functions.hpp\""));
 }
 
@@ -84,7 +86,8 @@ GLINTFX_TEST(source_calls_try_assign_once_per_command_with_its_own_name) {
     GLINTFX_CHECK(contains(
         source, "try_assign_gl_function_pointer(table.glFinish, get_proc_address, \"glFinish\")"));
     GLINTFX_CHECK(contains(
-        source, "try_assign_gl_function_pointer(table.glGetString, get_proc_address, \"glGetString\")"));
+        source,
+        "try_assign_gl_function_pointer(table.glGetString, get_proc_address, \"glGetString\")"));
 }
 
 GLINTFX_TEST(source_returns_ok_with_the_populated_table_on_success) {

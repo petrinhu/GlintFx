@@ -18,7 +18,7 @@ namespace {
 std::string to_upper(std::string_view text) {
     std::string result(text);
     std::transform(result.begin(), result.end(), result.begin(),
-                    [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
     return result;
 }
 
@@ -27,7 +27,9 @@ std::string to_upper(std::string_view text) {
 // (glActiveTexture -> PFNGLACTIVETEXTUREPROC), so a consumer or a
 // reviewer who already knows OpenGL recognizes it on sight instead of
 // learning a new one.
-std::string typedef_name(const gl_command &command) { return "PFN" + to_upper(command.name) + "PROC"; }
+std::string typedef_name(const gl_command &command) {
+    return "PFN" + to_upper(command.name) + "PROC";
+}
 
 // Joins a command's parameter list into the C parameter-list text of
 // its function pointer typedef: "GLenum name, GLsizei count" - "void"
@@ -78,8 +80,8 @@ std::string render_header(const std::vector<gl_command> &commands) {
     out += "namespace glintfx::render {\n\n";
 
     for (const gl_command &command : commands) {
-        out += "using " + typedef_name(command) + " = " + command.return_type + " (GLINTFX_GL_APIENTRY *)(" +
-               parameter_list_text(command) + ");\n";
+        out += "using " + typedef_name(command) + " = " + command.return_type +
+               " (GLINTFX_GL_APIENTRY *)(" + parameter_list_text(command) + ");\n";
     }
     out += "\n";
 
@@ -93,13 +95,15 @@ std::string render_header(const std::vector<gl_command> &commands) {
     out += "// once per GL 3.3 core function - see gl_proc_address.hpp's own header\n";
     out += "// comment for why get_proc_address is a plain function pointer. Defined in\n";
     out += "// the GENERATED .cpp counterpart of this header.\n";
-    out += "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> load_gl_functions(gl_proc_address_fn "
-           "get_proc_address) noexcept;\n\n";
+    out +=
+        "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> load_gl_functions(gl_proc_address_fn "
+        "get_proc_address) noexcept;\n\n";
     out += "} // namespace glintfx::render\n";
     return out;
 }
 
-std::string render_source(const std::vector<gl_command> &commands, std::string_view header_include_path) {
+std::string render_source(const std::vector<gl_command> &commands,
+                          std::string_view header_include_path) {
     std::string out = three_line_attribution("generated source");
     out += "#include <string_view>\n";
     out += "#include <utility>\n\n";
@@ -107,15 +111,16 @@ std::string render_source(const std::vector<gl_command> &commands, std::string_v
     out += header_include_path;
     out += "\"\n\n";
     out += "namespace glintfx::render {\n\n";
-    out += "glintfx::gltfx_rslt<gl_function_table> load_gl_functions(gl_proc_address_fn get_proc_address) noexcept "
+    out += "glintfx::gltfx_rslt<gl_function_table> load_gl_functions(gl_proc_address_fn "
+           "get_proc_address) noexcept "
            "{\n";
     out += "    gl_function_table table;\n";
     out += "    bool all_resolved = true;\n";
     out += "    std::string_view first_missing;\n\n";
 
     for (const gl_command &command : commands) {
-        out += "    if (!try_assign_gl_function_pointer(table." + command.name + ", get_proc_address, \"" +
-               command.name + "\")) {\n";
+        out += "    if (!try_assign_gl_function_pointer(table." + command.name +
+               ", get_proc_address, \"" + command.name + "\")) {\n";
         out += "        if (all_resolved) {\n";
         out += "            first_missing = \"" + command.name + "\";\n";
         out += "        }\n";

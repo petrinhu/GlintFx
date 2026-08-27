@@ -41,8 +41,9 @@ using gl_proc_address_fn = void *(*)(const char *name);
 // programmer error) - `out` is set to nullptr in that case too, never
 // left holding a stale or uninitialized pointer a caller might call
 // through by mistake.
-template <typename Out> [[nodiscard]] bool try_assign_gl_function_pointer(Out &out, gl_proc_address_fn get_proc_address,
-                                                                           const char *name) noexcept {
+template <typename Out>
+[[nodiscard]] bool try_assign_gl_function_pointer(Out &out, gl_proc_address_fn get_proc_address,
+                                                  const char *name) noexcept {
     void *resolved = get_proc_address(name);
     out = reinterpret_cast<Out>(resolved);
     return resolved != nullptr;

@@ -13,11 +13,13 @@
 using glintfx::gl_codegen::sha256_hex;
 
 GLINTFX_TEST(empty_string_matches_the_published_test_vector) {
-    GLINTFX_CHECK_EQ(sha256_hex(""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    GLINTFX_CHECK_EQ(sha256_hex(""),
+                     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
 }
 
 GLINTFX_TEST(abc_matches_the_published_test_vector) {
-    GLINTFX_CHECK_EQ(sha256_hex("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    GLINTFX_CHECK_EQ(sha256_hex("abc"),
+                     "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
 }
 
 GLINTFX_TEST(the_two_block_message_matches_the_published_test_vector) {

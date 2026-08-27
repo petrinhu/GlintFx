@@ -44,6 +44,6 @@ namespace glintfx::gl_codegen {
 // literal, so a test can point it at a throwaway name without coupling
 // to the real build-tree path main.cpp uses.
 [[nodiscard]] std::string render_source(const std::vector<gl_command> &commands,
-                                         std::string_view header_include_path);
+                                        std::string_view header_include_path);
 
 } // namespace glintfx::gl_codegen

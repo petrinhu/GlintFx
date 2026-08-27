@@ -67,7 +67,8 @@ GLINTFX_TEST(parses_a_command_with_one_parameter) {
     const auto commands = parse_command_signatures(k_commands_fixture);
     const gl_command *clear = find_command(commands, "glClear");
     GLINTFX_CHECK(clear != nullptr && clear->params.size() == 1u);
-    GLINTFX_CHECK(clear != nullptr && !clear->params.empty() && clear->params[0].type == "GLbitfield");
+    GLINTFX_CHECK(clear != nullptr && !clear->params.empty() &&
+                  clear->params[0].type == "GLbitfield");
     GLINTFX_CHECK(clear != nullptr && !clear->params.empty() && clear->params[0].name == "mask");
 }
 
@@ -154,7 +155,8 @@ GLINTFX_TEST(a_require_with_a_non_core_profile_never_contributes) {
     // non-core profile block to be wrongly let through - this is the
     // fixture that closes that gap.
     const auto names = resolve_core_profile_command_names(k_feature_fixture, 3.3);
-    const bool has_compat_only = std::find(names.begin(), names.end(), "glCompatOnly") != names.end();
+    const bool has_compat_only =
+        std::find(names.begin(), names.end(), "glCompatOnly") != names.end();
     GLINTFX_CHECK(!has_compat_only);
 }
 

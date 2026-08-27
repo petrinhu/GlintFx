@@ -50,7 +50,8 @@ GLINTFX_TEST(plain_element_with_text_reports_start_text_end) {
 GLINTFX_TEST(mixed_text_and_element_content_reports_text_around_child) {
     // The exact shape a <proto> or <param> element takes in gl.xml:
     // literal text, a child element, more literal text.
-    const auto events = read_all("<param>const <ptype>GLchar</ptype> *const*<name>string</name></param>");
+    const auto events =
+        read_all("<param>const <ptype>GLchar</ptype> *const*<name>string</name></param>");
     // start param, text, start ptype, text, end ptype, text, start name,
     // text, end name, end param, end_of_document.
     GLINTFX_CHECK_EQ(events.size(), 11u);

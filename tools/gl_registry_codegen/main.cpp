@@ -110,7 +110,8 @@ double parse_max_version_argument(int argc, char **argv) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fail("uso: gl_registry_codegen <gl.xml> <output-dir> [max-version] [--expect-sha256=<hex>]");
+        fail(
+            "uso: gl_registry_codegen <gl.xml> <output-dir> [max-version] [--expect-sha256=<hex>]");
     }
 
     const std::filesystem::path input_path = argv[1];
@@ -123,10 +124,12 @@ int main(int argc, char **argv) {
     if (!expect_sha256.empty()) {
         const std::string actual_sha256 = glintfx::gl_codegen::sha256_hex(xml_content);
         if (actual_sha256 != expect_sha256) {
-            fail("integridade do arquivo vendorizado falhou: '" + input_path.string() + "' tem sha256 " +
-                 actual_sha256 + ", esperado " + expect_sha256 +
-                 " (GODS_LAWS.md L-07 EXCECAO No 1, obrigacao 3 - o arquivo deve permanecer verbatim; "
-                 "atualize third_party/khronos/README.md APENAS se o lider autorizou re-vendorizar)");
+            fail("integridade do arquivo vendorizado falhou: '" + input_path.string() +
+                 "' tem sha256 " + actual_sha256 + ", esperado " + expect_sha256 +
+                 " (GODS_LAWS.md L-07 EXCECAO No 1, obrigacao 3 - o arquivo deve permanecer "
+                 "verbatim; "
+                 "atualize third_party/khronos/README.md APENAS se o lider autorizou "
+                 "re-vendorizar)");
         }
     }
 
@@ -137,18 +140,19 @@ int main(int argc, char **argv) {
     // a silent success - the exact defect class this law exists to
     // forbid (a gate that scans nothing and prints green).
     if (commands.empty()) {
-        fail("varredura vazia: '" + input_path.string() + "' nao resolveu NENHUMA funcao GL <= " +
-             std::to_string(max_version) + " core - GODS_LAWS.md L-40 reprova, nunca declara sucesso silencioso");
+        fail("varredura vazia: '" + input_path.string() +
+             "' nao resolveu NENHUMA funcao GL <= " + std::to_string(max_version) +
+             " core - GODS_LAWS.md L-40 reprova, nunca declara sucesso silencioso");
     }
 
     const std::filesystem::path header_path = output_dir / "gl_functions.hpp";
     const std::filesystem::path source_path = output_dir / "gl_functions.cpp";
 
     write_file_if_changed(header_path, glintfx::gl_codegen::render_header(commands));
-    write_file_if_changed(source_path,
-                           glintfx::gl_codegen::render_source(commands, header_path.filename().string()));
+    write_file_if_changed(
+        source_path, glintfx::gl_codegen::render_source(commands, header_path.filename().string()));
 
-    std::printf("gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n", commands.size(),
-                max_version);
+    std::printf("gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
+                commands.size(), max_version);
     return 0;
 }

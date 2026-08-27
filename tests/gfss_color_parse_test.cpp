@@ -71,7 +71,8 @@ void check_color_failure(const color_parse_result &result, std::string_view expe
 
 GLINTFX_TEST(gltfx_gfss_parse_color_resolves_the_named_keyword_red) {
     const color_parse_result result = parse_color("red");
-    check_color_result(result, glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255});
+    check_color_result(result,
+                       glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255});
 }
 
 // --- named colors: ENUMERATED CLOSED, not a directed sample
@@ -115,8 +116,12 @@ GLINTFX_TEST(gltfx_gfss_parse_color_named_keyword_lookup_is_ascii_case_insensiti
 
 GLINTFX_TEST(gltfx_gfss_parse_color_hex_covers_every_one_of_the_four_forms) {
     struct hex_case {
+        // Default member initializer, not a user-declared
+        // constructor (would forfeit aggregate-init below) - the SAME
+        // cppcheck uninitMemberVarNoCtor fix named_colors.hpp's own
+        // named_color_entry already applies.
         std::string_view text;
-        glintfx::gltfx_rgba8 expected;
+        glintfx::gltfx_rgba8 expected{};
     };
     constexpr hex_case k_cases[] = {
         // #RGB - each nibble duplicated: 0xf -> 0xff, 0x0 -> 0x00, alpha defaults opaque.
@@ -134,8 +139,9 @@ GLINTFX_TEST(gltfx_gfss_parse_color_hex_covers_every_one_of_the_four_forms) {
         ++checked;
     }
     GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(4));
-    std::println("gltfx_gfss_parse_color_hex_covers_every_one_of_the_four_forms: {} form(s) checked",
-                 checked);
+    std::println(
+        "gltfx_gfss_parse_color_hex_covers_every_one_of_the_four_forms: {} form(s) checked",
+        checked);
 }
 
 GLINTFX_TEST(gltfx_gfss_parse_color_hex_accepts_uppercase_digits) {
@@ -148,8 +154,9 @@ GLINTFX_TEST(gltfx_gfss_parse_color_hex_accepts_uppercase_digits) {
 
 GLINTFX_TEST(gltfx_gfss_parse_color_functions_cover_every_one_of_the_four_names) {
     struct function_case {
+        // Same cppcheck fix as hex_case above.
         std::string_view text;
-        glintfx::gltfx_rgba8 expected;
+        glintfx::gltfx_rgba8 expected{};
     };
     constexpr function_case k_cases[] = {
         {"rgb(255, 0, 0)", glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
@@ -158,7 +165,8 @@ GLINTFX_TEST(gltfx_gfss_parse_color_functions_cover_every_one_of_the_four_names)
         // hue 0, saturation 100%, lightness 50% is pure red - hand
         // re-derived from the CSS Color 4 reference formula
         // (color_parse.cpp's own header comment), not merely trusted.
-        {"hsl(0, 100%, 50%)", glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
+        {"hsl(0, 100%, 50%)",
+         glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255}},
         {"hsla(0, 100%, 50%, 50%)",
          glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 128}},
     };
@@ -168,9 +176,9 @@ GLINTFX_TEST(gltfx_gfss_parse_color_functions_cover_every_one_of_the_four_names)
         ++checked;
     }
     GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(4));
-    std::println(
-        "gltfx_gfss_parse_color_functions_cover_every_one_of_the_four_names: {} function(s) checked",
-        checked);
+    std::println("gltfx_gfss_parse_color_functions_cover_every_one_of_the_four_names: {} "
+                 "function(s) checked",
+                 checked);
 }
 
 GLINTFX_TEST(gltfx_gfss_parse_color_rgb_accepts_percentage_components) {
@@ -178,7 +186,8 @@ GLINTFX_TEST(gltfx_gfss_parse_color_rgb_accepts_percentage_components) {
                        glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 128, .alpha = 255});
 }
 
-GLINTFX_TEST(gltfx_gfss_parse_color_functions_are_ascii_case_insensitive_and_ignore_inner_whitespace) {
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_functions_are_ascii_case_insensitive_and_ignore_inner_whitespace) {
     check_color_result(parse_color("RGB( 255 , 0 , 0 )"),
                        glintfx::gltfx_rgba8{.red = 255, .green = 0, .blue = 0, .alpha = 255});
     check_color_result(parse_color("HsL(0, 100%, 50%)"),
@@ -282,7 +291,8 @@ GLINTFX_TEST(gltfx_gfss_parse_color_hex_with_invalid_digit_is_rejected) {
     check_color_failure(parse_color("#ggg"), k_color_expected_hex_digit);
 }
 
-GLINTFX_TEST(gltfx_gfss_parse_color_rgb_component_that_is_neither_number_nor_percentage_is_rejected) {
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_rgb_component_that_is_neither_number_nor_percentage_is_rejected) {
     using glintfx::style::detail::k_color_expected_number_or_percentage;
     check_color_failure(parse_color("rgb(red, 0, 0)"), k_color_expected_number_or_percentage);
 }
@@ -430,7 +440,8 @@ GLINTFX_TEST(color_diagnostic_vocabulary_is_enumerated_closed_and_every_identifi
                         glintfx::style::detail::k_color_expected_percentage);
     check_color_failure(parse_color("rgb(255, 50%, 0)"),
                         glintfx::style::detail::k_color_expected_uniform_component_types);
-    check_color_failure(parse_color("rgb(255 0 0)"), glintfx::style::detail::k_color_expected_comma);
+    check_color_failure(parse_color("rgb(255 0 0)"),
+                        glintfx::style::detail::k_color_expected_comma);
     check_color_failure(parse_color("rgb(255, 0, 0, 0)"),
                         glintfx::style::detail::k_color_expected_argument_count);
     check_color_failure(parse_color("rgb(255, 0, 0]"),

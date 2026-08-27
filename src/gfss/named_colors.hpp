@@ -72,8 +72,15 @@
 namespace glintfx::style::detail {
 
 struct named_color_entry {
+    // Default member initializers, not a user-declared constructor
+    // (which would forfeit aggregate-init at every row of
+    // named_colors.cpp's own k_table) - the same cppcheck
+    // uninitMemberVarNoCtor fix tests/gfss_tokenizer_test.cpp's own
+    // kind_sample and src/core/err_code.cpp's own err_code_entry
+    // already apply: the checker cannot see that aggregate init
+    // already sets every field at every use site.
     std::string_view name;
-    gltfx_rgba8 value;
+    gltfx_rgba8 value{};
 };
 
 // U+0041-U+005A ('A'-'Z') and U+0061-U+007A ('a'-'z') only - the ASCII
@@ -90,7 +97,7 @@ struct named_color_entry {
 }
 
 [[nodiscard]] constexpr bool ascii_case_insensitive_equal(std::string_view a,
-                                                           std::string_view b) noexcept {
+                                                          std::string_view b) noexcept {
     if (a.size() != b.size()) {
         return false;
     }

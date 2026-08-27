@@ -69,15 +69,15 @@
 
 namespace glintfx::style::detail {
 
-#define GLINTFX_GFSS_COLOR_EXPECTED_LIST(X)                                                       \
-    X(color_value)                                                                                \
-    X(hex_digit)                                                                                  \
-    X(valid_hex_length)                                                                           \
-    X(known_color_keyword)                                                                        \
-    X(known_color_function)                                                                       \
-    X(shipped_color_notation)                                                                     \
+#define GLINTFX_GFSS_COLOR_EXPECTED_LIST(X)                                                        \
+    X(color_value)                                                                                 \
+    X(hex_digit)                                                                                   \
+    X(valid_hex_length)                                                                            \
+    X(known_color_keyword)                                                                         \
+    X(known_color_function)                                                                        \
+    X(shipped_color_notation)                                                                      \
     X(number_or_percentage)                                                                        \
-    X(number)                                                                                     \
+    X(number)                                                                                      \
     X(percentage)                                                                                  \
     X(uniform_component_types)                                                                     \
     X(comma)                                                                                       \
@@ -114,7 +114,7 @@ inline constexpr std::array<std::string_view, k_color_expected_vocabulary_count>
 #define GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE(name) k_color_expected_##name,
         GLINTFX_GFSS_COLOR_EXPECTED_LIST(GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE)
 #undef GLINTFX_GFSS_COLOR_EXPECTED_ARRAY_ONE
-};
+    };
 
 #undef GLINTFX_GFSS_COLOR_EXPECTED_LIST
 

@@ -26,11 +26,12 @@ namespace {
 
 // --- shared plumbing -------------------------------------------------
 
-gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_token &token, std::string_view expected) noexcept {
+gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_token &token,
+                                      std::string_view expected) noexcept {
     return gltfx_gfss_diagnostic{.line = token.line, .column = token.column, .expected = expected};
 }
 
-color_parse_result fail(gltfx_gfss_diagnostic diagnostic) noexcept {
+color_parse_result fail(const gltfx_gfss_diagnostic &diagnostic) noexcept {
     return color_parse_result{.ok = false, .value = {}, .diagnostic = diagnostic};
 }
 
@@ -179,15 +180,15 @@ gltfx_rgba8 decode_hex_body(std::string_view body) noexcept {
     if (body.size() <= 4) {
         const std::uint8_t alpha = body.size() == 4 ? expand_hex_nibble(nibble[3]) : 255U;
         return gltfx_rgba8{.red = expand_hex_nibble(nibble[0]),
-                            .green = expand_hex_nibble(nibble[1]),
-                            .blue = expand_hex_nibble(nibble[2]),
-                            .alpha = alpha};
+                           .green = expand_hex_nibble(nibble[1]),
+                           .blue = expand_hex_nibble(nibble[2]),
+                           .alpha = alpha};
     }
     const std::uint8_t alpha = body.size() == 8 ? hex_byte(nibble[6], nibble[7]) : 255U;
     return gltfx_rgba8{.red = hex_byte(nibble[0], nibble[1]),
-                        .green = hex_byte(nibble[2], nibble[3]),
-                        .blue = hex_byte(nibble[4], nibble[5]),
-                        .alpha = alpha};
+                       .green = hex_byte(nibble[2], nibble[3]),
+                       .blue = hex_byte(nibble[4], nibble[5]),
+                       .alpha = alpha};
 }
 
 color_parse_result parse_hex_color(const gltfx_gfss_token &token) noexcept {
@@ -251,8 +252,12 @@ enum class color_function_kind : std::uint8_t { rgb, rgba, hsl, hsla };
 
 bool try_match_color_function_kind(std::string_view name, color_function_kind &out_kind) noexcept {
     struct entry {
+        // Default member initializer, not a user-declared constructor
+        // (would forfeit aggregate-init below) - the SAME cppcheck
+        // uninitMemberVarNoCtor fix named_colors.hpp's own
+        // named_color_entry already applies.
         std::string_view name;
-        color_function_kind kind;
+        color_function_kind kind = color_function_kind::rgb;
     };
     constexpr std::array<entry, 4> k_functions{{
         {"rgb", color_function_kind::rgb},
@@ -298,7 +303,11 @@ struct color_component {
 // pair ("accepts number" / "accepts percentage") would let a caller
 // construct the nonsensical "accepts neither" by mistake; this enum
 // makes that combination unrepresentable.
-enum class component_kind_requirement : std::uint8_t { number_or_percentage, number_only, percentage_only };
+enum class component_kind_requirement : std::uint8_t {
+    number_or_percentage,
+    number_only,
+    percentage_only
+};
 
 // One argument matching `requirement` - MUTATION-FOUND BUG, FIXED HERE
 // (this project's own first real red, captured live before this fix:
@@ -350,7 +359,8 @@ bool read_color_component(gltfx_gfss_cursor &cursor, component_kind_requirement 
 // close-paren for the last. Returns false (out_failure set) on
 // anything else, including distinguishing "one comma too many" (an
 // extra argument) from "the ')' never came".
-bool read_component_separator(gltfx_gfss_cursor &cursor, std::size_t index, std::size_t required_args,
+bool read_component_separator(gltfx_gfss_cursor &cursor, std::size_t index,
+                              std::size_t required_args,
                               gltfx_gfss_diagnostic &out_failure) noexcept {
     const bool is_last_argument = index + 1 == required_args;
     gltfx_gfss_token token{};
@@ -363,7 +373,7 @@ bool read_component_separator(gltfx_gfss_cursor &cursor, std::size_t index, std:
         // the SAME real defect (arity), the paren case is the only
         // one that is not an arity question at all.
         out_failure = make_diagnostic(token, is_last_argument ? k_color_expected_closing_parenthesis
-                                                               : k_color_expected_argument_count);
+                                                              : k_color_expected_argument_count);
         return false;
     }
     if (is_last_argument) {
@@ -371,8 +381,8 @@ bool read_component_separator(gltfx_gfss_cursor &cursor, std::size_t index, std:
             return true;
         }
         out_failure = make_diagnostic(token, token.kind == gltfx_gfss_token_kind::comma
-                                                  ? k_color_expected_argument_count
-                                                  : k_color_expected_closing_parenthesis);
+                                                 ? k_color_expected_argument_count
+                                                 : k_color_expected_closing_parenthesis);
         return false;
     }
     if (token.kind == gltfx_gfss_token_kind::comma) {
@@ -440,8 +450,7 @@ color_parse_result parse_function_arguments(gltfx_gfss_cursor &cursor,
                                             color_function_kind kind) noexcept {
     const bool is_hsl_family =
         kind == color_function_kind::hsl || kind == color_function_kind::hsla;
-    const bool has_alpha =
-        kind == color_function_kind::rgba || kind == color_function_kind::hsla;
+    const bool has_alpha = kind == color_function_kind::rgba || kind == color_function_kind::hsla;
     const std::size_t required_args = has_alpha ? 4 : 3;
 
     std::array<color_component, 4> components{};
@@ -449,7 +458,7 @@ color_parse_result parse_function_arguments(gltfx_gfss_cursor &cursor,
         const bool is_hue = is_hsl_family && i == 0;
         const bool is_saturation_or_lightness = is_hsl_family && (i == 1 || i == 2);
         const component_kind_requirement requirement =
-            is_hue ? component_kind_requirement::number_only
+            is_hue                       ? component_kind_requirement::number_only
             : is_saturation_or_lightness ? component_kind_requirement::percentage_only
                                          : component_kind_requirement::number_or_percentage;
 
@@ -477,8 +486,8 @@ color_parse_result parse_function_color(gltfx_gfss_cursor &cursor,
     color_function_kind kind{};
     if (!try_match_color_function_kind(name, kind)) {
         return fail_at(function_token, is_deferred_color_notation(name)
-                                            ? k_color_expected_shipped_color_notation
-                                            : k_color_expected_known_color_function);
+                                           ? k_color_expected_shipped_color_notation
+                                           : k_color_expected_known_color_function);
     }
     return parse_function_arguments(cursor, kind);
 }

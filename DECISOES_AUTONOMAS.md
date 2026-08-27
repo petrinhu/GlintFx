@@ -362,3 +362,21 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **A regra que fica:** ordem do líder que **destrava** algo registrado aqui como travado **entra aqui no instante em que ele a dá**, com o texto dele verbatim — do mesmo jeito que a ordem que trava. **Registro que só anota o "não" e esquece o "sim" mente por omissão**, e mente exatamente contra quem confia nele.
 
 **Consequência prática, e o revisor tem razão nela também:** o `TODO.md` atribuiu o pacote inteiro a *"ordem do líder"* sem distinguir qual parte veio de qual ordem. Isso está corrigido junto com esta entrada.
+
+---
+
+## `ARCH-PORTS` LIBERADA pelo líder  `[27/08/26 - 09:42:59]`
+
+**Decisão dele por `AskUserQuestion` em 27/08/2026, opção escolhida:** *"Libere e traga as outras 4"*.
+
+**A fatia deixa de ser porta de mão única**, e as outras quatro devem ser apresentadas na sequência: relógio do núcleo, tipo de valor do formato de estilo, contrato do nó, e carregamento de arquivo.
+
+**A recomendação que ele aceitou, e as razões, na ordem em que pesam para um produto distribuível:**
+
+1. **Nada que o consumidor vê fica congelado.** As três coisas que quebram um consumidor de biblioteca são a forma de chamar, a compatibilidade do binário já compilado, e o formato dos arquivos de dado. **Esta fatia não toca nenhuma das três** — é o molde interno pelo qual cada sistema operacional se encaixa.
+2. **Hoje existem zero encaixes, e esse número só cresce.** É o momento **mais barato da vida do projeto** para o molde estar errado: exatamente um sistema o exercita antes de existir um segundo. O contra-argumento — *"e se o molde estiver errado?"* — é real, **mas fica mais caro a cada mês, não mais barato**. Esperar não reduz o risco.
+3. **Não fazer custa mais que fazer.** Uma biblioteca 2D que **não abre uma janela não tem consumidor nenhum a proteger**, e atrás desta fatia estão a janela, o teclado, o mouse, o desenho e a demonstração.
+
+**A trava que permanece:** revisão adversarial dedicada, e **nada novo na parte pública** — assim a porta que de fato é de mão única continua fechada.
+
+**Nota de método, porque o líder foi explícito:** ele pediu a recomendação *"não por facilidade, mas por ser o melhor num produto distribuível"*. As três razões acima são de produto, não de conveniência de execução — e a segunda delas, em particular, **argumenta contra esperar**, que seria o caminho mais confortável para mim.

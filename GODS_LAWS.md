@@ -65,6 +65,7 @@
 | [L-39](#l-39) | ver QUALQUER coisa vinda do Gus Dragon, em qualquer dos cinco canais | É prioridade e é SEMPRE respondida; o ack não espera o líder e interrompe a onda |
 | [L-40](#l-40) | escrever, revisar ou confiar em QUALQUER portão de qualidade | Piso de varredura não-vazia: contou zero, reprova; a contagem aparece na saída mesmo quando passa |
 | [L-41](#l-41) | escrever QUALQUER coisa dirigida ao líder: mensagem, pergunta, relatório | Explique pelo EFEITO, nunca pela implementação; nome de arquivo, função ou tipo só se ele pedir |
+| [L-42](#l-42) | uma falha voltar para revisão pela SEGUNDA vez | Buscar na web ANTES da terceira tentativa; a busca traz opções, a escolha continua do projeto |
 
 ---
 
@@ -829,3 +830,26 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **Isto NÃO se aplica a agente**, e a distinção importa: ordem de serviço para implementador ou revisor **precisa** de caminho, nome e linha, porque é ele quem vai mexer na peça. **A lei governa a conversa com o líder**, não a conversa entre agentes.
 
 **Corolário que fecha o buraco:** a mesma régua vale para o texto de opção de `AskUserQuestion`. Opção que só se entende sabendo a estrutura interna é opção mal escrita, e uma decisão tomada sobre ela é decisão tomada às cegas.
+
+---
+
+## L-42
+
+**Data:** 27/08/2026, ordem do líder. **Verbatim dele:** *"se uma falha tiver necessidade de ser revista mais de uma vez, buscar na web por ajuda"*.
+
+**Falha que volta pela SEGUNDA vez para revisão obriga busca na web ANTES da terceira tentativa. Não é sugestão, é passo do processo.**
+
+**O defeito que a lei corta, na forma exata em que ele apareceu:** o mesmo pedaço foi consertado **cinco vezes** entre 26 e 27/08/2026, e a cada rodada um revisor achava outra ocorrência da **mesma família**. Ninguém parou para perguntar se o problema já era conhecido fora desta casa — e era. **Uma única busca, feita na sexta rodada, devolveu em minutos:** que a ferramenta de build tem um comando **nativo** que substitui inteiro o leitor caseiro que estava produzindo os defeitos; que a variável de encenação que causou a quinta rodada é **documentada como inutilizável no Windows**, o que apagava metade da superfície; e que o programa de empacotamento **já resolve sozinho** parte do que estávamos resolvendo à mão.
+
+**Por que a segunda vez é o gatilho, e não a terceira:** a primeira reprovação é trabalho normal — alguém errou, alguém pegou. **A segunda é sinal de que o modelo mental está errado**, não de que a execução foi desatenta. E modelo mental errado não se conserta tentando com mais força: se conserta trazendo informação de fora.
+
+**O que a busca tem de procurar, em ordem:**
+
+1. **O problema é conhecido?** Erro literal, nome do sintoma, comportamento observado.
+2. **A ferramenta já resolve isso?** Muita coisa que se escreve à mão já existe pronta na ferramenta que já está no projeto — e usar o que a ferramenta oferece **não fere a lei de dependência zero**, porque não é dependência nova.
+3. **O que a documentação oficial garante e o que ela não garante?** Metade das cinco rodadas presumia comportamento que a documentação **nunca prometeu**.
+4. **Alguém já tentou e desistiu?** Saber por que uma abordagem foi abandonada vale mais que descobrir sozinho.
+
+⚠️ **O que a lei NÃO autoriza:** copiar código de terceiro (a L-29 continua valendo — ler para aprender é permitido, copiar não), nem trocar julgamento próprio por resultado de busca. **A busca traz opções; a escolha continua sendo do projeto**, e opção que muda o que a biblioteca aceita ou exige continua sendo **decisão do líder**.
+
+**Corolário de honestidade:** o resultado da busca entra no relatório **com a fonte**, separado do que foi medido em casa. Fato de terceiro citado sem fonte é indistinguível de invenção.

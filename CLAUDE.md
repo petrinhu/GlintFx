@@ -62,6 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | ver QUALQUER coisa vinda do Gus Dragon, em qualquer canal | L-39 é prioridade e é SEMPRE respondida; o ack interrompe a onda |
 | ⚖ | escrever, revisar ou confiar em qualquer portão de qualidade | L-40 piso de varredura não-vazia: contou zero, reprova |
 | ⚖ | escrever qualquer coisa dirigida ao líder: mensagem, pergunta, relatório | L-41 explique pelo EFEITO, nunca pela implementação |
+| ⚖ | uma falha voltar para revisão pela segunda vez | L-42 buscar na web antes da terceira tentativa |
 
 ---
 

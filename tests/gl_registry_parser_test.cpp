@@ -94,11 +94,15 @@ constexpr std::string_view k_feature_fixture = R"(<registry>
         <command><proto>void <name>glTwo</name></proto></command>
         <command><proto>void <name>glThree</name></proto></command>
         <command><proto>void <name>glFuture</name></proto></command>
+        <command><proto>void <name>glCompatOnly</name></proto></command>
     </commands>
     <feature api="gl" name="GL_VERSION_1_0" number="1.0">
         <require>
             <command name="glOne"/>
             <command name="glTwo"/>
+        </require>
+        <require profile="compatibility">
+            <command name="glCompatOnly"/>
         </require>
     </feature>
     <feature api="gl" name="GL_VERSION_2_0" number="2.0">
@@ -141,6 +145,17 @@ GLINTFX_TEST(a_require_with_profile_core_still_contributes) {
     const auto names = resolve_core_profile_command_names(k_feature_fixture, 3.3);
     const bool has_three = std::find(names.begin(), names.end(), "glThree") != names.end();
     GLINTFX_CHECK(has_three);
+}
+
+GLINTFX_TEST(a_require_with_a_non_core_profile_never_contributes) {
+    // Catches a mutant that survived the first pass of this fatia's own
+    // mutation testing: `profile_applies = true` unconditionally passed
+    // every other test here, because none of them had an ACTUAL
+    // non-core profile block to be wrongly let through - this is the
+    // fixture that closes that gap.
+    const auto names = resolve_core_profile_command_names(k_feature_fixture, 3.3);
+    const bool has_compat_only = std::find(names.begin(), names.end(), "glCompatOnly") != names.end();
+    GLINTFX_CHECK(!has_compat_only);
 }
 
 GLINTFX_TEST(raising_max_version_pulls_in_the_later_feature) {

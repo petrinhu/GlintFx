@@ -266,6 +266,29 @@ A parte pública de carregamento faz três coisas: lê o arquivo, resolve o cami
 ⚠️ **Este é o único dos contratos que o CONSUMIDOR implementa.** Acrescentar exigência depois quebra todo consumidor que já a implementou, e por isso a lista foi mostrada inteira antes de ser fechada.
 
 
+#### 7. A exigência mínima da ferramenta de build SOBE, e o leitor caseiro morre
+
+**Verbatim dele:** *"opcao 2 e instala no ubuntu a versao necessaria e deixa a ressalva na documentacao"*. **Decisão de 27/08/2026**, tomada com o custo na mão e depois de uma busca na web feita sob a L-42 recém-criada.
+
+**O que muda:** a leitura do descritor de empacotamento passa a usar o **mecanismo nativo da própria ferramenta de build**, que já existe pronto e testado por quem a mantém. **O leitor escrito em casa deixa de existir.**
+
+**Por que, e o número que decidiu:** aquele leitor caseiro **falhou CINCO vezes em dois dias**, sempre da mesma família — um pedaço de caminho entrando de alguma fonte sem ser completado. A cada rodada um revisor achava outra ocorrência. **Não é falta de cuidado de quem escreveu: é superfície que não deveria ser nossa.**
+
+**O custo, declarado ANTES da escolha e aceito:** o mecanismo nativo exige versão da ferramenta **mais nova que a nossa exigência de hoje**, e **a versão que o Ubuntu 24.04 entrega de fábrica é exatamente a nossa mínima atual**. Subir **corta o Ubuntu 24.04 de fábrica**, e ele é um dos cinco alvos da L-04.
+
+**A saída que ele escolheu, e é a parte que evita o abandono do alvo:** ⚠️ **o nosso CI instala a versão necessária no Ubuntu**, e **a ressalva fica ESCRITA na documentação do empacotador** — quem estiver naquele sistema precisa de uma versão mais nova que a de fábrica, e o documento diz isso e diz como obter. **O alvo continua suportado; o que muda é que ele passa a ter um pré-requisito nomeado.**
+
+⚠️ **A regra que fica para casos futuros da mesma forma:** cortar alvo em silêncio é proibido. **Alvo com pré-requisito é aceitável quando o pré-requisito está escrito onde o empacotador lê**, e quando o nosso próprio CI prova que a receita funciona.
+
+#### 8. Caminho RELATIVO vira o caso principal exercitado pelos testes
+
+**Verbatim da opção que ele escolheu:** *"Vire o padrão dos testes"*.
+
+**O fato que decidiu, vindo da documentação oficial:** ela **recomenda caminho relativo em toda parte** e avisa que caminho completo **não funciona** com a opção de instalar num lugar escolhido. ⚠️ **Nós tratávamos relativo como caso de borda — ele é o caso recomendado.** Foi exatamente essa inversão que deixou cinco defeitos passarem: a suíte inteira exercitava o caso raro e nunca o comum.
+
+**A partir de agora:** o caso principal dos testes é o **relativo**; o completo vira o caso extra, testado, mas não o padrão.
+
+
 ## §3 — Versionamento e ABI
 
 ### Versão `vA.B.C.D`, `SOVERSION`, e o terceiro contrato (DADO)

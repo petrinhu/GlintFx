@@ -86,15 +86,23 @@
 #     libglintfx.so*/libglintfx.a) is out of scope, mirroring
 #     PACKAGING.md's own declared Windows exclusion for pkg-config
 #     ("pkg-config is a Unix/Linux packaging convention, and glintfx
-#     has no platform layer outside Unix yet"). On a Windows machine
-#     that happens to have pkg-config/pkgconf on PATH anyway (MSYS2),
-#     this file's library-artifact glob would not match glintfx.lib
-#     and would report a false failure - accepted for now because
-#     nothing in glintfx today ships a working glintfx.pc use case on
-#     Windows to begin with; whoever adds a Windows platform layer
-#     that ships pkg-config support needs to extend the glob in
-#     glintfx_pkgconfig_validate_variable() below, not silently work
-#     around it.
+#     has no platform layer outside Unix yet"). RESOLVED, not merely
+#     accepted (PKG-WIN-SCOPE, decisao do CTO): this used to be a false
+#     failure waiting to happen on a Windows machine that has
+#     pkg-config/pkgconf on PATH anyway (MSYS2), because this file's
+#     library-artifact glob would never match glintfx.lib. It cannot
+#     happen anymore, and not because the glob learned to match
+#     glintfx.lib - CMakeLists.txt now wraps BOTH
+#     glintfx_install_pkgconfig() and glintfx_register_pkgconfig_validation()
+#     (the very install(CODE) step this file backs) in if(UNIX), so this
+#     whole file is never configured, never generated and never
+#     include()-d on a Windows configure in the first place. Whoever
+#     adds a Windows platform layer that ships real pkg-config support
+#     needs to open that guard back up in CMakeLists.txt AND extend the
+#     glob in glintfx_pkgconfig_validate_variable() below at the same
+#     time - one without the other leaves either a Windows install with
+#     no glintfx.pc validation, or this file running again against a
+#     glob that still cannot see glintfx.lib.
 #
 # Two escape hatches, both named GLINTFX_SKIP_PKGCONFIG_VALIDATION on
 # purpose (one name, two mechanisms, same intent): the CACHE option in
@@ -390,60 +398,34 @@ function(glintfx_validate_installed_pkgconfig)
         return()
     endif()
 
-    # PKG-VALIDATE-WINSEP: on Windows CI (GHA windows-latest, job
-    # "Windows - compartilhado", step "Consumo instalado"), a real,
-    # CORRECT install was reported BROKEN here - 'pkg-config --exists
-    # glintfx' failing against a glintfx.pc that genuinely existed at
-    # the path this file itself printed
-    # (C:/Users/runneradmin/AppData/Local/.../prefix/lib/pkgconfig).
-    # Not reproducible on this machine (no Windows here, GODS_LAWS.md
-    # L-27: said with no hedge) - what follows is MEASURED on POSIX
-    # (this substitution is byte-identical to the old literal
-    # assignment for every path shape tried: plain, doubled-separator,
-    # trailing-slash) plus REASONED, not verified end to end, for
-    # Windows.
-    #
-    # ${_glintfx_pkgconfig_dir} is CMake-internal-style text: forward
-    # slashes, no OS-native list separator applied - fine for every
-    # CMake-side consumer of the variable, but PKG_CONFIG_PATH is
-    # handed to an EXTERNAL tool (pkg-config/pkgconf) through the OS
-    # environment, which reads it as a NATIVE path list: ';'-separated
-    # with '\' slashes on Windows, ':'-separated with '/' on
-    # everywhere else - and a bare drive letter ("C:/...") already
-    # CONTAINS a ':' before any list-separator logic even runs. A
-    # pkg-config build that resolves its list separator to ':' on
-    # Windows (documented failure mode of some MSYS/Cygwin-linked
-    # pkg-config binaries invoked outside their own shell, where the
-    # automatic POSIX-path translation those binaries assume never
-    # happens) would read "C:/Users/.../pkgconfig" as TWO search
-    # directories, "C" and "/Users/.../pkgconfig", neither of which is
-    # where glintfx.pc actually is - explaining a FATAL 'pkg-config
-    # --exists' failure against an install this file's own resolver
-    # just proved correct one function above.
-    #
-    # cmake_path(CONVERT ... TO_NATIVE_PATH_LIST ...) is CMake's own,
-    # documented mechanism for exactly this: producing a NATIVE,
-    # OS-correct path list (';' + '\' on Windows, ':' + '/' elsewhere)
-    # from CMake-internal text - the same conversion CMake itself
-    # would need to hand a path list to any external tool through the
-    # environment. No NORMALIZE option is passed: normalizing could
-    # collapse a doubled separator or trailing slash a packager's own
-    # (possibly non-canonical, but still valid) CMAKE_INSTALL_LIBDIR
-    # produced, and this step's only job is picking the right
-    # separator and slash direction, not reshaping the path.
-    #
-    # PROVEN on POSIX (this machine): for a plain path, a path with a
-    # doubled '//' separator, and a path with a trailing '/', the
-    # converted value is BYTE-IDENTICAL to the untouched original -
-    # this substitution changes NOTHING here, on any of the four
-    # non-Windows CI targets. NOT provable here: whether this actually
-    # fixes the Windows job, which is REASONED from cmake_path's own
-    # documented behavior (native slashes, native separator) and from
-    # the failure shape above, not measured - the Windows job itself is
-    # the only true confirmation, and this comment does not claim more
-    # than that.
-    cmake_path(CONVERT "${_glintfx_pkgconfig_dir}" TO_NATIVE_PATH_LIST _glintfx_pkgconfig_path_native)
-    set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_path_native}")
+    # PKG-VALIDATE-WINSEP, MOOTED BY PKG-WIN-SCOPE: this used to convert
+    # ${_glintfx_pkgconfig_dir} through cmake_path(CONVERT ...
+    # TO_NATIVE_PATH_LIST ...) before handing it to PKG_CONFIG_PATH, to
+    # work around a Windows CI failure where 'pkg-config --exists
+    # glintfx' rejected a genuinely correct install
+    # (C:/Users/runneradmin/AppData/Local/.../prefix/lib/pkgconfig) - a
+    # bare drive letter already contains a ':' before any list-separator
+    # logic runs, and a pkg-config build that resolves its own list
+    # separator to ':' on Windows (a documented MSYS/Cygwin-linked
+    # failure mode) would misread the whole path as two search
+    # directories. That failure can no longer happen HERE, because this
+    # entire file is Unix-only now (see the "Windows library-artifact
+    # naming" item above, and CMakeLists.txt's if(UNIX) guard around
+    # glintfx_register_pkgconfig_validation()) - the platform that
+    # motivated the conversion is out of this file's reach by
+    # construction, not by a value this code happens to compute
+    # correctly for it. Reverted to the plain literal assignment: it was
+    # already MEASURED byte-identical to the converted form on every
+    # POSIX path shape this project's own CI enumerates (plain, a
+    # doubled '//' separator, a trailing '/'), so nothing observable
+    # changes here on Linux, Fedora, Ubuntu, Arch or CachyOS. A mechanism
+    # kept alive for a platform it no longer runs on is a comment that
+    # will go on explaining a problem this file cannot have - if a
+    # future Windows platform layer reopens the if(UNIX) guard, list
+    # separator handling is exactly the kind of Windows-specific
+    # behavior that reopening needs to reconsider from scratch, not
+    # inherit unread from this paragraph.
+    set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_dir}")
 
     execute_process(
         COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --print-errors --exists glintfx

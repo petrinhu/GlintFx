@@ -34,7 +34,7 @@ GLINTFX_TEST(the_two_block_message_matches_the_published_test_vector) {
 GLINTFX_TEST(digest_is_64_lowercase_hex_characters) {
     const std::string digest = sha256_hex("glintfx");
     GLINTFX_CHECK_EQ(digest.size(), 64u);
-    for (char c : digest) {
+    for (const char c : digest) {
         GLINTFX_CHECK((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'));
     }
     // Cross-checked live against the coreutils sha256sum(1) binary on

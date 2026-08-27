@@ -43,12 +43,12 @@
 namespace {
 
 void fail(std::string_view message) {
-    std::fprintf(stderr, "gl_registry_codegen: %s\n", std::string(message).c_str());
+    (void)std::fprintf(stderr, "gl_registry_codegen: %s\n", std::string(message).c_str());
     std::exit(1);
 }
 
 std::string read_file_or_fail(const std::filesystem::path &path) {
-    std::ifstream file(path, std::ios::binary);
+    const std::ifstream file(path, std::ios::binary);
     if (!file) {
         fail("nao foi possivel abrir '" + path.string() + "' para leitura");
     }
@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
     write_file_if_changed(
         source_path, glintfx::gl_codegen::render_source(commands, header_path.filename().string()));
 
-    std::printf("gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
-                commands.size(), max_version);
+    (void)std::printf("gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
+                       commands.size(), max_version);
     return 0;
 }

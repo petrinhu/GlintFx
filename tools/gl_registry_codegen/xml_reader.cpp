@@ -76,7 +76,7 @@ std::vector<xml_attribute> parse_attributes(std::string_view tag_content) {
         while (i < tag_content.size() && is_whitespace(tag_content[i])) {
             ++i;
         }
-        std::size_t name_start = i;
+        const std::size_t name_start = i;
         while (i < tag_content.size() && tag_content[i] != '=' && !is_whitespace(tag_content[i])) {
             ++i;
         }
@@ -90,9 +90,9 @@ std::vector<xml_attribute> parse_attributes(std::string_view tag_content) {
         if (i >= tag_content.size() || (tag_content[i] != '"' && tag_content[i] != '\'')) {
             break; // malformed, nothing more to recover
         }
-        char quote = tag_content[i];
+        const char quote = tag_content[i];
         ++i;
-        std::size_t value_start = i;
+        const std::size_t value_start = i;
         while (i < tag_content.size() && tag_content[i] != quote) {
             ++i;
         }

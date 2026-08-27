@@ -49,11 +49,11 @@ std::uint32_t rotr(std::uint32_t x, int n) { return std::rotr(x, n); }
 // only how many of them to hand over.
 void process_block(std::array<std::uint32_t, 8> &h, const std::uint8_t *block) {
     std::array<std::uint32_t, 64> w{};
-    for (int i = 0; i < 16; ++i) {
-        w[static_cast<std::size_t>(i)] = (static_cast<std::uint32_t>(block[i * 4]) << 24) |
-                                         (static_cast<std::uint32_t>(block[(i * 4) + 1]) << 16) |
-                                         (static_cast<std::uint32_t>(block[(i * 4) + 2]) << 8) |
-                                         static_cast<std::uint32_t>(block[(i * 4) + 3]);
+    for (std::size_t i = 0; i < 16; ++i) {
+        w[i] = (static_cast<std::uint32_t>(block[(i * 4) + 0]) << 24) |
+               (static_cast<std::uint32_t>(block[(i * 4) + 1]) << 16) |
+               (static_cast<std::uint32_t>(block[(i * 4) + 2]) << 8) |
+               static_cast<std::uint32_t>(block[(i * 4) + 3]);
     }
     for (int i = 16; i < 64; ++i) {
         const std::uint32_t s0 = rotr(w[static_cast<std::size_t>(i - 15)], 7) ^

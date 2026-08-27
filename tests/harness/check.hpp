@@ -64,6 +64,24 @@ void record_check_failure(std::string_view file, int line, std::string_view expr
 [[nodiscard]] int failure_count();
 void reset_failure_count();
 
+// Invariant guard called from the catch clause that unwinds
+// case_check_failed (harness_main.cpp's invoke_case_body): the whole
+// contract GLINTFX_CHECK promises is "record, THEN throw" - a
+// case_check_failed should therefore never reach that catch clause
+// with failure_count() still at zero. Assuming that silently (an
+// empty catch body) is exactly what clang-tidy's bugprone-empty-catch
+// reproved, and for a real reason, not just style: if the assumption
+// were ever wrong (a case body throws case_check_failed directly,
+// bypassing GLINTFX_CHECK, or a future edit to the macro reorders
+// record/throw), invoke_case_body's caller would read failure_count()
+// == 0 after a case that just unwound via an exception and report it
+// as PASS - a silently wrong verdict, worse than the CASE-FATAL crash
+// this whole design change exists to replace (see this file's own
+// header comment). This function checks the invariant instead of
+// assuming it: a no-op when it already holds, and a recorded failure
+// (so the case is correctly reported as FAIL) when it does not.
+void ensure_check_failure_was_recorded();
+
 } // namespace glintfx::test
 
 #define GLINTFX_CHECK(cond)                                                                        \

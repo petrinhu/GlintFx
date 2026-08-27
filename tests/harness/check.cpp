@@ -20,4 +20,13 @@ int failure_count() { return g_failure_count; }
 
 void reset_failure_count() { g_failure_count = 0; }
 
+void ensure_check_failure_was_recorded() {
+    if (failure_count() == 0) {
+        record_check_failure(
+            __FILE__, __LINE__,
+            "case_check_failed reached a catch clause without record_check_failure() "
+            "having run first (harness invariant violated)");
+    }
+}
+
 } // namespace glintfx::test

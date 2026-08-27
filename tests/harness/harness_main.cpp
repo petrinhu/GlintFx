@@ -39,8 +39,14 @@ void invoke_case_body(const Case &c) {
     } catch (const glintfx::test::case_check_failed &) {
         // Expected unwind: GLINTFX_CHECK already ran record_check_
         // failure() (message printed, count incremented) before
-        // throwing. Nothing left to do - run_single_case() below reads
-        // failure_count() to decide PASS/FAIL.
+        // throwing. ensure_check_failure_was_recorded() (check.hpp)
+        // checks exactly that invariant instead of assuming it
+        // silently - a no-op here in the expected case, and a
+        // recorded failure if a case_check_failed ever reaches this
+        // clause some OTHER way (see that function's own comment).
+        // run_single_case() below reads failure_count() to decide
+        // PASS/FAIL.
+        glintfx::test::ensure_check_failure_was_recorded();
     } catch (const std::exception &e) {
         const std::string message =
             "case body let an unexpected exception escape: " + std::string(e.what());

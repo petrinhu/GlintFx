@@ -22,6 +22,13 @@ glintfx_add_test(err_context_test)
 glintfx_add_test(rslt_test)
 glintfx_add_test(err_format_test)
 
+# QA gate fix, 27/08/2026 (GODS_LAWS.md L-20/L-40): proves
+# glintfx::test::ensure_check_failure_was_recorded() (harness/check.hpp),
+# the invariant check harness_main.cpp's catch (const case_check_failed &)
+# clause now calls instead of the empty body clang-tidy's
+# bugprone-empty-catch reproved - see the test file's own header comment.
+glintfx_add_test(harness_check_invariant_test)
+
 # CORE-COLOR (TODO.md, GODS_LAWS.md L-19/L-26): frozen layout of
 # gltfx_rgba plus the round-trip/premultiply conversions - see
 # color_test.cpp's own header comment.

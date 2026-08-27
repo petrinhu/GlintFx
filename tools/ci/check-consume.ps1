@@ -19,23 +19,24 @@ $ErrorActionPreference = "Stop"
 
 function Install-IntoPrefix([string]$buildDir, [string]$prefix) {
     Write-Host "check-consume.ps1: cmake --install $buildDir --prefix $prefix"
-    cmake --install $buildDir --config Release --prefix $prefix
+    cmake --install $buildDir --prefix $prefix
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-# Generator is explicit (CI-WIN-GEN): without -G, plain pwsh has no
-# vcvarsall-prepared environment, and CMake's Windows default falls back
-# to a command-line generator (NMake) that cannot locate cl.exe on its
-# own - only an IDE generator self-locates MSVC. Same root cause as
-# commit 17706d9; this call already presumed a multi-config generator
-# via Invoke-BuildConsumer's --config Release below.
+# Generator is explicit (CI-WIN-GEN): Ninja is single-configuration, so
+# the configuration is chosen at configure time, never at build/install
+# time. Without -G, plain pwsh has no vcvarsall-prepared environment, and
+# CMake's Windows default falls back to a command-line generator (NMake)
+# that cannot locate cl.exe on its own - the compiler environment is
+# prepared by a dedicated step in the workflow file instead. Same root
+# cause as commit 17706d9.
 function Invoke-ConfigureConsumer([string]$packageSrc, [string]$consumerBuild, [string]$prefix) {
-    cmake -S $packageSrc -B $consumerBuild -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$prefix"
+    cmake -S $packageSrc -B $consumerBuild -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$prefix"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 function Invoke-BuildConsumer([string]$consumerBuild) {
-    cmake --build $consumerBuild --config Release
+    cmake --build $consumerBuild
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 

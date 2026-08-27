@@ -22,5 +22,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 - A CI gate that fails the build when a tracked source or build file is missing its `SPDX-License-Identifier: AGPL-3.0-or-later` header, so the license stated in [`LICENSE`](LICENSE) actually covers every file a consumer receives, not just the ones a human remembered to mark.
 - A pkg-config validation step that runs on every `cmake --install`, not only in this project's own CI: it confirms the installed `glintfx.pc`'s `includedir`, `libdir`, and every `-I`/`-L` token it emits actually resolve on the machine doing the install, catching a broken packaging layout before a packager's own consumer ever tries to build against it.
 - A dedicated CI job builds and links glintfx with Clang, on Fedora 44, alongside the existing GCC and MSVC jobs. Unit tests only for now: two test-only consumption gates (not glintfx's own source or headers) make a GCC-specific assumption that does not hold under Clang; tracked as open findings in [`TODO.md`](TODO.md).
+- A GL 3.3 core function loader (`glintfx::render::load_gl_functions`), generated at build time from the OpenGL API registry rather than a hand-maintained list of prototypes. Internal plumbing only: no GL context exists yet, and nothing in this loader is part of the public API. See the "Third-party files" section above for the one exception this required to the project's usual zero-dependency policy.
+
+### Third-party
+
+- `third_party/khronos/gl.xml`: the Khronos Group's own OpenGL API registry, vendored verbatim under its own Apache-2.0 license (this project's only vendored third-party file). See [`third_party/khronos/README.md`](third_party/khronos/README.md) for the full provenance record and why this one case needed an exception to glintfx's own zero-dependency policy.
 
 [Unreleased]: https://github.com/petrinhu/GlintFx/commits/main

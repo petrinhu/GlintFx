@@ -71,8 +71,16 @@ story:
   resolves against `glintfx.pc`'s OWN directory (`pcfiledir`, pkg-config's
   own built-in for "the directory this file is actually in"), never
   against the working directory `cmake --install` happened to be invoked
-  from - closing a CWD-dependent false pass an adversarial review found
-  and reproduced live (see "Where this is tested" below). Two forms are
+  from - closing, for the includedir/libdir/`-I`/`-L` VALUES this
+  paragraph is about, the CWD-dependent false PASS an adversarial review
+  found and reproduced live (see "Where this is tested" below). That fix
+  is narrower than it sounds: it does not, by itself, mean nothing here
+  ever depends on the dispatch directory. A SEPARATE, one-layer-earlier
+  CWD-dependence - where the staged `pkgconfig/` directory itself
+  physically is, when `--prefix` is given as a RELATIVE path - caused
+  the opposite failure (a false FAIL against a genuinely correct
+  install) until a later round; see "glintfx already runs this check
+  for you" below for that fix. Two forms are
   a known, declared gap, not silently claimed as covered: a value quoted
   as a single token (real pkg-config strips the quotes; this reader does
   not) and a `Cflags:`/`Libs:` field repeated on two separate lines
@@ -263,9 +271,19 @@ in a fixed order:
    INVOKER's working directory instead, which an adversarial review
    used to make a genuinely broken install (its compiled library
    deleted) pass by running the check from a directory that happened to
-   contain an unrelated, matching decoy file; that CWD-dependence is
-   fixed, and "Where this is tested" below proves the closed shape by
-   reproducing the same attack. On the syntax `glintfx.pc` itself is
+   contain an unrelated, matching decoy file; that ONE CWD-dependence -
+   the includedir/libdir/`-I`/`-L` value-resolution attack just
+   described - is fixed, and "Where this is tested" below proves the
+   closed shape by reproducing the same attack. It was not the only
+   one: a relative `--prefix` itself (an ordinary shape, not an attack -
+   `cmake --install <build> --prefix ./stage`, nothing adversarial)
+   used to leave the STAGED `pkgconfig/` directory this whole check
+   starts from unresolved to an absolute location, which doubled a
+   shared path segment and made a genuinely GOOD install fail instead.
+   That is fixed too - forcing `CMAKE_INSTALL_PREFIX` absolute before
+   anything is built from it, one layer earlier than the fix above -
+   and "Where this is tested" below proves that regression closed as
+   well, separately. On the syntax `glintfx.pc` itself is
    written in, this reader matches real pkg-config for whitespace
    around `=`, a trailing `#` comment on a variable line, and a
    variable defined twice (last definition wins) - three forms
@@ -320,6 +338,30 @@ last one). Neither shape is ever produced by glintfx's own generated
 `glintfx.pc` - both fail CLOSED (the install is rejected, never
 silently accepted), so a packager who hits either one gets a false
 alarm on an actually-fine file, never a false pass on a broken one.
+
+**"Neither shape is ever produced" is a property of glintfx's CURRENT
+`glintfx.pc.in` template and the CMake code that fills it in
+(`glintfx_compute_pkgconfig_path_expression()`, `cmake/GlintfxInstall.cmake`)
+today, not a permanent guarantee this document can make on that
+template's behalf going forward.** Neither one quotes a variable's
+value, and neither one emits a `Cflags:`/`Libs:` field more than once -
+that is why the two gaps above are only ever hit by a hand-edited or
+packager-modified `glintfx.pc`, never glintfx's own. If a future change
+to that template ever starts doing either - quoting a value (a
+plausible fix on Windows, if an install prefix containing a space, such
+as `C:/Program Files/glintfx`, ever needed protecting), or duplicating
+a `Cflags:`/`Libs:` line (a plausible slip when hand-editing the
+template to add a new dependency's flag alongside an existing one,
+instead of extending the existing line) - the CONSEQUENCE is exactly
+what is described above for a hand-edited file: this validator fails
+CLOSED, rejecting a genuinely correct install of glintfx's own making,
+with the same false-alarm message. That would be a real regression -
+just not a silent one, and not the dangerous direction (a broken
+install would still never pass). Fixing it, should the day come, belongs
+in the READER (`glintfx_pkgconfig_read_raw_variables()`/
+`glintfx_pkgconfig_read_field()`, `cmake/GlintfxPkgConfigValidateInstalled.cmake.in`),
+to grow the two gaps closed - not in the template, and not in this
+document by itself.
 
 **How a failure shows up:** as a hard error from `cmake --install`
 itself, not from a separate script you have to remember to run
@@ -482,7 +524,13 @@ automated regression test, not just prose:
   accepts and - when a real `pkg-config`/`pkgconf` binary is on `PATH`
   - is cross-checked against that same real binary too, so the claim
   that the fixture is genuinely good does not rest on this project's
-  own code agreeing with itself.
+  own code agreeing with itself. One final scenario proves the
+  regression fixed under "glintfx already runs this check for you"
+  above: an ORDINARY `cmake --install <build> --prefix ./stage`, a
+  relative prefix, no `DESTDIR`, no attacker directory, nothing
+  adversarial - it must PASS, and the validator's own success message
+  must name the correctly-resolved, single-occurrence staged path, not
+  a doubled one.
 - `tests/tools/check_blank_install_dir_rejected.sh` exercises the
   blank-value rejection described under "NOT supported" above: it
   confirms configure fails with glintfx's own error message, naming

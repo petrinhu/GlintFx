@@ -197,11 +197,15 @@
 #     function's own comment below for the reasoning specific to it):
 #     glintfx_pkgconfig_validate_content_variable()'s "value",
 #     glintfx_pkgconfig_validate_content_flags()'s "-I" and "-L" token
-#     resolution. Confirmed this is the ONLY place in this file (and,
-#     searched, the only place in glintfx's whole cmake/ tree) that
-#     ever called cmake_path(ABSOLUTE_PATH ...) without an explicit
-#     BASE_DIRECTORY - not a pattern repeated anywhere else that would
-#     need the same fix.
+#     resolution. At the time of round 5, confirmed this was the ONLY
+#     place in this file (and, searched, the only place in glintfx's
+#     whole cmake/ tree) that called cmake_path(ABSOLUTE_PATH ...)
+#     without an explicit BASE_DIRECTORY. Round 6 below (27/08/2026)
+#     adds a second, DELIBERATE one - a different question entirely
+#     (where CMAKE_INSTALL_PREFIX itself physically resolves on disk),
+#     with a different, still-correct default (CMAKE_CURRENT_SOURCE_DIR
+#     - the invoking CWD - not pcfiledir); see round 6's own comment
+#     below for why that is not a repeat of this same finding.
 #
 #   - PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026), same pass -
 #     three SEPARATE defects in glintfx_pkgconfig_read_raw_variables()
@@ -215,6 +219,87 @@
 #     this validator resolves glintfx.pc "the same way a real pkg-config
 #     would" was false for all three cases until this fix, and is
 #     re-checked, phrase by phrase, against this fatia's own fix.
+#
+#   - PKG-WIN-SCOPE, adversarial review round 6 (27/08/2026) - CRITICAL
+#     REGRESSION, introduced by round 5's own fix above, reproduced
+#     live: an ORDINARY relative install prefix - `cmake --install
+#     <build> --prefix ./stage`, nothing exotic, the shape any
+#     packaging tutorial or CI script reaches for routinely - made a
+#     genuinely GOOD install FAIL. MEASURED: `cd <a-dir> && cmake
+#     --install <build> --prefix ./stage`, every file genuinely on
+#     disk, printed "glintfx.pc's includedir resolves to
+#     'stage/lib64/pkgconfig/stage/include', which does not exist on
+#     disk", exit 1 - the DOUBLED "stage" names the defect precisely.
+#     Round 5's own search does not find this one, because it hunted by
+#     the SHAPE of a known bug (every call site of ONE specific
+#     operation, cmake_path(ABSOLUTE_PATH ... value/token ...) with no
+#     BASE_DIRECTORY) rather than by enumerating every place a path gets
+#     built, joined, or checked for existence - and this defect is one
+#     layer EARLIER, in a DIFFERENT operation round 5 never looked at:
+#     glintfx_pkgconfig_validate_resolve_staged_dir() above, in its
+#     relative-CMAKE_INSTALL_LIBDIR branch, built the staged pkgconfig/
+#     directory as "${CMAKE_INSTALL_PREFIX}/${libdir}/pkgconfig" via
+#     cmake_path(APPEND ...), with CMAKE_INSTALL_PREFIX read RAW - never
+#     forced absolute. `cmake --install` itself does not reject a
+#     relative --prefix; it resolves it against the INVOKING PROCESS'S
+#     CWD for the real, physical install (confirmed live, the SAME run
+#     that then failed printed "-- Installing: <cwd>/./stage/lib64/...").
+#     So when a packager passes one, this function's own
+#     _glintfx_pkgconfig_dir stayed a RELATIVE string
+#     ("stage/lib64/pkgconfig"). That string became pc_file, then
+#     pc_file's own PARENT_PATH - glintfx_pkgconfig_validate_content_on_disk()'s
+#     "pcfiledir" seed (line ~690), STILL relative - got substituted
+#     LITERALLY into glintfx.pc's own "${pcfiledir}/../../include" text
+#     by glintfx_pkgconfig_substitute_text() (plain text replacement, by
+#     design, mirroring real pkg-config - it has no notion of "this one
+#     happens to already be absolute"), producing a "value" that itself
+#     STARTS WITH "stage/..." and therefore still reads as relative.
+#     Round 5's own fix - correct, and left untouched here - then
+#     anchors that relative "value" to "pcfiledir" via
+#     cmake_path(ABSOLUTE_PATH value BASE_DIRECTORY
+#     "${_glintfx_content_variable_base_dir}" NORMALIZE), where the base
+#     directory is computed from this SAME relative pc_file
+#     (glintfx_pkgconfig_validate_content_variable()'s own PARENT_PATH,
+#     line ~502): a relative base directory got a relative value
+#     APPENDED onto it, and the shared "stage/lib64/pkgconfig" segment
+#     landed in the result TWICE. Every downstream check was reading
+#     real content that genuinely existed; nothing about the install
+#     itself was ever broken.
+#
+#     THE FIX: glintfx_pkgconfig_validate_resolve_staged_dir()'s
+#     relative-CMAKE_INSTALL_LIBDIR branch now forces its own
+#     CMAKE_INSTALL_PREFIX-derived variable absolute first, with
+#     cmake_path(ABSOLUTE_PATH ... NORMALIZE) and DELIBERATELY NO
+#     explicit BASE_DIRECTORY - the exact shape the comment above (round
+#     5) warns caused THAT bug. This is not a contradiction, because the
+#     two calls answer two different questions. Round 5's sites resolve
+#     a PKG-CONFIG-FILE-RELATIVE reference (includedir=, libdir=, an
+#     -I/-L token), which must anchor to glintfx.pc's OWN directory
+#     (pcfiledir) - pkg-config's own convention - never to the caller's
+#     CWD; omitting BASE_DIRECTORY there was wrong for exactly that
+#     reason. This site resolves CMAKE_INSTALL_PREFIX itself, answering
+#     "where did `cmake --install`'s relative --prefix ACTUALLY write
+#     files" - and CMake's own default BASE_DIRECTORY,
+#     CMAKE_CURRENT_SOURCE_DIR (confirmed equal to the invoking
+#     process's CWD in script mode, round 5's own finding above),
+#     answers that correctly BY CONSTRUCTION, because it is the SAME
+#     rule the real `cmake --install` used to decide where to physically
+#     write those files in the first place (measured live: the "--
+#     Installing: <cwd>/./stage/..." line above). Two different
+#     questions, two different correct defaults.
+#
+#     Once _glintfx_pkgconfig_dir - and therefore pc_file, and therefore
+#     every pcfiledir-seeded substitution and both validate_content_*
+#     functions' own base directories - is absolute from this single
+#     point on, every site round 5 already anchored to pcfiledir
+#     resolves correctly with no further change needed there: an
+#     already-absolute "value"/token short-circuits
+#     cmake_path(ABSOLUTE_PATH ...)'s own BASE_DIRECTORY entirely (it
+#     only ever applies to a genuinely relative path), so the doubling
+#     cannot recur through that mechanism either. tests/tools/
+#     check_pkgconfig_validate.sh's own scenario 14 (relative --prefix,
+#     dispatched from a throwaway directory, mutated back to reproduce
+#     this exact regression) is the regression proof.
 #
 # Two escape hatches, both named GLINTFX_SKIP_PKGCONFIG_VALIDATION on
 # purpose (one name, two mechanisms, same intent): the CACHE option in
@@ -248,7 +333,21 @@ function(glintfx_pkgconfig_validate_resolve_staged_dir out_var)
         # OWN prefix= content).
         set(_glintfx_dir_no_destdir "${_glintfx_configured_libdir}/pkgconfig")
     else()
+        # PKG-WIN-SCOPE round 6 (27/08/2026): CMAKE_INSTALL_PREFIX is
+        # forced absolute HERE, before anything is appended to it - see
+        # this file's own header for the regression this closes and why
+        # omitting BASE_DIRECTORY is the deliberately correct choice at
+        # this one call site (it must match `cmake --install`'s own
+        # resolution of a relative --prefix against the invoking
+        # process's CWD, not glintfx.pc's pcfiledir). Read raw and left
+        # relative, this used to make _glintfx_dir_no_destdir below - and
+        # therefore pc_file, and therefore every pcfiledir-seeded
+        # substitution downstream - relative too, which is what let a
+        # relative "${pcfiledir}/../../include" substitution and a
+        # relative BASE_DIRECTORY double up on the same "stage/..."
+        # segment in glintfx_pkgconfig_validate_content_variable().
         set(_glintfx_prefix "${CMAKE_INSTALL_PREFIX}")
+        cmake_path(ABSOLUTE_PATH _glintfx_prefix NORMALIZE)
         cmake_path(APPEND _glintfx_prefix "${_glintfx_configured_libdir}" "pkgconfig"
             OUTPUT_VARIABLE _glintfx_dir_no_destdir)
     endif()

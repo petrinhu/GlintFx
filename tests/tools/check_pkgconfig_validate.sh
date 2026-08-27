@@ -147,6 +147,31 @@
 #      available, confirming the SAME fixture is genuinely good by an
 #      implementation this project does not control - not merely
 #      "passes because our own code says so".
+#  14. "relative --prefix, ordinary dispatch" (GREEN, PKG-WIN-SCOPE round 6
+#      REGRESSION proof, 27/08/2026 - introduced by round 5's own fix
+#      above): an ORDINARY `cmake --install <build> --prefix ./stage` -
+#      a relative prefix, no DESTDIR, no attacker-controlled directory,
+#      nothing adversarial at all, the exact shape any packaging
+#      tutorial or CI script reaches for - dispatched from a throwaway
+#      scratch directory (never this repository's own working
+#      directory). MEASURED, reproduced live before this fatia's fix: this
+#      exact command, against a genuinely correct install, FAILED with
+#      "includedir resolves to '.../stage/lib64/pkgconfig/stage/include',
+#      which does not exist on disk" - a DOUBLED path segment, one layer
+#      earlier than anything scenario 12 (round 5) exercises: round 12's
+#      attack rewrites glintfx.pc's own libdir= line and controls the
+#      validator's CWD directly; this scenario changes NEITHER - it is
+#      CMAKE_INSTALL_PREFIX itself, read raw by
+#      glintfx_pkgconfig_validate_resolve_staged_dir() (Glintfx
+#      PkgConfigValidateInstalled.cmake.in) and never forced absolute
+#      before being appended to, that used to leave the STAGED
+#      pkgconfig/ directory - and therefore glintfx.pc's own resolved
+#      "pcfiledir" - relative, doubling the shared prefix/libdir/
+#      pkgconfig segment into every path this validator resolves. Must
+#      PASS, and must name the correctly-resolved, single-occurrence
+#      staged glintfx.pc path in its own success message - not a doubled
+#      one - so a regression of THIS fix cannot silently pass by merely
+#      checking for absence of the word "error".
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -865,6 +890,48 @@ ${real_output}" ;;
     fi
 }
 
+# Scenario 14: relative --prefix, ordinary dispatch - PKG-WIN-SCOPE round 6
+# REGRESSION proof (27/08/2026), see this file's own header for the full
+# measured detail. Deliberately NOT adversarial: no attacker directory, no
+# rewritten glintfx.pc, no DESTDIR - just the plain command a packaging
+# tutorial or CI script would run, dispatched via a subshell `cd` into its
+# OWN throwaway scratch directory so the relative --prefix can never
+# resolve under this repository's own working directory (the harness's
+# own CWD, not the fixture's - a different thing from the CWD-ATTACK
+# scenario 12 controls). Reuses the shared build (PERF-PKGVALIDATE): this
+# scenario changes neither BUILD_SHARED_LIBS nor any install-dir CMake
+# cache variable, only WHERE `cmake --install` is invoked FROM and what
+# relative --prefix it is given.
+run_relative_prefix_ordinary_dispatch_scenario() {
+    build_dir="$1"
+    dispatch_dir="$2"
+    real_libdir="$3"
+
+    mkdir -p "$dispatch_dir"
+    output="$(cd "$dispatch_dir" && cmake --install "$build_dir" --prefix ./stage 2>&1)" \
+        || fail "an ORDINARY relative --prefix install ('cmake --install <build> --prefix ./stage', dispatched from ${dispatch_dir}, nothing adversarial) unexpectedly FAILED - this is the PKG-WIN-SCOPE round 6 regression (CMAKE_INSTALL_PREFIX read raw by glintfx_pkgconfig_validate_resolve_staged_dir(), never forced absolute before being appended to, doubling the shared prefix/libdir/pkgconfig segment into every resolved path). Got:
+${output}"
+
+    # The correctly-resolved, single-occurrence staged path - asserted
+    # POSITIVELY (the exact right answer named in the validator's own
+    # success message), not merely "no error appeared": a doubled path
+    # would still contain THIS substring nowhere, so a false PASS that
+    # silently tolerated the doubling elsewhere could not slip through
+    # by accident (GODS_LAWS.md L-40: a scan that never actually looks
+    # at what it is confirming is the defect class this whole file
+    # exists to rule out, applied here to this scenario's own assertion,
+    # not just to the validator under test).
+    expected_pc_file="${dispatch_dir}/stage/${real_libdir}/pkgconfig/glintfx.pc"
+    case "$output" in
+        *"post-install pkg-config validation passed - glintfx.pc at '${expected_pc_file}'"*) : ;;
+        *) fail "the relative-prefix ordinary-dispatch install's own success message did not name the correctly-resolved, single-occurrence staged path (${expected_pc_file}) - the PKG-WIN-SCOPE round 6 doubled-path regression may be back. Got:
+${output}" ;;
+    esac
+
+    [ -f "$expected_pc_file" ] || fail "expected glintfx.pc at ${expected_pc_file} after a relative --prefix install, and it is not there on disk, despite the validator reporting success."
+    echo "ok: relative --prefix, ordinary dispatch - a plain 'cmake --install <build> --prefix ./stage' install passes, naming the correctly-resolved, single-occurrence staged glintfx.pc path, with no doubled prefix/libdir/pkgconfig segment anywhere (PKG-WIN-SCOPE round 6 regression proof)."
+}
+
 main() {
     require_args "$@"
     glintfx_src="$1"
@@ -900,8 +967,9 @@ main() {
     run_headers_missing_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-headers-missing"
     run_relative_libdir_cwd_attack_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-relative-cwd-attack" "$scratch"
     run_real_pkgconfig_syntax_variants_scenario "$build_dir" "$scratch" "$real_libdir"
+    run_relative_prefix_ordinary_dispatch_scenario "$build_dir" "${scratch}/dispatch-relative-prefix" "$real_libdir"
 
-    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, a hand-assembled empty-Cflags/Libs (L-40) fixture, and a relative libdir resolved from an attacker-controlled working directory - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct; and accepts real pkg-config's own whitespace/comment/duplicate-variable syntax, cross-checked against a real pkg-config binary when one is on PATH."
+    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR, and an ordinary relative --prefix), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, a hand-assembled empty-Cflags/Libs (L-40) fixture, and a relative libdir resolved from an attacker-controlled working directory - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct; accepts real pkg-config's own whitespace/comment/duplicate-variable syntax, cross-checked against a real pkg-config binary when one is on PATH; and no longer doubles a shared prefix/libdir/pkgconfig path segment when --prefix is given as a plain relative path (PKG-WIN-SCOPE round 6 regression, closed)."
 }
 
 main "$@"

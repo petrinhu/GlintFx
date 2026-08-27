@@ -302,3 +302,38 @@ O revisor achou que nenhum portão da casa prova a frase do próprio `README.md`
 **O que NÃO foi medido, declarado:** a causa exata de o `pkg-config` do executor recusar o arquivo. Um **passo permanente de diagnóstico** entra no job do Windows **mesmo com esta decisão**, justamente para que a próxima falha de Windows seja **leitura de log em vez da quarta adivinhação** — duas rodadas de CI já foram queimadas adivinhando.
 
 **A pergunta que vai ao líder:** *"No Windows o consumo é `find_package`; o `.pc` (convenção Unix) deixou de ser instalado lá, e o validador dele não roda lá — os quatro alvos Unix mantêm o veto integral. Ratifica, e promovo o texto ao `ESCOPO.md` §9? Ou reverte, e aí decidimos juntos o que fazer com o validador que reprova instalação boa?"*
+
+---
+
+## RESPOSTAS DO LÍDER — ratificação retroativa  `[27/08/26 - 05:59:14]`
+
+**Ele acordou e pediu, verbatim:** *"Mostre decisoes autonomas que foram tomadas em formato askuserquestion. registre minhas respostas e pause depois."* As oito foram apresentadas por `AskUserQuestion`, sem painel lateral. **Três foram DERRUBADAS.** Registro abaixo, decisão por decisão.
+
+| Decisão do agente | Resposta do líder |
+|---|---|
+| `D-PKGWIN` — o `.pc` sai do Windows | ❌ **REVERTA** |
+| `D-W3-6` — fim de fluxo com o culpado nomeado | ⏸ **QUERO DISCUTIR** |
+| `D-W3-3` — nada novo em `include/` nesta onda | ❌ **QUERO PÚBLICO JÁ** |
+| Conserto do capítulo 1 do `AUDITORIAS.md` | ✅ **certo, é escrituração** |
+| `D-W3-4` — `oklch()` sai como erro com diagnóstico | ✅ **ratifico** |
+| WSJF estimado por mim nos nove itens novos | ✅ **aceito a estimativa** |
+| `D-W3-1` — onda W3 curta, sem encher | ✅ **ratifico** |
+| Duas listas de vocabulário de diagnóstico | 🔁 **CONSOLIDE EM UMA SÓ** |
+
+### O que cada resposta obriga
+
+**1. `D-PKGWIN` REVERTIDA.** O `glintfx.pc` **volta a ser instalado no Windows**, e o validador dele volta ao alcance. ⚠️ **Isso reabre o problema original**, e o líder sabe disso ao decidir: o validador reprova instalação **correta** de empacotador Windows, e o cabeçalho dele já declara que o glob nunca casaria `glintfx.lib`. **O que fazer com o validador é decisão a tomar COM ele**, não de agente — foi essa a opção que ele escolheu, com estas palavras: *"O .pc volta a ser instalado no Windows, e decidimos juntos o que fazer com o validador que reprova instalação boa."* **Consequência imediata: o CI do Windows volta a ficar vermelho até essa conversa acontecer.** Reverter os três commits sem decidir o validador reintroduz o vermelho conhecido; **a fatia para aqui e espera o líder.**
+
+**2. `D-W3-6` EM DISCUSSÃO.** O desenho do que o consumidor recebe sob defeito interno **não está ratificado**. O código atual (fim de fluxo terminal com o marcador que nomeia a biblioteca como culpada) **fica em pé enquanto a conversa não acontece** — não se reverte para o defeito anterior, que devolvia texto plausível e falso em silêncio, porque esse era o CRÍTICO. **Mas o desenho é assunto aberto, e o líder quer discutir antes de virar contrato.**
+
+**3. `D-W3-3` DERRUBADA — o analisador de cor vai para a API PÚBLICA agora.** Verbatim da opção que ele escolheu: *"Prefere que o analisador de cor entre na API pública agora, e aí decidimos o formato."* ⚠️ **Duas consequências que o próximo executor precisa ter na frente:** (a) isso **congela forma pública**, que é exatamente o que a decisão derrubada evitava — logo **o formato de retorno é decisão DELE, e a fatia não anda sem essa resposta**; (b) o analisador de cor está com **revisão REPROVADA** por um CRÍTICO (estouro de expoente vira preto em publicação e aborta em depuração) — **publicar antes de consertar seria publicar o defeito na API pública.** A ordem correta é: consertar o CRÍTICO, decidir o formato com ele, e só então promover.
+
+**4. Escrituração de manual AUTORIZADA como padrão.** Alinhar manual normativo a uma lei posterior do líder **não é decisão, é manutenção**, e segue sem consulta prévia. ⚠️ **O limite continua valendo:** o que for **mudança de critério** de auditoria, e não envelhecimento contra lei posterior, continua sendo dele — foi assim que o agente foi instruído e é assim que fica.
+
+**5, 6, 7 ratificadas sem alteração.** `oklch()` como erro com diagnóstico; a estimativa de WSJF dos nove itens serve como está; e a onda curta é a lei aplicada, com as dez travadas esperando.
+
+**8. As duas listas de vocabulário CONSOLIDAM EM UMA SÓ**, com teste varrendo a união atrás de palavra repetida. A revisão tinha provado que as duas já produzem a **mesma palavra** a partir de símbolos diferentes, e que nada detecta isso.
+
+### O que ficou FORA desta rodada, e continua esperando
+
+As **cinco portas de mão única da W3** — `ARCH-PORTS`, `GFSS-VALUE`, `GFSS-NODE-VIEW`, `CORE-TIME`, `ASSET-LOAD` — não foram apresentadas aqui porque o pedido dele foi sobre **decisões já tomadas**, e essas nunca foram tomadas: pararam, por desenho. **`ARCH-PORTS` sozinha destrava a W4 inteira**, e o CTO a classificou como precaucionária.

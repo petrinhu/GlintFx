@@ -72,6 +72,17 @@ function(glintfx_register_pkgconfig_validation)
     cmake_path(NORMAL_PATH normalized_libdir)
     set(GLINTFX_NORMALIZED_INSTALL_LIBDIR "${normalized_libdir}")
 
+    # PKG-NATIVE (27/08/2026): a build-tree scratch directory for the
+    # ONE hand-written text operation the generated validator still
+    # performs - substituting the literal "${pcfiledir}" token in a
+    # PRIVATE COPY of the installed glintfx.pc before handing it to
+    # cmake_pkg_config(EXTRACT ...) (see
+    # GlintfxPkgConfigValidateInstalled.cmake.in's own header,
+    # "STRICTNESS STRICT", for why that substitution is needed at
+    # all). Never the packager's own install tree - a validation step
+    # must not write into the thing it is validating.
+    set(GLINTFX_VALIDATE_SCRATCH_DIR "${CMAKE_CURRENT_BINARY_DIR}/GlintfxPkgConfigValidateScratch")
+
     set(generated_script "${CMAKE_CURRENT_BINARY_DIR}/GlintfxPkgConfigValidateInstalled.cmake")
 
     # PROJECT_SOURCE_DIR, not CMAKE_SOURCE_DIR (FIX-CONSUMO achado A7):

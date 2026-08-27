@@ -73,8 +73,26 @@ jobs:
           # compartilhado de um alvo nunca esconda o resultado do
           # estatico irmao (nem o de nenhum outro alvo - fail-fast: false
           # ja cobria isso entre alvos; agora cobre entre modos tambem).
+          #
+          # c_compiler, campo novo (PKG-NATIVE, 27/08/2026): antes desta
+          # fatia nenhuma entrada passava -DCMAKE_C_COMPILER explicito - o
+          # C ficava por deteccao implicita do CMake, que achava "cc" de
+          # graca porque o PROPRIO pacote "cmake" do apt no Ubuntu 24.04
+          # traz o GCC 13 default como dependencia transitiva. Trocar o
+          # CMake do apt por um tarball oficial baixado à parte (abaixo)
+          # tira essa dependencia junto - MEDIDO ao vivo, nao suposto:
+          # com "cmake" fora da lista de pacotes, o mesmo container
+          # Ubuntu que antes achava /usr/bin/cc (GCC 13.3) passou a
+          # reportar "No CMAKE_C_COMPILER could be found". A correcao e
+          # nomear o C explicitamente, no mesmo espirito que "cc" (CXX) ja
+          # e explicito: "gcc-14" no Ubuntu (companheiro versionado de
+          # "g++-14", ja instalado por dependencia do pacote mas sem
+          # symlink "cc"/"gcc" nenhum), e "cc" nos outros tres alvos, onde
+          # o pacote "gcc" do dnf/pacman ja entrega "/usr/bin/cc" ou
+          # "/usr/sbin/cc" direto - MEDIDO nos tres, nao suposto.
           - nome: Fedora 44 (primario) - compartilhado
             cc: c++
+            c_compiler: cc
             imagem: fedora:44
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
@@ -84,6 +102,7 @@ jobs:
             shared_flag: ""
           - nome: Fedora 44 (primario) - estatico
             cc: c++
+            c_compiler: cc
             imagem: fedora:44
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
@@ -91,28 +110,64 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+          # Ubuntu 24.04 e o UNICO dos cinco alvos cujo gerenciador de
+          # pacote de fabrica nao alcanca o piso de CMake 4.1 que
+          # cmake_pkg_config(IMPORT/POPULATE) exige (CMakeLists.txt, L-01
+          # daquele arquivo): `apt-get install cmake` da 3.28.3, MEDIDO ao
+          # vivo neste dia contra este mesmo container - exatamente a
+          # antiga exigencia minima deste projeto, nunca mais alta
+          # (ESCOPO.md paragrafo 7). Fedora 44 (4.3.0), Arch e CachyOS
+          # (4.4.2 os dois) ja vem acima do piso pelo proprio
+          # dnf/pacman - MEDIDO, sem passo extra algum. A receita abaixo
+          # baixa o tarball oficial do Kitware (cmake.org/download, sem
+          # sudo/apt, sem PPA de terceiro) e o poe em /usr/local/bin, que
+          # antecede /usr/bin no PATH default do Ubuntu - MEDIDO: depois
+          # deste passo "cmake --version" imprime 4.1.6 e nao 3.28.3.
+          # 4.1.6, nao "latest" nem 4.1.0: ultimo patch da SERIE 4.1, o
+          # piso exato que cmake_minimum_required declara - testar contra
+          # o piso de verdade, nao contra uma versao mais nova que
+          # mascararia um bug so-na-4.1.
           - nome: Ubuntu - compartilhado
             cc: g++-14
+            c_compiler: gcc-14
             imagem: ubuntu:24.04
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
-              g++-14 cmake ninja-build pkg-config git ca-certificates
-              libwayland-dev libwayland-bin wayland-protocols
+              g++-14 gcc-14 ninja-build pkg-config git ca-certificates curl
+              libwayland-dev libwayland-bin wayland-protocols &&
+              curl -fsSL -o /var/tmp/glintfx-cmake.tar.gz
+              https://github.com/Kitware/CMake/releases/download/v4.1.6/cmake-4.1.6-linux-x86_64.tar.gz &&
+              mkdir -p /opt/glintfx-cmake &&
+              tar -xzf /var/tmp/glintfx-cmake.tar.gz --strip-components=1 -C /opt/glintfx-cmake &&
+              ln -sf /opt/glintfx-cmake/bin/cmake /usr/local/bin/cmake &&
+              ln -sf /opt/glintfx-cmake/bin/ctest /usr/local/bin/ctest &&
+              ln -sf /opt/glintfx-cmake/bin/cpack /usr/local/bin/cpack &&
+              rm -f /var/tmp/glintfx-cmake.tar.gz
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
           - nome: Ubuntu - estatico
             cc: g++-14
+            c_compiler: gcc-14
             imagem: ubuntu:24.04
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
-              g++-14 cmake ninja-build pkg-config git ca-certificates
-              libwayland-dev libwayland-bin wayland-protocols
+              g++-14 gcc-14 ninja-build pkg-config git ca-certificates curl
+              libwayland-dev libwayland-bin wayland-protocols &&
+              curl -fsSL -o /var/tmp/glintfx-cmake.tar.gz
+              https://github.com/Kitware/CMake/releases/download/v4.1.6/cmake-4.1.6-linux-x86_64.tar.gz &&
+              mkdir -p /opt/glintfx-cmake &&
+              tar -xzf /var/tmp/glintfx-cmake.tar.gz --strip-components=1 -C /opt/glintfx-cmake &&
+              ln -sf /opt/glintfx-cmake/bin/cmake /usr/local/bin/cmake &&
+              ln -sf /opt/glintfx-cmake/bin/ctest /usr/local/bin/ctest &&
+              ln -sf /opt/glintfx-cmake/bin/cpack /usr/local/bin/cpack &&
+              rm -f /var/tmp/glintfx-cmake.tar.gz
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
           - nome: Arch - compartilhado
             cc: c++
+            c_compiler: cc
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
@@ -122,6 +177,7 @@ jobs:
             shared_flag: ""
           - nome: Arch - estatico
             cc: c++
+            c_compiler: cc
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
@@ -131,6 +187,7 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
           - nome: CachyOS - compartilhado
             cc: c++
+            c_compiler: cc
             imagem: cachyos/cachyos:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
@@ -140,6 +197,7 @@ jobs:
             shared_flag: ""
           - nome: CachyOS - estatico
             cc: c++
+            c_compiler: cc
             imagem: cachyos/cachyos:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
@@ -153,10 +211,17 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # PKG-NATIVE: falha o job cedo e com mensagem clara se o passo
+      # "Instalar toolchain" acima nao alcancou o piso que
+      # cmake_minimum_required(VERSION 4.1) exige (CMakeLists.txt) - sem
+      # este print explicito, um Ubuntu que ainda achasse o cmake velho
+      # do apt so falharia bem mais tarde, no proprio "cmake -S" do passo
+      # de build, com uma mensagem que nao aponta para este passo.
       - name: Versoes da toolchain
         run: |
           set -eux
           ${{ matrix.cc }} --version
+          ${{ matrix.c_compiler }} --version
           cmake --version
           ninja --version
           pkg-config --modversion wayland-client
@@ -206,10 +271,30 @@ jobs:
       # compilacao em todo commit"), em todo build deste job a partir do
       # FUND-4 - ausente ate aqui (cmake/GlintfxOptions.cmake:11 tinha o
       # default OFF e nenhum passo deste arquivo o ligava).
+      # -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} (PKG-NATIVE, 27/08/2026):
+      # explicito em toda entrada agora, pelo mesmo motivo que
+      # CMAKE_CXX_COMPILER ja e - ver o proprio comentario de
+      # matrix.c_compiler acima pelo achado que forcou isso (o Ubuntu
+      # perdeu um "cc" que so existia de graca via dependencia transitiva
+      # do pacote apt "cmake", removido desta lista em favor do tarball
+      # oficial do Kitware).
+      # CC=${{ matrix.c_compiler }} (PKG-NATIVE, 27/08/2026): tests/tools/
+      # check_pkgconfig_validate.sh (pkgconfig_validate_test, run by the
+      # ctest line below) does its OWN separate `cmake -S`/`-B`
+      # reconfigures of a throwaway build directory - CMAKE_CXX_COMPILER
+      # reaches it as its second command-line argument
+      # (tests/CMakeLists.txt), but there was never a channel for a C
+      # compiler. Exporting CC here, at job-step level, is that channel:
+      # the script reads it from the environment (see its own
+      # "C_COMPILER_FLAG" comment) rather than tests/CMakeLists.txt
+      # growing a third positional argument this fatia's own file scope
+      # does not include.
       - name: Build e testes (${{ matrix.modo }})
+        env:
+          CC: ${{ matrix.c_compiler }}
         run: |
           set -eux
-          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
           cmake --build ${{ matrix.builddir }}
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
 
@@ -230,6 +315,40 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
     steps:
       - uses: actions/checkout@v4
+
+      # PKG-NATIVE (27/08/2026): windows-latest is the SECOND of the five
+      # supported platforms (GODS_LAWS.md L-04) whose factory CMake does
+      # not reach the 4.1 floor cmake_pkg_config(IMPORT/POPULATE) needs
+      # (CMakeLists.txt's own cmake_minimum_required comment) - MEASURED,
+      # not assumed from ESCOPO.md paragraph 7's own Linux-only text:
+      # actions/runner-images' own Windows2025-Readme.md (fetched
+      # 27/08/2026) names "CMake 3.31.6" as this image's bundled version.
+      # Same fix shape as the Ubuntu entries in the `linux` job above -
+      # the official Kitware zip from cmake.org/download, prepended to
+      # PATH via $GITHUB_PATH so every later step's plain "cmake" call
+      # (this whole job never spells out a full path) picks it up - no
+      # third-party GitHub Action (this project's own convention already
+      # states "sem action de terceiro: o proprio CMake localiza o
+      # MSVC", a few steps below). 4.1.6, the same pinned patch release
+      # as the Ubuntu entries, for the same reason: testing the true
+      # floor cmake_minimum_required declares, not a newer version that
+      # could mask a 4.1-only bug.
+      - name: Instalar CMake >= 4.1 (Windows)
+        shell: pwsh
+        run: |
+          $cmakeVersion = "4.1.6"
+          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
+          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
+          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir
+          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
+          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
+            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
 
       - name: Versoes da toolchain
         shell: pwsh

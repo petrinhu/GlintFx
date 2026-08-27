@@ -132,21 +132,22 @@
 #      must NOT name the attacker directory anywhere in its message -
 #      the second assertion is what tells a future regression (CWD
 #      leaking back in) apart from an unrelated failure.
-#  13. "real pkg-config's own variable syntax accepted, all three at
-#      once" (GREEN, PKG-WIN-SCOPE round 5): a single hand-assembled
-#      glintfx.pc where "exec_prefix"'s definition uses whitespace
-#      around "=" AND carries a trailing "# ..." comment, and "libdir"
-#      is defined TWICE, first pointing at a directory that does not
-#      exist, then correctly - a shape chosen so the fixture can only
-#      resolve to real, populated content if whitespace-around-"=",
-#      comment-stripping, AND last-definition-wins are ALL honored at
-#      once (get any one wrong and either "exec_prefix" never resolves,
-#      corrupting "libdir" downstream, or "libdir" resolves to the
-#      first, nonexistent definition). Cross-checked against a real
-#      pkg-config/pkgconf binary on this machine's PATH, when one is
-#      available, confirming the SAME fixture is genuinely good by an
-#      implementation this project does not control - not merely
-#      "passes because our own code says so".
+#  13. "real pkg-config's own variable syntax accepted" (GREEN,
+#      PKG-WIN-SCOPE round 5, NARROWED by PKG-NATIVE 27/08/2026): a
+#      single hand-assembled glintfx.pc where "exec_prefix"'s
+#      definition uses whitespace around "=" AND carries a trailing
+#      "# ..." comment - a shape chosen so the fixture can only resolve
+#      to real, populated content if whitespace-around-"=" AND
+#      comment-stripping are BOTH honored (get either wrong and
+#      "exec_prefix" never resolves, corrupting "libdir" downstream).
+#      Cross-checked against a real pkg-config/pkgconf binary on this
+#      machine's PATH, when one is available, confirming the SAME
+#      fixture is genuinely good by an implementation this project does
+#      not control - not merely "passes because our own code says so".
+#      This scenario USED TO ALSO define "libdir" twice and rely on
+#      last-definition-wins; CMake's own native pkg-config parser, in
+#      STRICTNESS STRICT, now REJECTS that outright - see scenario 15
+#      below, where that half now lives, as its own RED case.
 #  14. "relative --prefix, ordinary dispatch" (GREEN, PKG-WIN-SCOPE round 6
 #      REGRESSION proof, 27/08/2026 - introduced by round 5's own fix
 #      above): an ORDINARY `cmake --install <build> --prefix ./stage` -
@@ -172,6 +173,33 @@
 #      staged glintfx.pc path in its own success message - not a doubled
 #      one - so a regression of THIS fix cannot silently pass by merely
 #      checking for absence of the word "error".
+#  15. "duplicate variable REJECTED, closed" (RED, PKG-NATIVE,
+#      27/08/2026): the half scenario 13 used to cover, now proven
+#      as its own case, in the OPPOSITE direction - a glintfx.pc
+#      defining "libdir" twice MUST be refused by CMake's own native
+#      pkg-config parser under STRICTNESS STRICT ("variables and
+#      keywords must be unique", CMake's own documentation), a
+#      deliberate narrowing from the deleted hand-written reader's own
+#      last-definition-wins behavior. Exists so a future change away
+#      from STRICTNESS STRICT is a reviewed decision, not an accident.
+#  16. "absolute CMAKE_INSTALL_LIBDIR" (GREEN, ESCOPO.md paragraph 8's
+#      own EXTRA case - "caminho completo continua passando"): a real,
+#      full configure/build/install with CMAKE_INSTALL_LIBDIR and
+#      CMAKE_INSTALL_INCLUDEDIR both absolute, in its OWN dedicated
+#      build directory (the one deliberate exception to
+#      PERF-PKGVALIDATE's shared-build optimization below, since
+#      CMAKE_INSTALL_LIBDIR is a CACHE variable no other scenario in
+#      this file ever touches). Proves glintfx_pkgconfig_prepare_native_input()'s
+#      pcfiledir substitution is a correct NO-OP when glintfx.pc's own
+#      "prefix=" line never references "${pcfiledir}" at all.
+#  17. "DESTDIR relative, ordinary dispatch" (GREEN): the DESTDIR-shaped
+#      sibling of scenario 14 - an ORDINARY relative $ENV{DESTDIR}
+#      (`DESTDIR=relstage cmake --install <build> --prefix /usr/local`),
+#      nothing adversarial, proving glintfx_pkgconfig_validate_resolve_staged_dir()'s
+#      own DESTDIR branch forces a relative DESTDIR absolute through the
+#      same glintfx_pkgconfig_force_absolute() atom scenario 14 already
+#      proves for a relative --prefix, rather than doubling the shared
+#      DESTDIR segment into every resolved path.
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -201,13 +229,19 @@
 # a single `cmake --install` with the validator ON costs ~0.09s versus
 # ~0.01s with it fully OFF (GLINTFX_SKIP_PKGCONFIG_VALIDATION=1) on this
 # same machine - a ~80ms tax per install, not the multi-second one the
-# timeout would need. The real cost was structural: NONE of this file's
-# thirteen scenarios ever vary BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR
-# (unlike check_pkgconfig.sh's sibling gate, which genuinely needs a
-# different compiled artifact for its static scenario) - every
-# scenario here only varies CMAKE_INSTALL_PREFIX and
-# GLINTFX_SKIP_PKGCONFIG_VALIDATION, BOTH configure-time cache
-# variables that do not touch a single compiled object file. Confirmed
+# timeout would need. The real cost was structural: at the time this
+# fatia was written, NONE of this file's thirteen scenarios ever varied
+# BUILD_SHARED_LIBS or CMAKE_INSTALL_LIBDIR (unlike check_pkgconfig.sh's
+# sibling gate, which genuinely needs a different compiled artifact for
+# its static scenario) - every scenario varied only CMAKE_INSTALL_PREFIX
+# and GLINTFX_SKIP_PKGCONFIG_VALIDATION, BOTH configure-time cache
+# variables that do not touch a single compiled object file. PKG-NATIVE
+# (27/08/2026) added scenario 16, the ONE deliberate exception: it needs
+# a genuinely absolute CMAKE_INSTALL_LIBDIR, and pays for its OWN
+# dedicated build directory rather than reconfiguring the shared one,
+# specifically so it does not leak a non-default cached libdir into
+# every scenario that would otherwise run after it - see that
+# scenario's own comment. Confirmed
 # live: reconfiguring an already-built tree with either variable
 # changed, then rebuilding, prints "ninja: no work to do" and costs
 # ~0.08s, not a recompile. So this file now configures and builds
@@ -279,6 +313,35 @@ make_scratch_workdir() {
 # (confirmed live: `cmake --install <dir> --prefix <p>` overrides a
 # CACHED CMAKE_INSTALL_PREFIX for that one invocation, regardless of
 # what configure baked in), so this value is inert for them.
+#
+# C_COMPILER_FLAG (PKG-NATIVE, 27/08/2026): CMakeLists.txt's own
+# `enable_language(C)` (UNIX-only, for the wayland-scanner generated
+# .c binding) needs a C compiler CMake can find, and this project only
+# ever passed CMAKE_CXX_COMPILER explicitly - C was left to implicit
+# detection, which used to work everywhere for free. MEASURED,
+# reproduced live in a fresh ubuntu:24.04 container: with the
+# apt-provided "cmake" package installed, implicit C detection found
+# "/usr/bin/cc" (GCC 13.3) - not because Ubuntu ships a bare "cc" by
+# default, but because THAT SPECIFIC apt package pulls it in as a
+# transitive dependency. .github/workflows/ci.yml's own Ubuntu entries
+# (PKG-NATIVE) stopped installing "cmake" via apt - the whole point of
+# this fatia is CMake >= 4.1, which apt's own 3.28.3 does not reach -
+# and lost that free "cc" along with it: the SAME container, cmake
+# fetched from the official tarball instead, reports "No
+# CMAKE_C_COMPILER could be found". The fix reads the C compiler from
+# the `CC` environment variable, the same variable CMake's own
+# documentation names for exactly this purpose, and only appends
+# -DCMAKE_C_COMPILER when it is actually set - so a machine where
+# implicit detection already works (this developer's own machine,
+# Fedora/Arch/CachyOS in CI) is untouched, and Ubuntu in CI sets `CC`
+# once, at the job level (.github/workflows/ci.yml), covering both
+# this script's own reconfigures and run_absolute_libdir_scenario()'s
+# own separate cmake -S call below.
+c_compiler_flag=""
+if [ -n "${CC:-}" ]; then
+    c_compiler_flag="-DCMAKE_C_COMPILER=${CC}"
+fi
+
 reconfigure_glintfx() {
     glintfx_src="$1"
     build_dir="$2"
@@ -288,6 +351,7 @@ reconfigure_glintfx() {
     cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CXX_COMPILER="$cxx" \
+        ${c_compiler_flag:+"$c_compiler_flag"} \
         -DGLINTFX_BUILD_TESTS=OFF \
         -DCMAKE_INSTALL_PREFIX="$prefix_value" \
         -DGLINTFX_SKIP_PKGCONFIG_VALIDATION="$skip_validation"
@@ -694,7 +758,7 @@ ${output}"
 ${output}" ;;
     esac
     case "$normalized_output" in
-        *"filesystem-only content check already ran before this point"*"already confirmed glintfx.pc, the headers and the library artifact are genuinely on disk with real content"*) : ;;
+        *"native content check already ran before this point"*"already confirmed glintfx.pc, the headers and the library artifact are genuinely on disk with real content"*) : ;;
         *) fail "the Windows-forced healthy-content warning did not honestly attribute the confirmation to its own content check having already run. Got:
 ${output}" ;;
     esac
@@ -743,7 +807,7 @@ ${output}"
 ${output}" ;;
         esac
     done
-    echo "ok: headers-missing RED, on both a real Unix run and a Windows-forced run - the includedir branch of the filesystem/text-only content check fires for a genuinely empty header directory, unconditionally on every platform."
+    echo "ok: headers-missing RED, on both a real Unix run and a Windows-forced run - the includedir branch of the native content check fires for a genuinely empty header directory, unconditionally on every platform."
 }
 
 # Scenario 12: relative libdir, attacker-controlled CWD, still REFUSES -
@@ -814,24 +878,29 @@ ${output}"
     echo "ok: relative-libdir CWD-attack RED - a real install with its library artifact removed and glintfx.pc's libdir rewritten to a bare relative value REFUSES even when invoked from an attacker-controlled working directory holding a decoy library under the same relative name; the resolved path is anchored under glintfx.pc's own directory, never the caller's CWD."
 }
 
-# Scenario 13: real pkg-config's own variable syntax accepted, all three
-# at once (whitespace around "=", a trailing "#" comment, and
-# last-definition-wins for a variable defined twice) - PKG-WIN-SCOPE
-# round 5. Hand-assembled fixture, same reasoning as scenario 6: needs
-# only the shared build's own generated validator script and the real
-# libdir subpath (both stable across the whole file, PERF-PKGVALIDATE) -
-# no build or install of its own. The fixture is deliberately shaped so
-# ALL THREE forms must be honored at once for it to resolve to real
-# content: "exec_prefix"'s own definition needs the whitespace-around-"="
-# AND comment-stripping fixes to resolve at all (get either wrong and
-# "libdir", which depends on it, never resolves either), and "libdir"
-# itself is defined twice, first pointing at a directory that does not
-# exist, so only last-definition-wins reaches the real one. When a real
-# pkg-config/pkgconf binary is on PATH, cross-checks the SAME fixture
-# against it too (declared downgrade otherwise, GODS_LAWS.md L-27,
-# mirroring scenario 8's own absence handling) - so this scenario's
-# claim that the fixture is "genuinely good" does not rest solely on
-# this project's own code agreeing with itself.
+# Scenario 13: real pkg-config's own variable syntax accepted (whitespace
+# around "=" and a trailing "#" comment) - PKG-WIN-SCOPE round 5, NARROWED
+# by PKG-NATIVE (27/08/2026, see cmake/GlintfxPkgConfigValidateInstalled.cmake.in's
+# own file header, "STRICTNESS STRICT"): this fixture used to ALSO define
+# "libdir" twice and rely on last-definition-wins, which CMake's own
+# native pkg-config parser, in the strictest mode it offers, now REJECTS
+# outright ("variables and keywords must be unique" - CMake's own
+# documentation for STRICTNESS STRICT) - that half moved to
+# run_duplicate_variable_rejected_scenario() below, as its own RED case,
+# rather than staying folded into this GREEN one. Hand-assembled fixture,
+# same reasoning as scenario 6: needs only the shared build's own
+# generated validator script and the real libdir subpath (both stable
+# across the whole file, PERF-PKGVALIDATE) - no build or install of its
+# own. The fixture is deliberately shaped so BOTH forms must be honored
+# at once for it to resolve to real content: "exec_prefix"'s own
+# definition needs the whitespace-around-"=" AND comment-stripping fixes
+# to resolve at all (get either wrong and "libdir", which depends on it,
+# never resolves either). When a real pkg-config/pkgconf binary is on
+# PATH, cross-checks the SAME fixture against it too (declared downgrade
+# otherwise, GODS_LAWS.md L-27, mirroring scenario 8's own absence
+# handling) - so this scenario's claim that the fixture is "genuinely
+# good" does not rest solely on this project's own code agreeing with
+# itself.
 run_real_pkgconfig_syntax_variants_scenario() {
     build_dir="$1"
     scratch="$2"
@@ -848,18 +917,17 @@ run_real_pkgconfig_syntax_variants_scenario() {
 prefix=\${pcfiledir}/../..
 exec_prefix = \${prefix}   # whitespace around "=" AND a trailing comment, both on this one line
 includedir=\${prefix}/include
-libdir=\${exec_prefix}/${real_libdir}-does-not-exist-yet
 libdir=\${exec_prefix}/${real_libdir}
 
 Name: glintfx
-Description: check_pkgconfig_validate.sh L-40-adjacent syntax-variants fixture - whitespace around "=", a trailing comment, and a duplicate variable, all at once
+Description: check_pkgconfig_validate.sh syntax-variants fixture - whitespace around "=" and a trailing comment
 Version: 0.1.0.0
 Cflags: -I\${includedir}
 Libs: -L\${libdir} -lglintfx
 EOF
 
     output="$(cmake -DCMAKE_INSTALL_PREFIX="$fixture_prefix" -P "$validator_script" 2>&1)" \
-        || fail "re-running the validator against a fixture using real pkg-config's own whitespace/comment/duplicate-variable syntax unexpectedly FAILED - this is the exact 'rejects a genuinely good install' defect class PKG-WIN-SCOPE's round 5 review found. Got:
+        || fail "re-running the validator against a fixture using real pkg-config's own whitespace/comment syntax unexpectedly FAILED - this is the exact 'rejects a genuinely good install' defect class PKG-WIN-SCOPE's round 5 review found. Got:
 ${output}"
 
     case "$output" in
@@ -884,10 +952,157 @@ ${real_output}"
             *) fail "a real ${real_tool} run against the syntax-variants fixture did not emit the expected -lglintfx. Got:
 ${real_output}" ;;
         esac
-        echo "ok: real pkg-config syntax variants (whitespace around '=', trailing comment, duplicate-variable-last-wins) - accepted by BOTH this validator and a real ${real_tool} on this machine's PATH, cross-checked against the same fixture."
+        echo "ok: real pkg-config syntax variants (whitespace around '=', trailing comment) - accepted by BOTH this validator and a real ${real_tool} on this machine's PATH, cross-checked against the same fixture."
     else
-        echo "ok: real pkg-config syntax variants (whitespace around '=', trailing comment, duplicate-variable-last-wins) - accepted by this validator; no real pkg-config/pkgconf on PATH to additionally cross-check against (declared, GODS_LAWS.md L-27 - see scenario 8's own downgrade for the same absence)."
+        echo "ok: real pkg-config syntax variants (whitespace around '=', trailing comment) - accepted by this validator; no real pkg-config/pkgconf on PATH to additionally cross-check against (declared, GODS_LAWS.md L-27 - see scenario 8's own downgrade for the same absence)."
     fi
+}
+
+# Scenario 15: a variable defined TWICE is now REJECTED, closed - PKG-NATIVE
+# (27/08/2026), a MEASURED behavior change from the reader this project
+# used to carry (see cmake/GlintfxPkgConfigValidateInstalled.cmake.in's own
+# file header, "STRICTNESS STRICT"): the OLD hand-written reader used to
+# accept a repeated "libdir=" line (last definition wins, matching real
+# pkgconf's own PERMISSIVE mode); CMake's OWN native parser, in
+# STRICTNESS STRICT - the strictest mode it offers, and the one this
+# validator always uses - refuses the file outright instead
+# ("cmake_pkg_config Resolution failed", MEASURED live on this machine).
+# This is not a regression to chase down: glintfx's OWN glintfx.pc.in
+# generator never defines a variable twice (PACKAGING.md documents this
+# as a property of the template and cmake/GlintfxInstall.cmake, unchanged
+# by PKG-NATIVE), so only a hand-edited or packager-tampered file can
+# ever hit this - and refusing an ambiguous file is exactly what "the
+# strictest mode it offers" is for. This scenario exists so the NEXT
+# person reading this file's history does not "fix" that refusal by
+# loosening STRICTNESS - it is the intended behavior, proven here so a
+# future change away from it is a deliberate, reviewed decision, not an
+# accident.
+run_duplicate_variable_rejected_scenario() {
+    build_dir="$1"
+    scratch="$2"
+    real_libdir="$3"
+
+    validator_script="$(find_generated_validator_script "$build_dir")"
+
+    fixture_prefix="${scratch}/prefix-duplicate-variable-fixture"
+    mkdir -p "${fixture_prefix}/${real_libdir}/pkgconfig" "${fixture_prefix}/include/glintfx"
+    : > "${fixture_prefix}/${real_libdir}/libglintfx.so.0.1.0.0"
+    pkgconfig_dir="${fixture_prefix}/${real_libdir}/pkgconfig"
+    cat > "${pkgconfig_dir}/glintfx.pc" << EOF
+prefix=\${pcfiledir}/../..
+exec_prefix=\${prefix}
+includedir=\${prefix}/include
+libdir=\${exec_prefix}/${real_libdir}-does-not-exist-yet
+libdir=\${exec_prefix}/${real_libdir}
+
+Name: glintfx
+Description: check_pkgconfig_validate.sh duplicate-variable-rejected fixture
+Version: 0.1.0.0
+Cflags: -I\${includedir}
+Libs: -L\${libdir} -lglintfx
+EOF
+
+    output="$(cmake -DCMAKE_INSTALL_PREFIX="$fixture_prefix" -P "$validator_script" 2>&1)" \
+        && fail "re-running the validator against a fixture that defines 'libdir' TWICE unexpectedly SUCCEEDED - CMake's own native pkg-config parser, under STRICTNESS STRICT, should refuse an ambiguous file with a duplicate variable definition rather than silently picking one. Got:
+${output}"
+
+    case "$output" in
+        *"cmake_pkg_config"*"Resolution failed"*) : ;;
+        *) fail "the duplicate-variable RED did not print the expected 'cmake_pkg_config ... Resolution failed' diagnostic. Got:
+${output}" ;;
+    esac
+    echo "ok: duplicate-variable RED - a glintfx.pc defining 'libdir' twice is REFUSED, closed, by CMake's own native pkg-config parser under STRICTNESS STRICT - a deliberate narrowing from the deleted hand-written reader's own last-definition-wins behavior, not a regression."
+}
+
+# Scenario 16: absolute CMAKE_INSTALL_LIBDIR still passes - ESCOPO.md
+# paragraph 8 ("Caminho RELATIVO vira o caso principal dos testes"), the
+# EXTRA case this validator itself must still prove, not only PKG-DIST's
+# own sibling gate (tests/tools/check_pkgconfig.sh, outside this fatia's
+# file scope). An absolute CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_INCLUDEDIR
+# never references "${pcfiledir}" at all
+# (glintfx_compute_pkgconfig_relocatable_prefix()/glintfx_compute_pkgconfig_path_expression(),
+# cmake/GlintfxInstall.cmake - the "prefix=" line becomes the literal,
+# normalized absolute value instead), so this scenario also proves the
+# pcfiledir-substitution step (glintfx_pkgconfig_prepare_native_input())
+# is a correct NO-OP when there is no "${pcfiledir}" token to substitute -
+# not merely that the relative/pcfiledir-dependent path (every other
+# scenario in this file) works.
+#
+# ITS OWN, DEDICATED build directory - the ONE deliberate exception to
+# PERF-PKGVALIDATE's own shared-build optimization (see the file-level
+# comment above): CMAKE_INSTALL_LIBDIR is a CACHE variable, and every
+# OTHER scenario's own reconfigure_glintfx() call never overrides it
+# (PERF-PKGVALIDATE's own claim was exactly that no scenario needed to,
+# until this one), so setting it on the shared build directory would
+# silently leak a non-default libdir into every scenario that runs
+# after this one. A dedicated build directory costs one full compile
+# this scenario alone pays for, in exchange for never touching the
+# shared build's own cache.
+run_absolute_libdir_scenario() {
+    glintfx_src="$1"
+    cxx="$2"
+    build_dir="$3"
+    scratch="$4"
+
+    absolute_libdir="${scratch}/absolute-libdir-target/lib64"
+    absolute_includedir="${scratch}/absolute-libdir-target/include"
+
+    cmake -S "$glintfx_src" -B "$build_dir" -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_COMPILER="$cxx" \
+        ${c_compiler_flag:+"$c_compiler_flag"} \
+        -DGLINTFX_BUILD_TESTS=OFF \
+        -DCMAKE_INSTALL_PREFIX=/usr/local \
+        -DCMAKE_INSTALL_LIBDIR="$absolute_libdir" \
+        -DCMAKE_INSTALL_INCLUDEDIR="$absolute_includedir" \
+        -DGLINTFX_SKIP_PKGCONFIG_VALIDATION=OFF >/dev/null
+    build_glintfx "$build_dir" >/dev/null
+
+    output="$(cmake --install "$build_dir" 2>&1)" \
+        || fail "an absolute CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_INCLUDEDIR install unexpectedly FAILED. Got:
+${output}"
+
+    case "$output" in
+        *"post-install pkg-config validation passed"*) : ;;
+        *) fail "the absolute-libdir install succeeded, but never printed the validator's own success message. Got:
+${output}" ;;
+    esac
+
+    [ -f "${absolute_libdir}/pkgconfig/glintfx.pc" ] \
+        || fail "expected glintfx.pc at ${absolute_libdir}/pkgconfig/glintfx.pc after an absolute-libdir install, and it is not there."
+    echo "ok: absolute CMAKE_INSTALL_LIBDIR scenario - a glintfx.pc whose 'prefix=' line never references \${pcfiledir} at all (ESCOPO.md paragraph 8's own EXTRA case) still installs and validates correctly through CMake's native pkg-config parser."
+}
+
+# Scenario 17: DESTDIR relative, ordinary dispatch - proves
+# glintfx_pkgconfig_validate_resolve_staged_dir()'s own DESTDIR branch
+# (cmake/GlintfxPkgConfigValidateInstalled.cmake.in) forces a relative
+# $ENV{DESTDIR} absolute through the SAME glintfx_pkgconfig_force_absolute()
+# atom already proven for a relative --prefix (scenario 14) - an
+# ORDINARY relative DESTDIR, `DESTDIR=relstage cmake --install <build>
+# --prefix /usr/local`, nothing adversarial, the exact shape a packaging
+# pipeline that stages into a subdirectory of its own build tree reaches
+# for routinely - dispatched from its own throwaway scratch directory.
+# Left unfixed, this would double the shared DESTDIR segment into every
+# resolved path, the same class of defect scenario 14 already closed for
+# a relative --prefix.
+run_destdir_relative_ordinary_dispatch_scenario() {
+    build_dir="$1"
+    dispatch_dir="$2"
+    real_libdir="$3"
+
+    mkdir -p "$dispatch_dir"
+    output="$(cd "$dispatch_dir" && DESTDIR=relstage cmake --install "$build_dir" --prefix /usr/local 2>&1)" \
+        || fail "an ORDINARY relative DESTDIR install ('DESTDIR=relstage cmake --install <build> --prefix /usr/local', dispatched from ${dispatch_dir}, nothing adversarial) unexpectedly FAILED - the DESTDIR branch of glintfx_pkgconfig_validate_resolve_staged_dir() may be reading \$ENV{DESTDIR} raw again, without forcing it absolute first. Got:
+${output}"
+
+    expected_pc_file="${dispatch_dir}/relstage/usr/local/${real_libdir}/pkgconfig/glintfx.pc"
+    case "$output" in
+        *"post-install pkg-config validation passed - glintfx.pc at '${expected_pc_file}'"*) : ;;
+        *) fail "the relative-DESTDIR ordinary-dispatch install's own success message did not name the correctly-resolved, single-occurrence staged path (${expected_pc_file}). Got:
+${output}" ;;
+    esac
+    [ -f "$expected_pc_file" ] || fail "expected glintfx.pc at ${expected_pc_file} after a relative-DESTDIR install, and it is not there on disk, despite the validator reporting success."
+    echo "ok: DESTDIR relative, ordinary dispatch - a plain 'DESTDIR=relstage cmake --install <build> --prefix /usr/local' install passes, naming the correctly-resolved, single-occurrence staged glintfx.pc path, with no doubled DESTDIR segment anywhere."
 }
 
 # Scenario 14: relative --prefix, ordinary dispatch - PKG-WIN-SCOPE round 6
@@ -967,9 +1182,12 @@ main() {
     run_headers_missing_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-headers-missing"
     run_relative_libdir_cwd_attack_scenario "$glintfx_src" "$cxx" "$build_dir" "${scratch}/prefix-relative-cwd-attack" "$scratch"
     run_real_pkgconfig_syntax_variants_scenario "$build_dir" "$scratch" "$real_libdir"
+    run_duplicate_variable_rejected_scenario "$build_dir" "$scratch" "$real_libdir"
     run_relative_prefix_ordinary_dispatch_scenario "$build_dir" "${scratch}/dispatch-relative-prefix" "$real_libdir"
+    run_destdir_relative_ordinary_dispatch_scenario "$build_dir" "${scratch}/dispatch-relative-destdir" "$real_libdir"
+    run_absolute_libdir_scenario "$glintfx_src" "$cxx" "${scratch}/build-absolute-libdir" "$scratch"
 
-    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default layout, DESTDIR, and an ordinary relative --prefix), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, a hand-assembled empty-Cflags/Libs (L-40) fixture, and a relative libdir resolved from an attacker-controlled working directory - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct; accepts real pkg-config's own whitespace/comment/duplicate-variable syntax, cross-checked against a real pkg-config binary when one is on PATH; and no longer doubles a shared prefix/libdir/pkgconfig path segment when --prefix is given as a plain relative path (PKG-WIN-SCOPE round 6 regression, closed)."
+    echo "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default relative layout, DESTDIR - both absolute and relative -, an absolute CMAKE_INSTALL_LIBDIR, and an ordinary relative --prefix), honors both halves of its escape hatch, fails closed with a self-sufficient diagnostic on a real broken library artifact, a real missing glintfx.pc, a real missing header tree, a hand-assembled empty-Cflags/Libs (L-40) fixture, and a relative libdir resolved from an attacker-controlled working directory - on the real Unix path AND with the Windows branch forced alike - while degrading to a WARNING (not a FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config binary genuinely cannot be talked to despite content already confirmed correct; accepts real pkg-config's own whitespace/comment syntax, cross-checked against a real pkg-config binary when one is on PATH, while a variable defined TWICE is now refused, closed, by CMake's own native pkg-config parser under STRICTNESS STRICT (PKG-NATIVE, a deliberate narrowing from the deleted hand-written reader's own last-definition-wins behavior); and no longer doubles a shared prefix/libdir/pkgconfig or DESTDIR path segment when --prefix or DESTDIR is given as a plain relative path (PKG-WIN-SCOPE round 6 regression, closed, and its DESTDIR-shaped sibling closed the same way)."
 }
 
 main "$@"

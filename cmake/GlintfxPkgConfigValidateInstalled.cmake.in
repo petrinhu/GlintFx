@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# GlintfxPkgConfigValidateInstalled.cmake.in - PKG-VALIDATE.
+# GlintfxPkgConfigValidateInstalled.cmake.in - PKG-VALIDATE / PKG-NATIVE.
 #
 # Configured with configure_file(@ONLY) by
 # glintfx_register_pkgconfig_validation() (cmake/GlintfxPkgConfigValidate.cmake)
@@ -12,294 +12,168 @@
 # whatever real layout THIS `cmake --install` invocation actually
 # produced, on the machine actually running it - a packager we have
 # never met, using a layout tests/tools/check_pkgconfig.sh (PKG-DIST)
-# never enumerated, because PKG-DIST's six scenarios only prove what
-# OUR OWN CI exercises (GODS_LAWS.md LEI ZERO: the base of consumers
-# is public and unknown, so a validator that only runs in our CI
-# leaves every layout outside it unchecked, silently).
+# never enumerated (GODS_LAWS.md LEI ZERO: the base of consumers is
+# public and unknown, so a validator that only runs in our CI leaves
+# every layout outside it unchecked, silently).
 #
-# HOW THIS FILE LOCATES THE INSTALL, WITHOUT PREDICTING IT (adversarial
-# review round 3's ruling on check_pkgconfig.sh, relayed verbatim in
-# that file's own header: "parar de prever a entrada e passar a
-# validar a saida" - the same ruling applies here, one layer earlier):
-# @GLINTFX_NORMALIZED_INSTALL_LIBDIR@ below is the ONLY thing baked in
-# by configure_file(@ONLY) - a plain, already-normalized string read
-# from this build's own CMAKE_INSTALL_LIBDIR
-# (glintfx_register_pkgconfig_validation(), which computes it with the
-# exact same cmake_path(NORMAL_PATH) call
-# glintfx_compute_pkgconfig_relocatable_prefix() in
-# cmake/GlintfxInstall.cmake already uses for glintfx.pc's own
-# content), because that value cannot change between configure and
-# install - it is a CACHE variable, fixed once. Both
-# "${CMAKE_INSTALL_PREFIX}" and "$ENV{DESTDIR}" below stay LITERAL,
-# unsubstituted text in THIS FILE: configure_file(@ONLY) only ever
-# replaces @VAR@ forms, never ${VAR} or $ENV{VAR} - the exact escaping
-# technique glintfx_compute_pkgconfig_relocatable_prefix() already
-# uses for glintfx.pc's own "${pcfiledir}". That is what lets them
-# resolve to the REAL, INSTALL-TIME values when this file actually
-# runs: CMAKE_INSTALL_PREFIX reflects any `cmake --install --prefix
-# <p>` override (cmake_install.cmake pre-defines it before any
-# install(CODE) block runs - confirmed against a real generated
-# cmake_install.cmake on this machine), and $ENV{DESTDIR} is read
-# fresh from the environment of THIS invocation - the staging root
-# that, per PACKAGING.md, "does not exist, and is not knowable, at
-# CMake CONFIGURE time".
+# PKG-NATIVE (27/08/2026) - THE HAND-WRITTEN READER IS GONE. Decision
+# of the lider (ESCOPO.md paragraph 7, "A exigencia minima da
+# ferramenta de build SOBE, e o leitor caseiro morre"): the
+# hand-written pkg-config text reader that used to live in this file
+# (glintfx_pkgconfig_read_raw_variables(), glintfx_pkgconfig_resolve_variables(),
+# glintfx_pkgconfig_substitute_text(), glintfx_pkgconfig_lookup_variable(),
+# glintfx_pkgconfig_read_field() - all now deleted) was reopened by
+# adversarial review FIVE times in two days, always the same family: a
+# path fragment entering from one more source without being made
+# absolute first (relative --prefix, relative DESTDIR, CWD-dependent
+# resolution of a relative includedir/libdir/-I/-L value). GODS_LAWS.md
+# L-42 ("uma falha revista mais de uma vez -> buscar na web"): CMake's
+# OWN build-in pkg-config format parser, cmake_pkg_config(), added in
+# CMake 3.31 (EXTRACT only) and completed with IMPORT/POPULATE in
+# CMake 4.1 - "generates CMake variables and targets from pkg-config
+# format package files natively, without needing to invoke or even
+# require the presence of a pkg-config implementation" (CMake's own
+# documentation, cmake_pkg_config.html) - now does every byte of
+# tokenizing, comment-stripping, whitespace-around-"=" handling,
+# Cflags:/Libs: field splitting and "-I"/"-L"/"-l" token extraction
+# this file used to hand-roll. cmake_minimum_required(VERSION 4.1) in
+# the root CMakeLists.txt is the reason this project's floor moved
+# (see that file's own comment, and PACKAGING.md's "CMake version
+# requirement" section, for which of the five platforms needed a CI
+# install step to reach it - measured, not assumed: Fedora 44 ships
+# 4.3.0, Arch and CachyOS ship 4.4.2, all comfortably above the floor
+# with no CI step needed; Ubuntu 24.04's apt and the windows-latest
+# GitHub Actions runner both ship BELOW 4.1 (3.28.3 and 3.31.6
+# respectively, the second one measured against actions/runner-images'
+# own Windows2025-Readme.md, not assumed from the Linux-only text of
+# ESCOPO.md's own decision 7) and both get an explicit CMake-install
+# step in .github/workflows/ci.yml).
+#
+# STRICTNESS STRICT (this file's every cmake_pkg_config() call) is the
+# strictest mode the command offers - "closely mirrors the behavior of
+# the original FDO pkg-config: variables and keywords must be unique
+# [and] must be defined before they are used" (CMake's own
+# documentation). Two MEASURED consequences worth naming plainly,
+# because they are a real behavior change from the reader this file
+# used to carry, not an accident:
+#   - A glintfx.pc with the SAME variable defined twice, which the OLD
+#     hand-written reader used to accept (last definition wins,
+#     matching real pkgconf's own PERMISSIVE behavior) now FAILS
+#     CLOSED under STRICT instead - measured live on this machine
+#     (CMake 4.3.0): a two-line "libdir=" file that used to pass now
+#     reports "cmake_pkg_config Resolution failed". This is a
+#     narrowing, not a regression: glintfx's OWN generated glintfx.pc
+#     never defines a variable twice (PACKAGING.md already documented
+#     this as a property of glintfx.pc.in and cmake/GlintfxInstall.cmake,
+#     unchanged by this fatia), so this only ever rejects a
+#     hand-edited or packager-modified file that was already ambiguous
+#     - and rejecting an ambiguous file is what "the strictest mode it
+#     offers" is FOR.
+#   - "${pcfiledir}" - pkg-config's own built-in for "the directory
+#     this .pc file is actually in", which glintfx.pc.in's whole
+#     relocatable-prefix design depends on ("prefix=${pcfiledir}/../..")
+#     - is NOT a variable cmake_pkg_config() resolves on its own.
+#     MEASURED, twice, two different ways (an absolute PC_FILE argument
+#     and a PC_LIBDIR-searched package name): "${pcfiledir}" is silent-
+#     empty under the default STRICTNESS PERMISSIVE, and a hard
+#     "Resolution failed" under STRICT ("must be defined before used" -
+#     pcfiledir is never assigned by a "key=value" line, because it is
+#     supposed to be a BUILT-IN). Searched for a CMake issue tracker
+#     entry naming this gap explicitly (L-42) and found none; the CMake
+#     documentation for cmake_pkg_config() (fetched 27/08/2026) never
+#     mentions "pcfiledir" at all, in either direction. Confirmed as a
+#     genuine, present-day gap in this version of the native
+#     mechanism, not a usage mistake on this file's part.
+#
+#     THE FIX, and it is the ONLY hand-written text operation this file
+#     still performs: glintfx_pkgconfig_prepare_native_input() below
+#     copies glintfx.pc's own text to a private SCRATCH file (never the
+#     real installed glintfx.pc - a packager's install tree is never
+#     written to by this validation) and replaces the literal token
+#     "${pcfiledir}" with pc_file's own, already-absolute PARENT_PATH -
+#     a value this file already computes today for exactly this
+#     purpose, never predicted, never CWD-dependent. This is a single,
+#     universally-quoted, exact-substring string(REPLACE ...) - not a
+#     parser, not a tokenizer, not a variable-resolution engine: those
+#     three things are exactly what cmake_pkg_config() now does, on the
+#     SUBSTITUTED file, in the ONE call this file makes to it. Every
+#     other pkg-config syntax question (comments, whitespace,
+#     duplicate detection, "${var}" chains through prefix/exec_prefix/
+#     libdir/includedir, Cflags:/Libs: tokenizing) is answered by CMake
+#     itself from this point on.
 #
 # WHAT THIS DOES NOT TRY TO HANDLE, DECLARED (GODS_LAWS.md L-27,
 # honest downgrade over silent overclaiming):
 #   - Cross-compilation needs nothing special here: every check below
-#     either reads the filesystem/glintfx.pc's own text directly (no
-#     binary involved at all - the content check, see "Talking to the
-#     pkg-config BINARY itself" below) or runs `pkg-config`/`pkgconf`,
-#     a HOST tool operating on text (the one binary-conversation
-#     check) - neither ever executes the target-arch library or an
-#     object file, so nothing here is target-arch sensitive.
-#   - Component-scoped installs (`cmake --install --component X`)
-#     need nothing special either, and this is a property of THIS
-#     PROJECT today, not a general claim: none of glintfx's install()
-#     rules (library, headers, CMake package, glintfx.pc, and this
+#     either reads the filesystem/calls cmake_pkg_config() (no binary
+#     involved at all - see "Talking to the pkg-config BINARY itself"
+#     below) or runs `pkg-config`/`pkgconf`, a HOST tool operating on
+#     text (the one binary-conversation check) - neither ever executes
+#     the target-arch library or an object file, so nothing here is
+#     target-arch sensitive.
+#   - Component-scoped installs (`cmake --install --component X`) need
+#     nothing special either, and this is a property of THIS PROJECT
+#     today, not a general claim: none of glintfx's install() rules
+#     (library, headers, CMake package, glintfx.pc, and this
 #     validation's own install(CODE)) declare a COMPONENT, so they all
-#     share the implicit default component - CMake's generated
-#     cmake_install.cmake wraps every one of them, this file's
-#     include() line included, in the identical
-#     `if(NOT CMAKE_INSTALL_COMPONENT OR CMAKE_INSTALL_COMPONENT
-#     STREQUAL "Unspecified")` guard (confirmed against a real
-#     generated cmake_install.cmake on this machine). A
-#     `--component <name>` install for any OTHER name installs
-#     NOTHING for this project at all - no library, no headers, no
-#     glintfx.pc - and this validation is skipped right along with
-#     them, for the same reason, not by any special-casing here. If a
-#     future fatia splits glintfx's install() rules into distinct
-#     COMPONENTs, this file's own install(CODE) registration
-#     (glintfx_register_pkgconfig_validation(), cmake/GlintfxPkgConfigValidate.cmake)
-#     needs a COMPONENT argument added at the same time, or it would
-#     start running against a partial, intentionally-incomplete
-#     component install and misreport that as broken.
+#     share the implicit default component, and a `--component <name>`
+#     install for any OTHER name installs NOTHING for glintfx at all -
+#     this validation is skipped right along with it, for the same
+#     reason, not by any special-casing here.
 #   - What "Libs.private carries the right linker token for a static
 #     build" MEANS (its content, and that it is genuinely load-bearing
 #     for a real static link) is PKG-DIST's own, already-tested claim
 #     (tests/tools/check_pkgconfig.sh's static scenario). This file
 #     only proves every PATH glintfx.pc emits (via a plain,
 #     non-`--static` `--cflags`/`--libs` query - the one every
-#     consumer hits) resolves to something real; re-querying
-#     `--static` here would duplicate a claim already covered
-#     elsewhere without covering any layout PKG-DIST's own scenario 5
-#     does not already reach.
-#   - Windows library-artifact naming: RESOLVED, not out of scope
-#     (PKG-WIN-SCOPE, revertido por ordem do lider, 27/08/2026). An
-#     earlier fatia (decisao do CTO, ja assinada) had wrapped BOTH
-#     glintfx_install_pkgconfig() and
-#     glintfx_register_pkgconfig_validation() in if(UNIX) in
-#     CMakeLists.txt specifically because this file's library-artifact
-#     glob only ever matched libglintfx.so*/libglintfx.a and would
-#     have reported a false failure against glintfx.lib. The lider
-#     derrubou essa decisao: the if(UNIX) guard in CMakeLists.txt is
-#     gone, both calls run on every platform again, and the glob below
-#     (glintfx_pkgconfig_validate_content_variable() and
-#     glintfx_pkgconfig_validate_content_flags()) now matches glintfx.lib too -
-#     the archive artifact CMakeLists.txt's OUTPUT_NAME/ARCHIVE
-#     DESTINATION rule (cmake/GlintfxLibrary.cmake,
-#     cmake/GlintfxInstall.cmake) actually produces there, for both a
-#     shared build's import library and a static build's archive (MSVC
-#     uses the same .lib extension for both).
+#     consumer hits) resolves to something real.
+#   - Windows library-artifact naming: RESOLVED (PKG-WIN-SCOPE,
+#     revertido por ordem do lider, 27/08/2026). glintfx.pc is
+#     installed on Windows the same as everywhere else, and the glob
+#     below (glintfx_pkgconfig_library_glob_patterns()) matches
+#     glintfx.lib too, alongside libglintfx.so*/libglintfx.a.
 #   - Talking to the pkg-config BINARY itself, as opposed to reading
-#     the filesystem, is where this file draws its one platform-shaped
-#     line (glintfx_validate_installed_pkgconfig() below) - and, since
-#     PKG-WIN-SCOPE's adversarial review round 4 (27/08/2026), that
-#     line is drawn by CONSTRUCTION, not by hoping the order of two
-#     unrelated things never crosses: every filesystem-only check -
-#     glintfx.pc exists, the staged pkgconfig/ directory exists, the
-#     library/header artifacts are on disk, and every -I/-L token a
-#     plain (non-`--static`) Cflags:/Libs: line would emit resolves to
-#     real, populated content - reads glintfx.pc's OWN text and
-#     resolves its "${var}"/"${pcfiledir}" substitutions itself
-#     (glintfx_pkgconfig_read_raw_variables(),
-#     glintfx_pkgconfig_resolve_variables(),
-#     glintfx_pkgconfig_substitute_text() below), calls NO pkg-config
-#     binary at all, and runs UNCONDITIONALLY, before this file ever
-#     tries to find or talk to one - on every platform, Windows
-#     included, with FATAL_ERROR veto power that never downgrades.
-#     ACHADO (adversarial review, 27/08/2026, reproduced live before
-#     this fix): the PREVIOUS shape of this file ran those same
-#     checks only AFTER a successful `pkg-config --exists` binary
-#     call, so on Windows, when that ONE binary call failed for any
-#     reason at all - including one that has nothing to do with
-#     whether the library artifact is genuinely on disk - the WARNING
-#     branch below fired having never looked at the filesystem, and
-#     still told the packager "Filesystem-based checks already
-#     confirmed ... the library artifact ... genuinely on disk". A
-#     real install with ONLY the compiled library artifact deleted,
-#     re-validated with WIN32 forced, printed exactly that sentence at
-#     exit 0. The fix is this file's own structure now: the
-#     filesystem/text-only content check runs first and never depends
-#     on whether any pkg-config binary can even be found, so nothing
-#     downstream of it can ever again claim a veto it did not
-#     exercise.
-#
-#     What DOES still talk to a real pkg-config binary, and is
-#     therefore still the one platform-shaped line: confirming that a
-#     REAL pkg-config on THIS machine's PATH also finds glintfx via
-#     `--exists` (PKG_CONFIG_PATH resolution, .pc syntax parsing by an
-#     implementation this project does not control) - a genuinely
-#     different claim than "the content glintfx.pc describes is
-#     really on disk", and the only one that can plausibly vary by
-#     which pkg-config a packager happens to have. On GitHub Actions'
-#     windows-latest runner, the only pkg-config on PATH is Strawberry
-#     Perl's Pure-Perl `PkgConfig` reimplementation (`pkg-config.bat`),
-#     which - MEASURED against a live fixture by
-#     tools/ci/diagnose-win-pkgconfig.ps1, GHA run 33050708122, job
-#     "Windows - compartilhado" - resolves a bare PKG_CONFIG_PATH
-#     value shaped like "C:/Users/.../pkgconfig" (no explicit list
-#     separator) by falling back to POSIX-style splitting on ':',
-#     which shreds the drive letter itself ("C:") into a bogus
+#     the filesystem/calling cmake_pkg_config(), is where this file
+#     still draws its one platform-shaped line (unchanged by
+#     PKG-NATIVE - this half never used the hand-written reader, and
+#     is not what the lider's decision replaced). Every filesystem/
+#     cmake_pkg_config()-only check runs UNCONDITIONALLY, before this
+#     file ever tries to find or talk to a pkg-config binary, on every
+#     platform, Windows included, with FATAL_ERROR veto power that
+#     never downgrades. What DOES still talk to a real pkg-config
+#     binary: confirming that a REAL pkg-config on THIS machine's PATH
+#     also finds glintfx via `--exists` - a genuinely different claim
+#     than "the content glintfx.pc describes is really on disk", and
+#     the only one that can plausibly vary by which pkg-config a
+#     packager happens to have. On GitHub Actions' windows-latest
+#     runner, the only pkg-config on PATH is Strawberry Perl's
+#     Pure-Perl `PkgConfig` reimplementation (`pkg-config.bat`), which
+#     - MEASURED against a live fixture by
+#     tools/ci/diagnose-win-pkgconfig.ps1 - resolves a bare
+#     PKG_CONFIG_PATH value shaped like "C:/Users/.../pkgconfig" (no
+#     explicit list separator) by falling back to POSIX-style splitting
+#     on ':', which shreds the drive letter itself ("C:") into a bogus
 #     one-letter search directory; the SAME value with an explicit
-#     trailing ';' resolves correctly, because the presence of ';'
-#     makes it split on the Windows-native separator instead. That
-#     measured, real fix - append a native list separator before
-#     talking to pkg-config on Windows - is applied below. It is not
-#     provable in general, for every pkg-config a packager on some
-#     other Windows machine might have on PATH (a real MSYS2 pkgconf,
-#     a vcpkg-shipped one, or anything else GODS_LAWS.md LEI ZERO's
-#     public-and-unknown consumer base might combine with Windows) -
-#     so if the conversation with the binary still fails after this
-#     fix, glintfx_validate_installed_pkgconfig() reports it as a
-#     WARNING on Windows, not a FATAL_ERROR, and - now honestly -
-#     names ONLY that one conversation as unverified: the
-#     filesystem/text-only content check above it already ran, on
-#     THIS same invocation, and already had full veto power over
-#     whatever it found. On every Unix target this project tests, the
-#     veto stays exactly as strict as it always was - no downgrade
-#     there, and none of it was ever binary-dependent in the first
-#     place.
-#
-#   - PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026) - CRITICAL,
-#     reproduced live, in the OTHER direction from every finding above:
-#     a genuinely BROKEN install passing as verified, not a genuinely
-#     good one being rejected. glintfx_pkgconfig_validate_content_variable()
-#     and glintfx_pkgconfig_validate_content_flags() below used to
-#     resolve every relative includedir/libdir/-I/-L value with
-#     cmake_path(ABSOLUTE_PATH ...) and no BASE_DIRECTORY, which in
-#     CMake script mode (exactly how this file always runs) resolves
-#     against the CURRENT WORKING DIRECTORY of whoever invoked
-#     `cmake --install`/`cmake -P` - the DISPATCH directory, not
-#     anything this file controls. MEASURED attack: a real install with
-#     its compiled library artifact deleted, a glintfx.pc edited to a
-#     relative libdir, and the validator invoked from an unrelated
-#     directory that happened to contain a decoy file matching the same
-#     glob pattern - PASSED at EXIT=0, "validation passed", about an
-#     install whose actual library had just been deleted. This is the
-#     exact "confirmado no disco" claim this entire validator exists to
-#     make, defeated by nothing more than the caller's own CWD. Fixed
-#     by anchoring every relative resolution to "pcfiledir" instead -
-#     glintfx.pc's OWN parent directory, read from this function's
-#     already-absolute pc_file argument via cmake_path(GET ... PARENT_PATH),
-#     never predicted and never influenced by where the command was
-#     run from. Three call sites, all fixed the same way (see each
-#     function's own comment below for the reasoning specific to it):
-#     glintfx_pkgconfig_validate_content_variable()'s "value",
-#     glintfx_pkgconfig_validate_content_flags()'s "-I" and "-L" token
-#     resolution. At the time of round 5, confirmed this was the ONLY
-#     place in this file (and, searched, the only place in glintfx's
-#     whole cmake/ tree) that called cmake_path(ABSOLUTE_PATH ...)
-#     without an explicit BASE_DIRECTORY. Round 6 below (27/08/2026)
-#     adds a second, DELIBERATE one - a different question entirely
-#     (where CMAKE_INSTALL_PREFIX itself physically resolves on disk),
-#     with a different, still-correct default (CMAKE_CURRENT_SOURCE_DIR
-#     - the invoking CWD - not pcfiledir); see round 6's own comment
-#     below for why that is not a repeat of this same finding.
-#
-#   - PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026), same pass -
-#     three SEPARATE defects in glintfx_pkgconfig_read_raw_variables()
-#     below, all in the OPPOSITE direction (rejecting a genuinely GOOD
-#     install), each measured against a real pkgconf 2.5.1 on this
-#     machine rather than reasoned about: whitespace allowed around "="
-#     in a variable assignment, a trailing "#..." comment on a variable
-#     line, and a variable defined twice resolving to its LAST
-#     definition rather than its first. See that function's own comment
-#     for the measured detail on each; PACKAGING.md's own promise that
-#     this validator resolves glintfx.pc "the same way a real pkg-config
-#     would" was false for all three cases until this fix, and is
-#     re-checked, phrase by phrase, against this fatia's own fix.
-#
-#   - PKG-WIN-SCOPE, adversarial review round 6 (27/08/2026) - CRITICAL
-#     REGRESSION, introduced by round 5's own fix above, reproduced
-#     live: an ORDINARY relative install prefix - `cmake --install
-#     <build> --prefix ./stage`, nothing exotic, the shape any
-#     packaging tutorial or CI script reaches for routinely - made a
-#     genuinely GOOD install FAIL. MEASURED: `cd <a-dir> && cmake
-#     --install <build> --prefix ./stage`, every file genuinely on
-#     disk, printed "glintfx.pc's includedir resolves to
-#     'stage/lib64/pkgconfig/stage/include', which does not exist on
-#     disk", exit 1 - the DOUBLED "stage" names the defect precisely.
-#     Round 5's own search does not find this one, because it hunted by
-#     the SHAPE of a known bug (every call site of ONE specific
-#     operation, cmake_path(ABSOLUTE_PATH ... value/token ...) with no
-#     BASE_DIRECTORY) rather than by enumerating every place a path gets
-#     built, joined, or checked for existence - and this defect is one
-#     layer EARLIER, in a DIFFERENT operation round 5 never looked at:
-#     glintfx_pkgconfig_validate_resolve_staged_dir() above, in its
-#     relative-CMAKE_INSTALL_LIBDIR branch, built the staged pkgconfig/
-#     directory as "${CMAKE_INSTALL_PREFIX}/${libdir}/pkgconfig" via
-#     cmake_path(APPEND ...), with CMAKE_INSTALL_PREFIX read RAW - never
-#     forced absolute. `cmake --install` itself does not reject a
-#     relative --prefix; it resolves it against the INVOKING PROCESS'S
-#     CWD for the real, physical install (confirmed live, the SAME run
-#     that then failed printed "-- Installing: <cwd>/./stage/lib64/...").
-#     So when a packager passes one, this function's own
-#     _glintfx_pkgconfig_dir stayed a RELATIVE string
-#     ("stage/lib64/pkgconfig"). That string became pc_file, then
-#     pc_file's own PARENT_PATH - glintfx_pkgconfig_validate_content_on_disk()'s
-#     "pcfiledir" seed (line ~690), STILL relative - got substituted
-#     LITERALLY into glintfx.pc's own "${pcfiledir}/../../include" text
-#     by glintfx_pkgconfig_substitute_text() (plain text replacement, by
-#     design, mirroring real pkg-config - it has no notion of "this one
-#     happens to already be absolute"), producing a "value" that itself
-#     STARTS WITH "stage/..." and therefore still reads as relative.
-#     Round 5's own fix - correct, and left untouched here - then
-#     anchors that relative "value" to "pcfiledir" via
-#     cmake_path(ABSOLUTE_PATH value BASE_DIRECTORY
-#     "${_glintfx_content_variable_base_dir}" NORMALIZE), where the base
-#     directory is computed from this SAME relative pc_file
-#     (glintfx_pkgconfig_validate_content_variable()'s own PARENT_PATH,
-#     line ~502): a relative base directory got a relative value
-#     APPENDED onto it, and the shared "stage/lib64/pkgconfig" segment
-#     landed in the result TWICE. Every downstream check was reading
-#     real content that genuinely existed; nothing about the install
-#     itself was ever broken.
-#
-#     THE FIX: glintfx_pkgconfig_validate_resolve_staged_dir()'s
-#     relative-CMAKE_INSTALL_LIBDIR branch now forces its own
-#     CMAKE_INSTALL_PREFIX-derived variable absolute first, with
-#     cmake_path(ABSOLUTE_PATH ... NORMALIZE) and DELIBERATELY NO
-#     explicit BASE_DIRECTORY - the exact shape the comment above (round
-#     5) warns caused THAT bug. This is not a contradiction, because the
-#     two calls answer two different questions. Round 5's sites resolve
-#     a PKG-CONFIG-FILE-RELATIVE reference (includedir=, libdir=, an
-#     -I/-L token), which must anchor to glintfx.pc's OWN directory
-#     (pcfiledir) - pkg-config's own convention - never to the caller's
-#     CWD; omitting BASE_DIRECTORY there was wrong for exactly that
-#     reason. This site resolves CMAKE_INSTALL_PREFIX itself, answering
-#     "where did `cmake --install`'s relative --prefix ACTUALLY write
-#     files" - and CMake's own default BASE_DIRECTORY,
-#     CMAKE_CURRENT_SOURCE_DIR (confirmed equal to the invoking
-#     process's CWD in script mode, round 5's own finding above),
-#     answers that correctly BY CONSTRUCTION, because it is the SAME
-#     rule the real `cmake --install` used to decide where to physically
-#     write those files in the first place (measured live: the "--
-#     Installing: <cwd>/./stage/..." line above). Two different
-#     questions, two different correct defaults.
-#
-#     Once _glintfx_pkgconfig_dir - and therefore pc_file, and therefore
-#     every pcfiledir-seeded substitution and both validate_content_*
-#     functions' own base directories - is absolute from this single
-#     point on, every site round 5 already anchored to pcfiledir
-#     resolves correctly with no further change needed there: an
-#     already-absolute "value"/token short-circuits
-#     cmake_path(ABSOLUTE_PATH ...)'s own BASE_DIRECTORY entirely (it
-#     only ever applies to a genuinely relative path), so the doubling
-#     cannot recur through that mechanism either. tests/tools/
-#     check_pkgconfig_validate.sh's own scenario 14 (relative --prefix,
-#     dispatched from a throwaway directory, mutated back to reproduce
-#     this exact regression) is the regression proof.
+#     trailing ';' resolves correctly. That measured fix - append a
+#     native list separator before talking to pkg-config on Windows -
+#     is applied below, unchanged by PKG-NATIVE. If the conversation
+#     with the binary still fails after that fix,
+#     glintfx_validate_installed_pkgconfig() reports it as a WARNING on
+#     Windows, not a FATAL_ERROR, and names ONLY that one conversation
+#     as unverified: the filesystem/cmake_pkg_config() content check
+#     above it already ran, on THIS same invocation, and already had
+#     full veto power over whatever it found.
+#   - DESTDIR is Unix-only BY THE BUILD TOOL'S OWN DOCUMENTATION, not
+#     by anything this file assumes: "DESTDIR may not be used on
+#     Windows because installation prefix usually contains a drive
+#     letter like in C:/Program Files which cannot be prepended with
+#     some other prefix" (CMake's own envvar/DESTDIR.html, fetched
+#     27/08/2026). glintfx_pkgconfig_validate_resolve_staged_dir()
+#     below still reads $ENV{DESTDIR} unconditionally (a real packager
+#     could still set it on Windows and get a nonsensical path - CMake
+#     itself does not refuse it), but no scenario this project tests
+#     combines DESTDIR with a Windows install, because no supported
+#     Windows packaging pipeline does either.
 #
 # Two escape hatches, both named GLINTFX_SKIP_PKGCONFIG_VALIDATION on
 # purpose (one name, two mechanisms, same intent): the CACHE option in
@@ -316,53 +190,83 @@
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
+# Forces `value` (a CMake variable NAME, passed by reference the way
+# every other in-place helper in this file does) absolute, anchored to
+# `base_directory` - a REQUIRED, EXPLICIT argument, never CMake's own
+# implicit default (CMAKE_CURRENT_SOURCE_DIR, silently applied whenever
+# BASE_DIRECTORY is left out of a raw cmake_path(ABSOLUTE_PATH ...)
+# call). Two call sites in
+# glintfx_pkgconfig_validate_resolve_staged_dir() below share this one
+# atom instead of each repeating the same three-line pattern - the
+# earlier shape of this file (PKG-WIN-SCOPE round 6, before PKG-NATIVE)
+# fixed CMAKE_INSTALL_PREFIX's own relative-path doubling this way and
+# left $ENV{DESTDIR} unfixed, which is the SAME class of bug one call
+# site later: a real `cmake --install` resolves a relative --prefix
+# AND a relative DESTDIR against the invoking process's CWD, the exact
+# rule CMAKE_CURRENT_SOURCE_DIR already answers correctly in script
+# mode (confirmed against a real generated cmake_install.cmake on this
+# machine).
+function(glintfx_pkgconfig_force_absolute value_var base_directory)
+    set(_glintfx_absolute_value "${${value_var}}")
+    cmake_path(ABSOLUTE_PATH _glintfx_absolute_value BASE_DIRECTORY "${base_directory}" NORMALIZE)
+    set(${value_var} "${_glintfx_absolute_value}" PARENT_SCOPE)
+endfunction()
+
 # Resolves the STAGED (DESTDIR-aware) pkgconfig/ directory this
 # install actually wrote glintfx.pc into - never a predicted value,
 # only the same inputs GNUInstallDirs' own install() rules already
-# used to decide where to write it for real.
+# used to decide where to write it for real. Unrelated to PKG-NATIVE's
+# own subject (this resolves WHERE the file is, never WHAT is inside
+# it - see this file's own header for why the reader that answers the
+# second question is gone and this function is not).
 function(glintfx_pkgconfig_validate_resolve_staged_dir out_var)
     cmake_path(SET _glintfx_configured_libdir NORMALIZE "@GLINTFX_NORMALIZED_INSTALL_LIBDIR@")
 
     if(IS_ABSOLUTE "${_glintfx_configured_libdir}")
-        # GNUInstallDirs allows CMAKE_INSTALL_LIBDIR to be absolute
-        # (a packager staging into a fixed system location outside
+        # GNUInstallDirs allows CMAKE_INSTALL_LIBDIR to be absolute (a
+        # packager staging into a fixed system location outside
         # CMAKE_INSTALL_PREFIX) - install() ignores CMAKE_INSTALL_PREFIX
         # entirely for an already-absolute DESTINATION, so this branch
         # must too (same rule glintfx_compute_pkgconfig_relocatable_prefix()
         # in cmake/GlintfxInstall.cmake already applies to glintfx.pc's
-        # OWN prefix= content).
+        # OWN prefix= content). CMAKE_INSTALL_PREFIX never enters this
+        # branch at all.
         set(_glintfx_dir_no_destdir "${_glintfx_configured_libdir}/pkgconfig")
     else()
-        # PKG-WIN-SCOPE round 6 (27/08/2026): CMAKE_INSTALL_PREFIX is
-        # forced absolute HERE, before anything is appended to it - see
-        # this file's own header for the regression this closes and why
-        # omitting BASE_DIRECTORY is the deliberately correct choice at
-        # this one call site (it must match `cmake --install`'s own
-        # resolution of a relative --prefix against the invoking
-        # process's CWD, not glintfx.pc's pcfiledir). Read raw and left
-        # relative, this used to make _glintfx_dir_no_destdir below - and
-        # therefore pc_file, and therefore every pcfiledir-seeded
-        # substitution downstream - relative too, which is what let a
-        # relative "${pcfiledir}/../../include" substitution and a
-        # relative BASE_DIRECTORY double up on the same "stage/..."
-        # segment in glintfx_pkgconfig_validate_content_variable().
+        # A relative --prefix must resolve the SAME way `cmake --install`
+        # itself resolves it - against the invoking process's CWD, not
+        # glintfx.pc's own eventual pcfiledir - which is exactly what
+        # omitting an explicit pcfiledir-style base and using
+        # CMAKE_CURRENT_SOURCE_DIR (the invoking CWD in script mode)
+        # gives glintfx_pkgconfig_force_absolute() here.
         set(_glintfx_prefix "${CMAKE_INSTALL_PREFIX}")
-        cmake_path(ABSOLUTE_PATH _glintfx_prefix NORMALIZE)
+        glintfx_pkgconfig_force_absolute(_glintfx_prefix "${CMAKE_CURRENT_SOURCE_DIR}")
         cmake_path(APPEND _glintfx_prefix "${_glintfx_configured_libdir}" "pkgconfig"
             OUTPUT_VARIABLE _glintfx_dir_no_destdir)
     endif()
 
     if(DEFINED ENV{DESTDIR} AND NOT "$ENV{DESTDIR}" STREQUAL "")
-        # DESTDIR is a plain, unconditional string PREFIX applied to
-        # an already-absolute destination - deliberately NOT
-        # cmake_path(APPEND), which treats an absolute right-hand
-        # side as "replace the base", the opposite of what DESTDIR
-        # means. This mirrors what CMake's own file(INSTALL) does
-        # internally for the SAME reason (PACKAGING.md: "DESTDIR
-        # prepends to EVERY destination, relative or absolute,
-        # without changing any path baked into the installed files'
-        # own content").
-        set(${out_var} "$ENV{DESTDIR}${_glintfx_dir_no_destdir}" PARENT_SCOPE)
+        # DESTDIR is Unix-only by the build tool's own documentation
+        # (see this file's header) - a real packaging pipeline that
+        # sets it is staging into a subdirectory of its own choosing,
+        # which real `cmake --install` resolves against the SAME
+        # invoking-CWD rule as a relative --prefix (measured:
+        # "-- Installing: <cwd>/<destdir>/..." from a real relative-
+        # DESTDIR install on this machine). Forced absolute first,
+        # through the same atom as CMAKE_INSTALL_PREFIX above, before
+        # being concatenated onto an already-absolute destination -
+        # deliberately a PLAIN STRING PREFIX, never cmake_path(APPEND),
+        # which treats an absolute right-hand side as "replace the
+        # base", the opposite of what DESTDIR means (mirrors what
+        # CMake's own file(INSTALL) does internally, for the same
+        # reason PACKAGING.md documents: "DESTDIR prepends to EVERY
+        # destination, relative or absolute, without changing any path
+        # baked into the installed files' own content").
+        set(_glintfx_destdir "$ENV{DESTDIR}")
+        glintfx_pkgconfig_force_absolute(_glintfx_destdir "${CMAKE_CURRENT_SOURCE_DIR}")
+        set(_glintfx_staged_dir "${_glintfx_destdir}${_glintfx_dir_no_destdir}")
+        cmake_path(SET _glintfx_staged_dir NORMALIZE "${_glintfx_staged_dir}")
+        set(${out_var} "${_glintfx_staged_dir}" PARENT_SCOPE)
     else()
         set(${out_var} "${_glintfx_dir_no_destdir}" PARENT_SCOPE)
     endif()
@@ -370,15 +274,10 @@ endfunction()
 
 # Filesystem patterns that name glintfx's own compiled library
 # artifact, one glob per platform-shaped naming convention it is known
-# to produce (cmake/GlintfxLibrary.cmake's OUTPUT_NAME "glintfx" is
-# the same string on every platform; only the prefix/suffix a linker
-# actually writes to disk differ). Both callers below
-# (glintfx_pkgconfig_validate_content_variable's "library" content kind,
-# and glintfx_pkgconfig_validate_content_flags' own -L check) call this instead of
-# each keeping their own copy of the pattern list - PKG-WIN-SCOPE's
-# first pass at Windows support (before the lider revertida it) had to
-# extend two separate globs by hand and only remembered one; a single
-# source of truth removes that failure mode (GODS_LAWS.md L-17).
+# to produce (cmake/GlintfxLibrary.cmake's OUTPUT_NAME "glintfx" is the
+# same string on every platform; only the prefix/suffix a linker
+# actually writes to disk differ). A single source of truth, shared by
+# both content-check call sites below (GODS_LAWS.md L-17).
 function(glintfx_pkgconfig_library_glob_patterns out_var)
     set(${out_var}
         "libglintfx.so*"
@@ -387,360 +286,189 @@ function(glintfx_pkgconfig_library_glob_patterns out_var)
         # (cmake/GlintfxInstall.cmake's install(TARGETS ... ARCHIVE
         # DESTINATION ...)) - the SAME extension names both a shared
         # build's import library and a static build's archive there,
-        # so one pattern covers both; the .dll itself is a RUNTIME
-        # artifact installed to CMAKE_INSTALL_BINDIR, not libdir, and
-        # is out of scope for a pkg-config libdir/-L check by design.
+        # so one pattern covers both.
         "glintfx.lib"
         PARENT_SCOPE
     )
 endfunction()
 
-# Reads glintfx.pc's own pkg-config VARIABLE assignments ("key=value"
-# lines, in file order) directly off disk - no pkg-config binary
-# involved (see this file's header, "Talking to the pkg-config BINARY
-# itself"). Comment lines ("#...") and header fields ("Name:",
-# "Cflags:", ...) never match this pattern: they do not start with an
-# identifier immediately followed (whitespace allowed) by "=". Returns
-# two PARALLEL lists (CMake has no map type): out_keys and out_values,
-# RAW - not yet "${var}"-substituted; glintfx_pkgconfig_resolve_variables()
-# below does that.
+# THE ONLY HAND-WRITTEN TEXT OPERATION LEFT IN THIS FILE (see this
+# file's own header, "STRICTNESS STRICT", for why it exists at all):
+# copies pc_file's own text to a private scratch file under
+# @GLINTFX_VALIDATE_SCRATCH_DIR@ (a build-tree location, never the
+# packager's own install tree) and replaces every literal
+# "${pcfiledir}" token with pc_file's own, already-absolute
+# PARENT_PATH - a single, exact-substring string(REPLACE ...), not a
+# parser: no "${...}" is evaluated, no comment is stripped, no
+# whitespace is trimmed. cmake_pkg_config(EXTRACT ...) below does all
+# of that, natively, on the result.
 #
-# PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026) - THREE
-# defects, all in the direction of REJECTING a genuinely good install,
-# each MEASURED against a real pkgconf 2.5.1 on this machine
-# (`PKG_CONFIG_PATH=<dir> pkgconf --variable=<key> <pkg>`), not
-# reasoned about:
-#   1. Whitespace around "=" ("libdir = ${prefix}/lib") is accepted by
-#      real pkgconf; the previous regex required the identifier
-#      immediately followed by "=", so this line matched NOTHING and
-#      libdir would report undefined. Fixed by allowing "[ \t]*" on
-#      both sides of "=" in the match, and never including that
-#      leading/trailing whitespace in the captured value.
-#   2. A trailing "#..." comment on a variable line ("libdir=${prefix}/lib
-#      # note") is stripped by real pkgconf before the value is used,
-#      with or without a space before "#" (measured both ways) - the
-#      previous code captured everything after "=" verbatim, so the
-#      comment text became part of the resolved directory and made a
-#      real, populated libdir look nonexistent. Fixed by stripping
-#      from the first unescaped "#" to end of line BEFORE the
-#      assignment regex ever runs, the same order real pkg-config's
-#      own tokenizer applies it in (a full comment line, "#..." with
-#      nothing before it, already correctly matched nothing here even
-#      before this fix - stripping first does not change that case).
-#   3. A variable defined twice ("libdir=..." appearing on two separate
-#      lines) resolves to the LAST definition in real pkgconf; the
-#      previous code appended both to the list and
-#      glintfx_pkgconfig_lookup_variable()'s list(FIND ...) always
-#      returns the FIRST match, so a corrected later definition was
-#      silently ignored in favor of a stale earlier one. Fixed by
-#      removing any earlier entry for the same key before appending
-#      the new one, so a key can never appear twice in out_keys and
-#      the one that survives is always the one from the LAST line that
-#      defined it, in its correct file-order position (this also
-#      makes this function's duplicate-handling match the SAME
-#      last-wins semantics glintfx_pkgconfig_read_field() below
-#      already had for repeated FIELDS - before this fix, this file
-#      carried two different semantics for "defined twice" depending
-#      on which of its two readers looked at the line, an inconsistency
-#      the adversarial reviewer named explicitly as a trap for whoever
-#      edits this file next).
-function(glintfx_pkgconfig_read_raw_variables pc_file out_keys out_values)
-    file(STRINGS "${pc_file}" _glintfx_pc_lines)
-    set(_glintfx_keys "")
-    set(_glintfx_values "")
-    foreach(_glintfx_pc_line IN LISTS _glintfx_pc_lines)
-        string(REGEX REPLACE "#.*$" "" _glintfx_pc_line_nocomment "${_glintfx_pc_line}")
-        if(_glintfx_pc_line_nocomment MATCHES "^[ \t]*([A-Za-z_][A-Za-z0-9_.]*)[ \t]*=[ \t]*(.*)$")
-            set(_glintfx_key "${CMAKE_MATCH_1}")
-            set(_glintfx_value "${CMAKE_MATCH_2}")
-            string(REGEX REPLACE "[ \t]+$" "" _glintfx_value "${_glintfx_value}")
-            list(FIND _glintfx_keys "${_glintfx_key}" _glintfx_dup_index)
-            if(NOT _glintfx_dup_index EQUAL -1)
-                list(REMOVE_AT _glintfx_keys ${_glintfx_dup_index})
-                list(REMOVE_AT _glintfx_values ${_glintfx_dup_index})
-            endif()
-            list(APPEND _glintfx_keys "${_glintfx_key}")
-            list(APPEND _glintfx_values "${_glintfx_value}")
+# One scratch file per validation run is enough - this file's own
+# install(CODE) registration runs this whole script exactly once per
+# `cmake --install` invocation (glintfx_register_pkgconfig_validation(),
+# cmake/GlintfxPkgConfigValidate.cmake) - so there is no concurrent-
+# write hazard to guard against here.
+function(glintfx_pkgconfig_prepare_native_input pc_file out_scratch_file)
+    file(READ "${pc_file}" _glintfx_pc_text)
+    cmake_path(GET pc_file PARENT_PATH _glintfx_pcfiledir)
+    string(REPLACE "\${pcfiledir}" "${_glintfx_pcfiledir}" _glintfx_pc_text_substituted "${_glintfx_pc_text}")
+
+    set(_glintfx_scratch_dir "@GLINTFX_VALIDATE_SCRATCH_DIR@")
+    file(MAKE_DIRECTORY "${_glintfx_scratch_dir}")
+    set(_glintfx_scratch_file "${_glintfx_scratch_dir}/glintfx.pc")
+    file(WRITE "${_glintfx_scratch_file}" "${_glintfx_pc_text_substituted}")
+
+    set(${out_scratch_file} "${_glintfx_scratch_file}" PARENT_SCOPE)
+endfunction()
+
+# Validates ONE "-I"/"-L"-token LIST (already extracted by
+# cmake_pkg_config(EXTRACT ...) into CMAKE_PKG_CONFIG_INCLUDES or
+# CMAKE_PKG_CONFIG_LIBDIRS - see glintfx_pkgconfig_validate_content_native()
+# below) against real content on disk: every token strips its own
+# "-I"/"-L" prefix and must resolve to a directory containing the
+# expected content: a "glintfx/" subdirectory for headers, or one of
+# glintfx_pkgconfig_library_glob_patterns() for the library artifact.
+# flag_prefix is "-I" or "-L"; expected_content_kind is "headers" or
+# "library" - the only two things any path glintfx.pc emits ever
+# names, the same two shapes tests/tools/check_pkgconfig.sh's own
+# assert_dir_contains_expected_content already checks in CI.
+# GODS_LAWS.md L-40 floor: out_count is always set, even to zero - the
+# CALLER decides whether zero is a failure, this function only counts
+# and validates what it is given.
+#
+# ANCHORED TO pcfiledir, NEVER LEFT CWD-DEPENDENT - MEASURED, not
+# assumed: a bare relative "-L"/"-I" token straight out of
+# CMAKE_PKG_CONFIG_INCLUDES/LIBDIRS (no leading "/", the shape a
+# tampered "libdir=some-relative-name" line - with no "${...}"
+# reference at all - produces) is left EXACTLY as relative by
+# cmake_pkg_config() itself; CMake's own IS_DIRECTORY on a relative
+# path resolves it against CMAKE_CURRENT_SOURCE_DIR, which in script
+# mode is the CALLER's CWD - reproduced live, twice, once from a
+# directory holding a decoy "libglintfx.so*" under that same relative
+# name (IS_DIRECTORY reported TRUE) and once from an unrelated empty
+# directory (IS_DIRECTORY reported FALSE, same token, same file). This
+# is the EXACT "biblioteca apagada, descritor com caminho relativo,
+# comando disparado de dentro de uma pasta com uma biblioteca falsa"
+# attack this whole validator exists to refuse - and it is a NEW
+# finding, specific to routing token resolution through
+# cmake_pkg_config() instead of the deleted hand-written reader (the
+# old reader anchored to pcfiledir directly; the native command hands
+# back a token that may still be bare-relative, and does not anchor it
+# for us). Fixed the same way the old reader fixed it: every token is
+# forced absolute against pc_file's OWN, already-absolute parent
+# directory - never CMAKE_CURRENT_SOURCE_DIR, never anything a
+# packager's invocation directory can influence - via
+# glintfx_pkgconfig_force_absolute(), defined above.
+function(glintfx_pkgconfig_validate_content_tokens pc_file tokens flag_prefix expected_content_kind out_count)
+    cmake_path(GET pc_file PARENT_PATH _glintfx_tokens_pcfiledir)
+    set(_glintfx_count 0)
+    foreach(_glintfx_token IN LISTS tokens)
+        if(NOT _glintfx_token MATCHES "^${flag_prefix}(.+)$")
+            continue()
         endif()
-    endforeach()
-    set(${out_keys} "${_glintfx_keys}" PARENT_SCOPE)
-    set(${out_values} "${_glintfx_values}" PARENT_SCOPE)
-endfunction()
+        set(_glintfx_path "${CMAKE_MATCH_1}")
+        glintfx_pkgconfig_force_absolute(_glintfx_path "${_glintfx_tokens_pcfiledir}")
 
-# Substitutes every "${key}" reference inside `text` using the
-# ALREADY-RESOLVED variables in resolved_keys/resolved_values
-# (parallel lists) - one plain string replace per known variable,
-# never a general expression evaluator: pkg-config's own variable
-# syntax is exactly this, nothing richer.
-function(glintfx_pkgconfig_substitute_text text resolved_keys resolved_values out_var)
-    set(_glintfx_result "${text}")
-    list(LENGTH resolved_keys _glintfx_count)
-    if(_glintfx_count GREATER 0)
-        math(EXPR _glintfx_last "${_glintfx_count} - 1")
-        foreach(_glintfx_i RANGE 0 ${_glintfx_last})
-            list(GET resolved_keys ${_glintfx_i} _glintfx_key)
-            list(GET resolved_values ${_glintfx_i} _glintfx_value)
-            string(REPLACE "\${${_glintfx_key}}" "${_glintfx_value}" _glintfx_result "${_glintfx_result}")
-        endforeach()
-    endif()
-    set(${out_var} "${_glintfx_result}" PARENT_SCOPE)
-endfunction()
-
-# Resolves EVERY variable glintfx_pkgconfig_read_raw_variables() read,
-# in file order, against ITSELF - pkg-config's own convention (and
-# glintfx.pc.in's own layout) is that a variable's raw value may
-# reference an EARLIER variable ("libdir=${exec_prefix}/lib64"), never
-# a later one, so resolving left-to-right, feeding each variable's own
-# resolved value forward to the ones defined after it, is enough; no
-# general dependency graph is needed. seed_keys/seed_values let the
-# caller pre-define a variable no "key=value" line in the file ever
-# assigns - glintfx_pkgconfig_validate_content_on_disk() below uses
-# this for "pcfiledir", pkg-config's own built-in ("the directory this
-# .pc file is actually in"), which glintfx.pc.in's relocatable prefix
-# ("prefix=${pcfiledir}/../..") depends on.
-function(glintfx_pkgconfig_resolve_variables var_keys var_values seed_keys seed_values out_resolved_keys out_resolved_values)
-    set(_glintfx_resolved_keys "${seed_keys}")
-    set(_glintfx_resolved_values "${seed_values}")
-    list(LENGTH var_keys _glintfx_count)
-    if(_glintfx_count GREATER 0)
-        math(EXPR _glintfx_last "${_glintfx_count} - 1")
-        foreach(_glintfx_i RANGE 0 ${_glintfx_last})
-            list(GET var_keys ${_glintfx_i} _glintfx_key)
-            list(GET var_values ${_glintfx_i} _glintfx_raw_value)
-            glintfx_pkgconfig_substitute_text("${_glintfx_raw_value}" "${_glintfx_resolved_keys}" "${_glintfx_resolved_values}" _glintfx_substituted)
-            list(APPEND _glintfx_resolved_keys "${_glintfx_key}")
-            list(APPEND _glintfx_resolved_values "${_glintfx_substituted}")
-        endforeach()
-    endif()
-    set(${out_resolved_keys} "${_glintfx_resolved_keys}" PARENT_SCOPE)
-    set(${out_resolved_values} "${_glintfx_resolved_values}" PARENT_SCOPE)
-endfunction()
-
-# Looks up ONE already-resolved variable by name. out_found is
-# TRUE/FALSE, never inferred from an empty string: glintfx.pc defining
-# a variable as literally empty and glintfx.pc never defining it at
-# all are different defects, and glintfx_pkgconfig_validate_content_variable()
-# below reports them with the same message on purpose (a packager
-# fixing either one does the same thing: define ${var_name} properly).
-function(glintfx_pkgconfig_lookup_variable resolved_keys resolved_values key out_value out_found)
-    list(FIND resolved_keys "${key}" _glintfx_index)
-    if(_glintfx_index EQUAL -1)
-        set(${out_value} "" PARENT_SCOPE)
-        set(${out_found} FALSE PARENT_SCOPE)
-    else()
-        list(GET resolved_values ${_glintfx_index} _glintfx_value)
-        set(${out_value} "${_glintfx_value}" PARENT_SCOPE)
-        set(${out_found} TRUE PARENT_SCOPE)
-    endif()
-endfunction()
-
-# Reads ONE pkg-config header FIELD ("Cflags:"/"Libs:", RFC822-shaped
-# "Key: value" lines, never a "key=value" variable assignment) by its
-# exact name, RAW - not yet substituted. field_name is matched
-# literally, anchored at both "^" and ":", so "Libs:" can never
-# accidentally match a "Libs.private:" line.
-function(glintfx_pkgconfig_read_field pc_file field_name out_var)
-    file(STRINGS "${pc_file}" _glintfx_pc_lines)
-    set(_glintfx_field_value "")
-    foreach(_glintfx_pc_line IN LISTS _glintfx_pc_lines)
-        if(_glintfx_pc_line MATCHES "^${field_name}:[ \t]*(.*)$")
-            set(_glintfx_field_value "${CMAKE_MATCH_1}")
-        endif()
-    endforeach()
-    set(${out_var} "${_glintfx_field_value}" PARENT_SCOPE)
-endfunction()
-
-# Validates ONE glintfx.pc variable (var_name: "includedir" or
-# "libdir") against real content on disk, resolved by READING
-# glintfx.pc's own text (resolved_keys/resolved_values, from
-# glintfx_pkgconfig_resolve_variables() above) - no pkg-config binary
-# involved. expected_content_kind is "headers" (must contain a
-# glintfx/ subdirectory) or "library" (must contain one of
-# glintfx_pkgconfig_library_glob_patterns()) - the only two things any
-# path glintfx.pc emits ever names, same two shapes
-# tests/tools/check_pkgconfig.sh's own assert_dir_contains_expected_content
-# already checks in CI. FATAL_ERROR on every platform, Windows
-# included, unconditionally: nothing here depends on any pkg-config
-# binary's own quirks (see this file's header, "Talking to the
-# pkg-config BINARY itself", for the one check that still does).
-function(glintfx_pkgconfig_validate_content_variable pc_file resolved_keys resolved_values var_name expected_content_kind)
-    glintfx_pkgconfig_lookup_variable("${resolved_keys}" "${resolved_values}" "${var_name}" value found)
-    if(NOT found OR value STREQUAL "")
-        message(FATAL_ERROR
-            "glintfx: glintfx.pc, installed at '${pc_file}', does not "
-            "define a usable '${var_name}' variable (undefined, or "
-            "resolves to an empty value after substituting every "
-            "'\${...}' reference this validator found in the file) - "
-            "glintfx.pc should always define ${var_name}. Skip this "
-            "check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
-            "environment of this `cmake --install` invocation, then "
-            "verify the install by hand."
-        )
-    endif()
-
-    # PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026) - CRITICAL,
-    # reproduced live: cmake_path(ABSOLUTE_PATH ...) with no
-    # BASE_DIRECTORY resolves a relative path against
-    # CMAKE_CURRENT_SOURCE_DIR, which in script mode (exactly how this
-    # file runs, via install(CODE)/cmake -P) equals the CURRENT WORKING
-    # DIRECTORY of whoever ran `cmake --install`/`cmake -P` - the
-    # DISPATCH directory, attacker-controlled. MEASURED: a fixture with
-    # a genuinely broken install (its compiled library artifact
-    # deleted) and a relative libdir in glintfx.pc PASSED at EXIT=0
-    # when this validator was invoked from a decoy directory that
-    # happened to contain an unrelated file matching the same glob
-    # pattern - the exact "confirmado no disco" claim this whole
-    # validator exists to make, defeated by choice of CWD. The fix
-    # anchors relative resolution to "pcfiledir" instead - the
-    # directory glintfx.pc ITSELF physically resides in, the one
-    # location pkg-config's own relocatable-prefix convention already
-    # treats as ground truth (glintfx.pc.in's own "prefix=${pcfiledir}/../.."
-    # depends on exactly this), and a value no packager's invocation
-    # directory can influence: pc_file is this function's own absolute
-    # argument, never a predicted string.
-    cmake_path(GET pc_file PARENT_PATH _glintfx_content_variable_base_dir)
-    cmake_path(ABSOLUTE_PATH value BASE_DIRECTORY "${_glintfx_content_variable_base_dir}" NORMALIZE)
-
-    if(NOT IS_DIRECTORY "${value}")
-        message(FATAL_ERROR
-            "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
-            "which does not exist on disk (installed at '${pc_file}') "
-            "- the packaging step that should have created it either "
-            "failed silently or put its output somewhere else. Skip "
-            "this check with GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in "
-            "the environment of this `cmake --install` invocation, "
-            "then verify the install by hand."
-        )
-    endif()
-
-    if(expected_content_kind STREQUAL "headers")
-        if(NOT IS_DIRECTORY "${value}/glintfx")
+        if(NOT IS_DIRECTORY "${_glintfx_path}")
             message(FATAL_ERROR
-                "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
-                "which exists but has no 'glintfx/' subdirectory - the "
-                "installed public headers are not there (pc file: "
+                "glintfx: glintfx.pc's own '${flag_prefix}' field emitted "
+                "'${_glintfx_token}', which resolves to '${_glintfx_path}', "
+                "which does not exist on disk (pc file: "
                 "'${pc_file}'). Skip this check with "
                 "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment "
                 "of this `cmake --install` invocation, then verify the "
                 "install by hand."
             )
         endif()
-    elseif(expected_content_kind STREQUAL "library")
-        glintfx_pkgconfig_library_glob_patterns(_glintfx_lib_pattern_names)
-        set(_glintfx_lib_glob_patterns "")
-        foreach(_glintfx_lib_pattern_name IN LISTS _glintfx_lib_pattern_names)
-            list(APPEND _glintfx_lib_glob_patterns "${value}/${_glintfx_lib_pattern_name}")
-        endforeach()
-        file(GLOB _glintfx_lib_matches ${_glintfx_lib_glob_patterns})
-        if(_glintfx_lib_matches STREQUAL "")
-            message(FATAL_ERROR
-                "glintfx: glintfx.pc's ${var_name} resolves to '${value}', "
-                "which exists but has none of ${_glintfx_lib_pattern_names} - "
-                "the installed library artifact is not there (pc file: "
-                "'${pc_file}'). Skip this check with "
-                "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment "
-                "of this `cmake --install` invocation, then verify the "
-                "install by hand."
-            )
-        endif()
-    else()
-        message(FATAL_ERROR
-            "glintfx: glintfx_pkgconfig_validate_content_variable: "
-            "unknown expected_content_kind '${expected_content_kind}' "
-            "(internal error in glintfx's own install(CODE) "
-            "validation - this is not something a packaging layout "
-            "can trigger)."
-        )
-    endif()
-endfunction()
 
-# Resolves EVERY -I/-L token glintfx.pc's own Cflags:/Libs: fields
-# would emit for a plain (non "--static") query - the query every real
-# consumer runs first - by READING and substituting the file's text
-# directly (resolved_keys/resolved_values, from
-# glintfx_pkgconfig_resolve_variables() above), no pkg-config binary
-# involved. GODS_LAWS.md L-40 floor: a Cflags:/Libs: line with no -I/-L
-# token at all would make the loops below iterate zero times and this
-# function would still return without complaint - the exact "portao
-# que nao olha e imprime verde" defect class L-40 exists to rule out,
-# and the concrete ancestor of THIS validator (PKG-DIST's own
-# output-content atom, tests/tools/check_pkgconfig.sh) was found with
-# precisely this gap once already. FATAL_ERROR on every platform,
-# Windows included, unconditionally.
-function(glintfx_pkgconfig_validate_content_flags pc_file resolved_keys resolved_values)
-    # PKG-WIN-SCOPE, adversarial review round 5 (27/08/2026): same fix,
-    # same reason, as glintfx_pkgconfig_validate_content_variable()
-    # above - a relative "-I"/"-L" token must anchor to glintfx.pc's OWN
-    # directory, never to the CWD of whoever invoked this validator.
-    # Computed once here and reused by both the Cflags: and Libs: loops
-    # below, since pc_file (and therefore its parent directory) never
-    # changes within one call to this function.
-    cmake_path(GET pc_file PARENT_PATH _glintfx_content_flags_base_dir)
-
-    glintfx_pkgconfig_read_field("${pc_file}" "Cflags" _glintfx_cflags_raw)
-    glintfx_pkgconfig_substitute_text("${_glintfx_cflags_raw}" "${resolved_keys}" "${resolved_values}" _glintfx_cflags_value)
-
-    glintfx_pkgconfig_read_field("${pc_file}" "Libs" _glintfx_libs_raw)
-    glintfx_pkgconfig_substitute_text("${_glintfx_libs_raw}" "${resolved_keys}" "${resolved_values}" _glintfx_libs_value)
-
-    separate_arguments(_glintfx_cflags_tokens UNIX_COMMAND "${_glintfx_cflags_value}")
-    separate_arguments(_glintfx_libs_tokens UNIX_COMMAND "${_glintfx_libs_value}")
-
-    set(_glintfx_include_flag_count 0)
-    foreach(_glintfx_token IN LISTS _glintfx_cflags_tokens)
-        if(_glintfx_token MATCHES "^-I(.+)$")
-            set(_glintfx_include_path "${CMAKE_MATCH_1}")
-            cmake_path(ABSOLUTE_PATH _glintfx_include_path BASE_DIRECTORY "${_glintfx_content_flags_base_dir}" NORMALIZE)
-            if(NOT IS_DIRECTORY "${_glintfx_include_path}" OR NOT IS_DIRECTORY "${_glintfx_include_path}/glintfx")
+        if(expected_content_kind STREQUAL "headers")
+            if(NOT IS_DIRECTORY "${_glintfx_path}/glintfx")
                 message(FATAL_ERROR
-                    "glintfx: glintfx.pc's Cflags: field emitted "
-                    "'${_glintfx_token}', which resolves to "
-                    "'${_glintfx_include_path}' - not a directory "
-                    "containing a 'glintfx/' subdirectory (pc file: "
+                    "glintfx: glintfx.pc's own '${flag_prefix}' field "
+                    "emitted '${_glintfx_token}', which resolves to "
+                    "'${_glintfx_path}' - it exists, but has no "
+                    "'glintfx/' subdirectory, so the installed public "
+                    "headers are not there (pc file: '${pc_file}'). "
+                    "Skip this check with "
+                    "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
+                    "environment of this `cmake --install` invocation, "
+                    "then verify the install by hand."
+                )
+            endif()
+        elseif(expected_content_kind STREQUAL "library")
+            glintfx_pkgconfig_library_glob_patterns(_glintfx_lib_pattern_names)
+            set(_glintfx_lib_glob_patterns "")
+            foreach(_glintfx_lib_pattern_name IN LISTS _glintfx_lib_pattern_names)
+                list(APPEND _glintfx_lib_glob_patterns "${_glintfx_path}/${_glintfx_lib_pattern_name}")
+            endforeach()
+            file(GLOB _glintfx_lib_matches ${_glintfx_lib_glob_patterns})
+            if(_glintfx_lib_matches STREQUAL "")
+                message(FATAL_ERROR
+                    "glintfx: glintfx.pc's own '${flag_prefix}' field "
+                    "emitted '${_glintfx_token}', which resolves to "
+                    "'${_glintfx_path}' - it exists, but has none of "
+                    "${_glintfx_lib_pattern_names}, so the installed "
+                    "library artifact is not there (pc file: "
                     "'${pc_file}'). Skip this check with "
                     "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
                     "environment of this `cmake --install` invocation, "
                     "then verify the install by hand."
                 )
             endif()
-            math(EXPR _glintfx_include_flag_count "${_glintfx_include_flag_count} + 1")
+        else()
+            message(FATAL_ERROR
+                "glintfx: glintfx_pkgconfig_validate_content_tokens: "
+                "unknown expected_content_kind '${expected_content_kind}' "
+                "(internal error in glintfx's own install(CODE) "
+                "validation - this is not something a packaging layout "
+                "can trigger)."
+            )
         endif()
-    endforeach()
 
-    set(_glintfx_library_flag_count 0)
-    foreach(_glintfx_token IN LISTS _glintfx_libs_tokens)
-        if(_glintfx_token MATCHES "^-L(.+)$")
-            set(_glintfx_library_path "${CMAKE_MATCH_1}")
-            cmake_path(ABSOLUTE_PATH _glintfx_library_path BASE_DIRECTORY "${_glintfx_content_flags_base_dir}" NORMALIZE)
-            glintfx_pkgconfig_library_glob_patterns(_glintfx_lib_pattern_names)
-            set(_glintfx_lib_glob_patterns "")
-            foreach(_glintfx_lib_pattern_name IN LISTS _glintfx_lib_pattern_names)
-                list(APPEND _glintfx_lib_glob_patterns "${_glintfx_library_path}/${_glintfx_lib_pattern_name}")
-            endforeach()
-            file(GLOB _glintfx_lib_matches ${_glintfx_lib_glob_patterns})
-            if(NOT IS_DIRECTORY "${_glintfx_library_path}" OR _glintfx_lib_matches STREQUAL "")
-                message(FATAL_ERROR
-                    "glintfx: glintfx.pc's Libs: field emitted "
-                    "'${_glintfx_token}', which resolves to "
-                    "'${_glintfx_library_path}' - not a directory "
-                    "containing any of ${_glintfx_lib_pattern_names} "
-                    "(pc file: '${pc_file}'). Skip this check with "
-                    "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
-                    "environment of this `cmake --install` invocation, "
-                    "then verify the install by hand."
-                )
-            endif()
-            math(EXPR _glintfx_library_flag_count "${_glintfx_library_flag_count} + 1")
-        endif()
+        math(EXPR _glintfx_count "${_glintfx_count} + 1")
     endforeach()
+    set(${out_count} "${_glintfx_count}" PARENT_SCOPE)
+endfunction()
+
+# Orchestrates the WHOLE content check (LAYER A) against ONE installed
+# glintfx.pc, natively: prepares the pcfiledir-substituted scratch copy
+# (glintfx_pkgconfig_prepare_native_input(), above - the one hand-
+# written text operation this file still performs), hands it to
+# cmake_pkg_config(EXTRACT ... STRICTNESS STRICT) - CMake's own native
+# pkg-config format parser, no pkg-config binary involved (see this
+# file's header, "Talking to the pkg-config BINARY itself") - and
+# validates every "-I"/"-L" token it extracts against real content on
+# disk. GODS_LAWS.md L-40 floor: a Cflags:/Libs: line with no "-I"/"-L"
+# token at all makes cmake_pkg_config() return an EMPTY list, not an
+# error (measured: CMAKE_PKG_CONFIG_INCLUDES/LIBDIRS both come back
+# empty, with exit 0, against a real glintfx.pc with blank "Cflags:"/
+# "Libs:" fields) - the explicit EQUAL 0 checks below are what turn
+# that silent "nothing to report" into the FATAL_ERROR L-40 requires;
+# cmake_pkg_config() itself does not do this for us. FATAL_ERROR on
+# every platform, Windows included, unconditionally - this is the
+# check that used to run only AFTER a pkg-config binary conversation
+# had already succeeded (PKG-WIN-SCOPE's original finding, still true
+# today, unrelated to PKG-NATIVE): glintfx_validate_installed_pkgconfig()
+# below calls this BEFORE it ever tries to find or talk to a
+# pkg-config binary, on purpose.
+function(glintfx_pkgconfig_validate_content_on_disk pc_file)
+    glintfx_pkgconfig_prepare_native_input("${pc_file}" _glintfx_native_input)
+
+    cmake_pkg_config(EXTRACT "${_glintfx_native_input}" REQUIRED STRICTNESS STRICT)
+
+    glintfx_pkgconfig_validate_content_tokens(
+        "${pc_file}" "${CMAKE_PKG_CONFIG_INCLUDES}" "-I" headers _glintfx_include_flag_count
+    )
+    glintfx_pkgconfig_validate_content_tokens(
+        "${pc_file}" "${CMAKE_PKG_CONFIG_LIBDIRS}" "-L" library _glintfx_library_flag_count
+    )
 
     if(_glintfx_include_flag_count EQUAL 0)
         message(FATAL_ERROR
             "glintfx: glintfx.pc's own Cflags: field emitted ZERO -I "
-            "flags (resolved: '${_glintfx_cflags_value}', pc file: "
-            "'${pc_file}') - an empty Cflags: line would make this "
-            "validator scan nothing and still report success "
-            "(GODS_LAWS.md L-40). Skip this check with "
+            "flags (pc file: '${pc_file}') - an empty Cflags: line "
+            "would make this validator scan nothing and still report "
+            "success (GODS_LAWS.md L-40). Skip this check with "
             "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
             "this `cmake --install` invocation, then verify the "
             "install by hand."
@@ -749,9 +477,8 @@ function(glintfx_pkgconfig_validate_content_flags pc_file resolved_keys resolved
     if(_glintfx_library_flag_count EQUAL 0)
         message(FATAL_ERROR
             "glintfx: glintfx.pc's own Libs: field emitted ZERO -L "
-            "flags (resolved: '${_glintfx_libs_value}', pc file: "
-            "'${pc_file}') - an empty Libs: line would make this "
-            "validator scan nothing and still report success "
+            "flags (pc file: '${pc_file}') - an empty Libs: line would "
+            "make this validator scan nothing and still report success "
             "(GODS_LAWS.md L-40). Skip this check with "
             "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment of "
             "this `cmake --install` invocation, then verify the "
@@ -760,45 +487,13 @@ function(glintfx_pkgconfig_validate_content_flags pc_file resolved_keys resolved
     endif()
 
     message(STATUS
-        "glintfx: post-install pkg-config content check (reading "
-        "glintfx.pc directly, no pkg-config binary involved) - "
+        "glintfx: post-install pkg-config content check (CMake's own "
+        "native pkg-config parser, cmake_pkg_config(EXTRACT ... "
+        "STRICTNESS STRICT) - no pkg-config binary involved) - "
         "${_glintfx_include_flag_count} -I flag(s) and "
         "${_glintfx_library_flag_count} -L flag(s) all resolve to "
         "real, populated directories."
     )
-endfunction()
-
-# Orchestrates the WHOLE filesystem/text-only content check (LAYER A)
-# against ONE installed glintfx.pc: reads its raw variables, resolves
-# them (seeding "pcfiledir" with the REAL directory pc_file is
-# actually in - pkg-config's own built-in, which glintfx.pc.in's
-# relocatable prefix depends on: "prefix=${pcfiledir}/../.."), and
-# validates includedir/libdir and every -I/-L token against real
-# content on disk. Calls NO pkg-config binary at all (see this file's
-# header). FATAL_ERROR on every platform, Windows included,
-# unconditionally - this is the check that used to run only AFTER a
-# pkg-config binary conversation had already succeeded, the exact
-# ordering PKG-WIN-SCOPE's adversarial review (27/08/2026) found let a
-# real broken install through on Windows, with a message claiming this
-# check had already run and passed when it had never run at all.
-# glintfx_validate_installed_pkgconfig() below calls this BEFORE it
-# ever tries to find or talk to a pkg-config binary, on purpose.
-function(glintfx_pkgconfig_validate_content_on_disk pc_file)
-    glintfx_pkgconfig_read_raw_variables("${pc_file}" _glintfx_raw_keys _glintfx_raw_values)
-
-    cmake_path(GET pc_file PARENT_PATH _glintfx_pcfiledir)
-    set(_glintfx_seed_keys "pcfiledir")
-    set(_glintfx_seed_values "${_glintfx_pcfiledir}")
-
-    glintfx_pkgconfig_resolve_variables(
-        "${_glintfx_raw_keys}" "${_glintfx_raw_values}"
-        "${_glintfx_seed_keys}" "${_glintfx_seed_values}"
-        _glintfx_resolved_keys _glintfx_resolved_values
-    )
-
-    glintfx_pkgconfig_validate_content_variable("${pc_file}" "${_glintfx_resolved_keys}" "${_glintfx_resolved_values}" includedir headers)
-    glintfx_pkgconfig_validate_content_variable("${pc_file}" "${_glintfx_resolved_keys}" "${_glintfx_resolved_values}" libdir library)
-    glintfx_pkgconfig_validate_content_flags("${pc_file}" "${_glintfx_resolved_keys}" "${_glintfx_resolved_values}")
 endfunction()
 
 function(glintfx_validate_installed_pkgconfig)
@@ -832,19 +527,10 @@ function(glintfx_validate_installed_pkgconfig)
     endif()
 
     # LAYER A, unconditional, on EVERY platform, BEFORE this file ever
-    # tries to find or talk to a pkg-config binary: reads glintfx.pc's
-    # own text directly and confirms includedir/libdir and every -I/-L
+    # tries to find or talk to a pkg-config binary: CMake's own native
+    # pkg-config parser confirms includedir/libdir and every -I/-L
     # token resolve to real, populated content on disk
     # (glintfx_pkgconfig_validate_content_on_disk(), defined above).
-    # PKG-WIN-SCOPE's adversarial review (27/08/2026) found this same
-    # content check used to run only AFTER the pkg-config-binary
-    # `--exists` call below had already succeeded - so on Windows, one
-    # single binary-conversation failure (for a reason that can have
-    # nothing to do with whether the library artifact is really on
-    # disk) skipped this check entirely and still reported success.
-    # Calling it here, first, with FATAL_ERROR veto power that never
-    # downgrades on any platform, is the fix: nothing below this line
-    # can ever again claim a veto this line did not itself exercise.
     glintfx_pkgconfig_validate_content_on_disk("${_glintfx_pc_file}")
 
     find_program(GLINTFX_PKGCONFIG_VALIDATE_EXE NAMES pkg-config pkgconf NO_CACHE)
@@ -854,69 +540,21 @@ function(glintfx_validate_installed_pkgconfig)
             "skipping the pkg-config BINARY conversation "
             "('pkg-config --exists glintfx'). glintfx.pc was written "
             "to '${_glintfx_pc_file}', and its content already passed "
-            "this file's own filesystem-only check (includedir, "
-            "libdir, and every -I/-L token confirmed against real "
-            "content on disk by reading glintfx.pc directly); there "
-            "is simply no pkg-config/pkgconf on PATH to additionally "
-            "confirm a REAL pkg-config binary also resolves it. "
-            "Install pkg-config (or pkgconf) to get that extra "
-            "confirmation, or set GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 "
-            "to silence this warning intentionally."
+            "this file's own native content check (includedir, libdir, "
+            "and every -I/-L token confirmed against real content on "
+            "disk by CMake's own pkg-config parser); there is simply "
+            "no pkg-config/pkgconf on PATH to additionally confirm a "
+            "REAL pkg-config binary also resolves it. Install "
+            "pkg-config (or pkgconf) to get that extra confirmation, "
+            "or set GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 to silence "
+            "this warning intentionally."
         )
         return()
     endif()
 
-    # PKG-VALIDATE-WINSEP, REVIVED AND FIXED BY PKG-WIN-SCOPE's revert
-    # (27/08/2026): a first attempt at this (cmake_path(CONVERT ...
-    # TO_NATIVE_PATH_LIST ...), reasoned but never confirmed against a
-    # real Windows run) was reverted, and the whole file went Unix-only
-    # for a while. The lider brought the .pc back to Windows and asked
-    # for the validator to stop reprovando instalacao boa - and this
-    # time there is a MEASURED answer, not a reasoned one:
-    # tools/ci/diagnose-win-pkgconfig.ps1 (permanent diagnostic step,
-    # `windows` job) ran a closed matrix against a live fixture on GHA
-    # run 33050708122 and found that the ONLY pkg-config on that
-    # windows-latest runner's PATH is Strawberry Perl's Pure-Perl
-    # `PkgConfig` reimplementation (pkg-config.bat) - not a real
-    # pkgconf/pkg-config binary - and that it resolves a bare
-    # PKG_CONFIG_PATH value with no explicit list separator
-    # ("C:/Users/.../pkgconfig") by falling back to POSIX-style
-    # splitting on ':', which shreds the drive letter itself into a
-    # bogus one-letter search directory ("C", "/Users/.../pkgconfig")
-    # - exactly the failure this file's PREVIOUS attempt was reasoning
-    # about, confirmed for real this time. The SAME value with an
-    # explicit trailing ';' (semicolon) resolved correctly in every
-    # cell of that matrix, forward slash or backslash: the presence of
-    # ';' makes it split on the Windows-native separator instead of
-    # falling back to ':'. cmake_path(CONVERT ... TO_NATIVE_PATH_LIST
-    # ...) alone does not guarantee that trailing separator for a
-    # SINGLE-entry list (there is nothing else in the list to separate
-    # from), which is almost certainly why the earlier, reasoned-only
-    # attempt still failed on real Windows CI (GHA run for commit
-    # 9a863c7, job "Windows - compartilhado": 'pkg-config --exists'
-    # failed against a glintfx.pc this file's own resolver had just
-    # proven existed, PKG_CONFIG_PATH shown with forward slashes, no
-    # separator). The fix below is therefore explicit, not left to
-    # cmake_path alone: on WIN32, convert to native slashes AND append
-    # a literal trailing native list separator, so the value ALWAYS
-    # contains at least one, regardless of list length.
-    #
-    # PROVEN on POSIX (this machine, unchanged from before): for a
-    # plain path, a path with a doubled '//' separator, and a path
-    # with a trailing '/', cmake_path(CONVERT ... TO_NATIVE_PATH_LIST
-    # ...) is byte-identical to the untouched original - nothing
-    # observable changes here on Linux, Fedora, Ubuntu, Arch or
-    # CachyOS, and the WIN32 branch below never runs there at all.
-    #
-    # NOT proven, and not claimed: that every pkg-config a real
-    # packager might have on PATH on some OTHER Windows machine (a
-    # genuine MSYS2 pkgconf, a vcpkg-shipped one, anything else
-    # GODS_LAWS.md LEI ZERO's public-and-unknown consumer base could
-    # combine with Windows) parses PKG_CONFIG_PATH the same way
-    # Strawberry Perl's emulator does. That is exactly why the
-    # `--exists` check right below downgrades to a WARNING instead of
-    # a FATAL_ERROR on WIN32 if it still fails after this fix - see
-    # this file's header, "Talking to the pkg-config BINARY itself".
+    # Unchanged by PKG-NATIVE - this half never used the hand-written
+    # reader, and is not what the lider's decision replaced. See this
+    # file's own header, "Talking to the pkg-config BINARY itself".
     if(WIN32)
         cmake_path(CONVERT "${_glintfx_pkgconfig_dir}" TO_NATIVE_PATH_LIST _glintfx_pkgconfig_path_native)
         string(APPEND _glintfx_pkgconfig_path_native ";")
@@ -933,36 +571,34 @@ function(glintfx_validate_installed_pkgconfig)
     )
     if(NOT _glintfx_exists_result EQUAL 0)
         if(WIN32)
-            # The LAYER A content check above (glintfx_pkgconfig_
-            # validate_content_on_disk()) has ALREADY run, unconditionally,
-            # by the time this line can even be reached, and it is what
-            # actually confirmed glintfx.pc, the headers and the library
-            # artifact are genuinely on disk with real content - not this
-            # `--exists` call, and not any other check below it. What
-            # could NOT be confirmed is whether THIS pkg-config binary, on
-            # THIS machine, can also find and parse glintfx.pc via
-            # PKG_CONFIG_PATH - a binary-specific quirk this file cannot
-            # enumerate for every Windows pkg-config that could exist
-            # (GODS_LAWS.md L-27: declared downgrade, not a silent "ok").
-            # The message below names exactly what was and was not
-            # verified, and by which check, never a generic pass.
+            # The LAYER A content check above has ALREADY run,
+            # unconditionally, by the time this line can even be
+            # reached, and it is what actually confirmed glintfx.pc,
+            # the headers and the library artifact are genuinely on
+            # disk with real content - not this `--exists` call, and
+            # not any other check below it. What could NOT be
+            # confirmed is whether THIS pkg-config binary, on THIS
+            # machine, can also find and parse glintfx.pc via
+            # PKG_CONFIG_PATH - a binary-specific quirk this file
+            # cannot enumerate for every Windows pkg-config that could
+            # exist (GODS_LAWS.md L-27: declared downgrade, not a
+            # silent "ok").
             message(WARNING
                 "glintfx: post-install pkg-config CONVERSATION could not "
                 "be verified on this Windows machine - 'pkg-config "
                 "--exists glintfx' failed against the file just "
                 "installed at '${_glintfx_pc_file}' "
                 "(PKG_CONFIG_PATH=$ENV{PKG_CONFIG_PATH}): "
-                "${_glintfx_exists_error}. This file's OWN "
-                "filesystem-only content check already ran before this "
-                "point (reading glintfx.pc directly, no pkg-config "
-                "binary involved) and already confirmed glintfx.pc, the "
-                "headers and the library artifact are genuinely on disk "
-                "with real content; only whether THIS machine's "
-                "pkg-config binary additionally resolves them via "
-                "PKG_CONFIG_PATH is unverified. Set "
-                "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 to silence this "
-                "warning intentionally, or verify by hand with the "
-                "pkg-config on this machine."
+                "${_glintfx_exists_error}. This file's OWN native "
+                "content check already ran before this point (CMake's "
+                "own pkg-config parser, no pkg-config binary involved) "
+                "and already confirmed glintfx.pc, the headers and the "
+                "library artifact are genuinely on disk with real "
+                "content; only whether THIS machine's pkg-config "
+                "binary additionally resolves them via PKG_CONFIG_PATH "
+                "is unverified. Set GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 "
+                "to silence this warning intentionally, or verify by "
+                "hand with the pkg-config on this machine."
             )
             return()
         endif()
@@ -980,8 +616,8 @@ function(glintfx_validate_installed_pkgconfig)
     message(STATUS
         "glintfx: post-install pkg-config validation passed - "
         "glintfx.pc at '${_glintfx_pc_file}' passed this file's own "
-        "filesystem-only content check, and a real pkg-config binary "
-        "on this machine's PATH also finds it via PKG_CONFIG_PATH."
+        "native content check, and a real pkg-config binary on this "
+        "machine's PATH also finds it via PKG_CONFIG_PATH."
     )
 endfunction()
 

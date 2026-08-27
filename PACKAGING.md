@@ -1,6 +1,6 @@
 # Packaging glintfx
 
-This document is for **packagers and consumers** of glintfx — anyone
+This document is for **packagers and consumers** of glintfx - anyone
 writing a distro package (RPM `.spec`, Debian `debian/rules`, an Arch
 `PKGBUILD`, ...), a `Makefile`/Autotools build that links glintfx via
 `pkg-config`, a CI script that installs glintfx and then builds
@@ -15,7 +15,7 @@ written, and tested, against that assumption: no specific packaging
 pipeline is treated as "the" pipeline.
 
 This is reference material: what gets installed, what layouts are
-supported, and how to link against it — not a walkthrough of writing
+supported, and how to link against it - not a walkthrough of writing
 any one distro's package.
 
 ## What gets installed
@@ -26,20 +26,70 @@ any one distro's package.
 - A CMake package (`find_package(glintfx)`), under
   `<libdir>/cmake/glintfx/`.
 - A pkg-config module, `<libdir>/pkgconfig/glintfx.pc`, **on every
-  platform, Windows included** — see "Packaging on Windows" below for
+  platform, Windows included** - see "Packaging on Windows" below for
   what is and is not guaranteed there specifically.
 
 `<libdir>` and `<includedir>` are `CMAKE_INSTALL_LIBDIR` and
 `CMAKE_INSTALL_INCLUDEDIR` (from CMake's `GNUInstallDirs` module),
 resolved at configure time.
 
-**None of the above applies to embedding** (next section) — installing
+**None of the above applies to embedding** (next section) - installing
 is opt-in there, and off by default.
+
+## CMake version requirement
+
+Building glintfx - from source, installed or embedded - needs
+**CMake 4.1 or newer**. This is not an arbitrary floor: it is the
+version in which CMake's own native pkg-config format parser,
+`cmake_pkg_config()`, gained the `IMPORT`/`POPULATE` subcommands (an
+earlier subset, `EXTRACT` only, shipped in CMake 3.31). glintfx's own
+install-time pkg-config validator (see "glintfx already runs this
+check for you" below) is built on that command - CMake's own words for
+it: it "generates CMake variables and targets from pkg-config format
+package files natively, without needing to invoke or even require the
+presence of a pkg-config implementation."
+
+**Two of the five platforms glintfx is tested on ship an older CMake
+by default, and need an explicit upgrade before building glintfx from
+source:**
+
+- **Ubuntu 24.04**: `apt-get install cmake` installs **3.28.3** -
+  measured against a real `ubuntu:24.04` container, not assumed. Install
+  a newer one either from
+  [Kitware's official APT repository](https://apt.kitware.com/) (the
+  packager-recommended route on Debian/Ubuntu), or by downloading the
+  self-contained tarball from
+  [cmake.org/download](https://cmake.org/download/) (`cmake-<version>-linux-x86_64.tar.gz`,
+  no root or package manager required) and putting its `bin/` directory
+  ahead of the system one on `PATH`. glintfx's own CI does the latter -
+  see `.github/workflows/ci.yml`'s `linux` job, Ubuntu entries, for the
+  exact, tested recipe.
+- **Windows**: GitHub Actions' `windows-latest` runner image ships
+  **3.31.6** as of this writing (confirmed against
+  `actions/runner-images`' own `Windows2025-Readme.md`, not assumed). A
+  Windows machine you provision yourself may already have a newer
+  CMake - check with `cmake --version` first. If not, download the
+  official zip from [cmake.org/download](https://cmake.org/download/)
+  (`cmake-<version>-windows-x86_64.zip`) and put its `bin/` directory on
+  `PATH`. glintfx's own CI does exactly this - see
+  `.github/workflows/ci.yml`'s `windows` job, "Instalar CMake >= 4.1
+  (Windows)" step.
+
+**Fedora 44 (this project's primary target, GODS_LAWS.md L-04), Arch
+and CachyOS all ship a CMake above the 4.1 floor already** (4.3.0 and
+4.4.2 respectively, measured against real container images of each) -
+no extra step needed there.
+
+**This is not a silent platform cut.** All five platforms remain fully
+supported; two of them simply have a named prerequisite, documented
+here, with a tested recipe for satisfying it - the same principle
+`CMakeLists.txt`'s own comment on `cmake_minimum_required` states in
+full.
 
 ## Packaging on Windows
 
 **glintfx.pc is installed on Windows, the same as on every other
-platform** (decision reverted by the lider, 27/08/2026 — a prior fatia
+platform** (decision reverted by the lider, 27/08/2026 - a prior fatia
 had made it Unix-only; that guard is gone). `cmake --install` writes
 the library, the public headers, the CMake package
 (`find_package(glintfx)`) **and** `<libdir>/pkgconfig/glintfx.pc`,
@@ -51,7 +101,7 @@ story:
   Windows too.** `glintfx.pc`'s `Libs:` line still reads `-lglintfx`;
   what that resolves to on disk is `glintfx.lib` (the import library
   for a shared build, or the static archive for
-  `-DBUILD_SHARED_LIBS=OFF` — MSVC uses the same `.lib` extension for
+  `-DBUILD_SHARED_LIBS=OFF` - MSVC uses the same `.lib` extension for
   both), in `<libdir>`, exactly where `glintfx.pc`'s own `libdir=`
   variable points. The install-time validator described under
   "glintfx already runs this check for you" below knows this artifact
@@ -59,35 +109,30 @@ story:
 - **What is, and is not, guaranteed about the pkg-config CONVERSATION
   itself is narrower on Windows than on Unix - and the two halves run
   in a fixed order now, not by accident.** The install-time validator
-  first reads `glintfx.pc` itself, directly, off disk - resolving its
-  `${...}` variables, including whitespace around `=`, a trailing `#`
-  comment on a variable line, and a variable defined twice (the LAST
-  definition wins, matching real pkg-config in every one of those three
-  cases, measured against a real `pkgconf` binary) - and its
+  first hands `glintfx.pc` to **CMake's own native pkg-config format
+  parser** (`cmake_pkg_config(EXTRACT ...)`, `STRICTNESS STRICT` - see
+  "CMake version requirement" above) - resolving its `${...}`
+  variables, including whitespace around `=` and a trailing `#` comment
+  on a variable line (matching real pkg-config in both cases) - and its
   `Cflags:`/`Libs:` fields, **without ever invoking a pkg-config
   binary** - and confirms `includedir`/`libdir` and every `-I`/`-L`
   token resolve to real, populated content: the header tree and the
   library artifact are really there. A relative value in any of those
   resolves against `glintfx.pc`'s OWN directory (`pcfiledir`, pkg-config's
-  own built-in for "the directory this file is actually in"), never
-  against the working directory `cmake --install` happened to be invoked
-  from - closing, for the includedir/libdir/`-I`/`-L` VALUES this
-  paragraph is about, the CWD-dependent false PASS an adversarial review
-  found and reproduced live (see "Where this is tested" below). That fix
-  is narrower than it sounds: it does not, by itself, mean nothing here
-  ever depends on the dispatch directory. A SEPARATE, one-layer-earlier
-  CWD-dependence - where the staged `pkgconfig/` directory itself
-  physically is, when `--prefix` is given as a RELATIVE path - caused
-  the opposite failure (a false FAIL against a genuinely correct
-  install) until a later round; see "glintfx already runs this check
-  for you" below for that fix. Two forms are
-  a known, declared gap, not silently claimed as covered: a value quoted
-  as a single token (real pkg-config strips the quotes; this reader does
-  not) and a `Cflags:`/`Libs:` field repeated on two separate lines
-  (real pkg-config concatenates both; this reader only sees the last) -
-  neither shape is ever produced by glintfx's own generated `glintfx.pc`.
-  This half runs **first**, calls no binary, and has full veto power on
-  every platform, Windows
+  own built-in for "the directory this file is actually in" - CMake's
+  native parser does not resolve this one on its own, so glintfx
+  substitutes it into a private scratch copy first, never the installed
+  `glintfx.pc` itself), never against the working directory
+  `cmake --install` happened to be invoked from - closing, for the
+  includedir/libdir/`-I`/`-L` VALUES this paragraph is about, the
+  CWD-dependent false PASS an adversarial review found and reproduced
+  live (see "Where this is tested" below). A relative `--prefix` or a
+  relative `DESTDIR` resolve correctly too, without doubling a shared
+  path segment. **One form is narrower than real pkg-config,
+  deliberately:** a variable defined twice is refused outright under
+  `STRICTNESS STRICT` - a hand-edited or packager-modified file only,
+  never glintfx's own generated `glintfx.pc`. This half runs **first**,
+  calls no binary, and has full veto power on every platform, Windows
   included, unconditionally: a broken install fails `cmake --install`
   there exactly as it would on Linux, and it never depends on whether
   any pkg-config is even installed. **Only after that** does the
@@ -125,11 +170,11 @@ against the installed package purely through `find_package`, and
 real. `tools/ci/check-pkgconfig-installed.ps1` is the regression gate
 for *this* section specifically: it enumerates the entire installed
 prefix on the real Windows CI runner and fails if `glintfx.pc` does
-NOT appear in it — the inverse assertion of an earlier gate with
+NOT appear in it - the inverse assertion of an earlier gate with
 almost the same name, retired when the Unix-only decision was
 reverted.
 
-**The DLL still needs help finding your executable** — that is a
+**The DLL still needs help finding your executable** - that is a
 Windows loader fact independent of pkg-config, and it is covered
 separately, in "On Windows, shared (the default), glintfx places its
 own DLL next to your executable" below.
@@ -139,7 +184,7 @@ own DLL next to your executable" below.
 A consumer can vendor glintfx by source instead of installing it:
 
 ```cmake
-add_subdirectory(glintfx)          # or FetchContent, which populates
+add_subdirectory(glintfx) # or FetchContent, which populates
                                     # a tree and calls add_subdirectory
                                     # on it the same way
 add_executable(my_app main.cpp)
@@ -148,7 +193,7 @@ target_link_libraries(my_app PRIVATE glintfx::glintfx)
 
 glintfx does **not** install its headers or CMake package into the
 consumer's own install prefix as a side effect of this (`GLINTFX_INSTALL`
-is off by default when embedded — see "What gets installed" above; a
+is off by default when embedded - see "What gets installed" above; a
 consumer that *does* want glintfx installed alongside its own artifacts
 can still set `-DGLINTFX_INSTALL=ON` explicitly).
 
@@ -156,27 +201,27 @@ can still set `-DGLINTFX_INSTALL=ON` explicitly).
 
 This is the one thing embedding does for you automatically, and it
 exists to close a real gap, not a hypothetical one: CMake gives every
-target — glintfx's library and your executable — its own build
+target - glintfx's library and your executable - its own build
 subdirectory by default. On Linux this is invisible, because CMake
 auto-embeds a build-tree RPATH into your executable, so the loader
 finds `libglintfx.so` wherever it actually is. **Windows has no
 equivalent mechanism.** The default Windows DLL search order checks
 your executable's own folder, not the rest of the build tree (see
-[Dynamic-link library search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order)) —
+[Dynamic-link library search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order)) -
 so without help, `glintfx.dll` and `my_app.exe` land in different
 directories, the loader cannot find the DLL, and `my_app.exe` fails to
 start.
 
 When glintfx is embedded, built shared, and on Windows, it places its
 own `glintfx.dll` in the **outermost project's own default runtime
-output directory** — the same place your own executable already lands
+output directory** - the same place your own executable already lands
 by default if you have not customized your layout. You do not need to
 read this section to get a working `my_app.exe`; that is the point.
 
 **What this does NOT promise:** if your project already has multiple
 executables scattered across nested subdirectories with no unified
 output directory of their own, glintfx's own DLL joins the outermost
-directory, same as any of your own un-customized top-level targets —
+directory, same as any of your own un-customized top-level targets -
 it does not chase every executable in your tree. That is a general
 CMake/Windows multi-target packaging problem no single dependency can
 fully solve on your behalf; if you need it solved for your whole
@@ -188,18 +233,18 @@ in a post-build step on each of your executables.
 
 - **Set `CMAKE_RUNTIME_OUTPUT_DIRECTORY` yourself** (the CMake-blessed
   variable for unifying every target's runtime output, your own and
-  glintfx's alike) — glintfx detects this and does not touch anything;
+  glintfx's alike) - glintfx detects this and does not touch anything;
   your value already applies to `glintfx.dll` the same way it applies
   to your own un-customized targets.
 - **Or turn the mechanism off entirely**: `-DGLINTFX_EMBEDDED_RUNTIME_COLOCATE=OFF`.
   This is the escape valve for any other custom layout (for example,
   per-target `RUNTIME_OUTPUT_DIRECTORY` properties set by hand instead
-  of the shared variable) — with it off, glintfx's DLL lands exactly
+  of the shared variable) - with it off, glintfx's DLL lands exactly
   where it would have before this section existed, and colocating it
   is entirely your own responsibility.
 
-This mechanism is off by default everywhere else — a standalone
-glintfx build, a static build, a Linux build — because none of them
+This mechanism is off by default everywhere else - a standalone
+glintfx build, a static build, a Linux build - because none of them
 ever hit the failure it exists to close.
 
 ### Where embedding is tested
@@ -208,11 +253,11 @@ ever hit the failure it exists to close.
   that glintfx's generated headers stay scoped under the embedded
   build's own subdirectory, and the `GLINTFX_INSTALL` opt-in described
   above, on Linux (`tests/tools/check_embed.sh`) and on Windows
-  (`tools/ci/check-embed.ps1`) — the Windows script runs the produced
+  (`tools/ci/check-embed.ps1`) - the Windows script runs the produced
   executable for real and reads its actual exit code and stdout/stderr,
   not just whether a file exists.
 - `tests/embed_dll_colocation/` proves the DLL-colocation **decision**
-  described above — the escape valve, and the option's own default —
+  described above - the escape valve, and the option's own default -
   on every one of the five supported platforms (it has no shell or OS
   dependency at all). It does **not**, on its own, prove the DLL ends
   up somewhere a real Windows loader can use: that is `check-embed.ps1`
@@ -254,46 +299,51 @@ either). Right after `glintfx.pc`, the public headers and the library
 artifact are written to disk, an installation step runs in two parts,
 in a fixed order:
 
-1. **First, unconditionally, on every platform:** it reads
-   `glintfx.pc` itself, directly off disk, resolves its `${...}`
-   variables (**no pkg-config binary is invoked for this
-   part**) and its `Cflags:`/`Libs:` fields, and walks every `-I`/`-L`
-   token a plain (non-`--static`)
+1. **First, unconditionally, on every platform:** it hands `glintfx.pc`
+   to **CMake's own native pkg-config format parser**,
+   `cmake_pkg_config(EXTRACT ...)` (see "CMake version requirement"
+   above), in the strictest mode that command offers
+   (`STRICTNESS STRICT`) - **no pkg-config binary is invoked for this
+   part** - and walks every `-I`/`-L` token a plain (non-`--static`)
    query would emit - the same query any consumer runs first -
    confirming each path exists on disk and actually contains a
-   `glintfx/` header tree or a `libglintfx.so*`/`libglintfx.a`
-   artifact, against whatever real layout that particular `cmake
-   --install` invocation produced, including a `DESTDIR`-staged one. A
-   relative value anywhere in that resolution is always resolved
-   against `glintfx.pc`'s own directory, never against whatever
+   `glintfx/` header tree or a `libglintfx.so*`/`libglintfx.a`/
+   `glintfx.lib` artifact, against whatever real layout that particular
+   `cmake --install` invocation produced, including a `DESTDIR`-staged
+   one (`DESTDIR` itself is Unix-only - see "Packaging on Windows"
+   above - CMake's own documentation states plainly it "may not be used
+   on Windows because installation prefix usually contains a drive
+   letter"). Before this reads `glintfx.pc`'s own text, it substitutes
+   the literal `${pcfiledir}` token - pkg-config's own built-in for "the
+   directory this `.pc` file is actually in", which `glintfx.pc.in`'s
+   relocatable-prefix design depends on, and a variable CMake's native
+   parser does not resolve on its own, measured - with that directory's
+   real, already-absolute path, in a **private scratch copy**, never
+   the installed `glintfx.pc` itself. Every path this check resolves is
+   anchored to `glintfx.pc`'s own real directory, never to whatever
    directory `cmake --install`/`cmake -P` happened to be invoked from -
-   an earlier shape of this check resolved a relative value against the
-   INVOKER's working directory instead, which an adversarial review
-   used to make a genuinely broken install (its compiled library
-   deleted) pass by running the check from a directory that happened to
-   contain an unrelated, matching decoy file; that ONE CWD-dependence -
-   the includedir/libdir/`-I`/`-L` value-resolution attack just
-   described - is fixed, and "Where this is tested" below proves the
-   closed shape by reproducing the same attack. It was not the only
-   one: a relative `--prefix` itself (an ordinary shape, not an attack -
-   `cmake --install <build> --prefix ./stage`, nothing adversarial)
-   used to leave the STAGED `pkgconfig/` directory this whole check
-   starts from unresolved to an absolute location, which doubled a
-   shared path segment and made a genuinely GOOD install fail instead.
-   That is fixed too - forcing `CMAKE_INSTALL_PREFIX` absolute before
-   anything is built from it, one layer earlier than the fix above -
-   and "Where this is tested" below proves that regression closed as
-   well, separately. On the syntax `glintfx.pc` itself is
-   written in, this reader matches real pkg-config for whitespace
-   around `=`, a trailing `#` comment on a variable line, and a
-   variable defined twice (last definition wins) - three forms
-   glintfx's own generated `glintfx.pc` never produces, but a hand-edited
-   or packager-modified one legitimately could. Two forms remain a
-   known, declared gap: a value quoted as a single token, and a
-   `Cflags:`/`Libs:` field repeated on two separate lines (real
-   pkg-config strips the quotes and concatenates the repeated field
-   respectively; this reader does neither) - again, not a shape
-   glintfx's own generator ever emits.
+   an install with its compiled library deleted and its `libdir=`
+   rewritten to a bare relative value still refuses even when invoked
+   from a directory holding an unrelated, matching decoy file under
+   that same name; "Where this is tested" below proves this by
+   reproducing that exact attack. A relative `--prefix` or a relative
+   `DESTDIR` (`cmake --install <build> --prefix ./stage`, or
+   `DESTDIR=<relative> cmake --install <build>` - nothing adversarial,
+   the shape any packaging pipeline that stages into a subdirectory of
+   its own build tree reaches for routinely) resolve correctly too,
+   without doubling a shared path segment. On the syntax `glintfx.pc`
+   itself is written in, CMake's native parser matches real pkg-config
+   for whitespace around `=` and a trailing `#` comment on a variable
+   line - two forms glintfx's own generated `glintfx.pc` never
+   produces, but a hand-edited or packager-modified one legitimately
+   could. **One form is narrower than real pkg-config, deliberately:** a
+   variable defined twice is **refused outright** under
+   `STRICTNESS STRICT` ("variables and keywords must be unique" - real
+   `pkgconf` instead resolves it to the last definition). glintfx's own
+   generated `glintfx.pc` never defines a variable twice, so this only
+   ever rejects a hand-edited or packager-modified file that was
+   already ambiguous - refusing it is exactly what "the strictest mode
+   this command offers" is for.
    An install that resolves to nothing worth checking (an empty
    `Cflags:`/`Libs:` line, for instance) counts as a failure too, not
    a silent pass. This part has full veto power everywhere, including
@@ -314,54 +364,20 @@ linking" above; that claim is proven separately, against glintfx's own
 CI layouts, not re-checked here); that a Windows pkg-config OTHER than
 the one this project has measured (Strawberry Perl's `pkg-config.bat`
 on GitHub Actions' `windows-latest`) parses `PKG_CONFIG_PATH` the same
-way - the filesystem-based half of this check (the part that reads
-`glintfx.pc` directly and never talks to any pkg-config binary at all)
-still runs and still fails the install on Windows if it is broken;
-only the binary-conversation half - the second, separate part that
-does invoke a real `pkg-config`/`pkgconf` - degrades to a warning
-there (see "Packaging on Windows" above); anything
-target-architecture-specific under cross-compilation (the
-filesystem-based half never runs any binary at all, and the
-binary-conversation half only ever runs `pkg-config`/`pkgconf`, a host
-tool operating on text, never target-arch code); a
-`--component`-scoped install (nothing
-glintfx installs today declares a `COMPONENT`, so a `--component`
-install under any other name simply installs nothing for glintfx in
-the first place, and this check is skipped right along with it, for
-that same reason); or two `glintfx.pc` syntax shapes real pkg-config
-accepts that this filesystem-based reader does not: a value quoted as
-a single token (real pkg-config strips the quotes; this reader keeps
-them, so a quoted value fails the check even when the unquoted path is
-genuinely fine), and a `Cflags:`/`Libs:` field repeated on two separate
-lines (real pkg-config concatenates both; this reader only sees the
-last one). Neither shape is ever produced by glintfx's own generated
-`glintfx.pc` - both fail CLOSED (the install is rejected, never
-silently accepted), so a packager who hits either one gets a false
-alarm on an actually-fine file, never a false pass on a broken one.
-
-**"Neither shape is ever produced" is a property of glintfx's CURRENT
-`glintfx.pc.in` template and the CMake code that fills it in
-(`glintfx_compute_pkgconfig_path_expression()`, `cmake/GlintfxInstall.cmake`)
-today, not a permanent guarantee this document can make on that
-template's behalf going forward.** Neither one quotes a variable's
-value, and neither one emits a `Cflags:`/`Libs:` field more than once -
-that is why the two gaps above are only ever hit by a hand-edited or
-packager-modified `glintfx.pc`, never glintfx's own. If a future change
-to that template ever starts doing either - quoting a value (a
-plausible fix on Windows, if an install prefix containing a space, such
-as `C:/Program Files/glintfx`, ever needed protecting), or duplicating
-a `Cflags:`/`Libs:` line (a plausible slip when hand-editing the
-template to add a new dependency's flag alongside an existing one,
-instead of extending the existing line) - the CONSEQUENCE is exactly
-what is described above for a hand-edited file: this validator fails
-CLOSED, rejecting a genuinely correct install of glintfx's own making,
-with the same false-alarm message. That would be a real regression -
-just not a silent one, and not the dangerous direction (a broken
-install would still never pass). Fixing it, should the day come, belongs
-in the READER (`glintfx_pkgconfig_read_raw_variables()`/
-`glintfx_pkgconfig_read_field()`, `cmake/GlintfxPkgConfigValidateInstalled.cmake.in`),
-to grow the two gaps closed - not in the template, and not in this
-document by itself.
+way - the native-parser half of this check (the part that reads
+`glintfx.pc` and never talks to any pkg-config binary at all) still
+runs and still fails the install on Windows if it is broken; only the
+binary-conversation half - the second, separate part that does invoke
+a real `pkg-config`/`pkgconf` - degrades to a warning there (see
+"Packaging on Windows" above); anything target-architecture-specific
+under cross-compilation (the native-parser half never runs any binary
+at all, and the binary-conversation half only ever runs
+`pkg-config`/`pkgconf`, a host tool operating on text, never
+target-arch code); or a `--component`-scoped install (nothing glintfx
+installs today declares a `COMPONENT`, so a `--component` install
+under any other name simply installs nothing for glintfx in the first
+place, and this check is skipped right along with it, for that same
+reason).
 
 **How a failure shows up:** as a hard error from `cmake --install`
 itself, not from a separate script you have to remember to run
@@ -409,7 +425,7 @@ not be confirmed".
 **Where the binary-conversation half specifically degrades instead of
 running:** on Windows, if `pkg-config --exists glintfx` still fails
 after this project's own, measured `PKG_CONFIG_PATH` fix (see
-"Packaging on Windows" above) — a different pkg-config than the one
+"Packaging on Windows" above) - a different pkg-config than the one
 this project tested, behaving differently for a reason this project
 has not seen. The filesystem-based half of the check (`glintfx.pc`
 exists, the directories it names exist, the library artifact is really
@@ -432,9 +448,9 @@ tested" below for exactly which platforms):
   emitted with that literal absolute path, correctly, with no prefix
   duplication.
 - **A trailing slash, a doubled path separator, or a leading `./`** in
-  either of the above — normalized before use, so a value like
+  either of the above - normalized before use, so a value like
   `lib64/` behaves identically to `lib64`.
-- **`DESTDIR`-staged installs** — the format real RPM and DEB packages
+- **`DESTDIR`-staged installs** - the format real RPM and DEB packages
   actually build under: `CMAKE_INSTALL_PREFIX` set at configure time
   (typically `/usr`), no explicit `CMAKE_INSTALL_LIBDIR` override, and
   `DESTDIR=<staging root> cmake --install <builddir>` at install time
@@ -445,7 +461,7 @@ tested" below for exactly which platforms):
   *every* destination, relative or absolute, without changing any
   path baked into the installed files' own content. `glintfx.pc`
   reflects the real, final, post-staging location (e.g.
-  `prefix=/usr`), not the temporary staging root — which is what lets
+  `prefix=/usr`), not the temporary staging root - which is what lets
   the staged tree be moved onto the target system unchanged.
 
 ## NOT supported
@@ -453,7 +469,7 @@ tested" below for exactly which platforms):
 - **`CMAKE_INSTALL_LIBDIR` or `CMAKE_INSTALL_INCLUDEDIR` set to an
   empty or whitespace-only value.** This is refused outright, with a
   `FATAL_ERROR` at configure time. Unlike every layout listed above,
-  blank never names a real, intentional layout — it is always a
+  blank never names a real, intentional layout - it is always a
   mistake in how the value was passed (an unset shell variable
   interpolated into a `-D` flag, a stray blank line in a build
   script). Left unhandled, CMake concatenates the value directly into
@@ -461,7 +477,7 @@ tested" below for exactly which platforms):
   least one of them to the filesystem root.
 - **Moving an already-installed tree whose `CMAKE_INSTALL_LIBDIR` or
   `CMAKE_INSTALL_INCLUDEDIR` was set to an ABSOLUTE path.** A
-  relative-layout install is relocatable — you can move the entire
+  relative-layout install is relocatable - you can move the entire
   installed tree (or an entire `DESTDIR` staging tree) to a different
   location and `glintfx.pc` keeps resolving correctly, because its
   `prefix=` is expressed relative to the `.pc` file's own location.
@@ -476,7 +492,7 @@ tested" below for exactly which platforms):
 Use `pkg-config --cflags --libs --static glintfx`, not the plain
 `--cflags --libs` line, when linking against `libglintfx.a`. On Linux,
 `--static` is what makes the `Libs.private` field (currently
-`-lwayland-client -lm`) appear in the output — glintfx's own Wayland
+`-lwayland-client -lm`) appear in the output - glintfx's own Wayland
 platform code needs those symbols, and a plain (non-static) pkg-config
 query deliberately omits them, because they would be redundant noise
 on a dynamic link (`libglintfx.so` already carries its own runtime
@@ -512,25 +528,32 @@ automated regression test, not just prose:
   same broken-library and missing-header installs still FAIL, closed,
   exactly as they do unforced, and a genuinely intact install still
   gets only a WARNING when the pkg-config binary conversation itself
-  fails for a reason unrelated to content. Two more scenarios prove the
-  claims made above under "glintfx already runs this check for you":
-  a real install with its library artifact deleted AND `glintfx.pc`
-  rewritten to a relative `libdir`, re-validated from an
+  fails for a reason unrelated to content. Several more scenarios prove
+  the claims made above under "glintfx already runs this check for
+  you": a real install with its library artifact deleted AND
+  `glintfx.pc` rewritten to a relative `libdir`, re-validated from an
   attacker-controlled working directory holding a decoy file under the
   same relative name - it still FAILS, naming a path anchored under
-  `glintfx.pc`'s own directory, never the attacker directory; and a
-  hand-assembled `glintfx.pc` combining whitespace around `=`, a
-  trailing comment, and a variable defined twice, which the validator
-  accepts and - when a real `pkg-config`/`pkgconf` binary is on `PATH`
-  - is cross-checked against that same real binary too, so the claim
-  that the fixture is genuinely good does not rest on this project's
-  own code agreeing with itself. One final scenario proves the
-  regression fixed under "glintfx already runs this check for you"
-  above: an ORDINARY `cmake --install <build> --prefix ./stage`, a
-  relative prefix, no `DESTDIR`, no attacker directory, nothing
-  adversarial - it must PASS, and the validator's own success message
-  must name the correctly-resolved, single-occurrence staged path, not
-  a doubled one.
+  `glintfx.pc`'s own directory, never the attacker directory; a
+  hand-assembled `glintfx.pc` using real pkg-config's own whitespace
+  around `=` and a trailing comment, which the validator accepts and -
+  when a real `pkg-config`/`pkgconf` binary is on `PATH` - is
+  cross-checked against that same real binary too, so the claim that
+  the fixture is genuinely good does not rest on this project's own
+  code agreeing with itself; the DELIBERATE narrowing from real
+  pkg-config, proven as its own case: a `glintfx.pc` defining the same
+  variable twice is REFUSED, closed, by CMake's native parser under
+  `STRICTNESS STRICT`; an ORDINARY `cmake --install <build> --prefix
+  ./stage`, a relative prefix, no `DESTDIR`, no attacker directory,
+  nothing adversarial - it must PASS, and the validator's own success
+  message must name the correctly-resolved, single-occurrence staged
+  path, not a doubled one; the same claim for an ORDINARY relative
+  `DESTDIR` (`DESTDIR=<relative> cmake --install <build> --prefix
+  /usr/local>`); and a real install with an ABSOLUTE
+  `CMAKE_INSTALL_LIBDIR`/`CMAKE_INSTALL_INCLUDEDIR` (the one layout
+  where `glintfx.pc`'s own `prefix=` line never references
+  `${pcfiledir}` at all), proving the `${pcfiledir}` substitution step
+  is a correct no-op when there is nothing to substitute.
 - `tests/tools/check_blank_install_dir_rejected.sh` exercises the
   blank-value rejection described under "NOT supported" above: it
   confirms configure fails with glintfx's own error message, naming
@@ -538,7 +561,7 @@ automated regression test, not just prose:
   later or silently.
 
 All three run on every push to `main` and on every pull request,
-across the project's Linux CI jobs — Fedora, Ubuntu, Arch, and
+across the project's Linux CI jobs - Fedora, Ubuntu, Arch, and
 CachyOS. They rely on a real, hand-written shell round trip against
 `pkg-config`/`pkgconf`, so they stay Linux-only by construction (`sh`,
 not PowerShell); this is a property of how these three scripts are
@@ -546,7 +569,7 @@ written, not a claim that pkg-config itself is unsupported anywhere
 else.
 
 The Windows job runs the equivalent claim through its own mechanism
-instead — `tools/ci/check-pkgconfig-installed.ps1` (see "Packaging on
+instead - `tools/ci/check-pkgconfig-installed.ps1` (see "Packaging on
 Windows" above), which enumerates a real installed prefix on a real
 Windows CI runner and fails if `glintfx.pc` is NOT found in it. Where
 the three scripts above prove pkg-config *resolves* glintfx correctly

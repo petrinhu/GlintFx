@@ -8,7 +8,29 @@
 # each one has its own module in cmake/ (GODS_LAWS.md L-17: a file is
 # an atom of subject).
 
-cmake_minimum_required(VERSION 3.28)
+# 4.1, not 3.28 (PKG-NATIVE, 27/08/2026, ESCOPO.md paragraph 7 - "A
+# exigencia minima da ferramenta de build SOBE, e o leitor caseiro
+# morre"): cmake_pkg_config(), CMake's own native pkg-config format
+# parser, needs its IMPORT/POPULATE subcommands only reached CMake 4.1
+# (EXTRACT alone shipped in CMake 3.31 - see
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in's own header for
+# which subcommand this project actually uses and why the full 4.1
+# floor is still the honest one to declare). MEASURED, not assumed,
+# against every one of the five supported platforms (GODS_LAWS.md
+# L-04) before this line changed: Fedora 44 ships 4.3.0, Arch and
+# CachyOS ship 4.4.2 (all three comfortably above the floor, nothing
+# to install in CI); Ubuntu 24.04's own apt repository ships 3.28.3 -
+# the EXACT value this line used to require, which is why raising it
+# is a real cost, not a free move; and the windows-latest GitHub
+# Actions runner ships 3.31.6 (confirmed against
+# actions/runner-images' own Windows2025-Readme.md, not assumed from
+# the Linux-only text of ESCOPO.md's own decision - a fact this
+# project's own decision record did not anticipate). Both of those
+# last two get an explicit CMake-install step in
+# .github/workflows/ci.yml, and the ressalva is written where a
+# packager on either platform actually reads it: PACKAGING.md's "CMake
+# version requirement" section.
+cmake_minimum_required(VERSION 4.1)
 
 # Four components, not three (GODS_LAWS.md L-26, VER-4C): TWEAK is the
 # fourth, packaging-only field. write_basic_package_version_file's

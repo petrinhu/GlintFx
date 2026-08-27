@@ -48,6 +48,34 @@ glintfx_add_test(gfss_token_test)
 glintfx_add_test(gfss_tokenizer_test)
 target_include_directories(gfss_tokenizer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# GFSS-COLOR-PARSE (TODO.md, GODS_LAWS.md L-19/L-20/L-28/L-40): hex/
+# rgb()/rgba()/hsl()/hsla()/named-keyword color parsing built on top of
+# GFSS-TOKEN's own token stream - see gfss_color_parse_test.cpp's own
+# header comment. Needs src/gfss/color_parse.hpp and src/gfss/
+# named_colors.hpp, both PRIVATE headers not yet promoted to
+# include/glintfx/ (GODS_LAWS.md L-19: "o header nasce interno") - the
+# SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir gfss_tokenizer_test
+# above already adds for its own private headers.
+glintfx_add_test(gfss_color_parse_test)
+target_include_directories(gfss_color_parse_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# color_parse.cpp/named_colors.cpp define glintfx::style::detail::
+# parse_color()/named_color_count()/named_color_at()/
+# lookup_named_color() with NO GLINTFX_API - deliberately (GODS_LAWS.md
+# L-19: not yet a public, ABI-frozen symbol), which means glintfx_library
+# (a SHARED library, hidden default visibility) never puts them in its
+# dynamic symbol table. This test needs to call them DIRECTLY, so it
+# compiles the SAME two .cpp files a SECOND time, straight into its own
+# object set - the identical technique wl_proto_link_test above already
+# uses for the generated Wayland protocol binding (see that test's own
+# comment for why "compile it again into this executable" is correct
+# here and not an ODR risk: two SEPARATE link units, the .so's hidden
+# copy is never visible to the executable's linker pass at all).
+target_sources(gfss_color_parse_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

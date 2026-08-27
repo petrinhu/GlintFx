@@ -17,4 +17,6 @@ target_sources(glintfx_library PRIVATE
     token_kind.cpp
     lexical_rules.cpp
     tokenizer.cpp
+    named_colors.cpp
+    color_parse.cpp
 )

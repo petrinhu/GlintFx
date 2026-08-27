@@ -56,15 +56,114 @@ do dado), para aplicar no primeiro commit da fatia correspondente, não depois.
   (nada de `<SDL.h>`, `<GL/glfw3.h>`, `<xkbcommon/xkbcommon.h>`, `<freetype/...>`). `libwayland`
   conta como API do SO (L-05/L-07); `libxkbcommon` **não conta**, mesmo instalado na máquina
   (L-06).
-- Nenhum diretório `vendor/`, `third_party/` ou `external/` no repositório. Comando de auditoria:
-  `find . -iname "*vendor*" -o -iname "*third_party*" -o -iname "*external*"` fora de `.git/`.
+- Nenhum diretório `vendor/`, `third_party/` ou `external/` no repositório **fora da EXCEÇÃO Nº 1
+  abaixo**. A regra continua valendo por padrão: diretório vendorizado é achado CRÍTICO, a menos
+  que o conteúdo bata exatamente com a exceção enumerada.
+
+**EXCEÇÃO Nº 1 (L-07, aberta pelo líder em 26/08/2026): `third_party/khronos/`.** Texto de
+`GODS_LAWS.md` L-07, citado: *"um arquivo de DADO, lido em tempo de build por script nosso, nunca
+linkado ao binário [...] e a exceção não se estende a mais nada"*. Os únicos caminhos que ela cobre,
+enumerados um a um, não descritos por padrão de nome:
+
+1. `third_party/khronos/gl.xml`: o arquivo vendorizado em si, o registro `gl.xml` do Khronos Group,
+   licença Apache-2.0.
+2. `third_party/khronos/LICENSE-APACHE-2.0.txt`: o texto integral da licença que acompanha o
+   arquivo, obrigação 1 da exceção (`GODS_LAWS.md` L-07: "o texto integral da Apache-2.0 entra
+   junto do arquivo").
+3. `third_party/khronos/README.md`: a proveniência escrita (URL, commit de origem, data, `sha256`),
+   obrigação 4 da exceção. Este arquivo não é conteúdo vendorizado, é texto AGPL-3.0-or-later do
+   próprio projeto; entra na enumeração porque mora no mesmo diretório e o auditor precisa saber
+   que ele também é esperado, não um achado.
+
+Qualquer outro arquivo, seja dentro de `third_party/khronos/`, seja em qualquer outro diretório
+vendorizado, continua CRÍTICO sem exceção nenhuma. **A exceção não é transitiva**: não autoriza um
+segundo arquivo vendorizado nem um segundo diretório, mesmo que a justificativa pareça análoga; isso
+é decisão do líder, de novo, não extrapolação de agente.
+
+**Comando de auditoria corrigido**, que distingue os dois casos em vez de gritar nos dois. O comando
+antigo (`find . -iname "*vendor*" -o -iname "*third_party*" -o -iname "*external*"`) achava só o
+diretório `./third_party`, sem entrar nele; hoje ele reportaria um CRÍTICO falso para a exceção
+legítima. Testado contra o repositório real em 26/08/2026, HEAD `95c0f20a3f3be9d3c245266d7783b88aca44a657`:
+
+```bash
+allowlist="third_party/khronos/gl.xml
+third_party/khronos/LICENSE-APACHE-2.0.txt
+third_party/khronos/README.md"
+matched=$(find . -iname "*vendor*" -o -iname "*third_party*" -o -iname "*external*" 2>/dev/null \
+    | grep -v '^\./\.git' || true)
+files=""
+for p in $matched; do
+    if [ -d "$p" ]; then files="$files
+$(find "$p" -type f)"; else files="$files
+$p"; fi
+done
+files=$(printf '%s\n' "$files" | sed 's#^\./##' | grep -v '^$' | sort -u)
+count=$(printf '%s\n' "$files" | grep -c . || true)
+echo "varreu: $count arquivo(s)"
+[ "$count" -eq 0 ] && { echo "REPROVADO: varredura vazia (L-40)"; exit 1; }
+critico=0
+while IFS= read -r f; do
+    printf '%s\n' "$allowlist" | grep -qxF "$f" \
+        && echo "OK (EXCECAO No 1): $f" \
+        || { echo "CRITICO: $f"; critico=1; }
+done <<EOF
+$files
+EOF
+[ "$critico" -eq 1 ] && exit 1 || exit 0
+```
+
+Saída real, obtida rodando o comando acima contra a árvore, colada sem edição:
+
+```
+varreu: 3 arquivo(s)
+OK (EXCECAO No 1): third_party/khronos/gl.xml
+OK (EXCECAO No 1): third_party/khronos/LICENSE-APACHE-2.0.txt
+OK (EXCECAO No 1): third_party/khronos/README.md
+```
+
+`exit 0`. Os três controles da L-40 foram testados neste mesmo dia contra uma árvore de fixture em
+`/var/tmp` (fora deste repositório): positivo (só a exceção, aprova), negativo (um `vendor/alien.hpp`
+estranho ao lado, reprova, `CRITICO: vendor/alien.hpp`), e varredura vazia (nenhum caminho casado,
+reprova, `REPROVADO: varredura vazia`).
+
+**Sobre reprovar em zero (L-40), e por que isso é uma escolha e não um acidente:** enquanto a
+EXCEÇÃO Nº 1 estiver aberta, os três arquivos acima são o estado esperado da árvore; uma varredura
+que não os encontra não é "dependência zero restaurada", é o build quebrado (o codegen de OpenGL
+depende de `gl.xml` existir, `src/render/CMakeLists.txt`) ou a exceção sendo perdida em silêncio.
+Por isso este comando reprova em zero, ao contrário do comando antigo, que tratava zero como
+sucesso. Se o líder revogar a EXCEÇÃO Nº 1 algum dia, este item e este comando precisam de
+atualização consciente no mesmo commit que remove `third_party/khronos/`, do mesmo jeito que a
+L-26 já registra que `SameMinorVersion` vira `SameMajorVersion` na 1.0: mudança de critério datada,
+nunca deriva silenciosa.
+
+**Prova de integridade, para o auditor conferir que a exceção não é só palavra escrita no README:**
+o `sha256` do `gl.xml` vendorizado é recomputado a cada `configure` e comparado contra o valor
+gravado em `third_party/khronos/README.md`, em `src/render/CMakeLists.txt` (o `file(SHA256 ...)`
+perto da linha 34, comparado contra `GLINTFX_GL_XML_EXPECTED_SHA256` perto da linha 45); diverge,
+o `configure` falha. Ligado à suíte, não só ao build: `tests/CMakeLists.txt` roda os três controles
+da L-40 no nível do processo, via `gl_registry_codegen` (código de saída, `WILL_FAIL TRUE` do CTest
+para os dois que devem falhar):
+
+  - `gl_registry_codegen_real_vendored_file_succeeds_test`: positivo, o arquivo real com o `sha256`
+    real passa.
+  - `gl_registry_codegen_sha_mismatch_reproves_test`: negativo, `--expect-sha256` forjado reprova
+    (obrigação 3 da exceção: o arquivo é verbatim, uma edição muda o hash e o build para).
+  - `gl_registry_codegen_empty_registry_reproves_test`: varredura vazia, um `gl.xml` bem formado que
+    resolve zero funções OpenGL reprova, nunca passa em silêncio.
+
+  Confirmado nesta data, lendo `tests/CMakeLists.txt`: os três existem e rodam. Não escrevo "isto é
+  testado" sem antes ver o portão reprovar o caso que promete cobrir (L-40, corolário sobre
+  alegação); aqui a leitura do arquivo é a evidência, e `WILL_FAIL TRUE` é a prova de que os dois
+  negativos são esperados para falhar, não bugs.
 
 🟠 **IMPORTANTE**
 
 - Ferramenta de SBOM (`syft`, listada em `TOOLING.md` para `internal-auditor`) detecta dependência
   **declarada**; o risco real deste projeto é dependência escrita à mão sem declarar nenhuma
-  (`#include` cru de header vendorizado no disco). SBOM é complemento, não substitui os três
-  itens acima.
+  (`#include` cru de header vendorizado no disco). SBOM é complemento, não substitui os três itens
+  de `#include`/`find_package`/`FetchContent` acima, e não cobre a EXCEÇÃO Nº 1: `gl.xml` não é
+  dependência declarada em gerenciador de pacote nenhum, é dado lido por um script nosso, e a prova
+  de integridade dela é o par `sha256`/testes descrito acima, não SBOM.
 
 ---
 

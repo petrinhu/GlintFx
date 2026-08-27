@@ -136,3 +136,35 @@ Registro exigido pela **L-34**, seção "Modo autônomo". Enquanto o modo está 
 ---
 
 **Nota de método:** a ordem `HDR-FIX` → `VER-4C` e os lotes **não** entram neste registro. São planejamento do passo 2 da L-34, mandato próprio do CTO, não cadeira do líder. Ficaram no plano, para a minha verificação.
+
+---
+
+## Autorização de modo autônomo — 26/08/2026, 22h14
+
+**Ordem do líder, verbatim:** *"quando acabar essa onda, siga em modo autonomo, push e inicie a onda seguinte e siga autonomo até o fim e push. Decisoes a criterio de um clevel. Vou dormir, até amanhã."*
+
+**O que isto autoriza:**
+
+1. Fechar a **W2** (revisão adversarial das 3 pendentes, correção do número no README, `preci.sh` e suíte verdes).
+2. **Push da W2**, e conferência do CI **por `ls-remote` e `gh run`**, nunca pela mensagem do push.
+3. Abrir e executar a **W3** inteira.
+4. **Push da W3** ao fim.
+5. **Decidir no lugar dele**, com um C-level assumindo a decisão e assinando — cada uma registrada aqui, ao vivo, para confirmação retroativa.
+
+**O que isto NÃO relaxa** (as leis seguem inteiras):
+
+- **L-12/L-18:** implementador, revisor e orquestrador continuam sendo agentes distintos. Revisão adversarial que **executa e muta**, nunca que lê.
+- **L-20:** vermelho antes de verde, registrado com a saída de erro.
+- **L-40:** piso de varredura não-vazia, contagem impressa.
+- **CI vermelho BLOQUEIA.** Diagnosticar e consertar antes de seguir.
+- **Relatório de agente não é prova.** O orquestrador re-verifica build, suíte e as alegações antes de aceitar.
+- **Tag continua exigindo aval dele.** A autorização é de push, não de release.
+- ⚠️ **Porta de mão única continua sendo dele.** Onde uma aparecer na W3, o C-level **não decide**: a fatia para, fica registrada aqui, e espera. Foi assim que a W2 tratou o tipo de cor e o carregador gráfico, e é a única leitura compatível com a L-10.
+
+**Estado no momento da autorização:** W2 com 7 de 13 concluídos, 3 aguardando revisão, o carregador gráfico ainda escrevendo, 42 commits locais, último push em `4c35ddb`.
+
+**A W3 tem 12 itens**, 6 deles bloqueados esperando pré-requisito. Os que abrem primeiro: relógio do núcleo, tipo de valor do `gfss`, contrato de nó, portas de arquitetura, carregamento de asset, análise de cor e o núcleo do seletor.
+
+### Decisões tomadas em nome do líder nesta janela
+
+*(cada uma com data, hora, o C-level que assinou, o que estava em jogo e o argumento — para confirmação retroativa)*

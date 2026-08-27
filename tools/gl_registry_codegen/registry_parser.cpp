@@ -33,7 +33,12 @@ bool is_whitespace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '
 // followed by whitespace before <name>) - internal spacing, such as
 // the one separating "GLubyte" from "*" in "const GLubyte *", is part
 // of the original gl.xml text nodes and must survive verbatim.
-std::string trim_outer_whitespace(std::string text) {
+// By std::string_view, not by value: substr() below always allocates a
+// NEW string regardless, so there is nothing to move out of a by-value
+// parameter here (cppcheck's own passedByValue finding, TESTES.md
+// T15.0 stage 3 - a real cost, not decoration: the by-value form used
+// to force a copy or move at every call site for zero benefit).
+std::string trim_outer_whitespace(std::string_view text) {
     std::size_t start = 0;
     while (start < text.size() && is_whitespace(text[start])) {
         ++start;
@@ -42,7 +47,7 @@ std::string trim_outer_whitespace(std::string text) {
     while (end > start && is_whitespace(text[end - 1])) {
         --end;
     }
-    return text.substr(start, end - start);
+    return std::string(text.substr(start, end - start));
 }
 
 double parse_version_number(std::string_view text) {
@@ -95,8 +100,8 @@ proto_or_param_content read_proto_or_param_content(xml_reader &reader) {
             break;
         }
     }
-    content.type_text = trim_outer_whitespace(std::move(content.type_text));
-    content.name_text = trim_outer_whitespace(std::move(content.name_text));
+    content.type_text = trim_outer_whitespace(content.type_text);
+    content.name_text = trim_outer_whitespace(content.name_text);
     return content;
 }
 

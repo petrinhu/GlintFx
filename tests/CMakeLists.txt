@@ -65,6 +65,15 @@ glintfx_apply_compile_options(gl_xml_reader_test)
 add_test(NAME gl_xml_reader_test COMMAND gl_xml_reader_test)
 set_tests_properties(gl_xml_reader_test PROPERTIES LABELS unit)
 
+# GL-LOADER: gl.xml's own vocabulary (<commands>, <feature>, <require>,
+# <remove>) resolved into the plain domain model - see
+# gl_registry_parser_test.cpp's own header comment.
+add_executable(gl_registry_parser_test gl_registry_parser_test.cpp)
+target_link_libraries(gl_registry_parser_test PRIVATE gl_registry_codegen_lib glintfx_test_harness)
+glintfx_apply_compile_options(gl_registry_parser_test)
+add_test(NAME gl_registry_parser_test COMMAND gl_registry_parser_test)
+set_tests_properties(gl_registry_parser_test PROPERTIES LABELS unit)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

@@ -74,6 +74,20 @@ glintfx_apply_compile_options(gl_registry_parser_test)
 add_test(NAME gl_registry_parser_test COMMAND gl_registry_parser_test)
 set_tests_properties(gl_registry_parser_test PROPERTIES LABELS unit)
 
+# GL-LOADER: the ONE hand-written, tested mechanism the GENERATED GL
+# 3.3 core loader calls 344 times - see gl_proc_address_assign_test.cpp
+# and src/render/gl_proc_address.hpp's own header comments. Header-only
+# (no .cpp, no glintfx_library dependency): PROJECT_SOURCE_DIR/src is
+# added directly so "render/gl_proc_address.hpp" resolves the same way
+# the GENERATED gl_functions.cpp will reach it (src/render/CMakeLists.txt
+# adds that same directory as a PRIVATE include dir on glintfx_library).
+add_executable(gl_proc_address_assign_test gl_proc_address_assign_test.cpp)
+target_include_directories(gl_proc_address_assign_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gl_proc_address_assign_test PRIVATE glintfx_test_harness)
+glintfx_apply_compile_options(gl_proc_address_assign_test)
+add_test(NAME gl_proc_address_assign_test COMMAND gl_proc_address_assign_test)
+set_tests_properties(gl_proc_address_assign_test PROPERTIES LABELS unit)
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

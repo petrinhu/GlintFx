@@ -231,13 +231,16 @@ GLINTFX_TEST(core_error_use_sites_survive_hostile_system_headers) {
     GLINTFX_CHECK(err_void.has_error());
 
     // gltfx_err_fields() - CE-5's formatter, plus gltfx_err_field's own
-    // two members (name, value). GLINTFX_CHECK is NON-FATAL (see
-    // harness/check.hpp: it records the failure and the case keeps
-    // running) - cppcheck's containerOutOfBounds caught the real
-    // consequence: indexing fields[0] unconditionally right after a
-    // failed !fields.empty() check would still execute, out of
-    // bounds. Guarding the index behind the same condition, not
-    // suppressing the finding, is the fix.
+    // two members (name, value). GLINTFX_CHECK is CASE-FATAL since
+    // QA-HARNESS-ABORT (27/08/2026, harness/check.hpp's own header
+    // comment): a failed !fields.empty() check now unwinds this case
+    // immediately, so fields[0] below is never reached with an empty
+    // fields in practice. The explicit `if (!fields.empty())` guard is
+    // kept anyway, as belt-and-suspenders against cppcheck's own
+    // containerOutOfBounds finding (which reads this function's source
+    // alone and does not know GLINTFX_CHECK throws) and as
+    // documentation that fields[0] below has a real precondition, not
+    // an implicit one.
     const auto fields = glintfx::gltfx_err_fields(copied);
     GLINTFX_CHECK(!fields.empty());
     if (!fields.empty()) {

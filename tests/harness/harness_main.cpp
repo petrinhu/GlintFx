@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <exception>
 #include <print>
+#include <string>
 #include <string_view>
 
 #include "check.hpp"
@@ -21,9 +23,37 @@ void print_case_list() {
     }
 }
 
+// Runs c.fn(), catching whatever it throws so that ONE case never
+// takes the whole harness process down with it (QA-HARNESS-ABORT,
+// 27/08/2026 - see check.hpp's own header comment for the full
+// rationale). The EXPECTED path is case_check_failed, thrown by
+// GLINTFX_CHECK itself; the other two catches exist so that a genuinely
+// UNEXPECTED throw (a real bug, not a check failure) also ends in a
+// reported FAIL instead of an unhandled-exception abort - the crash
+// this whole change exists to stop is not specific to case_check_
+// failed, it is "anything a case body lets escape reaches main()
+// unguarded".
+void invoke_case_body(const Case &c) {
+    try {
+        c.fn();
+    } catch (const glintfx::test::case_check_failed &) {
+        // Expected unwind: GLINTFX_CHECK already ran record_check_
+        // failure() (message printed, count incremented) before
+        // throwing. Nothing left to do - run_single_case() below reads
+        // failure_count() to decide PASS/FAIL.
+    } catch (const std::exception &e) {
+        const std::string message =
+            "case body let an unexpected exception escape: " + std::string(e.what());
+        glintfx::test::record_check_failure(__FILE__, __LINE__, message);
+    } catch (...) {
+        glintfx::test::record_check_failure(
+            __FILE__, __LINE__, "case body let an unexpected non-exception throw escape");
+    }
+}
+
 bool run_single_case(const Case &c) {
     glintfx::test::reset_failure_count();
-    c.fn();
+    invoke_case_body(c);
     const bool passed = glintfx::test::failure_count() == 0;
     std::println("[{}] {}", passed ? "PASS" : "FAIL", c.name);
     return passed;

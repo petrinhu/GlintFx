@@ -101,6 +101,47 @@
 // enum; converting a gltfx_gfss_length whose unit is one of them into
 // screen pixels is a RESOLUTION step this fatia's own service order
 // explicitly keeps out of scope ("sem conversao no parse").
+//
+// GFSS-VALUE-2 (28/08/2026, ESCOPO.md SS2 "as seis decisoes de
+// angulo, tempo e cadencia" - commit 400df8f): this fatia was sent
+// BACK by the project leader after adversarial review found the
+// TDD cycle itself was not chronological (design and test were
+// written together, proven only afterwards by mutation - GODS_LAWS.md
+// L-20 is taxative, "sem excecao"). The redo below is the SAME
+// red-before-green cycle, PLUS the scope the leader grew in the same
+// sitting: two more natures (angle, time), four more length units
+// (vmin, vmax, ch, lh - 16 total), a four-member angle-unit enum, and
+// a six-member time-unit enum (the five standard SI-symbol spellings
+// plus `frames`, this library's own addition - see gltfx_gfss_time_
+// unit's own comment below for the semantics the leader defined for
+// it).
+//
+// ACHADO 6 OF THE REVIEW THAT SENT THIS BACK, DECIDED HERE, NOT BY
+// ACCIDENT (GODS_LAWS.md L-27): "se angulo e tempo sao naturezas
+// fisicamente distintas, misturar-las no mesmo campo de comprimento,
+// atras de um enum so, junta categorias incompativeis." DECISION: they
+// are NOT merged. gltfx_gfss_angle and gltfx_gfss_time are their OWN
+// plain-aggregate types, with their OWN closed unit enums
+// (gltfx_gfss_angle_unit, gltfx_gfss_time_unit) - never the SAME enum
+// gltfx_gfss_length_unit widened to also carry "deg"/"s", and never
+// the SAME gltfx_gfss_length struct reused with a shared "generic
+// dimension" unit field. A length, an angle and a duration are three
+// PHYSICALLY INCOMPATIBLE dimensions - "5px + 3deg" is meaningless the
+// same way "5 meters + 3 seconds" is meaningless in physics - and a
+// consumer that can write gltfx_gfss_length{5.0, some_shared_enum_
+// value_that_happens_to_mean_deg} would be handed a value the TYPE
+// SYSTEM claims is a length but is actually an angle: exactly the
+// silent-mixing defect ESCOPO.md SS2 decision 5's own "a separacao
+// entre as tres primeiras existe porque mistura-las esconde erro"
+// already named for number/integer/length, extended here to the two
+// new categories on the SAME reasoning, not a new one. The cost of
+// three parallel {magnitude, unit} shapes instead of one shared one is
+// three enums and three name functions instead of one - paid once, in
+// this pre-1.0 window (ESCOPO.md SS3's own L-26 duplicate: "SOVERSION
+// 0 e nada de estabilidade prometida"), against a defect that would
+// otherwise be undetectable by the compiler AND by every closed-
+// enumeration test this file's own discipline (GODS_LAWS.md L-40)
+// exists to make impossible to miss.
 
 namespace glintfx::style {
 
@@ -115,7 +156,9 @@ namespace glintfx::style {
     X(number)                                                                                      \
     X(integer)                                                                                     \
     X(length)                                                                                      \
-    X(percentage)
+    X(percentage)                                                                                  \
+    X(angle)                                                                                       \
+    X(time)
 
 enum class gltfx_gfss_value_kind : std::uint8_t {
 #define GLINTFX_GFSS_VALUE_KIND_ENUMERATOR(name) name,
@@ -205,6 +248,110 @@ struct gltfx_gfss_length {
     gltfx_gfss_length_unit unit = gltfx_gfss_length_unit::px;
 };
 
+// GLINTFX_GFSS_ANGLE_UNIT_LIST(X) - the closed set of angle units
+// (ESCOPO.md SS2, GFSS-VALUE-2, decision 2: "as quatro do padrao" -
+// CSS Values and Units Level 4's own <angle> production, W3C). Same
+// X-macro/mechanical-count/static_assert discipline as the length unit
+// list above - this header's own top comment (achado 6) is why this
+// is its OWN enum, never appended to gltfx_gfss_length_unit.
+#define GLINTFX_GFSS_ANGLE_UNIT_LIST(X)                                                            \
+    X(deg)                                                                                         \
+    X(rad)                                                                                         \
+    X(grad)                                                                                         \
+    X(turn)
+
+enum class gltfx_gfss_angle_unit : std::uint8_t {
+#define GLINTFX_GFSS_ANGLE_UNIT_ENUMERATOR(name) name,
+    GLINTFX_GFSS_ANGLE_UNIT_LIST(GLINTFX_GFSS_ANGLE_UNIT_ENUMERATOR)
+#undef GLINTFX_GFSS_ANGLE_UNIT_ENUMERATOR
+};
+
+// Mechanically counted, same discipline as gltfx_gfss_length_unit_count
+// above.
+inline constexpr std::size_t gltfx_gfss_angle_unit_count = [] {
+    std::size_t count = 0;
+#define GLINTFX_GFSS_ANGLE_UNIT_COUNT_ONE(name) ++count;
+    GLINTFX_GFSS_ANGLE_UNIT_LIST(GLINTFX_GFSS_ANGLE_UNIT_COUNT_ONE)
+#undef GLINTFX_GFSS_ANGLE_UNIT_COUNT_ONE
+    return count;
+}();
+
+#undef GLINTFX_GFSS_ANGLE_UNIT_LIST
+
+// Returns the IDENTIFIER of `unit` (e.g. "turn") - defined in
+// value_kind.cpp, same table/static_assert technique as
+// gltfx_gfss_length_unit_name() above.
+[[nodiscard]] GLINTFX_API std::string_view
+gltfx_gfss_angle_unit_name(gltfx_gfss_angle_unit unit) noexcept;
+
+// A number WITH an angle unit - the payload of gltfx_gfss_value::angle
+// below. NEVER converted into degrees (or any other member of this
+// same enum) at this layer - the unit the author wrote is the unit
+// this struct carries; normalizing is GFSS-RESOLVE's job, the exact
+// same boundary gltfx_gfss_length's own comment already draws for
+// physical units.
+struct gltfx_gfss_angle {
+    double magnitude = 0.0;
+    gltfx_gfss_angle_unit unit = gltfx_gfss_angle_unit::deg;
+};
+
+// GLINTFX_GFSS_TIME_UNIT_LIST(X) - the closed set of time units.
+// FIVE are the standard SI-symbol spellings the project leader
+// ratified after being shown the cost of a spelling of his own
+// devising (ESCOPO.md SS2, GFSS-VALUE-2, decision 1: his own first
+// verbatim was "sec, mili-sec, nano-sec" - he changed to `s`/`ms`/`ns`
+// after being shown that a spelling CSS itself does not use would
+// REJECT every standard-authored stylesheet, the same reasoning that
+// already justified accepting the physical length units - `h` and
+// `min` have no CSS precedent but keep the same SI-symbol family).
+// `frames` is this library's OWN SIXTH addition, with its own
+// non-obvious semantics - see gltfx_gfss_value's own `duration` field
+// comment below for the full "consequencia declarada a ele" text; this
+// header only registers it as a valid unit lexeme, exactly like every
+// other member of this enum, and does NOT resolve it (no 60 Hz
+// arithmetic anywhere in this file - see that same comment for why).
+#define GLINTFX_GFSS_TIME_UNIT_LIST(X)                                                             \
+    X(ms)                                                                                          \
+    X(s)                                                                                            \
+    X(min)                                                                                         \
+    X(h)                                                                                            \
+    X(ns)                                                                                           \
+    X(frames)
+
+enum class gltfx_gfss_time_unit : std::uint8_t {
+#define GLINTFX_GFSS_TIME_UNIT_ENUMERATOR(name) name,
+    GLINTFX_GFSS_TIME_UNIT_LIST(GLINTFX_GFSS_TIME_UNIT_ENUMERATOR)
+#undef GLINTFX_GFSS_TIME_UNIT_ENUMERATOR
+};
+
+// Mechanically counted, same discipline as every other _count above.
+inline constexpr std::size_t gltfx_gfss_time_unit_count = [] {
+    std::size_t count = 0;
+#define GLINTFX_GFSS_TIME_UNIT_COUNT_ONE(name) ++count;
+    GLINTFX_GFSS_TIME_UNIT_LIST(GLINTFX_GFSS_TIME_UNIT_COUNT_ONE)
+#undef GLINTFX_GFSS_TIME_UNIT_COUNT_ONE
+    return count;
+}();
+
+#undef GLINTFX_GFSS_TIME_UNIT_LIST
+
+// Returns the IDENTIFIER of `unit` (e.g. "frames") - defined in
+// value_kind.cpp, same table/static_assert technique as every other
+// _name() function above.
+[[nodiscard]] GLINTFX_API std::string_view
+gltfx_gfss_time_unit_name(gltfx_gfss_time_unit unit) noexcept;
+
+// A number WITH a time unit - the payload of gltfx_gfss_value::
+// duration below (named `duration`, not `time`, to avoid colliding in
+// a reader's head with <ctime>/POSIX `time` - ESCOPO.md SS2's own
+// GFSS-VALUE-2 impact notes name this exact collision). Preserved as
+// WRITTEN, same boundary as every other unit in this file: "1.5min" is
+// NOT normalized to 90.0 s here.
+struct gltfx_gfss_time {
+    double magnitude = 0.0;
+    gltfx_gfss_time_unit unit = gltfx_gfss_time_unit::ms;
+};
+
 // One decoded gfss value component - see this header's own top
 // comment for why this is a flat aggregate, not a tagged union, and
 // for the exact field that is meaningful per `kind`. Only the field
@@ -244,6 +391,37 @@ struct gltfx_gfss_value {
     // size is GFSS-RESOLVE's job (TODO.md's own declared boundary: "%
     // ... atravessam preservados para o gfui"), never this type's.
     double percentage = 0.0;
+
+    // Valid iff kind == angle. A number WITH one of the 4 angle units
+    // above (this header's own top comment, achado 6: a SEPARATE type
+    // from length, never sharing its enum or its struct).
+    gltfx_gfss_angle angle{};
+
+    // Valid iff kind == time. A number WITH one of the 6 time units
+    // above - see gltfx_gfss_time's own comment for the field's name.
+    //
+    // `frames` IS A DURATION ALIAS, NOT "ONE REAL FRAME OF THIS
+    // MONITOR" (ESCOPO.md SS2, GFSS-VALUE-2 decision 3, project
+    // leader's own verbatim, 28/08/2026): "entra, mas calculado com o
+    // monitor. padrao seria 60[Hz] e pedir 3 realmente duraria 50ms,
+    // mas se o monitor tiver 144, faria a conversao com duplicacao de
+    // frame se necessario, para durar os mesmos 50ms." That is: "3
+    // frames" names a FIXED duration - 3/60 s, 50 ms - against a 60 Hz
+    // REFERENCE, and that duration is IDENTICAL on every monitor; the
+    // number of ACTUAL frames a 144 Hz monitor spends realizing it (7,
+    // with one duplicated) is a rendering-loop concern, computed
+    // nowhere near this file. THIS LAYER DOES NOT DO THAT ARITHMETIC:
+    // a `gltfx_gfss_value` with kind == time and unit == frames stores
+    // the magnitude EXACTLY as written (duration.magnitude == 3.0 for
+    // "3frames", never 50.0) - the SAME "preserved as written, no
+    // resolution at parse time" rule this file already applies to
+    // every other unit in every other nature. Converting the fixed
+    // 60 Hz reference into nanoseconds (or into an actual frame count
+    // for a given monitor) is GFSS-RESOLVE's job, explicitly named as
+    // future work by the CTO's own dated design note
+    // (/var/tmp/glintfx-plan/valor-angulo-tempo.md SS2.2/SS8) - not
+    // this fatia's, not this field's.
+    gltfx_gfss_time duration{};
 };
 
 } // namespace glintfx::style

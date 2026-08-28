@@ -40,14 +40,17 @@ struct value_kind_entry {
     std::string_view name;
 };
 
-// THE table - 5 rows, one per ESCOPO.md SS2 decision 5's own five
-// natures. Order matches the enum declaration.
-constexpr std::array<value_kind_entry, 5> k_value_kind_table{{
+// THE table - 7 rows, one per ESCOPO.md SS2 decision 5's own five
+// original natures PLUS the two GFSS-VALUE-2 (28/08/2026) added -
+// angle and time. Order matches the enum declaration.
+constexpr std::array<value_kind_entry, 7> k_value_kind_table{{
     {gltfx_gfss_value_kind::keyword, "keyword"},
     {gltfx_gfss_value_kind::number, "number"},
     {gltfx_gfss_value_kind::integer, "integer"},
     {gltfx_gfss_value_kind::length, "length"},
     {gltfx_gfss_value_kind::percentage, "percentage"},
+    {gltfx_gfss_value_kind::angle, "angle"},
+    {gltfx_gfss_value_kind::time, "time"},
 }};
 
 static_assert(k_value_kind_table.size() == gltfx_gfss_value_kind_count,

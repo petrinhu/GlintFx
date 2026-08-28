@@ -82,6 +82,11 @@ GLINTFX_TEST(gltfx_gfss_value_kind_name_covers_every_nature_with_its_exact_ident
         {gltfx_gfss_value_kind::integer, "integer"},
         {gltfx_gfss_value_kind::length, "length"},
         {gltfx_gfss_value_kind::percentage, "percentage"},
+        // GFSS-VALUE-2 (ESCOPO.md SS2, 28/08/2026 decision, "entram
+        // agora"): angle and time are TWO MORE natures, seven total -
+        // the leader's own six-decision commit (400df8f).
+        {gltfx_gfss_value_kind::angle, "angle"},
+        {gltfx_gfss_value_kind::time, "time"},
     };
     // GODS_LAWS.md L-40: this table IS the closed enumeration - a 6th
     // nature added to value.hpp's own X-macro list without a matching

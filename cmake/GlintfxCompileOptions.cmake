@@ -36,6 +36,35 @@ endfunction()
 # No-op (GLINTFX_SANITIZE empty) is the default: this function costs
 # nothing in the normal Release/local build.
 #
+# GATE-ASAN-HALT (GODS_LAWS.md L-40, piso de varredura nao-vazia,
+# aplicado aqui ao caso "o portao roda e nao reprova nada"): most UBSan
+# checks are RECOVERABLE by default - the process prints the diagnostic
+# to stderr and keeps running, exiting 0 if nothing else crashes it.
+# Measured live before this line existed: a throwaway signed-integer-
+# overflow program built with exactly the flags below MINUS
+# -fno-sanitize-recover printed the runtime error and exited status 0.
+# -fno-sanitize-recover=all is the compile-time switch documented by
+# both GCC and Clang that turns every sanitizer finding (ASan's too,
+# belt-and-suspenders - ASan is fatal by default already, but this
+# removes the dependency on that default never changing) into a hard
+# exit, so `ctest`'s pass/fail reading of the process exit code stops
+# lying. This is NOT redundant with runtime ASAN_OPTIONS/UBSAN_OPTIONS
+# halt_on_error=1: an environment variable has to be set correctly at
+# every single invocation site (this repo's tools/preci.sh, CI, any
+# future caller, a developer's own shell) to take effect, while a
+# compile flag baked into the binary cannot be forgotten by whoever
+# runs it next.
+#
+# LIMIT this fix does NOT cover, and does not claim to (GODS_LAWS.md
+# L-40 "portao que promete o que nao entrega e como o que estamos
+# consertando"): undefined behavior that happens INSIDE the system's
+# math library (libm) is NOT instrumented by ASan/UBSan compiled into
+# glintfx's own translation units - the sanitizer only sees code it
+# compiled, and libm ships as a prebuilt system library. A UB finding
+# there stays invisible to this gate before and after this change, and
+# needs its own dedicated test (e.g. a valgrind/libm-specific check),
+# not a stronger flag on our own compile.
+#
 # MSVC guard, declared downgrade: this project's sanitizer CI job builds
 # on Fedora with GNU/Clang only (see .github/workflows/ci.yml); MSVC's
 # /fsanitize=address does not share GCC/Clang's -fsanitize=<comma-list>
@@ -45,10 +74,10 @@ function(glintfx_apply_sanitizer_flags target)
         return()
     endif()
     target_compile_options(${target} PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang>:-fsanitize=${GLINTFX_SANITIZE};-fno-omit-frame-pointer;-g>
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-fsanitize=${GLINTFX_SANITIZE};-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>
     )
     target_link_options(${target} PRIVATE
-        $<$<CXX_COMPILER_ID:GNU,Clang>:-fsanitize=${GLINTFX_SANITIZE}>
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-fsanitize=${GLINTFX_SANITIZE};-fno-sanitize-recover=all>
     )
 endfunction()
 

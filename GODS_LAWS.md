@@ -152,6 +152,16 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 **Onde a análise do CLO para, dito por ele:** orientação técnica, não parecer vinculante. Advogado seria necessário para **afirmar juridicamente que a saída gerada está livre de obrigação** — a questão de derivação de API não é assentada —, para licenciamento comercial duplo da biblioteca, ou para disputa de marca. **A recomendação contorna a questão em aberto; não a resolve.**
 
+**ESCLARECIMENTO DE FRONTEIRA, 28/08/2026 — ferramenta de build NÃO é dependência, e `python3` entra nessa categoria.** Decisão do líder via `AskUserQuestion`, ao autorizar o portão que faz esta lei valer sozinha: *"Sim, Python como ferramenta de construção"*.
+
+**A fronteira que isto fixa:** o que **entra no artefato entregue** é dependência e está proibido; o que **só ajuda a construir ou a verificar, e nunca é linkado**, não é — mesma categoria em que `pkg-config`, `wayland-scanner`, CMake, Ninja e `ctest` já viviam sem ninguém questionar. `python3` está instalado de fábrica nos cinco alvos e não toca o binário.
+
+**Por que a pergunta chegou a ele em vez de o agente decidir:** seria o **primeiro arquivo Python do projeto** (medido: zero arquivos `.py` rastreados, zero menção a Python no fluxo de CI e nos 23 portões), então é precedente de casa, não só aplicação de regra existente.
+
+**O que a alternativa custava, medido e não estimado:** ler o registro do CMake com a própria linguagem de script dele **perdia 94% dos eventos em silêncio**, por semântica de lista — a forma exata do defeito que a L-40 existe para proibir. A escolha foi por medição, não por gosto.
+
+⚠️ **Isto NÃO abre a porta para biblioteca de terceiro em Python.** A autorização é para a linguagem como ferramenta, com biblioteca padrão apenas. Trazer pacote de terceiro em Python é dependência como qualquer outra, e continua sendo decisão do líder.
+
 <!-- DUP-BLOCK:L07-DEPZERO:END -->
 
 ## L-08

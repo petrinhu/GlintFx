@@ -107,6 +107,32 @@
 # normalize_host_config()'s own trailing comment block for the full
 # six-item table and the reasoning behind each verdict.
 #
+# ISO-NULL-QUOTE (28/08/2026, GODS_LAWS.md L-09/L-40): the NULL-DRIFT
+# fix above (":null" before "," or "}" rewritten to "[]") was written
+# and reviewed as a plain sed pass over the raw JSON TEXT, with no
+# notion of being inside or outside a quoted string - exactly the kind
+# of blind substring match GODS_LAWS.md L-40's own closing warning
+# exists to rule out. Adversarial review found the hole live, with a
+# reproduction that needs no Docker at all:
+# `{"Binds":["a:null,b"]}` - here "null" is CONTENT of a bind-mount
+# string, not the JSON literal value, yet the substring ":null,"
+# appears inside "a:null,b" regardless, and the old sed rewrote it into
+# "a[],b", corrupting a real field's real content before it was ever
+# compared to the baseline. A field whose actual live value differs
+# from the baseline could be pushed toward looking identical by this
+# same blind rewrite, which is precisely the thing this whole check
+# exists to prevent ("null e [] sao o mesmo nada; mas [] e
+# [\"/dev/uinput\"] nunca podem virar a mesma coisa", L-40). The fix,
+# collapse_null_outside_strings() below, replaces the blind sed with a
+# character-by-character scan that tracks whether the cursor is inside
+# a JSON string (honoring backslash escapes, so a string containing an
+# escaped quote does not flip the tracker early) and only ever rewrites
+# a bare `null` token that sits immediately after a `:` OUTSIDE any
+# string, exactly the position a real JSON value occupies. `null`
+# appearing anywhere inside string content - a bind-mount path, an
+# env var, a label - is left untouched, byte for byte, no matter what
+# it is followed by.
+#
 # Usage: check_isolation.sh <container-name> <socket-name>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -332,18 +358,89 @@ sort_json_arrays() {
 # e-nulo, maiusculas em valor de modo) and why each is or is not
 # covered.
 #
+# ISO-NULL-QUOTE (28/08/2026): character-scan replacement for the old
+# blind `sed -E 's#:null([,}])#:[]\1#g'`. Tracks JSON string boundaries
+# (`in_str`) with backslash-escape handling, so the ":null,"/":null}"
+# rewrite only ever fires when the cursor is OUTSIDE a string - the
+# exact position a real JSON `null` value occupies, and never inside
+# one, where "null" can only ever be literal string CONTENT. `prev`
+# holds the character immediately before the cursor (in the ORIGINAL
+# text, not the rewritten `out`), so the "preceded by a bare colon"
+# requirement from the old regex survives unchanged; only the "must not
+# be inside a string" guard is new. Plain POSIX awk, same reasoning as
+# sort_json_arrays() above (no gawk-only extension, host-side test
+# tooling so GODS_LAWS.md L-07 does not reach it, proven on mawk via
+# the Ubuntu CI job that runs this script).
+collapse_null_outside_strings() {
+    text="$1"
+    printf '%s' "$text" | LC_ALL=C awk '
+        {
+            s = $0
+            n = length(s)
+            out = ""
+            in_str = 0
+            prev = ""
+            i = 1
+            while (i <= n) {
+                c = substr(s, i, 1)
+                if (in_str) {
+                    out = out c
+                    if (c == "\\" && i < n) {
+                        i++
+                        nc = substr(s, i, 1)
+                        out = out nc
+                        prev = nc
+                        i++
+                        continue
+                    }
+                    if (c == "\"") in_str = 0
+                    prev = c
+                    i++
+                    continue
+                }
+                if (c == "\"") {
+                    in_str = 1
+                    out = out c
+                    prev = c
+                    i++
+                    continue
+                }
+                if (c == "n" && prev == ":" && substr(s, i, 4) == "null") {
+                    nxt = substr(s, i + 4, 1)
+                    if (nxt == "," || nxt == "}") {
+                        out = out "[]"
+                        prev = "]"
+                        i += 4
+                        continue
+                    }
+                }
+                out = out c
+                prev = c
+                i++
+            }
+            printf "%s", out
+        }
+    '
+}
+
 # Normalizes the four genuinely execution- or encoding-dependent parts
 # of a raw HostConfig capture before comparing it to the measured
 # baseline - see hostconfig_baseline.txt's own header for the fuller
-# reasoning on the first three. All four substitutions are text-level
-# on purpose (no JSON parser in this project, GODS_LAWS.md L-07): Go's
-# json.Marshal output for a fixed Docker version is a stable,
-# deterministic single line, so a plain sed pass is enough as long as
-# it is applied identically to the live capture and to how the
-# committed baseline was produced. A fifth step, sort_json_arrays()
-# above, runs last: it is idempotent on already-normalized text (no
-# ConsoleSize/cpuN/OomKillDisable/null-as-empty-array pattern survives
-# to re-match), which is what lets
+# reasoning on the first three. The first three substitutions stay
+# text-level sed on purpose (no JSON parser in this project, GODS_LAWS.md
+# L-07): each targets a fixed, specific key name or path string
+# (`"ConsoleSize":`, the literal `/sys/devices/system/cpu/cpuN/
+# thermal_throttle` paths, `"OomKillDisable":`) that would require a
+# deliberately adversarial field VALUE to spoof, and none has been
+# observed to do so (GODS_LAWS.md L-20/L-27: normalize only what was
+# measured, not every theoretical shape) - unlike the fourth, whose
+# match text is the four bytes "null", plain enough to occur by
+# coincidence inside perfectly ordinary string content, and which
+# ISO-NULL-QUOTE (28/08/2026) proved actually does. That fourth step is
+# now collapse_null_outside_strings() above, not a blind sed. A fifth
+# step, sort_json_arrays() above, runs last: it is idempotent on
+# already-normalized text (no ConsoleSize/cpuN/OomKillDisable/
+# null-as-empty-array pattern survives to re-match), which is what lets
 # assert_full_hostconfig_matches_baseline() below run this same
 # function over the committed baseline file too, instead of requiring
 # hostconfig_baseline.txt to be hand-edited into sorted order.
@@ -363,23 +460,33 @@ sort_json_arrays() {
 # unnormalized on purpose, so it still breaks the match.
 #
 # The fourth (NULL-DRIFT, `:null` before a `,` or `}` boundary rewritten
-# to `:[]`) is deliberately UNNAMED and UNSCOPED to any particular
-# field, same reasoning as sort_json_arrays() being generic instead of
-# a named-field list. It is provably safe to apply to every key, not
-# just slice-typed ones, because of what it can and cannot ever equate:
-# it only ever rewrites the literal 4-byte value `null` into `[]`, on
-# BOTH the live capture and the baseline text (normalize_host_config()
-# runs on both sides in assert_full_hostconfig_matches_baseline()) - it
-# never touches a populated array, and it never touches any value that
-# is not the bare word `null`. A scalar field (an `*int64` like
-# MemorySwappiness or PidsLimit) that is unset also reads back as
-# `null` and would pass through this same rewrite into `[]`, which
-# looks type-confused on paper but changes nothing about what the check
-# can catch: Docker never serializes a SET int64 pointer as `[]` (it
-# would show the real number instead), so an actual value on that field
-# is untouched by this regex and still breaks the match exactly as
-# before. In short: this step can only ever collapse two spellings of
-# "nothing" into one; it can never collapse "nothing" with "something",
+# to `:[]` by collapse_null_outside_strings() above) is deliberately
+# UNNAMED and UNSCOPED to any particular field, same reasoning as
+# sort_json_arrays() being generic instead of a named-field list. It is
+# provably safe to apply to every key, not just slice-typed ones,
+# because of what it can and cannot ever equate: it only ever rewrites
+# a bare, OUT-OF-STRING `null` token into `[]`, on BOTH the live capture
+# and the baseline text (normalize_host_config() runs on both sides in
+# assert_full_hostconfig_matches_baseline()) - it never touches a
+# populated array, and it never touches ANY occurrence of the four bytes
+# "null" that sits inside a JSON string, which is exactly the case
+# ISO-NULL-QUOTE (28/08/2026) added the in-string guard for: the old,
+# string-blind version of this step could and did rewrite "null" found
+# inside ordinary field CONTENT (a bind-mount spec, an env value), which
+# is a different failure from the type-confusion paragraph below - it is
+# corrupting a real value's real text before the compare ever runs, not
+# collapsing two spellings of the same nothing. A scalar field (an
+# `*int64` like MemorySwappiness or PidsLimit) that is unset also reads
+# back as a bare `null` OUTSIDE any string and would still pass through
+# this rewrite into `[]`, which looks type-confused on paper but changes
+# nothing about what the check can catch: Docker never serializes a SET
+# int64 pointer as `[]` (it would show the real number instead), so an
+# actual value on that field is untouched by this scan and still breaks
+# the match exactly as before. In short: this step can only ever
+# collapse two spellings of "nothing" into one, and only where "nothing"
+# actually IS the JSON value at that position; it can never collapse
+# "nothing" with "something", nor can it any longer touch "something"
+# that merely happens to spell the word "null" as part of its own text -
 # which is the one property GODS_LAWS.md L-40's own closing warning
 # ("null e [] sao o mesmo nada; mas [] e [\"/dev/uinput\"] nunca podem
 # virar a mesma coisa") requires of it.
@@ -388,9 +495,8 @@ normalize_host_config() {
     sed_normalized="$(printf '%s' "$raw" \
         | sed -E 's#"ConsoleSize":\[[0-9]+,[0-9]+\]#"ConsoleSize":"NORMALIZED"#' \
         | sed -E 's#,"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle"##g; s#"/sys/devices/system/cpu/cpu[0-9]+/thermal_throttle",##g' \
-        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#' \
-        | sed -E 's#:null([,}])#:[]\1#g')"
-    sort_json_arrays "$sed_normalized"
+        | sed -E 's#"OomKillDisable":(false|null)#"OomKillDisable":"NORMALIZED"#')"
+    sort_json_arrays "$(collapse_null_outside_strings "$sed_normalized")"
 }
 
 # ENUMERATION (27/08/2026, GODS_LAWS.md L-40's own instruction: an

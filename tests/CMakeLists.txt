@@ -42,12 +42,14 @@ glintfx_add_test(time_test)
 
 # ASSET-LOAD (TODO.md W3, GODS_LAWS.md L-19/L-20/L-22/L-40, ESCOPO.md
 # SS2 decisions 4 and 8): path-to-bytes loader - see
-# include/glintfx/asset/file.hpp's own header comment and
-# asset_load_test.cpp's own header comment for the closed six-scenario
-# matrix. No if(UNIX) guard: std::filesystem/std::ifstream are
-# standard-library, not OS-specific, so this registers on every
-# platform in the matrix, unconditionally, exactly like version_test
-# above.
+# include/glintfx/platform/asset/file.hpp's own header comment (moved
+# there from include/glintfx/asset/ by the lider's own ruling,
+# 28/08/2026 adversarial review - see that header's "UNDER
+# include/glintfx/platform/" paragraph) and asset_load_test.cpp's own
+# header comment for the closed six-scenario matrix. No if(UNIX) guard:
+# std::filesystem/std::ifstream are standard-library, not OS-specific,
+# so this registers on every platform in the matrix, unconditionally,
+# exactly like version_test above.
 glintfx_add_test(asset_load_test)
 
 # GFSS-TOKEN (TODO.md, GODS_LAWS.md L-19/L-20/L-28): the gfss tokenizer's

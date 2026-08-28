@@ -13,26 +13,42 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
-// asset/file.hpp - ASSET-LOAD (TODO.md W3, GODS_LAWS.md L-19/L-20/L-22/
-// L-40, ESCOPO.md SS2 decisions 4 and 8): the "path to bytes" atom.
-// gltfx_load_file_bytes() does exactly the three things ESCOPO.md's own
-// decision 4 names, and NOTHING else: reads the file, resolves/
-// classifies the path, and reports failure through gltfx_rslt<T> - "a
-// parte publica de carregamento faz tres coisas... nao guarda o que ja
-// leu". No cache, on purpose (ESCOPO.md, verbatim: "escolher COMO
-// guardar seria impor a nossa politica a todo consumidor").
+// platform/asset/file.hpp - ASSET-LOAD (TODO.md W3, GODS_LAWS.md
+// L-19/L-20/L-22/L-40, ESCOPO.md SS2 decisions 4 and 8): the "path to
+// bytes" atom. gltfx_load_file_bytes() does exactly the three things
+// ESCOPO.md's own decision 4 names, and NOTHING else: reads the file,
+// resolves/classifies the path, and reports failure through
+// gltfx_rslt<T> - "a parte publica de carregamento faz tres coisas...
+// nao guarda o que ja leu". No cache, on purpose (ESCOPO.md, verbatim:
+// "escolher COMO guardar seria impor a nossa politica a todo
+// consumidor").
 //
-// NOT under src/platform/ despite touching a file (GODS_LAWS.md L-19
-// names "arquivo" alongside Wayland/GL/audio/gamepad as living in the
-// one layer that touches the OS): the reasoning that puts Wayland/GL
-// behind a port+concept+adapter is "the API genuinely differs per
-// operating system, and a test needs to swap in a fake". Neither holds
-// here - std::filesystem/std::ifstream ARE the portable API on every
-// one of this project's five targets (part of the C++23 standard
-// library, GODS_LAWS.md L-07's "biblioteca padrao"), and a unit test
-// can exercise the real filesystem directly (a scratch temp directory,
+// UNDER include/glintfx/platform/, BY THE LIDER'S OWN RULING (28/08/2026,
+// adversarial review of ASSET-LOAD): the first version of this header
+// lived at include/glintfx/asset/, arguing that std::filesystem/
+// std::ifstream are portable stdlib (GODS_LAWS.md L-07) and need no
+// port+concept+adapter, so the reasoning that puts Wayland/GL behind
+// that machinery ("the API genuinely differs per operating system, and
+// a test needs to swap in a fake") does not hold here. That reasoning
+// stands ON ITS OWN TERMS - it is why this file carries no adapter, no
+// concept, no fake to swap - but it answered a QUESTION L-19 never
+// asked. L-19's own text names "arquivo" alongside Wayland/GL/audio/
+// gamepad as living in the one layer that touches the OS, full stop;
+// it does not condition that on the adapter machinery being needed.
+// The question went to the lider, who chose to obey the letter of
+// L-19: THIS FILE MOVES, unconditionally. This is not reopened here,
+// nor argued against - a future editor who wants a different answer
+// asks the lider again, does not read this comment as license to move
+// it back (GODS_LAWS.md L-27).
+//
+// STILL HEADER-ONLY, STILL NO PORT/ADAPTER (that half of the original
+// reasoning is untouched by the move above): a unit test still
+// exercises the real filesystem directly (a scratch temp directory,
 // not a fake adapter) without touching keyboard/mouse/screen - the
-// surface GODS_LAWS.md L-09's container isolation actually guards.
+// surface GODS_LAWS.md L-09's container isolation actually guards -
+// and src/platform/CMakeLists.txt's UNIX/WIN32/unsupported branch
+// (ARCH-PORTS) never has to gate this file, because it needs no
+// per-platform backend directory to select.
 //
 // HEADER-ONLY, DELIBERATELY (docs/api-conventions.md R5(b), the SAME
 // reason glintfx::core::gltfx_err_fields() and

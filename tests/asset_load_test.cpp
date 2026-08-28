@@ -14,9 +14,9 @@
 #include <unistd.h>
 #endif
 
-#include <glintfx/asset/file.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/platform/asset/file.hpp>
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -50,6 +50,37 @@
 // this is a real property of the type, not just of one lucky test
 // input - the test still exercises a HOSTILE input to prove it, not
 // just trust the type signature.
+//
+// MID-STREAM READ FAILURE, NOT PART OF THE CLOSED SIX (adversarial
+// review, 28/08/2026): the six scenarios above all fail, or succeed,
+// BEFORE or AT open() - require_regular_file() classifies the path,
+// then the file either opens or it does not. None of them ever forces
+// read_stream_bytes() itself (glintfx/platform/asset/file.hpp) to see
+// stream.bad() go true mid-loop - proved by mutation: recoding that
+// branch's error, or deleting the branch outright (silently returning
+// the partial bytes read so far as SUCCESS - truncated data the
+// caller has no way to tell from a genuinely complete file), left this
+// whole suite green in BOTH cases before this test existed.
+// mid_stream_read_failure_is_io_failure_not_silent_partial_success
+// below closes that gap with a GENUINE OS-level read failure, not a
+// simulated stream state: reading /proc/self/mem from its own start
+// (virtual address 0, the kernel's own null-page guard, always
+// unmapped) measured live on this toolchain (GCC 16/libstdc++,
+// GODS_LAWS.md L-42/L-43) as std::filesystem::status() reporting
+// file_type::regular (so require_regular_file() lets it through) and
+// the FIRST std::ifstream::read() setting badbit with zero bytes
+// gotten - the exact shape read_stream_bytes()'s own `if
+// (stream.bad())` branch exists to catch. #if !defined(_WIN32): this
+// technique is Linux-specific (/proc has no Windows equivalent), so
+// this ONE case is compiled out on that platform rather than papering
+// over the gap with a fake stream state cross-platform would not
+// actually exercise - GODS_LAWS.md L-09 item 6's "caso intestavel numa
+// plataforma e declarado e escopado, nunca apagado", applied to a unit
+// test instead of an e2e one. Deliberately does NOT increment
+// g_scenarios_exercised: it is not a member of the closed six-scenario
+// PRE-OPEN matrix above (same reason bytes_round_trip_including_
+// embedded_null_and_non_ascii_bytes below does not either) - it proves
+// a property of read_stream_bytes(), not of require_regular_file().
 //
 // SCRATCH DIRECTORY, ISOLATED PER PROCESS: each GLINTFX_TEST below that
 // touches the filesystem creates its OWN scratch directory under
@@ -134,9 +165,20 @@ GLINTFX_TEST(no_read_permission_is_io_failure) {
         // scenario still ran (the counter below still increments), it
         // just could not exercise the permission-denied branch on this
         // process's privilege level.
+        //
+        // ASSERTS has_value(), NOT "has_value() || has_error()"
+        // (adversarial review, 28/08/2026 - GODS_LAWS.md L-40's own
+        // "isto e testado" corollary): gltfx_rslt<T> is a closed union
+        // of exactly those two states, so the disjunction can NEVER be
+        // false - it proves only that the call did not crash, nothing
+        // this scenario actually claims. The paragraph right above
+        // already names the real, checkable claim: under uid 0 the
+        // permission bits this scenario relies on do not apply, so the
+        // read genuinely succeeds - that is the assertion that wants
+        // to be made here.
         std::println("asset_load_test: no_read_permission_is_io_failure running as root - "
                      "permission bits do not apply, downgrading to a no-crash check");
-        GLINTFX_CHECK(result.has_value() || result.has_error());
+        GLINTFX_CHECK(result.has_value());
     } else {
         GLINTFX_CHECK(result.has_error());
         GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
@@ -229,6 +271,20 @@ GLINTFX_TEST(bytes_round_trip_including_embedded_null_and_non_ascii_bytes) {
     GLINTFX_CHECK(result.value().size() == hostile_content.size());
     GLINTFX_CHECK(result.value() == hostile_content);
 }
+
+// See this file's own "MID-STREAM READ FAILURE, NOT PART OF THE
+// CLOSED SIX" header comment for why /proc/self/mem, why offset 0, and
+// why this is a genuine OS-level failure rather than a simulated
+// stream state - and why it does NOT increment g_scenarios_exercised.
+#if !defined(_WIN32)
+GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("/proc/self/mem");
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+}
+#endif
 
 // Closes the matrix (GODS_LAWS.md L-40): relies on declaration-order
 // registration within this ONE translation unit (test_registry.cpp's

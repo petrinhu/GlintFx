@@ -94,7 +94,6 @@
 #include <utility>
 #include <vector>
 
-#include <glintfx/asset/file.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -104,6 +103,7 @@
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
 #include <glintfx/gfss/value.hpp>
+#include <glintfx/platform/asset/file.hpp>
 #include <glintfx/version_macros.hpp>
 
 #include "harness/check.hpp"

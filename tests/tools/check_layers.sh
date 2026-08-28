@@ -14,10 +14,11 @@
 #   check_layers.sh <source-root-directory>
 #   check_layers.sh --selftest
 #
-# --selftest runs the three GODS_LAWS.md L-40 controls (positive,
-# negative, empty-scan) against throwaway fixtures under mktemp, never
-# against the real tracked tree - registered as ctest case
-# `layers_selftest` (see tests/CMakeLists.txt).
+# --selftest runs four GODS_LAWS.md L-40 controls (positive, negative,
+# a SECOND negative specific to the file-I/O headers added by the
+# ASSET-LOAD conserto of 28/08/2026, empty-scan) against throwaway
+# fixtures under mktemp, never against the real tracked tree -
+# registered as ctest case `layers_selftest` (see tests/CMakeLists.txt).
 #
 # GODS_LAWS.md L-40, achado de revisao adversarial (25/08/2026):
 # layers_test era o UNICO teste wired a este script, e sempre rodava
@@ -38,9 +39,19 @@ set -eu
 # the pattern is ready for when it is born.
 readonly UPPER_LAYER_PATTERN='glintfx/platform/'
 
-# OS headers covered by this slice: Wayland, Win32, GL/EGL and the most
-# common low-level POSIX calls.
-readonly OS_HEADER_PATTERN='wayland|windows\.h|winuser|GL/|EGL/|<dlfcn|<unistd|<sys/|<fcntl'
+# OS headers covered by this slice: Wayland, Win32, GL/EGL, the most
+# common low-level POSIX calls, and (ASSET-LOAD conserto, 28/08/2026,
+# GODS_LAWS.md L-19/L-40) file I/O - <filesystem> and <fstream>. Before
+# this addition, GODS_LAWS.md L-19's own text ("nela vivem Wayland, GL,
+# audio, gamepad e arquivo") named "arquivo" as living in the one
+# layer that touches the OS, but this pattern had no entry that would
+# ever catch a core file reaching for it directly - the letter of the
+# lei had no net under it for this one subsystem. Measured before
+# writing this line, not assumed: a scratch core file that #includes
+# <fstream> passed this gate clean under the PREVIOUS pattern (see
+# check_layers.sh --selftest's selftest_negative_control_file_header,
+# which reproduces that exact gap as its own red-then-green proof).
+readonly OS_HEADER_PATTERN='wayland|windows\.h|winuser|GL/|EGL/|<dlfcn|<unistd|<sys/|<fcntl|<filesystem|<fstream'
 
 fail() {
     echo "check_layers.sh: $1" >&2
@@ -181,6 +192,38 @@ selftest_negative_control() {
     return 0
 }
 
+# Second negative control (ASSET-LOAD conserto, 28/08/2026): plants
+# <fstream> - a file-I/O header, not a Wayland/GL/POSIX one - inside
+# src/core/. Expected: reproves and cites the planted file. Separate
+# function, separate fixture, on purpose (GODS_LAWS.md L-40 "enumeracao
+# fechada por construcao"): the ORIGINAL selftest_negative_control
+# above only ever exercised the wayland-client.h branch of
+# OS_HEADER_PATTERN, so a regression that broke JUST the new
+# <filesystem>|<fstream> alternation (a typo in the pattern, an
+# accidental removal during a future edit) would have passed every
+# existing control silently - this is the control that closes that gap
+# specifically, proven red against the PRE-conserto pattern before this
+# line was added (see this file's own git history for that red run).
+selftest_negative_control_file_header() {
+    scratch="$1"
+    root="$scratch/negative_file_header"
+    make_clean_fixture "$root"
+    alvo="$root/src/core/dirty_file_io.cpp"
+    printf '#include <fstream>\n' > "$alvo"
+
+    if output="$(check_layers "$root" 2>&1)"; then
+        echo "selftest: controle NEGATIVO (header de arquivo) FALHOU (<fstream> em src/core/ nao foi pego)" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "$alvo"; then
+        echo "selftest: controle NEGATIVO (header de arquivo) FALHOU (reprovou, mas nao citou $alvo)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: controle NEGATIVO (header de arquivo) OK (<fstream> em src/core/ pego e citado)"
+    return 0
+}
+
 # Empty-scan floor: neither src/core/ nor include/glintfx/core/ exists.
 # Expected: reproves with "varredura vazia" in the message - the exact
 # case the revisor's mutation (removing require_nonempty_scan) makes
@@ -211,13 +254,14 @@ selftest_main() {
     overall=0
     selftest_positive_control "$scratch" || overall=1
     selftest_negative_control "$scratch" || overall=1
+    selftest_negative_control_file_header "$scratch" || overall=1
     selftest_empty_scan_control "$scratch" || overall=1
 
     if [ "$overall" -ne 0 ]; then
         echo "check_layers.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_layers.sh --selftest: os tres controles OK"
+    echo "check_layers.sh --selftest: os quatro controles OK"
 }
 
 main() {

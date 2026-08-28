@@ -643,7 +643,15 @@ run_missing_pc_file_scenario() {
         && fail "re-running the validator against a real install with glintfx.pc itself REMOVED unexpectedly SUCCEEDED. Got:
 ${output}"
 
-    case "$output" in
+    # ASSERT-WRAP: "right after installing it, and it is not there"
+    # sits right after ${_glintfx_pc_file} (GlintfxPkgConfigValidateInstalled.cmake.in),
+    # a variable-length path - the same reflow-dependent-on-path-length
+    # shape as run_broken_library_scenario's "is not there" (PKG-VALIDATE-WRAP,
+    # d2110d9), enumerated there but deliberately left unnormalized "by
+    # prudence, out of that fix's scope". Normalize before matching for
+    # the same reason: an unnormalized case match is machine-dependent.
+    normalized_output="$(normalize_wrapped_message "$output")"
+    case "$normalized_output" in
         *"right after installing it, and it is not there"*) : ;;
         *) fail "the missing-pc-file RED did not use its own promised wording. Got:
 ${output}" ;;

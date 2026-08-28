@@ -42,6 +42,23 @@ fail() {
     exit 1
 }
 
+# ASSERT-WRAP: undoes CMake's own message() text-wrapping so a `case`
+# pattern that searches for a MULTI-WORD phrase does not miss it just
+# because the wrap happened to land between two of that phrase's words.
+# Same defect class already named and fixed for check_pkgconfig_validate.sh
+# (PKG-VALIDATE-WRAP, commit d2110d9) - that fix's own commit message
+# enumerated THIS file's "*${var_name}*empty or blank*" as the same
+# structural shape, left unfixed "por prudencia" (out of that commit's
+# scope) - this is that fix, applied here. CMake's message() wrapping
+# never breaks INSIDE an unbroken run of non-whitespace (a var name or
+# path with no spaces stays intact on one line, however long) - only
+# BETWEEN words - so collapsing every run of whitespace (newline
+# included) back to one space is sufficient to reconstruct the original
+# phrase; no word is ever split mid-token.
+normalize_wrapped_message() {
+    printf '%s' "$1" | tr '\n' ' ' | tr -s ' '
+}
+
 require_args() {
     [ "$#" -eq 2 ] || fail "usage: check_blank_install_dir_rejected.sh <glintfx-source-dir> <cxx-compiler>"
     [ -d "$1" ] || fail "glintfx source dir not found: $1"
@@ -72,7 +89,8 @@ assert_configure_rejects_blank_var() {
         -DGLINTFX_BUILD_TESTS=OFF 2>&1)" \
         && fail "configure with ${var_name}='${blank_value}' unexpectedly SUCCEEDED - the blank-value guard did not fire"
 
-    case "$output" in
+    normalized_output="$(normalize_wrapped_message "$output")"
+    case "$normalized_output" in
         *"${var_name}"*"empty or blank"*) : ;;
         *)
             fail "configure with ${var_name}='${blank_value}' failed, but not with the expected message naming '${var_name}' as empty or blank. Got:

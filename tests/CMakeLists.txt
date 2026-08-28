@@ -34,6 +34,12 @@ glintfx_add_test(harness_check_invariant_test)
 # color_test.cpp's own header comment.
 glintfx_add_test(color_test)
 
+# CORE-TIME (TODO.md W3, GODS_LAWS.md L-19/L-20/L-26): the core
+# layer's public representation of elapsed time - gltfx_duration/
+# gltfx_time_point and the three gltfx_duration_* conversions - see
+# time_test.cpp's own header comment.
+glintfx_add_test(time_test)
+
 # GFSS-TOKEN (TODO.md, GODS_LAWS.md L-19/L-20/L-28): the gfss tokenizer's
 # closed token-class vocabulary and its two value types - see
 # gfss_token_test.cpp's own header comment.

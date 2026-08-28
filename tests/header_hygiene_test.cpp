@@ -94,6 +94,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
+#include <glintfx/core/time.hpp>
 #include <glintfx/core/version.hpp>
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
@@ -134,6 +135,31 @@ GLINTFX_TEST(color_header_survives_hostile_system_headers) {
     const glintfx::gltfx_rgba8 encoded = glintfx::gltfx_rgba_to_srgb8(color);
     const glintfx::gltfx_rgba decoded = glintfx::gltfx_rgba_from_srgb8(encoded);
     GLINTFX_CHECK(decoded.alpha == color.alpha);
+}
+
+// core/time.hpp (CORE-TIME) survives the same hostile include order -
+// the two aggregate fields have no call-shaped name for a hostile
+// function-like macro to pattern-match on (the same "no live target
+// today" honesty color_header_survives_hostile_system_headers above
+// already states for gltfx_rgba/gltfx_rgba8), but all three
+// gltfx_duration_* free functions ARE call-shaped, so this case
+// exercises every one of them as a real call expression, the same
+// CE-8 discipline core_error_use_sites_survive_hostile_system_headers
+// below already applies to gltfx_err/gltfx_rslt.
+GLINTFX_TEST(time_header_survives_hostile_system_headers) {
+    constexpr glintfx::gltfx_time_point earlier{.ticks = 5};
+    constexpr glintfx::gltfx_time_point later{.ticks = 20};
+    GLINTFX_CHECK_EQ(earlier.ticks, static_cast<std::int64_t>(5));
+    GLINTFX_CHECK_EQ(later.ticks, static_cast<std::int64_t>(20));
+
+    const glintfx::gltfx_duration elapsed = glintfx::gltfx_duration_between(earlier, later);
+    GLINTFX_CHECK_EQ(elapsed.nanoseconds, static_cast<std::int64_t>(15));
+
+    const double seconds = glintfx::gltfx_duration_to_seconds(elapsed);
+    GLINTFX_CHECK(seconds >= 0.0);
+
+    const glintfx::gltfx_duration round_tripped = glintfx::gltfx_duration_from_seconds(seconds);
+    GLINTFX_CHECK_EQ(round_tripped.nanoseconds, elapsed.nanoseconds);
 }
 
 // gfss/token.hpp (GFSS-TOKEN) survives the same hostile include order -

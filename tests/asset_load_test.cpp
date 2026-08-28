@@ -12,6 +12,17 @@
 #if !defined(_WIN32)
 #include <sys/stat.h>
 #include <unistd.h>
+#else
+// WIN32_LEAN_AND_MEAN/NOMINMAX before <windows.h>: same guard shape as
+// tests/harness/win_dll_alloc_hook.hpp's own include block, the only
+// other place in this test tree that already pulls in the Win32 header.
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 #include <glintfx/core/err.hpp>
@@ -132,6 +143,33 @@ void write_file(const std::filesystem::path &path, const std::vector<std::byte> 
 #endif
 }
 
+#if defined(_WIN32)
+// exclusive_handle_guard - RAII so a GLINTFX_CHECK failure inside
+// no_read_permission_is_io_failure (which unwinds the case via
+// case_check_failed, harness/check.hpp's own CASE-FATAL design) can
+// never leak the exclusive HANDLE that scenario opens. Same
+// non-copyable, destructor-closes shape as this file's sibling
+// display_connect_failure_test.cpp's own private_empty_runtime_dir.
+class exclusive_handle_guard {
+  public:
+    explicit exclusive_handle_guard(HANDLE handle) : m_handle(handle) {}
+
+    exclusive_handle_guard(const exclusive_handle_guard &) = delete;
+    exclusive_handle_guard &operator=(const exclusive_handle_guard &) = delete;
+
+    ~exclusive_handle_guard() {
+        if (m_handle != INVALID_HANDLE_VALUE) {
+            ::CloseHandle(m_handle);
+        }
+    }
+
+    [[nodiscard]] bool is_valid() const noexcept { return m_handle != INVALID_HANDLE_VALUE; }
+
+  private:
+    HANDLE m_handle;
+};
+#endif
+
 } // namespace
 
 GLINTFX_TEST(nonexistent_relative_path_is_not_found) {
@@ -146,14 +184,60 @@ GLINTFX_TEST(nonexistent_relative_path_is_not_found) {
     ++g_scenarios_exercised;
 }
 
+// NO CHMOD 0000 EQUIVALENT ON WINDOWS (measured, not assumed -
+// GODS_LAWS.md L-42/L-43): FILE_ATTRIBUTE_READONLY only blocks WRITES;
+// there is no attribute that blocks a read the way Unix's permission
+// bits do, so a version of this scenario that just skipped the chmod
+// call under _WIN32 (what this file did until this fix) left the file
+// fully readable, gltfx_load_file_bytes() genuinely succeeded, and the
+// scenario silently proved nothing on that platform - GODS_LAWS.md
+// L-40's own "varredura que contou zero reprova" caught it in the
+// closed-matrix count at the bottom of this file.
+//
+// THE NATIVE WINDOWS FAILURE THIS SCENARIO USES INSTEAD: a sharing
+// violation. This process opens its OWN second handle on the same file
+// with dwShareMode = 0 ("deny all" - no other handle, including one
+// opened later by this same process, may read OR write while this
+// handle stays open), and keeps it open for the whole scenario. The
+// library's own std::ifstream open (glintfx::asset::gltfx_load_file_
+// bytes(), platform/asset/file.hpp) then collides with it and fails
+// with ERROR_SHARING_VIOLATION - a genuine OS-level "this process
+// cannot read this file right now" failure, not a simulated stream
+// state, and it maps to the SAME gltfx_err_code::io_failure a Unix
+// permission-denied open does (the library's open() failure path does
+// not distinguish WHY CreateFile-under-the-hood refused).
+//
+// UNLIKE chmod 0000, THIS HAS NO PRIVILEGE-LEVEL DOWNGRADE (checked,
+// not assumed): a Windows sharing violation is enforced by the
+// kernel's own share-mode check against every open handle, regardless
+// of the caller's privilege level. That is a DIFFERENT mechanism from
+// an ACL permission check - the one uid 0 bypasses on Unix, and the
+// one an Administrator/SYSTEM account can similarly bypass on Windows
+// via SeBackupPrivilege/SeTakeOwnershipPrivilege. Neither of those
+// privileges lets a second CreateFile call ignore an existing
+// exclusive lock; the lock is not a permission being checked, it is a
+// second handle's request genuinely conflicting with a live one. So
+// this scenario, unlike its Unix sibling, has exactly one branch on
+// Windows: it always exercises the failure, in CI running as
+// Administrator or not.
 GLINTFX_TEST(no_read_permission_is_io_failure) {
     const std::filesystem::path dir = make_scratch_dir("noperm");
     std::filesystem::current_path(dir);
     write_file(dir / "secret.bin", {std::byte{0x01}, std::byte{0x02}});
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+    const exclusive_handle_guard exclusive(::CreateFileW((dir / "secret.bin").c_str(), GENERIC_READ,
+                                                         /*dwShareMode=*/0, nullptr, OPEN_EXISTING,
+                                                         FILE_ATTRIBUTE_NORMAL, nullptr));
+    GLINTFX_CHECK(exclusive.is_valid());
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("secret.bin");
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+#else
     GLINTFX_CHECK(::chmod((dir / "secret.bin").c_str(), 0000) == 0);
-#endif
 
     const glintfx::gltfx_rslt<std::vector<std::byte>> result =
         glintfx::asset::gltfx_load_file_bytes("secret.bin");
@@ -183,6 +267,7 @@ GLINTFX_TEST(no_read_permission_is_io_failure) {
         GLINTFX_CHECK(result.has_error());
         GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
     }
+#endif
     ++g_scenarios_exercised;
 }
 

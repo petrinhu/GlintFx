@@ -186,6 +186,21 @@ Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global
 
 **Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag continuam exigindo aval explícito no contexto.**
 
+**EMENDA de 28/08/2026, ordem do líder. Verbatim:** *"qualquer push sem verificacao fica sendo branch. push / merge para main apenas apoś fim de onda com tudo verde"*.
+
+**A regra, sem margem:**
+
+| Situação | Destino |
+|---|---|
+| Trabalho **não verificado**, onda **em andamento**, ou qualquer envio que não seja o fecho | **Ramo próprio.** Nunca `main`. |
+| **Fim de onda**, com **tudo verde** (construção limpa nos dois modos, suíte inteira, portões locais, e o servidor verde) | `main`, e só então. |
+
+⚠️ **"Tudo verde" é o conjunto, não a fatia.** Cada fatia ter passado o próprio portão **não substitui** a verificação de conjunto: é justamente onde fatias entregues em paralelo se atropelam, e onde uma contagem que cada uma ajustou sozinha deixa de bater.
+
+⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag continuam exigindo **aval explícito no contexto**. O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
+
+**Corolário de honestidade:** o agente **não decide** que "está verificado o bastante". Verificado significa **medido, com a saída à vista**; na dúvida, é ramo.
+
 **Aplicação:** a mensagem do `push` mente; confirme o SHA no remoto por `git ls-remote <url> <branch>` sempre que o push importar. Confira também `git diff --cached --stat` antes de commitar e `git show --stat` depois: `git add` é atômico e um pathspec inválido derruba o add inteiro em silêncio.
 
 ## L-12

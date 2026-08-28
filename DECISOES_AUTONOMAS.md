@@ -380,3 +380,25 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **A trava que permanece:** revisão adversarial dedicada, e **nada novo na parte pública** — assim a porta que de fato é de mão única continua fechada.
 
 **Nota de método, porque o líder foi explícito:** ele pediu a recomendação *"não por facilidade, mas por ser o melhor num produto distribuível"*. As três razões acima são de produto, não de conveniência de execução — e a segunda delas, em particular, **argumenta contra esperar**, que seria o caminho mais confortável para mim.
+
+---
+
+## ONDA W3-B, sete decisões do CTO em modo autônomo  `[28/08/26 - 01:48:15]`
+
+**Autorização do líder, verbatim:** *"termine a onda em modo autonomo. AO terminar, push. Depois, siga a onda seguinte, modo autonomo, mesmas recomendacoes. Duvidas a cargo do clevel não para resolver logo, mas para resolver com eficiência partindo da premissa que é um framework para distirbuicao."* Reconfirmada em seguida: *"siga autonomo até o push final da onda seguinte"*.
+
+**Plano completo:** `/var/tmp/glintfx-plan/onda-seguinte.md` (386 linhas). As sete decisões abaixo são o resumo do §4; a razão longa e o custo de cada uma estão lá.
+
+| | Decisão | Custo se o líder reverter |
+|---|---|---|
+| **D1** | A onda fecha a W3 inteira; nada da W4 entra. `WL-DISPLAY` é fatia de fronteira de SO com teste em container, a mais sensível a agente morrendo no meio, e merece palco limpo. | Zero. É ordenação, nada congela. |
+| **D2** | `README-WIN` entra como **conserto de defeito**, não escopo novo: o congelamento da L-32 barra escopo NOVO, e isto é defeito em entregável já publicado. Documentação que ensina o primeiro comando quebrado é defeito de produto num framework distribuído. | Um commit de documentação. |
+| **D3** | Segunda entrada de matriz do Windows **não entra**; vira item `CI-WIN-VSGEN` congelado até a demo. ⚠️ **Contraria a sugestão do orquestrador, com razão medida:** a máquina nova do servidor só tem o compilador de 2026, cujo gerador exige ferramenta **acima do nosso piso** declarado. O job provaria uma alegação mais fraca que a documentação honesta. A fatia C1 declara a lacuna ao consumidor em vez de escondê-la. | Barato. O líder manda criar o job quando quiser. |
+| **D4** | `GATE-DEBUG` ganha estágio de depuração real no portão local mais um trabalho no alvo primário, em vez de mecanismo alternativo. Exercita as asserções reais em vez de reencená-las. | Barato: apagar um trabalho e um estágio. |
+| **D5** | Três itens da W3 adiados: balanço de macro de cabeçalho, varredura de ambiente e mistura de caminhos no empacotamento. Razões individuais no §5 do plano. | Zero. |
+| **D6** | `GFSS-VOCAB-PROD` fica onde está: o prazo declarado dele é o congelamento da interface pública, longe, e a fatia B4 desta onda ataca a mesma família pelo lado mecânico. | Zero. |
+| **D7** | A colisão de palavra de diagnóstico segue para a revisão de API dedicada, como já estava decidido, **com trava anti-esquecimento**: a ordem de serviço de B1 proíbe o revisor de congelá-la em silêncio. | Zero. |
+
+**O que estas decisões NÃO relaxam:** implementador, revisor e orquestrador continuam sendo agentes distintos; a revisão executa e muta o código; o orquestrador reverifica antes de aceitar; e servidor vermelho bloqueia.
+
+**Ainda esperando o líder, e não é do CTO:** a ratificação retroativa de `D-PKGWIN` (o `ESCOPO.md` registra decisão dele, não de agente).

@@ -11,9 +11,10 @@
 #                                     (-DGLINTFX_WERROR=ON), build,
 #                                     clang-tidy, cppcheck, NOLINT
 #                                     justification, gitleaks, ctest,
-#                                     sanitizer stage.
-#   tools/preci.sh --fast            same, minus the sanitizer stage -
-#                                     for a documentation-only push.
+#                                     sanitizer stage, debug stage.
+#   tools/preci.sh --fast            same, minus the sanitizer stage and
+#                                     the debug stage - for a
+#                                     documentation-only push.
 #   tools/preci.sh --lint-only       guard, then format + configure +
 #                                     build + clang-tidy + cppcheck +
 #                                     NOLINT justification only (what
@@ -21,6 +22,32 @@
 #   tools/preci.sh --sanitizer-only  guard, then the sanitizer stage
 #                                     only (what the CI `sanitizer` job
 #                                     runs).
+#   tools/preci.sh --debug-only      guard, then the debug stage only
+#                                     (what the CI `debug` job runs):
+#                                     counts every real `assert()` in
+#                                     the tracked product source tree
+#                                     (reproves on zero, GODS_LAWS.md
+#                                     L-40 - GATE-DEBUG), configures a
+#                                     SEPARATE build directory with
+#                                     -DCMAKE_BUILD_TYPE=Debug (CMake's
+#                                     own default Debug flags do NOT
+#                                     define NDEBUG, unlike this
+#                                     project's normal
+#                                     -DCMAKE_BUILD_TYPE=Release - see
+#                                     stage_debug's own comment), builds
+#                                     and runs the FULL ctest suite
+#                                     against it. Before this stage
+#                                     existed, no gate in this project
+#                                     ever compiled a build where
+#                                     NDEBUG is undefined, so no
+#                                     product assert() had ever been
+#                                     exercised as compiled code -
+#                                     GODS_LAWS.md TODO.md item
+#                                     GATE-DEBUG, decision D4 of
+#                                     DECISOES_AUTONOMAS.md (a real
+#                                     debug stage, not an alternate
+#                                     mechanism that re-enacts the
+#                                     preconditions another way).
 #   tools/preci.sh --selftest        proves the format/clang-tidy/cppcheck
 #                                     stages against tests/preci_fixtures/
 #                                     instead of the real tree: positive
@@ -100,6 +127,7 @@ ROOT_DIR="$(resolve_root_dir "$0")" || {
 readonly ROOT_DIR
 readonly BUILD_DIR="${ROOT_DIR}/build-preci"
 readonly SANITIZE_BUILD_DIR="${ROOT_DIR}/build-preci-sanitize"
+readonly DEBUG_BUILD_DIR="${ROOT_DIR}/build-preci-debug"
 readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 
 # GODS_LAWS.md INBOX achado (rodada 2 da revisao do FUND-4, 24/08/2026):
@@ -392,6 +420,135 @@ stage_sanitizer() {
     require_nonempty_tests "ctest -L ${CTEST_UNIT_LABEL_FILTER} (sanitizer)" "$count" \
         || fail "estagio sanitizer recusado (varredura vazia de testes rotulados unit - o rotulo sumiu ou o build nao tem teste nenhum)"
     ctest --test-dir "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER" --output-on-failure
+}
+
+# --- GATE-DEBUG (GODS_LAWS.md TODO.md item, DECISOES_AUTONOMAS.md D4,
+# L-40): -DCMAKE_BUILD_TYPE=Release (every OTHER stage above) defines
+# NDEBUG, which compiles every assert() in the product source tree to
+# nothing - zero cost, but also zero exercise. Before this stage
+# existed, no gate in this project ever built a tree where NDEBUG is
+# undefined, so if any product assert()'s condition were inverted,
+# nothing here would notice. CMake's own built-in Debug flags
+# (CMAKE_CXX_FLAGS_DEBUG, unset by this project - see
+# cmake/GlintfxCompileOptions.cmake, which never touches
+# CMAKE_CXX_FLAGS_DEBUG/_RELEASE) do NOT add -DNDEBUG; only Release,
+# RelWithDebInfo and MinSizeRel do. -DCMAKE_BUILD_TYPE=Debug is
+# therefore sufficient on its own, with no extra flag, to turn every
+# assert() in the tree back into a real check - this is the standard
+# CMake convention every C++ toolchain this project targets already
+# implements, not a project invention (same shape of fact as the
+# comment on include/glintfx/core/err.hpp's own debug-only precondition
+# guard, which this stage now finally exercises for the FIRST time
+# against the library's own compiled translation units, not just the
+# header-only fixture check_rslt_precondition.sh already proved).
+
+# count_real_asserts_in_file: counts assert() CALL lines in a single
+# file - not every line containing the eight-byte substring "assert(".
+# Two things that string appears in and must NOT count: a comment line
+# that only DISCUSSES the mechanism (this project has several, e.g.
+# src/gfss/token_progress_guard.hpp's own header, include/glintfx/core/
+# err.hpp:84/99) and a static_assert(...) (compile-time, not the
+# runtime NDEBUG-gated macro this gate is about). A comment line is
+# recognized by grep -vE '^[[:space:]]*//' (only a comment that starts
+# the line, after leading whitespace, is excluded - the same
+# NOLINT-justification convention this file already uses elsewhere
+# treats "starts the line" as the honest definition of "this line is a
+# comment", not "the line contains // anywhere"). static_assert is
+# excluded by the boundary class '(^|[^_[:alnum:]])' immediately before
+# "assert(": the character right before "assert(" in "static_assert("
+# is '_', which the class explicitly forbids, so the pattern never
+# matches static_assert's occurrence in the first place. Deliberately
+# `wc -l` on the filtered line count, NEVER `grep -c` (GODS_LAWS.md
+# GATE-DEBUG's own service order: "grep -c zero sai com status 1" -
+# `wc -l` exits 0 whether it counted 0 or N lines, `grep -c` exits 1 on
+# 0, which under `set -e`/pipefail would abort this script the instant
+# a file legitimately had zero matches - the common case, most files in
+# this tree have no assert() at all). The whole capture is still
+# `|| true`-guarded on top of that, because the FIRST grep in the pipe
+# (the one that finds "assert(" at all) still exits 1 on zero matches,
+# and pipefail propagates that through the pipeline even though the
+# trailing `wc -l` itself succeeds.
+count_real_asserts_in_file() {
+    file="$1"
+    # shellcheck disable=SC2126 # grep|wc -l is intentional, not an
+    # oversight: `grep -c` exits 1 on a zero count (see comment above),
+    # `wc -l` always exits 0 - the whole point of this shape is to
+    # never trip `set -e`/pipefail on the ordinary case of a file with
+    # no assert() at all.
+    count="$(grep -E '(^|[^_[:alnum:]])assert\(' "$file" 2>/dev/null \
+        | grep -vE '^[[:space:]]*//' 2>/dev/null \
+        | wc -l)" || true
+    echo "${count:-0}"
+}
+
+# Product scope only (GODS_LAWS.md L-40's own "enumeracao fechada":
+# src/**/*.cpp and include/**/*.hpp are the two trees where product
+# code lives - CONTRACT.md/L-19): tests/ is excluded (harness and test
+# code are not the product under precondition), and third_party/ is
+# excluded (the Khronos gl.xml-generated header, L-07 EXCECAO No 1, is
+# machine-generated data, never hand-written product code with a
+# precondition of ours to guard). Same '*.cpp' '*.hpp' glob style
+# enumerate_tracked_cpp_hpp already uses above - git's pathspec glob
+# matches across directories with a bare '*.cpp', no '**' needed.
+enumerate_product_source_files() {
+    FILES=()
+    while IFS= read -r f; do
+        [ -n "$f" ] && FILES+=("$f")
+    done < <(cd "$ROOT_DIR" && git ls-files -- '*.cpp' '*.hpp' ':!:tests/*' ':!:third_party/*')
+}
+
+# Sums count_real_asserts_in_file across every product source file.
+# This IS the "varredura" GODS_LAWS.md L-40 requires this gate to
+# prove it performed - not the ctest test count below (a build with
+# zero registered tests and a build with zero assert()s are two
+# DIFFERENT empty-scan defects; L-40's own six measured cases are all
+# distinct shapes of the same defect, never covered by a single floor).
+count_product_asserts() {
+    enumerate_product_source_files
+    total=0
+    for f in "${FILES[@]}"; do
+        n="$(count_real_asserts_in_file "$ROOT_DIR/$f")"
+        total=$((total + n))
+    done
+    echo "$total"
+}
+
+# Sibling floor to require_nonempty/require_nonempty_tests, same
+# contract: prints and returns non-zero on empty, never exits by
+# itself (--selftest's negative control needs to observe the failure
+# and keep running).
+require_nonempty_asserts() {
+    stage_name="$1"
+    count="$2"
+    if [ "$count" -eq 0 ]; then
+        echo "$stage_name: varredura vazia (0 assert() de produto encontrado)" >&2
+        return 1
+    fi
+    echo "$stage_name: $count assert() de produto encontrado(s)"
+}
+
+# Own build directory, own configure (same reasoning as stage_sanitizer
+# above): a Debug build is slower than the normal Release one
+# (optimizations off), so it never shares a build tree with
+# stage_configure. Runs the FULL suite (unlike stage_sanitizer's
+# declared `-L unit` downgrade) - GATE-DEBUG's own decision (D4): there
+# is no ASan-shaped reason to narrow it here, a plain Debug build has
+# no runtime-interposition-must-come-first constraint, so the
+# consumption gates (LABELS consume) run here exactly like every other
+# non-sanitized build in this project.
+stage_debug() {
+    count="$(count_product_asserts)"
+    require_nonempty_asserts "debug" "$count" \
+        || fail "estagio debug recusado (varredura vazia de assert() de produto - GODS_LAWS.md L-40, GATE-DEBUG)"
+
+    cmake -S "$ROOT_DIR" -B "$DEBUG_BUILD_DIR" -G Ninja \
+        -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
+    cmake --build "$DEBUG_BUILD_DIR"
+
+    test_count="$(count_ctest_tests "$DEBUG_BUILD_DIR")"
+    require_nonempty_tests "ctest (debug)" "$test_count" \
+        || fail "estagio debug recusado (varredura vazia de testes)"
+    ctest --test-dir "$DEBUG_BUILD_DIR" --output-on-failure
 }
 
 # --- selftest stages (operate on tests/preci_fixtures/<dir> or an
@@ -774,6 +931,55 @@ run_selftest_untracked_guard_controls() {
     run_selftest_untracked_guard_git_failure_control
 }
 
+# --- selftest controls for stage_debug's assert-count floor
+# (GODS_LAWS.md L-40, GATE-DEBUG): count_real_asserts_in_file and
+# require_nonempty_asserts are tested directly against throwaway
+# fixture files, never against the real tree (same reasoning as every
+# other selftest control in this script - enumerate_untracked_cpp_hpp's
+# own comment explains why the real tree is off-limits to --selftest).
+# The real tree's own count is proven live every time stage_debug /
+# --debug-only actually runs - that IS the varredura this floor exists
+# to protect, and --selftest is not where it gets re-proven.
+
+selftest_assert_fixture_file() {
+    mktemp "${TMPDIR}/glintfx-preci-assert-fixture.XXXXXX.cpp"
+}
+
+run_selftest_assert_count_positive_control() {
+    log "selftest: contagem de assert() de produto - controle positivo (assert real)"
+    f="$(selftest_assert_fixture_file)"
+    printf '#include <cassert>\nvoid f(int x) {\n    assert(x > 0 && "x deve ser positivo");\n}\n' > "$f"
+    n="$(count_real_asserts_in_file "$f")"
+    rm -f "$f"
+    [ "$n" -eq 1 ] || fail "controle positivo (contagem de assert) FALHOU: esperava 1 assert() real, contou '$n'"
+    require_nonempty_asserts "assert-count[positivo]" "$n" \
+        || fail "controle positivo (contagem de assert) FALHOU: o piso recusou 1 assert() real"
+    echo "selftest: contagem de assert() de produto - controle positivo OK"
+}
+
+# Two things that must NOT count, in the same fixture: a comment line
+# that only discusses the mechanism (starts the line, after leading
+# whitespace, with //), and a static_assert (compile-time, boundary-
+# excluded because the char right before "assert(" is '_').
+run_selftest_assert_count_negative_control() {
+    log "selftest: contagem de assert() de produto - controle negativo (so comentario e static_assert)"
+    f="$(selftest_assert_fixture_file)"
+    printf '// assert() eh usado em builds de depuracao\nstatic_assert(sizeof(int) >= 2, "int precisa de ao menos 16 bits");\n' > "$f"
+    n="$(count_real_asserts_in_file "$f")"
+    rm -f "$f"
+    [ "$n" -eq 0 ] || fail "controle negativo (contagem de assert) FALHOU: esperava 0 (comentario e static_assert nao contam), contou '$n'"
+    if require_nonempty_asserts "assert-count[negativo]" "$n" 2>/dev/null; then
+        fail "controle negativo (contagem de assert) FALHOU: o piso aprovou 0 assert() de produto"
+    fi
+    echo "selftest: contagem de assert() de produto - controle negativo OK (0 reprovado, nao aprovado)"
+}
+
+run_selftest_assert_count_controls() {
+    log "selftest: piso de contagem de assert() de produto (stage_debug)"
+    run_selftest_assert_count_positive_control
+    run_selftest_assert_count_negative_control
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -781,6 +987,7 @@ run_selftest() {
     run_selftest_rootdir_cd_failure_control
     run_selftest_ctest_count_controls
     run_selftest_untracked_guard_controls
+    run_selftest_assert_count_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -808,6 +1015,12 @@ run_sanitizer_only() {
     echo "preci.sh --sanitizer-only: VERDE"
 }
 
+run_debug_only() {
+    log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
+    stage_debug
+    echo "preci.sh --debug-only: VERDE"
+}
+
 run_full_pipeline() {
     fast="$1"
     log "estagio 1: clang-format"
@@ -828,9 +1041,12 @@ run_full_pipeline() {
     stage_ctest
     if [ "$fast" = "yes" ]; then
         echo "preci.sh --fast: estagio 7 (sanitizer) PULADO"
+        echo "preci.sh --fast: estagio 8 (debug) PULADO"
     else
         log "estagio 7: sanitizer (ASan/UBSan)"
         stage_sanitizer
+        log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
+        stage_debug
     fi
     echo "preci.sh: TUDO VERDE"
 }
@@ -845,8 +1061,8 @@ run_full_pipeline() {
 main() {
     mode="${1:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--selftest) ;;
-        *) fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--selftest]" ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--selftest) ;;
+        *) fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--selftest]" ;;
     esac
 
     if [ "$mode" != "--selftest" ]; then
@@ -866,6 +1082,9 @@ main() {
             ;;
         --sanitizer-only)
             run_sanitizer_only
+            ;;
+        --debug-only)
+            run_debug_only
             ;;
         --selftest)
             run_selftest

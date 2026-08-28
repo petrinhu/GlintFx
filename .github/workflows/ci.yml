@@ -32,6 +32,17 @@ name: CI
 # mesma logica de estagio que um desenvolvedor roda localmente (TESTES.md
 # T15.2) - nao ha segunda copia da logica de estagio vivendo so aqui.
 #
+# GATE-DEBUG (TODO.md, DECISOES_AUTONOMAS.md D4, GODS_LAWS.md L-40): job
+# `debug`, mesmo padrao do job `sanitizer` acima (so Fedora, alvo
+# primario). Todo OUTRO job desta matriz configura com
+# -DCMAKE_BUILD_TYPE=Release, que define NDEBUG - todo assert() do
+# produto compilava para nada, em toda parte, ate este job existir. `debug`
+# chama tools/preci.sh --debug-only, que conta os assert() de produto na
+# arvore rastreada (reprova em zero, L-40) e so entao configura
+# -DCMAKE_BUILD_TYPE=Debug (NDEBUG indefinido) e roda a suite inteira -
+# nao um mecanismo alternativo que reencena as precondicoes por outro
+# caminho (decisao D4, explicitamente recusou essa saida).
+#
 # CI-CONSUME (decisao do lider, relatada pelo coordenador): compartilhado
 # e estatico agora sao ENTRADAS INDEPENDENTES da matriz, em `linux` e em
 # `windows`, por simetria - antes eram dois PASSOS sequenciais dentro da
@@ -789,6 +800,42 @@ jobs:
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --sanitizer-only
+
+  debug:
+    name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      # Mesmo toolchain do job `lint` acima (nenhum runtime de
+      # sanitizer aqui - GATE-DEBUG e sobre NDEBUG/assert(), nao sobre
+      # ASan/UBSan, que ja tem o proprio job dedicado).
+      - name: Instalar toolchain
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel
+
+      - uses: actions/checkout@v4
+
+      # GODS_LAWS.md L-40 / TODO.md GATE-DEBUG / DECISOES_AUTONOMAS.md
+      # D4: -DCMAKE_BUILD_TYPE=Release (todo OUTRO job desta matriz)
+      # define NDEBUG, o que apaga todo assert() de produto - nenhum
+      # portao desta casa jamais compilou uma arvore onde NDEBUG esta
+      # indefinido, entao nenhuma precondicao de produto jamais foi
+      # exercitada como codigo compilado. `preci.sh --debug-only` conta
+      # os assert() de produto na arvore (reprova em zero, L-40),
+      # configura -DCMAKE_BUILD_TYPE=Debug (que NAO define NDEBUG - a
+      # propria convencao padrao do CMake, nao invencao deste projeto)
+      # e roda a suite ctest inteira contra esse build - a suite
+      # inteira, nao so o rotulo `unit` (ao contrario do job
+      # `sanitizer`): um build Debug simples nao tem a restricao de
+      # interposicao de runtime que obriga o downgrade do ASan, entao
+      # os gates de consumo (LABELS consume) rodam aqui como em
+      # qualquer outro build nao-sanitizado.
+      - name: preci.sh --debug-only
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          tools/preci.sh --debug-only
 
   # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez
   # entre compiladores diferentes da GODS_LAWS.md L-22 (o motivo dela e

@@ -402,3 +402,26 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **O que estas decisões NÃO relaxam:** implementador, revisor e orquestrador continuam sendo agentes distintos; a revisão executa e muta o código; o orquestrador reverifica antes de aceitar; e servidor vermelho bloqueia.
 
 **Ainda esperando o líder, e não é do CTO:** a ratificação retroativa de `D-PKGWIN` (o `ESCOPO.md` registra decisão dele, não de agente).
+
+### D8 — Regra da casa para conversão numérica: **função de matemática é TOTAL**  `[28/08/26 - 02:44:39]`
+
+**Decisão do CTO em modo autônomo**, disparada por dois críticos de comportamento indefinido que a revisão adversarial de `CORE-TIME` reproduziu contra o binário real. Texto completo em `/var/tmp/glintfx-plan/decisao-core-time.md`.
+
+**A regra, que vale para todo o projeto e não só para esta fatia:**
+
+> Função pura de matemática ou conversão é **total**: determinística, saturante (direção preservada; não-número vai a zero), **nunca comportamento indefinido, nunca falível**. O diagnóstico de entrada inválida é trabalho da **fronteira de ingestão** (leitor, carregador), que é quem devolve pelo canal de erro.
+
+**Como isso se aplica aos dois defeitos:**
+
+| | Decisão |
+|---|---|
+| Diferença entre instantes estourando | Subtração em tipo sem sinal e conversão de volta. Comportamento definido por norma nos dois passos, para **qualquer** par. A garantia documentada não muda. |
+| Conversão a partir de segundos devolvendo lixo | **Saturante total**, assinatura intacta, sem canal de erro. Fora de faixa e infinito saturam **na direção do sinal**; não-número vira **zero, documentado como contrato**. |
+
+⚠️ **O detalhe que faz a decisão funcionar:** a verificação de faixa é feita **por comparação, ANTES** de qualquer arredondamento. Não-número reprova toda comparação e cai no ramo do zero, então **a biblioteca matemática do sistema nunca recebe entrada inválida**. Isso mata, por construção, o agravante de que aquela biblioteca **não é instrumentada e fica invisível ao sanitizer** — problema que continuaria existindo mesmo depois de `GATE-ASAN-HALT`.
+
+**O que o CTO RECUSOU, e por quê:** canal de erro na conversão (criaria duas regras para a mesma classe, já que a cor limita sem canal de erro); precondição verificada (em modo de produção continua sendo comportamento indefinido, e **hoje nenhum portão desta casa a exercitaria**); valor-sentinela no retorno (roubaria um valor legítimo do domínio).
+
+**Custo se o líder reverter:** trocar saturante por falível é **quebra de assinatura**, ou seja o componente de maior peso da regra de versão. **Grátis antes da 1.0**, caro depois. O mesmo vale para trocar o mapeamento do não-número, que é contrato documentado.
+
+**Nada volta ao líder:** a assinatura pública não muda, e a regra é **generalização de um precedente que ele já aprovou** na fatia de cor. Registrado para confirmação retroativa.

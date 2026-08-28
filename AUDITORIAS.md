@@ -318,8 +318,9 @@ critério acima é fixado agora para não nascer depois do código, sob a lente 
 ## 9. Portões automáticos de qualidade: estado hoje (L-23)
 
 A L-23 fixa quatro portões, mais o `preci.sh`. **`FUND-4` fechou** (`TODO.md`, coluna Status da
-linha `FUND-4`: `✅ Concluído`; coluna Estado Auditado da mesma linha: `✅ Concluído`, SHA
-`9b01b3d`, segunda rodada de revisão adversarial). A versão anterior deste capítulo, datada de
+linha `FUND-4`: `✅ Concluído`; a coluna Estado Auditado da mesma linha está vazia, traço, como em
+todas as linhas da tabela hoje, o SHA `9b01b3d` da segunda rodada de revisão adversarial vem da
+coluna Descrição Técnica, não daquela). A versão anterior deste capítulo, datada de
 22/08/2026, descrevia os quatro portões como pendentes: isso apodreceu. Estado confirmado **por
 leitura** de `.github/workflows/ci.yml` e de `tools/preci.sh` nesta revisão (28/08/2026), sem
 construir nada, como manda esta fatia:
@@ -332,7 +333,7 @@ construir nada, como manda esta fatia:
 | `gitleaks` no CI | sim | **presente.** Job `gitleaks` em `.github/workflows/ci.yml`, com `fetch-depth: 0` (histórico inteiro, não só a árvore; capítulo 7 já cobra essa distinção). |
 | `preci.sh` (espelho local do CI, antes do push) | sim | **presente.** `tools/preci.sh`, com os modos `--fast`, `--lint-only`, `--sanitizer-only` e `--selftest`, confira com `grep -n -- '--fast\|--lint-only\|--sanitizer-only\|--selftest' tools/preci.sh`. |
 
-**Como isto foi confirmado, e o que NÃO foi feito:** os cinco jobs de `.github/workflows/ci.yml`
+**Como isto foi confirmado, e o que NÃO foi feito:** os seis jobs de `.github/workflows/ci.yml`
 citados acima (`linux`, `windows`, `clang`, `sanitizer`, `lint`, `gitleaks`) foram lidos por
 inteiro nesta revisão, e o texto de cada célula acima cita o nome exato do job e o comando que ele
 roda. **Não rodei `preci.sh` nem nenhum build** para chegar a esta tabela, porque esta fatia é só
@@ -345,8 +346,11 @@ não afirma resultado de execução, só existência do portão.
 **Gates que já existem e rodam hoje, em `tests/tools/`.** A lista cresce a cada gate novo; a
 versão anterior deste capítulo enumerava oito nomes e ficou pra trás. **Meça, não leia a lista:**
 `ls tests/tools/`. Os que os capítulos 2 e 3 deste documento já citam nominalmente
-(`check_layers.sh`, `check_exports.sh`) continuam entre eles. Todos são exercitados por `ctest`
-via `tests/CMakeLists.txt`. Comando real de hoje (`CLAUDE.md`): `ctest --test-dir build
+(`check_layers.sh`, `check_exports.sh`) continuam entre eles. **Quase todos** são exercitados por
+`ctest` via `tests/CMakeLists.txt`, com duas exceções: `check_spdx.sh` e `check_vendor_purity.sh`
+não têm `add_test` nenhum lá (confira com `grep -n 'check_spdx\|check_vendor_purity'
+tests/CMakeLists.txt`, que não retorna nada), e rodam só como passo direto do job `leis` em
+`.github/workflows/ci.yml`. Comando real de hoje (`CLAUDE.md`): `ctest --test-dir build
 --output-on-failure`.
 
 **Não inventar comando para o que falta.** Este princípio continua valendo para o que ainda não

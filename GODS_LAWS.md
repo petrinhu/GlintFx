@@ -172,23 +172,21 @@ Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global
 
 ## L-10
 
-**Data:** regra permanente do líder, reafirmada neste projeto.
+**Data:** regra permanente do líder, reafirmada neste projeto. **Alcance ampliado em 28/08/2026 por ordem dele, verbatim:** *"askuserquestion SEMPRE"*.
 
-**Nenhum agente decide design ou arquitetura sozinho.** Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativas com prós, contras, impacto e esforço, e perguntar via `AskUserQuestion`, com a recomendada primeiro.
+**Nenhum agente decide design ou arquitetura sozinho, e TODA pergunta dirigida ao líder vai por `AskUserQuestion`, com opções clicáveis. NUNCA em texto solto no meio da conversa.**
 
-**EMENDA de 28/08/2026, ordem do líder. Verbatim:** *"askuserquestion SEMPRE"*.
+Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativas com prós, contras, impacto e esforço, com a recomendada primeiro.
 
-**TODA pergunta dirigida ao líder vai por `AskUserQuestion`, com opções clicáveis. NUNCA em texto solto no meio da conversa.**
+⚠️ **Não é só decisão de arquitetura.** Se a resposta do líder muda o que se faz a seguir, é `AskUserQuestion`: escolha de escopo, de rumo, de formato, ratificação, e **inclusive a pergunta de esclarecimento sobre o que ele quis dizer**. Foi essa última que faltava: até 28/08/2026 a lei falava em **decidir** e não em **esclarecer**, e um agente que perguntasse em prosa "o que você quis dizer?" não feria a letra dela. **A fresta foi tapada no dia em que o líder tropeçou nela duas vezes.**
 
-⚠️ **Vale para QUALQUER dúvida, não só para decisão de arquitetura.** Se a resposta dele muda o que eu faço a seguir, é `AskUserQuestion`: escolha de escopo, de rumo, de formato, ratificação, e **inclusive a pergunta de esclarecimento sobre o que ele quis dizer**. Foi exatamente aí que a lei nasceu: eu perguntei em prosa o que ele tinha querido dizer, e ele respondeu com o nome da ferramenta.
+**Por que a FORMA importa, e não é capricho:** pergunta em prosa **obriga o líder a redigir a resposta**, e resposta redigida é lenta, ambígua e fácil de interpretar errado. Opção clicável **fecha o espaço de leitura**: ele escolhe, e o que ele escolheu é exatamente o que se registra. **A lei não é sobre perguntar mais ou menos; é sobre a resposta ser inequívoca.**
 
-**Por que a forma importa, e não é capricho:** pergunta em prosa **obriga o líder a redigir a resposta**, e resposta redigida é lenta, ambígua e fácil de eu interpretar errado. Opção clicável **fecha o espaço de leitura**: ele escolhe, e o que ele escolheu é exatamente o que eu registro. **A lei não é sobre eu perguntar mais ou menos; é sobre a resposta ser inequívoca.**
+⚠️ **A válvula que impede isto de virar interrogatório:** **decisão trivial e reversível com default óbvio segue o default e é informada.** A ampliação de 28/08 governa **a forma** da pergunta que já ia acontecer; **não cria pergunta nova**.
 
-⚠️ **O que NÃO virou pergunta continua não virando.** A válvula desta mesma lei segue valendo: decisão trivial e reversível com default óbvio **segue o default e é informada**. Esta emenda governa **a forma** da pergunta que já ia acontecer, não cria pergunta nova.
+**O que NÃO é pergunta e continua sendo prosa:** relatar resultado, e oferecer o próximo passo.
 
-**Duas coisas que continuam fora, porque não são perguntas:** relatar resultado, e oferecer o próximo passo. Essas são prosa, e devem continuar sendo.
-
-**Aplicação:** `AskUserQuestion` **sem painel lateral**, ou seja **sem o campo `preview`**; só `label` e `description`. Detalhe técnico longo vai no corpo da mensagem de chat, antes ou depois da pergunta. Decisão trivial e reversível com default óbvio segue o default e é informada.
+**Forma:** `AskUserQuestion` **sem painel lateral**, ou seja **sem o campo `preview`**; só `label` e `description`. Detalhe técnico longo vai no corpo da mensagem de chat, antes ou depois da pergunta.
 
 **Dever de contra-argumentar:** se uma decisão do líder for destrutiva, violar princípio do projeto ou inviabilizar marco, o agente nomeia o problema, explica o risco concreto, propõe alternativa e devolve a decisão a ele. Silêncio passivo é má prática. Reafirmada a ordem, executa por inteiro.
 

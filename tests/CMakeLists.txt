@@ -97,6 +97,7 @@ target_include_directories(gfss_color_parse_test PRIVATE "${PROJECT_SOURCE_DIR}/
 target_sources(gfss_color_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
 )
 
 # GFSS-SEL-PARSE-CORE (TODO.md, GODS_LAWS.md L-19/L-20/L-28/L-40):
@@ -129,6 +130,39 @@ target_include_directories(gfss_selector_parse_test PRIVATE "${PROJECT_SOURCE_DI
 # in) - only selector_parse.cpp itself needs a second compile here.
 target_sources(gfss_selector_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+)
+
+# GFSS-VALUE (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-27/L-28/L-40):
+# the closed value-nature/length-unit representation (public,
+# include/glintfx/gfss/value.hpp - [PMU], ratified by the project
+# leader 27/08/2026) and its own single-token decoder
+# (glintfx::style::detail::parse_value(), src/gfss/value_parse.hpp, NOT
+# yet promoted to include/glintfx/ - GODS_LAWS.md L-19) - see gfss_
+# value_test.cpp's own header comment. Needs the SAME
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir every other internal
+# gfss header above already adds.
+glintfx_add_test(gfss_value_test)
+target_include_directories(gfss_value_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# value_parse.cpp defines glintfx::style::detail::parse_value() with NO
+# GLINTFX_API - deliberately (GODS_LAWS.md L-19), the SAME reason
+# gfss_color_parse_test/gfss_selector_parse_test above each compile
+# their own internal .cpp a second time instead of linking the hidden
+# copy inside glintfx_library's own .so. value_parse.cpp itself calls
+# numeric_lexeme.hpp's own decode_number_lexeme()/decode_percentage_
+# lexeme() (also not GLINTFX_API - numeric_lexeme.cpp's own header
+# comment) and lexical_rules.hpp's own consume_number() (GFSS-TOKEN's
+# own private grammar helper, reused here to re-derive a dimension
+# token's own number/unit boundary - value_parse.cpp's own split_
+# dimension_lexeme() comment) - both need their SECOND compile here
+# too, or this executable fails to LINK, not merely to behave
+# correctly. named_colors.hpp's own ascii_case_insensitive_equal() is
+# fully INLINE (no .cpp counterpart), the SAME reason gfss_selector_
+# parse_test above needs no extra source for it.
+target_sources(gfss_value_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
 )
 
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas

@@ -321,19 +321,22 @@ GLINTFX_TEST(recover_from_forward_progress_violation_signals_the_consumer_not_a_
 // ones via directed malformed input, the internal one via the
 // recovery atom.
 //
-// SIX MORE IDENTIFIERS LIVE IN THIS SAME LIST SINCE 27/08/2026 (the
+// EIGHT MORE IDENTIFIERS LIVE IN THIS SAME LIST SINCE 27/08/2026 (the
 // project leader's decision to consolidate every gfss diagnostic into
-// ONE list, GODS_LAWS.md L-27 - GFSS-SEL-PARSE-CORE's own commit),
-// and this file does NOT prove those six produced - that is
-// gfss_selector_parse_test.cpp's own job (they are produced by
-// selector_parse.cpp, a layer above THIS tokenizer, which this test
-// binary does not even link). The static_assert below still counts
-// the WHOLE list (10, not 4): this test's own closed-enumeration
-// sweep (snake_case, no space, non-empty) below is a property EVERY
-// identifier must hold regardless of which layer produces it, so it
-// stays correct un-narrowed; only the four DIRECTED production checks
-// further down are scoped to what this binary can actually exercise.
-static_assert(glintfx::style::detail::k_expected_vocabulary_count == 10,
+// ONE list, GODS_LAWS.md L-27 - GFSS-SEL-PARSE-CORE's own commit added
+// six of them; GFSS-VALUE's own value_parse.cpp added two more,
+// component_value/known_length_unit, on 28/08/2026), and this file
+// does NOT prove any of those eight produced - that is gfss_selector_
+// parse_test.cpp's own job for its six, and gfss_value_test.cpp's own
+// job for its two (both are layers above THIS tokenizer, which this
+// test binary does not even link). The static_assert below still
+// counts the WHOLE list (12, not 4): this test's own closed-
+// enumeration sweep (snake_case, no space, non-empty) below is a
+// property EVERY identifier must hold regardless of which layer
+// produces it, so it stays correct un-narrowed; only the four DIRECTED
+// production checks further down are scoped to what this binary can
+// actually exercise.
+static_assert(glintfx::style::detail::k_expected_vocabulary_count == 12,
               "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the count "
               "here (this file proves format only, not production, for any identifier this "
               "tokenizer itself does not produce)");

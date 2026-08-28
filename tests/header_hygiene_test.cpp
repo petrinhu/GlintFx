@@ -103,6 +103,7 @@
 #include <glintfx/core/version.hpp>
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
+#include <glintfx/gfss/value.hpp>
 #include <glintfx/version_macros.hpp>
 
 #include "harness/check.hpp"
@@ -205,6 +206,35 @@ GLINTFX_TEST(gfss_tokenizer_header_survives_hostile_system_headers) {
     GLINTFX_CHECK(more);
     GLINTFX_CHECK(token.kind == glintfx::style::gltfx_gfss_token_kind::ident);
     GLINTFX_CHECK(token.diagnostic.expected.empty());
+}
+
+// gfss/value.hpp (GFSS-VALUE) survives the same hostile include order -
+// the aggregate fields (gltfx_gfss_value/gltfx_gfss_length) have no
+// call-shaped name for a function-like macro to pattern-match on, the
+// SAME "no live target today" honesty this file's own header comment
+// already states for gltfx_rgba/gltfx_gfss_token; gltfx_gfss_value_
+// kind_name()/gltfx_gfss_length_unit_name() ARE call-shaped, so this
+// case exercises both as real call expressions, the SAME CE-8
+// discipline the two cases above already apply.
+GLINTFX_TEST(gfss_value_header_survives_hostile_system_headers) {
+    const std::string_view kind_name =
+        glintfx::style::gltfx_gfss_value_kind_name(glintfx::style::gltfx_gfss_value_kind::length);
+    GLINTFX_CHECK(kind_name == std::string_view{"length"});
+
+    const std::string_view unit_name =
+        glintfx::style::gltfx_gfss_length_unit_name(glintfx::style::gltfx_gfss_length_unit::rem);
+    GLINTFX_CHECK(unit_name == std::string_view{"rem"});
+
+    constexpr glintfx::style::gltfx_gfss_value value{
+        .kind = glintfx::style::gltfx_gfss_value_kind::length,
+        .keyword_text = {},
+        .number = 0.0,
+        .integer_value = 0,
+        .length = {.magnitude = 16.0, .unit = glintfx::style::gltfx_gfss_length_unit::px},
+        .percentage = 0.0,
+    };
+    GLINTFX_CHECK(value.kind == glintfx::style::gltfx_gfss_value_kind::length);
+    GLINTFX_CHECK_EQ(value.length.magnitude, 16.0);
 }
 
 // asset_file_header_survives_hostile_system_headers - ASSET-LOAD:

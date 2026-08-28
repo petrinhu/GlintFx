@@ -76,6 +76,21 @@
 // consolidation, if any, is that fatia's own author's work, not this
 // one's (its review is reproved on other grounds and returns to them).
 //
+// GFSS-VALUE (TODO.md) IS THE SECOND FATIA TO ADD ROWS HERE UNDER THE
+// 27/08/2026 POLICY ABOVE (component_value, known_length_unit) -
+// value_parse.cpp is the producer. THE KNOWN COLLISION THIS POLICY
+// EXISTS TO PREVENT (this file's own paragraph above) IS STILL OPEN,
+// NOT RESOLVED BY THIS ADDITION (GODS_LAWS.md L-28's own order of
+// service for GFSS-VALUE, explicitly: "esta fatia NAO a resolve... se
+// voce tocar o vocabulario de diagnostico, registre que a colisao
+// segue aberta"): color_diagnostic_vocabulary.hpp's own
+// "closing_parenthesis" (an unterminated rgb()/hsl() call) still
+// duplicates THIS file's own "closing_parenthesis" (an unterminated
+// CSS url()/string token) under two different spellings-that-are-the-
+// same-word, for two different conditions - GFSS-COLOR-PARSE's own
+// consolidation into this shared list, if it ever happens, is that
+// fatia's own author's work, unchanged by this one.
+//
 // snake_case, English, never a sentence (docs/api-conventions.md R7,
 // the SAME convention gltfx_err_fields()/gltfx_gfss_token_kind_name()
 // already use project-wide): every call site across this track's .cpp
@@ -94,7 +109,9 @@ namespace glintfx::style::detail {
     X(identifier_after_colon)                                                                      \
     X(known_pseudo_class)                                                                          \
     X(known_pseudo_function)                                                                       \
-    X(comma_or_end_of_selector_list)
+    X(comma_or_end_of_selector_list)                                                               \
+    X(component_value)                                                                             \
+    X(known_length_unit)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

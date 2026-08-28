@@ -18,6 +18,9 @@ target_sources(glintfx_library PRIVATE
     lexical_rules.cpp
     tokenizer.cpp
     named_colors.cpp
+    numeric_lexeme.cpp
     color_parse.cpp
     selector_parse.cpp
+    value_kind.cpp
+    value_parse.cpp
 )

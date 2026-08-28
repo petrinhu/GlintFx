@@ -339,18 +339,20 @@ GLINTFX_TEST(
                  k_depth);
 }
 
-// SIX OF THE TEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md L-40 -
-// gfss_tokenizer_test.cpp's own T2 proves format for the WHOLE shared
-// list and production for the tokenizer's own original four;
+// SIX OF THE TWELVE, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
+// L-40 - gfss_tokenizer_test.cpp's own T2 proves format for the WHOLE
+// shared list and production for the tokenizer's own original four;
 // closing_parenthesis is REUSED here, not re-proven, since that
-// identifier's own production is already that file's job). An
-// identifier this parser starts using with no directed row here fails
-// silently at review time, not at compile time - the compile-time
-// floor is the static_assert below, tied to the SAME shared count
-// gfss_tokenizer_test.cpp's own static_assert already checks, so the
-// two can never silently disagree about how many entries the list has.
+// identifier's own production is already that file's job; GFSS-
+// VALUE's own two, component_value/known_length_unit, are gfss_value_
+// test.cpp's job, a layer this parser does not touch). An identifier
+// this parser starts using with no directed row here fails silently at
+// review time, not at compile time - the compile-time floor is the
+// static_assert below, tied to the SAME shared count gfss_tokenizer_
+// test.cpp's own static_assert already checks, so the two can never
+// silently disagree about how many entries the list has.
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_shared_vocabulary) {
-    static_assert(k_expected_vocabulary_count == 10,
+    static_assert(k_expected_vocabulary_count == 12,
                   "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the "
                   "directed-production coverage below to match (this is the SAME shared list "
                   "gfss_tokenizer_test.cpp's own static_assert checks)");

@@ -120,26 +120,31 @@ struct length_unit_lookup_entry {
     gltfx_gfss_length_unit unit = gltfx_gfss_length_unit::px;
 };
 
-// THE lookup table - 12 rows, one per value.hpp's own closed
-// gltfx_gfss_length_unit enum (see that header's own comment on why 12
-// and not the "treze" ESCOPO.md SS2 decision 5's own prose says).
-// static_assert below is this file's OWN half of the "add a unit
-// without registering it, watch it fail to compile" proof - value_
-// kind.cpp's own k_length_unit_table is the OTHER half (the name<->
-// enum round trip); this table is the third and last place a 13th
-// entry would need a matching row, and the size literal (12, not
-// gltfx_gfss_length_unit_count itself) is what makes forgetting one
-// fail to build rather than silently mismatch two out of three tables
+// THE lookup table - 16 rows, one per value.hpp's own closed
+// gltfx_gfss_length_unit enum (see that header's own comment on the
+// "treze"/12/16 provenance - GFSS-VALUE-2, 28/08/2026, grew this from
+// 12 to 16: ch, lh, vmin, vmax). static_assert below is this file's
+// OWN half of the "add a unit without registering it, watch it fail to
+// compile" proof - value_kind.cpp's own k_length_unit_table is the
+// OTHER half (the name<->enum round trip); this table is the third and
+// last place a 17th entry would need a matching row, and the size
+// literal (16, not gltfx_gfss_length_unit_count itself) is what makes
+// forgetting one fail to build rather than silently mismatch two out
+// of three tables
 // - the SAME technique color_parse.cpp's own try_match_color_function_
 // kind() already established for its own 4-entry function-name lookup.
-constexpr std::array<length_unit_lookup_entry, 12> k_length_unit_lookup{{
+constexpr std::array<length_unit_lookup_entry, 16> k_length_unit_lookup{{
     {"px", gltfx_gfss_length_unit::px},
     {"dp", gltfx_gfss_length_unit::dp},
     {"em", gltfx_gfss_length_unit::em},
     {"rem", gltfx_gfss_length_unit::rem},
     {"ex", gltfx_gfss_length_unit::ex},
+    {"ch", gltfx_gfss_length_unit::ch},
+    {"lh", gltfx_gfss_length_unit::lh},
     {"vw", gltfx_gfss_length_unit::vw},
     {"vh", gltfx_gfss_length_unit::vh},
+    {"vmin", gltfx_gfss_length_unit::vmin},
+    {"vmax", gltfx_gfss_length_unit::vmax},
     {"in", gltfx_gfss_length_unit::in},
     {"cm", gltfx_gfss_length_unit::cm},
     {"mm", gltfx_gfss_length_unit::mm},
@@ -151,6 +156,73 @@ static_assert(k_length_unit_lookup.size() == gltfx_gfss_length_unit_count,
               "GODS_LAWS.md L-40: k_length_unit_lookup's row count must track value.hpp's own "
               "gltfx_gfss_length_unit_count - a unit added to the enum without a lookup row here "
               "must not compile silently");
+
+// --- angle nature (GFSS-VALUE-2, ESCOPO.md SS2 decision 2) -----------
+
+struct angle_unit_lookup_entry {
+    std::string_view name;
+    gltfx_gfss_angle_unit unit = gltfx_gfss_angle_unit::deg;
+};
+
+// THE lookup table - 4 rows, one per value.hpp's own closed
+// gltfx_gfss_angle_unit enum. Same "size literal, not the mechanical
+// count itself" discipline as k_length_unit_lookup above.
+constexpr std::array<angle_unit_lookup_entry, 4> k_angle_unit_lookup{{
+    {"deg", gltfx_gfss_angle_unit::deg},
+    {"rad", gltfx_gfss_angle_unit::rad},
+    {"grad", gltfx_gfss_angle_unit::grad},
+    {"turn", gltfx_gfss_angle_unit::turn},
+}};
+
+static_assert(k_angle_unit_lookup.size() == gltfx_gfss_angle_unit_count,
+              "GODS_LAWS.md L-40: k_angle_unit_lookup's row count must track value.hpp's own "
+              "gltfx_gfss_angle_unit_count - a unit added to the enum without a lookup row here "
+              "must not compile silently");
+
+bool try_match_angle_unit(std::string_view name, gltfx_gfss_angle_unit &out_unit) noexcept {
+    for (const angle_unit_lookup_entry &entry : k_angle_unit_lookup) {
+        if (ascii_case_insensitive_equal(entry.name, name)) {
+            out_unit = entry.unit;
+            return true;
+        }
+    }
+    return false;
+}
+
+// --- time nature (GFSS-VALUE-2, ESCOPO.md SS2 decisions 1 and 3) -----
+
+struct time_unit_lookup_entry {
+    std::string_view name;
+    gltfx_gfss_time_unit unit = gltfx_gfss_time_unit::ms;
+};
+
+// THE lookup table - 6 rows, one per value.hpp's own closed
+// gltfx_gfss_time_unit enum (the five SI-symbol spellings plus this
+// library's own `frames` - value.hpp's own header comment on that
+// unit's non-obvious semantics).
+constexpr std::array<time_unit_lookup_entry, 6> k_time_unit_lookup{{
+    {"ms", gltfx_gfss_time_unit::ms},
+    {"s", gltfx_gfss_time_unit::s},
+    {"min", gltfx_gfss_time_unit::min},
+    {"h", gltfx_gfss_time_unit::h},
+    {"ns", gltfx_gfss_time_unit::ns},
+    {"frames", gltfx_gfss_time_unit::frames},
+}};
+
+static_assert(k_time_unit_lookup.size() == gltfx_gfss_time_unit_count,
+              "GODS_LAWS.md L-40: k_time_unit_lookup's row count must track value.hpp's own "
+              "gltfx_gfss_time_unit_count - a unit added to the enum without a lookup row here "
+              "must not compile silently");
+
+bool try_match_time_unit(std::string_view name, gltfx_gfss_time_unit &out_unit) noexcept {
+    for (const time_unit_lookup_entry &entry : k_time_unit_lookup) {
+        if (ascii_case_insensitive_equal(entry.name, name)) {
+            out_unit = entry.unit;
+            return true;
+        }
+    }
+    return false;
+}
 
 // ASCII case-insensitive match (CSS Syntax Module Level 3's own
 // <ident-token> match rule - named_colors.hpp's own header comment
@@ -192,17 +264,60 @@ dimension_split split_dimension_lexeme(std::string_view lexeme) noexcept {
                            .unit_part = lexeme.substr(cursor.byte_offset)};
 }
 
+// Tries the THREE closed unit families in turn - length, then angle,
+// then time - never a shared "generic dimension" table (value.hpp's
+// own top comment, achado 6: the three enums stay separate types).
+// None of the 16+4+6 = 26 lexemes collide (verified by inspection: no
+// length unit spells "deg"/"rad"/"grad"/"turn", no angle unit spells
+// any of the six time spellings, and "min" - the one name close enough
+// to warrant a directed test, gfss_value_test.cpp's own parse_value_
+// time_unit_min_does_not_collide_with_min_function - is a TIME unit,
+// never a length or angle one), so trying them in a fixed order can
+// never silently mask one family behind another; the order itself
+// carries no meaning beyond "try the largest table first".
 value_parse_result dimension_token_value(const gltfx_gfss_token &token) noexcept {
     const dimension_split split = split_dimension_lexeme(token.lexeme);
-    gltfx_gfss_length_unit unit = gltfx_gfss_length_unit::px;
-    if (!try_match_length_unit(split.unit_part, unit)) {
-        return fail_at(token, k_expected_known_length_unit);
+
+    gltfx_gfss_length_unit length_unit = gltfx_gfss_length_unit::px;
+    if (try_match_length_unit(split.unit_part, length_unit)) {
+        gltfx_gfss_value value{};
+        value.kind = gltfx_gfss_value_kind::length;
+        value.length = gltfx_gfss_length{.magnitude = decode_number_lexeme(split.number_part),
+                                         .unit = length_unit};
+        return succeed(value);
     }
-    gltfx_gfss_value value{};
-    value.kind = gltfx_gfss_value_kind::length;
-    value.length =
-        gltfx_gfss_length{.magnitude = decode_number_lexeme(split.number_part), .unit = unit};
-    return succeed(value);
+
+    gltfx_gfss_angle_unit angle_unit = gltfx_gfss_angle_unit::deg;
+    if (try_match_angle_unit(split.unit_part, angle_unit)) {
+        gltfx_gfss_value value{};
+        value.kind = gltfx_gfss_value_kind::angle;
+        value.angle = gltfx_gfss_angle{.magnitude = decode_number_lexeme(split.number_part),
+                                       .unit = angle_unit};
+        return succeed(value);
+    }
+
+    gltfx_gfss_time_unit time_unit = gltfx_gfss_time_unit::ms;
+    if (try_match_time_unit(split.unit_part, time_unit)) {
+        gltfx_gfss_value value{};
+        value.kind = gltfx_gfss_value_kind::time;
+        // `frames` decodes through this SAME branch as every other
+        // time unit, magnitude preserved EXACTLY as written - no 60 Hz
+        // arithmetic here (value.hpp's own gltfx_gfss_value::duration
+        // comment: that conversion is GFSS-RESOLVE's job).
+        value.duration = gltfx_gfss_time{.magnitude = decode_number_lexeme(split.number_part),
+                                         .unit = time_unit};
+        return succeed(value);
+    }
+
+    // None of the three closed families recognized this dimension's
+    // own unit text - a single GENERIC diagnostic, never one that
+    // falsely narrows to "length" (this project's own GODS_LAWS.md
+    // L-27: never claim to know more than was actually determined -
+    // at this point the parser has ALREADY tried all three families
+    // and none matched, so naming just one of them would mislead
+    // whoever reads the diagnostic about which unit the author might
+    // have meant).
+    return fail_at(token, k_expected_known_dimension_unit);
 }
 
 } // namespace

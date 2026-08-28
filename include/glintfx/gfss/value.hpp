@@ -70,29 +70,25 @@
 // sequences inside the ident are not resolved.
 //
 // LENGTH UNITS - THE ENUM'S OWN PROVENANCE, AND A DISCREPANCY THIS
-// FATIA FOUND AND DOES NOT SILENTLY RESOLVE (GODS_LAWS.md L-27, marked
-// as this fatia's own finding, not a fact copied without checking):
-// ESCOPO.md SS2 decision 5 calls this "as treze unidades" and then
-// itemizes them by category - de tela (px, dp); relativas a letra (em,
-// rem, ex); relativas a janela (vw, vh); fisicas (in, cm, mm, pt, pc).
-// Counted mechanically (2+3+2+5), that itemized list has TWELVE
-// entries, not thirteen. TODO.md's own pre-rewrite GFSS-VALUE row text
-// (predating the 26/08/2026 rewrite that split percentage into its own
-// nature, decisions 6/9/10) DID list a 13th item inside that same
-// enumeration: `%`. The most likely provenance, recorded here instead
-// of guessed at silently: "treze" is a leftover word from BEFORE
-// percentage was pulled out into its own nature - the itemized list
-// (12) is what survived the rewrite; the word next to it was not
-// updated to match. This header implements the ITEMIZED, mechanically
-// countable list (12 members, below) - the one the project leader saw
-// broken out category by category before ratifying - and gltfx_gfss_
-// length_unit_count is derived FROM that list, never hand-copied,
-// exactly the discipline GODS_LAWS.md L-40's achado 1 already forces
-// on token.hpp's own gltfx_gfss_token_kind_count. Flagged to the
-// project leader for confirmation in this fatia's own delivery; this
-// header does not resolve the word/count mismatch on its own
-// authority (GODS_LAWS.md's "lei das leis": no agent revises a
-// project-leader-ratified decision without asking).
+// TRACK FOUND, FLAGGED, AND THE PROJECT LEADER HAS SINCE RESOLVED
+// (GODS_LAWS.md L-27): the original GFSS-VALUE delivery (d47dff7)
+// found ESCOPO.md SS2 decision 5 calling this "as treze unidades" over
+// an itemized, mechanically-countable list of only TWELVE - de tela
+// (px, dp); relativas a letra (em, rem, ex); relativas a janela (vw,
+// vh); fisicas (in, cm, mm, pt, pc) - and, following GODS_LAWS.md's
+// "lei das leis" (no agent revises a project-leader-ratified decision
+// without asking), implemented the itemized 12 and flagged the word/
+// count mismatch instead of resolving it alone. THE PROJECT LEADER
+// CONFIRMED IT WAS A COUNTING ERROR (ESCOPO.md SS2, GFSS-VALUE-2, CTO
+// design note /var/tmp/glintfx-plan/valor-angulo-tempo.md SS0.2: "o
+// treze... era erro de contagem... numero vigente: 16") IN THE SAME
+// sitting where he grew the category by four more members - `ch`, `lh`
+// (letter-relative, joining em/rem/ex), `vmin`, `vmax` (window-
+// relative, joining vw/vh). This header now implements the FULL
+// itemized list (16 members, below), and gltfx_gfss_length_unit_count
+// is STILL derived mechanically FROM that list, never hand-copied -
+// the SAME discipline GODS_LAWS.md L-40's achado 1 already forces on
+// token.hpp's own gltfx_gfss_token_kind_count.
 //
 // PHYSICAL UNITS' OWN FIXED RATIO (ESCOPO.md SS2 decision 5: "96
 // pontos de tela por polegada", GFSS-RESOLVE's own row, TODO.md:
@@ -195,20 +191,23 @@ gltfx_gfss_value_kind_name(gltfx_gfss_value_kind kind) noexcept;
 
 // GLINTFX_GFSS_LENGTH_UNIT_LIST(X) - the closed set of length units
 // (see this header's own comment above for the provenance of this
-// list's 12-member count against ESCOPO.md SS2 decision 5's own prose
-// "treze"). Grouped exactly as the decision's own prose groups them -
-// screen (px, dp); font-relative (em, rem, ex); viewport-relative (vw,
-// vh); physical, fixed-ratio (in, cm, mm, pt, pc) - purely for
-// readability against that source while reviewing; the enum itself
-// carries no group information.
+// list's 16-member count). Grouped exactly as ESCOPO.md SS2's own
+// prose groups them - screen (px, dp); font-relative (em, rem, ex, ch,
+// lh); viewport-relative (vw, vh, vmin, vmax); physical, fixed-ratio
+// (in, cm, mm, pt, pc) - purely for readability against that source
+// while reviewing; the enum itself carries no group information.
 #define GLINTFX_GFSS_LENGTH_UNIT_LIST(X)                                                           \
     X(px)                                                                                          \
     X(dp)                                                                                          \
     X(em)                                                                                          \
     X(rem)                                                                                         \
     X(ex)                                                                                          \
+    X(ch)                                                                                          \
+    X(lh)                                                                                          \
     X(vw)                                                                                          \
     X(vh)                                                                                          \
+    X(vmin)                                                                                        \
+    X(vmax)                                                                                        \
     X(in)                                                                                          \
     X(cm)                                                                                          \
     X(mm)                                                                                          \
@@ -379,7 +378,7 @@ struct gltfx_gfss_value {
     // decode_integer_lexeme()).
     long long integer_value = 0;
 
-    // Valid iff kind == length. A number WITH one of the 12 units
+    // Valid iff kind == length. A number WITH one of the 16 units
     // above.
     gltfx_gfss_length length{};
 

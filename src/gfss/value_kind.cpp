@@ -63,19 +63,22 @@ struct length_unit_entry {
     std::string_view name;
 };
 
-// THE table - 12 rows, one per ESCOPO.md SS2 decision 5's own itemized
-// length units (see value.hpp's own header comment for why this is 12,
-// not the "treze" that decision's own prose says, and why this file
-// implements the itemized list rather than guessing at the word).
-// Order matches the enum declaration.
-constexpr std::array<length_unit_entry, 12> k_length_unit_table{{
+// THE table - 16 rows, one per ESCOPO.md SS2 decision 5's own itemized
+// length units, GROWN BY FOUR (ch, lh, vmin, vmax) in the GFSS-VALUE-2
+// (28/08/2026) emenda - see value.hpp's own header comment for the
+// "treze"/12/16 provenance. Order matches the enum declaration.
+constexpr std::array<length_unit_entry, 16> k_length_unit_table{{
     {gltfx_gfss_length_unit::px, "px"},
     {gltfx_gfss_length_unit::dp, "dp"},
     {gltfx_gfss_length_unit::em, "em"},
     {gltfx_gfss_length_unit::rem, "rem"},
     {gltfx_gfss_length_unit::ex, "ex"},
+    {gltfx_gfss_length_unit::ch, "ch"},
+    {gltfx_gfss_length_unit::lh, "lh"},
     {gltfx_gfss_length_unit::vw, "vw"},
     {gltfx_gfss_length_unit::vh, "vh"},
+    {gltfx_gfss_length_unit::vmin, "vmin"},
+    {gltfx_gfss_length_unit::vmax, "vmax"},
     {gltfx_gfss_length_unit::in, "in"},
     {gltfx_gfss_length_unit::cm, "cm"},
     {gltfx_gfss_length_unit::mm, "mm"},
@@ -86,6 +89,48 @@ constexpr std::array<length_unit_entry, 12> k_length_unit_table{{
 static_assert(k_length_unit_table.size() == gltfx_gfss_length_unit_count,
               "GODS_LAWS.md L-40: k_length_unit_table's row count must track value.hpp's own "
               "gltfx_gfss_length_unit_count - a unit added to the enum without a name row here "
+              "must not compile silently");
+
+struct angle_unit_entry {
+    gltfx_gfss_angle_unit unit = gltfx_gfss_angle_unit::deg;
+    std::string_view name;
+};
+
+// THE table - 4 rows, one per ESCOPO.md SS2 GFSS-VALUE-2 decision 2
+// (28/08/2026): the four angle units of CSS Values and Units Level 4's
+// own <angle> production. Order matches the enum declaration.
+constexpr std::array<angle_unit_entry, 4> k_angle_unit_table{{
+    {gltfx_gfss_angle_unit::deg, "deg"},
+    {gltfx_gfss_angle_unit::rad, "rad"},
+    {gltfx_gfss_angle_unit::grad, "grad"},
+    {gltfx_gfss_angle_unit::turn, "turn"},
+}};
+
+static_assert(k_angle_unit_table.size() == gltfx_gfss_angle_unit_count,
+              "GODS_LAWS.md L-40: k_angle_unit_table's row count must track value.hpp's own "
+              "gltfx_gfss_angle_unit_count - a unit added to the enum without a name row here "
+              "must not compile silently");
+
+struct time_unit_entry {
+    gltfx_gfss_time_unit unit = gltfx_gfss_time_unit::ms;
+    std::string_view name;
+};
+
+// THE table - 6 rows, one per ESCOPO.md SS2 GFSS-VALUE-2 decisions 1
+// and 3 (28/08/2026): the five SI-symbol spellings plus this library's
+// own `frames`. Order matches the enum declaration.
+constexpr std::array<time_unit_entry, 6> k_time_unit_table{{
+    {gltfx_gfss_time_unit::ms, "ms"},
+    {gltfx_gfss_time_unit::s, "s"},
+    {gltfx_gfss_time_unit::min, "min"},
+    {gltfx_gfss_time_unit::h, "h"},
+    {gltfx_gfss_time_unit::ns, "ns"},
+    {gltfx_gfss_time_unit::frames, "frames"},
+}};
+
+static_assert(k_time_unit_table.size() == gltfx_gfss_time_unit_count,
+              "GODS_LAWS.md L-40: k_time_unit_table's row count must track value.hpp's own "
+              "gltfx_gfss_time_unit_count - a unit added to the enum without a name row here "
               "must not compile silently");
 
 } // namespace
@@ -104,6 +149,24 @@ std::string_view gltfx_gfss_value_kind_name(gltfx_gfss_value_kind kind) noexcept
 
 std::string_view gltfx_gfss_length_unit_name(gltfx_gfss_length_unit unit) noexcept {
     for (const length_unit_entry &entry : k_length_unit_table) {
+        if (entry.unit == unit) {
+            return entry.name;
+        }
+    }
+    return "unknown";
+}
+
+std::string_view gltfx_gfss_angle_unit_name(gltfx_gfss_angle_unit unit) noexcept {
+    for (const angle_unit_entry &entry : k_angle_unit_table) {
+        if (entry.unit == unit) {
+            return entry.name;
+        }
+    }
+    return "unknown";
+}
+
+std::string_view gltfx_gfss_time_unit_name(gltfx_gfss_time_unit unit) noexcept {
+    for (const time_unit_entry &entry : k_time_unit_table) {
         if (entry.unit == unit) {
             return entry.name;
         }

@@ -31,7 +31,9 @@
 
 namespace {
 
+using glintfx::style::gltfx_gfss_angle_unit;
 using glintfx::style::gltfx_gfss_length_unit;
+using glintfx::style::gltfx_gfss_time_unit;
 using glintfx::style::gltfx_gfss_value_kind;
 using glintfx::style::detail::parse_value;
 using glintfx::style::detail::value_parse_result;
@@ -108,7 +110,8 @@ GLINTFX_TEST(gltfx_gfss_value_kind_name_covers_every_nature_with_its_exact_ident
         checked);
 }
 
-// --- gltfx_gfss_length_unit_name(): closed enumeration of the 12 units
+// --- gltfx_gfss_length_unit_name(): closed enumeration of the 16 units
+// (ESCOPO.md SS2, GFSS-VALUE-2 impact notes SS2.3: +ch/+lh/+vmin/+vmax)
 
 namespace {
 struct length_unit_name_sample {
@@ -120,12 +123,14 @@ struct length_unit_name_sample {
 GLINTFX_TEST(gltfx_gfss_length_unit_name_covers_every_unit_with_its_exact_identifier) {
     using glintfx::style::gltfx_gfss_length_unit_name;
     constexpr length_unit_name_sample k_samples[] = {
-        {gltfx_gfss_length_unit::px, "px"}, {gltfx_gfss_length_unit::dp, "dp"},
-        {gltfx_gfss_length_unit::em, "em"}, {gltfx_gfss_length_unit::rem, "rem"},
-        {gltfx_gfss_length_unit::ex, "ex"}, {gltfx_gfss_length_unit::vw, "vw"},
-        {gltfx_gfss_length_unit::vh, "vh"}, {gltfx_gfss_length_unit::in, "in"},
-        {gltfx_gfss_length_unit::cm, "cm"}, {gltfx_gfss_length_unit::mm, "mm"},
-        {gltfx_gfss_length_unit::pt, "pt"}, {gltfx_gfss_length_unit::pc, "pc"},
+        {gltfx_gfss_length_unit::px, "px"},     {gltfx_gfss_length_unit::dp, "dp"},
+        {gltfx_gfss_length_unit::em, "em"},     {gltfx_gfss_length_unit::rem, "rem"},
+        {gltfx_gfss_length_unit::ex, "ex"},     {gltfx_gfss_length_unit::ch, "ch"},
+        {gltfx_gfss_length_unit::lh, "lh"},     {gltfx_gfss_length_unit::vw, "vw"},
+        {gltfx_gfss_length_unit::vh, "vh"},     {gltfx_gfss_length_unit::vmin, "vmin"},
+        {gltfx_gfss_length_unit::vmax, "vmax"}, {gltfx_gfss_length_unit::in, "in"},
+        {gltfx_gfss_length_unit::cm, "cm"},     {gltfx_gfss_length_unit::mm, "mm"},
+        {gltfx_gfss_length_unit::pt, "pt"},     {gltfx_gfss_length_unit::pc, "pc"},
     };
     static_assert(sizeof(k_samples) / sizeof(k_samples[0]) ==
                       glintfx::style::gltfx_gfss_length_unit_count,
@@ -140,6 +145,76 @@ GLINTFX_TEST(gltfx_gfss_length_unit_name_covers_every_unit_with_its_exact_identi
     }
     std::println(
         "gltfx_gfss_length_unit_name_covers_every_unit_with_its_exact_identifier: {} unit(s) "
+        "checked",
+        checked);
+}
+
+// --- gltfx_gfss_angle_unit_name(): closed enumeration of the 4 units
+// (ESCOPO.md SS2, GFSS-VALUE-2 decision 2: "as quatro do padrao")
+
+namespace {
+struct angle_unit_name_sample {
+    gltfx_gfss_angle_unit unit = gltfx_gfss_angle_unit::deg;
+    std::string_view expected_name;
+};
+} // namespace
+
+GLINTFX_TEST(gltfx_gfss_angle_unit_name_covers_every_unit_with_its_exact_identifier) {
+    using glintfx::style::gltfx_gfss_angle_unit_name;
+    constexpr angle_unit_name_sample k_samples[] = {
+        {gltfx_gfss_angle_unit::deg, "deg"},
+        {gltfx_gfss_angle_unit::rad, "rad"},
+        {gltfx_gfss_angle_unit::grad, "grad"},
+        {gltfx_gfss_angle_unit::turn, "turn"},
+    };
+    static_assert(sizeof(k_samples) / sizeof(k_samples[0]) ==
+                      glintfx::style::gltfx_gfss_angle_unit_count,
+                  "GODS_LAWS.md L-40: keep this table in sync with value.hpp's own enum, never "
+                  "sample a subset");
+
+    int checked = 0;
+    for (const angle_unit_name_sample &sample : k_samples) {
+        const std::string_view name = gltfx_gfss_angle_unit_name(sample.unit);
+        GLINTFX_CHECK(name == sample.expected_name);
+        ++checked;
+    }
+    std::println(
+        "gltfx_gfss_angle_unit_name_covers_every_unit_with_its_exact_identifier: {} unit(s) "
+        "checked",
+        checked);
+}
+
+// --- gltfx_gfss_time_unit_name(): closed enumeration of the 6 units
+// (ESCOPO.md SS2, GFSS-VALUE-2 decisions 1 and 3: the five SI-symbol
+// spellings plus this library's own `frames`)
+
+namespace {
+struct time_unit_name_sample {
+    gltfx_gfss_time_unit unit = gltfx_gfss_time_unit::ms;
+    std::string_view expected_name;
+};
+} // namespace
+
+GLINTFX_TEST(gltfx_gfss_time_unit_name_covers_every_unit_with_its_exact_identifier) {
+    using glintfx::style::gltfx_gfss_time_unit_name;
+    constexpr time_unit_name_sample k_samples[] = {
+        {gltfx_gfss_time_unit::ms, "ms"}, {gltfx_gfss_time_unit::s, "s"},
+        {gltfx_gfss_time_unit::min, "min"}, {gltfx_gfss_time_unit::h, "h"},
+        {gltfx_gfss_time_unit::ns, "ns"}, {gltfx_gfss_time_unit::frames, "frames"},
+    };
+    static_assert(sizeof(k_samples) / sizeof(k_samples[0]) ==
+                      glintfx::style::gltfx_gfss_time_unit_count,
+                  "GODS_LAWS.md L-40: keep this table in sync with value.hpp's own enum, never "
+                  "sample a subset");
+
+    int checked = 0;
+    for (const time_unit_name_sample &sample : k_samples) {
+        const std::string_view name = gltfx_gfss_time_unit_name(sample.unit);
+        GLINTFX_CHECK(name == sample.expected_name);
+        ++checked;
+    }
+    std::println(
+        "gltfx_gfss_time_unit_name_covers_every_unit_with_its_exact_identifier: {} unit(s) "
         "checked",
         checked);
 }
@@ -235,12 +310,14 @@ struct length_unit_dimension_sample {
 
 GLINTFX_TEST(parse_value_dimension_token_decodes_every_one_of_the_length_units) {
     constexpr length_unit_dimension_sample k_samples[] = {
-        {"5px", gltfx_gfss_length_unit::px, 5.0}, {"5dp", gltfx_gfss_length_unit::dp, 5.0},
-        {"5em", gltfx_gfss_length_unit::em, 5.0}, {"5rem", gltfx_gfss_length_unit::rem, 5.0},
-        {"5ex", gltfx_gfss_length_unit::ex, 5.0}, {"5vw", gltfx_gfss_length_unit::vw, 5.0},
-        {"5vh", gltfx_gfss_length_unit::vh, 5.0}, {"5in", gltfx_gfss_length_unit::in, 5.0},
-        {"5cm", gltfx_gfss_length_unit::cm, 5.0}, {"5mm", gltfx_gfss_length_unit::mm, 5.0},
-        {"5pt", gltfx_gfss_length_unit::pt, 5.0}, {"5pc", gltfx_gfss_length_unit::pc, 5.0},
+        {"5px", gltfx_gfss_length_unit::px, 5.0},     {"5dp", gltfx_gfss_length_unit::dp, 5.0},
+        {"5em", gltfx_gfss_length_unit::em, 5.0},     {"5rem", gltfx_gfss_length_unit::rem, 5.0},
+        {"5ex", gltfx_gfss_length_unit::ex, 5.0},     {"5ch", gltfx_gfss_length_unit::ch, 5.0},
+        {"5lh", gltfx_gfss_length_unit::lh, 5.0},     {"5vw", gltfx_gfss_length_unit::vw, 5.0},
+        {"5vh", gltfx_gfss_length_unit::vh, 5.0},     {"5vmin", gltfx_gfss_length_unit::vmin, 5.0},
+        {"5vmax", gltfx_gfss_length_unit::vmax, 5.0}, {"5in", gltfx_gfss_length_unit::in, 5.0},
+        {"5cm", gltfx_gfss_length_unit::cm, 5.0},     {"5mm", gltfx_gfss_length_unit::mm, 5.0},
+        {"5pt", gltfx_gfss_length_unit::pt, 5.0},     {"5pc", gltfx_gfss_length_unit::pc, 5.0},
     };
     // GODS_LAWS.md L-40: closed against value.hpp's own mechanically
     // counted enum, not a hand-copied literal - the SAME discipline
@@ -264,6 +341,121 @@ GLINTFX_TEST(parse_value_dimension_token_decodes_every_one_of_the_length_units) 
         checked);
 }
 
+// --- angle nature: closed enumeration of all 4 units -----------------
+
+namespace {
+struct angle_unit_dimension_sample {
+    std::string_view lexeme;
+    gltfx_gfss_angle_unit expected_unit = gltfx_gfss_angle_unit::deg;
+    double expected_magnitude = 0.0;
+};
+} // namespace
+
+GLINTFX_TEST(parse_value_dimension_token_decodes_every_one_of_the_angle_units) {
+    constexpr angle_unit_dimension_sample k_samples[] = {
+        {"90deg", gltfx_gfss_angle_unit::deg, 90.0},
+        {"1.5rad", gltfx_gfss_angle_unit::rad, 1.5},
+        {"200grad", gltfx_gfss_angle_unit::grad, 200.0},
+        {"0.5turn", gltfx_gfss_angle_unit::turn, 0.5},
+    };
+    static_assert(sizeof(k_samples) / sizeof(k_samples[0]) ==
+                      glintfx::style::gltfx_gfss_angle_unit_count,
+                  "GODS_LAWS.md L-40: keep this table in sync with value.hpp's own enum, never "
+                  "sample a subset");
+
+    int checked = 0;
+    for (const angle_unit_dimension_sample &sample : k_samples) {
+        const value_parse_result result = parse_first_value(sample.lexeme);
+        GLINTFX_CHECK(result.ok);
+        GLINTFX_CHECK(result.value.kind == gltfx_gfss_value_kind::angle);
+        GLINTFX_CHECK(result.value.angle.unit == sample.expected_unit);
+        GLINTFX_CHECK_EQ(result.value.angle.magnitude, sample.expected_magnitude);
+        ++checked;
+    }
+    std::println(
+        "parse_value_dimension_token_decodes_every_one_of_the_angle_units: {} unit(s) checked",
+        checked);
+}
+
+// --- time nature: closed enumeration of all 6 units -------------------
+
+namespace {
+struct time_unit_dimension_sample {
+    std::string_view lexeme;
+    gltfx_gfss_time_unit expected_unit = gltfx_gfss_time_unit::ms;
+    double expected_magnitude = 0.0;
+};
+} // namespace
+
+GLINTFX_TEST(parse_value_dimension_token_decodes_every_one_of_the_time_units) {
+    constexpr time_unit_dimension_sample k_samples[] = {
+        {"150ms", gltfx_gfss_time_unit::ms, 150.0}, {"1.5s", gltfx_gfss_time_unit::s, 1.5},
+        {"5min", gltfx_gfss_time_unit::min, 5.0},   {"2h", gltfx_gfss_time_unit::h, 2.0},
+        {"400ns", gltfx_gfss_time_unit::ns, 400.0},
+        // ESCOPO.md SS2, GFSS-VALUE-2 decision 3: `frames` is a
+        // duration alias resolved elsewhere (GFSS-RESOLVE) - THIS
+        // layer preserves the magnitude EXACTLY as written (3.0, never
+        // the 50.0 ms a 60 Hz conversion would produce). See
+        // parse_value_frames_unit_preserves_written_magnitude_without_
+        // 60hz_conversion below for the directed proof of that "no
+        // conversion here" boundary.
+        {"3frames", gltfx_gfss_time_unit::frames, 3.0},
+    };
+    static_assert(sizeof(k_samples) / sizeof(k_samples[0]) ==
+                      glintfx::style::gltfx_gfss_time_unit_count,
+                  "GODS_LAWS.md L-40: keep this table in sync with value.hpp's own enum, never "
+                  "sample a subset");
+
+    int checked = 0;
+    for (const time_unit_dimension_sample &sample : k_samples) {
+        const value_parse_result result = parse_first_value(sample.lexeme);
+        GLINTFX_CHECK(result.ok);
+        GLINTFX_CHECK(result.value.kind == gltfx_gfss_value_kind::time);
+        GLINTFX_CHECK(result.value.duration.unit == sample.expected_unit);
+        GLINTFX_CHECK_EQ(result.value.duration.magnitude, sample.expected_magnitude);
+        ++checked;
+    }
+    std::println(
+        "parse_value_dimension_token_decodes_every_one_of_the_time_units: {} unit(s) checked",
+        checked);
+}
+
+// ESCOPO.md SS2, GFSS-VALUE-2 decision 3, the leader's own verbatim
+// consequence: `frames` is an APELIDO DE DURACAO, never "one real
+// frame of this monitor" - this fatia does NOT do the 60 Hz
+// arithmetic. "3frames" must read back magnitude 3.0, unit frames -
+// never 50.0 (the converted millisecond value a resolved reading would
+// carry).
+GLINTFX_TEST(parse_value_frames_unit_preserves_written_magnitude_without_60hz_conversion) {
+    const value_parse_result result = parse_first_value("3frames");
+    GLINTFX_CHECK(result.ok);
+    GLINTFX_CHECK(result.value.kind == gltfx_gfss_value_kind::time);
+    GLINTFX_CHECK(result.value.duration.unit == gltfx_gfss_time_unit::frames);
+    GLINTFX_CHECK_EQ(result.value.duration.magnitude, 3.0);
+    GLINTFX_CHECK(result.value.duration.magnitude != 50.0);
+}
+
+// CTO design note (/var/tmp/glintfx-plan/valor-angulo-tempo.md SS2.2):
+// "5min" IS a value component (a <dimension-token>, unit "min") -
+// "min(" is a DIFFERENT token kind (a <function-token>) by the
+// tokenizer's own grammar, decided by whether '(' immediately follows
+// the ident with no digit run before it. The pair the CTO's own note
+// names by name: the two must never collide.
+GLINTFX_TEST(parse_value_time_unit_min_does_not_collide_with_min_function) {
+    const value_parse_result dimension = parse_first_value("5min");
+    GLINTFX_CHECK(dimension.ok);
+    GLINTFX_CHECK(dimension.value.kind == gltfx_gfss_value_kind::time);
+    GLINTFX_CHECK(dimension.value.duration.unit == gltfx_gfss_time_unit::min);
+    GLINTFX_CHECK_EQ(dimension.value.duration.magnitude, 5.0);
+
+    // "min(" tokenizes as a <function-token>, not a component value
+    // this fatia's own scope covers (value_parse.hpp's own header
+    // comment) - a diagnosable defect, the SAME path every other
+    // unsupported token kind already takes.
+    const value_parse_result function_call = parse_first_value("min(50%, 300px)");
+    check_value_failure(function_call, glintfx::style::detail::k_expected_component_value);
+}
+
 // CSS units are ASCII case-insensitive (named_colors.hpp's own cited
 // spec rule, reused here for unit matching too).
 GLINTFX_TEST(parse_value_dimension_token_unit_match_is_ascii_case_insensitive) {
@@ -274,9 +466,14 @@ GLINTFX_TEST(parse_value_dimension_token_unit_match_is_ascii_case_insensitive) {
     GLINTFX_CHECK_EQ(result.value.length.magnitude, 12.0);
 }
 
+// GFSS-VALUE-2: renamed from k_expected_known_length_unit
+// (diagnostic_vocabulary.hpp's own header comment on why) - "5foo" is
+// tried against all THREE closed families (length, angle, time) and
+// matches none, so the diagnostic no longer claims to know the author
+// meant "length" specifically.
 GLINTFX_TEST(parse_value_dimension_token_with_unknown_unit_fails_with_diagnostic) {
     const value_parse_result result = parse_first_value("5foo");
-    check_value_failure(result, glintfx::style::detail::k_expected_known_length_unit);
+    check_value_failure(result, glintfx::style::detail::k_expected_known_dimension_unit);
     GLINTFX_CHECK_EQ(result.diagnostic.line, static_cast<std::uint32_t>(1));
     GLINTFX_CHECK_EQ(result.diagnostic.column, static_cast<std::uint32_t>(1));
 }
@@ -336,4 +533,45 @@ GLINTFX_TEST(parse_value_percentage_preserves_percentage_never_becomes_length_or
     GLINTFX_CHECK(result.value.percentage != 0.5);
     // The length field was never populated with an implied unit.
     GLINTFX_CHECK_EQ(result.value.length.magnitude, 0.0);
+}
+
+// GFSS-VALUE-2's own THIRD pair, AMPLIANDO the two above (order of
+// service, achado 6 of the review that sent this fatia back): "angulo,
+// tempo e comprimento nao se confundem entre si" - length, angle and
+// time are THREE separate fields (value.hpp's own top comment on why
+// they are not one shared enum/struct), and decoding one nature must
+// never populate either of the other two's own field.
+GLINTFX_TEST(parse_value_length_angle_and_time_never_populate_each_others_field) {
+    const value_parse_result length = parse_first_value("42px");
+    GLINTFX_CHECK(length.ok);
+    GLINTFX_CHECK(length.value.kind == gltfx_gfss_value_kind::length);
+    GLINTFX_CHECK_EQ(length.value.length.magnitude, 42.0);
+    // Angle/time fields stay at THEIR OWN defaults - never fabricated
+    // from the length that was actually decoded.
+    GLINTFX_CHECK_EQ(length.value.angle.magnitude, 0.0);
+    GLINTFX_CHECK(length.value.angle.unit == gltfx_gfss_angle_unit::deg);
+    GLINTFX_CHECK_EQ(length.value.duration.magnitude, 0.0);
+    GLINTFX_CHECK(length.value.duration.unit == gltfx_gfss_time_unit::ms);
+
+    const value_parse_result angle = parse_first_value("0.5turn");
+    GLINTFX_CHECK(angle.ok);
+    GLINTFX_CHECK(angle.value.kind == gltfx_gfss_value_kind::angle);
+    // "0.5turn" is NOT normalized to 180.0 deg here (GFSS-RESOLVE's own
+    // future job) - the WRITTEN unit and magnitude are preserved.
+    GLINTFX_CHECK_EQ(angle.value.angle.magnitude, 0.5);
+    GLINTFX_CHECK(angle.value.angle.unit == gltfx_gfss_angle_unit::turn);
+    // Length/time fields stay at their own defaults.
+    GLINTFX_CHECK_EQ(angle.value.length.magnitude, 0.0);
+    GLINTFX_CHECK_EQ(angle.value.duration.magnitude, 0.0);
+    GLINTFX_CHECK(angle.value.duration.unit == gltfx_gfss_time_unit::ms);
+
+    const value_parse_result time = parse_first_value("40s");
+    GLINTFX_CHECK(time.ok);
+    GLINTFX_CHECK(time.value.kind == gltfx_gfss_value_kind::time);
+    GLINTFX_CHECK_EQ(time.value.duration.magnitude, 40.0);
+    GLINTFX_CHECK(time.value.duration.unit == gltfx_gfss_time_unit::s);
+    // Length/angle fields stay at their own defaults.
+    GLINTFX_CHECK_EQ(time.value.length.magnitude, 0.0);
+    GLINTFX_CHECK_EQ(time.value.angle.magnitude, 0.0);
+    GLINTFX_CHECK(time.value.angle.unit == gltfx_gfss_angle_unit::deg);
 }

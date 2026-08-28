@@ -57,11 +57,14 @@ struct value_parse_result {
 // token> decodes to kind::integer or kind::number, by CSS Syntax
 // Module Level 3 4.3.12's own type flag; a <percentage-token> decodes
 // to kind::percentage, its magnitude PRESERVED, never folded into a
-// length; a <dimension-token> decodes to kind::length if its own unit
-// ident matches one of the 12 in value.hpp's own closed enum, or fails
-// with k_expected_known_length_unit (diagnostic_vocabulary.hpp)
-// otherwise. Every other token kind fails with k_expected_component_
-// value.
+// length; a <dimension-token> is tried against THREE closed unit
+// families in turn (value.hpp's own achado-6 comment: they stay
+// separate types on purpose) - length (16 units), then angle (4),
+// then time (6, including this library's own `frames`) - decoding to
+// kind::length/::angle/::time on the first match, or failing with
+// k_expected_known_dimension_unit (diagnostic_vocabulary.hpp) if NONE
+// of the three recognize the unit text. Every other token kind fails
+// with k_expected_component_value.
 [[nodiscard]] value_parse_result parse_value(const gltfx_gfss_token &token) noexcept;
 
 } // namespace glintfx::style::detail

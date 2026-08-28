@@ -920,6 +920,18 @@ O achado que as trouxe: a decisão 5 fechava **cinco** categorias, mas o líder 
 
 **Impacto declarado:** `GFSS-VALUE` (`d47dff7`) foi entregue com **cinco** categorias e **doze** unidades. **Precisa ser emendada antes de fechar.**
 
+**GFSS-VALUE-2, execução (28/08/2026) — refação sob ciclo TDD correto, mais o escopo ampliado nas seis decisões acima.** A revisão adversarial de `d47dff7` aprovou o código, mas barrou a fatia por questão de LEI: o autor admitiu que desenho e teste nasceram juntos, prova de mordida veio depois por mutação, e a L-20 é taxativa ("sem exceção"). O líder mandou refazer com o ciclo correto — vermelho real, por execução, antes de cada verde — e ampliar o escopo no mesmo movimento. Entregue como três etapas, cada uma com o vermelho mostrado antes do verde:
+
+1. **Naturezas** — `angle` e `time` entram no enum `gltfx_gfss_value_kind` (7 no total). Vermelho: falha de compilação real (`'angle' is not a member of ...`). Verde: `gfss_value_test` 100%.
+2. **Unidades** — quatro unidades de ângulo (`deg rad grad turn`), seis de tempo (`ms s min h ns frames`, as cinco grafias do padrão mais `frames`), e as dezesseis de comprimento (as doze antigas mais `ch lh vmin vmax`). Cada família teve vermelho por execução real (falha de asserção, não só falha de compilação) antes do verde correspondente.
+3. **O resto** — a decisão do achado 6 (ver abaixo), a semântica de `frames` provada por teste dedicado, o guardrail de três vias (comprimento/ângulo/tempo nunca se confundem), o renome do diagnóstico `known_length_unit` → `known_dimension_unit`, e o experimento de enumeração fechada da L-40.
+
+**A decisão do achado 6, feita explicitamente, não por descuido:** comprimento, ângulo e duração são **dimensões fisicamente incompatíveis**, e a fatia NÃO os mistura atrás de um enum ou struct compartilhado. `gltfx_gfss_angle` e `gltfx_gfss_time` nasceram como tipos e enums **próprios** (`gltfx_gfss_angle_unit`, `gltfx_gfss_time_unit`), nunca uma extensão de `gltfx_gfss_length_unit`. A razão está escrita no cabeçalho de `include/glintfx/gfss/value.hpp`: um consumidor que pudesse escrever um comprimento com o valor de enum que na verdade significa "graus" receberia um valor que o TIPO afirma ser comprimento mas é ângulo — exatamente o defeito de mistura silenciosa que a decisão 5 original já nomeava para número/inteiro/comprimento, estendido aqui à mesma razão.
+
+**A semântica de `frames` (decisão 3), implementada no limite exato que essa fatia cobre:** o campo `gltfx_gfss_value::duration` preserva a magnitude **exatamente como escrita** — `"3frames"` decodifica para magnitude `3.0`, unidade `frames`, nunca `50.0` (o valor convertido a 60 Hz). A conversão da referência fixa de 60 Hz para nanossegundos, e a duplicação de frame por monitor real, é trabalho do `GFSS-RESOLVE` futuro — esta fatia só registra `frames` como um lexema válido da natureza tempo, sem fazer nenhuma aritmética de 60 Hz.
+
+**O diagnóstico único renomeado:** `known_length_unit` virou `known_dimension_unit` — o parser de dimensão agora tenta três famílias fechadas em sequência (comprimento, ângulo, tempo) antes de falhar, e nomear a falha como "esperava comprimento" seria alegar mais do que o parser realmente determinou (L-27). Pré-1.0, sem consumidor externo, sem custo de migração.
+
 #### As seis decisões de 28/08/2026 sobre ângulo, tempo e cadência
 
 Nascidas de o líder ter pedido para **ver a lista** de unidades e ter percebido que faltavam categorias inteiras. Desenho do CTO sob a L-43, com 31 fontes, em `/var/tmp/glintfx-plan/valor-angulo-tempo.md`.

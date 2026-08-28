@@ -60,6 +60,54 @@ function(glintfx_set_target_properties target)
     )
 endfunction()
 
+# ABI-STDLIB-LEAK: closes what CXX_VISIBILITY_PRESET hidden (above)
+# cannot, on its own, close. That property sets the COMPILER's default
+# per translation unit; it has no power over a symbol a SYSTEM HEADER
+# marks with an explicit __attribute__((visibility("default"))) - and
+# libstdc++ does exactly that on class templates such as
+# std::__cxx11::basic_string (bits/c++config.h's _GLIBCXX_VISIBILITY
+# macro). When one of glintfx's own translation units instantiates
+# such a template and the optimizer leaves an out-of-line definition
+# behind (weaker inlining, e.g. -O0/-Og), GCC emits that leftover as a
+# DEFAULT-visibility symbol in glintfx's .so regardless of the flag -
+# measured live, 28/08/2026 (GATE-DEBUG's first real Debug build):
+# std::basic_string<char>::_M_replace_cold and
+# std::__detail::__from_chars_alnum_to_val_table<false>::value both
+# leaked; the SAME source built -DCMAKE_BUILD_TYPE=Release happened to
+# inline every call site and leaked neither - an accident of
+# optimization level, not a guarantee that survives a compiler bump.
+#
+# A linker version script (cmake/glintfx.version, read its own header
+# comment for the anonymous-node and unquoted-glob findings) acts at
+# the FINAL link, after every translation unit's per-TU visibility
+# decision is already made, and can force ANY symbol outside the
+# glintfx:: allowlist to `local` (out of the .so's dynamic symbol
+# table) - including one a header forced to default visibility. This
+# is the same technique Abseil, Protobuf and Boost use for exactly
+# this problem class.
+#
+# UNIX/BUILD_SHARED_LIBS guard, matching tests/CMakeLists.txt's own
+# visibility_test guard exactly: a version script is a GNU-linker-
+# family construct (bfd/gold/lld/mold, none of them Apple's ld - this
+# project ships no macOS target, GODS_LAWS.md, five platforms). It has
+# nothing to link against for a static archive, and Windows already
+# controls its export set through generate_export_header's
+# __declspec(dllexport/dllimport) instead.
+#
+# LINK_DEPENDS registers the map file as a link-step input: CMake/
+# Ninja re-links (not merely re-configures) glintfx_library the moment
+# cmake/glintfx.version changes, the same way a header change forces a
+# recompile - a stale link this file was edited but the .so was not
+# re-linked would silently keep serving the OLD export set.
+function(glintfx_apply_export_map target)
+    if(NOT (BUILD_SHARED_LIBS AND UNIX))
+        return()
+    endif()
+    set(map_file "${PROJECT_SOURCE_DIR}/cmake/glintfx.version")
+    target_link_options(${target} PRIVATE "LINKER:--version-script=${map_file}")
+    set_target_properties(${target} PROPERTIES LINK_DEPENDS "${map_file}")
+endfunction()
+
 function(glintfx_generate_export_header target)
     generate_export_header(${target}
         EXPORT_MACRO_NAME GLINTFX_API

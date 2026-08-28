@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# glintfx.version - GNU ld / gold / lld linker version script (ABI-
+# STDLIB-LEAK, GODS_LAWS.md L-19/L-26/L-40).
+#
+# WHY THIS FILE EXISTS, NOT JUST -fvisibility=hidden: GlintfxLibrary.
+# cmake already sets CXX_VISIBILITY_PRESET hidden and
+# VISIBILITY_INLINES_HIDDEN ON, and every glintfx symbol correctly
+# stays hidden unless marked GLINTFX_API. That command-line default is
+# NOT the last word, though - libstdc++'s own headers put an EXPLICIT
+# `__attribute__((visibility("default")))` on class templates like
+# std::__cxx11::basic_string (bits/c++config.h's _GLIBCXX_VISIBILITY
+# macro), and an explicit attribute in a header always wins over a
+# compiler-flag default (documented GCC behaviour, confirmed live
+# here). When one of our own translation units instantiates such a
+# template and the optimizer does not fully inline every member
+# function of it away, GCC emits the leftover out-of-line definition
+# as a weak, DEFAULT-visibility symbol in OUR .so - regardless of
+# -fvisibility=hidden - because the symbol was never ours to hide via
+# that flag in the first place. Measured live, 28/08/2026: a
+# CMAKE_BUILD_TYPE=Debug build (weaker inlining) exported
+# std::basic_string<char>::_M_replace_cold and
+# std::__detail::__from_chars_alnum_to_val_table<false>::value; the
+# Release build of the SAME source happened to inline every call site
+# and exported neither - an accident of optimization level, not a
+# guarantee, and CMAKE_BUILD_TYPE or a future compiler version could
+# make either symbol reappear in Release just as easily.
+#
+# THE FIX: a linker version script acts at the FINAL link, after every
+# translation unit's per-TU visibility decision has already been made,
+# and can force ANY symbol not on this allowlist to `local` (hidden
+# from the .so's dynamic symbol table) - including one that arrived
+# with header-forced default visibility. This is the same technique
+# major C++ libraries (Abseil, Protobuf, Boost) use for exactly this
+# problem class: -fvisibility=hidden narrows what the COMPILER decides
+# to export per translation unit; a version script narrows what the
+# LINKER actually publishes, and the second one cannot be overridden
+# by a system header.
+#
+# Global patterns are Itanium-MANGLED prefixes matched directly
+# against the raw symbol name, NOT wrapped in a demangled `extern
+# "C++" { "glintfx::*"; }` block. GNU ld's `extern "C++" { ... }`
+# construct demangles each defined symbol first and glob-matches the
+# pattern against THAT demangled form ("glintfx::foo(int)", with
+# argument types spelled out) - a template argument list, an
+# std::string parameter written differently by two compiler versions,
+# or any other demangled-spelling drift could silently stop matching
+# a symbol that is still, unambiguously, ours. Matching the raw
+# mangled prefix instead is exactly what
+# tests/tools/check_exports.sh already does
+# (EXPECTED_MANGLED_NAMESPACE="7glintfx", the "K" const-member variant
+# too - see that script's CE-3 comment), so the allowlist enforced
+# here at link time and the allowlist verified by the test read as
+# the SAME rule written twice, not two independently-maintained ideas
+# of what "public" means.
+#
+# UNIX/BUILD_SHARED_LIBS ONLY (cmake/GlintfxLibrary.cmake applies
+# this): a version script is a GNU-linker-family construct (bfd, gold,
+# lld and mold all implement --version-script; Apple's ld does not,
+# but this project ships no macOS target - GODS_LAWS.md, five
+# platforms, none of them macOS). It has nothing to say for a static
+# archive (no linking happens building an .a) or for Windows, where
+# generate_export_header's __declspec(dllexport/dllimport) already IS
+# the export mechanism (tests/CMakeLists.txt's own comment on
+# visibility_test says the same about the Windows side).
+# Anonymous version node (no `GLINTFX_1 { ... };` tag): this project
+# wants VISIBILITY control only, not symbol VERSIONING (no consumer
+# needs to link against "glintfx::foo@@GLINTFX_1"; L-26's ABI story is
+# SOVERSION, not per-symbol version nodes). Confirmed live, 28/08/2026:
+# a NAMED node (`GLINTFX_1 { ... };`) makes GNU ld additionally emit
+# its own anchor symbol - `OBJECT GLOBAL DEFAULT ABS GLINTFX_1`, size
+# 0, address 0 - into the .so's dynamic symbol table, as the version
+# definition's self-reference. That anchor is not one of ours, does
+# not start with the mangled glintfx prefix, and check_exports.sh
+# correctly flagged it as a second, DIFFERENT intruder the moment the
+# first two were fixed. The anonymous form assigns every matched
+# symbol to the library's base version instead of a named one and
+# never allocates that anchor, closing the gap without widening the
+# test's allowlist (which this task forbids touching) to special-case
+# a linker implementation detail.
+{
+    global:
+        # Free functions and non-const member functions. UNQUOTED: a
+        # quoted pattern is matched LITERALLY by GNU ld (no glob
+        # expansion of the trailing `*`) - confirmed live, 28/08/2026:
+        # the quoted form swept every glintfx:: symbol into `local: *;`
+        # right along with the two intruders, exporting nothing at
+        # all. The bare, unquoted form is what actually glob-matches.
+        _ZN7glintfx*;
+        # Const-qualified member functions (Itanium "K" cv-infix -
+        # see check_exports.sh's own CE-3 header comment for why this
+        # second pattern exists as well as the first).
+        _ZNK7glintfx*;
+        # Minimal runtime allowlist check_exports.sh also carries
+        # (L-40 finding CE-6: these are not glintfx:: symbols, but a
+        # shared object may legitimately carry them from the linker's
+        # own default script; keeping them global here means the gate
+        # and the version script agree on the full allowed set, not
+        # just the glintfx:: part of it).
+        _init;
+        _fini;
+        _edata;
+        _end;
+        __bss_start;
+
+    local:
+        # Everything else - including any standard-library symbol a
+        # header forces to default visibility - is hidden from the
+        # dynamic symbol table. This is the line that actually closes
+        # ABI-STDLIB-LEAK: it applies regardless of which header or
+        # which optimization level put a symbol at default visibility
+        # in the first place.
+        *;
+};

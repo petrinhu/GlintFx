@@ -60,6 +60,7 @@ add_subdirectory(platform)
 
 glintfx_apply_compile_options(glintfx_library)
 glintfx_set_target_properties(glintfx_library)
+glintfx_apply_export_map(glintfx_library)
 glintfx_generate_export_header(glintfx_library)
 glintfx_configure_version_header()
 glintfx_set_target_include_dirs(glintfx_library)

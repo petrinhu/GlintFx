@@ -120,14 +120,11 @@ The project's internal engineering documents (governance rules, the C++ style co
 
 ## Acknowledgments
 
-This is placed after the documentation section on purpose: the technical reference above is what a reader needs to use glintfx, and this closing note is not.
-
 glintfx is written by one maintainer, but not in a vacuum. The people below shaped the maintainer's work in general, not necessarily this library on its own; where a contribution reached glintfx directly, it is named as such below.
 
 - **El [Iagows](https://github.com/iagows)** (the maintainer's brother), a computer engineer whose training shaped how the maintainer thinks about technology, and who has given advice on architecture and stack choices across the maintainer's projects.
 - **Od Fuinha Minduim, Thiago MadDog and Thiago Arcanjo**, IT professionals who have given tips on testing, architecture, QA, security and CI over the years.
 - **The #metaleiros-PE crew**, a longstanding friendship and a source of ongoing feedback.
-- **Bruno Vettore**, whose creative ideas have shaped the maintainer's other projects.
 
 ### Special thanks: Gus Dragon, Revisor Adversarial de Design
 

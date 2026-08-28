@@ -317,26 +317,42 @@ critério acima é fixado agora para não nascer depois do código, sob a lente 
 
 ## 9. Portões automáticos de qualidade: estado hoje (L-23)
 
-A L-23 fixa quatro portões, mais o `preci.sh`. Estado real em 22/08/2026, para não prometer o que
-não existe:
+A L-23 fixa quatro portões, mais o `preci.sh`. **`FUND-4` fechou** (`TODO.md`, coluna Status da
+linha `FUND-4`: `✅ Concluído`; coluna Estado Auditado da mesma linha: `✅ Concluído`, SHA
+`9b01b3d`, segunda rodada de revisão adversarial). A versão anterior deste capítulo, datada de
+22/08/2026, descrevia os quatro portões como pendentes: isso apodreceu. Estado confirmado **por
+leitura** de `.github/workflows/ci.yml` e de `tools/preci.sh` nesta revisão (28/08/2026), sem
+construir nada, como manda esta fatia:
 
-| Portão | Exigido pela L-23 | Estado hoje |
+| Portão | Exigido pela L-23 | Estado, confirmado por leitura em 28/08/2026 |
 |---|---|---|
-| Zero aviso, `-Werror` no CI | sim | **pendente**, `FUND-4` no `TODO.md` |
-| ASan/UBSan por fatia fechada | sim | **pendente**, `FUND-4` |
-| `clang-tidy` + `cppcheck` no CI | sim | **pendente**, `FUND-4`; ferramentas já instaladas localmente (`TOOLING.md` ✓) |
-| `gitleaks` no CI | sim | **pendente**, `FUND-4`; instalado localmente (`TOOLING.md` ✓) |
-| `preci.sh` (espelho local do CI, antes do push) | sim | **não existe** — `CLAUDE.md` lista `Lint / análise estática: <a definir>` |
+| Zero aviso, `-Werror` no CI | sim | **presente.** `-DGLINTFX_WERROR=ON` nos `cmake -S`/`-B` dos jobs `linux`, `windows` e `clang`, confira com `grep -n GLINTFX_WERROR .github/workflows/ci.yml`. A opção nasce `OFF` por padrão em `cmake/GlintfxOptions.cmake` e só é ligada pelo CI e pelo `preci.sh`, nunca no `configure` cru do dia a dia. |
+| ASan/UBSan por fatia fechada | sim | **presente.** Job `sanitizer` em `.github/workflows/ci.yml`, roda `tools/preci.sh --sanitizer-only` no alvo primário (Fedora). |
+| `clang-tidy` + `cppcheck` no CI | sim | **presente.** Job `lint` em `.github/workflows/ci.yml`, roda `tools/preci.sh --lint-only` no alvo primário. |
+| `gitleaks` no CI | sim | **presente.** Job `gitleaks` em `.github/workflows/ci.yml`, com `fetch-depth: 0` (histórico inteiro, não só a árvore; capítulo 7 já cobra essa distinção). |
+| `preci.sh` (espelho local do CI, antes do push) | sim | **presente.** `tools/preci.sh`, com os modos `--fast`, `--lint-only`, `--sanitizer-only` e `--selftest`, confira com `grep -n -- '--fast\|--lint-only\|--sanitizer-only\|--selftest' tools/preci.sh`. |
 
-**Gates que já existem e rodam hoje**, em `tests/tools/`: `check_layers.sh` (capítulo 2),
-`check_exports.sh` (capítulo 3), `check_embed.sh`, `check_consume.sh`,
-`check_install_includedir.sh`, `check_install_packager_layout.sh`,
-`check_no_target_collision.sh`, `check_output_name.sh` — todos exercitados por `ctest` via
-`tests/CMakeLists.txt`. Comando real de hoje (`CLAUDE.md`): `ctest --test-dir build
+**Como isto foi confirmado, e o que NÃO foi feito:** os cinco jobs de `.github/workflows/ci.yml`
+citados acima (`linux`, `windows`, `clang`, `sanitizer`, `lint`, `gitleaks`) foram lidos por
+inteiro nesta revisão, e o texto de cada célula acima cita o nome exato do job e o comando que ele
+roda. **Não rodei `preci.sh` nem nenhum build** para chegar a esta tabela, porque esta fatia é só
+documentação (ver a ordem de serviço); então "presente" aqui significa "o job existe e está
+programado para rodar isto", não "eu vi passar agora". Para confirmar que o job **passou** de
+verdade na última execução real, o comando é `gh run list --limit 1` e, para o detalhe por job,
+`gh run view <id> --json jobs`; este comando não foi rodado nesta revisão, e por isso esta tabela
+não afirma resultado de execução, só existência do portão.
+
+**Gates que já existem e rodam hoje, em `tests/tools/`.** A lista cresce a cada gate novo; a
+versão anterior deste capítulo enumerava oito nomes e ficou pra trás. **Meça, não leia a lista:**
+`ls tests/tools/`. Os que os capítulos 2 e 3 deste documento já citam nominalmente
+(`check_layers.sh`, `check_exports.sh`) continuam entre eles. Todos são exercitados por `ctest`
+via `tests/CMakeLists.txt`. Comando real de hoje (`CLAUDE.md`): `ctest --test-dir build
 --output-on-failure`.
 
-**Não inventar comando para o que falta.** Quando `FUND-4` fechar, este capítulo é o primeiro a
-ser atualizado com o comando real, testado e verde — não antes.
+**Não inventar comando para o que falta.** Este princípio continua valendo para o que ainda não
+existe (diffing formal de ABI, ver capítulo 3; checagem de API pública contra versão anterior, ver
+capítulo 4), mas já não se aplica aos cinco portões acima, que saíram de "a definir" para linha
+de CI nomeada.
 
 ---
 

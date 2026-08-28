@@ -958,3 +958,20 @@ Ou seja: **referência fixa de 60 Hz, duração preservada em qualquer monitor**
 **O mecanismo existe e foi confirmado com fonte:** a especificação do Wayland manda o compositor **não sinalizar** o aviso de "pode desenhar" para superfície invisível, e o Firefox usa exatamente isso. Logo: **janela oculta não computa nada**, e **taxa variável é acompanhada por construção**, em vez de combatida por um laço de intervalo fixo.
 
 **Fica escrito para a fatia de laço e apresentação nascer com isto**, não ser remendada depois: passo **medido**, nunca assumido; janela oculta não computa; teste no container da L-09.
+
+##### ⚠️ `gltfx-Time_Loop` é NOME COMERCIAL, não é palavra de folha de estilo
+
+**Decisão do líder, 28/08/2026, verbatim:** *"o NOME do nosso produto será gltfx-Time_Loop, mas não será usado assim em linha de programação, apenas um nome fantasia comercial para anunciar a funcao, NESTE CASO"*.
+
+**O que isso quer dizer, e o aviso existe porque o erro seria natural:**
+
+| Onde | O que se usa |
+|---|---|
+| **Em folha de estilo, no código** | `animation-iteration-count: 3 / 4s` — a palavra do padrão, estendida com a barra. **Nada de `gltfx-Time_Loop` aqui.** |
+| **Em documentação, anúncio, material de divulgação** | **`gltfx-Time_Loop`**, o nome da função como produto. |
+
+⚠️ **A convenção de nomes do §8 NÃO se aplica a este caso.** Ali, `gltfx-Iniciais_Maiusculas` é a forma de uma **propriedade nossa que se escreve na folha**. Aqui a grafia é a mesma **por escolha de marca**, e o objeto é outro: é o nome pelo qual a função é **anunciada**, não pelo qual é **invocada**.
+
+⚠️ **Ao próximo agente que ler isto:** se você encontrar `gltfx-Time_Loop` num documento e for tentado a criar a propriedade correspondente, **não crie**. Ela não existe por decisão explícita. A funcionalidade já tem forma, e é a extensão da palavra do padrão. **Criar a propriedade produziria duas maneiras de dizer a mesma coisa**, que é o que a régua de legibilidade da L-28 existe para evitar, e desfaria o argumento de divulgação que sustenta a decisão 4: *"melhoramos sem quebrar"* só vale enquanto a palavra usada for a do padrão.
+
+**O líder delimitou o alcance com a própria voz:** *"NESTE CASO"*. Não é regra geral para nomear tudo; é a decisão de marca desta função.

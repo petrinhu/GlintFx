@@ -549,6 +549,43 @@ if(UNIX)
     set_tests_properties(port_privacy_selftest PROPERTIES LABELS selftest)
 endif()
 
+# Dependency-zero gate (DEPZERO-GATE, TODO.md, GODS_LAWS.md L-07/L-40):
+# proves NOTHING in the tracked tree introduces a third-party
+# dependency - three sub-checks (CMake surface, include surface, the
+# built artifact's own DT_NEEDED) closed by FORM and POLARITY, never by
+# a growing forbidden-name list - see check_dep_zero.sh's own header
+# for the full rationale, including two corrections found by measuring
+# the real tree before writing this gate (own public headers consumed
+# via <glintfx/...>, and the two CMake-generated headers export.hpp/
+# version_macros.hpp) that the planning document's enumeration missed.
+# Decision of the leader, 28/08/2026 (AskUserQuestion): this gate bites
+# in BOTH commit (tools/git-hooks/pre-commit, installed by
+# tools/git-hooks/install.sh) and CI - this is the CI half. The
+# library-path argument mirrors port_privacy_test immediately above:
+# "NONE" in static mode, sub-check (c) says so instead of skipping
+# silently (GODS_LAWS.md L-40). POSIX sh; same declared downgrade as
+# layers_test/x11_test/port_privacy_test above.
+if(UNIX)
+    if(BUILD_SHARED_LIBS)
+        set(GLINTFX_DEP_ZERO_LIB_ARG "$<TARGET_FILE:glintfx_library>")
+    else()
+        set(GLINTFX_DEP_ZERO_LIB_ARG "NONE")
+    endif()
+    add_test(
+        NAME dep_zero_test
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.sh"
+            "${CMAKE_SOURCE_DIR}"
+            "${GLINTFX_DEP_ZERO_LIB_ARG}"
+    )
+    set_tests_properties(dep_zero_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME dep_zero_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.sh" --selftest
+    )
+    set_tests_properties(dep_zero_selftest PROPERTIES LABELS selftest)
+endif()
+
 # Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,
 # 26/08/2026 - proposta em
 # /var/tmp/glintfx-plan/separacao-leis-escopo.md secao 5, executada na

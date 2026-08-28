@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/git-hooks/pre-commit - thin caller, zero logic of its own
+# (GODS_LAWS.md L-17: single subject). Installed by
+# tools/git-hooks/install.sh into $(git rev-parse --git-common-dir)/hooks/,
+# which is NOT versioned by git itself - this file IS the versioned
+# source of truth, and install.sh is how it reaches the live hook.
+#
+# On this machine, core.hooksPath is a GLOBAL shim
+# (~/.claude/githooks/pre-commit) that `exec`s a LOCAL
+# .git/hooks/pre-commit if one exists and is executable, preserving
+# args/stdin/exit code - so installing THIS file there bites without
+# touching the global chain (todo_sync/tab_pendencias keep working). A
+# clone with no such global chain still gets the ordinary git default:
+# .git/hooks/pre-commit runs directly.
+#
+# GODS_LAWS.md L-07/D1 (leader, 28/08/2026, AskUserQuestion): the
+# dependency-zero gate bites in BOTH commit and CI - this is the commit
+# half. D3: no environment-variable escape - `exec` straight into the
+# gate, no flag this script could honor to skip it.
+
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+exec "$repo_root/tests/tools/check_dep_zero.sh" --staged "$repo_root"

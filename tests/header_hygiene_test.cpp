@@ -86,10 +86,15 @@
 #endif
 
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <ios>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
+#include <glintfx/asset/file.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -200,6 +205,32 @@ GLINTFX_TEST(gfss_tokenizer_header_survives_hostile_system_headers) {
     GLINTFX_CHECK(more);
     GLINTFX_CHECK(token.kind == glintfx::style::gltfx_gfss_token_kind::ident);
     GLINTFX_CHECK(token.diagnostic.expected.empty());
+}
+
+// asset_file_header_survives_hostile_system_headers - ASSET-LOAD:
+// glintfx::asset::gltfx_load_file_bytes() is entirely inline (docs/
+// api-conventions.md R5(b): a container-by-value return has to stay
+// header-only, the same reason glintfx::style::gltfx_gfss_tokenize()
+// above does), so its call-shaped USE SITE is exercised at its own
+// declaration, under the SAME hostile include order - a real temp
+// file, not a stub path, so both the success arm (bytes read back) and
+// the header's own compilability are proven together.
+GLINTFX_TEST(asset_file_header_survives_hostile_system_headers) {
+    const std::filesystem::path dir =
+        std::filesystem::temp_directory_path() / "glintfx_hygiene_asset_load_probe";
+    std::filesystem::create_directories(dir);
+    const std::filesystem::path file_path = dir / "probe.bin";
+    {
+        std::ofstream out(file_path, std::ios::binary);
+        out.put(static_cast<char>(0x2A));
+    }
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes(file_path.string());
+
+    GLINTFX_CHECK(result.has_value());
+    GLINTFX_CHECK(result.value().size() == 1);
+    GLINTFX_CHECK(result.value().at(0) == std::byte{0x2A});
 }
 
 // core_error_use_sites_survive_hostile_system_headers - CE-8 finding:

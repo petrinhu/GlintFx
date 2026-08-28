@@ -1,0 +1,245 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
+#include <cstddef>
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <print>
+#include <string>
+#include <vector>
+
+#if !defined(_WIN32)
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
+#include <glintfx/asset/file.hpp>
+#include <glintfx/core/err.hpp>
+#include <glintfx/core/err_code.hpp>
+
+#include "harness/check.hpp"
+#include "harness/test_registry.hpp"
+
+// asset_load_test.cpp - ASSET-LOAD (TODO.md, GODS_LAWS.md L-20/L-22/
+// L-40, ESCOPO.md SS2 decisions 4 and 8): TDD witness for
+// glintfx::asset::gltfx_load_file_bytes(), the "path to bytes" atom -
+// reads the whole file, classifies the path before opening it, and
+// reports failure through gltfx_rslt<T> (L-22), never a cache (ESCOPO
+// decision 4: "carrega e nao guarda nada para reaproveitar").
+//
+// CLOSED MATRIX, SIX SCENARIOS, GODS_LAWS.md L-40 ("enumeracao fechada
+// por construcao, a contagem aparece na saida mesmo quando passa"):
+// nonexistent path, no read permission, path names a directory (not a
+// regular file), an empty file (success, zero bytes - NOT an error),
+// a RELATIVE path (ESCOPO decision 8: the recommended, primary case),
+// and an ABSOLUTE path (the secondary, still-tested case). Each has
+// its own GLINTFX_TEST below; g_scenarios_exercised is incremented by
+// every one of them and the LAST case in this file (declaration order
+// is registration order within one TU, harness/test_registry.cpp) checks
+// the running total against k_total_scenarios and PRINTS it, so a
+// scenario silently skipped (never incrementing the counter) reproves
+// instead of passing quietly.
+//
+// BYTE-EXACT ROUND TRIP: bytes_round_trip_including_embedded_null_and_
+// non_ascii_bytes below is the case that separates "read the file" from
+// "read the file correctly" - a reader that treats the content as a
+// C string dies at the embedded 0x00; a reader that assumes ASCII
+// mishandles the high-bit bytes. glintfx::asset::gltfx_load_file_bytes
+// returns std::vector<std::byte>, never a null-terminated buffer, so
+// this is a real property of the type, not just of one lucky test
+// input - the test still exercises a HOSTILE input to prove it, not
+// just trust the type signature.
+//
+// SCRATCH DIRECTORY, ISOLATED PER PROCESS: each GLINTFX_TEST below that
+// touches the filesystem creates its OWN scratch directory under
+// std::filesystem::temp_directory_path() (this project's TMPDIR=/var/tmp
+// convention, CLAUDE.md - tmpfs on this machine is too small for a
+// build, irrelevant here, but respecting the same env var keeps every
+// scratch write on the same disk this project already uses) and
+// std::filesystem::current_path()'s the PROCESS into it before writing
+// the relative-path fixture - safe because ctest runs each test
+// executable as its OWN process (glintfx_add_test, cmake/GlintfxTest.cmake),
+// so this process's cwd never collides with a sibling test's.
+
+namespace {
+
+int g_scenarios_exercised = 0;
+constexpr int k_total_scenarios = 6;
+
+// make_scratch_dir - one fresh, empty, uniquely-named directory per
+// call, never reused across scenarios (GODS_LAWS.md L-17: an atom that
+// needs "and" in its name was not an atom - this one only creates).
+[[nodiscard]] std::filesystem::path make_scratch_dir(std::string_view tag) {
+    static int counter = 0;
+    ++counter;
+    const std::filesystem::path dir =
+        std::filesystem::temp_directory_path() /
+        ("glintfx_asset_load_test_" + std::string(tag) + "_" + std::to_string(counter));
+    std::filesystem::create_directories(dir);
+    return dir;
+}
+
+// write_file - the ONLY place this TU calls std::ofstream, so every
+// scenario below builds its fixture the same, already-proven way.
+void write_file(const std::filesystem::path &path, const std::vector<std::byte> &content) {
+    std::ofstream out(path, std::ios::binary);
+    out.write(reinterpret_cast<const char *>(content.data()),
+              static_cast<std::streamsize>(content.size()));
+}
+
+// running_as_root - the declared downgrade this project's own memory
+// already names (feedback in MEMORY.md, "container roda como root e
+// root ignora bits de permissao"): the four Linux CI matrix jobs run
+// inside a container as uid 0, where chmod 0000 does not block a read.
+// Named and printed, never silently skipped (GODS_LAWS.md L-40).
+[[nodiscard]] bool running_as_root() {
+#if defined(_WIN32)
+    return false;
+#else
+    return geteuid() == 0;
+#endif
+}
+
+} // namespace
+
+GLINTFX_TEST(nonexistent_relative_path_is_not_found) {
+    const std::filesystem::path dir = make_scratch_dir("missing");
+    std::filesystem::current_path(dir);
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("does_not_exist.bin");
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::not_found);
+    ++g_scenarios_exercised;
+}
+
+GLINTFX_TEST(no_read_permission_is_io_failure) {
+    const std::filesystem::path dir = make_scratch_dir("noperm");
+    std::filesystem::current_path(dir);
+    write_file(dir / "secret.bin", {std::byte{0x01}, std::byte{0x02}});
+
+#if !defined(_WIN32)
+    GLINTFX_CHECK(::chmod((dir / "secret.bin").c_str(), 0000) == 0);
+#endif
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("secret.bin");
+
+    if (running_as_root()) {
+        // Declared downgrade (GODS_LAWS.md L-40): uid 0 reads through
+        // the permission bits this scenario relies on, so the file
+        // opens and reads successfully here instead of failing - the
+        // scenario still ran (the counter below still increments), it
+        // just could not exercise the permission-denied branch on this
+        // process's privilege level.
+        std::println("asset_load_test: no_read_permission_is_io_failure running as root - "
+                     "permission bits do not apply, downgrading to a no-crash check");
+        GLINTFX_CHECK(result.has_value() || result.has_error());
+    } else {
+        GLINTFX_CHECK(result.has_error());
+        GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+    }
+    ++g_scenarios_exercised;
+}
+
+GLINTFX_TEST(directory_path_is_invalid_argument) {
+    const std::filesystem::path dir = make_scratch_dir("isdir");
+    std::filesystem::current_path(dir);
+    std::filesystem::create_directories(dir / "a_directory");
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("a_directory");
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
+    ++g_scenarios_exercised;
+}
+
+GLINTFX_TEST(empty_file_reads_as_empty_success_not_an_error) {
+    const std::filesystem::path dir = make_scratch_dir("empty");
+    std::filesystem::current_path(dir);
+    write_file(dir / "empty.bin", {});
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("empty.bin");
+
+    GLINTFX_CHECK(result.has_value());
+    GLINTFX_CHECK(result.value().empty());
+    ++g_scenarios_exercised;
+}
+
+// ESCOPO.md SS2 decision 8: relative is the PRIMARY tested case, not
+// the edge case - this scenario is deliberately not folded into the
+// byte-exact round-trip case below, so the "relative path works at
+// all" property has its own name and its own PASS/FAIL line.
+GLINTFX_TEST(relative_path_is_the_primary_exercised_case) {
+    const std::filesystem::path dir = make_scratch_dir("relative");
+    std::filesystem::current_path(dir);
+    write_file(dir / "payload.bin", {std::byte{0xAA}, std::byte{0xBB}, std::byte{0xCC}});
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("payload.bin");
+
+    GLINTFX_CHECK(result.has_value());
+    const std::vector<std::byte> expected{std::byte{0xAA}, std::byte{0xBB}, std::byte{0xCC}};
+    GLINTFX_CHECK(result.value() == expected);
+    ++g_scenarios_exercised;
+}
+
+GLINTFX_TEST(absolute_path_also_succeeds) {
+    const std::filesystem::path dir = make_scratch_dir("absolute");
+    // Deliberately NOT chdir-ing here: the whole point of this scenario
+    // is that an absolute path does not depend on the process cwd at
+    // all, unlike every relative-path scenario above.
+    write_file(dir / "payload.bin", {std::byte{0x10}, std::byte{0x20}});
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes((dir / "payload.bin").string());
+
+    GLINTFX_CHECK(result.has_value());
+    const std::vector<std::byte> expected{std::byte{0x10}, std::byte{0x20}};
+    GLINTFX_CHECK(result.value() == expected);
+    ++g_scenarios_exercised;
+}
+
+// The case that separates "read the file" from "read the file
+// correctly" - see this file's own header comment. Bytes chosen: a
+// literal 0x00 in the MIDDLE of the buffer (not at the end, where a
+// C-string-based bug could hide behind an accidental extra terminator),
+// plus bytes with the high bit set (0x80 and above), which is what
+// "non-ASCII" means at the byte level - this test makes no claim about
+// any particular text encoding, only about byte fidelity.
+GLINTFX_TEST(bytes_round_trip_including_embedded_null_and_non_ascii_bytes) {
+    const std::filesystem::path dir = make_scratch_dir("hostile_bytes");
+    std::filesystem::current_path(dir);
+
+    const std::vector<std::byte> hostile_content{
+        std::byte{0xDE}, std::byte{0xAD}, std::byte{0x00}, std::byte{0xBE},
+        std::byte{0xEF}, std::byte{0xC3}, std::byte{0xA9}, std::byte{0xFF},
+        std::byte{0x01}, std::byte{0x00}, std::byte{0x80},
+    };
+    write_file(dir / "hostile.bin", hostile_content);
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("hostile.bin");
+
+    GLINTFX_CHECK(result.has_value());
+    GLINTFX_CHECK(result.value().size() == hostile_content.size());
+    GLINTFX_CHECK(result.value() == hostile_content);
+}
+
+// Closes the matrix (GODS_LAWS.md L-40): relies on declaration-order
+// registration within this ONE translation unit (test_registry.cpp's
+// own comment: CaseRegistrar's static constructor runs in file order),
+// so this is the LAST GLINTFX_TEST in the file, on purpose - every
+// scenario above increments g_scenarios_exercised, so a scenario that
+// silently stopped running (renamed out of GLINTFX_TEST, or an early
+// return before the increment) reproves HERE instead of the suite
+// quietly reporting a smaller, still-green total.
+GLINTFX_TEST(closed_error_matrix_was_fully_exercised) {
+    std::println("asset_load_test: closed matrix exercised {} of {} scenarios",
+                 g_scenarios_exercised, k_total_scenarios);
+    GLINTFX_CHECK(g_scenarios_exercised == k_total_scenarios);
+}

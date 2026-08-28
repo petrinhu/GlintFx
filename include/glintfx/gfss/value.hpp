@@ -256,7 +256,7 @@ struct gltfx_gfss_length {
 #define GLINTFX_GFSS_ANGLE_UNIT_LIST(X)                                                            \
     X(deg)                                                                                         \
     X(rad)                                                                                         \
-    X(grad)                                                                                         \
+    X(grad)                                                                                        \
     X(turn)
 
 enum class gltfx_gfss_angle_unit : std::uint8_t {
@@ -311,10 +311,10 @@ struct gltfx_gfss_angle {
 // arithmetic anywhere in this file - see that same comment for why).
 #define GLINTFX_GFSS_TIME_UNIT_LIST(X)                                                             \
     X(ms)                                                                                          \
-    X(s)                                                                                            \
+    X(s)                                                                                           \
     X(min)                                                                                         \
-    X(h)                                                                                            \
-    X(ns)                                                                                           \
+    X(h)                                                                                           \
+    X(ns)                                                                                          \
     X(frames)
 
 enum class gltfx_gfss_time_unit : std::uint8_t {

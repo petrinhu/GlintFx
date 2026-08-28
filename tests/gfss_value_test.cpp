@@ -198,9 +198,9 @@ struct time_unit_name_sample {
 GLINTFX_TEST(gltfx_gfss_time_unit_name_covers_every_unit_with_its_exact_identifier) {
     using glintfx::style::gltfx_gfss_time_unit_name;
     constexpr time_unit_name_sample k_samples[] = {
-        {gltfx_gfss_time_unit::ms, "ms"}, {gltfx_gfss_time_unit::s, "s"},
+        {gltfx_gfss_time_unit::ms, "ms"},   {gltfx_gfss_time_unit::s, "s"},
         {gltfx_gfss_time_unit::min, "min"}, {gltfx_gfss_time_unit::h, "h"},
-        {gltfx_gfss_time_unit::ns, "ns"}, {gltfx_gfss_time_unit::frames, "frames"},
+        {gltfx_gfss_time_unit::ns, "ns"},   {gltfx_gfss_time_unit::frames, "frames"},
     };
     static_assert(sizeof(k_samples) / sizeof(k_samples[0]) ==
                       glintfx::style::gltfx_gfss_time_unit_count,
@@ -389,8 +389,10 @@ struct time_unit_dimension_sample {
 
 GLINTFX_TEST(parse_value_dimension_token_decodes_every_one_of_the_time_units) {
     constexpr time_unit_dimension_sample k_samples[] = {
-        {"150ms", gltfx_gfss_time_unit::ms, 150.0}, {"1.5s", gltfx_gfss_time_unit::s, 1.5},
-        {"5min", gltfx_gfss_time_unit::min, 5.0},   {"2h", gltfx_gfss_time_unit::h, 2.0},
+        {"150ms", gltfx_gfss_time_unit::ms, 150.0},
+        {"1.5s", gltfx_gfss_time_unit::s, 1.5},
+        {"5min", gltfx_gfss_time_unit::min, 5.0},
+        {"2h", gltfx_gfss_time_unit::h, 2.0},
         {"400ns", gltfx_gfss_time_unit::ns, 400.0},
         // ESCOPO.md SS2, GFSS-VALUE-2 decision 3: `frames` is a
         // duration alias resolved elsewhere (GFSS-RESOLVE) - THIS

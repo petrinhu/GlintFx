@@ -891,3 +891,31 @@ A Semente do Caos Primevo. Não é um número. É o grão roubado do instante an
 **A biblioteca põe o artefato de runtime onde o consumidor que a EMBUTE consegue encontrá-lo, no Windows** — mecanismo nosso, **ligado por padrão** quando embutida. Decisão do líder entre resolver pelo consumidor, só documentar a receita, oferecer opção, ou consertar só o teste. Ele foi na forma mais forte: **o consumidor desconhecido nunca deve ver este problema.**
 
 **O fato que motivou:** quem faz `add_subdirectory` e constrói compartilhado no Windows **constrói, linka, e o programa não sobe** — o carregador do Windows só procura ao lado do executável, e no Windows não existe o equivalente ao caminho que o CMake embute sozinho no Linux.
+
+#### EMENDA de 28/08/2026 à decisão 5: dezesseis unidades, e DUAS categorias novas
+
+**Origem:** a fatia `GFSS-VALUE` foi implementar a decisão 5 e o agente reportou, sem que ninguém tivesse pedido, que **o texto dizia "treze" e a lista somava doze**. O líder pediu para **ver a lista** antes de decidir, conferiu item a item, e ampliou.
+
+**O erro de contagem:** eram **doze** mesmo, e o "treze" era resquício de quando a porcentagem ainda contava como unidade, antes de ela virar categoria própria em 26/08. **O número está corrigido; a lista de doze que ele aprovou nunca esteve errada.**
+
+**Quatro unidades ACRESCENTADAS por decisão dele em 28/08/2026, total agora DEZESSEIS:**
+
+| Unidade | O que é | Por que entrou |
+|---|---|---|
+| `vmin`, `vmax` | o menor e o maior lado da janela | Mantêm a interface proporcional quando a janela muda de forma. Sem elas, todo consumidor refaz a conta à mão e erra em tela vertical. |
+| `ch` | largura do algarismo zero da fonte | Largura medida em caracteres; casa com a estética de terminal do consumidor conhecido. |
+| `lh` | a altura de uma linha de texto | Espaçamento em múltiplos de linha em vez de pixels soltos. |
+
+**Recusadas, com razão declarada, para ele não gastar decisão de novo:** `cap`, `ic` e `Q` são de nicho tipográfico ou de impressão; a família de unidades de janela "pequena, grande e dinâmica" existe **só por causa da barra do navegador de celular**, que não temos.
+
+**⚠️ E DUAS CATEGORIAS NOVAS, decididas por ele em 28/08/2026. Verbatim: _"entram agora"_.**
+
+O achado que as trouxe: a decisão 5 fechava **cinco** categorias, mas o líder tem **vinte e dois efeitos nomeados**, dos quais **dez são de movimento**. Movimento exige **ângulo** (girar) e **tempo** (duração, atraso), e **nenhum dos dois é comprimento**. Eram categorias inteiras faltando, no mesmo nível de "número" e "porcentagem".
+
+⚠️ **Por que não podia esperar:** categoria é **porta de mão única**. Acrescentar categoria depois **quebra folha já escrita** por quem consome. As unidades concretas de cada uma estão em desenho pelo CTO, sob a L-43 (busca antes de decidir).
+
+**Sobre porcentagem virar unidade, cogitado e NÃO adotado:** reverteria a decisão dele de 26/08 de que porcentagem é categoria própria que **nunca vira comprimento na leitura**. A razão original continua de pé: **porcentagem de quê?** depende da propriedade, e guardar como comprimento obrigaria a resolver cedo demais, com a informação errada.
+
+**Em desenho, por pedido dele nesta mesma conversa:** porcentagem como **operador que aninha com função** (poder escrever "metade da largura da janela" sem saber o número), e uma **função de composição de laço** (repetições mais intervalo). ⚠️ **As formas que ele escreveu são ILUSTRAÇÃO, não especificação** — ele mesmo marcou assim: *"essa 'sintaxe' foi exemplo, não sei o padrão"*.
+
+**Impacto declarado:** `GFSS-VALUE` (`d47dff7`) foi entregue com **cinco** categorias e **doze** unidades. **Precisa ser emendada antes de fechar.**

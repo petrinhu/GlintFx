@@ -1005,3 +1005,33 @@ Ou seja: **referência fixa de 60 Hz, duração preservada em qualquer monitor**
 ⚠️ **Ao próximo agente que ler isto:** se você encontrar `gltfx-Time_Loop` num documento e for tentado a criar a propriedade correspondente, **não crie**. Ela não existe por decisão explícita. A funcionalidade já tem forma, e é a extensão da palavra do padrão. **Criar a propriedade produziria duas maneiras de dizer a mesma coisa**, que é o que a régua de legibilidade da L-28 existe para evitar, e desfaria o argumento de divulgação que sustenta a decisão 4: *"melhoramos sem quebrar"* só vale enquanto a palavra usada for a do padrão.
 
 **O líder delimitou o alcance com a própria voz:** *"NESTE CASO"*. Não é regra geral para nomear tudo; é a decisão de marca desta função.
+
+### As três decisões de abertura da onda seguinte  `[28/08/26 - 15:14:12]`
+
+Levadas ao líder antes de a onda abrir, pela cadência da L-34. As três eram dele por natureza: uma muda **o que a biblioteca aceita**, e duas são **porta de mão única**.
+
+#### 1. Mistura de caminho absoluto e relativo no empacotamento: **RECUSAR, com erro claro**
+
+**Verbatim:** *"Recusar a mistura, com erro claro"*.
+
+Quem instala pode escolher onde a biblioteca fica. Misturar caminho **absoluto** para a parte compilada com **relativo** para os cabeçalhos gerava um descritor que **aponta os cabeçalhos para um lugar vazio**. Defeito **pré-existente**, achado de raspão em 27/08 e deixado intocado por estar fora do mandato de quem o viu.
+
+**A instalação passa a falhar na hora, dizendo o que está errado.** ⚠️ **Custo aceito, declarado a ele:** um empacotador que hoje faça isso sem perceber **passa a ser barrado**, e terá de escolher um dos dois estilos.
+
+**A razão que decidiu, e é de distribuição:** o erro só aparecia **na máquina de quem consome**, longe de nós. Falhar na instalação é falhar onde alguém pode consertar.
+
+#### 2. Identificador de propriedade do formato de estilo: **APPEND-ONLY, nunca renumerar**
+
+**Verbatim:** *"Sempre no fim, nunca renumerar"*.
+
+Propriedade nova entra **no fim** da lista, e **nenhum identificador já publicado muda de valor**. Folha e código escritos antes continuam válidos **para sempre**.
+
+⚠️ **Custo aceito:** a lista fica na **ordem histórica**, não na ordem lógica; quem a ler vai encontrar itens relacionados longe uns dos outros. A alternativa (reorganizar em virada de versão grande) foi recusada: **quebraria quem guardou o identificador antigo**, e nos obrigaria a avisar e migrar.
+
+#### 3. Contrato público de janela: **desenhar já pensando nos cinco sistemas**
+
+**Verbatim:** *"opcao 1, lembrando que linux é apenas wayland"*.
+
+Antes de escrever, o arquiteto **levanta o que cada um dos cinco alvos exige** e desenha a forma que serve a todos. ⚠️ **Custo aceito:** a fatia demora mais para começar. **Em troca, o adaptador de Windows não descobre tarde que a forma não serve** — e essa é a classe de erro que custa nos cinco de uma vez.
+
+⚠️ **RESSALVA DELE, e ela é reforço de lei, não novidade:** *"linux é apenas wayland"*. **Não existe X11 no levantamento.** Ao enumerar o que "o Linux exige", o que vale é **exclusivamente o protocolo Wayland** — nada de acomodar, prever ou deixar espaço para o sistema de janelas antigo, nem sequer como caso hipotético que "não custa nada". Isto é a **L-05**, e ele a reafirmou no exato momento em que o risco de a esquecer era maior: um levantamento de "o que cada plataforma exige" é onde a suposição de X11 entraria sem ninguém notar.

@@ -934,3 +934,20 @@ jobs:
 
       - name: Gate L-08 - selftest (quatro controles, GODS_LAWS.md L-40)
         run: sh tests/tools/check_spdx.sh --selftest
+
+      # GODS_LAWS.md L-07 EXCECAO No 1 (third_party/khronos/ e a UNICA
+      # excecao de glintfx a lei de dependencia zero) e L-40 (piso de
+      # varredura nao-vazia). Item VENDOR-PURITY: sem este portao, nada
+      # impede alguem de acrescentar um arquivo em third_party/khronos/
+      # e a excecao crescer sozinha, um arquivo por vez, ate virar uma
+      # dependencia de fato. A enumeracao fechada dos arquivos que a
+      # excecao realmente abre mora em tests/tools/khronos_vendor_files.sh,
+      # sourced tanto por check_spdx.sh (acima) quanto por
+      # check_vendor_purity.sh (abaixo) - uma unica lista, nunca duas
+      # que precisam concordar sem nada as obrigando. `sh`, nao `bash`,
+      # mesmo motivo dos dois gates acima.
+      - name: Gate L-07 - third_party/khronos/ contem so o que a excecao abriu
+        run: sh tests/tools/check_vendor_purity.sh "$PWD"
+
+      - name: Gate L-07 - selftest (tres controles, GODS_LAWS.md L-40)
+        run: sh tests/tools/check_vendor_purity.sh --selftest

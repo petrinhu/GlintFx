@@ -155,20 +155,27 @@ fail() {
 # de cada linha. -----------------------------------------------------
 
 # Enumeracao FECHADA e NOMEADA (GODS_LAWS.md L-40 item 5: espaco
-# pequeno e enumeravel, entao enumerado por inteiro) dos unicos dois
-# arquivos que GODS_LAWS.md L-07 EXCECAO No 1 realmente vendorizou sob
-# third_party/khronos/. Deliberadamente SEPARADA de is_exempt: e o
-# unico jeito de a isencao de diretorio nao virar "todo arquivo que
-# aparecer ali passa" - ver o bloco de comentario acima
-# (EXCECOES DECLARADAS) para o raciocinio completo do risco e da
-# decisao sobre arquivo nosso na mesma pasta.
-is_known_khronos_vendor_file() {
-    case "$1" in
-        third_party/khronos/gl.xml) return 0 ;;
-        third_party/khronos/LICENSE-APACHE-2.0.txt) return 0 ;;
-        *) return 1 ;;
-    esac
-}
+# pequeno e enumeravel, entao enumerado por inteiro) dos arquivos que
+# GODS_LAWS.md L-07 EXCECAO No 1 abre sob third_party/khronos/
+# (khronos_vendor_files.sh, sourced abaixo, documenta os tres - dois
+# vendorizados do Khronos mais o README.md do proprio glintfx).
+# Deliberadamente SEPARADA de is_exempt: e o unico jeito de a isencao
+# de diretorio nao virar "todo arquivo que aparecer ali passa" - ver o
+# bloco de comentario acima (EXCECOES DECLARADAS) para o raciocinio
+# completo do risco e da decisao sobre arquivo nosso na mesma pasta.
+# Neste script, README.md nunca chega a esta funcao de qualquer forma
+# (o ramo `*.md` de is_exempt, abaixo, casa primeiro) - a funcao so e
+# exercitada aqui para os dois vendorizados; quem depende da terceira
+# entrada e check_vendor_purity.sh.
+#
+# A lista em si NAO mora mais aqui: mora em khronos_vendor_files.sh
+# (mesmo diretorio), sourced abaixo - a MESMA enumeracao que
+# check_vendor_purity.sh usa (item VENDOR-PURITY, TODO.md), nunca duas
+# listas que precisam concordar sem nada as obrigando. is_exempt()
+# continua chamando is_known_khronos_vendor_file exatamente como antes;
+# so a definicao da funcao mudou de lugar.
+# shellcheck source=./khronos_vendor_files.sh
+. "$(dirname "$0")/khronos_vendor_files.sh"
 
 is_exempt() {
     path="$1"

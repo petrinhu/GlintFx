@@ -5,6 +5,8 @@
 #include <cassert>
 #include <charconv>
 #include <set>
+#include <stdexcept>
+#include <string>
 
 #include "gl_registry_codegen/xml_reader.hpp"
 
@@ -17,15 +19,34 @@
 
 namespace glintfx::gl_codegen {
 
+// gl.xml's own <feature number="..."> attribute is always a plain
+// decimal with one digit on each side of the dot in every version
+// this project reads (1.0 through 4.6) - std::from_chars handles that
+// exactly, with no locale-dependent behavior (unlike std::stod, which
+// reads the CURRENT LOCALE's decimal separator; this is a build-time
+// tool that must give the same answer regardless of the machine's
+// locale). See this function's own declaration in registry_parser.hpp
+// for why it is PUBLIC and shared with main.cpp's own CLI argument
+// parsing (CODEGEN-NUMCONV).
+double parse_decimal_number(std::string_view text, std::string_view context) {
+    double value = 0.0;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    const bool consumed_everything = result.ptr == text.data() + text.size();
+    if (result.ec != std::errc{} || !consumed_everything) {
+        // Names BOTH the culprit FIELD (`context`, e.g. "<feature
+        // name=\"GL_VERSION_1_0\"> atributo 'number'" or "argumento
+        // max-version") and the culprit VALUE (the raw `text`) - a
+        // maintainer reading this message never has to guess which of
+        // the two conversions failed nor grep the (2.7 MB) input file
+        // for the bad text by hand.
+        throw std::invalid_argument(std::string(context) + " nao e um numero decimal valido: '" +
+                                    std::string(text) + "'");
+    }
+    return value;
+}
+
 namespace {
 
-// Parses "3.3" -> 3.3. gl.xml's own <feature number="..."> attribute is
-// always a plain decimal with one digit on each side of the dot in
-// every version this project reads (1.0 through 4.6) - std::from_chars
-// handles that exactly, with no locale-dependent behavior (unlike
-// std::stod, which reads the CURRENT LOCALE's decimal separator; this
-// is a build-time tool that must give the same answer regardless of
-// the machine's locale).
 bool is_whitespace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 
 // Trims only the OUTER whitespace of a reconstructed C type/name
@@ -48,12 +69,6 @@ std::string trim_outer_whitespace(std::string_view text) {
         --end;
     }
     return std::string(text.substr(start, end - start));
-}
-
-double parse_version_number(std::string_view text) {
-    double value = 0.0;
-    std::from_chars(text.data(), text.data() + text.size(), value);
-    return value;
 }
 
 // Parses the mixed text/element content of a SINGLE <proto> or
@@ -245,7 +260,15 @@ std::vector<std::string> resolve_core_profile_command_names(std::string_view xml
             continue;
         }
         const bool is_gl_api = find_attribute(event, "api") == "gl";
-        const double feature_number = parse_version_number(find_attribute(event, "number"));
+        // GODS_LAWS.md D8: this IS the ingestion boundary (gl.xml is a
+        // third-party file) - a malformed 'number' attribute must name
+        // the culprit <feature> (its own 'name' attribute, e.g.
+        // "GL_VERSION_1_0") rather than silently resolving to 0.0 and
+        // being treated as always-in-scope.
+        const double feature_number = parse_decimal_number(
+            find_attribute(event, "number"), "gl.xml: <feature name=\"" +
+                                                 std::string(find_attribute(event, "name")) +
+                                                 "\"> atributo 'number'");
         const bool in_scope = is_gl_api && feature_number <= max_version;
 
         // Whether or not this feature is in scope, its <require>/

@@ -16,6 +16,23 @@
 
 namespace glintfx::gl_codegen {
 
+// Parses a plain decimal number (e.g. "3.3"), locale-independent
+// (std::from_chars, never std::stod - see registry_parser.cpp's own
+// comment on why that distinction matters for a build-time tool).
+// Throws std::invalid_argument, naming BOTH `context` (which field or
+// argument this text came from) and the raw `text` itself, whenever
+// `text` is empty, non-numeric, or has trailing characters after the
+// number - CODEGEN-NUMCONV: this project used to have TWO separate,
+// unchecked text-to-number conversions (this file's own <feature
+// number="..."> attribute, and main.cpp's own CLI max-version
+// argument) that each failed differently and both silently - one kept
+// going with a stale default value, the other crashed with no useful
+// diagnostic. GODS_LAWS.md's DECISOES_AUTONOMAS.md D8: a pure
+// conversion function must be total, so the diagnosis of INVALID
+// INPUT belongs at the ingestion boundary, once, not reimplemented at
+// every call site.
+[[nodiscard]] double parse_decimal_number(std::string_view text, std::string_view context);
+
 struct gl_param {
     std::string type; // C type text, e.g. "const GLchar *const*"
     std::string name; // e.g. "string"

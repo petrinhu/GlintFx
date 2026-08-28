@@ -277,6 +277,32 @@ add_test(
 )
 set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES LABELS unit WILL_FAIL TRUE)
 
+# CODEGEN-NUMCONV: this tool used to have a SECOND, unchecked
+# text-to-number conversion in main.cpp's own parse_max_version_argument()
+# - std::stod() on a malformed max-version argument threw
+# std::invalid_argument straight past main(), std::terminate()d, and
+# SIGABRT'd with a message that never even named the bad argument text.
+# Deliberately NOT WILL_FAIL-only (like the two gates above): the OLD,
+# broken behavior ALSO exits non-zero (a crash's return code is
+# non-zero too), so a plain "did the process fail" check would stay
+# green across the regression this test exists to catch.
+# PASS_REGULAR_EXPRESSION checks the ACTUAL diagnostic text instead
+# (CTest ignores the return code once this property is set) - the
+# CLEAN parse_decimal_number()-plus-fail() message this tool now
+# prints, naming both the culprit ARGUMENT ("argumento max-version")
+# and the culprit VALUE (the exact invalid text), never the generic
+# libstdc++ terminate() banner the crash used to print.
+add_test(
+    NAME gl_registry_codegen_bad_max_version_argument_reproves_test
+    COMMAND gl_registry_codegen
+        "${CMAKE_CURRENT_SOURCE_DIR}/gl_registry_codegen_fixtures/empty_registry.xml"
+        "${CMAKE_CURRENT_BINARY_DIR}/gl_registry_codegen_cli_out/bad_max_version"
+        "nao-e-numero"
+)
+set_tests_properties(gl_registry_codegen_bad_max_version_argument_reproves_test PROPERTIES
+    LABELS unit
+    PASS_REGULAR_EXPRESSION "argumento max-version nao e um numero decimal valido: 'nao-e-numero'")
+
 # Wayland protocol binding link gate (WL-PROTO, GODS_LAWS.md L-05/L-07):
 # proves the wayland-scanner build step (cmake/GlintfxWaylandProtocols.cmake,
 # src/platform/wayland/) actually turns the SYSTEM xdg-shell.xml into a

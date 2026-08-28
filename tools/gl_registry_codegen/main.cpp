@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -103,7 +104,19 @@ double parse_max_version_argument(int argc, char **argv) {
     if (third.starts_with("--")) {
         return 3.3;
     }
-    return std::stod(std::string(third));
+    // CODEGEN-NUMCONV: used to be std::stod(std::string(third)) here,
+    // which THROWS std::invalid_argument straight past main() on a
+    // malformed argument - an uncaught exception, std::terminate(),
+    // SIGABRT, and a message ("terminate called after throwing an
+    // instance of 'std::invalid_argument'  what():  stod") that never
+    // even names the bad text the caller typed. parse_decimal_number()
+    // is the ONE ingestion-boundary numeric parser this tool has
+    // (registry_parser.hpp's own comment, shared with gl.xml's own
+    // <feature number="..."> attribute) - it throws too, but main()
+    // below catches it and turns it into this tool's own fail(), the
+    // same clean, named, exit(1) diagnostic every OTHER invalid-input
+    // path in this file already uses.
+    return glintfx::gl_codegen::parse_decimal_number(third, "argumento max-version");
 }
 
 } // namespace
@@ -114,46 +127,60 @@ int main(int argc, char **argv) {
             "uso: gl_registry_codegen <gl.xml> <output-dir> [max-version] [--expect-sha256=<hex>]");
     }
 
-    const std::filesystem::path input_path = argv[1];
-    const std::filesystem::path output_dir = argv[2];
-    const double max_version = parse_max_version_argument(argc, argv);
-    const std::string expect_sha256 = parse_expect_sha256_flag(argc, argv);
+    // GODS_LAWS.md L-22 ("nenhuma exceção cruza a API pública") applied
+    // to this tool's own public boundary: its CLI, i.e. main() itself.
+    // Everything this try wraps is free to throw internally
+    // (parse_max_version_argument()'s own parse_decimal_number() call,
+    // and build_gl_registry()'s own <feature number="..."> parsing,
+    // CODEGEN-NUMCONV) - the ONE catch clause below is what turns that
+    // into this tool's own named, clean, exit(1) diagnostic instead of
+    // an unhandled std::terminate()/SIGABRT with no useful message.
+    try {
+        const std::filesystem::path input_path = argv[1];
+        const std::filesystem::path output_dir = argv[2];
+        const double max_version = parse_max_version_argument(argc, argv);
+        const std::string expect_sha256 = parse_expect_sha256_flag(argc, argv);
 
-    const std::string xml_content = read_file_or_fail(input_path);
+        const std::string xml_content = read_file_or_fail(input_path);
 
-    if (!expect_sha256.empty()) {
-        const std::string actual_sha256 = glintfx::gl_codegen::sha256_hex(xml_content);
-        if (actual_sha256 != expect_sha256) {
-            fail("integridade do arquivo vendorizado falhou: '" + input_path.string() +
-                 "' tem sha256 " + actual_sha256 + ", esperado " + expect_sha256 +
-                 " (GODS_LAWS.md L-07 EXCECAO No 1, obrigacao 3 - o arquivo deve permanecer "
-                 "verbatim; "
-                 "atualize third_party/khronos/README.md APENAS se o lider autorizou "
-                 "re-vendorizar)");
+        if (!expect_sha256.empty()) {
+            const std::string actual_sha256 = glintfx::gl_codegen::sha256_hex(xml_content);
+            if (actual_sha256 != expect_sha256) {
+                fail("integridade do arquivo vendorizado falhou: '" + input_path.string() +
+                     "' tem sha256 " + actual_sha256 + ", esperado " + expect_sha256 +
+                     " (GODS_LAWS.md L-07 EXCECAO No 1, obrigacao 3 - o arquivo deve permanecer "
+                     "verbatim; "
+                     "atualize third_party/khronos/README.md APENAS se o lider autorizou "
+                     "re-vendorizar)");
+            }
         }
+
+        const std::vector<glintfx::gl_codegen::gl_command> commands =
+            glintfx::gl_codegen::build_gl_registry(xml_content, max_version);
+
+        // GODS_LAWS.md L-40: zero functions generated is a FAILURE,
+        // never a silent success - the exact defect class this law
+        // exists to forbid (a gate that scans nothing and prints
+        // green).
+        if (commands.empty()) {
+            fail("varredura vazia: '" + input_path.string() +
+                 "' nao resolveu NENHUMA funcao GL <= " + std::to_string(max_version) +
+                 " core - GODS_LAWS.md L-40 reprova, nunca declara sucesso silencioso");
+        }
+
+        const std::filesystem::path header_path = output_dir / "gl_functions.hpp";
+        const std::filesystem::path source_path = output_dir / "gl_functions.cpp";
+
+        write_file_if_changed(header_path, glintfx::gl_codegen::render_header(commands));
+        write_file_if_changed(source_path, glintfx::gl_codegen::render_source(
+                                               commands, header_path.filename().string()));
+
+        (void)std::printf(
+            "gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
+            commands.size(), max_version);
+    } catch (const std::exception &e) {
+        fail(e.what());
     }
 
-    const std::vector<glintfx::gl_codegen::gl_command> commands =
-        glintfx::gl_codegen::build_gl_registry(xml_content, max_version);
-
-    // GODS_LAWS.md L-40: zero functions generated is a FAILURE, never
-    // a silent success - the exact defect class this law exists to
-    // forbid (a gate that scans nothing and prints green).
-    if (commands.empty()) {
-        fail("varredura vazia: '" + input_path.string() +
-             "' nao resolveu NENHUMA funcao GL <= " + std::to_string(max_version) +
-             " core - GODS_LAWS.md L-40 reprova, nunca declara sucesso silencioso");
-    }
-
-    const std::filesystem::path header_path = output_dir / "gl_functions.hpp";
-    const std::filesystem::path source_path = output_dir / "gl_functions.cpp";
-
-    write_file_if_changed(header_path, glintfx::gl_codegen::render_header(commands));
-    write_file_if_changed(
-        source_path, glintfx::gl_codegen::render_source(commands, header_path.filename().string()));
-
-    (void)std::printf(
-        "gl_registry_codegen: gerou %zu funcoes GL <= %.1f core (varredura nao-vazia)\n",
-        commands.size(), max_version);
     return 0;
 }

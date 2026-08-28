@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <algorithm>
+#include <exception>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -179,4 +180,51 @@ GLINTFX_TEST(build_gl_registry_carries_the_real_signature_for_each_resolved_name
     const gl_command *two = find_command(registry, "glTwo");
     GLINTFX_CHECK(two != nullptr && two->return_type == "void");
     GLINTFX_CHECK(two != nullptr && two->params.empty());
+}
+
+namespace {
+
+// CODEGEN-NUMCONV: a <feature number="..."> that is not a plain
+// decimal (a typo, a hand-edited fixture, a future gl.xml revision
+// this project has never read). This is the exact fixture that used
+// to prove the OLD defect: parse_version_number() called
+// std::from_chars() and never inspected the result, so `value` stayed
+// at its OWN default (0.0) and every caller silently treated this
+// malformed <feature> as "version 0.0, always in scope" - the worst
+// of the two shapes GODS_LAWS.md's D8 names, because it produces
+// PLAUSIBLE, WRONG output instead of stopping anything.
+constexpr std::string_view k_malformed_feature_number_fixture = R"(<registry>
+    <commands namespace="GL">
+        <command><proto>void <name>glOne</name></proto></command>
+    </commands>
+    <feature api="gl" name="GL_VERSION_BOGUS" number="nao-e-numero">
+        <require>
+            <command name="glOne"/>
+        </require>
+    </feature>
+</registry>)";
+
+} // namespace
+
+GLINTFX_TEST(a_malformed_feature_number_throws_naming_the_feature_and_the_raw_value) {
+    // GODS_LAWS.md D8: this parser IS the ingestion boundary (it reads
+    // a file from a third party, gl.xml) - a malformed <feature
+    // number="..."> attribute must become a NAMED, visible error, not
+    // a silently-defaulted 0.0 flowing into every <feature> in-scope
+    // decision downstream.
+    bool threw = false;
+    std::string what_text;
+    try {
+        (void)resolve_core_profile_command_names(k_malformed_feature_number_fixture, 3.3);
+    } catch (const std::exception &e) {
+        threw = true;
+        what_text = e.what();
+    }
+    GLINTFX_CHECK(threw);
+    // Names the CULPRIT feature - which <feature> in a 2.7 MB real
+    // gl.xml this is, not just "some number somewhere failed".
+    GLINTFX_CHECK(what_text.find("GL_VERSION_BOGUS") != std::string::npos);
+    // Names the CULPRIT value - the exact text that failed to parse,
+    // so whoever reads the message does not have to go grep the file.
+    GLINTFX_CHECK(what_text.find("nao-e-numero") != std::string::npos);
 }

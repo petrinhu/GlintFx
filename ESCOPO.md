@@ -919,3 +919,42 @@ O achado que as trouxe: a decisão 5 fechava **cinco** categorias, mas o líder 
 **Em desenho, por pedido dele nesta mesma conversa:** porcentagem como **operador que aninha com função** (poder escrever "metade da largura da janela" sem saber o número), e uma **função de composição de laço** (repetições mais intervalo). ⚠️ **As formas que ele escreveu são ILUSTRAÇÃO, não especificação** — ele mesmo marcou assim: *"essa 'sintaxe' foi exemplo, não sei o padrão"*.
 
 **Impacto declarado:** `GFSS-VALUE` (`d47dff7`) foi entregue com **cinco** categorias e **doze** unidades. **Precisa ser emendada antes de fechar.**
+
+#### As seis decisões de 28/08/2026 sobre ângulo, tempo e cadência
+
+Nascidas de o líder ter pedido para **ver a lista** de unidades e ter percebido que faltavam categorias inteiras. Desenho do CTO sob a L-43, com 31 fontes, em `/var/tmp/glintfx-plan/valor-angulo-tempo.md`.
+
+**1. Tempo se escreve com a grafia do padrão: `h`, `min`, `s`, `ms`, `ns`.** ⚠️ **Isto CONTRARIA o verbatim inicial dele** (*"sec, mili-sec"*), e ele mudou depois de ver o custo: usar grafia própria faria a biblioteca **rejeitar toda folha escrita no padrão**, o oposto da razão pela qual ele mesmo aceitou as unidades físicas. **Milissegundo é o padrão quando a unidade é omitida**, e esse padrão mora **no esquema da propriedade**, nunca na leitura: número cru continua sendo número, e a decisão 5 de 26/08 sai intacta.
+
+**2. Ângulo entra com as quatro do padrão:** grau, radiano, grado e volta. Mesmo precedente: não rejeitar folha padrão. As três menos usadas custam quase nada, são conversão fixa.
+
+**3. `frames` ENTRA como unidade, com a semântica que o LÍDER definiu**, e ela resolve a objeção que tinha sido levantada. Verbatim: *"entra, mas calculado com o monitor. padrao seria 60[Hz] e pedir 3 realmente duraria 50ms, mas se o monitor tiver 144, faria a conversao com duplicacao de frame se necessário, para durar os mesmos 50ms. Seria na pratica uma unidade relativa ao refresh-rate, sem dar ao consumidor o trabalho de calcular."*
+
+Ou seja: **referência fixa de 60 Hz, duração preservada em qualquer monitor**, e o motor faz a conversão. O autor escreve no vocabulário de animador e **não faz conta**. ⚠️ **Consequência declarada a ele:** com isso `frames` é apelido de duração, e **não** significa "um quadro real desta tela"; esse segundo sentido, se for querido, é outra coisa.
+
+**4. O laço ESTENDE a propriedade do padrão, com barra como separador.** Verbatim: *"opcao 1"*.
+
+- `animation-iteration-count: 3` continua sendo **o padrão puro, intocado**.
+- `animation-iteration-count: 3 / 4s` são três repetições com quatro segundos de pausa entre elas.
+
+**A barra é o separador do próprio padrão** para valores de significados diferentes numa declaração (tamanho de fonte com altura de linha, posição com tamanho, raio horizontal com vertical). Vírgula não serve: ali já significa lista de animações distintas.
+
+⚠️ **A metade da pausa NÃO EXISTE no padrão** — a proposta equivalente morreu em 2011. É ganho real, não reimplementação.
+
+**O custo foi apresentado e ele respondeu com uma decisão de produto**, verbatim: *"colocamos na documentacao e fazemos maior publicidade mostrando que melhoramos uma funcao sem quebrar o produto original, mantendo compatibilidade"*. A objeção era que estender palavra do padrão não avisa o leitor de que há extensão nossa; a resposta dele transforma isso em argumento de divulgação, que **só se pode fazer porque o valor único continua sendo o padrão puro**.
+
+**5. Porcentagem como operador: NÃO precisa de mecanismo novo.** O exemplo dele, *"metade da largura da janela"*, **já se escreve** com uma das unidades que ele acabou de aprovar. O caso geral é a família de funções de cálculo do padrão. **Recusada** a função de base nomeada, por duplicar o que as unidades já fazem.
+
+**6. Relógio do processador: NÃO é exposto.** Verificado, não suposto: o relógio monotônico do sistema **é** o contador do processador convertido. Expor o cru daria número não-portátil **sem ganho de precisão nenhum**.
+
+---
+
+#### REQUISITO NOVO, e é o produto mais valioso desta rodada: a animação anda na cadência real da tela
+
+**Origem:** o líder explicou o raciocínio por trás da pergunta das frequências. Verbatim: *"vsync conta o que tem em cada máquina é uma propriedade muito necessaria atualmente para animacoes nao desperdicarem processamento. foi sobre isso que raciocinei outras contagens de frequencia"*.
+
+⚠️ **O requisito dele não é uma unidade: é desempenho da biblioteca.** E ele se resolve **no laço principal**, não na folha de estilo. Se o laço avança a animação na cadência em que a tela **realmente apresenta**, o desperdício **some por construção**, e o consumidor ganha escrevendo em milissegundo. Como unidade, protegeria só quem soubesse usá-la; como requisito do laço, **protege todo consumidor**.
+
+**O mecanismo existe e foi confirmado com fonte:** a especificação do Wayland manda o compositor **não sinalizar** o aviso de "pode desenhar" para superfície invisível, e o Firefox usa exatamente isso. Logo: **janela oculta não computa nada**, e **taxa variável é acompanhada por construção**, em vez de combatida por um laço de intervalo fixo.
+
+**Fica escrito para a fatia de laço e apresentação nascer com isto**, não ser remendada depois: passo **medido**, nunca assumido; janela oculta não computa; teste no container da L-09.

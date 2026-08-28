@@ -117,3 +117,18 @@ Almost everything in this repository is written from scratch under AGPL-3.0-or-l
 - [`CHANGELOG.md`](CHANGELOG.md): what changed, release by release.
 
 The project's internal engineering documents (governance rules, the C++ style contract, the testing manual, audit reports, and the task table) are written in Portuguese, the maintainer's working language, and are not required reading to use glintfx as a library. They live at the repository root (`GODS_LAWS.md`, `CONTRACT.md`, `TESTES.md`, `AUDITORIAS.md`, `TODO.md`) for anyone curious how the project is run.
+
+## Acknowledgments
+
+This is placed after the documentation section on purpose: the technical reference above is what a reader needs to use glintfx, and this closing note is not.
+
+glintfx is written by one maintainer, but not in a vacuum. The people below shaped the maintainer's work in general, not necessarily this library on its own; where a contribution reached glintfx directly, it is named as such below.
+
+- **El [Iagows](https://github.com/iagows)** (the maintainer's brother), a computer engineer whose training shaped how the maintainer thinks about technology, and who has given advice on architecture and stack choices across the maintainer's projects.
+- **Od Fuinha Minduim, Thiago MadDog and Thiago Arcanjo**, IT professionals who have given tips on testing, architecture, QA, security and CI over the years.
+- **The #metaleiros-PE crew**, a longstanding friendship and a source of ongoing feedback.
+- **Bruno Vettore**, whose creative ideas have shaped the maintainer's other projects.
+
+### Special thanks: Gus Dragon, lead tester
+
+Gus Dragon, the maintainer's son, is glintfx's lead tester. On 21/08/2026 he asked, naming glintfx by name: "GlintFx e Mapeditor façam blocos especiais pra isso" (make glintfx and the map editor build special blocks for that). That request became glintfx's generic tile-marking mechanism: each map cell carries an opaque, author-defined mark, checked against a per-query traversal mask, with no game-specific meaning ever known to the library itself. It is the one entry on this list with a direct, verifiable line into glintfx's own code, not a general influence on the maintainer's work.

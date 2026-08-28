@@ -32,24 +32,75 @@
 # list of forbidden library names (a name list is infinite and ages;
 # an ALLOWLIST of what we already accept is small, closed, and grows
 # only by a conscious edit of THIS file, which is exactly the moment
-# GODS_LAWS.md L-07 says to stop and ask the leader):
+# GODS_LAWS.md L-07 says to stop and ask the leader).
+#
+# *** REVIEW-DEPZERO-GATE.md, 28/08/2026 (SHA e07a12f): an adversarial
+# review REPROVED the first version of this gate with FOUR CRITICAL
+# findings, confirmed by the orchestrator, all of them shapes the "no
+# allowlist saves these" claim below did not actually cover. Fixed in
+# this same commit; each one now has a --selftest control that covers
+# the FAMILY of the form, not the exact reproduction string, plus a
+# real mutation/bite against a copy of the real tree:
+#   1. A multi-line call (ordinary CMake formatting, not an attack) was
+#      invisible to the old line-by-line matcher - "0 violation(s)" for
+#      a staged freetype2 dependency, and this DEFEATED the real
+#      pre-commit hook end to end. Fixed by accumulating physical lines
+#      into one balanced-paren STATEMENT before matching (see
+#      cmake_content_violations/evaluate_cmake_statement below).
+#   2. cmake_language(CALL ${fn} ...) / cmake_language(EVAL CODE "...")
+#      and include(${var}) with NO literal filename in the argument
+#      bootstrapped FetchContent through pure indirection, matching no
+#      literal pattern. cmake_language() is now blocked UNCONDITIONALLY
+#      (zero legitimate use in this tree); a BARE-variable include() is
+#      blocked unless the statement also contains a literal ".cmake"
+#      fragment (the real, legitimate parameterized-file-include shape
+#      already used twice in this tree, kept passing on purpose).
+#   3. CPMFindPackage/CPMDeclarePackage/CPMGetPackage - three of CPM's
+#      four public entry points - were absent from the blocklist, which
+#      only named CPMAddPackage. All four are covered now.
+#   4. A ".." path segment inside a <glintfx/...> include let the
+#      structural rule-3 check resolve OUTSIDE include/ to a real system
+#      header - and the identical include compiles for real under any
+#      -Iinclude toolchain, so this was not a gate-only bug. Any ".."
+#      occurrence is now rejected outright, before the filesystem is
+#      even consulted.
+# Two IMPORTANT findings (false positives that would have gotten this
+# gate turned off) were fixed the same way: a multi-line find_package()/
+# pkg_check_modules() that IS on the allowlist no longer reproves just
+# for being formatted across several lines, and a pkg-config version
+# constraint (wayland-client>=1.20, or the three-token spaced form) no
+# longer reproves an already-allowed module. A seventh, IMPORTANT
+# finding about the closing "out of scope" sentence overclaiming what
+# check_spdx.sh/check_vendor_purity.sh actually cover is fixed by
+# rewording it to state their real, narrower behavior (see the tree-mode
+# closing message near the end of this file). ***
 #
 #   (a) CMake surface (every git-tracked CMakeLists.txt, *.cmake,
 #       *.cmake.in - a *.pc.in is pkg-config template syntax, not
-#       CMake, and is out of scope by construction). Two shapes:
+#       CMake, and is out of scope by construction). Scanned one
+#       balanced-parenthesis STATEMENT at a time (possibly several
+#       physical lines, comments stripped before matching - see
+#       cmake_content_violations's own header comment), never one
+#       physical line in isolation. Three shapes:
 #         - UNCONDITIONALLY forbidden: include(FetchContent),
 #           include(ExternalProject), FetchContent_Declare/
-#           MakeAvailable/Populate, ExternalProject_Add,
-#           CPMAddPackage, and any conan_*/vcpkg* call or include()
-#           referencing a conan/vcpkg toolchain file. No allowlist
-#           saves these - loading the module is the violation.
+#           MakeAvailable/Populate, ExternalProject_Add, and all four
+#           of CPMAddPackage/CPMFindPackage/CPMDeclarePackage/
+#           CPMGetPackage; any conan_*/vcpkg* call or include()
+#           referencing a conan/vcpkg toolchain file; cmake_language()
+#           in its entirety, any subcommand (see CMAKE_LANGUAGE_PATTERN
+#           above); and include() whose argument is built ENTIRELY from
+#           a variable with no literal ".cmake" fragment anywhere in the
+#           statement. No allowlist saves any of these - the call itself
+#           (or the indirection itself) is the violation.
 #         - conditional on the ALLOWLIST below: find_package(<name>
-#           and pkg_check_modules(... <module>). Today's allowlist is
-#           exactly what the tree uses: PkgConfig/glintfx for
-#           find_package (a build tool that never links, and our own
-#           library consumed by tests/package/), wayland-client for
-#           pkg_check_modules (GODS_LAWS.md L-07: a system API, same
-#           category as Win32).
+#           and pkg_check_modules(... <module>), matched by base module
+#           name with a pkg-config version comparator stripped first.
+#           Today's allowlist is exactly what the tree uses:
+#           PkgConfig/glintfx for find_package (a build tool that never
+#           links, and our own library consumed by tests/package/),
+#           wayland-client for pkg_check_modules (GODS_LAWS.md L-07: a
+#           system API, same category as Win32).
 #       Deliberately NOT done here: parsing target_link_libraries().
 #       Textual, multi-line, keyword-laden parsing of that call is the
 #       exact shape that manufactures false positives against our own
@@ -89,6 +140,16 @@
 #            test files use this exact form; without rule 3 this gate
 #            would reprove nearly the entire tree on its very first
 #            real run.
+#            *** REVIEW-DEPZERO-GATE.md achado CRITICO #4, 28/08/2026:
+#            "exists under <root>/include/" was checked with a plain
+#            `test -f`, which resolves ".." against the real
+#            filesystem - glintfx/../../../../../../usr/include/zlib.h
+#            walked OUT of include/ entirely and landed on a real
+#            system header, and the identical include compiles under
+#            any -Iinclude toolchain (same path-resolution rule the
+#            preprocessor itself follows). Any ".." anywhere in the
+#            name is now rejected before the filesystem is even
+#            touched - see include_content_violations below. ***
 #       Quote includes (#include "...") are not scanned: they resolve
 #       inside the tree or a generated build directory, and a tracked
 #       file they point at already falls under vector 1
@@ -206,12 +267,25 @@ FINDPKG_ADVICE="REMOVE this call. If it is a build tool that never links, or an 
 PKGCHECK_ADVICE="REMOVE this call. If it is a build tool that never links, or an OS API, add it to this gate's allowlist WITH a justification comment, and cite the leader's decision in the commit."
 INCLUDE_ADVICE="REMOVE this include. A new OS API header goes on this gate's allowlist WITH a justification; a third-party library header has no allowlist fix - GODS_LAWS.md L-07 says write it in-house."
 NEEDED_ADVICE="The binary links this library. Find the link flag that brought it in and REMOVE it. There is no allowlist fix for third-party linkage without the leader's order."
+INDIRECTION_ADVICE="REMOVE this call. This gate cannot verify what dependency-management code runs through indirection (cmake_language(), or an include() argument built entirely from a variable, with no literal filename in it) - GODS_LAWS.md L-07: STOP and take an opaque, indirect call like this to the leader; write the target literally instead."
 
 readonly CMAKE_SURFACE_PATTERN='(^|/)CMakeLists\.txt$|\.cmake$|\.cmake\.in$'
 readonly CXX_SURFACE_PATTERN='\.(cpp|cxx|cc|hpp|hxx|hh|h|ipp)$'
 
-readonly CMAKE_FETCH_PATTERN='^[[:space:]]*(include[[:space:]]*\([[:space:]]*(fetchcontent|externalproject)[[:space:]]*\)|fetchcontent_(declare|makeavailable|populate)[[:space:]]*\(|externalproject_add[[:space:]]*\(|cpmaddpackage[[:space:]]*\()'
+readonly CMAKE_FETCH_PATTERN='^[[:space:]]*(include[[:space:]]*\([[:space:]]*(fetchcontent|externalproject)[[:space:]]*\)|fetchcontent_(declare|makeavailable|populate)[[:space:]]*\(|externalproject_add[[:space:]]*\(|cpm(addpackage|findpackage|declarepackage|getpackage)[[:space:]]*\()'
+# CPM's four PUBLIC entry points (CPM.cmake docs), not just the one the
+# planning document named as example - REVIEW-DEPZERO-GATE.md achado
+# CRITICO #3, 28/08/2026: only CPMAddPackage was covered before.
 readonly CMAKE_TOOLCHAIN_PATTERN='^[[:space:]]*(conan_[a-z_]*[[:space:]]*\(|vcpkg[a-z_]*[[:space:]]*\(|include[[:space:]]*\([^)]*(conan|vcpkg)[^)]*\))'
+# cmake_language() is blocked UNCONDITIONALLY (any subcommand: CALL,
+# EVAL CODE, DEFER, ...), never by allowlist - REVIEW-DEPZERO-GATE.md
+# achado CRITICO #2: this project has ZERO legitimate uses of it today
+# (measured 28/08/2026), and the command exists precisely to dispatch
+# to a NAME COMPUTED AT CONFIGURE TIME (CALL ${fn}) or execute a STRING
+# of arbitrary CMake source (EVAL CODE "..."), both opaque to static
+# text scanning by construction - there is no "closed by form" middle
+# ground here, only "never used, so never allowed".
+readonly CMAKE_LANGUAGE_PATTERN='^[[:space:]]*cmake_language[[:space:]]*\('
 
 fail() {
     echo "check_dep_zero.sh: $1" >&2
@@ -242,53 +316,220 @@ name_is_known() {
 }
 
 first_paren_arg() {
-    printf '%s\n' "$1" | sed -E 's/^[^(]*\(([^[:space:])]+).*/\1/'
+    printf '%s\n' "$1" | sed -E 's/^[^(]*\([[:space:]]*([^[:space:])]+).*/\1/'
 }
 
-# --- sub-check (a): CMake surface, one line of CONTENT at a time -------
+# pkg-config module token may carry a GLUED version comparator
+# (wayland-client>=1.20, standard pkg-config syntax) - strips it so the
+# base module name can be checked against the allowlist
+# (REVIEW-DEPZERO-GATE.md achado IMPORTANTE #6).
+pkgconfig_module_base_name() {
+    printf '%s\n' "$1" | sed -E 's/(>=|<=|>|<|=).*$//'
+}
+
+# --- sub-check (a): CMake surface, one STATEMENT (balanced parens,
+# possibly spanning several physical lines) at a time -------------------
 # Reads from STDIN (not a filename) so the SAME function serves tree
 # mode (cat "$root/$p" | ...) and staged mode (git show ":$p" | ...) -
 # GODS_LAWS.md L-12: staged mode must read the INDEX blob, never the
 # working tree, and a plain filename argument could not express that.
+#
+# REVIEW-DEPZERO-GATE.md achado CRITICO #1, 28/08/2026: the previous
+# version matched ONE PHYSICAL LINE at a time, so a call broken across
+# lines (an ordinary CMake formatting style, not an attack) hid its
+# argument from every pattern below - "0 violation(s)" for a staged
+# commit that DID introduce freetype2, and the same escape defeated the
+# real pre-commit hook end to end. The fix: accumulate physical lines
+# into one LOGICAL STATEMENT by tracking paren depth (count of '(' minus
+# ')' seen so far), evaluate the statement only once its parens balance
+# back to zero, and run every pattern against the ACCUMULATED text
+# (newlines flattened to spaces) instead of a single line. A '#' CMake
+# comment is stripped from every physical line BEFORE it joins the
+# accumulator (COMMENT_ANALYSIS below) - both a comment line that opens
+# a statement (skipped, matching the old anchor-based exemption) and a
+# comment line APPEARING INSIDE an already-open multi-line call
+# (REVIEW-DEPZERO-GATE.md's own "comment in the middle" reproduction) -
+# so a word from a comment can never be mistaken for a pkg_check_modules
+# module token. The RAW (comment-INCLUDED) text is kept separately only
+# for the citation printed to the user, so the violation message still
+# shows exactly what is in the file.
+#
+# Known, declared limit: this counts literal '(' / ')' characters, so a
+# string literal containing an unbalanced parenthesis (e.g.
+# message("(")) would desynchronize the depth counter for the rest of
+# the file. Not exercised by any file in this tree (checked 28/08/2026:
+# zero CMake file has an unequal total '(' vs ')' count) and not part
+# of what this review asked to close; a full CMake tokenizer that
+# understands quoting would be the honest fix if this ever bites for
+# real, and is out of scope here.
+
+# QUOTE-AWARE, single-process line analysis: a bare sed 's/#.*$//'
+# truncates INSIDE a double-quoted string, and CPM's own documented
+# shorthand ("gh:fmtlib/fmt#1.0") puts a real '#' inside one -
+# stripping it there ate the call's closing ')' and silently hid
+# CPMAddPackage from the scanner entirely (caught by this fatia's OWN
+# selftest regressing during the REVIEW-DEPZERO-GATE.md conserto,
+# 28/08/2026 - "prova antes de confiar" applied to a fix, not just to
+# new code). Toggles a quote flag; '#' only starts a comment OUTSIDE
+# quotes. The SAME pass also counts '(' / ')' outside quotes/comment,
+# so ONE awk process replaces what an earlier version of this fix did
+# with three (one awk for the strip, two more tr|wc pipelines for the
+# counts) - measured live 28/08/2026: dep_zero_test against the real
+# tree went from ~39s to ~107s with the three-process-per-line version,
+# almost entirely fork/exec overhead (`time` showed 1m39s of the 1m47s
+# total in `sys`); this version restores it to a shape close to the
+# original. The line is piped through STDIN, never passed via awk's
+# own `-v name=value` - that form runs its OWN C-style backslash-escape
+# processing on the value, and this tree has real, legitimate lines
+# containing a literal "\${" (cmake/GlintfxInstall.cmake:183 etc.,
+# CMake's own way to write an UN-expanded "${...}" into generated
+# text) - `-v` silently ate the backslash and printed a warning on
+# every one of them (caught by re-running this fatia's own fix against
+# the real tree, not just the fixtures, before declaring done). Piped
+# stdin content is never escape-processed. Known, declared limit: does
+# not understand a backslash-escaped quote inside a string (\") - not
+# used anywhere in this tree's CMake files (checked 28/08/2026).
+analyze_cmake_line() {
+    printf '%s\n' "$1" | awk '
+    {
+        in_quote = 0
+        out = ""
+        opens = 0
+        closes = 0
+        n = length($0)
+        for (i = 1; i <= n; i++) {
+            c = substr($0, i, 1)
+            if (c == "\"") { in_quote = !in_quote; out = out c; continue }
+            if (c == "#" && !in_quote) { break }
+            if (c == "(" && !in_quote) { opens++ }
+            if (c == ")" && !in_quote) { closes++ }
+            out = out c
+        }
+        print out
+        print opens
+        print closes
+    }'
+}
 
 cmake_content_violations() {
     display_path="$1"
     line_no=0
-    while IFS= read -r line || [ -n "$line" ]; do
+    depth=0
+    stmt_start_line=0
+    stmt_analysis=""
+    stmt_display=""
+
+    while IFS= read -r raw_line || [ -n "$raw_line" ]; do
         line_no=$((line_no + 1))
 
-        if printf '%s\n' "$line" | grep -qiE "$CMAKE_FETCH_PATTERN"; then
-            printf '%s:%s: %s\n  -> %s\n' "$display_path" "$line_no" "$line" "$FETCH_ADVICE"
-            continue
+        analysis_line=""
+        opens=0
+        closes=0
+        {
+            IFS= read -r analysis_line
+            IFS= read -r opens
+            IFS= read -r closes
+        } <<ANALYZED
+$(analyze_cmake_line "$raw_line")
+ANALYZED
+
+        if [ "$depth" -eq 0 ]; then
+            stmt_analysis="$analysis_line"
+            stmt_display="$raw_line"
+            stmt_start_line=$line_no
+        else
+            stmt_analysis="$stmt_analysis
+$analysis_line"
+            stmt_display="$stmt_display
+$raw_line"
         fi
-        if printf '%s\n' "$line" | grep -qiE "$CMAKE_TOOLCHAIN_PATTERN"; then
-            printf '%s:%s: %s\n  -> %s\n' "$display_path" "$line_no" "$line" "$FETCH_ADVICE"
-            continue
-        fi
-        if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*find_package[[:space:]]*\('; then
-            name="$(first_paren_arg "$line")"
-            if ! name_is_known "$name" "$FIND_PACKAGE_ALLOWLIST"; then
-                printf '%s:%s: %s\n  -> %s\n' "$display_path" "$line_no" "$line" "$FINDPKG_ADVICE"
-            fi
-            continue
-        fi
-        if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*pkg_check_modules[[:space:]]*\('; then
-            content="$(printf '%s\n' "$line" | sed -E 's/^[^(]*\(//; s/\)[[:space:]]*$//')"
-            rest="$(printf '%s\n' "$content" | sed -E 's/^[^[:space:]]+[[:space:]]*//')"
-            unknown_hit=0
-            for tok in $rest; do
-                if name_is_known "$tok" "$PKG_CHECK_MODULES_KEYWORDS"; then
-                    continue
-                fi
-                if ! name_is_known "$tok" "$PKG_CHECK_MODULES_ALLOWLIST"; then
-                    unknown_hit=1
-                fi
-            done
-            if [ "$unknown_hit" -eq 1 ]; then
-                printf '%s:%s: %s\n  -> %s\n' "$display_path" "$line_no" "$line" "$PKGCHECK_ADVICE"
-            fi
+
+        depth=$((depth + opens - closes))
+
+        if [ "$depth" -le 0 ]; then
+            depth=0
+            evaluate_cmake_statement "$display_path" "$stmt_start_line" "$stmt_analysis" "$stmt_display"
+            stmt_analysis=""
+            stmt_display=""
         fi
     done
+}
+
+# Evaluates ONE already-balanced (possibly multi-line) CMake statement.
+# $3 is the comment-stripped text patterns run against; $4 is the raw
+# text (comment included) printed in the citation.
+evaluate_cmake_statement() {
+    display_path="$1"
+    start_line="$2"
+    flat_analysis="$(printf '%s\n' "$3" | tr '\n' ' ')"
+    flat_display="$(printf '%s\n' "$4" | tr '\n' ' ')"
+
+    # A statement that is blank/whitespace-only (a stripped pure-comment
+    # accumulation) has nothing to evaluate.
+    case "$flat_analysis" in
+        *[![:space:]]*) : ;;
+        *) return ;;
+    esac
+
+    if printf '%s\n' "$flat_analysis" | grep -qiE "$CMAKE_FETCH_PATTERN"; then
+        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$FETCH_ADVICE"
+        return
+    fi
+    if printf '%s\n' "$flat_analysis" | grep -qiE "$CMAKE_TOOLCHAIN_PATTERN"; then
+        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$FETCH_ADVICE"
+        return
+    fi
+    if printf '%s\n' "$flat_analysis" | grep -qiE "$CMAKE_LANGUAGE_PATTERN"; then
+        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$INDIRECTION_ADVICE"
+        return
+    fi
+    if printf '%s\n' "$flat_analysis" | grep -qiE '^[[:space:]]*include[[:space:]]*\('; then
+        if printf '%s\n' "$flat_analysis" | grep -qF '${'; then
+            # A variable appears inside the argument. Accepted ONLY when
+            # the statement ALSO contains a literal ".cmake" fragment
+            # somewhere - the real, legitimate shape already in this
+            # tree today (cmake/glintfx-config.cmake.in:5,
+            # tests/embed_dll_colocation/CMakeLists.txt:43-44):
+            # include("${SOME_DIR}/File.cmake") loads a NAMED file whose
+            # PREFIX is parameterized. A BARE "${var}" with no literal
+            # filename trace at all - REVIEW-DEPZERO-GATE.md achado
+            # CRITICO #2's include(${mod_name}) - gives this gate no
+            # text to reason about whatsoever and is refused
+            # unconditionally: no allowlist rescues it, matching how
+            # FetchContent/ExternalProject already work.
+            if ! printf '%s\n' "$flat_analysis" | grep -qi '\.cmake'; then
+                printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$INDIRECTION_ADVICE"
+            fi
+        fi
+    fi
+    if printf '%s\n' "$flat_analysis" | grep -qiE '^[[:space:]]*find_package[[:space:]]*\('; then
+        name="$(first_paren_arg "$flat_analysis")"
+        if ! name_is_known "$name" "$FIND_PACKAGE_ALLOWLIST"; then
+            printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$FINDPKG_ADVICE"
+        fi
+        return
+    fi
+    if printf '%s\n' "$flat_analysis" | grep -qiE '^[[:space:]]*pkg_check_modules[[:space:]]*\('; then
+        content="$(printf '%s\n' "$flat_analysis" | sed -E 's/^[^(]*\(//; s/\)[[:space:]]*$//')"
+        rest="$(printf '%s\n' "$content" | sed -E 's/^[[:space:]]*[^[:space:]]+[[:space:]]*//')"
+        unknown_hit=0
+        for tok in $rest; do
+            if name_is_known "$tok" "$PKG_CHECK_MODULES_KEYWORDS"; then
+                continue
+            fi
+            case "$tok" in
+                '>='|'<='|'>'|'<'|'=') continue ;;
+                [0-9]*) continue ;;
+            esac
+            base_tok="$(pkgconfig_module_base_name "$tok")"
+            if ! name_is_known "$base_tok" "$PKG_CHECK_MODULES_ALLOWLIST"; then
+                unknown_hit=1
+            fi
+        done
+        if [ "$unknown_hit" -eq 1 ]; then
+            printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$PKGCHECK_ADVICE"
+        fi
+    fi
 }
 
 # --- sub-check (b): include surface, one line of CONTENT at a time -----
@@ -313,7 +554,20 @@ include_content_violations() {
 
         case "$name" in
             glintfx/*)
-                [ -f "$root/include/$name" ] && continue
+                # REVIEW-DEPZERO-GATE.md achado CRITICO #4, 28/08/2026:
+                # `test -f` resolves ".." against the real filesystem,
+                # so glintfx/../../../../../../usr/include/zlib.h
+                # walked clean off include/ and reached a REAL system
+                # header - and the SAME include compiles for real under
+                # any -Iinclude toolchain, because the preprocessor
+                # resolves <...> the identical way. Reject ANY ".."
+                # occurrence before ever touching the filesystem - this
+                # is a structural check, not a name list, so there is
+                # no allowlist that could rescue a traversal attempt.
+                case "$name" in
+                    *..*) : ;;
+                    *) [ -f "$root/include/$name" ] && continue ;;
+                esac
                 ;;
         esac
 
@@ -411,7 +665,7 @@ check_dep_zero_tree() {
 
     echo "check_dep_zero.sh: 0 violation(s) - $cmake_count cmake file(s), $cxx_count c++ file(s) scanned"
     printf '%s\n' "$needed_output"
-    echo "check_dep_zero.sh: out of scope by design: documents (.md), shell scripts (.sh), quote includes (vendor vector covered by check_spdx.sh/check_vendor_purity.sh)"
+    echo "check_dep_zero.sh: out of scope by design, and not verified by any other gate either: documents (.md), shell scripts (.sh), and quote includes (#include \"...\") are not scanned here. check_spdx.sh only checks for the PRESENCE of an SPDX header string in a file (a vendored third-party file with that string pasted in would still pass it); check_vendor_purity.sh only guards the one named third_party/khronos/ exception from growing, not vendoring in general. Neither closes the quote-include vendor vector - this gate does not either."
 }
 
 # --- staged mode (pre-commit shape): index content, sub-checks (a)/(b) -
@@ -627,6 +881,337 @@ selftest_negative_control_include() {
 
 # Fixture .so's compiled with the system cc, in scratch - depends on no
 # package inside the container (plan section 4, caminho 1).
+# --- REVIEW-DEPZERO-GATE conserto (SHA e07a12f reprovado, 4 CRITICO):
+# sete controles novos, um por achado, cobrindo a FAMILIA da forma que
+# escapava, nao so a string exata do revisor. Adicionados ANTES do
+# conserto (GODS_LAWS.md L-20: vermelho real capturado contra o codigo
+# ainda nao corrigido, colado no relatorio ao lider).
+
+# CRITICO #1 (multi-line quebra o parser linha-a-linha por completo):
+# quatro formas - quebra generica, quebra com comentario NO MEIO dos
+# argumentos, comando em caixa mista com espaco antes do parenteses, e
+# find_package multi-linha com pacote DESCONHECIDO (prova que o defeito
+# nao e so de pkg_check_modules).
+selftest_negative_control_cmake_multiline() {
+    scratch="$1"
+    root="$scratch/negative-cmake-multiline"
+    overall=0
+
+    for case_name in pkgcheck_multiline pkgcheck_multiline_comment pkgcheck_multiline_mixedcase findpkg_multiline_unknown; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            pkgcheck_multiline)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+pkg_check_modules(
+    Fixture
+    REQUIRED
+    freetype2)
+EOF
+                needle="freetype2"
+                ;;
+            pkgcheck_multiline_comment)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+pkg_check_modules(
+    Fixture
+    # module list follows
+    REQUIRED
+    freetype2
+)
+EOF
+                needle="freetype2"
+                ;;
+            pkgcheck_multiline_mixedcase)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+Pkg_Check_Modules (
+    Fixture
+    REQUIRED
+    freetype2
+)
+EOF
+                needle="freetype2"
+                ;;
+            findpkg_multiline_unknown)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+find_package(
+    Freetype
+    REQUIRED
+)
+EOF
+                needle="find_package("
+                ;;
+        esac
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(cmake-multiline/$case_name) control FAILED (should have been reproved)" >&2
+            overall=1
+        elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
+            echo "selftest: NEGATIVE(cmake-multiline/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
+            printf '%s\n' "$output" >&2
+            overall=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cmake-multiline) control OK (four multi-line/format-varied forms, each reproved and cited)"
+    return "$overall"
+}
+
+# IMPORTANTE #5 (falso positivo: chamada multi-linha ALLOWLISTED nao
+# pode reprovar - senao o primeiro CMake formatado "bonito" desliga o
+# portao). Cobre find_package E pkg_check_modules multi-linha, os dois
+# ja permitidos hoje.
+selftest_positive_control_cmake_multiline() {
+    scratch="$1"
+    root="$scratch/positive-cmake-multiline"
+    make_clean_fixture "$root"
+    cat > "$root/cmake/Wayland.cmake" <<'EOF'
+find_package(
+    PkgConfig
+    REQUIRED
+)
+pkg_check_modules(
+    FixtureWayland
+    REQUIRED
+    wayland-client
+)
+EOF
+    git_init_fixture "$root"
+
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: POSITIVE(cmake-multiline) control FAILED (allowlisted find_package/pkg_check_modules multi-linha deveria passar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: POSITIVE(cmake-multiline) control OK (find_package e pkg_check_modules multi-linha, allowlisted, passam)"
+}
+
+# IMPORTANTE #6 (restricao de versao reprova modulo ja permitido):
+# forma colada (wayland-client>=1.20) E forma separada em tres tokens
+# (wayland-client >= 1.20) - as duas sao sintaxe padrao do pkg-config.
+# Controle NEGATIVO irmao: modulo DESCONHECIDO com restricao de versao
+# continua reprovando (prova que o corte de sufixo nao abre allowlist
+# para nomes errados).
+selftest_positive_control_pkgcheck_version() {
+    scratch="$1"
+    root="$scratch/positive-pkgcheck-version"
+    overall=0
+
+    for case_name in glued spaced; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            glued) printf 'pkg_check_modules(FixtureWayland REQUIRED wayland-client>=1.20)\n' > "$root/cmake/Wayland.cmake" ;;
+            spaced) printf 'pkg_check_modules(FixtureWayland REQUIRED wayland-client >= 1.20)\n' > "$root/cmake/Wayland.cmake" ;;
+        esac
+        git_init_fixture "$root"
+
+        if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: POSITIVE(pkgcheck-version/$case_name) control FAILED (wayland-client com restricao de versao deveria passar)" >&2
+            printf '%s\n' "$output" >&2
+            overall=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$overall" -eq 0 ] && echo "selftest: POSITIVE(pkgcheck-version) control OK (forma colada e forma separada, modulo ja permitido, passam)"
+    return "$overall"
+}
+
+selftest_negative_control_pkgcheck_version_unknown() {
+    scratch="$1"
+    root="$scratch/negative-pkgcheck-version-unknown"
+    make_clean_fixture "$root"
+    printf 'pkg_check_modules(Fixture REQUIRED freetype2>=2.10)\n' > "$root/cmake/Wayland.cmake"
+    git_init_fixture "$root"
+
+    if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: NEGATIVE(pkgcheck-version-unknown) control FAILED (freetype2>=2.10 deveria reprovar)" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "freetype2"; then
+        echo "selftest: NEGATIVE(pkgcheck-version-unknown) control FAILED (reprovou, mas nao citou freetype2)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: NEGATIVE(pkgcheck-version-unknown) control OK (modulo desconhecido com versao continua reprovando)"
+}
+
+# CRITICO #2 (indirecao de variavel burla FetchContent por completo):
+# include(${var}) puro, cmake_language(CALL ${var} ...), cmake_language
+# (EVAL CODE "..."), caixa mista, espaco antes do parenteses. Controle
+# POSITIVO irmao: os DOIS usos REAIS e legitimos deste padrao na arvore
+# hoje (include("${VAR}/arquivo.cmake") - caminho parametrizado com
+# sufixo .cmake literal) continuam passando - sem isso o conserto
+# quebraria CMakeLists.txt/tests/embed_dll_colocation de verdade.
+selftest_negative_control_cmake_indirection() {
+    scratch="$1"
+    root="$scratch/negative-cmake-indirection"
+    overall=0
+
+    for case_name in include_bare_var cmake_language_call cmake_language_eval mixedcase_call spaced_call; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            include_bare_var)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+set(mod_name "FetchContent")
+include(${mod_name})
+EOF
+                needle="include(\${mod_name})"
+                ;;
+            cmake_language_call)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+set(fn_name "FetchContent_Declare")
+cmake_language(CALL ${fn_name} fmt GIT_REPOSITORY https://example.invalid/fmt.git)
+EOF
+                needle="cmake_language"
+                ;;
+            cmake_language_eval)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+cmake_language(EVAL CODE "include(FetchContent)")
+EOF
+                needle="cmake_language"
+                ;;
+            mixedcase_call)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+Cmake_Language(CALL FetchContent_Declare fmt)
+EOF
+                needle="Cmake_Language"
+                ;;
+            spaced_call)
+                cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+cmake_language (CALL FetchContent_Declare fmt)
+EOF
+                needle="cmake_language"
+                ;;
+        esac
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(cmake-indirection/$case_name) control FAILED (deveria ter reprovado)" >&2
+            overall=1
+        elif ! printf '%s\n' "$output" | grep -qiF "$needle"; then
+            echo "selftest: NEGATIVE(cmake-indirection/$case_name) control FAILED (reprovou, mas nao citou '$needle')" >&2
+            printf '%s\n' "$output" >&2
+            overall=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cmake-indirection) control OK (cinco formas de indirecao, cada uma reprovada e citada)"
+    return "$overall"
+}
+
+selftest_positive_control_cmake_indirection_legit() {
+    scratch="$1"
+    root="$scratch/positive-cmake-indirection-legit"
+    make_clean_fixture "$root"
+    cat > "$root/cmake/Wayland.cmake" <<'EOF'
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FixtureWayland REQUIRED wayland-client)
+include("${CMAKE_CURRENT_LIST_DIR}/glintfxTargets.cmake")
+EOF
+    git_init_fixture "$root"
+
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: POSITIVE(cmake-indirection-legit) control FAILED (include(\"\${VAR}/arquivo.cmake\") e o padrao REAL usado em cmake/glintfx-config.cmake.in e tests/embed_dll_colocation/ - nao pode reprovar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: POSITIVE(cmake-indirection-legit) control OK (include parametrizado com sufixo .cmake literal, o padrao real da arvore, passa)"
+}
+
+# CRITICO #3 (blocklist do CPM incompleta - so CPMAddPackage estava
+# coberta; API publica tem quatro entradas).
+selftest_negative_control_cpm_variants() {
+    scratch="$1"
+    root="$scratch/negative-cpm-variants"
+    overall=0
+
+    for fn in CPMFindPackage CPMDeclarePackage CPMGetPackage; do
+        make_clean_fixture "$root"
+        printf '%s(NAME fmt GIT_REPOSITORY https://example.invalid/fmt.git GIT_TAG 1.0)\n' "$fn" >> "$root/cmake/Wayland.cmake"
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(cpm-variants/$fn) control FAILED (deveria ter reprovado)" >&2
+            overall=1
+        elif ! printf '%s\n' "$output" | grep -qiF "$fn"; then
+            echo "selftest: NEGATIVE(cpm-variants/$fn) control FAILED (reprovou, mas nao citou '$fn')" >&2
+            printf '%s\n' "$output" >&2
+            overall=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cpm-variants) control OK (CPMFindPackage/CPMDeclarePackage/CPMGetPackage, cada uma reprovada e citada)"
+    return "$overall"
+}
+
+# CRITICO #4 (travessia de caminho engana a regra 3 estrutural, E o
+# include resultante COMPILA de verdade). Quatro formas: a exata do
+# revisor, uma mais curta, um "." solto no meio, e ".." sozinho como
+# segmento final.
+selftest_negative_control_include_traversal() {
+    scratch="$1"
+    root="$scratch/negative-include-traversal"
+    overall=0
+
+    for case_name in deep_traversal short_traversal dot_and_traversal trailing_dotdot; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            deep_traversal) inc='#include <glintfx/../../../../../../usr/include/zlib.h>' ;;
+            short_traversal) inc='#include <glintfx/../../etc/passwd>' ;;
+            dot_and_traversal) inc='#include <glintfx/core/./../../../../../etc/passwd>' ;;
+            trailing_dotdot) inc='#include <glintfx/..>' ;;
+        esac
+        printf '%s\n' "$inc" >> "$root/src/core/err.cpp"
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(include-traversal/$case_name) control FAILED (deveria ter reprovado)" >&2
+            overall=1
+        elif ! printf '%s\n' "$output" | grep -qF '..'; then
+            echo "selftest: NEGATIVE(include-traversal/$case_name) control FAILED (reprovou, mas a citacao nao mostra a travessia)" >&2
+            printf '%s\n' "$output" >&2
+            overall=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(include-traversal) control OK (quatro formas de travessia, cada uma reprovada)"
+    return "$overall"
+}
+
+# IMPORTANTE #7 (a linha de fora-de-escopo superestima cobertura real
+# de check_spdx.sh/check_vendor_purity.sh). Controle de TEXTO: a
+# mensagem nao pode alegar que os dois gates "cobrem" o vetor de
+# include-por-aspas de vendor - e tem de dizer o que eles REALMENTE
+# fazem (presenca de string SPDX; so o diretorio nomeado da excecao
+# Khronos).
+selftest_scope_message_is_honest() {
+    scratch="$1"
+    root="$scratch/scope-message"
+    make_clean_fixture "$root"
+    git_init_fixture "$root"
+
+    output="$(check_dep_zero_tree "$root" "NONE" 2>&1)" || {
+        echo "selftest: SCOPE-MESSAGE control FAILED (fixture limpa deveria passar antes de examinar o texto)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    }
+    if printf '%s\n' "$output" | grep -qF "vendor vector covered by"; then
+        echo "selftest: SCOPE-MESSAGE control FAILED (ainda alega 'covered by' - superestima a cobertura real dos dois gates citados)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "quote includes"; then
+        echo "selftest: SCOPE-MESSAGE control FAILED (nao declara mais que includes de aspas ficam fora do escopo)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: SCOPE-MESSAGE control OK (a linha de fora-de-escopo nao alega cobertura que os dois gates citados nao tem)"
+}
+
 selftest_negative_control_needed() {
     scratch="$1"
     root="$scratch/negative-needed"
@@ -833,7 +1418,16 @@ selftest_main() {
     overall=0
     selftest_positive_control "$scratch" || overall=1
     selftest_negative_control_cmake "$scratch" || overall=1
+    selftest_negative_control_cmake_multiline "$scratch" || overall=1
+    selftest_positive_control_cmake_multiline "$scratch" || overall=1
+    selftest_positive_control_pkgcheck_version "$scratch" || overall=1
+    selftest_negative_control_pkgcheck_version_unknown "$scratch" || overall=1
+    selftest_negative_control_cmake_indirection "$scratch" || overall=1
+    selftest_positive_control_cmake_indirection_legit "$scratch" || overall=1
+    selftest_negative_control_cpm_variants "$scratch" || overall=1
     selftest_negative_control_include "$scratch" || overall=1
+    selftest_negative_control_include_traversal "$scratch" || overall=1
+    selftest_scope_message_is_honest "$scratch" || overall=1
     selftest_positive_control_needed "$scratch" || overall=1
     selftest_negative_control_needed "$scratch" || overall=1
     selftest_needed_static_skip || overall=1
@@ -848,7 +1442,7 @@ selftest_main() {
         echo "check_dep_zero.sh --selftest: FAILED (see above)" >&2
         exit 1
     fi
-    echo "check_dep_zero.sh --selftest: all twelve controls OK"
+    echo "check_dep_zero.sh --selftest: all twenty-one controls OK"
 }
 
 main() {

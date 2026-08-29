@@ -174,11 +174,19 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 ## L-09
 
-**Data:** 21/08/2026, verbatim: *"qualquer teste que toque minha superficie (teclado, mouse, tela) deve ser feito em docker/sandbox"*.
+**Data:** 21/08/2026, verbatim: *"qualquer teste que toque minha superficie (teclado, mouse, tela) deve ser feito em docker/sandbox"*. **REFORMADA e AMPLIADA em 29/08/2026, verbatim dele:** *"nenhum teste dinamico toca minha sessao, sempre fazer em docker"*.
 
-Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global, screenshot e GL na tela. **Nunca na sessão viva do líder.** Já abriu janela na sessão dele por minutos e já travou o touchpad a ponto de exigir reboot.
+**NENHUM teste dinâmico roda na sessão viva do líder. Sempre em container.** "Dinâmico" é todo teste que **executa** alguma coisa: a suíte de `ctest`, o `preci.sh`, o binário de teste solto, o portão de shell, o julgador em Python, a demo, o sanitizer, o teste de container aninhado. Não é mais só o que toca teclado, mouse e tela — **é tudo que roda**.
 
-**Aplicação:** o container é a fronteira externa e o compositor vive dentro dele (`kwin_wayland --virtual` para headless, `--socket <nome>` com dimensões quando precisar de janela). Três proibições absolutas: não montar o `XDG_RUNTIME_DIR` nem o socket `wayland-0` do host; **não montar `/dev/uinput` nem usar injetor baseado nele** (uinput injeta no kernel, não numa sessão, e a tecla chega na sessão real do líder mesmo dentro do container); nada de X11 (L-05). Provar o isolamento **antes** de interagir. Detalhe operacional em `CLAUDE.md`, seção "Isolamento obrigatório de teste".
+**O que continua fora da regra, porque não executa nada:** ler arquivo, escrever arquivo, `git`, `grep`, e a **configuração/compilação** do projeto (que produz artefato sem executá-lo). Se a dúvida for genuína sobre se algo "executa", trate como se executasse.
+
+**Por que a lei cresceu:** a versão de 21/08 nomeava três superfícies (teclado, mouse, tela) e um agente disciplinado podia rodar a suíte inteira na máquina dele sem ferir a letra — foi o que aconteceu durante toda a onda do portão de dependência zero, com dezenas de execuções de `ctest` e `preci.sh` na sessão viva. **O risco que a ampliação fecha não é só o de janela ou tecla: é o de um teste em desenvolvimento consumir memória, derrubar processo ou travar a máquina do líder** — e em 29/08/2026, às 08:30, houve dois estouros de memória reais nesta máquina (o núcleo matou um processo de 24 GiB e o vigia do sistema matou uma aba de terminal por pressão sustentada). Teste que executa é código em prova; código em prova quebra por definição, e não quebra na máquina de quem está trabalhando.
+
+**Aplicação, superfície gráfica (o núcleo original da lei, que continua inteiro):** o container é a fronteira externa e o compositor vive dentro dele (`kwin_wayland --virtual` para headless, `--socket <nome>` com dimensões quando precisar de janela). Cobre janela, fullscreen, foco, iconify, captura de input, cursor, hotkey global, screenshot e GL na tela. Já abriu janela na sessão do líder por minutos e já travou o touchpad a ponto de exigir reboot. Três proibições absolutas: não montar o `XDG_RUNTIME_DIR` nem o socket `wayland-0` do host; **não montar `/dev/uinput` nem usar injetor baseado nele** (uinput injeta no kernel, não numa sessão, e a tecla chega na sessão real do líder mesmo dentro do container); nada de X11 (L-05). Provar o isolamento **antes** de interagir.
+
+**Aplicação, execução em geral (o que a ampliação acrescenta):** a suíte roda dentro de container, com o repositório montado e o diretório de construção **dentro do container ou em `/var/tmp`**, nunca em `/tmp` (que nesta máquina sai da RAM). Container por vez, derrubado ao fim. Quando o ambiente disponível não permitir rodar algo em container, **declare o downgrade** e diga o que ficou sem prova — jamais rode na sessão viva "só desta vez". Detalhe operacional em `CLAUDE.md`, seção "Isolamento obrigatório de teste".
+
+⚠️ **Consequência retroativa, dita para não se perder:** toda prova de suíte verde produzida nesta máquina **antes** de 29/08/2026 foi obtida na sessão viva. Ela não é invalidada — o que ela mediu continua medido —, mas o método muda daqui em diante, e a próxima execução de qualquer suíte é em container.
 
 ## L-10
 

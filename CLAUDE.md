@@ -28,7 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | implementar teclado, keymap ou texto digitado | L-06 parser XKB próprio |
 | ⚖ | adicionar dependência, `FetchContent`, vendorizar | L-07 dependência zero |
 | ⚖ | criar repo, `LICENSE`, cabeçalho, publicar qualquer coisa | L-08 público, AGPL-3.0 |
-| ⚖ | rodar teste que abre janela, injeta input ou captura tela | L-09 container, nunca a sessão viva |
+| ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
 | ⚖ | `git push`, merge em `main`, criar tag, publicar release | L-11 push por onda, tag com aval |
 | ⚖ | escrever ou revisar código de produto | L-12 agente especialista, papéis distintos |

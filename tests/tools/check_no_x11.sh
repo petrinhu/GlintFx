@@ -190,7 +190,15 @@ selftest_negative_control() {
     make_clean_fixture "$root"
     mkdir -p "$root/tools/ci" "$root/.github/workflows"
 
-    overall=0
+    # DEPZERO-SELFTEST-FIX (28/08/2026): function-owned name, never
+    # "overall" - selftest_main also names its own aggregator "overall",
+    # and POSIX sh functions share ONE global namespace (no "local").
+    # Before this fix, this being the only multi-case control in this
+    # file meant its own "overall=0" silently erased whatever verdict
+    # selftest_main had already accumulated from selftest_positive_control
+    # running first - see GODS_LAWS.md L-40 and the fix report for the
+    # exact mutation that proved it.
+    negative_forms_status=0
     for termo in 'Xlib.h' 'xcb/foo' 'XOpenDisplay' 'XTestFakeKeyEvent' 'xkbcommon' \
                  'XWayland' 'Xvfb' 'xvfb-run' 'xdotool' 'X11/Xutil.h'; do
         slug="$(printf '%s' "$termo" | tr -c 'a-zA-Z0-9' '_')"
@@ -199,11 +207,11 @@ selftest_negative_control() {
 
         if output="$(check_no_x11 "$root" 2>&1)"; then
             echo "selftest: controle NEGATIVO FALHOU (termo '$termo' em tools/ nao foi pego)" >&2
-            overall=1
+            negative_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qF "$alvo"; then
             echo "selftest: controle NEGATIVO FALHOU (reprovou, mas nao citou $alvo)" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            negative_forms_status=1
         fi
         rm -f "$alvo"
     done
@@ -213,16 +221,16 @@ selftest_negative_control() {
     printf 'run: xvfb-run ./demo\n' > "$alvo"
     if output="$(check_no_x11 "$root" 2>&1)"; then
         echo "selftest: controle NEGATIVO FALHOU (termo em .github/ nao foi pego)" >&2
-        overall=1
+        negative_forms_status=1
     elif ! printf '%s\n' "$output" | grep -qF "$alvo"; then
         echo "selftest: controle NEGATIVO FALHOU (reprovou, mas nao citou $alvo)" >&2
         printf '%s\n' "$output" >&2
-        overall=1
+        negative_forms_status=1
     fi
     rm -f "$alvo"
 
-    [ "$overall" -eq 0 ] && echo "selftest: controle NEGATIVO OK (dez termos, tools/ e .github/, todos pegos e citados)"
-    return "$overall"
+    [ "$negative_forms_status" -eq 0 ] && echo "selftest: controle NEGATIVO OK (dez termos, tools/ e .github/, todos pegos e citados)"
+    return "$negative_forms_status"
 }
 
 # Empty-scan floor: nenhum dos diretorios varridos existe na fixture.
@@ -293,6 +301,11 @@ selftest_main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
+    # DEPZERO-SELFTEST-FIX (28/08/2026): "overall" is now owned ONLY by
+    # this function - selftest_negative_control used to reuse this exact
+    # name for its own internal per-case tally (see its own comment).
+    # Each callee below still RETURNS its own status; this is the only
+    # place that AGGREGATES.
     overall=0
     selftest_positive_control "$scratch" || overall=1
     selftest_negative_control "$scratch" || overall=1

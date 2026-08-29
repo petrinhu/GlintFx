@@ -517,7 +517,21 @@ if(UNIX)
         NAME x11_selftest
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" --selftest
     )
-    set_tests_properties(x11_selftest PROPERTIES LABELS selftest)
+    # DEPZERO-SELFTEST-FIX (28/08/2026, GODS_LAWS.md L-40): belt on top of
+    # the exit code. check_no_x11.sh's own --selftest aggregator used to
+    # be able to report exit 0 while its own stdout/stderr still printed
+    # "FALHOU" for an individual control (a POSIX sh global-variable-name
+    # collision fixed in the script itself, same fatia) - that is exactly
+    # the shape of lie FAIL_REGULAR_EXPRESSION exists to catch: it fails
+    # the ctest verdict on a text match REGARDLESS of the exit code,
+    # closing the gap even if a future edit reintroduces the same
+    # collision. Deliberately NOT PASS_REGULAR_EXPRESSION: per `cmake
+    # --help-property PASS_REGULAR_EXPRESSION`, that property makes ctest
+    # IGNORE the exit code entirely - it would trade this hole for a new
+    # one instead of closing it.
+    set_tests_properties(x11_selftest PROPERTIES
+        LABELS selftest
+        FAIL_REGULAR_EXPRESSION "FALHOU")
 endif()
 
 # Port privacy gate (ARCH-PORTS, TDD case R5, GODS_LAWS.md L-19/L-40):
@@ -583,7 +597,22 @@ if(UNIX)
         NAME dep_zero_selftest
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.sh" --selftest
     )
-    set_tests_properties(dep_zero_selftest PROPERTIES LABELS selftest)
+    # DEPZERO-SELFTEST-FIX (28/08/2026, GODS_LAWS.md L-40): belt on top of
+    # the exit code. This gate's own --selftest aggregator used to be
+    # able to report exit 0 while its own stdout/stderr still printed
+    # "FAILED" for an individual control (a POSIX sh global-variable-name
+    # collision fixed in the script itself, same fatia, see the fix
+    # report for the three regressions this let through silently) - that
+    # is exactly the shape of lie FAIL_REGULAR_EXPRESSION exists to
+    # catch: it fails the ctest verdict on a text match REGARDLESS of the
+    # exit code, closing the gap even if a future edit reintroduces the
+    # same collision. Deliberately NOT PASS_REGULAR_EXPRESSION: per
+    # `cmake --help-property PASS_REGULAR_EXPRESSION`, that property
+    # makes ctest IGNORE the exit code entirely - it would trade this
+    # hole for a new one instead of closing it.
+    set_tests_properties(dep_zero_selftest PROPERTIES
+        LABELS selftest
+        FAIL_REGULAR_EXPRESSION "FAILED")
 endif()
 
 # Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,

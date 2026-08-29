@@ -799,7 +799,15 @@ selftest_positive_control() {
 selftest_negative_control_cmake() {
     scratch="$1"
     root="$scratch/negative-cmake"
-    overall=0
+    # DEPZERO-SELFTEST-FIX (28/08/2026): function-owned name, never
+    # "overall" - selftest_main also names its own aggregator "overall",
+    # and POSIX sh functions share ONE global namespace (no "local").
+    # Before this fix, every selftest_* function that used the SAME name
+    # "overall" for its own per-case tally silently clobbered whatever
+    # verdict selftest_main had already accumulated from EARLIER calls,
+    # the instant this function's "overall=0" ran - see GODS_LAWS.md L-40
+    # and the fix report for the exact mutation that proved it.
+    cmake_forms_status=0
 
     for case_name in fetchcontent externalproject cpm conan_toolchain vcpkg_toolchain findpkg_unknown pkgcheck_unknown; do
         make_clean_fixture "$root"
@@ -837,23 +845,24 @@ selftest_negative_control_cmake() {
 
         if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: NEGATIVE(cmake/$case_name) control FAILED (should have been reproved)" >&2
-            overall=1
+            cmake_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
             echo "selftest: NEGATIVE(cmake/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            cmake_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cmake) control OK (seven forms, each reproved and cited)"
-    return "$overall"
+    [ "$cmake_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(cmake) control OK (seven forms, each reproved and cited)"
+    return "$cmake_forms_status"
 }
 
 selftest_negative_control_include() {
     scratch="$1"
     root="$scratch/negative-include"
-    overall=0
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    include_forms_status=0
 
     for case_name in zlib boost_quote png_dot; do
         make_clean_fixture "$root"
@@ -866,17 +875,17 @@ selftest_negative_control_include() {
 
         if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: NEGATIVE(include/$case_name) control FAILED (should have been reproved)" >&2
-            overall=1
+            include_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
             echo "selftest: NEGATIVE(include/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            include_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(include) control OK (three forms, each reproved and cited)"
-    return "$overall"
+    [ "$include_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(include) control OK (three forms, each reproved and cited)"
+    return "$include_forms_status"
 }
 
 # Fixture .so's compiled with the system cc, in scratch - depends on no
@@ -895,7 +904,8 @@ selftest_negative_control_include() {
 selftest_negative_control_cmake_multiline() {
     scratch="$1"
     root="$scratch/negative-cmake-multiline"
-    overall=0
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    multiline_forms_status=0
 
     for case_name in pkgcheck_multiline pkgcheck_multiline_comment pkgcheck_multiline_mixedcase findpkg_multiline_unknown; do
         make_clean_fixture "$root"
@@ -944,17 +954,17 @@ EOF
 
         if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: NEGATIVE(cmake-multiline/$case_name) control FAILED (should have been reproved)" >&2
-            overall=1
+            multiline_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
             echo "selftest: NEGATIVE(cmake-multiline/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            multiline_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cmake-multiline) control OK (four multi-line/format-varied forms, each reproved and cited)"
-    return "$overall"
+    [ "$multiline_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(cmake-multiline) control OK (four multi-line/format-varied forms, each reproved and cited)"
+    return "$multiline_forms_status"
 }
 
 # IMPORTANTE #5 (falso positivo: chamada multi-linha ALLOWLISTED nao
@@ -995,7 +1005,8 @@ EOF
 selftest_positive_control_pkgcheck_version() {
     scratch="$1"
     root="$scratch/positive-pkgcheck-version"
-    overall=0
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    pkgcheck_version_status=0
 
     for case_name in glued spaced; do
         make_clean_fixture "$root"
@@ -1008,13 +1019,13 @@ selftest_positive_control_pkgcheck_version() {
         if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: POSITIVE(pkgcheck-version/$case_name) control FAILED (wayland-client com restricao de versao deveria passar)" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            pkgcheck_version_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: POSITIVE(pkgcheck-version) control OK (forma colada e forma separada, modulo ja permitido, passam)"
-    return "$overall"
+    [ "$pkgcheck_version_status" -eq 0 ] && echo "selftest: POSITIVE(pkgcheck-version) control OK (forma colada e forma separada, modulo ja permitido, passam)"
+    return "$pkgcheck_version_status"
 }
 
 selftest_negative_control_pkgcheck_version_unknown() {
@@ -1046,7 +1057,8 @@ selftest_negative_control_pkgcheck_version_unknown() {
 selftest_negative_control_cmake_indirection() {
     scratch="$1"
     root="$scratch/negative-cmake-indirection"
-    overall=0
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    indirection_forms_status=0
 
     for case_name in include_bare_var cmake_language_call cmake_language_eval mixedcase_call spaced_call; do
         make_clean_fixture "$root"
@@ -1088,17 +1100,17 @@ EOF
 
         if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: NEGATIVE(cmake-indirection/$case_name) control FAILED (deveria ter reprovado)" >&2
-            overall=1
+            indirection_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qiF "$needle"; then
             echo "selftest: NEGATIVE(cmake-indirection/$case_name) control FAILED (reprovou, mas nao citou '$needle')" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            indirection_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cmake-indirection) control OK (cinco formas de indirecao, cada uma reprovada e citada)"
-    return "$overall"
+    [ "$indirection_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(cmake-indirection) control OK (cinco formas de indirecao, cada uma reprovada e citada)"
+    return "$indirection_forms_status"
 }
 
 selftest_positive_control_cmake_indirection_legit() {
@@ -1125,7 +1137,8 @@ EOF
 selftest_negative_control_cpm_variants() {
     scratch="$1"
     root="$scratch/negative-cpm-variants"
-    overall=0
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    cpm_forms_status=0
 
     for fn in CPMFindPackage CPMDeclarePackage CPMGetPackage; do
         make_clean_fixture "$root"
@@ -1134,17 +1147,17 @@ selftest_negative_control_cpm_variants() {
 
         if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: NEGATIVE(cpm-variants/$fn) control FAILED (deveria ter reprovado)" >&2
-            overall=1
+            cpm_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qiF "$fn"; then
             echo "selftest: NEGATIVE(cpm-variants/$fn) control FAILED (reprovou, mas nao citou '$fn')" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            cpm_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(cpm-variants) control OK (CPMFindPackage/CPMDeclarePackage/CPMGetPackage, cada uma reprovada e citada)"
-    return "$overall"
+    [ "$cpm_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(cpm-variants) control OK (CPMFindPackage/CPMDeclarePackage/CPMGetPackage, cada uma reprovada e citada)"
+    return "$cpm_forms_status"
 }
 
 # CRITICO #4 (travessia de caminho engana a regra 3 estrutural, E o
@@ -1154,7 +1167,15 @@ selftest_negative_control_cpm_variants() {
 selftest_negative_control_include_traversal() {
     scratch="$1"
     root="$scratch/negative-include-traversal"
-    overall=0
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    # (This is the ONE function of the eight whose "overall=0" happened
+    # to sit LAST in selftest_main's call sequence - nothing after it
+    # could clobber the shared name, which is exactly why it was the
+    # only one of the eight that already reported correctly before this
+    # fix. Renaming it too closes the fragility for good: any future
+    # call added AFTER it in selftest_main would otherwise reopen the
+    # same hole this fatia exists to close.)
+    traversal_forms_status=0
 
     for case_name in deep_traversal short_traversal dot_and_traversal trailing_dotdot; do
         make_clean_fixture "$root"
@@ -1169,17 +1190,17 @@ selftest_negative_control_include_traversal() {
 
         if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
             echo "selftest: NEGATIVE(include-traversal/$case_name) control FAILED (deveria ter reprovado)" >&2
-            overall=1
+            traversal_forms_status=1
         elif ! printf '%s\n' "$output" | grep -qF '..'; then
             echo "selftest: NEGATIVE(include-traversal/$case_name) control FAILED (reprovou, mas a citacao nao mostra a travessia)" >&2
             printf '%s\n' "$output" >&2
-            overall=1
+            traversal_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$overall" -eq 0 ] && echo "selftest: NEGATIVE(include-traversal) control OK (quatro formas de travessia, cada uma reprovada)"
-    return "$overall"
+    [ "$traversal_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(include-traversal) control OK (quatro formas de travessia, cada uma reprovada)"
+    return "$traversal_forms_status"
 }
 
 # IMPORTANTE #7 (a linha de fora-de-escopo superestima cobertura real
@@ -1415,6 +1436,17 @@ selftest_main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
+    # DEPZERO-SELFTEST-FIX (28/08/2026): "overall" is now owned ONLY by
+    # this function. Every callee that used to reuse this exact name for
+    # its own internal per-case tally has been renamed (see each
+    # selftest_negative_control_*/selftest_positive_control_* function's
+    # own comment) - a callee running "overall=0" at its own start used
+    # to silently erase whatever verdict this loop had already
+    # accumulated from an EARLIER callee's failure, because POSIX sh
+    # functions share one global variable namespace and this script does
+    # not use "local" anywhere (not POSIX, ksh does not even have it -
+    # GODS_LAWS.md L-40, TESTES.md). Each callee below still RETURNS its
+    # own status; this is the only place that AGGREGATES.
     overall=0
     selftest_positive_control "$scratch" || overall=1
     selftest_negative_control_cmake "$scratch" || overall=1

@@ -1508,20 +1508,45 @@ def configure_fixture_with_ninja(source_root, build_dir):
 def initial_configure_diagnostic(result):
     """DEPZERO-TRACE, achado da segunda estreia (29/08/2026, GHA run
     33249693240, branch depzero-gate): four --selftest controls on
-    windows-latest fail with "FLOOR(codemodel): ...no buildsystem
-    generated" - meaning the INITIAL configure_fixture_with_ninja()
-    call above never reached CMake's own "Generating done", but this
-    file NEVER printed why, because every fixture function discarded
-    that CompletedProcess's own stdout/stderr. Two hypotheses already
-    RULED OUT by reading this project's own prior CI-WIN-GEN finding
-    and by direct comparison between fixtures: NOT generator selection
-    (every fixture already passes -G Ninja explicitly, and the SAME
-    outer job's own real build already proves Ninja resolves there);
-    NOT "find_package(PkgConfig REQUIRED) always fails on Windows"
-    (selftest_positive_execute_process_pkgconfig calls it identically
-    and PASSES). The real cause needs the ACTUAL cmake stderr from the
-    server, which this function now surfaces instead of leaving
-    "no buildsystem generated" as the only visible clue.
+    windows-latest failed with "FLOOR(codemodel): ...no buildsystem
+    generated", and this file never printed why - every fixture
+    function discarded configure_fixture_with_ninja()'s own stdout/
+    stderr. This function surfaces it instead.
+
+    RESOLVED (GHA run 33251519907, third estreia): the real cause,
+    read straight from this instrumentation's own output in the CI
+    log - windows-latest genuinely has NO pkg-config at all
+    (`CMake Error ... Could NOT find PkgConfig (missing:
+    PKG_CONFIG_EXECUTABLE)`). REQUIRED on find_package(PkgConfig ...)
+    turns "not found" into a FATAL_ERROR that stops the configure
+    before ANYTHING after it - including the very statement (pkg_
+    check_modules(), execute_process(), add_library()) each fixture
+    exists to exercise - ever gets a chance to be TRACED at all.
+    Confirmed live (container, pkg-config genuinely uninstalled,
+    matching the runner exactly): a bare find_package(PkgConfig)
+    WITHOUT REQUIRED still reports "Could NOT find PkgConfig" and
+    still lets the configure CONTINUE - and the very next statement
+    (pkg_check_modules(), tested directly) is traced with its real,
+    expanded args before IT ALSO fails on its own internal REQUIRED -
+    proving the fix (drop REQUIRED from find_package(PkgConfig...) in
+    fixtures ONLY, never in the real project's own CMakeLists.txt,
+    where REQUIRED is genuine protection) preserves exactly what R3/
+    R4/R8 need: the trace event, not the tool actually being found.
+
+    The "NOT find_package(PkgConfig REQUIRED) always fails" hypothesis
+    above was only HALF wrong: selftest_positive_execute_process_
+    pkgconfig did call it identically and did report OK - but for the
+    WRONG reason. Its own assertion (`not r8_violations`) is a
+    NEGATIVE check that passes VACUOUSLY when R8 never runs at all
+    (gated on the SAME fatal find_package failure, one statement
+    earlier) - reproduced live in the identical hidden-pkg-config
+    container: report.violations comes back empty (nothing to flag,
+    correctly) while report.floor_ok is False (codemodel never
+    formed) - a false pass this file's own assertion never checked.
+    selftest_positive_target_sources_generated_in_build_dir had the
+    identical latent bug (`not r9_violations`, also gated on the same
+    failure one statement earlier, also never checked floor_ok) -
+    caught by this same audit, not by a fourth guess.
     """
     return f" initial_configure(rc={result.returncode}, stderr={result.stderr!r})"
 
@@ -1655,7 +1680,7 @@ def selftest_hostile_pkg_check_modules_digit_name(scratch):
         root,
         """cmake_minimum_required(VERSION 3.25)
 project(hostile_pkgcheck NONE)
-find_package(PkgConfig REQUIRED)
+find_package(PkgConfig)
 pkg_check_modules(Fixture REQUIRED 7zip)
 """,
     )
@@ -1713,7 +1738,6 @@ def selftest_hostile_target_sources_external(scratch):
         root,
         f"""cmake_minimum_required(VERSION 3.25)
 project(hostile_target_sources_external C)
-find_package(PkgConfig REQUIRED)
 add_library(dummylib STATIC "{evil_c}")
 """,
     )
@@ -1761,23 +1785,32 @@ def selftest_positive_target_sources_generated_in_build_dir(scratch):
         root,
         """cmake_minimum_required(VERSION 3.25)
 project(positive_target_sources_generated C)
-find_package(PkgConfig REQUIRED)
 set(generated_c "${CMAKE_BINARY_DIR}/generated_ok.c")
 file(WRITE "${generated_c}" "int generated_ok(void) { return 0; }\\n")
 add_library(dummylib STATIC "${generated_c}")
 """,
     )
     build_dir = os.path.join(scratch, "positive_target_sources_generated_build")
-    configure_fixture_with_ninja(root, build_dir)
+    initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     r9_violations = [v for v in report.violations if v.rule == "R9"]
-    ok = not r9_violations
+    # report.floor_ok, not just "no R9 violations": a fatal error one
+    # statement earlier would ALSO leave r9_violations empty, VACUOUSLY,
+    # because R9 never gets a chance to run at all (gated on codemodel_
+    # ok) - see initial_configure_diagnostic()'s own docstring for the
+    # real instance of this that hid on Windows. This fixture no longer
+    # has an earlier fatal-prone statement (the unneeded find_package(
+    # PkgConfig REQUIRED) was removed - R9 needs no PkgConfig at all),
+    # but the check stays as a permanent guard against the same class
+    # of false pass recurring.
+    ok = not r9_violations and report.floor_ok
     return selftest_report(
         "positive: a source file that genuinely lives under the build"
         " directory (the shape a real generated file takes) is not"
         " an R9 violation",
         ok,
-        detail=f"R9 violations={[v.format() for v in r9_violations]}",
+        detail=f"R9 violations={[v.format() for v in r9_violations]}"
+        f" floor_ok={report.floor_ok}{initial_configure_diagnostic(initial)}",
     )
 
 
@@ -1950,23 +1983,42 @@ def selftest_positive_execute_process_pkgconfig(scratch):
     (cmake/GlintfxWaylandProtocols.cmake's own glintfx_locate_xdg_
     shell_protocol_xml()) MUST keep passing - R8 exists to judge the
     program, not to blanket-ban the command CMake's own FindPkgConfig.
-    cmake module (loaded here via find_package(PkgConfig REQUIRED),
-    exactly like the real tree does) ALSO uses internally for its own
-    `pkg-config --version` probe - this fixture exercises BOTH calls,
-    proving neither one false-positives.
+    cmake module (loaded here via find_package(PkgConfig), no
+    REQUIRED) ALSO uses internally for its own `pkg-config --version`
+    probe - this fixture exercises BOTH calls, proving neither one
+    false-positives.
+
+    if(PkgConfig_FOUND) guards the execute_process() call - measured
+    live (see initial_configure_diagnostic()'s own docstring):
+    windows-latest genuinely has no pkg-config at all, and the REAL
+    file this fixture models (cmake/GlintfxWaylandProtocols.cmake) is
+    if(UNIX)-guarded there too - this fixture never claims to prove
+    the execute_process(pkg-config) shape works WITHOUT pkg-config
+    (there is nothing to prove: the real code never runs there
+    either), only that R8 does not false-positive when it DOES run.
+    Confirmed live, both branches: pkg-config present -> the exact
+    real call is traced with its expanded args (proving R8's
+    allowlist accepts it); pkg-config absent -> the guard skips it
+    entirely and the configure still completes cleanly (report.floor_
+    ok stays True, proving the REST of this fixture - and the empty
+    R8 result - is a genuine pass, not the vacuous one initial_
+    configure_diagnostic()'s docstring documents this exact control
+    having had before this fix).
     """
     root = os.path.join(scratch, "positive_execute_process_pkgconfig")
     write_fixture(
         root,
         """cmake_minimum_required(VERSION 3.25)
 project(positive_execute_process_pkgconfig NONE)
-find_package(PkgConfig REQUIRED)
-execute_process(
-    COMMAND "${PKG_CONFIG_EXECUTABLE}" --variable=pkgdatadir wayland-protocols
-    OUTPUT_VARIABLE dummy_out
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    RESULT_VARIABLE dummy_result
-)
+find_package(PkgConfig)
+if(PkgConfig_FOUND)
+    execute_process(
+        COMMAND "${PKG_CONFIG_EXECUTABLE}" --variable=pkgdatadir wayland-protocols
+        OUTPUT_VARIABLE dummy_out
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE dummy_result
+    )
+endif()
 add_custom_target(dummy)
 """,
     )
@@ -1974,14 +2026,20 @@ add_custom_target(dummy)
     initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     r8_violations = [v for v in report.violations if v.rule == "R8"]
-    ok = not r8_violations
+    # report.floor_ok, not just "no R8 violations" - see this
+    # function's own docstring and initial_configure_diagnostic()'s:
+    # a fatal error one statement earlier used to leave r8_violations
+    # empty VACUOUSLY (R8 never got a chance to run, gated on the same
+    # trace floors as everything else) - this is the exact control
+    # that hid that bug on Windows.
+    ok = not r8_violations and report.floor_ok
     return selftest_report(
         "positive: execute_process(COMMAND pkg-config ...) - the ONE"
         " real use in this project, plus CMake's OWN internal"
         " FindPkgConfig.cmake probe - neither false-positives",
         ok,
         detail=f"R8 violations={[v.format() for v in r8_violations]}"
-        f"{initial_configure_diagnostic(initial)}",
+        f" floor_ok={report.floor_ok}{initial_configure_diagnostic(initial)}",
     )
 
 
@@ -2053,7 +2111,6 @@ def selftest_positive_find_package_multiline(scratch):
 project(positive_multiline NONE)
 find_package(
     PkgConfig
-    REQUIRED
 )
 # A real target, so FLOOR(codemodel) (GODS_LAWS.md L-40, "0 targets
 # reproves") judges what this control actually means to prove, not an
@@ -2080,7 +2137,7 @@ def selftest_positive_pkg_check_modules_version_comparator(scratch):
         root,
         """cmake_minimum_required(VERSION 3.25)
 project(positive_version_comparator NONE)
-find_package(PkgConfig REQUIRED)
+find_package(PkgConfig)
 pkg_check_modules(Fixture wayland-client>=1.20)
 add_custom_target(dummy)
 """,

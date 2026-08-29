@@ -1505,6 +1505,27 @@ def configure_fixture_with_ninja(source_root, build_dir):
     )
 
 
+def initial_configure_diagnostic(result):
+    """DEPZERO-TRACE, achado da segunda estreia (29/08/2026, GHA run
+    33249693240, branch depzero-gate): four --selftest controls on
+    windows-latest fail with "FLOOR(codemodel): ...no buildsystem
+    generated" - meaning the INITIAL configure_fixture_with_ninja()
+    call above never reached CMake's own "Generating done", but this
+    file NEVER printed why, because every fixture function discarded
+    that CompletedProcess's own stdout/stderr. Two hypotheses already
+    RULED OUT by reading this project's own prior CI-WIN-GEN finding
+    and by direct comparison between fixtures: NOT generator selection
+    (every fixture already passes -G Ninja explicitly, and the SAME
+    outer job's own real build already proves Ninja resolves there);
+    NOT "find_package(PkgConfig REQUIRED) always fails on Windows"
+    (selftest_positive_execute_process_pkgconfig calls it identically
+    and PASSES). The real cause needs the ACTUAL cmake stderr from the
+    server, which this function now surfaces instead of leaving
+    "no buildsystem generated" as the only visible clue.
+    """
+    return f" initial_configure(rc={result.returncode}, stderr={result.stderr!r})"
+
+
 def configure_and_judge(source_root, build_dir):
     """The same pipeline real_main() uses, for a --selftest fixture.
 
@@ -1639,7 +1660,7 @@ pkg_check_modules(Fixture REQUIRED 7zip)
 """,
     )
     build_dir = os.path.join(root, "build")
-    configure_fixture_with_ninja(root, build_dir)
+    initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(
         v.rule == "R4" and "7zip" in v.message for v in report.violations
@@ -1647,7 +1668,8 @@ pkg_check_modules(Fixture REQUIRED 7zip)
     return selftest_report(
         "hostile: pkg_check_modules(... 7zip) (digit-leading module name)",
         ok,
-        detail=f"violations={[v.format() for v in report.violations]}",
+        detail=f"violations={[v.format() for v in report.violations]}"
+        f"{initial_configure_diagnostic(initial)}",
     )
 
 
@@ -1696,14 +1718,15 @@ add_library(dummylib STATIC "{evil_c}")
 """,
     )
     build_dir = os.path.join(root, "build")
-    configure_fixture_with_ninja(root, build_dir)
+    initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R9" and "evil.c" in v.message for v in report.violations)
     return selftest_report(
         "hostile: add_library() with a source file OUTSIDE both the"
         " source root and the build directory",
         ok,
-        detail=f"violations={[v.format() for v in report.violations]}",
+        detail=f"violations={[v.format() for v in report.violations]}"
+        f"{initial_configure_diagnostic(initial)}",
     )
 
 
@@ -1948,7 +1971,7 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    configure_fixture_with_ninja(root, build_dir)
+    initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     r8_violations = [v for v in report.violations if v.rule == "R8"]
     ok = not r8_violations
@@ -1957,7 +1980,8 @@ add_custom_target(dummy)
         " real use in this project, plus CMake's OWN internal"
         " FindPkgConfig.cmake probe - neither false-positives",
         ok,
-        detail=f"R8 violations={[v.format() for v in r8_violations]}",
+        detail=f"R8 violations={[v.format() for v in r8_violations]}"
+        f"{initial_configure_diagnostic(initial)}",
     )
 
 
@@ -2038,14 +2062,15 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    configure_fixture_with_ninja(root, build_dir)
+    initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = not report.violations and report.floor_ok
     return selftest_report(
         "positive: find_package(PkgConfig REQUIRED) written across multiple lines",
         ok,
         detail=f"violations={[v.format() for v in report.violations]}"
-        f" floor_ok={report.floor_ok} floor_lines={report.floor_lines}",
+        f" floor_ok={report.floor_ok} floor_lines={report.floor_lines}"
+        f"{initial_configure_diagnostic(initial)}",
     )
 
 
@@ -2056,19 +2081,20 @@ def selftest_positive_pkg_check_modules_version_comparator(scratch):
         """cmake_minimum_required(VERSION 3.25)
 project(positive_version_comparator NONE)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(Fixture REQUIRED wayland-client>=1.20)
+pkg_check_modules(Fixture wayland-client>=1.20)
 add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    configure_fixture_with_ninja(root, build_dir)
+    initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = not report.violations and report.floor_ok
     return selftest_report(
         "positive: pkg_check_modules(... wayland-client>=1.20) (version comparator)",
         ok,
         detail=f"violations={[v.format() for v in report.violations]}"
-        f" floor_ok={report.floor_ok} floor_lines={report.floor_lines}",
+        f" floor_ok={report.floor_ok} floor_lines={report.floor_lines}"
+        f"{initial_configure_diagnostic(initial)}",
     )
 
 

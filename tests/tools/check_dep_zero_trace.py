@@ -1464,6 +1464,48 @@ def make_scratch_workdir():
     )
 
 
+def cmake_path_literal(path):
+    """A filesystem path, safe to interpolate as CMake TEXT (never a
+    subprocess argv element - those never go through a parser at all,
+    backslash or not).
+
+    REVIEW4-DEPZERO-TRACE.md / server debut round 4 (29/08/2026, GHA
+    run 33252888557): selftest_hostile_target_sources_external wrote
+    an absolute Windows path (os.path.join()'s own native separator)
+    straight into a CMakeLists.txt string literal -
+    add_library(dummylib STATIC "C:...evil.c") with backslashes where
+    the dots are - and CMake's own string-literal grammar treats a
+    backslash as the START of an escape sequence, not a separator: the
+    two-character sequence backslash-then-capital-U is not a
+    recognized escape, so CMake refused to even PARSE the file
+    ("Invalid character escape") before any rule ever ran. The failure
+    looked like "R9 did not detect the violation" (violations=[]) - it
+    was actually "the fixture never configured at all", the exact "no
+    buildsystem generated" shape this whole family has chased three
+    times already, now from a FOURTH mechanism (backslash-vs-CMake-
+    string-escape, not REQUIRED/generator/found-tool). CMake's own
+    parser accepts forward slashes unconditionally on every platform
+    including Windows - its own canonical form (cmake-language(7):
+    "It is common on Windows to also accept forward slashes"; CMake
+    normalizes to forward slashes internally throughout). This
+    function is called at EVERY point a fixture interpolates a Python
+    path into CMake TEXT, so a Windows-separated path (the only one
+    os.path.join() ever produces there) never reaches a CMakeLists.txt
+    string literal unconverted again.
+
+    NOTE ON THIS DOCSTRING ITSELF (found while writing it, GODS_LAWS.md
+    L-27 - a fact too on-the-nose not to record): an earlier draft of
+    this exact paragraph spelled the invalid escape out literally
+    inside this docstring's own text - which made THIS FILE fail to
+    py_compile with the SAME "truncated escape" class of error the
+    docstring was describing. Left un-spelled here on purpose, the
+    same reason the fixtures themselves need this function instead of
+    a raw path: text a parser reads is not inert, regardless of which
+    parser, Python's or CMake's.
+    """
+    return path.replace("\\", "/")
+
+
 def write_fixture(root, cmakelists_body):
     os.makedirs(root, exist_ok=True)
     with open(os.path.join(root, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
@@ -1706,7 +1748,7 @@ def selftest_hostile_add_subdirectory_outside_tree(scratch):
         root,
         f"""cmake_minimum_required(VERSION 3.25)
 project(hostile_add_subdirectory NONE)
-add_subdirectory({outside} outsider-build)
+add_subdirectory("{cmake_path_literal(outside)}" outsider-build)
 """,
     )
     build_dir = os.path.join(root, "build")
@@ -1738,7 +1780,7 @@ def selftest_hostile_target_sources_external(scratch):
         root,
         f"""cmake_minimum_required(VERSION 3.25)
 project(hostile_target_sources_external C)
-add_library(dummylib STATIC "{evil_c}")
+add_library(dummylib STATIC "{cmake_path_literal(evil_c)}")
 """,
     )
     build_dir = os.path.join(root, "build")
@@ -1835,7 +1877,7 @@ def selftest_hostile_execute_process_identity_spoof(scratch):
         root,
         f"""cmake_minimum_required(VERSION 3.25)
 project(hostile_execute_process_identity NONE)
-execute_process(COMMAND "{fake_pkgconfig}" RESULT_VARIABLE rc)
+execute_process(COMMAND "{cmake_path_literal(fake_pkgconfig)}" RESULT_VARIABLE rc)
 add_custom_target(dummy)
 """,
     )

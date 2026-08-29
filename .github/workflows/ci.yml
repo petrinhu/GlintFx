@@ -262,6 +262,36 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # git config --global --add safe.directory (DEPZERO-TRACE, CAUSA 1
+      # do bloqueador de estreia, GHA run 33248706044, branch
+      # depzero-gate, 29/08/2026): dep_zero_test (check_dep_zero.sh)
+      # nunca tinha rodado no servidor - nasceu num commit que nunca foi
+      # empurrado - e morreu na propria estreia com "'git ls-files'
+      # failed... (not a git repository, or git unavailable) - scan
+      # refused, never assumed empty". O COMPORTAMENTO do portao esta
+      # certo (recusar variar em vez de assumir arvore vazia e a lei,
+      # GODS_LAWS.md L-40); a causa e do AMBIENTE. Confirmado no log
+      # real, nao presumido: `actions/checkout@v4` ja roda `git config
+      # --global --add safe.directory /__w/GlintFx/GlintFx` sozinho
+      # (set-safe-directory: true, o default dele) - mas ISSO acontece
+      # no processo Node.js que executa a ACTION, com o seu proprio
+      # HOME, nao no `root` que executa os passos `run:` DENTRO do
+      # container (`container: ${{ matrix.imagem }}`, sem `options:
+      # --user` -> root por padrao). O git de dentro do container le o
+      # PROPRIO gitconfig de root, que nunca recebeu aquela entrada -
+      # dono do diretorio (o runner, fora do container) diferente do
+      # dono do processo que le (root, dentro dele) e o git recusa por
+      # protecao de "dubious ownership" (a mesma CVE-2022-24765 que os
+      # jobs `lint`/`sanitizer`/`debug`/`clang` ja tratam, alguns
+      # commits atras, com esta MESMA linha - so o job `linux`, o unico
+      # que de fato roda `dep_zero_test`/`ctest` completo, tinha ficado
+      # de fora). Conserto no FLUXO DO SERVIDOR, nao no portao: o
+      # comportamento do portao (recusar, nao assumir) e exatamente o
+      # que GODS_LAWS.md L-40 exige, e mexer nele para "tolerar" a
+      # ausencia de git seria abrir a porta que a lei fecha.
+      - name: Configurar diretorio seguro do git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       # PKG-NATIVE: falha o job cedo e com mensagem clara se o passo
       # "Instalar toolchain" acima nao alcancou o piso que
       # cmake_minimum_required(VERSION 4.1) exige (CMakeLists.txt) - sem

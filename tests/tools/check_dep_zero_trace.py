@@ -1470,6 +1470,41 @@ def write_fixture(root, cmakelists_body):
         handle.write(cmakelists_body)
 
 
+def configure_fixture_with_ninja(source_root, build_dir):
+    """The INITIAL, fresh configure every --selftest fixture needs
+    before configure_and_judge()'s own SECOND, trace-generating
+    reconfigure can do anything useful (that second call, through
+    run_configure_with_trace(), deliberately never passes -G: it must
+    REUSE whatever generator is already cached, exactly like the REAL
+    production call against the actual glintfx build/ does - forcing a
+    generator there would hit the exact "does not match the generator
+    used previously" error this project's own tests/CMakeLists.txt
+    already documents for embed_dll_colocation_test).
+
+    -G Ninja explicit here, unlike the bare `cmake -S -B` this used to
+    be: CAUSA 2 of the server debut (29/08/2026, GitHub Actions run
+    33248706044, branch depzero-gate) - on windows-latest, a bare
+    `cmake -S -B` (no -G) in the plain pwsh shell this ctest step runs
+    in fell through to a generator this project's OWN ci.yml already
+    diagnosed and fixed once before, for the SAME reason (see
+    ci.yml's own CI-WIN-GEN comment: "sem -G explicito, o CMake...
+    cai para NMake Makefiles... que exige vcvarsall" - a plain pwsh is
+    not that). The REAL project's own outer build already proved Ninja
+    works in this exact job (the "Build" step passes -G Ninja and
+    succeeds before ctest ever runs) - reusing that SAME choice here,
+    not inventing a new one, is what makes this fix low-risk: Ninja is
+    already a REQUIRED tool on all five platforms in this project's own
+    CI matrix (installed explicitly on the four Linux jobs; downloaded/
+    available on Windows already, proven by that same outer build
+    step), so there is no new dependency introduced by naming it here.
+    """
+    os.makedirs(build_dir, exist_ok=True)
+    return subprocess.run(
+        ["cmake", "-S", source_root, "-B", build_dir, "-G", "Ninja"],
+        capture_output=True,
+    )
+
+
 def configure_and_judge(source_root, build_dir):
     """The same pipeline real_main() uses, for a --selftest fixture.
 
@@ -1527,8 +1562,7 @@ FetchContent_Declare(evil GIT_REPOSITORY https://example.invalid/evil.git)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     rules = {v.rule for v in report.violations}
     ok = bool(report.violations) and ("R1" in rules or "R2" in rules)
@@ -1556,8 +1590,7 @@ cmake_language(CALL ${fn_name} fmt GIT_REPOSITORY https://example.invalid/fmt.gi
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     rules = {v.rule for v in report.violations}
     ok = "R1" in rules and "R2" in rules  # BOTH: the resolved call AND the module load
@@ -1585,8 +1618,7 @@ CPMFindPackage(NAME fmt GIT_REPOSITORY https://example.invalid/fmt.git GIT_TAG 1
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R1" and "cpmfindpackage" in v.message for v in report.violations)
     return selftest_report(
@@ -1607,8 +1639,7 @@ pkg_check_modules(Fixture REQUIRED 7zip)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(
         v.rule == "R4" and "7zip" in v.message for v in report.violations
@@ -1632,8 +1663,7 @@ add_subdirectory({outside} outsider-build)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R5" for v in report.violations)
     return selftest_report(
@@ -1666,8 +1696,7 @@ add_library(dummylib STATIC "{evil_c}")
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R9" and "evil.c" in v.message for v in report.violations)
     return selftest_report(
@@ -1716,8 +1745,7 @@ add_library(dummylib STATIC "${generated_c}")
 """,
     )
     build_dir = os.path.join(scratch, "positive_target_sources_generated_build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     r9_violations = [v for v in report.violations if v.rule == "R9"]
     ok = not r9_violations
@@ -1756,8 +1784,7 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R8-identity" for v in report.violations)
     return selftest_report(
@@ -1787,8 +1814,7 @@ def selftest_floor_wrong_type_field_reproves_by_parity(scratch):
         "add_custom_target(dummy)\n",
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
 
     root_cmakelists = os.path.realpath(os.path.join(root, "CMakeLists.txt"))
     synthetic_lines = [
@@ -1856,8 +1882,7 @@ file(DOWNLOAD
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R7" and "DOWNLOAD" in v.message for v in report.violations)
     return selftest_report(
@@ -1886,8 +1911,7 @@ execute_process(
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R8" and "'sh'" in v.message for v in report.violations)
     return selftest_report(
@@ -1924,8 +1948,7 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     r8_violations = [v for v in report.violations if v.rule == "R8"]
     ok = not r8_violations
@@ -1971,8 +1994,7 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     r8_violations = [v for v in report.violations if v.rule == "R8"]
     empty_program_violations = [v for v in r8_violations if "''" in v.message]
@@ -2016,8 +2038,7 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = not report.violations and report.floor_ok
     return selftest_report(
@@ -2040,8 +2061,7 @@ add_custom_target(dummy)
 """,
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = not report.violations and report.floor_ok
     return selftest_report(
@@ -2060,8 +2080,7 @@ def selftest_floor_empty_trace_reproves(scratch):
     root = os.path.join(scratch, "floor_empty_trace")
     write_fixture(root, "cmake_minimum_required(VERSION 3.25)\nproject(floor_empty NONE)\n")
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
     empty_trace_scratch = make_scratch_workdir()
     try:
         empty_trace_path = os.path.join(empty_trace_scratch, "trace.json")
@@ -2172,8 +2191,7 @@ def selftest_floor_events_without_file_do_not_inflate_scan(scratch):
         "add_custom_target(dummy)\n",
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
 
     root_cmakelists = os.path.realpath(os.path.join(root, "CMakeLists.txt"))
     synthetic_lines = [
@@ -2251,8 +2269,7 @@ def selftest_codemodel_reply_not_stale(scratch):
     )
     write_fixture(root, good_cmakelists)
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
 
     # Establishes a genuine, fresh, SUCCESSFUL reply first.
     first_scratch = make_scratch_workdir()
@@ -2316,41 +2333,54 @@ def selftest_codemodel_reply_not_stale(scratch):
 
 
 def selftest_same_path_platform_aware(_scratch):
-    """REVIEW3-DEPZERO-TRACE.md item 8 (IMPORTANTE, declared as a
-    hypothesis by the reviewer, not confirmed nor refuted): exact
-    string equality in FLOOR(sentinel)'s path comparison could false-
-    positive-REPROVE on Windows/NTFS (case-insensitive, case-
-    PRESERVING) if CMake's trace and Python's realpath() ever disagree
-    on letter case for the same file. same_path_platform_aware() now
-    does the comparison via os.path.normcase(), Python's own
-    documented, platform-aware tool for exactly this - a no-op on
-    POSIX, case-folding on Windows.
+    """REVIEW3-DEPZERO-TRACE.md item 8 (declared as a hypothesis,
+    "nao confirmado nem refutado" - could not be proven from Linux).
 
-    What THIS control can and cannot prove, stated plainly (the same
-    honesty the reviewer's own finding used): it CANNOT reproduce
-    Windows' case-insensitive behavior on this Linux machine - POSIX is
-    case-SENSITIVE, so two paths differing only by case name two
-    DIFFERENT files here, and normcase() correctly leaves them
-    distinct. What it CAN and DOES prove: (a) identical paths compare
-    equal, (b) genuinely case-different paths do NOT collapse into
-    "the same" on POSIX (proving the fix is normcase(), which respects
-    platform case-sensitivity, and NOT a blanket .lower() that would
-    be WRONG here - .lower() would make this control FAIL, since it
-    would treat "/a/B" and "/a/b" as the same file on a filesystem
-    where they are not).
+    CAUSA 2 of the server debut (29/08/2026, GHA run 33248706044,
+    branch depzero-gate): this control's FIRST version hardcoded the
+    assertion for POSIX only ("case_differs_on_posix" - it NAMED the
+    platform it assumed) - on the real windows-latest runner, NTFS
+    correctly folds case, os.path.normcase() correctly returns the
+    SAME normalized string for "CMakeLists.txt" and "cmakelists.txt"
+    there, and the POSIX-only assertion failed - not because the FIX
+    (normcase()) was wrong, but because the TEST assumed one platform
+    family. The uncertainty was declared honestly in round 3
+    ("UNPROVABLE from Linux, not claimed as fact") - which is exactly
+    why it surfaced as a VISIBLE failure on the first real Windows run
+    instead of a silent wrong assumption baked into a passing test
+    (GODS_LAWS.md house lesson: a declared limit becomes a found
+    defect the moment it CAN be tested, never a surprise).
+
+    This version asks os.path.normcase() itself which behavior is
+    correct HERE, on whichever platform actually runs it, instead of
+    assuming: sys.platform decides the EXPECTED direction, and the
+    same two fixed strings are checked against it on both platform
+    families - Linux proves the POSIX direction (case matters),
+    Windows proves the NTFS direction (case does not) - one control,
+    two provably-correct outcomes, neither one assumed.
     """
     identical_ok = same_path_platform_aware("/a/b/CMakeLists.txt", "/a/b/CMakeLists.txt")
-    case_differs_on_posix = not same_path_platform_aware("/a/b/CMakeLists.txt", "/a/b/cmakelists.txt")
-    ok = identical_ok and case_differs_on_posix
+    case_different_paths_equal = same_path_platform_aware(
+        "/a/b/CMakeLists.txt", "/a/b/cmakelists.txt"
+    )
+    on_case_insensitive_platform = sys.platform.startswith("win")
+    # NTFS (Windows): case-insensitive, case-different paths name the
+    # SAME file - normcase() must fold them together, so this expects
+    # True. POSIX (everything else in this project's CI matrix):
+    # case-SENSITIVE, case-different paths are DIFFERENT files -
+    # normcase() is a no-op there, so this expects False.
+    case_behaves_correctly = case_different_paths_equal == on_case_insensitive_platform
+    ok = identical_ok and case_behaves_correctly
     return selftest_report(
         "same_path_platform_aware(): identical paths match; on THIS"
-        " (case-sensitive) platform, case-different paths correctly"
-        " stay distinct - proves normcase() is used, not a blanket"
-        " lower() that would be wrong here. Windows-specific"
-        " insensitivity itself is UNPROVABLE from Linux and not"
-        " claimed (REVIEW3-DEPZERO-TRACE.md item 8's own honesty)",
+        " platform, case-different paths behave EXACTLY the way"
+        " os.path.normcase() promises for it (folded together on"
+        " Windows/NTFS, kept distinct on POSIX) - proven on whichever"
+        " platform actually runs this, not assumed for one",
         ok,
-        detail=f"identical_ok={identical_ok} case_differs_on_posix={case_differs_on_posix}",
+        detail=f"platform={sys.platform!r} identical_ok={identical_ok}"
+        f" case_different_paths_equal={case_different_paths_equal}"
+        f" on_case_insensitive_platform={on_case_insensitive_platform}",
     )
 
 
@@ -2371,8 +2401,7 @@ def selftest_declarations_printed_on_every_run(scratch):
         "add_custom_target(dummy)\n",
     )
     build_dir = os.path.join(root, "build")
-    os.makedirs(build_dir, exist_ok=True)
-    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    configure_fixture_with_ninja(root, build_dir)
 
     script_path = os.path.abspath(__file__)
     result = subprocess.run(
@@ -2452,8 +2481,7 @@ def selftest_floor_missing_sentinel_reproves(scratch):
         "add_custom_target(dummy)\n",
     )
     real_build = os.path.join(real_root, "build")
-    os.makedirs(real_build, exist_ok=True)
-    subprocess.run(["cmake", "-S", real_root, "-B", real_build], capture_output=True)
+    configure_fixture_with_ninja(real_root, real_build)
 
     # scratch itself is the ANCESTOR source_root - real_root sits one
     # level below it, and has no CMakeLists.txt of its own.

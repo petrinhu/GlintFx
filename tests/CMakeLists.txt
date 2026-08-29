@@ -615,6 +615,99 @@ if(UNIX)
         FAIL_REGULAR_EXPRESSION "FAILED")
 endif()
 
+# Dependency-zero TRACE gate (DEPZERO-TRACE, TODO.md, GODS_LAWS.md
+# L-07/L-12/L-40; decision of the leader, 28/08/2026, AskUserQuestion:
+# "Trocar o mecanismo: perguntar ao CMake"): the second oracle for the
+# SAME law dep_zero_test above enforces, asking the CMake INTERPRETER
+# what it actually executed (--trace-expand --trace-format=json-v1,
+# plus the codemodel-v2 file API reply as a witness) instead of
+# interpreting the TEXT of the CMakeLists.txt/*.cmake surface -
+# tests/tools/check_dep_zero_trace.py's own header comment carries the
+# full rationale (the nine escapes two adversarial reviews found
+# against the text-based sub-check (a), why python3 is the authorized
+# tool for this specific job under GODS_LAWS.md L-07's own
+# "ferramenta de build" clarification of 28/08/2026, and the six rules
+# R1..R6 this file judges the trace/codemodel against). check_dep_
+# zero.sh's OWN sub-checks (b) (include surface) and (c) (the built
+# artifact's DT_NEEDED, immediately above) are UNTOUCHED here - only
+# its sub-check (a), the one nine escapes were found against, is
+# superseded, and the OLD text machinery for (a) is retired in a
+# SEPARATE, later fatia (DEPZERO-SHALLOW), never in the same commit
+# that adds a not-yet-proven oracle (GODS_LAWS.md house rule of
+# 28/08/2026: "portao que nunca reprovou nao e portao").
+#
+# Registered on ALL FIVE platforms, WITHOUT an if(UNIX) guard, unlike
+# every other dep-zero/layers/x11/port-privacy gate in this file: the
+# mechanism is CMake's own trace and file API, identical on Windows
+# (the same reply real IDEs consume there daily - cmake-file-api(7))
+# and on the four POSIX targets - there is no POSIX-sh dependency to
+# downgrade away from here. This is a genuine gain over dep_zero_test
+# above, whose sub-check (a) has always been Windows-downgraded by
+# virtue of being a POSIX sh script.
+#
+# find_program(..., NAMES python3 python REQUIRED): resolves the
+# interpreter by searching PATH for either name (python3 on the four
+# POSIX targets, python on windows-latest, whose default Python 3.12
+# install does not necessarily expose a "python3" alias - measured via
+# actions/runner-images' own Windows2025-Readme.md, 29/08/2026), the
+# SAME built-in mechanism find_program() already provides for
+# clang-format/clang-tidy/cppcheck a little further down in this file.
+# Deliberately NOT find_package(Python3 COMPONENTS Interpreter): that
+# call is itself a find_package() invocation, and check_dep_zero.sh
+# (the OLD, still-active, text-based gate immediately above - NOT this
+# fatia's to touch, see this comment block's own header) pattern-
+# matches every find_package() call against ITS OWN allowlist. Caught
+# live (29/08/2026, tools/preci.sh --fast, stage_ctest): dep_zero_test
+# reproved THIS FILE's own find_package(Python3 ...REQUIRED) line the
+# moment it first ran, citing tests/CMakeLists.txt by name - correct
+# behavior on that gate's part, but fixing it would mean editing
+# check_dep_zero.sh's own allowlist, which is explicitly out of scope
+# here (DEPZERO-SHALLOW, not DEPZERO-TRACE - see the ORDEM DE SERVICO's
+# own "O QUE JA ESTA MEDIDO" section for the exact prohibition).
+# find_program() is a DIFFERENT CMake command that check_dep_zero.sh
+# never inspects (confirmed by reading its own pattern, line ~505: it
+# matches only "find_package("), so this line satisfies both the old
+# and the new oracle without widening this fatia's declared scope.
+find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
+
+# RUN_SERIAL TRUE: the script RE-CONFIGURES this exact build directory
+# (to obtain the trace and file API reply) - running it concurrently
+# with another ctest case would race the generator over the same
+# build files, the identical reasoning embed_dll_colocation_test
+# documents for its own nested configure, applied here to a configure
+# of THIS project's own build dir instead of a fixture's.
+add_test(
+    NAME dep_zero_trace
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero_trace.py"
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_BINARY_DIR}"
+)
+set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE)
+
+# --selftest here runs entirely against DISPOSABLE fixtures under
+# mktemp (tests/tools/check_dep_zero_trace.py's own selftest_main(),
+# each fixture is a tiny throwaway CMake project configured fresh) -
+# it does not touch this build directory at all, so it needs neither
+# RUN_SERIAL nor the source/build-dir arguments dep_zero_trace above
+# takes. FAIL_REGULAR_EXPRESSION, the SAME belt dep_zero_selftest above
+# already wears (GODS_LAWS.md L-40): this script's own aggregator
+# (selftest_main(), a plain Python list comprehension over each
+# control's boolean return - no POSIX-sh shared-global-variable
+# collision is even POSSIBLE here, unlike the bug DEPZERO-SELFTEST-FIX
+# fixed in the sibling sh gates) does not share that specific failure
+# mode, but the belt costs nothing and keeps the taxonomy uniform
+# across every selftest in this file, sh or python3 alike.
+add_test(
+    NAME dep_zero_trace_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero_trace.py"
+        --selftest
+)
+set_tests_properties(dep_zero_trace_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FAILED")
+
 # Duplicated-law gate (GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO,
 # 26/08/2026 - proposta em
 # /var/tmp/glintfx-plan/separacao-leis-escopo.md secao 5, executada na

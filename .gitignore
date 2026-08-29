@@ -36,6 +36,12 @@ coverage/
 *.info
 *.lcov
 
+# Cache de bytecode do python3 (DEPZERO-TRACE, GODS_LAWS.md L-07: python3
+# é ferramenta de build autorizada, tests/tools/check_dep_zero_trace.py é
+# o primeiro .py rastreado neste repositório - __pycache__/ nunca é.
+__pycache__/
+*.pyc
+
 # Core dumps e logs de crash
 #
 # Ancorado na raiz (`/core`): sem a barra inicial, o padrão bare "core"

@@ -580,6 +580,20 @@ def parse_trace_events(lines):
     line" - exactly what FLOOR(parity) exists to catch: a parser that
     quietly drops or misreads lines must never look identical to one
     that read every line correctly.
+    REVIEW4-DEPZERO-TRACE.md IMPORTANTE (item 3): the round-3 version of
+    this check used `not event.get("file")`/`not event.get("cmd")` -
+    truthy tests, not TYPE tests. A field of the WRONG type that is
+    still truthy (measured live: `"file": 12345`, an integer) slipped
+    past both checks as "present", was accepted into `events`, and
+    later crashed `is_under_root()` with an unhandled `TypeError`
+    (`os.path.isabs()` does not accept an int) - a real crash, not a
+    bypass (ctest reports the crash as a failure, not "0 violation(s)"),
+    but `invalid_count` LIED about it: it reported 0 invalid lines for
+    an event that was, in fact, unusable. Fixed by testing the TYPE,
+    not just truthiness - a non-string "file"/"cmd" is invalid the same
+    way an absent or empty one is, and is counted (never crashes
+    downstream, and FLOOR(parity) reports the true count instead of a
+    stack trace).
     """
     events = []
     invalid = 0
@@ -589,7 +603,25 @@ def parse_trace_events(lines):
         except json.JSONDecodeError:
             invalid += 1
             continue
-        if not isinstance(event, dict) or not event.get("file") or not event.get("cmd"):
+        if not isinstance(event, dict):
+            invalid += 1
+            continue
+        file_field = event.get("file")
+        cmd_field = event.get("cmd")
+        if not isinstance(file_field, str) or not file_field:
+            invalid += 1
+            continue
+        if not isinstance(cmd_field, str) or not cmd_field:
+            invalid += 1
+            continue
+        # Same type-not-just-truthiness reasoning extended to "args":
+        # every rule function indexes into it (args[0], args[1:], ...);
+        # a present-but-wrong-typed "args" (not a list) would crash the
+        # SAME way "file"/"cmd" used to, the first time any rule tried
+        # to use it. Absent "args" is fine (treated as [] downstream by
+        # every caller's own event.get("args", [])).
+        args_field = event.get("args", [])
+        if not isinstance(args_field, list):
             invalid += 1
             continue
         events.append(event)
@@ -898,7 +930,24 @@ def _program_basename_casefold(program_path):
     return stem.casefold()
 
 
-def evaluate_r8_execute_process(events):
+def evaluate_r8_execute_process(events, source_root, build_dir):
+    """REVIEW4-DEPZERO-TRACE.md CRITICO #1: basename-only matching
+    answers "is this program NAMED pkg-config/pkgconf", never "IS this
+    program pkg-config/pkgconf" - reproduced live by the reviewer, a
+    script with the literal name "pkg-config" placed at an ARBITRARY
+    path passed the old check unconditionally. Fixed the cheap way the
+    leader asked for (via the orchestrator): a program whose absolute
+    path resolves INSIDE the tree being judged (source_root OR
+    build_dir) is never a genuine system tool - pkg-config/pkgconf
+    ship with the OS, at a system prefix, never committed to or
+    generated inside this project's own tree. This does NOT prove
+    identity in the cryptographic sense (a bare, non-absolute program
+    name relies on PATH at real execution time, which this script does
+    not re-resolve; and an attacker who could rewrite /usr/bin itself
+    is a threat model this project does not defend against anywhere)
+    - the residual limit is declared in scope_declaration(), not
+    silently assumed solved.
+    """
     violations = []
     for event in events:
         if event.get("cmd", "").lower() != "execute_process":
@@ -923,14 +972,36 @@ def evaluate_r8_execute_process(events):
                         f" allowlist: {program!r} (GODS_LAWS.md L-07)",
                     )
                 )
+                continue
+            if os.path.isabs(program) and (
+                is_under_root(program, source_root) or is_under_root(program, build_dir)
+            ):
+                violations.append(
+                    Violation(
+                        "R8-identity",
+                        event.get("file", "?"),
+                        event.get("line", "?"),
+                        "execute_process() runs a program whose NAME is"
+                        f" allowlisted ({program!r}) but whose PATH"
+                        " resolves INSIDE the tree being judged - a"
+                        " genuine system tool never does"
+                        " (GODS_LAWS.md L-07)",
+                    )
+                )
     return violations
 
 
 # --- R6: the codemodel, as a witness ---------------------------------------
 
 
-def evaluate_r6_codemodel(codemodel, reply_dir, source_root):
-    """Returns (violations, link_libraries_witness_note)."""
+def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
+    """Returns (violations, link_libraries_witness_note).
+
+    Also runs R9 (REVIEW4-DEPZERO-TRACE.md CRITICO #2, "o mais
+    fundamental de toda a familia de quatro rodadas") - see that
+    rule's own inline comment below for why it exists and what it
+    reads.
+    """
     violations = []
     version = codemodel.get("version", {})
     link_libraries_available = version.get("major") == 2 and version.get(
@@ -982,6 +1053,77 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root):
                             " (GODS_LAWS.md L-07)",
                         )
                     )
+
+            # R9 (REVIEW4-DEPZERO-TRACE.md CRITICO #2, the single most
+            # fundamental finding of the whole four-round family): NONE
+            # of R1..R8, nor R6a/R6b above, ever asked where a target's
+            # own SOURCE FILES come from - only the target's own base
+            # directory (paths.source) and its linked libraries. A
+            # source added by `add_library`/`add_executable`/`target_
+            # sources` from an absolute path already sitting somewhere
+            # on disk needs no fetch command, no module load, no
+            # execute_process(), not even file() - reproduced live by
+            # the reviewer: add_library(dummylib STATIC "/var/tmp/.../
+            # evil.c") passed EVERY existing rule with "0 violation(s)".
+            #
+            # Deliberately POSITIVE, not another blocklist entry - the
+            # leader's own instruction (relayed by the orchestrator):
+            # enumerating commands is a race this family has now lost
+            # four times running; the codemodel ALREADY lists every
+            # source file explicitly (measured live, 29/08/2026,
+            # against the real tree's own glintfx_library target - this
+            # comment does not guess the shape), so the fix is to READ
+            # what CMake already told us, not add a ninth forbidden
+            # spelling to a list a tenth spelling will defeat next
+            # round. This closes add_library/add_executable/target_
+            # sources AND any future command nobody has invented yet
+            # that ends up populating a target's own "sources" list -
+            # the SAME "the module denounces itself by having executed"
+            # turn this family already won once (R2), applied here to
+            # "the target denounces its own sources by having a
+            # codemodel entry for them".
+            #
+            # Resolution rule, measured against the real tree before
+            # being written (not assumed): codemodel-v2's own "sources"
+            # entries carry a "path" that is RELATIVE to the target's
+            # OWN paths.source for ordinary, hand-written sources
+            # (measured: "src/core/version.cpp") but ABSOLUTE, already
+            # pointing INSIDE the build directory, for GENERATED files
+            # (measured: "isGenerated": true, path "<build_dir>/
+            # generated/render/gl_functions.cpp" - the exact shape the
+            # leader warned to accept: "arquivos gerados durante a
+            # construcao... estao fora da arvore-fonte de proposito, e
+            # sao legitimos"). Both shapes are handled by the SAME
+            # resolve-then-check: absolute paths are used as-is,
+            # relative ones are joined onto the target's own base
+            # directory (resolved_source, already computed above for
+            # R6a) - then accepted if the result sits under source_root
+            # OR under build_dir, exactly the same is_under_root() this
+            # whole file already uses everywhere else.
+            for source_entry in target.get("sources", []):
+                raw_path = source_entry.get("path", "")
+                if not raw_path:
+                    continue
+                if os.path.isabs(raw_path):
+                    resolved_src = raw_path
+                else:
+                    resolved_src = os.path.join(resolved_source, raw_path)
+                if is_under_root(resolved_src, source_root) or is_under_root(
+                    resolved_src, build_dir
+                ):
+                    continue
+                violations.append(
+                    Violation(
+                        "R9",
+                        target_ref.get("jsonFile", "?"),
+                        "?",
+                        f"target '{target_name}' has a source file"
+                        " outside BOTH the source root and the build"
+                        f" directory: {raw_path} (resolves to"
+                        f" {os.path.realpath(resolved_src)})"
+                        " (GODS_LAWS.md L-07)",
+                    )
+                )
     return violations, note
 
 
@@ -1141,12 +1283,12 @@ def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
         report.violations.extend(evaluate_r4_pkg_check_modules(events))
         report.violations.extend(evaluate_r5_add_subdirectory(events, source_root))
         report.violations.extend(evaluate_r7_file_network(events))
-        report.violations.extend(evaluate_r8_execute_process(events))
+        report.violations.extend(evaluate_r8_execute_process(events, source_root, build_dir))
 
     if codemodel_ok:
         reply_dir = os.path.join(build_dir, ".cmake", "api", "v1", "reply")
         r6_violations, r6_note = evaluate_r6_codemodel(
-            codemodel, reply_dir, source_root
+            codemodel, reply_dir, source_root, build_dir
         )
         report.violations.extend(r6_violations)
         report.notes.append(r6_note)
@@ -1162,19 +1304,21 @@ def scope_declaration():
 
     REVIEW3-DEPZERO-TRACE.md CRITICO #3: the PREVIOUS wording of this
     declaration ("untaken branches are covered... by the shallow net")
-    was TRUE for R1..R6's own vocabulary (FetchContent/ExternalProject/
-    CPM/find_package/pkg_check_modules/add_subdirectory - confirmed
-    live by the reviewer: the shallow net catches a FetchContent call
-    behind an option()-guarded, default-OFF if(), because it reads the
-    file as literal text and does not care whether the branch is
-    taken) but SILENTLY FALSE for file(DOWNLOAD|UPLOAD)/
-    execute_process(), which the shallow net (check_dep_zero.sh) has
-    NEVER watched, in ANY configuration, taken branch or not (also
-    confirmed live by the reviewer: attackH/attackH2). R7/R8 close the
-    trace side of that gap for the TAKEN-branch case; the untaken-
-    branch case for those two commands specifically remains a REAL,
-    UNCOVERED gap by BOTH oracles today - this string says so, instead
-    of repeating a promise that turned out to be only half true.
+    was TRUE for R1..R6's own vocabulary but SILENTLY FALSE for
+    file(DOWNLOAD|UPLOAD)/execute_process(). Fixed once already; this
+    round (REVIEW4-DEPZERO-TRACE.md item 6) found the SAME defect
+    class repeated, now against the string's COMPLETENESS rather than
+    its truth: it never named the three vectors that round found -
+    add_library()/add_executable()/target_sources() with an external
+    source (CRITICO #2, now closed by R9 - see evaluate_r6_codemodel's
+    own comment), file(COPY)/file(ARCHIVE_EXTRACT) (CRITICO #3,
+    genuinely still open), and R8's basename-vs-identity gap (CRITICO
+    #1, now partially closed - see evaluate_r8_execute_process's own
+    comment). "A true but incomplete declaration" has now happened
+    three times in this family (round 2's shallow-net "out of scope"
+    line, round 3's shallow-net promise, round 4's own scope string) -
+    the fix each time is the same discipline: say ONLY what has been
+    proven, and name every gap that was found, not just the first one.
     """
     return (
         "this oracle judges the executed configuration. Untaken"
@@ -1183,9 +1327,25 @@ def scope_declaration():
         " as literal text by the shallow net regardless of the branch"
         " being taken, and per-platform by the CI matrix. Untaken"
         " branches naming file(DOWNLOAD|UPLOAD) or execute_process()"
-        " are NOT covered by either oracle today (DEPZERO-SHALLOW"
-        " needs to teach the shallow net those two forms) -"
-        " REVIEW3-DEPZERO-TRACE.md CRITICO #3"
+        " are NOT covered by either oracle today. R9 (codemodel"
+        " sources) covers add_library/add_executable/target_sources"
+        " with an external source file in ANY configuration (it reads"
+        " the resolved target graph, not text, so a taken/untaken"
+        " branch makes no difference to it) - but file(COPY ...)/"
+        " file(ARCHIVE_EXTRACT ...) that copy or extract an external"
+        " file INTO the build directory, which a target then compiles"
+        " as a source, are NOT caught by R9 either: once the file sits"
+        " under build_dir it is indistinguishable from a genuinely"
+        " generated one - a narrower gap than before this fix (a"
+        " copied-but-never-compiled file was never a risk, and still"
+        " is not), but a real, open one. execute_process()'s allowlist"
+        " (R8) now also rejects an allowlisted NAME resolving to an"
+        " ABSOLUTE path inside the tree being judged, but does not"
+        " (and cannot, from a static trace read) verify the identity"
+        " of a program resolved by bare name via PATH at real"
+        " execution time, nor defend against the system path itself"
+        " (e.g. /usr/bin) being compromised - REVIEW4-DEPZERO-TRACE.md"
+        " CRITICOS #1/#2/#3"
     )
 
 
@@ -1206,6 +1366,18 @@ def trust_boundary_declaration():
     identity. This declaration exists so nobody copies this script
     into a context where argv IS attacker-influenced without reading
     this paragraph first.
+
+    REVIEW4-DEPZERO-TRACE.md item 4 (IMPORTANTE, not independently
+    reproduced by the reviewer - "risco identificado por leitura de
+    codigo, nao... demonstrado"): clear_stale_codemodel_reply_pointers()
+    plus the reconfigure it precedes are not atomic against a SECOND,
+    concurrent invocation of this script (or a developer's own manual
+    `cmake --build`) against the SAME build_dir - RUN_SERIAL (tests/
+    CMakeLists.txt) only serializes cases within one ctest run, never
+    across two separate ones. Declared here rather than silently
+    assumed away; not fixed in this round (the leader's own scope for
+    this pass named three CRITICOs and two IMPORTANTEs, and this was
+    not one of the ones asked for).
     """
     return (
         "this script RUNS the CMake configure of the tree it is"
@@ -1214,7 +1386,11 @@ def trust_boundary_declaration():
         " that did not come from a trusted, fixed call site"
         " (tests/CMakeLists.txt's own dep_zero_trace registration is"
         " the only trusted caller today; there is no identity check"
-        " in this script itself)"
+        " in this script itself). It also assumes exclusive access to"
+        " build_dir: nothing here serializes against a SECOND,"
+        " concurrent invocation of this script or a manual build"
+        " against the same directory - RUN_SERIAL only protects"
+        " within a single ctest run"
     )
 
 
@@ -1465,6 +1641,202 @@ add_subdirectory({outside} outsider-build)
         ok,
         detail=f"violations={[v.format() for v in report.violations]}",
     )
+
+
+def selftest_hostile_target_sources_external(scratch):
+    """REVIEW4-DEPZERO-TRACE.md CRITICO #2, the most fundamental
+    finding of the whole four-round family: add_library()/add_
+    executable()/target_sources() with a source file at an absolute
+    path OUTSIDE the tree, no fetch/module/execute_process/file()
+    involved at all - the most ordinary way to add a file to a target.
+    """
+    vendor_dir = os.path.join(scratch, "preexisting_vendor_r9")
+    os.makedirs(vendor_dir, exist_ok=True)
+    evil_c = os.path.join(vendor_dir, "evil.c")
+    with open(evil_c, "w", encoding="utf-8") as handle:
+        handle.write("int vendored_evil(void) { return 1; }\n")
+
+    root = os.path.join(scratch, "hostile_target_sources_external")
+    write_fixture(
+        root,
+        f"""cmake_minimum_required(VERSION 3.25)
+project(hostile_target_sources_external C)
+find_package(PkgConfig REQUIRED)
+add_library(dummylib STATIC "{evil_c}")
+""",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    ok = any(v.rule == "R9" and "evil.c" in v.message for v in report.violations)
+    return selftest_report(
+        "hostile: add_library() with a source file OUTSIDE both the"
+        " source root and the build directory",
+        ok,
+        detail=f"violations={[v.format() for v in report.violations]}",
+    )
+
+
+def selftest_positive_target_sources_generated_in_build_dir(scratch):
+    """R9's own positive control (ORDEM DE SERVICO's own warning, and
+    the leader's own instruction: "arquivos gerados... estao fora da
+    arvore-fonte de proposito, e sao legitimos... mede a lista real de
+    fontes... antes de escrever a condicao"). Measured live,
+    29/08/2026, against the real tree's own glintfx_library target
+    before writing R9: a genuinely generated source
+    (generated/render/gl_functions.cpp) has an ABSOLUTE "path" already
+    pointing inside build_dir - this fixture reproduces that exact
+    shape with file(WRITE ...) (a plain, non-network file() sub-
+    command, unrelated to R7) creating the file INSIDE ${CMAKE_BINARY_
+    DIR} at configure time, then adding it as a target source by its
+    absolute, build_dir-rooted path.
+
+    build_dir is a SIBLING of root, deliberately NOT root's own child
+    (every other fixture in this file nests build/ under its own
+    source root, the same layout this project's real CI uses -
+    `cmake -S . -B build-shared` from the repo root). Caught live while
+    writing this control: with a nested build/, the generated file
+    sits under BOTH source_root and build_dir at once, so the control
+    stayed green even with R9's own build_dir acceptance branch
+    deleted outright - a positive control that cannot fail is not
+    proving what it claims. An out-of-tree build_dir is what actually
+    forces this control through R9's "is_under_root(..., build_dir)"
+    branch specifically, rather than through source_root by accident.
+    """
+    root = os.path.join(scratch, "positive_target_sources_generated")
+    write_fixture(
+        root,
+        """cmake_minimum_required(VERSION 3.25)
+project(positive_target_sources_generated C)
+find_package(PkgConfig REQUIRED)
+set(generated_c "${CMAKE_BINARY_DIR}/generated_ok.c")
+file(WRITE "${generated_c}" "int generated_ok(void) { return 0; }\\n")
+add_library(dummylib STATIC "${generated_c}")
+""",
+    )
+    build_dir = os.path.join(scratch, "positive_target_sources_generated_build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    r9_violations = [v for v in report.violations if v.rule == "R9"]
+    ok = not r9_violations
+    return selftest_report(
+        "positive: a source file that genuinely lives under the build"
+        " directory (the shape a real generated file takes) is not"
+        " an R9 violation",
+        ok,
+        detail=f"R9 violations={[v.format() for v in r9_violations]}",
+    )
+
+
+def selftest_hostile_execute_process_identity_spoof(scratch):
+    """REVIEW4-DEPZERO-TRACE.md CRITICO #1: a program with the exact
+    ALLOWLISTED NAME ("pkg-config"), but at an arbitrary path, is a
+    different program - basename comparison alone cannot tell them
+    apart. The fix (evaluate_r8_execute_process's own comment) rejects
+    an allowlisted name resolving to an ABSOLUTE path INSIDE the tree
+    being judged - this fixture plants the fake binary inside the
+    fixture's own source tree, exactly the shape the reviewer's own
+    reproduction used ("inclusive dentro da propria arvore").
+    """
+    root = os.path.join(scratch, "hostile_execute_process_identity")
+    fake_bin_dir = os.path.join(root, "fake_bin")
+    os.makedirs(fake_bin_dir, exist_ok=True)
+    fake_pkgconfig = os.path.join(fake_bin_dir, "pkg-config")
+    with open(fake_pkgconfig, "w", encoding="utf-8") as handle:
+        handle.write("#!/bin/sh\necho fake\n")
+    os.chmod(fake_pkgconfig, 0o755)
+    write_fixture(
+        root,
+        f"""cmake_minimum_required(VERSION 3.25)
+project(hostile_execute_process_identity NONE)
+execute_process(COMMAND "{fake_pkgconfig}" RESULT_VARIABLE rc)
+add_custom_target(dummy)
+""",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+    report = configure_and_judge(root, build_dir)
+    ok = any(v.rule == "R8-identity" for v in report.violations)
+    return selftest_report(
+        "hostile: execute_process() runs a program NAMED pkg-config at"
+        " an arbitrary path INSIDE the tree being judged - not the"
+        " real system tool",
+        ok,
+        detail=f"violations={[v.format() for v in report.violations]}",
+    )
+
+
+def selftest_floor_wrong_type_field_reproves_by_parity(scratch):
+    """REVIEW4-DEPZERO-TRACE.md IMPORTANTE (item 3): a trace event with
+    "file" present but the WRONG TYPE (an int, not a string) used to
+    slip past the truthy-only check (`not event.get("file")` is False
+    for a truthy int) and later crash is_under_root() with an
+    unhandled TypeError - fail-closed in effect (ctest reports the
+    crash as a failure), but invalid_count LIED about the cause. Fixed
+    by checking isinstance(..., str), not just truthiness - this
+    control proves the crash is gone AND the count is honest.
+    """
+    root = os.path.join(scratch, "floor_wrong_type_field")
+    write_fixture(
+        root,
+        "cmake_minimum_required(VERSION 3.25)\n"
+        "project(floor_wrong_type_field NONE)\n"
+        "add_custom_target(dummy)\n",
+    )
+    build_dir = os.path.join(root, "build")
+    os.makedirs(build_dir, exist_ok=True)
+    subprocess.run(["cmake", "-S", root, "-B", build_dir], capture_output=True)
+
+    root_cmakelists = os.path.realpath(os.path.join(root, "CMakeLists.txt"))
+    synthetic_lines = [
+        json.dumps({"version": {"major": 1, "minor": 2}}),
+        json.dumps({
+            "cmd": "cmake_minimum_required",
+            "file": root_cmakelists,
+            "line": 1,
+            "args": ["VERSION", "3.25"],
+        }),
+        json.dumps({
+            "cmd": "project",
+            "file": root_cmakelists,
+            "line": 2,
+            "args": ["floor_wrong_type_field", "NONE"],
+        }),
+        # The bug shape: "file" present, but an INTEGER, not a string.
+        json.dumps({"cmd": "set", "file": 12345, "line": 3, "args": ["x", "y"]}),
+    ]
+    synthetic_scratch = make_scratch_workdir()
+    try:
+        synthetic_path = os.path.join(synthetic_scratch, "trace.json")
+        with open(synthetic_path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(synthetic_lines) + "\n")
+        try:
+            report = judge(root, build_dir, synthetic_path, False)
+        except Exception as exc:  # noqa: BLE001 - a crash here IS the finding
+            return selftest_report(
+                "floor: a trace event with a WRONG-TYPE \"file\" field is"
+                " treated as invalid, not a crash",
+                False,
+                detail=f"judge() raised {exc!r} instead of reporting a floor failure",
+            )
+        parity_line = _floor_line_for(report, "parity")
+        ok = (
+            not report.floor_ok
+            and parity_line is not None
+            and "could not use 1" in parity_line
+        )
+        return selftest_report(
+            "floor: a trace event with a WRONG-TYPE \"file\" field (an"
+            " int, not a string) is treated as invalid and reproves via"
+            " parity, never silently accepted and never a crash",
+            ok,
+            detail=f"floor_lines={report.floor_lines}",
+        )
+    finally:
+        shutil.rmtree(synthetic_scratch, ignore_errors=True)
 
 
 def selftest_hostile_file_download(scratch):
@@ -2008,14 +2380,25 @@ def selftest_declarations_printed_on_every_run(scratch):
         capture_output=True,
         text=True,
     )
+    # REVIEW4-DEPZERO-TRACE.md item 6: the round-3 declaration was
+    # complete FOR THAT ROUND's own findings, but round 4 found the
+    # SAME "true but incomplete" defect against a longer list -
+    # asserting on the three round-4 gaps too, not just the two from
+    # round 3, is what keeps this control from suffering the identical
+    # fate a fourth time.
     ok = (
         "file(DOWNLOAD|UPLOAD) or execute_process()" in result.stdout
         and "must never be invoked with a source-root/build-dir pair" in result.stdout
+        and "file(COPY" in result.stdout
+        and "file(ARCHIVE_EXTRACT" in result.stdout
+        and "add_library/add_executable/target_sources" in result.stdout
+        and "concurrent invocation" in result.stdout
     )
     return selftest_report(
         "declares, on every run, the scope limit of the shallow-net"
-        " promise (file()/execute_process() gap) and the trust boundary"
-        " (this script RUNS the tree it is pointed at)",
+        " promise, the file(COPY)/file(ARCHIVE_EXTRACT) gap, the R9"
+        " coverage claim, the trust boundary, and the concurrency"
+        " limit - not just the two declarations round 3 checked",
         ok,
         detail=f"stdout={result.stdout!r}",
     )
@@ -2120,14 +2503,18 @@ def selftest_main():
         selftest_hostile_add_subdirectory_outside_tree,
         selftest_hostile_file_download,
         selftest_hostile_execute_process_disallowed_program,
+        selftest_hostile_target_sources_external,
+        selftest_hostile_execute_process_identity_spoof,
         selftest_positive_find_package_multiline,
         selftest_positive_pkg_check_modules_version_comparator,
         selftest_positive_execute_process_pkgconfig,
         selftest_execute_process_empty_launcher_slot_not_misidentified,
+        selftest_positive_target_sources_generated_in_build_dir,
         selftest_floor_empty_trace_reproves,
         selftest_floor_corrupted_line_reproves_by_parity,
         selftest_is_under_root_rejects_empty_and_relative,
         selftest_floor_events_without_file_do_not_inflate_scan,
+        selftest_floor_wrong_type_field_reproves_by_parity,
         selftest_codemodel_reply_not_stale,
         selftest_same_path_platform_aware,
         selftest_declarations_printed_on_every_run,

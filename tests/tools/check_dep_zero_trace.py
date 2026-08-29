@@ -358,6 +358,22 @@ PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client"})
 # comment - never widen this ahead of the measurement.
 CODEMODEL_LINK_LIBRARIES_ALLOWLIST = frozenset({"wayland-client", "m"})
 
+# codemodel-v2 target "type" values that compile source files, per
+# cmake-file-api(7)'s own documented enumeration - the complement
+# ("UTILITY", made by add_custom_target(); "INTERFACE_LIBRARY", header-
+# only by construction) has NO source files by design and is exactly
+# the false-positive check_floor_r9_sources_nonempty() below must NOT
+# flag: this file's OWN --selftest fixtures for find_package/pkg_check_
+# modules/execute_process each add a bare add_custom_target(dummy) on
+# purpose (their own comments: "so FLOOR(codemodel) judges what this
+# control actually means to prove"), and treating THEIR zero sources as
+# suspicious would make the new floor reprove three genuinely clean
+# controls the first time it ran - caught locally before ever reaching
+# the server, not a fourth guess.
+COMPILED_TARGET_TYPES = frozenset(
+    {"EXECUTABLE", "STATIC_LIBRARY", "SHARED_LIBRARY", "MODULE_LIBRARY", "OBJECT_LIBRARY"}
+)
+
 # R7 (REVIEW3-DEPZERO-TRACE.md CRITICO #1): file(DOWNLOAD ...) and
 # file(UPLOAD ...) are CMake's own NATIVE network transfer commands -
 # no FetchContent/ExternalProject/CPM/find_package/pkg_check_modules
@@ -1022,7 +1038,8 @@ def evaluate_r8_execute_process(events, source_root, build_dir):
 
 
 def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
-    """Returns (violations, link_libraries_witness_note, r9_diagnostics).
+    """Returns (violations, link_libraries_witness_note, r9_diagnostics,
+    compiled_targets_missing_sources).
 
     Also runs R9 (REVIEW4-DEPZERO-TRACE.md CRITICO #2, "o mais
     fundamental de toda a familia de quatro rodadas") - see that
@@ -1046,6 +1063,18 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
     """
     violations = []
     r9_diagnostics = []
+    # compiled_targets_missing_sources: names of targets whose own
+    # codemodel "type" compiles source files (COMPILED_TARGET_TYPES'
+    # own comment) but whose "sources" list is empty/absent - the
+    # precise signal check_floor_r9_sources_nonempty() reproves on.
+    # UTILITY (add_custom_target()) and INTERFACE_LIBRARY targets are
+    # NOT compiled types and never land here, on purpose: this file's
+    # own find_package/pkg_check_modules/execute_process --selftest
+    # fixtures each carry a bare add_custom_target(dummy) precisely so
+    # FLOOR(codemodel) has a real target to count, and flagging THEIR
+    # zero sources as suspicious would reprove three controls that are
+    # genuinely clean.
+    compiled_targets_missing_sources = []
     version = codemodel.get("version", {})
     link_libraries_available = version.get("major") == 2 and version.get(
         "minor", 0
@@ -1068,6 +1097,12 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
         for target_ref in configuration.get("targets", []):
             target = read_target(reply_dir, target_ref["jsonFile"])
             target_name = target.get("name", target_ref.get("name", "?"))
+            target_type = target.get("type", "?")
+            target_sources = target.get("sources", [])
+            if target_type in COMPILED_TARGET_TYPES and not target_sources:
+                compiled_targets_missing_sources.append(
+                    f"{target_name!r} (type={target_type})"
+                )
             source_path = target.get("paths", {}).get("source", "")
             resolved_source = os.path.join(source_root, source_path)
             if not is_under_root(resolved_source, source_root):
@@ -1081,21 +1116,45 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
                         " (GODS_LAWS.md L-07)",
                     )
                 )
-            if not link_libraries_available:
-                continue
-            for fragment_entry in target.get("linkLibraries", []):
-                fragment = fragment_entry.get("fragment", "")
-                if fragment and fragment not in CODEMODEL_LINK_LIBRARIES_ALLOWLIST:
-                    violations.append(
-                        Violation(
-                            "R6b",
-                            target_ref.get("jsonFile", "?"),
-                            "?",
-                            f"target '{target_name}' links a fragment"
-                            f" outside the allowlist: {fragment!r}"
-                            " (GODS_LAWS.md L-07)",
+            # ORDEM DE SERVICO OS-WINDOWS-R9 rodada 2 (29/08/2026): THE
+            # ROOT CAUSE, measured, not supposed - reproduced on LINUX,
+            # no Windows machine needed. This used to be
+            # "if not link_libraries_available: continue" - a `continue`
+            # inside THIS SAME `for target_ref` loop, written to skip
+            # only the linkLibraries sub-loop immediately below (which
+            # genuinely does need codemodel >= v2.9), but R9's own
+            # sources sub-loop sits AFTER it in the SAME loop body, so
+            # the `continue` skipped R9 too, for every target, whenever
+            # link_libraries_available was False. windows-latest's CI
+            # pins CMake 4.1.6 (ci.yml's own CI-WIN comment) - measured
+            # live in a container, CMake 4.1.6 reports codemodel version
+            # {'major': 2, 'minor': 8}, one minor below the >= 2.9 floor
+            # link_libraries_available requires. R9 needs NO such floor
+            # (codemodel's own "sources" field has existed since v2.0),
+            # so gating it on the SAME condition as R6b was the defect:
+            # not a Windows toolchain quirk, not a short-name/casing
+            # issue (both already hardened, and neither was wrong to
+            # fix) - a `continue` reaching one line too far. Confirmed
+            # by running THIS FILE's own --selftest under CMake 4.1.6 on
+            # Linux: hostile_target_sources_external failed identically
+            # to the server's own report (r9_diagnostics=[]) before this
+            # fix, and passed after it - the family's fifth instance,
+            # closed the same way the other four were: read what
+            # actually ran, not what was assumed to run.
+            if link_libraries_available:
+                for fragment_entry in target.get("linkLibraries", []):
+                    fragment = fragment_entry.get("fragment", "")
+                    if fragment and fragment not in CODEMODEL_LINK_LIBRARIES_ALLOWLIST:
+                        violations.append(
+                            Violation(
+                                "R6b",
+                                target_ref.get("jsonFile", "?"),
+                                "?",
+                                f"target '{target_name}' links a fragment"
+                                f" outside the allowlist: {fragment!r}"
+                                " (GODS_LAWS.md L-07)",
+                            )
                         )
-                    )
 
             # R9 (REVIEW4-DEPZERO-TRACE.md CRITICO #2, the single most
             # fundamental finding of the whole four-round family): NONE
@@ -1143,7 +1202,7 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
             # R6a) - then accepted if the result sits under source_root
             # OR under build_dir, exactly the same is_under_root() this
             # whole file already uses everywhere else.
-            for source_entry in target.get("sources", []):
+            for source_entry in target_sources:
                 raw_path = source_entry.get("path", "")
                 if not raw_path:
                     continue
@@ -1176,7 +1235,7 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
                         " (GODS_LAWS.md L-07)",
                     )
                 )
-    return violations, note, r9_diagnostics
+    return violations, note, r9_diagnostics, compiled_targets_missing_sources
 
 
 # --- the four floor checks (GODS_LAWS.md L-40) ------------------------------
@@ -1285,6 +1344,62 @@ def check_floor_codemodel_nonempty(codemodel, codemodel_error):
     return True, f"FLOOR(codemodel): {target_count} target(s) resolved"
 
 
+def check_floor_r9_sources_nonempty(compiled_targets_missing_sources):
+    """GODS_LAWS.md L-40, the piso item 2 of ORDEM DE SERVICO OS-
+    WINDOWS-R9 rodada 2 demands, on TOP of check_floor_codemodel_
+    nonempty above, not instead of it: "codemodel resolved with >= 1
+    target" (the existing floor) does NOT imply "R9 examined >= 1
+    source" for a target that OUGHT to have one - the codemodel-v2
+    target object's own "sources" field is documented as OMITTED
+    ENTIRELY, not present-and-empty, "when the target has no sources
+    that compile" (cmake-file-api(7)), so a compiled-type target whose
+    ONE source silently failed to be recognized produces EXACTLY the
+    same "0 violation(s)" this project's own dep_zero_trace prints for
+    a genuinely clean tree. This is the fifth instance of the SAME
+    family this fatia has already found and fixed four times (a
+    sanitizer that printed its own error and exited 0; a selftest
+    aggregator that erased its own red; two controls that passed on an
+    empty scan; a fixture file that was never even read) - "did not
+    detect" and "did not look" produce the identical "0 violation(s)"
+    from the outside, and only a piso that reproves the SECOND shape
+    closes the gap the first four fixes each closed for their own
+    mechanism.
+
+    Judges compiled_targets_missing_sources (evaluate_r6_codemodel's
+    own per-target COMPILED_TARGET_TYPES check), NOT a bare "was
+    r9_diagnostics empty" - a bare emptiness check reproved three of
+    this file's OWN --selftest controls the first time it ran
+    (positive_find_package_multiline and siblings, each a bare
+    add_custom_target(dummy) with genuinely zero sources BY
+    CONSTRUCTION, not by defect - COMPILED_TARGET_TYPES's own comment).
+    An empty compiled_targets_missing_sources means either "every
+    compiled-type target had sources" (the common case) or "there were
+    no compiled-type targets to examine at all" (a UTILITY/INTERFACE-
+    only fixture) - both are genuinely clean, and neither should reprove.
+
+    Deliberately UNCONDITIONAL on platform: this floor runs wherever
+    evaluate_r6_codemodel() runs - the REAL dep_zero_trace check
+    against this project's own glintfx_library target (a STATIC_LIBRARY/
+    SHARED_LIBRARY with real, numerous .cpp sources on every currently-
+    green platform) included. If it ever reproves there, that is not a
+    false alarm to silence; it is this exact silent gap having reached
+    the one target the whole mechanism exists to protect - GODS_LAWS.md
+    L-40's own reason to exist ("contou zero, reprova"), not a downgrade.
+    """
+    if compiled_targets_missing_sources:
+        return (
+            False,
+            "FLOOR(r9-sources): compiled-type target(s) reported ZERO"
+            " source file entries: "
+            f"{compiled_targets_missing_sources} - a target of type"
+            " EXECUTABLE/STATIC_LIBRARY/SHARED_LIBRARY/MODULE_LIBRARY/"
+            "OBJECT_LIBRARY should always report at least one. Zero is"
+            " not proof the tree is clean, it is proof nobody looked"
+            " (GODS_LAWS.md L-40)",
+        )
+    return True, "FLOOR(r9-sources): every compiled-type target reported >= 1 source"
+
+
 # --- the whole judgement, assembled -----------------------------------------
 
 
@@ -1301,6 +1416,20 @@ class Report:
         # one would bury the signal), read directly by --selftest's own
         # hostile_target_sources_external control instead.
         self.r9_diagnostics = []
+        # reconfigure_result: the CompletedProcess of the SECOND cmake
+        # invocation (run_configure_with_trace's own, --trace-expand,
+        # the one that actually produces the trace/codemodel this
+        # Report judges) - set by configure_and_judge()/real_main()'s
+        # own caller, never by judge() itself (judge() only reads
+        # whatever trace/reply already exists on disk, it does not run
+        # cmake). ORDEM DE SERVICO OS-WINDOWS-R9 rodada 2 (29/08/2026):
+        # this result used to be silently discarded in
+        # configure_and_judge() - real_main() already captured and
+        # printed it on the violations/floor-failure path, but the
+        # --selftest helper never did, which is exactly why
+        # hostile_target_sources_external's own FAILED line carried no
+        # evidence about what the SECOND configure actually saw.
+        self.reconfigure_result = None
 
 
 def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
@@ -1346,12 +1475,28 @@ def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
 
     if codemodel_ok:
         reply_dir = os.path.join(build_dir, ".cmake", "api", "v1", "reply")
-        r6_violations, r6_note, r9_diagnostics = evaluate_r6_codemodel(
-            codemodel, reply_dir, source_root, build_dir
-        )
+        (
+            r6_violations,
+            r6_note,
+            r9_diagnostics,
+            compiled_targets_missing_sources,
+        ) = evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir)
         report.violations.extend(r6_violations)
         report.notes.append(r6_note)
         report.r9_diagnostics.extend(r9_diagnostics)
+
+        # FLOOR(r9-sources), GODS_LAWS.md L-40 (ORDEM DE SERVICO
+        # OS-WINDOWS-R9 rodada 2, item 2 - "vale mesmo que o item 1 se
+        # resolva"): check_floor_codemodel_nonempty above only proves
+        # "the codemodel has >= 1 target"; it says nothing about
+        # whether that target's own sources were ever reported. See
+        # check_floor_r9_sources_nonempty()'s own docstring for why
+        # this is a DIFFERENT floor, not a duplicate.
+        r9_sources_ok, r9_sources_line = check_floor_r9_sources_nonempty(
+            compiled_targets_missing_sources
+        )
+        report.floor_lines.append(r9_sources_line)
+        report.floor_ok = report.floor_ok and r9_sources_ok
 
     return report
 
@@ -1653,6 +1798,32 @@ def initial_configure_diagnostic(result):
     return f" initial_configure(rc={result.returncode}, stderr={result.stderr!r})"
 
 
+def reconfigure_diagnostic(report):
+    """The SECOND configure's own rc/stderr - the one run_configure_
+    with_trace() runs, that actually produces the trace and codemodel
+    reply judge() reads. ORDEM DE SERVICO OS-WINDOWS-R9 rodada 2
+    (29/08/2026): this result used to be silently discarded inside
+    configure_and_judge() - real_main()'s own violations/floor-failure
+    path already prints it (this exact line's own twin, a few hundred
+    lines below in real_main()), but no --selftest control ever saw
+    it. A hostile fixture whose SECOND configure genuinely fails or
+    warns (a missing-source warning, for instance - CMake does not
+    treat "cannot verify a source file's existence" as fatal, and the
+    codemodel's own "sources" field is documented as OMITTED, not
+    zero-length-and-present, "when the target has no sources that
+    compile") would previously report "violations=[]" with nothing
+    else to go on - indistinguishable, from this file's own selftest
+    output, from is_under_root() actually mis-judging a real entry.
+    Report.reconfigure_result is None for any caller that never set it
+    (only configure_and_judge() does), so this stays a safe no-op
+    everywhere else.
+    """
+    result = report.reconfigure_result
+    if result is None:
+        return " reconfigure=<not captured>"
+    return f" reconfigure(rc={result.returncode}, stderr={result.stderr!r})"
+
+
 def configure_and_judge(source_root, build_dir):
     """The same pipeline real_main() uses, for a --selftest fixture.
 
@@ -1674,8 +1845,15 @@ def configure_and_judge(source_root, build_dir):
     scratch = make_scratch_workdir()
     try:
         trace_path = os.path.join(scratch, "trace.json")
-        run_configure_with_trace(source_root, build_dir, trace_path)
-        return judge(source_root, build_dir, trace_path, False)
+        # ORDEM DE SERVICO OS-WINDOWS-R9 rodada 2: this result used to
+        # be discarded (the bare call below, no assignment) - captured
+        # now and attached to the Report so every --selftest control
+        # has the SAME evidence real_main()'s own violations-path
+        # already prints (Report.__init__'s own comment explains why).
+        reconfigure_result = run_configure_with_trace(source_root, build_dir, trace_path)
+        report = judge(source_root, build_dir, trace_path, False)
+        report.reconfigure_result = reconfigure_result
+        return report
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -1860,9 +2038,19 @@ add_library(dummylib STATIC "{cmake_path_literal(evil_c)}")
         "hostile: add_library() with a source file OUTSIDE both the"
         " source root and the build directory",
         ok,
+        # floor_ok/floor_lines (ORDEM DE SERVICO OS-WINDOWS-R9 rodada 2):
+        # r9_diagnostics=[] is ambiguous on its own between "no source
+        # was there to examine" (a floor problem, R6 never even
+        # iterated a target's sources) and "a source WAS examined and
+        # is_under_root() wrongly accepted it" (a logic problem, no
+        # floor involved) - printing floor_ok/floor_lines lets the next
+        # run's log tell the two apart without a THIRD round of
+        # instrumentation.
         detail=f"violations={[v.format() for v in report.violations]}"
         f" r9_diagnostics={evil_diagnostics}"
-        f"{initial_configure_diagnostic(initial)}",
+        f" floor_ok={report.floor_ok} floor_lines={report.floor_lines}"
+        f"{initial_configure_diagnostic(initial)}"
+        f"{reconfigure_diagnostic(report)}",
     )
 
 
@@ -1922,7 +2110,10 @@ add_library(dummylib STATIC "${generated_c}")
         " an R9 violation",
         ok,
         detail=f"R9 violations={[v.format() for v in r9_violations]}"
-        f" floor_ok={report.floor_ok}{initial_configure_diagnostic(initial)}",
+        f" r9_diagnostics={report.r9_diagnostics}"
+        f" floor_ok={report.floor_ok} floor_lines={report.floor_lines}"
+        f"{initial_configure_diagnostic(initial)}"
+        f"{reconfigure_diagnostic(report)}",
     )
 
 

@@ -466,8 +466,35 @@ def is_under_root(candidate_path, root_path):
         return False
     real_candidate = os.path.realpath(candidate_path)
     real_root = os.path.realpath(root_path)
-    return real_candidate == real_root or real_candidate.startswith(
-        real_root + os.sep
+    # DEPZERO-TRACE, R9's Windows debut (server run 33253849485,
+    # 29/08/2026, ORDEM DE SERVICO OS-WINDOWS-R9): realpath() resolves
+    # symlinks AND, per Python's own documented Windows behavior
+    # (ntpath.realpath uses GetFinalPathNameByHandle, which the
+    # Microsoft docs describe as querying "the normalized name of each"
+    # path component in turn - it walks the WHOLE path, not just the
+    # leaf), short 8.3 names too - so a RUNNER~1-vs-runneradmin
+    # mismatch should not survive past the two realpath() calls above,
+    # on its own. What this function did NOT do, and every OTHER
+    # realpath()-then-compare site in this file already does
+    # (same_path_platform_aware(), written for check_floor_sentinel
+    # with the identical "these are already-resolved paths" framing),
+    # is normcase() the result before comparing: NTFS is
+    # case-preserving but case-INSENSITIVE, and nothing guarantees the
+    # two independent realpath() calls above return identical casing
+    # for a path component neither side of this comparison ever wrote
+    # itself (a Windows profile/temp directory reached here via a
+    # literal Python string built from the raw TEMP environment
+    # variable on one side, and CMake's own codemodel report on the
+    # other) - this was the one is_under_root() call in the whole file
+    # that skipped the pattern every sibling call already follows.
+    # Verified this does not change Linux/macOS behavior: normcase() is
+    # a documented no-op there (posixpath.normcase == identity), and
+    # this file's own --selftest (every hostile/positive control)
+    # resolves identically before and after this change.
+    normalized_candidate = os.path.normcase(real_candidate)
+    normalized_root = os.path.normcase(real_root)
+    return normalized_candidate == normalized_root or normalized_candidate.startswith(
+        normalized_root + os.sep
     )
 
 
@@ -995,14 +1022,30 @@ def evaluate_r8_execute_process(events, source_root, build_dir):
 
 
 def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
-    """Returns (violations, link_libraries_witness_note).
+    """Returns (violations, link_libraries_witness_note, r9_diagnostics).
 
     Also runs R9 (REVIEW4-DEPZERO-TRACE.md CRITICO #2, "o mais
     fundamental de toda a familia de quatro rodadas") - see that
     rule's own inline comment below for why it exists and what it
     reads.
+
+    r9_diagnostics (ORDEM DE SERVICO OS-WINDOWS-R9, 29/08/2026, "the
+    single most valuable thing you can bring back is the measurement,
+    not the guess"): one formatted line PER source entry R9 judged,
+    win or lose - not just the ones that turned into a Violation. The
+    Windows-only debut this instruments (server run 33253849485) is a
+    FALSE NEGATIVE: R9 accepted a source it should have rejected, so
+    there is no Violation.message to carry the forensic detail the way
+    there would be for a false positive. Every line here carries the
+    raw path AS CMAKE REPORTED IT, the resolved path this file computed
+    from it, BOTH sides' realpath() output, and which of the two
+    accepting branches (source_root/build_dir) fired - so whichever
+    component actually differs (short-name form, casing, drive
+    spelling, something not yet guessed) is visible without a second
+    round of instrument-then-wait.
     """
     violations = []
+    r9_diagnostics = []
     version = codemodel.get("version", {})
     link_libraries_available = version.get("major") == 2 and version.get(
         "minor", 0
@@ -1108,9 +1151,18 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
                     resolved_src = raw_path
                 else:
                     resolved_src = os.path.join(resolved_source, raw_path)
-                if is_under_root(resolved_src, source_root) or is_under_root(
-                    resolved_src, build_dir
-                ):
+                under_source_root = is_under_root(resolved_src, source_root)
+                under_build_dir = is_under_root(resolved_src, build_dir)
+                r9_diagnostics.append(
+                    f"R9 target={target_name!r} raw_path={raw_path!r}"
+                    f" resolved_src={resolved_src!r}"
+                    f" realpath(resolved_src)={os.path.realpath(resolved_src)!r}"
+                    f" realpath(source_root)={os.path.realpath(source_root)!r}"
+                    f" realpath(build_dir)={os.path.realpath(build_dir)!r}"
+                    f" under_source_root={under_source_root}"
+                    f" under_build_dir={under_build_dir}"
+                )
+                if under_source_root or under_build_dir:
                     continue
                 violations.append(
                     Violation(
@@ -1124,7 +1176,7 @@ def evaluate_r6_codemodel(codemodel, reply_dir, source_root, build_dir):
                         " (GODS_LAWS.md L-07)",
                     )
                 )
-    return violations, note
+    return violations, note, r9_diagnostics
 
 
 # --- the four floor checks (GODS_LAWS.md L-40) ------------------------------
@@ -1242,6 +1294,13 @@ class Report:
         self.floor_lines = []
         self.floor_ok = True
         self.notes = []
+        # r9_diagnostics: forensic detail for EVERY source R9 judged
+        # (evaluate_r6_codemodel's own docstring explains why) - never
+        # printed by real_main()'s own 0-violation path (the real tree
+        # has many more sources than a selftest fixture; printing every
+        # one would bury the signal), read directly by --selftest's own
+        # hostile_target_sources_external control instead.
+        self.r9_diagnostics = []
 
 
 def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
@@ -1287,11 +1346,12 @@ def judge(source_root, build_dir, trace_path, require_pkgconfig_sentinel):
 
     if codemodel_ok:
         reply_dir = os.path.join(build_dir, ".cmake", "api", "v1", "reply")
-        r6_violations, r6_note = evaluate_r6_codemodel(
+        r6_violations, r6_note, r9_diagnostics = evaluate_r6_codemodel(
             codemodel, reply_dir, source_root, build_dir
         )
         report.violations.extend(r6_violations)
         report.notes.append(r6_note)
+        report.r9_diagnostics.extend(r9_diagnostics)
 
     return report
 
@@ -1787,11 +1847,21 @@ add_library(dummylib STATIC "{cmake_path_literal(evil_c)}")
     initial = configure_fixture_with_ninja(root, build_dir)
     report = configure_and_judge(root, build_dir)
     ok = any(v.rule == "R9" and "evil.c" in v.message for v in report.violations)
+    # ORDEM DE SERVICO OS-WINDOWS-R9 (29/08/2026): this control's own
+    # FAILURE shape on Windows is a false NEGATIVE (violations=[]),
+    # which by definition leaves no Violation.message to inspect -
+    # report.r9_diagnostics (evaluate_r6_codemodel's own docstring)
+    # carries the forensic line for THIS fixture's own source
+    # regardless of verdict, filtered here by the one needle this
+    # fixture itself controls (evil.c is not a name any other fixture
+    # in this file uses).
+    evil_diagnostics = [d for d in report.r9_diagnostics if "evil.c" in d]
     return selftest_report(
         "hostile: add_library() with a source file OUTSIDE both the"
         " source root and the build directory",
         ok,
         detail=f"violations={[v.format() for v in report.violations]}"
+        f" r9_diagnostics={evil_diagnostics}"
         f"{initial_configure_diagnostic(initial)}",
     )
 

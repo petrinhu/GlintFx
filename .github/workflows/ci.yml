@@ -117,13 +117,49 @@ jobs:
           # pacote mas sem symlink nenhum), e "cc" nos outros tres alvos, onde
           # o pacote "gcc" do dnf/pacman ja entrega "/usr/bin/cc" ou
           # "/usr/sbin/cc" direto - MEDIDO nos tres, nao suposto.
+          #
+          # python3 no instalar de Fedora/Ubuntu/Arch (DEPZERO-TRACE,
+          # GODS_LAWS.md L-07/L-40, achado do bloqueador de 29/08/2026):
+          # tests/CMakeLists.txt registra dep_zero_trace/dep_zero_trace_
+          # selftest com find_program(...NAMES python3 python REQUIRED) -
+          # REQUIRED derruba o CONFIGURE inteiro se o interprete faltar,
+          # entao a instalacao aqui e pre-condicao obrigatoria, nao
+          # cosmetica. MEDIDO ao vivo, 29/08/2026, container fresco de
+          # cada distro, PACOTE POR PACOTE (nao presumido igual nos
+          # quatro): Fedora e Ubuntu tem pacote "python3" (dnf/apt,
+          # confirmado expondo /usr/sbin/python3 e /usr/bin/python3
+          # respectivamente); Arch NAO tem pacote "python3" - o nome do
+          # pacote la e "python" (pacman), que entrega o binario
+          # "python3" tambem (confirmado, /usr/sbin/python3). CachyOS
+          # (abaixo) NAO ganhou a entrada: python3 3.14.7 ja vem de
+          # fabrica na imagem, confirmado no mesmo dia - acrescentar
+          # aqui seria pacote redundante, nao correcao. Fail-closed por
+          # decisao consciente (REQUIRED, nao um "se existir, usa"): a
+          # lei da casa de 25/08/2026 e clara - portao que degrada
+          # calado e pior que portao ausente; se o nome de pacote mudar
+          # num destes gerenciadores no futuro, o configure falha alto
+          # e cedo, nao o dep_zero_trace sozinho ficando vermelho.
+          #
+          # Windows (job `windows`, abaixo): NAO precisou de linha nova.
+          # Python vem de fabrica no runner windows-latest, documentado
+          # (actions/runner-images, Windows2025-Readme.md, "Python
+          # 3.12.10" na secao Language and Runtime) - mas essa e
+          # documentacao do FABRICANTE da imagem, nunca execucao real
+          # verificada por esta sessao: nao ha runner Windows disponivel
+          # nesta maquina Linux para confirmar se o comando exposto e
+          # "python3", "python", ou os dois. find_program(...NAMES
+          # python3 python REQUIRED) (tests/CMakeLists.txt) tenta os
+          # dois nomes justamente por essa incerteza residual - e a
+          # mitigacao de design, nao uma confirmacao de que funciona.
+          # Se a primeira execucao real no Windows reprovar aqui,
+          # é a estreia que mede o nome certo, nao suposicao.
           - nome: Fedora (primario) - compartilhado
             cc: c++
             c_compiler: cc
             imagem: fedora:latest
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-              wayland-devel wayland-protocols-devel
+              wayland-devel wayland-protocols-devel python3
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -133,7 +169,7 @@ jobs:
             imagem: fedora:latest
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-              wayland-devel wayland-protocols-devel
+              wayland-devel wayland-protocols-devel python3
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -165,7 +201,7 @@ jobs:
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
               g++-14 gcc-14 cmake ninja-build pkg-config git
-              libwayland-dev libwayland-bin wayland-protocols
+              libwayland-dev libwayland-bin wayland-protocols python3
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -176,7 +212,7 @@ jobs:
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
               g++-14 gcc-14 cmake ninja-build pkg-config git
-              libwayland-dev libwayland-bin wayland-protocols
+              libwayland-dev libwayland-bin wayland-protocols python3
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -186,7 +222,7 @@ jobs:
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols
+              wayland wayland-protocols python
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -196,7 +232,7 @@ jobs:
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols
+              wayland wayland-protocols python
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -809,10 +845,20 @@ jobs:
       # Mesmo toolchain do job `lint` acima (nenhum runtime de
       # sanitizer aqui - GATE-DEBUG e sobre NDEBUG/assert(), nao sobre
       # ASan/UBSan, que ja tem o proprio job dedicado).
+      #
+      # python3 (DEPZERO-TRACE, achado do bloqueador de 29/08/2026):
+      # ESTE job, ao contrario de `lint`/`sanitizer`/`clang` acima, roda
+      # a suite ctest INTEIRA (preci.sh --debug-only -> stage_debug,
+      # sem filtro `-L unit`) - e dep_zero_trace/dep_zero_trace_selftest
+      # estao nela. `lint` nunca chama ctest; `sanitizer`/`clang` filtram
+      # por `-L unit`, rotulo que os dois testes deste dep-zero-trace
+      # NAO tem (LABELS consume/selftest) - por isso so este job dentre
+      # os quatro "Fedora extra" precisou da linha nova. Mesma medicao
+      # de pacote do bloco Fedora do job `linux` acima (dnf, "python3").
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel
+          wayland-devel wayland-protocols-devel python3
 
       - uses: actions/checkout@v4
 

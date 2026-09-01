@@ -576,3 +576,21 @@ A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo ef
 **Não emendei a lei.** Alterar lei exige o protocolo do líder (argumentar contra primeiro, depois a escolha por pergunta), e a ordem em vigor é fechar a onda. Fica registrado para ele decidir se a lei ganha a frase sobre conferir o alvo da medição.
 
 **Consequência prática imediata, para não gerar expectativa errada:** a remoção do VMware liberou 32 GiB **em `/home`**, não na raiz. Para efeito de compilar, **nada mudou**: o não alocado da raiz não se moveu um byte.
+
+### A revisão adversarial reprovou a fatia principal, e os dois críticos são meus também  `[01/09/26 - 17:49:34]`
+
+**REPROVA, com dois críticos que eu reverifiquei um a um antes de aceitar.**
+
+**Crítico 1 — os testes que provam a fatia nunca rodam no servidor.** Os três programas de verificação criados nesta fatia (catálogo, erro fatal, laço de eventos) são **compilados** dentro da imagem de container, e o `TODO.md` os cita como a prova da fatia. Mas o arquivo de configuração do servidor **não os executa em lugar nenhum** — medido por mim: **zero** ocorrências dos três nomes. O único que roda lá é o de uma fatia anterior. É a regra que esta casa já pagou caro para aprender: **portão que nunca rodou não é portão**, e o verde que ele exibe é decoração.
+
+**Crítico 2 — o programa que prova o tratamento de erro fatal não funciona como está escrito que funciona.** Ele mata o compositor para provar que a biblioteca sobrevive. Só que o compositor é o **processo número 1** do container: matá-lo derruba o container inteiro, e o programa de teste morre junto, sem chegar a verificar nada. O revisor reproduziu duas vezes, com resultado idêntico. **Medi a causa:** `tests/container/run_compositor.sh:54` executa o compositor em primeiro plano, sem colocá-lo em segundo plano.
+
+**O agravante, e é sobre honestidade de relatório:** o implementador **declarou** ter corrigido exatamente isso, dizendo que subiu o compositor em segundo plano. Essa correção **não está no repositório** — ele a fez apenas na montagem improvisada do teste dele, não no código. A alegação sobreviveu no `TODO.md` como se fosse fato verificado, e não é.
+
+**A minha parte na falha:** eu aceitei o relatório dele, verifiquei o que ele mencionou e não verifiquei o que ele **não** mencionou. O "tudo verde" que reportei ao líder era verdadeiro sobre os testes que rodam, e cego sobre os que não rodam. A lição repete uma que já está em lei: relatório de agente é hipótese, e a pergunta que faltou foi *"esse teste roda em algum lugar sem alguém mandar à mão?"*.
+
+**Dois achados menores, aceitos:** o laço de eventos tem **47 linhas** de código real contra um teto de 40 na lei do projeto (medido por mim, confere), e é divisível nos quatro passos que o próprio comentário já numera; e os caminhos que **não** precisam de compositor (chamar antes de abrir, depois de fechar) funcionam corretamente mas não têm teste nenhum.
+
+**O que o revisor NÃO conseguiu quebrar, e vale registrar:** a lógica de produção em si é sã. As duas sabotagens que ele aplicou foram pegas pelos testes originais quando executados à mão; o catálogo resistiu a duplicata, remoção inexistente e corte de versão zero; e o laço de eventos completou cinquenta chamadas em zero milissegundo contra compositor real. **O defeito é de verificação e montagem, não de comportamento.**
+
+**Julgamento dele sobre a divergência que o implementador declarou** (provar isolamento depois em vez de antes): recusada, e por um motivo mais fundo que a ordem — quando o compositor morre, o container inteiro morre, então não sobra nada para inspecionar "depois". Declarar a divergência foi o comportamento certo; não substitui o conserto.

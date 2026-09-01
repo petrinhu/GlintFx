@@ -44,9 +44,21 @@
 #   1. A multi-line call (ordinary CMake formatting, not an attack) was
 #      invisible to the old line-by-line matcher - "0 violation(s)" for
 #      a staged freetype2 dependency, and this DEFEATED the real
-#      pre-commit hook end to end. Fixed by accumulating physical lines
-#      into one balanced-paren STATEMENT before matching (see
-#      cmake_content_violations/evaluate_cmake_statement below).
+#      pre-commit hook end to end. Fixed THEN by accumulating physical
+#      lines into one balanced-paren STATEMENT before matching.
+#      *** DEPZERO-SHALLOW, 31/08/2026: that statement-accumulation
+#      machine is GONE. This gate is now a SHALLOW, per-PHYSICAL-LINE
+#      network on purpose (see cmake_content_violations/
+#      evaluate_cmake_line below): a violation resolvable from ONE line
+#      still BLOCKS here, exactly as before; a call whose decisive
+#      argument spans lines, or is built from a variable this gate
+#      cannot read, no longer silently passes as "0 violation(s)" -
+#      it PASSES WITH A PRINTED WARNING (never silent) and is DEFERRED
+#      to the CI oracle (ctest test dep_zero_trace,
+#      tests/tools/check_dep_zero_trace.py), which reads what CMake
+#      ACTUALLY executed and WILL reprove a real violation there.
+#      Leader's decision (AskUserQuestion, 28/08/2026, verbatim):
+#      "Deixa passar avisando que o servidor decide". ***
 #   2. cmake_language(CALL ${fn} ...) / cmake_language(EVAL CODE "...")
 #      and include(${var}) with NO literal filename in the argument
 #      bootstrapped FetchContent through pure indirection, matching no
@@ -78,10 +90,12 @@
 #   (a) CMake surface (every git-tracked CMakeLists.txt, *.cmake,
 #       *.cmake.in - a *.pc.in is pkg-config template syntax, not
 #       CMake, and is out of scope by construction). Scanned one
-#       balanced-parenthesis STATEMENT at a time (possibly several
-#       physical lines, comments stripped before matching - see
-#       cmake_content_violations's own header comment), never one
-#       physical line in isolation. Three shapes:
+#       PHYSICAL LINE at a time, comment stripped before matching (see
+#       cmake_content_violations/evaluate_cmake_line below) - DEPZERO-
+#       SHALLOW, 31/08/2026: a call whose decisive evidence does not
+#       fit on that one line is not resolved here, it WARNS and defers
+#       to the CI oracle (see the fatia's note a few lines above).
+#       Three shapes:
 #         - UNCONDITIONALLY forbidden: include(FetchContent),
 #           include(ExternalProject), FetchContent_Declare/
 #           MakeAvailable/Populate, ExternalProject_Add, and all four
@@ -327,209 +341,252 @@ pkgconfig_module_base_name() {
     printf '%s\n' "$1" | sed -E 's/(>=|<=|>|<|=).*$//'
 }
 
-# --- sub-check (a): CMake surface, one STATEMENT (balanced parens,
-# possibly spanning several physical lines) at a time -------------------
+# --- sub-check (a): CMake surface, one PHYSICAL LINE at a time ---------
 # Reads from STDIN (not a filename) so the SAME function serves tree
 # mode (cat "$root/$p" | ...) and staged mode (git show ":$p" | ...) -
 # GODS_LAWS.md L-12: staged mode must read the INDEX blob, never the
 # working tree, and a plain filename argument could not express that.
 #
-# REVIEW-DEPZERO-GATE.md achado CRITICO #1, 28/08/2026: the previous
-# version matched ONE PHYSICAL LINE at a time, so a call broken across
-# lines (an ordinary CMake formatting style, not an attack) hid its
-# argument from every pattern below - "0 violation(s)" for a staged
-# commit that DID introduce freetype2, and the same escape defeated the
-# real pre-commit hook end to end. The fix: accumulate physical lines
-# into one LOGICAL STATEMENT by tracking paren depth (count of '(' minus
-# ')' seen so far), evaluate the statement only once its parens balance
-# back to zero, and run every pattern against the ACCUMULATED text
-# (newlines flattened to spaces) instead of a single line. A '#' CMake
-# comment is stripped from every physical line BEFORE it joins the
-# accumulator (COMMENT_ANALYSIS below) - both a comment line that opens
-# a statement (skipped, matching the old anchor-based exemption) and a
-# comment line APPEARING INSIDE an already-open multi-line call
-# (REVIEW-DEPZERO-GATE.md's own "comment in the middle" reproduction) -
-# so a word from a comment can never be mistaken for a pkg_check_modules
-# module token. The RAW (comment-INCLUDED) text is kept separately only
-# for the citation printed to the user, so the violation message still
-# shows exactly what is in the file.
+# *** DEPZERO-SHALLOW, 31/08/2026 (leader's order, verbatim: "Deixa
+# passar avisando que o servidor decide"): this gate was REBAIXADO from
+# a multi-line statement interpreter back to a shallow, per-physical-
+# line network. The regra-mae: the physical line, comment stripped, is
+# the ONLY evidence. What resolves on that one line still BLOCKS
+# exactly as before (find_package(Freetype) with no closing paren
+# blocks just as much as the closed form); what does NOT resolve on
+# one line - a call whose decisive argument sits on a LATER physical
+# line, or is built from a "${var}" this gate cannot read - no longer
+# silently passes as "0 violation(s)" the way the pre-28/08/2026 line
+# matcher did. It PASSES WITH A PRINTED WARNING (see emit_warning
+# below) and is explicitly DEFERRED to the CI oracle (ctest test
+# dep_zero_trace, tests/tools/check_dep_zero_trace.py), which reads
+# what CMake ACTUALLY executed (expanded arguments, every branch really
+# taken) and WILL reprove a real violation there. Two permanent
+# warnings are the accepted, measured cost of this on the real tree
+# today (cmake/GlintfxWaylandProtocols.cmake and
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in each open
+# execute_process() bare and carry COMMAND "${PKG_CONFIG_EXECUTABLE}"
+# ..." on the next line) - inert, because dep_zero_trace runs in the
+# same suite and is the authority for exactly this shape.
 #
-# Known, declared limit: this counts literal '(' / ')' characters, so a
-# string literal containing an unbalanced parenthesis (e.g.
-# message("(")) would desynchronize the depth counter for the rest of
-# the file. Not exercised by any file in this tree (checked 28/08/2026:
-# zero CMake file has an unequal total '(' vs ')' count) and not part
-# of what this review asked to close; a full CMake tokenizer that
-# understands quoting would be the honest fix if this ever bites for
-# real, and is out of scope here.
-
-# QUOTE-AWARE, single-process line analysis: a bare sed 's/#.*$//'
+# QUOTE-AWARE, single-process comment strip: a bare sed 's/#.*$//'
 # truncates INSIDE a double-quoted string, and CPM's own documented
-# shorthand ("gh:fmtlib/fmt#1.0") puts a real '#' inside one -
-# stripping it there ate the call's closing ')' and silently hid
-# CPMAddPackage from the scanner entirely (caught by this fatia's OWN
-# selftest regressing during the REVIEW-DEPZERO-GATE.md conserto,
-# 28/08/2026 - "prova antes de confiar" applied to a fix, not just to
-# new code). Toggles a quote flag; '#' only starts a comment OUTSIDE
-# quotes. The SAME pass also counts '(' / ')' outside quotes/comment,
-# so ONE awk process replaces what an earlier version of this fix did
-# with three (one awk for the strip, two more tr|wc pipelines for the
-# counts) - measured live 28/08/2026: dep_zero_test against the real
-# tree went from ~39s to ~107s with the three-process-per-line version,
-# almost entirely fork/exec overhead (`time` showed 1m39s of the 1m47s
-# total in `sys`); this version restores it to a shape close to the
-# original. The line is piped through STDIN, never passed via awk's
-# own `-v name=value` - that form runs its OWN C-style backslash-escape
-# processing on the value, and this tree has real, legitimate lines
-# containing a literal "\${" (cmake/GlintfxInstall.cmake:183 etc.,
-# CMake's own way to write an UN-expanded "${...}" into generated
-# text) - `-v` silently ate the backslash and printed a warning on
-# every one of them (caught by re-running this fatia's own fix against
-# the real tree, not just the fixtures, before declaring done). Piped
-# stdin content is never escape-processed. Known, declared limit: does
-# not understand a backslash-escaped quote inside a string (\") - not
-# used anywhere in this tree's CMake files (checked 28/08/2026).
-analyze_cmake_line() {
+# shorthand ("gh:fmtlib/fmt#1.0") puts a real '#' inside one - stripping
+# it there ate the call's closing ')' and silently hid CPMAddPackage
+# from the scanner entirely (caught by REVIEW-DEPZERO-GATE.md's own
+# conserto, 28/08/2026 - "prova antes de confiar" applied to a fix, not
+# just to new code). Toggles a quote flag; '#' only starts a comment
+# OUTSIDE quotes. DEPZERO-SHALLOW, 31/08/2026: this used to also count
+# '(' / ')' for the now-removed statement-accumulation machine; that
+# counting is gone, this returns ONE line of output (the comment-
+# stripped text), never three. The line is piped through STDIN, never
+# passed via awk's own `-v name=value` - that form runs its OWN
+# C-style backslash-escape processing on the value, and this tree has
+# real, legitimate lines containing a literal "\${"
+# (cmake/GlintfxInstall.cmake:183 etc., CMake's own way to write an
+# UN-expanded "${...}" into generated text) - `-v` silently ate the
+# backslash and printed a warning on every one of them. Known, declared
+# limit: does not understand a backslash-escaped quote inside a string
+# (\") - not used anywhere in this tree's CMake files (checked
+# 28/08/2026).
+strip_cmake_comment() {
     printf '%s\n' "$1" | awk '
     {
         in_quote = 0
         out = ""
-        opens = 0
-        closes = 0
         n = length($0)
         for (i = 1; i <= n; i++) {
             c = substr($0, i, 1)
             if (c == "\"") { in_quote = !in_quote; out = out c; continue }
             if (c == "#" && !in_quote) { break }
-            if (c == "(" && !in_quote) { opens++ }
-            if (c == ")" && !in_quote) { closes++ }
             out = out c
         }
         print out
-        print opens
-        print closes
     }'
 }
 
 cmake_content_violations() {
     display_path="$1"
     line_no=0
-    depth=0
-    stmt_start_line=0
-    stmt_analysis=""
-    stmt_display=""
 
     while IFS= read -r raw_line || [ -n "$raw_line" ]; do
         line_no=$((line_no + 1))
-
-        analysis_line=""
-        opens=0
-        closes=0
-        {
-            IFS= read -r analysis_line
-            IFS= read -r opens
-            IFS= read -r closes
-        } <<ANALYZED
-$(analyze_cmake_line "$raw_line")
-ANALYZED
-
-        if [ "$depth" -eq 0 ]; then
-            stmt_analysis="$analysis_line"
-            stmt_display="$raw_line"
-            stmt_start_line=$line_no
-        else
-            stmt_analysis="$stmt_analysis
-$analysis_line"
-            stmt_display="$stmt_display
-$raw_line"
-        fi
-
-        depth=$((depth + opens - closes))
-
-        if [ "$depth" -le 0 ]; then
-            depth=0
-            evaluate_cmake_statement "$display_path" "$stmt_start_line" "$stmt_analysis" "$stmt_display"
-            stmt_analysis=""
-            stmt_display=""
-        fi
+        stripped_line="$(strip_cmake_comment "$raw_line")"
+        evaluate_cmake_line "$display_path" "$line_no" "$stripped_line" "$raw_line"
     done
 }
 
-# Evaluates ONE already-balanced (possibly multi-line) CMake statement.
-# $3 is the comment-stripped text patterns run against; $4 is the raw
-# text (comment included) printed in the citation.
-evaluate_cmake_statement() {
-    display_path="$1"
-    start_line="$2"
-    flat_analysis="$(printf '%s\n' "$3" | tr '\n' ' ')"
-    flat_display="$(printf '%s\n' "$4" | tr '\n' ' ')"
+# Emits a BLOCKING finding: every line of the record carries the 'V|'
+# prefix. cmake_content_violations/evaluate_cmake_line run inside a
+# $(...) subshell in every caller (check_dep_zero_tree/_staged), so a
+# variable set here would never reach the caller - the prefix is the
+# channel. Callers split it back out with `sed -n 's/^V|//p'` (never
+# grep - GODS_LAWS.md L-45: grep with no match exits 1 and would abort
+# the pipeline under `set -eu`; sed -n exits 0 unconditionally).
+emit_violation() {
+    printf 'V|%s:%s: %s\n' "$1" "$2" "$3"
+    printf 'V|  -> %s\n' "$4"
+}
 
-    # A statement that is blank/whitespace-only (a stripped pure-comment
-    # accumulation) has nothing to evaluate.
-    case "$flat_analysis" in
+# Emits a DEFERRED finding: this call is NOT resolvable from this one
+# physical line, so this gate does not clear it - it prints a warning
+# and lets the CI oracle (dep_zero_trace) have the last word. The
+# literal text is fixed on purpose (GODS_LAWS.md L-40 item 3: a printed
+# warning proves "looked, could not decide" is distinguishable from
+# silence) and the substring "FAILED" is FORBIDDEN in it - ctest
+# registers dep_zero_selftest with FAIL_REGULAR_EXPRESSION "FAILED"
+# (tests/CMakeLists.txt), and this warning path exits 0, never 1.
+emit_warning() {
+    printf 'W|check_dep_zero.sh: WARNING (this is NOT a pass verdict for this call):\n'
+    printf 'W|%s:%s: %s\n' "$1" "$2" "$3"
+    printf 'W|  -> This call spans lines or builds its decisive argument from a variable, and this shallow, line-by-line gate cannot judge it. It is NOT being cleared here: the CI oracle (ctest test dep_zero_trace, tests/tools/check_dep_zero_trace.py) is the authority that judges what CMake actually executes, and it WILL reprove a violation there (GODS_LAWS.md L-07). Leader'"'"'s decision, 28/08/2026: ambiguous forms pass the hook with this warning so the CI can decide.\n'
+}
+
+# Counts WARNING occurrences (not lines - each record is 3 printed
+# lines) by counting the fixed header line, closed with `|| true`
+# (GODS_LAWS.md L-45: `grep -c` on zero matches exits 1, which would
+# abort this assignment under `set -eu` since it is not itself inside
+# a conditional).
+count_warning_records() {
+    [ -z "$1" ] && { echo 0; return; }
+    printf '%s\n' "$1" | grep -cF 'WARNING (this is NOT a pass verdict' || true
+}
+
+# $1 = a line already known to open a vigiar command at '('. Returns
+# the first token after '(' on THIS line, or "" if nothing but
+# whitespace/a closing ')' follows - a bare opener. Guards
+# first_paren_arg's own known limit (its regex requires at least one
+# non-space, non-')' char to match; on a bare "find_package(" it simply
+# does not match, and sed then prints the INPUT UNCHANGED - the exact
+# "lixo" this gate must never mistake for a real package name).
+paren_first_token() {
+    printf '%s\n' "$1" | grep -qE '\([[:space:]]*[^[:space:])]' || { echo ""; return; }
+    first_paren_arg "$1"
+}
+
+# Evaluates ONE physical CMake line, comment already stripped ($3); $4
+# is the raw line (comment included) printed in citations. DEPZERO-
+# SHALLOW, 31/08/2026: replaces evaluate_cmake_statement - see this
+# file's DEPZERO-SHALLOW header note above for the contract this
+# implements (block what one line resolves, warn-and-defer what it
+# cannot).
+evaluate_cmake_line() {
+    display_path="$1"
+    line_no="$2"
+    line="$3"
+    raw="$4"
+
+    # A blank/whitespace-only line (a stripped pure-comment line) has
+    # nothing to evaluate.
+    case "$line" in
         *[![:space:]]*) : ;;
         *) return ;;
     esac
 
-    if printf '%s\n' "$flat_analysis" | grep -qiE "$CMAKE_FETCH_PATTERN"; then
-        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$FETCH_ADVICE"
+    closed=1
+    case "$line" in
+        *')'*) : ;;
+        *) closed=0 ;;
+    esac
+
+    if printf '%s\n' "$line" | grep -qiE "$CMAKE_FETCH_PATTERN"; then
+        emit_violation "$display_path" "$line_no" "$raw" "$FETCH_ADVICE"
         return
     fi
-    if printf '%s\n' "$flat_analysis" | grep -qiE "$CMAKE_TOOLCHAIN_PATTERN"; then
-        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$FETCH_ADVICE"
+    if printf '%s\n' "$line" | grep -qiE "$CMAKE_TOOLCHAIN_PATTERN"; then
+        emit_violation "$display_path" "$line_no" "$raw" "$FETCH_ADVICE"
         return
     fi
-    if printf '%s\n' "$flat_analysis" | grep -qiE "$CMAKE_LANGUAGE_PATTERN"; then
-        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$INDIRECTION_ADVICE"
+    if printf '%s\n' "$line" | grep -qiE "$CMAKE_LANGUAGE_PATTERN"; then
+        emit_violation "$display_path" "$line_no" "$raw" "$INDIRECTION_ADVICE"
         return
     fi
-    if printf '%s\n' "$flat_analysis" | grep -qiE '^[[:space:]]*include[[:space:]]*\('; then
-        if printf '%s\n' "$flat_analysis" | grep -qF '${'; then
-            # A variable appears inside the argument. Accepted ONLY when
-            # the statement ALSO contains a literal ".cmake" fragment
-            # somewhere - the real, legitimate shape already in this
-            # tree today (cmake/glintfx-config.cmake.in:5,
-            # tests/embed_dll_colocation/CMakeLists.txt:43-44):
-            # include("${SOME_DIR}/File.cmake") loads a NAMED file whose
-            # PREFIX is parameterized. A BARE "${var}" with no literal
-            # filename trace at all - REVIEW-DEPZERO-GATE.md achado
-            # CRITICO #2's include(${mod_name}) - gives this gate no
-            # text to reason about whatsoever and is refused
-            # unconditionally: no allowlist rescues it, matching how
-            # FetchContent/ExternalProject already work.
-            if ! printf '%s\n' "$flat_analysis" | grep -qi '\.cmake'; then
-                printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$INDIRECTION_ADVICE"
-            fi
+    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*include[[:space:]]*\('; then
+        evaluate_include_line "$display_path" "$line_no" "$line" "$raw" "$closed"
+        return
+    fi
+    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*find_package[[:space:]]*\('; then
+        name="$(paren_first_token "$line")"
+        if [ -z "$name" ]; then
+            emit_warning "$display_path" "$line_no" "$raw"
+            return
         fi
-    fi
-    if printf '%s\n' "$flat_analysis" | grep -qiE '^[[:space:]]*find_package[[:space:]]*\('; then
-        name="$(first_paren_arg "$flat_analysis")"
-        if ! name_is_known "$name" "$FIND_PACKAGE_ALLOWLIST"; then
-            printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$FINDPKG_ADVICE"
-        fi
+        # find_package(<allowlisted> ... - the FIRST argument is always
+        # the package name; a later argument on a later line can never
+        # change it, so a visible, allowlisted name resolves whether or
+        # not this line closes (plan section 2.2).
+        name_is_known "$name" "$FIND_PACKAGE_ALLOWLIST" || emit_violation "$display_path" "$line_no" "$raw" "$FINDPKG_ADVICE"
         return
     fi
-    if printf '%s\n' "$flat_analysis" | grep -qiE '^[[:space:]]*pkg_check_modules[[:space:]]*\('; then
-        content="$(printf '%s\n' "$flat_analysis" | sed -E 's/^[^(]*\(//; s/\)[[:space:]]*$//')"
-        rest="$(printf '%s\n' "$content" | sed -E 's/^[[:space:]]*[^[:space:]]+[[:space:]]*//')"
-        unknown_hit=0
-        for tok in $rest; do
-            if name_is_known "$tok" "$PKG_CHECK_MODULES_KEYWORDS"; then
-                continue
-            fi
-            case "$tok" in
-                '>='|'<='|'>'|'<'|'=') continue ;;
-                [0-9]*) continue ;;
-            esac
-            base_tok="$(pkgconfig_module_base_name "$tok")"
-            if ! name_is_known "$base_tok" "$PKG_CHECK_MODULES_ALLOWLIST"; then
-                unknown_hit=1
-            fi
-        done
-        if [ "$unknown_hit" -eq 1 ]; then
-            printf '%s:%s: %s\n  -> %s\n' "$display_path" "$start_line" "$flat_display" "$PKGCHECK_ADVICE"
-        fi
+    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*pkg_check_modules[[:space:]]*\('; then
+        evaluate_pkg_check_modules_line "$display_path" "$line_no" "$line" "$raw" "$closed"
+        return
     fi
+}
+
+# include(): a line with no "${" at all is always fully literal and
+# always resolves, closed or not. A line WITH "${" resolves only when
+# it ALSO carries a literal ".cmake" fragment (the real, legitimate
+# parameterized-file-include shape already used twice in this tree -
+# cmake/glintfx-config.cmake.in:5, tests/embed_dll_colocation/
+# CMakeLists.txt:43-44 - include("${SOME_DIR}/File.cmake")) AND is
+# closed on this same line; unclosed, or "${" with no ".cmake"
+# anywhere and closed, are the two remaining cases (warn, block).
+evaluate_include_line() {
+    display_path="$1"
+    line_no="$2"
+    line="$3"
+    raw="$4"
+    closed="$5"
+
+    printf '%s\n' "$line" | grep -qF '${' || return
+
+    if printf '%s\n' "$line" | grep -qi '\.cmake'; then
+        [ "$closed" -eq 0 ] && emit_warning "$display_path" "$line_no" "$raw"
+        return
+    fi
+
+    if [ "$closed" -eq 1 ]; then
+        emit_violation "$display_path" "$line_no" "$raw" "$INDIRECTION_ADVICE"
+    else
+        emit_warning "$display_path" "$line_no" "$raw"
+    fi
+}
+
+# pkg_check_modules(): any BAD token visible on this line blocks
+# regardless of closure (a bad token already visible is resolvable, no
+# matter what a later line might also carry). With every visible token
+# clean, a CLOSED line passes silently; an unclosed one warns - a later
+# line could still carry a token this line never showed.
+evaluate_pkg_check_modules_line() {
+    display_path="$1"
+    line_no="$2"
+    line="$3"
+    raw="$4"
+    closed="$5"
+
+    content="$(printf '%s\n' "$line" | sed -E 's/^[^(]*\(//; s/\)[[:space:]]*$//')"
+    rest="$(printf '%s\n' "$content" | sed -E 's/^[[:space:]]*[^[:space:]]+[[:space:]]*//')"
+    unknown_hit=0
+    for tok in $rest; do
+        if name_is_known "$tok" "$PKG_CHECK_MODULES_KEYWORDS"; then
+            continue
+        fi
+        case "$tok" in
+            '>='|'<='|'>'|'<'|'=') continue ;;
+            [0-9]*) continue ;;
+        esac
+        base_tok="$(pkgconfig_module_base_name "$tok")"
+        if ! name_is_known "$base_tok" "$PKG_CHECK_MODULES_ALLOWLIST"; then
+            unknown_hit=1
+        fi
+    done
+
+    if [ "$unknown_hit" -eq 1 ]; then
+        emit_violation "$display_path" "$line_no" "$raw" "$PKGCHECK_ADVICE"
+        return
+    fi
+    [ "$closed" -eq 0 ] && emit_warning "$display_path" "$line_no" "$raw"
 }
 
 # --- sub-check (b): include surface, one line of CONTENT at a time -----
@@ -640,10 +697,12 @@ check_dep_zero_tree() {
         return 1
     fi
 
-    cmake_violations="$(printf '%s\n' "$cmake_files" | while IFS= read -r p; do
+    cmake_raw="$(printf '%s\n' "$cmake_files" | while IFS= read -r p; do
         [ -z "$p" ] && continue
         cat "$root/$p" | cmake_content_violations "$root/$p"
     done)"
+    cmake_violations="$(printf '%s\n' "$cmake_raw" | sed -n 's/^V|//p')"
+    cmake_warnings="$(printf '%s\n' "$cmake_raw" | sed -n 's/^W|//p')"
     include_violations="$(printf '%s\n' "$cxx_files" | while IFS= read -r p; do
         [ -z "$p" ] && continue
         cat "$root/$p" | include_content_violations "$root" "$root/$p"
@@ -655,17 +714,22 @@ check_dep_zero_tree() {
         needed_ok=0
     fi
 
+    warning_total="$(count_warning_records "$cmake_warnings")"
+
     if [ -n "$cmake_violations" ] || [ -n "$include_violations" ] || [ "$needed_ok" -eq 0 ]; then
         print_violation_header
         [ -n "$cmake_violations" ] && printf '%s\n' "$cmake_violations" >&2
         [ -n "$include_violations" ] && printf '%s\n' "$include_violations" >&2
         [ "$needed_ok" -eq 0 ] && printf '%s\n' "$needed_output" >&2
+        [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
         return 1
     fi
 
-    echo "check_dep_zero.sh: 0 violation(s) - $cmake_count cmake file(s), $cxx_count c++ file(s) scanned"
+    [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
+    echo "check_dep_zero.sh: 0 violation(s), ${warning_total} warning(s) deferred to the CI oracle (dep_zero_trace) - $cmake_count cmake file(s), $cxx_count c++ file(s) scanned"
     printf '%s\n' "$needed_output"
     echo "check_dep_zero.sh: out of scope by design, and not verified by any other gate either: documents (.md), shell scripts (.sh), and quote includes (#include \"...\") are not scanned here. check_spdx.sh only checks for the PRESENCE of an SPDX header string in a file (a vendored third-party file with that string pasted in would still pass it); check_vendor_purity.sh only guards the one named third_party/khronos/ exception from growing, not vendoring in general. Neither closes the quote-include vendor vector - this gate does not either."
+    echo "check_dep_zero.sh: ambiguous multi-line or variable-built calls pass this shallow, line-by-line gate with a printed warning; the CI oracle (ctest test dep_zero_trace, tests/tools/check_dep_zero_trace.py) is the authority that judges what CMake actually executes."
 }
 
 # --- staged mode (pre-commit shape): index content, sub-checks (a)/(b) -
@@ -697,11 +761,14 @@ check_dep_zero_staged() {
     fi
 
     cmake_violations=""
+    cmake_warnings=""
     if [ -n "$cmake_relevant" ]; then
-        cmake_violations="$(printf '%s\n' "$cmake_relevant" | while IFS= read -r p; do
+        cmake_raw="$(printf '%s\n' "$cmake_relevant" | while IFS= read -r p; do
             [ -z "$p" ] && continue
             git -C "$root" show ":$p" 2>/dev/null | cmake_content_violations "$root/$p"
         done)"
+        cmake_violations="$(printf '%s\n' "$cmake_raw" | sed -n 's/^V|//p')"
+        cmake_warnings="$(printf '%s\n' "$cmake_raw" | sed -n 's/^W|//p')"
     fi
     include_violations=""
     if [ -n "$cxx_relevant" ]; then
@@ -711,14 +778,18 @@ check_dep_zero_staged() {
         done)"
     fi
 
+    warning_total="$(count_warning_records "$cmake_warnings")"
+
     if [ -n "$cmake_violations" ] || [ -n "$include_violations" ]; then
         print_violation_header
         [ -n "$cmake_violations" ] && printf '%s\n' "$cmake_violations" >&2
         [ -n "$include_violations" ] && printf '%s\n' "$include_violations" >&2
+        [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
         return 1
     fi
 
-    echo "check_dep_zero.sh: 0 violation(s) - $cmake_count cmake file(s), $cxx_count c++ file(s) among $staged_count staged file(s) scanned"
+    [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
+    echo "check_dep_zero.sh: 0 violation(s), ${warning_total} warning(s) deferred to the CI oracle (dep_zero_trace) - $cmake_count cmake file(s), $cxx_count c++ file(s) among $staged_count staged file(s) scanned"
 }
 
 # --- real mode -----------------------------------------------------------
@@ -787,13 +858,20 @@ selftest_positive_control() {
     make_clean_fixture "$root"
     git_init_fixture "$root"
 
-    if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
-        echo "selftest: POSITIVE control OK (clean fixture, comment mentioning FetchContent, allowlisted find_package/pkg_check_modules, own-header include all passed)"
-        return 0
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: POSITIVE control FAILED (clean fixture should have passed)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
     fi
-    echo "selftest: POSITIVE control FAILED (clean fixture should have passed)" >&2
-    printf '%s\n' "$output" >&2
-    return 1
+    # DEPZERO-SHALLOW piso do contador (N9): a fixture limpa nao tem
+    # nenhuma forma ambigua, entao o resumo declara "0 warning(s)" -
+    # nunca omite o numero (GODS_LAWS.md L-40 item 3).
+    if ! printf '%s\n' "$output" | grep -qF "0 warning(s)"; then
+        echo "selftest: POSITIVE control FAILED (passed, but did not declare '0 warning(s)')" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: POSITIVE control OK (clean fixture, comment mentioning FetchContent, allowlisted find_package/pkg_check_modules, own-header include all passed, 0 warning(s) declared)"
 }
 
 selftest_negative_control_cmake() {
@@ -896,14 +974,22 @@ selftest_negative_control_include() {
 # conserto (GODS_LAWS.md L-20: vermelho real capturado contra o codigo
 # ainda nao corrigido, colado no relatorio ao lider).
 
-# CRITICO #1 (multi-line quebra o parser linha-a-linha por completo):
-# quatro formas - quebra generica, quebra com comentario NO MEIO dos
-# argumentos, comando em caixa mista com espaco antes do parenteses, e
-# find_package multi-linha com pacote DESCONHECIDO (prova que o defeito
-# nao e so de pkg_check_modules).
-selftest_negative_control_cmake_multiline() {
+# CRITICO #1 historico (multi-line escapava o antigo matcher linha-a-
+# linha por completo, "0 violation(s)" para um freetype2 escondido).
+# DEPZERO-SHALLOW, 31/08/2026: a maquina de reagrupamento por parenteses
+# que resolvia isso foi removida (rebaixamento, ordem do lider); as
+# QUATRO formas desta fixture continuam existindo tal como estao - sao
+# a memoria adversarial do achado - mas a expectativa muda: nenhuma
+# delas resolve numa linha so, entao nenhuma BLOQUEIA mais. Cada uma
+# agora passa (exit 0) com um AVISO impresso, deferindo ao oraculo do
+# CI (dep_zero_trace) - exatamente a decisao do lider (verbatim,
+# 28/08/2026: "Deixa passar avisando que o servidor decide"). O aviso
+# cita a linha do ABRIDOR (ex.: "pkg_check_modules(" ou "find_package("
+# sozinha), onde "freetype2" NAO aparece - por isso o needle mudou de
+# per-caso para as quatro asserções fixas do contrato (plan secao 2.4).
+selftest_warn_control_cmake_multiline() {
     scratch="$1"
-    root="$scratch/negative-cmake-multiline"
+    root="$scratch/warn-cmake-multiline"
     # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
     multiline_forms_status=0
 
@@ -917,7 +1003,6 @@ pkg_check_modules(
     REQUIRED
     freetype2)
 EOF
-                needle="freetype2"
                 ;;
             pkgcheck_multiline_comment)
                 cat >> "$root/cmake/Wayland.cmake" <<'EOF'
@@ -928,7 +1013,6 @@ pkg_check_modules(
     freetype2
 )
 EOF
-                needle="freetype2"
                 ;;
             pkgcheck_multiline_mixedcase)
                 cat >> "$root/cmake/Wayland.cmake" <<'EOF'
@@ -938,7 +1022,6 @@ Pkg_Check_Modules (
     freetype2
 )
 EOF
-                needle="freetype2"
                 ;;
             findpkg_multiline_unknown)
                 cat >> "$root/cmake/Wayland.cmake" <<'EOF'
@@ -947,30 +1030,45 @@ find_package(
     REQUIRED
 )
 EOF
-                needle="find_package("
                 ;;
         esac
         git_init_fixture "$root"
 
-        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
-            echo "selftest: NEGATIVE(cmake-multiline/$case_name) control FAILED (should have been reproved)" >&2
+        if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: WARN(cmake-multiline/$case_name) control FAILED (an unresolvable-on-one-line form must PASS with a warning, not be reproved)" >&2
+            printf '%s\n' "$output" >&2
             multiline_forms_status=1
-        elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
-            echo "selftest: NEGATIVE(cmake-multiline/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
+        elif ! printf '%s\n' "$output" | grep -qF "WARNING"; then
+            echo "selftest: WARN(cmake-multiline/$case_name) control FAILED (passed, but did not print WARNING)" >&2
+            printf '%s\n' "$output" >&2
+            multiline_forms_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "deferred"; then
+            echo "selftest: WARN(cmake-multiline/$case_name) control FAILED (passed with a warning, but did not say 'deferred')" >&2
+            printf '%s\n' "$output" >&2
+            multiline_forms_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "Wayland.cmake"; then
+            echo "selftest: WARN(cmake-multiline/$case_name) control FAILED (passed with a warning, but did not cite Wayland.cmake)" >&2
+            printf '%s\n' "$output" >&2
+            multiline_forms_status=1
+        elif printf '%s\n' "$output" | grep -qF "PROHIBITED"; then
+            echo "selftest: WARN(cmake-multiline/$case_name) control FAILED (passed with exit 0, but ALSO printed PROHIBITED - the warning must never be a silent block)" >&2
             printf '%s\n' "$output" >&2
             multiline_forms_status=1
         fi
         rm -rf "$root"
     done
 
-    [ "$multiline_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(cmake-multiline) control OK (four multi-line/format-varied forms, each reproved and cited)"
+    [ "$multiline_forms_status" -eq 0 ] && echo "selftest: WARN(cmake-multiline) control OK (four multi-line/format-varied forms, each passes with a printed warning deferred to the CI oracle, never blocked)"
     return "$multiline_forms_status"
 }
 
 # IMPORTANTE #5 (falso positivo: chamada multi-linha ALLOWLISTED nao
 # pode reprovar - senao o primeiro CMake formatado "bonito" desliga o
-# portao). Cobre find_package E pkg_check_modules multi-linha, os dois
-# ja permitidos hoje.
+# portao). DEPZERO-SHALLOW, 31/08/2026: cobre find_package E
+# pkg_check_modules multi-linha, os dois ja permitidos hoje - mas com
+# os abridores NUS (nada mais na mesma linha), a rede rasa nao pode
+# mais RESOLVER a linha sozinha; o resultado agora e exit 0 + AVISO
+# (nunca PROHIBITED), nao mais um passe silencioso.
 selftest_positive_control_cmake_multiline() {
     scratch="$1"
     root="$scratch/positive-cmake-multiline"
@@ -989,11 +1087,47 @@ EOF
     git_init_fixture "$root"
 
     if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
-        echo "selftest: POSITIVE(cmake-multiline) control FAILED (allowlisted find_package/pkg_check_modules multi-linha deveria passar)" >&2
+        echo "selftest: POSITIVE(cmake-multiline) control FAILED (allowlisted find_package/pkg_check_modules multi-linha deveria passar, mesmo com aviso)" >&2
         printf '%s\n' "$output" >&2
         return 1
     fi
-    echo "selftest: POSITIVE(cmake-multiline) control OK (find_package e pkg_check_modules multi-linha, allowlisted, passam)"
+    if ! printf '%s\n' "$output" | grep -qF "WARNING"; then
+        echo "selftest: POSITIVE(cmake-multiline) control FAILED (passou, mas abridor nu sem evidencia na linha deveria ter avisado)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: POSITIVE(cmake-multiline) control OK (find_package e pkg_check_modules multi-linha, abridor nu, passam com aviso deferido)"
+}
+
+# Caso NOVO do plano DEPZERO-SHALLOW secao 2.2, irmao do controle
+# acima: quando o abridor JA carrega a evidencia decisiva na mesma
+# linha - find_package(PkgConfig sem fechar (primeiro argumento
+# sempre resolve o nome do pacote, closed ou nao) e
+# pkg_check_modules(FixtureWayland REQUIRED wayland-client) fechada em
+# UMA linha - a rede rasa resolve de verdade e passa SEM aviso nenhum.
+selftest_positive_control_cmake_opener_resolved() {
+    scratch="$1"
+    root="$scratch/positive-cmake-opener-resolved"
+    make_clean_fixture "$root"
+    cat > "$root/cmake/Wayland.cmake" <<'EOF'
+find_package(PkgConfig
+    REQUIRED
+)
+pkg_check_modules(FixtureWayland REQUIRED wayland-client)
+EOF
+    git_init_fixture "$root"
+
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: POSITIVE(cmake-opener-resolved) control FAILED (abridor com evidencia decisiva na propria linha deveria passar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if printf '%s\n' "$output" | grep -qF "WARNING"; then
+        echo "selftest: POSITIVE(cmake-opener-resolved) control FAILED (abridor ja resolvido na linha nao deveria gerar aviso nenhum)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: POSITIVE(cmake-opener-resolved) control OK (find_package(PkgConfig e pkg_check_modules(...wayland-client) fechada resolvem na propria linha, sem aviso)"
 }
 
 # IMPORTANTE #6 (restricao de versao reprova modulo ja permitido):
@@ -1160,6 +1294,46 @@ selftest_negative_control_cpm_variants() {
     return "$cpm_forms_status"
 }
 
+# DEPZERO-SHALLOW, 31/08/2026, secao 2.1 itens 5-6: um token RUIM ja
+# visivel na propria linha do abridor RESOLVE, mesmo sem ')' fechando -
+# closed nao importa quando ja ha evidencia decisiva de bloqueio.
+# Prova que a rede rasa nao vira permissiva so porque a chamada nao
+# fecha na mesma linha.
+selftest_negative_control_opener_carries_bad_token() {
+    scratch="$1"
+    root="$scratch/negative-opener-bad-token"
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    opener_bad_token_status=0
+
+    for case_name in pkgcheck_unclosed_bad findpkg_unclosed_bad; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            pkgcheck_unclosed_bad)
+                printf 'pkg_check_modules(Fixture REQUIRED freetype2\n' >> "$root/cmake/Wayland.cmake"
+                needle="freetype2"
+                ;;
+            findpkg_unclosed_bad)
+                printf 'find_package(Freetype\n' >> "$root/cmake/Wayland.cmake"
+                needle="find_package(Freetype"
+                ;;
+        esac
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(opener-bad-token/$case_name) control FAILED (token ruim visivel na propria linha deveria ter reprovado, mesmo sem fechar)" >&2
+            opener_bad_token_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
+            echo "selftest: NEGATIVE(opener-bad-token/$case_name) control FAILED (reprovou, mas nao citou '$needle')" >&2
+            printf '%s\n' "$output" >&2
+            opener_bad_token_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$opener_bad_token_status" -eq 0 ] && echo "selftest: NEGATIVE(opener-bad-token) control OK (find_package/pkg_check_modules sem fechar, com token ruim ja visivel, cada um reprovado)"
+    return "$opener_bad_token_status"
+}
+
 # CRITICO #4 (travessia de caminho engana a regra 3 estrutural, E o
 # include resultante COMPILA de verdade). Quatro formas: a exata do
 # revisor, uma mais curta, um "." solto no meio, e ".." sozinho como
@@ -1230,7 +1404,15 @@ selftest_scope_message_is_honest() {
         printf '%s\n' "$output" >&2
         return 1
     fi
-    echo "selftest: SCOPE-MESSAGE control OK (a linha de fora-de-escopo nao alega cobertura que os dois gates citados nao tem)"
+    # DEPZERO-SHALLOW, 31/08/2026: o fechamento tambem declara o
+    # contrato novo - forma ambigua passa com aviso, o oraculo do CI
+    # (dep_zero_trace) e quem decide de verdade.
+    if ! printf '%s\n' "$output" | grep -qF "the CI oracle"; then
+        echo "selftest: SCOPE-MESSAGE control FAILED (nao declara o contrato novo: aviso deferido ao oraculo do CI)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: SCOPE-MESSAGE control OK (a linha de fora-de-escopo nao alega cobertura que os dois gates citados nao tem, e declara o contrato de aviso deferido)"
 }
 
 selftest_negative_control_needed() {
@@ -1423,6 +1605,39 @@ selftest_staged_reads_index_not_worktree() {
     echo "selftest: STAGED(index-not-worktree) control OK (index read, not the dirtied working tree)"
 }
 
+# DEPZERO-SHALLOW N8, 31/08/2026: prova a decisao do lider na forma
+# EXATA do gancho - um pkg_check_modules( multi-linha staged, com
+# freetype2 escondida numa linha posterior, PASSA (exit 0) com um
+# aviso impresso, nunca bloqueia o commit. E a mesma decisao de
+# selftest_warn_control_cmake_multiline, mas contra check_dep_zero_staged
+# (o gancho de verdade), nao contra o modo tree.
+selftest_staged_warns_ambiguous() {
+    scratch="$1"
+    root="$scratch/staged-warns-ambiguous"
+    make_clean_fixture "$root"
+    git_init_fixture "$root"
+    cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+pkg_check_modules(
+    Fixture
+    REQUIRED
+    freetype2
+)
+EOF
+    git -C "$root" add cmake/Wayland.cmake
+
+    if ! output="$(check_dep_zero_staged "$root" 2>&1)"; then
+        echo "selftest: STAGED(warns-ambiguous) control FAILED (forma ambigua multi-linha deveria passar com aviso, nao bloquear o commit)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "WARNING"; then
+        echo "selftest: STAGED(warns-ambiguous) control FAILED (passou, mas nao avisou)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: STAGED(warns-ambiguous) control OK (pkg_check_modules multi-linha com freetype2 escondida passa o gancho com aviso, decisao do lider 28/08/2026)"
+}
+
 # Caminho 3 - the only legitimate escape is editing the allowlist
 # itself, in a subshell so the real global is never mutated.
 selftest_escape_via_allowlist_edit() {
@@ -1457,49 +1672,99 @@ selftest_escape_via_allowlist_edit() {
     echo "selftest: ESCAPE control OK (find_package(Xyz) reproves; the SAME SCRIPT with Xyz added to the allowlist by editing this file's source passes - no other escape exists)"
 }
 
+# DEPZERO-SHALLOW N9, 31/08/2026: o contador de avisos aparece SEMPRE
+# no resumo, inclusive quando zero - "0 warning(s)" nao pode ser
+# indistinguivel de "o canal de aviso quebrou e nao contou nada"
+# (GODS_LAWS.md L-40 item 3). Prova as duas pontas: fixture limpa
+# declara "0 warning(s)"; fixture com uma forma ambigua declara
+# "1 warning(s)".
+selftest_warn_counter_declared() {
+    scratch="$1"
+    root="$scratch/warn-counter"
+
+    root_clean="$root/clean"
+    make_clean_fixture "$root_clean"
+    git_init_fixture "$root_clean"
+    if ! output="$(check_dep_zero_tree "$root_clean" "NONE" 2>&1)"; then
+        echo "selftest: WARN-COUNTER control FAILED (fixture limpa deveria passar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "0 warning(s)"; then
+        echo "selftest: WARN-COUNTER control FAILED (fixture limpa deveria declarar '0 warning(s)')" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+
+    root_one="$root/one-ambiguous"
+    make_clean_fixture "$root_one"
+    printf 'find_package(\n    PkgConfig\n    REQUIRED\n)\n' >> "$root_one/cmake/Wayland.cmake"
+    git_init_fixture "$root_one"
+    if ! output="$(check_dep_zero_tree "$root_one" "NONE" 2>&1)"; then
+        echo "selftest: WARN-COUNTER control FAILED (uma forma ambigua deveria passar com aviso, nao reprovar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "1 warning(s)"; then
+        echo "selftest: WARN-COUNTER control FAILED (uma forma ambigua deveria declarar '1 warning(s)')" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: WARN-COUNTER control OK (o resumo declara 0 warning(s) na fixture limpa e 1 warning(s) com uma forma ambigua)"
+}
+
+# DEPZERO-SHALLOW F5, 31/08/2026: replaces the hand-counted literal
+# "all twenty-one controls OK" - a number written by hand ages the
+# instant a control is added or split (measured: this exact literal
+# had already drifted once before, see DOC-ESTADO's own lesson in
+# CLAUDE.md). Owns "overall" and "controls_run" as the two globals
+# selftest_main aggregates into (POSIX sh has no "local" - GODS_LAWS.md
+# L-40, TESTES.md - so every control below still names its OWN
+# per-case tally, never "overall").
+run_control() {
+    if ! "$@"; then
+        overall=1
+    fi
+    controls_run=$((controls_run + 1))
+}
+
 selftest_main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
 
-    # DEPZERO-SELFTEST-FIX (28/08/2026): "overall" is now owned ONLY by
-    # this function. Every callee that used to reuse this exact name for
-    # its own internal per-case tally has been renamed (see each
-    # selftest_negative_control_*/selftest_positive_control_* function's
-    # own comment) - a callee running "overall=0" at its own start used
-    # to silently erase whatever verdict this loop had already
-    # accumulated from an EARLIER callee's failure, because POSIX sh
-    # functions share one global variable namespace and this script does
-    # not use "local" anywhere (not POSIX, ksh does not even have it -
-    # GODS_LAWS.md L-40, TESTES.md). Each callee below still RETURNS its
-    # own status; this is the only place that AGGREGATES.
     overall=0
-    selftest_positive_control "$scratch" || overall=1
-    selftest_negative_control_cmake "$scratch" || overall=1
-    selftest_negative_control_cmake_multiline "$scratch" || overall=1
-    selftest_positive_control_cmake_multiline "$scratch" || overall=1
-    selftest_positive_control_pkgcheck_version "$scratch" || overall=1
-    selftest_negative_control_pkgcheck_version_unknown "$scratch" || overall=1
-    selftest_negative_control_cmake_indirection "$scratch" || overall=1
-    selftest_positive_control_cmake_indirection_legit "$scratch" || overall=1
-    selftest_negative_control_cpm_variants "$scratch" || overall=1
-    selftest_negative_control_include "$scratch" || overall=1
-    selftest_negative_control_include_traversal "$scratch" || overall=1
-    selftest_scope_message_is_honest "$scratch" || overall=1
-    selftest_positive_control_needed "$scratch" || overall=1
-    selftest_negative_control_needed "$scratch" || overall=1
-    selftest_needed_static_skip || overall=1
-    selftest_empty_scan_needed "$scratch" || overall=1
-    selftest_empty_scan_tree "$scratch" || overall=1
-    selftest_staged_zero_relevant_declared "$scratch" || overall=1
-    selftest_staged_blocks_violation "$scratch" || overall=1
-    selftest_staged_reads_index_not_worktree "$scratch" || overall=1
-    selftest_escape_via_allowlist_edit "$scratch" || overall=1
+    controls_run=0
+    run_control selftest_positive_control "$scratch"
+    run_control selftest_negative_control_cmake "$scratch"
+    run_control selftest_warn_control_cmake_multiline "$scratch"
+    run_control selftest_positive_control_cmake_multiline "$scratch"
+    run_control selftest_positive_control_cmake_opener_resolved "$scratch"
+    run_control selftest_positive_control_pkgcheck_version "$scratch"
+    run_control selftest_negative_control_pkgcheck_version_unknown "$scratch"
+    run_control selftest_negative_control_cmake_indirection "$scratch"
+    run_control selftest_positive_control_cmake_indirection_legit "$scratch"
+    run_control selftest_negative_control_cpm_variants "$scratch"
+    run_control selftest_negative_control_opener_carries_bad_token "$scratch"
+    run_control selftest_negative_control_include "$scratch"
+    run_control selftest_negative_control_include_traversal "$scratch"
+    run_control selftest_scope_message_is_honest "$scratch"
+    run_control selftest_positive_control_needed "$scratch"
+    run_control selftest_negative_control_needed "$scratch"
+    run_control selftest_needed_static_skip
+    run_control selftest_empty_scan_needed "$scratch"
+    run_control selftest_empty_scan_tree "$scratch"
+    run_control selftest_staged_zero_relevant_declared "$scratch"
+    run_control selftest_staged_blocks_violation "$scratch"
+    run_control selftest_staged_reads_index_not_worktree "$scratch"
+    run_control selftest_staged_warns_ambiguous "$scratch"
+    run_control selftest_escape_via_allowlist_edit "$scratch"
+    run_control selftest_warn_counter_declared "$scratch"
 
     if [ "$overall" -ne 0 ]; then
         echo "check_dep_zero.sh --selftest: FAILED (see above)" >&2
         exit 1
     fi
-    echo "check_dep_zero.sh --selftest: all twenty-one controls OK"
+    echo "check_dep_zero.sh --selftest: all ${controls_run} controls OK"
 }
 
 main() {

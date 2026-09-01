@@ -163,9 +163,9 @@ class wayland_display_adapter {
     // gorda" concern the way it would be on the actual public API
     // surface.
     static void registry_global(void *data, wl_registry *registry, std::uint32_t name,
-                                 const char *interface, std::uint32_t version) noexcept;
+                                const char *interface, std::uint32_t version) noexcept;
     static void registry_global_remove(void *data, wl_registry *registry,
-                                        std::uint32_t name) noexcept;
+                                       std::uint32_t name) noexcept;
 
   private:
     wl_display *m_display = nullptr;

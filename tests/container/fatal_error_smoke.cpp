@@ -42,7 +42,7 @@ int main() {
     }
     if (adapter.has_fatal_error()) {
         std::fprintf(stderr, "fatal_error_smoke: has_fatal_error() true right after a "
-                              "successful open() - the latch fired too early\n");
+                             "successful open() - the latch fired too early\n");
         return EXIT_FAILURE;
     }
 
@@ -50,13 +50,14 @@ int main() {
     // succeed, and must NOT latch has_fatal_error().
     glintfx::gltfx_rslt<void> first_roundtrip = adapter.roundtrip();
     if (first_roundtrip.has_error()) {
-        std::fprintf(stderr, "fatal_error_smoke: roundtrip() against a live compositor failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(first_roundtrip.error().code())).c_str());
+        std::fprintf(
+            stderr, "fatal_error_smoke: roundtrip() against a live compositor failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(first_roundtrip.error().code())).c_str());
         return EXIT_FAILURE;
     }
     if (adapter.has_fatal_error()) {
         std::fprintf(stderr, "fatal_error_smoke: has_fatal_error() true after a roundtrip "
-                              "that reported success\n");
+                             "that reported success\n");
         return EXIT_FAILURE;
     }
 
@@ -79,7 +80,7 @@ int main() {
     glintfx::gltfx_rslt<void> after_cut = adapter.roundtrip();
     if (after_cut.has_value()) {
         std::fprintf(stderr, "fatal_error_smoke: roundtrip() reported SUCCESS after the "
-                              "compositor was killed - the fatal path never fired\n");
+                             "compositor was killed - the fatal path never fired\n");
         return EXIT_FAILURE;
     }
     if (after_cut.error().code() != glintfx::gltfx_err_code::platform_failure) {
@@ -89,11 +90,12 @@ int main() {
     }
     if (!adapter.has_fatal_error()) {
         std::fprintf(stderr, "fatal_error_smoke: has_fatal_error() still false after a "
-                              "roundtrip() that reported the connection dead\n");
+                             "roundtrip() that reported the connection dead\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "fatal_error_smoke: roundtrip() after the cut reported %s "
-                          "(os_error_code=%lld), has_fatal_error() == true\n",
+    std::fprintf(stdout,
+                 "fatal_error_smoke: roundtrip() after the cut reported %s "
+                 "(os_error_code=%lld), has_fatal_error() == true\n",
                  std::string(glintfx::gltfx_err_code_name(after_cut.error().code())).c_str(),
                  static_cast<long long>(after_cut.error().os_error_code()));
 
@@ -104,11 +106,11 @@ int main() {
     glintfx::gltfx_rslt<void> second_after_cut = adapter.roundtrip();
     if (second_after_cut.has_value()) {
         std::fprintf(stderr, "fatal_error_smoke: SECOND roundtrip() after the cut reported "
-                              "success - the latch did not hold\n");
+                             "success - the latch did not hold\n");
         return EXIT_FAILURE;
     }
     std::fprintf(stdout, "fatal_error_smoke: second roundtrip() after the cut also reported "
-                          "an error, as expected - no crash\n");
+                         "an error, as expected - no crash\n");
 
     // close() on a fatally-errored adapter must still work cleanly.
     adapter.close();

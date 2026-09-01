@@ -62,8 +62,10 @@ int main() {
         std::fprintf(stderr, "registry_smoke: xdg_wm_base absent from the catalog\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "registry_smoke: catalog has %zu global(s), wl_compositor and xdg_wm_base present\n",
-                 globals.size());
+    std::fprintf(
+        stdout,
+        "registry_smoke: catalog has %zu global(s), wl_compositor and xdg_wm_base present\n",
+        globals.size());
 
     adapter.close();
     if (adapter.is_open()) {

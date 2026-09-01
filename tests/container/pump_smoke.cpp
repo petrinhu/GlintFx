@@ -66,13 +66,17 @@ int main() {
         }
     }
     const auto total_elapsed = std::chrono::steady_clock::now() - start;
-    const auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(total_elapsed).count();
-    std::fprintf(stdout, "pump_smoke: %d pump_events() call(s) completed in %lldms (budget %lldms)\n",
+    const auto total_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(total_elapsed).count();
+    std::fprintf(stdout,
+                 "pump_smoke: %d pump_events() call(s) completed in %lldms (budget %lldms)\n",
                  kIterations, static_cast<long long>(total_ms),
-                 static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(kBudget).count()));
+                 static_cast<long long>(
+                     std::chrono::duration_cast<std::chrono::milliseconds>(kBudget).count()));
 
     if (adapter.has_fatal_error()) {
-        std::fprintf(stderr, "pump_smoke: has_fatal_error() true after an all-successful pump loop\n");
+        std::fprintf(stderr,
+                     "pump_smoke: has_fatal_error() true after an all-successful pump loop\n");
         return EXIT_FAILURE;
     }
 

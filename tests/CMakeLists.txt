@@ -400,6 +400,14 @@ if(UNIX)
     )
     target_sources(display_connect_failure_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        # WL-DISPLAY fatia B: display_adapter.cpp now calls into
+        # global_catalog's own member functions from its registry
+        # listener - this second compile of display_adapter.cpp needs
+        # global_catalog.cpp linked alongside it for the same reason
+        # global_catalog_test above compiles it a second time itself
+        # (glintfx.so's hidden visibility, see this block's own header
+        # comment).
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/

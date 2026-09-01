@@ -34,18 +34,35 @@
 # project runs the compositor from - only the resulting static-linked
 # binary does, kept lean the same way a multi-stage container build
 # normally trims a toolchain out of a runtime image.
+#
+# WL-DISPLAY fatia B, TDD case B: registry_smoke.cpp is built in this
+# SAME stage, against the SAME staged sources (now also global_
+# catalog.hpp/.cpp - see prepare_arch_ports_fixture.sh's own header
+# comment) - one extra `g++` invocation, same flags, same fixture.
 FROM fedora:44 AS arch-ports-builder
 RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel && dnf clean all
 COPY _arch_ports_src /build/_arch_ports_src
 COPY connect_smoke.cpp /build/connect_smoke.cpp
+COPY registry_smoke.cpp /build/registry_smoke.cpp
 RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/arch_ports_connect_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/connect_smoke.cpp \
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/registry_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/registry_smoke.cpp \
         $(pkg-config --libs wayland-client)
 
 FROM fedora:44
@@ -66,8 +83,9 @@ RUN dnf -y install \
 COPY run_compositor.sh /usr/local/bin/run_compositor.sh
 COPY smoke.sh /usr/local/bin/smoke.sh
 COPY --from=arch-ports-builder /build/arch_ports_connect_smoke /usr/local/bin/arch_ports_connect_smoke
+COPY --from=arch-ports-builder /build/registry_smoke /usr/local/bin/registry_smoke
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
-        /usr/local/bin/arch_ports_connect_smoke
+        /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

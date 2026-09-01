@@ -67,6 +67,16 @@ copy_real_sources() {
     cp "$repo_root/src/platform/wayland/display_adapter.cpp" \
         "$target/src/platform/wayland/display_adapter.cpp"
 
+    # WL-DISPLAY fatia B: display_adapter.cpp now calls into
+    # global_catalog's own member functions from its registry
+    # listener - registry_smoke.cpp's own build (Containerfile) needs
+    # both staged here for the same reason connect_smoke.cpp's build
+    # already needs display_adapter.cpp itself.
+    cp "$repo_root/src/platform/wayland/global_catalog.hpp" \
+        "$target/src/platform/wayland/global_catalog.hpp"
+    cp "$repo_root/src/platform/wayland/global_catalog.cpp" \
+        "$target/src/platform/wayland/global_catalog.cpp"
+
     cp "$repo_root/src/core/err.cpp" "$target/src/core/err.cpp"
     cp "$repo_root/src/core/err_code.cpp" "$target/src/core/err_code.cpp"
 

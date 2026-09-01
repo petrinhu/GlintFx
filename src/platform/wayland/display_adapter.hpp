@@ -1,28 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
+
 #include <glintfx/core/err.hpp>
 
-// display_adapter.hpp - ARCH-PORTS: wayland_display_adapter, the FIRST
-// type to satisfy platform::display_connection_port
-// (src/platform/port/display_connection_port.hpp). Scope frozen to
-// exactly what this fatia owns (CTO plan sec. 1.2): open a real
-// connection to the Wayland display server, close it. Nothing else -
-// no registry, no roundtrip, no event pump. Those are WL-DISPLAY's own
-// scope (TODO.md), and when that fatia lands it EXTENDS this same
-// file (more methods on this same class, in the same directory,
-// selected by the same src/platform/CMakeLists.txt branch) rather than
-// reopening the port this fatia closes.
+#include "platform/wayland/global_catalog.hpp"
+
+// display_adapter.hpp - ARCH-PORTS (open/close/is_open) EXTENDED by
+// WL-DISPLAY fatia B (TODO.md, GODS_LAWS.md L-05): the same class now
+// also owns the wl_registry created right after connecting, and the
+// global_catalog (global_catalog.hpp) that registry's listener
+// populates. This is the extension ARCH-PORTS's own header comment
+// promised - same file, same directory, same src/platform/CMakeLists.txt
+// branch - rather than a second, competing type.
 //
-// wl_display FORWARD-DECLARED, wayland-client.h NOT included here: the
-// only thing this header needs to know about wl_display is that a
-// POINTER to one exists - the full type is opaque even in Wayland's
-// own public API. Keeping <wayland-client.h> out of this header (it
-// lives in display_adapter.cpp instead) means anything that only
-// needs to know "a wayland_display_adapter exists and has this shape"
-// - tests/display_port_concept_test.cpp among them - never has to put
-// wayland-client's own include directory on its search path at all.
+// wl_display AND wl_registry both FORWARD-DECLARED, wayland-client.h
+// NOT included here: the only thing this header needs to know about
+// either is that a POINTER to one exists - both are opaque even in
+// Wayland's own public API. Keeping <wayland-client.h> out of this
+// header (it lives in display_adapter.cpp instead) means anything that
+// only needs to know "a wayland_display_adapter exists and has this
+// shape" - tests/display_port_concept_test.cpp among them - never has
+// to put wayland-client's own include directory on its search path at
+// all.
 struct wl_display;
+struct wl_registry;
 
 namespace glintfx::platform {
 
@@ -51,24 +54,62 @@ class wayland_display_adapter {
 
     // Attempts wl_display_connect(nullptr) (display_adapter.cpp: reads
     // the standard WAYLAND_DISPLAY/XDG_RUNTIME_DIR resolution every
-    // Wayland client uses). GODS_LAWS.md L-22: the system's refusal
-    // (compositor absent, socket missing, permission denied) comes
-    // back as gltfx_err_code::platform_failure through the ordinary
+    // Wayland client uses), then WL-DISPLAY fatia B: creates the
+    // wl_registry, attaches this adapter's own listener, and performs
+    // ONE wl_display_roundtrip() to close the initial burst of
+    // `global` events every compositor emits right after get_registry
+    // (w4-plano.md sec. 1.2/3.1.B) - by the time open() returns
+    // successfully, globals() already holds every global that was
+    // announced before this connection opened. GODS_LAWS.md L-22: any
+    // refusal along this path (connect refused, get_registry refused,
+    // the roundtrip itself failing) comes back as
+    // gltfx_err_code::platform_failure through the ordinary
     // gltfx_rslt<void> return channel - no exception, no abort, no
     // process-ending signal for a condition this adapter's own caller
-    // is expected to handle.
+    // is expected to handle. A failed open() tears down whatever it
+    // had already created (registry destroyed, display disconnected)
+    // before returning - is_open() reads false either way.
     [[nodiscard]] gltfx_rslt<void> open() noexcept;
 
     // Idempotent-safe: does nothing when already closed (is_open() is
     // false), so both the destructor above and display_connection<A>'s
     // own close_if_open() (display_connection.hpp) can call this
-    // unconditionally without checking first themselves.
+    // unconditionally without checking first themselves. Tears down in
+    // the REVERSE order open() built things in (w4-plano.md sec. 1.2,
+    // "teardown do SDL3 e ordem inversa da criacao"): the registry -
+    // an object the connection owns - is destroyed BEFORE the
+    // connection itself is disconnected.
     void close() noexcept;
 
     [[nodiscard]] bool is_open() const noexcept { return m_display != nullptr; }
 
+    // The catalog fatia A's global_catalog.hpp defines, populated by
+    // the initial roundtrip above and kept current afterward by
+    // global_remove events the (still out of scope for this fatia,
+    // fatia D's own) event pump will dispatch. Read-only: nothing
+    // outside this adapter is meant to insert or remove a global by
+    // hand.
+    [[nodiscard]] const global_catalog &globals() const noexcept { return m_globals; }
+
+    // registry_global()/registry_global_remove() are the wl_registry_
+    // listener's own two callbacks (C function-pointer ABI). PUBLIC
+    // ONLY so display_adapter.cpp's own anonymous-namespace
+    // wl_registry_listener constant (`.global = &wayland_display_
+    // adapter::registry_global`) can take their address from outside
+    // the class - nothing else is meant to call these directly, and
+    // this whole class is itself internal (src/platform/, never under
+    // include/glintfx/), so this is not a GODS_LAWS.md L-19 "porta
+    // gorda" concern the way it would be on the actual public API
+    // surface.
+    static void registry_global(void *data, wl_registry *registry, std::uint32_t name,
+                                 const char *interface, std::uint32_t version) noexcept;
+    static void registry_global_remove(void *data, wl_registry *registry,
+                                        std::uint32_t name) noexcept;
+
   private:
     wl_display *m_display = nullptr;
+    wl_registry *m_registry = nullptr;
+    global_catalog m_globals;
 };
 
 } // namespace glintfx::platform

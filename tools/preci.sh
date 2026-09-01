@@ -156,27 +156,59 @@ readonly CTEST_UNIT_LABEL_FILTER='^unit$'
 # every stage) because bash cannot return an array from a function.
 FILES=()
 
-# GATE-QUOTEPATH (01/09/2026), applies to every `git ls-files` call in
-# this file: git's own default (core.quotepath=true) prints any tracked
-# path with a byte >= 0x80 as a C-style octal-escaped, double-quoted
-# string (e.g. "Wayl\303\244nd.cpp" instead of Waylând.cpp). The pathspec
-# match itself ('*.cpp'/'*.hpp') still finds the file - the extension is
-# plain ASCII - but the LISTED name is the garbled quoted form, which is
-# not a real path on disk, so it never reaches clang-format/clang-tidy/
-# cppcheck usably. `-c core.quotepath=false` makes git print the raw
-# UTF-8 bytes instead, matching the real path on disk.
-enumerate_tracked_cpp_hpp() {
+# GATE-DEPZERO-NOFORK (01/09/2026), applies to every `git ls-files`
+# call in this file. Two defects, one fix: (1) git quotes a tracked
+# path with a byte >= 0x80 by DEFAULT (core.quotepath=true), and quotes
+# tab/newline/double-quote/backslash UNCONDITIONALLY regardless of that
+# setting (git-config(1)) - the OLD `-c core.quotepath=false` form (see
+# GATE-QUOTEPATH, kept as a citation below for history) only ever fixed
+# the first case; a hostile name (real newline, quote, backslash) still
+# landed in FILES as the escaped, still-quoted string, which is not a
+# real path on disk and never reaches clang-format/clang-tidy/cppcheck
+# usably. (2) three of the four enumerations below fed a bash process
+# substitution (`< <(cmd)`) straight into the `while read` loop, and a
+# REAL failure of `cmd` (not a git repository, git missing) was
+# SWALLOWED - the loop simply saw an empty stream and FILES ended up
+# empty, indistinguishable from a legitimately empty scan (the exact
+# defect enumerate_untracked_cpp_hpp's OWN `|| fail` below already
+# guarded against, achado colateral of this same GATE-DEPZERO-NOFORK
+# review, GODS_LAWS.md L-17 sibling hardening in the same commit).
+#
+# Both defects share ONE fix: `git ls-files -z`/`--null`. Per
+# git-ls-files(1), `-z` does not merely toggle core.quotepath - it
+# disables path quoting ENTIRELY, printing every byte of the path raw,
+# NUL-terminated, with NO escaping of any kind. The listing is written
+# to a scratch FILE, never captured in a variable (`$(...)` silently
+# drops embedded NUL bytes even under `set -o pipefail` - GODS_LAWS.md
+# L-45 territory, the exact trap plan section 8 armadilha 6 documents),
+# then read back with `while IFS= read -r -d '' f` - a bash builtin,
+# so this costs exactly the SAME one `git` process per enumeration as
+# before, never one process per file (GODS_LAWS.md L-11 bloco 6).
+enumerate_git_listing() {
+    dir="$1"; shift
+    fail_msg="$1"; shift
     FILES=()
-    while IFS= read -r f; do
+    listing_z="$(mktemp "${TMPDIR:-/tmp}/glintfx-preci-listing-XXXXXX")" || fail "mktemp falhou preparando enumeracao"
+    if ! git -C "$dir" ls-files -z "$@" > "$listing_z"; then
+        rm -f "$listing_z"
+        fail "$fail_msg"
+    fi
+    while IFS= read -r -d '' f; do
         [ -n "$f" ] && FILES+=("$f")
-    done < <(cd "$ROOT_DIR" && git -c core.quotepath=false ls-files -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')
+    done < "$listing_z"
+    rm -f "$listing_z"
+}
+
+enumerate_tracked_cpp_hpp() {
+    enumerate_git_listing "$ROOT_DIR" \
+        "enumerate_tracked_cpp_hpp: 'git ls-files' falhou em '$ROOT_DIR' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)" \
+        -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*'
 }
 
 enumerate_tracked_cpp() {
-    FILES=()
-    while IFS= read -r f; do
-        [ -n "$f" ] && FILES+=("$f")
-    done < <(cd "$ROOT_DIR" && git -c core.quotepath=false ls-files -- '*.cpp' ':!:tests/preci_fixtures/*')
+    enumerate_git_listing "$ROOT_DIR" \
+        "enumerate_tracked_cpp: 'git ls-files' falhou em '$ROOT_DIR' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)" \
+        -- '*.cpp' ':!:tests/preci_fixtures/*'
 }
 
 # Plain directory walk (not git enumeration): used only by --selftest,
@@ -184,12 +216,22 @@ enumerate_tracked_cpp() {
 # throwaway empty directory, none of which the real pipeline ever scans
 # this way (enumerate_tracked_* above explicitly excludes the fixtures
 # tree so the deliberately-broken dirty fixture never fails a real push).
+# NUL-delimited for the same byte-safety reason as enumerate_git_listing
+# above (a filename with an embedded newline would otherwise split
+# across two entries of the old `find | sort` pipe) - `2>/dev/null` and
+# the absence of `|| fail` are DELIBERATE, unchanged from before: the
+# selftest controls point this at directories that legitimately do not
+# exist yet, and an empty result there must flow to require_nonempty's
+# own floor, never abort here.
 enumerate_dir_cpp_hpp() {
     dir="$1"
     FILES=()
-    while IFS= read -r f; do
+    listing_z="$(mktemp "${TMPDIR:-/tmp}/glintfx-preci-listing-XXXXXX")" || fail "mktemp falhou preparando enumeracao"
+    find "$dir" -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 2>/dev/null | sort -z > "$listing_z"
+    while IFS= read -r -d '' f; do
         [ -n "$f" ] && FILES+=("$f")
-    done < <(find "$dir" -type f \( -name '*.cpp' -o -name '*.hpp' \) 2>/dev/null | sort)
+    done < "$listing_z"
+    rm -f "$listing_z"
 }
 
 # Lists NEW *.cpp/*.hpp files not yet known to git (git ls-files
@@ -225,26 +267,36 @@ enumerate_dir_cpp_hpp() {
 # so pass" - that collapse is exactly what L-40 exists to forbid. It
 # fails loud immediately, in every caller, real pipeline or selftest
 # control alike (see run_selftest_untracked_guard_git_failure_control).
+#
+# Deliberately SELF-CONTAINED, never calling enumerate_git_listing
+# above: run_selftest_untracked_guard_git_failure_control imports this
+# exact function body whole into an isolated `bash -c` subshell via
+# `declare -f` (so the control never touches the real ROOT_DIR), and a
+# call from inside there to a second, un-imported function would fail
+# "command not found" - see that control's own comment below.
 enumerate_untracked_cpp_hpp() {
     dir="$1"
     FILES=()
-    listing="$(cd "$dir" && git -c core.quotepath=false ls-files --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')" \
-        || fail "untracked-guard: 'git ls-files --others' falhou em '$dir' (nao e um repositorio git, ou git indisponivel) - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
-    while IFS= read -r f; do
+    listing_z="$(mktemp "${TMPDIR:-/tmp}/glintfx-preci-listing-XXXXXX")" || fail "mktemp falhou preparando enumeracao"
+    if ! git -C "$dir" ls-files -z --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*' > "$listing_z"; then
+        rm -f "$listing_z"
+        fail "untracked-guard: 'git ls-files --others' falhou em '$dir' (nao e um repositorio git, ou git indisponivel) - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
+    fi
+    # GODS_LAWS.md L-45 lesson kept defensively, even though the file-
+    # based `-z`/`read -d ''` form (unlike the here-string form this
+    # replaces) already exits its `while` with status 0 when the
+    # listing is genuinely empty (the read fails on the very FIRST
+    # check, before the loop body ever runs, and `set -e` never sees a
+    # failing while-CONDITION as a reason to abort): `return 0`
+    # decouples this function's own exit status from the loop's
+    # regardless, so a future change to this function's last statement
+    # can never silently resurrect the old defect (measured live before
+    # the original fix: --selftest died silently, no diagnostic, the
+    # instant a scan legitimately came back clean).
+    while IFS= read -r -d '' f; do
         [ -n "$f" ] && FILES+=("$f")
-    done <<< "$listing"
-    # A here-string always feeds at least one byte (a trailing newline),
-    # even when $listing is "" - unlike the process-substitution form
-    # enumerate_tracked_cpp_hpp/enumerate_tracked_cpp use above. That
-    # means the loop body DOES run once on a legitimately empty scan,
-    # its last command (`[ -n "$f" ]`, false) becomes the loop's own
-    # exit status, and - because this was the function's own last
-    # statement - `set -e` would kill the whole script the instant a
-    # scan came back clean (measured live: --selftest died silently,
-    # no diagnostic, exactly when FILES was correctly empty). `return 0`
-    # decouples the function's exit status from the loop's, which is
-    # the only thing this function promises: FILES is populated,
-    # nothing about whether it ended up empty.
+    done < "$listing_z"
+    rm -f "$listing_z"
     return 0
 }
 
@@ -500,10 +552,9 @@ count_real_asserts_in_file() {
 # enumerate_tracked_cpp_hpp already uses above - git's pathspec glob
 # matches across directories with a bare '*.cpp', no '**' needed.
 enumerate_product_source_files() {
-    FILES=()
-    while IFS= read -r f; do
-        [ -n "$f" ] && FILES+=("$f")
-    done < <(cd "$ROOT_DIR" && git -c core.quotepath=false ls-files -- '*.cpp' '*.hpp' ':!:tests/*' ':!:third_party/*')
+    enumerate_git_listing "$ROOT_DIR" \
+        "enumerate_product_source_files: 'git ls-files' falhou em '$ROOT_DIR' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)" \
+        -- '*.cpp' '*.hpp' ':!:tests/*' ':!:third_party/*'
 }
 
 # Sums count_real_asserts_in_file across every product source file.
@@ -938,7 +989,12 @@ run_selftest_untracked_guard_git_failure_control() {
 # still finds an accented-named file - the extension is plain ASCII - but
 # the LISTED name is the garbled quoted form, not the real path on disk,
 # so it never actually reaches clang-format/clang-tidy/cppcheck as a
-# usable filename. This control asserts FILES holds the REAL path.
+# usable filename. Fixed by GATE-DEPZERO-NOFORK's `git ls-files -z`
+# (disables quoting entirely, not merely the core.quotepath=false this
+# gate used to set - see enumerate_untracked_cpp_hpp above), which also
+# covers the case core.quotepath=false alone never did: a hostile name
+# (real newline/quote/backslash, quoted UNCONDITIONALLY per
+# git-config(1)). This control asserts FILES holds the REAL path.
 run_selftest_untracked_guard_accented_name_control() {
     log "selftest: guarda de untracked - controle de nome acentuado (GATE-QUOTEPATH)"
     dir="$(selftest_untracked_guard_repo_dir)"
@@ -955,6 +1011,31 @@ run_selftest_untracked_guard_accented_name_control() {
     echo "selftest: guarda de untracked - controle de nome acentuado OK (Waylând.cpp reportado pelo caminho real, GATE-QUOTEPATH)"
 }
 
+# C7 (plano DEPZERO-NOFORK secao 3): espelho do controle de acentuado
+# acima, mas com uma quebra de linha REAL no nome - a forma que
+# core.quotepath=false sozinho NUNCA cobriu (git-config(1): quotado
+# INCONDICIONALMENTE). Um array bash carrega qualquer byte, entao
+# FILES[0] tem de conter o caminho real, com a quebra de linha embutida
+# - nao a forma escapada "arquivo\ncom\nquebra.cpp" que o `git ls-files`
+# sem `-z` teria impresso.
+run_selftest_untracked_guard_newline_name_control() {
+    log "selftest: guarda de untracked - controle de nome com quebra de linha (GATE-DEPZERO-NOFORK)"
+    dir="$(selftest_untracked_guard_repo_dir)"
+    selftest_write_untracked_guard_repo "$dir"
+    nl="$(printf '\n.')"; nl="${nl%.}"
+    hostile_name="hostil${nl}quebra.cpp"
+    printf 'int hostil() { return 4; }\n' > "$dir/$hostile_name"
+    enumerate_untracked_cpp_hpp "$dir"
+    if require_no_untracked_source 2>/dev/null; then
+        rm -rf "$dir"
+        fail "controle de nome com quebra de linha (guarda-untracked) FALHOU: arquivo hostil esta untracked e o guarda aprovou mesmo assim"
+    fi
+    [ "${#FILES[@]}" -eq 1 ] && [ "${FILES[0]}" = "$hostile_name" ] \
+        || fail "controle de nome com quebra de linha (guarda-untracked) FALHOU: esperava FILES=[$hostile_name] (caminho real, decodificado), teve: ${FILES[*]-vazio}"
+    rm -rf "$dir"
+    echo "selftest: guarda de untracked - controle de nome com quebra de linha OK (arquivo hostil reportado pelo caminho real, GATE-DEPZERO-NOFORK)"
+}
+
 run_selftest_untracked_guard_controls() {
     log "selftest: guarda de arquivo novo nao rastreado (stage_untracked_guard)"
     run_selftest_untracked_guard_positive_control
@@ -962,6 +1043,7 @@ run_selftest_untracked_guard_controls() {
     run_selftest_untracked_guard_ignored_control
     run_selftest_untracked_guard_git_failure_control
     run_selftest_untracked_guard_accented_name_control
+    run_selftest_untracked_guard_newline_name_control
 }
 
 # --- selftest controls for stage_debug's assert-count floor

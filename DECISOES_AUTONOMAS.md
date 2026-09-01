@@ -437,3 +437,15 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **Estado medido na abertura, não lembrado:** ramo `depzero-gate` em `da5a85e`, idêntico ao remoto; execução 33256549290 do servidor **verde nos 18 trabalhos** nesse mesmo identificador; `dep_zero_trace` e `dep_zero_trace_selftest` (24 controles) executados nas cinco plataformas, conferidos nos registros dos trabalhos de Fedora e de Windows. Isso satisfaz o pré-requisito declarado de `DEPZERO-SHALLOW` — o oráculo profundo já mordeu no ambiente real.
 
 **Escrituração corrigida na abertura:** a nota vencida sobre `D-PKGWIN` (o líder já havia decidido; a reversão saiu em `fda17c0`).
+
+### A última fatia da onda de dependência zero foi aberta em modo autônomo  `[31/08/26 - 23:41:03]`
+
+**Fatia:** `DEPZERO-SHALLOW` — rebaixar o interpretador de texto a rede rasa declarada, agora que o oráculo profundo (`dep_zero_trace`) existe e já mordeu no servidor real.
+
+**Pré-requisito conferido antes de abrir, não presumido:** execução 33256549290 verde nos 18 trabalhos em `da5a85e`, com `dep_zero_trace` e `dep_zero_trace_selftest` (24 controles) executados nas cinco plataformas — li os registros dos trabalhos de Fedora e de Windows, não a cor do painel.
+
+**Papéis, como a lei manda:** o CTO planejou, um agente especialista implementa, um revisor adversarial independente executa e muta o código depois, e eu reverifico antes de aceitar. Nenhum dos três é o outro.
+
+**A decisão do líder que rege o contrato desta fatia já estava tomada** (28/08/2026, verbatim: *"Deixa passar avisando que o servidor decide"*): forma ambígua passa o gancho com aviso impresso, e o servidor decide. Nada aqui é decisão nova minha.
+
+**Nuance declarada pelo CTO, que eu confirmei na árvore:** o contrato de aviso também vale no modo de árvore, onde produz **2 avisos permanentes hoje** — as duas chamadas multi-linha reais em `cmake/GlintfxWaylandProtocols.cmake` e `cmake/GlintfxPkgConfigValidateInstalled.cmake.in`. É inócuo porque o oráculo profundo roda na mesma suíte e é a autoridade declarada, mas fica registrado para o líder poder discordar.

@@ -505,3 +505,15 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 3. **A lei que me manda respeitar os limites desta máquina fala de memória, disco, CPU e vídeo. Não fala de processos.** Eu tratei o teto de processos como se não existisse, porque nenhuma lei o nomeava. Isso é falha minha de julgamento, não lacuna da lei.
 
 **O que NÃO se perdeu:** todo o trabalho fechado está commitado, o repositório está íntegro, e o disco está folgado (36 GB não alocados, 83 GB livres no mínimo). O único arquivo não commitado é o portão que estava sendo escrito quando tudo parou.
+
+### Retomada autônoma após o incidente: fechar a onda até o push  `[01/09/26 - 10:46:09]`
+
+**Ordem do líder, verbatim:** *"modo autonomo : termine a onda atual até o push final"*.
+
+**Estado medido na retomada, não lembrado:** ramo `depzero-gate` em `e59c0a6`, árvore limpa, **10 commits locais ainda não empurrados**; ocupação de processos em 1770 de 4000 (44%), abaixo do primeiro degrau de aviso. Três fatias da trilha em pendente verificação (`DEPZERO-GATE`, `DEPZERO-SELFTEST-FIX`, `DEPZERO-TRACE`), mais `DEPZERO-SHALLOW` implementada e `GATE-QUOTEPATH` consertada pela metade.
+
+**O que falta, e é um só defeito:** o portão continua cego a nome de arquivo com **caractere de controle, aspa dupla ou barra invertida**. A opção usada (`core.quotepath=false`) só cobre bytes fora do alfabeto latino simples. O conserto correto foi escrito de madrugada e **descartado por ordem do líder**, porque o desenho gastava um processo por arquivo e foi o que travou a máquina.
+
+**A restrição que o conserto novo tem de respeitar, e que agora é lei (L-11, bloco 6):** proibido desenho que gasta um processo por item varrido. O conserto tem de ler caminhos sem disfarce **e** custar um número de processos que não cresce com o número de arquivos.
+
+**Como vou operar, também por lei nova:** **um agente pesado por vez** (L-11, bloco 2) — foi a violação simultânea disso que somou os 4000 processos. Nenhum segundo agente roda enquanto outro estiver rodando suíte.

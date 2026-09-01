@@ -760,7 +760,14 @@ check_dep_zero_tree() {
     root="$1"
     library_path="$2"
 
-    all_files="$(git -C "$root" ls-files 2>/dev/null)" \
+    # -c core.quotepath=false (GATE-QUOTEPATH, 01/09/2026): git's own
+    # default (core.quotepath=true) prints any tracked path with a byte
+    # >= 0x80 as a C-style octal-escaped, double-quoted string, which
+    # never matches CMAKE_SURFACE_PATTERN/CXX_SURFACE_PATTERN below (both
+    # anchored with a trailing $) - an accented filename went unseen by
+    # this scan entirely. Disabling quotepath makes `git ls-files` print
+    # the raw UTF-8 bytes instead, matching the pattern normally.
+    all_files="$(git -c core.quotepath=false -C "$root" ls-files 2>/dev/null)" \
         || { echo "check_dep_zero.sh: 'git ls-files' failed in $root (not a git repository, or git unavailable) - scan refused, never assumed empty" >&2; return 1; }
 
     cmake_files="$(printf '%s\n' "$all_files" | grep -E "$CMAKE_SURFACE_PATTERN" || true)"
@@ -823,7 +830,9 @@ check_dep_zero_staged() {
     git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
         || { echo "check_dep_zero.sh: not a git repository: $root" >&2; return 1; }
 
-    staged="$(git -C "$root" diff --cached --name-only --diff-filter=ACMR)" \
+    # -c core.quotepath=false: same GATE-QUOTEPATH reasoning as
+    # check_dep_zero_tree above, applied to the staged (index) listing.
+    staged="$(git -c core.quotepath=false -C "$root" diff --cached --name-only --diff-filter=ACMR)" \
         || { echo "check_dep_zero.sh: 'git diff --cached' failed in $root" >&2; return 1; }
 
     staged_count=0
@@ -1817,6 +1826,99 @@ selftest_empty_scan_tree() {
     echo "selftest: EMPTY-SCAN(tree) control OK (repository without CMake/C++ surface refused)"
 }
 
+# DEPZERO-SHALLOW (01/09/2026): selftest_empty_scan_tree above zeroes
+# BOTH surfaces at once (only README.md tracked), so it can never tell
+# whether the CMake floor's own "return 1" actually fired, or whether
+# the C++ floor below it (also zero in that fixture) is the one doing
+# the work. Measured live: commenting out the CMake floor's "return 1"
+# left selftest_empty_scan_tree fully green, because check_dep_zero_tree
+# fell through to the C++ floor and printed "empty scan (0 C++ surface
+# files)" instead - a message that still contains the substring "empty
+# scan" the old control greps for, so it never noticed the CMake floor
+# was gone. This control isolates the CMake floor: a tree with a real
+# C++ file (cxx_count > 0) and ZERO CMake surface files, so only the
+# CMake floor's own branch can possibly fire, and it greps for the
+# CMake-specific wording, not the shared substring.
+selftest_empty_scan_tree_cmake_only() {
+    scratch="$1"
+    root="$scratch/empty-tree-cmake-only"
+    mkdir -p "$root/src"
+    git -C "$root" init -q
+    git -C "$root" config user.email "selftest@example.invalid"
+    git -C "$root" config user.name "selftest"
+    printf 'int f(void) { return 0; }\n' > "$root/src/f.cpp"
+    git -C "$root" add -A
+    git -C "$root" commit -q -m "c++ present, no cmake surface at all"
+
+    if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: EMPTY-SCAN(tree/cmake-only-floor) control FAILED (a tree with C++ but zero CMake surface files should have been refused)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "0 CMake surface files"; then
+        echo "selftest: EMPTY-SCAN(tree/cmake-only-floor) control FAILED (reproved, but did not specifically say '0 CMake surface files' - the CMake floor may not be the branch that actually fired)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: EMPTY-SCAN(tree/cmake-only-floor) control OK (CMake floor fires on its own, distinct message, with a non-empty C++ surface present)"
+}
+
+# GATE-QUOTEPATH (01/09/2026): git's own default (core.quotepath=true)
+# prints any tracked path containing a byte >= 0x80 as a C-style
+# octal-escaped, double-quoted string (e.g. "Wayl\303\244nd.cmake"
+# instead of Waylând.cmake). CMAKE_SURFACE_PATTERN ends in '\.cmake$',
+# which never matches a line ending in a closing quote - measured live:
+# `git ls-files | grep -cE '\.cmake$'` returns 0 for a quoted path,
+# 1 for the same path read via `git ls-files -z`. Before the fix this
+# control proves the exact silent hole: an accented-named .cmake file
+# carrying an undeniable violation (FetchContent) is scanned as if it
+# did not exist, and the tree PASSES it should have reproved. After the
+# fix (git -c core.quotepath=false), the file is seen and cited.
+selftest_negative_control_accented_filename_tree() {
+    scratch="$1"
+    root="$scratch/negative-accented-tree"
+    make_clean_fixture "$root"
+    printf 'include(FetchContent)\nFetchContent_Declare(fmt GIT_REPOSITORY x)\n' > "$root/cmake/Waylând.cmake"
+    git_init_fixture "$root"
+
+    if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: NEGATIVE(accented-filename/tree) control FAILED (cmake/Waylând.cmake carries FetchContent and should have been reproved - GATE-QUOTEPATH)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "FetchContent_Declare"; then
+        echo "selftest: NEGATIVE(accented-filename/tree) control FAILED (reproved, but did not cite FetchContent_Declare - the accented file may have been skipped for a different reason)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: NEGATIVE(accented-filename/tree) control OK (cmake/Waylând.cmake seen and reproved despite the accented byte, GATE-QUOTEPATH)"
+}
+
+# Same defect, staged (pre-commit) mode: check_dep_zero_staged applies
+# the SAME CMAKE_SURFACE_PATTERN/CXX_SURFACE_PATTERN grep against
+# `git diff --cached --name-only`, which quotepath-escapes exactly like
+# `git ls-files` does.
+selftest_staged_accented_filename() {
+    scratch="$1"
+    root="$scratch/staged-accented"
+    make_clean_fixture "$root"
+    git_init_fixture "$root"
+    printf 'include(FetchContent)\nFetchContent_Declare(fmt GIT_REPOSITORY x)\n' > "$root/cmake/Waylând.cmake"
+    git -C "$root" add "cmake/Waylând.cmake"
+
+    if output="$(check_dep_zero_staged "$root" 2>&1)"; then
+        echo "selftest: STAGED(accented-filename) control FAILED (staged cmake/Waylând.cmake carries FetchContent and should have been reproved - GATE-QUOTEPATH)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "FetchContent_Declare"; then
+        echo "selftest: STAGED(accented-filename) control FAILED (reproved, but did not cite FetchContent_Declare)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: STAGED(accented-filename) control OK (staged cmake/Waylând.cmake seen and reproved despite the accented byte, GATE-QUOTEPATH)"
+}
+
 # GODS_LAWS.md L-27 decision D2: a staged commit whose ONLY change is
 # documentation passes, declaring the two numbers.
 selftest_staged_zero_relevant_declared() {
@@ -2034,6 +2136,9 @@ selftest_main() {
     run_control selftest_needed_static_skip
     run_control selftest_empty_scan_needed "$scratch"
     run_control selftest_empty_scan_tree "$scratch"
+    run_control selftest_empty_scan_tree_cmake_only "$scratch"
+    run_control selftest_negative_control_accented_filename_tree "$scratch"
+    run_control selftest_staged_accented_filename "$scratch"
     run_control selftest_staged_zero_relevant_declared "$scratch"
     run_control selftest_staged_blocks_violation "$scratch"
     run_control selftest_staged_reads_index_not_worktree "$scratch"

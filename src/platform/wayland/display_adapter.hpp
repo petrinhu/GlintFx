@@ -168,6 +168,26 @@ class wayland_display_adapter {
                                        std::uint32_t name) noexcept;
 
   private:
+    // pump_events()'s own four documented steps (display_adapter.cpp's
+    // header comment on pump_events() names each by the deadlock trap
+    // it avoids), split into one private method per step - GODS_LAWS.md
+    // L-17: pump_events() itself measured 47 real lines against this
+    // project's 40-line ceiling, and the comment above it already
+    // numbered the four steps by name, so the split follows exactly
+    // that boundary rather than an arbitrary cut. Each method keeps the
+    // m_fatal-latching and wl_display_cancel_read() pairing local to
+    // the step that owns it; pump_events() itself is left as the
+    // four-call sequence.
+    [[nodiscard]] gltfx_rslt<void> drain_pending_and_prepare_read() noexcept;
+    [[nodiscard]] gltfx_rslt<void> flush_with_retry() noexcept;
+    // Returns whether data is ready to read (true) or nothing arrived
+    // (false, wl_display_cancel_read() already called) - the one step
+    // whose "nothing to do" outcome is success, not an error, which is
+    // why this is the one of the four returning gltfx_rslt<bool> rather
+    // than gltfx_rslt<void>.
+    [[nodiscard]] gltfx_rslt<bool> wait_for_incoming_data() noexcept;
+    [[nodiscard]] gltfx_rslt<void> read_and_dispatch_incoming() noexcept;
+
     wl_display *m_display = nullptr;
     wl_registry *m_registry = nullptr;
     global_catalog m_globals;

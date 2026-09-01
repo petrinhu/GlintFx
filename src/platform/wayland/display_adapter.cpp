@@ -197,39 +197,33 @@ gltfx_rslt<void> wayland_display_adapter::roundtrip() noexcept {
     return gltfx_rslt<void>::ok();
 }
 
-gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
-    if (!is_open()) {
-        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::invalid_argument));
-    }
-    if (m_fatal) {
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
-    }
-
-    // ARMADILHA 3 (manpage, w4-plano.md sec. 1.1): prepare_read()
-    // itself REFUSES (returns nonzero) while another thread already
-    // has a read prepared, or while THIS thread's own pending queue
-    // still has undispatched events in it - draining that queue first
-    // is exactly what the loop below does, and it is why this comes
-    // BEFORE poll(), never a bare poll() first.
+// ARMADILHA 3 (manpage, w4-plano.md sec. 1.1): prepare_read() itself
+// REFUSES (returns nonzero) while another thread already has a read
+// prepared, or while THIS thread's own pending queue still has
+// undispatched events in it - draining that queue first is exactly
+// what the loop below does, and it is why this comes BEFORE poll(),
+// never a bare poll() first.
+gltfx_rslt<void> wayland_display_adapter::drain_pending_and_prepare_read() noexcept {
     while (wl_display_prepare_read(m_display) != 0) {
         if (wl_display_dispatch_pending(m_display) == -1) {
             m_fatal = true;
             return gltfx_rslt<void>::err(build_fatal_error(m_display));
         }
     }
+    return gltfx_rslt<void>::ok();
+}
 
-    // ARMADILHA 6 (w4-plano.md sec. 3.4): EAGAIN here means the
-    // KERNEL's own socket send buffer is full, not that flush()
-    // failed - waiting for POLLOUT and retrying is the only correct
-    // response; giving up would leave an outgoing request stuck
-    // forever the first time this ran under real load, while every
-    // test that never fills the buffer would keep passing.
+// ARMADILHA 6 (w4-plano.md sec. 3.4): EAGAIN here means the KERNEL's
+// own socket send buffer is full, not that flush() failed - waiting
+// for POLLOUT and retrying is the only correct response; giving up
+// would leave an outgoing request stuck forever the first time this
+// ran under real load, while every test that never fills the buffer
+// would keep passing. Called only after drain_pending_and_prepare_read()
+// has already prepared a read, so every failure path here must pair
+// it with wl_display_cancel_read() (ARMADILHA 2) before latching fatal.
+gltfx_rslt<void> wayland_display_adapter::flush_with_retry() noexcept {
     while (wl_display_flush(m_display) == -1) {
         if (errno != EAGAIN) {
-            // ARMADILHA 2 (prepare_read without its matching read_
-            // events/cancel_read is a deadlock the NEXT time this is
-            // called): cancel_read() here is that mandatory pairing
-            // for the failure path.
             wl_display_cancel_read(m_display);
             m_fatal = true;
             return gltfx_rslt<void>::err(build_fatal_error(m_display));
@@ -241,31 +235,36 @@ gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
             return gltfx_rslt<void>::err(build_fatal_error(m_display));
         }
     }
+    return gltfx_rslt<void>::ok();
+}
 
-    // NON-BLOCKING BY DEFAULT (w4-plano.md sec. 3.0/3.1.D): timeout
-    // ZERO asks "is there anything to read RIGHT NOW", never waits for
-    // it - this is the whole point of a pump a consumer calls every
-    // frame from its own loop. ARMADILHA 1 (manpage): a BLOCKING
-    // dispatch call between prepare_read and read_events/cancel_read
-    // is a deadlock - poll() with a bounded timeout is deliberately
-    // NOT that; it is the one call this sequence is allowed to wait
-    // on, and here it does not even wait.
+// NON-BLOCKING BY DEFAULT (w4-plano.md sec. 3.0/3.1.D): timeout ZERO
+// asks "is there anything to read RIGHT NOW", never waits for it -
+// this is the whole point of a pump a consumer calls every frame from
+// its own loop. ARMADILHA 1 (manpage): a BLOCKING dispatch call
+// between prepare_read and read_events/cancel_read is a deadlock -
+// poll() with a bounded timeout is deliberately NOT that; it is the
+// one call this sequence is allowed to wait on, and here it does not
+// even wait. Returns ok(false) - ARMADILHA 2's "found nothing" half of
+// the mandatory pairing, wl_display_cancel_read() already called -
+// when nothing arrived, so pump_events() itself can return success
+// without a read_and_dispatch_incoming() call that has nothing to do.
+gltfx_rslt<bool> wayland_display_adapter::wait_for_incoming_data() noexcept {
     pollfd incoming{.fd = wl_display_get_fd(m_display), .events = POLLIN, .revents = 0};
     const int poll_result = poll(&incoming, 1, 0);
     if (poll_result == -1) {
         wl_display_cancel_read(m_display);
         m_fatal = true;
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+        return gltfx_rslt<bool>::err(build_fatal_error(m_display));
     }
     if (poll_result == 0 || (incoming.revents & POLLIN) == 0) {
-        // Nothing arrived: ARMADILHA 2 again, the "found nothing" half
-        // of the same pairing requirement - cancel_read() releases the
-        // prepared-read state cleanly instead of leaving it dangling
-        // for the NEXT call to trip over.
         wl_display_cancel_read(m_display);
-        return gltfx_rslt<void>::ok();
+        return gltfx_rslt<bool>::ok(false);
     }
+    return gltfx_rslt<bool>::ok(true);
+}
 
+gltfx_rslt<void> wayland_display_adapter::read_and_dispatch_incoming() noexcept {
     if (wl_display_read_events(m_display) == -1) {
         // ARMADILHA 4 (manpage: "erros sao fatais"): a failed read_
         // events() here is exactly the same class of unusable-display
@@ -274,13 +273,35 @@ gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
         m_fatal = true;
         return gltfx_rslt<void>::err(build_fatal_error(m_display));
     }
-
     if (wl_display_dispatch_pending(m_display) == -1) {
         m_fatal = true;
         return gltfx_rslt<void>::err(build_fatal_error(m_display));
     }
-
     return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
+    if (!is_open()) {
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::invalid_argument));
+    }
+    if (m_fatal) {
+        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+    }
+
+    if (gltfx_rslt<void> prepared = drain_pending_and_prepare_read(); prepared.has_error()) {
+        return prepared;
+    }
+    if (gltfx_rslt<void> flushed = flush_with_retry(); flushed.has_error()) {
+        return flushed;
+    }
+    gltfx_rslt<bool> ready = wait_for_incoming_data();
+    if (ready.has_error()) {
+        return gltfx_rslt<void>::err(ready.error());
+    }
+    if (!ready.value()) {
+        return gltfx_rslt<void>::ok();
+    }
+    return read_and_dispatch_incoming();
 }
 
 void wayland_display_adapter::close() noexcept {

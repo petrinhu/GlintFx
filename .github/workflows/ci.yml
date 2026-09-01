@@ -731,6 +731,52 @@ jobs:
             -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean arch_ports_connect_smoke
 
+      # WL-DISPLAY fatia B, TDD case B (GODS_LAWS.md L-09/L-20 -
+      # integracao DECLARADA contra compositor REAL, mesmo padrao do
+      # passo R4 acima): registry_smoke.cpp e compilado na imagem
+      # (Containerfile) contra as fontes reais de producao, e ate este
+      # conserto (achado da revisao adversarial, GODS_LAWS.md L-36) so
+      # existia dentro do binario - nunca executado em lugar nenhum, o
+      # que nao e portao. Falha aqui (`docker exec` com saida != 0)
+      # reprova este passo do job, o mesmo mecanismo de bloqueio de
+      # todo outro passo desta matriz.
+      - name: WL-DISPLAY fatia B - registry real dentro do container
+        run: |
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean registry_smoke
+
+      # WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, mesmo padrao dos
+      # dois passos acima. Roda ANTES da fatia C abaixo de proposito -
+      # precisa do compositor deste container ainda vivo, e a fatia C e
+      # exatamente o passo que o mata.
+      - name: WL-DISPLAY fatia D - pump nao-bloqueante dentro do container
+        run: |
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean pump_smoke
+
+      # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
+      # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
+      # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o
+      # adaptador sobrevive com platform_failure em vez de crash. Roda
+      # por ULTIMO entre os smokes deste container de proposito: os
+      # tres passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
+      # pump_smoke) todos precisam do compositor vivo, e depois deste
+      # passo ele nao esta mais. O CONTAINER em si sobrevive ao teste -
+      # run_compositor.sh deixou de rodar o compositor como PID 1
+      # exatamente para isso (conserto desta mesma revisao,
+      # run_compositor.sh's own header comment) - entao a limpeza no
+      # fim do job continua alcancando este container normalmente.
+      - name: WL-DISPLAY fatia C - erro fatal dentro do container
+        run: |
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean fatal_error_smoke
+
       # Tres controles negativos obrigatorios (revisao adversarial
       # TEST-WLCONT: FURO 1 montagem/device, FURO 2 --pid=host, FURO 3
       # padrao de barra final). Cada um TEM que ser acusado por

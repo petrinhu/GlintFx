@@ -42,16 +42,47 @@ export_runtime_env() {
     export XDG_SESSION_TYPE="wayland"
 }
 
-# `exec` replaces this shell so the compositor becomes the container's
-# own foreground process: signals (docker stop) reach it directly, and
-# `docker run -d` stays up for exactly as long as kwin_wayland does.
-# dbus-run-session wraps it because kwin_wayland expects a session bus
-# (GODS_LAWS.md L-09 risk list: "o kwin pedindo seat ou logind dentro
-# do container"); dbus-run-session starts a throwaway private bus, not
-# the host's.
+# Backgrounded, NOT `exec`'d into: this used to be
+# `exec dbus-run-session -- kwin_wayland ...`, which makes dbus-run-
+# session PID 1 of the container. dbus-run-session's own job is to run
+# ONE command and exit once that command exits - so the moment the
+# compositor died (WL-DISPLAY fatia C's fatal_error_smoke.cpp kills it
+# on purpose, from INSIDE this same container, to prove the adapter
+# survives a dead connection), PID 1 considered its job done and
+# exited too, taking the whole container down with it before the test
+# could even run its second half. Measured live, reproduced twice
+# (adversarial review, GODS_LAWS.md L-36): `docker inspect` showed
+# exit=137 and zero test output. Backgrounding it here decouples the
+# compositor's lifetime from PID 1's.
 start_compositor() {
     socket_name="$1"
-    exec dbus-run-session -- kwin_wayland --virtual --socket "$socket_name"
+    dbus-run-session -- kwin_wayland --virtual --socket "$socket_name" &
+}
+
+# A compositor that never starts has to fail this script LOUDLY
+# (GODS_LAWS.md L-40: no silent pass) - `exec`'ing into it used to make
+# that failure immediate and free (a bad exec just kills PID 1); now
+# that start_compositor() above only backgrounds a job, that same
+# fast-failure signal has to be rebuilt on purpose, with a bounded
+# wait, instead of leaving every CALLER's own pgrep-polling loop as the
+# only thing that will ever notice.
+wait_for_compositor_ready() {
+    tries=0
+    while [ "$tries" -lt 30 ]; do
+        pgrep -x kwin_wayland >/dev/null 2>&1 && return 0
+        tries=$((tries + 1))
+        sleep 1
+    done
+    fail "kwin_wayland nao subiu em 30s"
+}
+
+# PID 1 stays up on its own from here on, independent of whatever
+# happens to the compositor backgrounded above - this is the whole
+# point of the fix: fatal_error_smoke.cpp (or anything else) can kill
+# the compositor process and this container keeps running, instead of
+# tearing itself down with it.
+stay_up_forever() {
+    exec tail -f /dev/null
 }
 
 main() {
@@ -59,6 +90,8 @@ main() {
     create_private_runtime_dir
     export_runtime_env
     start_compositor "$1"
+    wait_for_compositor_ready
+    stay_up_forever
 }
 
 main "$@"

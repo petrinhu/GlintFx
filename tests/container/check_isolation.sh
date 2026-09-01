@@ -623,12 +623,15 @@ compositor_pid_in_container() {
     container="$1"
     # `-x` matches the exact process name (comm), not `-f` (full
     # command line): verified live that `pgrep -f kwin_wayland` also
-    # matches PID 1, the `dbus-run-session -- kwin_wayland ...`
-    # wrapper, whose command line merely MENTIONS kwin_wayland as an
-    # argument. Trusting "the first PID this container's own pgrep
-    # reports" is only safe because assert_full_hostconfig_matches_baseline
-    # already proved PidMode is not "host" - main() calls it first and
-    # exits before reaching here otherwise (FURO 2).
+    # matches the `dbus-run-session -- kwin_wayland ...` wrapper
+    # process (run_compositor.sh backgrounds it, WL-DISPLAY fatia C's
+    # own fix - PID 1 is a separate supervisor now, not this wrapper,
+    # see run_compositor.sh's own header comment), whose command line
+    # merely MENTIONS kwin_wayland as an argument. Trusting "the first
+    # PID this container's own pgrep reports" is only safe because
+    # assert_full_hostconfig_matches_baseline already proved PidMode is
+    # not "host" - main() calls it first and exits before reaching here
+    # otherwise (FURO 2).
     docker exec "$container" pgrep -x kwin_wayland | head -n 1
 }
 

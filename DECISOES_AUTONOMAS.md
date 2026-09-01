@@ -517,3 +517,22 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **A restrição que o conserto novo tem de respeitar, e que agora é lei (L-11, bloco 6):** proibido desenho que gasta um processo por item varrido. O conserto tem de ler caminhos sem disfarce **e** custar um número de processos que não cresce com o número de arquivos.
 
 **Como vou operar, também por lei nova:** **um agente pesado por vez** (L-11, bloco 2) — foi a violação simultânea disso que somou os 4000 processos. Nenhum segundo agente roda enquanto outro estiver rodando suíte.
+
+### A onda de dependência zero fecha, e o que só o servidor pode provar  `[01/09/26 - 12:18:37]`
+
+**Fatia  entregue, revisada e consertada.** O portão deixou de ser cego a nome de arquivo com quebra de linha, aspa dupla ou barra invertida, **sem gastar um processo por arquivo** — que era a condição imposta pelo líder depois do travamento.
+
+**As duas provas que eu mesmo refiz, sem confiar em relatório:**
+
+| O quê | Antes | Depois |
+|---|---|---|
+| Custo, com 4 arquivos | 33 processos | 33 processos |
+| Custo, com os 124 reais | crescia com N | **33 processos, idêntico** |
+| Arquivos vistos na varredura hostil | 2 de 5 | **5 de 5** |
+| Violações citadas | 0 (passava aprovando) | **3** |
+
+**A revisão adversarial aprovou com quatro ressalvas, e a mais valiosa é do tipo que já mordeu este projeto:** o decodificador novo prometia por escrito recusar gramática inválida, e o revisor provou que **os 45 controles ficavam verdes com a recusa desligada** — a promessa nunca tinha sido exercitada. Consertado nos dois arquivos, com controle que morde; os autotestes foram de 37 para 39 e de 8 para 10.
+
+**O que eu decidi NÃO fazer, e a razão:** as duas cópias do decodificador ficam duplicadas. A regra de 3 da L-33 manda extrair só na terceira ocorrência, e duplicação consciente vence abstração errada cedo. Registrado na INBOX como gatilho, e conferido por mim que as duas cópias continuam **byte a byte idênticas** (47 linhas cada) depois do conserto — a divergência entre elas é o risco real, e está contido.
+
+**O que ainda NÃO está provado, e é honesto dizer:** nada disto rodou no servidor. Esta máquina só tem uma das duas versões da ferramenta de texto usada pelo motor novo; o alvo Ubuntu usa a outra, e é justamente por isso que a recusa de faixa numérica foi escrita explícita em vez de depender do comportamento da biblioteca. **Portão que nunca rodou no ambiente real não é portão** — e é o push desta onda que produz essa prova.

@@ -536,3 +536,26 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **O que eu decidi NÃO fazer, e a razão:** as duas cópias do decodificador ficam duplicadas. A regra de 3 da L-33 manda extrair só na terceira ocorrência, e duplicação consciente vence abstração errada cedo. Registrado na INBOX como gatilho, e conferido por mim que as duas cópias continuam **byte a byte idênticas** (47 linhas cada) depois do conserto — a divergência entre elas é o risco real, e está contido.
 
 **O que ainda NÃO está provado, e é honesto dizer:** nada disto rodou no servidor. Esta máquina só tem uma das duas versões da ferramenta de texto usada pelo motor novo; o alvo Ubuntu usa a outra, e é justamente por isso que a recusa de faixa numérica foi escrita explícita em vez de depender do comportamento da biblioteca. **Portão que nunca rodou no ambiente real não é portão** — e é o push desta onda que produz essa prova.
+
+---
+
+## Onda W4 aberta em modo autônomo — quatro decisões do CTO  `[01/09/26 - 13:41:07]`
+
+**Ordem do líder, verbatim:** *"modo autonomo: Se essa onda acabou, inicie a próxima. Autorizo merge no final se tudo estiver verde"*.
+
+**A onda anterior fechou de verdade antes desta abrir:** execução 33531619417 verde nos **18 trabalhos** em `ea9a0e2`, que é o identificador do merge em `main`. Conferido no servidor, não presumido.
+
+**Correção que o CTO fez ao meu levantamento, e eu confirmei na árvore:** a fatia de maior valor calculado da onda (`GFSS-MATCH-SIMPLE`, WSJF 16.00) **está bloqueada** por `GFSS-NODE-VIEW`, que é da onda anterior e continua pendente. Eu não tinha visto. A trilha de estilo não anda um passo sem ela.
+
+| | Decisão do CTO | Custo se o líder reverter |
+|---|---|---|
+| **D-W4-1** | Caminho principal: `WL-DISPLAY` (a conexão com o sistema de janelas). As três dependências dela estão concluídas — conferi uma a uma. | **Zero.** É pré-requisito de qualquer janela em qualquer rumo futuro; o trabalho não se perde em nenhum cenário. |
+| **D-W4-2** | Trilha paralela única: estilo, na ordem forçada `GFSS-NODE-VIEW` → `GFSS-MATCH-SIMPLE`. O ocupante do slot já era decisão do líder (*"rcss primeiro"*, 22/08); o CTO decidiu só a ordem, e ela é forçada por dependência. | A ordem é irrevertível. O contrato que a primeira congela **já foi decidido pelo líder** (ESCOPO §2, decisão 6, *"aceito tudo"*), então o risco é de fidelidade ao já decidido, não de decisão nova. |
+| **D-W4-3** | `CORE-MATH2D` (WSJF 13.00) **não** entra na execução. O próprio item declara primeiro consumidor na W7, e executá-la abriria uma terceira frente contra a regra de uma trilha paralela só. | **Zero.** Entra no fim da fila quando o líder quiser, sem conflitar. |
+| **D-W4-4** | A onda abre drenando as duas verificações penduradas da onda anterior (`GFSS-VALUE` e `PKG-WIN-SCOPE`), porque a trilha de estilo vai **construir em cima** da primeira. | **Baixo.** Pular economiza um passo e assume risco de retrabalho. |
+
+**O conflito que o CTO declarou em vez de esconder:** a fatia de maior valor calculado **não** é o caminho principal. As duas andam, uma em cada trilho, mas fica registrado que o principal anda por lei e não por número.
+
+**A lei de pesquisa foi cumprida antes de fatiar** (ordem do líder, L-43 do projeto): o padrão de laço de eventos, as quatro formas documentadas de travamento, o corte de versão ao ligar objetos e a ordem inversa de desmontagem vieram da documentação oficial e da leitura de SDL3 e RmlUi — lidos para aprender a técnica, nunca para copiar. As quatro fontes estão no plano.
+
+**Uma correção minha ao plano do CTO:** ele escreveu que merge em `main` continua exigindo aval explícito e que o modo autônomo não o herda. **Correto em geral, mas o líder já deu esse aval nesta sessão**, com a condição declarada: *"Autorizo merge no final se tudo estiver verde"*. O aval existe e é condicional ao verde; tag continua fora.

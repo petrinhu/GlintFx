@@ -167,6 +167,13 @@ target_sources(gfss_value_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
 )
 
+# GFSS-NODE-VIEW, fatia A (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-26/
+# L-28/L-40, ESCOPO.md SS2 decision 6): the five gltfx_node_state
+# pseudo-class bits, their frozen numeric values and
+# gltfx_node_state_name()/gltfx_node_state_has() - see gfui_node_
+# state_test.cpp's own header comment.
+glintfx_add_test(gfui_node_state_test)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

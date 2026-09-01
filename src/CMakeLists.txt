@@ -38,6 +38,13 @@ add_subdirectory(core)
 # existing one "because it fits").
 add_subdirectory(gfss)
 
+# gfui layer (GFSS-NODE-VIEW, GODS_LAWS.md L-17/L-19/L-28): the
+# motor's own module - see src/gfui/CMakeLists.txt's own header
+# comment for why this is its own add_subdirectory() rather than
+# folded into gfss/'s (GODS_LAWS.md L-17: a new subject gets its own
+# module, never bolted onto an existing one "because it fits").
+add_subdirectory(gfui)
+
 # render layer (GL-LOADER, GODS_LAWS.md L-07 EXCECAO No 1/L-19/L-31):
 # NOT guarded by if(UNIX) - GL 3.3 core is a Windows target too (WGL),
 # unlike the Wayland platform/ backend below. See src/render/

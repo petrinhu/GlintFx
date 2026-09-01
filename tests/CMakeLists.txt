@@ -174,6 +174,18 @@ target_sources(gfss_value_test PRIVATE
 # state_test.cpp's own header comment.
 glintfx_add_test(gfui_node_state_test)
 
+# GFSS-NODE-VIEW, fatia B+C (TODO.md, GODS_LAWS.md L-17/L-19/L-20/
+# L-22/L-26/L-28/L-40, ESCOPO.md SS2 decision 6): the ten-entry table
+# (gltfx_node_facts), the three-pointer view (gltfx_node_view), the
+# attribute answer (gltfx_node_attribute) and gltfx_node_facts_first_
+# missing() (fatia B), plus navigation over the two alien fixture
+# trees through src/gfui/node_query.hpp's own internal forwarders
+# (fatia C) - see gfui_node_view_test.cpp's own header comment. Needs
+# the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir every other
+# internal-header consumer above already adds, for node_query.hpp.
+glintfx_add_test(gfui_node_view_test)
+target_include_directories(gfui_node_view_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

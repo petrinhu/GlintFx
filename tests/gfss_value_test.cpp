@@ -480,6 +480,111 @@ GLINTFX_TEST(parse_value_dimension_token_with_unknown_unit_fails_with_diagnostic
     GLINTFX_CHECK_EQ(result.diagnostic.column, static_cast<std::uint32_t>(1));
 }
 
+// --- magnitude saturation across the five non-integer natures --------
+// (GFSS-VALUE regression: an adversarial mutation review found this
+// suite protected ONLY the integer overflow path
+// (parse_value_integer_lexeme_overflow_saturates_instead_of_crashing
+// above) - decode_number_lexeme()'s own saturate_out_of_range_number()
+// (numeric_lexeme.cpp) feeds number/length/percentage/angle/duration
+// too, and none of those five had a directed test. The gap was real:
+// neutralizing saturate_out_of_range_number()'s own out-of-range branch
+// left this suite 100% green while a live probe showed "1e400px"
+// decoding to magnitude 0.0 instead of the type's max -
+// gfss_color_parse_test.cpp (an UNRELATED fatia) was the only test in
+// the whole repository that happened to exercise "1e400" at all. Each
+// case below checks the SATURATED VALUE itself, not just "did not
+// crash" - a mutated saturate_out_of_range_number() that always returns
+// 0.0 must fail the overflow rows (0.0 != max()/lowest()), even though
+// it would still pass the underflow row by coincidence.
+
+GLINTFX_TEST(parse_value_number_magnitude_out_of_range_saturates_instead_of_crashing) {
+    const value_parse_result positive = parse_first_value("1e400");
+    GLINTFX_CHECK(positive.ok);
+    GLINTFX_CHECK(positive.value.kind == gltfx_gfss_value_kind::number);
+    GLINTFX_CHECK_EQ(positive.value.number, std::numeric_limits<double>::max());
+
+    const value_parse_result negative = parse_first_value("-1e400");
+    GLINTFX_CHECK(negative.ok);
+    GLINTFX_CHECK(negative.value.kind == gltfx_gfss_value_kind::number);
+    GLINTFX_CHECK_EQ(negative.value.number, std::numeric_limits<double>::lowest());
+
+    // Magnitude too SMALL to represent (underflow) rounds toward zero,
+    // never toward the extreme - numeric_lexeme.cpp's own
+    // saturate_out_of_range_number() comment.
+    const value_parse_result underflow = parse_first_value("1e-400");
+    GLINTFX_CHECK(underflow.ok);
+    GLINTFX_CHECK(underflow.value.kind == gltfx_gfss_value_kind::number);
+    GLINTFX_CHECK_EQ(underflow.value.number, 0.0);
+}
+
+GLINTFX_TEST(parse_value_length_magnitude_out_of_range_saturates_instead_of_crashing) {
+    const value_parse_result positive = parse_first_value("1e400px");
+    GLINTFX_CHECK(positive.ok);
+    GLINTFX_CHECK(positive.value.kind == gltfx_gfss_value_kind::length);
+    GLINTFX_CHECK_EQ(positive.value.length.magnitude, std::numeric_limits<double>::max());
+
+    const value_parse_result negative = parse_first_value("-1e400px");
+    GLINTFX_CHECK(negative.ok);
+    GLINTFX_CHECK(negative.value.kind == gltfx_gfss_value_kind::length);
+    GLINTFX_CHECK_EQ(negative.value.length.magnitude, std::numeric_limits<double>::lowest());
+
+    const value_parse_result underflow = parse_first_value("1e-400px");
+    GLINTFX_CHECK(underflow.ok);
+    GLINTFX_CHECK(underflow.value.kind == gltfx_gfss_value_kind::length);
+    GLINTFX_CHECK_EQ(underflow.value.length.magnitude, 0.0);
+}
+
+GLINTFX_TEST(parse_value_percentage_magnitude_out_of_range_saturates_instead_of_crashing) {
+    const value_parse_result positive = parse_first_value("1e400%");
+    GLINTFX_CHECK(positive.ok);
+    GLINTFX_CHECK(positive.value.kind == gltfx_gfss_value_kind::percentage);
+    GLINTFX_CHECK_EQ(positive.value.percentage, std::numeric_limits<double>::max());
+
+    const value_parse_result negative = parse_first_value("-1e400%");
+    GLINTFX_CHECK(negative.ok);
+    GLINTFX_CHECK(negative.value.kind == gltfx_gfss_value_kind::percentage);
+    GLINTFX_CHECK_EQ(negative.value.percentage, std::numeric_limits<double>::lowest());
+
+    const value_parse_result underflow = parse_first_value("1e-400%");
+    GLINTFX_CHECK(underflow.ok);
+    GLINTFX_CHECK(underflow.value.kind == gltfx_gfss_value_kind::percentage);
+    GLINTFX_CHECK_EQ(underflow.value.percentage, 0.0);
+}
+
+GLINTFX_TEST(parse_value_angle_magnitude_out_of_range_saturates_instead_of_crashing) {
+    const value_parse_result positive = parse_first_value("1e400deg");
+    GLINTFX_CHECK(positive.ok);
+    GLINTFX_CHECK(positive.value.kind == gltfx_gfss_value_kind::angle);
+    GLINTFX_CHECK_EQ(positive.value.angle.magnitude, std::numeric_limits<double>::max());
+
+    const value_parse_result negative = parse_first_value("-1e400deg");
+    GLINTFX_CHECK(negative.ok);
+    GLINTFX_CHECK(negative.value.kind == gltfx_gfss_value_kind::angle);
+    GLINTFX_CHECK_EQ(negative.value.angle.magnitude, std::numeric_limits<double>::lowest());
+
+    const value_parse_result underflow = parse_first_value("1e-400deg");
+    GLINTFX_CHECK(underflow.ok);
+    GLINTFX_CHECK(underflow.value.kind == gltfx_gfss_value_kind::angle);
+    GLINTFX_CHECK_EQ(underflow.value.angle.magnitude, 0.0);
+}
+
+GLINTFX_TEST(parse_value_duration_magnitude_out_of_range_saturates_instead_of_crashing) {
+    const value_parse_result positive = parse_first_value("1e400ms");
+    GLINTFX_CHECK(positive.ok);
+    GLINTFX_CHECK(positive.value.kind == gltfx_gfss_value_kind::time);
+    GLINTFX_CHECK_EQ(positive.value.duration.magnitude, std::numeric_limits<double>::max());
+
+    const value_parse_result negative = parse_first_value("-1e400ms");
+    GLINTFX_CHECK(negative.ok);
+    GLINTFX_CHECK(negative.value.kind == gltfx_gfss_value_kind::time);
+    GLINTFX_CHECK_EQ(negative.value.duration.magnitude, std::numeric_limits<double>::lowest());
+
+    const value_parse_result underflow = parse_first_value("1e-400ms");
+    GLINTFX_CHECK(underflow.ok);
+    GLINTFX_CHECK(underflow.value.kind == gltfx_gfss_value_kind::time);
+    GLINTFX_CHECK_EQ(underflow.value.duration.magnitude, 0.0);
+}
+
 // --- unsupported token kind ---------------------------------------------
 
 GLINTFX_TEST(parse_value_unsupported_token_kind_fails_with_component_value_diagnostic) {

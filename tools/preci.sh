@@ -156,18 +156,27 @@ readonly CTEST_UNIT_LABEL_FILTER='^unit$'
 # every stage) because bash cannot return an array from a function.
 FILES=()
 
+# GATE-QUOTEPATH (01/09/2026), applies to every `git ls-files` call in
+# this file: git's own default (core.quotepath=true) prints any tracked
+# path with a byte >= 0x80 as a C-style octal-escaped, double-quoted
+# string (e.g. "Wayl\303\244nd.cpp" instead of Waylând.cpp). The pathspec
+# match itself ('*.cpp'/'*.hpp') still finds the file - the extension is
+# plain ASCII - but the LISTED name is the garbled quoted form, which is
+# not a real path on disk, so it never reaches clang-format/clang-tidy/
+# cppcheck usably. `-c core.quotepath=false` makes git print the raw
+# UTF-8 bytes instead, matching the real path on disk.
 enumerate_tracked_cpp_hpp() {
     FILES=()
     while IFS= read -r f; do
         [ -n "$f" ] && FILES+=("$f")
-    done < <(cd "$ROOT_DIR" && git ls-files -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')
+    done < <(cd "$ROOT_DIR" && git -c core.quotepath=false ls-files -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')
 }
 
 enumerate_tracked_cpp() {
     FILES=()
     while IFS= read -r f; do
         [ -n "$f" ] && FILES+=("$f")
-    done < <(cd "$ROOT_DIR" && git ls-files -- '*.cpp' ':!:tests/preci_fixtures/*')
+    done < <(cd "$ROOT_DIR" && git -c core.quotepath=false ls-files -- '*.cpp' ':!:tests/preci_fixtures/*')
 }
 
 # Plain directory walk (not git enumeration): used only by --selftest,
@@ -219,7 +228,7 @@ enumerate_dir_cpp_hpp() {
 enumerate_untracked_cpp_hpp() {
     dir="$1"
     FILES=()
-    listing="$(cd "$dir" && git ls-files --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')" \
+    listing="$(cd "$dir" && git -c core.quotepath=false ls-files --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*')" \
         || fail "untracked-guard: 'git ls-files --others' falhou em '$dir' (nao e um repositorio git, ou git indisponivel) - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
     while IFS= read -r f; do
         [ -n "$f" ] && FILES+=("$f")
@@ -494,7 +503,7 @@ enumerate_product_source_files() {
     FILES=()
     while IFS= read -r f; do
         [ -n "$f" ] && FILES+=("$f")
-    done < <(cd "$ROOT_DIR" && git ls-files -- '*.cpp' '*.hpp' ':!:tests/*' ':!:third_party/*')
+    done < <(cd "$ROOT_DIR" && git -c core.quotepath=false ls-files -- '*.cpp' '*.hpp' ':!:tests/*' ':!:third_party/*')
 }
 
 # Sums count_real_asserts_in_file across every product source file.
@@ -923,12 +932,36 @@ run_selftest_untracked_guard_git_failure_control() {
     echo "selftest: guarda de untracked - varredura vazia por falha real do comando OK (falha do git nunca vira aprovacao silenciosa)"
 }
 
+# GATE-QUOTEPATH (01/09/2026): git's own default (core.quotepath=true)
+# prints any path with a byte >= 0x80 as a C-style octal-escaped,
+# double-quoted string. Pathspec matching itself (git ls-files -- '*.cpp')
+# still finds an accented-named file - the extension is plain ASCII - but
+# the LISTED name is the garbled quoted form, not the real path on disk,
+# so it never actually reaches clang-format/clang-tidy/cppcheck as a
+# usable filename. This control asserts FILES holds the REAL path.
+run_selftest_untracked_guard_accented_name_control() {
+    log "selftest: guarda de untracked - controle de nome acentuado (GATE-QUOTEPATH)"
+    dir="$(selftest_untracked_guard_repo_dir)"
+    selftest_write_untracked_guard_repo "$dir"
+    printf 'int acentuado() { return 3; }\n' > "$dir/Waylând.cpp"
+    enumerate_untracked_cpp_hpp "$dir"
+    if require_no_untracked_source 2>/dev/null; then
+        rm -rf "$dir"
+        fail "controle de nome acentuado (guarda-untracked) FALHOU: Waylând.cpp esta untracked e o guarda aprovou mesmo assim"
+    fi
+    [ "${#FILES[@]}" -eq 1 ] && [ "${FILES[0]}" = "Waylând.cpp" ] \
+        || fail "controle de nome acentuado (guarda-untracked) FALHOU: esperava FILES=[Waylând.cpp] (caminho real, nao escapado por core.quotepath), teve: ${FILES[*]-vazio}"
+    rm -rf "$dir"
+    echo "selftest: guarda de untracked - controle de nome acentuado OK (Waylând.cpp reportado pelo caminho real, GATE-QUOTEPATH)"
+}
+
 run_selftest_untracked_guard_controls() {
     log "selftest: guarda de arquivo novo nao rastreado (stage_untracked_guard)"
     run_selftest_untracked_guard_positive_control
     run_selftest_untracked_guard_negative_control
     run_selftest_untracked_guard_ignored_control
     run_selftest_untracked_guard_git_failure_control
+    run_selftest_untracked_guard_accented_name_control
 }
 
 # --- selftest controls for stage_debug's assert-count floor

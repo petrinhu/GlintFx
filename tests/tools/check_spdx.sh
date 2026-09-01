@@ -202,7 +202,14 @@ is_exempt() {
 # entao passa" - fica em `|| return 1`, nunca engolida.
 scanned_files() {
     root="$1"
-    git -C "$root" ls-files
+    # -c core.quotepath=false (GATE-QUOTEPATH, 01/09/2026): git's own
+    # default (core.quotepath=true) prints any tracked path with a byte
+    # >= 0x80 as a C-style octal-escaped, double-quoted string, and every
+    # downstream lookup in this file uses that string literally as a
+    # path on disk - a string that never exists, so the file gets
+    # reported "sem cabecalho" even when it has one. Disabling quotepath
+    # makes `git ls-files` print the raw UTF-8 bytes instead.
+    git -c core.quotepath=false -C "$root" ls-files
 }
 
 require_nonempty_scan() {
@@ -500,6 +507,32 @@ selftest_not_a_repo_control() {
     return 0
 }
 
+# GATE-QUOTEPATH (01/09/2026): git's own default (core.quotepath=true)
+# prints any tracked path with a byte >= 0x80 as a C-style octal-escaped,
+# double-quoted string (e.g. "Wayl\303\244nd.cpp" instead of
+# Waylând.cpp). Every downstream lookup here uses that string literally
+# as "$root/$f" - a path that never exists on disk, so `head -n 3` finds
+# nothing and the file gets reported "sem cabecalho" even when the real
+# file DOES carry it three lines in (a false PROIBIDO, not a silent
+# pass, but still wrong for any accented-named source or doc). Proven
+# with a file that HAS the header: before the fix this control fails
+# (the accented file is wrongly reported missing), after it passes.
+selftest_accented_filename_control() {
+    scratch="$1"
+    root="$scratch/accented"
+    init_fixture_repo "$root"
+    mkdir -p "$root/src"
+    printf '// SPDX-License-Identifier: AGPL-3.0-or-later\nint f();\n' > "$root/src/Waylând.cpp"
+    track_all "$root"
+
+    if ! output="$(check_spdx "$root" 2>&1)"; then
+        echo "selftest: ACCENTED-FILENAME control FAILED (src/Waylând.cpp tem o cabecalho SPDX nas 3 primeiras linhas e deveria ter passado - GATE-QUOTEPATH)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: ACCENTED-FILENAME control OK (arquivo .cpp com nome acentuado e cabecalho presente reconhecido corretamente, GATE-QUOTEPATH)"
+}
+
 selftest_main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
@@ -518,12 +551,13 @@ selftest_main() {
     selftest_third_party_khronos_control "$scratch" || overall=1
     selftest_empty_scan_control "$scratch" || overall=1
     selftest_not_a_repo_control "$scratch" || overall=1
+    selftest_accented_filename_control "$scratch" || overall=1
 
     if [ "$overall" -ne 0 ]; then
         echo "check_spdx.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_spdx.sh --selftest: os cinco controles OK"
+    echo "check_spdx.sh --selftest: os seis controles OK"
 }
 
 main() {

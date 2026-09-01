@@ -440,7 +440,14 @@ function oct2dec(o,   d1, d2, d3) {
 # 3-digit octal \ooo. An unquoted line (no leading '"') is already
 # literal and returned unchanged. Sets g_decode_ok=0 on any grammar
 # violation (unterminated string, dangling backslash, unknown escape,
-# incomplete octal) - fail-closed, never best-effort.
+# incomplete octal, octal outside \000-\377) - fail-closed, never
+# best-effort. The octal range check matters because a byte only ever
+# has 256 values: git never emits \400-\777 (511 down to 256 decimal),
+# and a decoder that accepted them anyway would silently reduce them
+# modulo 256 in some awk implementations (measured: gawk 5.3.2 folds
+# \777, decimal 511, onto the SAME byte 0xFF as the legitimate \377,
+# decimal 255 - two different escapes, one indistinguishable byte) -
+# infidelity to the grammar this decoder claims to be strict about.
 function decode_git_quoted(s,    n, inner, out, i, c, e, oct, val, ok) {
     g_decode_ok = 1
     n = length(s)
@@ -470,7 +477,11 @@ function decode_git_quoted(s,    n, inner, out, i, c, e, oct, val, ok) {
             else if (e >= "0" && e <= "7") {
                 if (i + 2 > n) { ok = 0; break }
                 oct = substr(inner, i, 3)
-                if (oct !~ /^[0-7][0-7][0-7]$/) { ok = 0; break }
+                # [0-3] on the first digit, never [0-7]: a byte tops
+                # out at \377 (255 decimal) - \4nn upward (256+) is out
+                # of range and must be refused, never silently reduced
+                # modulo 256 by sprintf("%c", ...) (I3, GATE-DEPZERO-NOFORK).
+                if (oct !~ /^[0-3][0-7][0-7]$/) { ok = 0; break }
                 val = oct2dec(oct)
                 out = out sprintf("%c", val)
                 i += 3
@@ -2463,6 +2474,98 @@ selftest_tree_missing_worktree_file() {
     echo "selftest: TREE(missing-worktree-file) control OK (a tracked file deleted from the worktree is refused, not silently treated as empty/clean)"
 }
 
+# I2 (adversarial review, DEPZERO-NOFORK, 01/09/2026): none of the
+# controls above ever fed decode_git_quoted a malformed escape - the
+# comment on the function promises "g_decode_ok=0 on any grammar
+# violation", but that branch was never exercised. Proof at the time:
+# swapping, in an EXTRACTED copy, the unknown-escape refusal for one
+# that passes the escape through as literal still left --selftest at
+# 37/37. This control feeds the SAME awk engine that consumes real
+# `git ls-files` output with SYNTHETIC lines that emulate a malformed
+# escape git itself never emits - fail-closed exists precisely for the
+# escape nobody foresaw, so the control cannot depend on git producing
+# one. Three distinct grammar violations, one control:
+#   "\z"    - unknown escape letter
+#   "\      - dangling backslash: the only inner character IS the
+#             backslash, so the loop runs out of string before it can
+#             read an escape character after it
+#   "\189"  - digits present but not all octal: the 3-character window
+#             the parser grabs ("189") never matches [0-7][0-7][0-7]
+selftest_decode_rejects_malformed_escapes() {
+    scratch="$1"
+    root="$scratch/decode-malformed-escapes"
+
+    bad_lines='"\z"
+"\"
+"\189"'
+
+    out="$(printf '%s\n' "$bad_lines" | run_dep_zero_engine "$root" "$root")" || {
+        echo "selftest: DECODE-REFUSE control FAILED (the awk engine itself failed to run)" >&2
+        return 1
+    }
+    refused_count="$(printf '%s\n' "$out" | grep -c 'decode refused (malformed git quoting)' || true)"
+    failed_in_summary="$(printf '%s\n' "$out" | sed -n 's/^S|.*failed=\([0-9]*\)$/\1/p')"
+
+    status=0
+    if [ "$refused_count" -ne 3 ]; then
+        echo "selftest: DECODE-REFUSE control FAILED (expected 3 malformed lines refused, got $refused_count) - I2" >&2
+        printf '%s\n' "$out" >&2
+        status=1
+    fi
+    if [ "$failed_in_summary" != "3" ]; then
+        echo "selftest: DECODE-REFUSE control FAILED (summary declared failed=$failed_in_summary, expected 3 - the decode-refused branch must count toward the fail-closed 'failed' total)" >&2
+        printf '%s\n' "$out" >&2
+        status=1
+    fi
+    [ "$status" -eq 0 ] && echo "selftest: DECODE-REFUSE control OK (unknown escape, dangling backslash, and digits-but-not-octal all refused by decode_git_quoted and counted in 'failed' - I2)"
+    return "$status"
+}
+
+# I3 (same adversarial review): \777 is 511 decimal, above the 255
+# (\377) ceiling a real byte can hold. The OLD pattern
+# [0-7][0-7][0-7] only checked each digit individually, so \777 (and
+# \400 - 256 decimal, one past the ceiling) both matched and
+# oct2dec/sprintf("%c", ...) silently folded them onto SOME byte
+# instead of refusing - gawk 5.3.2 measured folding \777 onto the SAME
+# 0xFF byte as the legitimate \377, indistinguishable from a real
+# maximum-byte escape. The fix restricts the first digit to [0-3] (a
+# byte's high octal digit never exceeds 3). \377 itself, the real
+# boundary, must keep decoding - this control checks both directions.
+selftest_decode_rejects_octal_out_of_range() {
+    scratch="$1"
+    root="$scratch/decode-octal-range"
+
+    invalid_lines='"\777"
+"\400"'
+    valid_line='"\377"'
+
+    out_invalid="$(printf '%s\n' "$invalid_lines" | run_dep_zero_engine "$root" "$root")" || {
+        echo "selftest: OCTAL-RANGE control FAILED (the awk engine itself failed to run on the invalid lines)" >&2
+        return 1
+    }
+    refused_count="$(printf '%s\n' "$out_invalid" | grep -c 'decode refused (malformed git quoting)' || true)"
+
+    out_valid="$(printf '%s\n' "$valid_line" | run_dep_zero_engine "$root" "$root")" || {
+        echo "selftest: OCTAL-RANGE control FAILED (the awk engine itself failed to run on the valid boundary line)" >&2
+        return 1
+    }
+    valid_refused="$(printf '%s\n' "$out_valid" | grep -c 'decode refused (malformed git quoting)' || true)"
+
+    status=0
+    if [ "$refused_count" -ne 2 ]; then
+        echo "selftest: OCTAL-RANGE control FAILED (\\777 and \\400 - both above \\377 - should have been refused; expected 2, got $refused_count) - I3" >&2
+        printf '%s\n' "$out_invalid" >&2
+        status=1
+    fi
+    if [ "$valid_refused" -ne 0 ]; then
+        echo "selftest: OCTAL-RANGE control FAILED (\\377, the real maximum byte, was wrongly refused)" >&2
+        printf '%s\n' "$out_valid" >&2
+        status=1
+    fi
+    [ "$status" -eq 0 ] && echo "selftest: OCTAL-RANGE control OK (\\777 and \\400 refused for sitting above \\377, and \\377 itself still decodes - I3, GATE-DEPZERO-NOFORK)"
+    return "$status"
+}
+
 # DEPZERO-SHALLOW F5, 31/08/2026: replaces the hand-counted literal
 # "all twenty-one controls OK" - a number written by hand ages the
 # instant a control is added or split (measured: this exact literal
@@ -2521,6 +2624,8 @@ selftest_main() {
     run_control selftest_negative_control_hostile_filename_tree "$scratch"
     run_control selftest_staged_hostile_filename "$scratch"
     run_control selftest_tree_missing_worktree_file "$scratch"
+    run_control selftest_decode_rejects_malformed_escapes "$scratch"
+    run_control selftest_decode_rejects_octal_out_of_range "$scratch"
 
     if [ "$overall" -ne 0 ]; then
         echo "check_dep_zero.sh --selftest: FAILED (see above)" >&2

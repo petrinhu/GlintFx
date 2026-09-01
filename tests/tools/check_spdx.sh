@@ -260,7 +260,10 @@ function oct2dec(o,    d1, d2, d3) {
     return d1 * 64 + d2 * 8 + d3
 }
 
-# Same git-quote decoder as check_dep_zero.sh's engine.
+# Same git-quote decoder as check_dep_zero.sh's engine (including the
+# \000-\377 octal range refusal - a byte only has 256 values, and
+# accepting \400-\777 would let sprintf("%c", ...) silently fold them
+# modulo 256 onto a legitimate lower octal instead of refusing them).
 function decode_git_quoted(s,    n, inner, out, i, c, e, oct, val, ok) {
     g_decode_ok = 1
     n = length(s)
@@ -290,7 +293,11 @@ function decode_git_quoted(s,    n, inner, out, i, c, e, oct, val, ok) {
             else if (e >= "0" && e <= "7") {
                 if (i + 2 > n) { ok = 0; break }
                 oct = substr(inner, i, 3)
-                if (oct !~ /^[0-7][0-7][0-7]$/) { ok = 0; break }
+                # [0-3] on the first digit, never [0-7]: a byte tops
+                # out at \377 (255 decimal) - \4nn upward (256+) is out
+                # of range and must be refused, never silently reduced
+                # modulo 256 by sprintf("%c", ...) (I3, GATE-DEPZERO-NOFORK).
+                if (oct !~ /^[0-3][0-7][0-7]$/) { ok = 0; break }
                 val = oct2dec(oct)
                 out = out sprintf("%c", val)
                 i += 3
@@ -791,6 +798,100 @@ selftest_hostile_filename_negative() {
     return "$hostile_neg_status"
 }
 
+# I2 (revisao adversarial, DEPZERO-NOFORK, 01/09/2026): nenhum dos
+# controles acima jamais alimentou decode_git_quoted com um escape
+# malformado - o comentario da funcao promete "g_decode_ok=0 em
+# qualquer violacao de gramatica", mas esse ramo nunca foi exercitado.
+# Prova da epoca: trocando, em copia extraida, a recusa do escape
+# desconhecido por um que passa como literal, --selftest continuava em
+# 8/8. Este controle alimenta o MESMO motor awk que consome `git
+# ls-files` com linhas SINTETICAS que emulam um escape malformado que o
+# proprio git nunca emite - o ponto do fail-closed e sobreviver ao que
+# ninguem previu, entao o controle nao pode depender do git produzir
+# um. Tres violacoes distintas, um controle:
+#   "\z"    - letra de escape desconhecida
+#   "\      - barra invertida solta: o unico caractere interno E a
+#             barra, entao o laco esgota a string antes de conseguir
+#             ler um caractere de escape depois dela
+#   "\189"  - digitos presentes mas nao todos octais: a janela de 3
+#             caracteres que o parser pega ("189") nunca casa com
+#             [0-7][0-7][0-7]
+selftest_decode_rejects_malformed_escapes() {
+    scratch="$1"
+    root="$scratch/decode-malformed-escapes"
+
+    bad_lines='"\z"
+"\"
+"\189"'
+
+    out="$(printf '%s\n' "$bad_lines" | run_spdx_engine "$root")" || {
+        echo "selftest: controle DECODE-REFUSE FALHOU (o motor awk falhou ao rodar)" >&2
+        return 1
+    }
+    refused_count="$(printf '%s\n' "$out" | grep -c 'decode refused (malformed git quoting)' || true)"
+    failed_in_summary="$(printf '%s\n' "$out" | sed -n 's/^S|.*failed=\([0-9]*\)$/\1/p')"
+
+    status=0
+    if [ "$refused_count" -ne 3 ]; then
+        echo "selftest: controle DECODE-REFUSE FALHOU (esperava 3 linhas malformadas recusadas, obteve $refused_count) - I2" >&2
+        printf '%s\n' "$out" >&2
+        status=1
+    fi
+    if [ "$failed_in_summary" != "3" ]; then
+        echo "selftest: controle DECODE-REFUSE FALHOU (resumo declarou failed=$failed_in_summary, esperava 3 - o ramo de decode recusado precisa contar no total fail-closed 'failed')" >&2
+        printf '%s\n' "$out" >&2
+        status=1
+    fi
+    [ "$status" -eq 0 ] && echo "selftest: controle DECODE-REFUSE OK (escape desconhecido, barra invertida solta e digitos-mas-nao-octal, todos recusados por decode_git_quoted e contados em 'failed' - I2)"
+    return "$status"
+}
+
+# I3 (mesma revisao adversarial): \777 e 511 decimal, acima do teto de
+# 255 (\377) que um byte real comporta. O padrao ANTIGO
+# [0-7][0-7][0-7] so checava cada digito isoladamente, entao \777 (e
+# \400 - 256 decimal, um a mais que o teto) casavam os dois, e
+# oct2dec/sprintf("%c", ...) reduzia silenciosamente para ALGUM byte em
+# vez de recusar - medido no gawk 5.3.2 dobrando \777 no MESMO byte
+# 0xFF do \377 legitimo, indistinguivel de um escape de byte maximo de
+# verdade. O conserto restringe o primeiro digito a [0-3] (o digito
+# octal alto de um byte nunca passa de 3). O proprio \377, a fronteira
+# real, precisa continuar decodificando - este controle checa as duas
+# direcoes.
+selftest_decode_rejects_octal_out_of_range() {
+    scratch="$1"
+    root="$scratch/decode-octal-range"
+
+    invalid_lines='"\777"
+"\400"'
+    valid_line='"\377"'
+
+    out_invalid="$(printf '%s\n' "$invalid_lines" | run_spdx_engine "$root")" || {
+        echo "selftest: controle OCTAL-RANGE FALHOU (o motor awk falhou ao rodar nas linhas invalidas)" >&2
+        return 1
+    }
+    refused_count="$(printf '%s\n' "$out_invalid" | grep -c 'decode refused (malformed git quoting)' || true)"
+
+    out_valid="$(printf '%s\n' "$valid_line" | run_spdx_engine "$root")" || {
+        echo "selftest: controle OCTAL-RANGE FALHOU (o motor awk falhou ao rodar na linha valida de fronteira)" >&2
+        return 1
+    }
+    valid_refused="$(printf '%s\n' "$out_valid" | grep -c 'decode refused (malformed git quoting)' || true)"
+
+    status=0
+    if [ "$refused_count" -ne 2 ]; then
+        echo "selftest: controle OCTAL-RANGE FALHOU (\\777 e \\400 - os dois acima de \\377 - deveriam ter sido recusados; esperava 2, obteve $refused_count) - I3" >&2
+        printf '%s\n' "$out_invalid" >&2
+        status=1
+    fi
+    if [ "$valid_refused" -ne 0 ]; then
+        echo "selftest: controle OCTAL-RANGE FALHOU (\\377, o byte maximo real, foi recusado por engano)" >&2
+        printf '%s\n' "$out_valid" >&2
+        status=1
+    fi
+    [ "$status" -eq 0 ] && echo "selftest: controle OCTAL-RANGE OK (\\777 e \\400 recusados por estarem acima de \\377, e \\377 continua decodificando - I3, GATE-DEPZERO-NOFORK)"
+    return "$status"
+}
+
 selftest_main() {
     scratch="$(make_scratch_workdir)"
     trap 'rm -rf "$scratch"' EXIT
@@ -812,12 +913,14 @@ selftest_main() {
     selftest_accented_filename_control "$scratch" || overall=1
     selftest_hostile_filename_positive "$scratch" || overall=1
     selftest_hostile_filename_negative "$scratch" || overall=1
+    selftest_decode_rejects_malformed_escapes "$scratch" || overall=1
+    selftest_decode_rejects_octal_out_of_range "$scratch" || overall=1
 
     if [ "$overall" -ne 0 ]; then
         echo "check_spdx.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_spdx.sh --selftest: os oito controles OK"
+    echo "check_spdx.sh --selftest: os dez controles OK"
 }
 
 main() {

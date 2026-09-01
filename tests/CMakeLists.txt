@@ -368,6 +368,17 @@ endif()
 # "${CMAKE_CURRENT_SOURCE_DIR}" (= tests/) include dir through
 # glintfx_add_test()'s PRIVATE link to it.
 if(UNIX)
+    # WL-DISPLAY fatia A (TODO.md, GODS_LAWS.md L-19/L-20): the pure
+    # global catalog - no Wayland type, testable without a compositor
+    # or even libwayland linked in. if(UNIX)-guarded like the rest of
+    # this Wayland-only block, same reasoning as display_port_concept_
+    # test's own comment above (no Windows adapter exercises this yet).
+    glintfx_add_test(global_catalog_test)
+    target_include_directories(global_catalog_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(global_catalog_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+    )
+
     glintfx_add_test(display_port_concept_test)
     target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 

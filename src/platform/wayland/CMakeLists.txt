@@ -16,10 +16,17 @@
 #
 # All PRIVATE (GODS_LAWS.md L-19: the public surface does not move for
 # an internal platform detail).
+#
+# WL-DISPLAY fatia A adds global_catalog.cpp (TODO.md): the pure
+# registry-announcement record display_adapter.cpp's own fatia B
+# extends this same class with (registry creation, listener, roundtrip)
+# will populate. No Wayland type in that file itself - see its own
+# header comment.
 
 glintfx_add_wayland_xdg_shell_binding(glintfx_library)
 
 target_sources(glintfx_library PRIVATE
     display_adapter.cpp
+    global_catalog.cpp
     selected_display_adapter_check.cpp
 )

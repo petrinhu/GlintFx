@@ -520,7 +520,7 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 
 ### A onda de dependência zero fecha, e o que só o servidor pode provar  `[01/09/26 - 12:18:37]`
 
-**Fatia  entregue, revisada e consertada.** O portão deixou de ser cego a nome de arquivo com quebra de linha, aspa dupla ou barra invertida, **sem gastar um processo por arquivo** — que era a condição imposta pelo líder depois do travamento.
+**Fatia `DEPZERO-NOFORK` entregue, revisada e consertada.** O portão deixou de ser cego a nome de arquivo com quebra de linha, aspa dupla ou barra invertida, **sem gastar um processo por arquivo** — que era a condição imposta pelo líder depois do travamento.
 
 **As duas provas que eu mesmo refiz, sem confiar em relatório:**
 

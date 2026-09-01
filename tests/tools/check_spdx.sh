@@ -177,20 +177,6 @@ fail() {
 # shellcheck source=./khronos_vendor_files.sh
 . "$(dirname "$0")/khronos_vendor_files.sh"
 
-is_exempt() {
-    path="$1"
-    case "$path" in
-        *.md) return 0 ;;
-        LICENSE) return 0 ;;
-        .gitignore) return 0 ;;
-        .bigtech-porte) return 0 ;;
-        .claude/*) return 0 ;;
-        *.json) return 0 ;;
-        third_party/khronos/*) is_known_khronos_vendor_file "$path" ;;
-        *) return 1 ;;
-    esac
-}
-
 # --- enumeracao -------------------------------------------------------
 
 # `git ls-files` e o universo fechado por construcao: TODO arquivo
@@ -204,11 +190,18 @@ scanned_files() {
     root="$1"
     # -c core.quotepath=false (GATE-QUOTEPATH, 01/09/2026): git's own
     # default (core.quotepath=true) prints any tracked path with a byte
-    # >= 0x80 as a C-style octal-escaped, double-quoted string, and every
-    # downstream lookup in this file uses that string literally as a
-    # path on disk - a string that never exists, so the file gets
-    # reported "sem cabecalho" even when it has one. Disabling quotepath
-    # makes `git ls-files` print the raw UTF-8 bytes instead.
+    # >= 0x80 as a C-style octal-escaped, double-quoted string. Kept for
+    # DISPLAY AFFINITY - a citation reads "Waylând.cpp", not an escaped
+    # form (see the accented-filename control below). The actual FIX
+    # for both the accented case AND the always-quoted control-byte
+    # case (tab, newline, double quote, backslash - quoted
+    # UNCONDITIONALLY per git-config(1), independent of core.quotepath)
+    # is the spdx engine's own git-quote DECODER (GATE-DEPZERO-NOFORK,
+    # 01/09/2026, see below) - the OLD code here used the raw, still-
+    # quoted string literally as "$root/$f", a path that never exists
+    # on disk, so a hostile or accented file was reported "sem
+    # cabecalho" for the WRONG reason (false PROIBIDO), not silently
+    # skipped the way check_dep_zero.sh's old enumeration was.
     git -c core.quotepath=false -C "$root" ls-files
 }
 
@@ -228,29 +221,197 @@ count_lines() {
     printf '%s\n' "$1" | wc -l | tr -d ' '
 }
 
-# Cada uma destas duas funcoes SO IMPRIME no stdout (nunca acumula em
-# variavel dentro do corpo do loop) - o mesmo cuidado que
-# check_no_x11.sh registra no proprio codigo (violations_in_file): um
-# `| while read` roda em subshell sob `sh`, e variavel setada la dentro
-# some ao sair do pipe. Capturar via `$(...)` e o unico jeito seguro.
-
-required_files() {
-    files="$1"
-    printf '%s\n' "$files" | while IFS= read -r f; do
-        [ -z "$f" ] && continue
-        is_exempt "$f" && continue
-        printf '%s\n' "$f"
-    done
+# --- GATE-DEPZERO-NOFORK, 01/09/2026 (GODS_LAWS.md L-11 bloco 6: no
+# process per item scanned). The OLD `required_files`/`missing_headers`
+# forked `head -n 3`+`grep -qF` PER FILE (and, for a quoted path, used
+# that still-quoted string literally as a filesystem path that never
+# existed - a false PROIBIDO, not a silent pass). Ported into ONE awk
+# process (POSIX pure, no gensub/asort/nextfile - the CI's Ubuntu job
+# runs mawk): decodes the git-quote grammar itself (same decoder as
+# check_dep_zero.sh's engine), applies is_exempt (ported verbatim from
+# the removed shell function), and reads up to 3 lines per required
+# file via `getline` to look for the header - never opening a path that
+# does not, in fact, exist.
+write_spdx_engine_awk_program() {
+    prog="$(mktemp "${TMPDIR:-/tmp}/glintfx-spdx-engine-XXXXXX.awk")" || return 1
+    cat > "$prog" <<'AWK'
+function ends_with(s, suf,    ls, lsuf) {
+    ls = length(s); lsuf = length(suf)
+    if (lsuf > ls) return 0
+    return (substr(s, ls - lsuf + 1) == suf)
 }
 
-missing_headers() {
-    root="$1"
-    required="$2"
-    printf '%s\n' "$required" | while IFS= read -r f; do
-        [ -z "$f" ] && continue
-        head -n 3 "$root/$f" 2>/dev/null | grep -qF "$REQUIRED_HEADER" && continue
-        printf '%s\n' "$f"
-    done
+function starts_with(s, pre,    lp) {
+    lp = length(pre)
+    return (substr(s, 1, lp) == pre)
+}
+
+function name_is_known(candidate, list,    n, arr, i, found) {
+    n = split(list, arr, / /)
+    found = 0
+    for (i = 1; i <= n; i++) if (arr[i] == candidate) { found = 1; break }
+    return found
+}
+
+function oct2dec(o,    d1, d2, d3) {
+    d1 = index("01234567", substr(o, 1, 1)) - 1
+    d2 = index("01234567", substr(o, 2, 1)) - 1
+    d3 = index("01234567", substr(o, 3, 1)) - 1
+    return d1 * 64 + d2 * 8 + d3
+}
+
+# Same git-quote decoder as check_dep_zero.sh's engine.
+function decode_git_quoted(s,    n, inner, out, i, c, e, oct, val, ok) {
+    g_decode_ok = 1
+    n = length(s)
+    if (n < 2 || substr(s, 1, 1) != "\"" || substr(s, n, 1) != "\"") {
+        return s
+    }
+    inner = substr(s, 2, n - 2)
+    n = length(inner)
+    out = ""
+    i = 1
+    ok = 1
+    while (i <= n) {
+        c = substr(inner, i, 1)
+        if (c == "\\") {
+            i++
+            if (i > n) { ok = 0; break }
+            e = substr(inner, i, 1)
+            if (e == "a") { out = out sprintf("%c", 7); i++ }
+            else if (e == "b") { out = out sprintf("%c", 8); i++ }
+            else if (e == "f") { out = out sprintf("%c", 12); i++ }
+            else if (e == "n") { out = out sprintf("%c", 10); i++ }
+            else if (e == "r") { out = out sprintf("%c", 13); i++ }
+            else if (e == "t") { out = out sprintf("%c", 9); i++ }
+            else if (e == "v") { out = out sprintf("%c", 11); i++ }
+            else if (e == "\"") { out = out "\""; i++ }
+            else if (e == "\\") { out = out "\\"; i++ }
+            else if (e >= "0" && e <= "7") {
+                if (i + 2 > n) { ok = 0; break }
+                oct = substr(inner, i, 3)
+                if (oct !~ /^[0-7][0-7][0-7]$/) { ok = 0; break }
+                val = oct2dec(oct)
+                out = out sprintf("%c", val)
+                i += 3
+            }
+            else { ok = 0; break }
+        } else {
+            out = out c
+            i++
+        }
+    }
+    if (!ok) { g_decode_ok = 0; return "" }
+    return out
+}
+
+# Port of is_exempt() - closed, NAMED exception list (GODS_LAWS.md
+# L-40 item 5). Mirrors the removed shell `case` verbatim, in order.
+function is_exempt(path) {
+    if (ends_with(path, ".md")) return 1
+    if (path == "LICENSE") return 1
+    if (path == ".gitignore") return 1
+    if (path == ".bigtech-porte") return 1
+    if (starts_with(path, ".claude/")) return 1
+    if (ends_with(path, ".json")) return 1
+    if (starts_with(path, "third_party/khronos/")) return name_is_known(path, KHRONOS_VENDOR_FILES)
+    return 0
+}
+
+# Reads up to 3 lines via getline (mirrors `head -n 3 | grep -qF`).
+# Returns 1 (header found), 0 (opened, header missing in the first 3
+# lines - including an empty file, same verdict `head`+`grep` gave),
+# or -1 (open/read failed - emits an 'F|' record; the OLD `head -n 3
+# ... 2>/dev/null` swallowed this silently and reported it as "missing
+# header" for the WRONG reason - a false PROIBIDO, not a silent pass).
+function scan_spdx_file(path, disp,    fname, line, i, rc, found) {
+    fname = content_root "/" path
+    found = 0
+    for (i = 1; i <= 3; i++) {
+        rc = (getline line < fname)
+        if (rc < 0) {
+            if (i == 1) {
+                close(fname)
+                print "F|" check_root "/" disp ": open refused (file not found in working tree, or unreadable)"
+                return -1
+            }
+            break
+        }
+        if (rc == 0) break
+        if (index(line, REQUIRED_HEADER) > 0) found = 1
+    }
+    close(fname)
+    return found
+}
+
+BEGIN {
+    check_root = ENVIRON["DEP_ZERO_ROOT"]
+    content_root = ENVIRON["DEP_ZERO_CONTENT_ROOT"]
+    REQUIRED_HEADER = ENVIRON["SPDX_REQUIRED_HEADER"]
+    KHRONOS_VENDOR_FILES = ENVIRON["SPDX_KHRONOS_VENDOR_FILES"]
+
+    total = 0; required = 0; exempt = 0; analyzed = 0; failed = 0
+}
+
+# One record per tracked path, C-quoted exactly as git printed it -
+# decoded once here, classified by is_exempt on the DECODED path,
+# citations always use the original 'disp' (framing-safe, always one
+# physical line even when the decoded path contains a literal newline).
+{
+    disp = $0
+    if (disp == "") next
+    total++
+
+    path = decode_git_quoted(disp)
+    if (!g_decode_ok) {
+        failed++
+        print "F|" check_root "/" disp ": decode refused (malformed git quoting)"
+        next
+    }
+
+    if (is_exempt(path)) {
+        exempt++
+        next
+    }
+    required++
+
+    result = scan_spdx_file(path, disp)
+    if (result < 0) {
+        failed++
+        next
+    }
+    analyzed++
+    if (result == 0) {
+        print "M|" check_root "/" disp
+    }
+}
+
+# GODS_LAWS.md L-40 item 3 / L-36: printed ALWAYS, including all-zero.
+END {
+    printf "S|total=%d required=%d exempt=%d analyzed=%d failed=%d\n", total, required, exempt, analyzed, failed
+}
+AWK
+    printf '%s\n' "$prog"
+}
+
+# Runs the spdx engine once against the `git ls-files` listing on
+# stdin. $1 = check_root = content_root always here (this gate has no
+# staged mode, only a tree-mode reading the working tree directly).
+# Every value crosses via ENVIRON (never `-v`, see check_dep_zero.sh's
+# engine for the reasoning) under DEP_ZERO_/SPDX_-prefixed names.
+run_spdx_engine() {
+    engine_root="$1"
+    engine_prog="$(write_spdx_engine_awk_program)" || { echo "check_spdx.sh: mktemp failed writing the spdx awk engine" >&2; return 1; }
+
+    LC_ALL=C \
+        DEP_ZERO_ROOT="$engine_root" \
+        DEP_ZERO_CONTENT_ROOT="$engine_root" \
+        SPDX_REQUIRED_HEADER="$REQUIRED_HEADER" \
+        SPDX_KHRONOS_VENDOR_FILES="$(known_khronos_vendor_files | tr '\n' ' ')" \
+        awk -f "$engine_prog"
+    engine_rc=$?
+    rm -f "$engine_prog"
+    return "$engine_rc"
 }
 
 # --- checagem ----------------------------------------------------------
@@ -261,20 +422,41 @@ check_spdx() {
     files="$(scanned_files "$root")" \
         || { echo "check_spdx.sh: 'git ls-files' falhou em '$root' (nao e repositorio git, ou git indisponivel) - varredura recusada, nunca presumida vazia" >&2; return 1; }
     require_nonempty_scan "$files" || return 1
-    total_count="$(count_lines "$files")"
 
-    required="$(required_files "$files")"
-    required_count="$(count_lines "$required")"
-    exempt_count=$((total_count - required_count))
+    engine_raw="$(printf '%s\n' "$files" | run_spdx_engine "$root")" || {
+        echo "check_spdx.sh: o motor spdx (awk) falhou ao rodar - varredura recusada, nunca presumida limpa" >&2
+        return 1
+    }
 
-    missing="$(missing_headers "$root" "$required")"
+    missing="$(printf '%s\n' "$engine_raw" | sed -n 's/^M|//p')"
+    failed_records="$(printf '%s\n' "$engine_raw" | sed -n 's/^F|//p')"
+    summary_records="$(printf '%s\n' "$engine_raw" | sed -n 's/^S|//p')"
+    summary_count=0
+    [ -n "$summary_records" ] && summary_count="$(count_lines "$summary_records")"
+
+    if [ "$summary_count" -ne 1 ]; then
+        echo "check_spdx.sh: o motor spdx (awk) nao imprimiu exatamente um registro de resumo (obteve $summary_count) - a varredura nao e confiavel, GODS_LAWS.md L-36/L-40" >&2
+        return 1
+    fi
+
+    total_count=0; required_count=0; exempt_count=0; analyzed_count=0; failed_count=0
+    eval "$(printf '%s\n' "$summary_records" | sed -E 's/^total=([0-9]+) required=([0-9]+) exempt=([0-9]+) analyzed=([0-9]+) failed=([0-9]+)$/total_count=\1; required_count=\2; exempt_count=\3; analyzed_count=\4; failed_count=\5/')"
+
+    # GODS_LAWS.md L-40 fail-closed: um arquivo exigido que o motor nao
+    # conseguiu abrir NAO e "sem cabecalho" (o defeito antigo do `head
+    # -n 3 ... 2>/dev/null` engolindo a falha) - e um motivo PROPRIO de
+    # reprovacao, sempre citado.
+    if [ "$failed_count" -ne 0 ] || [ "$required_count" -ne "$analyzed_count" ]; then
+        echo "check_spdx.sh: varredura incompleta - $failed_count arquivo(s) recusaram abrir, $analyzed_count/$required_count analisados (GODS_LAWS.md L-40 fail-closed):" >&2
+        [ -n "$failed_records" ] && printf '%s\n' "$failed_records" >&2
+        [ -n "$missing" ] && { echo "check_spdx.sh: PROIBIDO (GODS_LAWS.md L-08, publico sob AGPL-3.0): ainda faltando '$REQUIRED_HEADER' nas 3 primeiras linhas em:" >&2; printf '%s\n' "$missing" >&2; }
+        return 1
+    fi
 
     if [ -n "$missing" ]; then
         missing_count="$(count_lines "$missing")"
         echo "check_spdx.sh: PROIBIDO (GODS_LAWS.md L-08, publico sob AGPL-3.0): $missing_count arquivo(s) sem '$REQUIRED_HEADER' nas 3 primeiras linhas:" >&2
-        printf '%s\n' "$missing" | while IFS= read -r f; do
-            echo "  $f" >&2
-        done
+        printf '%s\n' "$missing" >&2
         return 1
     fi
 
@@ -510,13 +692,20 @@ selftest_not_a_repo_control() {
 # GATE-QUOTEPATH (01/09/2026): git's own default (core.quotepath=true)
 # prints any tracked path with a byte >= 0x80 as a C-style octal-escaped,
 # double-quoted string (e.g. "Wayl\303\244nd.cpp" instead of
-# Waylând.cpp). Every downstream lookup here uses that string literally
-# as "$root/$f" - a path that never exists on disk, so `head -n 3` finds
-# nothing and the file gets reported "sem cabecalho" even when the real
+# Waylând.cpp). core.quotepath only ever controls THIS - bytes >= 0x80 -
+# never tab/newline/quote/backslash, which git quotes UNCONDITIONALLY
+# (git-config(1)). The OLD code used that still-quoted string literally
+# as "$root/$f" - a path that never exists on disk, so `head -n 3` found
+# nothing and the file was reported "sem cabecalho" even when the real
 # file DOES carry it three lines in (a false PROIBIDO, not a silent
-# pass, but still wrong for any accented-named source or doc). Proven
-# with a file that HAS the header: before the fix this control fails
-# (the accented file is wrongly reported missing), after it passes.
+# pass, but still wrong for any accented or hostile-named source/doc).
+# The fix has two parts: `git -c core.quotepath=false` (kept for
+# DISPLAY AFFINITY, see scanned_files above) plus the spdx engine's own
+# git-quote DECODER (GATE-DEPZERO-NOFORK, 01/09/2026, see the engine
+# above), which is what actually makes a quoted line - accented or
+# hostile - resolve to a real path again. Proven with a file that HAS
+# the header: before the fix this control fails (the accented file is
+# wrongly reported missing), after it passes.
 selftest_accented_filename_control() {
     scratch="$1"
     root="$scratch/accented"
@@ -531,6 +720,75 @@ selftest_accented_filename_control() {
         return 1
     fi
     echo "selftest: ACCENTED-FILENAME control OK (arquivo .cpp com nome acentuado e cabecalho presente reconhecido corretamente, GATE-QUOTEPATH)"
+}
+
+# GATE-DEPZERO-NOFORK: as tres formas que o git quota INCONDICIONALMENTE
+# (git-config(1): tab/newline/aspa/barra invertida, independente de
+# core.quotepath). C5 - COM o cabecalho: tem de PASSAR. Antes do
+# conserto o `head -n 3 "$root/$f"` usava a string ainda quoted como
+# caminho real (que nunca existe), e reprovava por PROIBIDO mesmo com o
+# cabecalho presente - falso positivo, nao um passe mudo.
+hostile_spdx_filename_case() {
+    case_name="$1"
+    case "$case_name" in
+        lf) printf 'src/Way\nland_hostile.cpp' ;;
+        dquote) printf 'src/Way"land_hostile.cpp' ;;
+        backslash) printf 'src/Way\\land_hostile.cpp' ;;
+    esac
+}
+
+selftest_hostile_filename_positive() {
+    scratch="$1"
+    root="$scratch/hostile-positive"
+    hostile_pos_status=0
+
+    for case_name in lf dquote backslash; do
+        init_fixture_repo "$root"
+        mkdir -p "$root/src"
+        name="$(hostile_spdx_filename_case "$case_name")"
+        printf '// SPDX-License-Identifier: AGPL-3.0-or-later\nint f();\n' > "$root/$name"
+        track_all "$root"
+
+        if ! output="$(check_spdx "$root" 2>&1)"; then
+            echo "selftest: HOSTILE-FILENAME-POSITIVE(/$case_name) control FAILED (arquivo com o cabecalho SPDX deveria ter passado - GATE-DEPZERO-NOFORK)" >&2
+            printf '%s\n' "$output" >&2
+            hostile_pos_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$hostile_pos_status" -eq 0 ] && echo "selftest: HOSTILE-FILENAME-POSITIVE control OK (newline/double-quote/backslash filename, cabecalho presente, cada um passa - GATE-DEPZERO-NOFORK)"
+    return "$hostile_pos_status"
+}
+
+# C6 - SEM o cabecalho: tem de reprovar, citando a forma ESCAPADA do
+# nome (a mesma disciplina de check_dep_zero.sh) - discrimina "reprova
+# pelo motivo certo" do falso positivo antigo (C5 acima).
+selftest_hostile_filename_negative() {
+    scratch="$1"
+    root="$scratch/hostile-negative"
+    hostile_neg_status=0
+
+    for case_name in lf dquote backslash; do
+        init_fixture_repo "$root"
+        mkdir -p "$root/src"
+        name="$(hostile_spdx_filename_case "$case_name")"
+        printf 'int f();\n' > "$root/$name"
+        track_all "$root"
+
+        if output="$(check_spdx "$root" 2>&1)"; then
+            echo "selftest: HOSTILE-FILENAME-NEGATIVE(/$case_name) control FAILED (arquivo sem cabecalho deveria ter reprovado - GATE-DEPZERO-NOFORK)" >&2
+            hostile_neg_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "land_hostile.cpp"; then
+            echo "selftest: HOSTILE-FILENAME-NEGATIVE(/$case_name) control FAILED (reprovou, mas nao citou o arquivo)" >&2
+            printf '%s\n' "$output" >&2
+            hostile_neg_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$hostile_neg_status" -eq 0 ] && echo "selftest: HOSTILE-FILENAME-NEGATIVE control OK (newline/double-quote/backslash filename, sem cabecalho, cada um reprovado e citado - GATE-DEPZERO-NOFORK)"
+    return "$hostile_neg_status"
 }
 
 selftest_main() {
@@ -552,12 +810,14 @@ selftest_main() {
     selftest_empty_scan_control "$scratch" || overall=1
     selftest_not_a_repo_control "$scratch" || overall=1
     selftest_accented_filename_control "$scratch" || overall=1
+    selftest_hostile_filename_positive "$scratch" || overall=1
+    selftest_hostile_filename_negative "$scratch" || overall=1
 
     if [ "$overall" -ne 0 ]; then
         echo "check_spdx.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_spdx.sh --selftest: os seis controles OK"
+    echo "check_spdx.sh --selftest: os oito controles OK"
 }
 
 main() {

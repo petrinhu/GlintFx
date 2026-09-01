@@ -594,3 +594,23 @@ A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo ef
 **O que o revisor NÃO conseguiu quebrar, e vale registrar:** a lógica de produção em si é sã. As duas sabotagens que ele aplicou foram pegas pelos testes originais quando executados à mão; o catálogo resistiu a duplicata, remoção inexistente e corte de versão zero; e o laço de eventos completou cinquenta chamadas em zero milissegundo contra compositor real. **O defeito é de verificação e montagem, não de comportamento.**
 
 **Julgamento dele sobre a divergência que o implementador declarou** (provar isolamento depois em vez de antes): recusada, e por um motivo mais fundo que a ordem — quando o compositor morre, o container inteiro morre, então não sobra nada para inspecionar "depois". Declarar a divergência foi o comportamento certo; não substitui o conserto.
+
+### A última fatia da onda: cinco decisões do CTO e uma contradição resolvida  `[01/09/26 - 19:09:10]`
+
+**Contradição de canon achada pelo CTO e confirmada por mim:** a linha de `GFSS-NODE-VIEW` no `TODO.md` dizia, na mesma frase, que a fatia **congela** superfície e que **deixa de ser porta de mão única**. As duas não podem ser verdade juntas.
+
+**Resolvida assim, e é decisão autônoma:** o que ficou fechado foi a **decisão sobre a lista** (o líder já disse *"aceito tudo"* aos oito fatos, no `ESCOPO.md`), não o **congelamento**. O contrato continua irreversível por construção — é o consumidor quem o implementa, e mexer nele depois de publicado quebra todo mundo que já o preencheu. O texto errado foi **apagado**, não marcado como superado. **Custo de reverter: uma linha de texto.**
+
+**As cinco decisões de forma do CTO, nenhuma reabrindo a lista dos oito fatos:**
+
+| | Decisão | Custo se o líder reverter |
+|---|---|---|
+| **D-NV-1** | A peça nasce em módulo próprio do **motor**, não na pasta do formato, porque o escopo separa os três nomes e esta é a primeira peça pública do motor. | Um commit de mover enquanto não há consumidor; depois de publicado, quebra de versão maior. |
+| **D-NV-2** | O fato "lista de classes" é oferecido como **enumeração com parada**, não como pergunta de pertencimento. Assim a biblioteca pode um dia responder "por que esta regra casou?", o que a forma mais barata impediria para sempre. | Trocar a forma muda uma assinatura congelada. |
+| **D-NV-3** | A contagem de filhos conta **conteúdo**, a navegação vê **só elementos**. É o que faz um parágrafo com só texto ter zero filhos navegáveis e um item de conteúdo. | Mudar altera o resultado de folhas de estilo já escritas. |
+| **D-NV-4** | A visão carrega **três** ponteiros, com um contexto de árvore, para que um consumidor que guarda a árvore em índices participe sem ter de pôr um ponteiro de volta em cada nó. | Custa oito bytes por visão e nada por chamada; reverter mexe nas dez assinaturas. |
+| **D-NV-5** | Os atalhos de consulta ficam **internos**. Publicar depois é aditivo; publicar agora e mudar depois não é. | O lado barato foi o escolhido. |
+
+**A lei de pesquisa foi cumprida antes de fatiar:** o CTO leu o motor de estilo do Firefox e o do RmlUi para **aprender a técnica**, e o que ele trouxe mudou o desenho em dois pontos concretos — a navegação passa a ver só elementos, e a biblioteca deixou de exigir que o consumidor saiba indexar filhos ou classes, porque aqueles motores **possuem** a árvore e nós não possuímos. Três fontes descartadas com motivo escrito.
+
+**O ponto que eu considero o mais valioso do plano:** o contrato exige que as funções do consumidor sejam declaradas como incapazes de lançar exceção, e o compilador **recusa** atribuir uma que não seja. Isso transforma a regra de que nenhuma exceção cruza a fronteira de disciplina em contrato verificado pela máquina, nos dois sentidos.

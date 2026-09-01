@@ -95,7 +95,11 @@
 #       SHALLOW, 31/08/2026: a call whose decisive evidence does not
 #       fit on that one line is not resolved here, it WARNS and defers
 #       to the CI oracle (see the fatia's note a few lines above).
-#       Three shapes:
+#       Four shapes (the fourth new in DEPZERO-SHALLOW, 31/08/2026 -
+#       SH-R7/SH-R8, closing a hole the CI oracle alone cannot see: a
+#       CONDITIONAL BRANCH NOT TAKEN is invisible to dep_zero_trace by
+#       construction, since it only reads what CMake actually executed;
+#       this shallow, textual scanner sees every branch):
 #         - UNCONDITIONALLY forbidden: include(FetchContent),
 #           include(ExternalProject), FetchContent_Declare/
 #           MakeAvailable/Populate, ExternalProject_Add, and all four
@@ -103,10 +107,13 @@
 #           CPMGetPackage; any conan_*/vcpkg* call or include()
 #           referencing a conan/vcpkg toolchain file; cmake_language()
 #           in its entirety, any subcommand (see CMAKE_LANGUAGE_PATTERN
-#           above); and include() whose argument is built ENTIRELY from
+#           above); include() whose argument is built ENTIRELY from
 #           a variable with no literal ".cmake" fragment anywhere in the
-#           statement. No allowlist saves any of these - the call itself
-#           (or the indirection itself) is the violation.
+#           statement; and file(DOWNLOAD)/file(UPLOAD) (see
+#           CMAKE_FILE_NETWORK_PATTERN - CMake's own native network
+#           transfer, zero legitimate use in this tree). No allowlist
+#           saves any of these - the call itself (or the indirection
+#           itself) is the violation.
 #         - conditional on the ALLOWLIST below: find_package(<name>
 #           and pkg_check_modules(... <module>), matched by base module
 #           name with a pkg-config version comparator stripped first.
@@ -115,6 +122,16 @@
 #           links, and our own library consumed by tests/package/),
 #           wayland-client for pkg_check_modules (GODS_LAWS.md L-07: a
 #           system API, same category as Win32).
+#         - conditional on EXECUTE_PROCESS_PROGRAM_ALLOWLIST below:
+#           execute_process(COMMAND <program> ...) with a LITERAL
+#           program name (basename, extension and case stripped) -
+#           only pkg-config/pkgconf pass, the same two names the trace
+#           oracle's own R8 already allows.
+#       Any of these four shapes whose decisive evidence does not fit
+#       on the ONE physical line being scanned - the program built from
+#       a variable, the DOWNLOAD/UPLOAD subcommand on a later line -
+#       WARNS and defers to the CI oracle instead (section (a)'s own
+#       DEPZERO-SHALLOW note above).
 #       Deliberately NOT done here: parsing target_link_libraries().
 #       Textual, multi-line, keyword-laden parsing of that call is the
 #       exact shape that manufactures false positives against our own
@@ -282,6 +299,8 @@ PKGCHECK_ADVICE="REMOVE this call. If it is a build tool that never links, or an
 INCLUDE_ADVICE="REMOVE this include. A new OS API header goes on this gate's allowlist WITH a justification; a third-party library header has no allowlist fix - GODS_LAWS.md L-07 says write it in-house."
 NEEDED_ADVICE="The binary links this library. Find the link flag that brought it in and REMOVE it. There is no allowlist fix for third-party linkage without the leader's order."
 INDIRECTION_ADVICE="REMOVE this call. This gate cannot verify what dependency-management code runs through indirection (cmake_language(), or an include() argument built entirely from a variable, with no literal filename in it) - GODS_LAWS.md L-07: STOP and take an opaque, indirect call like this to the leader; write the target literally instead."
+FILE_NETWORK_ADVICE="REMOVE this call. file(DOWNLOAD/UPLOAD) is CMake's own native network transfer; there is no allowlist fix - GODS_LAWS.md L-07: STOP and take it to the leader, the answer is to write it in-house, never a dependency 'just for now'."
+EXECUTE_PROCESS_ADVICE="REMOVE this call or route it through an allowlisted program. execute_process() runs an arbitrary program at configure time - GODS_LAWS.md L-07: STOP and take it to the leader; only pkg-config/pkgconf are allowlisted here, and any other program is opaque to this gate by construction."
 
 readonly CMAKE_SURFACE_PATTERN='(^|/)CMakeLists\.txt$|\.cmake$|\.cmake\.in$'
 readonly CXX_SURFACE_PATTERN='\.(cpp|cxx|cc|hpp|hxx|hh|h|ipp)$'
@@ -300,6 +319,18 @@ readonly CMAKE_TOOLCHAIN_PATTERN='^[[:space:]]*(conan_[a-z_]*[[:space:]]*\(|vcpk
 # text scanning by construction - there is no "closed by form" middle
 # ground here, only "never used, so never allowed".
 readonly CMAKE_LANGUAGE_PATTERN='^[[:space:]]*cmake_language[[:space:]]*\('
+
+# DEPZERO-SHALLOW SH-R7, 31/08/2026 (plan section 3): file(DOWNLOAD)/
+# file(UPLOAD) is CMake's own native network transfer - unconditional
+# block, no allowlist, same reasoning as CMAKE_LANGUAGE_PATTERN above
+# (zero legitimate use in this tree, measured 28/08/2026: every real
+# file() call uses MAKE_DIRECTORY/SHA256/READ/WRITE/GLOB/GENERATE).
+readonly CMAKE_FILE_NETWORK_PATTERN='^[[:space:]]*file[[:space:]]*\([[:space:]]*(download|upload)([[:space:]]|$)'
+
+# DEPZERO-SHALLOW SH-R8: the only two program names execute_process()
+# may run without STOPPING and asking the leader - the same two the
+# trace's own R8 already allows (tests/tools/check_dep_zero_trace.py).
+readonly EXECUTE_PROCESS_PROGRAM_ALLOWLIST="pkg-config pkgconf"
 
 fail() {
     echo "check_dep_zero.sh: $1" >&2
@@ -501,6 +532,25 @@ evaluate_cmake_line() {
         emit_violation "$display_path" "$line_no" "$raw" "$INDIRECTION_ADVICE"
         return
     fi
+    if printf '%s\n' "$line" | grep -qiE "$CMAKE_FILE_NETWORK_PATTERN"; then
+        emit_violation "$display_path" "$line_no" "$raw" "$FILE_NETWORK_ADVICE"
+        return
+    fi
+    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*file[[:space:]]*\('; then
+        # A DOWNLOAD/UPLOAD subcommand already matched (and returned)
+        # above; any OTHER visible subcommand here is a clean pass
+        # (F4: MAKE_DIRECTORY, SHA256, READ, WRITE, GLOB, GENERATE, the
+        # real forms this tree uses). A BARE opener (nothing visible
+        # after '(' on this line) cannot rule out DOWNLOAD/UPLOAD on a
+        # later line, so it warns instead of passing silently.
+        subcmd="$(paren_first_token "$line")"
+        [ -z "$subcmd" ] && emit_warning "$display_path" "$line_no" "$raw"
+        return
+    fi
+    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*execute_process[[:space:]]*\('; then
+        evaluate_execute_process_line "$display_path" "$line_no" "$line" "$raw"
+        return
+    fi
     if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*include[[:space:]]*\('; then
         evaluate_include_line "$display_path" "$line_no" "$line" "$raw" "$closed"
         return
@@ -587,6 +637,39 @@ evaluate_pkg_check_modules_line() {
         return
     fi
     [ "$closed" -eq 0 ] && emit_warning "$display_path" "$line_no" "$raw"
+}
+
+# execute_process(): finds the program that follows a COMMAND keyword
+# ON THIS LINE (optionally quoted - `COMMAND "pkg-config" ...` and
+# `COMMAND pkg-config ...` are both real forms). No COMMAND+program
+# visible on this line at all (the real tree's own shape - a bare
+# opener, COMMAND on line 2) or a program built from "${var}" both
+# warn: neither is a literal this gate can judge. A LITERAL program
+# resolves: its basename (extension stripped, casefold) decides block
+# vs pass against EXECUTE_PROCESS_PROGRAM_ALLOWLIST.
+evaluate_execute_process_line() {
+    display_path="$1"
+    line_no="$2"
+    line="$3"
+    raw="$4"
+
+    program="$(printf '%s\n' "$line" | sed -nE 's/.*COMMAND[[:space:]]+"?([^")[:space:]]+).*/\1/p')"
+    if [ -z "$program" ]; then
+        emit_warning "$display_path" "$line_no" "$raw"
+        return
+    fi
+    case "$program" in
+        *'${'*) emit_warning "$display_path" "$line_no" "$raw"; return ;;
+    esac
+
+    base="$(printf '%s\n' "$program" | sed -E 's|.*/||')"
+    lower_base="$(printf '%s\n' "$base" | tr '[:upper:]' '[:lower:]')"
+    case "$lower_base" in
+        *.exe) lower_base="${lower_base%.exe}" ;;
+        *.bat) lower_base="${lower_base%.bat}" ;;
+        *.cmd) lower_base="${lower_base%.cmd}" ;;
+    esac
+    name_is_known "$lower_base" "$EXECUTE_PROCESS_PROGRAM_ALLOWLIST" || emit_violation "$display_path" "$line_no" "$raw" "$EXECUTE_PROCESS_ADVICE"
 }
 
 # --- sub-check (b): include surface, one line of CONTENT at a time -----
@@ -1334,6 +1417,198 @@ selftest_negative_control_opener_carries_bad_token() {
     return "$opener_bad_token_status"
 }
 
+# DEPZERO-SHALLOW N1, 31/08/2026 - SH-R7 (plano secao 3): fecha o
+# buraco herdado do trace (R7 so ve o que o CMake de fato EXECUTA; um
+# ramo condicional nao tomado escapa dos dois oraculos hoje). Duas
+# formas de 1 linha, subcomando visivel - bloqueio INCONDICIONAL, sem
+# allowlist (nenhum uso legitimo hoje).
+selftest_negative_control_file_network() {
+    scratch="$1"
+    root="$scratch/negative-file-network"
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    file_network_forms_status=0
+
+    for case_name in download upload; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            download)
+                printf 'file(DOWNLOAD https://example.invalid/x o)\n' >> "$root/cmake/Wayland.cmake"
+                needle="DOWNLOAD"
+                ;;
+            upload)
+                printf 'file(UPLOAD o https://example.invalid/x)\n' >> "$root/cmake/Wayland.cmake"
+                needle="UPLOAD"
+                ;;
+        esac
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(file-network/$case_name) control FAILED (should have been reproved)" >&2
+            file_network_forms_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
+            echo "selftest: NEGATIVE(file-network/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
+            printf '%s\n' "$output" >&2
+            file_network_forms_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$file_network_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(file-network) control OK (file(DOWNLOAD)/file(UPLOAD), cada um reprovado e citado)"
+    return "$file_network_forms_status"
+}
+
+# DEPZERO-SHALLOW N2 - o irmao positivo: os subcomandos REAIS que a
+# arvore usa hoje (F4: MAKE_DIRECTORY, SHA256, GENERATE, entre outros)
+# nunca sao DOWNLOAD/UPLOAD, e passam sem aviso nenhum - a rede rasa
+# nao pode gritar contra o proprio uso legitimo de file().
+selftest_positive_control_file_legit() {
+    scratch="$1"
+    root="$scratch/positive-file-legit"
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    file_legit_forms_status=0
+
+    for case_name in make_directory sha256 generate; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            make_directory) printf 'file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")\n' >> "$root/cmake/Wayland.cmake" ;;
+            sha256) printf 'file(SHA256 "${CMAKE_CURRENT_LIST_FILE}" out_hash)\n' >> "$root/cmake/Wayland.cmake" ;;
+            generate) printf 'file(GENERATE OUTPUT out.txt CONTENT "hi")\n' >> "$root/cmake/Wayland.cmake" ;;
+        esac
+        git_init_fixture "$root"
+
+        if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: POSITIVE(file-legit/$case_name) control FAILED (deveria ter passado)" >&2
+            printf '%s\n' "$output" >&2
+            file_legit_forms_status=1
+        elif printf '%s\n' "$output" | grep -qF "WARNING"; then
+            echo "selftest: POSITIVE(file-legit/$case_name) control FAILED (subcomando visivel e resolvido, nao deveria gerar aviso)" >&2
+            printf '%s\n' "$output" >&2
+            file_legit_forms_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$file_legit_forms_status" -eq 0 ] && echo "selftest: POSITIVE(file-legit) control OK (MAKE_DIRECTORY/SHA256/GENERATE, os subcomandos reais da arvore, passam sem aviso)"
+    return "$file_legit_forms_status"
+}
+
+# DEPZERO-SHALLOW N3 - abridor NU (nada mais na linha), DOWNLOAD numa
+# linha posterior: nao resolve numa linha so, entao AVISA em vez de
+# passar em silencio (prova que a forma escondida nao escapa mudo).
+selftest_warn_control_file_opener_bare() {
+    scratch="$1"
+    root="$scratch/warn-file-opener-bare"
+    make_clean_fixture "$root"
+    cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+file(
+    DOWNLOAD
+    https://example.invalid/x
+    o
+)
+EOF
+    git_init_fixture "$root"
+
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: WARN(file-opener-bare) control FAILED (abridor nu deveria passar com aviso, nao reprovar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "WARNING"; then
+        echo "selftest: WARN(file-opener-bare) control FAILED (passou, mas nao avisou)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: WARN(file-opener-bare) control OK (file( abridor nu, DOWNLOAD numa linha posterior, passa com aviso deferido)"
+}
+
+# DEPZERO-SHALLOW N4, 31/08/2026 - SH-R8 (plano secao 3): mesmo buraco
+# herdado, agora para execute_process(). Programa LITERAL fora da
+# allowlist {pkg-config, pkgconf} bloqueia, mesmo sem allowlist de
+# nomes de programa em geral - so os dois nomes que a arvore usa hoje
+# (mesmos dois do R8 do trace) sao aceitos.
+selftest_negative_control_execute_process() {
+    scratch="$1"
+    root="$scratch/negative-execute-process"
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    execute_process_forms_status=0
+
+    for case_name in curl git; do
+        make_clean_fixture "$root"
+        case "$case_name" in
+            curl) printf 'execute_process(COMMAND curl https://example.invalid/x)\n' >> "$root/cmake/Wayland.cmake"; needle="curl" ;;
+            git) printf 'execute_process(COMMAND git clone https://example.invalid/x)\n' >> "$root/cmake/Wayland.cmake"; needle="git" ;;
+        esac
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(execute-process/$case_name) control FAILED (should have been reproved)" >&2
+            execute_process_forms_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "$needle"; then
+            echo "selftest: NEGATIVE(execute-process/$case_name) control FAILED (reproved, but did not cite '$needle')" >&2
+            printf '%s\n' "$output" >&2
+            execute_process_forms_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$execute_process_forms_status" -eq 0 ] && echo "selftest: NEGATIVE(execute-process) control OK (curl/git via execute_process, cada um reprovado e citado)"
+    return "$execute_process_forms_status"
+}
+
+# DEPZERO-SHALLOW N5 - o programa literal allowlisted (pkg-config, o
+# unico uso real da arvore fora do proprio glintfx) passa sem aviso.
+selftest_positive_control_execute_process_pkgconfig() {
+    scratch="$1"
+    root="$scratch/positive-execute-process-pkgconfig"
+    make_clean_fixture "$root"
+    printf 'execute_process(COMMAND pkg-config --exists foo)\n' >> "$root/cmake/Wayland.cmake"
+    git_init_fixture "$root"
+
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: POSITIVE(execute-process-pkgconfig) control FAILED (pkg-config literal deveria passar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if printf '%s\n' "$output" | grep -qF "WARNING"; then
+        echo "selftest: POSITIVE(execute-process-pkgconfig) control FAILED (programa literal e resolvido, nao deveria gerar aviso)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: POSITIVE(execute-process-pkgconfig) control OK (pkg-config literal na propria linha passa sem aviso)"
+}
+
+# DEPZERO-SHALLOW N6 - a forma REAL desta arvore (F4:
+# cmake/GlintfxWaylandProtocols.cmake e
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in): abridor nu,
+# COMMAND "${PKG_CONFIG_EXECUTABLE}" ... numa linha posterior. O
+# programa e uma VARIAVEL, nao um literal - esta linha nao resolve
+# sozinha, entao avisa e defere ao trace (que expande a variavel de
+# verdade).
+selftest_warn_control_execute_process_variable() {
+    scratch="$1"
+    root="$scratch/warn-execute-process-variable"
+    make_clean_fixture "$root"
+    cat >> "$root/cmake/Wayland.cmake" <<'EOF'
+execute_process(
+    COMMAND "${PKG_CONFIG_EXECUTABLE}" --exists foo
+    RESULT_VARIABLE r
+)
+EOF
+    git_init_fixture "$root"
+
+    if ! output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: WARN(execute-process-variable) control FAILED (abridor nu com COMMAND em variavel numa linha posterior deveria passar com aviso, nao reprovar)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "WARNING"; then
+        echo "selftest: WARN(execute-process-variable) control FAILED (passou, mas nao avisou)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: WARN(execute-process-variable) control OK (a forma real da arvore - abridor nu, programa em variavel numa linha posterior - passa com aviso deferido)"
+}
+
 # CRITICO #4 (travessia de caminho engana a regra 3 estrutural, E o
 # include resultante COMPILA de verdade). Quatro formas: a exata do
 # revisor, uma mais curta, um "." solto no meio, e ".." sozinho como
@@ -1745,6 +2020,12 @@ selftest_main() {
     run_control selftest_positive_control_cmake_indirection_legit "$scratch"
     run_control selftest_negative_control_cpm_variants "$scratch"
     run_control selftest_negative_control_opener_carries_bad_token "$scratch"
+    run_control selftest_negative_control_file_network "$scratch"
+    run_control selftest_positive_control_file_legit "$scratch"
+    run_control selftest_warn_control_file_opener_bare "$scratch"
+    run_control selftest_negative_control_execute_process "$scratch"
+    run_control selftest_positive_control_execute_process_pkgconfig "$scratch"
+    run_control selftest_warn_control_execute_process_variable "$scratch"
     run_control selftest_negative_control_include "$scratch"
     run_control selftest_negative_control_include_traversal "$scratch"
     run_control selftest_scope_message_is_honest "$scratch"

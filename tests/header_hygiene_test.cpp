@@ -103,6 +103,7 @@
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
 #include <glintfx/gfss/value.hpp>
+#include <glintfx/gfui/node_view.hpp>
 #include <glintfx/platform/asset/file.hpp>
 #include <glintfx/version_macros.hpp>
 
@@ -235,6 +236,29 @@ GLINTFX_TEST(gfss_value_header_survives_hostile_system_headers) {
     };
     GLINTFX_CHECK(value.kind == glintfx::style::gltfx_gfss_value_kind::length);
     GLINTFX_CHECK_EQ(value.length.magnitude, 16.0);
+}
+
+// gfui/node_view.hpp (GFSS-NODE-VIEW) survives the same hostile
+// include order - gltfx_node_state_name() is the ONE call-shaped,
+// ABI-crossing entry point this header declares (every ten forwarders
+// of the table live in the internal node_query.hpp, not here), so it
+// is exercised as a real call expression the SAME CE-8 discipline the
+// cases above already apply; gltfx_node_state_has() and
+// gltfx_node_facts_first_missing() are inline (nothing to hide behind
+// the .so boundary for either), exercised here too since they are
+// call-shaped as well.
+GLINTFX_TEST(gfui_node_view_header_survives_hostile_system_headers) {
+    const std::string_view bit_name = glintfx::gfui::gltfx_node_state_name(glintfx::gfui::gltfx_node_state::focus);
+    GLINTFX_CHECK(bit_name == std::string_view{"focus"});
+
+    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(glintfx::gfui::gltfx_node_state::hover,
+                                                       glintfx::gfui::gltfx_node_state::hover));
+
+    constexpr glintfx::gfui::gltfx_node_facts empty_facts{};
+    GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(empty_facts) == std::string_view{"tag_name"});
+
+    constexpr glintfx::gfui::gltfx_node_view view{};
+    GLINTFX_CHECK(view.node == nullptr);
 }
 
 // asset_file_header_survives_hostile_system_headers - ASSET-LOAD:

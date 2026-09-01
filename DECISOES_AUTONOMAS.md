@@ -449,3 +449,15 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **A decisão do líder que rege o contrato desta fatia já estava tomada** (28/08/2026, verbatim: *"Deixa passar avisando que o servidor decide"*): forma ambígua passa o gancho com aviso impresso, e o servidor decide. Nada aqui é decisão nova minha.
 
 **Nuance declarada pelo CTO, que eu confirmei na árvore:** o contrato de aviso também vale no modo de árvore, onde produz **2 avisos permanentes hoje** — as duas chamadas multi-linha reais em `cmake/GlintfxWaylandProtocols.cmake` e `cmake/GlintfxPkgConfigValidateInstalled.cmake.in`. É inócuo porque o oráculo profundo roda na mesma suíte e é a autoridade declarada, mas fica registrado para o líder poder discordar.
+
+### O portão cego a nome de arquivo acentuado não era de um portão só: era de todos  `[01/09/26 - 00:28:15]`
+
+**Achado do revisor adversarial (CRÍTICO), reproduzido por mim antes de aceitar:** o programa de controle de versão, na configuração de origem, devolve caminho com qualquer byte fora do alfabeto latino simples **entre aspas e com escape numérico**. Um filtro que termina em `.cmake$` não casa `"sub dir/Wayl\303\244nd.cmake"`, então o arquivo **não entra na varredura**: não é contado, não é lido, não gera aviso. No caminho do gancho de commit isso é pior que silêncio — o portão **afirma** que o commit não toca superfície relevante, o que é falso.
+
+**Reprodução minha, não do relatório:** repositório de teste com um arquivo acentuado; a enumeração crua conta **0**, a enumeração delimitada por byte nulo conta **1**.
+
+**A pergunta que a lei manda fazer antes de fechar (L-17): isolado ou padrão?** Varri a superfície inteira. **Cinco** portões enumeram arquivo pelo controle de versão — `check_dep_zero.sh`, `check_spdx.sh`, `check_vendor_purity.sh`, `khronos_vendor_files.sh` e `preci.sh` — somando 17 chamadas, e **nenhuma** protegida. O buraco é sistêmico, não da fatia.
+
+**Decisão autônoma, para o líder confirmar ou reverter:** consertar os **cinco** nesta mesma onda, com controle de autoteste que prove a mordida em cada um, em vez de consertar só o da fatia e abrir item para os outros quatro. **Razão:** o conserto é a mesma troca de uma chamada em cada arquivo, e deixar quatro portões cegos sabendo do buraco é exatamente o portão que não morde — o defeito que esta onda inteira existe para matar. **Custo se o líder discordar:** separar os quatro num item próprio é barato, nada congela.
+
+**Segundo achado do revisor (IMPORTANTE), aceito:** o controle que deveria provar o piso de varredura não-vazia da superfície CMake usa material de teste com as **duas** superfícies zeradas ao mesmo tempo, então o piso da outra superfície mascara a ausência dele. Falta um controle dedicado.

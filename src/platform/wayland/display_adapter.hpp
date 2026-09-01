@@ -91,6 +91,38 @@ class wayland_display_adapter {
     // hand.
     [[nodiscard]] const global_catalog &globals() const noexcept { return m_globals; }
 
+    // WL-DISPLAY fatia C: re-synchronizes with the compositor -
+    // flushes any pending request, then blocks until every event
+    // already in flight has been dispatched (wl_display_roundtrip's
+    // own contract). Unlike the ONE roundtrip open() performs
+    // internally to close the initial registry burst (fatia B), THIS
+    // is the operation any later caller (WL-WINDOW, WL-SEAT) reaches
+    // for whenever it needs to know a request has already been
+    // processed by the compositor before moving on.
+    //
+    // FATAL IS FATAL (manpage wl_display(3), w4-plano.md sec. 3.1.C):
+    // once ANY protocol operation on this connection returns -1, the
+    // underlying wl_display becomes permanently unusable by
+    // libwayland's own documented contract - calling anything else on
+    // it is undefined behavior. This adapter LATCHES that fact
+    // (has_fatal_error() below) the FIRST time it happens and never
+    // calls into libwayland on this wl_display again afterward: every
+    // subsequent call to this method short-circuits straight to
+    // returning the SAME class of error, without a second real
+    // roundtrip attempt on a connection already known to be dead.
+    // GODS_LAWS.md L-22/CORE-ERROR decision 1: NEVER aborts - the
+    // refusal always comes back through gltfx_rslt<void>.
+    [[nodiscard]] gltfx_rslt<void> roundtrip() noexcept;
+
+    // True once a protocol operation on this connection has returned
+    // -1 (see roundtrip()'s own comment above). Deliberately SEPARATE
+    // from is_open(): the connection HANDLE is still owned and still
+    // needs close() to free it either way - "can this connection still
+    // be used for anything" and "is a handle still owned" are two
+    // different questions, and is_open()'s own contract (ARCH-PORTS,
+    // display_connection_port) does not change under this fatia.
+    [[nodiscard]] bool has_fatal_error() const noexcept { return m_fatal; }
+
     // registry_global()/registry_global_remove() are the wl_registry_
     // listener's own two callbacks (C function-pointer ABI). PUBLIC
     // ONLY so display_adapter.cpp's own anonymous-namespace
@@ -110,6 +142,7 @@ class wayland_display_adapter {
     wl_display *m_display = nullptr;
     wl_registry *m_registry = nullptr;
     global_catalog m_globals;
+    bool m_fatal = false;
 };
 
 } // namespace glintfx::platform

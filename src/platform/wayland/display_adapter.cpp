@@ -3,6 +3,7 @@
 
 #include <wayland-client.h>
 
+#include <cerrno>
 #include <string>
 #include <utility>
 
@@ -43,12 +44,43 @@ constexpr wl_registry_listener kRegistryListener = {
     .global_remove = &wayland_display_adapter::registry_global_remove,
 };
 
+// WL-DISPLAY fatia C: builds the token-vocabulary diagnostic (docs/
+// api-conventions.md R7, ESCOPO.md's own canonical copy - "name always
+// a stable identifier, never a sentence") a fatal wl_display carries.
+// wl_display_get_error() is the ONE libwayland call this file's own
+// "never touch a fatally-errored display again" rule (display_adapter.hpp's
+// roundtrip() comment) does NOT apply to - it is libwayland's own
+// documented accessor for exactly this situation, read-only, never a
+// protocol request. os_error_code() carries the raw errno-shaped value
+// (EPROTO for a protocol violation, an ordinary errno like ECONNRESET
+// for a transport failure); when it IS EPROTO, wl_display_get_
+// protocol_error() additionally names WHICH interface's request the
+// compositor rejected, attached as rejected_value() - an interface
+// name ("wl_compositor") is itself already an identifier token, never
+// a sentence.
+gltfx_err build_fatal_error(wl_display *display) noexcept {
+    gltfx_err error(gltfx_err_code::platform_failure);
+    const int raw = wl_display_get_error(display);
+    error.with_os_error_code(raw);
+    if (raw == EPROTO) {
+        const wl_interface *interface = nullptr;
+        std::uint32_t object_id = 0;
+        wl_display_get_protocol_error(display, &interface, &object_id);
+        if (interface != nullptr && interface->name != nullptr) {
+            error.with_rejected_value(interface->name);
+        }
+    }
+    return error;
+}
+
 } // namespace
 
 wayland_display_adapter::wayland_display_adapter(wayland_display_adapter &&other) noexcept
-    : m_display(other.m_display), m_registry(other.m_registry), m_globals(std::move(other.m_globals)) {
+    : m_display(other.m_display), m_registry(other.m_registry), m_globals(std::move(other.m_globals)),
+      m_fatal(other.m_fatal) {
     other.m_display = nullptr;
     other.m_registry = nullptr;
+    other.m_fatal = false;
 }
 
 wayland_display_adapter &
@@ -58,8 +90,10 @@ wayland_display_adapter::operator=(wayland_display_adapter &&other) noexcept {
         m_display = other.m_display;
         m_registry = other.m_registry;
         m_globals = std::move(other.m_globals);
+        m_fatal = other.m_fatal;
         other.m_display = nullptr;
         other.m_registry = nullptr;
+        other.m_fatal = false;
     }
     return *this;
 }
@@ -139,12 +173,40 @@ gltfx_rslt<void> wayland_display_adapter::open() noexcept {
     return gltfx_rslt<void>::ok();
 }
 
+gltfx_rslt<void> wayland_display_adapter::roundtrip() noexcept {
+    if (!is_open()) {
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::invalid_argument));
+    }
+    if (m_fatal) {
+        // Already latched by an EARLIER call: report the SAME
+        // diagnostic without touching m_display again (see this
+        // method's own header comment - "never a second real
+        // roundtrip attempt on a connection already known to be
+        // dead"). wl_display_get_error() itself is always safe to
+        // call, even here - see build_fatal_error()'s own comment.
+        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+    }
+    if (wl_display_roundtrip(m_display) == -1) {
+        m_fatal = true;
+        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+    }
+    return gltfx_rslt<void>::ok();
+}
+
 void wayland_display_adapter::close() noexcept {
     if (m_display != nullptr) {
         // Reverse order of creation (w4-plano.md sec. 1.2, "teardown
         // do SDL3 e ordem inversa da criacao"): the registry is an
         // object OWNED BY the connection, so it is destroyed before
-        // the connection itself is disconnected.
+        // the connection itself is disconnected. Safe to do even on a
+        // fatally-errored display (m_fatal true): wl_registry has no
+        // "destroy" REQUEST in the protocol at all - wl_registry_
+        // destroy() only frees this process's own local proxy memory,
+        // it never sends anything over the (possibly already dead)
+        // wire, and wl_display_disconnect() itself is documented safe
+        // to call on an errored display - it only releases local
+        // resources (the socket fd among them), never sends a further
+        // protocol request either.
         if (m_registry != nullptr) {
             wl_registry_destroy(m_registry);
             m_registry = nullptr;
@@ -152,6 +214,7 @@ void wayland_display_adapter::close() noexcept {
         wl_display_disconnect(m_display);
         m_display = nullptr;
         m_globals = global_catalog{};
+        m_fatal = false;
     }
 }
 

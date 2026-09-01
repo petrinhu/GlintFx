@@ -2,6 +2,7 @@
 #include "platform/wayland/global_catalog.hpp"
 
 #include <algorithm>
+#include <new>
 
 // global_catalog.cpp - see global_catalog.hpp's own header comment for
 // scope. std::vector<wayland_global> plus linear search, not a map
@@ -17,38 +18,55 @@
 
 namespace glintfx::platform {
 
-void global_catalog::insert(std::uint32_t name, std::string interface, std::uint32_t version) {
-    const auto it = std::find_if(m_globals.begin(), m_globals.end(),
-                                  [name](const wayland_global &g) { return g.name == name; });
-    if (it != m_globals.end()) {
-        it->interface = std::move(interface);
-        it->version = version;
-        return;
+bool global_catalog::insert(std::uint32_t name, std::string interface,
+                            std::uint32_t version) noexcept {
+    // The try/catch lives HERE, at the one place that owns the
+    // std::string/std::vector state that can actually throw
+    // std::bad_alloc, and converts it into the noexcept-safe bool
+    // contract insert()'s own header comment documents. This is an
+    // ordinary function with a normal exception-handling contract
+    // (unlike registry_global(), the C-callback caller this exists
+    // for) - catching here and reporting via return value is routine
+    // graceful degradation, not the "catch and say nothing" pattern
+    // clang-tidy's bugprone-empty-catch flags.
+    try {
+        const auto it = std::find_if(m_globals.begin(), m_globals.end(),
+                                     [name](const wayland_global &g) { return g.name == name; });
+        if (it != m_globals.end()) {
+            it->interface = std::move(interface);
+            it->version = version;
+            return true;
+        }
+        m_globals.push_back(wayland_global{name, std::move(interface), version});
+        return true;
+    } catch (const std::bad_alloc &) {
+        return false;
     }
-    m_globals.push_back(wayland_global{name, std::move(interface), version});
 }
 
 void global_catalog::remove(std::uint32_t name) noexcept {
     const auto it = std::find_if(m_globals.begin(), m_globals.end(),
-                                  [name](const wayland_global &g) { return g.name == name; });
+                                 [name](const wayland_global &g) { return g.name == name; });
     if (it != m_globals.end()) {
         m_globals.erase(it);
     }
 }
 
 const wayland_global *global_catalog::find_by_interface(std::string_view interface) const noexcept {
-    const auto it = std::find_if(m_globals.begin(), m_globals.end(),
-                                  [interface](const wayland_global &g) { return g.interface == interface; });
+    const auto it =
+        std::find_if(m_globals.begin(), m_globals.end(),
+                     [interface](const wayland_global &g) { return g.interface == interface; });
     return it != m_globals.end() ? &(*it) : nullptr;
 }
 
 const wayland_global *global_catalog::find_by_name(std::uint32_t name) const noexcept {
     const auto it = std::find_if(m_globals.begin(), m_globals.end(),
-                                  [name](const wayland_global &g) { return g.name == name; });
+                                 [name](const wayland_global &g) { return g.name == name; });
     return it != m_globals.end() ? &(*it) : nullptr;
 }
 
-std::uint32_t global_catalog::clamp_version(std::uint32_t supported, std::uint32_t announced) noexcept {
+std::uint32_t global_catalog::clamp_version(std::uint32_t supported,
+                                            std::uint32_t announced) noexcept {
     return supported < announced ? supported : announced;
 }
 

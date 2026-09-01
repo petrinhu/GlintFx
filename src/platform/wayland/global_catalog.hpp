@@ -47,7 +47,22 @@ class global_catalog {
     // function does not assume that) is REPLACED in place, never
     // duplicated - find_by_name()'s own single-match guarantee below
     // depends on this.
-    void insert(std::uint32_t name, std::string interface, std::uint32_t version);
+    //
+    // NOEXCEPT BY CONTRACT, not by luck: the underlying std::string/
+    // std::vector operations CAN throw std::bad_alloc, and this
+    // function catches that internally rather than letting it escape -
+    // display_adapter.cpp's registry_global() is a callback invoked by
+    // libwayland-client's own C event-dispatch machinery, which gives
+    // it no exception-handling contract at all (GODS_LAWS.md L-22).
+    // Returns false when the allocation failed and this global was NOT
+    // recorded (the catalog is left exactly as it was before the
+    // call - a failed replace does not corrupt the existing entry, a
+    // failed new insert leaves size() unchanged); true otherwise. This
+    // makes a low-memory catalog OBSERVABLE to whoever calls insert()
+    // and checks the return, instead of the previous design (a
+    // try/catch at the CALL site that swallowed the failure with no
+    // signal at all).
+    bool insert(std::uint32_t name, std::string interface, std::uint32_t version) noexcept;
 
     // Erases the global with this NAME - the only key wl_registry's
     // own global_remove event carries (wayland-book, registry chapter:
@@ -66,7 +81,8 @@ class global_catalog {
     // present at all" (this fatia's own WL-DISPLAY red case B) needs;
     // enumerating every instance of a multi-instance interface is a
     // later fatia's problem (WL-WINDOW/WL-SEAT, not this one).
-    [[nodiscard]] const wayland_global *find_by_interface(std::string_view interface) const noexcept;
+    [[nodiscard]] const wayland_global *
+    find_by_interface(std::string_view interface) const noexcept;
 
     // Entry with this exact numeric name, or nullptr. Read path for a
     // caller (fatia B's registry listener) that already knows the
@@ -87,7 +103,7 @@ class global_catalog {
     // rather than a member: it takes no catalog state at all, only
     // the two numbers a caller already has in hand.
     [[nodiscard]] static std::uint32_t clamp_version(std::uint32_t supported,
-                                                       std::uint32_t announced) noexcept;
+                                                     std::uint32_t announced) noexcept;
 
   private:
     std::vector<wayland_global> m_globals;

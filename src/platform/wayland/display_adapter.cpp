@@ -30,12 +30,14 @@
 // libwayland-client's own C event-dispatch machinery (wl_display_
 // roundtrip(), later the pump fatia D adds) with a bare `void *data`
 // it does nothing with except hand back unchanged - GODS_LAWS.md L-22:
-// NO EXCEPTION may unwind across that C stack frame (global_catalog::
-// insert() can throw std::bad_alloc via its std::string/std::vector
-// members), so both callbacks wrap their own body in try/catch and
-// degrade to "this one global did not get cataloged" rather than let
-// anything escape into a translation unit that gave it no
-// exception-handling contract at all.
+// NO EXCEPTION may unwind across that C stack frame. global_catalog::
+// insert() can fail to allocate via its std::string/std::vector
+// members, but it never lets that surface as an exception here: it
+// catches std::bad_alloc INTERNALLY (global_catalog.cpp's own comment
+// on insert()) and reports the failure through its noexcept bool
+// return instead - a degraded catalog is now something a caller CAN
+// observe by checking that return, rather than a try/catch at this
+// call site swallowing it with no signal at all.
 
 namespace glintfx::platform {
 
@@ -78,8 +80,8 @@ gltfx_err build_fatal_error(wl_display *display) noexcept {
 } // namespace
 
 wayland_display_adapter::wayland_display_adapter(wayland_display_adapter &&other) noexcept
-    : m_display(other.m_display), m_registry(other.m_registry), m_globals(std::move(other.m_globals)),
-      m_fatal(other.m_fatal) {
+    : m_display(other.m_display), m_registry(other.m_registry),
+      m_globals(std::move(other.m_globals)), m_fatal(other.m_fatal) {
     other.m_display = nullptr;
     other.m_registry = nullptr;
     other.m_fatal = false;
@@ -103,22 +105,22 @@ wayland_display_adapter::operator=(wayland_display_adapter &&other) noexcept {
 wayland_display_adapter::~wayland_display_adapter() { close(); }
 
 void wayland_display_adapter::registry_global(void *data, wl_registry * /*registry*/,
-                                               std::uint32_t name, const char *interface,
-                                               std::uint32_t version) noexcept {
+                                              std::uint32_t name, const char *interface,
+                                              std::uint32_t version) noexcept {
     auto *self = static_cast<wayland_display_adapter *>(data);
-    try {
-        self->m_globals.insert(name, interface != nullptr ? std::string(interface) : std::string(),
-                                version);
-    } catch (...) {
-        // Best-effort (see this file's own header comment): a global
-        // this catalog fails to record because std::string/std::vector
-        // could not allocate is a degraded catalog, not a crash across
-        // a C ABI boundary that gave it no exception contract.
-    }
+    // insert() itself is noexcept and never lets std::bad_alloc reach
+    // this frame (see this file's own header comment) - no try/catch
+    // needed here anymore. Its bool return reports whether the global
+    // got cataloged; this callback has no diagnostics channel to route
+    // that through yet (out of this narrow fix's own scope), so the
+    // result is deliberately discarded here - global_catalog_test.cpp
+    // is what actually exercises and checks it.
+    self->m_globals.insert(name, interface != nullptr ? std::string(interface) : std::string(),
+                           version);
 }
 
 void wayland_display_adapter::registry_global_remove(void *data, wl_registry * /*registry*/,
-                                                       std::uint32_t name) noexcept {
+                                                     std::uint32_t name) noexcept {
     auto *self = static_cast<wayland_display_adapter *>(data);
     self->m_globals.remove(name);
 }

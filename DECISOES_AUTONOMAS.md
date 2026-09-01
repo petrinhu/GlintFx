@@ -559,3 +559,20 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **A lei de pesquisa foi cumprida antes de fatiar** (ordem do líder, L-43 do projeto): o padrão de laço de eventos, as quatro formas documentadas de travamento, o corte de versão ao ligar objetos e a ordem inversa de desmontagem vieram da documentação oficial e da leitura de SDL3 e RmlUi — lidos para aprender a técnica, nunca para copiar. As quatro fontes estão no plano.
 
 **Uma correção minha ao plano do CTO:** ele escreveu que merge em `main` continua exigindo aval explícito e que o modo autônomo não o herda. **Correto em geral, mas o líder já deu esse aval nesta sessão**, com a condição declarada: *"Autorizo merge no final se tudo estiver verde"*. O aval existe e é condicional ao verde; tag continua fora.
+
+### Fato novo sobre esta máquina que a lei de limites não cobre  `[01/09/26 - 16:44:50]`
+
+**Medido por mim em 01/09/2026, depois de a sessão de configuração apontar:** `/` e `/home` são **dois sistemas de arquivos btrfs separados**, com identificadores distintos (`/dev/mapper/raiz` e `/dev/mapper/home`). Meus builds pesados vivem em `/var/tmp`, que fica **na raiz**.
+
+| Sistema de arquivos | Não alocado | Livre (mínimo) |
+|---|---|---|
+| `/` (onde os builds rodam) | 36,23 GiB | 81,57 GiB |
+| `/home` | 141,71 GiB | 304,05 GiB |
+
+**Por que isso importa, e por que registro em vez de deixar passar:** a lei de limites desta máquina manda medir espaço com `btrfs filesystem usage /`. Para o caso dela (build pesado em `/var/tmp`) está **correta**. Mas ela não diz que existem dois sistemas de arquivos, e a diferença entre eles é de quase quatro vezes no espaço não alocado. **Quem medir o errado obtém um número tranquilizador e falso** — e a própria sessão de configuração caiu nisso hoje: apagou 32 GiB em `/home`, mediu `/`, viu o número quase parado e passou minutos procurando causa inexistente antes de perceber que media o alvo errado.
+
+A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo efeito prático de estimar.** A lei manda medir, e medir sem conferir o alvo não cumpre a lei.
+
+**Não emendei a lei.** Alterar lei exige o protocolo do líder (argumentar contra primeiro, depois a escolha por pergunta), e a ordem em vigor é fechar a onda. Fica registrado para ele decidir se a lei ganha a frase sobre conferir o alvo da medição.
+
+**Consequência prática imediata, para não gerar expectativa errada:** a remoção do VMware liberou 32 GiB **em `/home`**, não na raiz. Para efeito de compilar, **nada mudou**: o não alocado da raiz não se moveu um byte.

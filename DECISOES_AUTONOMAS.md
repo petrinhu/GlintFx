@@ -401,7 +401,7 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 
 **O que estas decisões NÃO relaxam:** implementador, revisor e orquestrador continuam sendo agentes distintos; a revisão executa e muta o código; o orquestrador reverifica antes de aceitar; e servidor vermelho bloqueia.
 
-**Ainda esperando o líder, e não é do CTO:** a ratificação retroativa de `D-PKGWIN` (o `ESCOPO.md` registra decisão dele, não de agente).
+**Nada mais espera o líder aqui.** A nota anterior desta linha dizia que a ratificação retroativa de `D-PKGWIN` seguia pendente; ela estava **vencida quando foi escrita**. O líder já havia decidido, na tabela acima (`D-PKGWIN` — o `.pc` sai do Windows | ❌ **REVERTA**), e a reversão foi executada em `fda17c0` (`fix(cmake): PKG-WIN-SCOPE -- reverte decisao de agente por ordem do lider, .pc volta ao Windows`), que devolveu o `glintfx.pc` ao Windows e trouxe o validador junto. Corrigido em 31/08/2026 pelo orquestrador, escrituração própria.
 
 ### D8 — Regra da casa para conversão numérica: **função de matemática é TOTAL**  `[28/08/26 - 02:44:39]`
 
@@ -425,3 +425,15 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **Custo se o líder reverter:** trocar saturante por falível é **quebra de assinatura**, ou seja o componente de maior peso da regra de versão. **Grátis antes da 1.0**, caro depois. O mesmo vale para trocar o mapeamento do não-número, que é contrato documentado.
 
 **Nada volta ao líder:** a assinatura pública não muda, e a regra é **generalização de um precedente que ele já aprovou** na fatia de cor. Registrado para confirmação retroativa.
+
+---
+
+## Sessão autônoma de 31/08/2026 — fechamento da onda de dependência zero  `[31/08/26 - 23:31:37]`
+
+**Autorização do líder, verbatim:** *"modo autonomo. termine essa onda. pode depois seguir as próximas, só indo para a proxima apos tudo verde"*.
+
+**O que a autorização cobre, pela L-15:** ondas sem parar a cada passo; `push` ao fim de onda; decisões que iriam a `AskUserQuestion` registradas aqui como decisão autônoma para confirmação retroativa. **O que ela não relaxa:** implementador, revisor e orquestrador continuam sendo agentes distintos; a revisão executa e muta o código; o orquestrador reverifica antes de aceitar; e servidor vermelho bloqueia. A própria ordem dele põe o portão explícito: *"só indo para a proxima apos tudo verde"*.
+
+**Estado medido na abertura, não lembrado:** ramo `depzero-gate` em `da5a85e`, idêntico ao remoto; execução 33256549290 do servidor **verde nos 18 trabalhos** nesse mesmo identificador; `dep_zero_trace` e `dep_zero_trace_selftest` (24 controles) executados nas cinco plataformas, conferidos nos registros dos trabalhos de Fedora e de Windows. Isso satisfaz o pré-requisito declarado de `DEPZERO-SHALLOW` — o oráculo profundo já mordeu no ambiente real.
+
+**Escrituração corrigida na abertura:** a nota vencida sobre `D-PKGWIN` (o líder já havia decidido; a reversão saiu em `fda17c0`).

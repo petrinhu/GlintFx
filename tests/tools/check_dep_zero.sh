@@ -268,12 +268,19 @@ readonly PKG_CHECK_MODULES_ALLOWLIST="wayland-client"
 readonly PKG_CHECK_MODULES_KEYWORDS="REQUIRED QUIET NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH IMPORTED_TARGET GLOBAL"
 # CMake's own pkg_check_modules() keyword vocabulary - never a module name.
 
-readonly SO_HEADER_ALLOWLIST="GL/gl.h sys/prctl.h sys/stat.h sys/sysmacros.h sys/types.h unistd.h wayland-client.h windows.h xdg-shell-client-protocol.h glintfx/export.hpp glintfx/version_macros.hpp"
+readonly SO_HEADER_ALLOWLIST="GL/gl.h poll.h sys/prctl.h sys/stat.h sys/sysmacros.h sys/types.h unistd.h wayland-client.h windows.h xdg-shell-client-protocol.h glintfx/export.hpp glintfx/version_macros.hpp"
 # Complete enumeration measured live 28/08/2026 (see header comment
 # rule 2). xdg-shell-client-protocol.h is wayland-scanner GENERATED
 # from the system-installed xdg-shell.xml - already judged OS API by
 # GODS_LAWS.md L-07 (the Wayland precedent), never vendored, never
 # hand-written.
+#
+# poll.h added WL-DISPLAY fatia D (TODO.md): POSIX <poll.h> (poll(),
+# struct pollfd, POLLIN/POLLOUT) - same OS-API category as sys/*.h and
+# unistd.h already on this list, needed by src/platform/wayland/
+# display_adapter.cpp's own pump_events() to implement the canonical
+# prepare_read/flush/poll/read_events sequence wl_display(3) documents
+# (w4-plano.md sec. 1.1) without EVER calling a blocking dispatch.
 #
 # *** SECOND CORRECTION found by measuring the real tree (GODS_LAWS.md
 # L-43), also not in the planning document's enumeration - flagged in

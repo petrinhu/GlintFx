@@ -44,12 +44,15 @@
 # again - `-pthread` added because it uses std::this_thread::sleep_for
 # (glibc's own libstdc++ threading facilities need it linked even for
 # the non-thread-creating half of <thread>).
+#
+# WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, same shape again.
 FROM fedora:44 AS arch-ports-builder
 RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel && dnf clean all
 COPY _arch_ports_src /build/_arch_ports_src
 COPY connect_smoke.cpp /build/connect_smoke.cpp
 COPY registry_smoke.cpp /build/registry_smoke.cpp
 COPY fatal_error_smoke.cpp /build/fatal_error_smoke.cpp
+COPY pump_smoke.cpp /build/pump_smoke.cpp
 RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
@@ -79,6 +82,16 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/fatal_error_smoke.cpp \
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/pump_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/pump_smoke.cpp \
         $(pkg-config --libs wayland-client)
 
 FROM fedora:44
@@ -101,9 +114,10 @@ COPY smoke.sh /usr/local/bin/smoke.sh
 COPY --from=arch-ports-builder /build/arch_ports_connect_smoke /usr/local/bin/arch_ports_connect_smoke
 COPY --from=arch-ports-builder /build/registry_smoke /usr/local/bin/registry_smoke
 COPY --from=arch-ports-builder /build/fatal_error_smoke /usr/local/bin/fatal_error_smoke
+COPY --from=arch-ports-builder /build/pump_smoke /usr/local/bin/pump_smoke
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
-        /usr/local/bin/fatal_error_smoke
+        /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

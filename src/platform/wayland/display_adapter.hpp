@@ -123,6 +123,35 @@ class wayland_display_adapter {
     // display_connection_port) does not change under this fatia.
     [[nodiscard]] bool has_fatal_error() const noexcept { return m_fatal; }
 
+    // WL-DISPLAY fatia D: the NON-BLOCKING event pump - safe to call
+    // every frame from a consumer's own loop without ever stalling it,
+    // unlike roundtrip() above (which blocks until the compositor
+    // answers). Implements the canonical prepare/flush/poll/read
+    // sequence wl_display(3) documents as the ONLY safe way to
+    // integrate Wayland's own event delivery into a caller-owned loop
+    // (w4-plano.md sec. 1.1/3.1.D):
+    //   1. wl_display_prepare_read(), looping through wl_display_
+    //      dispatch_pending() first whenever the pending queue is
+    //      non-empty (prepare_read() itself refuses while it is);
+    //   2. wl_display_flush() - on EAGAIN (kernel send buffer full,
+    //      NOT a failure), poll() for POLLOUT and retry, never give up
+    //      silently (w4-plano.md sec. 3.4 armadilha 6: an unflushed
+    //      request under load would sit stuck forever otherwise);
+    //   3. poll() the connection fd for POLLIN with timeout ZERO - "is
+    //      there anything to read RIGHT NOW", never wait for it;
+    //   4. nothing ready -> wl_display_cancel_read() (the mandatory
+    //      pairing for a prepare_read() that found nothing); something
+    //      ready -> wl_display_read_events(), then wl_display_dispatch_
+    //      pending() to process it.
+    // Every one of the FOUR documented deadlock traps this sequence
+    // exists to avoid (blocking dispatch between prepare_read and
+    // read_events/cancel_read; prepare_read without its matching
+    // read_events/cancel_read; manual poll() before dispatch without
+    // this whole pattern; a fatal error silently ignored) is named,
+    // by the trap it avoids, in display_adapter.cpp's own comment on
+    // this method's body.
+    [[nodiscard]] gltfx_rslt<void> pump_events() noexcept;
+
     // registry_global()/registry_global_remove() are the wl_registry_
     // listener's own two callbacks (C function-pointer ABI). PUBLIC
     // ONLY so display_adapter.cpp's own anonymous-namespace

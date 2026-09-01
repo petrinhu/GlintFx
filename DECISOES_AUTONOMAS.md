@@ -473,3 +473,35 @@ O item **2** era, na lista que eu tinha acabado de apresentar a ele, exatamente:
 **Decisão autônoma, para o líder confirmar ou reverter — o conserto passa para a forma delimitada por byte nulo**, que não tem escape nenhum por construção, nos três portões. Mais três trabalhos que o revisor cobrou e eu aceito: controle de autoteste para as três enumerações do portão local que hoje não têm nenhum; e um **portão sobre os portões**, que reprove quando alguém escrever uma enumeração nova sem a forma segura. **Custo se o líder discordar:** o portão sobre os portões é o único item discutível; os outros são o conserto do defeito.
 
 **O que a revisão CONFIRMOU e não muda:** a enumeração da superfície está completa (não existe oitavo uso, nem varredura por padrão no sistema de build, nem chamada solta no servidor), os dois portões declarados isentos são de fato isentos, e as quatro mutações que o revisor fez contra o código entregue **foram todas pegas** pelos controles certos.
+
+---
+
+## INCIDENTE: a máquina do líder travou, e a causa fui eu  `[01/09/26 - 06:24:33]`
+
+**Ordem do líder ao acordar, verbatim:** *"voce travou o computador faz algumas horas e precisei reiniciar. veja os dumps, linux se, e (...) DECISOES_AUTONOMAS.md . Acordei e tava tudo travado"*.
+
+**O que travou, medido no registro do sistema e nos despejos de memória, não suposto:**
+
+| Hora | Evento |
+|---|---|
+| 01:30:51 | O processo do canal de eventos do GitHub morre com sinal de captura |
+| 01:31:33 | Uma sessão do Claude Code morre com aborto, despejo de 129,7 MB |
+| 01:31:39 | Segundo processo do canal morre |
+| 01:31:40 | Segunda sessão do Claude Code morre, despejo de 53,5 MB |
+| **01:31:41** | **Primeira falha de criação de processo: "Recurso temporariamente indisponível"** |
+| 01:31:43 | **A área de trabalho do líder morre** com aborto |
+| 01:31:44 | A área de trabalho reiniciada morre de novo |
+| 01:32:05 em diante | O vigia de falhas não consegue mais criar processo |
+| 02:19:43 até 06:16 | Sem registro de núcleo; a máquina fica quatro horas sem conseguir criar processo, até o líder reiniciar |
+
+**NÃO foi falta de memória.** Nenhum estouro de memória ocorreu depois das 23:00 — os dois que o vigia capturou eram de um aplicativo do líder, de 30/08 e 31/08 de manhã, antes desta sessão. **Foi esgotamento do teto de processos por usuário, que nesta máquina é 4000.** Com ele estourado, nenhum programa consegue criar processo ou linha de execução — inclusive o compositor gráfico e a área de trabalho. É por isso que o líder acordou com tudo parado.
+
+**A causa raiz, no meu trabalho:** o desenho que eu mandei implementar para ler nomes de arquivo sem disfarce faz o portão **re-invocar a si mesmo, um processo novo por arquivo**, em quatro pontos. A superfície real do repositório é de **122 arquivos**, então uma única passagem do portão custa 122 processos. O autoteste do mesmo portão re-invoca o script inteiro em **sete** controles, e o portão é chamado pela suíte de testes, que por sua vez é chamada pelo espelho local do servidor. **E o arquivo estava sendo escrito, não commitado:** houve estado intermediário em que o desvio para o modo trabalhador ainda não existia, e cada trabalhador voltava a disparar os 122 — multiplicação de segundo grau, quatorze mil processos onde cabem quatro mil.
+
+**O que EU fiz de errado, sem atenuante:**
+
+1. **Aceitei um desenho que gasta um processo por arquivo sem medir o custo em processos antes de mandar implementar.** O plano falava em correção de leitura; eu não perguntei quantos processos aquilo custaria, e o número era calculável de antemão.
+2. **Deixei quatro agentes trabalharem em ondas sobrepostas na mesma árvore**, cada um autorizado a rodar a suíte inteira e o espelho local do servidor. O teto de processos é do **usuário**, não do agente, e ninguém estava somando.
+3. **A lei que me manda respeitar os limites desta máquina fala de memória, disco, CPU e vídeo. Não fala de processos.** Eu tratei o teto de processos como se não existisse, porque nenhuma lei o nomeava. Isso é falha minha de julgamento, não lacuna da lei.
+
+**O que NÃO se perdeu:** todo o trabalho fechado está commitado, o repositório está íntegro, e o disco está folgado (36 GB não alocados, 83 GB livres no mínimo). O único arquivo não commitado é o portão que estava sendo escrito quando tudo parou.

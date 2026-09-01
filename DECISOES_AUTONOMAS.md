@@ -614,3 +614,17 @@ A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo ef
 **A lei de pesquisa foi cumprida antes de fatiar:** o CTO leu o motor de estilo do Firefox e o do RmlUi para **aprender a técnica**, e o que ele trouxe mudou o desenho em dois pontos concretos — a navegação passa a ver só elementos, e a biblioteca deixou de exigir que o consumidor saiba indexar filhos ou classes, porque aqueles motores **possuem** a árvore e nós não possuímos. Três fontes descartadas com motivo escrito.
 
 **O ponto que eu considero o mais valioso do plano:** o contrato exige que as funções do consumidor sejam declaradas como incapazes de lançar exceção, e o compilador **recusa** atribuir uma que não seja. Isso transforma a regra de que nenhuma exceção cruza a fronteira de disciplina em contrato verificado pela máquina, nos dois sentidos.
+
+### ERRATA: a "contradição" do canon não existia, e eu quase apaguei uma convenção  `[01/09/26 - 19:10:11]`
+
+**O registro anterior está errado e fica corrigido aqui.** Eu afirmei ter resolvido uma contradição na linha de `GFSS-NODE-VIEW`, onde `[PMU] congela` conviveria com *"Deixa de ser porta de mão única"*. **Não há contradição.**
+
+**O que me salvou:** a verificação obrigatória do próprio script de edição reprovou. Eu esperava **uma** ocorrência da frase e existiam **quatro** — `CORE-TIME`, `GFSS-VALUE`, `ASSET-LOAD` e `GFSS-NODE-VIEW`. A edição não foi aplicada; só o registro (errado) entrou.
+
+**O que a varredura mostrou, e é a pergunta que a lei manda fazer:** isolado ou padrão? **Padrão.** Nos quatro itens a frase vem sempre depois de *"Registrado no `ESCOPO.md`"*, e **dois deles já estão concluídos** com ela. O sentido é consistente: a decisão que aquele item exigiria **já foi tomada pelo líder e registrada**, então ele deixa de ser uma escolha irreversível **pendente** e passa a ser implementação conforme o decidido. O congelamento da superfície continua existindo; o que acabou foi a espera por decisão.
+
+**Se eu tivesse "corrigido":** teria feito a linha do node-view divergir das três irmãs, inventado uma exceção onde há regra, e deixado o próximo leitor achando que aquele item é diferente dos outros. Uma correção que quebra a convenção que ela não entendeu.
+
+**A leitura do CTO estava errada e a minha também.** Ele reportou como contradição e pediu que eu decidisse; eu ia decidir sem varrer. O que evitou o erro não foi julgamento, foi a asserção mecânica de que o texto a substituir era único — a mesma disciplina que a lei exige depois de toda edição por script.
+
+**Nada a corrigir no `TODO.md`.** As cinco decisões de forma do CTO (D-NV-1 a D-NV-5) continuam válidas; nenhuma dependia dessa leitura.

@@ -48,8 +48,8 @@
 #      lines into one balanced-paren STATEMENT before matching.
 #      *** DEPZERO-SHALLOW, 31/08/2026: that statement-accumulation
 #      machine is GONE. This gate is now a SHALLOW, per-PHYSICAL-LINE
-#      network on purpose (see cmake_content_violations/
-#      evaluate_cmake_line below): a violation resolvable from ONE line
+#      network on purpose (see the dep-zero awk engine below,
+#      GATE-DEPZERO-NOFORK, 01/09/2026): a violation resolvable from ONE line
 #      still BLOCKS here, exactly as before; a call whose decisive
 #      argument spans lines, or is built from a variable this gate
 #      cannot read, no longer silently passes as "0 violation(s)" -
@@ -91,8 +91,8 @@
 #       *.cmake.in - a *.pc.in is pkg-config template syntax, not
 #       CMake, and is out of scope by construction). Scanned one
 #       PHYSICAL LINE at a time, comment stripped before matching (see
-#       cmake_content_violations/evaluate_cmake_line below) - DEPZERO-
-#       SHALLOW, 31/08/2026: a call whose decisive evidence does not
+#       the dep-zero awk engine below, GATE-DEPZERO-NOFORK, 01/09/2026) -
+#       DEPZERO-SHALLOW, 31/08/2026: a call whose decisive evidence does not
 #       fit on that one line is not resolved here, it WARNS and defers
 #       to the CI oracle (see the fatia's note a few lines above).
 #       Four shapes (the fourth new in DEPZERO-SHALLOW, 31/08/2026 -
@@ -180,7 +180,8 @@
 #            any -Iinclude toolchain (same path-resolution rule the
 #            preprocessor itself follows). Any ".." anywhere in the
 #            name is now rejected before the filesystem is even
-#            touched - see include_content_violations below. ***
+#            touched - see the dep-zero awk engine below,
+#            GATE-DEPZERO-NOFORK, 01/09/2026. ***
 #       Quote includes (#include "...") are not scanned: they resolve
 #       inside the tree or a generated build directory, and a tracked
 #       file they point at already falls under vector 1
@@ -360,359 +361,557 @@ name_is_known() {
     return 1
 }
 
-first_paren_arg() {
-    printf '%s\n' "$1" | sed -E 's/^[^(]*\([[:space:]]*([^[:space:])]+).*/\1/'
+# Counts WARNING occurrences (not lines - each record is 3 printed
+# lines) by counting the fixed header line, closed with `|| true`
+# (GODS_LAWS.md L-45: `grep -c` on zero matches exits 1, which would
+# abort this assignment under `set -eu` since it is not itself inside
+# a conditional). Operates on the 'W|' text the shell callers extract
+# from the dep-zero engine's output - unaffected by GATE-DEPZERO-NOFORK
+# (the engine emits the SAME warning text, byte-identical).
+count_warning_records() {
+    [ -z "$1" ] && { echo 0; return; }
+    printf '%s\n' "$1" | grep -cF 'WARNING (this is NOT a pass verdict' || true
+}
+
+# --- GATE-DEPZERO-NOFORK, 01/09/2026 (GODS_LAWS.md L-11 bloco 6: no
+# process per item scanned - the incident that cost four hours and a
+# forced reboot). Sub-checks (a) and (b) used to loop in the SHELL, one
+# `cat`/`git show` PLUS one small awk-per-line comment-stripper PER
+# FILE (and, before that, one further fork per LINE inside the old
+# per-line matcher) - thousands of forks on this tree, growing without
+# bound as the tree grows. That loop is ALSO how a hostile filename
+# (a real newline, double quote, or backslash byte, which git quotes
+# UNCONDITIONALLY per git-config(1) regardless of core.quotepath -
+# quotepath only ever controlled bytes >= 0x80) went unseen: the old
+# shell filtered `git ls-files`/`git diff --cached --name-only` with a
+# plain `grep -E` against CMAKE_SURFACE_PATTERN/CXX_SURFACE_PATTERN,
+# and a C-quoted line like "cmake/Way\nland.cmake" never matches a
+# pattern anchored on a literal `.cmake$` - the file vanished from the
+# scan while a clean sibling kept the non-empty-scan floor above zero,
+# and the gate passed MUDO.
+#
+# Both defects share ONE fix: sub-checks (a) and (b) now run inside a
+# SINGLE awk process (`write_dep_zero_engine_awk_program`/
+# `run_dep_zero_engine` below) that reads the git listing from stdin
+# (one line per path, in the C-quoted form git already emits),
+# DECODES that quoting itself (git-config(1)/quote.c grammar: \a \b \f
+# \n \r \t \v \" \\ and 3-digit octal \ooo, reconstructed byte-safe
+# under LC_ALL=C), classifies CMake vs C++ surface, and opens each
+# matching file itself via `getline < path` - one process, one pass,
+# cost INDEPENDENT of the number of files or lines (measured: ~10
+# processes in tree mode, ~13 in staged mode, proved equal at N=5 and
+# at the real tree's N=124 with `strace -fqc -e trace=fork,vfork,clone,
+# execve`, cited in the commit that introduced this). Every physical
+# line is still evaluated with the EXACT same rules as before (ported
+# verbatim: strip_cmake_comment, evaluate_cmake_line and its four
+# sub-evaluators, include_content_violations) - only the process
+# topology changed, never the DEPZERO-SHALLOW contract (blocks what
+# resolves on one line, warns-and-defers what does not).
+#
+# The awk program text lives in a quoted heredoc (`<<'AWK'`) written to
+# a fresh mktemp file per invocation, never a single-quoted shell
+# string: the warning text below carries a real apostrophe ("Leader's
+# decision"), and every allowlist/advice/pattern value crosses into awk
+# via ENVIRON (exported on the `awk` command's own environment, never
+# `-v name=value` - that form runs its own C-style backslash-escape
+# processing and would corrupt a legitimate literal "\${" this tree's
+# CMake files already contain, cmake/GlintfxInstall.cmake:183 etc.).
+# POSIX awk only (no gensub/asort/nextfile/multi-char RS): the CI's
+# Ubuntu job runs mawk, not gawk.
+
+write_dep_zero_engine_awk_program() {
+    prog="$(mktemp "${TMPDIR:-/tmp}/glintfx-dep-zero-engine-XXXXXX.awk")" || return 1
+    cat > "$prog" <<'AWK'
+function is_space_ch(c) {
+    return (c == " " || c == "\t" || c == "\r" || c == "\f" || c == "\v")
+}
+
+function oct2dec(o,   d1, d2, d3) {
+    d1 = index("01234567", substr(o, 1, 1)) - 1
+    d2 = index("01234567", substr(o, 2, 1)) - 1
+    d3 = index("01234567", substr(o, 3, 1)) - 1
+    return d1 * 64 + d2 * 8 + d3
+}
+
+# Decodes ONE line of `git ls-files`/`git diff --cached --name-only`
+# output. Grammar (git-config(1), quote.c): a quoted path is wrapped in
+# double quotes and every byte outside the printable-ASCII-minus-
+# special set is escaped as one of \a \b \f \n \r \t \v \" \\ or a
+# 3-digit octal \ooo. An unquoted line (no leading '"') is already
+# literal and returned unchanged. Sets g_decode_ok=0 on any grammar
+# violation (unterminated string, dangling backslash, unknown escape,
+# incomplete octal) - fail-closed, never best-effort.
+function decode_git_quoted(s,    n, inner, out, i, c, e, oct, val, ok) {
+    g_decode_ok = 1
+    n = length(s)
+    if (n < 2 || substr(s, 1, 1) != "\"" || substr(s, n, 1) != "\"") {
+        return s
+    }
+    inner = substr(s, 2, n - 2)
+    n = length(inner)
+    out = ""
+    i = 1
+    ok = 1
+    while (i <= n) {
+        c = substr(inner, i, 1)
+        if (c == "\\") {
+            i++
+            if (i > n) { ok = 0; break }
+            e = substr(inner, i, 1)
+            if (e == "a") { out = out sprintf("%c", 7); i++ }
+            else if (e == "b") { out = out sprintf("%c", 8); i++ }
+            else if (e == "f") { out = out sprintf("%c", 12); i++ }
+            else if (e == "n") { out = out sprintf("%c", 10); i++ }
+            else if (e == "r") { out = out sprintf("%c", 13); i++ }
+            else if (e == "t") { out = out sprintf("%c", 9); i++ }
+            else if (e == "v") { out = out sprintf("%c", 11); i++ }
+            else if (e == "\"") { out = out "\""; i++ }
+            else if (e == "\\") { out = out "\\"; i++ }
+            else if (e >= "0" && e <= "7") {
+                if (i + 2 > n) { ok = 0; break }
+                oct = substr(inner, i, 3)
+                if (oct !~ /^[0-7][0-7][0-7]$/) { ok = 0; break }
+                val = oct2dec(oct)
+                out = out sprintf("%c", val)
+                i += 3
+            }
+            else { ok = 0; break }
+        } else {
+            out = out c
+            i++
+        }
+    }
+    if (!ok) { g_decode_ok = 0; return "" }
+    return out
+}
+
+function name_is_known(candidate, list,    n, arr, i, found) {
+    n = split(list, arr, / /)
+    found = 0
+    for (i = 1; i <= n; i++) if (arr[i] == candidate) { found = 1; break }
+    return found
+}
+
+function imatch(str, pat) {
+    return (tolower(str) ~ tolower(pat))
+}
+
+# --- sub-check (a): CMake surface, one physical line at a time,
+# comment stripped before matching (quote-aware: '#' only starts a
+# comment outside a double-quoted string - CPM's own documented
+# shorthand puts a real '#' inside one, "gh:fmtlib/fmt#1.0"). Ported
+# verbatim from the pre-GATE-DEPZERO-NOFORK shell/awk hybrid. ---
+function strip_cmake_comment(line,    in_quote, out, n, i, c) {
+    in_quote = 0
+    out = ""
+    n = length(line)
+    for (i = 1; i <= n; i++) {
+        c = substr(line, i, 1)
+        if (c == "\"") { in_quote = !in_quote; out = out c; continue }
+        if (c == "#" && !in_quote) break
+        out = out c
+    }
+    return out
+}
+
+# Emits a BLOCKING finding ('V|') / a DEFERRED finding ('W|'), read
+# back out by the shell caller with `sed -n 's/^V|//p'`/`'^W|'` - never
+# grep (GODS_LAWS.md L-45: a zero-match grep exits 1). Citations print
+# check_root/disp - disp is the RAW git-quoted line (always ONE
+# physical line, even when the decoded path contains a literal
+# newline), so the V|/W| record framing can never split across lines.
+function emit_violation(disp, lineno, raw, advice) {
+    printf "V|%s/%s:%d: %s\n", check_root, disp, lineno, raw
+    printf "V|  -> %s\n", advice
+}
+
+function emit_warning(disp, lineno, raw) {
+    printf "W|check_dep_zero.sh: WARNING (this is NOT a pass verdict for this call):\n"
+    printf "W|%s/%s:%d: %s\n", check_root, disp, lineno, raw
+    printf "W|  -> This call spans lines or builds its decisive argument from a variable, and this shallow, line-by-line gate cannot judge it. It is NOT being cleared here: the CI oracle (ctest test dep_zero_trace, tests/tools/check_dep_zero_trace.py) is the authority that judges what CMake actually executes, and it WILL reprove a violation there (GODS_LAWS.md L-07). Leader's decision, 28/08/2026: ambiguous forms pass the hook with this warning so the CI can decide.\n"
+}
+
+# Mirrors paren_first_token/first_paren_arg: first token after '(' on
+# THIS line, skipping leading whitespace, stopping at whitespace or
+# ')'. Returns "" on a bare opener (nothing but whitespace/')' after
+# the paren) - the exact "lixo" this gate must never mistake for a
+# real package/module name.
+function paren_first_token(line,    idx, i, n, c, out) {
+    idx = index(line, "(")
+    if (idx == 0) return ""
+    i = idx + 1
+    n = length(line)
+    while (i <= n && is_space_ch(substr(line, i, 1))) i++
+    if (i > n) return ""
+    c = substr(line, i, 1)
+    if (c == ")") return ""
+    out = ""
+    while (i <= n) {
+        c = substr(line, i, 1)
+        if (is_space_ch(c) || c == ")") break
+        out = out c
+        i++
+    }
+    return out
 }
 
 # pkg-config module token may carry a GLUED version comparator
 # (wayland-client>=1.20, standard pkg-config syntax) - strips it so the
 # base module name can be checked against the allowlist
 # (REVIEW-DEPZERO-GATE.md achado IMPORTANTE #6).
-pkgconfig_module_base_name() {
-    printf '%s\n' "$1" | sed -E 's/(>=|<=|>|<|=).*$//'
+function pkgconfig_module_base_name(tok) {
+    sub(/(>=|<=|>|<|=).*$/, "", tok)
+    return tok
 }
 
-# --- sub-check (a): CMake surface, one PHYSICAL LINE at a time ---------
-# Reads from STDIN (not a filename) so the SAME function serves tree
-# mode (cat "$root/$p" | ...) and staged mode (git show ":$p" | ...) -
-# GODS_LAWS.md L-12: staged mode must read the INDEX blob, never the
-# working tree, and a plain filename argument could not express that.
-#
-# *** DEPZERO-SHALLOW, 31/08/2026 (leader's order, verbatim: "Deixa
-# passar avisando que o servidor decide"): this gate was REBAIXADO from
-# a multi-line statement interpreter back to a shallow, per-physical-
-# line network. The regra-mae: the physical line, comment stripped, is
-# the ONLY evidence. What resolves on that one line still BLOCKS
-# exactly as before (find_package(Freetype) with no closing paren
-# blocks just as much as the closed form); what does NOT resolve on
-# one line - a call whose decisive argument sits on a LATER physical
-# line, or is built from a "${var}" this gate cannot read - no longer
-# silently passes as "0 violation(s)" the way the pre-28/08/2026 line
-# matcher did. It PASSES WITH A PRINTED WARNING (see emit_warning
-# below) and is explicitly DEFERRED to the CI oracle (ctest test
-# dep_zero_trace, tests/tools/check_dep_zero_trace.py), which reads
-# what CMake ACTUALLY executed (expanded arguments, every branch really
-# taken) and WILL reprove a real violation there. Two permanent
-# warnings are the accepted, measured cost of this on the real tree
-# today (cmake/GlintfxWaylandProtocols.cmake and
-# cmake/GlintfxPkgConfigValidateInstalled.cmake.in each open
-# execute_process() bare and carry COMMAND "${PKG_CONFIG_EXECUTABLE}"
-# ..." on the next line) - inert, because dep_zero_trace runs in the
-# same suite and is the authority for exactly this shape.
-#
-# QUOTE-AWARE, single-process comment strip: a bare sed 's/#.*$//'
-# truncates INSIDE a double-quoted string, and CPM's own documented
-# shorthand ("gh:fmtlib/fmt#1.0") puts a real '#' inside one - stripping
-# it there ate the call's closing ')' and silently hid CPMAddPackage
-# from the scanner entirely (caught by REVIEW-DEPZERO-GATE.md's own
-# conserto, 28/08/2026 - "prova antes de confiar" applied to a fix, not
-# just to new code). Toggles a quote flag; '#' only starts a comment
-# OUTSIDE quotes. DEPZERO-SHALLOW, 31/08/2026: this used to also count
-# '(' / ')' for the now-removed statement-accumulation machine; that
-# counting is gone, this returns ONE line of output (the comment-
-# stripped text), never three. The line is piped through STDIN, never
-# passed via awk's own `-v name=value` - that form runs its OWN
-# C-style backslash-escape processing on the value, and this tree has
-# real, legitimate lines containing a literal "\${"
-# (cmake/GlintfxInstall.cmake:183 etc., CMake's own way to write an
-# UN-expanded "${...}" into generated text) - `-v` silently ate the
-# backslash and printed a warning on every one of them. Known, declared
-# limit: does not understand a backslash-escaped quote inside a string
-# (\") - not used anywhere in this tree's CMake files (checked
-# 28/08/2026).
-strip_cmake_comment() {
-    printf '%s\n' "$1" | awk '
-    {
-        in_quote = 0
-        out = ""
-        n = length($0)
-        for (i = 1; i <= n; i++) {
-            c = substr($0, i, 1)
-            if (c == "\"") { in_quote = !in_quote; out = out c; continue }
-            if (c == "#" && !in_quote) { break }
-            out = out c
-        }
-        print out
-    }'
+function strip_first_token(s) {
+    sub(/^[ \t\r\f\v]+/, "", s)
+    sub(/^[^ \t\r\f\v]+/, "", s)
+    sub(/^[ \t\r\f\v]+/, "", s)
+    return s
 }
 
-cmake_content_violations() {
-    display_path="$1"
-    line_no=0
-
-    while IFS= read -r raw_line || [ -n "$raw_line" ]; do
-        line_no=$((line_no + 1))
-        stripped_line="$(strip_cmake_comment "$raw_line")"
-        evaluate_cmake_line "$display_path" "$line_no" "$stripped_line" "$raw_line"
-    done
-}
-
-# Emits a BLOCKING finding: every line of the record carries the 'V|'
-# prefix. cmake_content_violations/evaluate_cmake_line run inside a
-# $(...) subshell in every caller (check_dep_zero_tree/_staged), so a
-# variable set here would never reach the caller - the prefix is the
-# channel. Callers split it back out with `sed -n 's/^V|//p'` (never
-# grep - GODS_LAWS.md L-45: grep with no match exits 1 and would abort
-# the pipeline under `set -eu`; sed -n exits 0 unconditionally).
-emit_violation() {
-    printf 'V|%s:%s: %s\n' "$1" "$2" "$3"
-    printf 'V|  -> %s\n' "$4"
-}
-
-# Emits a DEFERRED finding: this call is NOT resolvable from this one
-# physical line, so this gate does not clear it - it prints a warning
-# and lets the CI oracle (dep_zero_trace) have the last word. The
-# literal text is fixed on purpose (GODS_LAWS.md L-40 item 3: a printed
-# warning proves "looked, could not decide" is distinguishable from
-# silence) and the substring "FAILED" is FORBIDDEN in it - ctest
-# registers dep_zero_selftest with FAIL_REGULAR_EXPRESSION "FAILED"
-# (tests/CMakeLists.txt), and this warning path exits 0, never 1.
-emit_warning() {
-    printf 'W|check_dep_zero.sh: WARNING (this is NOT a pass verdict for this call):\n'
-    printf 'W|%s:%s: %s\n' "$1" "$2" "$3"
-    printf 'W|  -> This call spans lines or builds its decisive argument from a variable, and this shallow, line-by-line gate cannot judge it. It is NOT being cleared here: the CI oracle (ctest test dep_zero_trace, tests/tools/check_dep_zero_trace.py) is the authority that judges what CMake actually executes, and it WILL reprove a violation there (GODS_LAWS.md L-07). Leader'"'"'s decision, 28/08/2026: ambiguous forms pass the hook with this warning so the CI can decide.\n'
-}
-
-# Counts WARNING occurrences (not lines - each record is 3 printed
-# lines) by counting the fixed header line, closed with `|| true`
-# (GODS_LAWS.md L-45: `grep -c` on zero matches exits 1, which would
-# abort this assignment under `set -eu` since it is not itself inside
-# a conditional).
-count_warning_records() {
-    [ -z "$1" ] && { echo 0; return; }
-    printf '%s\n' "$1" | grep -cF 'WARNING (this is NOT a pass verdict' || true
-}
-
-# $1 = a line already known to open a vigiar command at '('. Returns
-# the first token after '(' on THIS line, or "" if nothing but
-# whitespace/a closing ')' follows - a bare opener. Guards
-# first_paren_arg's own known limit (its regex requires at least one
-# non-space, non-')' char to match; on a bare "find_package(" it simply
-# does not match, and sed then prints the INPUT UNCHANGED - the exact
-# "lixo" this gate must never mistake for a real package name).
-paren_first_token() {
-    printf '%s\n' "$1" | grep -qE '\([[:space:]]*[^[:space:])]' || { echo ""; return; }
-    first_paren_arg "$1"
-}
-
-# Evaluates ONE physical CMake line, comment already stripped ($3); $4
-# is the raw line (comment included) printed in citations. DEPZERO-
-# SHALLOW, 31/08/2026: replaces evaluate_cmake_statement - see this
-# file's DEPZERO-SHALLOW header note above for the contract this
-# implements (block what one line resolves, warn-and-defer what it
-# cannot).
-evaluate_cmake_line() {
-    display_path="$1"
-    line_no="$2"
-    line="$3"
-    raw="$4"
-
-    # A blank/whitespace-only line (a stripped pure-comment line) has
-    # nothing to evaluate.
-    case "$line" in
-        *[![:space:]]*) : ;;
-        *) return ;;
-    esac
-
-    closed=1
-    case "$line" in
-        *')'*) : ;;
-        *) closed=0 ;;
-    esac
-
-    if printf '%s\n' "$line" | grep -qiE "$CMAKE_FETCH_PATTERN"; then
-        emit_violation "$display_path" "$line_no" "$raw" "$FETCH_ADVICE"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE "$CMAKE_TOOLCHAIN_PATTERN"; then
-        emit_violation "$display_path" "$line_no" "$raw" "$FETCH_ADVICE"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE "$CMAKE_LANGUAGE_PATTERN"; then
-        emit_violation "$display_path" "$line_no" "$raw" "$INDIRECTION_ADVICE"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE "$CMAKE_FILE_NETWORK_PATTERN"; then
-        emit_violation "$display_path" "$line_no" "$raw" "$FILE_NETWORK_ADVICE"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*file[[:space:]]*\('; then
-        # A DOWNLOAD/UPLOAD subcommand already matched (and returned)
-        # above; any OTHER visible subcommand here is a clean pass
-        # (F4: MAKE_DIRECTORY, SHA256, READ, WRITE, GLOB, GENERATE, the
-        # real forms this tree uses). A BARE opener (nothing visible
-        # after '(' on this line) cannot rule out DOWNLOAD/UPLOAD on a
-        # later line, so it warns instead of passing silently.
-        subcmd="$(paren_first_token "$line")"
-        [ -z "$subcmd" ] && emit_warning "$display_path" "$line_no" "$raw"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*execute_process[[:space:]]*\('; then
-        evaluate_execute_process_line "$display_path" "$line_no" "$line" "$raw"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*include[[:space:]]*\('; then
-        evaluate_include_line "$display_path" "$line_no" "$line" "$raw" "$closed"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*find_package[[:space:]]*\('; then
-        name="$(paren_first_token "$line")"
-        if [ -z "$name" ]; then
-            emit_warning "$display_path" "$line_no" "$raw"
-            return
-        fi
-        # find_package(<allowlisted> ... - the FIRST argument is always
-        # the package name; a later argument on a later line can never
-        # change it, so a visible, allowlisted name resolves whether or
-        # not this line closes (plan section 2.2).
-        name_is_known "$name" "$FIND_PACKAGE_ALLOWLIST" || emit_violation "$display_path" "$line_no" "$raw" "$FINDPKG_ADVICE"
-        return
-    fi
-    if printf '%s\n' "$line" | grep -qiE '^[[:space:]]*pkg_check_modules[[:space:]]*\('; then
-        evaluate_pkg_check_modules_line "$display_path" "$line_no" "$line" "$raw" "$closed"
-        return
-    fi
+function rtrim_close_paren(s) {
+    sub(/\)[ \t]*$/, "", s)
+    return s
 }
 
 # include(): a line with no "${" at all is always fully literal and
 # always resolves, closed or not. A line WITH "${" resolves only when
 # it ALSO carries a literal ".cmake" fragment (the real, legitimate
-# parameterized-file-include shape already used twice in this tree -
-# cmake/glintfx-config.cmake.in:5, tests/embed_dll_colocation/
-# CMakeLists.txt:43-44 - include("${SOME_DIR}/File.cmake")) AND is
-# closed on this same line; unclosed, or "${" with no ".cmake"
+# parameterized-file-include shape already used twice in this tree)
+# AND is closed on this same line; unclosed, or "${" with no ".cmake"
 # anywhere and closed, are the two remaining cases (warn, block).
-evaluate_include_line() {
-    display_path="$1"
-    line_no="$2"
-    line="$3"
-    raw="$4"
-    closed="$5"
-
-    printf '%s\n' "$line" | grep -qF '${' || return
-
-    if printf '%s\n' "$line" | grep -qi '\.cmake'; then
-        [ "$closed" -eq 0 ] && emit_warning "$display_path" "$line_no" "$raw"
+function eval_include_line(disp, lineno, line, raw, closed) {
+    if (index(line, "${") == 0) return
+    if (index(tolower(line), ".cmake") > 0) {
+        if (!closed) emit_warning(disp, lineno, raw)
         return
-    fi
-
-    if [ "$closed" -eq 1 ]; then
-        emit_violation "$display_path" "$line_no" "$raw" "$INDIRECTION_ADVICE"
-    else
-        emit_warning "$display_path" "$line_no" "$raw"
-    fi
+    }
+    if (closed) emit_violation(disp, lineno, raw, INDIRECTION_ADVICE)
+    else emit_warning(disp, lineno, raw)
 }
 
 # pkg_check_modules(): any BAD token visible on this line blocks
-# regardless of closure (a bad token already visible is resolvable, no
-# matter what a later line might also carry). With every visible token
-# clean, a CLOSED line passes silently; an unclosed one warns - a later
-# line could still carry a token this line never showed.
-evaluate_pkg_check_modules_line() {
-    display_path="$1"
-    line_no="$2"
-    line="$3"
-    raw="$4"
-    closed="$5"
-
-    content="$(printf '%s\n' "$line" | sed -E 's/^[^(]*\(//; s/\)[[:space:]]*$//')"
-    rest="$(printf '%s\n' "$content" | sed -E 's/^[[:space:]]*[^[:space:]]+[[:space:]]*//')"
-    unknown_hit=0
-    for tok in $rest; do
-        if name_is_known "$tok" "$PKG_CHECK_MODULES_KEYWORDS"; then
-            continue
-        fi
-        case "$tok" in
-            '>='|'<='|'>'|'<'|'=') continue ;;
-            [0-9]*) continue ;;
-        esac
-        base_tok="$(pkgconfig_module_base_name "$tok")"
-        if ! name_is_known "$base_tok" "$PKG_CHECK_MODULES_ALLOWLIST"; then
-            unknown_hit=1
-        fi
-    done
-
-    if [ "$unknown_hit" -eq 1 ]; then
-        emit_violation "$display_path" "$line_no" "$raw" "$PKGCHECK_ADVICE"
-        return
-    fi
-    [ "$closed" -eq 0 ] && emit_warning "$display_path" "$line_no" "$raw"
+# regardless of closure. With every visible token clean, a CLOSED line
+# passes silently; an unclosed one warns.
+function eval_pkg_check_modules_line(disp, lineno, line, raw, closed,    idx, content, rest, n, toks, i, tok, base, unknown_hit) {
+    idx = index(line, "(")
+    content = substr(line, idx + 1)
+    content = rtrim_close_paren(content)
+    rest = strip_first_token(content)
+    unknown_hit = 0
+    n = split(rest, toks, /[ \t\r\f\v]+/)
+    for (i = 1; i <= n; i++) {
+        tok = toks[i]
+        if (tok == "") continue
+        if (name_is_known(tok, PKG_CHECK_MODULES_KEYWORDS)) continue
+        if (tok == ">=" || tok == "<=" || tok == ">" || tok == "<" || tok == "=") continue
+        if (tok ~ /^[0-9]/) continue
+        base = pkgconfig_module_base_name(tok)
+        if (!name_is_known(base, PKG_CHECK_MODULES_ALLOWLIST)) unknown_hit = 1
+    }
+    if (unknown_hit) { emit_violation(disp, lineno, raw, PKGCHECK_ADVICE); return }
+    if (!closed) emit_warning(disp, lineno, raw)
 }
 
-# execute_process(): finds the program that follows a COMMAND keyword
-# ON THIS LINE (optionally quoted - `COMMAND "pkg-config" ...` and
-# `COMMAND pkg-config ...` are both real forms). No COMMAND+program
-# visible on this line at all (the real tree's own shape - a bare
-# opener, COMMAND on line 2) or a program built from "${var}" both
-# warn: neither is a literal this gate can judge. A LITERAL program
-# resolves: its basename (extension stripped, casefold) decides block
-# vs pass against EXECUTE_PROCESS_PROGRAM_ALLOWLIST.
-evaluate_execute_process_line() {
-    display_path="$1"
-    line_no="$2"
-    line="$3"
-    raw="$4"
+# Finds the program token following the LAST "COMMAND" keyword on this
+# line that is immediately followed by whitespace (mirrors the
+# greedy-.* backtracking of the sed this replaces - a `COMMAND_ECHO`
+# token never satisfies the whitespace-after test, so it is skipped,
+# exactly as the original regex would skip it too).
+function find_command_program(line,    n, search_from, pos, abspos, after, last_pos, i, c, out) {
+    n = length(line)
+    last_pos = 0
+    search_from = 1
+    while (1) {
+        pos = index(substr(line, search_from), "COMMAND")
+        if (pos == 0) break
+        abspos = search_from + pos - 1
+        after = abspos + 7
+        if (after <= n && is_space_ch(substr(line, after, 1))) last_pos = abspos
+        search_from = abspos + 1
+    }
+    if (last_pos == 0) return ""
+    i = last_pos + 7
+    while (i <= n && is_space_ch(substr(line, i, 1))) i++
+    if (i > n) return ""
+    if (substr(line, i, 1) == "\"") i++
+    out = ""
+    while (i <= n) {
+        c = substr(line, i, 1)
+        if (c == "\"" || c == ")" || is_space_ch(c)) break
+        out = out c
+        i++
+    }
+    return out
+}
 
-    program="$(printf '%s\n' "$line" | sed -nE 's/.*COMMAND[[:space:]]+"?([^")[:space:]]+).*/\1/p')"
-    if [ -z "$program" ]; then
-        emit_warning "$display_path" "$line_no" "$raw"
+# execute_process(): a LITERAL program on this line resolves - its
+# basename (extension stripped, casefold) decides block vs pass
+# against EXECUTE_PROCESS_PROGRAM_ALLOWLIST. No COMMAND+program visible
+# on this line, or a program built from "${var}", both warn.
+function eval_execute_process_line(disp, lineno, line, raw,    program, base, lower_base) {
+    program = find_command_program(line)
+    if (program == "") { emit_warning(disp, lineno, raw); return }
+    if (index(program, "${") > 0) { emit_warning(disp, lineno, raw); return }
+    base = program
+    gsub(/^.*\//, "", base)
+    lower_base = tolower(base)
+    if (lower_base ~ /\.exe$/) sub(/\.exe$/, "", lower_base)
+    else if (lower_base ~ /\.bat$/) sub(/\.bat$/, "", lower_base)
+    else if (lower_base ~ /\.cmd$/) sub(/\.cmd$/, "", lower_base)
+    if (!name_is_known(lower_base, EXECUTE_PROCESS_PROGRAM_ALLOWLIST)) emit_violation(disp, lineno, raw, EXECUTE_PROCESS_ADVICE)
+}
+
+# Evaluates ONE physical CMake line, comment already stripped. The
+# DEPZERO-SHALLOW contract (unchanged by this port): what resolves on
+# THIS physical line blocks; what does not (multi-line, variable-built)
+# warns and defers to the CI oracle. Never both, never silent.
+function eval_cmake_line(disp, lineno, line, raw,    closed, subcmd, name) {
+    if (line ~ /^[ \t\r\f\v]*$/) return
+
+    closed = (index(line, ")") > 0) ? 1 : 0
+
+    if (imatch(line, CMAKE_FETCH_PATTERN)) { emit_violation(disp, lineno, raw, FETCH_ADVICE); return }
+    if (imatch(line, CMAKE_TOOLCHAIN_PATTERN)) { emit_violation(disp, lineno, raw, FETCH_ADVICE); return }
+    if (imatch(line, CMAKE_LANGUAGE_PATTERN)) { emit_violation(disp, lineno, raw, INDIRECTION_ADVICE); return }
+    if (imatch(line, CMAKE_FILE_NETWORK_PATTERN)) { emit_violation(disp, lineno, raw, FILE_NETWORK_ADVICE); return }
+    if (imatch(line, "^[ \t\r\f\v]*file[ \t\r\f\v]*\\(")) {
+        subcmd = paren_first_token(line)
+        if (subcmd == "") emit_warning(disp, lineno, raw)
         return
-    fi
-    case "$program" in
-        *'${'*) emit_warning "$display_path" "$line_no" "$raw"; return ;;
-    esac
+    }
+    if (imatch(line, "^[ \t\r\f\v]*execute_process[ \t\r\f\v]*\\(")) {
+        eval_execute_process_line(disp, lineno, line, raw)
+        return
+    }
+    if (imatch(line, "^[ \t\r\f\v]*include[ \t\r\f\v]*\\(")) {
+        eval_include_line(disp, lineno, line, raw, closed)
+        return
+    }
+    if (imatch(line, "^[ \t\r\f\v]*find_package[ \t\r\f\v]*\\(")) {
+        name = paren_first_token(line)
+        if (name == "") { emit_warning(disp, lineno, raw); return }
+        if (!name_is_known(name, FIND_PACKAGE_ALLOWLIST)) emit_violation(disp, lineno, raw, FINDPKG_ADVICE)
+        return
+    }
+    if (imatch(line, "^[ \t\r\f\v]*pkg_check_modules[ \t\r\f\v]*\\(")) {
+        eval_pkg_check_modules_line(disp, lineno, line, raw, closed)
+        return
+    }
+}
 
-    base="$(printf '%s\n' "$program" | sed -E 's|.*/||')"
-    lower_base="$(printf '%s\n' "$base" | tr '[:upper:]' '[:lower:]')"
-    case "$lower_base" in
-        *.exe) lower_base="${lower_base%.exe}" ;;
-        *.bat) lower_base="${lower_base%.bat}" ;;
-        *.cmd) lower_base="${lower_base%.cmd}" ;;
-    esac
-    name_is_known "$lower_base" "$EXECUTE_PROCESS_PROGRAM_ALLOWLIST" || emit_violation "$display_path" "$line_no" "$raw" "$EXECUTE_PROCESS_ADVICE"
+# Opens the file itself (byte-safe for any name without NUL) via
+# `getline < path` - >0 means a line was read, 0 means clean EOF (an
+# empty file counts as opened, zero lines - the same verdict `test -f`
+# gives an empty file), <0 means the open/read itself failed (missing
+# from the working tree, a directory, or unreadable) and is reported as
+# an 'F|' record, never silently treated as "no content".
+function scan_cmake_file(path, disp,    fname, line, lineno, rc) {
+    fname = content_root "/" path
+    lineno = 0
+    rc = 1
+    while ((rc = (getline line < fname)) > 0) {
+        lineno++
+        eval_cmake_line(disp, lineno, strip_cmake_comment(line), line)
+    }
+    close(fname)
+    if (rc < 0) {
+        print "F|" check_root "/" disp ": open refused (file not found in working tree, or unreadable)"
+        return 0
+    }
+    return 1
 }
 
 # --- sub-check (b): include surface, one line of CONTENT at a time -----
 
-include_content_violations() {
-    root="$1"
-    display_path="$2"
-    line_no=0
-    while IFS= read -r line || [ -n "$line" ]; do
-        line_no=$((line_no + 1))
+function extract_angle_include_name(line,    i, j) {
+    i = index(line, "<")
+    if (i == 0) return ""
+    j = index(line, ">")
+    if (j == 0 || j <= i) return ""
+    return substr(line, i + 1, j - i - 1)
+}
 
-        printf '%s\n' "$line" | grep -qE '^[[:space:]]*#[[:space:]]*include[[:space:]]*<[^>]+>' || continue
-        name="$(printf '%s\n' "$line" | sed -E 's/^[[:space:]]*#[[:space:]]*include[[:space:]]*<([^>]+)>.*/\1/')"
+# Structural existence probe for rule 3 (our OWN public header): >= 0
+# means the open succeeded (an empty file reads 0 and counts as
+# existing, same verdict as `test -f`); a directory or a missing path
+# both read -1 and count as not existing - identical to `test -f`'s
+# own behavior, never a plain filesystem stat that a symlink or a
+# directory could fool.
+function probe_file_exists(fname,    rc, dummy) {
+    rc = (getline dummy < fname)
+    close(fname)
+    return (rc >= 0)
+}
 
-        has_dot_or_slash=0
-        case "$name" in
-            *.*|*/*) has_dot_or_slash=1 ;;
-        esac
-        [ "$has_dot_or_slash" -eq 0 ] && continue
+function eval_include_content_line(disp, lineno, line,    name, has_dot_or_slash) {
+    if (!(line ~ /^[ \t]*#[ \t]*include[ \t]*<[^>]+>/)) return
+    name = extract_angle_include_name(line)
+    if (name == "") return
 
-        name_is_known "$name" "$SO_HEADER_ALLOWLIST" && continue
+    has_dot_or_slash = (index(name, ".") > 0 || index(name, "/") > 0)
+    if (!has_dot_or_slash) return
 
-        case "$name" in
-            glintfx/*)
-                # REVIEW-DEPZERO-GATE.md achado CRITICO #4, 28/08/2026:
-                # `test -f` resolves ".." against the real filesystem,
-                # so glintfx/../../../../../../usr/include/zlib.h
-                # walked clean off include/ and reached a REAL system
-                # header - and the SAME include compiles for real under
-                # any -Iinclude toolchain, because the preprocessor
-                # resolves <...> the identical way. Reject ANY ".."
-                # occurrence before ever touching the filesystem - this
-                # is a structural check, not a name list, so there is
-                # no allowlist that could rescue a traversal attempt.
-                case "$name" in
-                    *..*) : ;;
-                    *) [ -f "$root/include/$name" ] && continue ;;
-                esac
-                ;;
-        esac
+    if (name_is_known(name, SO_HEADER_ALLOWLIST)) return
 
-        printf '%s:%s: %s\n  -> %s\n' "$display_path" "$line_no" "$line" "$INCLUDE_ADVICE"
-    done
+    if (substr(name, 1, 8) == "glintfx/") {
+        # REVIEW-DEPZERO-GATE.md achado CRITICO #4: reject ANY ".."
+        # occurrence before ever touching the filesystem - a plain
+        # existence probe resolves ".." against the real filesystem and
+        # can walk clean out of include/.
+        if (index(name, "..") == 0) {
+            if (probe_file_exists(check_root "/include/" name)) return
+        }
+    }
+
+    printf "V|%s/%s:%d: %s\n", check_root, disp, lineno, line
+    printf "V|  -> %s\n", INCLUDE_ADVICE
+}
+
+function scan_cxx_file(path, disp,    fname, line, lineno, rc) {
+    fname = content_root "/" path
+    lineno = 0
+    rc = 1
+    while ((rc = (getline line < fname)) > 0) {
+        lineno++
+        eval_include_content_line(disp, lineno, line)
+    }
+    close(fname)
+    if (rc < 0) {
+        print "F|" check_root "/" disp ": open refused (file not found in working tree, or unreadable)"
+        return 0
+    }
+    return 1
+}
+
+BEGIN {
+    check_root = ENVIRON["DEP_ZERO_ROOT"]
+    content_root = ENVIRON["DEP_ZERO_CONTENT_ROOT"]
+    FETCH_ADVICE = ENVIRON["FETCH_ADVICE"]
+    FINDPKG_ADVICE = ENVIRON["FINDPKG_ADVICE"]
+    PKGCHECK_ADVICE = ENVIRON["PKGCHECK_ADVICE"]
+    INCLUDE_ADVICE = ENVIRON["INCLUDE_ADVICE"]
+    INDIRECTION_ADVICE = ENVIRON["INDIRECTION_ADVICE"]
+    FILE_NETWORK_ADVICE = ENVIRON["FILE_NETWORK_ADVICE"]
+    EXECUTE_PROCESS_ADVICE = ENVIRON["EXECUTE_PROCESS_ADVICE"]
+    FIND_PACKAGE_ALLOWLIST = ENVIRON["DEP_ZERO_FIND_PACKAGE_ALLOWLIST"]
+    PKG_CHECK_MODULES_ALLOWLIST = ENVIRON["DEP_ZERO_PKG_CHECK_MODULES_ALLOWLIST"]
+    PKG_CHECK_MODULES_KEYWORDS = ENVIRON["DEP_ZERO_PKG_CHECK_MODULES_KEYWORDS"]
+    SO_HEADER_ALLOWLIST = ENVIRON["DEP_ZERO_SO_HEADER_ALLOWLIST"]
+    EXECUTE_PROCESS_PROGRAM_ALLOWLIST = ENVIRON["DEP_ZERO_EXECUTE_PROCESS_PROGRAM_ALLOWLIST"]
+    CMAKE_SURFACE_PATTERN = ENVIRON["DEP_ZERO_CMAKE_SURFACE_PATTERN"]
+    CXX_SURFACE_PATTERN = ENVIRON["DEP_ZERO_CXX_SURFACE_PATTERN"]
+    CMAKE_FETCH_PATTERN = ENVIRON["DEP_ZERO_CMAKE_FETCH_PATTERN"]
+    CMAKE_TOOLCHAIN_PATTERN = ENVIRON["DEP_ZERO_CMAKE_TOOLCHAIN_PATTERN"]
+    CMAKE_LANGUAGE_PATTERN = ENVIRON["DEP_ZERO_CMAKE_LANGUAGE_PATTERN"]
+    CMAKE_FILE_NETWORK_PATTERN = ENVIRON["DEP_ZERO_CMAKE_FILE_NETWORK_PATTERN"]
+
+    cmake_found = 0; cmake_analyzed = 0
+    cxx_found = 0; cxx_analyzed = 0
+    failed = 0
+}
+
+# One record per tracked/staged path, C-quoted exactly as git printed
+# it. Decoded once here; the surface patterns are matched against the
+# DECODED path (so an escaped ".cmake$"/"\.cpp$" etc. matches again),
+# citations always use the original C-quoted 'disp' (framing-safe).
+{
+    disp = $0
+    if (disp == "") next
+
+    path = decode_git_quoted(disp)
+    if (!g_decode_ok) {
+        failed++
+        print "F|" check_root "/" disp ": decode refused (malformed git quoting)"
+        next
+    }
+
+    if (path ~ CMAKE_SURFACE_PATTERN) {
+        cmake_found++
+        if (scan_cmake_file(path, disp)) cmake_analyzed++
+        else failed++
+    }
+    if (path ~ CXX_SURFACE_PATTERN) {
+        cxx_found++
+        if (scan_cxx_file(path, disp)) cxx_analyzed++
+        else failed++
+    }
+}
+
+# GODS_LAWS.md L-40 item 3 / L-36: printed ALWAYS, including all-zero -
+# the shell caller reproves if this record is absent, duplicated, or
+# shows found != analyzed / failed > 0 (the engine died mid-scan, or a
+# file it enumerated could not be opened - fail-closed, never a silent
+# "0 relevant").
+END {
+    printf "S|cmake_found=%d cmake_analyzed=%d cxx_found=%d cxx_analyzed=%d failed=%d\n", cmake_found, cmake_analyzed, cxx_found, cxx_analyzed, failed
+}
+AWK
+    printf '%s\n' "$prog"
+}
+
+# Runs the dep-zero engine once against the listing on stdin.
+# $1 = check_root (citations, and the REAL filesystem root the
+#      glintfx/ own-header existence probe always reads against - same
+#      in tree AND staged mode, matching the pre-port behavior).
+# $2 = content_root (where file BYTES are read from: check_root itself
+#      in tree mode, a checkout-index scratch prefix in staged mode -
+#      GODS_LAWS.md L-12, the index blob, never the working tree).
+# Every value the awk program needs crosses via ENVIRON, exported only
+# on this one command's environment (a shell prefix assignment list
+# exports for that single invocation without touching the caller's own
+# globals) - never `-v` (armadilha already documented above). The
+# eleven allowlist/pattern values are declared `readonly` at the top of
+# this file (GODS_LAWS.md L-40 item 5) - a prefix assignment CANNOT
+# reuse the SAME name as an existing readonly shell variable (measured
+# live: bash refuses it, "variavel permite somente leitura", even
+# though the assignment is scoped to the one child command) - so they
+# cross under a DEP_ZERO_-prefixed name instead, read back out of
+# ENVIRON under that same prefixed name in the awk program's BEGIN
+# block above. The seven *_ADVICE values are plain (non-readonly)
+# variables and keep their own name.
+run_dep_zero_engine() {
+    engine_check_root="$1"
+    engine_content_root="$2"
+    engine_prog="$(write_dep_zero_engine_awk_program)" || { echo "check_dep_zero.sh: mktemp failed writing the dep-zero awk engine" >&2; return 1; }
+
+    LC_ALL=C \
+        DEP_ZERO_ROOT="$engine_check_root" \
+        DEP_ZERO_CONTENT_ROOT="$engine_content_root" \
+        FETCH_ADVICE="$FETCH_ADVICE" \
+        FINDPKG_ADVICE="$FINDPKG_ADVICE" \
+        PKGCHECK_ADVICE="$PKGCHECK_ADVICE" \
+        INCLUDE_ADVICE="$INCLUDE_ADVICE" \
+        INDIRECTION_ADVICE="$INDIRECTION_ADVICE" \
+        FILE_NETWORK_ADVICE="$FILE_NETWORK_ADVICE" \
+        EXECUTE_PROCESS_ADVICE="$EXECUTE_PROCESS_ADVICE" \
+        DEP_ZERO_FIND_PACKAGE_ALLOWLIST="$FIND_PACKAGE_ALLOWLIST" \
+        DEP_ZERO_PKG_CHECK_MODULES_ALLOWLIST="$PKG_CHECK_MODULES_ALLOWLIST" \
+        DEP_ZERO_PKG_CHECK_MODULES_KEYWORDS="$PKG_CHECK_MODULES_KEYWORDS" \
+        DEP_ZERO_SO_HEADER_ALLOWLIST="$SO_HEADER_ALLOWLIST" \
+        DEP_ZERO_EXECUTE_PROCESS_PROGRAM_ALLOWLIST="$EXECUTE_PROCESS_PROGRAM_ALLOWLIST" \
+        DEP_ZERO_CMAKE_SURFACE_PATTERN="$CMAKE_SURFACE_PATTERN" \
+        DEP_ZERO_CXX_SURFACE_PATTERN="$CXX_SURFACE_PATTERN" \
+        DEP_ZERO_CMAKE_FETCH_PATTERN="$CMAKE_FETCH_PATTERN" \
+        DEP_ZERO_CMAKE_TOOLCHAIN_PATTERN="$CMAKE_TOOLCHAIN_PATTERN" \
+        DEP_ZERO_CMAKE_LANGUAGE_PATTERN="$CMAKE_LANGUAGE_PATTERN" \
+        DEP_ZERO_CMAKE_FILE_NETWORK_PATTERN="$CMAKE_FILE_NETWORK_PATTERN" \
+        awk -f "$engine_prog"
+    engine_rc=$?
+    rm -f "$engine_prog"
+    return "$engine_rc"
+}
+
+# Parses the engine's single 'S|' summary record into the five shell
+# variables the two callers below both need. Reprove (never trust a
+# partial/duplicated/absent record) is the CALLER's job - this only
+# parses what is there.
+parse_dep_zero_summary() {
+    summary_line="$1"
+    cmake_found=0; cmake_analyzed=0; cxx_found=0; cxx_analyzed=0; failed=0
+    eval "$(printf '%s\n' "$summary_line" | sed -E 's/^cmake_found=([0-9]+) cmake_analyzed=([0-9]+) cxx_found=([0-9]+) cxx_analyzed=([0-9]+) failed=([0-9]+)$/cmake_found=\1; cmake_analyzed=\2; cxx_found=\3; cxx_analyzed=\4; failed=\5/')"
 }
 
 # --- sub-check (c): the built artifact's own DT_NEEDED truth -----------
@@ -762,41 +961,51 @@ check_dep_zero_tree() {
 
     # -c core.quotepath=false (GATE-QUOTEPATH, 01/09/2026): git's own
     # default (core.quotepath=true) prints any tracked path with a byte
-    # >= 0x80 as a C-style octal-escaped, double-quoted string, which
-    # never matches CMAKE_SURFACE_PATTERN/CXX_SURFACE_PATTERN below (both
-    # anchored with a trailing $) - an accented filename went unseen by
-    # this scan entirely. Disabling quotepath makes `git ls-files` print
-    # the raw UTF-8 bytes instead, matching the pattern normally.
+    # >= 0x80 as a C-style octal-escaped, double-quoted string. Kept for
+    # DISPLAY AFFINITY (an accented citation reads as "Waylând.cmake",
+    # not an escaped "Wayl\303\244nd.cmake") - the actual FIX for both
+    # the accented case AND the always-quoted control-byte case (tab,
+    # newline, double quote, backslash - quoted UNCONDITIONALLY per
+    # git-config(1), regardless of core.quotepath) is the dep-zero
+    # engine's own decoder (GATE-DEPZERO-NOFORK, 01/09/2026, see above).
     all_files="$(git -c core.quotepath=false -C "$root" ls-files 2>/dev/null)" \
         || { echo "check_dep_zero.sh: 'git ls-files' failed in $root (not a git repository, or git unavailable) - scan refused, never assumed empty" >&2; return 1; }
 
-    cmake_files="$(printf '%s\n' "$all_files" | grep -E "$CMAKE_SURFACE_PATTERN" || true)"
-    cxx_files="$(printf '%s\n' "$all_files" | grep -E "$CXX_SURFACE_PATTERN" || true)"
+    engine_raw="$(printf '%s\n' "$all_files" | run_dep_zero_engine "$root" "$root")" || {
+        echo "check_dep_zero.sh: the dep-zero engine (awk) itself failed to run - scan refused, never assumed clean" >&2
+        return 1
+    }
 
-    cmake_count=0
-    [ -n "$cmake_files" ] && cmake_count="$(count_lines "$cmake_files")"
-    if [ "$cmake_count" -eq 0 ]; then
+    violations="$(printf '%s\n' "$engine_raw" | sed -n 's/^V|//p')"
+    warnings="$(printf '%s\n' "$engine_raw" | sed -n 's/^W|//p')"
+    failed_records="$(printf '%s\n' "$engine_raw" | sed -n 's/^F|//p')"
+    summary_records="$(printf '%s\n' "$engine_raw" | sed -n 's/^S|//p')"
+    summary_count=0
+    [ -n "$summary_records" ] && summary_count="$(count_lines "$summary_records")"
+
+    if [ "$summary_count" -ne 1 ]; then
+        echo "check_dep_zero.sh: the dep-zero engine (awk) did not print exactly one summary record (got $summary_count) - the scan is not trusted, GODS_LAWS.md L-36/L-40" >&2
+        return 1
+    fi
+    parse_dep_zero_summary "$summary_records"
+
+    if [ "$cmake_found" -eq 0 ]; then
         echo "check_dep_zero.sh: empty scan (0 CMake surface files) - GODS_LAWS.md L-40" >&2
         return 1
     fi
-
-    cxx_count=0
-    [ -n "$cxx_files" ] && cxx_count="$(count_lines "$cxx_files")"
-    if [ "$cxx_count" -eq 0 ]; then
+    if [ "$cxx_found" -eq 0 ]; then
         echo "check_dep_zero.sh: empty scan (0 C++ surface files) - GODS_LAWS.md L-40" >&2
         return 1
     fi
 
-    cmake_raw="$(printf '%s\n' "$cmake_files" | while IFS= read -r p; do
-        [ -z "$p" ] && continue
-        cat "$root/$p" | cmake_content_violations "$root/$p"
-    done)"
-    cmake_violations="$(printf '%s\n' "$cmake_raw" | sed -n 's/^V|//p')"
-    cmake_warnings="$(printf '%s\n' "$cmake_raw" | sed -n 's/^W|//p')"
-    include_violations="$(printf '%s\n' "$cxx_files" | while IFS= read -r p; do
-        [ -z "$p" ] && continue
-        cat "$root/$p" | include_content_violations "$root" "$root/$p"
-    done)"
+    # GODS_LAWS.md L-40 item 3/L-36 fail-closed: a file the engine
+    # enumerated but could not open (deleted from the worktree between
+    # commit and scan, a directory, unreadable) must reprove, never be
+    # silently treated as "clean because empty".
+    scan_failed=0
+    if [ "$failed" -ne 0 ] || [ "$cmake_found" -ne "$cmake_analyzed" ] || [ "$cxx_found" -ne "$cxx_analyzed" ]; then
+        scan_failed=1
+    fi
 
     needed_ok=1
     needed_output=""
@@ -804,19 +1013,26 @@ check_dep_zero_tree() {
         needed_ok=0
     fi
 
-    warning_total="$(count_warning_records "$cmake_warnings")"
+    warning_total="$(count_warning_records "$warnings")"
 
-    if [ -n "$cmake_violations" ] || [ -n "$include_violations" ] || [ "$needed_ok" -eq 0 ]; then
+    if [ "$scan_failed" -eq 1 ] || [ -n "$violations" ] || [ "$needed_ok" -eq 0 ]; then
         print_violation_header
-        [ -n "$cmake_violations" ] && printf '%s\n' "$cmake_violations" >&2
-        [ -n "$include_violations" ] && printf '%s\n' "$include_violations" >&2
+        [ -n "$violations" ] && printf '%s\n' "$violations" >&2
         [ "$needed_ok" -eq 0 ] && printf '%s\n' "$needed_output" >&2
-        [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
+        if [ "$scan_failed" -eq 1 ]; then
+            echo "check_dep_zero.sh: scan incomplete - $failed file(s) refused to open, cmake $cmake_analyzed/$cmake_found analyzed, c++ $cxx_analyzed/$cxx_found analyzed (GODS_LAWS.md L-40 fail-closed)" >&2
+            [ -n "$failed_records" ] && printf '%s\n' "$failed_records" >&2
+        fi
+        [ -n "$warnings" ] && printf '%s\n' "$warnings" >&2
+        # "encontrados" must include what the OLD grep-based enumeration
+        # never saw (GATE-DEPZERO-NOFORK C4) - declared on every reprove
+        # path, not only the clean-pass summary line below.
+        echo "check_dep_zero.sh: $cmake_found cmake file(s), $cxx_found c++ file(s) found (scan reproved, see above)" >&2
         return 1
     fi
 
-    [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
-    echo "check_dep_zero.sh: 0 violation(s), ${warning_total} warning(s) deferred to the CI oracle (dep_zero_trace) - $cmake_count cmake file(s), $cxx_count c++ file(s) scanned"
+    [ -n "$warnings" ] && printf '%s\n' "$warnings" >&2
+    echo "check_dep_zero.sh: 0 violation(s), ${warning_total} warning(s) deferred to the CI oracle (dep_zero_trace) - $cmake_found cmake file(s), $cxx_found c++ file(s) scanned"
     printf '%s\n' "$needed_output"
     echo "check_dep_zero.sh: out of scope by design, and not verified by any other gate either: documents (.md), shell scripts (.sh), and quote includes (#include \"...\") are not scanned here. check_spdx.sh only checks for the PRESENCE of an SPDX header string in a file (a vendored third-party file with that string pasted in would still pass it); check_vendor_purity.sh only guards the one named third_party/khronos/ exception from growing, not vendoring in general. Neither closes the quote-include vendor vector - this gate does not either."
     echo "check_dep_zero.sh: ambiguous multi-line or variable-built calls pass this shallow, line-by-line gate with a printed warning; the CI oracle (ctest test dep_zero_trace, tests/tools/check_dep_zero_trace.py) is the authority that judges what CMake actually executes."
@@ -830,58 +1046,91 @@ check_dep_zero_staged() {
     git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
         || { echo "check_dep_zero.sh: not a git repository: $root" >&2; return 1; }
 
-    # -c core.quotepath=false: same GATE-QUOTEPATH reasoning as
-    # check_dep_zero_tree above, applied to the staged (index) listing.
+    # -c core.quotepath=false: same GATE-QUOTEPATH/GATE-DEPZERO-NOFORK
+    # reasoning as check_dep_zero_tree above, applied to the staged
+    # (index) listing - this one drives the engine's classification and
+    # citations, and is separate from the -z enumeration below (used
+    # only to materialize CONTENT, never to decide what matches).
     staged="$(git -c core.quotepath=false -C "$root" diff --cached --name-only --diff-filter=ACMR)" \
         || { echo "check_dep_zero.sh: 'git diff --cached' failed in $root" >&2; return 1; }
 
     staged_count=0
     [ -n "$staged" ] && staged_count="$(count_lines "$staged")"
 
-    cmake_relevant="$(printf '%s\n' "$staged" | grep -E "$CMAKE_SURFACE_PATTERN" || true)"
-    cxx_relevant="$(printf '%s\n' "$staged" | grep -E "$CXX_SURFACE_PATTERN" || true)"
+    # Materializes the INDEX content (never the working tree,
+    # GODS_LAWS.md L-12) into a scratch prefix: ONE -z enumeration plus
+    # ONE checkout-index, both constant-cost regardless of N
+    # (GODS_LAWS.md L-11 bloco 6) - `git show ":$p"` per file is what
+    # this replaces. The listing goes to a FILE, never a variable ($(...)
+    # silently drops embedded NUL bytes - GODS_LAWS.md L-45 territory).
+    tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-dep-zero-staged-XXXXXX")" \
+        || { echo "check_dep_zero.sh: mktemp failed materializing staged content" >&2; return 1; }
+    listing_z="$(mktemp "${TMPDIR:-/tmp}/glintfx-dep-zero-staged-list-XXXXXX")" \
+        || { rm -rf "$tmp_root"; echo "check_dep_zero.sh: mktemp failed materializing staged content" >&2; return 1; }
 
-    cmake_count=0
-    [ -n "$cmake_relevant" ] && cmake_count="$(count_lines "$cmake_relevant")"
-    cxx_count=0
-    [ -n "$cxx_relevant" ] && cxx_count="$(count_lines "$cxx_relevant")"
-    relevant_count=$((cmake_count + cxx_count))
+    if ! git -C "$root" diff --cached --name-only -z --diff-filter=ACMR > "$listing_z"; then
+        rm -rf "$tmp_root"; rm -f "$listing_z"
+        echo "check_dep_zero.sh: 'git diff --cached -z' failed in $root" >&2
+        return 1
+    fi
+    if ! git -C "$root" checkout-index -z --stdin --prefix="$tmp_root/" < "$listing_z"; then
+        rm -rf "$tmp_root"; rm -f "$listing_z"
+        echo "check_dep_zero.sh: 'git checkout-index' failed materializing staged content in $root" >&2
+        return 1
+    fi
+    rm -f "$listing_z"
 
+    engine_raw="$(printf '%s\n' "$staged" | run_dep_zero_engine "$root" "$tmp_root")"
+    engine_status=$?
+    rm -rf "$tmp_root"
+    if [ "$engine_status" -ne 0 ]; then
+        echo "check_dep_zero.sh: the dep-zero engine (awk) itself failed to run - scan refused, never assumed clean" >&2
+        return 1
+    fi
+
+    violations="$(printf '%s\n' "$engine_raw" | sed -n 's/^V|//p')"
+    warnings="$(printf '%s\n' "$engine_raw" | sed -n 's/^W|//p')"
+    failed_records="$(printf '%s\n' "$engine_raw" | sed -n 's/^F|//p')"
+    summary_records="$(printf '%s\n' "$engine_raw" | sed -n 's/^S|//p')"
+    summary_count=0
+    [ -n "$summary_records" ] && summary_count="$(count_lines "$summary_records")"
+
+    if [ "$summary_count" -ne 1 ]; then
+        echo "check_dep_zero.sh: the dep-zero engine (awk) did not print exactly one summary record (got $summary_count) - the scan is not trusted, GODS_LAWS.md L-36/L-40" >&2
+        return 1
+    fi
+    parse_dep_zero_summary "$summary_records"
+
+    relevant_count=$((cmake_found + cxx_found))
     if [ "$relevant_count" -eq 0 ]; then
         echo "check_dep_zero.sh: 0 relevant file(s) among $staged_count staged file(s); CMake/C++ surfaces untouched by this commit (GODS_LAWS.md L-40: declared, not silent)"
         return 0
     fi
 
-    cmake_violations=""
-    cmake_warnings=""
-    if [ -n "$cmake_relevant" ]; then
-        cmake_raw="$(printf '%s\n' "$cmake_relevant" | while IFS= read -r p; do
-            [ -z "$p" ] && continue
-            git -C "$root" show ":$p" 2>/dev/null | cmake_content_violations "$root/$p"
-        done)"
-        cmake_violations="$(printf '%s\n' "$cmake_raw" | sed -n 's/^V|//p')"
-        cmake_warnings="$(printf '%s\n' "$cmake_raw" | sed -n 's/^W|//p')"
-    fi
-    include_violations=""
-    if [ -n "$cxx_relevant" ]; then
-        include_violations="$(printf '%s\n' "$cxx_relevant" | while IFS= read -r p; do
-            [ -z "$p" ] && continue
-            git -C "$root" show ":$p" 2>/dev/null | include_content_violations "$root" "$root/$p"
-        done)"
+    scan_failed=0
+    if [ "$failed" -ne 0 ] || [ "$cmake_found" -ne "$cmake_analyzed" ] || [ "$cxx_found" -ne "$cxx_analyzed" ]; then
+        scan_failed=1
     fi
 
-    warning_total="$(count_warning_records "$cmake_warnings")"
+    warning_total="$(count_warning_records "$warnings")"
 
-    if [ -n "$cmake_violations" ] || [ -n "$include_violations" ]; then
+    if [ "$scan_failed" -eq 1 ] || [ -n "$violations" ]; then
         print_violation_header
-        [ -n "$cmake_violations" ] && printf '%s\n' "$cmake_violations" >&2
-        [ -n "$include_violations" ] && printf '%s\n' "$include_violations" >&2
-        [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
+        [ -n "$violations" ] && printf '%s\n' "$violations" >&2
+        if [ "$scan_failed" -eq 1 ]; then
+            echo "check_dep_zero.sh: scan incomplete - $failed file(s) refused to open, cmake $cmake_analyzed/$cmake_found analyzed, c++ $cxx_analyzed/$cxx_found analyzed (GODS_LAWS.md L-40 fail-closed)" >&2
+            [ -n "$failed_records" ] && printf '%s\n' "$failed_records" >&2
+        fi
+        [ -n "$warnings" ] && printf '%s\n' "$warnings" >&2
+        # "encontrados" must include what the OLD grep-based enumeration
+        # never saw (GATE-DEPZERO-NOFORK C4) - declared on every reprove
+        # path, not only the clean-pass summary line below.
+        echo "check_dep_zero.sh: $cmake_found cmake file(s), $cxx_found c++ file(s) found among $staged_count staged file(s) (scan reproved, see above)" >&2
         return 1
     fi
 
-    [ -n "$cmake_warnings" ] && printf '%s\n' "$cmake_warnings" >&2
-    echo "check_dep_zero.sh: 0 violation(s), ${warning_total} warning(s) deferred to the CI oracle (dep_zero_trace) - $cmake_count cmake file(s), $cxx_count c++ file(s) among $staged_count staged file(s) scanned"
+    [ -n "$warnings" ] && printf '%s\n' "$warnings" >&2
+    echo "check_dep_zero.sh: 0 violation(s), ${warning_total} warning(s) deferred to the CI oracle (dep_zero_trace) - $cmake_found cmake file(s), $cxx_found c++ file(s) among $staged_count staged file(s) scanned"
 }
 
 # --- real mode -----------------------------------------------------------
@@ -1866,14 +2115,21 @@ selftest_empty_scan_tree_cmake_only() {
 # GATE-QUOTEPATH (01/09/2026): git's own default (core.quotepath=true)
 # prints any tracked path containing a byte >= 0x80 as a C-style
 # octal-escaped, double-quoted string (e.g. "Wayl\303\244nd.cmake"
-# instead of Waylând.cmake). CMAKE_SURFACE_PATTERN ends in '\.cmake$',
-# which never matches a line ending in a closing quote - measured live:
-# `git ls-files | grep -cE '\.cmake$'` returns 0 for a quoted path,
-# 1 for the same path read via `git ls-files -z`. Before the fix this
-# control proves the exact silent hole: an accented-named .cmake file
-# carrying an undeniable violation (FetchContent) is scanned as if it
-# did not exist, and the tree PASSES it should have reproved. After the
-# fix (git -c core.quotepath=false), the file is seen and cited.
+# instead of Waylând.cmake). core.quotepath only ever controls THIS -
+# bytes >= 0x80 - never tab/newline/quote/backslash, which git quotes
+# UNCONDITIONALLY (git-config(1)); the OLD grep-based enumeration
+# (`git ls-files | grep -cE '\.cmake$'`) matched neither shape of a
+# quoted line, since '"...\303\244nd.cmake"' never ends in the bare
+# '.cmake$' the pattern anchors on. Before the fix this control proved
+# the exact silent hole: an accented-named .cmake file carrying an
+# undeniable violation (FetchContent) was scanned as if it did not
+# exist, and the tree PASSED when it should have reproved. The fix has
+# two parts, both still load-bearing: `git -c core.quotepath=false`
+# (kept for DISPLAY AFFINITY - citations read "Waylând.cmake", not an
+# escaped form) plus the dep-zero engine's own git-quote DECODER
+# (GATE-DEPZERO-NOFORK, 01/09/2026, see the engine above), which is
+# what actually makes a quoted line - accented or hostile - resolve
+# against the surface patterns again.
 selftest_negative_control_accented_filename_tree() {
     scratch="$1"
     root="$scratch/negative-accented-tree"
@@ -1894,10 +2150,10 @@ selftest_negative_control_accented_filename_tree() {
     echo "selftest: NEGATIVE(accented-filename/tree) control OK (cmake/Waylând.cmake seen and reproved despite the accented byte, GATE-QUOTEPATH)"
 }
 
-# Same defect, staged (pre-commit) mode: check_dep_zero_staged applies
-# the SAME CMAKE_SURFACE_PATTERN/CXX_SURFACE_PATTERN grep against
-# `git diff --cached --name-only`, which quotepath-escapes exactly like
-# `git ls-files` does.
+# Same defect, staged (pre-commit) mode: check_dep_zero_staged feeds
+# the SAME `git diff --cached --name-only` listing (quoted exactly like
+# `git ls-files`) to the SAME dep-zero engine, so the decoder above
+# resolves it here too.
 selftest_staged_accented_filename() {
     scratch="$1"
     root="$scratch/staged-accented"
@@ -2090,6 +2346,123 @@ selftest_warn_counter_declared() {
     echo "selftest: WARN-COUNTER control OK (o resumo declara 0 warning(s) na fixture limpa e 1 warning(s) com uma forma ambigua)"
 }
 
+# GATE-DEPZERO-NOFORK (01/09/2026): the three C-quoted forms a
+# hostile filename can take that the OLD per-file shell loop never
+# even saw (git-config(1): tab/newline/quote/backslash are quoted
+# UNCONDITIONALLY, independent of core.quotepath). Each carries a real
+# violation (include(FetchContent)) beside the clean sibling
+# make_clean_fixture already writes, so the non-empty-scan floor stays
+# above zero on its own and cannot be the reason a reprove happens.
+hostile_filename_case() {
+    case_name="$1"
+    case "$case_name" in
+        lf) printf 'cmake/Way\nland2.cmake' ;;
+        dquote) printf 'cmake/Way"land2.cmake' ;;
+        backslash) printf 'cmake/Way\\land2.cmake' ;;
+    esac
+}
+
+# C1 (plan DEPZERO-NOFORK secao 3): tree mode. Also carries C4 (an
+# assertion, not a separate control): the summary must COUNT the
+# hostile file among "cmake file(s)" - "encontrados" now includes what
+# used to be invisible, not just "reproved for the right reason".
+selftest_negative_control_hostile_filename_tree() {
+    scratch="$1"
+    root="$scratch/negative-hostile-tree"
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    hostile_tree_status=0
+
+    for case_name in lf dquote backslash; do
+        make_clean_fixture "$root"
+        name="$(hostile_filename_case "$case_name")"
+        printf 'include(FetchContent)\n' > "$root/$name"
+        git_init_fixture "$root"
+
+        if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+            echo "selftest: NEGATIVE(hostile-filename/tree/$case_name) control FAILED (should have been reproved - GATE-DEPZERO-NOFORK)" >&2
+            hostile_tree_status=1
+        else
+            if ! printf '%s\n' "$output" | grep -qF "FetchContent"; then
+                echo "selftest: NEGATIVE(hostile-filename/tree/$case_name) control FAILED (reproved, but did not cite FetchContent)" >&2
+                printf '%s\n' "$output" >&2
+                hostile_tree_status=1
+            fi
+            if ! printf '%s\n' "$output" | grep -qF "4 cmake file(s)"; then
+                echo "selftest: NEGATIVE(hostile-filename/tree/$case_name) control FAILED (reproved, but the found-count did not count the hostile file among 'cmake file(s)' - 'encontrados' must include what used to be invisible, C4)" >&2
+                printf '%s\n' "$output" >&2
+                hostile_tree_status=1
+            fi
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$hostile_tree_status" -eq 0 ] && echo "selftest: NEGATIVE(hostile-filename/tree) control OK (newline/double-quote/backslash filename, each seen, reproved and cited, GATE-DEPZERO-NOFORK)"
+    return "$hostile_tree_status"
+}
+
+# C2: the same three forms, staged (pre-commit) mode.
+selftest_staged_hostile_filename() {
+    scratch="$1"
+    root="$scratch/staged-hostile"
+    # DEPZERO-SELFTEST-FIX: see selftest_negative_control_cmake's comment.
+    hostile_staged_status=0
+
+    for case_name in lf dquote backslash; do
+        make_clean_fixture "$root"
+        git_init_fixture "$root"
+        name="$(hostile_filename_case "$case_name")"
+        printf 'include(FetchContent)\n' > "$root/$name"
+        git -C "$root" add "$name"
+
+        if output="$(check_dep_zero_staged "$root" 2>&1)"; then
+            echo "selftest: STAGED(hostile-filename/$case_name) control FAILED (should have been reproved - GATE-DEPZERO-NOFORK)" >&2
+            hostile_staged_status=1
+        elif ! printf '%s\n' "$output" | grep -qF "FetchContent"; then
+            echo "selftest: STAGED(hostile-filename/$case_name) control FAILED (reproved, but did not cite FetchContent)" >&2
+            printf '%s\n' "$output" >&2
+            hostile_staged_status=1
+        fi
+        rm -rf "$root"
+    done
+
+    [ "$hostile_staged_status" -eq 0 ] && echo "selftest: STAGED(hostile-filename) control OK (newline/double-quote/backslash filename staged, each reproved and cited, GATE-DEPZERO-NOFORK)"
+    return "$hostile_staged_status"
+}
+
+# C3: a tracked CMake file deleted from the WORKTREE (not the index)
+# before the tree-mode scan runs. The OLD `cat "$root/$p"` failed
+# silently (empty stdin, zero lines evaluated, no violation possible)
+# and the file's disappearance never affected the verdict. The engine
+# now reports it as an 'F|' open-refusal, and the shell's fail-closed
+# found!=analyzed check must reprove. Deletion, never chmod 000
+# (GODS_LAWS.md L-47: the CI container runs as root and ignores
+# permission bits - a chmod-000 fixture would pass there for the wrong
+# reason).
+selftest_tree_missing_worktree_file() {
+    scratch="$1"
+    root="$scratch/tree-missing-worktree-file"
+    make_clean_fixture "$root"
+    git_init_fixture "$root"
+    rm -f "$root/cmake/Wayland.cmake"
+
+    if output="$(check_dep_zero_tree "$root" "NONE" 2>&1)"; then
+        echo "selftest: TREE(missing-worktree-file) control FAILED (a tracked CMake file missing from the worktree must reprove - fail-closed, GODS_LAWS.md L-40)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "scan incomplete"; then
+        echo "selftest: TREE(missing-worktree-file) control FAILED (reproved, but did not declare 'scan incomplete')" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$output" | grep -qF "open refused"; then
+        echo "selftest: TREE(missing-worktree-file) control FAILED (reproved, but did not cite 'open refused' for the missing file)" >&2
+        printf '%s\n' "$output" >&2
+        return 1
+    fi
+    echo "selftest: TREE(missing-worktree-file) control OK (a tracked file deleted from the worktree is refused, not silently treated as empty/clean)"
+}
+
 # DEPZERO-SHALLOW F5, 31/08/2026: replaces the hand-counted literal
 # "all twenty-one controls OK" - a number written by hand ages the
 # instant a control is added or split (measured: this exact literal
@@ -2145,6 +2518,9 @@ selftest_main() {
     run_control selftest_staged_warns_ambiguous "$scratch"
     run_control selftest_escape_via_allowlist_edit "$scratch"
     run_control selftest_warn_counter_declared "$scratch"
+    run_control selftest_negative_control_hostile_filename_tree "$scratch"
+    run_control selftest_staged_hostile_filename "$scratch"
+    run_control selftest_tree_missing_worktree_file "$scratch"
 
     if [ "$overall" -ne 0 ]; then
         echo "check_dep_zero.sh --selftest: FAILED (see above)" >&2

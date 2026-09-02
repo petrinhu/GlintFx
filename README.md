@@ -117,6 +117,8 @@ Almost everything in this repository is written from scratch under AGPL-3.0-or-l
 ## More documentation
 
 - [`docs/api-conventions.md`](docs/api-conventions.md): the public error-handling contract, in depth.
+- [`docs/node-view-and-matching.md`](docs/node-view-and-matching.md): the eight-fact contract a consumer implements so the style engine can see their own UI tree, and how a style rule is judged against one node today.
+- [`docs/wayland-display.md`](docs/wayland-display.md): internal engineering notes on how glintfx talks to a Wayland compositor - not a public API yet, useful background for anyone reading the platform layer.
 - [`PACKAGING.md`](PACKAGING.md): reference for packagers and consumers: install layouts, embedding, static linking.
 - [`CHANGELOG.md`](CHANGELOG.md): what changed, release by release.
 

@@ -39,14 +39,15 @@ inline constexpr std::size_t k_no_index = static_cast<std::size_t>(-1);
 struct entry {
     std::string tag;
     std::string id;
-    std::vector<std::string> classes;                              // author order (fact 3)
-    std::vector<std::pair<std::string, std::string>> attributes;    // presence = found in this list (fact 4)
+    std::vector<std::string> classes; // author order (fact 3)
+    std::vector<std::pair<std::string, std::string>>
+        attributes; // presence = found in this list (fact 4)
     glintfx::gfui::gltfx_node_state state = glintfx::gfui::gltfx_node_state::none; // fact 5
-    std::size_t parent = k_no_index;           // fact 6
-    std::size_t previous_sibling = k_no_index; // fact 7
-    std::size_t next_sibling = k_no_index;     // fact 7
-    std::size_t child_count = 0;               // fact 8 - conteudo (elemento E texto), D-NV-3
-    std::size_t first_child = k_no_index;      // fact 8 - so elemento; k_no_index se so ha texto
+    std::size_t parent = k_no_index;                                               // fact 6
+    std::size_t previous_sibling = k_no_index;                                     // fact 7
+    std::size_t next_sibling = k_no_index;                                         // fact 7
+    std::size_t child_count = 0;          // fact 8 - conteudo (elemento E texto), D-NV-3
+    std::size_t first_child = k_no_index; // fact 8 - so elemento; k_no_index se so ha texto
 };
 
 // The arena itself - what gltfx_node_view::tree points at for this
@@ -97,8 +98,9 @@ inline std::string_view id(const void *tree, const void *node) noexcept {
     return detail::resolve(tree, node).id;
 }
 
-inline void for_each_class(const void *tree, const void *node, glintfx::gfui::gltfx_node_class_visitor_fn visit,
-                            void *visitor_context) noexcept {
+inline void for_each_class(const void *tree, const void *node,
+                           glintfx::gfui::gltfx_node_class_visitor_fn visit,
+                           void *visitor_context) noexcept {
     for (const std::string &class_name : detail::resolve(tree, node).classes) {
         if (!visit(visitor_context, class_name)) {
             return;
@@ -107,7 +109,7 @@ inline void for_each_class(const void *tree, const void *node, glintfx::gfui::gl
 }
 
 inline glintfx::gfui::gltfx_node_attribute attribute(const void *tree, const void *node,
-                                                      std::string_view name) noexcept {
+                                                     std::string_view name) noexcept {
     for (const auto &[attr_name, attr_value] : detail::resolve(tree, node).attributes) {
         if (attr_name == name) {
             return glintfx::gfui::gltfx_node_attribute{.present = true, .value = attr_value};

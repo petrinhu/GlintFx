@@ -28,7 +28,8 @@ namespace glintfx::gfui::detail {
     return view.facts->id(view.tree, view.node);
 }
 
-[[nodiscard]] inline gltfx_node_attribute attribute(const gltfx_node_view &view, std::string_view name) noexcept {
+[[nodiscard]] inline gltfx_node_attribute attribute(const gltfx_node_view &view,
+                                                    std::string_view name) noexcept {
     return view.facts->attribute(view.tree, view.node, name);
 }
 
@@ -37,17 +38,20 @@ namespace glintfx::gfui::detail {
 }
 
 [[nodiscard]] inline gltfx_node_view parent(const gltfx_node_view &view) noexcept {
-    return gltfx_node_view{.facts = view.facts, .tree = view.tree, .node = view.facts->parent(view.tree, view.node)};
+    return gltfx_node_view{
+        .facts = view.facts, .tree = view.tree, .node = view.facts->parent(view.tree, view.node)};
 }
 
 [[nodiscard]] inline gltfx_node_view previous_sibling(const gltfx_node_view &view) noexcept {
-    return gltfx_node_view{
-        .facts = view.facts, .tree = view.tree, .node = view.facts->previous_sibling(view.tree, view.node)};
+    return gltfx_node_view{.facts = view.facts,
+                           .tree = view.tree,
+                           .node = view.facts->previous_sibling(view.tree, view.node)};
 }
 
 [[nodiscard]] inline gltfx_node_view next_sibling(const gltfx_node_view &view) noexcept {
-    return gltfx_node_view{
-        .facts = view.facts, .tree = view.tree, .node = view.facts->next_sibling(view.tree, view.node)};
+    return gltfx_node_view{.facts = view.facts,
+                           .tree = view.tree,
+                           .node = view.facts->next_sibling(view.tree, view.node)};
 }
 
 [[nodiscard]] inline std::size_t child_count(const gltfx_node_view &view) noexcept {
@@ -55,8 +59,9 @@ namespace glintfx::gfui::detail {
 }
 
 [[nodiscard]] inline gltfx_node_view first_child(const gltfx_node_view &view) noexcept {
-    return gltfx_node_view{
-        .facts = view.facts, .tree = view.tree, .node = view.facts->first_child(view.tree, view.node)};
+    return gltfx_node_view{.facts = view.facts,
+                           .tree = view.tree,
+                           .node = view.facts->first_child(view.tree, view.node)};
 }
 
 // Derived (not a table entry): membership in ONE class, via fact 3's

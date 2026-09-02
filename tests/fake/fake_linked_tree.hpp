@@ -45,7 +45,8 @@ inline std::string_view id(const void * /*tree*/, const void *node_ptr) noexcept
 }
 
 inline void for_each_class(const void * /*tree*/, const void *node_ptr,
-                            glintfx::gfui::gltfx_node_class_visitor_fn visit, void *visitor_context) noexcept {
+                           glintfx::gfui::gltfx_node_class_visitor_fn visit,
+                           void *visitor_context) noexcept {
     for (const std::string &class_name : static_cast<const node *>(node_ptr)->classes) {
         if (!visit(visitor_context, class_name)) {
             return;
@@ -54,7 +55,7 @@ inline void for_each_class(const void * /*tree*/, const void *node_ptr,
 }
 
 inline glintfx::gfui::gltfx_node_attribute attribute(const void * /*tree*/, const void *node_ptr,
-                                                      std::string_view name) noexcept {
+                                                     std::string_view name) noexcept {
     for (const auto &[attr_name, attr_value] : static_cast<const node *>(node_ptr)->attributes) {
         if (attr_name == name) {
             return glintfx::gfui::gltfx_node_attribute{.present = true, .value = attr_value};

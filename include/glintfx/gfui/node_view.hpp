@@ -80,16 +80,21 @@ enum class gltfx_node_state : std::uint8_t {
 // every name but changed a shift number would still compile; these
 // five static_asserts are what turns that into a build failure
 // instead of a silent ABI break.
-static_assert(static_cast<std::uint8_t>(gltfx_node_state::hover) == 1U,
-              "GODS_LAWS.md L-26: gltfx_node_state::hover's bit value is frozen ABI, never renumbered");
-static_assert(static_cast<std::uint8_t>(gltfx_node_state::active) == 2U,
-              "GODS_LAWS.md L-26: gltfx_node_state::active's bit value is frozen ABI, never renumbered");
-static_assert(static_cast<std::uint8_t>(gltfx_node_state::focus) == 4U,
-              "GODS_LAWS.md L-26: gltfx_node_state::focus's bit value is frozen ABI, never renumbered");
+static_assert(
+    static_cast<std::uint8_t>(gltfx_node_state::hover) == 1U,
+    "GODS_LAWS.md L-26: gltfx_node_state::hover's bit value is frozen ABI, never renumbered");
+static_assert(
+    static_cast<std::uint8_t>(gltfx_node_state::active) == 2U,
+    "GODS_LAWS.md L-26: gltfx_node_state::active's bit value is frozen ABI, never renumbered");
+static_assert(
+    static_cast<std::uint8_t>(gltfx_node_state::focus) == 4U,
+    "GODS_LAWS.md L-26: gltfx_node_state::focus's bit value is frozen ABI, never renumbered");
 static_assert(static_cast<std::uint8_t>(gltfx_node_state::focus_visible) == 8U,
-              "GODS_LAWS.md L-26: gltfx_node_state::focus_visible's bit value is frozen ABI, never renumbered");
-static_assert(static_cast<std::uint8_t>(gltfx_node_state::checked) == 16U,
-              "GODS_LAWS.md L-26: gltfx_node_state::checked's bit value is frozen ABI, never renumbered");
+              "GODS_LAWS.md L-26: gltfx_node_state::focus_visible's bit value is frozen ABI, never "
+              "renumbered");
+static_assert(
+    static_cast<std::uint8_t>(gltfx_node_state::checked) == 16U,
+    "GODS_LAWS.md L-26: gltfx_node_state::checked's bit value is frozen ABI, never renumbered");
 static_assert(sizeof(gltfx_node_state) == 1U,
               "GODS_LAWS.md L-26: gltfx_node_state has to stay a single byte on the wire, on every "
               "platform this library ships for");
@@ -125,7 +130,8 @@ inline constexpr std::size_t gltfx_node_state_count = [] {
 // single bitwise-and-and-compare), the SAME shape a consumer would
 // write by hand for `flags & bit == bit` - this just names it so
 // nobody has to remember the underlying_type cast at every call site.
-[[nodiscard]] constexpr bool gltfx_node_state_has(gltfx_node_state flags, gltfx_node_state bit) noexcept {
+[[nodiscard]] constexpr bool gltfx_node_state_has(gltfx_node_state flags,
+                                                  gltfx_node_state bit) noexcept {
     const auto flags_bits = static_cast<std::uint8_t>(flags);
     const auto bit_bits = static_cast<std::uint8_t>(bit);
     return (flags_bits & bit_bits) == bit_bits;
@@ -150,7 +156,8 @@ struct gltfx_node_attribute {
 // returned false is a violation of the consumer's own contract, not
 // this library's. Repeating a class name IS tolerated (pertencimento
 // e idempotente); omitting one is not.
-using gltfx_node_class_visitor_fn = bool (*)(void *visitor_context, std::string_view class_name) noexcept;
+using gltfx_node_class_visitor_fn = bool (*)(void *visitor_context,
+                                             std::string_view class_name) noexcept;
 
 // GLINTFX_NODE_FACTS_LIST(X) - the ten CALLBACK ENTRIES that answer
 // ESCOPO.md SS2 decision 6's eight facts (facts 7 and 8 are each two
@@ -167,7 +174,7 @@ using gltfx_node_class_visitor_fn = bool (*)(void *visitor_context, std::string_
     X(for_each_class)                                                                              \
     X(attribute)                                                                                   \
     X(state)                                                                                       \
-    X(parent)                                                                                       \
+    X(parent)                                                                                      \
     X(previous_sibling)                                                                            \
     X(next_sibling)                                                                                \
     X(child_count)                                                                                 \
@@ -230,17 +237,21 @@ inline constexpr std::size_t gltfx_node_facts_fact_count = [] {
 // this struct.
 struct gltfx_node_facts {
     std::string_view (*tag_name)(const void *tree, const void *node) noexcept = nullptr; // fact 1
-    std::string_view (*id)(const void *tree, const void *node) noexcept = nullptr;       // fact 2 (empty = none)
+    std::string_view (*id)(const void *tree,
+                           const void *node) noexcept = nullptr; // fact 2 (empty = none)
     void (*for_each_class)(const void *tree, const void *node, gltfx_node_class_visitor_fn visit,
-                            void *visitor_context) noexcept = nullptr; // fact 3
+                           void *visitor_context) noexcept = nullptr; // fact 3
     gltfx_node_attribute (*attribute)(const void *tree, const void *node,
-                                       std::string_view name) noexcept = nullptr; // fact 4
+                                      std::string_view name) noexcept = nullptr;      // fact 4
     gltfx_node_state (*state)(const void *tree, const void *node) noexcept = nullptr; // fact 5
-    const void *(*parent)(const void *tree, const void *node) noexcept = nullptr;     // fact 6 (nullptr = root)
-    const void *(*previous_sibling)(const void *tree, const void *node) noexcept = nullptr; // fact 7
-    const void *(*next_sibling)(const void *tree, const void *node) noexcept = nullptr;     // fact 7
-    std::size_t (*child_count)(const void *tree, const void *node) noexcept = nullptr;      // fact 8
-    const void *(*first_child)(const void *tree, const void *node) noexcept = nullptr; // fact 8 (nullptr = none)
+    const void *(*parent)(const void *tree,
+                          const void *node) noexcept = nullptr; // fact 6 (nullptr = root)
+    const void *(*previous_sibling)(const void *tree,
+                                    const void *node) noexcept = nullptr;               // fact 7
+    const void *(*next_sibling)(const void *tree, const void *node) noexcept = nullptr; // fact 7
+    std::size_t (*child_count)(const void *tree, const void *node) noexcept = nullptr;  // fact 8
+    const void *(*first_child)(const void *tree,
+                               const void *node) noexcept = nullptr; // fact 8 (nullptr = none)
 };
 
 // Ten offsetof static_asserts, one per field, in declaration order -
@@ -260,17 +271,20 @@ static_assert(offsetof(gltfx_node_facts, for_each_class) == 2 * sizeof(gltfx_nod
 static_assert(offsetof(gltfx_node_facts, attribute) == 3 * sizeof(gltfx_node_facts::tag_name));
 static_assert(offsetof(gltfx_node_facts, state) == 4 * sizeof(gltfx_node_facts::tag_name));
 static_assert(offsetof(gltfx_node_facts, parent) == 5 * sizeof(gltfx_node_facts::tag_name));
-static_assert(offsetof(gltfx_node_facts, previous_sibling) == 6 * sizeof(gltfx_node_facts::tag_name));
+static_assert(offsetof(gltfx_node_facts, previous_sibling) ==
+              6 * sizeof(gltfx_node_facts::tag_name));
 static_assert(offsetof(gltfx_node_facts, next_sibling) == 7 * sizeof(gltfx_node_facts::tag_name));
 static_assert(offsetof(gltfx_node_facts, child_count) == 8 * sizeof(gltfx_node_facts::tag_name));
 static_assert(offsetof(gltfx_node_facts, first_child) == 9 * sizeof(gltfx_node_facts::tag_name));
 
-static_assert(sizeof(gltfx_node_facts) == gltfx_node_facts_entry_count * sizeof(gltfx_node_facts::tag_name),
-              "GODS_LAWS.md L-19 item 3: gltfx_node_facts is exactly ten function pointers, no padding, "
-              "no hidden field");
-static_assert(std::is_trivially_copyable_v<gltfx_node_facts>,
-              "GODS_LAWS.md L-19 item 3: gltfx_node_facts is a value type, safe to copy across the ABI "
-              "boundary");
+static_assert(
+    sizeof(gltfx_node_facts) == gltfx_node_facts_entry_count * sizeof(gltfx_node_facts::tag_name),
+    "GODS_LAWS.md L-19 item 3: gltfx_node_facts is exactly ten function pointers, no padding, "
+    "no hidden field");
+static_assert(
+    std::is_trivially_copyable_v<gltfx_node_facts>,
+    "GODS_LAWS.md L-19 item 3: gltfx_node_facts is a value type, safe to copy across the ABI "
+    "boundary");
 static_assert(std::is_standard_layout_v<gltfx_node_facts>,
               "GODS_LAWS.md L-19 item 3: gltfx_node_facts's layout is the contract itself");
 
@@ -291,14 +305,16 @@ struct gltfx_node_view {
 
 static_assert(sizeof(gltfx_node_view) == 3 * sizeof(void *),
               "GODS_LAWS.md L-19 item 3: gltfx_node_view is exactly three pointers, no padding");
-static_assert(std::is_trivially_copyable_v<gltfx_node_view>,
-              "GODS_LAWS.md L-19 item 3: gltfx_node_view is a value type, safe to copy across the ABI "
-              "boundary");
+static_assert(
+    std::is_trivially_copyable_v<gltfx_node_view>,
+    "GODS_LAWS.md L-19 item 3: gltfx_node_view is a value type, safe to copy across the ABI "
+    "boundary");
 static_assert(std::is_standard_layout_v<gltfx_node_view>,
               "GODS_LAWS.md L-19 item 3: gltfx_node_view's layout is the contract itself");
-static_assert(std::is_trivially_copyable_v<gltfx_node_attribute>,
-              "GODS_LAWS.md L-19 item 3: gltfx_node_attribute is a value type, safe to copy across the "
-              "ABI boundary");
+static_assert(
+    std::is_trivially_copyable_v<gltfx_node_attribute>,
+    "GODS_LAWS.md L-19 item 3: gltfx_node_attribute is a value type, safe to copy across the "
+    "ABI boundary");
 static_assert(std::is_standard_layout_v<gltfx_node_attribute>,
               "GODS_LAWS.md L-19 item 3: gltfx_node_attribute's layout is the contract itself");
 
@@ -311,11 +327,12 @@ static_assert(std::is_standard_layout_v<gltfx_node_attribute>,
 // body is exactly ten one-line ifs, none of them exceeding the 40-line
 // budget by a wide margin).
 #define GLINTFX_NODE_FACTS_FIRST_MISSING_CHECK(name)                                               \
-    if (facts.name == nullptr) {                                                                  \
+    if (facts.name == nullptr) {                                                                   \
         return #name;                                                                              \
     }
 
-[[nodiscard]] inline std::string_view gltfx_node_facts_first_missing(const gltfx_node_facts &facts) noexcept {
+[[nodiscard]] inline std::string_view
+gltfx_node_facts_first_missing(const gltfx_node_facts &facts) noexcept {
     GLINTFX_NODE_FACTS_LIST(GLINTFX_NODE_FACTS_FIRST_MISSING_CHECK)
     return {};
 }

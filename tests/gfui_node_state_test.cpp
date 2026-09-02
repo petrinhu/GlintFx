@@ -25,7 +25,7 @@
 // already apply.
 GLINTFX_TEST(gltfx_node_state_count_is_five) {
     std::printf("gfui_node_state_test: gltfx_node_state_count = %zu\n",
-                 glintfx::gfui::gltfx_node_state_count);
+                glintfx::gfui::gltfx_node_state_count);
     GLINTFX_CHECK_EQ(glintfx::gfui::gltfx_node_state_count, static_cast<std::size_t>(5));
 }
 
@@ -61,19 +61,22 @@ GLINTFX_TEST(gltfx_node_state_name_answers_every_bit_and_unknown_for_none) {
 // conventions.md R7: an identifier token, never a synthesized
 // sentence) - falls through to "unknown", same as `none`.
 GLINTFX_TEST(gltfx_node_state_name_of_a_combination_is_unknown) {
-    const auto combo =
-        static_cast<glintfx::gfui::gltfx_node_state>(static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
-                                                       static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus));
+    const auto combo = static_cast<glintfx::gfui::gltfx_node_state>(
+        static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
+        static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus));
     GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_name(combo) == std::string_view{"unknown"});
 }
 
 GLINTFX_TEST(gltfx_node_state_has_reads_individual_and_combined_bits) {
-    const auto hover_and_focus =
-        static_cast<glintfx::gfui::gltfx_node_state>(static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
-                                                       static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus));
-    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(hover_and_focus, glintfx::gfui::gltfx_node_state::hover));
-    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(hover_and_focus, glintfx::gfui::gltfx_node_state::focus));
-    GLINTFX_CHECK(!glintfx::gfui::gltfx_node_state_has(hover_and_focus, glintfx::gfui::gltfx_node_state::active));
+    const auto hover_and_focus = static_cast<glintfx::gfui::gltfx_node_state>(
+        static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
+        static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus));
+    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(hover_and_focus,
+                                                      glintfx::gfui::gltfx_node_state::hover));
+    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(hover_and_focus,
+                                                      glintfx::gfui::gltfx_node_state::focus));
+    GLINTFX_CHECK(!glintfx::gfui::gltfx_node_state_has(hover_and_focus,
+                                                       glintfx::gfui::gltfx_node_state::active));
     GLINTFX_CHECK(!glintfx::gfui::gltfx_node_state_has(glintfx::gfui::gltfx_node_state::none,
-                                                        glintfx::gfui::gltfx_node_state::hover));
+                                                       glintfx::gfui::gltfx_node_state::hover));
 }

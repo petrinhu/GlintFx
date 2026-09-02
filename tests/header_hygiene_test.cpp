@@ -248,14 +248,16 @@ GLINTFX_TEST(gfss_value_header_survives_hostile_system_headers) {
 // the .so boundary for either), exercised here too since they are
 // call-shaped as well.
 GLINTFX_TEST(gfui_node_view_header_survives_hostile_system_headers) {
-    const std::string_view bit_name = glintfx::gfui::gltfx_node_state_name(glintfx::gfui::gltfx_node_state::focus);
+    const std::string_view bit_name =
+        glintfx::gfui::gltfx_node_state_name(glintfx::gfui::gltfx_node_state::focus);
     GLINTFX_CHECK(bit_name == std::string_view{"focus"});
 
     GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(glintfx::gfui::gltfx_node_state::hover,
-                                                       glintfx::gfui::gltfx_node_state::hover));
+                                                      glintfx::gfui::gltfx_node_state::hover));
 
     constexpr glintfx::gfui::gltfx_node_facts empty_facts{};
-    GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(empty_facts) == std::string_view{"tag_name"});
+    GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(empty_facts) ==
+                  std::string_view{"tag_name"});
 
     constexpr glintfx::gfui::gltfx_node_view view{};
     GLINTFX_CHECK(view.node == nullptr);

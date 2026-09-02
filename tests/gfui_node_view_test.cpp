@@ -36,31 +36,25 @@ namespace {
 std::string_view stub_tag_name(const void * /*tree*/, const void * /*node*/) noexcept {
     return "div";
 }
-std::string_view stub_id(const void * /*tree*/, const void * /*node*/) noexcept {
-    return "";
-}
+std::string_view stub_id(const void * /*tree*/, const void * /*node*/) noexcept { return ""; }
 void stub_for_each_class(const void * /*tree*/, const void * /*node*/,
-                          glintfx::gfui::gltfx_node_class_visitor_fn /*visit*/,
-                          void * /*visitor_context*/) noexcept {}
+                         glintfx::gfui::gltfx_node_class_visitor_fn /*visit*/,
+                         void * /*visitor_context*/) noexcept {}
 glintfx::gfui::gltfx_node_attribute stub_attribute(const void * /*tree*/, const void * /*node*/,
-                                                    std::string_view /*name*/) noexcept {
+                                                   std::string_view /*name*/) noexcept {
     return {};
 }
 glintfx::gfui::gltfx_node_state stub_state(const void * /*tree*/, const void * /*node*/) noexcept {
     return glintfx::gfui::gltfx_node_state::none;
 }
-const void *stub_parent(const void * /*tree*/, const void * /*node*/) noexcept {
-    return nullptr;
-}
+const void *stub_parent(const void * /*tree*/, const void * /*node*/) noexcept { return nullptr; }
 const void *stub_previous_sibling(const void * /*tree*/, const void * /*node*/) noexcept {
     return nullptr;
 }
 const void *stub_next_sibling(const void * /*tree*/, const void * /*node*/) noexcept {
     return nullptr;
 }
-std::size_t stub_child_count(const void * /*tree*/, const void * /*node*/) noexcept {
-    return 0;
-}
+std::size_t stub_child_count(const void * /*tree*/, const void * /*node*/) noexcept { return 0; }
 const void *stub_first_child(const void * /*tree*/, const void * /*node*/) noexcept {
     return nullptr;
 }
@@ -93,9 +87,9 @@ glintfx::gfui::gltfx_node_facts make_full_facts() noexcept {
 // ten callback entries answering eight facts.
 GLINTFX_TEST(gltfx_node_facts_counts_are_ten_entries_eight_facts) {
     std::printf("gfui_node_view_test: gltfx_node_facts_entry_count = %zu\n",
-                 glintfx::gfui::gltfx_node_facts_entry_count);
+                glintfx::gfui::gltfx_node_facts_entry_count);
     std::printf("gfui_node_view_test: gltfx_node_facts_fact_count = %zu\n",
-                 glintfx::gfui::gltfx_node_facts_fact_count);
+                glintfx::gfui::gltfx_node_facts_fact_count);
     GLINTFX_CHECK_EQ(glintfx::gfui::gltfx_node_facts_entry_count, static_cast<std::size_t>(10));
     GLINTFX_CHECK_EQ(glintfx::gfui::gltfx_node_facts_fact_count, static_cast<std::size_t>(8));
 }
@@ -112,54 +106,65 @@ GLINTFX_TEST(gltfx_node_facts_first_missing_names_the_one_null_entry) {
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.tag_name = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"tag_name"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"tag_name"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.id = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"id"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"id"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.for_each_class = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"for_each_class"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"for_each_class"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.attribute = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"attribute"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"attribute"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.state = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"state"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"state"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.parent = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"parent"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"parent"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.previous_sibling = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"previous_sibling"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"previous_sibling"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.next_sibling = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"next_sibling"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"next_sibling"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.child_count = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"child_count"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"child_count"});
     }
     {
         glintfx::gfui::gltfx_node_facts facts = make_full_facts();
         facts.first_child = nullptr;
-        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) == std::string_view{"first_child"});
+        GLINTFX_CHECK(glintfx::gfui::gltfx_node_facts_first_missing(facts) ==
+                      std::string_view{"first_child"});
     }
-    std::printf("gfui_node_view_test: 10 first_missing cases checked (one per entry, whole closed space)\n");
+    std::printf("gfui_node_view_test: 10 first_missing cases checked (one per entry, whole closed "
+                "space)\n");
 }
 
 GLINTFX_TEST(gltfx_node_view_default_is_no_node) {
@@ -191,11 +196,11 @@ GLINTFX_TEST(gltfx_node_attribute_default_reads_back_as_absent) {
 namespace {
 
 void check_scenario(std::string_view label, const glintfx::gfui::gltfx_node_view &root,
-                     const glintfx::gfui::gltfx_node_view &first_child,
-                     const glintfx::gfui::gltfx_node_view &second_child,
-                     const glintfx::gfui::gltfx_node_view &third_child,
-                     const glintfx::gfui::gltfx_node_view &fourth_child,
-                     const glintfx::gfui::gltfx_node_view &text_only_child) {
+                    const glintfx::gfui::gltfx_node_view &first_child,
+                    const glintfx::gfui::gltfx_node_view &second_child,
+                    const glintfx::gfui::gltfx_node_view &third_child,
+                    const glintfx::gfui::gltfx_node_view &fourth_child,
+                    const glintfx::gfui::gltfx_node_view &text_only_child) {
     namespace detail = glintfx::gfui::detail;
 
     // fact 1 - tag name
@@ -235,18 +240,23 @@ void check_scenario(std::string_view label, const glintfx::gfui::gltfx_node_view
 
     // fact 4 - attribute absent / present empty / present with value
     GLINTFX_CHECK(!detail::attribute(first_child, "missing-attr").present);
-    const glintfx::gfui::gltfx_node_attribute disabled_attr = detail::attribute(first_child, "disabled");
+    const glintfx::gfui::gltfx_node_attribute disabled_attr =
+        detail::attribute(first_child, "disabled");
     GLINTFX_CHECK(disabled_attr.present);
     GLINTFX_CHECK(disabled_attr.value.empty());
-    const glintfx::gfui::gltfx_node_attribute data_x_attr = detail::attribute(first_child, "data-x");
+    const glintfx::gfui::gltfx_node_attribute data_x_attr =
+        detail::attribute(first_child, "data-x");
     GLINTFX_CHECK(data_x_attr.present);
     GLINTFX_CHECK(data_x_attr.value == std::string_view{"42"});
 
     // fact 5 - the five bits individually and combined, ONE call
     const glintfx::gfui::gltfx_node_state second_state = detail::state(second_child);
-    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(second_state, glintfx::gfui::gltfx_node_state::hover));
-    GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_has(second_state, glintfx::gfui::gltfx_node_state::focus));
-    GLINTFX_CHECK(!glintfx::gfui::gltfx_node_state_has(second_state, glintfx::gfui::gltfx_node_state::active));
+    GLINTFX_CHECK(
+        glintfx::gfui::gltfx_node_state_has(second_state, glintfx::gfui::gltfx_node_state::hover));
+    GLINTFX_CHECK(
+        glintfx::gfui::gltfx_node_state_has(second_state, glintfx::gfui::gltfx_node_state::focus));
+    GLINTFX_CHECK(!glintfx::gfui::gltfx_node_state_has(second_state,
+                                                       glintfx::gfui::gltfx_node_state::active));
 
     // fact 6 - pai da raiz e nulo; filho tem pai
     GLINTFX_CHECK(detail::is_null(detail::parent(root)));
@@ -281,9 +291,10 @@ void check_scenario(std::string_view label, const glintfx::gfui::gltfx_node_view
     GLINTFX_CHECK_EQ(sibling_index, static_cast<std::size_t>(2));
     GLINTFX_CHECK_EQ(of_type_index, static_cast<std::size_t>(1));
 
-    std::printf("gfui_node_view_test: fatia C scenario '%.*s' - 10 facts + has_class + derivability "
-                "checked (%zu entries answered)\n",
-                static_cast<int>(label.size()), label.data(), glintfx::gfui::gltfx_node_facts_entry_count);
+    std::printf(
+        "gfui_node_view_test: fatia C scenario '%.*s' - 10 facts + has_class + derivability "
+        "checked (%zu entries answered)\n",
+        static_cast<int>(label.size()), label.data(), glintfx::gfui::gltfx_node_facts_entry_count);
 }
 
 } // namespace
@@ -379,8 +390,9 @@ GLINTFX_TEST(gfui_node_query_forwarders_and_derivability_over_fake_arena_tree) {
     tree.entries[third_index].next_sibling = fourth_index;
     tree.entries[fourth_index].previous_sibling = third_index;
 
-    check_scenario("arena", view(tree, root_index), view(tree, first_index), view(tree, second_index),
-                   view(tree, third_index), view(tree, fourth_index), view(tree, text_only_index));
+    check_scenario("arena", view(tree, root_index), view(tree, first_index),
+                   view(tree, second_index), view(tree, third_index), view(tree, fourth_index),
+                   view(tree, text_only_index));
 }
 
 GLINTFX_TEST(gfui_node_query_forwarders_and_derivability_over_fake_linked_tree) {
@@ -470,5 +482,6 @@ GLINTFX_TEST(gfui_node_query_forwarders_and_derivability_over_fake_linked_tree) 
     third.next_sibling = &fourth;
     fourth.previous_sibling = &third;
 
-    check_scenario("linked", view(root), view(first), view(second), view(third), view(fourth), view(text_only));
+    check_scenario("linked", view(root), view(first), view(second), view(third), view(fourth),
+                   view(text_only));
 }

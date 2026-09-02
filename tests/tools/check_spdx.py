@@ -478,38 +478,146 @@ def hostile_filename_case(name):
     }[name]
 
 
-def selftest_hostile_filename_positive(scratch, capture):
+HOSTILE_FILENAME_CASE_NAMES = ("lf", "dquote", "backslash")
+
+# Human-readable reason each case is inviable on Windows (NTFS/Win32),
+# printed verbatim in the "declarado NAO APLICAVEL" line so the reader
+# never has to reconstruct WHY from the case name alone.
+HOSTILE_FILENAME_CASE_DESCRIPTIONS = {
+    "lf": "quebra de linha (caractere de controle, codepoint < 0x20) no nome do arquivo",
+    "dquote": 'aspas duplas (") no nome do arquivo - caractere reservado do Win32',
+    "backslash": "barra invertida (\\) no nome do arquivo - e o proprio separador de caminho no Windows, nunca um byte literal de nome",
+}
+
+
+# GATE-SPDX-WINFS, added by ORDEM DE SERVICO 02/09/2026 (Windows CI run
+# 33670074103, job 100381198522): write_file() planting "Way<LF>land_
+# hostile.cpp" crashed with OSError: [Errno 22] Invalid argument on
+# Windows - NTFS forbids a control character in a filename outright.
+# spdx_test itself (the real gate) had already passed on Windows; only
+# this selftest's own FIXTURE PLANTING failed, before the gate under
+# test was ever exercised. GODS_LAWS.md L-04 (paridade) and L-40 (piso
+# de varredura nao-vazia) forbid silently dropping the case: instead it
+# is DECLARED not-applicable, at the moment it would have been planted,
+# with the reason named - and the expected count is DERIVED from what
+# was actually exercised, never hand-written back to a smaller number.
+def windows_forbidden_char(ch):
+    """True if `ch` cannot appear in a Windows (NTFS/Win32) filename
+    component at all: either it is one of the nine reserved characters
+    (< > : " / \\ | ? *) or a control character (codepoint < 0x20,
+    which includes LF). Backslash and forward slash are path
+    separators, not literal name bytes, on every OS this project
+    targets; the other seven are reserved by the Win32 CreateFile API
+    regardless of separator conventions.
+    """
+    if ord(ch) < 0x20:
+        return True
+    return ch in '<>:"/\\|?*'
+
+
+def name_creatable_on_windows(path):
+    """Applies windows_forbidden_char() to every character of every "/"-
+    separated component of `path` (the "/" itself is check_spdx.py's
+    own path-joining convention, not part of any component's literal
+    name, so it is never checked)."""
+    return all(not windows_forbidden_char(ch) for component in path.split("/") for ch in component)
+
+
+def running_as_windows_filesystem(force_windows_hostile_skip=False):
+    """True when the current process is on a filesystem that enforces
+    Windows' reserved-character rule: real Windows (os.name == "nt"),
+    or the GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP=1 escape
+    hatch this fatia adds so the EXACT same declare-and-derive code
+    path Windows CI exercises can be proven, and shown, green on Linux
+    too (GODS_LAWS.md L-40: a mechanism that only ever ran on the one
+    platform that never triggers it is not a proven mechanism).
+    """
+    if force_windows_hostile_skip:
+        return True
+    return os.name == "nt"
+
+
+def _run_hostile_filename_cases(scratch, capture, prefix, header, control_name, verdict):
+    """Shared loop for the positive and negative hostile-filename
+    controls: for each of HOSTILE_FILENAME_CASE_NAMES, either exercise
+    it (plant + run check_spdx() + apply `verdict`) or, when this
+    platform's filesystem cannot even hold the name, declare it not
+    applicable and skip planting it - never attempt the write that
+    would crash. Returns (status, exercised_names, skipped_names).
+    """
+    force_windows_hostile_skip = os.environ.get("GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP") == "1"
     status = True
-    for case_name in ("lf", "dquote", "backslash"):
-        root = os.path.join(scratch, f"hostile-positive-{case_name}")
+    exercised = []
+    skipped = []
+    for case_name in HOSTILE_FILENAME_CASE_NAMES:
+        relative_path = hostile_filename_case(case_name)
+        if not name_creatable_on_windows(relative_path) and running_as_windows_filesystem(force_windows_hostile_skip):
+            skipped.append(case_name)
+            print(
+                f"selftest: {control_name}({case_name}) declarado NAO APLICAVEL "
+                f"(o sistema de arquivos do Windows proibe {HOSTILE_FILENAME_CASE_DESCRIPTIONS[case_name]}, "
+                "entao este controle nao pode ser exercido aqui)"
+            )
+            continue
+        exercised.append(case_name)
+        root = os.path.join(scratch, f"{prefix}-{case_name}")
         init_fixture_repo(root)
-        write_file(root, hostile_filename_case(case_name), "// SPDX-License-Identifier: AGPL-3.0-or-later\nint f();\n")
+        write_file(root, relative_path, header)
         track_all(root)
         output = capture(lambda: check_spdx(root))
-        if not output.result:
-            print(f"selftest: HOSTILE-FILENAME-POSITIVE({case_name}) FALHOU (arquivo com cabecalho deveria ter passado)", file=sys.stderr)
+        if not verdict(case_name, output):
             status = False
+    return status, exercised, skipped
+
+
+def selftest_hostile_filename_positive(scratch, capture):
+    def verdict(case_name, output):
+        if output.result:
+            return True
+        print(f"selftest: HOSTILE-FILENAME-POSITIVE({case_name}) FALHOU (arquivo com cabecalho deveria ter passado)", file=sys.stderr)
+        return False
+
+    status, exercised, skipped = _run_hostile_filename_cases(
+        scratch, capture, "hostile-positive",
+        "// SPDX-License-Identifier: AGPL-3.0-or-later\nint f();\n",
+        "HOSTILE-FILENAME-POSITIVE", verdict,
+    )
+    if len(exercised) + len(skipped) != len(HOSTILE_FILENAME_CASE_NAMES):
+        print("selftest: HOSTILE-FILENAME-POSITIVE FALHOU (varredura de casos incompleta - nem todo caso foi exercido ou declarado)", file=sys.stderr)
+        return False
     if status:
-        print("selftest: HOSTILE-FILENAME-POSITIVE OK (newline/aspa/barra invertida no nome, cabecalho presente, cada um passa - git ls-files -z)")
+        print(
+            f"selftest: HOSTILE-FILENAME-POSITIVE OK ({len(exercised)}/{len(HOSTILE_FILENAME_CASE_NAMES)} "
+            f"caso(s) exercido(s) aqui - {', '.join(exercised)}; {len(skipped)} declarado(s) nao aplicavel "
+            f"nesta plataforma - {', '.join(skipped) if skipped else 'nenhum'})"
+        )
     return status
 
 
 def selftest_hostile_filename_negative(scratch, capture):
-    status = True
-    for case_name in ("lf", "dquote", "backslash"):
-        root = os.path.join(scratch, f"hostile-negative-{case_name}")
-        init_fixture_repo(root)
-        write_file(root, hostile_filename_case(case_name), "int f();\n")
-        track_all(root)
-        output = capture(lambda: check_spdx(root))
+    def verdict(case_name, output):
         if output.result:
             print(f"selftest: HOSTILE-FILENAME-NEGATIVE({case_name}) FALHOU (arquivo sem cabecalho deveria ter reprovado)", file=sys.stderr)
-            status = False
-        elif "land_hostile.cpp" not in output.text:
+            return False
+        if "land_hostile.cpp" not in output.text:
             print(f"selftest: HOSTILE-FILENAME-NEGATIVE({case_name}) FALHOU (reprovou, mas nao citou o arquivo)", file=sys.stderr)
-            status = False
+            return False
+        return True
+
+    status, exercised, skipped = _run_hostile_filename_cases(
+        scratch, capture, "hostile-negative",
+        "int f();\n",
+        "HOSTILE-FILENAME-NEGATIVE", verdict,
+    )
+    if len(exercised) + len(skipped) != len(HOSTILE_FILENAME_CASE_NAMES):
+        print("selftest: HOSTILE-FILENAME-NEGATIVE FALHOU (varredura de casos incompleta - nem todo caso foi exercido ou declarado)", file=sys.stderr)
+        return False
     if status:
-        print("selftest: HOSTILE-FILENAME-NEGATIVE OK (newline/aspa/barra invertida no nome, sem cabecalho, cada um reprovado e citado)")
+        print(
+            f"selftest: HOSTILE-FILENAME-NEGATIVE OK ({len(exercised)}/{len(HOSTILE_FILENAME_CASE_NAMES)} "
+            f"caso(s) exercido(s) aqui - {', '.join(exercised)}; {len(skipped)} declarado(s) nao aplicavel "
+            f"nesta plataforma - {', '.join(skipped) if skipped else 'nenhum'})"
+        )
     return status
 
 

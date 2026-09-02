@@ -28,12 +28,51 @@
 //
 // WHAT THIS FILE ACTUALLY PROVES: only that a window CAN be created
 // (GLINTFX_CHECK below - the one true assertion this probe makes).
-// Everything else - GetLastError() after each Win32 call, whether
-// ShowWindow(SW_SHOWNOACTIVATE) produced WM_SIZE/WM_ACTIVATE traffic,
-// how many messages PeekMessageW drained in a bounded budget - is
-// PRINTED, never asserted. A runner that creates a window but never
-// delivers WM_SIZE is a fact to design the real backend around, not a
-// test failure to chase.
+// Everything else - GetLastError() after each Win32 call, how many
+// messages PeekMessageW drained in a bounded budget, and whether
+// WM_SIZE/WM_ACTIVATE arrived - is PRINTED, never asserted. A runner
+// that creates a window but never delivers WM_SIZE is a fact to
+// design the real backend around, not a test failure to chase.
+//
+// CORRECTED IN THIS REVISION: the first version of this probe counted
+// WM_SIZE/WM_ACTIVATE only inside the PeekMessageW loop below, and a
+// real CI run (windows-latest, GitHub Actions, run 33643748402) came
+// back with both counters at zero even though RegisterClassExW,
+// CreateWindowExW and ShowWindow all reported ok=true GetLastError=0.
+// That zero did not prove the runner withholds these messages - per
+// Microsoft's own documentation, WM_SIZE and WM_ACTIVATE are
+// NONQUEUED messages, sent directly to the window procedure rather
+// than posted to the thread's message queue:
+//   - "About Messages and Message Queues" lists queued messages as
+//     mouse/keyboard input plus WM_TIMER/WM_PAINT/WM_QUIT, and says
+//     "most other messages, which are sent directly to a window
+//     procedure, are called nonqueued messages"
+//     (https://learn.microsoft.com/windows/win32/winmsg/about-messages-and-message-queues).
+//   - The WM_SIZE reference page opens with "Sent to a window after
+//     its size has changed" and says DefWindowProc sends WM_SIZE (and
+//     WM_MOVE) while handling WM_WINDOWPOSCHANGED
+//     (https://learn.microsoft.com/windows/win32/winmsg/wm-size).
+//   - The WM_ACTIVATE reference page opens with "Sent to both the
+//     window being activated and the window being deactivated... the
+//     message is sent synchronously"
+//     (https://learn.microsoft.com/windows/win32/inputdev/wm-activate).
+//   - PeekMessageW's own Remarks section confirms the mechanism that
+//     makes the old counter blind to this traffic: "the system
+//     dispatches (DispatchMessage) pending, nonqueued messages, that
+//     is, messages sent to windows owned by the calling thread using
+//     the SendMessage... function", BEFORE it retrieves the first
+//     queued message
+//     (https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-peekmessagew).
+// A nonqueued message is delivered straight to probe_window_proc and
+// never becomes a MSG the PeekMessageW loop can pull out - so a
+// PeekMessageW-only counter reading zero was always the EXPECTED
+// outcome on a working runner, not evidence of one that withholds the
+// messages. This revision counts in both places (window-procedure
+// delivery and the queue loop) and prints all four numbers under
+// distinct names, so the two hypotheses - "runner behaves like every
+// Win32 tutorial assumes" vs. "runner is actually silent" - produce
+// different, distinguishable output instead of the same ambiguous
+// zero.
 //
 // DECLARED SCOPE, per GODS_LAWS.md L-27 (fact vs inference) and the
 // order that produced this file: this project has no Windows
@@ -70,7 +109,26 @@ constexpr wchar_t k_window_class_name[] = L"GlintfxWin32RunnerProbeWindowClass";
 // its own the first time PeekMessageW returns FALSE.
 constexpr UINT k_pump_budget = 64;
 
+// Counters incremented from inside probe_window_proc itself, not from
+// the PeekMessageW loop below - this is the half of the measurement
+// that catches WM_SIZE/WM_ACTIVATE when the system delivers them as
+// NONQUEUED messages (see this file's header comment and the
+// Microsoft Learn pages it cites). probe_window_proc is a callback
+// the system invokes directly, so file-scope storage is the only way
+// the case body can read what happened inside it; plain unsigned
+// (no atomic, no lock) is safe here only because this whole probe -
+// window creation, message pump, and the callback the system invokes
+// during both - runs on a single thread. If this file ever grows a
+// second thread, these must become atomics or gain a lock first.
+unsigned g_wndproc_wm_size_count = 0;
+unsigned g_wndproc_wm_activate_count = 0;
+
 LRESULT CALLBACK probe_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    if (msg == WM_SIZE) {
+        ++g_wndproc_wm_size_count;
+    } else if (msg == WM_ACTIVATE) {
+        ++g_wndproc_wm_activate_count;
+    }
     return ::DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 
@@ -162,27 +220,34 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
                  show_previously_visible != 0, show_last_error);
 
     unsigned messages_pumped = 0;
-    unsigned wm_size_count = 0;
-    unsigned wm_activate_count = 0;
+    unsigned queue_wm_size_count = 0;
+    unsigned queue_wm_activate_count = 0;
     MSG msg{};
     while (messages_pumped < k_pump_budget &&
            ::PeekMessageW(&msg, win_guard.get(), 0, 0, PM_REMOVE) != 0) {
         ++messages_pumped;
         if (msg.message == WM_SIZE) {
-            ++wm_size_count;
+            ++queue_wm_size_count;
         } else if (msg.message == WM_ACTIVATE) {
-            ++wm_activate_count;
+            ++queue_wm_activate_count;
         }
         ::TranslateMessage(&msg);
         ::DispatchMessageW(&msg);
     }
 
-    // GODS_LAWS.md L-40 (piso de varredura nao-vazia): the pump count
-    // is printed even at zero - a silent zero here would be
-    // indistinguishable from "this loop never ran at all".
-    std::println("win32_runner_probe: messages_pumped={} (budget={}) wm_size_count={} "
-                 "wm_activate_count={}",
-                 messages_pumped, k_pump_budget, wm_size_count, wm_activate_count);
+    // GODS_LAWS.md L-40 (piso de varredura nao-vazia): every count is
+    // printed even at zero - a silent zero would be indistinguishable
+    // from "this loop never ran at all". Four names, two sources
+    // (this file's header comment explains why they can legitimately
+    // disagree): wndproc_* comes from probe_window_proc catching
+    // nonqueued WM_SIZE/WM_ACTIVATE as the system delivers them
+    // in-line during CreateWindowExW/ShowWindow; queue_* comes from
+    // this PeekMessageW loop, which only ever sees queued messages.
+    std::println("win32_runner_probe: messages_pumped={} (budget={}) "
+                 "wndproc_wm_size={} wndproc_wm_activate={} "
+                 "queue_wm_size={} queue_wm_activate={}",
+                 messages_pumped, k_pump_budget, g_wndproc_wm_size_count,
+                 g_wndproc_wm_activate_count, queue_wm_size_count, queue_wm_activate_count);
 }
 
 #endif // defined(_WIN32)

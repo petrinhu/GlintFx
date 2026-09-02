@@ -138,16 +138,16 @@ class window_guard {
 GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
     const window_class_guard class_guard;
     std::println("win32_runner_probe: RegisterClassExW ok={} GetLastError={}",
-                  class_guard.is_valid(), class_guard.last_error());
+                 class_guard.is_valid(), class_guard.last_error());
 
     ::SetLastError(0);
     HWND hwnd = ::CreateWindowExW(0, k_window_class_name, L"glintfx win32 runner probe",
-                                   WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 320, 240,
-                                   nullptr, nullptr, ::GetModuleHandleW(nullptr), nullptr);
+                                  WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 320, 240,
+                                  nullptr, nullptr, ::GetModuleHandleW(nullptr), nullptr);
     const DWORD create_last_error = ::GetLastError();
     const window_guard win_guard(hwnd);
     std::println("win32_runner_probe: CreateWindowExW ok={} GetLastError={}", win_guard.is_valid(),
-                  create_last_error);
+                 create_last_error);
 
     // The ONE assertion this probe makes (this file's own header
     // comment): everything from here on is measurement, printed
@@ -158,8 +158,8 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
     const BOOL show_previously_visible = ::ShowWindow(win_guard.get(), SW_SHOWNOACTIVATE);
     const DWORD show_last_error = ::GetLastError();
     std::println("win32_runner_probe: ShowWindow(SW_SHOWNOACTIVATE) previously_visible={} "
-                  "GetLastError={}",
-                  show_previously_visible != 0, show_last_error);
+                 "GetLastError={}",
+                 show_previously_visible != 0, show_last_error);
 
     unsigned messages_pumped = 0;
     unsigned wm_size_count = 0;
@@ -181,8 +181,8 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
     // is printed even at zero - a silent zero here would be
     // indistinguishable from "this loop never ran at all".
     std::println("win32_runner_probe: messages_pumped={} (budget={}) wm_size_count={} "
-                  "wm_activate_count={}",
-                  messages_pumped, k_pump_budget, wm_size_count, wm_activate_count);
+                 "wm_activate_count={}",
+                 messages_pumped, k_pump_budget, wm_size_count, wm_activate_count);
 }
 
 #endif // defined(_WIN32)

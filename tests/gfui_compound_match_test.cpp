@@ -230,6 +230,19 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     GLINTFX_CHECK(match_compound(parse_one_compound("#one#one"), node_a) ==
                   compound_match_verdict::matched);
 
+    // Type conflict is the same shape as id conflict, one sibling
+    // branch below in compound_match.cpp (note_type_selector's own
+    // type_conflict): two DIFFERENT type selectors in one compound
+    // never match any node, and a repeated EQUAL type (case-
+    // insensitive, D-MS-4) is not a conflict. node_a's own type is
+    // "a" (matrix above, "a" matches / "b" rejects).
+    GLINTFX_CHECK(match_compound(parse_one_compound("a*b"), node_a) ==
+                  compound_match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound("div*span"), node_a) ==
+                  compound_match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound("a*a"), node_a) ==
+                  compound_match_verdict::matched);
+
     // Deferral: every simple pseudo-class NOT among the five state
     // ones (enumerated from selector_pseudo_vocabulary.hpp's own
     // closed list, never a hand-picked subset).

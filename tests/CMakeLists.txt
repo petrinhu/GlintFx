@@ -186,6 +186,30 @@ glintfx_add_test(gfui_node_state_test)
 glintfx_add_test(gfui_node_view_test)
 target_include_directories(gfui_node_view_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# GFSS-MATCH-SIMPLE (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-28/
+# L-40, /var/tmp/glintfx-plan/gfss-match-simple-plano.md): whether a
+# compound selector matches ONE node - see gfui_compound_match_test.
+# cpp's own header comment for the four fatias (B state-pseudo-class
+# table, C species/case/deferral over parsed text, D class-enumeration
+# bitmask/repetition/fallback, E call-order proved by counting). Needs
+# the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir every other
+# internal-header consumer above already adds, for gfss/gfui's own
+# private headers.
+glintfx_add_test(gfui_compound_match_test)
+target_include_directories(gfui_compound_match_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# compound_match.cpp and selector_parse.cpp define glintfx::gfui::
+# detail::match_compound()/glintfx::style::detail::parse_selector_
+# list() with NO GLINTFX_API - deliberately (GODS_LAWS.md L-19), the
+# SAME reason gfss_selector_parse_test above compiles selector_parse.
+# cpp a second time instead of linking the hidden copy inside glintfx_
+# library's own .so. This test needs the real parser AND the real
+# matcher, so both get the same second compile.
+target_sources(gfui_compound_match_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

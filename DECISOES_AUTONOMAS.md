@@ -628,3 +628,17 @@ A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo ef
 **A leitura do CTO estava errada e a minha também.** Ele reportou como contradição e pediu que eu decidisse; eu ia decidir sem varrer. O que evitou o erro não foi julgamento, foi a asserção mecânica de que o texto a substituir era único — a mesma disciplina que a lei exige depois de toda edição por script.
 
 **Nada a corrigir no `TODO.md`.** As cinco decisões de forma do CTO (D-NV-1 a D-NV-5) continuam válidas; nenhuma dependia dessa leitura.
+
+---
+
+## Autorização ampliada: merge, push e ondas encadeadas  `[01/09/26 - 23:02:26]`
+
+**Ordem do líder, verbatim:** *"quando acabar essa onda, pode fazer merge/push após tudo verde e já iniciar a seguinte e dai por diante. vou dormir. Autorizo modo automatico"*.
+
+**O que muda em relação à autorização anterior:** ela cobria uma onda. Esta cobre **a cadeia** — fechar a atual, publicar, abrir a seguinte, e assim por diante, sem voltar a perguntar a cada passagem. A flag em vigor expira em 02/09 às 22:17.
+
+**A condição que ele repetiu e que continua sendo o portão de cada passagem:** *"após tudo verde"*. Servidor vermelho bloqueia merge, bloqueia push e bloqueia abrir a onda seguinte.
+
+**O que esta autorização NÃO relaxa, e vale escrever porque a tentação cresce quando ninguém está olhando:** implementador, revisor e orquestrador continuam sendo agentes distintos; a revisão executa e muta o código em vez de só ler; eu reverifico antes de aceitar; um trabalho pesado por vez; e toda decisão que iria a ele fica registrada aqui para confirmação retroativa.
+
+**O que continua fora, mesmo em modo automático:** criar tag de versão, qualquer coisa que apague trabalho, e alterar lei. Tag é ação de release; as outras duas são dele por definição.

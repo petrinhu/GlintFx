@@ -1045,3 +1045,37 @@ Propriedade nova entra **no fim** da lista, e **nenhum identificador já publica
 Antes de escrever, o arquiteto **levanta o que cada um dos cinco alvos exige** e desenha a forma que serve a todos. ⚠️ **Custo aceito:** a fatia demora mais para começar. **Em troca, o adaptador de Windows não descobre tarde que a forma não serve** — e essa é a classe de erro que custa nos cinco de uma vez.
 
 ⚠️ **RESSALVA DELE, e ela é reforço de lei, não novidade:** *"linux é apenas wayland"*. **Não existe X11 no levantamento.** Ao enumerar o que "o Linux exige", o que vale é **exclusivamente o protocolo Wayland** — nada de acomodar, prever ou deixar espaço para o sistema de janelas antigo, nem sequer como caso hipotético que "não custa nada". Isto é a **L-05**, e ele a reafirmou no exato momento em que o risco de a esquecer era maior: um levantamento de "o que cada plataforma exige" é onde a suposição de X11 entraria sem ninguém notar.
+
+---
+
+### As seis decisões da manhã de 02/09  `[02/09/26 - 09:29:21]`
+
+Levadas ao líder por pergunta formal, depois de ele cobrar: *"onde estao as decisoes? ou vai quebrar a lei de novo?"*. Eu tinha listado as decisões em prosa e **oferecido** levá-las, o que não é levá-las. A cobrança está certa e o registro dela fica aqui.
+
+#### 1. Condição de estado que o contrato não sabe responder: **RECUSAR NA LEITURA DA FOLHA**
+
+**Escolha dele:** *"Recusar na leitura da folha"*.
+
+Uma folha de estilo pode escrever a condição que vale **enquanto a caixa de texto ainda mostra o texto de dica**. O leitor de folha a aceita, mas nenhuma das oito perguntas que a biblioteca faz ao programador sabe responder por ela: a regra é aceita, **nunca pega, e ninguém é avisado**.
+
+**Passa a falhar na hora de carregar a folha, com erro visível.** Não mexe no contrato dos oito, que o líder fechou com *"aceito tudo"*.
+
+⚠️ **Custo aceito, declarado a ele:** uma folha hoje aceita passa a ser recusada. Hoje isso não atinge ninguém, porque não há consumidor publicado; depois da 1.0 atingiria.
+
+**A razão que decidiu:** aceitar e nunca casar é falha silenciosa, o mesmo defeito que esta casa consertou na noite anterior no caso das maiúsculas. Falhar onde alguém vê vale mais que funcionar pela metade em silêncio.
+
+#### 2. Pedido do GusWorld (luz e sombra sobre personagem vindas do motor): **ACEITAR, COM A POSIÇÃO NA FILA DECLARADA**
+
+**Escolha dele:** *"Aceitar, com a posição na fila declarada"*.
+
+Vira item do planejamento, com a dependência dita na cara: só anda **depois que o desenho 2D existir**. Eles haviam dito que preferem um não a um trabalho pendurado; o líder escolheu a fila com prazo honesto em vez do não.
+
+#### 3. Maiúsculas em folha de estilo: **CONFIRMADA a regra do CTO**
+
+Nome de elemento e de condição de estado ignoram maiúsculas; nome de classe e identificador são exatos. **O que a linguagem define dobra a caixa, o que o autor escolhe é exato.**
+
+#### 4, 5 e 6. As três que congelam superfície pública: **CONFIRMADAS as três**
+
+- **A biblioteca pede a LISTA de classes** do elemento, em vez de perguntar se ele tem uma classe específica. Mantém aberta a porta de um dia explicar **por que uma regra pegou**, que a outra forma fecharia para sempre.
+- **Contar filhos vê o conteúdo, navegar filhos vê só elementos.** É o que faz um parágrafo de texto puro ter conteúdo e zero filhos navegáveis, e as regras de "vazio" e "primeiro filho" se comportarem como o autor espera.
+- **A visão de um elemento carrega três ponteiros**, o terceiro dizendo de qual árvore ele veio. Quem guarda a árvore como lista de índices usa a biblioteca sem mudar a própria estrutura. Oito bytes por visão, nada por chamada.

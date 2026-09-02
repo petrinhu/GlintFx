@@ -719,3 +719,20 @@ As outras cinco são de forma, todas internas, nenhuma tocando o que é público
 
 - **Concluí, duas vezes, que um agente estava travado, e nas duas ele não estava.** O de redação commitou no minuto exato em que eu o media. Estou rápido demais para chamar de travamento o intervalo em que alguém relê o próprio trabalho.
 - **Escrevi horas estimadas em mensagens ao senhor** em vez de ler o relógio, que é justamente o que a lei de timestamp proíbe. Os minutos das primeiras mensagens desta manhã estão aproximados; esta seção está com a hora real.
+
+### O que a sonda mediu na máquina de testes do Windows  `[02/09/26 - 12:05:03]`
+
+**Fato, medido nos dois modos do servidor (run com , 18 trabalhos verdes), não suposto:**
+
+```
+RegisterClassExW ok=true GetLastError=0
+CreateWindowExW  ok=true GetLastError=0
+ShowWindow(SW_SHOWNOACTIVATE) previously_visible=false GetLastError=0
+messages_pumped=2 wndproc_wm_size=1 wndproc_wm_activate=0 queue_wm_size=0 queue_wm_activate=0
+```
+
+**A máquina de testes do Windows é saudável, e a janela é real.** O aviso de redimensionamento **chega** ao procedimento da janela (contagem 1) e **não** aparece na fila (contagem 0), exatamente como a documentação da Microsoft descreve. A primeira rodada da sonda contava só na fila e por isso devolveu zero: **o zero era erro de método nosso, não defeito do ambiente.** Sem esta correção, o projeto teria redesenhado o backend inteiro em cima de uma conclusão inválida.
+
+**O zero de ativação também não é defeito, e é a segunda armadilha do mesmo dado:** a sonda mostra a janela com a forma que **explicitamente não ativa**. Zero ali é o comportamento correto do que foi pedido. Quem for medir ativação no Windows precisa mostrar a janela **pedindo** ativação, senão vai ler um zero honesto e concluir errado de novo.
+
+**O que isto libera:** o backend do Windows pode ser desenhado com **janela de verdade**, e não com a saída de emergência que o CTO tinha preparado (janela invisível, só para mensagens, com o resto declarado como não demonstrável no servidor). A saída de emergência fica arquivada sem uso.

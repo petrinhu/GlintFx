@@ -605,6 +605,41 @@ jobs:
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # X-0-LOG (02/09/2026, GODS_LAWS.md L-40): o passo "Testes" acima roda
+      # com --output-on-failure, que so mostra a saida de teste que REPROVA
+      # - por definicao nunca mostra a saida da sonda win32_runner_probe_test
+      # quando ela passa, e o produto dela E a saida (o que
+      # CreateWindowExW/PeekMessageW/WM_SIZE/WM_ACTIVATE entregam neste
+      # runner). Sem este passo a sonda passava e a medicao nunca chegava ao
+      # log (medido no run 33642256048, job "Windows - compartilhado": so
+      # "win32_runner_probe_test ... Passed 0.03 sec"). Roda nos dois modos
+      # (compartilhado e estatico): tests/CMakeLists.txt registra a sonda
+      # so sob if(WIN32), sem depender de BUILD_SHARED_LIBS, entao os dois
+      # modos tem a mesma sonda pra imprimir - e por isso zero teste casando
+      # aqui NUNCA e legitimo: este passo so roda dentro do job `windows`,
+      # onde WIN32 e sempre verdadeiro, entao ctest -N contar zero so pode
+      # significar registro quebrado (guarda if(WIN32) mexida) ou build sem
+      # a sonda. GODS_LAWS.md L-40, piso de varredura nao-vazia: contou
+      # zero, reprova - o passo "Testes" acima prova que os testes
+      # REGISTRADOS passam, nunca que a sonda ESTA registrada; sumir do
+      # CMake deixaria os dois passos verdes se este aqui tolerasse zero.
+      # Com 1 ou mais, roda -V e deixa o codigo de saida propagar: reprovar
+      # aqui significaria a sonda ter passado silenciosa no passo anterior
+      # e falhar nesta segunda rodada minutos depois - reprovacao real, nao
+      # mascarada por um "|| true" cego.
+      - name: Saida verbosa da sonda de runner (${{ matrix.modo }})
+        shell: pwsh
+        run: |
+          $listOutput = ctest --test-dir ${{ matrix.builddir }} -R win32_runner_probe_test -N
+          $totalLine = $listOutput | Select-String -Pattern 'Total Tests:\s*(\d+)'
+          $total = if ($totalLine) { [int]$totalLine.Matches[0].Groups[1].Value } else { 0 }
+          if ($total -eq 0) {
+            Write-Error "esperado ao menos 1 teste casando com win32_runner_probe_test neste job Windows (WIN32 e sempre verdadeiro aqui); ctest -N contou 0 - registro quebrado (tests/CMakeLists.txt) ou build sem a sonda."
+            exit 1
+          }
+          ctest --test-dir ${{ matrix.builddir }} -V -R win32_runner_probe_test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Consumo instalado (${{ matrix.modo }})
         id: consumo_instalado
         shell: pwsh

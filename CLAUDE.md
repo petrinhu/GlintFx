@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | procurar prior art, base de código ou "como era antes" | L-01 projeto do zero |
 | ⚖ | desenhar API, escopo ou entregável | L-02 é biblioteca, não aplicação |
 | ⚖ | criar build, escolher padrão de linguagem | L-03 C++23 + CMake |
-| ⚖ | escrever CI ou declarar suporte de plataforma | L-04 cinco alvos, CachyOS próprio |
+| ⚖ | escrever CI, declarar suporte de plataforma, **fechar qualquer fatia, ou escrever ramo condicional por sistema** | L-04 cinco alvos, CachyOS próprio; **comportamento igual em todo sistema, provado em cada um** |
 | ⚖ | tocar janela, input, display, ou copiar exemplo de internet | L-05 Wayland puro, sem X11 |
 | ⚖ | implementar teclado, keymap ou texto digitado | L-06 parser XKB próprio |
 | ⚖ | adicionar dependência, `FetchContent`, vendorizar | L-07 dependência zero |

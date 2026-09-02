@@ -97,7 +97,15 @@ O `Projects/GlintFx` nasce sem herança. Existiu uma biblioteca homônima em `gi
 
 **[Migrado para `ESCOPO.md` §1 — Identidade e distribuição, 26/08/2026.]** As cinco plataformas suportadas, o alvo primário Fedora 44 pinado, e a razão de CachyOS ser entrada própria vivem lá por inteiro, verbatim.
 
-**Aplicação:** verde no Arch **não** autoriza declarar CachyOS suportado. Declaração de suporte exige job próprio verde.
+**Data:** 02/09/2026, verbatim: *"O comportamento deve ser igual em qualquer OS para todas as ondas/fatias entregues"*, e o alcance fixado por ele no mesmo dia: **igual e provado em cada sistema onde a fatia existe**.
+
+**PARIDADE DE COMPORTAMENTO ENTRE SISTEMAS.** O que a biblioteca faz é **idêntico nas cinco plataformas**, e **cada fatia entregue prova isso em cada sistema**. Três consequências, todas verificáveis:
+
+1. **Nenhuma verificação pode sumir num sistema.** Teste envolvido em `#if !defined(_WIN32)` sem equivalente do outro lado é comportamento que ninguém verifica naquela plataforma. Quando o **mecanismo** difere, escreve-se o **equivalente**, não se remove o caso: já há precedente nesta árvore, em que Linux e Windows usam caminhos diferentes do sistema para produzir a **mesma** falha observável. Mecanismo pode diferir; comportamento observável e cobertura, não.
+2. **Fatia não fecha com paridade parcial.** Uma capacidade não é dada por entregue enquanto existir sistema suportado em que ela não funciona. Decisão do líder no mesmo dia, sobre o primeiro caso concreto: *"Só entrego janela quando os dois sistemas tiverem"* - a janela do Wayland e a do Windows saem **na mesma entrega**, e o trabalho já pronto de um lado **espera** o par. ⚠️ **Custo aceito e declarado a ele:** a onda cresce, e o lado Windows é escrito sem compilador de Windows nesta máquina, provado só pelo servidor.
+3. **Declaração de suporte exige job próprio verde:** verde no Arch **não** autoriza declarar CachyOS suportado, e verde no Linux **não** autoriza declarar comportamento no Windows.
+
+**Aplicação:** ao fechar qualquer fatia, varra os ramos por sistema (`git grep -n '#if.*_WIN32'`) e pergunte de cada um: isto é **mecanismo** diferente para o mesmo efeito, ou é **cobertura que desaparece** de um lado? O segundo reprova a fatia.
 
 ## L-05
 

@@ -1079,3 +1079,21 @@ Nome de elemento e de condição de estado ignoram maiúsculas; nome de classe e
 - **A biblioteca pede a LISTA de classes** do elemento, em vez de perguntar se ele tem uma classe específica. Mantém aberta a porta de um dia explicar **por que uma regra pegou**, que a outra forma fecharia para sempre.
 - **Contar filhos vê o conteúdo, navegar filhos vê só elementos.** É o que faz um parágrafo de texto puro ter conteúdo e zero filhos navegáveis, e as regras de "vazio" e "primeiro filho" se comportarem como o autor espera.
 - **A visão de um elemento carrega três ponteiros**, o terceiro dizendo de qual árvore ele veio. Quem guarda a árvore como lista de índices usa a biblioteca sem mudar a própria estrutura. Oito bytes por visão, nada por chamada.
+
+---
+
+### Paridade de comportamento entre sistemas  `[02/09/26 - 10:35:24]`
+
+**Ordem do líder, verbatim:** *"O comportamento deve ser igual em qualquer OS para todas as ondas/fatias entregues"*.
+
+**Alcance, fixado por ele no mesmo dia:** *igual e provado em cada sistema onde a fatia existe*. Não basta a biblioteca se comportar igual: **cada fatia entregue prova isso em cada sistema**. Verificação que some num sistema é comportamento que ninguém confere lá.
+
+**O caso concreto que a ordem já pegou, medido e não suposto:** a falha no meio da leitura de um arquivo é verificada **só no Linux**. Se aquele ramo de erro quebrasse no Windows, ninguém saberia. Virou o item `ASSET-PARITY-WIN`.
+
+**A primeira consequência de escopo, decidida por ele:** *"Só entrego janela quando os dois sistemas tiverem"*. A janela do Wayland e a do Windows deixam de ser duas fatias em ondas diferentes e passam a ser **uma entrega só**, na mesma onda. `WIN-WINDOW` saiu da onda W10 para a W5.
+
+⚠️ **Custo aceito e declarado a ele antes da escolha:** a onda cresce bastante; o lado Windows será escrito **sem compilador de Windows nesta máquina**, provado só pelo servidor; e o trabalho do Wayland que já está pronto **fica guardado** até o par ficar pronto.
+
+**A alternativa que ele descartou:** a função existir nos dois desde já e recusar no Windows com erro claro, o que manteria a entrega do Wayland andando ao custo de um intervalo em que a mesma chamada abre janela num sistema e recusa no outro.
+
+**Onde a lei mora:** refundida na L-04 do `GODS_LAWS.md` deste projeto, que já era a lei de plataformas, em vez de virar entrada nova. O gatilho dela foi ampliado: dispara agora também ao **fechar qualquer fatia** e ao **escrever ramo condicional por sistema**, não só ao mexer no CI.

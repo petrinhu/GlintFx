@@ -1097,3 +1097,17 @@ Nome de elemento e de condição de estado ignoram maiúsculas; nome de classe e
 **A alternativa que ele descartou:** a função existir nos dois desde já e recusar no Windows com erro claro, o que manteria a entrega do Wayland andando ao custo de um intervalo em que a mesma chamada abre janela num sistema e recusa no outro.
 
 **Onde a lei mora:** refundida na L-04 do `GODS_LAWS.md` deste projeto, que já era a lei de plataformas, em vez de virar entrada nova. O gatilho dela foi ampliado: dispara agora também ao **fechar qualquer fatia** e ao **escrever ramo condicional por sistema**, não só ao mexer no CI.
+
+### Paridade, dois refinamentos do líder  `[02/09/26 - 11:19:54]`
+
+**1. Onde a onda trabalha: ramo próprio com pedido de incorporação aberto.**
+
+Fato medido antes de perguntar: o servidor **só** roda em envio para a linha principal, pedido de incorporação, ou disparo manual. Empurrar um ramo de trabalho sozinho **não** roda nada. Como o código de Windows será escrito sem compilador de Windows aqui, ele vai quebrar o servidor algumas vezes antes de acertar, e no regime de hoje cada quebra ficaria na linha principal pública.
+
+**Escolha dele:** *"Ramo de trabalho com pedido de incorporação aberto"*. Cada envio ao ramo roda os dezoito trabalhos; a linha principal nunca fica vermelha; a onda entra por incorporação ao fim, que ele já autoriza após o verde. ⚠️ **Custo aceito:** o repositório é público, então trabalho pela metade fica visível.
+
+**2. Paridade vale para peça INTERNA também: a exceção foi oferecida e recusada.**
+
+A peça que descobre teclado e mouse não tem superfície pública nenhuma. **O CTO e eu recomendamos deixá-la fechar sozinha**, com o argumento de que sem cara pública não há comportamento observável que possa divergir. **Ele recusou:** *"Espera o Windows também"*.
+
+A razão está na própria opção que ele escolheu: **regra uniforme, sem julgamento caso a caso, porque julgamento é onde se erra**. Consequência que fica registrada: **não existe teste de "isto é observável pelo consumidor?" capaz de dispensar paridade**, e nenhum agente pode reabrir essa exceção alegando que a peça é interna.

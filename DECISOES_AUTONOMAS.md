@@ -658,3 +658,38 @@ A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo ef
 As outras cinco são de forma, todas internas, nenhuma tocando o que é público: onde o casador mora, como as classes são conferidas numa passada só em vez de uma por uma, a ordem de teste do mais barato ao mais caro, e a mudança de lugar de uma função de comparação que já tinha quatro consumidores.
 
 **A lei de pesquisa foi cumprida e corrigiu um erro nosso:** o plano anterior anotou a ordem de teste de um motor de referência ao contrário. O CTO leu a fonte e mostrou por que aquele motor testa o identificador **tarde** — porque lá ele já serviu de índice antes. Sem índice, ele vai **primeiro**. A ordem daqui foi decidida pelo custo medido na nossa própria tabela, não copiada.
+
+---
+
+## LEIA ISTO PRIMEIRO AO ACORDAR — resumo da noite de 01 para 02/09/2026  `[01/09/26 - 23:04:55]`
+
+**Ordem do líder que criou esta seção, verbatim:** *"decisoes tomadas por clevel e guarde log para me dizer quando acordar"*. Mais, no mesmo bloco: *"tambem autorizo tag"*.
+
+**Quem decidiu o quê, que é o ponto da ordem dele:** todas as decisões de desenho desta noite são do **CTO**, não minhas. Eu recebo o plano, **reverifico os fatos contra o código**, registro, despacho a um implementador, e mando um revisor independente atacar. Onde eu decidi algo, está dito que fui eu.
+
+**Autorizações em vigor** (flag válida até 02/09 às 23:02): push de onda, limpeza de build, **e agora tag**. A condição que ele repetiu em cada uma continua sendo o portão: *"após tudo verde"*. **Continua fora:** apagar trabalho e alterar lei.
+
+**Sobre a tag, e é julgamento meu que ele confirma ou reverte:** só criaria uma quando um conjunto coeso fechar com o servidor verde, e este projeto está **pré-1.0** — a numeração ainda não promete estabilidade a ninguém. Não vou criar tag só porque uma onda fechou; ondas fecham toda hora. Se eu criar alguma, o motivo estará escrito aqui.
+
+### As decisões da noite, em ordem, com quem decidiu
+
+| Quando | Decisão | Quem | Estado |
+|---|---|---|---|
+| Abertura da onda | Caminho principal é a conexão com o sistema de janelas; trilha paralela é o motor de estilo, em ordem forçada por dependência; a fatia de matemática fica fora | CTO | executado, tudo verde |
+| Meio | O portão de dependência zero passa a enxergar nome de arquivo disfarçado, sem gastar um processo por arquivo | CTO, após duas reprovações de revisão | **concluído e publicado** |
+| Meio | O contrato pelo qual a biblioteca pergunta sobre a árvore do consumidor: forma, lar e como as classes são enumeradas | CTO | **concluído e publicado** |
+| Última fatia | Como um seletor casa com um nó: ordem de teste, resposta de três valores, e a política de caixa | CTO | em implementação |
+| Última fatia | **Uma pseudo-classe que o interpretador aceita não tem resposta nos oito fatos que o senhor aprovou.** O CTO **recusou decidir** e mandou ao senhor | CTO (não-decisão) | **espera o senhor** |
+
+### O que espera o senhor, e nada disso bloqueia o trabalho
+
+1. **A pseudo-classe sem dono** (acima). Três saídas possíveis: virar um sexto estado no contrato, ser resolvida por outro caminho, ou nunca casar. Reabrir a lista é decisão sua porque o senhor a fechou com *"aceito tudo"*.
+2. **O pedido do GusWorld:** luz e sombra sobre personagem passam a ter de vir do motor. Conferi que a lacuna é real e nada aqui a cobre. Eles preferem um não a um trabalho por obrigação.
+3. **Confirmar ou reverter** as decisões do CTO acima e as minhas registradas nas seções anteriores.
+
+### O que eu errei nesta noite, para o senhor saber sem ter de procurar
+
+- **Travei sua máquina por quatro horas** aceitando um desenho que gastava um processo por arquivo. Causa, linha do tempo e a lei nova estão registrados em seção própria.
+- **Colidi duas vezes** com um agente rodando suíte ao mesmo tempo que eu — a mesma regra que passei o dia cobrando dos outros.
+- **Concluí um diagnóstico do canal de notificação por raciocínio inválido**: comparei dois números que nunca batem, nem quando está tudo certo. O sintoma era real; a explicação, não.
+- **Quase apaguei uma convenção** do planejamento por ler uma frase como contradição sem varrer o resto. O que me impediu foi a exigência de dizer quantas ocorrências eu esperava.

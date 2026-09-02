@@ -693,3 +693,29 @@ As outras cinco são de forma, todas internas, nenhuma tocando o que é público
 - **Colidi duas vezes** com um agente rodando suíte ao mesmo tempo que eu — a mesma regra que passei o dia cobrando dos outros.
 - **Concluí um diagnóstico do canal de notificação por raciocínio inválido**: comparei dois números que nunca batem, nem quando está tudo certo. O sintoma era real; a explicação, não.
 - **Quase apaguei uma convenção** do planejamento por ler uma frase como contradição sem varrer o resto. O que me impediu foi a exigência de dizer quantas ocorrências eu esperava.
+
+---
+
+## A manhã de 02/09, depois do resumo acima  `[02/09/26 - 08:08:39]`
+
+**Leia esta seção junto com a de cima: ela continua o mesmo relato, e nada aqui contradiz o que está lá.**
+
+### O que aconteceu enquanto o senhor dormia, em ordem
+
+| Quando | O quê | Quem decidiu | Estado |
+|---|---|---|---|
+| 07:56 | A documentação de como funcionam a conexão com o sistema de janelas e o contrato de leitura da árvore do consumidor foi escrita e registrada | Agente de redação, sob a ordem do senhor *"grave na documentacao como funciona"* | **publicada**, servidor verde nos 18 |
+| 07:58 | Empurrei essa documentação | Eu, sob a autorização de push por onda que o senhor deu e não revogou | **provado pelo remoto** |
+| 08:03 | Fechei o carregamento de arquivo, que estava esperando verificação | Eu | **concluído** |
+| 08:06 | Mandei o CTO planejar a onda seguinte, sem implementar nada antes do verde | Eu | em curso |
+
+### As duas coisas que eu decidi sozinho, e o que se perde se o senhor reverter
+
+1. **Aceitei a documentação em inglês.** O agente argumentou pelo leitor: quem lê é consumidor externo desconhecido, e a lei de idioma deste projeto manda decidir documento pelo leitor, não pelo autor. **Se o senhor reverter,** os dois documentos viram pt-br e a pasta deixa de ser a área do material voltado para fora — o que é coerente também, só é outra escolha.
+
+2. **Dei por verificado o carregamento de arquivo.** Faltava provar um conserto escrito às cegas para Windows, sem compilador da Microsoft nesta máquina. Considerei que os dois trabalhos de Windows verdes no servidor **são** a prova, porque a verificação daquele caso exige que a leitura falhe: verde ali é impossível se o mecanismo não tiver funcionado. **Se o senhor reverter,** o item volta a esperar, e a única forma de fechá-lo seria uma máquina Windows real.
+
+### O que eu errei nesta manhã
+
+- **Concluí, duas vezes, que um agente estava travado, e nas duas ele não estava.** O de redação commitou no minuto exato em que eu o media. Estou rápido demais para chamar de travamento o intervalo em que alguém relê o próprio trabalho.
+- **Escrevi horas estimadas em mensagens ao senhor** em vez de ler o relógio, que é justamente o que a lei de timestamp proíbe. Os minutos das primeiras mensagens desta manhã estão aproximados; esta seção está com a hora real.

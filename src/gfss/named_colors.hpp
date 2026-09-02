@@ -6,6 +6,8 @@
 
 #include <glintfx/core/color.hpp>
 
+#include "ascii_case.hpp"
+
 // named_colors.hpp - GFSS-COLOR-PARSE (TODO.md, GODS_LAWS.md
 // L-17/L-27/L-29/L-40): the closed table of CSS named color keywords,
 // and NOTHING else - answers exactly one question, "what gltfx_rgba8
@@ -64,10 +66,10 @@
 // keywords are matched "ASCII case-insensitively"): lookup_named_color()
 // below treats "RED", "Red" and "red" identically, the SAME rule gfss's
 // own function-name matching needs for "RGB(", "Rgb(" et al.
-// (color_parse.cpp reuses ascii_case_insensitive_equal() from this
-// file for exactly that - a real, current use in TWO files at write
-// time, not a speculative helper CONTRACT.md SS6's "three occurrences"
-// rule exists to forbid).
+// (color_parse.cpp reuses ascii_case.hpp's own ASCII-fold helper for
+// exactly that - a real, current use past CONTRACT.md SS6's "three
+// occurrences" bar for a shared helper, see that helper's own header
+// comment for the full count).
 
 namespace glintfx::style::detail {
 
@@ -83,31 +85,17 @@ struct named_color_entry {
     gltfx_rgba8 value{};
 };
 
-// U+0041-U+005A ('A'-'Z') and U+0061-U+007A ('a'-'z') only - the ASCII
-// range CSS Syntax Module Level 3's own case-insensitive ASCII match
-// covers (section 4.2's "ASCII case-insensitive" definition never
-// touches non-ASCII code points). A named color keyword is always
-// ASCII by construction (code_point.hpp's own is_ident_start()/
-// is_ident_continue() accept non-ASCII too, but no CSS keyword this
-// table defines ever contains one), so folding only ASCII is complete
-// for this comparison, not a partial implementation of Unicode
-// case-folding.
-[[nodiscard]] constexpr char ascii_to_lower(char ch) noexcept {
-    return (ch >= 'A' && ch <= 'Z') ? static_cast<char>(ch - 'A' + 'a') : ch;
-}
-
-[[nodiscard]] constexpr bool ascii_case_insensitive_equal(std::string_view a,
-                                                          std::string_view b) noexcept {
-    if (a.size() != b.size()) {
-        return false;
-    }
-    for (std::size_t i = 0; i < a.size(); ++i) {
-        if (ascii_to_lower(a[i]) != ascii_to_lower(b[i])) {
-            return false;
-        }
-    }
-    return true;
-}
+// The ASCII case-fold helpers used to be DEFINED here (A named color
+// keyword is always ASCII by construction -
+// code_point.hpp's own is_ident_start()/is_ident_continue() accept
+// non-ASCII too, but no CSS keyword this table defines ever contains
+// one, so folding only ASCII is complete for this comparison, not a
+// partial implementation of Unicode case-folding). GFSS-MATCH-SIMPLE
+// fatia A (D-MS-3, this file's own header comment above) moved them
+// VERBATIM to ascii_case.hpp, same namespace, same behavior - a fourth
+// real consumer (the compound matcher) made keeping them bundled with
+// this file's own 149-row color TABLE pull the whole table declaration
+// into a layer that has no business seeing it.
 
 // The table's own cardinality, counted mechanically from the table
 // defined in named_colors.cpp - see that file's own comment for why

@@ -722,7 +722,7 @@ As outras cinco são de forma, todas internas, nenhuma tocando o que é público
 
 ### O que a sonda mediu na máquina de testes do Windows  `[02/09/26 - 12:05:03]`
 
-**Fato, medido nos dois modos do servidor (run com , 18 trabalhos verdes), não suposto:**
+**Fato, medido nos dois modos do servidor (run com `2138772`, 18 trabalhos verdes), não suposto:**
 
 ```
 RegisterClassExW ok=true GetLastError=0

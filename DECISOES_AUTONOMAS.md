@@ -642,3 +642,19 @@ A lição generaliza a regra que já temos: **medir o alvo errado tem o mesmo ef
 **O que esta autorização NÃO relaxa, e vale escrever porque a tentação cresce quando ninguém está olhando:** implementador, revisor e orquestrador continuam sendo agentes distintos; a revisão executa e muta o código em vez de só ler; eu reverifico antes de aceitar; um trabalho pesado por vez; e toda decisão que iria a ele fica registrada aqui para confirmação retroativa.
 
 **O que continua fora, mesmo em modo automático:** criar tag de versão, qualquer coisa que apague trabalho, e alterar lei. Tag é ação de release; as outras duas são dele por definição.
+
+### A última fatia da onda: oito decisões do CTO, e uma que ele recusou tomar  `[01/09/26 - 23:03:22]`
+
+**Fatia:** `GFSS-MATCH-SIMPLE` — dado um seletor escrito na folha de estilo, decidir se ele casa com um nó. É a de maior valor da onda, destravada agora pela visão de nó.
+
+**O achado que muda o desenho, e eu confirmei no código:** o interpretador da folha aceita `:HOVER` e `:hover` como a mesma coisa, mas **guarda o texto como o autor escreveu**. Um casador que comparasse letra a letra deixaria `:HOVER` sem casar **para sempre, em silêncio** — seletor aceito que nunca funciona. Medido em `selector_parse.cpp`: a validação ignora maiúsculas, o armazenamento não.
+
+**A decisão que mais afeta quem escreve folha de estilo (D-MS-4 e D-MS-5):** nome de elemento e de pseudo-classe **ignoram maiúsculas**; classe e identificador são **exatos**. A linha que separa os dois casos não é invenção nossa: **o que a linguagem define dobra a caixa; o que o autor escolhe é exato**. É a regra do HTML, é o que todo autor de folha de estilo já espera, e o CTO trouxe o texto normativo das duas fontes. **Custo de reverter: isto muda o resultado de folhas já escritas** — antes da versão 1.0 é um commit; depois, é quebra de compatibilidade.
+
+**A decisão de desenho mais interessante (D-MS-2):** o casador responde **três** coisas, não duas — casou, não casou, ou *"o que é meu está certo, mas este seletor pede algo que não é meu"*. Com resposta de sim ou não, um seletor que pede coisa de outra fatia obrigaria a mentir nos dois sentidos. E a rejeição vence o adiamento: se o identificador já não bate, ninguém paga o preço de avaliar o resto.
+
+**A que ele RECUSOU tomar, e recusou pela razão certa (D-MS-8):** existe uma pseudo-classe que o interpretador aceita, para a qual **nenhum dos oito fatos que o senhor aprovou responde**. Decidir sozinho significaria reabrir a lista que o senhor fechou com *"aceito tudo"*. Ele não decidiu, marcou como adiada e mandou ao seu registro. **É exatamente o comportamento que o modo autônomo não cobre.**
+
+As outras cinco são de forma, todas internas, nenhuma tocando o que é público: onde o casador mora, como as classes são conferidas numa passada só em vez de uma por uma, a ordem de teste do mais barato ao mais caro, e a mudança de lugar de uma função de comparação que já tinha quatro consumidores.
+
+**A lei de pesquisa foi cumprida e corrigiu um erro nosso:** o plano anterior anotou a ordem de teste de um motor de referência ao contrário. O CTO leu a fonte e mostrou por que aquele motor testa o identificador **tarde** — porque lá ele já serviu de índice antes. Sem índice, ele vai **primeiro**. A ordem daqui foi decidida pelo custo medido na nossa própria tabela, não copiada.

@@ -336,6 +336,11 @@ GLINTFX_TEST(gfui_node_query_forwarders_and_derivability_over_fake_arena_tree) {
         .id = "",
         .classes = {},
         .attributes = {},
+        // gltfx_node_state is a BITMASK enum by design - combining two
+        // named bits is the ordinary case, not an out-of-range value;
+        // same known clang-analyzer false positive tests/err_code_
+        // test.cpp's own suppression of the same check already documents.
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: see comment above
         .state = static_cast<glintfx::gfui::gltfx_node_state>(
             static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
             static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus)),
@@ -428,6 +433,11 @@ GLINTFX_TEST(gfui_node_query_forwarders_and_derivability_over_fake_linked_tree) 
         .id = "",
         .classes = {},
         .attributes = {},
+        // gltfx_node_state is a BITMASK enum by design - combining two
+        // named bits is the ordinary case, not an out-of-range value;
+        // same known clang-analyzer false positive tests/err_code_
+        // test.cpp's own suppression of the same check already documents.
+        // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: see comment above
         .state = static_cast<glintfx::gfui::gltfx_node_state>(
             static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
             static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus)),

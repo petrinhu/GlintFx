@@ -61,6 +61,14 @@ GLINTFX_TEST(gltfx_node_state_name_answers_every_bit_and_unknown_for_none) {
 // conventions.md R7: an identifier token, never a synthesized
 // sentence) - falls through to "unknown", same as `none`.
 GLINTFX_TEST(gltfx_node_state_name_of_a_combination_is_unknown) {
+    // gltfx_node_state is a BITMASK enum by design (node_view.hpp's
+    // own header comment) - a value combining two named bits is not
+    // "out of range", it is the ordinary case fact 5's own `state`
+    // callback answers. clang-analyzer does not model bitmask enums
+    // and flags every non-enumerator value; this is the same known
+    // false positive tests/err_code_test.cpp's own suppression of the
+    // same check already documents.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: see comment above
     const auto combo = static_cast<glintfx::gfui::gltfx_node_state>(
         static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
         static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus));
@@ -68,6 +76,8 @@ GLINTFX_TEST(gltfx_node_state_name_of_a_combination_is_unknown) {
 }
 
 GLINTFX_TEST(gltfx_node_state_has_reads_individual_and_combined_bits) {
+    // Same false positive as above - see that case's own comment.
+    // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: see comment above
     const auto hover_and_focus = static_cast<glintfx::gfui::gltfx_node_state>(
         static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::hover) |
         static_cast<std::uint8_t>(glintfx::gfui::gltfx_node_state::focus));

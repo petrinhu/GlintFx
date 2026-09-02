@@ -1121,23 +1121,16 @@ jobs:
         run: sh tests/tools/check_no_x11.sh "$PWD"
 
       # GODS_LAWS.md L-08 (publico no GitHub, AGPL-3.0) e L-40 (piso de
-      # varredura nao-vazia). Item SPDX-GATE da onda W2, 25/08/2026:
-      # entre este portao e o de ancora morta nos manuais, o lider
-      # escolheu SO este - arquivo de codigo/build nascido sem cabecalho
-      # SPDX enfraquece a licenca perante quem consome a lib de fora
-      # (LEI ZERO), o que e dano juridico, nao cosmetico. Logica em
-      # tests/tools/check_spdx.sh (enumeracao fechada via `git ls-files`,
-      # excecao curta e nomeada, nunca busca dirigida - ver o cabecalho
-      # do script). `sh`, nao `bash`: este job roda em ubuntu-latest, cujo
-      # /bin/sh e dash - o mesmo motivo que levou o Gate L-05/L-06 acima a
-      # ser invocado assim, e o mesmo bashismo que quebrou dois portoes
-      # novos em tres dos cinco alvos nesta mesma semana (ver CLAUDE.md,
-      # "Estado atual do repositorio").
-      - name: Gate L-08 - cabecalho SPDX presente em todo arquivo nao isento
-        run: sh tests/tools/check_spdx.sh "$PWD"
-
-      - name: Gate L-08 - selftest (quatro controles, GODS_LAWS.md L-40)
-        run: sh tests/tools/check_spdx.sh --selftest
+      # varredura nao-vazia) NAO estao mais aqui. Item SPDX-GATE-PY
+      # (GODS_LAWS.md L-04, decisao do lider de 02/09/2026: "O
+      # comportamento deve ser igual em qualquer OS"): a logica virou
+      # tests/tools/check_spdx.py, registrada como ctest (spdx_test/
+      # spdx_selftest, tests/CMakeLists.txt) SEM guarda de sistema -
+      # ela ja roda dentro de `ctest --test-dir ...` nos jobs `linux` e
+      # `windows` acima, nas cinco plataformas, em vez de so aqui, num
+      # unico job ubuntu-only que nunca tocava Windows/CachyOS/Arch
+      # separadamente. O antigo tests/tools/check_spdx.sh foi apagado
+      # no mesmo passo.
 
       # GODS_LAWS.md L-07 EXCECAO No 1 (third_party/khronos/ e a UNICA
       # excecao de glintfx a lei de dependencia zero) e L-40 (piso de
@@ -1146,10 +1139,14 @@ jobs:
       # e a excecao crescer sozinha, um arquivo por vez, ate virar uma
       # dependencia de fato. A enumeracao fechada dos arquivos que a
       # excecao realmente abre mora em tests/tools/khronos_vendor_files.sh,
-      # sourced tanto por check_spdx.sh (acima) quanto por
-      # check_vendor_purity.sh (abaixo) - uma unica lista, nunca duas
-      # que precisam concordar sem nada as obrigando. `sh`, nao `bash`,
-      # mesmo motivo dos dois gates acima.
+      # sourced por check_vendor_purity.sh (abaixo) - ainda POSIX sh,
+      # fora do escopo do porte SPDX-GATE-PY (a lei que a move e L-07/
+      # VENDOR-PURITY, nao a L-04 deste job). check_spdx.py (acima)
+      # DUPLICA essa mesma enumeracao de tres arquivos como uma
+      # constante Python propria, declarada no cabecalho dele mesmo -
+      # ela nao pode mais fazer `source` deste arquivo .sh porque
+      # precisa rodar em Windows tambem, onde nao ha `sh`. `sh`, nao
+      # `bash`, mesmo motivo do gate acima.
       - name: Gate L-07 - third_party/khronos/ contem so o que a excecao abriu
         run: sh tests/tools/check_vendor_purity.sh "$PWD"
 

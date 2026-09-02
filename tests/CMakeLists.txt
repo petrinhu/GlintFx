@@ -496,24 +496,64 @@ glintfx_add_test(header_hygiene_test)
 # header_hygiene_test.cpp" contract mechanically, instead of trusting
 # a human to read the comment at the top of that file - the previous
 # version of that comment made exactly that claim and nothing ever
-# enforced it (see tests/tools/check_hygiene_coverage.sh's own header
-# for the declared generated-header limitation). POSIX sh; same
-# declared downgrade as every other gate in this file.
-if(UNIX)
-    add_test(
-        NAME hygiene_coverage_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.sh"
-            "${PROJECT_SOURCE_DIR}/include"
-            "${CMAKE_CURRENT_SOURCE_DIR}/header_hygiene_test.cpp"
-    )
-    set_tests_properties(hygiene_coverage_test PROPERTIES LABELS consume)
+# enforced it (see tests/tools/check_hygiene_coverage.py's own header
+# for the declared generated-header limitation).
+#
+# Ported from POSIX sh to python3 and registered WITHOUT an if(UNIX)
+# guard (GODS_LAWS.md L-04, decisao do lider de 02/09/2026: "O
+# comportamento deve ser igual em qualquer OS" - the sh version's
+# if(UNIX) guard meant nobody checked header hygiene coverage on
+# Windows at all). Same GLINTFX_PYTHON3_EXECUTABLE discovery
+# check_dep_zero_trace.py's own registration already uses further
+# below in this file - find_program() is idempotent across repeated
+# calls with the same cache variable, so this second call costs
+# nothing and lets this section stand on its own.
+find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
 
-    add_test(
-        NAME hygiene_coverage_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.sh" --selftest
-    )
-    set_tests_properties(hygiene_coverage_selftest PROPERTIES LABELS selftest)
-endif()
+add_test(
+    NAME hygiene_coverage_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.py"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/header_hygiene_test.cpp"
+)
+set_tests_properties(hygiene_coverage_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME hygiene_coverage_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.py" --selftest
+)
+set_tests_properties(hygiene_coverage_selftest PROPERTIES LABELS selftest)
+
+# SPDX header coverage gate (GODS_LAWS.md L-08: publico no GitHub,
+# AGPL-3.0). Ported from POSIX sh (tests/tools/check_spdx.sh, invoked
+# directly by the ubuntu-only "leis" job in .github/workflows/ci.yml,
+# never registered here nor exercised on any other platform) to
+# python3 and registered here, WITHOUT an if(UNIX) guard, for the same
+# L-04 reason as hygiene_coverage_test immediately above - this makes
+# it run inside the SAME ctest invocation the linux and windows CI
+# jobs already execute on all five platforms. See tests/tools/
+# check_spdx.py's own header for GATE-SPDX-UNTRACKED, the coverage fix
+# this port also carries (untracked files are now scanned too, not
+# only `git ls-files`). The direct `sh tests/tools/check_spdx.sh`
+# steps in the "leis" job are removed in the same fatia (redundant
+# once this ctest case covers all five platforms, and the script
+# itself is deleted).
+add_test(
+    NAME spdx_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spdx.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(spdx_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME spdx_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spdx.py" --selftest
+)
+set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
 # Public name collision gate (docs/api-conventions.md R6; TODO.md
 # "Desvios", 25/08/2026 achado: "a auditoria de colisao de nomes

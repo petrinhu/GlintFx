@@ -19,18 +19,28 @@
 # nunca chamado como script. Nao tem `set -eu` proprio nem chama nada
 # no fim do arquivo - quem source-ia herda o proprio `set -eu`.
 #
-# SOURCED POR DOIS PORTOES, a mesma lista nos dois:
-#   - check_spdx.sh          (um arquivo sob third_party/khronos/ e
-#                              isento do cabecalho AGPL exigido em todo
-#                              arquivo nao-vendorizado? GODS_LAWS.md L-08)
+# SOURCED POR UM PORTAO (desde SPDX-GATE-PY, 02/09/2026 - ver abaixo):
 #   - check_vendor_purity.sh (third_party/khronos/ contem SOMENTE estes
 #                              dois arquivos, nada mais? item
 #                              VENDOR-PURITY, GODS_LAWS.md L-07/L-40)
 #
 # Existe porque duas listas que precisam concordar sem nada as
 # obrigando e exatamente o defeito que esta onda ja consertou uma vez
-# (ver TODO.md, item VENDOR-PURITY) - um so lugar, os dois portoes leem
-# dele.
+# (ver TODO.md, item VENDOR-PURITY) - um so lugar, este portao le dele.
+#
+# ATE 02/09/2026, check_spdx.sh tambem sourceava este arquivo (mesma
+# pergunta: um arquivo sob third_party/khronos/ e isento do cabecalho
+# AGPL? GODS_LAWS.md L-08). Nesse dia o lider fixou paridade de
+# comportamento entre as cinco plataformas (GODS_LAWS.md L-04), e
+# check_spdx.sh foi portado para tests/tools/check_spdx.py (Python 3,
+# roda em Windows tambem) - um script que precisa rodar em Windows nao
+# pode fazer `source` de uma biblioteca POSIX sh que so existe la.
+# check_spdx.py DUPLICA esta mesma enumeracao de tres arquivos como
+# KNOWN_KHRONOS_VENDOR_FILES, uma constante Python, com o mesmo aviso
+# ao contrario neste comentario: se esta lista mudar, atualize as DUAS
+# (aqui e em check_spdx.py) - a excecao GODS_LAWS.md L-07 No 1 so muda
+# por decisao do lider, entao o custo de manter duas copias em sincronia
+# a mao e baixo e conhecido, nunca silencioso.
 #
 # Usage:
 #   . "$(dirname "$0")/khronos_vendor_files.sh"

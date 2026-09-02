@@ -227,6 +227,25 @@ glintfx_add_test(win_dll_alloc_hook_format_test)
 # comment.
 glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 
+# X-0 (TODO.md, GODS_LAWS.md L-09/L-40): win32_runner_probe_test.cpp's
+# whole body lives inside `#if defined(_WIN32)` (see that file's own
+# header comment for why) - registering it unconditionally would ask
+# every non-Windows leg of the five-platform matrix to link an empty
+# translation unit with zero registered cases. Guarded here instead,
+# with the SAME "declared absence, not silence" shape
+# src/platform/CMakeLists.txt's own WIN32/UNIX branch already uses
+# (GODS_LAWS.md L-40: a gate that is skipped must say so, never just
+# not run). user32 carries CreateWindowExW/RegisterClassExW/
+# DestroyWindow/PeekMessageW - Win32 counts as system API for the
+# dependency-zero rule (GODS_LAWS.md L-07), same category as
+# libwayland-client on Linux.
+if(WIN32)
+    glintfx_add_test(win32_runner_probe_test)
+    target_link_libraries(win32_runner_probe_test PRIVATE user32)
+else()
+    message(STATUS "glintfx: win32_runner_probe_test skipped (Windows-only probe, see its own header comment)")
+endif()
+
 # GL-LOADER (TODO.md, GODS_LAWS.md L-07 EXCECAO No 1): the minimal XML
 # pull reader tools/gl_registry_codegen/xml_reader.hpp/.cpp uses to walk
 # the vendored gl.xml at build time - see gl_xml_reader_test.cpp's own

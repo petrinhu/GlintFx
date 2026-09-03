@@ -736,3 +736,24 @@ messages_pumped=2 wndproc_wm_size=1 wndproc_wm_activate=0 queue_wm_size=0 queue_
 **O zero de ativação também não é defeito, e é a segunda armadilha do mesmo dado:** a sonda mostra a janela com a forma que **explicitamente não ativa**. Zero ali é o comportamento correto do que foi pedido. Quem for medir ativação no Windows precisa mostrar a janela **pedindo** ativação, senão vai ler um zero honesto e concluir errado de novo.
 
 **O que isto libera:** o backend do Windows pode ser desenhado com **janela de verdade**, e não com a saída de emergência que o CTO tinha preparado (janela invisível, só para mensagens, com o resto declarado como não demonstrável no servidor). A saída de emergência fica arquivada sem uso.
+
+---
+
+## Onda W1 reaberta e fechada em modo autônomo  `[03/09/26 - 10:17:27]`
+
+**Ordem do líder, verbatim:** *"Autorizo modo autonomo. Feche a onda w1. no final merge/push"*.
+
+**O que sobrou da W1 depois da auditoria de paridade**, e por que os três travam no mesmo lugar:
+
+| Item | Por que está aberto |
+|---|---|
+| Fundação do build | O espelho local do servidor só existe em shell de Unix; quem desenvolve no Windows não tem como rodar antes de enviar. Some também o sanitizador, que só roda no alvo primário. |
+| Binding do protocolo | O Windows recebe a biblioteca **sem camada de plataforma nenhuma**. |
+| Distribuição do pacote | O teste que confere o que o empacotador recebe só roda no Unix. |
+
+**A raiz é uma só:** falta a camada que fala com o sistema no Windows. Enquanto ela não existir, dois dos três não têm como fechar.
+
+**Decisões minhas nesta abertura, para o líder confirmar ou reverter:**
+
+1. **Despacho o planejamento e uma implementação em paralelo**, e não em fila, porque tocam arquivos disjuntos: o planejamento não escreve código de produto, e o espelho do servidor nasce em arquivo novo. Onde houver risco de dois agentes tocarem o mesmo registro de testes, volto a sequenciar.
+2. **Fecho a onda pelo que a lei exige, não pelo que a tabela diz.** Se ao planejar aparecer que um item da W1 depende de peça marcada em outra onda, essa peça entra na W1 - o contrário seria declarar fechado com paridade parcial de novo.

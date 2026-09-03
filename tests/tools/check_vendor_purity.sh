@@ -16,7 +16,7 @@
 # dependencia de fato - o proprio motivo de L-07 existir.
 #
 # A LISTA FECHADA NAO MORA AQUI: mora em khronos_vendor_files.sh (mesmo
-# diretorio), sourced abaixo - a MESMA enumeracao que check_spdx.sh usa
+# diretorio), sourced abaixo - a MESMA enumeracao que check_spdx.py usa
 # para decidir se um arquivo sob third_party/khronos/ e isento do
 # cabecalho AGPL. Item VENDOR-PURITY, TODO.md: duas listas que
 # precisam concordar sem nada as obrigando e exatamente o defeito que
@@ -42,7 +42,10 @@
 set -eu
 
 # A enumeracao fechada e a funcao de match moram em khronos_vendor_files.sh
-# - unica fonte, tambem sourced por check_spdx.sh (ver o cabecalho dele
+# - fonte para este gate; check_spdx.py NAO faz source deste arquivo e
+#   DUPLICA a lista como constante Python, porque nao ha `sh` no Windows
+#   e o gate de licenca precisa rodar nas cinco plataformas (L-04). A
+#   duplicacao esta declarada nos dois arquivos: mudou aqui, mude la
 # e o do arquivo sourced). Resolvido relativo a ESTE arquivo (dirname
 # "$0"), nao ao diretorio de trabalho de quem chama.
 # shellcheck source=./khronos_vendor_files.sh

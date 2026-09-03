@@ -50,7 +50,15 @@ set -eu
 # means adding its name HERE, in the same commit - the exact discipline
 # tests/display_port_concept_test.cpp's own header comment already
 # names as "a lista de adaptadores... vive num único lugar".
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter"
+#
+# win32_display_adapter added by WIN-DISPLAY (TODO.md, GODS_LAWS.md
+# L-04 reabertura de ARCH-PORTS por paridade): this script scans
+# src/platform/ and tests/ UNCONDITIONALLY, on every platform this
+# gate runs on (this gate itself is if(UNIX)-only in tests/CMakeLists.txt,
+# but the tree it reads is the same tree on every leg) - so the
+# win32/ backend's own adapter must be on this list even though this
+# script never runs a Windows build itself.
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {
@@ -99,13 +107,25 @@ all_adapter_headers() {
 # shapes name a class this function extracts and the caller validates
 # against KNOWN_ADAPTER_CLASSES; a file matching neither shape is
 # genuinely unrecognized, not silently accepted.
+#
+# [a-z0-9_]+, NOT [a-z_]+ (WIN-DISPLAY correction): the original
+# pattern had no digit in its character class, so it silently failed
+# to extract "win32_display_adapter" - a false NEGATIVE that made this
+# gate reprove a legitimately-named, closed-list adapter as "no class
+# declaration found" (measured: port_privacy_test failing on a clean
+# win32_display_adapter addition, GODS_LAWS.md L-40 - a gate that
+# cannot even recognize a correctly-named class is not proving the
+# closed list, it is proving its own regex). snake_case identifiers in
+# this project's own convention (GODS_LAWS.md L-21) are lowercase
+# letters, digits and underscores - the character class now matches
+# that convention exactly, not a subset of it.
 adapter_class_name_in_file() {
-    class_decl="$(grep -oE 'class [a-z_]+_adapter\b' "$1" 2>/dev/null | head -n 1 | awk '{ print $2 }')"
+    class_decl="$(grep -oE 'class [a-z0-9_]+_adapter\b' "$1" 2>/dev/null | head -n 1 | awk '{ print $2 }')"
     if [ -n "$class_decl" ]; then
         printf '%s\n' "$class_decl"
         return 0
     fi
-    grep -oE 'using[[:space:]]+[a-z_]+[[:space:]]*=[[:space:]]*[a-z_]+_adapter\b' "$1" 2>/dev/null \
+    grep -oE 'using[[:space:]]+[a-z0-9_]+[[:space:]]*=[[:space:]]*[a-z0-9_]+_adapter\b' "$1" 2>/dev/null \
         | head -n 1 | awk '{ print $NF }'
 }
 

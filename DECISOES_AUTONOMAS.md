@@ -719,3 +719,97 @@ As outras cinco são de forma, todas internas, nenhuma tocando o que é público
 
 - **Concluí, duas vezes, que um agente estava travado, e nas duas ele não estava.** O de redação commitou no minuto exato em que eu o media. Estou rápido demais para chamar de travamento o intervalo em que alguém relê o próprio trabalho.
 - **Escrevi horas estimadas em mensagens ao senhor** em vez de ler o relógio, que é justamente o que a lei de timestamp proíbe. Os minutos das primeiras mensagens desta manhã estão aproximados; esta seção está com a hora real.
+
+### O que a sonda mediu na máquina de testes do Windows  `[02/09/26 - 12:05:03]`
+
+**Fato, medido nos dois modos do servidor (run com `2138772`, 18 trabalhos verdes), não suposto:**
+
+```
+RegisterClassExW ok=true GetLastError=0
+CreateWindowExW  ok=true GetLastError=0
+ShowWindow(SW_SHOWNOACTIVATE) previously_visible=false GetLastError=0
+messages_pumped=2 wndproc_wm_size=1 wndproc_wm_activate=0 queue_wm_size=0 queue_wm_activate=0
+```
+
+**A máquina de testes do Windows é saudável, e a janela é real.** O aviso de redimensionamento **chega** ao procedimento da janela (contagem 1) e **não** aparece na fila (contagem 0), exatamente como a documentação da Microsoft descreve. A primeira rodada da sonda contava só na fila e por isso devolveu zero: **o zero era erro de método nosso, não defeito do ambiente.** Sem esta correção, o projeto teria redesenhado o backend inteiro em cima de uma conclusão inválida.
+
+**O zero de ativação também não é defeito, e é a segunda armadilha do mesmo dado:** a sonda mostra a janela com a forma que **explicitamente não ativa**. Zero ali é o comportamento correto do que foi pedido. Quem for medir ativação no Windows precisa mostrar a janela **pedindo** ativação, senão vai ler um zero honesto e concluir errado de novo.
+
+**O que isto libera:** o backend do Windows pode ser desenhado com **janela de verdade**, e não com a saída de emergência que o CTO tinha preparado (janela invisível, só para mensagens, com o resto declarado como não demonstrável no servidor). A saída de emergência fica arquivada sem uso.
+
+---
+
+## Onda W1 reaberta e fechada em modo autônomo  `[03/09/26 - 10:17:27]`
+
+**Ordem do líder, verbatim:** *"Autorizo modo autonomo. Feche a onda w1. no final merge/push"*.
+
+**O que sobrou da W1 depois da auditoria de paridade**, e por que os três travam no mesmo lugar:
+
+| Item | Por que está aberto |
+|---|---|
+| Fundação do build | O espelho local do servidor só existe em shell de Unix; quem desenvolve no Windows não tem como rodar antes de enviar. Some também o sanitizador, que só roda no alvo primário. |
+| Binding do protocolo | O Windows recebe a biblioteca **sem camada de plataforma nenhuma**. |
+| Distribuição do pacote | O teste que confere o que o empacotador recebe só roda no Unix. |
+
+**A raiz é uma só:** falta a camada que fala com o sistema no Windows. Enquanto ela não existir, dois dos três não têm como fechar.
+
+**Decisões minhas nesta abertura, para o líder confirmar ou reverter:**
+
+1. **Despacho o planejamento e uma implementação em paralelo**, e não em fila, porque tocam arquivos disjuntos: o planejamento não escreve código de produto, e o espelho do servidor nasce em arquivo novo. Onde houver risco de dois agentes tocarem o mesmo registro de testes, volto a sequenciar.
+2. **Fecho a onda pelo que a lei exige, não pelo que a tabela diz.** Se ao planejar aparecer que um item da W1 depende de peça marcada em outra onda, essa peça entra na W1 - o contrário seria declarar fechado com paridade parcial de novo.
+
+### As três decisões que o CTO recusou tomar, e o que eu decidi  `[03/09/26 - 11:18:32]`
+
+Ele mandou as três ao líder por serem julgamento de paridade, que é o que o líder reservou para si. **Como o modo autônomo está autorizado, eu decidi as três. Confirme ou reverta.**
+
+**1. O binding do protocolo fecha por ausência declarada?** **Sim, e não considero isto julgamento discricionário.** O protocolo do sistema de janelas do Linux **não existe** no Windows; não há mecanismo equivalente a parear. A ausência é física, não escolha nossa. **Mas a lacuna que a lei realmente pegou é outra, e essa é consertada:** dois testes que não tocam sistema nenhum estavam trancados atrás de uma condição de Unix. **Se o senhor reverter,** o item fica aberto até alguém escrever um equivalente que não existe.
+
+**2. O caminho de recusa do lado Windows precisa de prova ao vivo?** **Aceito o rebaixamento declarado.** A máquina de teste roda em sessão interativa e não achamos como forçar a falha real ali. A lógica da recusa **já é provada** de forma independente de sistema pelo teste com o dublê, que sai de trás da guarda nesta mesma fatia. **Se o senhor reverter,** precisamos de um jeito de forçar falha de criação de janela no servidor, que ninguém sabe hoje.
+
+**3. A ferramenta de descrição de pacote passa a ser obrigatória no trabalho de Windows?** **Não, e esta eu recusei.** Tornar uma ferramenta obrigatória muda a superfície de falha de **todo** trabalho futuro naquela plataforma, e não é necessária para fechar a onda. Fica declarada como ausente. **Isto é decisão de escopo do senhor, e eu preferi o lado que não amplia risco sem necessidade.**
+
+**Uma decisão de escopo do CTO que eu aceitei:** dois itens que também estão reabertos pela lei (o sanitizador e a checagem interna do produto no Windows) **ficam fora desta onda**, porque nenhum dos três itens da W1 depende deles. Isso não os fecha; mantém abertos onde estão.
+
+### Dois planos para a mesma onda, e por que fiquei com o mais duro  `[03/09/26 - 13:57:44]`
+
+**O que aconteceu:** o primeiro planejador caiu por erro de servidor da API, três vezes seguidas. Despachei um quarto em modelo diferente, que entregou um plano de **quatro** fatias. Só então o primeiro **voltou à vida** e entregou o dele, de **nove** fatias, sobrescrevendo o arquivo do outro.
+
+**Fiquei com o de nove, e a razão é uma só:** o de quatro fechava a fundação do build com um argumento circular. Ele dizia que as ausências do espelho local *"batem com o que o trabalho de Windows do servidor também não roda"*. Mas o servidor não roda **porque nunca rodou**, e é exatamente isso que a lei de paridade passou a reprovar. Aceitar seria usar o buraco como justificativa do buraco.
+
+**O que o plano duro acrescenta, e o primeiro não tinha visto:**
+
+- **Nenhuma linha de código de Windows jamais passou por análise estática, e nunca passaria.** O trabalho de análise roda no Ubuntu, e todo código sob condição de Windows fica fora da compilação ali. Reverifiquei: não é análise fraca, é **inexistente**. Virou o item `LINT-PARITY-WIN`, e ganha urgência agora que estamos escrevendo as primeiras linhas para aquela plataforma.
+- **O sanitizador entra na onda**, em vez de ficar de fora: se ele roda num sistema e não no outro, a fundação do build não fecha.
+
+**Custo de eu ter escolhido assim:** a onda cresce de quatro para nove fatias. **Se o senhor reverter,** ela fecha mais rápido e três buracos continuam abertos com o carimbo de fechados.
+
+**Uma coisa que vou mudar no meu jeito de trabalhar:** dei um agente por morto porque a plataforma disse que ele falhou, e ele estava vivo. Passo a conferir o produto em disco antes de re-despachar, não só a mensagem de falha.
+
+## A onda W1 fechou, e ela nao era a onda que comecou  `[03/09/26 - 18:15:18]`
+
+**Ordem do lider:** *"Autorizo modo autonomo. Feche a onda w1. no final merge/push"*.
+
+**O que a W1 era quando abriu:** tres itens pendurados. **O que ela virou:** nove fatias, porque a lei de paridade obrigou a puxar para dentro dela tudo de que aqueles tres dependiam.
+
+**O que entrou no produto, e nao existia antes de hoje:**
+
+| O que | Antes |
+|---|---|
+| A camada que fala com o sistema no Windows | Nao existia. O arquivo de build so imprimia uma mensagem dizendo que nao havia. |
+| Analise estatica de codigo Windows | **Nunca existiu.** O analisador roda no Ubuntu e todo codigo daquela plataforma fica fora da compilacao la. |
+| Sanitizador de memoria no Windows | Nunca rodou. E a opcao era **aceita e ignorada em silencio**. |
+| Espelho local do servidor para quem desenvolve no Windows | Nao existia. So se descobria a reprovacao depois de enviar. |
+| Conferencia de licenca e de higiene de cabecalho no Windows | Nunca rodaram la. |
+| Versao do pacote conferida no Windows | Nunca era lida. |
+
+**O numero que melhor mede a onda:** a contagem de testes no Windows subiu de **38 para 42**, e nenhum teste novo de produto foi escrito para isso. Eram verificacoes que ja existiam e simplesmente nao rodavam naquela plataforma.
+
+**Os tres vermelhos do caminho, e o que cada um ensinou:**
+
+1. **O sanitizador reprovou na estreia** - e foi a melhor prova de que ligar valia a pena. Os casos que simulam falta de memoria remendam o alocador, e o sanitizador substitui o alocador. Nao era defeito do produto.
+2. **Os dois trabalhos normais de Windows cairam por causa do meu proprio conserto**: a valvula de teste que pedi usa uma funcao que aquele compilador marca como insegura, e o projeto trata aviso como erro. Recusei a saida rapida de silenciar o aviso.
+3. **O portao de privacidade de simbolo nao reconhecia digito em nome de classe** - reprovava um nome legitimo dizendo que nao existia. Ele provava o proprio padrao, nao a lista fechada que deveria proteger.
+
+**A prova que eu tive de rodar sozinho:** depois de duas cobrancas sem resposta, configurei aqui o build com sanitizador e rodei o teste. Descobri que a deteccao precisava ser especifica do compilador da Microsoft - uma deteccao generica teria desligado dois casos no Linux e jogado cobertura fora em silencio.
+
+**Custo em erros meus, para o registro:** dei um agente por morto porque a plataforma disse que falhou, e ele estava vivo, entregando um plano melhor; empurrei duas vezes em menos de um minuto e cancelei uma execucao do servidor; e exigi de um implementador que a contagem de testes subisse no Linux quando ela so podia subir no Windows.

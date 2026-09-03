@@ -65,12 +65,60 @@ endfunction()
 # needs its own dedicated test (e.g. a valgrind/libm-specific check),
 # not a stronger flag on our own compile.
 #
-# MSVC guard, declared downgrade: this project's sanitizer CI job builds
-# on Fedora with GNU/Clang only (see .github/workflows/ci.yml); MSVC's
-# /fsanitize=address does not share GCC/Clang's -fsanitize=<comma-list>
-# syntax and is out of scope for this slice.
+# SAN-PARITY-WIN (TODO.md; achado de 03/09/2026, fechado parcialmente
+# nesta fatia): MSVC's /fsanitize=address (memory-safety detection,
+# available since Visual Studio 2019 16.9) is now wired below - the
+# fatal_error guard used to refuse EVERY non-empty GLINTFX_SANITIZE
+# under MSVC, silently-would-have-been-wrong turned into a named
+# refusal that stayed permanent. It is now permanent for a narrower,
+# TRUE reason instead: MSVC has never shipped, in any version, an
+# equivalent to GCC/Clang's UBSan (undefined-behavior detection) - that
+# is not a gap this project's plumbing can close, it is a gap in the
+# compiler itself (learn.microsoft.com/cpp/sanitizers/asan, "Overview" -
+# MSVC's sanitizer story is AddressSanitizer only). So
+# GLINTFX_SANITIZE=address now builds and runs under MSVC exactly like
+# it does under GNU/Clang; any OTHER value (address,undefined; undefined
+# alone; a typo) still refuses at configure time, naming what was asked
+# and why it can never be satisfied here, never silently dropping the
+# undefined-behavior half.
+#
+# Incompatible-options guard (learn.microsoft.com/cpp/sanitizers/asan-
+# known-issues, "Incompatible options and functionality"): /RTC (runtime
+# checks) and incremental linking are both incompatible with
+# /fsanitize=address and MUST be disabled. Neither is ever present in
+# this project's own Release configure (CMAKE_CXX_FLAGS_RELEASE has no
+# /RTC - that is a CMake Debug-only default this project never touches
+# in GlintfxCompileOptions.cmake; incremental linking needs /DEBUG at
+# link time to even engage, which a plain Release build never passes),
+# so nothing here needs to be stripped OUT of an existing flag - but
+# /INCREMENTAL:NO is still added explicitly, matching Microsoft's own
+# "should be disabled" wording literally instead of relying on a
+# default that depends on flags this file does not control staying
+# absent forever. /Zi (debug info) and /DEBUG (linker) are added too:
+# Microsoft's own docs say call-stack formatting needs it, and the
+# GATE-ASAN-HALT halting behaviour below does not depend on either -
+# MSVC's AddressSanitizer runtime already treats most findings as
+# non-continuable by default (learn.microsoft.com/cpp/sanitizers/asan-
+# runtime, "Runtime options" note), so there is no MSVC equivalent of
+# -fno-sanitize-recover=all to add here.
 function(glintfx_apply_sanitizer_flags target)
     if(GLINTFX_SANITIZE STREQUAL "")
+        return()
+    endif()
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(NOT GLINTFX_SANITIZE STREQUAL "address")
+            message(FATAL_ERROR
+                "GLINTFX_SANITIZE=${GLINTFX_SANITIZE} was requested for "
+                "target '${target}', but MSVC only ever supports "
+                "'address' (AddressSanitizer, memory-safety detection) - "
+                "no version of MSVC has an equivalent to GCC/Clang's "
+                "UBSan (undefined-behavior detection), so 'undefined' in "
+                "the list can never be satisfied on this compiler. Build "
+                "with GCC or Clang for the full address,undefined set, or "
+                "configure with GLINTFX_SANITIZE=address alone for MSVC.")
+        endif()
+        target_compile_options(${target} PRIVATE /fsanitize=address /Zi)
+        target_link_options(${target} PRIVATE /DEBUG /INCREMENTAL:NO)
         return()
     endif()
     target_compile_options(${target} PRIVATE

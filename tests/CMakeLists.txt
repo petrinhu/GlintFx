@@ -227,6 +227,25 @@ glintfx_add_test(win_dll_alloc_hook_format_test)
 # comment.
 glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 
+# X-0 (TODO.md, GODS_LAWS.md L-09/L-40): win32_runner_probe_test.cpp's
+# whole body lives inside `#if defined(_WIN32)` (see that file's own
+# header comment for why) - registering it unconditionally would ask
+# every non-Windows leg of the five-platform matrix to link an empty
+# translation unit with zero registered cases. Guarded here instead,
+# with the SAME "declared absence, not silence" shape
+# src/platform/CMakeLists.txt's own WIN32/UNIX branch already uses
+# (GODS_LAWS.md L-40: a gate that is skipped must say so, never just
+# not run). user32 carries CreateWindowExW/RegisterClassExW/
+# DestroyWindow/PeekMessageW - Win32 counts as system API for the
+# dependency-zero rule (GODS_LAWS.md L-07), same category as
+# libwayland-client on Linux.
+if(WIN32)
+    glintfx_add_test(win32_runner_probe_test)
+    target_link_libraries(win32_runner_probe_test PRIVATE user32)
+else()
+    message(STATUS "glintfx: win32_runner_probe_test skipped (Windows-only probe, see its own header comment)")
+endif()
+
 # GL-LOADER (TODO.md, GODS_LAWS.md L-07 EXCECAO No 1): the minimal XML
 # pull reader tools/gl_registry_codegen/xml_reader.hpp/.cpp uses to walk
 # the vendored gl.xml at build time - see gl_xml_reader_test.cpp's own
@@ -393,14 +412,9 @@ if(UNIX)
 endif()
 
 # ARCH-PORTS (TODO.md, GODS_LAWS.md L-19/L-20/L-22/L-40): the display
-# connection port and its two adapters (wayland_display_adapter, real;
-# fake_display_adapter, test-only). Three cases, if(UNIX)-guarded like
-# every other platform-touching gate in this file - the port headers
-# themselves (src/platform/port/) are OS-agnostic, but the two adapters
-# that satisfy the concept in this fatia are Wayland-only, and there is
-# no third, Windows-side adapter to exercise here yet (WIN-WINDOW,
-# TODO.md, still pending - see src/platform/CMakeLists.txt's own
-# three-state selection comment).
+# connection port, proved OS-agnostically below, plus the one Wayland-
+# only adapter case that stays if(UNIX)-guarded further down
+# (display_connect_failure_test).
 #
 # "${PROJECT_SOURCE_DIR}/src" PRIVATE on each: the SAME pattern
 # gfss_tokenizer_test/gfss_color_parse_test above already use to reach
@@ -410,24 +424,51 @@ endif()
 # test target already inherits glintfx_test_harness's own PUBLIC
 # "${CMAKE_CURRENT_SOURCE_DIR}" (= tests/) include dir through
 # glintfx_add_test()'s PRIVATE link to it.
+#
+# The three cases below used to sit inside the if(UNIX) guard that
+# still wraps display_connect_failure_test further down, on the theory
+# that everything in this ARCH-PORTS block was Wayland-only. That
+# theory was wrong for these three (GODS_LAWS.md L-04, "comportamento
+# igual em todo sistema", achado de 03/09/2026): global_catalog.{hpp,
+# cpp} include only <cstdint>/<string>/<string_view>/<vector>/
+# <algorithm>/<new> (every "wl_" mention in the header is a comment,
+# not a type), and display_port_concept_test.cpp/display_connection_
+# fake_test.cpp exercise display_connection_port/display_connection<A>
+# purely through fake_display_adapter and a deliberately deficient
+# local type - no Wayland type reachable from either TU. Guarding them
+# meant these three cases silently never ran on Windows; they are
+# registered unconditionally now, same as asset_load_test/
+# hygiene_coverage_test/spdx_test above.
+#
+# WL-DISPLAY fatia A (TODO.md, GODS_LAWS.md L-19/L-20): the pure
+# global catalog.
+glintfx_add_test(global_catalog_test)
+target_include_directories(global_catalog_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(global_catalog_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+)
+
+# display_connection_port itself: the fake_display_adapter positive
+# control and the missing_close negative control. This TU used to also
+# static_assert that wayland_display_adapter satisfies the concept -
+# that assertion is gone from here now, not moved: src/platform/
+# wayland/selected_display_adapter_check.cpp already proves the exact
+# same fact (selected_display_adapter is a plain `using` alias for
+# wayland_display_adapter, not a distinct type) unconditionally, as
+# part of glintfx_library itself, on every configure that enters
+# src/platform/wayland/ at all - repeating it here as a SEPARATE,
+# if(UNIX)-guarded ctest case added no coverage this file's own build
+# did not already have, and dropping it is what makes this TU, and
+# this ctest case, genuinely OS-agnostic instead of only OS-agnostic
+# in its first two thirds.
+glintfx_add_test(display_port_concept_test)
+target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+glintfx_add_test(display_connection_fake_test)
+target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# Wayland-only from here down: the real adapter case.
 if(UNIX)
-    # WL-DISPLAY fatia A (TODO.md, GODS_LAWS.md L-19/L-20): the pure
-    # global catalog - no Wayland type, testable without a compositor
-    # or even libwayland linked in. if(UNIX)-guarded like the rest of
-    # this Wayland-only block, same reasoning as display_port_concept_
-    # test's own comment above (no Windows adapter exercises this yet).
-    glintfx_add_test(global_catalog_test)
-    target_include_directories(global_catalog_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-    target_sources(global_catalog_test PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
-    )
-
-    glintfx_add_test(display_port_concept_test)
-    target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-
-    glintfx_add_test(display_connection_fake_test)
-    target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_
     # LAWS.md L-19/ARCH-PORTS, "nada e exportado"), so glintfx.so's own
     # -fvisibility=hidden (cmake/GlintfxLibrary.cmake) never puts its
@@ -465,6 +506,30 @@ if(UNIX)
     target_compile_options(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
 endif()
 
+# WIN-DISPLAY fatia 3 (TODO.md, GODS_LAWS.md L-04/L-09): the Windows
+# counterpart of display_connect_failure_test above - the real success
+# path this time, proved live on the windows-latest GitHub Actions
+# runner (the same runner tests/win32_runner_probe_test.cpp already
+# proves hands out a real, interactive window station). Guarded the
+# same "declared absence, not silence" shape win32_runner_probe_test's
+# own if(WIN32) block already uses.
+if(WIN32)
+    # win32_display_adapter has no GLINTFX_API (deliberately - GODS_
+    # LAWS.md L-19/WIN-DISPLAY, "nada e exportado"), so glintfx.dll's
+    # own hidden visibility never puts its methods in the exported
+    # symbol table. This test compiles display_adapter.cpp a SECOND
+    # time, directly into its own object set - the exact same technique
+    # display_connect_failure_test above uses for wayland_display_
+    # adapter - rather than trying (and failing) to link the DLL's own
+    # hidden copy.
+    glintfx_add_test(win32_display_connect_test)
+    target_include_directories(win32_display_connect_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_display_connect_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+    )
+    target_link_libraries(win32_display_connect_test PRIVATE user32)
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h
@@ -477,24 +542,64 @@ glintfx_add_test(header_hygiene_test)
 # header_hygiene_test.cpp" contract mechanically, instead of trusting
 # a human to read the comment at the top of that file - the previous
 # version of that comment made exactly that claim and nothing ever
-# enforced it (see tests/tools/check_hygiene_coverage.sh's own header
-# for the declared generated-header limitation). POSIX sh; same
-# declared downgrade as every other gate in this file.
-if(UNIX)
-    add_test(
-        NAME hygiene_coverage_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.sh"
-            "${PROJECT_SOURCE_DIR}/include"
-            "${CMAKE_CURRENT_SOURCE_DIR}/header_hygiene_test.cpp"
-    )
-    set_tests_properties(hygiene_coverage_test PROPERTIES LABELS consume)
+# enforced it (see tests/tools/check_hygiene_coverage.py's own header
+# for the declared generated-header limitation).
+#
+# Ported from POSIX sh to python3 and registered WITHOUT an if(UNIX)
+# guard (GODS_LAWS.md L-04, decisao do lider de 02/09/2026: "O
+# comportamento deve ser igual em qualquer OS" - the sh version's
+# if(UNIX) guard meant nobody checked header hygiene coverage on
+# Windows at all). Same GLINTFX_PYTHON3_EXECUTABLE discovery
+# check_dep_zero_trace.py's own registration already uses further
+# below in this file - find_program() is idempotent across repeated
+# calls with the same cache variable, so this second call costs
+# nothing and lets this section stand on its own.
+find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
 
-    add_test(
-        NAME hygiene_coverage_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.sh" --selftest
-    )
-    set_tests_properties(hygiene_coverage_selftest PROPERTIES LABELS selftest)
-endif()
+add_test(
+    NAME hygiene_coverage_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.py"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/header_hygiene_test.cpp"
+)
+set_tests_properties(hygiene_coverage_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME hygiene_coverage_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hygiene_coverage.py" --selftest
+)
+set_tests_properties(hygiene_coverage_selftest PROPERTIES LABELS selftest)
+
+# SPDX header coverage gate (GODS_LAWS.md L-08: publico no GitHub,
+# AGPL-3.0). Ported from POSIX sh (tests/tools/check_spdx.sh, invoked
+# directly by the ubuntu-only "leis" job in .github/workflows/ci.yml,
+# never registered here nor exercised on any other platform) to
+# python3 and registered here, WITHOUT an if(UNIX) guard, for the same
+# L-04 reason as hygiene_coverage_test immediately above - this makes
+# it run inside the SAME ctest invocation the linux and windows CI
+# jobs already execute on all five platforms. See tests/tools/
+# check_spdx.py's own header for GATE-SPDX-UNTRACKED, the coverage fix
+# this port also carries (untracked files are now scanned too, not
+# only `git ls-files`). The direct `sh tests/tools/check_spdx.sh`
+# steps in the "leis" job are removed in the same fatia (redundant
+# once this ctest case covers all five platforms, and the script
+# itself is deleted).
+add_test(
+    NAME spdx_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spdx.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(spdx_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME spdx_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spdx.py" --selftest
+)
+set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
 # Public name collision gate (docs/api-conventions.md R6; TODO.md
 # "Desvios", 25/08/2026 achado: "a auditoria de colisao de nomes

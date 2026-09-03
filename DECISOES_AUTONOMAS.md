@@ -784,3 +784,32 @@ Ele mandou as três ao líder por serem julgamento de paridade, que é o que o l
 **Custo de eu ter escolhido assim:** a onda cresce de quatro para nove fatias. **Se o senhor reverter,** ela fecha mais rápido e três buracos continuam abertos com o carimbo de fechados.
 
 **Uma coisa que vou mudar no meu jeito de trabalhar:** dei um agente por morto porque a plataforma disse que ele falhou, e ele estava vivo. Passo a conferir o produto em disco antes de re-despachar, não só a mensagem de falha.
+
+## A onda W1 fechou, e ela nao era a onda que comecou  `[03/09/26 - 18:15:18]`
+
+**Ordem do lider:** *"Autorizo modo autonomo. Feche a onda w1. no final merge/push"*.
+
+**O que a W1 era quando abriu:** tres itens pendurados. **O que ela virou:** nove fatias, porque a lei de paridade obrigou a puxar para dentro dela tudo de que aqueles tres dependiam.
+
+**O que entrou no produto, e nao existia antes de hoje:**
+
+| O que | Antes |
+|---|---|
+| A camada que fala com o sistema no Windows | Nao existia. O arquivo de build so imprimia uma mensagem dizendo que nao havia. |
+| Analise estatica de codigo Windows | **Nunca existiu.** O analisador roda no Ubuntu e todo codigo daquela plataforma fica fora da compilacao la. |
+| Sanitizador de memoria no Windows | Nunca rodou. E a opcao era **aceita e ignorada em silencio**. |
+| Espelho local do servidor para quem desenvolve no Windows | Nao existia. So se descobria a reprovacao depois de enviar. |
+| Conferencia de licenca e de higiene de cabecalho no Windows | Nunca rodaram la. |
+| Versao do pacote conferida no Windows | Nunca era lida. |
+
+**O numero que melhor mede a onda:** a contagem de testes no Windows subiu de **38 para 42**, e nenhum teste novo de produto foi escrito para isso. Eram verificacoes que ja existiam e simplesmente nao rodavam naquela plataforma.
+
+**Os tres vermelhos do caminho, e o que cada um ensinou:**
+
+1. **O sanitizador reprovou na estreia** - e foi a melhor prova de que ligar valia a pena. Os casos que simulam falta de memoria remendam o alocador, e o sanitizador substitui o alocador. Nao era defeito do produto.
+2. **Os dois trabalhos normais de Windows cairam por causa do meu proprio conserto**: a valvula de teste que pedi usa uma funcao que aquele compilador marca como insegura, e o projeto trata aviso como erro. Recusei a saida rapida de silenciar o aviso.
+3. **O portao de privacidade de simbolo nao reconhecia digito em nome de classe** - reprovava um nome legitimo dizendo que nao existia. Ele provava o proprio padrao, nao a lista fechada que deveria proteger.
+
+**A prova que eu tive de rodar sozinho:** depois de duas cobrancas sem resposta, configurei aqui o build com sanitizador e rodei o teste. Descobri que a deteccao precisava ser especifica do compilador da Microsoft - uma deteccao generica teria desligado dois casos no Linux e jogado cobertura fora em silencio.
+
+**Custo em erros meus, para o registro:** dei um agente por morto porque a plataforma disse que falhou, e ele estava vivo, entregando um plano melhor; empurrei duas vezes em menos de um minuto e cancelei uma execucao do servidor; e exigi de um implementador que a contagem de testes subisse no Linux quando ela so podia subir no Windows.

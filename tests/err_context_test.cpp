@@ -156,9 +156,20 @@ constexpr std::string_view k_long_value =
 // `#if defined(_WIN32) && defined(__SANITIZE_ADDRESS__)` condition
 // itself - only by this OR - so it cannot mask the real MSVC leg
 // failing to detect its own sanitizer.
+//
+// The std::getenv() call itself is compiled out on Windows without ASan:
+// this override valve exists only to reach the MSVC-ASan declare-and-return
+// path from a Linux machine that has no MSVC ASan to run, so a plain
+// Windows build has no use for it. MSVC's own <cstdlib> flags std::getenv()
+// as C4996 ("may be unsafe") under /W4, which -DGLINTFX_WERROR=ON escalates
+// to a build failure, so this branch would break plain Windows builds for
+// a code path they never take. Splitting the Windows case in two keeps
+// that call scoped to where it can ever matter.
 [[nodiscard]] bool oom_forcing_declared_not_applicable() {
 #if defined(_WIN32) && defined(__SANITIZE_ADDRESS__)
     return true;
+#elif defined(_WIN32)
+    return false;
 #else
     return std::getenv("GLINTFX_ERR_CONTEXT_TEST_FORCE_OOM_NOT_APPLICABLE") != nullptr;
 #endif

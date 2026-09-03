@@ -506,6 +506,30 @@ if(UNIX)
     target_compile_options(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
 endif()
 
+# WIN-DISPLAY fatia 3 (TODO.md, GODS_LAWS.md L-04/L-09): the Windows
+# counterpart of display_connect_failure_test above - the real success
+# path this time, proved live on the windows-latest GitHub Actions
+# runner (the same runner tests/win32_runner_probe_test.cpp already
+# proves hands out a real, interactive window station). Guarded the
+# same "declared absence, not silence" shape win32_runner_probe_test's
+# own if(WIN32) block already uses.
+if(WIN32)
+    # win32_display_adapter has no GLINTFX_API (deliberately - GODS_
+    # LAWS.md L-19/WIN-DISPLAY, "nada e exportado"), so glintfx.dll's
+    # own hidden visibility never puts its methods in the exported
+    # symbol table. This test compiles display_adapter.cpp a SECOND
+    # time, directly into its own object set - the exact same technique
+    # display_connect_failure_test above uses for wayland_display_
+    # adapter - rather than trying (and failing) to link the DLL's own
+    # hidden copy.
+    glintfx_add_test(win32_display_connect_test)
+    target_include_directories(win32_display_connect_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_display_connect_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+    )
+    target_link_libraries(win32_display_connect_test PRIVATE user32)
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h

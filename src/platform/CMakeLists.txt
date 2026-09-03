@@ -31,15 +31,19 @@ add_subdirectory(port)
 if(UNIX)
     add_subdirectory(wayland)
 
-# WIN32: a DECLARED absence, not an error and not silence (CTO plan,
-# decision D-AP-5). WIN-WINDOW (TODO.md) is the fatia that gives
-# Windows its own backend directory here, the same shape wayland/ has
-# today; until then, the Windows CI leg keeps compiling glintfx with no
-# display backend at all - UNCHANGED from every fatia before ARCH-PORTS
-# (GODS_LAWS.md L-04: the five-platform matrix stays green).
+# WIN32: WIN-DISPLAY (TODO.md, GODS_LAWS.md L-04 reabertura de
+# ARCH-PORTS por paridade - "so entrego janela quando os dois sistemas
+# tiverem") gives Windows its own backend directory here, the same
+# shape wayland/ has above - win32/ wires in win32_display_adapter and
+# the internal TU (selected_display_adapter_check.cpp) whose static_
+# assert proves, on every build that reaches this branch, that the
+# selection actually satisfies platform::display_connection_port,
+# exactly the same guarantee the UNIX branch above already has. Only
+# open/close/is_open exist so far - registry, roundtrip, the event
+# pump and a VISIBLE window (WIN-WINDOW) still have no par requested
+# and stay out of this branch until they do.
 elseif(WIN32)
-    message(STATUS
-        "glintfx: no display backend on this platform yet (WIN-WINDOW pending, see TODO.md)")
+    add_subdirectory(win32)
 
 # Any OTHER platform: FATAL_ERROR at configure time, on purpose. The
 # danger this branch exists to close is not "Windows has no backend

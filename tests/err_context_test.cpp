@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstddef>
-#include <cstdint>
 #include <cstdlib>
 #include <new>
-#include <string>
+#include <print>
 #include <string_view>
 
 #include <glintfx/core/err.hpp>
@@ -90,6 +89,101 @@ std::size_t g_override_new_call_count = 0;
 // attach" case would never exercise the code path it exists to prove.
 constexpr std::string_view k_long_value =
     "a value long enough to defeat small-string-optimization and force a real heap allocation";
+
+// ASAN-OOM-FORCE-GAP, ORDEM DE SERVICO (GODS_LAWS.md L-04/L-40),
+// 03/09/2026: the two OOM-degradation cases below rely on forcing an
+// allocation to fail (see "THE WINDOWS/SHARED GAP ITSELF" above for
+// the mechanism). CI found live (Windows - Sanitizer (ASan), run
+// 33785315004, job 100748542369) that BOTH cases fail under MSVC
+// AddressSanitizer: `err.path().empty()` is false, meaning the forced
+// failure never actually blocked the allocation.
+//
+// NOT "any sanitizer breaks this technique" - REFUTED, not assumed:
+// under a real -DGLINTFX_SANITIZE=address build on Linux (GCC), this
+// exact file passes 5/5 with 0 failures (proven the day this comment
+// was written; this project's own CI job `sanitizer` already runs
+// this file under ASan/UBSan on Fedora, unguarded, and it has never
+// been the source of a red run). On Linux, ASan's operator new/delete
+// interceptors are WEAK symbols - this TU's own STRONG operator new
+// override above still wins by ordinary linker precedence, same as
+// without ASan at all.
+//
+// MSVC-SPECIFIC ROOT CAUSE, FACT from Microsoft's own current
+// documentation (learn.microsoft.com/cpp/sanitizers/asan-known-issues,
+// "Overriding operator new and delete", fetched 03/09/2026): "ASan
+// uses a custom version of operator new and operator delete... Run the
+// linker with /INFERASANLIBS to ensure that ASan's new/delete override
+// has LOWER precedence, so that the linker chooses operator new or
+// operator delete overrides in OTHER libraries over ASan's custom
+// versions" - i.e. WITHOUT that flag (neither this project's CMake nor
+// the CI job passes it), ASan's OWN operator new/delete wins by
+// DEFAULT, the opposite default from GCC/Clang's weak-symbol behavior
+// proven above. This starves BOTH forcing mechanisms at once: this
+// TU's own override (g_force_alloc_failure is armed, but ASan's
+// operator new runs instead and never consults it) and, separately,
+// harness/win_dll_alloc_hook.hpp's malloc-family IAT patch inside
+// glintfx.dll (learn.microsoft.com/cpp/sanitizers/asan-runtime,
+// "Function interception": ASan intercepts CRT allocation functions by
+// hotpatching them directly, not by resolving through the importing
+// module's own IAT this hook patches).
+//
+// SCOPE OF THE DECLARATION, and why it is NOT narrowed to
+// GLINTFX_STATIC_DEFINE like win_dll_alloc_hook.hpp's own guard is:
+// the operator-new-precedence fact above is a property of linking the
+// ASan runtime into an MSVC binary at all, static or shared alike - it
+// is not specific to the DLL-crossing problem win_dll_alloc_hook.hpp
+// exists for. CI's own windows-sanitizer job configures
+// -DGLINTFX_SANITIZE=address with BUILD_SHARED_LIBS at its default
+// (ON) only - its own comment in .github/workflows/ci.yml says
+// plainly "nenhum dos dois testa o modo estatico sob sanitizer" - so
+// Windows/STATIC under ASan has never been exercised here, and nothing
+// observed narrows this declaration to the shared leg specifically
+// (GODS_LAWS.md L-27: a scope this project cannot test is not silently
+// assumed safe).
+
+// GODS_LAWS.md L-40: a guard that can only ever evaluate true on a
+// platform this project has no machine for (MSVC ASan - this codebase
+// builds and runs only on Linux) is not a PROVEN mechanism until its
+// own consequence - the "declare and return before the real checks
+// run" path itself, not just the preprocessor condition - has actually
+// executed somewhere. GLINTFX_ERR_CONTEXT_TEST_FORCE_OOM_NOT_APPLICABLE
+// is an opt-in, developer-only escape hatch that ORs a runtime check
+// into the real one, so the exact declare-and-return code path can be
+// forced and verified on Linux too - same shape as check_spdx.py's own
+// `GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP` precedent for the
+// identical problem (a platform-conditional branch this project cannot
+// natively reach). Never set by CI, and never read by the real
+// `#if defined(_WIN32) && defined(__SANITIZE_ADDRESS__)` condition
+// itself - only by this OR - so it cannot mask the real MSVC leg
+// failing to detect its own sanitizer.
+[[nodiscard]] bool oom_forcing_declared_not_applicable() {
+#if defined(_WIN32) && defined(__SANITIZE_ADDRESS__)
+    return true;
+#else
+    return std::getenv("GLINTFX_ERR_CONTEXT_TEST_FORCE_OOM_NOT_APPLICABLE") != nullptr;
+#endif
+}
+
+// Prints the one declaration line GODS_LAWS.md L-40 requires (ausencia
+// declarada, nunca pulo silencioso) - used by BOTH OOM-degradation
+// cases below, the same "second real use crosses the extraction bar"
+// precedent allocator_reach_probe below already sets in this file.
+// Returning immediately after this call, before allocator_reach_probe
+// is even constructed, also means win_dll_alloc_hook.hpp's own
+// IAT-patching constructor never runs under MSVC ASan - avoiding a
+// second, unrelated risk this file cannot test either (Microsoft's own
+// "Function interception" doc: a hotpatch that cannot write a jmp into
+// too-short a prologue makes ASan itself __debugbreak() the process).
+void declare_oom_forcing_not_applicable(std::string_view case_name) {
+    std::println(stderr,
+                 "err_context_test: {} declared NOT APPLICABLE under MSVC AddressSanitizer "
+                 "(learn.microsoft.com/cpp/sanitizers/asan-known-issues, \"Overriding operator "
+                 "new and delete\": ASan's own operator new/delete wins by default over any "
+                 "user override linked into the same binary - this file's forced-failure "
+                 "override never gets a chance to run, so the assertion this case exists to "
+                 "prove would measure nothing)",
+                 case_name);
+}
 
 } // namespace
 
@@ -238,6 +332,12 @@ GLINTFX_TEST(copy_owns_an_independent_context) {
 }
 
 GLINTFX_TEST(attach_degrades_to_code_only_when_context_allocation_fails) {
+    if (oom_forcing_declared_not_applicable()) {
+        declare_oom_forcing_not_applicable(
+            "attach_degrades_to_code_only_when_context_allocation_fails");
+        return;
+    }
+
     const allocator_reach_probe probe;
     glintfx::gltfx_err err(glintfx::gltfx_err_code::parse_failure);
     // ensure_context()'s `new (std::nothrow) err_context()` is the
@@ -273,6 +373,12 @@ GLINTFX_TEST(attach_degrades_to_code_only_when_context_allocation_fails) {
 }
 
 GLINTFX_TEST(attach_degrades_to_code_only_when_a_field_allocation_fails_mid_attach) {
+    if (oom_forcing_declared_not_applicable()) {
+        declare_oom_forcing_not_applicable(
+            "attach_degrades_to_code_only_when_a_field_allocation_fails_mid_attach");
+        return;
+    }
+
     glintfx::gltfx_err err(glintfx::gltfx_err_code::unsupported);
     // Succeeds with the allocator healthy: ensure_context() runs here,
     // so the SECOND case below exercises a DIFFERENT failure point (a

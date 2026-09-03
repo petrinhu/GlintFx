@@ -69,9 +69,33 @@ endfunction()
 # on Fedora with GNU/Clang only (see .github/workflows/ci.yml); MSVC's
 # /fsanitize=address does not share GCC/Clang's -fsanitize=<comma-list>
 # syntax and is out of scope for this slice.
+#
+# SAN-PARITY-WIN (TODO.md; achado de 03/09/2026): the guard above ONLY
+# arms the sanitizer flags under GNU/Clang - before this fatal_error,
+# -DGLINTFX_SANITIZE=address on an MSVC configure was silently
+# ACCEPTED and produced a build with no sanitizer instrumentation at
+# all, the exact "portao mudo" GODS_LAWS.md L-40 forbids: whoever asked
+# for the protection got a plain build instead, with no diagnostic
+# telling them why. This function now REFUSES that combination at
+# configure time instead: MSVC plus a non-empty GLINTFX_SANITIZE is a
+# fatal configure error, naming what was requested, that this compiler
+# is not supported by this project's current sanitizer plumbing, and
+# which TODO.md item (SAN-PARITY-WIN) tracks adding MSVC's own
+# /fsanitize=address support - that support is NOT implemented here,
+# deliberately, as a separate fatia.
 function(glintfx_apply_sanitizer_flags target)
     if(GLINTFX_SANITIZE STREQUAL "")
         return()
+    endif()
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        message(FATAL_ERROR
+            "GLINTFX_SANITIZE=${GLINTFX_SANITIZE} was requested for target "
+            "'${target}', but MSVC is not supported by this project's "
+            "sanitizer flags (they are wired for GNU/Clang's "
+            "-fsanitize=<comma-list> syntax only, see this function's own "
+            "header comment). Build with GCC or Clang to use "
+            "GLINTFX_SANITIZE, or track TODO.md item SAN-PARITY-WIN, which "
+            "covers adding MSVC's own /fsanitize=address support.")
     endif()
     target_compile_options(${target} PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-fsanitize=${GLINTFX_SANITIZE};-fno-sanitize-recover=all;-fno-omit-frame-pointer;-g>

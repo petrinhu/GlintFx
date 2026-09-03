@@ -412,14 +412,9 @@ if(UNIX)
 endif()
 
 # ARCH-PORTS (TODO.md, GODS_LAWS.md L-19/L-20/L-22/L-40): the display
-# connection port and its two adapters (wayland_display_adapter, real;
-# fake_display_adapter, test-only). Three cases, if(UNIX)-guarded like
-# every other platform-touching gate in this file - the port headers
-# themselves (src/platform/port/) are OS-agnostic, but the two adapters
-# that satisfy the concept in this fatia are Wayland-only, and there is
-# no third, Windows-side adapter to exercise here yet (WIN-WINDOW,
-# TODO.md, still pending - see src/platform/CMakeLists.txt's own
-# three-state selection comment).
+# connection port, proved OS-agnostically below, plus the one Wayland-
+# only adapter case that stays if(UNIX)-guarded further down
+# (display_connect_failure_test).
 #
 # "${PROJECT_SOURCE_DIR}/src" PRIVATE on each: the SAME pattern
 # gfss_tokenizer_test/gfss_color_parse_test above already use to reach
@@ -429,24 +424,51 @@ endif()
 # test target already inherits glintfx_test_harness's own PUBLIC
 # "${CMAKE_CURRENT_SOURCE_DIR}" (= tests/) include dir through
 # glintfx_add_test()'s PRIVATE link to it.
+#
+# The three cases below used to sit inside the if(UNIX) guard that
+# still wraps display_connect_failure_test further down, on the theory
+# that everything in this ARCH-PORTS block was Wayland-only. That
+# theory was wrong for these three (GODS_LAWS.md L-04, "comportamento
+# igual em todo sistema", achado de 03/09/2026): global_catalog.{hpp,
+# cpp} include only <cstdint>/<string>/<string_view>/<vector>/
+# <algorithm>/<new> (every "wl_" mention in the header is a comment,
+# not a type), and display_port_concept_test.cpp/display_connection_
+# fake_test.cpp exercise display_connection_port/display_connection<A>
+# purely through fake_display_adapter and a deliberately deficient
+# local type - no Wayland type reachable from either TU. Guarding them
+# meant these three cases silently never ran on Windows; they are
+# registered unconditionally now, same as asset_load_test/
+# hygiene_coverage_test/spdx_test above.
+#
+# WL-DISPLAY fatia A (TODO.md, GODS_LAWS.md L-19/L-20): the pure
+# global catalog.
+glintfx_add_test(global_catalog_test)
+target_include_directories(global_catalog_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(global_catalog_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+)
+
+# display_connection_port itself: the fake_display_adapter positive
+# control and the missing_close negative control. This TU used to also
+# static_assert that wayland_display_adapter satisfies the concept -
+# that assertion is gone from here now, not moved: src/platform/
+# wayland/selected_display_adapter_check.cpp already proves the exact
+# same fact (selected_display_adapter is a plain `using` alias for
+# wayland_display_adapter, not a distinct type) unconditionally, as
+# part of glintfx_library itself, on every configure that enters
+# src/platform/wayland/ at all - repeating it here as a SEPARATE,
+# if(UNIX)-guarded ctest case added no coverage this file's own build
+# did not already have, and dropping it is what makes this TU, and
+# this ctest case, genuinely OS-agnostic instead of only OS-agnostic
+# in its first two thirds.
+glintfx_add_test(display_port_concept_test)
+target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+glintfx_add_test(display_connection_fake_test)
+target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# Wayland-only from here down: the real adapter case.
 if(UNIX)
-    # WL-DISPLAY fatia A (TODO.md, GODS_LAWS.md L-19/L-20): the pure
-    # global catalog - no Wayland type, testable without a compositor
-    # or even libwayland linked in. if(UNIX)-guarded like the rest of
-    # this Wayland-only block, same reasoning as display_port_concept_
-    # test's own comment above (no Windows adapter exercises this yet).
-    glintfx_add_test(global_catalog_test)
-    target_include_directories(global_catalog_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-    target_sources(global_catalog_test PRIVATE
-        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
-    )
-
-    glintfx_add_test(display_port_concept_test)
-    target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-
-    glintfx_add_test(display_connection_fake_test)
-    target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_
     # LAWS.md L-19/ARCH-PORTS, "nada e exportado"), so glintfx.so's own
     # -fvisibility=hidden (cmake/GlintfxLibrary.cmake) never puts its

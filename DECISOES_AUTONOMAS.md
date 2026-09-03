@@ -757,3 +757,15 @@ messages_pumped=2 wndproc_wm_size=1 wndproc_wm_activate=0 queue_wm_size=0 queue_
 
 1. **Despacho o planejamento e uma implementação em paralelo**, e não em fila, porque tocam arquivos disjuntos: o planejamento não escreve código de produto, e o espelho do servidor nasce em arquivo novo. Onde houver risco de dois agentes tocarem o mesmo registro de testes, volto a sequenciar.
 2. **Fecho a onda pelo que a lei exige, não pelo que a tabela diz.** Se ao planejar aparecer que um item da W1 depende de peça marcada em outra onda, essa peça entra na W1 - o contrário seria declarar fechado com paridade parcial de novo.
+
+### As três decisões que o CTO recusou tomar, e o que eu decidi  `[03/09/26 - 11:18:32]`
+
+Ele mandou as três ao líder por serem julgamento de paridade, que é o que o líder reservou para si. **Como o modo autônomo está autorizado, eu decidi as três. Confirme ou reverta.**
+
+**1. O binding do protocolo fecha por ausência declarada?** **Sim, e não considero isto julgamento discricionário.** O protocolo do sistema de janelas do Linux **não existe** no Windows; não há mecanismo equivalente a parear. A ausência é física, não escolha nossa. **Mas a lacuna que a lei realmente pegou é outra, e essa é consertada:** dois testes que não tocam sistema nenhum estavam trancados atrás de uma condição de Unix. **Se o senhor reverter,** o item fica aberto até alguém escrever um equivalente que não existe.
+
+**2. O caminho de recusa do lado Windows precisa de prova ao vivo?** **Aceito o rebaixamento declarado.** A máquina de teste roda em sessão interativa e não achamos como forçar a falha real ali. A lógica da recusa **já é provada** de forma independente de sistema pelo teste com o dublê, que sai de trás da guarda nesta mesma fatia. **Se o senhor reverter,** precisamos de um jeito de forçar falha de criação de janela no servidor, que ninguém sabe hoje.
+
+**3. A ferramenta de descrição de pacote passa a ser obrigatória no trabalho de Windows?** **Não, e esta eu recusei.** Tornar uma ferramenta obrigatória muda a superfície de falha de **todo** trabalho futuro naquela plataforma, e não é necessária para fechar a onda. Fica declarada como ausente. **Isto é decisão de escopo do senhor, e eu preferi o lado que não amplia risco sem necessidade.**
+
+**Uma decisão de escopo do CTO que eu aceitei:** dois itens que também estão reabertos pela lei (o sanitizador e a checagem interna do produto no Windows) **ficam fora desta onda**, porque nenhum dos três itens da W1 depende deles. Isso não os fecha; mantém abertos onde estão.

@@ -769,3 +769,18 @@ Ele mandou as três ao líder por serem julgamento de paridade, que é o que o l
 **3. A ferramenta de descrição de pacote passa a ser obrigatória no trabalho de Windows?** **Não, e esta eu recusei.** Tornar uma ferramenta obrigatória muda a superfície de falha de **todo** trabalho futuro naquela plataforma, e não é necessária para fechar a onda. Fica declarada como ausente. **Isto é decisão de escopo do senhor, e eu preferi o lado que não amplia risco sem necessidade.**
 
 **Uma decisão de escopo do CTO que eu aceitei:** dois itens que também estão reabertos pela lei (o sanitizador e a checagem interna do produto no Windows) **ficam fora desta onda**, porque nenhum dos três itens da W1 depende deles. Isso não os fecha; mantém abertos onde estão.
+
+### Dois planos para a mesma onda, e por que fiquei com o mais duro  `[03/09/26 - 13:57:44]`
+
+**O que aconteceu:** o primeiro planejador caiu por erro de servidor da API, três vezes seguidas. Despachei um quarto em modelo diferente, que entregou um plano de **quatro** fatias. Só então o primeiro **voltou à vida** e entregou o dele, de **nove** fatias, sobrescrevendo o arquivo do outro.
+
+**Fiquei com o de nove, e a razão é uma só:** o de quatro fechava a fundação do build com um argumento circular. Ele dizia que as ausências do espelho local *"batem com o que o trabalho de Windows do servidor também não roda"*. Mas o servidor não roda **porque nunca rodou**, e é exatamente isso que a lei de paridade passou a reprovar. Aceitar seria usar o buraco como justificativa do buraco.
+
+**O que o plano duro acrescenta, e o primeiro não tinha visto:**
+
+- **Nenhuma linha de código de Windows jamais passou por análise estática, e nunca passaria.** O trabalho de análise roda no Ubuntu, e todo código sob condição de Windows fica fora da compilação ali. Reverifiquei: não é análise fraca, é **inexistente**. Virou o item `LINT-PARITY-WIN`, e ganha urgência agora que estamos escrevendo as primeiras linhas para aquela plataforma.
+- **O sanitizador entra na onda**, em vez de ficar de fora: se ele roda num sistema e não no outro, a fundação do build não fecha.
+
+**Custo de eu ter escolhido assim:** a onda cresce de quatro para nove fatias. **Se o senhor reverter,** ela fecha mais rápido e três buracos continuam abertos com o carimbo de fechados.
+
+**Uma coisa que vou mudar no meu jeito de trabalhar:** dei um agente por morto porque a plataforma disse que ele falhou, e ele estava vivo. Passo a conferir o produto em disco antes de re-despachar, não só a mensagem de falha.

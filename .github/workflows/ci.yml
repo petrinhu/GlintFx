@@ -914,6 +914,148 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --lint-only
 
+  # LACUNA 2 (GODS_LAWS.md L-04, medido pelo lider antes desta fatia):
+  # o job `lint` acima roda em Fedora/Linux - src/platform/CMakeLists.txt
+  # so entra em src/platform/win32/ quando WIN32 e verdadeiro
+  # (if(UNIX)/elseif(WIN32), ver o proprio comentario daquele arquivo),
+  # entao display_adapter.cpp/selected_display_adapter_check.cpp NUNCA
+  # apareciam no compile_commands.json que o clang-tidy do job `lint`
+  # le - nao e analise fraca, e ausencia total, e ARCH-PORTS/WIN-DISPLAY
+  # ja tem produto de verdade la (src/platform/win32/).
+  #
+  # Ferramentas desta imagem, MEDIDAS (nao presumidas) contra
+  # actions/runner-images/images/windows/Windows2025-Readme.md (a
+  # imagem por tras do label windows-latest desde a troca para :latest,
+  # confirmado no proprio repositorio: windows-latest = windows-2025)
+  # e o script de instalacao images/windows/scripts/build/Install-LLVM.ps1
+  # (fetched 03/09/2026):
+  #   - LLVM 20.1.8 standalone, instalado via `Install-ChocoPackage llvm`
+  #     no caminho x64 (nao o ramo ARM64 do mesmo script) - o pacote
+  #     oficial da LLVM traz clang-tidy.exe no mesmo bin/ que clang.exe,
+  #     que o proprio Pester de fabrica da imagem (LLVM.Tests.ps1) ja
+  #     prova estar no PATH ("clang --version" sem caminho completo).
+  #   - Visual Studio 2022 Enterprise 17.14 traz os componentes
+  #     VC.Llvm.Clang e VC.Llvm.ClangToolset (integracao clang-cl com o
+  #     MSBuild/IDE) - NAO e o que este job usa; o clang-tidy vem do
+  #     LLVM standalone acima, que fala com qualquer compile_commands.json,
+  #     inclusive um gerado por cl.exe (deteccao automatica de driver
+  #     estilo MSVC no clang-tidy, sem flag extra).
+  #   - cppcheck e gitleaks NAO constam no inventario desta imagem
+  #     (nenhuma ocorrencia em Windows2025-Readme.md nem em
+  #     toolset-2025.json) - AUSENCIA DECLARADA, nao escondida: cppcheck
+  #     fica de fora do Windows por falta de ferramenta na imagem oficial
+  #     (o job `lint` do Fedora continua cobrindo cppcheck, que analisa a
+  #     MESMA arvore de codigo-fonte que compila em UNIX - so o ramo
+  #     WIN32 fica sem o cppcheck, mesmo downgrade que este projeto ja
+  #     declara para o ASan/UBSan no MSVC, ver GlintfxCompileOptions.cmake).
+  #     gitleaks nao precisa de job proprio aqui: o job `gitleaks` varre
+  #     TEXTO do repositorio (git log -p), nao codigo compilado - ja
+  #     cobre todo arquivo, inclusive os de src/platform/win32/, sem
+  #     depender de plataforma nenhuma.
+  windows-lint:
+    name: Windows - Lint (clang-tidy sobre src/platform/win32)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE) -
+      # CMAKE_EXPORT_COMPILE_COMMANDS precisa de um CMake que atenda o
+      # piso 4.1 que este projeto declara, e o clang-tidy le o
+      # compile_commands.json que o CMake escreve, nao o compilador em
+      # si.
+      - name: Instalar CMake >= 4.1 (Windows)
+        shell: pwsh
+        run: |
+          $cmakeVersion = "4.1.6"
+          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
+          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
+          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir
+          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
+          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
+            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
+
+      - name: Versoes da toolchain
+        shell: pwsh
+        run: |
+          cmake --version
+          clang-tidy --version
+
+      # Mesmo passo CI-WIN-ENV do job `windows` acima: sem o ambiente do
+      # MSVC preparado, o cl.exe que o CMake vai gravar dentro do
+      # compile_commands.json (via -G Ninja) nem se localiza.
+      - name: Preparar ambiente do compilador (MSVC x64)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $installPath) {
+            Write-Error "Nenhuma instalacao do MSVC com o componente VC.Tools.x86.x64 foi encontrada por vswhere."
+            exit 1
+          }
+          $vcvarsall = Join-Path $installPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat nao encontrado em $vcvarsall"
+            exit 1
+          }
+          $envDump = cmd /c "`"$vcvarsall`" x64 && set"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "vcvarsall.bat x64 falhou com codigo $LASTEXITCODE"
+            exit 1
+          }
+          foreach ($line in $envDump) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
+            }
+          }
+
+      # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
+      # configure e gerar compile_commands.json com o ramo WIN32 real
+      # dentro - nunca precisa rodar "cmake --build", clang-tidy analisa
+      # a partir da base de compilacao, nao do binario.
+      - name: Configurar (gera compile_commands.json)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-lint -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGLINTFX_WERROR=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # PROVA que o clang-tidy ENXERGA o codigo de Windows (piso de
+      # varredura nao-vazia, GODS_LAWS.md L-40) - nao basta o passo
+      # seguinte rodar sem erro; se o compile_commands.json nunca
+      # tivesse entrado no ramo WIN32, o proximo passo passaria "verde"
+      # analisando zero arquivo de plataforma, exatamente a lacuna que
+      # esta fatia fecha. Falha aqui, alto e cedo, se as duas TUs do
+      # backend Win32 nao aparecerem na base de compilacao.
+      - name: Prova - compile_commands.json contem o backend Win32
+        shell: pwsh
+        run: |
+          $db = Get-Content build-lint/compile_commands.json -Raw
+          $arquivos = @("display_adapter.cpp", "selected_display_adapter_check.cpp")
+          $faltando = $arquivos | Where-Object { $db -notmatch [regex]::Escape($_) }
+          if ($faltando.Count -gt 0) {
+            Write-Error "compile_commands.json nao contem: $($faltando -join ', ') - o ramo WIN32 de src/platform/CMakeLists.txt nao entrou na base de compilacao, o clang-tidy abaixo analisaria zero arquivo de plataforma."
+            exit 1
+          }
+          Write-Host "ok: compile_commands.json contem as duas TUs do backend Win32."
+
+      # clang-tidy detecta sozinho que o driver de compile_commands.json
+      # e cl.exe (modo clang-cl) - nenhum --extra-arg de proposito. .clang-tidy
+      # na raiz do repo (mesmo arquivo que o job `lint` do Fedora usa) e
+      # descoberto por caminhada de diretorio a partir de cada arquivo,
+      # entao a mesma politica de checks vale aqui.
+      - name: clang-tidy - src/platform/win32
+        shell: pwsh
+        run: |
+          clang-tidy -p build-lint --quiet src/platform/win32/display_adapter.cpp src/platform/win32/selected_display_adapter_check.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)
     runs-on: ubuntu-latest
@@ -947,6 +1089,125 @@ jobs:
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --sanitizer-only
+
+  # LACUNA 1 (GODS_LAWS.md L-04, medido pelo lider antes desta fatia):
+  # o job `sanitizer` acima so roda no Fedora/GNU-Clang - MSVC nunca
+  # tinha sido exercitado sob nenhum sanitizer. GlintfxCompileOptions.cmake
+  # ja recusava GLINTFX_SANITIZE!="" sob MSVC com FATAL_ERROR
+  # incondicional (recusa nomeada, nao silencio) desde a fatia anterior;
+  # esta fatia troca aquela recusa incondicional por uma recusa mais
+  # estreita, e liga /fsanitize=address de verdade (ver o cabecalho da
+  # funcao glintfx_apply_sanitizer_flags para as fontes).
+  #
+  # AUSENCIA DECLARADA, nao escondida: MSVC so tem AddressSanitizer
+  # (deteccao de memoria). NAO existe, em NENHUMA versao do MSVC, o
+  # equivalente ao UBSan (deteccao de comportamento indefinido) que o
+  # job `sanitizer` acima liga no GCC/Clang com
+  # -DGLINTFX_SANITIZE=address,undefined - por isso este job configura
+  # so com -DGLINTFX_SANITIZE=address, metade do que o par Linux cobre,
+  # e essa metade que falta NUNCA vai poder ser fechada aqui: e limite
+  # do compilador, nao pendencia deste projeto (learn.microsoft.com/cpp/
+  # sanitizers/asan, secao "Overview" - o inventario de sanitizers da
+  # Microsoft para C++ e so ASan).
+  #
+  # Mesmo downgrade declarado que o job `sanitizer` acima ja assume:
+  # so o rotulo `unit` (ctest -L '^unit$'), nunca a suite inteira - os
+  # gates de consumo (LABELS consume) linkam um consumidor comum contra
+  # a lib sanitizada de proposito, e isso falha por construcao sob ASan
+  # em QUALQUER compilador (o runtime do sanitizer tem que vir primeiro
+  # no processo), nao so no GCC/Clang.
+  windows-sanitizer:
+    name: Windows - Sanitizer (ASan)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE).
+      - name: Instalar CMake >= 4.1 (Windows)
+        shell: pwsh
+        run: |
+          $cmakeVersion = "4.1.6"
+          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
+          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
+          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir
+          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
+          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
+            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
+
+      - name: Versoes da toolchain
+        shell: pwsh
+        run: cmake --version
+
+      # Mesmo passo CI-WIN-ENV do job `windows` acima.
+      - name: Preparar ambiente do compilador (MSVC x64)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $installPath) {
+            Write-Error "Nenhuma instalacao do MSVC com o componente VC.Tools.x86.x64 foi encontrada por vswhere."
+            exit 1
+          }
+          $vcvarsall = Join-Path $installPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat nao encontrado em $vcvarsall"
+            exit 1
+          }
+          $envDump = cmd /c "`"$vcvarsall`" x64 && set"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "vcvarsall.bat x64 falhou com codigo $LASTEXITCODE"
+            exit 1
+          }
+          foreach ($line in $envDump) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
+            }
+          }
+
+      # -DGLINTFX_SANITIZE=address: o par Windows de
+      # -DGLINTFX_SANITIZE=address,undefined do job `sanitizer` (Fedora)
+      # acima - so o compartilhado (BUILD_SHARED_LIBS default ON), mesmo
+      # escopo que o job irmao cobre (nenhum dos dois testa o modo
+      # estatico sob sanitizer).
+      - name: Configurar e compilar (Release, ASan)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_SANITIZE=address
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-shared
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar:
+      # ctest -N conta quantos casos o rotulo `unit` casa ANTES de
+      # confiar no passo seguinte - mesmo padrao que "Saida verbosa da
+      # sonda de runner" (job `windows` acima) ja usa para o mesmo
+      # motivo (zero aqui so pode significar rotulo quebrado ou build
+      # sem teste, nunca "arvore limpa").
+      - name: Prova - rotulo 'unit' nao esta vazio
+        shell: pwsh
+        run: |
+          $listOutput = ctest --test-dir build-shared -L '^unit$' -N
+          $totalLine = $listOutput | Select-String -Pattern 'Total Tests:\s*(\d+)'
+          $total = if ($totalLine) { [int]$totalLine.Matches[0].Groups[1].Value } else { 0 }
+          if ($total -eq 0) {
+            Write-Error "esperado ao menos 1 teste rotulado 'unit' neste build - ctest -N contou 0 (rotulo quebrado ou build sem teste)."
+            exit 1
+          }
+          Write-Host "ok: $total teste(s) rotulado(s) 'unit'."
+
+      - name: Testes (ASan, rotulo unit)
+        shell: pwsh
+        run: |
+          ctest --test-dir build-shared -L '^unit$' --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)

@@ -998,6 +998,34 @@ set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 # literal, is what check_rslt_precondition.py's own CRT-LINK-WIN header
 # comment explains in full (including why NDEBUG on/off must NOT also
 # flip this).
+#
+# CRT-LINK-WIN-GENEX (second estreia of the SAME fatia, coordinator
+# report 04/09/2026, GODS_LAWS.md L-04): the bare $<TARGET_PROPERTY:...>
+# above still failed, one step further than CRT-LINK-WIN's own fix -
+# check_rslt_precondition.py rejected the value it received with
+# "unrecognized MSVC_RUNTIME_LIBRARY value:
+# 'MultiThreaded$<$<CONFIG:Debug>:Debug>DLL'". That literal IS the
+# policy default this same comment quotes two paragraphs up - the
+# property's STORED value is itself generator-expression TEXT
+# ($<$<CONFIG:Debug>:Debug>, meant to be resolved against whichever
+# config actually builds), and $<TARGET_PROPERTY:...> only substitutes
+# that stored text verbatim; CMake does not re-scan a generator
+# expression's own OUTPUT for further $<...> to evaluate; that would be
+# a second, independent evaluation pass this project never asked for.
+# $<TARGET_GENEX_EVAL:tgt,expr> is CMake's own construct for exactly
+# this - "evaluated as a generator expression in the context of tgt
+# target... enables consumption of custom target properties that
+# themselves contain generator expressions" (cmake-generator-
+# expressions(7), $<TARGET_GENEX_EVAL:tgt,expr>; its own doc example is
+# this identical shape, $<TARGET_GENEX_EVAL:foo,$<TARGET_PROPERTY:foo,
+# CUSTOM_KEYS>>) - nesting TARGET_PROPERTY inside TARGET_GENEX_EVAL adds
+# the one recursive evaluation pass CMake does not do on its own,
+# resolving $<CONFIG:Debug> against the SAME config this build actually
+# uses and leaving one of the four canonical strings
+# check_rslt_precondition.py's own MSVC_RUNTIME_LIBRARY_TO_FLAG lookup
+# already expected - the script's rejection of the earlier literal was
+# the piso doing its job, not a bug in the script; it is untouched by
+# this fix.
 add_test(
     NAME rslt_precondition_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -1009,7 +1037,7 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_CXX_COMPILER_ID}"
         "${CMAKE_CXX23_STANDARD_COMPILE_OPTION}"
-        "$<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY>"
+        "$<TARGET_GENEX_EVAL:glintfx_library,$<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY>>"
 )
 set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
 

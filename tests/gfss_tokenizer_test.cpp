@@ -417,6 +417,7 @@ GLINTFX_TEST(recover_from_forward_progress_violation_signals_the_consumer_not_a_
 // the table below) to count_owned_by(tokenizer) - an identifier added to
 // the shared list under gfss_diagnostic_producer::tokenizer with no
 // matching row here now FAILS TO COMPILE.
+namespace {
 struct diagnostic_sample {
     std::string_view source;
     std::string_view expected_identifier;
@@ -448,6 +449,7 @@ static_assert(k_tokenizer_diagnostic_samples.size() + 1 ==
               "identifiers changed - add a directed production row to "
               "k_tokenizer_diagnostic_samples above (or account for it in the +1 if it can only "
               "be reached via the recovery atom directly); this does not compile otherwise");
+} // namespace
 
 GLINTFX_TEST(diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_produced) {
     using glintfx::style::detail::k_expected_vocabulary;

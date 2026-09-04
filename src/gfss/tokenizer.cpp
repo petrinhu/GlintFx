@@ -151,8 +151,9 @@ bool skip_comments(gltfx_gfss_cursor &cursor, gltfx_gfss_diagnostic &diagnostic)
             advance_code_point(cursor);
         }
         if (at_end(cursor)) {
-            diagnostic = gltfx_gfss_diagnostic{
-                .line = comment_line, .column = comment_column, .expected = k_expected_closing_comment};
+            diagnostic = gltfx_gfss_diagnostic{.line = comment_line,
+                                               .column = comment_column,
+                                               .expected = k_expected_closing_comment};
             return false;
         }
         advance_code_point(cursor); // '*'

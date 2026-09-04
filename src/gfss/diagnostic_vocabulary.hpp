@@ -204,8 +204,13 @@ inline constexpr std::array<std::string_view, k_expected_vocabulary_count> k_exp
 // k_expected_vocabulary above (same X-macro pass, same source list), so
 // a row can never exist in one array and not the other.
 struct gfss_diagnostic_entry {
-    std::string_view identifier;
-    gfss_diagnostic_producer producer;
+    // Both members carry a default initializer so a default-constructed
+    // entry is never indeterminate. Every row of k_expected_entries
+    // below sets both explicitly, so this default is unreachable there -
+    // it exists so that the type itself cannot produce a garbage
+    // producer value if anyone ever default-constructs one.
+    std::string_view identifier{};
+    gfss_diagnostic_producer producer{};
 };
 
 inline constexpr std::array<gfss_diagnostic_entry, k_expected_vocabulary_count> k_expected_entries{

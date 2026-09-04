@@ -13,7 +13,7 @@
 # platform/ (UNIX only for now, WL-PROTO) is the layer that touches the
 # OS - kept strictly separate from core/'s add_subdirectory() below, per
 # GODS_LAWS.md L-19 item 1 ("a single layer touches the OS") and the
-# check_layers.sh gate that reproves core/ reaching into it.
+# check_layers.py gate that reproves core/ reaching into it.
 #
 # The CMake target is named `glintfx_library`, not the bare `glintfx`
 # (FIX-CONSUMO-2, achado QA-3): a consumer that embeds glintfx via

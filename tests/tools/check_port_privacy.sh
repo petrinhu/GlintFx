@@ -10,7 +10,7 @@
 # the CODE ITSELF - no static/global adapter instance anywhere in
 # src/platform/ - reviewed by the adversarial reviewer, the same way
 # "an absence of a thing" is reviewed everywhere else in this project's
-# gates (e.g. check_layers.sh's own header comment makes the same
+# gates (e.g. check_layers.py's own header comment makes the same
 # distinction for layer discipline).
 #
 # THREE SUB-CHECKS, each with its own GODS_LAWS.md L-40 non-empty-scan

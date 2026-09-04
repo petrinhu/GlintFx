@@ -79,7 +79,7 @@ code_dirs() {
     done
 }
 
-# Um find(1) por diretorio candidato (mesma razao de check_layers.sh:
+# Um find(1) por diretorio candidato (mesma razao de check_layers.py:
 # evita que um caminho com espaco seja quebrado por word-splitting).
 # A autoexclusao acontece aqui, no unico ponto que enumera arquivo por
 # arquivo - antes de qualquer grep.

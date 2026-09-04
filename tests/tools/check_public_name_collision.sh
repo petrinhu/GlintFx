@@ -123,7 +123,9 @@
 # and a GCC-family C++ compiler are all present - the four Linux CI
 # legs (Fedora primary, Ubuntu, Arch, CachyOS), the same declared
 # downgrade every other tests/tools/*.sh gate in this file carries
-# (check_layers.sh, check_no_x11.sh, check_hygiene_coverage.sh, ...).
+# (check_no_x11.sh, check_port_privacy.sh, ...) - check_layers.sh and
+# check_hygiene_coverage.sh have since been ported to python3 and no
+# longer carry this downgrade (GATE-TREE-PARITY, GODS_LAWS.md L-04).
 # It does NOT run on Windows: no `sh` by default, and the Windows SDK
 # macro-collision risk (min/max/ERROR/DELETE/IN/OUT/CONST/VOID/TRUE/
 # FALSE/interface/small/near/far/STRICT) is covered by a DIFFERENT,

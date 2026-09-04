@@ -5,7 +5,7 @@
 # gfss layer (GODS_LAWS.md L-19/L-28): the gfss style-sheet
 # tokenizer/parser track ("A trilha GFSS", TODO.md). Pure core, like
 # core/ - no file here includes an OS header (tests/tools/
-# check_layers.sh's OS_HEADER_PATTERN would reprove one that did,
+# check_layers.py's OS_HEADER_NEEDLES would reprove one that did,
 # same gate core/ already answers to, even though this directory is
 # not yet named in that script's own core_source_dirs() list).
 #

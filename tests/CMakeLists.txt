@@ -601,6 +601,38 @@ add_test(
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
+# Vendor purity gate (GODS_LAWS.md L-07 EXCECAO No 1: third_party/
+# khronos/ e a UNICA excecao de glintfx a lei de dependencia zero).
+# PORTED from POSIX sh (tests/tools/check_vendor_purity.sh, invoked
+# directly by the ubuntu-only "leis" job in .github/workflows/ci.yml,
+# never registered here nor exercised on any other platform) to
+# python3 and registered here WITHOUT a system guard, same L-04 reason
+# as spdx_test immediately above - this makes it run inside the SAME
+# ctest invocation the linux and windows CI jobs already execute on
+# all five platforms. See tests/tools/check_vendor_purity.py's own
+# header for GATE-TREE-PARITY-NEWLINE, the enumeration-safety fix this
+# port also carries (os.walk() instead of a newline-joined `find`
+# listing), and for why khronos_vendor_files.sh (the shell library
+# this gate used to source) is deleted in the same fatia rather than
+# kept for zero remaining consumers. The direct
+# `sh tests/tools/check_vendor_purity.sh` steps in the "leis" job are
+# removed in the same fatia (redundant once this ctest case covers all
+# five platforms, and the script itself is deleted).
+add_test(
+    NAME vendor_purity_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_vendor_purity.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(vendor_purity_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME vendor_purity_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_vendor_purity.py" --selftest
+)
+set_tests_properties(vendor_purity_selftest PROPERTIES LABELS selftest)
+
 # Public name collision gate (docs/api-conventions.md R6; TODO.md
 # "Desvios", 25/08/2026 achado: "a auditoria de colisao de nomes
 # publicos usa LISTA CURADA, nao varredura do sistema real"). Replaces
@@ -644,27 +676,32 @@ if(BUILD_SHARED_LIBS AND UNIX)
 endif()
 
 # Layer gate (GODS_LAWS.md L-19, item 1: "a CI gate reproves the
-# violation"). POSIX sh; declared downgrade: runs in the Linux jobs of
-# the matrix, not on Windows, which does not have `sh` by default.
-if(UNIX)
-    add_test(
-        NAME layers_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.sh" "${CMAKE_SOURCE_DIR}"
-    )
-    set_tests_properties(layers_test PROPERTIES LABELS consume)
+# violation"). PORTED from POSIX sh (tests/tools/check_layers.sh,
+# if(UNIX)-guarded, never exercised on Windows) to python3 and
+# registered here WITHOUT a system guard (GATE-TREE-PARITY,
+# GODS_LAWS.md L-04, decisao do lider: "O comportamento deve ser igual
+# em qualquer OS") - same shape as hygiene_coverage_test/spdx_test
+# above. The old tests/tools/check_layers.sh is deleted in the same
+# fatia.
+add_test(
+    NAME layers_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(layers_test PROPERTIES LABELS consume)
 
-    # GODS_LAWS.md L-40 achado (revisao adversarial, 25/08/2026):
-    # layers_test was the ONLY test wired to this gate, and always ran
-    # against the real repo root (never empty) - the empty-scan floor
-    # inside check_layers.sh was never exercised by the suite. Wiring
-    # --selftest here closes that gap, same consume/selftest label
-    # taxonomy as the other gates in this file.
-    add_test(
-        NAME layers_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.sh" --selftest
-    )
-    set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
-endif()
+# GODS_LAWS.md L-40 achado (revisao adversarial, 25/08/2026):
+# layers_test was the ONLY test wired to this gate, and always ran
+# against the real repo root (never empty) - the empty-scan floor
+# inside check_layers.py was never exercised by the suite otherwise.
+# Wiring --selftest here closes that gap, same consume/selftest label
+# taxonomy as the other gates in this file.
+add_test(
+    NAME layers_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py" --selftest
+)
+set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 
 # L-05/L-06 gate (GODS_LAWS.md, "Gate L-05/L-06" job of
 # .github/workflows/ci.yml): proves the repository has no forbidden

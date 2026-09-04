@@ -70,7 +70,7 @@
 #                              GODS_LAWS.md L-07 EXCECAO No 1. See
 #                              KNOWN_KHRONOS_VENDOR_FILES below for why
 #                              this list is DUPLICATED, not imported,
-#                              from tests/tools/khronos_vendor_files.sh.
+#                              used to live in tests/tools/khronos_vendor_files.sh, deleted on 04/09/2026 when check_vendor_purity was ported to Python; this constant is the single source now.
 #
 # Each exemption is matched on the EXACT path relative to the repo
 # root, never by substring - "README.md" does not hide "README.md.bak",
@@ -102,11 +102,11 @@ import tempfile
 SCRIPT_NAME = "check_spdx.py"
 REQUIRED_HEADER = b"SPDX-License-Identifier: AGPL-3.0-or-later"
 
-# DUPLICATED from tests/tools/khronos_vendor_files.sh's own
+# SINGLE SOURCE since 04/09/2026. It used to be duplicated from khronos_vendor_files.sh's own
 # known_khronos_vendor_files(), on purpose, declared here rather than
 # silently forked (GODS_LAWS.md L-27: fact separated from inference).
 # That shell file is still the single source of truth for its OTHER
-# consumer, check_vendor_purity.sh (POSIX sh, unmodified by this
+# consumer, check_vendor_purity.py (ported to Python on 04/09/2026, which
 # fatia, still if(UNIX)-guarded in tests/CMakeLists.txt) - but THIS
 # gate now has to run on Windows too (GODS_LAWS.md L-04), and shelling
 # out to `sh` to source a POSIX library is exactly the kind of
@@ -115,7 +115,7 @@ REQUIRED_HEADER = b"SPDX-License-Identifier: AGPL-3.0-or-later"
 # L-07 EXCECAO No 1, changeable only by the leader's own decision) is
 # cheap to keep in sync by hand, and cheaper than reintroducing a
 # shell dependency for one list. If this list ever changes, update
-# BOTH this constant and khronos_vendor_files.sh's own
+# this constant, now that khronos_vendor_files.sh's
 # known_khronos_vendor_files() - each file's header now cross-
 # references the other for exactly this reason.
 KNOWN_KHRONOS_VENDOR_FILES = frozenset({

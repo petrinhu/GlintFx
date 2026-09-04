@@ -1381,29 +1381,69 @@ endif()
 # the real (including DESTDIR-staged) install location, actually
 # honors both halves of its escape hatch, and fails CLOSED with a
 # self-sufficient diagnostic on a real broken library artifact, a
-# real missing glintfx.pc, and a hand-assembled empty-Cflags/Libs
-# fixture (GODS_LAWS.md L-40), while degrading to a WARNING (not a
-# FATAL_ERROR) when pkg-config itself is absent from PATH - see
-# check_pkgconfig_validate.sh's own header for the eight scenarios and
-# what is deliberately NOT independently re-proven. This is a
+# real missing glintfx.pc, a real missing header tree, and a
+# hand-assembled empty-Cflags/Libs fixture (GODS_LAWS.md L-40), while
+# degrading to a WARNING (not a FATAL_ERROR) when pkg-config itself is
+# absent from PATH - see check_pkgconfig_validate.py's own header for
+# the SEVENTEEN scenarios it actually exercises. The "eight" this
+# comment used to claim was stale prose, never updated after
+# PKG-WIN-SCOPE/PKG-NATIVE grew the file; the count now lives in the
+# script's own header, next to the list it is derived from. This is a
 # DIFFERENT claim than pkgconfig_test above: that gate proves
 # glintfx.pc's CONTENT is correct across six layouts OUR OWN CI
 # enumerates; this one proves the VALIDATOR ITSELF, which is designed
 # to reach layouts neither pkgconfig_test nor any of this project's CI
 # jobs ever try (GODS_LAWS.md LEI ZERO: the base of consumers is
-# public and unknown). POSIX sh; same declared downgrade as the other
-# consumption gates above (pkg-config's own convention is Unix/Linux
-# packaging; no Windows-specific coverage here for the same reason
-# pkgconfig_test has none - see that gate's own comment).
-if(UNIX)
-    add_test(
-        NAME pkgconfig_validate_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig_validate.sh"
-            "${PROJECT_SOURCE_DIR}"
-            "${CMAKE_CXX_COMPILER}"
-    )
-    set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume)
-endif()
+# public and unknown).
+#
+# ENSINANDO O VALIDADOR (GODS_LAWS.md L-04, decisao do lider,
+# 04/09/2026). O historico importa aqui porque ha uma decisao MORTA no
+# caminho: em 27/08 o CTO decidiu, em modo autonomo, tornar o glintfx.pc
+# um artefato so de Unix; o LIDER REVERTEU no mesmo dia, verbatim - "O
+# .pc volta a ser instalado no Windows, e decidimos juntos o que fazer
+# com o validador que reprova instalacao boa". Levada a ele em
+# 04/09/2026, a decisao foi ENSINAR o verificador a reconhecer o nome do
+# artefato em cada sistema. Nao um segundo validador so para Windows,
+# nao deixar o Windows sem validacao: um validador so, ensinado.
+#
+# PORTED from POSIX sh (tests/tools/check_pkgconfig_validate.sh,
+# if(UNIX)-guarded since 27/08/2026, never exercised on the Windows CI
+# job at all) to python3 and registered here WITHOUT a system guard -
+# same GATE-TREE-PARITY shape as blank_install_dir_rejected_test and
+# layers_test above. The port's own closed LIBRARY_ARTIFACT_PATTERNS
+# list (three names - libglintfx.so*, libglintfx.a, glintfx.lib -
+# duplicated from cmake/GlintfxPkgConfigValidateInstalled.cmake.in's own
+# glintfx_pkgconfig_library_glob_patterns(), which globs all three with
+# NO platform filter) is what actually closes the Windows gap: the
+# retired .sh's own artifact-removal step only ever searched for the two
+# Unix names, so on a real Windows install it would have found NOTHING
+# to delete and the broken-library control would have passed without
+# ever biting. The port reproves outright when that removal count comes
+# up zero (GODS_LAWS.md L-40), instead of trusting a later assertion to
+# catch it by accident. The old .sh is deleted in the same fatia.
+add_test(
+    NAME pkgconfig_validate_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig_validate.py"
+        "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_CXX_COMPILER}"
+)
+set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume)
+
+# --selftest: pure logic controls (normalize_wrapped_message's own
+# wrap-immunity across a range of widths - the fix that also closes the
+# unconserted line 482 the ASSERT-WRAP item names, since normalization
+# is now applied to EVERY cmake-output comparison in the file instead of
+# being chosen point by point - the closed LIBRARY_ARTIFACT_PATTERNS
+# enumeration, find/remove_library_artifacts, and rewrite_libdir_line).
+# No cmake configure, no compiler, no real install needed. Same shape
+# blank_install_dir_rejected_selftest already established.
+add_test(
+    NAME pkgconfig_validate_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig_validate.py" --selftest
+)
+set_tests_properties(pkgconfig_validate_selftest PROPERTIES LABELS selftest)
 
 # Blank install-dir gate (adversarial review round 3, PKG-DIST task 3):
 # proves CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_INCLUDEDIR are refused at
@@ -1487,6 +1527,71 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_libdir_includedir_mix_rejected.py" --selftest
 )
 set_tests_properties(libdir_includedir_mix_rejected_selftest PROPERTIES LABELS selftest)
+
+# Macro-balance gate (TODO.md HDR-MACRO-BALANCE, GODS_LAWS.md L-40):
+# proves every "#define" a public header under PROJECT_SOURCE_DIR/include
+# introduces is "#undef"'d in the SAME file, closing the exact gap the
+# 27/08/2026 adversarial review found by experiment (removing
+# include/glintfx/gfss/token.hpp's own outer #undef and watching the
+# full -Werror build and suite pass 47/47 anyway - see
+# check_macro_balance.py's own header comment for the two designs
+# measured before choosing a pure text scan over a compiler-based
+# `-dM` diff, and why the compiler-based one hits a hard MSVC-parity
+# wall check_public_name_collision.py's own NAMES-PARITY-WIN research
+# already documented). Pure Python, zero subprocess spawn (GODS_LAWS.md
+# L-11), unguarded by platform (GATE-TREE-PARITY, GODS_LAWS.md L-04) -
+# text scanning has no per-OS mechanism to diverge.
+add_test(
+    NAME macro_balance_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_macro_balance.py"
+        "${PROJECT_SOURCE_DIR}/include"
+)
+set_tests_properties(macro_balance_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME macro_balance_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_macro_balance.py" --selftest
+)
+set_tests_properties(macro_balance_selftest PROPERTIES LABELS selftest)
+
+# Environment-fact sweep gate (TODO.md GATE-ENV-SWEEP, GODS_LAWS.md
+# L-40): closed enumeration of tests/tools/, tests/container/, cmake/,
+# tools/ci/ and .github/workflows/ci.yml, requiring every use of a
+# closed, named vocabulary of machine-fact primitives (tool
+# availability, core count, JSON list order, null-vs-empty-array,
+# CRLF line endings, "compiler available" conflated with "concept
+# exists on this platform") to carry a nearby declaration comment -
+# see check_env_sweep.py's own header comment for the seven real
+# incidents (26-27/08/2026's four plus the 04/09/2026 pair) this gate
+# is calibrated against, and for why the signal vocabulary is keyed on
+# named remedy functions rather than generic primitives (measured live:
+# the generic form fired on eleven UNRELATED, safe uses across the
+# real tree - GODS_LAWS.md L-40's own warning against a heuristic that
+# produces noise nobody reads). Pure Python, zero subprocess spawn,
+# unguarded by platform - same GATE-TREE-PARITY shape as
+# macro_balance_test above.
+add_test(
+    NAME env_sweep_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_env_sweep.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(env_sweep_test PROPERTIES LABELS consume)
+
+# The --selftest here also runs calibrate_against_known_incidents()
+# against the REAL project tree (never a fixture) - see
+# check_env_sweep.py's own selftest_calibration_control() - so this
+# case is deliberately NOT hermetic like the other *_selftest cases in
+# this file; it depends on PROJECT_SOURCE_DIR still containing the
+# seven historical markers it calibrates against.
+add_test(
+    NAME env_sweep_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_env_sweep.py" --selftest
+)
+set_tests_properties(env_sweep_selftest PROPERTIES LABELS selftest)
 
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
 # itself (three controls - clean fixture passes, dirty fixture is

@@ -832,3 +832,32 @@ Ele mandou as três ao líder por serem julgamento de paridade, que é o que o l
 **Decisao minha na abertura, e e a mesma da W1:** os tres pares de verificacao de binario no Windows (o que a biblioteca de la importa, o que exporta, e a dependencia zero conferida no formato de la) **entram nesta onda**, porque o plano anterior os marcou como primeira coisa da onda seguinte e porque agora existe, pela primeira vez, uma biblioteca de verdade importando bibliotecas do sistema naquela plataforma. Deixa-los para depois seria fechar com o mesmo tipo de buraco que a W1 acabou de tapar.
 
 **Uma hipotese que vou medir antes de planejar:** a guarda de arquivo nao rastreado pode ja estar fechavel sem trabalho nenhum, porque a razao dela ter sido reaberta foi entregue na onda passada.
+
+## A onda W2 fechou  `[04/09/26 - 06:39:15]`
+
+**Ordem do lider:** *"w2, modo autonomo"* e, depois, *"merge/push quando fechar w2"*. **Nao houve merge:** esta onda foi feita direto na linha principal, ao contrario da W1, que usou ramo porque havia risco de codigo de Windows escrito as cegas deixar a linha principal vermelha por dias.
+
+**O que a W2 entregou, e nenhum item era trabalho novo -- todos eram heranca da auditoria de paridade:**
+
+| O que passou a existir | Antes |
+|---|---|
+| Inspecao do binario do Windows | **Nunca.** O que a biblioteca de la importa e o que ela exporta jamais foram lidos. |
+| Verificacao do tipo de retorno publico no Windows | Nunca. O manual chegava a declarar a forma da falha la como **nao medida**. |
+| Autoteste do espelho local rodando | **Nunca rodou, em sistema nenhum.** Nem no Linux. |
+| Validacao de sintaxe de PowerShell nesta maquina | Nao existia. Dois erros seguidos so foram pegos pelo servidor. |
+| Contagem de testes do Windows no README, com portao | So havia a do Linux. |
+
+**Os numeros:** quadro de 39 para **49 concluidos**. A suite do Windows foi de 44 para **46** casos.
+
+**O que mais me marcou nesta onda:**
+
+1. **Um item fechou sem escrever uma linha.** A lacuna que o mantinha aberto ja fora tapada pela onda anterior, e o CTO achou isso por conta propria num item que eu nao mandei conferir.
+2. **Cinco voltas ao servidor no mesmo teste**, cada uma revelando uma camada diferente: opcao que o compilador ignora, codigo de saida lido de duas formas, tempos de execucao incompativeis, propriedade vazia, expressao nao avaliada. **O piso deu diagnostico limpo em todas** -- reprovava dizendo o que nao entendia, em vez de adivinhar. E so na quinta eu exigi a lista completa de dependencias do teste, que era o que faltava desde a primeira.
+3. **O portao novo reprovou na estreia e isso foi bom:** provou que a secao do Windows e conferida naquela plataforma, o que ate entao era so raciocinio.
+4. **Um agente parou na lei em vez de contornar:** mediu que rodar o autoteste no container exigiria instalar coisa, o que precisa da sua autorizacao, e nao instalou -- isolou a funcao critica e provou do mesmo jeito.
+
+**Meus erros, para o registro:**
+
+- **Commitei o trabalho pela metade de um agente**, usando o comando que adiciona tudo enquanto ele escrevia. Onze trabalhos vermelhos. Segunda vez que faco isso na sessao.
+- **Empurrei um commit que removia um portao sem o substituto**, porque o comando de adicionar falhou num caminho inexistente e eu nao conferi o que tinha entrado. Li o aviso e segui adiante.
+- **Minha hipotese sobre a causa da falha no Windows estava errada**, e o agente a refutou com medicao. O erro apontava para o cabecalho publico e eu acreditei no dedo em vez de olhar a origem.

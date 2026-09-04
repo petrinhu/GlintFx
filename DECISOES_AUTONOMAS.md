@@ -896,3 +896,26 @@ CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
 **Terceira causa:** a contagem de casos de teste do Windows no README ficou defasada (diz 46, o servidor mediu 52). E consequencia natural do porte, e so pode ser acertada no fim da onda, quando os portoes restantes entrarem.
 
 **Decisao autonoma, para confirmar depois:** despachei tres agentes em paralelo com fronteiras de arquivo disjuntas -- o porte dos tres portoes que faltam, as duas fatias do motor de estilo, e o conserto dos dois defeitos do Windows. Cada um recebeu por escrito o que nao pode tocar, porque ja commitei trabalho pela metade de agente duas vezes nesta sessao.
+
+---
+
+## Quatro pares de paridade puxados da W5 para a W3  `[04/09/26 - 11:02:18]`
+
+**Decisao autonoma, para confirmar retroativamente.**
+
+**O que eu medi antes de decidir.** Comparei o inventario de teste das duas pernas no ultimo resultado do servidor: o alvo primario roda **69** casos, o Windows roda **52**. Dezenove existem so no Linux, e dois so no Windows. Dos dezenove:
+
+- **seis** sao os portoes que estao sendo portados agora e fecham nesta onda;
+- **dois** sao de Wayland e ja tem par proprio do outro lado (`win32_display_connect_test`) -- ausencia legitima;
+- **nove** sao os portoes de consumo e empacotamento, e **nao sao desta onda**: ja tem itens proprios agendados para a W5 e a W5-P, com 3.522 linhas de shell entre eles (dois arquivos sozinhos sao 61% disso);
+- **dois** sao o portao de privacidade de porta, ja fechado.
+
+**O problema que isso revelou.** Tres itens da W3 foram reabertos pela lei de paridade retroativa (`ASSET-LOAD`, `GATE-DEBUG`, `ASSERT-WRAP`), e o par que cada um precisa estava agendado para a **W5**. Do jeito que estava, a W3 nao fecharia por construcao: os itens ficariam abertos esperando uma onda futura, e "termine a W3" nao teria como ser cumprido.
+
+**A decisao.** Puxei quatro itens para a W3: o par da leitura de arquivo que falha no meio, o par das assercoes em modo de depuracao, o par da recusa de diretorio de instalacao em branco, e o par da colisao de nome contra os cabecalhos do SDK do Windows. Os quatro sao pequenos, bem delimitados e ja estavam escritos com o vermelho que os prova.
+
+**Por que puxar em vez de fechar a onda sem eles:** fechar a W3 declarando tres itens ainda abertos seria vender como fechado o que a lei de paridade acabou de reabrir, e a razao que o lider deu para recusar a excecao de peca interna foi exatamente "regra uniforme, sem julgamento caso a caso, porque julgamento e onde se erra". Deixar tres de fora seria o julgamento caso a caso voltando pela porta dos fundos.
+
+**O que NAO puxei, e por que:** os nove portoes de consumo e empacotamento ficam onde estao. Sao 3.522 linhas de shell, uma onda inteira em si, e nenhum item da W3 depende deles para fechar. Puxa-los seria transformar a W3 na W5.
+
+⚠️ **O quarto par ganhou urgencia por conta propria:** ao portar o portao de colisao de nome, o agente precisou declarar que a tecnica de descoberta de cabecalho do sistema nao existe no compilador da Microsoft. Ou seja, o portao passa a existir nas cinco plataformas mas **so varre os cabecalhos do sistema em quatro delas** -- que e precisamente o que aquele item ja descrevia desde 02/09. O porte tornou a lacuna visivel no lugar certo em vez de escondida.

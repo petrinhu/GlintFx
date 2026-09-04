@@ -975,3 +975,41 @@ CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
 6. Assercoes de produto que nunca tinham rodado naquele compilador.
 
 **Numeros medidos:** suite do Windows de 46 para 58 casos; custo de processo de 221 para 1 no maior portao; nove assercoes de produto conferidas por mim de forma independente.
+
+---
+
+## Onda W3 fechada e empurrada; pausa pedida pelo lider  `[04/09/26 - 16:54:11]`
+
+**Ordem:** *"quando acabar merge/push, pause"*. O envio esta feito (`781c02b`, 16:50, direto em `main` -- este projeto nao usa ramo separado hoje), arvore limpa, nenhum agente vivo.
+
+**ESTADO PARA RETOMAR:** servidor rodando `781c02b`. Nove trabalhos ja verdes, doze em execucao quando pausei. O veredito chega pelo canal de avisos.
+
+**O QUE A ONDA ENTREGOU.** Os dezenove itens da W3 sairam de pendente. A suite do Windows foi de **46 para 68 casos**; a do Linux de 70 para 78. A distancia entre as duas plataformas caiu de dezenove casos para treze, e os treze estao nomeados um a um no README -- nove da familia de instalacao e consumo, dois de Wayland com par do outro lado, um que so faz sentido no modo compartilhado, e o autoteste local do espelho.
+
+**TODO portao que apenas varre a arvore roda agora nas cinco plataformas.** Era essa a lacuna que a lei de paridade abriu quando o lider recusou a excecao.
+
+**OITO ACHADOS, nenhum encontravel por leitura, todos vindos da lei de paridade:**
+
+1. Portao de colisao de nome cego para 38 cabecalhos por nao seguir atalho de arquivo (14.223 vistos contra 14.313 reais).
+2. Portao de dependencia zero acusando violacao numa linha que ele mesmo autoriza, por causa do fim de linha do Windows.
+3. Autoteste morrendo no terceiro controle e deixando 35 controles jamais exercidos naquela plataforma.
+4. Verificacao de ferramenta com falso positivo: o compilador existe no Windows, o formato de binario nao.
+5. **A biblioteca devolvendo dado truncado como SUCESSO no Windows** quando a leitura falhava no meio -- o unico que atingia o consumidor direta e silenciosamente.
+6. Assercoes de produto que nunca tinham rodado no compilador da Microsoft.
+7. O validador do descritor apagando o artefato para provar que detecta instalacao quebrada, mas **procurando so os nomes de Unix** -- num Windows real nao acharia nada e passaria sem morder.
+8. A varredura de fatos-de-maquina derrubada por um fato de maquina (separador de caminho), achando sete de sete no Linux e zero no Windows.
+
+**Custo de processo:** 221 para 1, 37 para 1, 72 para 3 nos tres portoes portados; 43 pontos de subprocesso para 28 no validador.
+
+**DECISOES MINHAS, para confirmacao retroativa:**
+- Recusar a combinacao incoerente de diretorios de instalacao, em vez de torna-la coerente adivinhando a intencao de quem empacota.
+- Ensinar o portao de colisao de nome que atribuicao nao e declaracao, em vez de contornar tirando a linha do cabecalho.
+- Puxar quatro pares de paridade da W5 para a W3, sem os quais tres itens reabertos nao fechariam.
+- Acrescentar o cabecalho de depuracao do runtime da Microsoft a lista de permitidos da lei de dependencia zero, com justificativa -- mesma familia do que ja estava la, so-de-teste, nunca entra na biblioteca distribuida.
+
+**UMA DECISAO FOI DELE, e eu quase a atropelei:** montei um briefing mandando implementar o OPOSTO de uma reversao que ele proprio dera, com data e verbatim no canon. O agente parou, citou cinco evidencias com arquivo e linha, e recusou. Levada a ele, decidiu ENSINAR o validador. O mecanismo de confirmacao funcionou contra mim, que e exatamente para isso que existe.
+
+**MEUS ERROS DESTA PARTE:**
+- **Li codigo de saida errado QUATRO vezes.** Tres foram "exit code 0" da notificacao de fim de comando, que e do ultimo comando do meu script e nao do portao. A quarta foi agora: li doze trabalhos EM EXECUCAO como doze falhas, porque meu filtro tratou "ainda sem conclusao" como reprovacao. Todas da mesma familia -- confiro o que mandei perguntar, nao o que a resposta diz.
+- **Commitei por cima de agente ativo pela terceira vez na sessao**, e o registro de dois portoes foi parar no commit de outra fatia. Nada se perdeu; a mensagem daquele commit diz menos do que ele leva.
+- **Padrao limpo, medido:** nenhuma vez em que rodei o espelho ANTES de commitar ele reprovou por surpresa; TODAS as vezes em que commitei antes de roda-lo, ele reprovou depois. Quatro por quatro.

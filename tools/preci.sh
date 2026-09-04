@@ -7,14 +7,21 @@
 #
 # Usage:
 #   tools/preci.sh                   guard (no new untracked *.cpp/*.hpp),
-#                                     then full pipeline: format, configure
-#                                     (-DGLINTFX_WERROR=ON), build,
-#                                     clang-tidy, cppcheck, NOLINT
+#                                     then full pipeline: format, PowerShell
+#                                     syntax (GATE-PS-SYNTAX, tools/*.ps1
+#                                     via the pwsh Parser class in a
+#                                     container - see stage_ps_syntax),
+#                                     configure (-DGLINTFX_WERROR=ON),
+#                                     build, clang-tidy, cppcheck, NOLINT
 #                                     justification, gitleaks, ctest,
 #                                     sanitizer stage, debug stage.
 #   tools/preci.sh --fast            same, minus the sanitizer stage and
 #                                     the debug stage - for a
-#                                     documentation-only push.
+#                                     documentation-only push. Still runs
+#                                     GATE-PS-SYNTAX: it is cheap (no C++
+#                                     build involved) and a documentation-
+#                                     only push is exactly the shape of
+#                                     push most likely to touch a *.ps1.
 #   tools/preci.sh --lint-only       guard, then format + configure +
 #                                     build + clang-tidy + cppcheck +
 #                                     NOLINT justification only (what
@@ -145,6 +152,16 @@ readonly FIXTURES_DIR="${ROOT_DIR}/tests/preci_fixtures"
 # never drift apart.
 readonly CTEST_UNIT_LABEL_FILTER='^unit$'
 
+# GATE-PS-SYNTAX (TODO.md W2, GODS_LAWS.md L-36/L-40). Pinned image
+# name, single source of truth for both the availability check and the
+# `docker run` call in stage_ps_syntax below - never re-typed. Already
+# cached on this machine before this fatia (docker images), so this
+# stage never runs `docker pull`: pulling would be a silent network
+# call the very first time the image is missing, and this project's
+# whole point with this stage is "nada de rede, nada a instalar" (see
+# TODO.md's own item text).
+readonly GLINTFX_PS_IMAGE='mcr.microsoft.com/powershell:latest'
+
 # --- enumeration (GODS_LAWS.md L-23/L-24 spirit: a gate has to prove it
 # looked at something). Each *_stage function below prints how many
 # files it scanned; require_nonempty is the shared floor that refuses
@@ -209,6 +226,15 @@ enumerate_tracked_cpp() {
     enumerate_git_listing "$ROOT_DIR" \
         "enumerate_tracked_cpp: 'git ls-files' falhou em '$ROOT_DIR' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)" \
         -- '*.cpp' ':!:tests/preci_fixtures/*'
+}
+
+# GATE-PS-SYNTAX: no exclusion of tests/preci_fixtures/* (unlike the two
+# above) - the fixtures tree only ever held *.cpp/*.hpp, this stage
+# scans every tracked *.ps1 in the repository, tools/ci/ included.
+enumerate_tracked_ps1() {
+    enumerate_git_listing "$ROOT_DIR" \
+        "enumerate_tracked_ps1: 'git ls-files' falhou em '$ROOT_DIR' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)" \
+        -- '*.ps1'
 }
 
 # Plain directory walk (not git enumeration): used only by --selftest,
@@ -373,6 +399,110 @@ stage_format() {
     enumerate_tracked_cpp_hpp
     require_nonempty "format" || fail "estagio format recusado (varredura vazia)"
     clang-format --dry-run -Werror "${FILES[@]}"
+}
+
+# GATE-PS-SYNTAX (03/09/2026, TODO.md W2). Nasce de dois erros de
+# sintaxe seguidos que so o runner Windows do GitHub Actions pegou
+# (medido): nao ha PowerShell nativo nesta maquina, entao os oito
+# scripts tools/*.ps1/tools/ci/*.ps1 sao escritos por leitura, nunca
+# executados antes do envio. O validador e o PROPRIO parser da
+# linguagem (System.Management.Automation.Language.Parser), embutido
+# no binario pwsh - nao o modulo PSScriptAnalyzer (que exigiria
+# PSGallery, ou seja rede): a imagem oficial mcr.microsoft.com/
+# powershell:latest ja estava em cache local nesta maquina antes desta
+# fatia (nada a instalar, nada de rede), e o parser embutido detecta
+# erro de sintaxe real (medido: "Missing closing '}'..." contra um
+# fixture quebrado de proposito) sem precisar de nenhum modulo externo.
+#
+# Piso de varredura nao-vazia (GODS_LAWS.md L-40): "git ls-files
+# *.ps1" vazio reprova o estagio - um validador que nao encontra nada
+# e imprime verde e exatamente o defeito que este projeto persegue.
+#
+# Loop arquivo-a-arquivo DENTRO do container, nunca um parse em lote
+# que possa quebrar no meio (GODS_LAWS.md L-36): o script pwsh
+# embutido abaixo envolve CADA ParseFile em try/catch proprio, conta
+# encontrados/analisados/falharam, e so declara verde quando
+# analisados == encontrados - um arquivo ilegivel ou uma excecao no
+# meio da lista nunca esconde os arquivos que viriam depois dela.
+#
+# Docker ausente ou imagem fora do cache REPROVA o estagio, nao apenas
+# avisa - decisao deliberada, nao o default do resto do arquivo.
+# preci_selftest (tests/CMakeLists.txt) degrada em aviso quando falta
+# clang-format/clang-tidy/cppcheck porque ele so re-verifica um portao
+# que OUTRO lugar (o job `lint` do CI) tambem cobre; aqui nao ha
+# segunda rede de protecao nenhuma antes do runner Windows real - um
+# aviso perdido no meio da saida longa do preci.sh e, na pratica, o
+# mesmo silencio que deixou passar os dois erros anteriores. Docker e a
+# imagem em cache ja estao comprovados presentes nesta maquina (medido
+# ao vivo antes desta fatia); obte-los uma vez e custo de setup, nao
+# imposto recorrente. Nunca `docker pull` aqui (ver comentario de
+# GLINTFX_PS_IMAGE acima) - so `docker image inspect` contra o cache.
+#
+# Ponto de montagem com o sufixo de relabel do SELinux (":z"): sem ele,
+# o acesso do container ao bind mount e negado nesta maquina (SELinux
+# enforcing, medido ao vivo por outro agente antes desta fatia).
+stage_ps_syntax() {
+    enumerate_tracked_ps1
+    require_nonempty "sintaxe PowerShell" \
+        || fail "estagio sintaxe PowerShell recusado (varredura vazia de *.ps1 rastreado - GATE-PS-SYNTAX, GODS_LAWS.md L-40)"
+
+    command -v docker >/dev/null 2>&1 \
+        || fail "estagio sintaxe PowerShell recusado (docker ausente - GATE-PS-SYNTAX nao degrada para aviso, ver comentario acima do estagio)"
+
+    docker image inspect "$GLINTFX_PS_IMAGE" >/dev/null 2>&1 \
+        || fail "estagio sintaxe PowerShell recusado (imagem '$GLINTFX_PS_IMAGE' fora do cache local - rode 'docker pull $GLINTFX_PS_IMAGE' manualmente uma vez; GATE-PS-SYNTAX nunca puxa sozinho)"
+
+    scratch_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-ps-syntax-XXXXXX")" \
+        || fail "mktemp -d falhou preparando o estagio de sintaxe PowerShell"
+
+    cat > "$scratch_dir/check.ps1" <<'GLINTFX_PS_SYNTAX_EOF'
+$ErrorActionPreference = 'Stop'
+$root = '/glintfx-src'
+$encontrados = $args.Count
+$analisados = 0
+$falharam = 0
+foreach ($rel in $args) {
+    $path = Join-Path $root $rel
+    $tokens = $null
+    $errors = $null
+    try {
+        $null = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+        $analisados++
+        if ($errors.Count -gt 0) {
+            $falharam++
+            Write-Host "FALHOU: $rel"
+            foreach ($e in $errors) {
+                Write-Host "  linha $($e.Extent.StartLineNumber): $($e.Message)"
+            }
+        } else {
+            Write-Host "ok: $rel"
+        }
+    } catch {
+        $falharam++
+        Write-Host "FALHOU (excecao ao ler/parsear $rel): $($_.Exception.Message)"
+    }
+}
+Write-Host "GATE-PS-SYNTAX: encontrados=$encontrados analisados=$analisados falharam=$falharam"
+if ($analisados -ne $encontrados) {
+    Write-Host "GATE-PS-SYNTAX: cobertura perdida (analisados != encontrados) - GODS_LAWS.md L-36"
+    exit 1
+}
+if ($falharam -gt 0) {
+    exit 1
+}
+exit 0
+GLINTFX_PS_SYNTAX_EOF
+
+    if ! docker run --rm \
+        -v "${ROOT_DIR}:/glintfx-src:ro,z" \
+        -v "${scratch_dir}:/glintfx-scratch:ro,z" \
+        "$GLINTFX_PS_IMAGE" \
+        pwsh -NoProfile -NonInteractive -File /glintfx-scratch/check.ps1 "${FILES[@]}"
+    then
+        rm -rf "$scratch_dir"
+        fail "estagio sintaxe PowerShell recusado (ver saida acima; GATE-PS-SYNTAX)"
+    fi
+    rm -rf "$scratch_dir"
 }
 
 # -DGLINTFX_BUILD_TESTS=ON forced explicitly (defense in depth, not a
@@ -1140,6 +1270,8 @@ run_full_pipeline() {
     fast="$1"
     log "estagio 1: clang-format"
     stage_format
+    log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
+    stage_ps_syntax
     log "estagio 2: configure (-Werror)"
     stage_configure
     log "estagio 3: build"

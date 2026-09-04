@@ -963,6 +963,28 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # PRECI-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40): tools/
+      # preci.sh --selftest nunca rodava em lugar nenhum. O teste
+      # registrado, `preci_selftest` (tests/CMakeLists.txt), so nasce
+      # quando clang-format/clang-tidy/cppcheck estao TODOS presentes -
+      # e essa combinacao nunca acontecia: o job `linux` roda a suite
+      # mas nao instala as tres ferramentas, e este job `lint` instala
+      # as tres mas so chamava `--lint-only` (a analise de verdade,
+      # nao o selftest que prova a analise). Este passo fecha a lacuna
+      # com a MENOR mudanca possivel: reusa as ferramentas que o passo
+      # acima ja instalou, sem exigir job novo. --selftest opera so
+      # sobre tests/preci_fixtures/ (nunca sobre $BUILD_DIR, ver o
+      # comentario do proprio script) - por isso vem ANTES de
+      # `--lint-only` abaixo, que configura e builda a arvore inteira:
+      # uma regressao no selftest falha rapido, sem pagar o build. O
+      # lado Windows ganhou o gemeo dele (PRECI-WIN-SELFTEST, job
+      # `windows`) na mesma fatia.
+      - name: preci.sh --selftest
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          tools/preci.sh --selftest
+
       # GODS_LAWS.md L-23 portao 3 (analise estatica). Mesma logica de
       # estagio que tools/preci.sh roda localmente (TESTES.md T15.2) -
       # format, configure -Werror, build, clang-tidy, cppcheck, NOLINT.

@@ -399,10 +399,10 @@ GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
     // the sharing-violation one above; this one forces failure at READ,
     // after a successful open, per this file's own "MID-STREAM READ
     // FAILURE" header comment).
-    const exclusive_handle_guard lock_handle(::CreateFileW(
-        (dir / "locked.bin").c_str(), GENERIC_READ,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL, nullptr));
+    const exclusive_handle_guard lock_handle(
+        ::CreateFileW((dir / "locked.bin").c_str(), GENERIC_READ,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
     GLINTFX_CHECK(lock_handle.is_valid());
 
     // Locks [0, 0xFFFFFFFF) - "Locking a region that goes beyond the
@@ -413,7 +413,7 @@ GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
     // header) or on where inside it the failure actually lands.
     OVERLAPPED overlapped{};
     const BOOL locked = ::LockFileEx(lock_handle.handle(), LOCKFILE_EXCLUSIVE_LOCK, 0, 0xFFFFFFFFU,
-                                      0xFFFFFFFFU, &overlapped);
+                                     0xFFFFFFFFU, &overlapped);
     // SECOND ASSERTION, DISTINCT FROM THE OUTCOME BELOW (same "two
     // facts, two assertions" shape as tests/harness/win_dll_alloc_
     // hook.hpp's own gancho-found-vs-gancho-had-no-effect split): proves

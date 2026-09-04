@@ -238,8 +238,8 @@ read_stream_bytes(std::ifstream &stream, std::string_view path_view) {
 #if defined(_WIN32)
         if (read_errno != 0) {
             return gltfx_rslt<std::vector<std::byte>>::err(gltfx_err(gltfx_err_code::io_failure)
-                                                                 .with_path(path_view)
-                                                                 .with_os_error_code(read_errno));
+                                                               .with_path(path_view)
+                                                               .with_os_error_code(read_errno));
         }
 #endif
         break;

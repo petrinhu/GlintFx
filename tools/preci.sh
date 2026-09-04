@@ -593,6 +593,271 @@ stage_ctest() {
     ctest --test-dir "$BUILD_DIR" --output-on-failure
 }
 
+# --- GATE-ASAN-HALT bite controls (GODS_LAWS.md L-27/L-36/L-40) ---
+#
+# The real ctest suite stage_sanitizer runs below never contains a case
+# that deliberately corrupts memory or triggers undefined behavior on
+# purpose, so GATE-ASAN-HALT (cmake/GlintfxCompileOptions.cmake, the
+# -fno-sanitize-recover=all flag) had a compile-time proof it exists but
+# no runtime proof it ever BITES - exactly the shape of defect L-36
+# forbids ("portao que nunca foi visto vermelho nao conta"). This block
+# closes that: a real memory error must reprove, real undefined
+# behavior must reprove, and a clean program must pass - the third is
+# not decoration, it is what tells "reprova sempre" (a broken build,
+# say) apart from "reprova o certo" (measured live, 04/09/2026: the
+# same undefined-behavior fixture recompiled WITHOUT
+# -fno-sanitize-recover=all prints the diagnostic and still exits 0 -
+# that is the exact defect GATE-ASAN-HALT exists to close, and it is
+# what makes this control worth having instead of trusting the flag).
+#
+# Lives HERE, inside stage_sanitizer, not in --selftest: --selftest
+# proves this SCRIPT's own bash logic against tests/preci_fixtures/,
+# never touching a real sanitized build. This control has to prove a
+# COMPILER BEHAVIOR (does GATE-ASAN-HALT's flag actually turn a finding
+# into a hard exit), which only exists where GLINTFX_SANITIZE is
+# actually configured - stage_sanitizer, called both locally
+# (--sanitizer-only) and by the CI job `sanitizer`, is the one place
+# that is already true every time.
+#
+# Fixtures are disposable and written by this stage into a mktemp -d
+# workdir, NEVER a tracked file (GODS_LAWS.md L-27: sabotage lives
+# outside the tree, never in-place on the real tree). The throwaway
+# CMake project below does not re-type GATE-ASAN-HALT's flags: it
+# include()s the SAME cmake/GlintfxCompileOptions.cmake production
+# uses and calls its SAME glintfx_apply_compile_options() function, so
+# this control can never silently drift from what glintfx actually
+# compiles with the day that file changes.
+#
+# Closed, three-case list (GODS_LAWS.md L-17 "enumere o espaco inteiro
+# quando ele e pequeno e fechado" - three is both): every case is
+# either EXERCISED (built, run, its exit code and output checked) or,
+# for the one half this project's own compiler cannot produce (MSVC
+# has no UBSan - cmake/GlintfxCompileOptions.cmake's own FATAL_ERROR
+# guard says so), DECLARED not applicable with the reason, same
+# discipline tests/err_context_test.cpp already uses for its own
+# platform-closed cases. This script only ever runs on GNU/Clang in
+# practice (no Windows job calls tools/preci.sh - .github/workflows/
+# ci.yml's windows-sanitizer job configures GLINTFX_SANITIZE directly),
+# but the compiler is still detected, never assumed, so the guard is
+# real rather than decorative if that ever changes.
+readonly SANITIZER_BITE_CASES=(mem_bug ub_bug clean_case)
+
+# Populated by run_sanitizer_bite_controls: "<case>:<verdict>" strings,
+# one per entry of SANITIZER_BITE_CASES, appended as each case is
+# decided - never counted by re-deriving a number, always by reading
+# these arrays' own length (GODS_LAWS.md "DOC-ESTADO" lesson: a count
+# written by hand apodrece, an array length does not).
+SANITIZER_BITE_EXERCISED=()
+SANITIZER_BITE_DECLARED=()
+
+# Cheap, separate configure (no sanitizer flags at all) whose only job
+# is to read CMAKE_CXX_COMPILER_ID back from CMake's own detection -
+# never guessed from `$CXX --version` text, which is exactly the kind
+# of hand-parsed heuristic GODS_LAWS.md L-44 warns against. Needed
+# BEFORE the real bite project is written: passing GLINTFX_SANITIZE=
+# address,undefined to a target under MSVC trips glintfx_apply_
+# sanitizer_flags' own FATAL_ERROR immediately (it refuses ANY value
+# other than bare "address" on that compiler), so the sanitize value
+# and the case list both have to be chosen ahead of that configure,
+# never discovered by letting it fail.
+sanitizer_bite_probe_compiler_id() {
+    workdir="$1"
+    probe_dir="$workdir/probe"
+    mkdir -p "$probe_dir"
+    cat > "$probe_dir/CMakeLists.txt" <<'EOF'
+cmake_minimum_required(VERSION 4.1)
+project(glintfx_sanitizer_bite_probe CXX)
+message(STATUS "GLINTFX_BITE_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}")
+EOF
+    probe_log="$workdir/probe_configure.log"
+    cmake -S "$probe_dir" -B "$probe_dir/build" -G Ninja > "$probe_log" 2>&1 \
+        || fail "sanitizer-bite: probe de CMAKE_CXX_COMPILER_ID falhou ao configurar - ver $probe_log"
+    id="$(grep -o 'GLINTFX_BITE_COMPILER_ID=.*' "$probe_log" | head -n1 | cut -d= -f2)"
+    [ -n "$id" ] || fail "sanitizer-bite: probe nao imprimiu CMAKE_CXX_COMPILER_ID - ver $probe_log"
+    echo "$id"
+}
+
+# Writes the throwaway bite project: always mem_bug (real heap-buffer-
+# overflow) and clean_case (the positive control - never named plain
+# "clean": CMake reserves that exact target name for its own built-in
+# "clean" target and refuses it as invalid, measured live authoring
+# this control), plus ub_bug (real signed-integer-overflow UB) only
+# when $1 is "1" - the caller decides that from the probed compiler
+# ID, never from a guess. $2 is the GLINTFX_SANITIZE value to configure
+# with ("address,undefined" on GNU/Clang, "address" alone on MSVC,
+# matching exactly what cmake/GlintfxCompileOptions.cmake accepts per
+# compiler).
+sanitizer_bite_write_project() {
+    include_ub="$1"
+    bite_dir="$2"
+    mkdir -p "$bite_dir"
+    {
+        echo 'cmake_minimum_required(VERSION 4.1)'
+        echo 'project(glintfx_sanitizer_bite CXX)'
+        echo "include(\"${ROOT_DIR}/cmake/GlintfxCompileOptions.cmake\")"
+        echo 'add_executable(mem_bug mem_bug.cpp)'
+        echo 'add_executable(clean_case clean_case.cpp)'
+        echo 'glintfx_apply_compile_options(mem_bug)'
+        echo 'glintfx_apply_compile_options(clean_case)'
+        if [ "$include_ub" = "1" ]; then
+            echo 'add_executable(ub_bug ub_bug.cpp)'
+            echo 'glintfx_apply_compile_options(ub_bug)'
+        fi
+    } > "$bite_dir/CMakeLists.txt"
+
+    # Heap-buffer-overflow: a real, deliberate memory error (reads
+    # index 10 of a 5-int heap array) - ASan must abort the process.
+    cat > "$bite_dir/mem_bug.cpp" <<'EOF'
+#include <cstdio>
+
+int main() {
+    int* arr = new int[5];
+    arr[0] = 1;
+    std::printf("valor fora dos limites: %d\n", arr[10]);
+    delete[] arr;
+    return 0;
+}
+EOF
+
+    # Signed-integer-overflow: real, deliberate undefined behavior.
+    # Only written/built when include_ub=1 (GNU/Clang).
+    if [ "$include_ub" = "1" ]; then
+        cat > "$bite_dir/ub_bug.cpp" <<'EOF'
+#include <cstdio>
+#include <limits>
+
+int main() {
+    int x = std::numeric_limits<int>::max();
+    int y = x + 1;
+    std::printf("y = %d\n", y);
+    return 0;
+}
+EOF
+    fi
+
+    # Positive control: a clean program under the SAME flags - proves
+    # the two cases above reprove BECAUSE of the bug, not because the
+    # sanitized build reproves everything indiscriminately.
+    cat > "$bite_dir/clean_case.cpp" <<'EOF'
+#include <cstdio>
+
+int main() {
+    int arr[5] = {1, 2, 3, 4, 5};
+    int sum = 0;
+    for (int i = 0; i < 5; ++i) {
+        sum += arr[i];
+    }
+    std::printf("sum = %d\n", sum);
+    return 0;
+}
+EOF
+}
+
+# Runs one already-built bite executable, prints its real output (never
+# just a summary - the team asked to see it, and a summary can hide the
+# wrong failure reason), and returns its exit code via `return` (bash
+# has no other channel for a second value, and the caller only ever
+# needs the code, having already just printed the output itself).
+sanitizer_bite_run() {
+    bite_dir="$1"
+    name="$2"
+    echo "---- sanitizer-bite: $name ----"
+    rc=0
+    "$bite_dir/build/$name" || rc=$?
+    echo "---- sanitizer-bite: $name exit=$rc ----"
+    return "$rc"
+}
+
+run_sanitizer_bite_controls() {
+    # Reset every call (same discipline as FILES=() at the top of
+    # enumerate_git_listing): stage_sanitizer only ever runs once per
+    # script invocation today, but a function whose state only works
+    # because of that external fact is a latent bug, not a safe one.
+    SANITIZER_BITE_EXERCISED=()
+    SANITIZER_BITE_DECLARED=()
+    start_ts=$(date +%s)
+    workdir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-sanitizer-bite-XXXXXX")" \
+        || fail "sanitizer-bite: mktemp falhou preparando o workdir descartavel"
+
+    compiler_id="$(sanitizer_bite_probe_compiler_id "$workdir")"
+    log "sanitizer-bite: compilador detectado = $compiler_id"
+
+    if [ "$compiler_id" = "MSVC" ]; then
+        sanitize_value="address"
+        include_ub="0"
+        SANITIZER_BITE_DECLARED+=("ub_bug:NAO_APLICAVEL(MSVC nao tem UBSan - cmake/GlintfxCompileOptions.cmake FATAL_ERROR proprio recusa qualquer GLINTFX_SANITIZE!=address nesse compilador)")
+    else
+        sanitize_value="address,undefined"
+        include_ub="1"
+    fi
+
+    bite_dir="$workdir/bite"
+    sanitizer_bite_write_project "$include_ub" "$bite_dir"
+
+    bite_configure_log="$workdir/bite_configure.log"
+    bite_build_log="$workdir/bite_build.log"
+    cmake -S "$bite_dir" -B "$bite_dir/build" -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_SANITIZE="$sanitize_value" \
+        > "$bite_configure_log" 2>&1 \
+        || fail "sanitizer-bite: configure do projeto descartavel falhou - ver $bite_configure_log"
+    cmake --build "$bite_dir/build" > "$bite_build_log" 2>&1 \
+        || fail "sanitizer-bite: build do projeto descartavel falhou - ver $bite_build_log"
+
+    # GODS_LAWS.md L-45 territory: under `set -e`, a bare
+    # `var="$(cmd)"; rc=$?` assignment-only command IS itself subject to
+    # -e (measured live authoring this control: it aborted the script
+    # the instant the wrapped binary returned non-zero, before `rc=$?`
+    # ever ran) - `if var="$(cmd)"; then rc=0; else rc=$?; fi` is the
+    # form that actually survives, because the assignment sits inside
+    # the `if` condition, one of the constructs -e explicitly exempts.
+    if mem_out="$(sanitizer_bite_run "$bite_dir" mem_bug 2>&1)"; then mem_rc=0; else mem_rc=$?; fi
+    echo "$mem_out"
+    # Two DIFFERENT real signatures are both correct here, measured live
+    # authoring this control: under GLINTFX_SANITIZE=address,undefined
+    # (both sanitizers active together, GLINTFX_WERROR unset so -O3/
+    # Release optimization stands), GCC's own object-size checker (part
+    # of the "undefined" group) can catch this exact heap-buffer-
+    # overflow BEFORE ASan's redzone poisoning does, reporting "runtime
+    # error: ... insufficient space for an object" instead of "ERROR:
+    # AddressSanitizer: heap-buffer-overflow" - which checker wins is an
+    # implementation detail of this compiler version, not something this
+    # control should pin to one exact string. Either is accepted as
+    # proof of a real, caught memory-bounds violation.
+    if [ "$mem_rc" -eq 0 ] || ! printf '%s' "$mem_out" | grep -qE 'AddressSanitizer|insufficient space for an object'; then
+        fail "sanitizer-bite: FALHOU o caso mem_bug (erro de memoria real precisa reprovar sob ASan/UBSan - exit=$mem_rc, saida sem assinatura conhecida de erro de memoria)"
+    fi
+    SANITIZER_BITE_EXERCISED+=("mem_bug:REPROVOU(exit=$mem_rc)")
+
+    if [ "$include_ub" = "1" ]; then
+        if ub_out="$(sanitizer_bite_run "$bite_dir" ub_bug 2>&1)"; then ub_rc=0; else ub_rc=$?; fi
+        echo "$ub_out"
+        if [ "$ub_rc" -eq 0 ] || ! printf '%s' "$ub_out" | grep -q 'runtime error'; then
+            fail "sanitizer-bite: FALHOU o caso ub_bug (UB real precisa reprovar sob UBSan/-fno-sanitize-recover=all - exit=$ub_rc, saida sem 'runtime error')"
+        fi
+        SANITIZER_BITE_EXERCISED+=("ub_bug:REPROVOU(exit=$ub_rc)")
+    fi
+
+    if clean_out="$(sanitizer_bite_run "$bite_dir" clean_case 2>&1)"; then clean_rc=0; else clean_rc=$?; fi
+    echo "$clean_out"
+    if [ "$clean_rc" -ne 0 ] || ! printf '%s' "$clean_out" | grep -q 'sum = 15'; then
+        fail "sanitizer-bite: FALHOU o caso clean_case (programa limpo sob os MESMOS flags precisa passar - exit=$clean_rc, saida sem 'sum = 15')"
+    fi
+    SANITIZER_BITE_EXERCISED+=("clean_case:PASSOU(exit=$clean_rc)")
+
+    rm -rf "$workdir"
+
+    total=$((${#SANITIZER_BITE_EXERCISED[@]} + ${#SANITIZER_BITE_DECLARED[@]}))
+    if [ "$total" -ne "${#SANITIZER_BITE_CASES[@]}" ]; then
+        fail "sanitizer-bite: varredura incompleta (${#SANITIZER_BITE_CASES[@]} casos na lista fechada, $total exercitados+declarados - GODS_LAWS.md L-40)"
+    fi
+    if [ "${#SANITIZER_BITE_EXERCISED[@]}" -eq 0 ]; then
+        fail "sanitizer-bite: varredura vazia (nenhum caso exercitado - GODS_LAWS.md L-40)"
+    fi
+
+    end_ts=$(date +%s)
+    echo "sanitizer-bite: ${#SANITIZER_BITE_EXERCISED[@]} exercitado(s) [${SANITIZER_BITE_EXERCISED[*]}], ${#SANITIZER_BITE_DECLARED[@]} declarado(s) [${SANITIZER_BITE_DECLARED[*]:-nenhum}], custou $((end_ts - start_ts))s"
+}
+
 # Sanitizer stage runs `ctest -L "$CTEST_UNIT_LABEL_FILTER"` (anchored
 # `^unit$`) only, never the full suite: the shell-script consumption
 # gates (tests/CMakeLists.txt, LABELS consume) link a plain,
@@ -602,6 +867,12 @@ stage_ctest() {
 # cmake/GlintfxOptions.cmake. Own build directory, own configure: this
 # is a heavier, slower build than the normal one (GODS_LAWS.md L-23
 # portao 2), so it never shares a build tree with stage_configure above.
+#
+# run_sanitizer_bite_controls runs AFTER the real ctest run below, not
+# before: the real suite is the stage's primary job, and the bite
+# controls exist to prove the MECHANISM underneath it actually bites -
+# proving the mechanism before the real suite ran would still leave
+# open whether the real build's own configure matches production.
 stage_sanitizer() {
     cmake -S "$ROOT_DIR" -B "$SANITIZE_BUILD_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON \
@@ -611,6 +882,7 @@ stage_sanitizer() {
     require_nonempty_tests "ctest -L ${CTEST_UNIT_LABEL_FILTER} (sanitizer)" "$count" \
         || fail "estagio sanitizer recusado (varredura vazia de testes rotulados unit - o rotulo sumiu ou o build nao tem teste nenhum)"
     ctest --test-dir "$SANITIZE_BUILD_DIR" -L "$CTEST_UNIT_LABEL_FILTER" --output-on-failure
+    run_sanitizer_bite_controls
 }
 
 # --- GATE-DEBUG (GODS_LAWS.md TODO.md item, DECISOES_AUTONOMAS.md D4,

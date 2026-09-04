@@ -984,6 +984,20 @@ set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 # never reaching its own compile-and-run subject at all (the estreia's
 # log: "debug fixture failed to compile", the identical D9002/C2039
 # cascade). CMAKE_CXX23_STANDARD_COMPILE_OPTION replaces it here too.
+#
+# CRT-LINK-WIN (Windows static-mode estreia, coordinator report
+# 04/09/2026, GODS_LAWS.md L-04): once STD-FLAG-WIN above let this
+# fixture actually reach LINK, the static BUILD_SHARED_LIBS mode failed
+# there instead (LNK2038, RuntimeLibrary mismatch) - glintfx.lib links
+# straight into the fixture's own binary in that mode, and MSVC's
+# linker refuses two objects built against different C runtimes.
+# $<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY> is the SAME
+# property CMake itself used to pick /MD or /MT when it built
+# glintfx_library (policy CMP0091, unset here so CMake's own default
+# applies) - passing it through, instead of the script guessing a
+# literal, is what check_rslt_precondition.py's own CRT-LINK-WIN header
+# comment explains in full (including why NDEBUG on/off must NOT also
+# flip this).
 add_test(
     NAME rslt_precondition_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -995,6 +1009,7 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_CXX_COMPILER_ID}"
         "${CMAKE_CXX23_STANDARD_COMPILE_OPTION}"
+        "$<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY>"
 )
 set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
 

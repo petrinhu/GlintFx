@@ -125,8 +125,47 @@
 # actually configured - "-std:c++latest" on this MSVC toolset, never a
 # literal this script or CMake would otherwise have to guess again.
 #
+# CRT-LINK-WIN (Windows static-mode estreia, coordinator report
+# 04/09/2026, GODS_LAWS.md L-04): the shared-mode Windows job passed but
+# the STATIC one failed at LINK, not at compile - LNK2038 "mismatch
+# detected for 'RuntimeLibrary': value 'MD_DynamicRelease' doesn't match
+# value 'MT_StaticRelease'". glintfx_library was built with the C runtime
+# CMake picks by default under policy CMP0091 (NEW since this project's
+# cmake_minimum_required is 4.1, well past 3.15 where CMP0091 was
+# introduced) when CMAKE_MSVC_RUNTIME_LIBRARY is left unset: the target
+# property MSVC_RUNTIME_LIBRARY defaults to "MultiThreaded$<$<CONFIG:
+# Debug>:Debug>DLL", i.e. the DYNAMIC CRT (/MD in this project's Release
+# config - see the "Comandos" section of CLAUDE.md, always -DCMAKE_
+# BUILD_TYPE=Release). compile_fixture()'s MSVC branch below never
+# passed /MD or /MT at all, so cl.exe fell back to ITS OWN default,
+# which is the STATIC CRT (/MT) - the two never agreed, on BOTH the
+# debug and release fixture compiles, only the static BUILD_SHARED_LIBS
+# mode links glintfx.lib (a static archive) directly into the fixture's
+# own binary, which is exactly where MSVC's linker enforces this
+# consistency; the shared mode links against glintfx.dll's import
+# library through the same mechanism but happened to still pass because
+# nothing else in that .lib pulls the mismatched runtime the same way
+# (not proven identical by design, just not the failure this fatia
+# chased). The FIX IS NOT "use the debug CRT for the debug fixture" -
+# the debug/release axis here is this script's OWN NDEBUG toggle on the
+# fixture (see "WHY THIS COMPILES THE FIXTURE TWICE" above), a
+# completely separate axis from which CRT glintfx_library itself was
+# linked against; MSVC keeps assert()'s behavior and CRT linkage
+# independent (Debug/RelWithDebInfo asserts still fire when linked
+# against the dynamic-Release CRT). The correct fix is to compile BOTH
+# fixture binaries against the SAME CRT choice glintfx_library actually
+# used, always - never a literal "/MD" this file would have to guess
+# again the way STD-FLAG-WIN's predecessor guessed a standard flag.
+# msvc_runtime_library (new argument below) is tests/CMakeLists.txt's
+# own $<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY> generator
+# expression, already resolved to one of CMake's four canonical strings
+# (MultiThreaded[Debug][DLL]) for whichever config this build actually
+# used - resolve_msvc_runtime_flag() below is a straight lookup table
+# from those four CMake-defined strings to the matching cl.exe flag,
+# not a re-derivation of the policy default.
+#
 # Usage:
-#   check_rslt_precondition.py <include-dir> <generated-include-dir> <runtime-dir> <linker-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag>
+#   check_rslt_precondition.py <include-dir> <generated-include-dir> <runtime-dir> <linker-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag> <msvc-runtime-library>
 #
 # runtime-dir and linker-dir are the SAME directory on the four POSIX
 # targets (a .so is both the runtime artifact and what the linker
@@ -183,13 +222,46 @@ def is_msvc(compiler_id):
     return compiler_id == "MSVC"
 
 
+# Straight lookup from CMake's own four MSVC_RUNTIME_LIBRARY strings
+# (Modules/Platform/Windows-MSVC.cmake) to the cl.exe flag each one
+# means - see this file's own CRT-LINK-WIN header comment for why this
+# has to be a lookup against the library's ACTUAL build, never a
+# hardcoded "/MD" guess.
+MSVC_RUNTIME_LIBRARY_TO_FLAG = {
+    "MultiThreaded": "/MT",
+    "MultiThreadedDebug": "/MTd",
+    "MultiThreadedDLL": "/MD",
+    "MultiThreadedDebugDLL": "/MDd",
+}
+
+
+def resolve_msvc_runtime_flag(msvc_runtime_library):
+    flag = MSVC_RUNTIME_LIBRARY_TO_FLAG.get(msvc_runtime_library)
+    if flag is None:
+        fail(
+            f"unrecognized MSVC_RUNTIME_LIBRARY value: '{msvc_runtime_library}' - expected one of "
+            f"{sorted(MSVC_RUNTIME_LIBRARY_TO_FLAG)}"
+        )
+    return flag
+
+
 def require_args(argv):
-    if len(argv) != 8:
+    if len(argv) != 9:
         fail(
             "usage: check_rslt_precondition.py <include-dir> <generated-include-dir> "
-            "<runtime-dir> <linker-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag>"
+            "<runtime-dir> <linker-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag> "
+            "<msvc-runtime-library>"
         )
-    include_dir, generated_include_dir, runtime_dir, linker_dir, cxx, compiler_id, cxx_standard_flag = argv[1:]
+    (
+        include_dir,
+        generated_include_dir,
+        runtime_dir,
+        linker_dir,
+        cxx,
+        compiler_id,
+        cxx_standard_flag,
+        msvc_runtime_library,
+    ) = argv[1:]
     for label, path in (
         ("include dir", include_dir),
         ("generated include dir", generated_include_dir),
@@ -202,7 +274,21 @@ def require_args(argv):
         fail(f"fixture source not found: {FIXTURE_SRC}")
     if not cxx_standard_flag:
         fail("cxx-standard-flag is empty - CMAKE_CXX23_STANDARD_COMPILE_OPTION did not resolve")
-    return include_dir, generated_include_dir, runtime_dir, linker_dir, cxx, compiler_id, cxx_standard_flag
+    if is_msvc(compiler_id) and not msvc_runtime_library:
+        fail(
+            "msvc-runtime-library is empty on MSVC - "
+            "$<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY> did not resolve"
+        )
+    return (
+        include_dir,
+        generated_include_dir,
+        runtime_dir,
+        linker_dir,
+        cxx,
+        compiler_id,
+        cxx_standard_flag,
+        msvc_runtime_library,
+    )
 
 
 def apply_windows_crash_dialog_suppression():
@@ -225,18 +311,31 @@ def binary_path(scratch_path, name, compiler_id):
 
 
 def compile_fixture(
-    includedir, generated_includedir, linkerdir, cxx, compiler_id, cxx_standard_flag, ndebug, output_bin
+    includedir,
+    generated_includedir,
+    linkerdir,
+    cxx,
+    compiler_id,
+    cxx_standard_flag,
+    msvc_runtime_flag,
+    ndebug,
+    output_bin,
 ):
     # ndebug is the ONE variable under test - everything else is held
-    # fixed between the two compiles. cxx_standard_flag (CMAKE_CXX23_
-    # STANDARD_COMPILE_OPTION, see this file's own STD-FLAG-WIN header
-    # comment) replaces the literal "/std:c++23"/"-std=c++23" no
-    # compiler was ever guaranteed to accept verbatim.
+    # fixed between the two compiles, INCLUDING msvc_runtime_flag: the
+    # CRT glintfx_library was actually linked against never changes
+    # between the debug and release fixture, only whether NDEBUG is
+    # defined does - see this file's own CRT-LINK-WIN header comment.
+    # cxx_standard_flag (CMAKE_CXX23_STANDARD_COMPILE_OPTION, see this
+    # file's own STD-FLAG-WIN header comment) replaces the literal
+    # "/std:c++23"/"-std=c++23" no compiler was ever guaranteed to
+    # accept verbatim.
     if is_msvc(compiler_id):
         command = [
             cxx,
             "/nologo",
             cxx_standard_flag,
+            msvc_runtime_flag,
             "/Od",
             "/W4",
             "/WX",
@@ -404,10 +503,22 @@ def assert_release_void_faults_via_null_dereference(binary, runtimedir, compiler
 
 
 def main():
-    includedir, generated_includedir, runtimedir, linkerdir, cxx, compiler_id, cxx_standard_flag = require_args(
-        sys.argv
-    )
+    (
+        includedir,
+        generated_includedir,
+        runtimedir,
+        linkerdir,
+        cxx,
+        compiler_id,
+        cxx_standard_flag,
+        msvc_runtime_library,
+    ) = require_args(sys.argv)
     apply_windows_crash_dialog_suppression()
+
+    # Resolved ONCE, used unchanged on both fixture compiles below - see
+    # this file's own CRT-LINK-WIN header comment for why the debug/
+    # release NDEBUG toggle must never also flip the CRT choice.
+    msvc_runtime_flag = resolve_msvc_runtime_flag(msvc_runtime_library) if is_msvc(compiler_id) else None
 
     with tempfile.TemporaryDirectory(prefix="glintfx-rslt-precond-") as scratch:
         scratch_path = pathlib.Path(scratch)
@@ -416,14 +527,30 @@ def main():
 
         print("check_rslt_precondition.py: compiling debug fixture (NDEBUG undefined)")
         result = compile_fixture(
-            includedir, generated_includedir, linkerdir, cxx, compiler_id, cxx_standard_flag, False, debug_bin
+            includedir,
+            generated_includedir,
+            linkerdir,
+            cxx,
+            compiler_id,
+            cxx_standard_flag,
+            msvc_runtime_flag,
+            False,
+            debug_bin,
         )
         if result.returncode != 0:
             fail(f"debug fixture failed to compile: {result.stdout}{result.stderr}")
 
         print("check_rslt_precondition.py: compiling release fixture (NDEBUG)")
         result = compile_fixture(
-            includedir, generated_includedir, linkerdir, cxx, compiler_id, cxx_standard_flag, True, release_bin
+            includedir,
+            generated_includedir,
+            linkerdir,
+            cxx,
+            compiler_id,
+            cxx_standard_flag,
+            msvc_runtime_flag,
+            True,
+            release_bin,
         )
         if result.returncode != 0:
             fail(f"release fixture failed to compile: {result.stdout}{result.stderr}")

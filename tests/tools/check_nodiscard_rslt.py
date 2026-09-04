@@ -69,6 +69,22 @@
 # it builds the real target, reused here instead of invented a second
 # time per-compiler.
 #
+# CRT-LINK-WIN, CHECKED AND RULED OUT (coordinator report 04/09/2026,
+# GODS_LAWS.md L-04): rslt_precondition_test's static-mode Windows
+# fixture failed at LINK with LNK2038 (RuntimeLibrary mismatch between
+# glintfx.lib and a fixture compiled without an explicit /MD or /MT -
+# see check_rslt_precondition.py's own CRT-LINK-WIN header comment for
+# the full fix). THIS file's compile_fixture() below never reaches a
+# link step at all - the MSVC branch passes "/c" and stops at the
+# object file (this file's own header above: "the fixture that DROPS
+# the result must FAIL to compile, the one that USES it must succeed"
+# is a compile-time check by construction, glintfx.lib is never named
+# on either command line). No CRT can mismatch across a link that never
+# happens - this gate passes the static-mode job BY DESIGN, not by the
+# same luck that let it dodge STD-FLAG-WIN's own literal-flag mistake
+# before this file was corrected; it never needed a msvc-runtime-
+# library argument and still does not.
+#
 # Usage: check_nodiscard_rslt.py <include-dir> <generated-include-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).

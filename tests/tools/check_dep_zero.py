@@ -1646,13 +1646,98 @@ def _cc_available():
     return shutil.which("cc") is not None
 
 
-def selftest_negative_control_needed(scratch):
+# GATE-DEPZERO-NEEDED-WINPARITY, ORDEM DE SERVICO 04/09/2026 (MEASURED,
+# CI server run 33882442841, commit 7eba0ae): dep_zero_selftest
+# reproved on BOTH Windows jobs. Traceback: `subprocess.
+# CalledProcessError` on `cc -shared -fPIC -o ... libintruder.so ...
+# -lnotallowed -Wl,-rpath,...` inside selftest_negative_control_needed
+# (below) - the SECOND of two `cc` invocations that control makes. The
+# FIRST invocation (building libnotallowed.so, no rpath, no -l) had
+# already SUCCEEDED on that same Windows job, proving a `cc` (a MinGW
+# toolchain) really was present and _cc_available() returning True was
+# not itself wrong - it is simply not evidence this whole MECHANISM
+# runs on Windows: -fPIC and -Wl,-rpath are ELF/System V linker
+# concepts with no PE equivalent, and needed_entries_of()'s own
+# `readelf -d` reads ELF, never PE. The three controls below
+# (selftest_positive_control_needed, selftest_negative_control_needed,
+# selftest_empty_scan_needed) build a REAL .so and inspect it through
+# check_needed_allowlist() with a REAL path - the only three of this
+# file's selftest controls that touch cc/-fPIC/-rpath/readelf/.so at
+# all; every other control below passes "NONE" and never leaves
+# CMake-surface/include-surface text scanning.
+#
+# GODS_LAWS.md L-04 (decisao do lider, verbatim: "O comportamento deve
+# ser igual em qualquer OS" - igual E PROVADO em cada sistema) forbids
+# a silent `if platform == win: pass`: a case that genuinely cannot be
+# exercised on a platform becomes an ausencia DECLARADA E CONTADA, not
+# a dropped one. running_as_windows_linker() below is the gate; each
+# of the three controls checks it FIRST, before touching cc at all,
+# and declares itself not applicable rather than attempting (and
+# possibly crashing on) an ELF-only build. Production coverage of
+# sub-check (c) on Windows is unaffected by this fatia: it already has
+# its own, separate parity path (WINDOWS-SEPARATE sentinel in
+# check_needed_allowlist() above, tools/ci/check-dep-zero-win.ps1,
+# DEPZERO-PARITY-WIN 03/09/2026), proven by
+# selftest_needed_windows_separate_skip() below - which stays
+# universal (it only dispatches on the "WINDOWS-SEPARATE" string, it
+# never touches cc/readelf) and needs no change here.
+def running_as_windows_linker(force_windows_needed_skip=False):
+    """True when this platform's toolchain and DT_NEEDED tooling are
+    Windows/PE-shaped rather than Unix/ELF-shaped: real Windows
+    (os.name == "nt"), or the
+    GLINTFX_DEPZERO_SELFTEST_FORCE_WINDOWS_NEEDED_SKIP=1 escape hatch
+    this fatia adds so the EXACT SAME declare-and-derive code path
+    Windows CI exercises can be proven, and shown, green on Linux too
+    (GODS_LAWS.md L-40: a mechanism that only ever ran on the one
+    platform that never triggers it is not a proven mechanism) - the
+    same convention check_spdx.py's own
+    GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP and
+    check_public_name_collision.py's own
+    GLINTFX_PNC_FORCE_GCC_FRONTEND_UNAVAILABLE already established.
+
+    This is NOT the environment-variable escape hatch DECISION D3 (this
+    file's own header) forbids: D3 guards the REAL gate
+    (check_dep_zero_tree()/check_dep_zero_staged(), the functions that
+    decide whether a COMMIT passes) - this variable never reaches
+    either of them, it only selects which code path THIS SELFTEST's own
+    fixture-building takes, the identical purpose the two precedents
+    above already served without objection.
+    """
+    if force_windows_needed_skip:
+        return True
+    return os.name == "nt"
+
+
+def _force_windows_needed_skip():
+    return os.environ.get("GLINTFX_DEPZERO_SELFTEST_FORCE_WINDOWS_NEEDED_SKIP") == "1"
+
+
+def _declare_needed_control_not_applicable(control_label, declared_na, reason):
+    declared_na.append(control_label)
+    print(f"selftest: {control_label} control declared NOT APPLICABLE ({reason})")
+    return True
+
+
+def selftest_negative_control_needed(scratch, declared_na):
+    if running_as_windows_linker(_force_windows_needed_skip()):
+        return _declare_needed_control_not_applicable(
+            "NEGATIVE(needed)",
+            declared_na,
+            "Windows/PE has no -fPIC, no -Wl,-rpath, and readelf reads ELF, never "
+            "PE - this control's whole mechanism (cc -shared -fPIC ... -Wl,-rpath, "
+            "then readelf -d) is Unix/ELF-only; sub-check (c) parity on Windows is "
+            "proven separately by tools/ci/check-dep-zero-win.ps1 and "
+            "selftest_needed_windows_separate_skip() above, never by this ELF "
+            "fixture family",
+        )
+
     root = os.path.join(scratch, "negative-needed")
     os.makedirs(root, exist_ok=True)
 
     if not _cc_available():
-        print("selftest: NEGATIVE(needed) control SKIPPED (cc unavailable to build fixture .so)")
-        return True
+        return _declare_needed_control_not_applicable(
+            "NEGATIVE(needed)", declared_na, "cc unavailable to build fixture .so"
+        )
 
     _write(os.path.join(root, "notallowed.c"), "int notallowed_fn(void) { return 7; }\n")
     r = subprocess.run(
@@ -1660,8 +1745,9 @@ def selftest_negative_control_needed(scratch):
         capture_output=True,
     )
     if r.returncode != 0:
-        print("selftest: NEGATIVE(needed) control SKIPPED (cc unavailable to build fixture .so)")
-        return True
+        return _declare_needed_control_not_applicable(
+            "NEGATIVE(needed)", declared_na, "cc unavailable to build fixture .so"
+        )
 
     _write(os.path.join(root, "intruder.c"), "extern int notallowed_fn(void);\nint intruder_fn(void) { return notallowed_fn(); }\n")
     subprocess.run(
@@ -1682,13 +1768,26 @@ def selftest_negative_control_needed(scratch):
     return True
 
 
-def selftest_positive_control_needed(scratch):
+def selftest_positive_control_needed(scratch, declared_na):
+    if running_as_windows_linker(_force_windows_needed_skip()):
+        return _declare_needed_control_not_applicable(
+            "POSITIVE(needed)",
+            declared_na,
+            "Windows/PE has no -fPIC and readelf reads ELF, never PE - this "
+            "control's mechanism (cc -shared -fPIC, then readelf -d) is "
+            "Unix/ELF-only; sub-check (c) parity on Windows is proven separately "
+            "by tools/ci/check-dep-zero-win.ps1 and "
+            "selftest_needed_windows_separate_skip() above, never by this ELF "
+            "fixture family",
+        )
+
     root = os.path.join(scratch, "positive-needed")
     os.makedirs(root, exist_ok=True)
 
     if not _cc_available():
-        print("selftest: POSITIVE(needed) control SKIPPED (cc unavailable to build fixture .so)")
-        return True
+        return _declare_needed_control_not_applicable(
+            "POSITIVE(needed)", declared_na, "cc unavailable to build fixture .so"
+        )
 
     # A plain cc -shared that references one real libc symbol (strlen)
     # survives --as-needed on every supported distro - see the sh
@@ -1696,8 +1795,9 @@ def selftest_positive_control_needed(scratch):
     _write(os.path.join(root, "clean.c"), "#include <string.h>\nsize_t clean_fn(const char *s) { return strlen(s); }\n")
     r = subprocess.run(["cc", "-shared", "-fPIC", "-o", os.path.join(root, "libclean.so"), os.path.join(root, "clean.c")], capture_output=True)
     if r.returncode != 0:
-        print("selftest: POSITIVE(needed) control SKIPPED (cc unavailable to build fixture .so)")
-        return True
+        return _declare_needed_control_not_applicable(
+            "POSITIVE(needed)", declared_na, "cc unavailable to build fixture .so"
+        )
 
     ok, text = check_needed_allowlist(os.path.join(root, "libclean.so"), NEEDED_ALLOWLIST)
     if not ok:
@@ -1732,13 +1832,26 @@ def selftest_needed_windows_separate_skip():
     return False
 
 
-def selftest_empty_scan_needed(scratch):
+def selftest_empty_scan_needed(scratch, declared_na):
+    if running_as_windows_linker(_force_windows_needed_skip()):
+        return _declare_needed_control_not_applicable(
+            "EMPTY-SCAN(needed)",
+            declared_na,
+            "Windows/PE has no -fPIC/-nostdlib-as-used-here and readelf reads "
+            "ELF, never PE - this control's mechanism (cc -shared -fPIC "
+            "-nostdlib, then readelf -d) is Unix/ELF-only; sub-check (c) parity "
+            "on Windows is proven separately by tools/ci/check-dep-zero-win.ps1 "
+            "and selftest_needed_windows_separate_skip() above, never by this "
+            "ELF fixture family",
+        )
+
     root = os.path.join(scratch, "empty-needed")
     os.makedirs(root, exist_ok=True)
 
     if not _cc_available():
-        print("selftest: EMPTY-SCAN(needed) control SKIPPED (cc -nostdlib unavailable to build fixture .so)")
-        return True
+        return _declare_needed_control_not_applicable(
+            "EMPTY-SCAN(needed)", declared_na, "cc -nostdlib unavailable to build fixture .so"
+        )
 
     _write(os.path.join(root, "nolibc.c"), "int f(void) { return 1; }\n")
     r = subprocess.run(
@@ -1746,8 +1859,9 @@ def selftest_empty_scan_needed(scratch):
         capture_output=True,
     )
     if r.returncode != 0:
-        print("selftest: EMPTY-SCAN(needed) control SKIPPED (cc -nostdlib unavailable to build fixture .so)")
-        return True
+        return _declare_needed_control_not_applicable(
+            "EMPTY-SCAN(needed)", declared_na, "cc -nostdlib unavailable to build fixture .so"
+        )
 
     ok, text = check_needed_allowlist(os.path.join(root, "libnolibc.so"), NEEDED_ALLOWLIST)
     if ok:
@@ -2180,6 +2294,11 @@ def selftest_readonly_cleanup_control():
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
+    # Populated live by the three cc/readelf/.so controls below when
+    # THEY declare themselves not applicable on this platform - never
+    # a hand-written count. See running_as_windows_linker() above
+    # (GATE-DEPZERO-NEEDED-WINPARITY, 04/09/2026).
+    declared_na = []
     try:
         controls = [
             selftest_positive_control(scratch, capture),
@@ -2202,11 +2321,11 @@ def selftest_main():
             selftest_negative_control_include(scratch, capture),
             selftest_negative_control_include_traversal(scratch, capture),
             selftest_scope_message_is_honest(scratch, capture),
-            selftest_positive_control_needed(scratch),
-            selftest_negative_control_needed(scratch),
+            selftest_positive_control_needed(scratch, declared_na),
+            selftest_negative_control_needed(scratch, declared_na),
             selftest_needed_static_skip(),
             selftest_needed_windows_separate_skip(),
-            selftest_empty_scan_needed(scratch),
+            selftest_empty_scan_needed(scratch, declared_na),
             selftest_empty_scan_tree(scratch, capture),
             selftest_empty_scan_tree_cmake_only(scratch, capture),
             selftest_negative_control_accented_filename_tree(scratch, capture),
@@ -2226,7 +2345,13 @@ def selftest_main():
         if not all(controls):
             print(f"{SCRIPT_NAME} --selftest: FAILED (see above)", file=sys.stderr)
             sys.exit(1)
-        print(f"{SCRIPT_NAME} --selftest: all {len(controls)} controls OK")
+        exercised_count = len(controls) - len(declared_na)
+        na_list = ", ".join(declared_na) if declared_na else "none"
+        print(
+            f"{SCRIPT_NAME} --selftest: all {len(controls)} controls OK "
+            f"({exercised_count} exercised here, {len(declared_na)} declared "
+            f"NOT APPLICABLE on this platform - {na_list})"
+        )
     finally:
         remove_tree_tolerant(scratch, ignore_errors=True)
 

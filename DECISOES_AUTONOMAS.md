@@ -919,3 +919,27 @@ CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
 **O que NAO puxei, e por que:** os nove portoes de consumo e empacotamento ficam onde estao. Sao 3.522 linhas de shell, uma onda inteira em si, e nenhum item da W3 depende deles para fechar. Puxa-los seria transformar a W3 na W5.
 
 ⚠️ **O quarto par ganhou urgencia por conta propria:** ao portar o portao de colisao de nome, o agente precisou declarar que a tecnica de descoberta de cabecalho do sistema nao existe no compilador da Microsoft. Ou seja, o portao passa a existir nas cinco plataformas mas **so varre os cabecalhos do sistema em quatro delas** -- que e precisamente o que aquele item ja descrevia desde 02/09. O porte tornou a lacuna visivel no lugar certo em vez de escondida.
+
+---
+
+## Vinte trabalhos verdes, e o que a paridade custou para chegar la  `[04/09/26 - 11:44:02]`
+
+**Medido, nao lido da mensagem do servidor:** `d316ed5`, vinte de vinte, zero falhas. Fedora, Ubuntu, CachyOS, Arch e Windows, nos dois modos, mais analise estatica, sanitizador, depuracao, segundo compilador, conteiner isolado e o portao de leis.
+
+**A suite do Windows foi de 46 para 58 casos.** O numero que eu declarei no README antes de empurrar foi calculado pela diferenca de inventario entre as duas pernas, e bateu exato -- o portao da contagem aprovou nas duas plataformas, que era justamente o que ele nunca tinha conseguido fazer.
+
+**Quatro achados nesta onda, nenhum deles visivel por leitura:**
+
+1. O portao de colisao de nome **nao seguia atalho de arquivo**: 14.223 arquivos vistos contra 14.313 reais. Trinta e oito cabecalhos invisiveis, justamente os que pacotes com varias versoes instaladas usam.
+2. O portao de dependencia zero **acusava violacao numa linha que ele mesmo autoriza**, so no Windows, por causa do fim de linha.
+3. O autoteste desse mesmo portao **morria no terceiro controle** naquela plataforma, deixando 35 controles jamais exercidos.
+4. O compilador **existe** no runner do Windows, e por isso a verificacao de "ferramenta disponivel?" dava falso positivo. O que nao existe la e o conceito -- o formato de binario, a opcao de codigo independente de posicao, o caminho embutido no ligador. A decisao passou a ser pela plataforma.
+
+**O custo de processo caiu uma a duas ordens de grandeza** nos tres portoes portados: 221 para 1, 37 para 1, 72 para 3. Cada um gastava um processo por item varrido.
+
+**Meus erros nesta parte, para o registro:**
+
+- **Li "exit code 0" da notificacao de fim de comando e tratei como espelho verde.** Aquele zero era do ultimo comando do meu proprio script, nunca do portao. Aconteceu nas TRES voltas reprovadas seguidas, e so parei de errar quando passei a capturar o codigo numa variavel e imprimi-la. E a mesma familia da regra sobre saida canalizada devolver o status do ultimo comando da canalizacao -- eu conhecia a regra e mesmo assim cai nela em outra forma.
+- **Estimei horas em vez de medir.** Escrevi 11:02, 11:17 e 11:22 em mensagens ao lider quando o relogio real marcava vinte minutos menos. Corrigido na hora em que percebi, mas o erro e o mesmo que ja tinha cometido antes nesta sessao.
+
+**O que o espelho local evitou:** ele reprovou tres vezes antes de eu empurrar -- formatacao, estrutura de teste sem ligacao interna, membro sem inicializador. Nenhum dos tres eu teria visto lendo o codigo, e cada um teria custado uma volta inteira de vinte trabalhos para dizer o que a maquina daqui disse em segundos.

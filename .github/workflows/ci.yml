@@ -1335,6 +1335,163 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --debug-only
 
+  # Item DEBUG-PARITY-WIN (TODO.md, GODS_LAWS.md L-04/L-40): o par
+  # Windows do job `debug` acima. Ate esta fatia, nenhum assert() de
+  # produto deste projeto jamais rodou compilado pelo MSVC - o job
+  # `windows-sanitizer` compila Release sob ASan (NDEBUG definido) e a
+  # matriz `windows` principal tambem so compila Release, entao NENHUM
+  # job Windows desta arvore jamais desligou NDEBUG antes deste.
+  #
+  # tools/preci.sh nao roda neste runner (e um script bash). Este job
+  # replica `stage_debug`/`count_product_asserts` de tools/preci.sh
+  # (mesmos dois globs de arquivo, mesma exclusao de tests/ e
+  # third_party/, mesma regra "assert( no inicio de palavra, linha que
+  # comeca com // depois de so espaco em branco nao conta, static_
+  # assert NUNCA casa porque o caractere logo antes de assert( ali e
+  # '_'") em PowerShell inline, mesmo padrao que `windows-lint` e
+  # `windows-sanitizer` acima ja usam (nenhum dos dois chama tools/
+  # preci.ps1 tampouco) - tools/preci.ps1 nao ganhou modo -DebugOnly
+  # nesta fatia, fora do escopo de arquivo desta task.
+  #
+  # CONTAGEM MEDIDA NESTA ARVORE, NAO COPIADA (mesmo alerta que o job
+  # `debug` acima ja deixou registrado: "a contagem tinha apodrecido -
+  # era 9, nao 5"): rodando a MESMA regra em bash contra a arvore deste
+  # commit, o total e 9 assert() de produto em 6 arquivos
+  # (include/glintfx/core/err.hpp:4; um cada em src/gfss/color_parse.cpp,
+  # src/gfss/named_colors.cpp, src/gfss/numeric_lexeme.cpp,
+  # src/gfss/tokenizer.cpp, tools/gl_registry_codegen/registry_parser.cpp).
+  # O passo abaixo NAO imprime esse numero fixo - ele conta de novo, ao
+  # vivo, contra o que o job realmente fez checkout (GODS_LAWS.md L-40:
+  # numero escrito aqui apodrece, o comando que mede nao).
+  windows-debug:
+    name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesmo passo do job `windows`/`windows-sanitizer` acima (CI-WIN-ENV/PKG-NATIVE).
+      - name: Instalar CMake >= 4.1 (Windows)
+        shell: pwsh
+        run: |
+          $cmakeVersion = "4.1.6"
+          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
+          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
+          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir
+          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
+          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
+          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
+            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
+
+      - name: Versoes da toolchain
+        shell: pwsh
+        run: cmake --version
+
+      # Mesmo passo CI-WIN-ENV do job `windows` acima.
+      - name: Preparar ambiente do compilador (MSVC x64)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath
+          if (-not $installPath) {
+            Write-Error "Nenhuma instalacao do MSVC com o componente VC.Tools.x86.x64 foi encontrada por vswhere."
+            exit 1
+          }
+          $vcvarsall = Join-Path $installPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat nao encontrado em $vcvarsall"
+            exit 1
+          }
+          $envDump = cmd /c "`"$vcvarsall`" x64 && set"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "vcvarsall.bat x64 falhou com codigo $LASTEXITCODE"
+            exit 1
+          }
+          foreach ($line in $envDump) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
+            }
+          }
+
+      # Piso de varredura nao-vazia (GODS_LAWS.md L-40), mesma regra de
+      # count_real_asserts_in_file/count_product_asserts de tools/
+      # preci.sh (ver o cabecalho deste job): '(^|[^\w])assert\(' casa
+      # uma chamada assert( no inicio da linha ou depois de um
+      # caractere que nao e letra/digito/underscore - static_assert(
+      # NUNCA casa, porque o caractere logo antes de "assert(" ali e
+      # '_', que a classe [^\w] proibe; uma linha comentada e a que
+      # comeca com // depois so de espaco em branco, mesma definicao de
+      # preci.sh.
+      - name: Contar assert() de produto (GATE-DEBUG)
+        shell: pwsh
+        run: |
+          $files = @(git ls-files -- '*.cpp' '*.hpp' ':!:tests/*' ':!:third_party/*')
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "git ls-files falhou - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
+            exit 1
+          }
+          $total = 0
+          foreach ($f in $files) {
+            if ([string]::IsNullOrWhiteSpace($f)) { continue }
+            $lines = Get-Content -LiteralPath $f
+            $n = 0
+            foreach ($line in $lines) {
+              if ($line -notmatch '(^|[^\w])assert\(') { continue }
+              if ($line -match '^\s*//') { continue }
+              $n++
+            }
+            if ($n -gt 0) {
+              Write-Host "  $f : $n"
+            }
+            $total += $n
+          }
+          if ($total -eq 0) {
+            Write-Error "estagio debug recusado (varredura vazia de assert() de produto - GODS_LAWS.md L-40, GATE-DEBUG)"
+            exit 1
+          }
+          Write-Host "ok: $total assert() de produto encontrado(s) na arvore."
+
+      # -DCMAKE_BUILD_TYPE=Debug: mesma razao do job `debug` acima -
+      # CMake so define NDEBUG em Release/RelWithDebInfo/MinSizeRel,
+      # nunca em Debug, entao este e o UNICO job Windows onde assert()
+      # de produto compila para um teste de verdade em vez de sumir.
+      # Suite INTEIRA (sem -L unit), mesma razao do job `debug`: um
+      # build Debug simples nao tem a restricao de interposicao de
+      # runtime que obriga o downgrade do ASan.
+      - name: Configurar e compilar (Debug)
+        shell: pwsh
+        run: |
+          cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-debug
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar -
+      # mesmo padrao que o job `windows-sanitizer` acima ja usa.
+      - name: Prova - suite nao esta vazia
+        shell: pwsh
+        run: |
+          $listOutput = ctest --test-dir build-debug -N
+          $totalLine = $listOutput | Select-String -Pattern 'Total Tests:\s*(\d+)'
+          $total = if ($totalLine) { [int]$totalLine.Matches[0].Groups[1].Value } else { 0 }
+          if ($total -eq 0) {
+            Write-Error "esperado ao menos 1 teste no build Debug - ctest -N contou 0."
+            exit 1
+          }
+          Write-Host "ok: $total teste(s) no build Debug."
+
+      - name: Testes (Debug, suite inteira)
+        shell: pwsh
+        run: |
+          ctest --test-dir build-debug --output-on-failure
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez
   # entre compiladores diferentes da GODS_LAWS.md L-22 (o motivo dela e
   # ABI: excecao atravessando .so exige RTTI compativel entre

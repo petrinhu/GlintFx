@@ -146,9 +146,56 @@ namespace detail {
 // std::filesystem::file_size() guess trusted blindly - a file can grow,
 // shrink or be a non-seekable special file between stat and read), and
 // treats reaching end-of-file as success, including for a zero-length
-// file (the loop body simply never runs, `contents` stays empty) - only
-// stream.bad() (a REAL I/O failure, not merely "read past the end") is
-// reported as io_failure.
+// file (the byte-copy step below is simply skipped, since gcount() is
+// 0 - `contents` stays empty).
+//
+// TWO DIFFERENT SIGNALS FOR "this short read was a REAL I/O failure,
+// not merely end-of-file", one per platform - GODS_LAWS.md L-04 (TODO.md
+// ASSET-PARITY-WIN, 04/09/2026): mecanismo pode diferir por sistema,
+// comportamento observavel e cobertura, nao. On POSIX, stream.bad() is
+// that signal (libstdc++'s own read() sets badbit for a genuine failure,
+// measured live via /proc/self/mem in this file's own test). On
+// _WIN32, stream.bad() is NOT that signal, and this is not a hunch -
+// it is measured against microsoft/STL's own public source
+// (github.com/microsoft/STL, fetched 04/09/2026):
+//   - stl/inc/istream, basic_istream::read(): on a short read, only
+//     `_State |= ios_base::eofbit | ios_base::failbit;` - NEVER badbit,
+//     unless the call underneath THROWS (it never does for a plain I/O
+//     failure).
+//   - stl/inc/__msvc_filebuf.hpp, basic_filebuf::xsgetn()/_Fgetc(): both
+//     call fread()/fgetc() on the CRT FILE* and look ONLY at the item
+//     count those return - neither calls ferror(), so a genuine mid-read
+//     OS failure (a locked byte range, a device error, anything) and an
+//     ordinary end-of-file come back IDENTICAL at the stream level.
+// Before this fix, that meant a real Windows read failure here returned
+// gltfx_rslt<T>::ok() with fewer bytes than the file actually has - the
+// exact shape CORE-ERROR already named the risk of: "pior que travar:
+// travar e ruidoso, dado errado em silencio faz o consumidor decidir
+// sobre uma mentira". errno IS still the signal that survives on
+// _WIN32: it is a CRT global that _read() (which fread()/fgetc() call
+// under the hood) sets on a REAL failure and leaves UNTOUCHED on
+// ordinary EOF - documented at learn.microsoft.com/cpp/c-runtime-library/
+// errno-doserrno-sys-errlist-and-sys-nerr ("errno is set on an error...
+// run-time library calls that set errno on error don't clear errno on
+// success... always clear errno immediately before a call that may set
+// it, and check it immediately after"). Cleared right before the ONE
+// stream.read() call below and read right back after it returns -
+// nothing else runs in between that could touch it, and a single
+// stream.read() of k_chunk_size bytes never spans more than one real
+// OS-level failure (xsgetn's own internal fread() loop returns the
+// instant one of its own sub-reads comes up short, so at most one
+// failure is ever live per outer read() call).
+//
+// LOOP RESTRUCTURED FROM A `while` INTO THIS `for (;;)` (same fatia):
+// the old `while (stream.read(...) || stream.gcount() > 0)` shape ran
+// one extra, genuinely no-op iteration after every short read (a
+// stream.read() call on an already-failed stream never reaches
+// rdbuf()->sgetn() at all - the sentry gate blocks it, per the
+// standard - so it neither performs I/O nor touches errno); this shape
+// breaks out of the loop the instant that same short read is seen,
+// with IDENTICAL bytes collected and an IDENTICAL final stream state -
+// proved by re-running this file's own suite unchanged (ASSET-PARITY-WIN
+// report) before and after this restructuring.
 //
 // LOCAL VARIABLE NAMED "contents", NOT "bytes" (docs/api-conventions.md
 // R6, tests/tools/check_public_name_collision.sh's own mechanical gate,
@@ -167,10 +214,35 @@ read_stream_bytes(std::ifstream &stream, std::string_view path_view) {
     constexpr std::size_t k_chunk_size = 1U << 16U;
     char chunk[k_chunk_size];
 
-    while (stream.read(chunk, static_cast<std::streamsize>(k_chunk_size)) || stream.gcount() > 0) {
-        const auto *begin = reinterpret_cast<const std::byte *>(chunk);
+    for (;;) {
+#if defined(_WIN32)
+        // See this function's own "TWO DIFFERENT SIGNALS" comment above.
+        errno = 0;
+#endif
+        const bool read_ok =
+            static_cast<bool>(stream.read(chunk, static_cast<std::streamsize>(k_chunk_size)));
         const auto got = static_cast<std::size_t>(stream.gcount());
-        contents.insert(contents.end(), begin, begin + got);
+#if defined(_WIN32)
+        const int read_errno = errno;
+#endif
+
+        if (got > 0) {
+            const auto *begin = reinterpret_cast<const std::byte *>(chunk);
+            contents.insert(contents.end(), begin, begin + got);
+        }
+
+        if (read_ok) {
+            continue;
+        }
+
+#if defined(_WIN32)
+        if (read_errno != 0) {
+            return gltfx_rslt<std::vector<std::byte>>::err(gltfx_err(gltfx_err_code::io_failure)
+                                                                 .with_path(path_view)
+                                                                 .with_os_error_code(read_errno));
+        }
+#endif
+        break;
     }
 
     if (stream.bad()) {

@@ -67,31 +67,47 @@
 // BEFORE or AT open() - require_regular_file() classifies the path,
 // then the file either opens or it does not. None of them ever forces
 // read_stream_bytes() itself (glintfx/platform/asset/file.hpp) to see
-// stream.bad() go true mid-loop - proved by mutation: recoding that
+// a REAL I/O failure mid-loop - proved by mutation: recoding that
 // branch's error, or deleting the branch outright (silently returning
 // the partial bytes read so far as SUCCESS - truncated data the
 // caller has no way to tell from a genuinely complete file), left this
 // whole suite green in BOTH cases before this test existed.
 // mid_stream_read_failure_is_io_failure_not_silent_partial_success
-// below closes that gap with a GENUINE OS-level read failure, not a
-// simulated stream state: reading /proc/self/mem from its own start
-// (virtual address 0, the kernel's own null-page guard, always
-// unmapped) measured live on this toolchain (GCC 16/libstdc++,
-// GODS_LAWS.md L-42/L-43) as std::filesystem::status() reporting
-// file_type::regular (so require_regular_file() lets it through) and
-// the FIRST std::ifstream::read() setting badbit with zero bytes
-// gotten - the exact shape read_stream_bytes()'s own `if
-// (stream.bad())` branch exists to catch. #if !defined(_WIN32): this
-// technique is Linux-specific (/proc has no Windows equivalent), so
-// this ONE case is compiled out on that platform rather than papering
-// over the gap with a fake stream state cross-platform would not
-// actually exercise - GODS_LAWS.md L-09 item 6's "caso intestavel numa
-// plataforma e declarado e escopado, nunca apagado", applied to a unit
-// test instead of an e2e one. Deliberately does NOT increment
-// g_scenarios_exercised: it is not a member of the closed six-scenario
-// PRE-OPEN matrix above (same reason bytes_round_trip_including_
-// embedded_null_and_non_ascii_bytes below does not either) - it proves
-// a property of read_stream_bytes(), not of require_regular_file().
+// below closes that gap with a GENUINE OS-level read failure on EVERY
+// supported platform, not a simulated stream state - two DIFFERENT
+// mechanisms for the SAME observable outcome (GODS_LAWS.md L-04,
+// 02/09/2026: "mecanismo pode diferir por sistema; comportamento
+// observavel e cobertura, nao"):
+//   - POSIX (#else below): reading /proc/self/mem from its own start
+//     (virtual address 0, the kernel's own null-page guard, always
+//     unmapped) measured live on this toolchain (GCC 16/libstdc++,
+//     GODS_LAWS.md L-42/L-43) as std::filesystem::status() reporting
+//     file_type::regular (so require_regular_file() lets it through)
+//     and the FIRST std::ifstream::read() setting badbit with zero
+//     bytes gotten.
+//   - _WIN32: measured against microsoft/STL's own public source
+//     (github.com/microsoft/STL, fetched 04/09/2026) that badbit is
+//     UNREACHABLE this way on MSVC - basic_istream::read() only ever
+//     sets eofbit|failbit on a short read, and basic_filebuf::xsgetn()/
+//     _Fgetc() never call ferror() on the fread()/fgetc() they wrap, so
+//     a genuine OS failure and ordinary EOF are indistinguishable at
+//     the stream level there. glintfx/platform/asset/file.hpp's own
+//     read_stream_bytes() was fixed the same fatia (ASSET-PARITY-WIN)
+//     to catch this on _WIN32 via errno instead of stream.bad() - see
+//     that function's own header comment for the full citation. This
+//     scenario forces a GENUINE Windows read failure via a byte-range
+//     lock (LockFileEx) held on a SECOND handle to the same file, which
+//     the OS enforces even against a later handle from this SAME
+//     process (learn.microsoft.com/windows/win32/api/fileapi/
+//     nf-fileapi-lockfileex: "If the locking process opens the file a
+//     second time, it cannot access the specified region through this
+//     second handle until it unlocks the region") - std::ifstream's own
+//     open (inside gltfx_load_file_bytes()) is that second handle.
+// Deliberately does NOT increment g_scenarios_exercised on either
+// platform: it is not a member of the closed six-scenario PRE-OPEN
+// matrix above (same reason bytes_round_trip_including_embedded_null_
+// and_non_ascii_bytes below does not either) - it proves a property of
+// read_stream_bytes(), not of require_regular_file().
 //
 // SCRATCH DIRECTORY, ISOLATED PER PROCESS: each GLINTFX_TEST below that
 // touches the filesystem creates its OWN scratch directory under
@@ -164,6 +180,13 @@ class exclusive_handle_guard {
     }
 
     [[nodiscard]] bool is_valid() const noexcept { return m_handle != INVALID_HANDLE_VALUE; }
+
+    // Added for mid_stream_read_failure_is_io_failure_not_silent_partial_
+    // success below (ASSET-PARITY-WIN): that scenario needs the raw
+    // HANDLE itself to pass to ::LockFileEx, which is_valid() alone
+    // cannot provide - same shape as std::unique_ptr::get(), the guard
+    // still owns the handle, this only lets a caller act on it.
+    [[nodiscard]] HANDLE handle() const noexcept { return m_handle; }
 
   private:
     HANDLE m_handle;
@@ -358,10 +381,57 @@ GLINTFX_TEST(bytes_round_trip_including_embedded_null_and_non_ascii_bytes) {
 }
 
 // See this file's own "MID-STREAM READ FAILURE, NOT PART OF THE
-// CLOSED SIX" header comment for why /proc/self/mem, why offset 0, and
-// why this is a genuine OS-level failure rather than a simulated
-// stream state - and why it does NOT increment g_scenarios_exercised.
-#if !defined(_WIN32)
+// CLOSED SIX" header comment for why each mechanism below is genuinely
+// OS-level (never a simulated stream state) and why neither branch
+// increments g_scenarios_exercised.
+#if defined(_WIN32)
+GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
+    const std::filesystem::path dir = make_scratch_dir("midstream");
+    std::filesystem::current_path(dir);
+    write_file(dir / "locked.bin",
+               {std::byte{0xAA}, std::byte{0xBB}, std::byte{0xCC}, std::byte{0xDD}});
+
+    // Second handle, held for the whole scenario (exclusive_handle_guard,
+    // same RAII shape no_read_permission_is_io_failure above already
+    // uses): generous share flags on purpose - this handle only needs to
+    // hold the LOCK, not deny the OPEN that gltfx_load_file_bytes()'s own
+    // std::ifstream performs right below (that is a DIFFERENT scenario,
+    // the sharing-violation one above; this one forces failure at READ,
+    // after a successful open, per this file's own "MID-STREAM READ
+    // FAILURE" header comment).
+    const exclusive_handle_guard lock_handle(::CreateFileW(
+        (dir / "locked.bin").c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, nullptr));
+    GLINTFX_CHECK(lock_handle.is_valid());
+
+    // Locks [0, 0xFFFFFFFF) - "Locking a region that goes beyond the
+    // current end-of-file position is not an error" (same MS Learn page
+    // as this file's own header comment), so this covers the whole
+    // fixture above regardless of its exact size, with no dependency on
+    // k_chunk_size (glintfx/platform/asset/file.hpp, private to that
+    // header) or on where inside it the failure actually lands.
+    OVERLAPPED overlapped{};
+    const BOOL locked = ::LockFileEx(lock_handle.handle(), LOCKFILE_EXCLUSIVE_LOCK, 0, 0xFFFFFFFFU,
+                                      0xFFFFFFFFU, &overlapped);
+    // SECOND ASSERTION, DISTINCT FROM THE OUTCOME BELOW (same "two
+    // facts, two assertions" shape as tests/harness/win_dll_alloc_
+    // hook.hpp's own gancho-found-vs-gancho-had-no-effect split): proves
+    // the FORCING MECHANISM ITSELF engaged. A LockFileEx that silently
+    // failed to acquire would leave the file fully readable, and the
+    // outcome assertion below would then fail too - but for the WRONG
+    // reason (no forcing ever happened), which is exactly the "mechanism
+    // that does not bite and the test passes/fails without proving
+    // anything" shape this project has hit twice already this session.
+    GLINTFX_CHECK(locked != 0);
+
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
+        glintfx::asset::gltfx_load_file_bytes("locked.bin");
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+}
+#else
 GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
     const glintfx::gltfx_rslt<std::vector<std::byte>> result =
         glintfx::asset::gltfx_load_file_bytes("/proc/self/mem");

@@ -171,14 +171,15 @@
 #   check_public_name_collision.py <include_dir> <cxx-compiler> <cxx-compiler-id>
 #   check_public_name_collision.py --selftest [cxx-compiler] [cxx-compiler-id]
 #
-# --selftest roda os oito controles (GODS_LAWS.md L-40: positivo,
-# negativo, vazio - mais cinco especificos deste portao) usando o
-# MECANISMO do frontend detectado por cxx_frontend(cxx_id) - GCC/Clang
-# (run_gcc_selftest) ou MSVC (run_msvc_selftest) - sempre contra
-# fixtures descartaveis sob tempfile.mkdtemp, nunca contra o include_dir
-# real nem os cabecalhos de sistema reais da maquina. Quando o escape
-# hatch esta ativo, nenhum dos oito e' exercitavel - o autoteste declara
-# isso, conta 1/1 como nao aplicavel, e passa.
+# --selftest roda os nove controles (GODS_LAWS.md L-40: positivo,
+# negativo, vazio - mais seis especificos deste portao, entre eles o
+# controle de ATRIBUICAO-VS-DECLARACAO, achado real de 04/09/2026)
+# usando o MECANISMO do frontend detectado por cxx_frontend(cxx_id) -
+# GCC/Clang (run_gcc_selftest) ou MSVC (run_msvc_selftest) - sempre
+# contra fixtures descartaveis sob tempfile.mkdtemp, nunca contra o
+# include_dir real nem os cabecalhos de sistema reais da maquina.
+# Quando o escape hatch esta ativo, nenhum dos nove e' exercitavel - o
+# autoteste declara isso, conta 1/1 como nao aplicavel, e passa.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -289,9 +290,12 @@ def enumerate_names_in_text(text):
     scratch file: enum-class enumerators, class/struct/enum-class type
     names, function/method declarations (first identifier before an
     opening paren on a line that LOOKS like a declaration), and bare
-    data-member declarations. Line-by-line, same control flow as the
-    awk program (an "in_enum" state machine, blank lines skipped
-    entirely, at most one BODY rule applied per non-enum line).
+    data-member declarations - never a plain assignment to a name that
+    already exists elsewhere ("errno = 0;" is not a declaration of
+    "errno", see the comment at the member-tail check below). Line-by-
+    line, same control flow as the awk program (an "in_enum" state
+    machine, blank lines skipped entirely, at most one BODY rule
+    applied per non-enum line).
     """
     names = []
     in_enum = False
@@ -329,7 +333,26 @@ def enumerate_names_in_text(text):
             without_default = re.sub(r"=.*;", ";", raw_line)
             if not _MEMBER_EXCLUDED_PREFIX_RE.match(without_default):
                 member_match = _MEMBER_TAIL_RE.search(without_default)
-                if member_match:
+                # ASSIGNMENT-VS-DECLARATION (TODO.md, achado real de
+                # 04/09/2026): stripping "= value" from a plain
+                # assignment like "errno = 0;" leaves "errno;" - the
+                # EXACT same shape as the tail of a genuine bare
+                # declaration once its own initializer is stripped, so
+                # _MEMBER_TAIL_RE alone cannot tell them apart. The
+                # difference is what comes BEFORE the name: a real
+                # declaration always has a TYPE there ("int contents;",
+                # "const int read_errno = errno;" -> "const int
+                # read_errno;"); a bare assignment to a name that
+                # already exists (a system macro like errno, a member
+                # set in a later statement) has NOTHING before it. The
+                # `.strip()` check below requires that non-empty prefix
+                # - it does NOT touch the declaration path: this file's
+                # own "LOCAL VARIABLE NAMED contents" comment in
+                # include/glintfx/platform/asset/file.hpp documents that
+                # a bare "TYPE name;" line inside an INLINE function
+                # body must still be caught, and it still is, since
+                # "contents"/"read_errno" both keep a type prefix.
+                if member_match and without_default[: member_match.start()].strip():
                     names.append(member_match.group(1))
 
     return names
@@ -972,6 +995,61 @@ def selftest_not_a_header_control(scratch, cxx, frontend):
     return True
 
 
+# ASSIGNMENT-VS-DECLARATION control (achado real de 04/09/2026, TODO.md
+# "Desvios": commit c6fac1c introduziu "errno = 0;" dentro de
+# read_stream_bytes() em include/glintfx/platform/asset/file.hpp, e a
+# extracao antiga tratava aquilo como se fosse uma declaracao de
+# "errno" - errno e' macro real da libc, entao o portao reprovava algo
+# que nao era nosso nome nenhum). Frontend-agnostic e sem precisar do
+# compilador (so testa enumerate_our_names(), nao classify_matches()):
+# uma atribuicao a um nome que ja existe ("errno = 0;", nada antes do
+# "=") nao deve virar nome publico, enquanto uma declaracao bare
+# ("int contents;") e uma declaracao com inicializador
+# ("const int read_errno = errno;"), as duas dentro do corpo de uma
+# funcao inline, continuam sendo extraidas normalmente (GODS_LAWS.md
+# L-40's own "recusar alto e melhor que aprovar em silencio" corre nos
+# dois sentidos: nao pode aprovar em silencio "errno", e nao pode
+# deixar de reprovar "contents"/"read_errno" se algum dia voltarem a
+# colidir).
+def selftest_assignment_not_declaration_control(scratch):
+    include_dir = make_fixture_include_dir(scratch, "assignment_not_declaration")
+    _write(
+        os.path.join(include_dir, "widget.hpp"),
+        "inline void f() {\n"
+        "    int contents;\n"
+        "    errno = 0;\n"
+        "    const int read_errno = errno;\n"
+        "}\n",
+    )
+    names = enumerate_our_names(include_dir)
+    if "errno" in names:
+        print(
+            "selftest: controle de ATRIBUICAO-NAO-E-DECLARACAO FALHOU (\"errno = 0;\" foi tratado "
+            "como se declarasse errno)",
+            file=sys.stderr,
+        )
+        return False
+    if "contents" not in names:
+        print(
+            "selftest: controle de ATRIBUICAO-NAO-E-DECLARACAO FALHOU (declaracao bare dentro de "
+            "funcao inline deixou de ser extraida)",
+            file=sys.stderr,
+        )
+        return False
+    if "read_errno" not in names:
+        print(
+            "selftest: controle de ATRIBUICAO-NAO-E-DECLARACAO FALHOU (declaracao com inicializador "
+            "deixou de ser extraida)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle de ATRIBUICAO-NAO-E-DECLARACAO OK (atribuicao a nome existente nao vira "
+        "nome publico; declaracao bare e com inicializador continuam)"
+    )
+    return True
+
+
 def _make_capture():
     import contextlib
     import io
@@ -1033,7 +1111,7 @@ def selftest_empty_system_dirs_control():
     return False
 
 
-def _run_eight_controls(scratch, cxx, cxx_id, frontend):
+def _run_all_controls(scratch, cxx, cxx_id, frontend):
     return [
         selftest_positive_control(scratch),
         selftest_negative_control(scratch, cxx, frontend),
@@ -1041,6 +1119,7 @@ def _run_eight_controls(scratch, cxx, cxx_id, frontend):
         selftest_guard_inactive_control(scratch, cxx, frontend),
         selftest_guard_active_control(scratch, cxx, frontend),
         selftest_not_a_header_control(scratch, cxx, frontend),
+        selftest_assignment_not_declaration_control(scratch),
         selftest_empty_our_names_control(scratch, cxx, cxx_id),
         selftest_empty_system_dirs_control(),
     ]
@@ -1052,17 +1131,20 @@ def selftest_main(args):
 
     frontend = cxx_frontend(cxx_id)
 
-    # All eight controls below classify a planted `#define` via
+    # Eight of the nine controls below classify a planted `#define` via
     # classify_matches(), which asks the REAL compiler - GCC/Clang via
     # `-E -dM`, MSVC via an `#ifdef` probe preprocessed with `/E /TP`
-    # (see this file's own header, NAMES-PARITY-WIN). None of the eight
-    # is exercisable without SOME real compiler to ask, so the WHOLE
-    # selftest is one declared case here when the escape hatch forces
-    # "unavailable", not eight - the real gate's own single-case shape
-    # (check_public_name_collision() above), not check_spdx.py's
-    # per-case list (that gate's cases are independent hostile
-    # filenames; this gate's eight controls all share the one
-    # unavailable mechanism).
+    # (see this file's own header, NAMES-PARITY-WIN). The ninth
+    # (selftest_assignment_not_declaration_control) only exercises
+    # enumerate_our_names() and needs no compiler at all - it still
+    # runs behind this SAME declared-absence gate, on purpose: when the
+    # escape hatch forces "unavailable", the WHOLE selftest is one
+    # declared case here, not nine and not "eight plus one" - the real
+    # gate's own single-case shape (check_public_name_collision()
+    # above), not check_spdx.py's per-case list (that gate's cases are
+    # independent hostile filenames; this gate's nine controls all
+    # share the one unavailable mechanism, even the one that does not,
+    # on its own, need it).
     if frontend == "unavailable":
         print_frontend_unavailable("check_public_name_collision.py --selftest")
         return
@@ -1072,7 +1154,7 @@ def selftest_main(args):
 
     scratch = make_scratch_workdir()
     try:
-        controls = _run_eight_controls(scratch, cxx, cxx_id, frontend)
+        controls = _run_all_controls(scratch, cxx, cxx_id, frontend)
         if not all(controls):
             print("check_public_name_collision.py --selftest: FALHOU (ver acima)", file=sys.stderr)
             sys.exit(1)

@@ -97,6 +97,19 @@
 #                                     only the shared-library entry.
 #   pwsh -NoProfile -File tools\preci.ps1 -Modo static
 #                                     only the static-library entry.
+#   pwsh -NoProfile -File tools\preci.ps1 -Selftest
+#                                     proves the untracked-source guard
+#                                     and the ctest-count floor against
+#                                     disposable fixtures (throwaway git
+#                                     repos under $env:TEMP, synthetic
+#                                     `ctest -N` text) - never against
+#                                     $rootDir or a real build. Never
+#                                     runs any other stage of this file.
+#                                     See the "PRECI-WIN-SELFTEST" block
+#                                     right before Invoke-SelfTest below
+#                                     for exactly what this covers and
+#                                     what it declares out of scope,
+#                                     GODS_LAWS.md L-36/L-40.
 #
 # Invoke it as `pwsh -File`, not by dot-sourcing or typing `.\preci.ps1`
 # straight into an interactive session: PowerShell's `exit` terminates
@@ -120,7 +133,11 @@
 
 param(
     [ValidateSet("shared", "static", "both")]
-    [string]$Modo = "both"
+    [string]$Modo = "both",
+
+    # -Selftest short-circuits Main entirely (see the bottom of this
+    # file) - it never touches $Modo, $rootDir, or any build directory.
+    [switch]$Selftest
 )
 
 $ErrorActionPreference = "Stop"
@@ -199,13 +216,31 @@ function Test-CMakeVersionFloor([string]$rootDir) {
 # it: it exists on purpose in a state that would otherwise trip this
 # guard, and neither preci.sh's nor this script's real pipeline is
 # supposed to be gated by fixture content.
-function Test-UntrackedGuard([string]$rootDir) {
-    Write-Stage "estagio 0: guarda de arquivo novo nao rastreado"
+# Split out of Test-UntrackedGuard below (PRECI-WIN-SELFTEST, same
+# enumerate-vs-decide-vs-fail-loud split as preci.sh's enumerate_
+# untracked_cpp_hpp / require_no_untracked_source / stage_untracked_
+# guard trio) so -Selftest can exercise the git listing in isolation,
+# against a disposable directory, without the process-ending `Fail`
+# call below ever firing mid-selftest. A real failure of the underlying
+# `git` command (not a repo, git missing) THROWS - it is never allowed
+# to collapse into "found nothing, so pass" (GODS_LAWS.md L-40); Test-
+# UntrackedGuard turns that into the same loud Fail() it already used
+# before this split, unchanged.
+function Get-UntrackedCppHpp([string]$rootDir) {
     $listing = git -C $rootDir ls-files --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*'
     if ($LASTEXITCODE -ne 0) {
-        Fail "'git ls-files --others' falhou em '$rootDir' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
+        throw "'git ls-files --others' falhou em '$rootDir' - varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"
     }
-    $files = @($listing | Where-Object { $_ -ne "" })
+    return @($listing | Where-Object { $_ -ne "" })
+}
+
+function Test-UntrackedGuard([string]$rootDir) {
+    Write-Stage "estagio 0: guarda de arquivo novo nao rastreado"
+    try {
+        $files = Get-UntrackedCppHpp $rootDir
+    } catch {
+        Fail $_.Exception.Message
+    }
     if ($files.Count -gt 0) {
         Write-Host "untracked-guard: $($files.Count) arquivo(s) *.cpp/*.hpp novo(s), fora do controle de versao:" -ForegroundColor Red
         $files | ForEach-Object { Write-Host "  $_" }
@@ -219,10 +254,20 @@ function Test-UntrackedGuard([string]$rootDir) {
 # registered tests exits 0 and prints "No tests were found!!!", which a
 # bare exit-code check would never catch (this is the exact gap that
 # reproved preci.sh's first revision under adversarial review, FUND-4).
+# Split out of Assert-NonEmptyTests below (PRECI-WIN-SELFTEST) so
+# -Selftest can prove the "Total Tests: N" parse against synthetic text
+# - same downgrade tools/ci/check-dep-zero-win.ps1's own -SelfTest
+# already declares and uses (parser proven against documented-shape
+# text, never against a real ctest/dumpbin run off the real server).
+function Get-CTestTotalCount([string[]]$listOutput) {
+    $totalLine = $listOutput | Select-String -Pattern 'Total Tests:\s*(\d+)'
+    if ($totalLine) { return [int]$totalLine.Matches[0].Groups[1].Value }
+    return 0
+}
+
 function Assert-NonEmptyTests([string]$stageName, [string]$buildDir, [string[]]$extraArgs) {
     $listOutput = & ctest --test-dir $buildDir -N @extraArgs
-    $totalLine = $listOutput | Select-String -Pattern 'Total Tests:\s*(\d+)'
-    $total = if ($totalLine) { [int]$totalLine.Matches[0].Groups[1].Value } else { 0 }
+    $total = Get-CTestTotalCount $listOutput
     if ($total -eq 0) {
         Fail "$stageName recusado (varredura vazia de testes, GODS_LAWS.md L-40)"
     }
@@ -352,6 +397,224 @@ function Invoke-MatrixEntry([string]$rootDir, [string]$ciDir, [string]$label, [s
     Write-Host "preci.ps1: modo $label VERDE"
 }
 
+# --- PRECI-WIN-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40 - "um
+# portao so conta depois de PROVADO vermelho", "zero e sinal de
+# varredura quebrada"): this file existed since its own header's dated
+# comments with no selftest and no CI step calling it at all - measured,
+# not assumed (`grep -c 'preci.ps1' .github/workflows/ci.yml` returned
+# 0 before this fatia). -Selftest closes that: it is wired into the
+# `windows` job below, and proves the two pisos this file enforces
+# BEFORE any push relies on them, the same discipline tools/preci.sh's
+# own --selftest already applies to its Linux twin.
+#
+# COVERED, against disposable fixtures only - never $rootDir, never a
+# real build:
+#   - the untracked-source guard (Get-UntrackedCppHpp): positive (a
+#     clean throwaway repo passes), negative (one loose *.cpp is
+#     flagged), ignored (a *.cpp under a .gitignore'd build/ never
+#     blocks), git-failure (a non-repo directory throws loud, never
+#     "found nothing, so pass"). This is the minimum the task asked
+#     for: proving the guard actually bites.
+#   - the ctest-count floor (Get-CTestTotalCount): positive (a "Total
+#     Tests: N" line with N>0 parses to N), empty-scan (text with no
+#     such line, or N=0, parses to 0 and Assert-NonEmptyTests's own
+#     caller would then refuse it).
+#
+# NOT COVERED, WITH THE MEASURED REASON (GODS_LAWS.md L-40: a mirror
+# that claims more than it proves is worse than one that admits a gap):
+#
+#   - clang-format / clang-tidy / cppcheck / gitleaks / GATE-DEBUG
+#     fixture controls (preci.sh's run_selftest_positive_control /
+#     _negative_control and its assert-count controls). This file's own
+#     header ("NOT COVERED, ON PURPOSE") already declares these stages
+#     entirely out of scope for the Windows mirror - there is no stage
+#     here to selftest.
+#
+#   - a ROOT_DIR cd-failure control (preci.sh's run_selftest_rootdir_
+#     cd_failure_control, which regression-tests a hand-rolled
+#     `readonly ROOT_DIR=$(cd ... )` masking bug, GODS_LAWS.md SC2155
+#     lesson). Get-RootDir here has no equivalent hand-rolled construct
+#     to regress: $PSScriptRoot is set by the PowerShell host itself
+#     when a script runs via -File, and Resolve-Path already throws
+#     under $ErrorActionPreference = "Stop" if the path does not exist -
+#     there is no silent-mask shape possible in this idiom to prove
+#     against.
+#
+#   - accented-name / embedded-newline hostile filename controls
+#     (preci.sh's run_selftest_untracked_guard_accented_name_control /
+#     _newline_name_control, closed on Linux by GATE-DEPZERO-NOFORK's
+#     `git ls-files -z`, 01/09/2026). Get-UntrackedCppHpp above still
+#     calls `git ls-files --others` WITHOUT `-z`, unchanged from before
+#     this fatia - it inherits the SAME quoting/newline-splitting
+#     exposure the Linux script had before that fix. Closing it here is
+#     a real behavioral change to Test-UntrackedGuard, outside this
+#     fatia's declared scope (autoteste only, "nenhum trabalho
+#     existente pode mudar de comportamento") and unverifiable without a
+#     real Windows/pwsh run (this machine has neither) - flagged here as
+#     a KNOWN GAP for a dedicated follow-up fatia, not silently absorbed
+#     into a "TUDO VERDE" selftest banner.
+#
+#   - the CTEST_UNIT_LABEL_FILTER substring-match defect preci.sh's own
+#     run_selftest_ctest_count_substring_control regression-tests (an
+#     unanchored `-L unit` matching a `nonunit` label by substring).
+#     This file never filters ctest by LABEL - Test-Win32RunnerProbe
+#     uses `-R win32_runner_probe_test` (an exact test NAME, not a
+#     label), and the general Assert-NonEmptyTests call in Invoke-
+#     MatrixEntry passes no filter at all - so that specific defect
+#     shape does not exist here to regress. The shared risk that DOES
+#     apply identically (parsing "Total Tests: N" itself) is exactly
+#     what the two Get-CTestTotalCount controls above cover.
+#
+# Every control below builds its OWN throwaway resource (a git repo
+# under $env:TEMP, or a plain string array) and prints PASS/FAIL as it
+# goes; Invoke-SelfTest aggregates and Fail()s once at the end if any
+# control failed - same shape as tools/ci/check-dep-zero-win.ps1's own
+# Invoke-SelfTest, the proven convention for a -SelfTest switch in this
+# tree's Windows scripts.
+
+function New-UntrackedGuardSelftestRepo() {
+    $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("glintfx-preci-untracked-" + [System.Guid]::NewGuid())
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    # Every git call below is Out-Null'd on purpose, not just the ones
+    # known to print: a function's own unpiped output becomes part of
+    # ITS return value in PowerShell, and this function's only intended
+    # return value is $dir at the bottom - any stray stdout line from
+    # git (a version-specific banner, a hint) would otherwise silently
+    # ride along.
+    git -C $dir init -q | Out-Null
+    git -C $dir config user.email "preci-selftest@glintfx.invalid" | Out-Null
+    git -C $dir config user.name "preci selftest" | Out-Null
+    Set-Content -Path (Join-Path $dir "tracked.cpp") -Value "int tracked_probe() { return 0; }"
+    git -C $dir add tracked.cpp | Out-Null
+    git -C $dir commit -q -m "selftest: tracked.cpp" | Out-Null
+    return $dir
+}
+
+function Invoke-SelfTestUntrackedGuardPositiveControl() {
+    $dir = New-UntrackedGuardSelftestRepo
+    try {
+        $files = Get-UntrackedCppHpp $dir
+        if ($files.Count -ne 0) {
+            Write-Error "selftest: guarda de untracked - controle POSITIVO FALHOU: repositorio so com tracked.cpp committed deveria dar 0 arquivos, obteve $($files.Count): $($files -join ', ')"
+            return $false
+        }
+        Write-Host "selftest: guarda de untracked - controle positivo OK (repositorio limpo aprovado)"
+        return $true
+    } finally {
+        Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-SelfTestUntrackedGuardNegativeControl() {
+    $dir = New-UntrackedGuardSelftestRepo
+    try {
+        Set-Content -Path (Join-Path $dir "solto.cpp") -Value "int solto() { return 1; }"
+        $files = Get-UntrackedCppHpp $dir
+        if ($files.Count -ne 1 -or $files[0] -ne "solto.cpp") {
+            Write-Error "selftest: guarda de untracked - controle NEGATIVO FALHOU: esperava exatamente [solto.cpp], obteve: $($files -join ', ')"
+            return $false
+        }
+        Write-Host "selftest: guarda de untracked - controle negativo OK (solto.cpp, nao rastreado, foi pego)"
+        return $true
+    } finally {
+        Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+    }
+}
+
+# The "nao deve bloquear demais" half: a *.cpp covered by .gitignore
+# (the shape of every build/ directory in this tree) must never block,
+# or the guard gets disabled within a week - same reasoning as preci.sh's
+# own run_selftest_untracked_guard_ignored_control.
+function Invoke-SelfTestUntrackedGuardIgnoredControl() {
+    $dir = New-UntrackedGuardSelftestRepo
+    try {
+        Set-Content -Path (Join-Path $dir ".gitignore") -Value "build/"
+        New-Item -ItemType Directory -Path (Join-Path $dir "build") -Force | Out-Null
+        Set-Content -Path (Join-Path $dir "build/gerado.cpp") -Value "int gerado() { return 2; }"
+        $files = Get-UntrackedCppHpp $dir
+        if ($files.Count -ne 0) {
+            Write-Error "selftest: guarda de untracked - controle de ARQUIVO IGNORADO FALHOU: build/gerado.cpp esta coberto por .gitignore e nao deveria bloquear, obteve $($files.Count): $($files -join ', ')"
+            return $false
+        }
+        Write-Host "selftest: guarda de untracked - controle de arquivo ignorado OK (.gitignore respeitado, nao bloqueou)"
+        return $true
+    } finally {
+        Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+    }
+}
+
+# A REAL failure of the underlying git command (not a repository, git
+# missing) must never collapse into "found nothing, so pass"
+# (GODS_LAWS.md L-40) - it has to throw, which Test-UntrackedGuard turns
+# into a loud Fail(). This control asserts the throw itself, isolated
+# from Test-UntrackedGuard's process-ending Fail() call.
+function Invoke-SelfTestUntrackedGuardGitFailureControl() {
+    $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("glintfx-preci-untracked-nogit-" + [System.Guid]::NewGuid())
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    try {
+        $threw = $false
+        try {
+            Get-UntrackedCppHpp $dir | Out-Null
+        } catch {
+            $threw = $true
+        }
+        if (-not $threw) {
+            Write-Error "selftest: guarda de untracked - controle de FALHA REAL DE GIT FALHOU: diretorio sem repositorio deveria abortar a varredura (excecao), mas nao lancou nada - isso seria 'nao achei nada, entao passa' (GODS_LAWS.md L-40)"
+            return $false
+        }
+        Write-Host "selftest: guarda de untracked - controle de falha real de git OK (nunca vira aprovacao silenciosa)"
+        return $true
+    } finally {
+        Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-SelfTestCtestCountPositiveControl() {
+    $n = Get-CTestTotalCount @("Test project C:/fake", "    Start 1: dummy", "", "Total Tests: 1")
+    if ($n -ne 1) {
+        Write-Error "selftest: piso de contagem de testes - controle POSITIVO FALHOU: esperava 1, Get-CTestTotalCount devolveu $n"
+        return $false
+    }
+    Write-Host "selftest: piso de contagem de testes - controle positivo OK ('Total Tests: 1' parseado como 1)"
+    return $true
+}
+
+# Two shapes of "empty", both of which a real caller (Assert-
+# NonEmptyTests) must refuse: the line "Total Tests: 0" (a build with
+# zero registered tests still prints this line, ctest itself exits 0),
+# and text with NO such line at all (ctest's "No tests were found!!!"
+# shape). Neither may parse to anything but 0.
+function Invoke-SelfTestCtestCountEmptyScanControl() {
+    $nZero = Get-CTestTotalCount @("Test project C:/fake", "Total Tests: 0")
+    $nMissing = Get-CTestTotalCount @("No tests were found!!!")
+    if ($nZero -ne 0 -or $nMissing -ne 0) {
+        Write-Error "selftest: piso de contagem de testes - controle de VARREDURA VAZIA FALHOU: esperava 0/0, obteve $nZero/$nMissing"
+        return $false
+    }
+    Write-Host "selftest: piso de contagem de testes - controle de varredura vazia OK (0 testes, com e sem a linha 'Total Tests:', parseado como 0 - Assert-NonEmptyTests recusaria os dois)"
+    return $true
+}
+
+# Same shape as tools/ci/check-dep-zero-win.ps1's own Invoke-SelfTest:
+# each control called by name (not via a scriptblock array - this file
+# has never run under a real pwsh, so it stays with the ONE pattern
+# already proven in this tree rather than a second, novel one), $ok
+# accumulates, one Fail() at the end names every control that failed by
+# having already printed its own Write-Error above.
+function Invoke-SelfTest() {
+    $ok = $true
+    if (-not (Invoke-SelfTestUntrackedGuardPositiveControl)) { $ok = $false }
+    if (-not (Invoke-SelfTestUntrackedGuardNegativeControl)) { $ok = $false }
+    if (-not (Invoke-SelfTestUntrackedGuardIgnoredControl)) { $ok = $false }
+    if (-not (Invoke-SelfTestUntrackedGuardGitFailureControl)) { $ok = $false }
+    if (-not (Invoke-SelfTestCtestCountPositiveControl)) { $ok = $false }
+    if (-not (Invoke-SelfTestCtestCountEmptyScanControl)) { $ok = $false }
+    if (-not $ok) {
+        Fail "preci.ps1 -Selftest: FALHOU (ver acima) - GODS_LAWS.md L-36/L-40"
+    }
+    Write-Host "preci.ps1 -Selftest: TODOS OS CONTROLES PASSARAM (escopo declarado no bloco PRECI-WIN-SELFTEST acima deste comentario, no arquivo-fonte)"
+}
+
 function Main {
     $rootDir = Get-RootDir
     $ciDir = Join-Path $rootDir "tools\ci"
@@ -371,4 +634,8 @@ function Main {
     Write-Host "preci.ps1: TUDO VERDE (escopo declarado no cabecalho deste arquivo - clang-tidy/cppcheck/gitleaks/GATE-DEBUG/sanitizer NAO cobertos, ver comentario)"
 }
 
-Main
+if ($Selftest) {
+    Invoke-SelfTest
+} else {
+    Main
+}

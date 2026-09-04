@@ -397,6 +397,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # PRECI-WIN-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40): tools/
+      # preci.ps1 - the local mirror of this whole job - had NO step
+      # anywhere in this file calling it (measured: `grep -c
+      # 'preci.ps1'` against this file was 0 before this fatia) and no
+      # -Selftest of its own, unlike tools/preci.sh's Linux twin
+      # (--selftest, wired into tests/CMakeLists.txt's preci_selftest
+      # ctest case). Placed first, right after checkout and before any
+      # MSVC/CMake preparation: -Selftest needs only `git` (already on
+      # this runner) against disposable throwaway repos under
+      # $env:TEMP, never $rootDir or a real build, so a regression here
+      # fails fast without paying for the heavy steps below. Runs once
+      # per matrix entry (compartilhado/estatico), same accepted shape
+      # as "Diagnostico pkg-config no Windows" and "Padrao C++23
+      # aceito" further down in this job - its result never depends on
+      # matrix.modo. See tools/preci.ps1's own PRECI-WIN-SELFTEST
+      # comment block for exactly what this covers and what it declares
+      # out of scope.
+      - name: preci.ps1 -Selftest (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/preci.ps1 -Selftest
+
       # PKG-NATIVE (27/08/2026, updated same day when the matrix moved to
       # :latest): windows-latest is now the ONLY one of the five supported
       # platforms (GODS_LAWS.md L-04) whose factory CMake does not reach

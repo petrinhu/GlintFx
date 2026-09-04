@@ -50,6 +50,83 @@ endfunction()
 glintfx_require_nonblank_install_subdir("${CMAKE_INSTALL_LIBDIR}" "CMAKE_INSTALL_LIBDIR")
 glintfx_require_nonblank_install_subdir("${CMAKE_INSTALL_INCLUDEDIR}" "CMAKE_INSTALL_INCLUDEDIR")
 
+# Refuses a MIXED absolute/relative combination of CMAKE_INSTALL_LIBDIR
+# and CMAKE_INSTALL_INCLUDEDIR (PKG-LIBDIR-MIX achado, colateral de
+# 27/08/2026, pre-existente). glintfx_compute_pkgconfig_relocatable_prefix()
+# further down this file decides whether glintfx.pc's own `prefix=` line
+# is a baked-in absolute path or a `${pcfiledir}`-relocatable one using
+# CMAKE_INSTALL_LIBDIR's absoluteness ALONE - it has no visibility into
+# CMAKE_INSTALL_INCLUDEDIR at all. When the two disagree in kind (one
+# absolute, the other relative), an ORDINARY install-time `--prefix`
+# override (or a reconfigure under a different CMAKE_INSTALL_PREFIX,
+# the same effect) moves whichever half is RELATIVE, but never the
+# baked-in `prefix=` - the generated glintfx.pc keeps naming a real,
+# existing, entirely WRONG directory for that half.
+#
+# REPRODUCED LIVE (GODS_LAWS.md L-44, not declared without measuring):
+# CMAKE_INSTALL_LIBDIR set absolute, CMAKE_INSTALL_INCLUDEDIR left
+# relative, configured with CMAKE_INSTALL_PREFIX=/usr/local, installed
+# with `cmake --install <build> --prefix /different-prefix`: the real
+# headers land under /different-prefix/include, but the installed
+# glintfx.pc's `includedir=` still reads `${prefix}/include` with
+# `prefix=/usr/local` baked in at configure time - a descriptor
+# pointing a consumer at headers that are not there.
+# GlintfxPkgConfigValidateInstalled.cmake's own install-time content
+# check DOES catch that specific reproduction (it failed loudly,
+# naming the wrong resolved path), but only because that wrong path
+# happened to have no glintfx/ header tree on THIS machine - it checks
+# "does something plausible exist at the resolved path", never "is
+# this genuinely THIS install's own location". A stale glintfx/ tree
+# left over at the wrong path by an earlier, unrelated install would
+# make that same check pass. Refusing the mixed combination outright,
+# here, at configure time, closes that gap unconditionally, independent
+# of whatever else happens to already be on disk.
+#
+# Deliberately narrow, mirroring glintfx_compute_pkgconfig_path_expression()'s
+# own per-variable absolute/relative branch below: two absolute values,
+# or two relative values (the common case, GNUInstallDirs' own
+# per-platform default), are both left alone untouched - see "Supported
+# CMAKE_INSTALL_LIBDIR / CMAKE_INSTALL_INCLUDEDIR layouts" in
+# PACKAGING.md. Normalized before the IS_ABSOLUTE check (same reason as
+# every other absoluteness check in this file: a trailing slash or a
+# leading "./" must not change the verdict).
+function(glintfx_require_consistent_libdir_includedir_kind libdir_value includedir_value)
+    set(normalized_libdir "${libdir_value}")
+    cmake_path(NORMAL_PATH normalized_libdir)
+    set(normalized_includedir "${includedir_value}")
+    cmake_path(NORMAL_PATH normalized_includedir)
+
+    if(IS_ABSOLUTE "${normalized_libdir}" AND NOT IS_ABSOLUTE "${normalized_includedir}")
+        message(FATAL_ERROR
+            "glintfx: CMAKE_INSTALL_LIBDIR ('${libdir_value}') is an ABSOLUTE "
+            "path, but CMAKE_INSTALL_INCLUDEDIR ('${includedir_value}') is "
+            "RELATIVE. Mixing an absolute and a relative install directory "
+            "produces a glintfx.pc whose 'includedir=' can end up naming the "
+            "wrong directory after an install-time --prefix override or a "
+            "reconfigure under a different CMAKE_INSTALL_PREFIX, because only "
+            "the relative half moves with the prefix. Either set both "
+            "CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR to absolute "
+            "paths, or leave both relative to the same install prefix."
+        )
+    endif()
+
+    if(IS_ABSOLUTE "${normalized_includedir}" AND NOT IS_ABSOLUTE "${normalized_libdir}")
+        message(FATAL_ERROR
+            "glintfx: CMAKE_INSTALL_INCLUDEDIR ('${includedir_value}') is an "
+            "ABSOLUTE path, but CMAKE_INSTALL_LIBDIR ('${libdir_value}') is "
+            "RELATIVE. Mixing an absolute and a relative install directory "
+            "produces a glintfx.pc whose 'libdir=' can end up naming the "
+            "wrong directory after an install-time --prefix override or a "
+            "reconfigure under a different CMAKE_INSTALL_PREFIX, because only "
+            "the relative half moves with the prefix. Either set both "
+            "CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_INCLUDEDIR to absolute "
+            "paths, or leave both relative to the same install prefix."
+        )
+    endif()
+endfunction()
+
+glintfx_require_consistent_libdir_includedir_kind("${CMAKE_INSTALL_LIBDIR}" "${CMAKE_INSTALL_INCLUDEDIR}")
+
 function(glintfx_install_library_target target)
     # No `INCLUDES DESTINATION` clause here (FIX-CONSUMO-2, achado QA-1):
     # it used to duplicate, verbatim, what GlintfxLibrary.cmake's

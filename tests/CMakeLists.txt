@@ -1455,6 +1455,39 @@ add_test(
 )
 set_tests_properties(blank_install_dir_rejected_selftest PROPERTIES LABELS selftest)
 
+# Mixed absolute/relative libdir/includedir gate (PKG-LIBDIR-MIX, achado
+# colateral de 27/08/2026, pre-existente): proves CMAKE_INSTALL_LIBDIR
+# and CMAKE_INSTALL_INCLUDEDIR are refused at CONFIGURE time when one is
+# ABSOLUTE and the other is RELATIVE
+# (glintfx_require_consistent_libdir_includedir_kind, cmake/GlintfxInstall.cmake) -
+# that mix bakes glintfx.pc's `prefix=` from CMAKE_INSTALL_LIBDIR's
+# absoluteness alone, so an install-time --prefix override moves only
+# the relative half and the .pc ends up pointing at a directory that is
+# not there. The two SAME-kind combinations (both absolute, both
+# relative - the common, GNUInstallDirs-default case) are proven to
+# stay unaffected in the same run. Same GATE-TREE-PARITY shape as
+# blank_install_dir_rejected_test above: unguarded by platform
+# (GODS_LAWS.md L-04), resolved via GLINTFX_PYTHON3_EXECUTABLE.
+add_test(
+    NAME libdir_includedir_mix_rejected_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_libdir_includedir_mix_rejected.py"
+        "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_CXX_COMPILER}"
+)
+set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consume)
+
+# --selftest: pure text-processing controls (classify_configure_result)
+# - no nested cmake configure, no compiler needed. Same
+# "own gate never proved against itself" closure as
+# blank_install_dir_rejected_selftest above (GODS_LAWS.md L-40).
+add_test(
+    NAME libdir_includedir_mix_rejected_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_libdir_includedir_mix_rejected.py" --selftest
+)
+set_tests_properties(libdir_includedir_mix_rejected_selftest PROPERTIES LABELS selftest)
+
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
 # itself (three controls - clean fixture passes, dirty fixture is
 # reproved, empty directory fails the enumeration floor - see

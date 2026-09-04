@@ -552,6 +552,23 @@ tested" below for exactly which platforms):
   an absolute, fixed system location" means to `GNUInstallDirs`), so
   moving the tree afterward breaks it. This is documented CMake
   behavior, not something glintfx works around.
+- **Mixing an ABSOLUTE `CMAKE_INSTALL_LIBDIR` with a RELATIVE
+  `CMAKE_INSTALL_INCLUDEDIR`, or the other way around.** This is
+  refused outright, with a `FATAL_ERROR` at configure time, naming both
+  values. Reason: `glintfx.pc`'s `prefix=` line is decided from
+  `CMAKE_INSTALL_LIBDIR`'s absoluteness alone (see "Supported
+  `CMAKE_INSTALL_LIBDIR`/`CMAKE_INSTALL_INCLUDEDIR` layouts" above) -
+  when the two variables disagree in kind, an ordinary install-time
+  `cmake --install <build> --prefix <other>` (or a reconfigure under a
+  different `CMAKE_INSTALL_PREFIX`) moves whichever half is relative,
+  but never the already-baked-in `prefix=`. The generated `glintfx.pc`
+  then names a real, existing, entirely WRONG directory for that half -
+  measured live: an absolute `CMAKE_INSTALL_LIBDIR` with a relative
+  `CMAKE_INSTALL_INCLUDEDIR`, configured with one prefix and installed
+  with a different `--prefix` override, put the real headers under the
+  new prefix while `glintfx.pc`'s `includedir=` still pointed at the
+  old one. Both variables absolute, or both relative to the same
+  prefix, are unaffected and remain fully supported.
 
 ## Static linking
 
@@ -569,7 +586,7 @@ references that have nothing obviously to do with glintfx itself.
 
 ## Where this is tested
 
-Three scripts in the glintfx source tree back the layout,
+Four scripts in the glintfx source tree back the layout,
 static-linking and automatic-validation claims above with an
 automated regression test, not just prose:
 
@@ -625,6 +642,14 @@ automated regression test, not just prose:
   confirms configure fails with glintfx's own error message, naming
   the offending variable, rather than succeeding and only failing
   later or silently.
+- `tests/tools/check_libdir_includedir_mix_rejected.py` exercises the
+  mixed absolute/relative rejection described under "NOT supported"
+  above, across all four crossings of `CMAKE_INSTALL_LIBDIR` x
+  `CMAKE_INSTALL_INCLUDEDIR` (each independently absolute or relative):
+  the two MIXED crossings must fail configure with glintfx's own error
+  message naming both conflicting values, and the two SAME-kind
+  crossings (both absolute, both relative) must configure exactly as
+  they did before this check existed.
 
 All three run on every push to `main` and on every pull request,
 across the project's Linux CI jobs - Fedora, Ubuntu, Arch, and

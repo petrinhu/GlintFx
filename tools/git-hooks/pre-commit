@@ -19,8 +19,30 @@
 # dependency-zero gate bites in BOTH commit and CI - this is the commit
 # half. D3: no environment-variable escape - `exec` straight into the
 # gate, no flag this script could honor to skip it.
+#
+# DEPZERO-GATE-PY (GODS_LAWS.md L-04, decisao do lider: "O
+# comportamento deve ser igual em qualquer OS"): the gate itself is
+# now tests/tools/check_dep_zero.py (ported from the former POSIX sh
+# check_dep_zero.sh - see that Python file's own header). This wrapper
+# stays POSIX sh on purpose: Git for Windows ships its own sh.exe and
+# runs a hook by its shebang exactly like the four POSIX targets do,
+# so this thin caller needs no port of its own - only the interpreter
+# name search below (`python3` on the four POSIX targets, `python` on
+# a stock Windows install whose default Python does not necessarily
+# expose a `python3` alias), the same two names tests/CMakeLists.txt's
+# own find_program(...NAMES python3 python REQUIRED) already searches.
 
 set -eu
 
 repo_root="$(git rev-parse --show-toplevel)"
-exec "$repo_root/tests/tools/check_dep_zero.sh" --staged "$repo_root"
+
+if command -v python3 >/dev/null 2>&1; then
+    python_bin="python3"
+elif command -v python >/dev/null 2>&1; then
+    python_bin="python"
+else
+    echo "tools/git-hooks/pre-commit: neither 'python3' nor 'python' found in PATH (GODS_LAWS.md L-07 gate cannot run - no silent skip)" >&2
+    exit 1
+fi
+
+exec "$python_bin" "$repo_root/tests/tools/check_dep_zero.py" --staged "$repo_root"

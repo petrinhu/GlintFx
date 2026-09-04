@@ -771,53 +771,68 @@ endif()
 # proves NOTHING in the tracked tree introduces a third-party
 # dependency - three sub-checks (CMake surface, include surface, the
 # built artifact's own DT_NEEDED) closed by FORM and POLARITY, never by
-# a growing forbidden-name list - see check_dep_zero.sh's own header
+# a growing forbidden-name list - see check_dep_zero.py's own header
 # for the full rationale, including two corrections found by measuring
 # the real tree before writing this gate (own public headers consumed
 # via <glintfx/...>, and the two CMake-generated headers export.hpp/
 # version_macros.hpp) that the planning document's enumeration missed.
 # Decision of the leader, 28/08/2026 (AskUserQuestion): this gate bites
 # in BOTH commit (tools/git-hooks/pre-commit, installed by
-# tools/git-hooks/install.sh) and CI - this is the CI half. The
-# library-path argument mirrors port_privacy_test immediately above:
-# "NONE" in static mode, sub-check (c) says so instead of skipping
-# silently (GODS_LAWS.md L-40). POSIX sh; same declared downgrade as
-# layers_test/x11_test/port_privacy_test above.
-if(UNIX)
-    if(BUILD_SHARED_LIBS)
-        set(GLINTFX_DEP_ZERO_LIB_ARG "$<TARGET_FILE:glintfx_library>")
-    else()
-        set(GLINTFX_DEP_ZERO_LIB_ARG "NONE")
-    endif()
-    add_test(
-        NAME dep_zero_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.sh"
-            "${CMAKE_SOURCE_DIR}"
-            "${GLINTFX_DEP_ZERO_LIB_ARG}"
-    )
-    set_tests_properties(dep_zero_test PROPERTIES LABELS consume)
+# tools/git-hooks/install.sh) and CI - this is the CI half.
+#
+# DEPZERO-GATE-PY (GODS_LAWS.md L-04, decisao do lider: "O
+# comportamento deve ser igual em qualquer OS"): sub-checks (a)/(b)
+# used to be POSIX sh, `if(UNIX)`-guarded, and NEVER ran on the
+# `windows` CI job or in the pre-commit hook on Windows - the exact gap
+# this port closes. Ported to check_dep_zero.py, registered here
+# UNGUARDED, the same shape check_spdx.py/check_vendor_purity.py/
+# dep_zero_trace already proved works on all five platforms.
+# find_program(...NAMES python3 python REQUIRED): same resolution
+# dep_zero_trace's own registration below already uses (cached, so
+# this earlier call does not re-search) - see that registration's own
+# comment for why NAMES python3 python and not find_package(Python3).
+#
+# Sub-check (c) (readelf -d, the built artifact's own DT_NEEDED) has NO
+# Windows-shaped equivalent to run here: DEPZERO-PARITY-WIN
+# (03/09/2026) already gave Windows its OWN, separate parity script
+# (tools/ci/check-dep-zero-win.ps1, dumpbin /imports). The library-path
+# argument is therefore three-valued, not two: the real .so on a shared
+# Linux/BSD build, "NONE" in static mode (unchanged, GODS_LAWS.md
+# L-40's declared-skip shape), and "WINDOWS-SEPARATE" on WIN32 (a
+# THIRD declared skip, honest and distinct from the static one -
+# check_dep_zero.py's own check_needed_allowlist() and this port's
+# selftest_needed_windows_separate_skip control, see that file's own
+# header, departure 2).
+find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
 
-    add_test(
-        NAME dep_zero_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.sh" --selftest
-    )
-    # DEPZERO-SELFTEST-FIX (28/08/2026, GODS_LAWS.md L-40): belt on top of
-    # the exit code. This gate's own --selftest aggregator used to be
-    # able to report exit 0 while its own stdout/stderr still printed
-    # "FAILED" for an individual control (a POSIX sh global-variable-name
-    # collision fixed in the script itself, same fatia, see the fix
-    # report for the three regressions this let through silently) - that
-    # is exactly the shape of lie FAIL_REGULAR_EXPRESSION exists to
-    # catch: it fails the ctest verdict on a text match REGARDLESS of the
-    # exit code, closing the gap even if a future edit reintroduces the
-    # same collision. Deliberately NOT PASS_REGULAR_EXPRESSION: per
-    # `cmake --help-property PASS_REGULAR_EXPRESSION`, that property
-    # makes ctest IGNORE the exit code entirely - it would trade this
-    # hole for a new one instead of closing it.
-    set_tests_properties(dep_zero_selftest PROPERTIES
-        LABELS selftest
-        FAIL_REGULAR_EXPRESSION "FAILED")
+if(WIN32)
+    set(GLINTFX_DEP_ZERO_LIB_ARG "WINDOWS-SEPARATE")
+elseif(BUILD_SHARED_LIBS)
+    set(GLINTFX_DEP_ZERO_LIB_ARG "$<TARGET_FILE:glintfx_library>")
+else()
+    set(GLINTFX_DEP_ZERO_LIB_ARG "NONE")
 endif()
+add_test(
+    NAME dep_zero_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.py"
+        "${CMAKE_SOURCE_DIR}"
+        "${GLINTFX_DEP_ZERO_LIB_ARG}"
+)
+set_tests_properties(dep_zero_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME dep_zero_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.py" --selftest
+)
+# DEPZERO-SELFTEST-FIX (28/08/2026, GODS_LAWS.md L-40): belt on top of
+# the exit code, same shape dep_zero_trace_selftest/spdx_selftest/
+# vendor_purity_selftest below already wear - costs nothing and keeps
+# the taxonomy uniform across every selftest in this file.
+set_tests_properties(dep_zero_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FAILED")
 
 # Dependency-zero TRACE gate (DEPZERO-TRACE, TODO.md, GODS_LAWS.md
 # L-07/L-12/L-40; decision of the leader, 28/08/2026, AskUserQuestion:
@@ -840,14 +855,12 @@ endif()
 # that adds a not-yet-proven oracle (GODS_LAWS.md house rule of
 # 28/08/2026: "portao que nunca reprovou nao e portao").
 #
-# Registered on ALL FIVE platforms, WITHOUT an if(UNIX) guard, unlike
-# every other dep-zero/layers/x11/port-privacy gate in this file: the
+# Registered on ALL FIVE platforms, WITHOUT an if(UNIX) guard, same as
+# dep_zero_test/dep_zero_selftest above since DEPZERO-GATE-PY: the
 # mechanism is CMake's own trace and file API, identical on Windows
 # (the same reply real IDEs consume there daily - cmake-file-api(7))
 # and on the four POSIX targets - there is no POSIX-sh dependency to
-# downgrade away from here. This is a genuine gain over dep_zero_test
-# above, whose sub-check (a) has always been Windows-downgraded by
-# virtue of being a POSIX sh script.
+# downgrade away from here.
 #
 # find_program(..., NAMES python3 python REQUIRED): resolves the
 # interpreter by searching PATH for either name (python3 on the four
@@ -857,21 +870,21 @@ endif()
 # SAME built-in mechanism find_program() already provides for
 # clang-format/clang-tidy/cppcheck a little further down in this file.
 # Deliberately NOT find_package(Python3 COMPONENTS Interpreter): that
-# call is itself a find_package() invocation, and check_dep_zero.sh
-# (the OLD, still-active, text-based gate immediately above - NOT this
-# fatia's to touch, see this comment block's own header) pattern-
-# matches every find_package() call against ITS OWN allowlist. Caught
-# live (29/08/2026, tools/preci.sh --fast, stage_ctest): dep_zero_test
-# reproved THIS FILE's own find_package(Python3 ...REQUIRED) line the
-# moment it first ran, citing tests/CMakeLists.txt by name - correct
-# behavior on that gate's part, but fixing it would mean editing
-# check_dep_zero.sh's own allowlist, which is explicitly out of scope
-# here (DEPZERO-SHALLOW, not DEPZERO-TRACE - see the ORDEM DE SERVICO's
-# own "O QUE JA ESTA MEDIDO" section for the exact prohibition).
-# find_program() is a DIFFERENT CMake command that check_dep_zero.sh
-# never inspects (confirmed by reading its own pattern, line ~505: it
-# matches only "find_package("), so this line satisfies both the old
-# and the new oracle without widening this fatia's declared scope.
+# call is itself a find_package() invocation, and check_dep_zero.py
+# (the text-based gate above, registered via this exact cached
+# GLINTFX_PYTHON3_EXECUTABLE) pattern-matches every find_package()
+# call against ITS OWN allowlist. Caught live (29/08/2026, tools/
+# preci.sh --fast, stage_ctest, back when this gate was still the
+# POSIX sh check_dep_zero.sh): dep_zero_test reproved THIS FILE's own
+# find_package(Python3 ...REQUIRED) line the moment it first ran,
+# citing tests/CMakeLists.txt by name - correct behavior on that
+# gate's part, but fixing it would mean editing the allowlist, which
+# is explicitly out of scope here (DEPZERO-SHALLOW, not DEPZERO-TRACE).
+# find_program() is a DIFFERENT CMake command that check_dep_zero.py
+# never inspects (it matches only "find_package("), so this line
+# satisfies both oracles without widening either fatia's declared
+# scope. Cached: this call reuses the SAME result the dep_zero_test
+# registration above already resolved, no re-search.
 find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
 
 # RUN_SERIAL TRUE: the script RE-CONFIGURES this exact build directory

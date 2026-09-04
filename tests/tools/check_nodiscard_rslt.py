@@ -49,7 +49,27 @@
 # before the link step ever resolves them, so no library artifact is
 # needed here, on either compiler.
 #
-# Usage: check_nodiscard_rslt.py <include-dir> <generated-include-dir> <cxx-compiler> <compiler-id>
+# STD-FLAG-WIN (estreia real no Windows, run 33832169390, GODS_LAWS.md
+# L-44/L-49): this file used to hardcode the literal "/std:c++23" on
+# the MSVC branch below. That literal is not a flag any MSVC version
+# has ever accepted - the estreia's own log proved it live: `cl :
+# Command line warning D9002 : ignoring unknown option '/std:c++23'`,
+# cl.exe silently fell back to its pre-C++17 default, and the fixture
+# then failed with cascading C2039 ("'string_view'/'variant' is not a
+# member of 'std'") - the C2238 first reported was downstream of THAT,
+# not of GLINTFX_API or the generated export header (both were found
+# and worked correctly; the SAME job's real "Build" step, using the
+# SAME cl.exe, already compiles this exact public header successfully
+# through CMake's own CXX_STANDARD 23 property). The cxx-standard-flag
+# argument below is CMAKE_CXX23_STANDARD_COMPILE_OPTION, resolved by
+# CMake itself for whatever compiler/version tests/CMakeLists.txt is
+# actually configuring against (on this MSVC toolset that resolves to
+# "-std:c++latest", never a literal "/std:c++23" this file or CMake
+# would otherwise have to guess) - the exact flag that already proved
+# it builds the real target, reused here instead of invented a second
+# time per-compiler.
+#
+# Usage: check_nodiscard_rslt.py <include-dir> <generated-include-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -69,17 +89,19 @@ def is_msvc(compiler_id):
 
 
 def require_args(argv):
-    if len(argv) != 5:
+    if len(argv) != 6:
         fail(
             "usage: check_nodiscard_rslt.py <include-dir> <generated-include-dir> "
-            "<cxx-compiler> <compiler-id>"
+            "<cxx-compiler> <compiler-id> <cxx-standard-flag>"
         )
-    include_dir, generated_include_dir, cxx, compiler_id = argv[1:]
+    include_dir, generated_include_dir, cxx, compiler_id, cxx_standard_flag = argv[1:]
     if not pathlib.Path(include_dir).is_dir():
         fail(f"include dir not found: {include_dir}")
     if not pathlib.Path(generated_include_dir).is_dir():
         fail(f"generated include dir not found: {generated_include_dir}")
-    return include_dir, generated_include_dir, cxx, compiler_id
+    if not cxx_standard_flag:
+        fail("cxx-standard-flag is empty - CMAKE_CXX23_STANDARD_COMPILE_OPTION did not resolve")
+    return include_dir, generated_include_dir, cxx, compiler_id, cxx_standard_flag
 
 
 # The two example fallible functions, shared verbatim by both fixtures
@@ -141,7 +163,7 @@ int main() {
     )
 
 
-def compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, obj):
+def compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag, obj):
     if is_msvc(compiler_id):
         # /W4 /WX: the same warning level and warnings-as-errors this
         # project's own MSVC target already builds under
@@ -151,10 +173,13 @@ def compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, obj
         # role -Werror plays for GCC/Clang below. /EHsc: this
         # translation unit's real headers use exceptions internally
         # (R3, docs/api-conventions.md); without it MSVC warns C4530.
+        # cxx_standard_flag (CMAKE_CXX23_STANDARD_COMPILE_OPTION, see
+        # this file's own STD-FLAG-WIN header comment) replaces the
+        # literal "/std:c++23" no MSVC version actually accepts.
         command = [
             cxx,
             "/nologo",
-            "/std:c++23",
+            cxx_standard_flag,
             "/W4",
             "/WX",
             "/EHsc",
@@ -167,7 +192,7 @@ def compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, obj
     else:
         command = [
             cxx,
-            "-std=c++23",
+            cxx_standard_flag,
             "-Wall",
             "-Wextra",
             "-Werror",
@@ -183,9 +208,11 @@ def compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, obj
     return subprocess.run(command, capture_output=True, text=True)
 
 
-def assert_discard_fixture_fails_naming_nodiscard(src, includedir, generated_includedir, cxx, compiler_id):
+def assert_discard_fixture_fails_naming_nodiscard(
+    src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag
+):
     obj = src.with_suffix(".obj" if is_msvc(compiler_id) else ".o")
-    result = compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, obj)
+    result = compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag, obj)
     combined = result.stdout + result.stderr
 
     if result.returncode == 0:
@@ -210,9 +237,11 @@ def assert_discard_fixture_fails_naming_nodiscard(src, includedir, generated_inc
     print("check_nodiscard_rslt.py: discard fixture correctly REFUSED to compile ([[nodiscard]] fired)")
 
 
-def assert_consume_fixture_compiles_cleanly(src, includedir, generated_includedir, cxx, compiler_id):
+def assert_consume_fixture_compiles_cleanly(
+    src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag
+):
     obj = src.with_suffix(".obj" if is_msvc(compiler_id) else ".o")
-    result = compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, obj)
+    result = compile_fixture(src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag, obj)
 
     if result.returncode != 0:
         fail(f"consume fixture (result actually used) FAILED to compile: {result.stdout}{result.stderr}")
@@ -221,7 +250,7 @@ def assert_consume_fixture_compiles_cleanly(src, includedir, generated_includedi
 
 
 def main():
-    includedir, generated_includedir, cxx, compiler_id = require_args(sys.argv)
+    includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag = require_args(sys.argv)
 
     with tempfile.TemporaryDirectory(prefix="glintfx-nodiscard-") as scratch:
         scratch_path = pathlib.Path(scratch)
@@ -230,8 +259,12 @@ def main():
         write_discard_fixture(discard_src)
         write_consume_fixture(consume_src)
 
-        assert_discard_fixture_fails_naming_nodiscard(discard_src, includedir, generated_includedir, cxx, compiler_id)
-        assert_consume_fixture_compiles_cleanly(consume_src, includedir, generated_includedir, cxx, compiler_id)
+        assert_discard_fixture_fails_naming_nodiscard(
+            discard_src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag
+        )
+        assert_consume_fixture_compiles_cleanly(
+            consume_src, includedir, generated_includedir, cxx, compiler_id, cxx_standard_flag
+        )
 
     print(
         "ok: gltfx_rslt<T>'s [[nodiscard]] is a real compiler diagnostic, proven against both "

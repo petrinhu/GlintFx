@@ -106,8 +106,27 @@
 # standard") - NOT measured live on this machine, and the first
 # Windows CI run is what actually proves or refutes the exact value.
 #
+# STD-FLAG-WIN (estreia real no Windows, run 33832169390, GODS_LAWS.md
+# L-44/L-49): this file used to hardcode the literal "/std:c++23" on
+# the MSVC branch of compile_fixture(). No MSVC version has ever
+# accepted that literal - the estreia's own log named the exact
+# mechanism: `cl : Command line warning D9002 : ignoring unknown
+# option '/std:c++23'`, cl.exe fell back to its pre-C++17 default, and
+# BOTH compiles below (debug and release) failed with the same
+# cascading C2039 ("'string_view'/'variant' is not a member of 'std'")
+# before ever reaching the assert()/access-violation behavior this
+# file exists to measure - "debug fixture failed to compile" in the
+# log, not a runtime result. See check_nodiscard_rslt.py's own STD-
+# FLAG-WIN comment for why GLINTFX_API/the generated export header
+# were never the problem (the SAME job's real "Build" step, same
+# cl.exe, already compiles this exact header successfully). The new
+# cxx-standard-flag argument is CMAKE_CXX23_STANDARD_COMPILE_OPTION,
+# CMake's own resolution of C++23 for whatever compiler/version is
+# actually configured - "-std:c++latest" on this MSVC toolset, never a
+# literal this script or CMake would otherwise have to guess again.
+#
 # Usage:
-#   check_rslt_precondition.py <include-dir> <generated-include-dir> <runtime-dir> <linker-dir> <cxx-compiler> <compiler-id>
+#   check_rslt_precondition.py <include-dir> <generated-include-dir> <runtime-dir> <linker-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag>
 #
 # runtime-dir and linker-dir are the SAME directory on the four POSIX
 # targets (a .so is both the runtime artifact and what the linker
@@ -159,12 +178,12 @@ def is_msvc(compiler_id):
 
 
 def require_args(argv):
-    if len(argv) != 7:
+    if len(argv) != 8:
         fail(
             "usage: check_rslt_precondition.py <include-dir> <generated-include-dir> "
-            "<runtime-dir> <linker-dir> <cxx-compiler> <compiler-id>"
+            "<runtime-dir> <linker-dir> <cxx-compiler> <compiler-id> <cxx-standard-flag>"
         )
-    include_dir, generated_include_dir, runtime_dir, linker_dir, cxx, compiler_id = argv[1:]
+    include_dir, generated_include_dir, runtime_dir, linker_dir, cxx, compiler_id, cxx_standard_flag = argv[1:]
     for label, path in (
         ("include dir", include_dir),
         ("generated include dir", generated_include_dir),
@@ -175,7 +194,9 @@ def require_args(argv):
             fail(f"{label} not found: {path}")
     if not FIXTURE_SRC.is_file():
         fail(f"fixture source not found: {FIXTURE_SRC}")
-    return include_dir, generated_include_dir, runtime_dir, linker_dir, cxx, compiler_id
+    if not cxx_standard_flag:
+        fail("cxx-standard-flag is empty - CMAKE_CXX23_STANDARD_COMPILE_OPTION did not resolve")
+    return include_dir, generated_include_dir, runtime_dir, linker_dir, cxx, compiler_id, cxx_standard_flag
 
 
 def apply_windows_crash_dialog_suppression():
@@ -197,14 +218,19 @@ def binary_path(scratch_path, name, compiler_id):
     return scratch_path / (f"{name}.exe" if is_msvc(compiler_id) else name)
 
 
-def compile_fixture(includedir, generated_includedir, linkerdir, cxx, compiler_id, ndebug, output_bin):
+def compile_fixture(
+    includedir, generated_includedir, linkerdir, cxx, compiler_id, cxx_standard_flag, ndebug, output_bin
+):
     # ndebug is the ONE variable under test - everything else is held
-    # fixed between the two compiles.
+    # fixed between the two compiles. cxx_standard_flag (CMAKE_CXX23_
+    # STANDARD_COMPILE_OPTION, see this file's own STD-FLAG-WIN header
+    # comment) replaces the literal "/std:c++23"/"-std=c++23" no
+    # compiler was ever guaranteed to accept verbatim.
     if is_msvc(compiler_id):
         command = [
             cxx,
             "/nologo",
-            "/std:c++23",
+            cxx_standard_flag,
             "/Od",
             "/W4",
             "/WX",
@@ -222,7 +248,7 @@ def compile_fixture(includedir, generated_includedir, linkerdir, cxx, compiler_i
             "glintfx.lib",
         ]
     else:
-        command = [cxx, "-std=c++23", "-O0", "-g", "-Wall", "-Wextra", "-Werror"]
+        command = [cxx, cxx_standard_flag, "-O0", "-g", "-Wall", "-Wextra", "-Werror"]
         if ndebug:
             command.append("-DNDEBUG")
         command += [
@@ -340,7 +366,9 @@ def assert_release_void_faults_via_null_dereference(binary, runtimedir, compiler
 
 
 def main():
-    includedir, generated_includedir, runtimedir, linkerdir, cxx, compiler_id = require_args(sys.argv)
+    includedir, generated_includedir, runtimedir, linkerdir, cxx, compiler_id, cxx_standard_flag = require_args(
+        sys.argv
+    )
     apply_windows_crash_dialog_suppression()
 
     with tempfile.TemporaryDirectory(prefix="glintfx-rslt-precond-") as scratch:
@@ -349,12 +377,16 @@ def main():
         release_bin = binary_path(scratch_path, "precondition_fixture_release", compiler_id)
 
         print("check_rslt_precondition.py: compiling debug fixture (NDEBUG undefined)")
-        result = compile_fixture(includedir, generated_includedir, linkerdir, cxx, compiler_id, False, debug_bin)
+        result = compile_fixture(
+            includedir, generated_includedir, linkerdir, cxx, compiler_id, cxx_standard_flag, False, debug_bin
+        )
         if result.returncode != 0:
             fail(f"debug fixture failed to compile: {result.stdout}{result.stderr}")
 
         print("check_rslt_precondition.py: compiling release fixture (NDEBUG)")
-        result = compile_fixture(includedir, generated_includedir, linkerdir, cxx, compiler_id, True, release_bin)
+        result = compile_fixture(
+            includedir, generated_includedir, linkerdir, cxx, compiler_id, cxx_standard_flag, True, release_bin
+        )
         if result.returncode != 0:
             fail(f"release fixture failed to compile: {result.stdout}{result.stderr}")
 

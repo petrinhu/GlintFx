@@ -918,6 +918,31 @@ endif()
 # the same mechanism away). CMAKE_CXX_COMPILER_ID selects MSVC's own
 # diagnostic (C4834) vs. GCC/Clang's (nodiscard/discard/unused) inside
 # the script - never guessed from the compiler path.
+#
+# STD-FLAG-WIN (estreia real no Windows, run 33832169390, GODS_LAWS.md
+# L-44/L-49): the script used to hardcode the literal "/std:c++23" for
+# MSVC. That literal is NOT a flag any MSVC version has ever accepted -
+# CMAKE_CXX23_STANDARD_COMPILE_OPTION (Compiler/MSVC-CXX.cmake, this
+# machine's CMake 4.1.6) resolves C++23 to "-std:c++latest" instead, on
+# every MSVC new enough to support C++23 at all. The estreia's own log
+# proved this live: `cl : Command line warning D9002 : ignoring unknown
+# option '/std:c++23'`, cl.exe fell back to its pre-C++17 default, and
+# <string_view>/<variant> then failed with C2039 "is not a member of
+# 'std'" - the C2238 the coordinator first saw was a CASCADE off that,
+# not a GLINTFX_API/export-header problem (that hypothesis is REFUTED:
+# the real "Build" step of the SAME job, using the SAME cl.exe, already
+# compiles this exact header successfully by going through CMake's own
+# CXX_STANDARD 23 property, cmake/GlintfxCompileOptions.cmake, which
+# resolves to whatever CMAKE_CXX23_STANDARD_COMPILE_OPTION says for
+# THIS specific detected compiler/version - never a literal string this
+# file or the python script gets to invent on its own). Passing that
+# CMake-resolved variable through as a new argument, instead of letting
+# either script hardcode a per-compiler literal a second time, is the
+# fix: whatever flag spelling let the real target build is the exact
+# same flag spelling the standalone fixture compile now uses, on every
+# platform, not just MSVC - GCC/Clang already accepted the old literal
+# only because "-std=c++23" happens to be their real flag too, not
+# because hardcoding was ever the right design.
 add_test(
     NAME nodiscard_rslt_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -926,6 +951,7 @@ add_test(
         "${GLINTFX_GENERATED_INCLUDE_DIR}"
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_CXX_COMPILER_ID}"
+        "${CMAKE_CXX23_STANDARD_COMPILE_OPTION}"
 )
 set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 
@@ -952,6 +978,12 @@ set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 # harmless, not an error. Python, registered on ALL FIVE PLATFORMS,
 # WITHOUT an if(UNIX) guard - same replacement, same reasoning as
 # nodiscard_rslt_test above.
+# STD-FLAG-WIN (same estreia, same fix as nodiscard_rslt_test's own
+# comment above - read it first): this fixture also hardcoded the
+# non-existent MSVC literal "/std:c++23" and failed the SAME way,
+# never reaching its own compile-and-run subject at all (the estreia's
+# log: "debug fixture failed to compile", the identical D9002/C2039
+# cascade). CMAKE_CXX23_STANDARD_COMPILE_OPTION replaces it here too.
 add_test(
     NAME rslt_precondition_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -962,6 +994,7 @@ add_test(
         "$<TARGET_LINKER_FILE_DIR:glintfx_library>"
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_CXX_COMPILER_ID}"
+        "${CMAKE_CXX23_STANDARD_COMPILE_OPTION}"
 )
 set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
 

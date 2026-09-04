@@ -35,6 +35,8 @@ using glintfx::style::gltfx_gfss_angle_unit;
 using glintfx::style::gltfx_gfss_length_unit;
 using glintfx::style::gltfx_gfss_time_unit;
 using glintfx::style::gltfx_gfss_value_kind;
+using glintfx::style::detail::count_owned_by;
+using glintfx::style::detail::gfss_diagnostic_producer;
 using glintfx::style::detail::parse_value;
 using glintfx::style::detail::value_parse_result;
 
@@ -681,4 +683,41 @@ GLINTFX_TEST(parse_value_length_angle_and_time_never_populate_each_others_field)
     GLINTFX_CHECK_EQ(time.value.length.magnitude, 0.0);
     GLINTFX_CHECK_EQ(time.value.angle.magnitude, 0.0);
     GLINTFX_CHECK(time.value.angle.unit == gltfx_gfss_angle_unit::deg);
+}
+
+// --- the two value_parse-owned diagnostics, bound to the shared list -
+
+// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): parse_value_unsupported_
+// token_kind_fails_with_component_value_diagnostic and parse_value_
+// dimension_token_with_unknown_unit_fails_with_diagnostic above already
+// prove component_value/known_dimension_unit for real - what was
+// missing was a COMPILE-TIME floor tying "how many identifiers this
+// layer owns" to those directed checks, the same floor gfss_tokenizer_
+// test.cpp's own k_tokenizer_diagnostic_samples and gfss_selector_
+// parse_test.cpp's own k_selector_diagnostic_samples now have.
+// count_owned_by(value_parse) is counted MECHANICALLY from diagnostic_
+// vocabulary.hpp's own shared list - an identifier added under this
+// producer with no matching row in k_value_diagnostic_samples below now
+// FAILS TO COMPILE.
+GLINTFX_TEST(parse_value_diagnostics_are_produced_from_the_shared_vocabulary) {
+    struct diagnostic_sample {
+        std::string_view source;
+        std::string_view expected_identifier;
+    };
+    static constexpr diagnostic_sample k_value_diagnostic_samples[] = {
+        {"\"not a value component\"", glintfx::style::detail::k_expected_component_value},
+        {"5foo", glintfx::style::detail::k_expected_known_dimension_unit},
+    };
+    static_assert(sizeof(k_value_diagnostic_samples) / sizeof(k_value_diagnostic_samples[0]) ==
+                      count_owned_by(gfss_diagnostic_producer::value_parse),
+                  "GODS_LAWS.md L-40 (GFSS-VOCAB-BIND): diagnostic_vocabulary.hpp's "
+                  "value_parse-owned identifiers changed - add a directed production row to "
+                  "k_value_diagnostic_samples above, this does not compile otherwise");
+
+    std::size_t swept = 0;
+    for (const diagnostic_sample &sample : k_value_diagnostic_samples) {
+        check_value_failure(parse_first_value(sample.source), sample.expected_identifier);
+        ++swept;
+    }
+    GLINTFX_CHECK_EQ(swept, count_owned_by(gfss_diagnostic_producer::value_parse));
 }

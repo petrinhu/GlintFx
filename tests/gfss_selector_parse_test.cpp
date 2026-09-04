@@ -30,9 +30,11 @@
 // cpp already uses, whose own k_expected_closing_parenthesis this file
 // REUSES rather than re-spelling (see this file's own duplicate-word
 // proof below for why that reuse is checked, not assumed).
+using glintfx::style::detail::count_owned_by;
 using glintfx::style::detail::gfss_combinator;
 using glintfx::style::detail::gfss_combinator_count;
 using glintfx::style::detail::gfss_combinator_table;
+using glintfx::style::detail::gfss_diagnostic_producer;
 using glintfx::style::detail::gfss_simple_selector_kind;
 using glintfx::style::detail::k_expected_closing_parenthesis;
 using glintfx::style::detail::k_expected_comma_or_end_of_selector_list;
@@ -344,31 +346,56 @@ GLINTFX_TEST(
 // shared list and production for the tokenizer's own original four;
 // closing_parenthesis is REUSED here, not re-proven, since that
 // identifier's own production is already that file's job; GFSS-
-// VALUE's own two, component_value/known_length_unit, are gfss_value_
-// test.cpp's job, a layer this parser does not touch). An identifier
-// this parser starts using with no directed row here fails silently at
-// review time, not at compile time - the compile-time floor is the
-// static_assert below, tied to the SAME shared count gfss_tokenizer_
-// test.cpp's own static_assert already checks, so the two can never
-// silently disagree about how many entries the list has.
+// VALUE's own two, component_value/known_dimension_unit, are gfss_value_
+// test.cpp's job, a layer this parser does not touch).
+//
+// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): this used to be
+// static_assert(k_expected_vocabulary_count == 12, ...) - a human
+// tripwire tied to the WHOLE list's size, not to THIS layer's own six.
+// An identifier added under gfss_diagnostic_producer::selector_parse
+// bumped the same shared "12" gfss_tokenizer_test.cpp's own
+// static_assert already checked, so this file's own coverage below
+// could silently fall behind while that unrelated static_assert still
+// matched. k_selector_diagnostic_samples below is this layer's own
+// directed-production table (the six it alone owns - closing_
+// parenthesis, reused above, is NOT one of them); the static_assert
+// ties its size to count_owned_by(selector_parse) - counted MECHANICALLY
+// from diagnostic_vocabulary.hpp's own list - so an identifier added
+// under this producer with no matching row here now FAILS TO COMPILE.
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_shared_vocabulary) {
-    static_assert(k_expected_vocabulary_count == 12,
-                  "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the "
-                  "directed-production coverage below to match (this is the SAME shared list "
-                  "gfss_tokenizer_test.cpp's own static_assert checks)");
+    struct diagnostic_sample {
+        std::string_view source;
+        std::string_view expected_identifier;
+    };
+    static constexpr diagnostic_sample k_selector_diagnostic_samples[] = {
+        {"", k_expected_simple_selector},
+        {".", k_expected_identifier_after_dot},
+        {":", k_expected_identifier_after_colon},
+        {":bogus", k_expected_known_pseudo_class},
+        {":bogus(1)", k_expected_known_pseudo_function},
+        {"a)", k_expected_comma_or_end_of_selector_list},
+    };
+    static_assert(std::size(k_selector_diagnostic_samples) ==
+                      count_owned_by(gfss_diagnostic_producer::selector_parse),
+                  "GODS_LAWS.md L-40 (GFSS-VOCAB-BIND): diagnostic_vocabulary.hpp's "
+                  "selector_parse-owned identifiers changed - add a directed production row to "
+                  "k_selector_diagnostic_samples above, this does not compile otherwise");
 
-    GLINTFX_CHECK(parse_selector_list("").diagnostic.expected == k_expected_simple_selector);
-    GLINTFX_CHECK(parse_selector_list(".").diagnostic.expected == k_expected_identifier_after_dot);
-    GLINTFX_CHECK(parse_selector_list(":").diagnostic.expected ==
-                  k_expected_identifier_after_colon);
-    GLINTFX_CHECK(parse_selector_list(":bogus").diagnostic.expected ==
-                  k_expected_known_pseudo_class);
-    GLINTFX_CHECK(parse_selector_list(":bogus(1)").diagnostic.expected ==
-                  k_expected_known_pseudo_function);
+    std::size_t swept = 0;
+    for (const diagnostic_sample &sample : k_selector_diagnostic_samples) {
+        GLINTFX_CHECK(parse_selector_list(std::string(sample.source)).diagnostic.expected ==
+                      sample.expected_identifier);
+        ++swept;
+    }
+    GLINTFX_CHECK_EQ(swept, count_owned_by(gfss_diagnostic_producer::selector_parse));
+
+    // closing_parenthesis is TOKENIZER-owned, reused here (this parser
+    // propagates it upward from an unterminated functional-pseudo
+    // argument) - proven as an EXTRA check, not counted in
+    // k_selector_diagnostic_samples above, since its own production is
+    // gfss_tokenizer_test.cpp's job.
     GLINTFX_CHECK(parse_selector_list(":not(a").diagnostic.expected ==
                   k_expected_closing_parenthesis);
-    GLINTFX_CHECK(parse_selector_list("a)").diagnostic.expected ==
-                  k_expected_comma_or_end_of_selector_list);
 }
 
 // NO DUPLICATE WORD IN THE CONSOLIDATED LIST (project leader's

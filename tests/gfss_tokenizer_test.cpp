@@ -27,6 +27,8 @@ namespace {
 using glintfx::style::gltfx_gfss_token;
 using glintfx::style::gltfx_gfss_token_kind;
 using glintfx::style::gltfx_gfss_tokenize;
+using glintfx::style::detail::count_owned_by;
+using glintfx::style::detail::gfss_diagnostic_producer;
 
 // --- per-token-class production slice --------------------------------
 
@@ -186,6 +188,66 @@ GLINTFX_TEST(gltfx_gfss_tokenize_skips_comments_between_real_tokens) {
     }
 }
 
+// GFSS-COMMENT-DIAG (TODO.md, GODS_LAWS.md L-28's own "linha aceita em
+// silencio e o defeito que o lider mandou eliminar"): 4.3.2's own EOF
+// branch (a comment that runs into the end of input before its own
+// "*/" is found) used to produce NOTHING - no token, no diagnostic, the
+// consumer's own malformed source accepted in total silence.
+// skip_comments() (tokenizer.cpp) now ends the stream with a single
+// diagnosed <EOF-token>, the SAME shape recover_from_forward_progress_
+// violation() (token_progress_recovery.hpp) already uses for the
+// internal-defect case - here for a genuine CONSUMER input error, never
+// glintfx's own.
+GLINTFX_TEST(gltfx_gfss_tokenize_unterminated_comment_at_eof_expects_closing_comment) {
+    const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("/* unterminated");
+    GLINTFX_CHECK(!tokens.empty());
+    if (!tokens.empty()) {
+        GLINTFX_CHECK(tokens.front().kind == gltfx_gfss_token_kind::eof);
+        GLINTFX_CHECK(tokens.front().diagnostic.expected == std::string_view{"closing_comment"});
+        // THE OPENING "/*", NOT EOF (this fatia's own service order,
+        // TODO.md, verbatim): the consumer needs to know WHERE it forgot
+        // to close the comment, not where the file happened to end.
+        GLINTFX_CHECK_EQ(tokens.front().diagnostic.line, static_cast<std::uint32_t>(1));
+        GLINTFX_CHECK_EQ(tokens.front().diagnostic.column, static_cast<std::uint32_t>(1));
+    }
+}
+
+// SAME condition, but the comment does NOT open at column 1 - proves
+// the diagnosed position is the comment's own "/*", not a hard-coded
+// "start of source" that would coincidentally match the test above.
+GLINTFX_TEST(gltfx_gfss_tokenize_unterminated_comment_diagnostic_points_at_its_own_opening_slash) {
+    const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("a; /* unterminated");
+    GLINTFX_CHECK(!tokens.empty());
+    if (!tokens.empty()) {
+        GLINTFX_CHECK(tokens.back().kind == gltfx_gfss_token_kind::eof);
+        GLINTFX_CHECK(tokens.back().diagnostic.expected == std::string_view{"closing_comment"});
+        GLINTFX_CHECK_EQ(tokens.back().diagnostic.line, static_cast<std::uint32_t>(1));
+        // "a; " is 3 code points (columns 1-3), the space at column 3 is
+        // consumed as its own <whitespace-token> BEFORE skip_comments()
+        // ever runs again, so the comment's own "/" starts at column 4.
+        GLINTFX_CHECK_EQ(tokens.back().diagnostic.column, static_cast<std::uint32_t>(4));
+    }
+}
+
+// SEVERAL well-formed comments IN A ROW, then an unterminated one: the
+// diagnosed position is the LAST comment's own opening, never the
+// first - proves skip_comments()'s own `while` loop re-captures the
+// opening position on every iteration instead of remembering only the
+// very first one.
+GLINTFX_TEST(
+    gltfx_gfss_tokenize_unterminated_comment_after_several_well_formed_ones_points_at_the_last) {
+    const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("/*ok*//*ok*//*bad");
+    GLINTFX_CHECK(!tokens.empty());
+    if (!tokens.empty()) {
+        GLINTFX_CHECK(tokens.front().kind == gltfx_gfss_token_kind::eof);
+        GLINTFX_CHECK(tokens.front().diagnostic.expected == std::string_view{"closing_comment"});
+        GLINTFX_CHECK_EQ(tokens.front().diagnostic.line, static_cast<std::uint32_t>(1));
+        // "/*ok*/" (6) + "/*ok*/" (6) = 12 code points before the third
+        // comment's own opening "/" - 1-based column, so 13.
+        GLINTFX_CHECK_EQ(tokens.front().diagnostic.column, static_cast<std::uint32_t>(13));
+    }
+}
+
 // --- position tracking: line/column, and a code-point-aware ident ----
 
 GLINTFX_TEST(gltfx_gfss_tokenize_tracks_line_and_column_across_a_newline) {
@@ -336,10 +398,56 @@ GLINTFX_TEST(recover_from_forward_progress_violation_signals_the_consumer_not_a_
 // produces it, so it stays correct un-narrowed; only the four DIRECTED
 // production checks further down are scoped to what this binary can
 // actually exercise.
-static_assert(glintfx::style::detail::k_expected_vocabulary_count == 12,
-              "GODS_LAWS.md L-40: diagnostic_vocabulary.hpp's list changed - update the count "
-              "here (this file proves format only, not production, for any identifier this "
-              "tokenizer itself does not produce)");
+// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): this used to be
+// static_assert(k_expected_vocabulary_count == 12, ...) - a human
+// tripwire, not a mechanical binding. Bumping that literal by hand
+// proved the LIST's total size changed, but nothing tied the bump to
+// this file actually PROVING a new tokenizer identifier's production -
+// an identifier could be added to diagnostic_vocabulary.hpp, the
+// literal bumped, and diagnostic_vocabulary_is_enumerated_closed_and_
+// every_identifier_is_produced below would keep passing, having proven
+// only FORMAT (snake_case, non-empty) for it, never a real diagnostic.
+// diagnostic_vocabulary.hpp now tags every entry with the producer that
+// owns it and exposes count_owned_by() - counted MECHANICALLY from that
+// SAME list, the same technique gltfx_gfss_token_kind_count (token.hpp)
+// already uses. k_tokenizer_diagnostic_samples below is this file's own
+// directed-production table for the tokenizer's three source-driven
+// diagnostics; the static_assert ties its size (plus the one identifier
+// only reachable through the recovery atom directly, see the comment on
+// the table below) to count_owned_by(tokenizer) - an identifier added to
+// the shared list under gfss_diagnostic_producer::tokenizer with no
+// matching row here now FAILS TO COMPILE.
+struct diagnostic_sample {
+    std::string_view source;
+    std::string_view expected_identifier;
+};
+
+// The FOUR tokenizer-owned diagnostics reachable through a single call
+// to gltfx_gfss_tokenize() - closing_quote (4.3.5), closing_parenthesis
+// (4.3.6's own bad-url path), escape_sequence (4.3.1's own U+005C
+// branch) and closing_comment (GFSS-COMMENT-DIAG, TODO.md: 4.3.2's own
+// EOF branch, previously silent - see skip_comments()'s own header
+// comment in tokenizer.cpp). internal_tokenizer_defect, the fifth
+// tokenizer-owned identifier, is deliberately NOT reachable this way
+// (token_progress_recovery.hpp's own header comment: it fires only on
+// an internal forward-progress violation, provoked directly via the
+// recovery atom, never through a source string) - it is the "+ 1" in
+// the static_assert below, proven for real by recover_from_forward_
+// progress_violation_signals_the_consumer_not_a_plausible_token above
+// and by this test's own direct-recovery block further down.
+constexpr std::array<diagnostic_sample, 4> k_tokenizer_diagnostic_samples{{
+    {"'abc\n", glintfx::style::detail::k_expected_closing_quote},
+    {"url(foo bar)", glintfx::style::detail::k_expected_closing_parenthesis},
+    {"\\\nfoo", glintfx::style::detail::k_expected_escape_sequence},
+    {"/* unterminated", glintfx::style::detail::k_expected_closing_comment},
+}};
+
+static_assert(k_tokenizer_diagnostic_samples.size() + 1 ==
+                  count_owned_by(gfss_diagnostic_producer::tokenizer),
+              "GODS_LAWS.md L-40 (GFSS-VOCAB-BIND): diagnostic_vocabulary.hpp's tokenizer-owned "
+              "identifiers changed - add a directed production row to "
+              "k_tokenizer_diagnostic_samples above (or account for it in the +1 if it can only "
+              "be reached via the recovery atom directly); this does not compile otherwise");
 
 GLINTFX_TEST(diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_produced) {
     using glintfx::style::detail::k_expected_vocabulary;
@@ -370,36 +478,29 @@ GLINTFX_TEST(diagnostic_vocabulary_is_enumerated_closed_and_every_identifier_is_
                  "{} identifier(s) swept",
                  swept);
 
-    {
-        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("'abc\n");
+    // The tokenizer's own three source-driven diagnostics - looped from
+    // k_tokenizer_diagnostic_samples above, the SAME table the
+    // static_assert above binds to count_owned_by(tokenizer), so this
+    // loop and that compile-time floor can never silently disagree.
+    std::size_t tokenizer_produced = 0;
+    for (const diagnostic_sample &sample : k_tokenizer_diagnostic_samples) {
+        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize(sample.source);
         GLINTFX_CHECK(!tokens.empty());
         if (!tokens.empty()) {
-            GLINTFX_CHECK(tokens.front().diagnostic.expected == std::string_view{"closing_quote"});
+            GLINTFX_CHECK(tokens.front().diagnostic.expected == sample.expected_identifier);
         }
+        ++tokenizer_produced;
     }
-    {
-        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("url(foo bar)");
-        GLINTFX_CHECK(!tokens.empty());
-        if (!tokens.empty()) {
-            GLINTFX_CHECK(tokens.front().diagnostic.expected ==
-                          std::string_view{"closing_parenthesis"});
-        }
-    }
-    {
-        const std::vector<gltfx_gfss_token> tokens = gltfx_gfss_tokenize("\\\nfoo");
-        GLINTFX_CHECK(!tokens.empty());
-        if (!tokens.empty()) {
-            GLINTFX_CHECK(tokens.front().diagnostic.expected ==
-                          std::string_view{"escape_sequence"});
-        }
-    }
+    GLINTFX_CHECK_EQ(tokenizer_produced, k_tokenizer_diagnostic_samples.size());
     {
         glintfx::style::gltfx_gfss_cursor cursor{
             .source = "x", .byte_offset = 0, .line = 1, .column = 1};
         const gltfx_gfss_token recovered = recover_from_forward_progress_violation(cursor, 1, 1);
         GLINTFX_CHECK(recovered.diagnostic.expected ==
                       std::string_view{"internal_tokenizer_defect"});
+        ++tokenizer_produced; // the fourth, accounted for by the "+ 1" above.
     }
+    GLINTFX_CHECK_EQ(tokenizer_produced, count_owned_by(gfss_diagnostic_producer::tokenizer));
 }
 
 GLINTFX_TEST(gltfx_gfss_tokenize_a_short_declaration_like_slice) {

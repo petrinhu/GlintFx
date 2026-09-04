@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 // diagnostic_vocabulary.hpp - GFSS-TOKEN, private helper (GODS_LAWS.md
@@ -112,29 +113,67 @@
 // already use project-wide): every call site across this track's .cpp
 // files uses the NAMED constant below, never a literal string of its
 // own - the constant IS the spelling, checked once, here.
+//
+// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40, achado IMPORTANTE-baixo
+// of the 27/08/2026 re-review): k_expected_vocabulary_count above was
+// already mechanical - counted from this SAME list, never a hand-copied
+// literal - but nothing tied that count to "every identifier has a
+// producer that actually EMITS it". A real experiment proved the gap:
+// adding a 5th identifier here and bumping a TEST's own hand-written
+// literal (a static_assert of the form "count == 12") compiled clean
+// and printed a green "swept" count, with no production anywhere for
+// the new one - the test only proved FORMAT (snake_case, non-empty),
+// never that a producer's own code path ever attaches it to a real
+// gltfx_gfss_diagnostic. EACH ENTRY NOW NAMES THE PRODUCER THAT OWNS IT
+// (gfss_diagnostic_producer, the SAME split the project leader's
+// 27/08/2026 "one list for the track" decision already documents in
+// prose above - now load-bearing, not just narrated): tokenizer.cpp
+// (this track's own GFSS-TOKEN layer), selector_parse.cpp
+// (GFSS-SEL-PARSE-CORE) and value_parse.cpp (GFSS-VALUE).
+// count_owned_by() below is counted from THIS list, the same technique
+// gltfx_gfss_token_kind_count (token.hpp) already uses for the token
+// vocabulary itself - each producer's own test file (gfss_tokenizer_
+// test.cpp, gfss_selector_parse_test.cpp, gfss_value_test.cpp) ties its
+// own directed-production table's size to count_owned_by(that
+// producer) via static_assert, so an identifier added here under an
+// EXISTING producer with no matching production row in that producer's
+// own test file now FAILS TO COMPILE instead of passing a stale count.
 
 namespace glintfx::style::detail {
 
+// Which producer file EMITS a diagnostic carrying this identifier - see
+// this header's own GFSS-VOCAB-BIND paragraph above for why this exists
+// and gfss_diagnostic_entry/k_expected_entries/count_owned_by() below
+// for how a producer's own test proves it against this tag.
+enum class gfss_diagnostic_producer : std::uint8_t {
+    tokenizer,      // src/gfss/tokenizer.cpp (GFSS-TOKEN)
+    selector_parse, // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE)
+    value_parse,    // src/gfss/value_parse.cpp (GFSS-VALUE)
+};
+
 #define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                   \
-    X(closing_quote)                                                                               \
-    X(closing_parenthesis)                                                                         \
-    X(escape_sequence)                                                                             \
-    X(internal_tokenizer_defect)                                                                   \
-    X(simple_selector)                                                                             \
-    X(identifier_after_dot)                                                                        \
-    X(identifier_after_colon)                                                                      \
-    X(known_pseudo_class)                                                                          \
-    X(known_pseudo_function)                                                                       \
-    X(comma_or_end_of_selector_list)                                                               \
-    X(component_value)                                                                             \
-    X(known_dimension_unit)
+    X(closing_quote, tokenizer)                                                                    \
+    X(closing_parenthesis, tokenizer)                                                              \
+    X(escape_sequence, tokenizer)                                                                  \
+    X(internal_tokenizer_defect, tokenizer)                                                        \
+    X(closing_comment, tokenizer)                                                                  \
+    X(simple_selector, selector_parse)                                                             \
+    X(identifier_after_dot, selector_parse)                                                        \
+    X(identifier_after_colon, selector_parse)                                                      \
+    X(known_pseudo_class, selector_parse)                                                          \
+    X(known_pseudo_function, selector_parse)                                                       \
+    X(comma_or_end_of_selector_list, selector_parse)                                               \
+    X(component_value, value_parse)                                                                \
+    X(known_dimension_unit, value_parse)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its
 // string spelling can never drift apart - the same guarantee
 // err_code.cpp's table gives gltfx_err_code_name() by hand, here made
-// structural instead.
-#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT(name)                                            \
+// structural instead. The producer tag is unused BY THIS macro - it
+// only spells the constant; gfss_diagnostic_entry/count_owned_by()
+// below are what read the producer.
+#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT(name, producer)                                  \
     inline constexpr std::string_view k_expected_##name{#name};
 GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT)
 #undef GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT
@@ -144,7 +183,7 @@ GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_CONSTANT)
 // token.hpp's own gltfx_gfss_token_kind_count already uses).
 inline constexpr std::size_t k_expected_vocabulary_count = [] {
     std::size_t count = 0;
-#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_COUNT_ONE(name) ++count;
+#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_COUNT_ONE(name, producer) ++count;
     GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_COUNT_ONE)
 #undef GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_COUNT_ONE
     return count;
@@ -155,11 +194,45 @@ inline constexpr std::size_t k_expected_vocabulary_count = [] {
 // never a hand-picked subset, and a fifth identifier added to the list
 // above appears here with no second edit.
 inline constexpr std::array<std::string_view, k_expected_vocabulary_count> k_expected_vocabulary{
-#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ARRAY_ONE(name) k_expected_##name,
+#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ARRAY_ONE(name, producer) k_expected_##name,
     GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ARRAY_ONE)
 #undef GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ARRAY_ONE
 };
 
+// One identifier/producer PAIR per list entry - the structural link
+// count_owned_by() below walks. Mechanically built the SAME way as
+// k_expected_vocabulary above (same X-macro pass, same source list), so
+// a row can never exist in one array and not the other.
+struct gfss_diagnostic_entry {
+    std::string_view identifier;
+    gfss_diagnostic_producer producer;
+};
+
+inline constexpr std::array<gfss_diagnostic_entry, k_expected_vocabulary_count> k_expected_entries{
+#define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ENTRY_ONE(name, producer)                                 \
+    gfss_diagnostic_entry{k_expected_##name, gfss_diagnostic_producer::producer},
+    GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ENTRY_ONE)
+#undef GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_ENTRY_ONE
+};
+
 #undef GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST
+
+// How many identifiers this list assigns to `producer` - counted
+// MECHANICALLY from k_expected_entries above, never a hand-copied
+// literal (this header's own GFSS-VOCAB-BIND paragraph). Each
+// producer's own test file static_asserts its directed-production
+// table's size against this call, so a new identifier added under an
+// EXISTING producer with no matching production row now fails to
+// compile in THAT producer's own test binary, instead of silently
+// passing a stale hand-written count.
+[[nodiscard]] constexpr std::size_t count_owned_by(gfss_diagnostic_producer producer) noexcept {
+    std::size_t count = 0;
+    for (const gfss_diagnostic_entry &entry : k_expected_entries) {
+        if (entry.producer == producer) {
+            ++count;
+        }
+    }
+    return count;
+}
 
 } // namespace glintfx::style::detail

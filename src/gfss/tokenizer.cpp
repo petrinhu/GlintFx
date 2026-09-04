@@ -21,7 +21,7 @@
 // (closed vocabulary, raw-lexeme scope, why this never returns
 // gltfx_rslt<T>).
 //
-// EVERY "this is a parse error" IN THE SPEC BECOMES ONE OF THREE
+// EVERY "this is a parse error" IN THE SPEC BECOMES ONE OF FOUR
 // SPEC-DRIVEN gltfx_gfss_diagnostic::expected TOKENS (design choice
 // made HERE, GODS_LAWS.md L-27, marked INFERENCE - the spec names the
 // CONDITION, never a machine-readable label for it), each spelled from
@@ -32,11 +32,26 @@
 // starting a valid escape, 4.3.1's own U+005C branch) - each is
 // attached to the SAME token the spec already says to return at that
 // point, never invented on a token the grammar itself does not
-// produce. Unterminated comments (4.3.2's own EOF branch) do NOT get a
-// diagnostic in this slice - the grammar produces no token of any kind
-// for a comment, so there is nothing to attach one to without
-// inventing a mechanism the service order for this fatia did not ask
-// for (scope cut, declared, not silent).
+// produce.
+//
+// UNTERMINATED COMMENTS ARE THE FOURTH, ADDED BY GFSS-COMMENT-DIAG
+// (TODO.md, GODS_LAWS.md L-28's own "linha aceita em silencio e o
+// defeito que o lider mandou eliminar") - UNLIKE THE OTHER THREE, THE
+// GRAMMAR PRODUCES NO TOKEN OF ANY KIND FOR A COMMENT AT ALL (4.3.2's
+// own EOF branch, section 2.2's own "the parser attempts to recover
+// gracefully" philosophy this file's own header comment already cites
+// for strings/urls does not extend to comments the same way - a
+// comment simply vanishes, well-formed or not). This slice used to cut
+// that case on purpose, declared not silent (see the git history of
+// this comment) - the leader's order of service reopened it: a
+// comment that runs into EOF before its own "*/" now ends the WHOLE
+// token stream with a single diagnosed <EOF-token>, the SAME shape
+// token_progress_recovery.hpp's own recover_from_forward_progress_
+// violation() already uses for an internal defect - here for a
+// genuine CONSUMER input error instead, "closing_comment" naming what
+// this identifier's own condition is, never blaming glintfx for the
+// consumer's own unclosed comment. See skip_comments() below for the
+// position rule (the comment's own opening "/*", never EOF).
 //
 // A FOURTH TOKEN, "internal_tokenizer_defect", NAMES SOMETHING THE
 // SPEC HAS NO CONCEPT OF: THIS LIBRARY FAILING ITS OWN INTERNAL
@@ -62,6 +77,7 @@ using detail::is_ident_start;
 using detail::is_non_printable;
 using detail::is_valid_escape;
 using detail::is_whitespace;
+using detail::k_expected_closing_comment;
 using detail::k_expected_closing_parenthesis;
 using detail::k_expected_closing_quote;
 using detail::k_expected_escape_sequence;
@@ -114,22 +130,35 @@ void consume_whitespace(gltfx_gfss_cursor &cursor) noexcept {
     }
 }
 
-// 4.3.2 "Consume comments". No diagnostic on the EOF branch - see this
-// file's own header comment on why that scope cut is declared, not
-// silent.
-void skip_comments(gltfx_gfss_cursor &cursor) noexcept {
+// 4.3.2 "Consume comments". Returns true when every comment in the run
+// (zero, one, or several in a row) closed cleanly; false, with
+// `diagnostic` filled, the moment ONE of them runs into EOF before its
+// own "*/" - GFSS-COMMENT-DIAG (TODO.md, this file's own header comment
+// above). `diagnostic` is positioned at THAT comment's OWN opening
+// "/*" (comment_line/comment_column below, captured BEFORE advancing
+// past it), never at EOF - a consumer needs to know WHERE it forgot to
+// close the comment, not where the file happened to end. Captured
+// fresh on every loop iteration (not just the first), so several
+// well-formed comments followed by an unterminated one point at THAT
+// LAST one, never the first.
+bool skip_comments(gltfx_gfss_cursor &cursor, gltfx_gfss_diagnostic &diagnostic) noexcept {
     while (peek(cursor) == '/' && peek(cursor, 1) == '*') {
+        const std::uint32_t comment_line = cursor.line;
+        const std::uint32_t comment_column = cursor.column;
         advance_code_point(cursor);
         advance_code_point(cursor);
         while (!at_end(cursor) && !(peek(cursor) == '*' && peek(cursor, 1) == '/')) {
             advance_code_point(cursor);
         }
         if (at_end(cursor)) {
-            return;
+            diagnostic = gltfx_gfss_diagnostic{
+                .line = comment_line, .column = comment_column, .expected = k_expected_closing_comment};
+            return false;
         }
         advance_code_point(cursor); // '*'
         advance_code_point(cursor); // '/'
     }
+    return true;
 }
 
 // 4.3.1 U+0023 branch.
@@ -432,7 +461,28 @@ gltfx_gfss_token_kind dispatch_token(gltfx_gfss_cursor &cursor,
 } // namespace
 
 bool gltfx_gfss_next_token(gltfx_gfss_cursor &cursor, gltfx_gfss_token &out_token) noexcept {
-    skip_comments(cursor);
+    gltfx_gfss_diagnostic comment_diagnostic{};
+    if (!skip_comments(cursor, comment_diagnostic)) {
+        // GFSS-COMMENT-DIAG: a comment ran into EOF before its own
+        // "*/" - end the WHOLE stream with a single diagnosed
+        // <EOF-token>, positioned at the comment's own opening "/*"
+        // (comment_diagnostic already carries that position, never
+        // EOF's) - the SAME shape recover_from_forward_progress_
+        // violation() uses for an internal defect, here for a genuine
+        // consumer input error instead. skip_comments()'s own inner
+        // loop already advanced `cursor` to source.size() on this path
+        // (the "!at_end(cursor)" guard is what stopped it), so every
+        // SUBSEQUENT call observes genuine EOF structurally, the same
+        // guarantee the internal-defect recovery path documents below.
+        out_token = gltfx_gfss_token{
+            .kind = gltfx_gfss_token_kind::eof,
+            .lexeme = std::string_view{},
+            .line = comment_diagnostic.line,
+            .column = comment_diagnostic.column,
+            .diagnostic = comment_diagnostic,
+        };
+        return false;
+    }
 
     const std::uint32_t start_line = cursor.line;
     const std::uint32_t start_column = cursor.column;

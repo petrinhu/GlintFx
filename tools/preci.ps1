@@ -661,3 +661,31 @@ if ($Selftest) {
 } else {
     Main
 }
+
+# GATE-PS-EXITCODE (04/09/2026, GODS_LAWS.md L-45/L-40 - achado do
+# autoteste imprimindo "TODOS OS CONTROLES PASSARAM" e mesmo assim
+# derrubando o job com "Process completed with exit code 1"). Sem este
+# `exit 0` explicito, `pwsh -File` devolve como codigo de saida do
+# PROCESSO o $LASTEXITCODE do ULTIMO comando nativo executado em
+# qualquer ponto do script - nao "o ultimo comando que falhou de
+# verdade", o ultimo que RODOU, mesmo que a falha dele ja tenha sido
+# capturada e tratada corretamente antes. O controle de falha real de git
+# (Invoke-SelfTestUntrackedGuardGitFailureControl, acima) chama
+# deliberadamente `git ls-files` num diretorio sem `.git` - isso e
+# CORRETO, e o proprio ponto do controle (GODS_LAWS.md L-40: falha real
+# de git tem que lancar excecao, nunca virar "nao achei nada, entao
+# passa"), e o `catch` em volta trata a excecao como esperado. Mas
+# `throw` NAO limpa $LASTEXITCODE (ele fica em 128, o codigo de saida
+# real daquele `git` que falhou de proposito), e como nenhum comando
+# nativo roda depois dele no caminho -Selftest (as duas checagens de
+# contagem do ctest sao PowerShell puro), esse 128 sobrevive ate o fim
+# do script e vaza como o exit code do PROCESSO INTEIRO - exatamente o
+# defeito inverso que esta casa persegue (GODS_LAWS.md L-45: comando que
+# falha de forma legitima e esperada nao pode sujar o resultado final).
+# `Fail` (acima) ja chama `exit 1` explicitamente em todo caminho de
+# reprovacao real; este `exit 0` cobre o unico caminho que faltava - o
+# de sucesso - tornando o codigo de saida do processo dependente SO do
+# resultado declarado (TUDO VERDE / TODOS OS CONTROLES PASSARAM), nunca
+# de residuo de $LASTEXITCODE deixado por um comando nativo que rodou
+# em algum ponto anterior do script, tratado ou nao.
+exit 0

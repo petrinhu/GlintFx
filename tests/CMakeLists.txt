@@ -1389,25 +1389,37 @@ endif()
 # cases in shared mode and M in static mode") - a sentence that had
 # already gone stale once, three commits earlier, with nothing to
 # catch it (README/CHANGELOG said 33/32 while the real ctest -N count
-# was already 34/33). check_readme_test_count.sh compares the prose
+# was already 34/33). check_readme_test_count.py compares the prose
 # number against THIS build's own `ctest -N` total and reproves on any
 # mismatch, with GODS_LAWS.md L-40's empty-scan floor covering the
 # case where the sentence itself is rewritten or moved and the regex
-# stops matching anything. POSIX sh; same declared downgrade as every
-# other gate in this file (Windows has no `sh` by default).
-if(UNIX)
-    add_test(
-        NAME readme_test_count_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.sh"
-            "${PROJECT_SOURCE_DIR}/README.md"
-            "${PROJECT_BINARY_DIR}"
-            "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,shared,static>"
-    )
-    set_tests_properties(readme_test_count_test PROPERTIES LABELS consume)
+# stops matching anything.
+#
+# PORTED from POSIX sh (tests/tools/check_readme_test_count.sh, retired
+# in this same fatia) to python3 and registered WITHOUT an if(UNIX)
+# guard (GODS_LAWS.md L-04, decisao do lider de 02/09/2026: "O
+# comportamento deve ser igual em qualquer OS" - the same shape
+# spdx_test/hygiene_coverage_test above already proved). README-COUNT-
+# PARITY (TODO.md, medido em 02/09/2026): README.md now states TWO
+# independent sentences ("On Linux," / "On Windows,"), because the two
+# platforms genuinely register different totals (several if(UNIX)-only
+# gates never entered the Windows run); check_readme_test_count.py
+# picks the sentence that matches the platform THIS ctest run is
+# actually executing on, so it enforces Windows's own claim on Windows,
+# not the Linux one.
+add_test(
+    NAME readme_test_count_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.py"
+        "${PROJECT_SOURCE_DIR}/README.md"
+        "${PROJECT_BINARY_DIR}"
+        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,shared,static>"
+)
+set_tests_properties(readme_test_count_test PROPERTIES LABELS consume)
 
-    add_test(
-        NAME readme_test_count_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.sh" --selftest
-    )
-    set_tests_properties(readme_test_count_selftest PROPERTIES LABELS selftest)
-endif()
+add_test(
+    NAME readme_test_count_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.py" --selftest
+)
+set_tests_properties(readme_test_count_selftest PROPERTIES LABELS selftest)

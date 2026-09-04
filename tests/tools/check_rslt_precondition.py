@@ -241,6 +241,20 @@ def compile_fixture(includedir, generated_includedir, linkerdir, cxx, compiler_i
     return subprocess.run(command, capture_output=True, text=True)
 
 
+def normalize_posix_signal_exit_status(returncode):
+    """Python's own subprocess.returncode uses POSIX's NATIVE convention
+    (negative = killed by signal -returncode), not the SHELL convention
+    (128 + signal) the predecessor .sh script's `$?` used and that this
+    file's own POSIX_SIGSEGV_EXIT_STATUS=139 is written against - caught
+    live (this fatia's own first ctest run: release/void reported -11,
+    not 139, for the exact same SIGSEGV). Windows never returns a
+    negative returncode for this reason (no POSIX signal delivery), so
+    this is a no-op there."""
+    if returncode is not None and returncode < 0:
+        return 128 - returncode
+    return returncode
+
+
 def run_capture(binary, case_arg, runtimedir, compiler_id):
     env = os.environ.copy()
     if is_msvc(compiler_id):
@@ -256,7 +270,7 @@ def run_capture(binary, case_arg, runtimedir, compiler_id):
             env=env,
             timeout=FIXTURE_TIMEOUT_SECONDS,
         )
-        return result.returncode, result.stdout + result.stderr
+        return normalize_posix_signal_exit_status(result.returncode), result.stdout + result.stderr
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
         stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")

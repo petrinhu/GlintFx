@@ -170,7 +170,11 @@ def real_main(args):
 
 
 def make_scratch_workdir():
-    return tempfile.mkdtemp(prefix="glintfx-layers-selftest-", dir=os.environ.get("TMPDIR", "/tmp"))
+    # A hand written Unix path does not exist on every platform (Windows
+    # has no /tmp). dir=os.environ.get("TMPDIR") without a hardcoded
+    # fallback lets tempfile.mkdtemp fall through to gettempdir(), which
+    # already checks TMPDIR/TEMP/TMP and then the platform default.
+    return tempfile.mkdtemp(prefix="glintfx-layers-selftest-", dir=os.environ.get("TMPDIR"))
 
 
 def make_clean_fixture(root):

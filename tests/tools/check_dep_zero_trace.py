@@ -304,9 +304,11 @@ FETCH_MODULE_BASENAMES = frozenset({
 # bites on the project's OWN CMake surface, not only on fixtures.
 # tests/CMakeLists.txt now uses find_program() instead (see that
 # file's own comment on the switch: find_package(Python3 ...) is
-# ALSO watched by check_dep_zero.sh, the older, still-active,
-# text-based gate this fatia is explicitly forbidden from editing -
-# find_program() satisfies both oracles without widening scope).
+# ALSO watched by check_dep_zero.py (check_dep_zero.sh at the time
+# this note was written, ported to Python since, DEPZERO-GATE-PY),
+# the sibling text-based gate this fatia is explicitly forbidden from
+# editing - find_program() satisfies both oracles without widening
+# scope).
 # "python3"/"Python3" is therefore NOT in this allowlist: nothing in
 # this project's real CMake surface calls find_package(Python3)
 # anymore, and adding an unused entry would be exactly the kind of
@@ -1612,6 +1614,10 @@ def real_main(argv):
     if not os.path.isdir(build_dir):
         fail(f"build directory not found: {build_dir}")
 
+    # A hand written Unix path does not exist on every platform (Windows
+    # has no /tmp). dir=os.environ.get("TMPDIR") with no hardcoded
+    # fallback lets tempfile.mkdtemp fall through to gettempdir(), which
+    # already checks TMPDIR/TEMP/TMP and then the platform default.
     scratch = tempfile.mkdtemp(
         prefix="glintfx-dep-zero-trace-", dir=os.environ.get("TMPDIR")
     )
@@ -1664,6 +1670,10 @@ def real_main(argv):
 
 
 def make_scratch_workdir():
+    # A hand written Unix path does not exist on every platform (Windows
+    # has no /tmp). dir=os.environ.get("TMPDIR") with no hardcoded
+    # fallback lets tempfile.mkdtemp fall through to gettempdir(), which
+    # already checks TMPDIR/TEMP/TMP and then the platform default.
     return tempfile.mkdtemp(
         prefix="glintfx-dep-zero-trace-selftest-", dir=os.environ.get("TMPDIR")
     )

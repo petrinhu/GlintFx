@@ -36,6 +36,17 @@
 #       this sub-check is SKIPPED WITH A PRINTED REASON (a static
 #       archive has no dynamic symbol table at all) - never silently.
 #
+# PORT-PRIVACY-WIN (GODS_LAWS.md L-04 reabertura por paridade,
+# 03/09/2026): sub-check (d) above (nm -D + c++filt) only ever reads the
+# Linux .so's dynamic symbol table - it has NEVER inspected glintfx.dll's
+# own export table, even though sub-checks (a)/(b)/(c) already scan
+# src/platform/ and include/glintfx/ UNCONDITIONALLY (see this file's own
+# KNOWN_ADAPTER_CLASSES comment on win32_display_adapter). tools/ci/
+# check-port-privacy-win.ps1 is the Windows counterpart (dumpbin
+# /exports, run from the `windows` CI job, never from this file) - its
+# own KNOWN_ADAPTER_CLASSES/KNOWN_PORT_NAMES MUST stay identical to the
+# ones below, by hand, in the same commit that ever changes either.
+#
 # Usage:
 #   check_port_privacy.sh <source-root-directory> <path-to-.so-or-NONE>
 #   check_port_privacy.sh --selftest

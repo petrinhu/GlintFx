@@ -242,6 +242,14 @@
 # suspends the law, and an unaudited emergency shortcut defeats that
 # by construction). ***
 #
+# DEPZERO-PARITY-WIN (GODS_LAWS.md L-04 reabertura por paridade,
+# 03/09/2026): sub-check (c) above (readelf -d) only ever reads the
+# Linux .so - it has NEVER inspected glintfx.dll's own import table.
+# tools/ci/check-dep-zero-win.ps1 is the Windows counterpart (dumpbin
+# /imports, run from the `windows` CI job, never from this file) - read
+# that script's own header before assuming Windows parity for (c) is
+# covered here, or before touching either allowlist.
+#
 # Usage:
 #   check_dep_zero.sh <source-root-directory> <path-to-.so-or-NONE>
 #   check_dep_zero.sh --staged <source-root-directory>

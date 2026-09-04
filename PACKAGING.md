@@ -620,7 +620,7 @@ automated regression test, not just prose:
   where `glintfx.pc`'s own `prefix=` line never references
   `${pcfiledir}` at all), proving the `${pcfiledir}` substitution step
   is a correct no-op when there is nothing to substitute.
-- `tests/tools/check_blank_install_dir_rejected.sh` exercises the
+- `tests/tools/check_blank_install_dir_rejected.py` exercises the
   blank-value rejection described under "NOT supported" above: it
   confirms configure fails with glintfx's own error message, naming
   the offending variable, rather than succeeding and only failing

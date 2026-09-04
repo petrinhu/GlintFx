@@ -59,81 +59,126 @@
 # "#ifdef GUARD"/"#if defined(GUARD)" for a symbol nothing in a NORMAL
 # include chain ever defines, so the macro never becomes active in
 # default preprocessing - proved by asking the SAME real compiler
-# (macro_active_under_default_preprocessing below), never a hand-rolled
-# nested-#ifdef parser. Third: the matched FILE itself is not valid
-# C/C++ preprocessor text at all (PCP's own /usr/include/pcp/builddefs,
-# a Makefile fragment sharing a directory with real headers) - proved
-# the same way, by asking the compiler. None of the three shapes is
-# silently dropped - classify_matches() below tags EACH neutralized
-# line with WHICH of the three reasons applied (GODS_LAWS.md L-40's "a
-# contagem aparece na saida, mesmo quando passa").
+# (macro_active_under_default_preprocessing_gcc/_msvc below), never a
+# hand-rolled nested-#ifdef parser. Third: the matched FILE itself is
+# not valid C/C++ preprocessor text at all (PCP's own /usr/include/pcp/
+# builddefs, a Makefile fragment sharing a directory with real headers)
+# - proved the same way, by asking the compiler. None of the three
+# shapes is silently dropped - classify_matches() below tags EACH
+# neutralized line with WHICH of the three reasons applied (GODS_
+# LAWS.md L-40's "a contagem aparece na saida, mesmo quando passa").
 #
 # WHERE THIS SCANS, DECLARED (policy decision 3): the compiler's OWN
-# system include search path, discovered live via
-# `${cxx} -E -Wp,-v -xc++ -` (the "#include <...> search starts here:"
-# / "End of search list." markers every GCC-frontend prints). This is
-# NOT a hardcoded /usr/include: it also reaches the compiler's own
-# bundled C++ standard library headers, and it recurses cleanly on a
-# distro where /usr/include is thin or absent, because it asks the
-# compiler, never assumes a path. If discovery yields ZERO directories
-# - compiler missing, or a broken toolchain - this is a HARD FAILURE
-# (require_nonempty_scan below), never a silent skip.
+# documented system header search path - never a hardcoded /usr/include
+# or a hardcoded Program Files path. Two different, frontend-specific
+# ways to ask that same question, both below (discover_system_include_
+# dirs_gcc/_msvc): GNU/Clang expose it only by asking the compiler
+# process itself (`${cxx} -E -Wp,-v -xc++ -`); MSVC exposes it directly
+# as the INCLUDE environment variable (see NAMES-PARITY-WIN below) - no
+# compiler invocation needed to read it. If discovery yields ZERO
+# directories - compiler missing, INCLUDE unset, or a broken toolchain
+# - this is a HARD FAILURE (require_nonempty_scan below), never a
+# silent skip.
 #
-# PORTABILITY, DECLARED AND COUNTED (GATE-TREE-PARITY, revisao de
-# 04/09/2026 - o registro anterior desta fatia escondia o MSVC atras de
+# GATE-TREE-PARITY (GODS_LAWS.md L-04, revisao de 04/09/2026 - o
+# registro anterior desta fatia escondia o MSVC atras de
 # `if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")` no CMake, com um
-# message(STATUS ...) que só aparece no log de configuração - nenhum
-# inventário de teste (`ctest -N`) o enxerga, e o PARITY-GATE que
-# compara o inventário entre as pernas não distingue essa ausência de
-# um portão que sumiu sem ninguém notar. Corrigido seguindo o
-# PRECEDENTE da casa, commit ed14ba2 ("nome hostil inviavel no Windows
-# vira ausencia DECLARADA, nao pulo silencioso", tests/tools/
-# check_spdx.py): `${cxx} -E -Wp,-v -xc++ -` (descoberta do caminho de
-# busca de sistema) e `${cxx} -E -dM -xc++ <arquivo>` (despejo de
-# macros ativas, usado por classify_matches() em toda a superfície de
-# neutralização) são AMBAS convenções exclusivas de frontend GCC/Clang
-# - MSVC (cl.exe) usa `/E`/`/showIncludes` com semântica diferente e
-# não tem equivalente documentado para nenhuma das duas. Em vez de
-# nunca registrar o teste nessa plataforma, `public_name_collision_
-# test`/`public_name_collision_selftest` são registrados INCONDICIONAL-
-# MENTE nas cinco plataformas (tests/CMakeLists.txt), recebendo
-# CMAKE_CXX_COMPILER_ID como terceiro argumento; gcc_frontend_
-# discovery_available() abaixo decide, e sob MSVC o script EXISTE,
-# RODA e PASSA, imprimindo a contagem (1 caso, 0 exercido aqui, 1
-# declarado não aplicável, com o motivo) em vez de desaparecer do
-# `ctest -N`. O risco de colisão de macro no lado Windows (min/max/
-# ERROR/DELETE/IN/OUT/CONST/VOID/TRUE/FALSE/interface/small/near/far/
-# STRICT) continua coberto por um mecanismo DIFERENTE e já existente -
-# tests/header_hygiene_test.cpp's own core_error_use_sites_survive_
-# hostile_system_headers, que compila cada identificador público do
-# CORE-ERROR como expressão real sob windows.h no job Windows do CI -
-# este portão não o substitui, só declara explicitamente que não o
-# cobre, em vez de fingir cobertura silenciosamente.
+# `message(STATUS ...)` que so aparece no log de configuracao - nenhum
+# inventario de teste (`ctest -N`) o enxergava. Corrigido registrando o
+# teste INCONDICIONALMENTE nas cinco plataformas, com o script decidindo
+# em tempo de execucao (commit ed14ba2's own precedent, tests/tools/
+# check_spdx.py: "ausencia declarada e CONTADA, nunca pulo silencioso").
+# A PRIMEIRA versao dessa correcao (commit bb181ce) ainda deixava o
+# MSVC como "declarado NAO APLICAVEL": o mecanismo GCC-frontend
+# (`-E`/`-dM`/`-Wp,-v`/`-xc++`) genuinamente nao tem equivalente
+# documentado no MSVC, mas isso nao significava que o PORTAO em si era
+# inviavel no MSVC - so que a TECNICA usada do lado GNU/Clang era.
 #
-# Escape hatch para EXERCITAR o caminho MSVC fora do Windows real
-# (mesmo raciocínio do GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP
-# de check_spdx.py: "o mesmo codigo que o Windows real usa e
-# exercitavel aqui por variavel de ambiente, entao o tratamento nao e
-# promessa"): GLINTFX_PNC_FORCE_GCC_FRONTEND_UNAVAILABLE=1 força
-# gcc_frontend_discovery_available() a responder False mesmo com um
-# cxx_id GNU/Clang real.
+# NAMES-PARITY-WIN (GODS_LAWS.md L-04, tarefa do lider, 04/09/2026):
+# "O portao de colisao de nome publico nunca varre os cabecalhos do
+# sistema do Windows... Par: varrer o SDK na perna Windows." Pesquisado
+# (WebSearch, mesma data) antes de tentar, por forca da L-22:
+#
+#   1. DESCOBERTA DO CAMINHO DE BUSCA (equivalente a `-Wp,-v -xc++ -`):
+#      cl.exe documenta e LE diretamente a variavel de ambiente
+#      INCLUDE para resolver "#include <...>" - Microsoft Learn, "CL
+#      environment variables" (learn.microsoft.com/en-us/cpp/build/
+#      reference/cl-environment-variables). Mais direto ainda que o
+#      lado GCC: nao precisa nem invocar o compilador para descobrir -
+#      so ler a variavel, ja populada pelo `vcvarsall.bat x64` que
+#      .github/workflows/ci.yml's own "Preparar ambiente do compilador
+#      (MSVC x64)" (CI-WIN-ENV) roda ANTES de qualquer `cmake -S/-B` do
+#      job Windows, exportando cada variavel resultante (INCLUDE
+#      incluida) via $env:GITHUB_ENV para todos os passos seguintes -
+#      logo tambem para o passo `ctest` que executa este proprio
+#      script. discover_system_include_dirs_msvc() abaixo so le
+#      os.environ["INCLUDE"].
+#
+#   2. "ESTE NOME ESTA #define'D ATIVO" (equivalente a `-E -dM -xc++`):
+#      MSVC nao documenta nenhuma flag equivalente a `-dM` (pesquisado:
+#      nao existe "/PD" nem qualquer outra opcao de despejo de macros
+#      documentada para cl.exe). Mas a PERGUNTA que classify_matches()
+#      faz nao e "liste todas as macros" - e' "esta ESTE nome
+#      #define'd, sim ou nao, apos incluir este arquivo" - e essa
+#      pergunta tem resposta direta e padrao em qualquer preprocessador
+#      C/C++, incluindo o de cl.exe: a propria diretiva `#ifdef NAME`.
+#      macro_active_under_default_preprocessing_msvc() abaixo escreve
+#      um arquivo-sonda descartavel que inclui o cabecalho suspeito e
+#      testa `#ifdef NAME`, preprocessado com `/E /TP` (ambas opcoes
+#      documentadas e comuns do cl.exe - "/E", "preprocess to stdout";
+#      "/TP", "compile all files as .cpp"), procurando por um dos dois
+#      marcadores-sentinela na saida. Isto pergunta EXATAMENTE a mesma
+#      coisa que o despejo `-dM` do lado GCC (uma macro conta como
+#      "ativa" seja ela object-like ou function-like, mesma decisao de
+#      politica 2 acima) - e e ainda MAIS direto que uma abordagem por
+#      substituicao textual, que erraria uma macro function-like nunca
+#      seguida de "(" nesta sonda; `#ifdef` nao tem esse problema em
+#      NENHUM dos dois compiladores.
+#
+#   3. "ESTE ARQUIVO NAO E' CABECALHO C/C++ VALIDO" (equivalente ao
+#      "invalid preprocessing directive" do GCC): MSVC nomeia o MESMO
+#      defeito - uma linha "#palavra" que nao e' uma diretiva
+#      reconhecida - como erro fatal C1021, "invalid preprocessor
+#      command '<palavra>'" (Microsoft Learn, "Fatal Error C1021",
+#      learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/
+#      fatal-error-c1021). file_is_not_c_or_cpp_header_msvc() abaixo
+#      procura pelo CODIGO "C1021" na saida, nunca pelo texto ao redor
+#      dele (que e' traduzido por locale) - mais robusto ainda que o
+#      `LC_ALL=C` que o lado GCC precisa forcar para o mesmo motivo.
+#
+# VEREDITO: VIAVEL, com fonte. Os tres mecanismos acima sao usados por
+# discover_system_include_dirs_msvc(), macro_active_under_default_
+# preprocessing_msvc() e file_is_not_c_or_cpp_header_msvc() abaixo, e
+# public_name_collision_test PASSA A SER EXERCIDO de verdade no MSVC,
+# nao mais declarado nao aplicavel - cxx_frontend() abaixo so retorna
+# "unavailable" quando o escape hatch de teste (ver logo adiante) esta
+# forcado; nenhuma id de compilador real cai la por conta propria mais,
+# ja que .github/workflows/ci.yml's own matrix so produz "GNU" (Fedora/
+# Ubuntu/Arch/CachyOS) e "MSVC" (Windows), e os dois sao suportados
+# agora.
+#
+# Escape hatch para EXERCITAR o caminho de ausencia declarada fora de
+# um cenario real (mesmo raciocinio do
+# GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP de check_spdx.py):
+# GLINTFX_PNC_FORCE_GCC_FRONTEND_UNAVAILABLE=1 forca cxx_frontend() a
+# responder "unavailable" mesmo com um cxx_id real e suportado - o
+# UNICO jeito de alcancar esse caminho agora que GNU/Clang e MSVC sao
+# ambos suportados por conta propria; existe apenas para provar que o
+# codigo de ausencia declarada continua correto, nunca porque alguma
+# plataforma real precise dele.
 #
 # Usage:
 #   check_public_name_collision.py <include_dir> <cxx-compiler> <cxx-compiler-id>
 #   check_public_name_collision.py --selftest [cxx-compiler] [cxx-compiler-id]
 #
-# --selftest, quando o frontend GCC/Clang está disponível, roda oito
-# controles against throwaway fixtures under tempfile.mkdtemp, never
-# against the real include_dir or the real machine's system headers
-# (GODS_LAWS.md L-40's three mandatory controls - positive, negative,
-# empty-scan - plus FIVE specific to this gate: the same-file #undef
-# neutralization; the guard-inactive and guard-active pair for policy
-# decision 2's second neutralizing shape; the not-a-header shape for
-# the third; and a SECOND empty-scan floor for the system-header side,
-# independent of the "our names" side). Quando o frontend GCC/Clang
-# NÃO está disponível (MSVC, ou o escape hatch acima), nenhum dos oito
-# é exercitável (todos dependem de `-E -dM` para classificar #define) -
-# o autoteste declara isso, conta 1/1 como não aplicável, e passa.
+# --selftest roda os oito controles (GODS_LAWS.md L-40: positivo,
+# negativo, vazio - mais cinco especificos deste portao) usando o
+# MECANISMO do frontend detectado por cxx_frontend(cxx_id) - GCC/Clang
+# (run_gcc_selftest) ou MSVC (run_msvc_selftest) - sempre contra
+# fixtures descartaveis sob tempfile.mkdtemp, nunca contra o include_dir
+# real nem os cabecalhos de sistema reais da maquina. Quando o escape
+# hatch esta ativo, nenhum dos oito e' exercitavel - o autoteste declara
+# isso, conta 1/1 como nao aplicavel, e passa.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -150,22 +195,19 @@ _HEADER_EXTENSIONS = (".hpp", ".h", ".hh", ".hxx")
 
 _FORCE_GCC_FRONTEND_UNAVAILABLE_ENV = "GLINTFX_PNC_FORCE_GCC_FRONTEND_UNAVAILABLE"
 
-_GCC_FRONTEND_UNAVAILABLE_REASON = (
-    "o mecanismo inteiro deste portao depende de opcoes de linha de comando exclusivas "
-    "do frontend GCC/Clang - '-E', '-dM', '-Wp,-v' e '-xc++' - tanto para descobrir o "
-    "caminho de busca de headers de sistema do compilador ('${cxx} -E -Wp,-v -xc++ -') "
-    "quanto para despejar as macros ativas de um arquivo ('${cxx} -E -dM -xc++ <arquivo>'); "
-    "o MSVC (cl.exe) usa '/E'/'/showIncludes' com semantica diferente e nao tem "
-    "equivalente documentado para nenhuma das duas"
+_UNAVAILABLE_REASON = (
+    "o escape hatch de teste GLINTFX_PNC_FORCE_GCC_FRONTEND_UNAVAILABLE=1 esta ativo, "
+    "forcando esta execucao a se comportar como se nenhum mecanismo de introspeccao de "
+    "macro estivesse disponivel - nenhuma id de compilador real cai mais aqui por conta "
+    "propria: GNU/Clang (via '-E'/'-dM'/'-Wp,-v'/'-xc++') e MSVC (via a variavel de "
+    "ambiente INCLUDE mais uma sonda '#ifdef' preprocessada com '/E'/'/TP') sao ambos "
+    "suportados agora (GODS_LAWS.md L-04, NAMES-PARITY-WIN, ver o cabecalho deste arquivo)"
 )
 
-_GCC_FRONTEND_UNAVAILABLE_COVERAGE = (
-    "o risco de colisao de macro no lado Windows (min/max/ERROR/DELETE/IN/OUT/CONST/"
-    "VOID/TRUE/FALSE/interface/small/near/far/STRICT) ja e coberto por um mecanismo "
-    "DIFERENTE e ja existente - tests/header_hygiene_test.cpp's own "
-    "core_error_use_sites_survive_hostile_system_headers, que compila cada identificador "
-    "publico do CORE-ERROR como expressao real sob windows.h no job Windows do CI - este "
-    "portao nao o substitui, so declara que nao o cobre"
+_UNAVAILABLE_COVERAGE = (
+    "condicao sintetica, so para provar que o caminho de ausencia declarada continua "
+    "correto - nao ha lacuna de cobertura real por tras dela em nenhuma plataforma que "
+    ".github/workflows/ci.yml's own matrix produz hoje"
 )
 
 
@@ -174,29 +216,28 @@ def fail(message):
     sys.exit(1)
 
 
-def gcc_frontend_discovery_available(cxx_id):
-    """False when the compiler identified by `cxx_id` (CMAKE_CXX_
-    COMPILER_ID: "GNU" on Fedora/Ubuntu/Arch/CachyOS, "MSVC" on
-    windows-latest - the only two values .github/workflows/ci.yml's
-    own `instalar:` matrix produces today) does not support the
-    GCC-frontend convention this whole gate depends on. MSVC is the
-    only known-unavailable id; an unrecognized future id is treated as
-    AVAILABLE by default (fail toward exercising the real check, never
-    toward silently skipping it - GODS_LAWS.md L-40). The env var
-    escape hatch (see this file's own header) lets this answer False
-    on any platform, to prove the declared-absence code path without
-    needing a real Windows machine.
+def cxx_frontend(cxx_id):
+    """Which preprocessor-introspection technique this gate uses for the
+    compiler identified by `cxx_id` (CMAKE_CXX_COMPILER_ID). "gcc"
+    covers GNU and Clang, AND any unrecognized future id (fail toward
+    EXERCISING the check, never toward silently skipping it, GODS_
+    LAWS.md L-40); "msvc" is MSVC (cl.exe); "unavailable" is reachable
+    ONLY through the env-var escape hatch above - no compiler id
+    answers it on its own anymore, now that both ids .github/workflows/
+    ci.yml's own matrix produces are supported (NAMES-PARITY-WIN, see
+    this file's own header).
     """
     if os.environ.get(_FORCE_GCC_FRONTEND_UNAVAILABLE_ENV) == "1":
-        return False
-    return cxx_id != "MSVC"
+        return "unavailable"
+    if cxx_id == "MSVC":
+        return "msvc"
+    return "gcc"
 
 
-def print_gcc_frontend_unavailable(prefix):
+def print_frontend_unavailable(prefix):
     print(
         f"{prefix}: 1 caso, 0 exercido(s) aqui, 1 declarado NAO APLICAVEL nesta "
-        f"plataforma: {_GCC_FRONTEND_UNAVAILABLE_REASON}. Cobertura equivalente: "
-        f"{_GCC_FRONTEND_UNAVAILABLE_COVERAGE}."
+        f"execucao: {_UNAVAILABLE_REASON}. {_UNAVAILABLE_COVERAGE}."
     )
 
 
@@ -307,10 +348,10 @@ def enumerate_our_names(include_dir):
     return sorted(names)
 
 
-# --- system side: where to look, and what is defined there -----------
+# --- system side: where to look (frontend-specific discovery) ---------
 
 
-def discover_system_include_dirs(cxx):
+def discover_system_include_dirs_gcc(cxx):
     """GCC-frontend convention (see this script's own header, policy
     decision 3): the search path a real compile would use, never a
     hardcoded /usr/include.
@@ -340,6 +381,32 @@ def discover_system_include_dirs(cxx):
     return dirs
 
 
+def discover_system_include_dirs_msvc():
+    """MSVC-frontend equivalent (NAMES-PARITY-WIN, see this file's own
+    header): the compiler's OWN documented, exported search path for
+    angle-bracket "#include <...>" resolution is the INCLUDE
+    environment variable (Microsoft Learn, "CL environment variables")
+    - cl.exe reads it directly, and this project's own .github/
+    workflows/ci.yml populates it for every step of the windows job via
+    vcvarsall.bat x64 (see that file's own "Preparar ambiente do
+    compilador (MSVC x64)" / CI-WIN-ENV step). No compiler invocation
+    needed to read it, unlike discover_system_include_dirs_gcc() above.
+    Semicolon-separated (Windows PATH-list convention); an entry that
+    does not exist on disk is dropped here rather than failing -
+    require_nonempty_scan() at the call site is what turns a
+    genuinely empty/missing INCLUDE into a hard failure, never a silent
+    skip.
+    """
+    raw = os.environ.get("INCLUDE", "")
+    return [d for d in raw.split(";") if d and os.path.isdir(d)]
+
+
+def discover_system_include_dirs(frontend, cxx):
+    if frontend == "msvc":
+        return discover_system_include_dirs_msvc()
+    return discover_system_include_dirs_gcc(cxx)
+
+
 def list_files_under_dirs(dirs):
     files = []
     for d in dirs:
@@ -354,7 +421,8 @@ def scan_defines_in_files(files, names):
     """Every "#define NAME..." (object-like or function-like) in any
     of <files>, for any of <names>. Returns a list of (file, lineno,
     name) - already CLASSIFIED as a candidate match, not yet REAL vs
-    NEUTRALIZED (classify_matches() below does that).
+    NEUTRALIZED (classify_matches() below does that). Frontend-
+    agnostic: a plain text scan, identical on every platform.
     """
     if not names:
         return []
@@ -374,7 +442,8 @@ def scan_defines_in_files(files, names):
 
 
 # A #define is NEUTRALIZED (policy decision 2) if the SAME file also
-# #undef's the SAME name, anywhere in the file.
+# #undef's the SAME name, anywhere in the file. Frontend-agnostic: a
+# plain text scan.
 def name_is_undef_in_same_file(file_path, name):
     pattern = re.compile(rf"^\s*#\s*undef\s+{re.escape(name)}\b")
     try:
@@ -382,6 +451,9 @@ def name_is_undef_in_same_file(file_path, name):
             return any(pattern.match(line) for line in handle)
     except OSError:
         return False
+
+
+# --- GCC-frontend neutralization mechanics (asks the compiler) --------
 
 
 # A #define is NEUTRALIZED under a SECOND, independent reason (policy
@@ -396,7 +468,7 @@ def name_is_undef_in_same_file(file_path, name):
 # answers "active" (GODS_LAWS.md L-40: "recusar alto e melhor que
 # aprovar em silencio" - an unprovable case must never quietly turn
 # into a neutralization).
-def macro_active_under_default_preprocessing(file_path, name, cxx):
+def macro_active_under_default_preprocessing_gcc(file_path, name, cxx):
     try:
         proc = subprocess.run(
             [cxx, "-E", "-dM", "-xc++", file_path],
@@ -425,7 +497,7 @@ def macro_active_under_default_preprocessing(file_path, name, cxx):
 # directive"). LC_ALL=C forces English so this does not depend on the
 # machine's locale - the same reason this whole gate asks the REAL
 # compiler instead of curating a list.
-def file_is_not_c_or_cpp_header(file_path, cxx):
+def file_is_not_c_or_cpp_header_gcc(file_path, cxx):
     env = dict(os.environ)
     env["LC_ALL"] = "C"
     try:
@@ -441,11 +513,98 @@ def file_is_not_c_or_cpp_header(file_path, cxx):
     return "invalid preprocessing directive" in proc.stderr
 
 
-def classify_matches(matches, cxx):
+# --- MSVC-frontend neutralization mechanics (NAMES-PARITY-WIN) --------
+
+_MSVC_PROBE_ACTIVE_MARKER = "GLINTFX_PNC_MACRO_IS_ACTIVE"
+_MSVC_PROBE_INACTIVE_MARKER = "GLINTFX_PNC_MACRO_IS_INACTIVE"
+
+
+def _write(path, text):
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def _msvc_probe_scratch_dir():
+    return tempfile.mkdtemp(prefix="glintfx-pnc-msvc-probe-", dir=os.environ.get("TMPDIR"))
+
+
+def macro_active_under_default_preprocessing_msvc(file_path, name, cxx, probe_scratch):
+    """MSVC-frontend equivalent of macro_active_under_default_
+    preprocessing_gcc() above (see this file's own header, item 2): a
+    throwaway wrapper source #includes the candidate header (forward
+    slashes - backslashes inside a "#include \"...\"" string are, in
+    practice, treated as literal path separators by every mainstream
+    compiler, but forward slashes sidestep the ambiguity entirely) and
+    tests "#ifdef NAME", preprocessed with the documented "/E" ("copy
+    preprocessor output to standard output") and "/TP" ("compile all
+    files as .cpp") flags. Neither marker surviving (the #include
+    itself failed to preprocess standalone - a real possibility for an
+    SDK header that expects to be reached only through an aggregator
+    like windows.h) answers "active", same fail-closed default as the
+    GCC sibling, for the same GODS_LAWS.md L-40 reason.
+    """
+    probe_path = os.path.join(probe_scratch, f"probe_{len(os.listdir(probe_scratch))}.cpp")
+    include_path = file_path.replace("\\", "/")
+    _write(
+        probe_path,
+        f'#include "{include_path}"\n'
+        f"#ifdef {name}\n{_MSVC_PROBE_ACTIVE_MARKER}\n#else\n{_MSVC_PROBE_INACTIVE_MARKER}\n#endif\n",
+    )
+    try:
+        proc = subprocess.run(
+            [cxx, "/nologo", "/E", "/TP", probe_path],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return True
+    if _MSVC_PROBE_ACTIVE_MARKER in proc.stdout:
+        return True
+    if _MSVC_PROBE_INACTIVE_MARKER in proc.stdout:
+        return False
+    return True
+
+
+def file_is_not_c_or_cpp_header_msvc(file_path, cxx):
+    """MSVC-frontend equivalent of file_is_not_c_or_cpp_header_gcc()
+    above (see this file's own header, item 3): where GCC/Clang name
+    the defect "invalid preprocessing directive", cl.exe names the
+    IDENTICAL defect (a line starting with "#" followed by a word that
+    is not a recognised directive keyword) fatal error C1021, "invalid
+    preprocessor command '<word>'" (Microsoft Learn, "Fatal Error
+    C1021"). The CODE ("C1021") is matched, never the surrounding
+    prose - MSVC's diagnostic text is locale-translated, its error
+    codes are not, so this needs no LC_ALL=C-equivalent forcing.
+    Preprocesses the FILE directly ("/E /TP"), never through the
+    #include-wrapper macro_active_under_default_preprocessing_msvc()
+    above uses - this question is about the file's OWN text, not about
+    one name's visibility through an #include.
+    """
+    try:
+        proc = subprocess.run(
+            [cxx, "/nologo", "/E", "/TP", file_path],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return "C1021" in (proc.stdout + proc.stderr)
+
+
+# --- classification dispatch (frontend-agnostic caller) -----------------
+
+
+def classify_matches(matches, cxx, frontend, probe_scratch=None):
     """Splits raw (file, lineno, name) matches into REAL and
     NEUTRALIZED, returning a list of dicts. NEUTRALIZED entries carry
     the reason (GODS_LAWS.md L-40 "contagem nunca escondida" applies to
-    WHY, not just to the count).
+    WHY, not just to the count). `probe_scratch` is required (and used)
+    only when frontend == "msvc" - the wrapper-file mechanism needs
+    somewhere to write throwaway probe sources; the GCC path needs
+    nothing of the sort, since it preprocesses the candidate file
+    directly.
     """
     classified = []
     for file_path, lineno, name in matches:
@@ -454,12 +613,24 @@ def classify_matches(matches, cxx):
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "undef-mesmo-arquivo",
             })
-        elif file_is_not_c_or_cpp_header(file_path, cxx):
+            continue
+
+        if frontend == "msvc":
+            not_a_header = file_is_not_c_or_cpp_header_msvc(file_path, cxx)
+        else:
+            not_a_header = file_is_not_c_or_cpp_header_gcc(file_path, cxx)
+        if not_a_header:
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "arquivo-nao-e-cabecalho-c",
             })
-        elif not macro_active_under_default_preprocessing(file_path, name, cxx):
+            continue
+
+        if frontend == "msvc":
+            active = macro_active_under_default_preprocessing_msvc(file_path, name, cxx, probe_scratch)
+        else:
+            active = macro_active_under_default_preprocessing_gcc(file_path, name, cxx)
+        if not active:
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "guarda-inativa-por-padrao",
@@ -491,8 +662,9 @@ def require_nonempty_scan(value, what):
 
 
 def check_public_name_collision(include_dir, cxx, cxx_id):
-    if not gcc_frontend_discovery_available(cxx_id):
-        print_gcc_frontend_unavailable(SCRIPT_NAME)
+    frontend = cxx_frontend(cxx_id)
+    if frontend == "unavailable":
+        print_frontend_unavailable(SCRIPT_NAME)
         return True
 
     names = enumerate_our_names(include_dir)
@@ -500,10 +672,12 @@ def check_public_name_collision(include_dir, cxx, cxx_id):
         return False
     name_count = len(names)
 
-    sys_dirs = discover_system_include_dirs(cxx)
+    sys_dirs = discover_system_include_dirs(frontend, cxx)
+    discovery_desc = "variavel de ambiente INCLUDE" if frontend == "msvc" else f"'{cxx} -E -Wp,-v -xc++ -'"
     if not require_nonempty_scan(
         sys_dirs,
-        f"0 diretorios de sistema descobertos via '{cxx} -E -Wp,-v -xc++ -' (compilador ausente ou toolchain quebrada)",
+        f"0 diretorios de sistema descobertos via {discovery_desc} "
+        "(compilador ausente, INCLUDE vazia, ou toolchain quebrada)",
     ):
         return False
     dir_count = len(sys_dirs)
@@ -516,7 +690,14 @@ def check_public_name_collision(include_dir, cxx, cxx_id):
     file_count = len(sys_files)
 
     matches = scan_defines_in_files(sys_files, names)
-    classified = classify_matches(matches, cxx)
+
+    probe_scratch = _msvc_probe_scratch_dir() if frontend == "msvc" else None
+    try:
+        classified = classify_matches(matches, cxx, frontend, probe_scratch)
+    finally:
+        if probe_scratch is not None:
+            shutil.rmtree(probe_scratch, ignore_errors=True)
+
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
 
@@ -538,7 +719,7 @@ def check_public_name_collision(include_dir, cxx, cxx_id):
 
     print(
         f"{SCRIPT_NAME}: {name_count} nome(s) publico(s) verificados contra {file_count} arquivo(s) "
-        f"de sistema ({dir_count} diretorio(s)), 0 colisao real"
+        f"de sistema ({dir_count} diretorio(s)), 0 colisao real (frontend: {frontend})"
     )
     return True
 
@@ -553,17 +734,17 @@ def real_main(args):
     if not os.path.isdir(include_dir):
         fail(f"include dir not found: {include_dir}")
     # The compiler-existence check only makes sense on the path that is
-    # actually going to invoke it - on the declared-absence path (MSVC,
-    # or the env var escape hatch) check_public_name_collision() below
-    # returns before ever touching `cxx`, so failing here first would
-    # turn a legitimate declared absence into a spurious hard error.
-    if gcc_frontend_discovery_available(cxx_id) and shutil.which(cxx) is None and not os.path.isfile(cxx):
+    # actually going to invoke it - on the declared-absence path (the
+    # escape hatch) check_public_name_collision() above returns before
+    # ever touching `cxx`, so failing here first would turn a
+    # legitimate declared absence into a spurious hard error.
+    if cxx_frontend(cxx_id) != "unavailable" and shutil.which(cxx) is None and not os.path.isfile(cxx):
         fail(f"compiler not found in PATH: {cxx}")
     if not check_public_name_collision(include_dir, cxx, cxx_id):
         fail("colisao de nome publico encontrada (ver mensagem acima)")
 
 
-# --- selftest fixtures and controls ---------------------------------------
+# --- selftest fixtures and controls (frontend-agnostic bodies) ------------
 
 
 def make_scratch_workdir():
@@ -586,9 +767,17 @@ def make_fixture_system_dir(scratch, label):
     return d
 
 
-def _write(path, text):
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(text)
+def _classify(matches, cxx, frontend, scratch, label):
+    """Selftest helper: gives classify_matches() a fresh probe scratch
+    dir per control when frontend == "msvc" (each control's fixtures
+    must not collide with another control's throwaway probe files),
+    and None (unused) on the GCC path.
+    """
+    if frontend != "msvc":
+        return classify_matches(matches, cxx, frontend)
+    probe_scratch = os.path.join(scratch, label, "msvc-probes")
+    os.makedirs(probe_scratch, exist_ok=True)
+    return classify_matches(matches, cxx, frontend, probe_scratch)
 
 
 # Positive control: a clean public header (one type, one method), and a
@@ -614,7 +803,7 @@ def selftest_positive_control(scratch):
 # Negative control: a public header declaring `planted_collision_name`,
 # and a system header defining exactly that, WITHOUT undef. Expected:
 # classified as REAL, citing both file and name.
-def selftest_negative_control(scratch, cxx):
+def selftest_negative_control(scratch, cxx, frontend):
     include_dir = make_fixture_include_dir(scratch, "negative")
     _write(os.path.join(include_dir, "widget.hpp"),
            "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
@@ -624,7 +813,7 @@ def selftest_negative_control(scratch, cxx):
 
     names = enumerate_our_names(include_dir)
     matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
-    classified = classify_matches(matches, cxx)
+    classified = _classify(matches, cxx, frontend, scratch, "negative")
     real = real_collisions(classified)
     if not real:
         print(f"selftest: controle NEGATIVO FALHOU (nao achou planted_collision_name em {hostile})", file=sys.stderr)
@@ -642,7 +831,7 @@ def selftest_negative_control(scratch, cxx):
 # Specific to policy decision 2's first neutralizing shape: same name,
 # same fixture, but the hostile header ALSO #undef's it before EOF.
 # Expected: NEUTRALIZED, not REAL.
-def selftest_undef_neutralizes_control(scratch, cxx):
+def selftest_undef_neutralizes_control(scratch, cxx, frontend):
     include_dir = make_fixture_include_dir(scratch, "neutralize")
     _write(os.path.join(include_dir, "widget.hpp"),
            "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
@@ -652,7 +841,7 @@ def selftest_undef_neutralizes_control(scratch, cxx):
 
     names = enumerate_our_names(include_dir)
     matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
-    classified = classify_matches(matches, cxx)
+    classified = _classify(matches, cxx, frontend, scratch, "neutralize")
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
 
@@ -677,7 +866,7 @@ def selftest_undef_neutralizes_control(scratch, cxx):
 # Guard-inactive control (policy decision 2, second shape): a #define
 # textually nested inside "#ifdef GUARD_NEVER_DEFINED", never active in
 # a normal include chain. Expected: NEUTRALIZED, never REAL.
-def selftest_guard_inactive_control(scratch, cxx):
+def selftest_guard_inactive_control(scratch, cxx, frontend):
     include_dir = make_fixture_include_dir(scratch, "guard_inactive")
     _write(os.path.join(include_dir, "widget.hpp"),
            "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
@@ -687,7 +876,7 @@ def selftest_guard_inactive_control(scratch, cxx):
 
     names = enumerate_our_names(include_dir)
     matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
-    classified = classify_matches(matches, cxx)
+    classified = _classify(matches, cxx, frontend, scratch, "guard_inactive")
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
 
@@ -713,7 +902,7 @@ def selftest_guard_inactive_control(scratch, cxx):
 # in the same fixture header - so a real translation unit including it
 # WOULD see the macro active. Expected: still REAL - the regression
 # guard against loosening the check too far.
-def selftest_guard_active_control(scratch, cxx):
+def selftest_guard_active_control(scratch, cxx, frontend):
     include_dir = make_fixture_include_dir(scratch, "guard_active")
     _write(os.path.join(include_dir, "widget.hpp"),
            "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
@@ -727,7 +916,7 @@ def selftest_guard_active_control(scratch, cxx):
 
     names = enumerate_our_names(include_dir)
     matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
-    classified = classify_matches(matches, cxx)
+    classified = _classify(matches, cxx, frontend, scratch, "guard_active")
     real = real_collisions(classified)
     if not any(c["name"] == "planted_collision_name" for c in real):
         print(
@@ -744,7 +933,7 @@ def selftest_guard_active_control(scratch, cxx):
 # "system header" is not C/C++ at all (a Makefile fragment whose
 # English-prose comment coincidentally contains a syntactically legal
 # #define). Expected: NEUTRALIZED under "arquivo-nao-e-cabecalho-c".
-def selftest_not_a_header_control(scratch, cxx):
+def selftest_not_a_header_control(scratch, cxx, frontend):
     include_dir = make_fixture_include_dir(scratch, "not_a_header")
     _write(os.path.join(include_dir, "widget.hpp"),
            "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
@@ -758,7 +947,7 @@ def selftest_not_a_header_control(scratch, cxx):
 
     names = enumerate_our_names(include_dir)
     matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
-    classified = classify_matches(matches, cxx)
+    classified = _classify(matches, cxx, frontend, scratch, "not_a_header")
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
 
@@ -804,16 +993,11 @@ def _make_capture():
 
 
 # Empty-scan floor, side 1: zero public headers under include_dir.
-def selftest_empty_our_names_control(scratch, cxx):
+def selftest_empty_our_names_control(scratch, cxx, cxx_id):
     include_dir = os.path.join(scratch, "empty_our_names", "include")
     os.makedirs(include_dir, exist_ok=True)
 
-    # "GNU" here is not a claim about the real machine's compiler - this
-    # control only ever runs from within selftest_main()'s "frontend
-    # available" branch (it never runs at all otherwise), so any id that
-    # answers gcc_frontend_discovery_available() truthfully is enough to
-    # reach the real check_public_name_collision() body under test.
-    outcome = _make_capture()(lambda: check_public_name_collision(include_dir, cxx, "GNU"))
+    outcome = _make_capture()(lambda: check_public_name_collision(include_dir, cxx, cxx_id))
     if outcome.result:
         print(
             "selftest: controle de VARREDURA VAZIA (nomes) FALHOU (deveria recusar include_dir sem "
@@ -849,22 +1033,38 @@ def selftest_empty_system_dirs_control():
     return False
 
 
+def _run_eight_controls(scratch, cxx, cxx_id, frontend):
+    return [
+        selftest_positive_control(scratch),
+        selftest_negative_control(scratch, cxx, frontend),
+        selftest_undef_neutralizes_control(scratch, cxx, frontend),
+        selftest_guard_inactive_control(scratch, cxx, frontend),
+        selftest_guard_active_control(scratch, cxx, frontend),
+        selftest_not_a_header_control(scratch, cxx, frontend),
+        selftest_empty_our_names_control(scratch, cxx, cxx_id),
+        selftest_empty_system_dirs_control(),
+    ]
+
+
 def selftest_main(args):
     cxx = args[0] if args else os.environ.get("CXX_FOR_SELFTEST", "c++")
     cxx_id = args[1] if len(args) > 1 else os.environ.get("CXX_ID_FOR_SELFTEST", "GNU")
 
+    frontend = cxx_frontend(cxx_id)
+
     # All eight controls below classify a planted `#define` via
-    # classify_matches(), which asks the compiler `-E -dM` - the same
-    # GCC-frontend-only mechanism the real check depends on (see this
-    # file's own header, GATE-TREE-PARITY). None of the eight is
-    # exercisable without it, so the WHOLE selftest is one declared
-    # case here, not eight - the real gate's own single-case shape
+    # classify_matches(), which asks the REAL compiler - GCC/Clang via
+    # `-E -dM`, MSVC via an `#ifdef` probe preprocessed with `/E /TP`
+    # (see this file's own header, NAMES-PARITY-WIN). None of the eight
+    # is exercisable without SOME real compiler to ask, so the WHOLE
+    # selftest is one declared case here when the escape hatch forces
+    # "unavailable", not eight - the real gate's own single-case shape
     # (check_public_name_collision() above), not check_spdx.py's
     # per-case list (that gate's cases are independent hostile
     # filenames; this gate's eight controls all share the one
     # unavailable mechanism).
-    if not gcc_frontend_discovery_available(cxx_id):
-        print_gcc_frontend_unavailable("check_public_name_collision.py --selftest")
+    if frontend == "unavailable":
+        print_frontend_unavailable("check_public_name_collision.py --selftest")
         return
 
     if shutil.which(cxx) is None and not os.path.isfile(cxx):
@@ -872,20 +1072,11 @@ def selftest_main(args):
 
     scratch = make_scratch_workdir()
     try:
-        controls = [
-            selftest_positive_control(scratch),
-            selftest_negative_control(scratch, cxx),
-            selftest_undef_neutralizes_control(scratch, cxx),
-            selftest_guard_inactive_control(scratch, cxx),
-            selftest_guard_active_control(scratch, cxx),
-            selftest_not_a_header_control(scratch, cxx),
-            selftest_empty_our_names_control(scratch, cxx),
-            selftest_empty_system_dirs_control(),
-        ]
+        controls = _run_eight_controls(scratch, cxx, cxx_id, frontend)
         if not all(controls):
             print("check_public_name_collision.py --selftest: FALHOU (ver acima)", file=sys.stderr)
             sys.exit(1)
-        print(f"check_public_name_collision.py --selftest: os {len(controls)} controles OK")
+        print(f"check_public_name_collision.py --selftest: os {len(controls)} controles OK (frontend: {frontend})")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 

@@ -1413,8 +1413,14 @@ endif()
 # destinations to the filesystem root, confirmed live before the
 # guard existed), unlike a malformed-but-nonblank value, which still
 # names a real layout somewhere and is handled by the pkg-config gate
-# above instead of refused. POSIX sh; same declared downgrade as the
-# other consumption gates above.
+# above instead of refused.
+#
+# INSTALL-PARITY-WIN (GODS_LAWS.md L-04, decisao do lider: "O
+# comportamento deve ser igual em qualquer OS"): PORTED from POSIX sh
+# (tests/tools/check_blank_install_dir_rejected.sh, if(UNIX)-guarded,
+# never exercised on Windows) to python3 and registered here WITHOUT a
+# system guard - same GATE-TREE-PARITY shape as public_name_collision_
+# test/layers_test above. The old .sh is deleted in the same fatia.
 #
 # ${CMAKE_CXX_COMPILER} passed through explicitly (same pattern as
 # pkgconfig_test above): the script's own nested `cmake -S -B` is a
@@ -1428,15 +1434,26 @@ endif()
 # CMAKE_CXX_COMPILER could be found" before ever reaching the blank-var
 # guard - a false negative that hid the real assertion this test
 # exists to make.
-if(UNIX)
-    add_test(
-        NAME blank_install_dir_rejected_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_blank_install_dir_rejected.sh"
-            "${PROJECT_SOURCE_DIR}"
-            "${CMAKE_CXX_COMPILER}"
-    )
-    set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
-endif()
+add_test(
+    NAME blank_install_dir_rejected_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_blank_install_dir_rejected.py"
+        "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_CXX_COMPILER}"
+)
+set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
+
+# --selftest: pure text-processing controls (classify_configure_result,
+# normalize_wrapped_message) - no nested cmake configure, no compiler
+# needed. Closes the same "own gate never proved against itself" gap
+# layers_selftest/public_name_collision_selftest already closed for
+# their siblings (GODS_LAWS.md L-40).
+add_test(
+    NAME blank_install_dir_rejected_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_blank_install_dir_rejected.py" --selftest
+)
+set_tests_properties(blank_install_dir_rejected_selftest PROPERTIES LABELS selftest)
 
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
 # itself (three controls - clean fixture passes, dirty fixture is

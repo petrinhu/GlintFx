@@ -411,21 +411,70 @@ def rewrite_libdir_line(pc_file, new_value):
 # --- scenario 1 --------------------------------------------------------
 
 
+def pkgconfig_binary_on_path():
+    """Mirrors cmake/GlintfxPkgConfigValidateInstalled.cmake.in's own
+    `find_program(GLINTFX_PKGCONFIG_VALIDATE_EXE NAMES pkg-config
+    pkgconf NO_CACHE)` - same two names, same order - so this scenario
+    expects the SAME branch a real `cmake --install` on THIS machine
+    actually takes, instead of demanding the SUCCESS message
+    unconditionally. VERMELHO 2 (04/09/2026, jobs 'Windows - Debug/
+    estatico/compartilhado', run 33910349281): the Windows runners
+    have neither tool on PATH, `find_program()` legitimately takes the
+    scenario-8 WARNING branch (already proven correct there), and
+    scenario 1 was failing only because it never considered that
+    branch - the install itself, and glintfx.pc's content, were both
+    correct.
+    """
+    for candidate in ("pkg-config", "pkgconf"):
+        if shutil.which(candidate):
+            return candidate
+    return None
+
+
 def run_default_layout_scenario(build_dir, prefix):
     output = run_expect_success(
         ["cmake", "--install", build_dir, "--prefix", prefix],
         "default-layout install unexpectedly FAILED:",
     )
-    must_contain(
-        output,
-        "post-install pkg-config validation passed",
-        on_fail="default-layout install succeeded, but never printed the validator's own success message.",
-    )
-    find_pc_file_under(prefix)
-    print(
-        "ok: default-layout scenario - the install(CODE) validator ran and reported "
-        "success against a genuinely correct install."
-    )
+    # Counts which path was taken (GODS_LAWS.md L-40: never accept
+    # both messages in silence, as that would turn this into a check
+    # that cannot fail) - the branch below is chosen by the SAME
+    # shutil.which() probe find_program() itself resolves to, and each
+    # branch demands its OWN message, never the other's.
+    tool = pkgconfig_binary_on_path()
+    if tool is not None:
+        must_contain(
+            output,
+            "post-install pkg-config validation passed",
+            on_fail=(
+                "default-layout install succeeded, but never printed the validator's own "
+                f"success message, even though '{tool}' is on PATH (find_program() should "
+                "have taken the SUCCESS branch)."
+            ),
+        )
+        find_pc_file_under(prefix)
+        print(
+            f"ok: default-layout scenario - '{tool}' is on PATH, the install(CODE) "
+            "validator ran and reported success against a genuinely correct install."
+        )
+    else:
+        must_contain(
+            output,
+            "pkg-config (and pkgconf) not found on PATH",
+            on_fail=(
+                "default-layout install succeeded, but with neither pkg-config nor pkgconf "
+                "on PATH it never printed the validator's own tool-absent WARNING either - "
+                "this is the same degrade-to-warning branch run_pkgconfig_absent_scenario "
+                "(scenario 8) proves is correct, taken here for real instead of via a "
+                "sandboxed find_program()."
+            ),
+        )
+        find_pc_file_under(prefix)
+        print(
+            "ok: default-layout scenario - neither pkg-config nor pkgconf is on PATH, so "
+            "the install(CODE) validator correctly degraded to its WARNING branch (still "
+            "exit 0) instead of claiming a binary confirmation it could not perform."
+        )
 
 
 # --- scenario 2 --------------------------------------------------------

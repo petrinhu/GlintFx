@@ -401,6 +401,22 @@ _KNOWN_INCIDENTS = (
 )
 
 
+def _as_posix(path):
+    """`_KNOWN_INCIDENTS[*]['file']` is written once, with '/' (it is
+    prose in this file, not a filesystem call) - `enumerate_swept_files()`
+    builds `h["file"]` with `os.path.join()`/`os.walk()`, which on
+    Windows yields '\\'-separated paths. `"...\\tests\\tools\\x.py".
+    endswith("tests/tools/x.py")` is False on EVERY incident (all seven
+    known-incident paths cross a directory), which is exactly why
+    --selftest found ZERO of seven on the Windows runners (GATE-ENV-
+    SWEEP calibration, measured 04/09/2026: forcing '/' -> '\\' on the
+    real hits reproduces 0/7 candidates for every incident on Linux
+    too). Comparing on '/' only, here, fixes the match without
+    touching how `h["file"]` is built or printed anywhere else.
+    """
+    return path.replace(os.sep, "/") if os.sep != "/" else path
+
+
 def calibrate_against_known_incidents(project_root):
     """Reruns the REAL sweep against the REAL tree (never a fixture)
     and checks, for each of the seven known incidents, that the
@@ -416,7 +432,7 @@ def calibrate_against_known_incidents(project_root):
     for incident in _KNOWN_INCIDENTS:
         candidates = [
             h for h in hits
-            if h["category"] == incident["category"] and h["file"].endswith(incident["file"])
+            if h["category"] == incident["category"] and _as_posix(h["file"]).endswith(incident["file"])
         ]
         if not candidates:
             results.append({**incident, "found": False, "reason": "categoria nao disparou naquele arquivo"})

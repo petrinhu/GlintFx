@@ -192,6 +192,19 @@ FIXTURE_SRC = ROOT_DIR / "tests" / "precondition_fixtures" / "precondition_fixtu
 ASSERT_MESSAGE_PRIMARY = "value() called on a result that holds an error"
 ASSERT_MESSAGE_VOID = "error() called on a result that holds success"
 
+# tests/harness/win_crt_dialog_suppress.hpp's own header comment: force-
+# included on the MSVC compile only (see compile_fixture() below), fixes
+# VERMELHO 3 (04/09/2026, job "Windows - Debug") by routing the debug
+# CRT's own assert() report to stderr and clearing abort()'s dialog/WER
+# flags, from INSIDE the fixture's own process - a mechanism SetErrorMode
+# (already applied by apply_windows_crash_dialog_suppression() below)
+# never reaches. Marker text duplicated from that header - see this
+# constant's own comment there for why it is not imported structurally.
+CRT_DIALOG_SUPPRESSION_HEADER = (
+    ROOT_DIR / "tests" / "harness" / "win_crt_dialog_suppress.hpp"
+)
+CRT_DIALOG_SUPPRESSION_MARKER = "glintfx_test: CRT dialog suppression applied"
+
 # 128 + SIGSEGV(11), this project's Linux gates already read exit status this way.
 POSIX_SIGSEGV_EXIT_STATUS = 139
 
@@ -340,6 +353,12 @@ def compile_fixture(
             "/W4",
             "/WX",
             "/EHsc",
+            # tests/harness/win_crt_dialog_suppress.hpp's own header
+            # comment: /FI is documented to have "the same effect as
+            # specifying the file ... in an #include directive on the
+            # first line" - no edit to precondition_fixture.cpp itself,
+            # which this file's own header declares out of scope.
+            f"/FI{CRT_DIALOG_SUPPRESSION_HEADER}",
         ]
         if ndebug:
             command.append("/DNDEBUG")
@@ -446,6 +465,27 @@ def run_capture(binary, case_arg, runtimedir, compiler_id):
         return None, stdout + stderr + note
 
 
+def assert_crt_dialog_suppression_applied(output, case_label, compiler_id):
+    """SECOND, independent fact from 'the process stopped in time with
+    the expected message' - see tests/harness/win_crt_dialog_suppress.
+    hpp's own header comment (GODS_LAWS.md L-40, the same 'prove it ran,
+    never assume it ran' discipline win_dll_alloc_hook.hpp's own
+    report_patch_result() already applies). MSVC-only: the header is
+    force-included on the MSVC branch of compile_fixture() only, so a
+    POSIX run never has this marker to look for.
+    """
+    if not is_msvc(compiler_id):
+        return
+    if CRT_DIALOG_SUPPRESSION_MARKER not in output:
+        fail(
+            f"{case_label}: win_crt_dialog_suppress.hpp's own marker "
+            f"('{CRT_DIALOG_SUPPRESSION_MARKER}') is missing from the captured output - the /FI "
+            "force-include did not take effect, or its dynamic initialization did not run before "
+            "main(), so the CRT dialog suppression this run needed may not actually have applied "
+            "(VERMELHO 3, 04/09/2026)."
+        )
+
+
 def assert_debug_case_stops_with_message(binary, case_arg, expected_message, runtimedir, compiler_id):
     status, output = run_capture(binary, case_arg, runtimedir, compiler_id)
     print(f"check_rslt_precondition.py: debug/{case_arg} exited with status {status}, output:")
@@ -460,6 +500,7 @@ def assert_debug_case_stops_with_message(binary, case_arg, expected_message, run
             f"debug/{case_arg} stopped (status {status}) but its output did not name the "
             f"violation (expected to contain: {expected_message})"
         )
+    assert_crt_dialog_suppression_applied(output, f"debug/{case_arg}", compiler_id)
 
     print(f"check_rslt_precondition.py: debug/{case_arg} OK (stopped deterministically, message present)")
 
@@ -476,6 +517,7 @@ def assert_release_case_shows_no_debug_message(binary, case_arg, forbidden_messa
             f"release/{case_arg} printed the DEBUG-ONLY assert message even though compiled with "
             "NDEBUG - the guard is not actually compiled out"
         )
+    assert_crt_dialog_suppression_applied(output, f"release/{case_arg}", compiler_id)
 
     print(
         f"check_rslt_precondition.py: release/{case_arg} OK (no debug-only message - assert "
@@ -495,6 +537,7 @@ def assert_release_void_faults_via_null_dereference(binary, runtimedir, compiler
             "no longer faults via a real null-pointer dereference the way gltfx_rslt<T>'s primary "
             "template already does"
         )
+    assert_crt_dialog_suppression_applied(output, "release/void", compiler_id)
 
     print(
         "check_rslt_precondition.py: release/void OK (structural null-pointer fault on this platform, "

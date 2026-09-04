@@ -873,3 +873,26 @@ Ele mandou as três ao líder por serem julgamento de paridade, que é o que o l
 **O que ja sei sem planejar, e muda o desenho:** boa parte dos pendentes e a MESMA familia -- os portoes que varrem a arvore e so rodam no Unix, que ontem viraram o item guarda-chuva `GATE-TREE-PARITY`. Se aquele item fechar, varios destes fecham junto, como aconteceu na W2 com o item que fechou sem escrever uma linha.
 
 **Decisao minha na abertura:** mando o CTO medir isso PRIMEIRO, antes de fatiar qualquer coisa. Se a hipotese estiver certa, a onda e muito menor do que a contagem sugere; se estiver errada, quero saber cedo. Fatiar quinze itens sem verificar se eles sao um so seria trabalho desperdicado.
+
+---
+
+## Fim de linha do Windows reprovava linha que o proprio portao permite  `[04/09/26 - 10:47:41]`
+
+**Achado, medido por mim antes de despachar conserto.** O servidor ficou vermelho nos dois trabalhos do Windows no commit `9288916` (o porte do portao de dependencia zero). Cinco testes falharam, tres causas distintas.
+
+**A causa que interessa:** o portao acusou violacao da lei de dependencia zero numa linha que **ele mesmo autoriza** (`wayland-client` esta na lista de permitidos desde sempre). O leitor de linha do portao tira o `\n` do fim e deixa o `\r` que o Windows acrescenta. O aparador do parentese de fechamento entao nao encontra o parentese no fim -- encontra o `\r` -- e o nome do modulo chega na comparacao com um parentese grudado. Nao casa com a lista, e o portao reprova.
+
+Reproduzido aqui, executando o codigo real do modulo, nao suposto:
+
+```
+LF   (Linux)   bases=['wayland-client']   VIOLACAO=[]
+CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
+```
+
+**Por que isso importa mais do que o vermelho:** e exatamente a classe de defeito que a lei de paridade do lider existe para pegar. Mesmo codigo, mesma arvore, mesmo portao: aprova num sistema e reprova no outro. Antes da reforma da lei, isso nunca teria sido visto, porque o portao so rodava no Linux.
+
+**Segunda causa, da mesma familia:** a limpeza da fixture do autoteste morre no Windows com permissao negada, porque os objetos do git nascem somente-leitura la e a remocao de arvore do Python nao os apaga. **O autoteste morria no terceiro controle e os 35 seguintes nunca foram exercidos naquela plataforma** -- cobertura perdida em silencio, que e o que o piso de varredura nao-vazia proibe. Os outros vinte pontos de limpeza do projeto nao estouraram por usarem o modo que engole erro, o que significa que eles tambem nao limpam nada la; mandei medir se isso e verdade em vez de supor.
+
+**Terceira causa:** a contagem de casos de teste do Windows no README ficou defasada (diz 46, o servidor mediu 52). E consequencia natural do porte, e so pode ser acertada no fim da onda, quando os portoes restantes entrarem.
+
+**Decisao autonoma, para confirmar depois:** despachei tres agentes em paralelo com fronteiras de arquivo disjuntas -- o porte dos tres portoes que faltam, as duas fatias do motor de estilo, e o conserto dos dois defeitos do Windows. Cada um recebeu por escrito o que nao pode tocar, porque ja commitei trabalho pela metade de agente duas vezes nesta sessao.

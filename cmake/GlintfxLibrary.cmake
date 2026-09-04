@@ -57,6 +57,23 @@ function(glintfx_set_target_properties target)
         #     contract (GODS_LAWS.md L-19/L-26).
         OUTPUT_NAME glintfx
         EXPORT_NAME glintfx
+        # CRT-LINK-WIN (tests/tools/check_rslt_precondition.py's own
+        # header comment, coordinator report 04/09/2026): this project
+        # never sets CMAKE_MSVC_RUNTIME_LIBRARY, so CMake's own default
+        # applies to glintfx_library - but an UNSET property reads back
+        # empty through $<TARGET_PROPERTY:...>, which is exactly what
+        # made rslt_precondition_test's own precondition fail on the
+        # Windows static-mode estreia ("msvc-runtime-library is empty
+        # on MSVC"). The value below is CMake's own documented default
+        # for this property when CMAKE_MSVC_RUNTIME_LIBRARY is unset
+        # (cmake-properties(7) MSVC_RUNTIME_LIBRARY) - writing it out
+        # explicitly changes NOTHING about which /MD or /MT flag MSVC
+        # actually receives (it is the literal CMake was already
+        # resolving internally), it only makes that already-effective
+        # choice readable by the generator expression the test script
+        # depends on. A no-op everywhere else: non-MSVC compilers ignore
+        # this property entirely.
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
     )
 endfunction()
 

@@ -190,6 +190,7 @@ SO_HEADER_ALLOWLIST = frozenset(
         "unistd.h",
         "wayland-client.h",
         "windows.h",
+        "crtdbg.h",
         "xdg-shell-client-protocol.h",
         "glintfx/export.hpp",
         "glintfx/version_macros.hpp",
@@ -199,6 +200,20 @@ SO_HEADER_ALLOWLIST = frozenset(
 # header, preserved in git history, for the two corrections found by
 # measuring instead of trusting the plan). xdg-shell-client-protocol.h
 # is wayland-scanner GENERATED from the system-installed xdg-shell.xml.
+# crtdbg.h is the SAME family as windows.h already on this list: it
+# ships with the Microsoft toolchain/SDK, not with any third party, and
+# it is the documented way to redirect the C runtime's debug report from
+# a modal window to a stream (_CrtSetReportMode/_CrtSetReportFile). The
+# leader's zero-dependency law names "as APIs do sistema operacional
+# (Wayland, Win32, GL, ...)" as allowed, and this is Win32's own debug
+# reporting surface. Added 04/09/2026, measured need: the Windows Debug
+# CI job created this wave proved that a product assert() fires
+# correctly there but the process then HANGS on an interactive crash
+# dialog SetErrorMode does not cover - two separate mechanisms, and
+# silencing one does not silence the other. Used ONLY by
+# tests/harness/win_crt_dialog_suppress.hpp, a test-only header behind
+# #if defined(_MSC_VER): it never enters the distributed library, and
+# the consumer never sees it.
 # glintfx/export.hpp and glintfx/version_macros.hpp are ALSO generated
 # (generate_export_header()/configure_file()), born only under
 # <build>/generated/include/glintfx/ - never on disk in <root>/

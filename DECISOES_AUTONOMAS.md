@@ -813,3 +813,22 @@ Ele mandou as três ao líder por serem julgamento de paridade, que é o que o l
 **A prova que eu tive de rodar sozinho:** depois de duas cobrancas sem resposta, configurei aqui o build com sanitizador e rodei o teste. Descobri que a deteccao precisava ser especifica do compilador da Microsoft - uma deteccao generica teria desligado dois casos no Linux e jogado cobertura fora em silencio.
 
 **Custo em erros meus, para o registro:** dei um agente por morto porque a plataforma disse que falhou, e ele estava vivo, entregando um plano melhor; empurrei duas vezes em menos de um minuto e cancelei uma execucao do servidor; e exigi de um implementador que a contagem de testes subisse no Linux quando ela so podia subir no Windows.
+
+---
+
+## Onda W2 aberta em modo autonomo  `[03/09/26 - 22:51:45]`
+
+**Ordem do lider, verbatim:** *"w2, modo autonomo"*. Flag valida por 24 horas, escopos de envio de onda com tag e limpeza de build em onda verde.
+
+**O que a W2 tem aberto**, e os quatro sao heranca da auditoria de paridade, nao trabalho novo:
+
+| Item | Por que foi reaberto |
+|---|---|
+| Validacao do pacote | O portao que prova que o validador roda nao existe no Windows |
+| Tipo de erro publico | Duas verificacoes dele so existem no Unix, e a forma da falha no Windows esta declarada como **nao medida** no proprio manual de convencoes |
+| Guarda de arquivo nao rastreado | Reaberto por falta do espelho local do Windows, **que a W1 entregou** |
+| Documentacao publica | O numero de casos de teste no README fala so do Linux |
+
+**Decisao minha na abertura, e e a mesma da W1:** os tres pares de verificacao de binario no Windows (o que a biblioteca de la importa, o que exporta, e a dependencia zero conferida no formato de la) **entram nesta onda**, porque o plano anterior os marcou como primeira coisa da onda seguinte e porque agora existe, pela primeira vez, uma biblioteca de verdade importando bibliotecas do sistema naquela plataforma. Deixa-los para depois seria fechar com o mesmo tipo de buraco que a W1 acabou de tapar.
+
+**Uma hipotese que vou medir antes de planejar:** a guarda de arquivo nao rastreado pode ja estar fechavel sem trabalho nenhum, porque a razao dela ter sido reaberta foi entregue na onda passada.

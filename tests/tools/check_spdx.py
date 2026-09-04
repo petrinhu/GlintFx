@@ -95,6 +95,8 @@
 # Each function below does one thing (GODS_LAWS.md L-17).
 
 import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -321,6 +323,49 @@ def real_main(args):
 
 def make_scratch_workdir():
     return tempfile.mkdtemp(prefix="glintfx-spdx-selftest-")
+
+
+def _clear_readonly_and_retry(func, path, _exc_info_or_exc):
+    """shutil.rmtree() onexc/onerror callback: clears read-only on
+    the path that failed AND its parent directory, then retries just
+    that removal. DUPLICATED from check_dep_zero.py's own function
+    of the same name (see that file's header on the house convention
+    of duplicating small standalone-script helpers instead of
+    sharing a module) - see there for why BOTH the failing path and
+    its parent need the chmod: Windows blocks on the FILE's own
+    read-only attribute (`git add`/`commit` leave a fixture repo's
+    `.git/objects/**` blobs read-only there), POSIX blocks on the
+    PARENT directory's write bit instead."""
+    for target in (os.path.dirname(path), path):
+        if target and os.path.exists(target):
+            try:
+                os.chmod(target, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+            except OSError:
+                pass
+    func(path)
+
+
+def remove_tree_tolerant(path, ignore_errors=False):
+    """shutil.rmtree() that actually REMOVES a tree containing
+    read-only files instead of merely reporting whether it could.
+    DUPLICATED from check_dep_zero.py's own function of the same
+    name - see that file's header for the full MEASURED account
+    (GODS_LAWS.md L-40, 04/09/2026, CI server run 33878869418,
+    commit 9288916): this gate's own selftest_main() below builds a
+    fixture repo per control via init_fixture_repo() (`git init` +
+    `git add`), and shutil.rmtree(scratch, ignore_errors=True) does
+    not clear the read-only bit those git operations leave on
+    Windows - it SWALLOWS the PermissionError and leaves the
+    read-only files on disk, a hidden cleanup failure rather than a
+    fix."""
+    if not os.path.exists(path):
+        return
+    kwargs = {"onexc": _clear_readonly_and_retry} if sys.version_info >= (3, 12) else {"onerror": _clear_readonly_and_retry}
+    try:
+        shutil.rmtree(path, **kwargs)
+    except OSError:
+        if not ignore_errors:
+            raise
 
 
 def init_fixture_repo(root):
@@ -661,6 +706,42 @@ def selftest_untracked_header_present_control(scratch, capture):
     return True
 
 
+def selftest_readonly_cleanup_control():
+    """DUPLICATED from check_dep_zero.py's own control of the same
+    name - see that file for the full MEASURED account (CI server
+    run 33878869418, commit 9288916). This gate's own
+    init_fixture_repo() builds a real git repository per control
+    (`git init`/`git add`), and shutil.rmtree(scratch,
+    ignore_errors=True) at teardown does not clear the read-only bit
+    those git operations leave on `.git/objects/**` on Windows - it
+    SWALLOWS the PermissionError silently (GODS_LAWS.md L-40).
+
+    Chmods a SUBDIRECTORY read-only (0o555), not just a file: on
+    POSIX, deletion permission comes from the directory's own write
+    bit, so a read-only FILE inside a normal directory deletes fine
+    there, and the control would silently pass under the OLD code
+    even on Linux. A read-only directory blocks deletion on every
+    platform this gate targets."""
+    root = tempfile.mkdtemp(prefix="glintfx-spdx-readonly-selftest-")
+    locked_dir = os.path.join(root, "locked")
+    os.makedirs(locked_dir)
+    with open(os.path.join(locked_dir, "readonly.txt"), "w", encoding="utf-8") as handle:
+        handle.write("locked\n")
+    os.chmod(locked_dir, 0o555)
+    try:
+        remove_tree_tolerant(root)
+    except OSError as exc:
+        print(f"selftest: controle READONLY-CLEANUP FALHOU (remove_tree_tolerant levantou: {exc})", file=sys.stderr)
+        os.chmod(locked_dir, 0o755)
+        remove_tree_tolerant(root, ignore_errors=True)
+        return False
+    if os.path.exists(root):
+        print("selftest: controle READONLY-CLEANUP FALHOU (diretorio ainda em disco apos a remocao)", file=sys.stderr)
+        return False
+    print("selftest: controle READONLY-CLEANUP OK (subdiretorio somente-leitura removido, arvore realmente sumiu)")
+    return True
+
+
 class _Captured:
     __slots__ = ("result", "text")
 
@@ -703,15 +784,14 @@ def selftest_main():
             selftest_hostile_filename_negative(scratch, capture),
             selftest_untracked_header_missing_control(scratch, capture),
             selftest_untracked_header_present_control(scratch, capture),
+            selftest_readonly_cleanup_control(),
         ]
         if not all(controls):
             print("check_spdx.py --selftest: FALHOU (ver acima)", file=sys.stderr)
             sys.exit(1)
         print(f"check_spdx.py --selftest: os {len(controls)} controles OK")
     finally:
-        import shutil
-
-        shutil.rmtree(scratch, ignore_errors=True)
+        remove_tree_tolerant(scratch, ignore_errors=True)
 
 
 def main():

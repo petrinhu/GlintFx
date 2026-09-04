@@ -153,6 +153,7 @@
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -571,17 +572,35 @@ def eval_cmake_line(engine, disp, lineno, line, raw):
 
 def _read_lines_latin1(fname):
     """Opens fname in binary mode and yields (lineno, text) pairs, one
-    per physical line with the trailing '\\n' stripped. latin-1
-    (byte<->codepoint 1:1) mirrors the sh engine's own LC_ALL=C,
-    byte-per-character treatment - never raises on non-UTF-8 content,
-    and every ASCII pattern this file matches against still matches
-    identically under latin-1 decoding."""
+    per physical line with the trailing line terminator stripped.
+    latin-1 (byte<->codepoint 1:1) mirrors the sh engine's own
+    LC_ALL=C, byte-per-character treatment - never raises on
+    non-UTF-8 content, and every ASCII pattern this file matches
+    against still matches identically under latin-1 decoding.
+
+    Strips BOTH '\\n' and a trailing '\\r' (CRLF), never only '\\n'.
+    MEASURED (GODS_LAWS.md L-04, 04/09/2026, CI server run
+    33878869418, commit 9288916): Windows checks this tree out with
+    core.autocrlf, so a source line the file itself ends in CRLF; an
+    '\\n'-only strip left the '\\r' on the line, rtrim_close_paren()
+    then found '\\r' instead of ')' at the end and left the ')' on
+    the token, and pkgconfig_module_base_name() returned
+    "wayland-client)" for a line that ALLOWLISTS "wayland-client" -
+    an allowed dependency reproved as PROHIBITED on Windows only.
+    This is content-line handling ONLY: the hostile-filename grammar
+    (git ls-files -z / git diff -z, decoded in
+    git_ls_files_z()/decode_z_listing() above) enumerates PATHS, not
+    file content, and never runs through this function - a filename
+    that legitimately carries a raw 0x0D byte is untouched by this
+    strip."""
     lineno = 0
     with open(fname, "rb") as handle:
         for raw_bytes in handle:
             lineno += 1
             line = raw_bytes.decode("latin-1")
             if line.endswith("\n"):
+                line = line[:-1]
+            if line.endswith("\r"):
                 line = line[:-1]
             yield lineno, line
 
@@ -919,7 +938,7 @@ def check_dep_zero_staged(root):
             return False
         engine = run_dep_zero_engine(root, tmp_root, staged)
     finally:
-        shutil.rmtree(tmp_root, ignore_errors=True)
+        remove_tree_tolerant(tmp_root, ignore_errors=True)
 
     relevant_count = engine.cmake_found + engine.cxx_found
     if relevant_count == 0:
@@ -1009,11 +1028,73 @@ def _write(path, content):
         handle.write(content)
 
 
+def _clear_readonly_and_retry(func, path, _exc_info_or_exc):
+    """shutil.rmtree() onexc/onerror callback: clears read-only on
+    the path that failed AND its parent directory, then retries just
+    that removal. Two platforms, two different blocking mechanisms -
+    both cleared, since either can be what actually stops the
+    original shutil.rmtree() call:
+    - Windows: `git add`/`commit` mark a fixture repo's
+      `.git/objects/**` blobs read-only (the DOS read-only file
+      attribute) - os.unlink() on the FILE itself raises
+      PermissionError. MEASURED: CI server run 33878869418, commit
+      9288916.
+    - POSIX: deletion permission comes from the DIRECTORY's write
+      bit, not the file's own mode - a read-only FILE inside a
+      normal directory deletes just fine (proven: this is exactly
+      why a control for this had to chmod a DIRECTORY, not a file,
+      to bite on Linux at all). Chmod-ing only `path` would leave a
+      read-only *directory*'s own removal blocked; the PARENT also
+      needs its write bit back before func(path) can succeed.
+    Third parameter is deliberately unused: Python < 3.12 passes
+    onerror an exc_info tuple, 3.12+ passes onexc the exception
+    itself - this callback needs neither, only func/path to redo the
+    failed step, so one function serves both call shapes without a
+    version branch."""
+    for target in (os.path.dirname(path), path):
+        if target and os.path.exists(target):
+            try:
+                os.chmod(target, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+            except OSError:
+                pass
+    func(path)
+
+
+def remove_tree_tolerant(path, ignore_errors=False):
+    """shutil.rmtree() that actually REMOVES a tree containing
+    read-only files instead of merely reporting whether it could.
+    MEASURED (GODS_LAWS.md L-40, 04/09/2026): `git add`/`commit`
+    leave a fixture repo's `.git/objects/**` blobs read-only on
+    Windows, and plain shutil.rmtree(path, ignore_errors=True) does
+    not clear that bit - it SWALLOWS the PermissionError and leaves
+    the read-only files on disk. That is not cleanup, it is a hidden
+    failure: a later fixture rebuilt over that leftover directory is
+    not the clean fixture the control assumes it is (this is exactly
+    how the sibling defect at the old make_clean_fixture() call site
+    surfaced - CI run 33878869418, commit 9288916 - the SECOND
+    iteration over the same fixture path hit a hard, unhandled
+    PermissionError because the FIRST iteration's ignore_errors=True
+    teardown had silently failed to remove it).
+
+    Missing path is a silent no-op (mirrors ignore_errors semantics
+    for the common "nothing to clean up" case, on every platform).
+    A removal failure that survives the read-only retry re-raises
+    unless ignore_errors=True."""
+    if not os.path.exists(path):
+        return
+    kwargs = {"onexc": _clear_readonly_and_retry} if sys.version_info >= (3, 12) else {"onerror": _clear_readonly_and_retry}
+    try:
+        shutil.rmtree(path, **kwargs)
+    except OSError:
+        if not ignore_errors:
+            raise
+
+
 def make_clean_fixture(root):
     """Minimal fixture mirroring the REAL tree's shape - if this
     control fails, the gate would scream against our own toolchain."""
     if os.path.isdir(root):
-        shutil.rmtree(root)
+        remove_tree_tolerant(root)
     _write(
         os.path.join(root, "CMakeLists.txt"),
         "cmake_minimum_required(VERSION 3.25)\nproject(fixture)\nadd_subdirectory(src)\n",
@@ -1114,7 +1195,7 @@ def selftest_negative_control_cmake(scratch, capture):
             print(f"selftest: NEGATIVE(cmake/{case_name}) control FAILED (reproved, but did not cite '{needle}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
 
     if status:
         print("selftest: NEGATIVE(cmake) control OK (seven forms, each reproved and cited)")
@@ -1143,7 +1224,7 @@ def selftest_negative_control_include(scratch, capture):
             print(f"selftest: NEGATIVE(include/{case_name}) control FAILED (reproved, but did not cite '{needle}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
 
     if status:
         print("selftest: NEGATIVE(include) control OK (three forms, each reproved and cited)")
@@ -1178,7 +1259,7 @@ def selftest_warn_control_cmake_multiline(scratch, capture):
             print(f"selftest: WARN(cmake-multiline/{case_name}) control FAILED (also printed PROHIBITED)", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
 
     if status:
         print("selftest: WARN(cmake-multiline) control OK (four multi-line/format-varied forms, each passes with a printed warning)")
@@ -1244,7 +1325,7 @@ def selftest_positive_control_pkgcheck_version(scratch, capture):
             print(f"selftest: POSITIVE(pkgcheck-version/{case_name}) control FAILED", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: POSITIVE(pkgcheck-version) control OK (glued and spaced version comparator, allowed module, pass)")
     return status
@@ -1295,7 +1376,7 @@ def selftest_negative_control_cmake_indirection(scratch, capture):
             print(f"selftest: NEGATIVE(cmake-indirection/{case_name}) control FAILED (did not cite '{needle}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
 
     if status:
         print("selftest: NEGATIVE(cmake-indirection) control OK (five indirection forms, each reproved and cited)")
@@ -1336,7 +1417,7 @@ def selftest_negative_control_cpm_variants(scratch, capture):
             print(f"selftest: NEGATIVE(cpm-variants/{fn}) control FAILED (did not cite '{fn}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: NEGATIVE(cpm-variants) control OK (CPMFindPackage/CPMDeclarePackage/CPMGetPackage, each reproved and cited)")
     return status
@@ -1362,7 +1443,7 @@ def selftest_negative_control_opener_carries_bad_token(scratch, capture):
             print(f"selftest: NEGATIVE(opener-bad-token/{case_name}) control FAILED (did not cite '{needle}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: NEGATIVE(opener-bad-token) control OK (unclosed calls with a bad token already visible reprove)")
     return status
@@ -1388,7 +1469,7 @@ def selftest_negative_control_file_network(scratch, capture):
             print(f"selftest: NEGATIVE(file-network/{case_name}) control FAILED (did not cite '{needle}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: NEGATIVE(file-network) control OK (file(DOWNLOAD)/file(UPLOAD), each reproved and cited)")
     return status
@@ -1415,7 +1496,7 @@ def selftest_positive_control_file_legit(scratch, capture):
             print(f"selftest: POSITIVE(file-legit/{case_name}) control FAILED (resolved subcommand should not warn)", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: POSITIVE(file-legit) control OK (MAKE_DIRECTORY/SHA256/GENERATE, the tree's real subcommands, pass without warning)")
     return status
@@ -1461,7 +1542,7 @@ def selftest_negative_control_execute_process(scratch, capture):
             print(f"selftest: NEGATIVE(execute-process/{case_name}) control FAILED (did not cite '{needle}')", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: NEGATIVE(execute-process) control OK (curl/git via execute_process, each reproved and cited)")
     return status
@@ -1529,7 +1610,7 @@ def selftest_negative_control_include_traversal(scratch, capture):
             print(f"selftest: NEGATIVE(include-traversal/{case_name}) control FAILED (citation does not show the traversal)", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
     if status:
         print("selftest: NEGATIVE(include-traversal) control OK (four traversal forms, each reproved)")
     return status
@@ -1931,7 +2012,7 @@ def selftest_negative_control_hostile_filename_tree(scratch, capture):
             _write(full_path, "include(FetchContent)\n")
         except OSError:
             print(f"selftest: NEGATIVE(hostile-filename/tree/{case_name}) control SKIPPED (this byte is not representable in a filename on this platform)")
-            shutil.rmtree(root, ignore_errors=True)
+            remove_tree_tolerant(root, ignore_errors=True)
             continue
         git_init_fixture(root)
 
@@ -1948,7 +2029,7 @@ def selftest_negative_control_hostile_filename_tree(scratch, capture):
                 print(f"selftest: NEGATIVE(hostile-filename/tree/{case_name}) control FAILED (found-count did not count the hostile file among 'cmake file(s)')", file=sys.stderr)
                 print(out.text, file=sys.stderr)
                 status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
 
     if status:
         print("selftest: NEGATIVE(hostile-filename/tree) control OK (newline/double-quote/backslash filename, each seen, reproved and cited)")
@@ -1967,7 +2048,7 @@ def selftest_staged_hostile_filename(scratch, capture):
             _write(full_path, "include(FetchContent)\n")
         except OSError:
             print(f"selftest: STAGED(hostile-filename/{case_name}) control SKIPPED (this byte is not representable in a filename on this platform)")
-            shutil.rmtree(root, ignore_errors=True)
+            remove_tree_tolerant(root, ignore_errors=True)
             continue
         subprocess.run(["git", "-C", root, "add", name], check=True)
 
@@ -1979,7 +2060,7 @@ def selftest_staged_hostile_filename(scratch, capture):
             print(f"selftest: STAGED(hostile-filename/{case_name}) control FAILED (did not cite FetchContent)", file=sys.stderr)
             print(out.text, file=sys.stderr)
             status = False
-        shutil.rmtree(root, ignore_errors=True)
+        remove_tree_tolerant(root, ignore_errors=True)
 
     if status:
         print("selftest: STAGED(hostile-filename) control OK (newline/double-quote/backslash filename staged, each reproved and cited)")
@@ -2006,6 +2087,93 @@ def selftest_tree_missing_worktree_file(scratch, capture):
         print(out.text, file=sys.stderr)
         return False
     print("selftest: TREE(missing-worktree-file) control OK (a tracked file deleted from the worktree is refused, not silently treated as clean)")
+    return True
+
+
+def selftest_crlf_line_ending_control(scratch, capture):
+    """L-04 paridade, MEASURED (CI server run 33878869418, commit
+    9288916): Windows checks this repository out with core.autocrlf,
+    so cmake/*.cmake arrives CRLF-terminated. Before the fix,
+    _read_lines_latin1() stripped only '\\n' and left a trailing
+    '\\r' on the line; eval_pkg_check_modules_line() then read the
+    token as "wayland-client)" instead of "wayland-client", missed
+    the allowlist, and reproved an ALLOWED dependency as PROHIBITED -
+    on Windows only, never on Linux/macOS where the same repository
+    checks out LF-only. Writes the CRLF ending EXPLICITLY (never
+    relying on the checkout's own line-ending translation) so this
+    control bites on every platform, not only under an autocrlf
+    checkout."""
+    root = os.path.join(scratch, "crlf-line-ending")
+    make_clean_fixture(root)
+    crlf_content = (
+        "# a consumer may embed glintfx via FetchContent, see docs/\r\n"
+        "find_package(PkgConfig REQUIRED)\r\n"
+        "pkg_check_modules(FixtureWayland REQUIRED wayland-client)\r\n"
+    )
+    with open(os.path.join(root, "cmake", "Wayland.cmake"), "wb") as handle:
+        handle.write(crlf_content.encode("utf-8"))
+    git_init_fixture(root)
+
+    out = capture(lambda: check_dep_zero_tree(root, "NONE"))
+    if not out.result:
+        print(
+            "selftest: CRLF-LINE-ENDING control FAILED (a CRLF-terminated line "
+            "allowlisting wayland-client should have passed)",
+            file=sys.stderr,
+        )
+        print(out.text, file=sys.stderr)
+        return False
+    if "wayland-client)" in out.text:
+        print(
+            "selftest: CRLF-LINE-ENDING control FAILED (the trailing CRLF byte "
+            "is still leaking into the matched token)",
+            file=sys.stderr,
+        )
+        print(out.text, file=sys.stderr)
+        return False
+    print("selftest: CRLF-LINE-ENDING control OK (allowlisted pkg_check_modules line survives a CRLF-terminated file)")
+    return True
+
+
+def selftest_readonly_cleanup_control():
+    """MEASURED (CI server run 33878869418, commit 9288916): Windows
+    marks a fixture repo's `.git/objects/**` blobs read-only after
+    `git add`/`commit`; plain shutil.rmtree() then raises
+    PermissionError, and shutil.rmtree(ignore_errors=True) merely
+    SWALLOWS that error instead of removing the file - a hidden
+    cleanup failure, not a fix (GODS_LAWS.md L-40).
+
+    Chmods a SUBDIRECTORY read-only (0o555, write bit off), not just
+    a file: on POSIX, deletion permission comes from the directory's
+    own write bit, so merely chmod-ing a file read-only does NOT
+    block its removal there (measured while building this control -
+    plain shutil.rmtree() deletes a read-only *file* in a writable
+    directory without complaint on this OS) and the control would
+    silently pass under the OLD, broken code too. A read-only
+    DIRECTORY blocks deletion on every platform this gate targets,
+    so this is the one fixture shape that actually bites on Linux
+    and macOS as well as Windows - never only under a Windows
+    checkout.
+
+    Proves remove_tree_tolerant() both succeeds AND actually removes
+    the directory - not merely fails to raise."""
+    root = tempfile.mkdtemp(prefix="glintfx-dep-zero-readonly-selftest-")
+    locked_dir = os.path.join(root, "locked")
+    os.makedirs(locked_dir)
+    with open(os.path.join(locked_dir, "readonly.txt"), "w", encoding="utf-8") as handle:
+        handle.write("locked\n")
+    os.chmod(locked_dir, 0o555)
+    try:
+        remove_tree_tolerant(root)
+    except OSError as exc:
+        print(f"selftest: READONLY-CLEANUP control FAILED (remove_tree_tolerant raised: {exc})", file=sys.stderr)
+        os.chmod(locked_dir, 0o755)
+        remove_tree_tolerant(root, ignore_errors=True)
+        return False
+    if os.path.exists(root):
+        print("selftest: READONLY-CLEANUP control FAILED (directory still on disk after removal)", file=sys.stderr)
+        return False
+    print("selftest: READONLY-CLEANUP control OK (read-only subdirectory removed, tree actually gone)")
     return True
 
 
@@ -2052,13 +2220,15 @@ def selftest_main():
             selftest_negative_control_hostile_filename_tree(scratch, capture),
             selftest_staged_hostile_filename(scratch, capture),
             selftest_tree_missing_worktree_file(scratch, capture),
+            selftest_crlf_line_ending_control(scratch, capture),
+            selftest_readonly_cleanup_control(),
         ]
         if not all(controls):
             print(f"{SCRIPT_NAME} --selftest: FAILED (see above)", file=sys.stderr)
             sys.exit(1)
         print(f"{SCRIPT_NAME} --selftest: all {len(controls)} controls OK")
     finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+        remove_tree_tolerant(scratch, ignore_errors=True)
 
 
 def main():

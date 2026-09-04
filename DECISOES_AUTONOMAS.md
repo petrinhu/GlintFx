@@ -861,3 +861,15 @@ Ele mandou as três ao líder por serem julgamento de paridade, que é o que o l
 - **Commitei o trabalho pela metade de um agente**, usando o comando que adiciona tudo enquanto ele escrevia. Onze trabalhos vermelhos. Segunda vez que faco isso na sessao.
 - **Empurrei um commit que removia um portao sem o substituto**, porque o comando de adicionar falhou num caminho inexistente e eu nao conferi o que tinha entrado. Li o aviso e segui adiante.
 - **Minha hipotese sobre a causa da falha no Windows estava errada**, e o agente a refutou com medicao. O erro apontava para o cabecalho publico e eu acreditei no dedo em vez de olhar a origem.
+
+---
+
+## Onda W3 aberta em modo autonomo  `[04/09/26 - 06:47:20]`
+
+**Ordem do lider:** *"quando acabar w2, comece w3, modo autonomo"*, dada antes de a W2 fechar. A W2 fechou verde nos vinte, entao a condicao esta cumprida.
+
+**Tamanho medido:** quinze itens pendentes e cinco bloqueados. E a maior das tres ondas.
+
+**O que ja sei sem planejar, e muda o desenho:** boa parte dos pendentes e a MESMA familia -- os portoes que varrem a arvore e so rodam no Unix, que ontem viraram o item guarda-chuva `GATE-TREE-PARITY`. Se aquele item fechar, varios destes fecham junto, como aconteceu na W2 com o item que fechou sem escrever uma linha.
+
+**Decisao minha na abertura:** mando o CTO medir isso PRIMEIRO, antes de fatiar qualquer coisa. Se a hipotese estiver certa, a onda e muito menor do que a contagem sugere; se estiver errada, quero saber cedo. Fatiar quinze itens sem verificar se eles sao um so seria trabalho desperdicado.

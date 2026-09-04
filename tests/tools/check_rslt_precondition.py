@@ -158,7 +158,13 @@ POSIX_SIGSEGV_EXIT_STATUS = 139
 
 # 0xC0000005 (STATUS_ACCESS_VIOLATION) read as a signed 32-bit integer -
 # see "THE RELEASE/VOID STRUCTURAL FAULT SHAPE DIFFERS BY PLATFORM" above.
-# NOT MEASURED on this machine.
+# MEASURED live on real Windows (CI run 33833944182, GODS_LAWS.md L-44/L-49):
+# subprocess.returncode surfaced this exact bit pattern read UNSIGNED
+# (3221225477), not signed. Both numbers name the same 0xC0000005 - see
+# normalize_windows_unsigned_exit_status() below, which folds the raw
+# returncode down to this constant's signed reading before comparison, the
+# same way normalize_posix_signal_exit_status() folds the POSIX native
+# convention down to this file's own shell-style expectation.
 WINDOWS_ACCESS_VIOLATION_EXIT_STATUS = -1073741819
 
 # Generous enough for a debug-flags compile-and-run of one small
@@ -281,6 +287,27 @@ def normalize_posix_signal_exit_status(returncode):
     return returncode
 
 
+def normalize_windows_unsigned_exit_status(returncode):
+    """A Windows exit code is a 32-bit DWORD; the NT status of an unhandled
+    structured exception (STATUS_ACCESS_VIOLATION, 0xC0000005) is the SAME
+    bit pattern whether Python's subprocess.returncode happens to surface it
+    as an unsigned reading (3221225477) or a signed one (-1073741819) - both
+    denote 0xC0000005, and which one shows up is a detail of how the raw
+    DWORD got converted, not a fact about the exception itself. Caught live
+    (RSLT-PARITY-WIN estreia, CI run 33833944182): this file's own
+    WINDOWS_ACCESS_VIOLATION_EXIT_STATUS constant was written against the
+    signed reading before any Windows toolchain had run this fixture, and
+    the real run returned the unsigned one instead. Fold the unsigned form
+    down to the signed one so exactly one representation is compared
+    anywhere in this file - the same reason normalize_posix_signal_exit_
+    status() exists for the POSIX side below. No-op for any value that is
+    not in the unsigned upper half (0 included), and a no-op on the four
+    POSIX targets since this is only called on the MSVC branch."""
+    if returncode is not None and returncode > 0x7FFFFFFF:
+        return returncode - 0x100000000
+    return returncode
+
+
 def run_capture(binary, case_arg, runtimedir, compiler_id):
     env = os.environ.copy()
     if is_msvc(compiler_id):
@@ -296,7 +323,18 @@ def run_capture(binary, case_arg, runtimedir, compiler_id):
             env=env,
             timeout=FIXTURE_TIMEOUT_SECONDS,
         )
-        return normalize_posix_signal_exit_status(result.returncode), result.stdout + result.stderr
+        # Each platform gets its OWN normalization, never both stacked on the
+        # same value: normalize_posix_signal_exit_status()'s negative-input
+        # branch would otherwise mangle a Windows returncode that happened to
+        # already be negative (the signed reading of 0xC0000005 IS negative),
+        # turning a correct value into a wrong one instead of leaving it
+        # alone - the same class of platform-representation bug this fatia
+        # exists to fix, just a second occurrence of it in this same file.
+        if is_msvc(compiler_id):
+            status = normalize_windows_unsigned_exit_status(result.returncode)
+        else:
+            status = normalize_posix_signal_exit_status(result.returncode)
+        return status, result.stdout + result.stderr
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
         stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")

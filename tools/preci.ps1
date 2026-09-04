@@ -271,7 +271,7 @@ function Assert-NonEmptyTests([string]$stageName, [string]$buildDir, [string[]]$
     if ($total -eq 0) {
         Fail "$stageName recusado (varredura vazia de testes, GODS_LAWS.md L-40)"
     }
-    Write-Host "$stageName: $total teste(s) varrido(s)"
+    Write-Host "${stageName}: $total teste(s) varrido(s)"
 }
 
 function Invoke-ConfigureAndBuild([string]$rootDir, [string]$buildDir, [string]$sharedFlag) {

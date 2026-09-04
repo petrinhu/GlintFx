@@ -897,54 +897,73 @@ if(UNIX)
     set_tests_properties(dup_laws_selftest PROPERTIES LABELS selftest)
 endif()
 
-# [[nodiscard]] gate (CE-4 of CORE-ERROR, TODO.md): proves
+# [[nodiscard]] gate (CE-4 of CORE-ERROR, TODO.md; RSLT-PARITY-WIN,
+# GODS_LAWS.md L-04, ordem do lider 03/09/2026): proves
 # glintfx::gltfx_rslt<T>'s [[nodiscard]] is a real compiler diagnostic
 # by compiling a fixture that drops the result (must FAIL) and one that
-# uses it (must succeed) - see check_nodiscard_rslt.sh's own header.
+# uses it (must succeed) - see check_nodiscard_rslt.py's own header.
 # Two include dirs, not one (same pair glintfx_set_target_include_dirs()
 # gives every real target at BUILD_INTERFACE, cmake/GlintfxLibrary.cmake):
 # err.hpp pulls in the GENERATED glintfx/export.hpp for GLINTFX_API, which
 # only exists under GLINTFX_GENERATED_INCLUDE_DIR, not under the
-# committed include/ tree. Compile-only (-c in the script, no link), so
-# no glintfx build artifact is needed here at all - the same reason
-# PROJECT_SOURCE_DIR/include is passed directly rather than an installed
-# prefix. POSIX sh; same declared downgrade as layers_test above.
-if(UNIX)
-    add_test(
-        NAME nodiscard_rslt_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_nodiscard_rslt.sh"
-            "${PROJECT_SOURCE_DIR}/include"
-            "${GLINTFX_GENERATED_INCLUDE_DIR}"
-            "${CMAKE_CXX_COMPILER}"
-    )
-    set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
-endif()
+# committed include/ tree. Compile-only (-c / /c in the script, no
+# link), so no glintfx build artifact is needed here at all - the same
+# reason PROJECT_SOURCE_DIR/include is passed directly rather than an
+# installed prefix. Python (GLINTFX_PYTHON3_EXECUTABLE, already
+# resolved above for dep_zero_trace), registered on ALL FIVE
+# PLATFORMS, WITHOUT an if(UNIX) guard, unlike the POSIX-sh predecessor
+# this replaces: check_nodiscard_rslt.py's own header carries the full
+# reasoning (same "Windows has no sh by default" problem dep_zero_
+# trace's own header already solved for a different gate, by trading
+# the same mechanism away). CMAKE_CXX_COMPILER_ID selects MSVC's own
+# diagnostic (C4834) vs. GCC/Clang's (nodiscard/discard/unused) inside
+# the script - never guessed from the compiler path.
+add_test(
+    NAME nodiscard_rslt_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_nodiscard_rslt.py"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${GLINTFX_GENERATED_INCLUDE_DIR}"
+        "${CMAKE_CXX_COMPILER}"
+        "${CMAKE_CXX_COMPILER_ID}"
+)
+set_tests_properties(nodiscard_rslt_test PROPERTIES LABELS consume)
 
 # Debug-only precondition guard (correction of 25/08/2026, GODS_LAWS.md
-# CORE-ERROR): proves BOTH halves of gltfx_rslt<T>::value()/error()'s
+# CORE-ERROR; RSLT-PARITY-WIN, GODS_LAWS.md L-04, ordem do lider
+# 03/09/2026): proves BOTH halves of gltfx_rslt<T>::value()/error()'s
 # assert()-based precondition check - stops deterministically with a
 # message in a Debug-flags compile (NDEBUG undefined), costs nothing
 # and changes nothing in a Release-flags compile (NDEBUG defined) - see
-# check_rslt_precondition.sh's own header for the two independent UB
+# check_rslt_precondition.py's own header for the two independent UB
 # shapes (primary template vs. the T=void specialization) this proves
-# separately, live, rather than assumed identical. Needs the ALREADY-
-# BUILT library's directory (unlike nodiscard_rslt_test above, this
-# fixture links and RUNS, it does not stop at -c) -
-# $<TARGET_FILE_DIR:glintfx_library> resolves to the right directory in
-# both BUILD_SHARED_LIBS modes; a static-mode -Wl,-rpath entry with
-# nothing to resolve there is harmless, not an error. POSIX sh; same
-# declared downgrade as layers_test above.
-if(UNIX)
-    add_test(
-        NAME rslt_precondition_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_rslt_precondition.sh"
-            "${PROJECT_SOURCE_DIR}/include"
-            "${GLINTFX_GENERATED_INCLUDE_DIR}"
-            "$<TARGET_FILE_DIR:glintfx_library>"
-            "${CMAKE_CXX_COMPILER}"
-    )
-    set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
-endif()
+# separately, live, rather than assumed identical, AND for the
+# Windows-specific interactive-dialog risk it declares rather than
+# hides. Needs the ALREADY-BUILT library's directory (unlike
+# nodiscard_rslt_test above, this fixture links and RUNS, it does not
+# stop at -c/-Fo) - $<TARGET_FILE_DIR:glintfx_library> (the RUNTIME
+# artifact: the .so a POSIX consumer both links and loads at runtime,
+# or the .dll a Windows consumer loads at runtime) and
+# $<TARGET_LINKER_FILE_DIR:glintfx_library> (the LINK-time artifact:
+# the SAME .so on POSIX, but glintfx.lib - the import library, a
+# DIFFERENT file - on Windows) are passed SEPARATELY so the script
+# never has to assume they share a directory on every platform; a
+# static-mode -Wl,-rpath entry with nothing to resolve there is
+# harmless, not an error. Python, registered on ALL FIVE PLATFORMS,
+# WITHOUT an if(UNIX) guard - same replacement, same reasoning as
+# nodiscard_rslt_test above.
+add_test(
+    NAME rslt_precondition_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_rslt_precondition.py"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${GLINTFX_GENERATED_INCLUDE_DIR}"
+        "$<TARGET_FILE_DIR:glintfx_library>"
+        "$<TARGET_LINKER_FILE_DIR:glintfx_library>"
+        "${CMAKE_CXX_COMPILER}"
+        "${CMAKE_CXX_COMPILER_ID}"
+)
+set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
 
 # Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the
 # INSTALLED package, not the in-tree build. Installs whatever this

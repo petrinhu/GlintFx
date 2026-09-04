@@ -226,6 +226,28 @@ function Test-CMakeVersionFloor([string]$rootDir) {
 # to collapse into "found nothing, so pass" (GODS_LAWS.md L-40); Test-
 # UntrackedGuard turns that into the same loud Fail() it already used
 # before this split, unchanged.
+# GATE-PS-UNWRAP (03/09/2026, GODS_LAWS.md L-36/L-40 - achado do
+# autoteste rodando pela primeira vez no servidor real, controle
+# negativo reprovado). O `@(...)` AQUI DENTRO da funcao nao basta: por
+# baixo, `return X` escreve X no pipeline de saida da funcao, e quando
+# esse pipeline carrega exatamente UM objeto, o PowerShell devolve esse
+# objeto NU ao chamador - o wrapper `@()` interno protege a ENUMERACAO
+# dentro da funcao, mas nao sobrevive a travessia da fronteira de
+# retorno quando ha 1 unico item (0 itens vira $null, 2+ itens
+# permanecem array - so o caso de exatamente 1 colapsa). Medido ao vivo
+# neste container (mcr.microsoft.com/powershell:latest, pwsh 7.4.2):
+# com git devolvendo uma linha "solto.cpp", $files.GetType() = System.
+# String (nao array), $files.Count = 1 (o PowerShell 7+ trata escalar
+# como colecao-de-1 so para Count/Length) e $files[0] = 's' - indexar
+# uma STRING devolve o CARACTERE naquela posicao, nao a string inteira.
+# `$files[0] -ne "solto.cpp"` compara 's' com "solto.cpp": SEMPRE
+# desigual, reprovando o controle negativo mesmo com a logica de
+# deteccao 100% correta. A correcao e no CHAMADOR: envolver com `@()`
+# a ATRIBUICAO em si (`$files = @(Get-UntrackedCppHpp ...)`), nao so o
+# retorno da funcao - isso forca $files a ser array em qualquer
+# contagem (0, 1 ou N), tornando .Count e indexacao [0] seguros nos
+# quatro call-sites deste arquivo que inspecionam o resultado (Test-
+# UntrackedGuard e os tres controles de selftest abaixo).
 function Get-UntrackedCppHpp([string]$rootDir) {
     $listing = git -C $rootDir ls-files --others --exclude-standard -- '*.cpp' '*.hpp' ':!:tests/preci_fixtures/*'
     if ($LASTEXITCODE -ne 0) {
@@ -237,7 +259,7 @@ function Get-UntrackedCppHpp([string]$rootDir) {
 function Test-UntrackedGuard([string]$rootDir) {
     Write-Stage "estagio 0: guarda de arquivo novo nao rastreado"
     try {
-        $files = Get-UntrackedCppHpp $rootDir
+        $files = @(Get-UntrackedCppHpp $rootDir)
     } catch {
         Fail $_.Exception.Message
     }
@@ -493,7 +515,7 @@ function New-UntrackedGuardSelftestRepo() {
 function Invoke-SelfTestUntrackedGuardPositiveControl() {
     $dir = New-UntrackedGuardSelftestRepo
     try {
-        $files = Get-UntrackedCppHpp $dir
+        $files = @(Get-UntrackedCppHpp $dir)
         if ($files.Count -ne 0) {
             Write-Error "selftest: guarda de untracked - controle POSITIVO FALHOU: repositorio so com tracked.cpp committed deveria dar 0 arquivos, obteve $($files.Count): $($files -join ', ')"
             return $false
@@ -509,7 +531,7 @@ function Invoke-SelfTestUntrackedGuardNegativeControl() {
     $dir = New-UntrackedGuardSelftestRepo
     try {
         Set-Content -Path (Join-Path $dir "solto.cpp") -Value "int solto() { return 1; }"
-        $files = Get-UntrackedCppHpp $dir
+        $files = @(Get-UntrackedCppHpp $dir)
         if ($files.Count -ne 1 -or $files[0] -ne "solto.cpp") {
             Write-Error "selftest: guarda de untracked - controle NEGATIVO FALHOU: esperava exatamente [solto.cpp], obteve: $($files -join ', ')"
             return $false
@@ -531,7 +553,7 @@ function Invoke-SelfTestUntrackedGuardIgnoredControl() {
         Set-Content -Path (Join-Path $dir ".gitignore") -Value "build/"
         New-Item -ItemType Directory -Path (Join-Path $dir "build") -Force | Out-Null
         Set-Content -Path (Join-Path $dir "build/gerado.cpp") -Value "int gerado() { return 2; }"
-        $files = Get-UntrackedCppHpp $dir
+        $files = @(Get-UntrackedCppHpp $dir)
         if ($files.Count -ne 0) {
             Write-Error "selftest: guarda de untracked - controle de ARQUIVO IGNORADO FALHOU: build/gerado.cpp esta coberto por .gitignore e nao deveria bloquear, obteve $($files.Count): $($files -join ', ')"
             return $false

@@ -1449,17 +1449,16 @@ jobs:
       - uses: actions/checkout@v4
 
       # GODS_LAWS.md L-05 (Wayland puro) e L-06 (parser de keymap
-      # proprio). Logica extraida para tests/tools/check_no_x11.sh
-      # (GODS_LAWS.md L-40, piso de varredura nao-vazia: a versao
-      # anterior, embutida aqui, saia verde com varredura vazia e nao
-      # cobria tools/ nem este proprio diretorio .github/ - ver o
-      # cabecalho do script para os tres achados e --selftest para os
-      # quatro controles que provam o gate). O nome deste passo e este
-      # comentario evitam citar os termos proibidos por extenso de
-      # proposito: eles moram so no script, o unico arquivo
-      # autoexcluido da propria varredura (ver SELF_PATH_SUFFIX ali).
-      - name: Gate L-05/L-06 - nenhum termo proibido no repositorio
-        run: sh tests/tools/check_no_x11.sh "$PWD"
+      # proprio) NAO estao mais aqui. Item GATE-TREE-PARITY (GODS_LAWS.md
+      # L-04, decisao do lider: "O comportamento deve ser igual em
+      # qualquer OS" - a versao anterior, um passo sh direto neste job
+      # ubuntu-only, nunca tocava Windows/CachyOS/Arch separadamente,
+      # mesmo sendo uma varredura de texto puro sem mecanismo especifico
+      # de Unix por tras): a logica virou tests/tools/check_no_x11.py,
+      # registrada como ctest (x11_test/x11_selftest, tests/CMakeLists.txt)
+      # SEM guarda de sistema - ela ja roda dentro de `ctest --test-dir
+      # ...` nos jobs `linux` e `windows` acima, nas cinco plataformas.
+      # O antigo tests/tools/check_no_x11.sh foi apagado no mesmo passo.
 
       # GODS_LAWS.md L-08 (publico no GitHub, AGPL-3.0) e L-40 (piso de
       # varredura nao-vazia) NAO estao mais aqui. Item SPDX-GATE-PY
@@ -1489,3 +1488,19 @@ jobs:
       # consumidor) foram apagados no mesmo passo - check_spdx.py ja
       # duplicava a mesma enumeracao de tres arquivos como constante
       # Python propria (SPDX-GATE-PY, 02/09/2026).
+
+      # GODS_LAWS.md / ESCOPO.md separacao LEI/ESCOPO (26/08/2026) e
+      # docs/api-conventions.md R6 NAO estao mais aqui. Item
+      # GATE-TREE-PARITY (GODS_LAWS.md L-04): a logica de check_dup_laws.sh
+      # virou tests/tools/check_dup_laws.py (ctest dup_laws_test/
+      # dup_laws_selftest, SEM guarda de sistema, cinco plataformas); a
+      # de check_public_name_collision.sh virou tests/tools/
+      # check_public_name_collision.py (ctest public_name_collision_test/
+      # public_name_collision_selftest, guarda restrita a
+      # CMAKE_CXX_COMPILER_ID != MSVC - GCC-frontend-only por natureza da
+      # tecnica de descoberta, ausencia declarada por message(STATUS ...)
+      # no MSVC, nao guarda silenciosa - ver o script's own header).
+      # Nenhum dos dois script nunca teve passo direto neste job "leis"
+      # (ja eram so ctest, if(UNIX)-guardado); os antigos tests/tools/
+      # check_dup_laws.sh e check_public_name_collision.sh foram
+      # apagados no mesmo passo, junto com o resto de GATE-TREE-PARITY.

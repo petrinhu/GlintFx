@@ -637,31 +637,58 @@ set_tests_properties(vendor_purity_selftest PROPERTIES LABELS selftest)
 # "Desvios", 25/08/2026 achado: "a auditoria de colisao de nomes
 # publicos usa LISTA CURADA, nao varredura do sistema real"). Replaces
 # trusting a hand-typed name list with a mechanical scan: every name
-# check_public_name_collision.sh's own enumerate_names.awk finds under
-# PROJECT_SOURCE_DIR/include, checked against every "#define" the
+# check_public_name_collision.py's own enumerate_names_in_text() finds
+# under PROJECT_SOURCE_DIR/include, checked against every "#define" the
 # compiler's OWN system search path (discovered live via
 # `${cxx} -E -Wp,-v -xc++ -`, never a hardcoded /usr/include) actually
-# contains. POSIX sh, and the discovery trick is a GCC-frontend
-# convention; same declared downgrade as every other gate in this file
-# - runs on the four Linux CI legs, not Windows (see the script's own
-# header for why the Windows leg is covered by a DIFFERENT, pre-
-# existing mechanism, header_hygiene_test.cpp's hostile-windows.h
-# compile, that this gate does not replace).
-if(UNIX)
-    add_test(
-        NAME public_name_collision_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_public_name_collision.sh"
-            "${PROJECT_SOURCE_DIR}/include"
-            "${CMAKE_CXX_COMPILER}"
-    )
-    set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
+# contains.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04, decisao do lider: "O
+# comportamento deve ser igual em qualquer OS"): PORTED from POSIX sh +
+# tests/tools/enumerate_names.awk (a separate scratch file the sh
+# version wrote at runtime) to a single python3 file that reimplements
+# the five awk extraction rules natively - enumerate_names.awk is
+# DELETED in this same fatia, now orphaned.
+#
+# REVISADO em 04/09/2026 (retorno do orquestrador sobre a primeira
+# versao desta fatia): a versao anterior escondia o MSVC atras de
+# `if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")`, com um
+# `message(STATUS ...)` no `else()` que so aparece no log de
+# configuracao - nenhum inventario de teste (`ctest -N`) o enxergava,
+# e a ausencia nao era CONTADA em lugar nenhum que uma maquina possa
+# ler. Corrigido seguindo o PRECEDENTE da casa (commit ed14ba2, "nome
+# hostil inviavel no Windows vira ausencia DECLARADA, nao pulo
+# silencioso", tests/tools/check_spdx.py): os dois testes sao
+# registrados INCONDICIONALMENTE, nas cinco plataformas, recebendo
+# CMAKE_CXX_COMPILER_ID como terceiro argumento; e' o proprio script
+# (ver seu cabecalho, gcc_frontend_discovery_available()) quem decide,
+# em tempo de execucao, se o mecanismo GCC-frontend (`-E -Wp,-v -xc++`,
+# `-E -dM -xc++`) esta disponivel - no MSVC nao esta, e o script
+# imprime a contagem (1 caso, 0 exercido, 1 declarado nao aplicavel,
+# com o motivo e a cobertura equivalente) e sai com codigo 0, em vez de
+# desaparecer do `ctest -N`.
+#
+# GLINTFX_PYTHON3_EXECUTABLE: cached find_program() result, already
+# resolved earlier in this file (hygiene_coverage_test's own
+# registration above) - find_program() is idempotent across repeated
+# calls with the same cache variable, so it is not re-called here.
+add_test(
+    NAME public_name_collision_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_public_name_collision.py"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${CMAKE_CXX_COMPILER}"
+        "${CMAKE_CXX_COMPILER_ID}"
+)
+set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
 
-    add_test(
-        NAME public_name_collision_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_public_name_collision.sh" --selftest "${CMAKE_CXX_COMPILER}"
-    )
-    set_tests_properties(public_name_collision_selftest PROPERTIES LABELS selftest)
-endif()
+add_test(
+    NAME public_name_collision_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_public_name_collision.py" --selftest
+        "${CMAKE_CXX_COMPILER}" "${CMAKE_CXX_COMPILER_ID}"
+)
+set_tests_properties(public_name_collision_selftest PROPERTIES LABELS selftest)
 
 # Visibility test: only makes sense with dynamic symbols (.so) and the
 # Unix `nm -D` tool. On Windows the export is already controlled by
@@ -705,38 +732,41 @@ set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 
 # L-05/L-06 gate (GODS_LAWS.md, "Gate L-05/L-06" job of
 # .github/workflows/ci.yml): proves the repository has no forbidden
-# term (see tests/tools/check_no_x11.sh's own header for the L-40
+# term (see tests/tools/check_no_x11.py's own header for the L-40
 # findings this gate exists to close). Wiring it here too, not only in
 # the standalone CI job, gives a local `ctest -R x11` and folds it into
 # the same consume/selftest label taxonomy as the other gates in this
-# file. POSIX sh; same declared downgrade as layers_test above.
-if(UNIX)
-    add_test(
-        NAME x11_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" "${CMAKE_SOURCE_DIR}"
-    )
-    set_tests_properties(x11_test PROPERTIES LABELS consume)
+# file.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04, decisao do lider: "O
+# comportamento deve ser igual em qualquer OS"): PORTED from POSIX sh
+# (tests/tools/check_no_x11.sh, if(UNIX)-guarded, never exercised on
+# Windows even though the check itself is plain-text scanning with no
+# Unix-specific mechanism behind it) to python3 and registered here
+# WITHOUT a system guard - same shape layers_test/spdx_test above. The
+# old tests/tools/check_no_x11.sh is deleted in the same fatia.
+add_test(
+    NAME x11_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(x11_test PROPERTIES LABELS consume)
 
-    add_test(
-        NAME x11_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.sh" --selftest
-    )
-    # DEPZERO-SELFTEST-FIX (28/08/2026, GODS_LAWS.md L-40): belt on top of
-    # the exit code. check_no_x11.sh's own --selftest aggregator used to
-    # be able to report exit 0 while its own stdout/stderr still printed
-    # "FALHOU" for an individual control (a POSIX sh global-variable-name
-    # collision fixed in the script itself, same fatia) - that is exactly
-    # the shape of lie FAIL_REGULAR_EXPRESSION exists to catch: it fails
-    # the ctest verdict on a text match REGARDLESS of the exit code,
-    # closing the gap even if a future edit reintroduces the same
-    # collision. Deliberately NOT PASS_REGULAR_EXPRESSION: per `cmake
-    # --help-property PASS_REGULAR_EXPRESSION`, that property makes ctest
-    # IGNORE the exit code entirely - it would trade this hole for a new
-    # one instead of closing it.
-    set_tests_properties(x11_selftest PROPERTIES
-        LABELS selftest
-        FAIL_REGULAR_EXPRESSION "FALHOU")
-endif()
+add_test(
+    NAME x11_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_x11.py" --selftest
+)
+# FAIL_REGULAR_EXPRESSION, the SAME belt dep_zero_trace_selftest/spdx_
+# selftest wear (GODS_LAWS.md L-40): check_no_x11.py's own aggregator
+# (a plain Python `all(controls)` over each control's own boolean
+# return) does not share the POSIX-sh shared-global-variable collision
+# the sh sibling's own DEPZERO-SELFTEST-FIX had to close, but the belt
+# costs nothing and keeps the taxonomy uniform across every selftest in
+# this file, sh or python3 alike.
+set_tests_properties(x11_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
 
 # Port privacy gate (ARCH-PORTS, TDD case R5, GODS_LAWS.md L-19/L-40):
 # proves the ARCH-PORTS gatilho de parada holds - nothing installed,
@@ -930,22 +960,29 @@ set_tests_properties(dep_zero_trace_selftest PROPERTIES
 # /var/tmp/glintfx-plan/separacao-leis-escopo.md secao 5, executada na
 # fase 2): proves the DUP-BLOCK anchored text in GODS_LAWS.md and
 # ESCOPO.md stays byte-for-byte identical (see
-# tests/tools/check_dup_laws.sh's own header for the two motives of
-# duplication - decisao do lider vs. duvida do orquestrador). POSIX
-# sh; same declared downgrade as layers_test/x11_test above.
-if(UNIX)
-    add_test(
-        NAME dup_laws_test
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dup_laws.sh" "${CMAKE_SOURCE_DIR}"
-    )
-    set_tests_properties(dup_laws_test PROPERTIES LABELS consume)
+# tests/tools/check_dup_laws.py's own header for the two motives of
+# duplication - decisao do lider vs. duvida do orquestrador).
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04, decisao do lider: "O
+# comportamento deve ser igual em qualquer OS"): PORTED from POSIX sh
+# (tests/tools/check_dup_laws.sh, if(UNIX)-guarded, never exercised on
+# Windows even though the check itself is plain-text comparison with no
+# Unix-specific mechanism behind it) to python3 and registered here
+# WITHOUT a system guard - same shape layers_test/x11_test above. The
+# old tests/tools/check_dup_laws.sh is deleted in the same fatia.
+add_test(
+    NAME dup_laws_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dup_laws.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(dup_laws_test PROPERTIES LABELS consume)
 
-    add_test(
-        NAME dup_laws_selftest
-        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dup_laws.sh" --selftest
-    )
-    set_tests_properties(dup_laws_selftest PROPERTIES LABELS selftest)
-endif()
+add_test(
+    NAME dup_laws_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dup_laws.py" --selftest
+)
+set_tests_properties(dup_laws_selftest PROPERTIES LABELS selftest)
 
 # [[nodiscard]] gate (CE-4 of CORE-ERROR, TODO.md; RSLT-PARITY-WIN,
 # GODS_LAWS.md L-04, ordem do lider 03/09/2026): proves

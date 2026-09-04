@@ -943,3 +943,35 @@ CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
 - **Estimei horas em vez de medir.** Escrevi 11:02, 11:17 e 11:22 em mensagens ao lider quando o relogio real marcava vinte minutos menos. Corrigido na hora em que percebi, mas o erro e o mesmo que ja tinha cometido antes nesta sessao.
 
 **O que o espelho local evitou:** ele reprovou tres vezes antes de eu empurrar -- formatacao, estrutura de teste sem ligacao interna, membro sem inicializador. Nenhum dos tres eu teria visto lendo o codigo, e cada um teria custado uma volta inteira de vinte trabalhos para dizer o que a maquina daqui disse em segundos.
+
+---
+
+## Pausa pedida pelo lider, com um vermelho local em aberto  `[04/09/26 - 12:14:33]`
+
+**Ordem do lider:** *"quando os agentes fecharem, registre e pause"*. Os quatro fecharam, tudo commitado, nada solto na arvore.
+
+**O ESTADO EXATO, para retomar sem reconstruir nada:**
+
+- **Servidor VERDE**, vinte de vinte, em `d316ed5`. Esse e o ultimo ponto empurrado.
+- **Quatro commits LOCAIS, nao empurrados de proposito:** `5fa4c7b`, `3b81fcb`, `c6fac1c`, `a54813a`.
+- **Um portao REPROVA na arvore local**, e a causa e minha.
+
+**A regressao, medida e nao suposta.** O conserto do carregamento de arquivo (`c6fac1c`) precisou zerar o indicador de erro do sistema antes de cada leitura. Essa linha e lida pelo extrator do portao de colisao de nome como se fosse a **declaracao de um nome publico nosso**. Como aquele nome e macro real e ativa da biblioteca C, o portao reprova.
+
+**O portao esta CERTO.** Ele nao sabe distinguir atribuicao a nome que ja existe de declaracao de nome novo, e o proprio cabecalho consertado ja carregava um aviso antigo sobre esse mesmo portao -- uma variavel local ali foi batizada de um jeito e nao de outro justamente para nao esbarrar nele. Eu introduzi a linha sem lembrar disso.
+
+**Provei que a culpa e minha e nao do porte** rodando o portao ANTERIOR a fatia que o reescreveu, extraido do proprio historico, contra a arvore de agora: mesma reprovacao, mesmo codigo de saida.
+
+**O erro de metodo, que e o que interessa:** commitei `c6fac1c` **sem rodar o espelho local completo antes**. Nas quatro voltas anteriores desta mesma sessao o espelho tinha pego tres achados seguidos que eu nao veria lendo o codigo, e eu mesmo escrevi que ele "estava fazendo o trabalho dele". Duas horas depois pulei o passo. Quem pegou foi um agente que rodava outra coisa e topou com o vermelho por acaso.
+
+**Conserto a decidir, e nao decidi sozinho de proposito:** ou se ensina o extrator que atribuicao nao e declaracao -- que e o correto tecnicamente, mas mexe num portao recem-reescrito e exige controle que prove --, ou se tira a linha do cabecalho para uma funcao auxiliar. **Nada e empurrado antes disso.**
+
+**O saldo da onda ate a pausa.** Seis achados que ninguem tinha visto, nenhum encontravel por leitura, e todos vindos da lei de paridade:
+1. Portao cego para 38 cabecalhos por nao seguir atalho de arquivo.
+2. Portao acusando violacao numa linha que ele mesmo autoriza.
+3. Autoteste morrendo e deixando 35 controles jamais exercidos.
+4. Verificacao de ferramenta com falso positivo: o compilador existe, o formato nao.
+5. **A biblioteca devolvendo dado truncado como sucesso no Windows** -- o unico que atinge o consumidor direta e silenciosamente.
+6. Assercoes de produto que nunca tinham rodado naquele compilador.
+
+**Numeros medidos:** suite do Windows de 46 para 58 casos; custo de processo de 221 para 1 no maior portao; nove assercoes de produto conferidas por mim de forma independente.

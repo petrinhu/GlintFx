@@ -691,9 +691,29 @@ add_test(
 set_tests_properties(public_name_collision_selftest PROPERTIES LABELS selftest)
 
 # Visibility test: only makes sense with dynamic symbols (.so) and the
-# Unix `nm -D` tool. On Windows the export is already controlled by
-# __declspec via generate_export_header; proving that would require
-# dumpbin, out of scope for this slice.
+# Unix `nm -D` tool. Windows now has its OWN parity script instead of
+# being left unproven: EXPORTS-PARITY-WIN (05/09/2026) added
+# tools/ci/check-exports-win.ps1 (dumpbin /exports against the real
+# glintfx.dll), registered in the `windows` CI job next to
+# check-dep-zero-win.ps1 (DEPZERO-PARITY-WIN) and
+# check-port-privacy-win.ps1 (PORT-PRIVACY-WIN) - the same
+# different-mechanism/same-coverage split GODS_LAWS.md L-04 asks for.
+#
+# MEASURED, not assumed (the reasoning lives in that script's own
+# header): the leak this test guards against - two libstdc++ internals
+# escaping the shared object, ABI-STDLIB-LEAK - CANNOT recur on Windows
+# through the same causal chain. A PE export table is OPT-IN: nothing
+# leaves the binary without an explicit __declspec(dllexport) or a .def
+# entry, the exact inverse of ELF, whose export-everything default is
+# what the original leak exploited (libstdc++'s own headers stamp
+# visibility("default") on std::basic_string, and an explicit attribute
+# beats the -fvisibility=hidden preset). Microsoft's STL headers stamp
+# no such thing, and `grep -rn '__declspec(dll' src/ include/` finds
+# NOTHING in this tree - GLINTFX_API, via generate_export_header(), is
+# the only source of dllexport here. The Windows script exists anyway,
+# and reproves any future regression against the real binary, because
+# "impossible by construction" is a claim that has to keep being
+# measured (GODS_LAWS.md L-36).
 if(BUILD_SHARED_LIBS AND UNIX)
     add_test(
         NAME visibility_test

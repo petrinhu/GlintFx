@@ -661,27 +661,30 @@ jobs:
           ctest --test-dir ${{ matrix.builddir }} -V -R win32_runner_probe_test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN (GODS_LAWS.md L-04
-      # reabertura de check_dep_zero.sh sub-check (c) e check_port_
-      # privacy.sh sub-check (d) por paridade, 03/09/2026): ate aqui o
+      # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN
+      # (GODS_LAWS.md L-04 reabertura de check_dep_zero.sh sub-check
+      # (c), check_port_privacy.sh sub-check (d) e check_exports.sh
+      # (ABI-STDLIB-LEAK) por paridade, 03-05/09/2026): ate aqui o
       # import table e o export table de glintfx.dll nunca tinham sido
       # lidos por ninguem - src/platform/win32/ (WIN-DISPLAY) so ganhou
       # um binario de verdade para inspecionar numa onda recente. Os
-      # dois scripts abaixo sao os equivalentes Windows dos sub-checks
+      # tres scripts abaixo sao os equivalentes Windows dos sub-checks
       # que ja rodam contra o .so no job `linux` (readelf -d / nm -D +
-      # c++filt) - tools/ci/check-dep-zero-win.ps1 e tools/ci/check-
-      # port-privacy-win.ps1 usam dumpbin.exe, que ja esta no PATH desde
-      # o passo "Preparar ambiente do compilador (MSVC x64)" acima
-      # (mesmo componente VC.Tools.x86.x64 que aquele passo ja exige via
-      # vswhere - ver o header de cada script para a citacao medida
-      # contra actions/runner-images/Windows2025-Readme.md). O
-      # -SelfTest de cada script roda ANTES da checagem real, provando o
-      # parser/allowlist contra texto sintetico no formato documentado
-      # do dumpbin - a UNICA prova vermelha possivel fora do servidor
-      # Windows real (maquina do autor nao tem Windows nem MSVC); a
-      # checagem real contra o glintfx.dll de verdade, alguns passos
-      # abaixo, e a estreia genuina desta trava - ver o header de cada
-      # script para a limitacao declarada.
+      # c++filt, duas vezes - uma para a lista fechada de porta/
+      # adaptador, outra para o namespace glintfx:: inteiro) -
+      # tools/ci/check-dep-zero-win.ps1, tools/ci/check-port-privacy-
+      # win.ps1 e tools/ci/check-exports-win.ps1 usam dumpbin.exe, que
+      # ja esta no PATH desde o passo "Preparar ambiente do compilador
+      # (MSVC x64)" acima (mesmo componente VC.Tools.x86.x64 que aquele
+      # passo ja exige via vswhere - ver o header de cada script para a
+      # citacao medida contra actions/runner-images/Windows2025-
+      # Readme.md). O -SelfTest de cada script roda ANTES da checagem
+      # real, provando o parser/allowlist contra texto sintetico no
+      # formato documentado do dumpbin - a UNICA prova vermelha
+      # possivel fora do servidor Windows real (maquina do autor nao
+      # tem Windows nem MSVC); a checagem real contra o glintfx.dll de
+      # verdade, alguns passos abaixo, e a estreia genuina desta trava
+      # - ver o header de cada script para a limitacao declarada.
       - name: Dependencia zero (Windows) - autoteste do parser (${{ matrix.modo }})
         shell: pwsh
         run: tools/ci/check-dep-zero-win.ps1 -SelfTest
@@ -697,6 +700,23 @@ jobs:
       - name: Privacidade de porta (Windows) - exportacoes do binario real (${{ matrix.modo }})
         shell: pwsh
         run: tools/ci/check-port-privacy-win.ps1 -Modo "${{ matrix.modo }}" -BuildDir "${{ matrix.builddir }}"
+
+      # EXPORTS-PARITY-WIN (GODS_LAWS.md L-04/L-26, ABI-STDLIB-LEAK
+      # reaberto por paridade, 05/09/2026): contrato completo do
+      # tests/tools/check_exports.sh do Linux (so glintfx:: pode sair
+      # do binario) medido pela primeira vez contra glintfx.dll - ver
+      # o header de tools/ci/check-exports-win.ps1 para o porque desta
+      # classe de defeito ser impossivel por construcao no lado
+      # Windows (modelo de exportacao de PE/COFF e opt-in, ao contrario
+      # do default do ELF que o vazamento original explorou) e para a
+      # pesquisa que sustenta essa conclusao.
+      - name: Exportacoes (Windows) - autoteste do parser (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/check-exports-win.ps1 -SelfTest
+
+      - name: Exportacoes (Windows) - simbolos do binario real (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/check-exports-win.ps1 -Modo "${{ matrix.modo }}" -BuildDir "${{ matrix.builddir }}"
 
       - name: Consumo instalado (${{ matrix.modo }})
         id: consumo_instalado

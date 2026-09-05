@@ -1045,3 +1045,34 @@ CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
 1. As duas portas de mao unica da W4 (`CORE-MATH2D` e `GFSS-PROP-REGISTRY`), que congelam superficie publica e exigem revisao de API dedicada.
 2. As decisoes autonomas registradas aqui, para confirmacao ou reversao.
 3. A pergunta de versao e tag: ele respondeu "Ainda nao" em 04/09, **antes** de duas ondas fecharem. A condicao mudou.
+
+---
+
+## Decisoes do lider sobre os tipos basicos, e a versao marcada  `[05/09/26 - 07:10:33]`
+
+**Nao sao decisoes minhas: sao DELE, tomadas por `AskUserQuestion` nesta sessao.** Registradas aqui porque congelam superficie publica e nao podem virar boato.
+
+### Versao
+
+**`v0.2.0.0`, a primeira marca do projeto**, apontando para `cd8afd7`, verde nos vinte e um trabalhos. O segundo numero porque, enquanto o primeiro for zero, e nele que a quebra mora -- e houve quebra de comportamento observavel: a leitura de arquivo que devolvia metade com sinal de sucesso agora devolve erro.
+
+⚠️ **E o portao MORDEU na subida:** o de layout de empacotamento reprovou, porque o consumidor de teste pedia a versao antiga e a politica instalada so garante compatibilidade dentro do mesmo segundo numero. **A politica de versao esta implementada e mordendo, nao apenas declarada num comentario.** Um projeto onde subir o segundo numero nao quebrasse nada seria um projeto onde ela era decorativa.
+
+### Os quatro eixos dos tipos basicos (`CORE-MATH2D`)
+
+| Eixo | Decisao do lider |
+|---|---|
+| Precisao | **Dupla no mundo, simples na tela** |
+| Angulo | **Tipo proprio**, que carrega a unidade |
+| Retangulo | **Canto mais tamanho** |
+| Ordem da matriz | **A que a placa espera**, sem conversao por quadro |
+
+### O contra-argumento que eu tinha o dever de fazer, e o que ele mudou
+
+O lider escolheu primeiro **precisao dupla**, contra a minha recomendacao. Antes de executar, apresentei o fato que faltava, e ele e verificavel: **o alvo grafico que o proprio lider fixou -- OpenGL 3.3 core -- NAO ACEITA precisao dupla**, nem em atributo de vertice nem em matriz; as duas coisas so existem a partir da 4.0/4.1, que ele recusou explicitamente. Logo, precisao dupla seria convertida para simples antes de TODO desenho, e a precisao extra existiria apenas ate a fronteira grafica.
+
+**Ele nao recuou nem insistiu: refinou.** A escolha final -- dupla no mundo, simples na tela -- fica com a vantagem que motivava a decisao dele (coordenada de mundo grande, onde o formato simples perde exatidao a partir de dezesseis milhoes) e sem o custo por objeto que eu havia levantado.
+
+⚠️ **Registro de metodo:** a lei manda contra-argumentar UMA vez, com problema, risco e alternativa, e depois obedecer. O que fez a conversa render nao foi eu discordar -- foi eu trazer um FATO que ele nao tinha, sobre uma decisao que ele mesmo tomou antes. Discordancia sem fato novo teria sido so atrito.
+
+**CONSEQUENCIA QUE O PROXIMO EXECUTOR PRECISA TER NA FRENTE:** sao DUAS familias de tipo na superficie publica, e a fronteira entre elas tem de ser obvia -- quem le o cabecalho precisa saber, sem pensar, qual lado esta usando. Se essa fronteira ficar ambigua, a decisao vira defeito.

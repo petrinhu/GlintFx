@@ -1154,6 +1154,111 @@ def run_relative_libdir_cwd_attack_scenario(glintfx_src, cxx, build_dir, prefix,
 
 
 # --- scenario 13 -------------------------------------------------------
+#
+# VERMELHO 4 (05/09/2026, run 33947167061, job "Windows (primario) -
+# estatico"): this scenario's OWN cross-check against a real pkg-config/
+# pkgconf binary raised an unhandled FileNotFoundError ([WinError 2])
+# instead of running or declaring absence - hiding every scenario after
+# it (14 through 18 never ran on Windows because of it, real_main()
+# runs them all in one sequential process and an uncaught exception
+# aborts the file). shutil.which() FOUND the tool (this file's own
+# header already names it, VERMELHO 3 above: GitHub Actions'
+# windows-latest runner ships ONLY Strawberry Perl's Pure-Perl
+# "pkg-config.bat"), but the old code threw shutil.which()'s own
+# resolved path away and handed subprocess.run() the bare CANDIDATE
+# NAME instead ("pkgconf"/"pkg-config" - no directory, no extension).
+#
+# THE ROOT CAUSE, researched (GODS_LAWS.md L-22) rather than guessed:
+# Win32's CreateProcess() - what subprocess.run(shell=False) calls on
+# Windows - auto-appends ONLY ".exe" to an extension-less command name
+# before its own PATH search (Microsoft Learn, CreateProcessW,
+# lpCommandLine: "If the file name does not contain an extension, .exe
+# is appended"; the search sequence it then walks is documented right
+# after that sentence). It never tries ".bat"/".cmd"/any other PATHEXT
+# entry. shutil.which(), by contrast, walks the FULL PATHEXT list (its
+# own stdlib docs) - exactly why it found "pkg-config.bat" while a bare
+# "pkg-config" handed to subprocess made CreateProcess look for a
+# nonexistent "pkg-config.exe" and fail with "the system cannot find
+# the file specified". The Python docs name this precise fix themselves
+# (subprocess, "Popen Constructor"): "For maximum reliability, use a
+# fully qualified path for the executable. To search for an unqualified
+# name on PATH, use shutil.which()."
+#
+# A resolved ".bat"/".cmd" path is not enough by itself, though:
+# CreateProcess cannot load a batch file directly - it is not a PE
+# image - Microsoft's own CreateProcess docs say so under
+# lpApplicationName ("To run a batch file, you must start the command
+# interpreter; set lpApplicationName to cmd.exe..."), confirmed by the
+# well-documented "OSError: [WinError 193] %1 is not a valid Win32
+# application" a bare subprocess.run() call on a .bat produces. It
+# still needs dispatching through "cmd /c", passed as its OWN argv
+# entries (never one shell=True string) so subprocess's own
+# per-argument quoting keeps protecting a prefix path that contains a
+# space - resolve_real_pkgconfig_tool() and dispatch_argv_for_tool()
+# below are that fix, kept as two small, independently-testable
+# functions (GODS_LAWS.md L-17).
+def resolve_real_pkgconfig_tool(candidates=("pkgconf", "pkg-config"), which_path=None):
+    """Finds a real pkg-config-compatible tool on PATH, returning
+    (display_name, resolved_full_path) for the first candidate
+    shutil.which() actually finds, or (None, None) if neither is
+    present. Callers must hand `resolved_full_path` - never
+    `display_name` - to subprocess: see this block's own VERMELHO 4
+    header for why the bare name is not reliably invocable.
+    `which_path` overrides the PATH shutil.which() searches - used only
+    by this file's own selftest below, never by real_main().
+    """
+    for candidate in candidates:
+        resolved = shutil.which(candidate, path=which_path)
+        if resolved:
+            return candidate, resolved
+    return None, None
+
+
+_FORCE_WINDOWS_BATCH_DISPATCH_ENV = "GLINTFX_PKGVALIDATE_FORCE_WINDOWS_BATCH_DISPATCH"
+
+
+def running_as_windows_for_pkgconfig_dispatch(force_windows_batch_dispatch=False):
+    """True when a resolved real-tool path needs Windows' batch-dispatch
+    treatment: real Windows (os.name == "nt"), or the
+    GLINTFX_PKGVALIDATE_FORCE_WINDOWS_BATCH_DISPATCH=1 escape hatch this
+    fatia adds so the exact same declare-and-derive code path Windows CI
+    exercises can be proven, and shown, GREEN on Linux too (GODS_LAWS.md
+    L-40: a mechanism that only ever ran on the one platform that never
+    triggers it is not a proven mechanism) - the same convention
+    check_spdx.py's own GLINTFX_SPDX_SELFTEST_FORCE_WINDOWS_HOSTILE_SKIP,
+    check_public_name_collision.py's own
+    GLINTFX_PNC_FORCE_GCC_FRONTEND_UNAVAILABLE, and check_dep_zero.py's
+    own GLINTFX_DEPZERO_SELFTEST_FORCE_WINDOWS_NEEDED_SKIP already
+    established. This variable never reaches real_main()'s actual
+    scenarios - it only selects a branch inside this file's own
+    selftest fixture, exactly like its three precedents.
+    """
+    if force_windows_batch_dispatch:
+        return True
+    return os.name == "nt"
+
+
+def _force_windows_batch_dispatch():
+    return os.environ.get(_FORCE_WINDOWS_BATCH_DISPATCH_ENV) == "1"
+
+
+def dispatch_argv_for_tool(resolved_path, args, force_windows_batch_dispatch=False):
+    """Builds the actual argv to run `resolved_path` (already the FULL
+    path resolve_real_pkgconfig_tool() found) with `args`. On Windows -
+    real or forced via `force_windows_batch_dispatch`/the env-var escape
+    hatch above - a ".bat"/".cmd" resolved path is dispatched through
+    "cmd /c"; every other case (a real ".exe", any other extension, or
+    not Windows-shaped at all) runs the resolved path unchanged. "cmd",
+    "/c", the path and each argument stay DISCRETE argv entries - never
+    joined into one string - so this is NOT shell=True and none of its
+    argument-quoting hazards apply.
+    """
+    if (
+        running_as_windows_for_pkgconfig_dispatch(force_windows_batch_dispatch)
+        and resolved_path.lower().endswith((".bat", ".cmd"))
+    ):
+        return ["cmd", "/c", resolved_path, *args]
+    return [resolved_path, *args]
 
 
 def run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir):
@@ -1192,31 +1297,48 @@ def run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir)
         on_fail_prefix="the syntax-variants fixture installed cleanly",
     )
 
-    real_tool = None
-    for candidate in ("pkgconf", "pkg-config"):
-        if shutil.which(candidate):
-            real_tool = candidate
-            break
+    real_tool_name, real_tool_path = resolve_real_pkgconfig_tool()
 
-    if real_tool is not None:
+    if real_tool_path is not None:
         env = dict(os.environ, PKG_CONFIG_PATH=pkgconfig_dir)
-        real_output = run_expect_success(
-            [real_tool, "--print-errors", "--cflags", "--libs", "glintfx"],
-            f"a REAL {real_tool} on this machine's PATH rejected the same syntax-variants "
-            "fixture this validator just accepted - the fixture is not actually "
-            "'genuinely good' by an independent implementation.",
-            env=env,
+        real_cmd = dispatch_argv_for_tool(
+            real_tool_path, ["--print-errors", "--cflags", "--libs", "glintfx"]
         )
-        must_contain(
-            real_output,
-            "-lglintfx",
-            on_fail=f"a real {real_tool} run against the syntax-variants fixture did not emit the expected -lglintfx.",
-        )
-        print(
-            f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
-            f"'=', trailing comment) - accepted by BOTH this validator and a real "
-            f"{real_tool} on this machine's PATH, cross-checked against the same fixture."
-        )
+        try:
+            real_output = run_expect_success(
+                real_cmd,
+                f"a REAL {real_tool_name} on this machine's PATH rejected the same syntax-variants "
+                "fixture this validator just accepted - the fixture is not actually "
+                "'genuinely good' by an independent implementation.",
+                env=env,
+            )
+        except OSError as exc:
+            # VERMELHO 4 (this file's own header above): shutil.which()
+            # finding a tool does not guarantee it is actually
+            # invocable through this dispatch on this machine - an
+            # OSError here (FileNotFoundError included) is a
+            # legitimate, DECLARED absence (GODS_LAWS.md L-27), never
+            # an unhandled crash that would hide scenarios 14-18 behind
+            # it the way it did in run 33947167061.
+            print(
+                f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
+                f"'=', trailing comment) - accepted by this validator; a real {real_tool_name} "
+                f"was found on PATH by shutil.which() at {real_tool_path}, but is not "
+                f"actually invocable here ({exc}) - declared, not exercised, GODS_LAWS.md "
+                "L-27 (this validator's own outcome above is unaffected; only the "
+                "independent cross-check is skipped)."
+            )
+        else:
+            must_contain(
+                real_output,
+                "-lglintfx",
+                on_fail=f"a real {real_tool_name} run against the syntax-variants fixture did not emit the expected -lglintfx.",
+            )
+            print(
+                f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
+                f"'=', trailing comment) - accepted by BOTH this validator and a real "
+                f"{real_tool_name} on this machine's PATH, cross-checked against the same fixture."
+            )
     else:
         print(
             f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
@@ -1802,6 +1924,159 @@ def selftest_rewrite_libdir_line_control():
     return ok
 
 
+def selftest_resolve_real_pkgconfig_tool_full_path_control():
+    """VERMELHO 4's root cause, reproduced GENERICALLY - not Windows-
+    specific, bites on this Linux machine directly, no force-env-var
+    needed: resolve_real_pkgconfig_tool() must hand back the FULL path
+    shutil.which() found, never the bare candidate name. Proven by
+    building a fixture tool reachable ONLY through a PATH directory
+    that is NOT part of the ambient environment - the same class of bug
+    Windows' CreateProcess()-only-appends-".exe" produced for real
+    (found by a WIDER search than the one subprocess.run() itself
+    performs at exec time), reproduced here through a wider-search-vs-
+    narrower-search mismatch that exists on every platform: a bare name
+    invoked with a PATH that does not list its directory.
+    """
+    scratch = tempfile.mkdtemp(prefix="glintfx-pkgvalidate-selftest-", dir=os.environ.get("TMPDIR"))
+    ok = True
+    try:
+        tool_name = "glintfx-selftest-probe-tool"
+        tool_path = os.path.join(scratch, tool_name)
+        with open(tool_path, "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\necho PROBE-OK\n")
+        os.chmod(tool_path, 0o755)
+
+        display_name, resolved = resolve_real_pkgconfig_tool(candidates=(tool_name,), which_path=scratch)
+        if display_name != tool_name or resolved != tool_path:
+            print(
+                f"selftest: controle de RESOLUCAO DE FERRAMENTA REAL FALHOU (esperava "
+                f"({tool_name!r}, {tool_path!r}), achou ({display_name!r}, {resolved!r}))",
+                file=sys.stderr,
+            )
+            ok = False
+        else:
+            print(
+                "selftest: controle de RESOLUCAO DE FERRAMENTA REAL OK (devolveu o caminho "
+                "COMPLETO, nao so o nome do candidato)"
+            )
+
+        env_without_scratch = dict(os.environ)
+
+        # RED without the fix: the BARE NAME, in an environment whose
+        # PATH does not list `scratch`, must be inencontravel - exactly
+        # the search-mismatch class VERMELHO 4 hit for real.
+        bare_name_failed = False
+        try:
+            subprocess.run([tool_name], env=env_without_scratch, capture_output=True)
+        except OSError:
+            bare_name_failed = True
+        if not bare_name_failed:
+            print(
+                "selftest: controle de RESOLUCAO DE FERRAMENTA REAL (RED) FALHOU - o nome "
+                "isolado deveria ter sido inencontravel sem `scratch` no PATH; o controle "
+                "nao esta testando nada",
+                file=sys.stderr,
+            )
+            ok = False
+        else:
+            print(
+                "selftest: controle de RESOLUCAO DE FERRAMENTA REAL (RED) OK - o nome "
+                "isolado, sem `scratch` no PATH, e de fato inencontravel"
+            )
+
+        # GREEN with the fix: the FULL resolved path runs regardless of
+        # PATH - no search needed at exec time.
+        proc = subprocess.run([resolved], env=env_without_scratch, capture_output=True, text=True)
+        if proc.returncode != 0 or "PROBE-OK" not in proc.stdout:
+            print(
+                f"selftest: controle de RESOLUCAO DE FERRAMENTA REAL (GREEN) FALHOU "
+                f"(rc={proc.returncode}, stdout={proc.stdout!r})",
+                file=sys.stderr,
+            )
+            ok = False
+        else:
+            print(
+                "selftest: controle de RESOLUCAO DE FERRAMENTA REAL (GREEN) OK - o caminho "
+                "completo roda mesmo sem `scratch` no PATH, provando por que "
+                "resolve_real_pkgconfig_tool() nunca deve devolver so o nome do candidato"
+            )
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    return ok
+
+
+def selftest_windows_batch_dispatch_control():
+    """VERMELHO 4's OUTRA metade - despacho de ".bat"/".cmd" via "cmd
+    /c" - provada como logica PURA de argv (nao precisa de cmd.exe de
+    verdade nesta maquina): forca o ramo Windows por nome, EXATAMENTE
+    como running_as_windows_for_pkgconfig_dispatch()'s own docstring
+    documenta e como check_dep_zero.py/check_public_name_collision.py/
+    check_spdx.py ja estabelecem, e roda os TRES lados aqui - ".bat"
+    forcado Windows, ".exe" forcado Windows e ".bat" no ramo NATIVO
+    (nao forcado) desta maquina Linux - numa unica chamada, RED
+    impossivel de esconder atras de um humano esquecer de setar a
+    variavel de ambiente.
+    """
+    ok = True
+
+    batch_path = os.path.join("C:\\", "Strawberry", "perl", "bin", "pkg-config.bat")
+    exe_path = os.path.join("C:\\", "msys64", "usr", "bin", "pkgconf.exe")
+    args = ["--print-errors", "--cflags", "--libs", "glintfx"]
+
+    forced_batch = dispatch_argv_for_tool(batch_path, args, force_windows_batch_dispatch=True)
+    if forced_batch != ["cmd", "/c", batch_path, *args]:
+        print(f"selftest: controle de DESPACHO .bat FORCADO FALHOU (achou {forced_batch!r})", file=sys.stderr)
+        ok = False
+    else:
+        print("selftest: controle de DESPACHO .bat FORCADO OK (.bat forcado Windows vira 'cmd /c <path> <args>')")
+
+    forced_exe = dispatch_argv_for_tool(exe_path, args, force_windows_batch_dispatch=True)
+    if forced_exe != [exe_path, *args]:
+        print(f"selftest: controle de DESPACHO .exe FORCADO FALHOU (achou {forced_exe!r})", file=sys.stderr)
+        ok = False
+    else:
+        print("selftest: controle de DESPACHO .exe FORCADO OK (.exe forcado Windows nao ganha 'cmd /c')")
+
+    native_batch = dispatch_argv_for_tool(batch_path, args, force_windows_batch_dispatch=False)
+    if os.name == "nt":
+        print(
+            "selftest: controle de DESPACHO .bat NATIVO nao aplicavel nesta maquina "
+            "(os.name == 'nt' de verdade, o ramo nativo JA E o ramo Windows) - declarado, "
+            "GODS_LAWS.md L-27"
+        )
+    elif native_batch != [batch_path, *args]:
+        print(
+            f"selftest: controle de DESPACHO .bat NATIVO (Linux) FALHOU (achou {native_batch!r})",
+            file=sys.stderr,
+        )
+        ok = False
+    else:
+        print(
+            "selftest: controle de DESPACHO .bat NATIVO (Linux) OK - sem forcar e sem estar "
+            "de fato no Windows, nenhum 'cmd /c' e adicionado"
+        )
+
+    # A variavel de ambiente GLINTFX_PKGVALIDATE_FORCE_WINDOWS_BATCH_DISPATCH=1
+    # produz o MESMO resultado do parametro forcado acima, provando que o
+    # escape hatch documentado de fato liga ao mesmo mecanismo (nao um
+    # segundo caminho de codigo nao testado).
+    os.environ[_FORCE_WINDOWS_BATCH_DISPATCH_ENV] = "1"
+    try:
+        via_env = dispatch_argv_for_tool(batch_path, args, force_windows_batch_dispatch=_force_windows_batch_dispatch())
+    finally:
+        del os.environ[_FORCE_WINDOWS_BATCH_DISPATCH_ENV]
+    if via_env != ["cmd", "/c", batch_path, *args]:
+        print(f"selftest: controle de DESPACHO .bat VIA ENV FALHOU (achou {via_env!r})", file=sys.stderr)
+        ok = False
+    else:
+        print(
+            f"selftest: controle de DESPACHO .bat VIA ENV OK ({_FORCE_WINDOWS_BATCH_DISPATCH_ENV}=1 "
+            "produz o mesmo despacho que o parametro forcado direto)"
+        )
+
+    return ok
+
+
 def selftest_main():
     controls = [
         selftest_normalize_wrap_immunity_control(),
@@ -1810,6 +2085,8 @@ def selftest_main():
         selftest_library_artifact_patterns_control(),
         selftest_find_and_remove_library_artifacts_control(),
         selftest_rewrite_libdir_line_control(),
+        selftest_resolve_real_pkgconfig_tool_full_path_control(),
+        selftest_windows_batch_dispatch_control(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

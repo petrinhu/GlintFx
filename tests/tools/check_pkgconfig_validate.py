@@ -215,6 +215,51 @@ def normalize_wrapped_message(text):
     return re.sub(r"\s+", " ", text)
 
 
+# --- ASSERT-SEP: normalize path separators before every path comparison --
+
+
+def to_posix_path(path):
+    """PKG-WIN-SCOPE round 8 (VERMELHO, 05/09/2026, run 33946160472,
+    jobs 'Windows (primario)' Debug/estatico/compartilhado):
+    run_destdir_scenario's own "DESTDIR install succeeded
+    (outcome=degraded) did not name the expected resolved path" -
+    followed, right below it in the SAME failure output, by the
+    validator's own message naming the identical file, character for
+    character except for the separator ('C:/Users/.../buildroot/usr/
+    lib/pkgconfig/glintfx.pc'). CMake's own internal path
+    representation always uses forward slashes, on every platform it
+    runs on - this file's own scenario 18 comment (PKG-WIN-SCOPE round
+    7) already cites this same convention - while a path THIS script
+    builds with os.path.join()/os.walk() is backslash-separated on
+    Windows (`os.sep == "\\\\"` there). must_contain_in_order() is a
+    plain substring search, never separator-aware, so it never matched
+    two spellings of the same file.
+
+    Deliberately UNCONDITIONAL (`path.replace("\\\\", "/")`, never
+    gated on `os.sep` the way check_env_sweep.py's own _as_posix() or
+    this file's own find_libdir_relative_to_prefix() are) - the same
+    portability lesson scenario 18's own glintfx_pkgconfig_looks_rooted()
+    already drew for a different comparison: a check gated on the
+    CALLING platform's own os.sep can only ever be exercised on that
+    platform, so a Linux-only CI run could never prove this fix RED
+    then GREEN (GODS_LAWS.md project L-04, "provado em cada sistema").
+    An unconditional replace is safe everywhere this script runs it:
+    every path it builds itself uses '/' already on POSIX (os.path.join
+    never introduces '\\\\' there), so the replace is a genuine no-op on
+    Linux/macOS and the real fix on Windows - proven by
+    selftest_windows_path_separator_control below with a hand-built
+    Windows-style string, never a real os.path.join() call, so it bites
+    on THIS (Linux) machine too, not only on a real Windows one.
+
+    Used ONLY at the comparison boundary (assert_real_install_
+    validated()'s own `pc_file` argument) - every real filesystem call
+    elsewhere in this file (os.path.isfile, os.remove, open,
+    rewrite_libdir_line) keeps using the path's native separator, which
+    is what the OS actually requires.
+    """
+    return path.replace("\\", "/")
+
+
 def must_contain(output, phrase, on_fail):
     if phrase not in normalize_wrapped_message(output):
         fail(f"{on_fail} Got:\n{output}")
@@ -572,14 +617,22 @@ def assert_real_install_validated(output, on_fail_prefix, pc_file=None):
         outcome, anchor = "passed", "glintfx.pc at"
 
     if pc_file is not None:
+        # ASSERT-SEP (see to_posix_path()'s own header): pc_file is built
+        # by THIS script, with os.path.join()/os.walk() - backslash-
+        # separated on Windows - while every message the validator itself
+        # prints names the same location with CMake's own forward-slash
+        # convention. Comparing the raw, unconverted value is exactly
+        # PKG-WIN-SCOPE round 8's own false reprovation of a genuinely
+        # correct Windows install.
+        pc_file_posix = to_posix_path(pc_file)
         must_contain_in_order(
             output,
             anchor,
-            pc_file,
+            pc_file_posix,
             on_fail=(
                 f"{on_fail_prefix} (outcome={outcome}) did not name the expected "
-                f"resolved path ({pc_file}) right after its own '{anchor}' phrase - a "
-                "path appearing elsewhere in the install log (for instance CMake's own "
+                f"resolved path ({pc_file_posix}) right after its own '{anchor}' phrase - "
+                "a path appearing elsewhere in the install log (for instance CMake's own "
                 "'-- Installing: ...' line) would not prove the VALIDATOR's own message "
                 "computed it correctly."
             ),
@@ -1595,6 +1648,67 @@ def selftest_must_contain_in_order_control():
     return ok
 
 
+def selftest_windows_path_separator_control():
+    """PKG-WIN-SCOPE round 8 (see to_posix_path()'s own header for the
+    real CI run this reproduces): proves, RED then GREEN, on THIS
+    (Linux) machine - never a real Windows box, never a real cmake run
+    - that a hand-built Windows-style path (literal '\\\\', never an
+    os.path.join() call, so this bites identically on every platform
+    this script runs on, GODS_LAWS.md project L-04) fails to match
+    CMake's own forward-slash message before to_posix_path(), and
+    matches after it.
+    """
+    cmake_style_output = (
+        "glintfx: post-install pkg-config validation passed - glintfx.pc at "
+        "C:/Users/RUNNER~1/AppData/Local/Temp/glintfx-pkgvalidate-qk0ms6em/"
+        "buildroot/usr/lib/pkgconfig/glintfx.pc\n"
+    )
+    windows_style_pc_file = (
+        "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\glintfx-pkgvalidate-qk0ms6em\\"
+        "buildroot\\usr\\lib\\pkgconfig\\glintfx.pc"
+    )
+
+    try:
+        must_contain_in_order(
+            cmake_style_output,
+            "glintfx.pc at",
+            windows_style_pc_file,
+            on_fail="RED deveria ter reprovado (isto e esperado neste controle)",
+        )
+    except SystemExit:
+        pass
+    else:
+        print(
+            "selftest: controle de SEPARADOR DE CAMINHO FALHOU (RED nao reprovou - o "
+            "defeito de separador (PKG-WIN-SCOPE round 8) nao foi reproduzido, o "
+            "controle nao esta testando nada)",
+            file=sys.stderr,
+        )
+        return False
+
+    try:
+        must_contain_in_order(
+            cmake_style_output,
+            "glintfx.pc at",
+            to_posix_path(windows_style_pc_file),
+            on_fail="GREEN deveria ter passado apos to_posix_path()",
+        )
+    except SystemExit:
+        print(
+            "selftest: controle de SEPARADOR DE CAMINHO FALHOU (GREEN reprovou apos "
+            "to_posix_path() - a normalizacao nao resolveu o defeito)",
+            file=sys.stderr,
+        )
+        return False
+
+    print(
+        "selftest: controle de SEPARADOR DE CAMINHO OK (RED: caminho estilo Windows sem "
+        "normalizar nao bate contra a mensagem em barra normal do CMake, mesmo nomeando "
+        "o mesmo arquivo; GREEN: to_posix_path() resolve, provado nesta maquina Linux)"
+    )
+    return True
+
+
 def selftest_library_artifact_patterns_control():
     """L-40's closed-enumeration floor for LIBRARY_ARTIFACT_PATTERNS:
     exactly the three names cmake/GlintfxPkgConfigValidateInstalled.cmake.in's
@@ -1692,6 +1806,7 @@ def selftest_main():
     controls = [
         selftest_normalize_wrap_immunity_control(),
         selftest_must_contain_in_order_control(),
+        selftest_windows_path_separator_control(),
         selftest_library_artifact_patterns_control(),
         selftest_find_and_remove_library_artifacts_control(),
         selftest_rewrite_libdir_line_control(),

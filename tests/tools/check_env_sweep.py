@@ -145,6 +145,16 @@ _ENV_FACT_SIGNALS = {
         "falso positivo de 'compilador disponivel' (TODO.md GATE-ENV-SWEEP, incidente 7; "
         "check_dep_zero.py's own running_as_windows_linker(), commit d316ed5)",
     ),
+    "PATH_SEPARATOR": (
+        re.compile(r"\bto_posix_path\b|\bglintfx_pkgconfig_looks_rooted\b|\b_as_posix\b"),
+        "separador de caminho (TODO.md GATE-ENV-SWEEP, incidentes 8 e 9; "
+        "check_pkgconfig_validate.py's own to_posix_path(), commit da rodada 8 - um caminho "
+        "montado em Python e outro impresso pelo CMake nomeiam o MESMO arquivo com grafias "
+        "diferentes; e check_env_sweep.py's own _as_posix(), commit 275066e, que e o mesmo "
+        "defeito na propria calibracao deste arquivo - sete de sete achados no Linux, zero no "
+        "Windows. A SETIMA categoria foi acrescentada em 05/09/2026 exatamente como o cabecalho "
+        "deste arquivo previa: uma linha nomeada e datada, sem reescrever o mecanismo)",
+    ),
 }
 
 # A match is DECLARED when one of these markers (case-insensitive)

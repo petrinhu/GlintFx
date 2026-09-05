@@ -349,9 +349,18 @@ glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 # DestroyWindow/PeekMessageW - Win32 counts as system API for the
 # dependency-zero rule (GODS_LAWS.md L-07), same category as
 # libwayland-client on Linux.
+#
+# opengl32/gdi32 were added for X-GL-0 (docs/plano-w6a-janela.md sec.
+# 2.2 row 2): the file's own two new cases call ChoosePixelFormat/
+# SetPixelFormat (Gdi32.lib/Gdi32.dll per their own Microsoft Learn
+# pages) and wglCreateContext/wglMakeCurrent/wglDeleteContext/
+# wglGetProcAddress/glGetString (Opengl32.lib/Opengl32.dll per theirs) -
+# same dependency-zero reasoning as user32 above: both are Windows
+# system libraries this probe links against directly, never a header
+# or library this project vendors or ships.
 if(WIN32)
     glintfx_add_test(win32_runner_probe_test)
-    target_link_libraries(win32_runner_probe_test PRIVATE user32)
+    target_link_libraries(win32_runner_probe_test PRIVATE user32 opengl32 gdi32)
 else()
     message(STATUS "glintfx: win32_runner_probe_test skipped (Windows-only probe, see its own header comment)")
 endif()

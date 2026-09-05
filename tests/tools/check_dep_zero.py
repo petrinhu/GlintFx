@@ -183,6 +183,7 @@ SO_HEADER_ALLOWLIST = frozenset(
     {
         "GL/gl.h",
         "poll.h",
+        "sys/mman.h",
         "sys/prctl.h",
         "sys/stat.h",
         "sys/sysmacros.h",
@@ -218,6 +219,28 @@ SO_HEADER_ALLOWLIST = frozenset(
 # (generate_export_header()/configure_file()), born only under
 # <build>/generated/include/glintfx/ - never on disk in <root>/
 # include/, so rule 3's structural existence check cannot see them.
+# sys/mman.h added 05/09/2026 (WL-WINDOW fatia W-E, docs/plano-w6a-
+# janela.md fatia 8): tests/container/window_smoke.cpp calls mmap()/
+# munmap() to zero-fill the wl_shm-backed file descriptor
+# (memfd_create()+ftruncate()) BEFORE handing it to the compositor as
+# real pixel content (D-W5-9) - the fixture that makes a missing
+# ack_configure() surface as a real xdg_surface protocol error instead
+# of passing in silence (this project's own window_smoke.cpp header
+# comment). Without mmap()/munmap() here, the alternative is handing
+# the compositor an UNINITIALIZED shared-memory buffer to read pixels
+# from - not a correctness bug this fixture cares about (it never
+# checks a rendered pixel), but not something this project hands a
+# real compositor either. POSIX (`man 2 mmap`), same category as
+# unistd.h already on this list - the leader's zero-dependency law
+# names "as APIs do sistema operacional" as allowed, and mmap()/
+# munmap() are exactly that, not a third-party library. Scoped to
+# tests/container/ only (see this fixture's own header comment: the
+# whole directory is container-only, Linux-only by construction,
+# GODS_LAWS.md L-09) - grep confirms no other tracked file reaches for
+# sys/mman.h, and this header is never on a path any Windows build
+# compiles (tests/container/ is built only by tests/container/
+# Containerfile inside the wayland-container CI job, never by CMake,
+# never by the `windows` job).
 
 NEEDED_ALLOWLIST = frozenset(
     {"libwayland-client.so.0", "libgcc_s.so.1", "libstdc++.so.6", "libm.so.6", "libc.so.6"}

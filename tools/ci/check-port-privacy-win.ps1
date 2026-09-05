@@ -69,7 +69,13 @@ $ErrorActionPreference = "Stop"
 # KNOWN_PORT_NAMES verbatim - a single closed list living in two files by
 # necessity (one POSIX sh, one PowerShell), not by choice. Adding an
 # adapter means editing BOTH in the same commit.
-$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter")
+#
+# wayland_window_adapter added 05/09/2026 by paridade com tests/tools/
+# check_port_privacy.sh (WL-WINDOW fatia W-E, GODS_LAWS.md L-40): aquele
+# arquivo já citava esta lista como pendente de atualização aqui, no
+# próprio comentário do KNOWN_ADAPTER_CLASSES dele - conserto aplicado
+# nesta mesma revisão, não numa fatia futura.
+$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 

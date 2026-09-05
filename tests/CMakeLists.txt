@@ -914,6 +914,63 @@ if(WIN32)
     target_link_libraries(seat_test PRIVATE user32)
 endif()
 
+# X-2 (docs/plano-w6a-janela.md fatia 9, TODO.md WIN-WINDOW): win32_
+# window_adapter, the Windows counterpart of WL-WINDOW's own W-E
+# (window_adapter_listener_test above). Same if(WIN32)/second-
+# compilation shape as win32_display_connect_test/win32_seat_
+# translation_test above (win32_window_adapter has no GLINTFX_API,
+# glintfx.dll's own hidden visibility never exports these methods) -
+# display_adapter.cpp is linked alongside both fixtures below because
+# window_adapter.cpp's own window_proc extension (window_message_
+# route.hpp) lives there, and window_adapter.hpp takes a `const win32_
+# display_adapter &`; window_state.cpp/window_desc_validation.cpp/
+# utf8_validation.cpp because win32_window_adapter::open() calls
+# validate_window_text_field() (D-W6a-23) and writes into window_state
+# (D-W5-14). app_user_model_id.cpp (D-W6a-21) is linked so the
+# application_id path compiles, even though neither fixture below
+# exercises it against a real property store.
+if(WIN32)
+    # "mensagens sinteticas" (the plan's own name for this fixture):
+    # handle_message() exercised DIRECTLY with hand-built wParam/lParam
+    # values - no window, no CreateWindowExW, no live message queue.
+    # Alias of window_adapter_listener_test (tests/parity_aliases.txt) -
+    # same "proxy nulo"/"listas sinteticas"/"mensagens sinteticas" role,
+    # different mechanism (GODS_LAWS.md L-04).
+    glintfx_add_test(win32_message_translation_test)
+    target_include_directories(win32_message_translation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_message_translation_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    target_link_libraries(win32_message_translation_test PRIVATE user32 shell32 ole32 propsys)
+
+    # Sec. 5 risk 6 of the plan ("WM_CLOSE devolvido a DefWindowProc"):
+    # a REAL window (windows-latest runner, the same interactive window
+    # station win32_display_connect_test.cpp already proves), a REAL
+    # SendMessageW(WM_CLOSE) from the creating thread, and IsWindow()
+    # still true afterward - the half win32_message_translation_test
+    # above cannot prove without a live HWND. Alias of window_adapter_
+    # listener_test (tests/parity_aliases.txt): the "close pegajoso e
+    # janela viva" case is the same fact the Wayland side's own
+    # xdg_toplevel_close case already covers, by a completely different
+    # mechanism (GODS_LAWS.md L-04).
+    glintfx_add_test(win32_window_close_request_test)
+    target_include_directories(win32_window_close_request_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_window_close_request_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    target_link_libraries(win32_window_close_request_test PRIVATE user32 shell32 ole32 propsys)
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h

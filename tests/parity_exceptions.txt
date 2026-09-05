@@ -144,19 +144,6 @@ lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo sc
 # --- WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8, 05/09/2026),
 # lacuna real, TEMPORARIA por ordem das fatias dentro da mesma onda ----
 #
-# window_adapter_listener_test (tests/CMakeLists.txt, if(UNIX)) prova a
-# METADE PURA de wayland_window_adapter - cada callback (configure,
-# preferred_buffer_scale, close, enter/leave) chamado direto com um
-# proxy nulo, nunca contra um compositor real. O par de MECANISMO do
-# lado Windows e win32_message_translation_test (docs/plano-w6a-
-# janela.md fatia 9, X-2) - ainda nao escrito, porque X-2 e do LOTE 2
-# do plano (empurrado so depois que os headers/window_state comuns
-# fixarem, secao 2.1 do plano) e nao faz parte desta fatia. Uma vez que
-# X-2 exista, a linha certa vira um APELIDO em tests/parity_aliases.txt
-# (mesmo efeito - traducao sintetica de configure/mensagem, sem
-# compositor/janela real), nunca uma segunda excecao.
-window_adapter_listener_test|windows|win32_message_translation_test (docs/plano-w6a-janela.md fatia 9, X-2 - ainda nao escrito, empurrado no Lote 2 do plano)|WL-WINDOW
-
 # window_smoke (tests/container/, via P-0) prova a METADE REAL de
 # wayland_window_adapter contra o kwin_wayland --virtual deste mesmo
 # container - abre superficie/xdg_surface/xdg_toplevel, anexa um

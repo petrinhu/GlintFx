@@ -178,13 +178,13 @@ class win32_display_adapter {
     // already keep m_window as their own private RAII state.
     [[nodiscard]] HWND native_handle() const noexcept { return m_window; }
 
-    // Fatia 9's own seam (X-2, window_adapter, not yet implemented):
-    // the class name THIS adapter already registered, so a future
-    // window it opens under the same display connection reuses this
-    // SAME class (and therefore this same window_proc/GWLP_USERDATA
-    // routing, and the CS_OWNDC style open()'s own WNDCLASSEXW already
-    // sets - see display_adapter.cpp) instead of a second
-    // RegisterClassExW under a second name. Empty/undefined before
+    // Fatia 9's own seam (X-2, src/platform/win32/window_adapter.hpp):
+    // the class name THIS adapter already registered, so a window it
+    // opens under the same display connection reuses this SAME class
+    // (and therefore this same window_proc/GWLP_USERDATA routing, and
+    // the CS_OWNDC style open()'s own WNDCLASSEXW already sets - see
+    // display_adapter.cpp) instead of a second RegisterClassExW under a
+    // second name. Empty/undefined before
     // open() succeeds - is_open() is the caller's own guard for that,
     // same as every other accessor on a possibly-unopened adapter in
     // this project.

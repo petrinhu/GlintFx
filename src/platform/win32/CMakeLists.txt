@@ -35,10 +35,30 @@
 # adapter.cpp's own RegisterRawInputDevices/GetRawInputDeviceList/
 # GetSystemMetrics/SetWindowLongPtrW/CallWindowProcW are all user32
 # exports too, nothing new to link.
+#
+# window_adapter.cpp - X-2 (docs/plano-w6a-janela.md fatia 9, TODO.md
+# WIN-WINDOW): the real, top-level window (WS_OVERLAPPEDWINDOW, never
+# WS_VISIBLE - D-W5-13), sharing the display adapter's own registered
+# class (display_adapter.hpp's own "F2/D-W6a-16" paragraph). app_
+# user_model_id.cpp (D-W6a-21) is its OWN target_sources entry on
+# purpose, not folded into window_adapter.cpp - this project's own §6
+# table for this fatia: "o .cpp de application_id e um atomo
+# separado... para uma reprovacao de lint ali nao derrubar o
+# adaptador inteiro" - <shobjidl.h>/<propkey.h>/<propvarutil.h> are
+# heavy, macro-hostile system headers isolated to that one file alone.
+#
+# shell32: SHGetPropertyStoreForWindow (app_user_model_id.cpp).
+# ole32: CoInitializeEx/CoUninitialize/PropVariantClear (same file).
+# propsys: InitPropVariantFromString, and PKEY_AppUserModel_ID's own
+# storage (propkey.h declares it `extern` without INITGUID - the
+# symbol's DEFINITION lives in Propsys.lib, not in this project's own
+# object files).
 target_sources(glintfx_library PRIVATE
     display_adapter.cpp
     selected_display_adapter_check.cpp
     seat_adapter.cpp
+    window_adapter.cpp
+    app_user_model_id.cpp
 )
 
-target_link_libraries(glintfx_library PRIVATE user32)
+target_link_libraries(glintfx_library PRIVATE user32 shell32 ole32 propsys)

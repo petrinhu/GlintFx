@@ -85,7 +85,14 @@ $ErrorActionPreference = "Stop"
 # nenhum dos dois nomes entra sozinho, a mesma disciplina "avisar nao
 # basta, as duas pontas fecham na mesma revisao" que o comentario
 # irmao acima ja documenta para wayland_window_adapter.
-$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter")
+#
+# win32_window_adapter (WIN-WINDOW fatia X-2, docs/plano-w6a-janela.md
+# fatia 9, 05/09/2026): o par Windows de wayland_window_adapter - uma
+# janela real de topo compartilhando a classe ja registrada por win32_
+# display_adapter (src/platform/win32/window_adapter.hpp). Adicionado
+# na MESMA revisao que tests/tools/check_port_privacy.sh's own
+# KNOWN_ADAPTER_CLASSES.
+$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter", "win32_window_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 

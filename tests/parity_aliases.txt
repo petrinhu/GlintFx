@@ -138,3 +138,34 @@ install_packager_layout_test|install_packager_layout_win_test
 # suposto.
 shell_requirements_test|win32_display_connect_test
 shell_smoke|win32_display_connect_test
+
+# WIN-WINDOW fatia X-2 (docs/plano-w6a-janela.md fatia 9, 05/09/2026):
+# fecha a excecao TEMPORARIA que tests/parity_exceptions.txt trazia
+# para window_adapter_listener_test desde a fatia W-E (05/09/2026,
+# mesmo dia) - aquele comentario ja previa exatamente isto ("Uma vez
+# que X-2 exista, a linha certa vira um APELIDO"). win32_message_
+# translation_test (tests/CMakeLists.txt, if(WIN32)) prova a METADE
+# PURA de win32_window_adapter pelo mecanismo proprio do Win32
+# (handle_message() chamado direto com wParam/lParam sinteticos, sem
+# janela nem CreateWindowExW) - o mesmo papel "callbacks com proxy
+# nulo" que window_adapter_listener_test ja prova do lado Wayland
+# (GODS_LAWS.md L-04: "mecanismo pode diferir; comportamento
+# observavel e cobertura, nao"). Par verificado pelas duas fatias
+# (W-E e X-2) cobrindo o MESMO conjunto de fatos - tamanho vindo do
+# aviso real, close pegajoso, ativacao, DPI - nunca suposto.
+window_adapter_listener_test|win32_message_translation_test
+
+# Segunda linha do MESMO par (docs/plano-w6a-janela.md fatia 9's own
+# "Par no portao" coluna: "win32_window_close_request_test|linux|
+# window_adapter_listener_test|WIN-WINDOW apelido"): win32_window_
+# close_request_test (tests/CMakeLists.txt, if(WIN32)) prova a METADE
+# REAL do mesmo fato que window_adapter_listener_test ja prova pelo
+# lado puro - "close pegajoso e janela viva" - contra uma janela de
+# verdade (SendMessageW(WM_CLOSE) + IsWindow() ainda verdadeiro), o
+# mesmo fato que o proprio xdg_toplevel_close case de window_adapter_
+# listener_test cobre do lado Wayland. Coexiste com o apelido acima
+# (check_test_parity.py resolve cada nome do lado QUE FALTA contra o
+# inventario INTEIRO do outro lado, nunca 1-para-1 - mesmo mecanismo
+# ja documentado para display_connect_failure_test mais acima neste
+# arquivo).
+window_adapter_listener_test|win32_window_close_request_test

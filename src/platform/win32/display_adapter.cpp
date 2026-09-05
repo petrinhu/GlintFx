@@ -11,6 +11,8 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/win32/window_message_route.hpp"
+
 // display_adapter.cpp - see display_adapter.hpp's own header comment
 // for scope, the F2 defect this fatia (X-1', docs/plano-w6a-janela.md
 // fatia 7) fixes, and the mechanism sources. Every Win32 call below is
@@ -52,22 +54,54 @@ static_assert(win32_display_adapter::k_class_name_chars >= 10 + 16 + 1,
 //
 // This display adapter's own window is message-only (HWND_MESSAGE,
 // see open() below) and has no per-instance behavior of its own to
-// dispatch into past that point - it falls through to
-// DefWindowProcW exactly like the ORIGINAL version of this function
-// did for every message. Fatia 9's own window_adapter (X-2, not yet
-// implemented), sharing this SAME class via window_class_name()
-// (display_adapter.hpp), is the first caller that reads GWLP_USERDATA
-// back out with GetWindowLongPtrW and actually routes a message
-// against it - this function's job here is only to prove, for
-// whatever test reads native_handle() back (display_adapter.hpp), that
-// the installation itself happens at the right time and points at the
-// right instance.
+// dispatch into past that point - for THIS window, every message still
+// falls through to DefWindowProcW exactly like the ORIGINAL version of
+// this function did for every message. win32_window_adapter (X-2,
+// src/platform/win32/window_adapter.hpp, fatia 9) is the caller that
+// reads GWLP_USERDATA back out and actually routes a message against
+// it - see the WM_SIZE/WM_CLOSE/WM_ACTIVATE/WM_DPICHANGED branch below
+// for that mechanism.
 LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) noexcept {
     if (msg == WM_NCCREATE) {
         const auto *create = reinterpret_cast<const CREATESTRUCTW *>(lparam);
         ::SetWindowLongPtrW(hwnd, GWLP_USERDATA,
                             reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+        return ::DefWindowProcW(hwnd, msg, wparam, lparam);
     }
+
+    // X-2 (docs/plano-w6a-janela.md fatia 9, TODO.md WIN-WINDOW,
+    // window_message_route.hpp's own header comment - read that
+    // header's comment IN FULL before touching this branch): WM_SIZE,
+    // WM_CLOSE, WM_ACTIVATE and WM_DPICHANGED are never delivered to a
+    // message-only window (HWND_MESSAGE parent - this adapter's own
+    // window above, and win32_seat_adapter's own, both are). win32_
+    // window_adapter::open() (fatia 9) is the ONLY caller anywhere in
+    // this project that ever creates a REAL (non-message-only) window
+    // under this shared class, so whatever GWLP_USERDATA holds for an
+    // hwnd that reaches one of these four message types is, by
+    // construction, that adapter's own `this` - routed through a
+    // type-erased free function so THIS file never gains a compile-time
+    // dependency on window_adapter.hpp (GODS_LAWS.md L-19: WIN-DISPLAY,
+    // the lower fatia, does not depend on WIN-WINDOW, the higher one).
+    // This is also WHY the first WM_SIZE a window_adapter's own window
+    // ever receives is never missed (sec. 5 risk 2 of the plan):
+    // DefWindowProcW synthesizes it while processing
+    // WM_WINDOWPOSCHANGED, which CreateWindowExW itself drives BEFORE
+    // returning to the caller - long before a GWLP_WNDPROC instance
+    // subclass (win32_seat_adapter's own mechanism) could ever be
+    // installed. This class-level function is the only code that runs
+    // early enough to route that message at all.
+    if (msg == WM_SIZE || msg == WM_CLOSE || msg == WM_ACTIVATE || msg == WM_DPICHANGED) {
+        void *user_data = reinterpret_cast<void *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        if (user_data != nullptr) {
+            LRESULT routed_result = 0;
+            if (win32_window_adapter_route_message(user_data, hwnd, msg, wparam, lparam,
+                                                   routed_result)) {
+                return routed_result;
+            }
+        }
+    }
+
     return ::DefWindowProcW(hwnd, msg, wparam, lparam);
 }
 

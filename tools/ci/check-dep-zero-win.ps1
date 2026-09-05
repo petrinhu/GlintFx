@@ -105,10 +105,26 @@ $ErrorActionPreference = "Stop"
 # arquivo ja previa exatamente este cenario como "the FIRST failure
 # mode, not a design defect" antes de o job `windows-debug` sequer
 # existir.
+#
+# SHELL32.dll/OLE32.dll/PROPSYS.dll (WIN-WINDOW fatia X-2, docs/plano-
+# w6a-janela.md fatia 9, D-W6a-21, 05/09/2026): src/platform/win32/
+# app_user_model_id.cpp's own three system libraries, none third-party
+# (GODS_LAWS.md L-07 treats the Win32 shell/COM/property-system surface
+# as system API for the SAME reason USER32.dll already is above) - each
+# one is the ONE DLL that exports the ONE Microsoft API this project's
+# own app_user_model_id.hpp cites: SHGetPropertyStoreForWindow
+# (shellapi.h, "Library Shell32.lib", "DLL Shell32.dll" per learn.
+# microsoft.com/windows/win32/api/shellapi/nf-shellapi-
+# shgetpropertystoreforwindow); CoInitializeEx/CoUninitialize/
+# PropVariantClear (objbase.h, ole32.lib/ole32.dll, the standard COM
+# runtime every Windows install ships); InitPropVariantFromString and
+# PKEY_AppUserModel_ID's own storage (propvarutil.h/propkey.h,
+# propsys.lib/propsys.dll, the Shell Property System component).
 $IMPORT_ALLOWLIST_EXACT = @(
     "KERNEL32.dll", "USER32.dll",
     "VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "MSVCP140.dll", "ucrtbase.dll",
-    "VCRUNTIME140D.dll", "VCRUNTIME140_1D.dll", "MSVCP140D.dll", "ucrtbased.dll"
+    "VCRUNTIME140D.dll", "VCRUNTIME140_1D.dll", "MSVCP140D.dll", "ucrtbased.dll",
+    "SHELL32.dll", "ole32.dll", "propsys.dll"
 )
 
 # Prefix, case-insensitive: the Universal CRT API-set forwarder family

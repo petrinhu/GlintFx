@@ -106,7 +106,16 @@ set -eu
 # without touching the Windows-side list; that gap and this one close
 # together here, GODS_LAWS.md L-40's own "avisar nao basta, as duas
 # pontas fecham na mesma revisao").
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter"
+#
+# win32_window_adapter added by WIN-WINDOW fatia X-2 (docs/plano-w6a-
+# janela.md fatia 9, GODS_LAWS.md L-04/L-40, 05/09/2026): the Windows
+# counterpart of wayland_window_adapter above - a REAL, top-level
+# window sharing win32_display_adapter's own registered class
+# (src/platform/win32/window_adapter.hpp). tools/ci/check-port-privacy-
+# win.ps1's own KNOWN_ADAPTER_CLASSES carries the SAME name, added in
+# THIS same commit (this file's own L-40 rule: "avisar nao basta, as
+# duas pontas fecham na mesma revisao").
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {

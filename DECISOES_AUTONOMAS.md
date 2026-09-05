@@ -1206,3 +1206,21 @@ E o dado que mais me interessa do relatorio dele, porque mostra que decidir e di
 ### O que ele declarou que NAO mediu
 
 Colisao de nome contra os cabecalhos do Windows (o portao mede na implementacao); a formula de dois modos de mistura com transparencia crua; qual tabela da fonte alimenta a altura de linha padrao, e a paridade disso entre sistemas; e o ruido do aviso de propriedade reservada antes da 1.0 -- sem consumidor, nao ha como medir.
+
+---
+
+## O alvo prova a fatia; ele nao prova o conjunto  `[05/09/26 - 15:23:56]`
+
+**Erro meu, achado por um agente, e provado por mim antes de eu aceitar o relato.**
+
+**O que aconteceu.** Commitei a recusa aninhada no seletor depois de rodar **o alvo daquela fatia**, verde. A fatia mudou a GRAMATICA: um argumento que antes era texto capturado passou a ser lista de seletor de verdade. Um teste de OUTRA area usava aquele argumento invalido para cinco produções de uma vez, e ficou vermelho na hora. **Eu chamei a arvore de verde enquanto ela estava vermelha.**
+
+**Como confirmei, em vez de acreditar.** Extrai o commit para fora da arvore, construi e rodei o teste acusado: , *"4 case(s), 1 failure(s)"*. O vermelho existia mesmo.
+
+**A regra que fica, e ela e sobre metodo, nao sobre aquele teste:** **uma fatia que muda gramatica muda o chao de todo teste que escreve aquela gramatica, e o alvo dela nao tem como saber disso.** Rodar o alvo prova a fatia. Só a suite prova o conjunto.
+
+**O que me salvou desta vez, e a margem foi menor do que parece:** o espelho local roda antes do push, e teria pego. Mas entre o commit e o push havia uma janela em que a arvore estava vermelha e eu tinha dito que estava verde. Nada saiu da maquina; o remoto estava atras. **Foi sorte de ordem, nao desenho.**
+
+⚠️ **O que muda na minha pratica, a partir de agora:** commitar fatia que toca gramatica, formato ou tipo compartilhado exige rodar **os alvos dos consumidores conhecidos daquele artefato**, nao so o proprio. Quando nao souber quem consome, e a suite.
+
+**Registro de credito:** quem achou foi o agente das duas fatias de casamento, que topou com o teste quebrado ao consertar outra coisa e **avisou em vez de so consertar em silencio** -- disse, com todas as letras, que o lider deveria saber que a colisao aconteceu.

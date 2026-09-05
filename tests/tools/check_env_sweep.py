@@ -169,6 +169,50 @@ _ENV_FACT_SIGNALS = {
     ),
 }
 
+# NONA CATEGORIA: OUTPUT_ENCODING (05/09/2026, TODO.md GATE-ENV-SWEEP,
+# achado da auditoria que consertou tests/tools/check_test_parity.py,
+# GHA run 33986752839, job "Windows - compartilhado"). Um `print()`
+# carregando o marcador `check_test_parity.py`'s own validate_exceptions()
+# embute quando uma excecao aponta pra item CONCLUIDO em TODO.md ('✅')
+# crashou com `UnicodeEncodeError: 'charmap' codec can't encode
+# character '✅'` - o console do runner Windows usa cp1252 por
+# padrao, e cp1252 nao tem slot pra ponto de codigo acima de 0xFF.
+# A codificacao padrao de stdout/stderr E' um FATO DA MAQUINA (UTF-8 no
+# Linux/CI, cp1252 no console Windows) - a MESMA doenca que as oito
+# categorias acima cacam - mas com a FORMA INVERTIDA, por isso vive
+# FORA de _ENV_FACT_SIGNALS em vez de dentro dele:
+#   - as oito acima: o SINAL e' a PRESENCA de uma funcao-remedio JA
+#     NOMEADA (to_posix_path, same_path_platform_aware, ...) sem
+#     declaracao POR PERTO (janela de _DECLARATION_WINDOW linhas);
+#   - esta: o SINAL e' um caractere fora de Latin-1/cp1252 (ord > 0xFF)
+#     em QUALQUER lugar do arquivo, e a "declaracao" e' a PRESENCA vs
+#     AUSENCIA do remedio (`sys.stdout.reconfigure`/`sys.stderr.
+#     reconfigure`) - que se aplica UMA VEZ, no topo do arquivo, nunca
+#     perto de cada print. Uma janela de linhas nao faz sentido aqui:
+#     o remedio de check_test_parity.py fica a mais de 400 linhas do
+#     sinal mais distante (a linha 511) - por isso a declaracao desta
+#     categoria e' ARQUIVO INTEIRO, nao janela: um desvio deliberado do
+#     formato das outras oito, decidido e datado aqui, nao um descuido
+#     de quem escreveu.
+#
+# LIMITACAO DECLARADA, restrita a arquivos .py (mesma classe da
+# limitacao que check_macro_balance.py's own header comment ja
+# declara): o crash medido e' especifico do modo texto ESTRITO do
+# `print()` do Python (encode() contra sys.stdout.encoding) - bash/sh
+# escreve bytes crus sem validar codificacao, e o PowerShell moderno
+# (pwsh, o que este projeto usa no job `windows`) ja fala UTF-8 por
+# padrao em Write-Host/Write-Error. Os dois `⚠️` achados em
+# .github/workflows/ci.yml (linhas 108 e 840, MEDIDO 05/09/2026) vivem
+# em comentario YAML puro, nunca alcancam um `run:` executado - por
+# isso esta categoria so varre `.py`, nao os seis tipos de arquivo que
+# as outras oito cobrem (GODS_LAWS.md L-40: nao esconde o que nao
+# faz). Varredura da arvore real nesta mesma auditoria: 1 de 20
+# scripts Python do repo (check_test_parity.py) tinha o risco - ja
+# corrigido, e o unico hoje; a categoria nao existe pra pegar esse,
+# existe pro proximo, escrito por alguem que nunca ouviu falar disto.
+_OUTPUT_ENCODING_SIGNAL = re.compile(r"[^\x00-\xFF]")
+_OUTPUT_ENCODING_REMEDY = re.compile(r"\.reconfigure\s*\(")
+
 # A match is DECLARED when one of these markers (case-insensitive)
 # appears within _DECLARATION_WINDOW lines of it - every marker below
 # is vocabulary this repository's own commits ALREADY use for exactly
@@ -265,6 +309,21 @@ def sweep_file(path):
                     "line": idx + 1,
                     "category": category,
                     "declared": has_nearby_declaration(lines, idx),
+                })
+
+    # OUTPUT_ENCODING (nona categoria, ver o comentario acima de
+    # _OUTPUT_ENCODING_SIGNAL): restrita a .py, e declarada por ARQUIVO
+    # INTEIRO, nunca por janela - o remedio (`.reconfigure(`) e' lido
+    # uma vez aqui, nao recalculado por ocorrencia.
+    if path.endswith(".py"):
+        file_has_remedy = any(_OUTPUT_ENCODING_REMEDY.search(line) for line in lines)
+        for idx, line in enumerate(lines):
+            if _OUTPUT_ENCODING_SIGNAL.search(line):
+                hits.append({
+                    "file": path,
+                    "line": idx + 1,
+                    "category": "OUTPUT_ENCODING",
+                    "declared": file_has_remedy,
                 })
     return hits
 
@@ -608,6 +667,101 @@ def selftest_baseline_file_is_not_a_signal_control(scratch):
     return True
 
 
+# OUTPUT_ENCODING positive control: um caractere fora de cp1252 E o
+# remedio (`.reconfigure(`) presentes no MESMO arquivo, mas separados
+# por mais de _DECLARATION_WINDOW (50) linhas de enchimento - prova
+# que a declaracao desta categoria E' ARQUIVO INTEIRO, nunca janela
+# (se fosse janela, este controle reprovaria por engano).
+def selftest_output_encoding_positive_control(scratch):
+    root = _make_fixture_root(scratch, "output_encoding_positive")
+    padding = "\n".join(f"# linha de enchimento {i}" for i in range(_DECLARATION_WINDOW + 10))
+    _write(
+        os.path.join(root, "tests", "tools", "check_widget.py"),
+        "import sys\n"
+        "sys.stdout.reconfigure(encoding='utf-8', errors='backslashreplace')\n"
+        f"{padding}\n"
+        "print('ok ✅')\n",
+    )
+    _files, hits = sweep_all(root)
+    output_hits = [h for h in hits if h["category"] == "OUTPUT_ENCODING"]
+    if not output_hits:
+        print("selftest: controle POSITIVO OUTPUT_ENCODING FALHOU (esperava 1 sinal, achou 0)", file=sys.stderr)
+        return False
+    if any(not h["declared"] for h in output_hits):
+        print(
+            f"selftest: controle POSITIVO OUTPUT_ENCODING FALHOU (remedio esta a mais de "
+            f"{_DECLARATION_WINDOW} linhas do sinal - deveria contar como declarado, escopo e' "
+            f"arquivo inteiro, nao janela): {output_hits}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        f"selftest: controle POSITIVO OUTPUT_ENCODING OK ({len(output_hits)} sinal(is), declarado "
+        "por remedio em arquivo inteiro, mesmo fora da janela de linhas)"
+    )
+    return True
+
+
+# OUTPUT_ENCODING negative control: a MESMA doenca que crashou
+# check_test_parity.py de verdade, plantada e sem o remedio - GODS_LAWS.md
+# L-36, todo portao novo nasce PROVADO VERMELHO antes de contar como
+# portao.
+def selftest_output_encoding_negative_control(scratch):
+    root = _make_fixture_root(scratch, "output_encoding_negative")
+    _write(
+        os.path.join(root, "tests", "tools", "check_widget.py"),
+        "print('ok ✅')\n",
+    )
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        result = check_env_sweep(root)
+    text = buffer.getvalue()
+    if result:
+        print(
+            "selftest: controle NEGATIVO OUTPUT_ENCODING FALHOU (esperava reprovar print fora de "
+            "cp1252 sem reconfigure, passou)",
+            file=sys.stderr,
+        )
+        return False
+    if "OUTPUT_ENCODING" not in text:
+        print(
+            f"selftest: controle NEGATIVO OUTPUT_ENCODING FALHOU (reprovou, mas nao citou "
+            f"OUTPUT_ENCODING): {text}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: controle NEGATIVO OUTPUT_ENCODING OK (print fora de cp1252 sem remedio reprovado, citando categoria)")
+    return True
+
+
+# Limitacao declarada desta categoria (restrita a .py): um .ps1 com o
+# MESMO caractere fora de cp1252 nao deve gerar sinal - o crash medido
+# e' do modo texto estrito do Python, nao do pwsh (ver o comentario de
+# _OUTPUT_ENCODING_SIGNAL acima).
+def selftest_output_encoding_non_python_exempt_control(scratch):
+    root = os.path.join(scratch, "output_encoding_non_python")
+    os.makedirs(os.path.join(root, "tools", "ci"), exist_ok=True)
+    _write(
+        os.path.join(root, "tools", "ci", "warn.ps1"),
+        "# aviso ⚠️ sem remedio - .ps1 nao entra nesta categoria, por desenho\n"
+        "Write-Host 'ok'\n",
+    )
+    _files, hits = sweep_all(root)
+    output_hits = [h for h in hits if h["category"] == "OUTPUT_ENCODING"]
+    if output_hits:
+        print(
+            f"selftest: controle NAO-PYTHON OUTPUT_ENCODING FALHOU (esperava 0 sinais fora de .py, "
+            f"achou {output_hits})",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: controle NAO-PYTHON OUTPUT_ENCODING OK (.ps1 fora do escopo desta categoria, por desenho)")
+    return True
+
+
 def selftest_calibration_control(project_root):
     """Runs calibrate_against_known_incidents() against the REAL
     project tree (the one --selftest was invoked from, resolved the
@@ -643,6 +797,9 @@ def _run_all_controls(scratch):
         selftest_empty_scan_control(scratch),
         selftest_file_without_signals_control(scratch),
         selftest_baseline_file_is_not_a_signal_control(scratch),
+        selftest_output_encoding_positive_control(scratch),
+        selftest_output_encoding_negative_control(scratch),
+        selftest_output_encoding_non_python_exempt_control(scratch),
         selftest_calibration_control(_project_root_from_this_file()),
     ]
 

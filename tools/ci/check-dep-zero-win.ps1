@@ -83,9 +83,32 @@ $ErrorActionPreference = "Stop"
 # VCRUNTIME140_1.dll for the x64 SEH thunk, MSVCP140.dll, ucrtbase.dll -
 # the last one covers a build where the Universal CRT resolves directly
 # instead of through the api-ms-win-crt-*.dll forwarder family below).
+#
+# DEBUG-CRT-NAMES (05/09/2026, GODS_LAWS.md L-07 - decisao do lider):
+# job `windows-debug` (GATE-DEBUG) reprovou aqui na estreia dele porque
+# esta lista so tinha as quatro DLLs acima SEM sufixo - as variantes de
+# ENTREGA (Release). `cmake/GlintfxLibrary.cmake` fixa
+# `MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"`, que
+# em config Debug expande para `MultiThreadedDebugDLL` = a flag /MDd -
+# o CRT DEBUG dinamico, MEDIDO no proprio cmake do projeto, nao
+# suposto. Fonte oficial (learn.microsoft.com/cpp/windows/preparing-a-
+# test-machine-to-run-a-debug-executable, consultada 05/09/2026):
+# "Typically, debug versions of Visual C++ library DLLs have names
+# that end in 'd'. For example, the debug version of vcruntime140.dll
+# is named vcruntime140d.dll" - e a lista de redistribuiveis debug do
+# proprio Visual Studio (learn.microsoft.com/visualstudio/releases/
+# 2019/redistribution) nomeia exatamente os quatro pares abaixo. Isto
+# NAO e uma categoria nova de dependencia: e' o MESMO componente do
+# sistema que a lista ja aceita (a variante Release), na variante de
+# depuracao - GODS_LAWS.md L-07 trata Win32/CRT como API do sistema, e
+# uma letra no nome nao muda a categoria. O proprio cabecalho deste
+# arquivo ja previa exatamente este cenario como "the FIRST failure
+# mode, not a design defect" antes de o job `windows-debug` sequer
+# existir.
 $IMPORT_ALLOWLIST_EXACT = @(
     "KERNEL32.dll", "USER32.dll",
-    "VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "MSVCP140.dll", "ucrtbase.dll"
+    "VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "MSVCP140.dll", "ucrtbase.dll",
+    "VCRUNTIME140D.dll", "VCRUNTIME140_1D.dll", "MSVCP140D.dll", "ucrtbased.dll"
 )
 
 # Prefix, case-insensitive: the Universal CRT API-set forwarder family
@@ -148,12 +171,33 @@ function Invoke-CheckDepZeroWin([string]$libraryPath) {
         exit 1
     }
 
+    # PORTAO-MUDO (05/09/2026, GODS_LAWS.md L-36 "ferramenta que morre
+    # no meio esconde cobertura perdida"): a versao anterior chamava
+    # `Write-Error` dentro deste `foreach`, com `$ErrorActionPreference
+    # = "Stop"` fixado no topo do arquivo - `Write-Error` deixa de ser
+    # nao-terminante sob essa preferencia, entao a PRIMEIRA chamada (a
+    # linha "PROHIBITED...") ja lancava excecao e abortava o script
+    # ANTES do `foreach` rodar - MEDIDO ao vivo, GHA run 33986752839,
+    # job "Windows - Debug": o log mostrava "PROHIBITED..." e nada mais,
+    # nunca QUAL dll violou. Pior ainda nao medido mas certo pela mesma
+    # causa: com mais de uma DLL proibida, so a primeira apareceria -
+    # as demais ficariam invisiveis ate alguem consertar aquela e rodar
+    # de novo, a MESMA familia do defeito que esta casa ja cataloga
+    # (ferramenta que processa em lote e morre no meio esconde
+    # cobertura perdida). `Write-Host` no lugar de `Write-Error` no
+    # laco evita a terminacao prematura (nao le
+    # $ErrorActionPreference); o `exit 1` no fim, fora do laco, ainda
+    # reprova o `ctest` normalmente. Conta impressa SEMPRE, mesmo
+    # quando zero violam (GODS_LAWS.md L-40) - "encontrados" e o total
+    # de DLLs importadas, "violaram" e' quantas delas, pra confirmar
+    # que o laco andou ate' o fim e nao morreu no meio.
     $violations = @($imported | Where-Object { -not (Test-ImportedDllAllowed $_) })
+    Write-Host "check-dep-zero-win.ps1: ${libraryPath}: $($imported.Count) DLL(s) importada(s) encontrada(s), $($violations.Count) violaram o allowlist"
     if ($violations.Count -gt 0) {
-        Write-Error "check-dep-zero-win.ps1: PROHIBITED (GODS_LAWS.md L-07 zero dependency):"
+        Write-Host "check-dep-zero-win.ps1: PROHIBITED (GODS_LAWS.md L-07 zero dependency):"
         foreach ($v in $violations) {
-            Write-Error "  ${libraryPath}: $v"
-            Write-Error "    -> $IMPORT_ADVICE"
+            Write-Host "  ${libraryPath}: $v"
+            Write-Host "    -> $IMPORT_ADVICE"
         }
         exit 1
     }
@@ -247,6 +291,40 @@ function Invoke-SelfTestNegativeControl() {
     return $true
 }
 
+# PORTAO-MUDO (05/09/2026): duas violacoes plantadas, nao uma - o
+# defeito real (GHA run 33986752839) era o LACO de Invoke-
+# CheckDepZeroWin morrer na primeira `Write-Error` sob
+# `$ErrorActionPreference = "Stop"`, nunca alcancando a segunda. Este
+# controle prova a METADE que da' pra provar sem dumpbin.exe/pwsh
+# nesta maquina (DECLARED LIMITATION, ja no cabecalho deste arquivo,
+# GODS_LAWS.md L-40 nao esconde o que nao faz): que o FILTRO
+# (`Where-Object`) devolve as DUAS, nao so a primeira. Nao prova que o
+# `Write-Host` dentro do `foreach` de Invoke-CheckDepZeroWin de fato
+# imprime as duas sem abortar - essa metade so o servidor Windows
+# real pode provar, porque esta maquina nao tem pwsh instalado (nem
+# para rodar este arquivo, nem para isolar so o comportamento de
+# Write-Host sob $ErrorActionPreference).
+function Invoke-SelfTestMultipleViolationsControl() {
+    $poisoned = Get-SyntheticCleanDumpbinOutput
+    $poisoned += "    evil3rdparty.dll"
+    $poisoned += "              140008000 Import Address Table"
+    $poisoned += "                        1 do_evil"
+    $poisoned += ""
+    $poisoned += "    anotherbad.dll"
+    $poisoned += "              140009000 Import Address Table"
+    $poisoned += "                        1 also_evil"
+    $poisoned += ""
+    $imported = Get-DumpbinImportedDlls $poisoned
+    $violations = @($imported | Where-Object { -not (Test-ImportedDllAllowed $_) })
+    $expected = @("evil3rdparty.dll", "anotherbad.dll")
+    if (@(Compare-Object $violations $expected).Count -ne 0) {
+        Write-Error "selftest: controle DUAS-VIOLACOES FALHOU (esperava evil3rdparty.dll E anotherbad.dll, as DUAS) - obtido: $($violations -join ', ')"
+        return $false
+    }
+    Write-Host "selftest: controle DUAS-VIOLACOES OK (filtro devolve as duas violacoes, nao so a primeira)"
+    return $true
+}
+
 function Invoke-SelfTestEmptyScanControl() {
     $imported = Get-DumpbinImportedDlls @("this text has no dll import table at all")
     if ($imported.Count -ne 0) {
@@ -261,12 +339,13 @@ function Invoke-SelfTest() {
     $ok = $true
     if (-not (Invoke-SelfTestPositiveControl)) { $ok = $false }
     if (-not (Invoke-SelfTestNegativeControl)) { $ok = $false }
+    if (-not (Invoke-SelfTestMultipleViolationsControl)) { $ok = $false }
     if (-not (Invoke-SelfTestEmptyScanControl)) { $ok = $false }
     if (-not $ok) {
         Write-Error "check-dep-zero-win.ps1 -SelfTest: FALHOU (ver acima)"
         exit 1
     }
-    Write-Host "check-dep-zero-win.ps1 -SelfTest: os tres controles OK"
+    Write-Host "check-dep-zero-win.ps1 -SelfTest: os quatro controles OK"
 }
 
 if ($SelfTest) {

@@ -370,6 +370,31 @@ jobs:
       # "C_COMPILER_FLAG" comment) rather than tests/CMakeLists.txt
       # growing a third positional argument this fatia's own file scope
       # does not include.
+      # PNC-FASES-SNAPSHOT (05/09/2026, GODS_LAWS.md L-40/L-17): o
+      # `ctest -N` do passo "Inventario de paridade" logo abaixo
+      # REESCREVE <builddir>/Testing/Temporary/LastTest.log - MEDIDO ao
+      # vivo neste dia (build local, mesmo comando): a suite inteira
+      # grava 14 linhas "FASE" num log de 246709 bytes, e um `ctest -N`
+      # imediatamente depois troca esse arquivo por um de 121 bytes, 0
+      # linhas "FASE" - foi isso, e so isso, que apagou a instrumentacao
+      # que o passo "Fases do portao de colisao de nome" precisa e
+      # derrubou as 8 pernas Linux desta matriz (as 3 pernas Windows que
+      # falharam no mesmo run tem causa DIFERENTE, sem relacao com este
+      # log - achado separado, relatado a parte). O conserto NAO e
+      # reordenar os passos: ordem entre steps e uma convencao que
+      # ninguem ve, e a proxima pessoa que inserir um step novo entre
+      # "Build e testes" e "Fases" (por exemplo, um segundo `ctest -N`
+      # com outro filtro) reintroduz o mesmo apagao sem perceber. Em vez
+      # disso, este COPY roda como ULTIMA linha do PROPRIO passo que
+      # gera o log - atomico com a execucao da suite, antes que o
+      # controle volte ao workflow e QUALQUER outro passo (presente ou
+      # futuro) tenha chance de tocar em LastTest.log de novo. `set +e`
+      # / `set -e` em volta do ctest: precisa do codigo de saida real
+      # dele (GODS_LAWS.md L-45, nunca de variavel perdida por `set -e`
+      # abortando a linha), e o snapshot tem que acontecer nos dois
+      # casos (teste passando OU reprovando) para nao virar um segundo
+      # "log preservado nao encontrado" se algum teste comum reprovar
+      # antes do de colisao de nome rodar.
       - name: Build e testes (${{ matrix.modo }})
         env:
           CC: ${{ matrix.c_compiler }}
@@ -377,7 +402,12 @@ jobs:
           set -eux
           cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
           cmake --build ${{ matrix.builddir }}
+          set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          ctest_ec=$?
+          set -e
+          cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          exit $ctest_ec
 
       # PARITY-GATE (TODO.md, GODS_LAWS.md L-04/L-40): "cada trabalho do
       # servidor grava o inventario de testes REALMENTE executados" -
@@ -388,7 +418,10 @@ jobs:
       # acima ter passado ou reprovado - o job `parity` quer saber o
       # que este leg declara existir, mesmo quando algo reprovou nele.
       # Um `Total Tests: 0` aqui e o piso de varredura vazia mordendo
-      # no proprio job `parity`, nao aqui - este passo so grava.
+      # no proprio job `parity`, nao aqui - este passo so grava. ESTE
+      # `ctest -N` E' o que reescreve LastTest.log (PNC-FASES-SNAPSHOT
+      # acima) - o passo continua aqui, sem mudanca de forma, porque o
+      # snapshot ja foi tirado ANTES dele rodar.
       - name: Inventario de paridade (${{ matrix.modo }})
         if: always()
         run: ctest --test-dir ${{ matrix.builddir }} -N > parity_inventory.txt
@@ -402,37 +435,41 @@ jobs:
           retention-days: 7
 
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
-      # o passo acima roda com --output-on-failure, que so mostra a saida
-      # de teste que REPROVA - a saida de um portao que PASSA nunca
-      # chegou a log nenhum, e e' por isso que ninguem nunca viu as fases
-      # de check_public_name_collision.py (o portao que estoura o teto de
-      # tempo do teste no executor Windows: 46 a 98s contra um limite de
-      # 120, medido em 05/09/2026). O proprio ctest ja PRESERVA a saida de
-      # TODOS os testes, passando incluidos, em
-      # <builddir>/Testing/Temporary/LastTest.log; este passo so le esse
-      # log e imprime as linhas do portao - nunca re-roda o teste, que
-      # dobraria exatamente o custo que esta fatia existe para medir.
-      # Zero linha casada REPROVA o passo (L-40, piso de varredura
-      # nao-vazia): significa que o portao nao rodou, ou que a
-      # instrumentacao dele sumiu - nunca "esta tudo bem". `grep -c` que
-      # conta zero sai com status 1 e quebraria o `set -e` em silencio,
-      # por isso o `|| true` e o teste do VALOR logo abaixo (GODS_LAWS.md
-      # L-45). Roda tambem no Linux, e nao so no Windows, por
-      # GODS_LAWS.md L-04: as duas pernas medem a mesma coisa da mesma
-      # forma, e e' a comparacao entre elas que diz se o custo do
-      # Windows e' da leitura de disco ou de outra fase.
+      # o passo "Build e testes" acima roda com --output-on-failure, que
+      # so mostra a saida de teste que REPROVA - a saida de um portao
+      # que PASSA nunca chegou a log nenhum, e e' por isso que ninguem
+      # nunca viu as fases de check_public_name_collision.py (o portao
+      # que estoura o teto de tempo do teste no executor Windows: 46 a
+      # 98s contra um limite de 120, medido em 05/09/2026). O proprio
+      # ctest ja PRESERVA a saida de TODOS os testes, passando incluidos,
+      # em <builddir>/Testing/Temporary/LastTest.log - so que esse
+      # arquivo e' mutavel: qualquer `ctest` subsequente no MESMO
+      # builddir (o `-N` do passo "Inventario de paridade", ou qualquer
+      # outro que venha a existir) o reescreve. Por isso este passo le o
+      # SNAPSHOT tirado por "Build e testes" (PNC-FASES-SNAPSHOT,
+      # LastTest.log.pnc-fases-snapshot), nunca o LastTest.log ao vivo -
+      # nunca re-roda o teste, que dobraria exatamente o custo que esta
+      # fatia existe para medir. Zero linha casada REPROVA o passo
+      # (L-40, piso de varredura nao-vazia): significa que o portao nao
+      # rodou, ou que a instrumentacao dele sumiu - nunca "esta tudo
+      # bem". `grep -c` que conta zero sai com status 1 e quebraria o
+      # `set -e` em silencio, por isso o `|| true` e o teste do VALOR
+      # logo abaixo (GODS_LAWS.md L-45). Roda tambem no Linux, e nao so
+      # no Windows, por GODS_LAWS.md L-04: as duas pernas medem a mesma
+      # coisa da mesma forma, e e' a comparacao entre elas que diz se o
+      # custo do Windows e' da leitura de disco ou de outra fase.
       - name: Fases do portao de colisao de nome (${{ matrix.modo }})
         run: |
           set -eu
-          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log"
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
           if [ ! -f "$log" ]; then
-            echo "log de teste preservado nao encontrado: $log"
+            echo "snapshot de log preservado nao encontrado: $log"
             exit 1
           fi
           linhas=$(grep -c "check_public_name_collision.py: FASE " "$log" || true)
           echo "linhas de fase encontradas: $linhas"
           if [ "$linhas" -eq 0 ]; then
-            echo "nenhuma linha de fase no log preservado - o portao de colisao de nome nao rodou, ou a instrumentacao dele sumiu (GODS_LAWS.md L-40)"
+            echo "nenhuma linha de fase no snapshot preservado - o portao de colisao de nome nao rodou, ou a instrumentacao dele sumiu (GODS_LAWS.md L-40)"
             exit 1
           fi
           grep "check_public_name_collision.py: FASE " "$log"
@@ -670,16 +707,35 @@ jobs:
         shell: pwsh
         run: tools/ci/diagnose-win-runtime.ps1 -BuildDir ${{ matrix.builddir }}
 
+      # PNC-FASES-SNAPSHOT (05/09/2026, GODS_LAWS.md L-04/L-40/L-17):
+      # gemeo exato do mesmo item do job `linux` (ver o comentario la,
+      # acima de "Build e testes", para a medicao completa que confirmou
+      # a causa) - o `ctest -N` do passo "Inventario de paridade" logo
+      # abaixo REESCREVE Testing/Temporary/LastTest.log, e foi isso que
+      # derrubou as 8 pernas Linux e destruiria estas 2 pernas Windows
+      # pela MESMA causa se ainda lessem o log ao vivo (elas ainda nao
+      # chegaram a reprovar aqui neste run especifico porque falham antes,
+      # no proprio `ctest` desta suite, por um motivo DIFERENTE e nao
+      # relacionado - achado relatado a parte). O snapshot roda como
+      # ultima linha do PROPRIO passo que gera o log, atomico com a
+      # execucao da suite - nunca depois, como reordenar passos faria,
+      # porque ordem entre steps e' convencao que ninguem ve e um passo
+      # novo inserido no meio no futuro reintroduziria o apagao.
       - name: Testes (${{ matrix.modo }})
         shell: pwsh
         run: |
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ctest_ec = $LASTEXITCODE
+          Copy-Item (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log") (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")
+          if ($ctest_ec -ne 0) { exit $ctest_ec }
 
       # PARITY-GATE: gemeo exato do passo de mesmo nome do job `linux`
       # (GODS_LAWS.md L-04, a mesma medicao feita da mesma forma nos
       # dois sistemas) - ver o comentario la para o porque do
-      # `if: always()` e do `ctest -N` em vez da suite inteira.
+      # `if: always()` e do `ctest -N` em vez da suite inteira. ESTE
+      # `ctest -N` E' o que reescreve LastTest.log (PNC-FASES-SNAPSHOT
+      # acima) - o passo continua aqui, sem mudanca de forma, porque o
+      # snapshot ja foi tirado ANTES dele rodar.
       - name: Inventario de paridade (${{ matrix.modo }})
         if: always()
         shell: pwsh
@@ -699,23 +755,28 @@ jobs:
       # a perna que de fato importa - e' aqui que
       # check_public_name_collision.py leva de 46 a 98s contra um teto de
       # 120, e e' daqui que ninguem nunca viu numero nenhum, porque o
-      # passo acima roda com --output-on-failure e o portao vinha
-      # PASSANDO. O ctest ja preserva a saida de todo teste, passando
-      # incluido, em <builddir>/Testing/Temporary/LastTest.log; este
-      # passo so a le. Nunca re-roda o teste: re-rodar dobraria o custo
-      # que se quer medir. Zero linha casada REPROVA (L-40).
+      # passo "Testes" acima roda com --output-on-failure e o portao
+      # vinha PASSANDO. O ctest ja preserva a saida de todo teste,
+      # passando incluido, em <builddir>/Testing/Temporary/LastTest.log
+      # - so que esse arquivo e' mutavel: o `ctest -N` do passo
+      # "Inventario de paridade" (que roda DEPOIS deste na ordem do
+      # arquivo, mas isso e' irrelevante - ver PNC-FASES-SNAPSHOT acima)
+      # o reescreve. Por isso este passo le o SNAPSHOT tirado por
+      # "Testes" (LastTest.log.pnc-fases-snapshot), nunca o
+      # LastTest.log ao vivo. Nunca re-roda o teste: re-rodar dobraria o
+      # custo que se quer medir. Zero linha casada REPROVA (L-40).
       - name: Fases do portao de colisao de nome (${{ matrix.modo }})
         shell: pwsh
         run: |
-          $log = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log"
+          $log = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot"
           if (-not (Test-Path $log)) {
-            Write-Error "log de teste preservado nao encontrado: $log"
+            Write-Error "snapshot de log preservado nao encontrado: $log"
             exit 1
           }
           $linhas = @(Select-String -Path $log -SimpleMatch 'check_public_name_collision.py: FASE ')
           Write-Host "linhas de fase encontradas: $($linhas.Count)"
           if ($linhas.Count -eq 0) {
-            Write-Error "nenhuma linha de fase no log preservado - o portao de colisao de nome nao rodou, ou a instrumentacao dele sumiu (GODS_LAWS.md L-40)"
+            Write-Error "nenhuma linha de fase no snapshot preservado - o portao de colisao de nome nao rodou, ou a instrumentacao dele sumiu (GODS_LAWS.md L-40)"
             exit 1
           }
           $linhas | ForEach-Object { Write-Host $_.Line }

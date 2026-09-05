@@ -58,6 +58,27 @@
 import re
 import sys
 
+# ENCODING-WIN (05/09/2026, GODS_LAWS.md L-40): TODO.md's own status
+# column carries markers outside the Basic Latin/Latin-1 range (`✅`
+# U+2705, `⏳` U+23F3) - the two symbols validate_exceptions() above
+# embeds verbatim in a reproving message when an exception points at a
+# CONCLUIDO item. Python's default stdout/stderr encoding is a FACT OF
+# THE MACHINE, not of this script: on Linux/CI it is UTF-8, but the
+# GitHub Actions Windows runner's console defaults to the legacy
+# code page (cp1252), which has no slot for either symbol - MEDIDO ao
+# vivo, run 33986752839, job "Windows - compartilhado": `print()`
+# crashed with `UnicodeEncodeError: 'charmap' codec can't encode
+# character '✅'` the moment a reproving message carrying `entry
+# ['status_text']` reached stdout, both in --selftest (a fixture with
+# the same fixture text real_main() also handles) and, unfixed, in the
+# real `--compare` path too. Force UTF-8 here rather than downstream at
+# every print call: `errors="backslashreplace"` is the fail-safe for
+# whatever THIRD symbol TODO.md's status column grows next.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+
 SCRIPT_NAME = "check_test_parity.py"
 
 SEM_PENDENCIA = "SEM-PENDENCIA"

@@ -1224,3 +1224,40 @@ Colisao de nome contra os cabecalhos do Windows (o portao mede na implementacao)
 ⚠️ **O que muda na minha pratica, a partir de agora:** commitar fatia que toca gramatica, formato ou tipo compartilhado exige rodar **os alvos dos consumidores conhecidos daquele artefato**, nao so o proprio. Quando nao souber quem consome, e a suite.
 
 **Registro de credito:** quem achou foi o agente das duas fatias de casamento, que topou com o teste quebrado ao consertar outra coisa e **avisou em vez de so consertar em silencio** -- disse, com todas as letras, que o lider deveria saber que a colisao aconteceu.
+
+---
+
+## O CTO decidiu a janela, e achou dois defeitos antes de uma linha de codigo  `[05/09/26 - 16:35:01]`
+
+**Decisoes do CTO em modo autonomo (L-34), marcadas como dele no proprio documento.** Plano versionado em `docs/plano-w6a-janela.md`.
+
+### Os dois achados que valem mais que as decisoes
+
+**1. O adaptador de janela do Windows JA ENTREGUE tem um defeito de paridade latente.** Ele usa um nome FIXO para a classe de janela, entao **abrir duas janelas no mesmo processo falha no Windows** onde funciona no Linux. Invisivel hoje porque nenhum teste abre duas. Medido na leitura do codigo ja commitado, nao suposto.
+
+**2. O portao de paridade que subiu hoje REPROVARIA a propria prova da janela.** O trabalho do container nao entra na dependencia do trabalho de comparacao, e o que roda la dentro **nao e nome de `ctest`** -- logo o teste que prova a janela nos dois sistemas seria acusado como lacuna pelo portao que existe para proteger exatamente isso. **Sem consertar, nenhuma fatia da onda fecha.** Virou item proprio.
+
+⚠️ **Os dois sao da mesma familia do que nos custou caro hoje: coisa que passa verde e esta quebrada.** E os dois foram achados por LEITURA MEDIDA no planejamento, antes de existir codigo -- que e o mais barato que esse tipo de achado pode custar.
+
+### A decisao mais perigosa, e ele decidiu bem
+
+**O que a consulta de tamanho da janela devolve quando a tela tem escala.** Decisao dele: **dois numeros, os dois com a unidade no nome, e a consulta sem qualificador NAO EXISTE.** Um para o tamanho logico, outro para os pixels reais.
+
+A razao e uma licao publicada de outra biblioteca, que ele citou com a fonte: ela levou de uma versao menor ate a versao maior seguinte para consertar ter tido **uma unica consulta de tamanho**. Nao existir a consulta ambigua e o que impede o consumidor de escolher errado sem perceber.
+
+### Oito lugares onde a onda passaria verde estando quebrada
+
+Ele nomeou os oito e, para cada um, **o que o torna vermelho**. Os dois que eu destaco:
+
+- **O primeiro aviso de tamanho da janela chega ANTES de a janela saber quem ela e**, no Windows. Um teste que so confira "tamanho diferente de zero" passa se a biblioteca simplesmente copiar o tamanho pedido -- sem nunca ter lido o aviso de verdade. O teste tem de ler **so** o que o aviso alimentou.
+- **A consulta de pixels reais como copia da consulta logica passa em TODO teste de integracao**, porque os dois executores rodam sem escala. A derivacao vive no estado comum e e testada com valores sinteticos nos cinco sistemas.
+
+### A prova grafica no Windows: a arvore de decisao fixada ANTES do dado
+
+A sonda entra no PRIMEIRO envio, e os tres desfechos ja estao decididos: se houver contexto moderno, nada muda; se so houver o antigo, o trabalho ganha um aparato de teste por software, na mesma categoria do que o container do Linux ja usa, **marcado para confirmacao retroativa do lider por ser descarregamento de terceiro**; e se nem isso, a fatia grafica **nao tem prova no servidor** e vai ao lider com o registro, porque muda o que a biblioteca promete.
+
+⚠️ Criterio fixado antes de existir o dado. E a lei do lider sobre criterio de aprovacao, aplicada a uma pergunta de infraestrutura.
+
+### O que a lei de isolamento impede esta onda de provar
+
+Janela visivel no compositor real dele com a escala real dele; ativar por clique; redimensionar pela borda; fechar pelo usuario; troca de monitor. **Nenhum pixel e desenhado nesta onda**, entao a primeira observacao visual continua sendo a demonstracao.

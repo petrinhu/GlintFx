@@ -694,6 +694,33 @@ jobs:
           cmake --build ${{ matrix.builddir }}
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # X-GL-0 apparatus (docs/plano-w6a-janela.md sec. 3, branch (ii);
+      # GODS_LAWS.md L-04/L-07/L-36/L-40/L-51): the sonda
+      # (win32_runner_probe_test) measured this runner handing out only
+      # "GDI Generic" 1.1 with no wglCreateContextAttribsARB (run
+      # 33991233135) - without a software GL implementation in front of
+      # the loader, the graphics slice has no proof on the server and,
+      # per GODS_LAWS.md L-04, does not close. tools/ci/install-mesa-
+      # opengl32.ps1's own header comment carries the full account: what
+      # is pinned (version + SHA-256, measured live against the real
+      # GitHub release before this step existed), why two files are
+      # needed, how the OS loader search order is what makes the sonda
+      # see this instead of the system DLL, and why this is test
+      # infrastructure that never touches the library's own output
+      # directory, an install prefix, or git (GODS_LAWS.md L-07 stays
+      # intact). Runs AFTER build (the destination directory - every
+      # test executable's own output directory, ${{ matrix.builddir }}/
+      # tests - has to exist first) and BEFORE ctest, for both matrix
+      # legs: the sonda is registered unconditionally under if(WIN32) in
+      # tests/CMakeLists.txt, independent of BUILD_SHARED_LIBS. The
+      # script itself fails loud (exit 1) on a bad download, a SHA-256
+      # mismatch, a missing 7-Zip, or a missing destination directory -
+      # never a silent no-op that would leave the sonda talking to the
+      # old GDI Generic DLL while this step still reports success.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para a sonda X-GL-0 (${{ matrix.modo }})
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "${{ matrix.builddir }}/tests"
+
       # WIN-HANG: colhe evidencia real do runner (localizacao do .dll x
       # .exe, execucao direta com limite de tempo proprio) ANTES do
       # ctest tentar rodar version_test.exe - GODS_LAWS.md L-27, fato

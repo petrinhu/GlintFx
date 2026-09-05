@@ -1943,6 +1943,14 @@ def _probe_tool_fixture(scratch):
     """
     if os.name == "nt":
         name = "glintfx-selftest-probe-tool.bat"
+        # GODS_LAWS.md L-04 / fato do ambiente DECLARADO (GATE-ENV-SWEEP,
+        # categoria LINE_ENDING): o CRLF aqui e deliberado e nao e uma
+        # comparacao contra o fim de linha da maquina - e o formato que o
+        # interpretador de lote do Windows EXIGE no arquivo que ele mesmo
+        # vai executar. Escrito literal, nunca herdado do checkout: e por
+        # isso que este fixture nasce igual em qualquer maquina que rode o
+        # ramo do Windows, e nao muda de forma conforme a configuracao de
+        # fim de linha de quem clonou.
         content = "@echo off\r\necho PROBE-OK\r\n"
     else:
         name = "glintfx-selftest-probe-tool"

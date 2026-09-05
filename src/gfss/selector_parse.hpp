@@ -22,13 +22,25 @@
 // W4/W5) to read - this fatia's own scope line, "guarda o argumento
 // cru para as duas fatias seguintes".
 //
-// OUT OF SCOPE, ON PURPOSE (TODO.md GFSS-SEL-PARSE-CORE row and the
-// service order that opened this fatia): the attribute selector
-// ([foo], [foo=bar], ...) - GFSS-SEL-PARSE-ATTR, wave W4 - and any
-// analysis of a functional pseudo-class's OWN argument content -
-// GFSS-SEL-PARSE-NTH/GFSS-SEL-PARSE-NOT, wave W4/W5. Neither omission
-// is a defect of this file; both are named fatias with their own
-// service order.
+// GFSS-SEL-PARSE-ATTR (TODO.md, 05/09/2026) ADDS THE ATTRIBUTE
+// SELECTOR - "[foo]" (presence) and the six comparison operators
+// (=, ~=, |=, ^=, $=, *=) - to what this function reads, as an eighth
+// simple-selector shape alongside the seven selector_ast.hpp's own
+// header comment already enumerates. See that file's own gfss_
+// attribute_operator/gfss_simple_selector::attribute_value for the
+// shape, and selector_parse.cpp's own parse_attribute_selector() for
+// the grammar and the CSS-convention default (unquoted ident or quoted
+// string) this fatia's own service order registers "para veto".
+//
+// STILL OUT OF SCOPE, ON PURPOSE (TODO.md, the service order that
+// opened this fatia): any analysis of a functional pseudo-class's OWN
+// argument content - GFSS-SEL-PARSE-NTH/GFSS-SEL-PARSE-NOT, wave
+// W4/W5 - and EVALUATING an attribute selector against a real node's
+// attribute lookup, which GFSS-MATCH-ATTR (TODO.md, wave W5) does;
+// this file only parses the GRAMMAR into gfss_simple_selector::
+// attribute's own fields, never compares them against anything.
+// Neither omission is a defect of this file; both are named fatias
+// with their own service order.
 //
 // INTERNAL IN THIS SLICE, ON PURPOSE (GODS_LAWS.md L-19: "o header
 // nasce interno, em src/gfss/"): this header lives here, not under

@@ -92,6 +92,18 @@
 // selector_parse producer tag; a tag names WHICH FILE emits the
 // diagnostic, never which fatia's service order asked for it).
 //
+// GFSS-SEL-PARSE-ATTR (TODO.md, 05/09/2026) IS THE FIFTH FATIA TO ADD
+// ROWS HERE, UNDER THE SAME 27/08/2026 POLICY: attribute_name,
+// attribute_operator_or_close, attribute_value and closing_square_
+// bracket are selector_parse.cpp's OWN four new diagnostics (that
+// file's own parse_attribute_selector()) - same producer tag as GFSS-
+// SEL-PARSE-CORE/GFSS-SEL-PARSE-PSEUDO-ELEMENT's own rows, since all
+// three live in the SAME producer file. closing_quote (tokenizer-owned,
+// already in this list) is REUSED for the "aspas nao fechadas" case,
+// never re-spelled under selector_parse - the SAME reuse this fatia's
+// own producer already applies to closing_parenthesis for an unclosed
+// functional-pseudo argument.
+//
 // GFSS-VALUE (TODO.md) IS THE SECOND FATIA TO ADD ROWS HERE UNDER THE
 // 27/08/2026 POLICY ABOVE (component_value, known_dimension_unit) -
 // value_parse.cpp is the producer. known_dimension_unit was named
@@ -182,6 +194,10 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(comma_or_end_of_selector_list, selector_parse)                                               \
     X(identifier_after_double_colon, selector_parse)                                               \
     X(known_pseudo_element, selector_parse)                                                        \
+    X(attribute_name, selector_parse)                                                              \
+    X(attribute_operator_or_close, selector_parse)                                                 \
+    X(attribute_value, selector_parse)                                                             \
+    X(closing_square_bracket, selector_parse)                                                      \
     X(component_value, value_parse)                                                                \
     X(known_dimension_unit, value_parse)                                                           \
     X(anb_expression, anb_parse)                                                                   \

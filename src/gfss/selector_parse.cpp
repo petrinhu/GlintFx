@@ -12,11 +12,26 @@
 #include "selector_pseudo_vocabulary.hpp"
 
 // selector_parse.cpp - GFSS-SEL-PARSE-CORE + GFSS-SEL-PARSE-PSEUDO-
-// ELEMENT (TODO.md, GODS_LAWS.md L-17/L-20/L-27/L-28/L-40): the
-// algorithm behind selector_parse.hpp's own
-// parse_selector_list() - see that file's own header comment for the
-// design tensions (result shape, noexcept) this implementation
+// ELEMENT + GFSS-SEL-PARSE-ATTR (TODO.md, GODS_LAWS.md
+// L-17/L-20/L-27/L-28/L-40): the algorithm behind selector_parse.hpp's
+// own parse_selector_list() - see that file's own header comment for
+// the design tensions (result shape, noexcept) this implementation
 // inherits rather than re-decides.
+//
+// GFSS-SEL-PARSE-ATTR'S OWN GRAMMAR, READ UNDER GODS_LAWS.md L-29/L-43
+// (CSS2.1's own "attrib" production, since CSS Syntax Module Level 3's
+// generic tokenizer has no dedicated ATTRIB_MATCHOP token of its own -
+// this file's own match_attribute_operator() below explains why each
+// operator is instead TWO byte-adjacent delim tokens): "[" S* IDENT S*
+// [ ATTRIB_MATCHOP S* [ IDENT | STRING ] S* ]? "]" - whitespace (S*)
+// permitted around every part, an operator+value pair entirely OPTIONAL
+// (the bare presence form). parse_attribute_selector() below is a
+// FIXED, bounded sequence of at most five tokens (name, operator
+// prefix, operator suffix, value, close bracket) with NO loop over
+// content and NO recursion - unlike capture_functional_argument()'s own
+// anti-DoS concern below, an attribute value is a single ident-or-
+// string token by this grammar, never a nested sub-selector, so there
+// is no unbounded-depth hazard to guard against here at all.
 //
 // LAYERED ON TOP OF GFSS-TOKEN's OWN TOKEN STREAM, NEVER RE-SCANNING
 // BYTES ITSELF (the SAME relationship color_parse.cpp's own header
@@ -249,7 +264,8 @@ struct simple_selector_outcome {
     return {.ok = true,
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_element,
                                              .name = name.lexeme,
-                                             .raw_argument = {}},
+                                             .raw_argument = {},
+                                             .attribute_value = {}},
             .diagnostic = {}};
 }
 
@@ -272,7 +288,8 @@ struct simple_selector_outcome {
     return {.ok = true,
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::class_selector,
                                              .name = tokens[name_index].lexeme,
-                                             .raw_argument = {}},
+                                             .raw_argument = {},
+                                             .attribute_value = {}},
             .diagnostic = {}};
 }
 
@@ -294,7 +311,8 @@ struct simple_selector_outcome {
     return {.ok = true,
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_function,
                                              .name = name,
-                                             .raw_argument = argument.text},
+                                             .raw_argument = argument.text,
+                                             .attribute_value = {}},
             .diagnostic = {}};
 }
 
@@ -322,7 +340,8 @@ struct simple_selector_outcome {
         return {.ok = true,
                 .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_class,
                                                  .name = next.lexeme,
-                                                 .raw_argument = {}},
+                                                 .raw_argument = {},
+                                                 .attribute_value = {}},
                 .diagnostic = {}};
     }
     if (next.kind == gltfx_gfss_token_kind::function) {
@@ -336,6 +355,160 @@ struct simple_selector_outcome {
     return {.ok = false,
             .selector = {},
             .diagnostic = make_diagnostic(colon, k_expected_identifier_after_colon)};
+}
+
+struct attribute_operator_outcome {
+    bool matched = false;
+    gfss_attribute_operator op = gfss_attribute_operator::equals;
+    std::size_t next_index = 0;
+};
+
+// `tokens[index]` is the first token right after an attribute name and
+// any whitespace. Recognizes one of the six operator spellings
+// selector_ast.hpp's own gfss_attribute_operator_table lists, by table
+// lookup - never a hand-written if/else chain that could drift from
+// that table (the SAME technique explicit_combinator_from() above uses
+// for the four combinators). `matched` is false, not a diagnosed
+// error, when nothing here looks like an operator start at all: this
+// function alone cannot tell a legitimately absent operator (the
+// caller has already ruled out the presence form's own "]" before
+// calling this) from a genuinely invented one (e.g. "%=") - that
+// distinction is the CALLER's job (parse_attribute_selector below),
+// since only it knows this is the "operator or close" grammar
+// position.
+[[nodiscard]] attribute_operator_outcome match_attribute_operator(const token_vector &tokens,
+                                                                   std::size_t index) noexcept {
+    const gltfx_gfss_token &tok = tokens[index];
+    if (tok.kind == gltfx_gfss_token_kind::delim && tok.lexeme == std::string_view{"="}) {
+        return {.matched = true, .op = gfss_attribute_operator::equals, .next_index = index + 1};
+    }
+    if (tok.kind != gltfx_gfss_token_kind::delim || tok.lexeme.size() != 1) {
+        return {.matched = false, .op = {}, .next_index = index};
+    }
+    const std::size_t equals_index = index + 1;
+    const bool has_adjacent_equals =
+        equals_index < tokens.size() && tokens[equals_index].kind == gltfx_gfss_token_kind::delim &&
+        tokens[equals_index].lexeme == std::string_view{"="} &&
+        tokens_are_adjacent(tok, tokens[equals_index]);
+    if (!has_adjacent_equals) {
+        return {.matched = false, .op = {}, .next_index = index};
+    }
+    for (const auto &entry : gfss_attribute_operator_table) {
+        if (entry.prefix == tok.lexeme.front()) {
+            return {.matched = true, .op = entry.op, .next_index = equals_index + 1};
+        }
+    }
+    return {.matched = false, .op = {}, .next_index = index};
+}
+
+struct attribute_value_outcome {
+    bool ok = false;
+    std::string_view text;
+    std::size_t next_index = 0;
+    gltfx_gfss_diagnostic diagnostic{};
+};
+
+// `tokens[index]` is the first token right after an attribute operator.
+// Reads the value grammar this fatia's own service order registers as
+// a default "para veto" (CSS's own convention, since gfss's own format
+// documentation does not specify quoting here at all): an <ident-token>
+// decodes to its own lexeme verbatim (the SAME "lexeme is the raw
+// source span" rule every other ident-shaped simple selector already
+// follows), a <string-token> strips EXACTLY its own one opening and one
+// closing quote character (never resolving an escape inside it -
+// selector_ast.hpp's own header comment on gfss_simple_selector::
+// attribute_value explains why). A <bad-string-token>, or a
+// <string-token> that already carries its OWN diagnostic (the
+// EOF-without-closing-quote case tokenizer.cpp's own
+// consume_string_token() leaves as kind::string, not kind::bad_string -
+// that function's own header comment), PROPAGATES that token's own
+// diagnostic upward unchanged - the SAME layering color_parse.cpp's own
+// parse_color() already applies to bad_string/bad_url, reused here
+// rather than re-invented, so "aspas nao fechadas" reports the
+// tokenizer's own k_expected_closing_quote, never a selector-parser
+// diagnostic pretending to know more than the lexical layer already
+// determined.
+[[nodiscard]] attribute_value_outcome parse_attribute_value(const token_vector &tokens,
+                                                             std::size_t index) noexcept {
+    const gltfx_gfss_token &tok = tokens[index];
+    if (tok.kind == gltfx_gfss_token_kind::ident) {
+        return {.ok = true, .text = tok.lexeme, .next_index = index + 1, .diagnostic = {}};
+    }
+    if (tok.kind == gltfx_gfss_token_kind::bad_string || !tok.diagnostic.expected.empty()) {
+        return {.ok = false, .text = {}, .next_index = 0, .diagnostic = tok.diagnostic};
+    }
+    if (tok.kind == gltfx_gfss_token_kind::string) {
+        return {.ok = true,
+                .text = tok.lexeme.substr(1, tok.lexeme.size() - 2),
+                .next_index = index + 1,
+                .diagnostic = {}};
+    }
+    return {.ok = false,
+            .text = {},
+            .next_index = 0,
+            .diagnostic = make_diagnostic(tok, k_expected_attribute_value)};
+}
+
+// `tokens[index]` is the "[" that opens an attribute selector
+// (selector_ast.hpp's own gfss_simple_selector_kind::attribute) - this
+// file's own top comment names the grammar and why it needs neither a
+// loop nor recursion. Advances `index` past the whole "[...]" on
+// success.
+[[nodiscard]] simple_selector_outcome parse_attribute_selector(const token_vector &tokens,
+                                                                std::size_t &index) noexcept {
+    const gltfx_gfss_token &open_bracket = tokens[index];
+    std::size_t cursor = index + 1;
+    skip_whitespace(tokens, cursor);
+    if (tokens[cursor].kind != gltfx_gfss_token_kind::ident) {
+        return {.ok = false,
+                .selector = {},
+                .diagnostic = make_diagnostic(tokens[cursor], k_expected_attribute_name)};
+    }
+    const gltfx_gfss_token &name = tokens[cursor];
+    ++cursor;
+    skip_whitespace(tokens, cursor);
+
+    if (tokens[cursor].kind == gltfx_gfss_token_kind::close_square) {
+        index = cursor + 1;
+        return {.ok = true,
+                .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::attribute,
+                                                 .name = name.lexeme,
+                                                 .raw_argument = {},
+                                                 .attribute_value = {}},
+                .diagnostic = {}};
+    }
+
+    const attribute_operator_outcome op = match_attribute_operator(tokens, cursor);
+    if (!op.matched) {
+        return {.ok = false,
+                .selector = {},
+                .diagnostic =
+                    make_diagnostic(tokens[cursor], k_expected_attribute_operator_or_close)};
+    }
+    cursor = op.next_index;
+    skip_whitespace(tokens, cursor);
+
+    const attribute_value_outcome value = parse_attribute_value(tokens, cursor);
+    if (!value.ok) {
+        return {.ok = false, .selector = {}, .diagnostic = value.diagnostic};
+    }
+    cursor = value.next_index;
+    skip_whitespace(tokens, cursor);
+
+    if (tokens[cursor].kind != gltfx_gfss_token_kind::close_square) {
+        return {.ok = false,
+                .selector = {},
+                .diagnostic = make_diagnostic(open_bracket, k_expected_closing_square_bracket)};
+    }
+    index = cursor + 1;
+    return {.ok = true,
+            .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::attribute,
+                                             .name = name.lexeme,
+                                             .raw_argument = {},
+                                             .attribute_operator = op.op,
+                                             .has_attribute_value = true,
+                                             .attribute_value = value.text},
+            .diagnostic = {}};
 }
 
 struct compound_parse_outcome {
@@ -355,15 +528,18 @@ struct compound_parse_outcome {
 parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexcept {
     const gltfx_gfss_token &tok = tokens[index];
     if (tok.kind == gltfx_gfss_token_kind::ident) {
-        const gfss_simple_selector selector{
-            .kind = gfss_simple_selector_kind::type, .name = tok.lexeme, .raw_argument = {}};
+        const gfss_simple_selector selector{.kind = gfss_simple_selector_kind::type,
+                                            .name = tok.lexeme,
+                                            .raw_argument = {},
+                                            .attribute_value = {}};
         ++index;
         return simple_selector_outcome{.ok = true, .selector = selector, .diagnostic = {}};
     }
     if (tok.kind == gltfx_gfss_token_kind::hash) {
         const gfss_simple_selector selector{.kind = gfss_simple_selector_kind::id_selector,
                                             .name = tok.lexeme.substr(1),
-                                            .raw_argument = {}};
+                                            .raw_argument = {},
+                                            .attribute_value = {}};
         ++index;
         return simple_selector_outcome{.ok = true, .selector = selector, .diagnostic = {}};
     }
@@ -373,7 +549,8 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
             .ok = true,
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::universal,
                                              .name = {},
-                                             .raw_argument = {}},
+                                             .raw_argument = {},
+                                             .attribute_value = {}},
             .diagnostic = {}};
     }
     if (tok.kind == gltfx_gfss_token_kind::delim && tok.lexeme == std::string_view{"."}) {
@@ -384,6 +561,9 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
             return parse_pseudo_element(tokens, index);
         }
         return parse_pseudo_selector(tokens, index);
+    }
+    if (tok.kind == gltfx_gfss_token_kind::open_square) {
+        return parse_attribute_selector(tokens, index);
     }
     return std::nullopt;
 }

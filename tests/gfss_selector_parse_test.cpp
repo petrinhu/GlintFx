@@ -50,6 +50,9 @@
 // REUSES rather than re-spelling (see this file's own duplicate-word
 // proof below for why that reuse is checked, not assumed).
 using glintfx::style::detail::count_owned_by;
+using glintfx::style::detail::gfss_attribute_operator;
+using glintfx::style::detail::gfss_attribute_operator_count;
+using glintfx::style::detail::gfss_attribute_operator_table;
 using glintfx::style::detail::gfss_combinator;
 using glintfx::style::detail::gfss_combinator_count;
 using glintfx::style::detail::gfss_combinator_table;
@@ -57,7 +60,12 @@ using glintfx::style::detail::gfss_diagnostic_producer;
 using glintfx::style::detail::gfss_simple_selector_kind;
 using glintfx::style::detail::k_expected_anb_expression;
 using glintfx::style::detail::k_expected_anb_offset;
+using glintfx::style::detail::k_expected_attribute_name;
+using glintfx::style::detail::k_expected_attribute_operator_or_close;
+using glintfx::style::detail::k_expected_attribute_value;
 using glintfx::style::detail::k_expected_closing_parenthesis;
+using glintfx::style::detail::k_expected_closing_quote;
+using glintfx::style::detail::k_expected_closing_square_bracket;
 using glintfx::style::detail::k_expected_comma_or_end_of_selector_list;
 using glintfx::style::detail::k_expected_end_of_anb_expression;
 using glintfx::style::detail::k_expected_identifier_after_colon;
@@ -381,6 +389,143 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_single_colon_forms_do_not_regress) {
     }
 }
 
+// ======================================================================
+// GFSS-SEL-PARSE-ATTR (TODO.md, 05/09/2026) - the attribute selector,
+// "[foo]" (presence) and "[foo<op>value]" (one of six comparison
+// operators). See selector_ast.hpp's own header comment on gfss_
+// attribute_operator for the "7 operadores" discrepancy this fatia's
+// own TODO.md row carries (six named operators, presence named
+// separately in the same sentence) and selector_parse.cpp's own top
+// comment for the grammar this block proves.
+// ======================================================================
+
+// FIRST ASSERTION for this fatia (GODS_LAWS.md L-20 "veja o teste
+// falhar"): the bare presence form carries no operator and no value -
+// `has_attribute_value` stays false, and `attribute_operator`/
+// `attribute_value` are never read (selector_ast.hpp's own header
+// comment on gfss_simple_selector explains why they are left at their
+// defaults rather than checked here).
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_attribute_presence) {
+    const auto result = parse_selector_list("[foo]");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+    if (simples.size() == 1) {
+        GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::attribute);
+        GLINTFX_CHECK(simples[0].name == std::string_view{"foo"});
+        GLINTFX_CHECK(!simples[0].has_attribute_value);
+    }
+}
+
+// ENUMERATION, not a directed sample (GODS_LAWS.md L-40/L-27: "enumere
+// o espaco pequeno quando ele for fechado") - every one of the six
+// operators selector_ast.hpp's own gfss_attribute_operator_table
+// lists, swept directly: a 7th operator added to that table with no
+// matching case here fails to compile (the static_assert below), never
+// passes silently with a stale count. The unquoted-ident value form
+// ("bar") is used for every entry here; the quoted-string form gets its
+// own dedicated proof below (gltfx_gfss_parse_selector_list_reads_
+// attribute_value_as_quoted_string), since this sweep is about the
+// OPERATOR, not the value grammar.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_attribute_operator) {
+    static_assert(gfss_attribute_operator_count == 6,
+                  "GODS_LAWS.md L-40: selector_ast.hpp's attribute-operator table changed - "
+                  "update this sweep to match");
+
+    std::size_t swept = 0;
+    for (const auto &entry : gfss_attribute_operator_table) {
+        const std::string prefix = (entry.prefix == '\0') ? std::string{} : std::string(1, entry.prefix);
+        const std::string text = "[foo" + prefix + "=bar]";
+        const auto result = parse_selector_list(text);
+        GLINTFX_CHECK(result.ok);
+        if (result.ok) {
+            const auto &simples = result.value.selectors.front().head.simple_selectors;
+            GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+            if (simples.size() == 1) {
+                GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::attribute);
+                GLINTFX_CHECK(simples[0].name == std::string_view{"foo"});
+                GLINTFX_CHECK(simples[0].has_attribute_value);
+                GLINTFX_CHECK(simples[0].attribute_operator == entry.op);
+                GLINTFX_CHECK(simples[0].attribute_value == std::string_view{"bar"});
+            }
+        }
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, gfss_attribute_operator_count);
+    std::println("gltfx_gfss_parse_selector_list_recognizes_every_attribute_operator: {} "
+                 "operator(s) checked",
+                 swept);
+}
+
+// THE CSS-CONVENTION DEFAULT THIS FATIA'S OWN SERVICE ORDER REGISTERS
+// "PARA VETO" (not blocking, but named as a decision the leader can
+// still revisit): an unquoted ident and a quoted string are BOTH
+// accepted as the value, and a quoted string's own surrounding quote
+// characters are stripped from `attribute_value` (selector_parse.cpp's
+// own parse_attribute_value()) - internal whitespace inside the quotes
+// survives verbatim, proving the stripping is exactly the two
+// delimiter bytes, never a general trim.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_attribute_value_as_quoted_string) {
+    const auto result = parse_selector_list("[foo=\"bar baz\"]");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+    if (simples.size() == 1) {
+        GLINTFX_CHECK(simples[0].has_attribute_value);
+        GLINTFX_CHECK(simples[0].attribute_value == std::string_view{"bar baz"});
+    }
+}
+
+// COMBINED WITH A TYPE SELECTOR, THE REALISTIC SHAPE (the SAME "li::
+// after" precedent gltfx_gfss_parse_selector_list_reads_type_then_
+// pseudo_element above already established for pseudo-elements):
+// "button[foo]" is ONE compound selector, two simple selectors - the
+// type "button" then the attribute "foo", glued with no combinator
+// between them.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_type_then_attribute) {
+    const auto result = parse_selector_list("button[foo]");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(2));
+    if (simples.size() == 2) {
+        GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::type);
+        GLINTFX_CHECK(simples[0].name == std::string_view{"button"});
+        GLINTFX_CHECK(simples[1].kind == gfss_simple_selector_kind::attribute);
+        GLINTFX_CHECK(simples[1].name == std::string_view{"foo"});
+    }
+}
+
+// WHITESPACE PERMITTED AROUND EVERY PART (CSS2.1's own "attrib" grammar
+// - selector_parse.cpp's own top comment cites it) - proves the parser
+// does not require the tight, no-space spelling the operator sweep
+// above happens to use.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_allows_whitespace_inside_attribute_brackets) {
+    const auto result = parse_selector_list("[ foo = bar ]");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+    if (simples.size() == 1) {
+        GLINTFX_CHECK(simples[0].name == std::string_view{"foo"});
+        GLINTFX_CHECK(simples[0].has_attribute_value);
+        GLINTFX_CHECK(simples[0].attribute_operator == gfss_attribute_operator::equals);
+        GLINTFX_CHECK(simples[0].attribute_value == std::string_view{"bar"});
+    }
+}
+
 // CONTROL NEGATIVO (this fatia's own service order): an unknown
 // pseudo-class, of EITHER shape (bare ident or function), reproves
 // with a diagnostic - never accepted in silence (GODS_LAWS.md L-28's
@@ -421,6 +566,16 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
         {"", k_expected_simple_selector, "only whitespace (empty string)"},
         {"   ", k_expected_simple_selector, "only whitespace (real spaces)"},
         {"a)", k_expected_comma_or_end_of_selector_list, "stray token after a complex selector"},
+        // GFSS-SEL-PARSE-ATTR (TODO.md, 05/09/2026) - the six hostile
+        // cases this fatia's own service order names by name.
+        {"[]", k_expected_attribute_name, "empty attribute ('[]')"},
+        {"[foo", k_expected_attribute_operator_or_close,
+         "unclosed bracket, presence form (no operator at all)"},
+        {"[foo=bar", k_expected_closing_square_bracket,
+         "unclosed bracket, after a complete comparison"},
+        {"[foo %= bar]", k_expected_attribute_operator_or_close, "invented operator ('%=')"},
+        {"[foo=]", k_expected_attribute_value, "missing value ('[foo=]')"},
+        {"[foo='bar", k_expected_closing_quote, "unterminated quotes in the value"},
     };
 
     std::size_t swept = 0;
@@ -432,7 +587,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
     }
     // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
     GLINTFX_CHECK(swept > 0);
-    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(12));
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(18));
     std::println("gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right_diagnostic: "
                  "{} hostile case(s) checked",
                  swept);
@@ -474,37 +629,42 @@ GLINTFX_TEST(
                  k_depth);
 }
 
-// EIGHT OF THE FIFTEEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
+// TWELVE OF THE NINETEEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
 // L-40 - gfss_tokenizer_test.cpp's own T2 proves format for the WHOLE
 // shared list and production for the tokenizer's own original four;
-// closing_parenthesis is REUSED here, not re-proven, since that
-// identifier's own production is already that file's job; GFSS-
-// VALUE's own two, component_value/known_dimension_unit, are gfss_value_
-// test.cpp's job, a layer this parser does not touch; anb_parse's own
-// three - anb_expression/anb_offset/end_of_anb_expression - are this
-// SAME file's own GFSS-SEL-PARSE-NTH block below, under a DIFFERENT
-// producer tag, so they are not part of this table either).
+// closing_parenthesis and closing_quote are REUSED here, not re-proven,
+// since each identifier's own production is already that file's job;
+// GFSS-VALUE's own two, component_value/known_dimension_unit, are
+// gfss_value_test.cpp's job, a layer this parser does not touch;
+// anb_parse's own three - anb_expression/anb_offset/end_of_anb_
+// expression - are this SAME file's own GFSS-SEL-PARSE-NTH block
+// below, under a DIFFERENT producer tag, so they are not part of this
+// table either).
 //
 // GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): this used to be
 // static_assert(k_expected_vocabulary_count == 12, ...) - a human
 // tripwire tied to the WHOLE list's size, not to THIS layer's own
-// eight. An identifier added under gfss_diagnostic_producer::
+// share. An identifier added under gfss_diagnostic_producer::
 // selector_parse bumped the same shared "12" gfss_tokenizer_test.cpp's
 // own static_assert already checked, so this file's own coverage below
 // could silently fall behind while that unrelated static_assert still
 // matched. k_selector_diagnostic_samples below is this layer's own
-// directed-production table (the eight it alone owns - closing_
-// parenthesis, reused above, is NOT one of them; identifier_after_
-// double_colon/known_pseudo_element are GFSS-SEL-PARSE-PSEUDO-
-// ELEMENT's own two, 05/09/2026, added under this SAME producer since
-// they are emitted by this SAME file, selector_parse.cpp); the
-// static_assert ties its size to count_owned_by(selector_parse) -
-// counted MECHANICALLY from diagnostic_vocabulary.hpp's own list - so
-// an identifier added under this producer with no matching row here
-// now FAILS TO COMPILE (this pull's own RED: adding the two new rows
-// to diagnostic_vocabulary.hpp's own list, with this table still at
-// six samples, reproved the build with exactly this static_assert
-// before parse_pseudo_element() existed to make them pass).
+// directed-production table (the twelve it alone owns - closing_
+// parenthesis and closing_quote, both reused above, are NOT among
+// them; identifier_after_double_colon/known_pseudo_element are GFSS-
+// SEL-PARSE-PSEUDO-ELEMENT's own two, 05/09/2026; attribute_name/
+// attribute_operator_or_close/attribute_value/closing_square_bracket
+// are GFSS-SEL-PARSE-ATTR's own four, the SAME day - all six added
+// under this SAME producer since they are emitted by this SAME file,
+// selector_parse.cpp); the static_assert ties its size to count_owned_
+// by(selector_parse) - counted MECHANICALLY from diagnostic_
+// vocabulary.hpp's own list - so an identifier added under this
+// producer with no matching row here now FAILS TO COMPILE (this
+// pull's own RED for GFSS-SEL-PARSE-ATTR: adding the four new rows to
+// diagnostic_vocabulary.hpp's own list, with this table still at eight
+// samples, reproved the build with exactly this static_assert - "the
+// comparison reduces to '(8 == 12)'" - before parse_attribute_
+// selector() existed to make them pass).
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_shared_vocabulary) {
     struct diagnostic_sample {
         std::string_view source;
@@ -519,6 +679,10 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
         {"a)", k_expected_comma_or_end_of_selector_list},
         {"::", k_expected_identifier_after_double_colon},
         {"::bogus", k_expected_known_pseudo_element},
+        {"[]", k_expected_attribute_name},
+        {"[foo", k_expected_attribute_operator_or_close},
+        {"[foo=]", k_expected_attribute_value},
+        {"[foo=bar", k_expected_closing_square_bracket},
     };
     static_assert(std::size(k_selector_diagnostic_samples) ==
                       count_owned_by(gfss_diagnostic_producer::selector_parse),
@@ -534,13 +698,17 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
     }
     GLINTFX_CHECK_EQ(swept, count_owned_by(gfss_diagnostic_producer::selector_parse));
 
-    // closing_parenthesis is TOKENIZER-owned, reused here (this parser
-    // propagates it upward from an unterminated functional-pseudo
-    // argument) - proven as an EXTRA check, not counted in
-    // k_selector_diagnostic_samples above, since its own production is
-    // gfss_tokenizer_test.cpp's job.
+    // closing_parenthesis and closing_quote are both TOKENIZER-owned,
+    // reused here (this parser propagates each upward - the first from
+    // an unterminated functional-pseudo argument, the second from an
+    // unterminated string used as an attribute value) - proven as an
+    // EXTRA check, not counted in k_selector_diagnostic_samples above,
+    // since each identifier's own production is gfss_tokenizer_test.
+    // cpp's job.
     GLINTFX_CHECK(parse_selector_list(":not(a").diagnostic.expected ==
                   k_expected_closing_parenthesis);
+    GLINTFX_CHECK(parse_selector_list("[foo='bar").diagnostic.expected ==
+                  k_expected_closing_quote);
 }
 
 // NO DUPLICATE WORD IN THE CONSOLIDATED LIST (project leader's

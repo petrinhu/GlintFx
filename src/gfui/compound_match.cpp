@@ -163,11 +163,11 @@ collect_requirements(const style::detail::gfss_compound_selector &compound) noex
         case style::detail::gfss_simple_selector_kind::pseudo_class:
             note_pseudo_class_selector(out, simple.name);
             break;
-        // Both labels defer, but for DIFFERENT reasons - grouped into
+        // THREE labels defer, but for DIFFERENT reasons - grouped into
         // one case only because the resulting MECHANIC is identical
-        // (bugprone-branch-clone would otherwise flag two branches
-        // that end up byte-for-byte the same), never because the two
-        // reasons are the same one:
+        // (bugprone-branch-clone would otherwise flag branches that
+        // end up byte-for-byte the same), never because the reasons
+        // are the same one:
         //   - pseudo_function (nth-*/:not/...): the ARGUMENT is still
         //     unanalyzed by GFSS-SEL-PARSE-CORE - this fatia's own
         //     scope line (compound_match.hpp's own header comment)
@@ -178,11 +178,19 @@ collect_requirements(const style::detail::gfss_compound_selector &compound) noex
         //     own job (LAYOUT-PSEUDO-BOXES, a future fatia), never
         //     this pass's, which only ever looks at nodes that already
         //     exist.
-        // A future fatia that resolves one of the two is very likely
-        // NOT ready to resolve the other - keep that in mind before
+        //   - attribute ("[foo]"/"[foo=bar]", GFSS-SEL-PARSE-ATTR,
+        //     05/09/2026): parsed into the AST by that fatia, but
+        //     EVALUATING it against a real node's attribute lookup is
+        //     GFSS-MATCH-ATTR's own job (TODO.md, wave W5) - a
+        //     DIFFERENT fatia than this file's own GFSS-MATCH-SIMPLE,
+        //     the SAME "parse here, judge there" split this file's own
+        //     other two deferred kinds already document above.
+        // A future fatia that resolves one of the three is very likely
+        // NOT ready to resolve the other two - keep that in mind before
         // ever merging their handling beyond this shared `case`.
         case style::detail::gfss_simple_selector_kind::pseudo_function:
         case style::detail::gfss_simple_selector_kind::pseudo_element:
+        case style::detail::gfss_simple_selector_kind::attribute:
             out.has_deferred_requirement = true;
             break;
         }

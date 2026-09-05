@@ -11,8 +11,9 @@
 #include "diagnostic_vocabulary.hpp"
 #include "selector_pseudo_vocabulary.hpp"
 
-// selector_parse.cpp - GFSS-SEL-PARSE-CORE (TODO.md, GODS_LAWS.md
-// L-17/L-20/L-27/L-40): the algorithm behind selector_parse.hpp's own
+// selector_parse.cpp - GFSS-SEL-PARSE-CORE + GFSS-SEL-PARSE-PSEUDO-
+// ELEMENT (TODO.md, GODS_LAWS.md L-17/L-20/L-27/L-28/L-40): the
+// algorithm behind selector_parse.hpp's own
 // parse_selector_list() - see that file's own header comment for the
 // design tensions (result shape, noexcept) this implementation
 // inherits rather than re-decides.
@@ -190,6 +191,68 @@ struct simple_selector_outcome {
     gltfx_gfss_diagnostic diagnostic{};
 };
 
+// GFSS-SEL-PARSE-PSEUDO-ELEMENT (TODO.md, 05/09/2026, GODS_LAWS.md
+// L-28 decision 11 of 26/08/2026): true iff `tokens[index]` is a ':'
+// immediately followed, with NO gap, by a SECOND ':' - CSS Selectors
+// Level 4's own "::" pseudo-element sigil is two adjacent colon
+// TOKENS, never one (GFSS-TOKEN's own tokenizer.cpp has no "::" token
+// kind of its own - token.hpp's own GLINTFX_GFSS_TOKEN_KIND_LIST names
+// 25 classes, `colon` among them, singular). Byte-pointer adjacency,
+// the SAME test tokens_are_adjacent() already is, so a comment between
+// the two colons (silently deleted by the tokenizer, never becoming a
+// token) still correctly fails this check.
+[[nodiscard]] bool starts_pseudo_element(const token_vector &tokens, std::size_t index) noexcept {
+    const std::size_t second_index = index + 1;
+    return second_index < tokens.size() &&
+           tokens[second_index].kind == gltfx_gfss_token_kind::colon &&
+           tokens_are_adjacent(tokens[index], tokens[second_index]);
+}
+
+// `tokens[index]` is the FIRST ':' of a "::" pseudo-element - the
+// caller (parse_one_simple_selector below) already confirmed, via
+// starts_pseudo_element() above, that a second, adjacent ':' follows.
+// Requires an ident IMMEDIATELY adjacent to that SECOND colon (the
+// SAME adjacency rule parse_pseudo_selector() already applies to the
+// single-colon forms), matching one of the two known pseudo-element
+// names (selector_pseudo_vocabulary.hpp's own k_pseudo_element_names).
+// NEVER the single-colon legacy CSS2.1 spelling (":before") - that
+// text takes the OTHER branch of parse_one_simple_selector's own
+// dispatch below, unchanged by this addition, and still fails there as
+// an unknown simple pseudo-class (gfss_selector_parse_test.cpp's own
+// regression proof). OUT OF SCOPE, ON PURPOSE (this fatia's own
+// service order, and selector_ast.hpp's own header comment above):
+// fabricating the box a pseudo-element denotes is LAYOUT-PSEUDO-BOXES'
+// job, not this one's - this function only recognizes the GRAMMAR and
+// records the bare name, the same "shape, not meaning" scope
+// parse_pseudo_selector() already keeps for `pseudo_class`. Advances
+// `index` past the whole "::name" on success.
+[[nodiscard]] simple_selector_outcome parse_pseudo_element(const token_vector &tokens,
+                                                           std::size_t &index) noexcept {
+    const gltfx_gfss_token &second_colon = tokens[index + 1];
+    const std::size_t name_index = index + 2;
+    const bool has_adjacent_ident = name_index < tokens.size() &&
+                                    tokens[name_index].kind == gltfx_gfss_token_kind::ident &&
+                                    tokens_are_adjacent(second_colon, tokens[name_index]);
+    if (!has_adjacent_ident) {
+        return {.ok = false,
+                .selector = {},
+                .diagnostic =
+                    make_diagnostic(second_colon, k_expected_identifier_after_double_colon)};
+    }
+    const gltfx_gfss_token &name = tokens[name_index];
+    if (!is_known_pseudo_element(name.lexeme)) {
+        return {.ok = false,
+                .selector = {},
+                .diagnostic = make_diagnostic(name, k_expected_known_pseudo_element)};
+    }
+    index = name_index + 1;
+    return {.ok = true,
+            .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_element,
+                                             .name = name.lexeme,
+                                             .raw_argument = {}},
+            .diagnostic = {}};
+}
+
 // `tokens[index]` is a '.' delim; a class selector requires an ident
 // token IMMEDIATELY adjacent to it (see this file's own header comment
 // above on adjacency). Advances `index` past both tokens on success.
@@ -317,6 +380,9 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
         return parse_class_selector(tokens, index);
     }
     if (tok.kind == gltfx_gfss_token_kind::colon) {
+        if (starts_pseudo_element(tokens, index)) {
+            return parse_pseudo_element(tokens, index);
+        }
         return parse_pseudo_selector(tokens, index);
     }
     return std::nullopt;

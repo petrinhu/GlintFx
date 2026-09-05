@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstddef>
 #include <iterator>
+#include <limits>
 #include <print>
 #include <string>
 #include <string_view>
 
+#include "gfss/anb.hpp"
+#include "gfss/anb_parse.hpp"
 #include "gfss/diagnostic_vocabulary.hpp"
 #include "gfss/selector_ast.hpp"
 #include "gfss/selector_parse.hpp"
@@ -19,6 +22,22 @@
 // see that file's own header comment for the design rationale each
 // check below proves.
 //
+// TWO SIBLING FATIAS ALSO LIVE IN THIS EXECUTABLE, 05/09/2026
+// (GODS_LAWS.md L-17, marked INFERENCE - the orchestrator's own
+// instruction for this pull, not a fact read from TODO.md itself):
+// GFSS-SEL-PARSE-PSEUDO-ELEMENT extends parse_selector_list() itself
+// (selector_parse.cpp's own parse_pseudo_element()) with the "::"
+// sigil, so its own tests below sit alongside GFSS-SEL-PARSE-CORE's;
+// GFSS-SEL-PARSE-NTH is a genuinely SEPARATE unit under test
+// (glintfx::style::detail::parse_anb(), anb_parse.hpp) that happens to
+// share this test BINARY rather than open a fourth one, because
+// tests/CMakeLists.txt's own per-executable source wiring is outside
+// both fatias' own file list for this pull (that file's "NAO TOQUE"
+// boundary) and "prefira acrescentar casos a um binario que ja existe"
+// was the orchestrator's own explicit instruction. Each test FUNCTION
+// below stays its own atomic unit either way (GODS_LAWS.md L-17's own
+// "uma unidade, um assunto" - a shared FILE is not a shared function).
+//
 // ONE SHARED DIAGNOSTIC VOCABULARY, NOT A THIRD ONE (project leader's
 // decision, 27/08/2026, GODS_LAWS.md L-27 - reached this fatia through
 // the orchestrator mid-implementation, correcting an earlier draft of
@@ -31,23 +50,32 @@
 // REUSES rather than re-spelling (see this file's own duplicate-word
 // proof below for why that reuse is checked, not assumed).
 using glintfx::style::detail::count_owned_by;
+using glintfx::style::detail::gfss_anb;
 using glintfx::style::detail::gfss_combinator;
 using glintfx::style::detail::gfss_combinator_count;
 using glintfx::style::detail::gfss_combinator_table;
 using glintfx::style::detail::gfss_diagnostic_producer;
 using glintfx::style::detail::gfss_simple_selector_kind;
+using glintfx::style::detail::k_expected_anb_expression;
+using glintfx::style::detail::k_expected_anb_offset;
 using glintfx::style::detail::k_expected_closing_parenthesis;
 using glintfx::style::detail::k_expected_comma_or_end_of_selector_list;
+using glintfx::style::detail::k_expected_end_of_anb_expression;
 using glintfx::style::detail::k_expected_identifier_after_colon;
 using glintfx::style::detail::k_expected_identifier_after_dot;
+using glintfx::style::detail::k_expected_identifier_after_double_colon;
 using glintfx::style::detail::k_expected_known_pseudo_class;
+using glintfx::style::detail::k_expected_known_pseudo_element;
 using glintfx::style::detail::k_expected_known_pseudo_function;
 using glintfx::style::detail::k_expected_simple_selector;
 using glintfx::style::detail::k_expected_vocabulary;
 using glintfx::style::detail::k_expected_vocabulary_count;
 using glintfx::style::detail::k_functional_pseudo_count;
+using glintfx::style::detail::k_pseudo_element_count;
+using glintfx::style::detail::k_pseudo_element_names;
 using glintfx::style::detail::k_simple_pseudo_count;
 using glintfx::style::detail::k_simple_pseudo_names;
+using glintfx::style::detail::parse_anb;
 using glintfx::style::detail::parse_selector_list;
 
 // FIRST ASSERTION (this fatia's own service order, captured BEFORE
@@ -248,6 +276,112 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_functional_pseudo_w
                  swept);
 }
 
+// GFSS-SEL-PARSE-PSEUDO-ELEMENT (TODO.md, 05/09/2026, GODS_LAWS.md
+// L-28 decision 11 of 26/08/2026: "::before e ::after entram na v1").
+// ENUMERATION, not a directed sample (the SAME L-40/L-27 technique the
+// simple/functional pseudo-class tests above already use): every one
+// of the two pseudo-element names, swept from selector_pseudo_
+// vocabulary.hpp's own k_pseudo_element_names - never a hand-copied
+// second list that could drift from it.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_pseudo_element) {
+    static_assert(k_pseudo_element_count == 2,
+                  "GODS_LAWS.md L-40: selector_pseudo_vocabulary.hpp's pseudo-element list "
+                  "changed - this fatia's own service order names exactly 2, update it or this "
+                  "count");
+
+    std::size_t swept = 0;
+    for (const std::string_view name : k_pseudo_element_names) {
+        const std::string text = "::" + std::string(name);
+        const auto result = parse_selector_list(text);
+        GLINTFX_CHECK(result.ok);
+        if (result.ok) {
+            GLINTFX_CHECK_EQ(result.value.selectors.size(), static_cast<std::size_t>(1));
+            const auto &simples = result.value.selectors.front().head.simple_selectors;
+            GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+            if (simples.size() == 1) {
+                GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::pseudo_element);
+                GLINTFX_CHECK(simples[0].name == name);
+                GLINTFX_CHECK(simples[0].raw_argument.empty());
+            }
+        }
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, k_pseudo_element_count);
+    std::println("gltfx_gfss_parse_selector_list_recognizes_every_pseudo_element: {} pseudo-"
+                 "element(s) checked",
+                 swept);
+}
+
+// COMBINED WITH A TYPE SELECTOR, THE REALISTIC SHAPE (this fatia's own
+// service order): "li::after" is ONE compound selector, two simple
+// selectors - the type "li" then the pseudo-element "after", glued
+// with no combinator between them (selector_ast.hpp's own compound
+// definition).
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_type_then_pseudo_element) {
+    const auto result = parse_selector_list("li::after");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(2));
+    if (simples.size() == 2) {
+        GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::type);
+        GLINTFX_CHECK(simples[0].name == std::string_view{"li"});
+        GLINTFX_CHECK(simples[1].kind == gfss_simple_selector_kind::pseudo_element);
+        GLINTFX_CHECK(simples[1].name == std::string_view{"after"});
+    }
+}
+
+// CONTROL NEGATIVO, PSEUDO-ELEMENT (this fatia's own service order):
+// an unknown "::name" reproves with known_pseudo_element, and "::"
+// with no adjacent ident at all reproves with identifier_after_double_
+// colon - the SAME two-diagnostic shape the single-colon forms already
+// have (identifier_after_colon/known_pseudo_class), never a crash and
+// never silent acceptance.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_unknown_pseudo_element) {
+    const auto unknown = parse_selector_list("::bogus");
+    GLINTFX_CHECK(!unknown.ok);
+    GLINTFX_CHECK(unknown.diagnostic.expected == k_expected_known_pseudo_element);
+
+    const auto empty = parse_selector_list("::");
+    GLINTFX_CHECK(!empty.ok);
+    GLINTFX_CHECK(empty.diagnostic.expected == k_expected_identifier_after_double_colon);
+}
+
+// REGRESSION, SINGLE-COLON FORMS DO NOT REGRESS (the orchestrator's own
+// explicit instruction: "rode a suite de seletor antes e depois" -
+// pinned here as a permanent assertion, not just a one-time manual
+// run). ":before"/":after" are the LEGACY CSS2.1 single-colon spelling
+// this fatia does NOT add (selector_pseudo_vocabulary.hpp's own
+// GLINTFX_GFSS_SIMPLE_PSEUDO_LIST still has no "before"/"after" row) -
+// they must keep failing exactly as they did before this fatia, with
+// known_pseudo_class (the single-colon dispatch path), never silently
+// promoted to a pseudo_element and never confused with the double-
+// colon known_pseudo_element diagnostic above. ":hover" is the
+// existing control - still a real pseudo_class, unchanged.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_single_colon_forms_do_not_regress) {
+    const auto legacy_before = parse_selector_list(":before");
+    GLINTFX_CHECK(!legacy_before.ok);
+    GLINTFX_CHECK(legacy_before.diagnostic.expected == k_expected_known_pseudo_class);
+
+    const auto legacy_after = parse_selector_list(":after");
+    GLINTFX_CHECK(!legacy_after.ok);
+    GLINTFX_CHECK(legacy_after.diagnostic.expected == k_expected_known_pseudo_class);
+
+    const auto still_hover = parse_selector_list(":hover");
+    GLINTFX_CHECK(still_hover.ok);
+    if (still_hover.ok) {
+        const auto &simples = still_hover.value.selectors.front().head.simple_selectors;
+        GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+        if (simples.size() == 1) {
+            GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::pseudo_class);
+        }
+    }
+}
+
 // CONTROL NEGATIVO (this fatia's own service order): an unknown
 // pseudo-class, of EITHER shape (bare ident or function), reproves
 // with a diagnostic - never accepted in silence (GODS_LAWS.md L-28's
@@ -341,27 +475,37 @@ GLINTFX_TEST(
                  k_depth);
 }
 
-// SIX OF THE TWELVE, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
+// EIGHT OF THE FIFTEEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
 // L-40 - gfss_tokenizer_test.cpp's own T2 proves format for the WHOLE
 // shared list and production for the tokenizer's own original four;
 // closing_parenthesis is REUSED here, not re-proven, since that
 // identifier's own production is already that file's job; GFSS-
 // VALUE's own two, component_value/known_dimension_unit, are gfss_value_
-// test.cpp's job, a layer this parser does not touch).
+// test.cpp's job, a layer this parser does not touch; anb_parse's own
+// three - anb_expression/anb_offset/end_of_anb_expression - are this
+// SAME file's own GFSS-SEL-PARSE-NTH block below, under a DIFFERENT
+// producer tag, so they are not part of this table either).
 //
 // GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): this used to be
 // static_assert(k_expected_vocabulary_count == 12, ...) - a human
-// tripwire tied to the WHOLE list's size, not to THIS layer's own six.
-// An identifier added under gfss_diagnostic_producer::selector_parse
-// bumped the same shared "12" gfss_tokenizer_test.cpp's own
-// static_assert already checked, so this file's own coverage below
+// tripwire tied to the WHOLE list's size, not to THIS layer's own
+// eight. An identifier added under gfss_diagnostic_producer::
+// selector_parse bumped the same shared "12" gfss_tokenizer_test.cpp's
+// own static_assert already checked, so this file's own coverage below
 // could silently fall behind while that unrelated static_assert still
 // matched. k_selector_diagnostic_samples below is this layer's own
-// directed-production table (the six it alone owns - closing_
-// parenthesis, reused above, is NOT one of them); the static_assert
-// ties its size to count_owned_by(selector_parse) - counted MECHANICALLY
-// from diagnostic_vocabulary.hpp's own list - so an identifier added
-// under this producer with no matching row here now FAILS TO COMPILE.
+// directed-production table (the eight it alone owns - closing_
+// parenthesis, reused above, is NOT one of them; identifier_after_
+// double_colon/known_pseudo_element are GFSS-SEL-PARSE-PSEUDO-
+// ELEMENT's own two, 05/09/2026, added under this SAME producer since
+// they are emitted by this SAME file, selector_parse.cpp); the
+// static_assert ties its size to count_owned_by(selector_parse) -
+// counted MECHANICALLY from diagnostic_vocabulary.hpp's own list - so
+// an identifier added under this producer with no matching row here
+// now FAILS TO COMPILE (this pull's own RED: adding the two new rows
+// to diagnostic_vocabulary.hpp's own list, with this table still at
+// six samples, reproved the build with exactly this static_assert
+// before parse_pseudo_element() existed to make them pass).
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_shared_vocabulary) {
     struct diagnostic_sample {
         std::string_view source;
@@ -374,6 +518,8 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
         {":bogus", k_expected_known_pseudo_class},
         {":bogus(1)", k_expected_known_pseudo_function},
         {"a)", k_expected_comma_or_end_of_selector_list},
+        {"::", k_expected_identifier_after_double_colon},
+        {"::bogus", k_expected_known_pseudo_element},
     };
     static_assert(std::size(k_selector_diagnostic_samples) ==
                       count_owned_by(gfss_diagnostic_producer::selector_parse),
@@ -428,6 +574,209 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
 // "relatorio de agente nao e prova" cuts the other way here too: a
 // gate is not proof if it can never turn green by fixing the code it
 // claims to own).
+// ======================================================================
+// GFSS-SEL-PARSE-NTH (TODO.md, 05/09/2026) - the An+B microparser,
+// glintfx::style::detail::parse_anb() (anb_parse.hpp). See that file's
+// own header comment and anb_parse.cpp's own top comment for the
+// source (CSS Syntax Module Level 3 SS6 "The An+B microsyntax",
+// https://www.w3.org/TR/css-syntax-3/#anb-microsyntax, cross-checked
+// against MDN's own :nth-child() page) and the 16-production grammar
+// each sample below names by number.
+// ======================================================================
+
+// ENUMERATION, not a directed sample (GODS_LAWS.md L-40/L-27: "enumere
+// o espaco pequeno quando ele for fechado") - one sample per
+// PRODUCTION of the closed 16-alternative <an+b> grammar (anb_parse.cpp's
+// own top comment numbers them 1-16), chosen so distinct samples
+// exercise genuinely distinct TOKEN sequences (e.g. "3n+1" merges the
+// sign into the number token itself - production 10 - while "3n + 1"
+// keeps it a separate delim token - production 16 - even though both
+// mean a=3,b=1) rather than two samples that happen to produce the
+// same (a,b) by the same code path.
+GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_every_production) {
+    struct anb_sample {
+        std::string_view text;
+        long long expected_a;
+        long long expected_b;
+        std::string_view label;
+    };
+    static constexpr anb_sample k_samples[] = {
+        {"odd", 0, 1, "production 1: odd"},
+        {"even", 2, 0, "production 2: even"},
+        {"5", 0, 5, "production 3: <integer>"},
+        {"3n", 3, 0, "production 4: <n-dimension>"},
+        {"n", 1, 0, "production 5: '+'? n (bare)"},
+        {"-n", -1, 0, "production 6: -n"},
+        {"3n-1", 3, -1, "production 7: <ndashdigit-dimension>"},
+        {"n-1", 1, -1, "production 8: '+'? <ndashdigit-ident> (bare)"},
+        {"-n-1", -1, -1, "production 9: <dashndashdigit-ident>"},
+        {"3n+1", 3, 1, "production 10: <n-dimension> <signed-integer>"},
+        {"n+1", 1, 1, "production 11: '+'? n <signed-integer> (bare)"},
+        {"-n+1", -1, 1, "production 12: -n <signed-integer>"},
+        {"3n- 1", 3, -1, "production 13: <ndash-dimension> <signless-integer>"},
+        {"n- 1", 1, -1, "production 14: '+'? n- <signless-integer> (bare)"},
+        {"-n- 1", -1, -1, "production 15: -n- <signless-integer>"},
+        {"3n + 1", 3, 1, "production 16: <n-dimension> ['+'|'-'] <signless-integer>"},
+    };
+    static_assert(std::size(k_samples) == 16,
+                  "CSS Syntax Module Level 3 SS6.2 names exactly 16 alternatives for the <an+b> "
+                  "production - update this enumeration to match if that grammar is re-read");
+
+    std::size_t swept = 0;
+    for (const auto &sample : k_samples) {
+        const auto result = parse_anb(sample.text);
+        GLINTFX_CHECK(result.ok);
+        if (result.ok) {
+            GLINTFX_CHECK_EQ(result.value.a, sample.expected_a);
+            GLINTFX_CHECK_EQ(result.value.b, sample.expected_b);
+        }
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(16));
+    std::println("gltfx_gfss_parse_anb_recognizes_every_production: {} production(s) checked",
+                 swept);
+}
+
+// EXTRA, NON-CANONICAL BUT VALID FORMS - the optional leading '+'
+// (productions 5/8/14) and the whitespace flexibility CSS Syntax's own
+// SS6.1 names ("whitespace is permitted on either side of the + or -
+// that separates the An and B parts"), including production 16's OWN
+// bare-"n" twin ("n + 1"), which the enumeration above deliberately
+// picked the dimension form for instead (this file's own header
+// comment on that test). Not tied to a fixed count - these are
+// EXTRA coverage on top of the 16-production closure, not part of it.
+GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_optional_plus_and_whitespace_variants) {
+    struct anb_sample {
+        std::string_view text;
+        long long expected_a;
+        long long expected_b;
+    };
+    static constexpr anb_sample k_samples[] = {
+        {"+n", 1, 0},    {"+3n", 3, 0},   {"+n-1", 1, -1},  {"+n- 1", 1, -1},  {"3n +1", 3, 1},
+        {"3n+ 1", 3, 1}, {"n + 1", 1, 1}, {"n - 1", 1, -1}, {"-n -1", -1, -1}, {"0", 0, 0},
+    };
+
+    std::size_t swept = 0;
+    for (const auto &sample : k_samples) {
+        const auto result = parse_anb(sample.text);
+        GLINTFX_CHECK(result.ok);
+        if (result.ok) {
+            GLINTFX_CHECK_EQ(result.value.a, sample.expected_a);
+            GLINTFX_CHECK_EQ(result.value.b, sample.expected_b);
+        }
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, std::size(k_samples));
+    std::println(
+        "gltfx_gfss_parse_anb_recognizes_optional_plus_and_whitespace_variants: {} variant(s) "
+        "checked",
+        swept);
+}
+
+// HOSTILE INPUT, ENUMERATED (GODS_LAWS.md L-40: "enumere o espaco
+// pequeno, nao busque dentro dele") - every case checked against the
+// EXACT diagnostic identifier it is expected to produce, never merely
+// "result.ok is false".
+GLINTFX_TEST(gltfx_gfss_parse_anb_rejects_hostile_input_with_the_right_diagnostic) {
+    struct hostile_sample {
+        std::string_view text;
+        std::string_view expected_diagnostic;
+        std::string_view label;
+    };
+    static constexpr hostile_sample k_samples[] = {
+        {"", k_expected_anb_expression, "empty string"},
+        {"   ", k_expected_anb_expression, "whitespace only"},
+        {"foo", k_expected_anb_expression, "unknown ident"},
+        {"3.5n", k_expected_anb_expression, "non-integer coefficient dimension"},
+        {"3.5", k_expected_anb_expression, "non-integer bare number"},
+        {"-", k_expected_anb_expression, "lone minus sign"},
+        {"\"str\"", k_expected_anb_expression, "a string token"},
+        {"n-", k_expected_anb_offset, "'n-' with nothing after"},
+        {"3n-", k_expected_anb_offset, "'3n-' with nothing after"},
+        {"n+1.5", k_expected_anb_offset, "non-integer signed offset"},
+        {"n+ 1.5", k_expected_anb_offset, "non-integer signless offset after separate sign"},
+        {"n++1", k_expected_anb_offset, "double sign"},
+        {"n+-1", k_expected_anb_offset, "opposite double sign"},
+        {"n+", k_expected_anb_offset, "sign with nothing after"},
+        {"3n extra", k_expected_end_of_anb_expression, "trailing garbage after complete value"},
+        {"odd 1", k_expected_end_of_anb_expression, "trailing garbage after keyword"},
+        {"5 5", k_expected_end_of_anb_expression, "trailing garbage after bare integer"},
+        {"n 1", k_expected_end_of_anb_expression, "unsigned integer with no sign delim at all"},
+    };
+
+    std::size_t swept = 0;
+    for (const auto &sample : k_samples) {
+        const auto result = parse_anb(sample.text);
+        GLINTFX_CHECK(!result.ok);
+        GLINTFX_CHECK(result.diagnostic.expected == sample.expected_diagnostic);
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(18));
+    std::println("gltfx_gfss_parse_anb_rejects_hostile_input_with_the_right_diagnostic: {} hostile "
+                 "case(s) checked",
+                 swept);
+}
+
+// HOSTILE INPUT, OVERFLOW (ESCOPO.md SS2 decision 1, "the library
+// never aborts the consumer's process on hostile input"): a digit run
+// far past long long's own range saturates, rather than invoking
+// undefined behavior or crashing - proves decode_anb_integer()
+// (anb_parse.cpp) actually takes this path, not merely that it exists.
+GLINTFX_TEST(gltfx_gfss_parse_anb_saturates_on_overflow) {
+    const std::string huge_positive(40, '9');
+    const auto positive_result = parse_anb(huge_positive);
+    GLINTFX_CHECK(positive_result.ok);
+    if (positive_result.ok) {
+        GLINTFX_CHECK_EQ(positive_result.value.b, std::numeric_limits<long long>::max());
+    }
+
+    const std::string huge_negative = "-" + std::string(40, '9');
+    const auto negative_result = parse_anb(huge_negative);
+    GLINTFX_CHECK(negative_result.ok);
+    if (negative_result.ok) {
+        GLINTFX_CHECK_EQ(negative_result.value.b, std::numeric_limits<long long>::lowest());
+    }
+}
+
+// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): anb_parse's own THREE
+// diagnostics (anb_expression/anb_offset/end_of_anb_expression) - the
+// SAME per-producer directed-production discipline gltfx_gfss_parse_
+// selector_list_diagnostics_are_produced_from_the_shared_vocabulary
+// above already applies to selector_parse's own rows. The static_assert
+// ties this table's size to count_owned_by(anb_parse) - counted
+// MECHANICALLY from diagnostic_vocabulary.hpp's own list - so an
+// identifier added under this producer with no matching row here now
+// FAILS TO COMPILE.
+GLINTFX_TEST(gltfx_gfss_parse_anb_diagnostics_are_produced_from_the_shared_vocabulary) {
+    struct diagnostic_sample {
+        std::string_view source;
+        std::string_view expected_identifier;
+    };
+    static constexpr diagnostic_sample k_anb_diagnostic_samples[] = {
+        {"", k_expected_anb_expression},
+        {"n-", k_expected_anb_offset},
+        {"3n extra", k_expected_end_of_anb_expression},
+    };
+    static_assert(std::size(k_anb_diagnostic_samples) ==
+                      count_owned_by(gfss_diagnostic_producer::anb_parse),
+                  "GODS_LAWS.md L-40 (GFSS-VOCAB-BIND): diagnostic_vocabulary.hpp's anb_parse-"
+                  "owned identifiers changed - add a directed production row to "
+                  "k_anb_diagnostic_samples above, this does not compile otherwise");
+
+    std::size_t swept = 0;
+    for (const diagnostic_sample &sample : k_anb_diagnostic_samples) {
+        GLINTFX_CHECK(parse_anb(sample.source).diagnostic.expected == sample.expected_identifier);
+        ++swept;
+    }
+    GLINTFX_CHECK_EQ(swept, count_owned_by(gfss_diagnostic_producer::anb_parse));
+}
+
 GLINTFX_TEST(diagnostic_vocabulary_has_no_duplicate_word) {
     std::size_t compared = 0;
     for (std::size_t i = 0; i < k_expected_vocabulary.size(); ++i) {

@@ -132,6 +132,12 @@ target_include_directories(gfss_selector_parse_test PRIVATE "${PROJECT_SOURCE_DI
 # in) - only selector_parse.cpp itself needs a second compile here.
 target_sources(gfss_selector_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    # GFSS-SEL-PARSE-NTH (05/09/2026): parse_anb() carries no GLINTFX_API by
+    # design (GODS_LAWS.md L-19 - it is an internal microparser, not public
+    # surface), so this target cannot reach it through the shared object and
+    # compiles the source directly, the same way it already does for
+    # selector_parse.cpp above.
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
 # GFSS-VALUE (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-27/L-28/L-40):

@@ -18,6 +18,18 @@
 // distinct from selector_ast.hpp (what the MATCHED shape looks like)
 // and selector_parse.cpp (WHEN this lookup applies to a token stream).
 //
+// A THIRD LIST, GLINTFX_GFSS_PSEUDO_ELEMENT_LIST, ADDED BY GFSS-SEL-
+// PARSE-PSEUDO-ELEMENT (TODO.md, 05/09/2026, GODS_LAWS.md L-28 decision
+// 11 of 26/08/2026: "::before e ::after entram na v1"): the two
+// pseudo-ELEMENT names, matched the SAME closed-membership way as the
+// two pseudo-CLASS lists above, but never merged into either of
+// them - a pseudo-element is a DIFFERENT grammar sigil ("::", not ":",
+// selector_parse.cpp's own starts_pseudo_element() is what tells them
+// apart on the token stream) and a different selector_ast.hpp kind
+// (gfss_simple_selector_kind::pseudo_element), so sharing a table with
+// the single-colon forms would let a name meant for one sigil silently
+// answer for the other.
+//
 // SAME X-MACRO TECHNIQUE token.hpp/diagnostic_vocabulary.hpp/
 // color_diagnostic_vocabulary.hpp ALREADY USE, for the SAME reason
 // (GODS_LAWS.md L-40 achado 1 of 26/08/2026): the count gfss_selector_
@@ -132,6 +144,41 @@ inline constexpr std::array<std::string_view, k_functional_pseudo_count> k_funct
 
 [[nodiscard]] constexpr bool is_known_functional_pseudo(std::string_view name) noexcept {
     for (const auto &candidate : k_functional_pseudo_names) {
+        if (ascii_case_insensitive_equal(name, candidate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The two pseudo-ELEMENT names GFSS-SEL-PARSE-PSEUDO-ELEMENT's own
+// service order names (this file's own header comment above) - never
+// the single-colon legacy CSS2.1 spelling (":before"/":after"), which
+// this fatia does not add and which stays covered, unchanged, by
+// GLINTFX_GFSS_SIMPLE_PSEUDO_LIST's own absence of those two names
+// (gfss_selector_parse_test.cpp's own regression proof).
+#define GLINTFX_GFSS_PSEUDO_ELEMENT_LIST(X)                                                        \
+    X("before")                                                                                    \
+    X("after")
+
+inline constexpr std::size_t k_pseudo_element_count = [] {
+    std::size_t count = 0;
+#define GLINTFX_GFSS_PSEUDO_ELEMENT_COUNT_ONE(text) ++count;
+    GLINTFX_GFSS_PSEUDO_ELEMENT_LIST(GLINTFX_GFSS_PSEUDO_ELEMENT_COUNT_ONE)
+#undef GLINTFX_GFSS_PSEUDO_ELEMENT_COUNT_ONE
+    return count;
+}();
+
+inline constexpr std::array<std::string_view, k_pseudo_element_count> k_pseudo_element_names{
+#define GLINTFX_GFSS_PSEUDO_ELEMENT_ARRAY_ONE(text) std::string_view{text},
+    GLINTFX_GFSS_PSEUDO_ELEMENT_LIST(GLINTFX_GFSS_PSEUDO_ELEMENT_ARRAY_ONE)
+#undef GLINTFX_GFSS_PSEUDO_ELEMENT_ARRAY_ONE
+};
+
+#undef GLINTFX_GFSS_PSEUDO_ELEMENT_LIST
+
+[[nodiscard]] constexpr bool is_known_pseudo_element(std::string_view name) noexcept {
+    for (const auto &candidate : k_pseudo_element_names) {
         if (ascii_case_insensitive_equal(name, candidate)) {
             return true;
         }

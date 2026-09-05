@@ -77,6 +77,21 @@
 // consolidation, if any, is that fatia's own author's work, not this
 // one's (its review is reproved on other grounds and returns to them).
 //
+// GFSS-SEL-PARSE-PSEUDO-ELEMENT AND GFSS-SEL-PARSE-NTH (TODO.md,
+// 05/09/2026) ARE THE THIRD AND FOURTH FATIAS TO ADD ROWS HERE, BOTH
+// UNDER THE SAME 27/08/2026 POLICY: identifier_after_double_colon and
+// known_pseudo_element are selector_parse.cpp's OWN two new diagnostics
+// (that file's own parse_pseudo_element(), GODS_LAWS.md L-28 decision
+// 11) - same producer tag as GFSS-SEL-PARSE-CORE's own six, since both
+// live in the SAME producer file. anb_expression/anb_offset/end_of_
+// anb_expression are anb_parse.cpp's OWN three - a NEW producer file,
+// hence the NEW gfss_diagnostic_producer::anb_parse tag below (this
+// microparser is explicitly a STANDALONE utility, not yet wired into
+// selector_parse.cpp's own AST - anb_parse.hpp's own header comment
+// names why - so its diagnostics could not honestly claim the
+// selector_parse producer tag; a tag names WHICH FILE emits the
+// diagnostic, never which fatia's service order asked for it).
+//
 // GFSS-VALUE (TODO.md) IS THE SECOND FATIA TO ADD ROWS HERE UNDER THE
 // 27/08/2026 POLICY ABOVE (component_value, known_dimension_unit) -
 // value_parse.cpp is the producer. known_dimension_unit was named
@@ -147,8 +162,10 @@ namespace glintfx::style::detail {
 // for how a producer's own test proves it against this tag.
 enum class gfss_diagnostic_producer : std::uint8_t {
     tokenizer,      // src/gfss/tokenizer.cpp (GFSS-TOKEN)
-    selector_parse, // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE)
+    selector_parse, // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE +
+                    // GFSS-SEL-PARSE-PSEUDO-ELEMENT)
     value_parse,    // src/gfss/value_parse.cpp (GFSS-VALUE)
+    anb_parse,      // src/gfss/anb_parse.cpp (GFSS-SEL-PARSE-NTH)
 };
 
 #define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                   \
@@ -163,8 +180,13 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(known_pseudo_class, selector_parse)                                                          \
     X(known_pseudo_function, selector_parse)                                                       \
     X(comma_or_end_of_selector_list, selector_parse)                                               \
+    X(identifier_after_double_colon, selector_parse)                                               \
+    X(known_pseudo_element, selector_parse)                                                        \
     X(component_value, value_parse)                                                                \
-    X(known_dimension_unit, value_parse)
+    X(known_dimension_unit, value_parse)                                                           \
+    X(anb_expression, anb_parse)                                                                   \
+    X(anb_offset, anb_parse)                                                                       \
+    X(end_of_anb_expression, anb_parse)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

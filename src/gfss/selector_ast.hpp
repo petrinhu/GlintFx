@@ -17,6 +17,19 @@
 // functional ones RECOGNIZED by name with their argument left
 // UNANALYZED (see gfss_simple_selector_kind::pseudo_function below).
 //
+// GFSS-SEL-PARSE-PSEUDO-ELEMENT (TODO.md, 05/09/2026) ADDS A 7TH SHAPE
+// (fact vs. inference, GODS_LAWS.md L-27): the project leader's own
+// decision of 26/08/2026 (GODS_LAWS.md L-28 decision 11) names
+// "::before"/"::after" for the v1 - CSS Selectors Level 4's OWN
+// double-colon pseudo-element sigil, distinct from the single-colon
+// pseudo-CLASS forms this file already enumerates above. See
+// gfss_simple_selector_kind::pseudo_element below for the shape, and
+// this fatia's own scope line (selector_parse.cpp's own header
+// comment on parse_pseudo_element()) for why FABRICATING the box a
+// pseudo-element denotes is explicitly OUT of scope here (LAYOUT-
+// PSEUDO-BOXES, a different fatia entirely) - this file only names the
+// GRAMMAR shape and the bare identifier it carries, never a box.
+//
 // SEPARATE FILE FROM selector_parse.hpp/.cpp - deliberate (GODS_LAWS.md
 // L-17: "arquivo e atomo de assunto"): this file answers "what SHAPE
 // can a gfss selector take", never "how do I read gfss TEXT into that
@@ -125,18 +138,21 @@ enum class gfss_simple_selector_kind : std::uint8_t {
     id_selector,     // #foo
     pseudo_class,    // :hover, :first-child, ... (no argument)
     pseudo_function, // :nth-child(...), :not(...), ... (raw argument)
+    pseudo_element,  // ::before, ::after (no argument)
 };
 
 // One simple selector. `name` holds the tag name / class name (without
 // the leading '.') / id name (without the leading '#') / pseudo-class
-// name (without the leading ':') for every kind except `universal`,
-// which names nothing and leaves `name` empty. `raw_argument` is
-// populated ONLY for `pseudo_function` - the exact source bytes
-// between the function's own '(' and its matching ')', unanalyzed (see
-// this file's own header comment above) - and stays empty for every
-// other kind, the SAME "empty means absent" convention token.hpp's own
-// gltfx_gfss_diagnostic already establishes (docs/api-conventions.md
-// R4).
+// name (without the leading ':') / pseudo-element name (without the
+// leading "::") for every kind except `universal`, which names nothing
+// and leaves `name` empty. `raw_argument` is populated ONLY for
+// `pseudo_function` - the exact source bytes between the function's
+// own '(' and its matching ')', unanalyzed (see this file's own header
+// comment above) - and stays empty for every other kind, INCLUDING
+// `pseudo_element` (which carries no argument of its own, the same
+// shape as `pseudo_class`), the SAME "empty means absent" convention
+// token.hpp's own gltfx_gfss_diagnostic already establishes
+// (docs/api-conventions.md R4).
 struct gfss_simple_selector {
     gfss_simple_selector_kind kind = gfss_simple_selector_kind::universal;
     std::string_view name;

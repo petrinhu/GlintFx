@@ -21,6 +21,7 @@ target_sources(glintfx_library PRIVATE
     numeric_lexeme.cpp
     color_parse.cpp
     selector_parse.cpp
+    anb_parse.cpp
     value_kind.cpp
     value_parse.cpp
 )

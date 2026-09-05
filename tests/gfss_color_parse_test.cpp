@@ -119,6 +119,31 @@ std::string make_exponent_digit_overflow_lexeme(std::size_t leading_zero_count,
     return text;
 }
 
+// COLOR-INTPART-COV (TODO.md, achado da re-revisao de 27/08/2026): every
+// attack string above shares the SAME "0." + zeros + "1" shape - the
+// first nonzero digit always sits AFTER the '.', so
+// most_significant_digit_place() (numeric_lexeme.cpp) always takes its
+// FRACTIONAL branch (`i >= whole_digit_count`). This helper exercises
+// the OTHER branch instead: "1" followed by `trailing_zero_count`
+// zeros, WITHOUT any '.' at all - the exact shape ("numero escrito sem
+// ponto decimal") of the ORIGINAL first critical finding this file's
+// own rgb_number_component_overflow_saturates_to_the_extreme test
+// above already covers for a SIMPLE overflow ("1e400"), but never
+// exercised in combination with a canceling exponent the way the
+// fractional-form matrix below does. With no '.', `dot` is
+// std::string_view::npos, so `whole_digit_count` is the WHOLE mantissa
+// length and the leading '1' (index 0) is always `i < whole_digit_count`
+// - the integer-part branch, by construction, for every
+// `trailing_zero_count`.
+std::string make_overflow_leaning_lexeme_without_decimal_point(std::size_t trailing_zero_count,
+                                                                long long explicit_exponent) {
+    std::string text = "1";
+    text.append(trailing_zero_count, '0');
+    text += "e";
+    text += std::to_string(explicit_exponent);
+    return text;
+}
+
 } // namespace
 
 // --- the FIRST assertion (GODS_LAWS.md L-20's own "vermelho antes de
@@ -793,6 +818,57 @@ GLINTFX_TEST(
     std::println("gltfx_gfss_parse_color_underflow_overflow_direction_survives_with_the_inverted_"
                  "order_of_magnitude: {} case(s) checked",
                  checked);
+}
+
+// --- COLOR-INTPART-COV (TODO.md): the mirror of the boundary matrix
+// above, THROUGH THE INTEGER-PART BRANCH the fractional "0."+zeros+"1"
+// shape above never reaches. Mantissa place is now POSITIVE and grows
+// with `trailing_zero_count` (make_overflow_leaning_lexeme_without_
+// decimal_point()'s own header comment above), so a NEGATIVE exponent
+// of comparable magnitude is what creates the same "does the sign of
+// the sum survive" tension the fractional matrix tests with a positive
+// exponent - same historical magnitudes (500'000/999'999/1'999'999),
+// same three-way "abaixo do teto"/"no teto"/"acima do teto" x
+// "expoente menor/igual/maior" shape, sign of every combination
+// verified by hand against most_significant_digit_place()'s own
+// formula (place = trailing_zero_count for this shape) before being
+// trusted here (GODS_LAWS.md L-27).
+
+GLINTFX_TEST(gltfx_gfss_parse_color_integer_mantissa_collision_survives_the_boundary_matrix) {
+    struct boundary_case {
+        std::size_t trailing_zero_count = 0; // mantissa place = this (no decimal point)
+        long long explicit_exponent = 0;     // negative, opposite sign, always SHORT text
+        bool byte_is_saturated_max = false;  // true: expect 255; false: expect 0
+        std::string_view note;
+    };
+    // clang-format off
+    const boundary_case k_cases[] = {
+        // -- mantissa dominant, exponent relative to the historical
+        // bound (1,000,000): "abaixo"/"no teto"/"acima do teto".
+        {500'000,     -1'000'000, false, "abaixo do teto, expoente igual ao teto: real -500000"},
+        {500'000,     -1'500'000, false, "abaixo do teto, expoente maior que o teto: real -1000000"},
+        {999'999,       -500'000, true,  "no teto, expoente menor que o teto: real +499999"},
+        {999'999,     -1'500'000, false, "no teto, expoente maior que o teto: real -500001"},
+        {1'999'999,     -500'000, true,  "acima do teto, expoente menor: real +1499999"},
+        {1'999'999,   -1'000'000, true,  "acima do teto, expoente igual: real +999999"},
+        {1'999'999,   -1'500'000, true,  "acima do teto, expoente maior: real +499999"},
+    };
+    // clang-format on
+    std::size_t checked = 0;
+    for (const boundary_case &c : k_cases) {
+        const std::string attack = make_overflow_leaning_lexeme_without_decimal_point(
+            c.trailing_zero_count, c.explicit_exponent);
+        const std::uint8_t expected_byte = c.byte_is_saturated_max ? 255 : 0;
+        check_color_result(
+            parse_color("rgb(" + attack + ", 0, 0)"),
+            glintfx::gltfx_rgba8{.red = expected_byte, .green = 0, .blue = 0, .alpha = 255});
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(7));
+    std::println(
+        "gltfx_gfss_parse_color_integer_mantissa_collision_survives_the_boundary_matrix: {} "
+        "case(s) checked",
+        checked);
 }
 
 // --- color_diagnostic_vocabulary.hpp's own closed enumeration

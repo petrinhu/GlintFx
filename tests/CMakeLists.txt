@@ -1685,3 +1685,36 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.py" --selftest
 )
 set_tests_properties(readme_test_count_selftest PROPERTIES LABELS selftest)
+
+# Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
+# L-36/L-40): closed static check that every llround/lround/round/
+# nearbyint/rint call under src/ and include/ is either guarded by a
+# std::clamp(...) nested in its OWN argument expression (src/core/
+# color.cpp, src/gfss/color_parse.cpp) or preceded, in the SAME
+# function body, by a comparison of its OWN argument against BOTH
+# std::numeric_limits<...>::max()/::min() (src/core/time.cpp) - never
+# satisfied by ANY comparison merely being present (see check_round_
+# order.py's own header comment for the loophole this closes and the
+# two negative controls in --selftest that prove it: wrong variable,
+# and untied to numeric_limits). Reproduces the 28/08/2026 finding this
+# item is named after (moving the rounding call to BEFORE the range
+# comparisons left the WHOLE suite green, ASan/UBSan included, because
+# the defect lives inside glibc's own uninstrumented std::llround()) -
+# --selftest's own calibration control requires the check to still
+# pass against this project's REAL tree. Pure Python, zero subprocess
+# spawn, unguarded by platform - same GATE-TREE-PARITY shape as
+# macro_balance_test/env_sweep_test above.
+add_test(
+    NAME round_order_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_round_order.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(round_order_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME round_order_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_round_order.py" --selftest
+)
+set_tests_properties(round_order_selftest PROPERTIES LABELS selftest)

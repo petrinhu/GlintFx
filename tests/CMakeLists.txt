@@ -845,6 +845,60 @@ if(BUILD_SHARED_LIBS AND UNIX)
     set_tests_properties(visibility_selftest PROPERTIES LABELS selftest)
 endif()
 
+# LIB-NO-UNDEF gate (GODS_LAWS.md L-36/L-40, TODO.md): the OPPOSITE
+# direction of visibility_test above - read tests/tools/check_no_undef_
+# glintfx.py's own header for the real defect this closes (commit
+# 8eb7d73: compound_match.cpp called four structural_* functions plus
+# attribute_selector_holds() whose .cpp files had been added to the
+# TEST targets only, never to glintfx_library's own target_sources() -
+# the .so linked and shipped anyway, silently, with five glintfx::
+# symbols left dynamically undefined; the 88-case suite stayed green
+# because it recompiles the sources a second time inside each test
+# binary instead of linking against the shipped library). visibility_
+# test scans DEFINED dynamic symbols and reproves anything OUTSIDE
+# glintfx:: (too much leaves the library); this gate scans UNDEFINED
+# dynamic symbols and reproves anything INSIDE glintfx:: (not enough
+# entered it) - neither subsumes the other.
+#
+# `nm` (both --shared's `-D` and --static's plain form) is the same
+# POSIX/GNU-binutils tool check_exports.sh already requires, so this
+# gate is if(UNIX)-guarded like port_privacy_test above, picking
+# --shared or --static from the SAME BUILD_SHARED_LIBS variable that
+# decides which artifact this configured tree even produces. --static
+# never reproves by symbol content (declared and counted in the
+# script's own output every run, GODS_LAWS.md L-40 - a .a has no link
+# step of its own, so cross-object "undefined" is the expected shape,
+# not a defect); the real link-time guarantee for a static consumer is
+# out of this repository's reach. Windows counterpart: tools/ci/check-
+# no-undef-glintfx-win.ps1 (registered in the `windows` CI job) - the
+# defect is impossible there BY CONSTRUCTION (MSVC's link.exe refuses
+# to produce a DLL with any unresolved internal reference, LNK2019/
+# LNK1120, unlike GNU ld's default for a .so), so that script instead
+# verifies the specific historical premise (both .cpp files actually
+# compiled inside glintfx_library's own target, not just a test
+# target) - see its own header for the full argument.
+if(UNIX)
+    if(BUILD_SHARED_LIBS)
+        set(GLINTFX_LIB_NO_UNDEF_MODE "--shared")
+    else()
+        set(GLINTFX_LIB_NO_UNDEF_MODE "--static")
+    endif()
+    add_test(
+        NAME lib_no_undef_test
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_undef_glintfx.py"
+            "${GLINTFX_LIB_NO_UNDEF_MODE}" "$<TARGET_FILE:glintfx_library>"
+    )
+    set_tests_properties(lib_no_undef_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME lib_no_undef_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_undef_glintfx.py" --selftest
+    )
+    set_tests_properties(lib_no_undef_selftest PROPERTIES LABELS selftest)
+endif()
+
 # Layer gate (GODS_LAWS.md L-19, item 1: "a CI gate reproves the
 # violation"). PORTED from POSIX sh (tests/tools/check_layers.sh,
 # if(UNIX)-guarded, never exercised on Windows) to python3 and

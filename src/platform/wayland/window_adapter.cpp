@@ -32,18 +32,18 @@ constexpr wl_surface_listener kSurfaceListener = {
     .leave = &wayland_window_adapter::wl_surface_leave,
     .preferred_buffer_scale = &wayland_window_adapter::wl_surface_preferred_buffer_scale,
     // preferred_buffer_transform (v6, wl_surface's own sibling event to
-    // preferred_buffer_scale) is out of scope for this fatia the same
-    // way transform itself is out of scope for window_state (decision
-    // 15 tracks scale, never transform) - EXPLICIT nullptr, not an
-    // omitted field: -Wmissing-field-initializers (this project's own
-    // -Werror, GODS_LAWS.md L-23) already caught the first cut of this
-    // struct leaving it out, and libwayland's own dispatcher (wl_
-    // closure_invoke) skips a null callback rather than crashing on
-    // one - the documented way to say "this event never needs handling
-    // here" instead of silently omitting it and hoping the compiler
-    // does not notice a NEW mandatory field some future protocol
-    // version adds.
-    .preferred_buffer_transform = nullptr,
+    // preferred_buffer_scale) is a NAMED NO-OP, never nullptr - see
+    // wayland_window_adapter::wl_surface_preferred_buffer_transform()'s
+    // own header comment (window_adapter.hpp) for why. CORRECTION of
+    // this struct's earlier assumption: libwayland-client's dispatcher
+    // does NOT skip a null callback for an event the bound version
+    // makes legal - it logs "listener function for opcode N of
+    // INTERFACE is NULL" and calls abort() (SIGABRT), measured here
+    // against tests/container/'s own kwin_wayland --virtual the moment
+    // window_smoke.cpp's surface received this exact event (opcode 3
+    // of wl_surface) - same class of defect the sibling xdg_toplevel_
+    // listener below already documents for wm_capabilities.
+    .preferred_buffer_transform = &wayland_window_adapter::wl_surface_preferred_buffer_transform,
 };
 
 constexpr xdg_surface_listener kXdgSurfaceListener = {
@@ -53,12 +53,14 @@ constexpr xdg_surface_listener kXdgSurfaceListener = {
 constexpr xdg_toplevel_listener kToplevelListener = {
     .configure = &wayland_window_adapter::xdg_toplevel_configure,
     .close = &wayland_window_adapter::xdg_toplevel_close,
-    // configure_bounds (v4) and wm_capabilities (v5) are both out of
-    // scope for this fatia (D-W5-3: "v1 congela so o minimo") - same
-    // explicit-nullptr reasoning as wl_surface_listener's own preferred_
-    // buffer_transform above.
-    .configure_bounds = nullptr,
-    .wm_capabilities = nullptr,
+    // configure_bounds (v4) and wm_capabilities (v5) are NAMED NO-OPS,
+    // never nullptr - see wayland_window_adapter::xdg_toplevel_
+    // configure_bounds()'s own header comment (window_adapter.hpp) for
+    // why a null entry here is a guaranteed SIGABRT, not a harmless
+    // omission, once xdg_wm_base is bound at version 5 or above
+    // (shell_adapter.cpp binds it at 6).
+    .configure_bounds = &wayland_window_adapter::xdg_toplevel_configure_bounds,
+    .wm_capabilities = &wayland_window_adapter::xdg_toplevel_wm_capabilities,
 };
 
 } // namespace
@@ -116,6 +118,12 @@ void wayland_window_adapter::wl_surface_preferred_buffer_scale(void *data, wl_su
     self->m_state.apply_buffer_scale(static_cast<std::uint32_t>(factor));
 }
 
+void wayland_window_adapter::wl_surface_preferred_buffer_transform(
+    void * /*data*/, wl_surface * /*surface*/, std::uint32_t /*transform*/) noexcept {
+    // No-op, named deliberately - see this method's own declaration
+    // comment in window_adapter.hpp.
+}
+
 void wayland_window_adapter::xdg_toplevel_configure(void *data, xdg_toplevel * /*toplevel*/,
                                                     std::int32_t width, std::int32_t height,
                                                     wl_array *states) noexcept {
@@ -138,6 +146,21 @@ void wayland_window_adapter::xdg_toplevel_configure(void *data, xdg_toplevel * /
 void wayland_window_adapter::xdg_toplevel_close(void *data, xdg_toplevel * /*toplevel*/) noexcept {
     auto *self = static_cast<wayland_window_adapter *>(data);
     self->m_state.request_close();
+}
+
+void wayland_window_adapter::xdg_toplevel_configure_bounds(void * /*data*/,
+                                                           xdg_toplevel * /*toplevel*/,
+                                                           std::int32_t /*width*/,
+                                                           std::int32_t /*height*/) noexcept {
+    // No-op, named deliberately - see this method's own declaration
+    // comment in window_adapter.hpp.
+}
+
+void wayland_window_adapter::xdg_toplevel_wm_capabilities(void * /*data*/,
+                                                          xdg_toplevel * /*toplevel*/,
+                                                          wl_array * /*capabilities*/) noexcept {
+    // No-op, named deliberately - see this method's own declaration
+    // comment in window_adapter.hpp.
 }
 
 void wayland_window_adapter::xdg_surface_configure(void *data, xdg_surface * /*surface*/,

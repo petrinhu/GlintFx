@@ -51,4 +51,22 @@ target_sources(glintfx_library PRIVATE
     shell_adapter.cpp
     window_configure_sequence.cpp
     window_adapter.cpp
+    seat_adapter.cpp
 )
+
+# seat_adapter.cpp - WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia
+# 12, seat_adapter.hpp's own header comment): wayland_seat_adapter, the
+# Wayland MECHANISM that feeds the shared seat_capabilities value type
+# (src/platform/input/, S-A'). CONSERTO (05/09/2026, run 33997698610):
+# this file existed in this directory since S-B was written, but was
+# MISSING from the list above until this commit - the win32/ sibling
+# (win32/CMakeLists.txt's own target_sources) already carried its own
+# seat_adapter.cpp, so the two seat mechanisms entered glintfx_library
+# asymmetrically: Windows wired in, Linux did not. That asymmetry is
+# exactly why the Windows linker caught the missing seat_capabilities
+# definition (LNK2019) while the Linux undefined-symbol gate
+# (tests/tools/check_no_undef_glintfx.py) stayed green - with no
+# caller in the Linux library, there was no pending symbol for it to
+# find. Both platforms now wire their own seat mechanism into
+# glintfx_library the same way (src/platform/CMakeLists.txt's own
+# add_subdirectory(input) header comment has the full account).

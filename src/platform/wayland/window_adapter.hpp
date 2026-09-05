@@ -149,6 +149,23 @@ class wayland_window_adapter {
     static void wl_surface_preferred_buffer_scale(void *data, wl_surface *surface,
                                                   std::int32_t factor) noexcept;
 
+    // wl_surface.preferred_buffer_transform (v6, wl_surface's own
+    // sibling event to preferred_buffer_scale) is a DELIBERATE NO-OP,
+    // NAMED rather than nullptr - same "out of scope, but never a null
+    // C function pointer" reasoning xdg_toplevel_configure_bounds()/
+    // xdg_toplevel_wm_capabilities() above now document: wl_surface
+    // created via create_surface() inherits wl_compositor's own bound
+    // version (shell_adapter.cpp binds it at 6, same as xdg_wm_base),
+    // so the compositor is entitled to send this event - measured
+    // against tests/container/'s own kwin_wayland --virtual right
+    // after the wm_capabilities fix above, same "listener function for
+    // opcode N of INTERFACE is NULL" abort, this time opcode 3 of wl_
+    // surface. Decision 15 (docs/plano-w6a-janela.md) still tracks
+    // scale, never transform - this callback stores nothing, only
+    // refuses to be null.
+    static void wl_surface_preferred_buffer_transform(void *data, wl_surface *surface,
+                                                      std::uint32_t transform) noexcept;
+
     // xdg_toplevel.configure carries width/height/states but no
     // serial; xdg_surface.configure (below) carries the serial but no
     // size - this callback only CACHES the pending width/height/states
@@ -164,6 +181,36 @@ class wayland_window_adapter {
     // compositor-issued close request, whichever the real desktop
     // shell sends.
     static void xdg_toplevel_close(void *data, xdg_toplevel *toplevel) noexcept;
+
+    // xdg_toplevel.configure_bounds (v4) and xdg_toplevel.wm_
+    // capabilities (v5) are DELIBERATE NO-OPS, NAMED rather than left
+    // out of the listener struct - same reasoning wl_surface_enter()/
+    // wl_surface_leave() above already document, but here the "named,
+    // not omitted" choice is not optional: shell_adapter.cpp binds
+    // xdg_wm_base at version 6 (shell_adapter.hpp's own header
+    // comment), and every xdg_toplevel this fatia creates inherits
+    // that same bound version (a child object's version is capped by
+    // the interface it was created from, xdg-shell.xml's own
+    // versioning rule) - so a compositor is entitled to send either
+    // event, and wm_capabilities is not even optional: the protocol
+    // text on this event itself says "Compositors must send this
+    // event once before the first xdg_surface.configure event." A
+    // NULL entry here is not "this fatia does not track it", it is a
+    // NULL C function pointer libwayland-client's own dispatcher
+    // calls the moment that event arrives - wl_closure_invoke() has no
+    // safe way to skip an event with a null listener slot, so it logs
+    // "listener function for opcode N of xdg_toplevel is NULL" and
+    // calls abort() (SIGABRT), measured for wm_capabilities against
+    // tests/container/'s own kwin_wayland --virtual compositor on
+    // window_smoke's very first xdg_toplevel it ever creates. Neither
+    // callback stores anything (D-W5-3: "v1 congela so o minimo" - the
+    // scope this fatia tracks stays exactly the same, window_state
+    // never gains a bounds/capabilities field from this), only
+    // refuses to be null.
+    static void xdg_toplevel_configure_bounds(void *data, xdg_toplevel *toplevel,
+                                              std::int32_t width, std::int32_t height) noexcept;
+    static void xdg_toplevel_wm_capabilities(void *data, xdg_toplevel *toplevel,
+                                             wl_array *capabilities) noexcept;
 
     // Applies the cached toplevel configure through window_
     // configure_sequence::apply_configure() (window_configure_

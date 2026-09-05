@@ -195,6 +195,10 @@ SO_HEADER_ALLOWLIST = frozenset(
         "xdg-shell-client-protocol.h",
         "glintfx/export.hpp",
         "glintfx/version_macros.hpp",
+        "objbase.h",
+        "propkey.h",
+        "propvarutil.h",
+        "shobjidl.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own
@@ -241,6 +245,36 @@ SO_HEADER_ALLOWLIST = frozenset(
 # compiles (tests/container/ is built only by tests/container/
 # Containerfile inside the wayland-container CI job, never by CMake,
 # never by the `windows` job).
+# objbase.h/propkey.h/propvarutil.h/shobjidl.h added 05/09/2026
+# (docs/plano-w6a-janela.md fatia 9, D-W6a-21, X-2 atom): the four
+# headers src/platform/win32/app_user_model_id.cpp includes, and its own
+# header comment already names exactly which Microsoft SDK header ships
+# which symbol this function calls - objbase.h (CoInitializeEx/
+# CoUninitialize, learn.microsoft.com/windows/win32/api/objbase/,
+# library Ole32.lib), shobjidl.h (SHGetPropertyStoreForWindow,
+# learn.microsoft.com/windows/win32/api/shellapi/nf-shellapi-
+# shgetpropertystoreforwindow, library Shell32.lib), propkey.h
+# (PKEY_AppUserModel_ID's own storage - the symbol is declared `extern`
+# there without INITGUID, defined in Propsys.lib, per learn.microsoft.
+# com/windows/win32/properties/props-system-appusermodel-id: "PKEY
+# values are defined in Propkey.h"), and propvarutil.h
+# (InitPropVariantFromString/PropVariantClear, the same Property System
+# component). All four ship with the Windows SDK/MSVC toolchain the CI's
+# `windows` job already installs (vswhere's VC.Tools.x86.x64 component,
+# the same one tools/ci/check-dep-zero-win.ps1's own header cites for
+# dumpbin.exe) - none of them is a third-party library, same category as
+# windows.h already on this list (the leader's zero-dependency law names
+# "as APIs do sistema operacional (Wayland, Win32, GL, ...)" as allowed).
+# The three DLLs these headers' functions resolve to at link time
+# (Shell32.dll, ole32.dll, propsys.dll) are on tools/ci/check-dep-zero-
+# win.ps1's own $IMPORT_ALLOWLIST_EXACT, added in the SAME fatia, with
+# the identical citation - that script is the Windows counterpart of
+# NEEDED_ALLOWLIST below (see check_needed_allowlist()'s own
+# "WINDOWS-SEPARATE" branch), never duplicated in this file. Scoped in
+# practice to src/platform/win32/app_user_model_id.cpp only (grep
+# confirms no other tracked file reaches for any of the four), and that
+# file itself is `#if defined(_WIN32)`-guarded end to end - it compiles
+# on no other platform this project targets.
 
 NEEDED_ALLOWLIST = frozenset(
     {"libwayland-client.so.0", "libgcc_s.so.1", "libstdc++.so.6", "libm.so.6", "libc.so.6"}

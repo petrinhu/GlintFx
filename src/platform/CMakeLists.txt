@@ -30,6 +30,36 @@ add_subdirectory(port)
 # comment).
 add_subdirectory(window)
 
+# input/ is added unconditionally too, same reasoning as port/ and
+# window/ above: seat_capabilities.hpp/.cpp (S-A', docs/plano-w6a-
+# janela.md fatia 4, GODS_LAWS.md L-19) is the ONE shared value type
+# both seat mechanisms (wayland/seat_adapter.cpp's S-B, win32/
+# seat_adapter.cpp's Y-1) write into through set_capability() and
+# every caller reads through has_capability() - it only includes
+# <cstdint>, nothing operating-system-specific to gate here either.
+#
+# CONSERTO (05/09/2026, run 33997698610): this add_subdirectory() was
+# MISSING until this commit - seat_capabilities.cpp had never been
+# wired into glintfx_library on EITHER platform, only ever compiled a
+# second time by tests/CMakeLists.txt (seat_capabilities_test,
+# seat_adapter_listener_test, win32_seat_translation_test/seat_test).
+# The Linux job stayed green because wayland/seat_adapter.cpp (the
+# only production caller of set_capability() at the time) was ALSO
+# missing from wayland/CMakeLists.txt's own target_sources - no
+# caller in the library meant no pending symbol for the Linux linker
+# to find. The Windows job broke first only because Y-1 (win32/
+# seat_adapter.cpp) had already been wired into win32/CMakeLists.txt's
+# target_sources in the same commit that introduced this gap - the
+# Microsoft linker refused to produce glintfx.dll/glintfx.lib with
+# seat_capabilities::set_capability() genuinely unresolved
+# (LNK2019/LNK1120). Both gaps are closed together: this file gains
+# the missing add_subdirectory(input) here, and wayland/CMakeLists.txt
+# gains seat_adapter.cpp in its own target_sources (that file's own
+# header comment) - the two seat mechanisms now enter glintfx_library
+# THE SAME WAY on both platforms, closing the asymmetry that let one
+# side compile silently while the other's linker caught it.
+add_subdirectory(input)
+
 # UNIX: selects the Wayland backend (WL-PROTO, GODS_LAWS.md L-05 -
 # Wayland is the only Linux surface this project targets). wayland/'s
 # own CMakeLists.txt wires in wayland_display_adapter and the internal

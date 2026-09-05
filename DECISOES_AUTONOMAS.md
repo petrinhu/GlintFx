@@ -1261,3 +1261,32 @@ A sonda entra no PRIMEIRO envio, e os tres desfechos ja estao decididos: se houv
 ### O que a lei de isolamento impede esta onda de provar
 
 Janela visivel no compositor real dele com a escala real dele; ativar por clique; redimensionar pela borda; fechar pelo usuario; troca de monitor. **Nenhum pixel e desenhado nesta onda**, entao a primeira observacao visual continua sendo a demonstracao.
+
+---
+
+## A sonda respondeu: o executor do Windows NAO tem placa grafica moderna  `[05/09/26 - 18:00:14]`
+
+**Medido no servidor, run `33991233135`, commit `c03e49f`.** A sonda que entrou hoje no primeiro envio da W6a imprimiu:
+
+```
+GL_VENDOR=Microsoft Corporation  GL_RENDERER=GDI Generic  GL_VERSION=1.1.0
+wglCreateContextAttribsARB available=false
+```
+
+**Leitura, sem margem:** o executor entrega o desenhista generico da Microsoft, versao **1.1**, e **a extensao que cria contexto moderno NAO EXISTE la**. Nao e "nao consegui criar 3.3": e nao ha por onde pedir.
+
+⚠️ **Isto e o desfecho (ii) da arvore de decisao que o CTO fixou ANTES de o dado existir**, e por isso nao ha o que decidir agora, so executar: o trabalho do Windows ganha um **aparato de teste** por software, pinado por versao e por soma de verificacao, colocado ao lado dos executaveis de teste -- **nunca dentro da biblioteca, nunca na maquina do lider**. Mesma categoria do compositor e do desenhista por software que o container do Linux ja usa. A lei de dependencia zero fica intacta: aparato de teste nao e dependencia do produto.
+
+**Marcado para confirmacao retroativa do lider**, porque e descarregamento de terceiro no servidor. O precedente existe no proprio projeto: o container do Linux ja instala desenhista por software, e o proprio trabalho do Windows ja instala ferramenta de construcao.
+
+**O que a sonda mediu ALEM do grafico, e que muda a fatia de escala:**
+
+| O que | Valor |
+|---|---|
+| Densidade da janela | **96** (ou seja, escala 1) |
+| Dispositivos de entrada brutos | 1 rato, 1 teclado, nada mais |
+| Tela sensivel ao toque | **ausente** (mapa de bits zerado) |
+
+⚠️ **A densidade 96 confirma um dos oito lugares que o CTO nomeou como "passa verde e esta quebrado":** os DOIS executores rodam sem escala, entao **uma implementacao que devolvesse o tamanho em pixels como copia do tamanho logico passaria em todo teste de integracao**. A derivacao tem de viver no estado comum e ser testada com valores sinteticos -- que e exatamente o que o plano ja manda.
+
+**Uma anomalia menor, registrada para nao virar caca ao tesouro depois:** a escolha de formato de pixel **teve sucesso** (devolveu 3, e a fixacao seguinte deu certo) mas o codigo de erro do sistema leu 87. E lixo de chamada anterior: aquele codigo nao e zerado em caso de sucesso. Nao e defeito nosso; fica escrito para o proximo leitor nao investigar.

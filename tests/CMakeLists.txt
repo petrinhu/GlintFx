@@ -40,6 +40,17 @@ glintfx_add_test(color_test)
 # time_test.cpp's own header comment.
 glintfx_add_test(time_test)
 
+# CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
+# frozen pieces of the core layer's 2D math - vector, matrix,
+# rectangle, transform, angle and interpolation - across the project's
+# two precision families (double in the world, single on the screen).
+# See math2d_test.cpp's own header comment for the map from each of the
+# leader's four decisions to the case that proves it. No if(UNIX)
+# guard: everything here is pure core-layer value types and standard
+# library, so it registers unconditionally on all five platforms,
+# exactly like version_test.
+glintfx_add_test(math2d_test)
+
 # ASSET-LOAD (TODO.md W3, GODS_LAWS.md L-19/L-20/L-22/L-40, ESCOPO.md
 # SS2 decisions 4 and 8): path-to-bytes loader - see
 # include/glintfx/platform/asset/file.hpp's own header comment (moved

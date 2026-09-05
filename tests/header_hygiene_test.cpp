@@ -94,11 +94,17 @@
 #include <utility>
 #include <vector>
 
+#include <glintfx/core/angle.hpp>
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
+#include <glintfx/core/interpolate.hpp>
+#include <glintfx/core/mat3.hpp>
+#include <glintfx/core/rect.hpp>
 #include <glintfx/core/time.hpp>
+#include <glintfx/core/transform.hpp>
+#include <glintfx/core/vec2.hpp>
 #include <glintfx/core/version.hpp>
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>

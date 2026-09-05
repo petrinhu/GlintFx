@@ -379,6 +379,28 @@ jobs:
           cmake --build ${{ matrix.builddir }}
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
 
+      # PARITY-GATE (TODO.md, GODS_LAWS.md L-04/L-40): "cada trabalho do
+      # servidor grava o inventario de testes REALMENTE executados" -
+      # `ctest -N` (GODS_LAWS.md L-45: nunca `ctest | tail` nem
+      # confiar no que o codigo-fonte PRETENDE registrar), nao a suite
+      # inteira de novo. `if: always()`: a lista de testes REGISTRADOS
+      # existe desde o configure, independente de "Build e testes"
+      # acima ter passado ou reprovado - o job `parity` quer saber o
+      # que este leg declara existir, mesmo quando algo reprovou nele.
+      # Um `Total Tests: 0` aqui e o piso de varredura vazia mordendo
+      # no proprio job `parity`, nao aqui - este passo so grava.
+      - name: Inventario de paridade (${{ matrix.modo }})
+        if: always()
+        run: ctest --test-dir ${{ matrix.builddir }} -N > parity_inventory.txt
+
+      - name: Publicar inventario de paridade (${{ matrix.modo }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-inv-linux-${{ strategy.job-index }}
+          path: parity_inventory.txt
+          retention-days: 7
+
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
       # o passo acima roda com --output-on-failure, que so mostra a saida
       # de teste que REPROVA - a saida de um portao que PASSA nunca
@@ -433,26 +455,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # PRECI-WIN-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40): tools/
-      # preci.ps1 - the local mirror of this whole job - had NO step
-      # anywhere in this file calling it (measured: `grep -c
-      # 'preci.ps1'` against this file was 0 before this fatia) and no
-      # -Selftest of its own, unlike tools/preci.sh's Linux twin
-      # (--selftest, wired into tests/CMakeLists.txt's preci_selftest
-      # ctest case). Placed first, right after checkout and before any
-      # MSVC/CMake preparation: -Selftest needs only `git` (already on
-      # this runner) against disposable throwaway repos under
-      # $env:TEMP, never $rootDir or a real build, so a regression here
-      # fails fast without paying for the heavy steps below. Runs once
-      # per matrix entry (compartilhado/estatico), same accepted shape
-      # as "Diagnostico pkg-config no Windows" and "Padrao C++23
-      # aceito" further down in this job - its result never depends on
-      # matrix.modo. See tools/preci.ps1's own PRECI-WIN-SELFTEST
-      # comment block for exactly what this covers and what it declares
-      # out of scope.
-      - name: preci.ps1 -Selftest (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/preci.ps1 -Selftest
+      # PRECI-WIN-SELFTEST: tools/preci.ps1 -Selftest era um passo cru
+      # aqui, rodando PRIMEIRO (antes do preparo pesado de MSVC/CMake,
+      # falha rapida sem pagar o build). PARITY-GATE (GODS_LAWS.md
+      # L-04, decisao do lider apos o achado desta mesma fatia):
+      # registrado como ctest de verdade em tests/CMakeLists.txt
+      # (if(WIN32), preci_win_selftest, apelido de preci_selftest em
+      # tests/parity_aliases.txt), removido daqui como passo separado
+      # - mesmo motivo que ja fechou GATE-TREE-PARITY do lado Linux
+      # ("redundante uma vez que o caso de ctest cobre"). Custo aceito
+      # e declarado: perde o "falha rapida antes do build pesado" que
+      # tinha aqui - agora roda junto com o resto da suite no passo
+      # "Testes" abaixo, igual ao preci_selftest do lado Linux ja faz.
 
       # PKG-NATIVE (27/08/2026, updated same day when the matrix moved to
       # :latest): windows-latest is now the ONLY one of the five supported
@@ -662,6 +676,23 @@ jobs:
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # PARITY-GATE: gemeo exato do passo de mesmo nome do job `linux`
+      # (GODS_LAWS.md L-04, a mesma medicao feita da mesma forma nos
+      # dois sistemas) - ver o comentario la para o porque do
+      # `if: always()` e do `ctest -N` em vez da suite inteira.
+      - name: Inventario de paridade (${{ matrix.modo }})
+        if: always()
+        shell: pwsh
+        run: ctest --test-dir ${{ matrix.builddir }} -N > parity_inventory.txt
+
+      - name: Publicar inventario de paridade (${{ matrix.modo }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-inv-windows-${{ strategy.job-index }}
+          path: parity_inventory.txt
+          retention-days: 7
+
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
       # o gemeo exato do passo de mesmo nome do job `linux` (GODS_LAWS.md
       # L-04: a mesma medicao, feita da mesma forma nos dois sistemas), e
@@ -724,63 +755,40 @@ jobs:
           ctest --test-dir ${{ matrix.builddir }} -V -R win32_runner_probe_test
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN
-      # (GODS_LAWS.md L-04 reabertura de check_dep_zero.sh sub-check
-      # (c), check_port_privacy.sh sub-check (d) e check_exports.sh
-      # (ABI-STDLIB-LEAK) por paridade, 03-05/09/2026): ate aqui o
-      # import table e o export table de glintfx.dll nunca tinham sido
-      # lidos por ninguem - src/platform/win32/ (WIN-DISPLAY) so ganhou
-      # um binario de verdade para inspecionar numa onda recente. Os
-      # tres scripts abaixo sao os equivalentes Windows dos sub-checks
-      # que ja rodam contra o .so no job `linux` (readelf -d / nm -D +
-      # c++filt, duas vezes - uma para a lista fechada de porta/
-      # adaptador, outra para o namespace glintfx:: inteiro) -
-      # tools/ci/check-dep-zero-win.ps1, tools/ci/check-port-privacy-
-      # win.ps1 e tools/ci/check-exports-win.ps1 usam dumpbin.exe, que
-      # ja esta no PATH desde o passo "Preparar ambiente do compilador
-      # (MSVC x64)" acima (mesmo componente VC.Tools.x86.x64 que aquele
-      # passo ja exige via vswhere - ver o header de cada script para a
-      # citacao medida contra actions/runner-images/Windows2025-
-      # Readme.md). O -SelfTest de cada script roda ANTES da checagem
-      # real, provando o parser/allowlist contra texto sintetico no
-      # formato documentado do dumpbin - a UNICA prova vermelha
-      # possivel fora do servidor Windows real (maquina do autor nao
-      # tem Windows nem MSVC); a checagem real contra o glintfx.dll de
-      # verdade, alguns passos abaixo, e a estreia genuina desta trava
-      # - ver o header de cada script para a limitacao declarada.
-      - name: Dependencia zero (Windows) - autoteste do parser (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-dep-zero-win.ps1 -SelfTest
+      # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
+      # tools/ci/check-dep-zero-win.ps1, check-port-privacy-win.ps1 e
+      # check-exports-win.ps1 (dumpbin.exe contra glintfx.dll) eram
+      # seis passos crus aqui (autoteste + checagem real de cada um).
+      # PARITY-GATE (GODS_LAWS.md L-04, decisao do lider apos o achado
+      # desta mesma fatia): dois dos tres viraram ctest de verdade em
+      # tests/CMakeLists.txt (if(WIN32)) com apelido Linux registrado
+      # em tests/parity_aliases.txt - port_privacy_win_test/port_
+      # privacy_win_selftest (par de port_privacy_test/port_privacy_
+      # selftest) e exports_win_test (par de visibility_test).
+      # dep_zero_binary_win_test/dep_zero_binary_win_selftest tambem
+      # viraram ctest, mas SEM apelido possivel (o sub-check Linux
+      # equivalente vive embutido dentro do proprio dep_zero_test, sem
+      # nome proprio) e exports_win_selftest tambem ficou sem par (o
+      # script Linux nunca ganhou --selftest) - os tres ficam como gap
+      # aberto sem excecao possivel hoje (ver tests/parity_
+      # exceptions.txt), relatado ao orquestrador, nao decidido aqui.
+      # Os seis passos crus somem daqui pelo mesmo motivo que ja fechou
+      # GATE-TREE-PARITY do lado Linux ("redundante uma vez que o caso
+      # de ctest cobre").
 
-      - name: Dependencia zero (Windows) - importacoes do binario real (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-dep-zero-win.ps1 -Modo "${{ matrix.modo }}" -BuildDir "${{ matrix.builddir }}"
-
-      - name: Privacidade de porta (Windows) - autoteste do parser (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-port-privacy-win.ps1 -SelfTest
-
-      - name: Privacidade de porta (Windows) - exportacoes do binario real (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-port-privacy-win.ps1 -Modo "${{ matrix.modo }}" -BuildDir "${{ matrix.builddir }}"
-
-      # EXPORTS-PARITY-WIN (GODS_LAWS.md L-04/L-26, ABI-STDLIB-LEAK
-      # reaberto por paridade, 05/09/2026): contrato completo do
-      # tests/tools/check_exports.sh do Linux (so glintfx:: pode sair
-      # do binario) medido pela primeira vez contra glintfx.dll - ver
-      # o header de tools/ci/check-exports-win.ps1 para o porque desta
-      # classe de defeito ser impossivel por construcao no lado
-      # Windows (modelo de exportacao de PE/COFF e opt-in, ao contrario
-      # do default do ELF que o vazamento original explorou) e para a
-      # pesquisa que sustenta essa conclusao.
-      - name: Exportacoes (Windows) - autoteste do parser (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-exports-win.ps1 -SelfTest
-
-      - name: Exportacoes (Windows) - simbolos do binario real (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-exports-win.ps1 -Modo "${{ matrix.modo }}" -BuildDir "${{ matrix.builddir }}"
-
+      # ⚠️ DUPLICACAO DECLARADA (PARITY-GATE, GODS_LAWS.md L-04): este
+      # passo continua aqui, cru, SO porque "Com pkg-config no prefixo
+      # Windows" (abaixo) depende do `outputs.prefix` que ele produz -
+      # check-consume.ps1 agora roda DUAS VEZES por leg Windows (aqui,
+      # e de novo via consume_win_test no passo "Testes" acima). Nao e
+      # quebrado, e redundante. O conserto de verdade e o CMake ja tem
+      # e esta arvore nunca usou: FIXTURES_REQUIRES/FIXTURES_SETUP do
+      # ctest, que declarariam essa mesma dependencia de ORDEM entre
+      # dois casos SEM precisar de um valor de tempo de execucao vindo
+      # de fora do ctest (o que tornaria "Com pkg-config no prefixo
+      # Windows" um ctest tambem, fechando esta duplicacao de vez) -
+      # ver tests/parity_exceptions.txt, secao "Achado a parte", para
+      # o relato completo.
       - name: Consumo instalado (${{ matrix.modo }})
         id: consumo_instalado
         shell: pwsh
@@ -800,18 +808,75 @@ jobs:
 
       # Windows equivalent of tests/tools/check_embed.sh (embed_test,
       # UNIX-only in tests/CMakeLists.txt) - proves add_subdirectory
-      # consumption, not just the installed package above. Its own
-      # configure is independent of BuildDir/BUILD_SHARED_LIBS (same
-      # shape as check_embed.sh's configure_embed(), which does not
-      # inherit the parent build's mode either), so this step's outcome
-      # does not vary between matrix.modo entries - it runs once per
-      # entry regardless, mirroring embed_test's own execution shape on
-      # Linux, where ctest registers and runs it once per configure
-      # (build-shared and build-static) even though its result does not
-      # depend on either mode.
-      - name: Consumo embutido (${{ matrix.modo }})
-        shell: pwsh
-        run: tools/ci/check-embed.ps1 -GlintfxSourceDir . -EmbedSrcDir tests/embed
+      # consumption, not just the installed package above. Era um
+      # passo cru aqui; PARITY-GATE (GODS_LAWS.md L-04) o registrou
+      # como ctest de verdade (embed_win_test, tests/CMakeLists.txt,
+      # if(WIN32)), apelido de embed_test em tests/parity_aliases.txt
+      # - removido daqui pelo mesmo motivo que ja fechou GATE-TREE-
+      # PARITY do lado Linux ("redundante uma vez que o caso de ctest
+      # cobre").
+
+  # PARITY-GATE (TODO.md, GODS_LAWS.md L-04/L-36/L-40): "o trabalho de
+  # comparacao confronta as pernas" - o desenho do CTO que da nome a
+  # este item, ordem do lider apos o retrabalho de 02/09/2026 (tres
+  # ondas fechadas com entrega existindo em um sistema so). `needs:
+  # [linux, windows]` SEM `if: always()`, de proposito: se qualquer
+  # leg Linux ou Windows ja reprovou, o workflow inteiro ja mostra
+  # vermelho, e este job so rodaria contra artefato que pode nao
+  # existir (a perna que falhou pode ter morrido antes do passo de
+  # inventario). Quando os dois passam, este job roda e BLOQUEIA de
+  # verdade se achar lacuna - decisao explicita do lider: nao
+  # `continue-on-error`, "um portao que nao morde nao e portao".
+  #
+  # Uniao, nao interseccao, dentro de cada sistema: cada leg da
+  # matriz `linux` (Fedora/Ubuntu/Arch/CachyOS x compartilhado/
+  # estatico) e cada leg de `windows` publicou seu proprio inventario
+  # (parity-inv-linux-N / parity-inv-windows-N, N = strategy.job-
+  # index); a comparacao e entre TODO teste que roda em QUALQUER leg
+  # Linux contra TODO teste que roda em QUALQUER leg Windows - um
+  # nome que existe so numa distro Linux (nao em todas) ainda conta
+  # como "existe do lado Linux" para este portao, que compara
+  # SISTEMAS, nao distros. Perda declarada (ja no relatorio desta
+  # fatia): uma lacuna exclusiva de UMA distro dentro do lado Linux
+  # fica invisivel aqui, escondida dentro da uniao.
+  parity:
+    name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar inventarios Linux
+        uses: actions/download-artifact@v4
+        with:
+          pattern: parity-inv-linux-*
+          path: inventarios/linux
+
+      - name: Baixar inventarios Windows
+        uses: actions/download-artifact@v4
+        with:
+          pattern: parity-inv-windows-*
+          path: inventarios/windows
+
+      # Uniao textual simples (GODS_LAWS.md L-45: `sort -u`, nunca
+      # `grep -c` sem `|| true`) - cada arquivo baixado e a saida crua
+      # de `ctest -N` de um leg; check_test_parity.py's parse_
+      # inventory_text() ja sabe separar "Test #N: nome" de "Total
+      # Tests: N" e de linha ja limpa, entao concatenar e suficiente
+      # aqui, sem reimplementar aquele parser em shell.
+      - name: Unir inventarios por sistema
+        run: |
+          set -eu
+          cat inventarios/linux/*/parity_inventory.txt > /tmp/parity_linux_union.txt
+          cat inventarios/windows/*/parity_inventory.txt > /tmp/parity_windows_union.txt
+          echo "Linux: $(wc -l < /tmp/parity_linux_union.txt) linha(s) brutas de $(ls inventarios/linux | wc -l) leg(s)"
+          echo "Windows: $(wc -l < /tmp/parity_windows_union.txt) linha(s) brutas de $(ls inventarios/windows | wc -l) leg(s)"
+
+      - name: check_test_parity.py --compare
+        run: |
+          python3 tests/tools/check_test_parity.py --compare \
+            /tmp/parity_linux_union.txt /tmp/parity_windows_union.txt \
+            tests/parity_exceptions.txt tests/parity_aliases.txt TODO.md
 
   # GODS_LAWS.md L-09 / TEST-WLCONT: prova, em CI, que o container de
   # teste com compositor Wayland dentro (tests/container/) e a mesma

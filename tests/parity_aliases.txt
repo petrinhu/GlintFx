@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# PARITY-GATE aliases file (TODO.md item PARITY-GATE). Consumido por
+# tests/tools/check_test_parity.py.
+#
+# Uma linha aqui declara que DOIS nomes de teste, um por sistema, ja
+# provam o MESMO comportamento por MECANISMOS diferentes - o par
+# genuinamente existe dos dois lados, so o nome muda (GODS_LAWS.md
+# L-04: "mecanismo pode diferir; comportamento observavel e
+# cobertura, nao"). Isto e diferente de uma excecao
+# (tests/parity_exceptions.txt): excecao aceita uma AUSENCIA, apelido
+# reconhece uma PRESENCA sob outro nome. Um apelido nunca e
+# verificado contra o status do item em TODO.md - a cobertura ja
+# existe dos dois lados, entao nao ha "concluido sem par" possivel
+# aqui por definicao.
+#
+# Formato, um registro por linha, dois campos separados por "|"
+# (comentarios com "#", linhas em branco ignoradas):
+#
+#   nome_no_linux | nome_no_windows
+#
+# Antes de adicionar uma linha aqui, confirme que o par realmente
+# roda nos dois lados HOJE (nao "vai rodar quando X terminar") - um
+# apelido para um teste que so existe de um lado e uma excecao
+# disfarcada, e foge do controle que a REPROVA por item concluido
+# existe para vigiar.
+
+# ⚠️ LIMITACAO DECLARADA (a mesma que tests/tools/check_test_parity.py
+# ja avisa no seu relatorio de secao 5): um apelido AQUI e verificado
+# so por LEITURA HUMANA, no momento em que a linha e escrita - o
+# portao nunca confere que os dois nomes realmente cobrem o MESMO
+# comportamento, so que os dois EXISTEM como ctest registrado. Um
+# apelido errado (dois testes com nomes diferentes que nao provam a
+# mesma coisa) engana o portao em silencio, exatamente do jeito que
+# uma excecao mal escrita engana - a diferenca e que a excecao ainda
+# tem a checagem contra TODO.md como rede de seguranca, e o apelido
+# nao tem nenhuma. Confira os dois lados de verdade (leia os dois
+# scripts, nao so os nomes) antes de acrescentar uma linha.
+
+# display_connect_failure_test (tests/CMakeLists.txt:497, if(UNIX)) e
+# win32_display_connect_test (tests/CMakeLists.txt:542, if(WIN32))
+# proprovam a MESMA coisa - o adaptador de conexao de display
+# resolvendo com sucesso contra o sistema real - cada um compilando
+# display_adapter.cpp do seu proprio backend uma segunda vez (o
+# mesmo motivo, visibilidade oculta do simbolo, comentado nos dois
+# blocos). WIN-DISPLAY, TODO.md, ✅ Concluido em 03/09/2026, verde nas
+# cinco plataformas em 7ee0074 - par verificado, nao suposto.
+display_connect_failure_test|win32_display_connect_test
+
+# Os seis pares abaixo nascem da mesma fatia que este arquivo (PARITY-
+# GATE): dez verificacoes do Windows rodavam soltas como passo de
+# shell cru do job `windows` (.github/workflows/ci.yml), invisiveis a
+# `ctest -N`; viraram ctest de verdade em tests/CMakeLists.txt
+# (if(WIN32)), e seis delas tem gemeo Linux JA REGISTRADO sob outro
+# nome - decisao do lider, verbatim: "registrar como teste de
+# verdade". As outras tres (dep_zero_binary_win_test, dep_zero_binary_
+# win_selftest, exports_win_selftest) NAO entram aqui porque nao tem
+# gemeo Linux nenhum (ver o comentario de cada uma em tests/
+# CMakeLists.txt) - ficam como gap aberto, sem excecao possivel hoje
+# (os itens que as cobririam ja estao Concluidos em TODO.md).
+port_privacy_test|port_privacy_win_test
+port_privacy_selftest|port_privacy_win_selftest
+visibility_test|exports_win_test
+consume_test|consume_win_test
+embed_test|embed_win_test
+preci_selftest|preci_win_selftest
+
+# Os tres pares abaixo fecham o achado INVERSO da mesma fatia: registrar
+# as dez verificacoes do Windows revelou tres nomes que passaram a
+# existir la e faltar no Linux, porque o lado Linux fazia a mesma coisa
+# embutida noutro teste (sem nome proprio) ou nunca tinha ganho um
+# autoteste. Decisao do lider: dar nome proprio/autoteste ao lado
+# Linux, em vez de forcar um apelido sem par real.
+#
+# dep_zero_binary_test (tests/CMakeLists.txt, incondicional - sub-check
+# (c) extraido de dentro de dep_zero_test, ganhou nome proprio via
+# check_dep_zero.py --binary-only) e o par REAL de dep_zero_binary_
+# win_test (dumpbin /imports); no Windows, dep_zero_binary_test roda
+# tambem (e a mesma unica fonte), mas so IMPRIME a ausencia declarada -
+# a verificacao de verdade la e a do lado win, dumpbin.
+dep_zero_binary_test|dep_zero_binary_win_test
+dep_zero_binary_selftest|dep_zero_binary_win_selftest
+
+# visibility_selftest (tests/CMakeLists.txt, if(BUILD_SHARED_LIBS AND
+# UNIX) - check_exports.sh --selftest, novo nesta fatia, mesmos quatro
+# controles synteticos de Invoke-SelfTest em check-exports-win.ps1) e
+# par de exports_win_selftest.
+visibility_selftest|exports_win_selftest
+
+# Os quatro pares abaixo fecham o achado ORIGINAL desta fatia: quatro
+# testes if(UNIX) sem NENHUM mecanismo Windows. install_includedir_
+# win_test, no_target_collision_win_test e output_name_win_test
+# (tools/ci/*-win.ps1, novos) sao checagem REAL, mecanismo diferente
+# (CMake+MSVC em vez de CMake+GCC/Clang), mesma cobertura. install_
+# packager_layout_win_test e AUSENCIA DECLARADA (ver o cabecalho do
+# proprio script) - a convencao Debian-multiarch que install_packager_
+# layout_test verifica nao existe no MSVC por construcao do proprio
+# CMake, nao por lacuna deste projeto; o apelido ainda vale porque os
+# dois nomes existem, um real e um declarado nao-aplicavel, e nenhum
+# dos dois desaparece do inventario.
+install_includedir_test|install_includedir_win_test
+no_target_collision_test|no_target_collision_win_test
+output_name_test|output_name_win_test
+install_packager_layout_test|install_packager_layout_win_test

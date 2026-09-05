@@ -1019,6 +1019,30 @@ def real_main(args):
             fail("L-07 zero dependency violation found in staged changes (see message above)")
         return
 
+    if args and args[0] == "--binary-only":
+        # PARITY-GATE (TODO.md, GODS_LAWS.md L-04): sub-check (c) in
+        # isolation, given ITS OWN ctest name (dep_zero_binary_test,
+        # tests/CMakeLists.txt) instead of only ever running bundled
+        # inside dep_zero_test's a+b+c verdict. Needed to have
+        # something with a name of its own for tests/parity_
+        # aliases.txt to pair against tools/ci/check-dep-zero-win.ps1's
+        # dep_zero_binary_win_test - before this, the readelf half of
+        # DEPZERO-PARITY-WIN had no Linux-side ctest name to alias,
+        # which is exactly what left the item "concluded without a
+        # pair" once check-dep-zero-win.ps1 got registered as its own
+        # test. Same three-valued library_path as the bundled call
+        # (real .so path / "NONE" static-mode skip / "WINDOWS-
+        # SEPARATE" - see check_needed_allowlist() above), reused
+        # verbatim, not reimplemented.
+        if len(args) != 2:
+            fail("usage: check_dep_zero.py --binary-only <path-to-.so-or-NONE-or-WINDOWS-SEPARATE>")
+        library_path = args[1]
+        ok, text = check_needed_allowlist(library_path, NEEDED_ALLOWLIST)
+        if not ok:
+            fail(text)
+        print(text)
+        return
+
     if len(args) != 2:
         fail("usage: check_dep_zero.py <source-root-directory> <path-to-.so-or-NONE>")
     root, library_path = args
@@ -2371,10 +2395,46 @@ def selftest_main():
         remove_tree_tolerant(scratch, ignore_errors=True)
 
 
+# PARITY-GATE: the same five controls selftest_main() above already
+# runs for sub-check (c) alone (positive, negative, static-skip,
+# windows-separate-skip, empty-scan), given their own entry point so
+# dep_zero_binary_selftest (tests/CMakeLists.txt) can exercise JUST
+# them - the narrow autoteste that pairs with tools/ci/check-dep-zero-
+# win.ps1's own -SelfTest, without re-running the unrelated a/b engine
+# controls dep_zero_selftest already covers (tests/parity_
+# aliases.txt documents this alias is narrower on the Windows side by
+# design, not an oversight).
+def selftest_binary_only_main():
+    scratch = make_scratch_workdir()
+    declared_na = []
+    try:
+        controls = [
+            selftest_positive_control_needed(scratch, declared_na),
+            selftest_negative_control_needed(scratch, declared_na),
+            selftest_needed_static_skip(),
+            selftest_needed_windows_separate_skip(),
+            selftest_empty_scan_needed(scratch, declared_na),
+        ]
+        if not all(controls):
+            print(f"{SCRIPT_NAME} --selftest-binary-only: FAILED (see above)", file=sys.stderr)
+            sys.exit(1)
+        exercised_count = len(controls) - len(declared_na)
+        na_list = ", ".join(declared_na) if declared_na else "none"
+        print(
+            f"{SCRIPT_NAME} --selftest-binary-only: all {len(controls)} controls OK "
+            f"({exercised_count} exercised here, {len(declared_na)} declared "
+            f"NOT APPLICABLE on this platform - {na_list})"
+        )
+    finally:
+        remove_tree_tolerant(scratch, ignore_errors=True)
+
+
 def main():
     args = sys.argv[1:]
     if args and args[0] == "--selftest":
         selftest_main()
+    elif args and args[0] == "--selftest-binary-only":
+        selftest_binary_only_main()
     else:
         real_main(args)
 

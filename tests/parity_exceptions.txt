@@ -1,0 +1,131 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# PARITY-GATE exceptions file (TODO.md item PARITY-GATE, GODS_LAWS.md
+# L-04: "o comportamento deve ser igual em qualquer OS ... e cada
+# fatia entregue prova isso em cada sistema"). Consumido por
+# tests/tools/check_test_parity.py.
+#
+# Uma linha aqui declara que um nome de teste existe no inventario de
+# UM sistema e nao existe no do outro, POR QUE ISSO E ACEITAVEL AGORA -
+# nunca uma forma de calar o portao. Formato, um registro por linha,
+# quatro campos separados por "|" (comentarios com "#", linhas em
+# branco ignoradas):
+#
+#   nome_do_teste | sistema_onde_falta | gemeo | item
+#
+# - nome_do_teste: nome exato do caso ctest que falta de um lado.
+# - sistema_onde_falta: "linux" ou "windows" - o lado que NAO tem o
+#   caso.
+# - gemeo: nome do mecanismo que cobre o mesmo comportamento no lado
+#   que falta, ou a palavra "nenhum" quando genuinamente nao ha
+#   nenhum (o caso e proprio de UM sistema por natureza, ex.: uma
+#   sonda do ambiente Win32 do proprio runner). "nenhum" so e honesto
+#   quando a ausencia e permanente por desenho - nunca use "nenhum"
+#   para uma lacuna real ainda sem par.
+# - item: o ID do item em TODO.md que rastreia o fechamento desta
+#   lacuna, OU o sentinela SEM-PENDENCIA quando a assimetria e
+#   permanente por desenho e nenhum item precisa rastrea-la (exige
+#   gemeo=nenhum - GODS_LAWS.md L-32 proibe criar item novo em
+#   TODO.md so para isto).
+#
+# A REGRA que este arquivo existe para provar (verbatim do CTO,
+# TODO.md): "exececao que aponta para item marcado como concluido
+# REPROVA, porque e exatamente a regra 'concluido sem par'". Isto
+# significa, em pratica: quando o item que uma linha aqui cita fecha
+# (vira Concluido em TODO.md), a linha correspondente tem que ser
+# APAGADA deste arquivo NO MESMO commit que fecha o item - nunca
+# deixada para tras. Se ela ficar, o portao reprova, porque uma
+# excecao esquecida apontando para um item concluido e exatamente o
+# sintoma que motivou esta fatia inteira (retrabalho de 02/09/2026:
+# tres ondas fechadas com entrega existindo em um sistema so).
+#
+# O QUE NAO ENTRA AQUI: quando o par existe nos dois sistemas mas com
+# NOME DIFERENTE (mecanismo diferente, cobertura igual - ex.:
+# display_connect_failure_test no Linux e win32_display_connect_test
+# no Windows, ambos ja registrados como ctest, WIN-DISPLAY concluido
+# em 03/09/2026), a linha certa e um APELIDO em
+# tests/parity_aliases.txt, nunca uma excecao aqui - uma excecao
+# aponta para uma AUSENCIA aceita, um apelido aponta para uma
+# PRESENCA sob outro nome. Ver o cabecalho daquele arquivo.
+
+# --- Sondas exclusivas de UM sistema, sem par possivel -----------------
+
+# win32_runner_probe_test (tests/win32_runner_probe_test.cpp,
+# tests/CMakeLists.txt:259) prova que O PROPRIO runner Windows entrega
+# uma window station interativa real (CreateWindowExW/PeekMessageW) -
+# e uma sonda do AMBIENTE de CI do lado Windows, nao um comportamento
+# da biblioteca. Nao ha "runner Linux equivalente" para sondar do
+# mesmo jeito - a garantia analoga do lado Linux (compositor Wayland
+# real dentro do container) e provada por outro mecanismo inteiro
+# (tests/container/check_isolation.sh, TEST-WLCONT), ja fora do
+# universo de nomes ctest que este portao compara.
+win32_runner_probe_test|linux|nenhum|SEM-PENDENCIA
+
+# wl_proto_link_test (tests/CMakeLists.txt:427) prova que o binding
+# do protocolo Wayland xdg-shell, gerado via wayland-scanner contra o
+# XML do SISTEMA, linka e resolve o simbolo esperado - GODS_LAWS.md
+# L-05 fecha a porta Wayland/X11 no Windows por desenho: nao existe,
+# e nunca vai existir, um "protocolo Wayland" do lado Windows para
+# este teste ter par.
+wl_proto_link_test|windows|nenhum|SEM-PENDENCIA
+
+# pkgconfig_test (tests/CMakeLists.txt:1404) prova o glintfx.pc
+# instalado via um `pkg-config --cflags --libs` cru. pkg-config e uma
+# convencao de empacotamento Unix/Linux; o proprio comentario que
+# guarda este teste em tests/CMakeLists.txt declara, por desenho, que
+# "nao ha cobertura especifica de Windows aqui porque glintfx nao tem
+# camada de plataforma que precise de Libs.private la ainda" - o
+# equivalente Windows do empacotamento (find_package via CMake) ja e
+# coberto sem guarda de sistema por outros testes de consumo
+# (embed_dll_colocation_test, pkgconfig_validate_test).
+pkgconfig_test|windows|nenhum|SEM-PENDENCIA
+
+# --- Historico: os sete nomes que faltavam par, todos fechados ---------
+#
+# Os sete nomes que a estreia deste portao (05/09/2026) reprovou sem
+# excecao possivel fecharam por PAR DE VERDADE, nao por excecao - o
+# proprio motivo pelo qual nenhuma linha deles aparece aqui embaixo:
+#
+# 1. consume_test, embed_test, port_privacy_test, port_privacy_
+#    selftest, visibility_test, preci_selftest - tinham par so como
+#    step de shell cru do job `windows` (nunca registrado como ctest).
+#    Viraram ctest de verdade (tests/CMakeLists.txt, if(WIN32):
+#    consume_win_test, embed_win_test, port_privacy_win_test, port_
+#    privacy_win_selftest, exports_win_test, preci_win_selftest) - o
+#    par agora e um APELIDO (tests/parity_aliases.txt).
+#
+# 2. install_includedir_test, install_packager_layout_test, output_
+#    name_test, no_target_collision_test - nao tinham NENHUM mecanismo
+#    Windows. Ganharam um cada (tools/ci/*-win.ps1, if(WIN32)) - tres
+#    checagem real, um (install_packager_layout_win_test) ausencia
+#    DECLARADA por desenho (convencao Debian-multiarch que o MSVC nao
+#    tem). Apelidados em tests/parity_aliases.txt.
+#
+# 3. dep_zero_binary_win_test/_selftest e exports_win_selftest -
+#    existiam no Windows e faltavam no Linux (o achado INVERSO): o
+#    lado Linux fazia a mesma verificacao embutida noutro teste (dep_
+#    zero_test) ou nunca tinha ganho autoteste proprio (check_
+#    exports.sh). Ganharam nome/autoteste proprio do lado Linux
+#    (dep_zero_binary_test/_selftest, visibility_selftest) - tambem
+#    apelidados, nunca excetuados (os itens que os cobririam,
+#    DEPZERO-PARITY-WIN e EXPORTS-PARITY-WIN, ja estavam Concluidos -
+#    excecao teria reprovado pela propria regra deste arquivo).
+#
+# --- Achado a parte, ainda sem mecanismo (nao vira nome novo aqui) -----
+#
+# tools/ci/check-pkgconfig-installed.ps1 (PKG-WIN-SCOPE) NAO virou
+# ctest, e por isso nao aparece nem aqui nem em tests/parity_
+# aliases.txt - o gate so compara NOMES de `ctest -N`, e este script
+# nunca ganhou um. A causa: ele depende de um valor (o prefixo de
+# instalacao) gerado em TEMPO DE EXECUCAO por outro passo do job
+# `windows` (`steps.consumo_instalado.outputs.prefix`), que o
+# `configure` do CMake nao tem como conhecer. O mecanismo que falta
+# para consertar isto de verdade e o CMake ja tem, so esta arvore nunca
+# usou: `FIXTURES_REQUIRES`/`FIXTURES_SETUP` do ctest, que declaram uma
+# dependencia de ORDEM/DADO entre dois casos sem precisar de um valor
+# de tempo de execucao de fora do ctest. Ate isso ser construido, o
+# passo cru "Consumo instalado" (.github/workflows/ci.yml) continua
+# existindo SO para produzir esse prefixo - o que faz `check-consume.
+# ps1` rodar DUAS VEZES por leg Windows (uma vez ali, outra via
+# consume_win_test de ctest) - redundante, nao quebrado, e documentado
+# aqui e no proprio ci.yml para o proximo leitor nao achar sozinho.

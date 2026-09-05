@@ -737,6 +737,19 @@ if(BUILD_SHARED_LIBS AND UNIX)
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_exports.sh" "$<TARGET_FILE:glintfx_library>"
     )
     set_tests_properties(visibility_test PROPERTIES LABELS consume)
+
+    # PARITY-GATE: check_exports.sh nunca tinha --selftest proprio,
+    # enquanto o irmao Windows (tools/ci/check-exports-win.ps1) ja
+    # tinha - o achado exato que o gate de paridade (tests/tools/
+    # check_test_parity.py) pegou e nao pode excetuar (EXPORTS-PARITY-
+    # WIN, o item que cobriria, esta Concluido). Os quatro controles
+    # agora vivem em check_exports.sh (--selftest), espelhando
+    # Invoke-SelfTest do lado Windows - ver tests/parity_aliases.txt.
+    add_test(
+        NAME visibility_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_exports.sh" --selftest
+    )
+    set_tests_properties(visibility_selftest PROPERTIES LABELS selftest)
 endif()
 
 # Layer gate (GODS_LAWS.md L-19, item 1: "a CI gate reproves the
@@ -898,6 +911,34 @@ add_test(
 # vendor_purity_selftest below already wear - costs nothing and keeps
 # the taxonomy uniform across every selftest in this file.
 set_tests_properties(dep_zero_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FAILED")
+
+# PARITY-GATE: sub-check (c) given a NAME OF ITS OWN, unconditional
+# (reuses GLINTFX_DEP_ZERO_LIB_ARG computed above, so it sees the same
+# real .so / "NONE" / "WINDOWS-SEPARATE" the bundled dep_zero_test
+# call already does) - the achado this fatia closes: check-dep-zero-
+# win.ps1's own dep_zero_binary_win_test had no Linux-side ctest name
+# to pair with in tests/parity_aliases.txt, because sub-check (c) used
+# to live only INSIDE dep_zero_test's bundled a+b+c verdict. On
+# Windows this prints the "declared not applicable, see check-dep-
+# zero-win.ps1" message and passes - the real binary check on Windows
+# runs there, not here, by design (GODS_LAWS.md L-04, mechanism
+# differs, coverage does not).
+add_test(
+    NAME dep_zero_binary_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.py"
+        --binary-only "${GLINTFX_DEP_ZERO_LIB_ARG}"
+)
+set_tests_properties(dep_zero_binary_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME dep_zero_binary_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dep_zero.py" --selftest-binary-only
+)
+set_tests_properties(dep_zero_binary_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FAILED")
 
@@ -1735,3 +1776,228 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_round_order.py" --selftest
 )
 set_tests_properties(round_order_selftest PROPERTIES LABELS selftest)
+
+# PARITY-GATE (TODO.md, GODS_LAWS.md L-04/L-36/L-40): the mechanical
+# gate this item exists to build - confronts the ctest inventory
+# (`ctest -N`, GODS_LAWS.md L-45) two systems actually register,
+# reproving any test name present on one side and absent on the other
+# UNLESS tests/parity_exceptions.txt (a genuine, permanent-or-tracked
+# absence) or tests/parity_aliases.txt (the same coverage under a
+# different name) accounts for it. The rule this item is named after:
+# an exception pointing at a TODO.md item already marked concluded
+# reproves ("concluido sem par") - see check_test_parity.py's own
+# header for the ten real names that trip exactly this today (their
+# Windows-side proof runs as a raw PowerShell CI step, never
+# registered as ctest, so this gate cannot see it - a real,
+# unresolved finding, not a bug in this gate).
+#
+# Only --selftest is wired here: the REAL --compare invocation needs
+# the Linux and Windows CI legs' own `ctest -N` inventories, which
+# only exist as build artifacts inside a live CI run (see the `parity`
+# job in .github/workflows/ci.yml) - a single local ctest run has only
+# ITS OWN platform's inventory, never the other leg's, so it cannot
+# self-compare. --selftest proves the comparison LOGIC itself (the
+# three required red controls plus the alias/SEM-PENDENCIA edge
+# cases) with synthetic fixtures, the same shape check_readme_test_
+# count.py's own --selftest already uses for cross-platform sentences
+# it cannot observe locally either. Unguarded by platform - same
+# GATE-TREE-PARITY shape as every other python3 gate in this file.
+add_test(
+    NAME test_parity_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_test_parity.py" --selftest
+)
+set_tests_properties(test_parity_selftest PROPERTIES LABELS selftest)
+
+# PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
+# verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
+# EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo
+# de shell cru do job `windows` em .github/workflows/ci.yml, invisiveis
+# a `ctest -N` - o gate de paridade (tests/tools/check_test_parity.py)
+# so enxerga `ctest -N`, entao um par real que so existe fora do ctest
+# e, para ele, um par que nao existe. Ordem do lider: registrar como
+# teste de verdade, no molde que a onda anterior ja usou para os onze
+# gates de arvore (GATE-TREE-PARITY) - com um ganho que passa do
+# portao: agora QUALQUER pessoa roda estas dez na propria maquina, nao
+# so o servidor.
+#
+# if(WIN32), nao "sem guarda": ao contrario dos onze gates de arvore
+# (texto puro, genuinamente OS-agnostico depois de reescritos em
+# python3), estas seis usam mecanismo exclusivo do Windows de verdade
+# (dumpbin.exe via PowerShell) - a mesma forma que win32_display_
+# connect_test/win32_runner_probe_test ja usam acima neste arquivo.
+# find_program(pwsh): "shell: pwsh" ja e a shell declarada em todo
+# step do job `windows` que chama estes mesmos scripts hoje
+# (.github/workflows/ci.yml) - REQUIRED so dentro do bloco if(WIN32),
+# nunca nas outras quatro plataformas, onde pwsh pode nem estar
+# instalado e nao faz falta nenhuma.
+#
+# GLINTFX_CTEST_MODO: as seis chamadas reais (nao as de -SelfTest, que
+# nao recebem -Modo) usam a MESMA string "compartilhado"/"estatico"
+# que .github/workflows/ci.yml ja passa via matrix.modo - derivada
+# aqui de BUILD_SHARED_LIBS (a mesma variavel que decide o modo em
+# CMakeLists.txt da raiz) para nao depender de o CI continuar
+# passando essa string por fora.
+if(WIN32)
+    find_program(GLINTFX_PWSH_EXECUTABLE NAMES pwsh REQUIRED)
+
+    if(BUILD_SHARED_LIBS)
+        set(GLINTFX_CTEST_MODO "compartilhado")
+    else()
+        set(GLINTFX_CTEST_MODO "estatico")
+    endif()
+
+    # DEPZERO-PARITY-WIN: par de dep_zero_binary_test/dep_zero_binary_
+    # selftest (unconditional, acima neste arquivo) - a sub-
+    # verificacao (c) (dumpbin /imports aqui, readelf -d no Linux)
+    # ganhou nome proprio dos dois lados na mesma fatia que fechou este
+    # achado (antes vivia EMBUTIDA dentro do dep_zero_test bundlado, e
+    # por isso nao tinha gemeo para apontar). Ver tests/parity_
+    # aliases.txt.
+    add_test(
+        NAME dep_zero_binary_win_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-dep-zero-win.ps1" -SelfTest
+    )
+    set_tests_properties(dep_zero_binary_win_selftest PROPERTIES LABELS selftest)
+
+    add_test(
+        NAME dep_zero_binary_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-dep-zero-win.ps1"
+            -Modo "${GLINTFX_CTEST_MODO}" -BuildDir "${PROJECT_BINARY_DIR}"
+    )
+    set_tests_properties(dep_zero_binary_win_test PROPERTIES LABELS consume)
+
+    # PORT-PRIVACY-WIN: par EXATO de port_privacy_test/port_privacy_
+    # selftest (if(UNIX) acima, tools/check_port_privacy.sh) - os dois
+    # lados tem tanto o caso real quanto o proprio autoteste do script,
+    # sob o mesmo par de nomes logicos; ver tests/parity_aliases.txt.
+    add_test(
+        NAME port_privacy_win_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-port-privacy-win.ps1" -SelfTest
+    )
+    set_tests_properties(port_privacy_win_selftest PROPERTIES LABELS selftest)
+
+    add_test(
+        NAME port_privacy_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-port-privacy-win.ps1"
+            -Modo "${GLINTFX_CTEST_MODO}" -BuildDir "${PROJECT_BINARY_DIR}"
+    )
+    set_tests_properties(port_privacy_win_test PROPERTIES LABELS consume)
+
+    # EXPORTS-PARITY-WIN: exports_win_test e par de visibility_test
+    # (if(UNIX) AND BUILD_SHARED_LIBS acima, tools/check_exports.sh);
+    # exports_win_selftest e par de visibility_selftest, que ganhou
+    # --selftest proprio na mesma fatia que fechou este achado
+    # (check_exports.sh nunca tinha um, o irmao Windows ja tinha) -
+    # ver tests/parity_aliases.txt para os dois pares.
+    add_test(
+        NAME exports_win_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-exports-win.ps1" -SelfTest
+    )
+    set_tests_properties(exports_win_selftest PROPERTIES LABELS selftest)
+
+    add_test(
+        NAME exports_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-exports-win.ps1"
+            -Modo "${GLINTFX_CTEST_MODO}" -BuildDir "${PROJECT_BINARY_DIR}"
+    )
+    set_tests_properties(exports_win_test PROPERTIES LABELS consume)
+
+    # CI-CONSUME (Concluido): par de consume_test (if(UNIX) acima,
+    # tools/check_consume.sh) - ver tests/parity_aliases.txt.
+    add_test(
+        NAME consume_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-consume.ps1"
+            -BuildDir "${PROJECT_BINARY_DIR}"
+            -PackageSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/package"
+    )
+    set_tests_properties(consume_win_test PROPERTIES LABELS consume)
+
+    # CI-CONSUME (Concluido): par de embed_test (if(UNIX) acima,
+    # tools/check_embed.sh) - ver tests/parity_aliases.txt.
+    add_test(
+        NAME embed_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-embed.ps1"
+            -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
+            -EmbedSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed"
+    )
+    set_tests_properties(embed_win_test PROPERTIES LABELS consume)
+
+    # PRECI-WIN (Concluido): par de preci_selftest (if(UNIX) acima) -
+    # ver tests/parity_aliases.txt. Custo aceito e declarado: no job
+    # `windows` este caso corria PRIMEIRO, logo apos o checkout, antes
+    # de qualquer preparo pesado de MSVC/CMake (falha rapida, sem pagar
+    # o build) - registrado como ctest ele passa a rodar junto com o
+    # resto da suite, no mesmo passo "Testes" de .github/workflows/
+    # ci.yml, igual ao preci_selftest do lado Linux ja faz. Perde o
+    # "falha rapida antes do build pesado"; ganha a paridade mecanica
+    # que esta fatia existe para provar.
+    add_test(
+        NAME preci_win_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/preci.ps1" -Selftest
+    )
+    set_tests_properties(preci_win_selftest PROPERTIES LABELS selftest)
+
+    # Os quatro abaixo fecham o achado OPOSTO da mesma fatia: quatro
+    # testes se(UNIX) sem NENHUM mecanismo Windows, nem ctest nem step
+    # cru. Decisao do lider: construir o mecanismo Windows de cada um,
+    # lendo o gemeo Linux pelo que ele PROVA, nao pelo que ele faz -
+    # tres sao checagem real (mecanismo diferente, cobertura igual);
+    # o quarto e uma convencao de empacotamento GNU/Linux que nao
+    # existe no MSVC, e por isso e ausencia DECLARADA e CONTADA, nunca
+    # um teste que some (GODS_LAWS.md L-40).
+    add_test(
+        NAME install_includedir_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-install-includedir-win.ps1"
+            -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
+    )
+    set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME no_target_collision_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-no-target-collision-win.ps1"
+            -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
+            -FixtureSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
+    )
+    set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME output_name_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-output-name-win.ps1"
+            -BuildDir "${PROJECT_BINARY_DIR}"
+            -ConsumerSrcFile "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
+    )
+    set_tests_properties(output_name_win_test PROPERTIES LABELS consume)
+
+    # Declarado NAO APLICAVEL de proposito (ver o cabecalho do script) -
+    # nao recebe argumento nenhum, e nunca reprova nesta maquina.
+    add_test(
+        NAME install_packager_layout_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-install-packager-layout-win.ps1"
+    )
+    set_tests_properties(install_packager_layout_win_test PROPERTIES LABELS consume)
+
+    # tools/ci/check-pkgconfig-installed.ps1 NAO entra aqui: o unico
+    # jeito de chama-lo hoje depende de um valor gerado em TEMPO DE
+    # EXECUCAO por um passo anterior do job `windows`
+    # (steps.consumo_instalado.outputs.prefix, o prefixo de instalacao
+    # escolhido por check-consume.ps1) - nao existe em tempo de
+    # configure do CMake, e encaixar isso em ctest pede um mecanismo de
+    # ordem/dependencia entre casos (CMake FIXTURES_REQUIRES/
+    # FIXTURES_SETUP) que nenhum teste desta arvore usa ainda. Fora de
+    # escopo desta fatia - relatado ao orquestrador como um decimo-
+    # primeiro caso encontrado, nao um dos dez originais.
+endif()

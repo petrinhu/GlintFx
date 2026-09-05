@@ -97,7 +97,7 @@ require_nonempty_scan() {
     [ "$total" -gt 0 ] || fail "varredura vazia (0 simbolos dinamicos definidos) - biblioteca nao exporta nada, ou nm leu o arquivo errado"
 }
 
-main() {
+real_main() {
     require_nm_present
     require_library_path_arg "$@"
 
@@ -123,6 +123,100 @@ main() {
     # reviewer sees the SIZE of what was actually scanned, on the
     # passing run too, not just inferred from a wall of names above.
     echo "ok: no symbol outside the contract ($total_count dynamic symbol(s) scanned, all allowed)."
+}
+
+# --- --selftest (PARITY-GATE, TODO.md, GODS_LAWS.md L-04/L-36): this
+# script never had a --selftest of its own, while its Windows twin
+# (tools/ci/check-exports-win.ps1) already does - the exact asymmetry
+# the parity gate (tests/tools/check_test_parity.py) found and could
+# not except (the item that would cover it, EXPORTS-PARITY-WIN, is
+# concluded - a "concluded without a pair" is precisely what that gate
+# exists to catch). The four controls below mirror check-exports-
+# win.ps1's Invoke-SelfTest EXACTLY (same shape, same four cases),
+# feeding synthetic mangled names straight to symbol_is_allowed() -
+# no real .so, no real `nm`, because what needs proving here is the
+# PARSER/ALLOWLIST logic, not a real binary (the real binary is what
+# visibility_test itself already exercises). Registered as
+# visibility_selftest in tests/CMakeLists.txt, same if(BUILD_SHARED_
+# LIBS AND UNIX) guard as visibility_test - Itanium mangling only
+# means anything on an ELF/Unix toolchain. ---
+
+selftest_positive_control() {
+    # Free function, non-const member, const member - the same three
+    # shapes check-exports-win.ps1's Get-SyntheticCleanDumpbinExports
+    # uses, proving the "K" cv-qualifier branch (symbol_has_glintfx_
+    # prefix) alongside the plain one.
+    for symbol in \
+        "_ZN7glintfx15runtime_versionEv" \
+        "_ZN7glintfx9gltfx_errC1Ev" \
+        "_ZNK7glintfx9gltfx_err4pathEv"
+    do
+        if ! symbol_is_allowed "$symbol"; then
+            echo "selftest: controle POSITIVO FALHOU (deveria ter sido aprovado): $symbol" >&2
+            return 1
+        fi
+    done
+    echo "selftest: controle POSITIVO OK (3 exports sinteticos - free function, membro nao-const, membro const - todos reconhecidos como glintfx::)"
+    return 0
+}
+
+selftest_negative_control_stdlib_leak() {
+    symbol="_ZSt19__throw_length_errorPKc"
+    if symbol_is_allowed "$symbol"; then
+        echo "selftest: controle NEGATIVO (stdlib leak) FALHOU ($symbol nao deveria casar como glintfx::)" >&2
+        return 1
+    fi
+    echo "selftest: controle NEGATIVO (stdlib leak) OK (std::__throw_length_error pego, nao reconhecido como glintfx::)"
+    return 0
+}
+
+selftest_negative_control_bare_c_symbol() {
+    symbol="SomeStrayCFunction"
+    if symbol_is_allowed "$symbol"; then
+        echo "selftest: controle NEGATIVO (simbolo C solto) FALHOU (SomeStrayCFunction nao deveria casar como glintfx::)" >&2
+        return 1
+    fi
+    echo "selftest: controle NEGATIVO (simbolo C solto) OK (SomeStrayCFunction pego, nao reconhecido como glintfx::)"
+    return 0
+}
+
+selftest_empty_scan_control() {
+    total="$(count_lines "")"
+    if [ "$total" -ne 0 ]; then
+        echo "selftest: controle de VARREDURA VAZIA FALHOU (count_lines de string vazia deveria ser 0, veio $total)" >&2
+        return 1
+    fi
+    # require_nonempty_scan chama fail(), que da exit - roda em
+    # subshell para o exit derrubar so o subshell, nunca este script
+    # (mesmo padrao de "$(...)" que check_port_privacy.sh ja usa).
+    if (require_nonempty_scan "$total") 2>/dev/null; then
+        echo "selftest: controle de VARREDURA VAZIA FALHOU (require_nonempty_scan 0 deveria ter reprovado e passou)" >&2
+        return 1
+    fi
+    echo "selftest: controle de VARREDURA VAZIA OK (0 exports extraidos - a chamada real trataria isto como reprovacao, GODS_LAWS.md L-40)"
+    return 0
+}
+
+selftest_main() {
+    overall=0
+    selftest_positive_control || overall=1
+    selftest_negative_control_stdlib_leak || overall=1
+    selftest_negative_control_bare_c_symbol || overall=1
+    selftest_empty_scan_control || overall=1
+
+    if [ "$overall" -ne 0 ]; then
+        echo "check_exports.sh --selftest: FALHOU (ver acima)" >&2
+        exit 1
+    fi
+    echo "check_exports.sh --selftest: os quatro controles OK"
+}
+
+main() {
+    if [ "${1:-}" = "--selftest" ]; then
+        selftest_main
+    else
+        real_main "$@"
+    fi
 }
 
 main "$@"

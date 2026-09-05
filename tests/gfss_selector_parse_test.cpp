@@ -578,6 +578,27 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
         {"[foo %= bar]", k_expected_attribute_operator_or_close, "invented operator ('%=')"},
         {"[foo=]", k_expected_attribute_value, "missing value ('[foo=]')"},
         {"[foo='bar", k_expected_closing_quote, "unterminated quotes in the value"},
+        // GFSS-SEL-PARSE-NTH, REOPENED 05/09/2026 (GODS_LAWS.md L-20/
+        // L-40 - a defect found by MEASUREMENT, not theory: before this
+        // fatia, ":nth-child(banana)" parsed as a VALID selector, its
+        // argument left raw and unread, so a leaf author who misspelled
+        // it got a rule that silently never matches - the exact
+        // "aceitar e nunca casar" shape the project leader already
+        // refused once for an unrelated contract, verbatim: "falhar
+        // onde alguem ve vale mais que funcionar pela metade em
+        // silencio" (ESCOPO.md, 02/09/2026 decision 1). These six cases
+        // reuse anb_parse.hpp's own three diagnostic identifiers
+        // (already imported above) rather than a fourth invented one,
+        // and cover THREE of the four An+B functional names (not only
+        // "nth-child") to prove the validation is not special-cased to
+        // one spelling.
+        {":nth-child(banana)", k_expected_anb_expression, "not a known An+B keyword ('banana')"},
+        {":nth-child()", k_expected_anb_expression, "empty An+B argument"},
+        {":nth-child(n+)", k_expected_anb_offset, "dangling sign with no offset digit"},
+        {":nth-last-child(4.5)", k_expected_anb_expression, "decimal coefficient, not an integer"},
+        {":nth-of-type(-)", k_expected_anb_expression, "bare sign, no coefficient or offset"},
+        {":nth-last-of-type(2n+1extra)", k_expected_end_of_anb_expression,
+         "trailing garbage after a complete An+B expression"},
     };
 
     std::size_t swept = 0;
@@ -589,7 +610,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
     }
     // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
     GLINTFX_CHECK(swept > 0);
-    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(18));
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(24));
     std::println("gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right_diagnostic: "
                  "{} hostile case(s) checked",
                  swept);
@@ -600,10 +621,11 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
 // an ITERATIVE scan over the token vector, never recursion, so an
 // arbitrarily deep chain of nested parentheses inside a raw argument
 // costs stack space proportional to ZERO (only the token vector's own
-// O(n) memory) - this proves BOTH directions: a BALANCED deep chain
-// resolves correctly (no crash, no hang, correct raw text), and an
-// UNBALANCED one still reproves cleanly with closing_parenthesis,
-// never a stack overflow or a hang.
+// O(n) memory) - this proves BOTH directions: an UNBALANCED chain
+// reproves cleanly with closing_parenthesis (a CAPTURE-level failure),
+// and a BALANCED one is captured correctly and only THEN reproved by
+// content validation (an ANB-level failure) - neither one a stack
+// overflow or a hang.
 //
 // "nth-child", NOT "not" (GODS_LAWS.md L-17's own "o gemeo" - this test
 // predates GFSS-SEL-PARSE-NOT and originally used ":not(...)" as its own
@@ -615,11 +637,22 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
 // "not" for - it would fail as a malformed selector list (correctly -
 // see gltfx_gfss_parse_selector_list_rejects_hostile_not_argument_input
 // below for THAT proof) rather than exercising the CAPTURE mechanism in
-// isolation. "nth-child" still only captures its raw argument, unread
-// (GFSS-SEL-PARSE-NTH's own An+B microparser is a standalone utility,
-// never wired into this file - anb_parse.hpp's own header comment), so
-// it is the one that still isolates capture_functional_argument()'s own
-// depth counter from any content validation.
+// isolation.
+//
+// REVISED 05/09/2026 (GFSS-SEL-PARSE-NTH reopened, GODS_LAWS.md L-20/
+// L-40): "nth-child" no longer "only captures its raw argument, unread"
+// - attach_anb_validation() (selector_parse.cpp) now reads it. A raw
+// argument of nothing but parentheses is not valid An+B syntax either,
+// so the BALANCED case below can no longer assert `result.ok` - what it
+// still proves, and the only thing it ever needed to prove, is that
+// capture_functional_argument() itself found the TRUE matching close
+// paren at depth 5000 without recursing or hanging: the diagnostic that
+// comes back is k_expected_anb_expression (a CONTENT complaint from
+// validation, reached only AFTER a correct capture), never k_expected_
+// closing_parenthesis (which is what an INCORRECT capture - one that
+// lost count of the nesting - would produce instead, the same
+// diagnostic the UNBALANCED case below gets for a genuinely unclosed
+// argument).
 GLINTFX_TEST(
     gltfx_gfss_parse_selector_list_handles_deeply_nested_functional_argument_without_recursing) {
     constexpr int k_depth = 5000;
@@ -627,14 +660,8 @@ GLINTFX_TEST(
     balanced_argument.append(static_cast<std::size_t>(k_depth), ')');
     const std::string balanced_text = ":nth-child(" + balanced_argument + ")";
     const auto balanced_result = parse_selector_list(balanced_text);
-    GLINTFX_CHECK(balanced_result.ok);
-    if (balanced_result.ok) {
-        const auto &simples = balanced_result.value.selectors.front().head.simple_selectors;
-        GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
-        if (simples.size() == 1) {
-            GLINTFX_CHECK(simples[0].raw_argument == std::string_view{balanced_argument});
-        }
-    }
+    GLINTFX_CHECK(!balanced_result.ok);
+    GLINTFX_CHECK(balanced_result.diagnostic.expected == k_expected_anb_expression);
 
     const std::string unbalanced_argument(static_cast<std::size_t>(k_depth), '(');
     const std::string unbalanced_text = ":nth-child(" + unbalanced_argument;

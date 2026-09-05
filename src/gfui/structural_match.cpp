@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "structural_match.hpp"
 
+#include <cassert>
 #include <cstddef>
 
 #include "gfss/anb.hpp"
@@ -199,13 +200,25 @@ bool structural_simple_holds(structural_simple_kind kind, const gltfx_node_view 
 bool structural_functional_holds(structural_functional_kind kind, std::string_view raw_argument,
                                  const gltfx_node_view &node) noexcept {
     const style::detail::anb_parse_result parsed = style::detail::parse_anb(raw_argument);
+    // INTERNAL CONTRACT VIOLATION, NOT HOSTILE LEAF CONTENT ANY MORE
+    // (GFSS-SEL-PARSE-NTH reopened 05/09/2026, GODS_LAWS.md L-20/L-40):
+    // `raw_argument` reaching a real match_compound() call was already
+    // validated by selector_parse.cpp's own attach_anb_validation() at
+    // PARSE time - a leaf author's own malformed text (`:nth-child
+    // (banana)`) is refused there and never reaches this evaluator at
+    // all any more. A failure HERE means some OTHER caller (a hand-
+    // built AST in a test, a future integration bypassing the parser)
+    // handed this evaluator text the validated pipeline never approved
+    // - the SAME "assert() for the Debug diagnostic, a defined value
+    // for the Release build that never crashes a correctly-behaving
+    // consumer's process" two-reaction shape numeric_lexeme.cpp's own
+    // decode_number_lexeme() and named_colors.cpp's own named_color_
+    // at() already use for an analogous internal-only invariant.
+    assert(parsed.ok &&
+           "structural_functional_holds(): raw_argument was not a valid An+B expression - "
+           "GFSS-SEL-PARSE-NTH's own attach_anb_validation() should have refused this at parse "
+           "time, before it ever reached match_compound()");
     if (!parsed.ok) {
-        // A malformed An+B argument reaching this evaluator never
-        // matches anything, rather than crashing or propagating an
-        // exception across a noexcept boundary - structural_match.hpp
-        // 's own header comment on graceful degradation toward hostile
-        // leaf content (LEI ZERO: the consumer base is open and
-        // unknown).
         return false;
     }
     switch (kind) {

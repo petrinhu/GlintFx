@@ -8,6 +8,7 @@
 
 #include <glintfx/gfss/tokenizer.hpp>
 
+#include "anb_parse.hpp"
 #include "diagnostic_vocabulary.hpp"
 #include "selector_pseudo_vocabulary.hpp"
 
@@ -441,6 +442,46 @@ struct not_argument_outcome {
     return {.ok = true, .selector = std::move(selector), .diagnostic = {}};
 }
 
+// GFSS-SEL-PARSE-NTH's OWN VALIDATION, WIRED IN HERE (TODO.md,
+// reopened 05/09/2026 - GODS_LAWS.md L-20/L-40, a defect found by
+// measurement: `:nth-child(banana)`, `:nth-child()` and `:nth-child(n+)`
+// were all ACCEPTED at this layer before this fatia, with the argument
+// left raw and unread - selector_pseudo_vocabulary.hpp's own five
+// functional names include four (nth-child, nth-last-child, nth-of-
+// type, nth-last-of-type) whose argument grammar is An+B, and a leaf
+// author who misspells that argument got a rule that silently NEVER
+// MATCHES, with no diagnostic anywhere - exactly the "aceitar e nunca
+// casar e falha silenciosa" shape the project leader already refused
+// once for an unrelated contract (ESCOPO.md, 02/09/2026 decision 1),
+// verbatim: "falhar onde alguem ve vale mais que funcionar pela metade
+// em silencio". Applying that same, already-made decision here, not a
+// new one.
+//
+// SAME SHAPE AS attach_not_argument() ABOVE, ON PURPOSE: propagates the
+// NESTED diagnostic UNCHANGED (parse_anb()'s own anb_parse_result::
+// diagnostic already has line/column counted from the START of
+// `raw_argument`'s own bytes, the SAME "points inside the argument, not
+// at the outer `:name(` token" convention parse_not_argument()'s own
+// comment documents above - anb_parse.cpp re-tokenizes `text` with this
+// SAME track's own gltfx_gfss_tokenize(), which re-numbers line/column
+// from 1 for whatever buffer it is given).
+[[nodiscard]] simple_selector_outcome
+attach_anb_validation(gfss_simple_selector selector) noexcept {
+    const anb_parse_result argument = parse_anb(selector.raw_argument);
+    if (!argument.ok) {
+        return {.ok = false, .selector = {}, .diagnostic = argument.diagnostic};
+    }
+    // The PARSED gfss_anb itself is deliberately NOT stored anywhere in
+    // `selector` - only its VALIDITY is used here. anb_parse.hpp's own
+    // header comment still calls this "a standalone utility, never
+    // wired into the selector AST": GFSS-MATCH-STRUCT (src/gfui/
+    // structural_match.cpp) re-parses the SAME raw_argument at match
+    // time, now knowing (by this validation having already passed) that
+    // the re-parse can never fail - see that file's own header comment
+    // for the internal-defect assert() this validation makes possible.
+    return {.ok = true, .selector = std::move(selector), .diagnostic = {}};
+}
+
 // `tokens[function_index]` is a function-token whose name is already
 // known to be one of the five recognized functional pseudo-classes
 // (the caller checks that before calling this). Captures the raw
@@ -469,7 +510,11 @@ struct not_argument_outcome {
     if (name == std::string_view{"not"}) {
         return attach_not_argument(std::move(selector), function_token, depth);
     }
-    return {.ok = true, .selector = std::move(selector), .diagnostic = {}};
+    // Every OTHER functional pseudo-class name reaching here is one of
+    // the four An+B ones (selector_pseudo_vocabulary.hpp's own closed
+    // list has exactly five functional names, and "not" is handled
+    // above) - validated by attach_anb_validation() above.
+    return attach_anb_validation(std::move(selector));
 }
 
 // `tokens[index]` is a ':' delim; a pseudo-class requires an ident (no

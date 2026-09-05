@@ -30,9 +30,23 @@
 # include resolves the same way it already does for every test target
 # in tests/CMakeLists.txt (their own "${PROJECT_SOURCE_DIR}/src"
 # PRIVATE addition, e.g. gfui_node_view_test's own comment).
+# GFSS-MATCH-ATTR/GFSS-MATCH-STRUCT (TODO.md, wave W5): compound_
+# match.cpp's own match_compound() now calls directly into attribute_
+# match.cpp's own attribute_selector_holds() and structural_match.cpp's
+# own four functions (compound_match.hpp's own updated header comment)
+# - without these two here, glintfx_library itself links with
+# UNRESOLVED internal references inside its own compound_match.cpp
+# object (a shared library permits that silently, unlike a final
+# executable, and it would only surface as a crash the moment a real
+# consumer's process actually exercised an attribute or structural
+# selector) - measured live: a standalone probe linking only against
+# the .so hit exactly that "referencia nao definida" the moment it
+# needed one of these four symbols.
 target_sources(glintfx_library PRIVATE
     node_state.cpp
     compound_match.cpp
+    attribute_match.cpp
+    structural_match.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

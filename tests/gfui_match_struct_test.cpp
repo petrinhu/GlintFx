@@ -283,15 +283,86 @@ GLINTFX_TEST(structural_functional_holds_an_plus_b_over_the_same_chain) {
     GLINTFX_CHECK(
         structural_functional_holds(structural_functional_kind::nth_child, "even", chain[1]));
 
-    // A malformed An+B argument never matches anything - the
-    // graceful-degradation stance structural_match.hpp's own header
-    // comment documents for hostile or malformed leaf content.
-    GLINTFX_CHECK(!structural_functional_holds(structural_functional_kind::nth_child, "not-an-anb",
-                                               chain[0]));
-
     std::printf("gfui_match_struct_test: 4 An+B structural functions checked over the same "
-                "five-sibling chain (numeric, bare-integer, even/odd and malformed-argument "
-                "cases)\n");
+                "five-sibling chain (numeric, bare-integer, and even/odd cases)\n");
+}
+
+// REMOVED 05/09/2026, NOT SILENTLY DROPPED (GFSS-SEL-PARSE-NTH
+// reopened, GODS_LAWS.md L-20/L-40): this fatia used to check that a
+// malformed argument like "not-an-anb" quietly never matches anything.
+// That is no longer a scenario the real parser can produce - selector_
+// parse.cpp's own attach_anb_validation() now refuses a malformed nth-*
+// argument at PARSE time, with a diagnostic (tests/gfss_selector_
+// parse_test.cpp's own six new hostile-input cases prove the refusal).
+// structural_functional_holds() reaching a malformed argument is now an
+// INTERNAL CONTRACT VIOLATION (structural_match.cpp's own assert(),
+// structural_match.hpp's own updated header comment) - not a leaf-
+// content case this test suite exercises through match_compound()'s own
+// public path.
+
+// NEGATIVE COEFFICIENT (GODS_LAWS.md L-20 - closes an evidence gap this
+// fatia was found to have: every positive-`a` case above was proved by
+// EXECUTION, but a negative `a` (":nth-child(-n+6)"-shaped rules,
+// legitimate An+B syntax, anb_parse.hpp's own header comment) had only
+// been checked by hand, never run). `expected_an_plus_b_matches()`
+// below is a brute-force ORACLE independent of structural_match.cpp's
+// own division-based anb_matches_position() - it enumerates n = 0, 1,
+// 2, ... directly against the literal spec ("the An+B-th element" is
+// A*n+B for every non-negative integer n), rather than re-deriving the
+// same formula the code under test already uses, so this test cannot
+// pass merely because both sides share one bug.
+namespace {
+[[nodiscard]] bool expected_an_plus_b_matches(long long a, long long b,
+                                              std::size_t position) noexcept {
+    constexpr long long k_max_n_checked = 64; // comfortably past 5 siblings either way
+    for (long long n = 0; n <= k_max_n_checked; ++n) {
+        if (a * n + b == static_cast<long long>(position)) {
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
+GLINTFX_TEST(structural_functional_holds_negative_coefficient_an_plus_b) {
+    using glintfx::gfui::detail::structural_functional_holds;
+    using glintfx::gfui::detail::structural_functional_kind;
+
+    arena tree;
+    const std::array<gltfx_node_view, 5> chain = build_five_sibling_chain(tree);
+
+    // Positions and expected results DERIVED from expected_an_plus_b_
+    // matches() above, never written by hand per position (GODS_LAWS.md
+    // L-40's own "the count is derived, never asserted against a
+    // hand-typed literal", the same discipline selector_ast.hpp's own
+    // GLINTFX_GFSS_COMBINATOR_LIST already applies to a closed
+    // enumeration).
+    struct negative_case {
+        std::string_view text;
+        long long a = 0;
+        long long b = 0;
+    };
+    const std::array<negative_case, 2> cases{{
+        {"-n+3", -1, 3},
+        {"-2n+4", -2, 4},
+    }};
+
+    std::size_t checked = 0;
+    for (const negative_case &c : cases) {
+        for (std::size_t position = 1; position <= chain.size(); ++position) {
+            const bool expected = expected_an_plus_b_matches(c.a, c.b, position);
+            const bool got = structural_functional_holds(structural_functional_kind::nth_child,
+                                                         c.text, chain[position - 1]);
+            GLINTFX_CHECK(got == expected);
+            ++checked;
+        }
+    }
+    // GODS_LAWS.md L-40: zero checked is a floor violation, never a pass.
+    GLINTFX_CHECK(checked > 0);
+    GLINTFX_CHECK_EQ(checked, cases.size() * chain.size());
+    std::printf("gfui_match_struct_test: %zu negative-coefficient An+B position(s) checked "
+                "against an independent brute-force oracle\n",
+                checked);
 }
 
 // --- fatia C: real gfss selector text through match_compound() ---

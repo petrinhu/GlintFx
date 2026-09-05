@@ -431,50 +431,180 @@ def pkgconfig_binary_on_path():
     return None
 
 
+# --- shared: the pkg-config CONVERSATION has THREE honest outcomes,
+# not two (scenarios 1, 2, 13, 14, 16, 17) --------------------------------
+#
+# VERMELHO 3 (05/09/2026, run 33913549588, jobs "Windows (primario)"
+# Debug/estatico/compartilhado): run_default_layout_scenario's own
+# pkgconfig_binary_on_path() probe (VERMELHO 2, above) correctly widened
+# the branch from ONE outcome to TWO - tool absent, or tool present and
+# 'pkg-config --exists glintfx' succeeds - but
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in itself already names a
+# THIRD, WIN32-only outcome (its own header, "Talking to the pkg-config
+# BINARY itself"; proven correct, forced, by
+# run_windows_forced_healthy_conversation_warning_scenario, scenario 10):
+# the tool IS on PATH, but the '--exists' conversation itself fails
+# (measured cause, same file's header: Strawberry Perl's Pure-Perl
+# 'pkg-config.bat', the only implementation on GitHub Actions'
+# windows-latest runner, mis-splits a bare PKG_CONFIG_PATH value on ':'
+# and shreds the drive letter) - a GODS_LAWS.md L-27 DECLARED DOWNGRADE
+# (WARNING, exit 0), never a FATAL_ERROR, because this file's own content
+# check (CMake's native pkg-config parser) already confirmed glintfx.pc,
+# the headers and the library artifact are genuinely on disk BEFORE this
+# conversation is even attempted. run_default_layout_scenario knew only
+# the first two outcomes, and reproved a genuinely correct Windows
+# install the moment the third one fired for real on the server.
+#
+# GODS_LAWS.md L-17 ("isolado ou padrao?"): run_destdir_scenario,
+# run_real_pkgconfig_syntax_variants_scenario,
+# run_relative_prefix_ordinary_dispatch_scenario,
+# run_absolute_libdir_scenario and
+# run_destdir_relative_ordinary_dispatch_scenario all demanded the SAME
+# unconditional "post-install pkg-config validation passed" - the exact
+# same two-outcome assumption, never caught only because
+# run_default_layout_scenario's own sys.exit(1) always aborted this
+# whole file (real_main() runs every scenario in one sequential process,
+# fail() is sys.exit(1)) before any of the other five ever got the
+# chance to run for real against a machine where the third outcome
+# fires. All six now share this one function instead of each repeating
+# (and each separately forgetting) the same three-way check
+# (GODS_LAWS.md L-17, DRY "regra de tres": six call sites, not one).
+def assert_windows_degraded_conversation_is_honest(output, on_fail_prefix):
+    """The third outcome is a DECLARED DOWNGRADE (GODS_LAWS.md L-27),
+    never a silent "ok": it is honest only when it ALSO names its own
+    content check as the thing that actually confirmed the install -
+    exactly what run_windows_forced_healthy_conversation_warning_scenario
+    (scenario 10) already proves correct with the branch forced.
+    Accepting the warning phrase ALONE - which is what
+    run_default_layout_scenario alone used to do, before this fix -
+    would let this gate pass against an install whose content was never
+    actually confirmed, for ANY reason the '--exists' conversation
+    happens to fail (GODS_LAWS.md L-40: a check that passes on the mere
+    absence of the wrong words is not a check).
+    """
+    must_contain_in_order(
+        output,
+        "post-install pkg-config content check",
+        "CONVERSATION could not be verified on this Windows machine",
+        "native content check already ran before this point",
+        "already confirmed glintfx.pc, the headers and the library artifact are "
+        "genuinely on disk with real content",
+        on_fail=(
+            f"{on_fail_prefix} took the Windows binary-conversation-failed WARNING "
+            "branch, but did not honestly present, IN ORDER, its own content-check STATUS "
+            "line, the conversation-unverifiable warning, and the warning's own honest "
+            "attribution of the confirmation to that content check having already run - "
+            "accepting the warning phrase alone would let this pass against an install "
+            "whose content was never actually confirmed."
+        ),
+    )
+
+
+def assert_real_install_validated(output, on_fail_prefix, pc_file=None):
+    """The THREE outcomes a REAL, unforced install's own pkg-config
+    validation can honestly report, counted, not assumed (GODS_LAWS.md
+    L-40 - see this section's own header for the real CI run that found
+    two of the six call sites below only handling the first two):
+
+      1. "absent"   - pkg-config/pkgconf missing from PATH.
+      2. "passed"   - present, and 'pkg-config --exists glintfx' succeeds.
+      3. "degraded" - present, but WIN32 only (GODS_LAWS.md L-27 declared
+         downgrade) the conversation itself fails while content was
+         already confirmed.
+
+    Every outcome's own message names the resolved pc file path in its
+    OWN wording (checked separately below, anchored to that wording, NOT
+    to "the path appears anywhere in the output" - a `-- Installing:
+    ...` line from CMake's own ordinary install progress, printed before
+    this validator ever runs, would otherwise let a wrong path inside
+    the validator's OWN message go uncaught).
+
+    Returns which outcome fired, so the CALLER prints its own
+    branch-specific "ok:" line - never accept all three in silence, which
+    would turn this into a check that cannot fail.
+    """
+    tool = pkgconfig_binary_on_path()
+    normalized = normalize_wrapped_message(output)
+
+    if tool is None:
+        must_contain(
+            output,
+            "pkg-config (and pkgconf) not found on PATH",
+            on_fail=(
+                f"{on_fail_prefix}, but with neither pkg-config nor pkgconf on PATH it "
+                "never printed the validator's own tool-absent WARNING - the same "
+                "degrade-to-warning branch run_pkgconfig_absent_scenario (scenario 8) "
+                "proves is correct."
+            ),
+        )
+        outcome, anchor = "absent", "was written to"
+    elif "CONVERSATION could not be verified on this Windows machine" in normalized:
+        assert_windows_degraded_conversation_is_honest(output, on_fail_prefix)
+        outcome, anchor = "degraded", "failed against the file just installed at"
+    else:
+        must_contain(
+            output,
+            "post-install pkg-config validation passed",
+            on_fail=(
+                f"{on_fail_prefix}, but never printed the validator's own success "
+                f"message, even though '{tool}' is on PATH (find_program() should have "
+                "taken the SUCCESS branch, or - on Windows only - the declared-downgrade "
+                "conversation-unverifiable WARNING branch)."
+            ),
+        )
+        outcome, anchor = "passed", "glintfx.pc at"
+
+    if pc_file is not None:
+        must_contain_in_order(
+            output,
+            anchor,
+            pc_file,
+            on_fail=(
+                f"{on_fail_prefix} (outcome={outcome}) did not name the expected "
+                f"resolved path ({pc_file}) right after its own '{anchor}' phrase - a "
+                "path appearing elsewhere in the install log (for instance CMake's own "
+                "'-- Installing: ...' line) would not prove the VALIDATOR's own message "
+                "computed it correctly."
+            ),
+        )
+
+    return outcome
+
+
 def run_default_layout_scenario(build_dir, prefix):
     output = run_expect_success(
         ["cmake", "--install", build_dir, "--prefix", prefix],
         "default-layout install unexpectedly FAILED:",
     )
-    # Counts which path was taken (GODS_LAWS.md L-40: never accept
-    # both messages in silence, as that would turn this into a check
-    # that cannot fail) - the branch below is chosen by the SAME
-    # shutil.which() probe find_program() itself resolves to, and each
-    # branch demands its OWN message, never the other's.
-    tool = pkgconfig_binary_on_path()
-    if tool is not None:
-        must_contain(
-            output,
-            "post-install pkg-config validation passed",
-            on_fail=(
-                "default-layout install succeeded, but never printed the validator's own "
-                f"success message, even though '{tool}' is on PATH (find_program() should "
-                "have taken the SUCCESS branch)."
-            ),
-        )
-        find_pc_file_under(prefix)
-        print(
-            f"ok: default-layout scenario - '{tool}' is on PATH, the install(CODE) "
-            "validator ran and reported success against a genuinely correct install."
-        )
-    else:
-        must_contain(
-            output,
-            "pkg-config (and pkgconf) not found on PATH",
-            on_fail=(
-                "default-layout install succeeded, but with neither pkg-config nor pkgconf "
-                "on PATH it never printed the validator's own tool-absent WARNING either - "
-                "this is the same degrade-to-warning branch run_pkgconfig_absent_scenario "
-                "(scenario 8) proves is correct, taken here for real instead of via a "
-                "sandboxed find_program()."
-            ),
-        )
-        find_pc_file_under(prefix)
-        print(
-            "ok: default-layout scenario - neither pkg-config nor pkgconf is on PATH, so "
-            "the install(CODE) validator correctly degraded to its WARNING branch (still "
-            "exit 0) instead of claiming a binary confirmation it could not perform."
-        )
+    # Counts which of the THREE outcomes was taken (GODS_LAWS.md L-40:
+    # never accept more than one message in silence, as that would turn
+    # this into a check that cannot fail) - see
+    # assert_real_install_validated()'s own header for the real CI run
+    # (VERMELHO 3) that found this scenario alone knew only TWO of the
+    # three outcomes a real, unforced install can honestly report.
+    outcome = assert_real_install_validated(
+        output, on_fail_prefix="default-layout install succeeded"
+    )
+    find_pc_file_under(prefix)
+    descriptions = {
+        "passed": (
+            "pkg-config/pkgconf is on PATH, the install(CODE) validator ran and reported "
+            "success against a genuinely correct install."
+        ),
+        "absent": (
+            "neither pkg-config nor pkgconf is on PATH, so the install(CODE) validator "
+            "correctly degraded to its tool-absent WARNING branch (still exit 0) instead "
+            "of claiming a binary confirmation it could not perform."
+        ),
+        "degraded": (
+            "pkg-config is on PATH, but the '--exists' CONVERSATION itself could not be "
+            "verified on this (Windows) machine - the install(CODE) validator correctly "
+            "degraded to its conversation-unverifiable WARNING branch (still exit 0) "
+            "instead of claiming a binary confirmation it could not perform, and its own "
+            "content check had already confirmed the install for real."
+        ),
+    }
+    print(f"ok: default-layout scenario - outcome={outcome}: {descriptions[outcome]}")
 
 
 # --- scenario 2 --------------------------------------------------------
@@ -490,24 +620,14 @@ def run_destdir_scenario(glintfx_src, cxx, build_dir, scratch):
         ["cmake", "--install", build_dir], "DESTDIR install unexpectedly FAILED:", env=env
     )
 
-    must_contain(
-        output,
-        "post-install pkg-config validation passed",
-        on_fail="DESTDIR install succeeded, but never printed the validator's own success message.",
-    )
     pc_file = find_pc_file_under(destdir)
-    must_contain(
-        output,
-        pc_file,
-        on_fail=(
-            f"DESTDIR install's success message did not name the STAGED pc file path "
-            f"({pc_file}) - the validator may have resolved a path outside the staging "
-            "root and passed for the wrong reason."
-        ),
+    outcome = assert_real_install_validated(
+        output, on_fail_prefix="DESTDIR install succeeded", pc_file=pc_file
     )
     print(
-        f"ok: DESTDIR scenario - the validator resolved the STAGED, DESTDIR-aware "
-        f"physical location ({pc_file}) and reported success against it."
+        f"ok: DESTDIR scenario (outcome={outcome}) - the validator resolved the STAGED, "
+        f"DESTDIR-aware physical location ({pc_file}) and reported it, honestly, in its "
+        "own message."
     )
 
 
@@ -997,10 +1117,9 @@ def run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir)
         "whitespace/comment syntax unexpectedly FAILED - this is the exact 'rejects a "
         "genuinely good install' defect class PKG-WIN-SCOPE's round 5 review found.",
     )
-    must_contain(
+    outcome = assert_real_install_validated(
         output,
-        "post-install pkg-config validation passed",
-        on_fail="the syntax-variants fixture installed cleanly but the validator never printed its own success message.",
+        on_fail_prefix="the syntax-variants fixture installed cleanly",
     )
 
     real_tool = None
@@ -1024,15 +1143,16 @@ def run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir)
             on_fail=f"a real {real_tool} run against the syntax-variants fixture did not emit the expected -lglintfx.",
         )
         print(
-            "ok: real pkg-config syntax variants (whitespace around '=', trailing comment) "
-            f"- accepted by BOTH this validator and a real {real_tool} on this machine's "
-            "PATH, cross-checked against the same fixture."
+            f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
+            f"'=', trailing comment) - accepted by BOTH this validator and a real "
+            f"{real_tool} on this machine's PATH, cross-checked against the same fixture."
         )
     else:
         print(
-            "ok: real pkg-config syntax variants (whitespace around '=', trailing comment) "
-            "- accepted by this validator; no real pkg-config/pkgconf on PATH to "
-            "additionally cross-check against (declared, GODS_LAWS.md L-27)."
+            f"ok: real pkg-config syntax variants (outcome={outcome}; whitespace around "
+            "'=', trailing comment) - accepted by this validator; no real "
+            "pkg-config/pkgconf on PATH to additionally cross-check against (declared, "
+            "GODS_LAWS.md L-27)."
         )
 
 
@@ -1052,24 +1172,20 @@ def run_relative_prefix_ordinary_dispatch_scenario(build_dir, dispatch_dir, real
     )
 
     expected_pc_file = os.path.join(dispatch_dir, "stage", *real_libdir.split("/"), "pkgconfig", "glintfx.pc")
-    must_contain(
+    outcome = assert_real_install_validated(
         output,
-        f"post-install pkg-config validation passed - glintfx.pc at '{expected_pc_file}'",
-        on_fail=(
-            "the relative-prefix ordinary-dispatch install's own success message did not "
-            f"name the correctly-resolved, single-occurrence staged path ({expected_pc_file}) "
-            "- the PKG-WIN-SCOPE round 6 doubled-path regression may be back."
-        ),
+        on_fail_prefix="the relative-prefix ordinary-dispatch install succeeded",
+        pc_file=expected_pc_file,
     )
     if not os.path.isfile(expected_pc_file):
         fail(
             f"expected glintfx.pc at {expected_pc_file} after a relative --prefix install, "
-            "and it is not there on disk, despite the validator reporting success."
+            "and it is not there on disk, despite the validator reporting a healthy outcome."
         )
     print(
-        "ok: relative --prefix, ordinary dispatch - a plain 'cmake --install <build> "
-        "--prefix ./stage' install passes, naming the correctly-resolved, "
-        "single-occurrence staged glintfx.pc path, with no doubled "
+        f"ok: relative --prefix, ordinary dispatch (outcome={outcome}) - a plain 'cmake "
+        "--install <build> --prefix ./stage' install passes, naming the "
+        "correctly-resolved, single-occurrence staged glintfx.pc path, with no doubled "
         "prefix/libdir/pkgconfig segment anywhere."
     )
 
@@ -1152,19 +1268,17 @@ def run_absolute_libdir_scenario(glintfx_src, cxx, build_dir, scratch):
         ["cmake", "--install", build_dir],
         "an absolute CMAKE_INSTALL_LIBDIR/CMAKE_INSTALL_INCLUDEDIR install unexpectedly FAILED.",
     )
-    must_contain(
-        output,
-        "post-install pkg-config validation passed",
-        on_fail="the absolute-libdir install succeeded, but never printed the validator's own success message.",
+    outcome = assert_real_install_validated(
+        output, on_fail_prefix="the absolute-libdir install succeeded"
     )
 
     expected_pc = os.path.join(absolute_libdir, "pkgconfig", "glintfx.pc")
     if not os.path.isfile(expected_pc):
         fail(f"expected glintfx.pc at {expected_pc} after an absolute-libdir install, and it is not there.")
     print(
-        "ok: absolute CMAKE_INSTALL_LIBDIR scenario - a glintfx.pc whose 'prefix=' line "
-        "never references ${pcfiledir} at all still installs and validates correctly "
-        "through CMake's native pkg-config parser."
+        f"ok: absolute CMAKE_INSTALL_LIBDIR scenario (outcome={outcome}) - a glintfx.pc "
+        "whose 'prefix=' line never references ${pcfiledir} at all still installs and "
+        "validates correctly through CMake's native pkg-config parser."
     )
 
 
@@ -1187,24 +1301,21 @@ def run_destdir_relative_ordinary_dispatch_scenario(build_dir, dispatch_dir, rea
     expected_pc_file = os.path.join(
         dispatch_dir, "relstage", "usr", "local", *real_libdir.split("/"), "pkgconfig", "glintfx.pc"
     )
-    must_contain(
+    outcome = assert_real_install_validated(
         output,
-        f"post-install pkg-config validation passed - glintfx.pc at '{expected_pc_file}'",
-        on_fail=(
-            "the relative-DESTDIR ordinary-dispatch install's own success message did not "
-            f"name the correctly-resolved, single-occurrence staged path ({expected_pc_file})."
-        ),
+        on_fail_prefix="the relative-DESTDIR ordinary-dispatch install succeeded",
+        pc_file=expected_pc_file,
     )
     if not os.path.isfile(expected_pc_file):
         fail(
             f"expected glintfx.pc at {expected_pc_file} after a relative-DESTDIR install, "
-            "and it is not there on disk, despite the validator reporting success."
+            "and it is not there on disk, despite the validator reporting a healthy outcome."
         )
     print(
-        "ok: DESTDIR relative, ordinary dispatch - a plain 'DESTDIR=relstage cmake "
-        "--install <build> --prefix /usr/local' install passes, naming the "
-        "correctly-resolved, single-occurrence staged glintfx.pc path, with no doubled "
-        "DESTDIR segment anywhere."
+        f"ok: DESTDIR relative, ordinary dispatch (outcome={outcome}) - a plain "
+        "'DESTDIR=relstage cmake --install <build> --prefix /usr/local' install passes, "
+        "naming the correctly-resolved, single-occurrence staged glintfx.pc path, with no "
+        "doubled DESTDIR segment anywhere."
     )
 
 

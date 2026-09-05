@@ -228,15 +228,50 @@
 # cobertura tambem, mas esconderia que o lote e' fragil justamente
 # quando ele o for).
 #
+# INSTRUMENT-PNC (GODS_LAWS.md L-40/L-44, fatia de 05/09/2026): a
+# otimizacao que BATCH-PARITY-WIN acima descreve foi medida depois de
+# pronta e NAO moveu o custo (64.6s de media antes, 61.8s depois, com
+# as distribuicoes se sobrepondo inteiras) - a fase atacada nao era a
+# cara. A hipotese seguinte (o custo esta na LEITURA dos milhares de
+# arquivos do SDK, num executor de entrada e saida de disco lenta) e'
+# INFERENCIA POR ELIMINACAO, e inferencia nao autoriza conserto
+# (GODS_LAWS.md L-44: "nao apresentar como fato justificativa tecnica
+# nao medida"). Esta fatia, entao, NAO otimiza nada: ela so instrumenta,
+# para que a proxima saiba QUAL fase e' cara em vez de inferir.
+#
+#   1. print_phase_report() abaixo imprime um bloco de fases SEMPRE,
+#      inclusive quando o portao PASSA (GODS_LAWS.md L-40, item 3: "a
+#      contagem aparece na saida, mesmo quando passa" - sem isso, o
+#      numero existe e ninguem nunca o ve, que e' exatamente o que
+#      aconteceu aqui: o passo de teste do servidor roda com
+#      --output-on-failure, entao a saida de um portao que passa nunca
+#      chegou a log nenhum). Uma linha por metrica, todas com o mesmo
+#      prefixo "check_public_name_collision.py: FASE ", para que
+#      .github/workflows/ci.yml consiga extrai-las do log do ctest.
+#
+#   2. CONSERTO REAL, o unico desta fatia (GODS_LAWS.md L-40): a
+#      varredura de texto tinha um `except OSError: continue` SEM
+#      contagem - um arquivo que recusasse abrir era engolido em
+#      silencio, e o portao dizia quantos varreu sem saber quantos
+#      perdeu. Agora scan_defines_in_files() devolve um scan_stats com
+#      encontrados/analisados/falharam, os tres aparecem no bloco de
+#      fases, e scan_coverage_is_complete() abaixo REPROVA quando
+#      falharam > 0 ou quando analisados + falharam nao bate com
+#      encontrados - mesma reconciliacao que BATCH-PARITY-WIN ja exigia
+#      do lote de cl.exe, agora tambem do lado da leitura.
+#
 # Usage:
 #   check_public_name_collision.py <include_dir> <cxx-compiler> <cxx-compiler-id>
 #   check_public_name_collision.py --selftest [cxx-compiler] [cxx-compiler-id]
 #
-# --selftest roda os dez controles (GODS_LAWS.md L-40: positivo,
-# negativo, vazio - mais sete especificos deste portao, entre eles o
-# controle de ATRIBUICAO-VS-DECLARACAO, achado real de 04/09/2026, e o
+# --selftest roda os doze controles (GODS_LAWS.md L-40: positivo,
+# negativo, vazio - mais nove especificos deste portao, entre eles o
+# controle de ATRIBUICAO-VS-DECLARACAO, achado real de 04/09/2026, o
 # de RECONCILIACAO DE LOTE, achado real de 05/09/2026, BATCH-PARITY-
-# WIN) usando o MECANISMO do frontend detectado por cxx_frontend(cxx_id)
+# WIN, e os dois de INSTRUMENT-PNC: BLOCO DE FASES, que exige as chaves
+# e as contagens na saida de uma execucao que PASSA, e ARQUIVO QUE
+# RECUSA ABRIR, que exige que um arquivo perdido na leitura seja
+# contado e REPROVE) usando o MECANISMO do frontend detectado por cxx_frontend(cxx_id)
 # - GCC/Clang (classify_matches) ou MSVC batched (classify_matches_
 # msvc_batched) - sempre contra fixtures descartaveis sob
 # tempfile.mkdtemp, nunca contra o include_dir real nem os cabecalhos
@@ -252,6 +287,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 SCRIPT_NAME = "check_public_name_collision.py"
 
@@ -278,6 +314,109 @@ _UNAVAILABLE_COVERAGE = (
 def fail(message):
     print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
     sys.exit(1)
+
+
+# --- measurement (INSTRUMENT-PNC, ver o cabecalho deste arquivo) ------
+
+
+class scan_stats:
+    """Quantos arquivos a varredura de texto ENCONTROU, quantos ela de
+    fato ANALISOU, quantos FALHARAM ao abrir, e quantos bytes passaram
+    por ela. Os que falham eram engolidos em silencio ate 05/09/2026
+    (um `except OSError: continue` sem contagem): o portao dizia quantos
+    varreu e nao sabia quantos perdeu - a forma exata de defeito que a
+    GODS_LAWS.md L-40 nomeia.
+    """
+
+    __slots__ = ("found", "analyzed", "failed", "failed_paths", "bytes_read")
+
+    def __init__(self, found):
+        self.found = found
+        self.analyzed = 0
+        self.failed = 0
+        self.failed_paths = []
+        self.bytes_read = 0
+
+    def record_analyzed(self, byte_count):
+        self.analyzed += 1
+        self.bytes_read += byte_count
+
+    def record_failed(self, path):
+        self.failed += 1
+        self.failed_paths.append(path)
+
+
+class compiler_usage:
+    """Quantos PROCESSOS de compilador esta execucao criou, e quantos
+    bytes de saida eles produziram. Existe porque a hipotese corrente
+    sobre o custo deste portao no executor Windows ("o caro e' ler o
+    SDK, nao invocar o cl.exe") e' inferencia por eliminacao, e
+    inferencia nao autoriza conserto (GODS_LAWS.md L-44).
+    """
+
+    __slots__ = ("invocations", "output_bytes")
+
+    def __init__(self):
+        self.invocations = 0
+        self.output_bytes = 0
+
+    def record(self, text):
+        self.invocations += 1
+        self.output_bytes += len(text.encode("utf-8", errors="replace"))
+
+
+def record_usage(usage, text):
+    """Um processo de compilador acabou de rodar. `usage` e' None em
+    todo caminho que nao esta medindo (os controles de autoteste, que
+    chamam os classificadores direto), e nesse caso nada e' contado -
+    nunca um erro, so' ausencia de medicao.
+    """
+    if usage is not None:
+        usage.record(text)
+
+
+# As chaves do bloco de fases, na ordem em que saem. O autoteste
+# (selftest_phase_report_control) repete esta lista A MAO, de proposito:
+# se ela fosse importada daqui, renomear uma chave passaria pelo
+# controle sem ninguem notar (GODS_LAWS.md L-40, corolario sobre
+# alegacao - o controle tem que ser independente do codigo que ele
+# verifica).
+_PHASE_KEYS = (
+    "nomes publicos",
+    "diretorios de sistema",
+    "arquivos encontrados",
+    "arquivos analisados",
+    "arquivos que falharam",
+    "bytes lidos",
+    "candidatos casados",
+    "arquivos unicos com candidato",
+    "invocacoes do compilador",
+    "bytes de saida do compilador",
+    "tempo nomes (s)",
+    "tempo listar (s)",
+    "tempo ler e varrer (s)",
+    "tempo classificar (s)",
+)
+
+_PHASE_NOT_MEASURED = "nao medido"
+
+
+def new_phase_report():
+    """Toda chave nasce declarada como NAO MEDIDA. Uma execucao que
+    reprova cedo imprime o bloco do mesmo jeito, com as fases que nunca
+    chegaram a rodar dizendo isso - nunca um zero que se confunde com
+    "medi e deu zero".
+    """
+    return {key: _PHASE_NOT_MEASURED for key in _PHASE_KEYS}
+
+
+def print_phase_report(report):
+    """Imprime o bloco de fases SEMPRE - passando ou reprovando
+    (GODS_LAWS.md L-40, item 3). Prefixo unico por linha para que o
+    passo de CI que extrai isto do log do ctest tenha o que casar.
+    """
+    for key in _PHASE_KEYS:
+        print(f"{SCRIPT_NAME}: FASE {key}: {report[key]}")
 
 
 def cxx_frontend(cxx_id):
@@ -437,10 +576,11 @@ def enumerate_our_names(include_dir):
 # --- system side: where to look (frontend-specific discovery) ---------
 
 
-def discover_system_include_dirs_gcc(cxx):
+def discover_system_include_dirs_gcc(cxx, usage=None):
     """GCC-frontend convention (see this script's own header, policy
     decision 3): the search path a real compile would use, never a
-    hardcoded /usr/include.
+    hardcoded /usr/include. This is itself a compiler PROCESS, so it is
+    counted in `usage` like every other one (INSTRUMENT-PNC).
     """
     try:
         proc = subprocess.run(
@@ -453,6 +593,7 @@ def discover_system_include_dirs_gcc(cxx):
     except OSError:
         return []
     combined = proc.stdout + proc.stderr
+    record_usage(usage, combined)
     dirs = []
     on = False
     for line in combined.splitlines():
@@ -487,10 +628,10 @@ def discover_system_include_dirs_msvc():
     return [d for d in raw.split(";") if d and os.path.isdir(d)]
 
 
-def discover_system_include_dirs(frontend, cxx):
+def discover_system_include_dirs(frontend, cxx, usage=None):
     if frontend == "msvc":
         return discover_system_include_dirs_msvc()
-    return discover_system_include_dirs_gcc(cxx)
+    return discover_system_include_dirs_gcc(cxx, usage)
 
 
 def list_files_under_dirs(dirs):
@@ -505,13 +646,32 @@ def list_files_under_dirs(dirs):
 
 def scan_defines_in_files(files, names):
     """Every "#define NAME..." (object-like or function-like) in any
-    of <files>, for any of <names>. Returns a list of (file, lineno,
-    name) - already CLASSIFIED as a candidate match, not yet REAL vs
-    NEUTRALIZED (classify_matches() below does that). Frontend-
-    agnostic: a plain text scan, identical on every platform.
+    of <files>, for any of <names>. Returns (matches, stats): `matches`
+    is a list of (file, lineno, name) - already CLASSIFIED as a
+    candidate match, not yet REAL vs NEUTRALIZED (classify_matches()
+    below does that) - and `stats` is the scan_stats above, saying how
+    many files this scan found, analyzed, lost, and how many bytes it
+    read. Frontend-agnostic: a plain text scan, identical on every
+    platform.
+
+    INSTRUMENT-PNC (05/09/2026, ver o cabecalho deste arquivo): o
+    `except OSError` abaixo CONTA e NOMEIA o arquivo perdido em vez de
+    seguir em silencio. Quem chama decide o que fazer com isso -
+    check_public_name_collision() abaixo REPROVA (GODS_LAWS.md L-40:
+    cobertura perdida nao vira aprovacao).
+
+    Os bytes saem de um fstat no descritor ja aberto (nunca um stat
+    novo por arquivo, que seria uma ida a disco a mais justamente na
+    fase que esta fatia existe para medir), e so' contam DEPOIS de o
+    laco ter lido o arquivo inteiro ate o fim.
     """
+    stats = scan_stats(len(files))
     if not names:
-        return []
+        # Inalcancavel pelo portao real (require_nonempty_scan() ja
+        # reprovou antes), e deliberadamente NAO mascarado: sem nome
+        # nenhum para procurar, nada foi analisado, e a reconciliacao
+        # de quem chamar vai dizer isso em vez de aprovar.
+        return [], stats
     alternation = "|".join(re.escape(n) for n in names)
     pattern = re.compile(rf"^\s*#\s*define\s+({alternation})\b")
     matches = []
@@ -522,9 +682,39 @@ def scan_defines_in_files(files, names):
                     m = pattern.match(line)
                     if m:
                         matches.append((path, lineno, m.group(1)))
+                stats.record_analyzed(os.fstat(handle.fileno()).st_size)
         except OSError:
-            continue
-    return matches
+            stats.record_failed(path)
+    return matches, stats
+
+
+_SCAN_FAILURE_PATHS_SHOWN = 20
+
+
+def scan_coverage_is_complete(stats):
+    """A reconciliacao da fase de leitura (GODS_LAWS.md L-36/L-40, o
+    mesmo raciocinio que BATCH-PARITY-WIN ja aplicava ao lote de
+    cl.exe): um arquivo que este portao deveria ter lido e nao leu e'
+    COBERTURA PERDIDA, nunca uma aprovacao. Duas condicoes, ambas
+    obrigatorias: nenhum arquivo pode ter falhado, e a soma
+    analisados + falharam tem que bater com encontrados.
+    """
+    return stats.failed == 0 and stats.analyzed + stats.failed == stats.found
+
+
+def print_scan_coverage_failure(stats):
+    print(
+        f"{SCRIPT_NAME}: LEITURA PERDEU COBERTURA - {stats.found} arquivo(s) encontrado(s), "
+        f"{stats.analyzed} analisado(s), {stats.failed} que recusaram abrir (GODS_LAWS.md L-40: "
+        "arquivo que o portao deveria ter lido e nao leu e cobertura perdida, reprovado em vez de "
+        "engolido em silencio):",
+        file=sys.stderr,
+    )
+    for path in stats.failed_paths[:_SCAN_FAILURE_PATHS_SHOWN]:
+        print(f"  {path}", file=sys.stderr)
+    remaining = len(stats.failed_paths) - _SCAN_FAILURE_PATHS_SHOWN
+    if remaining > 0:
+        print(f"  ... mais {remaining} arquivo(s) nao listado(s) aqui", file=sys.stderr)
 
 
 # A #define is NEUTRALIZED (policy decision 2) if the SAME file also
@@ -554,7 +744,7 @@ def name_is_undef_in_same_file(file_path, name):
 # answers "active" (GODS_LAWS.md L-40: "recusar alto e melhor que
 # aprovar em silencio" - an unprovable case must never quietly turn
 # into a neutralization).
-def macro_active_under_default_preprocessing_gcc(file_path, name, cxx):
+def macro_active_under_default_preprocessing_gcc(file_path, name, cxx, usage=None):
     try:
         proc = subprocess.run(
             [cxx, "-E", "-dM", "-xc++", file_path],
@@ -564,6 +754,7 @@ def macro_active_under_default_preprocessing_gcc(file_path, name, cxx):
         )
     except OSError:
         return True
+    record_usage(usage, proc.stdout + proc.stderr)
     if proc.returncode != 0 or not proc.stdout:
         return True
     pattern = re.compile(rf"^#define\s+{re.escape(name)}\b")
@@ -583,7 +774,7 @@ def macro_active_under_default_preprocessing_gcc(file_path, name, cxx):
 # directive"). LC_ALL=C forces English so this does not depend on the
 # machine's locale - the same reason this whole gate asks the REAL
 # compiler instead of curating a list.
-def file_is_not_c_or_cpp_header_gcc(file_path, cxx):
+def file_is_not_c_or_cpp_header_gcc(file_path, cxx, usage=None):
     env = dict(os.environ)
     env["LC_ALL"] = "C"
     try:
@@ -596,6 +787,7 @@ def file_is_not_c_or_cpp_header_gcc(file_path, cxx):
         )
     except OSError:
         return False
+    record_usage(usage, proc.stdout + proc.stderr)
     return "invalid preprocessing directive" in proc.stderr
 
 
@@ -668,7 +860,7 @@ def _c1021_names_included_file(file_path, combined_output):
     return False
 
 
-def classify_matches_msvc_batched(matches, cxx, probe_scratch):
+def classify_matches_msvc_batched(matches, cxx, probe_scratch, usage=None):
     """MSVC-frontend batched classification (this file's own header,
     BATCH-PARITY-WIN, 05/09/2026): replaces up to TWO fresh cl.exe
     PROCESSES per textual candidate with as few invocations as this
@@ -754,6 +946,7 @@ def classify_matches_msvc_batched(matches, cxx, probe_scratch):
                 check=False,
             )
             combined = proc.stdout + proc.stderr
+            record_usage(usage, combined)
         except OSError:
             combined = ""
 
@@ -797,7 +990,7 @@ def classify_matches_msvc_batched(matches, cxx, probe_scratch):
 # --- classification dispatch (frontend-agnostic caller) -----------------
 
 
-def classify_matches(matches, cxx, frontend):
+def classify_matches(matches, cxx, frontend, usage=None):
     """GCC-frontend classification of raw (file, lineno, name) matches
     into REAL and NEUTRALIZED, returning a list of dicts. NEUTRALIZED
     entries carry the reason (GODS_LAWS.md L-40 "contagem nunca
@@ -823,14 +1016,14 @@ def classify_matches(matches, cxx, frontend):
             })
             continue
 
-        if file_is_not_c_or_cpp_header_gcc(file_path, cxx):
+        if file_is_not_c_or_cpp_header_gcc(file_path, cxx, usage):
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "arquivo-nao-e-cabecalho-c",
             })
             continue
 
-        if not macro_active_under_default_preprocessing_gcc(file_path, name, cxx):
+        if not macro_active_under_default_preprocessing_gcc(file_path, name, cxx, usage):
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "guarda-inativa-por-padrao",
@@ -840,7 +1033,7 @@ def classify_matches(matches, cxx, frontend):
     return classified
 
 
-def classify_all_matches(matches, cxx, frontend, probe_scratch=None):
+def classify_all_matches(matches, cxx, frontend, probe_scratch=None, usage=None):
     """Frontend dispatcher, always returning (classified, missing).
     GCC delegates to classify_matches() above - `missing` is always []
     there, since every candidate gets its own isolated compiler call.
@@ -850,8 +1043,8 @@ def classify_all_matches(matches, cxx, frontend, probe_scratch=None):
     invocation needs (this file's own header, BATCH-PARITY-WIN).
     """
     if frontend == "msvc":
-        return classify_matches_msvc_batched(matches, cxx, probe_scratch)
-    return classify_matches(matches, cxx, frontend), []
+        return classify_matches_msvc_batched(matches, cxx, probe_scratch, usage)
+    return classify_matches(matches, cxx, frontend, usage), []
 
 
 def real_collisions(classified):
@@ -875,85 +1068,139 @@ def require_nonempty_scan(value, what):
 # --- the check itself ----------------------------------------------------
 
 
-def check_public_name_collision(include_dir, cxx, cxx_id):
+def check_public_name_collision(include_dir, cxx, cxx_id, system_dirs=None, system_files=None):
+    """O portao inteiro, com o bloco de fases impresso SEMPRE ao final
+    (INSTRUMENT-PNC, GODS_LAWS.md L-40 item 3) - passando, reprovando,
+    ou reprovando cedo, caso em que as fases que nunca rodaram dizem
+    "nao medido" em vez de um zero enganoso.
+
+    COSTURA DE TESTE, declarada: `system_dirs` e `system_files` sao
+    None em TODA execucao real - o portao descobre os diretorios
+    perguntando ao compilador e lista os arquivos ele mesmo. Os
+    controles de autoteste os injetam para exercitar ESTE caminho de
+    decisao (o mesmo que roda no servidor, nunca um caminho paralelo)
+    contra fixtures descartaveis: varrer os cabecalhos de sistema reais
+    dentro do autoteste custaria, no executor Windows, os mesmos 46-98s
+    que esta fatia existe para medir.
+    """
     frontend = cxx_frontend(cxx_id)
     if frontend == "unavailable":
         print_frontend_unavailable(SCRIPT_NAME)
         return True
 
-    names = enumerate_our_names(include_dir)
-    if not require_nonempty_scan(names, f"0 nomes publicos enumerados em {include_dir}"):
-        return False
-    name_count = len(names)
-
-    sys_dirs = discover_system_include_dirs(frontend, cxx)
-    discovery_desc = "variavel de ambiente INCLUDE" if frontend == "msvc" else f"'{cxx} -E -Wp,-v -xc++ -'"
-    if not require_nonempty_scan(
-        sys_dirs,
-        f"0 diretorios de sistema descobertos via {discovery_desc} "
-        "(compilador ausente, INCLUDE vazia, ou toolchain quebrada)",
-    ):
-        return False
-    dir_count = len(sys_dirs)
-
-    sys_files = list_files_under_dirs(sys_dirs)
-    if not require_nonempty_scan(
-        sys_files, f"0 arquivos de sistema varridos sob {dir_count} diretorio(s) descoberto(s)"
-    ):
-        return False
-    file_count = len(sys_files)
-
-    matches = scan_defines_in_files(sys_files, names)
-
-    probe_scratch = _msvc_probe_scratch_dir() if frontend == "msvc" else None
+    report = new_phase_report()
+    usage = compiler_usage()
     try:
-        classified, missing = classify_all_matches(matches, cxx, frontend, probe_scratch)
+        started = time.monotonic()
+        names = enumerate_our_names(include_dir)
+        report["tempo nomes (s)"] = f"{time.monotonic() - started:.3f}"
+        report["nomes publicos"] = len(names)
+        if not require_nonempty_scan(names, f"0 nomes publicos enumerados em {include_dir}"):
+            return False
+        name_count = len(names)
+
+        started = time.monotonic()
+        sys_dirs = (
+            system_dirs
+            if system_dirs is not None
+            else discover_system_include_dirs(frontend, cxx, usage)
+        )
+        sys_files = (
+            system_files
+            if system_files is not None
+            else (list_files_under_dirs(sys_dirs) if sys_dirs else [])
+        )
+        report["tempo listar (s)"] = f"{time.monotonic() - started:.3f}"
+        report["diretorios de sistema"] = len(sys_dirs)
+        report["arquivos encontrados"] = len(sys_files)
+
+        discovery_desc = "variavel de ambiente INCLUDE" if frontend == "msvc" else f"'{cxx} -E -Wp,-v -xc++ -'"
+        if not require_nonempty_scan(
+            sys_dirs,
+            f"0 diretorios de sistema descobertos via {discovery_desc} "
+            "(compilador ausente, INCLUDE vazia, ou toolchain quebrada)",
+        ):
+            return False
+        dir_count = len(sys_dirs)
+
+        if not require_nonempty_scan(
+            sys_files, f"0 arquivos de sistema varridos sob {dir_count} diretorio(s) descoberto(s)"
+        ):
+            return False
+        file_count = len(sys_files)
+
+        started = time.monotonic()
+        matches, stats = scan_defines_in_files(sys_files, names)
+        report["tempo ler e varrer (s)"] = f"{time.monotonic() - started:.3f}"
+        report["arquivos analisados"] = stats.analyzed
+        report["arquivos que falharam"] = stats.failed
+        report["bytes lidos"] = stats.bytes_read
+        report["candidatos casados"] = len(matches)
+        report["arquivos unicos com candidato"] = len({m[0] for m in matches})
+
+        # INSTRUMENT-PNC (GODS_LAWS.md L-40): conferido ANTES de olhar
+        # REAL/NEUTRALIZADO, pelo mesmo motivo que a reconciliacao do
+        # lote MSVC logo abaixo - cobertura perdida na leitura nao pode
+        # ser confundida com "0 colisao real".
+        if not scan_coverage_is_complete(stats):
+            print_scan_coverage_failure(stats)
+            return False
+
+        started = time.monotonic()
+        probe_scratch = _msvc_probe_scratch_dir() if frontend == "msvc" else None
+        try:
+            classified, missing = classify_all_matches(matches, cxx, frontend, probe_scratch, usage)
+        finally:
+            if probe_scratch is not None:
+                shutil.rmtree(probe_scratch, ignore_errors=True)
+        report["tempo classificar (s)"] = f"{time.monotonic() - started:.3f}"
+
+        # GODS_LAWS.md L-36 reconciliation (this file's own header,
+        # BATCH-PARITY-WIN): on MSVC, `missing` names every candidate a
+        # batched cl.exe invocation never gave a verdict to - checked and
+        # failed BEFORE looking at REAL/NEUTRALIZED at all, so a lost-
+        # coverage scenario is never mistaken for either "0 colisao real"
+        # or a genuine collision. Always [] on GCC (classify_all_matches()
+        # above), so this never fires there.
+        if missing:
+            print(
+                f"{SCRIPT_NAME}: LOTE MSVC PERDEU COBERTURA de {len(missing)} candidato(s) - nem marcador "
+                "nem C1021 atribuivel apareceu para eles (GODS_LAWS.md L-36: contagem de analisados nao "
+                "bateu com a de encontrados, reprovado em vez de aprovado em silencio):",
+                file=sys.stderr,
+            )
+            for file_path, lineno, name in missing:
+                print(f"  {file_path}:{lineno}:{name}", file=sys.stderr)
+            return False
+
+        real = real_collisions(classified)
+        neutralized = neutralized_collisions(classified)
+
+        if neutralized:
+            print(
+                f"{SCRIPT_NAME}: {len(neutralized)} colisao(oes) NEUTRALIZADA(S) (define+undef no mesmo "
+                "arquivo, ou define ativo so sob guarda de simbolo que a inclusao normal nao define, ou o "
+                "proprio arquivo nao e C/C++ valido segundo o compilador - motivo por linha abaixo, "
+                "GODS_LAWS.md L-40 nao esconde a contagem nem o motivo):"
+            )
+            for c in neutralized:
+                print(f"  {c['file']}:{c['line']}:{c['name']}:{c['reason']}")
+
+        if real:
+            print(f"{SCRIPT_NAME}: COLISAO (docs/api-conventions.md R6):", file=sys.stderr)
+            for c in real:
+                print(f"  {c['file']}:{c['line']}:{c['name']}", file=sys.stderr)
+            return False
+
+        print(
+            f"{SCRIPT_NAME}: {name_count} nome(s) publico(s) verificados contra {file_count} arquivo(s) "
+            f"de sistema ({dir_count} diretorio(s)), 0 colisao real (frontend: {frontend})"
+        )
+        return True
     finally:
-        if probe_scratch is not None:
-            shutil.rmtree(probe_scratch, ignore_errors=True)
-
-    # GODS_LAWS.md L-36 reconciliation (this file's own header,
-    # BATCH-PARITY-WIN): on MSVC, `missing` names every candidate a
-    # batched cl.exe invocation never gave a verdict to - checked and
-    # failed BEFORE looking at REAL/NEUTRALIZED at all, so a lost-
-    # coverage scenario is never mistaken for either "0 colisao real"
-    # or a genuine collision. Always [] on GCC (classify_all_matches()
-    # above), so this never fires there.
-    if missing:
-        print(
-            f"{SCRIPT_NAME}: LOTE MSVC PERDEU COBERTURA de {len(missing)} candidato(s) - nem marcador "
-            "nem C1021 atribuivel apareceu para eles (GODS_LAWS.md L-36: contagem de analisados nao "
-            "bateu com a de encontrados, reprovado em vez de aprovado em silencio):",
-            file=sys.stderr,
-        )
-        for file_path, lineno, name in missing:
-            print(f"  {file_path}:{lineno}:{name}", file=sys.stderr)
-        return False
-
-    real = real_collisions(classified)
-    neutralized = neutralized_collisions(classified)
-
-    if neutralized:
-        print(
-            f"{SCRIPT_NAME}: {len(neutralized)} colisao(oes) NEUTRALIZADA(S) (define+undef no mesmo "
-            "arquivo, ou define ativo so sob guarda de simbolo que a inclusao normal nao define, ou o "
-            "proprio arquivo nao e C/C++ valido segundo o compilador - motivo por linha abaixo, "
-            "GODS_LAWS.md L-40 nao esconde a contagem nem o motivo):"
-        )
-        for c in neutralized:
-            print(f"  {c['file']}:{c['line']}:{c['name']}:{c['reason']}")
-
-    if real:
-        print(f"{SCRIPT_NAME}: COLISAO (docs/api-conventions.md R6):", file=sys.stderr)
-        for c in real:
-            print(f"  {c['file']}:{c['line']}:{c['name']}", file=sys.stderr)
-        return False
-
-    print(
-        f"{SCRIPT_NAME}: {name_count} nome(s) publico(s) verificados contra {file_count} arquivo(s) "
-        f"de sistema ({dir_count} diretorio(s)), 0 colisao real (frontend: {frontend})"
-    )
-    return True
+        report["invocacoes do compilador"] = usage.invocations
+        report["bytes de saida do compilador"] = usage.output_bytes
+        print_phase_report(report)
 
 
 # --- real mode -----------------------------------------------------------
@@ -1038,7 +1285,7 @@ def selftest_positive_control(scratch):
     _write(os.path.join(sys_dir, "unrelated.h"), "#define UNRELATED_MACRO 1\n")
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     if not matches:
         print("selftest: controle POSITIVO OK (header limpo, sem colisao)")
         return True
@@ -1059,7 +1306,7 @@ def selftest_negative_control(scratch, cxx, frontend):
     _write(hostile, "#define planted_collision_name 1\n")
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     classified = _classify(matches, cxx, frontend, scratch, "negative")
     real = real_collisions(classified)
     if not real:
@@ -1087,7 +1334,7 @@ def selftest_undef_neutralizes_control(scratch, cxx, frontend):
     _write(hostile, "#define planted_collision_name 1\n/* uses it here */\n#undef planted_collision_name\n")
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     classified = _classify(matches, cxx, frontend, scratch, "neutralize")
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
@@ -1122,7 +1369,7 @@ def selftest_guard_inactive_control(scratch, cxx, frontend):
     _write(hostile, "#ifdef GUARD_NEVER_DEFINED\n#define planted_collision_name 1\n#endif\n")
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     classified = _classify(matches, cxx, frontend, scratch, "guard_inactive")
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
@@ -1162,7 +1409,7 @@ def selftest_guard_active_control(scratch, cxx, frontend):
     )
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     classified = _classify(matches, cxx, frontend, scratch, "guard_active")
     real = real_collisions(classified)
     if not any(c["name"] == "planted_collision_name" for c in real):
@@ -1193,7 +1440,7 @@ def selftest_not_a_header_control(scratch, cxx, frontend):
     )
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     classified = _classify(matches, cxx, frontend, scratch, "not_a_header")
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
@@ -1353,7 +1600,7 @@ def selftest_batch_reconciliation_control(scratch, cxx, frontend):
     _write(hostile, "#define planted_collision_name 1\n")
 
     names = enumerate_our_names(include_dir)
-    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
     if not matches:
         print(
             "selftest: controle de RECONCILIACAO DE LOTE FALHOU (fixture nao gerou candidato algum)",
@@ -1395,6 +1642,158 @@ def selftest_batch_reconciliation_control(scratch, cxx, frontend):
     return True
 
 
+# PHASE REPORT control (INSTRUMENT-PNC, ver o cabecalho deste arquivo,
+# GODS_LAWS.md L-40 item 3): uma execucao que PASSA tem que imprimir o
+# bloco de fases inteiro, com as contagens certas - e' o unico jeito de
+# a proxima fatia saber qual fase e' cara. As chaves esperadas estao
+# escritas A MAO aqui, nunca importadas de _PHASE_KEYS: renomear uma
+# chave la sem mexer aqui tem que REPROVAR. Roda contra fixtures
+# descartaveis (a costura declarada de check_public_name_collision()),
+# jamais contra os cabecalhos de sistema reais - varre-los aqui
+# custaria, no executor Windows, os mesmos 46-98s que esta fatia
+# existe para medir.
+def selftest_phase_report_control(scratch, cxx, cxx_id):
+    include_dir = make_fixture_include_dir(scratch, "phase_report")
+    _write(os.path.join(include_dir, "widget.hpp"),
+           "class widget {\n  public:\n    [[nodiscard]] int size() const noexcept;\n};\n")
+    sys_dir = make_fixture_system_dir(scratch, "phase_report")
+    sys_file = os.path.join(sys_dir, "unrelated.h")
+    _write(sys_file, "#define UNRELATED_MACRO 1\n")
+
+    outcome = _make_capture()(
+        lambda: check_public_name_collision(
+            include_dir, cxx, cxx_id, system_dirs=[sys_dir], system_files=[sys_file]
+        )
+    )
+    if not outcome.result:
+        print(
+            "selftest: controle de BLOCO DE FASES FALHOU (fixture limpa deveria passar, reprovou)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    expected_keys = (
+        "nomes publicos",
+        "diretorios de sistema",
+        "arquivos encontrados",
+        "arquivos analisados",
+        "arquivos que falharam",
+        "bytes lidos",
+        "candidatos casados",
+        "arquivos unicos com candidato",
+        "invocacoes do compilador",
+        "bytes de saida do compilador",
+        "tempo nomes (s)",
+        "tempo listar (s)",
+        "tempo ler e varrer (s)",
+        "tempo classificar (s)",
+    )
+    absent = [key for key in expected_keys if f"FASE {key}:" not in outcome.text]
+    if absent:
+        print(
+            f"selftest: controle de BLOCO DE FASES FALHOU (chave(s) ausente(s) na saida: {absent})",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    expected_counts = (
+        "FASE diretorios de sistema: 1",
+        "FASE arquivos encontrados: 1",
+        "FASE arquivos analisados: 1",
+        "FASE arquivos que falharam: 0",
+        "FASE candidatos casados: 0",
+    )
+    wrong = [line for line in expected_counts if line not in outcome.text]
+    if wrong:
+        print(
+            f"selftest: controle de BLOCO DE FASES FALHOU (contagem(ns) errada(s), esperava: {wrong})",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    # Um contador que sempre imprime zero nao mede nada (GODS_LAWS.md
+    # L-40, piso de varredura nao-vazia aplicado ao proprio numero):
+    # nomes e bytes lidos tem que ser maiores que zero nesta fixture.
+    for key in ("nomes publicos", "bytes lidos"):
+        found = re.search(rf"FASE {re.escape(key)}: (\d+)", outcome.text)
+        if not found or int(found.group(1)) <= 0:
+            print(
+                f"selftest: controle de BLOCO DE FASES FALHOU ('{key}' deveria ser maior que zero "
+                f"nesta fixture, saiu: {found.group(1) if found else 'nada'})",
+                file=sys.stderr,
+            )
+            return False
+
+    print(
+        "selftest: controle de BLOCO DE FASES OK (execucao que PASSA imprime as 14 chaves de fase "
+        "com as contagens certas)"
+    )
+    return True
+
+
+# UNREADABLE FILE control (INSTRUMENT-PNC, GODS_LAWS.md L-40): um
+# arquivo que a varredura encontra e nao consegue ler e' COBERTURA
+# PERDIDA - ate 05/09/2026 ele era engolido por um `except OSError:
+# continue` sem contagem. Agora tem que ser contado em "falharam",
+# nomeado, e REPROVAR.
+#
+# POR QUE UM ARQUIVO INEXISTENTE, E NAO UM chmod 000: permissao nao
+# prova nada nos dois ambientes que mais importam aqui. O job Linux do
+# CI roda dentro de um container, ou seja como root, e root ignora bit
+# de permissao (GODS_LAWS.md L-47); o Windows ignora chmod de saida.
+# Um caminho que nao existe recusa abrir com OSError em TODA
+# plataforma e para TODO usuario, root incluso - e nao e' cenario
+# artificial: e' exatamente a forma de um arquivo que sumiu entre a
+# listagem e a leitura.
+def selftest_unreadable_file_control(scratch, cxx, cxx_id):
+    include_dir = make_fixture_include_dir(scratch, "unreadable_file")
+    _write(os.path.join(include_dir, "widget.hpp"),
+           "class widget {\n  public:\n    [[nodiscard]] int size() const noexcept;\n};\n")
+    sys_dir = make_fixture_system_dir(scratch, "unreadable_file")
+    readable = os.path.join(sys_dir, "unrelated.h")
+    _write(readable, "#define UNRELATED_MACRO 1\n")
+    unreadable = os.path.join(sys_dir, "arquivo-que-recusa-abrir.h")
+
+    outcome = _make_capture()(
+        lambda: check_public_name_collision(
+            include_dir, cxx, cxx_id, system_dirs=[sys_dir], system_files=[readable, unreadable]
+        )
+    )
+    if outcome.result:
+        print(
+            "selftest: controle de ARQUIVO QUE RECUSA ABRIR FALHOU (arquivo perdido na leitura "
+            "deveria REPROVAR o portao, e ele passou)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    for expected in ("FASE arquivos encontrados: 2", "FASE arquivos analisados: 1", "FASE arquivos que falharam: 1"):
+        if expected not in outcome.text:
+            print(
+                f"selftest: controle de ARQUIVO QUE RECUSA ABRIR FALHOU (reprovou, mas a contagem "
+                f"nao apareceu como esperado: {expected})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            return False
+    if unreadable not in outcome.text:
+        print(
+            "selftest: controle de ARQUIVO QUE RECUSA ABRIR FALHOU (reprovou e contou, mas nao "
+            "NOMEOU o arquivo perdido)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle de ARQUIVO QUE RECUSA ABRIR OK (arquivo perdido na leitura e contado, "
+        "nomeado, e reprova - nunca engolido)"
+    )
+    return True
+
+
 def _run_all_controls(scratch, cxx, cxx_id, frontend):
     return [
         selftest_positive_control(scratch),
@@ -1407,6 +1806,8 @@ def _run_all_controls(scratch, cxx, cxx_id, frontend):
         selftest_empty_our_names_control(scratch, cxx, cxx_id),
         selftest_empty_system_dirs_control(),
         selftest_batch_reconciliation_control(scratch, cxx, frontend),
+        selftest_phase_report_control(scratch, cxx, cxx_id),
+        selftest_unreadable_file_control(scratch, cxx, cxx_id),
     ]
 
 
@@ -1416,7 +1817,7 @@ def selftest_main(args):
 
     frontend = cxx_frontend(cxx_id)
 
-    # Nine of the ten controls below need a real compiler in some form:
+    # Eleven of the twelve controls below need a real compiler in some form:
     # GCC/Clang via `-E -dM` (see this file's own header, policy
     # decision 2), MSVC via `#ifdef` probes preprocessed with `/E /TP`
     # (NAMES-PARITY-WIN), or - the new RECONCILIACAO DE LOTE control's
@@ -1426,12 +1827,12 @@ def selftest_main(args):
     # exercises enumerate_our_names() and needs no compiler at all - it
     # still runs behind this SAME declared-absence gate, on purpose:
     # when the escape hatch forces "unavailable", the WHOLE selftest is
-    # one declared case here, not ten and not "nine plus one" - the
+    # one declared case here, not twelve and not "eleven plus one" - the
     # real gate's own single-case shape (check_public_name_collision()
     # above), not check_spdx.py's per-case list (that gate's cases are
-    # independent hostile filenames; this gate's ten controls all share
-    # the one unavailable mechanism, even the one that does not, on its
-    # own, need it).
+    # independent hostile filenames; this gate's twelve controls all
+    # share the one unavailable mechanism, even the one that does not,
+    # on its own, need it).
     if frontend == "unavailable":
         print_frontend_unavailable("check_public_name_collision.py --selftest")
         return

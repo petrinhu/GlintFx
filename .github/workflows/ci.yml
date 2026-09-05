@@ -379,6 +379,42 @@ jobs:
           cmake --build ${{ matrix.builddir }}
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
 
+      # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
+      # o passo acima roda com --output-on-failure, que so mostra a saida
+      # de teste que REPROVA - a saida de um portao que PASSA nunca
+      # chegou a log nenhum, e e' por isso que ninguem nunca viu as fases
+      # de check_public_name_collision.py (o portao que estoura o teto de
+      # tempo do teste no executor Windows: 46 a 98s contra um limite de
+      # 120, medido em 05/09/2026). O proprio ctest ja PRESERVA a saida de
+      # TODOS os testes, passando incluidos, em
+      # <builddir>/Testing/Temporary/LastTest.log; este passo so le esse
+      # log e imprime as linhas do portao - nunca re-roda o teste, que
+      # dobraria exatamente o custo que esta fatia existe para medir.
+      # Zero linha casada REPROVA o passo (L-40, piso de varredura
+      # nao-vazia): significa que o portao nao rodou, ou que a
+      # instrumentacao dele sumiu - nunca "esta tudo bem". `grep -c` que
+      # conta zero sai com status 1 e quebraria o `set -e` em silencio,
+      # por isso o `|| true` e o teste do VALOR logo abaixo (GODS_LAWS.md
+      # L-45). Roda tambem no Linux, e nao so no Windows, por
+      # GODS_LAWS.md L-04: as duas pernas medem a mesma coisa da mesma
+      # forma, e e' a comparacao entre elas que diz se o custo do
+      # Windows e' da leitura de disco ou de outra fase.
+      - name: Fases do portao de colisao de nome (${{ matrix.modo }})
+        run: |
+          set -eu
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log"
+          if [ ! -f "$log" ]; then
+            echo "log de teste preservado nao encontrado: $log"
+            exit 1
+          fi
+          linhas=$(grep -c "check_public_name_collision.py: FASE " "$log" || true)
+          echo "linhas de fase encontradas: $linhas"
+          if [ "$linhas" -eq 0 ]; then
+            echo "nenhuma linha de fase no log preservado - o portao de colisao de nome nao rodou, ou a instrumentacao dele sumiu (GODS_LAWS.md L-40)"
+            exit 1
+          fi
+          grep "check_public_name_collision.py: FASE " "$log"
+
   windows:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-latest
@@ -625,6 +661,33 @@ jobs:
         run: |
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
+      # o gemeo exato do passo de mesmo nome do job `linux` (GODS_LAWS.md
+      # L-04: a mesma medicao, feita da mesma forma nos dois sistemas), e
+      # a perna que de fato importa - e' aqui que
+      # check_public_name_collision.py leva de 46 a 98s contra um teto de
+      # 120, e e' daqui que ninguem nunca viu numero nenhum, porque o
+      # passo acima roda com --output-on-failure e o portao vinha
+      # PASSANDO. O ctest ja preserva a saida de todo teste, passando
+      # incluido, em <builddir>/Testing/Temporary/LastTest.log; este
+      # passo so a le. Nunca re-roda o teste: re-rodar dobraria o custo
+      # que se quer medir. Zero linha casada REPROVA (L-40).
+      - name: Fases do portao de colisao de nome (${{ matrix.modo }})
+        shell: pwsh
+        run: |
+          $log = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log"
+          if (-not (Test-Path $log)) {
+            Write-Error "log de teste preservado nao encontrado: $log"
+            exit 1
+          }
+          $linhas = @(Select-String -Path $log -SimpleMatch 'check_public_name_collision.py: FASE ')
+          Write-Host "linhas de fase encontradas: $($linhas.Count)"
+          if ($linhas.Count -eq 0) {
+            Write-Error "nenhuma linha de fase no log preservado - o portao de colisao de nome nao rodou, ou a instrumentacao dele sumiu (GODS_LAWS.md L-40)"
+            exit 1
+          }
+          $linhas | ForEach-Object { Write-Host $_.Line }
 
       # X-0-LOG (02/09/2026, GODS_LAWS.md L-40): o passo "Testes" acima roda
       # com --output-on-failure, que so mostra a saida de teste que REPROVA

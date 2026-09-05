@@ -77,6 +77,22 @@ copy_real_sources() {
     cp "$repo_root/src/platform/wayland/global_catalog.cpp" \
         "$target/src/platform/wayland/global_catalog.cpp"
 
+    # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5):
+    # shell_smoke.cpp's own build (Containerfile) needs both staged
+    # here for the same reason connect_smoke.cpp's build already needs
+    # display_adapter.cpp itself - shell_adapter.cpp calls into
+    # wayland_display_adapter and global_catalog directly, and
+    # shell_requirements.cpp is the pure half it calls before ever
+    # binding.
+    cp "$repo_root/src/platform/wayland/shell_requirements.hpp" \
+        "$target/src/platform/wayland/shell_requirements.hpp"
+    cp "$repo_root/src/platform/wayland/shell_requirements.cpp" \
+        "$target/src/platform/wayland/shell_requirements.cpp"
+    cp "$repo_root/src/platform/wayland/shell_adapter.hpp" \
+        "$target/src/platform/wayland/shell_adapter.hpp"
+    cp "$repo_root/src/platform/wayland/shell_adapter.cpp" \
+        "$target/src/platform/wayland/shell_adapter.cpp"
+
     cp "$repo_root/src/core/err.cpp" "$target/src/core/err.cpp"
     cp "$repo_root/src/core/err_code.cpp" "$target/src/core/err_code.cpp"
 

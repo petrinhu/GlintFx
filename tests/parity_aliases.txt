@@ -102,3 +102,20 @@ install_includedir_test|install_includedir_win_test
 no_target_collision_test|no_target_collision_win_test
 output_name_test|output_name_win_test
 install_packager_layout_test|install_packager_layout_win_test
+
+# WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5, decisao do
+# CTO na propria tabela de fatias, coluna "Par"): shell_requirements_
+# test (tests/CMakeLists.txt, if(UNIX)) e shell_smoke (tests/container/,
+# via P-0) provam que o Wayland side reuniu os dois servicos que uma
+# janela precisa para existir - wl_compositor e xdg_wm_base. O Windows
+# nao tem "registry"/globals para ter par de MECANISMO (mesma porta que
+# L-05 fecha por desenho, mesma razao de display_bind_refusal_test em
+# tests/parity_exceptions.txt) - mas win32_display_connect_test
+# (tests/CMakeLists.txt, if(WIN32)) ja prova o EFEITO equivalente do
+# lado Windows: "o sistema aceitou registrar a fabrica de janela", o
+# fato fundacional que X-1' (fatia 7) estende. Par verificado contra
+# ambos os lados existindo HOJE como ctest real (shell_requirements_
+# test) ou fixture do container real (shell_smoke via P-0), nunca
+# suposto.
+shell_requirements_test|win32_display_connect_test
+shell_smoke|win32_display_connect_test

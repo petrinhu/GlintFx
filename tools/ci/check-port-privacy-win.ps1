@@ -69,7 +69,7 @@ $ErrorActionPreference = "Stop"
 # KNOWN_PORT_NAMES verbatim - a single closed list living in two files by
 # necessity (one POSIX sh, one PowerShell), not by choice. Adding an
 # adapter means editing BOTH in the same commit.
-$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter")
+$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 

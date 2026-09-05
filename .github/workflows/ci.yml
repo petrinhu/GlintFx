@@ -1147,6 +1147,20 @@ jobs:
             glintfx-wltest-clean pump_smoke
           echo "pump_smoke" >> parity_inventory.txt
 
+      # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): shell_
+      # smoke.cpp binds wl_compositor and xdg_wm_base against this SAME
+      # real compositor - mesmo padrao dos passos acima. Roda ANTES da
+      # fatia C abaixo pelo mesmo motivo do pump: precisa do compositor
+      # deste container ainda vivo, e a fatia C e o passo que o mata.
+      - name: WL-WINDOW fatia W-B - shell (wl_compositor/xdg_wm_base) dentro do container
+        run: |
+          set -eu
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean shell_smoke
+          echo "shell_smoke" >> parity_inventory.txt
+
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o

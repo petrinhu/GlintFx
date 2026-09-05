@@ -69,7 +69,14 @@ set -eu
 # but the tree it reads is the same tree on every leg) - so the
 # win32/ backend's own adapter must be on this list even though this
 # script never runs a Windows build itself.
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter"
+#
+# wayland_shell_adapter added by WL-WINDOW fatia W-B (docs/plano-w6a-
+# janela.md fatia 5, GODS_LAWS.md L-40): the adapter that binds
+# wl_compositor/xdg_wm_base (src/platform/wayland/shell_adapter.hpp) -
+# tools/ci/check-port-privacy-win.ps1's own KNOWN_ADAPTER_CLASSES was
+# updated in this SAME commit, per this file's own PORT-PRIVACY-WIN
+# comment below.
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {

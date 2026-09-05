@@ -691,6 +691,27 @@ if(UNIX)
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
     target_compile_options(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
+
+    # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): the pure
+    # half of "does this compositor announce what a shell needs" -
+    # check_shell_requirements() against a global_catalog built by
+    # hand, no compositor, no wayland-client link required at all (no
+    # Wayland type is reachable from shell_requirements.{hpp,cpp} -
+    # see that header's own comment). The real bind() against a live
+    # compositor is fatia 5's own shell_smoke, inside the container
+    # (GODS_LAWS.md L-09) - if(UNIX)-guarded here (not registered
+    # unguarded like global_catalog_test/window_configure_sequence_
+    # test above) because its Windows-side twin is a DIFFERENT
+    # mechanism entirely (win32_display_connect_test, the window-class
+    # factory accepting registration), an ALIAS in
+    # tests/parity_aliases.txt, not the same code running on both
+    # platforms.
+    glintfx_add_test(shell_requirements_test)
+    target_include_directories(shell_requirements_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(shell_requirements_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+    )
 endif()
 
 # WIN-DISPLAY fatia 3 (TODO.md, GODS_LAWS.md L-04/L-09): the Windows

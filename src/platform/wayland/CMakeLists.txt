@@ -22,6 +22,12 @@
 # extends this same class with (registry creation, listener, roundtrip)
 # will populate. No Wayland type in that file itself - see its own
 # header comment.
+#
+# WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5) adds
+# shell_requirements.cpp (pure, no Wayland type reachable - same shape
+# as global_catalog.cpp) and shell_adapter.cpp (the wl_compositor/
+# xdg_wm_base adapter WL-WINDOW fatia W-E, a later slice, builds a
+# window on top of).
 
 glintfx_add_wayland_xdg_shell_binding(glintfx_library)
 
@@ -29,4 +35,6 @@ target_sources(glintfx_library PRIVATE
     display_adapter.cpp
     global_catalog.cpp
     selected_display_adapter_check.cpp
+    shell_requirements.cpp
+    shell_adapter.cpp
 )

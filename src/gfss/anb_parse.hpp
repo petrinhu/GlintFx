@@ -22,13 +22,24 @@
 // job) - this fatia's own scope line, "guarda o argumento cru para as
 // duas fatias seguintes", GFSS-SEL-PARSE-NTH's half of it.
 //
-// STANDALONE UTILITY, NOT YET WIRED INTO THE SELECTOR AST (TODO.md's
-// own "Trilha paralela; GFSS-SPECIFICITY e GFSS-MATCH-COMBINE dependem
-// TRANSITIVAMENTE desta fatia" - a transitive dependency is a FUTURE
-// caller, not an instruction to rewire selector_ast.hpp today):
-// selector_ast.hpp's own gfss_simple_selector still carries only the
-// RAW argument text for a `pseudo_function` selector; deciding WHETHER
-// and HOW that struct grows a parsed gfss_anb field of its own is
+// NOT WIRED INTO THE SELECTOR AST'S OWN STORAGE, BUT CALLED AT PARSE
+// TIME SINCE 05/09/2026 (GFSS-SEL-PARSE-NTH reopened, GODS_LAWS.md
+// L-20/L-40 - a defect found by measurement: `:nth-child(banana)` used
+// to parse as a VALID selector whose argument nobody ever read,
+// producing a rule that silently never matched): selector_parse.cpp's
+// own attach_anb_validation() now calls parse_anb() on every nth-*
+// functional pseudo-class's own raw argument the moment it is
+// captured, and REJECTS the whole selector with parse_anb()'s own
+// diagnostic if it is not valid An+B syntax - the same "aceitar e
+// nunca casar e falha silenciosa" refusal the project leader already
+// made once for an unrelated contract (ESCOPO.md, 02/09/2026 decision
+// 1), applied here. What is STILL true, and is a narrower claim than
+// before: selector_ast.hpp's own gfss_simple_selector carries only the
+// RAW argument text for a `pseudo_function` selector, never a parsed
+// gfss_anb of its own - the PARSED value from this validation call is
+// discarded, only its validity kept. Deciding WHETHER and HOW that
+// struct grows a parsed gfss_anb field (so GFSS-MATCH-STRUCT would not
+// have to re-parse the same text a second time at match time) is
 // GFSS-SPECIFICITY's own call (or a dedicated integration fatia), not
 // this one's - the SAME "GFSS-API decides the public shape, this fatia
 // does not" boundary selector_parse.hpp's own header comment already

@@ -130,16 +130,26 @@ structural_functional_kind_for_name(std::string_view name) noexcept;
                                            const gltfx_node_view &node) noexcept;
 
 // Evaluates one of the four An+B structural pseudo-classes against
-// `node`. `raw_argument` is the UNANALYZED text selector_parse.cpp's
-// own parse_functional_pseudo() captured (selector_ast.hpp's own
-// gfss_simple_selector::raw_argument) - this function parses it itself
-// via gfss/anb_parse.hpp's own parse_anb() (GFSS-SEL-PARSE-NTH's own
-// utility was never wired into the AST, by that fatia's own design -
-// see anb_parse.hpp's own header comment). A malformed argument (one
-// parse_anb() itself rejects) never matches ANYTHING, rather than
-// throwing or aborting - the same graceful-degradation stance every
-// other evaluator here already takes toward hostile or malformed leaf
-// content (LEI ZERO: the consumer base is open and unknown).
+// `node`. `raw_argument` is the text selector_parse.cpp's own parse_
+// functional_pseudo() captured (selector_ast.hpp's own gfss_simple_
+// selector::raw_argument) - this function re-parses it itself via
+// gfss/anb_parse.hpp's own parse_anb() (the PARSED gfss_anb value is
+// not stored anywhere in the AST, by GFSS-SPECIFICITY's own design -
+// see anb_parse.hpp's own header comment).
+//
+// PRECONDITION, NOT A HOSTILE-INPUT CASE (GFSS-SEL-PARSE-NTH reopened
+// 05/09/2026, GODS_LAWS.md L-20/L-40): `raw_argument` is valid An+B
+// syntax by the time it reaches a real match_compound() call -
+// selector_parse.cpp's own attach_anb_validation() already refused any
+// selector whose nth-* argument fails parse_anb() at PARSE time, with
+// a diagnostic (line, column, what was expected), the same refusal the
+// project leader already chose once for an analogous silent-failure
+// shape (ESCOPO.md, 02/09/2026 decision 1). A malformed argument
+// reaching THIS function is therefore an INTERNAL CONTRACT VIOLATION,
+// not a leaf author's mistake - structural_match.cpp's own
+// implementation asserts on it (Debug diagnostic) and falls back to
+// "never matches" (a defined, safe Release-build answer) rather than
+// crashing a correctly-behaving consumer's process.
 [[nodiscard]] bool structural_functional_holds(structural_functional_kind kind,
                                                std::string_view raw_argument,
                                                const gltfx_node_view &node) noexcept;

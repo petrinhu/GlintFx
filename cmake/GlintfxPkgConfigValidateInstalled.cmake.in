@@ -205,10 +205,93 @@
 # AND a relative DESTDIR against the invoking process's CWD, the exact
 # rule CMAKE_CURRENT_SOURCE_DIR already answers correctly in script
 # mode (confirmed against a real generated cmake_install.cmake on this
-# machine).
+# machine). A THIRD call site (glintfx_pkgconfig_validate_content_tokens()
+# below, one per "-I"/"-L" token) shares this same atom too.
+#
+# PKG-WIN-SCOPE round 7 (05/09/2026, CI run 33944572704, job "Windows
+# (primario)"): this function used to route EVERY value through
+# cmake_path(ABSOLUTE_PATH ... BASE_DIRECTORY ...) unconditionally,
+# even one that was already a FULL path by CMake's OWN classic notion.
+# On a cmake actually BUILT for Windows, that classic notion and
+# cmake_path()'s notion DISAGREE for a value like "/usr" - a
+# root-directory ("/") with no root-name (no drive letter): CMake's
+# OWN documentation for cmake_path(IS_ABSOLUTE) (cmake_path.html,
+# fetched 05/09/2026) says plainly "on Windows ... the path must have
+# both a root-name and a root-directory-separator to be considered
+# absolute" and "IS_ABSOLUTE can be false while HAS_ROOT_DIRECTORY is
+# true" - while CMake's classic, EVERY-platform rule
+# (cmSystemTools::FileIsFullPath) has always treated a bare leading "/"
+# as a full path, no drive letter required. Routing "/usr" through
+# cmake_path(ABSOLUTE_PATH ... BASE_DIRECTORY ...) under the STRICTER
+# rule silently BORROWED base_directory's own root-name (drive letter)
+# to complete it - measured turning "/usr" into "D:/usr" - and the
+# caller then concatenated that onto a DESTDIR carrying its OWN,
+# DIFFERENT drive letter ("C:/Users/.../buildroot") as a plain string
+# prefix, producing the impossible
+# "C:/Users/.../buildrootD:/usr/lib/pkgconfig" the FATAL_ERROR at the
+# bottom of this file reported - a real, GOOD install, reproved.
+#
+# THE FIX mirrors what a real `cmake --install` itself actually does
+# here, not what cmake_path() would prefer: confirmed against this
+# project's own generated `build/cmake_install.cmake` (line ~52), real
+# CMake's own DESTDIR concatenation is
+# `"$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/..."` - CMAKE_INSTALL_PREFIX
+# used EXACTLY as configured (only a trailing "/" stripped, at the top
+# of that generated file), never forced through cmake_path's own,
+# stricter absolute-path machinery.
+#
+# WHY A HAND-WRITTEN string(MATCHES ...) TEST, NOT `if(IS_ABSOLUTE
+# ...)`: that classic command WOULD give the right per-platform answer
+# on a real Windows machine (leading "/" alone is enough there too),
+# but MEASURED, live, on THIS (Linux) machine: `if(IS_ABSOLUTE "/usr")`
+# and `cmake_path(IS_ABSOLUTE "/usr")` already AGREE (both TRUE) here,
+# and drive-letter recognition for either command is compiled into the
+# cmake BINARY itself only `#if defined(_WIN32)` - a COMPILE-TIME
+# switch a script cannot flip with `-DWIN32=1` or any other CMake
+# variable. Relying on either native command here would make this
+# exact regression provable ONLY on a real Windows machine, which
+# GODS_LAWS.md project L-04 ("o comportamento deve ser igual em
+# qualquer OS ... provado em cada [sistema]") does not accept for a
+# defect this project already measured. glintfx_pkgconfig_looks_rooted()
+# below is a PORTABLE, string-only reimplementation of the exact same
+# "leading separator, or drive-letter-plus-separator" test - proven,
+# live on this machine (see the values it returns TRUE for: "/usr",
+# "D:/usr", "C:\\stage", a UNC "\\\\server\\share" - and FALSE for a
+# bare relative token or "./stage"), to behave IDENTICALLY regardless
+# of which platform the calling cmake binary was built for, so the
+# SAME branch this function takes on a real Windows machine can be
+# proven, RED then GREEN, right here.
+function(glintfx_pkgconfig_looks_rooted value out_var)
+    if(value MATCHES "^([A-Za-z]:)?[/\\\\]")
+        set(${out_var} TRUE PARENT_SCOPE)
+    else()
+        set(${out_var} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+
 function(glintfx_pkgconfig_force_absolute value_var base_directory)
     set(_glintfx_absolute_value "${${value_var}}")
-    cmake_path(ABSOLUTE_PATH _glintfx_absolute_value BASE_DIRECTORY "${base_directory}" NORMALIZE)
+    glintfx_pkgconfig_looks_rooted("${_glintfx_absolute_value}" _glintfx_already_rooted)
+    if(_glintfx_already_rooted)
+        # Only NORMALIZE-d in place (collapsing "./"/".."/doubled
+        # separators - a safe, base-free operation), never routed
+        # through cmake_path(ABSOLUTE_PATH ... BASE_DIRECTORY ...): a
+        # CLI `--prefix` override can hand this function a value like
+        # "/var/tmp/x/./stage" that is already full but not yet tidy,
+        # and NORMALIZE alone is what tidies it without risking the
+        # drive-letter-borrowing this whole fix exists to stop.
+        cmake_path(SET _glintfx_absolute_value NORMALIZE "${_glintfx_absolute_value}")
+    else()
+        # Genuinely relative (no leading separator, no drive letter at
+        # all) - anchor to base_directory exactly as before; this is
+        # the ONLY case this function ever needed the base_directory
+        # argument for in the first place (the relative-libdir
+        # CWD-attack scenario, tests/tools/check_pkgconfig_validate.py's
+        # own scenario 12, still refuses exactly the same way after
+        # this fix: a bare relative token is still "not rooted", so it
+        # still takes this branch, unchanged).
+        cmake_path(ABSOLUTE_PATH _glintfx_absolute_value BASE_DIRECTORY "${base_directory}" NORMALIZE)
+    endif()
     set(${value_var} "${_glintfx_absolute_value}" PARENT_SCOPE)
 endfunction()
 
@@ -621,4 +704,87 @@ function(glintfx_validate_installed_pkgconfig)
     )
 endfunction()
 
-glintfx_validate_installed_pkgconfig()
+# PKG-WIN-SCOPE round 7's own regression net for
+# glintfx_pkgconfig_looks_rooted() (defined above,
+# glintfx_pkgconfig_force_absolute()'s own header): a fixed table of
+# (value, expected classification) pairs, covering every SHAPE this
+# fix's whole premise rests on - a driveless POSIX-rooted value (the
+# exact one that reproduced the FATAL_ERROR this round exists to fix),
+# a Windows drive-letter value (forward- and back-slashed), a UNC path,
+# and a genuinely relative token (the one case that still needs
+# base_directory anchoring, unchanged) - run through cmake -P
+# UNCONDITIONALLY as pure string logic, so it classifies every one of
+# them identically on THIS (or any) machine regardless of which
+# platform the calling cmake binary itself was built for (this
+# function's own comment explains why that portability is the entire
+# point). Gated behind its own environment variable, mirroring this
+# project's OWN established pattern for a test-only forced branch
+# (tests/tools/check_dep_zero.py's
+# GLINTFX_DEPZERO_SELFTEST_FORCE_WINDOWS_NEEDED_SKIP,
+# check_public_name_collision.py's
+# GLINTFX_PNC_SELFTEST_FORCE_GCC_FRONTEND_UNAVAILABLE-shaped forced
+# branches) - never read by a real `cmake --install`, only by
+# tests/tools/check_pkgconfig_validate.py's own selftest scenario.
+function(glintfx_pkgconfig_selftest_looks_rooted)
+    set(_glintfx_selftest_cases
+        "/usr" TRUE
+        "/usr/local/lib64" TRUE
+        "D:/usr" TRUE
+        "C:\\stage\\lib" TRUE
+        "\\\\server\\share" TRUE
+        "usr" FALSE
+        "./stage" FALSE
+        "relative-token" FALSE
+        "decoy-relative-libdir" FALSE
+    )
+    list(LENGTH _glintfx_selftest_cases _glintfx_selftest_case_count)
+    math(EXPR _glintfx_selftest_pair_count "${_glintfx_selftest_case_count} / 2")
+    set(_glintfx_selftest_checked 0)
+    set(_glintfx_selftest_index 0)
+    while(_glintfx_selftest_index LESS _glintfx_selftest_case_count)
+        list(GET _glintfx_selftest_cases ${_glintfx_selftest_index} _glintfx_selftest_value)
+        math(EXPR _glintfx_selftest_expected_index "${_glintfx_selftest_index} + 1")
+        list(GET _glintfx_selftest_cases ${_glintfx_selftest_expected_index} _glintfx_selftest_expected)
+
+        glintfx_pkgconfig_looks_rooted("${_glintfx_selftest_value}" _glintfx_selftest_actual)
+        if(NOT _glintfx_selftest_actual STREQUAL _glintfx_selftest_expected)
+            message(FATAL_ERROR
+                "glintfx: looks_rooted selftest FAILED - value "
+                "'${_glintfx_selftest_value}' classified as "
+                "'${_glintfx_selftest_actual}', expected "
+                "'${_glintfx_selftest_expected}' (PKG-WIN-SCOPE round 7 "
+                "regression: glintfx_pkgconfig_looks_rooted() must "
+                "recognize a driveless POSIX-rooted value, a Windows "
+                "drive-letter value in either slash direction, and a "
+                "UNC path as already-rooted, while still requiring "
+                "anchoring for a genuinely relative token)."
+            )
+        endif()
+        math(EXPR _glintfx_selftest_checked "${_glintfx_selftest_checked} + 1")
+        math(EXPR _glintfx_selftest_index "${_glintfx_selftest_index} + 2")
+    endwhile()
+
+    if(NOT _glintfx_selftest_checked EQUAL _glintfx_selftest_pair_count)
+        message(FATAL_ERROR
+            "glintfx: looks_rooted selftest internal error - checked "
+            "${_glintfx_selftest_checked} of ${_glintfx_selftest_pair_count} "
+            "declared cases (GODS_LAWS.md L-40: a selftest that silently "
+            "skips cases is not a selftest)."
+        )
+    endif()
+
+    message(STATUS
+        "glintfx: looks_rooted selftest OK - "
+        "${_glintfx_selftest_checked}/${_glintfx_selftest_pair_count} "
+        "inputs classified correctly (driveless-rooted, drive-lettered "
+        "both slash directions, UNC, and genuinely-relative forms all "
+        "covered)."
+    )
+endfunction()
+
+if(DEFINED ENV{GLINTFX_PKGVALIDATE_SELFTEST_LOOKS_ROOTED}
+   AND NOT "$ENV{GLINTFX_PKGVALIDATE_SELFTEST_LOOKS_ROOTED}" STREQUAL "")
+    glintfx_pkgconfig_selftest_looks_rooted()
+else()
+    glintfx_validate_installed_pkgconfig()
+endif()

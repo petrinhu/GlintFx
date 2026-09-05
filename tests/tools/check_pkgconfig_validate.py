@@ -24,14 +24,14 @@
 # funcionar para check_layers.py/check_vendor_purity.py/
 # check_blank_install_dir_rejected.py.
 #
-# SEVENTEEN scenarios, not eight: this file's own header, and the
+# EIGHTEEN scenarios, not eight: this file's own header, and the
 # comment this port replaces in tests/CMakeLists.txt, said "the eight
 # scenarios" - stale prose left behind by PKG-WIN-SCOPE's and
-# PKG-NATIVE's own later additions (scenarios 9 through 17 were bolted
+# PKG-NATIVE's own later additions (scenarios 9 through 18 were bolted
 # on after that comment was written, and it was never updated). The
 # closed list actually enumerated below, and exercised by main(), is
-# the SEVENTEEN run_*_scenario() functions the retired .sh actually
-# called from its own main() - counted, not assumed (GODS_LAWS.md L-40).
+# the EIGHTEEN run_*_scenario() functions this file's own main() calls -
+# counted, not assumed (GODS_LAWS.md L-40).
 #
 #   1. run_default_layout_scenario - default layout, real end-to-end
 #      install (GREEN).
@@ -86,6 +86,23 @@
 #  17. run_destdir_relative_ordinary_dispatch_scenario - DESTDIR
 #      relative, ordinary dispatch (GREEN): the DESTDIR-shaped sibling
 #      of scenario 14.
+#  18. run_looks_rooted_selftest_scenario - PKG-WIN-SCOPE round 7
+#      regression proof (GREEN): glintfx_pkgconfig_looks_rooted()
+#      (cmake/GlintfxPkgConfigValidateInstalled.cmake.in) correctly
+#      classifies a driveless POSIX-rooted value (e.g. "/usr" - the
+#      exact shape that, concatenated with a DESTDIR carrying its OWN
+#      drive letter on a real Windows install, used to produce
+#      "C:/.../buildrootD:/usr/lib/pkgconfig"), a Windows drive-letter
+#      value in either slash direction, and a UNC path as
+#      already-rooted (never re-anchored, never drive-letter-borrowed),
+#      while a genuinely relative token still requires anchoring - as
+#      PURE, platform-INDEPENDENT string logic (never native
+#      `if(IS_ABSOLUTE ...)`/`cmake_path(IS_ABSOLUTE ...)`, whose
+#      drive-letter recognition is compiled into the cmake BINARY only
+#      `#if defined(_WIN32)` and therefore cannot diverge - or be
+#      exercised - differently on this Linux machine no matter what a
+#      script sets `-DWIN32=1` to), so this exact classification is
+#      proven, RED then GREEN, on Linux too (GODS_LAWS.md project L-04).
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -1319,6 +1336,114 @@ def run_destdir_relative_ordinary_dispatch_scenario(build_dir, dispatch_dir, rea
     )
 
 
+# --- scenario 18 -------------------------------------------------------
+
+# PKG-WIN-SCOPE round 7 (05/09/2026, CI run 33944572704, job "Windows
+# (primario)", 3 identical jobs): CMAKE_INSTALL_LIBDIR/pkgconfig for the
+# staged (DESTDIR-aware) directory used to concatenate DESTDIR with
+# CMAKE_INSTALL_PREFIX after routing the prefix through
+# cmake_path(ABSOLUTE_PATH ... BASE_DIRECTORY ...) unconditionally - a
+# command whose Windows-only notion of "absolute" requires a root-name
+# (drive letter), stricter than CMake's own classic, every-platform
+# notion (a leading path separator alone is enough - see this scenario's
+# own header, and glintfx_pkgconfig_force_absolute()'s, for the CMake
+# documentation citation). A prefix like "/usr" - has a root-directory,
+# no root-name - was silently completed by BORROWING base_directory's
+# own drive letter, turning "/usr" into "D:/usr"; concatenated as a
+# plain string prefix onto a DESTDIR carrying its OWN, different drive
+# letter ("C:/Users/.../buildroot"), the result was the impossible
+# "C:/Users/.../buildrootD:/usr/lib/pkgconfig" the validator's own
+# FATAL_ERROR reported against a genuinely GOOD install.
+#
+# glintfx_pkgconfig_looks_rooted() (defined in
+# cmake/GlintfxPkgConfigValidateInstalled.cmake.in, right above
+# glintfx_pkgconfig_force_absolute()) is the fix: a PORTABLE,
+# string-only reimplementation of "does this value already look like a
+# full path" (leading separator, or drive-letter-plus-separator, or a
+# UNC prefix) that classifies "/usr" as already-rooted on EVERY
+# platform, never delegating to a native command whose drive-letter
+# recognition only exists in a cmake binary actually COMPILED for
+# Windows (`#if defined(_WIN32)`, a compile-time switch - MEASURED live
+# on this machine: both `if(IS_ABSOLUTE "D:/foo")` and
+# `cmake_path(IS_ABSOLUTE "D:/foo")` answer FALSE here, so neither
+# native command could ever diverge, or be exercised diverging, on a
+# cmake built for Linux, no matter what a script sets `-DWIN32=1` to).
+#
+# This scenario invokes glintfx_pkgconfig_selftest_looks_rooted()
+# (defined in the SAME .cmake.in file, right after
+# glintfx_validate_installed_pkgconfig() - never read by a real
+# `cmake --install`) via its own dedicated environment variable, the
+# same test-only-forced-branch shape this project already uses
+# elsewhere (tests/tools/check_dep_zero.py's
+# GLINTFX_DEPZERO_SELFTEST_FORCE_WINDOWS_NEEDED_SKIP,
+# tests/tools/check_public_name_collision.py's GCC-frontend-forcing
+# equivalent) - proving the exact classification this fix rests on,
+# with pure string logic that runs identically regardless of which
+# platform the calling cmake binary was built for, so it is proven,
+# RED then GREEN, on THIS (Linux) machine, not only on a real Windows
+# one (GODS_LAWS.md project L-04: "provado em cada [sistema]"). RED/
+# GREEN for this exact fixture was proven by hand, mutating the
+# function's own regex to require a drive letter unconditionally
+# (reproducing the OLD, stricter classification) and confirming the
+# selftest fails closed against "/usr" before restoring it - the
+# manual mutation-testing step GODS_LAWS.md L-36 requires before a new
+# gate counts, recorded here because the mutation itself cannot live in
+# the CI-run copy of this file without permanently breaking the fix.
+def run_looks_rooted_selftest_scenario(build_dir, intact_prefix):
+    validator_script = find_generated_validator_script(build_dir)
+
+    env = dict(os.environ, GLINTFX_PKGVALIDATE_SELFTEST_LOOKS_ROOTED="1")
+    output = run_expect_success(
+        ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-P", validator_script],
+        "the looks_rooted selftest (GLINTFX_PKGVALIDATE_SELFTEST_LOOKS_ROOTED=1) "
+        "unexpectedly FAILED - glintfx_pkgconfig_looks_rooted() misclassified at least one "
+        "of its own fixed test cases (a driveless POSIX-rooted value, a Windows "
+        "drive-letter value in either slash direction, a UNC path, or a genuinely relative "
+        "token) - see the CMake FATAL_ERROR above for which one and why.",
+        env=env,
+    )
+    must_contain(
+        output,
+        "looks_rooted selftest OK",
+        on_fail=(
+            "the looks_rooted selftest ran without a CMake-level FATAL_ERROR but never "
+            "printed its own success message - glintfx_pkgconfig_selftest_looks_rooted() "
+            "may have silently skipped cases instead of checking all of them "
+            "(GODS_LAWS.md L-40)."
+        ),
+    )
+    must_contain(
+        output,
+        "9/9 inputs classified correctly",
+        on_fail=(
+            "the looks_rooted selftest's own success message did not report checking all "
+            "9 of its declared cases - GODS_LAWS.md L-40: a selftest that silently checks "
+            "fewer cases than it declares is not a selftest."
+        ),
+    )
+    # This scenario must NEVER run the real validation path (it forces
+    # the selftest branch instead) - a stray "post-install pkg-config"
+    # message here would mean the environment-variable gate at the
+    # bottom of the .cmake.in file is not actually exclusive.
+    must_not_contain(
+        output,
+        "post-install pkg-config",
+        on_fail=(
+            "the looks_rooted selftest ALSO ran the real post-install validation - "
+            "GLINTFX_PKGVALIDATE_SELFTEST_LOOKS_ROOTED=1 should exclusively select the "
+            "selftest branch at the bottom of GlintfxPkgConfigValidateInstalled.cmake.in, "
+            "never both."
+        ),
+    )
+    print(
+        "ok: looks_rooted selftest (PKG-WIN-SCOPE round 7) - "
+        "glintfx_pkgconfig_looks_rooted() classifies a driveless POSIX-rooted value, a "
+        "Windows drive-letter value in either slash direction, a UNC path, and a "
+        "genuinely relative token all correctly, as portable string logic proven on this "
+        "machine regardless of which platform the calling cmake binary was built for."
+    )
+
+
 # --- real mode -----------------------------------------------------------
 
 
@@ -1371,6 +1496,7 @@ def real_main(args):
             build_dir, os.path.join(scratch, "dispatch-relative-destdir"), real_libdir
         )
         run_absolute_libdir_scenario(glintfx_src, cxx, os.path.join(scratch, "build-absolute-libdir"), scratch)
+        run_looks_rooted_selftest_scenario(build_dir, prefix_default)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -1388,9 +1514,12 @@ def real_main(args):
         "accepts real pkg-config's own whitespace/comment syntax, cross-checked against a "
         "real pkg-config binary when one is on PATH, while a variable defined TWICE is "
         "now refused, closed, by CMake's own native pkg-config parser under STRICTNESS "
-        "STRICT; and no longer doubles a shared prefix/libdir/pkgconfig or DESTDIR path "
-        "segment when --prefix or DESTDIR is given as a plain relative path (all "
-        "seventeen scenarios, unguarded by platform)."
+        "STRICT; no longer doubles a shared prefix/libdir/pkgconfig or DESTDIR path "
+        "segment when --prefix or DESTDIR is given as a plain relative path; and no "
+        "longer borrows a wrong drive letter (PKG-WIN-SCOPE round 7) when a staged, "
+        "DESTDIR-aware directory is concatenated with a driveless-but-rooted prefix - "
+        "proven with portable, platform-independent string logic (all eighteen "
+        "scenarios, unguarded by platform)."
     )
 
 

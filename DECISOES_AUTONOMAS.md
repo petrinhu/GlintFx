@@ -1160,3 +1160,17 @@ Escolha dele, a recomendada, e ela **aceita o corte que o CTO propos**.
 4. **As vinte e duas decisoes em aberto do registro de propriedades foram para o CTO na hora**, com a ordem explicita de nao me devolver nenhuma.
 
 ⚠️ **Registro de metodo, porque a licao e sobre mim:** eu tratei "trazer a decisao ao lider" como sempre seguro, e nao e. Em modo autonomo, parar para perguntar **e uma forma de nao trabalhar**, e o custo cai sobre ele, que precisa responder. A lei ja dizia isso; o que faltou foi eu aplicar o gatilho certo no momento da acao, que e exatamente o que o protocolo das leis manda fazer.
+
+---
+
+## Pedido do lider a ser cumprido NO FIM DA W10  `05/09/26 - 15:05:17`
+
+**Ordem dele, verbatim:** *"no final, e apenas no final, me diga o que o framework já oferece. Pode seguir autonomo"*
+
+**O que ele quer, e quando:** ao FECHAR a W10 -- nao antes, nao a cada onda --, um relato do que a biblioteca **ja entrega a quem for usa-la**. Nao e relatorio de progresso nem lista de itens fechados: e a resposta a pergunta *"o que eu consigo fazer com ela hoje?"*.
+
+**Como escrever, pela L-41 (explique pelo EFEITO, nunca pela implementacao):** cada linha diz o que o consumidor CONSEGUE FAZER, e nao que arquivo, funcao ou fatia existe. Nome de arquivo e de simbolo so entram se ele pedir.
+
+⚠️ **Armadilha a evitar, porque esta casa ja caiu nela:** a tentacao e listar o que foi construido. O que ele pediu e o oposto -- o que **funciona na mao de quem usa**. Fatia fechada que ainda nao serve para nada observavel **nao entra na lista**, ou entra dizendo explicitamente que ainda nao serve.
+
+**Registrado aqui porque a sessao pode compactar antes da W10**, e o pedido tem de sobreviver a isso.

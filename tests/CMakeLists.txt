@@ -586,6 +586,17 @@ target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_D
 glintfx_add_test(display_connection_fake_test)
 target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# W-D' (docs/plano-w6a-janela.md fatia 6): display_backend_port, the
+# sibling concept display_connection_port.hpp's own header comment
+# promised - see display_backend_port_concept_test.cpp's own header
+# comment for why fake_display_adapter is reused UNCHANGED as this
+# concept's own NEGATIVE control instead of being extended with a
+# pump_events() it was never meant to carry. OS-agnostic, same
+# reasoning as the two cases just above (no Wayland/Win32 type
+# reachable from this TU).
+glintfx_add_test(display_backend_port_concept_test)
+target_include_directories(display_backend_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # W-C' (docs/plano-w6a-janela.md fatia 4, GODS_LAWS.md L-04): the
 # window's neutral state, its text-field validation, and the seat's
 # input-device-class facts - all five files below are OS-agnostic (no
@@ -712,6 +723,42 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
     )
+
+    # WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8): the pure-
+    # listener half of wayland_window_adapter - every callback exercised
+    # DIRECTLY with a null proxy (this fatia's own briefing: "callbacks
+    # com proxy nulo"), never a real wl_surface/xdg_surface/xdg_toplevel
+    # request - configure translation (window_configure_sequence.hpp),
+    # the buffer-scale factor feeding window_state::apply_buffer_scale(),
+    # and the close latch are all PURE reads/writes of window_state, the
+    # same property the callback declarations' own header comments
+    # already document. open()/wait_first_configure() themselves (the
+    # paths that DO call into a live compositor) are proven for real by
+    # window_smoke, inside the container (GODS_LAWS.md L-09), via P-0's
+    # own inventory - never by this target.
+    #
+    # display_adapter.cpp/global_catalog.cpp are linked here ONLY
+    # because window_adapter.cpp's own open()/wait_first_configure()
+    # (compiled into this SAME translation unit, whether or not this
+    # test ever calls them) reference wayland_display_adapter::
+    # roundtrip() - the same "the whole .cpp is one link unit" reasoning
+    # display_bind_refusal_test's own block above already relies on.
+    # wayland_shell_adapter's own is_open()/compositor()/shell() are all
+    # inline in shell_adapter.hpp (no out-of-line symbol to resolve), so
+    # shell_adapter.cpp/shell_requirements.cpp are deliberately absent
+    # from this list.
+    glintfx_add_test(window_adapter_listener_test)
+    target_include_directories(window_adapter_listener_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(window_adapter_listener_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(window_adapter_listener_test)
 endif()
 
 # WIN-DISPLAY fatia 3 (TODO.md, GODS_LAWS.md L-04/L-09): the Windows
@@ -736,6 +783,45 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
     )
     target_link_libraries(win32_display_connect_test PRIVATE user32)
+endif()
+
+# WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, D-W6a-16,
+# 05/09/2026): the two witnesses of THIS fatia's own fix for F2 (the
+# fixed window-class name measured against `main` at 270bef3, before
+# this fatia - a second win32_display_adapter::open() in the same
+# process used to refuse with ERROR_CLASS_ALREADY_EXISTS). Same
+# if(WIN32)/second-compilation shape as win32_display_connect_test
+# right above (win32_display_adapter has no GLINTFX_API, glintfx.dll's
+# own hidden visibility never exports these methods).
+if(WIN32)
+    # Provokes the SAME refusal on purpose, against a single adapter,
+    # by pre-registering (from outside the adapter) the exact name
+    # class_name_for() says open() is about to ask for - see this
+    # file's own header comment for why a per-instance name (D-W6a-16)
+    # means the test has to COMPUTE that name rather than reuse a
+    # single well-known constant.
+    glintfx_add_test(win32_display_refusal_test)
+    target_include_directories(win32_display_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_display_refusal_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+    )
+    target_link_libraries(win32_display_refusal_test PRIVATE user32)
+
+    # NAMED "two_displays_test", not "win32_two_displays_test" -
+    # docs/plano-w6a-janela.md fatia 7's own "Par no portao" column
+    # requires this EXACT name so P-0's inventory (tests/tools/
+    # check_test_parity.py) can line it up against the Wayland side's
+    # own container fixture of the same name, staged separately under
+    # tests/container/ - never a per-platform prefix here. Opens TWO
+    # win32_display_adapter instances in the same process; before this
+    # fatia's fix, the second open() would have failed exactly the way
+    # win32_display_refusal_test provokes on purpose above.
+    glintfx_add_test(two_displays_test)
+    target_include_directories(two_displays_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(two_displays_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+    )
+    target_link_libraries(two_displays_test PRIVATE user32)
 endif()
 
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves

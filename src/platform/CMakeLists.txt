@@ -20,6 +20,16 @@
 # today) is conditional.
 add_subdirectory(port)
 
+# window/ is added unconditionally too, same reasoning as port/ above:
+# window_state/window_desc_validation/utf8_validation (W-C', docs/
+# plano-w6a-janela.md fatia 4) touch no operating-system header either -
+# they are the ONE shared value type and the two validation atoms both
+# backends (wayland/ today, win32/ WIN-WINDOW) write into and read from.
+# Wired into glintfx_library by WL-WINDOW fatia W-E, the first
+# production caller (src/platform/window/CMakeLists.txt's own header
+# comment).
+add_subdirectory(window)
+
 # UNIX: selects the Wayland backend (WL-PROTO, GODS_LAWS.md L-05 -
 # Wayland is the only Linux surface this project targets). wayland/'s
 # own CMakeLists.txt wires in wayland_display_adapter and the internal

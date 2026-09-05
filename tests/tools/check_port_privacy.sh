@@ -76,7 +76,17 @@ set -eu
 # tools/ci/check-port-privacy-win.ps1's own KNOWN_ADAPTER_CLASSES was
 # updated in this SAME commit, per this file's own PORT-PRIVACY-WIN
 # comment below.
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter"
+#
+# wayland_window_adapter added by WL-WINDOW fatia W-E (docs/plano-w6a-
+# janela.md fatia 8, GODS_LAWS.md L-40): the adapter that turns a
+# wayland_shell_adapter into a real wl_surface/xdg_surface/xdg_toplevel
+# (src/platform/wayland/window_adapter.hpp). ⚠️ tools/ci/check-port-
+# privacy-win.ps1's own KNOWN_ADAPTER_CLASSES is OUT OF THIS FATIA'S
+# declared file scope (src/platform/wayland/, tests/, tests/container/
+# only) - it still needs the SAME update, in the SAME commit, per this
+# file's own PORT-PRIVACY-WIN comment below; flagged for the
+# orchestrator rather than edited here.
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {

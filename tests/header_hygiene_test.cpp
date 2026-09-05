@@ -113,6 +113,8 @@
 #include <glintfx/gfss/value.hpp>
 #include <glintfx/gfui/node_view.hpp>
 #include <glintfx/platform/asset/file.hpp>
+#include <glintfx/platform/window/display.hpp>
+#include <glintfx/platform/window/window.hpp>
 #include <glintfx/version_macros.hpp>
 
 #include "harness/check.hpp"
@@ -414,3 +416,55 @@ GLINTFX_TEST(core_error_use_sites_survive_hostile_system_headers) {
         GLINTFX_CHECK(fields[0].value == "parse_failure");
     }
 }
+
+// window_header_survives_hostile_system_headers - W-D' (docs/plano-
+// w6a-janela.md fatia 6): glintfx/platform/window/window.hpp's own
+// plain-data vocabulary (gltfx_window_size, gltfx_window_desc,
+// gltfx_window_state_bit) survives the same hostile include order -
+// every field/enumerator is exercised as a real construction/read
+// expression, the same CE-8 discipline the cases above already apply
+// to aggregates with no call-shaped member (gltfx_rgba, gltfx_time_
+// point above): none of these three names is call-shaped, so there is
+// no USE-SITE macro collision to additionally exercise here, only the
+// DECLARATION-SITE one this file's own header comment already states
+// is what an aggregate's hostile-header check actually proves.
+GLINTFX_TEST(window_header_survives_hostile_system_headers) {
+    constexpr glintfx::gltfx_window_size logical{.width = 800, .height = 600};
+    GLINTFX_CHECK_EQ(logical.width, static_cast<std::uint32_t>(800));
+    GLINTFX_CHECK_EQ(logical.height, static_cast<std::uint32_t>(600));
+
+    constexpr glintfx::gltfx_window_desc desc{
+        .title = "janela",
+        .application_id = "com.glintfx.probe",
+        .logical_size = logical,
+    };
+    GLINTFX_CHECK(desc.title == std::string_view{"janela"});
+    GLINTFX_CHECK(desc.logical_size.width == static_cast<std::uint32_t>(800));
+
+    GLINTFX_CHECK(glintfx::gltfx_window_state_bit::active !=
+                  glintfx::gltfx_window_state_bit::maximized);
+    GLINTFX_CHECK(glintfx::gltfx_window_state_bit::fullscreen !=
+                  glintfx::gltfx_window_state_bit::maximized);
+}
+
+// display_header_declaration_survives_hostile_system_headers - W-D'
+// (docs/plano-w6a-janela.md fatia 6): glintfx/platform/window/
+// display.hpp is only exercised at DECLARATION site here, never by an
+// actual call to gltfx_display::open()/pump_events() - GODS_LAWS.md
+// L-09 forbids opening any real display connection from this ctest
+// (it runs in the plain unit-test job, never inside the isolated
+// compositor container this project's window-opening tests require).
+// The declaration-site guarantee this file's own header comment
+// already states for version.hpp/gltfx_rgba applies unchanged here:
+// gltfx_display's own name and every one of its method names already
+// got parsed, under the SAME hostile include order set up above, by
+// the mere #include line - if `open`, `is_open` or `pump_events`
+// collided with a hostile macro at declaration, this translation unit
+// would already have failed to compile before this test case even
+// runs. A REAL call-expression proof of gltfx_display's own behavior
+// lives in the container fixture this fatia's own plan names
+// (public_display_test, docs/plano-w6a-janela.md fatia 6) - not yet
+// written as of this fatia (declared here honestly, the same pattern
+// this file's own header comment already uses for the Windows leg of
+// CE-8 not having run in this session).
+GLINTFX_TEST(display_header_declaration_survives_hostile_system_headers) { GLINTFX_CHECK(true); }

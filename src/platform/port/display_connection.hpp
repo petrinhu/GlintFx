@@ -83,6 +83,22 @@ class display_connection {
 
     [[nodiscard]] bool is_open() const noexcept { return m_adapter.is_open(); }
 
+    // D-W5-10 (docs/plano-w6a-janela.md sec. 1): the ONE crack this
+    // wrapper deliberately opens in its own opacity, and only for
+    // internal callers - a future WL-WINDOW/WL-SEAT or this fatia's own
+    // display_facade.cpp needs to reach the concrete adapter's OWN
+    // surface beyond open/close/is_open (pump_events(), bind(), the
+    // shell/seat this display composes) and display_connection<A> is
+    // deliberately narrow (display_connection_port.hpp's own "porta
+    // gorda" comment), so it never grows a forwarding method per
+    // adapter capability. Both overloads exist because a caller with
+    // only a `const display_connection&` still needs read access
+    // (is_open() itself already does exactly this internally, through
+    // m_adapter directly rather than through this accessor, because it
+    // predates this fatia).
+    [[nodiscard]] A &adapter() noexcept { return m_adapter; }
+    [[nodiscard]] const A &adapter() const noexcept { return m_adapter; }
+
   private:
     explicit display_connection(A adapter) noexcept : m_adapter(std::move(adapter)) {}
 

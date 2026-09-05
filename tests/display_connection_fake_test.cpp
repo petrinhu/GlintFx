@@ -75,6 +75,39 @@ GLINTFX_TEST(injected_refusal_reaches_the_caller_of_connect_unchanged) {
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 0);
 }
 
+GLINTFX_TEST(adapter_accessor_reaches_the_same_wrapped_instance) {
+    // D-W5-10 (docs/plano-w6a-janela.md sec. 1, W-D'): adapter() is the
+    // one crack display_connection<A> deliberately opens in its own
+    // opacity - a caller reaching through it has to observe the SAME
+    // underlying fake_display_adapter the connection itself already
+    // wraps, never a copy and never a second instance. open_call_count()
+    // is a static counter on the ADAPTER TYPE, not per-instance
+    // (fake_display_adapter.hpp's own header comment explains why), so
+    // this proves identity indirectly: calling close() through the
+    // accessor is observed by is_open() on the connection itself
+    // (which reads through its OWN m_adapter, never through adapter()),
+    // and by close_call_count() ticking exactly once - two different
+    // paths agreeing is only possible if adapter() handed back the
+    // real, live object, not a detached copy.
+    glintfx::test::fake_display_adapter::reset();
+
+    glintfx::gltfx_rslt<glintfx::platform::display_connection<glintfx::test::fake_display_adapter>>
+        connected =
+            glintfx::platform::display_connection<glintfx::test::fake_display_adapter>::connect();
+    GLINTFX_CHECK(connected.has_value());
+
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> &conn =
+        connected.value();
+
+    GLINTFX_CHECK(conn.adapter().is_open());
+    GLINTFX_CHECK(std::as_const(conn).adapter().is_open());
+
+    conn.adapter().close();
+
+    GLINTFX_CHECK(!conn.is_open());
+    GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 1);
+}
+
 GLINTFX_TEST(a_different_injected_code_still_arrives_unchanged) {
     // Same shape as the case above, with a DIFFERENT code - proves the
     // path is generic (the factory does not special-case one specific

@@ -1161,14 +1161,34 @@ jobs:
             glintfx-wltest-clean shell_smoke
           echo "shell_smoke" >> parity_inventory.txt
 
+      # WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8): window_
+      # smoke.cpp abre wl_surface/xdg_surface/xdg_toplevel contra este
+      # MESMO compositor real, ANEXA UM BUFFER wl_shm DE VERDADE (D-W5-9)
+      # e comita - a UNICA fixture desta imagem que faz isso. Roda ANTES
+      # da fatia C abaixo pelo mesmo motivo do shell/pump: precisa do
+      # compositor deste container ainda vivo. E' esta fixture, nao
+      # shell_smoke (que nunca anexa buffer), que faz um ack_configure()
+      # removido de wayland_window_adapter virar erro de protocolo real
+      # (xdg_surface.error.unconfigured_buffer) em vez de passar em
+      # silencio - ver o header comment do proprio window_smoke.cpp.
+      - name: WL-WINDOW fatia W-E - janela com buffer real dentro do container
+        run: |
+          set -eu
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean window_smoke
+          echo "window_smoke" >> parity_inventory.txt
+
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o
       # adaptador sobrevive com platform_failure em vez de crash. Roda
       # por ULTIMO entre os smokes deste container de proposito: os
-      # tres passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
-      # pump_smoke) todos precisam do compositor vivo, e depois deste
-      # passo ele nao esta mais. O CONTAINER em si sobrevive ao teste -
+      # seis passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
+      # pump_smoke, shell_smoke, window_smoke) todos precisam do
+      # compositor vivo, e depois deste passo ele nao esta mais. O
+      # CONTAINER em si sobrevive ao teste -
       # run_compositor.sh deixou de rodar o compositor como PID 1
       # exatamente para isso (conserto desta mesma revisao,
       # run_compositor.sh's own header comment) - entao a limpeza no

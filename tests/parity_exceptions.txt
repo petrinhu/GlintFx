@@ -141,6 +141,43 @@ fatal_error_smoke|windows|nenhum|SEM-PENDENCIA
 lib_no_undef_test|windows|check-no-undef-glintfx-win.ps1 (tools/ci/, cobre o modo compartilhado, roda como passo cru do job windows, nunca virou ctest)|LIB-NO-UNDEF-WIN
 lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo script, mesma limitacao de nao ser ctest)|LIB-NO-UNDEF-WIN
 
+# --- WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8, 05/09/2026),
+# lacuna real, TEMPORARIA por ordem das fatias dentro da mesma onda ----
+#
+# window_adapter_listener_test (tests/CMakeLists.txt, if(UNIX)) prova a
+# METADE PURA de wayland_window_adapter - cada callback (configure,
+# preferred_buffer_scale, close, enter/leave) chamado direto com um
+# proxy nulo, nunca contra um compositor real. O par de MECANISMO do
+# lado Windows e win32_message_translation_test (docs/plano-w6a-
+# janela.md fatia 9, X-2) - ainda nao escrito, porque X-2 e do LOTE 2
+# do plano (empurrado so depois que os headers/window_state comuns
+# fixarem, secao 2.1 do plano) e nao faz parte desta fatia. Uma vez que
+# X-2 exista, a linha certa vira um APELIDO em tests/parity_aliases.txt
+# (mesmo efeito - traducao sintetica de configure/mensagem, sem
+# compositor/janela real), nunca uma segunda excecao.
+window_adapter_listener_test|windows|win32_message_translation_test (docs/plano-w6a-janela.md fatia 9, X-2 - ainda nao escrito, empurrado no Lote 2 do plano)|WL-WINDOW
+
+# window_smoke (tests/container/, via P-0) prova a METADE REAL de
+# wayland_window_adapter contra o kwin_wayland --virtual deste mesmo
+# container - abre superficie/xdg_surface/xdg_toplevel, anexa um
+# buffer wl_shm de verdade (D-W5-9) e faz o compositor aceitar o commit
+# sem erro de protocolo. Este NOME e' PROVISORIO por desenho (docs/
+# plano-w6a-janela.md, tabela da fatia 8, coluna "Par": "window_smoke
+# vira window_parity_test (fatia 11), sem nome proprio a mais") - P-1
+# (fatia 11, ainda nao escrita) substitui este fixture por tests/
+# parity/window_parity_test.cpp, UM arquivo com o MESMO nome nos dois
+# lados (ctest no Windows, fixture do container no Linux via P-0) -
+# nesse momento este fixture e esta linha desaparecem os dois juntos,
+# nunca um sem o outro.
+#
+# ⚠️ MORTE DESTA LINHA: apagar no MESMO commit em que P-1 renomear/
+# substituir tests/container/window_smoke.cpp por tests/parity/
+# window_parity_test.cpp e o item WL-WINDOW fechar - nunca antes
+# (window_smoke ainda e a UNICA prova real desta metade do adaptador
+# ate la) e nunca depois (excecao esquecida apontando para item
+# concluido reprova pela propria regra deste arquivo).
+window_smoke|windows|window_parity_test (docs/plano-w6a-janela.md fatia 11, P-1 - ainda nao escrito; substitui window_smoke pelo mesmo nome nos dois lados quando fechar)|WL-WINDOW
+
 # --- Lacuna real, TEMPORARIA por divisao de trabalho dos jobs do
 # servidor (05/09/2026, mesma estreia, item PARITY-LINT-INV) -----------
 #

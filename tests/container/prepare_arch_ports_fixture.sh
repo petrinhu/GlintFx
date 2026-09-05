@@ -54,7 +54,7 @@ stage_dir() {
 reset_stage() {
     target="$1"
     rm -rf "$target"
-    mkdir -p "$target/src/platform/wayland" "$target/src/core" \
+    mkdir -p "$target/src/platform/wayland" "$target/src/platform/window" "$target/src/core" \
         "$target/include/glintfx/core"
 }
 
@@ -92,6 +92,36 @@ copy_real_sources() {
         "$target/src/platform/wayland/shell_adapter.hpp"
     cp "$repo_root/src/platform/wayland/shell_adapter.cpp" \
         "$target/src/platform/wayland/shell_adapter.cpp"
+
+    # WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8):
+    # window_smoke.cpp's own build (Containerfile) needs window_
+    # adapter.cpp itself, window_configure_sequence.cpp (the pure xdg_
+    # surface/xdg_toplevel configure-sequence translator it calls into),
+    # and the three OS-agnostic src/platform/window/ files (window_
+    # state.cpp, window_desc_validation.cpp, utf8_validation.cpp)
+    # window_adapter.cpp's own apply_desc()/xdg_surface_configure()
+    # call - same "stage the real production sources" reasoning as
+    # every other entry in this function.
+    cp "$repo_root/src/platform/wayland/window_configure_sequence.hpp" \
+        "$target/src/platform/wayland/window_configure_sequence.hpp"
+    cp "$repo_root/src/platform/wayland/window_configure_sequence.cpp" \
+        "$target/src/platform/wayland/window_configure_sequence.cpp"
+    cp "$repo_root/src/platform/wayland/window_adapter.hpp" \
+        "$target/src/platform/wayland/window_adapter.hpp"
+    cp "$repo_root/src/platform/wayland/window_adapter.cpp" \
+        "$target/src/platform/wayland/window_adapter.cpp"
+    cp "$repo_root/src/platform/window/window_state.hpp" \
+        "$target/src/platform/window/window_state.hpp"
+    cp "$repo_root/src/platform/window/window_state.cpp" \
+        "$target/src/platform/window/window_state.cpp"
+    cp "$repo_root/src/platform/window/window_desc_validation.hpp" \
+        "$target/src/platform/window/window_desc_validation.hpp"
+    cp "$repo_root/src/platform/window/window_desc_validation.cpp" \
+        "$target/src/platform/window/window_desc_validation.cpp"
+    cp "$repo_root/src/platform/window/utf8_validation.hpp" \
+        "$target/src/platform/window/utf8_validation.hpp"
+    cp "$repo_root/src/platform/window/utf8_validation.cpp" \
+        "$target/src/platform/window/utf8_validation.cpp"
 
     cp "$repo_root/src/core/err.cpp" "$target/src/core/err.cpp"
     cp "$repo_root/src/core/err_code.cpp" "$target/src/core/err_code.cpp"

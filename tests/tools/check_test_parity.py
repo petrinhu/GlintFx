@@ -240,32 +240,51 @@ def parse_todo_status_text(text):
 
 
 # Aplica os apelidos: um nome que so aparece de um lado NAO e uma
-# lacuna se o PARCEIRO dele (nome sob o outro sistema) existir no
-# INVENTARIO INTEIRO do outro lado - deliberadamente checado contra o
-# inventario completo, nao contra o conjunto "so daquele lado", para
-# nao depender de o parceiro tambem ser exclusivo (um apelido correto
-# quase sempre aponta pra um nome exclusivo do outro lado, mas checar
-# a inclusao geral e o que torna a logica robusta por construcao, em
-# vez de robusta so nos casos ja pensados). Devolve (so_linux,
-# so_windows), os dois conjuntos que sobram depois de descontar
-# apelidos - candidatos reais a lacuna.
+# lacuna se QUALQUER UM dos parceiros dele (nome sob o outro sistema)
+# existir no INVENTARIO INTEIRO do outro lado - deliberadamente
+# checado contra o inventario completo, nao contra o conjunto "so
+# daquele lado", para nao depender de o parceiro tambem ser exclusivo
+# (um apelido correto quase sempre aponta pra um nome exclusivo do
+# outro lado, mas checar a inclusao geral e o que torna a logica
+# robusta por construcao, em vez de robusta so nos casos ja
+# pensados). Devolve (so_linux, so_windows), os dois conjuntos que
+# sobram depois de descontar apelidos - candidatos reais a lacuna.
+#
+# QUALQUER UM, NUNCA "O ULTIMO ESCRITO" (achado do lider, 05/09/2026,
+# medido ao vivo no run 33995142570 - selftest_alias_shared_windows_
+# partner_control acima reproduz a forma exata): um nome de UM lado
+# pode ter MAIS DE UM apelido legitimo do OUTRO lado (um mecanismo
+# Windows cobrindo tres fixtures Linux diferentes, por exemplo -
+# tests/parity_aliases.txt tem hoje tres linhas para win32_display_
+# connect_test). {b: a for a, b in aliases} e' um dict chaveado pelo
+# nome que se repete - so guarda UM parceiro por chave, e o ULTIMO
+# apelido escrito na lista SOBRESCREVE OS ANTERIORES EM SILENCIO
+# (GODS_LAWS.md L-40: "a estrutura nao pode guardar tudo que foi
+# escrito" e' erro, nao detalhe de implementacao). A estrutura certa
+# e' um dict de CONJUNTOS (setdefault(...).add(...)) - nada e'
+# descartado, cada apelido escrito sobrevive, e o candidato so vira
+# lacuna quando NENHUM dos parceiros registrados aparece no
+# inventario do outro lado.
 def apply_aliases(linux_only, windows_only, linux_inventory, windows_inventory, aliases):
-    linux_to_win = {a: b for a, b in aliases}
-    win_to_linux = {b: a for a, b in aliases}
+    linux_to_win = {}
+    win_to_linux = {}
+    for linux_name, windows_name in aliases:
+        linux_to_win.setdefault(linux_name, set()).add(windows_name)
+        win_to_linux.setdefault(windows_name, set()).add(linux_name)
 
     remaining_linux_only = set()
     for name in linux_only:
-        partner = linux_to_win.get(name)
-        if partner is not None and partner in windows_inventory:
-            # o parceiro existe de fato no lado Windows - par
-            # confirmado sob outro nome, nao e lacuna.
+        partners = linux_to_win.get(name, ())
+        if any(partner in windows_inventory for partner in partners):
+            # pelo menos um parceiro existe de fato no lado Windows -
+            # par confirmado sob outro nome, nao e lacuna.
             continue
         remaining_linux_only.add(name)
 
     remaining_windows_only = set()
     for name in windows_only:
-        partner = win_to_linux.get(name)
-        if partner is not None and partner in linux_inventory:
+        partners = win_to_linux.get(name, ())
+        if any(partner in linux_inventory for partner in partners):
             continue
         remaining_windows_only.add(name)
 
@@ -508,6 +527,66 @@ def selftest_alias_control():
     return True
 
 
+# Controle APELIDO-COMPARTILHADO (achado do líder, 05/09/2026, medido
+# ao vivo no run 33995142570 - win32_display_connect_test reprovou
+# como "faltando no Linux" mesmo tendo TRES apelidos legítimos em
+# tests/parity_aliases.txt: display_connect_failure_test,
+# shell_requirements_test e shell_smoke, todos apontando para o MESMO
+# nome Windows). apply_aliases() montava win_to_linux como um dict
+# simples ({b: a for a, b in aliases}) - chaveado pelo nome Windows,
+# ele so guarda UM parceiro por chave, e o ULTIMO apelido escrito na
+# lista SOBRESCREVE OS ANTERIORES em silêncio. A perda é muda: não
+# aparece como erro de parsing, só como uma reprovação (ou, pior,
+# uma aprovação indevida) sem explicação.
+#
+# Este controle reproduz a FORMA EXATA da reprovação real (run
+# 33995142570): tres apelidos para o mesmo parceiro Windows, na
+# MESMA ordem de tests/parity_aliases.txt (display_connect_failure_
+# test, depois shell_requirements_test, depois shell_smoke por
+# ultimo). shell_smoke e' um fixture do CONTAINER (P-0) - so entra no
+# inventario Linux por um artefato SEPARADO (parity-inv-linux-
+# container), nunca por `ctest -N` - entao um inventario Linux real
+# pode legitimamente ter os dois PRIMEIROS nomes e nao ter o
+# TERCEIRO. Contra o dict simples de hoje ({b: a for a, b in
+# aliases}), a chave "win32_display_connect_test" so guarda o
+# ULTIMO valor escrito - "shell_smoke" - e perde silenciosamente os
+# dois primeiros. Como "shell_smoke" nao esta neste inventario Linux
+# sintetico (os dois primeiros estao), apply_aliases() de hoje falha
+# em achar QUALQUER parceiro valido e reprova um par que na verdade
+# existe sob outros dois nomes - a MESMA forma do falso-vermelho
+# medido ao vivo.
+def selftest_alias_shared_windows_partner_control():
+    linux_inv = {
+        "a_test",
+        "display_connect_failure_test",
+        "shell_requirements_test",
+        # "shell_smoke" DELIBERADAMENTE AUSENTE - e' o fixture do
+        # container, publicado por um artefato separado (P-0), nunca
+        # por `ctest -N`; um inventario Linux real pode legitimamente
+        # nao o ter ainda neste ponto da comparacao.
+    }
+    windows_inv = {"a_test", "win32_display_connect_test"}
+    aliases = [
+        ("display_connect_failure_test", "win32_display_connect_test"),
+        ("shell_requirements_test", "win32_display_connect_test"),
+        ("shell_smoke", "win32_display_connect_test"),
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if errors:
+        print(
+            "selftest: controle APELIDO-COMPARTILHADO FALHOU (win32_display_connect_test "
+            "tem DOIS parceiros Linux presentes no inventario - display_connect_failure_test "
+            f"e shell_requirements_test - nenhum deveria sobrar como lacuna): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle APELIDO-COMPARTILHADO OK (varios nomes Linux para o mesmo "
+        "parceiro Windows sobrevivem todos, nenhum apelido descartado em silencio)"
+    )
+    return True
+
+
 # Controle SEM-PENDENCIA: excecao para ausencia permanente por
 # desenho, sem item de TODO.md - deve passar, e NAO deve ser checada
 # contra TODO.md (o dicionario de status fica vazio de proposito).
@@ -671,6 +750,7 @@ def selftest_main():
         selftest_exception_pointing_to_pending_item_passes(),
         selftest_empty_inventory_reproves(),
         selftest_alias_control(),
+        selftest_alias_shared_windows_partner_control(),
         selftest_sem_pendencia_control(),
         selftest_sem_pendencia_with_gemeo_reproves(),
         selftest_unknown_item_reproves(),

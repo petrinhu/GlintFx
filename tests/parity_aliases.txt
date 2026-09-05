@@ -47,6 +47,25 @@
 # cinco plataformas em 7ee0074 - par verificado, nao suposto.
 display_connect_failure_test|win32_display_connect_test
 
+# WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, D-W6a-16,
+# 05/09/2026, coluna "Par no portao" da propria tabela de fatias):
+# win32_display_refusal_test (tests/CMakeLists.txt, if(WIN32)) prova a
+# recusa REAL do lado Windows - RegisterClassExW recusando uma classe
+# ja registrada (ERROR_CLASS_ALREADY_EXISTS) - o mesmo papel que
+# display_connect_failure_test ja prova do lado Linux (wl_display_
+# connect() recusando sem compositor): cada um e' a recusa que O
+# MECANISMO DAQUELE SISTEMA usa para o mesmo passo (abrir a conexao/
+# fabrica de janela), nunca o MESMO mecanismo - exatamente a forma que
+# GODS_LAWS.md L-04 aceita ("mecanismo pode diferir; comportamento
+# observavel e cobertura, nao"). display_connect_failure_test ja tem
+# outro apelido acima (win32_display_connect_test, o caminho de
+# SUCESSO); esta segunda linha aqui cobre o caminho de RECUSA - as
+# duas coexistem porque check_test_parity.py resolve cada nome do lado
+# QUE FALTA contra o inventario INTEIRO do outro lado (nao 1-para-1),
+# entao um nome Linux pode aparecer em mais de uma linha sem
+# sobrescrever a outra na direcao que importa (windows_only -> linux).
+display_connect_failure_test|win32_display_refusal_test
+
 # Os seis pares abaixo nascem da mesma fatia que este arquivo (PARITY-
 # GATE): dez verificacoes do Windows rodavam soltas como passo de
 # shell cru do job `windows` (.github/workflows/ci.yml), invisiveis a

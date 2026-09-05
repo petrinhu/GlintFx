@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cassert>
+#include <utility>
+
+#include <glintfx/core/err.hpp>
+#include <glintfx/platform/window/display.hpp>
+
+#include "platform/port/display_backend_port.hpp"
+#include "platform/port/display_connection.hpp"
+
+#if defined(_WIN32)
+#include "platform/win32/selected_display_adapter.hpp"
+#else
+#include "platform/wayland/selected_display_adapter.hpp"
+#endif
+
+// display_facade.cpp - W-D' (docs/plano-w6a-janela.md fatia 6): the
+// ONE translation unit that knows what glintfx::display_impl actually
+// IS - the exact same "allocation and deallocation on the SAME side of
+// the boundary" shape docs/api-conventions.md R5 already gives
+// glintfx::gltfx_err's own m_context, applied here to a whole display
+// connection. Every other TU in this library, and every consumer,
+// only ever sees the opaque glintfx::display_impl declared in
+// include/glintfx/platform/window/display.hpp.
+//
+// TODAY, display_impl WRAPS THE RAW CONNECTION, NOT A COMPOSED BACKEND
+// (docs/plano-w6a-janela.md's own future wayland_display_backend,
+// "compoe conexao + shell + seat", is a LATER fatia - the seat half of
+// it, S-B, does not exist anywhere in this tree yet): platform::
+// display_connection<platform::selected_display_adapter> already
+// satisfies platform::display_backend_port (the static_assert below
+// proves it, on whichever platform this TU is compiled for), which is
+// the only thing gltfx_display's own v1 surface (open/close/is_open/
+// pump_events) needs. Swapping selected_display_adapter for a future
+// composed backend type changes NOTHING in display.hpp nor in any
+// consumer - display_impl's own definition is the only place that
+// would ever need to change, exactly the point of hiding it here.
+//
+// selected_display_adapter CHOSEN BY #if defined(_WIN32), NOT BY
+// CMAKE SUBDIRECTORY SELECTION: this file itself is compiled on every
+// platform (src/platform/window/'s own CMakeLists.txt adds it
+// unconditionally, the same reasoning window_state.cpp/window_desc_
+// validation.cpp/utf8_validation.cpp already document), so it needs
+// the SAME per-platform branch tests/header_hygiene_test.cpp and
+// src/platform/win32/display_adapter.hpp already use for exactly this
+// reason - GODS_LAWS.md L-04's "so(UNIX)/elseif(WIN32)" shape src/
+// platform/CMakeLists.txt itself already commits to, mirrored here at
+// the preprocessor level because a SINGLE TU, not a directory, is what
+// needs to pick a side this time.
+
+namespace glintfx {
+
+struct display_impl {
+    platform::display_connection<platform::selected_display_adapter> connection;
+};
+
+namespace {
+
+static_assert(platform::display_backend_port<platform::selected_display_adapter>,
+              "selected_display_adapter must satisfy display_backend_port - GODS_LAWS.md "
+              "L-19/L-40: gltfx_display's own facade wraps it directly, and a selection that "
+              "does not satisfy pump_events() has to fail to COMPILE here, never link a display "
+              "handle whose pump_events() silently does nothing");
+
+} // namespace
+
+gltfx_rslt<gltfx_display> gltfx_display::open() noexcept {
+    gltfx_rslt<platform::display_connection<platform::selected_display_adapter>> connected =
+        platform::display_connection<platform::selected_display_adapter>::connect();
+    if (connected.has_error()) {
+        return gltfx_rslt<gltfx_display>::err(connected.error());
+    }
+
+    auto *impl = new (std::nothrow) display_impl{std::move(connected.value())};
+    if (impl == nullptr) {
+        return gltfx_rslt<gltfx_display>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
+
+    return gltfx_rslt<gltfx_display>::ok(gltfx_display(impl));
+}
+
+gltfx_display::gltfx_display(gltfx_display &&other) noexcept : m_impl(other.m_impl) {
+    other.m_impl = nullptr;
+}
+
+gltfx_display &gltfx_display::operator=(gltfx_display &&other) noexcept {
+    if (this != &other) {
+        delete m_impl;
+        m_impl = other.m_impl;
+        other.m_impl = nullptr;
+    }
+    return *this;
+}
+
+gltfx_display::~gltfx_display() { delete m_impl; }
+
+bool gltfx_display::is_open() const noexcept {
+    return m_impl != nullptr && m_impl->connection.is_open();
+}
+
+gltfx_rslt<void> gltfx_display::pump_events() noexcept {
+    // Precondition: this gltfx_display was not moved-from (docs/api-
+    // conventions.md's own precondition-violation category, the same
+    // shape gltfx_rslt<T>::value()/error() already document - a
+    // moved-from display has nothing left to pump, and this is caller
+    // misuse, not a recoverable library-side failure with a
+    // gltfx_err_code that would name it). Debug catches this with a
+    // named message before touching m_impl; Release has the guard
+    // compile away, same "zero cost, still not a promise" contract
+    // that precondition already carries project-wide.
+    assert(m_impl != nullptr &&
+           "gltfx_display::pump_events() called on a moved-from display - the object no longer "
+           "owns a connection");
+    return m_impl->connection.adapter().pump_events();
+}
+
+} // namespace glintfx

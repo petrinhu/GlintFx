@@ -26,8 +26,20 @@
 # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5) adds
 # shell_requirements.cpp (pure, no Wayland type reachable - same shape
 # as global_catalog.cpp) and shell_adapter.cpp (the wl_compositor/
-# xdg_wm_base adapter WL-WINDOW fatia W-E, a later slice, builds a
-# window on top of).
+# xdg_wm_base adapter WL-WINDOW fatia W-E builds a window on top of).
+#
+# WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8) adds window_
+# adapter.cpp (the wl_surface/xdg_surface/xdg_toplevel adapter itself,
+# the one caller that reaches for shell_adapter's compositor()/shell()
+# accessors) and window_configure_sequence.cpp (the pure xdg_surface/
+# xdg_toplevel configure-sequence translator, W-C', already living in
+# this directory since fatia 4 - only ever compiled a second time by
+# its own unit test before this fatia, same shape global_catalog.cpp
+# had before fatia B). window_adapter.cpp also depends on src/platform/
+# window/'s three files (window_state.cpp, window_desc_validation.cpp,
+# utf8_validation.cpp), sourced into glintfx_library from that
+# directory's own CMakeLists.txt (src/platform/CMakeLists.txt's window/
+# subdirectory) - not repeated here.
 
 glintfx_add_wayland_xdg_shell_binding(glintfx_library)
 
@@ -37,4 +49,6 @@ target_sources(glintfx_library PRIVATE
     selected_display_adapter_check.cpp
     shell_requirements.cpp
     shell_adapter.cpp
+    window_configure_sequence.cpp
+    window_adapter.cpp
 )

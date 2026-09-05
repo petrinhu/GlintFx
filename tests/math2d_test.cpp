@@ -54,7 +54,7 @@
 namespace {
 
 // The closed set of value types CORE-MATH2D freezes.
-enum class math2d_type {
+enum class math2d_type : std::uint8_t {
     vec2_world,
     vec2_screen,
     rect_world,
@@ -71,7 +71,7 @@ constexpr std::array<math2d_type, 7> k_all_types{
 };
 
 // The closed set of public functions CORE-MATH2D freezes.
-enum class math2d_operation {
+enum class math2d_operation : std::uint8_t {
     angle_from_degrees,
     angle_to_degrees,
     vec2_world_to_screen,

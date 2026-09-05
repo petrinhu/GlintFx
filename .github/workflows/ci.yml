@@ -1180,14 +1180,32 @@ jobs:
             glintfx-wltest-clean window_smoke
           echo "window_smoke" >> parity_inventory.txt
 
+      # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
+      # test.cpp binds wl_seat against este MESMO compositor real e
+      # prova que pelo menos um evento wl_seat.capabilities/wl_seat.name
+      # foi de fato despachado (seat.last_change() > 0) - o valor exato
+      # anunciado e IMPRESSO, nunca exigido (docs/plano-w6a-janela.md
+      # sec. "o que ficou sem medicao": um compositor headless sem
+      # dispositivo real pode legitimamente anunciar zero capacidades).
+      # Roda ANTES da fatia C abaixo pelo mesmo motivo do shell/window:
+      # precisa do compositor deste container ainda vivo.
+      - name: WL-SEAT fatia S-B - seat (wl_seat) dentro do container
+        run: |
+          set -eu
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean seat_test
+          echo "seat_test" >> parity_inventory.txt
+
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o
       # adaptador sobrevive com platform_failure em vez de crash. Roda
       # por ULTIMO entre os smokes deste container de proposito: os
-      # seis passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
-      # pump_smoke, shell_smoke, window_smoke) todos precisam do
-      # compositor vivo, e depois deste passo ele nao esta mais. O
+      # sete passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
+      # pump_smoke, shell_smoke, window_smoke, seat_test) todos precisam
+      # do compositor vivo, e depois deste passo ele nao esta mais. O
       # CONTAINER em si sobrevive ao teste -
       # run_compositor.sh deixou de rodar o compositor como PID 1
       # exatamente para isso (conserto desta mesma revisao,

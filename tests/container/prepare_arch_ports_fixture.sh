@@ -54,8 +54,8 @@ stage_dir() {
 reset_stage() {
     target="$1"
     rm -rf "$target"
-    mkdir -p "$target/src/platform/wayland" "$target/src/platform/window" "$target/src/core" \
-        "$target/include/glintfx/core"
+    mkdir -p "$target/src/platform/wayland" "$target/src/platform/window" \
+        "$target/src/platform/input" "$target/src/core" "$target/include/glintfx/core"
 }
 
 copy_real_sources() {
@@ -122,6 +122,21 @@ copy_real_sources() {
         "$target/src/platform/window/utf8_validation.hpp"
     cp "$repo_root/src/platform/window/utf8_validation.cpp" \
         "$target/src/platform/window/utf8_validation.cpp"
+
+    # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
+    # test.cpp's own build (Containerfile) needs seat_adapter.cpp
+    # itself (it calls into wayland_display_adapter directly, same
+    # reasoning as shell_adapter.cpp above) and the OS-agnostic
+    # seat_capabilities.{hpp,cpp} (platform/input/) that wl_seat_
+    # capabilities() writes into.
+    cp "$repo_root/src/platform/input/seat_capabilities.hpp" \
+        "$target/src/platform/input/seat_capabilities.hpp"
+    cp "$repo_root/src/platform/input/seat_capabilities.cpp" \
+        "$target/src/platform/input/seat_capabilities.cpp"
+    cp "$repo_root/src/platform/wayland/seat_adapter.hpp" \
+        "$target/src/platform/wayland/seat_adapter.hpp"
+    cp "$repo_root/src/platform/wayland/seat_adapter.cpp" \
+        "$target/src/platform/wayland/seat_adapter.cpp"
 
     cp "$repo_root/src/core/err.cpp" "$target/src/core/err.cpp"
     cp "$repo_root/src/core/err_code.cpp" "$target/src/core/err_code.cpp"

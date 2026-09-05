@@ -64,6 +64,13 @@
 # (D-W5-9), which is what turns a REMOVED ack_configure() inside
 # wayland_window_adapter into an actual protocol error instead of a
 # silent no-op (this fixture's own header comment).
+#
+# WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_test.cpp,
+# same staged-sources shape again, plus seat_adapter.cpp (src/platform/
+# wayland/) and the OS-agnostic seat_capabilities.cpp (src/platform/
+# input/) it writes into. Needs no xdg-shell binding at all - wl_seat
+# is bound straight off the registry the same way wl_compositor/xdg_
+# wm_base are, but this fixture never touches xdg_surface/xdg_toplevel.
 FROM fedora:44 AS arch-ports-builder
 RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel && dnf clean all
 COPY _arch_ports_src /build/_arch_ports_src
@@ -73,6 +80,7 @@ COPY fatal_error_smoke.cpp /build/fatal_error_smoke.cpp
 COPY pump_smoke.cpp /build/pump_smoke.cpp
 COPY shell_smoke.cpp /build/shell_smoke.cpp
 COPY window_smoke.cpp /build/window_smoke.cpp
+COPY seat_test.cpp /build/seat_test.cpp
 RUN wayland-scanner client-header \
         "$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml" \
         /build/xdg-shell-client-protocol.h \
@@ -151,6 +159,18 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/window_smoke.cpp \
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/seat_test \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
+        /build/_arch_ports_src/src/platform/input/seat_capabilities.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/seat_test.cpp \
         $(pkg-config --libs wayland-client)
 
 FROM fedora:44
@@ -176,10 +196,11 @@ COPY --from=arch-ports-builder /build/fatal_error_smoke /usr/local/bin/fatal_err
 COPY --from=arch-ports-builder /build/pump_smoke /usr/local/bin/pump_smoke
 COPY --from=arch-ports-builder /build/shell_smoke /usr/local/bin/shell_smoke
 COPY --from=arch-ports-builder /build/window_smoke /usr/local/bin/window_smoke
+COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke \
-        /usr/local/bin/shell_smoke /usr/local/bin/window_smoke
+        /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/seat_test
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

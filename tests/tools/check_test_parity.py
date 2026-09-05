@@ -95,9 +95,9 @@ def fail(message):
 
 # Aceita tanto a saida crua de `ctest -N` ("  Test #12: nome_test",
 # mais a linha final "Total Tests: N", que e descartada) quanto uma
-# lista ja limpa de nomes, um por linha - o mesmo arquivo pode vir de
-# qualquer uma das duas fontes sem o chamador precisar normalizar
-# antes.
+# lista ja limpa de nomes, um por linha - o mesmo ARQUIVO, e ate a
+# mesma UNIAO de arquivos concatenados (ver o corolario abaixo), pode
+# misturar as duas sem o chamador precisar normalizar antes.
 _CTEST_LINE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)\s*$")
 
 # ESTREIA-CTEST-HEADER (05/09/2026, achado do PRIMEIRO run real deste
@@ -105,65 +105,90 @@ _CTEST_LINE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)\s*$")
 # linha, ANTES de qualquer "Test #N:" - testes ou nao ("Test project
 # /__w/GlintFx/GlintFx/build-shared" no Linux, "Test project D:/a/
 # GlintFx/GlintFx/build-shared" no Windows, medido ao vivo baixando os
-# dois artefatos reais). O parser antigo (fallback linha-a-linha sem
-# saber em que formato estava) engolia essa linha pela porta generica
-# "senao bate com nada, e nome de teste" - e o CONTEUDO virava o
-# caminho absoluto da maquina que rodou, que Linux e Windows JAMAIS
-# tem igual. Resultado: quatro das sete reprovacoes da estreia eram
-# esta mesma linha de cabecalho (uma por combinacao build-shared/
-# build-static x Linux/Windows), nao lacuna nenhuma de teste real.
+# dois artefatos reais).
 _CTEST_PROJECT_HEADER_RE = re.compile(r"^Test project\b")
 
+# O rodape que fecha uma listagem `ctest -N` com pelo menos um caso -
+# "Total Tests: N", sempre a ultima linha desse bloco especifico.
+_CTEST_TOTAL_RE = re.compile(r"^Total Tests:\s*\d+$")
 
-# GODS_LAWS.md L-40 corolario (achado nesta mesma auditoria): o job
-# `parity` (ci.yml) CONCATENA a saida crua de varias legs num so
-# arquivo (`cat inventarios/linux/*/parity_inventory.txt >
-# uniao.txt`) antes de chamar este script - entao a linha "Test
-# project <caminho>" aparece REPETIDA no meio do arquivo (uma por
-# leg), nunca so na primeira linha dele. Por isso a deteccao de
-# formato abaixo olha so a PRIMEIRA linha de conteudo (o inicio de
-# `ctest -N` e sempre "Test project", testes ou nao ali dentro,
-# mesmo com zero testes - CMake imprime esse cabecalho incondicional),
-# mas a EXTRACAO depois disso e uma LISTA BRANCA aplicada a TODO o
-# arquivo: so "Test #N: nome" vira nome de teste. Isto cobre, de
-# graca, tanto o cabecalho quanto qualquer rodape que o ctest imprima
-# ("Total Tests: N", "No tests were found!!!", ou o que a proxima
-# versao do CMake decidir escrever) - nunca precisou nomear cada um
-# deles, e por isso sobrevive a um formato novo que ainda nao
-# apareceu. E continua correto no caso ZERO TESTES: o cabecalho sozinho
-# nao vira "um nome de teste chamado Test project ...", o conjunto
-# fica vazio de verdade, e quem chama reprova por L-40 (piso de
-# varredura nao-vazia) em vez de aceitar boilerplate como se fosse
-# teste - a armadilha oposta, que uma lista negra ad-hoc correria o
-# risco de recriar se cobrisse demais.
+# A OUTRA forma real de rodape (CTest imprime isto, sem "Total Tests:"
+# nenhum, quando a listagem nao encontra teste algum) - nomeada
+# explicitamente, nunca coberta por um "descarta o que nao bater com
+# nada" generico (ver o corolario abaixo para o porque).
+_CTEST_NO_TESTS_FOUND = "No tests were found!!!"
+
+# Um nome de fixture/teste DESTE projeto, na convencao snake_case que
+# GODS_LAWS.md L-21 exige para todo identificador de codigo/teste -
+# e' o UNICO formato que `echo "<nome>" >> parity_inventory.txt`
+# (Containerfile/ci.yml, P-0) ou um `ctest -N` real jamais escrevem
+# como linha solta. Usado so para reconhecer uma linha de LISTA LIMPA
+# (nunca para validar o grupo capturado por _CTEST_LINE_RE acima, que
+# fica deliberadamente permissivo - `\S+` - porque aquele nome vem
+# sempre acompanhado do proprio prefixo "Test #N:" que ja o identifica
+# sem ambiguidade).
+_CLEAN_LIST_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+# GODS_LAWS.md L-40 corolario (achado nesta mesma auditoria, 05/09/2026,
+# conserto de um SEGUNDO defeito medido no mesmo run 33995142570 - o
+# apply_aliases() acima e este parser tem a MESMA forma de bug,
+# perda silenciosa, em dois lugares diferentes): o job `parity`
+# (ci.yml) CONCATENA a saida crua de varias legs `ctest -N` COM a
+# lista ja limpa que o job `wayland-container` publica (P-0,
+# parity-inv-linux-container) num SO arquivo (`cat inventarios/
+# linux/*/parity_inventory.txt > uniao.txt`) antes de chamar este
+# script - a uniao real MISTURA os dois formatos no MESMO arquivo, um
+# ou mais blocos de ctest cru seguidos da lista limpa do container.
+#
+# A VERSAO ANTERIOR deste parser decidia o formato do ARQUIVO INTEIRO
+# pela PRIMEIRA linha de conteudo - que numa uniao real e' SEMPRE um
+# cabecalho de ctest (a lista limpa do container e' concatenada por
+# ultimo). Uma vez em "modo ctest cru", a extracao virava uma lista
+# branca que so aceitava "Test #N: nome" - a linha solta do container
+# NUNCA bate esse padrao, e desaparecia em SILENCIO, mesmo fisicamente
+# presente no arquivo (medido: `shell_smoke`/`window_smoke` estao na
+# uniao real do run 33995142570 e o parser antigo nao os via).
+#
+# O CONSERTO decide por LINHA, nao pelo arquivo inteiro - as DUAS
+# formas convivem no mesmo texto por desenho, entao a leitura tem que
+# aceitar as duas ao mesmo tempo, nunca escolher uma. E cada forma
+# reconhecida hoje e' NOMEADA explicitamente (cabecalho, "Test #N:
+# nome", "Total Tests: N", "No tests were found!!!", ou um nome de
+# lista limpa na convencao snake_case do projeto) - uma linha que nao
+# bate com NENHUMA delas e' ENTRADA CORROMPIDA e reprova (fail(),
+# GODS_LAWS.md L-40 aplicado a leitura: a estrutura tem que reprovar o
+# que nao sabe guardar, nunca descartar em silencio nem aceitar como
+# se fosse um nome valido). LIMITACAO DECLARADA, ao trocar a lista
+# branca generica de antes por esta enumeracao fechada: um formato de
+# rodape que uma versao futura do CMake ainda nao escreveu hoje vai
+# reprovar aqui como "corrompido" ate alguem nomea-lo explicitamente -
+# um custo aceito de proposito (a alternativa, engolir qualquer coisa
+# desconhecida, e' exatamente o defeito que este conserto existe para
+# fechar).
 def parse_inventory_text(text):
     content_lines = [ln.strip() for ln in text.splitlines()]
     content_lines = [ln for ln in content_lines if ln and not ln.startswith("#")]
 
-    is_raw_ctest_output = bool(content_lines) and bool(
-        _CTEST_PROJECT_HEADER_RE.match(content_lines[0])
-    )
-
-    if is_raw_ctest_output:
-        return {
-            m.group(1)
-            for m in (_CTEST_LINE_RE.match(ln) for ln in content_lines)
-            if m
-        }
-
-    # A primeira linha de conteudo nao e "Test project ..." - isto nao
-    # e saida crua de `ctest -N` (que sempre abre assim), e sim uma
-    # lista ja limpa de nomes, um por linha (ainda aceita o formato
-    # "Test #N: nome" dentro dela, pelo mesmo regex, caso apareca).
     names = set()
     for line in content_lines:
+        if _CTEST_PROJECT_HEADER_RE.match(line):
+            continue
         m = _CTEST_LINE_RE.match(line)
         if m:
             names.add(m.group(1))
             continue
-        if line.startswith("Total Tests:"):
+        if _CTEST_TOTAL_RE.match(line):
             continue
-        names.add(line)
+        if line == _CTEST_NO_TESTS_FOUND:
+            continue
+        if _CLEAN_LIST_NAME_RE.match(line):
+            names.add(line)
+            continue
+        fail(
+            f"linha de inventario nao reconhecida (nem cabecalho/rodape de ctest, nem "
+            f"'Test #N: nome', nem nome de lista limpa em snake_case): {line!r}"
+        )
     return names
 
 
@@ -742,6 +767,90 @@ def selftest_ctest_header_only_yields_empty_inventory():
     return True
 
 
+# Controle UNIAO-MISTA (achado do lider, 05/09/2026, medido ao vivo no
+# run 33995142570 - a mesma sessao que motivou o conserto de apply_
+# aliases() acima, mas um defeito DIFERENTE e mais grave: P-0 (docs/
+# plano-w6a-janela.md fatia 1) publica o inventario do container
+# (parity-inv-linux-container) como uma TERCEIRA fonte Linux, e o job
+# `parity` (ci.yml) CONCATENA essa lista ja limpa (bare names, um por
+# linha, sem "Test project"/"Test #N:" nenhum) DEPOIS da uniao de
+# varias saidas cruas de `ctest -N` (uma por leg) no MESMO arquivo -
+# exatamente a forma real medida: `parity_linux_union.txt` do run
+# citado tem nove blocos "Test project .../Test #N: nome/.../Total
+# Tests: N" seguidos por uma linha solta "shell_smoke" no final.
+#
+# parse_inventory_text() de ANTES deste conserto decidia o formato do
+# ARQUIVO INTEIRO pela PRIMEIRA linha de conteudo - que e sempre um
+# cabecalho de ctest numa uniao real, porque a lista limpa do
+# container e sempre concatenada por ultimo. Uma vez em "modo ctest
+# cru", a extracao vira uma lista branca que so aceita "Test #N: nome"
+# - a linha solta do container NUNCA bate esse padrao, e desaparece em
+# SILENCIO, mesmo fisicamente presente no arquivo. Este controle
+# reproduz a MESMA forma: multiplos blocos de ctest cru, terminando
+# com uma linha limpa de nome de fixture do container - contra o
+# parser de antes, o nome do container simplesmente nao aparece no
+# conjunto resultante.
+def selftest_mixed_ctest_and_clean_list_control():
+    mixed_text = (
+        "Test project /__w/GlintFx/GlintFx/build-shared\n"
+        "  Test  #1: foo_test\n"
+        "  Test  #2: bar_test\n"
+        "\n"
+        "Total Tests: 2\n"
+        "Test project /__w/GlintFx/GlintFx/build-static\n"
+        "  Test  #1: foo_test\n"
+        "\n"
+        "Total Tests: 1\n"
+        "shell_smoke\n"
+        "window_smoke\n"
+    )
+    names = parse_inventory_text(mixed_text)
+    expected = {"foo_test", "bar_test", "shell_smoke", "window_smoke"}
+    if names != expected:
+        print(
+            f"selftest: controle UNIAO-MISTA FALHOU (esperava {expected}, veio {names} - "
+            "nome(s) do container perdido(s) na mistura com saida crua de ctest)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle UNIAO-MISTA OK (saida crua de ctest e lista limpa do "
+        "container no MESMO arquivo, nenhum nome perdido)"
+    )
+    return True
+
+
+# Controle ENTRADA-CORROMPIDA (o outro lado do mesmo achado, L-40
+# aplicado a LEITURA em vez de a tabela de apelidos): uma linha que
+# nao e cabecalho, nao e "Test #N: nome", nao e o rodape "Total Tests:
+# N", nao e a mensagem "No tests were found!!!" e nao tem a forma de
+# um nome de fixture deste projeto (snake_case, GODS_LAWS.md L-21) nao
+# bate com NENHUMA das formas reconhecidas - e tem que doer (fail(),
+# GODS_LAWS.md L-40), nunca virar um nome de teste fantasma nem
+# desaparecer em silencio.
+def selftest_corrupted_inventory_line_reproves():
+    garbled_text = (
+        "Test project /__w/GlintFx/GlintFx/build-shared\n"
+        "  Test  #1: foo_test\n"
+        "isto aqui nao e saida crua de ctest nem um nome limpo!!\n"
+        "Total Tests: 1\n"
+    )
+    try:
+        parse_inventory_text(garbled_text)
+    except SystemExit:
+        print(
+            "selftest: controle ENTRADA-CORROMPIDA OK (linha sem forma reconhecida "
+            "reprova, GODS_LAWS.md L-40, em vez de virar nome fantasma ou sumir)"
+        )
+        return True
+    print(
+        "selftest: controle ENTRADA-CORROMPIDA FALHOU (linha corrompida deveria ter "
+        "reprovado)",
+        file=sys.stderr,
+    )
+    return False
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -757,6 +866,8 @@ def selftest_main():
         selftest_parsing_round_trip(),
         selftest_ctest_project_header_not_swallowed(),
         selftest_ctest_header_only_yields_empty_inventory(),
+        selftest_mixed_ctest_and_clean_list_control(),
+        selftest_corrupted_inventory_line_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

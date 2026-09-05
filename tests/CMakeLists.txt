@@ -759,6 +759,48 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
     )
     glintfx_add_wayland_xdg_shell_binding(window_adapter_listener_test)
+
+    # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): the pure-
+    # listener half of wayland_seat_adapter - both callbacks
+    # (capabilities, name) exercised DIRECTLY with a null wl_seat*
+    # proxy, the same "callbacks com proxy nulo" technique window_
+    # adapter_listener_test above already uses. Needs only wayland-
+    # client itself (wl_seat_interface, the WL_SEAT_CAPABILITY_*
+    # bitmask constants, wl_seat_listener) - no xdg-shell protocol
+    # binding is reachable from seat_adapter.{hpp,cpp}, so this links
+    # GlintfxWaylandClient_* directly (display_connect_failure_test's
+    # own block above documents these variables), never glintfx_add_
+    # wayland_xdg_shell_binding().
+    #
+    # display_adapter.cpp/global_catalog.cpp are linked here ONLY
+    # because wayland_seat_adapter::open() (compiled into this SAME
+    # translation unit, whether or not this test ever calls it)
+    # references wayland_display_adapter::globals()/bind() - the same
+    # "the whole .cpp is one link unit" reasoning window_adapter_
+    # listener_test's own block above already documents for wayland_
+    # window_adapter::open(). seat_capabilities.cpp is linked because
+    # wl_seat_capabilities() calls seat_capabilities::set_capability().
+    #
+    # open()/close() themselves (the paths that DO call into a live
+    # compositor, including the version-aware wl_seat_release()/wl_
+    # seat_destroy() choice in close()) are proven for real by
+    # seat_test, inside the container (GODS_LAWS.md L-09, tests/
+    # container/seat_test.cpp), via P-0's own inventory - never by
+    # this target.
+    glintfx_add_test(seat_adapter_listener_test)
+    target_include_directories(seat_adapter_listener_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src"
+        ${GlintfxWaylandClient_INCLUDE_DIRS}
+    )
+    target_sources(seat_adapter_listener_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/seat_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+    )
+    target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
+    target_link_libraries(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
+    target_compile_options(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
 endif()
 
 # WIN-DISPLAY fatia 3 (TODO.md, GODS_LAWS.md L-04/L-09): the Windows
@@ -822,6 +864,54 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
     )
     target_link_libraries(two_displays_test PRIVATE user32)
+endif()
+
+# Y-1 (docs/plano-w6a-janela.md fatia 13, TODO.md WIN-SEAT): the Win32
+# counterpart of fatia 12's own S-B (Wayland seat, src/platform/
+# wayland/). Same if(WIN32)/second-compilation shape as win32_display_
+# connect_test/win32_display_refusal_test above (win32_seat_adapter has
+# no GLINTFX_API, glintfx.dll's own hidden visibility never exports
+# these methods).
+if(WIN32)
+    # "listas sinteticas" (the plan's own name for this fixture):
+    # win32_seat_adapter::translate() exercised directly against
+    # hand-built RAWINPUTDEVICELIST arrays and digitizer bitmasks - no
+    # window, no RegisterRawInputDevices. display_adapter.cpp is linked
+    # alongside it only because seat_adapter.hpp includes display_
+    # adapter.hpp (win32_seat_adapter::open() takes a `const win32_
+    # display_adapter &`) - this fixture never calls open(). Alias of
+    # seat_adapter_listener_test (tests/parity_aliases.txt) - same
+    # "proxy nulo"/"listas sinteticas" role, different mechanism
+    # (GODS_LAWS.md L-04).
+    glintfx_add_test(win32_seat_translation_test)
+    target_include_directories(win32_seat_translation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_seat_translation_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+    )
+    target_link_libraries(win32_seat_translation_test PRIVATE user32)
+
+    # NAMED "seat_test", not "win32_seat_test" - same requirement as
+    # two_displays_test above (docs/plano-w6a-janela.md fatia 13's own
+    # "Par no portao" column, tests/container/seat_test.cpp's own
+    # header comment): P-0's inventory needs this EXACT name to line up
+    # against the Wayland side's own container fixture of the same
+    # name. A real win32_display_adapter and a real win32_seat_adapter
+    # opened against the windows-latest runner - RegisterRawInput
+    # Devices for real, capabilities() read from the runner's own
+    # GetRawInputDeviceList()/GetSystemMetrics(SM_DIGITIZER), and a
+    # SYNTHETIC WM_INPUT_DEVICE_CHANGE (SendMessageW, never a real
+    # unplug/replug) proving the GWLP_WNDPROC subclass routes to this
+    # adapter instance - see this fixture's own header comment.
+    glintfx_add_test(seat_test)
+    target_include_directories(seat_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(seat_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+    )
+    target_link_libraries(seat_test PRIVATE user32)
 endif()
 
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves

@@ -75,7 +75,17 @@ $ErrorActionPreference = "Stop"
 # arquivo já citava esta lista como pendente de atualização aqui, no
 # próprio comentário do KNOWN_ADAPTER_CLASSES dele - conserto aplicado
 # nesta mesma revisão, não numa fatia futura.
-$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter")
+#
+# wayland_seat_adapter (WL-SEAT fatia S-B, docs/plano-w6a-janela.md
+# fatia 12) e win32_seat_adapter (WIN-SEAT fatia Y-1, docs/plano-w6a-
+# janela.md fatia 13) adicionados juntos, 05/09/2026, GODS_LAWS.md
+# L-40: os dois lados do MESMO par de paridade (S-B alimenta seat_
+# capabilities por evento wl_seat.capabilities, Y-1 pelo mesmo tipo
+# via RegisterRawInputDevices/GetRawInputDeviceList/GetSystemMetrics) -
+# nenhum dos dois nomes entra sozinho, a mesma disciplina "avisar nao
+# basta, as duas pontas fecham na mesma revisao" que o comentario
+# irmao acima ja documenta para wayland_window_adapter.
+$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 

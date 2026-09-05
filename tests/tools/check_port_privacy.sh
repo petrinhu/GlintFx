@@ -86,7 +86,27 @@ set -eu
 # only) - it still needs the SAME update, in the SAME commit, per this
 # file's own PORT-PRIVACY-WIN comment below; flagged for the
 # orchestrator rather than edited here.
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter"
+#
+# wayland_seat_adapter added by WL-SEAT fatia S-B (docs/plano-w6a-
+# janela.md fatia 12, GODS_LAWS.md L-40): the adapter that binds wl_
+# seat and feeds the shared seat_capabilities value type (src/platform/
+# wayland/seat_adapter.hpp).
+#
+# win32_seat_adapter added by WIN-SEAT fatia Y-1 (docs/plano-w6a-
+# janela.md fatia 13, GODS_LAWS.md L-04/L-40): the Windows counterpart
+# of wayland_seat_adapter right above - binds a message-only window
+# under win32_display_adapter's own class and feeds the SAME shared
+# seat_capabilities value type via RegisterRawInputDevices/
+# GetRawInputDeviceList/GetSystemMetrics(SM_DIGITIZER) instead of a
+# compositor event (src/platform/win32/seat_adapter.hpp). Added in the
+# SAME commit as tools/ci/check-port-privacy-win.ps1's own
+# KNOWN_ADAPTER_CLASSES update below, which now also carries
+# wayland_seat_adapter - the flag both this comment's own predecessor
+# and that fatia's own briefing left open (S-B landed in this tree
+# without touching the Windows-side list; that gap and this one close
+# together here, GODS_LAWS.md L-40's own "avisar nao basta, as duas
+# pontas fecham na mesma revisao").
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {

@@ -1290,3 +1290,44 @@ wglCreateContextAttribsARB available=false
 ⚠️ **A densidade 96 confirma um dos oito lugares que o CTO nomeou como "passa verde e esta quebrado":** os DOIS executores rodam sem escala, entao **uma implementacao que devolvesse o tamanho em pixels como copia do tamanho logico passaria em todo teste de integracao**. A derivacao tem de viver no estado comum e ser testada com valores sinteticos -- que e exatamente o que o plano ja manda.
 
 **Uma anomalia menor, registrada para nao virar caca ao tesouro depois:** a escolha de formato de pixel **teve sucesso** (devolveu 3, e a fixacao seguinte deu certo) mas o codigo de erro do sistema leu 87. E lixo de chamada anterior: aquele codigo nao e zerado em caso de sucesso. Nao e defeito nosso; fica escrito para o proximo leitor nao investigar.
+
+---
+
+## O aparato funcionou: o servidor do Windows PASSA A TER prova grafica  `[05/09/26 - 18:56:13]`
+
+**Medido, run `33994059308`. A mesma sonda, o mesmo trabalho, o mesmo comando -- saida diferente.**
+
+**Antes** (run `33991233135`, sem aparato):
+```
+GL_RENDERER=GDI Generic   GL_VERSION=1.1.0
+wglCreateContextAttribsARB available=false
+```
+
+**Depois** (run `33994059308`, com aparato):
+```
+GL_RENDERER=D3D12 (Microsoft Basic Render Driver)
+GL_VERSION=4.6 (Compatibility Profile) Mesa 26.2.0
+wglCreateContextAttribsARB available=true
+wglCreateContextAttribsARB(3.3 core) ok=true
+```
+
+### O que isto significa, em uma frase
+
+**O contexto grafico 3.3 que o projeto exige E CRIAVEL no servidor do Windows.** A fatia grafica de la **tem prova**, e a onda seguinte deixa de estar travada.
+
+### Por que esta prova vale, e nao e "instalei e confio"
+
+⚠️ **A prova nao e o aparato ter sido baixado: e a MESMA sonda imprimindo coisa diferente.** Foi a exigencia que eu escrevi no briefing antes de a fatia comecar, e ela se pagou duas vezes no mesmo dia:
+
+1. **Pegou um erro MEU.** Commitei o script sem o passo que o chama, e escrevi que estava no ar. A rodada seguinte imprimiu identico ao de antes -- e "identico" e o unico jeito de um aparato ausente se denunciar. Um aparato que se provasse por declaracao teria passado batido.
+2. **Confirmou o desfecho de verdade**, com numeros que ninguem podia inventar de cabeca.
+
+### A aposta do agente que se resolveu sozinha
+
+Ele declarou, no relatorio, que **nao sabia qual dos dois desenhistas responderia** -- o de software puro ou o que passa pelo grafico do sistema -- e escreveu: *"se aparecer o segundo, ainda assim resolve a arvore de decisao, porque o que importa e a extensao existir e o contexto nascer"*.
+
+**Apareceu o segundo, e ele estava certo.** Declarar a incerteza com o criterio de sucesso junto e o que permitiu ler o resultado sem reabrir a discussao.
+
+### O que fica pendente do lider
+
+A **confirmacao retroativa** do descarregamento de binario de terceiro no servidor -- versao e soma de verificacao fixas, medidas baixando o arquivo, nunca copiadas de uma interface. Fica ao lado dos executaveis de teste, jamais no produto.

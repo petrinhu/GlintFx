@@ -184,6 +184,40 @@ target_sources(gfss_value_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
 )
 
+# GFSS-PROP-REGISTRY (TODO.md wave W4, GODS_LAWS.md L-17/L-19/L-20/
+# L-26/L-27/L-40, docs/gfss-property-registry-v1.md - 340 lines,
+# twenty-two decisions, CTO, ratified in the project leader's own
+# autonomous-mode order of 05/09/2026): the closed 104-property
+# registry (public, include/glintfx/gfss/property.hpp, keyword.hpp -
+# [PMU], one-way door) plus its own internal applied/reserved lifecycle
+# accessor (src/gfss/property_status.hpp, NOT promoted to include/
+# glintfx/ - GODS_LAWS.md L-19, the SAME "GFSS-API decides the public
+# shape" reasoning value_parse.hpp/color_parse.hpp already carry for
+# this slice) - see gfss_property_registry_test.cpp's own header
+# comment. Needs the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include
+# dir every other internal-header consumer above already adds, for
+# gfss/property_status.hpp and gfss/property_table.hpp.
+glintfx_add_test(gfss_property_registry_test)
+target_include_directories(gfss_property_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# property_status.cpp defines glintfx::style::detail::gfss_property_
+# status()/gfss_property_status_counts() with NO GLINTFX_API
+# (deliberately - property_status.hpp's own header comment), the SAME
+# reason gfss_value_test above compiles value_parse.cpp a second time
+# instead of linking the hidden copy inside glintfx_library's own .so.
+# property.cpp itself is NOT recompiled here: it defines the registry's
+# THREE PUBLIC GLINTFX_API functions (gltfx_gfss_property_name/is_
+# inherited/initial), already reachable through glintfx::glintfx below
+# - recompiling it a second time into this executable would define
+# those same public symbols twice in one binary (property_status.cpp's
+# own header comment carries the full reasoning; property_table.hpp,
+# the header BOTH .cpp files and this test itself include, is `inline
+# constexpr` throughout, so sharing it across translation units needs
+# no extra compile at all).
+target_sources(gfss_property_registry_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_status.cpp"
+)
+
 # GFSS-NODE-VIEW, fatia A (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-26/
 # L-28/L-40, ESCOPO.md SS2 decision 6): the five gltfx_node_state
 # pseudo-class bits, their frozen numeric values and

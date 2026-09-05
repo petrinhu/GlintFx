@@ -24,4 +24,7 @@ target_sources(glintfx_library PRIVATE
     anb_parse.cpp
     value_kind.cpp
     value_parse.cpp
+    keyword_kind.cpp
+    property.cpp
+    property_status.cpp
 )

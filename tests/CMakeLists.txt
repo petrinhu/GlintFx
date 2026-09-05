@@ -586,6 +586,56 @@ target_include_directories(display_port_concept_test PRIVATE "${PROJECT_SOURCE_D
 glintfx_add_test(display_connection_fake_test)
 target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# W-C' (docs/plano-w6a-janela.md fatia 4, GODS_LAWS.md L-04): the
+# window's neutral state, its text-field validation, and the seat's
+# input-device-class facts - all five files below are OS-agnostic (no
+# Wayland or Win32 type reachable from any of them, same as the three
+# cases just above), so all five are registered UNGUARDED, never
+# inside an if(UNIX)/if(WIN32) block, and each compiles its own .cpp a
+# SECOND time directly into the test (none of these types has
+# GLINTFX_API - GODS_LAWS.md L-19, "nada e exportado" - so there is no
+# hidden library symbol to link against, only source to recompile,
+# same technique display_port_concept_test's own neighbors use above).
+glintfx_add_test(window_state_test)
+target_include_directories(window_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(window_state_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+)
+
+glintfx_add_test(utf8_validation_test)
+target_include_directories(utf8_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(utf8_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+)
+
+glintfx_add_test(window_desc_validation_test)
+target_include_directories(window_desc_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(window_desc_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+)
+
+glintfx_add_test(seat_capabilities_test)
+target_include_directories(seat_capabilities_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(seat_capabilities_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+)
+
+# Wayland-DOMAIN, not Wayland-ONLY (see this file's own header comment
+# above global_catalog_test on the exact same distinction, and this
+# file's own header comment for why guarding this one would repeat
+# that fixed mistake): window_configure_sequence.{hpp,cpp} lives under
+# src/platform/wayland/ because the xdg_toplevel_state numbers it
+# translates are Wayland-domain knowledge, but the CODE ITSELF never
+# includes a Wayland header or touches a Wayland type - registered
+# unguarded so it runs, and proves the same behavior, on all five
+# platforms.
+glintfx_add_test(window_configure_sequence_test)
+target_include_directories(window_configure_sequence_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(window_configure_sequence_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_

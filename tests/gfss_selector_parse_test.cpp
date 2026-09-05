@@ -50,7 +50,6 @@
 // REUSES rather than re-spelling (see this file's own duplicate-word
 // proof below for why that reuse is checked, not assumed).
 using glintfx::style::detail::count_owned_by;
-using glintfx::style::detail::gfss_anb;
 using glintfx::style::detail::gfss_combinator;
 using glintfx::style::detail::gfss_combinator_count;
 using glintfx::style::detail::gfss_combinator_table;
@@ -596,8 +595,8 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
 GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_every_production) {
     struct anb_sample {
         std::string_view text;
-        long long expected_a;
-        long long expected_b;
+        long long expected_a{};
+        long long expected_b{};
         std::string_view label;
     };
     static constexpr anb_sample k_samples[] = {
@@ -650,8 +649,8 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_every_production) {
 GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_optional_plus_and_whitespace_variants) {
     struct anb_sample {
         std::string_view text;
-        long long expected_a;
-        long long expected_b;
+        long long expected_a{};
+        long long expected_b{};
     };
     static constexpr anb_sample k_samples[] = {
         {"+n", 1, 0},    {"+3n", 3, 0},   {"+n-1", 1, -1},  {"+n- 1", 1, -1},  {"3n +1", 3, 1},

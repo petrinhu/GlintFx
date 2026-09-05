@@ -383,7 +383,7 @@ match_mandatory_trailing_offset(const token_vector &tokens, std::size_t index,
     return {.ok = true, .value = value, .diagnostic = {}};
 }
 
-[[nodiscard]] anb_parse_result finish_fail(gltfx_gfss_diagnostic diagnostic) noexcept {
+[[nodiscard]] anb_parse_result finish_fail(const gltfx_gfss_diagnostic &diagnostic) noexcept {
     return {.ok = false, .value = {}, .diagnostic = diagnostic};
 }
 

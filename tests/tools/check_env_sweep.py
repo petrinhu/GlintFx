@@ -145,6 +145,18 @@ _ENV_FACT_SIGNALS = {
         "falso positivo de 'compilador disponivel' (TODO.md GATE-ENV-SWEEP, incidente 7; "
         "check_dep_zero.py's own running_as_windows_linker(), commit d316ed5)",
     ),
+    "CASE_SENSITIVITY": (
+        re.compile(r"\bsame_path_platform_aware\b|\bos\.path\.normcase\b|\bon_case_insensitive_platform\b"),
+        "sensibilidade a maiusculas do sistema de arquivos (TODO.md GATE-ENV-SWEEP, OITAVA categoria, "
+        "acrescentada em 05/09/2026 pela revisao adversarial da W3 -- unica das oito que entrou ANTES de "
+        "incidentar, e nao depois: o sistema de arquivos do Windows preserva a caixa mas nao a distingue, "
+        "enquanto o do Unix distingue, entao comparar dois caminhos com igualdade crua da veredicto diferente "
+        "conforme a maquina. O codigo de hoje ja trata isso nos tres pontos que precisam "
+        "(check_dep_zero_trace.py's own same_path_platform_aware(), is_under_root() e "
+        "on_case_insensitive_platform) -- inclusive um deles ja foi um achado historico, uma chamada que "
+        "pulava o padrao que todas as irmas seguiam. O que faltava era o NOME no vocabulario, para que uma "
+        "comparacao futura sem declaracao seja pega por varredura em vez de por incidente)",
+    ),
     "PATH_SEPARATOR": (
         re.compile(r"\bto_posix_path\b|\bglintfx_pkgconfig_looks_rooted\b|\b_as_posix\b"),
         "separador de caminho (TODO.md GATE-ENV-SWEEP, incidentes 8 e 9; "

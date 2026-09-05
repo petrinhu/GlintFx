@@ -1174,3 +1174,35 @@ Escolha dele, a recomendada, e ela **aceita o corte que o CTO propos**.
 ⚠️ **Armadilha a evitar, porque esta casa ja caiu nela:** a tentacao e listar o que foi construido. O que ele pediu e o oposto -- o que **funciona na mao de quem usa**. Fatia fechada que ainda nao serve para nada observavel **nao entra na lista**, ou entra dizendo explicitamente que ainda nao serve.
 
 **Registrado aqui porque a sessao pode compactar antes da W10**, e o pedido tem de sobreviver a isso.
+
+---
+
+## O CTO decidiu as vinte e duas do registro de propriedades  `[05/09/26 - 15:14:25]`
+
+**Decisoes do CTO (`fable`), NAO do lider, tomadas em modo autonomo sob a L-34.** Ele reverte pelo registro se quiser: **cada linha do documento carrega a marca de quem decidiu** -- lider, CTO, padrao do mundo, ou "falta medir" -- justamente para ele poder reverter so as do CTO sem tocar nas dele.
+
+**A especificacao inteira esta versionada em `docs/gfss-property-registry-v1.md`**, ao lado dos outros dois documentos de formato do projeto. **104 propriedades**, mais onze abreviacoes sem numero. ⚠️ **Numeracao conferida por mim, nao pelo relatorio dele:** 104 numeros unicos, de 0 a 103, sem buraco e sem repeticao.
+
+### As tres que travavam o registro
+
+**Nasce COMPLETO, com a divida CONTADA E RUIDOSA.** A saida que ele achou nao estava nas duas que eu tinha oferecido: enquanto a fatia que pinta nao chega, a propriedade e **aceita COM AVISO**, com linha e coluna. O "aceita e ignora" -- o defeito que o lider mandou eliminar -- vira **"aceita e avisa"**, e um portao anterior a 1.0 reprova enquanto sobrar uma. A razao dele: com a ordem historica que o lider fixou, nascer vazio deixaria a lista em ordem de chegada de fatia **para sempre**.
+
+**Palavra reservada de C++ ganha sufixo, e isso e REGRA, nao lista de dois.** Ele recusou a forma "conserta os dois que colidem hoje": a regra vale para qualquer palavra futura, e um teste enumera os identificadores contra a lista fechada de reservadas da linguagem. A folha continua escrevendo a palavra normal.
+
+**Das sete abreviacoes de fora, DUAS entram e cinco ficam.** E a regua e derivada das duas que o proprio lider ja derrubara: entra a abreviacao cuja ordem nao esconde significado; fica fora a que distingue dois pedacos do mesmo tipo **so pela posicao** (os dois tempos de uma transicao) ou que zera em silencio o que nao foi escrito. **Argumento decisivo dele, e e bom:** ficar fora e reversivel; entrar e porta de mao unica do formato.
+
+### As tres que paravam trabalho
+
+**Como a folha aponta para uma imagem.** Nenhuma das duas opcoes que eu tinha levado. Ele saiu com uma terceira: a folha escreve a palavra do padrao e **a biblioteca guarda o texto verbatim, sem NUNCA abrir arquivo ao ler uma folha**. Quem resolve e um contrato opcional do consumidor. **A razao e uma decisao do proprio lider, reusada:** carregamento nao guarda nada porque guardar impoe politica; folha que carrega sozinha obrigaria a biblioteca a decidir quando ler e quando soltar da memoria, que e decisao do programa. Criou item novo, que eu registrei.
+
+**Como a folha nomeia uma fonte.** Cada nome e apelido que o consumidor registrou ao carregar a fonte; o primeiro registrado vence; sem enumerar fonte do sistema (dependencia zero) e sem fonte embarcada (licenca). Se o registro esta vazio, o texto nao desenha e o diagnostico diz qual familia faltou.
+
+**A transparencia com duas semanticas.** A palavra fica com o significado do padrao (o de grupo); a forma simples vira parametro da API de desenho, nao palavra de folha. E ate a fatia chegar, a propriedade fica **reservada**: nunca pintada com o significado errado. Isso fecha a quebra silenciosa que eu tinha levantado.
+
+### Sete lugares onde ele decidiu CONTRA a propria recomendacao anterior
+
+E o dado que mais me interessa do relatorio dele, porque mostra que decidir e diferente de recomendar. Entre eles: **corrigiu a si mesmo numa faixa de valor** que ele havia escrito como se fosse do lider e era inferencia dele; e trocou a leitura de uma fatia nossa pelo comportamento do padrao, com a razao de que **o conhecimento que o consumidor ja traz vale mais que a nossa conveniencia**.
+
+### O que ele declarou que NAO mediu
+
+Colisao de nome contra os cabecalhos do Windows (o portao mede na implementacao); a formula de dois modos de mistura com transparencia crua; qual tabela da fonte alimenta a altura de linha padrao, e a paridade disso entre sistemas; e o ruido do aviso de propriedade reservada antes da 1.0 -- sem consumidor, nao ha como medir.

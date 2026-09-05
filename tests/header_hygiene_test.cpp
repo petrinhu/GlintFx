@@ -106,6 +106,8 @@
 #include <glintfx/core/transform.hpp>
 #include <glintfx/core/vec2.hpp>
 #include <glintfx/core/version.hpp>
+#include <glintfx/gfss/keyword.hpp>
+#include <glintfx/gfss/property.hpp>
 #include <glintfx/gfss/token.hpp>
 #include <glintfx/gfss/tokenizer.hpp>
 #include <glintfx/gfss/value.hpp>
@@ -242,6 +244,51 @@ GLINTFX_TEST(gfss_value_header_survives_hostile_system_headers) {
     };
     GLINTFX_CHECK(value.kind == glintfx::style::gltfx_gfss_value_kind::length);
     GLINTFX_CHECK_EQ(value.length.magnitude, 16.0);
+}
+
+// gfss/keyword.hpp (GFSS-PROP-REGISTRY) survives the same hostile
+// include order - gltfx_gfss_keyword_name() is the ONE call-shaped
+// entry point this header declares, exercised here as a real call
+// expression the SAME CE-8 discipline the cases above already apply;
+// the enum's own 56 enumerators are already exercised at their
+// DECLARATION site, inside keyword.hpp's own enum class body, by the
+// mere #include above under the hostile order (the SAME declaration-
+// site guarantee this file's own header comment states for
+// version.hpp) - so the two enumerators that needed the E2 reserved-
+// word suffix (auto_keyword, static_keyword) are enough here to also
+// exercise the name lookup as a real call expression.
+GLINTFX_TEST(gfss_keyword_header_survives_hostile_system_headers) {
+    const std::string_view auto_name =
+        glintfx::style::gltfx_gfss_keyword_name(glintfx::style::gltfx_gfss_keyword::auto_keyword);
+    GLINTFX_CHECK(auto_name == std::string_view{"auto"});
+
+    const std::string_view static_name =
+        glintfx::style::gltfx_gfss_keyword_name(glintfx::style::gltfx_gfss_keyword::static_keyword);
+    GLINTFX_CHECK(static_name == std::string_view{"static"});
+}
+
+// gfss/property.hpp (GFSS-PROP-REGISTRY) survives the same hostile
+// include order - gltfx_gfss_property_name(), gltfx_gfss_property_is_
+// inherited() and gltfx_gfss_property_initial() are the three
+// call-shaped entry points this header declares, exercised here as
+// real call expressions the SAME CE-8 discipline the cases above
+// already apply; the enum's own 104 enumerators are already exercised
+// at their DECLARATION site, inside property.hpp's own enum class
+// body, by the mere #include above under the hostile order, so one
+// representative enumerator per accessor is enough here.
+GLINTFX_TEST(gfss_property_header_survives_hostile_system_headers) {
+    const std::string_view name =
+        glintfx::style::gltfx_gfss_property_name(glintfx::style::gltfx_gfss_property::display);
+    GLINTFX_CHECK(name == std::string_view{"display"});
+
+    const bool inherited = glintfx::style::gltfx_gfss_property_is_inherited(
+        glintfx::style::gltfx_gfss_property::color);
+    GLINTFX_CHECK(inherited);
+
+    const glintfx::style::gltfx_gfss_value initial =
+        glintfx::style::gltfx_gfss_property_initial(glintfx::style::gltfx_gfss_property::opacity);
+    GLINTFX_CHECK(initial.kind == glintfx::style::gltfx_gfss_value_kind::number);
+    GLINTFX_CHECK_EQ(initial.number, 1.0);
 }
 
 // gfui/node_view.hpp (GFSS-NODE-VIEW) survives the same hostile

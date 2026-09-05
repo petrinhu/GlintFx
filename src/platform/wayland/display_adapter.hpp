@@ -26,6 +26,7 @@
 // all.
 struct wl_display;
 struct wl_registry;
+struct wl_interface;
 
 namespace glintfx::platform {
 
@@ -90,6 +91,45 @@ class wayland_display_adapter {
     // outside this adapter is meant to insert or remove a global by
     // hand.
     [[nodiscard]] const global_catalog &globals() const noexcept { return m_globals; }
+
+    // WL-WINDOW fatia W-A (docs/plano-w6a-janela.md fatia 3; plano W5
+    // sec. 1.2): binds to a global this catalog already announced -
+    // the one operation every later slice built on top of this
+    // adapter (the shell, the seat) reaches for instead of calling
+    // wl_registry_bind() by hand. `global` is a record the CALLER
+    // already read from globals() (typically via find_by_interface());
+    // `interface` is the generated protocol binding's own descriptor
+    // for the type being bound (e.g. `wl_compositor_interface`);
+    // `supported_version` is the highest version THIS BUILD of
+    // glintfx understands for that interface.
+    //
+    // THE VERSION ACTUALLY REQUESTED is never `supported_version`
+    // verbatim - it is global_catalog::clamp_version(supported_version,
+    // global.version), the same helper globals()'s own header comment
+    // already names as "every future bind call in this project is
+    // expected to run through it". Binding a version the compositor
+    // never announced is a protocol violation the compositor is
+    // entitled to kill the connection over; clamping means a
+    // compositor offering LESS than this build would like never turns
+    // into that violation - it turns into a live, correctly reduced
+    // proxy instead. clamp_version()'s own five cases (tests/
+    // global_catalog_test.cpp) already cover both directions -
+    // compositor offers more, compositor offers less - this method
+    // adds no new version arithmetic of its own, only the call site.
+    //
+    // REFUSAL, NOT A NULL POINTER (docs/plano-w6a-janela.md sec.
+    // "onde esta o perigo" item 1): a closed adapter, or one already
+    // latched into has_fatal_error() by an earlier call, refuses with
+    // an ordinary gltfx_rslt<void *> error - exactly the same shape
+    // roundtrip()/pump_events() already use, never a null void* a
+    // caller could dereference three calls later. wl_registry_bind()
+    // itself failing to allocate a local proxy (the one way it can
+    // return null on an otherwise-healthy connection) is treated the
+    // same way: latched fatal, reported through the same channel,
+    // never handed back as a bare nullptr success.
+    [[nodiscard]] gltfx_rslt<void *> bind(const wayland_global &global,
+                                          const wl_interface &interface,
+                                          std::uint32_t supported_version) noexcept;
 
     // WL-DISPLAY fatia C: re-synchronizes with the compositor -
     // flushes any pending request, then blocks until every event

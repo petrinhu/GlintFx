@@ -69,6 +69,20 @@ win32_runner_probe_test|linux|nenhum|SEM-PENDENCIA
 # este teste ter par.
 wl_proto_link_test|windows|nenhum|SEM-PENDENCIA
 
+# display_bind_refusal_test (docs/plano-w6a-janela.md fatia 3, W-A,
+# 05/09/2026; tests/CMakeLists.txt, if(UNIX)) prova a recusa de
+# wayland_display_adapter::bind() - liga-se a um global ANUNCIADO PELO
+# REGISTRY, o mecanismo de descoberta de servico do proprio protocolo
+# Wayland. O Windows nao tem "registry"/anuncio de globais: mesma porta
+# que L-05 fecha por desenho, mesma razao de wl_proto_link_test acima -
+# nao ha, e nunca vai haver, um par de NOME para este teste no lado
+# Windows. O COMPORTAMENTO que bind() serve (ligar compositor, shell,
+# seat) tem par por OUTRO mecanismo: window_parity_test (fatia 11)
+# exige sucesso nos dois lados, cada um usando o proprio jeito de obter
+# o servico que precisa (bind() aqui, a classe de janela ja registrada
+# no Win32).
+display_bind_refusal_test|windows|nenhum|SEM-PENDENCIA
+
 # pkgconfig_test (tests/CMakeLists.txt:1404) prova o glintfx.pc
 # instalado via um `pkg-config --cflags --libs` cru. pkg-config e uma
 # convencao de empacotamento Unix/Linux; o proprio comentario que

@@ -177,6 +177,42 @@ gltfx_rslt<void> wayland_display_adapter::open() noexcept {
     return gltfx_rslt<void>::ok();
 }
 
+gltfx_rslt<void *> wayland_display_adapter::bind(const wayland_global &global,
+                                                 const wl_interface &interface,
+                                                 std::uint32_t supported_version) noexcept {
+    if (!is_open()) {
+        return gltfx_rslt<void *>::err(gltfx_err(gltfx_err_code::invalid_argument));
+    }
+    if (m_fatal) {
+        // Same "never a second real call on a connection already
+        // known to be dead" rule roundtrip()/pump_events() already
+        // apply (see this class's own header comment on has_fatal_
+        // error()) - a bind() attempt is a protocol request exactly
+        // like any other, and this connection cannot send one.
+        return gltfx_rslt<void *>::err(build_fatal_error(m_display));
+    }
+
+    // The one call site this project's clamp_version() rule (global_
+    // catalog.hpp's own header comment) exists for: never ask the
+    // compositor for a version it did not just announce.
+    const std::uint32_t version = global_catalog::clamp_version(supported_version, global.version);
+    void *proxy = wl_registry_bind(m_registry, global.name, &interface, version);
+    if (proxy == nullptr) {
+        // wl_registry_bind() only returns null when it fails to
+        // allocate the LOCAL proxy object - this connection's own
+        // request/event bookkeeping is now out of sync with whatever
+        // the compositor believes was bound, which is exactly the
+        // "permanently unusable" shape has_fatal_error() exists to
+        // latch (see this file's own header comment on ARCH-PORTS'S
+        // exception-safety contract). Reported through the SAME
+        // channel as every other refusal here - never a bare nullptr
+        // a caller could dereference three calls later.
+        m_fatal = true;
+        return gltfx_rslt<void *>::err(build_fatal_error(m_display));
+    }
+    return gltfx_rslt<void *>::ok(proxy);
+}
+
 gltfx_rslt<void> wayland_display_adapter::roundtrip() noexcept {
     if (!is_open()) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::invalid_argument));

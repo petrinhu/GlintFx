@@ -623,6 +623,24 @@ if(UNIX)
     target_link_directories(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
     target_compile_options(display_connect_failure_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
+
+    # WL-WINDOW fatia W-A (docs/plano-w6a-janela.md fatia 3, plano W5
+    # sec. 1.2): wayland_display_adapter::bind()'s own refusal path on
+    # an adapter never opened - same second-compile technique as
+    # display_connect_failure_test right above it (glintfx.so's hidden
+    # visibility, this block's own header comment).
+    glintfx_add_test(display_bind_refusal_test)
+    target_include_directories(display_bind_refusal_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src"
+        ${GlintfxWaylandClient_INCLUDE_DIRS}
+    )
+    target_sources(display_bind_refusal_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+    )
+    target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
+    target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
+    target_compile_options(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
 endif()
 
 # WIN-DISPLAY fatia 3 (TODO.md, GODS_LAWS.md L-04/L-09): the Windows

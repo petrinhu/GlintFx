@@ -66,6 +66,22 @@
 // snake_case, English, never a sentence (docs/api-conventions.md R7):
 // every call site in color_parse.cpp uses the NAMED constant below,
 // never a literal string of its own.
+//
+// GFSS-OKLCH (TODO.md, ESCOPO.md SS4 decision 8) IS THE SECOND FATIA TO
+// ADD A ROW HERE, UNDER THE SAME "GFSS-COLOR-PARSE's own list" SCOPE
+// THIS HEADER'S OWN COMMENT ABOVE ALREADY CLAIMS (this is a NOTATION
+// this same public gltfx_gfss_parse_color() entry point gained, not a
+// new producer LAYER the way tokenizer.cpp/selector_parse.cpp/
+// value_parse.cpp are distinct from each other in
+// diagnostic_vocabulary.hpp's own "one list per producer" policy - see
+// that header's own GFSS-VOCAB-BIND paragraph for why THAT list tags
+// producers and this one does not). `slash_or_closing_parenthesis`
+// names the ONE shape oklch()'s own grammar needs that none of the
+// four comma-separated legacy functions do: after the hue argument,
+// either an alpha-introducing '/' or the closing ')' is valid, and
+// neither existing "closing_parenthesis" (which does not mention the
+// slash) nor "comma" (oklch() has none) would honestly name what was
+// expected there.
 
 namespace glintfx::style::detail {
 
@@ -83,7 +99,8 @@ namespace glintfx::style::detail {
     X(comma)                                                                                       \
     X(argument_count)                                                                              \
     X(closing_parenthesis)                                                                         \
-    X(no_trailing_content)
+    X(no_trailing_content)                                                                         \
+    X(slash_or_closing_parenthesis)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

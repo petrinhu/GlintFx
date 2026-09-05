@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <print>
@@ -63,6 +64,41 @@ void check_color_result(const color_parse_result &result, glintfx::gltfx_rgba8 e
 void check_color_failure(const color_parse_result &result, std::string_view expected_identifier) {
     GLINTFX_CHECK(!result.ok);
     GLINTFX_CHECK(result.diagnostic.expected == expected_identifier);
+}
+
+// --- oklch() precision check (GFSS-OKLCH, TODO.md, GODS_LAWS.md L-43):
+// oklch()'s own result is NOT round-tripped through gltfx_rgba8 the way
+// check_color_result() above does for hex/named/rgb/hsl -
+// color_parse.cpp's own succeed_rgba() header comment names exactly
+// why: 8-bit quantization would throw away the sub-byte precision the
+// whole point of a linear-light float triple is to keep. This checks
+// the LINEAR components directly, against a TOLERANCE fixed here,
+// BEFORE any test below runs (GODS_LAWS.md L-43: criterion first, data
+// second) - never adjusted after seeing a result.
+//
+// THE TOLERANCE, AND WHY THIS NUMBER: gltfx_rgba stores float (32-bit,
+// core/color.hpp decision 1), so no comparison here can be tighter
+// than float32's own precision (~1.2e-7 relative near 1.0). The
+// conversion chain between an oklch() argument and this test's own
+// expected value is roughly ten chained double-precision operations
+// (two 3x3 matrix multiplies, three cube roots, a sqrt inside the
+// gamut-mapping binary search) - each contributes roundoff on the
+// order of a machine epsilon, and even a pessimistic sum of ten such
+// terms stays many orders of magnitude below 1e-4. 1e-4 is chosen
+// wide enough to never flag legitimate floating-point variance, and
+// narrow enough that a wrong matrix constant or a swapped sign (errors
+// on the order of 1e-2 to 1) still fails loudly.
+constexpr float k_oklch_tolerance = 1e-4F;
+
+void check_oklch_linear(const color_parse_result &result, float expected_red, float expected_green,
+                        float expected_blue) {
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    GLINTFX_CHECK(std::abs(result.value.red - expected_red) < k_oklch_tolerance);
+    GLINTFX_CHECK(std::abs(result.value.green - expected_green) < k_oklch_tolerance);
+    GLINTFX_CHECK(std::abs(result.value.blue - expected_blue) < k_oklch_tolerance);
 }
 
 // --- helpers for the SECOND critical finding (GODS_LAWS.md L-27/L-40):
@@ -320,16 +356,245 @@ GLINTFX_TEST(gltfx_gfss_parse_color_propagates_the_tokenizers_own_diagnostic_for
     check_color_failure(result, k_expected_closing_quote);
 }
 
-// --- the control negativo: oklch()/lab()/lch()/oklab() are RECOGNIZED
-// and DEFERRED (ESCOPO.md SS4 decision 8, GFSS-OKLCH, TODO.md wave W4)
-// - a DIFFERENT diagnostic from a totally unknown function name.
+// --- the control negativo: lab()/lch()/oklab() are RECOGNIZED and
+// DEFERRED (ESCOPO.md SS4 decision 8) - a DIFFERENT diagnostic from a
+// totally unknown function name. oklch() USED to be a fourth member of
+// this list before GFSS-OKLCH shipped it (see the dedicated oklch()
+// test block below) - it no longer belongs here.
 
-GLINTFX_TEST(gltfx_gfss_parse_color_oklch_is_recognized_and_deferred_not_treated_as_unknown) {
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_lab_lch_oklab_are_recognized_and_deferred_not_treated_as_unknown) {
     using glintfx::style::detail::k_color_expected_shipped_color_notation;
-    check_color_failure(parse_color("oklch(0.6 0.15 30)"), k_color_expected_shipped_color_notation);
     check_color_failure(parse_color("lab(50 40 30)"), k_color_expected_shipped_color_notation);
     check_color_failure(parse_color("lch(50 40 30)"), k_color_expected_shipped_color_notation);
     check_color_failure(parse_color("oklab(0.6 0.1 0.1)"), k_color_expected_shipped_color_notation);
+}
+
+// --- oklch() (GFSS-OKLCH, TODO.md, ESCOPO.md SS4 decision 7/8):
+// converts the perceptual OKLCh triple to linear sRGB, gamut-mapping
+// anything the display's gamut cannot show - color_parse.hpp's own
+// scope-cut 6 names this as the reason the notation waited for its own
+// fatia. Every expected linear-light value below is either an EXACT
+// special case (white/black) or comes from a SOURCE THIS PROJECT DOES
+// NOT COMPUTE: color-js/color.js's own conversions.js test data
+// (https://github.com/color-js/color.js/blob/main/test/conversions.js,
+// "OKLCh" block - "tested against results from published linear sRGB
+// to OKLab C++ code" per that file's own comment, i.e. Björn
+// Ottosson's own reference implementation) for the round-trip
+// primaries, and an independent Python re-derivation of the CITED
+// algorithm (color_parse.cpp's own "oklch() color-space conversion"
+// header comment names the same two sources) for the out-of-gamut
+// vectors further below - that Python re-derivation was validated
+// FIRST against the SAME published round-trip primaries (agreement to
+// within 1.2e-8, dominated by floating-point roundoff) before being
+// trusted for chroma values no publicly available table lists.
+
+// --- ENUMERATED CLOSED MATRIX (GODS_LAWS.md L-40: "the space is small,
+// enumerate it whole", the SAME technique
+// gltfx_gfss_parse_color_hex_covers_every_one_of_the_four_forms and
+// gltfx_gfss_parse_color_functions_cover_every_one_of_the_four_names
+// above already use for a closed grammar shape) - the service order's
+// own required coverage in one table: black, white, the three sRGB
+// primaries, four out-of-gamut vectors (the reason this notation has
+// its own fatia), and both lightness-out-of-[0,1] boundary cases.
+// Contagem DERIVADA do tamanho da tabela, nunca digitada ao lado.
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_matrix_covers_black_white_primaries_and_out_of_gamut) {
+    struct oklch_case {
+        // Default member initializer, not a user-declared constructor
+        // (would forfeit aggregate-init below) - the SAME cppcheck
+        // uninitMemberVarNoCtor fix named_colors.hpp's own
+        // named_color_entry already applies.
+        std::string_view text;
+        float expected_red = 0.0F;
+        float expected_green = 0.0F;
+        float expected_blue = 0.0F;
+    };
+    constexpr oklch_case k_cases[] = {
+        // Black/white: the algorithm's own exact special cases.
+        {"oklch(0 0 0)", 0.0F, 0.0F, 0.0F},
+        {"oklch(1 0 0)", 1.0F, 1.0F, 1.0F},
+        // The three sRGB primaries, round-tripped through their own
+        // published OKLCh coordinates - color-js/color.js's own
+        // conversions.js, "OKLCh" block ("sRGB red/lime/blue (D65) to
+        // OKlch"), this test group's own header comment above.
+        {"oklch(0.6279553639214311 0.2576833038053608 29.23388027962784)", 1.0F, 0.0F, 0.0F},
+        {"oklch(0.8664396175234368 0.2948272245426958 142.4953450414439)", 0.0F, 1.0F, 0.0F},
+        {"oklch(0.45201371817442365 0.3132143886344849 264.0520226163699)", 0.0F, 0.0F, 1.0F},
+        // Out of gamut - the reason this notation has its own fatia
+        // (color_parse.hpp's own scope-cut 6). Expected triples: this
+        // test group's own header comment above (independent Python
+        // re-derivation of the cited algorithm, validated first
+        // against the five in-gamut rows above). The first row reuses
+        // red's own lightness/hue with chroma pushed to 1.0 - roughly
+        // 4x past the real boundary (~0.2577) - a naive per-channel
+        // CLIP would NOT reproduce pure red; gamut mapping does.
+        {"oklch(0.6279553639214311 1.0 29.23388027962784)", 1.0F, 0.0F, 0.0F},
+        {"oklch(0.9 0.4 130)", 0.3536752488937942F, 0.9871741354088246F, 0.0F},
+        {"oklch(0.5 0.5 240)", 0.0F, 0.14471988622975718F, 0.40552715204884654F},
+        {"oklch(0.7 0.35 50)", 1.0F, 0.1461388029390933F, 0.0F},
+        // Lightness past EITHER end of [0,1] - the component boundary
+        // this fatia's own service order names - still maps to the
+        // SAME exact white/black regardless of chroma/hue, never a
+        // clamp this test could confuse with a rounding error.
+        {"oklch(1.5 0.3 120)", 1.0F, 1.0F, 1.0F},
+        {"oklch(-0.2 0.3 120)", 0.0F, 0.0F, 0.0F},
+    };
+    std::size_t checked = 0;
+    for (const oklch_case &c : k_cases) {
+        check_oklch_linear(parse_color(c.text), c.expected_red, c.expected_green, c.expected_blue);
+        ++checked;
+    }
+    GLINTFX_CHECK(checked > 0); // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass
+    GLINTFX_CHECK_EQ(checked, static_cast<std::size_t>(11));
+    std::println("gltfx_gfss_parse_color_oklch_matrix_covers_black_white_primaries_and_out_of_"
+                 "gamut: {} case(s) checked",
+                 checked);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_accepts_percentage_lightness) {
+    // 100% lightness is the SAME exact white oklch(1 ...) reaches -
+    // proves the percentage branch resolves to the identical [0,1]
+    // fraction as the bare-number branch, not merely "some number".
+    check_oklch_linear(parse_color("oklch(100% 0 0)"), 1.0F, 1.0F, 1.0F);
+    check_oklch_linear(
+        parse_color("oklch(62.79553639214311% 0.2576833038053608 29.23388027962784)"), 1.0F, 0.0F,
+        0.0F);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_hue_wraps_like_hsl) {
+    // Same "wraps, never rejected" convention hsl()'s own hue already
+    // uses (color_parse.cpp's own hsl_to_rgb_unit() header comment) -
+    // +360/-360 both name the SAME direction as the reference hue.
+    check_oklch_linear(
+        parse_color("oklch(0.6279553639214311 0.2576833038053608 389.23388027962784)"), 1.0F, 0.0F,
+        0.0F);
+    check_oklch_linear(
+        parse_color("oklch(0.6279553639214311 0.2576833038053608 -330.76611972037216)"), 1.0F, 0.0F,
+        0.0F);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_negative_chroma_clamps_to_zero) {
+    // color_parse.hpp's own scope-cut 5 ("out-of-range components are
+    // clamped, never rejected") extended to oklch()'s own chroma: a
+    // negative chroma clamps to zero BEFORE the conversion runs, so
+    // hue becomes irrelevant (chroma 0 is always achromatic) - proven
+    // by giving two DIFFERENT hues the SAME negative chroma and
+    // getting the SAME result both times, matching the EXPLICIT
+    // zero-chroma color too, not merely "the same as itself".
+    const color_parse_result hue_thirty = parse_color("oklch(0.5 -0.3 30)");
+    const color_parse_result hue_two_hundred = parse_color("oklch(0.5 -0.3 200)");
+    const color_parse_result explicit_zero = parse_color("oklch(0.5 0 30)");
+    GLINTFX_CHECK(hue_thirty.ok);
+    GLINTFX_CHECK(hue_two_hundred.ok);
+    GLINTFX_CHECK(explicit_zero.ok);
+    GLINTFX_CHECK(std::abs(hue_thirty.value.red - hue_two_hundred.value.red) < k_oklch_tolerance);
+    GLINTFX_CHECK(std::abs(hue_thirty.value.green - hue_two_hundred.value.green) <
+                  k_oklch_tolerance);
+    GLINTFX_CHECK(std::abs(hue_thirty.value.blue - hue_two_hundred.value.blue) < k_oklch_tolerance);
+    check_oklch_linear(hue_thirty, explicit_zero.value.red, explicit_zero.value.green,
+                       explicit_zero.value.blue);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_optional_alpha_after_slash) {
+    const color_parse_result opaque = parse_color("oklch(1 0 0)");
+    const color_parse_result half = parse_color("oklch(1 0 0 / 0.5)");
+    const color_parse_result half_percent = parse_color("oklch(1 0 0 / 50%)");
+    GLINTFX_CHECK(opaque.ok);
+    GLINTFX_CHECK(half.ok);
+    GLINTFX_CHECK(half_percent.ok);
+    GLINTFX_CHECK(std::abs(opaque.value.alpha - 1.0F) < k_oklch_tolerance);
+    GLINTFX_CHECK(std::abs(half.value.alpha - 0.5F) < k_oklch_tolerance);
+    GLINTFX_CHECK(std::abs(half_percent.value.alpha - 0.5F) < k_oklch_tolerance);
+    // Alpha out of [0,1] clamps too (SAME convention as rgba()'s own
+    // alpha_component_to_byte()) - never a parse error.
+    const color_parse_result over = parse_color("oklch(1 0 0 / 2)");
+    GLINTFX_CHECK(over.ok);
+    GLINTFX_CHECK(std::abs(over.value.alpha - 1.0F) < k_oklch_tolerance);
+}
+
+// --- hostile input (this fatia's own service order: "cada rejeicao
+// nomeia linha, coluna e o que se esperava").
+
+GLINTFX_TEST(
+    gltfx_gfss_parse_color_oklch_running_out_of_input_before_enough_arguments_is_rejected) {
+    using glintfx::style::detail::k_color_expected_argument_count;
+    // TRUE end of input (no closing paren anywhere) in each of the
+    // three required slots - the SAME "ran out of input" shape
+    // rgb()/hsl()'s own k_color_expected_argument_count already names
+    // above (a closing paren arriving too EARLY is a DIFFERENT case,
+    // covered by the next test: a real token of the wrong kind, not an
+    // absent one).
+    check_color_failure(parse_color("oklch("), k_color_expected_argument_count);
+    check_color_failure(parse_color("oklch(0.5"), k_color_expected_argument_count);
+    check_color_failure(parse_color("oklch(0.5 0.1"), k_color_expected_argument_count);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_wrong_component_kind_is_rejected) {
+    using glintfx::style::detail::k_color_expected_number;
+    using glintfx::style::detail::k_color_expected_number_or_percentage;
+    // A closing paren arriving too early reads, to the slot expecting
+    // a value, as the WRONG KIND of token - the SAME diagnostic a
+    // genuinely wrong token (an ident, a string) in that slot raises.
+    check_color_failure(parse_color("oklch()"), k_color_expected_number_or_percentage);
+    check_color_failure(parse_color("oklch(0.5)"), k_color_expected_number);
+    check_color_failure(parse_color("oklch(0.5 0.1)"), k_color_expected_number);
+    check_color_failure(parse_color("oklch(red 0.1 30)"), k_color_expected_number_or_percentage);
+    // Chroma slot: this fatia's own v1 cut (percentage chroma stays
+    // out, color_parse.cpp's own parse_oklch_arguments() header
+    // comment) - a percentage IS a real token kind, just not one this
+    // slot accepts, so it fails the SAME way an ident would.
+    check_color_failure(parse_color("oklch(0.5 10% 30)"), k_color_expected_number);
+    // Hue slot: a percentage where a bare number is required - the
+    // SAME shape hsl()'s own hue rejects above.
+    check_color_failure(parse_color("oklch(0.5 0.1 30%)"), k_color_expected_number);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_missing_slash_or_closing_paren_is_rejected) {
+    using glintfx::style::detail::k_color_expected_slash_or_closing_parenthesis;
+    // A fourth bare number where CSS Color 4 has only '/' or ')' - the
+    // exact shape k_color_expected_slash_or_closing_parenthesis exists
+    // to name (color_diagnostic_vocabulary.hpp's own header comment).
+    check_color_failure(parse_color("oklch(0.5 0.1 30 40)"),
+                        k_color_expected_slash_or_closing_parenthesis);
+    check_color_failure(parse_color("oklch(0.5 0.1 30,"),
+                        k_color_expected_slash_or_closing_parenthesis);
+    check_color_failure(parse_color("oklch(0.5 0.1 30"),
+                        k_color_expected_slash_or_closing_parenthesis);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_malformed_alpha_or_missing_closing_paren_is_rejected) {
+    using glintfx::style::detail::k_color_expected_closing_parenthesis;
+    using glintfx::style::detail::k_color_expected_number_or_percentage;
+    check_color_failure(parse_color("oklch(0.5 0.1 30 / red)"),
+                        k_color_expected_number_or_percentage);
+    check_color_failure(parse_color("oklch(0.5 0.1 30 / 0.5"),
+                        k_color_expected_closing_parenthesis);
+    check_color_failure(parse_color("oklch(0.5 0.1 30 / 0.5 extra)"),
+                        k_color_expected_closing_parenthesis);
+}
+
+GLINTFX_TEST(gltfx_gfss_parse_color_oklch_huge_number_saturates_and_stays_deterministic) {
+    // The SAME numeric_lexeme.hpp saturation path rgb()/hsl() already
+    // exercise (decode_number_lexeme() never crashes or produces an
+    // unbounded value on an overflowing lexeme) - exercised here
+    // through oklch()'s own NEW call sites into that shared, already-
+    // hardened decoder, then through the cubic step the gamut-mapping
+    // conversion applies to chroma - the step this fatia's own
+    // precision risk lives in.
+    const color_parse_result huge_chroma = parse_color("oklch(0.5 1e400 30)");
+    GLINTFX_CHECK(huge_chroma.ok);
+    GLINTFX_CHECK(!std::isnan(huge_chroma.value.red));
+    GLINTFX_CHECK(!std::isnan(huge_chroma.value.green));
+    GLINTFX_CHECK(!std::isnan(huge_chroma.value.blue));
+    GLINTFX_CHECK(std::isfinite(huge_chroma.value.red));
+    GLINTFX_CHECK(std::isfinite(huge_chroma.value.green));
+    GLINTFX_CHECK(std::isfinite(huge_chroma.value.blue));
+    // Deterministic: the SAME input twice gives the SAME output.
+    const color_parse_result huge_chroma_again = parse_color("oklch(0.5 1e400 30)");
+    GLINTFX_CHECK(huge_chroma_again.ok);
+    GLINTFX_CHECK_EQ(huge_chroma.value.red, huge_chroma_again.value.red);
+    GLINTFX_CHECK_EQ(huge_chroma.value.green, huge_chroma_again.value.green);
+    GLINTFX_CHECK_EQ(huge_chroma.value.blue, huge_chroma_again.value.blue);
 }
 
 GLINTFX_TEST(gltfx_gfss_parse_color_a_truly_unknown_function_name_is_a_different_diagnostic) {
@@ -885,11 +1150,13 @@ GLINTFX_TEST(color_diagnostic_vocabulary_is_enumerated_closed_and_every_identifi
     using glintfx::style::detail::k_color_expected_vocabulary;
     using glintfx::style::detail::k_color_expected_vocabulary_count;
 
-    // GODS_LAWS.md L-40: this table IS the closed enumeration - a 15th
+    // GODS_LAWS.md L-40: this table IS the closed enumeration - a 16th
     // identifier added to color_diagnostic_vocabulary.hpp's own list
     // without both a matching row here AND a directed-production case
-    // above fails to compile instead of passing silently.
-    static_assert(k_color_expected_vocabulary_count == 14,
+    // above fails to compile instead of passing silently. Bumped 14 ->
+    // 15 by GFSS-OKLCH's own slash_or_closing_parenthesis (TODO.md,
+    // color_diagnostic_vocabulary.hpp's own header comment).
+    static_assert(k_color_expected_vocabulary_count == 15,
                   "GODS_LAWS.md L-40: color_diagnostic_vocabulary.hpp's list changed - update "
                   "the directed-production coverage in this file to match");
 
@@ -927,8 +1194,12 @@ GLINTFX_TEST(color_diagnostic_vocabulary_is_enumerated_closed_and_every_identifi
                         glintfx::style::detail::k_color_expected_known_color_keyword);
     check_color_failure(parse_color("foo(1, 2, 3)"),
                         glintfx::style::detail::k_color_expected_known_color_function);
-    check_color_failure(parse_color("oklch(0.6 0.15 30)"),
+    // oklch() itself is no longer deferred (GFSS-OKLCH shipped it) -
+    // lab() still is, and now carries this row instead.
+    check_color_failure(parse_color("lab(50 40 30)"),
                         glintfx::style::detail::k_color_expected_shipped_color_notation);
+    check_color_failure(parse_color("oklch(0.5 0.1 30 40)"),
+                        glintfx::style::detail::k_color_expected_slash_or_closing_parenthesis);
     check_color_failure(parse_color("rgb(red, 0, 0)"),
                         glintfx::style::detail::k_color_expected_number_or_percentage);
     check_color_failure(parse_color("hsl(50%, 50%, 50%)"),

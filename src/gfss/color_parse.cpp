@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
 
 #include <glintfx/gfss/tokenizer.hpp>
 
@@ -42,6 +43,18 @@ color_parse_result fail_at(const gltfx_gfss_token &token, std::string_view expec
 color_parse_result succeed(gltfx_rgba8 encoded) noexcept {
     return color_parse_result{
         .ok = true, .value = glintfx::gltfx_rgba_from_srgb8(encoded), .diagnostic = {}};
+}
+
+// The oklch() path's OWN success constructor - UNLIKE succeed() above,
+// takes an already-LINEAR gltfx_rgba directly, never round-tripping
+// through an 8-bit gltfx_rgba8 first. oklch()'s own conversion below
+// already computes the exact linear-light answer in double precision;
+// quantizing it to a byte and decoding it back would throw away
+// exactly the headroom core/color.hpp's own decision 1 exists to keep
+// (oklch() names colors a byte cannot represent without loss - see
+// this file's own oklch color-space section below).
+color_parse_result succeed_rgba(gltfx_rgba value) noexcept {
+    return color_parse_result{.ok = true, .value = value, .diagnostic = {}};
 }
 
 // Reads the next token that is not <whitespace-token>, mirroring
@@ -209,6 +222,232 @@ rgb_unit hsl_to_rgb_unit(double hue_deg, double sat_unit, double light_unit) noe
     return rgb_unit{.red = channel(0.0), .green = channel(8.0), .blue = channel(4.0)};
 }
 
+// --- oklch() color-space conversion ------------------------------------
+//
+// GFSS-OKLCH (TODO.md, ESCOPO.md SS4 decision 8): converts an OKLCh
+// perceptual triple into linear sRGB, gamut-mapping any color oklch()
+// can name that the display's sRGB gamut cannot reproduce - the work
+// color_parse.hpp's own scope-cut 6 names as the reason this notation
+// waited for its own fatia instead of joining hex/named/rgb/hsl above.
+//
+// SOURCES, READ UNDER GODS_LAWS.md L-29/L-43 (learn the technique,
+// never copy code - every number below is a PUBLISHED CONSTANT,
+// re-derived from the cited source, never pasted from any
+// implementation of it):
+//
+//   1. THE OKLAB<->LINEAR-SRGB MATRICES: Björn Ottosson, "A perceptual
+//      color space for image processing"
+//      (https://bottosson.github.io/posts/oklab/, "Conversion from
+//      linear sRGB to Oklab" and its own inverse) - the ORIGINAL
+//      PUBLICATION OKLab and OKLCh are defined in, and what the CSS
+//      Color 4 spec's own oklab()/oklch() section
+//      (https://www.w3.org/TR/css-color-4/#specifying-oklab-oklch)
+//      points straight at. The nine constants each direction below are
+//      that page's own LMS<->linear-sRGB and LMS'(cube-root)<->Lab 3x3
+//      matrices, transcribed digit for digit - a number is not
+//      copyrightable expression (GODS_LAWS.md L-28's own "Termos de
+//      licenca" section already settles this for published
+//      color-format constants).
+//   2. THE GAMUT MAPPING ALGORITHM: CSS Color Module Level 4, section
+//      "CSS Gamut Mapping" (https://www.w3.org/TR/css-color-4/#css-
+//      gamut-mapping) defines the algorithm every browser's own
+//      oklch()-to-sRGB conversion implements: binary search over OKLCh
+//      chroma at fixed lightness/hue, converging when the candidate's
+//      own naive per-channel clip is within a "just noticeable
+//      difference" of the candidate itself. The two constants that
+//      govern convergence (JND 0.02, chroma-search EPSILON 0.0001) and
+//      the control flow (a `min_in_gamut` flag that lets the search
+//      keep shrinking chroma even past the first in-gamut hit, because
+//      deltaEOK is not guaranteed monotonic in chroma) were confirmed
+//      live against color-js/color.js's own toGamutCSS() function
+//      (https://github.com/color-js/color.js/blob/main/src/toGamut.js)
+//      - the reference implementation the CSS Working Group itself
+//      cites for this algorithm - then re-derived by hand in this
+//      project's own types (GODS_LAWS.md L-29: the STRUCTURE is the
+//      technique learned; every line below is this project's own).
+//
+// WHY THE "IN GAMUT" CHECK NEEDS NO GAMMA ENCODING (design choice made
+// HERE, GODS_LAWS.md L-27, marked INFERENCE): the cited algorithm's
+// own "clip" step converts to the destination RGB space and clamps
+// each channel to [0,1] there. core/color.hpp's own gltfx_rgba is
+// ALREADY linear light (that header's own decision 3), and the sRGB
+// transfer function (IEC 61966-2-1) is a monotonic bijection of [0,1]
+// onto [0,1] with f(0)=0 and f(1)=1 at BOTH ends - clamping a
+// component to [0,1] in gamma-encoded sRGB and clamping the SAME
+// component to [0,1] in linear sRGB are therefore the IDENTICAL
+// operation. Every step below works directly in the linear-light
+// gltfx_rgba domain, with no gamma round-trip anywhere.
+//
+// TOTAL, NEVER FALLIBLE: every real (lightness, chroma, hue) triple has
+// a well-defined answer (lightness outside [0,1] maps to pure
+// white/black by the algorithm's own first two branches; negative
+// chroma clamps to zero, hue is an unrestricted periodic angle - the
+// SAME "clamp/wrap, never reject" convention color_parse.hpp's own
+// scope-cut 5 and hsl_to_rgb_unit()'s own header comment already
+// establish above). Alpha plays NO PART in this conversion (CSS Color
+// 4's own "alpha is independent of color-space transforms",
+// core/color.hpp decision 5's own straight-alpha convention) - the
+// caller (parse_oklch_arguments() below) reads it separately and
+// overwrites the returned value's own `.alpha`.
+
+struct linear_srgb_triplet {
+    double red = 0.0;
+    double green = 0.0;
+    double blue = 0.0;
+};
+
+struct oklab_triplet {
+    double lightness = 0.0;
+    double a = 0.0;
+    double b = 0.0;
+};
+
+oklab_triplet linear_srgb_to_oklab(const linear_srgb_triplet &rgb) noexcept {
+    const double l = 0.4122214708 * rgb.red + 0.5363325363 * rgb.green + 0.0514459929 * rgb.blue;
+    const double m = 0.2119034982 * rgb.red + 0.6806995451 * rgb.green + 0.1073969566 * rgb.blue;
+    const double s = 0.0883024619 * rgb.red + 0.2817188376 * rgb.green + 0.6299787005 * rgb.blue;
+
+    // std::cbrt already handles a negative radicand correctly (IEEE
+    // 754: cbrt(-x) == -cbrt(x)) - l/m/s go negative for a
+    // saturated/out-of-gamut color (Ottosson's own page: "L, M and S
+    // can become negative for colors outside of the sRGB gamut"), so
+    // this is never std::pow(x, 1.0/3.0), which is undefined for a
+    // negative base.
+    const double l_root = std::cbrt(l);
+    const double m_root = std::cbrt(m);
+    const double s_root = std::cbrt(s);
+
+    return oklab_triplet{
+        .lightness = 0.2104542553 * l_root + 0.7936177850 * m_root - 0.0040720468 * s_root,
+        .a = 1.9779984951 * l_root - 2.4285922050 * m_root + 0.4505937099 * s_root,
+        .b = 0.0259040371 * l_root + 0.7827717662 * m_root - 0.8086757660 * s_root,
+    };
+}
+
+linear_srgb_triplet oklab_to_linear_srgb(const oklab_triplet &lab) noexcept {
+    const double l_root = lab.lightness + 0.3963377774 * lab.a + 0.2158037573 * lab.b;
+    const double m_root = lab.lightness - 0.1055613458 * lab.a - 0.0638541728 * lab.b;
+    const double s_root = lab.lightness - 0.0894841775 * lab.a - 1.2914855480 * lab.b;
+
+    const double l = l_root * l_root * l_root;
+    const double m = m_root * m_root * m_root;
+    const double s = s_root * s_root * s_root;
+
+    return linear_srgb_triplet{
+        .red = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        .green = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        .blue = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+    };
+}
+
+// OKLCh -> OKLab is plain polar-to-cartesian - CSS Color 4's own
+// oklch() definition IS this pairing, by name, needing no citation
+// beyond the matrices above.
+oklab_triplet oklch_to_oklab(double lightness, double chroma, double hue_degrees) noexcept {
+    const double hue_radians = hue_degrees * std::numbers::pi / 180.0;
+    return oklab_triplet{
+        .lightness = lightness,
+        .a = chroma * std::cos(hue_radians),
+        .b = chroma * std::sin(hue_radians),
+    };
+}
+
+linear_srgb_triplet oklch_to_linear_srgb(double lightness, double chroma,
+                                         double hue_degrees) noexcept {
+    return oklab_to_linear_srgb(oklch_to_oklab(lightness, chroma, hue_degrees));
+}
+
+bool is_in_unit_cube(const linear_srgb_triplet &rgb) noexcept {
+    return rgb.red >= 0.0 && rgb.red <= 1.0 && rgb.green >= 0.0 && rgb.green <= 1.0 &&
+           rgb.blue >= 0.0 && rgb.blue <= 1.0;
+}
+
+linear_srgb_triplet clip_to_unit_cube(const linear_srgb_triplet &rgb) noexcept {
+    return linear_srgb_triplet{
+        .red = std::clamp(rgb.red, 0.0, 1.0),
+        .green = std::clamp(rgb.green, 0.0, 1.0),
+        .blue = std::clamp(rgb.blue, 0.0, 1.0),
+    };
+}
+
+// deltaEOK: plain Euclidean distance in OKLab (CSS Color 4's own
+// "Color Differences" section, this file's own citation 2 above).
+double delta_e_ok(const oklab_triplet &first, const oklab_triplet &second) noexcept {
+    const double delta_lightness = first.lightness - second.lightness;
+    const double delta_a = first.a - second.a;
+    const double delta_b = first.b - second.b;
+    return std::sqrt(delta_lightness * delta_lightness + delta_a * delta_a + delta_b * delta_b);
+}
+
+constexpr double k_gamut_mapping_jnd = 0.02;
+constexpr double k_gamut_mapping_chroma_epsilon = 0.0001;
+
+// The cited binary search itself (this file's own citation 2 above) -
+// called only once the caller already knows `chroma` at (`lightness`,
+// `hue_degrees`) falls OUTSIDE the unit cube.
+linear_srgb_triplet gamut_map_to_linear_srgb(double lightness, double chroma,
+                                             double hue_degrees) noexcept {
+    double chroma_low = 0.0;
+    double chroma_high = chroma;
+    bool low_is_known_in_gamut = true;
+
+    double current_chroma = chroma;
+    linear_srgb_triplet current_rgb = oklch_to_linear_srgb(lightness, current_chroma, hue_degrees);
+    linear_srgb_triplet clipped = clip_to_unit_cube(current_rgb);
+    double error = delta_e_ok(oklch_to_oklab(lightness, current_chroma, hue_degrees),
+                              linear_srgb_to_oklab(clipped));
+    if (error < k_gamut_mapping_jnd) {
+        return clipped;
+    }
+
+    while (chroma_high - chroma_low > k_gamut_mapping_chroma_epsilon) {
+        current_chroma = (chroma_low + chroma_high) / 2.0;
+        current_rgb = oklch_to_linear_srgb(lightness, current_chroma, hue_degrees);
+        if (low_is_known_in_gamut && is_in_unit_cube(current_rgb)) {
+            chroma_low = current_chroma;
+            continue;
+        }
+        clipped = clip_to_unit_cube(current_rgb);
+        error = delta_e_ok(oklch_to_oklab(lightness, current_chroma, hue_degrees),
+                           linear_srgb_to_oklab(clipped));
+        if (error < k_gamut_mapping_jnd) {
+            if (k_gamut_mapping_jnd - error < k_gamut_mapping_chroma_epsilon) {
+                break;
+            }
+            low_is_known_in_gamut = false;
+            chroma_low = current_chroma;
+        } else {
+            chroma_high = current_chroma;
+        }
+    }
+    return clipped;
+}
+
+// The one entry point parse_oklch_arguments() below calls - see this
+// section's own header comment for the full derivation of every
+// branch.
+gltfx_rgba oklch_to_gltfx_rgba(double lightness, double chroma, double hue_degrees) noexcept {
+    const double clamped_chroma = std::max(chroma, 0.0);
+
+    linear_srgb_triplet result{};
+    if (lightness >= 1.0) {
+        result = linear_srgb_triplet{.red = 1.0, .green = 1.0, .blue = 1.0};
+    } else if (lightness <= 0.0) {
+        result = linear_srgb_triplet{.red = 0.0, .green = 0.0, .blue = 0.0};
+    } else {
+        const linear_srgb_triplet origin =
+            oklch_to_linear_srgb(lightness, clamped_chroma, hue_degrees);
+        result = is_in_unit_cube(origin)
+                     ? origin
+                     : gamut_map_to_linear_srgb(lightness, clamped_chroma, hue_degrees);
+    }
+
+    return gltfx_rgba{.red = static_cast<float>(result.red),
+                      .green = static_cast<float>(result.green),
+                      .blue = static_cast<float>(result.blue),
+                      .alpha = 1.0F};
+}
+
 // --- rgb()/rgba()/hsl()/hsla() ----------------------------------------
 
 enum class color_function_kind : std::uint8_t { rgb, rgba, hsl, hsla };
@@ -238,15 +477,16 @@ bool try_match_color_function_kind(std::string_view name, color_function_kind &o
 }
 
 // ESCOPO.md SS4 decision 8 / color_parse.hpp's own scope-cut 6: these
-// four are RECOGNIZED CSS color notations this version does not ship -
-// oklch() has a dedicated future fatia (GFSS-OKLCH); lab()/lch()/
-// oklab() stay out of the v1 scope entirely. Grouped as one predicate
-// because color_parse.cpp treats all four identically today (one
-// diagnostic identifier, k_color_expected_shipped_color_notation) -
-// splitting them apart is GFSS-OKLCH's own decision to make once it
-// exists.
+// three are RECOGNIZED CSS color notations this version does not ship.
+// oklch() USED to be a fourth member of this list (GFSS-OKLCH,
+// TODO.md, was still "Pendente" then) - GFSS-OKLCH shipped it (see
+// this file's own "oklch() color-space conversion" section above and
+// parse_oklch_arguments() below), so it is recognized and parsed now,
+// never reaching this predicate. lab()/lch()/oklab() remain out of the
+// v1 scope entirely (ESCOPO.md SS4 decision 7 names only oklch() as
+// entering v1 alongside the legacy notations).
 bool is_deferred_color_notation(std::string_view name) noexcept {
-    constexpr std::array<std::string_view, 4> k_deferred{{"oklch", "lab", "lch", "oklab"}};
+    constexpr std::array<std::string_view, 3> k_deferred{{"lab", "lch", "oklab"}};
     for (const std::string_view candidate : k_deferred) {
         if (ascii_case_insensitive_equal(candidate, name)) {
             return true;
@@ -454,9 +694,118 @@ color_parse_result parse_function_arguments(gltfx_gfss_cursor &cursor,
                                  : rgb_components_to_rgba8(components, has_alpha));
 }
 
+// --- oklch() grammar ---------------------------------------------------
+//
+// oklch() ::= oklch( <L> <C> <H> [ '/' <alpha> ]? )  (ESCOPO.md SS4
+// decision 7/8: the standard's OWN grammar - whitespace-separated, not
+// the legacy comma family parse_function_arguments() above serves. CSS
+// Color 4 never defined a comma form for this notation, so there is no
+// "legacy vs modern" choice to make the way color_parse.hpp's own
+// scope-cut 1 had to for rgb()/hsl().)
+//
+// THREE V1 CUTS, MARKED HERE AS THIS FATIA'S OWN INFERENCE (GODS_LAWS.md
+// L-27 - the service order that opened GFSS-OKLCH names the conversion
+// and the gamut mapping, never this grammar's own edge shape):
+//   1. NO `none` KEYWORD - no other notation in this file accepts it
+//      either (color_parse.hpp's own six scope-cuts never mention it),
+//      so honoring it here would be the FIRST use of a CSS Color 4
+//      keyword nothing else in this track recognizes yet.
+//   2. NO `oklch(from ...)` RELATIVE COLOR SYNTAX - a distinct, far
+//      larger CSS Color 5 feature (reading and re-deriving an ORIGIN
+//      color), out of scope for a single conversion-and-gamut-mapping
+//      fatia.
+//   3. CHROMA IS A BARE <number> ONLY, no <percentage> - CSS Color 4's
+//      own percentage reference range for chroma (100% = 0.4) is a
+//      SEPARATE scaling constant this fatia's own service order never
+//      named, unlike lightness/alpha, whose percentage meaning (0% =
+//      0, 100% = 1) is already unambiguous and already established
+//      elsewhere in this exact file.
+//
+// HUE IS UNRESTRICTED - the SAME "wraps, is never rejected" convention
+// hsl_to_rgb_unit()'s own header comment above already documents for
+// hsl()'s hue. NOT a v1 cut, a deliberate consistency choice: CSS
+// Color 4 defines hue as a plain periodic <number> for every
+// hue-bearing notation it has, hsl() included.
+// Reads oklch()'s own OPTIONAL tail - `/ <alpha>` then ')', or just
+// ')' - one question: "how much alpha, and did the call end cleanly?"
+// `out_alpha_unit` keeps its caller-supplied default (fully opaque)
+// unless a slash was actually present. Split out of
+// parse_oklch_arguments() below so that function reads as ONE
+// straight-line sequence of "read component, read component, read
+// component, read the tail" (CONTRACT.md SS6.2's own function-length
+// ceiling, GODS_LAWS.md L-17).
+bool read_oklch_alpha_and_closing_paren(gltfx_gfss_cursor &cursor,
+                                        const gltfx_gfss_token &separator, double &out_alpha_unit,
+                                        gltfx_gfss_diagnostic &out_failure) noexcept {
+    if (separator.kind == gltfx_gfss_token_kind::close_paren) {
+        return true;
+    }
+    if (separator.kind != gltfx_gfss_token_kind::delim || separator.lexeme != "/") {
+        out_failure = make_diagnostic(separator, k_color_expected_slash_or_closing_parenthesis);
+        return false;
+    }
+    color_component_read alpha_read{};
+    if (!read_color_component(cursor, component_kind_requirement::number_or_percentage,
+                              alpha_read)) {
+        out_failure = alpha_read.failure;
+        return false;
+    }
+    out_alpha_unit =
+        std::clamp(alpha_read.component.is_percentage ? alpha_read.component.value / 100.0
+                                                      : alpha_read.component.value,
+                   0.0, 1.0);
+    gltfx_gfss_token closing{};
+    if (!next_significant_token(cursor, closing) ||
+        closing.kind != gltfx_gfss_token_kind::close_paren) {
+        out_failure = make_diagnostic(closing, k_color_expected_closing_parenthesis);
+        return false;
+    }
+    return true;
+}
+
+color_parse_result parse_oklch_arguments(gltfx_gfss_cursor &cursor) noexcept {
+    color_component_read lightness_read{};
+    if (!read_color_component(cursor, component_kind_requirement::number_or_percentage,
+                              lightness_read)) {
+        return fail(lightness_read.failure);
+    }
+    color_component_read chroma_read{};
+    if (!read_color_component(cursor, component_kind_requirement::number_only, chroma_read)) {
+        return fail(chroma_read.failure);
+    }
+    color_component_read hue_read{};
+    if (!read_color_component(cursor, component_kind_requirement::number_only, hue_read)) {
+        return fail(hue_read.failure);
+    }
+
+    gltfx_gfss_token separator{};
+    if (!next_significant_token(cursor, separator)) {
+        return fail_at(separator, k_color_expected_slash_or_closing_parenthesis);
+    }
+    double alpha_unit = 1.0;
+    gltfx_gfss_diagnostic alpha_failure{};
+    if (!read_oklch_alpha_and_closing_paren(cursor, separator, alpha_unit, alpha_failure)) {
+        return fail(alpha_failure);
+    }
+
+    const double lightness_unit = lightness_read.component.is_percentage
+                                      ? lightness_read.component.value / 100.0
+                                      : lightness_read.component.value;
+    const gltfx_rgba mapped =
+        oklch_to_gltfx_rgba(lightness_unit, chroma_read.component.value, hue_read.component.value);
+    return succeed_rgba(gltfx_rgba{.red = mapped.red,
+                                   .green = mapped.green,
+                                   .blue = mapped.blue,
+                                   .alpha = static_cast<float>(alpha_unit)});
+}
+
 color_parse_result parse_function_color(gltfx_gfss_cursor &cursor,
                                         const gltfx_gfss_token &function_token) noexcept {
     const std::string_view name = function_token.lexeme.substr(0, function_token.lexeme.size() - 1);
+
+    if (ascii_case_insensitive_equal("oklch", name)) {
+        return parse_oklch_arguments(cursor);
+    }
 
     color_function_kind kind{};
     if (!try_match_color_function_kind(name, kind)) {

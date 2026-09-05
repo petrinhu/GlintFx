@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <print>
 #include <string>
 #include <string_view>
@@ -12,6 +13,23 @@
 #include "gfss/color_parse.hpp"
 #include "gfss/diagnostic_vocabulary.hpp"
 #include "gfss/named_colors.hpp"
+
+// COLOR-INTPART-COV (TODO.md, achado da re-revisao adversarial de
+// 05/09/2026, GODS_LAWS.md L-17/L-27/L-40): reaches glintfx::style::
+// detail::most_significant_digit_place() DIRECTLY (this file's own
+// gltfx_gfss_most_significant_digit_place_covers_the_integer_branch
+// test below) to close a coverage hole the boundary-matrix tests
+// further down this file cannot close at ANY margin - see that new
+// test's own header comment for the measured reason. The function used
+// to have anonymous-namespace linkage (numeric_lexeme.cpp), which would
+// have forced this file to #include that .cpp SOURCE directly to share
+// its translation unit; instead, numeric_lexeme.hpp/.cpp's own header
+// comments now widen it to named (still hidden, still not
+// GLINTFX_API) linkage - the SAME widening decode_number_lexeme()/
+// decode_percentage_lexeme() already went through for value_parse.cpp -
+// so this file only needs the HEADER, like any other consumer of this
+// translation unit's public-to-the-library-internals surface.
+#include "gfss/numeric_lexeme.hpp"
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -1133,6 +1151,94 @@ GLINTFX_TEST(gltfx_gfss_parse_color_integer_mantissa_collision_survives_the_boun
     std::println(
         "gltfx_gfss_parse_color_integer_mantissa_collision_survives_the_boundary_matrix: {} "
         "case(s) checked",
+        checked);
+}
+
+// --- COLOR-INTPART-COV (TODO.md): a DIRECT proof of most_significant_
+// digit_place()'s own integer-part branch (no '.' at all, so
+// whole_digit_count == mantissa.size() and every index is
+// `i < whole_digit_count`) - the mirror-image gap the matrix above
+// leaves open. THE MATRIX ABOVE CANNOT CLOSE THIS GAP AT ANY MARGIN -
+// measured, not assumed (GODS_LAWS.md L-27), against this project's
+// own libstdc++: saturate_out_of_range_number()'s own
+// "mantissa_place + explicit_exponent >= 0" check is only ever REACHED
+// once std::from_chars() has ALREADY decided the FULL literal's true,
+// un-clamped value is out of double's own representable range. For a
+// literal shaped like make_overflow_leaning_lexeme_without_decimal_
+// point() above builds one (a power-of-ten mantissa combined with a
+// compensating exponent, so the combined decimal exponent equals
+// mantissa_place + explicit_exponent EXACTLY), a probe against this
+// project's own toolchain found: combined exponents of -1 (0.1), 0 (1)
+// and +308 (1e308) all parse SUCCESSFULLY, while -324 and +309 both
+// report std::errc::result_out_of_range. Every literal that can ever
+// reach most_significant_digit_place() through decode_number_lexeme()
+// therefore already has |mantissa_place + explicit_exponent| >= about
+// 308 BY CONSTRUCTION - nowhere near the ">= 0" boundary a one-off
+// error could ever cross. A planted mutation of the integer branch's
+// own formula (numeric_lexeme.cpp: the FRACTIONAL formula,
+// `whole_digit_count - i`, applied to the INTEGER branch too, instead
+// of its own `whole_digit_count - 1 - i`) left BOTH the matrix above
+// (7 cases) and every other case in this file and gfss_value_test.cpp
+// fully green - MEASURED on 05/09/2026, not assumed. Only a DIRECT
+// call, checking the function's exact returned value instead of a
+// downstream sign, can catch a mutation this small - which is what
+// this test does (see this file's own header comment for how it
+// reaches the function's internal linkage at all).
+//
+// Enumerated across every position the leading nonzero digit can
+// occupy in a short digit run: i == 0 is exactly make_overflow_
+// leaning_lexeme_without_decimal_point()'s own shape ("1" + trailing
+// zeros); i > 0 exercises a digit run with its OWN leading zeros
+// before the first significant digit - this project's own tokenizer
+// never emits that shape today (numeric_lexeme.cpp's own "for every
+// mantissa this project can actually receive" comment), but most_
+// significant_digit_place()'s own documented precondition is only "a
+// digit run with at most one '.', no sign, no exponent letter", never
+// "no leading zero" - proving the function here proves the CONTRACT it
+// documents, not merely the one shape today's callers happen to
+// produce. Every expected value below was hand-derived from the
+// correct formula (whole_digit_count - 1 - i), the SAME derivation
+// this file's own header comment near the fractional matrix already
+// applies to "120.045"/"0.0045" - never copied from whatever the code
+// under test happens to return.
+
+GLINTFX_TEST(gltfx_gfss_most_significant_digit_place_covers_the_integer_branch) {
+    struct case_row {
+        std::string_view mantissa;
+        long long expected_place = 0;
+        std::string_view note;
+    };
+    // clang-format off
+    const case_row k_cases[] = {
+        // i == 0: the leading digit is the significant one.
+        {"1",       0, "single digit, whole_digit_count=1"},
+        {"5",       0, "single digit, non-'1' leading digit"},
+        {"10",      1, "whole_digit_count=2"},
+        {"100",     2, "whole_digit_count=3"},
+        {"12300",   4, "whole_digit_count=5, trailing zeros after the run"},
+        {"1000000", 6, "whole_digit_count=7"},
+        // i > 0: one or more leading zeros before the significant
+        // digit - the mutated formula (whole_digit_count - i) and the
+        // correct one (whole_digit_count - 1 - i) disagree by exactly
+        // 1 here too, at every i, the SAME gap the sign check in
+        // saturate_out_of_range_number() can never resolve (this
+        // test's own header comment above).
+        {"01",     0, "one leading zero, whole_digit_count=2"},
+        {"001",    0, "two leading zeros, whole_digit_count=3"},
+        {"0105",   2, "leading zero then a two-digit run"},
+        {"00105",  2, "two leading zeros, longer whole_digit_count"},
+        {"000100", 2, "three leading zeros, trailing zeros after the run"},
+    };
+    // clang-format on
+    std::size_t checked = 0;
+    for (const case_row &c : k_cases) {
+        GLINTFX_CHECK_EQ(glintfx::style::detail::most_significant_digit_place(c.mantissa),
+                         c.expected_place);
+        ++checked;
+    }
+    GLINTFX_CHECK_EQ(checked, std::size(k_cases));
+    std::println(
+        "gltfx_gfss_most_significant_digit_place_covers_the_integer_branch: {} case(s) checked",
         checked);
 }
 

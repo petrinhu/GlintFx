@@ -12,13 +12,20 @@
 // anonymous namespace below is the SAME supporting machinery that used
 // to live inside color_parse.cpp's own anonymous namespace - still
 // private to this one translation unit, since nothing outside this
-// file ever needs most_significant_digit_place()/split_lexeme_at_
-// exponent_marker()/parse_saturating_exponent()/
-// saturate_out_of_range_number() on their own; only the two functions
-// numeric_lexeme.hpp declares (decode_number_lexeme()/decode_
-// percentage_lexeme()) widen from anonymous-namespace linkage to named
-// (still hidden, still not GLINTFX_API) linkage, because THOSE are what
-// value_parse.cpp now needs to call too.
+// file ever needs split_lexeme_at_exponent_marker()/parse_saturating_
+// exponent()/saturate_out_of_range_number() on their own. THREE
+// functions widen from anonymous-namespace linkage to named (still
+// hidden, still not GLINTFX_API) linkage, all three declared in
+// numeric_lexeme.hpp: decode_number_lexeme()/decode_percentage_lexeme()
+// widened because value_parse.cpp needs to call them too, and
+// most_significant_digit_place() widened separately (COLOR-INTPART-COV,
+// TODO.md, achado da re-revisao adversarial de 05/09/2026, GODS_LAWS.md
+// L-17/L-27) because gfss_color_parse_test.cpp now calls it DIRECTLY -
+// the boundary-matrix tests further down that file cannot, at any
+// margin, catch a one-off error inside this one function (measured, not
+// assumed: that test's own header comment has the probe), so the only
+// proof strong enough checks the function's own exact returned value
+// instead of a downstream sign.
 
 namespace glintfx::style::detail {
 
@@ -75,39 +82,13 @@ namespace {
 constexpr long long k_mantissa_place_bound = std::numeric_limits<long long>::max() / 4;
 constexpr long long k_exponent_overflow_magnitude = std::numeric_limits<long long>::max() / 2;
 
-// The place value (power of ten) of the first nonzero digit in
-// `mantissa` (a digit run with at most one '.', no sign, no exponent
-// letter - split_lexeme_at_exponent_marker()'s own mantissa half).
-// "120.045" -> 2 (the '1' sits in the hundreds place); "0.0045" -> -3.
-// A mantissa that is entirely zero digits never reaches this function
-// in practice (std::from_chars() already succeeds trivially for an
-// exact zero, so decode_number_lexeme() below never takes the
-// out-of-range branch for one) - the fallback below only guards a case
-// this project's own grammar cannot produce, and picks the SAFE
-// direction (underflow, never a fabricated overflow) if it somehow did.
-//
-// Returns the TRUE place value for every mantissa this project can
-// actually receive (k_mantissa_place_bound's own header comment above:
-// the clamp below exists ONLY to guard the size_t-to-long long cast
-// against wraparound, and sits so far above any realistic digit run
-// that it never fires in practice) - deliberately NOT the same bound
-// parse_saturating_exponent() below saturates to, per this file's own
-// SECOND CORRECTION comment above.
-long long most_significant_digit_place(std::string_view mantissa) noexcept {
-    const std::size_t dot = mantissa.find('.');
-    const std::size_t whole_digit_count = dot == std::string_view::npos ? mantissa.size() : dot;
-    for (std::size_t i = 0; i < mantissa.size(); ++i) {
-        if (mantissa[i] == '.' || mantissa[i] == '0') {
-            continue;
-        }
-        const long long place =
-            i < whole_digit_count
-                ? static_cast<long long>(whole_digit_count - 1 - i)
-                : static_cast<long long>(whole_digit_count) - static_cast<long long>(i);
-        return std::clamp(place, -k_mantissa_place_bound, k_mantissa_place_bound);
-    }
-    return -k_mantissa_place_bound;
-}
+// most_significant_digit_place() used to live here, in this anonymous
+// namespace - it now has named linkage instead (numeric_lexeme.hpp's
+// own declaration, this file's header comment above, COLOR-INTPART-COV)
+// because gfss_color_parse_test.cpp calls it directly. Its definition
+// sits below, right after this anonymous namespace closes, alongside
+// decode_number_lexeme()/decode_percentage_lexeme() - the same place
+// every other widened function in this file already lives.
 
 // One <number-token>/<percentage-token> body, split at its own "e"/"E"
 // marker (lexical_rules.cpp's own consume_optional_exponent()) into a
@@ -205,6 +186,49 @@ double saturate_out_of_range_number(std::string_view unsigned_lexeme, bool is_ne
 }
 
 } // namespace
+
+// The place value (power of ten) of the first nonzero digit in
+// `mantissa` (a digit run with at most one '.', no sign, no exponent
+// letter - split_lexeme_at_exponent_marker()'s own mantissa half,
+// above). "120.045" -> 2 (the '1' sits in the hundreds place);
+// "0.0045" -> -3. A mantissa that is entirely zero digits never reaches
+// this function in practice (std::from_chars() already succeeds
+// trivially for an exact zero, so decode_number_lexeme() below never
+// takes the out-of-range branch for one) - the fallback below only
+// guards a case this project's own grammar cannot produce, and picks
+// the SAFE direction (underflow, never a fabricated overflow) if it
+// somehow did.
+//
+// Returns the TRUE place value for every mantissa this project can
+// actually receive (k_mantissa_place_bound's own header comment above:
+// the clamp below exists ONLY to guard the size_t-to-long long cast
+// against wraparound, and sits so far above any realistic digit run
+// that it never fires in practice) - deliberately NOT the same bound
+// parse_saturating_exponent() above saturates to, per this file's own
+// SECOND CORRECTION comment above.
+//
+// NAMED LINKAGE, NOT ANONYMOUS-NAMESPACE (numeric_lexeme.hpp's own
+// declaration, this file's header comment, COLOR-INTPART-COV, TODO.md,
+// GODS_LAWS.md L-17/L-27): gfss_color_parse_test.cpp calls this
+// function DIRECTLY - the boundary-matrix tests further down that file
+// cannot, at any margin, catch a one-off error inside this one function
+// (that test's own header comment has the measured probe). Still not
+// GLINTFX_API, per numeric_lexeme.hpp's own "STILL PRIVATE" note.
+long long most_significant_digit_place(std::string_view mantissa) noexcept {
+    const std::size_t dot = mantissa.find('.');
+    const std::size_t whole_digit_count = dot == std::string_view::npos ? mantissa.size() : dot;
+    for (std::size_t i = 0; i < mantissa.size(); ++i) {
+        if (mantissa[i] == '.' || mantissa[i] == '0') {
+            continue;
+        }
+        const long long place =
+            i < whole_digit_count
+                ? static_cast<long long>(whole_digit_count - 1 - i)
+                : static_cast<long long>(whole_digit_count) - static_cast<long long>(i);
+        return std::clamp(place, -k_mantissa_place_bound, k_mantissa_place_bound);
+    }
+    return -k_mantissa_place_bound;
+}
 
 // Converts a <number-token>/<percentage-token> lexeme (WITHOUT the
 // trailing '%' for a percentage - callers strip it first) to a

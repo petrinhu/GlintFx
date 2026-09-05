@@ -51,6 +51,24 @@
 
 namespace glintfx::style::detail {
 
+// The place value (power of ten) of the first nonzero digit in a
+// <number-token>/<percentage-token>'s mantissa - see numeric_lexeme.
+// cpp's own header comment on this function for the full contract and
+// worked examples ("120.045" -> 2, "0.0045" -> -3). WIDENED FROM
+// ANONYMOUS-NAMESPACE LINKAGE HERE (COLOR-INTPART-COV, TODO.md, achado
+// da re-revisao adversarial de 05/09/2026, GODS_LAWS.md L-17/L-27):
+// gfss_color_parse_test.cpp now calls this function DIRECTLY, because
+// its own boundary-matrix tests cannot, at any margin, catch a one-off
+// error inside this one function - saturate_out_of_range_number()'s
+// own sign check (numeric_lexeme.cpp) is only ever reached once the
+// combined decimal exponent is already several hundred orders of
+// magnitude away from zero, so no downstream observation can tell the
+// correct formula apart from an off-by-one here. Only a direct call,
+// checking the function's own exact returned value, can. Still not
+// GLINTFX_API - the SAME reason decode_number_lexeme()/decode_
+// percentage_lexeme() below are not either.
+[[nodiscard]] long long most_significant_digit_place(std::string_view mantissa) noexcept;
+
 // Converts a <number-token>/<percentage-token> BODY (no unit, no '%'
 // sign - a caller with a percentage lexeme strips the trailing '%'
 // first, or calls decode_percentage_lexeme() below instead) to a

@@ -136,7 +136,7 @@ std::string make_exponent_digit_overflow_lexeme(std::size_t leading_zero_count,
 // - the integer-part branch, by construction, for every
 // `trailing_zero_count`.
 std::string make_overflow_leaning_lexeme_without_decimal_point(std::size_t trailing_zero_count,
-                                                                long long explicit_exponent) {
+                                                               long long explicit_exponent) {
     std::string text = "1";
     text.append(trailing_zero_count, '0');
     text += "e";

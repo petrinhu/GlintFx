@@ -163,7 +163,26 @@ collect_requirements(const style::detail::gfss_compound_selector &compound) noex
         case style::detail::gfss_simple_selector_kind::pseudo_class:
             note_pseudo_class_selector(out, simple.name);
             break;
+        // Both labels defer, but for DIFFERENT reasons - grouped into
+        // one case only because the resulting MECHANIC is identical
+        // (bugprone-branch-clone would otherwise flag two branches
+        // that end up byte-for-byte the same), never because the two
+        // reasons are the same one:
+        //   - pseudo_function (nth-*/:not/...): the ARGUMENT is still
+        //     unanalyzed by GFSS-SEL-PARSE-CORE - this fatia's own
+        //     scope line (compound_match.hpp's own header comment)
+        //     never judges one.
+        //   - pseudo_element ("::before"/"::after"): it does not
+        //     select an EXISTING node of the consumer's tree at all -
+        //     it asks for a box to be FABRICATED, which is layout's
+        //     own job (LAYOUT-PSEUDO-BOXES, a future fatia), never
+        //     this pass's, which only ever looks at nodes that already
+        //     exist.
+        // A future fatia that resolves one of the two is very likely
+        // NOT ready to resolve the other - keep that in mind before
+        // ever merging their handling beyond this shared `case`.
         case style::detail::gfss_simple_selector_kind::pseudo_function:
+        case style::detail::gfss_simple_selector_kind::pseudo_element:
             out.has_deferred_requirement = true;
             break;
         }

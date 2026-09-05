@@ -275,6 +275,26 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     std::printf("gfui_compound_match_test: %zu functional pseudo-classes deferred\n",
                 deferred_functional_count);
 
+    // Deferral: every pseudo-element (GFSS-SEL-PSEUDO-ELEMENT, 05/09/
+    // 2026), enumerated whole from selector_pseudo_vocabulary.hpp's own
+    // closed list (GODS_LAWS.md L-17/L-40), never a hand-picked
+    // sample. A pseudo-element ("::before", "::after") asks for a box
+    // that does not exist in the consumer's tree - a node-only pass
+    // like this one cannot judge it, so it defers the same way a
+    // pseudo_function does (compound_match.cpp's own note_pseudo_
+    // class_selector() comment, and LAYOUT-PSEUDO-BOXES's own future
+    // scope, never this fatia's).
+    std::size_t deferred_pseudo_element_count = 0;
+    for (const std::string_view &name : glintfx::style::detail::k_pseudo_element_names) {
+        ++deferred_pseudo_element_count;
+        const std::string text = "a::" + std::string(name);
+        const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(text);
+        GLINTFX_CHECK(match_compound(compound, node_a) == compound_match_verdict::deferred);
+    }
+    GLINTFX_CHECK_EQ(deferred_pseudo_element_count, glintfx::style::detail::k_pseudo_element_count);
+    std::printf("gfui_compound_match_test: %zu pseudo-elements deferred\n",
+                deferred_pseudo_element_count);
+
     // Rejection beats deferral: an id that never matches settles the
     // answer before :first-child (this fatia's own, deferred) is even
     // considered.

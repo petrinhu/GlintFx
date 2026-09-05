@@ -14,16 +14,32 @@
 // outro nó" (plan SS1, one sentence, GODS_LAWS.md L-17).
 //
 // SCOPE, WITH THE DESTINATION OF EVERYTHING LEFT OUT (plan SS1's own
-// table): type/universal/class/id and the five STATE pseudo-classes
-// (hover/active/focus/focus-visible/checked) are judged HERE. Every
-// structural pseudo-class (first-child, last-child, ...), :scope,
-// :placeholder-shown, every functional pseudo-class (nth-*, :not) and
-// every attribute selector are judged by a LATER evaluator this fatia
-// does not own (GFSS-MATCH-STRUCT/GFSS-MATCH-ATTR/GFSS-MATCH-COMBINE,
-// TODO.md waves W5/W6) - see compound_match_verdict::deferred below for
-// how this file tells its caller that. Combinators and specificity are
-// never seen here at all: this file's own entry point takes a single
-// gfss_compound_selector, never a gfss_complex_selector's own `rest`.
+// table, GROWN TWICE since the plan first shipped): type/universal/
+// class/id and the five STATE pseudo-classes (hover/active/focus/
+// focus-visible/checked) are judged HERE, directly. GFSS-MATCH-ATTR
+// (TODO.md, wave W5) filled in every attribute selector ("[foo]",
+// "[foo=bar]", the six comparison operators) by delegating to gfui/
+// attribute_match.hpp's own attribute_selector_holds() - judged HERE
+// too, just not by this file's own code. GFSS-MATCH-STRUCT (TODO.md,
+// wave W5) filled in the eleven structural pseudo-classes (first/last/
+// only-child, first/last/only-of-type, :empty, and the four An+B
+// functions nth-child/nth-last-child/nth-of-type/nth-last-of-type) by
+// delegating to gfui/structural_match.hpp's own two evaluators - judged
+// HERE as well, for the same reason.
+//
+// WHAT STILL DEFERS, AND WHY EACH ONE DOES (docs/node-view-and-
+// matching.md's own "What is not judged yet", the two items its own
+// "Two gaps" section names, and this file's own scope line before
+// today): `:not(...)` and `:scope` anchoring both depend on the
+// combinator work GFSS-MATCH-COMBINE (TODO.md, wave W6) still owns;
+// `:placeholder-shown` has no answer anywhere in the eight-fact
+// contract (docs/node-view-and-matching.md's own gap 1, unresolved by
+// design); `::before`/`::after` ask for a box that does not exist in
+// the consumer's tree at all, which is layout's job (LAYOUT-PSEUDO-
+// BOXES), never a node-only judgment's. Combinators and specificity
+// are never seen here at all, structural pseudo-classes or not: this
+// file's own entry point takes a single gfss_compound_selector, never
+// a gfss_complex_selector's own `rest`.
 //
 // WHY src/gfui/, NOT src/gfss/ (D-MS-1 of the plan above): ESCOPO.md
 // SS4 fixes the trio - gfss is the leaf FORMAT (data), gfml the
@@ -46,10 +62,11 @@ namespace glintfx::gfui::detail {
 // judged here does NOT hold - decided BEFORE any deferred requirement
 // is even looked at, plan SS3.1's own "rejeicao vence adiamento"),
 // deferred (none judged here failed, but the compound also carries at
-// least one simple selector this evaluator does not own - a structural
-// pseudo-class, :scope, :placeholder-shown, a functional pseudo-class
-// or an attribute selector - so the final answer belongs to a later
-// evaluator, GFSS-MATCH-COMBINE's own W6).
+// least one simple selector this evaluator does not own - :not(...),
+// :scope anchoring, :placeholder-shown, or a pseudo-element - so the
+// final answer belongs to a later evaluator, GFSS-MATCH-COMBINE's own
+// W6 or a product decision not yet made, this file's own header
+// comment names which for each).
 //
 // WHY THREE VALUES, NOT bool (plan SS3.3): with bool, a compound
 // "a:first-child" would have to answer true (a lie: :first-child was

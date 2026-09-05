@@ -17,6 +17,7 @@
 #include "gfss/selector_pseudo_vocabulary.hpp"
 #include "gfui/compound_match.hpp"
 #include "gfui/state_pseudo_class_table.hpp"
+#include "gfui/structural_match.hpp"
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
@@ -36,6 +37,18 @@
 // selector TEXT parsed through selector_parse.hpp - never an AST built
 // by hand, so the case proves the parser-to-matcher chain, not just
 // the matcher in isolation.
+//
+// DEFERRAL SET SHRUNK TWICE SINCE THIS FILE FIRST SHIPPED (GFSS-MATCH-
+// ATTR and GFSS-MATCH-STRUCT, both TODO.md wave W5): the seven
+// structural simple pseudo-classes and the four An+B functional ones
+// are OWNED now (compound_match.hpp's own updated header comment) -
+// this file's own deferral loops below only exercise the two simple
+// names (:placeholder-shown, :scope) and the one functional name
+// ("not") still left unowned. The structural evaluators themselves,
+// argument content included, are gfui_match_struct_test.cpp's own job,
+// not duplicated here - this file stays about compound ASSEMBLY
+// (id/state/tag/classes/deferral), never about a single structural
+// question's own correctness.
 //
 // FATIA D (match_compound_classes_bitmask_repetition_stop_and_
 // fallback): the class-enumeration half in isolation - repetition
@@ -243,12 +256,19 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     GLINTFX_CHECK(match_compound(parse_one_compound("a*a"), node_a) ==
                   compound_match_verdict::matched);
 
-    // Deferral: every simple pseudo-class NOT among the five state
-    // ones (enumerated from selector_pseudo_vocabulary.hpp's own
-    // closed list, never a hand-picked subset).
+    // Deferral: only the two simple pseudo-classes still unowned
+    // (:placeholder-shown, :scope) - the five state ones settle via
+    // state_holds() (PASS 2 step 2) and the seven structural ones
+    // (GFSS-MATCH-STRUCT, TODO.md wave W5) now settle via compound_
+    // match.cpp's own attribute_and_structural_selectors_hold() (PASS
+    // 2 step 5) - enumerated from selector_pseudo_vocabulary.hpp's own
+    // closed list, never a hand-picked subset.
     std::size_t deferred_simple_count = 0;
     for (const std::string_view &name : glintfx::style::detail::k_simple_pseudo_names) {
         if (glintfx::gfui::detail::state_bit_for_pseudo_class(name).has_value()) {
+            continue;
+        }
+        if (glintfx::gfui::detail::structural_simple_kind_for_pseudo_class(name).has_value()) {
             continue;
         }
         ++deferred_simple_count;
@@ -257,22 +277,35 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
         GLINTFX_CHECK(match_compound(compound, node_a) == compound_match_verdict::deferred);
     }
     GLINTFX_CHECK_EQ(deferred_simple_count, glintfx::style::detail::k_simple_pseudo_count -
-                                                glintfx::gfui::gltfx_node_state_count);
-    std::printf("gfui_compound_match_test: %zu non-state simple pseudo-classes deferred\n",
+                                                glintfx::gfui::gltfx_node_state_count -
+                                                std::size_t{7});
+    std::printf("gfui_compound_match_test: %zu non-state, non-structural simple pseudo-classes "
+                "still deferred\n",
                 deferred_simple_count);
 
-    // Deferral: every functional pseudo-class, argument content
-    // irrelevant here (GFSS-SEL-PARSE-CORE leaves it raw and
-    // unanalyzed; this fatia never reads it either).
+    // Deferral: only "not" among the five functional pseudo-classes -
+    // the four An+B ones (nth-child, nth-last-child, nth-of-type,
+    // nth-last-of-type) are owned by GFSS-MATCH-STRUCT now (TODO.md,
+    // wave W5), argument content included, and are gfui_match_struct_
+    // test.cpp's own job to prove correct - not duplicated here.
     std::size_t deferred_functional_count = 0;
     for (const std::string_view &name : glintfx::style::detail::k_functional_pseudo_names) {
+        if (glintfx::gfui::detail::structural_functional_kind_for_name(name).has_value()) {
+            continue;
+        }
         ++deferred_functional_count;
-        const std::string text = "a:" + std::string(name) + "(1)";
+        // Only "not" survives the skip above, and its own argument is
+        // a full selector LIST (GFSS-SEL-PARSE-NOT, 05/09/2026),
+        // unlike the four An+B ones this loop no longer visits - "(1)"
+        // is not valid selector syntax for it, so this uses a real
+        // simple selector as the argument instead.
+        const std::string text = "a:" + std::string(name) + "(.zzz)";
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(text);
         GLINTFX_CHECK(match_compound(compound, node_a) == compound_match_verdict::deferred);
     }
-    GLINTFX_CHECK_EQ(deferred_functional_count, glintfx::style::detail::k_functional_pseudo_count);
-    std::printf("gfui_compound_match_test: %zu functional pseudo-classes deferred\n",
+    GLINTFX_CHECK_EQ(deferred_functional_count,
+                     glintfx::style::detail::k_functional_pseudo_count - std::size_t{4});
+    std::printf("gfui_compound_match_test: %zu functional pseudo-class (\"not\") still deferred\n",
                 deferred_functional_count);
 
     // Deferral: every pseudo-element (GFSS-SEL-PSEUDO-ELEMENT, 05/09/
@@ -574,7 +607,13 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
           .next_sibling = 0,
           .child_count = 0,
           .first_child = 0}},
-        {"a#one.alpha:first-child",
+        // ":placeholder-shown", not ":first-child" - the latter is
+        // owned by GFSS-MATCH-STRUCT now (compound_match.hpp's own
+        // updated header comment) and would cost an extra previous_
+        // sibling() call to settle, muddying what this case exists to
+        // prove: the deferred half of a compound costs NOTHING when
+        // the owned half already holds.
+        {"a#one.alpha:placeholder-shown",
          compound_match_verdict::deferred,
          {.tag_name = 1,
           .id = 1,

@@ -8,8 +8,10 @@
 #include <string_view>
 
 #include "gfss/ascii_case.hpp"
+#include "gfui/attribute_match.hpp"
 #include "gfui/node_query.hpp"
 #include "gfui/state_pseudo_class_table.hpp"
+#include "gfui/structural_match.hpp"
 
 // compound_match.cpp - GFSS-MATCH-SIMPLE (TODO.md, GODS_LAWS.md
 // L-17/L-20/L-22/L-27/L-40; /var/tmp/glintfx-plan/gfss-match-simple-
@@ -18,19 +20,36 @@
 // three-value verdict, and the plan's own SS3.1/SS4 for the full cost
 // table and case-policy this file implements.
 //
+// GROWN TWICE SINCE THE PLAN FIRST SHIPPED (GFSS-MATCH-ATTR and
+// GFSS-MATCH-STRUCT, both TODO.md wave W5): this file no longer only
+// judges id/type/state/class - it now also judges every attribute
+// selector (by delegating to gfui/attribute_match.hpp) and every
+// structural pseudo-class (by delegating to gfui/structural_match.hpp)
+// - see compound_match.hpp's own header comment for the up-to-date
+// scope line and what STILL defers. The two-pass, cost-ordered shape
+// below is unchanged; the new work slots in as its own step, after
+// classes and before the deferred check, for the reason PASS 2's own
+// header comment on attribute_and_structural_selectors_hold() gives.
+//
 // TWO PASSES, ZERO ALLOCATION (plan SS3.1): PASS 1 (collect_
 // requirements() below) walks the compound's own simple_selectors ONCE
 // and never touches `node` - it only classifies what the AUTHOR wrote.
 // PASS 2 (match_compound() below) then queries `node` from the
 // cheapest, most selective requirement to the most expensive, stopping
-// at the FIRST rejection (id -> state -> tag -> classes, D-MS-7): a
+// at the FIRST rejection (id -> state -> tag -> classes -> attribute ->
+// structural, D-MS-7 extended by GFSS-MATCH-ATTR/GFSS-MATCH-STRUCT): a
 // node has at most one id, so a wrong id rejects the most nodes for
 // the fewest calls; state and tag each cost exactly one call; classes
-// cost 1 + up to k calls and go last. Rejection is checked BEFORE
-// has_deferred_requirement is ever read (plan's own "#nope:first-child
-// contra id=one -> rejected com UMA chamada" case): the deferred
-// half of a compound never costs anything when the owned half already
-// settles the answer.
+// cost 1 + up to k calls; attribute costs one attribute() call per
+// requirement; structural costs a sibling WALK per requirement (linear
+// by design, structural_match.hpp's own header comment) - so it goes
+// last, as the most expensive step this file owns. Rejection is
+// checked BEFORE has_deferred_requirement is ever read (plan's own
+// "#nope:first-child contra id=one -> rejected com UMA chamada" case,
+// still true today even though :first-child is no longer deferred -
+// the id check still short-circuits before ANY later step runs): the
+// deferred half of a compound never costs anything when the owned half
+// already settles the answer.
 //
 // POLICY OF COMPARISON (plan SS4, decisions D-MS-4/D-MS-5): tag name
 // and pseudo-class name are ASCII case-insensitive (they are
@@ -123,27 +142,66 @@ void note_class_selector(compound_requirements &out, std::string_view name) noex
     ++out.class_requirement_count;
 }
 
-// One pseudo_class noted: one of the five STATE names (plan's own
-// table SS1) folds into the OR mask this fatia owns; anything else
-// (the nine structural names, :scope, :placeholder-shown) is a simple
-// selector this fatia does not judge, and marks has_deferred_
-// requirement - never rejected, never matched, just not decided here.
+// One pseudo_class noted: one of the five STATE names folds into the
+// OR mask this fatia owns directly; one of the seven argument-less
+// STRUCTURAL names (first-child, last-child, only-child, first-of-
+// type, last-of-type, only-of-type, empty - structural_match.hpp's own
+// closed table) is owned too, since GFSS-MATCH-STRUCT (TODO.md, wave
+// W5) - but NOT here: PASS 2's own attribute_and_structural_selectors_
+// hold() re-reads `compound` directly to evaluate it, the same "parse
+// here (PASS 1), judge there (PASS 2)" split note_class_selector()
+// above already uses for classes, because judging a structural
+// pseudo-class needs `node` (sibling navigation) and this pass never
+// touches it. So a structural name here contributes nothing at all -
+// neither a requirement to store nor a deferred flag. Only the two
+// names left over (:placeholder-shown, :scope) still mark this
+// compound deferred: neither has an owner yet (docs/node-view-and-
+// matching.md's own "two gaps" for the first, the combinator
+// dependency GFSS-MATCH-COMBINE still owns for the second).
 void note_pseudo_class_selector(compound_requirements &out, std::string_view name) noexcept {
-    const std::optional<gltfx_node_state> bit = state_bit_for_pseudo_class(name);
-    if (bit.has_value()) {
+    const std::optional<gltfx_node_state> state_bit = state_bit_for_pseudo_class(name);
+    if (state_bit.has_value()) {
         out.required_state = static_cast<gltfx_node_state>(
-            static_cast<std::uint8_t>(out.required_state) | static_cast<std::uint8_t>(*bit));
+            static_cast<std::uint8_t>(out.required_state) | static_cast<std::uint8_t>(*state_bit));
+        return;
+    }
+    if (structural_simple_kind_for_pseudo_class(name).has_value()) {
         return;
     }
     out.has_deferred_requirement = true;
 }
 
+// One pseudo_function noted: "not" is combinator work (docs/node-view-
+// and-matching.md's own "depends on the combinator work above") and
+// stays deferred - GFSS-MATCH-COMBINE's own future job, never this
+// file's. Every OTHER functional pseudo-class name recognized by the
+// parser (selector_pseudo_vocabulary.hpp's own closed list has exactly
+// five: the four An+B ones plus "not") is one of the four GFSS-MATCH-
+// STRUCT owns (nth-child, nth-last-child, nth-of-type, nth-last-of-
+// type) - owned the SAME way a structural pseudo_class is above: PASS
+// 2 re-reads `compound` directly to evaluate it (it needs `node`,
+// which this pass never touches), so it contributes nothing here
+// either, not even a deferred flag.
+void note_pseudo_function_selector(compound_requirements &out, std::string_view name) noexcept {
+    if (glintfx::style::detail::ascii_case_insensitive_equal(name, "not")) {
+        out.has_deferred_requirement = true;
+    }
+}
+
 // PASS 1 itself: one dispatch per simple selector of `compound`, never
 // touching `node`. `universal` ("*") contributes nothing (it matches
-// unconditionally, by definition); `pseudo_function` (nth-*/:not, its
-// own argument still unanalyzed by GFSS-SEL-PARSE-CORE) is always
-// deferred - this fatia's own scope line (compound_match.hpp's own
-// header comment) never judges one.
+// unconditionally, by definition). `attribute` contributes nothing
+// HERE either, on purpose, even though GFSS-MATCH-ATTR owns it now:
+// evaluating one needs `node` (attribute_match.hpp's own attribute_
+// selector_holds()), which this pass never touches - PASS 2's own
+// attribute_and_structural_selectors_hold() re-reads `compound`
+// directly for it, the exact fallback shape all_classes_present_one_
+// by_one() above already established for classes past capacity.
+// `pseudo_element` ("::before"/"::after") always defers: it does not
+// select an EXISTING node of the consumer's tree at all - it asks for
+// a box to be FABRICATED, which is layout's own job (LAYOUT-PSEUDO-
+// BOXES, a future fatia), never this pass's, which only ever looks at
+// nodes that already exist.
 [[nodiscard]] compound_requirements
 collect_requirements(const style::detail::gfss_compound_selector &compound) noexcept {
     compound_requirements out;
@@ -163,35 +221,13 @@ collect_requirements(const style::detail::gfss_compound_selector &compound) noex
         case style::detail::gfss_simple_selector_kind::pseudo_class:
             note_pseudo_class_selector(out, simple.name);
             break;
-        // THREE labels defer, but for DIFFERENT reasons - grouped into
-        // one case only because the resulting MECHANIC is identical
-        // (bugprone-branch-clone would otherwise flag branches that
-        // end up byte-for-byte the same), never because the reasons
-        // are the same one:
-        //   - pseudo_function (nth-*/:not/...): the ARGUMENT is still
-        //     unanalyzed by GFSS-SEL-PARSE-CORE - this fatia's own
-        //     scope line (compound_match.hpp's own header comment)
-        //     never judges one.
-        //   - pseudo_element ("::before"/"::after"): it does not
-        //     select an EXISTING node of the consumer's tree at all -
-        //     it asks for a box to be FABRICATED, which is layout's
-        //     own job (LAYOUT-PSEUDO-BOXES, a future fatia), never
-        //     this pass's, which only ever looks at nodes that already
-        //     exist.
-        //   - attribute ("[foo]"/"[foo=bar]", GFSS-SEL-PARSE-ATTR,
-        //     05/09/2026): parsed into the AST by that fatia, but
-        //     EVALUATING it against a real node's attribute lookup is
-        //     GFSS-MATCH-ATTR's own job (TODO.md, wave W5) - a
-        //     DIFFERENT fatia than this file's own GFSS-MATCH-SIMPLE,
-        //     the SAME "parse here, judge there" split this file's own
-        //     other two deferred kinds already document above.
-        // A future fatia that resolves one of the three is very likely
-        // NOT ready to resolve the other two - keep that in mind before
-        // ever merging their handling beyond this shared `case`.
         case style::detail::gfss_simple_selector_kind::pseudo_function:
+            note_pseudo_function_selector(out, simple.name);
+            break;
         case style::detail::gfss_simple_selector_kind::pseudo_element:
-        case style::detail::gfss_simple_selector_kind::attribute:
             out.has_deferred_requirement = true;
+            break;
+        case style::detail::gfss_simple_selector_kind::attribute:
             break;
         }
     }
@@ -322,6 +358,60 @@ all_classes_present_one_by_one(const style::detail::gfss_compound_selector &comp
     return all_classes_present_by_bitmask(req, node);
 }
 
+// PASS 2, step 5 (attribute and structural, GFSS-MATCH-ATTR/GFSS-
+// MATCH-STRUCT's own last and most expensive step, D-MS-7 extended):
+// re-reads `compound` directly, the SAME fallback shape all_classes_
+// present_one_by_one() above already uses, because NEITHER kind was
+// stored by PASS 1 (collect_requirements()'s own header comment) -
+// judging either needs `node`, which PASS 1 never touches. Every
+// attribute selector is delegated to attribute_match.hpp's own
+// attribute_selector_holds(); every structural pseudo-class or An+B
+// function is delegated to structural_match.hpp's own two evaluators,
+// after `name` resolves through the closed tables those two functions
+// look name up in - a name that resolves to neither (the two deferred
+// pseudo_class names, or "not") is silently skipped here, because
+// note_pseudo_class_selector()/note_pseudo_function_selector() above
+// already marked the compound has_deferred_requirement for it, and
+// this loop's own job is only to REJECT, never to defer (deferral is
+// decided once, back in match_compound() below).
+[[nodiscard]] bool
+attribute_and_structural_selectors_hold(const style::detail::gfss_compound_selector &compound,
+                                        const gltfx_node_view &node) noexcept {
+    for (const style::detail::gfss_simple_selector &simple : compound.simple_selectors) {
+        switch (simple.kind) {
+        case style::detail::gfss_simple_selector_kind::attribute:
+            if (!attribute_selector_holds(simple, node)) {
+                return false;
+            }
+            break;
+        case style::detail::gfss_simple_selector_kind::pseudo_class: {
+            const std::optional<structural_simple_kind> kind =
+                structural_simple_kind_for_pseudo_class(simple.name);
+            if (kind.has_value() && !structural_simple_holds(*kind, node)) {
+                return false;
+            }
+            break;
+        }
+        case style::detail::gfss_simple_selector_kind::pseudo_function: {
+            const std::optional<structural_functional_kind> kind =
+                structural_functional_kind_for_name(simple.name);
+            if (kind.has_value() &&
+                !structural_functional_holds(*kind, simple.raw_argument, node)) {
+                return false;
+            }
+            break;
+        }
+        case style::detail::gfss_simple_selector_kind::universal:
+        case style::detail::gfss_simple_selector_kind::id_selector:
+        case style::detail::gfss_simple_selector_kind::type:
+        case style::detail::gfss_simple_selector_kind::class_selector:
+        case style::detail::gfss_simple_selector_kind::pseudo_element:
+            break; // judged elsewhere (PASS 2 steps 1-4) or deferred (pseudo_element)
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 compound_match_verdict match_compound(const style::detail::gfss_compound_selector &compound,
@@ -341,6 +431,9 @@ compound_match_verdict match_compound(const style::detail::gfss_compound_selecto
         return compound_match_verdict::rejected;
     }
     if (!all_classes_present(req, compound, node)) {
+        return compound_match_verdict::rejected;
+    }
+    if (!attribute_and_structural_selectors_hold(compound, node)) {
         return compound_match_verdict::rejected;
     }
 

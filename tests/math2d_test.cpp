@@ -592,7 +592,8 @@ GLINTFX_TEST(interpolation_never_fabricates_a_finite_answer_from_a_non_finite_in
                  k_non_finite.size() * k_positions);
 }
 
-GLINTFX_TEST(interpolation_never_fabricates_a_finite_answer_from_several_non_finite_inputs_at_once) {
+GLINTFX_TEST(
+    interpolation_never_fabricates_a_finite_answer_from_several_non_finite_inputs_at_once) {
     // SIBLING of interpolation_never_fabricates_a_finite_answer_from_a_
     // non_finite_input, not a replacement for it: that case proves the
     // guard's "OR" catches ONE bad position at a time, times the three

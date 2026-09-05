@@ -122,9 +122,10 @@
 #      #define'd, sim ou nao, apos incluir este arquivo" - e essa
 #      pergunta tem resposta direta e padrao em qualquer preprocessador
 #      C/C++, incluindo o de cl.exe: a propria diretiva `#ifdef NAME`.
-#      macro_active_under_default_preprocessing_msvc() abaixo escreve
-#      um arquivo-sonda descartavel que inclui o cabecalho suspeito e
-#      testa `#ifdef NAME`, preprocessado com `/E /TP` (ambas opcoes
+#      classify_matches_msvc_batched() abaixo escreve (via
+#      _write_msvc_batch_probe()) um arquivo-sonda descartavel que
+#      inclui o cabecalho suspeito e testa `#ifdef NAME`, preprocessado
+#      com `/E /TP` (ambas opcoes
 #      documentadas e comuns do cl.exe - "/E", "preprocess to stdout";
 #      "/TP", "compile all files as .cpp"), procurando por um dos dois
 #      marcadores-sentinela na saida. Isto pergunta EXATAMENTE a mesma
@@ -141,14 +142,15 @@
 #      reconhecida - como erro fatal C1021, "invalid preprocessor
 #      command '<palavra>'" (Microsoft Learn, "Fatal Error C1021",
 #      learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/
-#      fatal-error-c1021). file_is_not_c_or_cpp_header_msvc() abaixo
-#      procura pelo CODIGO "C1021" na saida, nunca pelo texto ao redor
-#      dele (que e' traduzido por locale) - mais robusto ainda que o
-#      `LC_ALL=C` que o lado GCC precisa forcar para o mesmo motivo.
+#      fatal-error-c1021). classify_matches_msvc_batched() abaixo
+#      procura pelo CODIGO "C1021" na saida, atribuido a' sonda exata
+#      que o emitiu (nunca ao texto ao redor dele, que e' traduzido por
+#      locale) - mais robusto ainda que o `LC_ALL=C` que o lado GCC
+#      precisa forcar para o mesmo motivo.
 #
 # VEREDITO: VIAVEL, com fonte. Os tres mecanismos acima sao usados por
-# discover_system_include_dirs_msvc(), macro_active_under_default_
-# preprocessing_msvc() e file_is_not_c_or_cpp_header_msvc() abaixo, e
+# discover_system_include_dirs_msvc() e classify_matches_msvc_batched()
+# abaixo (que decide "ativo" e "nao e' cabecalho" para todo o lote), e
 # public_name_collision_test PASSA A SER EXERCIDO de verdade no MSVC,
 # nao mais declarado nao aplicavel - cxx_frontend() abaixo so retorna
 # "unavailable" quando o escape hatch de teste (ver logo adiante) esta
@@ -167,19 +169,80 @@
 # codigo de ausencia declarada continua correto, nunca porque alguma
 # plataforma real precise dele.
 #
+# BATCH-PARITY-WIN (GODS_LAWS.md L-04/L-11/L-36, achado real de
+# 05/09/2026): NAMES-PARITY-WIN acima tornou este portao EXERCIDO de
+# verdade no MSVC - e a primeira rodada real dele no servidor (run
+# 33949568634) estourou o teto de 120s do teste em UMA das tres pernas
+# Windows (56.19s na outra, mesma varredura - variancia grande demais
+# para ser coincidencia). A causa: classify_matches() original fazia
+# ATE DUAS invocacoes NOVAS de cl.exe POR CANDIDATO textual (uma para
+# file_is_not_c_or_cpp_header_msvc(), outra para
+# macro_active_under_default_preprocessing_msvc()) - no Linux isso e
+# barato (3 candidatos medidos, ~0.01s por chamada de gcc), mas no SDK
+# do Windows o numero de candidatos textuais e maior E cada novo
+# processo cl.exe custa ordens de grandeza mais (antivirus do executor
+# escaneia cada .exe novo, GODS_LAWS.md L-49's own "log de dentro bate
+# o de fora" nao se aplica aqui, mas o principio de medir antes de
+# consertar sim).
+#
+# O REMEDIO OBVIO - uma invocacao so, em lote, com todos os candidatos -
+# resolve GODS_LAWS.md L-11 (nunca um processo por item varrido) mas
+# ABRE um risco NOVO sob GODS_LAWS.md L-36: se aquela UNICA invocacao
+# morrer no meio (um candidato cujo #include produz algo que o
+# preprocessador nao sobrevive), os candidatos QUE VIRIAM DEPOIS dele
+# no mesmo lote perderiam veredito - EM SILENCIO, se ninguem conferir.
+# classify_matches_msvc_batched() abaixo concilia as duas leis, nunca
+# escolhendo uma contra a outra:
+#
+#   1. Cada arquivo candidato vira UMA sonda .cpp propria (um #include
+#      so, mais um "#ifdef NOME" por nome candidato daquele arquivo,
+#      cada um com um marcador GLOBALMENTE unico - GLINTFX_PNC_BATCH_
+#      <indice>_ACTIVE/_INACTIVE). Varios arquivos, cada um sua PROPRIA
+#      sonda, viram argumentos de linha de comando SEPARADOS de UMA SO
+#      chamada de cl.exe (`cl /E /TP sonda1.cpp sonda2.cpp ...`) - cada
+#      argumento de fonte e uma translation unit independente para o
+#      compilador, entao um erro fatal preprocessando a sonda 2 nao
+#      corrompe a saida da sonda 1 nem impede que a saida da sonda 3
+#      apareca (isto E' o mesmo principio por tras de "cl a.cpp b.cpp
+#      c.cpp" processar os tres mesmo se um deles falhar - cada fonte e
+#      seu proprio compile, so o DRIVER e compartilhado). Arquivos sao
+#      agrupados em lotes de ate _MSVC_BATCH_CHUNK_SIZE por chamada,
+#      so' para limitar o raio de um cenario que este portao nunca
+#      observou de verdade e nao pode provar que nao acontece: cl.exe
+#      abortando a invocacao inteira em vez de seguir para o proximo
+#      argumento de fonte.
+#   2. A reconciliacao, que e' a parte que fecha L-36: TODO candidato
+#      enviado tem que terminar com um veredito (REAL ou NEUTRALIZADO)
+#      OU aparecer, nomeado, na lista `missing` que
+#      classify_matches_msvc_batched() devolve. check_public_name_
+#      collision() abaixo trata QUALQUER `missing` nao-vazio como falha
+#      dura, imprimindo cada candidato faltante - nunca um lote que
+#      morreu no meio vira aprovacao silenciosa, e nunca vira uma
+#      "colisao real" fantasma tambem (sao categorias distintas na
+#      saida).
+#
+# O QUE ISSO NAO FAZ: nao tenta recuperar os candidatos de `missing`
+# reprocessando-os um a um como fallback - a falha e reportada alta e
+# nomeada, por pedido explicito de quem escreveu este briefing (a
+# alternativa de recuperacao automatica existe e teria zero perda de
+# cobertura tambem, mas esconderia que o lote e' fragil justamente
+# quando ele o for).
+#
 # Usage:
 #   check_public_name_collision.py <include_dir> <cxx-compiler> <cxx-compiler-id>
 #   check_public_name_collision.py --selftest [cxx-compiler] [cxx-compiler-id]
 #
-# --selftest roda os nove controles (GODS_LAWS.md L-40: positivo,
-# negativo, vazio - mais seis especificos deste portao, entre eles o
-# controle de ATRIBUICAO-VS-DECLARACAO, achado real de 04/09/2026)
-# usando o MECANISMO do frontend detectado por cxx_frontend(cxx_id) -
-# GCC/Clang (run_gcc_selftest) ou MSVC (run_msvc_selftest) - sempre
-# contra fixtures descartaveis sob tempfile.mkdtemp, nunca contra o
-# include_dir real nem os cabecalhos de sistema reais da maquina.
-# Quando o escape hatch esta ativo, nenhum dos nove e' exercitavel - o
-# autoteste declara isso, conta 1/1 como nao aplicavel, e passa.
+# --selftest roda os dez controles (GODS_LAWS.md L-40: positivo,
+# negativo, vazio - mais sete especificos deste portao, entre eles o
+# controle de ATRIBUICAO-VS-DECLARACAO, achado real de 04/09/2026, e o
+# de RECONCILIACAO DE LOTE, achado real de 05/09/2026, BATCH-PARITY-
+# WIN) usando o MECANISMO do frontend detectado por cxx_frontend(cxx_id)
+# - GCC/Clang (classify_matches) ou MSVC batched (classify_matches_
+# msvc_batched) - sempre contra fixtures descartaveis sob
+# tempfile.mkdtemp, nunca contra o include_dir real nem os cabecalhos
+# de sistema reais da maquina. Quando o escape hatch esta ativo,
+# nenhum dos dez e' exercitavel - o autoteste declara isso, conta 1/1
+# como nao aplicavel, e passa.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -538,10 +601,6 @@ def file_is_not_c_or_cpp_header_gcc(file_path, cxx):
 
 # --- MSVC-frontend neutralization mechanics (NAMES-PARITY-WIN) --------
 
-_MSVC_PROBE_ACTIVE_MARKER = "GLINTFX_PNC_MACRO_IS_ACTIVE"
-_MSVC_PROBE_INACTIVE_MARKER = "GLINTFX_PNC_MACRO_IS_INACTIVE"
-
-
 def _write(path, text):
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(text)
@@ -551,84 +610,170 @@ def _msvc_probe_scratch_dir():
     return tempfile.mkdtemp(prefix="glintfx-pnc-msvc-probe-", dir=os.environ.get("TMPDIR"))
 
 
-def macro_active_under_default_preprocessing_msvc(file_path, name, cxx, probe_scratch):
-    """MSVC-frontend equivalent of macro_active_under_default_
-    preprocessing_gcc() above (see this file's own header, item 2): a
-    throwaway wrapper source #includes the candidate header (forward
-    slashes - backslashes inside a "#include \"...\"" string are, in
-    practice, treated as literal path separators by every mainstream
-    compiler, but forward slashes sidestep the ambiguity entirely) and
-    tests "#ifdef NAME", preprocessed with the documented "/E" ("copy
-    preprocessor output to standard output") and "/TP" ("compile all
-    files as .cpp") flags. Neither marker surviving (the #include
-    itself failed to preprocess standalone - a real possibility for an
-    SDK header that expects to be reached only through an aggregator
-    like windows.h) answers "active", same fail-closed default as the
-    GCC sibling, for the same GODS_LAWS.md L-40 reason.
+_MSVC_BATCH_CHUNK_SIZE = 40
+_MSVC_BATCH_MARKER_PREFIX = "GLINTFX_PNC_BATCH"
+
+
+def _msvc_batch_marker(idx):
+    return f"{_MSVC_BATCH_MARKER_PREFIX}_{idx}"
+
+
+def _write_msvc_batch_probe(probe_path, file_path, entries):
+    """Writes ONE probe .cpp for `file_path`, testing every (name, idx)
+    pair in `entries` (idx is a running counter UNIQUE ACROSS THE WHOLE
+    BATCH, not just this file - see classify_matches_msvc_batched()
+    below, and this file's own header, BATCH-PARITY-WIN). ONE #include
+    (forward slashes - see this function's own predecessor's note,
+    still true: backslashes inside a "#include \"...\"" string are, in
+    practice, treated as literal separators by every mainstream
+    compiler, but forward slashes sidestep the ambiguity entirely),
+    then one "#ifdef NAME" per entry, each with its own marker. If the
+    #include itself is not valid C/C++ preprocessor text, NONE of this
+    probe's markers ever appear in the compiler's output - the caller
+    distinguishes that case by asking the compiler DIRECTLY which probe
+    file it names in a C1021 diagnostic (attributable, unlike the old
+    per-candidate mechanism's fail-closed "active" default for this
+    same defect - GODS_LAWS.md L-40 still applies when NEITHER a marker
+    NOR an attributable C1021 shows up for an entry: that entry is left
+    unresolved, never silently guessed).
     """
-    probe_path = os.path.join(probe_scratch, f"probe_{len(os.listdir(probe_scratch))}.cpp")
     include_path = file_path.replace("\\", "/")
-    _write(
-        probe_path,
-        f'#include "{include_path}"\n'
-        f"#ifdef {name}\n{_MSVC_PROBE_ACTIVE_MARKER}\n#else\n{_MSVC_PROBE_INACTIVE_MARKER}\n#endif\n",
-    )
-    try:
-        proc = subprocess.run(
-            [cxx, "/nologo", "/E", "/TP", probe_path],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return True
-    if _MSVC_PROBE_ACTIVE_MARKER in proc.stdout:
-        return True
-    if _MSVC_PROBE_INACTIVE_MARKER in proc.stdout:
-        return False
-    return True
+    lines = [f'#include "{include_path}"\n']
+    for name, idx in entries:
+        marker = _msvc_batch_marker(idx)
+        lines.append(f"#ifdef {name}\n{marker}_ACTIVE\n#else\n{marker}_INACTIVE\n#endif\n")
+    _write(probe_path, "".join(lines))
 
 
-def file_is_not_c_or_cpp_header_msvc(file_path, cxx):
-    """MSVC-frontend equivalent of file_is_not_c_or_cpp_header_gcc()
-    above (see this file's own header, item 3): where GCC/Clang name
-    the defect "invalid preprocessing directive", cl.exe names the
-    IDENTICAL defect (a line starting with "#" followed by a word that
-    is not a recognised directive keyword) fatal error C1021, "invalid
-    preprocessor command '<word>'" (Microsoft Learn, "Fatal Error
-    C1021"). The CODE ("C1021") is matched, never the surrounding
-    prose - MSVC's diagnostic text is locale-translated, its error
-    codes are not, so this needs no LC_ALL=C-equivalent forcing.
-    Preprocesses the FILE directly ("/E /TP"), never through the
-    #include-wrapper macro_active_under_default_preprocessing_msvc()
-    above uses - this question is about the file's OWN text, not about
-    one name's visibility through an #include.
+def classify_matches_msvc_batched(matches, cxx, probe_scratch):
+    """MSVC-frontend batched classification (this file's own header,
+    BATCH-PARITY-WIN, 05/09/2026): replaces up to TWO fresh cl.exe
+    PROCESSES per textual candidate with as few invocations as this
+    gate can make, while proving no candidate's verdict silently
+    vanished (GODS_LAWS.md L-36).
+
+    Matches already neutralized by name_is_undef_in_same_file() (a pure
+    text check, no compiler needed) are classified immediately, same as
+    classify_matches() above. Everything else is grouped by FILE - one
+    probe per unique file, covering every name matched in it - and
+    every file's probe becomes its OWN command-line source argument to
+    ONE cl.exe invocation (`cl /E /TP probe1.cpp probe2.cpp ...`): each
+    source argument is its own independent translation unit to the
+    compiler, so a fatal error preprocessing one probe does not corrupt
+    another probe's own output in the SAME invocation - the same reason
+    "cl a.cpp b.cpp c.cpp" processes all three even if one of them
+    fails to compile. Files are chunked at `_MSVC_BATCH_CHUNK_SIZE` per
+    invocation only to bound the blast radius of a scenario this gate
+    has never observed for real and cannot prove will not happen: the
+    WHOLE invocation aborting instead of moving on to the next source
+    argument.
+
+    Returns (classified, missing): `classified` has the same shape
+    classify_matches() above returns. `missing` is a list of
+    (file, lineno, name) tuples that received NEITHER a marker NOR an
+    attributable C1021 - GODS_LAWS.md L-36's own reconciliation: the
+    caller (check_public_name_collision() below) treats ANY non-empty
+    `missing` as a hard, named failure, never a silent pass-through and
+    never a false "REAL collision" either.
     """
-    try:
-        proc = subprocess.run(
-            [cxx, "/nologo", "/E", "/TP", file_path],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return False
-    return "C1021" in (proc.stdout + proc.stderr)
+    classified = []
+    to_batch = []
+    idx_counter = 0
+    for file_path, lineno, name in matches:
+        if name_is_undef_in_same_file(file_path, name):
+            classified.append({
+                "status": "NEUTRALIZED", "file": file_path, "line": lineno,
+                "name": name, "reason": "undef-mesmo-arquivo",
+            })
+            continue
+        to_batch.append((file_path, lineno, name, idx_counter))
+        idx_counter += 1
+
+    by_file = {}
+    for file_path, lineno, name, idx in to_batch:
+        by_file.setdefault(file_path, []).append((lineno, name, idx))
+
+    resolved = {}
+    files = sorted(by_file)
+    for chunk_start in range(0, len(files), _MSVC_BATCH_CHUNK_SIZE):
+        chunk_files = files[chunk_start: chunk_start + _MSVC_BATCH_CHUNK_SIZE]
+        probe_paths = []
+        probe_basename_to_file = {}
+        for i, file_path in enumerate(chunk_files):
+            probe_path = os.path.join(probe_scratch, f"batch_{chunk_start}_{i}.cpp")
+            entries = [(name, idx) for (_lineno, name, idx) in by_file[file_path]]
+            _write_msvc_batch_probe(probe_path, file_path, entries)
+            probe_paths.append(probe_path)
+            probe_basename_to_file[os.path.basename(probe_path)] = file_path
+
+        try:
+            proc = subprocess.run(
+                [cxx, "/nologo", "/E", "/TP"] + probe_paths,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            combined = proc.stdout + proc.stderr
+        except OSError:
+            combined = ""
+
+        blamed = {
+            probe_basename
+            for probe_basename in probe_basename_to_file
+            if re.search(rf"{re.escape(probe_basename)}\(\d+\)[^\n]*C1021", combined)
+        }
+
+        for probe_basename, file_path in probe_basename_to_file.items():
+            entries = by_file[file_path]
+            if probe_basename in blamed:
+                for (_lineno, name, idx) in entries:
+                    resolved[idx] = ("NEUTRALIZED", "arquivo-nao-e-cabecalho-c")
+                continue
+            for (_lineno, name, idx) in entries:
+                marker = _msvc_batch_marker(idx)
+                if f"{marker}_ACTIVE" in combined:
+                    resolved[idx] = ("REAL", None)
+                elif f"{marker}_INACTIVE" in combined:
+                    resolved[idx] = ("NEUTRALIZED", "guarda-inativa-por-padrao")
+                # else: no marker, no blamed C1021 for this probe's own
+                # file - stays unresolved, caught by the reconciliation
+                # loop below (never silently guessed either way).
+
+    missing = []
+    for file_path, lineno, name, idx in to_batch:
+        outcome = resolved.get(idx)
+        if outcome is None:
+            missing.append((file_path, lineno, name))
+            continue
+        status, reason = outcome
+        entry = {"status": status, "file": file_path, "line": lineno, "name": name}
+        if reason:
+            entry["reason"] = reason
+        classified.append(entry)
+
+    return classified, missing
 
 
 # --- classification dispatch (frontend-agnostic caller) -----------------
 
 
-def classify_matches(matches, cxx, frontend, probe_scratch=None):
-    """Splits raw (file, lineno, name) matches into REAL and
-    NEUTRALIZED, returning a list of dicts. NEUTRALIZED entries carry
-    the reason (GODS_LAWS.md L-40 "contagem nunca escondida" applies to
-    WHY, not just to the count). `probe_scratch` is required (and used)
-    only when frontend == "msvc" - the wrapper-file mechanism needs
-    somewhere to write throwaway probe sources; the GCC path needs
-    nothing of the sort, since it preprocesses the candidate file
-    directly.
+def classify_matches(matches, cxx, frontend):
+    """GCC-frontend classification of raw (file, lineno, name) matches
+    into REAL and NEUTRALIZED, returning a list of dicts. NEUTRALIZED
+    entries carry the reason (GODS_LAWS.md L-40 "contagem nunca
+    escondida" applies to WHY, not just to the count). Each candidate
+    gets its OWN, isolated compiler call here - cheap on this frontend
+    (measured: ~0.01s/call), so there is no batching and no "missing"
+    concept to reconcile (classify_all_matches() below always pairs
+    this function with an empty `missing` list, by construction, never
+    something proven at runtime). The MSVC frontend's own classifier -
+    classify_matches_msvc_batched() above - exists BECAUSE the same
+    per-candidate shape is NOT cheap there (this file's own header,
+    BATCH-PARITY-WIN); `frontend` here is accepted only to fail loud on
+    an unrecognized value, never silently treated as GCC.
     """
+    if frontend == "msvc":
+        raise ValueError("classify_matches() e' o caminho GCC - MSVC usa classify_matches_msvc_batched()")
     classified = []
     for file_path, lineno, name in matches:
         if name_is_undef_in_same_file(file_path, name):
@@ -638,22 +783,14 @@ def classify_matches(matches, cxx, frontend, probe_scratch=None):
             })
             continue
 
-        if frontend == "msvc":
-            not_a_header = file_is_not_c_or_cpp_header_msvc(file_path, cxx)
-        else:
-            not_a_header = file_is_not_c_or_cpp_header_gcc(file_path, cxx)
-        if not_a_header:
+        if file_is_not_c_or_cpp_header_gcc(file_path, cxx):
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "arquivo-nao-e-cabecalho-c",
             })
             continue
 
-        if frontend == "msvc":
-            active = macro_active_under_default_preprocessing_msvc(file_path, name, cxx, probe_scratch)
-        else:
-            active = macro_active_under_default_preprocessing_gcc(file_path, name, cxx)
-        if not active:
+        if not macro_active_under_default_preprocessing_gcc(file_path, name, cxx):
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "guarda-inativa-por-padrao",
@@ -661,6 +798,20 @@ def classify_matches(matches, cxx, frontend, probe_scratch=None):
         else:
             classified.append({"status": "REAL", "file": file_path, "line": lineno, "name": name})
     return classified
+
+
+def classify_all_matches(matches, cxx, frontend, probe_scratch=None):
+    """Frontend dispatcher, always returning (classified, missing).
+    GCC delegates to classify_matches() above - `missing` is always []
+    there, since every candidate gets its own isolated compiler call.
+    MSVC delegates to classify_matches_msvc_batched() above, whose
+    whole reason to exist is that `missing` is NOT trivially empty -
+    it is the GODS_LAWS.md L-36 reconciliation signal a batched
+    invocation needs (this file's own header, BATCH-PARITY-WIN).
+    """
+    if frontend == "msvc":
+        return classify_matches_msvc_batched(matches, cxx, probe_scratch)
+    return classify_matches(matches, cxx, frontend), []
 
 
 def real_collisions(classified):
@@ -716,10 +867,28 @@ def check_public_name_collision(include_dir, cxx, cxx_id):
 
     probe_scratch = _msvc_probe_scratch_dir() if frontend == "msvc" else None
     try:
-        classified = classify_matches(matches, cxx, frontend, probe_scratch)
+        classified, missing = classify_all_matches(matches, cxx, frontend, probe_scratch)
     finally:
         if probe_scratch is not None:
             shutil.rmtree(probe_scratch, ignore_errors=True)
+
+    # GODS_LAWS.md L-36 reconciliation (this file's own header,
+    # BATCH-PARITY-WIN): on MSVC, `missing` names every candidate a
+    # batched cl.exe invocation never gave a verdict to - checked and
+    # failed BEFORE looking at REAL/NEUTRALIZED at all, so a lost-
+    # coverage scenario is never mistaken for either "0 colisao real"
+    # or a genuine collision. Always [] on GCC (classify_all_matches()
+    # above), so this never fires there.
+    if missing:
+        print(
+            f"{SCRIPT_NAME}: LOTE MSVC PERDEU COBERTURA de {len(missing)} candidato(s) - nem marcador "
+            "nem C1021 atribuivel apareceu para eles (GODS_LAWS.md L-36: contagem de analisados nao "
+            "bateu com a de encontrados, reprovado em vez de aprovado em silencio):",
+            file=sys.stderr,
+        )
+        for file_path, lineno, name in missing:
+            print(f"  {file_path}:{lineno}:{name}", file=sys.stderr)
+        return False
 
     real = real_collisions(classified)
     neutralized = neutralized_collisions(classified)
@@ -764,7 +933,7 @@ def real_main(args):
     if cxx_frontend(cxx_id) != "unavailable" and shutil.which(cxx) is None and not os.path.isfile(cxx):
         fail(f"compiler not found in PATH: {cxx}")
     if not check_public_name_collision(include_dir, cxx, cxx_id):
-        fail("colisao de nome publico encontrada (ver mensagem acima)")
+        fail("verificacao de colisao de nome publico falhou (ver mensagem acima)")
 
 
 # --- selftest fixtures and controls (frontend-agnostic bodies) ------------
@@ -791,16 +960,31 @@ def make_fixture_system_dir(scratch, label):
 
 
 def _classify(matches, cxx, frontend, scratch, label):
-    """Selftest helper: gives classify_matches() a fresh probe scratch
-    dir per control when frontend == "msvc" (each control's fixtures
-    must not collide with another control's throwaway probe files),
-    and None (unused) on the GCC path.
+    """Selftest helper: routes through classify_all_matches() (this
+    file's own header, BATCH-PARITY-WIN) so every control below
+    exercises the SAME dispatcher check_public_name_collision() uses in
+    real mode - never a parallel, only-tested-in-selftest path. Gives
+    it a fresh probe scratch dir per control when frontend == "msvc"
+    (each control's fixtures must not collide with another control's
+    throwaway probe files); None (unused) on the GCC path. A non-empty
+    `missing` here is always a BUG (every control below plants exactly
+    one candidate that should resolve) - surfaced on stderr so the
+    calling control's own assertion fails with a clear pointer to why,
+    instead of a confusing "candidate never appeared" message alone.
     """
     if frontend != "msvc":
-        return classify_matches(matches, cxx, frontend)
-    probe_scratch = os.path.join(scratch, label, "msvc-probes")
-    os.makedirs(probe_scratch, exist_ok=True)
-    return classify_matches(matches, cxx, frontend, probe_scratch)
+        classified, missing = classify_all_matches(matches, cxx, frontend)
+    else:
+        probe_scratch = os.path.join(scratch, label, "msvc-probes")
+        os.makedirs(probe_scratch, exist_ok=True)
+        classified, missing = classify_all_matches(matches, cxx, frontend, probe_scratch)
+    if missing:
+        print(
+            f"selftest: {label}: classify_all_matches() perdeu {len(missing)} candidato(s) - "
+            f"{missing} - nunca deveria acontecer num controle com um unico candidato plantado",
+            file=sys.stderr,
+        )
+    return classified
 
 
 # Positive control: a clean public header (one type, one method), and a
@@ -1111,6 +1295,66 @@ def selftest_empty_system_dirs_control():
     return False
 
 
+# Batch reconciliation control (this file's own header, BATCH-PARITY-
+# WIN, GODS_LAWS.md L-36, achado real de 05/09/2026): classify_all_
+# matches() must NEVER let a candidate silently vanish. On GCC the
+# assertion is trivial - each candidate gets its own isolated compiler
+# call, so `missing` is always empty by construction. On MSVC it is the
+# whole point of the batched design: forcing the compiler binary itself
+# to be unresolvable makes the WHOLE batch produce zero output, and the
+# planted candidate must come back named in `missing`, never silently
+# dropped and never misreported as a false REAL/NEUTRALIZED verdict.
+def selftest_batch_reconciliation_control(scratch, cxx, frontend):
+    include_dir = make_fixture_include_dir(scratch, "batch_reconciliation")
+    _write(os.path.join(include_dir, "widget.hpp"),
+           "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
+    sys_dir = make_fixture_system_dir(scratch, "batch_reconciliation")
+    hostile = os.path.join(sys_dir, "hostile.h")
+    _write(hostile, "#define planted_collision_name 1\n")
+
+    names = enumerate_our_names(include_dir)
+    matches = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    if not matches:
+        print(
+            "selftest: controle de RECONCILIACAO DE LOTE FALHOU (fixture nao gerou candidato algum)",
+            file=sys.stderr,
+        )
+        return False
+
+    if frontend != "msvc":
+        _classified, missing = classify_all_matches(matches, cxx, frontend)
+        if missing:
+            print(
+                "selftest: controle de RECONCILIACAO DE LOTE FALHOU (GCC nunca deveria reportar "
+                f"`missing`, e reportou: {missing})",
+                file=sys.stderr,
+            )
+            return False
+        print(
+            "selftest: controle de RECONCILIACAO DE LOTE OK (GCC: cada candidato tem chamada "
+            "propria, `missing` sempre vazio por construcao)"
+        )
+        return True
+
+    probe_scratch = os.path.join(scratch, "batch_reconciliation", "msvc-probes")
+    os.makedirs(probe_scratch, exist_ok=True)
+    broken_cxx = os.path.join(scratch, "glintfx-selftest-definitely-not-a-real-compiler-binary")
+    _classified, missing = classify_matches_msvc_batched(matches, broken_cxx, probe_scratch)
+    if not any(name == "planted_collision_name" for (_file, _line, name) in missing):
+        print(
+            "selftest: controle de RECONCILIACAO DE LOTE FALHOU (compilador inexistente deveria "
+            f"deixar planted_collision_name em `missing`, achou {missing})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle de RECONCILIACAO DE LOTE OK (MSVC: lote que nao roda nada e' detectado, "
+        "nomeando o candidato que ficou sem veredito - nunca aprovado em silencio, nunca uma REAL/"
+        "NEUTRALIZADA fantasma)"
+    )
+    return True
+
+
 def _run_all_controls(scratch, cxx, cxx_id, frontend):
     return [
         selftest_positive_control(scratch),
@@ -1122,6 +1366,7 @@ def _run_all_controls(scratch, cxx, cxx_id, frontend):
         selftest_assignment_not_declaration_control(scratch),
         selftest_empty_our_names_control(scratch, cxx, cxx_id),
         selftest_empty_system_dirs_control(),
+        selftest_batch_reconciliation_control(scratch, cxx, frontend),
     ]
 
 
@@ -1131,20 +1376,22 @@ def selftest_main(args):
 
     frontend = cxx_frontend(cxx_id)
 
-    # Eight of the nine controls below classify a planted `#define` via
-    # classify_matches(), which asks the REAL compiler - GCC/Clang via
-    # `-E -dM`, MSVC via an `#ifdef` probe preprocessed with `/E /TP`
-    # (see this file's own header, NAMES-PARITY-WIN). The ninth
-    # (selftest_assignment_not_declaration_control) only exercises
-    # enumerate_our_names() and needs no compiler at all - it still
-    # runs behind this SAME declared-absence gate, on purpose: when the
-    # escape hatch forces "unavailable", the WHOLE selftest is one
-    # declared case here, not nine and not "eight plus one" - the real
-    # gate's own single-case shape (check_public_name_collision()
+    # Nine of the ten controls below need a real compiler in some form:
+    # GCC/Clang via `-E -dM` (see this file's own header, policy
+    # decision 2), MSVC via `#ifdef` probes preprocessed with `/E /TP`
+    # (NAMES-PARITY-WIN), or - the new RECONCILIACAO DE LOTE control's
+    # own MSVC half - a DELIBERATELY BROKEN compiler path, to prove the
+    # loud-failure mechanism itself works (BATCH-PARITY-WIN). The
+    # exception, selftest_assignment_not_declaration_control, only
+    # exercises enumerate_our_names() and needs no compiler at all - it
+    # still runs behind this SAME declared-absence gate, on purpose:
+    # when the escape hatch forces "unavailable", the WHOLE selftest is
+    # one declared case here, not ten and not "nine plus one" - the
+    # real gate's own single-case shape (check_public_name_collision()
     # above), not check_spdx.py's per-case list (that gate's cases are
-    # independent hostile filenames; this gate's nine controls all
-    # share the one unavailable mechanism, even the one that does not,
-    # on its own, need it).
+    # independent hostile filenames; this gate's ten controls all share
+    # the one unavailable mechanism, even the one that does not, on its
+    # own, need it).
     if frontend == "unavailable":
         print_frontend_unavailable("check_public_name_collision.py --selftest")
         return

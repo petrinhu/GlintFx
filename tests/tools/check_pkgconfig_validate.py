@@ -1924,6 +1924,36 @@ def selftest_rewrite_libdir_line_control():
     return ok
 
 
+def _probe_tool_fixture(scratch):
+    """Builds the fixture selftest_resolve_real_pkgconfig_tool_full_path_
+    control() below needs, with a NAME and CONTENT native to the
+    platform this control actually runs on (GODS_LAWS.md L-17, o
+    gemeo do achado de 05/09/2026): shutil.which() on REAL Windows
+    only matches a bare filename that already carries one of PATHEXT's
+    own executable extensions (".bat" here) - a name with NO extension
+    is INVISIBLE to it there, even though POSIX shutil.which() matches
+    any executable-bit file regardless of name. A prior version of
+    this fixture used the SAME extensionless POSIX-shell-script shape
+    on every platform, and that is exactly what made
+    resolve_real_pkgconfig_tool() come back (None, None) on the
+    Windows runner (achado real, run 33949568634): the probe was
+    invisible to shutil.which() for a reason that has nothing to do
+    with what this control means to prove. Content follows the name:
+    a POSIX shell script on POSIX, a real ".bat" on Windows.
+    """
+    if os.name == "nt":
+        name = "glintfx-selftest-probe-tool.bat"
+        content = "@echo off\r\necho PROBE-OK\r\n"
+    else:
+        name = "glintfx-selftest-probe-tool"
+        content = "#!/bin/sh\necho PROBE-OK\n"
+    path = os.path.join(scratch, name)
+    with open(path, "w", encoding="utf-8", newline="") as handle:
+        handle.write(content)
+    os.chmod(path, 0o755)
+    return name, path
+
+
 def selftest_resolve_real_pkgconfig_tool_full_path_control():
     """VERMELHO 4's root cause, reproduced GENERICALLY - not Windows-
     specific, bites on this Linux machine directly, no force-env-var
@@ -1935,16 +1965,17 @@ def selftest_resolve_real_pkgconfig_tool_full_path_control():
     (found by a WIDER search than the one subprocess.run() itself
     performs at exec time), reproduced here through a wider-search-vs-
     narrower-search mismatch that exists on every platform: a bare name
-    invoked with a PATH that does not list its directory.
+    invoked with a PATH that does not list its directory. The GREEN
+    check below runs the resolved path through dispatch_argv_for_tool()
+    - the SAME pairing real_main() uses - rather than invoking it bare,
+    since on Windows the fixture itself is a ".bat" and a bare invoke
+    would reproduce VERMELHO 4's OWN bug inside the control meant to
+    guard against it.
     """
     scratch = tempfile.mkdtemp(prefix="glintfx-pkgvalidate-selftest-", dir=os.environ.get("TMPDIR"))
     ok = True
     try:
-        tool_name = "glintfx-selftest-probe-tool"
-        tool_path = os.path.join(scratch, tool_name)
-        with open(tool_path, "w", encoding="utf-8") as handle:
-            handle.write("#!/bin/sh\necho PROBE-OK\n")
-        os.chmod(tool_path, 0o755)
+        tool_name, tool_path = _probe_tool_fixture(scratch)
 
         display_name, resolved = resolve_real_pkgconfig_tool(candidates=(tool_name,), which_path=scratch)
         if display_name != tool_name or resolved != tool_path:
@@ -1985,8 +2016,14 @@ def selftest_resolve_real_pkgconfig_tool_full_path_control():
             )
 
         # GREEN with the fix: the FULL resolved path runs regardless of
-        # PATH - no search needed at exec time.
-        proc = subprocess.run([resolved], env=env_without_scratch, capture_output=True, text=True)
+        # PATH - no search needed at exec time. Dispatched through
+        # dispatch_argv_for_tool(), never invoked bare: on Windows
+        # `resolved` ends in ".bat", and running a ".bat" without the
+        # "cmd /c" wrapper is precisely the defect VERMELHO 4's OWN
+        # header documents (WinError 193).
+        proc = subprocess.run(
+            dispatch_argv_for_tool(resolved, []), env=env_without_scratch, capture_output=True, text=True
+        )
         if proc.returncode != 0 or "PROBE-OK" not in proc.stdout:
             print(
                 f"selftest: controle de RESOLUCAO DE FERRAMENTA REAL (GREEN) FALHOU "

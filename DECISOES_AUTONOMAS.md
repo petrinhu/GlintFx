@@ -1013,3 +1013,35 @@ CRLF (Windows) bases=['wayland-client)']  VIOLACAO=['wayland-client)']
 - **Li codigo de saida errado QUATRO vezes.** Tres foram "exit code 0" da notificacao de fim de comando, que e do ultimo comando do meu script e nao do portao. A quarta foi agora: li doze trabalhos EM EXECUCAO como doze falhas, porque meu filtro tratou "ainda sem conclusao" como reprovacao. Todas da mesma familia -- confiro o que mandei perguntar, nao o que a resposta diz.
 - **Commitei por cima de agente ativo pela terceira vez na sessao**, e o registro de dois portoes foi parar no commit de outra fatia. Nada se perdeu; a mensagem daquele commit diz menos do que ele leva.
 - **Padrao limpo, medido:** nenhuma vez em que rodei o espelho ANTES de commitar ele reprovou por surpresa; TODAS as vezes em que commitei antes de roda-lo, ele reprovou depois. Quatro por quatro.
+
+---
+
+## Duas ondas em modo autonomo, e a pausa das 06:30  `[05/09/26 - 06:09:12]`
+
+**Ordem do lider, verbatim:** *"siga modo autonomo uma onda apos a outra, ate 06:30 de hoje; neste horario aguarde acabar agente de pe, salve o estado e pause"*.
+
+**ESTADO PARA RETOMAR:** HEAD `d74ca65`, arvore limpa, nenhum agente vivo. Servidor **VERDE nos 21 trabalhos** em tres resultados seguidos. Quadro: 179 itens, 54 concluidos, 21 em verificacao.
+
+**A W3 FECHOU E FOI REVISADA.** A revisao adversarial -- feita por um agente que nao implementou nada da onda, como a lei exige -- atacou com defeito PLANTADO, nao por leitura: seis portoes sabotados e cinco pisos de varredura forcados a contar zero. **Nenhum era decoracao: todos reprovaram citando arquivo e linha.**
+
+**A W4 AVANCOU:** oito itens saíram de pendente, incluindo o microparser da gramatica de posicao, os dois pseudo-elementos, a notacao de cor perceptual com mapeamento de gamut, o portao de ordem de arredondamento, e a leitura do binario do Windows.
+
+**TREZE ACHADOS na sessao, tres deles de PRODUTO** -- a biblioteca devolvendo dado truncado como sucesso, a conferencia de instalacao montando caminho impossivel, e o descritor apontando cabecalho para lugar vazio. Todos vieram da lei de paridade do lider, e nenhum era encontravel por leitura.
+
+**O QUE MUDOU DE METODO:** o portao de fatos-de-maquina foi de seis para OITO categorias. A setima entrou porque ele deixou passar um caso; **a oitava e a unica que entrou ANTES de incidentar**, achada pela auditoria.
+
+**Dois itens fecharam sem escrever uma linha**, os dois por medicao: o trabalho ja existia numa fatia vizinha, e o que faltava era MEDIR em vez de supor que faltava.
+
+**MEUS ERROS DESTA PARTE, para o registro:**
+
+- **Montei um briefing mandando implementar o OPOSTO de uma reversao do lider**, com data e verbatim no canon. O agente parou, citou cinco evidencias com arquivo e linha, e recusou. O mecanismo de confirmacao funcionou contra mim, que e para isso que existe. **Parei de ler o canon cedo demais.**
+- **Escrevi no README uma explicacao errada em tres unidades.** Os numeros estavam certos e o portao os confere; a SOMA em prosa nao. Passou por mim, pelo portao e pelo servidor -- **nenhum dos tres confere prosa**. So a revisao adversarial pegou, refazendo a conta de primeiros principios.
+- **Li codigo de saida errado quatro vezes**, sempre da mesma familia: confiro o que mandei perguntar, nao o que a resposta diz.
+- **Commitei por cima de agente ativo tres vezes.**
+- **Empurrei duas vezes em sequencia e cancelei a execucao anterior do servidor.**
+
+**O QUE ESPERA O LIDER:**
+
+1. As duas portas de mao unica da W4 (`CORE-MATH2D` e `GFSS-PROP-REGISTRY`), que congelam superficie publica e exigem revisao de API dedicada.
+2. As decisoes autonomas registradas aqui, para confirmacao ou reversao.
+3. A pergunta de versao e tag: ele respondeu "Ainda nao" em 04/09, **antes** de duas ondas fecharem. A condicao mudou.

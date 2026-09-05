@@ -591,3 +591,70 @@ GLINTFX_TEST(interpolation_never_fabricates_a_finite_answer_from_a_non_finite_in
     std::println("interpolation_never_fabricates...: {} of {} non-finite cell(s) checked", cells,
                  k_non_finite.size() * k_positions);
 }
+
+GLINTFX_TEST(interpolation_never_fabricates_a_finite_answer_from_several_non_finite_inputs_at_once) {
+    // SIBLING of interpolation_never_fabricates_a_finite_answer_from_a_
+    // non_finite_input, not a replacement for it: that case proves the
+    // guard's "OR" catches ONE bad position at a time, times the three
+    // non-finite values a double can carry. It never turns two or three
+    // positions bad in the SAME call. Adversarial review on 05/09/2026
+    // measured that gap directly, ran five two-and-three-bad-position
+    // combinations against the real library outside the tree, and got
+    // not-a-number on every one - the guard is already correct, only
+    // the suite did not prove it.
+    //
+    // Closed enumeration of the space this case proves, chosen as the
+    // one the header's own guard is written against ("IF ANY OF a, b OR
+    // t is not finite"): each of the three positions is independently
+    // either finite or not, so the space is every subset of {a, b, t}
+    // marked bad - 2^3 = 8 combinations, none skipped. This is a
+    // DIFFERENT axis than the sibling case above (which fixes one bad
+    // position and varies its VALUE); here the value at a bad position
+    // is fixed and the axis that varies is WHICH positions are bad
+    // together, which is exactly what a stray "&&" in place of the
+    // guard's "||" would get wrong.
+    //
+    // The all-good combination (mask 0, nothing bad) is INCLUDED, not
+    // left to another test: it is the one combination in this
+    // enumeration whose expected answer is the opposite of the other
+    // seven (finite, not not-a-number), and without it in the same
+    // loop nothing here would show that flipping every "||" to "&&"
+    // — the mutation this case is built to catch — still leaves the
+    // fully-sane call passing.
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+
+    constexpr std::size_t k_positions = 3;
+    constexpr std::size_t k_combinations = std::size_t{1} << k_positions; // 8, 2^3.
+
+    // One non-finite value per position when that position is the bad
+    // one in a given combination - the same three values
+    // (not-a-number, +infinity, -infinity) the sibling case already
+    // proves the guard catches individually, so no bad value appears
+    // here that this file has not already shown, alone, to trip it.
+    const std::array<double, k_positions> k_bad_value{nan, inf, -inf};
+    const std::array<double, k_positions> k_good_value{2.0, 3.0, 0.5};
+
+    std::size_t combinations_checked = 0;
+    for (std::size_t mask = 0; mask < k_combinations; ++mask) {
+        double args[k_positions];
+        bool any_bad = false;
+        for (std::size_t position = 0; position < k_positions; ++position) {
+            const bool bad = (mask & (std::size_t{1} << position)) != 0;
+            args[position] = bad ? k_bad_value[position] : k_good_value[position];
+            any_bad = any_bad || bad;
+        }
+        const double result = glintfx::gltfx_lerp(args[0], args[1], args[2]);
+        if (any_bad) {
+            GLINTFX_CHECK(std::isnan(result));
+        } else {
+            GLINTFX_CHECK(!std::isnan(result));
+        }
+        ++combinations_checked;
+    }
+    GLINTFX_CHECK_EQ(combinations_checked, k_combinations);
+
+    std::println("interpolation_never_fabricates...(several at once): {} of {} position-badness "
+                 "combination(s) checked",
+                 combinations_checked, k_combinations);
+}

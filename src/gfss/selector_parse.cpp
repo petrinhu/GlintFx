@@ -377,7 +377,7 @@ struct attribute_operator_outcome {
 // since only it knows this is the "operator or close" grammar
 // position.
 [[nodiscard]] attribute_operator_outcome match_attribute_operator(const token_vector &tokens,
-                                                                   std::size_t index) noexcept {
+                                                                  std::size_t index) noexcept {
     const gltfx_gfss_token &tok = tokens[index];
     if (tok.kind == gltfx_gfss_token_kind::delim && tok.lexeme == std::string_view{"="}) {
         return {.matched = true, .op = gfss_attribute_operator::equals, .next_index = index + 1};
@@ -386,10 +386,10 @@ struct attribute_operator_outcome {
         return {.matched = false, .op = {}, .next_index = index};
     }
     const std::size_t equals_index = index + 1;
-    const bool has_adjacent_equals =
-        equals_index < tokens.size() && tokens[equals_index].kind == gltfx_gfss_token_kind::delim &&
-        tokens[equals_index].lexeme == std::string_view{"="} &&
-        tokens_are_adjacent(tok, tokens[equals_index]);
+    const bool has_adjacent_equals = equals_index < tokens.size() &&
+                                     tokens[equals_index].kind == gltfx_gfss_token_kind::delim &&
+                                     tokens[equals_index].lexeme == std::string_view{"="} &&
+                                     tokens_are_adjacent(tok, tokens[equals_index]);
     if (!has_adjacent_equals) {
         return {.matched = false, .op = {}, .next_index = index};
     }
@@ -429,7 +429,7 @@ struct attribute_value_outcome {
 // diagnostic pretending to know more than the lexical layer already
 // determined.
 [[nodiscard]] attribute_value_outcome parse_attribute_value(const token_vector &tokens,
-                                                             std::size_t index) noexcept {
+                                                            std::size_t index) noexcept {
     const gltfx_gfss_token &tok = tokens[index];
     if (tok.kind == gltfx_gfss_token_kind::ident) {
         return {.ok = true, .text = tok.lexeme, .next_index = index + 1, .diagnostic = {}};
@@ -455,7 +455,7 @@ struct attribute_value_outcome {
 // loop nor recursion. Advances `index` past the whole "[...]" on
 // success.
 [[nodiscard]] simple_selector_outcome parse_attribute_selector(const token_vector &tokens,
-                                                                std::size_t &index) noexcept {
+                                                               std::size_t &index) noexcept {
     const gltfx_gfss_token &open_bracket = tokens[index];
     std::size_t cursor = index + 1;
     skip_whitespace(tokens, cursor);

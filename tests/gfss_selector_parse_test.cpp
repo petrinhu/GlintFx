@@ -437,7 +437,8 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_attribute_operator)
 
     std::size_t swept = 0;
     for (const auto &entry : gfss_attribute_operator_table) {
-        const std::string prefix = (entry.prefix == '\0') ? std::string{} : std::string(1, entry.prefix);
+        const std::string prefix =
+            (entry.prefix == '\0') ? std::string{} : std::string(1, entry.prefix);
         const std::string text = "[foo" + prefix + "=bar]";
         const auto result = parse_selector_list(text);
         GLINTFX_CHECK(result.ok);
@@ -707,8 +708,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
     // cpp's job.
     GLINTFX_CHECK(parse_selector_list(":not(a").diagnostic.expected ==
                   k_expected_closing_parenthesis);
-    GLINTFX_CHECK(parse_selector_list("[foo='bar").diagnostic.expected ==
-                  k_expected_closing_quote);
+    GLINTFX_CHECK(parse_selector_list("[foo='bar").diagnostic.expected == k_expected_closing_quote);
 }
 
 // NO DUPLICATE WORD IN THE CONSOLIDATED LIST (project leader's

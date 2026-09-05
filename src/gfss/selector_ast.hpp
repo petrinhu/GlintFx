@@ -159,12 +159,12 @@ inline constexpr std::array<gfss_combinator_entry, gfss_combinator_count> gfss_c
 // separate bool already plays wherever this track's own "empty/default
 // means absent" convention (token.hpp's own R4) cannot use the field's
 // own type to carry that meaning.
-#define GLINTFX_GFSS_ATTR_OPERATOR_LIST(X)                                                        \
-    X(equals, '\0')                                                                               \
-    X(includes, '~')                                                                              \
-    X(dash_match, '|')                                                                            \
-    X(prefix_match, '^')                                                                          \
-    X(suffix_match, '$')                                                                          \
+#define GLINTFX_GFSS_ATTR_OPERATOR_LIST(X)                                                         \
+    X(equals, '\0')                                                                                \
+    X(includes, '~')                                                                               \
+    X(dash_match, '|')                                                                             \
+    X(prefix_match, '^')                                                                           \
+    X(suffix_match, '$')                                                                           \
     X(substring_match, '*')
 
 enum class gfss_attribute_operator : std::uint8_t {
@@ -199,7 +199,7 @@ struct gfss_attribute_operator_entry {
 // if/else chain that could drift from the enum above.
 inline constexpr std::array<gfss_attribute_operator_entry, gfss_attribute_operator_count>
     gfss_attribute_operator_table{
-#define GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE(name, prefix_char)                                   \
+#define GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE(name, prefix_char)                                    \
     gfss_attribute_operator_entry{.op = gfss_attribute_operator::name, .prefix = (prefix_char)},
         GLINTFX_GFSS_ATTR_OPERATOR_LIST(GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE)
 #undef GLINTFX_GFSS_ATTR_OPERATOR_ARRAY_ONE

@@ -104,6 +104,20 @@
 // own producer already applies to closing_parenthesis for an unclosed
 // functional-pseudo argument.
 //
+// GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026) IS THE SIXTH FATIA TO ADD A
+// ROW HERE, UNDER THE SAME 27/08/2026 POLICY: not_recursion_limit is
+// selector_parse.cpp's OWN diagnostic for its own attach_not_argument()
+// (same producer tag as every other row this file already assigns to
+// that file) - the ONLY identifier in this whole list that does not name
+// a spec-defined grammar condition at all (this file's own "THREE OF
+// THE FIRST FOUR..." paragraph above already draws that same line for
+// internal_tokenizer_defect): CSS Selectors Level 4 places no limit of
+// its own on how deep `:not()` may nest, so a leaf that nests it past
+// this LIBRARY's own bound is not violating the FORMAT's grammar - it is
+// hitting THIS project's own anti-DoS policy (GODS_LAWS.md LEI ZERO,
+// "base de consumidores aberta e desconhecida"), the same self-imposed
+// category internal_tokenizer_defect already belongs to.
+//
 // GFSS-VALUE (TODO.md) IS THE SECOND FATIA TO ADD ROWS HERE UNDER THE
 // 27/08/2026 POLICY ABOVE (component_value, known_dimension_unit) -
 // value_parse.cpp is the producer. known_dimension_unit was named
@@ -198,6 +212,7 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(attribute_operator_or_close, selector_parse)                                                 \
     X(attribute_value, selector_parse)                                                             \
     X(closing_square_bracket, selector_parse)                                                      \
+    X(not_recursion_limit, selector_parse)                                                         \
     X(component_value, value_parse)                                                                \
     X(known_dimension_unit, value_parse)                                                           \
     X(anb_expression, anb_parse)                                                                   \

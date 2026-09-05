@@ -32,15 +32,28 @@
 // the grammar and the CSS-convention default (unquoted ident or quoted
 // string) this fatia's own service order registers "para veto".
 //
+// GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026) CLOSES HALF OF THE "STILL
+// OUT OF SCOPE" PARAGRAPH BELOW: `:not(s1, s2, ...)` now RECURSES this
+// SAME parse_selector_list() back onto its own raw argument bytes (a
+// comma-separated list of COMPLEX selectors, the format's own doc
+// example "div:not(:nth-child(2), p > *)"), populating gfss_simple_
+// selector::not_selectors (selector_ast.hpp) - see selector_parse.cpp's
+// own header comment for the anti-DoS depth limit that keeps this
+// recursion finite against a hostile leaf's own arbitrarily deep
+// "`:not(:not(:not(...)))`" chain. STILL OUT OF SCOPE: the OTHER four
+// functional pseudo-classes' own An+B argument (GFSS-SEL-PARSE-NTH's own
+// scope, a standalone utility never wired into this AST - anb_parse.hpp's
+// own header comment) and EVALUATING any selector against a real node's
+// attribute lookup, which GFSS-MATCH-ATTR/GFSS-MATCH-COMBINE do.
+//
 // STILL OUT OF SCOPE, ON PURPOSE (TODO.md, the service order that
 // opened this fatia): any analysis of a functional pseudo-class's OWN
-// argument content - GFSS-SEL-PARSE-NTH/GFSS-SEL-PARSE-NOT, wave
-// W4/W5 - and EVALUATING an attribute selector against a real node's
-// attribute lookup, which GFSS-MATCH-ATTR (TODO.md, wave W5) does;
-// this file only parses the GRAMMAR into gfss_simple_selector::
-// attribute's own fields, never compares them against anything.
-// Neither omission is a defect of this file; both are named fatias
-// with their own service order.
+// argument content - GFSS-SEL-PARSE-NTH, wave W4 - and EVALUATING an
+// attribute selector against a real node's attribute lookup, which
+// GFSS-MATCH-ATTR (TODO.md, wave W5) does; this file only parses the
+// GRAMMAR into gfss_simple_selector::attribute's own fields, never
+// compares them against anything. Neither omission is a defect of this
+// file; both are named fatias with their own service order.
 //
 // INTERNAL IN THIS SLICE, ON PURPOSE (GODS_LAWS.md L-19: "o header
 // nasce interno, em src/gfss/"): this header lives here, not under

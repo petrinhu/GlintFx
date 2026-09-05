@@ -83,12 +83,48 @@
 // glintfx-defined exception across an internal call (this file has no
 // public boundary of its own to guard - GODS_LAWS.md L-22 governs the
 // PUBLIC surface, not a private helper's own return shape).
+//
+// GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026, GODS_LAWS.md L-17/L-20/L-40):
+// `:not(s1, s2, ...)` takes a LIST of COMPLEX selectors, verified
+// against the format's own doc example ("div:not(:nth-child(2),
+// p > *)") - not a forgiving-parse "skip what fails" list (CSS
+// Selectors Level 4's own `:not()` uses a plain, non-forgiving
+// <complex-selector-list>, unlike `:is()`/`:where()`'s own FORGIVING
+// list - read under GODS_LAWS.md L-29), so ONE malformed selector inside
+// `:not()`'s own argument fails the WHOLE selector, the SAME "fail
+// closed, never half-accept" posture this file's own top-level
+// parse_selector_list_impl() already has for the outer list. The
+// argument is RECURSION on THIS SAME parser (parse_not_argument() below
+// calls parse_selector_list_impl() again, on the raw bytes selector_
+// ast.hpp's own gfss_simple_selector::raw_argument already captured for
+// every functional pseudo-class) - `depth` is threaded through every
+// helper on this call path (parse_one_simple_selector/
+// parse_pseudo_selector/parse_functional_pseudo/parse_compound_selector/
+// parse_complex_selector/parse_selector_list_impl itself) as a single
+// `int` PARAMETER, never a mutable global or a thread_local counter -
+// ONE owner (parse_selector_list_impl's own caller, either the public
+// parse_selector_list() at depth 0 or attach_not_argument() one level
+// deeper) means there is no second place a count could be incremented
+// and silently disagree with this one. k_max_not_nesting_depth below is
+// this fatia's own anti-DoS bound on how many `:not()` may nest inside
+// one another - see its own comment for why 10, not a rounder-looking
+// number.
 
 namespace glintfx::style::detail {
 
 namespace {
 
 using token_vector = std::vector<gltfx_gfss_token>;
+
+// Forward-declared here, DEFINED near the bottom of this anonymous
+// namespace (right after parse_complex_selector(), which it calls) - a
+// genuine forward reference, not a stylistic choice: parse_not_argument()
+// below is needed by parse_functional_pseudo(), which this file's own
+// top-to-bottom order defines BEFORE parse_complex_selector() exists yet
+// (GFSS-SEL-PARSE-NOT's own recursion, TODO.md, 05/09/2026 - this file's
+// own top comment above explains why `depth` is a plain threaded
+// parameter, never a global).
+[[nodiscard]] selector_parse_result parse_selector_list_impl(std::string_view text, int depth);
 
 [[nodiscard]] gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_token &at,
                                                     std::string_view expected) noexcept {
@@ -265,7 +301,8 @@ struct simple_selector_outcome {
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_element,
                                              .name = name.lexeme,
                                              .raw_argument = {},
-                                             .attribute_value = {}},
+                                             .attribute_value = {},
+                                             .not_selectors = {}},
             .diagnostic = {}};
 }
 
@@ -289,18 +326,134 @@ struct simple_selector_outcome {
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::class_selector,
                                              .name = tokens[name_index].lexeme,
                                              .raw_argument = {},
-                                             .attribute_value = {}},
+                                             .attribute_value = {},
+                                             .not_selectors = {}},
             .diagnostic = {}};
+}
+
+// GFSS-SEL-PARSE-NOT's OWN ANTI-DOS DEPTH LIMIT (TODO.md, 05/09/2026,
+// this fatia's own service order: "limite de profundidade com
+// diagnostico"). UNLIKE capture_functional_argument()'s own paren-depth
+// counter above (an ITERATIVE loop that costs zero stack no matter how
+// deep a raw argument's own parentheses nest), parsing `:not()`'s own
+// ARGUMENT is REAL C++ call-stack recursion: attach_not_argument() below
+// calls parse_not_argument(), which calls straight back into this file's
+// own parse_selector_list_impl() - which can itself contain another
+// `:not()` whose own argument calls back in again. A hostile leaf's own
+// `:not(:not(:not(...)))` chain, arbitrarily deep, would otherwise grow
+// the real C++ stack by roughly SIX frames per nesting level
+// (parse_selector_list_impl -> parse_complex_selector ->
+// parse_compound_selector -> parse_one_simple_selector ->
+// parse_pseudo_selector -> parse_functional_pseudo -> attach_not_
+// argument -> parse_not_argument, back to the first), eventually
+// overflowing it - exactly the "folha hostil" this fatia's own service
+// order names by name (base de consumidores aberta e desconhecida,
+// GODS_LAWS.md LEI ZERO: this library never trusts a stylesheet's own
+// author to be well-behaved).
+//
+// 10, NOT A ROUNDER-LOOKING NUMBER (this fatia's own service order's own
+// warning, echoing a REAL measured defect this project already hit once
+// - GATE-LLROUND-ORDER, TODO.md, 28/08/2026, where a margin picked too
+// generously let a genuine defect slip past every test): no real
+// stylesheet, hand-written or generated, plausibly nests `:not()` inside
+// `:not()` more than a handful of levels - CSS Selectors Level 4's own
+// worked examples never go past ONE. A bound an order of magnitude past
+// that is comfortably past every LEGITIMATE use this library's own open,
+// unknown consumer base could have (GODS_LAWS.md LEI ZERO), while still
+// tripping far before the real recursion above could threaten an actual
+// call stack (10 levels * ~6 frames each is a few dozen frames, a small
+// fraction of any thread's own stack budget). Chosen DELIBERATELY MODEST
+// - the accident this limit is FIRST for is a person or a generator
+// nesting `:not()` by mistake far past anything legible, not only the
+// leaf trying to hurt the process; a limit so large it only ever fires
+// against active hostility would leave that first, more common case
+// with no diagnostic at all until the stack itself gave out.
+constexpr int k_max_not_nesting_depth = 10;
+
+struct not_argument_outcome {
+    bool ok = false;
+    std::vector<gfss_complex_selector> selectors;
+    gltfx_gfss_diagnostic diagnostic{};
+};
+
+// `:not()`'s own argument is a comma-separated list of COMPLEX selectors
+// - the EXACT same shape parse_selector_list_impl() already produces for
+// the OUTER selector list (this file's own top comment above), so this
+// is that SAME parser, called again on `raw_argument`'s own raw bytes.
+// `depth` is the CURRENT nesting level (the caller, attach_not_argument()
+// below, already checked it against k_max_not_nesting_depth before
+// calling this) - `depth + 1` is threaded to the recursive call, so one
+// level of `:not()` nesting is counted as exactly one step, never zero
+// (which would let an unbounded chain hide behind a single level's own
+// budget) and never two (double-counting the same step).
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
+[[nodiscard]] not_argument_outcome parse_not_argument(std::string_view raw_argument,
+                                                      int depth) noexcept {
+    // NOT `const` (GODS_LAWS.md L-17's own "o gemeo" caught this once
+    // already in this fatia, by performance-move-const-arg, before this
+    // comment existed): a `const selector_parse_result` here would make
+    // `std::move(nested.value.selectors)` below silently degrade into a
+    // COPY of the whole nested vector-of-vectors, the exact allocation
+    // this move exists to avoid.
+    selector_parse_result nested = parse_selector_list_impl(raw_argument, depth + 1);
+    if (!nested.ok) {
+        // Propagates the NESTED diagnostic UNCHANGED - the SAME
+        // "propagate upward, never re-diagnose" layering this file's own
+        // header comment already applies to a bad string used as an
+        // attribute value. Its own line/column already point INSIDE
+        // `raw_argument`'s own bytes (gltfx_gfss_tokenize() re-numbers
+        // line/column from 1 for whatever buffer it is given, so a
+        // syntax error found here is counted from the START of the
+        // argument, never from the outer document) - exactly what this
+        // fatia's own service order asks for ("a coluna tem que apontar
+        // dentro do argumento, nao no :not de fora"), never the position
+        // of the `:not(` token that opened it.
+        return {.ok = false, .selectors = {}, .diagnostic = nested.diagnostic};
+    }
+    return {.ok = true, .selectors = std::move(nested.value.selectors), .diagnostic = {}};
+}
+
+// Only `:not()` reaches this - the caller (parse_functional_pseudo below)
+// checks `name == "not"` before calling. `function_token` is `:not(`
+// itself: the depth-limit diagnostic points THERE (not inside the
+// argument) because nothing inside has been analyzed yet at the point
+// this bound trips - this is a decision about how deep the CALLER may
+// nest, made before recursing, so the most specific true statement is
+// "this `:not(` is one nesting level too many", not a byte position that
+// was never reached.
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
+[[nodiscard]] simple_selector_outcome attach_not_argument(gfss_simple_selector selector,
+                                                          const gltfx_gfss_token &function_token,
+                                                          int depth) noexcept {
+    if (depth >= k_max_not_nesting_depth) {
+        return {.ok = false,
+                .selector = {},
+                .diagnostic = make_diagnostic(function_token, k_expected_not_recursion_limit)};
+    }
+    // NOT `const` - same reason as parse_not_argument()'s own `nested`
+    // local just above: `std::move(argument.selectors)` below needs a
+    // non-const source or it silently falls back to a copy.
+    not_argument_outcome argument = parse_not_argument(selector.raw_argument, depth);
+    if (!argument.ok) {
+        return {.ok = false, .selector = {}, .diagnostic = argument.diagnostic};
+    }
+    selector.not_selectors = std::move(argument.selectors);
+    return {.ok = true, .selector = std::move(selector), .diagnostic = {}};
 }
 
 // `tokens[function_index]` is a function-token whose name is already
 // known to be one of the five recognized functional pseudo-classes
 // (the caller checks that before calling this). Captures the raw
 // argument and advances `index` past the whole `:name(...)` on
-// success.
+// success. `depth` is only READ by "not" (attach_not_argument() above) -
+// every other functional pseudo-class's own argument (An+B, GFSS-SEL-
+// PARSE-NTH) has no recursion of its own, so `depth` passes through
+// untouched for them.
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
 [[nodiscard]] simple_selector_outcome parse_functional_pseudo(const token_vector &tokens,
                                                               std::size_t function_index,
-                                                              std::size_t &index) noexcept {
+                                                              std::size_t &index,
+                                                              int depth) noexcept {
     const gltfx_gfss_token &function_token = tokens[function_index];
     const std::string_view name = function_name(function_token.lexeme);
     const auto argument = capture_functional_argument(tokens, function_index + 1, function_token);
@@ -308,20 +461,24 @@ struct simple_selector_outcome {
         return {.ok = false, .selector = {}, .diagnostic = argument.diagnostic};
     }
     index = argument.next_index;
-    return {.ok = true,
-            .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_function,
-                                             .name = name,
-                                             .raw_argument = argument.text,
-                                             .attribute_value = {}},
-            .diagnostic = {}};
+    gfss_simple_selector selector{.kind = gfss_simple_selector_kind::pseudo_function,
+                                  .name = name,
+                                  .raw_argument = argument.text,
+                                  .attribute_value = {},
+                                  .not_selectors = {}};
+    if (name == std::string_view{"not"}) {
+        return attach_not_argument(std::move(selector), function_token, depth);
+    }
+    return {.ok = true, .selector = std::move(selector), .diagnostic = {}};
 }
 
 // `tokens[index]` is a ':' delim; a pseudo-class requires an ident (no
 // argument) or a function-token (functional pseudo) IMMEDIATELY
 // adjacent to it. Advances `index` past the whole pseudo-class on
 // success.
-[[nodiscard]] simple_selector_outcome parse_pseudo_selector(const token_vector &tokens,
-                                                            std::size_t &index) noexcept {
+[[nodiscard]] simple_selector_outcome
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
+parse_pseudo_selector(const token_vector &tokens, std::size_t &index, int depth) noexcept {
     const gltfx_gfss_token &colon = tokens[index];
     const std::size_t next_index = index + 1;
     if (next_index >= tokens.size() || !tokens_are_adjacent(colon, tokens[next_index])) {
@@ -341,7 +498,8 @@ struct simple_selector_outcome {
                 .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_class,
                                                  .name = next.lexeme,
                                                  .raw_argument = {},
-                                                 .attribute_value = {}},
+                                                 .attribute_value = {},
+                                                 .not_selectors = {}},
                 .diagnostic = {}};
     }
     if (next.kind == gltfx_gfss_token_kind::function) {
@@ -350,7 +508,7 @@ struct simple_selector_outcome {
                     .selector = {},
                     .diagnostic = make_diagnostic(next, k_expected_known_pseudo_function)};
         }
-        return parse_functional_pseudo(tokens, next_index, index);
+        return parse_functional_pseudo(tokens, next_index, index, depth);
     }
     return {.ok = false,
             .selector = {},
@@ -474,7 +632,8 @@ struct attribute_value_outcome {
                 .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::attribute,
                                                  .name = name.lexeme,
                                                  .raw_argument = {},
-                                                 .attribute_value = {}},
+                                                 .attribute_value = {},
+                                                 .not_selectors = {}},
                 .diagnostic = {}};
     }
 
@@ -507,7 +666,8 @@ struct attribute_value_outcome {
                                              .raw_argument = {},
                                              .attribute_operator = op.op,
                                              .has_attribute_value = true,
-                                             .attribute_value = value.text},
+                                             .attribute_value = value.text,
+                                             .not_selectors = {}},
             .diagnostic = {}};
 }
 
@@ -525,13 +685,15 @@ struct compound_parse_outcome {
 // continue) a compound selector - the caller reads that as "the
 // compound selector ends here", never as an error by itself.
 [[nodiscard]] std::optional<simple_selector_outcome>
-parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexcept {
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
+parse_one_simple_selector(const token_vector &tokens, std::size_t &index, int depth) noexcept {
     const gltfx_gfss_token &tok = tokens[index];
     if (tok.kind == gltfx_gfss_token_kind::ident) {
         const gfss_simple_selector selector{.kind = gfss_simple_selector_kind::type,
                                             .name = tok.lexeme,
                                             .raw_argument = {},
-                                            .attribute_value = {}};
+                                            .attribute_value = {},
+                                            .not_selectors = {}};
         ++index;
         return simple_selector_outcome{.ok = true, .selector = selector, .diagnostic = {}};
     }
@@ -539,7 +701,8 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
         const gfss_simple_selector selector{.kind = gfss_simple_selector_kind::id_selector,
                                             .name = tok.lexeme.substr(1),
                                             .raw_argument = {},
-                                            .attribute_value = {}};
+                                            .attribute_value = {},
+                                            .not_selectors = {}};
         ++index;
         return simple_selector_outcome{.ok = true, .selector = selector, .diagnostic = {}};
     }
@@ -550,7 +713,8 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
             .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::universal,
                                              .name = {},
                                              .raw_argument = {},
-                                             .attribute_value = {}},
+                                             .attribute_value = {},
+                                             .not_selectors = {}},
             .diagnostic = {}};
     }
     if (tok.kind == gltfx_gfss_token_kind::delim && tok.lexeme == std::string_view{"."}) {
@@ -560,7 +724,7 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
         if (starts_pseudo_element(tokens, index)) {
             return parse_pseudo_element(tokens, index);
         }
-        return parse_pseudo_selector(tokens, index);
+        return parse_pseudo_selector(tokens, index, depth);
     }
     if (tok.kind == gltfx_gfss_token_kind::open_square) {
         return parse_attribute_selector(tokens, index);
@@ -575,11 +739,12 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index) noexce
 // simply ends the compound, the SAME "stop the loop, do not fail"
 // shape parse_complex_selector() below uses for its own combinator
 // loop).
-[[nodiscard]] compound_parse_outcome parse_compound_selector(const token_vector &tokens,
-                                                             std::size_t &index) noexcept {
+[[nodiscard]] compound_parse_outcome
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
+parse_compound_selector(const token_vector &tokens, std::size_t &index, int depth) noexcept {
     gfss_compound_selector compound;
     for (;;) {
-        auto one = parse_one_simple_selector(tokens, index);
+        auto one = parse_one_simple_selector(tokens, index, depth);
         if (!one.has_value()) {
             break;
         }
@@ -610,9 +775,10 @@ struct complex_parse_outcome {
 // not the end of this complex selector (a comma or eof) - trying it
 // unconditionally would misreport trailing whitespace before a comma
 // as "expected a simple selector".
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
 [[nodiscard]] complex_parse_outcome parse_complex_selector(const token_vector &tokens,
-                                                           std::size_t &index) noexcept {
-    auto head = parse_compound_selector(tokens, index);
+                                                           std::size_t &index, int depth) noexcept {
+    auto head = parse_compound_selector(tokens, index, depth);
     if (!head.ok) {
         return {.ok = false, .complex_selector = {}, .diagnostic = head.diagnostic};
     }
@@ -634,7 +800,7 @@ struct complex_parse_outcome {
             ++index;
             skip_whitespace(tokens, index);
         }
-        auto next = parse_compound_selector(tokens, index);
+        auto next = parse_compound_selector(tokens, index, depth);
         if (!next.ok) {
             return {.ok = false, .complex_selector = {}, .diagnostic = next.diagnostic};
         }
@@ -644,16 +810,22 @@ struct complex_parse_outcome {
     return {.ok = true, .complex_selector = std::move(complex_selector), .diagnostic = {}};
 }
 
-} // namespace
-
-selector_parse_result parse_selector_list(std::string_view text) {
+// The recursive core, defined here (after parse_complex_selector, which
+// it calls) but forward-declared near the top of this anonymous
+// namespace so parse_not_argument() above could already call it -
+// GFSS-SEL-PARSE-NOT's own recursion (TODO.md, 05/09/2026): `depth`
+// counts how many `:not()` this call is already nested inside (0 for
+// the top-level call the public parse_selector_list() below makes, one
+// more each time attach_not_argument() recurses).
+// NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
+[[nodiscard]] selector_parse_result parse_selector_list_impl(std::string_view text, int depth) {
     const token_vector tokens = gltfx_gfss_tokenize(text);
     std::size_t index = 0;
     skip_whitespace(tokens, index);
 
     gfss_selector_list list;
     for (;;) {
-        auto complex_result = parse_complex_selector(tokens, index);
+        auto complex_result = parse_complex_selector(tokens, index, depth);
         if (!complex_result.ok) {
             return {.ok = false, .value = {}, .diagnostic = complex_result.diagnostic};
         }
@@ -674,6 +846,12 @@ selector_parse_result parse_selector_list(std::string_view text) {
                 .diagnostic = make_diagnostic(tok, k_expected_comma_or_end_of_selector_list)};
     }
     return {.ok = true, .value = std::move(list), .diagnostic = {}};
+}
+
+} // namespace
+
+selector_parse_result parse_selector_list(std::string_view text) {
+    return parse_selector_list_impl(text, 0);
 }
 
 } // namespace glintfx::style::detail

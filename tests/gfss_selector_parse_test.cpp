@@ -74,6 +74,7 @@ using glintfx::style::detail::k_expected_identifier_after_double_colon;
 using glintfx::style::detail::k_expected_known_pseudo_class;
 using glintfx::style::detail::k_expected_known_pseudo_element;
 using glintfx::style::detail::k_expected_known_pseudo_function;
+using glintfx::style::detail::k_expected_not_recursion_limit;
 using glintfx::style::detail::k_expected_simple_selector;
 using glintfx::style::detail::k_expected_vocabulary;
 using glintfx::style::detail::k_expected_vocabulary_count;
@@ -603,12 +604,28 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
 // resolves correctly (no crash, no hang, correct raw text), and an
 // UNBALANCED one still reproves cleanly with closing_parenthesis,
 // never a stack overflow or a hang.
+//
+// "nth-child", NOT "not" (GODS_LAWS.md L-17's own "o gemeo" - this test
+// predates GFSS-SEL-PARSE-NOT and originally used ":not(...)" as its own
+// vehicle, since capture_functional_argument() does not care WHICH
+// functional pseudo-class it serves): now that "not" specifically
+// RECURSES into its own argument as real selector grammar
+// (attach_not_argument(), selector_parse.cpp), a raw argument made of
+// nothing but bare parentheses is no longer a case this test can use
+// "not" for - it would fail as a malformed selector list (correctly -
+// see gltfx_gfss_parse_selector_list_rejects_hostile_not_argument_input
+// below for THAT proof) rather than exercising the CAPTURE mechanism in
+// isolation. "nth-child" still only captures its raw argument, unread
+// (GFSS-SEL-PARSE-NTH's own An+B microparser is a standalone utility,
+// never wired into this file - anb_parse.hpp's own header comment), so
+// it is the one that still isolates capture_functional_argument()'s own
+// depth counter from any content validation.
 GLINTFX_TEST(
     gltfx_gfss_parse_selector_list_handles_deeply_nested_functional_argument_without_recursing) {
     constexpr int k_depth = 5000;
     std::string balanced_argument(static_cast<std::size_t>(k_depth), '(');
     balanced_argument.append(static_cast<std::size_t>(k_depth), ')');
-    const std::string balanced_text = ":not(" + balanced_argument + ")";
+    const std::string balanced_text = ":nth-child(" + balanced_argument + ")";
     const auto balanced_result = parse_selector_list(balanced_text);
     GLINTFX_CHECK(balanced_result.ok);
     if (balanced_result.ok) {
@@ -620,7 +637,7 @@ GLINTFX_TEST(
     }
 
     const std::string unbalanced_argument(static_cast<std::size_t>(k_depth), '(');
-    const std::string unbalanced_text = ":not(" + unbalanced_argument;
+    const std::string unbalanced_text = ":nth-child(" + unbalanced_argument;
     const auto unbalanced_result = parse_selector_list(unbalanced_text);
     GLINTFX_CHECK(!unbalanced_result.ok);
     GLINTFX_CHECK(unbalanced_result.diagnostic.expected == k_expected_closing_parenthesis);
@@ -628,6 +645,213 @@ GLINTFX_TEST(
     std::println("gltfx_gfss_parse_selector_list_handles_deeply_nested_functional_argument_without_"
                  "recursing: depth {} checked both ways",
                  k_depth);
+}
+
+// ======================================================================
+// GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026) - `:not(s1, s2, ...)` with a
+// LIST of COMPLEX selectors, recursion on this SAME parser
+// (selector_parse.cpp's own parse_not_argument()/attach_not_argument()),
+// and the anti-DoS depth limit that keeps that recursion finite.
+// ======================================================================
+
+// FIRST ASSERTION for this fatia (GODS_LAWS.md L-20 "veja o teste
+// falhar"): `:not(.foo, #bar)` recursively parses into TWO complex
+// selectors, each ONE compound of ONE simple selector - proving the
+// comma inside the argument is read as a LIST separator (the SAME
+// grammar the outer parser already uses for its own top-level list, now
+// applied one level down) rather than being left as part of the raw
+// text. `raw_argument` itself stays byte-exact and unmodified
+// (gfss_selector_parse_test.cpp's own pre-existing round-trip proof for
+// EVERY functional pseudo-class - selector_ast.hpp's own header comment
+// on why both fields coexist).
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_not_with_selector_list_argument) {
+    const auto result = parse_selector_list(":not(.foo, #bar)");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(1));
+    if (simples.size() != 1) {
+        return;
+    }
+    const auto &not_selector = simples[0];
+    GLINTFX_CHECK(not_selector.kind == gfss_simple_selector_kind::pseudo_function);
+    GLINTFX_CHECK(not_selector.name == std::string_view{"not"});
+    GLINTFX_CHECK(not_selector.raw_argument == std::string_view{".foo, #bar"});
+
+    GLINTFX_CHECK_EQ(not_selector.not_selectors.size(), static_cast<std::size_t>(2));
+    if (not_selector.not_selectors.size() != 2) {
+        return;
+    }
+    const auto &first = not_selector.not_selectors[0].head.simple_selectors;
+    GLINTFX_CHECK_EQ(first.size(), static_cast<std::size_t>(1));
+    if (first.size() == 1) {
+        GLINTFX_CHECK(first[0].kind == gfss_simple_selector_kind::class_selector);
+        GLINTFX_CHECK(first[0].name == std::string_view{"foo"});
+    }
+    const auto &second = not_selector.not_selectors[1].head.simple_selectors;
+    GLINTFX_CHECK_EQ(second.size(), static_cast<std::size_t>(1));
+    if (second.size() == 1) {
+        GLINTFX_CHECK(second[0].kind == gfss_simple_selector_kind::id_selector);
+        GLINTFX_CHECK(second[0].name == std::string_view{"bar"});
+    }
+}
+
+// THE FORMAT'S OWN DOC EXAMPLE, VERIFIED (this fatia's own service
+// order quotes it verbatim): `div:not(:nth-child(2), p > *)` - a COMPLEX
+// selector ("p > *", compound "p" then a child combinator then the
+// universal selector) and a FUNCTIONAL pseudo-class ("nth-child(2)")
+// both inside the SAME `:not()` argument list, proving the recursion
+// calls the FULL parser (core + nth + attr, this fatia's own service
+// order says by name), not a cut-down "simple selectors only" reading.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_the_format_doc_not_example) {
+    const auto result = parse_selector_list("div:not(:nth-child(2), p > *)");
+    GLINTFX_CHECK(result.ok);
+    if (!result.ok) {
+        return;
+    }
+    const auto &simples = result.value.selectors.front().head.simple_selectors;
+    GLINTFX_CHECK_EQ(simples.size(), static_cast<std::size_t>(2));
+    if (simples.size() != 2) {
+        return;
+    }
+    GLINTFX_CHECK(simples[0].kind == gfss_simple_selector_kind::type);
+    GLINTFX_CHECK(simples[0].name == std::string_view{"div"});
+    const auto &not_selector = simples[1];
+    GLINTFX_CHECK(not_selector.kind == gfss_simple_selector_kind::pseudo_function);
+    GLINTFX_CHECK(not_selector.name == std::string_view{"not"});
+    GLINTFX_CHECK_EQ(not_selector.not_selectors.size(), static_cast<std::size_t>(2));
+    if (not_selector.not_selectors.size() != 2) {
+        return;
+    }
+
+    const auto &nth_child = not_selector.not_selectors[0].head.simple_selectors;
+    GLINTFX_CHECK_EQ(nth_child.size(), static_cast<std::size_t>(1));
+    if (nth_child.size() == 1) {
+        GLINTFX_CHECK(nth_child[0].kind == gfss_simple_selector_kind::pseudo_function);
+        GLINTFX_CHECK(nth_child[0].name == std::string_view{"nth-child"});
+        GLINTFX_CHECK(nth_child[0].raw_argument == std::string_view{"2"});
+    }
+
+    const auto &p_then_universal = not_selector.not_selectors[1];
+    GLINTFX_CHECK_EQ(p_then_universal.head.simple_selectors.size(), static_cast<std::size_t>(1));
+    if (p_then_universal.head.simple_selectors.size() == 1) {
+        GLINTFX_CHECK(p_then_universal.head.simple_selectors[0].kind ==
+                      gfss_simple_selector_kind::type);
+        GLINTFX_CHECK(p_then_universal.head.simple_selectors[0].name == std::string_view{"p"});
+    }
+    GLINTFX_CHECK_EQ(p_then_universal.rest.size(), static_cast<std::size_t>(1));
+    if (p_then_universal.rest.size() == 1) {
+        GLINTFX_CHECK(p_then_universal.rest[0].combinator == gfss_combinator::child);
+        GLINTFX_CHECK_EQ(p_then_universal.rest[0].compound.simple_selectors.size(),
+                         static_cast<std::size_t>(1));
+        if (p_then_universal.rest[0].compound.simple_selectors.size() == 1) {
+            GLINTFX_CHECK(p_then_universal.rest[0].compound.simple_selectors[0].kind ==
+                          gfss_simple_selector_kind::universal);
+        }
+    }
+}
+
+// THE DIAGNOSTIC POINTS INSIDE THE ARGUMENT, NOT AT THE OUTER ":not("
+// (this fatia's own service order, verbatim: "a coluna tem de apontar
+// dentro do argumento, nao no :not de fora - senao o autor da folha
+// procura o erro no lugar errado"). ":not(a, .)" - a malformed second
+// selector, a bare '.' with no class name after it - must reprove with
+// the EXACT diagnostic identifier_after_dot already names for that
+// defect at the TOP level (control: the second check below), AND its
+// own line/column must land on the '.' INSIDE the argument (column 4 of
+// "a, ." - "a"=1, ","=2, " "=3, "."=4 - gltfx_gfss_tokenize() re-numbers
+// column from 1 for whatever buffer it receives, parse_not_argument()'s
+// own header comment explains why), never column 1 (where the outer
+// ":not(" token itself starts).
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_not_diagnostic_points_inside_the_argument) {
+    const auto result = parse_selector_list(":not(a, .)");
+    GLINTFX_CHECK(!result.ok);
+    GLINTFX_CHECK(result.diagnostic.expected == k_expected_identifier_after_dot);
+    GLINTFX_CHECK_EQ(result.diagnostic.line, static_cast<std::uint32_t>(1));
+    GLINTFX_CHECK_EQ(result.diagnostic.column, static_cast<std::uint32_t>(4));
+
+    const auto control = parse_selector_list(".");
+    GLINTFX_CHECK(!control.ok);
+    GLINTFX_CHECK(control.diagnostic.expected == k_expected_identifier_after_dot);
+    GLINTFX_CHECK_EQ(control.diagnostic.column, static_cast<std::uint32_t>(1));
+}
+
+// HOSTILE INPUT, ENUMERATED (GODS_LAWS.md L-40: "enumere o espaco
+// pequeno, nao busque dentro dele") - `:not()`'s own argument grammar is
+// the exact same complex-selector-list grammar the outer parser already
+// has, so every hostile case below is a NEW combination of failure modes
+// this fatia's own recursion introduces, never a duplicate of the outer
+// sweep above: an EMPTY argument (never a valid production - the SAME
+// "no production is the empty string" rule anb_parse.cpp's own top
+// comment already names for a different grammar), a dangling comma
+// inside the argument, and an unknown pseudo-class INSIDE the argument
+// (proving the recursive call fails CLOSED on the SAME diagnostic
+// vocabulary the outer parser uses, never a silently-accepted unknown
+// name just because it is one level down).
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_not_argument_input) {
+    struct hostile_sample {
+        std::string_view text;
+        std::string_view expected_diagnostic;
+        std::string_view label;
+    };
+    const hostile_sample k_samples[] = {
+        {":not()", k_expected_simple_selector, "empty argument"},
+        {":not(.foo,)", k_expected_simple_selector, "dangling comma inside the argument"},
+        {":not(:bogus)", k_expected_known_pseudo_class, "unknown pseudo-class inside the argument"},
+        {":not(a", k_expected_closing_parenthesis, "unclosed outer parenthesis"},
+    };
+
+    std::size_t swept = 0;
+    for (const auto &sample : k_samples) {
+        const auto result = parse_selector_list(std::string(sample.text));
+        GLINTFX_CHECK(!result.ok);
+        GLINTFX_CHECK(result.diagnostic.expected == sample.expected_diagnostic);
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(4));
+    std::println("gltfx_gfss_parse_selector_list_rejects_hostile_not_argument_input: {} hostile "
+                 "case(s) checked",
+                 swept);
+}
+
+// THE DEPTH LIMIT ITSELF, TESTED ONE STEP PAST ITS OWN BOUNDARY
+// (GODS_LAWS.md L-43's own "testar sempre um passo alem da fronteira
+// recem-alargada" - applied here to a boundary being INTRODUCED, not
+// widened, but the same discipline: prove the LAST accepted depth AND
+// the first rejected one, never only one side). selector_parse.cpp's
+// own k_max_not_nesting_depth is 10 and INTERNAL (not exposed through
+// any header - GFSS-API, wave W10, decides what of this ever becomes
+// public), so this test does not reference it by name; it instead
+// builds the two strings that bracket whatever that bound is FROM THE
+// OUTSIDE, the same way a consumer of this library would have to.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_limit) {
+    auto build_not_chain = [](int nesting_count) {
+        std::string text;
+        for (int i = 0; i < nesting_count; ++i) {
+            text += ":not(";
+        }
+        text += "a";
+        for (int i = 0; i < nesting_count; ++i) {
+            text += ")";
+        }
+        return text;
+    };
+
+    const std::string at_limit = build_not_chain(10);
+    const auto at_limit_result = parse_selector_list(at_limit);
+    GLINTFX_CHECK(at_limit_result.ok);
+
+    const std::string one_past_limit = build_not_chain(11);
+    const auto one_past_limit_result = parse_selector_list(one_past_limit);
+    GLINTFX_CHECK(!one_past_limit_result.ok);
+    GLINTFX_CHECK(one_past_limit_result.diagnostic.expected == k_expected_not_recursion_limit);
+
+    std::println("gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_limit: boundary proven "
+                 "both ways (10 nesting levels ok, 11 reproved)");
 }
 
 // TWELVE OF THE NINETEEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
@@ -684,6 +908,13 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
         {"[foo", k_expected_attribute_operator_or_close},
         {"[foo=]", k_expected_attribute_value},
         {"[foo=bar", k_expected_closing_square_bracket},
+        // GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026) - its own one row:
+        // 11 nested ":not(" is one past this file's own chosen bound
+        // (gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_
+        // limit below proves the boundary itself; this row only proves
+        // the DIAGNOSTIC is produced from the shared vocabulary).
+        {":not(:not(:not(:not(:not(:not(:not(:not(:not(:not(:not(a)))))))))))",
+         k_expected_not_recursion_limit},
     };
     static_assert(std::size(k_selector_diagnostic_samples) ==
                       count_owned_by(gfss_diagnostic_producer::selector_parse),

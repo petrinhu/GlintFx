@@ -66,8 +66,32 @@
 // below is a view into the CALLER's own gfss source buffer, which must
 // outlive every value this file's types hold - exactly the discipline
 // gltfx_gfss_token::lexeme already documents.
+//
+// GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026) ADDS gfss_simple_selector::
+// not_selectors: `:not(s1, s2, ...)` takes a LIST of COMPLEX selectors
+// (the format's own doc example, verified: "div:not(:nth-child(2),
+// p > *)"), the exact same shape gfss_selector_list::selectors already
+// is - so this field's own type is a plain std::vector<gfss_complex_
+// selector>, never a second, parallel "mini selector list" struct that
+// would just be that same data wearing a different name (CONTRACT.md
+// SS6.7's own "duplicacao real" test). See selector_parse.cpp's own
+// header comment on parse_not_argument() for the RECURSION that
+// populates this field (the SAME parser that builds the OUTER gfss_
+// selector_list, called again on this selector's own raw_argument
+// bytes) and its own anti-DoS depth limit. gfss_complex_selector is
+// only FORWARD-declared at this point in the file (its own full
+// definition sits further down, unchanged in position) - a std::vector
+// of an as-yet-incomplete type is well-formed as a class member since
+// C++17, as long as it is complete by the time any of vector's own
+// member functions are actually instantiated (every constructor of
+// gfss_simple_selector below is implicit and only gets a body generated
+// on first USE, by which point this whole header has already been
+// parsed in full) - the same mutually-recursive-value-type shape a tree
+// or a JSON value already relies on, not a novel trick introduced here.
 
 namespace glintfx::style::detail {
+
+struct gfss_complex_selector;
 
 // The four combinators the CSS Selectors Level 4 grammar defines
 // (read under GODS_LAWS.md L-29) - descendant is the WHITESPACE
@@ -248,7 +272,12 @@ enum class gfss_simple_selector_kind : std::uint8_t {
 // shape as `pseudo_class`), the SAME "empty means absent" convention
 // token.hpp's own gltfx_gfss_diagnostic already establishes
 // (docs/api-conventions.md R4).
-struct gfss_simple_selector {
+struct gfss_simple_selector { // NOLINT(misc-no-recursion) reason: GFSS-SEL-PARSE-NOT's own
+                              // recursive value shape (:not()'s own argument holds a list of
+                              // complex selectors, each of which can hold another :not()) - the
+                              // SAME bounded-by-DATA recursion any JSON-value or DOM-tree type
+                              // already has; selector_parse.cpp's own attach_not_argument() is what
+                              // keeps the ACTUAL depth finite (TODO.md, 05/09/2026).
     gfss_simple_selector_kind kind = gfss_simple_selector_kind::universal;
     std::string_view name;
     std::string_view raw_argument;
@@ -282,6 +311,24 @@ struct gfss_simple_selector {
     // std::string, which no sibling kind does and which gfss_simple_
     // selector::raw_argument's own precedent above already rules out.
     std::string_view attribute_value;
+
+    // GFSS-SEL-PARSE-NOT (TODO.md, 05/09/2026): populated ONLY for
+    // `kind == pseudo_function` whose `name` is "not" - the recursively
+    // PARSED form of `raw_argument` above, a comma-separated list of
+    // COMPLEX selectors. `raw_argument` above is NEVER cleared once this
+    // is populated - both coexist deliberately, so the byte-exact
+    // round-trip proof gfss_selector_parse_test.cpp's own functional-
+    // pseudo sweep already established for EVERY functional pseudo-
+    // class (this fatia predates it, and must not regress it) still
+    // holds for "not" too. Stays EMPTY for every other `pseudo_function`
+    // (nth-child/nth-last-child/nth-of-type/nth-last-of-type's own
+    // argument grammar is An+B, a completely different shape parsed by
+    // anb_parse.hpp instead, never through this field - see that file's
+    // own header comment on why it stays a STANDALONE utility rather
+    // than writing into this struct) and for every other kind - the SAME
+    // "empty means absent" convention `raw_argument` above already
+    // establishes for this struct.
+    std::vector<gfss_complex_selector> not_selectors;
 };
 
 // A compound selector: simple selectors glued with NO combinator
@@ -292,13 +339,23 @@ struct gfss_simple_selector {
 // the "simple_selector" diagnostic diagnostic_vocabulary.hpp names
 // instead of ever being produced (see selector_parse.cpp's own header
 // comment).
-struct gfss_compound_selector {
+struct gfss_compound_selector { // NOLINT(misc-no-recursion) reason: GFSS-SEL-PARSE-NOT's own
+                                // recursive value shape (:not()'s own argument holds a list of
+                                // complex selectors, each of which can hold another :not()) - the
+                                // SAME bounded-by-DATA recursion any JSON-value or DOM-tree type
+                                // already has; selector_parse.cpp's own attach_not_argument() is
+                                // what keeps the ACTUAL depth finite (TODO.md, 05/09/2026).
     std::vector<gfss_simple_selector> simple_selectors;
 };
 
 // One combinator and the compound selector it introduces - the
 // building block of gfss_complex_selector::rest below.
-struct gfss_combined_selector {
+struct gfss_combined_selector { // NOLINT(misc-no-recursion) reason: GFSS-SEL-PARSE-NOT's own
+                                // recursive value shape (:not()'s own argument holds a list of
+                                // complex selectors, each of which can hold another :not()) - the
+                                // SAME bounded-by-DATA recursion any JSON-value or DOM-tree type
+                                // already has; selector_parse.cpp's own attach_not_argument() is
+                                // what keeps the ACTUAL depth finite (TODO.md, 05/09/2026).
     gfss_combinator combinator = gfss_combinator::descendant;
     gfss_compound_selector compound;
 };
@@ -311,7 +368,12 @@ struct gfss_combined_selector {
 // for its own first element (GODS_LAWS.md L-17's "a frase sem e" test:
 // a field that means something only sometimes is two fields wearing
 // one name).
-struct gfss_complex_selector {
+struct gfss_complex_selector { // NOLINT(misc-no-recursion) reason: GFSS-SEL-PARSE-NOT's own
+                               // recursive value shape (:not()'s own argument holds a list of
+                               // complex selectors, each of which can hold another :not()) - the
+                               // SAME bounded-by-DATA recursion any JSON-value or DOM-tree type
+                               // already has; selector_parse.cpp's own attach_not_argument() is
+                               // what keeps the ACTUAL depth finite (TODO.md, 05/09/2026).
     gfss_compound_selector head;
     std::vector<gfss_combined_selector> rest;
 };

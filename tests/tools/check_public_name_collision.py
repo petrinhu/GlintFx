@@ -645,6 +645,29 @@ def _write_msvc_batch_probe(probe_path, file_path, entries):
     _write(probe_path, "".join(lines))
 
 
+# Attribution helper for the fatal-error case (achado real de 05/09/2026,
+# ver a nota "ATTRIBUTION FIX" no docstring de classify_matches_msvc_
+# batched() logo abaixo). O C1021 de uma diretiva invalida DENTRO do
+# arquivo incluido e' reportado pelo cl.exe contra ESSE arquivo - a
+# mesma string usada no "#include" da sonda (_write_msvc_batch_probe()
+# acima escreve sempre com "/", mas o compilador pode ecoar de volta
+# com o separador nativo do SO em algum diagnostico) - nunca contra o
+# nome do .cpp wrapper que fez o include. As duas grafias sao checadas
+# porque este portao nao pode provar, sem um cl.exe real nesta maquina,
+# qual delas aquele compilador de fato usa para um arquivo ANINHADO
+# (mesma limitacao ja registrada no docstring de classify_matches_msvc_
+# batched() para "o compilador continua processando os demais arquivos
+# apos um erro fatal num deles" - inferencia de arquitetura, nunca fato
+# provado por fonte primaria aqui).
+def _c1021_names_included_file(file_path, combined_output):
+    forward_slash = file_path.replace("\\", "/")
+    back_slash = file_path.replace("/", "\\")
+    for spelling in {forward_slash, back_slash}:
+        if re.search(rf"{re.escape(spelling)}\(\d+\)[^\n]*C1021", combined_output):
+            return True
+    return False
+
+
 def classify_matches_msvc_batched(matches, cxx, probe_scratch):
     """MSVC-frontend batched classification (this file's own header,
     BATCH-PARITY-WIN, 05/09/2026): replaces up to TWO fresh cl.exe
@@ -675,6 +698,23 @@ def classify_matches_msvc_batched(matches, cxx, probe_scratch):
     caller (check_public_name_collision() below) treats ANY non-empty
     `missing` as a hard, named failure, never a silent pass-through and
     never a false "REAL collision" either.
+
+    ATTRIBUTION FIX (achado real de 05/09/2026, servidor run 33951517070,
+    o unico autoteste que quebrou depois de BATCH-PARITY-WIN): a
+    verificacao original procurava o PROBE WRAPPER's own basename
+    (`batch_0_0.cpp`) perto de "C1021" na saida combinada. Isso nunca
+    casava, porque um C1021 disparado por uma diretiva invalida DENTRO
+    do arquivo INCLUIDO e' reportado pelo cl.exe contra o arquivo
+    incluido (a string exata do "#include" que o trouxe, ver
+    _write_msvc_batch_probe() acima), nunca contra o .cpp wrapper que
+    fez o include - o mesmo jeito que o GCC nomeia o arquivo de verdade
+    em "invalid preprocessing directive", nao o argumento de linha de
+    comando. Com o wrapper nunca citado, `blamed` ficava sempre vazio, o
+    candidato do arquivo hostil nao recebia marcador nem C1021
+    atribuivel, e caia em `missing` - reprovando um caso que devia ser
+    NEUTRALIZADO. Corrigido comparando pela identidade do ARQUIVO
+    INCLUIDO (`_c1021_names_included_file()` abaixo), nas duas grafias
+    de separador possiveis, nunca pelo nome do wrapper.
     """
     classified = []
     to_batch = []
@@ -718,14 +758,14 @@ def classify_matches_msvc_batched(matches, cxx, probe_scratch):
             combined = ""
 
         blamed = {
-            probe_basename
-            for probe_basename in probe_basename_to_file
-            if re.search(rf"{re.escape(probe_basename)}\(\d+\)[^\n]*C1021", combined)
+            file_path
+            for file_path in chunk_files
+            if _c1021_names_included_file(file_path, combined)
         }
 
         for probe_basename, file_path in probe_basename_to_file.items():
             entries = by_file[file_path]
-            if probe_basename in blamed:
+            if file_path in blamed:
                 for (_lineno, name, idx) in entries:
                     resolved[idx] = ("NEUTRALIZED", "arquivo-nao-e-cabecalho-c")
                 continue

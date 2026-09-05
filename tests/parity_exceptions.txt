@@ -80,6 +80,86 @@ wl_proto_link_test|windows|nenhum|SEM-PENDENCIA
 # (embed_dll_colocation_test, pkgconfig_validate_test).
 pkgconfig_test|windows|nenhum|SEM-PENDENCIA
 
+# --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
+#
+# Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do
+# job `wayland-container`, agora publicados no inventario do
+# container (parity-inv-linux-container) que o job `parity` passou a
+# consumir como terceira fonte Linux (ver .github/workflows/ci.yml,
+# job `wayland-container`, secao "P-0"). Sao mecanismo Wayland puro
+# (compositor real dentro do container: bind/registry, pump
+# nao-bloqueante, erro fatal do compositor, conecta/desconecta via o
+# adaptador ARCH-PORTS) - o Windows nao tem "compositor Wayland" para
+# nenhum deles ter par por natureza (GODS_LAWS.md L-05 fecha essa
+# porta por desenho, mesma razao de wl_proto_link_test acima). O
+# comportamento que cada um exercita ja tem cobertura Windows por
+# OUTRO mecanismo (o adaptador de conexao de display, win32_display_
+# connect_test, ja apelidado a display_connect_failure_test em
+# tests/parity_aliases.txt) - mas o NOME de cada fixture e' proprio
+# do container, sem gemeo de nome possivel, entao a linha certa aqui
+# e' excecao SEM-PENDENCIA, nunca apelido.
+arch_ports_connect_smoke|windows|nenhum|SEM-PENDENCIA
+registry_smoke|windows|nenhum|SEM-PENDENCIA
+pump_smoke|windows|nenhum|SEM-PENDENCIA
+fatal_error_smoke|windows|nenhum|SEM-PENDENCIA
+
+# --- Lacuna real, com item aberto (05/09/2026, estreia deste portao no
+# servidor, run 33989546515) -------------------------------------------
+#
+# lib_no_undef_test e lib_no_undef_selftest (tests/CMakeLists.txt:896/
+# 904, if(UNIX)) existem no Linux e faltam no Windows DE VERDADE - isto
+# nao e falso positivo do parser (ver ESTREIA-CTEST-HEADER em
+# check_test_parity.py, que consertou os OUTROS quatro problemas desta
+# mesma estreia). O item que rastreia o fechamento, LIB-NO-UNDEF-WIN
+# (TODO.md), ja nasceu aberto sabendo exatamente disto: no modo
+# COMPARTILHADO a lacuna e' impossivel por construcao (o link.exe da
+# Microsoft recusa produzir um .dll com referencia interna sem
+# definicao, LNK2019/LNK1120) e ja tem gemeo real, so que nunca virou
+# ctest - tools/ci/check-no-undef-glintfx-win.ps1 (registrado como
+# passo cru do job `windows`, nunca com add_test) verifica a MESMA
+# premissa historica (commit 8eb7d73) por outro mecanismo, e tem o
+# proprio -SelfTest. No modo ESTATICO, ainda nao ha gemeo nenhum - e' a
+# metade que LIB-NO-UNDEF-WIN ainda precisa escrever (varredura de
+# simbolos da .lib contra o nosso proprio namespace). As duas linhas
+# ficam com o MESMO item porque as duas fecham juntas quando ele fechar
+# - apague as duas no mesmo commit que marcar LIB-NO-UNDEF-WIN como
+# Concluido, a regra deste arquivo reprova se uma ficar para tras.
+lib_no_undef_test|windows|check-no-undef-glintfx-win.ps1 (tools/ci/, cobre o modo compartilhado, roda como passo cru do job windows, nunca virou ctest)|LIB-NO-UNDEF-WIN
+lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo script, mesma limitacao de nao ser ctest)|LIB-NO-UNDEF-WIN
+
+# --- Lacuna real, TEMPORARIA por divisao de trabalho dos jobs do
+# servidor (05/09/2026, mesma estreia, item PARITY-LINT-INV) -----------
+#
+# preci_win_selftest existe no Windows e falta no lado Linux da uniao
+# que a paridade le - mas o gemeo Linux EXISTE de verdade, so nao
+# aparece onde este portao olha: preci_selftest (tests/CMakeLists.txt,
+# if(UNIX)) so se registra quando clang-format/clang-tidy/cppcheck
+# estao TODOS presentes, e os quatro trabalhos da matriz `linux` que
+# PUBLICAM inventario (Fedora/Ubuntu/Arch/CachyOS) instalam so a
+# cadeia de compilacao pura, nunca as tres. Quem tem as tres e' o
+# trabalho `lint` dedicado - que nunca publica `parity-inv-linux-*`.
+# Nao e falta de ferramenta por acidente: e a propria separacao entre
+# "trabalhos que compilam e testam" e "trabalho que analisa" que este
+# servidor usa hoje. PRECI-SELFTEST-CI (TODO.md, ✅ Concluido) NAO
+# cobre isto - aquele item so garante que `tools/preci.sh --selftest`
+# RODE em algum lugar (o que ja acontece dentro do job `lint`), nunca
+# que o CASO `preci_selftest` entre no inventario que a paridade
+# consome; apontar esta excecao para ele reprovaria pela propria regra
+# deste arquivo ("concluido sem par").
+#
+# ⚠️ MORTE DESTA LINHA (o que precisa acontecer, para o proximo leitor
+# nao deixar virar permanente por inercia): UMA das tres rotas que
+# PARITY-LINT-INV ja deixa escritas - (a) o job `lint` passa a
+# publicar o proprio `parity-inv-linux-lint`; (b) o registro de
+# `preci_selftest` deixa de depender da presenca das tres ferramentas
+# (ex.: degradar pra aviso em vez de nao registrar, como DEPZERO-
+# SHALLOW ja fez noutro portao); ou (c) o lider decide que a
+# assimetria e permanente por desenho e esta linha vira SEM-PENDENCIA
+# com a razao escrita - a UNICA das tres que NAO fecha PARITY-LINT-INV
+# como esta hoje. Enquanto nenhuma das tres acontecer, esta linha e' a
+# unica coisa que mantem o portao verde para este nome.
+preci_win_selftest|linux|preci_selftest (tests/CMakeLists.txt if(UNIX), existe e roda de verdade quando as tres ferramentas de analise estao presentes - nao aparece nas legs que hoje publicam inventario de paridade)|PARITY-LINT-INV
+
 # --- Historico: os sete nomes que faltavam par, todos fechados ---------
 #
 # Os sete nomes que a estreia deste portao (05/09/2026) reprovou sem

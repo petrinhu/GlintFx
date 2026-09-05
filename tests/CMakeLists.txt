@@ -1965,6 +1965,50 @@ add_test(
 )
 set_tests_properties(test_parity_selftest PROPERTIES LABELS selftest)
 
+# Container fixture wiring gate (P-0, docs/plano-w6a-janela.md fatia
+# 1, D-W6a-19): closes the blind spot the P-0 implementer named in
+# his own report - a fixture can gain a `COPY --from=...` line in
+# tests/container/Containerfile and a `docker exec` step in the
+# `wayland-container` job of .github/workflows/ci.yml without anyone
+# remembering to also append `echo "<nome>" >> parity_inventory.txt`
+# in that same step. The job still goes green (the fixture ran), the
+# job's own piso-de-varredura step still goes green (the OTHER
+# fixtures already make the file non-empty), and the forgotten name
+# never reaches the `parity` job's comparison - it is never a
+# reported gap, it simply never entered the conversation. See tests/
+# tools/check_container_fixture_inventory.py's own header for the
+# full shape of the failure and the two independent sources of ground
+# truth it cross-checks (Containerfile COPY lines vs. ci.yml append
+# lines, both directions).
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): registered here WITHOUT a
+# system guard, same shape as dup_laws_test/spdx_test/test_parity_
+# selftest above - the script only ever reads two plain-text files
+# already present in any checkout (tests/container/Containerfile and
+# .github/workflows/ci.yml itself), nothing OS-specific behind it, so
+# it runs identically on all five platforms. Because of that, the
+# name `container_fixture_inventory_test` appears identically in the
+# Linux and Windows `ctest -N` inventories - no entry is needed in
+# tests/parity_exceptions.txt nor tests/parity_aliases.txt for it,
+# the same reason test_parity_selftest immediately above needs
+# neither.
+add_test(
+    NAME container_fixture_inventory_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_inventory.py"
+        --compare
+        "${CMAKE_SOURCE_DIR}/tests/container/Containerfile"
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(container_fixture_inventory_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME container_fixture_inventory_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_inventory.py" --selftest
+)
+set_tests_properties(container_fixture_inventory_selftest PROPERTIES LABELS selftest)
+
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
 # EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo

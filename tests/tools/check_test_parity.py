@@ -100,13 +100,63 @@ def fail(message):
 # antes.
 _CTEST_LINE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)\s*$")
 
+# ESTREIA-CTEST-HEADER (05/09/2026, achado do PRIMEIRO run real deste
+# portao no servidor, 33989546515): `ctest -N` sempre abre com esta
+# linha, ANTES de qualquer "Test #N:" - testes ou nao ("Test project
+# /__w/GlintFx/GlintFx/build-shared" no Linux, "Test project D:/a/
+# GlintFx/GlintFx/build-shared" no Windows, medido ao vivo baixando os
+# dois artefatos reais). O parser antigo (fallback linha-a-linha sem
+# saber em que formato estava) engolia essa linha pela porta generica
+# "senao bate com nada, e nome de teste" - e o CONTEUDO virava o
+# caminho absoluto da maquina que rodou, que Linux e Windows JAMAIS
+# tem igual. Resultado: quatro das sete reprovacoes da estreia eram
+# esta mesma linha de cabecalho (uma por combinacao build-shared/
+# build-static x Linux/Windows), nao lacuna nenhuma de teste real.
+_CTEST_PROJECT_HEADER_RE = re.compile(r"^Test project\b")
 
+
+# GODS_LAWS.md L-40 corolario (achado nesta mesma auditoria): o job
+# `parity` (ci.yml) CONCATENA a saida crua de varias legs num so
+# arquivo (`cat inventarios/linux/*/parity_inventory.txt >
+# uniao.txt`) antes de chamar este script - entao a linha "Test
+# project <caminho>" aparece REPETIDA no meio do arquivo (uma por
+# leg), nunca so na primeira linha dele. Por isso a deteccao de
+# formato abaixo olha so a PRIMEIRA linha de conteudo (o inicio de
+# `ctest -N` e sempre "Test project", testes ou nao ali dentro,
+# mesmo com zero testes - CMake imprime esse cabecalho incondicional),
+# mas a EXTRACAO depois disso e uma LISTA BRANCA aplicada a TODO o
+# arquivo: so "Test #N: nome" vira nome de teste. Isto cobre, de
+# graca, tanto o cabecalho quanto qualquer rodape que o ctest imprima
+# ("Total Tests: N", "No tests were found!!!", ou o que a proxima
+# versao do CMake decidir escrever) - nunca precisou nomear cada um
+# deles, e por isso sobrevive a um formato novo que ainda nao
+# apareceu. E continua correto no caso ZERO TESTES: o cabecalho sozinho
+# nao vira "um nome de teste chamado Test project ...", o conjunto
+# fica vazio de verdade, e quem chama reprova por L-40 (piso de
+# varredura nao-vazia) em vez de aceitar boilerplate como se fosse
+# teste - a armadilha oposta, que uma lista negra ad-hoc correria o
+# risco de recriar se cobrisse demais.
 def parse_inventory_text(text):
+    content_lines = [ln.strip() for ln in text.splitlines()]
+    content_lines = [ln for ln in content_lines if ln and not ln.startswith("#")]
+
+    is_raw_ctest_output = bool(content_lines) and bool(
+        _CTEST_PROJECT_HEADER_RE.match(content_lines[0])
+    )
+
+    if is_raw_ctest_output:
+        return {
+            m.group(1)
+            for m in (_CTEST_LINE_RE.match(ln) for ln in content_lines)
+            if m
+        }
+
+    # A primeira linha de conteudo nao e "Test project ..." - isto nao
+    # e saida crua de `ctest -N` (que sempre abre assim), e sim uma
+    # lista ja limpa de nomes, um por linha (ainda aceita o formato
+    # "Test #N: nome" dentro dela, pelo mesmo regex, caso apareca).
     names = set()
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
+    for line in content_lines:
         m = _CTEST_LINE_RE.match(line)
         if m:
             names.add(m.group(1))
@@ -545,6 +595,74 @@ def selftest_parsing_round_trip():
     return True
 
 
+# VERMELHO NOVO (ESTREIA-CTEST-HEADER, 05/09/2026 - o defeito real
+# medido no run 33989546515): a linha "Test project <caminho>" que
+# `ctest -N` sempre imprime primeiro NUNCA pode virar nome de teste,
+# nos dois formatos de caminho reais (Linux com "/", Windows com
+# "D:/"). Sem este controle, o parser antigo passava aqui em silencio
+# - foi exatamente essa ausencia que deixou a estreia no servidor
+# reprovar citando o caminho da maquina como se fosse um nome de
+# teste igual dos dois lados.
+def selftest_ctest_project_header_not_swallowed():
+    linux_ctest_text = (
+        "Test project /__w/GlintFx/GlintFx/build-shared\n"
+        "  Test  #1: foo_test\n"
+        "  Test  #2: bar_test\n"
+        "\n"
+        "Total Tests: 2\n"
+    )
+    windows_ctest_text = (
+        "Test project D:/a/GlintFx/GlintFx/build-shared\n"
+        "  Test  #1: foo_test\n"
+        "\n"
+        "Total Tests: 1\n"
+    )
+    linux_inv = parse_inventory_text(linux_ctest_text)
+    windows_inv = parse_inventory_text(windows_ctest_text)
+    if linux_inv != {"foo_test", "bar_test"}:
+        print(
+            f"selftest: CABECALHO-CTEST FALHOU (lado Linux engoliu cabecalho/rodape): {linux_inv}",
+            file=sys.stderr,
+        )
+        return False
+    if windows_inv != {"foo_test"}:
+        print(
+            f"selftest: CABECALHO-CTEST FALHOU (lado Windows engoliu cabecalho/rodape): {windows_inv}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: CABECALHO-CTEST OK ('Test project <caminho>' nunca vira nome de "
+        "teste, Linux e Windows)"
+    )
+    return True
+
+
+# Controle-irmao, e o mais perigoso de esquecer: o MESMO cabecalho,
+# mas com ZERO testes reais depois dele - o caso exato que uma
+# correcao demasiado agressiva (uma lista negra generica demais, por
+# exemplo "descarta qualquer linha que pareca cabecalho") poderia
+# apagar em silencio, fazendo o inventario parecer nao-vazio quando
+# na verdade nao existe teste nenhum. Esperado: conjunto REALMENTE
+# vazio, para o piso de varredura (VERMELHO#3 acima, GODS_LAWS.md
+# L-40) continuar pegando este caso como coleta quebrada em vez de
+# aceita-lo como paridade.
+def selftest_ctest_header_only_yields_empty_inventory():
+    ctest_text = "Test project /__w/GlintFx/GlintFx/build-shared\n\nTotal Tests: 0\n"
+    inv = parse_inventory_text(ctest_text)
+    if inv:
+        print(
+            f"selftest: CABECALHO-SOZINHO FALHOU (esperava inventario vazio, veio {inv})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: CABECALHO-SOZINHO OK (cabecalho sem teste nenhum continua vazio, "
+        "piso de L-40 intacto)"
+    )
+    return True
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -557,6 +675,8 @@ def selftest_main():
         selftest_sem_pendencia_with_gemeo_reproves(),
         selftest_unknown_item_reproves(),
         selftest_parsing_round_trip(),
+        selftest_ctest_project_header_not_swallowed(),
+        selftest_ctest_header_only_yields_empty_inventory(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -881,32 +881,54 @@ jobs:
   # comparacao confronta as pernas" - o desenho do CTO que da nome a
   # este item, ordem do lider apos o retrabalho de 02/09/2026 (tres
   # ondas fechadas com entrega existindo em um sistema so). `needs:
-  # [linux, windows]` SEM `if: always()`, de proposito: se qualquer
-  # leg Linux ou Windows ja reprovou, o workflow inteiro ja mostra
-  # vermelho, e este job so rodaria contra artefato que pode nao
-  # existir (a perna que falhou pode ter morrido antes do passo de
-  # inventario). Quando os dois passam, este job roda e BLOQUEIA de
+  # [linux, windows, wayland-container]` SEM `if: always()`, de
+  # proposito: se qualquer leg Linux, Windows ou o job do container ja
+  # reprovou, o workflow inteiro ja mostra vermelho, e este job so
+  # rodaria contra artefato que pode nao existir (a perna que falhou
+  # pode ter morrido antes do passo de inventario, ou o container pode
+  # ter reprovado no proprio piso de varredura do P-0 e nunca chegado
+  # a publicar). Quando os tres passam, este job roda e BLOQUEIA de
   # verdade se achar lacuna - decisao explicita do lider: nao
   # `continue-on-error`, "um portao que nao morde nao e portao".
   #
+  # P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19): antes desta
+  # fatia, `wayland-container` NAO entrava neste `needs`, e o trabalho
+  # do container rodava sem que o trabalho de comparacao esperasse por
+  # ele - a dependencia nao era real, e o job `parity` podia ler um
+  # inventario do container que ainda nao existia (a execucao real
+  # nunca tinha chegado a acontecer no momento em que a comparacao
+  # rodava, com um artefato de execucao anterior sendo consumido por
+  # coincidencia, se algum ficasse retido). Acrescentar `wayland-
+  # container` a este `needs` e' o que torna a dependencia real: o
+  # scheduler do GitHub Actions so inicia `parity` depois que os tres
+  # terminam, ordem correta ou nao entre eles.
+  #
   # Uniao, nao interseccao, dentro de cada sistema: cada leg da
   # matriz `linux` (Fedora/Ubuntu/Arch/CachyOS x compartilhado/
-  # estatico) e cada leg de `windows` publicou seu proprio inventario
-  # (parity-inv-linux-N / parity-inv-windows-N, N = strategy.job-
-  # index); a comparacao e entre TODO teste que roda em QUALQUER leg
-  # Linux contra TODO teste que roda em QUALQUER leg Windows - um
-  # nome que existe so numa distro Linux (nao em todas) ainda conta
-  # como "existe do lado Linux" para este portao, que compara
-  # SISTEMAS, nao distros. Perda declarada (ja no relatorio desta
-  # fatia): uma lacuna exclusiva de UMA distro dentro do lado Linux
-  # fica invisivel aqui, escondida dentro da uniao.
+  # estatico), cada leg de `windows`, e agora tambem o job `wayland-
+  # container` publicou seu proprio inventario (parity-inv-linux-N /
+  # parity-inv-windows-N / parity-inv-linux-container, N = strategy.
+  # job-index); a comparacao e entre TODO teste que roda em QUALQUER
+  # leg Linux (incluindo o que o container executou de verdade) contra
+  # TODO teste que roda em QUALQUER leg Windows - um nome que existe
+  # so numa distro Linux (nao em todas) ainda conta como "existe do
+  # lado Linux" para este portao, que compara SISTEMAS, nao distros.
+  # Perda declarada (ja no relatorio desta fatia, e ainda verdadeira
+  # depois do P-0): uma lacuna exclusiva de UMA distro dentro do lado
+  # Linux fica invisivel aqui, escondida dentro da uniao - o container
+  # e' mais uma fonte dentro do MESMO lado "Linux" da uniao, nao uma
+  # dimensao nova de comparacao, entao ele nao fecha nem agrava esse
+  # ponto cego especifico.
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
-    needs: [linux, windows]
+    needs: [linux, windows, wayland-container]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      # `parity-inv-linux-*` ja casa com `parity-inv-linux-container`
+      # (P-0) sem mudar este `pattern` - nenhuma linha nova aqui, so o
+      # `needs` acima muda.
       - name: Baixar inventarios Linux
         uses: actions/download-artifact@v4
         with:
@@ -951,6 +973,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # P-0's own declared blind spot, fechado nesta mesma fatia
+      # (tests/tools/check_container_fixture_inventory.py's proprio
+      # cabecalho): um fixture pode ganhar uma linha `COPY --from=...`
+      # no Containerfile e um `docker exec` neste job sem que alguem
+      # lembre de tambem acrescentar o `echo "<nome>" >> parity_
+      # inventory.txt` correspondente - a suite roda verde, o piso de
+      # varredura do proprio P-0 fica verde (as OUTRAS entradas ja
+      # deixam o arquivo nao-vazio), e o nome esquecido nunca chega a
+      # ser comparado pelo job `parity`. Roda ANTES do build da imagem
+      # de proposito - so le dois arquivos de texto ja no checkout,
+      # entao uma lacuna de fiacao reprova sem pagar o custo do
+      # `docker build`.
+      - name: Verifica fiacao Containerfile x inventario do container (P-0)
+        run: |
+          python3 tests/tools/check_container_fixture_inventory.py --compare \
+            tests/container/Containerfile .github/workflows/ci.yml
 
       - uses: docker/setup-buildx-action@v3
 
@@ -1019,6 +1058,21 @@ jobs:
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean smoke.sh glintfx-test
 
+      # P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, GODS_LAWS.md
+      # L-04/L-40): o portao de paridade (job `parity` abaixo) compara
+      # nomes de `ctest -N` - um fixture do container "existe" para
+      # quem le este arquivo e nao existe para aquele portao, porque
+      # nenhum fixture daqui e registrado como ctest. Este arquivo
+      # passa a ser o INVENTARIO DO QUE DE FATO EXECUTOU neste job -
+      # nunca o que o Containerfile PRETENDE compilar. Comeca vazio a
+      # cada run; cada fixture abaixo so acrescenta o proprio nome
+      # DEPOIS do `docker exec` correspondente ter devolvido zero (o
+      # `set -eu` de cada passo aborta ANTES da linha de `echo` se o
+      # `docker exec` falhar ou nem chegar a rodar - um caso que falha
+      # nunca aparece aqui como se tivesse passado).
+      - name: Inicia o inventario de fixtures do container (P-0)
+        run: rm -f parity_inventory.txt && touch parity_inventory.txt
+
       # ARCH-PORTS, TDD case R4 (GODS_LAWS.md L-09/L-20 - integracao
       # DECLARADA, sem rebaixamento: este e o unico dos cinco vermelhos
       # da fatia que roda contra um compositor REAL). Passa
@@ -1028,10 +1082,12 @@ jobs:
       # mesmo padrao que smoke.sh (acima) ja segue para wayland-info.
       - name: ARCH-PORTS - conecta e desconecta via o adaptador real (R4)
         run: |
+          set -eu
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean arch_ports_connect_smoke
+          echo "arch_ports_connect_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia B, TDD case B (GODS_LAWS.md L-09/L-20 -
       # integracao DECLARADA contra compositor REAL, mesmo padrao do
@@ -1044,10 +1100,12 @@ jobs:
       # todo outro passo desta matriz.
       - name: WL-DISPLAY fatia B - registry real dentro do container
         run: |
+          set -eu
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean registry_smoke
+          echo "registry_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, mesmo padrao dos
       # dois passos acima. Roda ANTES da fatia C abaixo de proposito -
@@ -1055,10 +1113,12 @@ jobs:
       # exatamente o passo que o mata.
       - name: WL-DISPLAY fatia D - pump nao-bloqueante dentro do container
         run: |
+          set -eu
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean pump_smoke
+          echo "pump_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
@@ -1074,10 +1134,44 @@ jobs:
       # fim do job continua alcancando este container normalmente.
       - name: WL-DISPLAY fatia C - erro fatal dentro do container
         run: |
+          set -eu
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean fatal_error_smoke
+          echo "fatal_error_smoke" >> parity_inventory.txt
+
+      # P-0, piso de varredura nao-vazia (GODS_LAWS.md L-40): inventario
+      # vazio e SEMPRE coleta quebrada, nunca ausencia legitima de
+      # casos - reprova aqui, no proprio job do container, ANTES de
+      # publicar qualquer coisa para o job `parity` consumir. A
+      # contagem e' lida por variavel (nunca da tela) e impressa
+      # sempre, com ou sem falha (GODS_LAWS.md L-45/memoria
+      # feedback_codigo_de_saida_de_variavel.md).
+      - name: Verifica piso de varredura do inventario do container (P-0)
+        run: |
+          set -eu
+          n=$(wc -l < parity_inventory.txt)
+          echo "inventario do container: $n fixture(s) executado(s) com sucesso"
+          if [ "$n" -eq 0 ]; then
+            echo "ERRO: inventario do container vazio - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca de ausencia de casos" >&2
+            exit 1
+          fi
+
+      # Publica o inventario como uma TERCEIRA fonte Linux para o job
+      # `parity` - o padrao de nome (`parity-inv-linux-*`) e' o mesmo
+      # que os legs da matriz `linux` ja usam (linha "Publicar
+      # inventario de paridade" acima), entao o passo "Baixar
+      # inventarios Linux" do job `parity` (download-artifact com
+      # `pattern: parity-inv-linux-*`) ja recolhe este artefato sem
+      # nenhuma mudanca no proprio job de download - so o `needs`
+      # muda (ver comentario do job `parity`).
+      - name: Publica o inventario do container (P-0)
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-inv-linux-container
+          path: parity_inventory.txt
+          retention-days: 7
 
       # Tres controles negativos obrigatorios (revisao adversarial
       # TEST-WLCONT: FURO 1 montagem/device, FURO 2 --pid=host, FURO 3

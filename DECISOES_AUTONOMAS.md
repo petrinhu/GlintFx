@@ -1076,3 +1076,66 @@ O lider escolheu primeiro **precisao dupla**, contra a minha recomendacao. Antes
 ⚠️ **Registro de metodo:** a lei manda contra-argumentar UMA vez, com problema, risco e alternativa, e depois obedecer. O que fez a conversa render nao foi eu discordar -- foi eu trazer um FATO que ele nao tinha, sobre uma decisao que ele mesmo tomou antes. Discordancia sem fato novo teria sido so atrito.
 
 **CONSEQUENCIA QUE O PROXIMO EXECUTOR PRECISA TER NA FRENTE:** sao DUAS familias de tipo na superficie publica, e a fronteira entre elas tem de ser obvia -- quem le o cabecalho precisa saber, sem pensar, qual lado esta usando. Se essa fronteira ficar ambigua, a decisao vira defeito.
+
+---
+
+## A biblioteca padrao inventa um numero valido a partir de lixo, e nos recusamos a repassar  `[05/09/26 - 11:57:38]`
+
+**Decisao autonoma, tomada por mim em modo autonomo, sob a autorizacao ampla do lider. Precisa de confirmacao ou reversao dele.**
+
+**O efeito, para quem usa a biblioteca:** ao pedir um valor intermediario entre dois numeros -- o que toda animacao faz a cada quadro --, se qualquer um dos tres numeros entregues ja estiver estragado, a resposta agora sai **visivelmente estragada** em vez de sair como um numero limpo e plausivel.
+
+**O que foi MEDIDO, ao vivo, e nao suposto.** A funcao da biblioteca padrao que o mundo inteiro usa para isso devolve, para entrada estragada:
+
+| O que se entrega | O que a biblioteca padrao devolve |
+|---|---|
+| primeiro numero estragado, resto normal | **1** -- um numero perfeitamente valido |
+| primeiro numero infinito, resto normal | **1** -- idem |
+| fracao de caminho estragada | **3** -- idem |
+
+**Os tres primeiros sao o defeito exato contra o qual a regra da casa D8 foi escrita:** resposta limpa, plausivel e finita para uma entrada que nao carregava informacao nenhuma, **indistinguivel de sucesso**. Um consumidor cuja posicao ja foi por agua abaixo recebe de volta uma coordenada de aparencia valida e nunca fica sabendo.
+
+**A regra que passa a valer, enunciavel de cabeca:** entrada nao finita em qualquer um dos tres argumentos, resultado nao e numero. Toda entrada finita continua com a exatidao da biblioteca padrao, intocada. A guarda roda **antes** da chamada, nunca depois -- mesma correcao de ordem que o modulo de tempo ja documenta.
+
+**O desvio da letra da D8, declarado:** a D8 manda "vai a zero". Aqui NAO se aplica, e a razao e a propria razao da D8. Ela nasceu porque uma chamada de sistema devolvia o mesmo sentinela para toda entrada invalida, indistinguivel de sucesso. **Zero numa coordenada seria esse mesmo defeito vestindo outro numero** -- zero e uma posicao perfeitamente plausivel na tela. Nao-numero e o oposto: fica visivel e contamina tudo adiante ate alguem olhar.
+
+**A segunda razao, e a que me convenceu sozinha:** o comportamento dessa funcao em entrada infinita **esta em disputa aberta no projeto da LLVM neste momento**. Comportamento sob discussao e comportamento que pode mudar debaixo de nos, em qualquer plataforma, numa atualizacao de compilador. A lei de paridade exige comportamento identico nos cinco sistemas; **a unica forma de garantir isso e decidir aqui, nao herdar**.
+
+⚠️ **Registro de metodo, e o motivo de eu marcar isto como achado do trabalhador e nao meu:** ele escreveu a primeira versao delegando a biblioteca padrao, **o teste reprovou, e ele foi medir por que** em vez de afrouxar a tolerancia. O achado nao estava no roteiro que eu escrevi. Foi a medicao que mudou o desenho, nao o desenho que escolheu a medicao.
+
+### Dois cortes de escopo do mesmo trabalhador, que eu mantive
+
+1. **Nao existe composicao de transformacao nesta fatia**, e a razao e de CORRETUDE, nao de tamanho: a forma escolhida (deslocamento, giro, escala) **nao e fechada** sob composicao -- compor giro com escala desigual produz distorcao que nao cabe nesses campos. Uma funcao de compor congelada hoje teria de descartar essa distorcao em silencio, ou devolver erro de uma funcao puramente matematica, que a regra da casa proibe.
+2. **Nao existe interpolacao de posicao, so de numero.** ⚠️ E o uso mais comum que existe, e o consumidor vai compor duas chamadas a mao. Mantive o corte porque **interpolar ANGULO nao e trabalho componente a componente** -- a resposta certa para um giro normalmente pega o caminho curto pela circunferencia, o que e decisao de comportamento e merece a revisao da fatia que precisar dela. **Fica como pendencia de produto para o lider**, nao como omissao.
+
+---
+
+## Tres decisoes do lider: como se nomeia estilo, quem confere a lista, e o que sao as tres ondas  `[05/09/26 - 13:11:27]`
+
+**Nao sao decisoes minhas: sao DELE, por `AskUserQuestion`. Duas congelam superficie publica.**
+
+### 1. O consumidor nomeia propriedade de estilo por LISTA que o compilador confere
+
+Escolha dele, a recomendada. **O efeito:** quem escreve um programa com a biblioteca escreve o NOME da propriedade, e **se errar a grafia o programa nao compila** -- o erro aparece na hora de construir, nunca na mao do usuario final.
+
+**O que se paga, e ele aceitou vendo:** cerca de 57 palavras publicas novas, congeladas para sempre, cada uma sujeita ao portao de colisao de nome nas cinco plataformas. As alternativas custavam mais caro no lugar errado: so um numero opaco empurraria o erro de grafia para tempo de execucao (o defeito que esta casa passou o mes eliminando), e as duas formas juntas exigiriam manter as duas em sincronia sem portao nenhum vigiando.
+
+### 2. Ele ve a lista das ~57 propriedades ITEM A ITEM, antes de existir codigo
+
+Escolha dele, a recomendada. A lista **nao existe escrita em lugar nenhum** -- medido pelo CTO, que procurou e nao achou derivacao persistida. Ela nasce no planejamento da fatia, vai a ele por escrito, e so entao vira codigo.
+
+⚠️ **Por que isto importa:** acrescentar propriedade depois e barato (entra no fim da lista, regra que ele ja fixou em 28/08). Uma que nasca com **tipo ou valor inicial errado** e quebra grande. Ele ja fixou oito valores iniciais a mao antes justamente por isso.
+
+**Consequencia de fila:** `GFSS-PROP-REGISTRY` **nao abre** enquanto ele nao passar pela lista. A fatia tem agora uma etapa antes da etapa: derivar, submeter, esperar.
+
+### 3. As tres ondas pedidas sao W5, a JANELA, e a PLACA GRAFICA mais o LACO
+
+Escolha dele, a recomendada, e ela **aceita o corte que o CTO propos**.
+
+**O defeito que motivou:** a W6 tem 29 itens em **tres niveis de dependencia empilhados** -- placa grafica e laco dependem da janela, e os tres estavam marcados na mesma onda. A coluna `Onda` mentia sobre o que podia andar em paralelo. Medido na coluna `Pre-requisito`, nao suposto.
+
+**O que fica:** W6a entrega a **janela nas duas plataformas juntas** (exigencia dele, verbatim de 02/09: *"So entrego janela quando os dois sistemas tiverem"*), W6b entrega **placa grafica e laco principal**. Cada uma com prova propria no servidor e marca de versao propria. **Termina a um passo da primeira demonstracao na tela.**
+
+**O que ele NAO escolheu, e a razao medida que eu apresentei:** cumprir a contagem ao pe da letra faria a W6 ter 16 fatias, metade escritas para Windows sem compilador nesta maquina. A onda anterior teve 19 itens e precisou de **cinco voltas ao servidor num unico teste**. Uma onda que nao fecha quebra a cadencia que ele pediu.
+
+**Conserto de tabela que acompanha (meu, nao dele, sem codigo):** o CHK-07 medido pelo CTO -- dependentes na mesma onda dos pre-requisitos -- e `WIN-GAMEPAD` marcado ANTES do `GP-MAP` de que depende.

@@ -37,7 +37,7 @@ cmake_minimum_required(VERSION 4.1)
 # SameMinorVersion compatibility (cmake/GlintfxInstall.cmake) only
 # compares MAJOR.MINOR, so a bare `find_package(glintfx 0.1)` still
 # resolves this exact release under the current pre-1.0 policy.
-project(glintfx VERSION 0.1.0.0 LANGUAGES CXX)
+project(glintfx VERSION 0.2.0.0 LANGUAGES CXX)
 
 # C, under UNIX only (WL-PROTO, GODS_LAWS.md L-05): the private-code
 # half of a wayland-scanner binding (cmake/GlintfxWaylandProtocols.cmake)

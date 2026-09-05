@@ -12,7 +12,16 @@ cmake_minimum_required(VERSION 3.28)
 
 project(glintfx_consumer LANGUAGES CXX)
 
-find_package(glintfx 0.1 REQUIRED)
+# VERSAO PEDIDA: acompanha o segundo numero do projeto, e NAO e um detalhe.
+# A politica instalada e SameMinorVersion enquanto o primeiro numero for
+# zero (cmake/GlintfxInstall.cmake, GODS_LAWS.md L-26: "B e onde a quebra
+# mora"), entao pedir 0.1 contra uma biblioteca 0.2 e CORRETAMENTE recusado
+# -- foi assim que a subida para 0.2.0.0 em 05/09/2026 reprovou este portao,
+# provando que a politica de versao esta de fato implementada e mordendo, e
+# nao apenas declarada num comentario. Ao subir o segundo numero de novo,
+# esta linha sobe junto; ao chegar na 1.0, a politica vira SameMajorVersion
+# e esta linha passa a acompanhar o PRIMEIRO numero.
+find_package(glintfx 0.2 REQUIRED)
 
 add_executable(consumer main.cpp)
 target_link_libraries(consumer PRIVATE glintfx::glintfx)

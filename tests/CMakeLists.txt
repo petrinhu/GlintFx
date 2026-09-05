@@ -225,6 +225,65 @@ target_include_directories(gfui_compound_match_test PRIVATE "${PROJECT_SOURCE_DI
 target_sources(gfui_compound_match_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    # GFSS-MATCH-ATTR/GFSS-MATCH-STRUCT (TODO.md, wave W5): compound_
+    # match.cpp's own match_compound() now calls into attribute_match.
+    # cpp/structural_match.cpp directly (compound_match.hpp's own
+    # updated header comment) - this second compile needs both or the
+    # link fails, the exact same reason it already needed selector_
+    # parse.cpp above.
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
+# GFSS-MATCH-ATTR (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-40):
+# whether ONE attribute simple selector ("[foo]", "[foo=bar]", the six
+# comparison operators) holds against ONE node, plus its wiring into
+# compound_match.cpp's own match_compound() - see gfui_match_attr_test.
+# cpp's own header comment for the two fatias (A the evaluator alone,
+# B through real parsed selector text). Needs the SAME
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir every other internal-
+# header consumer above already adds, for gfss/gfui's own private
+# headers.
+glintfx_add_test(gfui_match_attr_test)
+target_include_directories(gfui_match_attr_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# attribute_match.cpp/compound_match.cpp/selector_parse.cpp define
+# glintfx::gfui::detail::attribute_selector_holds()/match_compound()/
+# glintfx::style::detail::parse_selector_list() with NO GLINTFX_API -
+# deliberately (GODS_LAWS.md L-19), the SAME reason gfui_compound_
+# match_test above compiles compound_match.cpp/selector_parse.cpp a
+# second time instead of linking the hidden copy inside glintfx_
+# library's own .so.
+target_sources(gfui_match_attr_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
+# GFSS-MATCH-STRUCT (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-40): the
+# eleven structural pseudo-classes (first/last/only-child, first/last/
+# only-of-type, :empty, and the four An+B functions nth-child/nth-
+# last-child/nth-of-type/nth-last-of-type), plus their wiring into
+# compound_match.cpp's own match_compound() - see gfui_match_struct_
+# test.cpp's own header comment for the three fatias (A the seven
+# simple evaluators, B the four An+B ones, C through real parsed
+# selector text). Needs the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE
+# include dir every other internal-header consumer above already adds.
+glintfx_add_test(gfui_match_struct_test)
+target_include_directories(gfui_match_struct_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# Same second-compile reasoning as gfui_match_attr_test immediately
+# above - structural_match.cpp/attribute_match.cpp/compound_match.cpp/
+# selector_parse.cpp/anb_parse.cpp carry no GLINTFX_API either.
+target_sources(gfui_match_struct_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas

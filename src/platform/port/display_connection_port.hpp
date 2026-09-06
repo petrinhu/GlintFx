@@ -63,17 +63,17 @@ namespace glintfx::platform {
 
 template <typename A>
 concept display_connection_port = pinned_adapter<A> && requires(A &adapter) {
-        { adapter.open() } noexcept -> std::same_as<gltfx_rslt<void>>;
-        { adapter.close() } noexcept -> std::same_as<void>;
-        // is_open() is checked through a CONST reference on purpose:
-        // display_connection<A>::is_open() const (display_connection.hpp)
-        // reads m_adapter through a const A&, so a port whose is_open()
-        // only exists as a non-const member would compile display_
-        // connection<A>'s OWN definition and then fail, confusingly, at
-        // the call site inside is_open() const - catching that here
-        // instead keeps the failure at the one place a reviewer already
-        // expects to read it: the concept itself.
-        { std::as_const(adapter).is_open() } noexcept -> std::same_as<bool>;
-    };
+    { adapter.open() } noexcept -> std::same_as<gltfx_rslt<void>>;
+    { adapter.close() } noexcept -> std::same_as<void>;
+    // is_open() is checked through a CONST reference on purpose:
+    // display_connection<A>::is_open() const (display_connection.hpp)
+    // reads m_adapter through a const A&, so a port whose is_open()
+    // only exists as a non-const member would compile display_
+    // connection<A>'s OWN definition and then fail, confusingly, at
+    // the call site inside is_open() const - catching that here
+    // instead keeps the failure at the one place a reviewer already
+    // expects to read it: the concept itself.
+    { std::as_const(adapter).is_open() } noexcept -> std::same_as<bool>;
+};
 
 } // namespace glintfx::platform

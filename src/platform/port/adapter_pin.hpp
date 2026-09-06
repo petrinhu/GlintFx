@@ -50,9 +50,8 @@ namespace glintfx::platform {
 // language itself would reach for (a bare `= default`/`= delete`'d
 // special member is exactly what these traits detect either way).
 template <typename A>
-concept pinned_adapter =
-    std::default_initializable<A> && !std::is_copy_constructible_v<A> &&
-    !std::is_copy_assignable_v<A> && !std::is_move_constructible_v<A> &&
-    !std::is_move_assignable_v<A>;
+concept pinned_adapter = std::default_initializable<A> && !std::is_copy_constructible_v<A> &&
+                         !std::is_copy_assignable_v<A> && !std::is_move_constructible_v<A> &&
+                         !std::is_move_assignable_v<A>;
 
 } // namespace glintfx::platform

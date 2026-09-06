@@ -119,22 +119,19 @@ int main() {
     glintfx::window_impl *w_impl = glintfx::window_internal_access::get(window);
 
     // Par 1: wl_registry (display, #1 da varredura do plano).
-    check_pair(
-        "wl_registry", static_cast<const void *>(&d_impl->connection.adapter()),
-        wl_proxy_get_user_data(
-            reinterpret_cast<wl_proxy *>(d_impl->connection.adapter().registry())));
+    check_pair("wl_registry", static_cast<const void *>(&d_impl->connection.adapter()),
+               wl_proxy_get_user_data(
+                   reinterpret_cast<wl_proxy *>(d_impl->connection.adapter().registry())));
 
     // Pares 2-4: wl_surface, xdg_surface, xdg_toplevel (janela, #4-6
     // da varredura do plano).
-    check_pair(
-        "wl_surface", static_cast<const void *>(&w_impl->adapter),
-        wl_proxy_get_user_data(reinterpret_cast<wl_proxy *>(w_impl->adapter.surface())));
+    check_pair("wl_surface", static_cast<const void *>(&w_impl->adapter),
+               wl_proxy_get_user_data(reinterpret_cast<wl_proxy *>(w_impl->adapter.surface())));
     check_pair(
         "xdg_surface", static_cast<const void *>(&w_impl->adapter),
         wl_proxy_get_user_data(reinterpret_cast<wl_proxy *>(w_impl->adapter.xdg_surface_proxy())));
-    check_pair(
-        "xdg_toplevel", static_cast<const void *>(&w_impl->adapter),
-        wl_proxy_get_user_data(reinterpret_cast<wl_proxy *>(w_impl->adapter.toplevel())));
+    check_pair("xdg_toplevel", static_cast<const void *>(&w_impl->adapter),
+               wl_proxy_get_user_data(reinterpret_cast<wl_proxy *>(w_impl->adapter.toplevel())));
 
     // Par 5: o wl_callback pendente do adaptador EGL (#7 da varredura
     // do plano) - reproduzindo, aqui dentro deste fixture, a MESMA
@@ -147,7 +144,8 @@ int main() {
     const std::span<const glintfx::gltfx_gfx_option_entry> no_options{};
     if (glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(w_impl->adapter, no_options);
         egl_opened.has_error()) {
-        std::fprintf(stderr, "facade_pin_smoke: egl adapter open() failed: %s (rejected_value=%s)\n",
+        std::fprintf(stderr,
+                     "facade_pin_smoke: egl adapter open() failed: %s (rejected_value=%s)\n",
                      std::string(glintfx::gltfx_err_code_name(egl_opened.error().code())).c_str(),
                      std::string(egl_opened.error().rejected_value()).c_str());
         delete egl_ptr;
@@ -168,9 +166,9 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    check_pair("wl_callback_pendente", static_cast<const void *>(egl_ptr),
-               wl_proxy_get_user_data(
-                   reinterpret_cast<wl_proxy *>(egl_ptr->pending_frame_callback())));
+    check_pair(
+        "wl_callback_pendente", static_cast<const void *>(egl_ptr),
+        wl_proxy_get_user_data(reinterpret_cast<wl_proxy *>(egl_ptr->pending_frame_callback())));
 
     delete egl_ptr;
 

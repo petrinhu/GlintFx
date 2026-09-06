@@ -4,9 +4,10 @@
 # check_readme_volatile_numbers.py - GODS_LAWS.md L-40 gate, decision of
 # the CTO (fatia that follows WIN-WINDOW's own link fix). README.md's
 # own "On Linux,"/"On Windows," paragraphs went stale TWICE in two days:
-# once caught by check_readme_test_count.py's own single sentence (the
-# "has N registered cases..." phrase), and once NOT caught by anything -
-# the surrounding parity NARRATIVE ("Linux's 90", "88", "ten renamed
+# once caught by the sibling gate this file used to share the README
+# with (check_readme_test_count.py, its own single sentence "has N
+# registered cases..."), and once NOT caught by anything - the
+# surrounding parity NARRATIVE ("Linux's 90", "88", "ten renamed
 # pairs", "forty controls", an invented program message) drifted away
 # from the tree with zero gate watching it, because prose has no fixed
 # anchor to check a free-form number against.
@@ -21,20 +22,26 @@
 # byte-for-byte comparison, never by parsing English about what a
 # version means.
 #
-# THE ONLY EXEMPTIONS (this is the complete list, nothing else is
+# 06/09/2026 - the sibling gate itself is RETIRED (GODS_LAWS.md L-67:
+# revoked is deleted, not archived), and its own trigger-phrase
+# exemption goes with it: the "has N registered cases..." sentence that
+# gate owned went stale a THIRD time in three commits (the Windows
+# figure was always deduced, never measured, on a machine with no MSVC
+# toolchain) - the number itself is gone from README.md now, not just
+# re-guarded, so this gate's own vocabulary of exemptions shrinks from
+# three to two.
+#
+# THE ONLY EXEMPTIONS LEFT (this is the complete list, nothing else is
 # stripped before the digit scan):
-#   1. The exact trigger phrase check_readme_test_count.py's own gate
-#      already owns: "has N registered cases in shared mode and M in
-#      static mode". Its numbers are that gate's job, not this one's.
-#   2. Any span between backticks (`` `...` ``) - code, file names,
+#   1. Any span between backticks (`` `...` ``) - code, file names,
 #      command lines. A digit inside a code span is not narrative
 #      prose; check_hygiene_coverage.py-style gates own THAT kind of
 #      claim if it ever needs one.
-#   3. Any `L-NN` law citation (GODS_LAWS.md reference) - a law NUMBER
+#   2. Any `L-NN` law citation (GODS_LAWS.md reference) - a law NUMBER
 #      is an identifier into a table, not a fact this repository's own
 #      tree can drift out from under.
 #
-# Every digit that survives all three removals is a FAILURE - the exact
+# Every digit that survives both removals is a FAILURE - the exact
 # shape of digit GODS_LAWS.md L-40 exists to catch: a piece of prose
 # that "looks read" (states a number) without anything behind it that
 # would notice the number going stale.
@@ -56,15 +63,14 @@ import sys
 
 SCRIPT_NAME = "check_readme_volatile_numbers.py"
 
-# Anchors each platform paragraph as ONE LINE (GODS_LAWS.md L-40 sibling
-# gate check_readme_test_count.py's own _PLATFORM_PATTERNS comment: `.`
-# does not match a newline here on purpose - README.md's own paragraphs
-# are each authored as a single long line, and matching across a break
-# would risk pulling text from an unrelated paragraph into the scan).
+# Anchors each platform paragraph as ONE LINE (`.` does not match a
+# newline here on purpose - README.md's own paragraphs are each
+# authored as a single long line, and matching across a break would
+# risk pulling text from an unrelated paragraph into the scan).
 #
-# REQUIRES the sibling gate's own trigger phrase to appear on the SAME
-# line, exactly like check_readme_test_count.py's own _PLATFORM_PATTERNS
-# does - a plain `^\*\*On Windows\*\*,` anchor is not enough: README.md
+# ANCHORED on "the test suite registers" (06/09/2026, since the retired
+# sibling gate's own numeric trigger phrase no longer exists to anchor
+# on) - a plain `^\*\*On Windows\*\*,` anchor is not enough: README.md
 # also has a "**On Windows**, prepare the MSVC build environment..."
 # paragraph (the "Building from source" section) that starts with the
 # identical bold phrase and legitimately cites version/architecture
@@ -74,20 +80,14 @@ SCRIPT_NAME = "check_readme_volatile_numbers.py"
 # this requirement the scan reported 3 paragraphs, not 2, and flagged
 # that unrelated paragraph's own digits alongside the real ones.
 _PARAGRAPH_PATTERN = re.compile(
-    r"^\*\*On (?:Linux|Windows)\*\*,.*\bhas \d+ registered cases in shared mode "
-    r"and \d+ in static mode.*$",
+    r"^\*\*On (?:Linux|Windows)\*\*, the test suite registers\b.*$",
     re.MULTILINE,
 )
 
-# Exemption 1: check_readme_test_count.py's own trigger phrase.
-_TRIGGER_PHRASE_PATTERN = re.compile(
-    r"\bhas \d+ registered cases in shared mode and \d+ in static mode\b"
-)
-
-# Exemption 2: backtick-quoted spans (code, file names, commands).
+# Exemption 1: backtick-quoted spans (code, file names, commands).
 _BACKTICK_SPAN_PATTERN = re.compile(r"`[^`]*`")
 
-# Exemption 3: GODS_LAWS.md citations (L-04, L-40, ...).
+# Exemption 2: GODS_LAWS.md citations (L-04, L-40, ...).
 _LAW_CITATION_PATTERN = re.compile(r"\bL-\d+\b")
 
 _DIGIT_PATTERN = re.compile(r"\d")
@@ -104,7 +104,7 @@ def fail(message):
     sys.exit(1)
 
 
-# Strips the three exemptions, in order, from ONE paragraph's text.
+# Strips the two exemptions, in order, from ONE paragraph's text.
 # Returns (cleaned_text, spans_removed) so the caller can report both
 # the survivors and how much was legitimately exempted - GODS_LAWS.md
 # L-40's own "the count appears in the output even when it passes"
@@ -112,10 +112,7 @@ def fail(message):
 def strip_exemptions(paragraph_text):
     spans_removed = 0
 
-    cleaned, count = _TRIGGER_PHRASE_PATTERN.subn(" ", paragraph_text)
-    spans_removed += count
-
-    cleaned, count = _BACKTICK_SPAN_PATTERN.subn(" ", cleaned)
+    cleaned, count = _BACKTICK_SPAN_PATTERN.subn(" ", paragraph_text)
     spans_removed += count
 
     cleaned, count = _LAW_CITATION_PATTERN.subn(" ", cleaned)
@@ -183,33 +180,43 @@ def check_readme_volatile_numbers(readme_text):
 # --- fixtures and controls for --selftest -----------------------------
 
 _SELFTEST_README_CLEAN = (
-    "**On Linux**, the test suite currently has 102 registered cases in shared mode and 100 in "
-    "static mode. Everything below is checked by `readme_test_count_test` and the L-04 parity job, "
-    "never restated here as a number.\n"
-    "**On Windows**, the test suite currently has 104 registered cases in shared mode and 104 in "
-    "static mode. See `tests/parity_aliases.txt` and `tests/parity_exceptions.txt` (L-40).\n"
+    "**On Linux**, the test suite registers more cases in shared mode than in static mode. "
+    "Everything is checked by the `parity` job (GODS_LAWS.md L-04), never restated here as a number.\n"
+    "**On Windows**, the test suite registers the same cases in shared and in static mode. "
+    "See `tests/parity_aliases.txt` and `tests/parity_exceptions.txt` (L-40).\n"
 )
 
 _SELFTEST_README_LOOSE_DIGIT = (
-    "**On Linux**, the test suite currently has 102 registered cases in shared mode and 100 in "
-    "static mode. Shared mode is at parity with Linux's 90.\n"
-    "**On Windows**, the test suite currently has 104 registered cases in shared mode and 104 in "
-    "static mode.\n"
+    "**On Linux**, the test suite registers more cases in shared mode than in static mode. "
+    "Shared mode is at parity with Linux's 90.\n"
+    "**On Windows**, the test suite registers the same cases in shared and in static mode.\n"
 )
 
 _SELFTEST_README_EMPTY = "This README no longer states a platform paragraph anywhere.\n"
 
-_SELFTEST_README_TRIGGER_ONLY = (
-    "**On Linux**, the test suite currently has 34 registered cases in shared mode and 33 in "
-    "static mode.\n"
-    "**On Windows**, the test suite currently has 20 registered cases in shared mode and 19 in "
-    "static mode.\n"
+# 06/09/2026 - the exact shape this gate now exists to prevent a
+# RETURN of: the old numbered sentence the retired sibling gate used to
+# police, sneaking back into an otherwise-clean paragraph.
+_SELFTEST_README_REGRESSION = (
+    "**On Linux**, the test suite registers more cases in shared mode than in static mode: "
+    "it has 116 registered cases in shared mode and 114 in static mode.\n"
+    "**On Windows**, the test suite registers the same cases in shared and in static mode.\n"
+)
+
+# 06/09/2026 - the exact "isca" this gate's own anchor has to survive:
+# a THIRD paragraph that starts with the identical bold "**On
+# Windows**," phrase but is not the parity narrative at all (README.md's
+# real "Building from source" section has one just like it) - the scan
+# must report 2 paragraphs, never 3.
+_SELFTEST_README_BAIT = (
+    "**On Linux**, the test suite registers more cases in shared mode than in static mode.\n"
+    "**On Windows**, the test suite registers the same cases in shared and in static mode.\n"
+    "**On Windows**, prepare the MSVC build environment for Visual Studio 2022 before building.\n"
 )
 
 
-# Positive control: two clean paragraphs (digits only inside the
-# exempted trigger phrase, backticks, or an L-NN citation). Expected:
-# passes.
+# Positive control: two clean paragraphs (digits only inside backticks
+# or an L-NN citation). Expected: passes.
 def selftest_positive_control():
     if check_readme_volatile_numbers(_SELFTEST_README_CLEAN):
         print("selftest: controle POSITIVO OK (paragrafos limpos passam)")
@@ -263,19 +270,53 @@ def selftest_empty_scan_control():
     return True
 
 
-# Fourth control the CTO named explicitly: the trigger phrase, WITH its
-# own numbers, keeps PASSING - this gate must never re-reprove what
-# check_readme_test_count.py already owns.
-def selftest_trigger_phrase_exempt_control():
-    if check_readme_volatile_numbers(_SELFTEST_README_TRIGGER_ONLY):
-        print("selftest: controle de FRASE GATILHADA OK (34/33 e 20/19 da frase de contagem continuam passando)")
-        return True
-    print(
-        "selftest: controle de FRASE GATILHADA FALHOU (a frase 'has N registered cases...' "
-        "nao deveria ter sido reprovada por este portao)",
-        file=sys.stderr,
-    )
-    return False
+# Regression control (o oposto do antigo controle de FRASE GATILHADA,
+# que passava a numeracao antiga porque ela tinha isencao propria):
+# agora que a isencao 1 morreu junto com o gate irmao, a MESMA frase
+# numerada tem de REPROVAR se algum dia voltar a aparecer.
+def selftest_regression_control():
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stderr(buffer):
+        passed = check_readme_volatile_numbers(_SELFTEST_README_REGRESSION)
+    output = buffer.getvalue()
+
+    if passed:
+        print(
+            "selftest: controle de REGRESSAO FALHOU (a frase numerada antiga voltou e deveria ter reprovado)",
+            file=sys.stderr,
+        )
+        return False
+    if "116" not in output:
+        print('selftest: controle de REGRESSAO FALHOU (reprovou, mas nao citou "116")', file=sys.stderr)
+        print(output, file=sys.stderr)
+        return False
+    print('selftest: controle de REGRESSAO OK (frase numerada antiga pega e citada, "116")')
+    return True
+
+
+# Isca control: um terceiro paragrafo comecando pelo mesmo "**On
+# Windows**," (o paragrafo real de MSVC do README) nao pode ser contado
+# como paragrafo de paridade - a varredura tem de dizer 2, nunca 3.
+def selftest_bait_paragraph_control():
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        passed = check_readme_volatile_numbers(_SELFTEST_README_BAIT)
+    output = buffer.getvalue()
+
+    if not passed:
+        print(f"selftest: controle de ISCA FALHOU (deveria ter passado): {output}", file=sys.stderr)
+        return False
+    if "varreu 2 paragrafo(s)" not in output:
+        print(f"selftest: controle de ISCA FALHOU (deveria ter varrido exatamente 2): {output}", file=sys.stderr)
+        return False
+    print(f"selftest: controle de ISCA OK (paragrafo de MSVC nao contado como narrativa de paridade): {output.strip()}")
+    return True
 
 
 def selftest_main():
@@ -283,7 +324,8 @@ def selftest_main():
         selftest_positive_control(),
         selftest_negative_control(),
         selftest_empty_scan_control(),
-        selftest_trigger_phrase_exempt_control(),
+        selftest_regression_control(),
+        selftest_bait_paragraph_control(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

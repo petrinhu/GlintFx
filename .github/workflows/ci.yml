@@ -1026,6 +1026,17 @@ jobs:
       # inventory_text() ja sabe separar "Test #N: nome" de "Total
       # Tests: N" e de linha ja limpa, entao concatenar e suficiente
       # aqui, sem reimplementar aquele parser em shell.
+      #
+      # 06/09/2026 - o resumo do job (abaixo, `$GITHUB_STEP_SUMMARY`)
+      # e' ONDE o total por perna passa a morar, agora que README.md
+      # nao declara mais nenhum numero (docs(readme), mesma onda): cada
+      # `parity_inventory.txt` baixado JA carrega sua propria linha
+      # `Total Tests: N` (escrita pelo `ctest -N` que o gerou nos jobs
+      # `linux`/`windows`/`wayland-container`), entao so' precisa ser
+      # extraida e impressa - GODS_LAWS.md L-45 (`grep -m1` fechado com
+      # `|| true`, testado pelo VALOR, nunca pelo status de saida do
+      # `grep`) e L-40 (zero legs ou zero linhas `Total Tests`
+      # encontradas reprova o passo, nunca passa em silencio).
       - name: Unir inventarios por sistema
         run: |
           set -eu
@@ -1033,6 +1044,44 @@ jobs:
           cat inventarios/windows/*/parity_inventory.txt > /tmp/parity_windows_union.txt
           echo "Linux: $(wc -l < /tmp/parity_linux_union.txt) linha(s) brutas de $(ls inventarios/linux | wc -l) leg(s)"
           echo "Windows: $(wc -l < /tmp/parity_windows_union.txt) linha(s) brutas de $(ls inventarios/windows | wc -l) leg(s)"
+
+          {
+            echo "### Total de casos registrados por perna"
+            echo
+            echo "| Sistema | Leg | Total Tests |"
+            echo "|---|---|---|"
+            legs_found=0
+            totals_found=0
+            for sistema in linux windows; do
+              for leg_dir in "inventarios/$sistema"/*/; do
+                [ -d "$leg_dir" ] || continue
+                leg=$(basename "$leg_dir")
+                legs_found=$((legs_found + 1))
+                total=$(grep -m1 '^Total Tests:' "$leg_dir/parity_inventory.txt" | sed 's/^Total Tests: //') || true
+                if [ -n "$total" ]; then
+                  totals_found=$((totals_found + 1))
+                else
+                  total="(sem linha 'Total Tests:')"
+                fi
+                echo "| $sistema | $leg | $total |"
+              done
+            done
+            echo
+            echo "legs encontrados: $legs_found, com 'Total Tests:' extraido: $totals_found"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          legs_found=0
+          totals_found=0
+          for sistema in linux windows; do
+            for leg_dir in "inventarios/$sistema"/*/; do
+              [ -d "$leg_dir" ] || continue
+              legs_found=$((legs_found + 1))
+              total=$(grep -m1 '^Total Tests:' "$leg_dir/parity_inventory.txt") || true
+              [ -n "$total" ] && totals_found=$((totals_found + 1))
+            done
+          done
+          [ "$legs_found" -gt 0 ] || { echo "Unir inventarios por sistema: varredura vazia - nenhum leg encontrado (GODS_LAWS.md L-40)" >&2; exit 1; }
+          [ "$totals_found" -gt 0 ] || { echo "Unir inventarios por sistema: varredura vazia - nenhuma linha 'Total Tests:' encontrada em $legs_found leg(s) (GODS_LAWS.md L-40)" >&2; exit 1; }
 
       - name: check_test_parity.py --compare
         run: |

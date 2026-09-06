@@ -2372,9 +2372,10 @@ set_tests_properties(macro_balance_selftest PROPERTIES LABELS selftest)
 # availability, core count, JSON list order, null-vs-empty-array,
 # CRLF line endings, "compiler available" conflated with "concept
 # exists on this platform") to carry a nearby declaration comment -
-# see check_env_sweep.py's own header comment for the seven real
-# incidents (26-27/08/2026's four plus the 04/09/2026 pair) this gate
-# is calibrated against, and for why the signal vocabulary is keyed on
+# see check_env_sweep.py's own header comment for the real incidents
+# (`_KNOWN_INCIDENTS` in that file - count not fixed here, GODS_LAWS.md
+# CLAUDE.md "DOC-ESTADO") this gate is calibrated against, and for why
+# the signal vocabulary is keyed on
 # named remedy functions rather than generic primitives (measured live:
 # the generic form fired on eleven UNRELATED, safe uses across the
 # real tree - GODS_LAWS.md L-40's own warning against a heuristic that
@@ -2394,7 +2395,7 @@ set_tests_properties(env_sweep_test PROPERTIES LABELS consume)
 # check_env_sweep.py's own selftest_calibration_control() - so this
 # case is deliberately NOT hermetic like the other *_selftest cases in
 # this file; it depends on PROJECT_SOURCE_DIR still containing the
-# seven historical markers it calibrates against.
+# historical markers `_KNOWN_INCIDENTS` calibrates against.
 add_test(
     NAME env_sweep_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -2434,65 +2435,29 @@ if(UNIX)
     endif()
 endif()
 
-# README test-count consistency gate (DOC-DRIFT, adversarial review of
-# 2026-08-26): README.md's own "Building from source" section states
-# the ctest total for shared and static mode in prose ("N registered
-# cases in shared mode and M in static mode") - a sentence that had
-# already gone stale once, three commits earlier, with nothing to
-# catch it (README/CHANGELOG said 33/32 while the real ctest -N count
-# was already 34/33). check_readme_test_count.py compares the prose
-# number against THIS build's own `ctest -N` total and reproves on any
-# mismatch, with GODS_LAWS.md L-40's empty-scan floor covering the
-# case where the sentence itself is rewritten or moved and the regex
-# stops matching anything.
-#
-# PORTED from POSIX sh (tests/tools/check_readme_test_count.sh, retired
-# in this same fatia) to python3 and registered WITHOUT an if(UNIX)
-# guard (GODS_LAWS.md L-04, decisao do lider de 02/09/2026: "O
-# comportamento deve ser igual em qualquer OS" - the same shape
-# spdx_test/hygiene_coverage_test above already proved). README-COUNT-
-# PARITY (TODO.md, medido em 02/09/2026): README.md now states TWO
-# independent sentences ("On Linux," / "On Windows,"), because the two
-# platforms genuinely register different totals (several if(UNIX)-only
-# gates never entered the Windows run); check_readme_test_count.py
-# picks the sentence that matches the platform THIS ctest run is
-# actually executing on, so it enforces Windows's own claim on Windows,
-# not the Linux one.
-add_test(
-    NAME readme_test_count_test
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.py"
-        "${PROJECT_SOURCE_DIR}/README.md"
-        "${PROJECT_BINARY_DIR}"
-        "$<IF:$<BOOL:${BUILD_SHARED_LIBS}>,shared,static>"
-)
-set_tests_properties(readme_test_count_test PROPERTIES LABELS consume)
-
-add_test(
-    NAME readme_test_count_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_test_count.py" --selftest
-)
-set_tests_properties(readme_test_count_selftest PROPERTIES LABELS selftest)
-
 # README volatile-numbers gate (decisao do CTO, mesma fatia do conserto
 # de link WIN-WINDOW/X-2): a narrativa de paridade dos dois paragrafos
-# acima ja apodreceu DUAS vezes em dois dias - uma vez pega pelo gate
-# irmao acima (a frase "has N registered cases..."), uma vez NAO pega
-# por nada (o "Linux's 90", o "88", "ten renamed pairs" contra os 19
-# apelidos reais em tests/parity_aliases.txt, "forty controls" contra os
-# 38 que check_dep_zero.py realmente declara, e uma mensagem de programa
-# citada em ingles que ele nunca imprimiu). O CTO recusou um parser mais
-# esperto da prosa (precisaria de uma ancora por numero, e nove ancoras
-# tornam a prosa refem do portao - precedente citado: o version-sync do
-# ecossistema Rust, que confere token de forma fixa, nunca prosa livre).
-# A saida escolhida: a narrativa para de citar qualquer numero volatil,
-# e este portao reprova qualquer digito que volte a aparecer nela, fora
-# das tres isencoes declaradas no proprio check_readme_volatile_
-# numbers.py (a frase que o gate irmao acima ja possui, spans entre
-# crases, e citacoes L-NN). Registrado SEM guarda de plataforma, mesmo
-# formato do gate irmao (GODS_LAWS.md L-04): este portao le texto, nao
-# constroi nada, nao ha razao para rodar em so um SO.
+# acima ja apodreceu TRES vezes em tres commits - uma vez pega pelo gate
+# irmao que existia aqui (check_readme_test_count.py, a frase "has N
+# registered cases..."), duas vezes NAO pegas por nada (o "Linux's 90",
+# o "88", "ten renamed pairs" contra os 19 apelidos reais em tests/
+# parity_aliases.txt, "forty controls" contra os 38 que check_dep_
+# zero.py realmente declara, uma mensagem de programa citada em ingles
+# que ele nunca imprimiu, e por fim o proprio par de numeros "116/114" e
+# "114/114" - nenhuma sessao deste projeto tem toolchain MSVC a mao, e o
+# numero do Windows sempre foi deduzido, nunca medido). O CTO recusou um
+# parser mais esperto da prosa (precisaria de uma ancora por numero, e
+# nove ancoras tornam a prosa refem do portao - precedente citado: o
+# version-sync do ecossistema Rust, que confere token de forma fixa,
+# nunca prosa livre). A saida escolhida, levada ate o fim em 06/09/2026:
+# a narrativa para de citar QUALQUER numero, o gate irmao acima e
+# APOSENTADO (GODS_LAWS.md L-67: revogado e apagado, nao arquivado -
+# ver o historico git deste arquivo para o texto antigo), e este portao
+# reprova qualquer digito que volte a aparecer na narrativa, fora das
+# duas isencoes que restam no proprio check_readme_volatile_numbers.py
+# (spans entre crases, e citacoes L-NN). Registrado SEM guarda de
+# plataforma (GODS_LAWS.md L-04): este portao le texto, nao constroi
+# nada, nao ha razao para rodar em so um SO.
 add_test(
     NAME readme_volatile_numbers_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"

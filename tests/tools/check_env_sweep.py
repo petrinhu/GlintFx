@@ -73,10 +73,12 @@
 # CALIBRACAO (exigencia do orquestrador): --selftest roda tambem
 # calibrate_against_known_incidents(), que reexecuta a varredura real
 # contra a ARVORE REAL do projeto (nao fixture sintetica) e confere que
-# cada uma das SETE encarnacoes conhecidas (ver _KNOWN_INCIDENTS
-# abaixo, uma linha por incidente, arquivo+marcador+commit) e
-# encontrada pelo vocabulario de sinais E ja carrega declaracao - a
-# MESMA prova que o revisor de 27/08 pediu e nao pode dar sozinho.
+# cada uma das encarnacoes conhecidas (ver _KNOWN_INCIDENTS abaixo -
+# quantidade nao fixada aqui, GODS_LAWS.md CLAUDE.md "DOC-ESTADO":
+# `len(_KNOWN_INCIDENTS)` e o comando que mede, uma linha por incidente,
+# arquivo+marcador+commit) e encontrada pelo vocabulario de sinais E ja
+# carrega declaracao - a MESMA prova que o revisor de 27/08 pediu e nao
+# pode dar sozinho.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -117,8 +119,8 @@ SCRIPT_NAME = "check_env_sweep.py"
 _ENV_FACT_SIGNALS = {
     "TOOL_AVAILABILITY": (
         re.compile(r"\bcount_optional_tooling_tests\b"),
-        "contagem de teste dependente de ferramenta opcional (TODO.md GATE-ENV-SWEEP, incidente 1; "
-        "check_readme_test_count.py's own ENV-DRIFT/count_optional_tooling_tests())",
+        "contagem de teste dependente de ferramenta opcional (TODO.md GATE-ENV-SWEEP, incidente "
+        "historico; check_readme_test_count.py, aposentado em 06/09/2026, ver historico git)",
     ),
     "CORE_COUNT": (
         re.compile(r"\bmasked_paths_cpu_thermal_count\b|\bhost_thermal_throttle_dir_count\b"),
@@ -163,9 +165,10 @@ _ENV_FACT_SIGNALS = {
         "check_pkgconfig_validate.py's own to_posix_path(), commit da rodada 8 - um caminho "
         "montado em Python e outro impresso pelo CMake nomeiam o MESMO arquivo com grafias "
         "diferentes; e check_env_sweep.py's own _as_posix(), commit 275066e, que e o mesmo "
-        "defeito na propria calibracao deste arquivo - sete de sete achados no Linux, zero no "
-        "Windows. A SETIMA categoria foi acrescentada em 05/09/2026 exatamente como o cabecalho "
-        "deste arquivo previa: uma linha nomeada e datada, sem reescrever o mecanismo)",
+        "defeito na propria calibracao deste arquivo - todos os incidentes entao conhecidos "
+        "batiam no Linux, zero no Windows. Mais uma categoria foi acrescentada em 05/09/2026 "
+        "exatamente como o cabecalho deste arquivo previa: uma linha nomeada e datada, sem "
+        "reescrever o mecanismo)",
     ),
 }
 
@@ -421,7 +424,9 @@ def real_main(args):
         fail("comparacao contra fato do ambiente sem declaracao encontrada (ver mensagem acima)")
 
 
-# --- calibration against the seven known incidents ------------------------
+# --- calibration against the known incidents (`len(_KNOWN_INCIDENTS)`
+# is the count - GODS_LAWS.md CLAUDE.md "DOC-ESTADO", never hardcoded
+# here) ---------------------------------------------------------------
 #
 # One row per incident this item was born to close - see this file's
 # own header comment for the full narrative. `marker` is text that
@@ -429,14 +434,15 @@ def real_main(args):
 # match in `file` for `category` - proving both that the signal
 # vocabulary above actually fires on the real, historical location,
 # and that the declaration search finds the real, historical comment.
+# Incidente 1 (contagem de teste dependente de ferramenta opcional,
+# tests/tools/check_readme_test_count.py) foi REMOVIDO desta lista em
+# 06/09/2026: o arquivo que ele apontava foi aposentado (GODS_LAWS.md
+# L-67, ver historico git) e nao existe mais para a calibracao
+# reencontrar. O sinal TOOL_AVAILABILITY continua no vocabulario acima,
+# vigiando qualquer uso futuro - a lista abaixo so perdeu a prova
+# historica contra um arquivo que nao existe mais, nunca a vigilancia
+# em si.
 _KNOWN_INCIDENTS = (
-    {
-        "n": 1,
-        "what": "contagem de teste dependente de ferramenta opcional",
-        "file": "tests/tools/check_readme_test_count.py",
-        "category": "TOOL_AVAILABILITY",
-        "marker": "env-drift",
-    },
     {
         "n": 2,
         "what": "contagem por nucleo",
@@ -487,26 +493,26 @@ def _as_posix(path):
     prose in this file, not a filesystem call) - `enumerate_swept_files()`
     builds `h["file"]` with `os.path.join()`/`os.walk()`, which on
     Windows yields '\\'-separated paths. `"...\\tests\\tools\\x.py".
-    endswith("tests/tools/x.py")` is False on EVERY incident (all seven
-    known-incident paths cross a directory), which is exactly why
-    --selftest found ZERO of seven on the Windows runners (GATE-ENV-
-    SWEEP calibration, measured 04/09/2026: forcing '/' -> '\\' on the
-    real hits reproduces 0/7 candidates for every incident on Linux
-    too). Comparing on '/' only, here, fixes the match without
-    touching how `h["file"]` is built or printed anywhere else.
+    endswith("tests/tools/x.py")` is False on EVERY known-incident path
+    (all of them cross a directory), which is exactly why --selftest
+    found ZERO of them on the Windows runners (GATE-ENV-SWEEP
+    calibration, measured 04/09/2026: forcing '/' -> '\\' on the real
+    hits reproduces zero candidates for every incident on Linux too).
+    Comparing on '/' only, here, fixes the match without touching how
+    `h["file"]` is built or printed anywhere else.
     """
     return path.replace(os.sep, "/") if os.sep != "/" else path
 
 
 def calibrate_against_known_incidents(project_root):
     """Reruns the REAL sweep against the REAL tree (never a fixture)
-    and checks, for each of the seven known incidents, that the
+    and checks, for each known incident in `_KNOWN_INCIDENTS`, that the
     matching category fires in the expected file AND that the
     declaration window around the FIRST such match contains the
     expected marker text. Returns (found_count, total_count, per-
     incident detail) - never hides which ones were NOT found, exactly
     what the calibration exists to prove (TODO.md: "reencontrar as
-    sete encarnacoes conhecidas... e a calibracao").
+    encarnacoes conhecidas... e a calibracao").
     """
     _files, hits = sweep_all(project_root)
     results = []
@@ -765,8 +771,9 @@ def selftest_output_encoding_non_python_exempt_control(scratch):
 def selftest_calibration_control(project_root):
     """Runs calibrate_against_known_incidents() against the REAL
     project tree (the one --selftest was invoked from, resolved the
-    same way real_main() would) and requires ALL SEVEN to be found -
-    the calibration TODO.md's own GATE-ENV-SWEEP item demands.
+    same way real_main() would) and requires ALL of `_KNOWN_INCIDENTS`
+    to be found - the calibration TODO.md's own GATE-ENV-SWEEP item
+    demands.
     """
     results = calibrate_against_known_incidents(project_root)
     found = [r for r in results if r["found"]]
@@ -776,7 +783,7 @@ def selftest_calibration_control(project_root):
         print(f"selftest: calibracao incidente {r['n']} ({r['what']}): {status}")
     if missing:
         print(
-            f"selftest: controle de CALIBRACAO FALHOU ({len(found)}/{len(results)} das sete encarnacoes "
+            f"selftest: controle de CALIBRACAO FALHOU ({len(found)}/{len(results)} encarnacoes "
             f"conhecidas reencontradas - faltam: {[m['n'] for m in missing]})",
             file=sys.stderr,
         )

@@ -94,7 +94,13 @@ GLINTFX_TEST(sending_a_real_wm_close_sets_the_latch_and_leaves_the_window_alive)
     // same "synthetic message, own thread, never a real user click"
     // technique tests/CMakeLists.txt's own seat_test block already
     // documents for its WM_INPUT_DEVICE_CHANGE case.
-    const HWND handle = window.native_handle();
+    // Not `const HWND` (clang-tidy misc-misplaced-const, the same
+    // gemeo found and fixed in src/platform/win32/wgl_extension_
+    // loader.cpp: HWND is itself a pointer typedef, so `const HWND`
+    // qualifies the pointer, not the pointee) - matches every other
+    // HWND local in this suite (e.g. wgl_context_adapter.cpp's own
+    // `HWND hwnd = window.native_handle();`).
+    HWND handle = window.native_handle();
     ::SendMessageW(handle, WM_CLOSE, 0, 0);
 
     GLINTFX_CHECK(window.state().close_requested());

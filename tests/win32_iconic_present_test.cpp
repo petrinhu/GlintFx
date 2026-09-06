@@ -73,6 +73,20 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     // minimize/restore, never because open() itself ever calls
     // ShowWindow.
     ::ShowWindow(window.native_handle(), SW_SHOWNOACTIVATE);
+    // pump_events() after EVERY ShowWindow() (display_adapter.hpp's
+    // own header comment on pump_events(): "the non-blocking event
+    // pump ARCH-PORTS's own consumer loop calls once per frame" - a
+    // REAL consumer never goes from a window-state change straight to
+    // GL work without pumping in between). ShowWindow()'s own
+    // WM_WINDOWPOSCHANGED -> WM_SIZE/WM_MOVE chain is SENT (delivered
+    // synchronously, window_message_route.hpp's own header comment),
+    // but Windows also POSTS messages around a visibility/iconic
+    // transition (WM_PAINT, WM_NCACTIVATE among them) that only reach
+    // this window's own queue through a pump - this fixture is the
+    // FIRST win32 test in this suite to call ShowWindow() at all, and
+    // was the first to skip the pump every other consumer of this
+    // adapter is documented to perform.
+    GLINTFX_CHECK(!display.pump_events().has_error());
 
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented_before_minimize =
         context.swap_buffers();
@@ -85,6 +99,7 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     const std::uint32_t swaps_before_minimize = context.swap_calls_issued();
 
     ::ShowWindow(window.native_handle(), SW_MINIMIZE);
+    GLINTFX_CHECK(!display.pump_events().has_error()); // same reasoning as the pump above
     const BOOL is_iconic_now = ::IsIconic(window.native_handle());
     std::println("MEASURED win32_iconic_present_test.is_iconic_after_minimize={}",
                  is_iconic_now != 0);
@@ -104,6 +119,31 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     GLINTFX_CHECK(context.swap_calls_issued() == swaps_before_minimize);
 
     ::ShowWindow(window.native_handle(), SW_RESTORE);
+    // THE FIX (GODS_LAWS.md L-44): the real windows-latest runner
+    // measured `!after_restore.has_error()` FALSE here before this
+    // pump existed - swap_buffers() calling ::SwapBuffers() right
+    // after SW_RESTORE, with no message pumped in between, on the
+    // Mesa opengl32 software rasterizer this project's own CI installs
+    // (tools/ci/install-mesa-opengl32.ps1). Two hypotheses were on the
+    // table: a real WGL adapter defect on restore (fix the product),
+    // or the headless runner genuinely unable to ever present here
+    // (the test would then have to measure and declare, not assert).
+    // Neither IsIconic()'s own window-STYLE bit (flips synchronously,
+    // WS_MINIMIZE is plain window state) nor win32_gl_context_adapter
+    // itself (src/platform/win32/wgl_context_adapter.cpp: no WM_SIZE/
+    // WM_ACTIVATE handling anywhere, no code path that could leave a
+    // stale DC/context across a minimize cycle - m_dc is CS_OWNDC,
+    // display_adapter.cpp's own class registration, so it is NOT the
+    // shared/common DC that Windows can silently invalidate) points at
+    // a product defect. What DOES point elsewhere: pump_events() is
+    // this project's OWN documented mechanism for exactly this
+    // ("ARCH-PORTS's own consumer loop calls once per frame",
+    // display_adapter.hpp) - a real consumer restoring a window and
+    // then presenting into it always pumps in between; this fixture,
+    // like the other two ShowWindow() calls above, did not. The gap
+    // was in this test's own exercise procedure, not in the adapter
+    // under test nor an unfixable limitation of the runner.
+    GLINTFX_CHECK(!display.pump_events().has_error());
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> after_restore =
         context.swap_buffers();
     GLINTFX_CHECK(!after_restore.has_error());

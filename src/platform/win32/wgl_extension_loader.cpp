@@ -77,7 +77,14 @@ LRESULT CALLBACK loader_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 gltfx_rslt<wgl_extension_pointers>
 load_wgl_extension_pointers(HWND *out_discarded_window) noexcept {
     const std::array<wchar_t, k_class_name_chars> class_name = loader_class_name();
-    const HINSTANCE module = ::GetModuleHandleW(nullptr);
+    // Not `const HINSTANCE` (clang-tidy misc-misplaced-const, caught on
+    // the real Windows CI runner): HINSTANCE is itself a pointer
+    // typedef (`struct HINSTANCE__ *`), so `const HINSTANCE` applies
+    // the qualifier to the POINTER, not the pointee
+    // (`HINSTANCE__ *const`, never `const HINSTANCE__ *`) - the same
+    // reasoning every other HWND/HDC/HGLRC local in this file already
+    // follows by simply never writing `const` in front of them.
+    HINSTANCE module = ::GetModuleHandleW(nullptr);
 
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(WNDCLASSEXW);

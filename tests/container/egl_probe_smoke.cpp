@@ -473,7 +473,7 @@ class egl_context_guard {
 } // namespace
 
 int main() {
-    // Line-buffer stdout explicitly (defect found by a reviewer
+    // Unbuffer stdout explicitly (defect found by a reviewer
     // running this fixture for real): stdout is FULLY buffered by
     // default whenever it is not a TTY - exactly the case for every
     // real invocation of this probe (`docker exec ... | tee -a
@@ -484,13 +484,26 @@ int main() {
     // libc buffer's flush threshold - all 25+ MEASURED lines this
     // probe can produce, gone, with nothing on the other end of the
     // pipe to show for it. A reader would see "died immediately" for
-    // a run that in fact measured everything. Forcing line buffering
+    // a run that in fact measured everything. Forcing no buffering
     // makes every fprintf(..., "\n") reach the pipe as soon as it is
     // printed, immune to whatever happens to this process afterward -
     // GODS_LAWS.md L-40's own "medida sem leitor" rule extended one
     // step earlier: a measurement that never reaches the pipe is
-    // indistinguishable from one that was never taken.
-    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+    // indistinguishable from one that was never taken. CORRECTED same
+    // day (06/09/2026): this line originally asked for `_IOLBF` with
+    // `size` 0, and that combination is what crashed the Windows CI
+    // job with 0xC0000409 - MSVC's setvbuf requires 2 <= size <=
+    // INT_MAX for the `_IOFBF`/`_IOLBF` modes and invokes its
+    // invalid-parameter handler (which aborts the process) outside
+    // that range (learn.microsoft.com/cpp/c-runtime-library/reference/
+    // setvbuf); glibc never validated that range, which is why this
+    // line built and ran clean on every machine that wrote it. `_IONBF`
+    // ignores `size` and `buffer` entirely, so no range applies - and
+    // MSVC's own docs say `_IOLBF` behaves exactly like `_IOFBF` (full
+    // buffering) on Win32 anyway, so the line was never buying the
+    // per-line flush this comment promises on that platform in the
+    // first place.
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
     glintfx::platform::wayland_display_adapter adapter;
     glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {

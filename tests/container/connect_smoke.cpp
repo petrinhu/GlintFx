@@ -40,7 +40,7 @@
 // docker exec invocation.
 
 int main() {
-    // Line-buffer stdout explicitly (achado de 06/09/2026, docs/plano-
+    // Unbuffer stdout explicitly (achado de 06/09/2026, docs/plano-
     // w6b-placa-e-laco.md fatia 1, egl_probe_smoke.cpp's own header
     // comment on probe_egl_and_gl(): a REAL crash of that sibling
     // fixture, in container, printed NOTHING at all - not because it
@@ -56,8 +56,20 @@ int main() {
     // smoke.cpp itself, so a crash anywhere in this family reports
     // whatever it measured before dying instead of nothing at all
     // (GODS_LAWS.md L-40: a measurement that never reaches the pipe is
-    // indistinguishable from one that was never taken).
-    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+    // indistinguishable from one that was never taken). CORRECTED same
+    // day: `_IOLBF` with `size` 0 is what this line originally passed,
+    // and the Windows CI job died with 0xC0000409 - MSVC's setvbuf
+    // requires 2 <= size <= INT_MAX for the `_IOFBF`/`_IOLBF` modes and
+    // invokes its invalid-parameter handler (which aborts the process)
+    // outside that range (learn.microsoft.com/cpp/c-runtime-library/
+    // reference/setvbuf); glibc never validated that range, which is
+    // why this line built and ran clean on every machine that wrote it.
+    // `_IONBF` ignores `size` and `buffer` entirely, so it needs no
+    // range at all - and MSVC's own docs say `_IOLBF` behaves exactly
+    // like `_IOFBF` (full buffering) on Win32 anyway, so the original
+    // line was never delivering the per-line flush its own comment
+    // above promised on that platform in the first place.
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 

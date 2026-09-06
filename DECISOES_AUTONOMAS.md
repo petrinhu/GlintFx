@@ -1939,3 +1939,93 @@ leitura real de hardware acontece na demo, e o relatorio de QA registra o par.
 O contrato cabe na fatia do contexto; **a classificacao de hardware vira fatia propria**,
 os dois sistemas juntos, depois de o contexto existir e antes do laco -- ela precisa de um
 contexto corrente para saber que placa o driver escolheu.
+
+---
+
+## As opcoes graficas, o v-sync, o automatico, o teclado e o mouse  `[06/09/26 - 12:27:52]`
+
+**Cinco ordens do lider, todas de 06/09/2026, decididas pelo CTO sob a lei nova (L-44:
+buscar o que o mercado faz E as dores de quem usa, e responder com as duas).**
+
+### O mecanismo: a promessa e a FORMA, nao a lista
+
+A proposta que eu levei foi aceita com tres refinamentos: **o numero de opcoes cresce sem
+congelar N campos**. A superficie congela **como se pede uma opcao e como se pergunta se
+ela existe neste sistema**; as opcoes entram por lista que so cresce.
+
+⚠️ **E a parte que resolve a dor de verdade:** pedir opcao que **nao existe neste sistema**
+e **recusado pelo nome**, nunca degradado em silencio. Isso veio direto de uma dor
+relatada -- biblioteca de referencia em que pedir sincronia adaptativa **falha e manda
+tentar outro valor**, sem dizer o que aconteceu.
+
+**Toda opcao declara QUANDO vale:** so na abertura, ao vivo, ou so leitura. O menu do
+consumidor consegue rotular "exige reiniciar" **sem manter tabela propria** -- outra dor
+relatada.
+
+### V-sync: "ligado" NAO e o valor literal que trava
+
+⚠️ **A armadilha medida:** sincronia ligada **congela o processo inteiro** quando a janela
+sai de vista. **Quem pede sincronia pede "nao rasgar, nao desperdicar quadro"** -- nao
+pede "trave quando eu minimizar". Entao "ligado" significa **um quadro por apresentacao da
+tela enquanto visivel, e pulado quando oculta**, e o cabecalho diz que ligado **nunca
+bloqueia indefinidamente**.
+
+**Duas dores viraram contrato:** no Windows a troca de quadro sincroniza com o monitor e
+nao com o compositor, o que produz engasgo -- entra a espera pelo compositor antes da
+troca; e em certos sistemas o compositor **impoe a espera mesmo com sincronia desligada**,
+entao a promessa de "desligado" encolhe honestamente para **"a biblioteca nao espera"**, e
+a realidade se **le no tempo do quadro**, nunca se assume.
+
+### Desempenho e automatico: a regra decide UMA vez, e nunca se readapta sozinha
+
+"Poupar a placa" e, com honestidade, tres coisas que a biblioteca controla: sincronia,
+teto de quadros, e preferencia de placa. O modo automatico **resolve no ato** para um
+ajuste concreto, por regra fixa e impressa, a partir de dois fatos que o sistema afirma:
+**tipo de placa e fonte de energia**.
+
+⚠️ **O que ficou FORA, declarado:** automatico que mede quadro a quadro e se adapta
+sozinho. **Automatico que decide errado no meio do jogo e pior que manual** -- e as dores
+confirmaram, com relatos de deteccao errando **para os dois lados**.
+
+⚠️ **E a dor que mudou o desenho:** gente reclamando de configuracao que **volta sozinha**
+a cada inicio. Entao: o padrao e **manual**, o automatico **so roda quando pedido**, e a
+biblioteca **nunca persiste nem reaplica nada**. Os dois insumos da regra viraram
+**publicos**, para o consumidor escrever a propria regra se quiser.
+
+⚠️ **Nenhuma dor pedia opcao nova.** Todas eram **opcao que mente, some ou nao avisa**.
+Viraram contrato e teste, nao campo.
+
+### Teclado: CONFIRMADO PELO LIDER que o parser continua
+
+**Ordem dele:** *"teclado deve ser o informado pelo SO, não precisa novo detector"*.
+
+⚠️ **O CTO nomeou a ambiguidade em vez de presumir, e fez certo:** uma das leituras
+**revogaria a lei de 21/08** (parser proprio) e traria de volta a dependencia que ela
+tirou. **Levado ao lider por pergunta, com o argumento CONTRA a revogacao escrito antes.**
+
+**Resposta dele: o parser CONTINUA.** A trilha e o **leitor** do que o sistema informa;
+**parser nao e detector**. E "nao precisa detector" vira **proibicao explicita de
+adivinhar**: identificar teclado fisico, deduzir layout por hardware ou regiao, embutir
+mapa proprio, enumerar teclados. **Nada disso estava planejado** -- o escopo nao muda, so
+ganha proibicoes.
+
+### Mouse: o limite e do sistema, e a biblioteca nao poe outro
+
+**Ordem dele, com o esclarecimento que mudou o desenho:** *"se o app do mouse fizer o SO
+expor mais botoes sem que glintfx precise enxergar esse app, tudo bem. Mas nossa lib não
+pode ligar diretamente ao app do fabricante"*.
+
+⚠️ **A fronteira nao e onde os botoes nascem, e COM QUEM a biblioteca fala.** Se o programa
+do fabricante ensina o sistema a expor dez botoes, lemos os dez pelo caminho normal e **nem
+sabemos que ele existe**.
+
+Botao vira **codigo numerico aberto**, nao lista fechada: no Wayland repassa qualquer
+codigo que o compositor entregar. **"Quantos botoes existem" sao DUAS respostas medidas**,
+nunca o cinco assumido. E uma dor virou teste: **botao que fica preso quando a janela perde
+o foco** -- agora a soltura e sintetica e deterministica.
+
+### A porta que a onda atual reserva para a entrada
+
+O conjunto de chamadas do laco ganha **ja** o campo de evento de entrada, com o tipo so
+declarado, e **recusado se preenchido** ate a fatia que o entrega. Layout de struct visivel
+nao aceita campo novo depois sem quebrar compatibilidade binaria.

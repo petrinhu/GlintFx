@@ -55,11 +55,15 @@
 // file's own header comment.
 
 int main() {
-    // Line-buffer stdout explicitly - same fix, same reason, applied
-    // to all ten fixtures in this family (connect_smoke.cpp's own
-    // header comment on this exact line, docs/plano-w6b-placa-e-laco.md
-    // fatia 1, 06/09/2026).
-    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+    // Unbuffer stdout explicitly - same fix, same reason, applied to
+    // all ten fixtures in this family (connect_smoke.cpp's own header
+    // comment on this exact line, docs/plano-w6b-placa-e-laco.md fatia
+    // 1, 06/09/2026; corrected same day, connect_smoke.cpp's own
+    // header comment again, after `_IOLBF` with `size` 0 crashed the
+    // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
+    // combination outside its documented 2 <= size <= INT_MAX range,
+    // while `_IONBF` ignores `size`/`buffer` entirely).
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 

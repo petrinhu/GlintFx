@@ -55,15 +55,26 @@
 // standard.
 
 int main() {
-    // Line-buffer stdout explicitly - same fix, same reason, applied
+    // Unbuffer stdout explicitly - same fix, same reason, applied
     // to all ten fixtures in this family (tests/container/connect_
     // smoke.cpp's own header comment on this exact line, docs/plano-
-    // w6b-placa-e-laco.md fatia 1, 06/09/2026). Portable: `_IOLBF` and
-    // `std::setvbuf` are both plain C89, available on every compiler
-    // this project targets (including MSVC, which registers this ctest
-    // directly on Windows - this file's own header comment on why it
-    // has no #if defined(_WIN32) anywhere).
-    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+    // w6b-placa-e-laco.md fatia 1, 06/09/2026). `std::setvbuf` itself
+    // is plain C89, available on every compiler this project targets
+    // (including MSVC, which registers this ctest directly on Windows -
+    // this file's own header comment on why it has no #if
+    // defined(_WIN32) anywhere), but the MODE this line asks for is
+    // not portable in practice: the original `_IOLBF` with `size` 0
+    // crashed the Windows CI job with 0xC0000409, because MSVC's
+    // setvbuf requires 2 <= size <= INT_MAX for the `_IOFBF`/`_IOLBF`
+    // modes and aborts the process outside that range (learn.
+    // microsoft.com/cpp/c-runtime-library/reference/setvbuf) - glibc
+    // never validated that range, which is why the same line built and
+    // ran clean on Linux. `_IONBF` ignores `size` and `buffer`
+    // entirely, so no range applies on either system, and it is the
+    // one mode MSVC's own docs confirm actually disables buffering on
+    // Win32 (`_IOLBF` there behaves exactly like `_IOFBF`, full
+    // buffering, never line-by-line).
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {

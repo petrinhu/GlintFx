@@ -1215,3 +1215,24 @@ lei de dependencia zero, que sempre tratou API do sistema como permitida.
 
 O que continua proibido, sem mudanca: ligar em aplicativo de fabricante, e
 inventar detector proprio para o que o sistema ja responde.
+
+**Terceira ordem do mesmo dia, sobre o unico caso que o sistema nao respondia
+diretamente (a placa NVIDIA em Linux com driver proprietario). Verbatim:**
+
+> *"podemos consultar o OS se tem mais de uma placa. Se tiver, perguntamos ao sistema se a OUTRA placa é integrada. Se for, por exclusao, a nvidia será dedicada... Se tiver apenas nvidia, outra maneira é checar se ram e vram são separadas ou compartilhadas..."*
+
+**O que a ordem determina.** Antes de aceitar qualquer regra escrita por nos, duas
+vias precisam ser tentadas, nesta ordem, e as duas continuam sendo pergunta ao
+sistema:
+
+1. **Por exclusao, quando ha mais de uma placa.** O sistema ja responde a
+   classificacao das outras placas; se a outra e a integrada, a que sobra e a
+   dedicada. A resposta continua vindo do sistema, so que sobre o vizinho.
+2. **Pela separacao de memoria, quando ha uma placa so.** Se a memoria de video e
+   separada da memoria do computador, a placa e dedicada; se as duas sao a mesma,
+   e compartilhada. Isto e a propria definicao da diferenca, e e medivel.
+
+**Consequencia:** a excecao proposta pelo C-level (tratar toda NVIDIA em Linux
+como dedicada por regra nossa) fica SUSPENSA. Ela so volta a mesa se as duas vias
+acima forem medidas e nenhuma responder - com a medicao de cada uma anexada,
+nunca por presuncao.

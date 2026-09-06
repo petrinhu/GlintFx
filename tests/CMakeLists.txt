@@ -1199,6 +1199,34 @@ add_test(
 )
 set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
 
+# TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44, achado
+# real de 06/09/2026, CI run 34033291326): this test had been inheriting
+# the SUITE-WIDE 120s default (cmake/GlintfxTest.cmake's own
+# glintfx_set_default_test_timeout(), sized for lightweight unit tests
+# and the standalone-CMake-project consumption gates, "a legitimate run
+# finishes in a small fraction of it") until it timed out for the first
+# time on "Windows - estatico". Before touching the number, the nine
+# PRECEDING green runs of that same job were pulled from the server
+# (`gh run view --job <id> --log`, never estimated) and their own
+# "FASE" block (check_public_name_collision.py's own INSTRUMENT-PNC)
+# compared: "nomes publicos" (178), "diretorios de sistema" (9) and
+# "arquivos encontrados" (6217, ~389MB read) were IDENTICAL across all
+# nine - this project's own public API had not grown since the SEVENTH
+# run back, so the work this gate does had not grown either. The total
+# test time across those nine identical-workload runs still ranged
+# 51.26s-100.62s (mean ~67.4s) - variance close to 2x with ZERO change
+# in what was being measured, the same executor-I/O intermittency
+# BATCH-PARITY-WIN already named in check_public_name_collision.py's own
+# header on 05/09/2026, not a regression proportional to this library's
+# growth (the diagnostic this project's own precedent - a process spent
+# per swept item - would call for instead, and does not apply here: this
+# gate was already a single batched invocation before this finding).
+# 100.62s already used 84% of the 120s default before the run that
+# finally crossed it; 300s restores roughly the SAME headroom ratio the
+# suite-wide default gives lighter tests, over the measured worst case,
+# without guessing a number nobody ran.
+set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 300)
+
 add_test(
     NAME public_name_collision_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"

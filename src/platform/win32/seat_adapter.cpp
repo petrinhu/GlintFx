@@ -195,7 +195,27 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
                 // recomputes from whatever it could read.
                 devices.clear();
             } else {
-                devices.resize(filled);
+                // This second resize() SHRINKS in practice (`filled` is
+                // never greater than the `device_count` just allocated
+                // for, per the two-call idiom's own contract above) - a
+                // shrinking resize() never reallocates, so this call can
+                // never actually throw. clang-tidy's bugprone-exception-
+                // escape does not make that grow-vs-shrink distinction
+                // for std::vector::resize() though: it flagged this
+                // exact line as a possible-throw call site on the real
+                // server (MSVC STL, CI run 34033291326, 06/09/2026) even
+                // after the first resize() above was already guarded -
+                // this project's local mingw/libstdc++ toolchain did not
+                // catch it either time, the same declared limitation the
+                // first resize()'s own comment names. Guarded here for
+                // the SAME reason, not because this path is believed to
+                // fail in practice: degrading to "no devices this round"
+                // matches the race branch immediately above.
+                try {
+                    devices.resize(filled);
+                } catch (const std::bad_alloc &) {
+                    devices.clear();
+                }
             }
         }
     }

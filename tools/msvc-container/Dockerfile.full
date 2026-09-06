@@ -1,0 +1,34 @@
+# tools/msvc-container/Dockerfile.full
+#
+# Estagio 2: empacota o MSVC ja baixado (passo separado, documentado no
+# README.md deste diretorio) DENTRO da imagem, para o container final ser
+# autocontido - sem depender de volume montado nem de rede em uso normal.
+#
+# ATENCAO - LICENCA (README do mstorsjo/msvc-wine, citado verbatim):
+# "As Visual Studio isn't redistributable, the installed toolchain isn't
+# either." Esta imagem e para uso LOCAL do time desta maquina, nunca para
+# publicar em registry nem distribuir a terceiros.
+#
+# Build (a partir da RAIZ deste diretorio, com o download ja feito em
+# <dir-de-trabalho>/opt-msvc pelo passo 1 do README.md):
+#   docker build -t glintfx-msvc:latest -f Dockerfile.full <dir-de-trabalho>
+
+FROM glintfx-msvc-base:latest
+
+COPY opt-msvc /opt/msvc
+
+ENV PATH="/opt/msvc/bin/x64:${PATH}"
+ENV WINEARCH=win64
+ENV WINEDEBUG=-all
+ENV WINEPREFIX=/opt/wineprefix
+ENV HOME=/opt
+
+# Prepara o wineprefix em tempo de BUILD (nao em cada `docker run`): evita
+# o custo de inicializacao e a mensagem de aviso benigna sobre o
+# rundll32.exe de 32 bits ausente (este container so tem wine64 - a
+# variante 32 bits nao e necessaria para compilar C++ x64). `cl` sozinho
+# ja acorda o wineboot; chamado aqui so para a camada da imagem sair
+# pronta.
+RUN cl 2>&1 | tail -5 || true
+
+WORKDIR /work

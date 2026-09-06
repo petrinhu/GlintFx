@@ -632,6 +632,40 @@ target_sources(seat_capabilities_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
 )
 
+# C-OPT (docs/plano-w6b-placa-e-laco.md fatia 2a, GODS_LAWS.md L-17/
+# L-19/L-20/L-26/L-40): the append-only graphics-option registry
+# (include/glintfx/platform/gl/gfx_option.hpp, gltfx_gfx_option and its
+# four public discovery functions) and its two pure atoms - see each
+# test file's own header comment. All three are OS-agnostic (no
+# Wayland/Win32/EGL/WGL type reachable from any of them), registered
+# UNGUARDED like window_state_test and its neighbors just above.
+#
+# gfx_option_registry_test only exercises the PUBLIC header (gfx_
+# option_registry.cpp's own four GLINTFX_API functions are already
+# linked in through glintfx::glintfx below) - no "${PROJECT_SOURCE_DIR}
+# /src" include dir needed, same as gfui_node_state_test above needs
+# none either.
+glintfx_add_test(gfx_option_registry_test)
+
+# gfx_option_validation_test and gfx_open_only_fixation_test recompile
+# their own atom's .cpp a second time (neither carries GLINTFX_API -
+# GODS_LAWS.md L-19, "nada e exportado" - so there is no hidden library
+# symbol to link against, only source to recompile, the same technique
+# window_desc_validation_test above already uses). gfx_option_registry.
+# hpp's own table and find_gfx_option_row() are `inline` - reachable
+# from both without a third recompiled .cpp.
+glintfx_add_test(gfx_option_validation_test)
+target_include_directories(gfx_option_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfx_option_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_option_validation.cpp"
+)
+
+glintfx_add_test(gfx_open_only_fixation_test)
+target_include_directories(gfx_open_only_fixation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfx_open_only_fixation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
+)
+
 # Wayland-DOMAIN, not Wayland-ONLY (see this file's own header comment
 # above global_catalog_test on the exact same distinction, and this
 # file's own header comment for why guarding this one would repeat
@@ -859,6 +893,29 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(win32_display_connect_test PRIVATE user32)
+endif()
+
+# PARITY-GATE (achado do servidor real, 05/09/2026, run 34043723220):
+# o par Windows de tests/display_native_display_test.cpp - o mesmo
+# fato de fronteira (o acessor de handle nativo comeca nulo antes de
+# open()), so que para win32_display_adapter::native_handle() em vez
+# de wayland_display_adapter::native_display(). Mesmo if(WIN32)/
+# segunda-compilacao que win32_display_connect_test acima (win32_
+# display_adapter nao tem GLINTFX_API - GODS_LAWS.md L-19).
+if(WIN32)
+    glintfx_add_test(win32_display_native_handle_test)
+    target_include_directories(win32_display_native_handle_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_display_native_handle_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only, mesma
+        # razao do bloco win32_display_connect_test acima (o wndproc
+        # compartilhado de display_adapter.cpp chama win32_window_
+        # adapter_route_message() em tempo de link, mesmo o adaptador
+        # sob teste nunca chegando a abrir uma janela real aqui).
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+    )
+    target_link_libraries(win32_display_native_handle_test PRIVATE user32)
 endif()
 
 # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, D-W6a-16,
@@ -1380,6 +1437,28 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py" --selftest
 )
 set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
+
+# C-OPT id gate (docs/plano-w6b-placa-e-laco.md fatia 2a, GODS_LAWS.md
+# L-26/L-40): gltfx_gfx_option's own append-only numeric ids (include/
+# glintfx/platform/gl/gfx_option.hpp), cross-checked against the
+# registry table's own row order and "dado" name strings (src/platform/
+# gl/gfx_option_registry.hpp) - see that script's own header for the
+# full four-item contract. Registered unguarded, same shape as
+# layers_test/layers_selftest just above (this gate is pure text
+# analysis, no OS-specific behavior to diverge on).
+add_test(
+    NAME gfx_option_ids_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gfx_option_ids.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(gfx_option_ids_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME gfx_option_ids_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gfx_option_ids.py" --selftest
+)
+set_tests_properties(gfx_option_ids_selftest PROPERTIES LABELS selftest)
 
 # L-05/L-06 gate (GODS_LAWS.md, "Gate L-05/L-06" job of
 # .github/workflows/ci.yml): proves the repository has no forbidden

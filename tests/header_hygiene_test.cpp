@@ -122,6 +122,7 @@
 #include <glintfx/gfss/value.hpp>
 #include <glintfx/gfui/node_view.hpp>
 #include <glintfx/platform/asset/file.hpp>
+#include <glintfx/platform/gl/gfx_option.hpp>
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 #include <glintfx/version_macros.hpp>
@@ -502,4 +503,32 @@ GLINTFX_TEST(display_header_declaration_survives_hostile_system_headers) { GLINT
 // compile" inside a runtime test harness).
 GLINTFX_TEST(window_handle_header_declaration_survives_hostile_system_headers) {
     GLINTFX_CHECK(true);
+}
+
+// gfx_option_header_survives_hostile_system_headers - C-OPT (docs/
+// plano-w6b-placa-e-laco.md fatia 2a): glintfx/platform/gl/gfx_option.
+// hpp's four call-shaped entry points are exercised here as real call
+// expressions, the SAME CE-8 discipline the cases above already apply;
+// the enum's own eight enumerators and the three plain-data structs'
+// own fields are already exercised at their DECLARATION site by the
+// mere #include above under the hostile order.
+GLINTFX_TEST(gfx_option_header_survives_hostile_system_headers) {
+    const std::size_t count = glintfx::gltfx_gfx_option_count();
+    GLINTFX_CHECK(count > 0);
+
+    const glintfx::gltfx_gfx_option_info first = glintfx::gltfx_gfx_option_at(0);
+    GLINTFX_CHECK(first.id == glintfx::gltfx_gfx_option::vsync);
+
+    const glintfx::gltfx_gfx_option_info described =
+        glintfx::gltfx_gfx_option_describe(glintfx::gltfx_gfx_option::vsync);
+    GLINTFX_CHECK(described.name == std::string_view{"vsync"});
+
+    const glintfx::gltfx_rslt<glintfx::gltfx_gfx_option> found =
+        glintfx::gltfx_gfx_option_by_name("vsync");
+    GLINTFX_CHECK(found.has_value());
+    GLINTFX_CHECK(found.value() == glintfx::gltfx_gfx_option::vsync);
+
+    constexpr glintfx::gltfx_gfx_option_entry entry{.id = glintfx::gltfx_gfx_option::vsync,
+                                                    .value = 1};
+    GLINTFX_CHECK(entry.value == 1);
 }

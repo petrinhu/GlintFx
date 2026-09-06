@@ -60,6 +60,17 @@ add_subdirectory(window)
 # side compile silently while the other's linker caught it.
 add_subdirectory(input)
 
+# gl/ is added unconditionally too, same reasoning as port/, window/
+# and input/ above: C-OPT's own registry and two pure atoms (docs/
+# plano-w6b-placa-e-laco.md fatia 2a, src/platform/gl/CMakeLists.txt's
+# own header comment) touch no operating-system header either - the
+# gl_context handle fatia 2b adds to this same directory later is what
+# first reaches EGL/WGL, and it will need its own per-platform wiring
+# then, same as window/ already separates window_state.cpp (here) from
+# wayland/window_adapter.cpp and win32/window_adapter.cpp (the two
+# branches below).
+add_subdirectory(gl)
+
 # UNIX: selects the Wayland backend (WL-PROTO, GODS_LAWS.md L-05 -
 # Wayland is the only Linux surface this project targets). wayland/'s
 # own CMakeLists.txt wires in wayland_display_adapter and the internal

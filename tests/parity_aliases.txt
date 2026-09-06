@@ -66,6 +66,24 @@ display_connect_failure_test|win32_display_connect_test
 # sobrescrever a outra na direcao que importa (windows_only -> linux).
 display_connect_failure_test|win32_display_refusal_test
 
+# PARITY-GATE (achado do servidor real, 05/09/2026, run 34043723220):
+# display_native_display_test (tests/CMakeLists.txt, sem guarda de
+# sistema - GLINTFX_TEST(native_display_is_null_before_open)) e
+# win32_display_native_handle_test (tests/CMakeLists.txt, if(WIN32))
+# provam o MESMO fato de fronteira - o acessor de handle nativo desta
+# classe comeca nulo antes de open() - cada um sobre o proprio
+# ponteiro/handle que sua classe expoe para fora do contrato de porta
+# (wl_display* de um lado, HWND do outro), exatamente o par que o
+# proprio comentario de display_native_display_test.cpp ja nomeava
+# ("win32's own native_handle() already expose for the analogous...
+# need") antes de existir teste nenhum do lado Windows para ele.
+# win32_display_adapter::native_handle() ja existia no codigo antes
+# desta fatia (doc do proprio header: "Test seam only") - so nunca
+# tinha teste cobrindo o estado ANTES de open(); os dois testes que
+# ja o liam (win32_display_refusal_test, two_displays_test) so o leem
+# DEPOIS de open() ter sido chamado.
+display_native_display_test|win32_display_native_handle_test
+
 # Os seis pares abaixo nascem da mesma fatia que este arquivo (PARITY-
 # GATE): dez verificacoes do Windows rodavam soltas como passo de
 # shell cru do job `windows` (.github/workflows/ci.yml), invisiveis a

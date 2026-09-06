@@ -2106,3 +2106,37 @@ Decidido por Caetano (CTO, fable) sob modo autônomo (L-34), registrado por mim
    arquivo" nesta onda). O verificador separado e um portao novo que parte das
    linhas de compilacao do `Containerfile`, resolve o fecho de includes e imprime
    `TUs/presentes/resolvidos/externos/faltando` sempre, mesmo zero.
+
+## 06/09/2026 - 18:45 | O conserto do defeito que derruba o processo do consumidor
+
+Achado medido pela fatia 5: a peca que fala com o sistema entrega a ele o
+endereco de si mesma e depois MUDA de lugar, entao todo aviso que o sistema
+manda mais tarde vai parar num endereco morto. O processo do consumidor morre.
+Ficou invisivel ate agora porque nenhum teste anterior mantinha uma janela
+desenhando por dezenas de quadros - e e so entao que o compositor manda o
+segundo aviso.
+
+Varredura completa: 10 lugares em 8 classes registram o proprio endereco. Tres
+medidos quebrando, dois confirmados por leitura nos DOIS sistemas, um adormecido,
+um seguro por ordem de chamada, um seguro por ignorar o endereco, e dois que ja
+tinham o conserto certo. E padrao, nao caso isolado.
+
+Cinco decisoes tomadas por Caetano (CTO, fable) no lugar do lider (L-34), todas
+reversiveis, todas esperando confirmacao retroativa:
+
+1. **A peca passa a ser imovel, em vez de corrigir o registro toda vez que ela
+   se move.** A alternativa mantinha a dependencia de cada autor lembrar de
+   corrigir - que e exatamente a causa do defeito.
+2. **A regra vale para todas as pecas, inclusive as que hoje nao registram
+   nada.** Razao dada pelo proprio lider em 02/09/2026, quando recusou excecao
+   parecida: julgamento caso a caso e onde se erra.
+3. **Reserva-se o lugar definitivo antes de abrir.** Consequencia declarada:
+   quando as duas coisas falham juntas, o consumidor passa a receber "sem
+   memoria" em vez do erro da abertura.
+4. **Entrega unica, com o gemeo do Windows no mesmo passo**, pela lei de
+   paridade. Depois que as duas frentes em obra fecharem.
+5. **A verificacao de memoria dos testes de container fica para fatia propria**
+   (foi para a INBOX): e trabalho pesado novo no servidor e muda a matriz.
+
+**A superficie publica nao muda** - conferido, os cabecalhos publicos ficam
+intocados, e o que o consumidor segura continua podendo ser movido.

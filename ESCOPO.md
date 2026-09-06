@@ -1200,3 +1200,18 @@ proprio para o que o sistema ja sabe responder.
 so se sustenta se ficar provado que o sistema operacional daquele alvo nao
 informa a classificacao - e essa prova precisa ser medida no mecanismo real, nao
 presumida.
+
+**Complemento dado minutos depois, verbatim:**
+
+> *"nós não precisamos assumir tarefas do OS quanto a hardware. por isso o framework pode ligar no OS, diretamente ou via libs (opengl/wayland)"*
+
+Isto fecha duas coisas que estavam em aberto. **Primeira:** a biblioteca nao
+reimplementa o que o sistema operacional ja faz por hardware - descobrir,
+enumerar e classificar dispositivo e trabalho DELE, e o nosso trabalho e
+perguntar e repassar. **Segunda:** a via de pergunta pode ser a interface direta
+do sistema ou as bibliotecas de sistema que ja falamos (OpenGL, Wayland, e as
+equivalentes do Windows) - as duas sao legitimas, e nenhuma delas conflita com a
+lei de dependencia zero, que sempre tratou API do sistema como permitida.
+
+O que continua proibido, sem mudanca: ligar em aplicativo de fabricante, e
+inventar detector proprio para o que o sistema ja responde.

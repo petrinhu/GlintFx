@@ -63,7 +63,26 @@ class registered_class_guard {
 
     ~registered_class_guard() {
         if (m_atom != 0) {
-            ::UnregisterClassW(MAKEINTATOM(m_atom), ::GetModuleHandleW(nullptr));
+            // MAKEINTATOM's own documented return type is LPTSTR - the
+            // GENERIC-TEXT (TCHAR) macro, which resolves to LPSTR unless
+            // the translation unit defines UNICODE/_UNICODE (this
+            // project's build does not - CLAUDE.md's own "Comandos"
+            // section names no such define, and every other Win32 call
+            // in this project reaches the explicit W-suffixed function
+            // directly instead of the generic TCHAR alias). UnregisterClassW
+            // takes LPCWSTR, not LPTSTR - passing MAKEINTATOM's raw LPSTR
+            // result there is exactly the "encoding-neutral alias mixed
+            // with code that is not encoding-neutral" mismatch
+            // UnregisterClassW's own documented Remarks warn about
+            // (learn.microsoft.com/windows/win32/api/winuser/nf-winuser-unregisterclassw).
+            // The macro's own expansion is a bit-for-bit pointer cast of
+            // the atom regardless of TCHAR's width
+            // ((LPTSTR)((ULONG_PTR)((WORD)(m_atom)))) - so reinterpret_
+            // casting that pointer to LPCWSTR here is safe and matches the
+            // explicit-wide convention this file already calls
+            // UnregisterClassW under.
+            ::UnregisterClassW(reinterpret_cast<LPCWSTR>(MAKEINTATOM(m_atom)),
+                               ::GetModuleHandleW(nullptr));
         }
     }
 

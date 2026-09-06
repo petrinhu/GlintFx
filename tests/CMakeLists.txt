@@ -1851,6 +1851,36 @@ add_test(
 )
 set_tests_properties(dup_laws_selftest PROPERTIES LABELS selftest)
 
+# Cobertura de pacote de sistema (achado do lider, GHA run 34056358894,
+# commit 40c2622, 06/09/2026: catorze jobs Linux vermelhos porque
+# nenhum dos cinco alvos instalava o pacote que fornece egl.pc depois
+# que cmake/GlintfxEgl.cmake passou a exigi-lo via pkg_check_modules -
+# GODS_LAWS.md L-44, "portao que nunca rodou no ambiente real nao e
+# portao"). Deriva os dois lados ao vivo (modulos REQUIRED de
+# cmake/*.cmake, jobs que configuram a arvore principal em
+# .github/workflows/ci.yml) e cruza contra uma tabela modulo->pacote
+# por familia de distro MEDIDA (ver o cabecalho de
+# check_pkg_dep_coverage.py para a fonte de cada linha) - nunca
+# hardcoded contra a lista de pacotes de hoje.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): scanner de texto puro sobre
+# arquivos versionados, sem executar nada especifico de plataforma -
+# registrado sem guarda de sistema, mesma forma de x11_test/
+# dup_laws_test acima.
+add_test(
+    NAME pkg_dep_coverage_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkg_dep_coverage.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(pkg_dep_coverage_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME pkg_dep_coverage_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkg_dep_coverage.py" --selftest
+)
+set_tests_properties(pkg_dep_coverage_selftest PROPERTIES LABELS selftest)
+
 # [[nodiscard]] gate (CE-4 of CORE-ERROR, TODO.md; RSLT-PARITY-WIN,
 # GODS_LAWS.md L-04, ordem do lider 03/09/2026): proves
 # glintfx::gltfx_rslt<T>'s [[nodiscard]] is a real compiler diagnostic

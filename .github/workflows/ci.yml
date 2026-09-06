@@ -159,7 +159,7 @@ jobs:
             imagem: fedora:latest
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-              wayland-devel wayland-protocols-devel python3
+              wayland-devel wayland-protocols-devel libglvnd-devel python3
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -169,7 +169,7 @@ jobs:
             imagem: fedora:latest
             instalar: >-
               dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-              wayland-devel wayland-protocols-devel python3
+              wayland-devel wayland-protocols-devel libglvnd-devel python3
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -201,7 +201,7 @@ jobs:
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
               g++-14 gcc-14 cmake ninja-build pkg-config git
-              libwayland-dev libwayland-bin wayland-protocols python3
+              libwayland-dev libwayland-bin wayland-protocols libegl-dev python3
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -212,7 +212,7 @@ jobs:
             instalar: >-
               apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
               g++-14 gcc-14 cmake ninja-build pkg-config git
-              libwayland-dev libwayland-bin wayland-protocols python3
+              libwayland-dev libwayland-bin wayland-protocols libegl-dev python3
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -222,7 +222,7 @@ jobs:
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols python
+              wayland wayland-protocols libglvnd python
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -232,7 +232,7 @@ jobs:
             imagem: archlinux:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols python
+              wayland wayland-protocols libglvnd python
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -242,7 +242,7 @@ jobs:
             imagem: cachyos/cachyos:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols
+              wayland wayland-protocols libglvnd
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
@@ -252,7 +252,7 @@ jobs:
             imagem: cachyos/cachyos:latest
             instalar: >-
               pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols
+              wayland wayland-protocols libglvnd
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -1572,7 +1572,7 @@ jobs:
       - name: Instalar toolchain e ferramentas de lint
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel clang-tools-extra cppcheck
+          wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck
 
       - uses: actions/checkout@v4
 
@@ -1821,7 +1821,7 @@ jobs:
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel libasan libubsan
+          wayland-devel wayland-protocols-devel libglvnd-devel libasan libubsan
 
       - uses: actions/checkout@v4
 
@@ -1977,7 +1977,7 @@ jobs:
       - name: Instalar toolchain
         run: >-
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel python3
+          wayland-devel wayland-protocols-devel libglvnd-devel python3
 
       - uses: actions/checkout@v4
 
@@ -2191,7 +2191,7 @@ jobs:
       - name: Instalar toolchain
         run: >-
           dnf -y install clang cmake ninja-build pkgconf-pkg-config git
-          wayland-devel wayland-protocols-devel
+          wayland-devel wayland-protocols-devel libglvnd-devel
 
       - uses: actions/checkout@v4
 

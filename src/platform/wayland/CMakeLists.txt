@@ -41,6 +41,14 @@
 # directory's own CMakeLists.txt (src/platform/CMakeLists.txt's window/
 # subdirectory) - not repeated here.
 
+# GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-28) adds
+# connection_failure.cpp: the "a dead wl_display names the interface
+# that reprovou" atom, EXTRACTED from display_adapter.cpp's own
+# anonymous-namespace build_fatal_error() the moment egl_context_
+# adapter.cpp (this same fatia) became a SECOND caller that needs the
+# identical logic - not a "regra de 3" extraction, a "two callers, one
+# body" one (GODS_LAWS.md L-33).
+
 glintfx_add_wayland_xdg_shell_binding(glintfx_library)
 
 target_sources(glintfx_library PRIVATE
@@ -54,6 +62,7 @@ target_sources(glintfx_library PRIVATE
     selected_window_adapter_check.cpp
     seat_adapter.cpp
     frame_callback_sequence.cpp
+    connection_failure.cpp
     egl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
 )

@@ -23,6 +23,7 @@
 
 #include "platform/gl/gl_surface_size_policy.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/wayland/connection_failure.hpp"
 #include "platform/wayland/window_adapter.hpp"
 #include "platform/window/window_state.hpp"
 
@@ -355,6 +356,28 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
             gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_make_current"));
     }
 
+    // D-W6b-27 (docs/plano-w6b-fatias-5.md, F1 of that plan's own §0):
+    // the Mesa Wayland platform starts a NEW EGL context at swap
+    // interval 1 - in that mode, eglSwapBuffers() installs its own
+    // wl_surface.frame callback and BLOCKS waiting for it (emersion.fr/
+    // blog/2018/wayland-rendering-loop, Neil Roberts's own patch), a
+    // wait with NO budget at all, sitting UNDERNEATH frame_callback_
+    // sequence's own 100ms-budgeted wait above swap_buffers() below.
+    // With a hidden window, this used to hang the whole process before
+    // this adapter's own budget ever got a chance to say "skipped_
+    // hidden" - the exact regression this fatia's own §3.2 case T
+    // proves fixed by timing 60 swaps with `vsync=off`. Interval 0
+    // here, ONCE, right after the first make_current(): from now on
+    // the ONLY pacer on this Wayland side is frame_callback_sequence,
+    // driven explicitly by swap_buffers() below - `vsync=off` becomes
+    // what it always promised to be (D-W6b-18: "o mais rapido que o
+    // driver deixa"), never a disguised interval-1 wait. A driver that
+    // refuses this call (EGL_FALSE) is not a failure worth reporting:
+    // the EGL 1.5 spec (sec. 3.10.3) allows an implementation to ignore
+    // eglSwapInterval() outright, and this adapter's own budgeted wait
+    // is the only pacer either way once vsync=on asks for one.
+    eglSwapInterval(m_egl_display, 0);
+
     // Resolved the SAME way the public proc_address() below resolves
     // anything else - this atom is a caller of that exact mechanism,
     // one layer below any public handle (egl_probe_smoke.cpp's own
@@ -478,8 +501,24 @@ wayland_egl_context_adapter::open(wayland_window_adapter &window,
 
     m_surface = surface;
     m_window = &window;
-    attach_frame_listener();
-    m_frame_sequence.arm_pending();
+    // MEDIDO (docs/plano-w6b-fatias-5.md, esta fatia, achado do
+    // implementador contra kwin_wayland --virtual isolado, GODS_LAWS.md
+    // L-44/L-50): open() NAO arma um wl_surface.frame aqui. Fazer isso
+    // contradiz o proprio contrato que frame_callback_sequence.hpp ja
+    // documenta (frame_wait_plan::present_immediately - "either this is
+    // the very first frame this context has ever presented... the
+    // adapter may call eglSwapBuffers() right now, no socket I/O needed
+    // first") e o que frame_callback_sequence.cpp implementa (m_pending
+    // nasce false). Pedir o callback e marcar m_pending=true AQUI, antes
+    // de qualquer conteudo jamais commitado nesta superficie, e' pedir
+    // um aviso que a superficie nunca ganha: medido via WAYLAND_DEBUG=1
+    // que este compositor nunca da wl_callback.done para essa superficie
+    // sem buffer - as cinco tentativas da primeira apresentacao
+    // reprovavam com first_presented_attempt=0 antes deste conserto. O
+    // rearme real (attach_frame_listener()+arm_pending()) que ja existe
+    // no fim do ramo vsync=on de swap_buffers(), logo apos um eglSwap
+    // Buffers() bem-sucedido, ja cobre o PROXIMO quadro - esta linha
+    // aqui era redundante e, pela medicao, ativamente prejudicial.
     return gltfx_rslt<void>::ok();
 }
 
@@ -530,10 +569,29 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     // callback do quadro anterior com orcamento (100 ms)".
     constexpr std::uint32_t k_frame_callback_budget_ms = 100;
 
+    // D-W6b-28: every failure path below that COULD be the wl_display
+    // connection itself dying (a protocol error the compositor sent
+    // under our feet, or the socket going away) resolves through this
+    // ONE wl_surface's own display - the same wl_proxy_get_display()
+    // trick create_egl_display() already uses one function up, hoisted
+    // here so none of the three call sites below has to recompute it.
+    wl_display *display = wl_proxy_get_display(reinterpret_cast<wl_proxy *>(m_surface));
+
     if (!m_vsync_on) {
         // `vsync=off`: present as fast as the driver allows, never
         // gated on the previous frame's callback (D-W6b-18).
         if (eglSwapBuffers(m_egl_display, m_egl_surface) != EGL_TRUE) {
+            // D-W6b-28: a dead connection (this SAME `eglSwapBuffers`
+            // is exactly where the D-W6b-12 mutation - a removed
+            // ack_configure() - surfaces once a real buffer attach
+            // finally reaches the compositor) is named by the REAL
+            // interface that reprovou, never the generic "egl_swap_
+            // buffers" placeholder - checked first, since a display
+            // already fatally errored makes the EGL call itself fail
+            // for a reason this adapter did not cause.
+            if (wl_display_get_error(display) != 0) {
+                return gltfx_rslt<gltfx_present_outcome>::err(build_connection_failure(display));
+            }
             return gltfx_rslt<gltfx_present_outcome>::err(
                 gltfx_err(gltfx_err_code::platform_failure)
                     .with_rejected_value("egl_swap_buffers"));
@@ -547,10 +605,14 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     }
 
     if (plan == frame_wait_plan::poll_then_decide) {
-        wl_display *display = wl_proxy_get_display(reinterpret_cast<wl_proxy *>(m_surface));
         if (!poll_and_dispatch_with_budget(display, k_frame_callback_budget_ms)) {
-            return gltfx_rslt<gltfx_present_outcome>::err(
-                gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wl_display"));
+            // D-W6b-28: poll_and_dispatch_with_budget() only ever
+            // returns false when the wl_display connection itself is
+            // now unusable (this file's own comment on that function) -
+            // always a real connection failure, never conditional on
+            // wl_display_get_error() the way the two eglSwapBuffers
+            // sites above/below are.
+            return gltfx_rslt<gltfx_present_outcome>::err(build_connection_failure(display));
         }
         if (m_frame_sequence.decide_after_wait() == gltfx_present_outcome::skipped_hidden) {
             return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
@@ -558,6 +620,13 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     }
 
     if (eglSwapBuffers(m_egl_display, m_egl_surface) != EGL_TRUE) {
+        // D-W6b-28: same reasoning as the vsync=off branch above - the
+        // vsync=on path is where the D-W6b-12 mutation (ack_configure()
+        // removed) actually gets exercised by gl_context_parity_test's
+        // own 2nd swap.
+        if (wl_display_get_error(display) != 0) {
+            return gltfx_rslt<gltfx_present_outcome>::err(build_connection_failure(display));
+        }
         return gltfx_rslt<gltfx_present_outcome>::err(
             gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_swap_buffers"));
     }

@@ -757,6 +757,12 @@ if(UNIX)
         # (glintfx.so's hidden visibility, see this block's own header
         # comment).
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        # GL-CONTEXT fatia 5 (D-W6b-28): display_adapter.cpp's own
+        # calls now resolve to connection_failure.cpp's own build_
+        # connection_failure(), extracted out of this file - the same
+        # "second compile needs every callee linked alongside it"
+        # reasoning global_catalog.cpp's own line above already gives.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -783,6 +789,7 @@ if(UNIX)
     target_sources(display_bind_refusal_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -802,6 +809,7 @@ if(UNIX)
     target_sources(display_native_display_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -858,6 +866,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -900,6 +909,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/seat_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -1230,6 +1240,23 @@ if(WIN32)
     glintfx_copy_runtime_dlls_after_build(window_parity_test)
     add_test(NAME window_parity_test COMMAND window_parity_test)
     set_tests_properties(window_parity_test PROPERTIES LABELS consume)
+endif()
+
+# GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md sec. 3, D-W6b-
+# 29): gl_context_parity_test.cpp (tests/parity/) is window_parity_
+# test's own gemeo one layer up - ONE file, only-public-API, no-#if,
+# proving gltfx_gl_context behaves identically on both systems
+# (GODS_LAWS.md L-04). Same mechanism as window_parity_test right
+# above: linked against the PUBLIC glintfx::glintfx target directly,
+# if(WIN32) only here - the Linux side of this SAME name is the
+# container fixture P-0 feeds into the paridade inventory instead.
+if(WIN32)
+    add_executable(gl_context_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/gl_context_parity_test.cpp")
+    target_link_libraries(gl_context_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(gl_context_parity_test)
+    glintfx_copy_runtime_dlls_after_build(gl_context_parity_test)
+    add_test(NAME gl_context_parity_test COMMAND gl_context_parity_test)
+    set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume)
 endif()
 
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves

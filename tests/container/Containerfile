@@ -63,7 +63,12 @@
 # image that goes on to attach a real wl_shm buffer and commit it
 # (D-W5-9), which is what turns a REMOVED ack_configure() inside
 # wayland_window_adapter into an actual protocol error instead of a
-# silent no-op (this fixture's own header comment).
+# silent no-op (this fixture's own header comment). APOSENTADO por
+# GL-CONTEXT fatia 5 (docs/plano-w6b-fatias-5.md, D-W6b-12), depois das
+# cinco mutações obrigatórias provadas contra egl_protocol_error_smoke.
+# cpp abaixo terem reprovado como esperado: a API pública ganhou, nesta
+# mesma fatia, um jeito de anexar conteúdo real (gltfx_gl_context) e um
+# fixture que reprova o MESMO ack_configure() removido através dela.
 #
 # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_test.cpp,
 # same staged-sources shape again, plus seat_adapter.cpp (src/platform/
@@ -116,6 +121,28 @@
 # before writing this line, GODS_LAWS.md L-44): wayland-devel (already
 # installed below) already carries <wayland-egl.h> and wayland-egl.pc,
 # so no second new package is needed for that half.
+#
+# GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-29):
+# gl_context_parity_test.cpp, staged from tests/parity/ (same reason
+# window_parity_test.cpp above needs staging) - the gemeo of that same
+# fixture one layer up, ONLY the PUBLIC API (glintfx::gltfx_gl_context),
+# built against every source window_parity_test.cpp already needs plus
+# egl_context_adapter.cpp/connection_failure.cpp/frame_callback_
+# sequence.cpp/gl_context_facade.cpp and the six OS-agnostic src/
+# platform/gl/ atoms (gfx_option_registry, gfx_option_validation,
+# gfx_open_only_fixation, gl_context_desc_validation, gl_version_
+# policy, gl_surface_size_policy) - wayland-egl/egl cflags/libs added
+# to this ONE invocation (window_parity_test's own does not need them).
+#
+# egl_protocol_error_smoke.cpp, staged straight from THIS directory
+# (tests/container/ - the build context, same as window_smoke.cpp
+# above, never from _arch_ports_src): the PERMANENT proof of D-W6b-28
+# (connection_failure.cpp's own build_connection_failure() naming the
+# real interface a dead wl_display carries), over adaptadores internos
+# directly (wayland_display_adapter/wayland_shell_adapter/wayland_
+# window_adapter/wayland_egl_context_adapter) - same source set as
+# gl_context_parity_test's own EGL half, minus the two window/display
+# facade TUs it never needs (it never touches the public API).
 FROM fedora:44 AS arch-ports-builder
 RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel mesa-libEGL-devel \
     && dnf clean all
@@ -127,6 +154,7 @@ COPY pump_smoke.cpp /build/pump_smoke.cpp
 COPY shell_smoke.cpp /build/shell_smoke.cpp
 COPY window_smoke.cpp /build/window_smoke.cpp
 COPY egl_probe_smoke.cpp /build/egl_probe_smoke.cpp
+COPY egl_protocol_error_smoke.cpp /build/egl_protocol_error_smoke.cpp
 COPY seat_test.cpp /build/seat_test.cpp
 COPY two_displays_test.cpp /build/two_displays_test.cpp
 RUN wayland-scanner client-header \
@@ -143,6 +171,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/arch_ports_connect_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/connect_smoke.cpp \
@@ -153,6 +182,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/registry_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/registry_smoke.cpp \
@@ -163,6 +193,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/two_displays_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/two_displays_test.cpp \
@@ -173,6 +204,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/fatal_error_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/fatal_error_smoke.cpp \
@@ -183,6 +215,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/pump_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/pump_smoke.cpp \
@@ -193,6 +226,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/shell_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -206,6 +240,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/window_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
@@ -224,6 +259,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/egl_probe_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
@@ -242,6 +278,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/seat_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
         /build/_arch_ports_src/src/platform/input/seat_capabilities.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -254,6 +291,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/window_parity_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
@@ -267,7 +305,60 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/_arch_ports_src/tests/parity/window_parity_test.cpp \
-        $(pkg-config --libs wayland-client)
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client wayland-egl egl) \
+        -o /build/gl_context_parity_test \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/platform/window/display_facade.cpp \
+        /build/_arch_ports_src/src/platform/window/window_facade.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_open_only_fixation.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_context_desc_validation.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/_arch_ports_src/tests/parity/gl_context_parity_test.cpp \
+        $(pkg-config --libs wayland-client wayland-egl egl) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client wayland-egl egl) \
+        -o /build/egl_protocol_error_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/egl_protocol_error_smoke.cpp \
+        $(pkg-config --libs wayland-client wayland-egl egl)
 
 FROM fedora:44
 
@@ -297,12 +388,15 @@ COPY --from=arch-ports-builder /build/window_smoke /usr/local/bin/window_smoke
 COPY --from=arch-ports-builder /build/egl_probe_smoke /usr/local/bin/egl_probe_smoke
 COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
+COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
+COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
         /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
-        /usr/local/bin/seat_test /usr/local/bin/window_parity_test
+        /usr/local/bin/seat_test /usr/local/bin/window_parity_test \
+        /usr/local/bin/gl_context_parity_test /usr/local/bin/egl_protocol_error_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

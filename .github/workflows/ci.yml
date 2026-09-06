@@ -1385,6 +1385,44 @@ jobs:
             glintfx-wltest-clean window_parity_test | tee -a container_measured_raw.log
           echo "window_parity_test" >> parity_inventory.txt
 
+      # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-28):
+      # a prova PERMANENTE de que um erro de protocolo real neste MESMO
+      # compositor nomeia a interface certa atraves de connection_
+      # failure.cpp's own build_connection_failure() - sobre adaptadores
+      # internos diretamente (egl_protocol_error_smoke.cpp's own header
+      # comment), nunca a API publica. Roda ANTES da fatia C abaixo pelo
+      # mesmo motivo dos passos acima: precisa do compositor vivo.
+      - name: GL-CONTEXT fatia 5 - erro de protocolo nomeado pelo adaptador EGL
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean egl_protocol_error_smoke | tee -a container_measured_raw.log
+          echo "egl_protocol_error_smoke" >> parity_inventory.txt
+
+      # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-29):
+      # a paridade do gltfx_gl_context contra este MESMO compositor
+      # real, atraves so' da API PUBLICA - o gemeo de window_parity_
+      # test um layer acima. BLOQUEIO CONHECIDO, declarado (nunca
+      # contornado - ordem do CTO, docs/plano-w6b-fatias-5.md, achado do
+      # implementador 06/09/2026): o ramo vsync=on desta fixture, ao
+      # sustentar 60 swaps reais, pode expor um defeito de arquitetura
+      # PRE-EXISTENTE em src/platform/window/window_facade.cpp (um
+      # listener C registrado sobre um adaptador ainda na pilha, antes
+      # do std::move() para o heap - use-after-move quando o compositor
+      # manda um xdg_toplevel.configure tardio, medido e reportado ao
+      # CTO com arquivo:linha) - este passo fica VERMELHO ate esse
+      # conserto (fora do escopo desta fatia, em outras fachadas) landar.
+      - name: GL-CONTEXT fatia 5 - paridade do contexto GL dentro do container
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean gl_context_parity_test | tee -a container_measured_raw.log
+          echo "gl_context_parity_test" >> parity_inventory.txt
+
       # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
       # test.cpp binds wl_seat against este MESMO compositor real e
       # prova que pelo menos um evento wl_seat.capabilities/wl_seat.name

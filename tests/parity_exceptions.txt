@@ -84,6 +84,16 @@ win32_wgl_proc_address_test|linux|nenhum|SEM-PENDENCIA
 # case, ja excetuada acima.
 egl_probe_smoke|windows|nenhum|SEM-PENDENCIA
 
+# egl_protocol_error_smoke (tests/container/egl_protocol_error_smoke.
+# cpp, docs/plano-w6b-fatias-5.md, GL-CONTEXT fatia 5, D-W6b-28) prova
+# que um erro de protocolo REAL sobre este MESMO compositor nomeia a
+# interface Wayland que reprovou (build_connection_failure(), connection_
+# failure.cpp). O Windows nao tem protocolo de fio com erro nomeado por
+# interface - "swap sobre janela morta devolve erro" no Win32 e'
+# platform_failure de SwapBuffers sobre HWND destruido, ja fora do
+# universo de nomes (interfaces Wayland) que este portao compara.
+egl_protocol_error_smoke|windows|nenhum|SEM-PENDENCIA
+
 # wl_proto_link_test (tests/CMakeLists.txt:427) prova que o binding
 # do protocolo Wayland xdg-shell, gerado via wayland-scanner contra o
 # XML do SISTEMA, linka e resolve o simbolo esperado - GODS_LAWS.md

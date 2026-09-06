@@ -12,6 +12,8 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/wayland/connection_failure.hpp"
+
 // display_adapter.cpp - see display_adapter.hpp's own header comment
 // for scope. ARCH-PORTS's own connect/disconnect (TDD case R3,
 // GODS_LAWS.md L-20's declared exception: "adaptador que só encaminha
@@ -47,35 +49,6 @@ constexpr wl_registry_listener kRegistryListener = {
     .global = &wayland_display_adapter::registry_global,
     .global_remove = &wayland_display_adapter::registry_global_remove,
 };
-
-// WL-DISPLAY fatia C: builds the token-vocabulary diagnostic (docs/
-// api-conventions.md R7, ESCOPO.md's own canonical copy - "name always
-// a stable identifier, never a sentence") a fatal wl_display carries.
-// wl_display_get_error() is the ONE libwayland call this file's own
-// "never touch a fatally-errored display again" rule (display_adapter.hpp's
-// roundtrip() comment) does NOT apply to - it is libwayland's own
-// documented accessor for exactly this situation, read-only, never a
-// protocol request. os_error_code() carries the raw errno-shaped value
-// (EPROTO for a protocol violation, an ordinary errno like ECONNRESET
-// for a transport failure); when it IS EPROTO, wl_display_get_
-// protocol_error() additionally names WHICH interface's request the
-// compositor rejected, attached as rejected_value() - an interface
-// name ("wl_compositor") is itself already an identifier token, never
-// a sentence.
-gltfx_err build_fatal_error(wl_display *display) noexcept {
-    gltfx_err error(gltfx_err_code::platform_failure);
-    const int raw = wl_display_get_error(display);
-    error.with_os_error_code(raw);
-    if (raw == EPROTO) {
-        const wl_interface *interface = nullptr;
-        std::uint32_t object_id = 0;
-        wl_display_get_protocol_error(display, &interface, &object_id);
-        if (interface != nullptr && interface->name != nullptr) {
-            error.with_rejected_value(interface->name);
-        }
-    }
-    return error;
-}
 
 } // namespace
 
@@ -189,7 +162,7 @@ gltfx_rslt<void *> wayland_display_adapter::bind(const wayland_global &global,
         // apply (see this class's own header comment on has_fatal_
         // error()) - a bind() attempt is a protocol request exactly
         // like any other, and this connection cannot send one.
-        return gltfx_rslt<void *>::err(build_fatal_error(m_display));
+        return gltfx_rslt<void *>::err(build_connection_failure(m_display));
     }
 
     // The one call site this project's clamp_version() rule (global_
@@ -208,7 +181,7 @@ gltfx_rslt<void *> wayland_display_adapter::bind(const wayland_global &global,
         // channel as every other refusal here - never a bare nullptr
         // a caller could dereference three calls later.
         m_fatal = true;
-        return gltfx_rslt<void *>::err(build_fatal_error(m_display));
+        return gltfx_rslt<void *>::err(build_connection_failure(m_display));
     }
     return gltfx_rslt<void *>::ok(proxy);
 }
@@ -223,12 +196,12 @@ gltfx_rslt<void> wayland_display_adapter::roundtrip() noexcept {
         // method's own header comment - "never a second real
         // roundtrip attempt on a connection already known to be
         // dead"). wl_display_get_error() itself is always safe to
-        // call, even here - see build_fatal_error()'s own comment.
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+        // call, even here - see build_connection_failure()'s own comment.
+        return gltfx_rslt<void>::err(build_connection_failure(m_display));
     }
     if (wl_display_roundtrip(m_display) == -1) {
         m_fatal = true;
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+        return gltfx_rslt<void>::err(build_connection_failure(m_display));
     }
     return gltfx_rslt<void>::ok();
 }
@@ -243,7 +216,7 @@ gltfx_rslt<void> wayland_display_adapter::drain_pending_and_prepare_read() noexc
     while (wl_display_prepare_read(m_display) != 0) {
         if (wl_display_dispatch_pending(m_display) == -1) {
             m_fatal = true;
-            return gltfx_rslt<void>::err(build_fatal_error(m_display));
+            return gltfx_rslt<void>::err(build_connection_failure(m_display));
         }
     }
     return gltfx_rslt<void>::ok();
@@ -262,13 +235,13 @@ gltfx_rslt<void> wayland_display_adapter::flush_with_retry() noexcept {
         if (errno != EAGAIN) {
             wl_display_cancel_read(m_display);
             m_fatal = true;
-            return gltfx_rslt<void>::err(build_fatal_error(m_display));
+            return gltfx_rslt<void>::err(build_connection_failure(m_display));
         }
         pollfd pending_write{.fd = wl_display_get_fd(m_display), .events = POLLOUT, .revents = 0};
         if (poll(&pending_write, 1, -1) == -1) {
             wl_display_cancel_read(m_display);
             m_fatal = true;
-            return gltfx_rslt<void>::err(build_fatal_error(m_display));
+            return gltfx_rslt<void>::err(build_connection_failure(m_display));
         }
     }
     return gltfx_rslt<void>::ok();
@@ -291,7 +264,7 @@ gltfx_rslt<bool> wayland_display_adapter::wait_for_incoming_data() noexcept {
     if (poll_result == -1) {
         wl_display_cancel_read(m_display);
         m_fatal = true;
-        return gltfx_rslt<bool>::err(build_fatal_error(m_display));
+        return gltfx_rslt<bool>::err(build_connection_failure(m_display));
     }
     if (poll_result == 0 || (incoming.revents & POLLIN) == 0) {
         wl_display_cancel_read(m_display);
@@ -307,11 +280,11 @@ gltfx_rslt<void> wayland_display_adapter::read_and_dispatch_incoming() noexcept 
         // condition roundtrip() latches above - the DIFFERENT call
         // site does not make it a different kind of failure.
         m_fatal = true;
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+        return gltfx_rslt<void>::err(build_connection_failure(m_display));
     }
     if (wl_display_dispatch_pending(m_display) == -1) {
         m_fatal = true;
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+        return gltfx_rslt<void>::err(build_connection_failure(m_display));
     }
     return gltfx_rslt<void>::ok();
 }
@@ -321,7 +294,7 @@ gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::invalid_argument));
     }
     if (m_fatal) {
-        return gltfx_rslt<void>::err(build_fatal_error(m_display));
+        return gltfx_rslt<void>::err(build_connection_failure(m_display));
     }
 
     if (gltfx_rslt<void> prepared = drain_pending_and_prepare_read(); prepared.has_error()) {

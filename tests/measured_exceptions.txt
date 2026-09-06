@@ -91,3 +91,21 @@ seat_test.pointer|ambos|presenca de dispositivo do executor, nao comportamento d
 # mecanismo (capacidades por evento no Wayland; leitura sincrona no Win32).
 seat_test.capability_events|windows|no Win32 a presenca e' lida em open(), nao ha contador de anuncios|SEM-PENDENCIA
 seat_test.last_change_kind|linux|no Wayland nao ha aviso por dispositivo, so re-anuncio de capacidades|SEM-PENDENCIA
+
+# gl_context_parity_test (docs/plano-w6b-fatias-5.md, GL-CONTEXT fatia
+# 5, D-W6b-29): oito chaves MEDIDAS E IMPRESSAS, nunca asseveradas
+# IGUAIS entre os dois lados - cada uma ja carrega, no proprio teste,
+# um piso/teto por PLATAFORMA (ex.: vsync_off_60_swaps_ms <= 700ms em
+# cada lado, first_presented_attempt >= 1 em cada lado); o que esta
+# linha declara e' so' que o NUMERO em si (ou a capacidade relatada)
+# nao precisa bater entre Linux e Windows, por (a) o executor e (b) o
+# que prova o comportamento da biblioteca em vez do ambiente.
+gl_context_parity_test.gl_major|ambos|(a) llvmpipe (Linux, kwin --virtual) e Mesa D3D12/WARP (Windows, X-GL-0) concedem versoes GL diferentes acima do piso 3.3 que este MESMO teste ja assevera igual nos dois lados; (b) a asserção >= 3.3 core, alguns paragrafos acima nesta mesma execucao, prova o contrato da biblioteca|SEM-PENDENCIA
+gl_context_parity_test.gl_minor|ambos|mesmo motivo de gl_major acima|SEM-PENDENCIA
+gl_context_parity_test.renderer_hash|ambos|(a) GL_RENDERER e' "llvmpipe (LLVM ...)" no Linux e "D3D12 (Microsoft Basic Render Driver)" no Windows (F4 do plano) - strings de driver diferentes por desenho, nunca comparadas por texto (D-W6b-13); (b) gpu.hpp's own gltfx_gpu_info.name e' testado por resolucao (nao-vazio), nunca pelo hash|SEM-PENDENCIA
+gl_context_parity_test.vsync_on_60_swaps_ms|ambos|(a) cadencia do compositor virtual (kwin --virtual) x DWM da VM Windows - dois pacers reais completamente diferentes; (b) vsync_off_60_swaps_ms, chave irma nesta mesma execucao, e' o que prova D-W6b-27 (intervalo EGL zero) com piso <=700ms em CADA lado|SEM-PENDENCIA
+gl_context_parity_test.vsync_off_60_swaps_ms|ambos|(a) o "quanto" exato depende do executor (CPU/IO do runner), nunca comparado entre Linux/Windows por valor; (b) o piso <=700ms, aplicado EM CADA lado dentro do proprio teste, e' o que prova o comportamento da biblioteca (D-W6b-27) - um bloqueio por quadro custaria ~1000ms em qualquer um dos dois|SEM-PENDENCIA
+gl_context_parity_test.vsync_adaptive_support|ambos|(a) D-W6b-18: Wayland recusa `adaptive` por desenho (sem equivalente EGL), Windows depende de WGL_EXT_swap_control_tear existir no driver do executor; (b) a asserção code=unsupported/rejected_value=vsync quando recusado, no proprio teste, prova que a recusa e' honesta, nunca silenciosa|SEM-PENDENCIA
+gl_context_parity_test.msaa_support|ambos|(a) capacidade de MSAA e' do driver/executor (llvmpipe x Mesa D3D12/WARP), nao promessa da biblioteca; (b) a varredura non-empty de option_support(), no proprio teste, e' o que prova a fixacao antes do suporte (a reabertura com msaa_samples=4 recusada, mais abaixo na mesma execucao, independe deste valor)|SEM-PENDENCIA
+gl_context_parity_test.srgb_support|ambos|mesmo motivo de msaa_support acima, mesma linha da tabela D-W6b-16|SEM-PENDENCIA
+gl_context_parity_test.first_presented_attempt|ambos|(a) cadencia do compositor virtual x DWM da VM Windows determina em qual das 5 tentativas o primeiro `presented` chega; (b) o piso >=1, aplicado EM CADA lado dentro do proprio teste, e' o que prova que a apresentacao chega dentro do orcamento, nunca o numero exato da tentativa|SEM-PENDENCIA

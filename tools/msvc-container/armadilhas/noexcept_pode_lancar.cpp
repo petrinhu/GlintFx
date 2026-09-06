@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Reproducao minima do achado real do commit babbd77 (GlintFx, X-WGL,
 // 06/09/2026): 'resolve_wgl_proc_address' prometia noexcept mas construia
 // um std::string alocante a partir do string_view recebido - clang-tidy

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # tools/msvc-container/Dockerfile
 #
 # FERRAMENTA DE DESENVOLVIMENTO, NAO DEPENDENCIA DO PRODUTO (GODS_LAWS.md L-07):

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Reproducao minima do achado real do commit babbd77 (GlintFx, X-WGL,
 // 06/09/2026): 'const HINSTANCE module' - HINSTANCE ja e um ponteiro
 // (typedef de 'struct HINSTANCE__ *'), entao 'const HINSTANCE' aplica o

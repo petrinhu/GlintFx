@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Reproducao minima do achado real do commit 0628ad8 (GlintFx, 06/09/2026):
 // std::setvbuf(stdout, nullptr, _IOLBF, 0) - size=0 e invalido para o modo
 // _IOLBF/_IOFBF na documentacao da Microsoft (2 <= size <= INT_MAX), e o

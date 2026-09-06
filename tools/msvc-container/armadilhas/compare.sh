@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # tools/msvc-container/armadilhas/compare.sh
 #
 # Roda cada arquivo desta pasta pelos dois compiladores - o cruzado GNU

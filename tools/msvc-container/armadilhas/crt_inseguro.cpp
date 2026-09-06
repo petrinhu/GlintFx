@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Terceira classe de armadilha, achada por mim ao testar as duas que o
 // time pediu (nao e do commit citado - as duas do commit nao acenderam
 // nem no cl.exe puro, ver relatorio): chamada a uma funcao de CRT que a

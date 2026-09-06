@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # tools/msvc-container/Dockerfile.full
 #
 # Estagio 2: empacota o MSVC ja baixado (passo separado, documentado no

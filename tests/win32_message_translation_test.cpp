@@ -59,10 +59,13 @@ GLINTFX_TEST(wm_size_restored_updates_logical_size_from_the_lparam_not_a_copied_
 
 GLINTFX_TEST(wm_size_maximized_sets_the_maximized_bit) {
     win32_window_adapter adapter;
-    LRESULT result = 0;
+    LRESULT result = 1; // poisoned, so a no-op handler cannot masquerade as "handled, 0".
 
-    adapter.handle_message(nullptr, WM_SIZE, SIZE_MAXIMIZED, MAKELPARAM(1024, 768), result);
+    const bool handled =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_MAXIMIZED, MAKELPARAM(1024, 768), result);
 
+    GLINTFX_CHECK(handled);
+    GLINTFX_CHECK(result == 0);
     GLINTFX_CHECK(adapter.state().state(window_state_bit::maximized));
     GLINTFX_CHECK(adapter.state().logical_size().width == 1024);
     GLINTFX_CHECK(adapter.state().logical_size().height == 768);
@@ -71,10 +74,14 @@ GLINTFX_TEST(wm_size_maximized_sets_the_maximized_bit) {
 GLINTFX_TEST(wm_size_restored_after_maximized_clears_the_maximized_bit) {
     win32_window_adapter adapter;
     LRESULT result = 0;
-    adapter.handle_message(nullptr, WM_SIZE, SIZE_MAXIMIZED, MAKELPARAM(1024, 768), result);
+    const bool handled_while_maximizing =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_MAXIMIZED, MAKELPARAM(1024, 768), result);
+    GLINTFX_CHECK(handled_while_maximizing);
 
-    adapter.handle_message(nullptr, WM_SIZE, SIZE_RESTORED, MAKELPARAM(800, 600), result);
+    const bool handled_while_restoring =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_RESTORED, MAKELPARAM(800, 600), result);
 
+    GLINTFX_CHECK(handled_while_restoring);
     GLINTFX_CHECK(!adapter.state().state(window_state_bit::maximized));
     GLINTFX_CHECK(adapter.state().logical_size().width == 800);
 }
@@ -103,11 +110,15 @@ GLINTFX_TEST(wm_close_sets_the_one_way_latch_and_reports_handled) {
 GLINTFX_TEST(wm_activate_wa_inactive_clears_the_active_bit) {
     win32_window_adapter adapter;
     LRESULT result = 0;
-    adapter.handle_message(nullptr, WM_ACTIVATE, MAKEWPARAM(WA_ACTIVE, 0), 0, result);
+    const bool handled_while_activating =
+        adapter.handle_message(nullptr, WM_ACTIVATE, MAKEWPARAM(WA_ACTIVE, 0), 0, result);
+    GLINTFX_CHECK(handled_while_activating);
     GLINTFX_CHECK(adapter.state().state(window_state_bit::active));
 
-    adapter.handle_message(nullptr, WM_ACTIVATE, MAKEWPARAM(WA_INACTIVE, 0), 0, result);
+    const bool handled_while_deactivating =
+        adapter.handle_message(nullptr, WM_ACTIVATE, MAKEWPARAM(WA_INACTIVE, 0), 0, result);
 
+    GLINTFX_CHECK(handled_while_deactivating);
     GLINTFX_CHECK(!adapter.state().state(window_state_bit::active));
 }
 
@@ -144,8 +155,10 @@ GLINTFX_TEST(wm_dpichanged_144_is_safe_with_a_null_hwnd_and_feeds_later_wm_size)
     // 96-DPI logical baseline (900*96/144 = 600, 675*96/144 = 450) -
     // the exact conversion window_adapter.cpp's own WM_SIZE case runs
     // against whatever m_dpi WM_DPICHANGED most recently set.
-    adapter.handle_message(nullptr, WM_SIZE, SIZE_RESTORED, MAKELPARAM(900, 675), result);
+    const bool handled_wm_size_after_dpi_change =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_RESTORED, MAKELPARAM(900, 675), result);
 
+    GLINTFX_CHECK(handled_wm_size_after_dpi_change);
     GLINTFX_CHECK(adapter.state().logical_size().width == 600);
     GLINTFX_CHECK(adapter.state().logical_size().height == 450);
     // pixel_size() re-derives from logical_size * dpi / 96 (window_

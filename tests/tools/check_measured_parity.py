@@ -66,11 +66,32 @@
 # "judges" this project's own parity_exceptions.txt/parity_aliases.txt
 # already keep between check_test_parity.py's mechanical union and the
 # human decision of what belongs in either file.
+#
+# THE ONE THING THIS SCRIPT DOES VALIDATE (conserto do mesmo dia, run
+# 34023787584): a per-KEY exception (tests/measured_exceptions.txt)
+# whose own item is already CONCLUDED in TODO.md reproves - the same
+# "concluido sem par" death rule tests/parity_exceptions.txt's own
+# validate_exceptions() already enforces one file over, applied here
+# because THIS file has no sibling gate to enforce it for - nobody
+# else ever reads tests/measured_exceptions.txt.
 
 import argparse
 import re
 import sys
 from collections import defaultdict
+
+# GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
+# tests/tools/check_test_parity.py, arquivo inteiro por declaracao -
+# aquele script's own header comment explica por que): este script
+# printa `status['status_text']` (validate_key_exception_deaths()) e
+# valores MEASURED arbitrarios (build_table()/print_section()), que
+# podem conter "✅" ou qualquer outro caractere fora de Latin-1 - print()
+# em modo texto estrito quebra com UnicodeEncodeError num console
+# Windows de codepage restrita sem este reconfigure.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
 
 SCRIPT_NAME = "check_measured_parity.py"
 
@@ -150,22 +171,96 @@ def parse_alias_owners(text):
     return owners
 
 
-def classify_unilateral(key, exception_owners, alias_owners):
+_TODO_ROW_RE = re.compile(r"^\|.*\|$")
+
+
+def parse_todo_status(todo_text):
+    """Same 12-column parse as check_test_parity.py's own parse_todo_
+    status_text() (ID at index 2, Status at index 9) - copied, not
+    imported, the same WET choice tests/tools/check_plan_scope_diff.py
+    already made one file over (GODS_LAWS.md L-17 "regra de 3": this
+    is the second copy, not yet the third that would trigger
+    extraction)."""
+    status_by_item = {}
+    for line in todo_text.splitlines():
+        line = line.rstrip("\n")
+        if not _TODO_ROW_RE.match(line.strip()):
+            continue
+        parts = line.split("|")
+        if len(parts) != 12:
+            continue
+        item_id = parts[2].strip()
+        status_text = parts[9].strip()
+        if not item_id or item_id in ("ID", "---") or set(item_id) <= {"-"}:
+            continue
+        status_by_item[item_id] = {
+            "status_text": status_text,
+            "concluded": status_text.startswith("✅"),
+        }
+    return status_by_item
+
+
+def validate_key_exception_deaths(key_exceptions, todo_status):
+    """Returns the list of death-rule error strings - a key exception
+    whose OWN item is already CONCLUDED in TODO.md (never SEM-
+    PENDENCIA, which by definition has no item to conclude) is the
+    exact 'concluido sem par' shape tests/parity_exceptions.txt's own
+    validate_exceptions() already catches one file over, applied here
+    to a MEASURED key instead of a ctest name."""
+    errors = []
+    for key, (item, is_permanent) in key_exceptions.items():
+        if is_permanent:
+            continue
+        status = todo_status.get(item)
+        if status is not None and status["concluded"]:
+            errors.append(
+                f"{key}: excecao por chave aponta para o item {item!r}, marcado como CONCLUIDO "
+                f"({status['status_text']}) em TODO.md - regra 'concluido sem par': apague esta "
+                "linha de tests/measured_exceptions.txt, o par que ela promete ja deveria existir"
+            )
+    return errors
+
+
+def parse_key_exceptions(text):
+    """Returns {key: (item, is_permanent)} from tests/measured_
+    exceptions.txt's own `chave|razao|item` lines - a THIRD file,
+    distinct from tests/parity_exceptions.txt (whose `nome|plataforma|
+    razao|item` shape is check_test_parity.py's own contract: item=
+    SEM-PENDENCIA there REQUIRES the par field to read "nenhum", never
+    a prose reason - reusing that file for a per-KEY exception is
+    exactly what reproved check_test_parity.py on run 34023787584).
+    This file's own three columns carry a MEASURED key, never a ctest
+    name, and only this script ever reads it."""
+    exceptions = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("|")
+        if len(parts) != 3:
+            continue
+        key, _reason, item = (part.strip() for part in parts)
+        exceptions[key] = (item, item == SEM_PENDENCIA)
+    return exceptions
+
+
+def classify_unilateral(key, key_exceptions, exception_owners, alias_owners):
     """Returns (section, detail) for a key present on exactly one
     side - `section` is "herdada" or "obrigatoria", `detail` is the
     human-readable reason this script's own header comment names.
 
-    Checks the FULL key ("owner.key") against tests/parity_exceptions.
-    txt BEFORE falling back to the bare owner - this is what lets a
-    SINGLE measured fact (never the whole test) be declared permanent,
-    e.g. win32_window_close_request_test.wm_size_during_create's own
+    Checks `key_exceptions` (tests/measured_exceptions.txt, a specific
+    MEASURED key) BEFORE falling back to `exception_owners` (tests/
+    parity_exceptions.txt, a whole test) - this is what lets a SINGLE
+    measured fact (never the whole test) be declared permanent, e.g.
+    win32_window_close_request_test.wm_size_during_create's own
     sentinel value (src/platform/win32/display_adapter.cpp's own
     header comment): the TEST itself already has a declared pair
     (tests/parity_aliases.txt), but this ONE fact - a Windows message-
     pump timing detail with no Wayland equivalent even in principle -
     is what actually needs the permanent declaration, not the test."""
-    if key in exception_owners:
-        item, is_permanent = exception_owners[key]
+    if key in key_exceptions:
+        item, is_permanent = key_exceptions[key]
         if is_permanent:
             return "herdada", "permanente (SEM-PENDENCIA)"
         return "herdada", f"item {item}"
@@ -180,7 +275,7 @@ def classify_unilateral(key, exception_owners, alias_owners):
     return "obrigatoria", "por dono desconhecido"
 
 
-def build_table(linux_values, windows_values, exception_owners, alias_owners):
+def build_table(linux_values, windows_values, key_exceptions, exception_owners, alias_owners):
     """Returns (iguais, divergentes, herdada, obrigatoria) as sorted
     lists of (key, linux_repr, windows_repr[, detail]) - `windows_repr`/
     `linux_repr` is "-" when that side never measured the key at all."""
@@ -197,7 +292,7 @@ def build_table(linux_values, windows_values, exception_owners, alias_owners):
             else:
                 divergentes.append((key, linux_repr, windows_repr))
             continue
-        section, detail = classify_unilateral(key, exception_owners, alias_owners)
+        section, detail = classify_unilateral(key, key_exceptions, exception_owners, alias_owners)
         row = (key, linux_repr, windows_repr, detail)
         (herdada if section == "herdada" else obrigatoria).append(row)
     return iguais, divergentes, herdada, obrigatoria
@@ -226,10 +321,12 @@ def real_main(args):
     parser.add_argument("--windows", nargs="*", default=[])
     parser.add_argument("--exceptions", default=None, help="tests/parity_exceptions.txt")
     parser.add_argument("--aliases", default=None, help="tests/parity_aliases.txt")
+    parser.add_argument("--measured-exceptions", default=None, help="tests/measured_exceptions.txt")
+    parser.add_argument("--todo", default=None, help="TODO.md - exigido junto de --measured-exceptions, para a regra de morte")
     parsed = parser.parse_args(args)
 
     if not parsed.linux and not parsed.windows:
-        fail("usage: check_measured_parity.py --compare --linux <f1> [<f2> ...] --windows <f1> [<f2> ...] [--exceptions <f>] [--aliases <f>]")
+        fail("usage: check_measured_parity.py --compare --linux <f1> [<f2> ...] --windows <f1> [<f2> ...] [--exceptions <f>] [--aliases <f>] [--measured-exceptions <f>]")
 
     linux_values, linux_scancount = parse_measured_files(parsed.linux)
     windows_values, windows_scancount = parse_measured_files(parsed.windows)
@@ -242,6 +339,19 @@ def real_main(args):
     if parsed.aliases is not None:
         with open(parsed.aliases, "r", encoding="utf-8") as handle:
             alias_owners = parse_alias_owners(handle.read())
+    key_exceptions = {}
+    if parsed.measured_exceptions is not None:
+        with open(parsed.measured_exceptions, "r", encoding="utf-8") as handle:
+            key_exceptions = parse_key_exceptions(handle.read())
+        if parsed.todo is not None:
+            with open(parsed.todo, "r", encoding="utf-8") as handle:
+                todo_status = parse_todo_status(handle.read())
+            death_errors = validate_key_exception_deaths(key_exceptions, todo_status)
+            if death_errors:
+                fail(
+                    f"{len(death_errors)} excecao(oes) por chave morta(s) (tests/measured_"
+                    "exceptions.txt):\n  " + "\n  ".join(death_errors)
+                )
 
     total_lines = sum(len(v) for v in linux_values.values()) + sum(
         len(v) for v in windows_values.values()
@@ -264,7 +374,7 @@ def real_main(args):
         )
 
     iguais, divergentes, herdada, obrigatoria = build_table(
-        linux_values, windows_values, exception_owners, alias_owners
+        linux_values, windows_values, key_exceptions, exception_owners, alias_owners
     )
     print_section("MEASURED - iguais", iguais)
     print_section("MEASURED - divergentes", divergentes)
@@ -410,6 +520,90 @@ def selftest_scancount_never_compared(tmp_path):
     return True
 
 
+def selftest_key_exception_accepted(tmp_path):
+    """A key declared in tests/measured_exceptions.txt (never tests/
+    parity_exceptions.txt - that file's own contract requires par=
+    'nenhum' for SEM-PENDENCIA, not a prose reason, the exact shape
+    that reproved check_test_parity.py on run 34023787584 when this
+    fatia's own key exceptions were written into the WRONG file) lands
+    in 'herdada', never 'obrigatoria'."""
+    linux_file = _write_temp(tmp_path, "linux_keyexc.txt", "MEASURED some_test.lonely_key=1\n")
+    windows_file = _write_temp(tmp_path, "windows_keyexc_empty.txt", "")
+    key_exceptions_file = _write_temp(
+        tmp_path, "measured_exc.txt", "some_test.lonely_key|razao qualquer|SEM-PENDENCIA\n"
+    )
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buffer):
+            real_main(
+                [
+                    "--linux",
+                    linux_file,
+                    "--windows",
+                    windows_file,
+                    "--measured-exceptions",
+                    key_exceptions_file,
+                ]
+            )
+    except SystemExit as exc:
+        print(f"selftest: excecao por chave reprovou inesperadamente (codigo {exc.code})",
+              file=sys.stderr)
+        return False
+    output = buffer.getvalue()
+    if "lonely_key" not in output.split("- herdada")[1].split("obrigatoria")[0]:
+        print(f"selftest: chave com excecao por chave nao caiu em herdada:\n{output}",
+              file=sys.stderr)
+        return False
+    print("selftest: excecao por chave (tests/measured_exceptions.txt) aceita, cai em herdada - ok")
+    return True
+
+
+def selftest_key_exception_with_concluded_item_reproves(tmp_path):
+    """The death rule, applied to a PER-KEY exception: a key exception
+    whose own item is already CONCLUDED in TODO.md reproves - the
+    exact case this fatia's own briefing names ('exceção por chave com
+    item concluído reprovando'), mirroring tests/parity_exceptions.
+    txt's own validate_exceptions() one file over."""
+    linux_file = _write_temp(tmp_path, "linux_keyexc2.txt", "MEASURED some_test.other_key=1\n")
+    windows_file = _write_temp(tmp_path, "windows_keyexc2_empty.txt", "")
+    key_exceptions_file = _write_temp(
+        tmp_path, "measured_exc2.txt", "some_test.other_key|razao qualquer|ITEM-CONCLUIDO\n"
+    )
+    todo_file = _write_temp(
+        tmp_path,
+        "todo_keyexc2.md",
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-CONCLUIDO | W1 | X | y | Alta | - | Media | ✅ Concluído | - |\n",
+    )
+    try:
+        real_main(
+            [
+                "--linux",
+                linux_file,
+                "--windows",
+                windows_file,
+                "--measured-exceptions",
+                key_exceptions_file,
+                "--todo",
+                todo_file,
+            ]
+        )
+    except SystemExit as exc:
+        if exc.code == 1:
+            print("selftest: excecao por chave com item CONCLUIDO reprova (regra de morte) - ok")
+            return True
+        print(f"selftest: codigo inesperado {exc.code} para excecao por chave morta",
+              file=sys.stderr)
+        return False
+    print("selftest: excecao por chave com item concluido NAO reprovou - esperado exit 1",
+          file=sys.stderr)
+    return False
+
+
 def selftest_one_side_empty_still_succeeds(tmp_path):
     """One side genuinely having zero MEASURED lines (a leg that never
     ran, or a snapshot that came back empty for a REAL reason on just
@@ -439,6 +633,8 @@ def selftest_main():
             selftest_empty_both_sides_reproves(tmp_path),
             selftest_four_sections_classify_correctly(tmp_path),
             selftest_scancount_never_compared(tmp_path),
+            selftest_key_exception_accepted(tmp_path),
+            selftest_key_exception_with_concluded_item_reproves(tmp_path),
             selftest_one_side_empty_still_succeeds(tmp_path),
         ]
     if not all(controls):

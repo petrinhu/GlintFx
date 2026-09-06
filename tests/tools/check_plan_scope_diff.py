@@ -367,8 +367,7 @@ def real_main(args):
             f"{len(errors)} problema(s) de escopo ({ref_label}):\n  " + "\n  ".join(errors)
         )
 
-
-# --- selftest -----------------------------------------------------
+#-- - selftest -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -
 
 def selftest_extraction_matches_real_row():
     row_text = (

@@ -1072,6 +1072,7 @@ jobs:
           python3 tests/tools/check_measured_parity.py --compare \
             --linux $linux_files --windows $windows_files \
             --exceptions tests/parity_exceptions.txt --aliases tests/parity_aliases.txt \
+            --measured-exceptions tests/measured_exceptions.txt --todo TODO.md \
             | tee /tmp/measured_parity_table.md
           {
             echo "## MEASURED-PARITY (PARITY-GATE)"

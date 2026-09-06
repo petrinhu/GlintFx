@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# MEASURED key exceptions (achado do time-lead, 06/09/2026, conserto
+# da mesma tarde - GODS_LAWS.md L-04/L-40). Este arquivo e' uma
+# TERCEIRA coisa, distinta das outras duas irmas desta casa:
+#
+#   - tests/parity_exceptions.txt: ausencia PERMANENTE OU COM ITEM de
+#     um TESTE inteiro do inventario `ctest -N` de um sistema - lido e
+#     validado por tests/tools/check_test_parity.py, cujo formato
+#     (`nome|plataforma|razao|item`) e' CONTRATO: para item=SEM-
+#     PENDENCIA o campo de par tem de vir "nenhum", nunca uma razao em
+#     prosa - a tentativa de reusar aquele arquivo para uma exceCao de
+#     CHAVE (nao de teste) foi o que reprovou check_test_parity.py no
+#     run 34023787584, exatamente por violar essa forma.
+#   - tests/parity_aliases.txt: pares de NOMES de teste diferentes
+#     provando o mesmo efeito.
+#   - ESTE arquivo: uma chave MEASURED especifica ("dono.chave", nunca
+#     um nome de ctest) que fica permanentemente ou temporariamente so'
+#     de um lado, mesmo quando o TESTE que a produz ja tem par (mesmo
+#     nome ou apelido) em qualquer um dos dois arquivos acima. Lido
+#     SO' por tests/tools/check_measured_parity.py, nunca por check_
+#     test_parity.py - as duas gates leem fontes diferentes de
+#     proposito.
+#
+# Forma: chave|razao|item
+#   chave  - "dono.chave" exata, como aparece numa linha MEASURED real
+#            (tests/tools/collect_measured.py's proprio token).
+#   razao  - texto livre, nunca vazio.
+#   item   - um ID ABERTO em TODO.md, ou SEM-PENDENCIA (ausencia
+#            permanente, ex.: um fato de timing de uma so plataforma
+#            que nao tem conceito equivalente na outra em principio).
+#
+# MESMA REGRA DE MORTE do irmao desta casa: uma chave cujo item ja
+# esta CONCLUIDO em TODO.md reprova check_measured_parity.py - o
+# trabalho que fecharia a lacuna ja terminou, e esta linha deveria ja
+# ter sido apagada. Uma chave permanente continua LISTADA, com
+# contagem, nunca escondida da secao "herdada".
+
+# win32_window_close_request_test's own sentinel (src/platform/win32/
+# display_adapter.cpp's proprio comentario, corrigido no mesmo commit
+# que esta linha): mediu, no run 34020376320 (commit 093a22e), ZERO
+# mensagens WM_SIZE chegando durante CreateWindowExW para uma janela
+# WS_OVERLAPPEDWINDOW sem WS_VISIBLE - refutando a premissa anterior
+# daquele comentario. O teste ja tem par (tests/parity_aliases.txt);
+# esta CHAVE especifica e' que fica sem lado Linux possivel em
+# principio (fato de timing da bomba de mensagens do Windows). Um
+# valor diferente de zero num run futuro e' o que reabriria esta linha.
+win32_window_close_request_test.wm_size_during_create|sentinela permanente - ver src/platform/win32/display_adapter.cpp's proprio comentario; nenhum lado Linux e' possivel em principio (fato de timing da bomba de mensagens do Windows)|SEM-PENDENCIA
+
+# two_displays_test existe nos dois lados, mesmo nome (P-0) - a chave
+# comum que os dois genuinamente compartilham e' `two_displays_test.
+# both_opened` (tests/two_displays_test.cpp e tests/container/two_
+# displays_test.cpp's proprios comentarios, "duas precisam de nome
+# comum"), que NAO precisa de linha aqui - ela e' medida igual nos dois
+# lados. Estas duas chaves especificas (contagem do catalogo de globals
+# Wayland) nao tem conceito equivalente no Windows em principio, mesmo
+# raciocinio que ja justifica registry_smoke's proprio SEM-PENDENCIA em
+# tests/parity_exceptions.txt.
+two_displays_test.first_global_count|contagem do catalogo de globals Wayland (global_catalog) - sem conceito equivalente no Windows|SEM-PENDENCIA
+two_displays_test.second_global_count|mesmo motivo do first_global_count acima|SEM-PENDENCIA

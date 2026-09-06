@@ -126,8 +126,8 @@ def real_main(args):
     out_path.write_text("\n".join(all_lines) + ("\n" if all_lines else ""), encoding="utf-8")
     print(f"{SCRIPT_NAME}: {len(all_lines)} linha(s) MEASURED no total, gravadas em {out_path}")
 
-    # GODS_LAWS.md L-40: zero e' sempre sinal de coleta quebrada aqui,
-    # nunca de "nada para medir" - ver o header comment deste arquivo.
+#GODS_LAWS.md L - 40 : zero e' sempre sinal de coleta quebrada aqui,
+#nunca de "nada para medir" - ver o header comment deste arquivo.
     if len(all_lines) == 0:
         fail(
             "0 linha(s) MEASURED encontrada(s) - varredura vazia (GODS_LAWS.md L-40): "
@@ -135,8 +135,7 @@ def real_main(args):
             "mudou de forma sem este script acompanhar"
         )
 
-
-# --- selftest -----------------------------------------------------
+#-- - selftest -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -
 
 def _write_temp(content):
     with tempfile.NamedTemporaryFile(

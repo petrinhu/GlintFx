@@ -63,6 +63,12 @@ static_assert(win32_display_adapter::k_class_name_chars >= 10 + 16 + 1,
 // for that mechanism.
 LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) noexcept {
     if (msg == WM_NCCREATE) {
+        // WM_NCCREATE's own documented lParam IS a CREATESTRUCTW*
+        // smuggled through the integer-typed LPARAM (learn.microsoft.com/
+        // windows/win32/learnwin32/managing-application-state) -
+        // unavoidable at this Win32 message boundary, same idiom as the
+        // GWLP_USERDATA cast a few lines below.
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         const auto *create = reinterpret_cast<const CREATESTRUCTW *>(lparam);
         ::SetWindowLongPtrW(hwnd, GWLP_USERDATA,
                             reinterpret_cast<LONG_PTR>(create->lpCreateParams));
@@ -92,6 +98,14 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
     // installed. This class-level function is the only code that runs
     // early enough to route that message at all.
     if (msg == WM_SIZE || msg == WM_CLOSE || msg == WM_ACTIVATE || msg == WM_DPICHANGED) {
+        // GetWindowLongPtrW returns the GWLP_USERDATA slot as a LONG_PTR
+        // by Win32's own design (learn.microsoft.com/windows/win32/api/
+        // winuser/nf-winuser-getwindowlongptrw) - it holds a genuine
+        // pointer (window_proc's own WM_NCCREATE branch above is the
+        // only writer, storing `this`/lpCreateParams), the integer-typed
+        // return is just how the Win32 API carries it, unavoidable at
+        // this boundary.
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         void *user_data = reinterpret_cast<void *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
         if (user_data != nullptr) {
             LRESULT routed_result = 0;
@@ -119,8 +133,20 @@ win32_display_adapter::class_name_for(const void *instance) noexcept {
     // <format> would pull std::string machinery this internal seam
     // has no need for.
     const auto address = reinterpret_cast<std::uintptr_t>(instance);
-    ::swprintf(buffer.data(), buffer.size(), L"GlintfxWnd%016zx",
-               static_cast<std::size_t>(address));
+    // Return value checked (cert-err33-c), though unreachable in
+    // practice by construction: the static_assert above already proves
+    // k_class_name_chars fits "GlintfxWnd" plus 16 hex digits plus the
+    // terminating NUL with 5 characters to spare, so this exact format
+    // string can never overrun the buffer and swprintf can only return
+    // negative on an encoding failure - never truncation. On that
+    // unreachable path `buffer` is left at its all-zero std::array
+    // initializer above (never garbage/UB), so open() still gets a
+    // well-formed, merely-empty class name, and RegisterClassExW's
+    // ordinary refusal of it carries through the normal gltfx_rslt
+    // error path (GODS_LAWS.md L-22) - no crash, no special case needed.
+    const int written = ::swprintf(buffer.data(), buffer.size(), L"GlintfxWnd%016zx",
+                                   static_cast<std::size_t>(address));
+    (void)written;
     return buffer;
 }
 

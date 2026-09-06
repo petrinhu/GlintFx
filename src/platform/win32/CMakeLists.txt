@@ -54,11 +54,22 @@
 # storage (propkey.h declares it `extern` without INITGUID - the
 # symbol's DEFINITION lives in Propsys.lib, not in this project's own
 # object files).
+#
+# window_message_route.cpp - split OUT of window_adapter.cpp (fix for
+# the link defect the windows-latest runner found live, X-2/WIN-WINDOW
+# fatia 9's own review): handle_message() and the free function that
+# reaches it from display_adapter.cpp's own shared window_proc are
+# their own atom, a separate reason to change from window_adapter.cpp's
+# own lifecycle code (open/close/set_title) - see that file's own
+# target_sources comment above for the app_user_model_id.cpp precedent,
+# and window_message_route.cpp's own header comment for the full
+# reasoning (GODS_LAWS.md L-17).
 target_sources(glintfx_library PRIVATE
     display_adapter.cpp
     selected_display_adapter_check.cpp
     seat_adapter.cpp
     window_adapter.cpp
+    window_message_route.cpp
     app_user_model_id.cpp
 )
 

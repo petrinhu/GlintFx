@@ -9,17 +9,23 @@
 #include <glintfx/core/err_code.hpp>
 
 #include "platform/win32/app_user_model_id.hpp"
-#include "platform/win32/window_message_route.hpp"
 #include "platform/window/window_desc_validation.hpp"
 
 // window_adapter.cpp - see window_adapter.hpp's own header comment for
-// scope, and window_message_route.hpp's own for why display_adapter.cpp
-// (not this file) routes WM_SIZE/WM_CLOSE/WM_ACTIVATE/WM_DPICHANGED to
-// handle_message() below. Written from Microsoft's own current
-// documentation (each mechanism cited at its own call site) - this
-// project has no usable Windows toolchain on the machine that wrote it
-// (GODS_LAWS.md L-27, same declared limitation display_adapter.cpp's
-// own header comment already uses for the fatia this one builds on).
+// scope. handle_message() (and the window_message_route.hpp free
+// function that reaches it from display_adapter.cpp's own shared
+// window_proc) live in window_message_route.cpp, NOT here - split out
+// on purpose so five test fixtures that recompile display_adapter.cpp
+// in isolation (win32_display_connect_test and its four siblings,
+// tests/CMakeLists.txt) can satisfy that reference without also
+// linking this file's own open()/set_title() dependencies (app_user_
+// model_id.cpp, window/window_desc_validation.cpp) - see window_
+// message_route.cpp's own header comment for the full reasoning.
+// Written from Microsoft's own current documentation (each mechanism
+// cited at its own call site) - this project has no usable Windows
+// toolchain on the machine that wrote it (GODS_LAWS.md L-27, same
+// declared limitation display_adapter.cpp's own header comment already
+// uses for the fatia this one builds on).
 
 namespace glintfx::platform {
 
@@ -47,17 +53,6 @@ namespace {
 }
 
 } // namespace
-
-// window_message_route.hpp's own free function - the type-erased
-// coupling surface display_adapter.cpp's own shared window_proc calls
-// through, without ever including this file's own header. See that
-// header's own comment for the full safety argument (why `self` is
-// always genuinely a win32_window_adapter* here).
-bool win32_window_adapter_route_message(void *self, HWND hwnd, UINT msg, WPARAM wparam,
-                                        LPARAM lparam, LRESULT &out_result) noexcept {
-    auto *adapter = static_cast<win32_window_adapter *>(self);
-    return adapter->handle_message(hwnd, msg, wparam, lparam, out_result);
-}
 
 win32_window_adapter::win32_window_adapter(win32_window_adapter &&other) noexcept
     : m_window(other.m_window), m_dpi(other.m_dpi), m_state(other.m_state) {
@@ -217,86 +212,6 @@ gltfx_rslt<void> win32_window_adapter::set_title(std::string_view title) noexcep
             gltfx_err(gltfx_err_code::platform_failure).with_os_error_code(::GetLastError()));
     }
     return gltfx_rslt<void>::ok();
-}
-
-bool win32_window_adapter::handle_message(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam,
-                                          LRESULT &out_result) noexcept {
-    switch (msg) {
-    case WM_SIZE: {
-        // WM_SIZE's own documented lParam (learn.microsoft.com/windows/
-        // win32/winmsg/wm-size): the LOW/HIGH words already ARE the new
-        // CLIENT AREA width/height in pixels - no GetClientRect() call
-        // needed, and no read of desc.logical_width/height either (this
-        // header's own "TWO SIZES" paragraph, sec. 5 risk 2 of the
-        // plan): THIS is "the aviso de dimensao itself", converted back
-        // to the 96-DPI logical baseline via m_dpi.
-        const auto width_px = static_cast<std::uint32_t>(LOWORD(lparam));
-        const auto height_px = static_cast<std::uint32_t>(HIWORD(lparam));
-        const auto logical_width = static_cast<std::uint32_t>(
-            ::MulDiv(static_cast<int>(width_px), 96, static_cast<int>(m_dpi)));
-        const auto logical_height = static_cast<std::uint32_t>(
-            ::MulDiv(static_cast<int>(height_px), 96, static_cast<int>(m_dpi)));
-        m_state.apply_logical_size(logical_width, logical_height);
-        // SIZE_MAXIMIZED/SIZE_RESTORED (WM_SIZE's own wParam values) -
-        // SIZE_MINIMIZED is out of D-W5-3's "v1 congela so o minimo"
-        // scope (window_state_bit has no minimized slot), silently
-        // folded into "not maximized", same "unknown/newer state
-        // ignored" shape window_configure_sequence.hpp's own header
-        // comment documents for the Wayland side.
-        m_state.set_state(window_state_bit::maximized, wparam == SIZE_MAXIMIZED);
-        out_result = 0; // WM_SIZE's own documented return value.
-        return true;
-    }
-    case WM_CLOSE:
-        // Marks the one-way latch and returns 0 WITHOUT EVER reaching
-        // DefWindowProcW (sec. 5 risk 6 of the plan): DefWindowProcW's
-        // own default WM_CLOSE handling calls DestroyWindow, which
-        // would leave m_window a dangling HWND while close_requested()
-        // stayed true - close() (above) is the ONLY caller that ever
-        // destroys this window.
-        m_state.request_close();
-        out_result = 0;
-        return true;
-    case WM_ACTIVATE: {
-        // WM_ACTIVATE's own documented wParam low-order word: WA_ACTIVE
-        // (1), WA_CLICKACTIVE (2), WA_INACTIVE (0) - "active" here means
-        // anything other than WA_INACTIVE.
-        const WORD activation = LOWORD(wparam);
-        m_state.set_state(window_state_bit::active, activation != WA_INACTIVE);
-        out_result = 0;
-        return true;
-    }
-    case WM_DPICHANGED: {
-        // WM_DPICHANGED's own documented wParam: LOWORD is the new
-        // X-axis DPI, "identical" to the Y-axis value for this
-        // project's own windows (learn.microsoft.com/windows/win32/
-        // hidpi/wm-dpichanged) - lParam points to a RECT with the
-        // suggested new window rect, screen coordinates, already
-        // scaled for the new DPI.
-        const auto new_dpi = static_cast<std::uint32_t>(LOWORD(wparam));
-        m_dpi = new_dpi;
-        m_state.apply_dpi(new_dpi);
-        // Guarded on `hwnd` (never on `lparam` alone: a real message
-        // always carries a real RECT pointer here) so win32_message_
-        // translation_test can call this method directly with
-        // hwnd == nullptr and exercise only the pure m_state update,
-        // the same "mensagens sinteticas" shape wayland_window_
-        // adapter's own null-proxy callback tests already use -
-        // SetWindowPos against a null/invalid handle is a documented
-        // failure (returns FALSE, GetLastError() ERROR_INVALID_WINDOW_
-        // HANDLE), never called here on purpose.
-        if (hwnd != nullptr) {
-            const auto *suggested = reinterpret_cast<const RECT *>(lparam);
-            ::SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
-                           suggested->right - suggested->left, suggested->bottom - suggested->top,
-                           SWP_NOZORDER | SWP_NOACTIVATE);
-        }
-        out_result = 0;
-        return true;
-    }
-    default:
-        return false;
-    }
 }
 
 } // namespace glintfx::platform

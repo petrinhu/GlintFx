@@ -823,6 +823,21 @@ if(WIN32)
     target_include_directories(win32_display_connect_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(win32_display_connect_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only (X-2/
+        # WIN-WINDOW fatia 9's own review, GODS_LAWS.md L-04): display_
+        # adapter.cpp's own shared window_proc has a real call to win32_
+        # window_adapter_route_message() (window_message_route.hpp),
+        # which must resolve at LINK time even though this fixture's own
+        # message-only window never reaches the branch that calls it
+        # (win32_window_adapter's own instances are never created here -
+        # see window_message_route.hpp's own "SAFE ONLY BECAUSE OF WHAT
+        # THE FOUR MESSAGE TYPES THEMSELVES MEAN" paragraph). window_
+        # state.cpp is handle_message()'s own dependency, not window_
+        # adapter.cpp's open()/set_title() ones - see window_message_
+        # route.cpp's own header comment for why THIS pair, not the
+        # whole of window_adapter.cpp plus app_user_model_id.cpp.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(win32_display_connect_test PRIVATE user32)
 endif()
@@ -846,6 +861,11 @@ if(WIN32)
     target_include_directories(win32_display_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(win32_display_refusal_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only, same
+        # reason as win32_display_connect_test's own block above (see
+        # its comment for the full reasoning).
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(win32_display_refusal_test PRIVATE user32)
 
@@ -862,6 +882,11 @@ if(WIN32)
     target_include_directories(two_displays_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(two_displays_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only, same
+        # reason as win32_display_connect_test's own block above (see
+        # its comment for the full reasoning).
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(two_displays_test PRIVATE user32)
 endif()
@@ -889,6 +914,13 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only, same
+        # reason as win32_display_connect_test's own block above (see
+        # its comment for the full reasoning) - display_adapter.cpp is
+        # what actually references win32_window_adapter_route_message()
+        # here, not seat_adapter.cpp.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(win32_seat_translation_test PRIVATE user32)
 
@@ -910,6 +942,13 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only, same
+        # reason as win32_display_connect_test's own block above (see
+        # its comment for the full reasoning) - display_adapter.cpp is
+        # what actually references win32_window_adapter_route_message()
+        # here, not seat_adapter.cpp.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(seat_test PRIVATE user32)
 endif()
@@ -940,6 +979,12 @@ if(WIN32)
     target_include_directories(win32_message_translation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(win32_message_translation_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        # window_message_route.cpp: handle_message() itself now lives
+        # here, split out of window_adapter.cpp (X-2/WIN-WINDOW fatia 9's
+        # own review, GODS_LAWS.md L-17/L-04) - this fixture calls it
+        # directly ("mensagens sinteticas" above), so it is no longer
+        # optional the way it is for the display/seat-only fixtures.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
@@ -962,6 +1007,12 @@ if(WIN32)
     target_include_directories(win32_window_close_request_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(win32_window_close_request_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        # window_message_route.cpp: the real SendMessageW(WM_CLOSE) below
+        # reaches handle_message() through display_adapter.cpp's own
+        # shared window_proc, exactly like production code - split out
+        # of window_adapter.cpp (X-2/WIN-WINDOW fatia 9's own review,
+        # GODS_LAWS.md L-17/L-04), so it is linked here explicitly now.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"

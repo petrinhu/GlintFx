@@ -62,7 +62,15 @@ constexpr int k_nid_external_touch = 0x02;
 // LongPtr's own documentation requires for GWLP_WNDPROC subclassing
 // (seat_adapter.hpp's own "MECHANISM" paragraph).
 LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) noexcept {
+    // GetWindowLongPtrW returns the GWLP_USERDATA slot as a LONG_PTR by
+    // Win32's own design (learn.microsoft.com/windows/win32/api/winuser/
+    // nf-winuser-getwindowlongptrw) - it holds a genuine win32_seat_
+    // adapter* (open() below is the only writer, lpParam = this), the
+    // integer-typed return is just how the Win32 API carries it,
+    // unavoidable at this boundary - same idiom display_adapter.cpp's
+    // own GWLP_USERDATA read already carries the same suppression for.
     auto *adapter =
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         reinterpret_cast<win32_seat_adapter *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 
     if (msg == WM_INPUT_DEVICE_CHANGE && adapter != nullptr) {

@@ -56,6 +56,29 @@ namespace glintfx::platform {
 // (context.hpp) already promises a consumer, never a gltfx_err.
 [[nodiscard]] void *resolve_wgl_proc_address(std::string_view name) noexcept;
 
+// Recognizes the FIVE documented "unresolved" shapes wglGetProcAddress
+// may hand back for a name it does not resolve (nullptr, or one of the
+// four sentinels 1/2/3/-1 - this header's own "THE SECOND HALF OF THE
+// ARMADILHA" paragraph). Declared here (no GLINTFX_API - this is an
+// internal atom, not public ABI, GODS_LAWS.md L-19) purely so tests/
+// win32_wgl_proc_address_test.cpp can exercise it DIRECTLY against all
+// five documented shapes, independent of what any one driver happens
+// to produce - the same "no GLINTFX_API, compiled a second time
+// straight into the test executable" pattern tests/CMakeLists.txt's
+// own win32_display_connect_test comment already establishes for
+// every other win32/ adapter with no public surface.
+//
+// GODS_LAWS.md L-44's own repeated lesson here: a driver's answer to
+// wglGetProcAddress is a FACT OF THE ENVIRONMENT, measured, never
+// something a test can assert about safely across every driver this
+// project will ever run on (see wgl_proc_address_test.cpp's own
+// header comment for the two earlier, wrong assumptions this same
+// fatia already made and had to retract). What THIS function's own
+// unit coverage proves instead is that OUR classification of the five
+// documented shapes is complete and correct, regardless of which one
+// (if any) a given driver actually returns.
+[[nodiscard]] bool is_unresolved_sentinel(void *address) noexcept;
+
 } // namespace glintfx::platform
 
 #endif // defined(_WIN32)

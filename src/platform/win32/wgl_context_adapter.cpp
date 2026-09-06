@@ -213,8 +213,9 @@ gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
             gltfx_err(gltfx_err_code::unsupported)
                 .with_rejected_value(msaa_samples > 0 ? "msaa_samples" : "srgb_framebuffer"));
     } else if (!try_choose(0, false, choose, chosen_format)) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_pixel_format"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_pixel_format")
+                                         .with_os_error_code(::GetLastError()));
     }
 
     m_msaa_supported = msaa_ok;
@@ -227,12 +228,14 @@ gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
     // ARB-chosen format, rather than fabricating one by hand.
     PIXELFORMATDESCRIPTOR pfd{};
     if (::DescribePixelFormat(m_dc, chosen_format, sizeof(PIXELFORMATDESCRIPTOR), &pfd) == 0) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_pixel_format"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_pixel_format")
+                                         .with_os_error_code(::GetLastError()));
     }
     if (::SetPixelFormat(m_dc, chosen_format, &pfd) == 0) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_pixel_format"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_pixel_format")
+                                         .with_os_error_code(::GetLastError()));
     }
     return gltfx_rslt<void>::ok();
 }
@@ -253,14 +256,16 @@ win32_gl_context_adapter::create_context(void *create_context_attribs_arb) noexc
     };
     HGLRC context = create(m_dc, nullptr, context_attribs);
     if (context == nullptr) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_context"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_context")
+                                         .with_os_error_code(::GetLastError()));
     }
     m_context = context;
 
     if (::wglMakeCurrent(m_dc, m_context) == 0) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_make_current"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_make_current")
+                                         .with_os_error_code(::GetLastError()));
     }
 
     gl_int major = 0;
@@ -325,8 +330,9 @@ win32_gl_context_adapter::open(win32_window_adapter &window,
     m_dc = ::GetDC(hwnd);
     if (m_dc == nullptr) {
         close();
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("device_context"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("device_context")
+                                         .with_os_error_code(::GetLastError()));
     }
     m_window = hwnd;
 
@@ -387,8 +393,9 @@ void win32_gl_context_adapter::close() noexcept {
 
 gltfx_rslt<void> win32_gl_context_adapter::make_current() noexcept {
     if (::wglMakeCurrent(m_dc, m_context) == 0) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_make_current"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_make_current")
+                                         .with_os_error_code(::GetLastError()));
     }
     return gltfx_rslt<void>::ok();
 }
@@ -406,8 +413,20 @@ gltfx_rslt<gltfx_present_outcome> win32_gl_context_adapter::swap_buffers() noexc
         return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
     }
     if (::SwapBuffers(m_dc) == 0) {
-        return gltfx_rslt<gltfx_present_outcome>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("swap_buffers"));
+        // with_os_error_code(::GetLastError()) - THE GEMEO this file
+        // itself was missing (GODS_LAWS.md L-17/CLAUDE.md "ao corrigir,
+        // procurar o gemeo"): every OTHER win32/ adapter that returns
+        // platform_failure from a failed Win32 call already attaches
+        // ::GetLastError() this same way (display_adapter.cpp,
+        // window_adapter.cpp, seat_adapter.cpp, app_user_model_id.cpp)
+        // - this file's nine platform_failure sites, swap_buffers()
+        // included, were the one place in src/platform/win32/ that did
+        // not, leaving a caller (and this file's own iconic_present
+        // test) with no way to see WHY a real SwapBuffers() call
+        // failed on the real Windows runner, only THAT it did.
+        return gltfx_rslt<gltfx_present_outcome>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                                          .with_rejected_value("swap_buffers")
+                                                          .with_os_error_code(::GetLastError()));
     }
     ++m_swap_calls_issued;
     return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
@@ -424,8 +443,9 @@ gltfx_rslt<void> win32_gl_context_adapter::call_swap_interval(int interval) noex
     }
     const auto swap_interval = reinterpret_cast<wgl_swap_interval_ext_fn>(m_swap_interval_ext);
     if (swap_interval(interval) == 0) {
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("wgl_swap_interval"));
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
+                                         .with_rejected_value("wgl_swap_interval")
+                                         .with_os_error_code(::GetLastError()));
     }
     return gltfx_rslt<void>::ok();
 }

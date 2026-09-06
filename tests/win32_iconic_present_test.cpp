@@ -12,6 +12,8 @@
 #include <print>
 #include <vector>
 
+#include <glintfx/core/err_code.hpp>
+
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 #include "platform/win32/display_adapter.hpp"
@@ -41,6 +43,34 @@
 
 namespace {
 
+// THE INSTRUMENT THIS FILE'S EARLIER TWO REVISIONS WERE MISSING (team-
+// lead briefing, 06/09/2026, on the second CI reproval by the same
+// name): a case that measures six booleans and reprova (comment
+// header above) yet never once printed WHY the failing gltfx_rslt held
+// an error, leaving the next reader to guess. Prints all three
+// diagnostic fields a gltfx_err can ever carry for a Win32
+// platform_failure (core/err.hpp's own "DIAGNOSTIC CONTEXT" paragraph)
+// - the error's own gltfx_err_code by NAME (never the bare integer),
+// rejected_value() (WHICH Win32 call this adapter attributes the
+// failure to), and os_error_code() (the raw ::GetLastError() that call
+// reported - only just wired up, this fatia's own wgl_context_
+// adapter.cpp, for every platform_failure this file's adapter can
+// produce, the one gemeo every OTHER win32/ adapter already had,
+// GODS_LAWS.md L-17). A no-op when `result` holds a value: called
+// unconditionally, right before every has_error() check below, so a
+// future failure - whichever check trips it - always prints first.
+template <typename T>
+void print_error_detail_if_failed(std::string_view label,
+                                  const glintfx::gltfx_rslt<T> &result) noexcept {
+    if (!result.has_error()) {
+        return;
+    }
+    const glintfx::gltfx_err &err = result.error();
+    std::println("MEASURED {}.error_code={}", label, glintfx::gltfx_err_code_name(err.code()));
+    std::println("MEASURED {}.rejected_value={}", label, err.rejected_value());
+    std::println("MEASURED {}.os_error_code={}", label, err.os_error_code());
+}
+
 [[nodiscard]] bool
 open_display_and_window(glintfx::platform::win32_display_adapter &display,
                         glintfx::platform::win32_window_adapter &window) noexcept {
@@ -65,6 +95,7 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     const std::vector<glintfx::gltfx_gfx_option_entry> options;
     const glintfx::gltfx_rslt<void> opened = context.open(window, options);
     std::println("MEASURED win32_iconic_present_test.context_open_ok={}", !opened.has_error());
+    print_error_detail_if_failed("win32_iconic_present_test.context_open", opened);
     GLINTFX_CHECK(!opened.has_error());
 
     // The window was created WITHOUT WS_VISIBLE (D-W5-8/D-W5-13,
@@ -90,6 +121,8 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
 
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented_before_minimize =
         context.swap_buffers();
+    print_error_detail_if_failed("win32_iconic_present_test.presented_before_minimize",
+                                 presented_before_minimize);
     GLINTFX_CHECK(!presented_before_minimize.has_error());
     const bool presented_before =
         presented_before_minimize.value() == glintfx::gltfx_present_outcome::presented;
@@ -106,6 +139,7 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     GLINTFX_CHECK(is_iconic_now != 0);
 
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> while_hidden = context.swap_buffers();
+    print_error_detail_if_failed("win32_iconic_present_test.while_hidden", while_hidden);
     GLINTFX_CHECK(!while_hidden.has_error());
     const bool skipped_hidden =
         while_hidden.value() == glintfx::gltfx_present_outcome::skipped_hidden;
@@ -119,33 +153,44 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     GLINTFX_CHECK(context.swap_calls_issued() == swaps_before_minimize);
 
     ::ShowWindow(window.native_handle(), SW_RESTORE);
-    // THE FIX (GODS_LAWS.md L-44): the real windows-latest runner
-    // measured `!after_restore.has_error()` FALSE here before this
-    // pump existed - swap_buffers() calling ::SwapBuffers() right
-    // after SW_RESTORE, with no message pumped in between, on the
-    // Mesa opengl32 software rasterizer this project's own CI installs
-    // (tools/ci/install-mesa-opengl32.ps1). Two hypotheses were on the
-    // table: a real WGL adapter defect on restore (fix the product),
-    // or the headless runner genuinely unable to ever present here
-    // (the test would then have to measure and declare, not assert).
-    // Neither IsIconic()'s own window-STYLE bit (flips synchronously,
-    // WS_MINIMIZE is plain window state) nor win32_gl_context_adapter
-    // itself (src/platform/win32/wgl_context_adapter.cpp: no WM_SIZE/
-    // WM_ACTIVATE handling anywhere, no code path that could leave a
-    // stale DC/context across a minimize cycle - m_dc is CS_OWNDC,
-    // display_adapter.cpp's own class registration, so it is NOT the
-    // shared/common DC that Windows can silently invalidate) points at
-    // a product defect. What DOES point elsewhere: pump_events() is
-    // this project's OWN documented mechanism for exactly this
-    // ("ARCH-PORTS's own consumer loop calls once per frame",
-    // display_adapter.hpp) - a real consumer restoring a window and
-    // then presenting into it always pumps in between; this fixture,
-    // like the other two ShowWindow() calls above, did not. The gap
-    // was in this test's own exercise procedure, not in the adapter
-    // under test nor an unfixable limitation of the runner.
+    // SECOND CI REPROVAL BY THIS SAME NAME (team-lead briefing,
+    // 06/09/2026, GODS_LAWS.md L-42's own "segunda reprovacao obriga
+    // busca antes da terceira"): the pump added below (the fix the
+    // FIRST reproval's own comment, preserved above unedited, argued
+    // for) did NOT close the gap - the real windows-latest runner
+    // still measured `!after_restore.has_error()` FALSE with the pump
+    // in place. Two hypotheses remained on the table, restated from
+    // the first reproval: a real WGL adapter defect on restore (fix
+    // the product), or the headless runner genuinely needing more than
+    // one pump cycle to finish delivering the SW_RESTORE transition
+    // before a present can succeed (Chromium's own message_pump_win.cc
+    // loops PeekMessage more than once per iteration for exactly this
+    // class of "one pump is not always enough" reasoning - the same
+    // busca this fatia's own team-lead ordered before this attempt).
+    // NEITHER hypothesis is asserted here as the answer: the code
+    // path in win32_gl_context_adapter (src/platform/win32/wgl_
+    // context_adapter.cpp) was re-read end to end for this reproval
+    // and still shows no WM_SIZE/WM_ACTIVATE handling and no path that
+    // could leave a stale DC/context across a minimize cycle (m_dc is
+    // CS_OWNDC, display_adapter.cpp's own class registration - not the
+    // shared/common DC Windows can silently invalidate), which argues
+    // AGAINST a product defect without proving the environment either.
+    // print_error_detail_if_failed() below is what turns "it failed
+    // again" into an actual verdict on the NEXT run: gltfx_err_code,
+    // WHICH Win32 call this adapter blames (rejected_value()), and the
+    // raw ::GetLastError() that call reported (os_error_code(), only
+    // just wired up by this same reproval - wgl_context_adapter.cpp's
+    // swap_buffers() was the one platform_failure site in this file
+    // that never attached it, GODS_LAWS.md L-17's own gemeo). This
+    // project has no Windows toolchain to reproduce either hypothesis
+    // locally (GODS_LAWS.md L-27) - the windows-latest job is still the
+    // only place that can settle which one this is, but it will now do
+    // so with a code and a GetLastError() printed, not a bare
+    // pass/fail.
     GLINTFX_CHECK(!display.pump_events().has_error());
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> after_restore =
         context.swap_buffers();
+    print_error_detail_if_failed("win32_iconic_present_test.after_restore", after_restore);
     GLINTFX_CHECK(!after_restore.has_error());
     const bool presented_after_restore =
         after_restore.value() == glintfx::gltfx_present_outcome::presented;

@@ -23,18 +23,24 @@
 
 namespace glintfx::platform {
 
-namespace {
-
 // The four documented sentinel values wglGetProcAddress may return
 // instead of nullptr for a name it does not resolve (learn.microsoft.
 // com/windows/win32/api/wingdi/nf-wingdi-wglgetprocaddress, "Remarks":
 // "some implementations will return 1, 2, 3, or -1... these values...
 // are not appropriate error codes"), plus nullptr itself - this file's
-// own header comment, "THE SECOND HALF OF THE ARMADILHA".
-[[nodiscard]] bool is_unresolved_sentinel(void *address) noexcept {
+// own header comment, "THE SECOND HALF OF THE ARMADILHA". Declared at
+// namespace scope (not anonymous) and in wgl_proc_address.hpp - this
+// header's own comment on why: win32_wgl_proc_address_test.cpp's own
+// unit coverage of all five shapes needs to call this directly,
+// something an anonymous-namespace (internal-linkage) function in this
+// TU could never give a SEPARATE test .cpp that compiles this file a
+// second time (tests/CMakeLists.txt's own comment on that technique).
+bool is_unresolved_sentinel(void *address) noexcept {
     const auto value = reinterpret_cast<std::intptr_t>(address);
     return value == 0 || value == 1 || value == 2 || value == 3 || value == -1;
 }
+
+namespace {
 
 // wglGetProcAddress needs a NUL-terminated name, but `name` arrives as
 // a std::string_view with no such guarantee - the same reasoning

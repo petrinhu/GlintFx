@@ -2029,3 +2029,54 @@ o foco** -- agora a soltura e sintetica e deterministica.
 O conjunto de chamadas do laco ganha **ja** o campo de evento de entrada, com o tipo so
 declarado, e **recusado se preenchido** ate a fatia que o entrega. Layout de struct visivel
 nao aceita campo novo depois sem quebrar compatibilidade binaria.
+
+---
+
+## Duas decisoes que a revisao de reabertura produziu de graca  `[06/09/26 - 12:54:27]`
+
+**Contexto:** o lider autorizou reabrir onda ou fatia se a lente nova melhorasse a
+resposta. **O veredito foi que NENHUMA reabre** -- mas a varredura achou duas coisas na
+onda ABERTA que ninguem tinha visto.
+
+### D-W6b-25 -- abrir contexto duas vezes na mesma janela
+
+⚠️ **Era divergencia entre sistemas entrando pela porta da frente:** um sistema fixa o
+formato **uma vez por janela** e recusa a segunda tentativa (a documentacao do fabricante
+diz, verbatim, que **nao pode ser mudado**); o outro aceita. **Sem regra nossa, o mesmo
+codigo faria coisas diferentes nos dois lados**, e o portao de paridade so descobriria no
+fechamento.
+
+**Regra:** o **primeiro** contexto aberto sobre uma janela **fixa nela** o valor de toda
+opcao de abertura; abertura seguinte com valor diferente e **recusada pelo nome nos dois
+sistemas**, por construcao, **antes de o adaptador ver o pedido** -- entao a resposta e
+igual independente de driver. A fixacao morre com a **janela**, nao com o contexto.
+
+⚠️ **E a saida do beco foi resolvida por CAMPO, nao por frase, e a razao e medida:** eu
+exigi que o erro dissesse ao consumidor o que fazer; o CTO **mediu que o tipo de erro
+desta casa nao tem campo de prosa**, e acrescentar um **reabriria uma fatia antiga sem
+necessidade**. Entao: **dois codigos de erro diferentes para duas causas** -- "ja fixado
+nesta janela" e "este sistema nao tem" -- os dois nomeando a opcao. O consumidor
+distingue **"abra outra janela"** de **"aqui nao existe"** sem ler texto.
+
+**A prova e desenhada para pegar a ordem errada:** o teste reabre com valor diferente **num
+executor que nem suporta aquela opcao**, e exige o erro de **fixacao**. Se alguem inverter
+a ordem das checagens, o executor passa a devolver o outro erro e o teste reprova.
+
+### D-W6b-26 -- o consumidor nao conseguia saber que a janela esta oculta
+
+A sincronia promete **pular quadro** quando a janela some da vista, e **nao havia como
+confirmar**. As dores encontradas vao nas **duas direcoes**: programa consumindo maquina a
+100% minimizado, e programa **travando** por esperar quadro que nunca vem. **Mesma raiz:
+o desenvolvedor nao tinha como saber.**
+
+**Dois canais, cada um prometendo so o que prova:**
+
+1. **O que a biblioteca de fato fez** no quadro anterior -- apresentou ou pulou --, **igual
+   nos cinco sistemas por construcao**. ⚠️ **E a decisao fina:** o laco **continua chamando
+   o passo de logica** com a janela oculta; **so o desenho para**. O contador do jogo nao
+   congela, e isso vai escrito.
+2. **O que o sistema afirma:** a janela ganha o estado "suspensa". ⚠️ **Os gatilhos NAO sao
+   iguais** (um sistema tambem liga por oclusao e tela desligada; o outro nao expoe
+   oclusao) -- e isso entra **declarado na matriz**, em vez de prometido igual.
+
+**Nenhuma das duas reabre onda fechada:** acrescentar estado e aditivo.

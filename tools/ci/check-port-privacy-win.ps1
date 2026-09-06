@@ -92,7 +92,7 @@ $ErrorActionPreference = "Stop"
 # display_adapter (src/platform/win32/window_adapter.hpp). Adicionado
 # na MESMA revisao que tests/tools/check_port_privacy.sh's own
 # KNOWN_ADAPTER_CLASSES.
-$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter", "win32_window_adapter")
+$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "fake_gl_context_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter", "win32_window_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 

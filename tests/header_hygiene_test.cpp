@@ -122,7 +122,9 @@
 #include <glintfx/gfss/value.hpp>
 #include <glintfx/gfui/node_view.hpp>
 #include <glintfx/platform/asset/file.hpp>
+#include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
+#include <glintfx/platform/gl/gpu.hpp>
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 #include <glintfx/version_macros.hpp>

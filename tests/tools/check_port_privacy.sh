@@ -115,7 +115,7 @@ set -eu
 # win.ps1's own KNOWN_ADAPTER_CLASSES carries the SAME name, added in
 # THIS same commit (this file's own L-40 rule: "avisar nao basta, as
 # duas pontas fecham na mesma revisao").
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter"
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter fake_gl_context_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {

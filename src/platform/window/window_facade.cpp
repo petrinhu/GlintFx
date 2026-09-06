@@ -9,6 +9,7 @@
 #include "platform/port/window_adapter_port.hpp"
 #include "platform/window/display_impl.hpp"
 #include "platform/window/window_desc_validation.hpp"
+#include "platform/window/window_impl.hpp"
 #include "platform/window/window_state.hpp"
 
 #if defined(_WIN32)
@@ -65,9 +66,10 @@
 
 namespace glintfx {
 
-struct window_impl {
-    platform::selected_window_adapter adapter;
-};
+// window_impl itself moved to window_impl.hpp (GL-CONTEXT, D-W6b-25) -
+// see that header's own comment for why gl_context_facade.cpp now
+// needs to share this same definition, and window.hpp's own window_
+// internal_access passkey for how it reaches it from outside this TU.
 
 namespace {
 
@@ -169,7 +171,13 @@ gltfx_rslt<gltfx_window> gltfx_window::open(gltfx_display &display,
         return gltfx_rslt<gltfx_window>::err(opened.error());
     }
 
-    auto *impl = new (std::nothrow) window_impl{std::move(adapter)};
+    // window_impl now carries a second field (D-W6b-25's own fixed_
+    // open_only_gfx_options, window_impl.hpp) - spelled out explicitly
+    // (never a bare `{std::move(adapter)}` relying on the field's own
+    // default member initializer) for the SAME -Wmissing-field-
+    // initializers reason display_facade.cpp's own aggregate-init
+    // comment already documents for display_impl's `shell` member.
+    auto *impl = new (std::nothrow) window_impl{std::move(adapter), std::nullopt};
     if (impl == nullptr) {
         return gltfx_rslt<gltfx_window>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }
@@ -230,5 +238,14 @@ gltfx_rslt<void> gltfx_window::set_title(std::string_view title) noexcept {
            "an adapter");
     return m_impl->adapter.set_title(title);
 }
+
+// window_internal_access::get() - the ONLY definition of this symbol
+// in the whole library, the exact same reasoning display_internal_
+// access::get() (display_facade.cpp) already documents for itself: a
+// consumer's translation unit sees only the declaration in the public
+// window.hpp, never this body, so it cannot compile the access itself
+// - it can only ask the LINKER for a symbol this project deliberately
+// never exports. No GLINTFX_API on this line, for the identical reason.
+window_impl *window_internal_access::get(gltfx_window &window) noexcept { return window.m_impl; }
 
 } // namespace glintfx

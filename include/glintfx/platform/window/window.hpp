@@ -140,12 +140,36 @@ struct gltfx_window_desc {
 
 // Opaque (GODS_LAWS.md L-19): the full layout - today, either a
 // platform::wayland_window_adapter or a platform::win32_window_adapter,
-// picked by src/platform/window/window_facade.cpp's own #if - is a
-// private implementation detail, defined ONLY in window_facade.cpp. A
+// plus GL-CONTEXT's own D-W6b-25 open_only fixation bookkeeping
+// (docs/plano-w6b-placa-e-laco.md sec. 14.2) - is a private
+// implementation detail, defined ONLY in src/platform/window/
+// window_impl.hpp (moved there from window_facade.cpp by GL-CONTEXT,
+// the same way display_impl moved into display_impl.hpp one fatia
+// ago, so gl_context_facade.cpp can share the SAME definition). A
 // consumer never sees this type; gltfx_window below carries only a
 // pointer to one - the exact same shape display_impl/gltfx_display
 // (display.hpp, this directory) already have.
 struct window_impl;
+
+// window_internal_access - GL-CONTEXT's own internal seam (docs/plano-
+// w6b-placa-e-laco.md fatia 2b, D-W6b-1/25), PASSKEY IDIOM, the exact
+// same shape display.hpp's own display_internal_access already
+// establishes one directory over - see that struct's own header
+// comment for the full reasoning (a friend struct outside gltfx_window
+// itself, never a public method on the class, and get() declared here
+// but DEFINED only in window_facade.cpp so a consumer's own
+// translation unit cannot synthesize the access itself - only the
+// linker can resolve the real, unexported symbol). gl_context_facade.
+// cpp (src/platform/gl/) needs this to reach the window's own adapter
+// (to open a context over it) AND the fixed_open_only_gfx_options
+// field (window_impl.hpp) D-W6b-25's own fixation reads and writes -
+// window_facade.cpp is the OTHER trusted sibling that already has
+// direct, non-passkey access (it defines window_impl's own contents
+// via window_impl.hpp), the same "two files on the library's own side
+// of the boundary" shape display_impl.hpp's own pair already has.
+struct window_internal_access {
+    [[nodiscard]] static window_impl *get(class gltfx_window &window) noexcept;
+};
 
 // gltfx_window - WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias
 // 6/9/11, absorbed into one fatia by the CTO's own decision, porta de
@@ -292,6 +316,13 @@ class gltfx_window {
 
   private:
     explicit gltfx_window(window_impl *impl) noexcept : m_impl(impl) {}
+
+    // window_internal_access::get() is the ONLY thing outside this
+    // class ever granted access to m_impl through the passkey - see
+    // that struct's own header comment, above, for why it is a friend
+    // struct with an out-of-line static method and not a public method
+    // on gltfx_window itself.
+    friend struct window_internal_access;
 
     window_impl *m_impl = nullptr;
 };

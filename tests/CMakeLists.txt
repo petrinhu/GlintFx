@@ -666,6 +666,44 @@ target_sources(gfx_open_only_fixation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
 )
 
+# GL-CONTEXT (docs/plano-w6b-placa-e-laco.md fatia 2b, GODS_LAWS.md
+# L-17/L-19/L-20/L-26/L-40): the four OS-agnostic pure atoms this fatia
+# adds on top of C-OPT above - the descriptor-shape validator, the GL
+# 3.3-core version policy, the EGL-surface resize policy (D-W6b-5) and
+# the GPU-kind storage atom (D-W6b-13) - plus a compile-only proof that
+# gl_context_adapter_port (src/platform/port/) is genuinely satisfiable
+# by a real type. None of the five reaches a Wayland/Win32/EGL/WGL
+# type, so all five register UNGUARDED, exactly like the C-OPT trio
+# just above.
+glintfx_add_test(gl_context_desc_validation_test)
+target_include_directories(gl_context_desc_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_context_desc_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_context_desc_validation.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_option_validation.cpp"
+)
+
+glintfx_add_test(gl_version_policy_test)
+target_include_directories(gl_version_policy_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_version_policy_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+)
+
+glintfx_add_test(gl_surface_size_policy_test)
+target_include_directories(gl_surface_size_policy_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_surface_size_policy_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+)
+
+# gpu_kind_state.hpp is entirely inline (no .cpp, same reasoning
+# gfx_option_registry.hpp's own inline table needs none) - the public
+# gpu.hpp it sits on top of is already linked in through
+# glintfx::glintfx below.
+glintfx_add_test(gpu_kind_state_test)
+target_include_directories(gpu_kind_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+glintfx_add_test(gl_context_adapter_port_concept_test)
+target_include_directories(gl_context_adapter_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # Wayland-DOMAIN, not Wayland-ONLY (see this file's own header comment
 # above global_catalog_test on the exact same distinction, and this
 # file's own header comment for why guarding this one would repeat

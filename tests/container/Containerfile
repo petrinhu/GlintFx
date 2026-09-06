@@ -106,8 +106,10 @@
 # above (it reuses window_smoke's EXACT source set - it opens the same
 # kind of glintfx window, only over it does it go on to ask EGL/GL a
 # question window_smoke never asks) - no NEW production source needed
-# in tests/container/_arch_ports_src/ (prepare_arch_ports_fixture.sh's
-# own copy list already stages every file this fixture links against).
+# in tests/container/_arch_ports_src/ (prepare_arch_ports_fixture.sh
+# stages src/, include/ and tests/parity/ in full, 06/09/2026 - what
+# this binary links against is whatever the `g++` invocation below
+# names, never a separate list this script would have to keep in sync).
 # mesa-libEGL-devel is the ONE new package this build stage needs (it
 # pulls libglvnd-devel, which owns both <EGL/egl.h>/<EGL/eglext.h> and
 # egl.pc on this distro - measured via `rpm -qf`/`rpm -q --requires`

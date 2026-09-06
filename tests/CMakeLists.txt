@@ -2617,6 +2617,33 @@ add_test(
 )
 set_tests_properties(container_fixture_inventory_selftest PROPERTIES LABELS selftest)
 
+# Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
+# L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
+# spot the whole-tree rewrite of prepare_arch_ports_fixture.sh's own
+# copy_source_tree() opens by construction - staging every .hpp/.cpp/.h
+# under src/, include/ and tests/parity/ instead of a hand-named list of
+# directories means a header can move to a directory nobody taught this
+# gate about, and a bare `docker build` would only find out several
+# fixtures in, with "No such file or directory". See tests/tools/
+# check_container_fixture_includes.py's own header for the full shape.
+#
+# NO REAL-MODE ctest CASE HERE, unlike container_fixture_inventory_test
+# right above (which only ever reads two plain-text files already
+# present in any checkout): this gate's real mode needs a STAGED tree,
+# which only prepare_arch_ports_fixture.sh's own `sh` script produces -
+# that script already calls this gate as its own last step, and
+# .github/workflows/ci.yml's own `wayland-container` job already runs
+# that script before `docker build`. --selftest here is fully hermetic
+# (its own tempfile fixtures, never the real staged tree), so it is
+# registered on all five platforms with no guard, same GATE-TREE-PARITY
+# shape as container_fixture_inventory_selftest above.
+add_test(
+    NAME container_fixture_includes_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_includes.py" --selftest
+)
+set_tests_properties(container_fixture_includes_selftest PROPERTIES LABELS selftest)
+
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
 # EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo

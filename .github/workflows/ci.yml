@@ -1117,7 +1117,7 @@ jobs:
       # image build below can COPY them without widening the docker
       # build context past tests/container/ - see prepare_arch_ports_
       # fixture.sh's own header comment for why.
-      - name: Prepara a fixture ARCH-PORTS (R4)
+      - name: Prepara a fixture ARCH-PORTS e confere includes (R4, L-40)
         run: tests/container/prepare_arch_ports_fixture.sh "$(pwd)"
 
       - name: Marca o inicio do build da imagem

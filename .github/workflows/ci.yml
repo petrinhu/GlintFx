@@ -1134,6 +1134,23 @@ jobs:
             glintfx-wltest-clean registry_smoke
           echo "registry_smoke" >> parity_inventory.txt
 
+      # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, "Prova
+      # Linux" column e sec. 5 item 8): two_displays_test.cpp abre DOIS
+      # wayland_display_adapter no mesmo processo, contra este MESMO
+      # compositor real - o lado Linux do par que ja roda no Windows
+      # (tests/two_displays_test.cpp, tests/CMakeLists.txt if(WIN32)),
+      # MESMO NOME nos dois lados (tests/tools/check_test_parity.py's
+      # own P-0 inventory). Roda logo apos o passo de registro acima,
+      # antes de qualquer coisa que precise do compositor vivo abaixo.
+      - name: WIN-WINDOW fatia 7 - dois displays no mesmo processo dentro do container
+        run: |
+          set -eu
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean two_displays_test
+          echo "two_displays_test" >> parity_inventory.txt
+
       # WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, mesmo padrao dos
       # dois passos acima. Roda ANTES da fatia C abaixo de proposito -
       # precisa do compositor deste container ainda vivo, e a fatia C e
@@ -1203,9 +1220,10 @@ jobs:
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o
       # adaptador sobrevive com platform_failure em vez de crash. Roda
       # por ULTIMO entre os smokes deste container de proposito: os
-      # sete passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
-      # pump_smoke, shell_smoke, window_smoke, seat_test) todos precisam
-      # do compositor vivo, e depois deste passo ele nao esta mais. O
+      # oito passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
+      # two_displays_test, pump_smoke, shell_smoke, window_smoke,
+      # seat_test) todos precisam do compositor vivo, e depois deste
+      # passo ele nao esta mais. O
       # CONTAINER em si sobrevive ao teste -
       # run_compositor.sh deixou de rodar o compositor como PID 1
       # exatamente para isso (conserto desta mesma revisao,

@@ -29,9 +29,12 @@
 // ERROR_CLASS_ALREADY_EXISTS (1410) - the identical mechanism
 // tests/win32_display_refusal_test.cpp now provokes on purpose against
 // a single adapter, except here it would have fired unintentionally
-// between two adapters that have every right to coexist (the Wayland
-// side already proves two independent connections in the same process
-// work with no special handling at all).
+// between two adapters that have every right to coexist. The Wayland
+// side did NOT already prove this (an earlier version of this comment
+// claimed it did - found false by measurement: grepping tests/*.cpp,
+// tests/container/*.cpp and src/platform/wayland/*.cpp for a second
+// wayland_display_adapter instance in any one file found zero, before
+// tests/container/two_displays_test.cpp closed the gap, same fatia).
 //
 // NAMED "two_displays_test", not "win32_two_displays_test": this is
 // the EXACT ctest name docs/plano-w6a-janela.md fatia 7's own "Par no

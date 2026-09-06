@@ -169,3 +169,17 @@ window_adapter_listener_test|win32_message_translation_test
 # ja documentado para display_connect_failure_test mais acima neste
 # arquivo).
 window_adapter_listener_test|win32_window_close_request_test
+
+# WL-SEAT fatia S-B / WIN-SEAT Y-1 (docs/plano-w6a-janela.md fatias 12 e
+# 13, coluna "Par no portao"): seat_adapter_listener_test (tests/
+# CMakeLists.txt, if(UNIX), "proxy nulo") e win32_seat_translation_test
+# (if(WIN32), "listas sinteticas") provam a MESMA metade pura do
+# adaptador de seat - do anuncio do sistema (bitmask de wl_seat.
+# capabilities + wl_seat.name / RAWINPUTDEVICELIST + SM_DIGITIZER) para
+# o seat_capabilities comum, incluindo "anuncio posterior sobrescreve o
+# anterior" - sem compositor e sem dispositivo real, cada um pelo
+# mecanismo do proprio sistema (GODS_LAWS.md L-04). Os dois arquivos ja
+# se nomeiam como par nos proprios cabecalhos; a linha faltava.
+# A metade viva (bind real) ja e' MESMO NOME nos dois lados: seat_test
+# (fixture do container no Linux, ctest no Windows) - comum, sem linha.
+seat_adapter_listener_test|win32_seat_translation_test

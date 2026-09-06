@@ -40,6 +40,25 @@
 // docker exec invocation.
 
 int main() {
+    // Line-buffer stdout explicitly (achado de 06/09/2026, docs/plano-
+    // w6b-placa-e-laco.md fatia 1, egl_probe_smoke.cpp's own header
+    // comment on probe_egl_and_gl(): a REAL crash of that sibling
+    // fixture, in container, printed NOTHING at all - not because it
+    // died before measuring anything, but because stdout is FULLY
+    // buffered by default whenever it is not a TTY (exactly the case
+    // for every `docker exec ... | tee -a container_measured_raw.log`
+    // in .github/workflows/ci.yml), and the crash discarded the whole
+    // libc buffer before it ever reached the pipe. Every container
+    // fixture in this directory shares that same exposure (`grep -L
+    // setvbuf tests/container/*.cpp tests/parity/window_parity_test.cpp`
+    // found this file among nine that had it, 06/09/2026) - this line
+    // is the fix, applied identically to all nine plus egl_probe_
+    // smoke.cpp itself, so a crash anywhere in this family reports
+    // whatever it measured before dying instead of nothing at all
+    // (GODS_LAWS.md L-40: a measurement that never reaches the pipe is
+    // indistinguishable from one that was never taken).
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
     glintfx::platform::wayland_display_adapter adapter;
 
     glintfx::gltfx_rslt<void> opened = adapter.open();

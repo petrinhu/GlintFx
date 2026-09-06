@@ -29,6 +29,12 @@
 // tests already build, not the library's packaging.
 
 int main() {
+    // Line-buffer stdout explicitly - same fix, same reason, applied
+    // to all ten fixtures in this family (connect_smoke.cpp's own
+    // header comment on this exact line, docs/plano-w6b-placa-e-laco.md
+    // fatia 1, 06/09/2026).
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
     glintfx::platform::wayland_display_adapter adapter;
 
     glintfx::gltfx_rslt<void> opened = adapter.open();
@@ -71,6 +77,24 @@ int main() {
     // in the parity table's "so de um lado" section, declared, not a
     // gap anyone has to go looking for.
     std::fprintf(stdout, "MEASURED registry_smoke.global_count=%zu\n", globals.size());
+
+    // docs/plano-w6b-placa-e-laco.md fatia 1, F13: this compositor's
+    // own announced VERSION for wl_compositor/wl_seat/xdg_wm_base (and
+    // every other global) was never printed anywhere - the previous
+    // revision of this file proved presence and counted totals, never
+    // which version each one carries. Plain diagnostic text, not a
+    // MEASURED line each: the SET of interfaces a `kwin_wayland
+    // --virtual` announces is not a fixed key this project's parity
+    // gate (tests/tools/check_measured_parity.py) could compare
+    // against a Windows twin one key at a time - there is no
+    // "wl_compositor version" fact on the Windows side to diverge
+    // from or match, only the aggregate global_count already measured
+    // above.
+    std::fprintf(stdout, "registry_smoke: globals announced (interface@version):");
+    for (const glintfx::platform::wayland_global &global : globals.all()) {
+        std::fprintf(stdout, " %s@%u", global.interface.c_str(), global.version);
+    }
+    std::fprintf(stdout, "\n");
 
     adapter.close();
     if (adapter.is_open()) {

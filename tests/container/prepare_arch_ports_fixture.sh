@@ -125,6 +125,16 @@ copy_real_sources() {
     cp "$repo_root/src/platform/window/utf8_validation.cpp" \
         "$target/src/platform/window/utf8_validation.cpp"
 
+    # GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1):
+    # egl_probe_smoke.cpp's own build (Containerfile) needs NO new
+    # entry here - it reuses window_smoke.cpp's exact source set above
+    # (display_adapter, global_catalog, shell_requirements/adapter,
+    # window_configure_sequence, window_state/window_desc_validation/
+    # utf8_validation, window_adapter, err/err_code), because it opens
+    # the SAME kind of glintfx window window_smoke.cpp already stages
+    # everything for - it only goes on to ask EGL/GL a question that
+    # fixture never asks.
+
     # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
     # test.cpp's own build (Containerfile) needs seat_adapter.cpp
     # itself (it calls into wayland_display_adapter directly, same

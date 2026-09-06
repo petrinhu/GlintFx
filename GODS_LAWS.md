@@ -944,3 +944,24 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 ⚠️ **O que a lei NÃO autoriza:** trocar julgamento do projeto por resultado de busca. **A busca traz opções; a escolha continua sendo nossa**, e opção que muda o que a biblioteca aceita, exige ou entrega continua sendo **decisão do líder** (L-10).
 
 **Ponto de leitura que o próximo editor deve conferir com o líder em vez de presumir:** o verbatim diz *"onda de build"*. Está registrado aqui na leitura **ampla** (**toda onda que produza código**, não só onda de infraestrutura de construção), porque a ampla é o superconjunto seguro e barato. **Se o líder quis a leitura estreita, ele estreita; agente nenhum estreita sozinho.**
+
+---
+
+## L-44
+
+**Data:** 06/09/2026, ordem do líder. **Verbatim dele:**
+
+> *"nas duvidas, o clevel deve buscar na web o que o mercado utiliza na maioria das vezes e as dores dos usuários da web devem ser resolvidas também. Juntar isso tudo para responder as questões, não responder sozinho."*
+
+**Gatilho:** dispara quando um C-level vai **decidir qualquer coisa em que exista dúvida** — desenho de API, escolha entre alternativas, o que uma opção promete, o que fica de fora.
+
+**A lei tem DUAS metades, e nenhuma dispensa a outra:**
+
+1. **O que o mercado faz na maioria das vezes.** Não é para copiar (a L-29 continua valendo: aprender a técnica, nunca portar a implementação). É para saber qual é a forma que o consumidor **já espera encontrar**, porque contrariar a expectativa comum tem um custo que precisa ser pago conscientemente.
+2. **As dores dos usuários, buscadas na web.** ⚠️ **Esta é a metade que costuma ficar de fora, e é a que o líder acrescentou.** Documentação oficial diz como a coisa deve funcionar; **quem usou diz onde ela machuca**. Relato de quem quebrou a cara — em fórum, em rastreador de defeito, em discussão pública — vale tanto quanto a especificação, porque descreve o que a especificação não conta.
+
+**E a terceira parte, que é a ordem propriamente dita:** *"juntar isso tudo para responder as questões, **não responder sozinho**"*. A decisão sai da **soma** das duas buscas com o julgamento do C-level, e a resposta **cita as fontes**. Decisão de C-level sem fonte, quando havia dúvida, viola esta lei.
+
+**Relação com a L-43, e as duas são distintas:** a L-43 obriga a busca **no início de onda**, sobre como o problema costuma ser atacado. Esta obriga a busca **em toda dúvida de decisão**, e acrescenta o eixo das **dores relatadas por quem usa**. A L-43 é sobre construir; esta é sobre **decidir**.
+
+**O que o líder está protegendo:** ele é o consumidor final do que a biblioteca decide, e a biblioteca é para distribuição, com base de consumidores aberta e desconhecida (o preâmbulo do `CLAUDE.md`). Um C-level que decide só com a documentação oficial na mão desenha para o caso que a documentação descreve, e **não para o caso que faz as pessoas xingarem em fórum**.

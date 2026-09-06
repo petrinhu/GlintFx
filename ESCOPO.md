@@ -769,6 +769,62 @@ Em 21/08/2026 o **Gus Dragon** pediu, nomeando o GlintFx: *"GlintFx e Mapeditor 
 
 ---
 
+### Teclado e mouse — ordem do líder, 06/09/2026
+
+**Verbatim dele:**
+
+> *"teclado deve ser o informado pelo SO, não precisa novo detector. Mouse deve ser capaz de entender o máximo possível de botoes que o SO registrar nativamente, sem app acessório de mouse com botoes extras"*
+
+**Teclado:** a biblioteca usa **o que o sistema informa**, e **não constrói detector próprio**. Isto é simplificação vinda dele, e o CTO precisa medir o que ela faz com a trilha de teclado já planejada (`KEYMAP-*`): o mapa que o compositor entrega continua sendo lido, mas **nada além disso é inventado**.
+
+**Mouse:** a biblioteca entende **o maior número possível de botões que o sistema registrar nativamente**.
+
+⚠️ **E a fronteira que ele traçou, que é a parte que importa:** **sem aplicativo acessório**. Mouse de muitos botões costuma depender de programa do fabricante para expor os botões extras; o que a biblioteca promete é **tudo que o sistema já registra sozinho**, e nada que dependa de software de terceiro instalado na máquina do jogador.
+
+⚠️ **Consequência a honrar no contrato:** o número de botões **varia por sistema e por dispositivo**, então a resposta honesta para "quantos botões tem" é medida, nunca fixa — e o consumidor precisa conseguir perguntar o que existe, em vez de assumir cinco.
+
+---
+
+### Opções gráficas — ordens do líder, 06/09/2026 (as quatro, verbatim)
+
+> *"o framework deve perceber placa grafica compartilhada e dedicada"*
+
+> *"glintfx deve dar ao consumidor opcao de reduzir performance grafica para poupar placa grafica, ou subir performance, de maneira manual, oferecer opcao de auto-choice e detectar multiplas placas para entregar ao consumidor quando ele solicitar. Não sei se expliquei direito"*
+
+> *"quero v-sync como opcao"*
+
+> *"quero o maior numero possivel de opcoes graficas"*
+
+**O que está pedido, decomposto (leitura do orquestrador, a confirmar com ele):**
+
+1. **Escolha manual de nível de desempenho** pelo consumidor: baixar para poupar a placa, ou subir.
+2. **Modo automático** ("auto-choice") como alternativa ao manual.
+3. **Detecção de múltiplas placas**, entregue ao consumidor **quando ele solicitar** (sob demanda, não imposta).
+4. **Sincronia vertical como opção.**
+5. **O maior número possível de opções gráficas.**
+
+⚠️ **A tensão que o orquestrador levantou ao líder, e que precisa de resposta antes de congelar:** "o maior número possível de opções" e "a menor promessa possível" (a regra que esta casa vem aplicando, e que salvou a decisão de dimensão zero) **puxam em direções opostas**. Cada opção que entra na superfície pública é contrato para sempre; retirar é quebra.
+
+**A saída que o orquestrador propôs, e que o CTO vai julgar:** o número de opções cresce sem congelar N campos fixos — a superfície congela **a forma de pedir uma opção e de perguntar se ela existe**, e as opções em si entram por lista **append-only**, do mesmo jeito que o registro de propriedades de estilo desta casa já faz. Assim "muitas opções" e "promessa pequena" deixam de brigar.
+
+⚠️ **Fatos de ambiente que qualquer desenho tem de honrar, medidos em 06/09/2026:** o executor do servidor **não tem placa** (roda por software, `llvmpipe`, medido na sonda), e **nenhum executor nosso tem máquina com duas placas**. O contrato precisa de resposta honesta para **"não há placa dedicada"**, **"não dá para saber"**, e **"esta opção não existe neste sistema"**.
+
+---
+
+### Placa gráfica compartilhada e dedicada — ordem do líder, 06/09/2026
+
+**Verbatim dele:**
+
+> *"o framework deve perceber placa grafica compartilhada e dedicada"*
+
+**Estado:** requisito **aceito e pendente de desenho**. Foi dado enquanto a porta de mão única do contexto gráfico (`gltfx_gl_context`, fatia 2 da W6b) ainda **não estava congelada** — a janela exata em que ele cabe sem quebrar superfície publicada.
+
+⚠️ **O que ainda NÃO está decidido, e vai ao CTO antes de a fatia 2 fechar:** se "perceber" significa **informar** ao consumidor qual placa está em uso, **escolher** entre elas, ou as duas. São promessas de custo muito diferente, e a regra desta casa manda escolher **a menor que atende** — acrescentar depois é extensão, retirar é quebra.
+
+⚠️ **Fatos de ambiente que qualquer desenho tem de honrar, medidos em 06/09/2026:** o executor do servidor **não tem placa nenhuma** e roda por software (`llvmpipe`, medido na sonda). Nenhum executor nosso tem máquina com duas placas. Portanto o contrato precisa de resposta honesta para **"não há placa dedicada"** e para **"não dá para saber"**, e a prova da parte que depende de hardware duplo é do tipo que esta casa já usa: **medir e imprimir, sem asseverar**, declarando o que só a máquina de um usuário mede.
+
+---
+
 ## §7 — Entrada e periféricos
 
 ### Parser XKB próprio

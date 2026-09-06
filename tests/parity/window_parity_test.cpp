@@ -55,6 +55,16 @@
 // standard.
 
 int main() {
+    // Line-buffer stdout explicitly - same fix, same reason, applied
+    // to all ten fixtures in this family (tests/container/connect_
+    // smoke.cpp's own header comment on this exact line, docs/plano-
+    // w6b-placa-e-laco.md fatia 1, 06/09/2026). Portable: `_IOLBF` and
+    // `std::setvbuf` are both plain C89, available on every compiler
+    // this project targets (including MSVC, which registers this ctest
+    // directly on Windows - this file's own header comment on why it
+    // has no #if defined(_WIN32) anywhere).
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
         std::fprintf(

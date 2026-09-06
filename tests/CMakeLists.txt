@@ -703,6 +703,25 @@ if(UNIX)
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
     target_compile_options(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
 
+    # GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1): the
+    # raw wl_display* accessor the EGL probe needs - same second-
+    # compile technique as display_bind_refusal_test right above it
+    # (glintfx.so's hidden visibility, this block's own header
+    # comment). No compositor reachable from this TU (see the test
+    # file's own header comment).
+    glintfx_add_test(display_native_display_test)
+    target_include_directories(display_native_display_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src"
+        ${GlintfxWaylandClient_INCLUDE_DIRS}
+    )
+    target_sources(display_native_display_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+    )
+    target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
+    target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
+    target_compile_options(display_native_display_test PRIVATE ${GlintfxWaylandClient_CFLAGS_OTHER})
+
     # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): the pure
     # half of "does this compositor announce what a shell needs" -
     # check_shell_requirements() against a global_catalog built by

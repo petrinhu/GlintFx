@@ -106,6 +106,12 @@ bool open_and_check_catalog(glintfx::platform::wayland_display_adapter &adapter,
 } // namespace
 
 int main() {
+    // Line-buffer stdout explicitly - same fix, same reason, applied
+    // to all ten fixtures in this family (connect_smoke.cpp's own
+    // header comment on this exact line, docs/plano-w6b-placa-e-laco.md
+    // fatia 1, 06/09/2026).
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
     glintfx::platform::wayland_display_adapter first;
     glintfx::platform::wayland_display_adapter second;
 

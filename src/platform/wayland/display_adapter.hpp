@@ -84,6 +84,21 @@ class wayland_display_adapter {
 
     [[nodiscard]] bool is_open() const noexcept { return m_display != nullptr; }
 
+    // GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1/F2): the
+    // raw wl_display* this adapter owns, for a caller OUTSIDE this
+    // class's own port contract that needs to hand it to a system API
+    // that is not wl_registry/wl_compositor/wl_seat (D-W6b-1: the
+    // EGL context lives in its own handle, opened FROM a window, not
+    // inside gltfx_window itself) - eglGetPlatformDisplay(EGL_
+    // PLATFORM_WAYLAND_KHR, wl_display*, ...) is the one call this
+    // exists for today. Same "internal-only accessor, not a GODS_
+    // LAWS.md L-19 porta gorda concern" reasoning as registry_global/
+    // registry_global_remove above (this whole class lives under
+    // src/platform/, never under include/glintfx/) and the same shape
+    // window_adapter.hpp's own surface() and win32's own native_
+    // handle() already use for the analogous need.
+    [[nodiscard]] wl_display *native_display() const noexcept { return m_display; }
+
     // The catalog fatia A's global_catalog.hpp defines, populated by
     // the initial roundtrip above and kept current afterward by
     // global_remove events the (still out of scope for this fatia,

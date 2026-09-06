@@ -1822,3 +1822,120 @@ biblioteca no lugar. **Sem (b) nao e sentinela, e carimbo, e o revisor recusa.**
 As superficies internas de entrada tem **formas diferentes** para a nocao de "mudou", e o
 plano falava numa so. **Hoje nao e divergencia de contrato porque nao ha API publica de
 entrada** -- quando houver, o porto comum tera de escolher uma. Registrado como item.
+
+---
+
+## Ordem do lider: seguir ate a W10 ACABAR  `[06/09/26 - 11:54:10]`
+
+**Verbatim:** *"vamos assim até a onda w10 acabar"*, dado depois de *"siga modo autonomo"*.
+
+**O que significa, e a diferenca importa porque eu ja errei nisso:** o criterio de parada e
+**a W10 estar fechada**, nao um horario. ⚠️ **Ontem eu li "siga ate as 08:00" como FREIO e
+parei**; ele corrigiu dizendo que **nao lembrava de ter mandado parar**. Horario e
+horizonte; a onda e o criterio.
+
+**O que ele reclamou, e o conserto que ficou:**
+
+1. ⚠️ **"Odeio ter de ficar de baba"** -- eu esperava mensagem de agente em vez de
+   **verificar**, e agente parado ficava igual a agente trabalhando. Um agente ficou
+   travado **duas horas** e quem descobriu foi ele, nao eu.
+2. ⚠️ **"Promete e nao cumpre. Ja perdeu credibilidade."** Justo: eu tinha dito a mesma
+   coisa antes e repetido o comportamento. **Promessa nao vale; mecanismo vale.**
+3. ⚠️ **A antitese ("nao e X, e Y")** e proibida pela lei de comunicacao dele, e eu usava
+   direto. Vicio de enfase.
+
+**O mecanismo que substituiu a promessa:** um vigia rodando na sessao que dispara quando
+**nao ha nenhum processo de compilacao, teste ou container vivo E ha trabalho por
+entregar** -- a assinatura de agente parado. Primeira versao olhava so a arvore e deu
+falso alarme com agente compilando; corrigida na hora.
+
+**E a regra que entra em todo briefing daqui pra frente:** o agente **nao recebe
+notificacao de tarefa em segundo plano** (so o orquestrador recebe). Quem roda algo
+demorado **espera o resultado no mesmo comando** e relata. Terminar a vez dizendo "vou
+aguardar" e como o agente desaparece.
+
+---
+
+## Ordem do lider: a proxima revisao adversarial de onda usa WORKFLOW  `[06/09/26 - 11:55:38]`
+
+**Verbatim:** *"usa workflow na próxima revisão adversarial de onda"*, depois de perguntar
+se *"formato de workflow é mais fácil de controlar"*.
+
+**Onde se aplica:** ao fechar a **W6b** (a onda da placa grafica e do laco), a revisao
+adversarial roda como **workflow**, nao como agente unico.
+
+**Por que ali e nao no ciclo inteiro (o que eu respondi a ele, e ele aceitou):** a revisao
+e **fan-out puro** -- varias dimensoes independentes sobre a mesma arvore congelada, cada
+uma com o mesmo tipo de saida. O script **espera cada agente por construcao**, entao o
+defeito desta manha (agente parado achando que seria notificado) **nao existe naquele
+formato**.
+
+**O que NAO vai para workflow, e a razao e concreta:** o ciclo de implementacao depende de
+**commitar, empurrar, esperar o servidor e decidir com o resultado na mao** -- so nesta
+sessao foram sete rodadas, e cada uma mudou o passo seguinte. ⚠️ **E workflow nao conversa
+com o agente no meio:** briefing errado executa errado ate o fim. **Tres vezes nesta
+sessao um implementer PAROU dizendo "isto contradiz o que eu medi", e as tres estava
+certo** -- foi o que evitou congelar API publica sobre premissa falsa.
+
+**Custo declarado:** workflow gasta muito mais (dezenas de agentes por execucao). Na
+revisao de onda o custo se justifica porque as dimensoes sao independentes e a onda ja
+esta fechada; num implementer por fatia, nao se justificaria.
+
+---
+
+## O CTO decidiu o que "perceber placa grafica" promete  `[06/09/26 - 12:07:28]`
+
+**Ordem do lider que abriu isto, verbatim:** *"o framework deve perceber placa grafica
+compartilhada e dedicada"*, seguida de mais tres sobre opcoes graficas.
+
+⚠️ **Chegou na janela exata:** a porta de mao unica do contexto grafico **ainda nao estava
+congelada**. Uma hora depois, seria quebra de superficie publica.
+
+### D-W6b-13 -- a v1 INFORMA, nao escolhe. E `desconhecido` e resposta legitima
+
+O consumidor pergunta que tipo de placa esta em uso (desconhecido, software,
+compartilhada, dedicada) e o nome do renderizador. **Para que ele quer:** registrar no
+suporte, escolher predefinicao de qualidade, avisar "estas rodando na integrada".
+
+⚠️ **ESCOLHER ficou de fora, e a razao veio da busca, nao de preguica:** no Windows a
+escolha depende de simbolo exportado **pelo executavel do consumidor** -- **dentro de uma
+biblioteca compartilhada nao faz nada** --, e desde uma versao de 2020 o **sistema decide
+por aplicativo e sobrepoe o painel do fabricante**; no Linux e variavel de ambiente por
+driver, com regressoes documentadas. **Promessa que a biblioteca nao cumpre sozinha em
+nenhum dos dois lados nao entra como promessa.**
+
+**Regra escrita no cabecalho:** `desconhecido` significa **"o sistema nao disse"**, nunca
+"provavelmente integrada". **A biblioteca nao chuta.**
+
+### D-W6b-14 -- a porta fica reservada AGORA, e recusa em alto
+
+O descritor de abertura ganha o campo de preferencia de placa **ja**, porque ele e tipo de
+valor com layout visivel e **acrescentar campo depois quebra compatibilidade binaria**.
+Mas so o valor "sem preferencia" e aceito; os outros **sao recusados nomeando o campo**,
+ate existir a fatia que os honre.
+
+⚠️ **Isso evita o pior dos mundos:** o consumidor pedir e **nada acontecer em silencio**.
+
+### D-W6b-15 -- classificar so pelo que o sistema AFIRMA
+
+Cada sistema tem um caminho em que o proprio kernel ou a propria API responde. **Sem
+heuristica por quantidade de memoria** (erra em caso conhecido) e **sem tabela de
+identificadores de placa** -- mesma razao pela qual o lider recusou banco de dados para
+gamepad. Driver que a lista nao conhece devolve `desconhecido`.
+
+### Como se prova, e o que so a maquina de um usuario mede
+
+Os dois executores do servidor sao **software**, entao esse valor e **asseverado pela API
+publica nos dois lados**. Compartilhada e dedicada se provam por **valor sintetico nos
+cinco sistemas**, com enumeracao fechada e contagem impressa; a leitura real e atomo
+separado.
+
+⚠️ **Fato medido por leitura de sistema, sem executar nada: a maquina do lider e
+exatamente o caso hibrido** -- uma placa dedicada e uma integrada convivendo. A primeira
+leitura real de hardware acontece na demo, e o relatorio de QA registra o par.
+
+### O que nao coube
+
+O contrato cabe na fatia do contexto; **a classificacao de hardware vira fatia propria**,
+os dois sistemas juntos, depois de o contexto existir e antes do laco -- ela precisa de um
+contexto corrente para saber que placa o driver escolheu.

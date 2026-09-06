@@ -61,6 +61,18 @@
 # universo de nomes ctest que este portao compara.
 win32_runner_probe_test|linux|nenhum|SEM-PENDENCIA
 
+# egl_probe_smoke (tests/container/egl_probe_smoke.cpp, docs/plano-
+# w6b-placa-e-laco.md fatia 1, G-1) prova que O PROPRIO container
+# Linux (o compositor `kwin_wayland --virtual` mais o llvmpipe por
+# baixo) entrega EGL sobre Wayland e um contexto OpenGL 3.3 core - e
+# uma sonda do AMBIENTE de CI do lado Linux, mesma categoria de
+# win32_runner_probe_test acima (a analoga do lado Windows, X-GL-0). Nao
+# ha "runner Windows equivalente" para sondar do mesmo jeito - a
+# garantia analoga do lado Windows ja e provada por win32_runner_probe_
+# test's own "windows_runner_reports_gl_context_creation_capability"
+# case, ja excetuada acima.
+egl_probe_smoke|windows|nenhum|SEM-PENDENCIA
+
 # wl_proto_link_test (tests/CMakeLists.txt:427) prova que o binding
 # do protocolo Wayland xdg-shell, gerado via wayland-scanner contra o
 # XML do SISTEMA, linka e resolve o simbolo esperado - GODS_LAWS.md

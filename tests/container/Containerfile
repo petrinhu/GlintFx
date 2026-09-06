@@ -101,8 +101,22 @@
 # displays_test.cpp (Windows, tests/CMakeLists.txt if(WIN32)) already
 # registers under, so tests/tools/check_test_parity.py's P-0 inventory
 # lines the two up under one name.
+# GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1, D-W6b-3):
+# egl_probe_smoke.cpp, same staged-sources shape as window_smoke.cpp
+# above (it reuses window_smoke's EXACT source set - it opens the same
+# kind of glintfx window, only over it does it go on to ask EGL/GL a
+# question window_smoke never asks) - no NEW production source needed
+# in tests/container/_arch_ports_src/ (prepare_arch_ports_fixture.sh's
+# own copy list already stages every file this fixture links against).
+# mesa-libEGL-devel is the ONE new package this build stage needs (it
+# pulls libglvnd-devel, which owns both <EGL/egl.h>/<EGL/eglext.h> and
+# egl.pc on this distro - measured via `rpm -qf`/`rpm -q --requires`
+# before writing this line, GODS_LAWS.md L-44): wayland-devel (already
+# installed below) already carries <wayland-egl.h> and wayland-egl.pc,
+# so no second new package is needed for that half.
 FROM fedora:44 AS arch-ports-builder
-RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel && dnf clean all
+RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel mesa-libEGL-devel \
+    && dnf clean all
 COPY _arch_ports_src /build/_arch_ports_src
 COPY connect_smoke.cpp /build/connect_smoke.cpp
 COPY registry_smoke.cpp /build/registry_smoke.cpp
@@ -110,6 +124,7 @@ COPY fatal_error_smoke.cpp /build/fatal_error_smoke.cpp
 COPY pump_smoke.cpp /build/pump_smoke.cpp
 COPY shell_smoke.cpp /build/shell_smoke.cpp
 COPY window_smoke.cpp /build/window_smoke.cpp
+COPY egl_probe_smoke.cpp /build/egl_probe_smoke.cpp
 COPY seat_test.cpp /build/seat_test.cpp
 COPY two_displays_test.cpp /build/two_displays_test.cpp
 RUN wayland-scanner client-header \
@@ -202,6 +217,24 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/window_smoke.cpp \
         $(pkg-config --libs wayland-client) \
     && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client wayland-egl egl) \
+        -o /build/egl_probe_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/egl_probe_smoke.cpp \
+        $(pkg-config --libs wayland-client wayland-egl egl) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/seat_test \
@@ -241,6 +274,7 @@ RUN dnf -y install \
         mesa-dri-drivers \
         mesa-libEGL \
         mesa-libgbm \
+        libwayland-egl \
         dbus-daemon \
         wayland-utils \
         iproute \
@@ -258,14 +292,15 @@ COPY --from=arch-ports-builder /build/fatal_error_smoke /usr/local/bin/fatal_err
 COPY --from=arch-ports-builder /build/pump_smoke /usr/local/bin/pump_smoke
 COPY --from=arch-ports-builder /build/shell_smoke /usr/local/bin/shell_smoke
 COPY --from=arch-ports-builder /build/window_smoke /usr/local/bin/window_smoke
+COPY --from=arch-ports-builder /build/egl_probe_smoke /usr/local/bin/egl_probe_smoke
 COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
         /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke \
-        /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/seat_test \
-        /usr/local/bin/window_parity_test
+        /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
+        /usr/local/bin/seat_test /usr/local/bin/window_parity_test
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

@@ -92,6 +92,19 @@ class global_catalog {
 
     [[nodiscard]] std::size_t size() const noexcept { return m_globals.size(); }
 
+    // Read-only iteration over every currently-tracked global, in
+    // registration order. Added for the G-1 sonda (docs/plano-w6b-
+    // placa-e-laco.md fatia 1): registry_smoke.cpp already prints the
+    // COUNT of globals a real compositor announced, but never which
+    // version each one carries - find_by_interface() only ever
+    // answers "is this ONE interface present", never "walk them all
+    // and print interface@version". Returning the container directly
+    // rather than adding a per-entry callback or a begin()/end() pair
+    // keeps this the same shape as globals() itself one class up
+    // (display_adapter.hpp): a plain read-only view, not a new
+    // iteration protocol.
+    [[nodiscard]] const std::vector<wayland_global> &all() const noexcept { return m_globals; }
+
     // The universal Wayland client-binding rule (wayland-book,
     // registry/binding chapter; SDL3's own SDL_min() at the bind call
     // site, read to learn the technique, GODS_LAWS.md L-29 - not

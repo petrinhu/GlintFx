@@ -117,6 +117,27 @@ GLINTFX_TEST(insert_reports_success_through_its_noexcept_bool_return) {
     // documented, not asserted.
 }
 
+GLINTFX_TEST(all_returns_every_inserted_global_in_registration_order) {
+    // G-1 (docs/plano-w6b-placa-e-laco.md fatia 1, F13): registry_
+    // smoke.cpp used to print only the GLOBAL COUNT ("catalog has 61
+    // global(s)") - never which interface got which version from this
+    // exact compositor. all() is the accessor that lets a caller walk
+    // every announced (name, interface, version) triple without a new
+    // find_by-* method per entry it wants to enumerate.
+    glintfx::platform::global_catalog catalog;
+    catalog.insert(1, "wl_compositor", 5);
+    catalog.insert(2, "xdg_wm_base", 3);
+
+    const auto &all = catalog.all();
+    GLINTFX_CHECK(all.size() == 2);
+    GLINTFX_CHECK(all[0].name == 1);
+    GLINTFX_CHECK(all[0].interface == "wl_compositor");
+    GLINTFX_CHECK(all[0].version == 5);
+    GLINTFX_CHECK(all[1].name == 2);
+    GLINTFX_CHECK(all[1].interface == "xdg_wm_base");
+    GLINTFX_CHECK(all[1].version == 3);
+}
+
 GLINTFX_TEST(clamp_version_picks_the_smaller_of_supported_and_announced) {
     using glintfx::platform::global_catalog;
 

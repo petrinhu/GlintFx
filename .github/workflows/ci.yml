@@ -1301,6 +1301,24 @@ jobs:
             glintfx-wltest-clean window_smoke | tee -a container_measured_raw.log
           echo "window_smoke" >> parity_inventory.txt
 
+      # GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1):
+      # egl_probe_smoke abre EGL sobre este MESMO compositor real, sobre
+      # a mesma janela que window_smoke acima ja prova abrir - a sonda
+      # que responde se o llvmpipe por baixo do `kwin_wayland --virtual`
+      # entrega um contexto OpenGL 3.3 core de verdade. Roda ANTES da
+      # fatia C abaixo pelo mesmo motivo dos passos acima: precisa do
+      # compositor deste container ainda vivo. Nada aqui e' asseverado
+      # alem de "rodou" (docs/plano-w6b-placa-e-laco.md sec. 5) - o
+      # `docker exec` falhando e' o unico jeito deste passo reprovar.
+      - name: GL-CONTEXT fatia 1 - sonda EGL/GL 3.3 core dentro do container
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean egl_probe_smoke | tee -a container_measured_raw.log
+          echo "egl_probe_smoke" >> parity_inventory.txt
+
       # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11,
       # absorbed by CTO decision into one fatia): window_parity_test,
       # the FIRST fixture in this job to exercise the PUBLIC API

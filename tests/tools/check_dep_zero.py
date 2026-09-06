@@ -181,6 +181,8 @@ PKG_CHECK_MODULES_KEYWORDS = frozenset(
 
 SO_HEADER_ALLOWLIST = frozenset(
     {
+        "EGL/egl.h",
+        "EGL/eglext.h",
         "GL/gl.h",
         "poll.h",
         "sys/mman.h",
@@ -190,6 +192,7 @@ SO_HEADER_ALLOWLIST = frozenset(
         "sys/types.h",
         "unistd.h",
         "wayland-client.h",
+        "wayland-egl.h",
         "windows.h",
         "crtdbg.h",
         "xdg-shell-client-protocol.h",
@@ -284,6 +287,28 @@ SO_HEADER_ALLOWLIST = frozenset(
 # confirms no other tracked file reaches for any of the four), and that
 # file itself is `#if defined(_WIN32)`-guarded end to end - it compiles
 # on no other platform this project targets.
+
+# EGL/egl.h, EGL/eglext.h, wayland-egl.h added 06/09/2026 (GL-CONTEXT
+# fatia 1, docs/plano-w6b-placa-e-laco.md, G-1 sonda): decision D-W6b-3
+# already settled this BEFORE this line was ever written - "libEGL e
+# libwayland-egl sob a L-07: (a) API do sistema, como libwayland-
+# client" - EGL is the system interface Wayland's own documentation
+# (registry.khronos.org/EGL/extensions/KHR/EGL_KHR_platform_wayland.txt)
+# names as the way to get GL onto a wl_surface, and libwayland-egl
+# ships from the SAME wayland-devel package wayland-client.h already
+# comes from (measured 06/09/2026: `rpm -qf /usr/include/wayland-egl.h`
+# -> wayland-devel). This gate's own line was PLANNED for fatia 3 (W-
+# EGL, the real production adapter, where check_dep_zero.py's own
+# NEEDED_ALLOWLIST/`.pc` sonames also grow with the shared-library
+# DT_NEEDED entries fatia 3 adds) - the G-1 sonda in tests/container/
+# egl_probe_smoke.cpp is a STANDALONE test executable, never linked
+# into libglintfx.so, so it needs this SOURCE-scan entry only, never a
+# NEEDED_ALLOWLIST entry (that stays fatia 3's job, unopened here).
+# Scoped in practice to tests/container/egl_probe_smoke.cpp only (grep
+# confirms no other tracked file reaches for any of the three) - same
+# "container-only, Linux-only by construction, GODS_LAWS.md L-09"
+# category as sys/mman.h above, never on a path the `windows` job or
+# CMake's own configure ever compiles.
 
 NEEDED_ALLOWLIST = frozenset(
     {"libwayland-client.so.0", "libgcc_s.so.1", "libstdc++.so.6", "libm.so.6", "libc.so.6"}

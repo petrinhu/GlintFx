@@ -311,13 +311,15 @@ endfunction()
 
 # Libs.private carries what a STATIC glintfx needs beyond -lglintfx
 # itself. On Linux, glintfx_library links wayland-client PRIVATE
-# (cmake/GlintfxWaylandProtocols.cmake); CMake's own static-propagation
-# of that PRIVATE link dependency only reaches a
-# find_package(glintfx)-based consumer's INTERFACE_LINK_LIBRARIES -
-# pkg-config has no CMake target graph to read, so a static consumer
-# resolved purely via `pkg-config --libs --static glintfx` needs the
-# linker token spelled out here, or static linking fails with undefined
-# references to wl_* symbols.
+# (cmake/GlintfxWaylandProtocols.cmake) and, since W-EGL (docs/plano-
+# w6b-placa-e-laco.md fatia 3), EGL + libwayland-egl PRIVATE too
+# (cmake/GlintfxEgl.cmake); CMake's own static-propagation of a
+# PRIVATE link dependency only reaches a find_package(glintfx)-based
+# consumer's INTERFACE_LINK_LIBRARIES - pkg-config has no CMake target
+# graph to read, so a static consumer resolved purely via `pkg-config
+# --libs --static glintfx` needs the linker tokens spelled out here, or
+# static linking fails with undefined references to wl_*/egl*/wl_egl_
+# window_* symbols.
 #
 # Bare -l token, not `Requires.private: wayland-client` (which would
 # pull in wayland-client's own .pc transitively): mirrors the exact
@@ -335,13 +337,38 @@ endfunction()
 # branch pattern, it does not get a second Libs.private-computing
 # function.
 function(glintfx_compute_pkgconfig_libs_private out_var)
-    set(libs_private "")
+    set(all_libs "")
     if(UNIX)
-        foreach(lib_name IN LISTS GlintfxWaylandClient_LIBRARIES)
-            string(APPEND libs_private "-l${lib_name} ")
-        endforeach()
-        string(STRIP "${libs_private}" libs_private)
+        list(APPEND all_libs ${GlintfxWaylandClient_LIBRARIES})
+        # W-EGL (docs/plano-w6b-placa-e-laco.md fatia 3, D-W6b-3):
+        # GlintfxEgl_LIBRARIES (cmake/GlintfxEgl.cmake) is the SAME
+        # kind of plain pkg-config variable GlintfxWaylandClient_
+        # LIBRARIES already is, appended the identical way, for the
+        # identical reason this function's own header comment gives -
+        # a static consumer resolved purely via `pkg-config --libs
+        # --static glintfx` needs -lEGL/-lwayland-egl spelled out here
+        # too, or static linking fails with undefined references to
+        # egl*/wl_egl_window_* symbols.
+        #
+        # DEDUPLICATED (measured live, 06/09/2026): `pkg-config --libs
+        # wayland-egl` already resolves to `-lwayland-egl -lwayland-
+        # client -lm` on its own - wayland-egl's OWN .pc declares
+        # wayland-client as a dependency - so appending GlintfxEgl_
+        # LIBRARIES verbatim after GlintfxWaylandClient_LIBRARIES
+        # produced a REPEATED `-lwayland-client -lm` in the generated
+        # glintfx.pc before this line existed (caught by reading the
+        # real generated file, not by presuming the two lists were
+        # disjoint - GODS_LAWS.md L-44).
+        list(APPEND all_libs ${GlintfxEgl_LIBRARIES})
+        if(all_libs)
+            list(REMOVE_DUPLICATES all_libs)
+        endif()
     endif()
+    set(libs_private "")
+    foreach(lib_name IN LISTS all_libs)
+        string(APPEND libs_private "-l${lib_name} ")
+    endforeach()
+    string(STRIP "${libs_private}" libs_private)
     set(${out_var} "${libs_private}" PARENT_SCOPE)
 endfunction()
 

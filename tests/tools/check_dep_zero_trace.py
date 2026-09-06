@@ -345,7 +345,17 @@ PKG_CHECK_MODULES_KEYWORDS = frozenset({
 # strings handed to pkgconf, never resolved against a filesystem path,
 # so there is no cross-platform case-folding question here the way
 # there is for R3's CMake module filenames.
-PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client"})
+#
+# egl, wayland-egl: added 06/09/2026 (W-EGL, docs/plano-w6b-placa-e-
+# laco.md fatia 3, D-W6b-3, cmake/GlintfxEgl.cmake's own pkg_check_
+# modules() call) - the SAME "API do sistema" category wayland-client
+# already sits in (GODS_LAWS.md L-07: EGL is the interface Wayland's
+# own documentation names as the way to get GL onto a wl_surface, and
+# libwayland-egl ships from the SAME wayland-devel package wayland-
+# client.h already comes from). tests/tools/check_dep_zero.py's own
+# PKG_CHECK_MODULES_ALLOWLIST carries the identical two entries, added
+# in this same commit.
+PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client", "egl", "wayland-egl"})
 
 # R6(b): codemodel target linkLibraries fragments this project already
 # links. Measured live against the real tree, 28-29/08/2026 (cmake
@@ -358,7 +368,16 @@ PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client"})
 # real Windows CI run reproves R6(b) on a legitimate library, measure
 # the log and add it here with the same citation shape as this
 # comment - never widen this ahead of the measurement.
-CODEMODEL_LINK_LIBRARIES_ALLOWLIST = frozenset({"wayland-client", "m"})
+#
+# EGL, wayland-egl: added 06/09/2026 (W-EGL, fatia 3, D-W6b-3) -
+# measured live against the real tree the SAME day (cmake 4.3.0,
+# codemodel v2.10, glintfx_library's own linkLibraries fragment list
+# after cmake/GlintfxEgl.cmake's own glintfx_add_egl() call): this
+# gate's own R6(b) error message printed the exact two fragment
+# strings below before this line existed - copied verbatim, not
+# retyped from pkg-config's own module name spelling (pkg-config's
+# `-lEGL` capitalizes differently than its own module name `egl`).
+CODEMODEL_LINK_LIBRARIES_ALLOWLIST = frozenset({"wayland-client", "m", "EGL", "wayland-egl"})
 
 # codemodel-v2 target "type" values that compile source files, per
 # cmake-file-api(7)'s own documented enumeration - the complement

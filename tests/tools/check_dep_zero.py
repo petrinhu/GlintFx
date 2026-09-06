@@ -170,9 +170,17 @@ FIND_PACKAGE_ALLOWLIST = frozenset({"PkgConfig", "glintfx"})
 # glintfx: ourselves, consumed by tests/package/CMakeLists.txt to
 #   prove find_package(glintfx) works outside the tree.
 
-PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client"})
+PKG_CHECK_MODULES_ALLOWLIST = frozenset({"wayland-client", "egl", "wayland-egl"})
 # wayland-client: GODS_LAWS.md L-07 - libwayland-client counts as OS
 #   API, same category as Win32.
+# egl, wayland-egl: added 06/09/2026 (W-EGL, docs/plano-w6b-placa-e-
+#   laco.md fatia 3, D-W6b-3, cmake/GlintfxEgl.cmake's own pkg_check_
+#   modules() call) - the SAME "API do sistema" category wayland-client
+#   already sits in (D-W6b-3, verbatim: "libEGL e libwayland-egl sob a
+#   L-07: (a) API do sistema, como libwayland-client"). EGL is the
+#   interface Wayland's own documentation names as the way to get GL
+#   onto a wl_surface; libwayland-egl ships from the SAME wayland-devel
+#   package wayland-client.h already comes from.
 
 PKG_CHECK_MODULES_KEYWORDS = frozenset(
     {"REQUIRED", "QUIET", "NO_CMAKE_PATH", "NO_CMAKE_ENVIRONMENT_PATH", "IMPORTED_TARGET", "GLOBAL"}
@@ -297,24 +305,33 @@ SO_HEADER_ALLOWLIST = frozenset(
 # names as the way to get GL onto a wl_surface, and libwayland-egl
 # ships from the SAME wayland-devel package wayland-client.h already
 # comes from (measured 06/09/2026: `rpm -qf /usr/include/wayland-egl.h`
-# -> wayland-devel). This gate's own line was PLANNED for fatia 3 (W-
-# EGL, the real production adapter, where check_dep_zero.py's own
-# NEEDED_ALLOWLIST/`.pc` sonames also grow with the shared-library
-# DT_NEEDED entries fatia 3 adds) - the G-1 sonda in tests/container/
-# egl_probe_smoke.cpp is a STANDALONE test executable, never linked
-# into libglintfx.so, so it needs this SOURCE-scan entry only, never a
-# NEEDED_ALLOWLIST entry (that stays fatia 3's job, unopened here).
-# Scoped in practice to tests/container/egl_probe_smoke.cpp only (grep
-# confirms no other tracked file reaches for any of the three) - same
-# "container-only, Linux-only by construction, GODS_LAWS.md L-09"
-# category as sys/mman.h above, never on a path the `windows` job or
-# CMake's own configure ever compiles.
+# -> wayland-devel). UPDATED same day, fatia 3 (W-EGL, the real
+# production adapter, docs/plano-w6b-placa-e-laco.md's own "planned for
+# fatia 3" note this comment used to carry): src/platform/wayland/
+# egl_context_adapter.cpp now ALSO reaches for these three headers -
+# this entry is no longer scoped to tests/container/egl_probe_smoke.cpp
+# alone (grep confirms the two tracked files are exactly egl_probe_
+# smoke.cpp and egl_context_adapter.cpp), and NEEDED_ALLOWLIST below
+# now carries the two real DT_NEEDED sonames fatia 3 adds.
 
 NEEDED_ALLOWLIST = frozenset(
-    {"libwayland-client.so.0", "libgcc_s.so.1", "libstdc++.so.6", "libm.so.6", "libc.so.6"}
+    {
+        "libwayland-client.so.0",
+        "libEGL.so.1",
+        "libwayland-egl.so.1",
+        "libgcc_s.so.1",
+        "libstdc++.so.6",
+        "libm.so.6",
+        "libc.so.6",
+    }
 )
-# Measured live against build/src/libglintfx.so - exactly the five
-# DT_NEEDED entries this library links today.
+# Measured live against build/src/libglintfx.so (`readelf -d`, 06/09/2026,
+# W-EGL, fatia 3) - exactly the seven DT_NEEDED entries this library
+# links today. libEGL.so.1/libwayland-egl.so.1 are the two egl_context_
+# adapter.cpp adds (D-W6b-3: both are OS API, same category as libm/
+# libc/libstdc++/libgcc_s already on this list) - libwayland-egl's own
+# pkg-config Libs also names libwayland-client and libm, both already
+# here, so no THIRD new soname rides in transitively.
 
 EXECUTE_PROCESS_PROGRAM_ALLOWLIST = frozenset({"pkg-config", "pkgconf"})
 # The only two program names execute_process() may run without

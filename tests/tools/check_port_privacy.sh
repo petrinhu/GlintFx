@@ -115,7 +115,16 @@ set -eu
 # win.ps1's own KNOWN_ADAPTER_CLASSES carries the SAME name, added in
 # THIS same commit (this file's own L-40 rule: "avisar nao basta, as
 # duas pontas fecham na mesma revisao").
-readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter fake_gl_context_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter"
+#
+# wayland_egl_context_adapter added by W-EGL (docs/plano-w6b-placa-e-
+# laco.md fatia 3, GODS_LAWS.md L-04/L-40, 06/09/2026): the adapter
+# that turns an already-open wayland_window_adapter's own wl_surface
+# into a real OpenGL 3.3 core context via EGL/libwayland-egl
+# (src/platform/wayland/egl_context_adapter.hpp). Its Win32 counterpart
+# (win32_gl_context_adapter, fatia 4, WGL) is NOT yet on this list - it
+# lands in that fatia's own commit, same discipline as every other
+# adapter above.
+readonly KNOWN_ADAPTER_CLASSES="wayland_display_adapter fake_display_adapter fake_gl_context_adapter win32_display_adapter wayland_shell_adapter wayland_window_adapter wayland_seat_adapter win32_seat_adapter win32_window_adapter wayland_egl_context_adapter"
 readonly KNOWN_PORT_NAMES="display_connection_port display_connection"
 
 fail() {

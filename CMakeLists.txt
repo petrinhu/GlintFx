@@ -81,6 +81,12 @@ include(GlintfxPkgConfigValidate)
 # everywhere else - Windows never reaches this include.
 if(UNIX)
     include(GlintfxWaylandProtocols)
+    # W-EGL (docs/plano-w6b-placa-e-laco.md fatia 3, D-W6b-3): the SAME
+    # UNIX-only guard, for the SAME reason - pkg_check_modules(...
+    # REQUIRED egl wayland-egl) inside this module would hard-fail
+    # configure on a platform with neither, which is correct on
+    # Linux/Wayland and wrong everywhere else.
+    include(GlintfxEgl)
 endif()
 
 # Built unconditionally, not gated by GLINTFX_BUILD_TESTS (GL-LOADER,

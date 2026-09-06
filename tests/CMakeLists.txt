@@ -719,6 +719,19 @@ target_sources(window_configure_sequence_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
 )
 
+# frame_callback_sequence.{hpp,cpp} (W-EGL, docs/plano-w6b-placa-e-
+# laco.md fatia 3, D-W6b-6) is the SAME "Wayland-DOMAIN, not Wayland-
+# ONLY" shape as window_configure_sequence just above: it lives under
+# src/platform/wayland/ because wl_surface.frame is Wayland-domain
+# knowledge, but the atom itself only ever sees a bool and a budget in
+# milliseconds - no wl_callback, no EGLDisplay, no socket - so it
+# registers unguarded and runs on all five platforms.
+glintfx_add_test(frame_callback_sequence_test)
+target_include_directories(frame_callback_sequence_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_callback_sequence_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_

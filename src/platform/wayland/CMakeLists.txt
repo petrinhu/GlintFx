@@ -53,7 +53,36 @@ target_sources(glintfx_library PRIVATE
     window_adapter.cpp
     selected_window_adapter_check.cpp
     seat_adapter.cpp
+    frame_callback_sequence.cpp
+    egl_context_adapter.cpp
+    selected_gl_context_adapter_check.cpp
 )
+
+# W-EGL (docs/plano-w6b-placa-e-laco.md fatia 3, D-W6b-3): EGL and
+# libwayland-egl, PRIVATE, the same plain pkg-config-variable technique
+# glintfx_add_wayland_xdg_shell_binding() already uses one file over
+# (cmake/GlintfxEgl.cmake's own header comment has the full reasoning,
+# not repeated here). egl_context_adapter.cpp is the ONLY tracked file
+# under glintfx_library's own object set that reaches for <EGL/egl.h>/
+# <EGL/eglext.h>/<wayland-egl.h> - tests/container/egl_probe_smoke.cpp
+# (fatia 1) is a STANDALONE test executable, compiled by tests/
+# container/Containerfile, never by this CMakeLists.txt.
+glintfx_add_egl(glintfx_library)
+
+# gl_context_facade.cpp (src/platform/gl/CMakeLists.txt's own header
+# comment) is DELIBERATELY STILL NOT WIRED into glintfx_library's own
+# target_sources() here: it PIMPLs over platform::selected_gl_context_
+# adapter, which this fatia (Wayland/EGL) now provides on Linux - but
+# gl_context_impl.hpp's own #if also expects src/platform/win32/
+# selected_gl_context_adapter.hpp to exist on Windows, and fatia 4
+# (Win32/WGL) has not landed in this commit. Wiring gl_context_facade.
+# cpp in NOW would build fine here, on Linux, and break the SAME single
+# shared CMakeLists.txt on Windows - docs/plano-w6b-placa-e-laco.md's
+# own push-2 bundles fatias 2+3+4 for exactly this reason. The LAST
+# step of whichever of fatia 3/4 lands second in the shared branch is
+# adding src/platform/gl/gl_context_facade.cpp to src/platform/gl/
+# CMakeLists.txt's own target_sources() call - not this file, and not
+# this commit.
 
 # seat_adapter.cpp - WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia
 # 12, seat_adapter.hpp's own header comment): wayland_seat_adapter, the

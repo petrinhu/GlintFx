@@ -141,6 +141,15 @@ class wayland_window_adapter {
 
     [[nodiscard]] wl_surface *surface() const noexcept { return m_surface; }
 
+    // Reserved for fatia 8 (P-LOOP, docs/plano-w6b-placa-e-laco.md
+    // sec. 14.2): `loop_hidden_test` minimizes a REAL toplevel via
+    // xdg_toplevel_set_minimized() to prove D-W6b-6's own "janela
+    // oculta nao computa nada" - this accessor is the one line that
+    // makes the toplevel reachable from outside this class for that
+    // purpose, the same "internal, never installed" visibility every
+    // other adapter accessor in this file already has.
+    [[nodiscard]] xdg_toplevel *toplevel() const noexcept { return m_xdg_toplevel; }
+
     // The three listeners' own callbacks (C function-pointer ABI).
     // PUBLIC ONLY so window_adapter.cpp's own anonymous-namespace
     // listener constants can take their address from outside the class -

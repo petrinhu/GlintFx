@@ -2080,3 +2080,29 @@ o desenvolvedor nao tinha como saber.**
    oclusao) -- e isso entra **declarado na matriz**, em vez de prometido igual.
 
 **Nenhuma das duas reabre onda fechada:** acrescentar estado e aditivo.
+
+## 06/09/2026 - 16:10 | Onda W6b, conserto dos dois vermelhos do run 34050119129
+
+Decidido por Caetano (CTO, fable) sob modo autônomo (L-34), registrado por mim
+(main). As tres esperam confirmacao retroativa do lider.
+
+1. **O README deixa de declarar quantos casos de teste existem.** O numero passa
+   a viver no comando que o mede (`ctest -N` na maquina do leitor) e no resumo do
+   job de paridade do CI, que passa a imprimir o total real de cada perna.
+   *Por que:* nenhuma maquina de desenvolvimento aqui tem MSVC, entao o numero do
+   Windows sempre foi adivinhado - e errou tres vezes em tres commits seguidos
+   (`d2b4d18`, `ceeebf0`, `ea6f2fd`). *O que se perde:* o leitor do README nao ve
+   mais o total a primeira vista. *Reversivel:* sim, e texto.
+
+2. **O portao `check_readme_test_count.py` e apagado, nao arquivado** (L-67), e o
+   incidente 1 da calibracao de `check_env_sweep.py` sai junto porque apontava
+   para ele. Quem ocupa o lugar: `check_readme_volatile_numbers.py` endurecido -
+   perde a isencao da frase antiga e passa a reprovar qualquer digito nos dois
+   paragrafos de plataforma, provado vermelho contra a propria frase que sai.
+
+3. **A fixture do container passa a estagiar `src/`, `include/` e `tests/parity/`
+   inteiros**, por raiz recursiva com `tar`, no lugar das 38 linhas `cp` que
+   nomeavam arquivo por arquivo (terceira aparicao do padrao "lista a mao esconde
+   arquivo" nesta onda). O verificador separado e um portao novo que parte das
+   linhas de compilacao do `Containerfile`, resolve o fecho de includes e imprime
+   `TUs/presentes/resolvidos/externos/faltando` sempre, mesmo zero.

@@ -116,10 +116,20 @@ GLINTFX_TEST(win32_seat_adapter_opens_against_a_real_display_and_reads_capabilit
     // a real hotplug already fired before this line ran, the identical
     // "measured, never asserted" shape the surrounding case already
     // uses for pointer/keyboard/touch above.
+    //
+    // last_change_kind, NOT last_change (achado do CTO, 06/09/2026,
+    // fatia de fechamento): the name "last_change" used to be shared
+    // with tests/container/seat_test.cpp's own Wayland side, and the
+    // parity table compared them as if they were the same fact - they
+    // are not. This side reads a single WM_INPUT_DEVICE_CHANGE
+    // message's own wParam CODE (0 means none arrived yet); the
+    // Wayland side counts wl_seat announcement EVENTS, plural. A code
+    // is not a counter - renamed so the key's own name says which
+    // grandeza it measures, never "the same word, two units".
     std::println("MEASURED seat_test.pointer={}", has_pointer ? 1 : 0);
     std::println("MEASURED seat_test.keyboard={}", has_keyboard ? 1 : 0);
     std::println("MEASURED seat_test.touch={}", has_touch ? 1 : 0);
-    std::println("MEASURED seat_test.last_change={}",
+    std::println("MEASURED seat_test.last_change_kind={}",
                  static_cast<unsigned long long>(seat.last_change_kind()));
 
     seat.close();

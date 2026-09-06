@@ -1777,3 +1777,48 @@ por tempo nesta onda** -- entrou como item, declarado, nao como promessa vaga.
 O implementer fechou tres dos cinco itens do fechamento e **disse quais dois nao alcancou**,
 em vez de entregar meia coisa calada. **Foi o que eu pedi, e e o oposto do defeito que
 abriu esta madrugada** -- a fatia que fechou com metade da entrega sem ninguem notar.
+
+---
+
+## A regua que mentia sobre si mesma, e a chave que media duas coisas  `[06/09/26 - 07:06:27]`
+
+**Servidor VERDE nos 22**, e a tabela de medicoes com os dois sistemas de verdade pela
+primeira vez: **obrigatorias em ZERO**, 42 herdadas pela heranca mecanica, 8 iguais -- e
+**duas divergentes**.
+
+### O defeito que quase virou carimbo
+
+**Eu supus que as duas divergencias eram do ambiente.** Declarar as duas assim
+**destravaria a onda em cinco minutos**, e foi por desconfiar dessa facilidade que
+perguntei em vez de decidir.
+
+**O CTO mediu e derrubou metade:**
+
+- Uma **e** ambiente mesmo: o compositor headless nao anuncia ponteiro, a maquina do
+  Windows tem mouse. Sentinela permanente.
+- ⚠️ **A outra NAO era divergencia entre sistemas: era a MESMA CHAVE MEDINDO DUAS
+  GRANDEZAS DIFERENTES.** Contador de eventos de um lado, codigo de tipo de evento do
+  outro, **sob o mesmo nome**. A tabela comparou maca com parafuso. **Declara-la como
+  ambiente teria carimbado um defeito de medicao nosso.**
+
+As duas ganharam nomes que dizem o que medem, cada uma declarada unilateral com razao.
+
+### A regua estava impossivel de satisfazer, e eu levantei
+
+**"Divergentes em zero para fechar" nao pode ser cumprido** -- divergencia de ambiente e
+**permanente por natureza**. ⚠️ **Regra impossivel nao e regra rigorosa: e regra que vai
+ser contornada na primeira pressa**, e a pressa chega sempre.
+
+**O CTO deu razao e corrigiu:** a metrica conta **divergentes NAO DECLARADAS** mais
+unilaterais obrigatorias. Divergencia declarada vai para secao propria, **listada com
+contagem, nunca escondida**.
+
+⚠️ **E a condicao de aceitacao da declaracao e o que impede o carimbo:** a razao tem de
+dizer **(a)** por que o ambiente difere **e (b)** qual teste prova o comportamento da
+biblioteca no lugar. **Sem (b) nao e sentinela, e carimbo, e o revisor recusa.**
+
+### O achado que fica para a onda seguinte
+
+As superficies internas de entrada tem **formas diferentes** para a nocao de "mudou", e o
+plano falava numa so. **Hoje nao e divergencia de contrato porque nao ha API publica de
+entrada** -- quando houver, o porto comum tera de escolher uma. Registrado como item.

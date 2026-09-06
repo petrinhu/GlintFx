@@ -14,36 +14,47 @@
 # this script's own header comment in collect_measured.py for the
 # fuller story.
 #
-# QUATRO SEÇÕES, desde 06/09/2026 (achado do time-lead, item 3 da
-# fatia de fechamento - a versão anterior deste script tinha só tres,
-# "iguais/divergentes/so de um lado", e a terceira escondia um problema
-# real: 20 das 46 chaves so' de um lado da primeira rodada real ja
-# tinham par TESTADO em tests/parity_aliases.txt/exceptions.txt, so' a
-# CHAVE especifica que nao tinha sido escrita ainda dos dois lados -
-# "so de um lado" tratava isso IGUAL a uma chave de dono nunca visto em
-# lugar nenhum, escondendo qual das duas situacoes era qual):
+# CINCO SEÇÕES, desde 06/09/2026 (achado do time-lead E do CTO, item 3
+# da fatia de fechamento, em duas rodadas - a versão anterior deste
+# script tinha quatro, "iguais/divergentes/herdada/obrigatoria", e a
+# segunda rodada achou que "divergentes em zero" era regra IMPOSSIVEL
+# de cumprir: uma divergencia de AMBIENTE (seat_test.pointer's own
+# 0-vs-1, o compositor headless nao anuncia ponteiro, a VM Windows tem
+# mouse) e' permanente por natureza - regra impossivel e' contornada na
+# primeira pressa, entao "divergentes" virou duas secoes):
 #   - iguais: medido nos dois sistemas, mesmo valor.
-#   - divergentes: medido nos dois, valores diferentes -
+#   - divergentes nao declaradas: medido nos dois, valores diferentes,
+#     SEM linha em tests/measured_exceptions.txt com lado="ambos" -
 #     window_parity_test.cpp's own logical_size() bug (o que abriu esta
-#     fatia inteira) teria caido aqui, no dia em que ainda era bug.
+#     fatia inteira) teria caido aqui, no dia em que ainda era bug. A
+#     secao que tem de chegar a ZERO no fechamento, junto com
+#     "obrigatoria" abaixo.
+#   - divergentes declaradas: medido nos dois, valores diferentes, COM
+#     linha em tests/measured_exceptions.txt (lado="ambos") explicando
+#     (a) por que o ambiente difere e (b) qual teste prova o
+#     comportamento da BIBLIOTECA no lugar - sem (b) a linha seria
+#     carimbo, nao sentinela (ver a condicao em classify_divergent()).
+#     Listada com contagem, nunca escondida, mas NUNCA bloqueia.
 #   - herdada: so' de um lado, mas o DONO (o texto antes do primeiro
 #     ponto na chave, ex. "seat_test" em "seat_test.pointer") ja
-#     aparece em tests/parity_exceptions.txt - a lacuna e' CONHECIDA e
-#     tem item (ou e' permanente, SEM-PENDENCIA), so' nao tinha sido
-#     contada aqui antes. Nunca revalida a regra de morte daquele
-#     arquivo (check_test_parity.py's own validate_exceptions() ja faz
-#     isso, um portao acima) - so' herda a classificacao.
+#     aparece em tests/parity_exceptions.txt, OU a propria chave tem
+#     linha em tests/measured_exceptions.txt (lado="linux"/"windows") -
+#     a lacuna e' CONHECIDA e tem item (ou e' permanente, SEM-
+#     PENDENCIA). Nunca revalida a regra de morte daquele arquivo
+#     (check_test_parity.py's own validate_exceptions() ja faz isso,
+#     um portao acima) - so' herda a classificacao.
 #   - obrigatoria: so' de um lado, dono SEM entrada em parity_
-#     exceptions.txt - a secao que tem de chegar a ZERO no fechamento
-#     da onda (este script's own "O QUE ESTE SCRIPT NAO FAZ" abaixo
-#     explica por que "obrigatoria != reprova"). Duas formas, ambas
-#     impressas: "por par existente" (o dono tem entrada em parity_
-#     aliases.txt - o TESTE ja e' comparavel entre sistemas, so' esta
-#     chave especifica ainda nao foi medida do outro lado) e "por dono
+#     exceptions.txt e chave SEM entrada em measured_exceptions.txt -
+#     a OUTRA secao que tem de chegar a ZERO no fechamento da onda
+#     (este script's own "O QUE ESTE SCRIPT NAO FAZ" abaixo explica
+#     por que "obrigatoria != reprova"). Duas formas, ambas impressas:
+#     "por par existente" (o dono tem entrada em parity_aliases.txt -
+#     o TESTE ja e' comparavel entre sistemas, so' esta chave
+#     especifica ainda nao foi medida do outro lado) e "por dono
 #     desconhecido" (nem exceptions nem aliases conhecem este dono -
 #     achado genuinamente novo).
 #
-# SCANCOUNT NUNCA ENTRA NESTAS QUATRO SEÇÕES (mesmo achado, "dois
+# SCANCOUNT NUNCA ENTRA NESTAS CINCO SEÇÕES (mesmo achado, "dois
 # ajustes de forma no coletor"): uma contagem de varredura exaustiva
 # (gfui_*_test's own L-40 counts) e' identica nos cinco sistemas POR
 # CONSTRUÇÃO - nenhuma chamada de SO por perto, so' logica C++23 pura -
@@ -55,17 +66,17 @@
 # "a regra que fecha o ciclo"): it never fails the `parity` job because
 # a key is divergent or unilateral - only because the TOTAL sweep came
 # back empty (GODS_LAWS.md L-40, the same floor collect_measured.py
-# itself already enforces one layer down), EVEN for the new "obrigatoria"
-# section - a nonzero obrigatoria count is the METRIC the wave-closing
-# checklist reads (this fatia's own item 3: "a metrica muda: nao e' a
-# tabela encolhendo - e' a secao obrigatoria em zero no fechamento"),
-# never something this script blocks a push over by itself. Turning an
-# "obrigatoria" row into a closed promise, a declared exception, or a
-# tracked pending item is a WAVE-CLOSING decision, never something a CI
-# script decides unattended - the same separation of "measures" from
-# "judges" this project's own parity_exceptions.txt/parity_aliases.txt
-# already keep between check_test_parity.py's mechanical union and the
-# human decision of what belongs in either file.
+# itself already enforces one layer down), OR because "divergentes nao
+# declaradas" plus "obrigatoria" together are nonzero (achado do CTO,
+# segunda rodada: THIS is the real closing metric, never "divergentes
+# em zero" - a declared, permanent environment divergence never fecha,
+# and demanding it would get contorted around the first deadline). Turning an "obrigatoria" or "divergente nao declarada" row
+# into a closed promise, a declared exception, or a tracked pending
+# item is a WAVE-CLOSING decision, never something a CI script decides
+# unattended - the same separation of "measures" from "judges" this
+# project's own parity_exceptions.txt/parity_aliases.txt already keep
+# between check_test_parity.py's mechanical union and the human
+# decision of what belongs in either file.
 #
 # THE ONE THING THIS SCRIPT DOES VALIDATE (conserto do mesmo dia, run
 # 34023787584): a per-KEY exception (tests/measured_exceptions.txt)
@@ -208,7 +219,7 @@ def validate_key_exception_deaths(key_exceptions, todo_status):
     validate_exceptions() already catches one file over, applied here
     to a MEASURED key instead of a ctest name."""
     errors = []
-    for key, (item, is_permanent) in key_exceptions.items():
+    for key, (_lado, item, is_permanent) in key_exceptions.items():
         if is_permanent:
             continue
         status = todo_status.get(item)
@@ -222,14 +233,19 @@ def validate_key_exception_deaths(key_exceptions, todo_status):
 
 
 def parse_key_exceptions(text):
-    """Returns {key: (item, is_permanent)} from tests/measured_
-    exceptions.txt's own `chave|razao|item` lines - a THIRD file,
+    """Returns {key: (lado, item, is_permanent)} from tests/measured_
+    exceptions.txt's own `chave|lado|razao|item` lines - a THIRD file,
     distinct from tests/parity_exceptions.txt (whose `nome|plataforma|
     razao|item` shape is check_test_parity.py's own contract: item=
     SEM-PENDENCIA there REQUIRES the par field to read "nenhum", never
     a prose reason - reusing that file for a per-KEY exception is
     exactly what reproved check_test_parity.py on run 34023787584).
-    This file's own three columns carry a MEASURED key, never a ctest
+    `lado` is "linux"/"windows" (the side this key is expected ABSENT
+    from) or "ambos" (achado do CTO, 06/09/2026: the key IS measured
+    on both sides, and the exception declares the DIVERGENCE itself as
+    an environment fact, never a library defect - seat_test.pointer's
+    own case, one compositor announcing a pointer the other does not).
+    This file's own four columns carry a MEASURED key, never a ctest
     name, and only this script ever reads it."""
     exceptions = {}
     for raw_line in text.splitlines():
@@ -237,10 +253,10 @@ def parse_key_exceptions(text):
         if not line or line.startswith("#"):
             continue
         parts = line.split("|")
-        if len(parts) != 3:
+        if len(parts) != 4:
             continue
-        key, _reason, item = (part.strip() for part in parts)
-        exceptions[key] = (item, item == SEM_PENDENCIA)
+        key, lado, _reason, item = (part.strip() for part in parts)
+        exceptions[key] = (lado, item, item == SEM_PENDENCIA)
     return exceptions
 
 
@@ -260,7 +276,7 @@ def classify_unilateral(key, key_exceptions, exception_owners, alias_owners):
     pump timing detail with no Wayland equivalent even in principle -
     is what actually needs the permanent declaration, not the test."""
     if key in key_exceptions:
-        item, is_permanent = key_exceptions[key]
+        _lado, item, is_permanent = key_exceptions[key]
         if is_permanent:
             return "herdada", "permanente (SEM-PENDENCIA)"
         return "herdada", f"item {item}"
@@ -275,12 +291,37 @@ def classify_unilateral(key, key_exceptions, exception_owners, alias_owners):
     return "obrigatoria", "por dono desconhecido"
 
 
+def classify_divergent(key, key_exceptions):
+    """Returns (is_declared, detail) for a key measured on BOTH sides
+    with DIFFERENT values - declared only when tests/measured_
+    exceptions.txt names this exact key with lado="ambos" (achado do
+    CTO, 06/09/2026: a divergence declared for any OTHER lado value
+    would be a contradiction - "linux"/"windows" mean "absent from
+    that side", not "present and different" - so only "ambos" ever
+    grants this classification)."""
+    if key in key_exceptions:
+        lado, item, is_permanent = key_exceptions[key]
+        if lado == "ambos":
+            if is_permanent:
+                return True, "permanente (SEM-PENDENCIA)"
+            return True, f"item {item}"
+    return False, ""
+
+
 def build_table(linux_values, windows_values, key_exceptions, exception_owners, alias_owners):
-    """Returns (iguais, divergentes, herdada, obrigatoria) as sorted
-    lists of (key, linux_repr, windows_repr[, detail]) - `windows_repr`/
-    `linux_repr` is "-" when that side never measured the key at all."""
+    """Returns (iguais, divergentes_nao_declaradas, divergentes_
+    declaradas, herdada, obrigatoria) as sorted lists of (key,
+    linux_repr, windows_repr[, detail]) - `windows_repr`/`linux_repr`
+    is "-" when that side never measured the key at all.
+
+    CINCO SEÇÕES, nao quatro (achado do CTO, 06/09/2026, item 3 do
+    conserto - "divergentes em zero" era regra impossivel de cumprir:
+    uma divergencia de AMBIENTE, como seat_test.pointer's own 0-vs-1,
+    e' permanente por natureza, entao a metrica de fechamento passa a
+    contar divergentes NAO DECLARADAS, nunca toda divergencia)."""
     all_keys = sorted(set(linux_values) | set(windows_values))
-    iguais, divergentes, herdada, obrigatoria = [], [], [], []
+    iguais, divergentes_nao_declaradas, divergentes_declaradas = [], [], []
+    herdada, obrigatoria = [], []
     for key in all_keys:
         on_linux = key in linux_values
         on_windows = key in windows_values
@@ -289,13 +330,17 @@ def build_table(linux_values, windows_values, key_exceptions, exception_owners, 
         if on_linux and on_windows:
             if linux_values[key] == windows_values[key]:
                 iguais.append((key, linux_repr, windows_repr))
+                continue
+            is_declared, detail = classify_divergent(key, key_exceptions)
+            if is_declared:
+                divergentes_declaradas.append((key, linux_repr, windows_repr, detail))
             else:
-                divergentes.append((key, linux_repr, windows_repr))
+                divergentes_nao_declaradas.append((key, linux_repr, windows_repr))
             continue
         section, detail = classify_unilateral(key, key_exceptions, exception_owners, alias_owners)
         row = (key, linux_repr, windows_repr, detail)
         (herdada if section == "herdada" else obrigatoria).append(row)
-    return iguais, divergentes, herdada, obrigatoria
+    return iguais, divergentes_nao_declaradas, divergentes_declaradas, herdada, obrigatoria
 
 
 def print_section(title, rows, with_detail=False):
@@ -373,16 +418,23 @@ def real_main(args):
             "'nada para comparar'"
         )
 
-    iguais, divergentes, herdada, obrigatoria = build_table(
+    iguais, divergentes_nao_declaradas, divergentes_declaradas, herdada, obrigatoria = build_table(
         linux_values, windows_values, key_exceptions, exception_owners, alias_owners
     )
     print_section("MEASURED - iguais", iguais)
-    print_section("MEASURED - divergentes", divergentes)
+    print_section("MEASURED - divergentes nao declaradas", divergentes_nao_declaradas)
+    print_section("MEASURED - divergentes declaradas", divergentes_declaradas, with_detail=True)
     print_section("MEASURED - herdada", herdada, with_detail=True)
     print_section("MEASURED - obrigatoria", obrigatoria, with_detail=True)
+    # A metrica de fechamento (achado do CTO, 06/09/2026, item 3 do
+    # conserto): "divergentes em zero" era regra impossivel - uma
+    # divergencia de ambiente e' permanente por natureza, nunca fecha.
+    # A metrica certa e' divergentes NAO DECLARADAS mais unilaterais
+    # obrigatorias, as duas juntas em zero no fechamento da onda.
     print(
-        f"{SCRIPT_NAME}: {len(iguais)} igual(is), {len(divergentes)} divergente(s), "
-        f"{len(herdada)} herdada(s), {len(obrigatoria)} obrigatoria(s)"
+        f"{SCRIPT_NAME}: {len(iguais)} igual(is), {len(divergentes_nao_declaradas)} "
+        f"divergente(s) nao declarada(s), {len(divergentes_declaradas)} divergente(s) "
+        f"declarada(s), {len(herdada)} herdada(s), {len(obrigatoria)} obrigatoria(s)"
     )
 
 
@@ -409,16 +461,17 @@ def selftest_empty_both_sides_reproves(tmp_path):
     return False
 
 
-def selftest_four_sections_classify_correctly(tmp_path):
-    """The four cases this fatia's own briefing names, one row each:
-    iguais/divergentes (unchanged from before), herdada com item,
-    herdada permanente, obrigatoria por par existente, obrigatoria por
-    dono desconhecido."""
+def selftest_five_sections_classify_correctly(tmp_path):
+    """The cases this fatia's own briefing names, one row each: iguais,
+    divergente NAO declarada, divergente DECLARADA (lado="ambos"),
+    herdada com item, herdada permanente, obrigatoria por par
+    existente, obrigatoria por dono desconhecido."""
     linux_file = _write_temp(
         tmp_path,
-        "linux4.txt",
+        "linux5.txt",
         "MEASURED window_parity_test.active_after_open=0\n"
         "MEASURED window_parity_test.logical_width=800\n"
+        "MEASURED seat_test.pointer=0\n"
         "MEASURED tem_item_test.some_key=1\n"
         "MEASURED tem_permanente_test.other_key=2\n"
         "MEASURED tem_par_test.paired_key=3\n"
@@ -426,17 +479,23 @@ def selftest_four_sections_classify_correctly(tmp_path):
     )
     windows_file = _write_temp(
         tmp_path,
-        "windows4.txt",
+        "windows5.txt",
         "MEASURED window_parity_test.active_after_open=0\n"
-        "MEASURED window_parity_test.logical_width=0\n",
+        "MEASURED window_parity_test.logical_width=0\n"
+        "MEASURED seat_test.pointer=1\n",
     )
     exceptions_file = _write_temp(
         tmp_path,
-        "exceptions4.txt",
+        "exceptions5.txt",
         "tem_item_test|linux|razao qualquer|ITEM-ABERTO\n"
         "tem_permanente_test|linux|razao permanente|SEM-PENDENCIA\n",
     )
-    aliases_file = _write_temp(tmp_path, "aliases4.txt", "tem_par_test|tem_par_test_win\n")
+    aliases_file = _write_temp(tmp_path, "aliases5.txt", "tem_par_test|tem_par_test_win\n")
+    key_exceptions_file = _write_temp(
+        tmp_path,
+        "measured_exc5.txt",
+        "seat_test.pointer|ambos|presenca de dispositivo do executor, provado por outro teste|SEM-PENDENCIA\n",
+    )
     import contextlib
     import io
 
@@ -453,42 +512,96 @@ def selftest_four_sections_classify_correctly(tmp_path):
                     exceptions_file,
                     "--aliases",
                     aliases_file,
+                    "--measured-exceptions",
+                    key_exceptions_file,
                 ]
             )
     except SystemExit as exc:
-        print(f"selftest: caso dos quatro baldes reprovou inesperadamente (codigo {exc.code})",
+        print(f"selftest: caso dos cinco baldes reprovou inesperadamente (codigo {exc.code})",
               file=sys.stderr)
         return False
     output = buffer.getvalue()
     try:
-        iguais_block = output.split("iguais")[1].split("divergentes")[0]
-        divergentes_block = output.split("divergentes")[1].split("herdada")[0]
-        herdada_block = output.split("- herdada")[1].split("obrigatoria")[0]
-        obrigatoria_block = output.split("- obrigatoria")[1]
+        iguais_block = output.split("MEASURED - iguais")[1].split("MEASURED - divergentes nao")[0]
+        nao_declaradas_block = output.split("MEASURED - divergentes nao declaradas")[1].split(
+            "MEASURED - divergentes declaradas"
+        )[0]
+        declaradas_block = output.split("MEASURED - divergentes declaradas")[1].split(
+            "MEASURED - herdada"
+        )[0]
+        herdada_block = output.split("MEASURED - herdada")[1].split("MEASURED - obrigatoria")[0]
+        obrigatoria_block = output.split("MEASURED - obrigatoria")[1]
     except IndexError:
-        print(f"selftest: nao achei as quatro secoes na saida:\n{output}", file=sys.stderr)
+        print(f"selftest: nao achei as cinco secoes na saida:\n{output}", file=sys.stderr)
         return False
     checks = [
         "active_after_open" in iguais_block,
-        "logical_width" in divergentes_block,
+        "logical_width" in nao_declaradas_block,
+        "seat_test.pointer" in declaradas_block and "permanente" in declaradas_block,
         "tem_item_test" in herdada_block and "ITEM-ABERTO" in herdada_block,
         "tem_permanente_test" in herdada_block and "permanente" in herdada_block,
         "tem_par_test" in obrigatoria_block and "par existente" in obrigatoria_block,
         "dono_desconhecido_test" in obrigatoria_block and "dono desconhecido" in obrigatoria_block,
     ]
     if not all(checks):
-        print(f"selftest: classificacao dos quatro baldes saiu errada ({checks}):\n{output}",
+        print(f"selftest: classificacao dos cinco baldes saiu errada ({checks}):\n{output}",
               file=sys.stderr)
         return False
-    print("selftest: iguais/divergentes/herdada/obrigatoria classificados corretamente, os "
-          "quatro casos nomeados na fatia - ok")
+    print("selftest: iguais/divergentes-nao-declaradas/divergentes-declaradas/herdada/"
+          "obrigatoria classificados corretamente - ok")
     return True
+
+
+def selftest_declared_divergence_with_concluded_item_reproves(tmp_path):
+    """The death rule, applied to a DECLARED DIVERGENCE (lado="ambos"):
+    a key exception whose own item is already CONCLUDED in TODO.md
+    reproves, even when it declares a divergence rather than a
+    unilateral absence - validate_key_exception_deaths() does not care
+    which section a key would land in, only whether its item is done."""
+    linux_file = _write_temp(tmp_path, "linux_divdead.txt", "MEASURED seat_test.pointer=0\n")
+    windows_file = _write_temp(tmp_path, "windows_divdead.txt", "MEASURED seat_test.pointer=1\n")
+    key_exceptions_file = _write_temp(
+        tmp_path,
+        "measured_exc_divdead.txt",
+        "seat_test.pointer|ambos|razao qualquer|ITEM-CONCLUIDO\n",
+    )
+    todo_file = _write_temp(
+        tmp_path,
+        "todo_divdead.md",
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-CONCLUIDO | W1 | X | y | Alta | - | Media | ✅ Concluído | - |\n",
+    )
+    try:
+        real_main(
+            [
+                "--linux",
+                linux_file,
+                "--windows",
+                windows_file,
+                "--measured-exceptions",
+                key_exceptions_file,
+                "--todo",
+                todo_file,
+            ]
+        )
+    except SystemExit as exc:
+        if exc.code == 1:
+            print("selftest: divergencia declarada com item CONCLUIDO reprova (regra de morte) "
+                  "- ok")
+            return True
+        print(f"selftest: codigo inesperado {exc.code} para divergencia declarada morta",
+              file=sys.stderr)
+        return False
+    print("selftest: divergencia declarada com item concluido NAO reprovou - esperado exit 1",
+          file=sys.stderr)
+    return False
 
 
 def selftest_scancount_never_compared(tmp_path):
     """A SCANCOUNT line collected on both sides is counted, never
     turned into a comparison row - this script's own header comment,
-    'SCANCOUNT NUNCA ENTRA NESTAS QUATRO SEÇÕES'."""
+    'SCANCOUNT NUNCA ENTRA NESTAS CINCO SEÇÕES'."""
     linux_file = _write_temp(
         tmp_path,
         "linux_scan.txt",
@@ -530,7 +643,7 @@ def selftest_key_exception_accepted(tmp_path):
     linux_file = _write_temp(tmp_path, "linux_keyexc.txt", "MEASURED some_test.lonely_key=1\n")
     windows_file = _write_temp(tmp_path, "windows_keyexc_empty.txt", "")
     key_exceptions_file = _write_temp(
-        tmp_path, "measured_exc.txt", "some_test.lonely_key|razao qualquer|SEM-PENDENCIA\n"
+        tmp_path, "measured_exc.txt", "some_test.lonely_key|windows|razao qualquer|SEM-PENDENCIA\n"
     )
     import contextlib
     import io
@@ -570,7 +683,7 @@ def selftest_key_exception_with_concluded_item_reproves(tmp_path):
     linux_file = _write_temp(tmp_path, "linux_keyexc2.txt", "MEASURED some_test.other_key=1\n")
     windows_file = _write_temp(tmp_path, "windows_keyexc2_empty.txt", "")
     key_exceptions_file = _write_temp(
-        tmp_path, "measured_exc2.txt", "some_test.other_key|razao qualquer|ITEM-CONCLUIDO\n"
+        tmp_path, "measured_exc2.txt", "some_test.other_key|windows|razao qualquer|ITEM-CONCLUIDO\n"
     )
     todo_file = _write_temp(
         tmp_path,
@@ -631,10 +744,11 @@ def selftest_main():
         tmp_path = Path(tmp)
         controls = [
             selftest_empty_both_sides_reproves(tmp_path),
-            selftest_four_sections_classify_correctly(tmp_path),
+            selftest_five_sections_classify_correctly(tmp_path),
             selftest_scancount_never_compared(tmp_path),
             selftest_key_exception_accepted(tmp_path),
             selftest_key_exception_with_concluded_item_reproves(tmp_path),
+            selftest_declared_divergence_with_concluded_item_reproves(tmp_path),
             selftest_one_side_empty_still_succeeds(tmp_path),
         ]
     if not all(controls):

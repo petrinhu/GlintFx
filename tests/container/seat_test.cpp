@@ -107,10 +107,20 @@ int main() {
     // (Wayland's own wl_seat), so these land in the parity table's
     // "so de um lado" section until win32_seat_translation_test (or a
     // future sibling) measures the same four keys on Windows.
+    //
+    // capability_events, NOT last_change (achado do CTO, 06/09/2026,
+    // fatia de fechamento): the name "last_change" used to be shared
+    // with tests/seat_test.cpp's own Windows side, and the parity
+    // table compared them as if they were the same fact - they are
+    // not. This side counts EVENTS (wl_seat's own capabilities/name
+    // announcements, plural, one per bind burst); the Windows side
+    // reads a single WM_INPUT_DEVICE_CHANGE message's own wParam CODE.
+    // A counter is not a code - renamed so the key's own name says
+    // which grandeza it measures, never "the same word, two units".
     std::fprintf(stdout, "MEASURED seat_test.pointer=%d\n", has_pointer);
     std::fprintf(stdout, "MEASURED seat_test.keyboard=%d\n", has_keyboard);
     std::fprintf(stdout, "MEASURED seat_test.touch=%d\n", has_touch);
-    std::fprintf(stdout, "MEASURED seat_test.last_change=%llu\n", last_change);
+    std::fprintf(stdout, "MEASURED seat_test.capability_events=%llu\n", last_change);
 
     // The one assertion this fixture makes (docs/plano-w6a-janela.md,
     // fatia 12's own briefing: "asserçao minima: leitura inicial

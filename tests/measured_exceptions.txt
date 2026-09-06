@@ -16,25 +16,40 @@
 #     provando o mesmo efeito.
 #   - ESTE arquivo: uma chave MEASURED especifica ("dono.chave", nunca
 #     um nome de ctest) que fica permanentemente ou temporariamente so'
-#     de um lado, mesmo quando o TESTE que a produz ja tem par (mesmo
-#     nome ou apelido) em qualquer um dos dois arquivos acima. Lido
-#     SO' por tests/tools/check_measured_parity.py, nunca por check_
-#     test_parity.py - as duas gates leem fontes diferentes de
-#     proposito.
+#     de um lado (OU diverge entre os dois por fato de ambiente, nunca
+#     por defeito de medicao - achado do CTO, 06/09/2026: ver `ambos`
+#     abaixo), mesmo quando o TESTE que a produz ja tem par (mesmo nome
+#     ou apelido) em qualquer um dos dois arquivos acima. Lido SO' por
+#     tests/tools/check_measured_parity.py, nunca por check_test_
+#     parity.py - as duas gates leem fontes diferentes de proposito.
 #
-# Forma: chave|razao|item
+# Forma: chave|lado|razao|item
 #   chave  - "dono.chave" exata, como aparece numa linha MEASURED real
 #            (tests/tools/collect_measured.py's proprio token).
-#   razao  - texto livre, nunca vazio.
-#   item   - um ID ABERTO em TODO.md, ou SEM-PENDENCIA (ausencia
-#            permanente, ex.: um fato de timing de uma so plataforma
-#            que nao tem conceito equivalente na outra em principio).
+#   lado   - "linux" ou "windows": o lado do qual esta chave e'
+#            esperada AUSENTE (mesmo sentido do campo "plataforma" de
+#            tests/parity_exceptions.txt, aplicado aqui a uma chave em
+#            vez de a um teste inteiro); ou "ambos" quando a chave e'
+#            medida NOS DOIS lados e a PROPRIA DIVERGENCIA entre os
+#            valores e' o que esta linha declara (fato de ambiente
+#            medido, nunca defeito de medicao da biblioteca).
+#   razao  - texto livre, nunca vazio, e tem de responder DUAS
+#            perguntas (achado do CTO, 06/09/2026 - "sem (b) nao e'
+#            sentinela, e' carimbo"): (a) POR QUE o ambiente difere, e
+#            (b) QUAL TESTE prova o comportamento da BIBLIOTECA (nao do
+#            ambiente) no lugar desta chave. Uma linha que so' responde
+#            (a) esconde um defeito real atras da palavra "ambiente".
+#   item   - um ID ABERTO em TODO.md, ou SEM-PENDENCIA (ausencia ou
+#            divergencia permanente, ex.: um fato de timing ou de
+#            hardware de uma so' plataforma/executor que nao tem
+#            conceito equivalente na outra em principio).
 #
 # MESMA REGRA DE MORTE do irmao desta casa: uma chave cujo item ja
 # esta CONCLUIDO em TODO.md reprova check_measured_parity.py - o
 # trabalho que fecharia a lacuna ja terminou, e esta linha deveria ja
 # ter sido apagada. Uma chave permanente continua LISTADA, com
-# contagem, nunca escondida da secao "herdada".
+# contagem, nunca escondida (das secoes "herdada" ou "divergentes
+# declaradas", conforme o "lado").
 
 # win32_window_close_request_test's own sentinel (src/platform/win32/
 # display_adapter.cpp's proprio comentario, corrigido no mesmo commit
@@ -45,7 +60,7 @@
 # esta CHAVE especifica e' que fica sem lado Linux possivel em
 # principio (fato de timing da bomba de mensagens do Windows). Um
 # valor diferente de zero num run futuro e' o que reabriria esta linha.
-win32_window_close_request_test.wm_size_during_create|sentinela permanente - ver src/platform/win32/display_adapter.cpp's proprio comentario; nenhum lado Linux e' possivel em principio (fato de timing da bomba de mensagens do Windows)|SEM-PENDENCIA
+win32_window_close_request_test.wm_size_during_create|linux|sentinela permanente - ver src/platform/win32/display_adapter.cpp's proprio comentario; nenhum lado Linux e' possivel em principio (fato de timing da bomba de mensagens do Windows)|SEM-PENDENCIA
 
 # two_displays_test existe nos dois lados, mesmo nome (P-0) - a chave
 # comum que os dois genuinamente compartilham e' `two_displays_test.
@@ -56,5 +71,23 @@ win32_window_close_request_test.wm_size_during_create|sentinela permanente - ver
 # Wayland) nao tem conceito equivalente no Windows em principio, mesmo
 # raciocinio que ja justifica registry_smoke's proprio SEM-PENDENCIA em
 # tests/parity_exceptions.txt.
-two_displays_test.first_global_count|contagem do catalogo de globals Wayland (global_catalog) - sem conceito equivalente no Windows|SEM-PENDENCIA
-two_displays_test.second_global_count|mesmo motivo do first_global_count acima|SEM-PENDENCIA
+two_displays_test.first_global_count|windows|contagem do catalogo de globals Wayland (global_catalog) - sem conceito equivalente no Windows|SEM-PENDENCIA
+two_displays_test.second_global_count|windows|mesmo motivo do first_global_count acima|SEM-PENDENCIA
+
+# seat_test.pointer: presenca de dispositivo e' fato do EXECUTOR, nao da
+# biblioteca - o kwin_wayland --virtual do container nao anuncia ponteiro,
+# a VM windows-latest tem mouse (sonda do executor: raw_input_mouse_count=1).
+# O que a biblioteca promete (traduzir o anuncio do sistema para
+# seat_capabilities) e' provado nos dois lados pelo par
+# seat_adapter_listener_test|win32_seat_translation_test. Sentinela
+# permanente: se um dia os dois lados coincidirem, e' o executor que mudou.
+seat_test.pointer|ambos|presenca de dispositivo do executor, nao comportamento da biblioteca|SEM-PENDENCIA
+
+# seat_test.capability_events (Linux) / seat_test.last_change_kind (Windows):
+# ate 06/09/2026 as duas imprimiam sob o MESMO nome "last_change" e a tabela
+# comparou um contador de eventos Wayland com o codigo do ultimo
+# WM_INPUT_DEVICE_CHANGE - grandezas diferentes, nao sistemas divergentes.
+# Renomeadas para dizer o que medem; cada uma e' unilateral por natureza do
+# mecanismo (capacidades por evento no Wayland; leitura sincrona no Win32).
+seat_test.capability_events|windows|no Win32 a presenca e' lida em open(), nao ha contador de anuncios|SEM-PENDENCIA
+seat_test.last_change_kind|linux|no Wayland nao ha aviso por dispositivo, so re-anuncio de capacidades|SEM-PENDENCIA

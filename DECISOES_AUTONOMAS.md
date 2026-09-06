@@ -1459,3 +1459,62 @@ declarou consertado voltando **pela outra porta** -- antes nao via nada por nao 
 base de compilacao; agora ve um terco por lista curada. **E duas das quatro supressoes
 escritas NESTA sessao moram exatamente nos arquivos que ele nao olha**: nunca foram
 exercidas pelo lint real, e ninguem saberia.
+
+---
+
+## O CTO abriu fatia para o que a onda inteira pressupunha e ninguem tinha escrito  `[06/09/26 - 01:35:38]`
+
+**O achado, e ele e o mais serio da madrugada:** a onda da janela entregou os dois
+adaptadores internos -- Wayland e Windows, os dois funcionando, os dois com teste -- e
+**nenhuma forma de o consumidor abrir uma janela**. A classe publica, a fachada, a porta
+e os dois seletores nao existem. So os tipos de valor existem.
+
+**Quem achou:** o implementador, ao ir escrever o teste de paridade da onda. Ele **parou
+antes da primeira linha** em vez de escrever o teste contra API interna disfarcada de
+publica -- que era o atalho disponivel, e teria produzido exatamente o defeito que esta
+sessao consertou duas vezes hoje: texto afirmando prova que ninguem confere.
+
+**A causa, medida pelo CTO:** a fatia que devia entregar a fachada prometia **dez** pecas
+e entregou **cinco**. O adiamento foi **consciente e esta escrito em dois lugares**, com
+razao boa na hora: o adaptador do outro sistema nao existia. **Ele pousou 64 minutos
+depois, na mesma onda.** Ninguem voltou, porque ninguem tinha a tarefa.
+
+⚠️ **O ACHADO DE PROCESSO, que vale mais que o item:** a peneira de fechamento verifica o
+que EXISTE, nunca o que foi PROMETIDO. O fechamento daquela fatia declarou "compilacao
+limpa, nenhum simbolo sem definicao, N casos" -- tudo verdadeiro, e **nada disso compara
+o prometido com a arvore**. Tres leis furadas em sequencia, cada uma com a sua rede:
+trabalho novo descoberto nao foi para a INBOX na hora, a decisao que mudou o entregavel
+nao foi registrada ao vivo, e o plano ficou como canon dizendo que entrega o que nao
+entregou. **A tabela de pendencias NAO mentiu** -- os dois itens estavam corretamente em
+aberto; faltou o diff de escopo.
+
+**Decisao 1:** fatia propria para o handle publico, ANTES do teste de paridade -- e o
+teste deixa de ser fatia separada, virando a **prova** desta. Fronteira fechada, escrita
+item a item, com o que congela declarado (recurso so movivel; o display tem de
+sobreviver a janela; o descritor nao e guardado; **dimensao zero no pedido significa "o
+sistema escolhe"**, semantica que os dois adaptadores ja praticam e ninguem tinha
+escrito).
+
+⚠️ **A paridade que a fatia tem de fechar ANTES do handle existir:** o adaptador do
+Wayland so aplica titulo na abertura e **nao sabe mudar titulo depois**; o do Windows
+sabe. Um metodo publico de titulo, hoje, funcionaria **so num dos sistemas**.
+
+**Decisao 2 -- a onda NAO fecha sem isso.** A ordem do lider, verbatim: *"So entrego
+janela quando os dois sistemas tiverem"*. O objeto do verbo e **janela**, e a lei deste
+projeto define o entregavel como a API publica, nao o binario. **Os dois sistemas tem
+adaptador; nenhum consumidor tem janela.** Se a onda fechasse hoje, a lista de "o que o
+framework ja oferece" que ele pediu para o fim da W10 teria de **omitir janela**, pelo
+criterio que ele mesmo deu.
+
+**Decisao 3 -- conserto do processo:** o passo de fechamento passa a conferir,
+mecanicamente e com contagem impressa, que todo caminho citado como entregavel do plano
+existe na arvore, ou tem linha datada dizendo por que nao. Portao proprio para os planos
+seguintes.
+
+**Os dois julgamentos do implementador, os dois confirmados pelo CTO:** o gemeo do lado
+Windows e a mesma forma do defeito e entra agora; a condicao composta da leitura de
+socket **nao e gemeo** -- uma leitura so, sobre um descritor so, e o caso misto e estado
+real de sistema, nao valor que se injeta.
+
+⚠️ **Registro retroativo devido:** o adiamento de 05/09 deveria ter entrado aqui no dia em
+que foi decidido, e nao entrou. Esta e a linha que faltava.

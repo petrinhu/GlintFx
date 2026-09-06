@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <type_traits>
 
 #include <glintfx/export.hpp>
 
@@ -422,5 +423,22 @@ struct gltfx_gfss_value {
     // this fatia's, not this field's.
     gltfx_gfss_time duration{};
 };
+
+// GFSS-VALUE-LAYOUT-ASSERT: proves, at every build on every platform,
+// the "trivially copyable... safe to pass and return by value across
+// the .so/.dll boundary" claim this struct's own header comment
+// above makes - a claim this fatia found stated but never checked by
+// the compiler. std::is_trivially_copyable_v is exactly what that
+// prose promises (a bitwise copy is a valid copy, no special member
+// runs, so the SAME bytes mean the SAME value on either side of the
+// boundary regardless of which compiler built which side) - a future
+// field added to this flat aggregate that accidentally drags in a
+// non-trivial special member (a std::string instead of std::
+// string_view, say) fails to COMPILE here instead of silently
+// breaking that promise.
+static_assert(std::is_trivially_copyable_v<gltfx_gfss_value>,
+              "gltfx_gfss_value must stay trivially copyable - this struct's own header comment "
+              "promises it is safe to pass and return by value across the .so/.dll boundary, and "
+              "that promise only holds while every member stays trivially copyable too");
 
 } // namespace glintfx::style

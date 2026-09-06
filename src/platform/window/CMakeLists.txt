@@ -29,10 +29,18 @@
 # header comment for why it lives here (OS-agnostic directory, per-
 # platform selection done at the preprocessor level inside the file
 # itself) rather than under wayland/ or win32/.
+#
+# WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11, absorbed
+# into one fatia) adds window_facade.cpp: the exact sibling of display_
+# facade.cpp - the ONE translation unit that defines glintfx::window_
+# impl and every out-of-line member of the public glintfx::gltfx_window
+# (include/glintfx/platform/window/window.hpp) - same OS-agnostic
+# directory, same per-platform #if inside the file, same reasoning.
 
 target_sources(glintfx_library PRIVATE
     window_state.cpp
     window_desc_validation.cpp
     utf8_validation.cpp
     display_facade.cpp
+    window_facade.cpp
 )

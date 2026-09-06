@@ -23,4 +23,12 @@ gltfx_rslt<void> validate_window_text_field(std::string_view field_name,
     return gltfx_rslt<void>::ok();
 }
 
+gltfx_rslt<void> validate_window_logical_size(std::uint32_t width, std::uint32_t height) noexcept {
+    if (width == 0 || height == 0) {
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("logical_size"));
+    }
+    return gltfx_rslt<void>::ok();
+}
+
 } // namespace glintfx::platform

@@ -55,7 +55,9 @@ reset_stage() {
     target="$1"
     rm -rf "$target"
     mkdir -p "$target/src/platform/wayland" "$target/src/platform/window" \
-        "$target/src/platform/input" "$target/src/core" "$target/include/glintfx/core"
+        "$target/src/platform/input" "$target/src/platform/port" "$target/src/core" \
+        "$target/include/glintfx/core" "$target/include/glintfx/platform/window" \
+        "$target/tests/parity"
 }
 
 copy_real_sources() {
@@ -143,6 +145,51 @@ copy_real_sources() {
 
     cp "$repo_root/include/glintfx/core/err.hpp" "$target/include/glintfx/core/err.hpp"
     cp "$repo_root/include/glintfx/core/err_code.hpp" "$target/include/glintfx/core/err_code.hpp"
+
+    # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11, absorbed
+    # into one fatia): window_parity_test.cpp's own build (Containerfile)
+    # is the FIRST fixture in this whole image that touches the PUBLIC
+    # API (glintfx::gltfx_display/gltfx_window) instead of an internal
+    # adapter directly - it needs the two public headers, the port
+    # concepts/display_connection template they build on, BOTH facade
+    # .cpp files (display_facade.cpp/window_facade.cpp - the two
+    # translation units that actually define display_impl/window_impl),
+    # the internal display_impl.hpp they share, and selected_display_
+    # adapter.hpp/selected_window_adapter.hpp (the compile-time
+    # selection display_facade.cpp/window_facade.cpp each include under
+    # their own #if defined(_WIN32) branch - never reached on this
+    # Linux-only image, but still parsed).
+    cp "$repo_root/include/glintfx/platform/window/display.hpp" \
+        "$target/include/glintfx/platform/window/display.hpp"
+    cp "$repo_root/include/glintfx/platform/window/window.hpp" \
+        "$target/include/glintfx/platform/window/window.hpp"
+    cp "$repo_root/src/platform/port/display_connection_port.hpp" \
+        "$target/src/platform/port/display_connection_port.hpp"
+    cp "$repo_root/src/platform/port/display_connection.hpp" \
+        "$target/src/platform/port/display_connection.hpp"
+    cp "$repo_root/src/platform/port/display_backend_port.hpp" \
+        "$target/src/platform/port/display_backend_port.hpp"
+    cp "$repo_root/src/platform/port/window_adapter_port.hpp" \
+        "$target/src/platform/port/window_adapter_port.hpp"
+    cp "$repo_root/src/platform/window/display_impl.hpp" \
+        "$target/src/platform/window/display_impl.hpp"
+    cp "$repo_root/src/platform/window/display_facade.cpp" \
+        "$target/src/platform/window/display_facade.cpp"
+    cp "$repo_root/src/platform/window/window_facade.cpp" \
+        "$target/src/platform/window/window_facade.cpp"
+    cp "$repo_root/src/platform/wayland/selected_display_adapter.hpp" \
+        "$target/src/platform/wayland/selected_display_adapter.hpp"
+    cp "$repo_root/src/platform/wayland/selected_window_adapter.hpp" \
+        "$target/src/platform/wayland/selected_window_adapter.hpp"
+
+    # The fixture source itself lives under tests/parity/, outside this
+    # script's own tests/container/ directory (the Containerfile's own
+    # build CONTEXT) - staged here for the SAME reason every production
+    # source above is: a file the Containerfile's `COPY` needs to reach
+    # has to already be somewhere under that context by the time
+    # `docker build` runs.
+    cp "$repo_root/tests/parity/window_parity_test.cpp" \
+        "$target/tests/parity/window_parity_test.cpp"
 }
 
 write_export_header_stub() {

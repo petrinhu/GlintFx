@@ -1518,3 +1518,65 @@ real de sistema, nao valor que se injeta.
 
 ⚠️ **Registro retroativo devido:** o adiamento de 05/09 deveria ter entrado aqui no dia em
 que foi decidido, e nao entrou. Esta e a linha que faltava.
+
+---
+
+## ⚠️ DECISAO DE PRODUTO AUTONOMA -- CONFIRMAR RETROATIVAMENTE: janela com dimensao zero passa a ser RECUSADA  `[06/09/26 - 02:27:48]`
+
+**Esta muda o que a biblioteca ACEITA, e por isso e do lider.** Foi tomada pelo CTO em
+modo autonomo, por ordem expressa dele de hoje as 15:00 (*"deixe o clevel responder!"*),
+e fica aqui para ele confirmar ou reverter.
+
+**A decisao:** pedir uma janela com largura OU altura zero passa a ser **recusado**, com
+erro que **nomeia o campo**. A recusa vive na camada comum e acontece **antes de qualquer
+sistema ver o pedido** -- e por isso e igual nos cinco **por construcao, nao por
+medicao**.
+
+**Como isso apareceu, e a cadeia importa:** o CTO tinha mandado congelar "dimensao zero
+significa que o sistema escolhe", com a justificativa de que **os dois adaptadores ja
+praticavam isso**. O implementer foi **medir antes de escrever a asercao** -- e o Wayland
+devolveu o zero de volta. Ele **nao escreveu a asercao** e trouxe tres saidas.
+
+⚠️ **O CTO nao escolheu nenhuma das tres, e ao investigar derrubou a propria premissa
+duas vezes:** primeiro, o zero medido **nao vinha do compositor, vinha de nos** (o
+adaptador semeia o estado com o proprio pedido). Segundo, **o caso das duas dimensoes
+zero, que o cabecalho afirmava ser "medido de ponta a ponta nos dois sistemas", nao tem
+teste nenhum na arvore** -- nenhuma fixture pede zero por zero.
+
+**A razao pelo leitor:** quem chama e alguem abrindo a primeira janela, e a regra ja e a
+que o resto do mundo ensina (as duas bibliotecas de referencia recusam tamanho zero).
+Ninguem espera que zero signifique padrao.
+
+**A razao que fecha, e ela e de reversibilidade:** recusar e a **menor promessa
+possivel**, e e reversivel na direcao certa -- aceitar zero um dia e **extensao**;
+prometer hoje e retirar depois e **quebra**.
+
+**O que se perde, declarado:** o consumidor no Windows perde, pela API publica, a nocao
+de "o sistema escolhe o tamanho". E nocao de um sistema so, e a biblioteca promete o
+mesmo nos cinco.
+
+---
+
+## O padrao que apareceu tres vezes num dia, e agora tem nome  `[06/09/26 - 02:27:48]`
+
+**A varredura do CTO sobre os cabecalhos publicos** (enumeracao fechada, 33 linhas em 9
+arquivos) achou **seis** promessas de comportamento igual entre sistemas: **tres
+sustentadas** por teste, **duas sem prova**, **uma falsa**.
+
+⚠️ **A falsa era sobre o meu proprio trabalho de verificacao.** Para a fachada alcancar a
+implementacao, entrou um acessor documentado como inalcancavel de fora. **Eu verifiquei
+olhando a tabela de simbolos da biblioteca e declarei que nao vazava.** A verificacao
+estava errada: **o metodo e definido no proprio cabecalho, entao o consumidor nao precisa
+de simbolo nenhum**. O CTO compilou uma unidade de consumidor chamando o metodo so com
+cabecalhos publicos; **eu refiz a prova e confirmei: compila**. Eu verifiquei a coisa
+errada e anunciei o resultado como se fosse a certa.
+
+**Os tres defeitos de hoje tem a MESMA forma**, e por isso viram regra e nao conserto
+pontual: a narrativa de paridade do README, a alegacao falsa no teste do Windows, e esta.
+Todos sao **prosa dizendo "medido", "identico", "nunca" sem citar o teste que carrega a
+medida**. **Tres vezes num dia e padrao, nao coincidencia.**
+
+**Regra de revisao, valendo ja:** em cabecalho publico, frase que afirma medicao ou
+impossibilidade **cita o nome do teste na linha seguinte, ou nao entra**. A convencao
+certa ja existe num documento deste projeto -- ninguem a aplicava em cabecalho. Portao
+proprio depois, com vocabulario fechado.

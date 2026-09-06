@@ -1022,6 +1022,31 @@ if(WIN32)
     target_link_libraries(win32_window_close_request_test PRIVATE user32 shell32 ole32 propsys)
 endif()
 
+# WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatia 11, absorved into
+# one fatia by the CTO's own decision): window_parity_test.cpp
+# (tests/parity/) is the ONE file, only-public-API, no-#if proof this
+# project's own paridade law (GODS_LAWS.md L-04) exists to require -
+# see that file's own header comment. NOT registered through
+# glintfx_add_test() (cmake/GlintfxTest.cmake): that function expects a
+# GLINTFX_TEST-based source using glintfx_test_harness, and this file
+# is a plain int main() on purpose, the SAME shape the Linux side needs
+# to be staged and run as a container fixture (tests/container/
+# Containerfile) unchanged. Linked against the PUBLIC glintfx::glintfx
+# target directly (never a second recompilation of internal sources -
+# the whole point of this fixture is proving the PACKAGED facade
+# works), if(WIN32) only: the Linux side of this SAME name is the
+# container fixture P-0 (tests/tools/check_container_fixture_
+# inventory.py) feeds into the paridade inventory instead, never a
+# second ctest registration here.
+if(WIN32)
+    add_executable(window_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/window_parity_test.cpp")
+    target_link_libraries(window_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(window_parity_test)
+    glintfx_copy_runtime_dlls_after_build(window_parity_test)
+    add_test(NAME window_parity_test COMMAND window_parity_test)
+    set_tests_properties(window_parity_test PROPERTIES LABELS consume)
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h

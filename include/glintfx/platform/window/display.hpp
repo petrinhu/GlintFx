@@ -58,6 +58,54 @@ namespace glintfx {
 // pointer to one.
 struct display_impl;
 
+// display_internal_access - WL-WINDOW-HANDLE's own internal seam,
+// PASSKEY IDIOM (not a new public method on gltfx_display itself):
+// window_facade.cpp's own gltfx_window::open() needs to reach the
+// adapter (and, on Wayland, the already-open shell) an already-open
+// gltfx_display wraps - the same "porta estreita, so o que a fatia
+// seguinte precisa" reasoning platform::display_connection<A>::
+// adapter() already documents one layer down (display_connection.hpp's
+// own "D-W5-10" comment).
+//
+// WHY A FRIEND STRUCT, NOT A METHOD ON gltfx_display (this fatia's own
+// correction of an earlier, wrong attempt at the identical goal): a
+// public method on gltfx_display grows THAT class's own frozen surface
+// - a promise the 1.0 review would have to honor or explicitly remove.
+// This struct sits OUTSIDE gltfx_display entirely; the class's own
+// public interface is exactly what it was before WL-WINDOW-HANDLE
+// (open/move/dtor/is_open/pump_events).
+//
+// WHY get() IS DECLARED HERE BUT DEFINED ONLY IN display_facade.cpp
+// (the actual defect the earlier attempt had, found live): a
+// consumer's own translation unit, given ONLY this declaration, cannot
+// synthesize the function's body itself - calling it requires the
+// LINKER to resolve the real, out-of-line symbol. That symbol carries
+// no GLINTFX_API (this project's own dllexport convention is
+// per-symbol, not per-class), so it is compiled into the shared object
+// but never placed in its dynamic symbol table: a consumer linking
+// against the public, shared glintfx::glintfx target gets an undefined-
+// reference LINK failure, not a successful call. An earlier version of
+// this seam was instead an INLINE method defined directly in this
+// header (`{ return m_impl; }` right in the class body) - the mistake
+// or being that ANY translation unit that includes a header gets to
+// compile an inline function's body itself, private-member access
+// rules included, entirely independent of dynamic symbol visibility;
+// the CTO's own consumer probe proved this by compiling a standalone
+// program, against the public headers alone, that called it and ran to
+// completion (exit code 0) - the promise "a consumer... can never call
+// it" was FALSE. This struct's own out-of-line get() is what actually
+// makes that promise true (see window_facade.cpp's own header comment
+// for the negative-compile proof against THIS version).
+//
+// display_impl itself stays exactly as opaque to a consumer as before
+// (still only forward-declared here, never defined in a public
+// header) - display_facade.cpp and window_facade.cpp (both under
+// src/platform/window/) share its real definition, in src/platform/
+// window/display_impl.hpp.
+struct display_internal_access {
+    [[nodiscard]] static display_impl *get(class gltfx_display &display) noexcept;
+};
+
 class gltfx_display {
   public:
     // Connects to the display server and, on success, wraps the
@@ -96,6 +144,13 @@ class gltfx_display {
 
   private:
     explicit gltfx_display(display_impl *impl) noexcept : m_impl(impl) {}
+
+    // display_internal_access::get() is the ONLY thing outside this
+    // class ever granted access to m_impl - see that struct's own
+    // header comment, right above this class, for why it is a friend
+    // struct with an out-of-line static method and not a public method
+    // on gltfx_display itself.
+    friend struct display_internal_access;
 
     display_impl *m_impl = nullptr;
 };

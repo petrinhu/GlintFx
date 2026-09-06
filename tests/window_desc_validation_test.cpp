@@ -63,3 +63,40 @@ GLINTFX_TEST(valid_accented_title_is_accepted) {
 
     GLINTFX_CHECK(!result.has_error());
 }
+
+// WINDOW-SIZE-REFUSE (docs/plano-w6a-janela.md, WL-WINDOW-HANDLE): the
+// four cases the decision itself names - both dimensions zero, each
+// dimension zero on its own, and both valid. window.hpp's own "WHAT
+// THIS FATIA FREEZES" item 5 is what this function backs: a zero in
+// EITHER position is refused, never treated as "the system chooses".
+
+GLINTFX_TEST(both_dimensions_zero_is_rejected) {
+    const glintfx::gltfx_rslt<void> result = glintfx::platform::validate_window_logical_size(0, 0);
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"logical_size"});
+}
+
+GLINTFX_TEST(zero_width_only_is_rejected) {
+    const glintfx::gltfx_rslt<void> result =
+        glintfx::platform::validate_window_logical_size(0, 600);
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"logical_size"});
+}
+
+GLINTFX_TEST(zero_height_only_is_rejected) {
+    const glintfx::gltfx_rslt<void> result =
+        glintfx::platform::validate_window_logical_size(800, 0);
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"logical_size"});
+}
+
+GLINTFX_TEST(both_dimensions_nonzero_is_accepted) {
+    const glintfx::gltfx_rslt<void> result =
+        glintfx::platform::validate_window_logical_size(800, 600);
+
+    GLINTFX_CHECK(!result.has_error());
+}

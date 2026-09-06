@@ -1197,6 +1197,23 @@ jobs:
             glintfx-wltest-clean window_smoke
           echo "window_smoke" >> parity_inventory.txt
 
+      # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11,
+      # absorbed by CTO decision into one fatia): window_parity_test,
+      # the FIRST fixture in this job to exercise the PUBLIC API
+      # (glintfx::gltfx_display/gltfx_window) instead of an internal
+      # adapter directly, against this SAME real compositor - the
+      # Linux side of the shared-name pair tests/CMakeLists.txt (if
+      # (WIN32)) registers as a normal ctest from the identical source
+      # file (tests/parity/window_parity_test.cpp).
+      - name: WL-WINDOW-HANDLE - paridade da API publica de janela dentro do container
+        run: |
+          set -eu
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean window_parity_test
+          echo "window_parity_test" >> parity_inventory.txt
+
       # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
       # test.cpp binds wl_seat against este MESMO compositor real e
       # prova que pelo menos um evento wl_seat.capabilities/wl_seat.name
@@ -1220,10 +1237,10 @@ jobs:
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o
       # adaptador sobrevive com platform_failure em vez de crash. Roda
       # por ULTIMO entre os smokes deste container de proposito: os
-      # oito passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
+      # nove passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
       # two_displays_test, pump_smoke, shell_smoke, window_smoke,
-      # seat_test) todos precisam do compositor vivo, e depois deste
-      # passo ele nao esta mais. O
+      # window_parity_test, seat_test) todos precisam do compositor
+      # vivo, e depois deste passo ele nao esta mais. O
       # CONTAINER em si sobrevive ao teste -
       # run_compositor.sh deixou de rodar o compositor como PID 1
       # exatamente para isso (conserto desta mesma revisao,

@@ -141,29 +141,33 @@ fatal_error_smoke|windows|nenhum|SEM-PENDENCIA
 lib_no_undef_test|windows|check-no-undef-glintfx-win.ps1 (tools/ci/, cobre o modo compartilhado, roda como passo cru do job windows, nunca virou ctest)|LIB-NO-UNDEF-WIN
 lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo script, mesma limitacao de nao ser ctest)|LIB-NO-UNDEF-WIN
 
-# --- WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8, 05/09/2026),
-# lacuna real, TEMPORARIA por ordem das fatias dentro da mesma onda ----
+# --- WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8), lacuna
+# real, ATUALIZADA por WL-WINDOW-HANDLE (fatia 11/P-1, 06/09/2026) -----
 #
-# window_smoke (tests/container/, via P-0) prova a METADE REAL de
-# wayland_window_adapter contra o kwin_wayland --virtual deste mesmo
-# container - abre superficie/xdg_surface/xdg_toplevel, anexa um
-# buffer wl_shm de verdade (D-W5-9) e faz o compositor aceitar o commit
-# sem erro de protocolo. Este NOME e' PROVISORIO por desenho (docs/
-# plano-w6a-janela.md, tabela da fatia 8, coluna "Par": "window_smoke
-# vira window_parity_test (fatia 11), sem nome proprio a mais") - P-1
-# (fatia 11, ainda nao escrita) substitui este fixture por tests/
-# parity/window_parity_test.cpp, UM arquivo com o MESMO nome nos dois
-# lados (ctest no Windows, fixture do container no Linux via P-0) -
-# nesse momento este fixture e esta linha desaparecem os dois juntos,
-# nunca um sem o outro.
+# P-1 (tests/parity/window_parity_test.cpp) EXISTE agora, mesmo nome
+# nos dois lados via P-0 (ctest no Windows, fixture do container no
+# Linux) - a condicao que a versao anterior desta nota esperava para
+# apagar esta linha inteira ("window_smoke vira window_parity_test...
+# sem nome proprio a mais", docs/plano-w6a-janela.md tabela da fatia 8).
 #
-# ⚠️ MORTE DESTA LINHA: apagar no MESMO commit em que P-1 renomear/
-# substituir tests/container/window_smoke.cpp por tests/parity/
-# window_parity_test.cpp e o item WL-WINDOW fechar - nunca antes
-# (window_smoke ainda e a UNICA prova real desta metade do adaptador
-# ate la) e nunca depois (excecao esquecida apontando para item
-# concluido reprova pela propria regra deste arquivo).
-window_smoke|windows|window_parity_test (docs/plano-w6a-janela.md fatia 11, P-1 - ainda nao escrito; substitui window_smoke pelo mesmo nome nos dois lados quando fechar)|WL-WINDOW
+# ⚠️ NAO APAGADA MESMO ASSIM, achado ao escrever P-1: window_parity_
+# test so fala a API PUBLICA (gltfx_display/gltfx_window), e essa
+# superficie ainda NAO TEM metodo nenhum de buffer/contexto grafico
+# (window.hpp's own "NAO CONGELADO AQUI... contexto grafico" - W6b, nao
+# esta fatia) - logo P-1 nao pode reproduzir a prova que window_smoke.cpp
+# faz hoje: anexar um wl_shm de verdade e fazer o compositor reprovar
+# um ack_configure() removido (D-W5-9, xdg_surface.error.
+# unconfigured_buffer). "Substituir" window_smoke por P-1 HOJE apagaria
+# essa prova sem substituto nenhum, uma perda de cobertura real que o
+# texto anterior desta nota nao previa quando foi escrito. window_smoke
+# continua a UNICA prova real desta metade do protocolo ate W6b dar a
+# gltfx_window um jeito publico de anexar um buffer.
+#
+# MORTE DESTA LINHA, atualizada: apagar quando W6b der a gltfx_window
+# uma superficie publica de buffer/contexto grafico E window_smoke.cpp
+# for reescrito para usa-la (ou explicitamente aposentado por decisao
+# do lider/CTO) - nunca antes, e nunca so porque P-1 passou a existir.
+window_smoke|windows|window_smoke ainda prova algo que window_parity_test (P-1, existe desde 06/09/2026) nao pode: anexar buffer wl_shm real e reprovar ack_configure() removido - a API publica so ganha isso em GL-CONTEXT (W6b, contexto grafico sobre a janela)|GL-CONTEXT
 
 # --- Lacuna real, TEMPORARIA por divisao de trabalho dos jobs do
 # servidor (05/09/2026, mesma estreia, item PARITY-LINT-INV) -----------

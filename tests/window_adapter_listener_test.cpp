@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cstdint>
+#include <string_view>
 
 #include <wayland-client.h>
 
@@ -148,4 +149,31 @@ GLINTFX_TEST(freshly_constructed_adapter_reports_closed) {
     wayland_window_adapter adapter;
     GLINTFX_CHECK(!adapter.is_open());
     GLINTFX_CHECK(adapter.surface() == nullptr);
+}
+
+// set_title_on_unopened_adapter_is_refused - WL-WINDOW-HANDLE (achado
+// do CTO por leitura: wayland_window_adapter only ever applied a title
+// at open() time, with no way to change it afterward, while win32_
+// window_adapter already could - GODS_LAWS.md L-04 forbids a public
+// capability that only works on one system). This is the guard-path
+// half a pure unit test CAN prove without a live compositor (the same
+// "proxy nulo" limit this whole file's own header comment states): a
+// real xdg_toplevel_set_title() call needs a genuine xdg_toplevel
+// proxy, which only open() against a real shell/compositor ever
+// creates - window_smoke.cpp (tests/container/) and window_parity_test
+// (tests/parity/, staged there too) are what prove the SUCCESS path
+// for real, against a live compositor. This case proves the OTHER
+// half: a caller who asks to retitle a window that was never opened
+// gets refused, never a null-pointer dereference on m_xdg_toplevel -
+// the exact same "invalid_argument, rejected_value == title" shape
+// win32_window_adapter::set_title() already documents for the
+// identical precondition.
+GLINTFX_TEST(set_title_on_unopened_adapter_is_refused) {
+    wayland_window_adapter adapter;
+    GLINTFX_CHECK(!adapter.is_open());
+
+    const auto result = adapter.set_title("novo titulo");
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"title"});
 }

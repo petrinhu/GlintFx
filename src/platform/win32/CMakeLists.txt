@@ -69,6 +69,7 @@ target_sources(glintfx_library PRIVATE
     selected_display_adapter_check.cpp
     seat_adapter.cpp
     window_adapter.cpp
+    selected_window_adapter_check.cpp
     window_message_route.cpp
     app_user_model_id.cpp
 )

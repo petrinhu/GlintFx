@@ -343,6 +343,27 @@ gltfx_rslt<void> wayland_window_adapter::open(wayland_display_adapter &connectio
     return gltfx_rslt<void>::ok();
 }
 
+gltfx_rslt<void> wayland_window_adapter::set_title(std::string_view title) noexcept {
+    if (!is_open()) {
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("title"));
+    }
+    if (gltfx_rslt<void> title_ok = validate_window_text_field("title", title);
+        title_ok.has_error()) {
+        return title_ok;
+    }
+
+    // Same "empty is a real, always-accepted request" shape apply_desc()
+    // above documents for open()-time - but unlike open() (which SKIPS
+    // the protocol call entirely for an empty title, xdg-shell.xml
+    // requiring neither), a caller who explicitly asks to CLEAR the
+    // title mid-session gets that request honored for real, the same
+    // way win32_window_adapter::set_title()'s own SetWindowTextW call
+    // never special-cases an empty string either.
+    xdg_toplevel_set_title(m_xdg_toplevel, std::string(title).c_str());
+    return gltfx_rslt<void>::ok();
+}
+
 void wayland_window_adapter::close() noexcept {
     // Reverse order of creation (same convention wayland_display_
     // adapter::close()/wayland_shell_adapter::close() already document).

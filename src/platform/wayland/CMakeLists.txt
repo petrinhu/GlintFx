@@ -51,6 +51,7 @@ target_sources(glintfx_library PRIVATE
     shell_adapter.cpp
     window_configure_sequence.cpp
     window_adapter.cpp
+    selected_window_adapter_check.cpp
     seat_adapter.cpp
 )
 

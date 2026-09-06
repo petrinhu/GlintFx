@@ -72,6 +72,22 @@
 # is bound straight off the registry the same way wl_compositor/xdg_
 # wm_base are, but this fixture never touches xdg_surface/xdg_toplevel.
 #
+# WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11, absorbed by
+# CTO decision into one fatia): window_parity_test.cpp, staged from
+# tests/parity/ (not this directory - prepare_arch_ports_fixture.sh's
+# own "the fixture source itself" comment explains why it needs
+# staging too). FIRST fixture in this whole image to touch the PUBLIC
+# API (glintfx::gltfx_display/gltfx_window) instead of an internal
+# adapter directly - built against display_facade.cpp/window_
+# facade.cpp (the two TUs that actually define display_impl/window_
+# impl) plus every source window_smoke.cpp above already needs, same
+# staged sources, same xdg-shell binding. Same shared-name mechanism as
+# two_displays_test above: tests/CMakeLists.txt (if(WIN32)) registers a
+# normal ctest, linked against the PACKAGED glintfx::glintfx target,
+# under this EXACT name from this SAME source file (tests/parity/
+# window_parity_test.cpp) - this fixture is the Linux side of that same
+# P-0 pair, never a second source.
+#
 # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, "Prova Linux"
 # column: "two_displays_test (container, dois displays abertos no
 # mesmo processo)"; sec. 5 item 8): two_displays_test.cpp, same staged-
@@ -196,6 +212,26 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/seat_test.cpp \
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/window_parity_test \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/platform/window/display_facade.cpp \
+        /build/_arch_ports_src/src/platform/window/window_facade.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/_arch_ports_src/tests/parity/window_parity_test.cpp \
         $(pkg-config --libs wayland-client)
 
 FROM fedora:44
@@ -223,11 +259,13 @@ COPY --from=arch-ports-builder /build/pump_smoke /usr/local/bin/pump_smoke
 COPY --from=arch-ports-builder /build/shell_smoke /usr/local/bin/shell_smoke
 COPY --from=arch-ports-builder /build/window_smoke /usr/local/bin/window_smoke
 COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
+COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
         /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke \
-        /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/seat_test
+        /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/seat_test \
+        /usr/local/bin/window_parity_test
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

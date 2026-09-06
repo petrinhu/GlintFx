@@ -121,6 +121,20 @@ class wayland_window_adapter {
 
     [[nodiscard]] bool is_open() const noexcept { return m_surface != nullptr; }
 
+    // WL-WINDOW-HANDLE (docs/plano-w6a-janela.md, achado do CTO por
+    // leitura): the ONE method win32_window_adapter already had
+    // (src/platform/win32/window_adapter.hpp) that this adapter did
+    // not - apply_desc() above only ever calls xdg_toplevel_set_title()
+    // ONCE, at open() time; nothing here let a caller change it
+    // afterward. gltfx_window::set_title() (window_facade.cpp) needs
+    // BOTH sides to answer to the same public method, and GODS_LAWS.md
+    // L-04 forbids a public capability that only works on one system.
+    // Same validation, same "refused when not open" shape win32_
+    // window_adapter::set_title() already documents - xdg_toplevel_
+    // set_title() (xdg-shell.xml) is a fire-and-forget request with no
+    // reply to wait for, so this never blocks on a roundtrip.
+    [[nodiscard]] gltfx_rslt<void> set_title(std::string_view title) noexcept;
+
     // D-W5-2 (confirmed): consultable state, never an event queue - see
     // window_state.hpp's own header comment for the full reasoning.
     [[nodiscard]] const window_state &state() const noexcept { return m_state; }

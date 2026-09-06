@@ -7,12 +7,7 @@
 
 #include "platform/port/display_backend_port.hpp"
 #include "platform/port/display_connection.hpp"
-
-#if defined(_WIN32)
-#include "platform/win32/selected_display_adapter.hpp"
-#else
-#include "platform/wayland/selected_display_adapter.hpp"
-#endif
+#include "platform/window/display_impl.hpp"
 
 // display_facade.cpp - W-D' (docs/plano-w6a-janela.md fatia 6): the
 // ONE translation unit that knows what glintfx::display_impl actually
@@ -23,18 +18,18 @@
 // only ever sees the opaque glintfx::display_impl declared in
 // include/glintfx/platform/window/display.hpp.
 //
-// TODAY, display_impl WRAPS THE RAW CONNECTION, NOT A COMPOSED BACKEND
-// (docs/plano-w6a-janela.md's own future wayland_display_backend,
-// "compoe conexao + shell + seat", is a LATER fatia - the seat half of
-// it, S-B, does not exist anywhere in this tree yet): platform::
-// display_connection<platform::selected_display_adapter> already
-// satisfies platform::display_backend_port (the static_assert below
-// proves it, on whichever platform this TU is compiled for), which is
-// the only thing gltfx_display's own v1 surface (open/close/is_open/
-// pump_events) needs. Swapping selected_display_adapter for a future
-// composed backend type changes NOTHING in display.hpp nor in any
-// consumer - display_impl's own definition is the only place that
-// would ever need to change, exactly the point of hiding it here.
+// display_impl.hpp (not this file - moved there by WL-WINDOW-HANDLE so
+// window_facade.cpp can share the same definition) is where display_
+// impl's own layout actually lives now: on Wayland it composes the
+// connection WITH an already-open wayland_shell_adapter (gltfx_window::
+// open() needs both); on Windows it is still only the raw connection -
+// see that header's own comment for the full reasoning. Neither half
+// of that composition changes what THIS file's own static_assert
+// checks: platform::display_connection<platform::selected_display_
+// adapter> alone still has to satisfy platform::display_backend_port
+// (open/close/is_open/pump_events) regardless of what else display_
+// impl carries alongside it - the only thing gltfx_display's own v1
+// surface needs from the connection itself.
 //
 // selected_display_adapter CHOSEN BY #if defined(_WIN32), NOT BY
 // CMAKE SUBDIRECTORY SELECTION: this file itself is compiled on every
@@ -49,10 +44,6 @@
 // needs to pick a side this time.
 
 namespace glintfx {
-
-struct display_impl {
-    platform::display_connection<platform::selected_display_adapter> connection;
-};
 
 namespace {
 
@@ -71,10 +62,41 @@ gltfx_rslt<gltfx_display> gltfx_display::open() noexcept {
         return gltfx_rslt<gltfx_display>::err(connected.error());
     }
 
+    // Aggregate-initialized member by member - `shell` included on
+    // Wayland (default-constructed, `{}`), where display_impl has a
+    // second member; Windows has only `connection`, so the initializer
+    // list itself has to differ, not just its VALUES. A bare `{std::
+    // move(...)}` on Wayland would leave `shell` to implicit value-
+    // initialization, but -Wextra's own -Wmissing-field-initializers
+    // (this project's own -Werror, GODS_LAWS.md L-23) treats that as a
+    // warning worth failing the build over, so it is spelled out here
+    // instead of relied on.
+#if defined(_WIN32)
     auto *impl = new (std::nothrow) display_impl{std::move(connected.value())};
+#else
+    auto *impl = new (std::nothrow) display_impl{std::move(connected.value()), {}};
+#endif
     if (impl == nullptr) {
         return gltfx_rslt<gltfx_display>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }
+
+#if !defined(_WIN32)
+    // WL-WINDOW-HANDLE: gltfx_window::open() (window_facade.cpp) needs
+    // an already-open wayland_shell_adapter to build a window on top of
+    // (window_smoke.cpp's own composition, tests/container/, is the
+    // measured proof this ordering - connection, then shell, then
+    // window - is real) - opened here, once, right after the
+    // connection, so a consumer that never opens a gltfx_window never
+    // even notices the extra Wayland-only step (display_impl.hpp's own
+    // header comment). Torn down before returning on failure, same
+    // "whatever this call already created is destroyed" contract every
+    // open() in this project already documents.
+    if (const gltfx_rslt<void> shell_opened = impl->shell.open(impl->connection.adapter());
+        shell_opened.has_error()) {
+        delete impl;
+        return gltfx_rslt<gltfx_display>::err(shell_opened.error());
+    }
+#endif
 
     return gltfx_rslt<gltfx_display>::ok(gltfx_display(impl));
 }
@@ -112,6 +134,21 @@ gltfx_rslt<void> gltfx_display::pump_events() noexcept {
            "gltfx_display::pump_events() called on a moved-from display - the object no longer "
            "owns a connection");
     return m_impl->connection.adapter().pump_events();
+}
+
+// display_internal_access::get() - the ONLY definition of this symbol
+// in the whole library (display.hpp's own "WHY get() IS DECLARED HERE
+// BUT DEFINED ONLY IN display_facade.cpp" paragraph explains why the
+// definition living HERE, out-of-line, is what makes the passkey work
+// at all: a consumer's translation unit sees only the declaration in
+// the public header, never this body, so it cannot compile the access
+// itself - it can only ask the LINKER for a symbol this project
+// deliberately never exports). No GLINTFX_API on this line: the same
+// per-symbol dllexport convention this project's own header comments
+// document elsewhere means this stays out of the dynamic symbol table
+// of the public glintfx::glintfx target.
+display_impl *display_internal_access::get(gltfx_display &display) noexcept {
+    return display.m_impl;
 }
 
 } // namespace glintfx

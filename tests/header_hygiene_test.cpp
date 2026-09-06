@@ -85,6 +85,15 @@
 #include <windows.h>
 #endif
 
+// WL-WINDOW-HANDLE: the real <windows.h> above only ever runs on the
+// one Windows leg - this shim carries the SPECIFIC subset of its own
+// hostile macros (near/far) onto the other four platforms too, so the
+// SAME collision class is checked everywhere (GODS_LAWS.md L-04). A
+// no-op on an actual Windows build (see the shim's own header comment
+// for why) - never a second, possibly-drifted definition alongside the
+// real <windows.h> above.
+#include "hostile_win32_macros_shim.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -468,3 +477,22 @@ GLINTFX_TEST(window_header_survives_hostile_system_headers) {
 // this file's own header comment already uses for the Windows leg of
 // CE-8 not having run in this session).
 GLINTFX_TEST(display_header_declaration_survives_hostile_system_headers) { GLINTFX_CHECK(true); }
+
+// window_handle_header_declaration_survives_hostile_system_headers -
+// WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11, absorbed
+// into one fatia): the exact sibling of the gltfx_display case above,
+// for gltfx_window (this fatia's own class, added to window.hpp) -
+// same declaration-site-only guarantee, same GODS_LAWS.md L-09 reason
+// a real open() cannot run from this ctest. A REAL call-expression
+// proof of gltfx_window's own behavior lives in tests/parity/window_
+// parity_test.cpp (this SAME fatia), staged and run as a container
+// fixture on Linux and as a normal ctest on Windows - the "perna do
+// shim hostil" this test case's own file-level comment (top of this
+// file) names is the near/far collision check, proven separately by
+// sabotaging a COPY of window.hpp with a field literally named `near`
+// and confirming THAT copy fails to compile under the shim, never by
+// a case committed here (there is no way to assert "this fails to
+// compile" inside a runtime test harness).
+GLINTFX_TEST(window_handle_header_declaration_survives_hostile_system_headers) {
+    GLINTFX_CHECK(true);
+}

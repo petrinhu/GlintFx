@@ -185,8 +185,8 @@ def selftest_three_buckets_classify_correctly(tmp_path):
         "MEASURED window_parity_test.active_after_open=0\n"
         "MEASURED window_parity_test.logical_width=0\n",
     )
-    import io
     import contextlib
+    import io
 
     buffer = io.StringIO()
     try:

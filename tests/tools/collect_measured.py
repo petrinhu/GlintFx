@@ -126,9 +126,10 @@ def real_main(args):
 # --- selftest -----------------------------------------------------
 
 def _write_temp(content):
-    handle = tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False, encoding="utf-8")
-    handle.write(content)
-    handle.close()
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".log", delete=False, encoding="utf-8"
+    ) as handle:
+        handle.write(content)
     return Path(handle.name)
 
 

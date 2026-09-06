@@ -1675,3 +1675,58 @@ deliberado, porque numero versionado apodrece.
 **Quinta encarnacao em vinte e quatro horas** do mesmo esqueleto: o portao que analisava
 dois de seis arquivos, o de paridade que era pulado, a prosa que afirmava medicao sem
 citar quem mediu, o remendo unilateral do `-V`, e agora o instrumento sem leitor.
+
+---
+
+## A tabela nasceu e em seis horas ja refutou uma afirmacao do proprio codigo  `[06/09/26 - 05:06:46]`
+
+**Primeiro dado real da tabela de medicoes** (run `34020376320`, verde nos 22): **86
+valores**, 33 do Linux e 53 do Windows -- **20 iguais, ZERO divergentes, 46 so de um
+lado**.
+
+⚠️ **E o primeiro fruto veio antes de qualquer analise:** a chave que conta quantas
+mensagens de redimensionamento chegam **durante** a criacao da janela veio **ZERO**. O
+comentario do codigo garantia que **chega uma**, citando a documentacao. **Refutado por
+medicao**, e a sonda do executor confirma pelo outro lado. O conserto de ontem -- ler o
+tamanho de verdade em vez de confiar na mensagem -- era o certo, e **agora se sabe por
+que**. A instrumentacao construida as 04h derrubou uma afirmacao da casa as 05h.
+
+### A regra de fechamento precisou de calibre, e o numero mostrou isso
+
+Aplicada ao pe da letra, ela obrigaria a **classificar 46 chaves** para fechar a onda --
+e 46 carimbos as pressas sao a proxima declaracao que ninguem confere, que e o defeito
+que a regra existe para impedir.
+
+**Decisao: a unilateralidade HERDA, de forma mecanica, a declaracao que ja existe** nos
+arquivos de paridade -- nunca uma declaracao nova. A pergunta certa nao e "o teste dono e
+de um lado so?", e **"a ausencia do par ja esta declarada num arquivo que tem regra de
+morte?"**.
+
+⚠️ **A porta de fuga fechada por construcao:** uma divergencia real so se esconderia se o
+teste dono fosse de um lado so -- e teste de um lado so e, por definicao desta casa, uma
+linha de excecao **com item que expira** ou uma permanente decidida por gente. Nao ha
+terceira forma. **E herdar nunca e sumir**: a secao herdada imprime contagem e continua na
+tabela.
+
+**Resultado: 46 viram 7.** E as 7 sao achado, nao burocracia:
+- **4 sao a lacuna real da tabela inteira**: um teste que existe com o MESMO NOME nos dois
+  sistemas, e **so o Linux imprime** as capacidades que o plano mandava imprimir nos dois.
+- 2 sao chaves que precisam de nome comum para poderem ser comparadas.
+- 1 e a que refutou o comentario, e vira sentinela permanente do sistema.
+
+### Duas correcoes de desenho que o proprio CTO fez no que decidiu ontem
+
+**(1) "A tabela encolhendo e a metrica" estava ERRADO** -- eu levantei e ele assinou. A
+metrica passa a ser **a secao obrigatoria em ZERO no fechamento**. Iguais e herdadas nao
+sao divida.
+
+**(2) 15 das 20 "iguais" nao eram medicao de sistema** -- eram contagens de varredura,
+iguais nos cinco por construcao, que cumprem outra lei. **Dois marcadores**, um para fato
+de sistema e outro para contagem de varredura: sem isso a tabela de paridade se enche de
+coisa que nunca vai divergir e o sinal se perde. **As 20 iguais viram 5 reais.**
+
+**Regra de promocao, e ela e a parte fina:** uma medicao so vira asercao quando a
+igualdade decorre do **NOSSO codigo**; quando decorre do **ambiente**, e **sentinela
+permanente** e fica na tabela para sempre. As cinco de hoje sao de ambiente -- os dois
+executores estao em escala 1, e um compositor de mosaico poderia impor estado na abertura.
+**Promete-las seria prometer o comportamento do executor**, nao o nosso.

@@ -7,7 +7,6 @@
 
 #include <cerrno>
 #include <string>
-#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -51,29 +50,6 @@ constexpr wl_registry_listener kRegistryListener = {
 };
 
 } // namespace
-
-wayland_display_adapter::wayland_display_adapter(wayland_display_adapter &&other) noexcept
-    : m_display(other.m_display), m_registry(other.m_registry),
-      m_globals(std::move(other.m_globals)), m_fatal(other.m_fatal) {
-    other.m_display = nullptr;
-    other.m_registry = nullptr;
-    other.m_fatal = false;
-}
-
-wayland_display_adapter &
-wayland_display_adapter::operator=(wayland_display_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_display = other.m_display;
-        m_registry = other.m_registry;
-        m_globals = std::move(other.m_globals);
-        m_fatal = other.m_fatal;
-        other.m_display = nullptr;
-        other.m_registry = nullptr;
-        other.m_fatal = false;
-    }
-    return *this;
-}
 
 wayland_display_adapter::~wayland_display_adapter() { close(); }
 

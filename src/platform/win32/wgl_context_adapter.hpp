@@ -81,14 +81,23 @@ class win32_gl_context_adapter {
   public:
     win32_gl_context_adapter() noexcept = default;
 
-    // Move-only - a live adapter owns a real device context and
-    // rendering context, the same reasoning every other adapter in
-    // this project's platform/ tree already gives.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 3/6/7.2, varredura #wgl) - a live adapter owns a real
+    // device context and rendering context, same reasoning as before.
+    // This class registers no `this`-derived pointer with the OS at all
+    // (grep for lpParam/CreateWindowExW/GWLP_USERDATA against this
+    // file's own .cpp comes back empty, this plan's own sec. 3 #wgl) -
+    // moving it was never unsafe. It is pinned anyway, by the SAME
+    // uniform rule every other port-selected adapter in this fatia
+    // follows (D-UAF-2: "regra uniforme, sem julgamento caso a caso -
+    // julgamento e onde se erra", the reasoning the leader gave for
+    // L-04 on 02/09/2026): gl_context_adapter_port now requires
+    // pinned_adapter<A> for every adapter it selects, not only the ones
+    // measured unsafe today.
     win32_gl_context_adapter(const win32_gl_context_adapter &) = delete;
     win32_gl_context_adapter &operator=(const win32_gl_context_adapter &) = delete;
-
-    win32_gl_context_adapter(win32_gl_context_adapter &&other) noexcept;
-    win32_gl_context_adapter &operator=(win32_gl_context_adapter &&other) noexcept;
+    win32_gl_context_adapter(win32_gl_context_adapter &&) = delete;
+    win32_gl_context_adapter &operator=(win32_gl_context_adapter &&) = delete;
 
     ~win32_gl_context_adapter();
 

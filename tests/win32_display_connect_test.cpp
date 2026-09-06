@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #if defined(_WIN32)
 
-#include <utility>
-
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
@@ -70,23 +68,24 @@ GLINTFX_TEST(win32_adapter_opens_and_closes_a_real_message_only_window) {
 }
 
 GLINTFX_TEST(win32_adapter_connects_through_the_port_wrapper) {
-    glintfx::gltfx_rslt<
-        glintfx::platform::display_connection<glintfx::platform::win32_display_adapter>>
-        connected = glintfx::platform::display_connection<
-            glintfx::platform::win32_display_adapter>::connect();
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 7.3):
+    // display_connection<A> is pinned now, never movable - connect()'s
+    // own by-value factory is gone, and so is wrapping it in a
+    // gltfx_rslt<display_connection<A>> (gltfx_rslt<T>::ok(T) needs T
+    // to be constructible from an rvalue, which a pinned type never
+    // is). A caller default-constructs the wrapper IN PLACE, at the
+    // address it will live at for the rest of its life, then opens it -
+    // exactly the sequence display_facade.cpp's own gltfx_display::
+    // open() now uses one layer up.
+    glintfx::platform::display_connection<glintfx::platform::win32_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
 
-    GLINTFX_CHECK(connected.has_value());
-    GLINTFX_CHECK(connected.value().is_open());
+    GLINTFX_CHECK(opened.has_value());
+    GLINTFX_CHECK(connection.is_open());
 
-    // Destroying the display_connection value closes the wrapped
-    // adapter via RAII - same shape display_connection_fake_test.cpp's
-    // own scoped-move block proves for the fake adapter, minus the
-    // static call counters this production adapter has no need for.
-    {
-        const glintfx::gltfx_rslt<
-            glintfx::platform::display_connection<glintfx::platform::win32_display_adapter>>
-            scoped = std::move(connected);
-    }
+    // Destroying `connection` at the end of this scope closes the
+    // wrapped adapter via RAII - same "abre, usa, fecha" shape this
+    // file's own top comment already documents.
 }
 
 #endif // defined(_WIN32)

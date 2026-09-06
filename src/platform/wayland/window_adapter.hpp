@@ -67,14 +67,25 @@ class wayland_window_adapter {
     // shell_adapter already have.
     wayland_window_adapter() noexcept = default;
 
-    // Move-only, same reasoning as wayland_display_adapter/wayland_
-    // shell_adapter: copying a live wl_surface/xdg_surface/xdg_toplevel
-    // proxy triple would hand two owners the same protocol objects.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 1/6/7.2) - THE MEASURED DEFECT THIS FATIA EXISTS TO
+    // FIX: copying a live wl_surface/xdg_surface/xdg_toplevel proxy
+    // triple would hand two owners the same protocol objects, same
+    // reasoning as before. Moving used to be allowed, and open()
+    // (window_adapter.cpp) registers this object's own address with
+    // three listeners (wl_surface_add_listener/xdg_surface_add_
+    // listener/xdg_toplevel_add_listener, all `this`) - the move
+    // constructor never re-pointed any of them, so window_facade.cpp's
+    // own std::move(adapter) into the heap left all three pointing at a
+    // dead stack address (T0, this plan's own measurement: this was
+    // the crash the implementer of fatia 5 hit, first-hand). Deleting
+    // the move is the fix: window_adapter_port now requires pinned_
+    // adapter<A> instead of std::movable<A>, so window_facade.cpp
+    // cannot select a movable adapter here even by accident.
     wayland_window_adapter(const wayland_window_adapter &) = delete;
     wayland_window_adapter &operator=(const wayland_window_adapter &) = delete;
-
-    wayland_window_adapter(wayland_window_adapter &&other) noexcept;
-    wayland_window_adapter &operator=(wayland_window_adapter &&other) noexcept;
+    wayland_window_adapter(wayland_window_adapter &&) = delete;
+    wayland_window_adapter &operator=(wayland_window_adapter &&) = delete;
 
     // Destroys whatever this adapter still owns - safe to run on a
     // moved-from or never-opened instance, same idempotent-safe
@@ -140,6 +151,14 @@ class wayland_window_adapter {
     [[nodiscard]] const window_state &state() const noexcept { return m_state; }
 
     [[nodiscard]] wl_surface *surface() const noexcept { return m_surface; }
+
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md, T0): the second
+    // of the four proxies tests/container/facade_pin_smoke.cpp's own
+    // T0 compares against wl_proxy_get_user_data() - same "internal,
+    // never installed" visibility every other adapter accessor in this
+    // file already has, added ONLY so that fixture can read it back;
+    // nothing inside this class needs it exposed for its own sake.
+    [[nodiscard]] xdg_surface *xdg_surface_proxy() const noexcept { return m_xdg_surface; }
 
     // Reserved for fatia 8 (P-LOOP, docs/plano-w6b-placa-e-laco.md
     // sec. 14.2): `loop_hidden_test` minimizes a REAL toplevel via

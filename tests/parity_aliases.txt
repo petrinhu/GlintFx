@@ -223,3 +223,13 @@ win32_wgl_extension_loader_test|egl_probe_smoke
 # diferente, efeito igual"): IsIconic() antes de SwapBuffers() no
 # Windows, o orcamento do wl_surface.frame no Wayland.
 win32_iconic_present_test|frame_callback_sequence_test
+
+# FACADE-PIN, T0/T4 (docs/plano-conserto-fachadas-uaf.md sec. 8/10):
+# facade_pin_smoke (container fixture, tests/container/) e
+# win32_facade_pin_test (tests/CMakeLists.txt, if(WIN32)) provam a
+# MESMA promessa - o ponteiro que o sistema operacional guarda para
+# chamar de volta aponta para o objeto vivo, nunca para um endereco de
+# pilha morto - por mecanismos diferentes (GODS_LAWS.md L-04):
+# wl_proxy_get_user_data() no Wayland, GetWindowLongPtrW(GWLP_USERDATA)
+# no Win32.
+facade_pin_smoke|win32_facade_pin_test

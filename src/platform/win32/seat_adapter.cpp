@@ -233,42 +233,6 @@ void win32_seat_adapter::handle_input_device_change(WPARAM kind, HANDLE device) 
 
 WNDPROC win32_seat_adapter::previous_wndproc() const noexcept { return m_previous_wndproc; }
 
-win32_seat_adapter::win32_seat_adapter(win32_seat_adapter &&other) noexcept
-    : m_window(other.m_window), m_previous_wndproc(other.m_previous_wndproc),
-      m_capabilities(other.m_capabilities), m_last_change_kind(other.m_last_change_kind),
-      m_last_change_device(other.m_last_change_device) {
-    other.m_window = nullptr;
-    other.m_previous_wndproc = nullptr;
-    if (m_window != nullptr) {
-        // Same re-homing display_adapter.hpp's own move members would
-        // need if it ever kept a `this`-derived pointer in GWLP_USERDATA
-        // across a move (it does not, today - see that header's own
-        // move comment); this adapter DOES, so the moved-to instance
-        // must repoint GWLP_USERDATA at ITSELF before `other`'s
-        // destructor can run, or a message arriving in the window
-        // between the move and the destructor would read a dangling
-        // adapter pointer back out.
-        ::SetWindowLongPtrW(m_window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-    }
-}
-
-win32_seat_adapter &win32_seat_adapter::operator=(win32_seat_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_window = other.m_window;
-        m_previous_wndproc = other.m_previous_wndproc;
-        m_capabilities = other.m_capabilities;
-        m_last_change_kind = other.m_last_change_kind;
-        m_last_change_device = other.m_last_change_device;
-        other.m_window = nullptr;
-        other.m_previous_wndproc = nullptr;
-        if (m_window != nullptr) {
-            ::SetWindowLongPtrW(m_window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-        }
-    }
-    return *this;
-}
-
 win32_seat_adapter::~win32_seat_adapter() { close(); }
 
 gltfx_rslt<void> win32_seat_adapter::open(const win32_display_adapter &display) noexcept {

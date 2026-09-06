@@ -4,7 +4,6 @@
 #if defined(_WIN32)
 
 #include <string>
-#include <utility>
 
 #include <glintfx/core/err_code.hpp>
 
@@ -113,30 +112,6 @@ using wgl_get_extensions_string_arb_fn = const char *(WINAPI *)(HDC);
 // already gives for its own identical declaration of glGetString.
 extern "C" const gl_ubyte *WINAPI glGetString(gl_enum name);
 extern "C" void WINAPI glGetIntegerv(gl_enum pname, gl_int *params);
-
-win32_gl_context_adapter::win32_gl_context_adapter(win32_gl_context_adapter &&other) noexcept
-    : m_dc(std::exchange(other.m_dc, nullptr)), m_context(std::exchange(other.m_context, nullptr)),
-      m_window(std::exchange(other.m_window, nullptr)),
-      m_swap_interval_ext(std::exchange(other.m_swap_interval_ext, nullptr)), m_gpu(other.m_gpu),
-      m_swap_calls_issued(other.m_swap_calls_issued), m_msaa_supported(other.m_msaa_supported),
-      m_srgb_supported(other.m_srgb_supported), m_adaptive_supported(other.m_adaptive_supported) {}
-
-win32_gl_context_adapter &
-win32_gl_context_adapter::operator=(win32_gl_context_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_dc = std::exchange(other.m_dc, nullptr);
-        m_context = std::exchange(other.m_context, nullptr);
-        m_window = std::exchange(other.m_window, nullptr);
-        m_swap_interval_ext = std::exchange(other.m_swap_interval_ext, nullptr);
-        m_gpu = other.m_gpu;
-        m_swap_calls_issued = other.m_swap_calls_issued;
-        m_msaa_supported = other.m_msaa_supported;
-        m_srgb_supported = other.m_srgb_supported;
-        m_adaptive_supported = other.m_adaptive_supported;
-    }
-    return *this;
-}
 
 win32_gl_context_adapter::~win32_gl_context_adapter() { close(); }
 

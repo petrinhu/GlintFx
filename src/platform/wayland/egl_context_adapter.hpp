@@ -94,14 +94,24 @@ class wayland_egl_context_adapter {
   public:
     wayland_egl_context_adapter() noexcept = default;
 
-    // Move-only - a live adapter owns a real EGL display/context/
-    // surface and a wl_egl_window, the same reasoning every other
-    // adapter in this project's platform/ tree already gives.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 3/6/7.2, varredura #7) - a live adapter owns a real
+    // EGL display/context/surface and a wl_egl_window, same reasoning
+    // as before. Moving used to be allowed via std::exchange() on every
+    // pointer, INCLUDING m_pending_frame_callback - safe ONLY because
+    // attach_frame_listener() (registers `this` with wl_callback_add_
+    // listener) is called exclusively from swap_buffers(), always AFTER
+    // gl_context_facade.cpp's own move into the heap, never from
+    // open(). That safety was an accident of call order, not of
+    // design (this plan's own D1: "a opcao B mantem exatamente essa
+    // dependencia e a esconde melhor") - deleting the move closes the
+    // class of defect by construction, uniform with every other adapter
+    // in this fatia, so a future refactor that arms the frame callback
+    // from open() cannot silently reintroduce the crash.
     wayland_egl_context_adapter(const wayland_egl_context_adapter &) = delete;
     wayland_egl_context_adapter &operator=(const wayland_egl_context_adapter &) = delete;
-
-    wayland_egl_context_adapter(wayland_egl_context_adapter &&other) noexcept;
-    wayland_egl_context_adapter &operator=(wayland_egl_context_adapter &&other) noexcept;
+    wayland_egl_context_adapter(wayland_egl_context_adapter &&) = delete;
+    wayland_egl_context_adapter &operator=(wayland_egl_context_adapter &&) = delete;
 
     ~wayland_egl_context_adapter();
 
@@ -158,6 +168,19 @@ class wayland_egl_context_adapter {
     // until fatia 5b's own drm_gpu_kind.hpp teaches this adapter how to
     // classify a REAL driver answer - this fatia never guesses.
     [[nodiscard]] gltfx_gpu_info gpu() const noexcept { return m_gpu.read(); }
+
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md, T0): the fifth
+    // pair tests/container/facade_pin_smoke.cpp's own T0 compares
+    // against wl_proxy_get_user_data() - same "internal, never
+    // installed" visibility every other adapter accessor in this
+    // project already has, added ONLY so that fixture can read the
+    // pending frame callback back after swap_buffers(); nothing inside
+    // this class needs it exposed for its own sake. Null before the
+    // first successful swap_buffers() (attach_frame_listener() is the
+    // only writer).
+    [[nodiscard]] wl_callback *pending_frame_callback() const noexcept {
+        return m_pending_frame_callback;
+    }
 
     // The wl_callback listener's own `done` callback (wayland-client's
     // C ABI - PUBLIC only so egl_context_adapter.cpp's own anonymous-

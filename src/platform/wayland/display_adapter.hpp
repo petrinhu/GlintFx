@@ -38,15 +38,22 @@ class wayland_display_adapter {
     // ready for open() to be called on it.
     wayland_display_adapter() noexcept = default;
 
-    // Move-only (display_connection_port requires std::movable<A>, not
-    // copyable): copying a live wl_display handle would hand two
-    // owners the same connection, and closing it twice is a
-    // use-after-free in libwayland-client's own bookkeeping.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2): copying a live wl_display handle would hand
+    // two owners the same connection, same reasoning as before this
+    // fatia. Moving is now ALSO deleted - open() (display_adapter.cpp)
+    // registers this object's own address with libwayland-client's
+    // registry listener (wl_registry_add_listener(..., this)), and a
+    // move would leave that listener pointing at a dead stack address
+    // (T0, this plan's own measurement: four pairs differed against
+    // today's tree before this fatia). display_connection_port now
+    // requires pinned_adapter<A> instead of std::movable<A> exactly so
+    // a future adapter cannot reintroduce this by satisfying the port
+    // with a movable type.
     wayland_display_adapter(const wayland_display_adapter &) = delete;
     wayland_display_adapter &operator=(const wayland_display_adapter &) = delete;
-
-    wayland_display_adapter(wayland_display_adapter &&other) noexcept;
-    wayland_display_adapter &operator=(wayland_display_adapter &&other) noexcept;
+    wayland_display_adapter(wayland_display_adapter &&) = delete;
+    wayland_display_adapter &operator=(wayland_display_adapter &&) = delete;
 
     // Closes whatever this adapter still owns - safe to run on a
     // moved-from or never-opened instance, because close() itself only
@@ -98,6 +105,14 @@ class wayland_display_adapter {
     // window_adapter.hpp's own surface() and win32's own native_
     // handle() already use for the analogous need.
     [[nodiscard]] wl_display *native_display() const noexcept { return m_display; }
+
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md, T0): the first
+    // of the four proxies tests/container/facade_pin_smoke.cpp's own
+    // T0 compares against wl_proxy_get_user_data() - same "internal,
+    // never installed" visibility native_display() above already has,
+    // added ONLY so that fixture can read the registry proxy back;
+    // nothing inside this class needs it exposed for its own sake.
+    [[nodiscard]] wl_registry *registry() const noexcept { return m_registry; }
 
     // The catalog fatia A's global_catalog.hpp defines, populated by
     // the initial roundtrip above and kept current afterward by

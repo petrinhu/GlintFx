@@ -173,24 +173,6 @@ win32_display_adapter::class_name_for(const void *instance) noexcept {
     return buffer;
 }
 
-win32_display_adapter::win32_display_adapter(win32_display_adapter &&other) noexcept
-    : m_window(other.m_window), m_class_atom(other.m_class_atom), m_class_name(other.m_class_name) {
-    other.m_window = nullptr;
-    other.m_class_atom = 0;
-}
-
-win32_display_adapter &win32_display_adapter::operator=(win32_display_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_window = other.m_window;
-        m_class_atom = other.m_class_atom;
-        m_class_name = other.m_class_name;
-        other.m_window = nullptr;
-        other.m_class_atom = 0;
-    }
-    return *this;
-}
-
 win32_display_adapter::~win32_display_adapter() { close(); }
 
 gltfx_rslt<void> win32_display_adapter::open() noexcept {

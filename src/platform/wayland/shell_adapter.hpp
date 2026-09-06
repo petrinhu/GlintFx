@@ -47,16 +47,21 @@ class wayland_shell_adapter {
     // already has.
     wayland_shell_adapter() noexcept = default;
 
-    // Move-only, same reasoning as wayland_display_adapter (display_
-    // adapter.hpp): copying a live wl_compositor/xdg_wm_base proxy
-    // pair would hand two owners the same protocol objects, and
-    // destroying either proxy twice is a use-after-free in
-    // libwayland-client's own bookkeeping.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2), same reasoning as wayland_display_adapter
+    // (display_adapter.hpp): copying a live wl_compositor/xdg_wm_base
+    // proxy pair would hand two owners the same protocol objects.
+    // Moving is deleted too - open() (shell_adapter.cpp) registers this
+    // object's own address with xdg_wm_base_add_listener(..., this),
+    // and this class is safe TODAY only because it is opened in place
+    // inside display_impl and never moved (this plan's own sec. 3 #2);
+    // deleting the move is what makes that safety a compile-time fact
+    // instead of a fact about where display_impl.hpp happens to compose
+    // it, uniform with every other adapter in this fatia (D-UAF-2).
     wayland_shell_adapter(const wayland_shell_adapter &) = delete;
     wayland_shell_adapter &operator=(const wayland_shell_adapter &) = delete;
-
-    wayland_shell_adapter(wayland_shell_adapter &&other) noexcept;
-    wayland_shell_adapter &operator=(wayland_shell_adapter &&other) noexcept;
+    wayland_shell_adapter(wayland_shell_adapter &&) = delete;
+    wayland_shell_adapter &operator=(wayland_shell_adapter &&) = delete;
 
     // Destroys whatever this adapter still owns - safe to run on a
     // moved-from or never-opened instance, same idempotent-safe

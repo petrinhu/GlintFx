@@ -139,15 +139,20 @@ class win32_seat_adapter {
     // shape win32_display_adapter's own default constructor has.
     win32_seat_adapter() noexcept = default;
 
-    // Move-only, same reasoning as win32_display_adapter: copying a
-    // live HWND (and the RegisterRawInputDevices registration tied to
-    // it) would hand two owners the same OS resource, and destroying
-    // either twice is a double-free of OS-owned state.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2, varredura #10) - copying a live HWND (and the
+    // RegisterRawInputDevices registration tied to it) would hand two
+    // owners the same OS resource, same reasoning as before. This class
+    // used to re-point GWLP_USERDATA at the new address on every move -
+    // that re-homing code is DELETED here, not kept alongside the pin
+    // (same reasoning win32_window_adapter.hpp's own header comment
+    // gives, one directory over): a second, hand-written mechanism
+    // doing the same job the concept already guarantees is exactly the
+    // dependency D-UAF-1 rejects.
     win32_seat_adapter(const win32_seat_adapter &) = delete;
     win32_seat_adapter &operator=(const win32_seat_adapter &) = delete;
-
-    win32_seat_adapter(win32_seat_adapter &&other) noexcept;
-    win32_seat_adapter &operator=(win32_seat_adapter &&other) noexcept;
+    win32_seat_adapter(win32_seat_adapter &&) = delete;
+    win32_seat_adapter &operator=(win32_seat_adapter &&) = delete;
 
     // Idempotent close() in the destructor, same shape as
     // win32_display_adapter's own destructor.

@@ -10,6 +10,8 @@
 #include <glintfx/platform/gl/gfx_option.hpp>
 #include <glintfx/platform/gl/gpu.hpp>
 
+#include "platform/port/adapter_pin.hpp"
+
 // gl_context_adapter_port.hpp - GL-CONTEXT (docs/plano-w6b-placa-e-
 // laco.md fatia 2b, D-W6b-1, GODS_LAWS.md L-04/L-19): the compile-time
 // contract gl_context_facade.cpp's own gltfx_gl_context will check a
@@ -70,12 +72,22 @@
 // noexcept throughout - same reasoning display_connection_port.hpp/
 // window_adapter_port.hpp already give: every adapter this project
 // ships reports failure through gltfx_rslt<T>, never a C++ exception.
+//
+// FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 6/7.1): this
+// concept required std::movable<A> until this fatia - the same class of
+// defect window_adapter_port.hpp's own header comment names (a proxy
+// pointing at a dead stack address after a move) is latent here too,
+// derrubado today only by call ORDER (wayland_egl_context_adapter's own
+// attach_frame_listener() runs only from swap_buffers(), always after
+// gl_context_facade.cpp's own move into the heap - this plan's own
+// sec. 3 #7). pinned_adapter<A> (platform/port/adapter_pin.hpp)
+// closes this by construction instead of by ordering.
 namespace glintfx::platform {
 
 template <typename A>
 concept gl_context_adapter_port =
-    std::movable<A> && requires(A &adapter, const A &const_adapter, gltfx_gfx_option_entry entry,
-                                gltfx_gfx_option id, std::string_view name) {
+    pinned_adapter<A> && requires(A &adapter, const A &const_adapter, gltfx_gfx_option_entry entry,
+                                  gltfx_gfx_option id, std::string_view name) {
         { adapter.close() } noexcept -> std::same_as<void>;
         { const_adapter.is_open() } noexcept -> std::same_as<bool>;
         { adapter.make_current() } noexcept -> std::same_as<gltfx_rslt<void>>;

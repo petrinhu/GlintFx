@@ -54,26 +54,21 @@ class fake_display_adapter {
   public:
     fake_display_adapter() noexcept = default;
 
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2): display_connection_port now requires pinned_
+    // adapter<A> instead of std::movable<A> (platform/port/pinned_
+    // adapter.hpp) - this fixture has to satisfy the SAME contract the
+    // real wayland_display_adapter/win32_display_adapter now do, or
+    // display_connection_port_concept_test.cpp's own positive control
+    // would stop compiling. There is no `this`-derived pointer here for
+    // a move to leave dangling (this fixture never registers itself
+    // with anything - this file's own header comment above), but the
+    // port no longer distinguishes "safe to move" adadapters from
+    // "unsafe to move" ones: every adapter it selects is pinned, D-UAF-2.
     fake_display_adapter(const fake_display_adapter &) = delete;
     fake_display_adapter &operator=(const fake_display_adapter &) = delete;
-
-    // Steals m_open the same way wayland_display_adapter's real move
-    // constructor steals its handle (display_adapter.cpp) - a naive
-    // `= default` move would COPY the bool instead, leaving the
-    // moved-from side still reporting is_open() true, which is exactly
-    // the shape display_connection<A>'s own move constructor
-    // (display_connection.hpp) relies on NOT happening.
-    fake_display_adapter(fake_display_adapter &&other) noexcept : m_open(other.m_open) {
-        other.m_open = false;
-    }
-
-    fake_display_adapter &operator=(fake_display_adapter &&other) noexcept {
-        if (this != &other) {
-            m_open = other.m_open;
-            other.m_open = false;
-        }
-        return *this;
-    }
+    fake_display_adapter(fake_display_adapter &&) = delete;
+    fake_display_adapter &operator=(fake_display_adapter &&) = delete;
 
     ~fake_display_adapter() = default;
 
@@ -102,6 +97,16 @@ class fake_display_adapter {
 
     [[nodiscard]] glintfx::gltfx_rslt<void> open() noexcept {
         ++s_open_call_count;
+        // FACADE-PIN, T2 (docs/plano-conserto-fachadas-uaf.md sec. 8):
+        // records THIS object's own address at the instant open()
+        // itself ran - opened_at() below is what
+        // display_connection_fake_test.cpp compares against `&conexao.
+        // adapter()` to prove the wrapper never moved the adapter after
+        // opening it (the FORM this fatia's own D-UAF-1 fixes, proved
+        // generically here the same way the real adapters prove it
+        // against a live wl_registry/GWLP_USERDATA in the container/
+        // Windows fixtures, T0/T4).
+        m_opened_at = this;
         if (s_inject_failure) {
             return glintfx::gltfx_rslt<void>::err(glintfx::gltfx_err(s_injected_code));
         }
@@ -116,8 +121,16 @@ class fake_display_adapter {
 
     [[nodiscard]] bool is_open() const noexcept { return m_open; }
 
+    // FACADE-PIN, T2: the address this object had when open() ran -
+    // null before open() is ever called. Nullptr and "this" can never
+    // be confused with a wrong-but-nonnull answer: the whole point of
+    // this seam is to compare it against `&adapter`, and a null vs a
+    // real address always differs.
+    [[nodiscard]] const void *opened_at() const noexcept { return m_opened_at; }
+
   private:
     bool m_open = false;
+    const void *m_opened_at = nullptr;
 
     static inline int s_open_call_count = 0;
     static inline int s_close_call_count = 0;

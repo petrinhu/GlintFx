@@ -73,34 +73,6 @@ namespace {
 
 } // namespace
 
-win32_window_adapter::win32_window_adapter(win32_window_adapter &&other) noexcept
-    : m_window(other.m_window), m_dpi(other.m_dpi),
-      m_size_messages_before_open_returns(other.m_size_messages_before_open_returns),
-      m_state(other.m_state) {
-    other.m_window = nullptr;
-    if (m_window != nullptr) {
-        // Re-home GWLP_USERDATA at the new address BEFORE `other`'s
-        // destructor can run - same reasoning win32_seat_adapter's own
-        // move members already document for the identical hazard.
-        ::SetWindowLongPtrW(m_window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-    }
-}
-
-win32_window_adapter &win32_window_adapter::operator=(win32_window_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_window = other.m_window;
-        m_dpi = other.m_dpi;
-        m_size_messages_before_open_returns = other.m_size_messages_before_open_returns;
-        m_state = other.m_state;
-        other.m_window = nullptr;
-        if (m_window != nullptr) {
-            ::SetWindowLongPtrW(m_window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-        }
-    }
-    return *this;
-}
-
 win32_window_adapter::~win32_window_adapter() { close(); }
 
 gltfx_rslt<void> win32_window_adapter::open(const win32_display_adapter &display,

@@ -193,17 +193,35 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     std::vector<gltfx_gfx_option_entry> resolved =
         resolve_full_option_table(fixed_open_only, requested);
 
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 3/4/7.3/7.4,
+    // varredura #7): impl is allocated FIRST, at the address it will
+    // live at for the rest of its life - THEN the adapter it owns is
+    // opened in place. Before this fatia, `adapter` was a local
+    // variable, opened on the STACK, and only afterward moved into this
+    // exact allocation - safe today only because wayland_egl_context_
+    // adapter's own attach_frame_listener() (registers `this` with the
+    // OS) never runs from open(), only from swap_buffers(), always
+    // AFTER this move already happened (this plan's own sec. 3 #7: "e'
+    // bug na primeira refatoracao que mude a ordem"). gl_context_
+    // adapter_port now requires pinned_adapter<A>, which forbids the
+    // type this old sequence needed to move - the ordering accident is
+    // replaced by a construction that is safe BY DESIGN.
+    auto *impl = new (std::nothrow) gl_context_impl{};
+    if (impl == nullptr) {
+        return gltfx_rslt<gltfx_gl_context>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
+
     // Step 3: the concrete adapter's own open() - the same call on
     // both platforms, since platform::selected_window_adapter already
     // resolved to the right concrete type by the time this TU was
     // compiled (window_impl.hpp's own #if), and both concrete gl
     // context adapters (fatias 3/4) accept the identical (window
     // adapter, resolved option list) shape.
-    platform::selected_gl_context_adapter adapter;
-    const gltfx_rslt<void> opened =
-        adapter.open(window_impl_ptr->adapter, std::span<const gltfx_gfx_option_entry>(resolved));
+    const gltfx_rslt<void> opened = impl->adapter.open(
+        window_impl_ptr->adapter, std::span<const gltfx_gfx_option_entry>(resolved));
 
     if (opened.has_error()) {
+        delete impl;
         return gltfx_rslt<gltfx_gl_context>::err(opened.error());
     }
 
@@ -215,10 +233,7 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
         window_impl_ptr->fixed_open_only_gfx_options = fixation.fixed;
     }
 
-    auto *impl = new (std::nothrow) gl_context_impl{std::move(adapter), std::move(resolved)};
-    if (impl == nullptr) {
-        return gltfx_rslt<gltfx_gl_context>::err(gltfx_err(gltfx_err_code::out_of_memory));
-    }
+    impl->current_values = std::move(resolved);
 
     return gltfx_rslt<gltfx_gl_context>::ok(gltfx_gl_context(impl));
 }

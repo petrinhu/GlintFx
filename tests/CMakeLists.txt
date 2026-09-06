@@ -1259,6 +1259,48 @@ if(WIN32)
     set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume)
 endif()
 
+# FACADE-PIN, T4/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
+# the Windows counterpart of facade_pin_smoke.cpp (tests/container/,
+# T0) - paired by name in tests/parity_aliases.txt. UNLIKE window_
+# parity_test/gl_context_parity_test right above, this target does
+# NOT link glintfx::glintfx: it needs BOTH the public factories
+# (gltfx_display::open()/gltfx_window::open(), exported with
+# GLINTFX_API) AND the two internal passkeys display_internal_access::
+# get()/window_internal_access::get() (declared in the public header,
+# DEFINED only in display_facade.cpp/window_facade.cpp, GODS_LAWS.md
+# L-19 - never placed in glintfx.dll's own export table, so a consumer
+# linking against the packaged library can never resolve them).
+# win32_facade_pin_test.cpp's own header comment carries the full
+# reasoning. Every source below is the WHOLE chain those two public
+# handles PIMPL over on Windows, recompiled standalone - the same "no
+# CMake/pacote" shape facade_pin_smoke.cpp already uses on the Linux
+# side (tests/container/Containerfile, plain g++).
+if(WIN32)
+    add_executable(win32_facade_pin_test "${CMAKE_CURRENT_SOURCE_DIR}/win32_facade_pin_test.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/display_facade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_facade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/err.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/err_code.cpp"
+    )
+    target_include_directories(win32_facade_pin_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/include"
+        "${GLINTFX_GENERATED_INCLUDE_DIR}"
+        "${PROJECT_SOURCE_DIR}/src"
+    )
+    target_link_libraries(win32_facade_pin_test PRIVATE glintfx_test_harness user32 shell32 ole32 propsys)
+    glintfx_apply_compile_options(win32_facade_pin_test)
+    glintfx_copy_runtime_dlls_after_build(win32_facade_pin_test)
+    add_test(NAME win32_facade_pin_test COMMAND win32_facade_pin_test)
+    set_tests_properties(win32_facade_pin_test PROPERTIES LABELS consume)
+endif()
+
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
 # headers are included first (sys/sysmacros.h on Linux, windows.h
@@ -1573,6 +1615,28 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py" --selftest
 )
 set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
+
+# FACADE-PIN, G2 (docs/plano-conserto-fachadas-uaf.md sec. 9, GODS_
+# LAWS.md L-19/L-36): the portao G1 (the pinned_adapter<A> concept
+# every port now requires) structurally cannot reach - a class that
+# registers `this` with the OS but is never selected through a port at
+# all (wayland_shell_adapter, wayland_seat_adapter). Unguarded, same
+# GATE-TREE-PARITY reasoning layers_test above already gives: this
+# scan reads text, never builds anything platform-specific.
+add_test(
+    NAME self_registration_pinned_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_self_registration_pinned.py"
+        "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(self_registration_pinned_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME self_registration_pinned_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_self_registration_pinned.py" --selftest
+)
+set_tests_properties(self_registration_pinned_selftest PROPERTIES LABELS selftest)
 
 # C-OPT id gate (docs/plano-w6b-placa-e-laco.md fatia 2a, GODS_LAWS.md
 # L-26/L-40): gltfx_gfx_option's own append-only numeric ids (include/

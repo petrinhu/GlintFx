@@ -10,67 +10,99 @@
 #include "platform/port/display_connection.hpp"
 
 // display_connection_fake_test.cpp - ARCH-PORTS, TDD case R2 (CTO plan
-// sec. 2): platform::display_connection<glintfx::test::fake_display_
-// adapter> is the exact same template every real caller of display_
-// connection<wayland_display_adapter> will use - this file is the
-// proof that "o resto não percebe" which adapter is underneath
-// (GODS_LAWS.md L-19). Every GLINTFX_TEST case here calls
-// fake_display_adapter::reset() first (harness_main.cpp runs every
-// case in one process, sequentially - see that file's own comment;
-// the static counters this fixture uses are documented in fake_
-// display_adapter.hpp's own header comment).
+// sec. 2); rewritten for FACADE-PIN (docs/plano-conserto-fachadas-uaf.md
+// sec. 7.3/8, T2): platform::display_connection<glintfx::test::fake_
+// display_adapter> is the exact same template every real caller of
+// display_connection<wayland_display_adapter> will use - this file is
+// the proof that "o resto não percebe" which adapter is underneath
+// (GODS_LAWS.md L-19). Every GLINTFX_TEST case here calls fake_display_
+// adapter::reset() first (harness_main.cpp runs every case in one
+// process, sequentially - see that file's own comment; the static
+// counters this fixture uses are documented in fake_display_adapter.
+// hpp's own header comment).
+//
+// connect() IS GONE (display_connection.hpp's own header comment): a
+// pinned display_connection<A> cannot be returned by value inside a
+// gltfx_rslt<display_connection<A>> (gltfx_rslt<T>::ok(T) needs T
+// constructible from an rvalue, which a pinned type never is). Every
+// case below default-constructs display_connection<fake_display_
+// adapter> IN PLACE (a local variable is "in place" for a stack-lived
+// test the same way a heap allocation is for display_impl - the
+// address never changes after construction either way) and calls
+// open() on it - the exact sequence display_facade.cpp's own gltfx_
+// display::open() now uses one layer up.
 
-GLINTFX_TEST(connect_open_use_close_sequence_via_the_fake) {
+GLINTFX_TEST(open_use_close_sequence_via_the_fake) {
     glintfx::test::fake_display_adapter::reset();
 
-    glintfx::gltfx_rslt<glintfx::platform::display_connection<glintfx::test::fake_display_adapter>>
-        connected =
-            glintfx::platform::display_connection<glintfx::test::fake_display_adapter>::connect();
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
 
-    GLINTFX_CHECK(connected.has_value());
-    GLINTFX_CHECK(connected.value().is_open());
+    GLINTFX_CHECK(opened.has_value());
+    GLINTFX_CHECK(connection.is_open());
     // "abre": open() reached the adapter exactly once for this one
-    // connect() call - not zero (the factory silently skipped it) and
-    // not more than once (a retry loop nobody asked for).
+    // open() call - not zero (the wrapper silently skipped it) and not
+    // more than once (a retry loop nobody asked for).
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::open_call_count() == 1);
     // "usa": the connection stays open across an ordinary read of its
     // own public surface - is_open() is not itself a mutating call.
-    GLINTFX_CHECK(connected.value().is_open());
+    GLINTFX_CHECK(connection.is_open());
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 0);
 
-    // "fecha": destroying the display_connection value closes the
-    // wrapped adapter exactly once - RAII, not something the caller
-    // has to remember to invoke by hand.
+    // "fecha": destroying the display_connection value below closes the
+    // wrapped adapter exactly once - RAII, not something the caller has
+    // to remember to invoke by hand. Proved by scoping a SECOND
+    // display_connection and letting it run out of scope, since this
+    // one is pinned in place for the rest of this test's own body.
     {
-        const glintfx::gltfx_rslt<
-            glintfx::platform::display_connection<glintfx::test::fake_display_adapter>>
-            scoped = std::move(connected);
+        glintfx::platform::display_connection<glintfx::test::fake_display_adapter> scoped;
+        const glintfx::gltfx_rslt<void> scoped_opened = scoped.open();
+        GLINTFX_CHECK(scoped_opened.has_value());
     }
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 1);
 }
 
-GLINTFX_TEST(injected_refusal_reaches_the_caller_of_connect_unchanged) {
+// FACADE-PIN, T2 (docs/plano-conserto-fachadas-uaf.md sec. 8): the
+// vermelho this plan's own decision D1 exists to make pass. Before this
+// fatia, connect() default-constructed the adapter on the stack, opened
+// it THERE, and only afterward moved the now-open adapter into the
+// display_connection it returned - fake_display_adapter::opened_at()
+// would have recorded the STACK address, and this exact comparison
+// would have failed against a caller reading `&connection.adapter()`
+// after the move. Now that open() runs on the adapter AT ITS FINAL
+// ADDRESS (display_connection<A>::open(), display_connection.hpp), the
+// two addresses are the SAME address, by construction.
+GLINTFX_TEST(opened_at_matches_the_final_address_of_the_wrapped_adapter) {
+    glintfx::test::fake_display_adapter::reset();
+
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
+    GLINTFX_CHECK(opened.has_value());
+
+    GLINTFX_CHECK(static_cast<const void *>(&connection.adapter()) ==
+                  connection.adapter().opened_at());
+}
+
+GLINTFX_TEST(injected_refusal_reaches_the_caller_of_open_unchanged) {
     glintfx::test::fake_display_adapter::reset();
     glintfx::test::fake_display_adapter::arm_failure(glintfx::gltfx_err_code::platform_failure);
 
-    const glintfx::gltfx_rslt<
-        glintfx::platform::display_connection<glintfx::test::fake_display_adapter>>
-        connected =
-            glintfx::platform::display_connection<glintfx::test::fake_display_adapter>::connect();
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
 
     // GODS_LAWS.md L-22: the error the FAKE injected arrives at THIS
-    // caller INTACT - connect() never re-codes, wraps or swallows it.
+    // caller INTACT - open() never re-codes, wraps or swallows it.
     // Reaching this line at all is also part of the proof: a noexcept
     // function that let an exception escape would have called
     // std::terminate() before any of these checks ran ("nada lança").
-    GLINTFX_CHECK(connected.has_error());
-    GLINTFX_CHECK(connected.error().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(opened.has_error());
+    GLINTFX_CHECK(opened.error().code() == glintfx::gltfx_err_code::platform_failure);
 
     // A refused open() still counts as "open() was called" - the
-    // adapter's own is_open() correctly stays false, and connect()
-    // never constructs a display_connection object at all when the
-    // underlying open() failed (there is no successful value to have
-    // closed, so close() is never reached for THIS attempt).
+    // adapter's own is_open() correctly stays false, and close() is
+    // never reached for THIS attempt (there is nothing successfully
+    // open to have closed).
+    GLINTFX_CHECK(!connection.is_open());
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::open_call_count() == 1);
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 0);
 }
@@ -91,35 +123,29 @@ GLINTFX_TEST(adapter_accessor_reaches_the_same_wrapped_instance) {
     // real, live object, not a detached copy.
     glintfx::test::fake_display_adapter::reset();
 
-    glintfx::gltfx_rslt<glintfx::platform::display_connection<glintfx::test::fake_display_adapter>>
-        connected =
-            glintfx::platform::display_connection<glintfx::test::fake_display_adapter>::connect();
-    GLINTFX_CHECK(connected.has_value());
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
+    GLINTFX_CHECK(opened.has_value());
 
-    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> &conn =
-        connected.value();
+    GLINTFX_CHECK(connection.adapter().is_open());
+    GLINTFX_CHECK(std::as_const(connection).adapter().is_open());
 
-    GLINTFX_CHECK(conn.adapter().is_open());
-    GLINTFX_CHECK(std::as_const(conn).adapter().is_open());
+    connection.adapter().close();
 
-    conn.adapter().close();
-
-    GLINTFX_CHECK(!conn.is_open());
+    GLINTFX_CHECK(!connection.is_open());
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 1);
 }
 
 GLINTFX_TEST(a_different_injected_code_still_arrives_unchanged) {
     // Same shape as the case above, with a DIFFERENT code - proves the
-    // path is generic (the factory does not special-case one specific
+    // path is generic (the wrapper does not special-case one specific
     // gltfx_err_code value), not just correct for platform_failure.
     glintfx::test::fake_display_adapter::reset();
     glintfx::test::fake_display_adapter::arm_failure(glintfx::gltfx_err_code::unsupported);
 
-    const glintfx::gltfx_rslt<
-        glintfx::platform::display_connection<glintfx::test::fake_display_adapter>>
-        connected =
-            glintfx::platform::display_connection<glintfx::test::fake_display_adapter>::connect();
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
 
-    GLINTFX_CHECK(connected.has_error());
-    GLINTFX_CHECK(connected.error().code() == glintfx::gltfx_err_code::unsupported);
+    GLINTFX_CHECK(opened.has_error());
+    GLINTFX_CHECK(opened.error().code() == glintfx::gltfx_err_code::unsupported);
 }

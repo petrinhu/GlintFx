@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cassert>
-#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/platform/window/display.hpp>
@@ -56,28 +55,23 @@ static_assert(platform::display_backend_port<platform::selected_display_adapter>
 } // namespace
 
 gltfx_rslt<gltfx_display> gltfx_display::open() noexcept {
-    gltfx_rslt<platform::display_connection<platform::selected_display_adapter>> connected =
-        platform::display_connection<platform::selected_display_adapter>::connect();
-    if (connected.has_error()) {
-        return gltfx_rslt<gltfx_display>::err(connected.error());
-    }
-
-    // Aggregate-initialized member by member - `shell` included on
-    // Wayland (default-constructed, `{}`), where display_impl has a
-    // second member; Windows has only `connection`, so the initializer
-    // list itself has to differ, not just its VALUES. A bare `{std::
-    // move(...)}` on Wayland would leave `shell` to implicit value-
-    // initialization, but -Wextra's own -Wmissing-field-initializers
-    // (this project's own -Werror, GODS_LAWS.md L-23) treats that as a
-    // warning worth failing the build over, so it is spelled out here
-    // instead of relied on.
-#if defined(_WIN32)
-    auto *impl = new (std::nothrow) display_impl{std::move(connected.value())};
-#else
-    auto *impl = new (std::nothrow) display_impl{std::move(connected.value()), {}};
-#endif
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 7.3/7.4):
+    // impl is allocated FIRST, default-constructed (connection - and,
+    // on Wayland, shell - both start closed) and THEN opened AT ITS
+    // FINAL ADDRESS. There is no longer an adapter built on the stack
+    // and moved into this allocation afterward: platform::display_
+    // connection<A> lost connect()/its own move members for exactly
+    // this reason (that header's own comment) - the sequence below is
+    // what replaces "build by value, move in" with "allocate the home,
+    // open in place".
+    auto *impl = new (std::nothrow) display_impl{};
     if (impl == nullptr) {
         return gltfx_rslt<gltfx_display>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
+
+    if (const gltfx_rslt<void> connected = impl->connection.open(); connected.has_error()) {
+        delete impl;
+        return gltfx_rslt<gltfx_display>::err(connected.error());
     }
 
 #if !defined(_WIN32)

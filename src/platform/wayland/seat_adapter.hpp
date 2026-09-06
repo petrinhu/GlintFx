@@ -50,16 +50,20 @@ class wayland_seat_adapter {
     // directory already has.
     wayland_seat_adapter() noexcept = default;
 
-    // Move-only, same reasoning as wayland_shell_adapter/wayland_
-    // window_adapter: copying a live wl_seat proxy would hand two
-    // owners the same protocol object, and destroying either proxy
-    // twice is a use-after-free in libwayland-client's own
-    // bookkeeping.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2), same reasoning as wayland_shell_adapter/
+    // wayland_window_adapter: copying a live wl_seat proxy would hand
+    // two owners the same protocol object. Moving is deleted too -
+    // open() (seat_adapter.cpp) registers this object's own address
+    // with wl_seat_add_listener(..., this), and this class was LATENT
+    // for the identical defect (no owner in src/ yet moved it, this
+    // plan's own sec. 3 #3) - deleting the move closes it before the
+    // W6b seat facade has a chance to repeat window_adapter.hpp's own
+    // mistake, uniform with every other adapter in this fatia (D-UAF-2).
     wayland_seat_adapter(const wayland_seat_adapter &) = delete;
     wayland_seat_adapter &operator=(const wayland_seat_adapter &) = delete;
-
-    wayland_seat_adapter(wayland_seat_adapter &&other) noexcept;
-    wayland_seat_adapter &operator=(wayland_seat_adapter &&other) noexcept;
+    wayland_seat_adapter(wayland_seat_adapter &&) = delete;
+    wayland_seat_adapter &operator=(wayland_seat_adapter &&) = delete;
 
     // Destroys whatever this adapter still owns - safe to run on a
     // moved-from or never-opened instance, same idempotent-safe

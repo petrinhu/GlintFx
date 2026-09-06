@@ -65,40 +65,6 @@ constexpr xdg_toplevel_listener kToplevelListener = {
 
 } // namespace
 
-wayland_window_adapter::wayland_window_adapter(wayland_window_adapter &&other) noexcept
-    : m_surface(other.m_surface), m_xdg_surface(other.m_xdg_surface),
-      m_xdg_toplevel(other.m_xdg_toplevel), m_state(other.m_state),
-      m_configure_sequence(other.m_configure_sequence), m_configured(other.m_configured),
-      m_pending_width(other.m_pending_width), m_pending_height(other.m_pending_height),
-      m_pending_states(other.m_pending_states),
-      m_pending_states_count(other.m_pending_states_count) {
-    other.m_surface = nullptr;
-    other.m_xdg_surface = nullptr;
-    other.m_xdg_toplevel = nullptr;
-    other.m_configured = false;
-}
-
-wayland_window_adapter &wayland_window_adapter::operator=(wayland_window_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_surface = other.m_surface;
-        m_xdg_surface = other.m_xdg_surface;
-        m_xdg_toplevel = other.m_xdg_toplevel;
-        m_state = other.m_state;
-        m_configure_sequence = other.m_configure_sequence;
-        m_configured = other.m_configured;
-        m_pending_width = other.m_pending_width;
-        m_pending_height = other.m_pending_height;
-        m_pending_states = other.m_pending_states;
-        m_pending_states_count = other.m_pending_states_count;
-        other.m_surface = nullptr;
-        other.m_xdg_surface = nullptr;
-        other.m_xdg_toplevel = nullptr;
-        other.m_configured = false;
-    }
-    return *this;
-}
-
 wayland_window_adapter::~wayland_window_adapter() { close(); }
 
 void wayland_window_adapter::wl_surface_enter(void * /*data*/, wl_surface * /*surface*/,

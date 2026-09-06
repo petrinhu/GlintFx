@@ -6,6 +6,8 @@
 
 #include <glintfx/core/err.hpp>
 
+#include "platform/port/adapter_pin.hpp"
+
 // display_connection_port.hpp - ARCH-PORTS (TODO.md, GODS_LAWS.md
 // L-19 item 2): the compile-time contract every display-server adapter
 // (wayland_display_adapter today, a Win32 adapter later - WIN-WINDOW)
@@ -16,6 +18,15 @@
 // adapter is chosen by src/platform/CMakeLists.txt at CONFIGURE time
 // (which directory even enters the build), and this concept is the
 // thing that build-time choice is checked against.
+//
+// FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 6/7.1): this
+// concept required std::movable<A> until this fatia - a moved adapter
+// left the wl_registry/wl_display pointing at a dead stack address (T0,
+// this plan's own measurement). pinned_adapter<A> (platform/port/
+// adapter_pin.hpp) replaces it: the adapter is constructed IN PLACE,
+// inside the caller's own already-allocated handle, and never moves
+// again. display_connection.hpp's own connect()-by-value factory is
+// GONE for exactly this reason - see that header's own comment.
 //
 // INTERNAL, NEVER PUBLIC (GODS_LAWS.md L-19 opacity clause does not
 // even reach this file - it never crosses the library boundary at
@@ -51,8 +62,7 @@
 namespace glintfx::platform {
 
 template <typename A>
-concept display_connection_port =
-    std::default_initializable<A> && std::movable<A> && requires(A &adapter) {
+concept display_connection_port = pinned_adapter<A> && requires(A &adapter) {
         { adapter.open() } noexcept -> std::same_as<gltfx_rslt<void>>;
         { adapter.close() } noexcept -> std::same_as<void>;
         // is_open() is checked through a CONST reference on purpose:

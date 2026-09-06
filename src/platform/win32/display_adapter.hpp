@@ -101,17 +101,23 @@ class win32_display_adapter {
     // satisfies (display_adapter.hpp, Wayland side).
     win32_display_adapter() noexcept = default;
 
-    // Move-only (display_connection_port requires std::movable<A>, not
-    // copyable): copying a live HWND/ATOM pair would hand two owners
-    // the same window and class registration, and destroying/
-    // unregistering twice is a double-free of OS-owned resources -
-    // same reasoning as wayland_display_adapter's own deleted copy
-    // members.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 3/6/7.2, varredura #8) - copying a live HWND/ATOM
+    // pair would hand two owners the same window and class
+    // registration, same reasoning as before. Moving used to be
+    // allowed and re-pointed nothing: CreateWindowExW's own lpParam
+    // (open(), display_adapter.cpp) carries `this` into GWLP_USERDATA,
+    // and the move constructor left that stale - CONFIRMED latent by
+    // this plan's own varredura (sec. 3 #8, the exact gemeo of the
+    // Wayland #1 defect measured by T0), dormant only because a
+    // message-only window never receives WM_SIZE/WM_CLOSE/WM_ACTIVATE/
+    // WM_DPICHANGED. display_connection_port now requires pinned_
+    // adapter<A> instead of std::movable<A>, so this class cannot
+    // satisfy it while still movable.
     win32_display_adapter(const win32_display_adapter &) = delete;
     win32_display_adapter &operator=(const win32_display_adapter &) = delete;
-
-    win32_display_adapter(win32_display_adapter &&other) noexcept;
-    win32_display_adapter &operator=(win32_display_adapter &&other) noexcept;
+    win32_display_adapter(win32_display_adapter &&) = delete;
+    win32_display_adapter &operator=(win32_display_adapter &&) = delete;
 
     // Closes whatever this adapter still owns - safe to run on a
     // moved-from or never-opened instance, because close() itself only

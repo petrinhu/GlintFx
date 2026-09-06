@@ -7,6 +7,7 @@
 
 #include <glintfx/core/err.hpp>
 
+#include "platform/port/adapter_pin.hpp"
 #include "platform/window/window_state.hpp"
 
 // window_adapter_port.hpp - WL-WINDOW-HANDLE (docs/plano-w6a-janela.md
@@ -52,10 +53,20 @@
 // noexcept throughout - same reasoning display_connection_port.hpp's
 // own header comment gives: every adapter this project ships reports
 // failure through gltfx_rslt<T>, never a C++ exception.
+//
+// FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 6/7.1): this
+// concept required std::movable<A> until this fatia - wayland_window_
+// adapter's own move constructor never re-pointed the three proxies it
+// had already registered `this` with (T0, this plan's own
+// measurement), leaving wl_surface/xdg_surface/xdg_toplevel all
+// pointing at a dead stack address after window_facade.cpp's own
+// std::move(adapter) into the heap. pinned_adapter<A> (platform/port/
+// adapter_pin.hpp) replaces it: the adapter is opened IN PLACE,
+// never moved again.
 namespace glintfx::platform {
 
 template <typename A>
-concept window_adapter_port = std::movable<A> && requires(A &adapter, std::string_view text) {
+concept window_adapter_port = pinned_adapter<A> && requires(A &adapter, std::string_view text) {
     { std::as_const(adapter).is_open() } noexcept -> std::same_as<bool>;
     { std::as_const(adapter).state() } noexcept -> std::same_as<const window_state &>;
     { adapter.set_title(text) } noexcept -> std::same_as<gltfx_rslt<void>>;

@@ -88,18 +88,24 @@ class win32_window_adapter {
     // shape every other adapter in this project has.
     win32_window_adapter() noexcept = default;
 
-    // Move-only: GWLP_USERDATA on the live HWND holds THIS instance's
-    // own address (installed by display_adapter.cpp's own window_proc
-    // during WM_NCCREATE, lpParam = this, open() below) - copying would
-    // hand two owners the same window; a move must re-point GWLP_
-    // USERDATA at the new address before the moved-from instance's
-    // destructor can run, same reasoning win32_seat_adapter's own move
-    // members already document.
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2, varredura #9): GWLP_USERDATA on the live HWND
+    // holds THIS instance's own address (installed by display_adapter.
+    // cpp's own window_proc during WM_NCCREATE, lpParam = this, open()
+    // below) - copying would hand two owners the same window. This
+    // class used to re-point GWLP_USERDATA at the new address on every
+    // move (the ONE adapter in this project that remembered to, per
+    // this plan's own sec. 3/5) - that re-homing code is DELETED here,
+    // not kept as a second safety net alongside the pin: window_
+    // adapter_port now requires pinned_adapter<A>, and a second,
+    // hand-written mechanism doing the same job the concept already
+    // guarantees is exactly the class of defect this plan exists to
+    // stop relying on (D-UAF-1 - "a opcao B... mantem exatamente essa
+    // dependencia e a esconde melhor").
     win32_window_adapter(const win32_window_adapter &) = delete;
     win32_window_adapter &operator=(const win32_window_adapter &) = delete;
-
-    win32_window_adapter(win32_window_adapter &&other) noexcept;
-    win32_window_adapter &operator=(win32_window_adapter &&other) noexcept;
+    win32_window_adapter(win32_window_adapter &&) = delete;
+    win32_window_adapter &operator=(win32_window_adapter &&) = delete;
 
     // Idempotent close() in the destructor, same shape every other
     // adapter in this project has.

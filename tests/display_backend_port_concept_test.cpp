@@ -40,8 +40,17 @@ namespace {
 class local_backend_with_pump {
   public:
     local_backend_with_pump() noexcept = default;
-    local_backend_with_pump(local_backend_with_pump &&) noexcept = default;
-    local_backend_with_pump &operator=(local_backend_with_pump &&) noexcept = default;
+
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.1): display_backend_port refines display_
+    // connection_port, which now requires pinned_adapter<A> instead of
+    // std::movable<A> (platform/port/adapter_pin.hpp) - this local
+    // positive control has to satisfy the SAME contract every real
+    // adapter now does, or this file's own static_assert below would
+    // stop compiling for the wrong reason (a movable type failing
+    // pinned_adapter, not a missing pump_events()).
+    local_backend_with_pump(local_backend_with_pump &&) = delete;
+    local_backend_with_pump &operator=(local_backend_with_pump &&) = delete;
 
     [[nodiscard]] glintfx::gltfx_rslt<void> open() noexcept {
         return glintfx::gltfx_rslt<void>::ok();

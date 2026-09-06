@@ -1441,6 +1441,45 @@ jobs:
             glintfx-wltest-clean seat_test | tee -a container_measured_raw.log
           echo "seat_test" >> parity_inventory.txt
 
+      # FACADE-PIN, T0/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
+      # o mecanismo por tras do conserto desta fatia, provado ao vivo -
+      # abre display/janela pela API publica, mede o par (endereco do
+      # adaptador, user_data do proxy que o sistema guarda) para os
+      # quatro proxies Wayland mais o wl_callback pendente do adaptador
+      # EGL, e reprova se QUALQUER par diferir. Antes do conserto,
+      # media quatro pares diferentes (o defeito medido pela fatia 5);
+      # depois, os cinco pares sao sempre iguais, por construcao (os
+      # nove adaptadores sao pinned agora, G1). Roda ANTES da fatia C
+      # abaixo pelo mesmo motivo dos passos acima: precisa do
+      # compositor deste container ainda vivo.
+      - name: FACADE-PIN T0/G3 - pino do adaptador provado contra o compositor real
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean facade_pin_smoke | tee -a container_measured_raw.log
+          echo "facade_pin_smoke" >> parity_inventory.txt
+
+      # FACADE-PIN, T1/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8):
+      # o lado COMPORTAMENTAL do conserto - abre janela+contexto pela
+      # API publica, mapeia de verdade (tres swap_buffers reais) e
+      # bombeia ate o compositor mandar o `configure` tardio com
+      # `activated`, dentro de um orcamento de 50 roundtrips (o mesmo
+      # orcamento que wait_first_configure() ja usa internamente). E' a
+      # sequencia exata que a fatia 5 mediu quebrando (o segundo
+      # configure escrevendo em memoria morta) - agora prova o
+      # comportamento correto, nao so o mecanismo interno que T0 mede.
+      # Roda ANTES da fatia C abaixo pelo mesmo motivo dos passos acima.
+      - name: FACADE-PIN T1/G3 - janela ativa apos mapear dentro do orcamento
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean window_active_after_map_smoke | tee -a container_measured_raw.log
+          echo "window_active_after_map_smoke" >> parity_inventory.txt
+
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o

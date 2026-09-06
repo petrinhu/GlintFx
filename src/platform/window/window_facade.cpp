@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cassert>
-#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/platform/window/display.hpp>
@@ -145,6 +144,24 @@ gltfx_rslt<gltfx_window> gltfx_window::open(gltfx_display &display,
            "gltfx_window::open() called with a gltfx_display that reported is_open() but has a "
            "null internal_impl() - precondition violated, not a recoverable error");
 
+    // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 7.3/7.4):
+    // impl is allocated FIRST, at the address it will live at for the
+    // rest of its life - THEN the adapter it owns is opened in place.
+    // Before this fatia, `adapter` was a local variable, opened on the
+    // STACK (registering three Wayland listeners with `this`, this
+    // plan's own sec. 1 measured defect), and only afterward moved into
+    // this exact allocation via `std::move(adapter)` - the three
+    // listeners kept pointing at the now-dead stack address, and the
+    // NEXT event the compositor sent (window_facade.cpp's own defect,
+    // T0's own four different pairs) wrote into freed memory.
+    // window_adapter_port now requires pinned_adapter<A>, which forbids
+    // the type this old sequence needed to move - "build on the stack,
+    // move in" is replaced by "allocate the home, open in place".
+    auto *impl = new (std::nothrow) window_impl{};
+    if (impl == nullptr) {
+        return gltfx_rslt<gltfx_window>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
+
 #if defined(_WIN32)
     const platform::win32_window_desc native_desc{
         .logical_width = desc.logical_size.width,
@@ -152,9 +169,8 @@ gltfx_rslt<gltfx_window> gltfx_window::open(gltfx_display &display,
         .title = desc.title,
         .application_id = desc.application_id,
     };
-    platform::win32_window_adapter adapter;
     const gltfx_rslt<void> opened =
-        adapter.open(display_impl_ptr->connection.adapter(), native_desc);
+        impl->adapter.open(display_impl_ptr->connection.adapter(), native_desc);
 #else
     const platform::wayland_window_desc native_desc{
         .logical_width = desc.logical_size.width,
@@ -162,24 +178,13 @@ gltfx_rslt<gltfx_window> gltfx_window::open(gltfx_display &display,
         .title = desc.title,
         .application_id = desc.application_id,
     };
-    platform::wayland_window_adapter adapter;
-    const gltfx_rslt<void> opened =
-        adapter.open(display_impl_ptr->connection.adapter(), display_impl_ptr->shell, native_desc);
+    const gltfx_rslt<void> opened = impl->adapter.open(display_impl_ptr->connection.adapter(),
+                                                       display_impl_ptr->shell, native_desc);
 #endif
 
     if (opened.has_error()) {
+        delete impl;
         return gltfx_rslt<gltfx_window>::err(opened.error());
-    }
-
-    // window_impl now carries a second field (D-W6b-25's own fixed_
-    // open_only_gfx_options, window_impl.hpp) - spelled out explicitly
-    // (never a bare `{std::move(adapter)}` relying on the field's own
-    // default member initializer) for the SAME -Wmissing-field-
-    // initializers reason display_facade.cpp's own aggregate-init
-    // comment already documents for display_impl's `shell` member.
-    auto *impl = new (std::nothrow) window_impl{std::move(adapter), std::nullopt};
-    if (impl == nullptr) {
-        return gltfx_rslt<gltfx_window>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }
 
     return gltfx_rslt<gltfx_window>::ok(gltfx_window(impl));

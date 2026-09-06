@@ -31,23 +31,6 @@ constexpr xdg_wm_base_listener kShellListener = {
 
 } // namespace
 
-wayland_shell_adapter::wayland_shell_adapter(wayland_shell_adapter &&other) noexcept
-    : m_compositor(other.m_compositor), m_xdg_wm_base(other.m_xdg_wm_base) {
-    other.m_compositor = nullptr;
-    other.m_xdg_wm_base = nullptr;
-}
-
-wayland_shell_adapter &wayland_shell_adapter::operator=(wayland_shell_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_compositor = other.m_compositor;
-        m_xdg_wm_base = other.m_xdg_wm_base;
-        other.m_compositor = nullptr;
-        other.m_xdg_wm_base = nullptr;
-    }
-    return *this;
-}
-
 wayland_shell_adapter::~wayland_shell_adapter() { close(); }
 
 void wayland_shell_adapter::xdg_wm_base_ping(void * /*data*/, xdg_wm_base *shell,

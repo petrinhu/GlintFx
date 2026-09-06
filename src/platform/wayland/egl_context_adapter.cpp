@@ -3,7 +3,6 @@
 
 #include <cerrno>
 #include <string>
-#include <utility>
 
 // WL_EGL_PLATFORM before <EGL/egl.h> (tests/container/egl_probe_
 // smoke.cpp's own header comment, this fatia's own briefing "leia-a
@@ -125,42 +124,6 @@ constexpr wl_callback_listener k_frame_callback_listener{
 }
 
 } // namespace
-
-wayland_egl_context_adapter::wayland_egl_context_adapter(
-    wayland_egl_context_adapter &&other) noexcept
-    : m_egl_display(std::exchange(other.m_egl_display, nullptr)),
-      m_egl_context(std::exchange(other.m_egl_context, nullptr)),
-      m_egl_surface(std::exchange(other.m_egl_surface, nullptr)),
-      m_egl_window(std::exchange(other.m_egl_window, nullptr)),
-      m_surface(std::exchange(other.m_surface, nullptr)),
-      m_window(std::exchange(other.m_window, nullptr)),
-      m_pending_frame_callback(std::exchange(other.m_pending_frame_callback, nullptr)),
-      m_frame_sequence(other.m_frame_sequence), m_gpu(other.m_gpu),
-      m_buffer_width(other.m_buffer_width), m_buffer_height(other.m_buffer_height),
-      m_vsync_on(other.m_vsync_on), m_msaa_supported(other.m_msaa_supported),
-      m_srgb_supported(other.m_srgb_supported) {}
-
-wayland_egl_context_adapter &
-wayland_egl_context_adapter::operator=(wayland_egl_context_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_egl_display = std::exchange(other.m_egl_display, nullptr);
-        m_egl_context = std::exchange(other.m_egl_context, nullptr);
-        m_egl_surface = std::exchange(other.m_egl_surface, nullptr);
-        m_egl_window = std::exchange(other.m_egl_window, nullptr);
-        m_surface = std::exchange(other.m_surface, nullptr);
-        m_window = std::exchange(other.m_window, nullptr);
-        m_pending_frame_callback = std::exchange(other.m_pending_frame_callback, nullptr);
-        m_frame_sequence = other.m_frame_sequence;
-        m_gpu = other.m_gpu;
-        m_buffer_width = other.m_buffer_width;
-        m_buffer_height = other.m_buffer_height;
-        m_vsync_on = other.m_vsync_on;
-        m_msaa_supported = other.m_msaa_supported;
-        m_srgb_supported = other.m_srgb_supported;
-    }
-    return *this;
-}
 
 wayland_egl_context_adapter::~wayland_egl_context_adapter() { close(); }
 

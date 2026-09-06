@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "platform/wayland/seat_adapter.hpp"
 
-#include <utility>
-
 #include <wayland-client.h>
 
 #include <glintfx/core/err.hpp>
@@ -37,24 +35,6 @@ constexpr wl_seat_listener kSeatListener = {
 };
 
 } // namespace
-
-wayland_seat_adapter::wayland_seat_adapter(wayland_seat_adapter &&other) noexcept
-    : m_seat(other.m_seat), m_capabilities(other.m_capabilities), m_name(std::move(other.m_name)),
-      m_last_change(other.m_last_change) {
-    other.m_seat = nullptr;
-}
-
-wayland_seat_adapter &wayland_seat_adapter::operator=(wayland_seat_adapter &&other) noexcept {
-    if (this != &other) {
-        close();
-        m_seat = other.m_seat;
-        m_capabilities = other.m_capabilities;
-        m_name = std::move(other.m_name);
-        m_last_change = other.m_last_change;
-        other.m_seat = nullptr;
-    }
-    return *this;
-}
 
 wayland_seat_adapter::~wayland_seat_adapter() { close(); }
 

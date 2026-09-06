@@ -41,21 +41,17 @@ class fake_gl_context_adapter {
   public:
     fake_gl_context_adapter() noexcept = default;
 
+    // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
+    // uaf.md sec. 6/7.2): gl_context_adapter_port now requires pinned_
+    // adapter<A> instead of std::movable<A> (platform/port/pinned_
+    // adapter.hpp) - this fixture has to satisfy the SAME contract the
+    // real wayland_egl_context_adapter/win32_gl_context_adapter now do,
+    // or gl_context_adapter_port_concept_test.cpp's own positive
+    // control would stop compiling.
     fake_gl_context_adapter(const fake_gl_context_adapter &) = delete;
     fake_gl_context_adapter &operator=(const fake_gl_context_adapter &) = delete;
-
-    fake_gl_context_adapter(fake_gl_context_adapter &&other) noexcept
-        : m_open(other.m_open), m_gpu(other.m_gpu) {
-        other.m_open = false;
-    }
-    fake_gl_context_adapter &operator=(fake_gl_context_adapter &&other) noexcept {
-        if (this != &other) {
-            m_open = other.m_open;
-            m_gpu = other.m_gpu;
-            other.m_open = false;
-        }
-        return *this;
-    }
+    fake_gl_context_adapter(fake_gl_context_adapter &&) = delete;
+    fake_gl_context_adapter &operator=(fake_gl_context_adapter &&) = delete;
 
     ~fake_gl_context_adapter() = default;
 

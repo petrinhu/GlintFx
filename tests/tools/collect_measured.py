@@ -65,12 +65,25 @@ from pathlib import Path
 
 SCRIPT_NAME = "collect_measured.py"
 
-# One line, start to end - MEASURED, one space, owner.key=value with
-# no further structure imposed on `value` (it may itself contain '='
-# or spaces; only the FIRST '=' after the dot-separated owner.key
-# matters, so a value like "org.glintfx.foo" or "a=b" round-trips
-# intact).
-MEASURED_LINE = re.compile(r"^MEASURED\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)=(.*)$")
+# One line, start to end - MEASURED or SCANCOUNT, one space, owner.
+# key=value, no further structure imposed on `value` (it may itself
+# contain '=' or spaces; only the FIRST '=' after the dot-separated
+# owner.key matters, so a value like "org.glintfx.foo" or "a=b"
+# round-trips intact). TWO tokens, not one, since 06/09/2026 (achado do
+# time-lead, item 3 "dois ajustes de forma no coletor"): MEASURED is a
+# fact about a real SYSTEM'S own behavior, comparable Linux-vs-Windows
+# in check_measured_parity.py's own table; SCANCOUNT is an exhaustive-
+# enumeration count (GODS_LAWS.md L-40's own "a contagem e' impressa
+# mesmo passando"), identical on every platform BY CONSTRUCTION (pure
+# C++23 logic, no OS call anywhere near it) - comparing it would only
+# ever restate "yes, deterministic code is deterministic", never a real
+# parity question. Both are collected here, by the SAME script, for the
+# SAME reason (both are printed by a passing test and both were
+# invisible before this fatia) - the split happens one layer up, in
+# check_measured_parity.py, which reads MEASURED lines into its
+# cross-system table and only ever COUNTS SCANCOUNT lines, per leg,
+# never comparing them.
+MEASURED_LINE = re.compile(r"^(?:MEASURED|SCANCOUNT)\s+([A-Za-z0-9_]+\.[A-Za-z0-9_]+)=(.*)$")
 
 
 def fail(message):

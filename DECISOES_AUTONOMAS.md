@@ -1730,3 +1730,50 @@ igualdade decorre do **NOSSO codigo**; quando decorre do **ambiente**, e **senti
 permanente** e fica na tabela para sempre. As cinco de hoje sao de ambiente -- os dois
 executores estao em escala 1, e um compositor de mosaico poderia impor estado na abertura.
 **Promete-las seria prometer o comportamento do executor**, nao o nosso.
+
+---
+
+## ⚠️ DUAS REINTERPRETACOES AUTONOMAS -- CONFIRMAR: o que o plano prometeu e nao nasceu  `[06/09/26 - 06:07:35]`
+
+O portao de diff de escopo, construido nesta madrugada para perguntar **o que foi
+PROMETIDO** (e nao so o que existe), mordeu contra a arvore de hoje: dois caminhos da
+fatia da fachada seguem ausentes. O CTO julgou os dois, e **nenhum bloqueia o fechamento
+-- mas nenhum vira silencio**.
+
+**(1) O tipo que compoe conexao, shell e entrada.** O plano diz, noutra fatia, que a
+entrada **vive** nele. A metade conexao+shell foi entregue sob outro nome; a metade
+entrada foi **adiada por decisao registrada** do proprio CTO. Ou seja, a ausencia e
+coerente com a decisao. ⚠️ **O que faltava era DONO** -- nao existia item nenhum que
+compusesse a entrada. Criado, e a celula do plano ganhou linha datada.
+
+**(2) O teste que exercitaria a tela pela API publica nos dois sistemas.** **Eu afirmei
+que a tela publica nunca fora exercida nos dois lados. O CTO derrubou com evidencia:** o
+teste de janela **ja abre a tela publica**, bombeia e fecha, com o mesmo nome nos dois
+lados, verde hoje. E **superconjunto** do que o plano prometia; criar um segundo seria
+**fragmentar**. Classificacao: absorvido, com linha datada -- e a prosa que ainda o
+prometia "para breve" foi corrigida, porque texto apontando para teste inexistente e a
+familia de defeito desta noite.
+
+### O mecanismo que separa "decidido adiar" de "esquecido"
+
+⚠️ **Nao e a memoria de ninguem.** O portao ganhou um arquivo de **ausencias declaradas**,
+com a mesma forma e a **mesma regra de morte** do arquivo de excecoes de paridade:
+`caminho | razao | item`, e **ausencia cujo item ja esta concluido REPROVA**. **Ausencia
+sem item nao e aceita.** Escrito onde o portao le.
+
+### O ponto cego que eu achei, e que o portao nao pegou
+
+O portao le os caminhos de arquivo de UMA coluna. **A promessa do teste (2) estava em
+prosa** -- foi um par de olhos humanos que a achou, nao ele.
+
+⚠️ **Portao que promete conferir "o que o plano prometeu" e olha uma coluna so da SENSACAO
+de cobertura, que e pior que nao ter.** Decisao: ele cresce **para o que e mecanico, nunca
+para prosa** (as colunas de prova carregam nomes de teste, conferiveis contra inventario),
+com piso por coluna, e **a saida abre declarando o que ela NAO varre**. **Nao alcancado
+por tempo nesta onda** -- entrou como item, declarado, nao como promessa vaga.
+
+### Entrega parcial, declarada
+
+O implementer fechou tres dos cinco itens do fechamento e **disse quais dois nao alcancou**,
+em vez de entregar meia coisa calada. **Foi o que eu pedi, e e o oposto do defeito que
+abriu esta madrugada** -- a fatia que fechou com metade da entrega sem ninguem notar.

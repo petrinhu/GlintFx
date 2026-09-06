@@ -26,7 +26,7 @@
 GLINTFX_TEST(gltfx_node_state_count_is_five) {
     std::printf("gfui_node_state_test: gltfx_node_state_count = %zu\n",
                 glintfx::gfui::gltfx_node_state_count);
-    std::printf("MEASURED gfui_node_state_test.node_state_count=%zu\n",
+    std::printf("SCANCOUNT gfui_node_state_test.node_state_count=%zu\n",
                 glintfx::gfui::gltfx_node_state_count);
     GLINTFX_CHECK_EQ(glintfx::gfui::gltfx_node_state_count, static_cast<std::size_t>(5));
 }
@@ -54,7 +54,7 @@ GLINTFX_TEST(gltfx_node_state_name_answers_every_bit_and_unknown_for_none) {
         {glintfx::gfui::gltfx_node_state::none, "unknown"},
     }};
     std::printf("gfui_node_state_test: %zu bit-name samples checked\n", samples.size());
-    std::printf("MEASURED gfui_node_state_test.bit_name_samples=%zu\n", samples.size());
+    std::printf("SCANCOUNT gfui_node_state_test.bit_name_samples=%zu\n", samples.size());
     for (const state_name_sample &sample : samples) {
         GLINTFX_CHECK(glintfx::gfui::gltfx_node_state_name(sample.bit) == sample.expected_name);
     }

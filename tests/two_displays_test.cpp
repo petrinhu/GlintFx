@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include <cwchar>
+#include <print>
 
 #include <glintfx/core/err.hpp>
 
@@ -71,6 +72,25 @@ GLINTFX_TEST(two_displays_test) {
     GLINTFX_CHECK(second_opened.has_value());
     GLINTFX_CHECK(second.is_open());
 
+    // MEASURED-COLLECTOR (achado do time-lead, 06/09/2026, item 3 da
+    // fatia de fechamento - "duas precisam de nome comum"): the WHOLE
+    // FACT this test and its Wayland twin (tests/container/two_
+    // displays_test.cpp) each prove is mechanically different per
+    // system - THIS side proves two DISTINCT window class names (see
+    // the wcscmp() check right below, kept as a plain assertion, never
+    // a MEASURED key of its own: a class name has no equivalent
+    // concept on Wayland at all, so declaring it here, in this file's
+    // own comment, is the correct home for it, never a comparison row
+    // check_measured_parity.py could ever fill in for the other side);
+    // the Wayland side proves two independent global_catalog objects
+    // (its own `first_global_count`/`second_global_count` MEASURED
+    // keys, declared one-sided there for the identical reason, in
+    // reverse). Neither fact is comparable to the other, so this ONE
+    // key is the common ground both sides genuinely share: two
+    // independent connections/adapters coexisted in the same process
+    // without colliding, at all.
+    std::println("MEASURED two_displays_test.both_opened=1");
+
     // Not just "both opened" - the MECHANISM itself, made observable:
     // the two classes really are two different names, never the same
     // fixed string F2 used before this fatia. A test that only checked
@@ -78,6 +98,8 @@ GLINTFX_TEST(two_displays_test) {
     // (hypothetical, wrong) fix that silently reused ONE class for
     // BOTH adapters as long as the second RegisterClassExW call
     // happened to be skipped - this line is what rules that out.
+    // System-specific fact, declared one-sided by this file's own
+    // comment above - never a MEASURED key.
     GLINTFX_CHECK(::wcscmp(first.window_class_name(), second.window_class_name()) != 0);
 
     // Reverse order of opening, same shape close()'s own "reverse of

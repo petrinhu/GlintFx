@@ -100,10 +100,27 @@ GLINTFX_TEST(win32_seat_adapter_opens_against_a_real_display_and_reads_capabilit
     GLINTFX_CHECK(seat_opened.has_value());
     GLINTFX_CHECK(seat.is_open());
 
-    std::println("seat_test: pointer={} keyboard={} touch={}",
-                 seat.capabilities().has_capability(seat_capability::pointer),
-                 seat.capabilities().has_capability(seat_capability::keyboard),
-                 seat.capabilities().has_capability(seat_capability::touch));
+    const bool has_pointer = seat.capabilities().has_capability(seat_capability::pointer);
+    const bool has_keyboard = seat.capabilities().has_capability(seat_capability::keyboard);
+    const bool has_touch = seat.capabilities().has_capability(seat_capability::touch);
+    std::println("seat_test: pointer={} keyboard={} touch={}", has_pointer, has_keyboard,
+                 has_touch);
+    // MEASURED-COLLECTOR (achado do time-lead, 06/09/2026, item 3 da
+    // fatia de fechamento - "o lado Windows ganha as quatro chaves"):
+    // tests/container/seat_test.cpp's own Wayland twin already prints
+    // these same four keys; this side never did, leaving the parity
+    // table's own comparison one-sided despite the SAME test name on
+    // both systems (P-0). `last_change_kind()` reads whatever this
+    // adapter's own real RegisterRawInputDevices bind left it at - 0
+    // (the constructed default, seat_adapter.hpp's own comment) unless
+    // a real hotplug already fired before this line ran, the identical
+    // "measured, never asserted" shape the surrounding case already
+    // uses for pointer/keyboard/touch above.
+    std::println("MEASURED seat_test.pointer={}", has_pointer ? 1 : 0);
+    std::println("MEASURED seat_test.keyboard={}", has_keyboard ? 1 : 0);
+    std::println("MEASURED seat_test.touch={}", has_touch ? 1 : 0);
+    std::println("MEASURED seat_test.last_change={}",
+                 static_cast<unsigned long long>(seat.last_change_kind()));
 
     seat.close();
     GLINTFX_CHECK(!seat.is_open());

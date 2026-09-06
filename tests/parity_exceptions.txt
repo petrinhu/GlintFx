@@ -169,6 +169,37 @@ lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo sc
 # do lider/CTO) - nunca antes, e nunca so porque P-1 passou a existir.
 window_smoke|windows|window_smoke ainda prova algo que window_parity_test (P-1, existe desde 06/09/2026) nao pode: anexar buffer wl_shm real e reprovar ack_configure() removido - a API publica so ganha isso em GL-CONTEXT (W6b, contexto grafico sobre a janela)|GL-CONTEXT
 
+# MEASURED-COLLECTOR (achado do time-lead, 06/09/2026, item 3 da fatia
+# de fechamento - "uma ja cumpriu o papel"): esta linha usa check_
+# measured_parity.py's proprio mecanismo de excecao POR CHAVE (nao por
+# teste inteiro - o teste win32_window_close_request_test ja tem par
+# declarado em tests/parity_aliases.txt), com o "test_name" desta
+# coluna sendo a chave MEASURED completa ("dono.chave"), nunca um nome
+# de ctest - check_test_parity.py nunca casa esta linha contra nenhum
+# inventario, e nao precisa: ela existe so' para o classificador de
+# medicoes, um script diferente. win32_window_close_request_test.wm_
+# size_during_create mediu, no run 34020376320 (commit 093a22e), ZERO
+# mensagens WM_SIZE chegando durante CreateWindowExW para uma janela
+# WS_OVERLAPPEDWINDOW sem WS_VISIBLE - refutando a premissa anterior
+# de src/platform/win32/display_adapter.cpp's proprio comentario (que
+# esta linha corrigiu, mesmo commit). O mecanismo de roteamento continua
+# existindo (barato quando nao dispara, unica rota cedo o bastante para
+# um formato futuro de janela que dispare) - esta chave fica como
+# SENTINELA PERMANENTE: um valor diferente de zero num run futuro e' o
+# que reabriria esta linha.
+win32_window_close_request_test.wm_size_during_create|windows|sentinela permanente - ver src/platform/win32/display_adapter.cpp's proprio comentario, corrigido no mesmo commit que esta linha; nenhum lado Linux e' possivel em principio (fato de timing da bomba de mensagens do Windows)|SEM-PENDENCIA
+
+# Duas chaves por-teste (nao o teste inteiro - two_displays_test existe
+# nos dois lados, mesmo nome, P-0): a contagem do catalogo de globals
+# Wayland (global_catalog) nao tem conceito equivalente no Windows em
+# principio, mesmo raciocinio que ja justifica registry_smoke's proprio
+# SEM-PENDENCIA acima. A chave comparavel comum (tests/two_displays_
+# test.cpp e tests/container/two_displays_test.cpp's proprios comentarios,
+# "duas precisam de nome comum") e' `two_displays_test.both_opened`, que
+# NAO precisa de linha aqui - ela e' medida IGUAL nos dois lados.
+two_displays_test.first_global_count|windows|contagem do catalogo de globals Wayland (global_catalog) - sem conceito equivalente no Windows, mesmo raciocinio de registry_smoke acima|SEM-PENDENCIA
+two_displays_test.second_global_count|windows|mesmo motivo do first_global_count acima|SEM-PENDENCIA
+
 # --- Lacuna real, TEMPORARIA por divisao de trabalho dos jobs do
 # servidor (05/09/2026, mesma estreia, item PARITY-LINT-INV) -----------
 #

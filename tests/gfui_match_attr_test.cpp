@@ -256,7 +256,8 @@ GLINTFX_TEST(match_compound_evaluates_attribute_selectors_through_real_text) {
     std::printf(
         "gfui_match_attr_test: %zu match_compound() attribute-selector text cases checked\n",
         cases.size());
-    std::printf("MEASURED gfui_match_attr_test.match_compound_attribute_cases=%zu\n", cases.size());
+    std::printf("SCANCOUNT gfui_match_attr_test.match_compound_attribute_cases=%zu\n",
+                cases.size());
 
     // Rejection from a NOW-owned attribute requirement still beats
     // deferral from something this fatia does not own (:not() -

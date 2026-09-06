@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# PLAN-SCOPE-DIFF declared absences (achado do time-lead, fatia de
+# fechamento de 06/09/2026, GODS_LAWS.md L-40/L-67). Mesma forma e a
+# MESMA regra de morte do irmao desta casa, tests/parity_exceptions.txt
+# - a leitura completa desse arquivo, e da regra "concluido sem par"
+# que ele ja aplica, vale aqui trocando "sistema" por "arvore":
+#
+#   caminho|razao|item
+#
+# `caminho` e' exatamente o texto que tests/tools/check_plan_scope_
+# diff.py extraiu da coluna de entregaveis de uma fatia do plano
+# (docs/plano-w6a-janela.md) - o mesmo texto que apareceria como
+# "FALTA" se esta linha nao existisse. `item` e' um ID ABERTO em
+# TODO.md (nunca "SEM-PENDENCIA" aqui: um caminho prometido pelo plano
+# e' sempre trabalho pendente, nunca ausencia permanente por design -
+# se um caminho deixa de fazer sentido, a correcao e' editar o proprio
+# plano, GODS_LAWS.md L-67, nunca declarar a ausencia dele para
+# sempre). Uma ausencia cujo item ja esta CONCLUIDO reprova - e' a
+# mesma "regra de morte" de tests/parity_exceptions.txt, aplicada aqui:
+# o trabalho que fecharia a lacuna ja terminou, e a linha que a
+# desculpava devia ter sido apagada no mesmo commit.
+#
+# Ausencia sem linha aqui NAO e' aceita - REPROVA como caminho faltante
+# comum. Este arquivo existe para separar "decidido adiar, com dono e
+# data" de "esquecido" (a causa exata da fatia da fachada ter fechado
+# pela metade, docs/plano-w6a-janela.md fatia 6's proprio "PLAN-SCOPE-
+# DIFF" note) - e a distincao mora aqui, onde o portao le, nunca so' na
+# memoria de quem decidiu.
+
+# W-D' (docs/plano-w6a-janela.md, fatia 6, "Nasce / muda"): o tipo que
+# compoe conexao + shell + ENTRADA (seat) nasce quando a entrada
+# efetivamente entrar na composicao - decisao do CTO, 06/09/2026, sobre
+# achado do time-lead na fatia de fechamento (a metade entregue, sob
+# outro nome - src/platform/window/display_impl.hpp, WL-WINDOW-HANDLE
+# - compoe conexao + shell; a metade que falta e' so' a entrada).
+src/platform/wayland/display_backend.hpp|composicao de conexao+shell+seat sob este nome nasce quando a entrada (seat) entrar na composicao - W6b|WL-DISPLAY-BACKEND-SEAT
+src/platform/wayland/display_backend.cpp|mesmo motivo do .hpp irmao acima, mesmo item|WL-DISPLAY-BACKEND-SEAT

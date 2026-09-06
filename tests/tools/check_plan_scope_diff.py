@@ -51,6 +51,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+# GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
+# tests/tools/check_test_parity.py, arquivo inteiro por declaracao, nao
+# janela - aquele script's own header comment explica por que): este
+# script printa `status['status_text']` (real_main()/validate_absence_
+# deaths()), que pode conter "✅" quando a chave morta aponta para um
+# item de verdade CONCLUIDO em TODO.md - print() em modo texto estrito
+# quebra com UnicodeEncodeError num console Windows de codepage
+# restrita sem este reconfigure.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+
 SCRIPT_NAME = "check_plan_scope_diff.py"
 
 # Extensões que fazem um token entre crases "ter cara de caminho de
@@ -177,12 +190,113 @@ def check_existence(root, ref, candidates):
     return existing, missing
 
 
+# --- declared absences (tests/parity_absences.txt) -----------------
+#
+# Mesma forma, mesma regra de morte de tests/parity_exceptions.txt
+# (check_test_parity.py's own validate_exceptions()/parse_todo_status_
+# text() - a leitura por coluna de TODO.md e' copiada literalmente
+# daquele script, mesmo indice: 12 colunas apos o split por "|", ID no
+# indice 2, Status no indice 9).
+
+_TODO_ROW_RE = re.compile(r"^\|.*\|$")
+
+
+def parse_todo_status(todo_text):
+    status_by_item = {}
+    for line in todo_text.splitlines():
+        line = line.rstrip("\n")
+        if not _TODO_ROW_RE.match(line.strip()):
+            continue
+        parts = line.split("|")
+        if len(parts) != 12:
+            continue
+        item_id = parts[2].strip()
+        status_text = parts[9].strip()
+        if not item_id or item_id in ("ID", "---") or set(item_id) <= {"-"}:
+            continue
+        status_by_item[item_id] = {
+            "status_text": status_text,
+            "concluded": status_text.startswith("✅"),
+        }
+    return status_by_item
+
+
+def parse_absences(absences_text):
+    """Returns {path: (reason, item)} - blank lines and '#' comments
+    skipped, same shape tests/parity_exceptions.txt's own parser
+    already uses one file over."""
+    absences = {}
+    for raw_line in absences_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("|")
+        if len(parts) != 3:
+            continue
+        path, reason, item = (part.strip() for part in parts)
+        absences[path] = (reason, item)
+    return absences
+
+
+def validate_absence_deaths(missing, absences, todo_status, todo_text=""):
+    """Returns (declared, undeclared, dead) - `dead` is the death-rule
+    violation this function exists to catch: a declared absence whose
+    own item is already CONCLUDED in TODO.md, the exact 'concluido sem
+    par' shape tests/parity_exceptions.txt's own validate_exceptions()
+    already catches one file over, applied here to a promised PATH
+    instead of a promised ctest name.
+
+    An item NOT found as a table row (`status_by_item`) but mentioned
+    ANYWHERE else in `todo_text` is treated as open, never dead - this
+    project's own L-63 convention lands new work in the INBOX first,
+    as free prose, before it is ever promoted into the 10-column table
+    (WL-DISPLAY-BACKEND-SEAT itself, this fatia's own item, is exactly
+    that: registered, real, genuinely not concluded, and NOT yet a
+    table row). Only an item absent from the WHOLE file, table and
+    prose alike, is treated as a real error (a typo'd or invented
+    item name)."""
+    declared, undeclared, dead = [], [], []
+    for path in missing:
+        entry = absences.get(path)
+        if entry is None:
+            undeclared.append(path)
+            continue
+        reason, item = entry
+        status = todo_status.get(item)
+        if status is None:
+            if item in todo_text:
+                declared.append((path, reason, item))
+                continue
+            dead.append((path, reason, item, f"item {item!r} nao existe em TODO.md (nem na tabela, nem na INBOX)"))
+        elif status["concluded"]:
+            dead.append(
+                (
+                    path,
+                    reason,
+                    item,
+                    f"item {item!r} ja esta CONCLUIDO ({status['status_text']}) - regra "
+                    "'concluido sem par': apague esta linha de tests/parity_absences.txt, o "
+                    "caminho que ela desculpava ja deveria existir",
+                )
+            )
+        else:
+            declared.append((path, reason, item))
+    return declared, undeclared, dead
+
+
 def real_main(args):
     parser = argparse.ArgumentParser(prog=SCRIPT_NAME, add_help=False)
     parser.add_argument("plan", help="caminho do plano (Markdown)")
     parser.add_argument("--marker", required=True)
     parser.add_argument("--ref", default=None, help="SHA/branch a conferir - omitido = árvore de trabalho")
     parser.add_argument("--root", default=".")
+    parser.add_argument(
+        "--absences",
+        default=None,
+        help="tests/parity_absences.txt - ausencias declaradas, mesma forma/regra de morte de "
+        "tests/parity_exceptions.txt",
+    )
+    parser.add_argument("--todo", default=None, help="TODO.md - exigido junto de --absences")
     parsed = parser.parse_args(args)
 
     plan_text = Path(parsed.plan).read_text(encoding="utf-8")
@@ -216,15 +330,41 @@ def real_main(args):
 
     existing, missing = check_existence(parsed.root, parsed.ref, candidates)
     ref_label = parsed.ref if parsed.ref is not None else "árvore de trabalho"
-    print(f"{SCRIPT_NAME}: contra {ref_label} - {len(existing)} existe(m), {len(missing)} falta(m)")
-    for path in candidates:
-        marker_char = "OK " if path in existing else "FALTA"
-        print(f"  [{marker_char}] {path}")
 
-    if missing:
+    absences = {}
+    todo_status = {}
+    todo_text = ""
+    if parsed.absences is not None:
+        if parsed.todo is None:
+            fail("--absences exige --todo junto (a regra de morte le o status do item la)")
+        absences = parse_absences(Path(parsed.absences).read_text(encoding="utf-8"))
+        todo_text = Path(parsed.todo).read_text(encoding="utf-8")
+        todo_status = parse_todo_status(todo_text)
+
+    declared, undeclared, dead = validate_absence_deaths(missing, absences, todo_status, todo_text)
+
+    print(
+        f"{SCRIPT_NAME}: contra {ref_label} - {len(existing)} existe(m), {len(missing)} falta(m) "
+        f"({len(declared)} declarada(s), {len(undeclared)} sem declaracao, {len(dead)} morta(s))"
+    )
+    for path in candidates:
+        if path in existing:
+            print(f"  [OK ] {path}")
+        elif path in absences and any(p == path for p, _, _ in declared):
+            reason, item = absences[path]
+            print(f"  [DECLARADA] {path} (item {item}: {reason})")
+        else:
+            print(f"  [FALTA] {path}")
+
+    errors = []
+    for path in undeclared:
+        errors.append(f"{path}: ausente da arvore, sem linha em tests/parity_absences.txt")
+    for path, _reason, item, why in dead:
+        errors.append(f"{path}: ausencia declarada mas MORTA - {why}")
+
+    if errors:
         fail(
-            f"{len(missing)} caminho(s) prometido(s) pela fatia ausente(s) da árvore ({ref_label}): "
-            + ", ".join(missing)
+            f"{len(errors)} problema(s) de escopo ({ref_label}):\n  " + "\n  ".join(errors)
         )
 
 
@@ -304,6 +444,134 @@ def selftest_end_to_end_column_offset():
         Path(plan_path).unlink(missing_ok=True)
 
 
+def _write_plan(tmp_path, marker, missing_path):
+    content = (
+        "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
+        "|---|---|---|---|---|---|---|\n"
+        f"| 6 | **{marker}** | comum | `{missing_path}` | prova | prova | par |\n"
+    )
+    plan_path = tmp_path / "plano.md"
+    plan_path.write_text(content, encoding="utf-8")
+    return plan_path
+
+
+def selftest_declared_absence_with_open_item_accepted(tmp_path):
+    """An absence declared in tests/parity_absences.txt, pointing at
+    an item still OPEN in TODO.md, must NOT reprove - the exact
+    'decidido, com dono' shape item 1 of this fatia's own briefing
+    describes."""
+    marker = "MARCADOR-ABSENCE-OPEN"
+    missing_path = "does/not/exist.hpp"
+    plan_path = _write_plan(tmp_path, marker, missing_path)
+    absences_path = tmp_path / "absences.txt"
+    absences_path.write_text(f"{missing_path}|ainda nao construido, W6b|ITEM-ABERTO\n", encoding="utf-8")
+    todo_path = tmp_path / "TODO.md"
+    todo_path.write_text(
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-ABERTO | W1 | X | y | Alta | - | Media | ⏳ Pendente | - |\n",
+        encoding="utf-8",
+    )
+    try:
+        real_main(
+            [
+                str(plan_path),
+                "--marker",
+                marker,
+                "--root",
+                str(tmp_path),
+                "--absences",
+                str(absences_path),
+                "--todo",
+                str(todo_path),
+            ]
+        )
+    except SystemExit as exc:
+        print(f"selftest: ausencia declarada com item ABERTO reprovou inesperadamente (codigo {exc.code})",
+              file=sys.stderr)
+        return False
+    print("selftest: ausencia declarada com item aberto em TODO.md e' aceita (nao reprova) - ok")
+    return True
+
+
+def selftest_declared_absence_with_concluded_item_dies(tmp_path):
+    """The death rule: an absence whose OWN item is already CONCLUDED
+    in TODO.md must reprove - the work that would have closed the gap
+    already happened, and the line excusing it should already be gone
+    (mirrors check_test_parity.py's own validate_exceptions() for the
+    identical shape, one file over)."""
+    marker = "MARCADOR-ABSENCE-DEAD"
+    missing_path = "does/not/exist2.hpp"
+    plan_path = _write_plan(tmp_path, marker, missing_path)
+    absences_path = tmp_path / "absences2.txt"
+    absences_path.write_text(f"{missing_path}|deveria ter sido feito|ITEM-CONCLUIDO\n", encoding="utf-8")
+    todo_path = tmp_path / "TODO2.md"
+    todo_path.write_text(
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-CONCLUIDO | W1 | X | y | Alta | - | Media | ✅ Concluído | - |\n",
+        encoding="utf-8",
+    )
+    try:
+        real_main(
+            [
+                str(plan_path),
+                "--marker",
+                marker,
+                "--root",
+                str(tmp_path),
+                "--absences",
+                str(absences_path),
+                "--todo",
+                str(todo_path),
+            ]
+        )
+    except SystemExit as exc:
+        if exc.code == 1:
+            print("selftest: ausencia cujo item ja esta CONCLUIDO reprova (regra de morte) - ok")
+            return True
+        print(f"selftest: codigo inesperado {exc.code} para ausencia morta", file=sys.stderr)
+        return False
+    print("selftest: ausencia com item concluido NAO reprovou - esperado exit 1 (regra de morte)",
+          file=sys.stderr)
+    return False
+
+
+def selftest_undeclared_absence_reproves(tmp_path):
+    """A path missing from the tree with NO line in tests/parity_
+    absences.txt at all is never accepted - "ausencia sem item nao e'
+    aceita" (this fatia's own briefing, item 1)."""
+    marker = "MARCADOR-ABSENCE-UNDECLARED"
+    missing_path = "does/not/exist3.hpp"
+    plan_path = _write_plan(tmp_path, marker, missing_path)
+    absences_path = tmp_path / "absences3.txt"
+    absences_path.write_text("", encoding="utf-8")
+    todo_path = tmp_path / "TODO3.md"
+    todo_path.write_text("| WSJF | ID |\n|---|---|\n", encoding="utf-8")
+    try:
+        real_main(
+            [
+                str(plan_path),
+                "--marker",
+                marker,
+                "--root",
+                str(tmp_path),
+                "--absences",
+                str(absences_path),
+                "--todo",
+                str(todo_path),
+            ]
+        )
+    except SystemExit as exc:
+        if exc.code == 1:
+            print("selftest: ausencia sem linha em parity_absences.txt reprova (nao aceita silencio) - ok")
+            return True
+        print(f"selftest: codigo inesperado {exc.code} para ausencia sem declaracao", file=sys.stderr)
+        return False
+    print("selftest: ausencia sem declaracao NAO reprovou - esperado exit 1", file=sys.stderr)
+    return False
+
+
 def selftest_zero_candidates_reproves():
     import contextlib
     import io
@@ -363,12 +631,20 @@ def selftest_ambiguous_marker_reproves():
 
 
 def selftest_main():
-    controls = [
-        selftest_extraction_matches_real_row(),
-        selftest_end_to_end_column_offset(),
-        selftest_zero_candidates_reproves(),
-        selftest_ambiguous_marker_reproves(),
-    ]
+    import tempfile
+    from pathlib import Path as _Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = _Path(tmp)
+        controls = [
+            selftest_extraction_matches_real_row(),
+            selftest_end_to_end_column_offset(),
+            selftest_zero_candidates_reproves(),
+            selftest_ambiguous_marker_reproves(),
+            selftest_declared_absence_with_open_item_accepted(tmp_path),
+            selftest_declared_absence_with_concluded_item_dies(tmp_path),
+            selftest_undeclared_absence_reproves(tmp_path),
+        ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)

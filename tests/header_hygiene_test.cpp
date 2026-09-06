@@ -471,11 +471,18 @@ GLINTFX_TEST(window_header_survives_hostile_system_headers) {
 // collided with a hostile macro at declaration, this translation unit
 // would already have failed to compile before this test case even
 // runs. A REAL call-expression proof of gltfx_display's own behavior
-// lives in the container fixture this fatia's own plan names
-// (public_display_test, docs/plano-w6a-janela.md fatia 6) - not yet
-// written as of this fatia (declared here honestly, the same pattern
-// this file's own header comment already uses for the Windows leg of
-// CE-8 not having run in this session).
+// lives in `window_parity_test` (tests/parity/window_parity_test.cpp)
+// - ABSORBED (achado do time-lead, 06/09/2026, docs/plano-w6a-janela.md
+// fatia 6's own "Par" column): the plan's own row 6 named a separate
+// `public_display_test` fixture (open a public gltfx_display, pump,
+// close), but window_parity_test.cpp already opens that SAME public
+// gltfx_display before opening its own gltfx_window, pumps it, and
+// closes it in reverse order, on both systems, under the identical
+// P-0 shared name - a strict SUPERSET of what a standalone `public_
+// display_test` would have proven, never a narrower substitute. A
+// second fixture proving a strict subset of an existing one would be
+// fragmentation, not coverage (GODS_LAWS.md L-17), so none was ever
+// written under that name.
 GLINTFX_TEST(display_header_declaration_survives_hostile_system_headers) { GLINTFX_CHECK(true); }
 
 // window_handle_header_declaration_survives_hostile_system_headers -

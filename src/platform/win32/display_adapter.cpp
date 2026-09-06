@@ -89,14 +89,37 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
     // type-erased free function so THIS file never gains a compile-time
     // dependency on window_adapter.hpp (GODS_LAWS.md L-19: WIN-DISPLAY,
     // the lower fatia, does not depend on WIN-WINDOW, the higher one).
-    // This is also WHY the first WM_SIZE a window_adapter's own window
-    // ever receives is never missed (sec. 5 risk 2 of the plan):
-    // DefWindowProcW synthesizes it while processing
-    // WM_WINDOWPOSCHANGED, which CreateWindowExW itself drives BEFORE
-    // returning to the caller - long before a GWLP_WNDPROC instance
-    // subclass (win32_seat_adapter's own mechanism) could ever be
-    // installed. This class-level function is the only code that runs
-    // early enough to route that message at all.
+    // WHY THIS ROUTING PATH EXISTS AT ALL, MEASURED, NOT ASSUMED
+    // (corrected 06/09/2026, achado do time-lead na fatia de
+    // fechamento - the earlier version of this comment asserted, citing
+    // Microsoft's own WM_SIZE/WM_WINDOWPOSCHANGED documentation, that
+    // "the first WM_SIZE a window_adapter's own window ever receives is
+    // never missed" because DefWindowProcW always synthesizes it while
+    // processing WM_WINDOWPOSCHANGED, itself always driven by
+    // CreateWindowExW BEFORE returning to the caller): that claim was
+    // never actually measured against a real Windows runner, and once
+    // measured, it did not hold for THIS project's own window.
+    // win32_window_close_request_test's own size_messages_before_open_
+    // returns() counter (window_adapter.hpp) - incremented from inside
+    // THIS class-level window_proc, the one piece of code early enough
+    // to see a message that arrives before win32_window_adapter::open()
+    // ever stores `this` into m_window - reported `MEASURED win32_
+    // window_close_request_test.wm_size_during_create=0` on the real
+    // windows-latest runner (run 34020376320, commit 093a22e): ZERO
+    // WM_SIZE messages arrived during CreateWindowExW for a window
+    // created WS_OVERLAPPEDWINDOW without WS_VISIBLE (D-W5-13, this
+    // project's own "born invisible" rule) - the documented mechanism
+    // is real, but this project's own window apparently never triggers
+    // it before returning. This routing path stays exactly as it is:
+    // it costs nothing when no early message arrives, and remains the
+    // ONLY code early enough to catch one on a future window shape that
+    // does trigger it (WS_VISIBLE, a different style, a different
+    // Windows version) - removing it on the strength of this one
+    // measurement would trade a proven-cheap safety net for an
+    // unmeasured bet the other way. `wm_size_during_create` stays as a
+    // permanent sentinel in the measured-parity table (tests/parity_
+    // exceptions.txt), reproving itself the moment a future run ever
+    // reports a nonzero value here.
     if (msg == WM_SIZE || msg == WM_CLOSE || msg == WM_ACTIVATE || msg == WM_DPICHANGED) {
         // GetWindowLongPtrW returns the GWLP_USERDATA slot as a LONG_PTR
         // by Win32's own design (learn.microsoft.com/windows/win32/api/

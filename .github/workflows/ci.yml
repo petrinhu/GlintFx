@@ -1070,7 +1070,9 @@ jobs:
           windows_files=$(find medidas/windows -type f -name '*.txt')
           # shellcheck disable=SC2086 # linux_files/windows_files is a newline-separated list of paths, meant to word-split into separate --linux/--windows arguments
           python3 tests/tools/check_measured_parity.py --compare \
-            --linux $linux_files --windows $windows_files | tee /tmp/measured_parity_table.md
+            --linux $linux_files --windows $windows_files \
+            --exceptions tests/parity_exceptions.txt --aliases tests/parity_aliases.txt \
+            | tee /tmp/measured_parity_table.md
           {
             echo "## MEASURED-PARITY (PARITY-GATE)"
             cat /tmp/measured_parity_table.md

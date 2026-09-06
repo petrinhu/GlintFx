@@ -116,6 +116,19 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    // MEASURED-COLLECTOR (achado do time-lead, 06/09/2026, item 3 da
+    // fatia de fechamento - "duas precisam de nome comum"): this side
+    // proves two independent global_catalog objects (this file's own
+    // first_global_count/second_global_count MEASURED keys above,
+    // declared one-sided by design - a Wayland registry catalog has no
+    // Windows concept to compare against); the Windows side proves two
+    // distinct window class names (tests/two_displays_test.cpp's own
+    // wcscmp() check, declared one-sided there for the identical
+    // reason, in reverse). This ONE key is the common ground both
+    // sides genuinely share: two independent connections/adapters
+    // coexisted in the same process without colliding, at all.
+    std::fprintf(stdout, "MEASURED two_displays_test.both_opened=1\n");
+
     // Close SECOND first (reverse of creation order, same "teardown in
     // reverse" shape this project's own close() methods document
     // elsewhere), then prove FIRST survived untouched - the real

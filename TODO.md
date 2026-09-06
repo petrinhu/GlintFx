@@ -171,6 +171,8 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 - **Uma celula do plano da fatia 5 aponta um teste que nao alcanca o codigo que ela diz cobrir.** O teste de politica de tamanho de superficie compila apenas a peca pura e nunca o adaptador, entao a alteracao proposital do tamanho em pixel passa sem nenhum teste reprovar. Medido por mutacao em 06/09/2026 (oitava aparicao nesta onda do padrao "afirma que mede e nao mede"). Fecha quando o teste passar a exercitar o ponto real de chamada.
 - **A prova de reconhecimento de configuracao nao se reproduz pelo caminho grafico.** O plano supunha que o teste novo provaria o mesmo que a fixture antiga prova pelo caminho de memoria compartilhada; medido: o compositor nao acusa o erro por esse caminho nem depois de sessenta apresentacoes. Consequencia ja aplicada: a fixture antiga NAO foi aposentada. Fecha quando existir uma via que prove o reconhecimento no caminho grafico, ou quando ficar declarado que nao existe.
 
+- **O trabalho de container do servidor esconde o sinal decisivo atras do ruido.** Quando o processo morre por sinal, o log traz primeiro tres avisos de driver e um erro cosmetico de um caminho alternativo que falha sem consequencia, e so depois as medicoes de sucesso e o codigo de saida real. Quem le o comeco conclui falta de pacote; a causa esta no fim. Aconteceu comigo (orquestrador) em 06/09/2026, e um agente refutou com medicao. Conserto proposto: o proprio script imprimir uma linha nomeando o sinal logo depois de capturar o codigo de saida, em vez de deixar o texto do servico como unico marcador.
+
 ## TABELA UNIFICADA
 
 | WSJF | ID | Onda | Grupo | Descrição Técnica | Prioridade | Pré-requisito | Dificuldade | Status | Estado Auditado |

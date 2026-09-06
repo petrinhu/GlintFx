@@ -8,8 +8,9 @@
 
 #include <objbase.h>
 #include <propkey.h>
+#include <propsys.h>
 #include <propvarutil.h>
-#include <shobjidl.h>
+#include <shellapi.h>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
@@ -27,6 +28,26 @@
 // definition comes from Propsys.lib, not from this translation unit) -
 // are exactly the four docs/plano-w6a-janela.md fatia 9's own row
 // names ("Linka user32, shell32, ole32, propsys").
+//
+// HEADER CORRECTION (04909/CI run 33999687145, GODS_LAWS.md L-22):
+// SHGetPropertyStoreForWindow's own page names its header as
+// shellapi.h, not shobjidl.h (learn.microsoft.com/windows/win32/api/
+// shellapi/nf-shellapi-shgetpropertystoreforwindow) - the original
+// fatia included the wrong header for the right library, and this
+// atom's own five real Windows CI jobs (never compiled locally, no
+// Microsoft toolchain on this machine - the same declared limitation
+// app_user_model_id.hpp's own header comment already names) caught it
+// on first compile with C2039/C3861. propsys.h is added alongside it
+// because IPropertyStore itself (learn.microsoft.com/windows/win32/
+// api/propsys/nn-propsys-ipropertystore) is declared there, not in
+// shellapi.h - shobjidl.h used to pull it in transitively, so removing
+// shobjidl.h needs this explicit include to keep IPropertyStore's own
+// type visible to store->SetValue()/store->Release() below. The other
+// three functions this file calls (InitPropVariantFromString via
+// propvarutil.h, CoInitializeEx/CoUninitialize/PropVariantClear via
+// objbase.h - the combaseapi.h page for each of the three says
+// "include Objbase.h") were checked against the same documentation and
+// were already correct; only this one symbol was in the wrong header.
 
 namespace glintfx::platform {
 

@@ -18,10 +18,11 @@
 // platform/win32/app_user_model_id.hpp - X-2 (docs/plano-w6a-janela.md
 // fatia 9, D-W6a-21): a SEPARATE atom (this project's own §6 table,
 // "o .cpp de application_id e um atomo separado... para uma reprovacao
-// de lint ali nao derrubar o adaptador inteiro") - <shobjidl.h>/
-// <propkey.h>/<propvarutil.h> are heavy, macro-hostile system headers
-// this one small function isolates, so a clang-tidy finding here never
-// blocks window_adapter.cpp's own, unrelated translation logic.
+// de lint ali nao derrubar o adaptador inteiro") - <shellapi.h>/
+// <propsys.h>/<propkey.h>/<propvarutil.h> are heavy, macro-hostile
+// system headers this one small function isolates, so a clang-tidy
+// finding here never blocks window_adapter.cpp's own, unrelated
+// translation logic.
 //
 // MECHANISM (D-W6a-21 option (b), chosen over SetCurrentProcessExplicit
 // AppUserModelID (a) because that call is PER-PROCESS, while the

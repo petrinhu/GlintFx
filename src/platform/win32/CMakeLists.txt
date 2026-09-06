@@ -44,8 +44,9 @@
 # purpose, not folded into window_adapter.cpp - this project's own §6
 # table for this fatia: "o .cpp de application_id e um atomo
 # separado... para uma reprovacao de lint ali nao derrubar o
-# adaptador inteiro" - <shobjidl.h>/<propkey.h>/<propvarutil.h> are
-# heavy, macro-hostile system headers isolated to that one file alone.
+# adaptador inteiro" - <shellapi.h>/<propsys.h>/<propkey.h>/
+# <propvarutil.h> are heavy, macro-hostile system headers isolated to
+# that one file alone.
 #
 # shell32: SHGetPropertyStoreForWindow (app_user_model_id.cpp).
 # ole32: CoInitializeEx/CoUninitialize/PropVariantClear (same file).

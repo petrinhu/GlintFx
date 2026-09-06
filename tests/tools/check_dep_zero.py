@@ -197,8 +197,9 @@ SO_HEADER_ALLOWLIST = frozenset(
         "glintfx/version_macros.hpp",
         "objbase.h",
         "propkey.h",
+        "propsys.h",
         "propvarutil.h",
-        "shobjidl.h",
+        "shellapi.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own
@@ -245,29 +246,37 @@ SO_HEADER_ALLOWLIST = frozenset(
 # compiles (tests/container/ is built only by tests/container/
 # Containerfile inside the wayland-container CI job, never by CMake,
 # never by the `windows` job).
-# objbase.h/propkey.h/propvarutil.h/shobjidl.h added 05/09/2026
-# (docs/plano-w6a-janela.md fatia 9, D-W6a-21, X-2 atom): the four
-# headers src/platform/win32/app_user_model_id.cpp includes, and its own
-# header comment already names exactly which Microsoft SDK header ships
-# which symbol this function calls - objbase.h (CoInitializeEx/
-# CoUninitialize, learn.microsoft.com/windows/win32/api/objbase/,
-# library Ole32.lib), shobjidl.h (SHGetPropertyStoreForWindow,
-# learn.microsoft.com/windows/win32/api/shellapi/nf-shellapi-
-# shgetpropertystoreforwindow, library Shell32.lib), propkey.h
-# (PKEY_AppUserModel_ID's own storage - the symbol is declared `extern`
-# there without INITGUID, defined in Propsys.lib, per learn.microsoft.
-# com/windows/win32/properties/props-system-appusermodel-id: "PKEY
-# values are defined in Propkey.h"), and propvarutil.h
-# (InitPropVariantFromString/PropVariantClear, the same Property System
-# component). All four ship with the Windows SDK/MSVC toolchain the CI's
-# `windows` job already installs (vswhere's VC.Tools.x86.x64 component,
-# the same one tools/ci/check-dep-zero-win.ps1's own header cites for
-# dumpbin.exe) - none of them is a third-party library, same category as
-# windows.h already on this list (the leader's zero-dependency law names
-# "as APIs do sistema operacional (Wayland, Win32, GL, ...)" as allowed).
-# The three DLLs these headers' functions resolve to at link time
-# (Shell32.dll, ole32.dll, propsys.dll) are on tools/ci/check-dep-zero-
-# win.ps1's own $IMPORT_ALLOWLIST_EXACT, added in the SAME fatia, with
+# objbase.h/propkey.h/propsys.h/propvarutil.h/shellapi.h added
+# 05/09/2026 (docs/plano-w6a-janela.md fatia 9, D-W6a-21, X-2 atom): the
+# five headers src/platform/win32/app_user_model_id.cpp includes, and
+# its own header comment already names exactly which Microsoft SDK
+# header ships which symbol this function calls - objbase.h
+# (CoInitializeEx/CoUninitialize/PropVariantClear, each one's own
+# combaseapi.h page saying "include Objbase.h", library Ole32.lib),
+# shellapi.h (SHGetPropertyStoreForWindow, learn.microsoft.com/windows/
+# win32/api/shellapi/nf-shellapi-shgetpropertystoreforwindow, library
+# Shell32.lib - CORRECTED 05/09/2026, CI run 33999687145, C2039/C3861:
+# the original fatia included shobjidl.h, which never declared this
+# symbol, and this atom's own real Windows CI jobs caught it on first
+# compile, GODS_LAWS.md L-22), propsys.h (IPropertyStore itself,
+# learn.microsoft.com/windows/win32/api/propsys/nn-propsys-
+# ipropertystore - shobjidl.h used to pull this in transitively; made
+# explicit when shobjidl.h was removed), propkey.h (PKEY_AppUserModel_ID's
+# own storage - the symbol is declared `extern` there without INITGUID,
+# defined in Propsys.lib, per learn.microsoft.com/windows/win32/
+# properties/props-system-appusermodel-id: "PKEY values are defined in
+# Propkey.h"), and propvarutil.h (InitPropVariantFromString, the same
+# Property System component). All five ship with the Windows SDK/MSVC
+# toolchain the CI's `windows` job already installs (vswhere's VC.Tools.
+# x86.x64 component, the same one tools/ci/check-dep-zero-win.ps1's own
+# header cites for dumpbin.exe) - none of them is a third-party library,
+# same category as windows.h already on this list (the leader's zero-
+# dependency law names "as APIs do sistema operacional (Wayland, Win32,
+# GL, ...)" as allowed). The three DLLs these headers' functions resolve
+# to at link time (Shell32.dll, ole32.dll, propsys.dll) are unchanged by
+# this header correction (the LIBRARIES were always right, only one
+# header name was wrong) and remain on tools/ci/check-dep-zero-win.ps1's
+# own $IMPORT_ALLOWLIST_EXACT, added in the SAME fatia, with
 # the identical citation - that script is the Windows counterpart of
 # NEEDED_ALLOWLIST below (see check_needed_allowlist()'s own
 # "WINDOWS-SEPARATE" branch), never duplicated in this file. Scoped in

@@ -1167,3 +1167,36 @@ Fato medido antes de perguntar: o servidor **só** roda em envio para a linha pr
 A peça que descobre teclado e mouse não tem superfície pública nenhuma. **O CTO e eu recomendamos deixá-la fechar sozinha**, com o argumento de que sem cara pública não há comportamento observável que possa divergir. **Ele recusou:** *"Espera o Windows também"*.
 
 A razão está na própria opção que ele escolheu: **regra uniforme, sem julgamento caso a caso, porque julgamento é onde se erra**. Consequência que fica registrada: **não existe teste de "isto é observável pelo consumidor?" capaz de dispensar paridade**, e nenhum agente pode reabrir essa exceção alegando que a peça é interna.
+
+---
+
+## Ordem de produto de 06/09/2026: quem identifica a placa e o sistema operacional
+
+**Verbatim do lider:**
+
+> *"quem identifica as placas de video é o OS..."*
+
+**Contexto em que a ordem foi dada.** O C-level havia proposto que, num desktop
+Windows com uma unica placa, o framework devolvesse `unknown` no lugar de
+"compartilhada" ou "dedicada" - com a justificativa de que o caminho de
+classificacao nunca seria exercitado pelo servidor de teste, que so tem placa por
+software. Eu levei a proposta ao lider porque ela contrariava a ordem dele de
+06/09 (*"o framework deve perceber placa grafica compartilhada e dedicada"*). Ele
+respondeu primeiro *"uma placa só ele entrega o nome da placa, imagino"* e, em
+seguida, fechou a questao com a frase acima.
+
+**O que a ordem determina.** A classificacao da placa vem do proprio sistema
+operacional, que ja a conhece - nao de heuristica nossa, nao de lista de nomes de
+modelo, nao de inferencia por quantidade de memoria. Onde o sistema informa, a
+biblioteca repassa; onde o sistema nao informa, isso e declarado, nunca chutado.
+
+**Esta e a mesma lente que o lider ja aplicou a teclado e mouse** em 06/09/2026
+(*"teclado deve ser o informado pelo SO, não precisa novo detector"*), e a leitura
+que fica e uniforme: a biblioteca pergunta ao sistema, nao constroi detector
+proprio para o que o sistema ja sabe responder.
+
+**Consequencia direta:** a decisao numero 5 do plano das fatias 5
+(`docs/plano-w6b-fatias-5.md`) esta REABERTA. `unknown` em desktop de uma placa
+so se sustenta se ficar provado que o sistema operacional daquele alvo nao
+informa a classificacao - e essa prova precisa ser medida no mecanismo real, nao
+presumida.

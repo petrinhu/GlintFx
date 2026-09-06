@@ -3,6 +3,7 @@
 
 #if defined(_WIN32)
 
+#include <new>
 #include <string>
 
 #include <glintfx/core/err.hpp>
@@ -46,7 +47,25 @@ namespace {
     if (needed <= 0) {
         return false;
     }
-    out.resize(static_cast<std::size_t>(needed));
+    // resize() CAN throw std::bad_alloc despite this function's own
+    // noexcept - `out` is caller-supplied and unbounded by anything
+    // this function controls, the same "not realistically
+    // engineered-around, but must not reach the caller as a crash"
+    // shape global_catalog.cpp's own insert() already handles for an
+    // unrelated std::vector allocation, and the same reasoning core/
+    // err.cpp's own with_path()/with_rejected_value() already document:
+    // letting this escape a noexcept function calls std::terminate(),
+    // exactly the process-abort GODS_LAWS.md L-22 and this project's
+    // "a lib NUNCA aborta o processo do consumidor" rule forbid.
+    // Caught here and reported through the existing bool contract -
+    // the caller already treats `false` as "could not widen", the
+    // identical outcome a real encoding failure two lines below
+    // produces.
+    try {
+        out.resize(static_cast<std::size_t>(needed));
+    } catch (const std::bad_alloc &) {
+        return false;
+    }
     const int written = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
                                               static_cast<int>(value.size()), out.data(), needed);
     return written == needed;

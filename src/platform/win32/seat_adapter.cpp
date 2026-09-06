@@ -4,6 +4,7 @@
 #if defined(_WIN32)
 
 #include <iterator>
+#include <new>
 #include <vector>
 
 #include <glintfx/core/err.hpp>
@@ -74,6 +75,14 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
         reinterpret_cast<win32_seat_adapter *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 
     if (msg == WM_INPUT_DEVICE_CHANGE && adapter != nullptr) {
+        // WM_INPUT_DEVICE_CHANGE's own documentation (this file's own
+        // "MECHANISM" paragraph, seat_adapter.hpp): lParam carries "a
+        // handle to the device that generated the change" - the same
+        // "the Win32 API hands back a pointer through an integer-typed
+        // slot" idiom the GWLP_USERDATA read above already carries the
+        // identical suppression for, just LPARAM instead of the return
+        // of GetWindowLongPtrW.
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         adapter->handle_input_device_change(wparam, reinterpret_cast<HANDLE>(lparam));
         // WM_INPUT_DEVICE_CHANGE's own documentation (seat_adapter.hpp's
         // "MECHANISM" paragraph): "If an application processes this
@@ -91,6 +100,22 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
 
 void win32_seat_adapter::translate(const RAWINPUTDEVICELIST *devices, UINT device_count,
                                    int digitizer_bitmask, seat_capabilities &out) noexcept {
+    // Real defect found by clang-tidy's clang-analyzer-core.
+    // NullDereference (lint-enum run, 06/09/2026): `devices` may be
+    // nullptr when `device_count` is 0 (this function's own header
+    // comment, seat_adapter.hpp's "Pure translation seam" paragraph),
+    // but nothing here ever enforced that a CALLER honors the other
+    // half of that pairing - translate() is a public static seam any
+    // test can call directly with an arbitrary pair, and a caller
+    // passing a null pointer alongside a non-zero count would walk the
+    // loop below off the end of a null buffer. Clamped here, once, so
+    // the loop's own precondition ("devices has at least device_count
+    // entries whenever it runs at all") is actually enforced rather
+    // than merely documented.
+    if (devices == nullptr) {
+        device_count = 0;
+    }
+
     bool pointer_present = false;
     bool keyboard_present = false;
 
@@ -136,21 +161,42 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
 
     std::vector<RAWINPUTDEVICELIST> devices;
     if (count_query_result != static_cast<UINT>(-1) && device_count > 0) {
-        devices.resize(device_count);
-        const UINT filled =
-            ::GetRawInputDeviceList(devices.data(), &device_count, sizeof(RAWINPUTDEVICELIST));
-        if (filled == static_cast<UINT>(-1)) {
-            // A device was unplugged between the two calls (the same
-            // race GetRawInputDeviceList's own documented retry-loop
-            // example guards against) - this adapter reacts to its own
-            // WM_INPUT_DEVICE_CHANGE handler running again shortly
-            // after, so treating the RACE itself as "no devices this
-            // round" (rather than looping to retry inline) keeps this
-            // function's own contract simple: it never fails, only
-            // recomputes from whatever it could read.
-            devices.clear();
-        } else {
-            devices.resize(filled);
+        // resize() growing from empty CAN throw std::bad_alloc despite
+        // this function's own noexcept - `device_count` comes from the
+        // OS (GetRawInputDeviceList), not bounded by anything this
+        // adapter controls, the same "not realistically engineered-
+        // around, but must not reach the caller as a crash" shape
+        // widen_utf8()'s own resize() (app_user_model_id.cpp, window_
+        // adapter.cpp) already handles for a different allocation
+        // (GODS_LAWS.md L-22: no exception crosses the public boundary,
+        // and letting this one escape a noexcept function would call
+        // std::terminate() instead). An allocation failure here
+        // degrades to the SAME outcome the "device unplugged mid-race"
+        // branch below already treats as legitimate: this function's
+        // own contract ("never fails, only recomputes from whatever it
+        // could read") already accepts an empty read.
+        bool resized = true;
+        try {
+            devices.resize(device_count);
+        } catch (const std::bad_alloc &) {
+            resized = false;
+        }
+        if (resized) {
+            const UINT filled =
+                ::GetRawInputDeviceList(devices.data(), &device_count, sizeof(RAWINPUTDEVICELIST));
+            if (filled == static_cast<UINT>(-1)) {
+                // A device was unplugged between the two calls (the same
+                // race GetRawInputDeviceList's own documented retry-loop
+                // example guards against) - this adapter reacts to its own
+                // WM_INPUT_DEVICE_CHANGE handler running again shortly
+                // after, so treating the RACE itself as "no devices this
+                // round" (rather than looping to retry inline) keeps this
+                // function's own contract simple: it never fails, only
+                // recomputes from whatever it could read.
+                devices.clear();
+            } else {
+                devices.resize(filled);
+            }
         }
     }
 
@@ -232,6 +278,13 @@ gltfx_rslt<void> win32_seat_adapter::open(const win32_display_adapter &display) 
     // `this`. From here on, THIS window's messages go through seat_
     // window_proc instead.
     ::SetLastError(0);
+    // SetWindowLongPtr's own documentation (seat_adapter.hpp's own
+    // "MECHANISM" paragraph, GWLP_WNDPROC instance subclassing):
+    // "SetWindowLongPtr returns the address of the window's original
+    // window procedure" through the same LONG_PTR-typed return
+    // GWLP_USERDATA already carries a pointer through above (seat_
+    // window_proc, anonymous namespace) - same idiom, same suppression.
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
     const auto previous = reinterpret_cast<WNDPROC>(
         ::SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&seat_window_proc)));
     if (previous == nullptr) {

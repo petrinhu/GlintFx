@@ -1236,3 +1236,36 @@ sistema:
 como dedicada por regra nossa) fica SUSPENSA. Ela so volta a mesa se as duas vias
 acima forem medidas e nenhuma responder - com a medicao de cada uma anexada,
 nunca por presuncao.
+
+---
+
+## Ordem de produto de 06/09/2026 (noite): a escolha automatica e sugestao, nao trava
+
+**Verbatim do lider, respondendo duas perguntas sobre conflito entre a escolha
+automatica de desempenho e as opcoes que o consumidor pede a mao:**
+
+> *"a escolha automática é entregue, mas o consumidor por depois customizar o ajuste do modo dele"*
+
+> *"o automatico apenas entrega os melhores valores para o consumidor usar do lado dele. Não trava nada."*
+
+**O que a ordem determina, e o que ela desfaz.** O desenho anterior tratava o
+nivel de desempenho como um ESTADO da biblioteca, que precisava ser "demovido
+para manual" quando o consumidor tocasse numa opcao, e que podia sobrescrever o
+que ele tinha pedido. **Isso cai.** A escolha automatica passa a ser uma
+SUGESTAO: ela olha a maquina, entrega o conjunto de valores que serve melhor
+ali, e termina o trabalho. Nada fica travado, nada e sobrescrito depois, e o
+consumidor ajusta o que quiser, quando quiser, do lado dele.
+
+**Consequencias diretas, todas simplificacoes:**
+
+- **Nao existe mais democao para manual**, porque nao existe estado a demover.
+  A pergunta "escrever o mesmo valor demove o nivel?" deixa de existir.
+- **Nao existe conflito entre a escolha automatica e opcao pedida a mao.** O que
+  o consumidor pede vale; a sugestao ja foi entregue e nao volta para desfazer.
+- **A ambiguidade que o revisor achou** (pedir escolha automatica junto com uma
+  opcao solta na mesma abertura) **desaparece**: a sugestao preenche, o pedido
+  explicito dele fica.
+
+**O que isto exige da API:** o consumidor precisa conseguir PERGUNTAR quais sao
+os valores sugeridos, sem que perguntar mude nada. A sugestao e informacao, e
+informacao pedida nunca altera o estado de quem a pediu.

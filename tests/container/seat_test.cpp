@@ -94,14 +94,23 @@ int main() {
     }
 
     using glintfx::platform::seat_capability;
+    const int has_pointer = seat.capabilities().has_capability(seat_capability::pointer) ? 1 : 0;
+    const int has_keyboard = seat.capabilities().has_capability(seat_capability::keyboard) ? 1 : 0;
+    const int has_touch = seat.capabilities().has_capability(seat_capability::touch) ? 1 : 0;
+    const auto last_change = static_cast<unsigned long long>(seat.last_change());
     std::fprintf(stdout,
                  "seat_test: name=\"%s\" pointer=%d keyboard=%d touch=%d last_change=%llu "
                  "(measured, not asserted)\n",
-                 seat.name().c_str(),
-                 seat.capabilities().has_capability(seat_capability::pointer) ? 1 : 0,
-                 seat.capabilities().has_capability(seat_capability::keyboard) ? 1 : 0,
-                 seat.capabilities().has_capability(seat_capability::touch) ? 1 : 0,
-                 static_cast<unsigned long long>(seat.last_change()));
+                 seat.name().c_str(), has_pointer, has_keyboard, has_touch, last_change);
+    // MEASURED-COLLECTOR (tests/tools/collect_measured.py): same four
+    // facts, one MEASURED line each - this fixture is Linux-only
+    // (Wayland's own wl_seat), so these land in the parity table's
+    // "so de um lado" section until win32_seat_translation_test (or a
+    // future sibling) measures the same four keys on Windows.
+    std::fprintf(stdout, "MEASURED seat_test.pointer=%d\n", has_pointer);
+    std::fprintf(stdout, "MEASURED seat_test.keyboard=%d\n", has_keyboard);
+    std::fprintf(stdout, "MEASURED seat_test.touch=%d\n", has_touch);
+    std::fprintf(stdout, "MEASURED seat_test.last_change=%llu\n", last_change);
 
     // The one assertion this fixture makes (docs/plano-w6a-janela.md,
     // fatia 12's own briefing: "asserçao minima: leitura inicial

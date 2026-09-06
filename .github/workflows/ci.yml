@@ -474,6 +474,36 @@ jobs:
           fi
           grep "check_public_name_collision.py: FASE " "$log"
 
+      # MEASURED-COLLECTOR (achado do time-lead, 06/09/2026): mesmo
+      # snapshot que PNC-FASES-SNAPSHOT acima ja preserva (LastTest.log
+      # tirado logo apos "Build e testes", antes de qualquer `ctest`
+      # subsequente reescreve-lo) - nenhum snapshot NOVO, so' uma
+      # SEGUNDA leitura do mesmo arquivo por um extrator diferente
+      # (collect_measured.py's proprio header comment explica o token
+      # MEASURED e por que zero linha reprova, GODS_LAWS.md L-40).
+      - name: Coleta MEASURED (${{ matrix.modo }})
+        if: always()
+        run: |
+          set -eu
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if [ ! -f "$log" ]; then
+            echo "snapshot de log preservado nao encontrado: $log" >&2
+            exit 1
+          fi
+          python3 tests/tools/collect_measured.py --collect --out measured_linux.txt "$log"
+          echo "### MEASURED - Linux (${{ matrix.modo }})" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat measured_linux.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar MEASURED (${{ matrix.modo }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: measured-linux-${{ strategy.job-index }}
+          path: measured_linux.txt
+          retention-days: 7
+
   windows:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-latest
@@ -808,40 +838,52 @@ jobs:
           }
           $linhas | ForEach-Object { Write-Host $_.Line }
 
-      # X-0-LOG (02/09/2026, GODS_LAWS.md L-40): o passo "Testes" acima roda
-      # com --output-on-failure, que so mostra a saida de teste que REPROVA
-      # - por definicao nunca mostra a saida da sonda win32_runner_probe_test
-      # quando ela passa, e o produto dela E a saida (o que
-      # CreateWindowExW/PeekMessageW/WM_SIZE/WM_ACTIVATE entregam neste
-      # runner). Sem este passo a sonda passava e a medicao nunca chegava ao
-      # log (medido no run 33642256048, job "Windows - compartilhado": so
-      # "win32_runner_probe_test ... Passed 0.03 sec"). Roda nos dois modos
-      # (compartilhado e estatico): tests/CMakeLists.txt registra a sonda
-      # so sob if(WIN32), sem depender de BUILD_SHARED_LIBS, entao os dois
-      # modos tem a mesma sonda pra imprimir - e por isso zero teste casando
-      # aqui NUNCA e legitimo: este passo so roda dentro do job `windows`,
-      # onde WIN32 e sempre verdadeiro, entao ctest -N contar zero so pode
-      # significar registro quebrado (guarda if(WIN32) mexida) ou build sem
-      # a sonda. GODS_LAWS.md L-40, piso de varredura nao-vazia: contou
-      # zero, reprova - o passo "Testes" acima prova que os testes
-      # REGISTRADOS passam, nunca que a sonda ESTA registrada; sumir do
-      # CMake deixaria os dois passos verdes se este aqui tolerasse zero.
-      # Com 1 ou mais, roda -V e deixa o codigo de saida propagar: reprovar
-      # aqui significaria a sonda ter passado silenciosa no passo anterior
-      # e falhar nesta segunda rodada minutos depois - reprovacao real, nao
-      # mascarada por um "|| true" cego.
-      - name: Saida verbosa da sonda de runner (${{ matrix.modo }})
+      # X-0-LOG (02/09/2026) FOI ABSORVIDO PELO MEASURED-COLLECTOR
+      # ABAIXO (achado do time-lead, 06/09/2026) - este comentario fica
+      # so' para o proximo editor achar o motivo, nao apague a licao: o
+      # passo "Testes" roda com --output-on-failure, que so mostra a
+      # saida de um teste que REPROVA, entao win32_runner_probe_test's
+      # proprios std::println() (o produto dele E a saida, medida nunca
+      # exigida) nunca apareciam no log quando a sonda passava (medido
+      # no run 33642256048). O remendo original re-rodava a MESMA sonda
+      # uma segunda vez so' com `-V`, dobrando o custo - um portao
+      # unilateral para UM teste, exatamente a forma que MEASURED-
+      # COLLECTOR generaliza: `ctest` ja preserva a saida de TODO teste
+      # (passando incluido) em LastTest.log, PNC-FASES-SNAPSHOT ja
+      # preserva esse arquivo antes do proximo `ctest` reescreve-lo, e
+      # o passo abaixo ja le esse MESMO snapshot para outro fim (as
+      # fases do portao de colisao de nome) - win32_runner_probe_test.
+      # cpp ganhou, nesta mesma fatia, uma linha `MEASURED win32_
+      # runner_probe_test.<chave>={}` ao lado de cada `std::println()`
+      # que ja tinha, entao a colheita abaixo ja recolhe tudo que o
+      # remendo antigo existia para mostrar, sem rodar nada duas vezes.
+      #
+      # MEASURED-COLLECTOR: mesmo snapshot que PNC-FASES-SNAPSHOT acima
+      # ja preserva - nenhum snapshot novo, so' uma segunda leitura por
+      # um extrator diferente (collect_measured.py's proprio header
+      # comment explica o token MEASURED e por que zero linha reprova,
+      # GODS_LAWS.md L-40).
+      - name: Coleta MEASURED (${{ matrix.modo }})
         shell: pwsh
         run: |
-          $listOutput = ctest --test-dir ${{ matrix.builddir }} -R win32_runner_probe_test -N
-          $totalLine = $listOutput | Select-String -Pattern 'Total Tests:\s*(\d+)'
-          $total = if ($totalLine) { [int]$totalLine.Matches[0].Groups[1].Value } else { 0 }
-          if ($total -eq 0) {
-            Write-Error "esperado ao menos 1 teste casando com win32_runner_probe_test neste job Windows (WIN32 e sempre verdadeiro aqui); ctest -N contou 0 - registro quebrado (tests/CMakeLists.txt) ou build sem a sonda."
+          $log = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if (-not (Test-Path $log)) {
+            Write-Error "snapshot de log preservado nao encontrado: $log"
             exit 1
           }
-          ctest --test-dir ${{ matrix.builddir }} -V -R win32_runner_probe_test
+          python tests/tools/collect_measured.py --collect --out measured_windows.txt $log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### MEASURED - Windows (${{ matrix.modo }})"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+          Get-Content measured_windows.txt | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+
+      - name: Publicar MEASURED (${{ matrix.modo }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: measured-windows-${{ strategy.job-index }}
+          path: measured_windows.txt
+          retention-days: 7
 
       # DEPZERO-PARITY-WIN / PORT-PRIVACY-WIN / EXPORTS-PARITY-WIN:
       # tools/ci/check-dep-zero-win.ps1, check-port-privacy-win.ps1 e
@@ -998,6 +1040,42 @@ jobs:
             /tmp/parity_linux_union.txt /tmp/parity_windows_union.txt \
             tests/parity_exceptions.txt tests/parity_aliases.txt TODO.md
 
+      # MEASURED-COLLECTOR's own reader (achado do time-lead,
+      # 06/09/2026, item 3 "o leitor tem nome: o trabalho de
+      # paridade"): `measured-linux-*` ja casa com `measured-linux-
+      # container` sem mudar o `pattern`, mesma forma que os
+      # inventarios `parity-inv-linux-*` acima ja usam.
+      - name: Baixar MEASURED Linux
+        uses: actions/download-artifact@v4
+        with:
+          pattern: measured-linux-*
+          path: medidas/linux
+
+      - name: Baixar MEASURED Windows
+        uses: actions/download-artifact@v4
+        with:
+          pattern: measured-windows-*
+          path: medidas/windows
+
+      # check_measured_parity.py's proprio header comment explica as
+      # tres secoes e por que este passo NUNCA reprova por divergencia
+      # ou por chave so' de um lado - so' por varredura vazia dos DOIS
+      # lados ao mesmo tempo (GODS_LAWS.md L-40). A tabela vai para o
+      # resumo do trabalho (item 5 da fatia, "espelho local" tem a
+      # mesma extracao, so' que localmente).
+      - name: check_measured_parity.py --compare
+        run: |
+          set -eu -o pipefail
+          linux_files=$(find medidas/linux -type f -name '*.txt')
+          windows_files=$(find medidas/windows -type f -name '*.txt')
+          # shellcheck disable=SC2086 # linux_files/windows_files is a newline-separated list of paths, meant to word-split into separate --linux/--windows arguments
+          python3 tests/tools/check_measured_parity.py --compare \
+            --linux $linux_files --windows $windows_files | tee /tmp/measured_parity_table.md
+          {
+            echo "## MEASURED-PARITY (PARITY-GATE)"
+            cat /tmp/measured_parity_table.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # GODS_LAWS.md L-09 / TEST-WLCONT: prova, em CI, que o container de
   # teste com compositor Wayland dentro (tests/container/) e a mesma
   # imagem que roda localmente e que ela isola de verdade a superficie
@@ -1110,6 +1188,19 @@ jobs:
       - name: Inicia o inventario de fixtures do container (P-0)
         run: rm -f parity_inventory.txt && touch parity_inventory.txt
 
+      # MEASURED-COLLECTOR (achado do time-lead, 06/09/2026): este
+      # arquivo acumula, via `tee -a` em cada passo `docker exec`
+      # abaixo, a saida CRUA (stdout+stderr) de cada fixture - a UNICA
+      # forma de capturar as linhas MEASURED que window_smoke/seat_
+      # test/window_parity_test/etc. imprimem, ja que hoje esse texto
+      # so vai para o log do Actions (visivel a um humano, invisivel a
+      # qualquer script). `set -eu -o pipefail` em cada um desses
+      # passos (GODS_LAWS.md L-45): sem `-o pipefail`, `set -e` so
+      # olharia o codigo de saida do `tee`, que quase sempre sucede,
+      # escondendo uma reprovacao real do `docker exec` atras dele.
+      - name: Inicia a colheita MEASURED do container (MEASURED-COLLECTOR)
+        run: rm -f container_measured_raw.log && touch container_measured_raw.log
+
       # ARCH-PORTS, TDD case R4 (GODS_LAWS.md L-09/L-20 - integracao
       # DECLARADA, sem rebaixamento: este e o unico dos cinco vermelhos
       # da fatia que roda contra um compositor REAL). Passa
@@ -1119,11 +1210,11 @@ jobs:
       # mesmo padrao que smoke.sh (acima) ja segue para wayland-info.
       - name: ARCH-PORTS - conecta e desconecta via o adaptador real (R4)
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean arch_ports_connect_smoke
+            glintfx-wltest-clean arch_ports_connect_smoke | tee -a container_measured_raw.log
           echo "arch_ports_connect_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia B, TDD case B (GODS_LAWS.md L-09/L-20 -
@@ -1137,11 +1228,11 @@ jobs:
       # todo outro passo desta matriz.
       - name: WL-DISPLAY fatia B - registry real dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean registry_smoke
+            glintfx-wltest-clean registry_smoke | tee -a container_measured_raw.log
           echo "registry_smoke" >> parity_inventory.txt
 
       # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, "Prova
@@ -1154,11 +1245,11 @@ jobs:
       # antes de qualquer coisa que precise do compositor vivo abaixo.
       - name: WIN-WINDOW fatia 7 - dois displays no mesmo processo dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean two_displays_test
+            glintfx-wltest-clean two_displays_test | tee -a container_measured_raw.log
           echo "two_displays_test" >> parity_inventory.txt
 
       # WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, mesmo padrao dos
@@ -1167,11 +1258,11 @@ jobs:
       # exatamente o passo que o mata.
       - name: WL-DISPLAY fatia D - pump nao-bloqueante dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean pump_smoke
+            glintfx-wltest-clean pump_smoke | tee -a container_measured_raw.log
           echo "pump_smoke" >> parity_inventory.txt
 
       # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): shell_
@@ -1181,11 +1272,11 @@ jobs:
       # deste container ainda vivo, e a fatia C e o passo que o mata.
       - name: WL-WINDOW fatia W-B - shell (wl_compositor/xdg_wm_base) dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean shell_smoke
+            glintfx-wltest-clean shell_smoke | tee -a container_measured_raw.log
           echo "shell_smoke" >> parity_inventory.txt
 
       # WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8): window_
@@ -1200,11 +1291,11 @@ jobs:
       # silencio - ver o header comment do proprio window_smoke.cpp.
       - name: WL-WINDOW fatia W-E - janela com buffer real dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean window_smoke
+            glintfx-wltest-clean window_smoke | tee -a container_measured_raw.log
           echo "window_smoke" >> parity_inventory.txt
 
       # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11,
@@ -1217,11 +1308,11 @@ jobs:
       # file (tests/parity/window_parity_test.cpp).
       - name: WL-WINDOW-HANDLE - paridade da API publica de janela dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean window_parity_test
+            glintfx-wltest-clean window_parity_test | tee -a container_measured_raw.log
           echo "window_parity_test" >> parity_inventory.txt
 
       # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
@@ -1235,11 +1326,11 @@ jobs:
       # precisa do compositor deste container ainda vivo.
       - name: WL-SEAT fatia S-B - seat (wl_seat) dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean seat_test
+            glintfx-wltest-clean seat_test | tee -a container_measured_raw.log
           echo "seat_test" >> parity_inventory.txt
 
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
@@ -1258,11 +1349,11 @@ jobs:
       # fim do job continua alcancando este container normalmente.
       - name: WL-DISPLAY fatia C - erro fatal dentro do container
         run: |
-          set -eu
+          set -eu -o pipefail
           docker exec \
             -e XDG_RUNTIME_DIR=/run/glintfx-test \
             -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean fatal_error_smoke
+            glintfx-wltest-clean fatal_error_smoke | tee -a container_measured_raw.log
           echo "fatal_error_smoke" >> parity_inventory.txt
 
       # P-0, piso de varredura nao-vazia (GODS_LAWS.md L-40): inventario
@@ -1281,6 +1372,31 @@ jobs:
             echo "ERRO: inventario do container vazio - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca de ausencia de casos" >&2
             exit 1
           fi
+
+      # MEASURED-COLLECTOR: le container_measured_raw.log (acumulado
+      # pelos `tee -a` de cada fixture acima) e extrai as linhas
+      # `MEASURED <owner>.<key>=<valor>` - collect_measured.py's proprio
+      # header comment explica por que o token e' o UNICO criterio, e
+      # por que zero linha reprova este passo (GODS_LAWS.md L-40: hoje
+      # ja existem pelo menos duas dezenas de linhas conhecidas
+      # vindas so' deste container, entao zero so' pode significar
+      # instrumentacao quebrada).
+      - name: Coleta MEASURED do container (MEASURED-COLLECTOR)
+        run: |
+          set -eu
+          python3 tests/tools/collect_measured.py --collect --out measured_linux_container.txt \
+            container_measured_raw.log
+          echo "### MEASURED - container Linux" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat measured_linux_container.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar MEASURED do container (MEASURED-COLLECTOR)
+        uses: actions/upload-artifact@v4
+        with:
+          name: measured-linux-container
+          path: measured_linux_container.txt
+          retention-days: 7
 
       # Publica o inventario como uma TERCEIRA fonte Linux para o job
       # `parity` - o padrao de nome (`parity-inv-linux-*`) e' o mesmo

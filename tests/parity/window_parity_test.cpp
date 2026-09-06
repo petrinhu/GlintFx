@@ -104,6 +104,12 @@ int main() {
                      pixel.width, pixel.height);
         return EXIT_FAILURE;
     }
+    // MEASURED-COLLECTOR: pixel_size() is the OTHER accessor this
+    // file's own PARITY-STATE-PRINT paragraph names as divergent by
+    // reading, never yet measured for real (both CI executors run at
+    // scale 1 today) - collected the same way the state bits are.
+    std::fprintf(stdout, "MEASURED window_parity_test.pixel_width_after_open=%u\n", pixel.width);
+    std::fprintf(stdout, "MEASURED window_parity_test.pixel_height_after_open=%u\n", pixel.height);
 
     if (window.close_requested()) {
         std::fprintf(stderr, "window_parity_test: close_requested() is true right after open()\n");
@@ -126,12 +132,26 @@ int main() {
     // agrees across platforms is exactly the kind of measurement-free
     // claim this fatia's own citation rule exists to forbid; this line
     // is what a future fatia reads before ever writing one.
+    const int active_after_open =
+        static_cast<int>(window.state(glintfx::gltfx_window_state_bit::active));
+    const int maximized_after_open =
+        static_cast<int>(window.state(glintfx::gltfx_window_state_bit::maximized));
+    const int fullscreen_after_open =
+        static_cast<int>(window.state(glintfx::gltfx_window_state_bit::fullscreen));
     std::fprintf(stdout,
                  "window_parity_test: state right after open() - active=%d maximized=%d "
                  "fullscreen=%d (measured, not asserted)\n",
-                 static_cast<int>(window.state(glintfx::gltfx_window_state_bit::active)),
-                 static_cast<int>(window.state(glintfx::gltfx_window_state_bit::maximized)),
-                 static_cast<int>(window.state(glintfx::gltfx_window_state_bit::fullscreen)));
+                 active_after_open, maximized_after_open, fullscreen_after_open);
+    // MEASURED-COLLECTOR (tests/tools/collect_measured.py): three
+    // separate lines, one per key - the parity job (PARITY-GATE) reads
+    // these back and lines them up against whatever the Windows leg
+    // wrote for the SAME three keys, this exact file being the one
+    // that runs on both systems (this file's own top comment).
+    std::fprintf(stdout, "MEASURED window_parity_test.active_after_open=%d\n", active_after_open);
+    std::fprintf(stdout, "MEASURED window_parity_test.maximized_after_open=%d\n",
+                 maximized_after_open);
+    std::fprintf(stdout, "MEASURED window_parity_test.fullscreen_after_open=%d\n",
+                 fullscreen_after_open);
 
     // 50 pumps, same budget wayland_window_adapter::wait_first_
     // configure() already uses internally - LOOP-RUN's own contract

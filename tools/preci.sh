@@ -591,6 +591,33 @@ stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
     ctest --test-dir "$BUILD_DIR" --output-on-failure
+
+    # MEASURED-COLLECTOR, espelho local (achado do time-lead,
+    # 06/09/2026, item 5 "o espelho local"): a mesma extracao que o CI
+    # faz por perna, aqui contra o LastTest.log que o `ctest` acima
+    # acabou de escrever - lido AGORA, antes de qualquer outro `ctest`
+    # neste MESMO diretorio de build o reescrever (a mesma ordem
+    # PNC-FASES-SNAPSHOT ja documenta la, so que aqui nao precisa de
+    # snapshot: esta e' a UNICA leitura do arquivo nesta chamada).
+    # `|| true` no `python3` e o teste do codigo de saida por VARIAVEL
+    # logo abaixo (GODS_LAWS.md L-45) - uma varredura MEASURED vazia
+    # aqui vira um aviso impresso, nunca falha silenciosa nem reprova o
+    # espelho local inteiro (o portao de verdade e' o coletor no CI).
+    measured_log="$BUILD_DIR/Testing/Temporary/LastTest.log"
+    if [ -f "$measured_log" ]; then
+        measured_out="$BUILD_DIR/measured_local.txt"
+        # `if !` (nunca comando solto seguido de `$?`): sob `set -e`,
+        # um comando solto que falha aborta o script ANTES da linha
+        # que leria `$?` - esta e' a forma que este arquivo ja usa em
+        # todo outro lugar para ler codigo de saida de comando que pode
+        # legitimamente falhar (GODS_LAWS.md L-45).
+        if ! python3 "$ROOT_DIR/tests/tools/collect_measured.py" --collect --out "$measured_out" \
+            "$measured_log"; then
+            log "collect_measured.py (espelho local): 0 linha(s) MEASURED - aviso, nao reprova o espelho local (o portao de verdade e' o coletor no CI)"
+        else
+            log "collect_measured.py (espelho local): $(wc -l <"$measured_out") linha(s) MEASURED - ver $measured_out"
+        fi
+    fi
 }
 
 # --- GATE-ASAN-HALT bite controls (GODS_LAWS.md L-27/L-36/L-40) ---

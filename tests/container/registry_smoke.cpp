@@ -66,6 +66,11 @@ int main() {
         stdout,
         "registry_smoke: catalog has %zu global(s), wl_compositor and xdg_wm_base present\n",
         globals.size());
+    // MEASURED-COLLECTOR (tests/tools/collect_measured.py): Linux-only
+    // fact (no Windows equivalent enumerates Wayland globals) - lands
+    // in the parity table's "so de um lado" section, declared, not a
+    // gap anyone has to go looking for.
+    std::fprintf(stdout, "MEASURED registry_smoke.global_count=%zu\n", globals.size());
 
     adapter.close();
     if (adapter.is_open()) {

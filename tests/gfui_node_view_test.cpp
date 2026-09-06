@@ -88,7 +88,11 @@ glintfx::gfui::gltfx_node_facts make_full_facts() noexcept {
 GLINTFX_TEST(gltfx_node_facts_counts_are_ten_entries_eight_facts) {
     std::printf("gfui_node_view_test: gltfx_node_facts_entry_count = %zu\n",
                 glintfx::gfui::gltfx_node_facts_entry_count);
+    std::printf("MEASURED gfui_node_view_test.node_facts_entry_count=%zu\n",
+                glintfx::gfui::gltfx_node_facts_entry_count);
     std::printf("gfui_node_view_test: gltfx_node_facts_fact_count = %zu\n",
+                glintfx::gfui::gltfx_node_facts_fact_count);
+    std::printf("MEASURED gfui_node_view_test.node_facts_fact_count=%zu\n",
                 glintfx::gfui::gltfx_node_facts_fact_count);
     GLINTFX_CHECK_EQ(glintfx::gfui::gltfx_node_facts_entry_count, static_cast<std::size_t>(10));
     GLINTFX_CHECK_EQ(glintfx::gfui::gltfx_node_facts_fact_count, static_cast<std::size_t>(8));

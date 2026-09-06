@@ -1629,3 +1629,49 @@ o **PULA**. Foi o que aconteceu nas tres rodadas de ontem e de novo hoje.
 "pulado", que le como "nada a ver aqui". Uma linha de condicao resolve: ele passa a rodar
 mesmo com dependencia vermelha, e se um inventario nao existir, fica **VERMELHO com causa
 clara** -- que e o resultado certo, nunca silencio.
+
+---
+
+## O instrumento media e ninguem lia: 56 pontos, zero leitores  `[06/09/26 - 04:10:31]`
+
+**Como apareceu:** a decisao anterior mandou IMPRIMIR, nunca exigir, o que ainda nao
+tinha sido medido -- e o implementer construiu os dois instrumentos. **Fui ler os numeros
+no servidor e eles nao estavam la.** Os passos de teste so mostram saida quando o teste
+FALHA; numero impresso por teste que PASSA e jogado fora.
+
+⚠️ **A consequencia e pior que a inconveniencia:** "impresso, nao exigido" existe para
+**virar exigencia quando o numero chegar**. Se o numero nunca chega, nunca fecha -- **vira
+desculpa permanente**, o oposto exato do que foi desenhado.
+
+**O tamanho do padrao, medido pelo CTO na arvore e no arquivo do servidor:** **21**
+impressoes de teste, **23** portoes que imprimem contagem no sucesso (**a lei manda
+imprimir mesmo passando -- ela esta cumprida no arquivo e ANULADA no pipeline**), **12**
+fixtures de container. **56 pontos de medicao, zero lidos hoje.**
+
+⚠️ **E o precedente que fecha o diagnostico:** o servidor **ja** re-roda **UM** teste com
+saida completa, so para a saida dele aparecer, com um comentario dizendo "por definicao
+nunca mostra a saida da sonda". **A casa ja viu este defeito, consertou um caso a mao, e
+deixou os outros vinte.** E a forma exata da lei de propagacao -- boa pratica aplicada a
+um e nao aos irmaos e sinal de auditoria incompleta.
+
+**Decisao, e ela nao roda nada duas vezes:** o `ctest` **ja guarda** a saida de todo teste
+num log proprio, e o workflow **ja tira um instantaneo dele** para outro fim. Os numeros
+estao no disco do servidor em toda rodada; ninguem os recolhe. Entao: **marcador fechado**
+em toda impressao de medicao, **coletor por perna** com **piso que reprova varredura
+vazia**, e **o leitor tem nome** -- o trabalho de paridade, que e o unico lugar onde os
+dois sistemas se encontram, imprime a tabela **lado a lado** em tres secoes: iguais,
+divergentes, so de um lado.
+
+**A regra que fecha o ciclo, e ela e o coracao da decisao:** toda chave divergente ou
+unilateral e **obrigacao do fechamento de onda** -- classificar em promessa (e ai vira
+asercao e SAI da tabela), excecao declarada com item, ou ainda medindo com o item que
+decide. **O fechamento nao e aceito com chave sem classificacao.** A tabela encolhendo e a
+metrica.
+
+**Perda declarada:** impressao sem o marcador continua invisivel; e o historico das
+medicoes vive nos artefatos e no que virar asercao, **nao num documento versionado** --
+deliberado, porque numero versionado apodrece.
+
+**Quinta encarnacao em vinte e quatro horas** do mesmo esqueleto: o portao que analisava
+dois de seis arquivos, o de paridade que era pulado, a prosa que afirmava medicao sem
+citar quem mediu, o remendo unilateral do `-V`, e agora o instrumento sem leitor.

@@ -351,6 +351,9 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
     const window_class_guard class_guard;
     std::println("win32_runner_probe: RegisterClassExW ok={} GetLastError={}",
                  class_guard.is_valid(), class_guard.last_error());
+    std::println("MEASURED win32_runner_probe_test.register_class_ok={}", class_guard.is_valid());
+    std::println("MEASURED win32_runner_probe_test.register_class_last_error={}",
+                 class_guard.last_error());
 
     ::SetLastError(0);
     HWND hwnd = ::CreateWindowExW(0, k_window_class_name, L"glintfx win32 runner probe",
@@ -360,6 +363,8 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
     const window_guard win_guard(hwnd);
     std::println("win32_runner_probe: CreateWindowExW ok={} GetLastError={}", win_guard.is_valid(),
                  create_last_error);
+    std::println("MEASURED win32_runner_probe_test.create_window_ok={}", win_guard.is_valid());
+    std::println("MEASURED win32_runner_probe_test.create_window_last_error={}", create_last_error);
 
     // The ONE assertion this probe makes (this file's own header
     // comment): everything from here on is measurement, printed
@@ -372,6 +377,9 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
     std::println("win32_runner_probe: ShowWindow(SW_SHOWNOACTIVATE) previously_visible={} "
                  "GetLastError={}",
                  show_previously_visible != 0, show_last_error);
+    std::println("MEASURED win32_runner_probe_test.show_window_previously_visible={}",
+                 show_previously_visible != 0);
+    std::println("MEASURED win32_runner_probe_test.show_window_last_error={}", show_last_error);
 
     unsigned messages_pumped = 0;
     unsigned queue_wm_size_count = 0;
@@ -402,6 +410,14 @@ GLINTFX_TEST(windows_runner_reports_window_creation_and_message_pump_state) {
                  "queue_wm_size={} queue_wm_activate={}",
                  messages_pumped, k_pump_budget, g_wndproc_wm_size_count,
                  g_wndproc_wm_activate_count, queue_wm_size_count, queue_wm_activate_count);
+    std::println("MEASURED win32_runner_probe_test.messages_pumped={}", messages_pumped);
+    std::println("MEASURED win32_runner_probe_test.wndproc_wm_size_count={}",
+                 g_wndproc_wm_size_count);
+    std::println("MEASURED win32_runner_probe_test.wndproc_wm_activate_count={}",
+                 g_wndproc_wm_activate_count);
+    std::println("MEASURED win32_runner_probe_test.queue_wm_size_count={}", queue_wm_size_count);
+    std::println("MEASURED win32_runner_probe_test.queue_wm_activate_count={}",
+                 queue_wm_activate_count);
 }
 
 // X-GL-0 (docs/plano-w6a-janela.md sec. 2.2 row 2, sec. 3): does this
@@ -430,6 +446,7 @@ GLINTFX_TEST(windows_runner_reports_gl_context_creation_capability) {
 
     const device_context_guard dc_guard(win_guard.get());
     std::println("win32_runner_probe: GetDC ok={}", dc_guard.is_valid());
+    std::println("MEASURED win32_runner_probe_test.get_dc_ok={}", dc_guard.is_valid());
     if (!dc_guard.is_valid()) {
         return;
     }
@@ -445,28 +462,39 @@ GLINTFX_TEST(windows_runner_reports_gl_context_creation_capability) {
     pfd.iLayerType = PFD_MAIN_PLANE;
 
     const int pixel_format = ::ChoosePixelFormat(dc_guard.get(), &pfd);
+    const DWORD choose_pixel_format_last_error = ::GetLastError();
     std::println("win32_runner_probe: ChoosePixelFormat pixel_format={} GetLastError={}",
-                 pixel_format, ::GetLastError());
+                 pixel_format, choose_pixel_format_last_error);
+    std::println("MEASURED win32_runner_probe_test.choose_pixel_format={}", pixel_format);
+    std::println("MEASURED win32_runner_probe_test.choose_pixel_format_last_error={}",
+                 choose_pixel_format_last_error);
     if (pixel_format == 0) {
         return;
     }
 
     ::SetLastError(0);
     const BOOL pixel_format_set = ::SetPixelFormat(dc_guard.get(), pixel_format, &pfd);
+    const DWORD set_pixel_format_last_error = ::GetLastError();
     std::println("win32_runner_probe: SetPixelFormat ok={} GetLastError={}", pixel_format_set != 0,
-                 ::GetLastError());
+                 set_pixel_format_last_error);
+    std::println("MEASURED win32_runner_probe_test.set_pixel_format_ok={}", pixel_format_set != 0);
+    std::println("MEASURED win32_runner_probe_test.set_pixel_format_last_error={}",
+                 set_pixel_format_last_error);
     if (pixel_format_set == 0) {
         return;
     }
 
     const gl_context_guard legacy_context(::wglCreateContext(dc_guard.get()));
     std::println("win32_runner_probe: wglCreateContext ok={}", legacy_context.is_valid());
+    std::println("MEASURED win32_runner_probe_test.wgl_create_context_ok={}",
+                 legacy_context.is_valid());
     if (!legacy_context.is_valid()) {
         return;
     }
 
     const BOOL made_current = ::wglMakeCurrent(dc_guard.get(), legacy_context.get());
     std::println("win32_runner_probe: wglMakeCurrent ok={}", made_current != 0);
+    std::println("MEASURED win32_runner_probe_test.wgl_make_current_ok={}", made_current != 0);
     if (made_current == 0) {
         return;
     }
@@ -479,10 +507,17 @@ GLINTFX_TEST(windows_runner_reports_gl_context_creation_capability) {
     const gl_ubyte *vendor = ::glGetString(k_gl_vendor);
     const gl_ubyte *renderer = ::glGetString(k_gl_renderer);
     const gl_ubyte *version = ::glGetString(k_gl_version);
-    std::println("win32_runner_probe: GL_VENDOR={} GL_RENDERER={} GL_VERSION={}",
-                 vendor != nullptr ? reinterpret_cast<const char *>(vendor) : "(null)",
-                 renderer != nullptr ? reinterpret_cast<const char *>(renderer) : "(null)",
-                 version != nullptr ? reinterpret_cast<const char *>(version) : "(null)");
+    const char *const vendor_text =
+        vendor != nullptr ? reinterpret_cast<const char *>(vendor) : "(null)";
+    const char *const renderer_text =
+        renderer != nullptr ? reinterpret_cast<const char *>(renderer) : "(null)";
+    const char *const version_text =
+        version != nullptr ? reinterpret_cast<const char *>(version) : "(null)";
+    std::println("win32_runner_probe: GL_VENDOR={} GL_RENDERER={} GL_VERSION={}", vendor_text,
+                 renderer_text, version_text);
+    std::println("MEASURED win32_runner_probe_test.gl_vendor={}", vendor_text);
+    std::println("MEASURED win32_runner_probe_test.gl_renderer={}", renderer_text);
+    std::println("MEASURED win32_runner_probe_test.gl_version={}", version_text);
 
     // wglGetProcAddress only ever resolves extension pointers for the
     // CURRENT rendering context (its own documentation, quoted in this
@@ -494,6 +529,8 @@ GLINTFX_TEST(windows_runner_reports_gl_context_creation_capability) {
     const auto create_context_attribs_arb =
         reinterpret_cast<wgl_create_context_attribs_arb_fn>(create_context_attribs_arb_raw);
     std::println("win32_runner_probe: wglCreateContextAttribsARB available={}",
+                 create_context_attribs_arb != nullptr);
+    std::println("MEASURED win32_runner_probe_test.wgl_create_context_attribs_arb_available={}",
                  create_context_attribs_arb != nullptr);
 
     if (create_context_attribs_arb != nullptr) {
@@ -510,6 +547,9 @@ GLINTFX_TEST(windows_runner_reports_gl_context_creation_capability) {
             create_context_attribs_arb(dc_guard.get(), nullptr, attribs));
         std::println("win32_runner_probe: wglCreateContextAttribsARB(3.3 core) ok={}",
                      core_context.is_valid());
+        std::println(
+            "MEASURED win32_runner_probe_test.wgl_create_context_attribs_arb_33_core_ok={}",
+            core_context.is_valid());
     }
 }
 
@@ -551,6 +591,9 @@ GLINTFX_TEST(windows_runner_reports_raw_input_devices_and_digitizer) {
     std::println("win32_runner_probe: GetRawInputDeviceList(count query) result={} "
                  "device_count={}",
                  count_query_result, device_count);
+    std::println("MEASURED win32_runner_probe_test.raw_input_count_query_result={}",
+                 count_query_result);
+    std::println("MEASURED win32_runner_probe_test.raw_input_device_count={}", device_count);
 
     unsigned mouse_count = 0;
     unsigned keyboard_count = 0;
@@ -562,6 +605,7 @@ GLINTFX_TEST(windows_runner_reports_raw_input_devices_and_digitizer) {
         const UINT filled =
             ::GetRawInputDeviceList(devices.data(), &device_count, sizeof(RAWINPUTDEVICELIST));
         std::println("win32_runner_probe: GetRawInputDeviceList(fill) filled={}", filled);
+        std::println("MEASURED win32_runner_probe_test.raw_input_filled={}", filled);
 
         if (filled != static_cast<UINT>(-1)) {
             for (UINT i = 0; i < filled; ++i) {
@@ -584,6 +628,10 @@ GLINTFX_TEST(windows_runner_reports_raw_input_devices_and_digitizer) {
     }
     std::println("win32_runner_probe: raw_input_devices mouse={} keyboard={} hid={} unknown={}",
                  mouse_count, keyboard_count, hid_count, unknown_count);
+    std::println("MEASURED win32_runner_probe_test.raw_input_mouse_count={}", mouse_count);
+    std::println("MEASURED win32_runner_probe_test.raw_input_keyboard_count={}", keyboard_count);
+    std::println("MEASURED win32_runner_probe_test.raw_input_hid_count={}", hid_count);
+    std::println("MEASURED win32_runner_probe_test.raw_input_unknown_count={}", unknown_count);
 
     // SM_DIGITIZER (GetSystemMetrics' own documentation, quoted in
     // this file's header comment) is a bitmask of NID_* flags this
@@ -592,9 +640,11 @@ GLINTFX_TEST(windows_runner_reports_raw_input_devices_and_digitizer) {
     // value so that decision has a real number to start from.
     const int digitizer_bitmask = ::GetSystemMetrics(SM_DIGITIZER);
     std::println("win32_runner_probe: GetSystemMetrics(SM_DIGITIZER)={:#04x}", digitizer_bitmask);
+    std::println("MEASURED win32_runner_probe_test.digitizer_bitmask={}", digitizer_bitmask);
 
     const UINT dpi = ::GetDpiForWindow(win_guard.get());
     std::println("win32_runner_probe: GetDpiForWindow={}", dpi);
+    std::println("MEASURED win32_runner_probe_test.dpi_for_window={}", dpi);
 }
 
 #endif // defined(_WIN32)

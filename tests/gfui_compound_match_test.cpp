@@ -93,6 +93,10 @@ GLINTFX_TEST(state_pseudo_class_table_answers_the_five_names_case_insensitively_
     std::printf("gfui_compound_match_test: k_state_pseudo_class_table has %zu rows "
                 "(gltfx_node_state_count = %zu)\n",
                 k_state_pseudo_class_table.size(), glintfx::gfui::gltfx_node_state_count);
+    std::printf("MEASURED gfui_compound_match_test.state_pseudo_class_table_rows=%zu\n",
+                k_state_pseudo_class_table.size());
+    std::printf("MEASURED gfui_compound_match_test.node_state_count=%zu\n",
+                glintfx::gfui::gltfx_node_state_count);
     GLINTFX_CHECK_EQ(k_state_pseudo_class_table.size(), glintfx::gfui::gltfx_node_state_count);
 
     // Default member initializers, not a user-declared constructor -
@@ -204,6 +208,7 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     std::printf("gfui_compound_match_test: %zu species-matrix cases (id/tag/state x present-equal/"
                 "present-different/absent) checked\n",
                 matrix.size());
+    std::printf("MEASURED gfui_compound_match_test.species_matrix_cases=%zu\n", matrix.size());
     for (const matrix_case &c : matrix) {
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(c.text);
         GLINTFX_CHECK(match_compound(compound, *c.node) == c.expected);
@@ -282,6 +287,8 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     std::printf("gfui_compound_match_test: %zu non-state, non-structural simple pseudo-classes "
                 "still deferred\n",
                 deferred_simple_count);
+    std::printf("MEASURED gfui_compound_match_test.deferred_simple_pseudo_class_count=%zu\n",
+                deferred_simple_count);
 
     // Deferral: only "not" among the five functional pseudo-classes -
     // the four An+B ones (nth-child, nth-last-child, nth-of-type,
@@ -307,6 +314,8 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
                      glintfx::style::detail::k_functional_pseudo_count - std::size_t{4});
     std::printf("gfui_compound_match_test: %zu functional pseudo-class (\"not\") still deferred\n",
                 deferred_functional_count);
+    std::printf("MEASURED gfui_compound_match_test.deferred_functional_pseudo_class_count=%zu\n",
+                deferred_functional_count);
 
     // Deferral: every pseudo-element (GFSS-SEL-PSEUDO-ELEMENT, 05/09/
     // 2026), enumerated whole from selector_pseudo_vocabulary.hpp's own
@@ -326,6 +335,8 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     }
     GLINTFX_CHECK_EQ(deferred_pseudo_element_count, glintfx::style::detail::k_pseudo_element_count);
     std::printf("gfui_compound_match_test: %zu pseudo-elements deferred\n",
+                deferred_pseudo_element_count);
+    std::printf("MEASURED gfui_compound_match_test.deferred_pseudo_element_count=%zu\n",
                 deferred_pseudo_element_count);
 
     // Rejection beats deferral: an id that never matches settles the
@@ -471,6 +482,8 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
         GLINTFX_CHECK_EQ(visit_count, c.expected_visits);
     }
     std::printf("gfui_compound_match_test: %zu early-stop visit-count cases checked\n",
+                stop_cases.size());
+    std::printf("MEASURED gfui_compound_match_test.early_stop_visit_count_cases=%zu\n",
                 stop_cases.size());
 
     // Fallback: a compound with MORE than 64 class requirements
@@ -649,5 +662,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
     }
     std::printf("gfui_compound_match_test: %zu call-order/short-circuit cases checked over the "
                 "counting fixture\n",
+                cases.size());
+    std::printf("MEASURED gfui_compound_match_test.call_order_short_circuit_cases=%zu\n",
                 cases.size());
 }

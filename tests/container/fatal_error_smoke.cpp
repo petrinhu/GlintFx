@@ -98,6 +98,12 @@ int main() {
                  "(os_error_code=%lld), has_fatal_error() == true\n",
                  std::string(glintfx::gltfx_err_code_name(after_cut.error().code())).c_str(),
                  static_cast<long long>(after_cut.error().os_error_code()));
+    // MEASURED-COLLECTOR: the raw OS error code a severed Wayland
+    // socket reports on this kernel - Linux-only key (Windows has no
+    // equivalent fixture that severs its own transport yet), lands in
+    // "so de um lado" until one exists.
+    std::fprintf(stdout, "MEASURED fatal_error_smoke.os_error_code=%lld\n",
+                 static_cast<long long>(after_cut.error().os_error_code()));
 
     // A SECOND roundtrip() call, on the already-latched adapter, must
     // ALSO come back as an ordinary error - never crash - proving the

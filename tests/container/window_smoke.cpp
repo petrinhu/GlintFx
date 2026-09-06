@@ -157,6 +157,19 @@ int main() {
     std::fprintf(stdout, "window_smoke: window configured - logical_size=%ux%u pixel_size=%ux%u\n",
                  window.state().logical_size().width, window.state().logical_size().height,
                  window.state().pixel_size().width, window.state().pixel_size().height);
+    // MEASURED-COLLECTOR: this fixture talks to the INTERNAL Wayland
+    // adapter directly (platform::wayland_window_adapter), not the
+    // public gltfx_window window_parity_test.cpp already collects the
+    // same four facts for - kept as its own keys, never merged, since
+    // the two never claim to measure the same call path.
+    std::fprintf(stdout, "MEASURED window_smoke.logical_width=%u\n",
+                 window.state().logical_size().width);
+    std::fprintf(stdout, "MEASURED window_smoke.logical_height=%u\n",
+                 window.state().logical_size().height);
+    std::fprintf(stdout, "MEASURED window_smoke.pixel_width=%u\n",
+                 window.state().pixel_size().width);
+    std::fprintf(stdout, "MEASURED window_smoke.pixel_height=%u\n",
+                 window.state().pixel_size().height);
 
     // D-W5-9: the ONE wl_shm buffer this whole fatia ever attaches -
     // never wayland_window_adapter's own job (see this file's own

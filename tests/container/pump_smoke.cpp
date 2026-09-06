@@ -73,6 +73,11 @@ int main() {
                  kIterations, static_cast<long long>(total_ms),
                  static_cast<long long>(
                      std::chrono::duration_cast<std::chrono::milliseconds>(kBudget).count()));
+    // MEASURED-COLLECTOR: wall-clock cost of pump_events() on a
+    // real compositor - has no comparable Windows leg today (no
+    // equivalent pump-cost fixture exists there yet), so this lands in
+    // "so de um lado" until one does.
+    std::fprintf(stdout, "MEASURED pump_smoke.total_ms=%lld\n", static_cast<long long>(total_ms));
 
     if (adapter.has_fatal_error()) {
         std::fprintf(stderr,

@@ -363,6 +363,8 @@ GLINTFX_TEST(structural_functional_holds_negative_coefficient_an_plus_b) {
     std::printf("gfui_match_struct_test: %zu negative-coefficient An+B position(s) checked "
                 "against an independent brute-force oracle\n",
                 checked);
+    std::printf("MEASURED gfui_match_struct_test.negative_coefficient_positions_checked=%zu\n",
+                checked);
 }
 
 // --- fatia C: real gfss selector text through match_compound() ---
@@ -396,6 +398,8 @@ GLINTFX_TEST(match_compound_evaluates_structural_selectors_through_real_text) {
     std::printf(
         "gfui_match_struct_test: %zu match_compound() structural-selector text cases checked\n",
         cases.size());
+    std::printf("MEASURED gfui_match_struct_test.match_compound_structural_cases=%zu\n",
+                cases.size());
 
     // Rejection from a NOW-owned structural requirement still beats
     // deferral from something this fatia does not own (:placeholder-

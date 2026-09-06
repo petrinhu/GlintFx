@@ -80,6 +80,12 @@ GLINTFX_TEST(sending_a_real_wm_close_sets_the_latch_and_leaves_the_window_alive)
                  "win32_window_close_request_test: %u WM_SIZE message(s) arrived during "
                  "CreateWindowExW (measured, not asserted)\n",
                  window.size_messages_before_open_returns());
+    // MEASURED-COLLECTOR (tests/tools/collect_measured.py): the same
+    // number above, in the ONE fixed shape that script's own header
+    // comment documents - a separate line, own line, so a script never
+    // has to parse it back out of the sentence meant for a human.
+    std::fprintf(stdout, "MEASURED win32_window_close_request_test.wm_size_during_create=%u\n",
+                 window.size_messages_before_open_returns());
 
     // SendMessageW dispatches SYNCHRONOUSLY, on the calling thread,
     // straight into the window's own wndproc (display_adapter.cpp's

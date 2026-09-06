@@ -96,6 +96,10 @@ bool open_and_check_catalog(glintfx::platform::wayland_display_adapter &adapter,
     }
     std::fprintf(stdout, "two_displays_test: %s open, catalog has %zu global(s)\n", label,
                  globals.size());
+    // MEASURED-COLLECTOR: `label` ("first"/"second") folds into the key
+    // itself, so the two independent connections this fixture opens
+    // never collide under one owner.
+    std::fprintf(stdout, "MEASURED two_displays_test.%s_global_count=%zu\n", label, globals.size());
     return true;
 }
 

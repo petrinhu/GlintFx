@@ -92,7 +92,15 @@ $ErrorActionPreference = "Stop"
 # display_adapter (src/platform/win32/window_adapter.hpp). Adicionado
 # na MESMA revisao que tests/tools/check_port_privacy.sh's own
 # KNOWN_ADAPTER_CLASSES.
-$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "fake_gl_context_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter", "win32_window_adapter")
+#
+# win32_gl_context_adapter (X-WGL, docs/plano-w6b-placa-e-laco.md
+# fatia 4, 06/09/2026): o par Windows de wayland_egl_context_adapter -
+# um contexto OpenGL 3.3 core real sobre o HWND ja aberto de um win32_
+# window_adapter, via WGL (src/platform/win32/wgl_context_adapter.hpp).
+# Adicionado na MESMA revisao que tests/tools/check_port_privacy.sh's
+# own KNOWN_ADAPTER_CLASSES (aquele arquivo ja citava este nome como
+# pendente, no proprio comentario de wayland_egl_context_adapter).
+$KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "fake_gl_context_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter", "win32_window_adapter", "wayland_egl_context_adapter", "win32_gl_context_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 

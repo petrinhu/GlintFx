@@ -164,10 +164,31 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
                 .with_rejected_value(option_name_or_placeholder(fixation.refused_id)));
     }
 
+    // X-WGL (docs/plano-w6b-placa-e-laco.md fatia 4, 06/09/2026): this
+    // file's own CMakeLists.txt comment already predicted it - wiring
+    // gl_context_facade.cpp into glintfx_library's own build for the
+    // FIRST time (this commit, once both fatia 3 and fatia 4 existed)
+    // is the first time clang-tidy ever analyzed it, and bugprone-
+    // unchecked-optional-access caught exactly this line: `already_
+    // fixed` and `fixation.outcome` are two SEPARATE variables, and
+    // gfx_open_only_fixation.cpp's own resolve_gfx_open_only_fixation()
+    // sets `outcome` to `accept` ONLY when `already_fixed.has_value()`
+    // is true (its own body, verbatim: "result.outcome = already_fixed.
+    // has_value() ? accept : fix_now") - a real invariant, but not one
+    // the analyzer can see across two variables with no visible
+    // correlation between them. Checking has_value() directly, right
+    // here, makes the guard local and provable - and degrades to an
+    // empty span (never actually reached, by the invariant above)
+    // instead of undefined behavior if that invariant is ever broken
+    // by a future edit to either file, the same "never trust the
+    // caller's own promise, verify locally" discipline this project's
+    // own API boundary already applies at the PUBLIC edge (docs/api-
+    // conventions.md), now proven cheap enough to also apply here.
     const std::span<const gltfx_gfx_option_entry> fixed_open_only =
         fixation.outcome == platform::gfx_open_only_fixation_outcome::fix_now
             ? std::span<const gltfx_gfx_option_entry>(fixation.fixed)
-            : *already_fixed;
+        : already_fixed.has_value() ? *already_fixed
+                                    : std::span<const gltfx_gfx_option_entry>{};
 
     std::vector<gltfx_gfx_option_entry> resolved =
         resolve_full_option_table(fixed_open_only, requested);

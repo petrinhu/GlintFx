@@ -120,11 +120,26 @@ $ErrorActionPreference = "Stop"
 # runtime every Windows install ships); InitPropVariantFromString and
 # PKEY_AppUserModel_ID's own storage (propvarutil.h/propkey.h,
 # propsys.lib/propsys.dll, the Shell Property System component).
+#
+# OPENGL32.dll/GDI32.dll added by X-WGL (docs/plano-w6b-placa-e-laco.md
+# fatia 4, D-W6b-3's own rule applied to Windows, GODS_LAWS.md L-07,
+# 06/09/2026): src/platform/win32/CMakeLists.txt now links `opengl32
+# gdi32` (wgl_context_adapter.cpp/wgl_extension_loader.cpp/wgl_proc_
+# address.cpp, this fatia's own three atoms) - opengl32.dll carries
+# wglCreateContext/wglMakeCurrent/wglDeleteContext/wglGetProcAddress
+# plus the GL 1.0/1.1 functions this fatia links directly (glGetString/
+# glGetIntegerv, wgl_context_adapter.cpp's own header comment);
+# gdi32.dll carries ChoosePixelFormat/SetPixelFormat/DescribePixel
+# Format/SwapBuffers. Both ship with every Windows install (the Win32
+# GDI/OpenGL surface, same category USER32.dll already sits in above) -
+# neither is a third-party library, same reasoning this file's own
+# header already applies to every other DLL on this list.
 $IMPORT_ALLOWLIST_EXACT = @(
     "KERNEL32.dll", "USER32.dll",
     "VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "MSVCP140.dll", "ucrtbase.dll",
     "VCRUNTIME140D.dll", "VCRUNTIME140_1D.dll", "MSVCP140D.dll", "ucrtbased.dll",
-    "SHELL32.dll", "ole32.dll", "propsys.dll"
+    "SHELL32.dll", "ole32.dll", "propsys.dll",
+    "OPENGL32.dll", "GDI32.dll"
 )
 
 # Prefix, case-insensitive: the Universal CRT API-set forwarder family

@@ -61,6 +61,17 @@
 # universo de nomes ctest que este portao compara.
 win32_runner_probe_test|linux|nenhum|SEM-PENDENCIA
 
+# win32_wgl_proc_address_test (tests/win32_wgl_proc_address_test.cpp,
+# docs/plano-w6b-placa-e-laco.md fatia 4, X-WGL) prova a armadilha
+# ESPECIFICA do WGL - wglGetProcAddress nao resolve funcao GL 1.1
+# (glGetString e ~40 outras), e o resolvedor deste projeto (wgl_proc_
+# address.hpp) cai para GetProcAddress(opengl32) nesse caso. O lado
+# Linux nao tem par possivel: eglGetProcAddress resolve TUDO, sem essa
+# categoria de funcao com endereco fixo separada - a mesma distincao
+# que a linha de apelido de win32_wgl_extension_loader_test, logo
+# abaixo, ja documenta para as duas funcoes ARB.
+win32_wgl_proc_address_test|linux|nenhum|SEM-PENDENCIA
+
 # egl_probe_smoke (tests/container/egl_probe_smoke.cpp, docs/plano-
 # w6b-placa-e-laco.md fatia 1, G-1) prova que O PROPRIO container
 # Linux (o compositor `kwin_wayland --virtual` mais o llvmpipe por

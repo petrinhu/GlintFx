@@ -1149,6 +1149,64 @@ if(WIN32)
     target_link_libraries(win32_window_close_request_test PRIVATE user32 shell32 ole32 propsys)
 endif()
 
+# X-WGL (docs/plano-w6b-placa-e-laco.md fatia 4, D-W6b-1/4/6/7/17/18,
+# GODS_LAWS.md L-04/L-09/L-40): the Win32 mirror of W-EGL's own frame_
+# callback_sequence_test/egl_probe_smoke (fatia 3) - win32_gl_context_
+# adapter, wgl_extension_loader and wgl_proc_address have no GLINTFX_
+# API (GODS_LAWS.md L-19), so every fixture below compiles the
+# production .cpp files a SECOND time, the same technique every other
+# win32/*_test target above already uses.
+if(WIN32)
+    # No window, no device context, no rendering context at all (this
+    # fixture's own header comment) - only wgl_proc_address.cpp itself,
+    # linked against opengl32 the same way glintfx_library now does
+    # (src/platform/win32/CMakeLists.txt).
+    glintfx_add_test(win32_wgl_proc_address_test)
+    target_include_directories(win32_wgl_proc_address_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_wgl_proc_address_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+    )
+    target_link_libraries(win32_wgl_proc_address_test PRIVATE opengl32)
+
+    # The disposable-window dance (wgl_extension_loader.hpp's own
+    # header comment) needs RegisterClassExW/CreateWindowExW (user32),
+    # ChoosePixelFormat/SetPixelFormat/DescribePixelFormat (gdi32) and
+    # wglCreateContext/wglMakeCurrent/wglDeleteContext/wglGetProcAddress
+    # (opengl32) - the same three libraries tests/win32_runner_probe_
+    # test.cpp's own CMakeLists.txt block already links for the
+    # identical set of calls.
+    glintfx_add_test(win32_wgl_extension_loader_test)
+    target_include_directories(win32_wgl_extension_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_wgl_extension_loader_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
+    )
+    target_link_libraries(win32_wgl_extension_loader_test PRIVATE user32 gdi32 opengl32)
+
+    # win32_iconic_present_test - NAMED to line up with docs/plano-w6b-
+    # placa-e-laco.md's own fatia 4 table row ("Prova Windows" column):
+    # a REAL win32_display_adapter + win32_window_adapter + win32_gl_
+    # context_adapter, the same "second compilation" set win32_window_
+    # close_request_test above already links, plus this fatia's own
+    # three GL atoms and gl_version_policy.cpp (create_context()'s own
+    # dependency, fatia 2b, already frozen).
+    glintfx_add_test(win32_iconic_present_test)
+    target_include_directories(win32_iconic_present_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_iconic_present_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+    )
+    target_link_libraries(win32_iconic_present_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+endif()
+
 # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatia 11, absorved into
 # one fatia by the CTO's own decision): window_parity_test.cpp
 # (tests/parity/) is the ONE file, only-public-API, no-#if proof this

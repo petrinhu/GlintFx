@@ -64,6 +64,31 @@
 # target_sources comment above for the app_user_model_id.cpp precedent,
 # and window_message_route.cpp's own header comment for the full
 # reasoning (GODS_LAWS.md L-17).
+#
+# wgl_extension_loader.cpp / wgl_proc_address.cpp / wgl_context_
+# adapter.cpp / selected_gl_context_adapter_check.cpp - X-WGL (docs/
+# plano-w6b-placa-e-laco.md fatia 4, D-W6b-1/4/6/7/17/18, GODS_LAWS.md
+# L-04/L-19): the Win32 counterpart of W-EGL's own egl_context_adapter.
+# cpp/frame_callback_sequence.cpp (src/platform/wayland/, fatia 3) -
+# each its own atom, same "one .cpp per reviewable reason to change"
+# reasoning app_user_model_id.cpp/window_message_route.cpp already
+# established above: wgl_extension_loader.cpp is the disposable-window
+# dance to resolve wglChoosePixelFormatARB/wglCreateContextAttribsARB/
+# wglSwapIntervalEXT; wgl_proc_address.cpp is the general-purpose
+# proc_address() resolver every GL function (including the ~40 GL 1.1
+# ones wglGetProcAddress never resolves) goes through; wgl_context_
+# adapter.cpp is win32_gl_context_adapter itself.
+#
+# opengl32/gdi32 - the two system libraries this fatia's own atoms link
+# against directly (GODS_LAWS.md L-07, "Win32 counts as system API for
+# the dependency-zero rule", the SAME category user32 already sits in
+# above): opengl32.lib carries wglCreateContext/wglMakeCurrent/wglDelete
+# Context/wglGetProcAddress plus the GL 1.0/1.1 functions this fatia
+# links directly (glGetString/glGetIntegerv, wgl_context_adapter.cpp's
+# own header comment); gdi32.lib carries ChoosePixelFormat/SetPixel
+# Format/DescribePixelFormat/SwapBuffers - the same two libraries tests/
+# CMakeLists.txt's own win32_runner_probe_test target already links for
+# the identical set of calls (X-GL-0, that test's own header comment).
 target_sources(glintfx_library PRIVATE
     display_adapter.cpp
     selected_display_adapter_check.cpp
@@ -72,6 +97,10 @@ target_sources(glintfx_library PRIVATE
     selected_window_adapter_check.cpp
     window_message_route.cpp
     app_user_model_id.cpp
+    wgl_extension_loader.cpp
+    wgl_proc_address.cpp
+    wgl_context_adapter.cpp
+    selected_gl_context_adapter_check.cpp
 )
 
-target_link_libraries(glintfx_library PRIVATE user32 shell32 ole32 propsys)
+target_link_libraries(glintfx_library PRIVATE user32 shell32 ole32 propsys opengl32 gdi32)

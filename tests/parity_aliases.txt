@@ -201,3 +201,25 @@ window_adapter_listener_test|win32_window_close_request_test
 # A metade viva (bind real) ja e' MESMO NOME nos dois lados: seat_test
 # (fixture do container no Linux, ctest no Windows) - comum, sem linha.
 seat_adapter_listener_test|win32_seat_translation_test
+
+# X-WGL (docs/plano-w6b-placa-e-laco.md fatia 4, "Par no portao"
+# coluna): win32_wgl_extension_loader_test (tests/CMakeLists.txt,
+# if(WIN32)) e egl_probe_smoke (tests/container/, fixture do container
+# Linux, fatia 1) provam a MESMA metade - "o sistema entrega o caminho
+# moderno de contexto grafico" - cada um pelo mecanismo do proprio
+# sistema (GODS_LAWS.md L-04): egl_probe_smoke cria contexto EGL 3.3
+# core direto sobre o wl_surface real; win32_wgl_extension_loader_test
+# resolve wglChoosePixelFormatARB/wglCreateContextAttribsARB via uma
+# janela descartavel, o pre-requisito Windows para o MESMO fato.
+win32_wgl_extension_loader_test|egl_probe_smoke
+
+# X-WGL (docs/plano-w6b-placa-e-laco.md fatia 4, D-W6b-6, "Par no
+# portao" coluna): win32_iconic_present_test (tests/CMakeLists.txt,
+# if(WIN32)) e frame_callback_sequence_test (tests/CMakeLists.txt,
+# comum aos cinco sistemas, W-EGL fatia 3) provam a MESMA promessa
+# publica - swap_buffers() nunca bloqueia o processo indefinidamente
+# quando a janela nao pode ser repintada, degradando a skipped_hidden -
+# por mecanismos completamente diferentes (D-W6b-6: "mecanismo
+# diferente, efeito igual"): IsIconic() antes de SwapBuffers() no
+# Windows, o orcamento do wl_surface.frame no Wayland.
+win32_iconic_present_test|frame_callback_sequence_test

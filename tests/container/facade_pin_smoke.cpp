@@ -177,6 +177,21 @@ int main() {
     std::fprintf(stdout, "facade_pin_smoke: pares=%d iguais=%d diferentes=%d\n", g_pares, g_iguais,
                  g_diferentes);
 
+    // A REGRA QUE M3 (docs/plano-conserto-fachadas-uaf.md sec. 8) EXISTE
+    // PARA PROVAR: contar e imprimir "diferentes" nao e o mesmo que
+    // REPROVAR por causa deles - um fixture que so imprime e nunca
+    // decide continua verde mesmo com o defeito medido. Esta linha e'
+    // exatamente o que faltava antes de M3 apontar o buraco: sem ela,
+    // facade_pin_smoke saia EXIT_SUCCESS mesmo com os quatro pares
+    // diferentes que T0 mediu contra a arvore pre-conserto.
+    if (g_diferentes > 0) {
+        std::fprintf(stderr,
+                     "facade_pin_smoke: FAIL - %d par(es) diferente(s) de %d (o adaptador se "
+                     "moveu depois de registrar o proprio endereco com o sistema)\n",
+                     g_diferentes, g_pares);
+        return EXIT_FAILURE;
+    }
+
     // window/display fecham por RAII ao sair de escopo (gltfx_window::
     // ~gltfx_window()/gltfx_display::~gltfx_display()) - nenhum close()
     // manual necessario, mesmo padrao de window_parity_test.cpp.

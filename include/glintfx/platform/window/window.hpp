@@ -214,6 +214,30 @@ struct window_impl;
 //      no platform guard) and, through the public API on both
 //      systems, by window_parity_test.cpp's own refusal case.
 //
+//   6. WHAT EACH ACCESSOR MEANS THE MOMENT open() RETURNS. `logical_
+//      size()` reports the client size the window actually has at
+//      that instant: on Windows it is read synchronously from the
+//      created window (`GetClientRect`, converted through the
+//      window's own DPI) before `open()` returns, never a copy of the
+//      request; on Wayland it is the requested size, which by
+//      protocol is the client's own decision until the compositor's
+//      first configure says otherwise, and `open()` has already
+//      waited for that configure. `pixel_size()` is `logical_size()`
+//      scaled by the factor the library knows at that instant (the
+//      window's DPI on Windows, read at creation; the buffer scale on
+//      Wayland, 1 until the compositor announces another) - on a
+//      HiDPI display it can change after the first `pump_events()`,
+//      and a consumer that allocates a framebuffer must re-read it
+//      after pumping. `close_requested()` is false. `state()`
+//      reflects only what the system has already told the library: no
+//      bit is promised at this instant, and the two systems are NOT
+//      promised to agree on `active` before the first `pump_events()`
+//      (`window_parity_test` prints both, measured, never asserted,
+//      until a measurement says otherwise). None of these values is
+//      cached by the handle: later system notices arrive through
+//      `pump_events()`. Proved by: `window_parity_test` (both
+//      platforms, same name).
+//
 // NOT CONGEALED HERE, AND BELONGS TO A LATER FATIA (W6b): input
 // delivery, fractional-scale event handling beyond what window_state
 // already derives, a graphics context, and any method beyond the ones

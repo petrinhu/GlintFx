@@ -55,7 +55,9 @@ namespace {
 } // namespace
 
 win32_window_adapter::win32_window_adapter(win32_window_adapter &&other) noexcept
-    : m_window(other.m_window), m_dpi(other.m_dpi), m_state(other.m_state) {
+    : m_window(other.m_window), m_dpi(other.m_dpi),
+      m_size_messages_before_open_returns(other.m_size_messages_before_open_returns),
+      m_state(other.m_state) {
     other.m_window = nullptr;
     if (m_window != nullptr) {
         // Re-home GWLP_USERDATA at the new address BEFORE `other`'s
@@ -70,6 +72,7 @@ win32_window_adapter &win32_window_adapter::operator=(win32_window_adapter &&oth
         close();
         m_window = other.m_window;
         m_dpi = other.m_dpi;
+        m_size_messages_before_open_returns = other.m_size_messages_before_open_returns;
         m_state = other.m_state;
         other.m_window = nullptr;
         if (m_window != nullptr) {
@@ -121,7 +124,30 @@ gltfx_rslt<void> win32_window_adapter::open(const win32_display_adapter &display
     // own "m_dpi" field comment) - the exact DPI AdjustWindowRectExForDpi
     // below sizes the window FOR, so the first WM_SIZE this window ever
     // receives converts against the same number it was created with.
+    //
+    // ASSIGNED TO m_dpi/m_state HERE, BEFORE CreateWindowExW (achado do
+    // time-lead, fatia de 06/09/2026, defeito real): an earlier version
+    // of this function assigned m_dpi only AFTER CreateWindowExW
+    // returned, alongside m_window - but window_message_route.hpp's own
+    // header comment (and this header's own "WHY THE FIRST WM_SIZE
+    // NEEDS A SEPARATE ROUTING PATH" paragraph) both document that a
+    // WM_SIZE can arrive DURING that very call, routed through GWLP_
+    // USERDATA (already `this` since WM_NCCREATE) straight into handle_
+    // message() - which reads m_dpi to convert that message's pixel
+    // rect back to the 96-DPI logical baseline. Assigning m_dpi after
+    // CreateWindowExW returns left exactly that window converting
+    // against the DEFAULT 96 instead of the real DPI whenever a WM_SIZE
+    // genuinely arrived mid-creation - GODS_LAWS.md L-27's own "afirmar
+    // valor sem ter lido" defect family, just one member behind
+    // schedule instead of never read at all. m_state.apply_dpi() moves
+    // here too for the same reason WIN-SIZE-AT-OPEN needs it seeded
+    // (below): pixel_size()'s own derived formula (window_state.hpp's
+    // "ONE FORMULA, TWO FACTORS") is wrong the instant open() returns
+    // if m_state still carries its default-constructed 96 while the
+    // window's REAL dpi is something else.
     const UINT dpi = ::GetDpiForSystem();
+    m_dpi = dpi;
+    m_state.apply_dpi(dpi);
 
     // D-W5-13's own sibling rule: 0x0 requested means CW_USEDEFAULT
     // ("let the system decide"), never a literal zero-sized window -
@@ -163,7 +189,35 @@ gltfx_rslt<void> win32_window_adapter::open(const win32_display_adapter &display
     }
 
     m_window = window;
-    m_dpi = dpi;
+
+    // WIN-SIZE-AT-OPEN (docs/plano-w6a-janela.md, achado do time-lead
+    // 06/09/2026, PARITY-JOB-NOT-CANCELLED's own sibling finding): the
+    // contract is "the instant open() returns successfully, logical_
+    // size() reports the client size the window ACTUALLY HAS" - never a
+    // copy of the request (window_parity_test.cpp measured exactly that
+    // divergence live: logical_size() came back 0x0 on Windows right
+    // after a successful open()). Read synchronously, right here,
+    // before this function returns: GetClientRect() on the just-created
+    // window reflects whatever WM_SIZE messages already ran during
+    // CreateWindowExW (this header's own "WHY THE FIRST WM_SIZE NEEDS A
+    // SEPARATE ROUTING PATH" paragraph) AND the window's true starting
+    // size either way, so this line is correct regardless of whether
+    // that routing fired zero or several times before this point -
+    // never seeded from desc.logical_width/height (that would be
+    // asserting a value never actually read, the same defect class the
+    // m_dpi ordering fix above closes one member over). A failure here
+    // is treated the same conservative way AdjustWindowRectExForDpi's
+    // own failure above is (GODS_LAWS.md L-22: no exception, no abort) -
+    // the window this function's whole contract promises already
+    // exists and is valid regardless.
+    RECT client_rect{};
+    if (::GetClientRect(m_window, &client_rect) != 0) {
+        const auto logical_width = static_cast<std::uint32_t>(
+            ::MulDiv(client_rect.right - client_rect.left, 96, static_cast<int>(m_dpi)));
+        const auto logical_height = static_cast<std::uint32_t>(
+            ::MulDiv(client_rect.bottom - client_rect.top, 96, static_cast<int>(m_dpi)));
+        m_state.apply_logical_size(logical_width, logical_height);
+    }
 
     // D-W6a-21, best-effort (window_adapter.hpp's own open() comment):
     // a failure here does not fail open() itself - the window this

@@ -1580,3 +1580,52 @@ medida**. **Tres vezes num dia e padrao, nao coincidencia.**
 impossibilidade **cita o nome do teste na linha seguinte, ou nao entra**. A convencao
 certa ja existe num documento deste projeto -- ninguem a aplicava em cabecalho. Portao
 proprio depois, com vocabulario fechado.
+
+---
+
+## ⚠️ DECISAO DE CONTRATO AUTONOMA -- CONFIRMAR: o que cada consulta significa no instante em que a janela abre  `[06/09/26 - 03:26:33]`
+
+**O teste de paridade nasceu e mordeu na PRIMEIRA rodada do servidor.** Ele abre uma
+janela pela API publica e pergunta o tamanho: **o Linux devolve o pedido, o Windows
+devolve zero**. Divergencia observavel pelo consumidor, calada desde sempre -- so nao
+havia ninguem perguntando pela porta da frente.
+
+⚠️ **A cadeia importa:** o CTO tinha acabado de derrubar a premissa "os dois sistemas
+praticam a mesma coisa" para o caso de dimensao zero. **A mesma premissa estava errada
+tambem no caso normal.** Duas horas antes, ninguem sabia de nenhuma das duas.
+
+**Decisao:** logo que a abertura devolve sucesso, o tamanho logico reporta **o tamanho
+que a janela TEM naquele instante**.
+
+⚠️ **A saida obvia foi RECUSADA, e a razao e a licao da noite:** semear o estado com o
+pedido (que e o que o Wayland ja faz) seria **afirmar um valor sem te-lo lido** -- a mesma
+familia dos tres defeitos consertados hoje. No Windows, a biblioteca passa a **ler de
+verdade** o tamanho da janela criada, antes de a abertura retornar.
+
+**O que se perde, declarado:** se o sistema recortar o pedido, o Windows reporta o
+recorte na hora e o Wayland reporta o pedido ate o compositor impor outra coisa. Nos dois
+casos a frase do contrato continua verdadeira.
+
+**A varredura dos cinco acessores publicos, logo apos abrir:** **1 divergente MEDIDO**, **2
+divergentes por LEITURA** (um deles escondido hoje **so porque os dois executores estao em
+escala 1** -- apareceria na maquina do lider), **2 iguais por construcao**. O cabecalho
+passa a **declarar onde os dois sistemas NAO sao prometidos iguais**, e o teste **imprime
+sem exigir** o que ainda nao foi medido. E o oposto do que passamos a noite consertando.
+
+⚠️ **E uma afirmacao da casa que ninguem nunca mediu foi achada no caminho:** um
+comentario afirma que a primeira mensagem de redimensionamento chega **durante** a criacao
+da janela. **A documentacao oficial nao promete isso.** Entra um contador que **imprime** o
+numero real; com ele, o comentario vira fato medido ou e apagado.
+
+---
+
+## O portao de paridade sumia exatamente na rodada em que mais importava  `[06/09/26 - 03:26:33]`
+
+**Achado do CTO, e ele explica a madrugada inteira:** o trabalho de paridade depende dos
+outros e **nao tem condicao de execucao** -- entao **qualquer** vermelho nas dependencias
+o **PULA**. Foi o que aconteceu nas tres rodadas de ontem e de novo hoje.
+
+⚠️ **O portao desaparece justamente quando teria mais a dizer**, e o painel mostra
+"pulado", que le como "nada a ver aqui". Uma linha de condicao resolve: ele passa a rodar
+mesmo com dependencia vermelha, e se um inventario nao existir, fica **VERMELHO com causa
+clara** -- que e o resultado certo, nunca silencio.

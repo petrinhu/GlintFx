@@ -9,6 +9,8 @@
 #endif
 #include <windows.h>
 
+#include <cstdio>
+
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 #include "platform/win32/display_adapter.hpp"
@@ -49,6 +51,35 @@ GLINTFX_TEST(sending_a_real_wm_close_sets_the_latch_and_leaves_the_window_alive)
     GLINTFX_CHECK(window.open(display, desc).has_value());
     GLINTFX_CHECK(window.is_open());
     GLINTFX_CHECK(!window.state().close_requested());
+
+    // WIN-SIZE-AT-OPEN (docs/plano-w6a-janela.md, achado do time-lead
+    // 06/09/2026): window_parity_test.cpp measured logical_size() as
+    // 0x0 right after a successful open() on the real windows-latest
+    // runner - the request was never actually read back from the
+    // system. This is the check that would have caught it here, one
+    // layer down from the public API: open()'s own synchronous
+    // GetClientRect() read (window_adapter.cpp) must have already
+    // seeded m_state before returning, so logical_size() reports the
+    // real client area the just-created window has - the SAME 800x600
+    // this fixture asked for, never a leftover 0x0 default.
+    const glintfx::platform::window_size logical = window.state().logical_size();
+    GLINTFX_CHECK(logical.width == 800);
+    GLINTFX_CHECK(logical.height == 600);
+
+    // Measured, never asserted (this project's own convention,
+    // seat_test.cpp's own header comment): size_messages_before_open_
+    // returns() (window_adapter.hpp's own header comment) settles
+    // whether display_adapter.cpp's own window_proc comment - "the
+    // first WM_SIZE arrives DURING CreateWindowExW" - is a fact this
+    // real windows-latest runner actually exhibits, or an unverified
+    // assumption Microsoft's own docs never promised. This is the ONLY
+    // fixture in this project that opens a real (non-message-only)
+    // window through win32_window_adapter, so it is the only place this
+    // number can ever be measured.
+    std::fprintf(stdout,
+                 "win32_window_close_request_test: %u WM_SIZE message(s) arrived during "
+                 "CreateWindowExW (measured, not asserted)\n",
+                 window.size_messages_before_open_returns());
 
     // SendMessageW dispatches SYNCHRONOUSLY, on the calling thread,
     // straight into the window's own wndproc (display_adapter.cpp's

@@ -172,6 +172,29 @@ class win32_window_adapter {
     [[nodiscard]] bool handle_message(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam,
                                       LRESULT &out_result) noexcept;
 
+    // WIN-SIZE-AT-OPEN measurement seam (achado do time-lead, fatia de
+    // 06/09/2026): this file's own "WHY THE FIRST WM_SIZE NEEDS A
+    // SEPARATE ROUTING PATH" paragraph above claims the first WM_SIZE
+    // arrives DURING CreateWindowExW, citing Microsoft's own docs for
+    // WM_WINDOWPOSCHANGED - but the SAME docs only promise WM_GETMIN
+    // MAXINFO and WM_NCCREATE/WM_NCCALCSIZE before CreateWindowExW
+    // returns, and say the rest depend on the window's own class/style.
+    // That claim was never actually measured against a real Windows
+    // runner. handle_message()'s own WM_SIZE case (window_message_
+    // route.cpp) increments this counter whenever it fires with
+    // `m_window` still null - the exact window this open() has not yet
+    // finished creating - so it counts ONLY messages that genuinely
+    // arrived before CreateWindowExW returned, never one that arrived
+    // afterward. win32_window_close_request_test.cpp prints this value,
+    // measured, never asserted (this project's own "measured, not
+    // asserted" convention, seat_test.cpp's own header comment) - once
+    // a real run reports it, the claim above becomes a measured fact
+    // (kept as written) or a wrong one (removed), never left as an
+    // unverified assumption either way.
+    [[nodiscard]] std::uint32_t size_messages_before_open_returns() const noexcept {
+        return m_size_messages_before_open_returns;
+    }
+
   private:
     HWND m_window = nullptr;
 
@@ -186,6 +209,10 @@ class win32_window_adapter {
     // math already uses, so the FIRST WM_SIZE converts against the
     // exact DPI the window was actually created for.
     std::uint32_t m_dpi = 96;
+
+    // size_messages_before_open_returns()'s own backing field - see
+    // that accessor's comment above for what it counts and why.
+    std::uint32_t m_size_messages_before_open_returns = 0;
 
     window_state m_state;
 };

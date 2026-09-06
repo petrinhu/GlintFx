@@ -67,6 +67,18 @@ bool win32_window_adapter::handle_message(HWND hwnd, UINT msg, WPARAM wparam, LP
                                           LRESULT &out_result) noexcept {
     switch (msg) {
     case WM_SIZE: {
+        // size_messages_before_open_returns() (window_adapter.hpp's own
+        // header comment): `m_window` is only ever assigned AFTER
+        // CreateWindowExW returns (window_adapter.cpp's own open()) -
+        // still null here means this exact WM_SIZE arrived DURING that
+        // call, the one occurrence this counter exists to measure.
+        // Never true for a WM_SIZE the system sends any time afterward
+        // (resize, restore, etc.) - open() has already returned by then
+        // and m_window is live.
+        if (m_window == nullptr) {
+            ++m_size_messages_before_open_returns;
+        }
+
         // WM_SIZE's own documented lParam (learn.microsoft.com/windows/
         // win32/winmsg/wm-size): the LOW/HIGH words already ARE the new
         // CLIENT AREA width/height in pixels - no GetClientRect() call

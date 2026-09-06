@@ -907,16 +907,25 @@ jobs:
   # PARITY-GATE (TODO.md, GODS_LAWS.md L-04/L-36/L-40): "o trabalho de
   # comparacao confronta as pernas" - o desenho do CTO que da nome a
   # este item, ordem do lider apos o retrabalho de 02/09/2026 (tres
-  # ondas fechadas com entrega existindo em um sistema so). `needs:
-  # [linux, windows, wayland-container]` SEM `if: always()`, de
-  # proposito: se qualquer leg Linux, Windows ou o job do container ja
-  # reprovou, o workflow inteiro ja mostra vermelho, e este job so
-  # rodaria contra artefato que pode nao existir (a perna que falhou
-  # pode ter morrido antes do passo de inventario, ou o container pode
-  # ter reprovado no proprio piso de varredura do P-0 e nunca chegado
-  # a publicar). Quando os tres passam, este job roda e BLOQUEIA de
-  # verdade se achar lacuna - decisao explicita do lider: nao
-  # `continue-on-error`, "um portao que nao morde nao e portao".
+  # ondas fechadas com entrega existindo em um sistema so).
+  #
+  # PARITY-JOB-NOT-CANCELLED (achado do time-lead, fatia de 06/09/2026,
+  # DEFEITO REAL - substitui a justificativa anterior deste comentario,
+  # que estava errada): este job antes rodava SEM `if:` nenhum, o que
+  # no GitHub Actions equivale a `if: success()` implicito - qualquer
+  # reprovacao em `linux`, `windows` OU `wayland-container` faz o
+  # scheduler PULAR este job inteiro, nunca reprova-lo. Aconteceu de
+  # verdade, tres rodadas seguidas (incluindo a que gerou o achado desta
+  # fatia): o job de paridade desaparece exatamente na rodada em que uma
+  # das pernas ja esta vermelha - o caso em que ele mais teria algo a
+  # dizer. `if: ${{ !cancelled() }}` abaixo conserta isso: roda mesmo
+  # com dependencia vermelha, e so realmente pula quando o WORKFLOW
+  # INTEIRO foi cancelado (ex.: o lider apertou "cancel run"), nunca por
+  # uma perna ter reprovado. Se uma perna morreu ANTES de publicar seu
+  # inventario, os passos de download abaixo falham por falta de
+  # artefato, e o job fica VERMELHO COM CAUSA CLARA - o resultado
+  # certo, nunca "pulado" (GODS_LAWS.md L-36: "um portao que nao morde
+  # nao e portao" continua valendo, sem `continue-on-error`).
   #
   # P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19): antes desta
   # fatia, `wayland-container` NAO entrava neste `needs`, e o trabalho
@@ -949,6 +958,7 @@ jobs:
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
     needs: [linux, windows, wayland-container]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

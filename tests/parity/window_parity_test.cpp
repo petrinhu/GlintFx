@@ -35,6 +35,24 @@
 // system-chosen size): a zero in EITHER dimension is refused by the
 // common validation layer, window.hpp's own "WHAT THIS FATIA FREEZES"
 // item 5 - see the case below.
+//
+// WIN-SIZE-AT-OPEN (docs/plano-w6a-janela.md, achado do time-lead
+// 06/09/2026): this file's own logical_size() check below is what
+// found the real divergence this fatia exists to close - Linux
+// reported the request, Windows reported 0x0, right after open()
+// itself had already returned success. window.hpp's own "WHAT EACH
+// ACCESSOR MEANS THE MOMENT open() RETURNS" item is the contract this
+// check enforces on both systems now.
+//
+// PARITY-STATE-PRINT (same fatia, "mede antes de prometer"): pixel_
+// size() and the three state() bits are printed further down, never
+// asserted equal across platforms - neither has been measured on real
+// divergent hardware yet (this project's own CI executors all run at
+// scale 1, and a never-shown window is never activated on Windows).
+// Promising a value nobody measured is exactly the citation-rule defect
+// this fatia's own DISPLAY-PASSKEY/WINDOW-SIZE-REFUSE writeup already
+// forbids in public-header prose - this file holds itself to the same
+// standard.
 
 int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
@@ -91,6 +109,29 @@ int main() {
         std::fprintf(stderr, "window_parity_test: close_requested() is true right after open()\n");
         return EXIT_FAILURE;
     }
+
+    // PARITY-STATE-PRINT (docs/plano-w6a-janela.md, achado do time-lead
+    // 06/09/2026, "mede antes de prometer"): the CTO's own sweep of the
+    // five public accessors right after a successful open() found
+    // logical_size() genuinely divergent (WIN-SIZE-AT-OPEN fixes that
+    // one, checked above) and TWO MORE divergent by reading the code,
+    // never yet measured against real hardware - pixel_size() (hidden
+    // today because both CI executors run at scale 1; a HiDPI display
+    // would show it) and these three state bits (a window this project
+    // never maps/shows is never activated on Windows, but Wayland's own
+    // compositor may activate an unmapped toplevel differently). Printed
+    // here, on both systems, through the SAME name every other
+    // "measured, not asserted" fixture in this project already uses
+    // (seat_test.cpp's own header comment) - a promise that `active`
+    // agrees across platforms is exactly the kind of measurement-free
+    // claim this fatia's own citation rule exists to forbid; this line
+    // is what a future fatia reads before ever writing one.
+    std::fprintf(stdout,
+                 "window_parity_test: state right after open() - active=%d maximized=%d "
+                 "fullscreen=%d (measured, not asserted)\n",
+                 static_cast<int>(window.state(glintfx::gltfx_window_state_bit::active)),
+                 static_cast<int>(window.state(glintfx::gltfx_window_state_bit::maximized)),
+                 static_cast<int>(window.state(glintfx::gltfx_window_state_bit::fullscreen)));
 
     // 50 pumps, same budget wayland_window_adapter::wait_first_
     // configure() already uses internally - LOOP-RUN's own contract

@@ -1394,3 +1394,68 @@ conferidas por mim contra a arvore antes de eu aceitar o relatorio.
 A decima quarta esta fora do escopo e virou linha de INBOX (`README-STATUS-ROT`): a secao
 "Status" do README declara que nao existe janela, nem entrada, nem motor de estilo,
 contra uma arvore que ja tem os cinco diretorios correspondentes.
+
+---
+
+## O CTO decidiu duas vezes: o portao estreito ganha vocabulario, e o Windows passa a ser compilado AQUI  `[06/09/26 - 01:19:33]`
+
+**O que abriu as duas:** a revisao adversarial da onda W6a. Ela **refutou uma inferencia
+minha** (eu achava que o status das fatias de janela estava so desatualizado; ela provou
+por leitura do disco que faltam DUAS pecas reais do plano) e trouxe dois achados.
+
+### Decisao 1 -- o portao de digito volatil ganha uma camada externa
+
+**O revisor provou que o portao de ontem e contornavel:** numero de contagem escrito
+FORA dos dois paragrafos ancorados passa verde. A varredura nao e vazia, e **estreita
+demais** -- mas o efeito para o consumidor e identico ao defeito original.
+
+**Decisao:** camada externa varrendo os **seis** documentos em ingles voltados ao
+consumidor, atras de frases com a FORMA de contagem de teste, por **vocabulario fechado
+e nomeado**. Calibrado contra os documentos reais ANTES de existir: **zero falsos
+positivos** nos seis, **sete acertos** na ponte do revisor, e os tres numeros que
+motivaram tudo. A ponte do revisor vira o **controle negativo** do portao.
+
+⚠️ **Perda declarada, sem maquiagem:** contagem escrita **por extenso** escapa (testou-se
+incluir palavras-numero: deu quatro falsos positivos legitimos). **Nao e prova de
+ausencia; e cerca contra as formas conhecidas**, e o cabecalho do portao diz isso em vez
+de vender garantia que nao tem.
+
+### Decisao 2 -- o compilador de Windows existe nesta maquina, e o canon dizia que nao
+
+**Fato medido, e ele doi:** existe compilador cruzado instalado, e ninguem nunca o usou.
+As **tres rodadas vermelhas** desta semana foram gastas em erro de compilacao e link que
+ele teria pego em segundos. O CTO foi alem do revisor: 18 arquivos conferidos, 18 limpos.
+
+**Decisao:** o espelho local passa a compilar o lado Windows antes do push, em duas
+camadas. Flags **mais estritas** que as do servidor de proposito -- a familia de
+conversao numerica que quebrou uma das rodadas. Conjunto de arquivos **derivado
+mecanicamente**, nunca lista gemea.
+
+⚠️ **A parte que mais importa do desenho e a que impede a confianca falsa:** o compilador
+local **NAO** e o do servidor, e existe familia inteira de erro que so o de la da. Toda
+linha de saida diz isso, e o estagio termina imprimindo a lista fixa do que ele **nao**
+ve. Se a fiacao ensinar alguem a confiar no verde local, ela **piora** as coisas.
+
+**Recomendacao dele sobre emulacao, e eu concordo: NAO pedir instalacao agora.** O ganho
+seria so comportamento em execucao, e a fidelidade da emulacao nessas chamadas exatas
+**nao foi medida** -- um resultado falso ali produziria a mesma confianca errada, no
+sentido contrario. Se um dia: sonda medida primeiro, nunca portao.
+
+⚠️ **O CTO corrigiu DOIS erros meus de alvo:** eu afirmei que o quadro de pendencias
+(item da janela do Windows) e o manual do projeto carregavam a afirmacao do custo.
+**Nenhum dos dois carrega** -- ele mediu. As ocorrencias reais estao noutros tres
+lugares, e **duas delas continuam verdadeiras** (o compilador do servidor continua
+ausente; o cruzado nao e ele).
+
+⚠️ **O texto da LEI so o lider muda.** O corpo da lei de paridade registra o custo como
+declarado a ele na epoca -- e e verdadeiro como historia. Emenda datada preparada para
+levar as 08:00, **nao reescrita**: falsificar registro e pior que registro velho.
+
+### O gemeo que apareceu de graca, e e o pior dos tres
+
+**O portao de analise estatica do Windows olha 2 dos 6 arquivos, por lista escrita a
+mao.** Conferido por mim contra o arquivo do servidor. E o defeito que o commit de 05/09
+declarou consertado voltando **pela outra porta** -- antes nao via nada por nao entrar na
+base de compilacao; agora ve um terco por lista curada. **E duas das quatro supressoes
+escritas NESTA sessao moram exatamente nos arquivos que ele nao olha**: nunca foram
+exercidas pelo lint real, e ninguem saberia.

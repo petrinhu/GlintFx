@@ -47,6 +47,38 @@ GLINTFX_TEST(configure_with_zero_by_zero_size_reports_has_size_false) {
     GLINTFX_CHECK(!result.has_size);
 }
 
+// The MIXED case, missing until an adversarial review proved it by
+// mutation (GODS_LAWS.md L-36/L-40, 06/09/2026): the two cases above
+// (both zero, both nonzero) pass identically whether apply_configure()
+// combines the two dimensions with && or ||, because neither dimension
+// is ever zero while the other is nonzero - the review swapped &&
+// for || in a copy of the tree, confirmed the mutation reached the
+// rebuilt binary, ran this file's own suite in container, and every
+// case here stayed green. Only a MIXED size - exactly one dimension
+// zero - tells the two operators apart: && (the compositor's own
+// contract, xdg_shell.xml - a size hint is a single WIDTHxHEIGHT pair,
+// not two independent axes) says a lone zero still means "no size
+// preference" for the pair as a whole; || would wrongly report
+// has_size == true off the nonzero half alone. The two orders (width
+// zero, height zero) are both written out - a fix that only checked
+// one operand's position would still leave this exact bug on the
+// other side.
+GLINTFX_TEST(configure_with_zero_width_only_reports_has_size_false) {
+    window_configure_sequence sequence;
+
+    const auto result = sequence.apply_configure(0, 480, {}, 1);
+
+    GLINTFX_CHECK(!result.has_size);
+}
+
+GLINTFX_TEST(configure_with_zero_height_only_reports_has_size_false) {
+    window_configure_sequence sequence;
+
+    const auto result = sequence.apply_configure(640, 0, {}, 1);
+
+    GLINTFX_CHECK(!result.has_size);
+}
+
 GLINTFX_TEST(configure_translates_maximized_and_activated_states) {
     window_configure_sequence sequence;
     const std::array<std::int32_t, 2> states{

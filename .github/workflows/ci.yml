@@ -1657,30 +1657,84 @@ jobs:
       # seguinte rodar sem erro; se o compile_commands.json nunca
       # tivesse entrado no ramo WIN32, o proximo passo passaria "verde"
       # analisando zero arquivo de plataforma, exatamente a lacuna que
-      # esta fatia fecha. Falha aqui, alto e cedo, se as duas TUs do
-      # backend Win32 nao aparecerem na base de compilacao.
+      # esta fatia fecha. Falha aqui, alto e cedo, se algum .cpp
+      # rastreado do backend Win32 nao aparecer na base de compilacao.
+      #
+      # DEFEITO CONSERTADO NESTA FATIA (06/09/2026, GODS_LAWS.md L-17/L-36/
+      # L-40): a lista de arquivos era escrita a mao (`@("display_adapter.cpp",
+      # "selected_display_adapter_check.cpp")`) - o mesmo defeito que ja
+      # tinha sido cometido no passo `clang-tidy - src/platform/win32`
+      # abaixo, so que aqui ninguem tinha olhado ainda. `git ls-files` enumera os .cpp
+      # REALMENTE rastreados no diretorio: arquivo novo entra sozinho,
+      # sem editar este passo, e o piso abaixo reprova se a enumeracao
+      # vier vazia (diretorio sumiu, padrao errou).
       - name: Prova - compile_commands.json contem o backend Win32
         shell: pwsh
         run: |
-          $db = Get-Content build-lint/compile_commands.json -Raw
-          $arquivos = @("display_adapter.cpp", "selected_display_adapter_check.cpp")
-          $faltando = $arquivos | Where-Object { $db -notmatch [regex]::Escape($_) }
-          if ($faltando.Count -gt 0) {
-            Write-Error "compile_commands.json nao contem: $($faltando -join ', ') - o ramo WIN32 de src/platform/CMakeLists.txt nao entrou na base de compilacao, o clang-tidy abaixo analisaria zero arquivo de plataforma."
+          $arquivos = @(git ls-files -- 'src/platform/win32/*.cpp')
+          if ($arquivos.Count -eq 0) {
+            Write-Error "Nenhum .cpp rastreado em src/platform/win32/ - varredura RECUSADA (GODS_LAWS.md L-40, piso de varredura nao-vazia). Isto nao e sucesso silencioso: ou o diretorio sumiu, ou o padrao de busca errou."
             exit 1
           }
-          Write-Host "ok: compile_commands.json contem as duas TUs do backend Win32."
+          Write-Host "Encontrados $($arquivos.Count) arquivo(s) rastreado(s) em src/platform/win32/: $($arquivos -join ', ')"
+          $db = Get-Content build-lint/compile_commands.json -Raw
+          $faltando = $arquivos | Where-Object { $db -notmatch [regex]::Escape((Split-Path $_ -Leaf)) }
+          if ($faltando.Count -gt 0) {
+            Write-Error "compile_commands.json nao contem: $($faltando -join ', ') - o ramo WIN32 de src/platform/CMakeLists.txt nao entrou na base de compilacao, o clang-tidy abaixo analisaria menos arquivos de plataforma do que existem."
+            exit 1
+          }
+          Write-Host "ok: compile_commands.json contem os $($arquivos.Count) arquivo(s) do backend Win32."
 
       # clang-tidy detecta sozinho que o driver de compile_commands.json
       # e cl.exe (modo clang-cl) - nenhum --extra-arg de proposito. .clang-tidy
       # na raiz do repo (mesmo arquivo que o job `lint` do Fedora usa) e
       # descoberto por caminhada de diretorio a partir de cada arquivo,
       # entao a mesma politica de checks vale aqui.
+      #
+      # DEFEITO CONSERTADO NESTA FATIA (06/09/2026, GODS_LAWS.md L-17/L-36/
+      # L-40): este passo so mandava dois .cpp, escritos a mao, para o
+      # clang-tidy - o diretorio tem sete, e cinco nunca eram analisados
+      # (entre eles seat_adapter.cpp e window_message_route.cpp, onde moram
+      # supressoes de analise estatica escritas em 05-06/09/2026 que por
+      # isso NUNCA tinham sido exercidas pelo lint real). A lista vira
+      # enumeracao por `git ls-files` (o MESMO comando do passo acima -
+      # lista gemea em segundo lugar seria repetir o defeito com outro
+      # nome), rodada item a item para nao esconder cobertura perdida se
+      # o clang-tidy morrer no meio de um lote: cada arquivo e contado,
+      # `analisados` precisa bater com `encontrados` antes de qualquer
+      # veredicto, e zero arquivos encontrados reprova a varredura inteira.
       - name: clang-tidy - src/platform/win32
         shell: pwsh
         run: |
-          clang-tidy -p build-lint --quiet src/platform/win32/display_adapter.cpp src/platform/win32/selected_display_adapter_check.cpp
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $arquivos = @(git ls-files -- 'src/platform/win32/*.cpp')
+          if ($arquivos.Count -eq 0) {
+            Write-Error "Nenhum .cpp rastreado em src/platform/win32/ - varredura RECUSADA (GODS_LAWS.md L-40, piso de varredura nao-vazia)."
+            exit 1
+          }
+          Write-Host "Encontrados $($arquivos.Count) arquivo(s) em src/platform/win32/."
+
+          $analisados = 0
+          $comFalha = @()
+          foreach ($arquivo in $arquivos) {
+            Write-Host "--- clang-tidy: $arquivo ---"
+            clang-tidy -p build-lint --quiet $arquivo
+            $rc = $LASTEXITCODE
+            $analisados++
+            if ($rc -ne 0) {
+              $comFalha += $arquivo
+            }
+          }
+
+          Write-Host "Analisados $analisados de $($arquivos.Count) arquivo(s) encontrado(s)."
+          if ($analisados -ne $arquivos.Count) {
+            Write-Error "Cobertura perdida: encontrados $($arquivos.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
+            exit 1
+          }
+          if ($comFalha.Count -gt 0) {
+            Write-Error "clang-tidy reprovou em $($comFalha.Count) de $analisados arquivo(s): $($comFalha -join ', ')"
+            exit 1
+          }
+          Write-Host "ok: clang-tidy passou nos $analisados arquivo(s) de src/platform/win32/."
 
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)

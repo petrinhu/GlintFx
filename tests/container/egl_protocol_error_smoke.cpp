@@ -111,10 +111,10 @@ int main() {
     glintfx::platform::wayland_shell_adapter shell;
     glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
-        std::fprintf(
-            stderr, "egl_protocol_error_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(shell_opened.error().code())).c_str(),
-            std::string(shell_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr,
+                     "egl_protocol_error_smoke: shell.open() failed: %s (rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(shell_opened.error().code())).c_str(),
+                     std::string(shell_opened.error().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
@@ -251,9 +251,8 @@ int main() {
             adapter.close();
             return EXIT_FAILURE;
         }
-        std::fprintf(stdout,
-                     "egl_protocol_error_smoke: provocador de reserva acusado - code="
-                     "platform_failure rejected_value=xdg_toplevel (como esperado)\n");
+        std::fprintf(stdout, "egl_protocol_error_smoke: provocador de reserva acusado - code="
+                             "platform_failure rejected_value=xdg_toplevel (como esperado)\n");
     }
 
     // The connection is now fatally errored - close() on every adapter

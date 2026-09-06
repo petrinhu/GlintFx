@@ -151,7 +151,8 @@ int main() {
             glintfx::gltfx_gl_context::open(window, empty_desc);
         if (context_opened.has_error()) {
             std::fprintf(
-                stderr, "gl_context_parity_test: gltfx_gl_context::open() failed: %s (rejected_value=%s)\n",
+                stderr,
+                "gl_context_parity_test: gltfx_gl_context::open() failed: %s (rejected_value=%s)\n",
                 std::string(glintfx::gltfx_err_code_name(context_opened.error().code())).c_str(),
                 std::string(context_opened.error().rejected_value()).c_str());
             return EXIT_FAILURE;
@@ -244,7 +245,9 @@ int main() {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
                 std::fprintf(
-                    stderr, "gl_context_parity_test: swap_buffers() attempt %d failed: %s (rejected_value=%s)\n",
+                    stderr,
+                    "gl_context_parity_test: swap_buffers() attempt %d failed: %s "
+                    "(rejected_value=%s)\n",
                     attempt,
                     std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str(),
                     std::string(swapped.error().rejected_value()).c_str());
@@ -277,8 +280,9 @@ int main() {
         for (int i = 0; i < 60; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
-                std::fprintf(stderr, "gl_context_parity_test: swap_buffers() (vsync=off) failed: %s\n",
-                             std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
+                std::fprintf(
+                    stderr, "gl_context_parity_test: swap_buffers() (vsync=off) failed: %s\n",
+                    std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
                 return EXIT_FAILURE;
             }
         }
@@ -308,8 +312,9 @@ int main() {
         for (int i = 0; i < 60; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
-                std::fprintf(stderr, "gl_context_parity_test: swap_buffers() (vsync=on) failed: %s\n",
-                             std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
+                std::fprintf(
+                    stderr, "gl_context_parity_test: swap_buffers() (vsync=on) failed: %s\n",
+                    std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
                 return EXIT_FAILURE;
             }
         }
@@ -332,12 +337,12 @@ int main() {
         if (!adaptive_supported) {
             if (set_adaptive.error().code() != glintfx::gltfx_err_code::unsupported ||
                 set_adaptive.error().rejected_value() != std::string_view{"vsync"}) {
-                std::fprintf(stderr,
-                             "gl_context_parity_test: set_option(vsync=adaptive) refused as %s/%s, "
-                             "expected unsupported/vsync\n",
-                             std::string(glintfx::gltfx_err_code_name(set_adaptive.error().code()))
-                                 .c_str(),
-                             std::string(set_adaptive.error().rejected_value()).c_str());
+                std::fprintf(
+                    stderr,
+                    "gl_context_parity_test: set_option(vsync=adaptive) refused as %s/%s, "
+                    "expected unsupported/vsync\n",
+                    std::string(glintfx::gltfx_err_code_name(set_adaptive.error().code())).c_str(),
+                    std::string(set_adaptive.error().rejected_value()).c_str());
                 return EXIT_FAILURE;
             }
         }
@@ -348,15 +353,15 @@ int main() {
         // independent of whether `adaptive` itself was ever accepted.
         constexpr std::int64_t kToggleSequence[] = {0, 1, 0, 1};
         for (std::int64_t value : kToggleSequence) {
-            if (glintfx::gltfx_rslt<void> set_toggle = context.set_option(
-                    {.id = glintfx::gltfx_gfx_option::vsync, .value = value});
+            if (glintfx::gltfx_rslt<void> set_toggle =
+                    context.set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = value});
                 set_toggle.has_error()) {
-                std::fprintf(stderr,
-                             "gl_context_parity_test: set_option(vsync=%lld) during the toggle "
-                             "sequence failed: %s\n",
-                             static_cast<long long>(value),
-                             std::string(glintfx::gltfx_err_code_name(set_toggle.error().code()))
-                                 .c_str());
+                std::fprintf(
+                    stderr,
+                    "gl_context_parity_test: set_option(vsync=%lld) during the toggle "
+                    "sequence failed: %s\n",
+                    static_cast<long long>(value),
+                    std::string(glintfx::gltfx_err_code_name(set_toggle.error().code())).c_str());
                 return EXIT_FAILURE;
             }
             if (glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped =
@@ -393,15 +398,17 @@ int main() {
             if (info.id == glintfx::gltfx_gfx_option::auto_choice_reason ||
                 info.id == glintfx::gltfx_gfx_option::power_source) {
                 if (support != glintfx::gltfx_gfx_option_support::read_only_here) {
-                    std::fprintf(stderr,
-                                 "gl_context_parity_test: option_support(%s) is not read_only_here\n",
-                                 std::string(info.name).c_str());
+                    std::fprintf(
+                        stderr,
+                        "gl_context_parity_test: option_support(%s) is not read_only_here\n",
+                        std::string(info.name).c_str());
                     return EXIT_FAILURE;
                 }
             }
             if (info.id == glintfx::gltfx_gfx_option::vsync &&
                 support != glintfx::gltfx_gfx_option_support::supported) {
-                std::fprintf(stderr, "gl_context_parity_test: option_support(vsync) is not supported\n");
+                std::fprintf(stderr,
+                             "gl_context_parity_test: option_support(vsync) is not supported\n");
                 return EXIT_FAILURE;
             }
             if (info.id == glintfx::gltfx_gfx_option::msaa_samples) {
@@ -474,9 +481,8 @@ int main() {
                          std::string(reopened.error().rejected_value()).c_str());
             return EXIT_FAILURE;
         }
-        std::fprintf(stdout,
-                     "gl_context_parity_test: reabertura com msaa_samples=4 recusada "
-                     "(invalid_argument/msaa_samples), como esperado\n");
+        std::fprintf(stdout, "gl_context_parity_test: reabertura com msaa_samples=4 recusada "
+                             "(invalid_argument/msaa_samples), como esperado\n");
     }
 
     // No explicit close() call on `window`/`display` - GODS_LAWS.md

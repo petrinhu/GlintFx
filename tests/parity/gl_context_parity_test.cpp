@@ -194,7 +194,7 @@ int main() {
         const auto clear_color = reinterpret_cast<gl_clear_color_fn>(clear_color_addr);
         const auto clear = reinterpret_cast<gl_clear_fn>(clear_addr);
         const auto read_pixels = reinterpret_cast<gl_read_pixels_fn>(read_pixels_addr);
-        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) reason: closes the block above
         (void)gen_vertex_arrays_addr; // resolved and checked non-null above, never called
 
         gl_int gl_major = 0;

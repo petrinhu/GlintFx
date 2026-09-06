@@ -2273,6 +2273,39 @@ add_test(
 )
 set_tests_properties(readme_test_count_selftest PROPERTIES LABELS selftest)
 
+# README volatile-numbers gate (decisao do CTO, mesma fatia do conserto
+# de link WIN-WINDOW/X-2): a narrativa de paridade dos dois paragrafos
+# acima ja apodreceu DUAS vezes em dois dias - uma vez pega pelo gate
+# irmao acima (a frase "has N registered cases..."), uma vez NAO pega
+# por nada (o "Linux's 90", o "88", "ten renamed pairs" contra os 19
+# apelidos reais em tests/parity_aliases.txt, "forty controls" contra os
+# 38 que check_dep_zero.py realmente declara, e uma mensagem de programa
+# citada em ingles que ele nunca imprimiu). O CTO recusou um parser mais
+# esperto da prosa (precisaria de uma ancora por numero, e nove ancoras
+# tornam a prosa refem do portao - precedente citado: o version-sync do
+# ecossistema Rust, que confere token de forma fixa, nunca prosa livre).
+# A saida escolhida: a narrativa para de citar qualquer numero volatil,
+# e este portao reprova qualquer digito que volte a aparecer nela, fora
+# das tres isencoes declaradas no proprio check_readme_volatile_
+# numbers.py (a frase que o gate irmao acima ja possui, spans entre
+# crases, e citacoes L-NN). Registrado SEM guarda de plataforma, mesmo
+# formato do gate irmao (GODS_LAWS.md L-04): este portao le texto, nao
+# constroi nada, nao ha razao para rodar em so um SO.
+add_test(
+    NAME readme_volatile_numbers_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_volatile_numbers.py"
+        "${PROJECT_SOURCE_DIR}/README.md"
+)
+set_tests_properties(readme_volatile_numbers_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME readme_volatile_numbers_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_volatile_numbers.py" --selftest
+)
+set_tests_properties(readme_volatile_numbers_selftest PROPERTIES LABELS selftest)
+
 # Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
 # L-36/L-40): closed static check that every llround/lround/round/
 # nearbyint/rint call under src/ and include/ is either guarded by a

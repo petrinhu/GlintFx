@@ -1331,3 +1331,66 @@ Ele declarou, no relatorio, que **nao sabia qual dos dois desenhistas responderi
 ### O que fica pendente do lider
 
 A **confirmacao retroativa** do descarregamento de binario de terceiro no servidor -- versao e soma de verificacao fixas, medidas baixando o arquivo, nunca copiadas de uma interface. Fica ao lado dos executaveis de teste, jamais no produto.
+
+---
+
+## Ordem do lider: seguir ate as 08:00 de 06/09  `[05/09/26 - 23:23:35]`
+
+**Ordem dele, verbatim, duas mensagens desta sessao:**
+
+> *"siga em modo autonomo. Se tiver duvidas, pergunte ao clevel"*
+
+> *"siga até amanhã, 08:00h"*
+
+**O que muda:** a janela autonoma vai ate **06/09/2026, 08:00** (horario de Recife), e a
+duvida se resolve com o C-level, nao com ele. Isto casa com a correcao que ele ja tinha
+dado hoje as 15:00 (registrada acima): parar para perguntar, em modo autonomo, e uma
+forma de nao trabalhar. O escopo continua sendo ate a W10.
+
+---
+
+## O CTO decidiu como o README fala de paridade, e a resposta foi tirar os numeros  `[05/09/26 - 23:23:35]`
+
+**Contexto (fato medido, nao impressao):** o servidor ficou vermelho tres envios
+seguidos, so na perna do Windows, por tres causas. Ao revisar o conserto, eu achei uma
+quarta coisa, que nenhum portao pega: a narrativa de paridade do `README.md` carrega
+tres numeros que **apodreceram**. Provado por `git log -S`: eles entraram no commit
+`f70002b`, quando o paragrafo declarava Linux 90/88 e Windows 90/90 -- batiam entre si
+naquele dia. Hoje o Linux e 102/100 (medido por mim, build limpo nos dois modos) e o
+Windows 104 (medido do run 34003230176).
+
+**E a SEGUNDA vez em dois dias** que prosa do README apodrece sem portao nenhum morder
+-- ontem foi "explicacao em prosa errada em 3 unidades". Pela L-42, reincidencia obriga
+buscar fora antes da terceira tentativa, e foi o que o CTO fez.
+
+**Decisao dele, em modo autonomo (nao foi levada ao lider, por ordem expressa dele):** a
+narrativa deixa de citar **qualquer numero volatil** e passa a descrever so a ESTRUTURA
+da paridade, apontando para o portao `parity` e para os dois arquivos que ele le
+(`tests/parity_aliases.txt`, `tests/parity_exceptions.txt`) como quem mede. Alem disso,
+os dois paragrafos ganham **um portao novo** que reprova qualquer digito escrito neles
+fora da unica frase que o portao irmao ja confere.
+
+**Por que, pelo LEITOR** (que e um consumidor externo desconhecido, nao nos): um numero
+escrito responde "quanto era no dia em que alguem escreveu", e hoje responde ERRADO. Um
+numero errado nesta secao e **pior que nenhum**: a secao existe para provar rigor, e o
+leitor que rodar a contagem e achar outro valor perde a confianca em todo o resto.
+
+**A alternativa recusada, com a razao:** um portao que entendesse a prosa precisaria de
+uma ancora fixa por numero; nove ancoras numa narrativa a tornam refem do portao. A
+busca externa confirmou o padrao da industria -- conferir **token de forma fixa**, nunca
+prosa livre (precedente do `version-sync`, do ecossistema Rust).
+
+**O que se perde, declarado sem maquiagem:** o leitor perde na pagina o mapa nome-a-nome
+dos pares e a trilha de proveniencia (elas passam a viver na mensagem de commit e no
+historico); e a cerca nova obriga a escrever por extenso ate numero estavel dentro
+daqueles dois paragrafos.
+
+**⚠️ A varredura de gemeos achou 14 afirmacoes numericas sem portao, todas no README**, e
+varias sao **erro de fato**, nao so desatualizacao: uma citacao de saida de programa
+**em ingles que o programa nunca imprimiu** (ele imprime em pt-br), "forty controls" onde
+o script diz 38, e duas afirmacoes que **contradizem** o arquivo de pares. As tres
+conferidas por mim contra a arvore antes de eu aceitar o relatorio.
+
+A decima quarta esta fora do escopo e virou linha de INBOX (`README-STATUS-ROT`): a secao
+"Status" do README declara que nao existe janela, nem entrada, nem motor de estilo,
+contra uma arvore que ja tem os cinco diretorios correspondentes.

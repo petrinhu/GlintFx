@@ -64,7 +64,7 @@ DIR=/algum/diretorio/de/trabalho   # fora do repo; ficou ~4 GB
 mkdir -p "$DIR/opt-msvc" "$DIR/cache"
 
 docker run --rm \
-  -v "$DIR/opt-msvc:/opt/msvc" -v "$DIR/cache:/cache" \
+  -v "$DIR/opt-msvc:/opt/msvc:Z" -v "$DIR/cache:/cache:Z" \
   glintfx-msvc-base:latest \
   python3 /opt/msvc-wine/vsdownload.py --accept-license \
     --cache /cache --dest /opt/msvc \
@@ -73,7 +73,7 @@ docker run --rm \
     --with-atl no --with-asan no --with-dia no \
     --with-msbuild no --with-devcmd no
 
-docker run --rm -v "$DIR/opt-msvc:/opt/msvc" glintfx-msvc-base:latest \
+docker run --rm -v "$DIR/opt-msvc:/opt/msvc:Z" glintfx-msvc-base:latest \
   bash -c 'cd /opt/msvc-wine && ./install.sh /opt/msvc'
 
 docker build -t glintfx-msvc:latest -f tools/msvc-container/Dockerfile.full "$DIR"
@@ -93,7 +93,7 @@ GlintFx usa.
 ### Uso do dia a dia: a linha que importa
 
 ```bash
-docker run --rm -v "$(pwd):/src:ro" glintfx-msvc:latest bash -c '
+docker run --rm -v "$(pwd):/src:ro,Z" glintfx-msvc:latest bash -c '
   cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /c \
     /I /src/include /I /src/build-preci/generated/include /I /src/src \
     /DGLINTFX_LIBRARY_STATIC_DEFINE /D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 \
@@ -126,7 +126,7 @@ comandos deste documento.
 ### Prova de que o cl.exe real compila código de verdade do projeto
 
 ```
-$ docker run --rm -v "$(pwd):/src:ro" glintfx-msvc:latest bash -c '
+$ docker run --rm -v "$(pwd):/src:ro,Z" glintfx-msvc:latest bash -c '
     cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /c \
       /I /src/include /I /src/build-preci/generated/include /I /src/src \
       /DGLINTFX_LIBRARY_STATIC_DEFINE /D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 \

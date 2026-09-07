@@ -1294,12 +1294,58 @@ if(WIN32)
         "${GLINTFX_GENERATED_INCLUDE_DIR}"
         "${PROJECT_SOURCE_DIR}/src"
     )
+    # CI run 34067447918: this target compiles display_facade.cpp/
+    # window_facade.cpp/err.cpp/err_code.cpp DIRECTLY (this file's own
+    # comment above, "does NOT link glintfx::glintfx"), so it never
+    # inherits glintfx_apply_static_define()'s define the normal way
+    # (PUBLIC target_link_libraries propagation - cmake/GlintfxLibrary.
+    # cmake). Without it, include/glintfx/platform/window/display.hpp's
+    # own GLINTFX_API declarations expand to __declspec(dllimport) (no
+    # DLL is ever built here), and MSVC refuses to let the SAME TU both
+    # import and DEFINE a symbol - C4273 "inconsistent dll linkage",
+    # escalated to a hard error by /WX. Reproduced against the real
+    # cl.exe (tools/msvc-container/README.md), fixed the SAME way that
+    # README's own "uso do dia a dia" example already documents for a
+    # standalone win32/*.cpp compile: this define makes GLINTFX_API
+    # expand to nothing, matching that this target never crosses a DLL
+    # boundary at all - the ordinary "no DLL, no decoration" case, not a
+    # workaround specific to this test.
+    target_compile_definitions(win32_facade_pin_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
     target_link_libraries(win32_facade_pin_test PRIVATE glintfx_test_harness user32 shell32 ole32 propsys)
     glintfx_apply_compile_options(win32_facade_pin_test)
     glintfx_copy_runtime_dlls_after_build(win32_facade_pin_test)
     add_test(NAME win32_facade_pin_test COMMAND win32_facade_pin_test)
     set_tests_properties(win32_facade_pin_test PROPERTIES LABELS consume)
 endif()
+
+# Facade export-boundary gate (CI run 34067447918, commit ddd40b3):
+# win32_facade_pin_test right above recompiled display_facade.cpp/
+# window_facade.cpp/err.cpp/err_code.cpp directly, without linking
+# glintfx::glintfx and without GLINTFX_LIBRARY_STATIC_DEFINE - C4273
+# "inconsistent dll linkage" on the real cl.exe, invisible on GCC/Clang
+# (this file's own comment on win32_facade_pin_test explains why) and
+# invisible on THIS machine (the target is if(WIN32)-guarded, so it did
+# not even exist here to warn about anything). This gate is a
+# STRUCTURAL read of this very file - no compile, no Windows, no MSVC
+# needed - so it catches the next occurrence of the same mistake on the
+# machine that writes it, not only on the server five minutes later.
+# Registered WITHOUT a platform guard (GODS_LAWS.md L-04): it reads
+# text, builds nothing.
+find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
+add_test(
+    NAME facade_export_boundary_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_facade_export_boundary.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(facade_export_boundary_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME facade_export_boundary_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_facade_export_boundary.py" --selftest
+)
+set_tests_properties(facade_export_boundary_selftest PROPERTIES LABELS selftest)
 
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system

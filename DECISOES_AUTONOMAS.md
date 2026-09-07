@@ -2140,3 +2140,26 @@ reversiveis, todas esperando confirmacao retroativa:
 
 **A superficie publica nao muda** - conferido, os cabecalhos publicos ficam
 intocados, e o que o consumidor segura continua podendo ser movido.
+
+## 06/09/2026 - 21:47 | Ordem do lider sobre cadencia de entrega
+
+**Verbatim:**
+
+> *"siga as fatias/ondas. commit por fatia, push por onda, apenas se tudo verde e marcado como completado. Autorizo merge fim da onda, autorizo apagar temp e build fim da onda."*
+
+**O que muda, e o que eu vinha fazendo errado.** Ate hoje eu empurrei para o
+ramo publico com o servidor vermelho varias vezes, tratando o push como forma
+de PEDIR a verificacao. A ordem inverte isso: o push e o que acontece DEPOIS da
+verificacao passar, nunca antes. Duas condicoes, as duas obrigatorias:
+
+1. **Tudo verde** - o espelho local e o servidor.
+2. **Marcado como completado** - o item da tabela com o estado certo, tocado no
+   mesmo passo que entrega.
+
+**O que fica autorizado, e so no fim da onda:** juntar o trabalho ao ramo
+principal, e apagar o que sobrou de construcao e de arquivos temporarios.
+
+**Consolidacao pendente:** esta ordem pertence ao canon do projeto (a lei que
+trata de commit, push e ramo). O registro aqui vale desde ja; a escrita no canon
+vai por ramo, como a propria lei agora exige, junto da emenda que ja espera aval
+no ramo `lei/l11-emenda-texto`.

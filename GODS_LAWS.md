@@ -258,6 +258,23 @@ Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativ
 | Trabalho **não verificado**, onda **em andamento**, ou qualquer envio que não seja o fecho | **Ramo próprio.** Nunca `main`. |
 | **Fim de onda**, com **tudo verde** (construção limpa nos dois modos, suíte inteira, portões locais, e o servidor verde) | `main`, e só então. |
 
+**SEGUNDA EMENDA, de 06/09/2026, ordem do lider.** A auditoria das decisoes
+autonomas mediu que esta lei vinha sendo quebrada: um agente decidiu em 04/09
+trabalhar direto no ramo principal, e **23 dos 40 resultados seguintes do
+servidor nesse ramo falharam** (18 de 29 so em 06/09). Levada a ele a escolha,
+com o argumento CONTRA registrado (julgamento caso a caso e onde se erra, e
+documento tambem passa por portao), ele escolheu a **excecao mais estreita**:
+
+| O que vai | Destino |
+|---|---|
+| **Registro de decisao e memoria** - o que nenhum portao exercita | Direto no ramo principal |
+| **Todo o resto**: codigo, construcao, teste, fluxo do servidor, e **todo documento coberto por portao** (este canon, o escopo, os planos, o manual, qualquer coisa que licenca, travessao ou numero volatil reprovem) | **Ramo proprio**, como o codigo |
+
+**Por que a fronteira e esta, e nao "texto contra codigo":** documento coberto
+por portao **tambem constroi** - ele reprova, e ja reprovou nesta mesma noite
+(sete arquivos entraram sem cabecalho de licenca e o vermelho so apareceu no
+servidor). O que sai da regra e apenas o que nenhum portao le.
+
 ⚠️ **"Tudo verde" é o conjunto, não a fatia.** Cada fatia ter passado o próprio portão **não substitui** a verificação de conjunto: é justamente onde fatias entregues em paralelo se atropelam, e onde uma contagem que cada uma ajustou sozinha deixa de bater.
 
 ⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag continuam exigindo **aval explícito no contexto**. O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.

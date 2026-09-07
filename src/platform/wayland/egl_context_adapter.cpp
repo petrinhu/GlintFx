@@ -3,7 +3,10 @@
 
 #include <cerrno>
 #include <chrono>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 // WL_EGL_PLATFORM before <EGL/egl.h> (tests/container/egl_probe_
 // smoke.cpp's own header comment, this fatia's own briefing "leia-a
@@ -21,10 +24,16 @@
 
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/gl/gl_memory_facts.hpp"
 #include "platform/gl/gl_surface_size_policy.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/gl/gpu_kind_seam.hpp"
+#include "platform/gl/memory_separation_kind.hpp"
 #include "platform/wayland/bounded_output_wait.hpp"
 #include "platform/wayland/connection_failure.hpp"
+#include "platform/wayland/drm_device_facts.hpp"
+#include "platform/wayland/drm_gpu_kind.hpp"
+#include "platform/wayland/egl_device_enumeration.hpp"
 #include "platform/wayland/window_adapter.hpp"
 #include "platform/window/window_state.hpp"
 
@@ -143,6 +152,104 @@ constexpr wl_callback_listener k_frame_callback_listener{
         return false;
     }
     return wl_display_dispatch_pending(display) != -1;
+}
+
+// classify_current_gpu() - GL-GPU-KIND (docs/plano-w6b-fatias-5.md
+// sec. 4.1; docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3, D-W6b-30/
+// 33/38): the ONE place this adapter walks kernel -> via 1 (exclusion)
+// -> via 2 (memory separation) -> unknown - a call into gpu_kind_seam.
+// hpp's own two pure functions since the CONSERTO of 07/09/2026
+// (revisão adversarial da fatia 5b; ver o header daquele arquivo para
+// o achado e o RED literal). `enumeration_index` is found by matching
+// THIS display's own egl_device_facts (by render node, falling back to
+// primary node) against the survivor list enumerate_egl_devices()
+// already deduplicated - the SAME list via 1 walks for "some OTHER
+// entry is `shared`".
+[[nodiscard]] std::pair<glintfx::gltfx_gpu_kind, std::uint32_t>
+classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcept {
+    using glintfx::gltfx_gpu_kind;
+    using glintfx::k_gltfx_gpu_index_unknown;
+    using glintfx::platform::classify_by_memory_separation;
+    using glintfx::platform::classify_drm_gpu;
+    using glintfx::platform::enumerate_egl_devices;
+    using glintfx::platform::resolve_kernel_and_exclusion;
+    using glintfx::platform::resolve_memory_separation;
+
+    const egl_device_facts current = query_egl_display_device(egl_display);
+
+    // O PORTÃO DE CERTEZA (CONSERTO 07/09/2026): `current.queried`
+    // vem direto de query_egl_display_device() - só é `true` quando a
+    // extensão realmente respondeu. `!current.queried` significa "o
+    // sistema não disse nada", NUNCA "não é software" - antes deste
+    // conserto, esse caso caía na via 2 do mesmo jeito que um `queried
+    // && !software` real, e é exatamente o achado da revisão.
+    const bool definitely_not_software = current.queried && !current.software;
+
+    gltfx_gpu_kind kernel_kind = gltfx_gpu_kind::unknown;
+    if (current.queried) {
+        if (current.software) {
+            kernel_kind = gltfx_gpu_kind::software;
+        } else {
+            const std::string &node =
+                !current.render_node.empty() ? current.render_node : current.primary_node;
+            if (!node.empty()) {
+                kernel_kind = classify_drm_gpu(read_drm_device_facts(node));
+            }
+        }
+    }
+
+    std::uint32_t enumeration_index = k_gltfx_gpu_index_unknown;
+    std::vector<gltfx_gpu_kind> kinds;
+    const glintfx::gltfx_rslt<std::vector<egl_device_facts>> devices = enumerate_egl_devices();
+    if (devices.has_value()) {
+        const std::vector<egl_device_facts> &survivors = devices.value();
+        kinds.reserve(survivors.size());
+
+        for (std::size_t i = 0; i < survivors.size(); ++i) {
+            const egl_device_facts &survivor = survivors[i];
+            const bool is_current =
+                current.queried &&
+                ((!current.render_node.empty() && current.render_node == survivor.render_node) ||
+                 (current.render_node.empty() && !current.primary_node.empty() &&
+                  current.primary_node == survivor.primary_node) ||
+                 (current.render_node.empty() && current.primary_node.empty() &&
+                  current.software == survivor.software && survivor.render_node.empty() &&
+                  survivor.primary_node.empty()));
+            if (is_current && enumeration_index == k_gltfx_gpu_index_unknown) {
+                enumeration_index = static_cast<std::uint32_t>(i);
+            }
+
+            gltfx_gpu_kind survivor_kind = gltfx_gpu_kind::unknown;
+            if (survivor.software) {
+                survivor_kind = gltfx_gpu_kind::software;
+            } else {
+                const std::string &node =
+                    !survivor.render_node.empty() ? survivor.render_node : survivor.primary_node;
+                if (!node.empty()) {
+                    survivor_kind = classify_drm_gpu(read_drm_device_facts(node));
+                }
+            }
+            kinds.push_back(survivor_kind);
+        }
+    }
+
+    const gltfx_gpu_kind after_via1 =
+        resolve_kernel_and_exclusion(kernel_kind, enumeration_index, kinds);
+
+    // A via 2 só é LIDA (uma chamada GL de verdade) quando ainda falta
+    // resposta E há certeza de que não é software - nunca lida e
+    // depois descartada (gpu_kind_seam.hpp's own header comment).
+    std::optional<gltfx_gpu_kind> via2;
+    if (after_via1 == gltfx_gpu_kind::unknown && definitely_not_software) {
+        auto get_error = reinterpret_cast<unsigned int (*)()>(eglGetProcAddress("glGetError"));
+        const gl_memory_facts memory_facts = read_gl_memory_facts(get_integerv, get_error);
+        via2 = classify_by_memory_separation(memory_facts);
+    }
+
+    const gltfx_gpu_kind kind =
+        resolve_memory_separation(after_via1, definitely_not_software, via2);
+
+    return {kind, enumeration_index};
 }
 
 } // namespace
@@ -410,9 +517,11 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
     }
 
     const gl_ubyte *renderer = get_string(k_gl_renderer);
-    m_gpu.learn(gltfx_gpu_kind::unknown, renderer != nullptr
-                                             ? reinterpret_cast<const char *>(renderer)
-                                             : std::string_view{});
+    const std::string_view renderer_name =
+        renderer != nullptr ? reinterpret_cast<const char *>(renderer) : std::string_view{};
+
+    const auto [gpu_kind, gpu_index] = classify_current_gpu(m_egl_display, get_integerv);
+    m_gpu.learn(gpu_kind, renderer_name, gpu_index);
     return gltfx_rslt<void>::ok();
 }
 

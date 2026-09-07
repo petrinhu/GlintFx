@@ -2248,6 +2248,28 @@ passos. O lider recebe tudo junto quando pedir, nao uma pergunta de cada vez.
 **Uma decisao ele deu junto, ja fechada:** o conserto do fim de linha vindo do
 Windows entra como **fatia nova**, nao reabrindo a que ja fechou.
 
+## 07/09/2026 - 00:05 | O portao de sintaxe dos scripts do Windows deixa de ficar bloqueado
+
+**Ordem do lider, verbatim:** *"ponha a imagem do powershell no container"*
+
+Ele perguntou o que faltava na maquina dele para melhorar os testes; respondi com tres
+coisas, e ele autorizou a primeira - a unica que estava BLOQUEANDO um portao agora.
+
+**O que estava acontecendo:** um dos estagios do espelho local confere a sintaxe dos
+scripts que so rodam no Windows. Ele nunca puxa nada sozinho, por desenho, entao ficava
+recusando por falta da ferramenta - e toda fatia que tocava o lado Windows saia daqui
+com esse estagio declarado como "nao executado". Era pendencia recorrente, nao eventual.
+
+**Feito e provado:** a ferramenta foi trazida para dentro de um container, e a
+verificacao rodou de verdade sobre os quinze scripts do projeto - todos limpos, codigo
+de saida zero. Nada instalado fora do container.
+
+**As outras duas que ficaram, e que ele nao autorizou (nem precisava):** uma maquina
+virtual Windows, que destravaria a unica classe hoje impossivel aqui - EXECUTAR binario
+do Windows, que e o que falta para duas mutacoes e para a prova de apresentar depois de
+restaurar janela minimizada; e uma placa de video AMD, que nenhuma ferramenta substitui,
+e cuja linha de classificacao segue como inferencia declarada.
+
 ## 07/09/2026 - 00:30 | A fronteira do compilador da Microsoft aqui, em tres camadas
 
 **Origem:** o lider trouxe o texto tecnico do interlocutor dele e pediu resposta;

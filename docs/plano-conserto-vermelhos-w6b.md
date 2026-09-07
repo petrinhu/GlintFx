@@ -56,6 +56,35 @@ Leis que este plano aplica, para o implementador colar no próprio briefing (cam
 
 **Limite declarado do portão:** include de arquivo nosso com o nome errado (não existe em lugar nenhum) sai como "externo" e passa aqui; o `g++` da imagem o pega logo depois. É a mesma classe de limitação que `check_macro_balance.py` declara no cabeçalho.
 
+## 3.1 Decisão 3 (CTO, 06/09/2026 22:51:40, hora real de `date`, a partir da lente de referência): o desenho SEGUINTE do job de container, que apaga a classe de erro em vez de vigiá-la
+
+**A Decisão 2 continua sendo o conserto certo para o vermelho de hoje e não muda.** Esta decisão é sobre a fatia seguinte, e foi tomada pelo C-level porque o líder proibiu que dúvidas subam a ele (ordem de 06/09/2026, relatada pelo orquestrador). Registrada para confirmação retroativa (L-34): é arquitetura de CI.
+
+**Fatos medidos agora, contra `601cbbf`:** o contexto do `docker build` é `tests/container` (`ci.yml`, `context: tests/container`), que pesa 236 KB mais a fixture estagiada (`src/` 1,3 MB, `include/` 300 KB, `tests/parity/`); a árvore inteira sem `build*/` e `.git/` pesa **12 MB** (`du -sh --exclude='build*' --exclude='.git' .`); não existe `.dockerignore` em lugar nenhum; o `Containerfile` tem **14** linhas `g++` (`grep -c 'g++ -std=c++23'`), cada uma com a lista de TUs escrita à mão, e nenhum portão confere o fecho de **ligação** (achado C2 do plano das fatias 5: um `.cpp` esquecido só aparece como `undefined reference` dentro do `docker build`). **FONTE (lente §0.1):** o SDL3 não estagia nada: o container é do job inteiro (`container:` no YAML) com o checkout dentro, e os testes rodam por `ctest`; a classe "cópia sem arquivo" não existe lá porque não há cópia. A comunidade Docker resolve contexto grande com `.dockerignore` na raiz (Baeldung, já citado em §1). O RmlUi não usa container.
+
+**As três opções, e o que cada uma faz com as duas classes de erro (cópia sem arquivo; fecho de ligação só no `docker build`):**
+
+| Opção | Cópia sem arquivo | Fecho de ligação | Regra 7 do `CLAUDE.md` ("a mesma imagem local e no CI") | Superfície do `check_isolation.sh` |
+|---|---|---|---|---|
+| Hoje (Decisão 2): fixture estagiada + portão de includes | vigiada por portão | **aberta** (C2) | intacta | intacta |
+| **(a) contexto na raiz com `.dockerignore`, e os binários das fixtures construídos pelo CMake dentro do estágio builder** | **não existe** (não há cópia) | **fechada pelo CMake**, e provada no host antes de qualquer `docker build` | intacta (a imagem contém o código) | intacta (nenhuma montagem) |
+| (b) imagem só com compositor e toolchain; checkout montado no `docker run`; compilação por `docker exec` | não existe | fechada dentro do container, só lá | **quebrada como escrita** (a imagem deixa de conter o código) | **alargada**: uma montagem passa a ser permitida, e a lista proibida ganha uma exceção |
+
+**Escolha: (a).** O que ela é, em concreto, para o planejador da fatia: `context: .` e `file: tests/container/Containerfile` no CI (e `docker build -f tests/container/Containerfile .` local); `.dockerignore` na raiz ignorando `build*/`, `.git/`, `tests/container/_arch_ports_src/` e o que mais não entra no build; o estágio builder recebe `COPY . /src` e roda `cmake -S /src -B /build -G Ninja -DGLINTFX_CONTAINER_FIXTURES=ON && cmake --build /build`; cada fixture vira um alvo executável declarado em `tests/CMakeLists.txt` por uma função `glintfx_add_container_fixture(<nome> <fontes...>)`, sob `if(UNIX AND GLINTFX_CONTAINER_FIXTURES)`, **sem `add_test`** (a fixture continua rodando por `docker exec`, então `ctest -N` não muda e os portões de paridade por nome não são tocados); o estágio final faz `COPY --from=builder /build/<fixture>` como hoje, e `check_container_fixture_inventory.py` continua conferindo `COPY --from` × `echo`. **O que fecha o C2 de verdade:** `tools/preci.sh` passa a configurar com `-DGLINTFX_CONTAINER_FIXTURES=ON` no Linux, então um `.cpp` esquecido cai no link do **host**, em segundos, antes de qualquer trabalho pesado, e a lista de TUs de cada fixture passa a morar onde o resto do projeto já declara a sua (o `target_sources` dos testes internos), não em 14 linhas de shell dentro de um `Containerfile`.
+
+**Por que não (b), embora seja o que mais se parece com o espelho:** a regra 7 da seção de isolamento do `CLAUDE.md` é ordem do líder ("a mesma imagem de container usada localmente é a que roda na matriz"), e (b) a quebra como está escrita; mudar a regra é decisão dele, não minha, e a ordem de hoje foi decidir sem subir. E (b) acrescenta uma montagem à superfície que `check_isolation.sh` existe para manter fechada: alargar uma lista de negação por conveniência é o movimento que a L-02 global proíbe (a negação vence; se não dá para abrir exceção sem afrouxar a negativa, reporta-se a limitação). **Por que não ficar como hoje:** a classe "cópia sem arquivo" já mordeu três vezes, o portão de includes é remendo para uma classe que só existe porque escolhemos estagiar, e o C2 continua aberto.
+
+**O que se perde com (a), dito antes:**
+
+1. O `Containerfile` deixa de ser autocontido em `tests/container/`: quem o constrói à mão precisa passar `-f` e a raiz como contexto; a linha de comando entra no cabeçalho dele e no `preci.sh`.
+2. Um `.dockerignore` na raiz para manter. O modo de falha é o bom: ignorar algo necessário faz o `cmake` do builder falhar **alto**, nunca em silêncio.
+3. O contexto sobe de ~2 MB para 12 MB medidos. Irrelevante para o `docker build`; registrado para não virar surpresa.
+4. O builder passa a rodar `cmake` + `ninja` (pacotes que o job `linux` Fedora já instala) e a configurar a árvore inteira, não só compilar 14 linhas. O tempo do `docker build` é **medido no primeiro run e impresso**, nunca estimado aqui (L-08); a aposta declarada é que cai, porque hoje as 14 linhas recompilam os mesmos TUs 14 vezes e o CMake compila cada um uma vez.
+5. As duas peças que a Decisão 2 acabou de criar (`prepare_arch_ports_fixture.sh` reescrito e `check_container_fixture_includes.py`, com o selftest e as fixtures de `tests/preci_fixtures/`) morrem jovens: **apagadas, não arquivadas** (L-67), no commit da fatia. A lição delas já está na memória da casa ("portão que congela fato do ambiente"), não precisa do código para sobreviver.
+6. A fatia toca `ci.yml`, `Containerfile`, `tests/CMakeLists.txt` e `tools/preci.sh`, os arquivos que sempre colidem: **só depois de a fatia 5b commitar**, nunca em paralelo com fatia de plataforma.
+
+**Item proposto ao orquestrador (a tabela é dele):** `CONTAINER-CMAKE-FIXTURES`, escrito pronto para colar em `docs/lente-referencia-planos.md` §4.1.
+
 ## 4. Fatias de implementação, na ordem
 
 Dois commits, nesta ordem, cada um com `tools/preci.sh` verde antes (`preci.sh` roda ANTES de commitar; capture o código de saída de variável, nunca da tela). **Antes de tocar qualquer arquivo, ler `git status` e `git diff`; a reescrita de F1 é base, não lixo: nenhum `checkout --`/`stash`/`reset` (L-25).**
@@ -144,3 +173,4 @@ Após 5.3, 5.5 e 5.6, **rodar o script de fixture de novo** para restaurar o est
 1. **O README não declara mais contagem de testes; o valor mora no comando local e no resumo do job `parity`.** Reversível (é texto), mas altera uma promessa pública do README. Confirmar retroativamente com o líder.
 2. **`check_readme_test_count.py` é apagado, não arquivado** (L-67), com o incidente 1 da calibração de `check_env_sweep.py` removido.
 3. **A fixture do container passa a estagiar `src/`, `include/` e `tests/parity/` inteiros** (inclusive `win32/`), com o portão de includes como verificador separado.
+4. **(Decisão 3, 06/09/2026 22:51) O desenho seguinte do job de container é o contexto na raiz com `.dockerignore` e as fixtures construídas pelo CMake dentro do estágio builder**, apagando a fixture estagiada e o portão de includes quando entrar; a regra 7 do `CLAUDE.md` e o `check_isolation.sh` ficam intactos. É arquitetura de CI: **confirmar retroativamente com o líder**, e a fatia só nasce depois disso e depois da 5b commitada.

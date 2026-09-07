@@ -3,11 +3,21 @@
 
 #if defined(_WIN32)
 
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/gl/gl_memory_facts.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/gl/gpu_kind_seam.hpp"
+#include "platform/gl/memory_separation_kind.hpp"
+#include "platform/win32/dxcore_adapter_enumeration.hpp"
+#include "platform/win32/dxcore_adapter_match.hpp"
+#include "platform/win32/dxcore_gpu_kind.hpp"
+#include "platform/win32/gl_device_luid.hpp"
 #include "platform/win32/wgl_extension_loader.hpp"
 #include "platform/win32/wgl_proc_address.hpp"
 #include "platform/win32/window_adapter.hpp"
@@ -112,6 +122,83 @@ using wgl_get_extensions_string_arb_fn = const char *(WINAPI *)(HDC);
 // already gives for its own identical declaration of glGetString.
 extern "C" const gl_ubyte *WINAPI glGetString(gl_enum name);
 extern "C" void WINAPI glGetIntegerv(gl_enum pname, gl_int *params);
+extern "C" gl_enum WINAPI glGetError(void);
+
+namespace {
+
+// classify_current_gpu() - GL-GPU-KIND (docs/plano-w6b-fatias-5b-
+// revisao.md sec. 3/4.1, D-W6b-37): the Win32 mirror of egl_context_
+// adapter.cpp's own function of the same name, one directory over -
+// LUID match against DXCore's own enumeration, `classify_dxcore_gpu()`
+// for the matched adapter, then a call into gpu_kind_seam.hpp's own
+// two pure functions (via 1 exclusion, over EVERY adapter classified
+// against ITSELF; via 2, GL_NVX_gpu_memory_info) when DXCore itself
+// does not resolve `IsIntegrated` (D-W6b-37 regra 4) - CONSERTO
+// 07/09/2026 (revisão adversarial da fatia 5b; ver gpu_kind_seam.hpp's
+// own header comment for the achado and the RED literal).
+[[nodiscard]] std::pair<glintfx::gltfx_gpu_kind, std::uint32_t>
+classify_current_gpu(std::string_view renderer_name, gl_get_integerv_fn get_integerv,
+                     void *get_unsigned_bytev_ext) noexcept {
+    using glintfx::gltfx_gpu_kind;
+    using glintfx::k_gltfx_gpu_index_unknown;
+    using glintfx::platform::resolve_kernel_and_exclusion;
+    using glintfx::platform::resolve_memory_separation;
+
+    const gltfx_rslt<std::vector<dxcore_adapter_facts>> adapters = enumerate_dxcore_adapters();
+    if (adapters.has_error()) {
+        return {gltfx_gpu_kind::unknown, k_gltfx_gpu_index_unknown};
+    }
+    const std::vector<dxcore_adapter_facts> &list = adapters.value();
+
+    const std::uint64_t gl_luid =
+        read_gl_device_luid(reinterpret_cast<gl_get_unsigned_bytev_ext_fn>(get_unsigned_bytev_ext));
+
+    const std::optional<std::size_t> matched = match_dxcore_adapter(list, gl_luid, renderer_name);
+    const gltfx_gpu_kind kernel_kind = classify_dxcore_gpu(list, matched);
+
+    // O PORTÃO DE CERTEZA (CONSERTO 07/09/2026): só há certeza de que
+    // NÃO é software quando o DXCore respondeu de verdade `IsHardware`
+    // PARA O ADAPTADOR CASADO com este contexto - "não casou nenhum
+    // adaptador" e "o DXCore não sabe responder a propriedade" são as
+    // duas formas de "o sistema não disse nada" (regras 1 e 2 de
+    // D-W6b-37), NUNCA "é hardware" - antes deste conserto, as duas
+    // caíam na via 2 do mesmo jeito que um `IsHardware=true` real, e é
+    // exatamente o achado da revisão adversarial.
+    const bool definitely_not_software =
+        matched.has_value() && list[*matched].hardware_supported && list[*matched].is_hardware;
+
+    std::vector<gltfx_gpu_kind> kinds;
+    if (kernel_kind == gltfx_gpu_kind::unknown && matched.has_value()) {
+        kinds.reserve(list.size());
+        for (std::size_t i = 0; i < list.size(); ++i) {
+            kinds.push_back(classify_dxcore_gpu(list, i));
+        }
+    }
+
+    const std::uint32_t enumeration_index =
+        matched.has_value() ? static_cast<std::uint32_t>(*matched) : k_gltfx_gpu_index_unknown;
+
+    const gltfx_gpu_kind after_via1 =
+        resolve_kernel_and_exclusion(kernel_kind, enumeration_index, kinds);
+
+    // A via 2 só é LIDA (uma chamada GL de verdade) quando ainda falta
+    // resposta E há certeza de que não é software - nunca lida e
+    // depois descartada (gpu_kind_seam.hpp's own header comment).
+    std::optional<gltfx_gpu_kind> via2;
+    if (after_via1 == gltfx_gpu_kind::unknown && definitely_not_software) {
+        auto get_error = reinterpret_cast<gl_get_error_fn>(&glGetError);
+        auto get_integerv_shared = reinterpret_cast<::gl_get_integerv_fn>(get_integerv);
+        const gl_memory_facts memory_facts = read_gl_memory_facts(get_integerv_shared, get_error);
+        via2 = classify_by_memory_separation(memory_facts);
+    }
+
+    const gltfx_gpu_kind kind =
+        resolve_memory_separation(after_via1, definitely_not_software, via2);
+
+    return {kind, enumeration_index};
+}
+
+} // namespace
 
 win32_gl_context_adapter::~win32_gl_context_adapter() { close(); }
 
@@ -258,9 +345,17 @@ win32_gl_context_adapter::create_context(void *create_context_attribs_arb) noexc
     }
 
     const gl_ubyte *renderer = glGetString(k_gl_renderer);
-    m_gpu.learn(gltfx_gpu_kind::unknown, renderer != nullptr
-                                             ? reinterpret_cast<const char *>(renderer)
-                                             : std::string_view{});
+    const std::string_view renderer_name =
+        renderer != nullptr ? reinterpret_cast<const char *>(renderer) : std::string_view{};
+
+    // D-W6b-32: resolved through the SAME resolve_wgl_proc_address()
+    // atom proc_address() below hands a consumer - glGetUnsignedBytevEXT
+    // is a GL 3.0+ extension entry point, never a fixed opengl32.dll
+    // export (unlike glGetString/glGetIntegerv above).
+    void *get_unsigned_bytev_ext = resolve_wgl_proc_address("glGetUnsignedBytevEXT");
+    const auto [gpu_kind, gpu_index] =
+        classify_current_gpu(renderer_name, &glGetIntegerv, get_unsigned_bytev_ext);
+    m_gpu.learn(gpu_kind, renderer_name, gpu_index);
     return gltfx_rslt<void>::ok();
 }
 

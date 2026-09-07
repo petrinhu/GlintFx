@@ -35,6 +35,15 @@
 // view it is given (typically GL_RENDERER's own lifetime-static C
 // string, valid for as long as the context is current) - an empty
 // name stays empty, never replaced with a placeholder.
+//
+// `enumeration_index` (GL-GPU-KIND, docs/plano-w6b-fatias-5.md sec.
+// 4.1, D-W6b-33) - the THIRD argument learn() gained on top of the
+// original two: the position this GPU has in the SAME enumeration the
+// calling adapter already built (gltfx_gpu_enumeration, gpu.hpp) to
+// classify it in the first place, keyed by render node/LUID, never
+// re-derived. Defaults to `k_gltfx_gpu_index_unknown` (gpu.hpp) so
+// every existing two-argument call site keeps reading back the honest
+// "not located" sentinel, exactly as before this fatia.
 
 namespace glintfx::platform {
 
@@ -42,22 +51,26 @@ class gpu_kind_state {
   public:
     gpu_kind_state() noexcept = default;
 
-    // Overwrites both fields at once - a GPU never has a `kind`
+    // Overwrites all three fields at once - a GPU never has a `kind`
     // without a `name` to go with it in this atom's own contract (an
     // empty name is still a legitimate name, per this header's own
     // "NAME IS NEVER FABRICATED" paragraph above).
-    void learn(gltfx_gpu_kind kind, std::string_view name) noexcept {
+    void learn(gltfx_gpu_kind kind, std::string_view name,
+               std::uint32_t enumeration_index = k_gltfx_gpu_index_unknown) noexcept {
         m_kind = kind;
         m_name = name;
+        m_enumeration_index = enumeration_index;
     }
 
     [[nodiscard]] gltfx_gpu_info read() const noexcept {
-        return gltfx_gpu_info{.kind = m_kind, .name = m_name, .enumeration_index = 0};
+        return gltfx_gpu_info{
+            .kind = m_kind, .name = m_name, .enumeration_index = m_enumeration_index};
     }
 
   private:
     gltfx_gpu_kind m_kind = gltfx_gpu_kind::unknown;
     std::string_view m_name;
+    std::uint32_t m_enumeration_index = k_gltfx_gpu_index_unknown;
 };
 
 } // namespace glintfx::platform

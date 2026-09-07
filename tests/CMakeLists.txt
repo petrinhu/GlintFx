@@ -732,6 +732,88 @@ target_sources(frame_callback_sequence_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
 )
 
+# GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.4; docs/plano-w6b-
+# fatias-5b-revisao.md sec. 4.3, D-W6b-30/33/38): the SAME "domain, not
+# only" shape as window_configure_sequence_test/frame_callback_
+# sequence_test right above - drm_gpu_kind.cpp/egl_device_dedup.cpp
+# live under src/platform/wayland/ because the KNOWLEDGE (DRM driver
+# names, EGLDeviceEXT render nodes) is Wayland/Linux-domain, but
+# neither .cpp reaches a Wayland or Linux header - both register
+# unguarded and run on all five platforms.
+glintfx_add_test(drm_gpu_kind_test)
+target_include_directories(drm_gpu_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(drm_gpu_kind_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+)
+
+glintfx_add_test(egl_device_dedup_test)
+target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(egl_device_dedup_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+)
+
+# GL-GPU-KIND, vias 1/2 (docs/plano-w6b-fatias-5b-revisao.md sec.
+# 1.5/3/4.2, D-W6b-38): OS-AGNOSTIC on purpose - they reason about an
+# already-classified gltfx_gpu_kind enumeration (via 1) or a GL_NVX_
+# gpu_memory_info reading off the current context (via 2), used by
+# BOTH the Linux "nvidia-drm answers nothing" case and the Win32
+# reserve for when DXCore itself does not answer IsIntegrated (D-W6b-
+# 37 regra 4) - same reasoning src/platform/gl/CMakeLists.txt's own
+# gl_context_facade.cpp comment already gives for living in gl/.
+glintfx_add_test(gpu_kind_exclusion_test)
+target_include_directories(gpu_kind_exclusion_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gpu_kind_exclusion_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
+glintfx_add_test(memory_separation_kind_test)
+target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(memory_separation_kind_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+)
+
+# CONSERTO (07/09/2026, GL-GPU-KIND, revisão adversarial da fatia 5b):
+# a COSTURA entre kernel/DXCore -> via 1 -> via 2 (classify_current_
+# gpu(), duplicada nos dois arquivos platform/{wayland,win32}/*_
+# context_adapter.cpp) não tinha teste nenhum - gpu_kind_seam.hpp/.cpp's
+# own header comment has the full account, RED literal included.
+# Depende de gpu_kind_exclusion.cpp (via 1) pela mesma razão que
+# gpu_kind_seam.cpp já depende dele em src/platform/gl/CMakeLists.txt.
+glintfx_add_test(gpu_kind_seam_test)
+target_include_directories(gpu_kind_seam_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gpu_kind_seam_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
+# CONSERTO (06/09/2026, GL-GPU-KIND, achado do team-lead medido dentro
+# do container real: um driver que responde "GL_NVX_gpu_memory_info
+# suportada" mas escreve memoria nao inicializada de volta) -
+# read_gl_memory_facts.cpp's own header comment has the full account.
+glintfx_add_test(gl_memory_facts_test)
+target_include_directories(gl_memory_facts_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_memory_facts_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+)
+
+# GL-GPU-KIND, Windows (docs/plano-w6b-fatias-5b-revisao.md sec.
+# 3/4.1/4.3, D-W6b-37): Win32-DOMAIN, not Win32-ONLY - the SAME shape
+# as drm_gpu_kind_test above, mirrored for the DXCore side: neither
+# dxcore_adapter_match.cpp nor dxcore_gpu_kind.cpp reaches a Win32 or
+# COM header, so both register unguarded and run on all five
+# platforms.
+glintfx_add_test(dxcore_adapter_match_test)
+target_include_directories(dxcore_adapter_match_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(dxcore_adapter_match_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+)
+
+glintfx_add_test(dxcore_gpu_kind_test)
+target_include_directories(dxcore_gpu_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(dxcore_gpu_kind_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_
@@ -1226,6 +1308,22 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
     )
     target_link_libraries(win32_wgl_extension_loader_test PRIVATE user32 gdi32 opengl32)
+
+    # dxcore_reader_probe_test - GL-GPU-KIND (docs/plano-w6b-fatias-5b-
+    # revisao.md sec. 4.6): "the leitor ran against the real system and
+    # this is what it saw", paired with tests/container/egl_device_
+    # reader_probe.cpp (tests/parity_aliases.txt) - the SAME "link src/
+    # directly, no guard needed inside an already-if(WIN32) block"
+    # shape win32_wgl_extension_loader_test just above uses. No system
+    # library beyond what dxcore_adapter_enumeration.cpp itself needs
+    # (kernel32's LoadLibraryW/GetProcAddress, already linked
+    # transitively through user32/the CRT - dxcore.dll is NEVER a link-
+    # time dependency, only a runtime LoadLibraryW target).
+    glintfx_add_test(dxcore_reader_probe_test)
+    target_include_directories(dxcore_reader_probe_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(dxcore_reader_probe_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+    )
 
     # win32_iconic_present_test - NAMED to line up with docs/plano-w6b-
     # placa-e-laco.md's own fatia 4 table row ("Prova Windows" column):
@@ -1776,6 +1874,29 @@ add_test(
 # costs nothing and keeps the taxonomy uniform across every selftest in
 # this file, sh or python3 alike.
 set_tests_properties(x11_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# GL-GPU-KIND driver-name table gate (docs/plano-w6b-fatias-5b-
+# revisao.md sec. 3/4.3, D-W6b-30/38, GODS_LAWS.md L-40): proves gpu.
+# hpp's own GLINTFX-DRM-DRIVER-TABLE marked line and drm_gpu_kind.cpp's
+# own if-chain name the SAME set of DRM driver names. Registered
+# unguarded from birth (check_drm_driver_table.py's own header - the
+# GATE-TREE-PARITY lesson x11_test/x11_selftest already paid for once,
+# not repeated here).
+add_test(
+    NAME drm_driver_table_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_drm_driver_table.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(drm_driver_table_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME drm_driver_table_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_drm_driver_table.py" --selftest
+)
+set_tests_properties(drm_driver_table_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 

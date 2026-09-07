@@ -46,4 +46,36 @@ target_sources(glintfx_library PRIVATE
     gl_version_policy.cpp
     gl_surface_size_policy.cpp
     gl_context_facade.cpp
+    gpu_kind_exclusion.cpp
+    gl_memory_facts.cpp
+    memory_separation_kind.cpp
+    gpu_kind_seam.cpp
+    gpu_enumeration_facade.cpp
 )
+
+# GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3/4.2,
+# D-W6b-38, GODS_LAWS.md L-04/L-07): the lider's own two vias for when
+# neither the Linux kernel nor Windows' own DXCore answers a GPU's
+# class - gpu_kind_exclusion.cpp (via 1, "some OTHER GPU is `shared`")
+# and gl_memory_facts.cpp/memory_separation_kind.cpp (via 2, GL_NVX_
+# gpu_memory_info) - OS-AGNOSTIC on purpose (D-W6b-38's own header
+# comment on gpu_kind_exclusion.hpp): they reason over plain data
+# (an already-classified enum list, or a GL_NVX reading), used by BOTH
+# the Linux "nvidia-drm answers nothing" path (egl_context_adapter.cpp)
+# and the Win32 reserve for when DXCore itself does not answer
+# IsIntegrated (D-W6b-37 regra 4, wgl_context_adapter.cpp). gpu_
+# enumeration_facade.cpp is gltfx_gpu_enumeration's own PIMPL body -
+# WIRED IN NOW (unlike gl_context_facade.cpp's own history one section
+# above): both src/platform/wayland/egl_device_enumeration.hpp (this
+# same push) and src/platform/win32/dxcore_adapter_enumeration.hpp
+# (this same push) exist together, so there is no "only one platform
+# compiles" window to avoid this time.
+#
+# gpu_kind_seam.cpp - CONSERTO (07/09/2026, revisão adversarial da
+# fatia 5b): a COSTURA entre kernel/DXCore -> via 1 -> via 2 vivia
+# duplicada, sem teste nenhum, inline dentro de classify_current_gpu()
+# nos dois arquivos acima - extraída para cá exatamente pela mesma
+# razão do parágrafo anterior (OS-agnóstico, os dois lados chamam a
+# MESMA função, GODS_LAWS.md L-04). gpu_kind_seam.hpp/.cpp's own header
+# comment has the full account, including the RED literal this
+# conserto saw before the fix.

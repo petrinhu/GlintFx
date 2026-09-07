@@ -155,6 +155,7 @@ COPY shell_smoke.cpp /build/shell_smoke.cpp
 COPY window_smoke.cpp /build/window_smoke.cpp
 COPY egl_probe_smoke.cpp /build/egl_probe_smoke.cpp
 COPY egl_protocol_error_smoke.cpp /build/egl_protocol_error_smoke.cpp
+COPY egl_device_reader_probe.cpp /build/egl_device_reader_probe.cpp
 COPY seat_test.cpp /build/seat_test.cpp
 COPY two_displays_test.cpp /build/two_displays_test.cpp
 COPY facade_pin_smoke.cpp /build/facade_pin_smoke.cpp
@@ -325,10 +326,19 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/window/window_facade.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_open_only_fixation.cpp \
@@ -337,6 +347,45 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/_arch_ports_src/tests/parity/gl_context_parity_test.cpp \
+        $(pkg-config --libs wayland-client wayland-egl egl) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client wayland-egl egl) \
+        -o /build/egl_device_reader_probe \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/platform/window/display_facade.cpp \
+        /build/_arch_ports_src/src/platform/window/window_facade.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
+        /build/_arch_ports_src/src/platform/gl/gfx_open_only_fixation.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_context_desc_validation.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/egl_device_reader_probe.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
     && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
@@ -353,6 +402,14 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
@@ -378,6 +435,14 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/window/display_facade.cpp \
         /build/_arch_ports_src/src/platform/window/window_facade.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
@@ -403,10 +468,19 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/window/display_facade.cpp \
         /build/_arch_ports_src/src/platform/window/window_facade.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_open_only_fixation.cpp \
@@ -447,6 +521,7 @@ COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
 COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
+COPY --from=arch-ports-builder /build/egl_device_reader_probe /usr/local/bin/egl_device_reader_probe
 COPY --from=arch-ports-builder /build/facade_pin_smoke /usr/local/bin/facade_pin_smoke
 COPY --from=arch-ports-builder /build/window_active_after_map_smoke /usr/local/bin/window_active_after_map_smoke
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
@@ -456,6 +531,7 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
         /usr/local/bin/seat_test /usr/local/bin/window_parity_test \
         /usr/local/bin/gl_context_parity_test /usr/local/bin/egl_protocol_error_smoke \
+        /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the

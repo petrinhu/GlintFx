@@ -2344,3 +2344,21 @@ cumprir o papel dela, instala-se, sem voltar a perguntar.
 disco e rede ficam imitados e qualquer medicao de tempo mente), e o que o
 proprio ato de EXECUTAR os nossos binarios exigir. Nada alem disso sem motivo
 escrito.
+
+## 07/09/2026 - 01:54 | Modo autonomo ligado ate o fim desta onda
+
+**Ordem do lider, verbatim:** *"depois faça o que precisar até acabar a onda.
+Yolo está ligado"*.
+
+**O que ela libera:** seguir as fatias sem parar a cada passo, decidir o que a
+onda precisar, juntar os ramos e empurrar quando tudo estiver verde, apagar
+temporario e construcao no fim. Decisao que iria a ele por pergunta fica
+registrada aqui como decisao autonoma, para ele confirmar depois se quiser.
+
+**Onde ela PARA, e isso vem da ordem dele de 01:44 desta mesma noite:** no fim
+desta onda. A seguinte nao comeca sozinha.
+
+**O que ela NAO relaxa, em hipotese nenhuma:** quem implementa nao e quem
+revisa nem quem orquestra; revisao que executa e muta, nao so le; o
+orquestrador reconfere antes de aceitar; vermelho bloqueia. Autonomia e sobre
+nao parar a cada passo, nunca sobre baixar a regua.

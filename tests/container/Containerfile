@@ -173,6 +173,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/arch_ports_connect_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -184,6 +185,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/registry_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -195,6 +197,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/two_displays_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -206,6 +209,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/fatal_error_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -217,6 +221,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/pump_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -228,6 +233,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/shell_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -242,6 +248,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/window_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -261,6 +268,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_probe_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -280,6 +288,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/seat_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
@@ -293,6 +302,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client) \
         -o /build/window_parity_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -314,6 +324,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/gl_context_parity_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -332,6 +343,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
         /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
@@ -353,6 +365,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_device_reader_probe \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -371,6 +384,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
         /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
@@ -392,6 +406,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_protocol_error_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -408,6 +423,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
         /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
@@ -423,6 +439,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/facade_pin_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -441,6 +458,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
         /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
@@ -456,6 +474,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/window_active_after_map_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -474,6 +493,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
         /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
         /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \

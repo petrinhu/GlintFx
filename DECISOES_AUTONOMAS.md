@@ -2318,3 +2318,29 @@ fim da onda. Nada disso pede permissao de novo.
 alto valor, e e dele. Encadear ondas sozinho tirava dele o unico ponto natural
 de decidir rumo, e o custo aparecia tarde, com trabalho ja feito na direcao
 que ele nao teria escolhido.
+
+## 07/09/2026 - 01:52 | Autorizacao ampla para instalar dentro do convidado Windows
+
+**Ordem do lider, verbatim:** *"instale o que precisa"*, dada logo depois de eu
+reportar que o Windows estava de pe e que faltavam as ferramentas do convidado.
+
+**O que ela libera:** a exigencia de pedir autorizacao a cada instalacao deixa de
+valer DENTRO da maquina virtual do Windows. O que aquela maquina precisar para
+cumprir o papel dela, instala-se, sem voltar a perguntar.
+
+**O que ela NAO libera, e a fronteira fica de pe ate ele dizer o contrario:**
+
+1. **Nada muda no hospedeiro.** A ordem foi dada no contexto do convidado. Para
+   instalar qualquer coisa na maquina do lider, a exigencia de autorizacao
+   explicita continua inteira.
+2. **Nao entra compilador no convidado.** Nao por economia: pela regra de
+   roteamento que ele mesmo ratificou hoje. O container constroi, a maquina
+   virtual executa. Instalar um ambiente de construcao ali contradiria uma lei
+   dele de uma hora atras, e "instale o que precisa" nao revoga lei por
+   implicacao. Se ele quiser o compilador la dentro, e uma ordem nova e
+   explicita, e ela muda a matriz de roteamento junto.
+
+**O que se instala, entao:** as ferramentas dos drivers paravirtuais (sem elas
+disco e rede ficam imitados e qualquer medicao de tempo mente), e o que o
+proprio ato de EXECUTAR os nossos binarios exigir. Nada alem disso sem motivo
+escrito.

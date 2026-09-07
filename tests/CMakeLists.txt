@@ -36,9 +36,19 @@ glintfx_add_test(color_test)
 
 # CORE-TIME (TODO.md W3, GODS_LAWS.md L-19/L-20/L-26): the core
 # layer's public representation of elapsed time - gltfx_duration/
-# gltfx_time_point and the three gltfx_duration_* conversions - see
+# gltfx_time_point and the four gltfx_duration_*/gltfx_now() functions
+# (gltfx_now() added by LOOP-RUN fatia 6a, D-W6b-52) - see
 # time_test.cpp's own header comment.
 glintfx_add_test(time_test)
+
+# CORE-FIXED-STEP (LOOP-RUN fatia 6a, docs/plano-w6b-fatias-6-8.md
+# D-W6b-47, GODS_LAWS.md L-19/L-20/L-40): the optional passo-fixo atom
+# a consumer reaches for on top of the raw, variable gltfx_frame_tick::
+# elapsed - see fixed_step_test.cpp's own header comment. gltfx_fixed_
+# step_accumulate() is public API (GLINTFX_API, exported from
+# glintfx_library), so this needs no extra include dir/target_sources,
+# exactly like time_test/math2d_test above.
+glintfx_add_test(fixed_step_test)
 
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,

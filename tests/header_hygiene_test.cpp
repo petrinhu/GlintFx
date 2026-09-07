@@ -108,6 +108,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
+#include <glintfx/core/fixed_step.hpp>
 #include <glintfx/core/interpolate.hpp>
 #include <glintfx/core/mat3.hpp>
 #include <glintfx/core/rect.hpp>

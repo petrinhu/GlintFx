@@ -103,4 +103,9 @@ target_sources(glintfx_library PRIVATE
     selected_gl_context_adapter_check.cpp
 )
 
+# GEMEO (L-17): cmake/GlintfxInstall.cmake's own
+# glintfx_compute_pkgconfig_libs_private() WIN32 branch lists these
+# SAME six names, in this SAME order, for glintfx.pc's own Libs.private
+# field (a static pkg-config consumer needs them spelled out there too,
+# or linking fails with undefined references) - edit both together.
 target_link_libraries(glintfx_library PRIVATE user32 shell32 ole32 propsys opengl32 gdi32)

@@ -2392,10 +2392,20 @@ endif()
 # output-content validator it applies to all six is what makes the
 # DESTDIR scenario possible at all (no expected path to precompute).
 # POSIX sh; same declared downgrade as the other consumption gates
-# above (pkg-config's own convention is Unix/Linux packaging; there is
-# no Windows-specific coverage here because glintfx has no platform
-# layer that needs Libs.private there yet - see GlintfxInstall.cmake's
-# own comment at glintfx_install_pkgconfig()).
+# above (pkg-config's own convention is Unix/Linux packaging). RAZAO
+# CORRIGIDA em 06/09/2026 (docs/auditoria-decisoes-autonomas.md F3):
+# this comment used to say "there is no Windows-specific coverage here
+# because glintfx has no platform layer that needs Libs.private there
+# yet" - false since 03/09/2026, when the win32 platform layer was
+# born (cmake/GlintfxInstall.cmake's own glintfx_compute_pkgconfig_
+# libs_private() now DOES compute Libs.private for it too). The real,
+# remaining reason this gate stays if(UNIX): check_pkgconfig.sh itself
+# hardcodes Unix artifact naming (libglintfx.so*/libglintfx.a globs) and
+# DESTDIR semantics - porting it to also recognize glintfx.dll/glintfx.
+# lib and Windows path conventions is its own fatia (tracked in TODO.md's
+# own table, not attempted blind here without a real Windows machine to
+# verify against). tests/parity_exceptions.txt's own entry for this test
+# carries the same correction, with the fuller reasoning.
 if(UNIX)
     add_test(
         NAME pkgconfig_test
@@ -2697,6 +2707,30 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_volatile_numbers.py" --selftest
 )
 set_tests_properties(readme_volatile_numbers_selftest PROPERTIES LABELS selftest)
+
+# CLAUDE.md "Estado atual do repositorio" volatile-number gate (item
+# novo do lider, 06/09/2026 - docs/auditoria-decisoes-autonomas.md F2,
+# decisao de 25/08 de nao criar portao mecanico para isto, que ja
+# reincidiu quatro vezes no README antes de check_readme_volatile_
+# numbers.py acima existir). Escopo deliberadamente estreito - so' a
+# secao que a propria CLAUDE.md declara "nao carrega contador" (ver
+# check_claude_md_state_numbers.py's own header para a razao completa
+# de nao escanear o documento inteiro). Registrado SEM guarda de
+# plataforma (GODS_LAWS.md L-04): le texto, constroi nada.
+add_test(
+    NAME claude_md_state_numbers_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claude_md_state_numbers.py"
+        "${PROJECT_SOURCE_DIR}/CLAUDE.md"
+)
+set_tests_properties(claude_md_state_numbers_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME claude_md_state_numbers_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claude_md_state_numbers.py" --selftest
+)
+set_tests_properties(claude_md_state_numbers_selftest PROPERTIES LABELS selftest)
 
 # Pre-commit hook chain gate (TODO.md INBOX drenagem 06/09/2026,
 # GODS_LAWS.md L-36/L-40): tools/git-hooks/pre-commit is a plain text

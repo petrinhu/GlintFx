@@ -118,13 +118,31 @@ display_bind_refusal_test|windows|nenhum|SEM-PENDENCIA
 
 # pkgconfig_test (tests/CMakeLists.txt:1404) prova o glintfx.pc
 # instalado via um `pkg-config --cflags --libs` cru. pkg-config e uma
-# convencao de empacotamento Unix/Linux; o proprio comentario que
-# guarda este teste em tests/CMakeLists.txt declara, por desenho, que
-# "nao ha cobertura especifica de Windows aqui porque glintfx nao tem
-# camada de plataforma que precise de Libs.private la ainda" - o
-# equivalente Windows do empacotamento (find_package via CMake) ja e
-# coberto sem guarda de sistema por outros testes de consumo
-# (embed_dll_colocation_test, pkgconfig_validate_test).
+# convencao de empacotamento Unix/Linux; check_pkgconfig.sh e' POSIX
+# sh e assume nomes de artefato Unix (libglintfx.so*/libglintfx.a),
+# nunca .dll/.lib - portar de verdade exige reescrever essas
+# suposicoes, nao so' tirar uma guarda de sistema.
+#
+# RAZAO CORRIGIDA em 06/09/2026 (docs/auditoria-decisoes-autonomas.md
+# F3, achado do lider): a razao que morava aqui - "glintfx nao tem
+# camada de plataforma que precise de Libs.private la ainda" - ficou
+# FALSA em 03/09/2026, quando a camada win32 nasceu (src/platform/
+# win32/CMakeLists.txt link a PRIVATE user32/shell32/ole32/propsys/
+# opengl32/gdi32). cmake/GlintfxInstall.cmake's own
+# glintfx_compute_pkgconfig_libs_private() ja foi corrigida na MESMA
+# fatia que corrige este comentario - o Libs.private do glintfx.pc
+# agora carrega esses seis nomes no Windows tambem. O que CONTINUA
+# faltando, honestamente: nenhum portao RODA pkg-config de verdade
+# contra o arquivo instalado no Windows (so' a EXISTENCIA do arquivo e'
+# provada la, por tools/ci/check-pkgconfig-installed.ps1 - ver "achado
+# a parte, ainda sem mecanismo" mais abaixo neste arquivo). pkgconf
+# existe empacotado para Windows (vcpkg, Chocolatey - consultado
+# 06/09/2026) e o proprio Strawberry Perl do executor do servidor ja
+# tem um script de pkg-config (achado da fatia PKG-WIN-SCOPE); portar
+# check_pkgconfig.sh para reconhecer os dois formatos de artefato e
+# rodar nos dois sistemas e' a fatia que fecha isto de vez - registrada
+# na TABELA UNIFICADA do TODO.md como item proprio, nao feita as pressas
+# aqui sem uma maquina Windows real para verificar contra.
 pkgconfig_test|windows|nenhum|SEM-PENDENCIA
 
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------

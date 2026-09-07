@@ -2192,10 +2192,15 @@ continuam sendo prova exclusiva do servidor.
 
 > *"Ao final de uma onda, inicie a seguinte."*
 
-Nao ha pausa entre ondas: o fecho de uma e o inicio da outra. O que continua
-valendo como freio e a condicao de verde - onda so fecha com o espelho local e
-o servidor verdes e os itens marcados. Fechar mal para comecar cedo nao e
-comecar cedo, e adiar o vermelho.
+**⛔ ESTA ORDEM FOI REVOGADA PELO LIDER EM 07/09/2026, 01:44. NAO A EXECUTE.**
+A ordem que vale agora esta no fim deste arquivo, na entrada "A onda seguinte
+nao comeca sozinha". Onda que fecha PARA, e espera ordem dele para a proxima.
+O paragrafo abaixo fica so como registro datado do que valia antes, e nao e
+instrucao:
+
+> Nao ha pausa entre ondas: o fecho de uma e o inicio da outra. O que continua
+> valendo como freio e a condicao de verde - onda so fecha com o espelho local
+> e o servidor verdes e os itens marcados.
 
 ## 06/09/2026 - 21:58 | Ordem do lider: vermelho e amarelo se resolvem ANTES de seguir
 
@@ -2287,3 +2292,29 @@ a maquina de verdade.
 final produz a biblioteca aqui. Sem esse par de arquivos nao existe entrada para
 a conferencia por fora, e nada mais tem o que medir. Se falhar por ambiente, o
 risco acima deixa de ser teorico; se falhar por codigo nosso, e achado de produto.
+
+
+## 07/09/2026 - 01:44 | A onda seguinte nao comeca sozinha
+
+**Ordem do lider, verbatim:** *"Não inicie a proxima onda sozinho depois que
+acabar tudo aqui"*.
+
+**O que ela revoga:** a ordem de 06/09/2026 que dizia *"Ao final de uma onda,
+inicie a seguinte"*, e tambem a parte equivalente da ordem de 01/09/2026
+(*"Se essa onda acabou, inicie a proxima"*). As duas ficam marcadas no proprio
+lugar como revogadas, para ninguem executar por engano ao reler o registro.
+
+**O que muda na pratica:** o fecho de uma onda deixa de ser o inicio da
+seguinte. Quando tudo desta onda estiver verde, marcado e junto, o trabalho
+PARA e o lider decide o que vem depois. Comecar a proxima sem ele passa a ser
+quebra de ordem, nao iniciativa.
+
+**O que NAO muda, e continua valendo inteiro:** a autonomia DENTRO da onda
+corrente. Seguir as fatias sem parar a cada passo, commit por fatia, push por
+onda com tudo verde, merge no fim da onda, e apagar temporario e construcao no
+fim da onda. Nada disso pede permissao de novo.
+
+**O que a ordem protege:** a escolha do que se ataca a seguir e decisao de
+alto valor, e e dele. Encadear ondas sozinho tirava dele o unico ponto natural
+de decidir rumo, e o custo aparecia tarde, com trabalho ja feito na direcao
+que ele nao teria escolhido.

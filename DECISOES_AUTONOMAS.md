@@ -2362,3 +2362,22 @@ desta onda. A seguinte nao comeca sozinha.
 revisa nem quem orquestra; revisao que executa e muta, nao so le; o
 orquestrador reconfere antes de aceitar; vermelho bloqueia. Autonomia e sobre
 nao parar a cada passo, nunca sobre baixar a regua.
+
+## 07/09/2026 - 01:55 | O fim da onda: junta, empurra, salva memoria, para
+
+**Ordem do lider, verbatim:** *"depois do merge/push finais, salve e pause"*.
+
+**A sequencia de encerramento fica assim, e nesta ordem:**
+
+1. Toda fatia verde e marcada, com o numero cru colado, nao a palavra "verde".
+2. Junta os ramos em `main`.
+3. Empurra, e prova o push lendo o remoto, nunca a mensagem do comando.
+4. Confere o servidor verde.
+5. Apaga temporario e construcao (ele autorizou no inicio da onda).
+6. **Salva a memoria persistente do projeto**, com o estado real de onde tudo
+   parou, para a proxima sessao nao precisar reconstruir de cabeca.
+7. **Para.** A onda seguinte nao comeca sozinha (ordem dele de 01:44).
+
+**O que o passo 6 protege:** esta onda produziu quatro leis novas, uma revogada,
+tres portoes consertados, um defeito em tres camadas e a primeira maquina
+virtual Windows do projeto. Nada disso pode depender da memoria de uma sessao.

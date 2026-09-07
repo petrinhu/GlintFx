@@ -23,9 +23,20 @@
 // here: include it exactly ONCE across the whole link (a second
 // inclusion for the same GUID is a compile error, "redefinition;
 // multiple initialization"), and never from a precompiled header (this
-// project has none).
+// project has none). ORDER IS MANDATORY, not stylistic: this file never
+// includes <dxcore_interface.h> (the actual header with the DEFINE_GUID
+// line) directly - it arrives transitively through <dxcore.h> below.
+// Reordering these two lines (alphabetizing the block, or a formatter
+// that does it automatically) silently brings back the exact link
+// error this comment exists to prevent - <initguid.h> MUST stay first.
+// MEASURED: clang-format's default SortIncludes alphabetizes this pair
+// on its own (dxcore.h before initguid.h) the moment they share a
+// block with no blank line between them - the clang-format off/on
+// pair below is not decoration, it is what keeps that from happening.
+// clang-format off
 #include <initguid.h>
 #include <dxcore.h>
+// clang-format on
 
 #include <glintfx/core/err_code.hpp>
 

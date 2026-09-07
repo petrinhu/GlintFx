@@ -114,7 +114,7 @@ int main() {
     // dlsym-style function-to-object-pointer cast every GL loader already relies on.
     const auto get_integerv = reinterpret_cast<gl_get_integerv_fn>(get_integerv_addr);
     const auto get_error = reinterpret_cast<gl_get_error_fn>(get_error_addr);
-    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) reason: closes the block above
     const gl_memory_facts memory_facts = read_gl_memory_facts(get_integerv, get_error);
     std::fprintf(stdout, "MEASURED egl_device_reader_probe.nvx_present=%d\n",
                  memory_facts.nvx_present ? 1 : 0);

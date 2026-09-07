@@ -192,7 +192,8 @@ classify_current_gpu(std::string_view renderer_name, gl_get_integerv_fn get_inte
         via2 = classify_by_memory_separation(memory_facts);
     }
 
-    const gltfx_gpu_kind kind = resolve_memory_separation(after_via1, definitely_not_software, via2);
+    const gltfx_gpu_kind kind =
+        resolve_memory_separation(after_via1, definitely_not_software, via2);
 
     return {kind, enumeration_index};
 }

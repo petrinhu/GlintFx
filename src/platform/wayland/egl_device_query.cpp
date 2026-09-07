@@ -68,5 +68,19 @@ egl_device_facts query_egl_display_device(void *egl_display) noexcept {
         return egl_device_facts{}; // queried=false
     }
 
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: EGL_EXT_device_query's own
+    // eglQueryDisplayAttribEXT(dpy, EGL_DEVICE_EXT, &value) hands back the EGLDeviceEXT
+    // handle (an opaque pointer) PACKED INSIDE an EGLAttrib (an intptr_t-sized integer -
+    // EGLAttrib exists precisely so a pointer-valued attribute survives 64-bit round-trip,
+    // unlike the older EGLint). There is no original pointer here to do provenance-
+    // preserving arithmetic on (the refactor this checker's own docs suggest,
+    // https://clang.llvm.org/extra/clang-tidy/checks/performance/no-int-to-ptr.html) - the
+    // extension gives back a bare integer, and this cast is the ONLY way to recover the
+    // handle it names. Same structural case, same house convention, one directory over:
+    // tests/container/egl_device_reader_probe.cpp's own NOLINTBEGIN(cppcoreguidelines-pro-
+    // type-reinterpret-cast) for the dlsym-style function-to-object-pointer cast every GL
+    // loader relies on - a different checker, the same "an external C API's contract forces
+    // this cast" reasoning (approved by the líder, achado da revisão adversarial de
+    // 06-07/09/2026).
     return query_egl_device_facts(reinterpret_cast<void *>(device_attrib));
 }

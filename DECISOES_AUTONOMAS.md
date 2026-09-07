@@ -2187,3 +2187,12 @@ ferramenta nao tem:** ele COMPILA, e so isso. Nao executa, nao abre janela, nao
 tem placa de video, e a analise estatica da Microsoft nao roda nele (causa
 achada e documentada). Janela, minimizar, restaurar, driver e placa real
 continuam sendo prova exclusiva do servidor.
+
+**Acrescimo do lider, minutos depois, mesma ordem (verbatim):**
+
+> *"Ao final de uma onda, inicie a seguinte."*
+
+Nao ha pausa entre ondas: o fecho de uma e o inicio da outra. O que continua
+valendo como freio e a condicao de verde - onda so fecha com o espelho local e
+o servidor verdes e os itens marcados. Fechar mal para comecar cedo nao e
+comecar cedo, e adiar o vermelho.

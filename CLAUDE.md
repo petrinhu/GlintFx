@@ -221,6 +221,7 @@ Estas não são conselhos genéricos; são armadilhas medidas nesta máquina, e 
 - **Espaço em disco se mede com `btrfs filesystem usage /`** (sem `sudo`), lendo `Device unallocated` e o `min` de `Free (estimated)`. O `df` mente em btrfs.
 - **Teste que toca teclado, mouse ou tela roda em container, com compositor Wayland aninhado dentro dele.** Ver a seção "Isolamento obrigatório de teste" acima; é regra, não preferência. Injetor de input X11 ou de kernel está fora.
 - **Verificação de entregável visual é do `qa-engineer`**, independente de quem implementou, e o orquestrador reconfere o relatório do QA.
+- **Toda montagem de diretório do host num `docker run`/`docker create` nesta máquina precisa do sufixo SELinux de relabel** (`:Z` privado por padrão, `:ro,Z` quando só leitura, `:z` minúsculo só quando dois containers precisam do mesmo diretório ao mesmo tempo) — sem isso, `container_t` toma AVC `denied` do SELinux (`ausearch`/`journalctl -g denied`) mesmo com o `docker run` saindo com código correto de erro de permissão do processo interno, não do Docker. GODS_LAWS.md L-60: nunca `semodule`/`audit2allow` para contornar. Medido e corrigido em 06/09/2026 em `tools/msvc-container/armadilhas/compare.sh` e `tools/msvc-container/README.md` (`tools/preci.sh` já fazia certo, com `:ro,z`).
 
 ## Pendências
 

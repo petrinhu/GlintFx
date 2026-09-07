@@ -37,7 +37,11 @@ for arquivo in *.cpp; do
     echo ""
 
     echo "--- cl.exe REAL (glintfx-msvc:latest) ---"
-    docker run --rm -v "$(pwd):/arm:ro" glintfx-msvc:latest \
+    # GODS_LAWS.md L-60: SELinux nega leitura de um diretorio do host
+    # dentro do container_t se o volume nao for relabeled - ":ro,Z" pede
+    # ao Docker que relabele para container_file_t (privado, categoria
+    # MCS unica desta execucao), em vez de mexer na politica do sistema.
+    docker run --rm -v "$(pwd):/arm:ro,Z" glintfx-msvc:latest \
         bash -c "cd /arm && cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /c '$arquivo' /Fo/tmp/$(basename "$arquivo").obj" 2>&1
     ec_cl=$?
     echo "EXIT_CODE(cl)=$ec_cl"

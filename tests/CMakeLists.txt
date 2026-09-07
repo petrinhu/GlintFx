@@ -822,6 +822,7 @@ glintfx_add_test(dxcore_gpu_kind_test)
 target_include_directories(dxcore_gpu_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(dxcore_gpu_kind_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+)
 
 # LOOP-RUN fatia 6a (docs/plano-w6b-fatias-6-8.md sec. 8.1, GODS_LAWS.md
 # L-17/L-19/L-20/L-40): three pure atoms under src/platform/loop/, none

@@ -2679,6 +2679,35 @@ add_test(
 )
 set_tests_properties(precommit_hook_chain_selftest PROPERTIES LABELS selftest)
 
+# Long-dash-in-public-documentation gate (TODO.md item DASH-PUBDOC,
+# docs/decisoes-inbox-tres.md SS3, GODS_LAWS.md L-32): the global hook
+# that enforces "nunca em-dash em texto user-facing"
+# (~/.claude/hooks/no_mdash.py / ~/.claude/githooks/no_mdash_staged.py)
+# classifies "public" by name/folder and never runs on the server nor
+# travels with a clone - it does not know this project's own L-21
+# ("documento se decide pelo LEITOR") and does not match `docs/*.md`.
+# SAME SHAPE as spdx_test/precommit_hook_chain_test immediately above:
+# registered UNGUARDED (this portao reads text, builds nothing, no
+# reason to run on only one OS - GODS_LAWS.md L-04), so it runs inside
+# the SAME ctest invocation the five platforms already execute, and is
+# exercised by tools/preci.sh's own ctest stage with no dedicated
+# preci.sh stanza (same as spdx_test/vendor_purity_test/readme_
+# volatile_numbers_test, none of which get one either).
+add_test(
+    NAME dash_pubdoc_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dash_pubdoc.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(dash_pubdoc_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME dash_pubdoc_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dash_pubdoc.py" --selftest
+)
+set_tests_properties(dash_pubdoc_selftest PROPERTIES LABELS selftest)
+
 # Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
 # L-36/L-40): closed static check that every llround/lround/round/
 # nearbyint/rint call under src/ and include/ is either guarded by a

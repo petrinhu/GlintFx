@@ -15,7 +15,7 @@
 # SPDX-GATE, GODS_LAWS.md L-08) ran in CI only, so a file born without
 # its SPDX header would not be caught until the server did. This gate
 # closes (2) as a permanent regression check: it reads the VERSIONED
-# source of the hook and reproves the moment either gate's own filename
+# source of the hook and reproves the moment any gate's own filename
 # stops appearing in it - a structural check, not an execution of the
 # hook itself (running the real gates end-to-end against a scratch git
 # clone was done once, by hand, as this fatia's own red/green proof -
@@ -23,6 +23,14 @@
 # clones and commits into a throwaway repo on every run would be the
 # "trabalho pesado" GODS_LAWS.md L-11 reserves one-at-a-time, not a
 # cheap always-on gate).
+#
+# DASH-PUBDOC (docs/decisoes-inbox-tres.md SS3): a third gate,
+# tests/tools/check_dash_pubdoc.py, joined the chain for the identical
+# reason SPDX-GATE did - the long-dash rule for public documentation
+# used to live ONLY outside this repository (a global hook that never
+# runs on the server and never travels with a clone). REQUIRED_GATES
+# grew to three; every control below that used to say "the two gates"
+# now says "the three gates".
 #
 # Usage:
 #   check_precommit_hook_chain.py <repo-root>
@@ -34,12 +42,12 @@ from pathlib import Path
 
 SCRIPT_NAME = "check_precommit_hook_chain.py"
 
-# The two gates the commit-time hook must chain into, by the exact
+# The three gates the commit-time hook must chain into, by the exact
 # filename each one's own real_main()/argparse expects on the command
-# line - a rename of either script is a real event this gate SHOULD
+# line - a rename of any script is a real event this gate SHOULD
 # reprove, not silently ignore (the same "check a fixed token" house
 # convention check_readme_volatile_numbers.py's own header cites).
-REQUIRED_GATES = ("check_dep_zero.py", "check_spdx.py")
+REQUIRED_GATES = ("check_dep_zero.py", "check_spdx.py", "check_dash_pubdoc.py")
 
 
 def fail(message):
@@ -88,23 +96,28 @@ def _write_hook(tmp_dir, body):
     (hooks_dir / "pre-commit").write_text(body, encoding="utf-8")
 
 
-def selftest_both_present_passes(tmp_dir):
-    case_dir = Path(tmp_dir) / "both_present"
+def selftest_all_present_passes(tmp_dir):
+    case_dir = Path(tmp_dir) / "all_present"
     _write_hook(
         case_dir,
         '"$python_bin" check_dep_zero.py --staged "$repo_root"\n'
-        'exec "$python_bin" check_spdx.py "$repo_root"\n',
+        '"$python_bin" check_spdx.py "$repo_root"\n'
+        'exec "$python_bin" check_dash_pubdoc.py "$repo_root"\n',
     )
     if check_precommit_hook_chain(case_dir):
-        print("selftest: controle BOTH-PRESENT OK (os dois portoes encadeados passam)")
+        print("selftest: controle ALL-PRESENT OK (os tres portoes encadeados passam)")
         return True
-    print("selftest: controle BOTH-PRESENT FALHOU (deveria passar)", file=sys.stderr)
+    print("selftest: controle ALL-PRESENT FALHOU (deveria passar)", file=sys.stderr)
     return False
 
 
 def selftest_spdx_missing_fails(tmp_dir):
     case_dir = Path(tmp_dir) / "spdx_missing"
-    _write_hook(case_dir, 'exec "$python_bin" check_dep_zero.py --staged "$repo_root"\n')
+    _write_hook(
+        case_dir,
+        '"$python_bin" check_dep_zero.py --staged "$repo_root"\n'
+        'exec "$python_bin" check_dash_pubdoc.py "$repo_root"\n',
+    )
     if not check_precommit_hook_chain(case_dir):
         print("selftest: controle SPDX-MISSING OK (reprovou faltando check_spdx.py)")
         return True
@@ -114,7 +127,11 @@ def selftest_spdx_missing_fails(tmp_dir):
 
 def selftest_dep_zero_missing_fails(tmp_dir):
     case_dir = Path(tmp_dir) / "dep_zero_missing"
-    _write_hook(case_dir, 'exec "$python_bin" check_spdx.py "$repo_root"\n')
+    _write_hook(
+        case_dir,
+        '"$python_bin" check_spdx.py "$repo_root"\n'
+        'exec "$python_bin" check_dash_pubdoc.py "$repo_root"\n',
+    )
     if not check_precommit_hook_chain(case_dir):
         print("selftest: controle DEP-ZERO-MISSING OK (reprovou faltando check_dep_zero.py)")
         return True
@@ -122,13 +139,27 @@ def selftest_dep_zero_missing_fails(tmp_dir):
     return False
 
 
-def selftest_both_missing_fails(tmp_dir):
-    case_dir = Path(tmp_dir) / "both_missing"
+def selftest_dash_pubdoc_missing_fails(tmp_dir):
+    case_dir = Path(tmp_dir) / "dash_pubdoc_missing"
+    _write_hook(
+        case_dir,
+        '"$python_bin" check_dep_zero.py --staged "$repo_root"\n'
+        'exec "$python_bin" check_spdx.py "$repo_root"\n',
+    )
+    if not check_precommit_hook_chain(case_dir):
+        print("selftest: controle DASH-PUBDOC-MISSING OK (reprovou faltando check_dash_pubdoc.py)")
+        return True
+    print("selftest: controle DASH-PUBDOC-MISSING FALHOU (deveria reprovar)", file=sys.stderr)
+    return False
+
+
+def selftest_all_missing_fails(tmp_dir):
+    case_dir = Path(tmp_dir) / "all_missing"
     _write_hook(case_dir, "echo nada aqui\n")
     if not check_precommit_hook_chain(case_dir):
-        print("selftest: controle BOTH-MISSING OK (reprovou nomeando os dois)")
+        print("selftest: controle ALL-MISSING OK (reprovou nomeando os tres)")
         return True
-    print("selftest: controle BOTH-MISSING FALHOU (deveria reprovar)", file=sys.stderr)
+    print("selftest: controle ALL-MISSING FALHOU (deveria reprovar)", file=sys.stderr)
     return False
 
 
@@ -145,10 +176,11 @@ def selftest_missing_hook_file_fails(tmp_dir):
 def selftest_main():
     with tempfile.TemporaryDirectory(prefix="glintfx-precommit-hook-chain-selftest-") as tmp_dir:
         controls = [
-            selftest_both_present_passes(tmp_dir),
+            selftest_all_present_passes(tmp_dir),
             selftest_spdx_missing_fails(tmp_dir),
             selftest_dep_zero_missing_fails(tmp_dir),
-            selftest_both_missing_fails(tmp_dir),
+            selftest_dash_pubdoc_missing_fails(tmp_dir),
+            selftest_all_missing_fails(tmp_dir),
             selftest_missing_hook_file_fails(tmp_dir),
         ]
     if not all(controls):

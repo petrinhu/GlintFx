@@ -2242,3 +2242,48 @@ passos. O lider recebe tudo junto quando pedir, nao uma pergunta de cada vez.
 
 **Uma decisao ele deu junto, ja fechada:** o conserto do fim de linha vindo do
 Windows entra como **fatia nova**, nao reabrindo a que ja fechou.
+
+## 07/09/2026 - 00:30 | A fronteira do compilador da Microsoft aqui, em tres camadas
+
+**Origem:** o lider trouxe o texto tecnico do interlocutor dele e pediu resposta;
+depois trouxe o refinamento, que derrubou uma linha da minha tabela. A decisao
+abaixo e a que ficou depois das duas correcoes, e vale como canon do projeto.
+
+**O erro que eu cometi duas vezes, e que a decisao existe para impedir:** colapsei
+tres coisas diferentes numa so, e por isso afirmei que o compilador real ja tinha
+executado teste aqui. Ele nunca executou; o manual da propria ferramenta diz que
+so compila, sem ligar nem executar. O precedente de execucao tinha sido com o
+compilador cruzado, que e outra coisa.
+
+**As tres camadas, e o que cada uma prova:**
+
+1. **O compilador da Microsoft rodando aqui** e prova valida de duas coisas apenas:
+   se o codigo compila e liga, e qual a forma do arquivo produzido. Erro dele e
+   erro nosso; verde dele e verde nosso.
+2. **A conferencia do arquivo pronto, feita por fora, no sistema daqui**, sem
+   emular nada: le o arquivo, nao executa. E solida, e passa a ser o lugar oficial
+   dessa familia de verificacao.
+3. **Executar o binario do Windows aqui nao prova nada**, mesmo que o teste nao
+   abra janela nem toque a placa de video. Assim que o programa roda, ele ja usou
+   a carga de biblioteca, a resolucao de simbolo e a alocacao de memoria da
+   reimplementacao, que nao sao as da Microsoft. Isso vale como pista de
+   diagnostico, nunca como aprovacao.
+
+**A regra nova que sai disso:** a conferencia do arquivo pronto roda no sistema
+daqui, contra o artefato, e nunca dentro do ambiente emulado. Hoje isso ja
+acontece, mas por arranjo acidental; passa a ser regra escrita.
+
+**O que NAO muda:** a bateria completa que roda nas cinco plataformas continua
+inteira. O ganho e outro: para ouvir o compilador da Microsoft, nao e mais preciso
+empurrar codigo e esperar a fila. Encolhe a espera, nao a cobertura.
+
+**Riscos nomeados, e nao varridos para baixo do tapete:** o compilador de recurso,
+a ferramenta de manifesto, a otimizacao de ligacao no tempo de ligar, e o formato
+de caminho, maiusculas e travamento de arquivo do ambiente emulado. Nenhum deles
+esta provado ausente; se algum portao passar a depender deles, a medicao vai para
+a maquina de verdade.
+
+**O unico fato que ainda falta medir, e que bloqueia todo o resto:** se a ligacao
+final produz a biblioteca aqui. Sem esse par de arquivos nao existe entrada para
+a conferencia por fora, e nada mais tem o que medir. Se falhar por ambiente, o
+risco acima deixa de ser teorico; se falhar por codigo nosso, e achado de produto.

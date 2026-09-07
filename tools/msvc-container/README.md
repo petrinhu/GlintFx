@@ -25,8 +25,24 @@ compilador real recusa ou avisa (ver a seção "A prova" abaixo).
 
 ## O que isto NÃO é, e nunca deve ser vendido como tal
 
-- **Não abre janela, não minimiza, não restaura.** Não executa nenhum
-  binário Windows, só compila (`/c`, sem link nem execução).
+- **Não abre janela, não minimiza, não restaura.** `win32_runner_probe_test`
+  compilado e executado aqui (ver "Ligação" abaixo) mede isso ao vivo:
+  `CreateWindowExW` falha com `GetLastError=1400` (`ERROR_INVALID_WINDOW_HANDLE`)
+  neste Wine headless, sem gerenciador de janelas.
+- **LIGA de verdade, e a frase anterior deste documento (histórico:
+  "não roda nenhum binário Windows, só compila `/c`, sem link nem
+  execução") estava ERRADA: era uma afirmação nunca medida, não um
+  limite descoberto.** Medido em 07/09/2026: `link.exe` real produz um
+  `.exe` Windows válido a partir dos `.obj` que o `cl.exe` real emite
+  (ver "Ligação (`link.exe`)" abaixo, com o comando exato e a saída
+  literal). `file`/`objdump` no HOST, sem Wine nenhum, confirmam
+  `PE32+ executable for MS Windows 6.00 (console), x86-64`, e
+  `dumpbin /imports` (a própria ferramenta da Microsoft, dentro do
+  container) lê a tabela de importação certa. **A execução do `.exe`
+  sob `wine64` também funciona** (mesma data), mas só como
+  **diagnóstico**, nunca como prova do runner real: ver a "Matriz de
+  roteamento" abaixo, que é lei do projeto (GODS_LAWS.md L-09/L-68,
+  ordem do líder de 07/09/2026).
 - **Não tem placa de vídeo real nem driver de verdade.** WGL sob Wine,
   quando roda, cai em Mesa/llvmpipe por software, igual ao `windows-latest`
   do CI, mas não é a mesma coisa que a máquina de um jogador de verdade.
@@ -64,7 +80,7 @@ DIR=/algum/diretorio/de/trabalho   # fora do repo; ficou ~4 GB
 mkdir -p "$DIR/opt-msvc" "$DIR/cache"
 
 docker run --rm \
-  -v "$DIR/opt-msvc:/opt/msvc" -v "$DIR/cache:/cache" \
+  -v "$DIR/opt-msvc:/opt/msvc:Z" -v "$DIR/cache:/cache:Z" \
   glintfx-msvc-base:latest \
   python3 /opt/msvc-wine/vsdownload.py --accept-license \
     --cache /cache --dest /opt/msvc \
@@ -73,7 +89,7 @@ docker run --rm \
     --with-atl no --with-asan no --with-dia no \
     --with-msbuild no --with-devcmd no
 
-docker run --rm -v "$DIR/opt-msvc:/opt/msvc" glintfx-msvc-base:latest \
+docker run --rm -v "$DIR/opt-msvc:/opt/msvc:Z" glintfx-msvc-base:latest \
   bash -c 'cd /opt/msvc-wine && ./install.sh /opt/msvc'
 
 docker build -t glintfx-msvc:latest -f tools/msvc-container/Dockerfile.full "$DIR"
@@ -93,7 +109,7 @@ GlintFx usa.
 ### Uso do dia a dia: a linha que importa
 
 ```bash
-docker run --rm -v "$(pwd):/src:ro" glintfx-msvc:latest bash -c '
+docker run --rm -v "$(pwd):/src:ro,Z" glintfx-msvc:latest bash -c '
   cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /c \
     /I /src/include /I /src/build-preci/generated/include /I /src/src \
     /DGLINTFX_LIBRARY_STATIC_DEFINE /D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 \
@@ -126,7 +142,7 @@ comandos deste documento.
 ### Prova de que o cl.exe real compila código de verdade do projeto
 
 ```
-$ docker run --rm -v "$(pwd):/src:ro" glintfx-msvc:latest bash -c '
+$ docker run --rm -v "$(pwd):/src:ro,Z" glintfx-msvc:latest bash -c '
     cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /c \
       /I /src/include /I /src/build-preci/generated/include /I /src/src \
       /DGLINTFX_LIBRARY_STATIC_DEFINE /D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 \
@@ -144,6 +160,133 @@ Versão exata usada (impressa por `cl` sem argumentos):
 Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36256 for x64
 Copyright (C) Microsoft Corporation.  All rights reserved.
 ```
+
+## Ligação (`link.exe`): mede compilar E ligar, não só compilar
+
+**Medido em 07/09/2026, corrige a seção anterior deste documento.** Até
+esta data ninguém tinha tentado ligar pelo `cl.exe` real: as seções
+acima só usam `/c`. A primeira tentativa de ligação (sem `/c`, com
+`/link`) funcionou de primeira, depois de resolver um obstáculo de
+ferramenta (SELinux, não de compatibilidade binária, ver abaixo).
+
+```bash
+$ docker run --rm \
+    -v /caminho/do/repo:/src:ro,Z \
+    -v /caminho/de/build/fora/do/repo:/build:Z \
+    -w /build \
+    glintfx-msvc:latest bash -c '
+      cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 \
+        /I /src/include /I /src/src /I /src/tests \
+        /DGLINTFX_LIBRARY_STATIC_DEFINE /D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 \
+        /Fo"/build/\\" /Fe"/build/wgl_proc_address_test.exe" \
+        /src/tests/harness/harness_main.cpp \
+        /src/tests/harness/check.cpp \
+        /src/tests/harness/test_registry.cpp \
+        /src/tests/win32_wgl_proc_address_test.cpp \
+        /src/src/platform/win32/wgl_proc_address.cpp \
+        /link opengl32.lib
+      echo "BUILD_RC=$?"
+    '
+harness_main.cpp
+check.cpp
+test_registry.cpp
+win32_wgl_proc_address_test.cpp
+wgl_proc_address.cpp
+Generating Code...
+BUILD_RC=0
+```
+
+**O obstáculo que apareceu primeiro não era do compilador, era do
+SELinux do host:** sem o sufixo `:ro,Z`/`:Z` nos dois pontos de
+montagem, `cl.exe` reportava `Cannot open source file` para TODO
+arquivo-fonte e o diretório de saída dava `Permission denied` na
+leitura, mesmo com os caminhos corretos por dentro do container - o
+`container_t` do SELinux (modo enforcing nesta máquina) nega acesso a
+diretório do host sem relabel. Já era conhecido de `84f183b` (SELinux
+AVC no `compare.sh`); esta é a primeira vez que a mesma causa aparece
+no caminho de ligação, e o conserto é o mesmo (GODS_LAWS.md L-60):
+sufixo de relabel, nunca `semodule`/`audit2allow`.
+
+**O que a ligação prova, lido no HOST, sem Wine nenhum:**
+
+```
+$ file wgl_proc_address_test.exe
+wgl_proc_address_test.exe: PE32+ executable for MS Windows 6.00 (console), x86-64, 6 sections
+```
+
+`dumpbin /imports` (a ferramenta real da Microsoft, dentro do
+container) e `objdump -p` (binutils do host, fora do container)
+concordam: importa só `OPENGL32.dll` (`wglGetProcAddress`) e
+`KERNEL32.dll`, sem `VCRUNTIME140.dll`/`MSVCP140.dll` (CRT estático) -
+exatamente o que o código-fonte pede.
+
+**O que ainda NÃO foi provado nesta imagem, declarado em vez de
+calado:** `rc.exe` (compilador de recursos), `mt.exe` (embutir
+manifesto), geração de manifesto de aplicação, e otimização no tempo de
+ligação (`/LTCG`, `/GL`). Nenhum dos quatro foi exercitado ainda. Uma
+tentativa de configurar o projeto INTEIRO via `cmake -G Ninja` mirando
+Windows (toolchain em `win-wine-toolchain.cmake` deste diretório) TRAVOU
+numa sonda de detecção do compilador (`cmTC_*`, ninja), com
+`mspdbrsrv.exe`/`explorer.exe` pendurados sem progresso por mais de 7
+minutos - achado operacional (sincronização do Wine), não de
+compatibilidade binária; o caminho que funciona hoje é invocar `cl.exe`
+diretamente por arquivo, não via `cmake --build` do projeto inteiro.
+
+## Matriz de roteamento: onde medir o quê
+
+Texto normativo, colado sem reescrever (GODS_LAWS.md L-09/L-68, ordem
+do líder de 07/09/2026, verbatim: *"só use a imagem para testar o que
+for melhor na imagem. Se for idêntico a avaliar no wine do container,
+use o wine"*):
+
+> **Critério único: o teste mede o compilador, o ficheiro PE, ou o
+> processo a correr. Os dois primeiros não pedem a imagem. O terceiro
+> pede, e Wine não serve de oráculo.**
+>
+> | Medida | Wine (`cl` 19.51) | Imagem Evaluation | Host Linux |
+> |---|---|---|---|
+> | Erro de compilação (C2220, C4273, `dllimport`/`dllexport`, `<dxcore.h>`) | **igual** | igual, mais lento | (traço) |
+> | `link.exe` para `.dll` + `.lib` | igual *se* `LIB`/`PATH` estiverem completos | **melhor** quando falha `rc`/`mt`/LTCG/manifest | (traço) |
+> | Forma do PE (`tools/ci/*-win.ps1`, exports, imports, machine, subsystem) | não | não | **aqui** |
+> | Núcleo puro executado (`color`, `err_*`, `gfss_*`, `gfui_*`, parsers) | **pista** | **oráculo** | (traço) |
+> | `embed_dll_colocation`, `embed_name_collision`, `LoadLibrary` | não | **aqui** | (traço) |
+> | Display Win32 / pump / DPI / posse de thread | não | **aqui** | (traço) |
+> | Contexto WGL / `opengl32` / ICD | não | **aqui** (Mesa/virtio, não a placa real) | (traço) |
+> | ASan / UBSan do MSVC contra o CRT Windows | não (falso negativo) | **aqui** | (traço) |
+> | `ctest` que dispara o executável | não | **aqui** | (traço) |
+> | Configure CMake + Ninja + `vcvarsall` | residual (`Z:\`, dobra de maiúsculas) | **melhor** | (traço) |
+>
+> "Igual" = o mesmo `cl` fala; o diagnóstico não muda de sítio. "Pista" =
+> o binário é o certo, o carregador e o CRT não. Verde no Wine num
+> `gfss_tokenizer_test` não prova o job `windows`; prova que a lógica do
+> parser não explodiu no CRT do Wine.
+>
+> **Regra prática:** se o assert não precisa de `LoadLibrary`, `HWND`,
+> GL nem do heap do Windows para ser verdadeiro, compile no Wine, leia o
+> PE no Linux, e só mande o `ctest` para a imagem quando o assert vive
+> no processo.
+>
+> **O que parece igual e não é:** núcleo puro (`gfss`, `gfui`, `err_*`).
+> O código não chama Win32; o executável de teste chama, pelo CRT e
+> pelo carregador. Verde no Wine significa "o parser não crashou no
+> ntdll reimplementado". Verde na imagem significa "o parser não
+> crashou no Windows". São predicados diferentes, e o segundo é o da lei
+> de paridade.
+>
+> **Fila de trabalho:** (1) Wine: cada unidade de tradução que o `cl`
+> ainda não viu. (2) `link.exe` no prefixo; se falhar por ambiente,
+> repetir na imagem. (3) Os `.ps1` no container contra o PE. (4) Imagem:
+> `ctest` completo, `embed_dll_*`, display real, WGL, ASan. (5) Actions:
+> o mesmo, no runner. A imagem não compete com o Wine no passo 1;
+> compete com o runner no passo 4.
+
+**Consequência direta para esta ferramenta:** `cl`/`link.exe` (e, se um
+dia for inevitável, `rc`/`mt`) são o único uso legítimo do Wine deste
+container para efeito de PROVA; os `tools/ci/*-win.ps1` (leitura pura
+do arquivo produzido) rodam no host Linux contra esse arquivo, nunca
+dentro do prefixo Wine; qualquer execução do binário sob `wine64`
+continua permitida como pista de diagnóstico, mas nunca registrada como
+teste que reprova onda nenhuma.
 
 ## A prova: o que o real pega e o alternativo não
 

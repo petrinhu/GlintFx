@@ -2415,3 +2415,29 @@ e categoria que as cinco regras do portao de isolamento nao previram. Portao
 que nao conhece a categoria nao a vigia. O portao ganha uma SEXTA varredura -
 cano para o convidado que nao seja o agente declarado - e ela precisa ser vista
 reprovando, por sabotagem em copia, antes de valer. Mesmo rito das outras cinco.
+
+## 07/09/2026 - 02:18 | A limpeza de fim de onda NAO toca o laboratorio Windows
+
+**Decisao autonoma, tomada sob o modo ligado as 01:54. Trago para o lider
+confirmar depois, e ela existe para impedir um dano que quase aconteceu.**
+
+**O risco, medido:** o lider autorizou apagar temporario e construcao no fim da
+onda. O laboratorio Windows inteiro mora em `/var/tmp/glintfx-win-lab`, e sao
+**23 GB**: o disco da maquina virtual, a imagem oficial do Windows ja conferida
+contra a assinatura da Microsoft, o disco de respostas, a imagem dos drivers, a
+receita de criacao, o portao de isolamento e o relatorio. A propria definicao da
+maquina aponta para quatro arquivos dentro dessa pasta.
+
+**Uma limpeza cega de temporarios destruiria a maquina, a imagem conferida e a
+receita, tudo de uma vez** - justamente o que esta onda produziu de mais dificil.
+
+**A decisao:** `/var/tmp/glintfx-win-lab` fica **FORA** de qualquer limpeza de
+fim de onda, agora e nas proximas, ate o lider dizer o contrario. O que se apaga
+sao arvores de construcao e worktrees temporarias de trabalho, nunca esta pasta.
+
+**A protecao que vai junto, porque decisao escrita so em registro nao para
+comando errado:** a receita (criacao, arquivo de respostas sem a senha, portao
+de isolamento, relatorio) e **versionada no repositorio**. Assim, se um dia a
+pasta sumir por acidente, a maquina se refaz a partir do repositorio, e o unico
+custo e rebaixar a imagem oficial de novo. **A senha da conta local NAO e
+versionada**, e um portao deve reprovar quem tentar.

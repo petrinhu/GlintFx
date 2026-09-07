@@ -31,17 +31,27 @@
 
 namespace {
 
-extern "C" void real_driver_get_integerv(unsigned int /*pname*/, int *params) noexcept {
-    // A driver that genuinely implements the extension: the SAME
-    // capacity on every read, exactly what a real VRAM size is,
-    // regardless of which of the two tokens was asked - CONSERTO
-    // (07/09/2026, achado do preci.sh completo, clang-tidy bugprone-
-    // branch-clone/misc-redundant-expression): a `pname == 0x9047 ?
-    // 4194304 : 4194304` ternary here had both branches identical,
-    // which is exactly what this comment already said in words - the
-    // condition never did anything, so it is gone, not the value.
+// CONSERTO (07/09/2026, achado do team-lead sobre o trabalho orfao
+// adotado neste arquivo): a versao anterior desta funcao IGNORAVA
+// `pname` e devolvia 4194304 para os dois tokens - o comentario dela
+// dizia isso em palavras ("regardless of which of the two tokens was
+// asked"), e o clang-tidy ate reprovou o ternario redundante que fazia
+// isso, mas nem o comentario nem o lint pegaram o problema MAIOR por
+// baixo: com um so numero para os dois tokens, o teste nunca provava
+// que read_gl_memory_facts() pede o TOKEN CERTO pro CAMPO certo -
+// trocar 0x9047 (dedicada) por 0x9048 (total disponivel) nas duas
+// chamadas de dentro de read_gl_memory_facts(), ou ler o mesmo token
+// duas vezes, nao reprovava nada, porque os dois valores esperados
+// eram identicos. Agora cada token tem um numero DISTINTO e
+// reconhecivel: 4194304 (4 GiB, a NVIDIA real desta maquina, ja
+// medida em tests/memory_separation_kind_test.cpp) para 0x9047
+// (dedicada), e 3145728 (3 GiB, sintetico - nao e uma segunda medicao
+// real, so precisa ser diferente do primeiro) para 0x9048 (total
+// disponivel) - qualquer token trocado ou duplicado agora aparece como
+// um numero errado numa asercao especifica, nunca em silencio.
+extern "C" void real_driver_get_integerv(unsigned int pname, int *params) noexcept {
     if (params != nullptr) {
-        *params = 4194304;
+        *params = pname == 0x9047 ? 4194304 : 3145728;
     }
 }
 extern "C" unsigned int real_driver_get_error() noexcept { return 0; }
@@ -74,8 +84,12 @@ GLINTFX_TEST(read_gl_memory_facts_trusts_a_consistent_capacity) {
     const gl_memory_facts facts =
         read_gl_memory_facts(real_driver_get_integerv, real_driver_get_error);
     GLINTFX_CHECK(facts.nvx_present);
+    // Dois valores DIFERENTES de proposito (achado do team-lead,
+    // 07/09/2026): a versao anterior asseverava os dois campos iguais
+    // a 4194304, o que nunca provava que cada campo veio do TOKEN
+    // certo - ver o comentario de real_driver_get_integerv() acima.
     GLINTFX_CHECK_EQ(facts.dedicated_kb, std::int64_t{4194304});
-    GLINTFX_CHECK_EQ(facts.total_available_kb, std::int64_t{4194304});
+    GLINTFX_CHECK_EQ(facts.total_available_kb, std::int64_t{3145728});
 }
 
 GLINTFX_TEST(read_gl_memory_facts_absent_extension_reports_not_present) {

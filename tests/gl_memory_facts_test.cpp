@@ -32,26 +32,31 @@
 namespace {
 
 // CONSERTO (07/09/2026, achado do team-lead sobre o trabalho orfao
-// adotado neste arquivo): a versao anterior desta funcao IGNORAVA
-// `pname` e devolvia 4194304 para os dois tokens - o comentario dela
-// dizia isso em palavras ("regardless of which of the two tokens was
-// asked"), e o clang-tidy ate reprovou o ternario redundante que fazia
-// isso, mas nem o comentario nem o lint pegaram o problema MAIOR por
-// baixo: com um so numero para os dois tokens, o teste nunca provava
-// que read_gl_memory_facts() pede o TOKEN CERTO pro CAMPO certo -
-// trocar 0x9047 (dedicada) por 0x9048 (total disponivel) nas duas
-// chamadas de dentro de read_gl_memory_facts(), ou ler o mesmo token
-// duas vezes, nao reprovava nada, porque os dois valores esperados
-// eram identicos. Agora cada token tem um numero DISTINTO e
-// reconhecivel: 4194304 (4 GiB, a NVIDIA real desta maquina, ja
-// medida em tests/memory_separation_kind_test.cpp) para 0x9047
-// (dedicada), e 3145728 (3 GiB, sintetico - nao e uma segunda medicao
-// real, so precisa ser diferente do primeiro) para 0x9048 (total
-// disponivel) - qualquer token trocado ou duplicado agora aparece como
-// um numero errado numa asercao especifica, nunca em silencio.
+// adotado neste arquivo, reprovado por mutacao real - "trocar a
+// segunda chamada de read_gl_memory_facts() para o token da primeira,
+// e o mutante sobrevive"): a versao anterior desta funcao IGNORAVA
+// `pname` e devolvia o mesmo numero pros dois tokens - primeiro
+// 4194304 pros dois (achado do clang-tidy, ternario redundante),
+// depois 4194304/3145728 mas o segundo era um numero SINTETICO, so
+// escolhido pra ser diferente. As duas versoes tinham o MESMO buraco
+// de fundo: nada aqui provava que read_gl_memory_facts() pede o TOKEN
+// CERTO pro CAMPO certo - trocar 0x9047 (dedicada) por 0x9048 (total
+// disponivel) dentro da funcao real, ou ler o mesmo token duas vezes,
+// nao reprovava nada quando os dois valores esperados eram iguais OU
+// inventados.
+//
+// NUNCA INVENTAR NUMERO (ordem do team-lead): os dois valores abaixo
+// sao os MEDIDOS DE VERDADE do renderizador por software desta
+// maquina (llvmpipe), a MESMA dupla que tests/memory_separation_kind_
+// test.cpp ja documenta e usa ("this machine actually measured...
+// the llvmpipe's own 'total == system RAM'") - 0 KB dedicado (nao tem
+// placa propria) e 32548140 KB disponivel total (a RAM inteira do
+// sistema). Sao DIFERENTES um do outro por serem REAIS, nao por
+// escolha - e e essa diferenca real que agora acusa um token trocado
+// ou duplicado, numa asercao especifica, nunca em silencio.
 extern "C" void real_driver_get_integerv(unsigned int pname, int *params) noexcept {
     if (params != nullptr) {
-        *params = pname == 0x9047 ? 4194304 : 3145728;
+        *params = pname == 0x9047 ? 0 : 32548140;
     }
 }
 extern "C" unsigned int real_driver_get_error() noexcept { return 0; }
@@ -84,12 +89,15 @@ GLINTFX_TEST(read_gl_memory_facts_trusts_a_consistent_capacity) {
     const gl_memory_facts facts =
         read_gl_memory_facts(real_driver_get_integerv, real_driver_get_error);
     GLINTFX_CHECK(facts.nvx_present);
-    // Dois valores DIFERENTES de proposito (achado do team-lead,
-    // 07/09/2026): a versao anterior asseverava os dois campos iguais
-    // a 4194304, o que nunca provava que cada campo veio do TOKEN
-    // certo - ver o comentario de real_driver_get_integerv() acima.
-    GLINTFX_CHECK_EQ(facts.dedicated_kb, std::int64_t{4194304});
-    GLINTFX_CHECK_EQ(facts.total_available_kb, std::int64_t{3145728});
+    // Dois valores REAIS e DIFERENTES de proposito (achado do
+    // team-lead, 07/09/2026, reprovado por mutacao antes deste
+    // conserto): a versao anterior asseverava os dois campos iguais
+    // (primeiro 4194304 pros dois, depois um segundo numero
+    // inventado), o que nunca provava que cada campo veio do TOKEN
+    // certo - ver o comentario de real_driver_get_integerv() acima
+    // para a proveniencia medida dos dois numeros.
+    GLINTFX_CHECK_EQ(facts.dedicated_kb, std::int64_t{0});
+    GLINTFX_CHECK_EQ(facts.total_available_kb, std::int64_t{32548140});
 }
 
 GLINTFX_TEST(read_gl_memory_facts_absent_extension_reports_not_present) {

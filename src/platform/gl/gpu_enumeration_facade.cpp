@@ -64,7 +64,7 @@ gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
     // it - never copied through a temporary that would dangle them.
     gltfx_rslt<std::vector<gltfx_gpu_info>> enumerated = platform::enumerate_gpus_egl(impl->names);
     if (enumerated.has_error()) {
-        const gltfx_err error = enumerated.error();
+        const gltfx_err &error = enumerated.error();
         delete impl;
         return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
     }

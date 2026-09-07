@@ -21,10 +21,12 @@ window_configure_sequence::apply_configure(std::uint32_t width, std::uint32_t he
             result.fullscreen = true;
         } else if (state == k_xdg_toplevel_state_activated) {
             result.activated = true;
+        } else if (state == k_xdg_toplevel_state_suspended) {
+            result.suspended = true;
         }
-        // Any other code (resizing, tiled_*, suspended, constrained_*,
-        // or a code a future protocol version defines) is deliberately
-        // ignored - see this file's own header comment.
+        // Any other code (resizing, tiled_*, constrained_*, or a code a
+        // future protocol version defines) is deliberately ignored -
+        // see this file's own header comment.
     }
 
     m_pending_serial = serial;

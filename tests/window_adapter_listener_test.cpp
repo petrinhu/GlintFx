@@ -50,6 +50,14 @@ using glintfx::platform::window_state_bit;
 constexpr std::int32_t kStateMaximized = 1;
 constexpr std::int32_t kStateFullscreen = 2;
 constexpr std::int32_t kStateActivated = 4;
+// suspended (9, `since` xdg_wm_base version 6, D-W6b-51, docs/plano-
+// w6b-fatias-6-8.md) - tracked as of this slice; a real compositor
+// only ever sends this code when it bound xdg_wm_base at version 6 or
+// higher (window_configure_sequence.hpp's own header comment), but
+// this synthetic listener call bypasses protocol negotiation entirely,
+// the same way every other case in this file does - it proves the
+// LOCAL translation, not a real compositor's own version gate.
+constexpr std::int32_t kStateSuspended = 9;
 
 wl_array make_states(std::int32_t *storage, std::size_t count) {
     wl_array states{};
@@ -119,6 +127,42 @@ GLINTFX_TEST(configure_applies_maximized_and_fullscreen_without_activated) {
     GLINTFX_CHECK(adapter.state().state(window_state_bit::maximized));
     GLINTFX_CHECK(adapter.state().state(window_state_bit::fullscreen));
     GLINTFX_CHECK(!adapter.state().state(window_state_bit::active));
+}
+
+GLINTFX_TEST(configure_with_suspended_state_sets_the_suspended_bit) {
+    wayland_window_adapter adapter;
+
+    std::int32_t storage[1] = {kStateSuspended};
+    wl_array states = make_states(storage, 1);
+
+    wayland_window_adapter::xdg_toplevel_configure(&adapter, nullptr, 640, 480, &states);
+    wayland_window_adapter::xdg_surface_configure(&adapter, nullptr, 9);
+
+    GLINTFX_CHECK(adapter.state().state(window_state_bit::suspended));
+    GLINTFX_CHECK(!adapter.state().state(window_state_bit::maximized));
+    GLINTFX_CHECK(!adapter.state().state(window_state_bit::fullscreen));
+    GLINTFX_CHECK(!adapter.state().state(window_state_bit::active));
+}
+
+GLINTFX_TEST(a_later_configure_without_suspended_clears_the_bit) {
+    // The same "state carried forward only until the NEXT configure
+    // says otherwise" shape configure_applies_maximized_and_fullscreen_
+    // without_activated above already proves for maximized/fullscreen:
+    // suspended is not a one-way latch (window_state.hpp's own header
+    // comment on window_state_bit distinguishes this from close_
+    // requested()).
+    wayland_window_adapter adapter;
+
+    std::int32_t suspended_storage[1] = {kStateSuspended};
+    wl_array suspended_states = make_states(suspended_storage, 1);
+    wayland_window_adapter::xdg_toplevel_configure(&adapter, nullptr, 640, 480, &suspended_states);
+    wayland_window_adapter::xdg_surface_configure(&adapter, nullptr, 10);
+    GLINTFX_CHECK(adapter.state().state(window_state_bit::suspended));
+
+    wayland_window_adapter::xdg_toplevel_configure(&adapter, nullptr, 640, 480, nullptr);
+    wayland_window_adapter::xdg_surface_configure(&adapter, nullptr, 11);
+
+    GLINTFX_CHECK(!adapter.state().state(window_state_bit::suspended));
 }
 
 GLINTFX_TEST(toplevel_close_event_sets_the_one_way_close_latch) {

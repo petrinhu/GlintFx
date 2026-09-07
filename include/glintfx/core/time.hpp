@@ -35,15 +35,32 @@
 // 64-bit nanosecond count covers roughly 292 years before it
 // overflows, far past any plausible single process runtime.
 //
-// WHAT IS OUT OF SCOPE HERE, ON PURPOSE: reading the ACTUAL monotonic
-// clock from the operating system. GODS_LAWS.md L-19 lists "tempo"
-// among the core layer's pure subjects, explicitly alongside "nao
-// conhece o sistema operacional" - this header only carries the
-// REPRESENTATION (the value types and the arithmetic on them). The
-// platform adapter that produces a REAL gltfx_time_point by calling
-// into the operating system's own clock belongs to the platform layer,
-// and lands in a later slice (LOOP-RUN, TODO.md) that CONSUMES this
-// one, never the other way around.
+// THIS HEADER CARRIES THE REPRESENTATION AND EXACTLY ONE READING,
+// gltfx_now() below (D-W6b-52, docs/plano-w6b-fatias-6-8.md sec. 8.1):
+// gltfx_now() reads std::chrono::steady_clock::now(), part of the C++
+// STANDARD LIBRARY, never the operating system's own clock API
+// directly - GODS_LAWS.md L-07 admits the standard library (only a
+// third-party dependency or vendored code is forbidden); L-19 forbids
+// the OPERATING SYSTEM in the core layer, and tests/tools/check_layers.py
+// does not treat <chrono> as an operating-system header (it has never
+// needed to - no other core header includes it either). The platform
+// layer has no clock of its own from here on: every adapter that would
+// otherwise read wall time itself consumes THIS function instead
+// (LOOP-RUN, platform/loop/loop.hpp). WHAT STAYS OUT OF SCOPE, ON
+// PURPOSE, EVEN NOW: the compositor's own reported presentation time
+// (Wayland's wp_presentation protocol) - a real, separate clock a
+// future slice may read, never this one (LOOP-PRESENTATION-TIME,
+// docs/plano-w6b-fatias-6-8.md sec. 10).
+//
+// CORRECTION to a claim this paragraph used to make, found and fixed
+// the same commit gltfx_now() was added (GODS_LAWS.md L-17's own "o
+// gemeo exato" - the same discipline the "CORRECTION" paragraph below
+// already applies to color.hpp): an earlier revision said reading the
+// real clock "belongs to the platform layer, and lands in a later
+// slice... that CONSUMES this one, never the other way around" - true
+// the day it was written, false the moment LOOP-RUN's own plan (docs/
+// plano-w6b-fatias-6-8.md, finding F16) decided the reading itself
+// belongs in THIS header, not one layer up.
 //
 // NAMES AND SHAPE BELOW - implementer inference, NOT a leader decision
 // (GODS_LAWS.md L-27, the same discipline color.hpp's own header
@@ -80,15 +97,16 @@
 //     some epoch", which no monotonic clock on any of this project's
 //     five target platforms promises.
 //
-// EXACTLY THREE public free functions ship in this header - the
-// closed set time_test.cpp's own enumeration test
+// EXACTLY FOUR public free functions ship in this header - the closed
+// set time_test.cpp's own enumeration test
 // (every_public_time_operation_is_exercised) checks its printed count
 // against (GODS_LAWS.md L-40): gltfx_duration_between(),
-// gltfx_duration_to_seconds(), gltfx_duration_from_seconds(). A fourth
-// added later means updating BOTH this sentence and that test's
-// k_all_operations array, in lockstep - the same contract
-// err_code_test.cpp's own header comment already documents for
-// k_all_codes.
+// gltfx_duration_to_seconds(), gltfx_duration_from_seconds(), and
+// gltfx_now() (D-W6b-52, added in lockstep with this sentence and that
+// test's own k_all_operations array - the count was THREE until this
+// slice, the same contract err_code_test.cpp's own header comment
+// already documents for k_all_codes). A fifth added later means
+// updating both again.
 //
 // THE RULE THAT STAYS, bigger than this slice (CTO decision in autonomous
 // mode, adversarial review, 28/08/2026 - canonical record: DECISOES_AUTONOMAS.md,
@@ -140,9 +158,11 @@ struct gltfx_duration {
 // gltfx_time_point produced by the SAME clock: a monotonic clock has
 // no defined relationship to wall-clock time, to a different process,
 // or (on some platforms) to a reading taken before a machine
-// suspend/resume. This pure core type intentionally does not say WHICH
-// clock, or how to read one right now - see this file's own "what is
-// out of scope" paragraph above.
+// suspend/resume. A gltfx_time_point is produced by gltfx_now() below,
+// and is only ever comparable with another gltfx_time_point produced
+// by THAT SAME function - see gltfx_now()'s own comment for the one
+// clock this header reads and why no other clock, and no epoch-
+// relative meaning, is promised.
 struct gltfx_time_point {
     std::int64_t ticks;
 };
@@ -228,5 +248,24 @@ struct gltfx_time_point {
 // checks after the rounding call reopens the exact defect this
 // paragraph describes.
 [[nodiscard]] GLINTFX_API gltfx_duration gltfx_duration_from_seconds(double seconds) noexcept;
+
+// The one real clock reading this project's core layer produces
+// (D-W6b-52, docs/plano-w6b-fatias-6-8.md sec. 8.1) - see this file's
+// own top comment for what it reads and why that reading belongs here
+// rather than in the platform layer. Two readings from two calls to
+// this SAME function, in the SAME process, are the only pair
+// gltfx_duration_between() above promises anything about - a
+// gltfx_time_point built any other way (a literal, a value read back
+// from disk) is not a "reading from the same clock" and carries none
+// of that guarantee.
+//
+// NOT TOTAL IN THE SENSE THE TWO CONVERSIONS ABOVE ARE (there is no
+// input to saturate or reject: this function takes none), but it
+// shares their other property - deterministic in EFFECT (it always
+// returns SOME valid gltfx_time_point) and NEVER fallible: a monotonic
+// clock this platform genuinely lacks is a build-time/support
+// question, never a per-call error this function's signature would
+// need a gltfx_rslt<T> to carry.
+[[nodiscard]] GLINTFX_API gltfx_time_point gltfx_now() noexcept;
 
 } // namespace glintfx

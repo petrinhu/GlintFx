@@ -48,14 +48,26 @@
 
 namespace glintfx::platform {
 
-// The three boolean facts D-W5-3/D-W6a-20 keep as flags on window_
-// state - distinct from the one-way close_requested() latch below
-// (GODS_LAWS.md L-17: a sticky, never-reset fact and a togglable one
-// are different subjects, not the same bit set).
+// The four boolean facts D-W5-3/D-W6a-20/D-W6b-51 keep as flags on
+// window_state - distinct from the one-way close_requested() latch
+// below (GODS_LAWS.md L-17: a sticky, never-reset fact and a togglable
+// one are different subjects, not the same bit set).
+//
+// suspended (D-W6b-51, docs/plano-w6b-fatias-6-8.md): the system's own
+// affirmative signal that this window is not being repainted right
+// now - Wayland's xdg_toplevel_state SUSPENDED (xdg-shell.xml, `since`
+// version 6, src/platform/wayland/window_configure_sequence.hpp's own
+// header comment) or Win32's WM_SIZE/SIZE_MINIMIZED (src/platform/
+// win32/window_message_route.cpp). It is the FIRST of the two criteria
+// LOOP-RUN's own present_would_skip() probe (a later fatia) consults -
+// see that fatia's own header comment for why a frame callback going
+// silent alone is not enough on a compositor that never sends this bit
+// (SDL#12156, read for the technique, not copied, GODS_LAWS.md L-29).
 enum class window_state_bit : std::uint8_t {
     active,
     maximized,
     fullscreen,
+    suspended,
 };
 
 // Plain, public-layout size (GODS_LAWS.md L-19's opacity clause is
@@ -109,6 +121,7 @@ class window_state {
     bool m_active = false;
     bool m_maximized = false;
     bool m_fullscreen = false;
+    bool m_suspended = false;
     bool m_close_requested = false;
 };
 

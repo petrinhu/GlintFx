@@ -4,16 +4,20 @@
 #include "platform/window/window_state.hpp"
 
 // window_state_test.cpp - W-C' (docs/plano-w6a-janela.md fatia 4,
-// D-W5-14 ampliada por decision 15/D-W6a-20): seven cases - three
-// covering the state v1 freezes (default state, the three window_
+// D-W5-14 ampliada por decision 15/D-W6a-20/D-W6b-51): ten cases -
+// three covering the state v1 freezes (default state, the four window_
 // state_bit flags plus the one-way close_requested latch, and logical_
-// size at the neutral scale/dpi both CI executors report today) and
-// four proving the pixel/logical DERIVATION with SYNTHETIC values
-// neither executor ever reports on its own (buffer_scale 2, dpi 144,
-// and both reverting to their neutral value) - see window_state.hpp's
-// own header comment on why "pixel_size just copies logical_size"
-// would pass every OTHER test in this file and still be wrong (risk 4,
-// docs/plano-w6a-janela.md sec. 5).
+// size at the neutral scale/dpi both CI executors report today), four
+// proving the pixel/logical DERIVATION with SYNTHETIC values neither
+// executor ever reports on its own (buffer_scale 2, dpi 144, and both
+// reverting to their neutral value) - see window_state.hpp's own
+// header comment on why "pixel_size just copies logical_size" would
+// pass every OTHER test in this file and still be wrong (risk 4, docs/
+// plano-w6a-janela.md sec. 5) - and three dedicated to `suspended`
+// (D-W6b-51, docs/plano-w6b-fatias-6-8.md), the fourth flag this slice
+// adds: it starts false like the other three (folded into the shared
+// default-state case above), toggles independently of them, and clears
+// again without disturbing anything else.
 
 using glintfx::platform::window_state;
 using glintfx::platform::window_state_bit;
@@ -28,6 +32,7 @@ GLINTFX_TEST(default_state_is_zero_size_no_flags_and_not_close_requested) {
     GLINTFX_CHECK(!state.state(window_state_bit::active));
     GLINTFX_CHECK(!state.state(window_state_bit::maximized));
     GLINTFX_CHECK(!state.state(window_state_bit::fullscreen));
+    GLINTFX_CHECK(!state.state(window_state_bit::suspended));
     GLINTFX_CHECK(!state.close_requested());
 }
 
@@ -107,4 +112,51 @@ GLINTFX_TEST(dpi_back_to_96_restores_pixel_size_to_logical_size) {
 
     GLINTFX_CHECK(state.pixel_size().width == 300);
     GLINTFX_CHECK(state.pixel_size().height == 200);
+}
+
+GLINTFX_TEST(suspended_bit_is_independent_of_the_other_three_flags) {
+    // D-W6b-51: suspended is a FOURTH, independent bit - setting it
+    // never touches active/maximized/fullscreen, the same "clearing one
+    // flag never touches the others" property state_bits_and_close_
+    // requested_are_independent above already proves for the first
+    // three.
+    window_state state;
+    state.set_state(window_state_bit::active, true);
+    state.set_state(window_state_bit::maximized, true);
+    state.set_state(window_state_bit::suspended, true);
+
+    GLINTFX_CHECK(state.state(window_state_bit::active));
+    GLINTFX_CHECK(state.state(window_state_bit::maximized));
+    GLINTFX_CHECK(!state.state(window_state_bit::fullscreen));
+    GLINTFX_CHECK(state.state(window_state_bit::suspended));
+}
+
+GLINTFX_TEST(suspended_bit_clears_without_disturbing_other_flags) {
+    window_state state;
+    state.set_state(window_state_bit::maximized, true);
+    state.set_state(window_state_bit::suspended, true);
+
+    state.set_state(window_state_bit::suspended, false);
+
+    GLINTFX_CHECK(!state.state(window_state_bit::suspended));
+    GLINTFX_CHECK(state.state(window_state_bit::maximized));
+}
+
+GLINTFX_TEST(suspended_bit_and_close_requested_are_different_subjects) {
+    // window_state.hpp's own header comment (window_state_bit's own
+    // top comment): a sticky, never-reset fact (close_requested) and a
+    // togglable one (suspended) are different subjects, not the same
+    // bit set - suspended toggles off cleanly, close_requested never
+    // does.
+    window_state state;
+    state.set_state(window_state_bit::suspended, true);
+    state.request_close();
+
+    GLINTFX_CHECK(state.state(window_state_bit::suspended));
+    GLINTFX_CHECK(state.close_requested());
+
+    state.set_state(window_state_bit::suspended, false);
+
+    GLINTFX_CHECK(!state.state(window_state_bit::suspended));
+    GLINTFX_CHECK(state.close_requested());
 }

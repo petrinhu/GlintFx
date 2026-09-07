@@ -112,6 +112,38 @@ GLINTFX_TEST(configure_translates_fullscreen_and_ignores_untracked_states) {
     GLINTFX_CHECK(!result.activated);
 }
 
+// D-W6b-51 (docs/plano-w6b-fatias-6-8.md): suspended (9) is now
+// TRACKED, not silently ignored - the same enumeration-with-untracked-
+// codes shape as the test above, but proving the code THIS slice added
+// is actually read, mixed with two it still does not track.
+GLINTFX_TEST(configure_translates_suspended_and_still_ignores_untracked_states) {
+    window_configure_sequence sequence;
+    const std::array<std::int32_t, 3> states{
+        glintfx::platform::k_xdg_toplevel_state_suspended,
+        3,
+        5,
+    };
+
+    const auto result = sequence.apply_configure(640, 480, states, 4);
+
+    GLINTFX_CHECK(result.suspended);
+    GLINTFX_CHECK(!result.maximized);
+    GLINTFX_CHECK(!result.fullscreen);
+    GLINTFX_CHECK(!result.activated);
+}
+
+GLINTFX_TEST(configure_without_suspended_state_leaves_it_false) {
+    window_configure_sequence sequence;
+    const std::array<std::int32_t, 1> states{
+        glintfx::platform::k_xdg_toplevel_state_activated,
+    };
+
+    const auto result = sequence.apply_configure(640, 480, states, 5);
+
+    GLINTFX_CHECK(!result.suspended);
+    GLINTFX_CHECK(result.activated);
+}
+
 GLINTFX_TEST(take_serial_to_ack_is_single_use) {
     window_configure_sequence sequence;
     static_cast<void>(sequence.apply_configure(640, 480, {}, 7));

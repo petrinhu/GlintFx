@@ -108,6 +108,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 #include <glintfx/core/err_format.hpp>
+#include <glintfx/core/fixed_step.hpp>
 #include <glintfx/core/interpolate.hpp>
 #include <glintfx/core/mat3.hpp>
 #include <glintfx/core/rect.hpp>
@@ -125,6 +126,7 @@
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
 #include <glintfx/platform/gl/gpu.hpp>
+#include <glintfx/platform/loop/loop.hpp>
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 #include <glintfx/version_macros.hpp>

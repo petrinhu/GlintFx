@@ -46,19 +46,23 @@ namespace {
 // ENUMERATION, not directed search (GODS_LAWS.md L-27/L-40, "enumere o
 // espaco pequeno quando ele for fechado" - the exact practice
 // err_code_test.cpp's own header comment names): time.hpp declares
-// EXACTLY THREE public free functions - this list is hand-written and
+// EXACTLY FOUR public free functions - this list is hand-written and
 // edited in lockstep with the header, which states the same count in
-// its own top comment.
+// its own top comment. `now` (D-W6b-52, docs/plano-w6b-fatias-6-8.md
+// sec. 8.1) is the fourth, added by this slice - the count was three
+// until now.
 enum class time_operation : std::uint8_t {
     duration_between,
     duration_to_seconds,
-    duration_from_seconds
+    duration_from_seconds,
+    now,
 };
 
-constexpr std::array<time_operation, 3> k_all_operations{
+constexpr std::array<time_operation, 4> k_all_operations{
     time_operation::duration_between,
     time_operation::duration_to_seconds,
     time_operation::duration_from_seconds,
+    time_operation::now,
 };
 
 } // namespace
@@ -91,6 +95,20 @@ GLINTFX_TEST(every_public_time_operation_is_exercised) {
         case time_operation::duration_from_seconds: {
             const glintfx::gltfx_duration built = glintfx::gltfx_duration_from_seconds(1.5);
             GLINTFX_CHECK_EQ(built.nanoseconds, static_cast<std::int64_t>(1'500'000'000));
+            ++exercised;
+            break;
+        }
+        case time_operation::now: {
+            // No property about a RAW gltfx_now() reading is promised
+            // in isolation (time.hpp's own struct comment on gltfx_
+            // time_point: only comparable with ANOTHER reading from the
+            // SAME function) - this branch keeps the closed-enumeration
+            // count honest, and the real behavioral proof (the clock
+            // advances, never runs backwards) is
+            // now_advances_and_never_runs_backwards below.
+            const glintfx::gltfx_time_point first = glintfx::gltfx_now();
+            const glintfx::gltfx_time_point second = glintfx::gltfx_now();
+            GLINTFX_CHECK(glintfx::gltfx_duration_between(first, second).nanoseconds >= 0);
             ++exercised;
             break;
         }
@@ -316,4 +334,45 @@ GLINTFX_TEST(duration_from_seconds_is_a_total_saturating_conversion) {
         "duration_from_seconds_is_a_total_saturating_conversion: {} hostile input(s) checked, "
         "all saturated/zeroed deterministically",
         checked);
+}
+
+GLINTFX_TEST(now_advances_and_never_runs_backwards) {
+    // D-W6b-52: gltfx_now() is the ONE real clock reading this
+    // project's core layer produces (see time.hpp's own updated header
+    // comment). TWO properties, neither implied by the other - a
+    // constant-returning stub would pass the first (never negative: 0
+    // IS non-negative) and fail the second; a clock that occasionally
+    // stepped backwards could still visibly "change" over many
+    // iterations while failing the first.
+    glintfx::gltfx_time_point previous = glintfx::gltfx_now();
+    int pairs_checked = 0;
+    for (int i = 0; i < 100; ++i) {
+        const glintfx::gltfx_time_point current = glintfx::gltfx_now();
+        GLINTFX_CHECK(glintfx::gltfx_duration_between(previous, current).nanoseconds >= 0);
+        previous = current;
+        ++pairs_checked;
+    }
+    GLINTFX_CHECK_EQ(pairs_checked, 100);
+
+    // The clock genuinely ADVANCES, not merely "never observed going
+    // backwards" (a frozen/constant reading would pass every check
+    // above too) - spin up to 10 million reads, and stop the instant
+    // two consecutive readings differ. GODS_LAWS.md L-40's own "portao
+    // vazio nao prova nada" applies here to a loop that could otherwise
+    // run 10^7 times and prove nothing: `advanced` is asserted true,
+    // never inferred from the loop simply finishing.
+    const glintfx::gltfx_time_point start = glintfx::gltfx_now();
+    bool advanced = false;
+    int iterations = 0;
+    constexpr int k_max_iterations = 10'000'000;
+    for (; iterations < k_max_iterations; ++iterations) {
+        if (glintfx::gltfx_now().ticks != start.ticks) {
+            advanced = true;
+            break;
+        }
+    }
+    GLINTFX_CHECK(advanced);
+    std::println("now_advances_and_never_runs_backwards: {} consecutive pair(s) never negative, "
+                 "clock advanced after {} iteration(s)",
+                 pairs_checked, iterations);
 }

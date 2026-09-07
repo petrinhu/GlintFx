@@ -36,9 +36,19 @@ glintfx_add_test(color_test)
 
 # CORE-TIME (TODO.md W3, GODS_LAWS.md L-19/L-20/L-26): the core
 # layer's public representation of elapsed time - gltfx_duration/
-# gltfx_time_point and the three gltfx_duration_* conversions - see
+# gltfx_time_point and the four gltfx_duration_*/gltfx_now() functions
+# (gltfx_now() added by LOOP-RUN fatia 6a, D-W6b-52) - see
 # time_test.cpp's own header comment.
 glintfx_add_test(time_test)
+
+# CORE-FIXED-STEP (LOOP-RUN fatia 6a, docs/plano-w6b-fatias-6-8.md
+# D-W6b-47, GODS_LAWS.md L-19/L-20/L-40): the optional passo-fixo atom
+# a consumer reaches for on top of the raw, variable gltfx_frame_tick::
+# elapsed - see fixed_step_test.cpp's own header comment. gltfx_fixed_
+# step_accumulate() is public API (GLINTFX_API, exported from
+# glintfx_library), so this needs no extra include dir/target_sources,
+# exactly like time_test/math2d_test above.
+glintfx_add_test(fixed_step_test)
 
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
@@ -812,6 +822,30 @@ glintfx_add_test(dxcore_gpu_kind_test)
 target_include_directories(dxcore_gpu_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(dxcore_gpu_kind_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+
+# LOOP-RUN fatia 6a (docs/plano-w6b-fatias-6-8.md sec. 8.1, GODS_LAWS.md
+# L-17/L-19/L-20/L-40): three pure atoms under src/platform/loop/, none
+# reaching an operating-system header - the same "no #if anywhere in
+# it, GODS_LAWS.md L-04 applied to a value type" shape window_state_
+# test.cpp already gives one directory over - so all three register
+# unguarded and run on all five platforms, exactly like frame_callback_
+# sequence_test just above.
+glintfx_add_test(frame_tick_state_test)
+target_include_directories(frame_tick_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_tick_state_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
+)
+
+glintfx_add_test(frame_cap_schedule_test)
+target_include_directories(frame_cap_schedule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_cap_schedule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
+)
+
+glintfx_add_test(loop_callbacks_validation_test)
+target_include_directories(loop_callbacks_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(loop_callbacks_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
 )
 
 # Wayland-only from here down: the real adapter case.

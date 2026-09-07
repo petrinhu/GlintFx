@@ -83,7 +83,7 @@ static_assert(platform::window_adapter_port<platform::selected_window_adapter>,
 // header comment already documents for the two enums existing
 // independently (GODS_LAWS.md L-19: internal code never programs
 // against a public GLINTFX_API type, and vice versa). A `default:`
-// case is deliberately absent: adding a fourth gltfx_window_state_bit
+// case is deliberately absent: adding a fifth gltfx_window_state_bit
 // enumerator without updating this switch is a missing-case compiler
 // WARNING (-Wswitch, -Werror project-wide, GODS_LAWS.md L-23) on this
 // exact line, not a silent fallthrough to some arbitrary native bit.
@@ -95,6 +95,8 @@ static_assert(platform::window_adapter_port<platform::selected_window_adapter>,
         return platform::window_state_bit::maximized;
     case gltfx_window_state_bit::fullscreen:
         return platform::window_state_bit::fullscreen;
+    case gltfx_window_state_bit::suspended:
+        return platform::window_state_bit::suspended;
     }
     // Unreachable given the switch above covers every enumerator
     // (GODS_LAWS.md L-22: no exception crosses ANY boundary in this

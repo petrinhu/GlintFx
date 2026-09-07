@@ -149,6 +149,11 @@ void wayland_window_adapter::xdg_surface_configure(void *data, xdg_surface * /*s
     self->m_state.set_state(window_state_bit::maximized, result.maximized);
     self->m_state.set_state(window_state_bit::fullscreen, result.fullscreen);
     self->m_state.set_state(window_state_bit::active, result.activated);
+    // D-W6b-51: only a compositor bound at xdg_wm_base version >= 6
+    // ever sends this code (window_configure_sequence.hpp's own header
+    // comment) - result.suspended is simply always false below that,
+    // so this line needs no version check of its own.
+    self->m_state.set_state(window_state_bit::suspended, result.suspended);
     self->m_configured = true;
 }
 

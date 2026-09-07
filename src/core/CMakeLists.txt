@@ -13,4 +13,4 @@
 # adds sources to a target already created in the parent directory.
 
 target_sources(glintfx_library PRIVATE version.cpp err_code.cpp err.cpp color.cpp time.cpp
-                                       vec2.cpp angle.cpp mat3.cpp interpolate.cpp)
+                                       vec2.cpp angle.cpp mat3.cpp interpolate.cpp fixed_step.cpp)

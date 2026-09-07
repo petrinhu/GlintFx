@@ -100,19 +100,28 @@ static_assert(std::is_trivially_copyable_v<gltfx_window_size>,
               "GODS_LAWS.md L-19 item 3: gltfx_window_size is a value type, safe to copy across "
               "the ABI boundary");
 
-// The three boolean facts D-W5-3 keeps as flags on a future gltfx_
+// The four boolean facts D-W5-3/D-W6b-51 keep as flags on a gltfx_
 // window's own state query - the public mirror of glintfx::platform::
-// window_state_bit (src/platform/window/window_state.hpp), same three
+// window_state_bit (src/platform/window/window_state.hpp), same four
 // names, same order, two independent enums for the same GODS_LAWS.md
 // L-19 reason gltfx_window_size and window_size stay independent
 // types above. Deliberately excludes close_requested (D-W5-3's own
-// minimum keeps that as its own one-way latch, never a fourth bit
-// here - window_state.hpp's own header comment already explains why a
+// minimum keeps that as its own one-way latch, never a fifth bit here -
+// window_state.hpp's own header comment already explains why a
 // sticky, never-reset fact and a togglable one are different subjects).
+//
+// suspended (D-W6b-51, docs/plano-w6b-fatias-6-8.md): the system's own
+// affirmative "this window is not being repainted right now" signal -
+// see platform::window_state_bit::suspended's own header comment
+// (window_state.hpp) for the exact mechanism on each platform, and for
+// why LOOP-RUN's own present_would_skip() probe (a later fatia)
+// consults this BEFORE the frame-callback-aged fallback, never as the
+// only signal.
 enum class gltfx_window_state_bit : std::uint8_t {
     active,
     maximized,
     fullscreen,
+    suspended,
 };
 
 // The open-time request (D-W5-4, renamed by decision 15): plain data a

@@ -44,6 +44,7 @@
 #   check_facade_export_boundary.py --selftest
 
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -168,6 +169,28 @@ def find_boundary_cpp_files(src_dir, api_pairs):
     return boundary
 
 
+def strip_cmake_comments(text):
+    """Truncates every line at its first '#' (CMake's own comment
+    marker), so a target's block never carries PROSE alongside its
+    real directives. Closes a self-exemption defect found by
+    sabotage (this gate's sibling bug in check_precommit_hook_chain.py
+    shares the same root cause, same fatia): a block that leaks past
+    its own `endif()` into a LATER comment (this file's own "Facade
+    export-boundary gate" narrative, right below win32_facade_pin_
+    test's own block, quotes both exemption tokens -
+    'glintfx::glintfx' and 'GLINTFX_LIBRARY_STATIC_DEFINE' - and every
+    boundary .cpp filename by NAME, in prose) self-exempts the moment
+    the REAL target_compile_definitions()/target_link_libraries() line
+    is removed: block_is_exempt()/block_lists_source() below still see
+    the comment's own words and never notice the directive is gone.
+    Verified nothing under tests/CMakeLists.txt puts a literal '#'
+    inside a quoted argument (grep -n '"[^"]*#[^"]*"' - the only three
+    hits are themselves comment lines quoting "#define"/"#undef" in
+    prose), so truncating at the first '#' never eats real CMake
+    syntax here."""
+    return "\n".join(line[: line.find("#")] if "#" in line else line for line in text.splitlines())
+
+
 def split_into_target_blocks(text):
     """Splits tests/CMakeLists.txt's text into (target_name, block_text)
     pairs, one per add_executable()/glintfx_add_test() call - a block
@@ -215,7 +238,12 @@ def check_facade_export_boundary(repo_root):
 
     api_names = collect_api_symbol_names(include_dir)
     boundary_files = find_boundary_cpp_files(src_dir, api_names)
-    blocks = split_into_target_blocks(cmake_text)
+    # Blocos sao fatiados e casados (block_is_exempt/block_lists_source)
+    # SEMPRE sobre texto sem comentario - nunca sobre cmake_text bruto -
+    # ou uma narrativa em prosa explicando a fronteira (que cita os dois
+    # tokens de isencao e cada nome de arquivo de fronteira por NOME)
+    # isenta o proprio alvo que ela descreve (ver strip_cmake_comments()).
+    blocks = split_into_target_blocks(strip_cmake_comments(cmake_text))
 
     violations = []
     for target_name, block_text in blocks:
@@ -391,6 +419,48 @@ def selftest_real_tree_passes(repo_root):
     return True
 
 
+def selftest_real_tree_sabotaged_reproves(repo_root, tmp_dir):
+    """GODS_LAWS.md L-36 (portao so conta depois de PROVADO vermelho
+    CONTRA O QUE ELE DEVE BARRAR): as cinco fixtures sintaticas acima
+    nunca tem a narrativa em prosa que a arvore REAL carrega ao lado de
+    win32_facade_pin_test - nenhuma delas teria pego a regressao real
+    (CI run 34067447918, commit ddd40b3: a linha 'target_compile_
+    definitions(win32_facade_pin_test PRIVATE GLINTFX_LIBRARY_STATIC_
+    DEFINE)' removida, e o portao continuou dizendo '0 violacoes',
+    codigo zero, porque o bloco vazava para o comentario do proprio
+    portao logo abaixo - ver strip_cmake_comments()). Este controle
+    reproduz a MESMA sabotagem sobre uma COPIA da arvore real (nunca
+    in-place - GODS_LAWS.md L-27) e exige reprovacao."""
+    sabotaged = Path(tmp_dir) / "real_tree_sabotaged"
+    shutil.copytree(Path(repo_root) / "include", sabotaged / "include")
+    shutil.copytree(Path(repo_root) / "src", sabotaged / "src")
+    (sabotaged / "tests").mkdir(parents=True, exist_ok=True)
+    cmake_file = sabotaged / "tests" / "CMakeLists.txt"
+    original = (Path(repo_root) / "tests" / "CMakeLists.txt").read_text(encoding="utf-8")
+    needle = "    target_compile_definitions(win32_facade_pin_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)\n"
+    if needle not in original:
+        print(
+            "selftest: controle REAL-TREE-SABOTAGED FALHOU (linha alvo da sabotagem nao encontrada - "
+            "selftest esta desatualizado)",
+            file=sys.stderr,
+        )
+        return False
+    cmake_file.write_text(original.replace(needle, "", 1), encoding="utf-8")
+
+    ok = check_facade_export_boundary(sabotaged)
+    if ok:
+        print(
+            "selftest: controle REAL-TREE-SABOTAGED FALHOU (removeu a exencao real de "
+            "win32_facade_pin_test e o portao continuou passando)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle REAL-TREE-SABOTAGED OK (a arvore real, com a exencao real removida, reprova)"
+    )
+    return True
+
+
 def selftest_main():
     repo_root = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="glintfx-facade-export-boundary-selftest-") as tmp_dir:
@@ -401,6 +471,7 @@ def selftest_main():
             selftest_exempt_by_link_passes(tmp_dir),
             selftest_exempt_by_static_define_passes(tmp_dir),
             selftest_real_tree_passes(repo_root),
+            selftest_real_tree_sabotaged_reproves(repo_root, tmp_dir),
         ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

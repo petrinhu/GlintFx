@@ -2196,3 +2196,24 @@ Nao ha pausa entre ondas: o fecho de uma e o inicio da outra. O que continua
 valendo como freio e a condicao de verde - onda so fecha com o espelho local e
 o servidor verdes e os itens marcados. Fechar mal para comecar cedo nao e
 comecar cedo, e adiar o vermelho.
+
+## 06/09/2026 - 21:58 | Ordem do lider: vermelho e amarelo se resolvem ANTES de seguir
+
+**Verbatim:**
+
+> *"sempre resolva os vermelhos dos runners e testes e watchcode (vermelhos e amarelos) antes de seguir, exceto vermelhos provocados por testes de maneira proposital"*
+
+**O que isso obriga.** Nada avanca com sinal aceso. Vale para os tres canais:
+o servidor, a suite de testes, e o vigia de falhas desta maquina - e neste
+ultimo vale tambem o **amarelo**, nao so o vermelho. A unica excecao e o
+vermelho que um teste produz de proposito para provar que morde (vermelho de
+estreia, mutacao deliberada): esse e o mecanismo funcionando, nao defeito.
+
+**O criterio para distinguir, para ninguem usar a excecao como desculpa:** o
+vermelho proposital tem autor, hora e proposito declarados por quem o provocou,
+e some quando o teste e restaurado. Vermelho sem esses tres nao e proposital -
+e defeito ate prova em contrario.
+
+**Efeito imediato:** os avisos de seguranca do sistema que o vigia registrou
+hoje (container alcancando arquivos temporarios do usuario) entram na fila
+AGORA, e nao no fim da onda, porque nao foram provocados por teste nenhum.

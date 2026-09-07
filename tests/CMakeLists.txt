@@ -1381,6 +1381,19 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        # GL-GPU-KIND (achado do team-lead, 07/09/2026 - o mesmo defeito do
+        # Containerfile, num segundo lugar onde fontes sao listadas a mao):
+        # wgl_context_adapter.cpp's own #include list (this file's own
+        # header comment) pulls in every one of these six - LNK2019 for
+        # all of them until this line existed.
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
     )
     target_link_libraries(win32_iconic_present_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
 endif()

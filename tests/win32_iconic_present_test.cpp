@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <glintfx/core/err_code.hpp>
+#include <glintfx/platform/gl/gpu.hpp>
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
@@ -84,6 +85,54 @@ open_display_and_window(glintfx::platform::win32_display_adapter &display,
     return !window.open(display, desc).has_error();
 }
 
+// GL-CI-SOFTWARE TOLERANCE (team-lead briefing, 07/09/2026, decisao do
+// lider por AskUserQuestion, "tolerar, mas so sob prova" - GODS_LAWS.md
+// L-04/L-40): the windows-latest verification runner carries no real
+// GPU, and its software renderer occasionally refuses to present a
+// frame with the OS itself reporting NO cause at all (a failing
+// ::SwapBuffers() with ::GetLastError()==0). A swap_buffers() failure
+// downgrades from a hard reproval to a printed, counted DOWNGRADE ONLY
+// when ALL THREE factors below hold at once - any other combination
+// (a different error code/rejected_value, a nonzero os_error_code, a
+// non-software gpu().kind, or NO other successful swap in this SAME
+// execution) still reproves exactly as before. The third factor
+// matters most: a swap that fails before any real swap has ever
+// succeeded here is a broken path, never instability, and reproves
+// even under a software renderer.
+[[nodiscard]] bool should_tolerate_swap_failure(const glintfx::gltfx_err &err,
+                                                glintfx::gltfx_gpu_kind gpu_kind,
+                                                bool any_other_swap_succeeded) noexcept {
+    if (err.code() != glintfx::gltfx_err_code::platform_failure) {
+        return false;
+    }
+    if (err.rejected_value() != std::string_view{"swap_buffers"}) {
+        return false;
+    }
+    if (err.os_error_code() != 0) {
+        return false;
+    }
+    // NEVER by renderer-name text (include/glintfx/platform/gl/gpu.hpp's
+    // own header comment forbids it) - only the CLOSED `kind` type.
+    if (gpu_kind != glintfx::gltfx_gpu_kind::software) {
+        return false;
+    }
+    return any_other_swap_succeeded;
+}
+
+void print_swap_tolerance_downgrade(std::string_view label,
+                                    const glintfx::gltfx_err &err) noexcept {
+    std::println("DOWNGRADE: {} tolerada - error_code={} rejected_value={} os_error_code={}, "
+                 "gpu().kind=software, com outra troca de quadro desta MESMA execucao ja "
+                 "bem-sucedida antes desta. (a) o ambiente diverge porque esta maquina de "
+                 "verificacao do Windows nao tem placa de video real - o renderizador por "
+                 "software as vezes recusa apresentar um quadro sem o sistema operacional "
+                 "relatar causa nenhuma (os_error_code=0). (b) quem prova o comportamento "
+                 "real da biblioteca no lugar desta chave e' a prova em placa dedicada, "
+                 "conduzida pelo orquestrador.",
+                 label, glintfx::gltfx_err_code_name(err.code()), err.rejected_value(),
+                 err.os_error_code());
+}
+
 } // namespace
 
 GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
@@ -119,16 +168,32 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     // adapter is documented to perform.
     GLINTFX_CHECK(!display.pump_events().has_error());
 
+    // GL-CI-SOFTWARE TOLERANCE (team-lead briefing, 07/09/2026):
+    // `any_swap_succeeded` tracks whether SOME OTHER frame swap of
+    // THIS SAME execution already reached `presented` - the third
+    // factor should_tolerate_swap_failure() requires before ever
+    // downgrading a swap_buffers() failure below.
+    bool any_swap_succeeded = false;
+    int swap_tolerated_downgrades = 0;
+
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented_before_minimize =
         context.swap_buffers();
     print_error_detail_if_failed("win32_iconic_present_test.presented_before_minimize",
                                  presented_before_minimize);
-    GLINTFX_CHECK(!presented_before_minimize.has_error());
-    const bool presented_before =
-        presented_before_minimize.value() == glintfx::gltfx_present_outcome::presented;
-    std::println("MEASURED win32_iconic_present_test.presented_before_minimize={}",
-                 presented_before);
-    GLINTFX_CHECK(presented_before);
+    if (presented_before_minimize.has_error()) {
+        GLINTFX_CHECK(should_tolerate_swap_failure(presented_before_minimize.error(),
+                                                   context.gpu().kind, any_swap_succeeded));
+        print_swap_tolerance_downgrade("win32_iconic_present_test.presented_before_minimize",
+                                       presented_before_minimize.error());
+        ++swap_tolerated_downgrades;
+    } else {
+        const bool presented_before =
+            presented_before_minimize.value() == glintfx::gltfx_present_outcome::presented;
+        std::println("MEASURED win32_iconic_present_test.presented_before_minimize={}",
+                     presented_before);
+        GLINTFX_CHECK(presented_before);
+        any_swap_succeeded = true;
+    }
     const std::uint32_t swaps_before_minimize = context.swap_calls_issued();
 
     ::ShowWindow(window.native_handle(), SW_MINIMIZE);
@@ -191,13 +256,38 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> after_restore =
         context.swap_buffers();
     print_error_detail_if_failed("win32_iconic_present_test.after_restore", after_restore);
-    GLINTFX_CHECK(!after_restore.has_error());
-    const bool presented_after_restore =
-        after_restore.value() == glintfx::gltfx_present_outcome::presented;
-    std::println("MEASURED win32_iconic_present_test.presented_after_restore={}",
-                 presented_after_restore);
-    GLINTFX_CHECK(presented_after_restore);
-    GLINTFX_CHECK(context.swap_calls_issued() == swaps_before_minimize + 1);
+    if (after_restore.has_error()) {
+        // GL-CI-SOFTWARE TOLERANCE (team-lead briefing, 07/09/2026,
+        // decisao do lider por AskUserQuestion): THIS is the exact
+        // failure the tolerance exists for - a GPU-less Windows CI
+        // runner refusing to present after a minimize/restore cycle,
+        // ::GetLastError() reporting nothing. Tolerated ONLY when
+        // should_tolerate_swap_failure() holds; any other shape of
+        // failure still reproves via the GLINTFX_CHECK below, exactly
+        // as before this tolerance existed.
+        GLINTFX_CHECK(should_tolerate_swap_failure(after_restore.error(), context.gpu().kind,
+                                                   any_swap_succeeded));
+        print_swap_tolerance_downgrade("win32_iconic_present_test.after_restore",
+                                       after_restore.error());
+        ++swap_tolerated_downgrades;
+        // Tolerated means this swap proves neither `presented` nor
+        // `swap_calls_issued() == swaps_before_minimize + 1` - the
+        // DOWNGRADE line above already names, in (b), what covers the
+        // library's real behaviour in this key's place instead.
+    } else {
+        const bool presented_after_restore =
+            after_restore.value() == glintfx::gltfx_present_outcome::presented;
+        std::println("MEASURED win32_iconic_present_test.presented_after_restore={}",
+                     presented_after_restore);
+        GLINTFX_CHECK(presented_after_restore);
+        GLINTFX_CHECK(context.swap_calls_issued() == swaps_before_minimize + 1);
+    }
+
+    // GODS_LAWS.md L-40's own non-empty-sweep floor, applied to this
+    // tolerance mechanism itself: prints even when it never fired
+    // (swap_tolerated_downgrades == 0), never silently.
+    std::println("MEASURED win32_iconic_present_test.swap_tolerated_downgrades={}",
+                 swap_tolerated_downgrades);
 }
 
 // D-W6b-18: v-sync `adaptive` on Windows is honored (wglSwapIntervalEXT

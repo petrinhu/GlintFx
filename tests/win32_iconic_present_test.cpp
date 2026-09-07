@@ -133,6 +133,59 @@ void print_swap_tolerance_downgrade(std::string_view label,
                  err.os_error_code());
 }
 
+// GL-CI-SOFTWARE TOLERANCE, DIAGNOSTIC ON REFUSAL (team-lead briefing,
+// FACADE-PIN, 07/09/2026: "eu nao consigo saber POR QUE" - the case
+// that reproves in gl_context_parity_test.cpp never printed the four
+// booleans/values should_tolerate_swap_failure() actually decided on,
+// so a future reprova gives no rastro of WHICH factor tripped it).
+// Printed ONLY when the tolerance is about to REFUSE (right before the
+// GLINTFX_CHECK below turns that refusal into a reproval) - the four
+// fields the function above reads, PLUS the fifth (any_other_swap_
+// succeeded) it also needs, all five as their OWN MEASURED line
+// (tests/tools/collect_measured.py's own <owner>.<key>=<value> shape,
+// exactly ONE dot) - deliberately NOT the {label}.{field} shape print_
+// error_detail_if_failed above uses (that shape nests a SECOND dot
+// inside `label`, so it never actually matches collect_measured.py's
+// own MEASURED_LINE regex; this function's whole reason to exist is
+// being collectible, so it does not repeat that shape).
+void print_swap_tolerance_refusal(std::string_view site, const glintfx::gltfx_err &err,
+                                  glintfx::gltfx_gpu_kind gpu_kind,
+                                  bool any_other_swap_succeeded) noexcept {
+    std::println("MEASURED win32_iconic_present_test.{}_refusal_error_code={}", site,
+                 glintfx::gltfx_err_code_name(err.code()));
+    std::println("MEASURED win32_iconic_present_test.{}_refusal_rejected_value={}", site,
+                 err.rejected_value());
+    std::println("MEASURED win32_iconic_present_test.{}_refusal_os_error_code={}", site,
+                 err.os_error_code());
+    std::println("MEASURED win32_iconic_present_test.{}_refusal_gpu_kind={}", site,
+                 static_cast<int>(gpu_kind));
+    std::println("MEASURED win32_iconic_present_test.{}_refusal_any_swap_succeeded={}", site,
+                 any_other_swap_succeeded);
+}
+
+// GODS_LAWS.md L-40's own non-empty-sweep floor, applied to the
+// `swap_tolerated_downgrades` counter ITSELF, across EVERY exit path
+// of the GLINTFX_TEST body below - not just the happy one. GLINTFX_
+// CHECK throws case_check_failed to unwind the CURRENT case the
+// instant a check fails (harness/check.hpp's own header comment,
+// "CASE-FATAL"); a print placed at the BOTTOM of the test body - the
+// shape this file used to have - never ran when the should_tolerate_
+// swap_failure() GLINTFX_CHECK reproved, because the throw unwound
+// straight past it (team-lead briefing, FACADE-PIN, 07/09/2026: "essa
+// linha NAO apareceu na execucao que reprovou"). A destructor runs on
+// ANY scope exit - normal fall-through OR exception unwinding alike -
+// so binding the print to one guarantees it fires EXACTLY once, on
+// every path, without duplicating the print statement at each GLINTFX_
+// CHECK call site. `count` is a reference to the test's own local
+// `swap_tolerated_downgrades`, so the destructor always reads its
+// FINAL value, whatever path got there.
+struct swap_tolerated_downgrades_reporter {
+    const int &count;
+    ~swap_tolerated_downgrades_reporter() noexcept {
+        std::println("MEASURED win32_iconic_present_test.swap_tolerated_downgrades={}", count);
+    }
+};
+
 } // namespace
 
 GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
@@ -175,14 +228,25 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     // downgrading a swap_buffers() failure below.
     bool any_swap_succeeded = false;
     int swap_tolerated_downgrades = 0;
+    // See swap_tolerated_downgrades_reporter's own header comment above:
+    // this print MUST survive every GLINTFX_CHECK reproval below, so it
+    // is bound to a destructor instead of sitting at the bottom of this
+    // function body.
+    const swap_tolerated_downgrades_reporter downgrades_reporter{swap_tolerated_downgrades};
 
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented_before_minimize =
         context.swap_buffers();
     print_error_detail_if_failed("win32_iconic_present_test.presented_before_minimize",
                                  presented_before_minimize);
     if (presented_before_minimize.has_error()) {
-        GLINTFX_CHECK(should_tolerate_swap_failure(presented_before_minimize.error(),
-                                                   context.gpu().kind, any_swap_succeeded));
+        const bool tolerated = should_tolerate_swap_failure(presented_before_minimize.error(),
+                                                            context.gpu().kind, any_swap_succeeded);
+        if (!tolerated) {
+            print_swap_tolerance_refusal("presented_before_minimize",
+                                         presented_before_minimize.error(), context.gpu().kind,
+                                         any_swap_succeeded);
+        }
+        GLINTFX_CHECK(tolerated);
         print_swap_tolerance_downgrade("win32_iconic_present_test.presented_before_minimize",
                                        presented_before_minimize.error());
         ++swap_tolerated_downgrades;
@@ -265,8 +329,13 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
         // should_tolerate_swap_failure() holds; any other shape of
         // failure still reproves via the GLINTFX_CHECK below, exactly
         // as before this tolerance existed.
-        GLINTFX_CHECK(should_tolerate_swap_failure(after_restore.error(), context.gpu().kind,
-                                                   any_swap_succeeded));
+        const bool tolerated = should_tolerate_swap_failure(after_restore.error(),
+                                                            context.gpu().kind, any_swap_succeeded);
+        if (!tolerated) {
+            print_swap_tolerance_refusal("after_restore", after_restore.error(), context.gpu().kind,
+                                         any_swap_succeeded);
+        }
+        GLINTFX_CHECK(tolerated);
         print_swap_tolerance_downgrade("win32_iconic_present_test.after_restore",
                                        after_restore.error());
         ++swap_tolerated_downgrades;
@@ -283,11 +352,10 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
         GLINTFX_CHECK(context.swap_calls_issued() == swaps_before_minimize + 1);
     }
 
-    // GODS_LAWS.md L-40's own non-empty-sweep floor, applied to this
-    // tolerance mechanism itself: prints even when it never fired
-    // (swap_tolerated_downgrades == 0), never silently.
-    std::println("MEASURED win32_iconic_present_test.swap_tolerated_downgrades={}",
-                 swap_tolerated_downgrades);
+    // swap_tolerated_downgrades itself is printed by downgrades_
+    // reporter's destructor above (fires on this normal fall-through
+    // AND on any GLINTFX_CHECK reproval earlier in this function),
+    // never by a print sitting here - see its own header comment.
 }
 
 // D-W6b-18: v-sync `adaptive` on Windows is honored (wglSwapIntervalEXT

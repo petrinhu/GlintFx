@@ -68,7 +68,11 @@ namespace glintfx {
 struct gltfx_fixed_step {
     // The fixed step size. `<= 0` turns gltfx_fixed_step_accumulate()
     // below into a total no-op (see this header's own top comment).
-    gltfx_duration dt;
+    // Zero-initialized by default (never left indeterminate if a
+    // caller default-constructs a gltfx_fixed_step before setting it) -
+    // that default already IS the total no-op case above, never a
+    // meaningful step a caller could mistake for a real one.
+    gltfx_duration dt{};
 
     // Caps how many steps ONE gltfx_fixed_step_accumulate() call ever
     // reports - `0` means no cap beyond whatever `elapsed` the caller

@@ -82,25 +82,30 @@ struct gltfx_frame_tick {
     // no meaningful span" rule core/time.hpp's own D8 paragraph already
     // applies to a pure conversion), never larger than
     // k_gltfx_max_frame_elapsed above. Zero on the very first tick.
-    gltfx_duration elapsed;
+    // Zero-initialized by default - never left indeterminate if a
+    // caller default-constructs a gltfx_frame_tick before an atom
+    // fills it in (this constructor is never called by the library
+    // itself; every real tick this project builds uses full designated
+    // initialization).
+    gltfx_duration elapsed{};
 
     // The gltfx_now() reading that closed THIS tick - the same reading
     // `elapsed` above was computed against, and the one the NEXT tick's
     // own `elapsed` will be measured from.
-    gltfx_time_point now;
+    gltfx_time_point now{};
 
     // 1 on the first tick, +1 every subsequent tick, with no gap -
     // independent of `should_render` below (a hidden window still
     // advances this counter; only drawing stops). 64 bits: at 1000
     // ticks per second, a 32-bit counter would overflow in 49 days,
     // well inside a long-running server's own realistic uptime.
-    std::uint64_t frame_index;
+    std::uint64_t frame_index = 0;
 
     // Whether THIS tick should call on_render()/present() - see this
     // header's own P4 below for the exact rule (the two implications
     // it proves, and why it is NOT a plain equality with `last_present`
     // below).
-    bool should_render;
+    bool should_render = false;
 
     // What the LAST present() call (this tick's own, if it ran, or a
     // previous one) returned - `presented` before the very first

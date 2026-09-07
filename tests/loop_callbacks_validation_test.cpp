@@ -126,9 +126,9 @@ GLINTFX_TEST(on_event_filled_is_refused_once_on_frame_and_on_render_are_both_fil
 namespace {
 
 struct cell_t {
-    bool on_frame_filled;
-    bool on_render_filled;
-    bool on_event_filled;
+    bool on_frame_filled = false;
+    bool on_render_filled = false;
+    bool on_event_filled = false;
     std::string_view expected_rejected_value; // empty means "accepted"
 };
 

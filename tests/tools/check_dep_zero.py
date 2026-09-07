@@ -236,6 +236,26 @@ SO_HEADER_ALLOWLIST = frozenset(
         "drm/xe_drm.h",
         "drm/amdgpu_drm.h",
         "drm/nouveau_drm.h",
+        # GL-GPU-KIND, Windows (docs/plano-w6b-fatias-5b-revisao.md sec.
+        # 1.2/3, D-W6b-37, GODS_LAWS.md L-07): dxcore.h (which pulls in
+        # dxcore_interface.h) is the REAL Windows SDK header shipping
+        # the DXCore types - the SAME "API do sistema" category
+        # windows.h already is, NOT a vendored third-party library.
+        # Confirmed present in this project's own build toolchain
+        # (/opt/msvc/Windows Kits/10/Include/10.0.26100.0/um/dxcore.h
+        # inside glintfx-msvc:latest, 06/09/2026) - only its TYPE
+        # declarations are used (IDXCoreAdapterFactory/List/Adapter,
+        # DXCoreAdapterProperty, DXCORE_ADAPTER_ATTRIBUTE_D3D12_
+        # GRAPHICS); the one free function actually called
+        # (DXCoreCreateAdapterFactory) is resolved dynamically through
+        # LoadLibraryW/GetProcAddress, never linked against dxcore.lib
+        # (tools/ci/check-dep-zero-win.ps1's own allowlist stays
+        # untouched) - team-lead's own correction, 06/09/2026: hand-
+        # transcribing the three interface IIDs from memory is
+        # forbidden precisely because they are not published as named
+        # constants; the real header's own __uuidof()-based template
+        # overloads are the only correct way to obtain them.
+        "dxcore.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own

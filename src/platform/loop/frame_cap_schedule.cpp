@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "platform/loop/frame_cap_schedule.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace glintfx::platform {
 
@@ -29,8 +31,24 @@ std::uint32_t frame_cap_schedule::plan(gltfx_time_point now, std::uint32_t cap_h
     // this fix - cap_hz is unsigned here so the negative case cannot
     // occur today, but the idiom itself is banned project-wide, not
     // only where it would currently misbehave).
-    const auto period_ns =
-        static_cast<std::int64_t>(std::llround(1'000'000'000.0 / static_cast<double>(cap_hz)));
+    //
+    // GATE-LLROUND-ORDER (TODO.md, tests/tools/check_round_order.py):
+    // every rounding call's own argument is compared against BOTH
+    // range limits before conversion, never trusted to already be in
+    // range - the nested std::clamp() shape core/color.cpp's own
+    // unit_to_byte() already uses, accepted by that gate's own header
+    // comment as equivalent to a separate `if` pair (the clamp and the
+    // round are one expression, so the bound-check has no textual
+    // place to drift away from the call the way CORE-TIME's own
+    // mutation, this gate's whole reason to exist, once did). `cap_hz
+    // >= 1` here (the `cap_hz == 0` branch above already returned)
+    // keeps 1e9 / cap_hz always small and finite in practice - this
+    // clamp is the structural guarantee anyway, never "trust the
+    // caller".
+    const auto period_ns = static_cast<std::int64_t>(
+        std::llround(std::clamp(1'000'000'000.0 / static_cast<double>(cap_hz),
+                                static_cast<double>(std::numeric_limits<std::int64_t>::min()),
+                                static_cast<double>(std::numeric_limits<std::int64_t>::max()))));
 
     if (!m_has_deadline) {
         // Nothing armed yet (either this is the very first call ever,

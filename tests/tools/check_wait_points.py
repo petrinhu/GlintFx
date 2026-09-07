@@ -55,12 +55,22 @@ MANIFEST_RELATIVE_PATH = os.path.join("tests", "wait_points.txt")
 # existe nesta arvore - quando nascer, entra aqui como arquivo novo,
 # nunca antecipado (tests/wait_points.txt's own header comment repete
 # a mesma regra do lado do manifesto).
+# Forma canonica com "/" - a MESMA forma que tests/wait_points.txt usa
+# no campo `arquivo` (o manifesto e' um arquivo de texto versionado,
+# nunca escreve "\"). os.path.join() aqui produziria "\" no Windows e
+# quebraria toda comparacao contra o manifesto (CI run 34124767196,
+# job "Windows" - "sitios encontrados sem linha no manifesto" para um
+# sitio que TINHA linha, so' que escrita com a barra errada): relpath
+# fica posix-puro do inicio ao fim deste script (chave de dict,
+# mensagem de erro, comparacao com o manifesto) e so' vira caminho
+# nativo no unico lugar que toca o sistema de arquivos (scan_file(),
+# abaixo).
 TARGET_FILES = (
-    os.path.join("src", "platform", "wayland", "display_adapter.cpp"),
-    os.path.join("src", "platform", "wayland", "egl_context_adapter.cpp"),
-    os.path.join("src", "platform", "wayland", "bounded_output_wait.cpp"),
-    os.path.join("src", "platform", "win32", "display_adapter.cpp"),
-    os.path.join("src", "platform", "win32", "wgl_context_adapter.cpp"),
+    "src/platform/wayland/display_adapter.cpp",
+    "src/platform/wayland/egl_context_adapter.cpp",
+    "src/platform/wayland/bounded_output_wait.cpp",
+    "src/platform/win32/display_adapter.cpp",
+    "src/platform/win32/wgl_context_adapter.cpp",
 )
 
 # docs/plano-w6b-fatias-6-8.md, D-W6b-58 - a lista fixada ANTES do dado
@@ -158,7 +168,10 @@ def scan_file(root, relpath):
     call, and that line already matched by construction, but a future
     row citing a helper's own doc line should still resolve).
     """
-    path = os.path.join(root, relpath)
+    # relpath chega sempre com "/" (TARGET_FILES's own comment) - so'
+    # aqui, no unico ponto que abre o arquivo de verdade, ele vira
+    # separador nativo.
+    path = os.path.join(root, *relpath.split("/"))
     if not os.path.isfile(path):
         fail(f"arquivo-alvo nao encontrado: {relpath} (TARGET_FILES esta desatualizada?)")
     sites = []

@@ -220,8 +220,17 @@ def block_is_exempt(block_text):
 
 
 def check_facade_export_boundary(repo_root):
-    include_dir = Path(repo_root) / "include" / "glintfx"
-    src_dir = Path(repo_root) / "src"
+    # .resolve() ANTES de qualquer comparacao (CI run 34124767196, job
+    # Windows: ValueError em relative_to() porque cpp_path chegava
+    # resolvido - boundary.add(cpp.resolve()), abaixo - e src_dir nao,
+    # e o TEMP do runner tem duas formas do MESMO diretorio, 8.3 curta
+    # (RUNNER~1) e longa (runneradmin), cada lado com uma). Resolver
+    # aqui, uma vez, deixa toda a arvore downstream (include_dir,
+    # src_dir e todo cpp_path que find_boundary_cpp_files() enumera a
+    # partir dele) na MESMA forma canonica - block_lists_source() nao
+    # precisa saber disso.
+    include_dir = (Path(repo_root) / "include" / "glintfx").resolve()
+    src_dir = (Path(repo_root) / "src").resolve()
     cmake_file = Path(repo_root) / "tests" / "CMakeLists.txt"
 
     if not include_dir.is_dir():

@@ -2217,3 +2217,28 @@ e defeito ate prova em contrario.
 **Efeito imediato:** os avisos de seguranca do sistema que o vigia registrou
 hoje (container alcancando arquivos temporarios do usuario) entram na fila
 AGORA, e nao no fim da onda, porque nao foram provocados por teste nenhum.
+
+## 06/09/2026 - 22:12 | Ordem do lider: como decidir sem parar para perguntar
+
+**Verbatim:**
+
+> *"Nas proximas decisoes, nao apra para me perguntar, busque na web a resposta, ou nas dores da comunidade, leve a um clevel e ele vai responder. Depois traga tudo para mim quando eu pedir. NUNCA escolha pelo mais fácil, priorize a comunidade, depois documentacao tecnica na web, busque nos repos rmlui e sdl3 apenas como exemplo (se nao buscou quebrou lei do projeto e reporte bug), depois mais eficaz."*
+
+**O caminho obrigatorio de toda duvida, nesta ordem:**
+
+1. **A dor da comunidade primeiro.** O que os usuarios reais reclamam, e o que
+   eles resolveram na marra. E o criterio de MAIOR peso, acima de documentacao.
+2. **Documentacao tecnica da web**, depois disso.
+3. **Os repositorios do RmlUi e do SDL3, como EXEMPLO** - nunca para copiar
+   (L-29 do projeto proibe copiar; ler para aprender e permitido). **Nao buscar
+   neles e quebra de lei do projeto, e quem quebrar reporta o proprio erro.**
+4. **Por fim, o mais eficaz** entre o que sobrou.
+
+**A proibicao que atravessa os quatro passos:** nunca escolher pelo mais facil.
+A auditoria de hoje achou seis decisoes tomadas assim, tres ainda valendo.
+
+**O que muda no fluxo:** a duvida vai ao C-level, que responde seguindo esses
+passos. O lider recebe tudo junto quando pedir, nao uma pergunta de cada vez.
+
+**Uma decisao ele deu junto, ja fechada:** o conserto do fim de linha vindo do
+Windows entra como **fatia nova**, nao reabrindo a que ja fechou.

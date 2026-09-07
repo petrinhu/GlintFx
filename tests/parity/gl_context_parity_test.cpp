@@ -174,6 +174,61 @@ void print_swap_tolerance_downgrade(std::string_view label,
         std::string(err.rejected_value()).c_str(), static_cast<long long>(err.os_error_code()));
 }
 
+// GL-CI-SOFTWARE TOLERANCE, DIAGNOSTIC ON REFUSAL (team-lead briefing,
+// FACADE-PIN, 07/09/2026: "eu nao consigo saber POR QUE" - THIS file's
+// own `gl_context_parity_test: swap_buffers() (vsync=off) failed:
+// platform_failure` reproval, run 34168049144, never printed the four
+// fields/one boolean should_tolerate_swap_failure() actually decided
+// on, leaving no rastro of WHICH factor tripped the refusal). Printed
+// ONLY when the tolerance is about to REFUSE (right before the
+// `return EXIT_FAILURE` at each swap_buffers() call site below) - the
+// four fields the function above reads, PLUS the fifth (any_other_
+// swap_succeeded) it also needs, each as its OWN MEASURED line (tests/
+// tools/collect_measured.py's own <owner>.<key>=<value> shape, exactly
+// ONE dot), so they are collected like any other measurement in this
+// file, never just diagnostic text a script cannot parse.
+void print_swap_tolerance_refusal(std::string_view site, const glintfx::gltfx_err &err,
+                                  glintfx::gltfx_gpu_kind gpu_kind,
+                                  bool any_other_swap_succeeded) noexcept {
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_error_code=%s\n",
+                 std::string(site).c_str(),
+                 std::string(glintfx::gltfx_err_code_name(err.code())).c_str());
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_rejected_value=%s\n",
+                 std::string(site).c_str(), std::string(err.rejected_value()).c_str());
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_os_error_code=%lld\n",
+                 std::string(site).c_str(), static_cast<long long>(err.os_error_code()));
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_gpu_kind=%d\n",
+                 std::string(site).c_str(), static_cast<int>(gpu_kind));
+    std::fprintf(stdout, "MEASURED gl_context_parity_test.%s_refusal_any_swap_succeeded=%d\n",
+                 std::string(site).c_str(), any_other_swap_succeeded ? 1 : 0);
+}
+
+// GODS_LAWS.md L-40's own non-empty-sweep floor, applied to the
+// `swap_tolerated_downgrades` counter ITSELF, across EVERY exit path
+// of the block below - not just the happy one. Every swap_buffers()
+// refusal site in this file reaches its decision through `return
+// EXIT_FAILURE` (this is a plain int main(), no exception harness),
+// and a print sitting at the BOTTOM of the block - the shape this file
+// used to have - never runs when ANY of those earlier `return EXIT_
+// FAILURE` statements fires (the exact gap run 34168049144 measured:
+// the swap_tolerated_downgrades line never appeared in a log that
+// reproved). A destructor runs on ANY scope exit - normal fall-through
+// OR an early `return` from a nested block alike, per the ordinary
+// C++ rule that leaving a scope destroys its locals in reverse
+// construction order regardless of how control leaves it - so binding
+// the print to one guarantees it fires EXACTLY once, on every path,
+// without duplicating the print statement at each refusal site.
+// `count` is a reference to the block's own local `swap_tolerated_
+// downgrades`, so the destructor always reads its FINAL value,
+// whatever path got there.
+struct swap_tolerated_downgrades_reporter {
+    const int &count;
+    ~swap_tolerated_downgrades_reporter() noexcept {
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.swap_tolerated_downgrades=%d\n",
+                     count);
+    }
+};
+
 } // namespace
 
 int main() {
@@ -373,6 +428,11 @@ int main() {
         // downgrading a swap_buffers() failure below.
         bool any_swap_succeeded = false;
         int swap_tolerated_downgrades = 0;
+        // See swap_tolerated_downgrades_reporter's own header comment
+        // above: this print MUST survive every `return EXIT_FAILURE`
+        // below, so it is bound to a destructor instead of sitting at
+        // the bottom of this block.
+        const swap_tolerated_downgrades_reporter downgrades_reporter{swap_tolerated_downgrades};
 
         // First `presented` within 5 attempts (vsync=on, the registry's
         // own default).
@@ -386,6 +446,8 @@ int main() {
                     ++swap_tolerated_downgrades;
                     continue;
                 }
+                print_swap_tolerance_refusal("first_presented_attempt", swapped.error(), gpu.kind,
+                                             any_swap_succeeded);
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: swap_buffers() attempt %d failed: %s "
@@ -429,6 +491,8 @@ int main() {
                     ++swap_tolerated_downgrades;
                     continue;
                 }
+                print_swap_tolerance_refusal("vsync_off_60_swaps", swapped.error(), gpu.kind,
+                                             any_swap_succeeded);
                 std::fprintf(
                     stderr, "gl_context_parity_test: swap_buffers() (vsync=off) failed: %s\n",
                     std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
@@ -533,6 +597,8 @@ int main() {
                     ++swap_tolerated_downgrades;
                     continue;
                 }
+                print_swap_tolerance_refusal("vsync_toggle_sequence", swapped.error(), gpu.kind,
+                                             any_swap_succeeded);
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: swap_buffers() during the toggle sequence "
@@ -599,11 +665,10 @@ int main() {
             return EXIT_FAILURE;
         }
 
-        // GODS_LAWS.md L-40's own non-empty-sweep floor, applied to
-        // this tolerance mechanism itself: prints even when it never
-        // fired (swap_tolerated_downgrades == 0), never silently.
-        std::fprintf(stdout, "MEASURED gl_context_parity_test.swap_tolerated_downgrades=%d\n",
-                     swap_tolerated_downgrades);
+        // swap_tolerated_downgrades itself is printed by downgrades_
+        // reporter's destructor above (fires on this normal fall-
+        // through AND on any earlier `return EXIT_FAILURE`), never by
+        // a print sitting here - see its own header comment.
 
         std::fprintf(stdout, "gl_context_parity_test: primeiro open() - todas as asserts ok\n");
     } // context closed here

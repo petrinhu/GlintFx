@@ -48,9 +48,20 @@
 #
 # Sequential, not `&&`/`||` (L-45: a compound exit code hides WHICH gate
 # reproved) - `set -e` below aborts this script with the failing gate's
-# own exit code the moment either "$python_bin" invocation returns
-# nonzero, and the second gate's own name never even gets a chance to
-# print if the first one already failed.
+# own exit code the moment any "$python_bin" invocation returns
+# nonzero, and the next gate's own name never even gets a chance to
+# print if an earlier one already failed.
+#
+# DASH-PUBDOC (docs/decisoes-inbox-tres.md SS3, GODS_LAWS.md L-32): a
+# third gate, tests/tools/check_dash_pubdoc.py, closes the same "only
+# ran on the server, or only in this one clone" gap SPDX-GATE above
+# closed for the license header - the long dash (em dash, U+2014) this
+# project's own CLAUDE.md forbids in documentation written for the
+# external consumer was reaching commits because the ONLY mechanism
+# that enforced it lived outside this repository entirely (global
+# hooks that never classify `docs/*.md` as public, and never run on
+# the server). Same take-no-flag-to-skip-it shape as the two gates
+# above.
 
 set -eu
 
@@ -66,4 +77,5 @@ else
 fi
 
 "$python_bin" "$repo_root/tests/tools/check_dep_zero.py" --staged "$repo_root"
-exec "$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"
+"$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"
+exec "$python_bin" "$repo_root/tests/tools/check_dash_pubdoc.py" "$repo_root"

@@ -3,6 +3,7 @@
 
 #if defined(_WIN32)
 
+#include <new>
 #include <optional>
 #include <string>
 #include <utility>
@@ -169,9 +170,25 @@ classify_current_gpu(std::string_view renderer_name, gl_get_integerv_fn get_inte
 
     std::vector<gltfx_gpu_kind> kinds;
     if (kernel_kind == gltfx_gpu_kind::unknown && matched.has_value()) {
-        kinds.reserve(list.size());
-        for (std::size_t i = 0; i < list.size(); ++i) {
-            kinds.push_back(classify_dxcore_gpu(list, i));
+        // reserve()/push_back() below can both throw std::bad_alloc -
+        // the SAME "no exception crosses a noexcept boundary" guard
+        // dxcore_adapter_enumeration.cpp's own read_driver_description()/
+        // enumerate_dxcore_adapters() already apply one file over
+        // (GODS_LAWS.md L-22; clang-tidy bugprone-exception-escape, CI
+        // run 34168049144, "Windows - Lint", 07/09/2026). This function
+        // has no gltfx_rslt<T> to carry a failure through (it returns a
+        // plain std::pair, D-W6b-37's own shape) - degrading to the
+        // SAME `{unknown, k_gltfx_gpu_index_unknown}` pair the
+        // `adapters.has_error()` early return above already hands back
+        // is this function's own honest default (D-W6b-13), not a
+        // guess at an exclusion this list could no longer be built for.
+        try {
+            kinds.reserve(list.size());
+            for (std::size_t i = 0; i < list.size(); ++i) {
+                kinds.push_back(classify_dxcore_gpu(list, i));
+            }
+        } catch (const std::bad_alloc &) {
+            return {gltfx_gpu_kind::unknown, k_gltfx_gpu_index_unknown};
         }
     }
 

@@ -42,7 +42,17 @@
 //     platform floor lives in tests/measured_exceptions.txt instead,
 //     this fatia's own additions there): gl_major/gl_minor/renderer_
 //     hash, vsync_on_60_swaps_ms, vsync_adaptive_support, msaa_
-//     support/srgb_support.
+//     support/srgb_support, open_us, and - GL-GPU-KIND, docs/plano-
+//     w6b-fatias-5b-revisao.md sec. 4.6 - gpu_kind_raw/gpu_name_hash/
+//     gpu_enumeration_index_raw/gpu_enumeration_count/gpu_entry_{0,1,
+//     2}_kind/gpu_entry_{0,1,2}_name_hash. `gpu_kind_raw` (and the
+//     enumeration_index/entry keys with it) is DELIBERATELY NOT
+//     ASSERTED EQUAL YET (sec. 4.6's own correction): the assertion
+//     `gpu().kind == software` on both sides enters in the commit
+//     AFTER the first real run has printed these values, never before
+//     - only `gpu_enumeration_count >= 1` is asserted today (GODS_
+//     LAWS.md L-40's own non-empty floor, safe regardless of what
+//     `kind` resolves to).
 //   - PLAIN DIAGNOSTIC TEXT: everything else this file prints as it
 //     goes, read by a human in the CI log, never by any script.
 //
@@ -147,8 +157,14 @@ int main() {
     // disturb what it fixed).
     {
         const glintfx::gltfx_gl_context_desc empty_desc{};
+        const auto open_start = std::chrono::steady_clock::now();
         glintfx::gltfx_rslt<glintfx::gltfx_gl_context> context_opened =
             glintfx::gltfx_gl_context::open(window, empty_desc);
+        const auto open_end = std::chrono::steady_clock::now();
+        const auto open_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(open_end - open_start).count();
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.open_us=%lld\n",
+                     static_cast<long long>(open_us));
         if (context_opened.has_error()) {
             std::fprintf(
                 stderr,
@@ -217,6 +233,58 @@ int main() {
         std::fprintf(stdout, "MEASURED gl_context_parity_test.gl_minor=%d\n", gl_minor);
         std::fprintf(stdout, "MEASURED gl_context_parity_test.renderer_hash=%016llx\n",
                      static_cast<unsigned long long>(renderer_hash));
+
+        // GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.3; docs/plano-
+        // w6b-fatias-5b-revisao.md sec. 4.6, D-W6b-33/37/38): the API
+        // public surface does NOT expose IsHardware/IsIntegrated raw,
+        // nor `dxcore_loaded`/`egl_device_queried` - those live in the
+        // two reader probes (tests/dxcore_reader_probe_test.cpp,
+        // tests/container/egl_device_reader_probe.cpp), not here. This
+        // file only prints what gltfx_gl_context::gpu()/gltfx_gpu_
+        // enumeration themselves hand back - `gpu_kind_raw`/`gpu_name_
+        // hash`/`gpu_enumeration_index_raw` measured, NEVER asserted
+        // equal yet (sec. 4.6's own correction, L-43: the assertion
+        // `gpu().kind == software` on both sides enters only in the
+        // commit AFTER the first real run has printed these values -
+        // no such run has happened yet for this fatia).
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.gpu_kind_raw=%d\n",
+                     static_cast<int>(gpu.kind));
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.gpu_name_hash=%016llx\n",
+                     static_cast<unsigned long long>(renderer_hash));
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.gpu_enumeration_index_raw=%u\n",
+                     gpu.enumeration_index);
+
+        glintfx::gltfx_rslt<glintfx::gltfx_gpu_enumeration> enumeration_opened =
+            glintfx::gltfx_gpu_enumeration::query();
+        if (enumeration_opened.has_error()) {
+            std::fprintf(
+                stderr, "gl_context_parity_test: gltfx_gpu_enumeration::query() failed: %s\n",
+                std::string(glintfx::gltfx_err_code_name(enumeration_opened.error().code()))
+                    .c_str());
+            return EXIT_FAILURE;
+        }
+        glintfx::gltfx_gpu_enumeration enumeration = std::move(enumeration_opened.value());
+        const std::size_t enumeration_count = enumeration.count();
+        std::fprintf(stdout, "MEASURED gl_context_parity_test.gpu_enumeration_count=%zu\n",
+                     enumeration_count);
+        if (enumeration_count == 0) {
+            std::fprintf(stderr,
+                         "gl_context_parity_test: gpu_enumeration_count=0 (GODS_LAWS.md L-40, "
+                         "piso de varredura nao-vazia)\n");
+            return EXIT_FAILURE;
+        }
+        // Three fixed keys, never a wildcard (tests/tools/collect_
+        // measured.py's own MEASURED_LINE regex has no prefix concept,
+        // sec. 4.3 of the plan's own fallback: "o teste imprime so as
+        // tres primeiras entradas com chave fixa").
+        for (std::size_t i = 0; i < enumeration_count && i < 3; ++i) {
+            const glintfx::gltfx_gpu_info entry = enumeration.at(i);
+            std::fprintf(stdout, "MEASURED gl_context_parity_test.gpu_entry_%zu_kind=%d\n", i,
+                         static_cast<int>(entry.kind));
+            std::fprintf(stdout,
+                         "MEASURED gl_context_parity_test.gpu_entry_%zu_name_hash=%016llx\n", i,
+                         static_cast<unsigned long long>(fnv1a64(entry.name)));
+        }
 
         // Pixel readback BEFORE any swap (D-W6b-29, sec. 6 of the onda
         // plan, verbatim: "a unica prova de pixel e a leitura de volta

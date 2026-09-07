@@ -1250,6 +1250,22 @@ if(WIN32)
     )
     target_link_libraries(win32_wgl_extension_loader_test PRIVATE user32 gdi32 opengl32)
 
+    # dxcore_reader_probe_test - GL-GPU-KIND (docs/plano-w6b-fatias-5b-
+    # revisao.md sec. 4.6): "the leitor ran against the real system and
+    # this is what it saw", paired with tests/container/egl_device_
+    # reader_probe.cpp (tests/parity_aliases.txt) - the SAME "link src/
+    # directly, no guard needed inside an already-if(WIN32) block"
+    # shape win32_wgl_extension_loader_test just above uses. No system
+    # library beyond what dxcore_adapter_enumeration.cpp itself needs
+    # (kernel32's LoadLibraryW/GetProcAddress, already linked
+    # transitively through user32/the CRT - dxcore.dll is NEVER a link-
+    # time dependency, only a runtime LoadLibraryW target).
+    glintfx_add_test(dxcore_reader_probe_test)
+    target_include_directories(dxcore_reader_probe_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(dxcore_reader_probe_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+    )
+
     # win32_iconic_present_test - NAMED to line up with docs/plano-w6b-
     # placa-e-laco.md's own fatia 4 table row ("Prova Windows" column):
     # a REAL win32_display_adapter + win32_window_adapter + win32_gl_

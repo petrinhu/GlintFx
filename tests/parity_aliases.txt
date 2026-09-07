@@ -233,3 +233,12 @@ win32_iconic_present_test|frame_callback_sequence_test
 # wl_proxy_get_user_data() no Wayland, GetWindowLongPtrW(GWLP_USERDATA)
 # no Win32.
 facade_pin_smoke|win32_facade_pin_test
+
+# GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 4.6, D-W6b-37/
+# 38): "o leitor rodou de verdade contra o sistema real e isto e' o que
+# ele viu" - a MESMA cobertura ("dxcore_loaded"/"egl_device_queried" e
+# os valores crus que so o leitor conhece), por mecanismos diferentes
+# (GODS_LAWS.md L-04): enumerate_dxcore_adapters() (DXCore COM) no
+# Windows, query_egl_display_device()/eglQueryDeviceStringEXT no
+# Linux.
+egl_device_reader_probe|dxcore_reader_probe_test

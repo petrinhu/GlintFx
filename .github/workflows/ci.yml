@@ -1423,6 +1423,23 @@ jobs:
             glintfx-wltest-clean gl_context_parity_test | tee -a container_measured_raw.log
           echo "gl_context_parity_test" >> parity_inventory.txt
 
+      # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 4.6):
+      # "o leitor rodou de verdade contra o sistema real e isto e' o que
+      # ele viu" - o par Linux de tests/dxcore_reader_probe_test.cpp
+      # (tests/parity_aliases.txt: dxcore_reader_probe_test|egl_device_
+      # reader_probe), sob dois nomes porque o mecanismo e' outro. Abre
+      # pela MESMA API publica completa que gl_context_parity_test.cpp
+      # acima - sujeito ao MESMO bloqueio conhecido declarado no passo
+      # anterior (window_facade.cpp) ate esse conserto landar.
+      - name: GL-GPU-KIND - sonda de leitor EGL, valores crus (paridade com dxcore_reader_probe_test)
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean egl_device_reader_probe | tee -a container_measured_raw.log
+          echo "egl_device_reader_probe" >> parity_inventory.txt
+
       # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
       # test.cpp binds wl_seat against este MESMO compositor real e
       # prova que pelo menos um evento wl_seat.capabilities/wl_seat.name

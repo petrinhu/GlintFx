@@ -786,6 +786,16 @@ target_sources(gpu_kind_seam_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
 )
 
+# CONSERTO (06/09/2026, GL-GPU-KIND, achado do team-lead medido dentro
+# do container real: um driver que responde "GL_NVX_gpu_memory_info
+# suportada" mas escreve memoria nao inicializada de volta) -
+# read_gl_memory_facts.cpp's own header comment has the full account.
+glintfx_add_test(gl_memory_facts_test)
+target_include_directories(gl_memory_facts_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gl_memory_facts_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+)
+
 # GL-GPU-KIND, Windows (docs/plano-w6b-fatias-5b-revisao.md sec.
 # 3/4.1/4.3, D-W6b-37): Win32-DOMAIN, not Win32-ONLY - the SAME shape
 # as drm_gpu_kind_test above, mirrored for the DXCore side: neither

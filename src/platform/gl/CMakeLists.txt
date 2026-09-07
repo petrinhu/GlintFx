@@ -49,6 +49,7 @@ target_sources(glintfx_library PRIVATE
     gpu_kind_exclusion.cpp
     gl_memory_facts.cpp
     memory_separation_kind.cpp
+    gpu_kind_seam.cpp
     gpu_enumeration_facade.cpp
 )
 
@@ -69,3 +70,12 @@ target_sources(glintfx_library PRIVATE
 # same push) and src/platform/win32/dxcore_adapter_enumeration.hpp
 # (this same push) exist together, so there is no "only one platform
 # compiles" window to avoid this time.
+#
+# gpu_kind_seam.cpp - CONSERTO (07/09/2026, revisão adversarial da
+# fatia 5b): a COSTURA entre kernel/DXCore -> via 1 -> via 2 vivia
+# duplicada, sem teste nenhum, inline dentro de classify_current_gpu()
+# nos dois arquivos acima - extraída para cá exatamente pela mesma
+# razão do parágrafo anterior (OS-agnóstico, os dois lados chamam a
+# MESMA função, GODS_LAWS.md L-04). gpu_kind_seam.hpp/.cpp's own header
+# comment has the full account, including the RED literal this
+# conserto saw before the fix.

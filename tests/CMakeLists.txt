@@ -772,6 +772,20 @@ target_sources(memory_separation_kind_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
 )
 
+# CONSERTO (07/09/2026, GL-GPU-KIND, revisão adversarial da fatia 5b):
+# a COSTURA entre kernel/DXCore -> via 1 -> via 2 (classify_current_
+# gpu(), duplicada nos dois arquivos platform/{wayland,win32}/*_
+# context_adapter.cpp) não tinha teste nenhum - gpu_kind_seam.hpp/.cpp's
+# own header comment has the full account, RED literal included.
+# Depende de gpu_kind_exclusion.cpp (via 1) pela mesma razão que
+# gpu_kind_seam.cpp já depende dele em src/platform/gl/CMakeLists.txt.
+glintfx_add_test(gpu_kind_seam_test)
+target_include_directories(gpu_kind_seam_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gpu_kind_seam_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
 # GL-GPU-KIND, Windows (docs/plano-w6b-fatias-5b-revisao.md sec.
 # 3/4.1/4.3, D-W6b-37): Win32-DOMAIN, not Win32-ONLY - the SAME shape
 # as drm_gpu_kind_test above, mirrored for the DXCore side: neither

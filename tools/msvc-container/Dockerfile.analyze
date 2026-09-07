@@ -55,10 +55,10 @@
 # hospedagem gerenciada).
 #
 # LIMITE DECLARADO E RESPEITADO: o proximo passo obvio seria forcar o
-# dialogo grafico de instalacao do Mono via um X virtual (Xvfb) - PROIBIDO
-# por GODS_LAWS.md/CLAUDE.md deste projeto ("Nada de Xlib, XCB, XTest,
-# Xvfb ou xdotool neste repositorio, nem em producao nem em teste"), e por
-# isso NAO tentado.
+# dialogo grafico de instalacao do Mono via um servidor grafico virtual
+# do sistema antigo - PROIBIDO pela L-05 deste projeto (Wayland puro,
+# nenhuma ferramenta do ecossistema antigo neste repositorio, nem em
+# producao nem em teste), e por isso NAO tentado.
 #
 # CONCLUSAO: `/analyze` (PREfast) nao roda nesta imagem, e as duas vias
 # padrao de instalar o runtime que ele precisa nao funcionaram sob Wine

@@ -228,10 +228,11 @@ arquivos de modelo").
    raso que o daqui (a imagem deles nem baixa `mspft140.dll`; a nossa
    baixa e falha um passo depois, na hospedagem gerenciada).
 5. **Limite declarado e respeitado**: o próximo passo óbvio seria forçar
-   o diálogo gráfico de instalação do Mono via X virtual (Xvfb) - e isto
-   é **proibido** pelo canon deste projeto ("Nada de Xlib, XCB, XTest,
-   Xvfb ou `xdotool` neste repositório, nem em produção nem em teste"),
-   por isso não foi tentado.
+   o diálogo gráfico de instalação do Mono via um servidor gráfico
+   virtual do sistema antigo - e isto é **proibido** pela L-05 do canon
+   deste projeto (Wayland puro, nenhuma ferramenta do ecossistema antigo
+   neste repositório, nem em produção nem em teste), por isso não foi
+   tentado.
 
 **O que isto custou e o que sobrou:** a tentativa baixou o Wine Mono
 (`wine-mono-8.1.0-x86.msi`, 81 MiB, projeto Wine, licença MIT/LGPL - não

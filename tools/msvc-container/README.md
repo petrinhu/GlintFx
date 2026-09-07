@@ -227,10 +227,54 @@ ligação (`/LTCG`, `/GL`). Nenhum dos quatro foi exercitado ainda. Uma
 tentativa de configurar o projeto INTEIRO via `cmake -G Ninja` mirando
 Windows (toolchain em `win-wine-toolchain.cmake` deste diretório) TRAVOU
 numa sonda de detecção do compilador (`cmTC_*`, ninja), com
-`mspdbrsrv.exe`/`explorer.exe` pendurados sem progresso por mais de 7
+`mspdbsrv.exe`/`explorer.exe` pendurados sem progresso por mais de 7
 minutos - achado operacional (sincronização do Wine), não de
-compatibilidade binária; o caminho que funciona hoje é invocar `cl.exe`
-diretamente por arquivo, não via `cmake --build` do projeto inteiro.
+compatibilidade binária. **Duas hipóteses de conserto foram tentadas
+(07/09/2026) e as duas falharam**, com o mesmo sintoma idêntico:
+`CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY` sozinho (a sonda para em
+`/c`, nunca liga) e o mesmo mais `/Z7` no lugar de `/Zi` (evita o `.pdb`
+compartilhado). A causa exata que sobra não foi investigada mais fundo.
+O caminho que funciona hoje é invocar `cl.exe`/`link.exe` diretamente
+por arquivo, não via `cmake --build` do projeto inteiro.
+
+### Ligação de todo o `glintfx_library`, e dos 13 testes `win32_*`
+
+**Medido em 07/09/2026, com o `export.hpp` acima (a variante MSVC
+escrita à mão, não a gerada pelo CMake - travamento do configure ainda
+sem conserto):**
+
+- **`glintfx.dll` + `glintfx.lib` saem dos 34 arquivos-fonte de
+  `glintfx_library`** (core, gfss, gfui, render, window, input, gl,
+  win32), compilados e ligados numa só chamada de `cl.exe /LD`, zero
+  avisos (`/W4`), zero erros. `file` no HOST (sem Wine): `PE32+
+  executable for MS Windows 6.00 (DLL), x86-64, 6 sections`. `dumpbin
+  /exports` (dentro do container): **71 funções exportadas**, todas com
+  nome decorado batendo com a API pública (`gltfx_display`,
+  `gltfx_window`, `gltfx_gl_context`, `gltfx_err`, `gltfx_gfss_*` etc.).
+  `dumpbin /imports`: `USER32.dll`, `SHELL32.dll`, `ole32.dll`,
+  `OPENGL32.dll`, `GDI32.dll`, `KERNEL32.dll` - as seis batem, uma a
+  uma, contra `$IMPORT_ALLOWLIST_EXACT` de
+  `tools/ci/check-dep-zero-win.ps1` (primeira vez que esse portão é
+  medido contra um `glintfx.dll` real; o cabeçalho do próprio script
+  declarava nunca ter visto isso).
+- **Os 13 testes `win32_*`/`wgl_proc_address_test` compilam E ligam,
+  13 de 13.** Achado no caminho: `glintfx_add_test()` (`cmake/
+  GlintfxTest.cmake`) linka TODO teste contra `glintfx::glintfx`
+  inteiro, não só os arquivos extras do `target_sources` de cada
+  teste - sem `src/core/err.cpp`/`src/core/err_code.cpp` (que definem
+  `gltfx_err`/`gltfx_err_code_name`), a ligação falha com
+  `LNK2019: unresolved external symbol` para todo teste que usa
+  `gltfx_rslt`/`gltfx_err`, mesmo sem window nenhuma. Corrigido
+  acrescentando os dois arquivos à base comum.
+- **Execução diagnóstica (nunca prova) sob `wine64`:** 8 dos 13
+  passam limpo (os que não abrem janela real ou usam só janela
+  `HWND_MESSAGE`/sintética). Os 5 que falham (`win32_window_close_
+  request_test`, `win32_wgl_extension_loader_test`, `win32_runner_
+  probe_test`, `win32_iconic_present_test`, metade de `win32_facade_
+  pin_test`) têm **uma única causa raiz**: abrir uma janela de topo
+  REAL falha neste Wine headless sem estação de janela -
+  `win32_runner_probe_test` já media isso sozinho
+  (`CreateWindowExW ok=false GetLastError=1400`).
 
 ## Matriz de roteamento: onde medir o quê
 

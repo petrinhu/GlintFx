@@ -13,23 +13,28 @@
 # mecanica (CMAKE_SYSTEM_NAME=Windows de verdade) continua correta;
 # falta resolver o travamento do configure antes de declarar pronto.
 #
-# HIPOTESE DE CONSERTO, AINDA NAO TESTADA (proposta pelo team-lead,
-# 07/09/2026): a sonda que trava (`cmTC_*`) por padrao COMPILA E LIGA um
-# executavel para provar que o compilador funciona - e' a LIGACAO da
-# sonda que chama `mspdbsrv.exe` (servidor do banco de simbolos), que
-# fica pendurado esperando um cliente que a emulacao nao fecha direito.
-# CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY faz a sonda parar em
-# `/c` (compila, arquiva com `lib.exe`, nunca liga) - `mspdbsrv` nunca
-# seria chamado. Medido (grep) que este projeto NAO usa essa variavel
-# em lugar nenhum dos `.cmake`/CMakeLists.txt - sem colisao. Vale tentar
-# tambem, se isto sozinho nao bastar, trocar `/Zi` por `/Z7` nas flags
-# de debug (embute o banco de simbolos no proprio .obj, em vez de um
-# arquivo `.pdb` separado que tambem depende do `mspdbsrv`). NENHUMA
-# das duas linhas abaixo foi provada ainda - primeira coisa a tentar
-# quando o slot pesado abrir, antes de qualquer contorno manual (script
-# de ligacao manual com um `export.hpp` escrito a mao como plano B,
-# fora da arvore rastreada, exatamente PORQUE isto ainda nao rodou).
+# DUAS HIPOTESES DE CONSERTO TESTADAS EM 07/09/2026, AS DUAS FALHARAM
+# (propostas pelo team-lead, causa nomeada: a sonda `cmTC_*` por padrao
+# COMPILA E LIGA um executavel, e e' a LIGACAO que chama `mspdbsrv.exe`,
+# pendurado esperando um cliente que a emulacao nao fecha direito):
+# (1) CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY (sonda para em `/c`,
+# nunca liga) - MEDIDO: nao bastou, `mspdbsrv.exe` apareceu do mesmo
+# jeito na sonda de deteccao de ABI seguinte, mesmo sem ligar. (2) `/Z7`
+# no lugar de `/Zi` (evita o `.pdb` compartilhado) somado a (1) - MEDIDO:
+# tambem nao bastou, mesmo sintoma identico. A causa exata que restou
+# sem investigar (nao ha' tempo dentro da ordem de tentativa combinada)
+# e' mais funda que PDB compartilhado; as duas linhas ficam porque nao
+# atrapalham em nada, mas NENHUMA delas destrava o configure sozinha.
+# O caminho que FUNCIONA, provado de ponta a ponta (README.md deste
+# diretorio, secao "Ligacao"): compilar/ligar por ARQUIVO, direto com
+# `cl`/`link.exe`, usando um `export.hpp` escrito a mao (nao o gerado
+# pelo CMake, que este travamento impede de obter) - validado contra
+# os 13 testes win32_*/wgl_proc_address_test (13/13 compilam E ligam) e
+# contra a biblioteca inteira (`glintfx.dll`+`glintfx.lib`, 71 exports
+# corretos, imports batendo com `tools/ci/check-dep-zero-win.ps1`).
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_C_FLAGS_INIT "/Z7")
+set(CMAKE_CXX_FLAGS_INIT "/Z7")
 #
 # GODS_LAWS.md L-09/L-68 (ordem do lider, 07/09/2026, "matriz de
 # roteamento" - README.md deste diretorio): compilar e ligar sao do

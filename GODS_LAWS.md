@@ -194,6 +194,18 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 **Aplicação, execução em geral (o que a ampliação acrescenta):** a suíte roda dentro de container, com o repositório montado e o diretório de construção **dentro do container ou em `/var/tmp`**, nunca em `/tmp` (que nesta máquina sai da RAM). Container por vez, derrubado ao fim. Quando o ambiente disponível não permitir rodar algo em container, **declare o downgrade** e diga o que ficou sem prova — jamais rode na sessão viva "só desta vez". Detalhe operacional em `CLAUDE.md`, seção "Isolamento obrigatório de teste".
 
+**TERCEIRA AMPLIAÇÃO, 07/09/2026, verbatim dele:** *"Faça de maneira que os testes não toquem minha sessão!"* Dito no instante em que autorizou a máquina virtual do Windows, e por isso ela entra na lei como **terceira fronteira, ao lado do container**, com as mesmas proibições absolutas e mais quatro que só existem por causa dela.
+
+**Aplicação, máquina virtual:**
+
+1. **Gerência por linha de comando, nunca pela gráfica.** O gerenciador gráfico abre janela na sessão do líder, e o visualizador que vem com ele **captura teclado e mouse do hospedeiro**. Isso é exatamente o que a lei proíbe, e por isso a peça gráfica não é instalada: usa-se a de linha de comando, que faz o mesmo sem janela nenhuma.
+2. **O convidado nasce sem tela ligada à sessão.** Console de texto por porta serial. Quando um teste exigir tela de verdade, ela é o quadro de imagem interno do próprio convidado, preso ao endereço local da máquina, e **nada a abre sozinho** — nem no arranque, nem ao anexar o console.
+3. **Nenhuma captura de foco ou de entrada, e nenhum dispositivo de entrada real repassado ao convidado.** O caminho simplesmente não existe na forma montada, e não é criado "só para este teste". Vale o mesmo precedente do `/dev/uinput`: o que o convidado recebe do hospedeiro, ele injeta na sessão real.
+4. **Ponte de arquivo estreita e de mão única:** o convidado enxerga apenas a árvore do projeto, montada **somente leitura**, e devolve resultado **em arquivo**. Sem área de transferência compartilhada, sem pasta do usuário, sem rede da sessão do líder.
+5. **Provar o isolamento antes de interagir**, igual ao container: nenhum socket do hospedeiro atravessa a fronteira, nenhum dispositivo de entrada atravessa, e a tela do convidado não tem saída para a sessão. Provar por leitura da definição da máquina, não por impressão de que "não configurei isso".
+
+**O que a máquina virtual acrescenta, e por isso vale o custo:** ela é a única fronteira aqui capaz de **executar** binário do Windows, que é o que falta para a carga de biblioteca, o tempo de execução da linguagem, a janela real, a placa por software e o sanitizador. O compilador em container responde se compila e liga; ele não roda nada. As duas fronteiras não se substituem, e nenhuma delas vira a outra por conveniência.
+
 ⚠️ **Consequência retroativa, dita para não se perder:** toda prova de suíte verde produzida nesta máquina **antes** de 29/08/2026 foi obtida na sessão viva. Ela não é invalidada — o que ela mediu continua medido —, mas o método muda daqui em diante, e a próxima execução de qualquer suíte é em container.
 
 ## L-10

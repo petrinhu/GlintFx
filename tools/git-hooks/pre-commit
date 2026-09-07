@@ -17,8 +17,8 @@
 #
 # GODS_LAWS.md L-07/D1 (leader, 28/08/2026, AskUserQuestion): the
 # dependency-zero gate bites in BOTH commit and CI - this is the commit
-# half. D3: no environment-variable escape - `exec` straight into the
-# gate, no flag this script could honor to skip it.
+# half. D3: no environment-variable escape - straight into the gate, no
+# flag this script could honor to skip it.
 #
 # DEPZERO-GATE-PY (GODS_LAWS.md L-04, decisao do lider: "O
 # comportamento deve ser igual em qualquer OS"): the gate itself is
@@ -31,6 +31,26 @@
 # a stock Windows install whose default Python does not necessarily
 # expose a `python3` alias), the same two names tests/CMakeLists.txt's
 # own find_program(...NAMES python3 python REQUIRED) already searches.
+#
+# INBOX (drenagem de 06/09/2026, "nenhum portao de arquivo esta armado
+# neste clone"): the second gate below, tests/tools/check_spdx.py
+# (SPDX-GATE, GODS_LAWS.md L-08 - the repo is public under AGPL-3.0,
+# and a file born without its header weakens the license), used to run
+# ONLY in CI. Measured consequence: seven files landed in a commit
+# without an SPDX header and the red only ever showed up later, on the
+# server, because THIS hook itself had never been installed in this
+# clone in the first place (`.git/hooks/pre-commit` did not exist -
+# install.sh below had never been run here). check_spdx.py takes no
+# `--staged` mode (it does not need one - its own enumeration already
+# covers `git ls-files` plus `git ls-files --others --exclude-standard`,
+# the closed-by-construction universe its own header documents, which
+# already contains every file about to be committed).
+#
+# Sequential, not `&&`/`||` (L-45: a compound exit code hides WHICH gate
+# reproved) - `set -e` below aborts this script with the failing gate's
+# own exit code the moment either "$python_bin" invocation returns
+# nonzero, and the second gate's own name never even gets a chance to
+# print if the first one already failed.
 
 set -eu
 
@@ -45,4 +65,5 @@ else
     exit 1
 fi
 
-exec "$python_bin" "$repo_root/tests/tools/check_dep_zero.py" --staged "$repo_root"
+"$python_bin" "$repo_root/tests/tools/check_dep_zero.py" --staged "$repo_root"
+exec "$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"

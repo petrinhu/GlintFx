@@ -2652,6 +2652,33 @@ add_test(
 )
 set_tests_properties(readme_volatile_numbers_selftest PROPERTIES LABELS selftest)
 
+# Pre-commit hook chain gate (TODO.md INBOX drenagem 06/09/2026,
+# GODS_LAWS.md L-36/L-40): tools/git-hooks/pre-commit is a plain text
+# file this repository's own tree can read directly, so this gate reads
+# the VERSIONED source and reproves the moment check_dep_zero.py's own
+# `--staged` invocation or check_spdx.py's own invocation stops
+# appearing in it - the exact regression that let seven files land
+# without an SPDX header while nothing local ever noticed (the hook had
+# never chained the license gate at all, on top of never having been
+# installed in that clone - install.sh's own header explains why THAT
+# half can never be checked from inside the tree). Registered WITHOUT a
+# platform guard (GODS_LAWS.md L-04): this portao reads text, builds
+# nothing, no reason to run on only one OS.
+add_test(
+    NAME precommit_hook_chain_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_precommit_hook_chain.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(precommit_hook_chain_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME precommit_hook_chain_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_precommit_hook_chain.py" --selftest
+)
+set_tests_properties(precommit_hook_chain_selftest PROPERTIES LABELS selftest)
+
 # Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
 # L-36/L-40): closed static check that every llround/lround/round/
 # nearbyint/rint call under src/ and include/ is either guarded by a

@@ -763,6 +763,13 @@ if(UNIX)
         # "second compile needs every callee linked alongside it"
         # reasoning global_catalog.cpp's own line above already gives.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -790,6 +797,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -810,6 +824,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -867,6 +888,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -910,6 +938,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -3086,4 +3121,54 @@ if(WIN32)
     # FIXTURES_SETUP) que nenhum teste desta arvore usa ainda. Fora de
     # escopo desta fatia - relatado ao orquestrador como um decimo-
     # primeiro caso encontrado, nao um dos dez originais.
+endif()
+
+# WAIT-POINTS gate (INBOX, drenagem 06/09/2026, GODS_LAWS.md L-17/L-36/
+# L-40): "a promessa publica de que o desenho e o bombeamento de
+# eventos nunca prendem o aplicativo" foi furada duas vezes por um
+# poll() sem teto (72754af consertou o primeiro sitio; display_adapter.
+# cpp::flush_with_retry() era o gemeo, vivo ate este commit, porque a
+# auditoria anterior olhou so' o ponto ja conhecido em vez de enumerar
+# o espaco inteiro). check_wait_points.py varre os quatro adaptadores
+# que tocam o sistema operacional (mais o atomo compartilhado que este
+# commit extraiu, bounded_output_wait.cpp) atras de toda chamada que
+# PODE bloquear, e confere cada sitio contra tests/wait_points.txt (o
+# manifesto - ver o cabecalho dele para o formato e a classificacao).
+# Registrado SEM guarda de sistema, a MESMA forma de layers_test acima
+# (GATE-TREE-PARITY, GODS_LAWS.md L-04): e' Python puro sobre texto
+# fonte, nenhuma compilacao envolvida, entao o comportamento e' o mesmo
+# em qualquer plataforma.
+add_test(
+    NAME check_wait_points_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wait_points.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(check_wait_points_test PROPERTIES LABELS consume)
+
+# GODS_LAWS.md L-36 (portao so conta provado vermelho): --selftest
+# fixture os cinco controles (positivo, sitio sem declaracao, manifesto
+# podre, varredura vazia, agulha dentro de comentario) contra fixtures
+# descartaveis, nunca contra a arvore real - a mesma separacao
+# positivo/negativo/vazio que layers_selftest acima ja estabelece.
+add_test(
+    NAME check_wait_points_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wait_points.py" --selftest
+)
+set_tests_properties(check_wait_points_selftest PROPERTIES LABELS selftest)
+
+# bounded_output_wait_test - o vermelho/verde real (nao so' a leitura
+# de texto do gate acima) do atomo que substituiu os dois poll(...,
+# -1)/write_deadline duplicados (this file's own header comment on
+# check_wait_points_test). Wayland-only (raw AF_UNIX socketpair()/
+# fcntl()/poll() POSIX, nenhum tipo Windows), mesma guarda if(UNIX) que
+# display_connect_failure_test usa logo acima neste arquivo -
+# bounded_output_wait.hpp/.cpp em si nao dependem de wayland-client,
+# entao nenhum include adicional alem de src/ e' preciso.
+if(UNIX)
+    glintfx_add_test(bounded_output_wait_test)
+    target_include_directories(bounded_output_wait_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(bounded_output_wait_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+    )
 endif()

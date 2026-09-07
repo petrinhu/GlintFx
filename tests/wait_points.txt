@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# WAIT-POINTS manifest (INBOX, drenagem 06/09/2026; GODS_LAWS.md L-17/
+# L-36/L-40). Consumido por tests/tools/check_wait_points.py.
+#
+# A promessa publica de que o desenho e o bombeamento de eventos nunca
+# prendem o aplicativo do consumidor (include/glintfx/platform/gl/
+# context.hpp's own "NEVER blocks the process indefinitely";
+# include/glintfx/platform/window/display.hpp's own "never stalls
+# waiting for the display server") ja foi furada DUAS vezes por um
+# ponto de espera sem teto que uma auditoria de cabeca nao viu (72754af
+# consertou o primeiro; este arquivo nasceu do segundo, o gemeo em
+# display_adapter.cpp::flush_with_retry() - a mesma L-17 que existe
+# para impedir exatamente isso). Este manifesto e o portao que
+# check_wait_points.py confere fazem a enumeracao NUNCA MAIS ser feita
+# de cabeca: todo sitio de espera encontrado nos arquivos varridos
+# PRECISA de uma linha aqui, e toda linha aqui PRECISA continuar
+# aparecendo na arvore - as duas direcoes reprovam.
+#
+# Formato, um registro por linha, quatro campos separados por "|"
+# (comentarios com "#", linhas em branco ignoradas):
+#
+#   arquivo | funcao | trecho literal da chamada | classe
+#
+# - arquivo: caminho relativo a raiz do repositorio.
+# - funcao: nome da funcao onde o sitio vive (documentacao humana; o
+#   portao nao confere este campo, so' os outros tres).
+# - trecho literal da chamada: substring exata que precisa aparecer na
+#   linha de codigo encontrada (comentarios ja descartados antes da
+#   comparacao) - o MESMO texto que fez a agulha casar.
+# - classe, uma de cinco:
+#     teto-nosso              - orcamento nosso, explicito, sempre finito
+#     teto-do-sistema         - bloqueia, mas por um periodo do sistema
+#                               operacional/driver, nunca sem fim
+#     sem-teto-fora-do-caminho - pode esperar sem fim, mas NUNCA roda no
+#                               caminho que um consumidor percorre a
+#                               cada quadro (open()/roundtrip() manual)
+#     sem-teto-declarado      - pode esperar sem fim NO caminho de
+#                               quadro, risco MEDIDO e nomeado, nao
+#                               eliminado nesta fatia (ver o comentario
+#                               do sitio no arquivo-fonte para o motivo
+#                               e o que falta para fechar de vez)
+#     nao-espera              - a chamada em si nao bloqueia (posta so'
+#                               porque a agulha da varredura tambem
+#                               precisa casar textualmente com ela)
+#
+# ESCOPO DESTA VARREDURA: os quatro adaptadores que hoje tocam o
+# sistema operacional para abrir/bombear a conexao e apresentar um
+# quadro, mais o atomo compartilhado que display_adapter.cpp e
+# egl_context_adapter.cpp agora chamam os dois para a mesma espera de
+# escrita (bounded_output_wait.cpp - a duplicacao dessa MESMA espera em
+# dois arquivos e' o que deixou o gemeo do defeito original vivo).
+# src/platform/loop/ (LOOP-RUN, docs/plano-w6b-fatias-6-8.md) ainda nao
+# existe nesta arvore - quando nascer, entra como arquivo novo na lista
+# TARGET_FILES de check_wait_points.py e ganha linhas proprias aqui,
+# nunca antecipado.
+#
+# wl_display_roundtrip() (open()/roundtrip(), abaixo) e' `sem-teto-
+# fora-do-caminho`: bloqueia de verdade, sem orcamento, mas SO' roda
+# uma vez por open() ou por uma chamada explicita do consumidor a
+# roundtrip() - nunca dentro do laco de quadro que pump_events()/swap_
+# buffers() percorrem a cada frame.
+
+src/platform/wayland/display_adapter.cpp|open()|wl_display_roundtrip(display)|sem-teto-fora-do-caminho
+src/platform/wayland/display_adapter.cpp|roundtrip()|wl_display_roundtrip(m_display)|sem-teto-fora-do-caminho
+src/platform/wayland/display_adapter.cpp|drain_pending_and_prepare_read()|wl_display_prepare_read(m_display)|nao-espera
+src/platform/wayland/display_adapter.cpp|flush_with_retry()|wl_display_flush(m_display)|nao-espera
+src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|poll(&incoming, 1, 0)|teto-nosso
+src/platform/wayland/display_adapter.cpp|read_and_dispatch_incoming()|wl_display_read_events(m_display)|nao-espera
+
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_prepare_read(display)|nao-espera
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_flush(display)|nao-espera
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll(&incoming, 1, static_cast<int>(budget_ms))|teto-nosso
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_read_events(display)|nao-espera
+# As duas chamadas abaixo sao o MESMO texto, uma em cada ramo de
+# swap_buffers() (vsync=off e o ramo pos-espera de vsync=on) - as duas
+# ocorrencias na arvore casam com esta UNICA linha, e as duas carregam
+# a MESMA classe (egl_context_adapter.hpp's own swap_interval_honored(),
+# GODS_LAWS.md L-04/CLAUDE.md "paridade acha o que leitura nao acha":
+# so' teto-nosso de verdade quando m_swap_interval_honored e' true -
+# medido e declarado, nunca assumido).
+src/platform/wayland/egl_context_adapter.cpp|swap_buffers() (vsync=off e vsync=on)|eglSwapBuffers(m_egl_display, m_egl_surface)|sem-teto-declarado
+
+src/platform/wayland/bounded_output_wait.cpp|wait_for_writable_until()|poll(&pending_write, 1, static_cast<int>(remaining_ms))|teto-nosso
+
+# win32/display_adapter.cpp: zero sitios (PeekMessageW nao espera - a
+# agulha desta varredura nao casa com ela por desenho). Nenhuma linha
+# aqui e' o estado correto, nao um esquecimento - o portao nao reprova
+# um arquivo-alvo sem sitios, so' reprova a CONTAGEM TOTAL em zero.
+
+src/platform/win32/wgl_context_adapter.cpp|swap_buffers()|::SwapBuffers(m_dc)|teto-do-sistema

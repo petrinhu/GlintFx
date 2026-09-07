@@ -742,6 +742,31 @@ target_sources(frame_callback_sequence_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
 )
 
+# LOOP-RUN fatia 6a (docs/plano-w6b-fatias-6-8.md sec. 8.1, GODS_LAWS.md
+# L-17/L-19/L-20/L-40): three pure atoms under src/platform/loop/, none
+# reaching an operating-system header - the same "no #if anywhere in
+# it, GODS_LAWS.md L-04 applied to a value type" shape window_state_
+# test.cpp already gives one directory over - so all three register
+# unguarded and run on all five platforms, exactly like frame_callback_
+# sequence_test just above.
+glintfx_add_test(frame_tick_state_test)
+target_include_directories(frame_tick_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_tick_state_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
+)
+
+glintfx_add_test(frame_cap_schedule_test)
+target_include_directories(frame_cap_schedule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(frame_cap_schedule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
+)
+
+glintfx_add_test(loop_callbacks_validation_test)
+target_include_directories(loop_callbacks_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(loop_callbacks_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_

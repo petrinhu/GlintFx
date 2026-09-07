@@ -71,6 +71,17 @@ add_subdirectory(input)
 # branches below).
 add_subdirectory(gl)
 
+# loop/ is added unconditionally too, same reasoning as port/, window/,
+# input/ and gl/ above: LOOP-RUN's own fatia 6a atoms (frame_tick_
+# state.cpp, frame_cap_schedule.cpp, loop_callbacks_validation.cpp -
+# docs/plano-w6b-fatias-6-8.md sec. 8.1, src/platform/loop/CMakeLists.txt's
+# own header comment) touch no operating-system header either - the
+# facade that first reaches into a real display/window/context (a
+# later fatia, 6b) is what will need its own per-platform wiring, same
+# as window/ already separates window_state.cpp (here) from wayland/
+# window_adapter.cpp and win32/window_adapter.cpp below.
+add_subdirectory(loop)
+
 # UNIX: selects the Wayland backend (WL-PROTO, GODS_LAWS.md L-05 -
 # Wayland is the only Linux surface this project targets). wayland/'s
 # own CMakeLists.txt wires in wayland_display_adapter and the internal

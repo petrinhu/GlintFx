@@ -59,10 +59,32 @@ endfunction()
 # add_subdirectory/FetchContent (GODS_LAWS.md LEI ZERO - the consumer
 # base is open and unknown, and is not this project's output layout to
 # dictate). This function is scoped to test executables only.
+#
+# DLL-EMPTY (CI run 34118301960, Windows shared, win32_facade_pin_test):
+# the WIN32 AND BUILD_SHARED_LIBS guard above is necessary but not
+# sufficient - it only proves `target` is a Windows target built shared,
+# not that `target` itself links a SHARED library. win32_facade_pin_test
+# links no library at all (tests/CMakeLists.txt: it recompiles the
+# facade sources standalone, on purpose, to prove the packaged facade
+# survives without glintfx::glintfx), so $<TARGET_RUNTIME_DLLS:target>
+# resolves to an EMPTY list for it. COMMAND_EXPAND_LISTS then drops that
+# empty list from the command line entirely rather than passing an empty
+# argument, degenerating the line to `copy_if_different <dest-dir>` -
+# `copy_if_different` requires at least one source, so CMake's own `-E`
+# dispatcher rejects it as a usage error (exit 1), and the whole target
+# fails to build even though its actual compile+link already succeeded.
+# The fix swaps the SUBCOMMAND itself, not just its arguments: when the
+# DLL list is non-empty run copy_if_different as before, when it is empty
+# run `true` (CMake's own -E no-op, always exit 0) instead - so a target
+# with nothing to copy compiles clean rather than tripping over a
+# malformed copy. This is the idiom CMake users reach for on this exact
+# generator-expression pitfall (no single blessed recipe exists in the
+# upstream docs for it).
 function(glintfx_copy_runtime_dlls_after_build target)
     if(WIN32 AND BUILD_SHARED_LIBS)
         add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            COMMAND "${CMAKE_COMMAND}" -E
+                "$<IF:$<BOOL:$<TARGET_RUNTIME_DLLS:${target}>>,copy_if_different,true>"
                 "$<TARGET_RUNTIME_DLLS:${target}>" "$<TARGET_FILE_DIR:${target}>"
             COMMAND_EXPAND_LISTS
         )

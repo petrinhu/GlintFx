@@ -30,14 +30,20 @@ compilador real recusa ou avisa (ver a seção "A prova" abaixo).
 - **Não tem placa de vídeo real nem driver de verdade.** WGL sob Wine,
   quando roda, cai em Mesa/llvmpipe por software, igual ao `windows-latest`
   do CI, mas não é a mesma coisa que a máquina de um jogador de verdade.
-- **`/analyze` (PREfast) não funciona nesta imagem**, falha com
-  `warning C28297: ... File not found` e `fatal error C1253` porque o
-  conjunto mínimo baixado (ver "Como foi construída") não inclui os
-  arquivos de modelo do PREfast. Não investigado a fundo (custaria mais
-  download). Sem `/analyze`, o `cl.exe` sozinho só emite os avisos nativos
-  dele (a família C4xxx), nunca os checks de `clang-tidy`
-  (`misc-misplaced-const`, `bugprone-exception-escape` etc.) que pegaram
-  os dois achados reais desta onda, ver "O que isto NÃO pegou" abaixo.
+- **`/analyze` (PREfast) não funciona nesta imagem, e a investigação
+  aprofundada (06/09/2026, ver "A tentativa de destravar `/analyze`"
+  abaixo) já provou que não é só um download curto que falta.** Falha com
+  `warning C28297: ... File not found` e `fatal error C1253`. A causa
+  raiz medida não é a falta de arquivos de modelo do PREfast (esses já
+  estão presentes - `EspXEngine.dll`, `mspft140.dll`, os `.ruleset` em
+  `CodeAnalysis/Rulesets/`), e sim que o motor de análise precisa
+  hospedar código GERENCIADO via `mscoree.dll` (CLR do .NET), e o Wine
+  desta imagem não consegue inicializar isso de forma headless mesmo com
+  o runtime livre (Wine Mono) presente. Sem `/analyze`, o `cl.exe`
+  sozinho só emite os avisos nativos dele (a família C4xxx), nunca os
+  checks de `clang-tidy` (`misc-misplaced-const`,
+  `bugprone-exception-escape` etc.) que pegaram os dois achados reais
+  desta onda, ver "O que isto NÃO pegou" abaixo.
 - **A única prova de execução real continua sendo o job `windows` do CI**
   (`windows-latest`, GitHub Actions).
 
@@ -156,15 +162,13 @@ dos dois. Resultado medido (06/09/2026):
 **Resultado negativo honesto, como pedido:** dos dois achados reais que
 motivaram este pedido (a anotação de constante mal posicionada e a
 exceção escapando de função `noexcept`), o `cl.exe` sozinho não pegou
-nenhum dos dois, nem no `/W4` que o CI real usa. A tentativa de usar
-`/analyze` para dar ao `cl.exe` a mesma capacidade de análise estática
-falhou por falta dos arquivos de modelo do PREfast nesta imagem mínima
-(ver "O que isto NÃO é" acima); não foi testado se instalar o pacote de
-análise estática completo (mais download) resolveria, porque os dois
-achados reais vieram do `clang-tidy`, uma ferramenta separada do `cl.exe`,
-rodando no job `lint` do `windows-latest`, não do compilador em si. Esta
-imagem prova o compilador; não substitui o `clang-tidy` do lado Windows,
-que é quem efetivamente pegou os dois achados.
+nenhum dos dois, nem no `/W4` que o CI real usa. A investigação
+aprofundada de `/analyze` (seção seguinte) confirma que instalar mais
+pacotes não resolve neste ambiente - os dois achados reais vieram do
+`clang-tidy`, uma ferramenta separada do `cl.exe`, rodando no job `lint`
+do `windows-latest`, não do compilador em si. Esta imagem prova o
+compilador; não substitui o `clang-tidy` do lado Windows, que é quem
+efetivamente pegou os dois achados.
 
 **O que ela prova de verdade:** o `cl.exe` real tem sua própria família
 de avisos (C4996 acima é um exemplo medido) que o compilador cruzado GNU
@@ -179,6 +183,74 @@ servidor.
 Para reproduzir: `tools/msvc-container/armadilhas/compare.sh` (precisa da
 imagem `glintfx-msvc:latest` já construída e do `x86_64-w64-mingw32-g++`
 já presente nesta máquina).
+
+## A tentativa de destravar `/analyze` (06/09/2026)
+
+Pedido explícito do líder: instalar o que falta para o `/analyze`
+(PREfast) funcionar, e provar contra os três arquivos de
+`tools/msvc-container/armadilhas/` que reproduzem defeitos reais desta
+onda. Resultado, medido, não suposto: **não destravou**, e a causa raiz
+agora está identificada com precisão (é mais funda do que "faltam
+arquivos de modelo").
+
+**O que a investigação achou, em ordem:**
+
+1. **Os arquivos do PREfast já estão todos presentes** nesta imagem -
+   `EspXEngine.dll` (motor de análise, 4 MB), `mspft140.dll` (3 MB), e os
+   23 `.ruleset` em `VC/Tools/MSVC/14.51.36231/CodeAnalysis/Rulesets/`.
+   A hipótese original ("conjunto mínimo não baixou os arquivos de
+   modelo do PREfast") estava **errada** - corrigida aqui, como manda
+   GODS_LAWS.md L-44.
+2. **A causa raiz real**, encontrada com `WINEDEBUG=+file` rodando `cl
+   /analyze` sobre `const_mal_posicionado.cpp`: o `EspXEngine.dll`
+   precisa hospedar código GERENCIADO (.NET) via `mscoree.dll`, e o
+   wineprefix desta imagem nunca teve um runtime .NET - nem o da
+   Microsoft (não redistribuível), nem o Wine Mono (implementação livre
+   do CLR mantida pelo próprio projeto Wine).
+3. **Duas vias reais de instalar o Wine Mono foram tentadas e as duas
+   falharam**, com o registro (`HKLM\Software\Microsoft\.NETFramework`)
+   continuando vazio nas duas:
+   - `wine64 msiexec /i wine-mono-8.1.0-x86.msi /qn`: copia os arquivos
+     do Mono para dentro do prefixo, mas não os registra - o MSI do Wine
+     Mono não é um instalador genérico, quem registra o runtime é o
+     próprio `mscoree.dll` builtin do Wine, só quando ele mesmo procura
+     o Mono, nunca quando o MSI é instalado por fora.
+   - Colocar o `.msi` no diretório compartilhado que o próprio projeto
+     wine-mono documenta para uso headless (`/usr/share/wine/mono/`, e
+     também `$HOME/.cache/wine/`), seguido de recriar o wineprefix do
+     zero (`wine64 wineboot --init`): o mecanismo de "auto-instala da
+     cache ao criar prefixo", descrito em fóruns da comunidade Wine, não
+     se confirmou no `wine64` 8.0~repack-4 (Debian 12) desta imagem,
+     headless, sem `DISPLAY`.
+4. **Confirmado que não é problema exclusivo desta imagem**: a issue
+   pública [mattgodbolt/compiler-explorer#1075](https://github.com/mattgodbolt/compiler-explorer/issues/1075)
+   relata `/analyze` falhando sob Wine por DLL ausente - um problema mais
+   raso que o daqui (a imagem deles nem baixa `mspft140.dll`; a nossa
+   baixa e falha um passo depois, na hospedagem gerenciada).
+5. **Limite declarado e respeitado**: o próximo passo óbvio seria forçar
+   o diálogo gráfico de instalação do Mono via X virtual (Xvfb) - e isto
+   é **proibido** pelo canon deste projeto ("Nada de Xlib, XCB, XTest,
+   Xvfb ou `xdotool` neste repositório, nem em produção nem em teste"),
+   por isso não foi tentado.
+
+**O que isto custou e o que sobrou:** a tentativa baixou o Wine Mono
+(`wine-mono-8.1.0-x86.msi`, 81 MiB, projeto Wine, licença MIT/LGPL - não
+é componente da Microsoft) e montou uma imagem derivada temporária
+(`glintfx-msvc-analyze:latest`, +170 MB sobre a base) só para testar. Como
+não funcionou, **a imagem derivada foi apagada** (`docker rmi`) para não
+carregar bytes sem função; `glintfx-msvc:latest` não foi tocada e continua
+exatamente como estava. O `.msi` baixado também não foi commitado (é
+binário de 81 MB, mesmo padrão já usado para os componentes MSVC: baixa
+de novo quando precisar). O `Dockerfile.analyze` deste diretório documenta
+a tentativa e as duas vias tentadas, para ninguém repetir o trabalho às
+cegas sem uma ideia nova.
+
+**Veredicto para a pergunta "vale manter os bytes":** não há bytes novos
+para manter - nada foi incorporado à imagem final. Se algum dia isto
+importar de verdade, o próximo passo não é mais "instalar o que falta" (já
+foi tentado, com o pacote certo, pelas duas vias documentadas) e sim ou
+(a) usar uma VM Windows real, ou (b) aceitar rodar `/analyze` só no
+próprio `windows-latest` do CI - decisão do líder, não deste dossiê.
 
 ## Tamanho medido (06/09/2026)
 
@@ -197,6 +269,18 @@ ser apagados depois de construída a imagem final, já que o conteúdo dela
 já está copiado para dentro; `rm -rf` desse diretório de trabalho, fora
 do repo, é seguro e recupera o espaço).
 
+**Re-medido depois da tentativa de `/analyze` (06/09/2026, mesma
+sessão):** a imagem derivada `glintfx-msvc-analyze:latest` chegou a
+existir com 6,8 GB (+170 MB sobre a base, o Wine Mono de 81 MiB
+descompactado), mas foi apagada (`docker rmi`) por não ter servido ao
+objetivo - **`glintfx-msvc:latest` permanece em 6,63 GB, sem mudança**,
+bem abaixo do teto de 20 GB desta tarefa. `btrfs filesystem usage /` ao
+final: `Device unallocated` 95,23 GiB, `Free (estimated)` 113,17 GiB
+(min: 65,55 GiB) - sem impacto líquido, porque o diretório de trabalho do
+Wine Mono (81 MB) e o cache/dest do `vsdownload.py` usados para
+inspecionar componentes (~1 GB, baixados e descartados dentro de
+containers `--rm`, nunca no host) também foram limpos.
+
 ## Licença
 
 O README do `mstorsjo/msvc-wine`, citado verbatim: "Downloading and
@@ -209,8 +293,12 @@ deste time, nunca publicadas em registry nem distribuídas a terceiros.
 
 ## O que fica para o líder decidir, se algum dia importar
 
-- Se vale a pena baixar o pacote de análise estática completo do MSVC
-  para o `/analyze` funcionar (mais download, tamanho não medido).
+- Se vale investir em `/analyze` (PREfast) por outra via, agora que a
+  causa raiz está identificada (falta um runtime .NET funcional dentro
+  do Wine, e as duas vias padrão de instalar o Wine Mono não
+  funcionaram headless - ver "A tentativa de destravar `/analyze`"
+  acima): as alternativas que sobram são uma VM Windows real ou aceitar
+  que `/analyze` só roda no `windows-latest` do CI.
 - Se vale fixar o `msvc-wine` num commit/tag específico em vez do
   `git clone --depth 1` da `master` (hoje reproduzível só enquanto a
   `master` de lá não mudar sob o agente, GODS_LAWS.md L-36, "CI local vs.

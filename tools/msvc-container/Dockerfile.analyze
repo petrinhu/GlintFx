@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/msvc-container/Dockerfile.analyze
+#
+# TENTATIVA DOCUMENTADA QUE NAO FUNCIONOU (06/09/2026). Mantido de
+# proposito, para ninguem repetir o trabalho as cegas - GODS_LAWS.md L-44
+# (nao declarar sem medir, e corrigir explicitamente quando a hipotese
+# cai) e L-40 (mecanismo so conta pronto se o canal for provado; aqui o
+# canal foi testado e reprovou).
+#
+# O QUE SE TENTOU: fazer o /analyze (PREfast) do cl.exe real funcionar em
+# cima de glintfx-msvc:latest, acrescentando o Wine Mono (implementacao
+# livre do CLR do .NET do proprio projeto Wine,
+# https://dl.winehq.org/wine/wine-mono/, versao 8.1.0 pareada com o
+# wine64 8.0 desta imagem base).
+#
+# POR QUE SE TENTOU: sem /analyze, o cl.exe sozinho (mesmo com /W4) nao
+# pegou nenhum dos dois achados reais desta onda (a constante mal
+# posicionada e a excecao escapando de noexcept) - so o clang-tidy do
+# job `lint` do CI real pegou os dois. `/analyze` prometeria trazer parte
+# dessa cobertura para o ciclo local. Rastreado com WINEDEBUG=+file: o
+# EspXEngine.dll (motor do PREfast, ja presente no conjunto minimo desta
+# imagem) precisa hospedar codigo GERENCIADO via mscoree.dll, e o
+# wineprefix assado no Dockerfile.full nunca teve um runtime .NET - nem
+# da Microsoft, nem o Mono do proprio Wine.
+#
+# O QUE FOI TESTADO, MEDIDO, E NAO FUNCIONOU (duas vias reais, nao
+# suposicao):
+#
+#   1. `wine64 msiexec /i wine-mono-8.1.0-x86.msi /qn` - COPIA os
+#      arquivos do Mono para dentro do wineprefix (confirmado por
+#      `find`), mas NAO registra o runtime: `wine64 reg query
+#      'HKLM\Software\Microsoft\.NETFramework'` continuou vazio depois.
+#      O MSI do Wine Mono nao e um instalador generico - as acoes que de
+#      fato registram o runtime vivem dentro do proprio mscoree.dll
+#      builtin do Wine, disparadas so quando ELE procura o Mono, nunca
+#      quando o MSI e instalado por fora feito instalador comum.
+#
+#   2. Colocar o .msi no diretorio compartilhado que o wine-mono upstream
+#      documenta para uso headless (`/usr/share/wine/mono/`, e depois
+#      tambem `$HOME/.cache/wine/`), seguido de `wine64 wineboot -u` E de
+#      recriar o wineprefix do ZERO (`rm -rf` + `wine64 wineboot --init`)
+#      - nenhum dos dois disparou a instalacao automatica. O registro
+#      continuou vazio e `drive_c/windows/mono/` continuou ausente nos
+#      dois casos. O mecanismo de "auto-instala da cache ao criar
+#      prefixo" descrito em foruns da comunidade Wine nao se confirmou
+#      no wine64 8.0~repack-4 (Debian 12) desta imagem, headless, sem
+#      DISPLAY.
+#
+# Confirmado tambem que este e um problema conhecido, nao exclusivo desta
+# imagem: o compiler-explorer (mattgodbolt/compiler-explorer#1075) relata
+# `/analyze` falhando sob Wine por DLL ausente (mspft140.dll, no caso
+# deles - um problema mais raso que o nosso, porque a imagem deles nem
+# baixa o pacote de analise; a nossa baixa e falha um passo depois, na
+# hospedagem gerenciada).
+#
+# LIMITE DECLARADO E RESPEITADO: o proximo passo obvio seria forcar o
+# dialogo grafico de instalacao do Mono via um X virtual (Xvfb) - PROIBIDO
+# por GODS_LAWS.md/CLAUDE.md deste projeto ("Nada de Xlib, XCB, XTest,
+# Xvfb ou xdotool neste repositorio, nem em producao nem em teste"), e por
+# isso NAO tentado.
+#
+# CONCLUSAO: `/analyze` (PREfast) nao roda nesta imagem, e as duas vias
+# padrao de instalar o runtime que ele precisa nao funcionaram sob Wine
+# headless. Nao construir a partir deste Dockerfile esperando um
+# resultado diferente sem uma ideia nova - as duas vias documentadas
+# acima ja foram tentadas e mediadas.
+
+FROM glintfx-msvc:latest
+
+RUN mkdir -p /usr/share/wine/mono
+COPY wine-mono-8.1.0-x86.msi /usr/share/wine/mono/wine-mono-8.1.0-x86.msi

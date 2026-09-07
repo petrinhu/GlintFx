@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <glintfx/core/time.hpp>
 
+#include <chrono>
 #include <cmath>
 #include <limits>
 
 // core/time.cpp - implementation of CORE-TIME (see time.hpp's own
 // header comment for the frozen decision, the naming rationale, and
-// the TOTAL/saturating rule both functions below implement). Pure
-// arithmetic on the two value types above; no OS call anywhere in this
-// file (GODS_LAWS.md L-19).
+// the TOTAL/saturating rule the two conversions below implement), plus
+// gltfx_now() (D-W6b-52, added by docs/plano-w6b-fatias-6-8.md sec.
+// 8.1). <chrono> is the C++ STANDARD LIBRARY, never an operating-
+// system header (time.hpp's own updated top comment spells out why
+// GODS_LAWS.md L-19 does not reach it) - there is still no OS call
+// anywhere in this file.
 
 namespace glintfx {
 
@@ -94,6 +98,25 @@ gltfx_duration gltfx_duration_from_seconds(double seconds) noexcept {
     // cannot overflow here, and its argument was never NaN or
     // infinite.
     return gltfx_duration{.nanoseconds = static_cast<std::int64_t>(std::llround(scaled))};
+}
+
+gltfx_time_point gltfx_now() noexcept {
+    // std::chrono::steady_clock is the standard library's own
+    // monotonic clock - never guaranteed to share an epoch with
+    // anything else, exactly the property gltfx_time_point's own
+    // header comment already documents (time.hpp's own struct comment
+    // above this function's declaration). duration_cast<nanoseconds>
+    // is a plain, well-defined integer conversion here: steady_clock's
+    // OWN period is implementation-defined and may be coarser than a
+    // nanosecond, but never finer than what std::chrono::nanoseconds
+    // (an at-least-64-bit signed integer duration, by the standard)
+    // can represent for any real process runtime - this is the same
+    // "TOTAL for every realistic input" property this file's own two
+    // conversions above document, applied to a reading instead of a
+    // computation.
+    const auto ticks = std::chrono::steady_clock::now().time_since_epoch();
+    const auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(ticks);
+    return gltfx_time_point{.ticks = static_cast<std::int64_t>(nanoseconds.count())};
 }
 
 } // namespace glintfx

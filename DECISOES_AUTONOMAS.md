@@ -2381,3 +2381,37 @@ nao parar a cada passo, nunca sobre baixar a regua.
 **O que o passo 6 protege:** esta onda produziu quatro leis novas, uma revogada,
 tres portoes consertados, um defeito em tres camadas e a primeira maquina
 virtual Windows do projeto. Nada disso pode depender da memoria de uma sessao.
+
+## 07/09/2026 - 02:01 | A ponte de arquivo do convidado Windows sai; entra o canal do agente
+
+**Decisao autonoma, tomada sob o modo que o lider ligou as 01:54. Trago para
+ele confirmar depois.**
+
+**O achado que a provocou:** a ponte de arquivo que desenhamos para levar os
+nossos binarios ao convidado Windows **nao e visivel de dentro dele**. O
+protocolo escolhido por padrao nao tem cliente no Windows para aquele tipo de
+dispositivo, e o proprio convidado mostra a peca como dispositivo desconhecido.
+Foi decisao nossa de desenho, tomada sem saber da lacuna, e nao defeito do
+Windows nem do binario.
+
+**A decisao:** anexar o canal do agente que ja roda dentro do convidado, e
+depois **REMOVER a ponte de arquivo**.
+
+**As tres razoes, na ordem de peso:**
+
+1. **Resolve um problema que nem estava na mesa: como ler o resultado de um
+   teste.** Com a ponte de arquivo, o codigo de saida ainda seria lido DA TELA,
+   por captura. Esta casa tem lei contra isso, e ela pegou quatro erros nesta
+   mesma noite. O canal do agente devolve codigo de saida e saidas exatos.
+2. **Mata uma fragilidade ja sentida:** digitacao cega dependente do layout de
+   teclado do convidado, onde alguns caracteres nao saem das teclas obvias.
+3. **Reduz a superficie em vez de aumentar.** Sai um dispositivo, sai uma pasta
+   do hospedeiro exposta ao convidado, e sai a peca que hoje aparece como
+   desconhecida la dentro. Trocamos um canal que nao funciona por um que
+   funciona, e ficamos com MENOS exposto.
+
+**A exigencia que veio junto, e ela e a parte que importa:** o canal do agente
+e categoria que as cinco regras do portao de isolamento nao previram. Portao
+que nao conhece a categoria nao a vigia. O portao ganha uma SEXTA varredura -
+cano para o convidado que nao seja o agente declarado - e ela precisa ser vista
+reprovando, por sabotagem em copia, antes de valer. Mesmo rito das outras cinco.

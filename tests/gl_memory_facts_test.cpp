@@ -31,11 +31,17 @@
 
 namespace {
 
-extern "C" void real_driver_get_integerv(unsigned int pname, int *params) noexcept {
+extern "C" void real_driver_get_integerv(unsigned int /*pname*/, int *params) noexcept {
     // A driver that genuinely implements the extension: the SAME
-    // capacity on every read, exactly what a real VRAM size is.
+    // capacity on every read, exactly what a real VRAM size is,
+    // regardless of which of the two tokens was asked - CONSERTO
+    // (07/09/2026, achado do preci.sh completo, clang-tidy bugprone-
+    // branch-clone/misc-redundant-expression): a `pname == 0x9047 ?
+    // 4194304 : 4194304` ternary here had both branches identical,
+    // which is exactly what this comment already said in words - the
+    // condition never did anything, so it is gone, not the value.
     if (params != nullptr) {
-        *params = pname == 0x9047 ? 4194304 : 4194304;
+        *params = 4194304;
     }
 }
 extern "C" unsigned int real_driver_get_error() noexcept { return 0; }

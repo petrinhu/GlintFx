@@ -1,0 +1,90 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<domain type="kvm">
+  <name>glintfx-win11-fixture-sabotado</name>
+  <memory unit="GiB">8</memory>
+  <vcpu>4</vcpu>
+  <os firmware="efi">
+    <type arch="x86_64" machine="pc-q35-10.2">hvm</type>
+    <loader readonly="yes" secure="yes" type="pflash">/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd</loader>
+    <nvram template="/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd">/var/tmp/glintfx-win-lab/glintfx-win11_VARS.fd</nvram>
+  </os>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type="file" device="disk">
+      <driver name="qemu" type="qcow2"/>
+      <source file="/var/tmp/glintfx-win-lab/glintfx-win11.qcow2"/>
+      <target dev="sda" bus="sata"/>
+    </disk>
+    <disk type="file" device="cdrom">
+      <source file="/var/tmp/glintfx-win-lab/win11-ltsc2024-ptbr-x64-eval.iso"/>
+      <target dev="sdb" bus="sata"/>
+      <readonly/>
+    </disk>
+    <interface type="network">
+      <source network="default"/>
+      <model type="virtio"/>
+    </interface>
+
+    <!-- VIOLACAO 1: dispositivo de entrada real do hospedeiro repassado via evdev -->
+    <input type="evdev">
+      <source dev="/dev/input/event5"/>
+    </input>
+
+    <!-- VIOLACAO 1b: hostdev USB real do hospedeiro repassado -->
+    <hostdev mode="subsystem" type="usb" managed="yes">
+      <source>
+        <vendor id="0x046d"/>
+        <product id="0xc52b"/>
+      </source>
+    </hostdev>
+
+    <!-- VIOLACAO 2: servidor de imagem escutando fora de 127.0.0.1 -->
+    <graphics type="vnc" port="-1" autoport="yes" listen="0.0.0.0">
+      <listen type="address" address="0.0.0.0"/>
+    </graphics>
+
+    <!-- VIOLACAO 3: pasta do usuario (home inteira) montada -->
+    <filesystem type="mount" accessmode="mapped">
+      <driver type="virtiofs"/>
+      <source dir="/home/petrus"/>
+      <target dir="home_petrus"/>
+    </filesystem>
+
+    <!-- VIOLACAO 4: montagem de escrita para fora da arvore do projeto -->
+    <filesystem type="mount" accessmode="mapped">
+      <driver type="virtiofs"/>
+      <source dir="/var/tmp"/>
+      <target dir="vartmp_rw"/>
+    </filesystem>
+
+    <tpm model="tpm-crb">
+      <backend type="emulator" version="2.0"/>
+    </tpm>
+
+    <!-- VIOLACAO 5: canal de area de transferencia compartilhada -->
+    <channel type="spicevmc">
+      <target type="virtio" name="com.redhat.spice.0"/>
+    </channel>
+
+    <!-- VIOLACAO 6: canal para o convidado que nao e o agente declarado
+         (categoria nova, ordem do team-lead 07/09/2026: "canal para o
+         convidado que nao seja o agente declarado") -->
+    <channel type="unix">
+      <target type="virtio" name="com.exemplo.canal-nao-autorizado.0"/>
+    </channel>
+    <graphics type="spice" port="-1" autoport="yes" listen="127.0.0.1">
+      <listen type="address" address="127.0.0.1"/>
+      <clipboard copypaste="yes"/>
+    </graphics>
+
+    <video>
+      <model type="virtio"/>
+    </video>
+    <serial type="pty">
+      <target type="isa-serial" port="0"/>
+    </serial>
+    <console type="pty">
+      <target type="serial" port="0"/>
+    </console>
+  </devices>
+</domain>

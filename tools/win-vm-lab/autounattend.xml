@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+  Arquivo de respostas do Windows 11 Enterprise LTSC 2024 Evaluation
+  (build 26100.1742, pt-BR, x64), para instalacao 100% desassistida em
+  QEMU/libvirt com UEFI + Secure Boot (chaves da Microsoft ja inscritas,
+  via edk2-ovmf) + TPM 2.0 emulado por swtpm.
+
+  Por que este arquivo existe e nao a opcao unattended do virt-install: medido
+  nesta maquina em 07/09/2026 que o osinfo-db instalado (20251212) NAO tem
+  <install-script> para "win11" (osinfo-install-script confirma: "Nenhum
+  script de instalacao para o perfil 'desktop'/'jeos' e SO 'Microsoft
+  Windows 11'"), e o volume-id real da nossa midia (CESE_X64FREE_PT-BR_DV9)
+  nao casa com o regex de deteccao de midia win11 do osinfo-db
+  (^(J_)?(CCSN?A|C?CCOMA)_X64FREE?_). Os dois fatos juntos tornam
+  a opcao unattended do virt-install impossivel aqui, nao so desaconselhavel.
+  Detalhe completo em RELATORIO.md.
+
+  Este disco (CD2, "answer disc") carrega este arquivo na raiz mais as
+  pastas de driver virtio (vioscsi, NetKVM) exigidas na fase windowsPE,
+  porque a VM usa disco e rede paravirtuais (virtio-scsi e virtio-net),
+  que nao tem driver de fabrica no Windows.
+
+  NAO CONTEM contorno de checagem de TPM/Secure Boot (LabConfig,
+  BypassTPMCheck etc.): a VM tem TPM 2.0 real (emulado por swtpm) e
+  Secure Boot real (OVMF com chaves da Microsoft inscritas), entao a
+  checagem de requisito do instalador deve passar sem contorno. Isto
+  ainda NAO foi provado por uma instalacao real (ver RELATORIO.md,
+  secao "o que ficou por provar").
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+
+  <settings pass="windowsPE">
+
+    <component name="Microsoft-Windows-International-Core-WinPE"
+                processorArchitecture="amd64"
+                publicKeyToken="31bf3856ad364e35"
+                language="neutral"
+                versionScope="nonSxS"
+                xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <!-- Evita a tela de "escolha o idioma" no arranque do instalador. -->
+      <SetupUILanguage>
+        <UILanguage>pt-BR</UILanguage>
+      </SetupUILanguage>
+      <InputLocale>pt-BR</InputLocale>
+      <SystemLocale>pt-BR</SystemLocale>
+      <UILanguage>pt-BR</UILanguage>
+      <UserLocale>pt-BR</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-PnpCustomizationsWinPE"
+                processorArchitecture="amd64"
+                publicKeyToken="31bf3856ad364e35"
+                language="neutral"
+                versionScope="nonSxS"
+                xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <!--
+        Sem estes dois, o instalador nao enxerga o disco (virtio-scsi) nem
+        a rede (virtio-net) durante a fase de texto. E: e a letra que este
+        CD2 (answer disc) recebe QUANDO ha exatamente um CD1 (midia do
+        Windows) montado antes dele; convencao observada em instalacoes
+        QEMU/libvirt com duas unidades oticas, NAO garantida por
+        especificacao. Se a instalacao real travar sem achar o disco,
+        confirme a letra real digitando no terminal de recuperacao (Shift+F10
+        so funciona se WillShowUI nao for Never; por isso o DiskConfiguration
+        abaixo usa OnError, nao Never) e ajuste este caminho.
+      -->
+      <DriverPaths>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="1">
+          <Path>E:\vioscsi\w11\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="2">
+          <Path>E:\NetKVM\w11\amd64</Path>
+        </PathAndCredentials>
+      </DriverPaths>
+    </component>
+
+    <component name="Microsoft-Windows-Setup"
+                processorArchitecture="amd64"
+                publicKeyToken="31bf3856ad364e35"
+                language="neutral"
+                versionScope="nonSxS"
+                xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+
+      <!--
+        Layout GPT/UEFI de 3 particoes (ESP + MSR + Windows), unico disco
+        (DiskID 0), apagado por completo; a VM nasce com um qcow2 vazio
+        dedicado, entao "WillWipeDisk=true" nunca toca em disco de outra
+        maquina.
+      -->
+      <DiskConfiguration>
+        <Disk wcm:action="add">
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
+          <CreatePartitions>
+            <CreatePartition wcm:action="add">
+              <Order>1</Order>
+              <Type>EFI</Type>
+              <Size>100</Size>
+            </CreatePartition>
+            <CreatePartition wcm:action="add">
+              <Order>2</Order>
+              <Type>MSR</Type>
+              <Size>16</Size>
+            </CreatePartition>
+            <CreatePartition wcm:action="add">
+              <Order>3</Order>
+              <Type>Primary</Type>
+              <Extend>true</Extend>
+            </CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <ModifyPartition wcm:action="add">
+              <Order>1</Order>
+              <PartitionID>1</PartitionID>
+              <Label>System</Label>
+              <Format>FAT32</Format>
+            </ModifyPartition>
+            <ModifyPartition wcm:action="add">
+              <Order>2</Order>
+              <PartitionID>2</PartitionID>
+            </ModifyPartition>
+            <ModifyPartition wcm:action="add">
+              <Order>3</Order>
+              <PartitionID>3</PartitionID>
+              <Label>Windows</Label>
+              <Letter>C</Letter>
+              <Format>NTFS</Format>
+            </ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+        <!--
+          OnError, nao Never: se algo faltar (driver nao achado, disco
+          errado), o instalador PARA e mostra a tela em vez de tentar
+          adivinhar; o unico jeito de diagnosticar sem repetir a
+          instalacao as cegas. A tela so aparece dentro do quadro de
+          imagem interno da propria VM (regra 2), nunca na sessao do
+          lider.
+        -->
+        <WillShowUI>OnError</WillShowUI>
+      </DiskConfiguration>
+
+      <ImageInstall>
+        <OSImage>
+          <InstallFrom>
+            <!--
+              Indice 1, nao nome: medido em 07/09/2026 que este install.wim
+              tem UMA UNICA imagem (EditionId "EnterpriseSEval"), entao o
+              indice e inambiguo e nao depende de casar string de nome.
+            -->
+            <MetaData wcm:action="add">
+              <Key>/IMAGE/INDEX</Key>
+              <Value>1</Value>
+            </MetaData>
+          </InstallFrom>
+          <InstallTo>
+            <DiskID>0</DiskID>
+            <PartitionID>3</PartitionID>
+          </InstallTo>
+          <WillShowUI>OnError</WillShowUI>
+        </OSImage>
+      </ImageInstall>
+
+      <UserData>
+        <AcceptEula>true</AcceptEula>
+        <FullName>GlintFx CI Lab</FullName>
+        <Organization>GlintFx</Organization>
+        <!--
+          Midia de avaliacao com uma unica edicao no WIM nao pede chave
+          durante o setup (nao ha tela de selecao de edicao para
+          desambiguar). Nenhuma <ProductKey> e necessaria aqui; ver
+          RELATORIO.md para a fonte desta conclusao.
+        -->
+      </UserData>
+
+    </component>
+
+  </settings>
+
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Shell-Setup"
+                processorArchitecture="amd64"
+                publicKeyToken="31bf3856ad364e35"
+                language="neutral"
+                versionScope="nonSxS"
+                xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <ComputerName>GLINTFX-WINLAB</ComputerName>
+    </component>
+  </settings>
+
+  <settings pass="oobeSystem">
+
+    <component name="Microsoft-Windows-International-Core"
+                processorArchitecture="amd64"
+                publicKeyToken="31bf3856ad364e35"
+                language="neutral"
+                versionScope="nonSxS"
+                xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+      <InputLocale>pt-BR</InputLocale>
+      <SystemLocale>pt-BR</SystemLocale>
+      <UILanguage>pt-BR</UILanguage>
+      <UserLocale>pt-BR</UserLocale>
+    </component>
+
+    <component name="Microsoft-Windows-Shell-Setup"
+                processorArchitecture="amd64"
+                publicKeyToken="31bf3856ad364e35"
+                language="neutral"
+                versionScope="nonSxS"
+                xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+
+      <!--
+        As quatro linhas abaixo, juntas, sao o que substitui qualquer tela
+        de OOBE por silencio total: sem EULA, sem oferta de conta
+        Microsoft, sem configuracao de rede sem fio, sem pergunta de
+        localizacao de rede (fixada em "Work", que e a que pula o
+        assistente de rede domestica). NetworkLocation=Work funciona mesmo
+        sem placa de rede funcional ainda (o driver NetKVM so e injetado na
+        fase windowsPE para o proprio setup enxergar performance de disco,
+        nao ha promessa de que a rede suba automaticamente no primeiro
+        boot; ver RELATORIO.md).
+      -->
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <NetworkLocation>Work</NetworkLocation>
+        <ProtectYourPC>3</ProtectYourPC>
+        <SkipMachineOOBE>true</SkipMachineOOBE>
+        <SkipUserOOBE>true</SkipUserOOBE>
+      </OOBE>
+
+      <UserAccounts>
+        <AdministratorPassword>
+          <Value>__ADMIN_PASSWORD__</Value>
+          <PlainText>true</PlainText>
+        </AdministratorPassword>
+        <LocalAccounts>
+          <LocalAccount wcm:action="add">
+            <!--
+              "Administrators" em ingles, nao "Administradores": e o nome
+              resolvido pelo well-known SID do grupo embutido, e a
+              convencao amplamente seguida em unattend.xml mesmo sobre
+              midia localizada; evita depender de o instalador aceitar o
+              nome traduzido antes de o idioma estar totalmente aplicado.
+            -->
+            <Group>Administrators</Group>
+            <Name>glintfx</Name>
+            <Password>
+              <Value>__USER_PASSWORD__</Value>
+              <PlainText>true</PlainText>
+            </Password>
+          </LocalAccount>
+        </LocalAccounts>
+      </UserAccounts>
+
+      <!--
+        AutoLogon existe so para o FirstLogonCommands abaixo (instalar as
+        ferramentas convidadas do virtio) rodar sem ninguem sentado na
+        frente. LogonCount baixo de proposito: nao e login permanente sem
+        senha, e so a folga para o primeiro boot terminar sozinho.
+      -->
+      <AutoLogon>
+        <Enabled>true</Enabled>
+        <Username>glintfx</Username>
+        <Password>
+          <Value>__USER_PASSWORD__</Value>
+          <PlainText>true</PlainText>
+        </Password>
+        <LogonCount>3</LogonCount>
+      </AutoLogon>
+
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Description>Instala silenciosamente as ferramentas convidadas do virtio (driver de rede completo, balao de memoria, virtiofs) a partir do 3o CD</Description>
+          <!--
+            F: e o 3o CD (virtio-win-stable.iso completo), pela mesma
+            convencao de letras do E: acima; mesma ressalva de nao estar
+            provado por boot real. O instalador oficial do virtio-win
+            aceita /S para silencioso e /norestart para nao reiniciar no
+            meio do FirstLogonCommands.
+          -->
+          <CommandLine>cmd /c F:\virtio-win-guest-tools.exe /S /norestart &gt; C:\Windows\Temp\virtio-guest-tools.log 2&gt;&amp;1</CommandLine>
+        </SynchronousCommand>
+        <SynchronousCommand wcm:action="add">
+          <Order>2</Order>
+          <Description>Senha da conta de laboratorio nunca expira (maquina isolada, sem exposicao externa)</Description>
+          <CommandLine>cmd /c wmic useraccount where "name='glintfx'" set PasswordExpires=false</CommandLine>
+        </SynchronousCommand>
+        <!--
+          NAO habilitamos Area de Trabalho Remota (RDP) aqui de proposito:
+          nao foi pedido, e e decisao de canal de acesso remoto que cabe ao
+          lider, nao a este agente (L-01/L-32). A interacao prevista e
+          console serial de texto (regra 2) e, se precisar de tela, VNC
+          preso a 127.0.0.1 aberto manualmente por tunel SSH; nunca
+          automatico.
+        -->
+      </FirstLogonCommands>
+
+    </component>
+  </settings>
+
+</unattend>

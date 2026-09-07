@@ -2,6 +2,7 @@
 #include "platform/wayland/egl_context_adapter.hpp"
 
 #include <cerrno>
+#include <chrono>
 #include <string>
 
 // WL_EGL_PLATFORM before <EGL/egl.h> (tests/container/egl_probe_
@@ -95,13 +96,43 @@ constexpr wl_callback_listener k_frame_callback_listener{
         }
     }
 
+    // INBOX (drenagem 06/09/2026): "a promessa publica de que o desenho
+    // nunca prende o aplicativo tem uma TERCEIRA brecha, e esta e sem
+    // teto nenhum" - this loop used to poll(..., -1) (WAIT FOREVER) on
+    // the write side, copied verbatim from display_adapter.cpp's own
+    // flush_with_retry() (deliberately unbounded THERE - that function
+    // is a foundational primitive outside any "never blocks" promise).
+    // THIS copy sits on swap_buffers()'s own path, and context.hpp's
+    // own class comment promises swap_buffers() "NEVER blocks the
+    // process indefinitely" - a promise this exact infinite wait broke
+    // whenever the compositor stopped draining (hung, died, or was
+    // drowning under load). Bounded here by `write_deadline`, computed
+    // ONCE so the TOTAL time spent waiting for POLLOUT across every
+    // retry is capped at `budget_ms` - never per-iteration only, which
+    // would let a compositor trickling one byte of send-buffer space at
+    // a time re-arm an unbounded number of budget_ms-sized waits without
+    // any SINGLE poll() ever exceeding its own timeout.
+    const auto write_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
     while (wl_display_flush(display) == -1) {
         if (errno != EAGAIN) {
             wl_display_cancel_read(display);
             return false;
         }
+        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                      write_deadline - std::chrono::steady_clock::now())
+                                      .count();
+        if (remaining_ms <= 0) {
+            // Budget exhausted and the socket still is not writable -
+            // the compositor is not draining. Treated exactly like any
+            // other now-unusable connection (the caller already reports
+            // this through build_connection_failure()), never an
+            // unbounded wait.
+            wl_display_cancel_read(display);
+            return false;
+        }
         pollfd pending_write{.fd = wl_display_get_fd(display), .events = POLLOUT, .revents = 0};
-        if (poll(&pending_write, 1, -1) == -1) {
+        if (poll(&pending_write, 1, static_cast<int>(remaining_ms)) == -1) {
             wl_display_cancel_read(display);
             return false;
         }

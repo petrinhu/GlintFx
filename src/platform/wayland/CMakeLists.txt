@@ -65,7 +65,24 @@ target_sources(glintfx_library PRIVATE
     connection_failure.cpp
     egl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
+    drm_gpu_kind.cpp
+    egl_device_dedup.cpp
+    egl_device_query.cpp
+    drm_device_facts.cpp
+    egl_device_enumeration.cpp
 )
+
+# GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.1; docs/plano-w6b-
+# fatias-5b-revisao.md, D-W6b-30/33/38, GODS_LAWS.md L-04/L-07/L-19):
+# "quem identifica as placas de video e o OS" (a ordem do lider de
+# 06/09/2026 esta fatia inteira executa) - drm_gpu_kind.cpp/egl_device_
+# dedup.cpp are the two pure, "Wayland-domain not Wayland-only" atoms
+# (tests/CMakeLists.txt's own comment on their unit tests has the full
+# reasoning); egl_device_query.cpp/drm_device_facts.cpp/egl_device_
+# enumeration.cpp are the real EGL_EXT_device_query and kernel DRM
+# ioctl calls, Linux-only, that egl_context_adapter.cpp (this same
+# directory) calls into to fill gltfx_gl_context::gpu()'s own `kind`
+# and `enumeration_index`.
 
 # W-EGL (docs/plano-w6b-placa-e-laco.md fatia 3, D-W6b-3): EGL and
 # libwayland-egl, PRIVATE, the same plain pkg-config-variable technique

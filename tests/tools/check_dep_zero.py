@@ -211,6 +211,31 @@ SO_HEADER_ALLOWLIST = frozenset(
         "propsys.h",
         "propvarutil.h",
         "shellapi.h",
+        # GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.1, F3; docs/
+        # plano-w6b-fatias-5b-revisao.md, D-W6b-30/38, GODS_LAWS.md
+        # L-07): drm_device_facts.cpp's own real DRM ioctl calls - one
+        # justification per line, never a blanket "drm/*":
+        #   - fcntl.h: open()/O_RDWR/O_CLOEXEC on the render node the
+        #     EGL device query handed back.
+        #   - sys/ioctl.h: the ioctl() syscall wrapper itself.
+        #   - drm/drm.h: DRM_IOCTL_VERSION (every driver answers this).
+        #   - drm/i915_drm.h: DRM_I915_QUERY_MEMORY_REGIONS (`i915`).
+        #   - drm/xe_drm.h: DRM_XE_DEVICE_QUERY_MEM_REGIONS (`xe`).
+        #   - drm/amdgpu_drm.h: AMDGPU_INFO_DEV_INFO/IDS_FLAGS_FUSION
+        #     (`amdgpu`).
+        #   - drm/nouveau_drm.h: NOUVEAU_GETPARAM_BUS_TYPE (`nouveau`).
+        # All five kernel-headers UAPI - Fedora's `kernel-headers`
+        # (measured `rpm -qf`, F3 of the plan); Ubuntu's own
+        # `linux-libc-dev` and Arch/CachyOS's own `linux-api-headers`
+        # are INFERENCE until the matrix run proves it (L-27) - the
+        # run itself is the proof, not a second measurement here.
+        "fcntl.h",
+        "sys/ioctl.h",
+        "drm/drm.h",
+        "drm/i915_drm.h",
+        "drm/xe_drm.h",
+        "drm/amdgpu_drm.h",
+        "drm/nouveau_drm.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own

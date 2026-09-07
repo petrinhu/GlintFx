@@ -101,6 +101,24 @@ target_sources(glintfx_library PRIVATE
     wgl_proc_address.cpp
     wgl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
+    dxcore_adapter_match.cpp
+    dxcore_gpu_kind.cpp
+    dxcore_adapter_enumeration.cpp
+    gl_device_luid.cpp
 )
+
+# GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 3/4.1, D-W6b-
+# 37/40, GODS_LAWS.md L-04/L-07/L-19): "quem identifica as placas de
+# video e o OS" on Windows is DXCore, per adapter, WITHOUT counting how
+# many adapters exist - DXGI plays no part (sec. 3's own "DXGI sai do
+# desenho inteiro"). dxcore_adapter_match.cpp/dxcore_gpu_kind.cpp are
+# the two pure, "Win32-domain not Win32-only" atoms (tests/CMakeLists.
+# txt's own comment on their unit tests has the full reasoning);
+# dxcore_adapter_enumeration.cpp is the real LoadLibraryW(L"dxcore.dll")
+# + COM enumeration (NEVER a static import - tools/ci/check-dep-zero-
+# win.ps1's own allowlist stays untouched); gl_device_luid.cpp reads
+# GL_DEVICE_LUID_EXT off the current context (F13 of the plan) so
+# wgl_context_adapter.cpp can match it against DXCore's own
+# InstanceLuid (D-W6b-32).
 
 target_link_libraries(glintfx_library PRIVATE user32 shell32 ole32 propsys opengl32 gdi32)

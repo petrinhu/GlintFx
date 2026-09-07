@@ -134,6 +134,17 @@ $ErrorActionPreference = "Stop"
 # GDI/OpenGL surface, same category USER32.dll already sits in above) -
 # neither is a third-party library, same reasoning this file's own
 # header already applies to every other DLL on this list.
+# GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 3/4.1, D-W6b-
+# 37, GODS_LAWS.md L-07): dxcore_adapter_enumeration.cpp's own DXCore
+# COM enumeration reaches dxcore.dll ONLY through LoadLibraryW() +
+# GetProcAddress("DXCoreCreateAdapterFactory") - never a static import,
+# never dxcore.lib linked - so `dxcore.dll` is deliberately ABSENT from
+# the list below (the same promise this file's own header already
+# makes for opengl32.dll's own extension functions, one section
+# above): a static import would make dxcore.dll a hard runtime
+# dependency on every glintfx.dll, including on Windows builds older
+# than version 2004 where it does not exist at all (D-W6b-37's own
+# regra (1), "unknown" when the module fails to load).
 $IMPORT_ALLOWLIST_EXACT = @(
     "KERNEL32.dll", "USER32.dll",
     "VCRUNTIME140.dll", "VCRUNTIME140_1.dll", "MSVCP140.dll", "ucrtbase.dll",

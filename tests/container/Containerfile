@@ -325,10 +325,19 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/window/window_facade.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_open_only_fixation.cpp \
@@ -353,6 +362,14 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
@@ -378,6 +395,14 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/window/display_facade.cpp \
         /build/_arch_ports_src/src/platform/window/window_facade.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
@@ -403,10 +428,19 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/window/display_facade.cpp \
         /build/_arch_ports_src/src/platform/window/window_facade.cpp \
         /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
         /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
         /build/_arch_ports_src/src/platform/gl/gl_context_facade.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_enumeration_facade.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_registry.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_option_validation.cpp \
         /build/_arch_ports_src/src/platform/gl/gfx_open_only_fixation.cpp \

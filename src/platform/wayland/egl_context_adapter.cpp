@@ -3,7 +3,10 @@
 
 #include <cerrno>
 #include <chrono>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 // WL_EGL_PLATFORM before <EGL/egl.h> (tests/container/egl_probe_
 // smoke.cpp's own header comment, this fatia's own briefing "leia-a
@@ -21,9 +24,15 @@
 
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/gl/gl_memory_facts.hpp"
 #include "platform/gl/gl_surface_size_policy.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/gl/gpu_kind_exclusion.hpp"
+#include "platform/gl/memory_separation_kind.hpp"
 #include "platform/wayland/connection_failure.hpp"
+#include "platform/wayland/drm_device_facts.hpp"
+#include "platform/wayland/drm_gpu_kind.hpp"
+#include "platform/wayland/egl_device_enumeration.hpp"
 #include "platform/wayland/window_adapter.hpp"
 #include "platform/window/window_state.hpp"
 
@@ -152,6 +161,91 @@ constexpr wl_callback_listener k_frame_callback_listener{
         return false;
     }
     return wl_display_dispatch_pending(display) != -1;
+}
+
+// classify_current_gpu() - GL-GPU-KIND (docs/plano-w6b-fatias-5.md
+// sec. 4.1; docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3, D-W6b-30/
+// 33/38): the ONE place this adapter walks kernel -> via 1 (exclusion)
+// -> via 2 (memory separation) -> unknown, exactly the order D-W6b-38
+// fixes. `enumeration_index` is found by matching THIS display's own
+// egl_device_facts (by render node, falling back to primary node)
+// against the survivor list enumerate_egl_devices() already
+// deduplicated - the SAME list via 1 walks for "some OTHER entry is
+// `shared`".
+[[nodiscard]] std::pair<glintfx::gltfx_gpu_kind, std::uint32_t>
+classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcept {
+    using glintfx::gltfx_gpu_kind;
+    using glintfx::k_gltfx_gpu_index_unknown;
+    using glintfx::platform::apply_gpu_kind_exclusion;
+    using glintfx::platform::classify_by_memory_separation;
+    using glintfx::platform::classify_drm_gpu;
+    using glintfx::platform::enumerate_egl_devices;
+
+    const egl_device_facts current = query_egl_display_device(egl_display);
+
+    gltfx_gpu_kind kind = gltfx_gpu_kind::unknown;
+    if (current.queried) {
+        if (current.software) {
+            kind = gltfx_gpu_kind::software;
+        } else {
+            const std::string &node =
+                !current.render_node.empty() ? current.render_node : current.primary_node;
+            if (!node.empty()) {
+                kind = classify_drm_gpu(read_drm_device_facts(node));
+            }
+        }
+    }
+
+    std::uint32_t enumeration_index = k_gltfx_gpu_index_unknown;
+    const glintfx::gltfx_rslt<std::vector<egl_device_facts>> devices = enumerate_egl_devices();
+    if (devices.has_value()) {
+        const std::vector<egl_device_facts> &survivors = devices.value();
+        std::vector<gltfx_gpu_kind> kinds;
+        kinds.reserve(survivors.size());
+
+        for (std::size_t i = 0; i < survivors.size(); ++i) {
+            const egl_device_facts &survivor = survivors[i];
+            const bool is_current =
+                current.queried &&
+                ((!current.render_node.empty() && current.render_node == survivor.render_node) ||
+                 (current.render_node.empty() && !current.primary_node.empty() &&
+                  current.primary_node == survivor.primary_node) ||
+                 (current.render_node.empty() && current.primary_node.empty() &&
+                  current.software == survivor.software && survivor.render_node.empty() &&
+                  survivor.primary_node.empty()));
+            if (is_current && enumeration_index == k_gltfx_gpu_index_unknown) {
+                enumeration_index = static_cast<std::uint32_t>(i);
+            }
+
+            gltfx_gpu_kind survivor_kind = gltfx_gpu_kind::unknown;
+            if (survivor.software) {
+                survivor_kind = gltfx_gpu_kind::software;
+            } else {
+                const std::string &node =
+                    !survivor.render_node.empty() ? survivor.render_node : survivor.primary_node;
+                if (!node.empty()) {
+                    survivor_kind = classify_drm_gpu(read_drm_device_facts(node));
+                }
+            }
+            kinds.push_back(survivor_kind);
+        }
+
+        if (kind == gltfx_gpu_kind::unknown && enumeration_index != k_gltfx_gpu_index_unknown) {
+            const std::vector<gltfx_gpu_kind> excluded = apply_gpu_kind_exclusion(kinds);
+            kind = excluded[enumeration_index];
+        }
+    }
+
+    if (kind == gltfx_gpu_kind::unknown) {
+        auto get_error = reinterpret_cast<unsigned int (*)()>(eglGetProcAddress("glGetError"));
+        const gl_memory_facts memory_facts = read_gl_memory_facts(get_integerv, get_error);
+        if (const std::optional<gltfx_gpu_kind> via2 = classify_by_memory_separation(memory_facts);
+            via2.has_value()) {
+            kind = *via2;
+        }
+    }
+
+    return {kind, enumeration_index};
 }
 
 } // namespace
@@ -398,9 +492,11 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
     }
 
     const gl_ubyte *renderer = get_string(k_gl_renderer);
-    m_gpu.learn(gltfx_gpu_kind::unknown, renderer != nullptr
-                                             ? reinterpret_cast<const char *>(renderer)
-                                             : std::string_view{});
+    const std::string_view renderer_name =
+        renderer != nullptr ? reinterpret_cast<const char *>(renderer) : std::string_view{};
+
+    const auto [gpu_kind, gpu_index] = classify_current_gpu(m_egl_display, get_integerv);
+    m_gpu.learn(gpu_kind, renderer_name, gpu_index);
     return gltfx_rslt<void>::ok();
 }
 

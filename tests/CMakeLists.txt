@@ -732,6 +732,64 @@ target_sources(frame_callback_sequence_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
 )
 
+# GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec. 4.4; docs/plano-w6b-
+# fatias-5b-revisao.md sec. 4.3, D-W6b-30/33/38): the SAME "domain, not
+# only" shape as window_configure_sequence_test/frame_callback_
+# sequence_test right above - drm_gpu_kind.cpp/egl_device_dedup.cpp
+# live under src/platform/wayland/ because the KNOWLEDGE (DRM driver
+# names, EGLDeviceEXT render nodes) is Wayland/Linux-domain, but
+# neither .cpp reaches a Wayland or Linux header - both register
+# unguarded and run on all five platforms.
+glintfx_add_test(drm_gpu_kind_test)
+target_include_directories(drm_gpu_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(drm_gpu_kind_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+)
+
+glintfx_add_test(egl_device_dedup_test)
+target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(egl_device_dedup_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+)
+
+# GL-GPU-KIND, vias 1/2 (docs/plano-w6b-fatias-5b-revisao.md sec.
+# 1.5/3/4.2, D-W6b-38): OS-AGNOSTIC on purpose - they reason about an
+# already-classified gltfx_gpu_kind enumeration (via 1) or a GL_NVX_
+# gpu_memory_info reading off the current context (via 2), used by
+# BOTH the Linux "nvidia-drm answers nothing" case and the Win32
+# reserve for when DXCore itself does not answer IsIntegrated (D-W6b-
+# 37 regra 4) - same reasoning src/platform/gl/CMakeLists.txt's own
+# gl_context_facade.cpp comment already gives for living in gl/.
+glintfx_add_test(gpu_kind_exclusion_test)
+target_include_directories(gpu_kind_exclusion_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gpu_kind_exclusion_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
+glintfx_add_test(memory_separation_kind_test)
+target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(memory_separation_kind_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+)
+
+# GL-GPU-KIND, Windows (docs/plano-w6b-fatias-5b-revisao.md sec.
+# 3/4.1/4.3, D-W6b-37): Win32-DOMAIN, not Win32-ONLY - the SAME shape
+# as drm_gpu_kind_test above, mirrored for the DXCore side: neither
+# dxcore_adapter_match.cpp nor dxcore_gpu_kind.cpp reaches a Win32 or
+# COM header, so both register unguarded and run on all five
+# platforms.
+glintfx_add_test(dxcore_adapter_match_test)
+target_include_directories(dxcore_adapter_match_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(dxcore_adapter_match_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+)
+
+glintfx_add_test(dxcore_gpu_kind_test)
+target_include_directories(dxcore_gpu_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(dxcore_gpu_kind_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_
@@ -1695,6 +1753,29 @@ add_test(
 # costs nothing and keeps the taxonomy uniform across every selftest in
 # this file, sh or python3 alike.
 set_tests_properties(x11_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# GL-GPU-KIND driver-name table gate (docs/plano-w6b-fatias-5b-
+# revisao.md sec. 3/4.3, D-W6b-30/38, GODS_LAWS.md L-40): proves gpu.
+# hpp's own GLINTFX-DRM-DRIVER-TABLE marked line and drm_gpu_kind.cpp's
+# own if-chain name the SAME set of DRM driver names. Registered
+# unguarded from birth (check_drm_driver_table.py's own header - the
+# GATE-TREE-PARITY lesson x11_test/x11_selftest already paid for once,
+# not repeated here).
+add_test(
+    NAME drm_driver_table_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_drm_driver_table.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(drm_driver_table_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME drm_driver_table_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_drm_driver_table.py" --selftest
+)
+set_tests_properties(drm_driver_table_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 

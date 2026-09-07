@@ -164,6 +164,14 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
                 .with_rejected_value(option_name_or_placeholder(fixation.refused_id)));
     }
 
+    // docs/api-conventions.md R3: resolve_gfx_open_only_fixation()'s own
+    // header comment - `alloc_failed` means `fixed`/`refused_id` are
+    // both meaningless, and this open() must fail cleanly instead of
+    // reading either.
+    if (fixation.outcome == platform::gfx_open_only_fixation_outcome::alloc_failed) {
+        return gltfx_rslt<gltfx_gl_context>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
+
     // X-WGL (docs/plano-w6b-placa-e-laco.md fatia 4, 06/09/2026): this
     // file's own CMakeLists.txt comment already predicted it - wiring
     // gl_context_facade.cpp into glintfx_library's own build for the

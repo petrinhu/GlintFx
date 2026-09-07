@@ -2,6 +2,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <new>
 #include <optional>
 #include <print>
 #include <span>
@@ -78,7 +80,41 @@ bool fixed_set_matches(const std::vector<gltfx_gfx_option_entry> &actual,
     return true;
 }
 
+// GODS_LAWS.md L-27/docs/api-conventions.md R3 witness: forces the
+// std::vector::push_back() inside resolve_gfx_open_only_fixation()'s
+// own `fix_now` branch to fail with std::bad_alloc, and proves the
+// noexcept function degrades to `alloc_failed` instead of calling
+// std::terminate() (the exact "a lib NUNCA aborta o processo do
+// consumidor" the leader's OOM decision forbids - err_context_test.
+// cpp's own with_path()/with_rejected_value() cases are the house
+// precedent for this exact shape). Internal linkage (same as err_
+// context_test.cpp's own identically-named flag): only this TU's own
+// operator new/delete overrides below and the test case at the bottom
+// of this file ever touch it - global replacement is required for
+// THOSE two, never for the flag itself.
+bool g_force_alloc_failure = false;
+
 } // namespace
+
+// Global replacement, same shape as err_context_test.cpp's own -
+// gfx_open_only_fixation.cpp carries no GLINTFX_API (L-19, "nada e
+// exportado") and is recompiled straight into THIS test binary (tests/
+// CMakeLists.txt's own target_sources() for gfx_open_only_fixation_
+// test), so there is no DLL boundary to cross and no need for that
+// file's own win_dll_alloc_hook.hpp companion.
+void *operator new(std::size_t size) {
+    if (g_force_alloc_failure) {
+        throw std::bad_alloc();
+    }
+    if (void *p = std::malloc(size); p != nullptr) {
+        return p;
+    }
+    throw std::bad_alloc();
+}
+
+void operator delete(void *p) noexcept { std::free(p); }
+
+void operator delete(void *p, std::size_t /*size*/) noexcept { std::free(p); }
 
 // Cell (nada fixado, pedida): no context has opened this window yet,
 // and msaa_samples is explicitly requested at 4 - fix_now with the
@@ -146,4 +182,21 @@ GLINTFX_TEST(
 
     std::println("gfx_open_only_fixation: 6/6 cells of {{nada fixado, igual, diferente}} x "
                  "{{pedida, omitida}} checked");
+}
+
+// INBOX (drenagem de 06/09/2026): "uma funcao que promete nunca falhar
+// pode derrubar o processo do consumidor por falta de memoria" - the
+// `fix_now` branch (nothing fixed yet) is the one that grows `result.
+// fixed` with push_back(); forcing operator new to throw mid-loop used
+// to escape this noexcept function and call std::terminate(). Armed
+// only around the one call under test, so the harness's own printing
+// above/below never sees a forced failure.
+GLINTFX_TEST(gfx_open_only_fixation_out_of_memory_degrades_instead_of_terminating) {
+    const std::vector<gltfx_gfx_option_entry> requested{{gltfx_gfx_option::msaa_samples, 4}};
+    g_force_alloc_failure = true;
+    const gfx_open_only_fixation_result result =
+        resolve_gfx_open_only_fixation(std::nullopt, std::span(requested));
+    g_force_alloc_failure = false;
+    GLINTFX_CHECK(result.outcome == gfx_open_only_fixation_outcome::alloc_failed);
+    GLINTFX_CHECK(result.fixed.empty());
 }

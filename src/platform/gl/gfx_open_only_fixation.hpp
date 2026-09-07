@@ -57,6 +57,13 @@ enum class gfx_open_only_fixation_outcome : std::uint8_t {
     // Something was already fixed, and `refused_id` is the FIRST
     // open_only option (in id order) whose resolved value disagrees.
     refuse,
+    // docs/api-conventions.md R3 ("a lib NUNCA aborta o processo do
+    // consumidor"): growing `fixed` below ran out of memory. Never
+    // `fix_now`/`accept`/`refuse` - the caller (gl_context_facade.cpp)
+    // must not read `fixed`/`refused_id`, both meaningless here, and
+    // must translate this into gltfx_err_code::out_of_memory instead
+    // of opening a context on a half-built fixation.
+    alloc_failed,
 };
 
 struct gfx_open_only_fixation_result {

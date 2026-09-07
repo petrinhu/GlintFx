@@ -4,6 +4,7 @@
 #if defined(_WIN32)
 
 #include <cstring>
+#include <new>
 
 #include <windows.h>
 
@@ -113,7 +114,23 @@ using dxcore_create_adapter_factory_fn = HRESULT(WINAPI *)(REFIID riid, void **p
         size == 0) {
         return {};
     }
-    std::string buffer(size, '\0');
+
+    // std::string's allocating constructor can throw std::bad_alloc -
+    // the SAME "no exception crosses a noexcept boundary" guard
+    // wgl_proc_address.cpp's own resolve_wgl_proc_address() and
+    // seat_adapter.cpp's own recompute_capabilities() already apply
+    // (GODS_LAWS.md L-22; clang-tidy bugprone-exception-escape,
+    // CI run 34168049144, "Windows - Lint", 07/09/2026). Degrading to
+    // an empty description on allocation failure matches this
+    // function's OWN other early-return paths above - never a guess
+    // at the real driver name.
+    std::string buffer;
+    try {
+        buffer.assign(size, '\0');
+    } catch (const std::bad_alloc &) {
+        return {};
+    }
+
     if (adapter->GetProperty(DXCoreAdapterProperty::DriverDescription, size, buffer.data()) !=
         S_OK) {
         return {};
@@ -123,7 +140,16 @@ using dxcore_create_adapter_factory_fn = HRESULT(WINAPI *)(REFIID riid, void **p
     // GetPropertySize() already counted into `size`.
     const std::size_t nul_pos = buffer.find('\0');
     if (nul_pos != std::string::npos) {
-        buffer.resize(nul_pos);
+        // A SHRINKING resize() never reallocates in practice (the same
+        // reasoning seat_adapter.cpp's own second, guarded resize()
+        // already documents for its own shrink-only call) - guarded
+        // anyway because clang-tidy's static analysis does not make
+        // that grow-vs-shrink distinction for std::string::resize().
+        try {
+            buffer.resize(nul_pos);
+        } catch (const std::bad_alloc &) {
+            return {};
+        }
     }
     return buffer;
 }
@@ -215,14 +241,37 @@ glintfx::gltfx_rslt<std::vector<dxcore_adapter_facts>> enumerate_dxcore_adapters
 
     const std::uint32_t adapter_count = adapter_list->GetAdapterCount();
     std::vector<dxcore_adapter_facts> facts;
-    facts.reserve(adapter_count);
+    // reserve()/push_back() below can both throw std::bad_alloc - the
+    // SAME "no exception crosses a noexcept boundary" guard this
+    // file's own read_driver_description() already applies above
+    // (GODS_LAWS.md L-22; clang-tidy bugprone-exception-escape, CI run
+    // 34168049144, "Windows - Lint", 07/09/2026). Unlike that atom,
+    // THIS function already returns a gltfx_rslt<T> - so an allocation
+    // failure here is the library-wide "out_of_memory becomes
+    // gltfx_err_code::out_of_memory and is RETURNED" case core/err.hpp's
+    // own header comment documents, not a degrade-to-empty-value one.
+    try {
+        facts.reserve(adapter_count);
 
-    for (std::uint32_t i = 0; i < adapter_count; ++i) {
-        IDXCoreAdapter *adapter = nullptr;
-        if (SUCCEEDED(adapter_list->GetAdapter(i, &adapter)) && adapter != nullptr) {
-            facts.push_back(read_adapter_facts(adapter));
-            adapter->Release();
+        for (std::uint32_t i = 0; i < adapter_count; ++i) {
+            IDXCoreAdapter *adapter = nullptr;
+            if (SUCCEEDED(adapter_list->GetAdapter(i, &adapter)) && adapter != nullptr) {
+                // read_adapter_facts() itself is noexcept end to end
+                // (it only calls read_driver_description(), guarded
+                // above, and read_instance_luid(), which never
+                // allocates) - Release() runs BEFORE push_back()'s own
+                // possible-throwing reallocation below, so a caught
+                // bad_alloc here never leaks this COM reference.
+                dxcore_adapter_facts adapter_facts = read_adapter_facts(adapter);
+                adapter->Release();
+                facts.push_back(std::move(adapter_facts));
+            }
         }
+    } catch (const std::bad_alloc &) {
+        adapter_list->Release();
+        factory->Release();
+        return gltfx_rslt<std::vector<dxcore_adapter_facts>>::err(
+            gltfx_err(gltfx_err_code::out_of_memory).with_rejected_value("dxcore"));
     }
 
     adapter_list->Release();

@@ -258,6 +258,21 @@ SO_HEADER_ALLOWLIST = frozenset(
         # constants; the real header's own __uuidof()-based template
         # overloads are the only correct way to obtain them.
         "dxcore.h",
+        # GL-GPU-KIND, Windows (GODS_LAWS.md L-07): initguid.h is the
+        # Windows SDK header that redefines the DEFINE_GUID macro so a
+        # GUID constant is DEFINED, not just declared extern - the
+        # standard mechanism (learn.microsoft.com/windows/win32/
+        # directshow/directshow-faq#how-does-the-define_guid-macro-
+        # work) to get DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS's real
+        # value in dxcore_adapter_enumeration.cpp WITHOUT linking
+        # dxcore.lib/dxguid.lib (which would add an import library this
+        # project's dependency-zero rule forbids, and break the six-DLL
+        # import allowlist tools/ci/check-dep-zero-win.ps1 already
+        # measures). Same "API do sistema" category as windows.h/
+        # dxcore.h already on this list, not a vendored third-party
+        # header - included exactly once, in the one translation unit
+        # that names the GUID by value.
+        "initguid.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own

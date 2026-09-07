@@ -7,6 +7,24 @@
 
 #include <windows.h>
 
+// <initguid.h> BEFORE <dxcore.h>, in exactly this ONE translation unit
+// (the only one that names DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS by
+// value below): the standard Windows SDK mechanism for a DEFINE_GUID
+// constant to be DEFINED here instead of just declared extern, so this
+// file never needs to link an import library for it (GODS_LAWS.md L-07,
+// dependency zero - dxcore.lib/dxguid.lib stay off the six-DLL import
+// allowlist tools/ci/check-dep-zero-win.ps1 already measures).
+// Documented behavior (learn.microsoft.com/windows/win32/directshow/
+// directshow-faq#how-does-the-define_guid-macro-work): without
+// <initguid.h>, DEFINE_GUID expands to `extern const GUID <name>;`
+// (link error `unresolved external symbol` - exactly what this file hit
+// before this line existed); with it, DEFINE_GUID expands to the real
+// defining declaration. Two rules from the same source, both followed
+// here: include it exactly ONCE across the whole link (a second
+// inclusion for the same GUID is a compile error, "redefinition;
+// multiple initialization"), and never from a precompiled header (this
+// project has none).
+#include <initguid.h>
 #include <dxcore.h>
 
 #include <glintfx/core/err_code.hpp>

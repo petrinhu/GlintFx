@@ -38,6 +38,9 @@ void window_state::set_state(window_state_bit bit, bool on) noexcept {
     case window_state_bit::fullscreen:
         m_fullscreen = on;
         return;
+    case window_state_bit::suspended:
+        m_suspended = on;
+        return;
     }
 }
 
@@ -61,6 +64,8 @@ bool window_state::state(window_state_bit bit) const noexcept {
         return m_maximized;
     case window_state_bit::fullscreen:
         return m_fullscreen;
+    case window_state_bit::suspended:
+        return m_suspended;
     }
     return false;
 }

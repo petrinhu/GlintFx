@@ -94,12 +94,19 @@ bool win32_window_adapter::handle_message(HWND hwnd, UINT msg, WPARAM wparam, LP
             ::MulDiv(static_cast<int>(height_px), 96, static_cast<int>(m_dpi)));
         m_state.apply_logical_size(logical_width, logical_height);
         // SIZE_MAXIMIZED/SIZE_RESTORED (WM_SIZE's own wParam values) -
-        // SIZE_MINIMIZED is out of D-W5-3's "v1 congela so o minimo"
-        // scope (window_state_bit has no minimized slot), silently
-        // folded into "not maximized", same "unknown/newer state
-        // ignored" shape window_configure_sequence.hpp's own header
-        // comment documents for the Wayland side.
+        // SIZE_MINIMIZED is folded into "not maximized" here (it was
+        // out of D-W5-3's "v1 congela so o minimo" scope, the same
+        // "unknown/newer state ignored" shape window_configure_
+        // sequence.hpp's own header comment documents for the Wayland
+        // side), but D-W6b-51 (docs/plano-w6b-fatias-6-8.md) now DOES
+        // track it, as window_state_bit::suspended - learn.microsoft.
+        // com/windows/win32/winmsg/wm-size documents SIZE_MINIMIZED (1)
+        // as its own distinct wParam value, never overlapping SIZE_
+        // MAXIMIZED (2) or SIZE_RESTORED (0), so this is a plain
+        // second, independent bit derived from the SAME wParam, not a
+        // reinterpretation of the line above.
         m_state.set_state(window_state_bit::maximized, wparam == SIZE_MAXIMIZED);
+        m_state.set_state(window_state_bit::suspended, wparam == SIZE_MINIMIZED);
         out_result = 0; // WM_SIZE's own documented return value.
         return true;
     }

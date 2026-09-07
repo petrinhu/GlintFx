@@ -38,14 +38,23 @@
 namespace glintfx::platform {
 
 // The xdg_toplevel_state enumerators (xdg-shell.xml) window_state.hpp
-// tracks. The spec also defines resizing (3), tiled_* (5-8), suspended
-// (9) and constrained_* (10-13); those are deliberately absent from
-// window_state_bit (D-W5-3: "v1 congela so o minimo") and are silently
+// tracks. The spec also defines resizing (3), tiled_* (5-8) and
+// constrained_* (10-13); those are deliberately absent from window_
+// state_bit (D-W5-3: "v1 congela so o minimo") and are silently
 // ignored by apply_configure() below rather than treated as an error -
 // an unknown or newer state code is not a malformed configure event.
+// suspended (9, `since` version 6 - XDG_TOPLEVEL_STATE_SUSPENDED_SINCE_
+// VERSION in the generated header) is TRACKED, not ignored, as of
+// D-W6b-51 (docs/plano-w6b-fatias-6-8.md): a compositor bound at a
+// lower version simply never sends this code, so tracking it
+// unconditionally here never needs its own version check - the version
+// only matters to a CALLER deciding whether the ABSENCE of the bit is
+// meaningful (LOOP-RUN's own present_would_skip() probe, a later
+// fatia), never to this pure translation.
 inline constexpr std::int32_t k_xdg_toplevel_state_maximized = 1;
 inline constexpr std::int32_t k_xdg_toplevel_state_fullscreen = 2;
 inline constexpr std::int32_t k_xdg_toplevel_state_activated = 4;
+inline constexpr std::int32_t k_xdg_toplevel_state_suspended = 9;
 
 struct window_configure_result {
     std::uint32_t width = 0;
@@ -54,6 +63,7 @@ struct window_configure_result {
     bool maximized = false;
     bool fullscreen = false;
     bool activated = false;
+    bool suspended = false;
 };
 
 class window_configure_sequence {

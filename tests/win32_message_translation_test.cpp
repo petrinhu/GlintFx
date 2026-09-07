@@ -86,6 +86,41 @@ GLINTFX_TEST(wm_size_restored_after_maximized_clears_the_maximized_bit) {
     GLINTFX_CHECK(adapter.state().logical_size().width == 800);
 }
 
+// D-W6b-51 (docs/plano-w6b-fatias-6-8.md): SIZE_MINIMIZED is now a
+// SECOND, independent bit derived from the same WM_SIZE wParam this
+// file's own maximized cases above already exercise - window_message_
+// route.cpp's own comment on this line explains why the two never
+// overlap (learn.microsoft.com/windows/win32/winmsg/wm-size names
+// SIZE_MINIMIZED (1), SIZE_MAXIMIZED (2) and SIZE_RESTORED (0) as
+// three distinct wParam values, never combined).
+GLINTFX_TEST(wm_size_minimized_sets_the_suspended_bit) {
+    win32_window_adapter adapter;
+    LRESULT result = 1; // poisoned, so a no-op handler cannot masquerade as "handled, 0".
+
+    const bool handled =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_MINIMIZED, MAKELPARAM(1024, 768), result);
+
+    GLINTFX_CHECK(handled);
+    GLINTFX_CHECK(result == 0);
+    GLINTFX_CHECK(adapter.state().state(window_state_bit::suspended));
+    GLINTFX_CHECK(!adapter.state().state(window_state_bit::maximized));
+}
+
+GLINTFX_TEST(wm_size_restored_after_minimized_clears_the_suspended_bit) {
+    win32_window_adapter adapter;
+    LRESULT result = 0;
+    const bool handled_while_minimizing =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_MINIMIZED, MAKELPARAM(1024, 768), result);
+    GLINTFX_CHECK(handled_while_minimizing);
+    GLINTFX_CHECK(adapter.state().state(window_state_bit::suspended));
+
+    const bool handled_while_restoring =
+        adapter.handle_message(nullptr, WM_SIZE, SIZE_RESTORED, MAKELPARAM(800, 600), result);
+
+    GLINTFX_CHECK(handled_while_restoring);
+    GLINTFX_CHECK(!adapter.state().state(window_state_bit::suspended));
+}
+
 // "close pegajoso" (docs/plano-w6a-janela.md fatia 9's own row), the
 // PURE half: the one-way latch fires and handle_message() reports the
 // message as HANDLED (true) - window_message_route.hpp's own contract

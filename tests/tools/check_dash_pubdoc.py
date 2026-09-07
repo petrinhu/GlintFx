@@ -59,6 +59,19 @@ import subprocess
 import sys
 import tempfile
 
+# GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
+# tests/tools/check_measured_parity.py/check_test_parity.py/check_plan_
+# scope_diff.py - arquivo inteiro por declaracao, mesma forma nos
+# quatro): este script imprime FORBIDDEN_CHAR (o proprio travessao
+# longo, fora de Latin-1) nas suas mensagens de reprovacao e traz o
+# mesmo caractere em fixtures do --selftest - print() em modo texto
+# estrito quebra com UnicodeEncodeError num console Windows de
+# codepage restrita sem este reconfigure.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+
 SCRIPT_NAME = "check_dash_pubdoc.py"
 FORBIDDEN_CHAR = "—"  # em dash
 

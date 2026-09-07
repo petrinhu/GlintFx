@@ -196,7 +196,10 @@ def selftest_real_hook_passes(repo_root):
     if not ok:
         print("selftest: controle REAL-HOOK FALHOU (o gancho real deveria passar hoje)", file=sys.stderr)
         return False
-    print("selftest: controle REAL-HOOK OK (o gancho real deste repositorio encadeia os dois portoes)")
+    print(
+        f"selftest: controle REAL-HOOK OK (o gancho real deste repositorio encadeia os "
+        f"{len(REQUIRED_GATES)} portoes)"
+    )
     return True
 
 
@@ -210,14 +213,29 @@ def selftest_real_hook_sabotaged_reproves(repo_root, tmp_dir):
     cabecalho do gancho ja cita 'check_spdx.py' em prosa - ver
     strip_shell_comments()). Este controle reproduz a MESMA sabotagem
     sobre uma COPIA do gancho real (nunca in-place - GODS_LAWS.md L-27)
-    e exige reprovacao."""
+    e exige reprovacao.
+
+    ACHADO DE JUNCAO (nao de commit antigo - corrigido apos atribuicao
+    errada): o `exec` do gancho so pode estar na ULTIMA chamada (senao
+    as seguintes nunca rodam) - quando o portao do travessao entrou
+    (commit 35f30d8, ramo docs/dash-pubdoc, NESTA juncao), o `exec`
+    migrou de check_spdx.py para check_dash_pubdoc.py, e o needle fixo
+    abaixo (que so reconhecia a forma COM `exec`) parou de bater. A
+    busca agora aceita a chamada COM ou SEM o prefixo `exec `, para nao
+    quebrar de novo quando um quarto portao entrar e o `exec` migrar de
+    novo."""
     sabotaged = Path(tmp_dir) / "real_hook_sabotaged"
     hooks_dir = sabotaged / "tools" / "git-hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
     real_hook_path = Path(repo_root) / "tools" / "git-hooks" / "pre-commit"
     original = real_hook_path.read_text(encoding="utf-8")
-    needle = 'exec "$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"\n'
-    if needle not in original:
+    call = '"$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"\n'
+    needle = None
+    for candidate in ("exec " + call, call):
+        if candidate in original:
+            needle = candidate
+            break
+    if needle is None:
         print(
             "selftest: controle REAL-HOOK-SABOTAGED FALHOU (linha de chamada real nao encontrada - "
             "selftest esta desatualizado)",

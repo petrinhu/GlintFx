@@ -13,6 +13,24 @@
 # mecanica (CMAKE_SYSTEM_NAME=Windows de verdade) continua correta;
 # falta resolver o travamento do configure antes de declarar pronto.
 #
+# HIPOTESE DE CONSERTO, AINDA NAO TESTADA (proposta pelo team-lead,
+# 07/09/2026): a sonda que trava (`cmTC_*`) por padrao COMPILA E LIGA um
+# executavel para provar que o compilador funciona - e' a LIGACAO da
+# sonda que chama `mspdbsrv.exe` (servidor do banco de simbolos), que
+# fica pendurado esperando um cliente que a emulacao nao fecha direito.
+# CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY faz a sonda parar em
+# `/c` (compila, arquiva com `lib.exe`, nunca liga) - `mspdbsrv` nunca
+# seria chamado. Medido (grep) que este projeto NAO usa essa variavel
+# em lugar nenhum dos `.cmake`/CMakeLists.txt - sem colisao. Vale tentar
+# tambem, se isto sozinho nao bastar, trocar `/Zi` por `/Z7` nas flags
+# de debug (embute o banco de simbolos no proprio .obj, em vez de um
+# arquivo `.pdb` separado que tambem depende do `mspdbsrv`). NENHUMA
+# das duas linhas abaixo foi provada ainda - primeira coisa a tentar
+# quando o slot pesado abrir, antes de qualquer contorno manual (script
+# de ligacao manual com um `export.hpp` escrito a mao como plano B,
+# fora da arvore rastreada, exatamente PORQUE isto ainda nao rodou).
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+#
 # GODS_LAWS.md L-09/L-68 (ordem do lider, 07/09/2026, "matriz de
 # roteamento" - README.md deste diretorio): compilar e ligar sao do
 # container, sempre; EXECUTAR um binario (o que CMAKE_CROSSCOMPILING_

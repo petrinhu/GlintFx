@@ -23,6 +23,7 @@
 
 #include "platform/gl/gl_surface_size_policy.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/wayland/bounded_output_wait.hpp"
 #include "platform/wayland/connection_failure.hpp"
 #include "platform/wayland/window_adapter.hpp"
 #include "platform/window/window_state.hpp"
@@ -71,17 +72,29 @@ constexpr wl_callback_listener k_frame_callback_listener{
     .done = &wayland_egl_context_adapter::frame_callback_done,
 };
 
-// Local, BUDGETED variant of wayland_display_adapter's own manpage-
+// Local BUDGETED variant of wayland_display_adapter's own manpage-
 // blessed prepare_read/flush/poll/read_events sequence (display_
 // adapter.cpp, one directory over) - duplicated here rather than
-// shared, because this caller only ever has a raw wl_display* (wl_
-// proxy_get_display() from the window's own wl_surface, egl_context_
-// adapter.hpp's own class comment: this adapter never needs a separate
-// wayland_display_adapter& reference, since gl_context_facade.cpp's
-// own open() call only ever hands it the window). The mandatory
-// prepare_read/cancel_read pairing (manpage ARMADILHA 2) is identical;
-// only the poll() TIMEOUT differs - budgeted here, always 0 in display_
-// adapter.cpp's own non-blocking pump.
+// shared for the SEQUENCE as a whole, because this caller only ever
+// has a raw wl_display* (wl_proxy_get_display() from the window's own
+// wl_surface, egl_context_adapter.hpp's own class comment: this
+// adapter never needs a separate wayland_display_adapter& reference,
+// since gl_context_facade.cpp's own open() call only ever hands it the
+// window). The mandatory prepare_read/cancel_read pairing (manpage
+// ARMADILHA 2) is identical; the poll() TIMEOUT differs - budgeted
+// here, always 0 in display_adapter.cpp's own non-blocking pump.
+//
+// The WRITE-WAIT ITSELF (POLLOUT while wl_display_flush() reports
+// EAGAIN) is NOT duplicated, though: it is bounded_output_wait.hpp's
+// own wait_for_writable_until(), the SAME atom display_adapter.cpp's
+// own flush_with_retry() now calls one directory over (INBOX, drenagem
+// 06/09/2026, GODS_LAWS.md L-17 - the two copies of this exact wait
+// diverging is what let this file's OWN infinite wait, fixed once
+// already by 72754af with an inline write_deadline, and its sibling in
+// display_adapter.cpp go unnoticed for hours the first time around).
+// context.hpp's own class comment promises swap_buffers() "NEVER
+// blocks the process indefinitely" - the reason this wait carries a
+// real budget at all.
 //
 // Returns false only when the wl_display connection itself is now
 // unusable (a real protocol/socket failure) - "nothing arrived within
@@ -96,22 +109,6 @@ constexpr wl_callback_listener k_frame_callback_listener{
         }
     }
 
-    // INBOX (drenagem 06/09/2026): "a promessa publica de que o desenho
-    // nunca prende o aplicativo tem uma TERCEIRA brecha, e esta e sem
-    // teto nenhum" - this loop used to poll(..., -1) (WAIT FOREVER) on
-    // the write side, copied verbatim from display_adapter.cpp's own
-    // flush_with_retry() (deliberately unbounded THERE - that function
-    // is a foundational primitive outside any "never blocks" promise).
-    // THIS copy sits on swap_buffers()'s own path, and context.hpp's
-    // own class comment promises swap_buffers() "NEVER blocks the
-    // process indefinitely" - a promise this exact infinite wait broke
-    // whenever the compositor stopped draining (hung, died, or was
-    // drowning under load). Bounded here by `write_deadline`, computed
-    // ONCE so the TOTAL time spent waiting for POLLOUT across every
-    // retry is capped at `budget_ms` - never per-iteration only, which
-    // would let a compositor trickling one byte of send-buffer space at
-    // a time re-arm an unbounded number of budget_ms-sized waits without
-    // any SINGLE poll() ever exceeding its own timeout.
     const auto write_deadline =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
     while (wl_display_flush(display) == -1) {
@@ -119,20 +116,14 @@ constexpr wl_callback_listener k_frame_callback_listener{
             wl_display_cancel_read(display);
             return false;
         }
-        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                      write_deadline - std::chrono::steady_clock::now())
-                                      .count();
-        if (remaining_ms <= 0) {
-            // Budget exhausted and the socket still is not writable -
-            // the compositor is not draining. Treated exactly like any
-            // other now-unusable connection (the caller already reports
-            // this through build_connection_failure()), never an
-            // unbounded wait.
-            wl_display_cancel_read(display);
-            return false;
-        }
-        pollfd pending_write{.fd = wl_display_get_fd(display), .events = POLLOUT, .revents = 0};
-        if (poll(&pending_write, 1, static_cast<int>(remaining_ms)) == -1) {
+        if (wait_for_writable_until(wl_display_get_fd(display), write_deadline) !=
+            bounded_wait_outcome::ready) {
+            // Budget exhausted (or the socket itself failed) and the
+            // kernel send buffer is still not writable - the
+            // compositor is not draining. Treated exactly like any
+            // other now-unusable connection (the caller already
+            // reports this through build_connection_failure()), never
+            // an unbounded wait.
             wl_display_cancel_read(display);
             return false;
         }
@@ -370,7 +361,28 @@ gltfx_rslt<void> wayland_egl_context_adapter::create_context(void *config) noexc
     // the EGL 1.5 spec (sec. 3.10.3) allows an implementation to ignore
     // eglSwapInterval() outright, and this adapter's own budgeted wait
     // is the only pacer either way once vsync=on asks for one.
-    eglSwapInterval(m_egl_display, 0);
+    //
+    // INBOX (drenagem 06/09/2026): the return used to be discarded
+    // outright. That left BOTH eglSwapBuffers() call sites in swap_
+    // buffers() below (vsync=off's own early return, and the branch
+    // after the budgeted frame-callback wait) a CONDITIONED wait,
+    // never counted as such: if this exact call is the one a driver
+    // ignores, eglSwapBuffers() falls back to whatever interval the
+    // Mesa Wayland platform starts a context at (interval 1, two
+    // paragraphs up) - which blocks on the SAME wl_surface.frame
+    // callback this adapter itself already manages, but with NO budget
+    // at all, reachable even on the vsync=off path this project
+    // promises never waits on that callback (D-W6b-18). m_swap_
+    // interval_honored below is the measured fact a caller (and tests/
+    // wait_points.txt, which classifies both eglSwapBuffers sites as
+    // `sem-teto-declarado` rather than silently `teto-nosso`) now has
+    // to tell the two cases apart. Closing this gap for real needs a
+    // driver-independent pacer that never leans on eglSwapInterval() at
+    // all - out of this fatia's own scope (docs/plano-w6b-fatias-6-8.md
+    // sec. 2, D-W6b-58's own "o que a fatia 7 mede antes de fechar");
+    // measuring and declaring the fact, rather than assuming it away
+    // in silence, is what is in scope here.
+    m_swap_interval_honored = eglSwapInterval(m_egl_display, 0) == EGL_TRUE;
 
     // Resolved the SAME way the public proc_address() below resolves
     // anything else - this atom is a caller of that exact mechanism,
@@ -546,6 +558,7 @@ void wayland_egl_context_adapter::close() noexcept {
     m_buffer_height = 0;
     m_msaa_supported = false;
     m_srgb_supported = false;
+    m_swap_interval_honored = false;
 }
 
 gltfx_rslt<void> wayland_egl_context_adapter::make_current() noexcept {

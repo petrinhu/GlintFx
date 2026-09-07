@@ -329,13 +329,23 @@ endfunction()
 # and it must not diverge between the CMake and pkg-config packaging
 # paths.
 #
-# Empty (and valid pkg-config syntax) on any platform other than Linux:
-# glintfx has no platform/ layer outside UNIX yet
-# (src/platform/CMakeLists.txt is only added under if(UNIX) in
-# src/CMakeLists.txt), so there is nothing else to add today - a
-# Windows backend, when it is born, extends this function's UNIX-only
-# branch pattern, it does not get a second Libs.private-computing
-# function.
+# INBOX (item novo do lider, 06/09/2026 - docs/auditoria-decisoes-
+# autonomas.md F3): esta funcao dizia, ate esta fatia, "glintfx has no
+# platform/ layer outside UNIX yet (src/platform/CMakeLists.txt is only
+# added under if(UNIX) in src/CMakeLists.txt)" - falso desde que a
+# camada win32 nasceu (src/CMakeLists.txt's own comment: add_
+# subdirectory(platform) e' hoje INCONDICIONAL; src/platform/
+# CMakeLists.txt e' quem faz if(UNIX)/elseif(WIN32) por dentro). A
+# camada win32 link a PRIVATE seis bibliotecas de sistema (src/platform/
+# win32/CMakeLists.txt: user32/shell32/ole32/propsys/opengl32/gdi32) -
+# exatamente a mesma classe de dependencia PRIVATE que o ramo UNIX
+# abaixo ja resolve para wayland-client/EGL, e pela MESMA razao do
+# comentario desta funcao: um consumidor estatico via `pkg-config --libs
+# --static glintfx` precisa desses tokens aqui, ou o link falha com
+# referencia indefinida a simbolo de user32.lib/gdi32.lib/etc. GEMEO
+# (L-17): a lista abaixo tem que continuar igual, nome por nome, a de
+# src/platform/win32/CMakeLists.txt's own target_link_libraries() -
+# comentario cruzado nos dois lugares para quem editar um notar o outro.
 function(glintfx_compute_pkgconfig_libs_private out_var)
     set(all_libs "")
     if(UNIX)
@@ -363,6 +373,12 @@ function(glintfx_compute_pkgconfig_libs_private out_var)
         if(all_libs)
             list(REMOVE_DUPLICATES all_libs)
         endif()
+    elseif(WIN32)
+        # GEMEO com src/platform/win32/CMakeLists.txt's own
+        # target_link_libraries(glintfx_library PRIVATE user32 shell32
+        # ole32 propsys opengl32 gdi32) - mesmos seis nomes, mesma
+        # ordem, para os dois ficarem faceis de comparar lado a lado.
+        list(APPEND all_libs user32 shell32 ole32 propsys opengl32 gdi32)
     endif()
     set(libs_private "")
     foreach(lib_name IN LISTS all_libs)

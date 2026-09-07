@@ -763,6 +763,13 @@ if(UNIX)
         # "second compile needs every callee linked alongside it"
         # reasoning global_catalog.cpp's own line above already gives.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -790,6 +797,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -810,6 +824,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -867,6 +888,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -910,6 +938,13 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        # INBOX (drenagem 06/09/2026): display_adapter.cpp's own
+        # flush_with_retry() now calls bounded_output_wait.cpp's own
+        # wait_for_writable_until() - the SAME "second compile needs
+        # every callee linked alongside it" reasoning this block's own
+        # header comment already gives for connection_failure.cpp
+        # right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -1294,12 +1329,58 @@ if(WIN32)
         "${GLINTFX_GENERATED_INCLUDE_DIR}"
         "${PROJECT_SOURCE_DIR}/src"
     )
+    # CI run 34067447918: this target compiles display_facade.cpp/
+    # window_facade.cpp/err.cpp/err_code.cpp DIRECTLY (this file's own
+    # comment above, "does NOT link glintfx::glintfx"), so it never
+    # inherits glintfx_apply_static_define()'s define the normal way
+    # (PUBLIC target_link_libraries propagation - cmake/GlintfxLibrary.
+    # cmake). Without it, include/glintfx/platform/window/display.hpp's
+    # own GLINTFX_API declarations expand to __declspec(dllimport) (no
+    # DLL is ever built here), and MSVC refuses to let the SAME TU both
+    # import and DEFINE a symbol - C4273 "inconsistent dll linkage",
+    # escalated to a hard error by /WX. Reproduced against the real
+    # cl.exe (tools/msvc-container/README.md), fixed the SAME way that
+    # README's own "uso do dia a dia" example already documents for a
+    # standalone win32/*.cpp compile: this define makes GLINTFX_API
+    # expand to nothing, matching that this target never crosses a DLL
+    # boundary at all - the ordinary "no DLL, no decoration" case, not a
+    # workaround specific to this test.
+    target_compile_definitions(win32_facade_pin_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
     target_link_libraries(win32_facade_pin_test PRIVATE glintfx_test_harness user32 shell32 ole32 propsys)
     glintfx_apply_compile_options(win32_facade_pin_test)
     glintfx_copy_runtime_dlls_after_build(win32_facade_pin_test)
     add_test(NAME win32_facade_pin_test COMMAND win32_facade_pin_test)
     set_tests_properties(win32_facade_pin_test PROPERTIES LABELS consume)
 endif()
+
+# Facade export-boundary gate (CI run 34067447918, commit ddd40b3):
+# win32_facade_pin_test right above recompiled display_facade.cpp/
+# window_facade.cpp/err.cpp/err_code.cpp directly, without linking
+# glintfx::glintfx and without GLINTFX_LIBRARY_STATIC_DEFINE - C4273
+# "inconsistent dll linkage" on the real cl.exe, invisible on GCC/Clang
+# (this file's own comment on win32_facade_pin_test explains why) and
+# invisible on THIS machine (the target is if(WIN32)-guarded, so it did
+# not even exist here to warn about anything). This gate is a
+# STRUCTURAL read of this very file - no compile, no Windows, no MSVC
+# needed - so it catches the next occurrence of the same mistake on the
+# machine that writes it, not only on the server five minutes later.
+# Registered WITHOUT a platform guard (GODS_LAWS.md L-04): it reads
+# text, builds nothing.
+find_program(GLINTFX_PYTHON3_EXECUTABLE NAMES python3 python REQUIRED)
+add_test(
+    NAME facade_export_boundary_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_facade_export_boundary.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(facade_export_boundary_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME facade_export_boundary_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_facade_export_boundary.py" --selftest
+)
+set_tests_properties(facade_export_boundary_selftest PROPERTIES LABELS selftest)
 
 # Header hygiene gate (HDR-HYGIENE-FIX, reproving HDR-HYGIENE): proves
 # a public header still compiles and behaves after hostile system
@@ -2346,10 +2427,20 @@ endif()
 # output-content validator it applies to all six is what makes the
 # DESTDIR scenario possible at all (no expected path to precompute).
 # POSIX sh; same declared downgrade as the other consumption gates
-# above (pkg-config's own convention is Unix/Linux packaging; there is
-# no Windows-specific coverage here because glintfx has no platform
-# layer that needs Libs.private there yet - see GlintfxInstall.cmake's
-# own comment at glintfx_install_pkgconfig()).
+# above (pkg-config's own convention is Unix/Linux packaging). RAZAO
+# CORRIGIDA em 06/09/2026 (docs/auditoria-decisoes-autonomas.md F3):
+# this comment used to say "there is no Windows-specific coverage here
+# because glintfx has no platform layer that needs Libs.private there
+# yet" - false since 03/09/2026, when the win32 platform layer was
+# born (cmake/GlintfxInstall.cmake's own glintfx_compute_pkgconfig_
+# libs_private() now DOES compute Libs.private for it too). The real,
+# remaining reason this gate stays if(UNIX): check_pkgconfig.sh itself
+# hardcodes Unix artifact naming (libglintfx.so*/libglintfx.a globs) and
+# DESTDIR semantics - porting it to also recognize glintfx.dll/glintfx.
+# lib and Windows path conventions is its own fatia (tracked in TODO.md's
+# own table, not attempted blind here without a real Windows machine to
+# verify against). tests/parity_exceptions.txt's own entry for this test
+# carries the same correction, with the fuller reasoning.
 if(UNIX)
     add_test(
         NAME pkgconfig_test
@@ -2651,6 +2742,30 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_volatile_numbers.py" --selftest
 )
 set_tests_properties(readme_volatile_numbers_selftest PROPERTIES LABELS selftest)
+
+# CLAUDE.md "Estado atual do repositorio" volatile-number gate (item
+# novo do lider, 06/09/2026 - docs/auditoria-decisoes-autonomas.md F2,
+# decisao de 25/08 de nao criar portao mecanico para isto, que ja
+# reincidiu quatro vezes no README antes de check_readme_volatile_
+# numbers.py acima existir). Escopo deliberadamente estreito - so' a
+# secao que a propria CLAUDE.md declara "nao carrega contador" (ver
+# check_claude_md_state_numbers.py's own header para a razao completa
+# de nao escanear o documento inteiro). Registrado SEM guarda de
+# plataforma (GODS_LAWS.md L-04): le texto, constroi nada.
+add_test(
+    NAME claude_md_state_numbers_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claude_md_state_numbers.py"
+        "${PROJECT_SOURCE_DIR}/CLAUDE.md"
+)
+set_tests_properties(claude_md_state_numbers_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME claude_md_state_numbers_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claude_md_state_numbers.py" --selftest
+)
+set_tests_properties(claude_md_state_numbers_selftest PROPERTIES LABELS selftest)
 
 # Pre-commit hook chain gate (TODO.md INBOX drenagem 06/09/2026,
 # GODS_LAWS.md L-36/L-40): tools/git-hooks/pre-commit is a plain text
@@ -3006,4 +3121,54 @@ if(WIN32)
     # FIXTURES_SETUP) que nenhum teste desta arvore usa ainda. Fora de
     # escopo desta fatia - relatado ao orquestrador como um decimo-
     # primeiro caso encontrado, nao um dos dez originais.
+endif()
+
+# WAIT-POINTS gate (INBOX, drenagem 06/09/2026, GODS_LAWS.md L-17/L-36/
+# L-40): "a promessa publica de que o desenho e o bombeamento de
+# eventos nunca prendem o aplicativo" foi furada duas vezes por um
+# poll() sem teto (72754af consertou o primeiro sitio; display_adapter.
+# cpp::flush_with_retry() era o gemeo, vivo ate este commit, porque a
+# auditoria anterior olhou so' o ponto ja conhecido em vez de enumerar
+# o espaco inteiro). check_wait_points.py varre os quatro adaptadores
+# que tocam o sistema operacional (mais o atomo compartilhado que este
+# commit extraiu, bounded_output_wait.cpp) atras de toda chamada que
+# PODE bloquear, e confere cada sitio contra tests/wait_points.txt (o
+# manifesto - ver o cabecalho dele para o formato e a classificacao).
+# Registrado SEM guarda de sistema, a MESMA forma de layers_test acima
+# (GATE-TREE-PARITY, GODS_LAWS.md L-04): e' Python puro sobre texto
+# fonte, nenhuma compilacao envolvida, entao o comportamento e' o mesmo
+# em qualquer plataforma.
+add_test(
+    NAME check_wait_points_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wait_points.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(check_wait_points_test PROPERTIES LABELS consume)
+
+# GODS_LAWS.md L-36 (portao so conta provado vermelho): --selftest
+# fixture os cinco controles (positivo, sitio sem declaracao, manifesto
+# podre, varredura vazia, agulha dentro de comentario) contra fixtures
+# descartaveis, nunca contra a arvore real - a mesma separacao
+# positivo/negativo/vazio que layers_selftest acima ja estabelece.
+add_test(
+    NAME check_wait_points_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wait_points.py" --selftest
+)
+set_tests_properties(check_wait_points_selftest PROPERTIES LABELS selftest)
+
+# bounded_output_wait_test - o vermelho/verde real (nao so' a leitura
+# de texto do gate acima) do atomo que substituiu os dois poll(...,
+# -1)/write_deadline duplicados (this file's own header comment on
+# check_wait_points_test). Wayland-only (raw AF_UNIX socketpair()/
+# fcntl()/poll() POSIX, nenhum tipo Windows), mesma guarda if(UNIX) que
+# display_connect_failure_test usa logo acima neste arquivo -
+# bounded_output_wait.hpp/.cpp em si nao dependem de wayland-client,
+# entao nenhum include adicional alem de src/ e' preciso.
+if(UNIX)
+    glintfx_add_test(bounded_output_wait_test)
+    target_include_directories(bounded_output_wait_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(bounded_output_wait_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+    )
 endif()

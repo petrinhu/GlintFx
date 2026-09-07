@@ -49,6 +49,18 @@
 # identical logic - not a "regra de 3" extraction, a "two callers, one
 # body" one (GODS_LAWS.md L-33).
 
+# INBOX (drenagem 06/09/2026, GODS_LAWS.md L-17) adds bounded_output_
+# wait.cpp: the "poll() for POLLOUT with a TOTAL budget, never per
+# retry" atom, EXTRACTED the same "two callers, one body" way as
+# connection_failure.cpp right above - display_adapter.cpp's own
+# flush_with_retry() and egl_context_adapter.cpp's own poll_and_
+# dispatch_with_budget() each carried an independent copy of this exact
+# wait before this commit, and the divergence between the two copies
+# (one budgeted since 72754af, one still poll(..., -1) - infinite) is
+# what let the infinite copy survive undetected. See that file's own
+# header comment for the full account, and tests/wait_points.txt for
+# the enumerated manifest this extraction feeds.
+
 glintfx_add_wayland_xdg_shell_binding(glintfx_library)
 
 target_sources(glintfx_library PRIVATE
@@ -63,6 +75,7 @@ target_sources(glintfx_library PRIVATE
     seat_adapter.cpp
     frame_callback_sequence.cpp
     connection_failure.cpp
+    bounded_output_wait.cpp
     egl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
 )

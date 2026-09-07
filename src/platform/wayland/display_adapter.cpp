@@ -6,11 +6,14 @@
 #include <poll.h>
 
 #include <cerrno>
+#include <chrono>
+#include <cstdint>
 #include <string>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/wayland/bounded_output_wait.hpp"
 #include "platform/wayland/connection_failure.hpp"
 
 // display_adapter.cpp - see display_adapter.hpp's own header comment
@@ -206,15 +209,48 @@ gltfx_rslt<void> wayland_display_adapter::drain_pending_and_prepare_read() noexc
 // would keep passing. Called only after drain_pending_and_prepare_read()
 // has already prepared a read, so every failure path here must pair
 // it with wl_display_cancel_read() (ARMADILHA 2) before latching fatal.
+// INBOX (drenagem 06/09/2026): this loop's own poll(&pending_write, 1,
+// -1) used to wait FOREVER for POLLOUT - the exact sibling of the
+// defect 72754af already fixed on egl_context_adapter.cpp's own
+// write-wait (poll_and_dispatch_with_budget()), surviving here because
+// that fix audited the ONE site it already knew about instead of
+// enumerating the whole space (GODS_LAWS.md L-17; the full enumeration,
+// done afterward, is tests/wait_points.txt). display_adapter.hpp's own
+// pump_events() comment, and gltfx_display::pump_events()'s own public
+// header comment one layer up (include/glintfx/platform/window/
+// display.hpp), both promise "never stalls waiting for the display
+// server, safe to call every frame unconditionally" - a promise this
+// exact infinite wait broke whenever the compositor stopped draining
+// (hung, died, or was drowning under load).
+//
+// k_flush_budget_ms is the SAME order of magnitude as this project's
+// other socket-responsiveness budget (egl_context_adapter.cpp's own
+// k_frame_callback_budget_ms, 100 ms, chosen there for a comparable
+// reason - waiting on this SAME compositor to keep up): short enough
+// that a genuinely unresponsive compositor cannot stall a consumer's
+// per-frame pump_events() call, generous enough that ordinary
+// kernel-send-buffer backpressure under load clears well within it.
+// Budget TOTAL, not per-retry (wait_for_writable_until()'s own header
+// comment): a compositor that drains one byte at a time cannot rearm
+// an unlimited number of 100ms waits.
 gltfx_rslt<void> wayland_display_adapter::flush_with_retry() noexcept {
+    constexpr std::uint32_t k_flush_budget_ms = 100;
+    const auto flush_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(k_flush_budget_ms);
     while (wl_display_flush(m_display) == -1) {
         if (errno != EAGAIN) {
             wl_display_cancel_read(m_display);
             m_fatal = true;
             return gltfx_rslt<void>::err(build_connection_failure(m_display));
         }
-        pollfd pending_write{.fd = wl_display_get_fd(m_display), .events = POLLOUT, .revents = 0};
-        if (poll(&pending_write, 1, -1) == -1) {
+        if (wait_for_writable_until(wl_display_get_fd(m_display), flush_deadline) !=
+            bounded_wait_outcome::ready) {
+            // Budget exhausted (or the socket itself failed) and the
+            // kernel send buffer is still not writable - the
+            // compositor is not draining. Treated exactly like any
+            // other now-unusable connection (the same path every
+            // other failure in this function already takes), never an
+            // unbounded wait.
             wl_display_cancel_read(m_display);
             m_fatal = true;
             return gltfx_rslt<void>::err(build_connection_failure(m_display));

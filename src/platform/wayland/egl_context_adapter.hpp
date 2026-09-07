@@ -182,6 +182,21 @@ class wayland_egl_context_adapter {
         return m_pending_frame_callback;
     }
 
+    // INBOX (drenagem 06/09/2026), same "internal, never installed"
+    // visibility as pending_frame_callback() right above: whether
+    // create_context()'s own eglSwapInterval(m_egl_display, 0) call
+    // (egl_context_adapter.cpp's own header comment on that call) was
+    // actually honored by this driver. The EGL 1.5 spec (sec. 3.10.3)
+    // allows an implementation to ignore that call outright - when it
+    // does, eglSwapBuffers() below falls back to a driver-internal
+    // vsync wait with NO budget at all, on BOTH the vsync=off and
+    // vsync=on paths (this class's own header comment on swap_
+    // buffers()'s own D-W6b-6 contract). False here is a MEASURED,
+    // named residual risk (tests/wait_points.txt classifies both
+    // eglSwapBuffers() sites as `sem-teto-declarado` for exactly this
+    // reason), not a crash and not silently assumed away.
+    [[nodiscard]] bool swap_interval_honored() const noexcept { return m_swap_interval_honored; }
+
     // The wl_callback listener's own `done` callback (wayland-client's
     // C ABI - PUBLIC only so egl_context_adapter.cpp's own anonymous-
     // namespace listener constant can take its address from outside
@@ -233,6 +248,10 @@ class wayland_egl_context_adapter {
     bool m_vsync_on = true; // D-W6b-7's own default
     bool m_msaa_supported = false;
     bool m_srgb_supported = false;
+    // INBOX (drenagem 06/09/2026): written once, by create_context()'s
+    // own eglSwapInterval(m_egl_display, 0) call - see swap_interval_
+    // honored()'s own header comment above for what false means.
+    bool m_swap_interval_honored = false;
 };
 
 } // namespace glintfx::platform

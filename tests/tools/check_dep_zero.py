@@ -192,9 +192,11 @@ SO_HEADER_ALLOWLIST = frozenset(
         "EGL/egl.h",
         "EGL/eglext.h",
         "GL/gl.h",
+        "fcntl.h",
         "poll.h",
         "sys/mman.h",
         "sys/prctl.h",
+        "sys/socket.h",
         "sys/stat.h",
         "sys/sysmacros.h",
         "sys/types.h",
@@ -313,6 +315,31 @@ SO_HEADER_ALLOWLIST = frozenset(
 # alone (grep confirms the two tracked files are exactly egl_probe_
 # smoke.cpp and egl_context_adapter.cpp), and NEEDED_ALLOWLIST below
 # now carries the two real DT_NEEDED sonames fatia 3 adds.
+
+# fcntl.h, sys/socket.h added 06/09/2026 (INBOX, drenagem 06/09/2026,
+# GODS_LAWS.md L-17/L-07): tests/bounded_output_wait_test.cpp's own
+# make_permanently_full_write_fd() fixture - a real AF_UNIX SOCK_STREAM
+# socketpair() whose write end it drives to O_NONBLOCK (fcntl(),
+# F_GETFL/F_SETFL) so the write() loop that fills the kernel send
+# buffer never blocks the TEST ITSELF while setting up the scenario
+# under test (this file's own header comment: a blocking write() here
+# would hang this fixture's own setup step, never even reaching the
+# wait_for_writable_until() call the test exists to exercise).
+# socketpair()/AF_UNIX/SOCK_STREAM (sys/socket.h) is how that same
+# fixture builds the connected pair in the first place - the exact
+# same kernel mechanism (a full send buffer on a stream socket) a real
+# wl_display connection's own fd goes through when a compositor stops
+# draining, per bounded_output_wait.hpp's own header comment on why
+# this is a faithful, no-compositor-needed stand-in. Both are POSIX
+# (`man 2 fcntl`, `man 2 socketpair`), the same category unistd.h/
+# poll.h already on this list - the leader's zero-dependency law names
+# "as APIs do sistema operacional" as allowed, never a third-party
+# library. Scoped to tests/bounded_output_wait_test.cpp only (grep
+# confirms no other tracked file reaches for either header), a plain
+# unit test built on every platform this project's CI runs Linux/Unix
+# legs on - never on the `windows` job (bounded_output_wait_test is
+# if(UNIX)-guarded in tests/CMakeLists.txt, the same guard display_
+# connect_failure_test right above it already uses).
 
 NEEDED_ALLOWLIST = frozenset(
     {

@@ -47,12 +47,30 @@ def fail(message):
     sys.exit(1)
 
 
+def strip_shell_comments(text):
+    """Truncates every line at its first '#' (POSIX sh's own comment
+    marker), so missing_gates() below only ever sees CODE, never the
+    hook's own header comment describing it. Achado do mesmo dia
+    (drenagem 06/09/2026, "nenhum portao de arquivo esta armado neste
+    clone"): esse cabecalho ja cita os dois nomes de arquivo em prosa
+    ("tests/tools/check_spdx.py (SPDX-GATE...)", "tests/tools/
+    check_dep_zero.py"), entao remover a linha de chamada REAL de um
+    dos dois gates nunca fazia o nome dele sumir de `hook_text` - o
+    proprio comentario que explica o gate ja o mantinha presente.
+    Nenhuma linha deste hook usa '#' dentro de um argumento entre
+    aspas (as duas chamadas reais sao `"$python_bin" "$repo_root/.../
+    check_*.py" ...`, sem '#'), entao truncar no primeiro '#' nunca
+    come sintaxe real aqui."""
+    return "\n".join(line[: line.find("#")] if "#" in line else line for line in text.splitlines())
+
+
 def missing_gates(hook_text):
     """Returns the subset of REQUIRED_GATES whose filename does not
-    appear anywhere in `hook_text` - order preserved, so the message
-    below always names them in the same order regardless of how many
-    are missing."""
-    return [gate for gate in REQUIRED_GATES if gate not in hook_text]
+    appear in `hook_text` OUTSIDE a comment (see strip_shell_comments())
+    - order preserved, so the message below always names them in the
+    same order regardless of how many are missing."""
+    code_text = strip_shell_comments(hook_text)
+    return [gate for gate in REQUIRED_GATES if gate not in code_text]
 
 
 def check_precommit_hook_chain(repo_root):
@@ -142,7 +160,57 @@ def selftest_missing_hook_file_fails(tmp_dir):
     return False
 
 
+def selftest_real_hook_passes(repo_root):
+    ok = check_precommit_hook_chain(repo_root)
+    if not ok:
+        print("selftest: controle REAL-HOOK FALHOU (o gancho real deveria passar hoje)", file=sys.stderr)
+        return False
+    print("selftest: controle REAL-HOOK OK (o gancho real deste repositorio encadeia os dois portoes)")
+    return True
+
+
+def selftest_real_hook_sabotaged_reproves(repo_root, tmp_dir):
+    """GODS_LAWS.md L-36 (portao so conta depois de PROVADO vermelho
+    CONTRA O QUE ELE DEVE BARRAR): as cinco fixtures sinteticas acima
+    nunca tem o cabecalho de prosa que o gancho REAL carrega - nenhuma
+    delas teria pego a regressao real (INBOX 06/09/2026: a chamada real
+    de check_spdx.py removida do gancho, e o portao continuou dizendo
+    'encadeia os 2 portoes exigidos', codigo zero, porque o proprio
+    cabecalho do gancho ja cita 'check_spdx.py' em prosa - ver
+    strip_shell_comments()). Este controle reproduz a MESMA sabotagem
+    sobre uma COPIA do gancho real (nunca in-place - GODS_LAWS.md L-27)
+    e exige reprovacao."""
+    sabotaged = Path(tmp_dir) / "real_hook_sabotaged"
+    hooks_dir = sabotaged / "tools" / "git-hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    real_hook_path = Path(repo_root) / "tools" / "git-hooks" / "pre-commit"
+    original = real_hook_path.read_text(encoding="utf-8")
+    needle = 'exec "$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"\n'
+    if needle not in original:
+        print(
+            "selftest: controle REAL-HOOK-SABOTAGED FALHOU (linha de chamada real nao encontrada - "
+            "selftest esta desatualizado)",
+            file=sys.stderr,
+        )
+        return False
+    (hooks_dir / "pre-commit").write_text(original.replace(needle, "", 1), encoding="utf-8")
+
+    ok = check_precommit_hook_chain(sabotaged)
+    if ok:
+        print(
+            "selftest: controle REAL-HOOK-SABOTAGED FALHOU (removeu a chamada real de check_spdx.py "
+            "e o portao continuou passando)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle REAL-HOOK-SABOTAGED OK (o gancho real, com a chamada real removida, reprova)"
+    )
+    return True
+
+
 def selftest_main():
+    repo_root = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="glintfx-precommit-hook-chain-selftest-") as tmp_dir:
         controls = [
             selftest_both_present_passes(tmp_dir),
@@ -150,6 +218,8 @@ def selftest_main():
             selftest_dep_zero_missing_fails(tmp_dir),
             selftest_both_missing_fails(tmp_dir),
             selftest_missing_hook_file_fails(tmp_dir),
+            selftest_real_hook_passes(repo_root),
+            selftest_real_hook_sabotaged_reproves(repo_root, tmp_dir),
         ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

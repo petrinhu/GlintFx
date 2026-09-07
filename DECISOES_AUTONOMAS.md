@@ -2163,3 +2163,27 @@ principal, e apagar o que sobrou de construcao e de arquivos temporarios.
 trata de commit, push e ramo). O registro aqui vale desde ja; a escrita no canon
 vai por ramo, como a propria lei agora exige, junto da emenda que ja espera aval
 no ramo `lei/l11-emenda-texto`.
+
+## 06/09/2026 - 21:52 | Ordem do lider: o compilador real da Microsoft entra no fluxo
+
+**Verbatim:**
+
+> *"entao use sempre que necessário"*
+
+**Contexto:** o compilador de verdade do Windows passou a rodar nesta maquina,
+dentro de container (imagem `glintfx-msvc:latest`, 6,63 GB, nada instalado fora
+dela). Ate hoje, todo defeito do lado Windows custava uma volta inteira no
+servidor - foram tres voltas no mesmo teste numa unica noite - e o compilador
+alternativo que usavamos aqui aceita coisas que o real recusa, uma delas capaz
+de matar o processo.
+
+**A regra que fica, e vale para todo agente:** quem for tocar codigo do lado
+Windows compila com o compilador REAL aqui antes de mandar ao servidor. O
+compilador alternativo continua util para pegar erro grosseiro depressa, mas
+**nao vale como prova** - o que ele aceita, o real pode recusar.
+
+**Os limites, ditos com todas as letras, para ninguem vender cobertura que a
+ferramenta nao tem:** ele COMPILA, e so isso. Nao executa, nao abre janela, nao
+tem placa de video, e a analise estatica da Microsoft nao roda nele (causa
+achada e documentada). Janela, minimizar, restaurar, driver e placa real
+continuam sendo prova exclusiva do servidor.

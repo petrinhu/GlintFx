@@ -204,6 +204,19 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 4. **Ponte de arquivo estreita e de mão única:** o convidado enxerga apenas a árvore do projeto, montada **somente leitura**, e devolve resultado **em arquivo**. Sem área de transferência compartilhada, sem pasta do usuário, sem rede da sessão do líder.
 5. **Provar o isolamento antes de interagir**, igual ao container: nenhum socket do hospedeiro atravessa a fronteira, nenhum dispositivo de entrada atravessa, e a tela do convidado não tem saída para a sessão. Provar por leitura da definição da máquina, não por impressão de que "não configurei isso".
 
+**REGRA DE ROTEAMENTO ENTRE AS DUAS FRONTEIRAS, ordem do líder de 07/09/2026, verbatim:** *"só use a imagem para testar o que for melhor na imagem. Se for idêntico a avaliar no wine do container, use o wine"*.
+
+**O teste que decide, e é uma pergunta só:** *o veredito sairia o mesmo no container?* Se sim, é no container, sempre, sem exceção de conveniência. A máquina virtual só entra onde o veredito do container **não seria o mesmo**, e a razão precisa ser nomeada.
+
+| O que se quer saber | Onde roda | Por quê |
+|---|---|---|
+| Se o código compila e liga | Container | Veredito idêntico, e é o compilador real da Microsoft. Nunca na máquina virtual. |
+| Qual a forma do arquivo produzido (exportações, importações, arranjo) | Container, lendo o arquivo | Veredito idêntico, e nem emulação é necessária: só se lê o arquivo. Nunca na máquina virtual. |
+| Se o programa **executa** | Máquina virtual | O container responde pela reimplementação, não pelo sistema real. Veredito diferente por construção. |
+| Janela, contexto gráfico, sanitizador, paridade entre sistemas | Máquina virtual | Mesma razão, agravada: essas peças nem existem iguais no container. |
+
+**Quem quiser levar algo para a máquina virtual carrega o ônus da prova:** dizer qual peça do sistema real muda o veredito. "É mais confortável ali" e "já está ligada mesmo" não são razões, e usar a máquina virtual onde o container bastava é desperdício de recurso do líder, não zelo.
+
 **O que a máquina virtual acrescenta, e por isso vale o custo:** ela é a única fronteira aqui capaz de **executar** binário do Windows, que é o que falta para a carga de biblioteca, o tempo de execução da linguagem, a janela real, a placa por software e o sanitizador. O compilador em container responde se compila e liga; ele não roda nada. As duas fronteiras não se substituem, e nenhuma delas vira a outra por conveniência.
 
 ⚠️ **Consequência retroativa, dita para não se perder:** toda prova de suíte verde produzida nesta máquina **antes** de 29/08/2026 foi obtida na sessão viva. Ela não é invalidada — o que ela mediu continua medido —, mas o método muda daqui em diante, e a próxima execução de qualquer suíte é em container.

@@ -2621,3 +2621,29 @@ definir, eu pergunto por `AskUserQuestion` antes de criar, nunca escolho sozinho
 **Precedente que gerou a ordem:** a `v0.3.0.0` saiu com a onda por fechar, usando verde de
 CI como criterio quando o criterio era a definicao de fechamento escrita no plano da onda.
 
+## 08/09/2026 - 10:22 | ORDEM DO LIDER: autorizacao ampla renovada para instalar na maquina virtual Windows
+
+**Verbatim:** *"autorizo o que precisar instalar na vm windows"*.
+
+**Renova e alarga a autorizacao de 07/09/2026 01:52** (*"instale o que precisa"*), que
+naquele dia foi lida como restrita ao que o convidado precisava para EXECUTAR. Agora vale
+para o que a medicao exigir, sem voltar a perguntar a cada pacote.
+
+**O que continua de pe, e nao foi revogado por implicacao:**
+
+1. **Nada muda no hospedeiro.** A ordem e sobre o convidado. Instalar qualquer coisa na
+   maquina do lider continua exigindo autorizacao explicita e separada.
+2. **A matriz de roteamento continua inteira: o container constroi, a maquina virtual
+   executa.** Instalar um pacote que POR ACASO traz compilador junto (e o caso do Strawberry
+   Perl, que traz) nao autoriza usar esse compilador para construir nossos binarios.
+   Instalar e usar sao coisas diferentes; a ordem do lider libera a primeira, e a segunda
+   continua governada pela regra de roteamento que ele ratificou em 07/09.
+   **Se ele quiser compilar dentro da maquina virtual, e ordem nova e explicita**, e ela
+   muda a matriz junto.
+3. **A maquina fica desligada quando nao estiver em uso**, porque consome recursos da
+   maquina de trabalho dele.
+
+**Contexto que gerou a ordem:** o convidado nao tinha o leitor de etiquetas de pacote que a
+maquina alugada do servidor usa, e sem ele era impossivel medir a causa do defeito de
+semanas do item `PKG-WIN-INTEROP`.
+

@@ -1925,6 +1925,35 @@ set_tests_properties(x11_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# GODS_LAWS.md L-17/L-22 gate (o gemeo do gemeo, TDD para o achado do
+# time-lead nesta fatia, LASTERROR-CLEAR): prova que todo Win32/WGL
+# call em src/platform/win32/ cujo fracasso este projeto atribui via
+# ::GetLastError() tem o thread-local LIMPO (::SetLastError(0);)
+# imediatamente antes - ver tests/tools/check_win32_last_error_
+# cleared.py's own header comment para o incidente-fonte (os_error_
+# code=203, ERROR_ENVVAR_NOT_FOUND, relatado por um SwapBuffers() que
+# nada tem a ver com variavel de ambiente, run 34171429194 "Windows -
+# estatico"). Portavel de proposito (varredura de texto puro, GATE-
+# TREE-PARITY - mesma forma x11_test acima), roda em qualquer SO sem
+# precisar de toolchain Windows, e reprova ANTES do conserto desta
+# fatia (RED provado localmente antes do commit) - a unica prova que
+# a superficie inteira, nao so o sitio que o CI mediu, foi consertada.
+add_test(
+    NAME win32_last_error_cleared_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_win32_last_error_cleared.py" "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(win32_last_error_cleared_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME win32_last_error_cleared_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_win32_last_error_cleared.py" --selftest
+)
+set_tests_properties(win32_last_error_cleared_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # GL-GPU-KIND driver-name table gate (docs/plano-w6b-fatias-5b-
 # revisao.md sec. 3/4.3, D-W6b-30/38, GODS_LAWS.md L-40): proves gpu.
 # hpp's own GLINTFX-DRM-DRIVER-TABLE marked line and drm_gpu_kind.cpp's

@@ -53,14 +53,15 @@ the library's own internal implementation.
 
 ## API and ABI
 
-**API** ("Application Programming Interface") is the set of functions,
-types, and rules a library promises to a programmer writing source code
-against it - names, parameters, what each call does. **ABI** ("Application
-Binary Interface") is a lower-level promise: whether an already-compiled
-program can keep working against a newer, already-compiled copy of the
-library *without being recompiled*. glintfx tracks both separately (see
-the main README's ["Versioning and compatibility"](https://github.com/petrinhu/GlintFx#versioning-and-compatibility)
-section) because a change can break one without breaking the other.
+| Term | What it promises | Example of breaking it |
+|---|---|---|
+| **API** ("Application Programming Interface") | The functions, types and rules a library promises to a programmer writing *source code* against it. | glintfx renames a function. Your `.cpp` file no longer compiles - you find out immediately, at build time. |
+| **ABI** ("Application Binary Interface") | Whether an *already-compiled* program keeps working against a newer, already-compiled copy of the library, with no recompile. | glintfx reorders the fields inside a public struct. Your program still compiles, but crashes or reads garbage at runtime - a much harder bug to trace back to the dependency. |
+
+A change can break one without breaking the other, which is why glintfx
+tracks them as two separate promises (see the main README's
+["Versioning and compatibility"](https://github.com/petrinhu/GlintFx#versioning-and-compatibility)
+section for exactly how a version number reflects each).
 
 ## Dependency, and "zero dependencies"
 
@@ -93,15 +94,26 @@ now.
 glintfx is licensed under the **GNU Affero General Public License v3.0 or
 later**. A software license is the legal document that says what you are
 allowed to do with a piece of software, and what you must do in exchange.
-In plain language, the AGPL says: you may use, study, and change glintfx
-freely, but if you distribute a program built on it, or run it as a
-service other people connect to over a network, you must also offer the
-*complete source code* of your own program, under the same license, to
-whoever receives it. This is a **copyleft** license: it is specifically
-designed to prevent someone from taking a free, open project like glintfx
-and building a closed, proprietary product on top of it without giving
-anything back. If you are considering glintfx for something that will not
-itself be open source, read the [full license text](https://github.com/petrinhu/GlintFx/blob/main/LICENSE)
+
+In plain language:
+
+- You **may** use, study, and change glintfx freely.
+- If you **distribute** a program built on it, or run it as a **service
+  other people connect to over a network**, you must also offer the
+  *complete source code* of your own program, under the same license, to
+  whoever receives it.
+
+**Example.** A studio ships a closed-source game engine using glintfx
+internally, never handing anyone a copy: the AGPL does not require
+anything from them yet. The moment they sell that game to a single
+player, or let anyone connect to a server running it, the obligation
+above kicks in.
+
+This is a **copyleft** license: it exists specifically to stop someone
+from taking a free, open project like glintfx and building a closed,
+proprietary product on top of it without giving anything back. If you are
+considering glintfx for something that will not itself be open source,
+read the [full license text](https://github.com/petrinhu/GlintFx/blob/main/LICENSE)
 carefully, ideally with someone who can advise you on what it requires in
 your specific case - this wiki page is an introduction, not legal advice.
 

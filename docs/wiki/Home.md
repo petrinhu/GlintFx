@@ -32,6 +32,10 @@ only planned - read that section before assuming a feature exists.
 - **[Concepts](Concepts)** - the handful of ideas and words (library vs.
   application, what a "build system" does, what the AGPL license asks of
   you) that make the rest of this project's documentation make sense.
+- **[Pinning a Version](Pinning-a-Version)** - how to lock your own
+  project to one exact, unchanging copy of glintfx, and what breaks if
+  you skip this step. Read this before glintfx becomes a real dependency
+  of anything you ship.
 - **[README](https://github.com/petrinhu/GlintFx#readme)** - the
   authoritative, always-current statement of what glintfx is, what state
   it is in, which operating systems it targets, and how to consume it from

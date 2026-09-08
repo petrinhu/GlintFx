@@ -286,7 +286,7 @@ lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo sc
 # uma superficie publica de buffer/contexto grafico E window_smoke.cpp
 # for reescrito para usa-la (ou explicitamente aposentado por decisao
 # do lider/CTO) - nunca antes, e nunca so porque P-1 passou a existir.
-window_smoke|windows|window_smoke ainda prova algo que window_parity_test (P-1, existe desde 06/09/2026) nao pode: anexar buffer wl_shm real e reprovar ack_configure() removido - a API publica so ganha isso em GL-CONTEXT (W6b, contexto grafico sobre a janela)|GL-CONTEXT
+window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FALSA EM 08/09/2026. A linha anterior afirmava que window_smoke reprova quando ack_configure() e removido, e que por isso ele provava algo que window_parity_test (P-1) nao prova. Mutacao real, contra kwin 6.7.4 em dois containers isolados independentes, com a mutacao confirmada ate o binario: NEM window_smoke NEM gl_context_parity_test reprovam. O teste passa imprimindo o texto que ele so deveria imprimir quando nao ha erro de protocolo. Portanto window_smoke NAO se aposenta (a condicao de D-W6b-12 nao pode nem ser avaliada, porque o antigo nao pega mais nada para o novo ter que igualar), e a razao de ele existir esta sob investigacao. Dono trocado de GL-CONTEXT (concluido em 08/09) para o item que investiga o achado.|WL-ACK-SMOKE-BLUNT
 
 # FACADE-PIN, T1 (docs/plano-conserto-fachadas-uaf.md sec. 10, GODS_
 # LAWS.md L-04): window_active_after_map_smoke prova, no Wayland, que

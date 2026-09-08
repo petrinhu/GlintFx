@@ -29,9 +29,11 @@ Whichever path is used, `pkg-config --exists glintfx` returning true is not proo
 
 ## Fixing a version
 
-**No version has been tagged yet.** The project is pre-1.0: there is no API, ABI, or file-format compatibility guarantee before the first `1.0.0.0` tag, and the public surface can still change between commits. Do not treat anything here as a stable dependency to pin against for production use yet; if a consumer needs that guarantee today, glintfx is not ready for it.
+**A version has been tagged: `v0.2.0.0`, cut 05/09/2026.** Tagging is not the same as a published release: no GitHub Release page entry exists for it yet (checked directly against the repository, not assumed), so the tag's own annotated message is the authoritative description of what it marks, not a release-notes page - read it with `git show v0.2.0.0` on a clone. The `CHANGELOG.md` file has not been updated to reflect the tag either: it still lists every entry under `[Unreleased]`, a known gap, not silently accepted as done.
 
-Once a version exists, it is tagged `vMAJOR.MINOR.PATCH.TWEAK`, four components, not three:
+The project is still pre-1.0: there is no API, ABI, or file-format compatibility guarantee across a `MAJOR` bump before `1.0.0.0`, and the public surface can still change between commits. A consumer can pin to `v0.2.0.0` today and get a fixed, named point in history to build against, but that pin carries the same pre-1.0 caveat as everything else here: it is not yet the kind of dependency you pin against for a production system that needs a durable compatibility guarantee.
+
+Tags follow `vMAJOR.MINOR.PATCH.TWEAK`, four components, not three:
 
 | Component | Bumps when |
 |---|---|

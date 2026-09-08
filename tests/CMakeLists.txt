@@ -2697,6 +2697,48 @@ if(UNIX)
             "${CMAKE_CXX_COMPILER}"
     )
     set_tests_properties(pkgconfig_test PROPERTIES LABELS consume)
+
+    # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44,
+    # same precedent as public_name_collision_test's own TIMEOUT 300
+    # above): this test had been inheriting the SUITE-WIDE 120s default
+    # (cmake/GlintfxTest.cmake's own glintfx_set_default_test_timeout())
+    # until it timed out for real on "CachyOS - estatico" (run
+    # 34237420599, ***Timeout 120.01 sec). PKG-WIN-INTEROP's own
+    # find_program() fix (09fb92e) does not touch this test's own
+    # execution path at all - the changed code is entirely inside
+    # cmake/GlintfxPkgConfigValidateInstalled.cmake.in's WIN32 branch,
+    # this test's own check_pkgconfig.sh never sets -DWIN32 - so this is
+    # not a regression from that fatia, only a teto that was already
+    # close to this test's real measured time on every Linux platform.
+    #
+    # Every real completion across the two most recent runs (never the
+    # truncated 120.01s the timeout itself printed, which is not a
+    # completion time): run 34228668830 - CachyOS estatico 115.11s,
+    # CachyOS compartilhado 114.48s, Ubuntu compartilhado 114.00s, Arch
+    # compartilhado 112.27s, Arch estatico 110.92s, Fedora (primario)
+    # estatico 110.28s, Ubuntu estatico 108.74s, Fedora (primario)
+    # compartilhado 96.01s; run 34237420599 - Arch compartilhado
+    # 113.66s, Ubuntu compartilhado 107.20s, Fedora (primario) estatico
+    # 106.33s, Fedora (primario) compartilhado 99.98s, CachyOS
+    # compartilhado 90.89s (gh run view --job <id> --log, never
+    # estimated). GODS_LAWS.md L-17 ("isolado ou padrao?"): the same
+    # sweep across BOTH runs' full ctest output found this same test,
+    # not CachyOS alone, already inside 20% of the 120s ceiling
+    # (>=96s) on EVERY Linux platform in the matrix (Fedora, Ubuntu,
+    # Arch, CachyOS) in at least one of shared/static mode - CachyOS
+    # estatico was simply the first to actually cross it. No OTHER test
+    # in the suite (across the same two runs' full output, Linux and
+    # Windows jobs alike) reached that 96s floor except
+    # public_name_collision_test, which already carries its own TIMEOUT
+    # override above.
+    #
+    # 300s mirrors public_name_collision_test's own precedent exactly
+    # (worst measured 115.11s here vs 100.62s there; ~2.6x headroom over
+    # this test's own worst measured value here, the same order of
+    # magnitude as that precedent's ~3x) - never widening the SUITE-WIDE
+    # 120s default itself, only this one test's own budget, sized to its
+    # own measured worst case.
+    set_tests_properties(pkgconfig_test PROPERTIES TIMEOUT 300)
 endif()
 
 # Post-install pkg-config VALIDATOR gate (PKG-VALIDATE): proves the

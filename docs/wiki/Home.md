@@ -58,6 +58,9 @@ section for what is still being built.
 - **[API Reference: Window and Display](API-Window-and-Display)** - the
   one area that is complete and tested on both Linux and Windows today:
   connecting to the display and opening a real window.
+- **[API Reference: Graphics Context](API-Graphics-Context)** - opening
+  an OpenGL 3.3 core context on top of a window, and actually drawing
+  something.
 - **[API Reference: Node View](API-Node-View)** - the one contract from
   the future style engine that is already public and stable: the table
   of callbacks your own UI tree implements so glintfx can inspect it.

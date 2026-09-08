@@ -82,6 +82,22 @@
 // gl_context_facade.cpp's own move into the heap - this plan's own
 // sec. 3 #7). pinned_adapter<A> (platform/port/adapter_pin.hpp)
 // closes this by construction instead of by ordering.
+//
+// present_would_skip() - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md,
+// D-W6b-46): the non-presenting SONDA gltfx_loop's own oculto-wait tick
+// (a LATER fatia, D-W6b-44 step 3) asks before ever calling present()
+// again - "would the NEXT swap_buffers() skip, without actually
+// spending one". Wayland answers `window.state().state(suspended) ||
+// frame_sequence.pending_older_than(now, budget)` (the SYSTEM's own
+// affirmative signal first, the aging frame callback second - neither
+// alone is enough, that decision's own header comment gives the full
+// reasoning); Windows answers `IsIconic(window) != 0` - the SAME
+// signal swap_buffers() itself already consults there, now exposed as
+// its own atom so both the adapter's own swap_buffers() AND the
+// loop's own sonda call through ONE method instead of two adapters
+// each answering the same question a different way depending on who
+// asks. const, never mutates anything - answering this question never
+// costs a real presentation, the entire point of it existing.
 namespace glintfx::platform {
 
 template <typename A>
@@ -96,6 +112,7 @@ concept gl_context_adapter_port =
         { adapter.apply_option(entry) } noexcept -> std::same_as<gltfx_rslt<void>>;
         { const_adapter.option_support(id) } noexcept -> std::same_as<gltfx_gfx_option_support>;
         { const_adapter.gpu() } noexcept -> std::same_as<gltfx_gpu_info>;
+        { const_adapter.present_would_skip() } noexcept -> std::same_as<bool>;
     };
 
 } // namespace glintfx::platform

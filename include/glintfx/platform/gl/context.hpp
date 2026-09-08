@@ -140,6 +140,35 @@ struct gltfx_gl_context_desc {
 // already have.
 struct gl_context_impl;
 
+// gl_context_internal_access - GL-CONTEXT (docs/plano-w6b-fatias-6-8.md
+// D-W6b-53): the SAME passkey idiom display_internal_access (platform/
+// window/display.hpp) and window_internal_access (platform/window/
+// window.hpp) already establish, applied here so a later translation
+// unit OUTSIDE this class's own port contract - loop_facade.cpp,
+// LOOP-RUN's own sonda de oculto, D-W6b-46 - can reach the gl_context_
+// impl an already-open gltfx_gl_context wraps, the same way window_
+// facade.cpp already reaches display_impl through display_internal_
+// access one directory over.
+//
+// A FRIEND STRUCT, NOT A METHOD ON gltfx_gl_context, FOR THE SAME
+// REASON display_internal_access already gives (that struct's own
+// header comment, read in full before this one was written): a public
+// method here would grow gltfx_gl_context's own frozen surface (this
+// header's own "PORTA DE MAO UNICA" list, item 3) - a promise the 1.0
+// review would have to honor or explicitly remove. This struct sits
+// OUTSIDE gltfx_gl_context entirely.
+//
+// get() DECLARED HERE, DEFINED ONLY IN gl_context_facade.cpp - the
+// same "no GLINTFX_API, never in the dynamic symbol table" convention
+// display_internal_access::get() already documents in full: a
+// consumer's own translation unit sees only this declaration, never
+// the out-of-line body, so it cannot synthesize the access itself - it
+// can only ask the LINKER for a symbol this project deliberately never
+// exports from the public glintfx::glintfx target.
+struct gl_context_internal_access {
+    [[nodiscard]] static gl_context_impl *get(class gltfx_gl_context &context) noexcept;
+};
+
 // gltfx_gl_context - see this header's own top comment for the full
 // "WHAT THIS FATIA FREEZES" list. Named-constructor idiom, the same
 // shape gltfx_display::open()/gltfx_window::open() already use: open()
@@ -241,6 +270,13 @@ class gltfx_gl_context {
 
   private:
     explicit gltfx_gl_context(gl_context_impl *impl) noexcept : m_impl(impl) {}
+
+    // gl_context_internal_access::get() is the ONLY thing outside this
+    // class ever granted access to m_impl - see that struct's own
+    // header comment, right above this class, for why it is a friend
+    // struct with an out-of-line static method and not a public method
+    // on gltfx_gl_context itself.
+    friend struct gl_context_internal_access;
 
     gl_context_impl *m_impl = nullptr;
 };

@@ -151,6 +151,7 @@ COPY connect_smoke.cpp /build/connect_smoke.cpp
 COPY registry_smoke.cpp /build/registry_smoke.cpp
 COPY fatal_error_smoke.cpp /build/fatal_error_smoke.cpp
 COPY pump_smoke.cpp /build/pump_smoke.cpp
+COPY wait_events_smoke.cpp /build/wait_events_smoke.cpp
 COPY shell_smoke.cpp /build/shell_smoke.cpp
 COPY window_smoke.cpp /build/window_smoke.cpp
 COPY egl_probe_smoke.cpp /build/egl_probe_smoke.cpp
@@ -227,6 +228,18 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/pump_smoke.cpp \
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/wait_events_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/wait_events_smoke.cpp \
         $(pkg-config --libs wayland-client) \
     && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
@@ -534,6 +547,7 @@ COPY --from=arch-ports-builder /build/registry_smoke /usr/local/bin/registry_smo
 COPY --from=arch-ports-builder /build/two_displays_test /usr/local/bin/two_displays_test
 COPY --from=arch-ports-builder /build/fatal_error_smoke /usr/local/bin/fatal_error_smoke
 COPY --from=arch-ports-builder /build/pump_smoke /usr/local/bin/pump_smoke
+COPY --from=arch-ports-builder /build/wait_events_smoke /usr/local/bin/wait_events_smoke
 COPY --from=arch-ports-builder /build/shell_smoke /usr/local/bin/shell_smoke
 COPY --from=arch-ports-builder /build/window_smoke /usr/local/bin/window_smoke
 COPY --from=arch-ports-builder /build/egl_probe_smoke /usr/local/bin/egl_probe_smoke
@@ -548,6 +562,7 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
         /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke \
+        /usr/local/bin/wait_events_smoke \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
         /usr/local/bin/seat_test /usr/local/bin/window_parity_test \
         /usr/local/bin/gl_context_parity_test /usr/local/bin/egl_protocol_error_smoke \

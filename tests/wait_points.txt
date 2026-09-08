@@ -65,7 +65,7 @@ src/platform/wayland/display_adapter.cpp|open()|wl_display_roundtrip(display)|se
 src/platform/wayland/display_adapter.cpp|roundtrip()|wl_display_roundtrip(m_display)|sem-teto-fora-do-caminho
 src/platform/wayland/display_adapter.cpp|drain_pending_and_prepare_read()|wl_display_prepare_read(m_display)|nao-espera
 src/platform/wayland/display_adapter.cpp|flush_with_retry()|wl_display_flush(m_display)|nao-espera
-src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|poll(&incoming, 1, 0)|teto-nosso
+src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|poll(&incoming, 1, static_cast<int>(timeout_ms))|teto-nosso
 src/platform/wayland/display_adapter.cpp|read_and_dispatch_incoming()|wl_display_read_events(m_display)|nao-espera
 
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_prepare_read(display)|nao-espera
@@ -83,9 +83,19 @@ src/platform/wayland/egl_context_adapter.cpp|swap_buffers() (vsync=off e vsync=o
 
 src/platform/wayland/bounded_output_wait.cpp|wait_for_writable_until()|poll(&pending_write, 1, static_cast<int>(remaining_ms))|teto-nosso
 
-# win32/display_adapter.cpp: zero sitios (PeekMessageW nao espera - a
-# agulha desta varredura nao casa com ela por desenho). Nenhuma linha
-# aqui e' o estado correto, nao um esquecimento - o portao nao reprova
-# um arquivo-alvo sem sitios, so' reprova a CONTAGEM TOTAL em zero.
+# win32/display_adapter.cpp - LOOP-RUN fatia 7 (D-W6b-50): wait_events()
+# acrescentou os dois unicos sitios deste arquivo (o ramo com timer de
+# alta resolucao e o ramo sem ele), os dois `teto-nosso` porque
+# MsgWaitForMultipleObjectsEx() sempre devolve dentro de budget_ms (o
+# timer, quando existe, so' encurta a espera real - nunca a alarga alem
+# do dwMilliseconds pedido). As duas ocorrencias na arvore comecam com
+# o MESMO texto na linha da chamada (a lista de argumentos continua na
+# linha seguinte nos dois casos) - a mesma forma que a linha do
+# eglSwapBuffers acima ja documenta para duas ocorrencias com uma UNICA
+# linha de manifesto. A versao anterior deste manifesto dizia "zero
+# sitios (PeekMessageW nao espera)" - isso continua verdade para
+# PeekMessageW em si; o que mudou e' que este arquivo agora tambem
+# espera, por um caminho diferente.
+src/platform/win32/display_adapter.cpp|wait_events()|::MsgWaitForMultipleObjectsEx(|teto-nosso
 
 src/platform/win32/wgl_context_adapter.cpp|swap_buffers()|::SwapBuffers(m_dc)|teto-do-sistema

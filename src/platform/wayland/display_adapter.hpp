@@ -222,6 +222,23 @@ class wayland_display_adapter {
     // this method's body.
     [[nodiscard]] gltfx_rslt<void> pump_events() noexcept;
 
+    // LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md, D-W6b-50): the
+    // SAME four-step sequence pump_events() above documents, with the
+    // step-3 poll() timeout replaced by `budget_ms` instead of ZERO -
+    // "is there anything to read, and if not, sleep for up to this
+    // long rather than spinning". `budget_ms == 0` is DEFINED to be
+    // exactly pump_events()'s own request (display_backend_port.hpp's
+    // own header comment on this method) - pump_events() below is
+    // implemented as this call with the bool discarded, never a
+    // second, separately-maintained sequence. Returns whether at
+    // least one event actually arrived and was dispatched before the
+    // budget ran out - `false` is the ordinary, expected outcome of
+    // an idle connection whose budget simply expired, never an error;
+    // the same four fatal-connection paths pump_events() already
+    // reports through the err() channel are the only way this returns
+    // one.
+    [[nodiscard]] gltfx_rslt<bool> wait_events(std::uint32_t budget_ms) noexcept;
+
     // registry_global()/registry_global_remove() are the wl_registry_
     // listener's own two callbacks (C function-pointer ABI). PUBLIC
     // ONLY so display_adapter.cpp's own anonymous-namespace
@@ -246,16 +263,25 @@ class wayland_display_adapter {
     // numbered the four steps by name, so the split follows exactly
     // that boundary rather than an arbitrary cut. Each method keeps the
     // m_fatal-latching and wl_display_cancel_read() pairing local to
-    // the step that owns it; pump_events() itself is left as the
-    // four-call sequence.
+    // the step that owns it.
+    //
+    // dispatch_ready_events(timeout_ms) - LOOP-RUN fatia 7, D-W6b-50:
+    // the ONE place all four steps now run in sequence, parametrized by
+    // the step-3 poll() timeout - pump_events() and wait_events()
+    // above are both thin callers of this, at timeout_ms 0 and
+    // budget_ms respectively, never two copies of the same sequence.
+    [[nodiscard]] gltfx_rslt<bool> dispatch_ready_events(std::uint32_t timeout_ms) noexcept;
     [[nodiscard]] gltfx_rslt<void> drain_pending_and_prepare_read() noexcept;
     [[nodiscard]] gltfx_rslt<void> flush_with_retry() noexcept;
     // Returns whether data is ready to read (true) or nothing arrived
     // (false, wl_display_cancel_read() already called) - the one step
     // whose "nothing to do" outcome is success, not an error, which is
     // why this is the one of the four returning gltfx_rslt<bool> rather
-    // than gltfx_rslt<void>.
-    [[nodiscard]] gltfx_rslt<bool> wait_for_incoming_data() noexcept;
+    // than gltfx_rslt<void>. `timeout_ms` (LOOP-RUN fatia 7): ZERO from
+    // pump_events()'s own call ("is there anything RIGHT NOW"), the
+    // caller's own budget from wait_events()'s own call ("sleep for up
+    // to this long instead").
+    [[nodiscard]] gltfx_rslt<bool> wait_for_incoming_data(std::uint32_t timeout_ms) noexcept;
     [[nodiscard]] gltfx_rslt<void> read_and_dispatch_incoming() noexcept;
 
     wl_display *m_display = nullptr;

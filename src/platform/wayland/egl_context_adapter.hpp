@@ -144,6 +144,25 @@ class wayland_egl_context_adapter {
     // this frame ever reaches eglSwapBuffers().
     [[nodiscard]] gltfx_rslt<gltfx_present_outcome> swap_buffers() noexcept;
 
+    // present_would_skip() - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
+    // 6-8.md, D-W6b-46, gl_context_adapter_port.hpp's own header
+    // comment has the full contract): the sonda gltfx_loop's own
+    // oculto-wait tick asks WITHOUT spending a real presentation.
+    // Consults, in this order (the order the decision's own reasoning
+    // names - the SYSTEM's own affirmative signal first, because it is
+    // cheap and arrives before the alternative ever could; the aging
+    // frame callback second, because a compositor that never affirms
+    // `suspended` still stops calling back once it stops repainting
+    // this surface, SDL #12156's own finding this decision's own
+    // comment cites): m_window's own state().state(suspended) bit
+    // (window_state.hpp, D-W6b-51 - read the SAME way resize_surface_
+    // if_due() already reads this window's own pixel_size()), OR
+    // m_frame_sequence.pending_older_than() against a fresh clock
+    // reading. swap_buffers() below (the vsync=off branch, D-W6b-46)
+    // calls through this SAME method rather than re-deriving either
+    // half of the decision itself.
+    [[nodiscard]] bool present_would_skip() const noexcept;
+
     [[nodiscard]] void *proc_address(std::string_view name) const noexcept;
 
     // Only ever called with a `live` entry (gl_context_facade.cpp's
@@ -222,6 +241,13 @@ class wayland_egl_context_adapter {
     [[nodiscard]] gltfx_rslt<void> create_context(void *config) noexcept;
     void attach_frame_listener() noexcept;
     void resize_surface_if_due() noexcept;
+
+    // D-W6b-6's own number, now a member instead of a swap_buffers()
+    // local (LOOP-RUN fatia 7): present_would_skip() above and swap_
+    // buffers() below both consult m_frame_sequence against this SAME
+    // budget - two call sites reading one constant, never one literal
+    // copied into two places.
+    static constexpr std::uint32_t k_frame_callback_budget_ms = 100;
 
     void *m_egl_display = nullptr; // EGLDisplay
     void *m_egl_context = nullptr; // EGLContext

@@ -83,7 +83,16 @@ class frame_callback_sequence {
     // wl_surface.frame the adapter is about to request. The adapter's
     // own job is the real wl_surface_frame()+add_listener() call this
     // marks the INTENT for - this atom only tracks the bit.
-    void arm_pending() noexcept;
+    //
+    // now_ns - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md, D-W6b-46):
+    // the instant the caller armed it, in the SAME clock's nanosecond
+    // ticks pending_older_than() below is later asked to compare
+    // against. This atom still knows nothing about WHICH clock (GODS_
+    // LAWS.md L-17, "sem SO" - this header's own top comment): the
+    // caller (egl_context_adapter.cpp, a platform-layer file that is
+    // already allowed to read std::chrono::steady_clock) is the one
+    // that reads it and hands the raw tick count in.
+    void arm_pending(std::int64_t now_ns) noexcept;
 
     [[nodiscard]] bool has_pending_callback() const noexcept;
 
@@ -97,8 +106,25 @@ class frame_callback_sequence {
     // cleared - never a second, independent notion of "did it work".
     [[nodiscard]] gltfx_present_outcome decide_after_wait() const noexcept;
 
+    // LOOP-RUN fatia 7 (D-W6b-46): the SECOND of the sonda's two
+    // criteria (present_would_skip(), src/platform/port/gl_context_
+    // adapter_port.hpp's own header comment) - "has the callback THIS
+    // instance is still waiting on aged past budget_ms, measured
+    // against now_ns". `false` whenever nothing is pending at all (an
+    // outstanding callback that does not exist cannot be "older than"
+    // anything - the sonda's own suspended-state criterion is what
+    // answers oculto in that case, never this one). now_ns and the
+    // value arm_pending() above was last called with MUST come from
+    // the SAME clock - the same single-clock precondition glintfx::
+    // gltfx_duration_between() already documents one layer up, core/
+    // time.hpp, applied here to a caller-supplied pair instead of two
+    // gltfx_time_point readings.
+    [[nodiscard]] bool pending_older_than(std::int64_t now_ns,
+                                          std::uint32_t budget_ms) const noexcept;
+
   private:
     bool m_pending = false;
+    std::int64_t m_armed_at_ns = 0;
 };
 
 } // namespace glintfx::platform

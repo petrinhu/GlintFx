@@ -174,6 +174,45 @@ class win32_display_adapter {
     // failure mode without an API break.
     [[nodiscard]] gltfx_rslt<void> pump_events() noexcept;
 
+    // LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md, D-W6b-50): the
+    // Win32 sibling of wayland_display_adapter::wait_events() one
+    // directory over - "pump, but SLEEP for up to budget_ms rather
+    // than spinning when the queue is empty". PeekMessageW's own
+    // dwMilliseconds-less API gives this class no timeout parameter of
+    // its own, so open() (display_adapter.cpp) creates a high-
+    // resolution waitable timer once (CreateWaitableTimerExW(...,
+    // CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, ...), Windows 10 1803+ -
+    // high_resolution_wait() below tells a caller whether this build's
+    // OS actually granted one) and this method arms it for `budget_ms`
+    // relative, then blocks on MsgWaitForMultipleObjectsEx() (the
+    // documented "wait for either a handle or new input" primitive a
+    // thread that owns windows is REQUIRED to use in place of a plain
+    // WaitForMultipleObjects - that function's own Remarks page,
+    // "using wait functions... with code that... creates windows") -
+    // before draining the SAME PeekMessageW(PM_REMOVE) loop pump_
+    // events() above already runs. `budget_ms == 0` skips the wait
+    // entirely and only drains - pump_events() above IS this call with
+    // the bool discarded (D-W6b-50's own "budget_ms == 0 e' pump_
+    // events(), o mesmo atomo" - the same relationship the Wayland
+    // side already has one directory over). Returns whether new input
+    // actually arrived before the wait ended, never an error: like the
+    // Wayland side, an exhausted budget on an idle queue is the
+    // ordinary, expected outcome, not a failure.
+    [[nodiscard]] gltfx_rslt<bool> wait_events(std::uint32_t budget_ms) noexcept;
+
+    // LOOP-RUN fatia 7 seam, read only by tests/win32_wait_events_test.cpp
+    // (the Windows-only mirror of tests/container/wait_events_smoke.cpp):
+    // whether open() actually got a CREATE_WAITABLE_TIMER_HIGH_
+    // RESOLUTION timer from this OS (Windows 10 1803+, wait_events()'s
+    // own header comment). `false` is not a defect - it is D-W6b-50's
+    // own declared, measured degradation: wait_events() still works,
+    // it just sleeps at the coarser ~15.6ms default scheduler grain
+    // instead, and the loop's own teto-de-quadros test (docs/plano-
+    // w6b-fatias-6-8.md sec. 6.1) already widens its own tolerance for
+    // exactly this executor state rather than pretending it cannot
+    // happen.
+    [[nodiscard]] bool high_resolution_wait() const noexcept { return m_high_resolution_wait; }
+
     // Test seam only (tests/win32_two_displays_test.cpp via
     // tests/two_displays_test.cpp, tests/win32_display_refusal_test.cpp):
     // the raw window handle this adapter owns, so a test can read back
@@ -220,6 +259,14 @@ class win32_display_adapter {
     HWND m_window = nullptr;
     ATOM m_class_atom = 0;
     std::array<wchar_t, k_class_name_chars> m_class_name{};
+
+    // LOOP-RUN fatia 7 (D-W6b-50): created once by open(), armed once
+    // per wait_events() call. Null when this OS refused the high-
+    // resolution flag (pre-1803) - wait_events() falls back to the
+    // dwMilliseconds argument alone in that case, never a second kind
+    // of timer object.
+    HANDLE m_wait_timer = nullptr;
+    bool m_high_resolution_wait = false;
 };
 
 } // namespace glintfx::platform

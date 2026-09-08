@@ -116,3 +116,22 @@ gl_context_parity_test.gpu_enumeration_index_raw|ambos|depende de gpu_kind_raw r
 gl_context_parity_test.gpu_enumeration_count|ambos|quantidade de GPUs que EGL/DXCore enumeram e' fato do executor (1 em ambos os executores de CI hoje: so a placa por software), nunca promessa da biblioteca - so o piso >=1 e' asseverado, o proprio teste ja faz isso|SEM-PENDENCIA
 gl_context_parity_test.gpu_entry_0_kind|ambos|mesmo motivo de gpu_kind_raw acima - depende da classificacao real ainda nao vista em hardware|GL-GPU-KIND-HW-EVIDENCE
 gl_context_parity_test.gpu_entry_0_name_hash|ambos|mesmo motivo de gpu_name_hash acima|SEM-PENDENCIA
+
+# LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2, D-W6b-50):
+# wait_events_smoke (container) e win32_wait_events_test (ctest,
+# if(WIN32)) ja tem par declarado em tests/parity_aliases.txt, mas o
+# TEXTO "dono.chave" de cada MEASURED line nunca pode coincidir entre
+# os dois - os donos (nomes de teste) sao literalmente diferentes por
+# necessidade (um e' binario de container, o outro e' caso de ctest).
+# Cada chave abaixo e' "obrigatoria" por dono ate esta linha existir
+# (check_measured_parity.py's own classify_unilateral()); a razao (b)
+# de cada linha aponta para o criterio JA asseverado dentro do proprio
+# teste do lado que falta, nunca para um valor cru comparado por
+# igualdade entre sistemas.
+wait_events_smoke.no_event_ms|windows|(a) o dono ("wait_events_smoke") so existe do lado Linux - win32_wait_events_test e' o dono equivalente no Windows, nome diferente por construcao; (b) win32_wait_events_test.no_event_ms, mesma execucao do lado Windows, aplica o MESMO criterio (40..500ms, §6.1) contra MsgWaitForMultipleObjectsEx()|SEM-PENDENCIA
+win32_wait_events_test.no_event_ms|linux|(a) o dono ("win32_wait_events_test") so existe do lado Windows - wait_events_smoke e' o dono equivalente no container Linux; (b) wait_events_smoke.no_event_ms, mesma execucao do lado Linux, aplica o MESMO criterio (40..500ms, §6.1) contra poll(fd, budget_ms) sobre o socket real|SEM-PENDENCIA
+wait_events_smoke.event_ms|windows|mesmo motivo de wait_events_smoke.no_event_ms acima; win32_wait_events_test.event_ms aplica o mesmo criterio (<500ms, §6.1) do lado Windows|SEM-PENDENCIA
+win32_wait_events_test.event_ms|linux|mesmo motivo de win32_wait_events_test.no_event_ms acima; wait_events_smoke.event_ms aplica o mesmo criterio (<500ms, §6.1) do lado Linux|SEM-PENDENCIA
+wait_events_smoke.stray_event|windows|mesmo motivo de wait_events_smoke.no_event_ms acima; e' diagnostico impresso sempre (§6.2 iii), nunca criterio que reprova sozinho - win32_wait_events_test.stray_event e' o sinal irmao do lado Windows|SEM-PENDENCIA
+win32_wait_events_test.stray_event|linux|mesmo motivo de win32_wait_events_test.no_event_ms acima; e' diagnostico impresso sempre (§6.2 iii), nunca criterio que reprova sozinho - wait_events_smoke.stray_event e' o sinal irmao do lado Linux|SEM-PENDENCIA
+win32_wait_events_test.high_resolution_wait|linux|D-W6b-50: CREATE_WAITABLE_TIMER_HIGH_RESOLUTION e' um mecanismo exclusivamente Win32 (timer de alta resolucao do sistema, Windows 10 1803+) - o lado Wayland nao tem timer de sistema equivalente para wait_events() (poll(fd, budget_ms) direto sobre o socket real ja e' preciso o bastante, sem grao de agendador a declarar); wait_events_smoke.no_event_ms/event_ms provam o comportamento equivalente do lado Linux, sem esta chave|SEM-PENDENCIA

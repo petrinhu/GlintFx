@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
+
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
@@ -128,9 +130,39 @@ class fake_display_adapter {
     // real address always differs.
     [[nodiscard]] const void *opened_at() const noexcept { return m_opened_at; }
 
+    // LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2): the
+    // "afirma que mede" witness for display_backend_port's own
+    // wait_events() - display_connection_fake_test.cpp's own wait_
+    // events_budget_reaches_the_adapter case calls this directly
+    // (through connection.adapter(), never through the concept: this
+    // fixture is still MISSING pump_events() on purpose - see this
+    // file's own header comment - so it never satisfies display_
+    // backend_port itself) and asserts last_budget_ms() reads back the
+    // EXACT value passed in, the same "the value atravessa a porta e
+    // volta" proof this project's own paridade lens applies to every
+    // "afirma que mede" seam. INSTANCE state, not a static counter
+    // (unlike open_call_count()/close_call_count() above): the caller
+    // already holds the live adapter through connection.adapter() by
+    // the time either of these runs, so there is no default-
+    // construct-with-no-way-to-inject problem here the way there is
+    // for open()/close() themselves.
+    [[nodiscard]] glintfx::gltfx_rslt<bool> wait_events(std::uint32_t budget_ms) noexcept {
+        m_last_budget_ms = budget_ms;
+        return glintfx::gltfx_rslt<bool>::ok(m_wait_events_returns);
+    }
+
+    [[nodiscard]] std::uint32_t last_budget_ms() const noexcept { return m_last_budget_ms; }
+
+    // Arms what the NEXT wait_events() call returns - defaults to
+    // `true` (arbitrary; no case today depends on the default, every
+    // case that cares calls this first).
+    void arm_wait_events_return(bool ready) noexcept { m_wait_events_returns = ready; }
+
   private:
     bool m_open = false;
     const void *m_opened_at = nullptr;
+    std::uint32_t m_last_budget_ms = 0;
+    bool m_wait_events_returns = true;
 
     static inline int s_open_call_count = 0;
     static inline int s_close_call_count = 0;

@@ -93,8 +93,18 @@ class fake_gl_context_adapter {
 
     [[nodiscard]] glintfx::gltfx_gpu_info gpu() const noexcept { return m_gpu.read(); }
 
+    // LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md, D-W6b-46): the
+    // ONE member gl_context_adapter_port grew this fatia - a plain
+    // instance flag a case can arm before exercising a caller that
+    // consults it, the same "state, not static counters" shape this
+    // file's own header comment already gives every other accessor
+    // here.
+    [[nodiscard]] bool present_would_skip() const noexcept { return m_present_would_skip; }
+    void set_present_would_skip(bool value) noexcept { m_present_would_skip = value; }
+
   private:
     bool m_open = false;
+    bool m_present_would_skip = false;
     glintfx::platform::gpu_kind_state m_gpu;
 };
 

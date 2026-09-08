@@ -284,6 +284,22 @@ classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcep
     return {kind, enumeration_index};
 }
 
+// steady_now_ns() - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md,
+// D-W6b-46's own table row: "now vem de std::chrono::steady_clock,
+// camada de plataforma, permitido"): present_would_skip() below and
+// swap_buffers()'s own vsync=off branch both need a fresh clock
+// reading to hand frame_callback_sequence::arm_pending()/pending_
+// older_than() (this same fatia) - that atom itself stays clock-
+// agnostic (GODS_LAWS.md L-17, "sem SO", frame_callback_sequence.hpp's
+// own header comment), so THIS platform-layer file is where the one
+// real read happens, in one place, rather than at each of the three
+// call sites separately.
+[[nodiscard]] std::int64_t steady_now_ns() noexcept {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
 } // namespace
 
 wayland_egl_context_adapter::~wayland_egl_context_adapter() { close(); }
@@ -710,12 +726,22 @@ gltfx_rslt<void> wayland_egl_context_adapter::make_current() noexcept {
     return gltfx_rslt<void>::ok();
 }
 
+bool wayland_egl_context_adapter::present_would_skip() const noexcept {
+    // The SYSTEM's own affirmative signal first (cheap, and arrives at
+    // the compositor's `configure` before the alternative below ever
+    // could - D-W6b-46's own reasoning, this method's own header
+    // comment).
+    if (m_window->state().state(window_state_bit::suspended)) {
+        return true;
+    }
+    // The aging frame callback second - the only signal at all where
+    // the compositor never affirms `suspended` (a version < 6 wm_base,
+    // or one that never ties the bit to minimizing).
+    return m_frame_sequence.pending_older_than(steady_now_ns(), k_frame_callback_budget_ms);
+}
+
 gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() noexcept {
     resize_surface_if_due();
-
-    // D-W6b-6's own number, cited verbatim in the plan: "espera o
-    // callback do quadro anterior com orcamento (100 ms)".
-    constexpr std::uint32_t k_frame_callback_budget_ms = 100;
 
     // D-W6b-28: every failure path below that COULD be the wl_display
     // connection itself dying (a protocol error the compositor sent
@@ -726,8 +752,19 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
     wl_display *display = wl_proxy_get_display(reinterpret_cast<wl_proxy *>(m_surface));
 
     if (!m_vsync_on) {
-        // `vsync=off`: present as fast as the driver allows, never
-        // gated on the previous frame's callback (D-W6b-18).
+        // D-W6b-46: `vsync=off` used to present as fast as the driver
+        // allows, UNCONDITIONALLY - the exact paridade defect (F3,
+        // docs/plano-w6b-fatias-6-8.md sec. 0) this fatia closes: a
+        // minimized window kept spinning the CPU here while the Win32
+        // side already degraded via IsIconic(). The sonda this SAME
+        // fatia gives both sides now guards this branch too, before
+        // ever calling eglSwapBuffers() - never gated on the previous
+        // frame's callback THE WAY vsync=on is below (D-W6b-18: this
+        // branch still never WAITS for one), only on what the sonda
+        // already knows without waiting for anything.
+        if (present_would_skip()) {
+            return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
+        }
         if (eglSwapBuffers(m_egl_display, m_egl_surface) != EGL_TRUE) {
             // D-W6b-28: a dead connection (this SAME `eglSwapBuffers`
             // is exactly where the D-W6b-12 mutation - a removed
@@ -744,6 +781,16 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
                 gltfx_err(gltfx_err_code::platform_failure)
                     .with_rejected_value("egl_swap_buffers"));
         }
+        // D-W6b-46: the frame listener is armed after EVERY
+        // presentation, in BOTH branches - this vsync=off branch never
+        // WAITS on it (the check above already decided this frame
+        // without touching the wire), but present_would_skip()'s own
+        // second criterion needs a callback outstanding to age in the
+        // first place, or a compositor that stops repainting this
+        // surface without ever affirming `suspended` would never be
+        // detected at all.
+        attach_frame_listener();
+        m_frame_sequence.arm_pending(steady_now_ns());
         return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
     }
 
@@ -779,7 +826,7 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
             gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_swap_buffers"));
     }
     attach_frame_listener();
-    m_frame_sequence.arm_pending();
+    m_frame_sequence.arm_pending(steady_now_ns());
     return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
 }
 

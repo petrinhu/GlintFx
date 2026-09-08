@@ -2,6 +2,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstdint>
 
 #include <glintfx/core/err.hpp>
 
@@ -51,12 +52,39 @@
 // comment already gives for open(): every adapter this project ships
 // wraps a plain C API reporting failure through a return value, never
 // a C++ exception.
-
+//
+// wait_events() - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md,
+// D-W6b-50): the SAME refinement pump_events() itself was, one fatia
+// later - this concept grows again, in place, rather than a THIRD
+// sibling concept, because every caller that already needs "bombeia
+// sem esperar" (pump_events()) is also the caller LOOP-RUN's own
+// wait_events(budget_ms) is for: gltfx_loop::step() (a LATER fatia,
+// platform/loop/loop.hpp) is the one place both are ever called from,
+// never two different consumers each needing only one half. `budget_ms
+// == 0` is DEFINED to be the exact same request pump_events() already
+// makes (D-W6b-50's own text: "budget_ms == 0 e' pump_events(), o
+// mesmo atomo") - a concrete adapter is free to implement pump_
+// events() as wait_events(0) with the bool result discarded, the SAME
+// "narrow the new capability lands on the wider one" shape this
+// header's own top comment already used for pump_events() over
+// display_connection_port.
+//
+// RETURNS gltfx_rslt<bool>, NOT gltfx_rslt<void> (unlike pump_events()
+// above): "did at least one event actually arrive and get dispatched
+// before the budget ran out" is the one new fact a caller of THIS
+// method needs that a caller of pump_events() never did - LOOP-RUN's
+// own D-W6b-44 step 3 reads it to decide whether the oculto-wait tick
+// woke up because something happened or because the budget simply
+// expired. `false` is never an error (an exhausted budget with
+// nothing to report is the ordinary, expected outcome of calling this
+// on an idle connection) - only a genuinely dead connection reports
+// through the err() channel, same as pump_events() already does.
 namespace glintfx::platform {
 
 template <typename A>
 concept display_backend_port = display_connection_port<A> && requires(A &backend) {
     { backend.pump_events() } noexcept -> std::same_as<gltfx_rslt<void>>;
+    { backend.wait_events(std::uint32_t{0}) } noexcept -> std::same_as<gltfx_rslt<bool>>;
 };
 
 } // namespace glintfx::platform

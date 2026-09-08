@@ -270,3 +270,15 @@ facade_pin_smoke|win32_facade_pin_test
 # Windows, query_egl_display_device()/eglQueryDeviceStringEXT no
 # Linux.
 egl_device_reader_probe|dxcore_reader_probe_test
+
+# LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2, D-W6b-50,
+# "Par no portao"): wait_events_smoke (container fixture, tests/
+# container/) e win32_wait_events_test (tests/CMakeLists.txt, if(WIN32))
+# provam a MESMA promessa publica - wait_events(budget_ms) genuinamente
+# DORME por ate o orcamento (nunca gira o processador) e acorda ANTES
+# do orcamento quando um evento real chega - por mecanismos diferentes
+# (GODS_LAWS.md L-04): poll(fd, budget_ms) sobre o wl_display real no
+# Wayland, MsgWaitForMultipleObjectsEx() com o timer de alta resolucao
+# no Win32. Par verificado contra os dois lados existindo HOJE, nunca
+# suposto.
+wait_events_smoke|win32_wait_events_test

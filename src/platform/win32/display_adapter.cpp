@@ -232,11 +232,43 @@ gltfx_rslt<void> win32_display_adapter::open() noexcept {
     m_window = window;
     m_class_atom = atom;
     m_class_name = class_name;
+
+    // LOOP-RUN fatia 7 (D-W6b-50): a high-resolution waitable timer,
+    // created ONCE here and armed once per wait_events() call below -
+    // never recreated per call, the same "open() sets up, the per-
+    // frame method only arms/waits" shape this project already uses
+    // for every other per-frame resource. NOT fatal on failure
+    // (display_adapter.hpp's own header comment on high_resolution_
+    // wait()): a build on Windows before 1803, or one where this flag
+    // is otherwise refused, still opens successfully and still pumps -
+    // wait_events() falls back to the plain dwMilliseconds argument
+    // with no timer object at all, a DECLARED, MEASURED degradation
+    // (tests/win32_wait_events_test.cpp's own high_resolution_wait()
+    // read), never a reason to fail open() itself over a capability
+    // this adapter can do without.
+    ::SetLastError(0);
+    HANDLE wait_timer = ::CreateWaitableTimerExW(
+        nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    m_wait_timer = wait_timer; // nullptr on refusal - see comment above
+    m_high_resolution_wait = wait_timer != nullptr;
+
     return gltfx_rslt<void>::ok();
 }
 
 void win32_display_adapter::close() noexcept {
     if (m_window != nullptr) {
+        // LOOP-RUN fatia 7: the timer is closed BEFORE the window -
+        // display_adapter.hpp's own header comment on wait_events()
+        // states this ordering explicitly. CloseHandle() on a timer
+        // that is not currently armed (SetWaitableTimer never called,
+        // or the last wait already consumed its one-shot signal) is
+        // always safe - there is no "cancel first" step this class
+        // needs before releasing the handle.
+        if (m_wait_timer != nullptr) {
+            ::CloseHandle(m_wait_timer);
+            m_wait_timer = nullptr;
+            m_high_resolution_wait = false;
+        }
         // Reverse order of creation (same "teardown in reverse" shape
         // wayland_display_adapter::close() documents): the window is
         // destroyed before the class it was created from is
@@ -254,16 +286,25 @@ void win32_display_adapter::close() noexcept {
     }
 }
 
-gltfx_rslt<void> win32_display_adapter::pump_events() noexcept {
+// drain_queued_messages() - LOOP-RUN fatia 7: the SAME PeekMessageW
+// loop pump_events() below always ran, factored out so wait_events()
+// (this same fatia) can run it too, after its own wait - never a
+// second, separately-maintained copy of "drain everything queued".
+// Returns whether at least one message was actually dispatched -
+// wait_events() below folds this into its own "did anything arrive"
+// answer alongside what the wait itself observed.
+namespace {
+
+bool drain_queued_messages() noexcept {
     // hWnd = nullptr: pumps EVERY message queued for the CALLING
     // THREAD, not only this adapter's own window - PeekMessageW's own
     // documented Remarks ("If hWnd is NULL, PeekMessage retrieves
     // messages for any window that belongs to the calling thread, and
     // any messages on the calling thread's message queue whose hwnd
-    // value is NULL"). See this method's own header comment
-    // (display_adapter.hpp) for why this is the right scope for a
-    // display CONNECTION's pump, not a paridade gap against the
-    // Wayland side's own per-fd pump_events().
+    // value is NULL"). See win32_display_adapter::pump_events()'s own
+    // header comment (display_adapter.hpp) for why this is the right
+    // scope for a display CONNECTION's pump, not a paridade gap
+    // against the Wayland side's own per-fd pump_events().
     //
     // PM_REMOVE, looped until PeekMessageW returns 0: drains the
     // queue completely every call, the same "never blocks, never
@@ -272,11 +313,75 @@ gltfx_rslt<void> win32_display_adapter::pump_events() noexcept {
     // documents and this project's TESTES.md expects of a non-
     // blocking pump.
     MSG msg{};
+    bool dispatched_any = false;
     while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) != 0) {
         ::TranslateMessage(&msg);
         ::DispatchMessageW(&msg);
+        dispatched_any = true;
+    }
+    return dispatched_any;
+}
+
+} // namespace
+
+gltfx_rslt<void> win32_display_adapter::pump_events() noexcept {
+    // "is there anything to read RIGHT NOW" - wait_events()'s own
+    // budget_ms 0 (this method's own header comment, display_
+    // adapter.hpp: "pump_events() above IS this call with the bool
+    // discarded").
+    if (const gltfx_rslt<bool> waited = wait_events(0); waited.has_error()) {
+        return gltfx_rslt<void>::err(waited.error());
     }
     return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<bool> win32_display_adapter::wait_events(std::uint32_t budget_ms) noexcept {
+    bool woke_on_message = false;
+
+    if (budget_ms > 0) {
+        if (m_wait_timer != nullptr) {
+            // Negative == relative time, in 100-nanosecond intervals
+            // (SetWaitableTimer's own documented lpDueTime contract) -
+            // budget_ms milliseconds converted up front, never re-read
+            // mid-wait.
+            LARGE_INTEGER due_time{};
+            due_time.QuadPart = -(static_cast<LONGLONG>(budget_ms) * 10'000);
+            ::SetWaitableTimer(m_wait_timer, &due_time, 0, nullptr, nullptr, FALSE);
+
+            // MsgWaitForMultipleObjectsEx, not a plain WaitForSingle
+            // Object on the timer alone: a thread that owns windows
+            // MUST use one of the Msg* wait functions instead of the
+            // plain WaitForMultipleObjects family (that function's own
+            // documented Remarks, "Use caution when calling the wait
+            // functions and code that... creates windows... a thread
+            // that uses a wait function with no time-out interval may
+            // cause the system to become deadlocked") - MWMO_
+            // INPUTAVAILABLE (this method's own header comment)
+            // guarantees existing, already-seen input still wakes this
+            // call, never only brand-new input.
+            const DWORD wait_result = ::MsgWaitForMultipleObjectsEx(
+                1, &m_wait_timer, budget_ms, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+            // WAIT_OBJECT_0 + nCount (here, +1) is documented as "new
+            // input... available" - the timer signaling alone
+            // (WAIT_OBJECT_0) or the dwMilliseconds fallback expiring
+            // (WAIT_TIMEOUT) both mean "woke up with nothing new".
+            woke_on_message = (wait_result == WAIT_OBJECT_0 + 1);
+        } else {
+            // No high-resolution timer (open()'s own refusal path,
+            // pre-1803 or otherwise) - nCount 0 waits on input ALONE,
+            // for exactly dwMilliseconds (MsgWaitForMultipleObjectsEx's
+            // own documented "If this parameter has the value zero,
+            // then the function waits only for an input event"); the
+            // coarser default scheduler grain this leaves is the
+            // declared degradation high_resolution_wait() reports.
+            const DWORD wait_result = ::MsgWaitForMultipleObjectsEx(
+                0, nullptr, budget_ms, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+            woke_on_message = (wait_result == WAIT_OBJECT_0);
+        }
+    }
+
+    const bool dispatched_any = drain_queued_messages();
+    return gltfx_rslt<bool>::ok(woke_on_message || dispatched_any);
 }
 
 } // namespace glintfx::platform

@@ -1317,6 +1317,23 @@ jobs:
             glintfx-wltest-clean pump_smoke | tee -a container_measured_raw.log
           echo "pump_smoke" >> parity_inventory.txt
 
+      # LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2, D-W6b-
+      # 50): wait_events_smoke.cpp, mesmo padrao do pump_smoke acima -
+      # roda ANTES da fatia C abaixo pelo mesmo motivo (precisa do
+      # compositor deste container ainda vivo). Prova as duas bordas
+      # que pump_events() (timeout sempre zero) nunca poderia: uma
+      # espera sem evento que dorme de verdade (40..500ms) e uma espera
+      # com evento provocado pelo proprio teste que acorda antes do
+      # orcamento (wl_display_sync).
+      - name: LOOP-RUN fatia 7 - wait_events com orcamento dentro do container
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean wait_events_smoke | tee -a container_measured_raw.log
+          echo "wait_events_smoke" >> parity_inventory.txt
+
       # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): shell_
       # smoke.cpp binds wl_compositor and xdg_wm_base against this SAME
       # real compositor - mesmo padrao dos passos acima. Roda ANTES da
@@ -1505,7 +1522,9 @@ jobs:
       # nove passos acima (smoke.sh, ARCH-PORTS, registry_smoke,
       # two_displays_test, pump_smoke, shell_smoke, window_smoke,
       # window_parity_test, seat_test) todos precisam do compositor
-      # vivo, e depois deste passo ele nao esta mais. O
+      # vivo, e depois deste passo ele nao esta mais - a lista acima
+      # cresceu para dez com wait_events_smoke (LOOP-RUN fatia 7), que
+      # entrou logo apos pump_smoke pela mesma razao. O
       # CONTAINER em si sobrevive ao teste -
       # run_compositor.sh deixou de rodar o compositor como PID 1
       # exatamente para isso (conserto desta mesma revisao,

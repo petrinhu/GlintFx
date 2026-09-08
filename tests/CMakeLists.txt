@@ -1396,6 +1396,25 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
     )
     target_link_libraries(win32_iconic_present_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+
+    # win32_wait_events_test - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
+    # 6-8.md sec. 8.2, D-W6b-50, "Prova Windows" column): the Win32
+    # mirror of tests/container/wait_events_smoke.cpp, over a REAL
+    # win32_display_adapter, same "second compilation" set win32_
+    # display_connect_test above already links (win32_display_adapter's
+    # own message-only window shares the SAME window_proc/GWLP_USERDATA
+    # routing every other win32 fixture in this suite reuses).
+    glintfx_add_test(win32_wait_events_test)
+    target_include_directories(win32_wait_events_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_wait_events_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        # window_message_route.cpp/window_state.cpp - link-only, the
+        # SAME reasoning win32_display_connect_test's own comment above
+        # gives in full for the identical pair.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+    )
+    target_link_libraries(win32_wait_events_test PRIVATE user32)
 endif()
 
 # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatia 11, absorved into

@@ -280,21 +280,34 @@ gltfx_rslt<void> wayland_display_adapter::flush_with_retry() noexcept {
     return gltfx_rslt<void>::ok();
 }
 
-// NON-BLOCKING BY DEFAULT (w4-plano.md sec. 3.0/3.1.D): timeout ZERO
-// asks "is there anything to read RIGHT NOW", never waits for it -
-// this is the whole point of a pump a consumer calls every frame from
-// its own loop. ARMADILHA 1 (manpage): a BLOCKING dispatch call
-// between prepare_read and read_events/cancel_read is a deadlock -
-// poll() with a bounded timeout is deliberately NOT that; it is the
-// one call this sequence is allowed to wait on, and here it does not
-// even wait. Returns ok(false) - ARMADILHA 2's "found nothing" half of
-// the mandatory pairing, wl_display_cancel_read() already called -
-// when nothing arrived, so pump_events() itself can return success
+// NON-BLOCKING BY DEFAULT WHEN timeout_ms IS ZERO (w4-plano.md sec.
+// 3.0/3.1.D; LOOP-RUN fatia 7, D-W6b-50, widens this to any budget):
+// "is there anything to read, and if not, is it worth SLEEPING for up
+// to timeout_ms rather than spinning" - pump_events() below always
+// asks with 0 ("right now, never wait"); wait_events() (this fatia)
+// asks with a caller-supplied budget instead. ARMADILHA 1 (manpage): a
+// BLOCKING dispatch call between prepare_read and read_events/
+// cancel_read is a deadlock - poll() with a bounded timeout is
+// deliberately NOT that; it is the one call this sequence is allowed
+// to wait on. EINTR (D-W6b-50's own text) is treated as "woke up with
+// nothing", never as a failure this connection has to latch fatal
+// over - a signal arriving mid-wait is not a reason to declare the
+// wl_display connection itself unusable, the same "transient, not
+// fatal" distinction bounded_output_wait.hpp's own header comment
+// already draws for the write-side twin of this exact poll(). Returns
+// ok(false) - ARMADILHA 2's "found nothing" half of the mandatory
+// pairing, wl_display_cancel_read() already called - when nothing
+// arrived (by timeout OR by EINTR), so the caller can return success
 // without a read_and_dispatch_incoming() call that has nothing to do.
-gltfx_rslt<bool> wayland_display_adapter::wait_for_incoming_data() noexcept {
+gltfx_rslt<bool>
+wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexcept {
     pollfd incoming{.fd = wl_display_get_fd(m_display), .events = POLLIN, .revents = 0};
-    const int poll_result = poll(&incoming, 1, 0);
+    const int poll_result = poll(&incoming, 1, static_cast<int>(timeout_ms));
     if (poll_result == -1) {
+        if (errno == EINTR) {
+            wl_display_cancel_read(m_display);
+            return gltfx_rslt<bool>::ok(false);
+        }
         wl_display_cancel_read(m_display);
         m_fatal = true;
         return gltfx_rslt<bool>::err(build_connection_failure(m_display));
@@ -322,6 +335,33 @@ gltfx_rslt<void> wayland_display_adapter::read_and_dispatch_incoming() noexcept 
     return gltfx_rslt<void>::ok();
 }
 
+// dispatch_ready_events() - LOOP-RUN fatia 7 (D-W6b-50): the ONE place
+// the four documented steps (this class's own header comment on
+// pump_events()) now run in sequence, parametrized by `timeout_ms` -
+// pump_events() and wait_events() below are both thin callers of this,
+// never two copies of the same four-step sequence (the exact
+// duplication-of-a-wait this project's own tests/wait_points.txt
+// header comment names as what let the F1 defect's twin survive).
+gltfx_rslt<bool> wayland_display_adapter::dispatch_ready_events(std::uint32_t timeout_ms) noexcept {
+    if (const gltfx_rslt<void> prepared = drain_pending_and_prepare_read(); prepared.has_error()) {
+        return gltfx_rslt<bool>::err(prepared.error());
+    }
+    if (const gltfx_rslt<void> flushed = flush_with_retry(); flushed.has_error()) {
+        return gltfx_rslt<bool>::err(flushed.error());
+    }
+    gltfx_rslt<bool> ready = wait_for_incoming_data(timeout_ms);
+    if (ready.has_error()) {
+        return ready;
+    }
+    if (!ready.value()) {
+        return gltfx_rslt<bool>::ok(false);
+    }
+    if (const gltfx_rslt<void> dispatched = read_and_dispatch_incoming(); dispatched.has_error()) {
+        return gltfx_rslt<bool>::err(dispatched.error());
+    }
+    return gltfx_rslt<bool>::ok(true);
+}
+
 gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
     if (!is_open()) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::invalid_argument));
@@ -330,20 +370,22 @@ gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
         return gltfx_rslt<void>::err(build_connection_failure(m_display));
     }
 
-    if (gltfx_rslt<void> prepared = drain_pending_and_prepare_read(); prepared.has_error()) {
-        return prepared;
+    // "is there anything to read RIGHT NOW" - dispatch_ready_events()'s
+    // own timeout_ms 0 (this method's own header comment).
+    if (const gltfx_rslt<bool> dispatched = dispatch_ready_events(0); dispatched.has_error()) {
+        return gltfx_rslt<void>::err(dispatched.error());
     }
-    if (gltfx_rslt<void> flushed = flush_with_retry(); flushed.has_error()) {
-        return flushed;
+    return gltfx_rslt<void>::ok();
+}
+
+gltfx_rslt<bool> wayland_display_adapter::wait_events(std::uint32_t budget_ms) noexcept {
+    if (!is_open()) {
+        return gltfx_rslt<bool>::err(gltfx_err(gltfx_err_code::invalid_argument));
     }
-    gltfx_rslt<bool> ready = wait_for_incoming_data();
-    if (ready.has_error()) {
-        return gltfx_rslt<void>::err(ready.error());
+    if (m_fatal) {
+        return gltfx_rslt<bool>::err(build_connection_failure(m_display));
     }
-    if (!ready.value()) {
-        return gltfx_rslt<void>::ok();
-    }
-    return read_and_dispatch_incoming();
+    return dispatch_ready_events(budget_ms);
 }
 
 void wayland_display_adapter::close() noexcept {

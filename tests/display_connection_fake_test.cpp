@@ -136,6 +136,30 @@ GLINTFX_TEST(adapter_accessor_reaches_the_same_wrapped_instance) {
     GLINTFX_CHECK(glintfx::test::fake_display_adapter::close_call_count() == 1);
 }
 
+// LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2): the "afirma
+// que mede" witness for wait_events() - the value 37 has to atravessar
+// the fake's own wait_events() and come back through last_budget_ms()
+// unchanged, the same proof this project's own paridade lens applies
+// to every place a function claims to read a caller-supplied number.
+// Called directly through connection.adapter() (fake_display_adapter
+// still lacks pump_events() on purpose, this file's own header comment
+// on the fixture explains why - it never satisfies display_backend_
+// port itself, and this case does not need it to).
+GLINTFX_TEST(wait_events_budget_reaches_the_adapter) {
+    glintfx::test::fake_display_adapter::reset();
+
+    glintfx::platform::display_connection<glintfx::test::fake_display_adapter> connection;
+    const glintfx::gltfx_rslt<void> opened = connection.open();
+    GLINTFX_CHECK(opened.has_value());
+
+    connection.adapter().arm_wait_events_return(true);
+    const glintfx::gltfx_rslt<bool> waited = connection.adapter().wait_events(37);
+
+    GLINTFX_CHECK(waited.has_value());
+    GLINTFX_CHECK(waited.value());
+    GLINTFX_CHECK(connection.adapter().last_budget_ms() == 37);
+}
+
 GLINTFX_TEST(a_different_injected_code_still_arrives_unchanged) {
     // Same shape as the case above, with a DIFFERENT code - proves the
     // path is generic (the wrapper does not special-case one specific

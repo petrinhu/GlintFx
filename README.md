@@ -104,6 +104,24 @@ glintfx tracks **three separate compatibility contracts**, not two, because a bi
 - **ABI**: does a binary linked before still link and run.
 - **File format**: does a file glintfx wrote before still load. This is the one a rebuild cannot fix: a `.so` break sends the consumer back to their compiler, but a broken save file is gone. Any file format glintfx ships follows the same MAJOR/MINOR discipline as API and ABI, and a new MAJOR reader keeps reading every format version it ever wrote.
 
+### Pinning a version in your own project
+
+"Pinning" means telling your build to always use one exact, specific copy of glintfx, instead of whatever the latest commit happens to be at the moment you build. **If you do not pin, a later build of your own project can silently pull in a glintfx that compiles differently, links differently, or behaves differently than the one you tested against** - before 1.0 (see the table above), that is not a rare edge case, it is the expected state of this repository at any given moment.
+
+**No version has been tagged yet** (see "Status" above), so there is no `v0.x.y.z` tag to pin to today. The honest, working mechanism right now is to pin to an exact Git commit, the same identifier `git log` shows you for any commit:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  glintfx
+  GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
+  GIT_TAG        <full 40-character commit SHA you tested against>
+)
+FetchContent_MakeAvailable(glintfx)
+```
+
+Replace `<full 40-character commit SHA you tested against>` with a real one, for example one you find by running `git ls-remote https://github.com/petrinhu/GlintFx.git main`. Once glintfx tags its first `v1.0.0.0`, the same `GIT_TAG` field takes a tag name instead of a commit SHA, and from then on the table above governs what a version bump does and does not break. See ["Embedding via `add_subdirectory`/`FetchContent`"](PACKAGING.md#embedding-via-add_subdirectoryfetchcontent) in `PACKAGING.md` for the full embedding reference, and the wiki's [Pinning a Version](https://github.com/petrinhu/GlintFx/wiki/Pinning-a-Version) page for a walkthrough written for someone doing this for the first time.
+
 ## API reference
 
 The public error-handling contract (the type every fallible function returns, why reading it wrong is a precondition violation rather than a recoverable error, and how the public surface is checked against name collisions on five platforms) is documented in [`docs/api-conventions.md`](docs/api-conventions.md). It is the template every later API review is checked against, not prose to be taken on faith: every rule cites the test that proves it.

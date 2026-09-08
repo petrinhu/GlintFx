@@ -2601,3 +2601,23 @@ pesados. Cada encerramento foi depois de eu verificar a entrega, nunca antes.
 
 **D-N9. Marquei `v0.3.0.0` com a onda por fechar** - corrigido por ele em 08/09 07:40, ver
 a secao anterior. **D-N10. Abri a onda seguinte com a anterior aberta** - mesma correcao.
+
+## 08/09/2026 - 09:56 | ORDEM DO LIDER: marca nova ao fim de cada fechamento de onda
+
+**Verbatim:** *"lembre de mudar a tag no final"*.
+
+**Obrigacao permanente, registrada aqui para nao depender de eu lembrar** (a licao medida
+desta sessao: instrucao que depende de memoria nao e cumprida). Ao fechar QUALQUER onda de
+verdade - todos os itens dela concluidos, e nao por realocacao - a sequencia e:
+
+1. Servidor verde no ponto exato que sera marcado, medido direto e nao pelo aviso externo.
+2. Marca nova criada sobre esse ponto.
+3. Prova no remoto por `git ls-remote --tags`.
+
+**O numero da marca e decisao do lider, nao minha.** A ultima foi `v0.3.1.0`, para o
+fechamento real da W6b. A proxima ele define quando a onda seguinte fechar; se ele nao
+definir, eu pergunto por `AskUserQuestion` antes de criar, nunca escolho sozinho.
+
+**Precedente que gerou a ordem:** a `v0.3.0.0` saiu com a onda por fechar, usando verde de
+CI como criterio quando o criterio era a definicao de fechamento escrita no plano da onda.
+

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "platform/wayland/window_adapter.hpp"
 
+#include <new>
 #include <optional>
 #include <span>
 #include <string>
@@ -229,19 +230,30 @@ gltfx_rslt<void> wayland_window_adapter::apply_desc(const wayland_window_desc &d
 
     // Empty is always accepted (window_desc_validation.hpp: "v1 never
     // requires a title or an application_id") and simply skips the
-    // request - xdg-shell.xml requires neither. NOTED, NOT ENGINEERED
-    // AROUND: std::string(...) below can theoretically throw
-    // std::bad_alloc despite this function's own noexcept - the same
-    // class of "not realistically testable/hardened at this fatia's
-    // scope" limitation global_catalog.hpp's own insert() comment
-    // already names for a different allocation. A bounded, validated,
-    // already-UTF-8-checked title/application_id is the one string this
-    // project ever needs to null-terminate for a C API in this fatia.
+    // request - xdg-shell.xml requires neither.
+    //
+    // CONSERTO (varredura de 07/09/2026, mesma familia de bugs de gfx_
+    // open_only_fixation.cpp): std::string(...) below CAN throw std::
+    // bad_alloc despite this function's own noexcept - GODS_LAWS.md
+    // L-22, letting it escape would call std::terminate() and kill the
+    // consumer's process on the very path that opens a window. Unlike
+    // global_catalog.hpp's own insert() (a C-callback with no error
+    // channel at all), apply_desc() ALREADY returns gltfx_rslt<void> -
+    // so the honest desfecho here is the error, not a silent skip that
+    // would leave the window open with the wrong title.
     if (!desc.title.empty()) {
-        xdg_toplevel_set_title(m_xdg_toplevel, std::string(desc.title).c_str());
+        try {
+            xdg_toplevel_set_title(m_xdg_toplevel, std::string(desc.title).c_str());
+        } catch (const std::bad_alloc &) {
+            return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::out_of_memory));
+        }
     }
     if (!desc.application_id.empty()) {
-        xdg_toplevel_set_app_id(m_xdg_toplevel, std::string(desc.application_id).c_str());
+        try {
+            xdg_toplevel_set_app_id(m_xdg_toplevel, std::string(desc.application_id).c_str());
+        } catch (const std::bad_alloc &) {
+            return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::out_of_memory));
+        }
     }
 
     return gltfx_rslt<void>::ok();
@@ -331,7 +343,15 @@ gltfx_rslt<void> wayland_window_adapter::set_title(std::string_view title) noexc
     // title mid-session gets that request honored for real, the same
     // way win32_window_adapter::set_title()'s own SetWindowTextW call
     // never special-cases an empty string either.
-    xdg_toplevel_set_title(m_xdg_toplevel, std::string(title).c_str());
+    //
+    // GODS_LAWS.md L-22: same guard apply_desc() above already applies
+    // to the identical std::string(...) construction - this function
+    // also has a gltfx_rslt<void> to carry the honest failure through.
+    try {
+        xdg_toplevel_set_title(m_xdg_toplevel, std::string(title).c_str());
+    } catch (const std::bad_alloc &) {
+        return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
     return gltfx_rslt<void>::ok();
 }
 

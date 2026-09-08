@@ -32,7 +32,19 @@
 namespace glintfx {
 
 gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
-    auto *impl = new (std::nothrow) gpu_enumeration_impl();
+    // WIN-DEBUG-CTORALLOC (07/09/2026, gemeo do achado em gfx_open_
+    // only_fixation.cpp): `new (std::nothrow)` only guards the raw
+    // ALLOCATION - if `gpu_enumeration_impl`'s own constructor throws
+    // (its two std::vector members' default construction, under the
+    // same MSVC Debug risk this whole sweep is about), the exception
+    // still propagates through a successful nothrow-new, memory freed
+    // by the matching delete, straight past this noexcept function.
+    gpu_enumeration_impl *impl = nullptr;
+    try {
+        impl = new (std::nothrow) gpu_enumeration_impl();
+    } catch (const std::bad_alloc &) {
+        return gltfx_rslt<gltfx_gpu_enumeration>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
     if (impl == nullptr) {
         return gltfx_rslt<gltfx_gpu_enumeration>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }
@@ -49,14 +61,36 @@ gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
     // Reserved to its FINAL size before a single gltfx_gpu_info is
     // built (gpu_enumeration_impl.hpp's own header comment) - no
     // push_back below ever reallocates impl->names.
-    impl->names.assign(list.size(), std::string{});
-    impl->entries.reserve(list.size());
-    for (std::size_t i = 0; i < list.size(); ++i) {
-        impl->names[i] = list[i].description;
-        const gltfx_gpu_kind kind = platform::classify_dxcore_gpu(list, i);
-        impl->entries.push_back(gltfx_gpu_info{.kind = kind,
-                                               .name = impl->names[i],
-                                               .enumeration_index = static_cast<std::uint32_t>(i)});
+    //
+    // GODS_LAWS.md L-22/L-17 (varredura de 07/09/2026, mesma familia
+    // de bugs de gfx_open_only_fixation.cpp): assign()/reserve()/
+    // push_back() below, and the std::string COPY-assignment `impl->
+    // names[i] = list[i].description`, can all throw std::bad_alloc
+    // despite this function's own noexcept. query() already returns
+    // gltfx_rslt<T> (the same shape the `adapters.has_error()` early
+    // return above already uses), so the honest desfecho is the
+    // error, not a half-built enumeration. NAO PROVADO NESTA MAQUINA
+    // (nomeado, nao escondido): este ramo so' compila com _WIN32
+    // definido - sem um build Windows real disponivel nesta sessao
+    // (outro agente ativo em src/platform/win32/ no momento desta
+    // varredura, GODS_LAWS.md L-11), o job "Windows - Debug"/"Windows
+    // - Lint" reais e' quem prova isto, o mesmo idioma que o achado
+    // WIN-NOEXCEPT-ESCAPE (dxcore_adapter_enumeration.cpp/wgl_context_
+    // adapter.cpp, este mesmo dia) ja documenta para a classe inteira.
+    try {
+        impl->names.assign(list.size(), std::string{});
+        impl->entries.reserve(list.size());
+        for (std::size_t i = 0; i < list.size(); ++i) {
+            impl->names[i] = list[i].description;
+            const gltfx_gpu_kind kind = platform::classify_dxcore_gpu(list, i);
+            impl->entries.push_back(
+                gltfx_gpu_info{.kind = kind,
+                               .name = impl->names[i],
+                               .enumeration_index = static_cast<std::uint32_t>(i)});
+        }
+    } catch (const std::bad_alloc &) {
+        delete impl;
+        return gltfx_rslt<gltfx_gpu_enumeration>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }
 #else
     // enumerate_gpus_egl() fills impl->names IN PLACE (by reference)

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cassert>
+#include <new>
 #include <optional>
 #include <span>
 #include <utility>
@@ -84,34 +85,59 @@ static_assert(platform::gl_context_adapter_port<platform::selected_gl_context_ad
 // what the concrete adapter's own open() receives - the adapter never
 // has to separately reason about "what wins between the opening list
 // and the registry's own default", this atom already resolved it once.
-[[nodiscard]] std::vector<gltfx_gfx_option_entry>
+// GODS_LAWS.md L-22/L-17 (gemeo de gfx_open_only_fixation.cpp's own
+// resolve_gfx_open_only_fixation() - a fatia acima, no mesmo arquivo
+// que ESTA funcao roda logo em seguida, dentro de open()): reserve()/
+// push_back() abaixo podem lancar std::bad_alloc dentro de uma funcao
+// noexcept; deixar escapar chamaria std::terminate() e derrubaria o
+// processo do consumidor bem na hora de abrir uma janela - a mesma
+// regra R3 de docs/api-conventions.md. Como esta funcao JA tem um
+// canal de erro pronto no seu unico chamador (open() retorna gltfx_
+// rslt<gltfx_gl_context>), o desfecho honesto aqui e devolver o erro,
+// nao inventar um valor - a mesma escolha que enumerate_dxcore_
+// adapters() (src/platform/win32/dxcore_adapter_enumeration.cpp) ja
+// documenta para o formato gltfx_rslt<T>.
+[[nodiscard]] gltfx_rslt<std::vector<gltfx_gfx_option_entry>>
 resolve_full_option_table(std::span<const gltfx_gfx_option_entry> fixed_open_only,
                           std::span<const gltfx_gfx_option_entry> requested) noexcept {
-    std::vector<gltfx_gfx_option_entry> resolved;
-    resolved.reserve(platform::k_gfx_option_table.size());
+    // WIN-DEBUG-CTORALLOC (07/09/2026 - ver o achado gemeo no header
+    // comment de gfx_open_only_fixation.cpp, mesma onda): `resolved`
+    // precisa nascer DENTRO do try{} - um std::vector default-
+    // construido nao aloca no Linux/libstdc++, mas o construtor padrao
+    // do MSVC em build Debug (`_ITERATOR_DEBUG_LEVEL == 2`) pode alocar
+    // o proprio bookkeeping de depuracao de iterador pelo MESMO
+    // alocador que reserve()/push_back() usam - uma declaracao ANTES
+    // do try{} deixaria essa alocacao fora da guarda.
+    try {
+        std::vector<gltfx_gfx_option_entry> resolved;
+        resolved.reserve(platform::k_gfx_option_table.size());
 
-    for (const platform::gfx_option_row &row : platform::k_gfx_option_table) {
-        if (row.when == gltfx_gfx_option_when::open_only) {
-            for (const gltfx_gfx_option_entry &fixed_entry : fixed_open_only) {
-                if (fixed_entry.id == row.id) {
-                    resolved.push_back(fixed_entry);
+        for (const platform::gfx_option_row &row : platform::k_gfx_option_table) {
+            if (row.when == gltfx_gfx_option_when::open_only) {
+                for (const gltfx_gfx_option_entry &fixed_entry : fixed_open_only) {
+                    if (fixed_entry.id == row.id) {
+                        resolved.push_back(fixed_entry);
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            std::int64_t value = row.default_value;
+            for (const gltfx_gfx_option_entry &requested_entry : requested) {
+                if (requested_entry.id == row.id) {
+                    value = requested_entry.value;
                     break;
                 }
             }
-            continue;
+            resolved.push_back(gltfx_gfx_option_entry{.id = row.id, .value = value});
         }
 
-        std::int64_t value = row.default_value;
-        for (const gltfx_gfx_option_entry &requested_entry : requested) {
-            if (requested_entry.id == row.id) {
-                value = requested_entry.value;
-                break;
-            }
-        }
-        resolved.push_back(gltfx_gfx_option_entry{.id = row.id, .value = value});
+        return gltfx_rslt<std::vector<gltfx_gfx_option_entry>>::ok(std::move(resolved));
+    } catch (const std::bad_alloc &) {
+        return gltfx_rslt<std::vector<gltfx_gfx_option_entry>>::err(
+            gltfx_err(gltfx_err_code::out_of_memory));
     }
-
-    return resolved;
 }
 
 [[nodiscard]] std::string_view option_name_or_placeholder(gltfx_gfx_option id) noexcept {
@@ -198,8 +224,12 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
         : already_fixed.has_value() ? *already_fixed
                                     : std::span<const gltfx_gfx_option_entry>{};
 
-    std::vector<gltfx_gfx_option_entry> resolved =
+    gltfx_rslt<std::vector<gltfx_gfx_option_entry>> resolved_rslt =
         resolve_full_option_table(fixed_open_only, requested);
+    if (resolved_rslt.has_error()) {
+        return gltfx_rslt<gltfx_gl_context>::err(resolved_rslt.error());
+    }
+    std::vector<gltfx_gfx_option_entry> resolved = std::move(resolved_rslt.value());
 
     // FACADE-PIN (docs/plano-conserto-fachadas-uaf.md sec. 3/4/7.3/7.4,
     // varredura #7): impl is allocated FIRST, at the address it will
@@ -214,7 +244,20 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     // adapter_port now requires pinned_adapter<A>, which forbids the
     // type this old sequence needed to move - the ordering accident is
     // replaced by a construction that is safe BY DESIGN.
-    auto *impl = new (std::nothrow) gl_context_impl{};
+    // WIN-DEBUG-CTORALLOC (07/09/2026, gemeo do achado em gfx_open_
+    // only_fixation.cpp): `new (std::nothrow)` only guards the raw
+    // ALLOCATION - if `gl_context_impl`'s own constructor throws (its
+    // `current_values` std::vector member's default construction,
+    // under the same MSVC Debug risk this whole sweep is about), the
+    // exception still propagates through a successful nothrow-new,
+    // memory freed by the matching delete, straight past this noexcept
+    // function.
+    gl_context_impl *impl = nullptr;
+    try {
+        impl = new (std::nothrow) gl_context_impl{};
+    } catch (const std::bad_alloc &) {
+        return gltfx_rslt<gltfx_gl_context>::err(gltfx_err(gltfx_err_code::out_of_memory));
+    }
     if (impl == nullptr) {
         return gltfx_rslt<gltfx_gl_context>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }

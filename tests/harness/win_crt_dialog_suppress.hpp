@@ -111,6 +111,7 @@
 #include <crtdbg.h>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 
 namespace glintfx_test {
 
@@ -122,7 +123,85 @@ namespace glintfx_test {
 inline constexpr const char *k_crt_dialog_suppression_marker =
     "glintfx_test: CRT dialog suppression applied";
 
+// CONSERTO (07/09/2026, achado do integrador contra gfx_open_only_
+// fixation_test - "podemos ter apagado a mensagem que agora
+// precisamos ler"): read BEFORE trusting the silence any test dies
+// with on this job. `_set_abort_behavior(0, _WRITE_ABORT_MSG | ...)`
+// below is what CLEARS the "R6010 - abort() has been called" text
+// Microsoft's own current documentation (learn.microsoft.com/cpp/
+// c-runtime-library/reference/abort, "Microsoft Specific" section,
+// fetched 07/09/2026) documents as abort()'s OWN default behavior in
+// a DEBUG build - "the message is sent to STDERR" for a console app,
+// exactly this job's own shape - and this header intentionally turns
+// that OFF to stop the interactive dialog VERMELHO 3 already measured
+// hanging the job for 60s. THE TWO ARE THE SAME MECHANISM, NOT TWO
+// SEPARATE ONES: silencing the dialog and silencing the one line of
+// text that would have named "abort() was called" are the SAME flag.
+// A std::terminate() called because an exception escaped a noexcept
+// function (learn.microsoft.com/cpp/cpp/unhandled-cpp-exceptions,
+// fetched 07/09/2026: "the predefined terminate run-time function is
+// called... default action of terminate is to call abort") goes
+// through THIS path, never through _CRT_ASSERT/_CRT_ERROR above (that
+// pair is assert()/_ASSERTE() only, a completely separate mechanism a
+// noexcept-escape never touches) - so this specific class of failure
+// was left with NO textual trace at all once the dialog was
+// suppressed, only a non-zero exit code.
+//
+// THE FIX, kept SEPARATE from the dialog suppression on purpose (the
+// same file's own header comment already taught this session that
+// the two are separable): std::set_terminate() installs a handler
+// that runs BEFORE abort() is ever reached (learn.microsoft.com/cpp/
+// c-runtime-library/reference/terminate-crt, fetched 07/09/2026:
+// "terminate calls abort by default... You can change this default by
+//... calling set_terminate"). A plain std::fprintf() to stderr here
+// goes through NEITHER _CrtSetReportMode's routing NOR abort()'s own
+// _WRITE_ABORT_MSG flag - it cannot reintroduce the interactive
+// dialog VERMELHO 3 fixed, because it is not part of either mechanism
+// that dialog comes from.
+inline constexpr const char *k_terminate_diagnostic_marker =
+    "glintfx_test: std::terminate() called - an exception escaped a noexcept boundary";
+
 namespace detail {
+
+// Best-effort: std::current_exception()/std::rethrow_exception() are
+// the standard, portable way to recover the exception object
+// terminate() was called over (learn.microsoft.com/cpp/standard-
+// library/exception-functions, fetched 07/09/2026) - this function is
+// itself called FROM a terminate handler, so it must never let a
+// SECOND exception escape past it (a second unhandled exception
+// during termination has no defined outcome to rely on) - hence its
+// own try/catch(...) around the whole attempt, matching the
+// "termFunction... may not throw" contract set_terminate()'s own
+// documentation states.
+inline void report_current_exception() noexcept {
+    try {
+        if (std::exception_ptr current = std::current_exception()) {
+            std::rethrow_exception(current);
+        }
+        std::fprintf(stderr, "glintfx_test: std::terminate() called with no active exception "
+                             "(destructor throw during unwind, or terminate() called directly)\n");
+    } catch (const std::exception &ex) {
+        std::fprintf(stderr, "glintfx_test: escaped exception is a std::exception - what(): %s\n",
+                     ex.what());
+    } catch (...) {
+        std::fprintf(stderr,
+                     "glintfx_test: escaped exception does NOT derive from std::exception\n");
+    }
+}
+
+// Installed via std::set_terminate() below. GODS_LAWS.md L-40: prints
+// UNCONDITIONALLY, before calling std::abort() - the next real Windows
+// run either shows this marker (proving a noexcept boundary was
+// crossed, and naming the exception) or does not (proving the death is
+// something else entirely - a stack overflow, a SEH exception, a
+// crash inside abort() itself), never a silent, undiagnosable exit
+// either way.
+[[noreturn]] inline void report_and_abort_on_terminate() {
+    std::fprintf(stderr, "%s\n", k_terminate_diagnostic_marker);
+    report_current_exception();
+    std::fflush(stderr);
+    std::abort();
+}
 
 inline void suppress_crt_dialogs() noexcept {
     // Mechanism 2 above: _CRT_ASSERT/_CRT_ERROR reports go to stderr
@@ -138,6 +217,12 @@ inline void suppress_crt_dialogs() noexcept {
     // stops it invoking Windows Error Reporting a second time on top of
     // SetErrorMode(SEM_NOGPFAULTERRORBOX) above.
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+
+    // See k_terminate_diagnostic_marker's own comment above: installed
+    // HERE, in the same constructor that runs before main(), so a
+    // std::terminate() from ANY point in the test - not just after
+    // some later setup - is covered.
+    std::set_terminate(&report_and_abort_on_terminate);
 
     // GODS_LAWS.md L-40: prints, unconditionally, on every run that
     // links this header in - the fact this mechanism ran at all, never

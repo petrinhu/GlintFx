@@ -3,6 +3,8 @@
 
 #include <wayland-client.h>
 
+#include <new>
+
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
@@ -17,13 +19,21 @@
 // seat_capabilities.cpp) and this class's own plain fields - the same
 // "pure reads/writes of a value type, never a Wayland request" shape
 // wayland_window_adapter's own callbacks already document one
-// directory over. m_name = name is the one line in wl_seat_name()
-// that CAN theoretically throw std::bad_alloc despite this function's
-// own noexcept - the same documented, not-engineered-around limitation
-// wayland_window_adapter::apply_desc()'s own header comment already
-// names for xdg_toplevel_set_title()'s std::string(desc.title): an
-// unbounded compositor-supplied string is not realistically
-// testable/hardened at this fatia's scope either.
+// directory over. m_name = name is the one line in wl_seat_name() that
+// CAN throw std::bad_alloc despite this function's own noexcept.
+//
+// CONSERTO (varredura de 07/09/2026, mesma familia de bugs de gfx_
+// open_only_fixation.cpp): unlike wayland_window_adapter::apply_desc()
+// /set_title() (both HAVE a gltfx_rslt<void> to carry the honest
+// failure through, and were guarded in the same sweep), wl_seat_name()
+// is a bare `void` C-callback with no error channel at all - the same
+// shape global_catalog.hpp's own insert() exists to give an OBSERVABLE
+// signal for, but this signature cannot be changed (libwayland's own
+// wl_seat_listener.name function-pointer type dictates it). Guarded
+// below: a failed assignment simply leaves `m_name` at whatever it
+// held before this call, the same "left exactly as it was" guarantee
+// global_catalog.hpp's own insert() already documents for its own
+// internal failure - never a guess at the compositor-supplied name.
 
 namespace glintfx::platform {
 
@@ -52,7 +62,11 @@ void wayland_seat_adapter::wl_seat_capabilities(void *data, wl_seat * /*seat*/,
 
 void wayland_seat_adapter::wl_seat_name(void *data, wl_seat * /*seat*/, const char *name) noexcept {
     auto *self = static_cast<wayland_seat_adapter *>(data);
-    self->m_name = (name != nullptr) ? name : "";
+    try {
+        self->m_name = (name != nullptr) ? name : "";
+    } catch (const std::bad_alloc &) {
+        return; // m_name left exactly as it was - see this file's own header comment.
+    }
     ++self->m_last_change;
 }
 

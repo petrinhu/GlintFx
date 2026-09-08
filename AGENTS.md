@@ -20,9 +20,9 @@ a closed-source product).
 
 ## Consuming glintfx from another project
 
-Two supported ways to bring glintfx into a build. Both are documented in
-full, with every flag and edge case, in [`PACKAGING.md`](PACKAGING.md) -
-this section is the short version.
+Three supported ways to bring glintfx into a build. All three are
+documented in full, with every flag and edge case, in
+[`PACKAGING.md`](PACKAGING.md) - this section is the short version.
 
 **1. Embed it by source** (no separate install step, works today, no
 tagged version needed):
@@ -46,6 +46,26 @@ like any other system library):
 find_package(glintfx REQUIRED)
 target_link_libraries(my_app PRIVATE glintfx::glintfx)
 ```
+
+This is what `cmake --install` produces: the compiled library, public
+headers under `<includedir>/glintfx/`, a CMake package under
+`<libdir>/cmake/glintfx/`, and `glintfx.pc` under
+`<libdir>/pkgconfig/`, on every one of the five supported platforms,
+Windows included.
+
+**3. Package it**, as a distro package (RPM `.spec`, Debian
+`debian/rules`, an Arch `PKGBUILD`, or any pipeline that installs
+glintfx once and builds against it afterward). `PACKAGING.md` is
+written for this audience specifically - what gets installed, every
+supported `CMAKE_INSTALL_LIBDIR`/`CMAKE_INSTALL_INCLUDEDIR` layout,
+`DESTDIR`-staged installs, static linking, and the Windows-specific
+detail of pkg-config there - and every layout claim it makes is backed
+by an automated regression test, not prose.
+
+Whichever of the three you use, `pkg-config --exists glintfx`
+returning true is not proof the install is usable by itself; see
+`PACKAGING.md`'s "`pkg-config --exists` does NOT validate content"
+section before trusting it as a health check in your own script.
 
 Requirements for building glintfx at all (compiler, CMake floor, Linux
 packages) are listed in the main [`README.md`](README.md#building-from-source-and-running-the-tests),

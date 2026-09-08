@@ -35,8 +35,11 @@ cmake_minimum_required(VERSION 4.1)
 # Four components, not three (GODS_LAWS.md L-26, VER-4C): TWEAK is the
 # fourth, packaging-only field. write_basic_package_version_file's
 # SameMinorVersion compatibility (cmake/GlintfxInstall.cmake) only
-# compares MAJOR.MINOR, so a bare `find_package(glintfx 0.1)` still
-# resolves this exact release under the current pre-1.0 policy.
+# compares MAJOR.MINOR, so a bare `find_package(glintfx 0.3)` still
+# resolves this exact release under the current pre-1.0 policy (this
+# example itself is a twin of tests/package/CMakeLists.txt's own
+# requested version - both move together, see that file's own comment
+# for why a stale copy of this number is not a hypothetical risk).
 project(glintfx VERSION 0.3.0.0 LANGUAGES CXX)
 
 # C, under UNIX only (WL-PROTO, GODS_LAWS.md L-05): the private-code

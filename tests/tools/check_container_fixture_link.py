@@ -52,7 +52,23 @@
 #
 # Usage:
 #   check_container_fixture_link.py --exec <Containerfile> <context-dir> <staged-dir> <repo-root>
-#   check_container_fixture_link.py --selftest
+#   check_container_fixture_link.py --selftest [<cmake-cxx-compiler> <cmake-cxx-compiler-id>]
+#
+# CONSERTO 08/09/2026 (server run 34215308251, GODS_LAWS.md L-17/L-36/
+# L-49): --exec above still runs the real Containerfile's own LITERAL
+# g++/gcc text unchanged (that is the whole point - see WHAT THIS
+# SCRIPT DOES below), but --selftest's SYNTHETIC fixture used to shell
+# out to a hardcoded literal "g++" too, which is a fact of the AUTHOR's
+# own machine, not of every host that runs this gate: it reproved on 8
+# of the matrix's 22 CI legs, for two DIFFERENT reasons measured
+# straight from the failing jobs' own logs - Ubuntu installs the
+# versioned "g++-14" on purpose (no bare "g++" exists there) and
+# rewrite_build_prefix() below was corrupting the Windows temp path
+# through sh -c's own backslash-escaping. --selftest now accepts the
+# optional CMAKE_CXX_COMPILER/CMAKE_CXX_COMPILER_ID pair (see
+# discover_selftest_compiler()'s own comment for the full reasoning,
+# including why MSVC is rejected outright) and rewrite_build_prefix()
+# normalizes the path before handing it to a shell.
 #
 # Wired into tests/container/prepare_arch_ports_fixture.sh's own
 # main(), right after verify_fixture_includes() - same reason that
@@ -200,9 +216,29 @@ def is_dnf_line(subcommand):
     return bool(tokens) and tokens[0] == "dnf"
 
 
+# Recognizes a GNU-flavored C/C++ compiler token by its BASENAME, not by
+# an exact literal - real_main()'s Containerfile always says bare "g++"/
+# "gcc" (Fedora's gcc-c++ package), but --selftest's synthetic fixture
+# (see discover_selftest_compiler() below) may embed a versioned name
+# ("g++-14", the literal CMAKE_CXX_COMPILER on the Ubuntu CI leg - dnf/
+# apt install it that way on purpose, no bare "g++" symlink exists
+# there) or a full path with a ".exe" suffix (MinGW g++ on Windows).
+# Fixed 08/09/2026 (server run 34215308251, GODS_LAWS.md L-17/L-36):
+# the exact-match version left compile_total at zero for those two
+# shapes, which run_link_check()'s own L-40 floor then read as "varredura
+# vazia" - a portao that congeals "the token is spelled exactly g++" as
+# an environment fact.
+_COMPILE_TOKEN_RE = re.compile(
+    r"^(g\+\+|gcc|clang\+\+|clang|c\+\+|cc)(-[0-9]+(\.[0-9]+)*)?(\.exe)?$",
+    re.IGNORECASE,
+)
+
+
 def is_compile_line(subcommand):
     tokens = subcommand.split()
-    return bool(tokens) and tokens[0] in ("g++", "gcc")
+    if not tokens:
+        return False
+    return bool(_COMPILE_TOKEN_RE.match(os.path.basename(tokens[0])))
 
 
 def is_wayland_scanner_line(subcommand):
@@ -214,8 +250,29 @@ def is_wayland_scanner_line(subcommand):
 # absolute-path family this Containerfile's own build stage ever
 # names (measured before writing this function), so a plain substring
 # replace is exact, never a partial match on something else.
+#
+# The build_dir path is normalized to forward slashes before the
+# substitution (GODS_LAWS.md L-17/L-49, server run 34215308251,
+# Windows shared/static/Debug legs): run_subcommand() below hands the
+# rewritten string to `sh -c`, and on Windows tempfile.mkdtemp()
+# returns a backslash-separated path (e.g. "C:\Users\...\Temp\...").
+# An unquoted backslash inside sh -c's own script text is THAT SHELL's
+# escape character - it removes itself and keeps the following letter
+# literal - so "C:\Users\RUNNER~1\..." silently became
+# "C:UsersRUNNER~1..." (measured verbatim in that run's log) before
+# cc1plus.exe ever saw the path, and every file "did not exist" though
+# g++ itself ran. Forward slashes are accepted natively by sh, MinGW
+# g++/cc1plus and every other tool this function shells out to, on
+# every one of the five platforms - replacing the literal backslash
+# character (never os.sep: this function's own caller already runs on
+# native Windows Python for the Windows CI legs, where os.sep IS "\\"
+# and would match every separator anyway, but a literal match is more
+# obviously correct here than routing through a platform-dependent
+# constant to reach the same string) is a no-op on a build_dir that
+# has none and the actual fix on the one that does.
 def rewrite_build_prefix(subcommand, build_dir):
-    return subcommand.replace("/build", build_dir)
+    build_dir_for_shell = build_dir.replace("\\", "/")
+    return subcommand.replace("/build", build_dir_for_shell)
 
 
 def run_subcommand(subcommand, build_dir):
@@ -388,12 +445,51 @@ def _make_scratch():
     return tempfile.mkdtemp(prefix="glintfx-fixture-link-selftest-", dir=os.environ.get("TMPDIR"))
 
 
+# GNU-compatible C++ compiler for the SYNTHETIC fixtures below, never
+# for real_main() (that one always runs the real Containerfile's own
+# literal "g++"/"gcc" text, unchanged - see its own docstring for why
+# that must stay literal). Two sources, in this order:
+#
+#  1. CMAKE_CXX_COMPILER, but ONLY when its CMAKE_CXX_COMPILER_ID is
+#     GNU/Clang/AppleClang - a compiler this project's build just used
+#     successfully to compile the whole tree, so -std=c++23/-Wall/
+#     -Wextra/-Werror/-I/-o are PROVEN accepted, not assumed. Rejected
+#     when the ID is MSVC (Windows CI's CMAKE_CXX_COMPILER is cl.exe -
+#     measured in run 34215308251: "The CXX compiler identification is
+#     MSVC"), because MSVC's flag syntax (/std:, /W4, /I, /Fe:) is not
+#     a dialect of the GNU one these fixtures speak; feeding it g++-
+#     style flags would fail with a flag-parsing error, not the real
+#     ld "undefined reference" this gate exists to prove.
+#  2. A short PATH search (g++, clang++, c++) - covers hosts where the
+#     PRODUCT itself builds with something MSVC-shaped but a GNU-
+#     compatible compiler still exists for other reasons. Windows CI's
+#     own runners are exactly this case: MinGW g++ is on PATH there
+#     (run 34215308251's Windows legs got as far as invoking cc1plus.exe
+#     - it only died on the backslash bug rewrite_build_prefix() now
+#     fixes above), even though the product build uses MSVC.
+#
+# Neither source is EVER used for anything except this selftest's own
+# throwaway fixtures.
+_GNU_COMPATIBLE_COMPILER_IDS = ("GNU", "Clang", "AppleClang")
+_SELFTEST_COMPILER_CANDIDATES = ("g++", "clang++", "c++")
+
+
+def discover_selftest_compiler(cli_compiler, cli_compiler_id):
+    if cli_compiler and cli_compiler_id in _GNU_COMPATIBLE_COMPILER_IDS:
+        return cli_compiler, f"CMAKE_CXX_COMPILER ({cli_compiler_id})"
+    for candidate in _SELFTEST_COMPILER_CANDIDATES:
+        found = shutil.which(candidate)
+        if found:
+            return found, f"achado no PATH ({candidate})"
+    return None, None
+
+
 # Two-file "production layer" (an atom.cpp/.hpp pair, mirroring
 # flush_retry_policy.cpp/.hpp) plus one fixture .cpp that calls into it
 # (mirroring display_adapter.cpp calling flush_write_wait_is_fatal()) -
 # the SAME shape as the real defect, kept hermetic (no wayland headers,
 # so this selftest never needs the host's dev packages).
-def _build_base_fixture(scratch, label, include_atom_in_link):
+def _build_base_fixture(scratch, label, include_atom_in_link, compiler):
     root = os.path.join(scratch, label)
     context_dir = os.path.join(root, "tests", "container")
     staged_dir = os.path.join(context_dir, "_arch_ports_src")
@@ -428,7 +524,7 @@ def _build_base_fixture(scratch, label, include_atom_in_link):
         "    && dnf clean all\n"
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY main_smoke.cpp /build/main_smoke.cpp\n"
-        "RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
+        f"RUN {compiler} -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
         "        -I /build/_arch_ports_src/src \\\n"
         "        -o /build/main_smoke \\\n"
         + consumer_line
@@ -442,8 +538,10 @@ def _build_base_fixture(scratch, label, include_atom_in_link):
     return root, context_dir, staged_dir, containerfile
 
 
-def _run_selftest_case(scratch, label, include_atom_in_link):
-    root, context_dir, staged_dir, containerfile = _build_base_fixture(scratch, label, include_atom_in_link)
+def _run_selftest_case(scratch, label, include_atom_in_link, compiler):
+    root, context_dir, staged_dir, containerfile = _build_base_fixture(
+        scratch, label, include_atom_in_link, compiler
+    )
     build_dir = tempfile.mkdtemp(prefix=f"glintfx-fixture-link-selftest-build-{label}-", dir=scratch)
     try:
         return run_link_check(containerfile, context_dir, staged_dir, build_dir)
@@ -451,8 +549,8 @@ def _run_selftest_case(scratch, label, include_atom_in_link):
         shutil.rmtree(build_dir, ignore_errors=True)
 
 
-def selftest_positive_control(scratch):
-    summary, errors = _run_selftest_case(scratch, "positive", include_atom_in_link=True)
+def selftest_positive_control(scratch, compiler):
+    summary, errors = _run_selftest_case(scratch, "positive", include_atom_in_link=True, compiler=compiler)
     if errors:
         print(f"selftest: controle POSITIVO FALHOU (esperava zero erros, veio {errors})", file=sys.stderr)
         return False
@@ -468,8 +566,8 @@ def selftest_positive_control(scratch):
 # atom.cpp atraves de um header que RESOLVE normalmente (a includes-
 # gate nao veria nada de errado aqui), mas a invocacao g++ nunca lista
 # atom.cpp - "undefined reference to atom_value()" no ld real.
-def selftest_missing_atom_reproves(scratch):
-    summary, errors = _run_selftest_case(scratch, "missing-atom", include_atom_in_link=False)
+def selftest_missing_atom_reproves(scratch, compiler):
+    summary, errors = _run_selftest_case(scratch, "missing-atom", include_atom_in_link=False, compiler=compiler)
     if not errors:
         print("selftest: VERMELHO FALHOU (atom.cpp ausente do link deveria ter reprovado)", file=sys.stderr)
         return False
@@ -518,7 +616,7 @@ def selftest_empty_containerfile_reproves(scratch):
 # que falta o atomo - prova que o portao acumula TODAS as falhas, nao
 # so a primeira (o defeito real mordeu 16 alvos ao mesmo tempo; um
 # portao que parasse no primeiro nunca provaria o tamanho real do dano).
-def selftest_accumulates_multiple_failures(scratch):
+def selftest_accumulates_multiple_failures(scratch, compiler):
     root = os.path.join(scratch, "multi")
     context_dir = os.path.join(root, "tests", "container")
     staged_dir = os.path.join(context_dir, "_arch_ports_src")
@@ -542,11 +640,11 @@ def selftest_accumulates_multiple_failures(scratch):
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY first_smoke.cpp /build/first_smoke.cpp\n"
         "COPY second_smoke.cpp /build/second_smoke.cpp\n"
-        "RUN g++ -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
+        f"RUN {compiler} -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
         "        -o /build/first_smoke \\\n"
         "        /build/_arch_ports_src/src/consumer.cpp \\\n"
         "        /build/first_smoke.cpp \\\n"
-        "    && g++ -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
+        f"    && {compiler} -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
         "        -o /build/second_smoke \\\n"
         "        /build/_arch_ports_src/src/consumer.cpp \\\n"
         "        /build/second_smoke.cpp\n"
@@ -572,33 +670,70 @@ def selftest_accumulates_multiple_failures(scratch):
     return True
 
 
-def selftest_main():
+# CTest's own convention for a test that legitimately did not run its
+# full coverage: a distinct SKIP_RETURN_CODE (wired in tests/
+# CMakeLists.txt next to this test's registration) renders as "Not
+# Run"/skipped, never as a silent "Passed" - GODS_LAWS.md L-40 forbids
+# reporting success when coverage shrank, and it forbids reporting
+# nothing at all just as much.
+SELFTEST_SKIP_RETURN_CODE = 77
+
+
+def selftest_main(cli_compiler=None, cli_compiler_id=None):
+    compiler, source = discover_selftest_compiler(cli_compiler, cli_compiler_id)
+    if compiler:
+        print(f"{SCRIPT_NAME} --selftest: compilador GNU-compativel para os controles sinteticos: {compiler} ({source})")
+    else:
+        print(
+            f"{SCRIPT_NAME} --selftest: nenhum compilador GNU-compativel encontrado (CMAKE_CXX_COMPILER nao e "
+            f"GNU/Clang/AppleClang e nenhum candidato {_SELFTEST_COMPILER_CANDIDATES} esta no PATH) - os 3 "
+            "controles que compilam ficam PULADOS, contados e declarados, nunca escondidos (GODS_LAWS.md L-40)",
+            file=sys.stderr,
+        )
+
     scratch = _make_scratch()
     try:
-        controls = [
-            selftest_positive_control(scratch),
-            selftest_missing_atom_reproves(scratch),
-            selftest_empty_containerfile_reproves(scratch),
-            selftest_accumulates_multiple_failures(scratch),
-        ]
+        named_results = [("empty", selftest_empty_containerfile_reproves(scratch))]
+        if compiler:
+            named_results.append(("positive", selftest_positive_control(scratch, compiler)))
+            named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
+            named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
+        else:
+            named_results.append(("positive", None))
+            named_results.append(("missing-atom", None))
+            named_results.append(("multi", None))
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
-    if not all(controls):
+
+    ran = [ok for _name, ok in named_results if ok is not None]
+    skipped = [name for name, ok in named_results if ok is None]
+    print(
+        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/4 | "
+        f"pulados (sem compilador): {len(skipped)} ({', '.join(skipped) if skipped else 'nenhum'})"
+    )
+
+    if not all(ran):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)
-    print(f"{SCRIPT_NAME} --selftest: os {len(controls)} controles OK")
+    if skipped:
+        sys.exit(SELFTEST_SKIP_RETURN_CODE)
+    print(f"{SCRIPT_NAME} --selftest: os {len(ran)} controles OK")
 
 
 def main():
     args = sys.argv[1:]
     if args and args[0] == "--selftest":
-        selftest_main()
+        rest = args[1:]
+        cli_compiler = rest[0] if len(rest) >= 1 and rest[0] else None
+        cli_compiler_id = rest[1] if len(rest) >= 2 else None
+        selftest_main(cli_compiler, cli_compiler_id)
     elif args and args[0] == "--exec":
         real_main(args[1:])
     else:
         fail(
             "usage: check_container_fixture_link.py --exec "
-            "<Containerfile> <context-dir> <staged-dir> <repo-root>  |  --selftest"
+            "<Containerfile> <context-dir> <staged-dir> <repo-root>  |  "
+            "--selftest [<cmake-cxx-compiler> <cmake-cxx-compiler-id>]"
         )
 
 

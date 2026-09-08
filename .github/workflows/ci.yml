@@ -260,7 +260,7 @@ jobs:
       - name: Instalar toolchain
         run: ${{ matrix.instalar }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # git config --global --add safe.directory (DEPZERO-TRACE, CAUSA 1
       # do bloqueador de estreia, GHA run 33248706044, branch
@@ -428,7 +428,7 @@ jobs:
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity-inv-linux-${{ strategy.job-index }}
           path: parity_inventory.txt
@@ -498,7 +498,7 @@ jobs:
 
       - name: Publicar MEASURED (${{ matrix.modo }})
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: measured-linux-${{ strategy.job-index }}
           path: measured_linux.txt
@@ -520,7 +520,7 @@ jobs:
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # PRECI-WIN-SELFTEST: tools/preci.ps1 -Selftest era um passo cru
       # aqui, rodando PRIMEIRO (antes do preparo pesado de MSVC/CMake,
@@ -800,7 +800,7 @@ jobs:
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity-inv-windows-${{ strategy.job-index }}
           path: parity_inventory.txt
@@ -879,7 +879,7 @@ jobs:
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
 
       - name: Publicar MEASURED (${{ matrix.modo }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: measured-windows-${{ strategy.job-index }}
           path: measured_windows.txt
@@ -1003,19 +1003,19 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # `parity-inv-linux-*` ja casa com `parity-inv-linux-container`
       # (P-0) sem mudar este `pattern` - nenhuma linha nova aqui, so o
       # `needs` acima muda.
       - name: Baixar inventarios Linux
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: parity-inv-linux-*
           path: inventarios/linux
 
       - name: Baixar inventarios Windows
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: parity-inv-windows-*
           path: inventarios/windows
@@ -1095,13 +1095,13 @@ jobs:
       # container` sem mudar o `pattern`, mesma forma que os
       # inventarios `parity-inv-linux-*` acima ja usam.
       - name: Baixar MEASURED Linux
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: measured-linux-*
           path: medidas/linux
 
       - name: Baixar MEASURED Windows
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: measured-windows-*
           path: medidas/windows
@@ -1139,7 +1139,7 @@ jobs:
     name: Container Wayland isolado (TEST-WLCONT, L-09)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # P-0's own declared blind spot, fechado nesta mesma fatia
       # (tests/tools/check_container_fixture_inventory.py's proprio
@@ -1158,7 +1158,7 @@ jobs:
           python3 tests/tools/check_container_fixture_inventory.py --compare \
             tests/container/Containerfile .github/workflows/ci.yml
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # ARCH-PORTS, TDD case R4: stages the REAL wayland_display_
       # adapter/err.cpp/err_code.cpp sources into tests/container/
@@ -1178,7 +1178,7 @@ jobs:
       # sem registry externo. `load: true` poe a imagem no daemon
       # docker local do runner, porque os passos seguintes falam com
       # ela via `docker run`/`docker exec`, nao via `docker push`.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: tests/container
           file: tests/container/Containerfile
@@ -1575,7 +1575,7 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar MEASURED do container (MEASURED-COLLECTOR)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: measured-linux-container
           path: measured_linux_container.txt
@@ -1590,7 +1590,7 @@ jobs:
       # nenhuma mudanca no proprio job de download - so o `needs`
       # muda (ver comentario do job `parity`).
       - name: Publica o inventario do container (P-0)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: parity-inv-linux-container
           path: parity_inventory.txt
@@ -1687,7 +1687,7 @@ jobs:
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel clang-tools-extra cppcheck
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # PRECI-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40): tools/
       # preci.sh --selftest nunca rodava em lugar nenhum. O teste
@@ -1762,7 +1762,7 @@ jobs:
     name: Windows - Lint (clang-tidy sobre src/platform/win32)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE) -
       # CMAKE_EXPORT_COMPILE_COMMANDS precisa de um CMake que atenda o
@@ -1936,7 +1936,7 @@ jobs:
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel libasan libubsan
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # GODS_LAWS.md L-23 portao 2 ("ASan e UBSan a cada fatia fechada").
       # `ctest -L unit` apenas (dentro de tools/preci.sh): os gates de
@@ -1980,7 +1980,7 @@ jobs:
     name: Windows - Sanitizer (ASan)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE).
       - name: Instalar CMake >= 4.1 (Windows)
@@ -2106,7 +2106,7 @@ jobs:
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel python3
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # GODS_LAWS.md L-40 / TODO.md GATE-DEBUG / DECISOES_AUTONOMAS.md
       # D4: -DCMAKE_BUILD_TYPE=Release (todo OUTRO job desta matriz)
@@ -2161,7 +2161,7 @@ jobs:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Mesmo passo do job `windows`/`windows-sanitizer` acima (CI-WIN-ENV/PKG-NATIVE).
       - name: Instalar CMake >= 4.1 (Windows)
@@ -2336,7 +2336,7 @@ jobs:
           dnf -y install clang cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Versao do Clang
         run: clang++ --version
@@ -2395,7 +2395,7 @@ jobs:
       # .gitleaksignore); o checkout raso default (profundidade 1) so
       # exporia o ultimo commit ao scanner, dando falsa sensacao de
       # cobertura completa.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -2413,7 +2413,7 @@ jobs:
     name: Gate das leis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # GODS_LAWS.md L-05 (Wayland puro) e L-06 (parser de keymap
       # proprio) NAO estao mais aqui. Item GATE-TREE-PARITY (GODS_LAWS.md

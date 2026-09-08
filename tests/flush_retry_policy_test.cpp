@@ -59,3 +59,24 @@ GLINTFX_TEST(flush_retry_policy_nonzero_budget_timeout_is_fatal) {
 GLINTFX_TEST(flush_retry_policy_nonzero_budget_poll_failure_is_fatal) {
     GLINTFX_CHECK(flush_write_wait_is_fatal(100, bounded_wait_outcome::poll_failed));
 }
+
+// FRONTEIRA NAO EXERCITADA (revisao adversarial, 08/09/2026, GODS_LAWS.md
+// L-17): os quatro casos acima so usam budget_ms 0 e 100 - a faixa 1..99
+// nunca foi tocada por ninguem. A regra real (flush_retry_policy.cpp) tem
+// UMA fronteira logica so: budget_ms == 0 (perdoado) contra qualquer
+// budget_ms != 0 (fatal). Uma mutacao que trocasse `!= 0` por `> K` para
+// qualquer K >= 1 sobreviveria aos quatro casos existentes sem que nada
+// ficasse vermelho - provado por mutation testing contra `> 1`
+// especificamente (relatorio da fatia, nao versionado aqui).
+//
+// Um unico caso fecha essa fronteira inteira: budget_ms == 1 e o valor
+// nao-zero MAIS PROXIMO do zero ja coberto acima - e por isso o unico
+// ponto onde a regra correta (fatal, porque 1 != 0) e QUALQUER mutante
+// da familia `budget_ms > K` (K >= 1) divergem sempre (1 > K e falso
+// para todo K >= 1). Nao ha necessidade de enumerar os demais valores de
+// 2 a 99: nenhum outro mutante plausivel dessa comparacao introduz uma
+// segunda fronteira ali - a unica fronteira que a regra em si declara e
+// 0 contra nao-zero, e este caso e o ponto mais estreito dela.
+GLINTFX_TEST(flush_retry_policy_boundary_budget_of_one_timeout_is_fatal) {
+    GLINTFX_CHECK(flush_write_wait_is_fatal(1, bounded_wait_outcome::timed_out));
+}

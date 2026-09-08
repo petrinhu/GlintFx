@@ -2647,3 +2647,27 @@ para o que a medicao exigir, sem voltar a perguntar a cada pacote.
 maquina alugada do servidor usa, e sem ele era impossivel medir a causa do defeito de
 semanas do item `PKG-WIN-INTEROP`.
 
+## 08/09/2026 - 10:40 | ORDEM DO LIDER: a marca conta as fatias atrasadas do envio
+
+**Verbatim:** *"cada fatia atrasada vai aumentar +1 em v_._.x._"*, esclarecido em seguida:
+*"cada fatia que está atrasada será empurrada no final por mim e cresce +1 no terceiro
+numero"*.
+
+**A regra, operacional:** o TERCEIRO componente da versao (`vA.B.X.D`) cresce **+1 por fatia
+atrasada que entrar no envio**. Nao e por onda: e por fatia. Dois itens atrasados no mesmo
+envio somam dois.
+
+**Exemplo com o estado de hoje:** ultima marca `v0.3.1.0`. Se o envio levar so o fechamento
+de `PKG-WIN-INTEROP` (uma fatia atrasada), a marca sai `v0.3.2.0`. Se levar duas, `v0.3.3.0`.
+
+**O que a regra faz, e por isso ela existe:** o numero da versao passa a **carregar o
+tamanho do atraso**, em vez de escondê-lo. Ate hoje de manha, sete de nove ondas estavam
+abertas e a tabela nao gritava isso; a numeracao passa a gritar.
+
+**Quem empurra:** ele. Verbatim: *"sera empurrada no final por mim"*. O modo autonomo esta
+desligado desde 08/09 10:21, e envio e marca dependem de autorizacao dele, uma a uma.
+
+**O que NAO muda:** os dois primeiros componentes e o quarto seguem a lei de versao do
+projeto (`vA.B.C.D`, `SOVERSION` acompanha o primeiro). A marca so sai com o servidor verde
+no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
+

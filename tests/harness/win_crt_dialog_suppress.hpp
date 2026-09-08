@@ -91,6 +91,20 @@
 // diagnostic, never hangs silently - the same declared downgrade win_
 // dll_alloc_hook.hpp's own header already carries for its own Windows-
 // only half.
+//
+// SECOND CONSUMER (WIN-HANG-2, 07/09/2026, GODS_LAWS.md L-17): tests/
+// harness/harness_main.cpp - the shared entry point of every glintfx_
+// add_test()-registered case, not a standalone-compiled fixture - now
+// includes this header directly (a plain #include, not /FI: harness_
+// main.cpp IS the translation unit whose own main() runs, so there is
+// no separate source file to force it into). The "runs before main"
+// guarantee this file's own comment documents above holds identically
+// either way - only the INCLUSION MECHANISM differs by consumer, never
+// the ordering guarantee it relies on. This closes the gemeo the first
+// consumer alone left open: the identical silent-hang risk (assert()
+// live on the same "Windows - Debug" job) existed for every OTHER
+// glintfx_add_test() case for two weeks after VERMELHO 3 fixed only
+// precondition_fixture.cpp.
 
 #if defined(_MSC_VER)
 

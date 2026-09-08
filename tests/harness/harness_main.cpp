@@ -6,6 +6,56 @@
 
 #include "check.hpp"
 #include "test_registry.hpp"
+#include "win_crt_dialog_suppress.hpp"
+
+// WIN-HANG-2 (07/09/2026, run 34172428046, job "Windows - Debug", GODS_
+// LAWS.md L-17/L-40/L-49): gfx_open_only_fixation_test hung the full 120s
+// DART_TESTING_TIMEOUT with ZERO output - not even its own FIRST case's
+// "[PASS]"/"[FAIL]" line ever printed (proved from the runner's own log,
+// L-49: the fonte de dentro do processo, not a dashboard summary). That
+// silence is the same shape win_crt_dialog_suppress.hpp's own header
+// comment already names for VERMELHO 3 (04/09/2026): a debug-CRT assert()/
+// abort() dialog blocks the ENTIRE process before any further stdout/
+// stderr line is ever written, on the one Windows job (Debug) where
+// assert() is not compiled out by NDEBUG.
+//
+// THE GEMEO THIS CLOSES (L-17): win_crt_dialog_suppress.hpp was written
+// and proven for exactly ONE binary (tests/precondition_fixtures/
+// precondition_fixture.cpp, force-included via /FI from check_rslt_
+// precondition.py's own compile_fixture() - that binary is compiled
+// standalone, outside this harness, so /FI was the only way to reach it).
+// It was never wired into THIS file - the shared entry point every OTHER
+// glintfx_add_test()-registered case links against (55 targets in tests/
+// CMakeLists.txt, all "unit"-labeled, gfx_open_only_fixation_test among
+// them) - so the fix existed for one test and not for the other 55 that
+// share the exact same risk (assert() live, same job, same silent-hang
+// mechanism). A plain #include here (not /FI) is enough: this TU's own
+// dynamic initialization - win_crt_dialog_suppress.hpp's own g_auto_
+// suppress object - still completes before ITS OWN main() below runs,
+// the identical guarantee the header's comment already documents for the
+// force-included case.
+//
+// DECLARED SCOPE (L-49): this closes the gap for every case that shares
+// THIS entry point. It does not reach the 19 test executables in this
+// tree that carry their OWN main() outside this file (tests/container/*,
+// tests/parity/*, tests/embed*/main.cpp, tests/package/main.cpp, tests/
+// raw_link/main.cpp) - extending this same mitigation to those is a
+// separate, larger fatia (each has its own build/launch path) and is
+// left untouched here, named rather than silently out of scope.
+//
+// NOT PROVEN HERE, NAMED SO NOBODY ASSUMES IT SILENTLY: this project has
+// no Windows machine (GODS_LAWS.md L-04/L-44) - whether an assert() (and
+// which one) actually fires inside gfx_open_only_fixation_test's own
+// process was NOT identified by reading its call path (resolve_gfx_
+// open_only_fixation() and every function it calls were read end to end;
+// none reaches an assert() or a gltfx_rslt<T>::value()/error() misuse).
+// This change does not claim to have found or fixed that root cause - it
+// closes the ENVIRONMENT half GODS_LAWS.md L-17 demands regardless (a
+// portao/mecanismo that dies instead of reporting is worse than one that
+// is merely less convenient, L-36): the next real Windows Debug run
+// either passes (the blocking call was the whole story) or fails LOUD
+// with a stderr message naming the real fault, in place of today's silent
+// timeout.
 
 // harness_main.cpp - entry point of the in-house harness (FUND-1).
 //

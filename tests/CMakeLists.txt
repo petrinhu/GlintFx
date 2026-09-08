@@ -849,6 +849,24 @@ target_sources(loop_callbacks_validation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
 )
 
+# loop_open_alloc_failure_test - LOOP-RUN fatia 6b (docs/plano-w6b-
+# fatias-6-8.md sec. 8.3, F17, GODS_LAWS.md L-20/L-22/L-27): recompiles
+# loop_impl.cpp a SECOND time, straight into this test binary - the
+# SAME "no GLINTFX_API, no DLL boundary to cross" technique gfx_open_
+# only_fixation_test above already uses (that target's own comment) -
+# so this test's own TU-local operator new/new(nothrow) overrides are
+# sufficient on every platform, Windows/SHARED included, with no win_
+# dll_alloc_hook.hpp companion needed (loop_open_alloc_failure_test.cpp's
+# own header comment gives the full reasoning). Registers unguarded,
+# same as frame_tick_state_test/frame_cap_schedule_test/loop_callbacks_
+# validation_test right above: allocate_loop_impl() touches no
+# operating-system header (loop_impl.hpp's own header comment).
+glintfx_add_test(loop_open_alloc_failure_test)
+target_include_directories(loop_open_alloc_failure_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(loop_open_alloc_failure_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_

@@ -24,9 +24,9 @@ This section states what actually exists in the source tree today, not what is p
 - **`glintfx::gltfx_gl_context`** (`include/glintfx/platform/gl/context.hpp`): the public shape of an OpenGL 3.3 core graphics context opened over a window is frozen, and the platform-independent decision logic behind it (option validation, the GPU-kind vocabulary, the graphics-option table) is built and tested without needing a real GPU. The platform-specific code that actually asks Wayland/EGL or Win32/WGL for a real, live context is landing now, at different stages on each platform. [`docs/gl-loop-portability-matrix.md`](docs/gl-loop-portability-matrix.md) states, row by row, exactly what each platform can already do versus what is still not implemented - read it before assuming this handle draws anything today, because that answer changes as this part of the library is actively being built.
 - **`glintfx::gltfx_loop`** (`include/glintfx/platform/loop/loop.hpp`): the public shape of the main loop every consumer will eventually organize a frame around (one call that pumps events, ticks time and presents; or three separate calls for a consumer with its own loop shape) is frozen, with its guarantees written down in the header itself. The loop is **not implemented yet** - the header declares the surface, not a working implementation, so calling it does not yet produce a running program.
 
-**Not implemented yet:** 2D rendering (an internal OpenGL function loader exists, `src/render/`, but nothing draws a shape or an image yet), input event delivery (keyboard, mouse, gamepad), audio, font rendering, asset loading, and the map format. A style-sheet parser and a selector-matching engine for a future style/layout engine already exist internally (see [`docs/node-view-and-matching.md`](docs/node-view-and-matching.md) for the one part of that engine that is a public contract today), but there is no public API for styling or layout yet. There is no working demo application yet. If you need any of the above today, glintfx is not ready for you. Watch [`TODO.md`](TODO.md) (in Portuguese, the maintainer's working language) for progress, or the [releases page](https://github.com/petrinhu/GlintFx/releases) for the first tagged version.
+**Not implemented yet:** 2D rendering (an internal OpenGL function loader exists, `src/render/`, but nothing draws a shape or an image yet), input event delivery (keyboard, mouse, gamepad), audio, font rendering, asset loading, and the map format. A style-sheet parser and a selector-matching engine for a future style/layout engine already exist internally (see [`docs/node-view-and-matching.md`](docs/node-view-and-matching.md) for the one part of that engine that is a public contract today), but there is no public API for styling or layout yet. There is no working demo application yet. If you need any of the above today, glintfx is not ready for you. Watch [`TODO.md`](TODO.md) (in Portuguese, the maintainer's working language) for progress; the first tagged version is covered right below, under "Status".
 
-**No version has been tagged yet.** There is no ABI or file-format compatibility guarantee before the first `1.0.0.0` tag; see "Versioning" below for exactly what that means.
+**The first version has been tagged: `v0.2.0.0`, pushed 05/09/2026.** Tagging is not the same as publishing a release: as of this writing there is no GitHub Release page entry for it (checked directly against the repository, not assumed from this file), so the tag's own annotated message, not a release-notes page, is the authoritative description of what it marks and what it does not guarantee - read it with `git show v0.2.0.0` on a clone. There is still no ABI or file-format compatibility guarantee across a `MAJOR` bump before `1.0.0.0`; see "Versioning" below for exactly what that means, and "Pinning a version" below for what a consumer can do with this tag today.
 
 ## Supported platforms
 
@@ -108,19 +108,19 @@ glintfx tracks **three separate compatibility contracts**, not two, because a bi
 
 "Pinning" means telling your build to always use one exact, specific copy of glintfx, instead of whatever the latest commit happens to be at the moment you build. **If you do not pin, a later build of your own project can silently pull in a glintfx that compiles differently, links differently, or behaves differently than the one you tested against** - before 1.0 (see the table above), that is not a rare edge case, it is the expected state of this repository at any given moment.
 
-**No version has been tagged yet** (see "Status" above), so there is no `v0.x.y.z` tag to pin to today. The honest, working mechanism right now is to pin to an exact Git commit, the same identifier `git log` shows you for any commit:
+**The first version has been tagged: `v0.2.0.0`** (see "Status" above). Pin to it directly - `GIT_TAG` takes a tag name exactly the way it takes a commit SHA:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
   glintfx
   GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
-  GIT_TAG        <full 40-character commit SHA you tested against>
+  GIT_TAG        v0.2.0.0
 )
 FetchContent_MakeAvailable(glintfx)
 ```
 
-Replace `<full 40-character commit SHA you tested against>` with a real one, for example one you find by running `git ls-remote https://github.com/petrinhu/GlintFx.git main`. Once glintfx tags its first `v1.0.0.0`, the same `GIT_TAG` field takes a tag name instead of a commit SHA, and from then on the table above governs what a version bump does and does not break. See ["Embedding via `add_subdirectory`/`FetchContent`"](PACKAGING.md#embedding-via-add_subdirectoryfetchcontent) in `PACKAGING.md` for the full embedding reference, and the wiki's [Pinning a Version](https://github.com/petrinhu/GlintFx/wiki/Pinning-a-Version) page for a walkthrough written for someone doing this for the first time.
+A raw commit SHA still works in the same `GIT_TAG` field (find one with `git ls-remote https://github.com/petrinhu/GlintFx.git main`), and is the only option if you need a point between two tags, but a tag name is easier for a teammate to recognize later. **This is not a stability promise:** `v0.2.0.0` is still pre-1.0, `SOVERSION` is still `0`, and the table above governs what a future version bump does and does not break - none of it applies yet, because `MAJOR` itself has not moved past `0`. See ["Embedding via `add_subdirectory`/`FetchContent`"](PACKAGING.md#embedding-via-add_subdirectoryfetchcontent) in `PACKAGING.md` for the full embedding reference, and the wiki's [Pinning a Version](https://github.com/petrinhu/GlintFx/wiki/Pinning-a-Version) page for a walkthrough written for someone doing this for the first time.
 
 ## API reference
 
@@ -128,7 +128,7 @@ The public error-handling contract (the type every fallible function returns, wh
 
 ## Changes
 
-See [`CHANGELOG.md`](CHANGELOG.md). No version has shipped yet, so it is currently empty of releases: it exists so the first tag has somewhere to land.
+See [`CHANGELOG.md`](CHANGELOG.md). `v0.2.0.0` was tagged 05/09/2026 (see "Status" above), but as of this writing the changelog itself has not yet been updated to reflect that: it still lists every entry under `[Unreleased]`, with none split into that tag's own section. That gap is tracked, not silently accepted as done.
 
 ## License
 

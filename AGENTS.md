@@ -66,24 +66,35 @@ later, silently start compiling against a different glintfx than the one
 that was tested - the failure mode ranges from a compiler error to a
 runtime bug with no compile-time signal at all.
 
-**No version has been tagged yet.** There is no `v1.0.0.0`, and no
-`v0.x.y.z` either - do not write a `GIT_TAG` that names one, it does not
-exist. The only correct mechanism today is to pin to an exact Git commit:
+**The first version has been tagged: `v0.2.0.0`, pushed 05/09/2026.** It
+is not accompanied by a formal GitHub Release (checked directly against
+the repository: no entry exists on the releases page as of this
+writing) - the tag's own annotated message (`git show v0.2.0.0` on a
+clone) is the authoritative description of what it marks, not a
+release-notes page. Its own `CHANGELOG.md` has not been updated to
+reflect it either: every entry still sits under `[Unreleased]`, a known
+gap, not silently accepted as done.
+
+Pin `GIT_TAG` to the tag name directly:
 
 ```bash
-git ls-remote https://github.com/petrinhu/GlintFx.git main
+GIT_TAG v0.2.0.0
 ```
 
-Take the 40-character commit hash that prints, and put it in `GIT_TAG`
-above. Re-run that command and update the value yourself whenever you
-deliberately want a newer glintfx - nothing does this automatically,
-which is exactly the point.
+A raw commit hash still works in the same field (find one with
+`git ls-remote https://github.com/petrinhu/GlintFx.git main`), and is
+the only option if you need a point between two tags, but prefer the
+tag name once it covers the commit you want: it tells the next person
+what was tested without anyone looking up a hash.
 
-Once glintfx tags its first release, `vMAJOR.MINOR.PATCH.TWEAK` becomes
-the thing to pin to, and the version number itself tells you what
-changed - full rules in the README's ["Versioning and compatibility"](README.md#versioning-and-compatibility)
+`vMAJOR.MINOR.PATCH.TWEAK` is the thing to pin to now, and the version
+number itself tells you what changed - full rules in the README's
+["Versioning and compatibility"](README.md#versioning-and-compatibility)
 section (a human-oriented walkthrough of the same material lives in the
 project's [wiki](https://github.com/petrinhu/GlintFx/wiki/Pinning-a-Version)).
+**`v0.2.0.0` still carries the pre-1.0 caveat above: `MAJOR` is `0`,
+`SOVERSION` is `0`, and there is no cross-version compatibility promise
+until `1.0.0.0`.**
 
 ## Working inside this repository
 

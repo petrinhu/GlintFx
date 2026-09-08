@@ -60,40 +60,46 @@ section; this page only explains the number, not the whole contract.
 
 ## What to pin, right now
 
-**No version has been tagged yet.** There is no `v1.0.0.0`, not even a
-`v0.1.0.0`, to reference - the honest statement, not a simplification.
-Until the first tag exists, the only working way to pin glintfx is to
-reference one exact Git commit, using CMake's `FetchContent`:
+**The first tag exists: `v0.2.0.0`, pushed 05/09/2026.** It is not
+accompanied by a formal GitHub Release yet - checked directly against
+the repository, there is no entry on the
+[releases page](https://github.com/petrinhu/GlintFx/releases) for it,
+so the tag's own message on the commit it marks is the real description
+of what changed, not a release-notes page. Pin to the tag name directly,
+using CMake's `FetchContent`:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
   glintfx
   GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
-  GIT_TAG        a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2   # <- your real commit here
+  GIT_TAG        v0.2.0.0
 )
 FetchContent_MakeAvailable(glintfx)
 
 target_link_libraries(my_app PRIVATE glintfx::glintfx)
 ```
 
-To get a real commit to put there, run:
+A raw commit hash still works in the same `GIT_TAG` field - find one
+with:
 
 ```bash
 git ls-remote https://github.com/petrinhu/GlintFx.git main
 ```
 
-That prints the exact 40-character commit currently at the tip of `main` -
-copy it into `GIT_TAG` above. Every time you want to intentionally pick up
-newer glintfx changes, you run that command again and update the value
-yourself; nothing updates it for you, which is the entire point of
-pinning.
+That prints the exact 40-character commit currently at the tip of
+`main`, and is the only option if you need a point between two tags.
+Once a named tag covers the commit you want, prefer it instead: it
+tells a teammate what was tested without anyone looking up a hash.
 
-**Once glintfx tags its first release**, the same `GIT_TAG` field takes a
-tag name (`v1.0.0.0`) instead of a raw commit, and the version-number table
-above starts telling you exactly what changed between tags. Until then,
-treat every commit as its own, independent, breaking-change-possible
-release.
+**glintfx has already reached this state once, with `v0.2.0.0`: the
+version-number table above tells you exactly what changed getting
+there** (the tag's own message, `git show v0.2.0.0`, has the details;
+`CHANGELOG.md` will too, once it is updated to match - as of this
+writing it still lists everything under `[Unreleased]`, a known gap).
+What has not changed is the pre-1.0 caveat: until `MAJOR` reaches `1`,
+treat every tag, `v0.2.0.0` included, as still allowed to break API,
+ABI or file format at the next one.
 
 ## See also
 

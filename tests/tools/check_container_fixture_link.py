@@ -89,6 +89,17 @@ import tempfile
 SCRIPT_NAME = "check_container_fixture_link.py"
 STDERR_TAIL_LINES = 20
 
+# Shared between --exec (real_main) and --selftest (selftest_main): this
+# gate DECLINES to run for real when the HOST is missing something it
+# needs (a GNU-compatible compiler for --selftest's own synthetic
+# fixture, or the wayland dev packages --exec needs to run the real
+# Containerfile's own g++/wayland-scanner outside the container) -
+# CTest's own SKIP_RETURN_CODE convention renders this distinctly from
+# both PASS and FAIL, and prepare_arch_ports_fixture.sh's own
+# verify_fixture_link() (the shell caller of --exec) checks for this
+# exact value too, so both callers agree on what "skip" means.
+GATE_SKIP_RETURN_CODE = 77
+
 
 def fail(message):
     print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
@@ -405,15 +416,46 @@ def real_main(args):
             "(este portao le a fixture ja estagiada, nunca a estagia sozinho)"
         )
 
+    # CONSERTO 08/09/2026 (server run 34215308251, job "Container Wayland
+    # isolado", GODS_LAWS.md L-17/L-36): this used to fail() (exit 1,
+    # REPROVADO) when the host lacked these packages - the exact same
+    # "congela um fato do ambiente do autor" shape as --selftest's own
+    # hardcoded "g++" above, just one probe layer deeper (an ASSUMED
+    # DEV PACKAGE instead of an assumed COMPILER NAME). Measured live:
+    # the ONE CI job that ever calls --exec (wayland-container, ubuntu-
+    # latest) never provisions libwayland-dev/wayland-protocols on the
+    # HOST - it only needs them INSIDE the Docker image `docker build`
+    # produces right after this script runs, so the host missing them
+    # is a real, standing fact of that job's own design, not a bug to
+    # paper over here. Per GODS_LAWS.md L-14 this gate still NEVER
+    # installs anything on its own - the fix is not to provision the
+    # packages, it is for the gate to decline gracefully: a declared,
+    # counted skip (never a silent pass, never a hard failure) that
+    # leaves the REAL ground truth to `docker build`'s own g++ running
+    # INSIDE the container right after this step, same as before this
+    # gate existed. Where the host DOES have these packages (this
+    # project's own dev machines, per CLAUDE.md's own "Ferramental de
+    # protocolo instalado e conferido em 21/08/2026"), this loop finds
+    # nothing missing and the real link check below still runs for
+    # real, exactly as before this fix (unchanged on every host that
+    # already carries these packages).
+    missing_packages = []
     for pkg in ("wayland-client", "wayland-protocols"):
         probe = subprocess.run(["pkg-config", "--exists", pkg])
         if probe.returncode != 0:
-            fail(
-                f"pkg-config nao encontra '{pkg}' neste host - este portao roda os mesmos g++/"
-                "wayland-scanner do Containerfile FORA do container, e precisa dos mesmos pacotes "
-                "de desenvolvimento que 'cmake --build' ja exige (GODS_LAWS.md L-14: instale-os "
-                "com autorizacao do lider antes de rodar este portao, nunca por conta propria)"
-            )
+            missing_packages.append(pkg)
+    if missing_packages:
+        print(
+            f"{SCRIPT_NAME}: PULADO - pkg-config nao encontra {missing_packages} neste host. Este "
+            "portao roda os mesmos g++/wayland-scanner do Containerfile FORA do container, contra "
+            "os pacotes de desenvolvimento que o HOST precisaria ter para isso (GODS_LAWS.md L-14: "
+            "instala-los exige autorizacao do lider, e este portao nunca instala por conta propria) "
+            "- o `docker build` que roda logo depois continua sendo a prova real do link, DENTRO do "
+            "container, que ja tem esses pacotes; isto e so o atalho barato que fica indisponivel "
+            "neste host especifico.",
+            file=sys.stderr,
+        )
+        sys.exit(GATE_SKIP_RETURN_CODE)
 
     build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-", dir=os.environ.get("TMPDIR"))
     try:
@@ -670,15 +712,6 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
     return True
 
 
-# CTest's own convention for a test that legitimately did not run its
-# full coverage: a distinct SKIP_RETURN_CODE (wired in tests/
-# CMakeLists.txt next to this test's registration) renders as "Not
-# Run"/skipped, never as a silent "Passed" - GODS_LAWS.md L-40 forbids
-# reporting success when coverage shrank, and it forbids reporting
-# nothing at all just as much.
-SELFTEST_SKIP_RETURN_CODE = 77
-
-
 def selftest_main(cli_compiler=None, cli_compiler_id=None):
     compiler, source = discover_selftest_compiler(cli_compiler, cli_compiler_id)
     if compiler:
@@ -716,7 +749,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)
     if skipped:
-        sys.exit(SELFTEST_SKIP_RETURN_CODE)
+        sys.exit(GATE_SKIP_RETURN_CODE)
     print(f"{SCRIPT_NAME} --selftest: os {len(ran)} controles OK")
 
 

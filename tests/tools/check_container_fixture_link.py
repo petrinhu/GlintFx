@@ -81,6 +81,7 @@
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -215,15 +216,35 @@ def apply_copy(src_token, dst_token, context_dir, staged_dir, build_dir):
 _OUTPUT_RE = re.compile(r"-o\s+(\S+)")
 
 
+# CONSERTO 08/09/2026 (server run 34221347502, GODS_LAWS.md L-17/L-42/
+# L-49): every classifier below used to split a subcommand with plain
+# `str.split()` - fine while every token was bare text, but --selftest's
+# own fixture builders below now wrap the HOST-discovered compiler
+# token in shlex.quote() (see the comment beside its three call sites),
+# so a subcommand can legitimately read `'C:\mingw64\bin\g++.EXE'
+# -std=c++23 ...` - a single quoted argv[0], not four words. `str.
+# split()` does not know shell quoting and would hand os.path.basename()
+# the quote character glued to the token, breaking is_compile_line()'s
+# own regex match at the trailing `'`. shlex.split() (POSIX mode, the
+# default) parses this exactly the way `sh -c` itself will - single
+# quotes strip and the backslash-laden path inside them survives whole,
+# same behaviour real_main()'s own plain/unquoted Containerfile text
+# already got from plain split() (POSIX-mode shlex on unquoted ASCII
+# text with no stray backslash is identical to str.split()).
+def _tokenize(subcommand):
+    return shlex.split(subcommand, posix=True)
+
+
 def target_label(subcommand):
     match = _OUTPUT_RE.search(subcommand)
     if match:
         return match.group(1)
-    return subcommand.split()[0] if subcommand.split() else "<vazio>"
+    tokens = _tokenize(subcommand)
+    return tokens[0] if tokens else "<vazio>"
 
 
 def is_dnf_line(subcommand):
-    tokens = subcommand.split()
+    tokens = _tokenize(subcommand)
     return bool(tokens) and tokens[0] == "dnf"
 
 
@@ -246,14 +267,14 @@ _COMPILE_TOKEN_RE = re.compile(
 
 
 def is_compile_line(subcommand):
-    tokens = subcommand.split()
+    tokens = _tokenize(subcommand)
     if not tokens:
         return False
     return bool(_COMPILE_TOKEN_RE.match(os.path.basename(tokens[0])))
 
 
 def is_wayland_scanner_line(subcommand):
-    tokens = subcommand.split()
+    tokens = _tokenize(subcommand)
     return bool(tokens) and tokens[0] == "wayland-scanner"
 
 
@@ -281,6 +302,56 @@ def is_wayland_scanner_line(subcommand):
 # obviously correct here than routing through a platform-dependent
 # constant to reach the same string) is a no-op on a build_dir that
 # has none and the actual fix on the one that does.
+#
+# CONSERTO 08/09/2026 (server run 34221347502, GODS_LAWS.md L-17): the
+# SAME symptom (a Windows backslash path dying inside sh -c) bit a
+# SECOND host-discovered token - the compiler executable shutil.which()
+# finds for --selftest's own synthetic fixtures (see the comment beside
+# discover_selftest_compiler() and its three call sites below). That
+# token is treated DIFFERENTLY on purpose - shlex.quote(), not the
+# forward-slash rewrite this function does - and the difference is not
+# an inconsistency, it is the shape of what each string IS:
+#   - build_dir here is a SUBSTRING inside a larger path literal that
+#     is otherwise fixed, unquoted text baked into the Containerfile
+#     ("/build/_arch_ports_src/src/consumer.cpp", etc.) - there is no
+#     single standalone token to hand to shlex.quote(), only a prefix
+#     glued to a compile-time-known suffix, so this function's own
+#     approach (normalize the separator, forward slashes are native to
+#     every tool in this chain - MinGW g++/cc1plus included, confirmed
+#     against MinGW's own bug tracker before landing the original fix)
+#     is the one that fits the shape of the data.
+#   - the compiler token is the OPPOSITE shape: one whole, standalone
+#     argv[0], never concatenated with anything else in the text. It
+#     is also the token is_compile_line() below has to recognize BY
+#     its own literal spelling (a Windows path IS its real, portable
+#     form here - MinGW accepting forward slashes is a toolchain fact,
+#     not a shell-safety guarantee, and the research that grounded this
+#     fix found no requirement that a compiler PATH be rewritten to
+#     satisfy sh, only that it be quoted correctly for sh) - shlex.
+#     quote() (Python docs, docs.python.org/3/library/shlex.html:
+#     "Return a shell-escaped version of the string s") wraps it in
+#     single quotes, which POSIX guarantees preserve every character
+#     inside literally (Open Group, 2.2.2 Single-Quotes) - backslash
+#     AND a future space in the path (e.g. "C:\Program Files\mingw64\
+#     bin\g++.exe", a real, common Windows shape this fixture had not
+#     yet hit) both survive intact. The stdlib doc's own warning that
+#     shlex.quote() "is not guaranteed to be correct on non-POSIX
+#     compliant shells ... such as Windows" does NOT apply here: the
+#     interpreter actually consuming this text is `sh` (confirmed a
+#     real POSIX shell on GitHub Actions' windows-latest runners - Git
+#     for Windows' own sh.exe, not cmd.exe), never a native Windows
+#     shell.
+#
+# A same-shape forward-slash rewrite WAS considered for the compiler
+# token too, and rejected: this exact file already tried "normalize to
+# the one environment fact currently known to work" TWICE for this
+# family of defect (the compile-token regex fix and this very function,
+# both cited above) and both times the fix congealed on the CASE that
+# had been measured, leaving the next shape of the same defect alive.
+# GODS_LAWS.md's own order for this wave is explicit: "Nao busque o
+# mais facil, busque o melhor e mais completo." Quoting closes the
+# family (any special character a path can carry), not just the one
+# character this run's log happened to show.
 def rewrite_build_prefix(subcommand, build_dir):
     build_dir_for_shell = build_dir.replace("\\", "/")
     return subcommand.replace("/build", build_dir_for_shell)
@@ -560,13 +631,24 @@ def _build_base_fixture(scratch, label, include_atom_in_link, compiler):
     consumer_line = "        /build/_arch_ports_src/src/consumer.cpp \\\n"
     atom_line = "        /build/_arch_ports_src/src/atom.cpp \\\n" if include_atom_in_link else ""
 
+    # shlex.quote(): compiler is a whole, standalone argv[0] discovered
+    # from the HOST (shutil.which() on Windows returns a native
+    # backslash path, e.g. "C:\mingw64\bin\g++.EXE") and about to be
+    # embedded, unparsed, into text that run_subcommand() hands to
+    # `sh -c`. See rewrite_build_prefix()'s own comment above for the
+    # full reasoning (why this token gets shlex.quote() instead of the
+    # forward-slash rewrite build_dir gets) and _tokenize()'s own
+    # comment for why every classifier below already expects a quoted
+    # token here.
+    quoted_compiler = shlex.quote(compiler)
+
     containerfile = (
         "FROM fedora:44 AS arch-ports-builder\n"
         "RUN dnf -y install gcc-c++ \\\n"
         "    && dnf clean all\n"
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY main_smoke.cpp /build/main_smoke.cpp\n"
-        f"RUN {compiler} -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
+        f"RUN {quoted_compiler} -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
         "        -I /build/_arch_ports_src/src \\\n"
         "        -o /build/main_smoke \\\n"
         + consumer_line
@@ -677,16 +759,21 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
         os.path.join(context_dir, "second_smoke.cpp"),
         '#include "consumer.hpp"\nint main() { return consumer_value() - 1; }\n',
     )
+    # shlex.quote(): same reasoning as _build_base_fixture()'s own
+    # comment beside its quoted_compiler - this token is host-discovered
+    # and about to be embedded, unparsed, into text handed to `sh -c`.
+    quoted_compiler = shlex.quote(compiler)
+
     containerfile = (
         "FROM fedora:44 AS arch-ports-builder\n"
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY first_smoke.cpp /build/first_smoke.cpp\n"
         "COPY second_smoke.cpp /build/second_smoke.cpp\n"
-        f"RUN {compiler} -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
+        f"RUN {quoted_compiler} -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
         "        -o /build/first_smoke \\\n"
         "        /build/_arch_ports_src/src/consumer.cpp \\\n"
         "        /build/first_smoke.cpp \\\n"
-        f"    && {compiler} -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
+        f"    && {quoted_compiler} -std=c++23 -Wall -Wextra -Werror -I /build/_arch_ports_src/src \\\n"
         "        -o /build/second_smoke \\\n"
         "        /build/_arch_ports_src/src/consumer.cpp \\\n"
         "        /build/second_smoke.cpp\n"

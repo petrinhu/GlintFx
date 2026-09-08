@@ -1026,7 +1026,7 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_every_production) {
         std::string_view label;
     };
     static constexpr anb_sample k_samples[] = {
-        {"odd", 0, 1, "production 1: odd"},
+        {"odd", 2, 1, "production 1: odd"},
         {"even", 2, 0, "production 2: even"},
         {"5", 0, 5, "production 3: <integer>"},
         {"3n", 3, 0, "production 4: <n-dimension>"},
@@ -1100,6 +1100,46 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_recognizes_optional_plus_and_whitespace_varian
         "gltfx_gfss_parse_anb_recognizes_optional_plus_and_whitespace_variants: {} variant(s) "
         "checked",
         swept);
+}
+
+// CASE INSENSITIVITY, ENUMERATED (GODS_LAWS.md L-17's own "varredura do
+// gêmeo" duty, GFSS-SEL-PARSE-NTH, TODO.md, 08/09/2026): every ident/
+// dimension-unit branch in anb_parse.cpp reaches its comparison through
+// ascii_case_insensitive_equal()/ascii_case_insensitive_starts_with()
+// (that file's own match_an_ident()/match_an_dimension(), and the
+// "odd"/"even" keyword checks in parse_anb() itself), yet nothing in
+// this file, before this test, ever fed it an uppercase or mixed-case
+// spelling - ten forms, one per case-insensitive spelling this grammar
+// accepts, not a directed sample of "however many seemed enough".
+GLINTFX_TEST(gltfx_gfss_parse_anb_is_case_insensitive) {
+    struct anb_sample {
+        std::string_view text;
+        long long expected_a{};
+        long long expected_b{};
+    };
+    static constexpr anb_sample k_samples[] = {
+        {"ODD", 2, 1}, {"Odd", 2, 1}, {"EVEN", 2, 0}, {"Even", 2, 0},   {"2N+1", 2, 1},
+        {"N", 1, 0},   {"-N", -1, 0}, {"N-1", 1, -1}, {"-N-1", -1, -1}, {"N+1", 1, 1},
+    };
+    static_assert(std::size(k_samples) == 10,
+                  "ten case-insensitive spellings named in this fatia's own order of service - "
+                  "update this enumeration to match if that order of service is re-read");
+
+    std::size_t swept = 0;
+    for (const auto &sample : k_samples) {
+        const auto result = parse_anb(sample.text);
+        GLINTFX_CHECK(result.ok);
+        if (result.ok) {
+            GLINTFX_CHECK_EQ(result.value.a, sample.expected_a);
+            GLINTFX_CHECK_EQ(result.value.b, sample.expected_b);
+        }
+        ++swept;
+    }
+    // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
+    GLINTFX_CHECK(swept > 0);
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(10));
+    std::println(
+        "gltfx_gfss_parse_anb_is_case_insensitive: {} uppercase/mixed-case form(s) checked", swept);
 }
 
 // HOSTILE INPUT, ENUMERATED (GODS_LAWS.md L-40: "enumere o espaco

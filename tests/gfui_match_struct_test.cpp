@@ -274,14 +274,27 @@ GLINTFX_TEST(structural_functional_holds_an_plus_b_over_the_same_chain) {
 
     // even/odd keywords (An+B microsyntax's own named forms,
     // anb_parse.hpp's own header comment) - "odd" is the same set as
-    // "2n+1" above, proved once more through the keyword spelling
-    // rather than the numeric one.
-    GLINTFX_CHECK(
-        structural_functional_holds(structural_functional_kind::nth_child, "odd", chain[0]));
-    GLINTFX_CHECK(
-        !structural_functional_holds(structural_functional_kind::nth_child, "odd", chain[1]));
-    GLINTFX_CHECK(
-        structural_functional_holds(structural_functional_kind::nth_child, "even", chain[1]));
+    // "2n+1" above and "even" the same set as "2n", proved over the
+    // WHOLE five-sibling chain (positions 1, 3, 5 vs. 2, 4), not just
+    // two hand-picked positions - the ORIGINAL version of this fatia
+    // (05/09/2026) only ever checked chain[0] and chain[1], the two
+    // positions where a bug that only matches the very FIRST sibling
+    // ("odd" parsed as a=0,b=1 instead of a=2,b=1 - GFSS-SEL-PARSE-NTH,
+    // TODO.md) happens to agree with the correct answer; chain[2] and
+    // chain[4] (positions 3 and 5) are exactly where the two diverge,
+    // and neither was ever exercised (GODS_LAWS.md L-17's own "gêmeo"
+    // duty: a comment promising a check that a narrower assertion set
+    // never actually performed).
+    for (const nth_child_case &c : odd_cases) {
+        GLINTFX_CHECK_EQ(structural_functional_holds(structural_functional_kind::nth_child, "odd",
+                                                     chain[c.chain_index]),
+                         c.odd_expected);
+    }
+    for (const nth_child_case &c : odd_cases) {
+        GLINTFX_CHECK_EQ(structural_functional_holds(structural_functional_kind::nth_child, "even",
+                                                     chain[c.chain_index]),
+                         !c.odd_expected);
+    }
 
     std::printf("gfui_match_struct_test: 4 An+B structural functions checked over the same "
                 "five-sibling chain (numeric, bare-integer, and even/odd cases)\n");

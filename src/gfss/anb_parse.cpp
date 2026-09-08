@@ -509,7 +509,7 @@ anb_parse_result parse_anb(std::string_view text) noexcept {
         if (const auto trailing = require_end(tokens, index + 1)) {
             return finish_fail(*trailing);
         }
-        return finish_ok({.a = 0, .b = 1});
+        return finish_ok({.a = 2, .b = 1});
     }
     if (tok.kind == gltfx_gfss_token_kind::ident &&
         ascii_case_insensitive_equal(tok.lexeme, "even")) {

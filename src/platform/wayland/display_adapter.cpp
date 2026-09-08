@@ -8,6 +8,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
+#include <new>
 #include <string>
 
 #include <glintfx/core/err.hpp>
@@ -42,6 +43,17 @@
 // return instead - a degraded catalog is now something a caller CAN
 // observe by checking that return, rather than a try/catch at this
 // call site swallowing it with no signal at all.
+//
+// CONSERTO (varredura de 07/09/2026, mesma familia de bugs de gfx_
+// open_only_fixation.cpp): insert()'s own try/catch only guards
+// ALLOCATIONS INSIDE ITS OWN BODY. The `std::string(interface)`
+// temporary below is an ARGUMENT, built in THIS frame - registry_
+// global()'s own - before insert() is ever entered. A previous
+// version of this comment claimed "no try/catch needed here anymore",
+// which was wrong: that construction could still throw std::bad_alloc
+// and escape this noexcept callback, calling std::terminate() before
+// insert()'s own guard ever had a chance to run. Guarded below with
+// the SAME idiom.
 
 namespace glintfx::platform {
 
@@ -60,15 +72,24 @@ void wayland_display_adapter::registry_global(void *data, wl_registry * /*regist
                                               std::uint32_t name, const char *interface,
                                               std::uint32_t version) noexcept {
     auto *self = static_cast<wayland_display_adapter *>(data);
-    // insert() itself is noexcept and never lets std::bad_alloc reach
-    // this frame (see this file's own header comment) - no try/catch
-    // needed here anymore. Its bool return reports whether the global
-    // got cataloged; this callback has no diagnostics channel to route
-    // that through yet (out of this narrow fix's own scope), so the
-    // result is deliberately discarded here - global_catalog_test.cpp
-    // is what actually exercises and checks it.
-    self->m_globals.insert(name, interface != nullptr ? std::string(interface) : std::string(),
-                           version);
+    // See this file's own header comment (CONSERTO 07/09/2026):
+    // insert()'s own try/catch guards its BODY, never the std::string(
+    // interface) argument built HERE, in this frame, before insert()
+    // is even called. Guarded the same way - a failed construction
+    // simply skips this one global (same observable "not cataloged"
+    // shape insert()'s own false==alloc-failed return already gives a
+    // caller who checks it); the catalog is left exactly as it was
+    // before the call, same guarantee insert()'s own header comment
+    // already documents for its own internal failure.
+    try {
+        self->m_globals.insert(name, interface != nullptr ? std::string(interface) : std::string(),
+                               version);
+    } catch (const std::bad_alloc &) { // NOLINT(bugprone-empty-catch) reason: intentionally empty,
+                                       // discarded on purpose, same as insert()'s own bool return
+                                       // just above - this callback has no diagnostics channel to
+                                       // route either failure through yet (out of this narrow
+                                       // fix's own scope).
+    }
 }
 
 void wayland_display_adapter::registry_global_remove(void *data, wl_registry * /*registry*/,

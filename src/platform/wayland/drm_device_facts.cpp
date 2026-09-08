@@ -2,6 +2,7 @@
 #include "platform/wayland/drm_device_facts.hpp"
 
 #include <cstddef>
+#include <new>
 #include <vector>
 
 #include <fcntl.h>
@@ -54,15 +55,27 @@ namespace {
         return true;
     }
 
-    std::vector<char> buffer(static_cast<std::size_t>(probe_size.name_len));
-    drm_version fetch{};
-    fetch.name_len = probe_size.name_len;
-    fetch.name = buffer.data();
-    if (ioctl(fd, DRM_IOCTL_VERSION, &fetch) != 0) {
+    // GODS_LAWS.md L-22: a construcao de std::vector<char>/std::string::
+    // assign() abaixo podem lancar std::bad_alloc dentro de uma funcao
+    // noexcept - a mesma guarda que gfx_open_only_fixation.cpp's own
+    // resolve_gfx_open_only_fixation() ja aplica. Degrada para `false`,
+    // o MESMO desfecho honesto que este atomo ja usa para "o ioctl
+    // falhou" alguns linhas acima - o chamador (read_drm_device_facts())
+    // ja trata `false` como "query_ok=false" e segue sem essa
+    // classificacao, nunca lendo `out`.
+    try {
+        std::vector<char> buffer(static_cast<std::size_t>(probe_size.name_len));
+        drm_version fetch{};
+        fetch.name_len = probe_size.name_len;
+        fetch.name = buffer.data();
+        if (ioctl(fd, DRM_IOCTL_VERSION, &fetch) != 0) {
+            return false;
+        }
+
+        out.assign(buffer.data(), static_cast<std::size_t>(fetch.name_len));
+    } catch (const std::bad_alloc &) {
         return false;
     }
-
-    out.assign(buffer.data(), static_cast<std::size_t>(fetch.name_len));
     return true;
 }
 
@@ -92,20 +105,31 @@ void query_i915_local_memory(int fd, bool &has_local_out) noexcept {
         return;
     }
 
-    std::vector<std::byte> buffer(static_cast<std::size_t>(item.length));
-    item.data_ptr = reinterpret_cast<__u64>(buffer.data());
-    if (ioctl(fd, DRM_IOCTL_I915_QUERY, &query) != 0) {
-        return;
-    }
-
-    const auto *regions = reinterpret_cast<const drm_i915_query_memory_regions *>(buffer.data());
-    for (__u32 i = 0; i < regions->num_regions; ++i) {
-        if (regions->regions[i].region.memory_class == I915_MEMORY_CLASS_DEVICE) {
-            has_local_out = true;
+    // GODS_LAWS.md L-22: a construcao de std::vector<std::byte> abaixo
+    // pode lancar std::bad_alloc dentro de uma funcao noexcept - a
+    // mesma guarda que read_driver_name() ja aplica, no mesmo arquivo.
+    // Degrada para o MESMO retorno antecipado que este atomo ja usa
+    // quando o ioctl falha - `has_local_out` mantem o default que o
+    // chamador ja forneceu.
+    try {
+        std::vector<std::byte> buffer(static_cast<std::size_t>(item.length));
+        item.data_ptr = reinterpret_cast<__u64>(buffer.data());
+        if (ioctl(fd, DRM_IOCTL_I915_QUERY, &query) != 0) {
             return;
         }
+
+        const auto *regions =
+            reinterpret_cast<const drm_i915_query_memory_regions *>(buffer.data());
+        for (__u32 i = 0; i < regions->num_regions; ++i) {
+            if (regions->regions[i].region.memory_class == I915_MEMORY_CLASS_DEVICE) {
+                has_local_out = true;
+                return;
+            }
+        }
+        has_local_out = false;
+    } catch (const std::bad_alloc &) {
+        return;
     }
-    has_local_out = false;
 }
 
 void query_xe_local_memory(int fd, bool &has_local_out) noexcept {
@@ -116,20 +140,27 @@ void query_xe_local_memory(int fd, bool &has_local_out) noexcept {
         return;
     }
 
-    std::vector<std::byte> buffer(query.size);
-    query.data = reinterpret_cast<__u64>(buffer.data());
-    if (ioctl(fd, DRM_IOCTL_XE_DEVICE_QUERY, &query) != 0) {
-        return;
-    }
-
-    const auto *regions = reinterpret_cast<const drm_xe_query_mem_regions *>(buffer.data());
-    for (__u32 i = 0; i < regions->num_mem_regions; ++i) {
-        if (regions->mem_regions[i].mem_class == DRM_XE_MEM_REGION_CLASS_VRAM) {
-            has_local_out = true;
+    // GODS_LAWS.md L-22: mesma guarda de query_i915_local_memory()
+    // acima, para a mesma classe de alocacao (std::vector<std::byte>
+    // dentro de uma funcao noexcept).
+    try {
+        std::vector<std::byte> buffer(query.size);
+        query.data = reinterpret_cast<__u64>(buffer.data());
+        if (ioctl(fd, DRM_IOCTL_XE_DEVICE_QUERY, &query) != 0) {
             return;
         }
+
+        const auto *regions = reinterpret_cast<const drm_xe_query_mem_regions *>(buffer.data());
+        for (__u32 i = 0; i < regions->num_mem_regions; ++i) {
+            if (regions->mem_regions[i].mem_class == DRM_XE_MEM_REGION_CLASS_VRAM) {
+                has_local_out = true;
+                return;
+            }
+        }
+        has_local_out = false;
+    } catch (const std::bad_alloc &) {
+        return;
     }
-    has_local_out = false;
 }
 
 void query_nouveau_bus_type(int fd, int &bus_type_out) noexcept {

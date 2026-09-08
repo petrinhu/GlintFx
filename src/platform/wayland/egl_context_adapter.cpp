@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <new>
 #include <optional>
 #include <string>
 #include <utility>
@@ -199,37 +200,68 @@ classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcep
     }
 
     std::uint32_t enumeration_index = k_gltfx_gpu_index_unknown;
+    // ACHADO, NAO CONSERTADO (WIN-DEBUG-CTORALLOC, mesma familia do
+    // gemeo em gfx_open_only_fixation.cpp): `kinds`, aqui, precisa
+    // ficar visivel ATE `resolve_kernel_and_exclusion()` mais abaixo,
+    // fora do try{} que guarda reserve()/push_back() logo a seguir -
+    // diferente dos outros achados desta varredura, mover a
+    // declaracao para dentro do try nao fecha o risco por completo
+    // aqui (o fallback do proprio catch tambem precisaria construir um
+    // vetor vazio). Residual teorico, nao medido nesta maquina (sem
+    // toolchain Windows) e de porte pequeno (a mesma classe de risco
+    // que gpu_kind_exclusion.cpp's own header comment ja aceita para
+    // um vetor de contagem de placas de video, nunca de tamanho vindo
+    // de rede ou de compositor hostil).
     std::vector<gltfx_gpu_kind> kinds;
     const glintfx::gltfx_rslt<std::vector<egl_device_facts>> devices = enumerate_egl_devices();
     if (devices.has_value()) {
         const std::vector<egl_device_facts> &survivors = devices.value();
-        kinds.reserve(survivors.size());
 
-        for (std::size_t i = 0; i < survivors.size(); ++i) {
-            const egl_device_facts &survivor = survivors[i];
-            const bool is_current =
-                current.queried &&
-                ((!current.render_node.empty() && current.render_node == survivor.render_node) ||
-                 (current.render_node.empty() && !current.primary_node.empty() &&
-                  current.primary_node == survivor.primary_node) ||
-                 (current.render_node.empty() && current.primary_node.empty() &&
-                  current.software == survivor.software && survivor.render_node.empty() &&
-                  survivor.primary_node.empty()));
-            if (is_current && enumeration_index == k_gltfx_gpu_index_unknown) {
-                enumeration_index = static_cast<std::uint32_t>(i);
-            }
+        // GODS_LAWS.md L-22: reserve()/push_back() abaixo podem lancar
+        // std::bad_alloc dentro de uma funcao noexcept - a mesma
+        // guarda que gfx_open_only_fixation.cpp's own resolve_gfx_
+        // open_only_fixation() ja aplica. Esta funcao devolve um
+        // std::pair simples, sem canal de erro (D-W6b-37's own shape,
+        // igual ao gemeo Windows classify_current_gpu() de wgl_
+        // context_adapter.cpp) - o desfecho honesto e degradar para o
+        // MESMO estado que este bloco inteiro ja produz quando devices.
+        // has_value() e falso (enumeracao indisponivel): `kinds` vazio,
+        // `enumeration_index` continua k_gltfx_gpu_index_unknown, e a
+        // via 1 (resolve_kernel_and_exclusion) segue seu proprio
+        // caminho ja testado para essa forma.
+        try {
+            kinds.reserve(survivors.size());
 
-            gltfx_gpu_kind survivor_kind = gltfx_gpu_kind::unknown;
-            if (survivor.software) {
-                survivor_kind = gltfx_gpu_kind::software;
-            } else {
-                const std::string &node =
-                    !survivor.render_node.empty() ? survivor.render_node : survivor.primary_node;
-                if (!node.empty()) {
-                    survivor_kind = classify_drm_gpu(read_drm_device_facts(node));
+            for (std::size_t i = 0; i < survivors.size(); ++i) {
+                const egl_device_facts &survivor = survivors[i];
+                const bool is_current =
+                    current.queried &&
+                    ((!current.render_node.empty() &&
+                      current.render_node == survivor.render_node) ||
+                     (current.render_node.empty() && !current.primary_node.empty() &&
+                      current.primary_node == survivor.primary_node) ||
+                     (current.render_node.empty() && current.primary_node.empty() &&
+                      current.software == survivor.software && survivor.render_node.empty() &&
+                      survivor.primary_node.empty()));
+                if (is_current && enumeration_index == k_gltfx_gpu_index_unknown) {
+                    enumeration_index = static_cast<std::uint32_t>(i);
                 }
+
+                gltfx_gpu_kind survivor_kind = gltfx_gpu_kind::unknown;
+                if (survivor.software) {
+                    survivor_kind = gltfx_gpu_kind::software;
+                } else {
+                    const std::string &node = !survivor.render_node.empty() ? survivor.render_node
+                                                                            : survivor.primary_node;
+                    if (!node.empty()) {
+                        survivor_kind = classify_drm_gpu(read_drm_device_facts(node));
+                    }
+                }
+                kinds.push_back(survivor_kind);
             }
-            kinds.push_back(survivor_kind);
+        } catch (const std::bad_alloc &) {
+            kinds.clear();
+            enumeration_index = k_gltfx_gpu_index_unknown;
         }
     }
 

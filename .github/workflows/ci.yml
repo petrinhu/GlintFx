@@ -2026,6 +2026,20 @@ jobs:
           cmake --build build-shared
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # Mesmo aparato X-GL-0 do job `windows` acima (GODS_LAWS.md
+      # L-04/L-07/L-17/L-36/L-40/L-51 - ver o comentario completo la e o
+      # cabecalho do proprio script): sem ele, este runner windows-latest
+      # so entrega "GDI Generic" 1.1, sem wglCreateContextAttribsARB, e o
+      # rotulo 'unit' abaixo inclui win32_wgl_extension_loader_test e
+      # win32_iconic_present_test - os dois exercitam esse carregador
+      # direto. Falta aqui era exatamente a lei do gemeo (L-17): o job
+      # irmao ja tinha o aparato desde que a sonda mediu a lacuna, este
+      # nao. Roda APOS o build (o diretorio de destino, build-shared/
+      # tests, precisa existir primeiro) e ANTES do `ctest`.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para a sonda X-GL-0
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-shared/tests"
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar:
       # ctest -N conta quantos casos o rotulo `unit` casa ANTES de
       # confiar no passo seguinte - mesmo padrao que "Saida verbosa da
@@ -2232,6 +2246,22 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-debug
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Mesmo aparato X-GL-0 do job `windows` acima (GODS_LAWS.md
+      # L-04/L-07/L-17/L-36/L-40/L-51 - ver o comentario completo la e o
+      # cabecalho do proprio script): este job roda a suite INTEIRA (sem
+      # -L), o que inclui win32_wgl_extension_loader_test, win32_iconic_
+      # present_test e gl_context_parity_test - os tres dependem do
+      # mesmo carregador de extensoes WGL, e os tres reprovavam aqui pela
+      # mesma causa medida em execucao real (run 34168049144, commit
+      # 397d6fb: 4 de 152 testes falhando, "rejected_value=wgl_loader_
+      # extensions"). Falta aqui era a mesma lacuna do gemeo (L-17) que
+      # `windows-sanitizer` acima tambem tinha. Roda APOS o build (o
+      # diretorio de destino, build-debug/tests, precisa existir
+      # primeiro) e ANTES do `ctest`.
+      - name: Aparato de teste - Mesa opengl32 (llvmpipe) para a sonda X-GL-0
+        shell: pwsh
+        run: tools/ci/install-mesa-opengl32.ps1 -DestDir "build-debug/tests"
 
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40) antes de rodar -
       # mesmo padrao que o job `windows-sanitizer` acima ja usa.

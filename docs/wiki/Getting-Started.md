@@ -119,7 +119,9 @@ int main() {
     // pump_events() is what lets the operating system tell the window
     // about things like "the user clicked the close button".
     while (!window.close_requested()) {
-        display.pump_events();
+        if (!display.pump_events().has_value()) {
+            break;
+        }
     }
 
     return 0;

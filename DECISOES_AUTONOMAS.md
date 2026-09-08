@@ -2318,6 +2318,8 @@ risco acima deixa de ser teorico; se falhar por codigo nosso, e achado de produt
 
 ## 07/09/2026 - 01:44 | A onda seguinte nao comeca sozinha
 
+**⛔ ESTA ORDEM FOI REVOGADA PELO LIDER EM 07/09/2026, 23:07. NAO A EXECUTE.** A revogacao esta registrada na secao de 23:07 no fim deste arquivo, com o texto dele verbatim. Marcada aqui, e nao apagada, no mesmo padrao que este arquivo ja usa para ordem revogada (ver a marca identica mais acima): o registro cronologico de quem mandou o que, e quando, e a propria proveniencia deste documento.
+
 **Ordem do lider, verbatim:** *"Não inicie a proxima onda sozinho depois que
 acabar tudo aqui"*.
 
@@ -2463,3 +2465,48 @@ de isolamento, relatorio) e **versionada no repositorio**. Assim, se um dia a
 pasta sumir por acidente, a maquina se refaz a partir do repositorio, e o unico
 custo e rebaixar a imagem oficial de novo. **A senha da conta local NAO e
 versionada**, e um portao deve reprovar quem tentar.
+
+
+## 07/09/2026 - 23:07 | ORDEM DO LIDER: a onda seguinte COMECA sozinha, e como ela comeca
+
+**Isto NAO e decisao autonoma. E ordem direta do lider**, registrada aqui porque
+revoga a ordem dele proprio de 01:44 desta mesma noite, que dizia o contrario.
+
+**Verbatim, 07/09/2026 as 23:07:**
+
+> "siga modo autonomo, se tiver perguntas, clevel busca comunidades, web,
+> documentacoes. QUando eu pedir voce mostra para eu verificar. Nao busque o
+> mais facil, busque o melhor e mais completo. QUando acabar essa onda, faca a
+> proxima, lembrando de aprender com rmlui e sdl3 na hora de planejar e sempre
+> que tiver duvidas. no final (TUDO verde), merge, push, tab, apague builds e
+> temps deste projeto. Vou dormir."
+
+**Correcao dele, 07/09/2026 as 23:08, sobre uma palavra:**
+
+> "eu quis dizer tag, nao tab."
+
+**O que esta ordem autoriza, item a item, e nada alem disso:**
+
+1. **Abrir a onda seguinte sem esperar o lider acordar.** Revoga a ordem das
+   01:44. A duvida cronologica que o CTO levantou no plano da W7 esta resolvida
+   por medicao: 23:07 e posterior a 01:44 do mesmo dia.
+2. **Duvida se resolve por pesquisa, nunca por suposicao:** comunidades, web,
+   documentacao oficial, com fonte citada. Aprender com RmlUi e SDL3 e passo
+   obrigatorio de planejamento, nao sugestao (reforca a L-43 do projeto).
+3. **Criterio de qualidade, verbatim dele:** *"Nao busque o mais facil, busque o
+   melhor e mais completo."*
+4. **No fim, com TUDO verde:** juntar, empurrar, **marcar a versao** e apagar
+   construcoes e temporarios **deste projeto**.
+5. **Modo autonomo ligado as 23:08:35, com validade de 24 horas**, escopos
+   `push` e `clean`, so para o GlintFx.
+
+**O que esta ordem NAO autoriza, e o agente nao deve esticar:** apagar o
+laboratorio Windows em `/var/tmp/glintfx-win-lab` (decisao de 02:18 deste
+arquivo continua valendo inteira, sao 23 GB de trabalho dificil), marcar versao
+com qualquer vermelho aberto, ou tomar no lugar dele as decisoes que o plano da
+W7 listou como dele.
+
+**Decisoes que ficam esperando ele acordar** (o CTO as separou de proposito, e
+eu nao as tomo): se a onda anterior fechou ou nao, onde entra a trilha de folha
+de estilo, as portas de mao unica das duas revisoes de API, e onde cai a fatia
+de predefinicoes que nao foi entregue.

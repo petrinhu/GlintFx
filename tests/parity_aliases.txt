@@ -211,7 +211,23 @@ seat_adapter_listener_test|win32_seat_translation_test
 # core direto sobre o wl_surface real; win32_wgl_extension_loader_test
 # resolve wglChoosePixelFormatARB/wglCreateContextAttribsARB via uma
 # janela descartavel, o pre-requisito Windows para o MESMO fato.
-win32_wgl_extension_loader_test|egl_probe_smoke
+#
+# CAMPOS CORRIGIDOS (achado do time-lead, 07/09/2026, PARIDADE-3-
+# BURACOS): esta linha nasceu com os dois nomes TROCADOS em relacao ao
+# formato "nome_no_linux | nome_no_windows" que o cabecalho deste
+# arquivo exige - win32_wgl_extension_loader_test (nome Windows) no
+# campo 1, egl_probe_smoke (nome Linux/container) no campo 2.
+# apply_aliases() em check_test_parity.py indexa cada apelido pelo
+# CAMPO correto (linux_to_win chaveado pelo campo 1, win_to_linux pelo
+# campo 2) - com os nomes trocados, win_to_linux nunca ganhava a chave
+# "win32_wgl_extension_loader_test", entao o par nunca era encontrado
+# quando o nome aparecia em windows_only, e o portao reprovava mesmo
+# com o apelido escrito. Medido ao vivo: run 34168049144 (07/09/2026)
+# reprovou win32_wgl_extension_loader_test com esta mesma linha ja
+# presente na arvore (commit f92d897, ancestral do commit que rodou,
+# 397d6fb) - reproduzido localmente contra os inventarios reais
+# baixados daquele run antes de corrigir.
+egl_probe_smoke|win32_wgl_extension_loader_test
 
 # X-WGL (docs/plano-w6b-placa-e-laco.md fatia 4, D-W6b-6, "Par no
 # portao" coluna): win32_iconic_present_test (tests/CMakeLists.txt,
@@ -222,7 +238,19 @@ win32_wgl_extension_loader_test|egl_probe_smoke
 # por mecanismos completamente diferentes (D-W6b-6: "mecanismo
 # diferente, efeito igual"): IsIconic() antes de SwapBuffers() no
 # Windows, o orcamento do wl_surface.frame no Wayland.
-win32_iconic_present_test|frame_callback_sequence_test
+#
+# CAMPOS CORRIGIDOS (achado do time-lead, 07/09/2026, PARIDADE-3-
+# BURACOS): mesmo defeito da linha de win32_wgl_extension_loader_test
+# acima - os dois nomes nasceram TROCADOS em relacao ao formato
+# "nome_no_linux | nome_no_windows". frame_callback_sequence_test roda
+# nos DOIS lados (comum), entao nunca aparece em windows_only nem
+# linux_only - a linha so importa pelo lado que win32_iconic_present_
+# test (Windows-only) precisa resolver via win_to_linux, e com os
+# campos trocados essa chave nunca existia (win_to_linux so' ganhava
+# "frame_callback_sequence_test", nome que nunca aparece em windows_
+# only por ja ser comum). O mesmo run 34168049144 reproduziu o
+# vermelho para este nome tambem, com esta linha ja presente na arvore.
+frame_callback_sequence_test|win32_iconic_present_test
 
 # FACADE-PIN, T0/T4 (docs/plano-conserto-fachadas-uaf.md sec. 8/10):
 # facade_pin_smoke (container fixture, tests/container/) e

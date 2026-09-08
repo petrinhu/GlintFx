@@ -3232,12 +3232,34 @@ set_tests_properties(container_fixture_includes_selftest PROPERTIES LABELS selft
 # see that script's own selftest_missing_atom_reproves() for the exact
 # shape), so it is registered on all five platforms with no guard, same
 # GATE-TREE-PARITY shape as container_fixture_includes_selftest.
+#
+# CONSERTO 08/09/2026 (server run 34215308251, GODS_LAWS.md L-17/L-36/
+# L-49): "hermetic" above was true for the Wayland/EGL dev packages,
+# but the synthetic fixture still shelled out to a LITERAL "g++" -
+# that's an environment fact this gate's own author congealed by
+# accident, and it reproved on 8 of the matrix's 22 legs the moment
+# g++ was not literally spelled that way (Ubuntu installs the
+# versioned "g++-14" on purpose, no bare "g++" exists) or the temp
+# path it built used backslashes (Windows). check_container_fixture_
+# link.py's own discover_selftest_compiler() now finds a real GNU-
+# compatible compiler instead of assuming the name - CMAKE_CXX_
+# COMPILER/CMAKE_CXX_COMPILER_ID passed below are the FIRST source it
+# tries (same "already proven to work by this very build" reasoning
+# as the CMAKE_CXX_COMPILER/CMAKE_CXX_COMPILER_ID pair threaded to
+# other python gates elsewhere in this file), with a PATH search as
+# fallback and a DECLARED, counted skip (CTest's own SKIP_RETURN_CODE,
+# never a silent pass) when neither source finds one - see that
+# function's own comment for why CMAKE_CXX_COMPILER is rejected
+# outright when its ID is MSVC (Windows CI's own CXX compiler for the
+# PRODUCT build, incompatible with this fixture's GNU-flavored flags).
 add_test(
     NAME container_fixture_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_link.py" --selftest
+        "${CMAKE_CXX_COMPILER}" "${CMAKE_CXX_COMPILER_ID}"
 )
 set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest)
+set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,

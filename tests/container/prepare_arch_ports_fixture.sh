@@ -232,12 +232,36 @@ verify_fixture_link() {
     repo_root="$1"
     target="$2"
 
+    # `set -eu` is on (see top of file) - a bare command followed by a
+    # SEPARATE `rc=$?` line would trip errexit on any non-zero exit
+    # (77 included) and kill the whole script before this function's
+    # own rc==77 handling ever ran (measured: bash -x showed execution
+    # stop dead right after the python3 line, never reaching `rc=$?`).
+    # `|| rc=$?` keeps the failing command inside a construct errexit
+    # exempts, same idiom `fail()` callers elsewhere in this file rely
+    # on (a bare command immediately followed by `||`).
+    rc=0
     python3 "$repo_root/tests/tools/check_container_fixture_link.py" --exec \
         "$repo_root/tests/container/Containerfile" \
         "$repo_root/tests/container" \
         "$target" \
-        "$repo_root" ||
-        fail "portao de link da fixture reprovou (ver acima)"
+        "$repo_root" || rc=$?
+
+    # rc 77: GATE_SKIP_RETURN_CODE em check_container_fixture_link.py -
+    # o portao PULOU de forma declarada (mensagem propria ja impressa
+    # acima) porque este HOST nao tem os pacotes wayland de
+    # desenvolvimento que --exec precisaria pra rodar o g++/wayland-
+    # scanner do Containerfile FORA do container (GODS_LAWS.md L-17/
+    # L-36, conserto 08/09/2026, server run 34215308251: gemeo exato do
+    # conserto do compilador em --selftest, achado pelo team-lead no
+    # mesmo log). NAO e reprovacao: o `docker build` que main() ainda
+    # vai rodar logo em seguida continua sendo a prova real do link,
+    # DENTRO do container, que ja tem esses pacotes.
+    if [ "$rc" -eq 77 ]; then
+        echo "prepare_arch_ports_fixture.sh: portao de link da fixture PULADO neste host (ver mensagem acima) - docker build abaixo continua sendo a prova real" >&2
+        return 0
+    fi
+    [ "$rc" -eq 0 ] || fail "portao de link da fixture reprovou (ver acima)"
 }
 
 main() {

@@ -85,14 +85,76 @@ bool fixed_set_matches(const std::vector<gltfx_gfx_option_entry> &actual,
 // own `fix_now` branch to fail with std::bad_alloc, and proves the
 // noexcept function degrades to `alloc_failed` instead of calling
 // std::terminate() (the exact "a lib NUNCA aborta o processo do
-// consumidor" the leader's OOM decision forbids - err_context_test.
-// cpp's own with_path()/with_rejected_value() cases are the house
-// precedent for this exact shape). Internal linkage (same as err_
-// context_test.cpp's own identically-named flag): only this TU's own
-// operator new/delete overrides below and the test case at the bottom
-// of this file ever touch it - global replacement is required for
-// THOSE two, never for the flag itself.
-bool g_force_alloc_failure = false;
+// consumidor" the leader's OOM decision forbids).
+//
+// SEGUNDA REPROVACAO (GODS_LAWS.md L-22, run 34178782241, job "Windows
+// - Debug"): a versao anterior deste gancho era um booleano ligado
+// pela CHAMADA INTEIRA - fazia TODA alocacao falhar, inclusive a que a
+// PROPRIA std::vector faz por dentro ao ser default-construida.
+// PESQUISADO, nao suposto: no MSVC em build Debug (_ITERATOR_DEBUG_
+// LEVEL == 2, o default de Debug - learn.microsoft.com/cpp/standard-
+// library/iterator-debug-level, e learn.microsoft.com/cpp/standard-
+// library/debug-iterator-support, ambos consultados 07/09/2026), o
+// PROPRIO construtor default de std::vector chama `_Alloc_proxy()`
+// pra alocar um `_Container_proxy` de bookkeeping de iterador -
+// mesmo para um vetor vazio (github.com/microsoft/STL, stl/inc/
+// vector: `vector() noexcept(is_nothrow_default_constructible_v<
+// _Alty>) { ...; _Mypair._Myval2._Alloc_proxy(...); }`) - e o
+// compilador declara esse construtor noexcept mesmo assim, porque
+// `is_nothrow_default_constructible_v<std::allocator<T>>` e
+// `true` sem olhar pro que `_Alloc_proxy` faz por dentro. Se essa
+// alocacao interna falha enquanto o gancho antigo fazia TUDO falhar,
+// a excecao tenta escapar de um construtor que o proprio MSVC marcou
+// noexcept - e o runtime chama std::terminate() ALI, dentro do
+// construtor do vector, ANTES de a pilha sequer voltar pro try{} de
+// resolve_gfx_open_only_fixation(). Por isso a fatia WIN-DEBUG-
+// CTORALLOC (mover `result{}` pra dentro do try{}, commit 2d8d12c) nao
+// mudou nada: aquele try{} nunca chega a rodar - quem quebra o proprio
+// contrato noexcept e o std::vector do MSVC, nao o nosso codigo, e
+// nenhum try/catch nosso alcanca uma fronteira noexcept mais funda que
+// a nossa propria. O DEFEITO E DESTE GANCHO DE TESTE, nao do produto
+// (fixation.cpp): forcar TODA alocacao a falhar simula um OOM mais
+// bruto do que o teste precisa provar, e derruba bookkeeping interno
+// do STL que o produto nao tem como proteger nem devia precisar
+// proteger - so a alocacao de CRESCIMENTO do push_back() e a que
+// importa (essa sim propaga normalmente, por push_back() nao ser
+// noexcept, e e exatamente o que o catch(const std::bad_alloc&) em
+// gfx_open_only_fixation.cpp trata).
+//
+// CONSERTO: em vez de um booleano ligado pela chamada inteira, um
+// contador de alocacao com "falha exatamente na N-esima, depois se
+// desarma sozinho". O teste no fim deste arquivo CALIBRA `N` medindo,
+// em runtime, quantas alocacoes uma gfx_open_only_fixation_result
+// VAZIA custa NESTE compilador (zero no Linux/libstdc++, uma no MSVC
+// Debug pelo motivo acima) - e so entao arma a falha forcada na
+// alocacao SEGUINTE a essa, que e a de verdade (a que push_back() pede
+// pra crescer o vetor). Como a falha dispara uma unica vez e se
+// desarma, a PROPRIA construcao do resultado `alloc_failed` no catch
+// (que tambem constroi um vector vazio) nunca tropeca na mesma
+// armadilha - sem precisar filtrar por tamanho de alocacao (sizeof do
+// `_Container_proxy` do MSVC e sizeof(gltfx_gfx_option_entry) colidem
+// em 16 bytes no x86-64, medido por leitura das duas structs, entao
+// filtrar por tamanho seria fragil por coincidencia). Internal linkage
+// (mesma ideia de err_context_test.cpp's own g_force_alloc_failure):
+// so o override de operator new abaixo e o teste no fim deste arquivo
+// tocam nisso.
+//
+// PROVADO POR EXECUCAO, nao so por doc (GODS_LAWS.md L-27, tools/msvc-
+// container/, cl.exe real 19.51.36256, 07/09/2026): compilar este
+// arquivo com `/MDd` e desmontar o `.obj` de gfx_open_only_fixation.cpp
+// com `dumpbin /disasm` mostra, literalmente, `std::_Container_base12
+// ::_Alloc_proxy<std::allocator<std::_Container_proxy>>` chamando
+// `allocator<_Container_proxy>::allocate()` na instanciacao de
+// `std::vector<glintfx::gltfx_gfx_option_entry>` - o mecanismo do
+// paragrafo acima nao e inferencia, e o codigo que o compilador real
+// da Microsoft de fato gera. Rodar esse mesmo binario sob `wine64`
+// morre com codigo 53 sem imprimir nada, ANTES desta fatia e DEPOIS
+// dela igualmente - limitacao conhecida e ja documentada do runtime de
+// depuracao (`/MDd`) sob este Wine (tools/msvc-container/README.md),
+// nao algo que esta fatia introduziu nem pode contornar; a unica prova
+// de execucao de ponta a ponta continua sendo o job `windows` do CI.
+std::size_t g_alloc_count = 0;
+std::optional<std::size_t> g_fail_at_alloc_number;
 
 } // namespace
 
@@ -103,7 +165,13 @@ bool g_force_alloc_failure = false;
 // test), so there is no DLL boundary to cross and no need for that
 // file's own win_dll_alloc_hook.hpp companion.
 void *operator new(std::size_t size) {
-    if (g_force_alloc_failure) {
+    ++g_alloc_count;
+    if (g_fail_at_alloc_number.has_value() && g_alloc_count == *g_fail_at_alloc_number) {
+        // Dispara uma unica vez: quem chamou nao precisa desarmar de
+        // volta, e a alocacao SEGUINTE (a que o catch de fixation.cpp
+        // faz pra construir o `alloc_failed` de retorno) tem que
+        // suceder normalmente.
+        g_fail_at_alloc_number.reset();
         throw std::bad_alloc();
     }
     if (void *p = std::malloc(size); p != nullptr) {
@@ -191,12 +259,29 @@ GLINTFX_TEST(
 // to escape this noexcept function and call std::terminate(). Armed
 // only around the one call under test, so the harness's own printing
 // above/below never sees a forced failure.
+//
+// SEGUNDA REPROVACAO (GODS_LAWS.md L-22, ver o comentario do gancho
+// acima pra causa e fontes): calibra `baseline_allocs` medindo quantas
+// alocacoes uma gfx_open_only_fixation_result VAZIA custa NESTE
+// compilador, e so arma a falha forcada na alocacao SEGUINTE a essa -
+// a de verdade, a que push_back() pede - em vez de derrubar TODA
+// alocacao da chamada, inclusive bookkeeping interno do STL que nem o
+// produto nem este teste tem como (ou devem precisar) proteger.
 GLINTFX_TEST(gfx_open_only_fixation_out_of_memory_degrades_instead_of_terminating) {
     const std::vector<gltfx_gfx_option_entry> requested{{gltfx_gfx_option::msaa_samples, 4}};
-    g_force_alloc_failure = true;
+
+    g_alloc_count = 0;
+    {
+        const gfx_open_only_fixation_result probe{};
+    } // calibracao, ver o gancho acima
+    const std::size_t baseline_allocs = g_alloc_count;
+
+    g_alloc_count = 0;
+    g_fail_at_alloc_number = baseline_allocs + 1;
     const gfx_open_only_fixation_result result =
         resolve_gfx_open_only_fixation(std::nullopt, std::span(requested));
-    g_force_alloc_failure = false;
+    g_fail_at_alloc_number.reset(); // idempotente - ja se desarma sozinho ao disparar
+
     GLINTFX_CHECK(result.outcome == gfx_open_only_fixation_outcome::alloc_failed);
     GLINTFX_CHECK(result.fixed.empty());
 }

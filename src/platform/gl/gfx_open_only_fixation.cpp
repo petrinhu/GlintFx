@@ -46,31 +46,35 @@ resolve_gfx_open_only_fixation(std::optional<std::span<const gltfx_gfx_option_en
     // consumer's process on the very path that opens a window. Caught
     // here and degraded to `alloc_failed`, the same shape err.cpp's own
     // with_path()/with_rejected_value() already use for a best-effort
-    // std::string::assign() that can fail the identical way.
+    // std::string::assign() that can fail the identical way. push_back()
+    // is NOT noexcept, so a std::bad_alloc it throws propagates
+    // normally to this catch - this part of the design was always
+    // correct and stays unchanged.
     //
-    // CONSERTO (07/09/2026, WIN-DEBUG-CTORALLOC): `gfx_open_only_
-    // fixation_result result{}` used to sit BEFORE this try{} - a
-    // std::vector default-construction that never allocates on Linux/
-    // libstdc++ (FACT: no allocation for a default-constructed empty
-    // vector, guaranteed by the standard's own complexity clause), but
-    // an integrator's real Windows Debug run (job "Windows - Debug")
-    // measured this exact test dying silently, uncaught, on the
-    // out-of-memory case specifically - never on Linux, and never on
-    // the six other cells of the same test file, which do not force an
-    // allocation failure. INFERENCE (not independently proven on this
-    // machine - no Windows toolchain here, GODS_LAWS.md L-27): MSVC's
-    // debug-iterator-support machinery, active by default in Debug
-    // builds (`_ITERATOR_DEBUG_LEVEL == 2`, learn.microsoft.com/cpp/
-    // standard-library/iterator-debug-level, fetched 07/09/2026 -
-    // "Enables iterator debugging" is the documented Debug default),
-    // attaches bookkeeping to every container INCLUDING an empty,
-    // freshly-constructed one, through the SAME allocator a later
-    // push_back() would use - so with the test's own forced-failure
-    // flag already armed before this function is even entered, that
-    // bookkeeping allocation could throw OUTSIDE the try{} the line
-    // below used to start one line too late. Declaring `result` INSIDE
-    // the try{} - the only change from the previous fatia - closes
-    // that gap without changing what either branch returns.
+    // WIN-DEBUG-CTORALLOC (07/09/2026) MOVEU `gfx_open_only_
+    // fixation_result result{}` pra DENTRO deste try{} (antes ficava
+    // ANTES dele) - SEM EFEITO NENHUM no CI real (run 34178782241,
+    // job "Windows - Debug" continuou vermelho identico DEPOIS desse
+    // commit estar em main). CAUSA REAL, provada por documentacao
+    // oficial (GODS_LAWS.md L-22, ver o comentario do gancho de teste
+    // em tests/gfx_open_only_fixation_test.cpp pras fontes completas):
+    // no MSVC em build Debug (`_ITERATOR_DEBUG_LEVEL == 2`, o default
+    // de Debug), o PROPRIO construtor default de std::vector aloca um
+    // `_Container_proxy` de bookkeeping de iterador - MESMO para um
+    // vetor vazio - e o compilador declara esse construtor noexcept
+    // apesar disso. Uma falha ali tenta escapar de um construtor que o
+    // MSVC marcou noexcept, e o runtime chama std::terminate() DENTRO
+    // do construtor do vector - antes de a pilha sequer voltar pra
+    // este try{}, nao importa em que linha ele comeca. NENHUM try/catch
+    // deste arquivo alcanca essa fronteira: quem quebra o proprio
+    // contrato noexcept e o std::vector do MSVC, nao este codigo. O
+    // DEFEITO ERA DO GANCHO DE INJECAO DE FALHA DO TESTE (fazia TODA
+    // alocacao da chamada falhar, inclusive essa bookkeeping interna),
+    // nao deste arquivo - o try/catch abaixo, que so precisa proteger
+    // a alocacao de CRESCIMENTO do push_back(), sempre esteve certo. A
+    // posicao de `result{}` (dentro ou fora do try{}) e indiferente
+    // pra esse cenario especifico, mas fica aqui dentro por ser onde o
+    // valor e usado pela primeira vez.
     try {
         gfx_open_only_fixation_result result{};
 

@@ -145,6 +145,50 @@ display_bind_refusal_test|windows|nenhum|SEM-PENDENCIA
 # aqui sem uma maquina Windows real para verificar contra.
 pkgconfig_test|windows|nenhum|SEM-PENDENCIA
 
+# --- Achado do time-lead, 07/09/2026 (PARIDADE-3-BURACOS) -------------
+#
+# bounded_output_wait_test (tests/bounded_output_wait_test.cpp,
+# tests/CMakeLists.txt, if(UNIX)) prova wait_for_writable_until()
+# (src/platform/wayland/bounded_output_wait.hpp) - o atomo que impede
+# um write() num socket AF_UNIX (a conexao wl_display do protocolo
+# Wayland) de bloquear o processo indefinidamente quando o par nunca
+# le e o buffer de envio do kernel enche. O proprio header do atomo
+# explica a razao de ser: display_adapter.cpp::flush_with_retry() e
+# egl_context_adapter.cpp::poll_and_dispatch_with_budget() carregavam
+# cada um a sua copia de "poll() bounded para POLLOUT", e uma delas
+# (o defeito real que esta fatia INBOX consertou) sobrevivia com
+# espera INFINITA - risco que so existe porque o mecanismo de fio do
+# Wayland e' um socket com buffer de envio que PODE encher.
+#
+# O Windows nao tem par possivel, e nao por falta de escrever: o
+# pump_events() do lado Windows (src/platform/win32/display_
+# adapter.cpp:256-273, win32_display_adapter::pump_events()) drena a
+# fila de mensagens via PeekMessageW(..., PM_REMOVE) em loop ate
+# devolver zero - CHAMADA QUE, PELO CONTRATO DA PROPRIA API DO
+# WINDOWS, NUNCA BLOQUEIA esperando espaco de buffer (a documentacao
+# da Microsoft para PeekMessage e' clara: ela so' testa a fila e
+# retorna, nunca espera por escrita) - o comentario do proprio metodo
+# ja nomeia isso ("never blocks, never leaves anything behind for the
+# next frame"). Toda a comunicacao de janela do Win32 e' por fila de
+# mensagens do sistema (SendMessage/DispatchMessage), nunca por
+# escrita bloqueante num socket ou pipe - varredura de src/platform/
+# win32/ inteiro (`grep -rn "::send(\|WriteFile\|::write("
+# src/platform/win32/`) confirma ZERO ocorrencias de qualquer
+# primitivo de escrita bloqueante naquela camada. Nao ha, portanto,
+# NENHUM ponto no lado Windows sujeito ao MESMO risco (buffer de saida
+# cheio travando o processo) que bounded_output_wait_test existe para
+# mitigar - a ausencia e por desenho da propria API do sistema
+# operacional, mesma categoria das sondas de fronteira Wayland/X11 ja
+# registradas acima neste arquivo (wl_proto_link_test, display_bind_
+# refusal_test - GODS_LAWS.md L-05 fecha essa porta por desenho). A
+# PROVA que cobre a biblioteca no lugar do atomo que nao precisa
+# existir e' o proprio corpo (nao um teste separado, por instrucao
+# explicita de nao escrever teste novo nesta fatia) de win32_display_
+# adapter::pump_events() - PeekMessageW com PM_REMOVE e' inerentemente
+# nao-bloqueante por contrato de API, entao nao ha "atomo equivalente"
+# a escrever, nem risco a mitigar.
+bounded_output_wait_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do

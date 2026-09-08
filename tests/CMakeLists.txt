@@ -1755,7 +1755,46 @@ set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
 # finally crossed it; 300s restores roughly the SAME headroom ratio the
 # suite-wide default gives lighter tests, over the measured worst case,
 # without guessing a number nobody ran.
-set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 300)
+#
+# SECOND TIMEOUT override, 300s -> 900s (GODS_LAWS.md L-44/L-45, second
+# CROSS-CHECK job-lead request, 08/09/2026, CI run 34271655070 job
+# "Windows - compartilhado", ***Timeout 300.06 sec). Before touching the
+# number again, four of the most recent runs (34248155435, 34237420599,
+# 34228668830, 34271655070) were pulled (`gh run view --job <id> --log`,
+# never estimated) across BOTH Windows jobs, not just the one that had
+# been measured above - the 06/09/2026 finding only sampled "Windows -
+# estatico" ("that same job", see above), so the suspicion that the 300s
+# ceiling had never been exercised against "Windows - compartilhado" was
+# correct, and the gap was real, not assumed:
+#
+#   Windows - compartilhado: 61.39s, 271.18s, 59.69s, ***Timeout 300.06s
+#   Windows - estatico:      85.57s, 71.13s,  187.79s, 59.51s
+#
+# The measured worst case (uncensored - the 300.06s timeout is a killed
+# process, not a true completion time, and is excluded from this number)
+# climbed from 100.62s (06/09/2026, "estatico" only) to 271.18s
+# ("compartilhado", run 34237420599) - both Windows jobs got slower, and
+# "compartilhado" crossed the 300s ceiling outright. This is the SAME
+# executor-I/O intermittency already named above (BATCH-PARITY-WIN) and
+# not a hang: the same job/run (34271655070) shows OTHER lightweight
+# consume tests that normally finish in well under a second stretching to
+# tens of seconds in that one run alone (dep_zero_selftest 25.39s,
+# rslt_precondition_test 8.86s, pkgconfig_validate_test 63.43s - all
+# PASSED, none timed out) - a single slow run hitting many unrelated
+# tests is the signature of a contended shared runner, not this one
+# script waiting on something that never arrives. A dedicated sweep of
+# every `LABELS consume` test's measured time across these same 8 job
+# logs (43 of 53 apply to a Windows job; the other 10 are Unix-only or
+# Linux-side twins, e.g. `visibility_test`/`pkgconfig_test`) found
+# exactly ONE test within 20% of its own ceiling: this one - no other
+# consume test needed its timeout touched.
+#
+# 900s keeps roughly the SAME ~3x headroom ratio over the new measured
+# worst case (271.18s) that 300s kept over the old one (100.62s ->
+# 300s is ~2.98x); it is not sized against the 300.06s timeout itself,
+# since that number is censored (the process was killed mid-run, not
+# measured to completion).
+set_tests_properties(public_name_collision_test PROPERTIES TIMEOUT 900)
 
 add_test(
     NAME public_name_collision_selftest

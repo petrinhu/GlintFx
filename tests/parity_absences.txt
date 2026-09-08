@@ -36,3 +36,43 @@
 # - compoe conexao + shell; a metade que falta e' so' a entrada).
 src/platform/wayland/display_backend.hpp|composicao de conexao+shell+seat sob este nome nasce quando a entrada (seat) entrar na composicao - W6b|WL-DISPLAY-BACKEND-SEAT
 src/platform/wayland/display_backend.cpp|mesmo motivo do .hpp irmao acima, mesmo item|WL-DISPLAY-BACKEND-SEAT
+
+# L-A comum / P-LOOP (docs/plano-w6b-placa-e-laco.md, fatias 6 e 8): a
+# fachada do laco (gltfx_loop::open/step/run sobre loop_impl.hpp) e os
+# dois testes de paridade dela existem, provados, mas num ramo AINDA
+# NAO incorporado ao tronco (fatia/w7-6b, commit e4e075f, 08/09/2026) -
+# fatia de fechamento (fatia 9, mesmo plano) achou isto ao rodar este
+# portao pela primeira vez com --absences/--todo (achado do time-lead,
+# GODS_LAWS.md L-67: LOOP-RUN so fecha o que esta fatia prometeu, e a
+# fachada nao esta la ainda). LOOP-RUN continua 🔍 em TODO.md - os
+# atomos puros da fatia 6a e o wait_events da fatia 7 ja fecharam no
+# tronco, a fachada (6b) e a paridade (8) sao o que falta, e e' isso
+# que estas quatro linhas declaram, nunca um esquecimento.
+src/platform/loop/loop_impl.hpp|fachada do laco (fatia 6b) implementada em fatia/w7-6b (e4e075f), ainda nao incorporada ao tronco|LOOP-RUN
+src/platform/loop/loop_facade.cpp|mesmo motivo do .hpp irmao acima, mesmo item|LOOP-RUN
+tests/parity/loop_parity_test.cpp|teste de paridade do laco (fatia 8), depende da fachada acima (fatia 6b) que ainda nao esta no tronco|LOOP-RUN
+tests/loop_hidden_test.cpp|mesmo motivo do irmao acima (fatia 8), mesmo item|LOOP-RUN
+
+# G-PRESET (docs/plano-w6b-placa-e-laco.md, fatia 5c): nunca foi
+# implementada. Os tres identificadores que ela alimentaria (`preset`,
+# `auto_choice_reason`, `power_source`) ja existem no registro de
+# opcoes (gfx_option_registry.hpp) e sao aceitos pelos dois adaptadores
+# de contexto grafico - mas a tabela de presets, a regra automatica e
+# os dois leitores de fonte de energia, os nove caminhos abaixo, nunca
+# nasceram. Achado do agente de fechamento da W6b em 08/09/2026,
+# **sem item aberto que o rastreasse** ate o lider decidir, por
+# AskUserQuestion no mesmo dia: tira do escopo da onda, cria item
+# proprio (GFX-PRESET, TODO.md, aberto - W7). docs/gl-loop-portability-
+# matrix.md ja diz ao consumidor, na propria linha da opcao, que ela e'
+# aceita e nao tem efeito (GODS_LAWS.md L-21/L-41) - estas nove linhas
+# so' fecham o lado mecanico do portao de escopo, nunca substituem
+# aquele texto.
+src/platform/gl/gfx_preset_table.hpp|tabela preset->lista de opcoes (fatia 5c), nunca implementada|GFX-PRESET
+src/platform/gl/gfx_preset_table.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET
+src/platform/gl/auto_preset_rule.hpp|regra (gpu_kind, power_source) -> (preset, reason) (fatia 5c), nunca implementada|GFX-PRESET
+src/platform/gl/auto_preset_rule.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET
+src/platform/port/power_source_port.hpp|porta de leitura de fonte de energia (fatia 5c), nunca implementada|GFX-PRESET
+src/platform/wayland/power_source_adapter.hpp|leitor Wayland de /sys/class/power_supply (fatia 5c), nunca implementado|GFX-PRESET
+src/platform/wayland/power_source_adapter.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET
+src/platform/win32/power_source_adapter.hpp|leitor Win32 de GetSystemPowerStatus (fatia 5c), nunca implementado|GFX-PRESET
+src/platform/win32/power_source_adapter.cpp|mesmo motivo do .hpp irmao acima, mesmo item|GFX-PRESET

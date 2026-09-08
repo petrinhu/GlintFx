@@ -616,7 +616,54 @@ function(glintfx_validate_installed_pkgconfig)
     # (glintfx_pkgconfig_validate_content_on_disk(), defined above).
     glintfx_pkgconfig_validate_content_on_disk("${_glintfx_pc_file}")
 
-    find_program(GLINTFX_PKGCONFIG_VALIDATE_EXE NAMES pkg-config pkgconf NO_CACHE)
+    # PKG-WIN-INTEROP (measured live on a real Windows 11 VM, qemu
+    # guest-agent channel, 08/09/2026): find_program()'s own documented
+    # Windows suffix order is ".com", ".exe", then no suffix at all -
+    # it NEVER tries ".bat" (CMake's find_program.html: "On Windows,
+    # filename suffixes are considered in order .com, .exe, and no
+    # suffix"). Strawberry Perl's pkg-config distribution ships TWO
+    # files named "pkg-config" in the same directory: a bare,
+    # extension-less Perl script (not a valid Win32 executable on its
+    # own - no PE header, just "#!perl" text) and "pkg-config.bat" (the
+    # pl2bat-generated wrapper that actually runs). With a single NAME
+    # "pkg-config", find_program's third suffix attempt ("no suffix")
+    # matches the bare script FIRST, before ".bat" is ever considered.
+    # execute_process() below then tries to launch that bare text file
+    # directly (no shell involved - the same direct-CreateProcess path
+    # CMake's own KWSys process launcher uses), and Win32 refuses:
+    # measured literally, by reproducing the identical launch
+    # (System.Diagnostics.Process, UseShellExecute=$false) against that
+    # same file on the real machine -
+    #   "O executavel especificado nao e um aplicativo valido para
+    #   esta plataforma de SO."
+    # (the pt-BR text of "%1 is not a valid Win32 application",
+    # ERROR_BAD_EXE_FORMAT) - a LAUNCH failure in the PARENT, before
+    # any child process exists. That is exactly why the warning below
+    # used to report an EMPTY error message: there was never a child
+    # process to write one, so ERROR_VARIABLE had nothing to capture -
+    # not a case of this file discarding real output.
+    #
+    # Same defect class CMake's own FindPkgConfig.cmake had and fixed
+    # (GitLab cmake/cmake#21239, "FindPkgConfig not found with empty
+    # reason when strawberry perl is in PATH on Windows", MR!9375
+    # preferring the .bat name on Windows) - never applied to this
+    # file's own, independent find_program() call until now. WIN32
+    # only: NAMES are tried in the order given, and find_program's own
+    # suffix search resolves "pkg-config.bat"'s bare-suffix candidate
+    # (the literal file "pkg-config.bat") before this search ever
+    # reaches the plain "pkg-config"/"pkgconf" names later in the
+    # list - so a real wrapper on PATH is always preferred over a bare
+    # script sharing its base name, and the fallback to the plain
+    # names is what still finds a pkgconf/pkg-config that genuinely
+    # has no ".bat" (a native pkgconf.exe, for instance).
+    if(WIN32)
+        find_program(GLINTFX_PKGCONFIG_VALIDATE_EXE
+            NAMES pkg-config.bat pkgconf.bat pkg-config pkgconf
+            NO_CACHE
+        )
+    else()
+        find_program(GLINTFX_PKGCONFIG_VALIDATE_EXE NAMES pkg-config pkgconf NO_CACHE)
+    endif()
     if(NOT GLINTFX_PKGCONFIG_VALIDATE_EXE)
         message(WARNING
             "glintfx: pkg-config (and pkgconf) not found on PATH - "

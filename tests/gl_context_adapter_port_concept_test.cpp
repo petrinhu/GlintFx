@@ -67,6 +67,12 @@ class local_gl_adapter_missing_gpu {
     option_support(glintfx::gltfx_gfx_option /*id*/) const noexcept {
         return glintfx::gltfx_gfx_option_support::supported;
     }
+
+    // LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md, D-W6b-46): added
+    // here too, so this negative control keeps missing EXACTLY gpu()
+    // (this file's own header comment) rather than accidentally also
+    // missing the member this fatia just added to the concept.
+    [[nodiscard]] bool present_would_skip() const noexcept { return false; }
 };
 
 } // namespace

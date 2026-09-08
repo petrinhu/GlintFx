@@ -128,6 +128,16 @@ class win32_gl_context_adapter {
     // side one directory over.
     [[nodiscard]] gltfx_rslt<gltfx_present_outcome> swap_buffers() noexcept;
 
+    // present_would_skip() - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
+    // 6-8.md, D-W6b-46, gl_context_adapter_port.hpp's own header
+    // comment has the full contract): IsIconic(m_window) != 0 - the
+    // SAME signal swap_buffers() above already checks, exposed as its
+    // own atom (one call, two uses: gltfx_loop's own oculto-wait sonda,
+    // AND swap_buffers() itself below) rather than two adapters
+    // answering "would this frame be skipped" through two different
+    // mechanisms.
+    [[nodiscard]] bool present_would_skip() const noexcept { return ::IsIconic(m_window) != 0; }
+
     [[nodiscard]] void *proc_address(std::string_view name) const noexcept;
 
     // Only ever called with a `live` entry (gl_context_facade.cpp's

@@ -561,15 +561,18 @@ gltfx_rslt<void> win32_gl_context_adapter::make_current() noexcept {
 }
 
 gltfx_rslt<gltfx_present_outcome> win32_gl_context_adapter::swap_buffers() noexcept {
-    // D-W6b-6's own Windows mechanism: IsIconic() in place of the
-    // Wayland side's own frame-callback budget - checked UNCONDITIONALLY
-    // (never gated on the current vsync value, unlike Wayland where
-    // vsync=off skips the wait entirely): a minimized top-level window
-    // costs CPU to paint into for no observer on this platform
-    // regardless of v-sync, the busca's own finding (sec. 0, "Janela
-    // minimizada no Windows: SwapBuffers nao bloqueia... mas desenhar
-    // para janela minimizada e CPU jogado fora").
-    if (::IsIconic(m_window) != 0) {
+    // D-W6b-6's own Windows mechanism: present_would_skip() (IsIconic()
+    // under the hood) in place of the Wayland side's own frame-callback
+    // budget - checked UNCONDITIONALLY (never gated on the current
+    // vsync value, unlike Wayland where vsync=off skips the wait
+    // entirely): a minimized top-level window costs CPU to paint into
+    // for no observer on this platform regardless of v-sync, the
+    // busca's own finding (sec. 0, "Janela minimizada no Windows:
+    // SwapBuffers nao bloqueia... mas desenhar para janela minimizada
+    // e CPU jogado fora"). LOOP-RUN fatia 7 (D-W6b-46): this is now the
+    // SAME atom gltfx_loop's own oculto-wait sonda calls through the
+    // gl_context_adapter_port, one check instead of two.
+    if (present_would_skip()) {
         return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
     }
     // GEMEO DO GEMEO (GODS_LAWS.md L-17/L-22, INCIDENTE-FONTE desta

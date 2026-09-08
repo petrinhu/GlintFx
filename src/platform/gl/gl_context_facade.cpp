@@ -392,4 +392,17 @@ gltfx_gpu_info gltfx_gl_context::gpu() const noexcept {
     return m_impl->adapter.gpu();
 }
 
+// gl_context_internal_access::get() - the ONLY definition of this
+// symbol in the whole library (context.hpp's own header comment on
+// gl_context_internal_access explains why the definition living HERE,
+// out-of-line, is what makes the passkey work at all - the same
+// reasoning display_internal_access::get() already documents in
+// display_facade.cpp). No GLINTFX_API on this line: the same
+// per-symbol dllexport convention this project's own header comments
+// document elsewhere means this stays out of the dynamic symbol table
+// of the public glintfx::glintfx target.
+gl_context_impl *gl_context_internal_access::get(gltfx_gl_context &context) noexcept {
+    return context.m_impl;
+}
+
 } // namespace glintfx

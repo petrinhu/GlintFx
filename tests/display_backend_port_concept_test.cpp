@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstdint>
+
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
@@ -60,6 +62,14 @@ class local_backend_with_pump {
 
     [[nodiscard]] glintfx::gltfx_rslt<void> pump_events() noexcept {
         return glintfx::gltfx_rslt<void>::ok();
+    }
+
+    // LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md, D-W6b-50): the
+    // ONE member display_backend_port grew this fatia - added here so
+    // this positive control keeps satisfying the (now wider) concept
+    // it exists to prove.
+    [[nodiscard]] glintfx::gltfx_rslt<bool> wait_events(std::uint32_t /*budget_ms*/) noexcept {
+        return glintfx::gltfx_rslt<bool>::ok(false);
     }
 };
 

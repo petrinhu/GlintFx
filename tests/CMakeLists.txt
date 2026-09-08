@@ -3206,6 +3206,39 @@ add_test(
 )
 set_tests_properties(container_fixture_includes_selftest PROPERTIES LABELS selftest)
 
+# Container fixture LINK gate (08/09/2026, GODS_LAWS.md L-11/L-17/L-36/
+# L-40, quarta mordida de "lista de fontes mantida a mao" - server run
+# 34192811273): sibling of container_fixture_includes_selftest above,
+# closing the blind spot that gate cannot by construction - it proves
+# every #include resolves, never that the resulting TUs LINK. A
+# production atom (flush_retry_policy.cpp) started being called from a
+# sibling TU (display_adapter.cpp) through a header BOTH already
+# #include - no #include ever moved, so the includes gate stayed green
+# while sixteen of this Containerfile's own g++ invocations died at
+# real `ld` time with "undefined reference". See tests/tools/
+# check_container_fixture_link.py's own header comment for the full
+# account.
+#
+# NO REAL-MODE ctest CASE HERE, same reason container_fixture_includes_
+# selftest right above has none: real mode RUNS the Containerfile's own
+# g++/gcc invocations against a STAGED tree that only prepare_arch_
+# ports_fixture.sh's own `sh` script produces - that script already
+# calls this gate as the LAST step of its own main(), right after
+# verify_fixture_includes(), and .github/workflows/ci.yml's own
+# `wayland-container` job already runs that script before `docker
+# build`. --selftest here is fully hermetic (its own tempfile fixtures,
+# a synthetic two-file "atom skipped from the link" case that never
+# touches Wayland/EGL, so it needs none of this host's dev packages -
+# see that script's own selftest_missing_atom_reproves() for the exact
+# shape), so it is registered on all five platforms with no guard, same
+# GATE-TREE-PARITY shape as container_fixture_includes_selftest.
+add_test(
+    NAME container_fixture_link_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_link.py" --selftest
+)
+set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest)
+
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
 # EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo

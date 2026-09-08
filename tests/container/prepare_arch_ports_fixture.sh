@@ -213,6 +213,33 @@ verify_fixture_includes() {
         fail "portao de includes da fixture reprovou (ver acima)"
 }
 
+# Sibling of verify_fixture_includes() above, closing the blind spot
+# THAT gate cannot by construction: it proves every #include resolves,
+# never that the resulting TUs actually LINK. A production atom that
+# starts calling into a sibling .cpp file through a header both TUs
+# already #include (no new #include appears anywhere) is invisible to
+# verify_fixture_includes() and visible only to a real `ld` - which is
+# exactly what happened on 08/09/2026 (flush_retry_policy.cpp, server
+# run 34192811273, see tests/tools/check_container_fixture_link.py's
+# own header comment for the full account and TODO.md's INBOX,
+# 07/09/2026, for the family this closes: three prior mordidas of
+# "lista de fontes mantida a mao", this being the fourth). Runs the
+# Containerfile's own g++/gcc invocations for real, against the tree
+# THIS run of main() just staged, BEFORE `docker build` ever starts
+# (GODS_LAWS.md L-40: a link gap reproves here, not eleven minutes into
+# the far more expensive image build).
+verify_fixture_link() {
+    repo_root="$1"
+    target="$2"
+
+    python3 "$repo_root/tests/tools/check_container_fixture_link.py" --exec \
+        "$repo_root/tests/container/Containerfile" \
+        "$repo_root/tests/container" \
+        "$target" \
+        "$repo_root" ||
+        fail "portao de link da fixture reprovou (ver acima)"
+}
+
 main() {
     require_repo_root_arg "$@"
     repo_root="$1"
@@ -225,6 +252,7 @@ main() {
     echo "prepare_arch_ports_fixture.sh: staged $(find "$target" -type f | wc -l | tr -d ' ') file(s) under $target"
 
     verify_fixture_includes "$repo_root" "$target"
+    verify_fixture_link "$repo_root" "$target"
 }
 
 main "$@"

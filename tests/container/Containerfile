@@ -143,6 +143,24 @@
 # window_adapter/wayland_egl_context_adapter) - same source set as
 # gl_context_parity_test's own EGL half, minus the two window/display
 # facade TUs it never needs (it never touches the public API).
+#
+# flush_retry_policy.cpp rides ALONGSIDE bounded_output_wait.cpp in
+# every g++ invocation below that names display_adapter.cpp (GODS_LAWS.md
+# L-17/L-40, server run 34192811273, 08/09/2026 - the FOURTH occurrence
+# TODO.md's INBOX names, 07/09/2026, of "lista de fontes mantida a mao"):
+# display_adapter.cpp's own flush_with_retry() calls flush_write_wait_
+# is_fatal() from this file, and this Containerfile's own sixteen
+# consumers of display_adapter.cpp were never updated the day this file
+# was born (cbc766a) - the library itself stayed green (src/platform/
+# wayland/CMakeLists.txt's own target_sources() already had it), which
+# is exactly why a full `docker build`, eleven minutes in, was the FIRST
+# place this ever surfaced. tests/tools/check_container_fixture_link.py
+# (run at the end of prepare_arch_ports_fixture.sh, BEFORE `docker build`
+# ever starts - see that script's own header comment) now RUNS every
+# g++/gcc invocation below natively, against the real staged tree, and
+# reproves with the real `ld` "undefined reference" the moment a future
+# atom repeats this exact shape - never again only a server round-trip
+# away.
 FROM fedora:44 AS arch-ports-builder
 RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel mesa-libEGL-devel \
     && dnf clean all
@@ -175,6 +193,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/arch_ports_connect_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -187,6 +206,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/registry_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -199,6 +219,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/two_displays_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -211,6 +232,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/fatal_error_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -223,6 +245,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/pump_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -235,6 +258,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/wait_events_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -247,6 +271,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/shell_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -262,6 +287,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/window_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -282,6 +308,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/egl_probe_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -302,6 +329,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/seat_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
@@ -316,6 +344,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/window_parity_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -338,6 +367,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/gl_context_parity_test \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -379,6 +409,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/egl_device_reader_probe \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -420,6 +451,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/egl_protocol_error_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -453,6 +485,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/facade_pin_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -488,6 +521,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -o /build/window_active_after_map_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \

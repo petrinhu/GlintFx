@@ -62,10 +62,13 @@
 #      install as scenario 5, re-validated with -DWIN32=1 forcing the
 #      Windows branch (RED, PKG-WIN-SCOPE regression proof): must still
 #      FATAL, never claim the artifact is "genuinely on disk".
-#  10. run_windows_forced_healthy_conversation_warning_scenario -
-#      Windows-forced, healthy content, only the pkg-config BINARY
-#      conversation itself fails (WARNING, not FATAL - the one
-#      legitimate downgrade).
+#  10. run_windows_forced_healthy_conversation_scenario - Windows-forced,
+#      healthy content: on a REAL Windows host, PKG-WIN-INTEROP's
+#      find_program() fix makes the conversation genuinely succeed
+#      (PASSED); on any other host, forcing WIN32=1 still corrupts
+#      PKG_CONFIG_PATH (WARNING, not FATAL - the one legitimate
+#      downgrade) - MEASURED per host, never a single hardcoded
+#      expectation (PKG-WIN-INTEROP, 08/09/2026).
 #  11. run_headers_missing_scenario - installed header tree missing, on
 #      both a real Unix run AND a Windows-forced run (RED on both).
 #  12. run_relative_libdir_cwd_attack_scenario - relative libdir,
@@ -504,12 +507,20 @@ def pkgconfig_binary_on_path():
 # cmake/GlintfxPkgConfigValidateInstalled.cmake.in itself already names a
 # THIRD, WIN32-only outcome (its own header, "Talking to the pkg-config
 # BINARY itself"; proven correct, forced, by
-# run_windows_forced_healthy_conversation_warning_scenario, scenario 10):
+# run_windows_forced_healthy_conversation_scenario, scenario 10):
 # the tool IS on PATH, but the '--exists' conversation itself fails
-# (measured cause, same file's header: Strawberry Perl's Pure-Perl
-# 'pkg-config.bat', the only implementation on GitHub Actions'
-# windows-latest runner, mis-splits a bare PKG_CONFIG_PATH value on ':'
-# and shreds the drive letter) - a GODS_LAWS.md L-27 DECLARED DOWNGRADE
+# (cause as understood AT THE TIME of this VERMELHO 3, 05/09/2026:
+# Strawberry Perl's Pure-Perl 'pkg-config.bat' mis-splitting a bare
+# PKG_CONFIG_PATH value on ':' and shredding the drive letter -
+# CORRECTED by PKG-WIN-INTEROP, 08/09/2026, measured live on a real
+# Windows 11 VM: the actual cause was find_program() itself never
+# reaching "pkg-config.bat" at all - its own suffix search resolved a
+# BARE, unlaunchable Perl script sharing the same base name FIRST, so
+# execute_process() failed to even START a child process (Win32
+# ERROR_BAD_EXE_FORMAT, in the PARENT, with nothing to write the empty
+# ERROR_VARIABLE this warning used to report) - not a mis-split by a
+# genuinely running .bat wrapper; see that fatia's own find_program()
+# fix for the corrected mechanism) - a GODS_LAWS.md L-27 DECLARED DOWNGRADE
 # (WARNING, exit 0), never a FATAL_ERROR, because this file's own content
 # check (CMake's native pkg-config parser) already confirmed glintfx.pc,
 # the headers and the library artifact are genuinely on disk BEFORE this
@@ -535,8 +546,11 @@ def assert_windows_degraded_conversation_is_honest(output, on_fail_prefix):
     """The third outcome is a DECLARED DOWNGRADE (GODS_LAWS.md L-27),
     never a silent "ok": it is honest only when it ALSO names its own
     content check as the thing that actually confirmed the install -
-    exactly what run_windows_forced_healthy_conversation_warning_scenario
-    (scenario 10) already proves correct with the branch forced.
+    exactly what run_windows_forced_healthy_conversation_scenario
+    (scenario 10) already proves correct with the branch forced, on the
+    non-Windows half of that scenario (PKG-WIN-INTEROP, 08/09/2026: on a
+    REAL Windows host that same scenario now expects PASSED instead -
+    see its own docstring).
     Accepting the warning phrase ALONE - which is what
     run_default_layout_scenario alone used to do, before this fix -
     would let this gate pass against an install whose content was never
@@ -1002,44 +1016,106 @@ def run_windows_forced_broken_library_scenario(glintfx_src, cxx, build_dir, pref
 # --- scenario 10 -------------------------------------------------------
 
 
-def run_windows_forced_healthy_conversation_warning_scenario(build_dir, intact_prefix):
+def run_windows_forced_healthy_conversation_scenario(build_dir, intact_prefix):
+    """PKG-WIN-INTEROP (08/09/2026, measured live on a real Windows 11
+    VM AND on the real GHA Windows runners, run 34237420599): -DWIN32=1
+    forced against a genuinely intact install used to ALWAYS degrade to
+    the WARNING branch, on every host - but that was two independent
+    effects accidentally adding up the same way everywhere, not one:
+
+      1. This .cmake.in's own WIN32 branch (further down, "Talking to
+         the pkg-config BINARY itself") always converts PKG_CONFIG_PATH
+         to a native path list and appends a trailing ';'. On a REAL
+         Windows host that IS the native separator, so it stays valid.
+         On any OTHER host (this test's own dev/CI machine included) it
+         is genuinely destructive: cmake_path()'s own native-format
+         conversion is decided by the platform the calling cmake BINARY
+         was built for (see this file's "WHY A HAND-WRITTEN
+         string(MATCHES ...) TEST" comment, further up), so it stays
+         POSIX-styled here, and the unconditional ';' is then read as
+         part of the directory NAME (this platform's PKG_CONFIG_PATH
+         separator is ':', not ';') - measured, live, on this machine:
+         "PKG_CONFIG_PATH=<real dir>;" resolves to one nonexistent
+         directory ending in a literal semicolon, and the conversation
+         genuinely fails.
+      2. find_program()'s own NAMES order - this fatia's actual fix -
+         only changes which BINARY answers the conversation, and that
+         only matters where a ".bat"-suffixed candidate can exist on
+         disk to be found ahead of the bare, unlaunchable script: a
+         REAL Windows host.
+
+    Effect 1 already forces a real failure on every non-Windows host
+    regardless of effect 2 - confirmed empirically by sabotaging
+    find_program()'s NAMES order in a copy of this .cmake.in OUTSIDE the
+    tree (GODS_LAWS.md L-27) and observing NO CHANGE in this scenario's
+    own outcome here. Effect 2's fix can only ever change the outcome
+    where effect 1 does not already mask it - a REAL Windows host, which
+    is why this scenario measures the REAL host (os.name == "nt",
+    GODS_LAWS.md L-44: not assumed) and asserts two DIFFERENT things,
+    instead of reusing assert_real_install_validated()'s generic
+    three-way measure alone: that helper accepts "degraded" as
+    legitimate everywhere, which would leave this scenario unable to
+    ever fail again if find_program()'s own fix regressed on a real
+    Windows runner (GODS_LAWS.md L-40).
+    """
     validator_script = find_generated_validator_script(build_dir)
+    pc_file = find_pc_file_under(intact_prefix)
 
     output = run_expect_success(
         ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script],
-        "re-running the validator against a genuinely intact install, with only the "
-        "Windows branch forced, unexpectedly FAILED instead of warning-and-succeeding.",
+        "re-running the validator against a genuinely intact install, with the Windows "
+        "branch forced, unexpectedly FAILED.",
     )
 
-    must_contain(
-        output,
-        "CONVERSATION could not be verified on this Windows machine",
-        on_fail="the Windows-forced healthy-content scenario did not print the expected binary-conversation warning.",
-    )
-    must_contain_in_order(
-        output,
-        "native content check already ran before this point",
-        "already confirmed glintfx.pc, the headers and the library artifact are "
-        "genuinely on disk with real content",
-        on_fail=(
-            "the Windows-forced healthy-content warning did not honestly attribute the "
-            "confirmation to its own content check having already run."
-        ),
-    )
-    must_contain(
-        output,
-        "post-install pkg-config content check",
-        on_fail=(
-            "the Windows-forced healthy-content scenario never printed its own "
-            "content-check STATUS message before the binary-conversation warning - the "
-            "content check may not have actually run first."
-        ),
+    if os.name == "nt":
+        # A REAL Windows host: -DWIN32=1 is redundant (WIN32 is already
+        # TRUE here), effect 1 above does not corrupt anything (its own
+        # native-path-list conversion IS this platform's real format),
+        # and PKG-WIN-INTEROP's fix means find_program() now hands the
+        # conversation a genuinely working "pkg-config.bat"/
+        # "pkgconf.bat" - the SAME "passed" outcome the unforced
+        # default-layout scenario (1) already proves correct on this
+        # exact machine. Accepting "degraded" here too would make this
+        # scenario unable to ever fail again on a real regression.
+        outcome = assert_real_install_validated(
+            output,
+            on_fail_prefix="Windows-forced healthy-content install succeeded",
+            pc_file=pc_file,
+        )
+        if outcome != "passed":
+            fail(
+                "Windows-forced healthy-content scenario ran on a REAL Windows host "
+                f"(os.name == 'nt') and reported outcome={outcome!r}, not 'passed' - "
+                "PKG-WIN-INTEROP's find_program() fix (preferring pkg-config.bat/"
+                "pkgconf.bat over the bare, unlaunchable script) should make a genuinely "
+                "intact install's binary conversation succeed for real on this machine; "
+                "a 'degraded' or 'absent' outcome here means that fix regressed, or this "
+                "machine's own pkg-config is genuinely broken or missing."
+            )
+        print(
+            "ok: Windows-forced healthy-content PASSED (real Windows host) - "
+            "PKG-WIN-INTEROP's find_program() fix hands the conversation a genuinely "
+            "working pkg-config binary, and it resolves glintfx.pc for real, exactly "
+            "like the unforced default-layout scenario already proves on this machine."
+        )
+        return
+
+    # Any OTHER host: forcing WIN32=1 is a deliberate SIMULATION, and
+    # effect 1 above (the trailing ';' this .cmake.in's own WIN32
+    # branch always appends) corrupts PKG_CONFIG_PATH on this platform
+    # regardless of which binary find_program() picked - this half of
+    # the scenario is what still proves the declared-downgrade WARNING
+    # branch (GODS_LAWS.md L-27) fires, and fires honestly, when the
+    # conversation genuinely cannot be verified.
+    assert_windows_degraded_conversation_is_honest(
+        output, on_fail_prefix="Windows-forced healthy-content install succeeded"
     )
     print(
-        "ok: Windows-forced healthy-content WARNING - with genuinely correct content on "
-        "disk, only the pkg-config BINARY conversation itself failing still degrades to a "
-        "WARNING at exit 0, and the warning truthfully names its own, already-run content "
-        "check as the thing that verified the filesystem."
+        "ok: Windows-forced healthy-content WARNING (non-Windows host) - with genuinely "
+        "correct content on disk, forcing the WIN32 branch's own native-path-list "
+        "conversion still corrupts PKG_CONFIG_PATH on this platform, degrading the "
+        "conversation to a WARNING at exit 0, and the warning truthfully names its own, "
+        "already-run content check as the thing that verified the filesystem."
     )
 
 
@@ -1657,7 +1733,7 @@ def real_main(args):
         run_windows_forced_broken_library_scenario(
             glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-windows-forced-broken-library")
         )
-        run_windows_forced_healthy_conversation_warning_scenario(build_dir, prefix_default)
+        run_windows_forced_healthy_conversation_scenario(build_dir, prefix_default)
         run_headers_missing_scenario(glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-headers-missing"))
         run_relative_libdir_cwd_attack_scenario(
             glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-relative-cwd-attack"), scratch

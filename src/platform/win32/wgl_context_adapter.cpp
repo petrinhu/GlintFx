@@ -318,6 +318,44 @@ gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
     m_msaa_supported = msaa_ok;
     m_srgb_supported = srgb_ok;
 
+    // REOPEN (CONSERTO 07/09/2026, GODS_LAWS.md L-04/L-17/L-22, achado
+    // no integrador run 34173289506, "Windows - estatico"):
+    // SetPixelFormat's own documentation says it plainly - "An
+    // application can only set the pixel format of a window one time.
+    // Once a window's pixel format is set, it cannot be changed."
+    // close() (below in this file) releases this adapter's own device
+    // context but never touches the WINDOW's already-bound pixel
+    // format, so a second open() over the SAME window must never call
+    // SetPixelFormat again: it does not merely warn on a repeat call,
+    // it FAILS outright - which is exactly the "platform_failure
+    // (rejected_value=wgl_pixel_format)" this fatia's own consumer
+    // step reported, mislabeling a reopen as a driver rejection of the
+    // pixel format itself.
+    //
+    // Reusing the format already bound to this window is safe, not a
+    // guess, because gl_context_facade.cpp is the ONLY caller of
+    // win32_gl_context_adapter::open() (this file's own header
+    // comment) and never reaches this function at all when a reopen's
+    // msaa_samples/srgb_framebuffer resolve to anything other than
+    // what the window's FIRST successful open() already fixed
+    // (gfx_open_only_fixation.hpp's own D-W6b-25 contract, enforced by
+    // gl_context_facade.cpp's own `refuse` branch, which returns
+    // invalid_argument/<option-name> before this adapter is ever
+    // touched). By the time control reaches here on a reopen, the
+    // try_choose cascade above has, by that same guarantee, just
+    // re-derived the identical decision the first open() already made
+    // and already bound - there is nothing left to set.
+    //
+    // ::GetPixelFormat() (learn.microsoft.com/windows/win32/api/
+    // wingdi/nf-wingdi-getpixelformat) is the read-only counterpart of
+    // ::SetPixelFormat() below: it returns 0 for a device context
+    // whose window has never had a format set (the ordinary first-open
+    // path, unchanged below) and the already-bound one-based index
+    // otherwise.
+    if (::GetPixelFormat(m_dc) != 0) {
+        return gltfx_rslt<void>::ok();
+    }
+
     // SetPixelFormat may be called only ONCE per window (D-W6b-4,
     // learn.microsoft.com/windows/win32/api/wingdi/nf-wingdi-
     // setpixelformat) - DescribePixelFormat's own documentation is the

@@ -45,6 +45,23 @@ only planned - read that section before assuming a feature exists.
   code, this explains the one pattern every function that can fail uses to
   report that failure.
 
+### API reference
+
+What every function and type does today, area by area, each with a
+working example. Only the areas that are complete and stable are listed
+here - see the main README's ["Status"](https://github.com/petrinhu/GlintFx#status-pre-10-under-active-construction)
+section for what is still being built.
+
+- **[API Reference: Core](API-Core)** - error handling, versioning, 2D
+  math, color and time. Start here: almost everything else builds on the
+  error-handling pattern this page explains first.
+- **[API Reference: Window and Display](API-Window-and-Display)** - the
+  one area that is complete and tested on both Linux and Windows today:
+  connecting to the display and opening a real window.
+- **[API Reference: Node View](API-Node-View)** - the one contract from
+  the future style engine that is already public and stable: the table
+  of callbacks your own UI tree implements so glintfx can inspect it.
+
 ## A word about the license, before you invest time
 
 glintfx is licensed under the **GNU Affero General Public License v3.0 or

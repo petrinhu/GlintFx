@@ -887,6 +887,12 @@ if(UNIX)
         # header comment already gives for connection_failure.cpp
         # right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        # LOOP-RUN fatia 7, conserto pos-revisao (D-W6b-57, 07/09/2026):
+        # flush_with_retry() now also calls flush_retry_policy.cpp's
+        # own flush_write_wait_is_fatal() - the SAME "second compile
+        # needs every callee linked alongside it" reasoning as bounded_
+        # output_wait.cpp right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -921,6 +927,12 @@ if(UNIX)
         # header comment already gives for connection_failure.cpp
         # right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        # LOOP-RUN fatia 7, conserto pos-revisao (D-W6b-57, 07/09/2026):
+        # flush_with_retry() now also calls flush_retry_policy.cpp's
+        # own flush_write_wait_is_fatal() - the SAME "second compile
+        # needs every callee linked alongside it" reasoning as bounded_
+        # output_wait.cpp right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -948,6 +960,12 @@ if(UNIX)
         # header comment already gives for connection_failure.cpp
         # right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        # LOOP-RUN fatia 7, conserto pos-revisao (D-W6b-57, 07/09/2026):
+        # flush_with_retry() now also calls flush_retry_policy.cpp's
+        # own flush_write_wait_is_fatal() - the SAME "second compile
+        # needs every callee linked alongside it" reasoning as bounded_
+        # output_wait.cpp right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1012,6 +1030,12 @@ if(UNIX)
         # header comment already gives for connection_failure.cpp
         # right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        # LOOP-RUN fatia 7, conserto pos-revisao (D-W6b-57, 07/09/2026):
+        # flush_with_retry() now also calls flush_retry_policy.cpp's
+        # own flush_write_wait_is_fatal() - the SAME "second compile
+        # needs every callee linked alongside it" reasoning as bounded_
+        # output_wait.cpp right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -1062,6 +1086,12 @@ if(UNIX)
         # header comment already gives for connection_failure.cpp
         # right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        # LOOP-RUN fatia 7, conserto pos-revisao (D-W6b-57, 07/09/2026):
+        # flush_with_retry() now also calls flush_retry_policy.cpp's
+        # own flush_write_wait_is_fatal() - the SAME "second compile
+        # needs every callee linked alongside it" reasoning as bounded_
+        # output_wait.cpp right above.
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -3416,5 +3446,23 @@ if(UNIX)
     target_include_directories(bounded_output_wait_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(bounded_output_wait_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+    )
+endif()
+
+# flush_retry_policy_test - LOOP-RUN fatia 7, conserto pos-revisao
+# (docs/plano-w6b-fatias-6-8.md, D-W6b-57; GODS_LAWS.md L-20): the red/
+# green witness for the policy atom that replaced flush_with_retry()'s
+# own fixed 100ms budget and unconditional m_fatal latch (this file's
+# own header comment on flush_retry_policy.hpp names the defect). Pure
+# data in, pure bool out - same if(UNIX) guard as bounded_output_wait_
+# test right above it, because bounded_wait_outcome (the enum this atom
+# reads) only exists to serve the Wayland write-wait today; no wayland-
+# client, no socket, no wl_display needed for this target itself.
+if(UNIX)
+    glintfx_add_test(flush_retry_policy_test)
+    target_include_directories(flush_retry_policy_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(flush_retry_policy_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
     )
 endif()

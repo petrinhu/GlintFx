@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 
 #include <glintfx/core/err.hpp>
@@ -236,7 +237,12 @@ class wayland_display_adapter {
     // an idle connection whose budget simply expired, never an error;
     // the same four fatal-connection paths pump_events() already
     // reports through the err() channel are the only way this returns
-    // one.
+    // one. D-W6b-57's own conserto (07/09/2026): with a NON-ZERO
+    // `budget_ms`, exhausting the write side of that budget still
+    // takes this same err() path (the caller explicitly asked to wait
+    // this long and the compositor still did not drain) - only
+    // pump_events()'s own `budget_ms == 0` call forgives that as
+    // transient (flush_retry_policy.hpp).
     [[nodiscard]] gltfx_rslt<bool> wait_events(std::uint32_t budget_ms) noexcept;
 
     // registry_global()/registry_global_remove() are the wl_registry_
@@ -272,15 +278,27 @@ class wayland_display_adapter {
     // budget_ms respectively, never two copies of the same sequence.
     [[nodiscard]] gltfx_rslt<bool> dispatch_ready_events(std::uint32_t timeout_ms) noexcept;
     [[nodiscard]] gltfx_rslt<void> drain_pending_and_prepare_read() noexcept;
-    [[nodiscard]] gltfx_rslt<void> flush_with_retry() noexcept;
+    // `budget_ms` and `deadline` (LOOP-RUN fatia 7 conserto, D-W6b-57,
+    // 07/09/2026) - both come from dispatch_ready_events()'s own single
+    // shared clock, never a fixed constant local to this method: the
+    // return value's `false` (not an error) means the write side did
+    // not clear within `budget_ms == 0`'s own zero-wait attempt - see
+    // this method's own .cpp header comment and flush_retry_policy.hpp
+    // for the fatal/transient split that decides between the two.
+    [[nodiscard]] gltfx_rslt<bool>
+    flush_with_retry(std::uint32_t budget_ms,
+                     std::chrono::steady_clock::time_point deadline) noexcept;
     // Returns whether data is ready to read (true) or nothing arrived
     // (false, wl_display_cancel_read() already called) - the one step
     // whose "nothing to do" outcome is success, not an error, which is
     // why this is the one of the four returning gltfx_rslt<bool> rather
-    // than gltfx_rslt<void>. `timeout_ms` (LOOP-RUN fatia 7): ZERO from
-    // pump_events()'s own call ("is there anything RIGHT NOW"), the
-    // caller's own budget from wait_events()'s own call ("sleep for up
-    // to this long instead").
+    // than gltfx_rslt<void>. `timeout_ms` (LOOP-RUN fatia 7; D-W6b-57's
+    // own conserto, 07/09/2026): dispatch_ready_events()'s own
+    // REMAINING time on the shared deadline after flush_with_retry()
+    // already ran, never the caller's full budget a second time -
+    // already 0 when pump_events()'s own zero budget was spent whole
+    // on the flush, and shrinks for wait_events()'s own budget by
+    // however long the flush itself took.
     [[nodiscard]] gltfx_rslt<bool> wait_for_incoming_data(std::uint32_t timeout_ms) noexcept;
     [[nodiscard]] gltfx_rslt<void> read_and_dispatch_incoming() noexcept;
 

@@ -189,6 +189,30 @@ pkgconfig_test|windows|nenhum|SEM-PENDENCIA
 # a escrever, nem risco a mitigar.
 bounded_output_wait_test|windows|nenhum|SEM-PENDENCIA
 
+# flush_retry_policy_test (tests/flush_retry_policy_test.cpp, tests/
+# CMakeLists.txt, if(UNIX)) prova flush_write_wait_is_fatal() (src/
+# platform/wayland/flush_retry_policy.hpp) - o atomo puro que decide,
+# a partir de um bounded_wait_outcome, se um write-wait que NAO
+# resolveu `ready` derruba a conexao (LOOP-RUN fatia 7, conserto pos-
+# revisao D-W6b-57, GODS_LAWS.md L-17/L-20). O parametro de entrada
+# deste atomo, bounded_wait_outcome (src/platform/wayland/bounded_
+# output_wait.hpp), e' o MESMO tipo que a excecao logo acima
+# (bounded_output_wait_test|windows|nenhum|SEM-PENDENCIA) ja registra
+# como sem par possivel no Windows - o motivo e' o mesmo, um nivel
+# corrente abaixo: pump_events() do lado Windows nunca produz um
+# bounded_wait_outcome porque PeekMessageW(..., PM_REMOVE) nunca
+# espera por espaco de buffer de escrita (contrato da propria API,
+# ja verificado e citado na entrada acima). Sem o valor de entrada,
+# nao ha "decisao sobre esse valor" a testar do lado Windows - a
+# ausencia deste atomo e', portanto, consequencia direta e permanente
+# da ausencia ja registrada do atomo que ele consome, nao um caso
+# novo a decidir. Achado do time-lead, 08/09/2026 (servidor run
+# 34192811273, PARIDADE-9-BURACOS): oito das nove linhas do relatorio
+# eram cascata da imagem do container falhando (inventario Linux
+# incompleto), fecharam sozinhas quando tests/container/Containerfile
+# ganhou o atomo que faltava no link; esta e' a unica real.
+flush_retry_policy_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do

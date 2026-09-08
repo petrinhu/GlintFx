@@ -260,6 +260,24 @@ gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
 
         int format = 0;
         UINT num_formats = 0;
+        // GEMEO (GODS_LAWS.md L-17/L-22, achado no integrador run
+        // 34171429194 - ver o header comment deste arquivo sobre
+        // swap_buffers() para o incidente completo): ::SetLastError(0)
+        // IMEDIATAMENTE antes de toda chamada Win32/WGL cujo fracasso
+        // este arquivo atribui via ::GetLastError() logo abaixo - sem
+        // isso, uma chamada que falha SEM chamar SetLastError() devolve
+        // o valor RESIDUAL de uma chamada anterior, ja bem-sucedida e
+        // sem relacao nenhuma (learn.microsoft.com/windows/win32/api/
+        // errhandlingapi/nf-errhandlingapi-getlasterror#remarks: "some
+        // functions set the last-error code to 0 on success and others
+        // do not"). Os outros tres arquivos de src/platform/win32/
+        // (display_adapter.cpp, seat_adapter.cpp, window_adapter.cpp)
+        // ja fazem isto em TODOS os seus proprios sitios, desde a
+        // fundacao deste backend - este arquivo era o unico que nao
+        // fazia, nos nove sitios verificados por tests/tools/check_
+        // win32_last_error_cleared.py (GODS_LAWS.md L-40's own non-
+        // empty-sweep floor, closed enumeration).
+        ::SetLastError(0);
         const bool ok =
             fn(m_dc, attribs, nullptr, 1, &format, &num_formats) != 0 && num_formats > 0;
         if (ok) {
@@ -306,11 +324,17 @@ gltfx_rslt<void> win32_gl_context_adapter::set_pixel_format_once(
     // standard way to obtain a valid PIXELFORMATDESCRIPTOR for an
     // ARB-chosen format, rather than fabricating one by hand.
     PIXELFORMATDESCRIPTOR pfd{};
+    // GEMEO (GODS_LAWS.md L-17/L-22) - ver o header comment de
+    // set_pixel_format_once() (fn(m_dc, ...) acima) para o incidente
+    // completo por tras deste ::SetLastError(0).
+    ::SetLastError(0);
     if (::DescribePixelFormat(m_dc, chosen_format, sizeof(PIXELFORMATDESCRIPTOR), &pfd) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_pixel_format")
                                          .with_os_error_code(::GetLastError()));
     }
+    // GEMEO (GODS_LAWS.md L-17/L-22) - mesmo motivo do comentario acima.
+    ::SetLastError(0);
     if (::SetPixelFormat(m_dc, chosen_format, &pfd) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_pixel_format")
@@ -333,6 +357,9 @@ win32_gl_context_adapter::create_context(void *create_context_attribs_arb) noexc
         static_cast<int>(k_gl_context_core_profile_bit),
         0,
     };
+    // GEMEO (GODS_LAWS.md L-17/L-22) - ver set_pixel_format_once()'s
+    // own header comment acima para o incidente completo.
+    ::SetLastError(0);
     HGLRC context = create(m_dc, nullptr, context_attribs);
     if (context == nullptr) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
@@ -341,6 +368,8 @@ win32_gl_context_adapter::create_context(void *create_context_attribs_arb) noexc
     }
     m_context = context;
 
+    // GEMEO (GODS_LAWS.md L-17/L-22) - mesmo motivo do comentario acima.
+    ::SetLastError(0);
     if (::wglMakeCurrent(m_dc, m_context) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_make_current")
@@ -414,6 +443,9 @@ win32_gl_context_adapter::open(win32_window_adapter &window,
     }
     m_swap_interval_ext = loaded.value().swap_interval_ext;
 
+    // GEMEO (GODS_LAWS.md L-17/L-22) - ver set_pixel_format_once()'s
+    // own header comment acima para o incidente completo.
+    ::SetLastError(0);
     m_dc = ::GetDC(hwnd);
     if (m_dc == nullptr) {
         close();
@@ -479,6 +511,9 @@ void win32_gl_context_adapter::close() noexcept {
 }
 
 gltfx_rslt<void> win32_gl_context_adapter::make_current() noexcept {
+    // GEMEO (GODS_LAWS.md L-17/L-22) - ver set_pixel_format_once()'s
+    // own header comment acima para o incidente completo.
+    ::SetLastError(0);
     if (::wglMakeCurrent(m_dc, m_context) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_make_current")
@@ -499,6 +534,20 @@ gltfx_rslt<gltfx_present_outcome> win32_gl_context_adapter::swap_buffers() noexc
     if (::IsIconic(m_window) != 0) {
         return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
     }
+    // GEMEO DO GEMEO (GODS_LAWS.md L-17/L-22, INCIDENTE-FONTE desta
+    // fatia, medido no integrador run 34171429194, "Windows -
+    // estatico"): a fatia anterior (comentario logo abaixo) ja tinha
+    // anexado ::GetLastError() aqui, mas NUNCA limpava o thread-local
+    // antes de chamar ::SwapBuffers() - a chamada real relatou
+    // os_error_code=203 (ERROR_ENVVAR_NOT_FOUND, "o sistema nao
+    // conseguiu encontrar a opcao de ambiente informada",
+    // learn.microsoft.com/windows/win32/debug/system-error-codes--0-
+    // 499-), um erro sem relacao nenhuma com apresentar um quadro -
+    // residuo de alguma chamada bem-sucedida anterior, nunca a causa
+    // real. ::SetLastError(0) IMEDIATAMENTE antes e' o idioma que a
+    // propria documentacao do GetLastError() recomenda (ver o header
+    // comment deste arquivo).
+    ::SetLastError(0);
     if (::SwapBuffers(m_dc) == 0) {
         // with_os_error_code(::GetLastError()) - THE GEMEO this file
         // itself was missing (GODS_LAWS.md L-17/CLAUDE.md "ao corrigir,
@@ -529,6 +578,10 @@ gltfx_rslt<void> win32_gl_context_adapter::call_swap_interval(int interval) noex
             gltfx_err(gltfx_err_code::unsupported).with_rejected_value("vsync"));
     }
     const auto swap_interval = reinterpret_cast<wgl_swap_interval_ext_fn>(m_swap_interval_ext);
+    // GEMEO (GODS_LAWS.md L-17/L-22) - ver set_pixel_format_once()'s
+    // own header comment (proximo do topo deste arquivo) para o
+    // incidente completo.
+    ::SetLastError(0);
     if (swap_interval(interval) == 0) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::platform_failure)
                                          .with_rejected_value("wgl_swap_interval")

@@ -190,12 +190,26 @@ gltfx_gfss_token_kind_name(gltfx_gfss_token_kind kind) noexcept;
 // NOT ABI-frozen (see this header's own top comment) - GFSS-API (TODO.
 // md, wave W10) is what congeals it, together with the rest of this
 // struct.
+// EVERY FIELD CARRIES ITS OWN DEFAULT MEMBER INITIALIZER, ON PURPOSE
+// (found by Clang, not GCC, GFSS-DECL-PARSE, 09/09/2026): `line`/
+// `column` already did; `expected`/`detail` did not, and a
+// std::string_view left with no default member initializer is exactly
+// what Clang's `-Wmissing-designated-field-initializers` (part of this
+// project's own -Wextra, GLINTFX_WERROR job "Clang (Fedora - segundo
+// compilador)") flags on every designated-init call site that omits
+// it - even though the member would read back empty either way
+// (std::string_view's own default constructor). GCC's own -Wextra does
+// not carry this specific check, so a build that only exercises GCC
+// locally never sees it - completing every individual call site instead
+// (the fix this project's own git history already tried once) only
+// buys until the next call site forgets it; the default belongs on the
+// FIELD, not repeated at every literal.
 struct gltfx_gfss_diagnostic {
     std::uint32_t line = 0;
     std::uint32_t column = 0;
-    std::string_view expected; // empty = no diagnostic attached (R4)
-    std::string_view detail;   // empty = no extra detail (R4); space-separated identifiers, never
-                               // a sentence (R7)
+    std::string_view expected{}; // empty = no diagnostic attached (R4)
+    std::string_view detail{};   // empty = no extra detail (R4); space-separated identifiers, never
+                                 // a sentence (R7)
 };
 
 // One token. Plain aggregate, same ABI-safety reasoning as

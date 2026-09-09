@@ -66,7 +66,7 @@ struct gfss_declaration {
     // GFSS-SHORTHAND (is_shorthand == true, D-DP-5) - never both.
     bool is_shorthand = false;
     gltfx_gfss_property property = gltfx_gfss_property::display; // valid iff !is_shorthand
-    std::string_view shorthand_name; // valid iff is_shorthand, sheet spelling
+    std::string_view shorthand_name{}; // valid iff is_shorthand, sheet spelling
 
     bool important = false;
 

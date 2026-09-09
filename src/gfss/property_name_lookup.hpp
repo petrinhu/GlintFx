@@ -27,7 +27,7 @@ enum class property_name_lookup_kind : std::uint8_t {
 struct property_name_lookup_result {
     property_name_lookup_kind kind = property_name_lookup_kind::unknown;
     gltfx_gfss_property property = gltfx_gfss_property::display; // valid iff kind == known_property
-    std::string_view shorthand_name;                             // valid iff kind == shorthand
+    std::string_view shorthand_name{};  // valid iff kind == shorthand
     gltfx_gfss_diagnostic diagnostic{}; // valid iff kind == refused or unknown
 };
 

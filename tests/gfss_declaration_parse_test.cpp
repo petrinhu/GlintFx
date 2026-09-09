@@ -178,7 +178,7 @@ GLINTFX_TEST(eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists) 
                   "GODS_LAWS.md L-40: ten refused names (nine shorthands + white-space), E3/A5");
 
     int shorthand_checked = 0;
-    for (std::string_view name : k_shorthand_names) {
+    for (const std::string_view name : k_shorthand_names) {
         const property_name_lookup_result result = lookup_property_name(name, 1, 1);
         GLINTFX_CHECK(result.kind == property_name_lookup_kind::shorthand);
         ++shorthand_checked;
@@ -401,8 +401,8 @@ GLINTFX_TEST(universal_keywords_are_accepted_alone_for_one_property_of_each_cate
     constexpr std::string_view k_universal_words[] = {"inherit", "initial", "unset"};
 
     int checked = 0;
-    for (std::string_view property : k_representative_properties) {
-        for (std::string_view word : k_universal_words) {
+    for (const std::string_view property : k_representative_properties) {
+        for (const std::string_view word : k_universal_words) {
             const std::string text = std::string(property) + ": " + std::string(word);
             const declaration_parse_result result = parse_one(text);
             GLINTFX_CHECK(result.accepted);
@@ -472,7 +472,7 @@ GLINTFX_TEST(invalid_declaration_is_dropped_and_the_next_one_survives_in_twelve_
     };
     int rejected_count = 0;
     int kept_count = 0;
-    for (std::string_view form : k_forms) {
+    for (const std::string_view form : k_forms) {
         const std::string sheet = std::string(form) + "; color: red";
         const declaration_list_parse_result result =
             parse_declaration_list(gltfx_gfss_cursor{.source = sheet});

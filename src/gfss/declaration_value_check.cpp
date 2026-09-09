@@ -47,14 +47,17 @@ fail(const gltfx_gfss_token &at, std::string_view expected, std::string_view det
 // non-owning std::string_view, token.hpp's own R4/R5 shape), then the
 // temporary was destroyed at the end of THAT full expression - the
 // returned diagnostic's own `.detail` view dangled. GLINTFX_CHECK(...
-// detail == "block flex none") in this file's own test still PASSED
-// (the freed bytes had not been overwritten yet) - undefined behavior
-// that happened to read back correct text, exactly the "verde que nao
-// prova nada" GODS_LAWS.md L-36 warns against; a static analyzer, not
-// this fatia's own runtime suite, is what actually caught it. A cache
-// keyed by std::string_view (a per-check-call temporary too) would
-// have the SAME defect one layer up - only PERMANENT storage, built
-// once, fixes it structurally.
+// detail == "block flex none") in this file's own test still PASSED -
+// NOT because the code was correct, but BECAUSE IT PASSED BY ACCIDENT:
+// the freed bytes had not been overwritten yet, so the dangling view
+// happened to still read back the right text. That is undefined
+// behavior wearing a green checkmark, exactly the "verde que nao prova
+// nada" GODS_LAWS.md L-36 warns about; the runtime test suite this
+// fatia's own TDD cycle ran, over and over, never caught it - a static
+// analyzer (cppcheck's own returnDanglingLifetime, tools/preci.sh's
+// lint stage) is what actually did. A cache keyed by std::string_view
+// (a per-check-call temporary too) would have the SAME defect one
+// layer up - only PERMANENT storage, built once, fixes it structurally.
 [[nodiscard]] const std::array<std::string, gltfx_gfss_property_count> &
 accepted_keyword_detail_table() {
     static const std::array<std::string, gltfx_gfss_property_count> table = [] {

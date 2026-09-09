@@ -66,13 +66,21 @@ split_declarations_at_top_level_semicolons(const std::vector<gltfx_gfss_token> &
             continue;
         }
 
-        // A stray closing token (`}`/`)`/`]` with no matching open -
-        // `close_curly` alone, DP-8's own directed case) must never
-        // drive `depth` negative: that would make EVERY `;` for the
-        // rest of the block look "nested" and stop being recognized as
-        // a boundary. Clamp at zero - a closing token nobody opened
-        // contributes nothing, it does not go on to cancel out a REAL
-        // opening token later.
+        // MEASURED DEFECT, not a preventive guess: the first version of
+        // this loop had no clamp, and the DP-8 directed case for a
+        // stray `}` alone (this file's own test, "invalid_declaration_
+        // is_dropped_and_the_next_one_survives") went RED the moment it
+        // was added - the recovery this whole function exists for broke
+        // on exactly the input it is supposed to recover from. A stray
+        // closing token (`}`/`)`/`]` with no matching open) drove
+        // `depth` NEGATIVE, and every `;` for the REST of the block then
+        // looked "nested" (`depth != 0`) and stopped being recognized as
+        // a boundary - one bare `}` silently swallowed every declaration
+        // after it into a single span. Clamp at zero: a closing token
+        // nobody opened contributes nothing, it does not go on to cancel
+        // out a REAL opening token later. Sabotaged and restored against
+        // a committed SHA to prove the fix (GODS_LAWS.md L-27) - see
+        // this fatia's own delivery report for the exact cycle.
         depth += nesting_depth_delta(kind);
         if (depth < 0) {
             depth = 0;

@@ -289,6 +289,19 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 **Aplicação:** a mensagem do `push` mente; confirme o SHA no remoto por `git ls-remote <url> <branch>` sempre que o push importar. Confira também `git diff --cached --stat` antes de commitar e `git show --stat` depois: `git add` é atômico e um pathspec inválido derruba o add inteiro em silêncio.
 
+
+**Emenda de 09/09/2026 — toda onda a partir da W5 carrega uma LINHA PRÓPRIA de fechamento: `CI-VERDE-<onda>`.** Ordem do líder, verbatim: *"a partir de w5, ponha uma linha sempre no final da onda: CI final verde"*.
+
+**O que a linha existe para impedir, e aconteceu duas vezes em dois dias:** a onda ser declarada fechada, os itens marcados como concluídos e a marca criada **antes** de o servidor se pronunciar. Foi o que produziu a `v0.3.0.0` prematura em 08/09/2026, e foi o que o líder pegou de novo na W4 em 09/09/2026 — o commit de fechamento ainda estava rodando quando o agente já tinha marcado tudo e publicado a marca.
+
+**Por que uma LINHA e não uma regra escrita em prosa:** regra em prosa depende de o agente lembrar dela no momento certo, e ele não lembrou — duas vezes. Item de tabela com `Status` próprio não depende de memória: ele fica visível, aparece em toda listagem de pendências, e uma onda com ele em ⏳ **não pode** ser chamada de fechada sem que a mentira seja imediata e verificável por qualquer um que olhe a tabela.
+
+**Como ela fecha, e não há atalho:** o commit que fecha a onda é empurrado; o resultado do servidor é lido **direto** (`gh run view <id> --json conclusion,jobs`), nunca da mensagem do push nem do painel; o número de trabalhos verdes é comparado com o total, **medido e não lido de documento**; só com todos verdes a linha vira ✅.
+
+**Vermelho nela bloqueia a onda inteira**, ainda que todas as outras linhas estejam ✅, e o conserto entra como fatia da **própria** onda — nunca é empurrado para a seguinte, porque isso seria a onda fechando com dívida.
+
+**É sempre a ÚLTIMA linha da onda**, por construção: depende de todas as outras. E o `Depende de` dela é a onda inteira, não um item específico.
+
 ## L-12
 
 **Data:** regra permanente.

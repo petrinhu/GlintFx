@@ -2671,3 +2671,31 @@ desligado desde 08/09 10:21, e envio e marca dependem de autorizacao dele, uma a
 projeto (`vA.B.C.D`, `SOVERSION` acompanha o primeiro). A marca so sai com o servidor verde
 no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
+
+---
+
+## Sessão de 09/09/2026 — modo autônomo religado
+
+**Modo ligado em** `09/09/26 - 00:19:50` por linguagem natural, ordem do líder verbatim: *"inicie modo autonomo"*. Escopos: `push`, `clean`. Validade: 24h (até 10/09/2026 00:19). Flag: `~/.claude/autonomo/GlintFx.json`.
+
+**Estado ao ligar, medido na árvore e no servidor, não de memória:** `main` em `5ca24f4`, árvore limpa, 22 de 22 verdes no servidor, marca `v0.3.3.0` publicada e apontando para esse commit. Fechadas: W3, W3-B, W6a. Abertas: **W4 (1 item)**, W5 (5), W6 (4), W6b (2), W7 (7), W7-B (9), W7-C (8).
+
+**O que o modo autoriza, e o que não autoriza:** decidir no lugar do líder o que iria a `AskUserQuestion`, empurrar ao fim de onda e marcar por julgamento com o servidor verde. **Não** relaxa nenhum portão: implementador, revisor e orquestrador seguem sendo agentes distintos, a revisão continua executando e mutando o código, e servidor vermelho continua bloqueando.
+
+**Rumo escolhido, e por quê:** atacar a **W4**, que tem um único item aberto (`GFSS-PROP-REGISTRY`, 🔍 Pendente verificação) e é a onda aberta mais antiga. A lei manda concluir a onda antes de começar a seguinte, e fechar a W4 custa uma revisão adversarial.
+
+### Registro
+
+#### D-090901 — o `GFSS-PROP-REGISTRY` vai para revisão adversarial antes de qualquer coisa nova  `[09/09/26 - 00:19:50]`
+
+**Quem decidiu:** o main, como orquestrador, aplicando a lei de fechamento de onda. **Fatia:** `GFSS-PROP-REGISTRY` (W4).
+
+**A pergunta, como teria ido ao líder:** com o modo autônomo ligado e sete ondas abertas, começar pela onda mais antiga com item pendente de verificação, ou pela de maior valor?
+
+**Opções na mesa:** (a) fechar a W4, que tem UM item e é a mais antiga; (b) abrir a W5, de maior valor agregado; (c) atacar a W6b, que tem o item de maior WSJF do projeto (`FACADE-PIN`, 24.00).
+
+**Escolhida: (a).** A lei de fechamento de onda (L-24, ordem do líder de 08/09/2026) não deixa espaço: *"CONCLUIR A ONDA ANTES DE COMEÇAR A SEGUINTE"*. Além disso, o custo é o menor dos três — um item, já implementado, faltando só o ataque.
+
+**Suspeita concreta que motiva o ataque, e que veio de um achado real:** o teste do registro confere cada propriedade *"contra tabela própria do teste"*, com as linhas digitadas à mão. Horas antes, o `GFSS-SEL-PARSE-NTH` foi REPROVADO por exatamente essa forma de defeito — o valor esperado tinha sido copiado da implementação em vez da especificação, e o teste passava enquanto o produto entregava o resultado errado. Duas coisas a medir: de onde vieram os valores desta tabela, e por que o item promete cerca de 57 propriedades enquanto o teste enumera 104.
+
+**Porta de mão única:** sim, pelo próprio item — ele congela a representação pública do identificador de propriedade, que é contrato. **Custo de reverter:** alto depois de publicado, baixo agora (nenhuma marca expõe o registro ainda).

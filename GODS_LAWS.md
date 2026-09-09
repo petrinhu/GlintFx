@@ -822,6 +822,22 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **O sinal do modo é o mecanismo de flag que já existe nesta máquina** (`autonomo_mode.py`, com escopos), ou a ordem direta dele na conversa. **Na dúvida se o modo está ligado, ele está desligado** — presumir autonomia é o erro caro, e presumir que não há é o barato.
 
+**Emenda de 09/09/2026 — o `fable` NÃO decide de cabeça: pesquisa PRIMEIRO, e o próprio aprendizado é o ÚLTIMO recurso.** Ordem do líder, verbatim: *"o fable ao decidir deve antes buscar na web por manuais, dores/explicacoes da comunidade, web em geral, aprender com rmlui e sdl3, aprender com outras bibliotecas. Se nada disso ajudar, deve tentar usar o proprio aprendizado."*
+
+**A ordem das fontes, e ela é uma ORDEM, não uma lista de sugestões:**
+
+1. **Manual oficial** do que está em jogo — a especificação, a documentação da plataforma, do compilador, do protocolo. É a fonte que decide, e é contra ela que valor esperado se confere (nunca contra a saída do próprio programa).
+2. **A dor da comunidade** — relato de quem já bateu nisso: issue, discussão, pergunta respondida, post-mortem. É onde mora a armadilha que o manual não conta.
+3. **A web em geral**, para o que as duas primeiras não cobrirem.
+4. **RmlUi e SDL3**, pela L-29 deste projeto: ler para **aprender a técnica**, jamais para copiar ou portar a implementação. E, junto deles, **qualquer outra biblioteca** que já tenha resolvido o mesmo problema — o espaço de referência não termina nesses dois nomes.
+5. **O próprio aprendizado do modelo — SÓ se nada acima ajudou.** É o último recurso, e quando for usado, o registro em `DECISOES_AUTONOMAS.md` diz explicitamente que as quatro fontes anteriores foram buscadas e não responderam.
+
+**Por que a ordem importa, e não é formalidade:** decisão tomada de cabeça parece pesquisa quando é escrita com confiança. A L-22 global já fixou que *"a pesquisa deve ser feita antes do planejamento"* — briefing que já carrega o desenho escolhido transforma a pesquisa em confirmação, não em investigação. Esta emenda diz a mesma coisa do lado de quem DECIDE: o `fable` na cadeira do líder herda o dever de fundamentar, não a licença de improvisar.
+
+**O que entra no registro:** a decisão registrada em `DECISOES_AUTONOMAS.md` passa a trazer **as fontes consultadas** e o que cada uma disse — ou a declaração explícita de que foram buscadas e nada responderam. Fonte não citada é fonte não consultada.
+
+**Relação com a L-43 deste projeto**, que é a irmã e continua valendo inteira: a L-43 obriga a busca **ao iniciar qualquer onda, antes de fatiar**; esta emenda obriga a mesma busca **a cada decisão que o `fable` toma no lugar do líder**, inclusive as que aparecem no meio da onda, depois do plano pronto.
+
 **Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
 
 ## L-35

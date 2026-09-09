@@ -67,6 +67,16 @@ target_compile_definitions(log_field_test PRIVATE
     "GLTFX_LOG_FIELD_HEADER_SOURCE=\"${PROJECT_SOURCE_DIR}/include/glintfx/core/log/field.hpp\""
 )
 
+# CORE-LOG CL-3 (TODO.md W5, GODS_LAWS.md L-19/L-20/L-26/L-40): the
+# semi-opaque event envelope plano/core-log.md Q3/D-LOG-4 fixes - see
+# log_event_test.cpp's own header comment. Needs src/core/log/
+# event_data.hpp, a PRIVATE header (GODS_LAWS.md L-19: "o header nasce
+# interno") - the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir
+# gfss_tokenizer_test/gfss_color_parse_test already add for their own
+# private headers, above in this file.
+glintfx_add_test(log_event_test)
+target_include_directories(log_event_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

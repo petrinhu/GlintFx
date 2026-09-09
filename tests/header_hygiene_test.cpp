@@ -110,6 +110,7 @@
 #include <glintfx/core/err_format.hpp>
 #include <glintfx/core/fixed_step.hpp>
 #include <glintfx/core/interpolate.hpp>
+#include <glintfx/core/log/event.hpp>
 #include <glintfx/core/log/field.hpp>
 #include <glintfx/core/log/severity.hpp>
 #include <glintfx/core/log/value.hpp>

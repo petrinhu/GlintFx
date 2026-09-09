@@ -20,4 +20,4 @@ target_sources(glintfx_library PRIVATE version.cpp err_code.cpp err.cpp color.cp
 # add_subdirectory() - a single visible CMake unit stays simplest for
 # a handful of files, same shape err_code.cpp/err.cpp already share
 # with the files right above), never its own top-level layer.
-target_sources(glintfx_library PRIVATE log/severity.cpp)
+target_sources(glintfx_library PRIVATE log/severity.cpp log/event.cpp)

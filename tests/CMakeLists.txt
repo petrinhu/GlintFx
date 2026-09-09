@@ -367,6 +367,24 @@ target_sources(gfss_declaration_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
 )
 
+# GFSS-DECL-PARSE review remediation (achado CRITICO da revisao
+# adversarial de 9266b31, GODS_LAWS.md L-27/L-36/L-40): the oracle that
+# proves k_property_value_contracts/k_shorthand_names/
+# k_refused_property_names against docs/gfss-property-registry-v1.md
+# itself, read as a REAL committed file at test run time - never a
+# second hand-typed copy of the same table (this file's own header
+# comment carries the full reasoning). Only property_value_contract.
+# hpp/refused_property_names.hpp/shorthand_name_vocabulary.hpp are
+# needed (all three `inline constexpr`, header-only) plus
+# gltfx_gfss_keyword_name()/gltfx_gfss_property_name() from the built
+# library glintfx_add_test() already links - no extra target_sources.
+glintfx_add_test(gfss_declaration_registry_doc_oracle_test)
+target_include_directories(gfss_declaration_registry_doc_oracle_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gfss_declaration_registry_doc_oracle_test PRIVATE
+    "GLTFX_GFSS_REGISTRY_DOC_SOURCE=\"${PROJECT_SOURCE_DIR}/docs/gfss-property-registry-v1.md\""
+)
+
 # GFSS-NODE-VIEW, fatia A (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-26/
 # L-28/L-40, ESCOPO.md SS2 decision 6): the five gltfx_node_state
 # pseudo-class bits, their frozen numeric values and

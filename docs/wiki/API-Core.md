@@ -25,14 +25,14 @@ crossing a public function. [`err.hpp`](https://github.com/petrinhu/GlintFx/blob
 | `rslt.has_value()` | `true` if the call succeeded. Always check this (or `has_error()`) before reading further. |
 | `rslt.has_error()` | `true` if the call failed. |
 | `rslt.value()` | The result. **Only valid when `has_value()` is true** - calling it otherwise is undefined behavior (a debug build aborts with a message naming the mistake; a release build does not check). |
-| `rslt.error()` | The `gltfx_err` describing the failure. Only valid when `has_error()` is true, same rule as `value()`. |
+| `rslt.err()` | The `gltfx_err` describing the failure. Only valid when `has_error()` is true, same rule as `value()`. |
 
 **Example**, the pattern every glintfx call follows:
 
 ```cpp
 auto result = glintfx::gltfx_display::open(); // any fallible call
 if (!result.has_value()) {
-    // result.error() is a glintfx::gltfx_err - see below
+    // result.err() is a glintfx::gltfx_err - see below
     return 1;
 }
 auto display = std::move(result.value());

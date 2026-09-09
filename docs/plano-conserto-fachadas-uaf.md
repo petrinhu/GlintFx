@@ -138,7 +138,7 @@ validar entrada (inalterado)
 impl = new (std::nothrow) X_impl{}         // default: adaptador fechado
 se impl == nullptr: devolver out_of_memory  // código de erro inalterado
 opened = impl->adapter.open(...)            // no endereço final
-se opened falhou: delete impl; devolver opened.error()   // inalterado
+se opened falhou: delete impl; devolver opened.err()   // RSLT-ERR-RENAME (09/09/2026): era .error(), nome do metodo apenas
 (no gl: só agora gravar a fixação na janela, ordem de gl_context_facade.cpp:210-216 preservada)
 devolver handle(impl)
 ```

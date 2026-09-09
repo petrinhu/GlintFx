@@ -94,6 +94,40 @@ target_include_directories(log_sink_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 glintfx_add_test(log_no_alloc_test)
 target_include_directories(log_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# CORE-LOG CL-6 (TODO.md W5, GODS_LAWS.md L-19/L-20/L-26/L-40):
+# concurrency promise, plano/core-log.md Q5/D-LOG-5 - see
+# log_sink_concurrency_test.cpp's own header comment (downgrade
+# declared: ASan/UBSan, not TSan).
+#
+# NO find_package(Threads)/Threads::Threads (GODS_LAWS.md L-07,
+# dependencia zero - the CI gate check_dep_zero.py refused it):
+# measured live (this machine, GCC 16.2.1/glibc 2.43 - forced relink,
+# `ldd` shows no separate libpthread) that std::thread from the C++23
+# standard library alone, without ANY extra find_package or link flag,
+# compiles, links and runs a real joined thread. The reason: glibc
+# 2.34+ (August 2021) merged pthread's symbols into libc itself, so
+# there is no separate libpthread.so left to opt into - find_package
+# (Threads) only exists to paper over platforms where pthread needs an
+# EXTRA link flag, which is not this one.
+#
+# FLOOR CHECKED AGAINST ALL FIVE CI TARGETS, not just this machine
+# (GODS_LAWS.md feedback_portao_congela_ambiente - a number/form
+# measured on the author's own machine is not evidence for every
+# other one): Fedora :latest is THIS machine's own Fedora 44 (glibc
+# 2.43, CLAUDE.md's own documented pin); Ubuntu :latest is Ubuntu
+# 26.04 per .github/workflows/ci.yml's own live-measured comment
+# (27/08/2026), and even the OLDEST Ubuntu LTS still glibc-relevant
+# (24.04) already ships 2.39 (ubuntu.pkgs.org, glibc-doc_2.39-...);
+# Arch and CachyOS are rolling releases, always at or past whatever
+# Fedora/Ubuntu ship; Windows has no glibc/pthread dependency at all
+# (std::thread is native there). All five clear 2.34. If a target
+# with an OLDER glibc (or a non-glibc libc without the merge, e.g. an
+# old musl-based image) ever enters this matrix, THIS LINK BREAKS -
+# that is the signal to add find_package(Threads) back, scoped to
+# this one test, not to guess it away silently.
+glintfx_add_test(log_sink_concurrency_test)
+target_include_directories(log_sink_concurrency_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

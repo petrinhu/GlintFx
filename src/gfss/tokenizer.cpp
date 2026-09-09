@@ -90,7 +90,7 @@ using detail::would_start_number;
 gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_cursor &cursor,
                                       std::string_view expected) noexcept {
     return gltfx_gfss_diagnostic{
-        .line = cursor.line, .column = cursor.column, .expected = expected};
+        .line = cursor.line, .column = cursor.column, .expected = expected, .detail = {}};
 }
 
 // The nine punctuation classes that are exactly one code point wide
@@ -153,7 +153,8 @@ bool skip_comments(gltfx_gfss_cursor &cursor, gltfx_gfss_diagnostic &diagnostic)
         if (at_end(cursor)) {
             diagnostic = gltfx_gfss_diagnostic{.line = comment_line,
                                                .column = comment_column,
-                                               .expected = k_expected_closing_comment};
+                                               .expected = k_expected_closing_comment,
+                                               .detail = {}};
             return false;
         }
         advance_code_point(cursor); // '*'

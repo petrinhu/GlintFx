@@ -129,7 +129,7 @@ using token_vector = std::vector<gltfx_gfss_token>;
 
 [[nodiscard]] gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_token &at,
                                                     std::string_view expected) noexcept {
-    return gltfx_gfss_diagnostic{.line = at.line, .column = at.column, .expected = expected};
+    return gltfx_gfss_diagnostic{.line = at.line, .column = at.column, .expected = expected, .detail = {}};
 }
 
 // See this file's own header comment above on why byte-pointer

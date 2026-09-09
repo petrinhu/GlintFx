@@ -80,6 +80,7 @@ recover_from_forward_progress_violation(gltfx_gfss_cursor &cursor, std::uint32_t
                 .line = violation_line,
                 .column = violation_column,
                 .expected = k_expected_internal_tokenizer_defect,
+                .detail = {},
             },
     };
 }

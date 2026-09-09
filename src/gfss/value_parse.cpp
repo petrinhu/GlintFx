@@ -25,7 +25,7 @@ namespace {
 
 gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_token &token,
                                       std::string_view expected) noexcept {
-    return gltfx_gfss_diagnostic{.line = token.line, .column = token.column, .expected = expected};
+    return gltfx_gfss_diagnostic{.line = token.line, .column = token.column, .expected = expected, .detail = {}};
 }
 
 value_parse_result fail_at(const gltfx_gfss_token &token, std::string_view expected) noexcept {

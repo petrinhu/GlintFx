@@ -327,6 +327,46 @@ target_sources(gfss_property_registry_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/property_status.cpp"
 )
 
+# GFSS-DECL-PARSE (TODO.md wave W5, GODS_LAWS.md L-17/L-19/L-20/L-22/
+# L-27/L-28/L-40, plan /var/tmp/glintfx-plan/gfss-decl-parse.md): the
+# declaration block - parse, recovery by declaration, validation against
+# the property registry's own contract (D-DP-4), `!important`, the three
+# universal keywords and `currentColor` - built on top of GFSS-TOKEN's
+# own token stream, GFSS-VALUE's own component decoder, GFSS-COLOR-
+# PARSE's own color reader and GFSS-PROP-REGISTRY's own 104-property
+# table. Needs the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir
+# every other internal-header consumer above already adds.
+glintfx_add_test(gfss_declaration_parse_test)
+target_include_directories(gfss_declaration_parse_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# None of this fatia's own new .cpp files carry GLINTFX_API
+# (deliberately - GODS_LAWS.md L-19, the SAME "GFSS-API decides the
+# public shape" reasoning every other internal gfss header above
+# already carries), so this test recompiles them, and every internal
+# .cpp they call into, a second time into its own object set - the SAME
+# technique every other test target in this file already uses for its
+# own internal dependencies (gfss_value_test/gfss_color_parse_test/
+# gfss_property_registry_test above). The list is deliberately explicit,
+# not glob-derived (D-090915, the plan's own SS7 risco 1: "a lista
+# target_sources a mao esquecendo um .cpp novo" - this list is written
+# ONCE, in this fatia's own first commit, with every source this track's
+# own dependency chain needs already named).
+target_sources(gfss_declaration_parse_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/important_flag.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_name_lookup.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_value_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_color_value.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_list_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_status.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+)
+
 # GFSS-NODE-VIEW, fatia A (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-26/
 # L-28/L-40, ESCOPO.md SS2 decision 6): the five gltfx_node_state
 # pseudo-class bits, their frozen numeric values and

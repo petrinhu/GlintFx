@@ -27,4 +27,11 @@ target_sources(glintfx_library PRIVATE
     keyword_kind.cpp
     property.cpp
     property_status.cpp
+    declaration_split.cpp
+    important_flag.cpp
+    property_name_lookup.cpp
+    declaration_value_check.cpp
+    declaration_color_value.cpp
+    declaration_parse.cpp
+    declaration_list_parse.cpp
 )

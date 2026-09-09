@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+### Added
+
+- `glintfx::gltfx_log_severity`, `glintfx::gltfx_log_value`, `glintfx::gltfx_log_field`, `glintfx::gltfx_log_event`, `glintfx::gltfx_log_sink` / `gltfx_log_set_sink()` / `gltfx_log_get_sink()` (`include/glintfx/core/log/`): the structured-log recebedor. A consumer registers one callback (plain function pointer plus an opaque context, never `std::function` - can be replaced from any thread at any time, R8 in `docs/api-conventions.md`) and receives events made of a numeric severity, a stable category, a stable event name, and typed `(name, value)` fields - never a pre-formatted sentence in any language (R9, the same permanent decision `gltfx_err_fields()` already follows). No sink registered means silence: nothing is written anywhere by default. The library's own first real emission, `gpu_kind_resolved` (`kind`/`path` fields), fires once when the OpenGL context adapter (both Wayland/EGL and Win32/WGL) resolves which kind of GPU it is running on, proved end to end against a real Wayland compositor by `tests/container/gpu_kind_report_smoke.cpp`.
+
 ## [0.3.0.0] - 2026-09-08
 
 ### Added

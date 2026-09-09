@@ -436,6 +436,67 @@ GLINTFX_TEST(core_error_use_sites_survive_hostile_system_headers) {
     }
 }
 
+// core_log_use_sites_survive_hostile_system_headers - CORE-LOG CL-8,
+// the SAME CE-8 discipline core_error_use_sites_survive_hostile_
+// system_headers above already applies to CORE-ERROR: every frozen
+// public identifier from severity.hpp/value.hpp/field.hpp/sink.hpp is
+// called here, as an actual expression, under the SAME hostile
+// include order the declaration-site case above already sets up.
+//
+// DECLARED GAP, honestly (same "no live target" caveat this file's
+// own header comment already states for aggregates with no call-
+// shaped member): gltfx_log_event's own four accessors
+// (severity()/category()/name()/fields()) are NOT called here. A
+// consumer can never construct a gltfx_log_event directly (event.hpp's
+// own header comment: the pointed-to data is private, only this
+// library's own emission path builds one) - the only way to get a
+// live instance is a real emission reaching a registered sink, and
+// nothing under include/glintfx/ alone (this file only includes
+// public headers) can trigger one without a real adapter and a real
+// compositor. Those four accessors ARE called for real, against a
+// LIVE event, by gpu_kind_report_test.cpp's own report_gpu_kind_
+// resolved_reaches_a_registered_sink case and by the container fixture
+// gpu_kind_report_smoke.cpp - just not under THIS file's hostile
+// include order specifically.
+GLINTFX_TEST(core_log_use_sites_survive_hostile_system_headers) {
+    // gltfx_log_severity_name() - CL-1's free function.
+    const std::string_view severity_name =
+        glintfx::gltfx_log_severity_name(glintfx::gltfx_log_severity::warning);
+    GLINTFX_CHECK(severity_name == std::string_view{"warning"});
+    GLINTFX_CHECK(glintfx::gltfx_log_severity::info < glintfx::gltfx_log_severity::warning);
+
+    // gltfx_log_value - CL-2's tagged value: every factory, every
+    // accessor.
+    const glintfx::gltfx_log_value text_value = glintfx::gltfx_log_value::make_text("dedicated");
+    GLINTFX_CHECK(text_value.text() == std::string_view{"dedicated"});
+    const glintfx::gltfx_log_value signed_value = glintfx::gltfx_log_value::make_signed_integer(-1);
+    GLINTFX_CHECK(signed_value.signed_integer() == -1);
+    const glintfx::gltfx_log_value unsigned_value =
+        glintfx::gltfx_log_value::make_unsigned_integer(2);
+    GLINTFX_CHECK(unsigned_value.unsigned_integer() == 2);
+    const glintfx::gltfx_log_value floating_value = glintfx::gltfx_log_value::make_floating(1.5);
+    GLINTFX_CHECK(floating_value.floating() == 1.5);
+    const glintfx::gltfx_log_value boolean_value = glintfx::gltfx_log_value::make_boolean(true);
+    GLINTFX_CHECK(boolean_value.boolean());
+
+    // gltfx_log_field - CL-2's name+value pair.
+    const glintfx::gltfx_log_field field{"kind", text_value};
+    GLINTFX_CHECK(field.name == std::string_view{"kind"});
+    GLINTFX_CHECK(field.value.text() == std::string_view{"dedicated"});
+
+    // gltfx_log_sink/gltfx_log_set_sink/gltfx_log_get_sink - CL-4's
+    // registry, exercised end to end (set, get, remove) - never left
+    // registered past this case (GODS_LAWS.md L-40: state leaking into
+    // a later case is not a clean slate).
+    const glintfx::gltfx_log_sink sink{[](void *, const glintfx::gltfx_log_event &) noexcept {},
+                                       nullptr, glintfx::gltfx_log_severity::error};
+    glintfx::gltfx_log_set_sink(sink);
+    GLINTFX_CHECK(glintfx::gltfx_log_get_sink().function == sink.function);
+    GLINTFX_CHECK(glintfx::gltfx_log_get_sink().minimum == glintfx::gltfx_log_severity::error);
+    glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{});
+    GLINTFX_CHECK(glintfx::gltfx_log_get_sink().function == nullptr);
+}
+
 // window_header_survives_hostile_system_headers - W-D' (docs/plano-
 // w6a-janela.md fatia 6): glintfx/platform/window/window.hpp's own
 // plain-data vocabulary (gltfx_window_size, gltfx_window_desc,

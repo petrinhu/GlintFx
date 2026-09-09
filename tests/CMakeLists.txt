@@ -55,6 +55,18 @@ glintfx_add_test(fixed_step_test)
 # log_severity_test.cpp's own header comment.
 glintfx_add_test(log_severity_test)
 
+# CORE-LOG CL-2 (TODO.md W5, GODS_LAWS.md L-19/L-20/L-26/L-40): the
+# tagged, non-allocating value/field types plano/core-log.md Q3
+# fixes - see log_field_test.cpp's own header comment. The two macros
+# hand the test the REAL committed header paths, so its own "no
+# std::variant/std::string in the header" check greps the actual
+# source, not a copy.
+glintfx_add_test(log_field_test)
+target_compile_definitions(log_field_test PRIVATE
+    "GLTFX_LOG_VALUE_HEADER_SOURCE=\"${PROJECT_SOURCE_DIR}/include/glintfx/core/log/value.hpp\""
+    "GLTFX_LOG_FIELD_HEADER_SOURCE=\"${PROJECT_SOURCE_DIR}/include/glintfx/core/log/field.hpp\""
+)
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

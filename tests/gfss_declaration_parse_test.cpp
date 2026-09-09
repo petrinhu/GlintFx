@@ -440,6 +440,34 @@ GLINTFX_TEST(every_accepted_declaration_of_a_reserved_property_carries_the_reser
                  list_result.reserved_notice_count, list_result.declarations.size());
 }
 
+// achado IMPORTANTE-2 da revisao adversarial de 9266b31 (GODS_LAWS.md
+// L-40): declaration_ast.hpp's own top comment says raw_composite_
+// count "exists for the test to print without recounting from the
+// outside" (D-DP-4's own declared debt), but before this test nothing
+// ever read it - proved by sabotage: removing the `++result.raw_
+// composite_count` line in declaration_list_parse.cpp's own fold_
+// into_result() left the whole 21-case suite green. This sheet mixes
+// all three cases fold_into_result() has to tell apart: two
+// raw_composite, non-shorthand properties (`filter`/`transform`, both
+// property_value_contract.hpp's own contract_raw() rows) that MUST
+// count; one ordinary values-form property (`width`) that must NOT;
+// and one accepted SHORTHAND (`margin`) whose own value ALSO reaches
+// form == raw (build_shorthand(), declaration_parse.cpp) but is
+// excluded by fold_into_result()'s own `!parsed.declaration.is_
+// shorthand` guard - the counter names ONLY D-DP-4's own composite
+// debt, never D-DP-5's shorthand-pending-expansion, and this is the
+// one case in the suite that proves the guard, not just the count.
+GLINTFX_TEST(raw_composite_count_counts_only_non_shorthand_raw_composite_declarations) {
+    const declaration_list_parse_result result = parse_declaration_list(
+        gltfx_gfss_cursor{.source = "filter: none; transform: none; width: 10px; margin: 1px"});
+    GLINTFX_CHECK(result.rejected.empty());
+    GLINTFX_CHECK(result.declarations.size() == 4);
+    GLINTFX_CHECK(result.raw_composite_count == 2);
+    std::println("raw_composite_count_counts_only_non_shorthand_raw_composite_declarations: "
+                 "raw_composite_count={} declarations={}",
+                 result.raw_composite_count, result.declarations.size());
+}
+
 GLINTFX_TEST(important_flag_position_inside_property_name_is_a_colon_error) {
     // "color !important: red" - the twelfth !important form the plan
     // names: the colon appears AFTER "!important", so the name area

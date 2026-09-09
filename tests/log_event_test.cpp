@@ -38,14 +38,14 @@ GLINTFX_TEST(log_event_accessors_match_what_was_built) {
         gltfx_log_field{"index", gltfx_log_value::make_unsigned_integer(0)},
     };
     const gltfx_log_event_data data{
-        gltfx_log_severity::warning,
+        gltfx_log_severity::warn,
         "platform.gl",
         "gpu_kind_resolved",
         std::span<const gltfx_log_field>{fields},
     };
     const gltfx_log_event event(data);
 
-    GLINTFX_CHECK(event.severity() == gltfx_log_severity::warning);
+    GLINTFX_CHECK(event.severity() == gltfx_log_severity::warn);
     GLINTFX_CHECK(event.category() == std::string_view{"platform.gl"});
     GLINTFX_CHECK(event.name() == std::string_view{"gpu_kind_resolved"});
     GLINTFX_CHECK(event.fields().size() == 2);
@@ -71,7 +71,7 @@ GLINTFX_TEST(log_event_with_no_fields_has_zero_size_span) {
 // event name are identifiers, never a sentence (Q3/D-LOG-3).
 GLINTFX_TEST(log_event_category_and_name_never_contain_a_space) {
     const gltfx_log_event_data data{
-        gltfx_log_severity::error,
+        gltfx_log_severity::err,
         "platform.gl",
         "gpu_kind_resolved",
         std::span<const gltfx_log_field>{},

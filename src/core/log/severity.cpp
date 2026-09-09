@@ -18,9 +18,14 @@ std::string_view gltfx_log_severity_name(gltfx_log_severity severity) noexcept {
         return "debug";
     case gltfx_log_severity::info:
         return "info";
-    case gltfx_log_severity::warning:
+    // CORE-LOG-CI DEFEITO 3: the ENUMERATOR names are `warn`/`err`
+    // (severity.hpp's own header comment), but the TEXT stays
+    // "warning"/"error" - identifier and printed string are
+    // deliberately decoupled here, the same way spdlog's own
+    // `level::warn`/`level::err` still print "warning"/"error".
+    case gltfx_log_severity::warn:
         return "warning";
-    case gltfx_log_severity::error:
+    case gltfx_log_severity::err:
         return "error";
     case gltfx_log_severity::critical:
         return "critical";

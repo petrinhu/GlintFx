@@ -118,7 +118,7 @@ GLINTFX_TEST(log_emit_never_allocates_without_a_sink) {
     reset_sink();
     reset_counts();
 
-    log_emit(gltfx_log_severity::error, "core", "five_fields", &five_field_builder, nullptr);
+    log_emit(gltfx_log_severity::err, "core", "five_fields", &five_field_builder, nullptr);
 
     const std::size_t final_alloc_count = g_alloc_count;
     const std::size_t final_dealloc_count = g_dealloc_count;
@@ -133,7 +133,7 @@ GLINTFX_TEST(log_emit_never_allocates_with_a_sink) {
     gltfx_log_set_sink(gltfx_log_sink{&quiet_sink, nullptr, gltfx_log_severity::trace});
     reset_counts();
 
-    log_emit(gltfx_log_severity::error, "core", "five_fields", &five_field_builder, nullptr);
+    log_emit(gltfx_log_severity::err, "core", "five_fields", &five_field_builder, nullptr);
 
     const std::size_t final_alloc_count = g_alloc_count;
     const std::size_t final_dealloc_count = g_dealloc_count;

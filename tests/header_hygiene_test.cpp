@@ -94,6 +94,15 @@
 // real <windows.h> above.
 #include "hostile_win32_macros_shim.hpp"
 
+// CORE-LOG-CI DEFEITO 3: the SAME "run it on all five platforms, not
+// only the one that has the real header" reasoning as the shim right
+// above, for gawk's own `warning` macro (Arch/CachyOS ship `gawk`,
+// Fedora/Ubuntu/Windows do not) - see the shim's own header comment
+// for the exact collision and why the macro form (object-like,
+// expands to an expression) is what makes this a real hazard, not a
+// harmless rename.
+#include "hostile_gawk_macros_shim.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -461,9 +470,9 @@ GLINTFX_TEST(core_error_use_sites_survive_hostile_system_headers) {
 GLINTFX_TEST(core_log_use_sites_survive_hostile_system_headers) {
     // gltfx_log_severity_name() - CL-1's free function.
     const std::string_view severity_name =
-        glintfx::gltfx_log_severity_name(glintfx::gltfx_log_severity::warning);
+        glintfx::gltfx_log_severity_name(glintfx::gltfx_log_severity::warn);
     GLINTFX_CHECK(severity_name == std::string_view{"warning"});
-    GLINTFX_CHECK(glintfx::gltfx_log_severity::info < glintfx::gltfx_log_severity::warning);
+    GLINTFX_CHECK(glintfx::gltfx_log_severity::info < glintfx::gltfx_log_severity::warn);
 
     // gltfx_log_value - CL-2's tagged value: every factory, every
     // accessor.
@@ -489,12 +498,31 @@ GLINTFX_TEST(core_log_use_sites_survive_hostile_system_headers) {
     // registered past this case (GODS_LAWS.md L-40: state leaking into
     // a later case is not a clean slate).
     const glintfx::gltfx_log_sink sink{[](void *, const glintfx::gltfx_log_event &) noexcept {},
-                                       nullptr, glintfx::gltfx_log_severity::error};
+                                       nullptr, glintfx::gltfx_log_severity::err};
     glintfx::gltfx_log_set_sink(sink);
     GLINTFX_CHECK(glintfx::gltfx_log_get_sink().function == sink.function);
-    GLINTFX_CHECK(glintfx::gltfx_log_get_sink().minimum == glintfx::gltfx_log_severity::error);
+    GLINTFX_CHECK(glintfx::gltfx_log_get_sink().minimum == glintfx::gltfx_log_severity::err);
     glintfx::gltfx_log_set_sink(glintfx::gltfx_log_sink{});
     GLINTFX_CHECK(glintfx::gltfx_log_get_sink().function == nullptr);
+}
+
+// log_severity_header_survives_gawk_shaped_macro - CORE-LOG-CI
+// DEFEITO 3: severity.hpp's own `warn`/`err` enumerators survive the
+// hostile_gawk_macros_shim.hpp macro included above - before the
+// rename, `warning`'s own declaration (`warn = 400,` used to read
+// `warning = 400,`) expanded to `(hostile_gawk_api->api_warning) =
+// 400,` and this whole translation unit failed to compile (the
+// service order report for this fatia has the literal error). This
+// case, the CE-8 use-site discipline once more, calls the renamed
+// enumerators as real expressions - the printed TEXT is unchanged
+// ("warning"/"error", severity.hpp's own header comment), only the
+// C++ identifiers moved.
+GLINTFX_TEST(log_severity_header_survives_gawk_shaped_macro) {
+    GLINTFX_CHECK(glintfx::gltfx_log_severity_name(glintfx::gltfx_log_severity::warn) ==
+                  std::string_view{"warning"});
+    GLINTFX_CHECK(glintfx::gltfx_log_severity_name(glintfx::gltfx_log_severity::err) ==
+                  std::string_view{"error"});
+    GLINTFX_CHECK(glintfx::gltfx_log_severity::warn < glintfx::gltfx_log_severity::err);
 }
 
 // window_header_survives_hostile_system_headers - W-D' (docs/plano-

@@ -66,7 +66,7 @@ GLINTFX_TEST(log_sink_no_sink_registered_calls_nothing) {
     reset_sink();
     // No crash, no observable side effect - there is nothing to
     // assert ON except that this does not throw or fault.
-    emit_sample(gltfx_log_severity::error, "unreachable");
+    emit_sample(gltfx_log_severity::err, "unreachable");
     GLINTFX_CHECK(true);
 }
 
@@ -76,7 +76,7 @@ GLINTFX_TEST(log_sink_registered_is_called_once_per_emission_in_order) {
     gltfx_log_set_sink(gltfx_log_sink{&recording_sink, &record, gltfx_log_severity::info});
 
     emit_sample(gltfx_log_severity::info, "first");
-    emit_sample(gltfx_log_severity::warning, "second");
+    emit_sample(gltfx_log_severity::warn, "second");
 
     GLINTFX_CHECK(record.count == 2);
     GLINTFX_CHECK(record.names.size() == 2);
@@ -90,7 +90,7 @@ GLINTFX_TEST(log_sink_set_returns_the_previous_registration) {
     call_record record_a;
     call_record record_b;
     const gltfx_log_sink first{&recording_sink, &record_a, gltfx_log_severity::info};
-    const gltfx_log_sink second{&recording_sink, &record_b, gltfx_log_severity::warning};
+    const gltfx_log_sink second{&recording_sink, &record_b, gltfx_log_severity::warn};
 
     const gltfx_log_sink initial_previous = gltfx_log_set_sink(first);
     GLINTFX_CHECK(initial_previous.function == nullptr); // reset_sink() above
@@ -105,13 +105,13 @@ GLINTFX_TEST(log_sink_set_returns_the_previous_registration) {
 GLINTFX_TEST(log_sink_get_reflects_the_current_registration) {
     reset_sink();
     call_record record;
-    const gltfx_log_sink sink{&recording_sink, &record, gltfx_log_severity::error};
+    const gltfx_log_sink sink{&recording_sink, &record, gltfx_log_severity::err};
     gltfx_log_set_sink(sink);
 
     const gltfx_log_sink observed = gltfx_log_get_sink();
     GLINTFX_CHECK(observed.function == &recording_sink);
     GLINTFX_CHECK(observed.context == &record);
-    GLINTFX_CHECK(observed.minimum == gltfx_log_severity::error);
+    GLINTFX_CHECK(observed.minimum == gltfx_log_severity::err);
     reset_sink();
 }
 
@@ -129,12 +129,12 @@ GLINTFX_TEST(log_sink_null_function_removes_the_sink) {
 GLINTFX_TEST(log_sink_minimum_filters_below_and_admits_equal) {
     reset_sink();
     call_record record;
-    gltfx_log_set_sink(gltfx_log_sink{&recording_sink, &record, gltfx_log_severity::warning});
+    gltfx_log_set_sink(gltfx_log_sink{&recording_sink, &record, gltfx_log_severity::warn});
 
     emit_sample(gltfx_log_severity::info, "below-minimum");
     GLINTFX_CHECK(record.count == 0);
 
-    emit_sample(gltfx_log_severity::warning, "at-minimum");
+    emit_sample(gltfx_log_severity::warn, "at-minimum");
     GLINTFX_CHECK(record.count == 1);
     reset_sink();
 }

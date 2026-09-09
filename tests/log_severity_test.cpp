@@ -33,9 +33,9 @@ GLINTFX_TEST(log_severity_unknown_is_zero) {
 GLINTFX_TEST(log_severity_orders_numerically) {
     GLINTFX_CHECK(gltfx_log_severity::trace < gltfx_log_severity::debug);
     GLINTFX_CHECK(gltfx_log_severity::debug < gltfx_log_severity::info);
-    GLINTFX_CHECK(gltfx_log_severity::info < gltfx_log_severity::warning);
-    GLINTFX_CHECK(gltfx_log_severity::warning < gltfx_log_severity::error);
-    GLINTFX_CHECK(gltfx_log_severity::error < gltfx_log_severity::critical);
+    GLINTFX_CHECK(gltfx_log_severity::info < gltfx_log_severity::warn);
+    GLINTFX_CHECK(gltfx_log_severity::warn < gltfx_log_severity::err);
+    GLINTFX_CHECK(gltfx_log_severity::err < gltfx_log_severity::critical);
 }
 
 GLINTFX_TEST(log_severity_names_match_the_table) {
@@ -43,8 +43,8 @@ GLINTFX_TEST(log_severity_names_match_the_table) {
     GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::trace) == "trace");
     GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::debug) == "debug");
     GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::info) == "info");
-    GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::warning) == "warning");
-    GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::error) == "error");
+    GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::warn) == "warning");
+    GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::err) == "error");
     GLINTFX_CHECK(gltfx_log_severity_name(gltfx_log_severity::critical) == "critical");
 }
 
@@ -59,7 +59,7 @@ GLINTFX_TEST(log_severity_unnamed_value_orders_and_degrades) {
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: see comment above
     const auto unnamed = static_cast<gltfx_log_severity>(350);
     GLINTFX_CHECK(gltfx_log_severity::info < unnamed);
-    GLINTFX_CHECK(unnamed < gltfx_log_severity::warning);
+    GLINTFX_CHECK(unnamed < gltfx_log_severity::warn);
     GLINTFX_CHECK(gltfx_log_severity_name(unnamed) == "unknown");
 }
 
@@ -69,8 +69,8 @@ GLINTFX_TEST(log_severity_unnamed_value_orders_and_degrades) {
 // discipline as gltfx_node_facts_entry_count, node_view.hpp).
 GLINTFX_TEST(log_severity_enumerated_table_is_not_empty) {
     constexpr gltfx_log_severity k_all[] = {
-        gltfx_log_severity::unknown,  gltfx_log_severity::trace,   gltfx_log_severity::debug,
-        gltfx_log_severity::info,     gltfx_log_severity::warning, gltfx_log_severity::error,
+        gltfx_log_severity::unknown,  gltfx_log_severity::trace, gltfx_log_severity::debug,
+        gltfx_log_severity::info,     gltfx_log_severity::warn,  gltfx_log_severity::err,
         gltfx_log_severity::critical,
     };
     int named = 0;

@@ -36,7 +36,53 @@
 // header comment): once a value ships, its name and number never
 // change. A new named level is a NEW enumerator at a NEW number,
 // never a renumbering of an existing one.
-
+//
+// CORE-LOG-CI DEFEITO 3 (measured, run 34329543846, jobs "Arch -
+// compartilhado"/"Arch - estatico"/"CachyOS - compartilhado"/"CachyOS
+// - estatico", 09/09/2026): `warning` collided for real with a system
+// macro - `#define warning` in gawk's own `gawkapi.h`
+// (cgit.git.savannah.gnu.org/cgit/gawk.git/plain/gawkapi.h), an
+// object-like macro active for any translation unit that is not gawk
+// itself (`#ifndef GAWK`). Fedora/Ubuntu never surfaced it (no `gawk`
+// package on those images); Arch/CachyOS do. `error` did not fail the
+// gate (libattr's own `#define error(ctx, args...)` in
+// `attr/error_context.h` is function-like, and inert behind an
+// opt-in guard, `ERROR_CONTEXT_MACROS`, that ordinary inclusion never
+// defines), but sat one active guard away from doing the same thing,
+// and was renamed alongside `warning` for that reason - prevention,
+// not a second live break (docs/api-conventions.md R6 has the full
+// account and the forbidden-name table).
+//
+// `warn`/`err` were chosen over a prefix (`severity_warning`,
+// rejected: repeats the already-qualified `enum class` name, GODS_
+// LAWS.md L-39 the other way - lengthening without a legibility gain)
+// because `warn` is the majority spelling of this level across the
+// field this project already keeps company with (OpenTelemetry
+// `WARN`, Go `slog.LevelWarn`, spdlog `warn`, SDL3 `SDL_LOG_PRIORITY_
+// WARN`, Rust `log::Level::Warn`), and `err` already IS this
+// project's own vocabulary (`gltfx_err`, `gltfx_err_code`, `err.hpp`,
+// `gltfx_rslt<T>::err()` - all chosen in CE-1 for the identical
+// reason: `error_code` collided with `std::error_code`). Having
+// `gltfx_err` beside `gltfx_log_severity::error` was the
+// inconsistency; `err` in both places is the coherent form.
+//
+// THE TEXT A CONSUMER SEES DOES NOT CHANGE: gltfx_log_severity_name()
+// below still returns `"warning"`/`"error"` for these two values -
+// only the C++ identifier changed, spdlog's own precedent for
+// decoupling the two (`level::warn` prints `"warning"`, `level::err`
+// prints `"error"`, `common.h` in spdlog's own repository). A
+// consumer's already-written log line, and anything grepping its
+// output, is unaffected; only source code spelling `gltfx_log_
+// severity::warning`/`::error` needs to change, and no published
+// glintfx version ever shipped this header (see the commit this
+// paragraph was written in for the tag-by-tag check), so this is not
+// a break of anything a consumer has already built against.
+//
+// NAMES PROHIBITED for a future severity level, with the source:
+// `warning`, `error` (both above), `fatal`, `nonfatal`, `lintwarn`
+// (gawkapi.h, same file, same unconditional guard - `fatal` was the
+// natural next name for a level above `critical`; it is unavailable
+// before anyone proposes it).
 namespace glintfx {
 
 enum class gltfx_log_severity : std::uint32_t { // NOLINT(performance-enum-size) reason: 32 bits
@@ -46,8 +92,8 @@ enum class gltfx_log_severity : std::uint32_t { // NOLINT(performance-enum-size)
     trace = 100,
     debug = 200,
     info = 300,
-    warning = 400,
-    error = 500,
+    warn = 400,
+    err = 500,
     critical = 600,
 };
 

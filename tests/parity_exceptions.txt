@@ -411,3 +411,20 @@ gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo
 # ps1` rodar DUAS VEZES por leg Windows (uma vez ali, outra via
 # consume_win_test de ctest) - redundante, nao quebrado, e documentado
 # aqui e no proprio ci.yml para o proximo leitor nao achar sozinho.
+#
+# tests/hostile_gawk_macros_shim.hpp (header_hygiene_test.cpp, CORE-
+# LOG-CI, run 34352638143) - o shim que reproduz a colisao real do
+# gawk (macro-objeto `warning`) agora se guarda por `#ifndef _MSC_VER`
+# em vez de rodar sem condicao. NAO vira uma linha de quatro campos
+# aqui: `header_hygiene_test` continua existindo, e passando, nos
+# CINCO alvos - nao ha nome de ctest ausente para declarar. O que
+# reduziu de verdade foi a CLASSE DE COLISAO exercitada dentro desse
+# teste: cinco plataformas viraram quatro (Fedora, Ubuntu, Arch,
+# CachyOS), porque o proprio shim, sem guarda, quebrava os cabecalhos
+# padrao da Microsoft (`#pragma warning(push)` de <cstdint>/<stdint.h>
+# vira lixo sintatico quando `warning` ja e macro-objeto - warning
+# C4081 em seis pontos diferentes, depois error C2220 sob /WX). A
+# razao completa da guarda, e por que o criterio e `_MSC_VER` e nao
+# `_WIN32`, mora no proprio header do shim - GODS_LAWS.md L-04 exige
+# que a reducao fique registrada, nao silenciosa dentro de um #ifdef;
+# este paragrafo e essa a marca.

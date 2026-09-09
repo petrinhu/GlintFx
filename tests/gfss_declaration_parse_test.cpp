@@ -481,31 +481,77 @@ GLINTFX_TEST(important_flag_position_inside_property_name_is_a_colon_error) {
     GLINTFX_CHECK(result.diagnostic.expected == k_expected_colon_after_property_name);
 }
 
+// achado IMPORTANTE-1 da revisao adversarial de 9266b31 (GODS_LAWS.md
+// L-20/L-40): semicolon_or_end_of_declaration is one of the twelve
+// identifiers declaration_parse_producer_owns_exactly_twelve_
+// vocabulary_entries's own static_assert requires to exist, and before
+// this test NOTHING in the suite ever produced it - proved by
+// sabotage: deleting the trailing-garbage check in
+// declaration_value_check.cpp's own check_keyword_only()
+// (src/gfss/declaration_value_check.cpp, the `if (next <= span.last)`
+// block) left the whole 21-case suite green. It is the ONLY guard
+// against a valid keyword followed by leftover tokens before the next
+// `;` (`display: block red`) - a keyword-only contract (`display`'s
+// own `block \| flex \| none`, DP-5) reads its first ident, matches
+// it, then must confirm nothing else remains in the value span; a
+// mutant that skips that confirmation silently ACCEPTS the extra
+// tokens instead of rejecting the declaration, and no other case in
+// this file drives a keyword-only property with anything past the
+// keyword itself.
+GLINTFX_TEST(keyword_only_value_followed_by_leftover_tokens_is_semicolon_or_end_of_declaration) {
+    const declaration_parse_result result = parse_one("display: block red");
+    GLINTFX_CHECK(!result.accepted);
+    GLINTFX_CHECK(result.diagnostic.expected == k_expected_semicolon_or_end_of_declaration);
+}
+
 // === DP-8: recovery, real cursor position, inline style ===============
 
-GLINTFX_TEST(invalid_declaration_is_dropped_and_the_next_one_survives_in_twelve_forms) {
-    constexpr std::string_view k_forms[] = {
-        "123: red",       // property_name
-        "}",              // property_name (a stray close-curly is not an ident either)
-        "banana: red",    // known_property_name
-        "transition: 1s", // longhand_property_names
-        "display block",  // colon_after_property_name
-        "display: block !important 1px", // important_flag_at_end_of_value
-        "margin-top: 1px inherit",       // universal_keyword_alone
-        "display: inline",               // keyword_for_property
-        "width: 1px 2px",                // value_count_for_property (max_count 1)
-        "gltfx-Velocity: 9",             // value_in_range_for_property
-        "display:",                      // component_value (empty)
-        "opacity: 1px",                  // value_nature_for_property
+GLINTFX_TEST(invalid_declaration_is_dropped_and_the_next_one_survives_in_thirteen_forms) {
+    // achado COSMETICO da revisao adversarial de 9266b31: this table
+    // used to only prove SOMETHING was rejected and the neighbor
+    // survived, never WHICH diagnostic identifier each form actually
+    // produced - three forms (property_name via "}", important_flag_
+    // at_end_of_value, semicolon_or_end_of_declaration) had no other
+    // case in the suite confirming the exact identifier. Every form
+    // below now names and checks it. "display: block red" is the
+    // thirteenth form, added for semicolon_or_end_of_declaration
+    // (achado IMPORTANTE-1) - the directed test right above this one
+    // is the primary witness; this table is reinforcement, the same
+    // sheet-level, drop-and-recover path DP-8 exists to cover.
+    struct form_case {
+        std::string_view text;
+        std::string_view expected;
+    };
+    const form_case k_forms[] = {
+        {"123: red", k_expected_property_name},
+        {"}", k_expected_property_name}, // a stray close-curly is not an ident either
+        {"banana: red", k_expected_known_property_name},
+        {"transition: 1s", k_expected_longhand_property_names},
+        {"display block", k_expected_colon_after_property_name},
+        {"display: block !important 1px", k_expected_important_flag_at_end_of_value},
+        {"margin-top: 1px inherit", k_expected_universal_keyword_alone},
+        {"display: inline", k_expected_keyword_for_property},
+        {"width: 1px 2px", k_expected_value_count_for_property}, // max_count 1
+        {"gltfx-Velocity: 9", k_expected_value_in_range_for_property},
+        {"display:", k_expected_component_value}, // empty
+        {"opacity: 1px", k_expected_value_nature_for_property},
+        {"display: block red", k_expected_semicolon_or_end_of_declaration},
     };
     int rejected_count = 0;
     int kept_count = 0;
-    for (const std::string_view form : k_forms) {
-        const std::string sheet = std::string(form) + "; color: red";
+    for (const form_case &form : k_forms) {
+        const std::string sheet = std::string(form.text) + "; color: red";
         const declaration_list_parse_result result =
             parse_declaration_list(gltfx_gfss_cursor{.source = sheet});
         GLINTFX_CHECK(result.rejected.size() >= 1);
         rejected_count += static_cast<int>(result.rejected.size());
+        bool identifier_found = false;
+        for (const gltfx_gfss_diagnostic &rejected : result.rejected) {
+            if (rejected.expected == form.expected) {
+                identifier_found = true;
+            }
+        }
+        GLINTFX_CHECK(identifier_found);
         bool survives = false;
         for (const gfss_declaration &d : result.declarations) {
             if (!d.is_shorthand && d.property == gltfx_gfss_property::color) {
@@ -515,8 +561,9 @@ GLINTFX_TEST(invalid_declaration_is_dropped_and_the_next_one_survives_in_twelve_
         GLINTFX_CHECK(survives);
         ++kept_count;
     }
-    std::println("invalid_declaration_is_dropped_and_the_next_one_survives_in_twelve_forms: {} "
-                 "form(s), {} rejected diagnostic(s), {} kept",
+    std::println("invalid_declaration_is_dropped_and_the_next_one_survives_in_thirteen_forms: {} "
+                 "form(s), {} rejected diagnostic(s), {} kept, every form's own identifier "
+                 "confirmed",
                  std::size(k_forms), rejected_count, kept_count);
 }
 

@@ -22,7 +22,7 @@ namespace glintfx::style::detail {
 
 namespace {
 
-[[nodiscard]] declaration_parse_result rejected(gltfx_gfss_diagnostic diagnostic) {
+[[nodiscard]] declaration_parse_result rejected(const gltfx_gfss_diagnostic &diagnostic) {
     return declaration_parse_result{.accepted = false, .declaration = {}, .diagnostic = diagnostic};
 }
 

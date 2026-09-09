@@ -124,7 +124,7 @@ constexpr property_value_contract
 contract_keywords(gltfx_gfss_property id, std::initializer_list<gltfx_gfss_keyword> words) {
     property_value_contract c{};
     c.id = id;
-    for (gltfx_gfss_keyword w : words) {
+    for (const gltfx_gfss_keyword w : words) {
         c.keywords[c.keyword_count] = w;
         ++c.keyword_count;
     }
@@ -140,7 +140,7 @@ contract_natures(gltfx_gfss_property id, std::uint8_t natures,
     property_value_contract c{};
     c.id = id;
     c.accepted_natures = natures;
-    for (gltfx_gfss_keyword w : words) {
+    for (const gltfx_gfss_keyword w : words) {
         c.keywords[c.keyword_count] = w;
         ++c.keyword_count;
     }

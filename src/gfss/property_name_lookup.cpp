@@ -27,7 +27,7 @@ namespace {
 }
 
 [[nodiscard]] bool try_shorthand(std::string_view name, std::string_view &out) noexcept {
-    for (std::string_view candidate : k_shorthand_names) {
+    for (const std::string_view candidate : k_shorthand_names) {
         if (ascii_case_insensitive_equal(candidate, name)) {
             out = candidate;
             return true;

@@ -33,19 +33,54 @@ fail(const gltfx_gfss_token &at, std::string_view expected, std::string_view det
             .line = at.line, .column = at.column, .expected = expected, .detail = detail}};
 }
 
-// Space-separated identifiers naming every keyword `contract` accepts
-// (R7: identifiers, never a sentence) - built once per failing check,
-// never precomputed in the table itself (property_value_contract.hpp
-// stays a plain data table, no derived string storage).
-[[nodiscard]] std::string accepted_keyword_detail(const property_value_contract &contract) {
-    std::string detail;
-    for (std::uint8_t i = 0; i < contract.keyword_count; ++i) {
-        if (i > 0) {
-            detail += ' ';
+// Space-separated identifiers naming every keyword EVERY contract in
+// the registry accepts (R7: identifiers, never a sentence) - one entry
+// per property.hpp's own id, built ONCE at static-initialization time,
+// in PROGRAM-LIFETIME storage.
+//
+// NOT a std::string returned BY VALUE from a per-call helper - that was
+// this file's own first shape, and cppcheck's own returnDanglingLifetime
+// caught it live (tools/preci.sh's own lint stage, run locally before
+// this fatia's own closing commit):
+// `fail(first, ..., accepted_keyword_detail(contract))` bound the
+// temporary std::string's buffer to `gltfx_gfss_diagnostic::detail` (a
+// non-owning std::string_view, token.hpp's own R4/R5 shape), then the
+// temporary was destroyed at the end of THAT full expression - the
+// returned diagnostic's own `.detail` view dangled. GLINTFX_CHECK(...
+// detail == "block flex none") in this file's own test still PASSED
+// (the freed bytes had not been overwritten yet) - undefined behavior
+// that happened to read back correct text, exactly the "verde que nao
+// prova nada" GODS_LAWS.md L-36 warns against; a static analyzer, not
+// this fatia's own runtime suite, is what actually caught it. A cache
+// keyed by std::string_view (a per-check-call temporary too) would
+// have the SAME defect one layer up - only PERMANENT storage, built
+// once, fixes it structurally.
+[[nodiscard]] const std::array<std::string, gltfx_gfss_property_count> &
+accepted_keyword_detail_table() {
+    static const std::array<std::string, gltfx_gfss_property_count> table = [] {
+        std::array<std::string, gltfx_gfss_property_count> built{};
+        for (std::size_t i = 0; i < k_property_value_contracts.size(); ++i) {
+            const property_value_contract &c = k_property_value_contracts[i];
+            std::string detail;
+            for (std::uint8_t k = 0; k < c.keyword_count; ++k) {
+                if (k > 0) {
+                    detail += ' ';
+                }
+                detail += gltfx_gfss_keyword_name(c.keywords[k]);
+            }
+            built[i] = std::move(detail);
         }
-        detail += gltfx_gfss_keyword_name(contract.keywords[i]);
-    }
-    return detail;
+        return built;
+    }();
+    return table;
+}
+
+// `contract` is always one of k_property_value_contracts' own rows,
+// reached through property_value_contract_for() (declaration_parse.cpp
+// never builds an ad hoc contract) - contract.id is therefore always
+// that row's own real index, safe to use here directly.
+[[nodiscard]] std::string_view accepted_keyword_detail(const property_value_contract &contract) {
+    return accepted_keyword_detail_table()[static_cast<std::size_t>(contract.id)];
 }
 
 [[nodiscard]] bool matches_accepted_keyword(const property_value_contract &contract,

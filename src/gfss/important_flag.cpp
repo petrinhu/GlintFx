@@ -104,12 +104,13 @@ important_flag_result read_important_flag(const std::vector<gltfx_gfss_token> &t
     // A well-formed trailing pair was found - `[begin, *before_important)`
     // is what remains of the value.
     const std::size_t remainder_end = *before_important;
-    if (first_bang_index(tokens, begin, remainder_end).has_value()) {
+    const std::optional<std::size_t> leftover_bang = first_bang_index(tokens, begin, remainder_end);
+    if (leftover_bang.has_value()) {
         // A SECOND `!` survives inside what is left after stripping the
         // trailing pair (`red !important !important`) - this file's own
         // header comment: "sobrou ! no valor depois de tirar o par
         // final".
-        return malformed_at(tokens, *first_bang_index(tokens, begin, remainder_end), end);
+        return malformed_at(tokens, *leftover_bang, end);
     }
 
     if (!last_non_whitespace_index(tokens, begin, remainder_end).has_value()) {

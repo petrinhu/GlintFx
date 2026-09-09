@@ -54,6 +54,13 @@ void fold_into_result(declaration_parse_result parsed, declaration_list_parse_re
 
 } // namespace
 
+// `start` is a small (32-byte), trivially-copyable value type (the same
+// shape gltfx_gfss_cursor's own callers already pass it by in
+// tokenizer.hpp), taken BY VALUE on purpose - the plan's own SS3 names
+// this exact signature, and the body immediately hands it, by value
+// again, to tokenize_from_real_cursor() above; a const reference here
+// would only add one extra copy at that call, not remove one.
+// cppcheck-suppress passedByValue
 declaration_list_parse_result parse_declaration_list(gltfx_gfss_cursor start) {
     const std::vector<gltfx_gfss_token> tokens = tokenize_from_real_cursor(start);
 

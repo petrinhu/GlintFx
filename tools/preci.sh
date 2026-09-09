@@ -55,6 +55,21 @@
 #                                     debug stage, not an alternate
 #                                     mechanism that re-enacts the
 #                                     preconditions another way).
+#   tools/preci.sh --win32-link-only links every win32_* target of
+#                                     tests/CMakeLists.txt against a real
+#                                     glintfx.dll with the actual cl.exe/
+#                                     link.exe from Microsoft (glintfx-
+#                                     msvc:latest container,
+#                                     tools/msvc-container/README.md -
+#                                     GATE-WIN32-LINK, CORE-LOG-CI fatia 4,
+#                                     tests/tools/check_win32_test_link.py).
+#                                     Never wired into --fast/the full
+#                                     pipeline: needs docker + an image
+#                                     this script never builds/pulls on
+#                                     its own (GODS_LAWS.md L-14) - a
+#                                     missing docker/image is a declared,
+#                                     printed "NAO APLICAVEL", not a
+#                                     failure.
 #   tools/preci.sh --selftest        proves the format/clang-tidy/cppcheck
 #                                     stages against tests/preci_fixtures/
 #                                     instead of the real tree: positive
@@ -1040,6 +1055,36 @@ stage_debug() {
     ctest --test-dir "$DEBUG_BUILD_DIR" --output-on-failure
 }
 
+# GATE-WIN32-LINK (CORE-LOG-CI fatia 4, tests/tools/check_win32_test_
+# link.py's own header comment tem a razao de existir completa: TRES
+# encarnacoes do mesmo defeito - um alvo win32_* de tests/CMakeLists.txt
+# faltando um .cpp em tempo de LINK - em tres dias, 07-09/09/2026). Fora
+# de --fast/--lint-only/--sanitizer-only/--debug-only/--selftest: e o
+# unico estagio deste script que precisa de docker + a imagem MSVC
+# (glintfx-msvc:latest, tools/msvc-container/README.md), nunca
+# construida/baixada por este script (GODS_LAWS.md L-14) - so acionado
+# explicitamente por `--win32-link-only`, nunca dentro de `--fast`/rodada
+# completa. NAO e' add_test: a prova real e' o job `windows` do CI; isto
+# e' o espelho local, antes do push (L-24/L-36).
+readonly GLINTFX_WIN32_LINK_IMAGE='glintfx-msvc:latest'
+
+stage_win32_link() {
+    # GODS_LAWS.md L-45: codigo de saida lido de VARIAVEL, nunca de
+    # comando solto sob `set -e` (um `python3 ... ; código=$?` aborta
+    # antes da segunda linha se o primeiro comando falhar). rc=77 e' o
+    # GATE_SKIP_RETURN_CODE do proprio script - "declarado NAO
+    # APLICAVEL", nao e' PASS nem FAIL (a mensagem que o script imprime
+    # em stdout ja explica o motivo, ecoada aqui, nunca escondida).
+    rc=0
+    python3 "$ROOT_DIR/tests/tools/check_win32_test_link.py" --exec "$ROOT_DIR" \
+        --image "$GLINTFX_WIN32_LINK_IMAGE" || rc=$?
+    if [ "$rc" -eq 77 ]; then
+        log "estagio win32-link: NAO APLICAVEL neste host (ver mensagem acima) - nao reprova o espelho local"
+        return 0
+    fi
+    [ "$rc" -eq 0 ] || fail "estagio win32-link recusado (ver saida acima; GATE-WIN32-LINK)"
+}
+
 # --- selftest stages (operate on tests/preci_fixtures/<dir> or an
 # ad hoc empty directory; never touch $BUILD_DIR) ---
 
@@ -1565,6 +1610,12 @@ run_debug_only() {
     echo "preci.sh --debug-only: VERDE"
 }
 
+run_win32_link_only() {
+    log "estagio win32-link: alvos win32_* de tests/CMakeLists.txt ligados contra o cl.exe/link.exe real (GATE-WIN32-LINK)"
+    stage_win32_link
+    echo "preci.sh --win32-link-only: VERDE"
+}
+
 run_full_pipeline() {
     fast="$1"
     log "estagio 1: clang-format"
@@ -1607,8 +1658,8 @@ run_full_pipeline() {
 main() {
     mode="${1:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--selftest) ;;
-        *) fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--selftest]" ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only|--selftest) ;;
+        *) fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only|--selftest]" ;;
     esac
 
     if [ "$mode" != "--selftest" ]; then
@@ -1631,6 +1682,9 @@ main() {
             ;;
         --debug-only)
             run_debug_only
+            ;;
+        --win32-link-only)
+            run_win32_link_only
             ;;
         --selftest)
             run_selftest

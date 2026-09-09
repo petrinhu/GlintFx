@@ -276,6 +276,26 @@ sem conserto):**
   `win32_runner_probe_test` já media isso sozinho
   (`CreateWindowExW ok=false GetLastError=1400`).
 
+**CORE-LOG-CI fatia 4 (09/09/2026): a lista acima ("34 arquivos-fonte",
+"13 testes win32_*") ficou congelada no dia em que foi medida, e a
+árvore cresceu desde então - a mesma armadilha que a seção "Estado
+atual do repositório" do `CLAUDE.md` da raiz já nomeia como `DOC-
+ESTADO`.** Ela não é mais mantida à mão: `tests/tools/check_
+win32_test_link.py` **deriva** as duas listas direto do CMake real a
+cada execução - `extract_win32_test_targets()` lê os próprios
+`glintfx_add_test()`/`target_sources()`/`target_link_libraries()` de
+`tests/CMakeLists.txt` dentro de cada bloco `if(WIN32)`, e
+`collect_win32_library_layout()` segue os `add_subdirectory()` de
+`src/**/CMakeLists.txt` simulando uma configuração WIN32 - e roda o
+`cl.exe`/`link.exe` reais desta imagem contra o resultado, um alvo por
+vez. **Não leia o número de arquivos ou de testes daqui**: rode
+`tools/preci.sh --win32-link-only` (espelho local) ou leia o resumo do
+próprio script (`alvos encontrados=... | fontes biblioteca
+encontradas=...`) - foi exatamente essa lista mantida à mão que
+mordeu três vezes em três dias (07-09/09/2026, ver o comentário em
+`tests/CMakeLists.txt` perto de `win32_iconic_present_test`) antes
+deste portão existir.
+
 ## Matriz de roteamento: onde medir o quê
 
 Texto normativo, colado sem reescrever (GODS_LAWS.md L-09/L-68, ordem

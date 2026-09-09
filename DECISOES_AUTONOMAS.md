@@ -2778,3 +2778,41 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Fontes consultadas (L-34):** o canon do projeto — a L-26 (formato `vA.B.C.D`, quarto componente de empacotamento) e a L-11 recém-emendada (a linha `CI-VERDE-<onda>` é o portão do fecho). **Web, comunidade, RmlUi/SDL3: não consultados**, e o motivo é que a pergunta é sobre o significado dos nossos próprios componentes de versão, definido em decisão registrada do líder. Nenhuma fonte externa tem autoridade sobre isso.
 
 **Custo de reverter:** baixo — um rótulo se apaga sem afetar versão nenhuma.
+
+#### D-090914 — as severidades `warning` e `error` viram `warn` e `err`; o texto impresso não muda  `[09/09/26 - 06:13:55]`
+
+**Quem decidiu:** o `fable` (CTO), no lugar do líder, sob o modo autônomo em vigor. **Escopo:** a superfície pública de registro da CORE-LOG, antes de qualquer marca contê-la.
+
+**A pergunta como iria ao líder:** o nome público `gltfx_log_severity::warning` colide com uma palavra que o gawk já reserva num cabeçalho de sistema, e o portão de colisão reprovou o servidor em Arch e CachyOS. Renomear só ele, renomear `error` junto por simetria, prefixar os seis, ou ensinar o portão a aceitar?
+
+**O que ele decidiu:** `warn` e `err` como identificadores, e o texto que o consumidor lê na linha de registro **continua sendo `warning` e `error`**, porque quem produz esse texto é outra função e ela não muda. Os valores numéricos (400 e 500) ficam intocados.
+
+**As fontes, e elas mudaram a decisão (L-34/L-43):** oito bibliotecas lidas com endereço citado no plano. O que decidiu foi o precedente do spdlog, que usa exatamente esta separação (identificador `err`, texto `"error"`), e a constatação de que `warn` é a grafia majoritária do nível na indústria inteira (OpenTelemetry, Go, Rust, SDL, log4j) e não uma abreviação inventada aqui, o que é o que a L-39 exige de qualquer encurtamento. O glog entrou como contra-exemplo medido: ele manteve os nomes longos e apanhou do cabeçalho gráfico do Windows.
+
+**A simetria, dita com honestidade:** `error` **não** quebra compilação de ninguém hoje. A macro que a alcança é do tipo que só dispara quando o nome é seguido de parêntese, e nunca é. O renome dela é prevenção, feita agora porque custa zero: nenhuma marca publicada contém o arquivo (conferido marca a marca, `v0.3.0.0` a `v0.3.4.0`). Deixá-la de fora seria deixar o servidor refém do próximo cabeçalho de sistema.
+
+**O que se perde, declarado:** pela primeira vez neste projeto, o identificador deixa de coincidir com o texto que ele imprime. Fica registrado no comentário do próprio arquivo e na regra R6.
+
+**O que fica proibido daqui em diante, com a fonte:** `fatal`, `nonfatal`, `lintwarn`, `warning` e `error` como nome de severidade futura. `fatal` era o candidato natural para um nível acima do mais alto que existe hoje; agora está barrado antes de alguém propor.
+
+**Verificado por mim antes de aceitar (L-12), não aceito do relatório:** que nenhuma das cinco marcas publicadas contém o arquivo de severidade; que o trabalho `Windows - estatico` de fato ficou verde no mesmo run, o que sustenta o resto do diagnóstico; e que o gêmeo apontado (`gltfx_rslt::error()`) existe na linha exata citada.
+
+**Custo de reverter:** zero até a próxima marca; depois dela, quebra de nome publicado.
+
+#### D-090915 — o portão que liga os testes de Windows entra nesta onda, como última fatia e separável  `[09/09/26 - 06:13:55]`
+
+**Quem decidiu:** o `fable` (CTO). **Escopo:** a onda de conserto do servidor.
+
+**A pergunta:** o mesmo defeito (uma lista de arquivos escrita à mão que esquece um arquivo novo) derrubou a compilação do Windows pela **terceira vez em três dias**. O conserto pontual é uma linha. Constrói-se agora o portão que impede a quarta, ou ele vai para a fila?
+
+**O que ele decidiu, e o que mediu antes:** entra nesta onda, como última fatia, **separável** — se o líder preferir só o conserto ao acordar, as três primeiras fatias fecham o servidor sozinhas e esta vira item de fila. Antes de propor, ele mediu a alternativa barata (um portão que lê o texto dos arquivos em vez de ligar de verdade): reprova 22 dos 52 blocos, e **21 dessas reprovações são falsas**. Descartada com o número na mão, não por opinião. A saída por compilador cruzado também foi medida e descartada: falta um cabeçalho da Microsoft nesta máquina.
+
+**O que sobrou:** ligar de verdade os treze testes de Windows, com o compilador real dentro do container que já existe nesta máquina, e derivar a lista de arquivos do próprio arquivo de compilação em vez de mantê-la à mão num terceiro lugar. Estreia vermelha obrigatória contra o commit que quebrou, mais um auto-teste sintético que fica no repositório.
+
+**A cura de raiz NÃO entra:** substituir as 52 listas à mão por uma biblioteca interna única é onda própria, e tem uma pergunta em aberto que só uma máquina Windows de verdade responde. Foi para a fila, escrita.
+
+**Custo de reverter:** apagar um arquivo e um estágio.
+
+#### D-090916 — o renome de `gltfx_rslt::error()` NÃO é decidido por agente nenhum  `[09/09/26 - 06:13:55]`
+
+**Quem decidiu não decidir:** o `fable`, e fez certo. **O achado:** o mesmo cabeçalho de sistema que forçou o renome da severidade alcança também um método público do tipo de resultado, e a regra escrita do projeto o dispensa com um argumento que vale para o compilador e **não** vale para o preprocessador. **Por que fica com o líder:** é nome publicado em cinco marcas; renomear é quebra de compatibilidade. Registrado na fila do `TODO.md`, com a alternativa (aceitar como dívida declarada e escrevê-la na regra) posta ao lado.

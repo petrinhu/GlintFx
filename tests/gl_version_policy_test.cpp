@@ -41,30 +41,30 @@ GLINTFX_TEST(validate_gl_context_version_refuses_3_3_compatibility) {
     const glintfx::gltfx_rslt<void> result =
         validate_gl_context_version(3, 3, k_gl_context_compatibility_profile_bit);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::platform_failure);
-    GLINTFX_CHECK(result.error().rejected_value() == "gl_version");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(result.err().rejected_value() == "gl_version");
 }
 
 GLINTFX_TEST(validate_gl_context_version_refuses_3_2_core) {
     const glintfx::gltfx_rslt<void> result =
         validate_gl_context_version(3, 2, k_gl_context_core_profile_bit);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::platform_failure);
-    GLINTFX_CHECK(result.error().rejected_value() == "gl_version");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(result.err().rejected_value() == "gl_version");
 }
 
 GLINTFX_TEST(validate_gl_context_version_refuses_2_1) {
     const glintfx::gltfx_rslt<void> result =
         validate_gl_context_version(2, 1, k_gl_context_core_profile_bit);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::platform_failure);
 }
 
 GLINTFX_TEST(validate_gl_context_version_refuses_3_3_with_no_profile_bit_at_all) {
     const glintfx::gltfx_rslt<void> result = validate_gl_context_version(3, 3, 0);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::platform_failure);
-    GLINTFX_CHECK(result.error().rejected_value() == "gl_version");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(result.err().rejected_value() == "gl_version");
 }
 
 namespace {

@@ -69,7 +69,7 @@ bool open_and_check_catalog(glintfx::platform::wayland_display_adapter &adapter,
     const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "two_displays_test: %s.open() failed: %s\n", label,
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return false;
     }
     if (!adapter.is_open()) {

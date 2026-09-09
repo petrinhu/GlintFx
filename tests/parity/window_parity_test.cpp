@@ -80,7 +80,7 @@ int main() {
     if (display_opened.has_error()) {
         std::fprintf(
             stderr, "window_parity_test: gltfx_display::open() failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(display_opened.error().code())).c_str());
+            std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
@@ -99,10 +99,10 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
         glintfx::gltfx_window::open(display, desc);
     if (window_opened.has_error()) {
-        std::fprintf(
-            stderr, "window_parity_test: gltfx_window::open() failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(window_opened.error().code())).c_str(),
-            std::string(window_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr,
+                     "window_parity_test: gltfx_window::open() failed: %s (rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+                     std::string(window_opened.err().rejected_value()).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -182,8 +182,7 @@ int main() {
         glintfx::gltfx_rslt<void> pumped = display.pump_events();
         if (pumped.has_error()) {
             std::fprintf(stderr, "window_parity_test: pump_events() failed on iteration %d: %s\n",
-                         i,
-                         std::string(glintfx::gltfx_err_code_name(pumped.error().code())).c_str());
+                         i, std::string(glintfx::gltfx_err_code_name(pumped.err().code())).c_str());
             return EXIT_FAILURE;
         }
     }
@@ -191,7 +190,7 @@ int main() {
     glintfx::gltfx_rslt<void> retitled = window.set_title("titulo trocado em tempo de execucao");
     if (retitled.has_error()) {
         std::fprintf(stderr, "window_parity_test: set_title() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(retitled.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(retitled.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -217,11 +216,11 @@ int main() {
                      "invalid_argument\n");
         return EXIT_FAILURE;
     }
-    if (zero_width_opened.error().rejected_value() != std::string_view{"logical_size"}) {
+    if (zero_width_opened.err().rejected_value() != std::string_view{"logical_size"}) {
         std::fprintf(
             stderr,
             "window_parity_test: 0x600 refused with rejected_value=%s, expected logical_size\n",
-            std::string(zero_width_opened.error().rejected_value()).c_str());
+            std::string(zero_width_opened.err().rejected_value()).c_str());
         return EXIT_FAILURE;
     }
     std::fprintf(stdout, "window_parity_test: 0x600 request refused (rejected_value=logical_size, "

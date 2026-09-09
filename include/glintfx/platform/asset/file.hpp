@@ -267,7 +267,7 @@ gltfx_load_file_bytes(std::string_view path) noexcept {
 
         const gltfx_rslt<void> precheck = detail::require_regular_file(fs_path, path);
         if (precheck.has_error()) {
-            return gltfx_rslt<std::vector<std::byte>>::err(precheck.error());
+            return gltfx_rslt<std::vector<std::byte>>::err(precheck.err());
         }
 
         std::ifstream stream(fs_path, std::ios::binary);

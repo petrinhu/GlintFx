@@ -244,7 +244,7 @@ int main() {
     if (display_opened.has_error()) {
         std::fprintf(
             stderr, "gl_context_parity_test: gltfx_display::open() failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(display_opened.error().code())).c_str());
+            std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
@@ -259,8 +259,8 @@ int main() {
     if (window_opened.has_error()) {
         std::fprintf(
             stderr, "gl_context_parity_test: gltfx_window::open() failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(window_opened.error().code())).c_str(),
-            std::string(window_opened.error().rejected_value()).c_str());
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+            std::string(window_opened.err().rejected_value()).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -284,15 +284,15 @@ int main() {
             std::fprintf(
                 stderr,
                 "gl_context_parity_test: gltfx_gl_context::open() failed: %s (rejected_value=%s)\n",
-                std::string(glintfx::gltfx_err_code_name(context_opened.error().code())).c_str(),
-                std::string(context_opened.error().rejected_value()).c_str());
+                std::string(glintfx::gltfx_err_code_name(context_opened.err().code())).c_str(),
+                std::string(context_opened.err().rejected_value()).c_str());
             return EXIT_FAILURE;
         }
         glintfx::gltfx_gl_context context = std::move(context_opened.value());
 
         if (glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
             std::fprintf(stderr, "gl_context_parity_test: make_current() failed: %s\n",
-                         std::string(glintfx::gltfx_err_code_name(current.error().code())).c_str());
+                         std::string(glintfx::gltfx_err_code_name(current.err().code())).c_str());
             return EXIT_FAILURE;
         }
 
@@ -374,8 +374,7 @@ int main() {
         if (enumeration_opened.has_error()) {
             std::fprintf(
                 stderr, "gl_context_parity_test: gltfx_gpu_enumeration::query() failed: %s\n",
-                std::string(glintfx::gltfx_err_code_name(enumeration_opened.error().code()))
-                    .c_str());
+                std::string(glintfx::gltfx_err_code_name(enumeration_opened.err().code())).c_str());
             return EXIT_FAILURE;
         }
         glintfx::gltfx_gpu_enumeration enumeration = std::move(enumeration_opened.value());
@@ -440,21 +439,21 @@ int main() {
         for (int attempt = 1; attempt <= 5; ++attempt) {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.error(), gpu.kind, any_swap_succeeded)) {
+                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
                     print_swap_tolerance_downgrade("gl_context_parity_test.first_presented_attempt",
-                                                   swapped.error());
+                                                   swapped.err());
                     ++swap_tolerated_downgrades;
                     continue;
                 }
-                print_swap_tolerance_refusal("first_presented_attempt", swapped.error(), gpu.kind,
+                print_swap_tolerance_refusal("first_presented_attempt", swapped.err(), gpu.kind,
                                              any_swap_succeeded);
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: swap_buffers() attempt %d failed: %s "
                     "(rejected_value=%s)\n",
                     attempt,
-                    std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str(),
-                    std::string(swapped.error().rejected_value()).c_str());
+                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str(),
+                    std::string(swapped.err().rejected_value()).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
@@ -478,24 +477,24 @@ int main() {
                 context.set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = 0});
             set_off.has_error()) {
             std::fprintf(stderr, "gl_context_parity_test: set_option(vsync=off) failed: %s\n",
-                         std::string(glintfx::gltfx_err_code_name(set_off.error().code())).c_str());
+                         std::string(glintfx::gltfx_err_code_name(set_off.err().code())).c_str());
             return EXIT_FAILURE;
         }
         const auto vsync_off_start = std::chrono::steady_clock::now();
         for (int i = 0; i < 60; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.error(), gpu.kind, any_swap_succeeded)) {
+                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
                     print_swap_tolerance_downgrade("gl_context_parity_test.vsync_off_60_swaps",
-                                                   swapped.error());
+                                                   swapped.err());
                     ++swap_tolerated_downgrades;
                     continue;
                 }
-                print_swap_tolerance_refusal("vsync_off_60_swaps", swapped.error(), gpu.kind,
+                print_swap_tolerance_refusal("vsync_off_60_swaps", swapped.err(), gpu.kind,
                                              any_swap_succeeded);
                 std::fprintf(
                     stderr, "gl_context_parity_test: swap_buffers() (vsync=off) failed: %s\n",
-                    std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
+                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
@@ -521,22 +520,22 @@ int main() {
                 context.set_option({.id = glintfx::gltfx_gfx_option::vsync, .value = 1});
             set_on.has_error()) {
             std::fprintf(stderr, "gl_context_parity_test: set_option(vsync=on) failed: %s\n",
-                         std::string(glintfx::gltfx_err_code_name(set_on.error().code())).c_str());
+                         std::string(glintfx::gltfx_err_code_name(set_on.err().code())).c_str());
             return EXIT_FAILURE;
         }
         const auto vsync_on_start = std::chrono::steady_clock::now();
         for (int i = 0; i < 60; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.error(), gpu.kind, any_swap_succeeded)) {
+                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
                     print_swap_tolerance_downgrade("gl_context_parity_test.vsync_on_60_swaps",
-                                                   swapped.error());
+                                                   swapped.err());
                     ++swap_tolerated_downgrades;
                     continue;
                 }
                 std::fprintf(
                     stderr, "gl_context_parity_test: swap_buffers() (vsync=on) failed: %s\n",
-                    std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
+                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
@@ -560,14 +559,14 @@ int main() {
         std::fprintf(stdout, "MEASURED gl_context_parity_test.vsync_adaptive_support=%d\n",
                      adaptive_supported ? 1 : 0);
         if (!adaptive_supported) {
-            if (set_adaptive.error().code() != glintfx::gltfx_err_code::unsupported ||
-                set_adaptive.error().rejected_value() != std::string_view{"vsync"}) {
+            if (set_adaptive.err().code() != glintfx::gltfx_err_code::unsupported ||
+                set_adaptive.err().rejected_value() != std::string_view{"vsync"}) {
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: set_option(vsync=adaptive) refused as %s/%s, "
                     "expected unsupported/vsync\n",
-                    std::string(glintfx::gltfx_err_code_name(set_adaptive.error().code())).c_str(),
-                    std::string(set_adaptive.error().rejected_value()).c_str());
+                    std::string(glintfx::gltfx_err_code_name(set_adaptive.err().code())).c_str(),
+                    std::string(set_adaptive.err().rejected_value()).c_str());
                 return EXIT_FAILURE;
             }
         }
@@ -586,25 +585,25 @@ int main() {
                     "gl_context_parity_test: set_option(vsync=%lld) during the toggle "
                     "sequence failed: %s\n",
                     static_cast<long long>(value),
-                    std::string(glintfx::gltfx_err_code_name(set_toggle.error().code())).c_str());
+                    std::string(glintfx::gltfx_err_code_name(set_toggle.err().code())).c_str());
                 return EXIT_FAILURE;
             }
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
             if (swapped.has_error()) {
-                if (should_tolerate_swap_failure(swapped.error(), gpu.kind, any_swap_succeeded)) {
+                if (should_tolerate_swap_failure(swapped.err(), gpu.kind, any_swap_succeeded)) {
                     print_swap_tolerance_downgrade("gl_context_parity_test.vsync_toggle_sequence",
-                                                   swapped.error());
+                                                   swapped.err());
                     ++swap_tolerated_downgrades;
                     continue;
                 }
-                print_swap_tolerance_refusal("vsync_toggle_sequence", swapped.error(), gpu.kind,
+                print_swap_tolerance_refusal("vsync_toggle_sequence", swapped.err(), gpu.kind,
                                              any_swap_succeeded);
                 std::fprintf(
                     stderr,
                     "gl_context_parity_test: swap_buffers() during the toggle sequence "
                     "(vsync=%lld) failed: %s\n",
                     static_cast<long long>(value),
-                    std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str());
+                    std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str());
                 return EXIT_FAILURE;
             }
             if (swapped.value() == glintfx::gltfx_present_outcome::presented) {
@@ -684,8 +683,8 @@ int main() {
             std::fprintf(stderr,
                          "gl_context_parity_test: reabertura com a mesma lista falhou: %s "
                          "(rejected_value=%s), esperado sucesso\n",
-                         std::string(glintfx::gltfx_err_code_name(reopened.error().code())).c_str(),
-                         std::string(reopened.error().rejected_value()).c_str());
+                         std::string(glintfx::gltfx_err_code_name(reopened.err().code())).c_str(),
+                         std::string(reopened.err().rejected_value()).c_str());
             return EXIT_FAILURE;
         }
         std::fprintf(stdout, "gl_context_parity_test: reabertura com a mesma lista aceita, como "
@@ -712,13 +711,13 @@ int main() {
                          "esperado invalid_argument/msaa_samples\n");
             return EXIT_FAILURE;
         }
-        if (reopened.error().code() != glintfx::gltfx_err_code::invalid_argument ||
-            reopened.error().rejected_value() != std::string_view{"msaa_samples"}) {
+        if (reopened.err().code() != glintfx::gltfx_err_code::invalid_argument ||
+            reopened.err().rejected_value() != std::string_view{"msaa_samples"}) {
             std::fprintf(stderr,
                          "gl_context_parity_test: reabertura com msaa_samples=4 falhou como %s/%s, "
                          "esperado invalid_argument/msaa_samples\n",
-                         std::string(glintfx::gltfx_err_code_name(reopened.error().code())).c_str(),
-                         std::string(reopened.error().rejected_value()).c_str());
+                         std::string(glintfx::gltfx_err_code_name(reopened.err().code())).c_str(),
+                         std::string(reopened.err().rejected_value()).c_str());
             return EXIT_FAILURE;
         }
         std::fprintf(stdout, "gl_context_parity_test: reabertura com msaa_samples=4 recusada "

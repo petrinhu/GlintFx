@@ -35,8 +35,8 @@ GLINTFX_TEST(shell_requirements_names_missing_compositor) {
 
     const glintfx::gltfx_rslt<void> result = glintfx::platform::check_shell_requirements(catalog);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::not_found);
-    GLINTFX_CHECK(result.error().rejected_value() == "wl_compositor");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::not_found);
+    GLINTFX_CHECK(result.err().rejected_value() == "wl_compositor");
 }
 
 GLINTFX_TEST(shell_requirements_names_missing_shell) {
@@ -45,6 +45,6 @@ GLINTFX_TEST(shell_requirements_names_missing_shell) {
 
     const glintfx::gltfx_rslt<void> result = glintfx::platform::check_shell_requirements(catalog);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::not_found);
-    GLINTFX_CHECK(result.error().rejected_value() == "xdg_wm_base");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::not_found);
+    GLINTFX_CHECK(result.err().rejected_value() == "xdg_wm_base");
 }

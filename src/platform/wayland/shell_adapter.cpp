@@ -57,7 +57,7 @@ gltfx_rslt<void> wayland_shell_adapter::open(wayland_display_adapter &connection
     gltfx_rslt<void *> compositor_proxy =
         connection.bind(*compositor_global, wl_compositor_interface, 6);
     if (compositor_proxy.has_error()) {
-        return gltfx_rslt<void>::err(compositor_proxy.error());
+        return gltfx_rslt<void>::err(compositor_proxy.err());
     }
 
     const wayland_global *shell_global = connection.globals().find_by_interface("xdg_wm_base");
@@ -67,7 +67,7 @@ gltfx_rslt<void> wayland_shell_adapter::open(wayland_display_adapter &connection
         // is_open() has to read false on ANY failure path, the same
         // contract wayland_display_adapter::open() already documents.
         wl_compositor_destroy(static_cast<wl_compositor *>(compositor_proxy.value()));
-        return gltfx_rslt<void>::err(shell_proxy.error());
+        return gltfx_rslt<void>::err(shell_proxy.err());
     }
 
     m_compositor = static_cast<wl_compositor *>(compositor_proxy.value());

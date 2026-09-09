@@ -47,7 +47,7 @@ GLINTFX_TEST(dxcore_reader_probe_prints_and_asserts_the_non_empty_floor) {
     if (!loaded) {
         std::printf("dxcore_reader_probe_test: enumerate_dxcore_adapters() unsupported "
                     "(rejected_value=%s) - nada mais a medir\n",
-                    std::string(result.error().rejected_value()).c_str());
+                    std::string(result.err().rejected_value()).c_str());
         return;
     }
 

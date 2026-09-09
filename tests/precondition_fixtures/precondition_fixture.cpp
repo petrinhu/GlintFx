@@ -11,7 +11,7 @@
 #include <glintfx/core/err_code.hpp>
 
 // precondition_fixture.cpp - proves both halves of the debug-only
-// precondition guard on gltfx_rslt<T>::value()/error(): in a build
+// precondition guard on gltfx_rslt<T>::value()/err(): in a build
 // where NDEBUG is undefined (Debug), the assert() inside these
 // accessors fires FIRST, before the underlying undefined behavior, and
 // prints a message naming exactly which precondition the caller
@@ -34,7 +34,7 @@
 //               alternative is active, and dereferencing it is a real
 //               null-pointer read - SIGSEGV in Release, page zero
 //               unmapped on this project's five target platforms.
-//   "void"    - gltfx_rslt<void>::error() on a success-holding
+//   "void"    - gltfx_rslt<void>::err() on a success-holding
 //               (ok()) result. Storage is
 //               std::variant<std::monostate, gltfx_err>; the SAME
 //               std::get_if mechanism, the SAME null-pointer fault
@@ -99,7 +99,7 @@ int main(int argc, char **argv) {
         const glintfx::gltfx_rslt<void> ok_result = glintfx::gltfx_rslt<void>::ok();
         // Precondition violation ON PURPOSE: ok_result.has_error() is
         // false.
-        const glintfx::gltfx_err &e = ok_result.error();
+        const glintfx::gltfx_err &e = ok_result.err();
         std::printf(
             "UNEXPECTED: read error code=%u without any guard firing (Release, void-specialization "
             "UB fabricated a gltfx_err instead of faulting this run)\n",

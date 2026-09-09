@@ -64,7 +64,7 @@ int main() {
     if (display_opened.has_error()) {
         std::fprintf(
             stderr, "window_active_after_map_smoke: gltfx_display::open() failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(display_opened.error().code())).c_str());
+            std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
@@ -77,12 +77,11 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
         glintfx::gltfx_window::open(display, desc);
     if (window_opened.has_error()) {
-        std::fprintf(
-            stderr,
-            "window_active_after_map_smoke: gltfx_window::open() failed: %s "
-            "(rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(window_opened.error().code())).c_str(),
-            std::string(window_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr,
+                     "window_active_after_map_smoke: gltfx_window::open() failed: %s "
+                     "(rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+                     std::string(window_opened.err().rejected_value()).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -90,19 +89,18 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_gl_context> context_opened =
         glintfx::gltfx_gl_context::open(window, glintfx::gltfx_gl_context_desc{});
     if (context_opened.has_error()) {
-        std::fprintf(
-            stderr,
-            "window_active_after_map_smoke: gltfx_gl_context::open() failed: %s "
-            "(rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(context_opened.error().code())).c_str(),
-            std::string(context_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr,
+                     "window_active_after_map_smoke: gltfx_gl_context::open() failed: %s "
+                     "(rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(context_opened.err().code())).c_str(),
+                     std::string(context_opened.err().rejected_value()).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_gl_context context = std::move(context_opened.value());
 
     if (glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
         std::fprintf(stderr, "window_active_after_map_smoke: make_current() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(current.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(current.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -117,7 +115,7 @@ int main() {
             presented.has_error()) {
             std::fprintf(
                 stderr, "window_active_after_map_smoke: swap_buffers() failed on frame %d: %s\n",
-                frame, std::string(glintfx::gltfx_err_code_name(presented.error().code())).c_str());
+                frame, std::string(glintfx::gltfx_err_code_name(presented.err().code())).c_str());
             return EXIT_FAILURE;
         }
     }
@@ -131,7 +129,7 @@ int main() {
     for (; roundtrips_used < kPumpRoundtripBudget && !became_active; ++roundtrips_used) {
         if (glintfx::gltfx_rslt<void> pumped = display.pump_events(); pumped.has_error()) {
             std::fprintf(stderr, "window_active_after_map_smoke: pump_events() failed: %s\n",
-                         std::string(glintfx::gltfx_err_code_name(pumped.error().code())).c_str());
+                         std::string(glintfx::gltfx_err_code_name(pumped.err().code())).c_str());
             return EXIT_FAILURE;
         }
         became_active = window.state(glintfx::gltfx_window_state_bit::active);

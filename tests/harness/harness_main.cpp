@@ -48,7 +48,7 @@
 // which one) actually fires inside gfx_open_only_fixation_test's own
 // process was NOT identified by reading its call path (resolve_gfx_
 // open_only_fixation() and every function it calls were read end to end;
-// none reaches an assert() or a gltfx_rslt<T>::value()/error() misuse).
+// none reaches an assert() or a gltfx_rslt<T>::value()/err() misuse).
 // This change does not claim to have found or fixed that root cause - it
 // closes the ENVIRONMENT half GODS_LAWS.md L-17 demands regardless (a
 // portao/mecanismo that dies instead of reporting is worse than one that

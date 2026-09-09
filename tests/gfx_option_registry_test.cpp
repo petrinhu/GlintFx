@@ -139,7 +139,7 @@ GLINTFX_TEST(gltfx_gfx_option_name_makes_the_round_trip_through_by_name_for_ever
 GLINTFX_TEST(gltfx_gfx_option_by_name_reports_not_found_for_an_unknown_name) {
     const glintfx::gltfx_rslt<gltfx_gfx_option> found = gltfx_gfx_option_by_name("does-not-exist");
     GLINTFX_CHECK(found.has_error());
-    GLINTFX_CHECK(found.error().code() == glintfx::gltfx_err_code::not_found);
+    GLINTFX_CHECK(found.err().code() == glintfx::gltfx_err_code::not_found);
 }
 
 // D-W6b-16 (1)'s own shape rule: `default_value` always sits inside

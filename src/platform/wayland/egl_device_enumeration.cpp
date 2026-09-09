@@ -90,7 +90,7 @@ gltfx_rslt<std::vector<gltfx_gpu_info>>
 enumerate_gpus_egl(std::vector<std::string> &names_out) noexcept {
     const gltfx_rslt<std::vector<egl_device_facts>> devices = enumerate_egl_devices();
     if (devices.has_error()) {
-        return gltfx_rslt<std::vector<gltfx_gpu_info>>::err(devices.error());
+        return gltfx_rslt<std::vector<gltfx_gpu_info>>::err(devices.err());
     }
 
     const std::vector<egl_device_facts> &survivors = devices.value();

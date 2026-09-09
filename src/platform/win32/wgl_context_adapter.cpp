@@ -489,7 +489,7 @@ win32_gl_context_adapter::open(win32_window_adapter &window,
 
     const gltfx_rslt<wgl_extension_pointers> loaded = load_wgl_extension_pointers();
     if (loaded.has_error()) {
-        return gltfx_rslt<void>::err(loaded.error());
+        return gltfx_rslt<void>::err(loaded.err());
     }
     m_swap_interval_ext = loaded.value().swap_interval_ext;
 

@@ -57,14 +57,14 @@ GLINTFX_TEST(resolve_gl_surface_size_never_accepts_a_zero_pixel_window_size) {
     const glintfx::gltfx_rslt<gl_surface_size_decision> width_zero =
         resolve_gl_surface_size(0, 600, 800, 600);
     GLINTFX_CHECK(width_zero.has_error());
-    GLINTFX_CHECK(width_zero.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(width_zero.error().rejected_value() == "pixel_size");
+    GLINTFX_CHECK(width_zero.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(width_zero.err().rejected_value() == "pixel_size");
 
     const glintfx::gltfx_rslt<gl_surface_size_decision> height_zero =
         resolve_gl_surface_size(800, 0, 800, 600);
     GLINTFX_CHECK(height_zero.has_error());
-    GLINTFX_CHECK(height_zero.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(height_zero.error().rejected_value() == "pixel_size");
+    GLINTFX_CHECK(height_zero.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(height_zero.err().rejected_value() == "pixel_size");
 
     std::println("resolve_gl_surface_size: 4/4 cases of this file's own closed enumeration passed");
 }

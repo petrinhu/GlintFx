@@ -66,7 +66,7 @@ int main() {
     const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "wait_events_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -81,7 +81,7 @@ int main() {
                                          .count();
         if (waited.has_error()) {
             std::fprintf(stderr, "wait_events_smoke: wait_events(50) failed: %s\n",
-                         std::string(glintfx::gltfx_err_code_name(waited.error().code())).c_str());
+                         std::string(glintfx::gltfx_err_code_name(waited.err().code())).c_str());
             return EXIT_FAILURE;
         }
         if (waited.value() || elapsed_ms < 40) {
@@ -122,7 +122,7 @@ int main() {
                                    .count();
     if (waited2.has_error()) {
         std::fprintf(stderr, "wait_events_smoke: wait_events(1000) failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(waited2.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(waited2.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (!state.done) {

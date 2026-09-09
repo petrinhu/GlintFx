@@ -96,7 +96,7 @@ GLINTFX_TEST(injected_refusal_reaches_the_caller_of_open_unchanged) {
     // function that let an exception escape would have called
     // std::terminate() before any of these checks ran ("nada lança").
     GLINTFX_CHECK(opened.has_error());
-    GLINTFX_CHECK(opened.error().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(opened.err().code() == glintfx::gltfx_err_code::platform_failure);
 
     // A refused open() still counts as "open() was called" - the
     // adapter's own is_open() correctly stays false, and close() is
@@ -171,5 +171,5 @@ GLINTFX_TEST(a_different_injected_code_still_arrives_unchanged) {
     const glintfx::gltfx_rslt<void> opened = connection.open();
 
     GLINTFX_CHECK(opened.has_error());
-    GLINTFX_CHECK(opened.error().code() == glintfx::gltfx_err_code::unsupported);
+    GLINTFX_CHECK(opened.err().code() == glintfx::gltfx_err_code::unsupported);
 }

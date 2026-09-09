@@ -84,7 +84,7 @@ int main() {
     if (display_opened.has_error()) {
         std::fprintf(
             stderr, "gpu_kind_report_smoke: gltfx_display::open() failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(display_opened.error().code())).c_str());
+            std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
@@ -97,9 +97,8 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
         glintfx::gltfx_window::open(display, desc);
     if (window_opened.has_error()) {
-        std::fprintf(
-            stderr, "gpu_kind_report_smoke: gltfx_window::open() failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(window_opened.error().code())).c_str());
+        std::fprintf(stderr, "gpu_kind_report_smoke: gltfx_window::open() failed: %s\n",
+                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -110,7 +109,7 @@ int main() {
     if (glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(w_impl->adapter, no_options);
         egl_opened.has_error()) {
         std::fprintf(stderr, "gpu_kind_report_smoke: egl adapter open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(egl_opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str());
         delete egl_ptr;
         return EXIT_FAILURE;
     }

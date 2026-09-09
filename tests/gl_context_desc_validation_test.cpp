@@ -51,8 +51,8 @@ GLINTFX_TEST(validate_gl_context_desc_refuses_gpu_preference_other_than_no_prefe
     const gltfx_gl_context_desc desc{.options = options.data(), .option_count = options.size()};
     const glintfx::gltfx_rslt<void> result = validate_gl_context_desc(desc);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "gpu_preference");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "gpu_preference");
 }
 
 GLINTFX_TEST(validate_gl_context_desc_refuses_a_repeated_id) {
@@ -63,16 +63,16 @@ GLINTFX_TEST(validate_gl_context_desc_refuses_a_repeated_id) {
     const gltfx_gl_context_desc desc{.options = options.data(), .option_count = options.size()};
     const glintfx::gltfx_rslt<void> result = validate_gl_context_desc(desc);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "vsync");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "vsync");
 }
 
 GLINTFX_TEST(validate_gl_context_desc_refuses_a_null_pointer_with_a_positive_count) {
     const gltfx_gl_context_desc desc{.options = nullptr, .option_count = 1};
     const glintfx::gltfx_rslt<void> result = validate_gl_context_desc(desc);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "options");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "options");
 
     std::println(
         "validate_gl_context_desc: 5/5 cases of this file's own closed enumeration passed");

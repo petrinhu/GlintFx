@@ -161,7 +161,7 @@ gltfx_rslt<void *> wayland_display_adapter::bind(const wayland_global &global,
         // Same "never a second real call on a connection already
         // known to be dead" rule roundtrip()/pump_events() already
         // apply (see this class's own header comment on has_fatal_
-        // error()) - a bind() attempt is a protocol request exactly
+        // err()) - a bind() attempt is a protocol request exactly
         // like any other, and this connection cannot send one.
         return gltfx_rslt<void *>::err(build_connection_failure(m_display));
     }
@@ -367,7 +367,7 @@ gltfx_rslt<void> wayland_display_adapter::read_and_dispatch_incoming() noexcept 
 // already elapsed.
 gltfx_rslt<bool> wayland_display_adapter::dispatch_ready_events(std::uint32_t timeout_ms) noexcept {
     if (const gltfx_rslt<void> prepared = drain_pending_and_prepare_read(); prepared.has_error()) {
-        return gltfx_rslt<bool>::err(prepared.error());
+        return gltfx_rslt<bool>::err(prepared.err());
     }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     gltfx_rslt<bool> flushed = flush_with_retry(timeout_ms, deadline);
@@ -397,7 +397,7 @@ gltfx_rslt<bool> wayland_display_adapter::dispatch_ready_events(std::uint32_t ti
         return gltfx_rslt<bool>::ok(false);
     }
     if (const gltfx_rslt<void> dispatched = read_and_dispatch_incoming(); dispatched.has_error()) {
-        return gltfx_rslt<bool>::err(dispatched.error());
+        return gltfx_rslt<bool>::err(dispatched.err());
     }
     return gltfx_rslt<bool>::ok(true);
 }
@@ -413,7 +413,7 @@ gltfx_rslt<void> wayland_display_adapter::pump_events() noexcept {
     // "is there anything to read RIGHT NOW" - dispatch_ready_events()'s
     // own timeout_ms 0 (this method's own header comment).
     if (const gltfx_rslt<bool> dispatched = dispatch_ready_events(0); dispatched.has_error()) {
-        return gltfx_rslt<void>::err(dispatched.error());
+        return gltfx_rslt<void>::err(dispatched.err());
     }
     return gltfx_rslt<void>::ok();
 }

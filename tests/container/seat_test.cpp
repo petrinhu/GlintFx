@@ -70,7 +70,7 @@ int main() {
     glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "seat_test: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -78,8 +78,8 @@ int main() {
     glintfx::gltfx_rslt<void> seat_opened = seat.open(adapter);
     if (seat_opened.has_error()) {
         std::fprintf(stderr, "seat_test: seat.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(seat_opened.error().code())).c_str(),
-                     std::string(seat_opened.error().rejected_value()).c_str());
+                     std::string(glintfx::gltfx_err_code_name(seat_opened.err().code())).c_str(),
+                     std::string(seat_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
@@ -95,9 +95,8 @@ int main() {
     // it, wl_seat.name) already dispatched by the time we read either.
     glintfx::gltfx_rslt<void> roundtripped = adapter.roundtrip();
     if (roundtripped.has_error()) {
-        std::fprintf(
-            stderr, "seat_test: roundtrip() after seat.open() failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(roundtripped.error().code())).c_str());
+        std::fprintf(stderr, "seat_test: roundtrip() after seat.open() failed: %s\n",
+                     std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str());
         seat.close();
         adapter.close();
         return EXIT_FAILURE;

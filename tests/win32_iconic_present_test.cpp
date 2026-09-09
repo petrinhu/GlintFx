@@ -66,7 +66,7 @@ void print_error_detail_if_failed(std::string_view label,
     if (!result.has_error()) {
         return;
     }
-    const glintfx::gltfx_err &err = result.error();
+    const glintfx::gltfx_err &err = result.err();
     std::println("MEASURED {}.error_code={}", label, glintfx::gltfx_err_code_name(err.code()));
     std::println("MEASURED {}.rejected_value={}", label, err.rejected_value());
     std::println("MEASURED {}.os_error_code={}", label, err.os_error_code());
@@ -239,16 +239,16 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
     print_error_detail_if_failed("win32_iconic_present_test.presented_before_minimize",
                                  presented_before_minimize);
     if (presented_before_minimize.has_error()) {
-        const bool tolerated = should_tolerate_swap_failure(presented_before_minimize.error(),
+        const bool tolerated = should_tolerate_swap_failure(presented_before_minimize.err(),
                                                             context.gpu().kind, any_swap_succeeded);
         if (!tolerated) {
             print_swap_tolerance_refusal("presented_before_minimize",
-                                         presented_before_minimize.error(), context.gpu().kind,
+                                         presented_before_minimize.err(), context.gpu().kind,
                                          any_swap_succeeded);
         }
         GLINTFX_CHECK(tolerated);
         print_swap_tolerance_downgrade("win32_iconic_present_test.presented_before_minimize",
-                                       presented_before_minimize.error());
+                                       presented_before_minimize.err());
         ++swap_tolerated_downgrades;
     } else {
         const bool presented_before =
@@ -329,15 +329,15 @@ GLINTFX_TEST(win32_gl_context_swap_buffers_skips_iconic_window) {
         // should_tolerate_swap_failure() holds; any other shape of
         // failure still reproves via the GLINTFX_CHECK below, exactly
         // as before this tolerance existed.
-        const bool tolerated = should_tolerate_swap_failure(after_restore.error(),
-                                                            context.gpu().kind, any_swap_succeeded);
+        const bool tolerated = should_tolerate_swap_failure(after_restore.err(), context.gpu().kind,
+                                                            any_swap_succeeded);
         if (!tolerated) {
-            print_swap_tolerance_refusal("after_restore", after_restore.error(), context.gpu().kind,
+            print_swap_tolerance_refusal("after_restore", after_restore.err(), context.gpu().kind,
                                          any_swap_succeeded);
         }
         GLINTFX_CHECK(tolerated);
         print_swap_tolerance_downgrade("win32_iconic_present_test.after_restore",
-                                       after_restore.error());
+                                       after_restore.err());
         ++swap_tolerated_downgrades;
         // Tolerated means this swap proves neither `presented` nor
         // `swap_calls_issued() == swaps_before_minimize + 1` - the
@@ -396,8 +396,8 @@ GLINTFX_TEST(win32_gl_context_adaptive_vsync_matches_driver_capability) {
 
     if (!adaptive_accepted) {
         // D-W6b-18: refused BY NAME, never silently downgraded to `on`.
-        GLINTFX_CHECK(adaptive.error().code() == glintfx::gltfx_err_code::unsupported);
-        GLINTFX_CHECK(adaptive.error().rejected_value() == "vsync");
+        GLINTFX_CHECK(adaptive.err().code() == glintfx::gltfx_err_code::unsupported);
+        GLINTFX_CHECK(adaptive.err().rejected_value() == "vsync");
     }
     // adaptive_accepted == true needs no further assertion: D-W6b-18's own success case IS
     // "apply_option() returned without error" - the same fact already MEASURED and printed above,

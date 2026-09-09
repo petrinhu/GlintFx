@@ -42,7 +42,7 @@ int main() {
     glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "pump_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -63,7 +63,7 @@ int main() {
         glintfx::gltfx_rslt<void> pumped = adapter.pump_events();
         if (pumped.has_error()) {
             std::fprintf(stderr, "pump_smoke: pump_events() iteration %d failed: %s\n", i,
-                         std::string(glintfx::gltfx_err_code_name(pumped.error().code())).c_str());
+                         std::string(glintfx::gltfx_err_code_name(pumped.err().code())).c_str());
             return EXIT_FAILURE;
         }
         const auto elapsed = std::chrono::steady_clock::now() - start;

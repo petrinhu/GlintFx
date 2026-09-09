@@ -330,7 +330,7 @@ gltfx_rslt<void> win32_display_adapter::pump_events() noexcept {
     // adapter.hpp: "pump_events() above IS this call with the bool
     // discarded").
     if (const gltfx_rslt<bool> waited = wait_events(0); waited.has_error()) {
-        return gltfx_rslt<void>::err(waited.error());
+        return gltfx_rslt<void>::err(waited.err());
     }
     return gltfx_rslt<void>::ok();
 }

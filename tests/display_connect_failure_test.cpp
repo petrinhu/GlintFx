@@ -140,7 +140,7 @@ GLINTFX_TEST(open_against_an_empty_private_runtime_dir_returns_platform_failure)
     // would have called std::terminate() before this line), and the
     // process is still running (a real abort() would have ended it).
     GLINTFX_CHECK(opened.has_error());
-    GLINTFX_CHECK(opened.error().code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(opened.err().code() == glintfx::gltfx_err_code::platform_failure);
     GLINTFX_CHECK(!adapter.is_open());
 
     // Destroying a NEVER-successfully-opened adapter must not attempt

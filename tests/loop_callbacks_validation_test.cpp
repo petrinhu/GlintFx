@@ -42,8 +42,8 @@ GLINTFX_TEST(all_three_empty_is_refused_naming_on_frame_first) {
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_frame"));
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_frame"));
 }
 
 GLINTFX_TEST(on_frame_empty_is_refused_even_when_on_render_is_filled) {
@@ -53,7 +53,7 @@ GLINTFX_TEST(on_frame_empty_is_refused_even_when_on_render_is_filled) {
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_frame"));
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_frame"));
 }
 
 GLINTFX_TEST(on_frame_empty_is_refused_even_when_on_event_is_filled) {
@@ -63,7 +63,7 @@ GLINTFX_TEST(on_frame_empty_is_refused_even_when_on_event_is_filled) {
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_frame"));
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_frame"));
 }
 
 GLINTFX_TEST(on_frame_empty_is_refused_even_when_render_and_event_are_both_filled) {
@@ -74,7 +74,7 @@ GLINTFX_TEST(on_frame_empty_is_refused_even_when_render_and_event_are_both_fille
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_frame"));
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_frame"));
 }
 
 GLINTFX_TEST(on_render_empty_is_refused_once_on_frame_is_filled) {
@@ -84,7 +84,7 @@ GLINTFX_TEST(on_render_empty_is_refused_once_on_frame_is_filled) {
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_render"));
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_render"));
 }
 
 GLINTFX_TEST(on_render_empty_is_refused_even_when_on_event_is_filled_too) {
@@ -95,7 +95,7 @@ GLINTFX_TEST(on_render_empty_is_refused_even_when_on_event_is_filled_too) {
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_render"));
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_render"));
 }
 
 GLINTFX_TEST(on_frame_and_on_render_filled_with_on_event_empty_is_accepted) {
@@ -120,7 +120,7 @@ GLINTFX_TEST(on_event_filled_is_refused_once_on_frame_and_on_render_are_both_fil
     const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view("on_event"));
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_event"));
 }
 
 namespace {
@@ -170,7 +170,7 @@ GLINTFX_TEST(the_empty_by_filled_cubed_matrix_is_enumerated_in_full) {
             GLINTFX_CHECK(!result.has_error());
         } else {
             GLINTFX_CHECK(result.has_error());
-            GLINTFX_CHECK(result.error().rejected_value() == cell.expected_rejected_value);
+            GLINTFX_CHECK(result.err().rejected_value() == cell.expected_rejected_value);
         }
         ++cells_checked;
     }

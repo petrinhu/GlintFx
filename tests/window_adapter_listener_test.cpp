@@ -219,5 +219,5 @@ GLINTFX_TEST(set_title_on_unopened_adapter_is_refused) {
     const auto result = adapter.set_title("novo titulo");
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"title"});
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view{"title"});
 }

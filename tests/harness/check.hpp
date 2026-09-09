@@ -14,15 +14,15 @@
 //
 // WHY: a case that writes "assert precondition P holds, THEN act as
 // if it does" - e.g. GLINTFX_CHECK(r.has_error());
-// GLINTFX_CHECK(r.error().code() == ...); - is not being careless. It
+// GLINTFX_CHECK(r.err().code() == ...); - is not being careless. It
 // is following the SAME precondition convention core/err.hpp's own
-// gltfx_rslt<T>::value()/error() document for their callers: calling
-// error() when has_value() is true is UNDEFINED BEHAVIOR, guarded only
+// gltfx_rslt<T>::value()/err() document for their callers: calling
+// err() when has_value() is true is UNDEFINED BEHAVIOR, guarded only
 // by an assert() that the RELEASE build (the only build
 // tools/preci.sh's gates ever run, ESCOPO.md SS2) compiles OUT. Under
 // the OLD "never unwind" design, a failing GLINTFX_CHECK(r.has_error())
 // did not stop the case: execution walked straight into the next
-// line's now-unguarded error(), which dereferenced a null
+// line's now-unguarded err(), which dereferenced a null
 // std::get_if<...>(&m_storage) and the process died by signal
 // (SIGSEGV) - no [FAIL] line, no failure count, nothing but a crash
 // that looked, from the outside, like the harness itself was broken.

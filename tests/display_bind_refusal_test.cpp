@@ -67,5 +67,5 @@ GLINTFX_TEST(bind_on_a_never_opened_adapter_returns_invalid_argument) {
     const glintfx::gltfx_rslt<void *> bound = adapter.bind(fake_global, wl_compositor_interface, 6);
 
     GLINTFX_CHECK(bound.has_error());
-    GLINTFX_CHECK(bound.error().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(bound.err().code() == glintfx::gltfx_err_code::invalid_argument);
 }

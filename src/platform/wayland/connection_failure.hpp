@@ -39,7 +39,7 @@ namespace glintfx::platform {
 // os_error_code() carries the raw errno-shaped value (EPROTO for a
 // protocol violation, an ordinary errno like ECONNRESET for a
 // transport failure); when it IS EPROTO, wl_display_get_protocol_
-// error() additionally names WHICH interface's request the compositor
+// err() additionally names WHICH interface's request the compositor
 // rejected, attached as rejected_value() - an interface name
 // ("wl_surface", "xdg_surface") is itself already an identifier token.
 [[nodiscard]] gltfx_err build_connection_failure(wl_display *display) noexcept;

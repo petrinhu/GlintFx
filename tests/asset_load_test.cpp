@@ -203,7 +203,7 @@ GLINTFX_TEST(nonexistent_relative_path_is_not_found) {
         glintfx::asset::gltfx_load_file_bytes("does_not_exist.bin");
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::not_found);
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::not_found);
     ++g_scenarios_exercised;
 }
 
@@ -258,7 +258,7 @@ GLINTFX_TEST(no_read_permission_is_io_failure) {
         glintfx::asset::gltfx_load_file_bytes("secret.bin");
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
 #else
     GLINTFX_CHECK(::chmod((dir / "secret.bin").c_str(), 0000) == 0);
 
@@ -288,7 +288,7 @@ GLINTFX_TEST(no_read_permission_is_io_failure) {
         GLINTFX_CHECK(result.has_value());
     } else {
         GLINTFX_CHECK(result.has_error());
-        GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+        GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
     }
 #endif
     ++g_scenarios_exercised;
@@ -303,7 +303,7 @@ GLINTFX_TEST(directory_path_is_invalid_argument) {
         glintfx::asset::gltfx_load_file_bytes("a_directory");
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
     ++g_scenarios_exercised;
 }
 
@@ -429,7 +429,7 @@ GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
         glintfx::asset::gltfx_load_file_bytes("locked.bin");
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
 }
 #else
 GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
@@ -437,7 +437,7 @@ GLINTFX_TEST(mid_stream_read_failure_is_io_failure_not_silent_partial_success) {
         glintfx::asset::gltfx_load_file_bytes("/proc/self/mem");
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::io_failure);
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
 }
 #endif
 

@@ -37,7 +37,7 @@ gltfx_rslt<void> validate_gl_context_desc(const gltfx_gl_context_desc &desc) noe
         // this atom only ever runs at open() time.
         if (const gltfx_rslt<void> shape = validate_gfx_option_entry(entry, /*already_open=*/false);
             shape.has_error()) {
-            return gltfx_rslt<void>::err(shape.error());
+            return gltfx_rslt<void>::err(shape.err());
         }
 
         // Reason 3: the SAME id already appeared earlier in this same

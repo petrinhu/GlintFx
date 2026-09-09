@@ -82,8 +82,8 @@ constexpr std::int32_t kHeight = 240;
     for (int attempt = 0; attempt < 2; ++attempt) {
         glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
         if (swapped.has_error()) {
-            out_code = swapped.error().code();
-            out_rejected = std::string(swapped.error().rejected_value());
+            out_code = swapped.err().code();
+            out_rejected = std::string(swapped.err().rejected_value());
             return true;
         }
     }
@@ -104,7 +104,7 @@ int main() {
     glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "egl_protocol_error_smoke: display open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -113,8 +113,8 @@ int main() {
     if (shell_opened.has_error()) {
         std::fprintf(stderr,
                      "egl_protocol_error_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.error().code())).c_str(),
-                     std::string(shell_opened.error().rejected_value()).c_str());
+                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
+                     std::string(shell_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
@@ -128,10 +128,10 @@ int main() {
     };
     glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
     if (window_opened.has_error()) {
-        std::fprintf(
-            stderr, "egl_protocol_error_smoke: window.open() failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(window_opened.error().code())).c_str(),
-            std::string(window_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr,
+                     "egl_protocol_error_smoke: window.open() failed: %s (rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+                     std::string(window_opened.err().rejected_value()).c_str());
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
@@ -141,10 +141,10 @@ int main() {
     glintfx::gltfx_rslt<void> context_opened =
         context.open(window, std::span<const glintfx::gltfx_gfx_option_entry>{});
     if (context_opened.has_error()) {
-        std::fprintf(
-            stderr, "egl_protocol_error_smoke: context.open() failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(context_opened.error().code())).c_str(),
-            std::string(context_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr,
+                     "egl_protocol_error_smoke: context.open() failed: %s (rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(context_opened.err().code())).c_str(),
+                     std::string(context_opened.err().rejected_value()).c_str());
         window.close();
         shell.close();
         adapter.close();
@@ -164,8 +164,8 @@ int main() {
             std::fprintf(stderr,
                          "egl_protocol_error_smoke: swap_buffers() before provoking anything "
                          "failed: %s (rejected_value=%s)\n",
-                         std::string(glintfx::gltfx_err_code_name(swapped.error().code())).c_str(),
-                         std::string(swapped.error().rejected_value()).c_str());
+                         std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str(),
+                         std::string(swapped.err().rejected_value()).c_str());
             context.close();
             window.close();
             shell.close();

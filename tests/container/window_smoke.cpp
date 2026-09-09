@@ -114,7 +114,7 @@ int main() {
     glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "window_smoke: display open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -122,8 +122,8 @@ int main() {
     glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
         std::fprintf(stderr, "window_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.error().code())).c_str(),
-                     std::string(shell_opened.error().rejected_value()).c_str());
+                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
+                     std::string(shell_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
@@ -139,7 +139,7 @@ int main() {
     glintfx::gltfx_rslt<void *> shm_proxy = adapter.bind(*shm_global, wl_shm_interface, 1);
     if (shm_proxy.has_error()) {
         std::fprintf(stderr, "window_smoke: bind(wl_shm) failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(shm_proxy.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(shm_proxy.err().code())).c_str());
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
@@ -155,10 +155,9 @@ int main() {
     };
     glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
     if (window_opened.has_error()) {
-        std::fprintf(
-            stderr, "window_smoke: window.open() failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(window_opened.error().code())).c_str(),
-            std::string(window_opened.error().rejected_value()).c_str());
+        std::fprintf(stderr, "window_smoke: window.open() failed: %s (rejected_value=%s)\n",
+                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+                     std::string(window_opened.err().rejected_value()).c_str());
         wl_shm_destroy(shm);
         shell.close();
         adapter.close();
@@ -213,8 +212,8 @@ int main() {
         std::fprintf(
             stderr,
             "window_smoke: roundtrip() after buffer commit failed: %s (rejected_value=%s)\n",
-            std::string(glintfx::gltfx_err_code_name(roundtripped.error().code())).c_str(),
-            std::string(roundtripped.error().rejected_value()).c_str());
+            std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str(),
+            std::string(roundtripped.err().rejected_value()).c_str());
         wl_buffer_destroy(buffer);
         window.close();
         wl_shm_destroy(shm);

@@ -52,7 +52,7 @@ gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
 #if defined(_WIN32)
     const gltfx_rslt<std::vector<dxcore_adapter_facts>> adapters = enumerate_dxcore_adapters();
     if (adapters.has_error()) {
-        const gltfx_err error = adapters.error();
+        const gltfx_err error = adapters.err();
         delete impl;
         return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
     }
@@ -98,7 +98,7 @@ gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
     // it - never copied through a temporary that would dangle them.
     gltfx_rslt<std::vector<gltfx_gpu_info>> enumerated = platform::enumerate_gpus_egl(impl->names);
     if (enumerated.has_error()) {
-        const gltfx_err &error = enumerated.error();
+        const gltfx_err &error = enumerated.err();
         delete impl;
         return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
     }

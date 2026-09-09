@@ -125,7 +125,7 @@ GLINTFX_TEST(win32_open_refuses_when_its_own_class_name_is_already_registered) {
     // ERROR_CLASS_ALREADY_EXISTS = 1410 (winerror.h) - the documented
     // GetLastError() value RegisterClassExW sets for exactly this
     // refusal.
-    GLINTFX_CHECK(opened.error().os_error_code() == 1410);
+    GLINTFX_CHECK(opened.err().os_error_code() == 1410);
 
     // A refused open() must not have registered (or left registered)
     // anything of its own - it tore down whatever it had created

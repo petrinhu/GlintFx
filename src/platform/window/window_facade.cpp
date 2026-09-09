@@ -133,7 +133,7 @@ gltfx_rslt<gltfx_window> gltfx_window::open(gltfx_display &display,
     if (const gltfx_rslt<void> size_ok = platform::validate_window_logical_size(
             desc.logical_size.width, desc.logical_size.height);
         size_ok.has_error()) {
-        return gltfx_rslt<gltfx_window>::err(size_ok.error());
+        return gltfx_rslt<gltfx_window>::err(size_ok.err());
     }
 
     display_impl *display_impl_ptr = display_internal_access::get(display);
@@ -186,7 +186,7 @@ gltfx_rslt<gltfx_window> gltfx_window::open(gltfx_display &display,
 
     if (opened.has_error()) {
         delete impl;
-        return gltfx_rslt<gltfx_window>::err(opened.error());
+        return gltfx_rslt<gltfx_window>::err(opened.err());
     }
 
     return gltfx_rslt<gltfx_window>::ok(gltfx_window(impl));

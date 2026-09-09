@@ -85,7 +85,7 @@ gltfx_rslt<void> wayland_seat_adapter::open(wayland_display_adapter &connection)
 
     gltfx_rslt<void *> seat_proxy = connection.bind(*seat_global, wl_seat_interface, 5);
     if (seat_proxy.has_error()) {
-        return gltfx_rslt<void>::err(seat_proxy.error());
+        return gltfx_rslt<void>::err(seat_proxy.err());
     }
 
     m_seat = static_cast<wl_seat *>(seat_proxy.value());

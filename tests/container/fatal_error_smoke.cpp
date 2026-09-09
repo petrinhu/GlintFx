@@ -47,7 +47,7 @@ int main() {
     glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
         std::fprintf(stderr, "fatal_error_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (adapter.has_fatal_error()) {
@@ -62,7 +62,7 @@ int main() {
     if (first_roundtrip.has_error()) {
         std::fprintf(
             stderr, "fatal_error_smoke: roundtrip() against a live compositor failed: %s\n",
-            std::string(glintfx::gltfx_err_code_name(first_roundtrip.error().code())).c_str());
+            std::string(glintfx::gltfx_err_code_name(first_roundtrip.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (adapter.has_fatal_error()) {
@@ -93,9 +93,9 @@ int main() {
                              "compositor was killed - the fatal path never fired\n");
         return EXIT_FAILURE;
     }
-    if (after_cut.error().code() != glintfx::gltfx_err_code::platform_failure) {
+    if (after_cut.err().code() != glintfx::gltfx_err_code::platform_failure) {
         std::fprintf(stderr, "fatal_error_smoke: wrong error code after the cut: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(after_cut.error().code())).c_str());
+                     std::string(glintfx::gltfx_err_code_name(after_cut.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (!adapter.has_fatal_error()) {
@@ -106,14 +106,14 @@ int main() {
     std::fprintf(stdout,
                  "fatal_error_smoke: roundtrip() after the cut reported %s "
                  "(os_error_code=%lld), has_fatal_error() == true\n",
-                 std::string(glintfx::gltfx_err_code_name(after_cut.error().code())).c_str(),
-                 static_cast<long long>(after_cut.error().os_error_code()));
+                 std::string(glintfx::gltfx_err_code_name(after_cut.err().code())).c_str(),
+                 static_cast<long long>(after_cut.err().os_error_code()));
     // MEASURED-COLLECTOR: the raw OS error code a severed Wayland
     // socket reports on this kernel - Linux-only key (Windows has no
     // equivalent fixture that severs its own transport yet), lands in
     // "so de um lado" until one exists.
     std::fprintf(stdout, "MEASURED fatal_error_smoke.os_error_code=%lld\n",
-                 static_cast<long long>(after_cut.error().os_error_code()));
+                 static_cast<long long>(after_cut.err().os_error_code()));
 
     // A SECOND roundtrip() call, on the already-latched adapter, must
     // ALSO come back as an ordinary error - never crash - proving the

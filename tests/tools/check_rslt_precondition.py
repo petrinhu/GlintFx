@@ -190,7 +190,7 @@ import tempfile
 ROOT_DIR = pathlib.Path(__file__).resolve().parent.parent.parent
 FIXTURE_SRC = ROOT_DIR / "tests" / "precondition_fixtures" / "precondition_fixture.cpp"
 ASSERT_MESSAGE_PRIMARY = "value() called on a result that holds an error"
-ASSERT_MESSAGE_VOID = "error() called on a result that holds success"
+ASSERT_MESSAGE_VOID = "err() called on a result that holds success"
 
 # tests/harness/win_crt_dialog_suppress.hpp's own header comment: force-
 # included on the MSVC compile only (see compile_fixture() below), fixes

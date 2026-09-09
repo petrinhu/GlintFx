@@ -103,6 +103,16 @@
 // harmless rename.
 #include "hostile_gawk_macros_shim.hpp"
 
+// RSLT-ERR-RENAME (docs/api-conventions.md R6, "Correction to this
+// rule's own text" finding, 09/09/2026): the SAME "run it on all five
+// platforms, not only the one that has the real header" reasoning as
+// the two shims right above, for libattr's own `error(ctx, ...)`
+// function-like macro (attr/error_context.h, not installed on every
+// target) - see the shim's own header comment for the exact collision
+// shape and why gltfx_rslt<T>::err() (this fatia's renamed accessor)
+// survives it while the old error() name would not have.
+#include "hostile_attr_error_macros_shim.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -417,7 +427,7 @@ GLINTFX_TEST(core_error_use_sites_survive_hostile_system_headers) {
     const glintfx::gltfx_rslt<int> err_result =
         glintfx::gltfx_rslt<int>::err(glintfx::gltfx_err(glintfx::gltfx_err_code::not_found));
     GLINTFX_CHECK(err_result.has_error());
-    GLINTFX_CHECK(err_result.error().code() == glintfx::gltfx_err_code::not_found);
+    GLINTFX_CHECK(err_result.err().code() == glintfx::gltfx_err_code::not_found);
 
     const glintfx::gltfx_rslt<void> ok_void = glintfx::gltfx_rslt<void>::ok();
     GLINTFX_CHECK(ok_void.has_value());

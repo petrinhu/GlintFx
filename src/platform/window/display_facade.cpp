@@ -71,7 +71,7 @@ gltfx_rslt<gltfx_display> gltfx_display::open() noexcept {
 
     if (const gltfx_rslt<void> connected = impl->connection.open(); connected.has_error()) {
         delete impl;
-        return gltfx_rslt<gltfx_display>::err(connected.error());
+        return gltfx_rslt<gltfx_display>::err(connected.err());
     }
 
 #if !defined(_WIN32)
@@ -88,7 +88,7 @@ gltfx_rslt<gltfx_display> gltfx_display::open() noexcept {
     if (const gltfx_rslt<void> shell_opened = impl->shell.open(impl->connection.adapter());
         shell_opened.has_error()) {
         delete impl;
-        return gltfx_rslt<gltfx_display>::err(shell_opened.error());
+        return gltfx_rslt<gltfx_display>::err(shell_opened.err());
     }
 #endif
 
@@ -117,7 +117,7 @@ bool gltfx_display::is_open() const noexcept {
 gltfx_rslt<void> gltfx_display::pump_events() noexcept {
     // Precondition: this gltfx_display was not moved-from (docs/api-
     // conventions.md's own precondition-violation category, the same
-    // shape gltfx_rslt<T>::value()/error() already document - a
+    // shape gltfx_rslt<T>::value()/err() already document - a
     // moved-from display has nothing left to pump, and this is caller
     // misuse, not a recoverable library-side failure with a
     // gltfx_err_code that would name it). Debug catches this with a

@@ -39,8 +39,8 @@ GLINTFX_TEST(validate_gfx_option_entry_refuses_an_id_outside_the_table) {
     const glintfx::gltfx_rslt<void> result =
         validate_gfx_option_entry(gltfx_gfx_option_entry{.id = unknown_id, .value = 0}, false);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "1000");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "1000");
 }
 
 GLINTFX_TEST(validate_gfx_option_entry_refuses_a_value_below_the_range_naming_the_option) {
@@ -48,8 +48,8 @@ GLINTFX_TEST(validate_gfx_option_entry_refuses_a_value_below_the_range_naming_th
     const glintfx::gltfx_rslt<void> result = validate_gfx_option_entry(
         gltfx_gfx_option_entry{.id = gltfx_gfx_option::frame_rate_cap, .value = -1}, false);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "frame_rate_cap");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "frame_rate_cap");
 }
 
 GLINTFX_TEST(validate_gfx_option_entry_refuses_a_value_above_the_range_naming_the_option) {
@@ -57,8 +57,8 @@ GLINTFX_TEST(validate_gfx_option_entry_refuses_a_value_above_the_range_naming_th
     const glintfx::gltfx_rslt<void> result = validate_gfx_option_entry(
         gltfx_gfx_option_entry{.id = gltfx_gfx_option::frame_rate_cap, .value = 1001}, false);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "frame_rate_cap");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "frame_rate_cap");
 }
 
 GLINTFX_TEST(validate_gfx_option_entry_refuses_an_open_only_option_after_the_context_is_open) {
@@ -67,8 +67,8 @@ GLINTFX_TEST(validate_gfx_option_entry_refuses_an_open_only_option_after_the_con
     const glintfx::gltfx_rslt<void> result = validate_gfx_option_entry(
         gltfx_gfx_option_entry{.id = gltfx_gfx_option::msaa_samples, .value = 2}, true);
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == "msaa_samples");
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == "msaa_samples");
 
     // The SAME entry, at open() time (already_open == false), is
     // accepted - proving the refusal above is really about the call
@@ -84,14 +84,14 @@ GLINTFX_TEST(validate_gfx_option_entry_refuses_a_read_only_option_in_either_call
     const glintfx::gltfx_rslt<void> at_open = validate_gfx_option_entry(
         gltfx_gfx_option_entry{.id = gltfx_gfx_option::power_source, .value = 0}, false);
     GLINTFX_CHECK(at_open.has_error());
-    GLINTFX_CHECK(at_open.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(at_open.error().rejected_value() == "power_source");
+    GLINTFX_CHECK(at_open.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(at_open.err().rejected_value() == "power_source");
 
     const glintfx::gltfx_rslt<void> after_open = validate_gfx_option_entry(
         gltfx_gfx_option_entry{.id = gltfx_gfx_option::power_source, .value = 0}, true);
     GLINTFX_CHECK(after_open.has_error());
-    GLINTFX_CHECK(after_open.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(after_open.error().rejected_value() == "power_source");
+    GLINTFX_CHECK(after_open.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(after_open.err().rejected_value() == "power_source");
 }
 
 GLINTFX_TEST(validate_gfx_option_entry_accepts_a_valid_value) {

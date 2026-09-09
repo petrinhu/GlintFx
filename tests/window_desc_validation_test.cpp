@@ -29,8 +29,8 @@ GLINTFX_TEST(embedded_nul_byte_is_rejected) {
         glintfx::platform::validate_window_text_field("title", value);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"title"});
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view{"title"});
 }
 
 GLINTFX_TEST(invalid_utf8_is_rejected) {
@@ -44,8 +44,8 @@ GLINTFX_TEST(invalid_utf8_is_rejected) {
         glintfx::platform::validate_window_text_field("application_id", value);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"application_id"});
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view{"application_id"});
 }
 
 GLINTFX_TEST(empty_field_is_accepted) {
@@ -74,8 +74,8 @@ GLINTFX_TEST(both_dimensions_zero_is_rejected) {
     const glintfx::gltfx_rslt<void> result = glintfx::platform::validate_window_logical_size(0, 0);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().code() == glintfx::gltfx_err_code::invalid_argument);
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"logical_size"});
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::invalid_argument);
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view{"logical_size"});
 }
 
 GLINTFX_TEST(zero_width_only_is_rejected) {
@@ -83,7 +83,7 @@ GLINTFX_TEST(zero_width_only_is_rejected) {
         glintfx::platform::validate_window_logical_size(0, 600);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"logical_size"});
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view{"logical_size"});
 }
 
 GLINTFX_TEST(zero_height_only_is_rejected) {
@@ -91,7 +91,7 @@ GLINTFX_TEST(zero_height_only_is_rejected) {
         glintfx::platform::validate_window_logical_size(800, 0);
 
     GLINTFX_CHECK(result.has_error());
-    GLINTFX_CHECK(result.error().rejected_value() == std::string_view{"logical_size"});
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view{"logical_size"});
 }
 
 GLINTFX_TEST(both_dimensions_nonzero_is_accepted) {

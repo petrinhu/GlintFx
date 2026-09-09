@@ -158,7 +158,7 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     // shape, before either fixation or any adapter ever sees it.
     if (const gltfx_rslt<void> shape_ok = platform::validate_gl_context_desc(desc);
         shape_ok.has_error()) {
-        return gltfx_rslt<gltfx_gl_context>::err(shape_ok.error());
+        return gltfx_rslt<gltfx_gl_context>::err(shape_ok.err());
     }
 
     window_impl *window_impl_ptr = window_internal_access::get(window);
@@ -227,7 +227,7 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     gltfx_rslt<std::vector<gltfx_gfx_option_entry>> resolved_rslt =
         resolve_full_option_table(fixed_open_only, requested);
     if (resolved_rslt.has_error()) {
-        return gltfx_rslt<gltfx_gl_context>::err(resolved_rslt.error());
+        return gltfx_rslt<gltfx_gl_context>::err(resolved_rslt.err());
     }
     std::vector<gltfx_gfx_option_entry> resolved = std::move(resolved_rslt.value());
 
@@ -273,7 +273,7 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
 
     if (opened.has_error()) {
         delete impl;
-        return gltfx_rslt<gltfx_gl_context>::err(opened.error());
+        return gltfx_rslt<gltfx_gl_context>::err(opened.err());
     }
 
     // Only NOW, after a genuinely successful open(), does a `fix_now`
@@ -337,7 +337,7 @@ gltfx_rslt<void> gltfx_gl_context::set_option(gltfx_gfx_option_entry entry) noex
     if (const gltfx_rslt<void> shape_ok =
             platform::validate_gfx_option_entry(entry, /*already_open=*/true);
         shape_ok.has_error()) {
-        return gltfx_rslt<void>::err(shape_ok.error());
+        return gltfx_rslt<void>::err(shape_ok.err());
     }
 
     // D-W6b-16's own "nunca degrada em silencio": a system that does
@@ -350,7 +350,7 @@ gltfx_rslt<void> gltfx_gl_context::set_option(gltfx_gfx_option_entry entry) noex
     }
 
     if (const gltfx_rslt<void> applied = m_impl->adapter.apply_option(entry); applied.has_error()) {
-        return gltfx_rslt<void>::err(applied.error());
+        return gltfx_rslt<void>::err(applied.err());
     }
 
     for (gltfx_gfx_option_entry &current : m_impl->current_values) {

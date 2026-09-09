@@ -55,16 +55,16 @@
 // the noexcept GUARANTEE lives at the function that WRAPS the factory
 // call in that try/catch, not inside the envelope type itself.
 //
-// value()/error() PRECONDITION (same convention as
+// value()/err() PRECONDITION (same convention as
 // std::optional::operator*()/std::expected::operator*(), not a new
 // idiom invented here): calling value() when has_value() is false, or
-// error() when has_error() is false, is UNDEFINED BEHAVIOR by
+// err() when has_error() is false, is UNDEFINED BEHAVIOR by
 // documented precondition. This is a DIFFERENT category from
 // gltfx_err's own "never UB" accessors (CE-3): those answer a DATA
 // question ("was this optional diagnostic field ever attached?",
 // always well-defined to answer with empty/zero); has_value()/
 // has_error() here answer a DIFFERENT, universally-checked-first
-// question ("did the call succeed?") before value()/error() are ever
+// question ("did the call succeed?") before value()/err() are ever
 // called - the same two-step contract std::optional itself uses.
 //
 // CORRECTION (adversarial review, 25/08/2026): an earlier version of
@@ -80,7 +80,7 @@
 // simplicity, not a safety property).
 //
 // DEBUG-ONLY PRECONDITION GUARD (decision of the leader, 25/08/2026,
-// correcting the claim above): value()/error() on BOTH gltfx_rslt<T>
+// correcting the claim above): value()/err() on BOTH gltfx_rslt<T>
 // and the gltfx_rslt<void> specialization now assert() the
 // precondition before touching storage. In a build where NDEBUG is
 // undefined (this project's CMAKE_BUILD_TYPE=Debug - the STANDARD
@@ -296,8 +296,8 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
         return gltfx_rslt(std::in_place_index<0>, std::move(value));
     }
 
-    [[nodiscard]] static gltfx_rslt err(gltfx_err error) noexcept {
-        return gltfx_rslt(std::in_place_index<1>, std::move(error));
+    [[nodiscard]] static gltfx_rslt err(gltfx_err failure) noexcept {
+        return gltfx_rslt(std::in_place_index<1>, std::move(failure));
     }
 
     [[nodiscard]] bool has_value() const noexcept { return m_storage.index() == 0; }
@@ -305,7 +305,7 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
 
     // Precondition: has_value(). UB otherwise if the assert below is
     // compiled out (NDEBUG/Release) - see the header comment's
-    // "value()/error() PRECONDITION" paragraph for both halves.
+    // "value()/err() PRECONDITION" paragraph for both halves.
     [[nodiscard]] const T &value() const noexcept {
         assert(has_value() &&
                "gltfx_rslt<T>::value() called on a result that holds an error, not a value - "
@@ -321,9 +321,9 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
 
     // Precondition: has_error(). UB otherwise if the assert below is
     // compiled out (NDEBUG/Release).
-    [[nodiscard]] const gltfx_err &error() const noexcept {
+    [[nodiscard]] const gltfx_err &err() const noexcept {
         assert(has_error() &&
-               "gltfx_rslt<T>::error() called on a result that holds a value, not an error - "
+               "gltfx_rslt<T>::err() called on a result that holds a value, not an error - "
                "call has_error() first");
         return *std::get_if<1>(&m_storage);
     }
@@ -331,8 +331,8 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
   private:
     explicit gltfx_rslt(std::in_place_index_t<0>, T value)
         : m_storage(std::in_place_index<0>, std::move(value)) {}
-    explicit gltfx_rslt(std::in_place_index_t<1>, gltfx_err error) noexcept
-        : m_storage(std::in_place_index<1>, std::move(error)) {}
+    explicit gltfx_rslt(std::in_place_index_t<1>, gltfx_err failure) noexcept
+        : m_storage(std::in_place_index<1>, std::move(failure)) {}
 
     std::variant<T, gltfx_err> m_storage;
 };
@@ -362,17 +362,17 @@ template <typename T> class [[nodiscard]] gltfx_rslt {
 // that never crossed the library boundary does.
 //
 // WHY IT WAS WORTH CHANGING: the old std::optional<gltfx_err> storage
-// gave error()'s debug-only-guard-compiled-out fallback a DIFFERENT,
+// gave err()'s debug-only-guard-compiled-out fallback a DIFFERENT,
 // WORSE undefined-behavior shape than the primary template's own
-// value()/error() already had - std::optional::operator*() on an
+// value()/err() already had - std::optional::operator*() on an
 // unengaged optional reads the optional's own internal buffer
 // directly, which does NOT reliably fault (measured live: with this
 // toolchain's distro-default _GLIBCXX_ASSERTIONS hardening explicitly
 // disabled, the exact same misuse returned a FABRICATED gltfx_err and
 // exited 0, no crash at all). std::variant<std::monostate, gltfx_err>
-// makes error() dereference std::get_if<1>(&m_storage) - a GENUINE
+// makes err() dereference std::get_if<1>(&m_storage) - a GENUINE
 // null pointer when the wrong alternative is active, the same
-// mechanism gltfx_rslt<T>'s own value()/error() already use, which
+// mechanism gltfx_rslt<T>'s own value()/err() already use, which
 // faults structurally (page zero unmapped) on every one of this
 // project's five target platforms, independent of any library's own
 // hardening flags. tests/tools/check_rslt_precondition.sh's
@@ -388,8 +388,8 @@ template <> class [[nodiscard]] gltfx_rslt<void> {
   public:
     [[nodiscard]] static gltfx_rslt ok() noexcept { return gltfx_rslt(std::in_place_index<0>); }
 
-    [[nodiscard]] static gltfx_rslt err(gltfx_err error) noexcept {
-        return gltfx_rslt(std::in_place_index<1>, std::move(error));
+    [[nodiscard]] static gltfx_rslt err(gltfx_err failure) noexcept {
+        return gltfx_rslt(std::in_place_index<1>, std::move(failure));
     }
 
     [[nodiscard]] bool has_value() const noexcept { return m_storage.index() == 0; }
@@ -398,17 +398,17 @@ template <> class [[nodiscard]] gltfx_rslt<void> {
     // Precondition: has_error(). UB otherwise if the assert below is
     // compiled out (NDEBUG/Release) - see the storage comment above
     // for exactly what shape that UB takes now, measured, not assumed.
-    [[nodiscard]] const gltfx_err &error() const noexcept {
+    [[nodiscard]] const gltfx_err &err() const noexcept {
         assert(has_error() &&
-               "gltfx_rslt<void>::error() called on a result that holds success (ok()), not an "
+               "gltfx_rslt<void>::err() called on a result that holds success (ok()), not an "
                "error - call has_error() first");
         return *std::get_if<1>(&m_storage);
     }
 
   private:
     explicit gltfx_rslt(std::in_place_index_t<0>) noexcept : m_storage(std::in_place_index<0>) {}
-    explicit gltfx_rslt(std::in_place_index_t<1>, gltfx_err error) noexcept
-        : m_storage(std::in_place_index<1>, std::move(error)) {}
+    explicit gltfx_rslt(std::in_place_index_t<1>, gltfx_err failure) noexcept
+        : m_storage(std::in_place_index<1>, std::move(failure)) {}
 
     std::variant<std::monostate, gltfx_err> m_storage;
 };

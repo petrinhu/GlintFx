@@ -266,6 +266,31 @@ GLINTFX_TEST(keyword_outside_the_property_set_is_refused_naming_the_accepted_wor
     GLINTFX_CHECK(result.diagnostic.detail == "block flex none");
 }
 
+// docs/gfss-property-registry-v1.md SS5 item 5: "z-index e order sao
+// naturezas inteiras: decimal e recusado". A decimal-spelled number
+// ("1.5") decodes to value.hpp's own ::number nature (CSS Syntax
+// Module Level 3 4.3.12's own type flag), never ::integer - so a
+// contract declaring ONLY k_nature_integer (never k_nature_number)
+// refuses it on nature grounds, distinct from the "1"/"-1"-as-number
+// fold this file's own declaration_value_check.cpp applies the OTHER
+// way around (an integer-spelled literal satisfying a NUMBER-only
+// contract).
+GLINTFX_TEST(z_index_and_order_refuse_decimal_values) {
+    const declaration_value_check_result z_index_decimal =
+        check_value_text(gltfx_gfss_property::z_index, "1.5");
+    GLINTFX_CHECK(!z_index_decimal.ok);
+    GLINTFX_CHECK(z_index_decimal.diagnostic.expected == k_expected_value_nature_for_property);
+
+    const declaration_value_check_result z_index_integer =
+        check_value_text(gltfx_gfss_property::z_index, "5");
+    GLINTFX_CHECK(z_index_integer.ok);
+
+    const declaration_value_check_result order_decimal =
+        check_value_text(gltfx_gfss_property::order, "2.5");
+    GLINTFX_CHECK(!order_decimal.ok);
+    GLINTFX_CHECK(order_decimal.diagnostic.expected == k_expected_value_nature_for_property);
+}
+
 GLINTFX_TEST(current_color_is_accepted_by_every_color_property_and_nowhere_else) {
     int checked = 0;
     for (const property_value_contract &c : k_property_value_contracts) {

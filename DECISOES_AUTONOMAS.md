@@ -2816,3 +2816,26 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 #### D-090916 — o renome de `gltfx_rslt::error()` NÃO é decidido por agente nenhum  `[09/09/26 - 06:13:55]`
 
 **Quem decidiu não decidir:** o `fable`, e fez certo. **O achado:** o mesmo cabeçalho de sistema que forçou o renome da severidade alcança também um método público do tipo de resultado, e a regra escrita do projeto o dispensa com um argumento que vale para o compilador e **não** vale para o preprocessador. **Por que fica com o líder:** é nome publicado em cinco marcas; renomear é quebra de compatibilidade. Registrado na fila do `TODO.md`, com a alternativa (aceitar como dívida declarada e escrevê-la na regra) posta ao lado.
+
+#### D-090917 — as oito decisões de desenho da leitura de bloco de declarações (`GFSS-DECL-PARSE`)  `[09/09/26 - 10:33:28]`
+
+**Quem decidiu:** o `fable` (CTO), no lugar do líder, sob modo autônomo. **Plano completo, com as fontes:** `/var/tmp/glintfx-plan/gfss-decl-parse.md` (317 linhas, 20 fontes com endereço, cada afirmação etiquetada como medida, de terceiro, ou inferência).
+
+**As oito, em uma linha cada:**
+
+1. **A leitura recebe a POSIÇÃO na folha, não um pedaço de texto solto.** Sem isso, o número de linha do erro sai contado a partir do bloco e não do arquivo, o que entrega errado justamente o que o senhor pediu em 26/08 ("linha, coluna e o que se esperava"). Custo: a leitura de seletor continua recebendo texto solto, e quem juntar as duas terá de compensar o deslocamento; ficou escrito como obrigação daquela fatia.
+2. **O resultado separa o que caiu do que ficou com aviso.** Duas listas em vez de uma, para que "esta declaração foi descartada" e "esta foi aceita mas esta versão ainda não a aplica" não cheguem misturadas.
+3. **O tipo de diagnóstico ganha um quarto campo opcional**, para nomear as palavras que a propriedade aceita quando o autor escreve uma que não existe. É o que transforma erro mudo em erro que ensina. **Risco declarado, que eu confirmei na árvore:** esse tipo já viaja em duas marcas publicadas, e crescer um campo muda o formato dele para quem já compilou contra elas. O próprio cabeçalho declara, no texto, que ele ainda não é contrato congelado e que a revisão de API da onda W10 é quem o congela.
+4. **A tabela de propriedades ganha aqui a coluna que diz o que cada uma aceita.** Achado medido: a especificação do registro afirma que essa coluna existe, e ela não existe. Sem ela, "validar contra o registro" seria só conferir se o nome existe, e `display: banana` passaria calado.
+5. **As onze abreviações aceitas entram cruas e marcadas; as dez recusadas caem nomeando as propriedades longas que as substituem.** A expansão é de outra fatia; mentir que a abreviação é nome desconhecido seria pior que aceitá-la sem expandir.
+6. **`currentColor` é reconhecido antes do leitor de cor, e só em propriedade de cor.** A leitura de cor não é tocada.
+7. **As três palavras universais (`inherit`, `initial`, `unset`) valem para tudo, mas só sozinhas.** Misturadas a outro valor, viram diagnóstico.
+8. **A ordem de leitura de uma declaração fica fixada**, com uma função por passo, para não existirem dois caminhos que leem a mesma coisa de formas diferentes.
+
+**Nenhuma delas é porta de mão única hoje.** A terceira vira porta na revisão de API da onda W10.
+
+**Dois assuntos o `fable` recusou decidir, e recusou certo:** o canal separado para defeito interno do motor (o senhor disse *"quero discutir"* em 27/08 e reservou o assunto), e se o tipo público de diagnóstico ganha nível de gravidade. Os dois ficam com o senhor, na revisão de API.
+
+**Uma inferência declarada como inferência, para o senhor ratificar:** recusar `gltfx-Velocity` acima de 3. A sua ordem falava em faixa válida de zero a três e mandava recusar negativo; recusar acima de três é a leitura simétrica, não uma ordem sua.
+
+**Achado que o plano produziu e que vale além dele:** dois pontos da especificação do registro de propriedades afirmam coisas que a árvore não tem (a coluna de tipo, e um nível de gravidade no diagnóstico "que já é campo dele"). É a mesma família do defeito que esta madrugada já encontrou duas vezes: o texto que afirma uma garantia que o código não dá. A correção do documento entra na última sub-fatia.

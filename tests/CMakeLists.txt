@@ -3772,3 +3772,38 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
     )
 endif()
+
+# check_wave_closure_coherence_test - GODS_LAWS.md L-11 (emenda de
+# 09/09/2026: toda onda a partir da W5 carrega uma linha propria de
+# fechamento, `CI-VERDE-<onda>`). Achado do lider, 09/09/2026: a linha
+# de fechamento da W5 estava marcada Concluido com QUATRO itens da
+# mesma onda ainda abertos - a onda fechou, ganhou marca de versao e
+# rotulo publicados, carregando divida dentro (ver o cabecalho de
+# tests/tools/check_wave_closure_coherence.py para o relato completo e
+# a estreia vermelha/verde contra os commits reais `b86378b`/`deae7e1`).
+# Este portao confronta, para toda linha `CI-VERDE-<onda>` marcada
+# concluida, se TODO item da mesma onda (mesmo valor normalizado da
+# coluna Onda) tambem esta concluido - reprovando nomeando a onda, a
+# linha de fecho e cada item fora de conformidade. Python puro sobre
+# texto de TODO.md, nenhuma compilacao envolvida - registrado SEM
+# guarda de sistema, a mesma forma GATE-TREE-PARITY (GODS_LAWS.md L-04)
+# de dup_laws_test/round_order_test acima.
+add_test(
+    NAME check_wave_closure_coherence_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_closure_coherence.py"
+        "${CMAKE_SOURCE_DIR}/TODO.md"
+)
+set_tests_properties(check_wave_closure_coherence_test PROPERTIES LABELS consume)
+
+# GODS_LAWS.md L-36 (portao so conta provado vermelho): --selftest
+# fixture os seis controles (conforme, violada - a forma exata do
+# achado real -, varredura vazia, celula com pipe escapado, onda sem
+# linha de fechamento nao e' violacao, estado fora do vocabulario) contra
+# fixtures descartaveis, nunca contra a arvore real.
+add_test(
+    NAME check_wave_closure_coherence_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_closure_coherence.py" --selftest
+)
+set_tests_properties(check_wave_closure_coherence_selftest PROPERTIES LABELS selftest)

@@ -195,7 +195,7 @@ struct gltfx_gfss_diagnostic {
     std::uint32_t column = 0;
     std::string_view expected; // empty = no diagnostic attached (R4)
     std::string_view detail;   // empty = no extra detail (R4); space-separated identifiers, never
-                                // a sentence (R7)
+                               // a sentence (R7)
 };
 
 // One token. Plain aggregate, same ABI-safety reasoning as

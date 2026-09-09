@@ -43,7 +43,7 @@ struct declaration_value_check_result {
 // push_back (the same reason declaration_split.hpp's own split
 // function is not either).
 [[nodiscard]] declaration_value_check_result
-check_declaration_value(const std::vector<gltfx_gfss_token> &tokens, std::size_t begin, std::size_t end,
-                        const property_value_contract &contract);
+check_declaration_value(const std::vector<gltfx_gfss_token> &tokens, std::size_t begin,
+                        std::size_t end, const property_value_contract &contract);
 
 } // namespace glintfx::style::detail

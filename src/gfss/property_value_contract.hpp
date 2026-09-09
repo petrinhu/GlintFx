@@ -81,7 +81,8 @@ struct property_value_contract {
     std::array<gltfx_gfss_keyword, 8> keywords{};
     std::uint8_t keyword_count = 0;
 
-    std::uint8_t accepted_natures = 0; // bitmask of k_nature_*, 0 for a pure-keyword or color contract
+    std::uint8_t accepted_natures =
+        0; // bitmask of k_nature_*, 0 for a pure-keyword or color contract
     std::uint8_t min_count = 1;
     std::uint8_t max_count = 1;
     bool comma_separated = false;
@@ -92,7 +93,8 @@ struct property_value_contract {
     bool has_range = false;
     double range_min = 0.0;
     double range_max = 0.0;
-    bool clamp_range = false; // true: prende ao limite (opacity); false: recusa fora da faixa (velocity)
+    bool clamp_range =
+        false; // true: prende ao limite (opacity); false: recusa fora da faixa (velocity)
 
     bool time_unitless_ms = false;
 };
@@ -118,8 +120,8 @@ constexpr property_value_contract contract_raw(gltfx_gfss_property id) {
 
 // Pure keyword set, no numeric nature at all - `words` holds at most 8
 // entries (this file's own top comment).
-constexpr property_value_contract contract_keywords(gltfx_gfss_property id,
-                                                     std::initializer_list<gltfx_gfss_keyword> words) {
+constexpr property_value_contract
+contract_keywords(gltfx_gfss_property id, std::initializer_list<gltfx_gfss_keyword> words) {
     property_value_contract c{};
     c.id = id;
     for (gltfx_gfss_keyword w : words) {
@@ -149,7 +151,8 @@ contract_natures(gltfx_gfss_property id, std::uint8_t natures,
 // own "1 a 4" cells) instead of the implicit single value.
 constexpr property_value_contract
 contract_natures_arity(gltfx_gfss_property id, std::uint8_t natures, std::uint8_t min_count,
-                       std::uint8_t max_count, std::initializer_list<gltfx_gfss_keyword> words = {}) {
+                       std::uint8_t max_count,
+                       std::initializer_list<gltfx_gfss_keyword> words = {}) {
     property_value_contract c = contract_natures(id, natures, words);
     c.min_count = min_count;
     c.max_count = max_count;
@@ -161,7 +164,8 @@ contract_natures_arity(gltfx_gfss_property id, std::uint8_t natures, std::uint8_
 constexpr property_value_contract contract_time_list(gltfx_gfss_property id) {
     property_value_contract c{};
     c.id = id;
-    c.accepted_natures = k_nature_time | k_nature_integer | k_nature_number; // a bare unitless number is legal (folds to ms)
+    c.accepted_natures = k_nature_time | k_nature_integer |
+                         k_nature_number; // a bare unitless number is legal (folds to ms)
     c.min_count = 1;
     c.max_count = 255;
     c.comma_separated = true;
@@ -174,7 +178,7 @@ constexpr property_value_contract contract_time_list(gltfx_gfss_property id) {
 // convention color_parse.hpp's own out-of-range component clamp
 // already applies), false recusa (gltfx-Velocity, D14).
 constexpr property_value_contract contract_number_range(gltfx_gfss_property id, double range_min,
-                                                         double range_max, bool clamp) {
+                                                        double range_max, bool clamp) {
     property_value_contract c{};
     c.id = id;
     c.accepted_natures = k_nature_number;
@@ -192,8 +196,9 @@ constexpr property_value_contract contract_number_range(gltfx_gfss_property id, 
 // found against the plan.
 inline constexpr std::array<property_value_contract, 104> k_property_value_contracts{{
     // Group A - Caixa e fluxo (ids 0-25)
-    contract_keywords(gltfx_gfss_property::display,
-                      {gltfx_gfss_keyword::block, gltfx_gfss_keyword::flex, gltfx_gfss_keyword::none}),
+    contract_keywords(
+        gltfx_gfss_property::display,
+        {gltfx_gfss_keyword::block, gltfx_gfss_keyword::flex, gltfx_gfss_keyword::none}),
     contract_keywords(gltfx_gfss_property::box_sizing,
                       {gltfx_gfss_keyword::border_box, gltfx_gfss_keyword::content_box}),
     contract_natures(gltfx_gfss_property::width, k_nature_length | k_nature_percentage,
@@ -232,7 +237,8 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
                      {gltfx_gfss_keyword::auto_keyword}),
     contract_natures(gltfx_gfss_property::left, k_nature_length | k_nature_percentage,
                      {gltfx_gfss_keyword::auto_keyword}),
-    contract_natures(gltfx_gfss_property::z_index, k_nature_integer, {gltfx_gfss_keyword::auto_keyword}),
+    contract_natures(gltfx_gfss_property::z_index, k_nature_integer,
+                     {gltfx_gfss_keyword::auto_keyword}),
     contract_keywords(gltfx_gfss_property::visibility,
                       {gltfx_gfss_keyword::visible, gltfx_gfss_keyword::hidden}),
     contract_keywords(gltfx_gfss_property::overflow_x,
@@ -244,9 +250,9 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
     contract_keywords(gltfx_gfss_property::flex_direction,
                       {gltfx_gfss_keyword::row, gltfx_gfss_keyword::row_reverse,
                        gltfx_gfss_keyword::column, gltfx_gfss_keyword::column_reverse}),
-    contract_keywords(gltfx_gfss_property::flex_wrap,
-                      {gltfx_gfss_keyword::nowrap, gltfx_gfss_keyword::wrap,
-                       gltfx_gfss_keyword::wrap_reverse}),
+    contract_keywords(
+        gltfx_gfss_property::flex_wrap,
+        {gltfx_gfss_keyword::nowrap, gltfx_gfss_keyword::wrap, gltfx_gfss_keyword::wrap_reverse}),
     contract_natures(gltfx_gfss_property::flex_grow, k_nature_number),
     contract_natures(gltfx_gfss_property::flex_shrink, k_nature_number),
     contract_natures(gltfx_gfss_property::flex_basis, k_nature_length | k_nature_percentage,
@@ -273,14 +279,18 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
     contract_natures(gltfx_gfss_property::column_gap, k_nature_length | k_nature_percentage),
 
     // Group C - Borda, fundo e casca (ids 38-68)
-    contract_natures(gltfx_gfss_property::border_top_width, k_nature_length,
-                     {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
-    contract_natures(gltfx_gfss_property::border_right_width, k_nature_length,
-                     {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
-    contract_natures(gltfx_gfss_property::border_bottom_width, k_nature_length,
-                     {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
-    contract_natures(gltfx_gfss_property::border_left_width, k_nature_length,
-                     {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
+    contract_natures(
+        gltfx_gfss_property::border_top_width, k_nature_length,
+        {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
+    contract_natures(
+        gltfx_gfss_property::border_right_width, k_nature_length,
+        {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
+    contract_natures(
+        gltfx_gfss_property::border_bottom_width, k_nature_length,
+        {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
+    contract_natures(
+        gltfx_gfss_property::border_left_width, k_nature_length,
+        {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
     contract_keywords(gltfx_gfss_property::border_top_style,
                       {gltfx_gfss_keyword::none, gltfx_gfss_keyword::solid}),
     contract_keywords(gltfx_gfss_property::border_right_style,
@@ -293,8 +303,10 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
     contract_color(gltfx_gfss_property::border_right_color),
     contract_color(gltfx_gfss_property::border_bottom_color),
     contract_color(gltfx_gfss_property::border_left_color),
-    contract_natures(gltfx_gfss_property::border_top_left_radius, k_nature_length | k_nature_percentage),
-    contract_natures(gltfx_gfss_property::border_top_right_radius, k_nature_length | k_nature_percentage),
+    contract_natures(gltfx_gfss_property::border_top_left_radius,
+                     k_nature_length | k_nature_percentage),
+    contract_natures(gltfx_gfss_property::border_top_right_radius,
+                     k_nature_length | k_nature_percentage),
     contract_natures(gltfx_gfss_property::border_bottom_right_radius,
                      k_nature_length | k_nature_percentage),
     contract_natures(gltfx_gfss_property::border_bottom_left_radius,
@@ -304,22 +316,23 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
     contract_keywords(gltfx_gfss_property::background_repeat,
                       {gltfx_gfss_keyword::repeat, gltfx_gfss_keyword::repeat_x,
                        gltfx_gfss_keyword::repeat_y, gltfx_gfss_keyword::no_repeat}),
-    contract_natures(gltfx_gfss_property::background_size, k_nature_length | k_nature_percentage,
-                     {gltfx_gfss_keyword::auto_keyword, gltfx_gfss_keyword::contain,
-                      gltfx_gfss_keyword::cover}),
+    contract_natures(
+        gltfx_gfss_property::background_size, k_nature_length | k_nature_percentage,
+        {gltfx_gfss_keyword::auto_keyword, gltfx_gfss_keyword::contain, gltfx_gfss_keyword::cover}),
     contract_raw(gltfx_gfss_property::background_position), // <position>
-    contract_raw(gltfx_gfss_property::border_image_source),  // <image>
-    contract_natures_arity(gltfx_gfss_property::border_image_slice, k_nature_number | k_nature_percentage,
-                           1, 4, {gltfx_gfss_keyword::fill}),
+    contract_raw(gltfx_gfss_property::border_image_source), // <image>
+    contract_natures_arity(gltfx_gfss_property::border_image_slice,
+                           k_nature_number | k_nature_percentage, 1, 4, {gltfx_gfss_keyword::fill}),
     contract_natures_arity(gltfx_gfss_property::border_image_width,
                            k_nature_length | k_nature_percentage | k_nature_number, 1, 4,
                            {gltfx_gfss_keyword::auto_keyword}),
-    contract_natures_arity(gltfx_gfss_property::border_image_outset, k_nature_length | k_nature_number,
-                           1, 4),
+    contract_natures_arity(gltfx_gfss_property::border_image_outset,
+                           k_nature_length | k_nature_number, 1, 4),
     contract_keywords(gltfx_gfss_property::border_image_repeat,
                       {gltfx_gfss_keyword::stretch, gltfx_gfss_keyword::repeat}),
-    contract_natures(gltfx_gfss_property::outline_width, k_nature_length,
-                     {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
+    contract_natures(
+        gltfx_gfss_property::outline_width, k_nature_length,
+        {gltfx_gfss_keyword::thin, gltfx_gfss_keyword::medium, gltfx_gfss_keyword::thick}),
     contract_keywords(gltfx_gfss_property::outline_style,
                       {gltfx_gfss_keyword::none, gltfx_gfss_keyword::solid}),
     contract_color(gltfx_gfss_property::outline_color),
@@ -334,9 +347,11 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
     contract_natures(gltfx_gfss_property::line_height,
                      k_nature_number | k_nature_length | k_nature_percentage,
                      {gltfx_gfss_keyword::normal}),
-    contract_natures(gltfx_gfss_property::letter_spacing, k_nature_length, {gltfx_gfss_keyword::normal}),
-    contract_keywords(gltfx_gfss_property::text_align,
-                      {gltfx_gfss_keyword::left, gltfx_gfss_keyword::right, gltfx_gfss_keyword::center}),
+    contract_natures(gltfx_gfss_property::letter_spacing, k_nature_length,
+                     {gltfx_gfss_keyword::normal}),
+    contract_keywords(
+        gltfx_gfss_property::text_align,
+        {gltfx_gfss_keyword::left, gltfx_gfss_keyword::right, gltfx_gfss_keyword::center}),
     contract_keywords(gltfx_gfss_property::text_wrap_mode,
                       {gltfx_gfss_keyword::wrap, gltfx_gfss_keyword::nowrap}),
     contract_keywords(gltfx_gfss_property::text_overflow,
@@ -361,7 +376,8 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
                       {gltfx_gfss_keyword::auto_keyword, gltfx_gfss_keyword::none}),
 
     // Group F - Animacao (ids 90-103)
-    contract_raw(gltfx_gfss_property::transition_property), // <nome de propriedade>#, vocabulario aberto
+    contract_raw(
+        gltfx_gfss_property::transition_property), // <nome de propriedade>#, vocabulario aberto
     contract_time_list(gltfx_gfss_property::transition_duration),
     contract_raw(gltfx_gfss_property::transition_timing_function), // <easing>#
     contract_time_list(gltfx_gfss_property::transition_delay),
@@ -369,7 +385,8 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
     contract_time_list(gltfx_gfss_property::animation_duration),
     contract_raw(gltfx_gfss_property::animation_timing_function), // <easing>#
     contract_time_list(gltfx_gfss_property::animation_delay),
-    contract_raw(gltfx_gfss_property::animation_iteration_count), // numero|infinite, com "/ <time>" opcional
+    contract_raw(
+        gltfx_gfss_property::animation_iteration_count), // numero|infinite, com "/ <time>" opcional
     contract_keywords(gltfx_gfss_property::animation_direction,
                       {gltfx_gfss_keyword::normal, gltfx_gfss_keyword::reverse,
                        gltfx_gfss_keyword::alternate, gltfx_gfss_keyword::alternate_reverse}),
@@ -384,9 +401,9 @@ inline constexpr std::array<property_value_contract, 104> k_property_value_contr
 }};
 
 static_assert(k_property_value_contracts.size() == gltfx_gfss_property_count,
-             "GODS_LAWS.md L-40: k_property_value_contracts must carry exactly one row per "
-             "property.hpp's own registry - a property added there without a matching contract "
-             "row here must not compile silently");
+              "GODS_LAWS.md L-40: k_property_value_contracts must carry exactly one row per "
+              "property.hpp's own registry - a property added there without a matching contract "
+              "row here must not compile silently");
 
 // Returns the contract for `property` - `property.hpp`'s own id IS the
 // row's own position (property_table.hpp's own precedent), so this is a

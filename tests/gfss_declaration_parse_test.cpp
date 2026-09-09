@@ -170,9 +170,10 @@ GLINTFX_TEST(every_registry_name_resolves_case_insensitively_and_unknown_does_no
 }
 
 GLINTFX_TEST(eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists) {
-    static_assert(k_shorthand_name_count == 11,
-                  "GODS_LAWS.md L-40: eleven accepted shorthands, docs/gfss-property-registry-v1.md "
-                  "SS6");
+    static_assert(
+        k_shorthand_name_count == 11,
+        "GODS_LAWS.md L-40: eleven accepted shorthands, docs/gfss-property-registry-v1.md "
+        "SS6");
     static_assert(k_refused_property_names.size() == 10,
                   "GODS_LAWS.md L-40: ten refused names (nine shorthands + white-space), E3/A5");
 
@@ -191,13 +192,14 @@ GLINTFX_TEST(eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists) 
         ++refused_checked;
     }
     GLINTFX_CHECK(lookup_property_name("transition", 1, 1).diagnostic.expected ==
-                 k_expected_longhand_property_names);
+                  k_expected_longhand_property_names);
     GLINTFX_CHECK(lookup_property_name("white-space", 1, 1).diagnostic.expected ==
-                 k_expected_renamed_property_name);
+                  k_expected_renamed_property_name);
 
-    std::println("eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists: {} shorthand(s), "
-                 "{} refused name(s)",
-                 shorthand_checked, refused_checked);
+    std::println(
+        "eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists: {} shorthand(s), "
+        "{} refused name(s)",
+        shorthand_checked, refused_checked);
 }
 
 // === DP-5: property_value_contract =====================================
@@ -230,17 +232,18 @@ GLINTFX_TEST(every_property_has_exactly_one_value_contract_and_categories_are_co
             ++integer_only;
         }
     }
-    const std::size_t total = keyword_only + length_like + number_only + integer_only + color +
-                              time_list + raw;
+    const std::size_t total =
+        keyword_only + length_like + number_only + integer_only + color + time_list + raw;
     GLINTFX_CHECK(total == gltfx_gfss_property_count);
     // The plan's own SS4.2 names "color=9" - a mechanical re-count against
     // this file's own table finds EIGHT (this file's own top comment
     // records the discrepancy for the delivery report).
     GLINTFX_CHECK(color == 8);
 
-    std::println("every_property_has_exactly_one_value_contract_and_categories_are_counted: "
-                 "keyword={} length={} number={} integer={} color={} time_list={} raw={} (total {})",
-                 keyword_only, length_like, number_only, integer_only, color, time_list, raw, total);
+    std::println(
+        "every_property_has_exactly_one_value_contract_and_categories_are_counted: "
+        "keyword={} length={} number={} integer={} color={} time_list={} raw={} (total {})",
+        keyword_only, length_like, number_only, integer_only, color, time_list, raw, total);
 }
 
 GLINTFX_TEST(display_contract_accepts_only_its_three_words) {
@@ -252,7 +255,8 @@ GLINTFX_TEST(display_contract_accepts_only_its_three_words) {
 // === DP-6: declaration_value_check / declaration_color_value ===========
 
 namespace {
-declaration_value_check_result check_value_text(gltfx_gfss_property property, std::string_view value_text) {
+declaration_value_check_result check_value_text(gltfx_gfss_property property,
+                                                std::string_view value_text) {
     const std::vector<gltfx_gfss_token> tokens = tokenize_all(value_text);
     return check_declaration_value(tokens, 0, tokens.size() - 1,
                                    property_value_contract_for(property));
@@ -260,7 +264,8 @@ declaration_value_check_result check_value_text(gltfx_gfss_property property, st
 } // namespace
 
 GLINTFX_TEST(keyword_outside_the_property_set_is_refused_naming_the_accepted_words) {
-    const declaration_value_check_result result = check_value_text(gltfx_gfss_property::display, "inline");
+    const declaration_value_check_result result =
+        check_value_text(gltfx_gfss_property::display, "inline");
     GLINTFX_CHECK(!result.ok);
     GLINTFX_CHECK(result.diagnostic.expected == k_expected_keyword_for_property);
     GLINTFX_CHECK(result.diagnostic.detail == "block flex none");
@@ -390,7 +395,8 @@ GLINTFX_TEST(universal_keywords_are_accepted_alone_for_one_property_of_each_cate
     // property from each - keyword, length/%, number, integer, color,
     // time_list, raw, shorthand - times the three universal words.
     constexpr std::string_view k_representative_properties[] = {
-        "display", "width", "flex-grow", "order", "color", "transition-duration", "filter", "margin",
+        "display", "width",  "flex-grow", "order", "color", "transition-duration",
+        "filter",  "margin",
     };
     constexpr std::string_view k_universal_words[] = {"inherit", "initial", "unset"};
 
@@ -401,7 +407,8 @@ GLINTFX_TEST(universal_keywords_are_accepted_alone_for_one_property_of_each_cate
             const declaration_parse_result result = parse_one(text);
             GLINTFX_CHECK(result.accepted);
             if (property != "margin") {
-                GLINTFX_CHECK(result.declaration.form == gfss_declaration_value_form::universal_keyword);
+                GLINTFX_CHECK(result.declaration.form ==
+                              gfss_declaration_value_form::universal_keyword);
             }
             ++checked;
         }
@@ -450,18 +457,18 @@ GLINTFX_TEST(important_flag_position_inside_property_name_is_a_colon_error) {
 
 GLINTFX_TEST(invalid_declaration_is_dropped_and_the_next_one_survives_in_twelve_forms) {
     constexpr std::string_view k_forms[] = {
-        "123: red",                  // property_name
-        "}",                         // property_name (a stray close-curly is not an ident either)
-        "banana: red",               // known_property_name
-        "transition: 1s",            // longhand_property_names
-        "display block",             // colon_after_property_name
+        "123: red",       // property_name
+        "}",              // property_name (a stray close-curly is not an ident either)
+        "banana: red",    // known_property_name
+        "transition: 1s", // longhand_property_names
+        "display block",  // colon_after_property_name
         "display: block !important 1px", // important_flag_at_end_of_value
-        "margin-top: 1px inherit",   // universal_keyword_alone
-        "display: inline",           // keyword_for_property
-        "width: 1px 2px",            // value_count_for_property (max_count 1)
-        "gltfx-Velocity: 9",         // value_in_range_for_property
-        "display:",                  // component_value (empty)
-        "opacity: 1px",              // value_nature_for_property
+        "margin-top: 1px inherit",       // universal_keyword_alone
+        "display: inline",               // keyword_for_property
+        "width: 1px 2px",                // value_count_for_property (max_count 1)
+        "gltfx-Velocity: 9",             // value_in_range_for_property
+        "display:",                      // component_value (empty)
+        "opacity: 1px",                  // value_nature_for_property
     };
     int rejected_count = 0;
     int kept_count = 0;
@@ -486,7 +493,8 @@ GLINTFX_TEST(invalid_declaration_is_dropped_and_the_next_one_survives_in_twelve_
 }
 
 GLINTFX_TEST(diagnostic_line_and_column_are_the_sheets_own_not_the_blocks) {
-    const gltfx_gfss_cursor cursor{.source = "colr: red", .byte_offset = 0, .line = 40, .column = 5};
+    const gltfx_gfss_cursor cursor{
+        .source = "colr: red", .byte_offset = 0, .line = 40, .column = 5};
     const declaration_list_parse_result result = parse_declaration_list(cursor);
     GLINTFX_CHECK(result.declarations.empty());
     GLINTFX_CHECK(result.rejected.size() == 1);

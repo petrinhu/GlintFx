@@ -61,8 +61,8 @@ first_bang_index(const std::vector<gltfx_gfss_token> &tokens, std::size_t begin,
     return std::nullopt;
 }
 
-important_flag_result malformed_at(const std::vector<gltfx_gfss_token> &tokens, std::size_t bang_index,
-                                   std::size_t end) noexcept {
+important_flag_result malformed_at(const std::vector<gltfx_gfss_token> &tokens,
+                                   std::size_t bang_index, std::size_t end) noexcept {
     const gltfx_gfss_token &bang = tokens[bang_index];
     return important_flag_result{
         .ok = false,
@@ -76,12 +76,13 @@ important_flag_result malformed_at(const std::vector<gltfx_gfss_token> &tokens, 
 
 } // namespace
 
-important_flag_result read_important_flag(const std::vector<gltfx_gfss_token> &tokens, std::size_t begin,
-                                           std::size_t end) noexcept {
+important_flag_result read_important_flag(const std::vector<gltfx_gfss_token> &tokens,
+                                          std::size_t begin, std::size_t end) noexcept {
     const std::optional<std::size_t> any_bang = first_bang_index(tokens, begin, end);
     if (!any_bang.has_value()) {
         // No `!` anywhere in the span - an ordinary value, no flag.
-        return important_flag_result{.ok = true, .important = false, .value_end = end, .diagnostic = {}};
+        return important_flag_result{
+            .ok = true, .important = false, .value_end = end, .diagnostic = {}};
     }
 
     const std::optional<std::size_t> last = last_non_whitespace_index(tokens, begin, end);
@@ -91,7 +92,8 @@ important_flag_result read_important_flag(const std::vector<gltfx_gfss_token> &t
         return malformed_at(tokens, *any_bang, end);
     }
 
-    const std::optional<std::size_t> before_important = previous_non_whitespace_index(tokens, begin, *last);
+    const std::optional<std::size_t> before_important =
+        previous_non_whitespace_index(tokens, begin, *last);
     if (!before_important.has_value() || !is_bang_delim(tokens[*before_important])) {
         // Ends in "important", but nothing (or something other than
         // `!`) precedes it - e.g. a bare property value that happens to

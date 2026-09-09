@@ -49,24 +49,24 @@ namespace {
 } // namespace
 
 property_name_lookup_result lookup_property_name(std::string_view name, std::uint32_t line,
-                                                  std::uint32_t column) noexcept {
+                                                 std::uint32_t column) noexcept {
     gltfx_gfss_property property = gltfx_gfss_property::display;
     if (try_known_property(name, property)) {
-        return property_name_lookup_result{
-            .kind = property_name_lookup_kind::known_property, .property = property};
+        return property_name_lookup_result{.kind = property_name_lookup_kind::known_property,
+                                           .property = property};
     }
 
     std::string_view shorthand_name;
     if (try_shorthand(name, shorthand_name)) {
-        return property_name_lookup_result{
-            .kind = property_name_lookup_kind::shorthand, .shorthand_name = shorthand_name};
+        return property_name_lookup_result{.kind = property_name_lookup_kind::shorthand,
+                                           .shorthand_name = shorthand_name};
     }
 
     std::string_view refused_detail;
     if (try_refused(name, refused_detail)) {
-        const std::string_view expected =
-            (ascii_case_insensitive_equal(name, "white-space")) ? k_expected_renamed_property_name
-                                                                : k_expected_longhand_property_names;
+        const std::string_view expected = (ascii_case_insensitive_equal(name, "white-space"))
+                                              ? k_expected_renamed_property_name
+                                              : k_expected_longhand_property_names;
         return property_name_lookup_result{
             .kind = property_name_lookup_kind::refused,
             .diagnostic = gltfx_gfss_diagnostic{
@@ -75,8 +75,10 @@ property_name_lookup_result lookup_property_name(std::string_view name, std::uin
 
     return property_name_lookup_result{
         .kind = property_name_lookup_kind::unknown,
-        .diagnostic = gltfx_gfss_diagnostic{
-            .line = line, .column = column, .expected = k_expected_known_property_name, .detail = {}}};
+        .diagnostic = gltfx_gfss_diagnostic{.line = line,
+                                            .column = column,
+                                            .expected = k_expected_known_property_name,
+                                            .detail = {}}};
 }
 
 } // namespace glintfx::style::detail

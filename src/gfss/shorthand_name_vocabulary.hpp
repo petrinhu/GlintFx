@@ -24,13 +24,13 @@
 
 namespace glintfx::style::detail {
 
-#define GLINTFX_GFSS_SHORTHAND_NAME_LIST(X)                                                       \
-    X("margin")                                                                                   \
-    X("padding")                                                                                  \
-    X("border-width")                                                                             \
+#define GLINTFX_GFSS_SHORTHAND_NAME_LIST(X)                                                        \
+    X("margin")                                                                                    \
+    X("padding")                                                                                   \
+    X("border-width")                                                                              \
     X("border-style")                                                                              \
     X("border-color")                                                                              \
-    X("border")                                                                                   \
+    X("border")                                                                                    \
     X("border-radius")                                                                             \
     X("gap")                                                                                       \
     X("overflow")                                                                                  \

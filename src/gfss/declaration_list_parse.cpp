@@ -45,7 +45,8 @@ void fold_into_result(declaration_parse_result parsed, declaration_list_parse_re
     if (parsed.declaration.has_reserved_notice) {
         ++result.reserved_notice_count;
     }
-    if (!parsed.declaration.is_shorthand && parsed.declaration.form == gfss_declaration_value_form::raw) {
+    if (!parsed.declaration.is_shorthand &&
+        parsed.declaration.form == gfss_declaration_value_form::raw) {
         ++result.raw_composite_count;
     }
     result.declarations.push_back(std::move(parsed.declaration));

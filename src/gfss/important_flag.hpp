@@ -57,6 +57,7 @@ struct important_flag_result {
 // inference (an empty remainder) it declares rather than states as
 // spec fact.
 [[nodiscard]] important_flag_result read_important_flag(const std::vector<gltfx_gfss_token> &tokens,
-                                                          std::size_t begin, std::size_t end) noexcept;
+                                                        std::size_t begin,
+                                                        std::size_t end) noexcept;
 
 } // namespace glintfx::style::detail

@@ -66,15 +66,16 @@ struct gfss_declaration {
     // GFSS-SHORTHAND (is_shorthand == true, D-DP-5) - never both.
     bool is_shorthand = false;
     gltfx_gfss_property property = gltfx_gfss_property::display; // valid iff !is_shorthand
-    std::string_view shorthand_name;                             // valid iff is_shorthand, sheet spelling
+    std::string_view shorthand_name; // valid iff is_shorthand, sheet spelling
 
     bool important = false;
 
     gfss_declaration_value_form form = gfss_declaration_value_form::values;
-    gfss_universal_keyword universal = gfss_universal_keyword::inherit_keyword; // form == universal_keyword
-    std::vector<gltfx_gfss_value> values;                                      // form == values
-    gltfx_rgba color{};                                                        // form == color
-    std::vector<gltfx_gfss_token> raw_tokens;                                  // form == raw
+    gfss_universal_keyword universal =
+        gfss_universal_keyword::inherit_keyword; // form == universal_keyword
+    std::vector<gltfx_gfss_value> values;        // form == values
+    gltfx_rgba color{};                          // form == color
+    std::vector<gltfx_gfss_token> raw_tokens;    // form == raw
 
     // D-DP-2: the aviso preso a UMA declaracao aceita, distinto de uma
     // declaracao rejeitada. Set when gfss_property_status(property) ==

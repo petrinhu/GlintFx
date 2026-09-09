@@ -21,8 +21,8 @@ namespace {
            ascii_case_insensitive_equal(token.lexeme, "currentcolor");
 }
 
-[[nodiscard]] std::string_view span_text(const std::vector<gltfx_gfss_token> &tokens, std::size_t first,
-                                         std::size_t last) noexcept {
+[[nodiscard]] std::string_view span_text(const std::vector<gltfx_gfss_token> &tokens,
+                                         std::size_t first, std::size_t last) noexcept {
     const char *begin_ptr = tokens[first].lexeme.data();
     const char *end_ptr = tokens[last].lexeme.data() + tokens[last].lexeme.size();
     return std::string_view(begin_ptr, static_cast<std::size_t>(end_ptr - begin_ptr));
@@ -45,7 +45,7 @@ read_declaration_color_value(const std::vector<gltfx_gfss_token> &tokens, std::s
     const color_parse_result parsed = parse_color(span_text(tokens, span.first, span.last));
     if (!parsed.ok) {
         return declaration_color_value_result{.kind = declaration_color_value_kind::failed,
-                                               .diagnostic = parsed.diagnostic};
+                                              .diagnostic = parsed.diagnostic};
     }
     return declaration_color_value_result{.kind = declaration_color_value_kind::resolved,
                                           .value = parsed.value};

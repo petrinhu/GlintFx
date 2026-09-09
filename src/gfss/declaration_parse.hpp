@@ -39,7 +39,7 @@ struct declaration_parse_result {
 // std::vector<gltfx_gfss_token>, built with push_back - the same reason
 // declaration_value_check.hpp's own check_declaration_value() is not
 // either.
-[[nodiscard]] declaration_parse_result parse_declaration(const std::vector<gltfx_gfss_token> &tokens,
-                                                          std::size_t begin, std::size_t end);
+[[nodiscard]] declaration_parse_result
+parse_declaration(const std::vector<gltfx_gfss_token> &tokens, std::size_t begin, std::size_t end);
 
 } // namespace glintfx::style::detail

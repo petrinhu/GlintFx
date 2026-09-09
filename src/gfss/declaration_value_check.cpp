@@ -24,8 +24,8 @@ namespace {
 // Every declaration_ diagnostic constructor this file needs shares the
 // same three fields - one atom instead of repeating the aggregate
 // literal at every failing return.
-[[nodiscard]] declaration_value_check_result fail(const gltfx_gfss_token &at, std::string_view expected,
-                                                   std::string_view detail = {}) noexcept {
+[[nodiscard]] declaration_value_check_result
+fail(const gltfx_gfss_token &at, std::string_view expected, std::string_view detail = {}) noexcept {
     return declaration_value_check_result{
         .ok = false,
         .values = {},
@@ -51,7 +51,8 @@ namespace {
 [[nodiscard]] bool matches_accepted_keyword(const property_value_contract &contract,
                                             std::string_view keyword_text) noexcept {
     for (std::uint8_t i = 0; i < contract.keyword_count; ++i) {
-        if (ascii_case_insensitive_equal(gltfx_gfss_keyword_name(contract.keywords[i]), keyword_text)) {
+        if (ascii_case_insensitive_equal(gltfx_gfss_keyword_name(contract.keywords[i]),
+                                         keyword_text)) {
             return true;
         }
     }
@@ -93,8 +94,8 @@ namespace {
 // --- pure keyword contract (no numeric nature at all) -----------------
 
 declaration_value_check_result check_keyword_only(const std::vector<gltfx_gfss_token> &tokens,
-                                                   const trimmed_token_span &span,
-                                                   const property_value_contract &contract) {
+                                                  const trimmed_token_span &span,
+                                                  const property_value_contract &contract) {
     const gltfx_gfss_token &first = tokens[span.first];
     if (first.kind != gltfx_gfss_token_kind::ident ||
         !matches_accepted_keyword(contract, first.lexeme)) {
@@ -111,8 +112,8 @@ declaration_value_check_result check_keyword_only(const std::vector<gltfx_gfss_t
 
     declaration_value_check_result result;
     result.ok = true;
-    result.values.push_back(gltfx_gfss_value{
-        .kind = gltfx_gfss_value_kind::keyword, .keyword_text = first.lexeme});
+    result.values.push_back(
+        gltfx_gfss_value{.kind = gltfx_gfss_value_kind::keyword, .keyword_text = first.lexeme});
     return result;
 }
 
@@ -128,8 +129,9 @@ struct component_outcome {
     gltfx_gfss_diagnostic diagnostic{};
 };
 
-[[nodiscard]] component_outcome check_one_component(const gltfx_gfss_token &token,
-                                                     const property_value_contract &contract) noexcept {
+[[nodiscard]] component_outcome
+check_one_component(const gltfx_gfss_token &token,
+                    const property_value_contract &contract) noexcept {
     value_parse_result parsed = parse_value(token);
     if (!parsed.ok) {
         return component_outcome{.ok = false, .diagnostic = parsed.diagnostic};
@@ -153,9 +155,8 @@ struct component_outcome {
     // nature-bit check, since a bare number's own decoded kind
     // (::number/::integer) would otherwise fail a contract whose
     // accepted_natures is time-only.
-    if (contract.time_unitless_ms &&
-        (parsed.value.kind == gltfx_gfss_value_kind::number ||
-         parsed.value.kind == gltfx_gfss_value_kind::integer)) {
+    if (contract.time_unitless_ms && (parsed.value.kind == gltfx_gfss_value_kind::number ||
+                                      parsed.value.kind == gltfx_gfss_value_kind::integer)) {
         const double magnitude = (parsed.value.kind == gltfx_gfss_value_kind::number)
                                      ? parsed.value.number
                                      : static_cast<double>(parsed.value.integer_value);
@@ -226,8 +227,8 @@ struct component_outcome {
 // --- space-separated arity (the ordinary, non-comma case) -------------
 
 declaration_value_check_result check_space_separated(const std::vector<gltfx_gfss_token> &tokens,
-                                                      const trimmed_token_span &span,
-                                                      const property_value_contract &contract) {
+                                                     const trimmed_token_span &span,
+                                                     const property_value_contract &contract) {
     declaration_value_check_result result;
     for (std::size_t i = span.first; i <= span.last; ++i) {
         if (tokens[i].kind == gltfx_gfss_token_kind::whitespace) {
@@ -238,7 +239,8 @@ declaration_value_check_result check_space_separated(const std::vector<gltfx_gfs
         }
         const component_outcome outcome = check_one_component(tokens[i], contract);
         if (!outcome.ok) {
-            return declaration_value_check_result{.ok = false, .values = {}, .diagnostic = outcome.diagnostic};
+            return declaration_value_check_result{
+                .ok = false, .values = {}, .diagnostic = outcome.diagnostic};
         }
         result.values.push_back(outcome.value);
     }
@@ -252,8 +254,8 @@ declaration_value_check_result check_space_separated(const std::vector<gltfx_gfs
 // --- top-level comma-separated groups (the `<time>#` shape) -----------
 
 declaration_value_check_result check_comma_separated(const std::vector<gltfx_gfss_token> &tokens,
-                                                      const trimmed_token_span &span,
-                                                      const property_value_contract &contract) {
+                                                     const trimmed_token_span &span,
+                                                     const property_value_contract &contract) {
     declaration_value_check_result result;
     std::size_t group_start = span.first;
     int depth = 0;
@@ -262,11 +264,10 @@ declaration_value_check_result check_comma_separated(const std::vector<gltfx_gfs
         static gltfx_gfss_diagnostic diagnostic{};
         const trimmed_token_span group = trim_whitespace_tokens(tokens, group_start, group_end);
         if (!group.has_content || group.first != group.last) {
-            diagnostic = gltfx_gfss_diagnostic{
-                .line = tokens[group_start].line,
-                .column = tokens[group_start].column,
-                .expected = k_expected_value_count_for_property,
-                .detail = {}};
+            diagnostic = gltfx_gfss_diagnostic{.line = tokens[group_start].line,
+                                               .column = tokens[group_start].column,
+                                               .expected = k_expected_value_count_for_property,
+                                               .detail = {}};
             return &diagnostic;
         }
         const component_outcome outcome = check_one_component(tokens[group.first], contract);
@@ -281,7 +282,8 @@ declaration_value_check_result check_comma_separated(const std::vector<gltfx_gfs
     for (std::size_t i = span.first; i <= span.last; ++i) {
         if (tokens[i].kind == gltfx_gfss_token_kind::comma && depth == 0) {
             if (const gltfx_gfss_diagnostic *diagnostic = close_group(i)) {
-                return declaration_value_check_result{.ok = false, .values = {}, .diagnostic = *diagnostic};
+                return declaration_value_check_result{
+                    .ok = false, .values = {}, .diagnostic = *diagnostic};
             }
             group_start = i + 1;
             continue;
@@ -307,8 +309,8 @@ declaration_value_check_result check_comma_separated(const std::vector<gltfx_gfs
 } // namespace
 
 declaration_value_check_result check_declaration_value(const std::vector<gltfx_gfss_token> &tokens,
-                                                        std::size_t begin, std::size_t end,
-                                                        const property_value_contract &contract) {
+                                                       std::size_t begin, std::size_t end,
+                                                       const property_value_contract &contract) {
     const trimmed_token_span span = trim_whitespace_tokens(tokens, begin, end);
     if (!span.has_content) {
         return declaration_value_check_result{

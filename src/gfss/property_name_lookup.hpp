@@ -17,17 +17,18 @@
 namespace glintfx::style::detail {
 
 enum class property_name_lookup_kind : std::uint8_t {
-    known_property,   // resolves to a k_property_table row - `property` is valid
-    shorthand,        // one of the eleven accepted shorthand names - `shorthand_name` is valid
-    refused,          // a recognized CSS name this registry refuses - `diagnostic.detail` names the longhands
-    unknown,          // not a property, not a shorthand, not a refused name at all
+    known_property, // resolves to a k_property_table row - `property` is valid
+    shorthand,      // one of the eleven accepted shorthand names - `shorthand_name` is valid
+    refused,        // a recognized CSS name this registry refuses - `diagnostic.detail` names the
+                    // longhands
+    unknown,        // not a property, not a shorthand, not a refused name at all
 };
 
 struct property_name_lookup_result {
     property_name_lookup_kind kind = property_name_lookup_kind::unknown;
     gltfx_gfss_property property = gltfx_gfss_property::display; // valid iff kind == known_property
     std::string_view shorthand_name;                             // valid iff kind == shorthand
-    gltfx_gfss_diagnostic diagnostic{};                           // valid iff kind == refused or unknown
+    gltfx_gfss_diagnostic diagnostic{}; // valid iff kind == refused or unknown
 };
 
 // Resolves `name` (a sheet spelling, e.g. from an <ident-token>'s own
@@ -38,8 +39,7 @@ struct property_name_lookup_result {
 // location for the `refused`/`unknown` cases - the caller's own name
 // token, since this function never sees a gltfx_gfss_token directly
 // (only its lexeme).
-[[nodiscard]] property_name_lookup_result lookup_property_name(std::string_view name,
-                                                                std::uint32_t line,
-                                                                std::uint32_t column) noexcept;
+[[nodiscard]] property_name_lookup_result
+lookup_property_name(std::string_view name, std::uint32_t line, std::uint32_t column) noexcept;
 
 } // namespace glintfx::style::detail

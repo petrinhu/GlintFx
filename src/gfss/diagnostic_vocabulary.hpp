@@ -198,12 +198,12 @@ namespace glintfx::style::detail {
 // and gfss_diagnostic_entry/k_expected_entries/count_owned_by() below
 // for how a producer's own test proves it against this tag.
 enum class gfss_diagnostic_producer : std::uint8_t {
-    tokenizer,          // src/gfss/tokenizer.cpp (GFSS-TOKEN)
-    selector_parse,     // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE +
-                        // GFSS-SEL-PARSE-PSEUDO-ELEMENT)
-    value_parse,        // src/gfss/value_parse.cpp (GFSS-VALUE)
-    anb_parse,          // src/gfss/anb_parse.cpp (GFSS-SEL-PARSE-NTH)
-    declaration_parse,  // src/gfss/declaration_parse.cpp (GFSS-DECL-PARSE)
+    tokenizer,         // src/gfss/tokenizer.cpp (GFSS-TOKEN)
+    selector_parse,    // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE +
+                       // GFSS-SEL-PARSE-PSEUDO-ELEMENT)
+    value_parse,       // src/gfss/value_parse.cpp (GFSS-VALUE)
+    anb_parse,         // src/gfss/anb_parse.cpp (GFSS-SEL-PARSE-NTH)
+    declaration_parse, // src/gfss/declaration_parse.cpp (GFSS-DECL-PARSE)
 };
 
 #define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                   \

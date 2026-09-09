@@ -14,6 +14,7 @@
 #include <glintfx/core/log/value.hpp>
 
 #include "harness/check.hpp"
+#include "harness/compiler_noinline.hpp"
 #include "harness/test_registry.hpp"
 
 // log_field_test.cpp - CL-2 of CORE-LOG (TODO.md, GODS_LAWS.md
@@ -110,23 +111,26 @@ GLINTFX_TEST(log_value_layout_is_frozen) {
 
 namespace {
 
-// [[gnu::noinline]] AND a type-erased pointer+size (never std::array
-// directly) - measured necessary, not decoration: with the poisoning,
-// the placement-new and the byte check all visible in ONE function,
-// GCC's own -O3 optimizer proves the SAME uninitialized bytes this
-// case exists to catch AT COMPILE TIME (elements 20-23 of the 24-byte
-// object, named individually in the diagnostic) and -Werror refuses
-// to build at all - correct, but it would collapse this into the SAME
-// kind of proof as Vermelho 1 (a compile error), when the point of
-// THIS case is a genuinely RUNTIME check that only fails when the bug
-// is actually present today and passes cleanly once the fix lands.
-// Crossing an opaque, noinline function boundary with a raw pointer
-// is what keeps the read from being provably-uninitialized to the
-// compiler, the same "the optimizer must not see through this" need
-// CE-7's own benchmark functions document (tools/bench/core_log_cost_
-// functions.cpp).
-[[gnu::noinline]] int count_zero_bytes_from(const std::byte *data, std::size_t offset,
-                                            std::size_t size) {
+// GLINTFX_TEST_NOINLINE (compiler_noinline.hpp) AND a type-erased
+// pointer+size (never std::array directly) - measured necessary, not
+// decoration: with the poisoning, the placement-new and the byte
+// check all visible in ONE function, GCC's own -O3 optimizer proves
+// the SAME uninitialized bytes this case exists to catch AT COMPILE
+// TIME (elements 20-23 of the 24-byte object, named individually in
+// the diagnostic) and -Werror refuses to build at all - correct, but
+// it would collapse this into the SAME kind of proof as Vermelho 1 (a
+// compile error), when the point of THIS case is a genuinely RUNTIME
+// check that only fails when the bug is actually present today and
+// passes cleanly once the fix lands. Crossing an opaque, noinline
+// function boundary with a raw pointer is what keeps the read from
+// being provably-uninitialized to the compiler, the same "the
+// optimizer must not see through this" need CE-7's own benchmark
+// functions document (tools/bench/core_log_cost_functions.cpp) - the
+// per-compiler spelling of "noinline" itself lives in ONE place
+// (compiler_noinline.hpp), not re-derived here, after CORE-LOG-CI
+// proved [[gnu::noinline]] alone is GCC/Clang-only and fails MSVC.
+GLINTFX_TEST_NOINLINE int count_zero_bytes_from(const std::byte *data, std::size_t offset,
+                                                std::size_t size) {
     int checked = 0;
     for (std::size_t i = offset; i < size; ++i) {
         GLINTFX_CHECK(data[i] == std::byte{0});

@@ -768,6 +768,20 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **O teto cai junto com o da L-32: quando a demo estiver verde.**
 
+
+**Emenda de 09/09/2026 — a ordem da tabela É a ordem de execução: nenhuma fatia se pula.** Ordem do líder, verbatim: *"Não pule nenhuma fatia, faça na sequencia da tabela. Se achar que uma fatia não é adequada para a onda, mova para outra onda."*
+
+**A regra, em duas metades que não se separam:**
+
+1. **Dentro da onda, a sequência é a das linhas do `TODO.md`, de cima para baixo.** Não se escolhe a de maior valor, nem a mais fácil, nem a que já está meio pronta. A tabela foi ordenada por dependência e valor no momento em que foi montada; reordenar por conveniência do dia desfaz esse trabalho em silêncio.
+2. **Achou que uma fatia não pertence à onda? MOVA-A para outra onda, explicitamente, com o motivo escrito na própria linha.** O que está proibido é pular: deixar a fatia onde está e seguir para a próxima, porque isso deixa a onda com um buraco que ninguém vê — a linha continua ali, marcada como pendente, e a onda é declarada fechada em cima dela.
+
+**Por que a segunda metade existe, e ela é o coração da ordem:** pular e mover parecem a mesma coisa e não são. Pular é decisão invisível, tomada por conveniência, que não deixa rastro; mover é decisão registrada, que muda o plano de propósito e pode ser conferida depois. O líder não proibiu mudar de ideia sobre onde uma fatia mora — proibiu mudar de ideia **sem dizer**.
+
+**O que continua exigindo o líder:** mover uma fatia que ele mesmo alocou a uma onda por decisão registrada é **reverter decisão dele**, e vai a ele — em modo autônomo, ao `fable`, com registro em `DECISOES_AUTONOMAS.md`. Mover fatia que nunca teve decisão dele é execução normal, e só precisa do motivo escrito.
+
+**Relação com a primeira metade desta lei:** o caminho principal continua andando sempre, e a trilha paralela continua sendo no máximo uma. Esta emenda diz o que fazer **dentro** de cada uma delas — em ordem, sem buraco.
+
 ## L-33
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"sempre que tocar em mapa, avise o que fez a @MapEditor e se ele estiver inalcancavel, mande via bus"*.

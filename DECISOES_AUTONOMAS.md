@@ -2718,3 +2718,29 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 - **Web, comunidade, RmlUi/SDL3:** **não consultados, e declaro por quê** — a decisão é de sequenciamento de revisão dentro das nossas próprias leis, não de desenho de produto nem de técnica de implementação. Não há manual externo nem dor de comunidade que decida se três itens irmãos vão a um ou a três revisores; o que decide é a lei do projeto e o custo medido de reconstrução da suíte. Quando a revisão devolver achado de PRODUTO, aí sim a fonte externa (especificação CSS) é obrigatória, e o briefing já exige que cada valor esperado seja conferido contra ela.
 
 **Porta de mão única:** não. **Custo de reverter:** baixo — se o relatório vier confuso ou raso, os itens voltam a revisões separadas sem nada perdido.
+
+#### D-090903 — o `CORE-LOG` FICA na W5, apesar de ser candidato natural a mudar de onda  `[09/09/26 - 00:55:55]`
+
+**Quem decidiu:** o main, como orquestrador, aplicando a emenda da L-32 que o líder acabou de dar. **Onda:** W5.
+
+**A pergunta, como teria ido ao líder:** o `CORE-LOG` é a PRIMEIRA linha da W5 na ordem da tabela, e ele mesmo declara duas coisas que o tornam candidato a sair da onda — *"não é pré-requisito de NENHUM item do plano inteiro"* e *"na W5 ele ainda pode não ter uso real exercitando-o"*. Move ou fica?
+
+**FICA, e a razão não é minha.** O líder já decidiu isto pessoalmente em 25/08/2026: o CTO ofereceu deixar o item **sem onda**, esperando o primeiro consumidor ser nomeado, e **ele preferiu data a gatilho**, fixando a W5. Mover agora seria reverter decisão dele por conveniência de execução — exatamente o que a emenda de hoje separa de "mover com motivo escrito". A emenda autoriza mover fatia que nunca teve decisão do líder; esta teve.
+
+**A consequência que fica declarada, e é a mesma que ele aceitou em agosto:** o `CORE-LOG` congela a assinatura pública do recebedor de registro (porta de mão única, revisão de API dedicada) possivelmente **sem nenhum uso real exercitando-a**. O risco não mudou desde agosto; a decisão dele também não.
+
+**Fontes consultadas (L-34):**
+- **Canon do projeto:** a própria linha do `CORE-LOG` no `TODO.md`, que carrega a decisão dele de 25/08 verbatim, e a L-32 recém-emendada. Foram elas que decidiram.
+- **Web, comunidade, RmlUi/SDL3:** **não consultados para ESTA decisão**, e o motivo é que a pergunta não é técnica — é sobre respeitar uma decisão registrada do líder. Nenhuma fonte externa tem autoridade sobre isso. **Serão obrigatórias no PLANEJAMENTO do `CORE-LOG`**, que é decisão de desenho de API pública: lá a busca por como bibliotecas com dependência zero expõem recebedor de registro (SDL3 e outras) vem antes da primeira linha, como a L-43 e a emenda da L-34 mandam.
+
+**Porta de mão única:** sim, a fatia é. **Custo de reverter:** alto depois de publicada a assinatura; nenhum agora.
+
+#### D-090904 — correção de rumo: eu tinha começado a W5 fora de ordem  `[09/09/26 - 00:55:55]`
+
+**Quem decidiu:** o main. **Onda:** W5.
+
+**O que aconteceu:** despachei a revisão dos três itens em pendente de verificação (`GFSS-SEL-PARSE-NOT`, `GFSS-MATCH-ATTR`, `GFSS-MATCH-STRUCT`) **antes** do `CORE-LOG`, que é a primeira linha da onda. Escolhi por conveniência — eram os itens já implementados, mais baratos de fechar. É exatamente o que a emenda de hoje proíbe.
+
+**O que fica, e o que muda:** a revisão em andamento **continua** — ela é trabalho válido sobre fatias que já existem, e matá-la no meio desperdiçaria a reconstrução da suíte sem devolver nada. **O que muda é o próximo despacho:** assim que a revisão liberar a máquina (um trabalho pesado por vez, L-11), o `CORE-LOG` entra, e daí em diante a onda anda na ordem da tabela, linha por linha, até o `CI-VERDE-W5`.
+
+**Fontes consultadas (L-34):** a emenda da L-32, dada pelo líder minutos atrás. Nenhuma outra é necessária — a ordem é explícita.

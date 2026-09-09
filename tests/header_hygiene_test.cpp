@@ -113,6 +113,7 @@
 #include <glintfx/core/log/event.hpp>
 #include <glintfx/core/log/field.hpp>
 #include <glintfx/core/log/severity.hpp>
+#include <glintfx/core/log/sink.hpp>
 #include <glintfx/core/log/value.hpp>
 #include <glintfx/core/mat3.hpp>
 #include <glintfx/core/rect.hpp>

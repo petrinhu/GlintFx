@@ -77,6 +77,16 @@ target_compile_definitions(log_field_test PRIVATE
 glintfx_add_test(log_event_test)
 target_include_directories(log_event_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# CORE-LOG CL-4 (TODO.md W5, GODS_LAWS.md L-19/L-20/L-26/L-40): sink
+# registration and delivery, plano/core-log.md Q1/Q5/D-LOG-1/D-LOG-5 -
+# see log_sink_test.cpp's own header comment. Needs src/core/log/
+# emit.hpp, a PRIVATE header (GODS_LAWS.md L-19) declaring the
+# GLINTFX_API-exported (but not publicly documented) log_emit() this
+# test calls directly against the SAME already-linked registry
+# gltfx_log_set_sink/get_sink (public, sink.hpp) manipulate.
+glintfx_add_test(log_sink_test)
+target_include_directories(log_sink_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

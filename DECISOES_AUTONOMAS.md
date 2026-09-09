@@ -2764,3 +2764,17 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **UMA PERGUNTA QUE O `fable` NÃO DECIDIU, e fez certo em não decidir:** se este recebedor é o *"canal separado"* que o líder mencionou na decisão 2 de 27/08/2026 para o defeito interno do motor de estilo — ocasião em que ele disse **"quero discutir"**, reservando o assunto para si. O `fable` não herda o que o líder reservou. **Não bloqueia:** o desenho serve sem a resposta, e nada é migrado nesta fatia.
 
 **Custo de reverter:** alto depois de publicado; **nenhum agora** — nada disto está em marca nenhuma ainda.
+
+#### D-090913 — o fecho de onda ganha marca de ROTULO, não um componente de versão  `[09/09/26 - 02:30:27]`
+
+**Quem decidiu:** o main, como execução de uma escolha que o líder acabou de fazer. **Escopo:** todas as ondas daqui em diante.
+
+**O que ele decidiu, e como cheguei a perguntar:** a ordem *"ao final de cada onda, push/merge/tag"* conflitava com a lei que ele mesmo ditou duas horas antes (*"é para criar a tag a cada fatia consertada, não invente regra"*). A Lei das Leis obriga a **argumentar CONTRA antes** de alterar lei, e argumentei: a marca por fatia nasceu hoje porque eu tinha esperado demais para marcar, e ela dá ponto de retorno próprio a cada conserto — com marca só por onda, uma onda de oito fatias vira um ponto só. **Ele escolheu as duas**, ciente do custo.
+
+**O que sobrou para EU decidir, e é onde eu poderia inventar regra:** qual número cresce no fecho de onda. Decidi que **nenhum** — o fecho ganha **rótulo com nome próprio** (`onda-w5`), apontando para o mesmo commit em que o servidor fechou verde.
+
+**O raciocínio, contra as alternativas:** o quarto componente já tem dono (a L-26 deste projeto o define como componente de empacotamento) e usá-lo para contar onda o descaracterizaria; o segundo significa mudança de comportamento público, que uma onda pode ou não ter; e disputar o terceiro com a marca de fatia criaria **duas regras crescendo o mesmo número** — exatamente a ambiguidade que ele pagou para evitar ao escolher "as duas". Rótulo com nome próprio não disputa nada e responde à pergunta que a marca de onda existe para responder: *qual commit fechou a W5?*
+
+**Fontes consultadas (L-34):** o canon do projeto — a L-26 (formato `vA.B.C.D`, quarto componente de empacotamento) e a L-11 recém-emendada (a linha `CI-VERDE-<onda>` é o portão do fecho). **Web, comunidade, RmlUi/SDL3: não consultados**, e o motivo é que a pergunta é sobre o significado dos nossos próprios componentes de versão, definido em decisão registrada do líder. Nenhuma fonte externa tem autoridade sobre isso.
+
+**Custo de reverter:** baixo — um rótulo se apaga sem afetar versão nenhuma.

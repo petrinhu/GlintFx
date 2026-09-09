@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <new>
+#include <print>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -103,6 +106,82 @@ GLINTFX_TEST(log_value_layout_is_frozen) {
     GLINTFX_CHECK(std::is_trivially_copyable_v<gltfx_log_value>);
     GLINTFX_CHECK(sizeof(gltfx_log_value) == 3 * sizeof(void *));
     GLINTFX_CHECK(offsetof(gltfx_log_value, kind) == 0);
+}
+
+namespace {
+
+// [[gnu::noinline]] AND a type-erased pointer+size (never std::array
+// directly) - measured necessary, not decoration: with the poisoning,
+// the placement-new and the byte check all visible in ONE function,
+// GCC's own -O3 optimizer proves the SAME uninitialized bytes this
+// case exists to catch AT COMPILE TIME (elements 20-23 of the 24-byte
+// object, named individually in the diagnostic) and -Werror refuses
+// to build at all - correct, but it would collapse this into the SAME
+// kind of proof as Vermelho 1 (a compile error), when the point of
+// THIS case is a genuinely RUNTIME check that only fails when the bug
+// is actually present today and passes cleanly once the fix lands.
+// Crossing an opaque, noinline function boundary with a raw pointer
+// is what keeps the read from being provably-uninitialized to the
+// compiler, the same "the optimizer must not see through this" need
+// CE-7's own benchmark functions document (tools/bench/core_log_cost_
+// functions.cpp).
+[[gnu::noinline]] int count_zero_bytes_from(const std::byte *data, std::size_t offset,
+                                            std::size_t size) {
+    int checked = 0;
+    for (std::size_t i = offset; i < size; ++i) {
+        GLINTFX_CHECK(data[i] == std::byte{0});
+        ++checked;
+    }
+    return checked;
+}
+
+} // namespace
+
+// CORE-LOG-CI, DEFEITO 2 (run 34329543846, job "Sanitizer (Fedora -
+// ASan/UBSan)"): the default member initializer used to live on
+// `as_unsigned_integer` (8 bytes), but the union's own storage is 16
+// bytes wide (`text_view`, the largest member) - a default-constructed
+// gltfx_log_value left the SECOND 8 bytes (as_text.size) genuinely
+// indeterminate. GCC caught it for real, under sanitizer instrumentation,
+// inlined into text()'s own read of as_text.size - not a false positive
+// (gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html's own warning
+// about sanitizers and -Wmaybe-uninitialized does not apply here).
+//
+// This case poisons the raw storage FIRST (0xAB, never zero, so a
+// pass can only mean the constructor actually wrote every byte, not
+// that the buffer happened to start zeroed), then default-constructs
+// IN PLACE over it and checks every byte from offsetof(as_text) to the
+// end of the object is zero. Deliberately does NOT check the 4 bytes
+// of padding between `kind` and the union (offsetof(as_text) is
+// exactly where that padding ends) - nobody promises padding, only the
+// union's own storage.
+GLINTFX_TEST(log_value_default_construction_defines_every_union_byte) {
+    alignas(gltfx_log_value) std::array<std::byte, sizeof(gltfx_log_value)> storage;
+    storage.fill(std::byte{0xAB});
+
+    new (storage.data()) gltfx_log_value;
+
+    const std::size_t union_offset = offsetof(gltfx_log_value, as_text);
+    const int checked = count_zero_bytes_from(storage.data(), union_offset, storage.size());
+    std::println("log_value_default_construction_defines_every_union_byte: {} byte(s) of the "
+                 "union checked, offset {} to {}",
+                 checked, union_offset, storage.size());
+    GLINTFX_CHECK(checked > 0);
+}
+
+// Guardian, not proof (never seen failing on its own - the Vermelho 1
+// compile error above is the real proof, GODS_LAWS.md L-40): if a
+// future change ever adds a union member LARGER than `text_view`
+// without moving the default member initializer to it, this fails to
+// compile-time-flag that the initializer no longer covers the whole
+// union. Holds today because `as_text` (text_view: pointer + size_t)
+// already IS the union's largest, and therefore only, member whose
+// size equals the union's own footprint from its own offset to the
+// end of gltfx_log_value.
+GLINTFX_TEST(log_value_default_initializer_lives_on_the_largest_union_member) {
+    static_assert(sizeof(gltfx_log_value) - offsetof(gltfx_log_value, as_text) ==
+                  sizeof(gltfx_log_value::text_view));
+    GLINTFX_CHECK(true);
 }
 
 GLINTFX_TEST(log_field_round_trips_and_is_frozen_layout) {

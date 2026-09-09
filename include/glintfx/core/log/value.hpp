@@ -70,23 +70,43 @@ struct gltfx_log_value {
     // the caller's own buffer is (same rule gltfx_log_event's own
     // header documents for the whole event).
     //
-    // The `= 0` on `as_unsigned_integer` is a DEFAULT MEMBER
-    // INITIALIZER on exactly one alternative - the most a union is
-    // ever allowed to have (only one alternative can be active at a
-    // time) - which is enough to fully initialize the WHOLE union
-    // subobject on default construction, the same "aggregate-init
-    // stays available, cppcheck's uninitMemberVarNoCtor is satisfied"
-    // trick named_colors.hpp's own header comment already documents
-    // for a plain struct; here it ALSO satisfies a stricter C++ rule -
-    // measured live (tests/log_field_test.cpp's `const gltfx_log_value
-    // v;` case): default-initializing a CONST-qualified object of
-    // class type is ill-formed unless every member is initialized by
-    // a default member initializer, which this line, together with
-    // `kind`'s own above, now makes true.
+    // CORE-LOG-CI DEFEITO 2 (measured, run 34329543846, job "Sanitizer
+    // (Fedora - ASan/UBSan)", 09/09/2026): the default member
+    // initializer used to live on `as_unsigned_integer` (`= 0`, 8
+    // bytes) instead of here. An EARLIER version of this comment
+    // claimed that was "enough to fully initialize the WHOLE union
+    // subobject" - THAT WAS WRONG, and GCC caught it for real: a
+    // default member initializer on a union alternative only writes
+    // the bytes THAT ALTERNATIVE covers, and `text_view` (`as_text`,
+    // pointer + `size_t`) is 16 bytes wide, TWICE what
+    // `as_unsigned_integer` covers. A default-constructed
+    // `gltfx_log_value` left the union's own second 8 bytes
+    // (`as_text.size`) genuinely indeterminate - reading it back
+    // through `text()` below, on a `kind == unknown` object, was
+    // Undefined Behavior R4 promises never happens, not a compiler
+    // false positive (tests/log_field_test.cpp's own
+    // `log_value_default_construction_defines_every_union_byte` proves
+    // this by poisoning the raw bytes first and checking every one of
+    // them, not just the ones a particular read happens to touch).
+    // The default member initializer belongs on the union's LARGEST
+    // alternative, because writing that one is the only way to cover
+    // every byte the union's OWN footprint spans - `as_text` is that
+    // alternative here (`log_value_default_initializer_lives_on_the_
+    // largest_union_member` guards against a future, larger
+    // alternative moving this out from under the initializer again).
+    // This is still the same trick named_colors.hpp's own header
+    // comment documents for cppcheck's uninitMemberVarNoCtor, and it
+    // still satisfies the same stricter C++ rule tests/log_field_test.
+    // cpp's `const gltfx_log_value v;` case exercises: default-
+    // initializing a CONST-qualified object of class type is
+    // ill-formed unless every member is initialized by a default
+    // member initializer, which this line, together with `kind`'s own
+    // above, makes true - the difference from before is that this
+    // line now also actually zeroes every byte it claims to.
     union {
-        text_view as_text;
+        text_view as_text = {nullptr, 0};
         std::int64_t as_signed_integer;
-        std::uint64_t as_unsigned_integer = 0;
+        std::uint64_t as_unsigned_integer;
         double as_floating;
         bool as_boolean;
     };

@@ -13,6 +13,7 @@
 
 #include "platform/gl/gl_memory_facts.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/gl/gpu_kind_report.hpp"
 #include "platform/gl/gpu_kind_seam.hpp"
 #include "platform/gl/memory_separation_kind.hpp"
 #include "platform/win32/dxcore_adapter_enumeration.hpp"
@@ -211,6 +212,17 @@ classify_current_gpu(std::string_view renderer_name, gl_get_integerv_fn get_inte
 
     const gltfx_gpu_kind kind =
         resolve_memory_separation(after_via1, definitely_not_software, via2);
+
+    // CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md L-04): the one real
+    // emission this project's structured-log recebedor carries -
+    // WIN32 SIDE, the mirror of egl_context_adapter.cpp's own
+    // classify_current_gpu() (same paragraph there, verbatim): calls
+    // the SAME two functions with this side's own already-computed
+    // inputs, right before this function's own equivalent return -
+    // paridade by the compiler sharing one definition (gpu_kind_
+    // report.cpp), never by two files read side by side.
+    glintfx::platform::report_gpu_kind_resolved(glintfx::platform::resolve_gpu_kind_report(
+        kernel_kind, enumeration_index, kinds, definitely_not_software, via2));
 
     return {kind, enumeration_index};
 }

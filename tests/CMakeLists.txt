@@ -128,6 +128,27 @@ target_include_directories(log_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
 glintfx_add_test(log_sink_concurrency_test)
 target_include_directories(log_sink_concurrency_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md L-04/L-17/L-19/L-20/L-26/
+# L-40): resolve_gpu_kind_report()/report_gpu_kind_resolved(), the
+# platform-agnostic atom plano/core-log.md Q6.2/D-LOG-8 - see
+# gpu_kind_report_test.cpp's own header comment. Needs src/platform/
+# gl/gpu_kind_report.hpp, a PRIVATE header (GODS_LAWS.md L-19) - same
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir gpu_kind_seam_test
+# already adds below for its own sibling private header.
+glintfx_add_test(gpu_kind_report_test)
+target_include_directories(gpu_kind_report_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# resolve_gpu_kind_report() (gpu_kind_report.cpp) has no GLINTFX_API -
+# deliberately (GODS_LAWS.md L-19: internal, not part of the frozen
+# public ABI) - so this test recompiles it, and the two seam functions
+# it calls, a SECOND time into its own object set, the SAME technique
+# gpu_kind_seam_test below already uses for those same two functions.
+target_sources(gpu_kind_report_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

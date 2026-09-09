@@ -1514,6 +1514,24 @@ jobs:
             glintfx-wltest-clean window_active_after_map_smoke | tee -a container_measured_raw.log
           echo "window_active_after_map_smoke" >> parity_inventory.txt
 
+      # CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md L-04/L-09/L-20): a
+      # mutacao obrigatoria desta fatia - remover a chamada de report_
+      # gpu_kind_resolved() de egl_context_adapter.cpp faz este fixture
+      # deixar de receber o evento gpu_kind_resolved e sair != 0 -
+      # medido fora deste job, numa copia do commit desta fatia com
+      # essa UMA linha removida (GODS_LAWS.md L-27), nao repetido aqui
+      # porque nunca toca um arquivo rastreado. Este passo prova a
+      # chamada REAL, contra o compositor REAL deste container - ver
+      # gpu_kind_report_smoke.cpp's own header comment.
+      - name: CORE-LOG CL-7 - gpu_kind_resolved emitido pelo adaptador EGL real
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean gpu_kind_report_smoke | tee -a container_measured_raw.log
+          echo "gpu_kind_report_smoke" >> parity_inventory.txt
+
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o

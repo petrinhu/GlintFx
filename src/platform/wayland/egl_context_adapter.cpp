@@ -28,6 +28,7 @@
 #include "platform/gl/gl_memory_facts.hpp"
 #include "platform/gl/gl_surface_size_policy.hpp"
 #include "platform/gl/gl_version_policy.hpp"
+#include "platform/gl/gpu_kind_report.hpp"
 #include "platform/gl/gpu_kind_seam.hpp"
 #include "platform/gl/memory_separation_kind.hpp"
 #include "platform/wayland/bounded_output_wait.hpp"
@@ -280,6 +281,16 @@ classify_current_gpu(void *egl_display, gl_get_integerv_fn get_integerv) noexcep
 
     const gltfx_gpu_kind kind =
         resolve_memory_separation(after_via1, definitely_not_software, via2);
+
+    // CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md L-04): the one real
+    // emission this project's structured-log recebedor carries -
+    // WAYLAND SIDE. The Win32 mirror (wgl_context_adapter.cpp's own
+    // classify_current_gpu()) calls the SAME two functions with its
+    // own already-computed inputs, right before its own equivalent
+    // return - paridade by the compiler sharing one definition
+    // (gpu_kind_report.cpp), never by two files read side by side.
+    glintfx::platform::report_gpu_kind_resolved(glintfx::platform::resolve_gpu_kind_report(
+        kernel_kind, enumeration_index, kinds, definitely_not_software, via2));
 
     return {kind, enumeration_index};
 }

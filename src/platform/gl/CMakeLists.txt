@@ -51,6 +51,7 @@ target_sources(glintfx_library PRIVATE
     memory_separation_kind.cpp
     gpu_kind_seam.cpp
     gpu_enumeration_facade.cpp
+    gpu_kind_report.cpp
 )
 
 # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3/4.2,
@@ -79,3 +80,12 @@ target_sources(glintfx_library PRIVATE
 # MESMA função, GODS_LAWS.md L-04). gpu_kind_seam.hpp/.cpp's own header
 # comment has the full account, including the RED literal this
 # conserto saw before the fix.
+#
+# gpu_kind_report.cpp - CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md
+# L-04/L-17): WRAPS gpu_kind_seam.hpp's own two functions above with
+# the "which via answered" bookkeeping, and emits the first REAL log
+# event this project's structured-log recebedor carries. OS-agnostic
+# same reason as its siblings; called by BOTH egl_context_adapter.cpp
+# and wgl_context_adapter.cpp, one line each, right before their own
+# existing `return {kind, enumeration_index};` - see gpu_kind_report.
+# hpp's own header comment.

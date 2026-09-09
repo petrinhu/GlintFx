@@ -336,6 +336,32 @@ window_active_after_map_smoke|windows|win32_facade_pin_test (GWLP_USERDATA lido 
 # unica coisa que mantem o portao verde para este nome.
 preci_win_selftest|linux|preci_selftest (tests/CMakeLists.txt if(UNIX), existe e roda de verdade quando as tres ferramentas de analise estao presentes - nao aparece nas legs que hoje publicam inventario de paridade)|PARITY-LINT-INV
 
+# --- Lacuna real, TEMPORARIA por falta de runner Windows proprio
+# (09/09/2026, CORE-LOG CL-7) ---------------------------------------
+#
+# gpu_kind_report_smoke (tests/container/gpu_kind_report_smoke.cpp)
+# prova, contra um compositor kwin_wayland REAL, que report_gpu_kind_
+# resolved() (src/platform/gl/gpu_kind_report.cpp) chega ao recebedor
+# publico quando egl_context_adapter.cpp resolve a placa de video -
+# inclusive a mutacao obrigatoria desta fatia (remover a chamada faz
+# o fixture nao receber o evento e sair != 0), medida fora da arvore
+# (GODS_LAWS.md L-27). O gemeo Win32 (wgl_context_adapter.cpp) tem a
+# MESMA linha, no MESMO ponto, chamando a MESMA funcao compartilhada -
+# e PROVADO QUE COMPILA limpo (zero avisos) sob o cl.exe REAL da
+# Microsoft (tools/msvc-container). O que NAO foi provado: a mutacao,
+# por execucao real, no lado Windows - abrir uma janela WGL de verdade
+# exige CreateWindowExW, que tools/msvc-container/README.md ja
+# documenta como falho sob a camada de compatibilidade headless desta
+# maquina (GetLastError=1400/ERROR_INVALID_WINDOW_HANDLE), nao uma
+# limitacao inventada agora para esta fatia.
+#
+# ⚠️ MORTE DESTA LINHA: quando WIN-RUNNER-PROPRIO (TODO.md, W7-B) puser
+# a maquina Windows propria no circuito, um fixture Windows real (mesma
+# forma de facade_pin_smoke/window_active_after_map_smoke, mutacao
+# incluida) fecha o par - so entao esta linha sai, nunca antes por
+# presuncao de que a compilacao limpa bastava.
+gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo ponto, mesma funcao compartilhada (gpu_kind_report.cpp) - PROVADO que compila limpo sob o cl.exe real da Microsoft; a mutacao por execucao real NAO foi provada no Windows nesta maquina (CreateWindowExW falha sob Wine headless, ja documentado em tools/msvc-container/README.md)|WIN-RUNNER-PROPRIO
+
 # --- Historico: os sete nomes que faltavam par, todos fechados ---------
 #
 # Os sete nomes que a estreia deste portao (05/09/2026) reprovou sem

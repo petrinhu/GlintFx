@@ -2744,3 +2744,23 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **O que fica, e o que muda:** a revisão em andamento **continua** — ela é trabalho válido sobre fatias que já existem, e matá-la no meio desperdiçaria a reconstrução da suíte sem devolver nada. **O que muda é o próximo despacho:** assim que a revisão liberar a máquina (um trabalho pesado por vez, L-11), o `CORE-LOG` entra, e daí em diante a onda anda na ordem da tabela, linha por linha, até o `CI-VERDE-W5`.
 
 **Fontes consultadas (L-34):** a emenda da L-32, dada pelo líder minutos atrás. Nenhuma outra é necessária — a ordem é explícita.
+
+#### D-090905 a D-090912 — as oito decisões de desenho do `CORE-LOG`  `[09/09/26 - 01:18:58]`
+
+**Quem decidiu:** o C-level `fable`, na cadeira do líder (modo autônomo). **Fatia:** `CORE-LOG` (W5). **Plano completo:** `/var/tmp/glintfx-plan/core-log.md`, 249 linhas, zero código de produto.
+
+**Esta é a PRIMEIRA decisão de produto tomada já sob a emenda da L-34 (fontes antes de decidir), e as fontes foram de fato consultadas — não é declaração de fachada.** O que cada camada devolveu:
+
+- **Manuais:** rascunho do C++23 (`[print.fun]`, `[format.args]`) — a biblioteca padrão **não tem** registro estruturado, e `format_args` é vista não-proprietária, sem forma estável de compatibilidade binária. Busca no comitê: **nenhuma proposta de logging**, declarado como ausência, não presumido. Mais RFC 5424 e o modelo de dados de registro do OpenTelemetry.
+- **A dor da comunidade, e ela mudou decisões:** SDL #2463 (segurar um cadeado em volta do recebedor obriga cadeado reentrante) → **D-LOG-5, sem cadeado durante a chamada**; spdlog #2454 (parâmetro novo numa assinatura pública quebrou compatibilidade binária) → **D-LOG-4, evento semi-opaco com acessores**; Rust RFC 2137 (lista de argumentos variável é o pior caso de interoperabilidade) e wlroots/libwayland → contra o estilo de `printf`; UCX #1585 e vizinhos (biblioteca que escreve em erro padrão sem deixar desligar) → **D-LOG-7, silêncio por padrão**.
+- **SDL3 e RmlUi, lidos para a TÉCNICA e nada copiado (L-29):** o SDL precisou reservar dez categorias vazias porque congelou a lista num enum → **D-LOG-6, categoria é texto, não enumeração**. Mais Vulkan, SQLite, GLFW, libinput, PipeWire, sokol, `log` do Rust e `slog` do Go.
+
+**As oito decisões:** recebedor é ponteiro de função mais contexto opaco, nunca objeto-função (D-LOG-1); severidade é inteiro sem sinal com folga de 100 entre níveis, zero significa desconhecido, só se acrescenta (D-LOG-2); evento é identificador mais campos tipados, **sem prosa** — execução da regra R7, que é decisão permanente do líder (D-LOG-3); envelope semi-opaco com acessores, no molde do tipo de erro (D-LOG-4); troca atômica sem cadeado, ordem garantida por linha de execução, reentrância permitida (D-LOG-5); categoria é texto (D-LOG-6); silêncio por padrão (D-LOG-7); e a fatia inclui **uma emissão real** — a resolução da placa de vídeo — chamada pelos dois adaptadores, com consumidor instalado nos dois sistemas (D-LOG-8).
+
+**Verificado por mim na árvore antes de despachar (L-34 passo 3), não aceito do relatório:** o precedente citado para o D-LOG-1 existe e é exatamente o que ele diz (`include/glintfx/gfui/node_view.hpp:159`, ponteiro de função mais contexto); e os dois adaptadores que o D-LOG-8 toca existem nos caminhos declarados (`src/platform/wayland/egl_context_adapter.cpp`, `src/platform/win32/wgl_context_adapter.cpp`).
+
+**O QUE CONGELA, e é o que faz desta uma porta de mão única:** a assinatura do recebedor, o layout de três tipos por valor, o tipo subjacente e os valores publicados de severidade e de espécie, as duas funções de registro e sua semântica, e os nomes públicos. **O que fica livre para crescer sem quebrar ninguém:** acessores novos, valores novos de severidade e espécie, categorias e nomes de evento (que são texto), funções novas, e todo o interior da emissão.
+
+**UMA PERGUNTA QUE O `fable` NÃO DECIDIU, e fez certo em não decidir:** se este recebedor é o *"canal separado"* que o líder mencionou na decisão 2 de 27/08/2026 para o defeito interno do motor de estilo — ocasião em que ele disse **"quero discutir"**, reservando o assunto para si. O `fable` não herda o que o líder reservou. **Não bloqueia:** o desenho serve sem a resposta, e nada é migrado nesta fatia.
+
+**Custo de reverter:** alto depois de publicado; **nenhum agora** — nada disto está em marca nenhuma ainda.

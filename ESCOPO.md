@@ -1269,3 +1269,31 @@ consumidor ajusta o que quiser, quando quiser, do lado dele.
 **O que isto exige da API:** o consumidor precisa conseguir PERGUNTAR quais sao
 os valores sugeridos, sem que perguntar mude nada. A sugestao e informacao, e
 informacao pedida nunca altera o estado de quem a pediu.
+
+## Ordem de produto de 09/09/2026: a animação por troca de desenho, e o formato dela  `[09/09/26 - 16:29:55]`
+
+**Como a pergunta chegou, verbatim do líder:** *"é possivel adicionar animacoes pequenas para (por exemplo) caminhar em direcoes? A animacao ficaria em loop. QUe extensao poderia utilizar?"*
+
+**O fato que a pergunta expôs, medido antes de responder:** as vinte e poucas fatias `ANIM-*` e `R2D-*` que a tabela carrega animam **propriedade** (posição, escala, opacidade, cor, tremor, rastro). Nenhuma delas troca o DESENHO do objeto. Caminhar é trocar o desenho várias vezes por segundo, em ciclo, escolhendo o ciclo pela direção. **Zero fatias cobrem isso** (contado em `TODO.md` e neste arquivo). Era buraco, não esquecimento de leitura.
+
+**E este arquivo já tinha previsto a pergunta.** A seção "Extensão de artefato" registrou, quando o `.gw.map` foi decidido: *"se a biblioteca ganhar um segundo formato próprio (atlas de sprite, definição de animação, pacote de asset - nenhum em escopo hoje), o sobrenome dele volta a ser pergunta. Registrado para não se redescobrir."* Voltou, e não foi preciso redescobrir.
+
+### Decisão 1 - onde a trilha nasce
+
+O líder escolheu **encaixar dentro da trilha de desenho que já existe**, e não abrir onda própria. A razão que pesou na opção: o ciclo de quadros depende do desenho de imagem na tela e do depósito que junta vários desenhos, e nenhum dos dois existe ainda; trilha própria nasceria bloqueada. **Custo aceito e declarado:** engorda um bloco que a régua de porte deste projeto já aponta como grande; o fatiamento tem de dividir, não empilhar.
+
+### Decisão 2 - as três fontes de quadro, verbatim
+
+*"Teremos opcao de usar spritesheet, varios arquivos em sequencia ou videos curtos."*
+
+As duas primeiras entram como pedidas. A terceira **mudou depois da objeção**, e a objeção fica registrada porque ela é o motivo da mudança.
+
+**A objeção que apresentei antes de virar item:** arquivo de vídeo não guarda desenhos, guarda instruções de como reconstruir cada quadro a partir do anterior; ler isso em casa, sob a lei de dependência zero, custa entre dez e cem vezes o leitor de imagem inteiro que a `IMG-PNG`/`IMG-INFLATE` já planejam, e os formatos modernos são cobertos por patentes. O risco concreto não é o custo: é a fatia entregue pela metade, que existe e não funciona - o defeito que esta semana inteira vem caçando.
+
+**O líder decidiu, com a objeção na mesa: imagem animada no lugar de vídeo.** A terceira fonte passa a ser o mesmo formato de imagem que a biblioteca já vai ler, com vários quadros dentro de um arquivo só, em ciclo. Para quem consome, o efeito é o de um vídeo curto: um arquivo, e ele se move. **O que fica explicitamente FORA, e por quê:** arquivo de câmera ou de editor de vídeo; quem tiver um precisa exportá-lo antes.
+
+### Decisão 3 - a extensão própria
+
+**`.gf.anim`**, escolhida pelo líder. Segue a forma do precedente do mapa (`.gw.map`): sobrenome curto identificando a origem, mais a palavra que diz o que é. O arquivo descreve os ciclos - quais desenhos, em que ordem, quanto tempo cada um, qual direção - e é dado, não binário, o que a **L-38** já autoriza (*"Dado é nosso e pode ter extensão própria"*).
+
+**O que NÃO foi decidido aqui, e não deve ser inventado por agente nenhum:** a gramática de dentro do arquivo, como as três fontes de quadro se declaram nele, e como o ciclo se liga à direção do personagem. Isso é fatiamento, e o fatiamento passa pelo passo 2 da L-34 com pesquisa antes (L-43), olhando como o RmlUi, o SDL3 e os motores 2D resolvem o mesmo problema.

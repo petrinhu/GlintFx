@@ -2701,3 +2701,20 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Fontes consultadas (emenda da L-34, 09/09/26 - 00:22:19): NENHUMA — e isto é declarado, não escondido.** Esta decisão foi tomada MINUTOS ANTES de o líder emendar a L-34 exigindo que a pesquisa venha primeiro. O que a fundamentou foi a lei de fechamento de onda (texto do próprio líder, em `GODS_LAWS.md`) e um achado medido nesta mesma sessão (o `GFSS-SEL-PARSE-NTH` reprovado por teste que copiava o valor da implementação) — nenhuma busca em manual, comunidade ou biblioteca de referência foi feita, porque a regra que a exige ainda não existia. **Registrado assim de propósito:** a emenda diz que fonte não citada é fonte não consultada, e reescrever este parágrafo como se a pesquisa tivesse acontecido seria exatamente a mentira que a lei existe para impedir. Da próxima decisão em diante, a ordem das cinco fontes vale inteira.
 
 **Porta de mão única:** sim, pelo próprio item — ele congela a representação pública do identificador de propriedade, que é contrato. **Custo de reverter:** alto depois de publicado, baixo agora (nenhuma marca expõe o registro ainda).
+
+#### D-090902 — os três itens já implementados da W5 vão numa revisão só, com veredito separado  `[09/09/26 - 00:46:53]`
+
+**Quem decidiu:** o main, como orquestrador. **Onda:** W5.
+
+**A pergunta, como teria ido ao líder:** os três itens em pendente de verificação da W5 (`GFSS-SEL-PARSE-NOT`, `GFSS-MATCH-ATTR`, `GFSS-MATCH-STRUCT`) vão a três revisões separadas ou a uma só?
+
+**Opções na mesa:** (a) uma revisão por item, três agentes em série; (b) uma revisão só cobrindo os três, com veredito separado por item; (c) revisar só o de maior valor agora e adiar os outros dois.
+
+**Escolhida: (b).** Os três são do MESMO módulo e a mesma família de defeito acabou de ser confirmada duas vezes ali — um revisor com os três na mão enxerga o padrão que três revisores isolados não veriam. A lei de um trabalho pesado por vez (L-11) também pesa: três revisões separadas são três reconstruções completas da suíte. **O que impede isso de virar monolito** (ordem do líder de 08/09: *"já falei que não quero monolitos"*): o briefing exige **veredito SEPARADO por item**, com números próprios de cada um — o escopo é uma trilha coerente, não um saco.
+
+**Fontes consultadas (L-34, emenda de 09/09/2026):**
+- **Manual/canon do projeto:** `GODS_LAWS.md` L-11 (um trabalho pesado por vez, teto de agentes) e L-12 (implementador ≠ revisor ≠ orquestrador) — foram eles que decidiram a forma, não preferência minha.
+- **Achado medido nesta própria sessão, que vale mais que qualquer manual aqui:** o `GFSS-SEL-PARSE-NTH` reprovado por valor esperado copiado da implementação, e o achado colateral nas 149 cores nomeadas. É a evidência direta de que a família de defeito está viva NESTE módulo, e foi ela que definiu a lente do ataque.
+- **Web, comunidade, RmlUi/SDL3:** **não consultados, e declaro por quê** — a decisão é de sequenciamento de revisão dentro das nossas próprias leis, não de desenho de produto nem de técnica de implementação. Não há manual externo nem dor de comunidade que decida se três itens irmãos vão a um ou a três revisores; o que decide é a lei do projeto e o custo medido de reconstrução da suíte. Quando a revisão devolver achado de PRODUTO, aí sim a fonte externa (especificação CSS) é obrigatória, e o briefing já exige que cada valor esperado seja conferido contra ela.
+
+**Porta de mão única:** não. **Custo de reverter:** baixo — se o relatório vier confuso ou raso, os itens voltam a revisões separadas sem nada perdido.

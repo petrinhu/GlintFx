@@ -212,8 +212,7 @@ struct registry_doc_row {
 };
 
 [[nodiscard]] bool is_registry_row(const std::vector<std::string> &cols) {
-    return cols.size() == 8 && !cols[0].empty() &&
-           std::ranges::all_of(cols[0], is_ascii_digit);
+    return cols.size() == 8 && !cols[0].empty() && std::ranges::all_of(cols[0], is_ascii_digit);
 }
 
 // grep -cE '^\| [0-9]+ \|' docs/gfss-property-registry-v1.md finds
@@ -316,6 +315,7 @@ struct registry_doc_row {
 
 [[nodiscard]] std::vector<std::string> keywords_from_contract(const property_value_contract &c) {
     std::vector<std::string> words;
+    words.reserve(c.keyword_count);
     for (std::uint8_t i = 0; i < c.keyword_count; ++i) {
         words.emplace_back(gltfx_gfss_keyword_name(c.keywords[i]));
     }
@@ -337,29 +337,28 @@ struct registry_doc_row {
 // One row's own verdict - std::nullopt means the doc and the code
 // agree; anything else is the mismatch this test prints and fails on.
 [[nodiscard]] std::optional<std::string> compare_row(const registry_doc_row &doc_row,
-                                                      const property_value_contract &code) {
+                                                     const property_value_contract &code) {
     if (tipo_is_pure_color(doc_row.tipo)) {
         if (!code.is_color) {
             return std::format("id {} ({}): doc diz \"cor\", k_property_value_contracts nao "
-                                "marca is_color",
-                                doc_row.id, doc_row.sheet_name);
+                               "marca is_color",
+                               doc_row.id, doc_row.sheet_name);
         }
         return std::nullopt;
     }
     if (tipo_is_time_list(doc_row.tipo)) {
         if (!code.comma_separated) {
-            return std::format(
-                "id {} ({}): doc diz \"<time>#\", k_property_value_contracts nao e "
-                "comma_separated (contract_time_list)",
-                doc_row.id, doc_row.sheet_name);
+            return std::format("id {} ({}): doc diz \"<time>#\", k_property_value_contracts nao e "
+                               "comma_separated (contract_time_list)",
+                               doc_row.id, doc_row.sheet_name);
         }
         return std::nullopt;
     }
     if (tipo_is_raw_composite(doc_row.tipo)) {
         if (!code.raw_composite) {
             return std::format("id {} ({}): doc indica composto cru (\"{}\"), "
-                                "k_property_value_contracts nao marca raw_composite",
-                                doc_row.id, doc_row.sheet_name, doc_row.tipo);
+                               "k_property_value_contracts nao marca raw_composite",
+                               doc_row.id, doc_row.sheet_name, doc_row.tipo);
         }
         return std::nullopt;
     }
@@ -369,9 +368,9 @@ struct registry_doc_row {
     // are even comparable.
     if (code.is_color || code.raw_composite || code.comma_separated) {
         return std::format("id {} ({}): doc parece ordinaria (\"{}\"), mas "
-                            "k_property_value_contracts marca is_color/raw_composite/"
-                            "comma_separated",
-                            doc_row.id, doc_row.sheet_name, doc_row.tipo);
+                           "k_property_value_contracts marca is_color/raw_composite/"
+                           "comma_separated",
+                           doc_row.id, doc_row.sheet_name, doc_row.tipo);
     }
 
     const std::uint8_t expected_natures = natures_from_tipo_text(doc_row.tipo);
@@ -411,10 +410,9 @@ struct registry_doc_row {
     }
     const std::string_view sentence_end_marker = "Vivem em";
     const std::size_t sentence_end = doc_text.find(sentence_end_marker, heading_pos);
-    const std::string_view paragraph =
-        doc_text.substr(heading_pos, sentence_end == std::string_view::npos
-                                          ? std::string_view::npos
-                                          : sentence_end - heading_pos);
+    const std::string_view paragraph = doc_text.substr(
+        heading_pos, sentence_end == std::string_view::npos ? std::string_view::npos
+                                                            : sentence_end - heading_pos);
     return extract_backtick_groups(paragraph);
 }
 
@@ -422,8 +420,8 @@ struct registry_doc_row {
 // sweep (this file's own top comment); the other six are real CSS
 // spec fact, external to this project's own doc and code alike -----
 
-[[nodiscard]] std::string
-detail_by_sheet_name_prefix(const std::vector<registry_doc_row> &doc_rows, std::string_view prefix) {
+[[nodiscard]] std::string detail_by_sheet_name_prefix(const std::vector<registry_doc_row> &doc_rows,
+                                                      std::string_view prefix) {
     std::vector<std::string> names;
     for (const registry_doc_row &row : doc_rows) {
         if (row.sheet_name.starts_with(prefix)) {
@@ -463,7 +461,7 @@ GLINTFX_TEST(contract_table_matches_the_property_registry_doc) {
     int checked = 0;
     for (const registry_doc_row &doc_row : doc_rows) {
         GLINTFX_CHECK(doc_row.id >= 0 &&
-                     static_cast<std::size_t>(doc_row.id) < k_property_value_contracts.size());
+                      static_cast<std::size_t>(doc_row.id) < k_property_value_contracts.size());
         const auto property = static_cast<gltfx_gfss_property>(doc_row.id);
         // Ties the doc's own id to the REAL registered property, not
         // just position - a transposed row would otherwise still pass
@@ -497,6 +495,7 @@ GLINTFX_TEST(shorthand_names_match_the_property_registry_doc) {
     std::ranges::sort(doc_names);
 
     std::vector<std::string> code_names;
+    code_names.reserve(k_shorthand_names.size());
     for (const std::string_view name : k_shorthand_names) {
         code_names.emplace_back(name);
     }

@@ -176,10 +176,26 @@ gltfx_gfss_token_kind_name(gltfx_gfss_token_kind kind) noexcept;
 // copyable, safe to pass and return by value across the library
 // boundary (tokenizer.hpp's gltfx_gfss_next_token() does exactly
 // that).
+// `detail` (GFSS-DECL-PARSE, TODO.md, decision D-DP-3, project leader's
+// item already ratified 05/09/2026 E3/A5 - the plan's own gfss-decl-
+// parse.md SS2): an OPTIONAL fourth field, empty by default (the SAME
+// R4 convention as `expected` - empty means "not attached", never a
+// sentinel value). Holds a SPACE-SEPARATED list of vocabulary
+// IDENTIFIERS, never a sentence (docs/api-conventions.md R7 - the SAME
+// discipline `expected` itself already follows): "what specific names
+// does the consumer need to see" for a diagnostic whose `expected`
+// alone is not enough - the recognized longhands of a refused
+// shorthand, the renamed property to write instead, or the accepted
+// keywords for a property whose value is not one of them. This type is
+// NOT ABI-frozen (see this header's own top comment) - GFSS-API (TODO.
+// md, wave W10) is what congeals it, together with the rest of this
+// struct.
 struct gltfx_gfss_diagnostic {
     std::uint32_t line = 0;
     std::uint32_t column = 0;
     std::string_view expected; // empty = no diagnostic attached (R4)
+    std::string_view detail;   // empty = no extra detail (R4); space-separated identifiers, never
+                                // a sentence (R7)
 };
 
 // One token. Plain aggregate, same ABI-safety reasoning as

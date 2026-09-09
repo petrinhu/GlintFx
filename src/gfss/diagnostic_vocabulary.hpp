@@ -180,6 +180,17 @@
 // EXISTING producer with no matching production row in that producer's
 // own test file now FAILS TO COMPILE instead of passing a stale count.
 
+// GFSS-DECL-PARSE (TODO.md wave W5, plan
+// /var/tmp/glintfx-plan/gfss-decl-parse.md SS4.1) IS THE SEVENTH FATIA
+// TO ADD ROWS HERE, UNDER THE SAME 27/08/2026 POLICY: the twelve
+// identifiers below are declaration_parse.cpp's OWN (a NEW producer
+// file, hence the new gfss_diagnostic_producer::declaration_parse tag).
+// `component_value` (value_parse) and `known_dimension_unit`
+// (value_parse) are REUSED, never re-spelled under this new producer -
+// an empty declaration value (`color: ;`) and a dimension whose unit
+// this track's contract does not recognize are the SAME conditions
+// value_parse.cpp already names, reached through a different caller.
+
 namespace glintfx::style::detail {
 
 // Which producer file EMITS a diagnostic carrying this identifier - see
@@ -187,11 +198,12 @@ namespace glintfx::style::detail {
 // and gfss_diagnostic_entry/k_expected_entries/count_owned_by() below
 // for how a producer's own test proves it against this tag.
 enum class gfss_diagnostic_producer : std::uint8_t {
-    tokenizer,      // src/gfss/tokenizer.cpp (GFSS-TOKEN)
-    selector_parse, // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE +
-                    // GFSS-SEL-PARSE-PSEUDO-ELEMENT)
-    value_parse,    // src/gfss/value_parse.cpp (GFSS-VALUE)
-    anb_parse,      // src/gfss/anb_parse.cpp (GFSS-SEL-PARSE-NTH)
+    tokenizer,          // src/gfss/tokenizer.cpp (GFSS-TOKEN)
+    selector_parse,     // src/gfss/selector_parse.cpp (GFSS-SEL-PARSE-CORE +
+                        // GFSS-SEL-PARSE-PSEUDO-ELEMENT)
+    value_parse,        // src/gfss/value_parse.cpp (GFSS-VALUE)
+    anb_parse,          // src/gfss/anb_parse.cpp (GFSS-SEL-PARSE-NTH)
+    declaration_parse,  // src/gfss/declaration_parse.cpp (GFSS-DECL-PARSE)
 };
 
 #define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                   \
@@ -217,7 +229,19 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(known_dimension_unit, value_parse)                                                           \
     X(anb_expression, anb_parse)                                                                   \
     X(anb_offset, anb_parse)                                                                       \
-    X(end_of_anb_expression, anb_parse)
+    X(end_of_anb_expression, anb_parse)                                                            \
+    X(property_name, declaration_parse)                                                            \
+    X(known_property_name, declaration_parse)                                                      \
+    X(longhand_property_names, declaration_parse)                                                  \
+    X(renamed_property_name, declaration_parse)                                                    \
+    X(colon_after_property_name, declaration_parse)                                                \
+    X(important_flag_at_end_of_value, declaration_parse)                                           \
+    X(universal_keyword_alone, declaration_parse)                                                  \
+    X(keyword_for_property, declaration_parse)                                                     \
+    X(value_nature_for_property, declaration_parse)                                                \
+    X(value_count_for_property, declaration_parse)                                                 \
+    X(value_in_range_for_property, declaration_parse)                                              \
+    X(semicolon_or_end_of_declaration, declaration_parse)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

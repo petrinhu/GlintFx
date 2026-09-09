@@ -1523,6 +1523,19 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
+        # CORE-LOG CL-7 (CORE-LOG-CI, run 34329543846, commit 1b072c6) -
+        # TERCEIRA encarnacao do mesmo defeito nomeado no comentario acima
+        # (07/09/2026: seis arquivos GL-GPU-KIND faltando; 09/09/2026:
+        # gpu_kind_report.cpp faltando, o atomo novo que CL-7 fez wgl_
+        # context_adapter.cpp's own classify_current_gpu() chamar).
+        # LNK2019 nos dois simbolos, LNK1120 no executavel:
+        #   wgl_context_adapter.cpp.obj : error LNK2019: unresolved
+        #     external symbol "...resolve_gpu_kind_report(...)"
+        #   wgl_context_adapter.cpp.obj : error LNK2019: unresolved
+        #     external symbol "...report_gpu_kind_resolved(...)"
+        #   tests\win32_iconic_present_test.exe : fatal error LNK1120:
+        #     2 unresolved externals
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
     )
     target_link_libraries(win32_iconic_present_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
 

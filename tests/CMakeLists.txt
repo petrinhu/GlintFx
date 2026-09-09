@@ -50,6 +50,11 @@ glintfx_add_test(time_test)
 # exactly like time_test/math2d_test above.
 glintfx_add_test(fixed_step_test)
 
+# CORE-LOG CL-1 (TODO.md W5, GODS_LAWS.md L-19/L-20/L-26/L-40): the
+# numeric, append-only severity scale plano/core-log.md Q2 fixes - see
+# log_severity_test.cpp's own header comment.
+glintfx_add_test(log_severity_test)
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

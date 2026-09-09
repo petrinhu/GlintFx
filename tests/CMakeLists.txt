@@ -87,6 +87,13 @@ target_include_directories(log_event_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 glintfx_add_test(log_sink_test)
 target_include_directories(log_sink_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 
+# CORE-LOG CL-5 (TODO.md W5, GODS_LAWS.md L-19/L-20/L-26/L-40): the
+# hot-path cost promise, plano/core-log.md Q4 - see
+# log_no_alloc_test.cpp's own header comment (harness of
+# err_no_alloc_test.cpp/CE-2).
+glintfx_add_test(log_no_alloc_test)
+target_include_directories(log_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
 # CORE-MATH2D (TODO.md W4, GODS_LAWS.md L-19/L-20/L-26/L-40): the six
 # frozen pieces of the core layer's 2D math - vector, matrix,
 # rectangle, transform, angle and interpolation - across the project's

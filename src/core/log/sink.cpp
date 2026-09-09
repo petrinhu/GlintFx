@@ -2,6 +2,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <optional>
 
 #include <glintfx/core/log/sink.hpp>
 
@@ -88,22 +89,48 @@ gltfx_log_sink gltfx_log_get_sink() noexcept {
     return current != nullptr ? *current : gltfx_log_sink{};
 }
 
-void log_emit(gltfx_log_severity severity, std::string_view category, std::string_view name,
-              std::span<const gltfx_log_field> fields) noexcept {
+namespace {
+
+// Shared by log_would_emit()/log_emit(): loads the registry and
+// copies it (see "DECLARED RESIDUAL LIMITATION" above for why this is
+// ONE non-atomic copy, not spread reads), returning an EMPTY optional
+// when there is no sink or `severity` is below its threshold - the
+// one gate both functions answer, so they can never disagree.
+std::optional<gltfx_log_sink> snapshot_admitting(gltfx_log_severity severity) noexcept {
     const gltfx_log_sink *current = g_current.load(std::memory_order_acquire);
     if (current == nullptr) {
-        return;
+        return std::nullopt;
     }
-    // One non-atomic copy, immediately after the load - see the
-    // "DECLARED RESIDUAL LIMITATION" paragraph above for why this
-    // shrinks, but does not close, the reuse window.
     const gltfx_log_sink snapshot = *current;
     if (severity < snapshot.minimum) {
+        return std::nullopt;
+    }
+    return snapshot;
+}
+
+} // namespace
+
+bool log_would_emit(gltfx_log_severity severity) noexcept {
+    return snapshot_admitting(severity).has_value();
+}
+
+// CL-5's ordering promise (Q4, emit.hpp's own "DEFERRED FIELD
+// CONSTRUCTION" comment) lives in these two lines, in THIS order:
+// filter FIRST (snapshot_admitting), montar (call build_fields())
+// SECOND - tests/log_no_alloc_test.cpp's mutation swaps them to prove
+// the order is load-bearing, not decorative.
+void log_emit(gltfx_log_severity severity, std::string_view category, std::string_view name,
+              log_field_builder_fn build_fields, void *builder_context) noexcept {
+    const std::optional<gltfx_log_sink> snapshot = snapshot_admitting(severity);
+    if (!snapshot.has_value()) {
         return;
     }
+    const std::span<const gltfx_log_field> fields = build_fields != nullptr
+                                                        ? build_fields(builder_context)
+                                                        : std::span<const gltfx_log_field>{};
     const gltfx_log_event_data data{severity, category, name, fields};
     const gltfx_log_event event(data);
-    snapshot.function(snapshot.context, event);
+    snapshot->function(snapshot->context, event);
 }
 
 } // namespace glintfx

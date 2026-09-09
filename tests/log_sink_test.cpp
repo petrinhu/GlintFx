@@ -56,7 +56,8 @@ void recording_sink(void *sink_context, const gltfx_log_event &event) noexcept {
 }
 
 void emit_sample(gltfx_log_severity severity, std::string_view name) {
-    log_emit(severity, "core", name, std::span<const glintfx::gltfx_log_field>{});
+    // nullptr build_fields: no fields, see emit.hpp's own comment.
+    log_emit(severity, "core", name, nullptr, nullptr);
 }
 
 } // namespace
@@ -148,6 +149,8 @@ extern "C" void extern_c_sink(void *sink_context, const gltfx_log_event &event) 
     record->last_context = sink_context;
 }
 
+namespace {
+
 struct static_member_sink_owner {
     static void handle(void *sink_context, const gltfx_log_event &event) noexcept {
         auto *record = static_cast<call_record *>(sink_context);
@@ -156,6 +159,8 @@ struct static_member_sink_owner {
         record->last_context = sink_context;
     }
 };
+
+} // namespace
 
 GLINTFX_TEST(log_sink_extern_c_and_static_member_sinks_work_and_context_is_identical) {
     reset_sink();
@@ -166,8 +171,8 @@ GLINTFX_TEST(log_sink_extern_c_and_static_member_sinks_work_and_context_is_ident
     GLINTFX_CHECK(record_c.last_context == &record_c);
 
     call_record record_member;
-    gltfx_log_set_sink(
-        gltfx_log_sink{&static_member_sink_owner::handle, &record_member, gltfx_log_severity::info});
+    gltfx_log_set_sink(gltfx_log_sink{&static_member_sink_owner::handle, &record_member,
+                                      gltfx_log_severity::info});
     emit_sample(gltfx_log_severity::info, "via-static-member");
     GLINTFX_CHECK(record_member.count == 1);
     GLINTFX_CHECK(record_member.last_context == &record_member);

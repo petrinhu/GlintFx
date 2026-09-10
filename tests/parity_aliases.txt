@@ -47,6 +47,22 @@
 # cinco plataformas em 7ee0074 - par verificado, nao suposto.
 display_connect_failure_test|win32_display_connect_test
 
+# LIB-NO-UNDEF-WIN (TODO.md, 09/09/2026): lib_no_undef_test/lib_no_undef_
+# selftest (tests/CMakeLists.txt, if(UNIX), tools/check_no_undef_glintfx.py)
+# e no_undef_glintfx_win_test/no_undef_glintfx_win_selftest
+# (tests/CMakeLists.txt, if(WIN32), tools/ci/check-no-undef-glintfx-win.ps1)
+# provam a MESMA premissa historica (commit 8eb7d73: dois .cpp que faltavam
+# no target_sources() de glintfx_library, symbol undefined dinamico no
+# Linux) por mecanismos diferentes - nm -D --undefined-only no Linux,
+# presenca dos .obj dentro do diretorio Ninja do alvo no Windows (o
+# link.exe da Microsoft nunca deixa um .dll existir com a falha real, entao
+# o lado Windows verifica a premissa, nao o sintoma). As DUAS linhas ficam
+# com o mesmo item porque nasceram e fecham juntas nesta fatia - a excecao
+# antiga que descrevia esta ausencia (tests/parity_exceptions.txt) foi
+# removida no mesmo commit que acrescentou estas duas.
+lib_no_undef_test|no_undef_glintfx_win_test
+lib_no_undef_selftest|no_undef_glintfx_win_selftest
+
 # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, D-W6a-16,
 # 05/09/2026, coluna "Par no portao" da propria tabela de fatias):
 # win32_display_refusal_test (tests/CMakeLists.txt, if(WIN32)) prova a

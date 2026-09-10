@@ -2044,8 +2044,13 @@ endif()
 # step of its own, so cross-object "undefined" is the expected shape,
 # not a defect); the real link-time guarantee for a static consumer is
 # out of this repository's reach. Windows counterpart: tools/ci/check-
-# no-undef-glintfx-win.ps1 (registered in the `windows` CI job) - the
-# defect is impossible there BY CONSTRUCTION (MSVC's link.exe refuses
+# no-undef-glintfx-win.ps1, registered as no_undef_glintfx_win_test/
+# no_undef_glintfx_win_selftest in the if(WIN32) block below
+# (LIB-NO-UNDEF-WIN; before that fatia this comment claimed the script
+# was already wired and it was not - neither add_test nor a raw CI
+# step ever called it, measured by grep against both this file and
+# .github/workflows/ci.yml). See tests/parity_aliases.txt for the
+# name pair. The defect is impossible there BY CONSTRUCTION (MSVC's link.exe refuses
 # to produce a DLL with any unresolved internal reference, LNK2019/
 # LNK1120, unlike GNU ld's default for a .so), so that script instead
 # verifies the specific historical premise (both .cpp files actually
@@ -3611,6 +3616,38 @@ if(WIN32)
             -Modo "${GLINTFX_CTEST_MODO}" -BuildDir "${PROJECT_BINARY_DIR}"
     )
     set_tests_properties(exports_win_test PROPERTIES LABELS consume)
+
+    # LIB-NO-UNDEF-WIN: no_undef_glintfx_win_test e par de
+    # lib_no_undef_test (if(UNIX) acima, tools/check_no_undef_
+    # glintfx.py); no_undef_glintfx_win_selftest e par de lib_no_undef_
+    # selftest. tools/ci/check-no-undef-glintfx-win.ps1 ja existia no
+    # disco (seu proprio cabecalho documenta o defeito historico,
+    # commit 8eb7d73, e os quatro controles de -SelfTest) mas nunca
+    # tinha virado ctest nem passo cru do job `windows` - medido antes
+    # desta fatia: nem tests/CMakeLists.txt nem .github/workflows/
+    # ci.yml chamavam o script em lugar nenhum, apesar do comentario
+    # acima (bloco if(UNIX), "Windows counterpart... registered in the
+    # windows CI job") e de tests/parity_exceptions.txt descreverem os
+    # dois como se ja rodassem cru - as duas descricoes estavam
+    # desatualizadas, nao havia razao de desenho para a ausencia. Nomes
+    # diferentes dos dois lados (mesma convencao dos outros pares desta
+    # secao) - ver tests/parity_aliases.txt para o apelido, e
+    # tests/parity_exceptions.txt onde a excecao antiga foi removida na
+    # mesma fatia.
+    add_test(
+        NAME no_undef_glintfx_win_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-no-undef-glintfx-win.ps1" -SelfTest
+    )
+    set_tests_properties(no_undef_glintfx_win_selftest PROPERTIES LABELS selftest)
+
+    add_test(
+        NAME no_undef_glintfx_win_test
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/check-no-undef-glintfx-win.ps1"
+            -Modo "${GLINTFX_CTEST_MODO}" -BuildDir "${PROJECT_BINARY_DIR}"
+    )
+    set_tests_properties(no_undef_glintfx_win_test PROPERTIES LABELS consume)
 
     # CI-CONSUME (Concluido): par de consume_test (if(UNIX) acima,
     # tools/check_consume.sh) - ver tests/parity_aliases.txt.

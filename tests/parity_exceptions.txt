@@ -236,30 +236,6 @@ registry_smoke|windows|nenhum|SEM-PENDENCIA
 pump_smoke|windows|nenhum|SEM-PENDENCIA
 fatal_error_smoke|windows|nenhum|SEM-PENDENCIA
 
-# --- Lacuna real, com item aberto (05/09/2026, estreia deste portao no
-# servidor, run 33989546515) -------------------------------------------
-#
-# lib_no_undef_test e lib_no_undef_selftest (tests/CMakeLists.txt:896/
-# 904, if(UNIX)) existem no Linux e faltam no Windows DE VERDADE - isto
-# nao e falso positivo do parser (ver ESTREIA-CTEST-HEADER em
-# check_test_parity.py, que consertou os OUTROS quatro problemas desta
-# mesma estreia). O item que rastreia o fechamento, LIB-NO-UNDEF-WIN
-# (TODO.md), ja nasceu aberto sabendo exatamente disto: no modo
-# COMPARTILHADO a lacuna e' impossivel por construcao (o link.exe da
-# Microsoft recusa produzir um .dll com referencia interna sem
-# definicao, LNK2019/LNK1120) e ja tem gemeo real, so que nunca virou
-# ctest - tools/ci/check-no-undef-glintfx-win.ps1 (registrado como
-# passo cru do job `windows`, nunca com add_test) verifica a MESMA
-# premissa historica (commit 8eb7d73) por outro mecanismo, e tem o
-# proprio -SelfTest. No modo ESTATICO, ainda nao ha gemeo nenhum - e' a
-# metade que LIB-NO-UNDEF-WIN ainda precisa escrever (varredura de
-# simbolos da .lib contra o nosso proprio namespace). As duas linhas
-# ficam com o MESMO item porque as duas fecham juntas quando ele fechar
-# - apague as duas no mesmo commit que marcar LIB-NO-UNDEF-WIN como
-# Concluido, a regra deste arquivo reprova se uma ficar para tras.
-lib_no_undef_test|windows|check-no-undef-glintfx-win.ps1 (tools/ci/, cobre o modo compartilhado, roda como passo cru do job windows, nunca virou ctest)|LIB-NO-UNDEF-WIN
-lib_no_undef_selftest|windows|check-no-undef-glintfx-win.ps1 -SelfTest (mesmo script, mesma limitacao de nao ser ctest)|LIB-NO-UNDEF-WIN
-
 # --- WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8), lacuna
 # real, ATUALIZADA por WL-WINDOW-HANDLE (fatia 11/P-1, 06/09/2026) -----
 #

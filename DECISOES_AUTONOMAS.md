@@ -2839,3 +2839,25 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Uma inferência declarada como inferência, para o senhor ratificar:** recusar `gltfx-Velocity` acima de 3. A sua ordem falava em faixa válida de zero a três e mandava recusar negativo; recusar acima de três é a leitura simétrica, não uma ordem sua.
 
 **Achado que o plano produziu e que vale além dele:** dois pontos da especificação do registro de propriedades afirmam coisas que a árvore não tem (a coluna de tipo, e um nível de gravidade no diagnóstico "que já é campo dele"). É a mesma família do defeito que esta madrugada já encontrou duas vezes: o texto que afirma uma garantia que o código não dá. A correção do documento entra na última sub-fatia.
+
+#### D-090918 — o assento do Windows troca de mecanismo, porque o atual desliga o teclado de quem usa a biblioteca  `[09/09/26 - 23:44:13]`
+
+**Quem decidiu:** o `fable` (CTO), sob modo autônomo, com a ordem do líder de 09/09 verbatim: *"clevel resolve duvidas do mesmo modo que falei antes e registra depois para mim"*. **Plano:** `/var/tmp/glintfx-plan/win-seat.md`.
+
+**O achado, e ele é contra o próprio CTO:** o desenho que ele escreveu em 05/09 manda registrar o dispositivo bruto para receber aviso de mudança. A pesquisa que a lei obriga a fazer ANTES de fatiar leu a documentação da Microsoft e encontrou, verbatim: *"Only one window per raw input device class may be registered to receive raw input within a process"* e *"RegisterRawInputDevices should not be used from a library, as it may interfere with any raw input processing logic already present in applications that load it."*
+
+**Por que isso é grave neste projeto, e não em qualquer projeto:** a LEI ZERO deste repositório diz que a biblioteca é pública, com base de consumidores aberta e desconhecida. **Três consequências medidas contra a documentação:** um consumidor que registre entrada bruta para o próprio jogo desliga o nosso aviso de mudança em silêncio; o nosso fechamento remove o registro do PROCESSO INTEIRO e desliga a entrada bruta DELE; e dois assentos no mesmo processo roubam o registro um do outro. Nada disso apareceria nos nossos testes, porque em todos eles a biblioteca é o único registrante.
+
+**O que ele decidiu:** trocar pelo aviso por interface de dispositivo, na mesma janela só de mensagens. É por identificador de janela, não guarda estado de processo, e chega pela mesma bomba de eventos. **O SDL3 confirma a técnica** (não usa o mecanismo de entrada bruta para teclado e mouse, só para controle de jogo) — lido para aprender, nada copiado, como a lei permite.
+
+**Nenhuma decisão é porta de mão única, e nada toca cabeçalho público.**
+
+**Verificado por mim antes de aceitar (L-12):** o assento do Windows existe (`src/platform/win32/seat_adapter.cpp`), o tipo de capacidades já está na camada comum (`src/platform/input/seat_capabilities.hpp`), os dois testes passaram no servidor no run 34428933457 (posições 78 e 79 de 173), e o código de fato chama o mecanismo desaconselhado (linhas 295-320).
+
+**⚠ DUAS FICAM RESERVADAS AO LÍDER, e o `fable` recusou decidi-las:**
+1. **A régua de quantas teclas fazem um teclado.** O Linux exige 32 teclas base; hoje um receptor de mouse com teclas de mídia conta como teclado no Windows e não conta no Linux. Uniformizar muda comportamento observável pelo consumidor.
+2. **Usuário por Área de Trabalho Remota enxerga zero teclado e zero mouse.** A Microsoft documenta que a lista bruta exclui esses dispositivos. Vai para a fila como item próprio, sem conserto decidido.
+
+**Achado colateral que vale além da fatia:** a onda W6a **não tem linha de fechamento**, então o portão de coerência que construí hoje nunca olha para ela. Está no critério de fechamento do plano.
+
+**E o oitavo item do dia com texto que não bate com a árvore:** o commit que fechou o assento do Wayland esqueceu de marcar o do Windows, embora a ordem do líder de 02/09 tenha tornado os dois *"uma entrega só"*. A tabela contradizia a própria linha.

@@ -15,15 +15,17 @@
 #include "harness/test_registry.hpp"
 #include "platform/input/seat_capabilities.hpp"
 #include "platform/win32/device_change_message.hpp"
+#include "platform/win32/raw_device_facts.hpp"
 #include "platform/win32/seat_adapter.hpp"
 
 // win32_seat_translation_test.cpp - Y-1 (docs/plano-w6a-janela.md
 // fatia 13, "listas sinteticas" - the plan's own name for THIS file):
 // win32_seat_adapter::translate() exercised directly against
-// hand-built RAWINPUTDEVICELIST arrays and digitizer bitmasks - no
-// window, no RegisterRawInputDevices, no live device, the same "prove
-// the pure half on its own" role tests/window_configure_sequence_
-// test.cpp already plays for the Wayland side's own translation logic
+// hand-built win32_raw_device_facts arrays (raw_device_facts.hpp) and
+// digitizer bitmasks - no window, no RegisterDeviceNotificationW, no
+// live device, the same "prove the pure half on its own" role tests/
+// window_configure_sequence_test.cpp already plays for the Wayland
+// side's own translation logic
 // (docs/plano-w6a-janela.md fatia 4's own row). This is the Win32
 // counterpart of fatia 12's seat_adapter_listener_test (proxy nulo) -
 // GODS_LAWS.md L-04's "mecanismo pode diferir" pair, tests/parity_
@@ -49,6 +51,7 @@ using glintfx::platform::classify_device_change;
 using glintfx::platform::device_change_kind;
 using glintfx::platform::seat_capabilities;
 using glintfx::platform::seat_capability;
+using glintfx::platform::win32_raw_device_facts;
 using glintfx::platform::win32_seat_adapter;
 
 // NID_INTEGRATED_TOUCH/NID_EXTERNAL_TOUCH/NID_INTEGRATED_PEN: SM_
@@ -66,34 +69,24 @@ using glintfx::platform::win32_seat_adapter;
 
 GLINTFX_TEST(translate_reports_nothing_present_for_an_empty_device_list_and_zero_bitmask) {
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(nullptr, 0, 0, capabilities);
+    win32_seat_adapter::translate({}, 0, capabilities);
 
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::pointer));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::keyboard));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::touch));
 }
 
+// D-WS-5 (SF-3): keyboard_key_count is IGNORED for RIM_TYPEMOUSE -
+// translate_keeps_pointer_unfiltered_by_key_count below proves the same
+// fact from the other direction (a nonzero count on a MOUSE entry).
 GLINTFX_TEST(translate_reports_pointer_present_from_a_single_rim_typemouse_entry) {
-    RAWINPUTDEVICELIST devices[1]{};
-    devices[0].dwType = RIM_TYPEMOUSE;
+    win32_raw_device_facts devices[1]{{RIM_TYPEMOUSE, 0}};
 
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(devices, 1, 0, capabilities);
+    win32_seat_adapter::translate(devices, 0, capabilities);
 
     GLINTFX_CHECK(capabilities.has_capability(seat_capability::pointer));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::keyboard));
-    GLINTFX_CHECK(!capabilities.has_capability(seat_capability::touch));
-}
-
-GLINTFX_TEST(translate_reports_keyboard_present_from_a_single_rim_typekeyboard_entry) {
-    RAWINPUTDEVICELIST devices[1]{};
-    devices[0].dwType = RIM_TYPEKEYBOARD;
-
-    seat_capabilities capabilities;
-    win32_seat_adapter::translate(devices, 1, 0, capabilities);
-
-    GLINTFX_CHECK(!capabilities.has_capability(seat_capability::pointer));
-    GLINTFX_CHECK(capabilities.has_capability(seat_capability::keyboard));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::touch));
 }
 
@@ -103,11 +96,10 @@ GLINTFX_TEST(translate_reports_keyboard_present_from_a_single_rim_typekeyboard_e
 // or keyboard - the mutation this case exists to catch is exactly
 // that fold.
 GLINTFX_TEST(translate_ignores_rim_typehid_entries_for_pointer_and_keyboard) {
-    RAWINPUTDEVICELIST devices[1]{};
-    devices[0].dwType = RIM_TYPEHID;
+    win32_raw_device_facts devices[1]{{RIM_TYPEHID, 0}};
 
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(devices, 1, 0, capabilities);
+    win32_seat_adapter::translate(devices, 0, capabilities);
 
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::pointer));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::keyboard));
@@ -115,14 +107,14 @@ GLINTFX_TEST(translate_ignores_rim_typehid_entries_for_pointer_and_keyboard) {
 
 GLINTFX_TEST(translate_reports_touch_present_when_the_integrated_touch_bit_is_set) {
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(nullptr, 0, NID_INTEGRATED_TOUCH, capabilities);
+    win32_seat_adapter::translate({}, NID_INTEGRATED_TOUCH, capabilities);
 
     GLINTFX_CHECK(capabilities.has_capability(seat_capability::touch));
 }
 
 GLINTFX_TEST(translate_reports_touch_present_when_the_external_touch_bit_is_set) {
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(nullptr, 0, NID_EXTERNAL_TOUCH, capabilities);
+    win32_seat_adapter::translate({}, NID_EXTERNAL_TOUCH, capabilities);
 
     GLINTFX_CHECK(capabilities.has_capability(seat_capability::touch));
 }
@@ -133,19 +125,16 @@ GLINTFX_TEST(translate_reports_touch_present_when_the_external_touch_bit_is_set)
 // just because both live in the same SM_DIGITIZER bitmask.
 GLINTFX_TEST(translate_reports_touch_absent_when_only_the_pen_bit_is_set) {
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(nullptr, 0, NID_INTEGRATED_PEN, capabilities);
+    win32_seat_adapter::translate({}, NID_INTEGRATED_PEN, capabilities);
 
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::touch));
 }
 
 GLINTFX_TEST(translate_reports_all_three_capabilities_present_together) {
-    RAWINPUTDEVICELIST devices[3]{};
-    devices[0].dwType = RIM_TYPEMOUSE;
-    devices[1].dwType = RIM_TYPEKEYBOARD;
-    devices[2].dwType = RIM_TYPEHID;
+    win32_raw_device_facts devices[3]{{RIM_TYPEMOUSE, 0}, {RIM_TYPEKEYBOARD, 32}, {RIM_TYPEHID, 0}};
 
     seat_capabilities capabilities;
-    win32_seat_adapter::translate(devices, 3, NID_INTEGRATED_TOUCH | NID_READY, capabilities);
+    win32_seat_adapter::translate(devices, NID_INTEGRATED_TOUCH | NID_READY, capabilities);
 
     GLINTFX_CHECK(capabilities.has_capability(seat_capability::pointer));
     GLINTFX_CHECK(capabilities.has_capability(seat_capability::keyboard));
@@ -154,7 +143,7 @@ GLINTFX_TEST(translate_reports_all_three_capabilities_present_together) {
 
 // translate() overwrites `out` from scratch rather than only setting
 // bits already true - a caller re-using the same seat_capabilities
-// across a WM_INPUT_DEVICE_CHANGE recompute (win32_seat_adapter::
+// across a routed WM_DEVICECHANGE recompute (win32_seat_adapter::
 // recompute_capabilities()) depends on a PREVIOUSLY present device
 // that has since vanished from the list being cleared, not left
 // stale.
@@ -164,11 +153,71 @@ GLINTFX_TEST(translate_clears_a_previously_present_capability_no_longer_in_the_l
     capabilities.set_capability(seat_capability::keyboard, true);
     capabilities.set_capability(seat_capability::touch, true);
 
-    win32_seat_adapter::translate(nullptr, 0, 0, capabilities);
+    win32_seat_adapter::translate({}, 0, capabilities);
 
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::pointer));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::keyboard));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::touch));
+}
+
+// D-WS-5 (SF-3, win-seat.md sec. 1.6/3): the udev/systemd parity rule -
+// a keyboard-class device must positively report AT LEAST 32 keys
+// (raw_device_facts.hpp's own header comment) to count as a keyboard.
+// The mutation this case exists to catch: dropping the key-count filter
+// entirely (treating every RIM_TYPEKEYBOARD as present, the pre-SF-3
+// behavior this test would NOT have caught).
+GLINTFX_TEST(
+    translate_rejects_a_keyboard_class_device_with_fewer_keys_than_the_wayland_rule_needs) {
+    win32_raw_device_facts devices[1]{{RIM_TYPEKEYBOARD, 12}};
+
+    seat_capabilities capabilities;
+    win32_seat_adapter::translate(devices, 0, capabilities);
+
+    GLINTFX_CHECK(!capabilities.has_capability(seat_capability::keyboard));
+}
+
+// "nao invente ausencia" (GODS_LAWS.md L-04): a driver that never
+// answers GetRawInputDeviceInfoW (keyboard_key_count == 0, query_
+// keyboard_key_count()'s own degrade-to-0 path, seat_adapter.cpp) must
+// count as PRESENT, never as excluded for lack of proof. The mutation
+// this case exists to catch: treating 0 as "fewer than 32" instead of
+// "unknown".
+GLINTFX_TEST(translate_accepts_a_keyboard_class_device_with_unknown_key_count) {
+    win32_raw_device_facts devices[1]{{RIM_TYPEKEYBOARD, 0}};
+
+    seat_capabilities capabilities;
+    win32_seat_adapter::translate(devices, 0, capabilities);
+
+    GLINTFX_CHECK(capabilities.has_capability(seat_capability::keyboard));
+}
+
+// The exact fronteira, and one step past it (GODS_LAWS.md L-43: testar
+// sempre um passo alem da fronteira) - the mutation this case exists to
+// catch: using `>` instead of `>=` at the minimum.
+GLINTFX_TEST(translate_accepts_a_keyboard_at_exactly_the_minimum_key_count) {
+    win32_raw_device_facts at_minimum[1]{{RIM_TYPEKEYBOARD, 32}};
+    seat_capabilities capabilities_at_minimum;
+    win32_seat_adapter::translate(at_minimum, 0, capabilities_at_minimum);
+    GLINTFX_CHECK(capabilities_at_minimum.has_capability(seat_capability::keyboard));
+
+    win32_raw_device_facts one_below_minimum[1]{{RIM_TYPEKEYBOARD, 31}};
+    seat_capabilities capabilities_one_below;
+    win32_seat_adapter::translate(one_below_minimum, 0, capabilities_one_below);
+    GLINTFX_CHECK(!capabilities_one_below.has_capability(seat_capability::keyboard));
+}
+
+// The mutation this case exists to catch: applying the key-count filter
+// to RIM_TYPEMOUSE too (a mouse entry never carries a meaningful
+// keyboard_key_count, and this project's own recompute_capabilities()
+// never queries one for a mouse - seat_adapter.cpp's own query_
+// keyboard_key_count() comment).
+GLINTFX_TEST(translate_keeps_pointer_unfiltered_by_key_count) {
+    win32_raw_device_facts devices[1]{{RIM_TYPEMOUSE, 0}};
+
+    seat_capabilities capabilities;
+    win32_seat_adapter::translate(devices, 0, capabilities);
+
+    GLINTFX_CHECK(capabilities.has_capability(seat_capability::pointer));
 }
 
 // classify_device_change() (device_change_message.hpp/.cpp) - SF-1 of

@@ -31,6 +31,14 @@ namespace {
 constexpr int k_nid_integrated_touch = 0x01;
 constexpr int k_nid_external_touch = 0x02;
 
+// D-WS-5 (SF-3, win-seat.md sec. 1.6/3): the minimum key count a
+// RIM_TYPEKEYBOARD device must positively report to count as a keyboard
+// (raw_device_facts.hpp's own header comment explains the udev/systemd
+// parity rule this derives from) - a device that reports FEWER keys is
+// excluded; a device that reports 0 (query failed, or the driver never
+// answers) is NOT ("nao invente ausencia").
+constexpr std::uint32_t k_minimum_keyboard_key_count = 32;
+
 // GUID_DEVINTERFACE_KEYBOARD / GUID_DEVINTERFACE_MOUSE, written by hand
 // from Microsoft's own documented values (D-WS-2, seat_adapter.hpp's own
 // header comment: <ntddkbd.h>/<ntddmou.h> + <initguid.h> is the
@@ -55,6 +63,25 @@ DEV_BROADCAST_DEVICEINTERFACE_W make_device_interface_filter(const GUID &class_g
     filter.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
     filter.dbcc_classguid = class_guid;
     return filter;
+}
+
+// D-WS-5 (SF-3): one GetRawInputDeviceInfoW(RIDI_DEVICEINFO) call per
+// RIM_TYPEKEYBOARD entry - never per RIM_TYPEMOUSE (the key-count rule
+// only applies to the keyboard class, seat_adapter.hpp's own translate()
+// comment). A failed query, or a type mismatch (the device changed
+// class between GetRawInputDeviceList() and this call - the same race
+// recompute_capabilities() already treats as legitimate elsewhere in
+// this file), degrades to 0 ("unknown"), which translate() treats as
+// PRESENT, never as a reason to drop the device.
+std::uint32_t query_keyboard_key_count(HANDLE device) noexcept {
+    RID_DEVICE_INFO info{};
+    info.cbSize = sizeof(info);
+    UINT size = sizeof(info);
+    const UINT result = ::GetRawInputDeviceInfoW(device, RIDI_DEVICEINFO, &info, &size);
+    if (result == static_cast<UINT>(-1) || info.dwType != RIM_TYPEKEYBOARD) {
+        return 0;
+    }
+    return info.keyboard.dwNumberOfKeysTotal;
 }
 
 // seat_window_proc - the instance-level subclass open() installs via
@@ -100,27 +127,22 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
 
 } // namespace
 
-void win32_seat_adapter::translate(const RAWINPUTDEVICELIST *devices, UINT device_count,
+void win32_seat_adapter::translate(std::span<const win32_raw_device_facts> devices,
                                    int digitizer_bitmask, seat_capabilities &out) noexcept {
-    // `devices` may be nullptr when `device_count` is 0 (seat_adapter.
-    // hpp's own header comment on this function) - clamped once so the
-    // loop's own precondition is actually enforced, not merely
-    // documented (real defect found by clang-tidy's clang-analyzer-
-    // core.NullDereference, lint-enum run, 06/09/2026).
-    if (devices == nullptr) {
-        device_count = 0;
-    }
-
     bool pointer_present = false;
     bool keyboard_present = false;
 
-    for (UINT i = 0; i < device_count; ++i) {
-        switch (devices[i].dwType) {
+    for (const win32_raw_device_facts &device : devices) {
+        switch (device.raw_type) {
         case RIM_TYPEMOUSE:
             pointer_present = true;
             break;
         case RIM_TYPEKEYBOARD:
-            keyboard_present = true;
+            // D-WS-5: keyboard_key_count is IGNORED for every other
+            // raw_type - the rule only excludes a keyboard-class device
+            // that positively reports too few keys.
+            keyboard_present |= (device.keyboard_key_count == 0 ||
+                                 device.keyboard_key_count >= k_minimum_keyboard_key_count);
             break;
         default:
             // RIM_TYPEHID and any future dwType this project's three-
@@ -181,9 +203,29 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
         }
     }
 
+    // D-WS-5 (SF-3): one win32_raw_device_facts per raw device, with
+    // keyboard_key_count filled in ONLY for RIM_TYPEKEYBOARD entries
+    // (query_keyboard_key_count() above, an extra syscall this project
+    // never pays for a mouse entry). Guarded the same way as the
+    // resize() calls above - an allocation failure here degrades to
+    // "no devices this round", not a crash (GODS_LAWS.md L-22).
+    std::vector<win32_raw_device_facts> facts;
+    try {
+        facts.reserve(devices.size());
+        for (const RAWINPUTDEVICELIST &raw_device : devices) {
+            win32_raw_device_facts device_facts;
+            device_facts.raw_type = raw_device.dwType;
+            if (raw_device.dwType == RIM_TYPEKEYBOARD) {
+                device_facts.keyboard_key_count = query_keyboard_key_count(raw_device.hDevice);
+            }
+            facts.push_back(device_facts);
+        }
+    } catch (const std::bad_alloc &) {
+        facts.clear();
+    }
+
     const int digitizer_bitmask = ::GetSystemMetrics(SM_DIGITIZER);
-    translate(devices.empty() ? nullptr : devices.data(), static_cast<UINT>(devices.size()),
-              digitizer_bitmask, m_capabilities);
+    translate(facts, digitizer_bitmask, m_capabilities);
 
     // D-WS-4 (SF-2): this function runs exactly once per "system
     // announcement" this adapter reacts to - open()'s own first call

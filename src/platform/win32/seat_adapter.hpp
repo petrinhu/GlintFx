@@ -12,12 +12,14 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <span>
 
 #include <glintfx/core/err.hpp>
 
 #include "platform/input/seat_capabilities.hpp"
 #include "platform/win32/device_change_message.hpp"
 #include "platform/win32/display_adapter.hpp"
+#include "platform/win32/raw_device_facts.hpp"
 
 // platform/win32/seat_adapter.hpp - Y-1 (docs/plano-w6a-janela.md
 // fatia 13, TODO.md WIN-SEAT, GODS_LAWS.md L-04). REDESENHADO em
@@ -217,13 +219,26 @@ class win32_seat_adapter {
     // Pure translation seam (win32_seat_translation_test,
     // tests/CMakeLists.txt): the SAME logic open() and the
     // WM_DEVICECHANGE handler both call against the REAL
-    // GetRawInputDeviceList()/GetSystemMetrics(SM_DIGITIZER) results,
-    // exposed here so a test can feed a SYNTHETIC device list and
-    // bitmask - no window, no RegisterDeviceNotificationW, no syscall
-    // at all. `devices` may be nullptr when `device_count` is 0 (an
-    // empty device list is a legitimate answer, not a caller error).
-    static void translate(const RAWINPUTDEVICELIST *devices, UINT device_count,
-                          int digitizer_bitmask, seat_capabilities &out) noexcept;
+    // GetRawInputDeviceList()/GetRawInputDeviceInfoW()/
+    // GetSystemMetrics(SM_DIGITIZER) results, exposed here so a test
+    // can feed a SYNTHETIC device list and bitmask - no window, no
+    // RegisterDeviceNotificationW, no syscall at all.
+    //
+    // SF-3 (D-WS-5, win-seat.md sec. 3): takes `win32_raw_device_facts`
+    // (raw_device_facts.hpp) rather than `RAWINPUTDEVICELIST` directly -
+    // the keyboard parity rule below needs a SECOND fact
+    // (keyboard_key_count) that RAWINPUTDEVICELIST alone does not carry
+    // (recompute_capabilities(), seat_adapter.cpp, is what fetches it
+    // via GetRawInputDeviceInfoW, once per keyboard-class entry).
+    // KEYBOARD RULE (D-WS-5): a RIM_TYPEKEYBOARD entry counts as a
+    // keyboard only when keyboard_key_count is 0 (unknown - "nao
+    // invente ausencia") or >= 32 (this project's own minimum,
+    // seat_adapter.hpp's own predecessor "WHY" paragraph in
+    // raw_device_facts.hpp explains where 32 comes from: systemd/
+    // udev's own ID_INPUT_KEYBOARD rule). keyboard_key_count is IGNORED
+    // for every other raw_type, including RIM_TYPEMOUSE.
+    static void translate(std::span<const win32_raw_device_facts> devices, int digitizer_bitmask,
+                          seat_capabilities &out) noexcept;
 
     // INTERNAL SEAM, public only because seat_window_proc (seat_
     // adapter.cpp, anonymous namespace) is a plain WNDPROC callback -

@@ -19,11 +19,15 @@ gltfx_rslt<loop_impl *> allocate_loop_impl() noexcept {
     // this exact fatia's own briefing named explicitly, tests/gfx_
     // open_only_fixation_test.cpp lines 87-150): a default-constructed
     // loop_impl carries no std::vector/std::string/std::function
-    // member - three raw pointers, a frame_cap_schedule that is itself
-    // two POD fields (bool, gltfx_time_point), a gltfx_time_point, an
-    // enum and a std::uint64_t - so, unlike gl_context_impl's own
-    // current_values, there is no MSVC-Debug iterator-proxy allocation
-    // this construction could hide. The try/catch below is kept
+    // member - three raw pointers, and a platform::loop_book (loop_
+    // book.hpp) that is itself a frame_cap_schedule (two POD fields),
+    // a gltfx_time_point, an enum, a std::uint64_t, a bool, a
+    // gltfx_loop_callbacks (five plain pointers) and an owned_loop_
+    // context (LOOP-CONTEXT-OWNERSHIP, S1b - two plain pointers, no
+    // allocation of its own, owned_loop_context.hpp's own header
+    // comment) - so, unlike gl_context_impl's own current_values,
+    // there is no MSVC-Debug iterator-proxy allocation this
+    // construction could hide. The try/catch below is kept
     // anyway, for the SAME reason gl_context_facade.cpp's own open()
     // keeps one around its own `new (std::nothrow) gl_context_impl{}`
     // (this project's own git history, commit 4dc010d) - symmetry with

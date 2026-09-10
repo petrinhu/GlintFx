@@ -11,6 +11,8 @@
 #include "platform/loop/loop_book.hpp"
 #include "platform/loop/loop_callbacks_validation.hpp"
 #include "platform/loop/loop_ports.hpp"
+#include "platform/loop/owned_loop_context.hpp"
+#include "platform/loop/running_guard.hpp"
 
 // platform/loop/loop_engine.hpp - LOOP-RUN (cobertura, S2) +
 // LOOP-CLOSE-LATCH-SPIN (fixed here, S3) (/var/tmp/glintfx-plan/
@@ -46,10 +48,34 @@
 // goes green because the code under it changed (L-20's own red-before-
 // green shape).
 //
-// WHAT THIS FILE DOES NOT DO, stated so nobody infers it from an
-// absence: does NOT honor gltfx_loop_callbacks::destroy_context (S1b -
-// loop_callbacks_validation still refuses it by name); does NOT change
-// any other observable behavior of gltfx_loop's own public methods.
+// LOOP-CONTEXT-OWNERSHIP (S1b, this commit, /var/tmp/glintfx-plan/
+// loop-fix.md sec. 3.2/S1b): loop_run() below now takes a FOURTH
+// parameter, `owned_loop_context &owned` (owned_loop_context.hpp) -
+// the SAME atom that guards a handed-over context, whichever of the
+// two forms (loop.hpp's own (b1)/(b2)) the caller is exercising. This
+// function's own BODY never reads or writes `owned` - it exists purely
+// so the atom's own LIFETIME is provably pinned to this exact call, on
+// the CALLER's stack (FORM 1, gltfx_loop::run(callbacks), builds one
+// fresh every call; FORM 2, gltfx_loop::run() with no arguments, hands
+// in an EMPTY one - the real atom lives in loop_book::stored_context
+// instead, loop_book.hpp's own header comment). C++'s own rule for
+// local objects - destroyed only after the return EXPRESSION that
+// names them has fully evaluated - is what already guarantees
+// `owned`'s own destructor (whichever form built it) runs strictly
+// AFTER every callback THIS call makes, on every one of its five
+// return paths (tests/loop_engine_test.cpp's own T13); nothing inside
+// this function needs to, or should, act on that fact itself.
+// Re-entrance is the ONE thing this function DOES actively guard
+// (D-LF-6d, below) - see running_guard.hpp's own header comment for
+// why that check cannot be left to the caller's stack the way
+// destruction can.
+//
+// WHAT THIS FILE STILL DOES NOT DO, stated so nobody infers it from an
+// absence: does NOT change any other observable behavior of gltfx_
+// loop's own public methods; does NOT decide which of the two forms it
+// is serving - `callbacks`/`owned` arrive already shaped by the
+// caller, and this function reads neither differently (§3.2's own
+// "de modo que o motor nunca sabe em que forma está").
 //
 // ORDER INSIDE loop_step() (D-W6b-44 steps 1/3/4/5/6 - step 2, the
 // close_requested() read above, is GONE as of S3, so this list keeps
@@ -245,13 +271,32 @@ template <class D, class W, class C, class K>
 // rules (validate_loop_callbacks(), loop_callbacks_validation.hpp).
 // `callbacks` is received BY VALUE (five trivial pointers, cheap to
 // copy - the same frozen layout LOOP-CALLBACK-THROW's own S1a
-// congelou). STILL DOES NOT CALL destroy_context (S1b): validate_loop_
-// callbacks() above already refuses a caller that filled it in, so
-// this function never has to decide when to destroy anything it does
-// not yet own a rule for.
+// congelou). `owned` is this file's own top comment's fourth
+// parameter - accepted, never touched in this function's own body
+// ([[maybe_unused]] below is honest about that, not a placeholder for
+// work not yet written).
 template <class D, class W, class C, class K>
 [[nodiscard]] gltfx_rslt<void> loop_run(loop_ports<D, W, C, K> ports, loop_book &book,
-                                        gltfx_loop_callbacks callbacks) noexcept {
+                                        gltfx_loop_callbacks callbacks,
+                                        [[maybe_unused]] owned_loop_context &owned) noexcept {
+    // D-LF-6d: re-entrance is refused BY NAME, before validate_loop_
+    // callbacks() and before ANY port is touched - the FIRST thing this
+    // function does, ahead even of T1's own "recusa por nome acontece
+    // antes de qualquer porta ser tocada". A consumer whose on_frame/
+    // on_render calls run()/run(callbacks)/set_callbacks() again, on
+    // the SAME loop, would otherwise - on FORM 2 - destroy the very
+    // context THIS call is still executing (running_guard.hpp's own
+    // header comment has the full reasoning; tests/loop_engine_test.
+    // cpp's own T16 is the proof). Checked directly against `book.
+    // running` HERE, before constructing the guard below - see running_
+    // guard.hpp's own header comment for why the refusal decision never
+    // lives inside that class itself.
+    if (book.running) {
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("running"));
+    }
+    running_guard guard{book.running};
+
     // T1: recusa por nome acontece ANTES de qualquer porta ser tocada -
     // nenhum `ports.*` é lido nesta função antes desta chamada.
     if (const gltfx_rslt<void> validated = validate_loop_callbacks(callbacks);

@@ -13,6 +13,9 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 #include "platform/loop/loop_engine.hpp"
+#include "platform/loop/loop_impl.hpp"
+#include "platform/loop/owned_loop_context.hpp"
+#include "platform/loop/store_loop_callbacks.hpp"
 #include "platform/window/window_state.hpp"
 
 // loop_engine_test.cpp - LOOP-RUN (cobertura), S2 (/var/tmp/glintfx-
@@ -59,6 +62,13 @@ struct engine_fixture {
     fake_loop_context context;
     fake_loop_clock clock;
     glintfx::platform::loop_book book;
+
+    // LOOP-CONTEXT-OWNERSHIP (S1b): loop_run()'s own fourth parameter -
+    // T1..T9 below never test posse itself (T13..T16 do, each building
+    // its OWN owned_loop_context with a logging destroy_context), so a
+    // single empty (default-constructed, two nulls) atom per fixture is
+    // enough: its destructor is a no-op either way.
+    glintfx::platform::owned_loop_context owned;
 
     using ports_t =
         glintfx::platform::loop_ports<fake_loop_display, glintfx::platform::window_state,
@@ -114,7 +124,8 @@ GLINTFX_TEST(refusal_by_name_touches_no_port) {
         // on_frame LEFT EMPTY on purpose - the very first thing
         // validate_loop_callbacks() checks (loop_callbacks_validation.
         // hpp's own header comment on the fixed order).
-        const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+        const gltfx_rslt<void> result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
         GLINTFX_CHECK(result.has_error());
         GLINTFX_CHECK(result.err().rejected_value() == "on_frame");
         GLINTFX_CHECK_EQ(fx.log.count(loop_event::pump), 0);
@@ -123,13 +134,19 @@ GLINTFX_TEST(refusal_by_name_touches_no_port) {
         ++cells;
     }
     {
+        // LOOP-CONTEXT-OWNERSHIP (S1b), D-LF-7: destroy_context WITH a
+        // context is no longer refused (S1a's own cell here used to
+        // test exactly that refusal - it no longer holds, see
+        // loop_callbacks_validation.cpp's own header comment). What
+        // STILL refuses by name is destroy_context set with NO context
+        // to destroy - `context` is left nullptr on purpose below.
         engine_fixture fx;
         gltfx_loop_callbacks callbacks{};
-        callbacks.context = &fx.log;
         callbacks.on_frame = &log_on_frame;
         callbacks.on_render = &log_on_render;
-        callbacks.destroy_context = &noop_destroy_context; // S1a: refused by name until S1b
-        const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+        callbacks.destroy_context = &noop_destroy_context;
+        const gltfx_rslt<void> result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
         GLINTFX_CHECK(result.has_error());
         GLINTFX_CHECK(result.err().rejected_value() == "destroy_context");
         GLINTFX_CHECK_EQ(fx.log.count(loop_event::pump), 0);
@@ -147,7 +164,8 @@ GLINTFX_TEST(pump_is_the_first_thing_a_tick_does) {
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_value());
 
     const std::vector<loop_event> expected = {loop_event::pump, loop_event::clock,
@@ -165,7 +183,8 @@ GLINTFX_TEST(on_frame_false_ends_ok_after_exactly_one_tick) {
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_value());
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::on_frame), 1);
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::on_render), 0);
@@ -193,7 +212,8 @@ GLINTFX_TEST(hidden_tick_runs_on_frame_skips_on_render_and_index_still_grows) {
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_value());
 
     std::vector<std::uint64_t> on_frame_indices;
@@ -223,7 +243,8 @@ GLINTFX_TEST(render_tick_is_on_render_then_present_and_the_outcome_feeds_the_nex
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_value());
 
     // Tique 1: on_frame -> on_render -> swap, nessa ordem.
@@ -259,7 +280,8 @@ GLINTFX_TEST(present_error_returns_unchanged_and_stops_the_loop) {
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == code);
     GLINTFX_CHECK(result.err().rejected_value() == "swap");
@@ -278,7 +300,8 @@ GLINTFX_TEST(pump_error_returns_unchanged_before_on_frame) {
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().code() == code);
     GLINTFX_CHECK(result.err().rejected_value() == "pump");
@@ -295,7 +318,8 @@ GLINTFX_TEST(close_request_ends_ok_after_the_full_tick_it_arrived_in) {
     callbacks.on_frame = &log_on_frame;
     callbacks.on_render = &log_on_render;
 
-    const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
     GLINTFX_CHECK(result.has_value());
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::on_frame), 2);
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::on_render), 2);
@@ -316,7 +340,8 @@ GLINTFX_TEST(context_pointer_is_byte_identical_in_every_callback) {
         callbacks.on_frame = &log_on_frame;
         callbacks.on_render = &log_on_render;
 
-        const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+        const gltfx_rslt<void> result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
         GLINTFX_CHECK(result.has_value());
         const std::vector<glintfx::test::loop_call_record> &records = fx.log.records();
         int checked = 0;
@@ -339,7 +364,8 @@ GLINTFX_TEST(context_pointer_is_byte_identical_in_every_callback) {
         callbacks.on_frame = &log_on_frame_via_static;
         callbacks.on_render = &log_on_render_via_static;
 
-        const gltfx_rslt<void> result = glintfx::platform::loop_run(fx.ports(), fx.book, callbacks);
+        const gltfx_rslt<void> result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
         g_static_log = nullptr;
         GLINTFX_CHECK(result.has_value());
         const std::vector<glintfx::test::loop_call_record> &records = fx.log.records();
@@ -468,4 +494,400 @@ GLINTFX_TEST(frame_cap_waits_by_deadline_spins_the_last_ms_and_reads_the_cap_liv
 
     std::println(
         "frame_cap_waits_by_deadline_spins_the_last_ms_and_reads_the_cap_live: 4 of 4 cell(s)");
+}
+
+// ======================================================================
+// T13..T16 - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/glintfx-plan/
+// loop-fix.md sec. S1b): platform::loop_run()'s own fourth parameter
+// (owned_loop_context&, loop_engine.hpp) and platform::
+// store_loop_callbacks() (store_loop_callbacks.hpp), both forms of
+// posse (P11/P12, include/glintfx/platform/loop/loop.hpp).
+// ======================================================================
+
+namespace {
+
+using glintfx::platform::owned_loop_context;
+
+// Pushed into the SAME shared log every other callback in this file
+// writes to (S2.3's own table) - `context` here is ALWAYS the log
+// itself (the same convention log_on_frame/log_on_render already use),
+// so ordering ("destroyed AFTER the last callback") is provable by
+// reading loop_call_log::records() back, never by a second registry.
+void log_destroy_context(void *context) noexcept {
+    auto *log = static_cast<loop_call_log *>(context);
+    log->push(loop_event::destroy, 0, 0, context);
+}
+
+// T15(b): a destroy_context that must NEVER fire in that cell - a
+// plain counter, deliberately NOT cast through loop_call_log (the
+// context it is armed with there is not one), so a mistaken call
+// would corrupt nothing, only miscount.
+int g_marker_destroy_count = 0;
+
+void counting_destroy_context(void * /*context*/) noexcept { ++g_marker_destroy_count; }
+
+// T16: the nested call a case's own on_frame makes needs state a bare
+// function pointer cannot capture - the SAME exception T9(b)'s own
+// g_static_log already documents for this file.
+engine_fixture *g_reentrant_fx = nullptr;
+glintfx::loop_impl *g_reentrant_impl = nullptr;
+int g_reentrant_which = 0; // 1 = run(cb), 2 = run() [forma 2], 3 = set_callbacks()'s own engine
+bool g_reentrant_nested_called = false;
+gltfx_rslt<void> g_reentrant_nested_result =
+    gltfx_rslt<void>::err(glintfx::gltfx_err(glintfx::gltfx_err_code::unknown));
+
+bool reentrant_on_frame(void * /*context*/, const glintfx::gltfx_frame_tick & /*tick*/) noexcept {
+    g_reentrant_nested_called = true;
+    if (g_reentrant_which == 1) {
+        gltfx_loop_callbacks nested{};
+        nested.context = &g_reentrant_fx->log;
+        nested.on_frame = &log_on_frame;
+        nested.on_render = &log_on_render;
+        owned_loop_context nested_owned{};
+        g_reentrant_nested_result = glintfx::platform::loop_run(
+            g_reentrant_fx->ports(), g_reentrant_impl->book, nested, nested_owned);
+    } else if (g_reentrant_which == 2) {
+        owned_loop_context nested_owned{};
+        g_reentrant_nested_result =
+            glintfx::platform::loop_run(g_reentrant_fx->ports(), g_reentrant_impl->book,
+                                        g_reentrant_impl->book.stored_callbacks, nested_owned);
+    } else {
+        gltfx_loop_callbacks nested{};
+        nested.context = &g_reentrant_fx->log;
+        nested.on_frame = &log_on_frame;
+        nested.on_render = &log_on_render;
+        g_reentrant_nested_result =
+            glintfx::platform::store_loop_callbacks(*g_reentrant_impl, nested);
+    }
+    return false; // ends the OUTER loop after this one tick, whichever branch ran.
+}
+
+} // namespace
+
+GLINTFX_TEST(context_ownership_form1_destroys_exactly_once_after_the_last_callback_on_every_exit) {
+    int cells = 0;
+    constexpr int total_cells = 5;
+
+    // (1) Refusal: destroy_context is called even though on_frame is
+    // missing and validate_loop_callbacks() never let any port run.
+    {
+        engine_fixture fx;
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_render = &log_on_render;
+        callbacks.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context owned{callbacks.context, callbacks.destroy_context};
+            const gltfx_rslt<void> result =
+                glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, owned);
+            GLINTFX_CHECK(result.has_error());
+            GLINTFX_CHECK(result.err().rejected_value() == "on_frame");
+            GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0); // owned still alive here
+        }
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1);
+        GLINTFX_CHECK(fx.log.records().back().event == loop_event::destroy);
+        ++cells;
+    }
+
+    // (2) on_frame returns false - ok().
+    {
+        engine_fixture fx;
+        fx.log.on_frame_returns = false;
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+        callbacks.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context owned{callbacks.context, callbacks.destroy_context};
+            const gltfx_rslt<void> result =
+                glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, owned);
+            GLINTFX_CHECK(result.has_value());
+            GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+        }
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1);
+        GLINTFX_CHECK(fx.log.records().back().event == loop_event::destroy);
+        ++cells;
+    }
+
+    // (3) present() error - the SAME arrangement T6 already uses.
+    {
+        engine_fixture fx;
+        const glintfx::gltfx_err_code code = glintfx::gltfx_err_code::platform_failure;
+        fx.context.arm_swap_sequence({gltfx_rslt<gltfx_present_outcome>::err(
+            glintfx::gltfx_err(code).with_rejected_value("swap"))});
+        fx.display.close_on_pump(3, fx.window); // rede de seguranca, nunca dispara
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+        callbacks.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context owned{callbacks.context, callbacks.destroy_context};
+            const gltfx_rslt<void> result =
+                glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, owned);
+            GLINTFX_CHECK(result.has_error());
+            GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+        }
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1);
+        GLINTFX_CHECK(fx.log.records().back().event == loop_event::destroy);
+        ++cells;
+    }
+
+    // (4) pump() error - the SAME arrangement T7 already uses.
+    {
+        engine_fixture fx;
+        const glintfx::gltfx_err_code code = glintfx::gltfx_err_code::io_failure;
+        fx.display.fail_on_pump(2, code);
+        fx.display.close_on_pump(5, fx.window); // rede de seguranca, nunca dispara
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+        callbacks.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context owned{callbacks.context, callbacks.destroy_context};
+            const gltfx_rslt<void> result =
+                glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, owned);
+            GLINTFX_CHECK(result.has_error());
+            GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+        }
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1);
+        GLINTFX_CHECK(fx.log.records().back().event == loop_event::destroy);
+        ++cells;
+    }
+
+    // (5) close_requested() - the SAME arrangement T8 already uses.
+    {
+        engine_fixture fx;
+        fx.display.close_on_pump(2, fx.window);
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+        callbacks.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context owned{callbacks.context, callbacks.destroy_context};
+            const gltfx_rslt<void> result =
+                glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, owned);
+            GLINTFX_CHECK(result.has_value());
+            GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+        }
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1);
+        GLINTFX_CHECK(fx.log.records().back().event == loop_event::destroy);
+        ++cells;
+    }
+
+    std::println("context_ownership_form1_destroys_exactly_once_after_the_last_callback_on_every_"
+                 "exit: {} of {} cell(s)",
+                 cells, total_cells);
+}
+
+GLINTFX_TEST(context_ownership_form1_never_calls_a_null_destroy_context) {
+    engine_fixture fx;
+    fx.log.on_frame_returns = false;
+    gltfx_loop_callbacks callbacks{};
+    callbacks.context = &fx.log;
+    callbacks.on_frame = &log_on_frame;
+    callbacks.on_render = &log_on_render;
+    // destroy_context LEFT NULL on purpose - `context` stays BORROWED.
+    owned_loop_context owned{callbacks.context, callbacks.destroy_context};
+    const gltfx_rslt<void> result =
+        glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, owned);
+    GLINTFX_CHECK(result.has_value());
+    GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+}
+
+GLINTFX_TEST(context_ownership_form2_survives_repeated_run_calls_form1_ignores_it) {
+    int cells = 0;
+    constexpr int total_cells = 2;
+
+    // (a) FORM 2: stored ONCE, loop_run() called TWICE against the
+    // SAME impl->book - zero destructions across both calls, and the
+    // SAME context reported both times (P12: "survives any number of
+    // run() calls in between"). Destroyed only when impl itself is.
+    {
+        engine_fixture fx;
+        fx.log.on_frame_returns = false; // ends after exactly one tick, both times
+        glintfx::loop_impl *impl = glintfx::allocate_loop_impl().value();
+
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+        callbacks.destroy_context = &log_destroy_context;
+        const gltfx_rslt<void> stored = glintfx::platform::store_loop_callbacks(*impl, callbacks);
+        GLINTFX_CHECK(stored.has_value());
+
+        owned_loop_context none_a{};
+        const gltfx_rslt<void> first_run = glintfx::platform::loop_run(
+            fx.ports(), impl->book, impl->book.stored_callbacks, none_a);
+        GLINTFX_CHECK(first_run.has_value());
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+
+        owned_loop_context none_b{};
+        const gltfx_rslt<void> second_run = glintfx::platform::loop_run(
+            fx.ports(), impl->book, impl->book.stored_callbacks, none_b);
+        GLINTFX_CHECK(second_run.has_value());
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+        GLINTFX_CHECK(impl->book.stored_callbacks.context == static_cast<void *>(&fx.log));
+
+        delete impl;
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1); // only now, F29
+        ++cells;
+    }
+
+    // (b) FORM 1 alongside a stored FORM 2 callback (D-LF-6b,
+    // ortogonalidade): the stored one is left completely untouched,
+    // and the per-call one still destroys on its own exit.
+    {
+        engine_fixture fx;
+        glintfx::loop_impl *impl = glintfx::allocate_loop_impl().value();
+        g_marker_destroy_count = 0;
+
+        int stored_marker = 0;
+        gltfx_loop_callbacks stored_callbacks{};
+        stored_callbacks.context = &stored_marker;
+        stored_callbacks.on_frame = &log_on_frame; // never exercised in this cell
+        stored_callbacks.on_render = &log_on_render;
+        stored_callbacks.destroy_context = &counting_destroy_context;
+        const gltfx_rslt<void> stored =
+            glintfx::platform::store_loop_callbacks(*impl, stored_callbacks);
+        GLINTFX_CHECK(stored.has_value());
+
+        fx.log.on_frame_returns = false;
+        gltfx_loop_callbacks per_call{};
+        per_call.context = &fx.log;
+        per_call.on_frame = &log_on_frame;
+        per_call.on_render = &log_on_render;
+        per_call.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context owned{per_call.context, per_call.destroy_context};
+            const gltfx_rslt<void> ran =
+                glintfx::platform::loop_run(fx.ports(), impl->book, per_call, owned);
+            GLINTFX_CHECK(ran.has_value());
+            GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0); // owned still alive here
+        }
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1); // per-call destroyed on exit
+        GLINTFX_CHECK_EQ(g_marker_destroy_count, 0);            // stored one untouched
+        GLINTFX_CHECK(impl->book.stored_callbacks.context == static_cast<void *>(&stored_marker));
+
+        delete impl;
+        GLINTFX_CHECK_EQ(g_marker_destroy_count, 1); // only now, F29
+        ++cells;
+    }
+
+    std::println("context_ownership_form2_survives_repeated_run_calls_form1_ignores_it: {} of {} "
+                 "cell(s)",
+                 cells, total_cells);
+}
+
+GLINTFX_TEST(reentrant_calls_from_inside_on_frame_are_refused_by_name) {
+    int cells = 0;
+    constexpr int total_cells = 3;
+
+    // (1) A FORM 1 run(cb) whose own on_frame calls run(cb) AGAIN.
+    {
+        engine_fixture fx;
+        glintfx::loop_impl *impl = glintfx::allocate_loop_impl().value();
+        g_reentrant_fx = &fx;
+        g_reentrant_impl = impl;
+        g_reentrant_which = 1;
+        g_reentrant_nested_called = false;
+
+        gltfx_loop_callbacks outer{};
+        outer.context = &fx.log;
+        outer.on_frame = &reentrant_on_frame;
+        outer.on_render = &log_on_render;
+        outer.destroy_context = &log_destroy_context;
+        {
+            owned_loop_context outer_owned{outer.context, outer.destroy_context};
+            const gltfx_rslt<void> outer_result =
+                glintfx::platform::loop_run(fx.ports(), impl->book, outer, outer_owned);
+            GLINTFX_CHECK(outer_result.has_value());
+        }
+        GLINTFX_CHECK(g_reentrant_nested_called);
+        GLINTFX_CHECK(g_reentrant_nested_result.has_error());
+        GLINTFX_CHECK(g_reentrant_nested_result.err().rejected_value() == "running");
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1); // only the outer's own, once
+
+        g_reentrant_fx = nullptr;
+        g_reentrant_impl = nullptr;
+        delete impl;
+        ++cells;
+    }
+
+    // (2) A FORM 1 run(cb) whose own on_frame calls run() (FORM 2's
+    // no-argument shape) AGAIN, on the SAME impl->book.
+    {
+        engine_fixture fx;
+        glintfx::loop_impl *impl = glintfx::allocate_loop_impl().value();
+        g_reentrant_fx = &fx;
+        g_reentrant_impl = impl;
+        g_reentrant_which = 2;
+        g_reentrant_nested_called = false;
+
+        gltfx_loop_callbacks outer{};
+        outer.context = &fx.log;
+        outer.on_frame = &reentrant_on_frame;
+        outer.on_render = &log_on_render;
+        {
+            owned_loop_context outer_owned{};
+            const gltfx_rslt<void> outer_result =
+                glintfx::platform::loop_run(fx.ports(), impl->book, outer, outer_owned);
+            GLINTFX_CHECK(outer_result.has_value());
+        }
+        GLINTFX_CHECK(g_reentrant_nested_called);
+        GLINTFX_CHECK(g_reentrant_nested_result.has_error());
+        GLINTFX_CHECK(g_reentrant_nested_result.err().rejected_value() == "running");
+
+        g_reentrant_fx = nullptr;
+        g_reentrant_impl = nullptr;
+        delete impl;
+        ++cells;
+    }
+
+    // (3) FORM 2's own run() calls set_callbacks()'s own engine
+    // (store_loop_callbacks()) from INSIDE the stored on_frame - the
+    // exact scenario running_guard exists for (loop.hpp's own header
+    // comment on set_callbacks()): without it, this would destroy the
+    // very context THIS call is still using.
+    {
+        engine_fixture fx;
+        glintfx::loop_impl *impl = glintfx::allocate_loop_impl().value();
+        gltfx_loop_callbacks stored{};
+        stored.context = &fx.log;
+        stored.on_frame = &reentrant_on_frame;
+        stored.on_render = &log_on_render;
+        stored.destroy_context = &log_destroy_context;
+        const gltfx_rslt<void> store_result =
+            glintfx::platform::store_loop_callbacks(*impl, stored);
+        GLINTFX_CHECK(store_result.has_value());
+
+        g_reentrant_fx = &fx;
+        g_reentrant_impl = impl;
+        g_reentrant_which = 3;
+        g_reentrant_nested_called = false;
+
+        owned_loop_context none{};
+        const gltfx_rslt<void> outer_result =
+            glintfx::platform::loop_run(fx.ports(), impl->book, impl->book.stored_callbacks, none);
+        GLINTFX_CHECK(outer_result.has_value());
+        GLINTFX_CHECK(g_reentrant_nested_called);
+        GLINTFX_CHECK(g_reentrant_nested_result.has_error());
+        GLINTFX_CHECK(g_reentrant_nested_result.err().rejected_value() == "running");
+        // The context THIS call was still using survives - the nested
+        // store_loop_callbacks() was refused BEFORE it could destroy it.
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 0);
+        GLINTFX_CHECK(impl->book.stored_callbacks.context == static_cast<void *>(&fx.log));
+
+        g_reentrant_fx = nullptr;
+        g_reentrant_impl = nullptr;
+        delete impl;
+        GLINTFX_CHECK_EQ(fx.log.count(loop_event::destroy), 1); // only now, F29
+        ++cells;
+    }
+
+    std::println("reentrant_calls_from_inside_on_frame_are_refused_by_name: {} of {} cell(s)",
+                 cells, total_cells);
 }

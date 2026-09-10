@@ -25,14 +25,17 @@ gltfx_rslt<void> validate_loop_callbacks(const gltfx_loop_callbacks &callbacks) 
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("on_event"));
     }
-    if (callbacks.destroy_context) {
-        // LOOP-CONTEXT-OWNERSHIP has not landed yet (platform/loop/
-        // loop.hpp's own header comment on gltfx_loop_callbacks::
-        // destroy_context) - refused BY NAME rather than accepted and
-        // silently never invoked, the same discipline the on_event
-        // check right above already applies to its own reserved
-        // field. This whole check is REMOVED when that fatia lands and
-        // teaches run() to actually call destroy_context.
+    if (callbacks.destroy_context && !callbacks.context) {
+        // LOOP-CONTEXT-OWNERSHIP (S1b), D-LF-7: a destroy function with
+        // NO context to destroy is refused by name - there is nothing
+        // for it to ever be called with, so accepting it would freeze
+        // in a caller's mind a promise ("this will be destroyed") this
+        // library can never keep. `destroy_context` WITH a `context` is
+        // no longer refused here (S1a used to refuse it unconditionally
+        // - platform::owned_loop_context, owned_loop_context.hpp, and
+        // store_loop_callbacks.hpp/.cpp are what honor it now, on
+        // whichever of the two forms the caller used, loop.hpp's own
+        // header comment on gltfx_loop_callbacks::destroy_context).
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("destroy_context"));
     }

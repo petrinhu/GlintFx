@@ -14,14 +14,18 @@
 //
 // THE ORDER IS THE CONTRACT (D-W6b-43, docs/plano-w6b-fatias-6-8.md
 // sec. 3.2, P9): on_frame empty is checked FIRST, then on_render
-// empty, then on_event non-empty, then destroy_context non-empty
-// (LOOP-CALLBACK-THROW, /var/tmp/glintfx-plan/loop-fix.md sec. 5.1 -
-// appended last, after the three checks that already shipped, so a
-// caller upgrading from a version without this field never sees its
-// own violation reordered ahead of one it already knew about) - a
-// caller with more than one violation always sees the SAME field name
-// back, never one that depends on which check this file's own
-// implementation happens to run first today.
+// empty, then on_event non-empty, then destroy_context non-empty WITH
+// context null (LOOP-CALLBACK-THROW's own S1a appended this check
+// last, after the three that already shipped, so a caller upgrading
+// from a version without this field never sees its own violation
+// reordered ahead of one it already knew about; LOOP-CONTEXT-
+// OWNERSHIP's own S1b, /var/tmp/glintfx-plan/loop-fix.md sec. 3.2/
+// D-LF-7, narrowed WHAT this last check refuses - destroy_context WITH
+// a context is no longer refused here at all, see this file's own
+// .cpp for what honors it now) - a caller with more than one violation
+// always sees the SAME field name back, never one that depends on
+// which check this file's own implementation happens to run first
+// today.
 
 namespace glintfx::platform {
 

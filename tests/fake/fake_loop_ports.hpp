@@ -57,7 +57,22 @@
 
 namespace glintfx::test {
 
-enum class loop_event : std::uint8_t { pump, wait, probe, swap, clock, on_frame, on_render };
+// `destroy` (LOOP-CONTEXT-OWNERSHIP, S1b, /var/tmp/glintfx-plan/
+// loop-fix.md sec. S1b) - pushed by a destroy_context function
+// tests/loop_engine_test.cpp's own T13-T16 declare, into this SAME
+// log, so posse's own ordering claim ("destroyed AFTER the last
+// callback") is provable the identical way T2/T5/T8/T11 already prove
+// port/callback ordering: one shared registry, never a second one.
+enum class loop_event : std::uint8_t {
+    pump,
+    wait,
+    probe,
+    swap,
+    clock,
+    on_frame,
+    on_render,
+    destroy
+};
 
 struct loop_call_record {
     loop_event event;

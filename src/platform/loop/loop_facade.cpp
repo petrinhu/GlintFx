@@ -13,7 +13,9 @@
 #include "platform/loop/loop_context_view.hpp"
 #include "platform/loop/loop_engine.hpp"
 #include "platform/loop/loop_impl.hpp"
+#include "platform/loop/owned_loop_context.hpp"
 #include "platform/loop/steady_loop_clock.hpp"
+#include "platform/loop/store_loop_callbacks.hpp"
 #include "platform/window/display_impl.hpp"
 #include "platform/window/window_impl.hpp"
 
@@ -60,6 +62,16 @@
 // Calling gltfx_gl_context::swap_buffers() directly instead (still
 // public, P10) never reaches this loop's own bookkeeping at all - the
 // loop simply never finds out, exactly as the header promises.
+//
+// LOOP-CONTEXT-OWNERSHIP (S1b, THIS COMMIT, /var/tmp/glintfx-plan/
+// loop-fix.md sec. 3.2): run(callbacks) below builds its own platform::
+// owned_loop_context fresh on the STACK every call (FORM 1); set_
+// callbacks()/run() (no arguments) below store and read the SAME kind
+// of atom instead through m_impl->book (FORM 2, store_loop_callbacks.
+// hpp/.cpp) - neither wrapper here decides WHEN a handed-over context
+// dies; loop_engine.hpp's own loop_run() and store_loop_callbacks()
+// both own that decision, this file only builds the right shape and
+// calls through.
 
 namespace glintfx {
 
@@ -175,8 +187,49 @@ gltfx_rslt<gltfx_present_outcome> gltfx_loop::present() noexcept {
 gltfx_rslt<void> gltfx_loop::run(gltfx_loop_callbacks callbacks) noexcept {
     assert(m_impl != nullptr &&
            "gltfx_loop::run() called on a moved-from loop - the object no longer owns an impl");
+    // LOOP-CONTEXT-OWNERSHIP (S1b), FORM 1: built fresh, HERE, on this
+    // call's own stack - `owned` dies at the end of THIS function,
+    // strictly after platform::loop_run() below has fully returned
+    // (C++'s own local-object lifetime rule; loop_engine.hpp's own
+    // header comment on loop_run()'s fourth parameter has the full
+    // reasoning for why that single fact is what makes P11 true on
+    // every one of loop_run()'s five return paths, without loop_run()
+    // itself ever touching `owned`).
+    platform::owned_loop_context owned{callbacks.context, callbacks.destroy_context};
     bound_ports bound{*m_impl};
-    return platform::loop_run(make_loop_ports(*m_impl, bound), m_impl->book, callbacks);
+    return platform::loop_run(make_loop_ports(*m_impl, bound), m_impl->book, callbacks, owned);
+}
+
+gltfx_rslt<void> gltfx_loop::set_callbacks(gltfx_loop_callbacks callbacks) noexcept {
+    assert(m_impl != nullptr && "gltfx_loop::set_callbacks() called on a moved-from loop - the "
+                                "object no longer owns an impl");
+    // FORM 2's own entry point - store_loop_callbacks.hpp/.cpp owns the
+    // whole decision (validate, refuse re-entrance, substitute,
+    // destroy the previous AFTER the new one is stored); this wrapper
+    // exists only because m_impl is private to this class.
+    return platform::store_loop_callbacks(*m_impl, callbacks);
+}
+
+gltfx_rslt<void> gltfx_loop::run() noexcept {
+    assert(m_impl != nullptr &&
+           "gltfx_loop::run() called on a moved-from loop - the object no longer owns an impl");
+    if (m_impl->book.stored_callbacks.on_frame == nullptr) {
+        // Nothing was ever stored - refused by name, the same
+        // discipline every other precondition on this class's own
+        // frozen surface already uses (never a silent no-op run).
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("callbacks"));
+    }
+    // LOOP-CONTEXT-OWNERSHIP (S1b), FORM 2: the real posse already
+    // lives in m_impl->book.stored_context (store_loop_callbacks.cpp) -
+    // `none` is an EMPTY atom, built and destroyed on THIS call's own
+    // stack doing nothing either way (owned_loop_context's own default
+    // constructor holds two nulls), the exact shape loop_run() expects
+    // for its fourth parameter regardless of which form is calling it.
+    platform::owned_loop_context none{};
+    bound_ports bound{*m_impl};
+    return platform::loop_run(make_loop_ports(*m_impl, bound), m_impl->book,
+                              m_impl->book.stored_callbacks, none);
 }
 
 // loop_internal_access::get() - the ONLY definition of this symbol in

@@ -31,15 +31,21 @@
 #             heading matches `section_regex` (from that heading up to
 #             the next top-level `## ` heading, or end of file).
 #
-# THIS FATIA (S1a, LOOP-CALLBACK-THROW) only wires up the anchors ITS
-# OWN scope actually lands: the two fixed titles for layer 1, and
-# truth (a) (the noexcept-is-a-promise warning), in both loop.hpp and
-# docs/api-conventions.md's own R10. Layers 2/3/4 (LOOP-CONTEXT-
-# OWNERSHIP, LOOP-CALLBACK-BIND, LOOP-CONTEXT-MARK) add their OWN
-# anchors to the SAME list when they land - this script's own
-# mechanism does not change, only _ANCHORS grows (GODS_LAWS.md L-40:
-# never widen the allowlist/anchor list without a citation of why -
-# each entry below names the plan section it comes from).
+# THIS FATIA (S1a, LOOP-CALLBACK-THROW) wired up the anchors ITS OWN
+# scope landed: the two fixed titles for layer 1, and truth (a) (the
+# noexcept-is-a-promise warning), in both loop.hpp and docs/api-
+# conventions.md's own R10. LOOP-CONTEXT-OWNERSHIP (S1b, THIS COMMIT)
+# adds layer 2's own three truths (b0/b1/b2, /var/tmp/glintfx-plan/
+# loop-fix.md sec. 5.0 item 2(b)) - the two fixed titles are NOT
+# re-added here as separate anchors: "code_whole_file" already checks
+# the WHOLE file, and layer 1's own two entries already prove they are
+# present somewhere in loop.hpp, which remains true regardless of which
+# layer's own comment block carries them. Layers 3/4 (LOOP-CALLBACK-
+# BIND, LOOP-CONTEXT-MARK) add THEIR OWN anchors to the SAME list when
+# they land - this script's own mechanism does not change, only
+# _ANCHORS grows (GODS_LAWS.md L-40: never widen the allowlist/anchor
+# list without a citation of why - each entry below names the plan
+# section it comes from).
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -86,6 +92,77 @@ _ANCHORS = (
         "section_regex": r"^## R10\b",
         "phrase": "noexcept on your callback is a PROMISE, not a proof",
         "why": "S1a sec. 5.0 item 3 - the same truth (a), inside R10's own section",
+    },
+    {
+        "id": "truth-b0-code",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        # Not the bare "destroy_context" - that substring ALSO appears
+        # inside this file's own prose comments (this exact anchor's
+        # own truth (b1)/(b2) cross-references, for one) - anchoring on
+        # the full declaration text is what makes this match the FIELD
+        # itself, never an earlier mention of its name.
+        "symbol_regex": r"^\s*gltfx_loop_context_destroy_fn destroy_context\b",
+        "phrase": "Once handed over, never touch the object again, whatever the call returned.",
+        "why": "S1b sec. 5.0 item 2(b0) - above the destroy_context field it governs",
+    },
+    {
+        "id": "truth-b1-code",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        # Requires the DECLARATION shape ([[nodiscard]] ... noexcept;),
+        # never a comment line that merely MENTIONS "run(gltfx_loop_
+        # callbacks)" in passing (destroy_context's own comment block,
+        # above, does exactly that, and sits EARLIER in the file - a
+        # looser regex would match that prose line first and never
+        # reach the real declaration below it).
+        "symbol_regex": (
+            r"^\s*\[\[nodiscard\]\] GLINTFX_API gltfx_rslt<void> run\(gltfx_loop_callbacks\b"
+        ),
+        "phrase": "Callbacks handed to run(callbacks) live for that call only: destroyed on "
+        "every return path, refusal included.",
+        "why": "S1b sec. 5.0 item 2(b1) - above run(gltfx_loop_callbacks)",
+    },
+    {
+        "id": "truth-b2-code",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        # set_callbacks(...) itself is clang-format-wrapped onto its OWN
+        # line (100-column limit), so the comment block sits above the
+        # RETURN-TYPE line, not above the line containing the name -
+        # this bare "gltfx_rslt<void>" (nothing else on the line) is
+        # unique to that one wrap in this file (run(callbacks)/run()
+        # both fit on one line each, so neither produces this shape).
+        "symbol_regex": r"^\s*\[\[nodiscard\]\] GLINTFX_API gltfx_rslt<void>\s*$",
+        "phrase": "Callbacks handed to set_callbacks() live with the loop: destroyed when "
+        "replaced, or when the loop is destroyed, never earlier.",
+        "why": "S1b sec. 5.0 item 2(b2) - above set_callbacks(gltfx_loop_callbacks)",
+    },
+    {
+        "id": "truth-b0-doc",
+        "kind": "doc",
+        "file": "docs/api-conventions.md",
+        "section_regex": r"^## R10\b",
+        "phrase": "Once handed over, never touch the object again, whatever the call returned.",
+        "why": "S1b sec. 5.0 item 3 - truth (b0), inside R10's own section",
+    },
+    {
+        "id": "truth-b1-doc",
+        "kind": "doc",
+        "file": "docs/api-conventions.md",
+        "section_regex": r"^## R10\b",
+        "phrase": "Callbacks handed to run(callbacks) live for that call only: destroyed on "
+        "every return path, refusal included.",
+        "why": "S1b sec. 5.0 item 3 - truth (b1), inside R10's own section",
+    },
+    {
+        "id": "truth-b2-doc",
+        "kind": "doc",
+        "file": "docs/api-conventions.md",
+        "section_regex": r"^## R10\b",
+        "phrase": "Callbacks handed to set_callbacks() live with the loop: destroyed when "
+        "replaced, or when the loop is destroyed, never earlier.",
+        "why": "S1b sec. 5.0 item 3 - truth (b2), inside R10's own section",
     },
 )
 

@@ -110,11 +110,29 @@ Every callback field of `gltfx_loop_callbacks` is a plain `void *context` plus a
 
 > **noexcept on your callback is a PROMISE, not a proof.** The compiler only refuses a callback whose own declared signature omits `noexcept`. A function that IS declared `noexcept` and throws anyway is not caught by this layer, or by anything else in this library - the C++ language itself ends the consumer's process the instant the exception tries to leave a `noexcept` function (`std::terminate`), before this library's own frame is even unwound. Nobody, on either side of this boundary, can stop that. What this layer buys is WHERE the mistake surfaces: on the consumer's own build, at their own compile step (if the function is simply not `noexcept`) or immediately at their own call site (if it lies about it) - never as an opaque crash somewhere inside this library's own `run()`.
 
-**Proved by:** `tests/loop_callbacks_type_test.cpp` (the static_assert matrix: every callback field's type refuses a candidate function missing `noexcept`, and the frozen five-pointer layout) and `tests/loop_callbacks_validation_test.cpp` (the field-emptiness refusal rules, including `destroy_context` - see layer 2 below - refused by name until it lands).
+**Proved by:** `tests/loop_callbacks_type_test.cpp` (the static_assert matrix: every callback field's type refuses a candidate function missing `noexcept`, and the frozen five-pointer layout) and `tests/loop_callbacks_validation_test.cpp` (the field-emptiness refusal rules; `destroy_context` without a `context` is refused by name - see layer 2 below for what a `destroy_context` WITH a `context` means, now that layer 2 has landed).
 
-### Layer 2: posse opcional (`LOOP-CONTEXT-OWNERSHIP`, not yet landed)
+### Layer 2: posse opcional (`LOOP-CONTEXT-OWNERSHIP`, landed)
 
-The `destroy_context` field freezes into the struct's layout with this fatia, but is not yet honored - `gltfx_loop::run()` refuses by name (`rejected_value() == "destroy_context"`) any caller that fills it in. When this layer lands, it will state here what `context` ownership means for each of the two call shapes (`run(callbacks)` versus `set_callbacks()`/`run()`) and the exact lifetime rule for each.
+`destroy_context` is nullptr for `context` **borrowed** (the consumer owns it, responsible for its lifetime exactly as before this layer), or a non-null function for `context` **handed over** - this library then destroys it, through that function, exactly once. The leader chose, by `AskUserQuestion` (`DECISOES_AUTONOMAS.md` D-091011), that the consumer decides WHICH of two lifetimes that handover means, **by the method they call**, never by a sixth struct field (the five-pointer layout stays frozen - a new method is a compatible ABI addition, a new field is not):
+
+| | `run(callbacks)` - lives for that ONE call | `set_callbacks(callbacks)` + `run()` - lives WITH the loop |
+|---|---|---|
+| When it is destroyed | when `run(callbacks)` returns, on **every** return path: `on_frame` false, the trinco, an error from `step()`/`present()`, or a refusal | when **replaced** by a later successful `set_callbacks()`, or when the **loop itself is destroyed** - never earlier |
+| Can you run it again with the same state? | no - destroyed on the way out; call `run(callbacks)` again with a fresh (or the same, still-borrowed) context | yes - as many `run()` calls as you like, in between |
+| A refused call | the context THIS call was just handed is destroyed; nothing else changes | the context THIS call was just handed is destroyed; whatever was already stored is left completely untouched |
+
+The two are **ortogonal**: `run(callbacks)` never reads or touches whatever `set_callbacks()` may have stored, and vice versa. Calling `run()`/`run(callbacks)`/`set_callbacks()` again from INSIDE your own `on_frame`/`on_render` is refused by name (`rejected_value() == "running"`) - without that, the second lifetime would destroy the very context the first, outer call is still using.
+
+**The truths this layer does NOT give you, stated so nobody has to infer them from an absence:**
+
+> **Once handed over, never touch the object again, whatever the call returned.** This is true the instant you make the call, not the instant it succeeds - a refused call destroys what you handed it too.
+>
+> **Callbacks handed to run(callbacks) live for that call only: destroyed on every return path, refusal included.** There is no way to run the SAME handed-over state a second time; a fresh call needs a fresh (or still-borrowed) context.
+>
+> **Callbacks handed to set_callbacks() live with the loop: destroyed when replaced, or when the loop is destroyed, never earlier.** This is the SAME lifetime rule `GDestroyNotify` documents for GLib's `g_object_set_data_full()` (read to learn the technique, GODS_LAWS.md L-29/L-37, never copied) - a consumer who wants to release earlier has only one answer: borrow instead of handing over.
+
+**Proved by:** `tests/owned_loop_context_test.cpp` (the RAII atom underneath both forms: destroys exactly once, `reset()` destroys the previous AFTER the new one is stored, never touches a null half of the pair), `tests/store_loop_callbacks_test.cpp` (`set_callbacks()`'s own storage, substitution, refusal and - through `loop_impl`'s own destructor - final destruction, with no operating system anywhere), `tests/loop_engine_test.cpp`'s own T13-T16 (both forms exercised through `platform::loop_run()` directly: destruction on every one of the five return paths, zero destructions across repeated `run()` calls on the stored form, and the `"running"` refusal from inside a callback) and `tests/loop_callbacks_validation_test.cpp` (`destroy_context` with a `context` now accepted; without one, still refused by name).
 
 ### Layer 3: amarração tipada (`LOOP-CALLBACK-BIND`, not yet landed)
 

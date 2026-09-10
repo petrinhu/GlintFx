@@ -217,20 +217,38 @@ struct gltfx_loop_callbacks {
     // not been built yet, so this library never pretends to honor one).
     gltfx_on_event_fn on_event = nullptr;
 
-    // LAYER 2 (posse opcional, LOOP-CONTEXT-OWNERSHIP,
-    // /var/tmp/glintfx-plan/loop-fix.md sec. 3.2) - the field this
-    // fatia FREEZES INTO THE LAYOUT but does not yet honor: nullptr
-    // means `context` above is BORROWED (the consumer owns it and is
-    // responsible for its lifetime, exactly as today); a non-null
-    // function here will mean ownership was HANDED OVER, and this
-    // library destroys `context` through it - the exact lifetime rule
-    // (which of two forms, tied to the call you make) is
-    // LOOP-CONTEXT-OWNERSHIP's own decision, not this fatia's. UNTIL
-    // THAT FATIA LANDS, run() below REFUSES BY NAME
-    // (rejected_value() == "destroy_context") any caller that fills
-    // this in - GODS_LAWS.md L-35: a delivery guarantee this library
-    // has not built yet is never promised by accepting the field
-    // silently, the same discipline on_event above already uses.
+    // ============================================================
+    // WHAT THIS LAYER SOLVES (layer 2 - posse opcional,
+    // LOOP-CONTEXT-OWNERSHIP, this field's own scope; /var/tmp/
+    // glintfx-plan/loop-fix.md sec. 3.2):
+    // ============================================================
+    //   nullptr means `context` above is BORROWED - the consumer owns
+    //   it and is responsible for its lifetime, exactly as layer 1
+    //   already promises. A non-null function here means ownership was
+    //   HANDED OVER: this library destroys `context` through it,
+    //   exactly once, on whichever of TWO lifetimes the consumer chose
+    //   BY THE METHOD THEY CALLED - never a sixth field (the leader
+    //   chose this, DECISOES_AUTONOMAS.md D-091011: the five-pointer
+    //   layout above stays frozen; a new method is a compatible
+    //   addition, a new field is not):
+    //     - gltfx_loop::run(gltfx_loop_callbacks) below: the context
+    //       lives for THAT ONE CALL (see that method's own comment,
+    //       truth "(b1)").
+    //     - gltfx_loop::set_callbacks(gltfx_loop_callbacks) below: the
+    //       context lives WITH THE LOOP, across as many run() calls as
+    //       the consumer makes (see that method's own comment, truth
+    //       "(b2)").
+    // ============================================================
+    // WHAT THIS LAYER DOES NOT SOLVE (truth (b0), stated so nobody has
+    // to infer it from an absence):
+    // ============================================================
+    //   Once handed over, never touch the object again, whatever the
+    //   call returned. This is true from the INSTANT the call is made,
+    //   not from the instant it succeeds - a call this library refuses
+    //   still destroys the context it was just handed (the same rule
+    //   GLib's own GDestroyNotify documents for g_object_set_data_full,
+    //   read to learn the TECHNIQUE, GODS_LAWS.md L-29/L-37, never
+    //   copied: "the destroy callback is not called if data is NULL").
     gltfx_loop_context_destroy_fn destroy_context = nullptr;
 };
 
@@ -332,9 +350,12 @@ struct loop_internal_access {
 //       error a failing step()/present() produced, unchanged, in every
 //       other case. Refuses (by name, invalid_argument): on_frame
 //       empty ("on_frame"), on_render empty ("on_render"), on_event
-//       filled in ("on_event"), destroy_context filled in
-//       ("destroy_context") - LOOP-CONTEXT-OWNERSHIP has not landed
-//       yet (this struct's own header comment on that field).
+//       filled in ("on_event"), destroy_context filled in with no
+//       context ("destroy_context"), and a run()/run(callbacks)/
+//       set_callbacks() called from INSIDE this consumer's own
+//       on_frame/on_render ("running") - LOOP-CONTEXT-OWNERSHIP,
+//       D-LF-6d (gltfx_loop_callbacks::destroy_context's own header
+//       comment).
 //
 //   P9c. Every callback pointer's own TYPE requires `noexcept`
 //        (LOOP-CALLBACK-THROW, this header's own "WHAT THIS LAYER
@@ -348,6 +369,19 @@ struct loop_internal_access {
 //        not open. Presenting through the context directly
 //        (gltfx_gl_context::swap_buffers()) is still allowed; the loop
 //        simply never finds out.
+//
+//   P11. LOOP-CONTEXT-OWNERSHIP, form 1 (gltfx_loop_callbacks::
+//        destroy_context's own header comment, truth (b1)): a context
+//        handed to run(callbacks) with destroy_context set is
+//        destroyed exactly once, after the last callback, on every
+//        return path - including refusal.
+//
+//   P12. LOOP-CONTEXT-OWNERSHIP, form 2 (truth (b2)): a context handed
+//        to set_callbacks() is destroyed exactly once, when replaced
+//        by a later successful set_callbacks() or when the loop is
+//        destroyed, and survives any number of run() calls in
+//        between; a refused set_callbacks() destroys only what it
+//        refused.
 //
 // ============================================================
 // WHAT THIS FATIA DOES NOT PROMISE, stated so nobody has to infer it
@@ -412,13 +446,51 @@ class gltfx_loop {
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_present_outcome> present() noexcept;
 
     // Sugar over step()/on_frame/on_render/present() - see this class's
-    // own P3/P9 above for the exact order and the exact refusal rules.
-    // BY VALUE (LOOP-CONTEXT-OWNERSHIP, /var/tmp/glintfx-plan/loop-fix.
-    // md sec. 3.1): five trivial pointers, cheap to copy, and "by
+    // own P3/P9/P11 above for the exact order and the exact refusal
+    // rules. BY VALUE (five trivial pointers, cheap to copy, and "by
     // value" is what tells a reader that ownership of `context` may be
-    // changing hands - this fatia does not yet act on that, but the
-    // signature is frozen once, here, rather than reopened later.
+    // changing hands, /var/tmp/glintfx-plan/loop-fix.md sec. 3.1).
+    //
+    // Callbacks handed to run(callbacks) live for that call only:
+    // destroyed on every return path, refusal included. What this does
+    // NOT give you: there is no way to run the SAME handed-over state a
+    // second time - a fresh call needs a fresh (or still-borrowed)
+    // context. See set_callbacks() below for the OTHER lifetime
+    // (posse pelo laço), and gltfx_loop_callbacks::destroy_context's
+    // own header comment for the rule both forms share.
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> run(gltfx_loop_callbacks callbacks) noexcept;
+
+    // LOOP-CONTEXT-OWNERSHIP, form 2 (/var/tmp/glintfx-plan/loop-fix.md
+    // sec. 3.2, D-091011): stores `callbacks` for THIS loop, replacing
+    // whatever was stored before - validated the SAME way run(callbacks)
+    // above validates its own argument (loop_callbacks_validation.hpp).
+    // Refused by name ("running") when called from inside this
+    // consumer's own on_frame/on_render (P9) - a re-entrant call here
+    // would otherwise destroy the very context the outer run() call is
+    // still using.
+    //
+    // Callbacks handed to set_callbacks() live with the loop: destroyed
+    // when replaced, or when the loop is destroyed, never earlier. What
+    // this does NOT give you: there is no way to release the context
+    // EARLIER than that (the same lifetime rule GLib's own
+    // GDestroyNotify documents for g_object_set_data_full - read to
+    // learn the technique, GODS_LAWS.md L-29/L-37, never copied) - a
+    // consumer who wants to release earlier has only one answer:
+    // borrow instead of handing over. Substituting a stored, owned
+    // context destroys the PREVIOUS one, even if the consumer still
+    // holds a pointer to it.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void>
+    set_callbacks(gltfx_loop_callbacks callbacks) noexcept;
+
+    // Runs the callbacks set_callbacks() above last stored - refused by
+    // name ("callbacks") if none were ever stored. Otherwise identical
+    // to run(gltfx_loop_callbacks) above in every other respect (P3,
+    // the refusal rules of P9, the re-entrance refusal) - the ONLY
+    // difference between the two overloads is WHICH lifetime governs
+    // the context, never how a tick itself behaves. Same precondition
+    // as step()/present()/run(callbacks) above: never called on a
+    // moved-from handle.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void> run() noexcept;
 
   private:
     explicit gltfx_loop(loop_impl *impl) noexcept : m_impl(impl) {}

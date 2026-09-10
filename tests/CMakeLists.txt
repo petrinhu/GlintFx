@@ -1031,21 +1031,51 @@ target_sources(loop_open_alloc_failure_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
 )
 
+# owned_loop_context_test - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/
+# glintfx-plan/loop-fix.md sec. S1b): pure header test, no .cpp
+# dependency - platform::owned_loop_context (owned_loop_context.hpp) is
+# entirely inline, and this file's own six cases only ever call
+# function pointers this TU itself declares - nothing from src/.
+glintfx_add_test(owned_loop_context_test)
+target_include_directories(owned_loop_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# store_loop_callbacks_test - LOOP-CONTEXT-OWNERSHIP (S1b): the SAME
+# "no GLINTFX_API, no DLL boundary, allocate_loop_impl() touches no
+# operating-system header" shape loop_open_alloc_failure_test above
+# already uses - recompiles loop_impl.cpp (for allocate_loop_impl()),
+# store_loop_callbacks.cpp (the function under test) and loop_
+# callbacks_validation.cpp (store_loop_callbacks() calls it) straight
+# into this test binary. Registers unguarded, same reasoning as every
+# other SO-free test in this file.
+glintfx_add_test(store_loop_callbacks_test)
+target_include_directories(store_loop_callbacks_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(store_loop_callbacks_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/store_loop_callbacks.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
+)
+
 # loop_engine_test - LOOP-RUN (cobertura), S2 (/var/tmp/glintfx-plan/
-# loop-fix.md sec. S2.2/S2.4, GODS_LAWS.md L-17/L-19/L-20/L-40): the
-# motor extraido de loop_facade.cpp (loop_engine.hpp), exercitado com
-# os doubles de tests/fake/fake_loop_ports.hpp mais o platform::window_
+# loop-fix.md sec. S2.2/S2.4, GODS_LAWS.md L-17/L-19/L-20/L-40), plus
+# LOOP-CONTEXT-OWNERSHIP's own T13..T16 (S1b, sec. S1b): the motor
+# extraido de loop_facade.cpp (loop_engine.hpp), exercitado com os
+# doubles de tests/fake/fake_loop_ports.hpp mais o platform::window_
 # state REAL (S2-F3) - nenhum dos dois toca o sistema operacional
 # (S2-F11), a mesma forma de frame_tick_state_test/frame_cap_schedule_
 # test/loop_callbacks_validation_test acima: registra sem guarda de
 # plataforma, recompila os atomos reais que o motor consome (nunca os
-# dublados) direto no binario do teste.
+# dublados) direto no binario do teste. loop_impl.cpp/store_loop_
+# callbacks.cpp entram com S1b (T15/T16 precisam de allocate_loop_impl()
+# e de store_loop_callbacks() reais, a mesma tecnica de store_loop_
+# callbacks_test acima).
 glintfx_add_test(loop_engine_test)
 target_include_directories(loop_engine_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(loop_engine_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/store_loop_callbacks.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
 )
 

@@ -39,7 +39,7 @@ int g_marker_b = 0;
 GLINTFX_TEST(destructor_calls_destroy_exactly_once) {
     g_destroyed.clear();
     {
-        glintfx::platform::owned_loop_context owned{&g_marker_a, &log_destroy};
+        const glintfx::platform::owned_loop_context owned{&g_marker_a, &log_destroy};
         GLINTFX_CHECK_EQ(g_destroyed.size(), static_cast<std::size_t>(0)); // not yet
     }
     GLINTFX_CHECK_EQ(g_destroyed.size(), static_cast<std::size_t>(1));
@@ -49,7 +49,7 @@ GLINTFX_TEST(destructor_calls_destroy_exactly_once) {
 GLINTFX_TEST(null_destroy_fn_is_never_called) {
     g_destroyed.clear();
     {
-        glintfx::platform::owned_loop_context owned{&g_marker_a, nullptr};
+        const glintfx::platform::owned_loop_context owned{&g_marker_a, nullptr};
     }
     GLINTFX_CHECK_EQ(g_destroyed.size(), static_cast<std::size_t>(0));
 }
@@ -57,7 +57,7 @@ GLINTFX_TEST(null_destroy_fn_is_never_called) {
 GLINTFX_TEST(null_context_never_reaches_destroy) {
     g_destroyed.clear();
     {
-        glintfx::platform::owned_loop_context owned{nullptr, &log_destroy};
+        const glintfx::platform::owned_loop_context owned{nullptr, &log_destroy};
     }
     GLINTFX_CHECK_EQ(g_destroyed.size(), static_cast<std::size_t>(0));
 }

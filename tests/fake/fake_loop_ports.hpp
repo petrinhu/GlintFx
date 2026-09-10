@@ -75,7 +75,15 @@ enum class loop_event : std::uint8_t {
 };
 
 struct loop_call_record {
-    loop_event event;
+    // `= pump` carries NO meaning of its own - push() below (loop_call_
+    // log::push()) takes `event` as its own first, REQUIRED parameter
+    // (no default), so every record that ever exists was built with an
+    // explicit, real event; this initializer exists only so a record
+    // can never be born holding indeterminate memory (cppcheck's own
+    // uninitMemberVarNoCtor, the same family of defect CORE-LOG's own
+    // union fields already hit), never as a silent fallback a reader
+    // should infer significance from.
+    loop_event event = loop_event::pump;
     std::uint32_t budget_ms = 0;
     std::uint64_t frame_index = 0;
     const void *context = nullptr;

@@ -28,14 +28,14 @@ gltfx_rslt<void> store_loop_callbacks(loop_impl &impl, gltfx_loop_callbacks call
         // The pair THIS call was just handed is destroyed; whatever is
         // already stored is left completely untouched (D-LF-6e's own
         // "recusado = nada substituído").
-        owned_loop_context rejected{callbacks.context, callbacks.destroy_context};
+        const owned_loop_context rejected{callbacks.context, callbacks.destroy_context};
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("running"));
     }
 
     if (const gltfx_rslt<void> validated = validate_loop_callbacks(callbacks);
         validated.has_error()) {
-        owned_loop_context rejected{callbacks.context, callbacks.destroy_context};
+        const owned_loop_context rejected{callbacks.context, callbacks.destroy_context};
         return validated;
     }
 

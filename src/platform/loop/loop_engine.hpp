@@ -295,7 +295,7 @@ template <class D, class W, class C, class K>
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("running"));
     }
-    running_guard guard{book.running};
+    const running_guard guard{book.running};
 
     // T1: recusa por nome acontece ANTES de qualquer porta ser tocada -
     // nenhum `ports.*` é lido nesta função antes desta chamada.

@@ -2921,3 +2921,41 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Decisões do CTO no lugar do líder, para ratificação retroativa:** a versão continua declarada à mão, nunca derivada da ferramenta de controle de versão; igualdade nos quatro componentes; os dois identificadores duplicados viram um só; os gêmeos de documentação entram por marcador fixo e a contagem por extenso fica fora; o caso "à frente sem marcar" fica fora de propósito.
 
 **DEFEITO DE PROCESSO, e é do orquestrador, não do agente:** eu abri entrada nova na fila chamando isto de "especificado e fora da tabela" **sem ver que a linha já existia** na tabela desde antes, com o mesmo achado escrito e até com o número da marca divergente citado. Duplicata apagada e refundida na linha original. É a terceira vez nesta sessão que eu produzo texto afirmando um estado que a árvore não tem - a mesma família que passei a noite cobrando dos outros.
+
+#### D-091010 — ORDEM DO LÍDER: como o consumidor entrega as funções dele ao laço  `[10/09/26 - 14:12:00]`
+
+**Não é decisão autônoma. É do líder**, tomada em 10/09/2026 por `AskUserQuestion` mais duas rodadas de aprofundamento pedidas por ele. **Porta de mão única: congela o formato da fronteira pública.** Fica aqui porque é o registro vivo das decisões que governam a implementação.
+
+**Ele pediu, verbatim:** *"O que diz a comunidade, quais as maiores dores e recomendações da comunidade, como fazem outros frameworks (veja docs online), junte tudo e me diga sua recomendação pelo mais rico/eficiente, não o mais fácil"*, e depois *"quero entao sua recomendacao com as camadas que resolvem as dores da comunidade. Tudo deve ficar muito bem comentado no código e na documentacao"*.
+
+**O que a pesquisa achou, e mudou o desenho duas vezes:**
+
+1. **O tipo usado hoje é INCAPAZ de carregar a exigência do líder** (que o compilador recuse função que possa lançar). Medido por compilação nos dois compiladores locais: a linguagem recusa a combinação. Atender a decisão dele obriga trocar a forma.
+2. **O tipo mais moderno da linguagem não serve para o nosso caso.** Ele é referência que não é dona de nada, e o próprio documento do comitê avisa que agrupá-lo dentro de uma estrutura - que é exatamente o que fazemos - cria referência pendurada. Descartado por medida.
+3. **A dor histórica da comunidade não é o ponteiro de contexto: é NÃO TER um.** O GLFW não dá contexto por chamada e obriga variável global (queixa aberta há anos); o SDL3 nasceu com contexto em toda chamada de volta.
+4. **Tipo da biblioteca padrão na fronteira pública amarra a compatibilidade binária à implementação de quem compila.** Com cinco alvos e o compilador da Microsoft ao lado dos livres, é a armadilha clássica.
+
+**O DESENHO APROVADO, em quatro camadas:**
+
+1. **Na fronteira:** ponteiro de função que declara não lançar, mais um contexto. Sem alocação, sem tipo de biblioteca padrão atravessando, estável entre compiladores diferentes.
+2. **Terceiro campo OPCIONAL de posse:** o endereço de uma função que sabe destruir aquele contexto. Quem o entrega, entrega a posse - a biblioteca mantém o objeto vivo enquanto o laço existir e o destrói no fim. Quem não entrega, continua emprestando. **É o padrão consagrado do `GDestroyNotify` do GLib**, e resolve a dor do tempo de vida sem tipo de biblioteca padrão na fronteira. **Cuidado que a documentação do GLib registra e que o nosso cabeçalho tem de repetir:** quem entrega a posse mantém o objeto vivo ATÉ o laço acabar.
+3. **Camada tipada, escrita em casa, no cabeçalho:** amarra objeto e método de forma tipada, sem custo em execução, e **RECUSA EM COMPILAÇÃO amarrar um objeto temporário** - mata na máquina do desenvolvedor o erro mais comum de tempo de vida. Aceita também função anônima sem estado direto, sem camada nenhuma, o que devolve o conforto no caso descartável.
+4. **Marca de verificação nas construções de depuração:** confere antes de cada chamada se o contexto ainda é o que diz ser. Não impede o objeto de morrer; troca corrupção silenciosa por falha imediata que aponta a causa. Custo zero na construção final.
+
+**O que NENHUM desenho resolve, e o cabeçalho tem de dizer:** declarar que não lança é promessa, não prova. Função que declara e lança mesmo assim é encerrada **pela linguagem**, no quadro do consumidor. O que se ganha é que o erro fica do lado dele e visível, em vez de a biblioteca matar o processo em silêncio.
+
+**EXIGÊNCIA EXPRESSA DO LÍDER, e ela vale como critério de aceitação:** *tudo* muito bem comentado **no código E na documentação**. Fatia que entregue o mecanismo sem o texto não fecha.
+
+#### D-091011 — ORDEM DO LÍDER: o consumidor ESCOLHE o escopo da posse  `[10/09/26 - 14:24:00]`
+
+**Não é decisão autônoma. É do líder**, por `AskUserQuestion`, 10/09/2026. Complementa **D-091010** e também é **porta de mão única**.
+
+**Por que a pergunta existiu:** o CTO percebeu que as palavras do líder em D-091010 (*"a biblioteca mantém o objeto vivo enquanto o laço existir"*) admitiam **duas leituras** e **recusou escolher por ele** - trouxe as duas ao orquestrador, que levou ao líder. Comportamento correto: ambiguidade em porta de mão única não se resolve por palpite.
+
+**As duas leituras eram:** (a) a posse dura o tempo da CHAMADA que roda o laço, e o estado é destruído na saída, sempre; (b) a posse dura a vida do OBJETO do laço, e o estado sobrevive a várias chamadas.
+
+**O líder escolheu a TERCEIRA: o consumidor escolhe na entrega.** As duas formas existem, e quem usa diz qual quer.
+
+**O custo, declarado na própria pergunta antes da escolha, e aceito por ele:** passam a existir **duas regras de tempo de vida** para documentar, testar e o consumidor entender - numa fronteira que o desenho inteiro tenta manter pequena e sem armadilha. **Consequência para a implementação:** a matriz de teste dobra nesse eixo, e o texto obrigatório passa a ter de dizer, em cada forma, o que ela garante e o que ela não garante. A exigência do líder de que tudo fique muito bem comentado no código e na documentação (D-091010) vale com mais força aqui, porque agora há duas promessas em vez de uma.
+
+**O que isso REVOGA do plano:** a decisão do CTO `D-LF-6`, que fixava a posse na duração da chamada, deixa de valer como está e passa a ser uma das duas formas oferecidas.

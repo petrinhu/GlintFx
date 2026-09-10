@@ -4094,12 +4094,32 @@ set_tests_properties(check_selftest_orphan_selftest PROPERTIES LABELS selftest)
 # `command -v xmlstarlet` que sai com o codigo de AUSENCIA DECLARADA
 # (77) quando a ferramenta nao esta no PATH - a MESMA convencao que
 # win32_test_link_selftest/container_fixture_link_selftest ja usam
-# acima neste arquivo (CTest SKIP_RETURN_CODE), entao registrado aqui
-# SEM guarda de plataforma tambem: o proprio script decide, em tempo
-# real, se pula.
-add_test(
-    NAME win_vm_lab_isolamento_selftest
-    COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
-)
-set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES LABELS selftest)
-set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
+# acima neste arquivo (CTest SKIP_RETURN_CODE).
+#
+# GUARDA DE PLATAFORMA (conserto de 10/09/2026, GODS_LAWS.md L-04/L-17,
+# achado no run 34505397461/commit 32b7044): o comentario anterior dizia
+# "registrado SEM guarda de plataforma" e estava ERRADO na pratica - um
+# script POSIX sh (`#!/usr/bin/env bash`, sem shebang que o Windows
+# reconheca) nao tem interprete nos runners Windows da matriz, e o
+# add_test morria com BAD_COMMAND ANTES do proprio script rodar e poder
+# decidir o SKIP_RETURN_CODE 77 - a ausencia de xmlstarlet so e' avaliada
+# DEPOIS que o processo consegue nascer. Os irmaos de shell da casa
+# (visibility_test/check_exports.sh, port_privacy_test/check_port_
+# privacy.sh, ambos se if(UNIX) acima neste arquivo) ja seguem esta
+# forma; este alvo adota o mesmo idioma. ONDE ELE EFETIVAMENTE RODA:
+# so nos quatro alvos Unix da matriz (Fedora, Ubuntu, CachyOS, Arch) -
+# nao e' lacuna de protecao, e' a fronteira correta: a VM Windows de
+# tools/win-vm-lab/ e' laboratorio libvirt/QEMU, que so existe em host
+# Linux; nao ha maquina virtual Windows a isolar quando o proprio
+# runner JA E' Windows. GATE-SELFTEST-ORFAO (check_selftest_orphan_test
+# acima) continua vendo este add_test dentro do if(UNIX) e nao o marca
+# orfao - a guarda de plataforma nao remove o registro, so restringe
+# onde ele conta.
+if(UNIX)
+    add_test(
+        NAME win_vm_lab_isolamento_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
+endif()

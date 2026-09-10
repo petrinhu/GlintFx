@@ -69,13 +69,23 @@
 #                                     tools/msvc-container/README.md -
 #                                     GATE-WIN32-LINK, CORE-LOG-CI fatia 4,
 #                                     tests/tools/check_win32_test_link.py).
-#                                     Never wired into --fast/the full
-#                                     pipeline: needs docker + an image
-#                                     this script never builds/pulls on
-#                                     its own (GODS_LAWS.md L-14) - a
-#                                     missing docker/image is a declared,
-#                                     printed "NAO APLICAVEL", not a
-#                                     failure.
+#                                     Standalone diagnostic mode: needs
+#                                     docker + an image this script never
+#                                     builds/pulls on its own (GODS_LAWS.md
+#                                     L-14) - a missing docker/image here
+#                                     is a declared, printed "NAO
+#                                     APLICAVEL", never a failure (WIN-
+#                                     CROSS-STAGE S2: this "diagnostic"
+#                                     contract is DIFFERENT from the
+#                                     "strict" one the same stage uses as
+#                                     stage 9 of the full pipeline above -
+#                                     there, a missing docker/image
+#                                     REPROVES by default; the lone
+#                                     exception is GLINTFX_PRECI_WIN32=skip
+#                                     in the environment, which downgrades
+#                                     it to a declared, printed skip -
+#                                     GODS_LAWS.md L-02, see stage_win32_
+#                                     link's own comment).
 #   tools/preci.sh --selftest        proves the format/clang-tidy/cppcheck
 #                                     stages against tests/preci_fixtures/
 #                                     instead of the real tree: positive
@@ -1071,13 +1081,39 @@ stage_debug() {
 # STAGE (plano em /var/tmp/glintfx-plan/win-cross-stage.md, sub-fatia
 # S1): entra tambem na RODADA COMPLETA (`preci.sh` sem flag), como
 # estagio 9, depois de stage_debug - so continua sendo o UNICO estagio
-# de `--win32-link-only` isolado (modo de diagnostico, nao reprova por
-# ausencia de docker/imagem - ver essa flag no `main()`). NAO e' add_
+# de `--win32-link-only` isolado (modo de diagnostico). NAO e' add_
 # test: a prova real e' o job `windows` do CI; isto e' o espelho local,
 # antes do push (L-24/L-36).
-readonly GLINTFX_WIN32_LINK_IMAGE='glintfx-msvc:latest'
+#
+# Sobrescrevivel por ambiente (nao mais `readonly`) so para permitir a
+# sonda de S2 apontar para uma imagem inexistente sem editar o script -
+# GODS_LAWS.md L-45 nao se aplica aqui (isto nao e leitura de codigo de
+# saida), e o valor default e o mesmo de sempre quando a variavel nao
+# esta setada.
+GLINTFX_WIN32_LINK_IMAGE="${GLINTFX_WIN32_LINK_IMAGE:-glintfx-msvc:latest}"
 
+# WIN-CROSS-STAGE S2 (D-2): a ausencia de docker/imagem (rc 77 do
+# checador python) tem DOIS contratos, escolhidos pelo chamador via
+# `$1`, nunca por default implicito (GODS_LAWS.md L-02: toda liberacao
+# e negativa permanente + excecao condicional explicita, nunca uma
+# permissao solta) -
+#   "diagnostic" (--win32-link-only, sonda manual): comportamento
+#     inalterado desde a fatia anterior - rc 77 NUNCA reprova, so
+#     declara "NAO APLICAVEL". Ninguem e obrigado a ter o container so
+#     para rodar a sonda na mao (GODS_LAWS.md L-14).
+#   "strict" (estagio 9 da rodada completa, o portao que de fato
+#     protege o push): rc 77 REPROVA por padrao - "calar" era
+#     exatamente o defeito que o desenho de 06/09 nomeou. A UNICA
+#     excecao e `GLINTFX_PRECI_WIN32=skip` no ambiente, que rebaixa
+#     para um pulo DECLARADO e IMPRESSO (nunca silencioso) - alvo
+#     estreito (so este estagio, so esta variavel, so este valor).
 stage_win32_link() {
+    mode="${1:?stage_win32_link precisa de modo explicito: strict|diagnostic}"
+    case "$mode" in
+        strict|diagnostic) ;;
+        *) fail "stage_win32_link: modo desconhecido '$mode' (esperado strict|diagnostic)" ;;
+    esac
+
     # GODS_LAWS.md L-45: codigo de saida lido de VARIAVEL, nunca de
     # comando solto sob `set -e` (um `python3 ... ; código=$?` aborta
     # antes da segunda linha se o primeiro comando falhar). rc=77 e' o
@@ -1087,9 +1123,17 @@ stage_win32_link() {
     rc=0
     python3 "$ROOT_DIR/tests/tools/check_win32_test_link.py" --exec "$ROOT_DIR" \
         --image "$GLINTFX_WIN32_LINK_IMAGE" || rc=$?
+
     if [ "$rc" -eq 77 ]; then
-        log "estagio win32-link: NAO APLICAVEL neste host (ver mensagem acima) - nao reprova o espelho local"
-        return 0
+        if [ "$mode" = "diagnostic" ]; then
+            log "estagio win32-link: NAO APLICAVEL neste host (ver mensagem acima) - nao reprova o espelho local"
+            return 0
+        fi
+        if [ "${GLINTFX_PRECI_WIN32:-}" = "skip" ]; then
+            echo "estagio 9: PULADO POR DECLARACAO (GLINTFX_PRECI_WIN32=skip) - a prova do lado Windows fica so no servidor"
+            return 0
+        fi
+        fail "estagio win32-link recusado: docker/imagem ausentes na rodada completa (ver mensagem acima) - defina GLINTFX_PRECI_WIN32=skip para um pulo DECLARADO, ou construa a imagem (tools/msvc-container/README.md); GATE-WIN32-LINK, GODS_LAWS.md L-02"
     fi
     [ "$rc" -eq 0 ] || fail "estagio win32-link recusado (ver saida acima; GATE-WIN32-LINK)"
 }
@@ -1578,6 +1622,77 @@ run_selftest_assert_count_controls() {
     run_selftest_assert_count_negative_control
 }
 
+# --- selftest controls for stage_win32_link's strict/diagnostic
+# contract (WIN-CROSS-STAGE S2, GODS_LAWS.md L-02). Aponta para uma
+# imagem docker deliberadamente inexistente (nunca para a real
+# glintfx-msvc:latest): os dois caminhos que o checador python usa para
+# chegar em rc=77 (docker ausente OU imagem fora do cache) sao
+# equivalentes do ponto de vista deste controle - o que esta sendo
+# testado e a DECISAO de stage_win32_link em cima do rc=77, nunca o
+# checador python em si (esse ja tem prova propria, F5 do plano). Por
+# isso o controle roda em QUALQUER host, com ou sem docker instalado, e
+# e barato (a sonda "docker image inspect <inexistente>" falha em
+# milissegundos, nunca chega perto de compilar nada).
+#
+# stage_win32_link chama `fail` (que da' `exit 1` de verdade) no
+# caminho negativo - por isso cada controle roda a chamada dentro de um
+# SUBSHELL `( ... )`: o `exit 1` dentro do subshell encerra so o
+# subshell, nunca o processo --selftest inteiro (mesmo motivo de todo
+# outro controle deste arquivo que testa um caminho de `fail`).
+_GLINTFX_WIN32_LINK_SELFTEST_IMAGE='glintfx-msvc:inexistente-selftest'
+
+run_selftest_win32_link_positive_control() {
+    log "selftest: win32-link strict + GLINTFX_PRECI_WIN32=skip (controle positivo)"
+    out="$(mktemp "${TMPDIR}/glintfx-preci-win32-pos.XXXXXX")"
+    if ! (
+        GLINTFX_WIN32_LINK_IMAGE="$_GLINTFX_WIN32_LINK_SELFTEST_IMAGE"
+        GLINTFX_PRECI_WIN32="skip"
+        export GLINTFX_WIN32_LINK_IMAGE GLINTFX_PRECI_WIN32
+        stage_win32_link strict
+    ) >"$out" 2>&1; then
+        cat "$out" >&2
+        rm -f "$out"
+        fail "controle positivo (win32-link) FALHOU: GLINTFX_PRECI_WIN32=skip deveria pular DECLARADO (rc 0), reprovou"
+    fi
+    grep -q 'PULADO POR DECLARACAO (GLINTFX_PRECI_WIN32=skip)' "$out" \
+        || {
+            cat "$out" >&2
+            rm -f "$out"
+            fail "controle positivo (win32-link) FALHOU: linha de pulo declarado nao apareceu na saida"
+        }
+    rm -f "$out"
+    echo "selftest: win32-link controle positivo OK (pulo declarado sob GLINTFX_PRECI_WIN32=skip)"
+}
+
+run_selftest_win32_link_negative_control() {
+    log "selftest: win32-link strict sem excecao (controle negativo)"
+    out="$(mktemp "${TMPDIR}/glintfx-preci-win32-neg.XXXXXX")"
+    if (
+        GLINTFX_WIN32_LINK_IMAGE="$_GLINTFX_WIN32_LINK_SELFTEST_IMAGE"
+        unset GLINTFX_PRECI_WIN32
+        export GLINTFX_WIN32_LINK_IMAGE
+        stage_win32_link strict
+    ) >"$out" 2>&1; then
+        cat "$out" >&2
+        rm -f "$out"
+        fail "controle negativo (win32-link) FALHOU: docker/imagem ausentes foi APROVADO em modo strict sem GLINTFX_PRECI_WIN32=skip (era exatamente o 'calar' que S2 fecha)"
+    fi
+    grep -q 'estagio win32-link recusado' "$out" \
+        || {
+            cat "$out" >&2
+            rm -f "$out"
+            fail "controle negativo (win32-link) FALHOU: mensagem de recusa nao apareceu na saida"
+        }
+    rm -f "$out"
+    echo "selftest: win32-link controle negativo OK (docker/imagem ausentes reprovado em modo strict, GATE-WIN32-LINK)"
+}
+
+run_selftest_win32_link_controls() {
+    log "selftest: contrato strict/diagnostic de stage_win32_link (GLINTFX_PRECI_WIN32, GODS_LAWS.md L-02)"
+    run_selftest_win32_link_positive_control
+    run_selftest_win32_link_negative_control
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -1586,6 +1701,7 @@ run_selftest() {
     run_selftest_ctest_count_controls
     run_selftest_untracked_guard_controls
     run_selftest_assert_count_controls
+    run_selftest_win32_link_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -1621,7 +1737,7 @@ run_debug_only() {
 
 run_win32_link_only() {
     log "estagio win32-link: alvos win32_* de tests/CMakeLists.txt ligados contra o cl.exe/link.exe real (GATE-WIN32-LINK)"
-    stage_win32_link
+    stage_win32_link diagnostic
     echo "preci.sh --win32-link-only: VERDE"
 }
 
@@ -1655,7 +1771,7 @@ run_full_pipeline() {
         log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
         stage_debug
         log "estagio 9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)"
-        stage_win32_link
+        stage_win32_link strict
     fi
     echo "preci.sh: TUDO VERDE"
 }

@@ -712,6 +712,101 @@ def classify_link_result(result):
     )
 
 
+# --- 6a. measure_strict_family (WIN-CROSS-STAGE S4, D-3b) -------------------
+#
+# A familia de conversao numerica que o /W4 padrao deixa DESLIGADA
+# (C4365/C4388/C4242/C4254 - avisos de conversao com possivel perda de
+# dado). O texto de 06/09 falava em "familia de conversao numerica que
+# quebrou uma rodada"; o historico real (`git log --format='%b' | grep
+# -o 'C4[0-9]\{3\}'`) so mostra C4996/C4297/C4273/C4081 - nenhum de
+# conversao. Esta e a familia MSVC padrao de conversao, nao a
+# reconstrucao daquela rodada especifica (INFERENCIA do plano, nao
+# fato).
+#
+# MEDE, NUNCA REPROVA (por isso roda SEM /WX): promover qualquer um
+# destes quatro codigos a erro e decisao do lider (obrigaria mudar
+# codigo de produto) - este script so imprime a contagem, sempre,
+# mesmo zero (GODS_LAWS.md L-40, "sempre imprime" e o piso aqui, nao
+# "zero reprova": ausencia de contagem impressa e que seria o defeito).
+#
+# Escopo: as fontes de glintfx_library (as mesmas 77 que build_library_
+# dll ja compila) - e' codigo de PRODUTO, o que uma decisao futura de
+# reprovar afetaria; os alvos de teste ficam fora desta medicao.
+#
+# UMA chamada docker extra (GODS_LAWS.md L-11): todas as fontes num so
+# `cl /c` (sem /LD, sem link - so' se precisa do resultado textual dos
+# avisos, nunca do binario).
+_STRICT_WARNING_CODES = ("C4365", "C4388", "C4242", "C4254")
+_STRICT_EXTRA_FLAGS = "/w44365 /w44388 /w44242 /w44254"
+
+
+def measure_strict_family(image, repo_root, sources, generated_gl_source, generated_include_dir, timeout_seconds):
+    scratch = tempfile.mkdtemp(prefix="glintfx-win32-strict-", dir=os.environ.get("TMPDIR"))
+    try:
+        write_msvc_export_header(scratch, generated_include_dir)
+
+        container_sources = [f"/src/{src}" for src in sources]
+        extra_include_flag = ""
+        if generated_gl_source is not None:
+            generated_dir = os.path.dirname(generated_gl_source)
+            dest_dir = os.path.join(scratch, "generated_render_strict")
+            os.makedirs(dest_dir, exist_ok=True)
+            shutil.copyfile(generated_gl_source, os.path.join(dest_dir, "gl_functions.cpp"))
+            shutil.copyfile(
+                os.path.join(generated_dir, "gl_functions.hpp"),
+                os.path.join(dest_dir, "gl_functions.hpp"),
+            )
+            container_sources.append("/build/generated_render_strict/gl_functions.cpp")
+            extra_include_flag = "/I /build/generated_render_strict /I /src/src/render "
+
+        objs_dir = os.path.join(scratch, "objs_strict")
+        os.makedirs(objs_dir, exist_ok=True)
+        source_args = " ".join(shlex.quote(s) for s in container_sources)
+
+        command = (
+            f"cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 {_STRICT_EXTRA_FLAGS} /c "
+            "/I /src/include /I /build/generated_include /I /src/src "
+            f"{extra_include_flag}"
+            "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 /Dglintfx_library_EXPORTS "
+            f'/Fo"/build/objs_strict/" '
+            f"{source_args}"
+        )
+        returncode, stdout, stderr, elapsed, timed_out = _run_docker(
+            image, repo_root, scratch, command, timeout_seconds
+        )
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+    text = (stdout or "") + (stderr or "")
+    counts = {code: len(re.findall(rf"warning {code}\b", text)) for code in _STRICT_WARNING_CODES}
+    return {
+        "counts": counts,
+        "returncode": returncode,
+        "timed_out": timed_out,
+        "elapsed": elapsed,
+        "raw_tail": stderr_tail(text),
+    }
+
+
+def print_strict_summary(measurement):
+    counts = measurement["counts"]
+    parts = " ".join(f"{code}={counts[code]}" for code in _STRICT_WARNING_CODES)
+    print(
+        f"{SCRIPT_NAME}: avisos estritos ({measurement['elapsed']:.1f}s, SEM reprovar - decisao "
+        f"do lider pendente, GODS_LAWS.md L-02/D-3b): {parts}"
+    )
+    if measurement["timed_out"] or measurement["returncode"] not in (0, None) and measurement["returncode"] != 0:
+        # rc != 0 aqui nao e' o codigo destas quatro famílias (elas
+        # nunca promovem a erro, /WX esta fora de proposito) - e' um
+        # problema DIFERENTE (erro real de compilacao ou timeout);
+        # declarado, nunca escondido atras da contagem.
+        print(
+            f"{SCRIPT_NAME}: aviso - a medicao estrita terminou com rc={measurement['returncode']} "
+            f"timeout={measurement['timed_out']} (nao e' um dos quatro codigos medidos; isto e' "
+            f"diferente de C4365/C4388/C4242/C4254): {measurement['raw_tail']}"
+        )
+
+
 # --- 6. run_link_check ------------------------------------------------------
 
 
@@ -834,7 +929,7 @@ def print_summary(summary):
 # --- modo real ---------------------------------------------------------------
 
 
-def real_main(repo_root, image, timeout_seconds):
+def real_main(repo_root, image, timeout_seconds, strict=False):
     if not os.path.isdir(repo_root):
         fail(f"repo-root nao existe: {repo_root}")
 
@@ -857,8 +952,29 @@ def real_main(repo_root, image, timeout_seconds):
         )
         sys.exit(GATE_SKIP_RETURN_CODE)
 
-    summary, errors = run_link_check(os.path.abspath(repo_root), image, timeout_seconds)
+    abs_repo_root = os.path.abspath(repo_root)
+    summary, errors = run_link_check(abs_repo_root, image, timeout_seconds)
     print_summary(summary)
+
+    # WIN-CROSS-STAGE S4: a medicao estrita roda SEMPRE que --strict foi
+    # pedido, mesmo quando o gate normal REPROVA logo abaixo - as duas
+    # coisas sao ortogonais (um mede sem reprovar, o outro reprova sem
+    # medir esta familia), e o chamador quer o numero de qualquer jeito.
+    # Recalcula o layout da biblioteca (parse puro, sem docker - barato)
+    # em vez de reaproveitar o de run_link_check, que ja fechou seu
+    # proprio scratch antes de devolver.
+    if strict:
+        sources, _libs, needs_gl_loader, _visited = collect_win32_library_layout(abs_repo_root)
+        if sources:
+            build_roots = default_generated_build_roots(abs_repo_root)
+            generated_gl_source = discover_generated_gl_source(build_roots) if needs_gl_loader else None
+            generated_include_dir = discover_generated_include_dir(build_roots)
+            measurement = measure_strict_family(
+                image, abs_repo_root, sources, generated_gl_source, generated_include_dir, timeout_seconds
+            )
+            print_strict_summary(measurement)
+        else:
+            print(f"{SCRIPT_NAME}: avisos estritos: PULADO (nenhuma fonte de biblioteca encontrada)")
 
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
@@ -1146,7 +1262,8 @@ def selftest_main(image, timeout_seconds):
 
 _USAGE = (
     "usage: check_win32_test_link.py --exec <repo-root> [--image <docker-image>] "
-    "[--timeout-seconds <n>]  |  --selftest [--image <docker-image>] [--timeout-seconds <n>]"
+    "[--timeout-seconds <n>] [--strict]  |  --selftest [--image <docker-image>] "
+    "[--timeout-seconds <n>]"
 )
 
 
@@ -1165,6 +1282,7 @@ def main():
     image = DEFAULT_IMAGE
     timeout_seconds = DEFAULT_TIMEOUT_SECONDS
     repo_root = None
+    strict = False
 
     i = 0
     while i < len(rest):
@@ -1182,6 +1300,13 @@ def main():
                 timeout_seconds = int(rest[i])
             except ValueError:
                 fail(f"--timeout-seconds precisa de um inteiro, recebi '{rest[i]}'")
+        elif token == "--strict":
+            # WIN-CROSS-STAGE S4: so vale para --exec (mede codigo de
+            # produto contra docker/imagem reais); --selftest nunca
+            # aceita esta flag (as fixtures de --selftest nao existem
+            # para provar avisos MSVC, so' o comportamento format/tidy/
+            # cppcheck - ver o cabecalho deste script).
+            strict = True
         elif repo_root is None and not token.startswith("--"):
             repo_root = token
         else:
@@ -1189,12 +1314,14 @@ def main():
         i += 1
 
     if mode == "--selftest":
+        if strict:
+            fail(f"--strict nao e valido com --selftest\n{_USAGE}")
         selftest_main(image, timeout_seconds)
         return
     if mode == "--exec":
         if not repo_root:
             fail(_USAGE)
-        real_main(repo_root, image, timeout_seconds)
+        real_main(repo_root, image, timeout_seconds, strict)
         return
     fail(_USAGE)
 

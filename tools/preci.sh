@@ -1107,12 +1107,27 @@ GLINTFX_WIN32_LINK_IMAGE="${GLINTFX_WIN32_LINK_IMAGE:-glintfx-msvc:latest}"
 #     excecao e `GLINTFX_PRECI_WIN32=skip` no ambiente, que rebaixa
 #     para um pulo DECLARADO e IMPRESSO (nunca silencioso) - alvo
 #     estreito (so este estagio, so esta variavel, so este valor).
+# WIN-CROSS-STAGE S4 (D-3b): `--win32-link-only --strict` passa
+# `--strict` adiante para o checador python (mede a familia de
+# conversao numerica desligada por padrao, SEM reprovar - ver o
+# cabecalho de measure_strict_family() em check_win32_test_link.py).
+# So' o modo diagnostico aceita: o estagio 9 (strict/rodada completa)
+# nunca mede esta familia - decisao de transformar em reprovacao e' do
+# lider, GODS_LAWS.md L-02.
 stage_win32_link() {
     mode="${1:?stage_win32_link precisa de modo explicito: strict|diagnostic}"
+    strict_flag="${2:-}"
     case "$mode" in
         strict|diagnostic) ;;
         *) fail "stage_win32_link: modo desconhecido '$mode' (esperado strict|diagnostic)" ;;
     esac
+    case "$strict_flag" in
+        ""|--strict) ;;
+        *) fail "stage_win32_link: flag extra desconhecida '$strict_flag' (esperado vazio ou --strict)" ;;
+    esac
+    if [ -n "$strict_flag" ] && [ "$mode" != "diagnostic" ]; then
+        fail "stage_win32_link: --strict so' e' aceito em modo diagnostic (--win32-link-only), nao em strict/estagio 9"
+    fi
 
     # GODS_LAWS.md L-45: codigo de saida lido de VARIAVEL, nunca de
     # comando solto sob `set -e` (um `python3 ... ; código=$?` aborta
@@ -1122,7 +1137,7 @@ stage_win32_link() {
     # em stdout ja explica o motivo, ecoada aqui, nunca escondida).
     rc=0
     python3 "$ROOT_DIR/tests/tools/check_win32_test_link.py" --exec "$ROOT_DIR" \
-        --image "$GLINTFX_WIN32_LINK_IMAGE" || rc=$?
+        --image "$GLINTFX_WIN32_LINK_IMAGE" $strict_flag || rc=$?
 
     if [ "$rc" -eq 77 ]; then
         if [ "$mode" = "diagnostic" ]; then
@@ -1736,8 +1751,9 @@ run_debug_only() {
 }
 
 run_win32_link_only() {
+    strict_flag="${1:-}"
     log "estagio win32-link: alvos win32_* de tests/CMakeLists.txt ligados contra o cl.exe/link.exe real (GATE-WIN32-LINK)"
-    stage_win32_link diagnostic
+    stage_win32_link diagnostic "$strict_flag"
     echo "preci.sh --win32-link-only: VERDE"
 }
 
@@ -1783,12 +1799,21 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only [--strict]|--selftest]"
+
 main() {
     mode="${1:-}"
+    extra="${2:-}"
     case "$mode" in
         ""|--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only|--selftest) ;;
-        *) fail "uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only|--selftest]" ;;
+        *) fail "$_USAGE" ;;
     esac
+    # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
+    # de --win32-link-only - qualquer outra combinacao com um segundo
+    # argumento e uso invalido, nunca ignorada em silencio.
+    if [ -n "$extra" ] && { [ "$mode" != "--win32-link-only" ] || [ "$extra" != "--strict" ]; }; then
+        fail "$_USAGE"
+    fi
 
     if [ "$mode" != "--selftest" ]; then
         log "estagio 0: guarda de arquivo novo nao rastreado"
@@ -1812,7 +1837,7 @@ main() {
             run_debug_only
             ;;
         --win32-link-only)
-            run_win32_link_only
+            run_win32_link_only "$extra"
             ;;
         --selftest)
             run_selftest

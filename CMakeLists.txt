@@ -40,7 +40,7 @@ cmake_minimum_required(VERSION 4.1)
 # example itself is a twin of tests/package/CMakeLists.txt's own
 # requested version - both move together, see that file's own comment
 # for why a stale copy of this number is not a hypothetical risk).
-project(glintfx VERSION 0.3.0.0 LANGUAGES CXX)
+project(glintfx VERSION 0.3.7.0 LANGUAGES CXX)
 
 # C, under UNIX only (WL-PROTO, GODS_LAWS.md L-05): the private-code
 # half of a wayland-scanner binding (cmake/GlintfxWaylandProtocols.cmake)

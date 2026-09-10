@@ -28,6 +28,27 @@
 set -u
 set -o pipefail
 
+# GATE-SELFTEST-ORFAO (10/09/2026, ao registrar este script em
+# tests/CMakeLists.txt): as seis varreduras acima dependem de
+# `xmlstarlet` sem checar a presenca dele - achado ao ligar --selftest
+# na suite, GODS_LAWS.md L-40 ("o defeito que afirma medir e nao
+# mede"). Sem esta guarda, `xmlstarlet` ausente faz cada `$(xmlstarlet
+# ...)` falhar em silencio (command-not-found, substituicao de comando
+# vazia), e as contagens saem "encontrados=0" - o MESMO formato de uma
+# definicao genuinamente limpa. Isso e' particularmente grave aqui:
+# este e' o portao que prova o isolamento da VM Windows contra a
+# sessao do lider (GODS_LAWS.md L-09/L-50); um "aprovado" por
+# ferramenta ausente e' pior que nenhum portao. `exit 77` (nunca 0 ou
+# 1) e' o mesmo codigo de ausencia DECLARADA que win32_test_link_
+# selftest/container_fixture_link_selftest ja usam em tests/
+# CMakeLists.txt (CTest SKIP_RETURN_CODE) - registrado la' sem guarda
+# de plataforma, deixando o proprio script decidir em tempo real se
+# pula.
+if ! command -v xmlstarlet >/dev/null 2>&1; then
+  echo "AUSENTE: xmlstarlet nao encontrado no PATH - portao pulado (declarado, nunca silencioso)." >&2
+  exit 77
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 ALLOW_RO_DEFAULT="/home/petrus/IDrive/Documentos/projetos_claudebrain/Projects/GlintFx"
 # qemu:///session, nunca qemu:///system: mesma decisao medida de

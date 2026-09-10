@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# GATE-SELFTEST-ORFAO declared exceptions (tests/tools/check_selftest_
+# orphan.py, TODO.md, GODS_LAWS.md L-40/L-67). Mesma forma e a MESMA
+# regra de morte dos irmaos desta casa (tests/lib_source_exceptions.txt,
+# tests/parity_absences.txt): uma linha aqui so sobrevive enquanto for
+# VERDADEIRA nos dois sentidos - a ferramenta continua declarando
+# --selftest/-SelfTest no proprio analisador E continua, de fato, sem
+# registro em tests/CMakeLists.txt. Se qualquer um dos dois deixar de
+# valer (a ferramenta some, para de declarar autoteste, OU alguem a
+# registra de verdade), a linha vira EXCECAO OBSOLETA e o portao
+# reprova ate ela ser apagada - nunca fica silenciosamente esquecida
+# aqui depois de resolvida.
+#
+# Formato, um por linha, campos separados por '|':
+#   <caminho-relativo-a-raiz-do-repo>|motivo|item-TODO
+#
+# `item` e' um ID ABERTO em TODO.md (nunca "SEM-PENDENCIA" aqui: uma
+# ferramenta orfa sem dono e' exatamente o defeito que este portao
+# existe para reprovar, nao para desculpar).
+
+tests/tools/check_plan_scope_diff.py|GATE-SELFTEST-ORFAO achou este orfao no dia em que nasceu (10/09/2026), mas registra-lo aqui duplicaria/preempeteria o item PLAN-SCOPE-COLUMNS, que ja possui este mesmo script no proprio escopo declarado ("Escopo inclui registra-lo no ctest, rotulo consume") - dono e onda proprios (W7-C), ainda pendente.|PLAN-SCOPE-COLUMNS

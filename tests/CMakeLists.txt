@@ -4037,3 +4037,69 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wave_closure_coherence.py" --selftest
 )
 set_tests_properties(check_wave_closure_coherence_selftest PROPERTIES LABELS selftest)
+
+# GATE-SELFTEST-ORFAO (TODO.md, GODS_LAWS.md L-17/L-36/L-40): fecha a
+# classe de defeito que ja reincidiu QUATRO vezes neste repositorio -
+# uma ferramenta com autoteste proprio (--selftest/-SelfTest) que NADA
+# MECANICO chama, entao so protege se um humano lembrar de digitar o
+# comando (check_win32_test_link.py, achado na segunda reprovacao de
+# WIN-CROSS-STAGE; collect_measured.py e check_measured_parity.py,
+# achados junto; e tools/win-vm-lab/provar-isolamento.sh, achado na
+# terceira reprovacao - o mais grave dos quatro, porque e' o autoteste
+# que prova o isolamento da VM Windows contra a sessao de trabalho do
+# lider, GODS_LAWS.md L-09/L-50). A causa raiz (pesquisa obrigatoria na
+# terceira volta, GODS_LAWS.md L-22/L-42): varredura MANUAL por
+# diretorio erra de novo por construcao - cada rodada consertou o
+# orfao que aquela varredura enxergava (tests/tools/), e a proxima
+# tinha o mesmo ponto cego geometrico (provar-isolamento.sh mora em
+# tools/win-vm-lab/, fora dali). Este portao varre o REPOSITORIO
+# inteiro (git ls-files, tracked+untracked) por padrao de CODIGO -
+# nunca nome de arquivo - que o proprio analisador de opcoes de um
+# script .py/.sh/.ps1 usa para despachar autoteste, cruza contra
+# tests/CMakeLists.txt (este mesmo arquivo, o unico registro de ctest
+# do projeto), e reprova nomeando cada orfao - com uma unica excecao
+# declarada e impressa (tests/tools/selftest_orphan_exceptions.txt,
+# check_plan_scope_diff.py, ja reservado ao item PLAN-SCOPE-COLUMNS).
+# Ver o cabecalho de tests/tools/check_selftest_orphan.py para os
+# falsos-positivos MEDIDOS na arvore real (zero) e o que este gate
+# declaradamente nao pega.
+#
+# Python puro sobre texto (git ls-files + leitura de arquivo) mais
+# `git` no PATH - nada platform-specific, registrado SEM guarda de
+# sistema, mesma forma GATE-TREE-PARITY (GODS_LAWS.md L-04) de
+# check_wave_closure_coherence_test logo acima.
+add_test(
+    NAME check_selftest_orphan_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_orphan.py" --check
+        "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(check_selftest_orphan_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME check_selftest_orphan_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_selftest_orphan.py" --selftest
+)
+set_tests_properties(check_selftest_orphan_selftest PROPERTIES LABELS selftest)
+
+# O ORFAO REAL que a pesquisa acima nomeia, fechado no mesmo commit
+# deste gate: tools/win-vm-lab/provar-isolamento.sh --selftest e'
+# hermetico (le tools/win-vm-lab/fixtures/dominio-{sabotado,limpo}.xml
+# ja versionadas, nunca toca libvirt/QEMU de verdade), mas depende de
+# `xmlstarlet` - ausente das imagens de CI deste projeto (medido:
+# `grep -c xmlstarlet .github/workflows/ci.yml` devolve zero), e
+# instalar pacote de sistema sem autorizacao e' proibido (GODS_LAWS.md
+# L-51). O proprio script ganhou, no mesmo commit, uma guarda
+# `command -v xmlstarlet` que sai com o codigo de AUSENCIA DECLARADA
+# (77) quando a ferramenta nao esta no PATH - a MESMA convencao que
+# win32_test_link_selftest/container_fixture_link_selftest ja usam
+# acima neste arquivo (CTest SKIP_RETURN_CODE), entao registrado aqui
+# SEM guarda de plataforma tambem: o proprio script decide, em tempo
+# real, se pula.
+add_test(
+    NAME win_vm_lab_isolamento_selftest
+    COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
+)
+set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES LABELS selftest)
+set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)

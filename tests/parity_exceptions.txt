@@ -264,21 +264,6 @@ fatal_error_smoke|windows|nenhum|SEM-PENDENCIA
 # do lider/CTO) - nunca antes, e nunca so porque P-1 passou a existir.
 window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FALSA EM 08/09/2026. A linha anterior afirmava que window_smoke reprova quando ack_configure() e removido, e que por isso ele provava algo que window_parity_test (P-1) nao prova. Mutacao real, contra kwin 6.7.4 em dois containers isolados independentes, com a mutacao confirmada ate o binario: NEM window_smoke NEM gl_context_parity_test reprovam. O teste passa imprimindo o texto que ele so deveria imprimir quando nao ha erro de protocolo. Portanto window_smoke NAO se aposenta (a condicao de D-W6b-12 nao pode nem ser avaliada, porque o antigo nao pega mais nada para o novo ter que igualar), e a razao de ele existir esta sob investigacao. Dono trocado de GL-CONTEXT (concluido em 08/09) para o item que investiga o achado.|WL-ACK-SMOKE-BLUNT
 
-# FACADE-PIN, T1 (docs/plano-conserto-fachadas-uaf.md sec. 10, GODS_
-# LAWS.md L-04): window_active_after_map_smoke prova, no Wayland, que
-# um aviso TARDIO do compositor (o segundo `configure`, carregando
-# `activated`) chega ao objeto vivo depois de mapear a janela - o
-# proprio comportamento que o defeito desta fatia quebrava. O gemeo no
-# Windows nao e um smoke novo: win32_facade_pin_test (T4, tests/
-# CMakeLists.txt if(WIN32)) ja prova que GWLP_USERDATA e lido do
-# endereco vivo a CADA mensagem (nunca uma vez so, no mapeamento);
-# win32_iconic_present_test.cpp:75 mostra a janela com
-# SW_SHOWNOACTIVATE de proposito; e win32_message_translation_test.
-# cpp:110-133 ja cobre a traducao de WM_ACTIVATE. Mecanismo difere
-# (proxy do Wayland, GWLP_USERDATA lido por mensagem no Win32);
-# comportamento e cobertura, nao (GODS_LAWS.md L-04).
-window_active_after_map_smoke|windows|win32_facade_pin_test (GWLP_USERDATA lido a cada mensagem) + win32_iconic_present_test.cpp:75 (SW_SHOWNOACTIVATE) + win32_message_translation_test.cpp:110-133 (traducao de WM_ACTIVATE)|FACADE-PIN
-
 # --- Lacuna real, TEMPORARIA por falta de runner Windows proprio
 # (09/09/2026, CORE-LOG CL-7) ---------------------------------------
 #

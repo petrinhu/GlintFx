@@ -278,6 +278,29 @@ frame_callback_sequence_test|win32_iconic_present_test
 # no Win32.
 facade_pin_smoke|win32_facade_pin_test
 
+# FACADE-PIN, T1 (docs/plano-conserto-fachadas-uaf.md sec. 10, GODS_
+# LAWS.md L-04) - MOVIDO de tests/parity_exceptions.txt em 10/09/2026
+# quando FACADE-PIN fechou como ✅ Concluido em TODO.md e a regra
+# "concluido sem par" reprovou a excecao antiga: window_active_after_
+# map_smoke prova, no Wayland, que um aviso TARDIO do compositor (o
+# segundo `configure`, carregando `activated`) chega ao objeto vivo
+# depois de mapear a janela - o proprio comportamento que o defeito
+# desta fatia quebrava. O gemeo no Windows nao e um smoke novo:
+# win32_facade_pin_test (T4, tests/CMakeLists.txt if(WIN32), ja
+# apelido de facade_pin_smoke acima) ja prova que GWLP_USERDATA e
+# lido do endereco vivo a CADA mensagem (nunca uma vez so, no
+# mapeamento); win32_iconic_present_test.cpp:75 mostra a janela com
+# SW_SHOWNOACTIVATE de proposito; e win32_message_translation_test.
+# cpp:110-133 ja cobre a traducao de WM_ACTIVATE. Mecanismo difere
+# (proxy do Wayland, GWLP_USERDATA lido por mensagem no Win32);
+# comportamento e cobertura, nao (GODS_LAWS.md L-04). win32_facade_
+# pin_test aparece como parceiro de DOIS nomes Linux (facade_pin_
+# smoke acima e este) - apply_aliases() em check_test_parity.py usa
+# dict de conjuntos (setdefault(...).add(...)) desde o achado do
+# lider de 05/09/2026 (run 33995142570), entao os dois apelidos
+# coexistem sem um sobrescrever o outro.
+window_active_after_map_smoke|win32_facade_pin_test
+
 # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 4.6, D-W6b-37/
 # 38): "o leitor rodou de verdade contra o sistema real e isto e' o que
 # ele viu" - a MESMA cobertura ("dxcore_loaded"/"egl_device_queried" e

@@ -2905,3 +2905,19 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 - Achou, fora do escopo do plano, dois alvos que apontam para o próprio arquivo-fonte por um caminho que o plano não previa, mais um defeito latente na leitura desses argumentos. Consertou, **porque sem isso a própria prova da sub-fatia não fechava**. Corte de escopo ao contrário: ele ampliou, e a ampliação era necessária para a prova existir.
 
 **Erro de processo dele, corrigido no ato:** ficou parado esperando aviso de trabalho em segundo plano que nunca chega, em vez de ler o arquivo de código de saída que o próprio comando grava. É modo de falha conhecido desta casa. Aceitou a correção sem defesa.
+
+#### D-091008 — o portão que amarra a marca à versão declarada  `[10/09/26 - 08:55:00]`
+
+**Quem planejou:** o `fable` (CTO), sob modo autônomo. **Plano:** `/var/tmp/glintfx-plan/ver-tag-gate.md`, seis sub-fatias.
+
+**Por que agora:** a deriva que o item previa se materializou. Sete marcas publicadas com a biblioteca informando `0.3.0.0` a quem a consome.
+
+**A regra, e o que a torna confiável:** ela não foi escolhida por gosto, foi **medida contra a história real do repositório**. Com a marca no commit, a declarada tem de ser IGUAL nos quatro componentes; sem marca, tem de ser MAIOR OU IGUAL à marca mais alta alcançável. **313 commits varridos: 194 iguais, ZERO falso vermelho, e 119 vermelhos exatamente na faixa em que a deriva existiu de verdade.** As duas regras simples foram testadas e reprovaram: *igualdade sempre* daria falso vermelho num ramo lateral real, e *maior ou igual sempre* deixaria passar o dano que aconteceu. **Declarado como não coberto:** declaração à frente sem marcar, por tempo indefinido.
+
+**A decisão que o agente RECUSOU tomar, e fez certo:** um dos três pontos de execução é um gancho antes do envio, e a L-23 deste projeto registra decisão do líder de não amarrar o espelho local a esse gancho. Ele não reinterpretou a lei; trouxe ao orquestrador, que levou ao líder.
+
+**O líder autorizou por `AskUserQuestion` a EXCEÇÃO ESTREITA:** o gancho roda apenas quando o que se envia é uma marca de versão, ignorando envio de ramo. Registrado dentro da própria L-23, como exceção, **nunca como revogação** - o motivo original dela (não atrasar envio de documentação) segue intacto.
+
+**Decisões do CTO no lugar do líder, para ratificação retroativa:** a versão continua declarada à mão, nunca derivada da ferramenta de controle de versão; igualdade nos quatro componentes; os dois identificadores duplicados viram um só; os gêmeos de documentação entram por marcador fixo e a contagem por extenso fica fora; o caso "à frente sem marcar" fica fora de propósito.
+
+**DEFEITO DE PROCESSO, e é do orquestrador, não do agente:** eu abri entrada nova na fila chamando isto de "especificado e fora da tabela" **sem ver que a linha já existia** na tabela desde antes, com o mesmo achado escrito e até com o número da marca divergente citado. Duplicata apagada e refundida na linha original. É a terceira vez nesta sessão que eu produzo texto afirmando um estado que a árvore não tem - a mesma família que passei a noite cobrando dos outros.

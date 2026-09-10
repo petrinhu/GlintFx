@@ -3637,6 +3637,79 @@ add_test(
 set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest)
 set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
+# WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
+# revisor adversarial NOVO em 10/09/2026, segunda reprovacao da mesma
+# fatia): check_win32_test_link.py's own selftest_main() prova, entre
+# outras coisas, que classify_link_result() (o conserto de `be93c13`
+# para o achado da PRIMEIRA reprovacao - erro de compilacao real
+# classificado como falha de ambiente) continua correto - mas nunca
+# rodava em lugar nenhum de forma mecanica: `tools/preci.sh` so chama
+# o script em modo `--exec`, nunca `--selftest`, e zero entrada
+# aparecia em `ctest -N`. A rede que impede a MESMA reprovacao de
+# voltar so funcionava se um humano digitasse o comando (GODS_LAWS.md
+# L-36/L-40, "portao que nunca mordeu" aplicado ao autoteste do
+# proprio portao). Mesmo idioma de container_fixture_link_selftest
+# logo acima: as tres sub-verificacoes "real-toolchain" desta selftest
+# exigem docker + a imagem `glintfx-msvc:latest` (ver DEFAULT_IMAGE no
+# proprio script); quando ausentes, selftest_main() declara e CONTA o
+# pulo (nunca esconde) e sai com o GATE_SKIP_RETURN_CODE (77) do
+# proprio script - por isso SKIP_RETURN_CODE 77 aqui tambem, registrado
+# sem guarda de plataforma (roda via docker, nao precisa de toolchain
+# Windows no host, mesma forma GATE-TREE-PARITY dos gates acima). Nao
+# ha modo `--exec` (real) registrado aqui de proposito: ele COMPILA
+# codigo de produto contra o container MSVC e so faz sentido dentro da
+# rodada completa do espelho (tools/preci.sh, estagio win32-link) ou do
+# job `windows` do CI - nunca em `ctest -N`.
+add_test(
+    NAME win32_test_link_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_win32_test_link.py" --selftest
+)
+set_tests_properties(win32_test_link_selftest PROPERTIES LABELS selftest)
+set_tests_properties(win32_test_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+# Varredura do gemeo (GODS_LAWS.md L-17), feita ao consertar o orfao
+# acima: alem de check_win32_test_link.py, mais dois scripts de
+# tests/tools/ tem --selftest real (controles proprios, nao decoracao)
+# e nao apareciam em NENHUM `grep -c` deste arquivo - o MESMO defeito,
+# nao um parecido. Os dois sao hermeticos (tempfile proprio, sem
+# docker/toolchain externa), entao nenhum SKIP_RETURN_CODE aqui,
+# diferente do bloco win32_test_link_selftest acima.
+#
+# collect_measured.py: le log MEASURED e agrega (tools/preci.sh chama
+# em modo --collect no espelho local; .github/workflows/ci.yml usa a
+# mesma agregacao via job de upload de artefato); nunca era chamado
+# com --selftest em lugar nenhum.
+add_test(
+    NAME collect_measured_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/collect_measured.py" --selftest
+)
+set_tests_properties(collect_measured_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# check_measured_parity.py: compara as secoes MEASURED Linux x Windows
+# (chamado por .github/workflows/ci.yml, passo "check_measured_parity.py
+# --compare", nunca por `ctest`); nunca era chamado com --selftest em
+# lugar nenhum.
+#
+# check_plan_scope_diff.py (terceiro candidato desta mesma varredura)
+# NAO entra aqui: ja e item de tabela proprio (TODO.md, PLAN-SCOPE-
+# COLUMNS), com escopo MAIOR que so registrar o --selftest (o item
+# tambem faz o portao crescer para as colunas de prova/par, ver o texto
+# da propria linha) e dono/onda ja atribuidos - registrar so' o
+# --selftest aqui duplicaria/preempeteria aquele item em vez de fechar
+# o mesmo defeito.
+add_test(
+    NAME check_measured_parity_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_measured_parity.py" --selftest
+)
+set_tests_properties(check_measured_parity_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
 # EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo

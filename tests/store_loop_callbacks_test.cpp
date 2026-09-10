@@ -92,10 +92,22 @@ GLINTFX_TEST(replacing_stored_callbacks_destroys_the_previous_one_after_the_new_
         glintfx::platform::store_loop_callbacks(*impl, valid_callbacks(&g_marker_b, &log_destroy));
     GLINTFX_CHECK(second.has_value());
 
-    // The OLD pair (marker_a) is destroyed exactly once, and the NEW
-    // one (marker_b) is already the one impl->book reports - the black-
-    // box order proof, the same shape owned_loop_context_test.cpp's own
-    // reset_keeps_the_new_pair_owned_until_its_own_destruction uses.
+    // O QUE ESTE TESTE PROVA: depois que store_loop_callbacks() ja'
+    // retornou, o par ANTIGO (marker_a) foi destruido exatamente uma
+    // vez E o par NOVO (marker_b) ja' e' o que impl->book reporta -
+    // dois fatos do POS-ESTADO, lidos juntos depois que a chamada
+    // terminou. O QUE NAO PROVA (achado de revisao adversarial,
+    // 10/09/2026, medido por execucao - nao inferido por leitura): a
+    // ORDEM relativa entre "destruir o par antigo" e "armazenar o par
+    // novo" dentro da propria chamada. Uma mutacao que inverte essa
+    // ordem interna sobrevive intacta, porque as duas verificacoes
+    // acima so' leem o estado DEPOIS que a funcao ja' terminou, nunca
+    // durante - essa ordem so' ficaria distinguivel por um teste de
+    // caixa-preta com uma destruicao REENTRANTE (o destroy_context do
+    // par antigo lendo impl->book.stored_callbacks de volta, no MEIO
+    // da propria destruicao) que nenhum consumidor real desta
+    // biblioteca constroi (destroy_context recebe so' o ponteiro de
+    // contexto, nunca o impl).
     GLINTFX_CHECK_EQ(g_destroyed.size(), static_cast<std::size_t>(1));
     GLINTFX_CHECK(g_destroyed[0] == static_cast<void *>(&g_marker_a));
     GLINTFX_CHECK(impl->book.stored_callbacks.context == &g_marker_b);

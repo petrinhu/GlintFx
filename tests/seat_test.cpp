@@ -82,12 +82,17 @@ GLINTFX_TEST(win32_seat_adapter_opens_against_a_real_display_and_reads_capabilit
     std::println("MEASURED seat_test.pointer={}", has_pointer ? 1 : 0);
     std::println("MEASURED seat_test.keyboard={}", has_keyboard ? 1 : 0);
     std::println("MEASURED seat_test.touch={}", has_touch ? 1 : 0);
+    // capability_events, NOT last_change_kind (SF-2, D-WS-4, win-
+    // seat.md sec. 3): tests/container/seat_test.cpp's own Wayland side
+    // already prints this same key name - the two are NOT comparable by
+    // equality (seat_adapter.hpp's own last_change() comment), only the
+    // name and "at least one announcement" shape are shared.
     // seat_test.last_change_kind (a single WM_INPUT_DEVICE_CHANGE
-    // message's own wParam code) DELIBERATELY no longer printed here -
-    // the mechanism it measured (RIDEV_DEVNOTIFY) is gone (win-seat.md
-    // sec. 1.1, D-090918). Its replacement, a counter comparable to the
-    // Wayland side's own capability_events, lands in the next sub-fatia
-    // (SF-2) of this same reopening.
+    // message's own wParam code) is DELIBERATELY gone - the mechanism
+    // it measured (RIDEV_DEVNOTIFY) no longer exists (win-seat.md sec.
+    // 1.1, D-090918).
+    std::println("MEASURED seat_test.capability_events={}",
+                 static_cast<unsigned long long>(seat.last_change()));
 
     seat.close();
     GLINTFX_CHECK(!seat.is_open());
@@ -190,6 +195,35 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
                    reinterpret_cast<LPARAM>(&removal_block));
 
     GLINTFX_CHECK(seat.last_device_change() == device_change_kind::removal);
+
+    seat.close();
+    display.close();
+}
+
+// D-WS-4 (SF-2, win-seat.md sec. 3): last_change() counts open()'s own
+// initial read as 1, then +1 per routed WM_DEVICECHANGE - the mutation
+// this case exists to catch: incrementing only in handle_device_change()
+// (which would leave the count at 0 right after open()) or not
+// incrementing inside recompute_capabilities() at all.
+GLINTFX_TEST(capability_events_count_the_initial_read_and_each_device_change) {
+    win32_display_adapter display;
+    GLINTFX_CHECK(display.open().has_value());
+
+    win32_seat_adapter seat;
+    GLINTFX_CHECK(seat.open(display).has_value());
+    GLINTFX_CHECK(seat.last_change() == 1);
+
+    DEV_BROADCAST_HDR arrival_block{};
+    arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+    ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
+                   reinterpret_cast<LPARAM>(&arrival_block));
+    GLINTFX_CHECK(seat.last_change() == 2);
+
+    DEV_BROADCAST_HDR removal_block{};
+    removal_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+    ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEREMOVECOMPLETE,
+                   reinterpret_cast<LPARAM>(&removal_block));
+    GLINTFX_CHECK(seat.last_change() == 3);
 
     seat.close();
     display.close();

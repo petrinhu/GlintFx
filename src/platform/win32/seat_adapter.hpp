@@ -11,6 +11,8 @@
 #endif
 #include <windows.h>
 
+#include <cstdint>
+
 #include <glintfx/core/err.hpp>
 
 #include "platform/input/seat_capabilities.hpp"
@@ -197,6 +199,21 @@ class win32_seat_adapter {
         return m_last_device_change;
     }
 
+    // D-WS-4 (SF-2, win-seat.md sec. 3): a plain monotonic counter of
+    // system announcements - incremented once inside
+    // recompute_capabilities() (below), which BOTH open()'s own first
+    // read and every routed WM_DEVICECHANGE call, so open() counts 1
+    // and each device change counts +1 with no separate bookkeeping.
+    // Never reset by close() (same convention wayland_seat_adapter::
+    // last_change() already keeps, src/platform/wayland/seat_
+    // adapter.hpp). NOT comparable by EQUALITY against the Wayland
+    // side's own last_change() - the two count different grandezas
+    // (tests/measured_exceptions.txt's own seat_test.capability_events
+    // entry, lado="ambos": Wayland counts capabilities+name events on
+    // bind, Win32 counts the initial synchronous read) - only the NAME
+    // and the "at least one announcement happened" shape are shared.
+    [[nodiscard]] std::uint64_t last_change() const noexcept { return m_last_change; }
+
     // Pure translation seam (win32_seat_translation_test,
     // tests/CMakeLists.txt): the SAME logic open() and the
     // WM_DEVICECHANGE handler both call against the REAL
@@ -225,6 +242,7 @@ class win32_seat_adapter {
     HDEVNOTIFY m_mouse_notification = nullptr;
     seat_capabilities m_capabilities;
     device_change_kind m_last_device_change = device_change_kind::none;
+    std::uint64_t m_last_change = 0;
 };
 
 } // namespace glintfx::platform

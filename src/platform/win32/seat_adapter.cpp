@@ -184,6 +184,14 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
     const int digitizer_bitmask = ::GetSystemMetrics(SM_DIGITIZER);
     translate(devices.empty() ? nullptr : devices.data(), static_cast<UINT>(devices.size()),
               digitizer_bitmask, m_capabilities);
+
+    // D-WS-4 (SF-2): this function runs exactly once per "system
+    // announcement" this adapter reacts to - open()'s own first call
+    // (the synchronous initial read) and once more per routed
+    // WM_DEVICECHANGE (handle_device_change() below) - so incrementing
+    // HERE, once, covers both without separate bookkeeping at each call
+    // site (seat_adapter.hpp's own last_change() comment).
+    ++m_last_change;
 }
 
 void win32_seat_adapter::handle_device_change(device_change_kind kind) noexcept {

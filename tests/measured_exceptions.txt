@@ -83,14 +83,20 @@ two_displays_test.second_global_count|windows|mesmo motivo do first_global_count
 # permanente: se um dia os dois lados coincidirem, e' o executor que mudou.
 seat_test.pointer|ambos|presenca de dispositivo do executor, nao comportamento da biblioteca|SEM-PENDENCIA
 
-# seat_test.capability_events (Linux) / seat_test.last_change_kind (Windows):
-# ate 06/09/2026 as duas imprimiam sob o MESMO nome "last_change" e a tabela
-# comparou um contador de eventos Wayland com o codigo do ultimo
-# WM_INPUT_DEVICE_CHANGE - grandezas diferentes, nao sistemas divergentes.
-# Renomeadas para dizer o que medem; cada uma e' unilateral por natureza do
-# mecanismo (capacidades por evento no Wayland; leitura sincrona no Win32).
-seat_test.capability_events|windows|no Win32 a presenca e' lida em open(), nao ha contador de anuncios|SEM-PENDENCIA
-seat_test.last_change_kind|linux|no Wayland nao ha aviso por dispositivo, so re-anuncio de capacidades|SEM-PENDENCIA
+# seat_test.capability_events - ate 06/09/2026 as duas imprimiam sob o
+# MESMO nome "last_change" e a tabela comparou um contador de eventos
+# Wayland com o codigo do ultimo WM_INPUT_DEVICE_CHANGE - grandezas
+# diferentes, nao sistemas divergentes. Renomeadas para dizer o que
+# medem; a chave passou a existir DOS DOIS LADOS (WIN-SEAT SF-2, D-WS-4,
+# win-seat.md sec. 3, D-090918, 09/09/2026) mas continua NAO comparavel
+# por igualdade - Wayland conta wl_seat.capabilities+wl_seat.name no
+# bind (2, medido); Win32 conta a leitura inicial sincrona de open() (1)
+# mais um por WM_DEVICECHANGE roteado - mesma grandeza (anuncios do
+# sistema), valor de mecanismo, nunca igual por construcao. seat_test.
+# last_change_kind (Windows) foi APAGADA (nao renomeada, revogada -
+# GODS_LAWS.md L-67): media o wParam de WM_INPUT_DEVICE_CHANGE, um
+# mecanismo que nao existe mais desde SF-1.
+seat_test.capability_events|ambos|Wayland conta capabilities+name no bind (2), Win32 conta a leitura inicial de open() mais um por WM_DEVICECHANGE roteado - mesma grandeza, valor de mecanismo, nunca comparado por igualdade|SEM-PENDENCIA
 
 # gl_context_parity_test (docs/plano-w6b-fatias-5.md, GL-CONTEXT fatia
 # 5, D-W6b-29): oito chaves MEDIDAS E IMPRESSAS, nunca asseveradas

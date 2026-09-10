@@ -179,21 +179,6 @@ class win32_seat_adapter {
     // open()/close()/recompute_capabilities() themselves.
     [[nodiscard]] HWND native_handle() const noexcept { return m_window; }
 
-    // DIAGNOSTIC SEAM (10/09/2026, second round - server run
-    // 34434559496 measured record_raw_message() staying at its
-    // constructed default even though the "two device-interface
-    // registrations accepted" case passes, meaning the window is real
-    // but no message this adapter sent itself ever reached seat_
-    // window_proc with a non-null adapter). Reads GWLP_WNDPROC LIVE
-    // (never cached) and compares it against the ADDRESS open() itself
-    // installed - the direct test of the team-lead's own hypothesis 2
-    // ("o procedimento registrado na classe da janela nao e o que
-    // contem o seu registrador"): if this ever reads false while
-    // is_open() is true, the subclass silently failed or was silently
-    // overwritten by something else, and THAT is the defect, not
-    // anything downstream of it.
-    [[nodiscard]] bool wndproc_is_installed() const noexcept;
-
     // Test seam only (SF-1, D-WS-7, two_seats_test): how many of the
     // TWO RegisterDeviceNotificationW calls the SYSTEM actually
     // accepted (a non-null HDEVNOTIFY), never a constant this class
@@ -263,60 +248,6 @@ class win32_seat_adapter {
     void handle_device_change(device_change_kind kind) noexcept;
     [[nodiscard]] WNDPROC previous_wndproc() const noexcept;
 
-    // DIAGNOSTIC SEAM (WIN-SEAT, 10/09/2026 - server run 34432463346
-    // found `win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_
-    // itself`/`capability_events_count_the_initial_read_and_each_
-    // device_change`/`two_seats_in_one_process_have_independent_
-    // registrations` all failing the SAME way: state never updates
-    // after a synthetic WM_DEVICECHANGE, even though the pure classify_
-    // device_change() tests were not reported as failing - a routing
-    // question, never seen live before, that code review and the
-    // official Microsoft documentation for WM_DEVICECHANGE/DEV_
-    // BROADCAST_HDR/RegisterDeviceNotificationW/message-only windows do
-    // not explain).
-    //
-    // CORRECTION (10/09/2026, third round - team-lead's own catch,
-    // server run 34437115635): this comment used to claim
-    // "unconditionally" - FALSE, measured false by the same run that
-    // caught it. seat_window_proc (seat_adapter.cpp) only calls this
-    // from inside `if (adapter != nullptr)`, so a call whose
-    // GWLP_USERDATA resolved to null records NOTHING - indistinguishable
-    // from the procedure never having run at all, which is exactly the
-    // ambiguity this whole round exists to remove. The text now says
-    // what the code actually does; it does not claim more.
-    //
-    // Records the LAST message THIS INSTANCE's window procedure saw,
-    // msg id and wParam, BEFORE any WM_DEVICECHANGE-specific guard
-    // runs, WHENEVER GWLP_USERDATA resolved to a non-null adapter for
-    // that call. For the TRULY unconditional counterpart - counts
-    // every call to seat_window_proc regardless of what GWLP_USERDATA
-    // holds - see the free functions win32_seat_window_proc_
-    // invocation_count()/win32_seat_window_raw_userdata() below the
-    // class, deliberately NOT members (a member would need the very
-    // adapter pointer under suspicion to reach it). Never read by
-    // production code; a test-only seam like native_handle() above.
-    void record_raw_message(UINT msg, WPARAM wparam) noexcept;
-    [[nodiscard]] UINT last_raw_message() const noexcept { return m_last_raw_message; }
-    [[nodiscard]] WPARAM last_raw_wparam() const noexcept { return m_last_raw_wparam; }
-
-    // DIAGNOSTIC SEAM addendum (10/09/2026, team-lead's own follow-up
-    // request): whether the LAST WM_DEVICECHANGE this window procedure
-    // saw carried a non-null lParam block at all, and if so, what
-    // dbch_devicetype it named. record_raw_message() above already
-    // answers "did the message arrive"; this answers the OTHER guard
-    // classify_device_change() applies - a message that arrived with
-    // wParam == DBT_DEVICEARRIVAL but a block naming some OTHER
-    // dbch_devicetype (or no block at all) would look identical to
-    // "never arrived" from last_device_change() alone, and this is
-    // what tells the two apart.
-    void record_device_change_block(bool has_block, DWORD devicetype) noexcept;
-    [[nodiscard]] bool last_device_change_block_present() const noexcept {
-        return m_last_device_change_block_present;
-    }
-    [[nodiscard]] DWORD last_device_change_block_devicetype() const noexcept {
-        return m_last_device_change_block_devicetype;
-    }
-
   private:
     void recompute_capabilities() noexcept;
 
@@ -327,36 +258,7 @@ class win32_seat_adapter {
     seat_capabilities m_capabilities;
     device_change_kind m_last_device_change = device_change_kind::none;
     std::uint64_t m_last_change = 0;
-    UINT m_last_raw_message = 0;
-    WPARAM m_last_raw_wparam = 0;
-    bool m_last_device_change_block_present = false;
-    DWORD m_last_device_change_block_devicetype = 0;
 };
-
-// DIAGNOSTIC SEAM, free functions (10/09/2026, third round - team-
-// lead's own correction, server run 34437115635): record_raw_
-// message() above is NOT the unconditional counter its predecessor
-// comment claimed - it runs only when GWLP_USERDATA already resolved
-// to a non-null win32_seat_adapter*, which is precisely the fact
-// under suspicion this round. These two answer the two questions that
-// fact cannot: did seat_window_proc run AT ALL (independent of any
-// adapter pointer), and what does GWLP_USERDATA actually hold on a
-// given window RIGHT NOW, read with no cast and no null guard.
-// Deliberately free functions, not members: a member would need the
-// very adapter pointer under suspicion to be reachable at all.
-
-// A file-scope counter (seat_adapter.cpp, anonymous namespace),
-// incremented at the very TOP of seat_window_proc, before GWLP_
-// USERDATA is even read - counts every call to that procedure,
-// regardless of outcome. Never read by production code.
-[[nodiscard]] std::uint64_t win32_seat_window_proc_invocation_count() noexcept;
-
-// GetWindowLongPtrW(window, GWLP_USERDATA), read RAW - no cast to
-// win32_seat_adapter*, no null guard beyond `window` itself. Lets a
-// test compare this value directly against a known adapter object's
-// own address, printed side by side, instead of going through the
-// adapter's own (possibly wrong) reading of itself.
-[[nodiscard]] std::uintptr_t win32_seat_window_raw_userdata(HWND window) noexcept;
 
 } // namespace glintfx::platform
 

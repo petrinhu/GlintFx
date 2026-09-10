@@ -11,9 +11,6 @@
 
 #include <dbt.h>
 
-#include <cstdint>
-#include <cstdio>
-
 #include <glintfx/core/err.hpp>
 
 #include "harness/check.hpp"
@@ -77,69 +74,16 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
     // The SURVIVING seat still routes a synthetic WM_DEVICECHANGE after
     // its sibling closed - proves the routing itself (GWLP_USERDATA/
     // GWLP_WNDPROC, per-window) never depended on the sibling being
-    // alive.
-    // The real DEV_BROADCAST_DEVICEINTERFACE_W shape - see tests/
-    // seat_test.cpp's own "ROOT CAUSE, PART 1/2" comment for the full
-    // two-part story (dbch_size alone, server run 34435823776, was not
-    // enough; SendMessage's own documented system-message marshalling
-    // needed the ACTUAL structure DBT_DEVTYP_DEVICEINTERFACE names,
-    // server run 34438608248) - the same shape src/platform/win32/
-    // seat_adapter.cpp's own make_device_interface_filter() already
-    // builds correctly for real registration.
+    // alive. Real DEV_BROADCAST_DEVICEINTERFACE_W shape, dbcc_size set
+    // - see tests/seat_test.cpp's own win32_seat_adapter_routes_a_
+    // synthetic_wm_devicechange_to_itself comment for why: a bare
+    // DEV_BROADCAST_HDR is silently discarded by SendMessage's own
+    // system-message marshalling before reaching a window procedure.
     DEV_BROADCAST_DEVICEINTERFACE_W arrival_block{};
     arrival_block.dbcc_size = sizeof(arrival_block);
     arrival_block.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
-
-    // DIAGNOSTIC, second round (server run 34434559496 - see tests/
-    // seat_test.cpp's own diagnostic comment on the identical pattern,
-    // added the same day): the handle this call targets, and whether
-    // the ACTIVE window procedure (read live) is really seat_window_
-    // proc.
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_native_handle=%llu\n",
-                 static_cast<unsigned long long>(
-                     reinterpret_cast<std::uintptr_t>(second_seat.native_handle())));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_wndproc_installed=%d\n",
-                 second_seat.wndproc_is_installed() ? 1 : 0);
-    GLINTFX_CHECK(second_seat.wndproc_is_installed());
-
-    // DIAGNOSTIC, third round (10/09/2026 - see tests/seat_test.cpp's
-    // own diagnostic comment on the identical pattern, team-lead's own
-    // correction: record_raw_message() is conditional, not
-    // unconditional - these two answer what that comment's own claim
-    // could not).
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_seat_object_address=%llu\n",
-                 static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(&second_seat)));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_raw_userdata=%llu\n",
-                 static_cast<unsigned long long>(glintfx::platform::win32_seat_window_raw_userdata(
-                     second_seat.native_handle())));
-    const std::uint64_t invocations_before_send =
-        glintfx::platform::win32_seat_window_proc_invocation_count();
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_invocations_before_send=%llu\n",
-                 static_cast<unsigned long long>(invocations_before_send));
-
-    ::SetLastError(0);
-    const LRESULT send_result =
-        ::SendMessageW(second_seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
-                       reinterpret_cast<LPARAM>(&arrival_block));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_send_result=%lld\n",
-                 static_cast<long long>(send_result));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_send_last_error=%lu\n",
-                 static_cast<unsigned long>(::GetLastError()));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_invocations_after_send=%llu\n",
-                 static_cast<unsigned long long>(
-                     glintfx::platform::win32_seat_window_proc_invocation_count()));
-
-    // DIAGNOSTIC (server run 34432463346 found this exact check failing
-    // - see tests/seat_test.cpp's own diagnostic comment on the
-    // identical pattern, added the same day).
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_last_raw_message=%lu\n",
-                 static_cast<unsigned long>(second_seat.last_raw_message()));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_last_raw_wparam=%lu\n",
-                 static_cast<unsigned long>(second_seat.last_raw_wparam()));
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_block_present=%d\n",
-                 second_seat.last_device_change_block_present() ? 1 : 0);
-    std::fprintf(stdout, "MEASURED two_seats_test.diag_block_devicetype=%lu\n",
-                 static_cast<unsigned long>(second_seat.last_device_change_block_devicetype()));
+    ::SendMessageW(second_seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
+                   reinterpret_cast<LPARAM>(&arrival_block));
     GLINTFX_CHECK(second_seat.last_device_change() == device_change_kind::arrival);
 
     second_seat.close();

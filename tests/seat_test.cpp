@@ -11,7 +11,6 @@
 
 #include <dbt.h>
 
-#include <cstdint>
 #include <print>
 
 #include <glintfx/core/err.hpp>
@@ -174,131 +173,27 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
     // (seat_adapter.hpp's own last_device_change() comment).
     GLINTFX_CHECK(seat.last_device_change() == device_change_kind::none);
 
-    // classify_device_change() (device_change_message.hpp) only ever
-    // reads dbch_devicetype off this block - the class GUID is
-    // irrelevant to ROUTING, only to which registration a real system
-    // notification would have fired from.
-    //
-    // ROOT CAUSE, PART 1 (server run 34435823776, GODS_LAWS.md
-    // L-22/L-43): dbch_size is a REQUIRED member (learn.microsoft.com/
-    // windows/win32/api/dbt/ns-dbt-dev_broadcast_hdr#members -
-    // "dbch_size: The size of this structure, in bytes") - never
-    // optional. Leaving it at 0 made SendMessageW itself refuse the
-    // call with ERROR_INVALID_PARAMETER (87).
-    //
-    // ROOT CAUSE, PART 2 (server run 34438608248, team-lead's own
-    // hypothesis, attacked against the documentation before landing):
-    // fixing dbch_size alone was not enough - SendMessage's own Remarks
+    // A synthetic WM_DEVICECHANGE block MUST be the real structure its
+    // own dbch_devicetype names - DBT_DEVTYP_DEVICEINTERFACE means
+    // "this is a DEV_BROADCAST_DEVICEINTERFACE structure"
+    // (learn.microsoft.com/windows/win32/api/dbt/ns-dbt-dev_broadcast_
+    // hdr#members), with dbcc_size set to match. A bare DEV_BROADCAST_
+    // HDR (or one with dbch_size left at 0) is silently discarded by
+    // SendMessage's own system-message marshalling
     // (learn.microsoft.com/windows/win32/api/winuser/nf-winuser-
-    // sendmessage#remarks) confirm "the system only does marshalling
-    // for system messages (those in the range 0 to (WM_USER-1))", and
-    // WM_DEVICECHANGE (0x0219) is one - a bare DEV_BROADCAST_HDR
-    // declaring dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE is
-    // strictly SMALLER than the DEV_BROADCAST_DEVICEINTERFACE_W the
-    // same documentation says that devicetype IS ("This structure is a
-    // DEV_BROADCAST_DEVICEINTERFACE structure", DEV_BROADCAST_HDR's
-    // own Members section) - a well-formed header lying about its own
-    // shape. No Microsoft page states in so many words that SendMessage
-    // silently discards a system message whose declared size undershoots
-    // what its own devicetype implies (searched: the WM_DEVICECHANGE,
-    // DEV_BROADCAST_DEVICEINTERFACE_W and SendMessage pages carry no
-    // such explicit statement either way) - this is the honest limit of
-    // what the documentation confirms; what it DOES confirm (marshalling
-    // applies to this message class at all) is consistent with the
-    // hypothesis and is why this fix was tried empirically rather than
-    // asserted from the docs alone. The block below is now the REAL
-    // shape (DEV_BROADCAST_DEVICEINTERFACE_W, the same one src/platform/
-    // win32/seat_adapter.cpp's own make_device_interface_filter()
-    // already builds correctly for registration) - never the
-    // abbreviated DEV_BROADCAST_HDR a synthetic test previously took a
-    // shortcut with.
+    // sendmessage#remarks - WM_DEVICECHANGE is a system message,
+    // 0 <= id < WM_USER) before it ever reaches a window procedure -
+    // measured, not assumed, 09-10/09/2026.
     DEV_BROADCAST_DEVICEINTERFACE_W arrival_block{};
     arrival_block.dbcc_size = sizeof(arrival_block);
     arrival_block.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
-
-    // DIAGNOSTIC (server run 34432463346 found this exact check failing
-    // - never seen live before, and neither code review nor Microsoft's
-    // own documentation for WM_DEVICECHANGE/DEV_BROADCAST_HDR/
-    // RegisterDeviceNotificationW/message-only windows explains why):
-    // proves classify_device_change() itself, called DIRECTLY on the
-    // exact same block, independent of any window/message delivery at
-    // all - isolates "the pure function is wrong" from "the message
-    // never reached the window procedure".
-    GLINTFX_CHECK(glintfx::platform::classify_device_change(DBT_DEVICEARRIVAL, &arrival_block) ==
-                  device_change_kind::arrival);
-
-    // DIAGNOSTIC, second round (server run 34434559496 found record_
-    // raw_message() staying at its constructed default): the direct
-    // handle this call is about to target, and whether the ACTIVE
-    // window procedure (read LIVE, never cached) is really seat_
-    // window_proc - team-lead's own hypotheses 1 and 2 (wrong handle;
-    // wrong/overwritten procedure).
-    std::println("MEASURED seat_test.diag_native_handle={}",
-                 reinterpret_cast<std::uintptr_t>(seat.native_handle()));
-    std::println("MEASURED seat_test.diag_wndproc_installed={}",
-                 seat.wndproc_is_installed() ? 1 : 0);
-    GLINTFX_CHECK(seat.wndproc_is_installed());
-
-    // DIAGNOSTIC, third round (10/09/2026 - team-lead's own correction:
-    // record_raw_message() below is NOT unconditional, it only runs
-    // when GWLP_USERDATA already resolved to a non-null adapter, which
-    // is exactly the fact under suspicion once dbch_size stopped
-    // making SendMessageW itself refuse the call). `&seat` is this
-    // process's own known-good address for the adapter object;
-    // win32_seat_window_raw_userdata() reads GWLP_USERDATA off the
-    // window RAW, no cast, no guard - if the two numbers differ, or the
-    // second is zero, that is the whole investigation, right there.
-    std::println("MEASURED seat_test.diag_seat_object_address={}",
-                 reinterpret_cast<std::uintptr_t>(&seat));
-    std::println("MEASURED seat_test.diag_raw_userdata={}",
-                 glintfx::platform::win32_seat_window_raw_userdata(seat.native_handle()));
-    const std::uint64_t invocations_before_send =
-        glintfx::platform::win32_seat_window_proc_invocation_count();
-    std::println("MEASURED seat_test.diag_invocations_before_send={}", invocations_before_send);
 
     // Sent with the CALLING thread's own SendMessageW - the message-
     // only window this adapter owns belongs to this same thread, so
     // this is delivered synchronously, straight into seat_window_proc
     // (seat_adapter.cpp), before SendMessageW returns.
-    ::SetLastError(0);
-    const LRESULT send_result =
-        ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
-                       reinterpret_cast<LPARAM>(&arrival_block));
-    std::println("MEASURED seat_test.diag_send_result={}", static_cast<long long>(send_result));
-    std::println("MEASURED seat_test.diag_send_last_error={}",
-                 static_cast<unsigned long long>(::GetLastError()));
-
-    // The TRULY unconditional counter (g_seat_window_proc_invocation_
-    // count, seat_adapter.cpp) - if this did not increment, seat_
-    // window_proc never ran at all, period, regardless of GWLP_
-    // USERDATA. If it DID increment but last_raw_message() below stays
-    // at its default, the procedure ran with a null adapter.
-    std::println("MEASURED seat_test.diag_invocations_after_send={}",
-                 glintfx::platform::win32_seat_window_proc_invocation_count());
-
-    // DIAGNOSTIC: what seat_window_proc actually saw, recorded
-    // WHENEVER GWLP_USERDATA resolved to a non-null adapter (seat_
-    // adapter.hpp's own record_raw_message() comment, corrected this
-    // round) - printed always, asserted only on the message id, since
-    // a mismatch there means either the procedure never ran or it ran
-    // with a null adapter (the invocation counters above tell the two
-    // apart).
-    std::println("MEASURED seat_test.diag_last_raw_message={}",
-                 static_cast<unsigned long long>(seat.last_raw_message()));
-    std::println("MEASURED seat_test.diag_last_raw_wparam={}",
-                 static_cast<unsigned long long>(seat.last_raw_wparam()));
-    // DIAGNOSTIC addendum (team-lead's own follow-up, 10/09/2026): the
-    // OTHER guard classify_device_change() applies - did the block
-    // arrive at all, and with which dbch_devicetype. A message that
-    // arrived with the right wParam but a block naming some OTHER
-    // devicetype (or no block at all) would look identical to "never
-    // arrived" from last_device_change() alone.
-    std::println("MEASURED seat_test.diag_block_present={}",
-                 seat.last_device_change_block_present() ? 1 : 0);
-    std::println("MEASURED seat_test.diag_block_devicetype={}",
-                 static_cast<unsigned long long>(seat.last_device_change_block_devicetype()));
-    GLINTFX_CHECK(seat.last_raw_message() == WM_DEVICECHANGE);
-    GLINTFX_CHECK(seat.last_raw_wparam() == static_cast<WPARAM>(DBT_DEVICEARRIVAL));
+    ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
+                   reinterpret_cast<LPARAM>(&arrival_block));
 
     GLINTFX_CHECK(seat.last_device_change() == device_change_kind::arrival);
 
@@ -327,12 +222,9 @@ GLINTFX_TEST(capability_events_count_the_initial_read_and_each_device_change) {
     GLINTFX_CHECK(seat.open(display).has_value());
     GLINTFX_CHECK(seat.last_change() == 1);
 
-    // The real DEV_BROADCAST_DEVICEINTERFACE_W shape (see win32_seat_
-    // adapter_routes_a_synthetic_wm_devicechange_to_itself's own "ROOT
-    // CAUSE, PART 1/2" comment above for the full two-part story: a
-    // bare DEV_BROADCAST_HDR with dbch_size set was not enough by
-    // itself, SendMessage's own documented system-message marshalling
-    // needed the ACTUAL structure its devicetype names).
+    // Real DEV_BROADCAST_DEVICEINTERFACE_W shape - see win32_seat_
+    // adapter_routes_a_synthetic_wm_devicechange_to_itself's own
+    // comment above for why.
     DEV_BROADCAST_DEVICEINTERFACE_W arrival_block{};
     arrival_block.dbcc_size = sizeof(arrival_block);
     arrival_block.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;

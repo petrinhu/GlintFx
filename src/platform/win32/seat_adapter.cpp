@@ -39,20 +39,6 @@ constexpr int k_nid_external_touch = 0x02;
 // answers) is NOT ("nao invente ausencia").
 constexpr std::uint32_t k_minimum_keyboard_key_count = 32;
 
-// DIAGNOSTIC (10/09/2026, third round - team-lead's own correction,
-// server run 34437115635): the TRULY unconditional counter seat_
-// adapter.hpp's own win32_seat_window_proc_invocation_count() reads -
-// incremented at the very TOP of seat_window_proc below, BEFORE
-// GWLP_USERDATA is even read, so it counts every call this procedure
-// ever receives regardless of what GWLP_USERDATA holds. This is what
-// record_raw_message()'s own predecessor comment WRONGLY claimed to
-// already be (it runs only when GWLP_USERDATA is non-null - see that
-// method's own corrected comment, seat_adapter.hpp). Single-threaded
-// test context only (this project's own test harness, GLINTFX_TEST,
-// never runs cases concurrently) - not a production counter, never
-// read by production code.
-std::uint64_t g_seat_window_proc_invocation_count = 0;
-
 // GUID_DEVINTERFACE_KEYBOARD / GUID_DEVINTERFACE_MOUSE, written by hand
 // from Microsoft's own documented values (D-WS-2, seat_adapter.hpp's own
 // header comment: <ntddkbd.h>/<ntddmou.h> + <initguid.h> is the
@@ -106,13 +92,6 @@ std::uint32_t query_keyboard_key_count(HANDLE device) noexcept {
 // HWND" paragraph for why this ordering means GWLP_USERDATA is always
 // already valid by the time THIS function ever runs.
 LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) noexcept {
-    // DIAGNOSTIC (10/09/2026, third round - the TRULY unconditional
-    // counter, g_seat_window_proc_invocation_count's own comment
-    // above): incremented BEFORE GWLP_USERDATA is even read, so it
-    // counts every call this procedure receives, whether or not an
-    // adapter is ever found.
-    ++g_seat_window_proc_invocation_count;
-
     // GetWindowLongPtrW returns the GWLP_USERDATA slot as a LONG_PTR by
     // Win32's own design - it holds a genuine win32_seat_adapter*
     // (open() below is the only writer, lpParam = this).
@@ -120,34 +99,12 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
         // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         reinterpret_cast<win32_seat_adapter *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 
-    // DIAGNOSTIC (seat_adapter.hpp's own record_raw_message() comment,
-    // CORRECTED 10/09/2026): conditional on `adapter` being non-null -
-    // never claim "unconditional" here again, that was the exact
-    // defect the third round caught in this same comment.
-    if (adapter != nullptr) {
-        adapter->record_raw_message(msg, wparam);
-    }
-
     if (msg == WM_DEVICECHANGE && adapter != nullptr) {
         // WM_DEVICECHANGE's lParam carries a pointer to a DEV_BROADCAST_
         // HDR-shaped block (or is unused/zero for some wParam codes) -
         // classify_device_change() (device_change_message.cpp) applies
         // both guards win-seat.md sec. 1.3 requires before this adapter
         // ever treats it as an arrival or removal.
-
-        // DIAGNOSTIC (seat_adapter.hpp's own record_device_change_block()
-        // comment, 10/09/2026, team-lead's own follow-up request):
-        // records whether a block arrived at all and its own
-        // dbch_devicetype, BEFORE classify_device_change() applies its
-        // verdict - the same read that function performs internally,
-        // duplicated here ONLY for observability, never as a second
-        // source of truth the adapter itself acts on.
-        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
-        const auto *diagnostic_header = reinterpret_cast<const DEV_BROADCAST_HDR *>(lparam);
-        adapter->record_device_change_block(
-            diagnostic_header != nullptr,
-            diagnostic_header != nullptr ? diagnostic_header->dbch_devicetype : 0);
-
         // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
         const auto kind = classify_device_change(wparam, reinterpret_cast<const void *>(lparam));
         if (kind != device_change_kind::none) {
@@ -286,31 +243,6 @@ void win32_seat_adapter::handle_device_change(device_change_kind kind) noexcept 
 
 WNDPROC win32_seat_adapter::previous_wndproc() const noexcept { return m_previous_wndproc; }
 
-bool win32_seat_adapter::wndproc_is_installed() const noexcept {
-    if (m_window == nullptr) {
-        return false;
-    }
-    // Reads the ACTIVE window procedure LIVE, never the cached
-    // `previous` value open() stored - this is the direct test of
-    // "is seat_window_proc really what Windows dispatches this
-    // window's messages through right now", never an inference from
-    // open()'s own success alone (SetWindowLongPtrW's return value is
-    // the PREVIOUS procedure, not proof the NEW one stuck).
-    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
-    const auto installed = reinterpret_cast<WNDPROC>(::GetWindowLongPtrW(m_window, GWLP_WNDPROC));
-    return installed == &seat_window_proc;
-}
-
-void win32_seat_adapter::record_raw_message(UINT msg, WPARAM wparam) noexcept {
-    m_last_raw_message = msg;
-    m_last_raw_wparam = wparam;
-}
-
-void win32_seat_adapter::record_device_change_block(bool has_block, DWORD devicetype) noexcept {
-    m_last_device_change_block_present = has_block;
-    m_last_device_change_block_devicetype = devicetype;
-}
-
 int win32_seat_adapter::device_notification_count() const noexcept {
     int count = 0;
     if (m_keyboard_notification != nullptr) {
@@ -424,23 +356,6 @@ void win32_seat_adapter::close() noexcept {
         m_window = nullptr;
         m_previous_wndproc = nullptr;
     }
-}
-
-// DIAGNOSTIC, free functions - see seat_adapter.hpp's own comment on
-// both for the full "why" (third round, 10/09/2026, team-lead's own
-// correction of record_raw_message()'s wrong "unconditional" claim).
-
-std::uint64_t win32_seat_window_proc_invocation_count() noexcept {
-    return g_seat_window_proc_invocation_count;
-}
-
-std::uintptr_t win32_seat_window_raw_userdata(HWND window) noexcept {
-    if (window == nullptr) {
-        return 0;
-    }
-    // No cast to win32_seat_adapter*, no null guard beyond `window`
-    // itself - deliberately raw, this is the fact under suspicion.
-    return static_cast<std::uintptr_t>(::GetWindowLongPtrW(window, GWLP_USERDATA));
 }
 
 } // namespace glintfx::platform

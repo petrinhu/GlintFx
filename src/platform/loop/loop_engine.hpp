@@ -216,7 +216,7 @@ template <class D, class W, class C, class K>
     const gltfx_time_point now = ports.clock.now();
     const bool probe_says_visible = !ports.context.present_would_skip();
     const gltfx_frame_tick tick = compute_frame_tick(book.previous_now, now, book.frame_index,
-                                                      book.last_present, probe_says_visible);
+                                                     book.last_present, probe_says_visible);
 
     book.previous_now = now;
     book.frame_index = tick.frame_index;

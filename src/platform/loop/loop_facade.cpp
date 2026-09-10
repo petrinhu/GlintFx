@@ -79,9 +79,9 @@ struct bound_ports {
     platform::steady_loop_clock clock;
 };
 
-using loop_ports_t = platform::loop_ports<platform::selected_display_adapter,
-                                          platform::window_state, platform::loop_context_view,
-                                          platform::steady_loop_clock>;
+using loop_ports_t =
+    platform::loop_ports<platform::selected_display_adapter, platform::window_state,
+                         platform::loop_context_view, platform::steady_loop_clock>;
 
 [[nodiscard]] loop_ports_t make_loop_ports(loop_impl &impl, bound_ports &bound) noexcept {
     return loop_ports_t{

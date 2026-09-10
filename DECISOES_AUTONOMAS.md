@@ -2959,3 +2959,19 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **O custo, declarado na própria pergunta antes da escolha, e aceito por ele:** passam a existir **duas regras de tempo de vida** para documentar, testar e o consumidor entender - numa fronteira que o desenho inteiro tenta manter pequena e sem armadilha. **Consequência para a implementação:** a matriz de teste dobra nesse eixo, e o texto obrigatório passa a ter de dizer, em cada forma, o que ela garante e o que ela não garante. A exigência do líder de que tudo fique muito bem comentado no código e na documentação (D-091010) vale com mais força aqui, porque agora há duas promessas em vez de uma.
 
 **O que isso REVOGA do plano:** a decisão do CTO `D-LF-6`, que fixava a posse na duração da chamada, deixa de valer como está e passa a ser uma das duas formas oferecidas.
+
+#### D-091012 — as cinco decisões técnicas do desenho de posse, sob modo autônomo  `[10/09/26 - 14:44:00]`
+
+**Quem decidiu:** o `fable` (CTO). **Ordem do líder em 10/09/2026, ao ser oferecida a escolha entre ratificar uma a uma ou seguir pelo modo em vigor:** *"SIga como o modo em vigor"* - ou seja, registro para ratificação retroativa. Plano: `/var/tmp/glintfx-plan/loop-fix.md`.
+
+**Contexto:** depois de o líder escolher que **o consumidor decide o escopo da posse na entrega** (D-091011), o CTO teve de desenhar como isso cabe numa fronteira que já ia ser congelada. As cinco:
+
+1. **A escolha mora no MÉTODO, não num campo** - uma forma de chamar entrega o estado por aquela execução; a outra guarda no laço. **Medido, e é o que torna a decisão possível sem custo:** método novo é símbolo novo, acréscimo compatível; campo novo muda o tamanho da estrutura e **quebraria**. O formato de cinco campos fica congelado como estava. Foi a resposta à pergunta que o orquestrador marcou como "agora ou nunca".
+2. **As duas formas são ortogonais** - a de execução única nunca lê nem toca o estado guardado. A alternativa (recusar a forma curta quando há estado guardado) foi rejeitada por criar armadilha no laço modal, o caso da tela de carga sobre estado guardado.
+3. **Não existe soltar o estado antes da hora.** Quem quer soltar cedo está emprestando, não entregando.
+4. **Chamar o laço de dentro da própria função do consumidor, ou trocar o estado com o laço rodando, é recusado por nome.** Sem isso, a forma guardada destruiria o estado que está sendo usado naquele instante. **Armadilha que o orquestrador não tinha visto.**
+5. **Substituir o estado guardado destrói o anterior DEPOIS de o novo estar guardado**, e a recusa por nome mantém o anterior intacto.
+
+**A régua que ele fixou ANTES do dado, e que vale como critério:** a matriz de teste foi de 6 para 28 casos ao dobrar as formas. **Se na implementação passar de ~35, é regra cruzada entrando pela porta dos fundos, e a fatia volta ao planejamento** em vez de crescer calada.
+
+**Achado preservado por exigência do orquestrador:** a sobrecarga apagada **NÃO é** o mecanismo que recusa objeto temporário - o parâmetro de referência não-constante já recusa sozinho, medido removendo a sobrecarga e vendo o teste seguir verde. Ela fica apenas pela mensagem de erro, e o comentário no código diz isso, para o próximo leitor não confundir enfeite com mecanismo.

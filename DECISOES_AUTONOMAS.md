@@ -3008,3 +3008,15 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 4. **D-LF-22 - três lacunas declaradas e deliberadamente NÃO cobertas:** a asserção sobre o objeto do qual já se moveu o conteúdo (vai para a fila como item próprio), o veto ao vivo provado só pelo motor e não pela fachada, e a recusa de objeto temporário provada só por compilação. **O valor da decisão está em declará-las**: nenhuma delas é vendida como coberta.
 
 **Alerta dele que eu assumi:** as duas ordens do líder acima (D-091013 e D-091014) não estavam registradas quando ele escreveu o plano, e o plano as tratava como fato do briefing. Registradas agora, com o verbatim.
+
+#### D-091016 — duas decisões do implementador da posse, sob modo autônomo  `[10/09/26 - 16:52:49]`
+
+**Quem decidiu:** o agente que implementou a camada de posse (`sonnet`), no meio da fatia, sem parar o trabalho. **Modo autônomo em vigor.** Verificadas por mim contra a árvore antes deste registro.
+
+1. **Os três campos de estado da posse (`running`, as chamadas de volta guardadas e o contexto guardado) moram DENTRO do livro do laço, não soltos na implementação.** Não é desvio do plano: é ambiguidade entre a tabela da sub-fatia e um comentário já publicado na sub-fatia anterior, e as duas fontes apontavam para o mesmo lugar - a assinatura do motor no próprio plano já escrevia `book.running`, e o comentário publicado já dizia "acrescenta aqui". Ele escolheu a leitura que as duas fontes sustentam, em vez de me perguntar, e registrou a razão no código.
+2. **O parâmetro que carrega o contexto possuído não é tocado dentro da função que roda o laço.** Ele existe só para prender a vida do objeto ao escopo de quem chama: a ordem "destruído depois da última chamada de volta" é garantia da própria linguagem, não algo que o motor decide. Marcado como deliberadamente não usado, com o comentário explicando - a mesma disciplina que a sessão fixou como precedente quando o compilador da concorrência recusou função usada só em contexto não avaliado.
+
+**Lacuna que ele declarou em vez de esconder, e eu aceito como declarada:** a ordem interna do método que troca o contexto guardado (guarda o novo, DEPOIS destrói o antigo) é legível no código, mas **nenhum teste de caixa-preta a distingue** de uma implementação que destruísse primeiro, sem construir uma destruição reentrante que espiasse o estado do próprio átomo. Ele não construiu essa reentrância, e a razão está certa: nenhum consumidor real faz isso, e o átomo ficaria mais complicado por um ganho que é só de prova. Fica como limite conhecido, nunca vendido como coberto.
+
+**Medido por mim, não aceito do relato:** o formato da estrutura pública continua congelado, e agora o congelamento é provado por TAMANHO e não só por forma - o cabeçalho ganhou a asserção de que a estrutura tem exatamente cinco ponteiros, que reprova em compilação se alguém acrescentar um sexto campo. Suítes do laço: 16, 6, 6 e 11 casos, zero falhas; portão de verdades do texto, 10 de 10 âncoras.
+

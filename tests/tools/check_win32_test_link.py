@@ -1597,7 +1597,27 @@ def _build_link_fixture(scratch):
     return root
 
 
+# Nomes das TRES sub-verificacoes reais desta funcao - GODS_LAWS.md
+# L-36/L-40 (piso de varredura nao-vazia, portao que nunca mordeu):
+# o contador de --selftest passa a tallyar cada uma delas por nome,
+# nunca um unico "real-toolchain" agregado. Achado real (10/09/2026,
+# revisao adversarial): um bool agregado deixa a verificacao do MEIO
+# (REAL-TOOLCHAIN-COMPILACAO, a que prova o proprio conserto desta
+# fatia) invisivel se um dia parar de rodar - "10/10, zero pulados"
+# continuaria mentindo verde. Cada nome comeca False e so vira True
+# quando a propria verificacao passa; se um pre-requisito comum falhar
+# (a DLL da fixture, por exemplo), as sub-verificacoes seguintes NUNCA
+# rodam e ficam False - reprovadas, nunca puladas em silencio.
+_REAL_TOOLCHAIN_CHECK_NAMES = (
+    "real-toolchain-vermelho-lnk",
+    "real-toolchain-vermelho-compilacao",
+    "real-toolchain-verde",
+)
+
+
 def _selftest_real_toolchain(scratch, image, timeout_seconds):
+    results = {name: False for name in _REAL_TOOLCHAIN_CHECK_NAMES}
+
     fixture_root = _build_link_fixture(scratch)
     build_scratch = os.path.join(scratch, "linkfix_build")
     os.makedirs(build_scratch, exist_ok=True)
@@ -1614,30 +1634,32 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
     )
     if not dll_result["ok"]:
         print(
-            f"selftest: REAL-TOOLCHAIN FALHOU (DLL de fixture nao ligou): "
+            f"selftest: REAL-TOOLCHAIN FALHOU (DLL de fixture nao ligou, pre-requisito das tres "
+            f"sub-verificacoes - nenhuma delas roda): "
             f"{stderr_tail(dll_result['stdout'] + dll_result['stderr'])}",
             file=sys.stderr,
         )
-        return False
+        return results
 
     missing_target = {"name": "fixture_missing_atom_test", "sources": [], "libs": []}
     missing_result = link_one_test(image, fixture_root, build_scratch, missing_target, timeout_seconds)
     missing_class, _note = classify_link_result(missing_result)
     if missing_class != "falhou":
         print(
-            f"selftest: REAL-TOOLCHAIN FALHOU (vermelho esperado nao veio): {missing_class} "
+            f"selftest: REAL-TOOLCHAIN-VERMELHO-LNK FALHOU: esperado nao veio: {missing_class} "
             f"rc={missing_result['returncode']}\n{stderr_tail(missing_result['stdout'] + missing_result['stderr'])}",
             file=sys.stderr,
         )
-        return False
+        return results
     combined = (missing_result["stdout"] or "") + (missing_result["stderr"] or "")
     if "fixture_internal_helper" not in combined or "LNK2019" not in combined:
         print(
-            f"selftest: REAL-TOOLCHAIN FALHOU (vermelho nao cita o simbolo/LNK2019 real): {combined}",
+            f"selftest: REAL-TOOLCHAIN-VERMELHO-LNK FALHOU (nao cita o simbolo/LNK2019 real): {combined}",
             file=sys.stderr,
         )
-        return False
-    print(f"selftest: REAL-TOOLCHAIN VERMELHO OK (LNK2019 real citando fixture_internal_helper)")
+        return results
+    print("selftest: REAL-TOOLCHAIN-VERMELHO-LNK OK (LNK2019 real citando fixture_internal_helper)")
+    results["real-toolchain-vermelho-lnk"] = True
 
     # Segundo vermelho, forma DIFERENTE do primeiro (GODS_LAWS.md L-49):
     # erro de COMPILACAO, nunca de link - prova que classify_link_
@@ -1651,22 +1673,23 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
     compile_error_class, compile_error_note = classify_link_result(compile_error_result)
     if compile_error_class != "falhou":
         print(
-            f"selftest: REAL-TOOLCHAIN FALHOU (erro de compilacao real classificado como "
-            f"'{compile_error_class}' em vez de 'falhou', nota={compile_error_note}) "
+            f"selftest: REAL-TOOLCHAIN-VERMELHO-COMPILACAO FALHOU: classificado como "
+            f"'{compile_error_class}' em vez de 'falhou', nota={compile_error_note} "
             f"rc={compile_error_result['returncode']}\n"
             f"{stderr_tail(compile_error_result['stdout'] + compile_error_result['stderr'])}",
             file=sys.stderr,
         )
-        return False
+        return results
     compile_error_combined = (compile_error_result["stdout"] or "") + (compile_error_result["stderr"] or "")
     if "error C" not in compile_error_combined or "LNK" in compile_error_combined:
         print(
-            f"selftest: REAL-TOOLCHAIN FALHOU (vermelho de compilacao nao tem a forma esperada - "
+            f"selftest: REAL-TOOLCHAIN-VERMELHO-COMPILACAO FALHOU (nao tem a forma esperada - "
             f"'error C<numero>' sem nenhuma linha LNK): {compile_error_combined}",
             file=sys.stderr,
         )
-        return False
-    print("selftest: REAL-TOOLCHAIN VERMELHO-COMPILACAO OK (error C real, nenhuma linha LNK, classificado 'falhou')")
+        return results
+    print("selftest: REAL-TOOLCHAIN-VERMELHO-COMPILACAO OK (error C real, nenhuma linha LNK, classificado 'falhou')")
+    results["real-toolchain-vermelho-compilacao"] = True
 
     linked_target = {
         "name": "fixture_linked_atom_test",
@@ -1677,13 +1700,14 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
     linked_class, note = classify_link_result(linked_result)
     if linked_class != "ligou":
         print(
-            f"selftest: REAL-TOOLCHAIN FALHOU (verde esperado nao veio): {linked_class} ({note}) "
+            f"selftest: REAL-TOOLCHAIN-VERDE FALHOU: esperado nao veio: {linked_class} ({note}) "
             f"rc={linked_result['returncode']}\n{stderr_tail(linked_result['stdout'] + linked_result['stderr'])}",
             file=sys.stderr,
         )
-        return False
-    print("selftest: REAL-TOOLCHAIN VERDE OK (mesmo atomo, listado desta vez, liga limpo)")
-    return True
+        return results
+    print("selftest: REAL-TOOLCHAIN-VERDE OK (mesmo atomo, listado desta vez, liga limpo)")
+    results["real-toolchain-verde"] = True
+    return results
 
 
 def selftest_main(image, timeout_seconds):
@@ -1709,15 +1733,21 @@ def selftest_main(image, timeout_seconds):
             docker_available = probe.returncode == 0
 
         if docker_available:
-            toolchain_ok = _selftest_real_toolchain(scratch, image, timeout_seconds)
-            parsing_results.append(("real-toolchain", toolchain_ok))
+            # Cada sub-verificacao real vira o proprio slot no contador
+            # (GODS_LAWS.md L-36/L-40) - nao um unico "real-toolchain"
+            # agregado que esconderia uma delas parando de rodar.
+            toolchain_results = _selftest_real_toolchain(scratch, image, timeout_seconds)
+            for name in _REAL_TOOLCHAIN_CHECK_NAMES:
+                parsing_results.append((name, toolchain_results[name]))
         else:
             print(
-                f"{SCRIPT_NAME} --selftest: docker/imagem '{image}' ausentes - controle "
-                "real-toolchain PULADO, contado e declarado (GODS_LAWS.md L-40), nunca escondido",
+                f"{SCRIPT_NAME} --selftest: docker/imagem '{image}' ausentes - as tres "
+                "sub-verificacoes real-toolchain PULADAS, contadas e declaradas (GODS_LAWS.md L-40), "
+                "nunca escondidas",
                 file=sys.stderr,
             )
-            parsing_results.append(("real-toolchain", None))
+            for name in _REAL_TOOLCHAIN_CHECK_NAMES:
+                parsing_results.append((name, None))
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 

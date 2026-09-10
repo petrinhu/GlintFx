@@ -88,7 +88,7 @@ runtime bug with no compile-time signal at all.
 
 **Nine versions have been tagged so far; the most recent is
 `v0.3.7.0`, cut 10/09/2026** (`v0.2.0.0` through `v0.3.7.0` - run
-`git tag --list` against a clone to see all of them). None is
+`git tag --list 'v*'` against a clone to see all of them). None is
 accompanied by a formal GitHub Release (checked directly against
 the repository: no entry exists on the releases page for any tag as
 of this writing) - each tag's own annotated message (`git show

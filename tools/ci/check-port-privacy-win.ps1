@@ -100,8 +100,17 @@ $ErrorActionPreference = "Stop"
 # Adicionado na MESMA revisao que tests/tools/check_port_privacy.sh's
 # own KNOWN_ADAPTER_CLASSES (aquele arquivo ja citava este nome como
 # pendente, no proprio comentario de wayland_egl_context_adapter).
+#
+# GATE-SIBLING-LIST (TODO.md, GODS_LAWS.md L-36/L-40, 09/09/2026): a
+# disciplina "MUST match ... by hand" dos comentarios acima agora tem
+# forma legivel por maquina - tests/tools/check_sibling_lists.py prova,
+# a cada execucao, que este par e tests/tools/check_port_privacy.sh's
+# own KNOWN_ADAPTER_CLASSES/KNOWN_PORT_NAMES sao o MESMO conjunto de
+# nomes, nunca mais so por leitura humana.
+# GLINTFX-SIBLING-LIST:port_privacy_known_names:START
 $KNOWN_ADAPTER_CLASSES = @("wayland_display_adapter", "fake_display_adapter", "fake_gl_context_adapter", "win32_display_adapter", "wayland_shell_adapter", "wayland_window_adapter", "wayland_seat_adapter", "win32_seat_adapter", "win32_window_adapter", "wayland_egl_context_adapter", "win32_gl_context_adapter")
 $KNOWN_PORT_NAMES = @("display_connection_port", "display_connection")
+# GLINTFX-SIBLING-LIST:port_privacy_known_names:END
 $CLOSED_NAMES = $KNOWN_ADAPTER_CLASSES + $KNOWN_PORT_NAMES
 
 function Test-NameLeaksPortOrAdapter([string]$exportedName) {

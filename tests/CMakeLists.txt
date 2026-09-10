@@ -2484,6 +2484,41 @@ add_test(
 )
 set_tests_properties(dup_laws_selftest PROPERTIES LABELS selftest)
 
+# Sibling-list gate (TODO.md item GATE-SIBLING-LIST, GODS_LAWS.md
+# L-36/L-40, 09/09/2026): generalizes dup_laws_test's own anchor-pair
+# idea (right above) from a hardcoded two-file byte-for-byte compare to
+# any number of pairs, discovered by GROUP NAME across the whole
+# tracked tree, compared by TOKEN-SET equality - required because this
+# project's own real pair (tests/tools/check_port_privacy.sh's
+# KNOWN_ADAPTER_CLASSES/KNOWN_PORT_NAMES and tools/ci/check-port-
+# privacy-win.ps1's own copy) is written once in POSIX sh and once in
+# PowerShell, never byte-identical even when the closed set of names is
+# exactly the same. See tests/tools/check_sibling_lists.py's own header
+# for the six-times-warned-in-prose defect this closes, and for why it
+# is opt-in by explicit `# GLINTFX-SIBLING-LIST:<id>:START/END` marker,
+# never by textual similarity between two lists that merely look alike
+# (check_dep_zero.py's own system-library allowlist and check-dep-
+# zero-win.ps1's own IMPORT_ALLOWLIST_EXACT are exactly such a pair,
+# and legitimately never equal - left unmarked on purpose).
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): pure text scanner over
+# versioned files (git ls-files), nothing platform-specific to
+# diverge on - registered without a system guard, same shape as
+# dup_laws_test right above.
+add_test(
+    NAME sibling_lists_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sibling_lists.py" --check "${CMAKE_SOURCE_DIR}"
+)
+set_tests_properties(sibling_lists_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME sibling_lists_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sibling_lists.py" --selftest
+)
+set_tests_properties(sibling_lists_selftest PROPERTIES LABELS selftest)
+
 # Cobertura de pacote de sistema (achado do lider, GHA run 34056358894,
 # commit 40c2622, 06/09/2026: catorze jobs Linux vermelhos porque
 # nenhum dos cinco alvos instalava o pacote que fornece egl.pc depois

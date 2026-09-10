@@ -309,6 +309,88 @@ GLINTFX_TEST(pump_error_returns_unchanged_before_on_frame) {
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::clock), 1);
 }
 
+// LOOP-CONTEXT-OWNERSHIP (S1b), achado de revisao (buraco de cobertura,
+// nao defeito vivo): running_guard.hpp's own RAII e' o que hoje garante
+// que book.running volta a false em QUALQUER saida de loop_run(), os
+// dois caminhos de erro (present_error_returns_unchanged_and_stops_the_
+// loop, pump_error_returns_unchanged_before_on_frame, ambos acima)
+// inclusive - mas nenhum dos dois olhava o estado DEPOIS do erro. Uma
+// mutacao plausivel (um refactor que troca o guard RAII por um desarme
+// manual so' nos dois caminhos de sucesso) passava os 16 casos antigos
+// sem que nenhum reprovasse. Prova pelo EFEITO observavel, nunca
+// espiando `book.running` diretamente (running_guard.hpp's own
+// comentario: a decisao de recusar mora em loop_run(), nao no atomo) -
+// uma SEGUNDA chamada, no MESMO fx.book, depois do erro: se `running`
+// tivesse ficado travado em true, essa segunda chamada seria recusada
+// por nome ("running", T16's own shape) antes de tocar qualquer porta,
+// nunca chegaria a rodar o tique unico que ela pede.
+GLINTFX_TEST(running_flag_clears_after_an_error_path_so_a_second_call_is_accepted) {
+    int cells = 0;
+    constexpr int total_cells = 2;
+
+    // (1) O mesmo caminho de present_error_returns_unchanged_and_stops_
+    // the_loop (acima): swap_buffers() falha, loop_run() retorna erro.
+    {
+        engine_fixture fx;
+        const glintfx::gltfx_err_code code = glintfx::gltfx_err_code::platform_failure;
+        fx.context.arm_swap_sequence({gltfx_rslt<gltfx_present_outcome>::err(
+            glintfx::gltfx_err(code).with_rejected_value("swap"))});
+        fx.display.close_on_pump(3, fx.window); // rede de seguranca, nunca dispara
+
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+
+        const gltfx_rslt<void> first_result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
+        GLINTFX_CHECK(first_result.has_error());
+        GLINTFX_CHECK(first_result.err().rejected_value() == "swap");
+
+        // on_frame devolve false agora - a segunda chamada encerra apos
+        // UM tique, sem nunca chegar a on_render/swap (o outcome de erro
+        // armado acima nunca e' consumido de novo).
+        fx.log.on_frame_returns = false;
+        const gltfx_rslt<void> second_result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
+        GLINTFX_CHECK(second_result.has_value());
+        ++cells;
+    }
+
+    // (2) O mesmo caminho de pump_error_returns_unchanged_before_on_
+    // frame (acima): pump_events() falha na 2a chamada contada,
+    // loop_run() retorna erro antes de chamar on_frame daquele tique.
+    {
+        engine_fixture fx;
+        const glintfx::gltfx_err_code code = glintfx::gltfx_err_code::io_failure;
+        fx.display.fail_on_pump(2, code);
+        fx.display.close_on_pump(5, fx.window); // rede de seguranca, nunca dispara
+
+        gltfx_loop_callbacks callbacks{};
+        callbacks.context = &fx.log;
+        callbacks.on_frame = &log_on_frame;
+        callbacks.on_render = &log_on_render;
+
+        const gltfx_rslt<void> first_result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
+        GLINTFX_CHECK(first_result.has_error());
+        GLINTFX_CHECK(first_result.err().rejected_value() == "pump");
+
+        // fail_on_pump(2, ...) so' dispara na chamada CONTADA de numero
+        // 2 - a contagem so' cresce, entao a segunda loop_run() nunca
+        // reve aquele numero e nunca refalha por essa mesma armadilha.
+        fx.log.on_frame_returns = false;
+        const gltfx_rslt<void> second_result =
+            glintfx::platform::loop_run(fx.ports(), fx.book, callbacks, fx.owned);
+        GLINTFX_CHECK(second_result.has_value());
+        ++cells;
+    }
+
+    std::println(
+        "running_flag_clears_after_an_error_path_so_a_second_call_is_accepted: {} of {} cell(s)",
+        cells, total_cells);
+}
+
 GLINTFX_TEST(close_request_ends_ok_after_the_full_tick_it_arrived_in) {
     engine_fixture fx;
     fx.display.close_on_pump(2, fx.window);

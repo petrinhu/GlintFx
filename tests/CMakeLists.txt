@@ -4164,6 +4164,18 @@ add_test(
 )
 set_tests_properties(check_selftest_orphan_selftest PROPERTIES LABELS selftest)
 
+# check_format_selftest - o autoteste do gate de formato que entrou em
+# be66fa6 (item LOOP-FMT-CLASS, cadeia de ganchos do commit) - registro
+# que faltava e que check_selftest_orphan_test (logo acima) reprovou
+# por ausencia (GATE-SELFTEST-ORFAO pegando o proprio commit que o
+# instalou).
+add_test(
+    NAME check_format_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_format.py" --selftest
+)
+set_tests_properties(check_format_selftest PROPERTIES LABELS selftest)
+
 # O ORFAO REAL que a pesquisa acima nomeia, fechado no mesmo commit
 # deste gate: tools/win-vm-lab/provar-isolamento.sh --selftest e'
 # hermetico (le tools/win-vm-lab/fixtures/dominio-{sabotado,limpo}.xml

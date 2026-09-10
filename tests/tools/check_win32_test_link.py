@@ -807,6 +807,131 @@ def print_strict_summary(measurement):
         )
 
 
+# --- 6b. bloco "NAO MEDIDO AQUI" (WIN-CROSS-STAGE S5) ------------------------
+#
+# O resumo de S1-S4 so imprime contagens do que ESTE estagio faz. S5
+# fecha a lacuna oposta: declarar, sempre, o que ele NAO faz - para que
+# ninguem confunda "este estagio passou" com "o Windows inteiro foi
+# provado". Duas partes fixas: (a) a versao real do cl.exe lida DENTRO
+# do container (nunca presumida igual ao servidor - windows-latest
+# atualiza sem aviso); (b) a lista do que fica de fora, cada item com o
+# achado/job real que documenta por que (nunca uma alegacao vazia).
+
+
+def _read_cl_version(image, repo_root, timeout_seconds):
+    """`cl` sem nenhum argumento imprime o banner de versao no STDERR e
+    sai com erro - achado real ao escrever esta funcao (10/09/2026,
+    medido ao vivo neste container): o wrapper `cl` deste projeto
+    (msvc-wine) so' entrega o banner quando WINE_MSVC_RAW_STDOUT=1 esta
+    setada - sem essa variavel, o caminho normal (via msvctricks.exe,
+    mkfifo) PERDE o banner (nao aparece nem em stdout nem em stderr).
+    Toda outra invocacao deste script usa /nologo (que suprimiria o
+    banner de qualquer forma - saida limpa de proposito para os outros
+    parsers), por isso esta e' uma chamada docker PROPRIA (GODS_LAWS.md
+    L-11: fixa, uma vez por execucao, nunca por arquivo/alvo)."""
+    scratch = tempfile.mkdtemp(prefix="glintfx-win32-clver-", dir=os.environ.get("TMPDIR"))
+    try:
+        _returncode, stdout, stderr, _elapsed, _timed_out = _run_docker(
+            image, repo_root, scratch, "WINE_MSVC_RAW_STDOUT=1 cl", timeout_seconds
+        )
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    match = re.search(r"Version\s+([\d.]+)", (stdout or "") + (stderr or ""))
+    return match.group(1) if match else None
+
+
+def _raw_add_test_grep_count(repo_root):
+    """Mesma convencao de `grep -c 'glintfx_add_test(' tests/CMakeLists.
+    txt` (substring por LINHA, nao regex de nome) - inclui as poucas
+    linhas de comentario/prosa que citam a chamada sem invoca-la
+    (medido: 5 em 10/09/2026). Usado so' para a contagem de "alvos
+    multiplataforma nao exercitados" enquanto WIN-CROSS-TESTS-LINK
+    (WIN-CROSS-STAGE S6) nao fecha com uma contagem exata por motivo de
+    exclusao - ver o comentario do proprio chamador."""
+    text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
+    return sum(1 for line in text.splitlines() if "glintfx_add_test(" in line)
+
+
+_NOT_MEASURED_ITEMS = (
+    "clang-tidy (bugprone-exception-escape, misc-misplaced-const e as demais familias do job "
+    "`Windows - Lint`) - so ele ve isto (WIN-LINT-ENUM, d2cf182)",
+    "execucao de qualquer binario Windows - so o job `windows` do CI prova isto (ASSET-PARITY-WIN; "
+    "Wine e pista, nunca oraculo - ver a matriz de roteamento do README)",
+    "/analyze (analise estatica nativa do MSVC)",
+    "rc/mt/LTCG (recursos, manifest, link-time code generation)",
+    "o ramo if(WIN32) do proprio CMake como CONFIGURE real (defeitos ja vividos como 65ffe87 - este "
+    "estagio nunca roda cmake, so' cl/link direto)",
+)
+
+
+def _not_measured_block_ok(text):
+    """Piso de FORMATO do resumo (GODS_LAWS.md L-40, aplicado ao texto
+    impresso, nao a uma varredura de arquivos): exige a linha de versao
+    do compilador e pelo menos 6 linhas 'NAO MEDIDO AQUI:' (os 5 itens
+    fixos + a contagem de alvos multiplataforma)."""
+    has_version_line = "compilador deste estagio: cl.exe" in text
+    not_measured_count = text.count("NAO MEDIDO AQUI:")
+    return has_version_line and not_measured_count >= 6
+
+
+def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados):
+    cl_version = _read_cl_version(image, repo_root, timeout_seconds)
+    version_text = cl_version if cl_version else "desconhecida (nao foi possivel ler 'cl' no container)"
+    raw_add_test_count = _raw_add_test_grep_count(repo_root)
+    nao_exercitados = raw_add_test_count - alvos_encontrados
+    lines = [
+        f"{SCRIPT_NAME}: compilador deste estagio: cl.exe {version_text} - o servidor usa o MSVC de "
+        "`windows-latest`, versao lida so no log do CI, NUNCA presumida igual"
+    ]
+    for item in _NOT_MEASURED_ITEMS:
+        lines.append(f"{SCRIPT_NAME}: NAO MEDIDO AQUI: {item}")
+    lines.append(
+        f"{SCRIPT_NAME}: NAO MEDIDO AQUI: alvos multiplataforma nao exercitados={nao_exercitados} "
+        "(ate WIN-CROSS-STAGE S6 fechar - ver TODO.md WIN-CROSS-TESTS-LINK)"
+    )
+    return "\n".join(lines)
+
+
+def print_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados):
+    text = build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados)
+    if not _not_measured_block_ok(text):
+        fail(
+            "bloco 'NAO MEDIDO AQUI' malformado (GODS_LAWS.md L-40 aplicado ao formato do resumo) - "
+            f"nao imprimindo um resumo que finge ter a forma certa:\n{text}"
+        )
+    print(text)
+
+
+def _selftest_not_measured_block_positive():
+    sample = "check_win32_test_link.py: compilador deste estagio: cl.exe 19.51.36256 - ...\n" + "\n".join(
+        f"check_win32_test_link.py: NAO MEDIDO AQUI: item {i}" for i in range(6)
+    )
+    ok = _not_measured_block_ok(sample)
+    if not ok:
+        print(
+            "selftest: NOT-MEASURED-FORMATO-POSITIVO FALHOU (bloco bem formado foi reprovado)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: NOT-MEASURED-FORMATO-POSITIVO OK")
+    return True
+
+
+def _selftest_not_measured_block_negative():
+    # A MESMA sabotagem que a prova de S5 descreve: apaga a linha de
+    # versao, mantem as 6 linhas NAO MEDIDO AQUI.
+    sample = "\n".join(f"check_win32_test_link.py: NAO MEDIDO AQUI: item {i}" for i in range(6))
+    ok = _not_measured_block_ok(sample)
+    if ok:
+        print(
+            "selftest: NOT-MEASURED-FORMATO-NEGATIVO FALHOU (bloco sem linha de versao foi aprovado)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: NOT-MEASURED-FORMATO-NEGATIVO OK (reprovado por faltar a linha de versao)")
+    return True
+
+
 # --- 6. run_link_check ------------------------------------------------------
 
 
@@ -975,6 +1100,11 @@ def real_main(repo_root, image, timeout_seconds, strict=False):
             print_strict_summary(measurement)
         else:
             print(f"{SCRIPT_NAME}: avisos estritos: PULADO (nenhuma fonte de biblioteca encontrada)")
+
+    # WIN-CROSS-STAGE S5: SEMPRE impresso, com ou sem --strict, com ou
+    # sem erro no gate normal - e' declaracao de escopo, nao resultado
+    # de teste.
+    print_not_measured_block(image, abs_repo_root, timeout_seconds, summary["alvos_encontrados"])
 
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
@@ -1217,6 +1347,8 @@ def selftest_main(image, timeout_seconds):
     parsing_results = [
         ("parsing-positivo", _selftest_parsing_positive()),
         ("parsing-vazio", _selftest_parsing_empty_block()),
+        ("not-measured-formato-positivo", _selftest_not_measured_block_positive()),
+        ("not-measured-formato-negativo", _selftest_not_measured_block_negative()),
     ]
 
     scratch = tempfile.mkdtemp(prefix="glintfx-win32-link-selftest-", dir=os.environ.get("TMPDIR"))

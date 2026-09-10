@@ -50,7 +50,7 @@ These are load-bearing decisions, not style preferences. They are why the API lo
 
 - **Zero dependencies.** Nothing beyond the C++23 standard library and the operating system's own API (Win32, Wayland, OpenGL, and so on). No third-party package manager, no vendored library. Image decoding, font rasterization, the GL loader, audio mixing, and gamepad decoding are all written in-house.
 - **The public surface is opaque.** The library is shared by default, so any public class with a visible layout becomes part of the ABI contract. Stateful public types hide their implementation behind an opaque handle or PIMPL; only plain value types (like `version` and `gltfx_rgba`) expose a stable, visible layout on purpose.
-- **No exception crosses the public API.** Internally, exceptions are allowed; every fallible public function returns `glintfx::gltfx_rslt<T>` instead. See [`docs/api-conventions.md`](docs/api-conventions.md) for the full rationale and the tests that prove it.
+- **No exception crosses the public API.** Internally, exceptions are allowed; every fallible public function returns `glintfx::gltfx_rslt<T>` instead. See [`docs/api-conventions.md`](docs/api-conventions.md) for the full rationale and the tests that prove it. The callbacks you hand the main loop must be declared `noexcept`; the compiler refuses one that is not, at the line where you assign it - see R10 in that same document for what that does and does not protect you from.
 - **OpenGL 3.3 core**, on every platform that has a render backend, once one exists.
 
 ## How to consume glintfx

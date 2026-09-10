@@ -13,13 +13,16 @@
 #include "platform/loop/loop_callbacks_validation.hpp"
 
 // loop_callbacks_validation_test.cpp - LOOP-RUN fatia 6a (docs/plano-
-// w6b-fatias-6-8.md D-W6b-43, GODS_LAWS.md L-19/L-20/L-40): the closed
-// {empty, filled}^3 matrix over on_frame/on_render/on_event - eight
-// cells, one GLINTFX_TEST per combination this file's own top comment
-// enumerates, plus the closed-enumeration test at the bottom that
-// re-runs all eight through one loop and prints the count (GODS_LAWS.md
-// L-40: a matrix silently missing a cell would still look green
-// without that).
+// w6b-fatias-6-8.md D-W6b-43, GODS_LAWS.md L-19/L-20/L-40), extended by
+// LOOP-CALLBACK-THROW (/var/tmp/glintfx-plan/loop-fix.md sec. 5.1): the
+// closed {empty, filled}^3 matrix over on_frame/on_render/on_event -
+// eight cells, one GLINTFX_TEST per combination this file's own top
+// comment enumerates, plus the closed-enumeration test at the bottom
+// that re-runs all eight through one loop and prints the count
+// (GODS_LAWS.md L-40: a matrix silently missing a cell would still
+// look green without that) - PLUS the two new destroy_context cells
+// LOOP-CALLBACK-THROW adds (D-LF-7's own S1a half: filled is refused
+// by name, regardless of what S1b later decides about `context`).
 
 using glintfx::gltfx_input_event;
 using glintfx::gltfx_loop_callbacks;
@@ -27,12 +30,14 @@ using glintfx::platform::validate_loop_callbacks;
 
 namespace {
 
-// Trivial, non-empty std::function bodies - only their EMPTINESS
-// matters to validate_loop_callbacks(), never what they do when called
-// (this file never calls one).
-bool filled_on_frame(const glintfx::gltfx_frame_tick &) noexcept { return true; }
-void filled_on_render(const glintfx::gltfx_frame_tick &) noexcept {}
-void filled_on_event(const gltfx_input_event &) noexcept {}
+// Trivial, non-empty function pointer bodies (LOOP-CALLBACK-THROW:
+// plain `noexcept` function pointers now, never std::function) - only
+// their EMPTINESS (nullptr or not) matters to validate_loop_callbacks(),
+// never what they do when called (this file never calls one).
+bool filled_on_frame(void *, const glintfx::gltfx_frame_tick &) noexcept { return true; }
+void filled_on_render(void *, const glintfx::gltfx_frame_tick &) noexcept {}
+void filled_on_event(void *, const gltfx_input_event &) noexcept {}
+void filled_destroy_context(void *) noexcept {}
 
 } // namespace
 
@@ -121,6 +126,23 @@ GLINTFX_TEST(on_event_filled_is_refused_once_on_frame_and_on_render_are_both_fil
 
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_event"));
+}
+
+GLINTFX_TEST(destroy_context_filled_is_refused_even_when_everything_else_is_valid) {
+    // LOOP-CALLBACK-THROW (/var/tmp/glintfx-plan/loop-fix.md sec. 5.1,
+    // D-LF-7's S1a half): LOOP-CONTEXT-OWNERSHIP has not landed - a
+    // caller that already fills destroy_context in is refused by
+    // name, exactly the on_event precedent right above, never accepted
+    // and silently ignored.
+    gltfx_loop_callbacks callbacks{};
+    callbacks.on_frame = &filled_on_frame;
+    callbacks.on_render = &filled_on_render;
+    callbacks.destroy_context = &filled_destroy_context;
+
+    const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
+
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.err().rejected_value() == std::string_view("destroy_context"));
 }
 
 namespace {

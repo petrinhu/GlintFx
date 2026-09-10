@@ -306,7 +306,7 @@ gltfx_rslt<gltfx_present_outcome> gltfx_loop::present() noexcept {
     return presented;
 }
 
-gltfx_rslt<void> gltfx_loop::run(const gltfx_loop_callbacks &callbacks) noexcept {
+gltfx_rslt<void> gltfx_loop::run(gltfx_loop_callbacks callbacks) noexcept {
     assert(m_impl != nullptr &&
            "gltfx_loop::run() called on a moved-from loop - the object no longer owns an impl");
 
@@ -326,12 +326,12 @@ gltfx_rslt<void> gltfx_loop::run(const gltfx_loop_callbacks &callbacks) noexcept
         // with INPUT-EVENTS, W7; validate_loop_callbacks() above
         // already refused a caller that filled it in.)
 
-        if (!callbacks.on_frame(tick)) {
+        if (!callbacks.on_frame(callbacks.context, tick)) {
             return gltfx_rslt<void>::ok();
         }
 
         if (tick.should_render) {
-            callbacks.on_render(tick);
+            callbacks.on_render(callbacks.context, tick);
             const gltfx_rslt<gltfx_present_outcome> presented = present();
             if (presented.has_error()) {
                 return gltfx_rslt<void>::err(presented.err());

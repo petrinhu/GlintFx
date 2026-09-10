@@ -18,13 +18,18 @@
 // value.hpp, already gives against a standard-library sum type).
 // Precedent in this same codebase: `gltfx_node_class_visitor_fn`
 // (include/glintfx/gfui/node_view.hpp) is function-pointer-plus-
-// context for exactly this reason; `gltfx_loop_callbacks`
-// (platform/loop/loop.hpp) went the OTHER way with std::function, and
-// that header's own comment names the cost it accepted - a cost this
-// sink deliberately does NOT pay, because unlike a loop callback (set
-// once, for one thread, at the moment gltfx_loop::run() is called), a
-// log sink can be REPLACED WHILE THE PROGRAM IS RUNNING, from ANY
-// thread, which std::function cannot do atomically.
+// context for exactly this reason. The loop's own callbacks
+// (platform/loop/loop.hpp's own gltfx_loop_callbacks) use this SAME
+// shape today (fixed by LOOP-CALLBACK-THROW,
+// /var/tmp/glintfx-plan/loop-fix.md) - it went the OTHER way with
+// `std::function` until then, and that was the bug: `std::function`
+// erases whether the wrapped callable is `noexcept`, so nothing in
+// the TYPE SYSTEM stopped a consumer from handing the loop a callback
+// that throws. A log sink needs this shape for a DIFFERENT, additional
+// reason this header still states on its own: unlike a loop callback
+// (set once, for one thread, at the moment gltfx_loop::run() is
+// called), a log sink can be REPLACED WHILE THE PROGRAM IS RUNNING,
+// from ANY thread, which std::function cannot do atomically.
 
 namespace glintfx {
 

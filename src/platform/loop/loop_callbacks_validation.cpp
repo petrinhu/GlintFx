@@ -25,6 +25,17 @@ gltfx_rslt<void> validate_loop_callbacks(const gltfx_loop_callbacks &callbacks) 
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("on_event"));
     }
+    if (callbacks.destroy_context) {
+        // LOOP-CONTEXT-OWNERSHIP has not landed yet (platform/loop/
+        // loop.hpp's own header comment on gltfx_loop_callbacks::
+        // destroy_context) - refused BY NAME rather than accepted and
+        // silently never invoked, the same discipline the on_event
+        // check right above already applies to its own reserved
+        // field. This whole check is REMOVED when that fatia lands and
+        // teaches run() to actually call destroy_context.
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("destroy_context"));
+    }
     return gltfx_rslt<void>::ok();
 }
 

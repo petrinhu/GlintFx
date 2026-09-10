@@ -1006,6 +1006,13 @@ target_sources(loop_callbacks_validation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
 )
 
+# loop_callbacks_type_test - LOOP-CALLBACK-THROW (TODO.md, /var/tmp/
+# glintfx-plan/loop-fix.md sec. 3.1/5.1): pure header test, no .cpp
+# dependency - every check is a static_assert against
+# include/glintfx/platform/loop/loop.hpp's own function-pointer types,
+# nothing this test needs from src/.
+glintfx_add_test(loop_callbacks_type_test)
+
 # loop_open_alloc_failure_test - LOOP-RUN fatia 6b (docs/plano-w6b-
 # fatias-6-8.md sec. 8.3, F17, GODS_LAWS.md L-20/L-22/L-27): recompiles
 # loop_impl.cpp a SECOND time, straight into this test binary - the
@@ -3257,6 +3264,32 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_macro_balance.py" --selftest
 )
 set_tests_properties(macro_balance_selftest PROPERTIES LABELS selftest)
+
+# Loop-callback-truths gate (TODO.md LOOP-CALLBACK-THROW,
+# /var/tmp/glintfx-plan/loop-fix.md sec. 5.0 item 4, GODS_LAWS.md
+# L-36/L-40): the leader made "well commented, in the code AND the
+# documentation" a criterion of ACCEPTANCE for this fix
+# (DECISOES_AUTONOMAS.md D-091010) - this is the mechanical proof that
+# criterion is met, a closed list of anchor phrases each tied to the
+# exact symbol/section it governs (see check_loop_callback_truths.py's
+# own header comment for the two anchor kinds and why "somewhere in
+# the file" is never enough). Pure Python, text only, unguarded by
+# platform (GATE-TREE-PARITY, GODS_LAWS.md L-04) - same reasoning as
+# macro_balance_test right above.
+add_test(
+    NAME loop_callback_truths_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_loop_callback_truths.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(loop_callback_truths_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME loop_callback_truths_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_loop_callback_truths.py" --selftest
+)
+set_tests_properties(loop_callback_truths_selftest PROPERTIES LABELS selftest)
 
 # Environment-fact sweep gate (TODO.md GATE-ENV-SWEEP, GODS_LAWS.md
 # L-40): closed enumeration of tests/tools/, tests/container/, cmake/,

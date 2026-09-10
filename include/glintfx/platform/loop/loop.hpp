@@ -2,7 +2,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <type_traits>
 
 #include <glintfx/core/err.hpp>
@@ -130,20 +129,78 @@ static_assert(std::is_trivially_copyable_v<gltfx_frame_tick>,
 // built yet is never promised by accepting the callback silently).
 struct gltfx_input_event;
 
-// The three callbacks gltfx_loop::run() below drives - see this
-// header's own P3/P9 for the exact order and the exact refusal rules.
-// `std::function` in a public struct ties a consumer to the same
-// standard library this whole ABI already assumes (the same tradeoff
-// include/glintfx/platform/window/window.hpp's own gltfx_window_desc
-// already accepts for `std::string_view`), stated here rather than
-// left implicit.
+// LOOP-CALLBACK-THROW (TODO.md; /var/tmp/glintfx-plan/loop-fix.md sec.
+// 3.1, GODS_LAWS.md L-17/L-20/L-22): the four function-pointer TYPES
+// gltfx_loop_callbacks below is built from - PLAIN pointer plus opaque
+// context, EACH carrying `noexcept` in its own type, never
+// `std::function`. This is docs/api-conventions.md's own R8 rule
+// applied a second time (the first was CORE-LOG's gltfx_log_sink_fn,
+// include/glintfx/core/log/sink.hpp), for a DIFFERENT one of R8's own
+// three reasons: not "called from any thread" (a loop callback is
+// single-threaded, set once, for one gltfx_loop::run() call) but
+// "`noexcept` has to live IN THE TYPE" - `std::function` erases the
+// exception-specification of whatever it wraps, so nothing in the
+// TYPE SYSTEM stops a consumer from handing run() a callback that
+// throws; a plain `noexcept` function-pointer type cannot even be
+// ASSIGNED one (P9c below) - the compiler refuses it, at the
+// consumer's own line, before this library ever sees it.
+using gltfx_on_frame_fn = bool (*)(void *context, const gltfx_frame_tick &tick) noexcept;
+using gltfx_on_render_fn = void (*)(void *context, const gltfx_frame_tick &tick) noexcept;
+// Reserved for INPUT-EVENTS (W7) - see gltfx_loop_callbacks::on_event
+// below for the one thing this fatia DOES decide about it today.
+using gltfx_on_event_fn = void (*)(void *context, const gltfx_input_event &event) noexcept;
+// LAYER 2 (posse opcional, LOOP-CONTEXT-OWNERSHIP - not yet honored by
+// this fatia, see gltfx_loop_callbacks::destroy_context below).
+using gltfx_loop_context_destroy_fn = void (*)(void *context) noexcept;
+
+// ============================================================
+// WHAT THIS LAYER SOLVES (layer 1 - the fronteira, this fatia's own
+// scope; the struct and the four `using` above it together):
+// ============================================================
+//   - The compiler refuses a callback that does not declare
+//     `noexcept`, AT THE CONSUMER'S OWN ASSIGNMENT LINE, before this
+//     library is ever called - proved by tests/loop_callbacks_type_
+//     test.cpp's own static_assert matrix (LOOP-CALLBACK-THROW).
+//   - No allocation, no standard-library type crossing the ABI: five
+//     plain pointers, standard layout, trivially copyable.
+//   - Callable from any binding this library ever supports (C, Rust
+//     via cbindgen, ...) with no dependency on this project's own
+//     C++ standard-library ABI (docs/api-conventions.md R8).
+// ============================================================
+// WHAT THIS LAYER DOES NOT SOLVE (truth (a), stated so nobody has to
+// infer it from an absence - /var/tmp/glintfx-plan/loop-fix.md sec.
+// 5.0.2(a)):
+// ============================================================
+//   noexcept on your callback is a PROMISE, not a proof: the
+//   compiler only refuses a callback whose OWN declared signature
+//   omits `noexcept`. A function that IS declared `noexcept` and
+//   THROWS ANYWAY is not caught by this layer, or by anything else in
+//   this library - the C++ language itself ends the consumer's
+//   process the instant the exception tries to leave a `noexcept`
+//   function (std::terminate), before this library's own frame is
+//   even unwound. Nobody, on either side of this boundary, can stop
+//   that. What this layer buys is where the mistake surfaces: on the
+//   consumer's own build, at their own compile step (if the function
+//   is simply not `noexcept`) or immediately at their own call site
+//   (if it lies about it) - never as an opaque crash somewhere inside
+//   this library's own run().
 struct gltfx_loop_callbacks {
+    // Opaque, owned by the consumer, handed back BYTE-IDENTICAL to
+    // every callback below - never read, never dereferenced, never
+    // interpreted by this library. nullptr is a legal context (a
+    // consumer whose callbacks need none).
+    void *context = nullptr;
+
     // Runs once per tick, BEFORE on_render() below - returning `false`
     // ends run() (P9). MUST be set: run() refuses `invalid_argument`
     // (rejected_value() == "on_frame") when this is empty, because a
     // loop with nothing to run each tick is not a loop a consumer
-    // meant to call run() for.
-    std::function<bool(const gltfx_frame_tick &)> on_frame;
+    // meant to call run() for. Three ways to fill this in: a free
+    // function, a stateless lambda that converts directly (both
+    // available today), or an object-and-method pair through
+    // gltfx_bind_loop_callbacks() (platform/loop/loop_bind.hpp,
+    // LOOP-CALLBACK-BIND - not yet part of this fatia).
+    gltfx_on_frame_fn on_frame = nullptr;
 
     // Runs once per tick, ONLY when gltfx_frame_tick::should_render is
     // true, immediately before present(). MUST be set: run() refuses
@@ -151,15 +208,41 @@ struct gltfx_loop_callbacks {
     // empty - a tick with should_render true and no drawing code would
     // present whatever the back buffer already held, undefined content
     // from the consumer's own point of view.
-    std::function<void(const gltfx_frame_tick &)> on_render;
+    gltfx_on_render_fn on_render = nullptr;
 
-    // RESERVED for INPUT-EVENTS (W7) - MUST be empty in this version.
+    // RESERVED for INPUT-EVENTS (W7) - MUST be null in this version.
     // run() refuses `invalid_argument` (rejected_value() == "on_event")
     // when this is filled in, rather than accepting it and silently
     // never calling it (GODS_LAWS.md L-35's own delivery guarantee has
     // not been built yet, so this library never pretends to honor one).
-    std::function<void(const gltfx_input_event &)> on_event;
+    gltfx_on_event_fn on_event = nullptr;
+
+    // LAYER 2 (posse opcional, LOOP-CONTEXT-OWNERSHIP,
+    // /var/tmp/glintfx-plan/loop-fix.md sec. 3.2) - the field this
+    // fatia FREEZES INTO THE LAYOUT but does not yet honor: nullptr
+    // means `context` above is BORROWED (the consumer owns it and is
+    // responsible for its lifetime, exactly as today); a non-null
+    // function here will mean ownership was HANDED OVER, and this
+    // library destroys `context` through it - the exact lifetime rule
+    // (which of two forms, tied to the call you make) is
+    // LOOP-CONTEXT-OWNERSHIP's own decision, not this fatia's. UNTIL
+    // THAT FATIA LANDS, run() below REFUSES BY NAME
+    // (rejected_value() == "destroy_context") any caller that fills
+    // this in - GODS_LAWS.md L-35: a delivery guarantee this library
+    // has not built yet is never promised by accepting the field
+    // silently, the same discipline on_event above already uses.
+    gltfx_loop_context_destroy_fn destroy_context = nullptr;
 };
+
+// The layout IS the contract (GODS_LAWS.md L-19 item 3, same discipline
+// gltfx_frame_tick's own static_assert above already states): five
+// plain pointers, nothing else, standard layout, trivially copyable -
+// safe to copy across the ABI boundary, no hidden invariant a caller
+// could violate by reading a field. Proved (mechanically re-checked,
+// not just declared) by tests/loop_callbacks_type_test.cpp.
+static_assert(std::is_standard_layout_v<gltfx_loop_callbacks>);
+static_assert(std::is_trivially_copyable_v<gltfx_loop_callbacks>);
+static_assert(sizeof(gltfx_loop_callbacks) == 5 * sizeof(void *));
 
 // loop_impl - the opaque implementation gltfx_loop below PIMPLs over,
 // defined ONLY in a later fatia's own src/platform/loop/loop_impl.hpp
@@ -249,7 +332,16 @@ struct loop_internal_access {
 //       error a failing step()/present() produced, unchanged, in every
 //       other case. Refuses (by name, invalid_argument): on_frame
 //       empty ("on_frame"), on_render empty ("on_render"), on_event
-//       filled in ("on_event").
+//       filled in ("on_event"), destroy_context filled in
+//       ("destroy_context") - LOOP-CONTEXT-OWNERSHIP has not landed
+//       yet (this struct's own header comment on that field).
+//
+//   P9c. Every callback pointer's own TYPE requires `noexcept`
+//        (LOOP-CALLBACK-THROW, this header's own "WHAT THIS LAYER
+//        DOES NOT SOLVE" comment above gltfx_loop_callbacks for what
+//        that does and does not protect a consumer from) - a function
+//        that omits it does not compile as an assignment to any field
+//        of gltfx_loop_callbacks.
 //
 //   P10. display, window and context must outlive the loop - open()
 //        refuses (by name, invalid_argument) whichever of the three is
@@ -321,7 +413,12 @@ class gltfx_loop {
 
     // Sugar over step()/on_frame/on_render/present() - see this class's
     // own P3/P9 above for the exact order and the exact refusal rules.
-    [[nodiscard]] GLINTFX_API gltfx_rslt<void> run(const gltfx_loop_callbacks &callbacks) noexcept;
+    // BY VALUE (LOOP-CONTEXT-OWNERSHIP, /var/tmp/glintfx-plan/loop-fix.
+    // md sec. 3.1): five trivial pointers, cheap to copy, and "by
+    // value" is what tells a reader that ownership of `context` may be
+    // changing hands - this fatia does not yet act on that, but the
+    // signature is frozen once, here, rather than reopened later.
+    [[nodiscard]] GLINTFX_API gltfx_rslt<void> run(gltfx_loop_callbacks callbacks) noexcept;
 
   private:
     explicit gltfx_loop(loop_impl *impl) noexcept : m_impl(impl) {}

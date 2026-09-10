@@ -83,7 +83,12 @@ Every type, free function, enumerator, method, and `#include` path on the public
 
 ## R8: A callback that can be called from any thread, or replaced at runtime, is a plain function pointer plus an opaque context - never `std::function`
 
-A public callback the library may invoke from **any thread**, or that the consumer may **replace while the program is running**, is `ReturnType (*)(void *context, ...) noexcept` plus a `void *context` the consumer owns - the same "plain pointer + opaque context" shape `gltfx_node_class_visitor_fn` (`include/glintfx/gfui/node_view.hpp`) already uses. `std::function` is a real, documented alternative this project also uses (`gltfx_loop_callbacks`, `include/glintfx/platform/loop/loop.hpp`), but only for a callback that is set **once**, for **one** thread, at a single well-defined moment (`gltfx_loop::run()`); it is the wrong tool here for three concrete reasons, not a style preference: (1) `std::function` cannot be swapped atomically, so a callback that can be replaced from another thread while emissions are in flight has no safe way to do so; (2) constructing/assigning a `std::function` can allocate, and a registration API that the library may need to call from a low-memory path (`CORE-LOG`'s own sink registration) must never allocate to register; (3) a plain function pointer is callable from any binding (C, Rust via `cbindgen`, …) without pulling in C++'s own standard library ABI, which `std::function` always does.
+A public callback the library may invoke from **any thread**, or that the consumer may **replace while the program is running**, is `ReturnType (*)(void *context, ...) noexcept` plus a `void *context` the consumer owns - the same "plain pointer + opaque context" shape `gltfx_node_class_visitor_fn` (`include/glintfx/gfui/node_view.hpp`) already uses. **No public callback in this library uses `std::function` today.** The main loop's own callbacks (`gltfx_loop_callbacks`, `include/glintfx/platform/loop/loop.hpp`) are the second use of this exact shape, not a counter-example: they used to be `std::function` (until `LOOP-CALLBACK-THROW`, see R10 below), which is why this rule is stated with a fourth reason now, alongside the original three:
+
+1. `std::function` cannot be swapped atomically, so a callback that can be replaced from another thread while emissions are in flight has no safe way to do so;
+2. constructing/assigning a `std::function` can allocate, and a registration API that the library may need to call from a low-memory path (`CORE-LOG`'s own sink registration) must never allocate to register;
+3. a plain function pointer is callable from any binding (C, Rust via `cbindgen`, …) without pulling in C++'s own standard library ABI, which `std::function` always does;
+4. **`noexcept` has to live in the TYPE, not the value.** `std::function` erases whether the wrapped callable is `noexcept` - nothing in the type system stops a consumer from constructing one from a throwing function. A plain `ReturnType (*)(...) noexcept` function-pointer type cannot even be ASSIGNED a function that omits `noexcept`: the refusal happens at the consumer's own compile step, never as a crash discovered later inside this library. This is the reason `LOOP-CALLBACK-THROW` (R10) gives for moving the loop's own callbacks onto this shape - reason (1) does not apply to them (single-threaded, set once, per `gltfx_loop::run()` call), reason (4) does.
 
 **Proved by:** `tests/log_sink_test.cpp` (`CORE-LOG` CL-4: registration returns the previous callback, `nullptr` removes it, an `extern "C"` free function and a `static` member function both work, and the context pointer a consumer registered arrives byte-identical inside the callback) and `tests/log_sink_concurrency_test.cpp` (CL-6: order preserved per emitting thread under concurrent load; a swap in flight stops reaching the old callback once `gltfx_log_set_sink()` returns; a callback that itself emits is delivered, proving no lock is held around the call).
 
@@ -92,6 +97,32 @@ A public callback the library may invoke from **any thread**, or that the consum
 An event the library emits through its log sink (`gltfx_log_event`, `include/glintfx/core/log/event.hpp`) carries a severity, a category, a stable event **name** (an identifier, e.g. `"gpu_kind_resolved"`), and a list of `(name, value)` fields whose values are one of five closed, non-allocating kinds (text view, signed/unsigned integer, floating point, boolean) - never a pre-formatted message string. This is the **same** decision R7 already states for `gltfx_err_fields()`, applied to the log sink: `glintfx` never ships a message catalog, so it never decides the consumer's language. A field or an event is valid **only for the duration of the sink call** (the same lifetime rule SQLite's `errlog.html` and GLFW's own error callback documentation already state for theirs) - a consumer that wants to keep something copies it out before the call returns.
 
 **Proved by:** `tests/log_event_test.cpp` (accessors match what was built; an event with no fields has a zero-length span; category and name never contain a space, the same vocabulary-token assertion R7 already makes) and `tests/gpu_kind_report_test.cpp::report_gpu_kind_resolved_reaches_a_registered_sink` (the first real event this library emits, `gpu_kind_resolved`, read back through the public accessors exactly as an external consumer would). The end-to-end path - a real Wayland/EGL adapter resolving a real GPU kind and the event reaching a real, publicly-registered sink - is proved against a real compositor by `tests/container/gpu_kind_report_smoke.cpp` (CI job `wayland-container`).
+
+## R10: Handing your callbacks to the library: four layers, and the three things none of them can do for you
+
+**This section is a skeleton (`LOOP-CALLBACK-THROW`, `/var/tmp/glintfx-plan/loop-fix.md`), grown one layer at a time as each lands.** `gltfx_loop_callbacks` (`include/glintfx/platform/loop/loop.hpp`) is built from four independent layers, each solving one problem and, deliberately, not the others - a consumer who only reads the fronteira layer below does not yet know everything they owe the library.
+
+### Layer 1: the fronteira (`LOOP-CALLBACK-THROW`, landed)
+
+Every callback field of `gltfx_loop_callbacks` is a plain `void *context` plus a `noexcept` function-pointer type (`gltfx_on_frame_fn`, `gltfx_on_render_fn`, `gltfx_on_event_fn`, `gltfx_loop_context_destroy_fn` - R8 above states why, reason (4)). This closes the finding that motivated this whole section: before this fatia, the callback fields were `std::function`, whose type erases `noexcept`, so a consumer's throwing callback had nothing in the type system stopping it, and the resulting exception crossing a `noexcept` `gltfx_loop::run()` ended the consumer's process with no diagnostic from this library at all.
+
+**The truth this layer does NOT give you, stated so nobody has to infer it from an absence:**
+
+> **noexcept on your callback is a PROMISE, not a proof.** The compiler only refuses a callback whose own declared signature omits `noexcept`. A function that IS declared `noexcept` and throws anyway is not caught by this layer, or by anything else in this library - the C++ language itself ends the consumer's process the instant the exception tries to leave a `noexcept` function (`std::terminate`), before this library's own frame is even unwound. Nobody, on either side of this boundary, can stop that. What this layer buys is WHERE the mistake surfaces: on the consumer's own build, at their own compile step (if the function is simply not `noexcept`) or immediately at their own call site (if it lies about it) - never as an opaque crash somewhere inside this library's own `run()`.
+
+**Proved by:** `tests/loop_callbacks_type_test.cpp` (the static_assert matrix: every callback field's type refuses a candidate function missing `noexcept`, and the frozen five-pointer layout) and `tests/loop_callbacks_validation_test.cpp` (the field-emptiness refusal rules, including `destroy_context` - see layer 2 below - refused by name until it lands).
+
+### Layer 2: posse opcional (`LOOP-CONTEXT-OWNERSHIP`, not yet landed)
+
+The `destroy_context` field freezes into the struct's layout with this fatia, but is not yet honored - `gltfx_loop::run()` refuses by name (`rejected_value() == "destroy_context"`) any caller that fills it in. When this layer lands, it will state here what `context` ownership means for each of the two call shapes (`run(callbacks)` versus `set_callbacks()`/`run()`) and the exact lifetime rule for each.
+
+### Layer 3: amarração tipada (`LOOP-CALLBACK-BIND`, not yet landed)
+
+Not yet landed. Will state here the borrow-vs-adopt binding helpers (`gltfx_bind_loop_callbacks`/`gltfx_adopt_loop_callbacks`, `include/glintfx/platform/loop/loop_bind.hpp`) and what borrowing does NOT protect a consumer from.
+
+### Layer 4: marca de depuração (`LOOP-CONTEXT-MARK`, not yet landed)
+
+Not yet landed. Will state here the opt-in debug-build liveness mark and the Debug/Release table, in the same mold R1's own Debug/Release table above already uses.
 
 ---
 

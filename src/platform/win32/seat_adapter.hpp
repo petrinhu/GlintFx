@@ -248,6 +248,26 @@ class win32_seat_adapter {
     void handle_device_change(device_change_kind kind) noexcept;
     [[nodiscard]] WNDPROC previous_wndproc() const noexcept;
 
+    // DIAGNOSTIC SEAM (WIN-SEAT, 10/09/2026 - server run 34432463346
+    // found `win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_
+    // itself`/`capability_events_count_the_initial_read_and_each_
+    // device_change`/`two_seats_in_one_process_have_independent_
+    // registrations` all failing the SAME way: state never updates
+    // after a synthetic WM_DEVICECHANGE, even though the pure classify_
+    // device_change() tests were not reported as failing - a routing
+    // question, never seen live before, that code review and the
+    // official Microsoft documentation for WM_DEVICECHANGE/DEV_
+    // BROADCAST_HDR/RegisterDeviceNotificationW/message-only windows do
+    // not explain). Unconditionally records the LAST message this
+    // instance's window procedure ever saw, msg id and wParam, BEFORE
+    // any WM_DEVICECHANGE-specific guard runs - answers "did the
+    // message even arrive at seat_window_proc at all" independently of
+    // whatever classify_device_change() decides. Never read by
+    // production code; a test-only seam like native_handle() above.
+    void record_raw_message(UINT msg, WPARAM wparam) noexcept;
+    [[nodiscard]] UINT last_raw_message() const noexcept { return m_last_raw_message; }
+    [[nodiscard]] WPARAM last_raw_wparam() const noexcept { return m_last_raw_wparam; }
+
   private:
     void recompute_capabilities() noexcept;
 
@@ -258,6 +278,8 @@ class win32_seat_adapter {
     seat_capabilities m_capabilities;
     device_change_kind m_last_device_change = device_change_kind::none;
     std::uint64_t m_last_change = 0;
+    UINT m_last_raw_message = 0;
+    WPARAM m_last_raw_wparam = 0;
 };
 
 } // namespace glintfx::platform

@@ -180,12 +180,36 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
     DEV_BROADCAST_HDR arrival_block{};
     arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
 
+    // DIAGNOSTIC (server run 34432463346 found this exact check failing
+    // - never seen live before, and neither code review nor Microsoft's
+    // own documentation for WM_DEVICECHANGE/DEV_BROADCAST_HDR/
+    // RegisterDeviceNotificationW/message-only windows explains why):
+    // proves classify_device_change() itself, called DIRECTLY on the
+    // exact same block, independent of any window/message delivery at
+    // all - isolates "the pure function is wrong" from "the message
+    // never reached the window procedure".
+    GLINTFX_CHECK(glintfx::platform::classify_device_change(DBT_DEVICEARRIVAL, &arrival_block) ==
+                  device_change_kind::arrival);
+
     // Sent with the CALLING thread's own SendMessageW - the message-
     // only window this adapter owns belongs to this same thread, so
     // this is delivered synchronously, straight into seat_window_proc
     // (seat_adapter.cpp), before SendMessageW returns.
     ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
                    reinterpret_cast<LPARAM>(&arrival_block));
+
+    // DIAGNOSTIC: what seat_window_proc actually saw, unconditionally
+    // recorded before any WM_DEVICECHANGE-specific guard runs (seat_
+    // adapter.hpp's own record_raw_message() comment) - printed always,
+    // asserted only on the message id, since a mismatch there means the
+    // message never arrived at all (the more useful of the two facts to
+    // know before touching any production line).
+    std::println("MEASURED seat_test.diag_last_raw_message={}",
+                 static_cast<unsigned long long>(seat.last_raw_message()));
+    std::println("MEASURED seat_test.diag_last_raw_wparam={}",
+                 static_cast<unsigned long long>(seat.last_raw_wparam()));
+    GLINTFX_CHECK(seat.last_raw_message() == WM_DEVICECHANGE);
+    GLINTFX_CHECK(seat.last_raw_wparam() == static_cast<WPARAM>(DBT_DEVICEARRIVAL));
 
     GLINTFX_CHECK(seat.last_device_change() == device_change_kind::arrival);
 

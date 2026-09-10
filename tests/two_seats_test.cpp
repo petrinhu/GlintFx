@@ -11,6 +11,8 @@
 
 #include <dbt.h>
 
+#include <cstdio>
+
 #include <glintfx/core/err.hpp>
 
 #include "harness/check.hpp"
@@ -79,6 +81,13 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
     arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
     ::SendMessageW(second_seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
                    reinterpret_cast<LPARAM>(&arrival_block));
+    // DIAGNOSTIC (server run 34432463346 found this exact check failing
+    // - see tests/seat_test.cpp's own diagnostic comment on the
+    // identical pattern, added the same day).
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_last_raw_message=%lu\n",
+                 static_cast<unsigned long>(second_seat.last_raw_message()));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_last_raw_wparam=%lu\n",
+                 static_cast<unsigned long>(second_seat.last_raw_wparam()));
     GLINTFX_CHECK(second_seat.last_device_change() == device_change_kind::arrival);
 
     second_seat.close();

@@ -99,6 +99,14 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
         // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         reinterpret_cast<win32_seat_adapter *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 
+    // DIAGNOSTIC (seat_adapter.hpp's own record_raw_message() comment,
+    // 10/09/2026): unconditional, before any WM_DEVICECHANGE-specific
+    // guard - answers whether a message even reached this window
+    // procedure at all, independent of what happens to it next.
+    if (adapter != nullptr) {
+        adapter->record_raw_message(msg, wparam);
+    }
+
     if (msg == WM_DEVICECHANGE && adapter != nullptr) {
         // WM_DEVICECHANGE's lParam carries a pointer to a DEV_BROADCAST_
         // HDR-shaped block (or is unused/zero for some wParam codes) -
@@ -242,6 +250,11 @@ void win32_seat_adapter::handle_device_change(device_change_kind kind) noexcept 
 }
 
 WNDPROC win32_seat_adapter::previous_wndproc() const noexcept { return m_previous_wndproc; }
+
+void win32_seat_adapter::record_raw_message(UINT msg, WPARAM wparam) noexcept {
+    m_last_raw_message = msg;
+    m_last_raw_wparam = wparam;
+}
 
 int win32_seat_adapter::device_notification_count() const noexcept {
     int count = 0;

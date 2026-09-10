@@ -48,15 +48,24 @@ namespace {
 
 // Eight bodies: one throwing (no `noexcept`), one well-behaved
 // (`noexcept`), per callback field. Never called - only their
-// DECLARED signature matters to std::is_convertible_v below.
-bool throwing_on_frame(void *, const gltfx_frame_tick &) { return true; }
-bool nothrow_on_frame(void *, const gltfx_frame_tick &) noexcept { return true; }
-void throwing_on_render(void *, const gltfx_frame_tick &) {}
-void nothrow_on_render(void *, const gltfx_frame_tick &) noexcept {}
-void throwing_on_event(void *, const gltfx_input_event &) {}
-void nothrow_on_event(void *, const gltfx_input_event &) noexcept {}
-void throwing_destroy_context(void *) {}
-void nothrow_destroy_context(void *) noexcept {}
+// DECLARED signature matters to std::is_convertible_v below, and every
+// use of that signature happens through decltype (an UNEVALUATED
+// operand) - so none of the eight is ever odr-used. `[[maybe_unused]]`
+// says that on purpose: without it, a real second compiler (Clang)
+// correctly notices no call site will ever emit code for these bodies
+// and refuses under -Werror,-Wunneeded-internal-declaration - measured
+// against Clang 22.1.8 while fixing this file. The attribute is the
+// honest fix, not a silenced warning: the compiler's diagnosis (dead
+// code) is correct, and `[[maybe_unused]]` is the standard C++17 way
+// to say "yes, and that absence of use is the whole point here".
+[[maybe_unused]] bool throwing_on_frame(void *, const gltfx_frame_tick &) { return true; }
+[[maybe_unused]] bool nothrow_on_frame(void *, const gltfx_frame_tick &) noexcept { return true; }
+[[maybe_unused]] void throwing_on_render(void *, const gltfx_frame_tick &) {}
+[[maybe_unused]] void nothrow_on_render(void *, const gltfx_frame_tick &) noexcept {}
+[[maybe_unused]] void throwing_on_event(void *, const gltfx_input_event &) {}
+[[maybe_unused]] void nothrow_on_event(void *, const gltfx_input_event &) noexcept {}
+[[maybe_unused]] void throwing_destroy_context(void *) {}
+[[maybe_unused]] void nothrow_destroy_context(void *) noexcept {}
 
 } // namespace
 
@@ -74,11 +83,13 @@ static_assert(!std::is_convertible_v<decltype(&throwing_on_event), gltfx_on_even
               "a on_event candidate missing noexcept must not convert to gltfx_on_event_fn");
 static_assert(std::is_convertible_v<decltype(&nothrow_on_event), gltfx_on_event_fn>,
               "a noexcept on_event candidate must convert to gltfx_on_event_fn");
-static_assert(!std::is_convertible_v<decltype(&throwing_destroy_context), gltfx_loop_context_destroy_fn>,
-              "a destroy_context candidate missing noexcept must not convert to "
-              "gltfx_loop_context_destroy_fn");
-static_assert(std::is_convertible_v<decltype(&nothrow_destroy_context), gltfx_loop_context_destroy_fn>,
-              "a noexcept destroy_context candidate must convert to gltfx_loop_context_destroy_fn");
+static_assert(
+    !std::is_convertible_v<decltype(&throwing_destroy_context), gltfx_loop_context_destroy_fn>,
+    "a destroy_context candidate missing noexcept must not convert to "
+    "gltfx_loop_context_destroy_fn");
+static_assert(
+    std::is_convertible_v<decltype(&nothrow_destroy_context), gltfx_loop_context_destroy_fn>,
+    "a noexcept destroy_context candidate must convert to gltfx_loop_context_destroy_fn");
 
 // --- layout (the struct's own header comment, "the layout IS the
 // contract") ---------------------------------------------------------
@@ -94,8 +105,9 @@ static_assert(sizeof(gltfx_loop_callbacks) == 5 * sizeof(void *),
 // its own type - the property run()'s own call sites
 // (src/platform/loop/loop_facade.cpp) rely on without a try/catch
 // anywhere in that file.
-static_assert(std::is_nothrow_invocable_r_v<bool, gltfx_on_frame_fn, void *, const gltfx_frame_tick &>,
-              "gltfx_on_frame_fn must be nothrow-invocable through its own type");
+static_assert(
+    std::is_nothrow_invocable_r_v<bool, gltfx_on_frame_fn, void *, const gltfx_frame_tick &>,
+    "gltfx_on_frame_fn must be nothrow-invocable through its own type");
 
 // --- runtime re-checks, purely for a per-case PASS/FAIL and a printed
 // count (GODS_LAWS.md L-40) - see this file's own top comment for why
@@ -126,8 +138,8 @@ GLINTFX_TEST(nothrow_on_event_converts_to_the_pointer_type) {
 }
 
 GLINTFX_TEST(throwing_destroy_context_does_not_convert_to_the_pointer_type) {
-    GLINTFX_CHECK(
-        (!std::is_convertible_v<decltype(&throwing_destroy_context), gltfx_loop_context_destroy_fn>));
+    GLINTFX_CHECK((!std::is_convertible_v<decltype(&throwing_destroy_context),
+                                          gltfx_loop_context_destroy_fn>));
 }
 
 GLINTFX_TEST(nothrow_destroy_context_converts_to_the_pointer_type) {

@@ -3,6 +3,8 @@
 
 #if defined(_WIN32)
 
+#include <dbt.h>
+
 #include <iterator>
 #include <new>
 #include <vector>
@@ -11,42 +13,49 @@
 #include <glintfx/core/err_code.hpp>
 
 // seat_adapter.cpp - see seat_adapter.hpp's own header comment for
-// scope, the mechanism sources, and why this fatia (Y-1, docs/plano-
-// w6a-janela.md fatia 13) reuses win32_display_adapter's own window
-// class instead of registering a second one. Written from Microsoft's
-// own current documentation (that header's own "MECHANISM" paragraph
-// cites the exact pages), not from having watched this file run on a
-// Windows machine (GODS_LAWS.md L-27, same declared limitation as
-// display_adapter.cpp's own header comment for the fatia this one
-// extends).
+// scope, the mechanism sources, and the 09/09/2026 redesign (D-090918)
+// this file carries out. Written from Microsoft's own current
+// documentation (that header's own comment cites the exact pages), not
+// from having watched this file run on a Windows machine (GODS_LAWS.md
+// L-27, same declared limitation as display_adapter.cpp's own header
+// comment for the fatia this one extends).
 
 namespace glintfx::platform {
 
 namespace {
 
-// Generic Desktop Controls usage page and the two usage IDs this
-// adapter cares about (seat_adapter.hpp's own "MECHANISM" paragraph:
-// learn.microsoft.com/windows-hardware/drivers/hid/hid-usages). Named
-// constants rather than bare 0x01/0x02/0x06 at each call site, the
-// same "spell out where a number comes from" reasoning win32_runner_
-// probe_test.cpp already applies to its own k_gl_vendor/k_gl_renderer/
-// k_gl_version.
-constexpr USHORT k_usage_page_generic_desktop = 0x01;
-constexpr USHORT k_usage_mouse = 0x02;
-constexpr USHORT k_usage_keyboard = 0x06;
-
 // SM_DIGITIZER's own NID_* bitmask (seat_adapter.hpp's own "MECHANISM"
 // paragraph, learn.microsoft.com/windows/win32/api/winuser/
-// nf-winuser-getsystemmetrics Remarks section) - NID_INTEGRATED_TOUCH
-// and NID_EXTERNAL_TOUCH are the two bits this adapter reads for
-// seat_capability::touch ("touch/digitizer surface", seat_
-// capabilities.hpp's own header comment); NID_INTEGRATED_PEN/
-// NID_EXTERNAL_PEN answer a stylus question this project's three-value
-// enum has no slot for, and NID_MULTI_INPUT/NID_READY qualify an
-// existing digitizer rather than proving one exists - none of those
-// four are read here.
+// nf-winuser-getsystemmetrics Remarks section) - unchanged by this
+// fatia's redesign.
 constexpr int k_nid_integrated_touch = 0x01;
 constexpr int k_nid_external_touch = 0x02;
+
+// GUID_DEVINTERFACE_KEYBOARD / GUID_DEVINTERFACE_MOUSE, written by hand
+// from Microsoft's own documented values (D-WS-2, seat_adapter.hpp's own
+// header comment: <ntddkbd.h>/<ntddmou.h> + <initguid.h> is the
+// PKEY_AppUserModel_ID trap this project already paid for once - a
+// symbol whose DEFINITION only exists in the translation unit that
+// includes <initguid.h> BEFORE the driver header). Values quoted
+// verbatim from learn.microsoft.com/windows-hardware/drivers/install/
+// guid-devinterface-keyboard and .../guid-devinterface-mouse.
+constexpr GUID k_guid_devinterface_keyboard = {
+    0x884b96c3, 0x56ef, 0x11d1, {0xbc, 0x8c, 0x00, 0xa0, 0xc9, 0x14, 0x05, 0xdd}};
+constexpr GUID k_guid_devinterface_mouse = {
+    0x378de44c, 0x56ef, 0x11d1, {0xbc, 0x8c, 0x00, 0xa0, 0xc9, 0x14, 0x05, 0xdd}};
+
+// Builds the DEV_BROADCAST_DEVICEINTERFACE_W filter RegisterDevice
+// NotificationW expects for one device interface class GUID -
+// dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE is what classify_device_
+// change() (device_change_message.cpp) later checks for on the way
+// back in.
+DEV_BROADCAST_DEVICEINTERFACE_W make_device_interface_filter(const GUID &class_guid) noexcept {
+    DEV_BROADCAST_DEVICEINTERFACE_W filter{};
+    filter.dbcc_size = sizeof(filter);
+    filter.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+    filter.dbcc_classguid = class_guid;
+    return filter;
+}
 
 // seat_window_proc - the instance-level subclass open() installs via
 // GWLP_WNDPROC (SetWindowLongPtrW) AFTER CreateWindowExW returns, on
@@ -55,39 +64,32 @@ constexpr int k_nid_external_touch = 0x02;
 // anonymous namespace) - see seat_adapter.hpp's own "WHY A SECOND
 // HWND" paragraph for why this ordering means GWLP_USERDATA is always
 // already valid by the time THIS function ever runs.
-//
-// Reads `this` back out of GWLP_USERDATA (never null for a window this
-// adapter created with lpParam = the adapter itself), and only acts on
-// WM_INPUT_DEVICE_CHANGE - every other message is chained to the
-// PREVIOUS window procedure via CallWindowProcW, exactly as SetWindow
-// LongPtr's own documentation requires for GWLP_WNDPROC subclassing
-// (seat_adapter.hpp's own "MECHANISM" paragraph).
 LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) noexcept {
     // GetWindowLongPtrW returns the GWLP_USERDATA slot as a LONG_PTR by
-    // Win32's own design (learn.microsoft.com/windows/win32/api/winuser/
-    // nf-winuser-getwindowlongptrw) - it holds a genuine win32_seat_
-    // adapter* (open() below is the only writer, lpParam = this), the
-    // integer-typed return is just how the Win32 API carries it,
-    // unavoidable at this boundary - same idiom display_adapter.cpp's
-    // own GWLP_USERDATA read already carries the same suppression for.
+    // Win32's own design - it holds a genuine win32_seat_adapter*
+    // (open() below is the only writer, lpParam = this).
     auto *adapter =
         // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
         reinterpret_cast<win32_seat_adapter *>(::GetWindowLongPtrW(hwnd, GWLP_USERDATA));
 
-    if (msg == WM_INPUT_DEVICE_CHANGE && adapter != nullptr) {
-        // WM_INPUT_DEVICE_CHANGE's own documentation (this file's own
-        // "MECHANISM" paragraph, seat_adapter.hpp): lParam carries "a
-        // handle to the device that generated the change" - the same
-        // "the Win32 API hands back a pointer through an integer-typed
-        // slot" idiom the GWLP_USERDATA read above already carries the
-        // identical suppression for, just LPARAM instead of the return
-        // of GetWindowLongPtrW.
-        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
-        adapter->handle_input_device_change(wparam, reinterpret_cast<HANDLE>(lparam));
-        // WM_INPUT_DEVICE_CHANGE's own documentation (seat_adapter.hpp's
-        // "MECHANISM" paragraph): "If an application processes this
-        // message, it should return zero."
-        return 0;
+    if (msg == WM_DEVICECHANGE && adapter != nullptr) {
+        // WM_DEVICECHANGE's lParam carries a pointer to a DEV_BROADCAST_
+        // HDR-shaped block (or is unused/zero for some wParam codes) -
+        // classify_device_change() (device_change_message.cpp) applies
+        // both guards win-seat.md sec. 1.3 requires before this adapter
+        // ever treats it as an arrival or removal.
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
+        const auto kind = classify_device_change(wparam, reinterpret_cast<const void *>(lparam));
+        if (kind != device_change_kind::none) {
+            adapter->handle_device_change(kind);
+        }
+        // learn.microsoft.com/windows/win32/devio/registering-for-
+        // device-notification's own WindowProc example returns TRUE
+        // from its WM_DEVICECHANGE case - unlike WM_INPUT_DEVICE_CHANGE
+        // (this file's predecessor, which returned zero), this message
+        // is not itself part of the raw input family this fatia's
+        // whole redesign moved away from.
+        return TRUE;
     }
 
     if (adapter != nullptr && adapter->previous_wndproc() != nullptr) {
@@ -100,18 +102,11 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
 
 void win32_seat_adapter::translate(const RAWINPUTDEVICELIST *devices, UINT device_count,
                                    int digitizer_bitmask, seat_capabilities &out) noexcept {
-    // Real defect found by clang-tidy's clang-analyzer-core.
-    // NullDereference (lint-enum run, 06/09/2026): `devices` may be
-    // nullptr when `device_count` is 0 (this function's own header
-    // comment, seat_adapter.hpp's "Pure translation seam" paragraph),
-    // but nothing here ever enforced that a CALLER honors the other
-    // half of that pairing - translate() is a public static seam any
-    // test can call directly with an arbitrary pair, and a caller
-    // passing a null pointer alongside a non-zero count would walk the
-    // loop below off the end of a null buffer. Clamped here, once, so
-    // the loop's own precondition ("devices has at least device_count
-    // entries whenever it runs at all") is actually enforced rather
-    // than merely documented.
+    // `devices` may be nullptr when `device_count` is 0 (seat_adapter.
+    // hpp's own header comment on this function) - clamped once so the
+    // loop's own precondition is actually enforced, not merely
+    // documented (real defect found by clang-tidy's clang-analyzer-
+    // core.NullDereference, lint-enum run, 06/09/2026).
     if (devices == nullptr) {
         device_count = 0;
     }
@@ -119,11 +114,6 @@ void win32_seat_adapter::translate(const RAWINPUTDEVICELIST *devices, UINT devic
     bool pointer_present = false;
     bool keyboard_present = false;
 
-    // devices may be nullptr when device_count is 0 (seat_adapter.hpp's
-    // own header comment on this function) - the loop below simply
-    // never runs in that case, the same "empty is a legitimate answer"
-    // shape GetRawInputDeviceList's own two-call idiom already produces
-    // when the system truly has zero devices attached.
     for (UINT i = 0; i < device_count; ++i) {
         switch (devices[i].dwType) {
         case RIM_TYPEMOUSE:
@@ -151,10 +141,9 @@ void win32_seat_adapter::translate(const RAWINPUTDEVICELIST *devices, UINT devic
 
 void win32_seat_adapter::recompute_capabilities() noexcept {
     // Two-call idiom straight from GetRawInputDeviceList's own
-    // documentation - the SAME idiom tests/win32_runner_probe_test.cpp
-    // already proved live on the windows-latest runner (05/09/2026):
-    // first call with a null buffer to learn the count via the out-
-    // parameter, second call to fill a buffer sized for that count.
+    // documentation, unchanged by this fatia's redesign (this
+    // function's own reason to run again - a routed WM_DEVICECHANGE -
+    // changed; what it does once it runs did not).
     UINT device_count = 0;
     const UINT count_query_result =
         ::GetRawInputDeviceList(nullptr, &device_count, sizeof(RAWINPUTDEVICELIST));
@@ -162,19 +151,10 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
     std::vector<RAWINPUTDEVICELIST> devices;
     if (count_query_result != static_cast<UINT>(-1) && device_count > 0) {
         // resize() growing from empty CAN throw std::bad_alloc despite
-        // this function's own noexcept - `device_count` comes from the
-        // OS (GetRawInputDeviceList), not bounded by anything this
-        // adapter controls, the same "not realistically engineered-
-        // around, but must not reach the caller as a crash" shape
-        // widen_utf8()'s own resize() (app_user_model_id.cpp, window_
-        // adapter.cpp) already handles for a different allocation
-        // (GODS_LAWS.md L-22: no exception crosses the public boundary,
-        // and letting this one escape a noexcept function would call
-        // std::terminate() instead). An allocation failure here
-        // degrades to the SAME outcome the "device unplugged mid-race"
-        // branch below already treats as legitimate: this function's
-        // own contract ("never fails, only recomputes from whatever it
-        // could read") already accepts an empty read.
+        // this function's own noexcept - degrading to "no devices this
+        // round" on failure, same reasoning this project's other
+        // resize()-guarding call sites already document (GODS_LAWS.md
+        // L-22: no exception crosses the public boundary).
         bool resized = true;
         try {
             devices.resize(device_count);
@@ -185,32 +165,13 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
             const UINT filled =
                 ::GetRawInputDeviceList(devices.data(), &device_count, sizeof(RAWINPUTDEVICELIST));
             if (filled == static_cast<UINT>(-1)) {
-                // A device was unplugged between the two calls (the same
-                // race GetRawInputDeviceList's own documented retry-loop
-                // example guards against) - this adapter reacts to its own
-                // WM_INPUT_DEVICE_CHANGE handler running again shortly
-                // after, so treating the RACE itself as "no devices this
-                // round" (rather than looping to retry inline) keeps this
-                // function's own contract simple: it never fails, only
-                // recomputes from whatever it could read.
+                // A device was unplugged between the two calls - this
+                // adapter reacts to its own WM_DEVICECHANGE handler
+                // running again shortly after, so treating the race
+                // itself as "no devices this round" keeps this
+                // function's own contract simple.
                 devices.clear();
             } else {
-                // This second resize() SHRINKS in practice (`filled` is
-                // never greater than the `device_count` just allocated
-                // for, per the two-call idiom's own contract above) - a
-                // shrinking resize() never reallocates, so this call can
-                // never actually throw. clang-tidy's bugprone-exception-
-                // escape does not make that grow-vs-shrink distinction
-                // for std::vector::resize() though: it flagged this
-                // exact line as a possible-throw call site on the real
-                // server (MSVC STL, CI run 34033291326, 06/09/2026) even
-                // after the first resize() above was already guarded -
-                // this project's local mingw/libstdc++ toolchain did not
-                // catch it either time, the same declared limitation the
-                // first resize()'s own comment names. Guarded here for
-                // the SAME reason, not because this path is believed to
-                // fail in practice: degrading to "no devices this round"
-                // matches the race branch immediately above.
                 try {
                     devices.resize(filled);
                 } catch (const std::bad_alloc &) {
@@ -225,25 +186,28 @@ void win32_seat_adapter::recompute_capabilities() noexcept {
               digitizer_bitmask, m_capabilities);
 }
 
-void win32_seat_adapter::handle_input_device_change(WPARAM kind, HANDLE device) noexcept {
-    m_last_change_kind = kind;
-    m_last_change_device = device;
+void win32_seat_adapter::handle_device_change(device_change_kind kind) noexcept {
+    m_last_device_change = kind;
     recompute_capabilities();
 }
 
 WNDPROC win32_seat_adapter::previous_wndproc() const noexcept { return m_previous_wndproc; }
 
+int win32_seat_adapter::device_notification_count() const noexcept {
+    int count = 0;
+    if (m_keyboard_notification != nullptr) {
+        ++count;
+    }
+    if (m_mouse_notification != nullptr) {
+        ++count;
+    }
+    return count;
+}
+
 win32_seat_adapter::~win32_seat_adapter() { close(); }
 
 gltfx_rslt<void> win32_seat_adapter::open(const win32_display_adapter &display) noexcept {
     if (!display.is_open()) {
-        // seat_adapter.hpp's own open() comment: window_class_name() is
-        // "empty/undefined before open() succeeds" by display_adapter.
-        // hpp's own accessor comment - refusing here, by value, is more
-        // specific than letting CreateWindowExW fail against an empty
-        // class name below (GODS_LAWS.md L-22: no exception, no abort,
-        // a caller-supplied argument is invalid_argument, not
-        // platform_failure).
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("display"));
     }
@@ -262,13 +226,7 @@ gltfx_rslt<void> win32_seat_adapter::open(const win32_display_adapter &display) 
     // `this`. From here on, THIS window's messages go through seat_
     // window_proc instead.
     ::SetLastError(0);
-    // SetWindowLongPtr's own documentation (seat_adapter.hpp's own
-    // "MECHANISM" paragraph, GWLP_WNDPROC instance subclassing):
-    // "SetWindowLongPtr returns the address of the window's original
-    // window procedure" through the same LONG_PTR-typed return
-    // GWLP_USERDATA already carries a pointer through above (seat_
-    // window_proc, anonymous namespace) - same idiom, same suppression.
-    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see comment above
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: see seat_window_proc's own comment
     const auto previous = reinterpret_cast<WNDPROC>(
         ::SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&seat_window_proc)));
     if (previous == nullptr) {
@@ -282,28 +240,39 @@ gltfx_rslt<void> win32_seat_adapter::open(const win32_display_adapter &display) 
         // return with GetLastError() ALSO zero being the (rare)
         // legitimate case "the previous value genuinely was zero" - a
         // window procedure address is never legitimately null on a
-        // window that has already been created (every WNDCLASSEXW this
-        // project registers sets a non-null lpfnWndProc, display_
-        // adapter.cpp's own open()), so a null return with no error set
-        // is treated the same as a real value here rather than invented
-        // special-cased trust.
+        // window that has already been created, so a null return with
+        // no error set is treated the same as a real value here rather
+        // than invented special-cased trust.
     }
 
-    RAWINPUTDEVICE devices[2]{};
-    devices[0].usUsagePage = k_usage_page_generic_desktop;
-    devices[0].usUsage = k_usage_mouse;
-    devices[0].dwFlags = RIDEV_DEVNOTIFY;
-    devices[0].hwndTarget = window;
-    devices[1].usUsagePage = k_usage_page_generic_desktop;
-    devices[1].usUsage = k_usage_keyboard;
-    devices[1].dwFlags = RIDEV_DEVNOTIFY;
-    devices[1].hwndTarget = window;
-
+    // D-WS-7: two INDEPENDENT registrations, held per-instance
+    // (m_keyboard_notification/m_mouse_notification below) - never a
+    // shared or process-wide handle, exactly the property RIDEV_REMOVE
+    // (this file's predecessor) did not have.
+    DEV_BROADCAST_DEVICEINTERFACE_W keyboard_filter =
+        make_device_interface_filter(k_guid_devinterface_keyboard);
     ::SetLastError(0);
-    const BOOL registered = ::RegisterRawInputDevices(
-        devices, static_cast<UINT>(std::size(devices)), sizeof(RAWINPUTDEVICE));
-    if (registered == FALSE) {
+    HDEVNOTIFY keyboard_notification =
+        ::RegisterDeviceNotificationW(window, &keyboard_filter, DEVICE_NOTIFY_WINDOW_HANDLE);
+    if (keyboard_notification == nullptr) {
         const DWORD register_error = ::GetLastError();
+        ::DestroyWindow(window);
+        return gltfx_rslt<void>::err(
+            gltfx_err(gltfx_err_code::platform_failure).with_os_error_code(register_error));
+    }
+
+    DEV_BROADCAST_DEVICEINTERFACE_W mouse_filter =
+        make_device_interface_filter(k_guid_devinterface_mouse);
+    ::SetLastError(0);
+    HDEVNOTIFY mouse_notification =
+        ::RegisterDeviceNotificationW(window, &mouse_filter, DEVICE_NOTIFY_WINDOW_HANDLE);
+    if (mouse_notification == nullptr) {
+        const DWORD register_error = ::GetLastError();
+        // Undo the keyboard registration this same open() already won,
+        // before tearing down the window - the same "close() to undo a
+        // partial open()" shape this project's other adapters already
+        // document.
+        ::UnregisterDeviceNotification(keyboard_notification);
         ::DestroyWindow(window);
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::platform_failure).with_os_error_code(register_error));
@@ -311,30 +280,27 @@ gltfx_rslt<void> win32_seat_adapter::open(const win32_display_adapter &display) 
 
     m_window = window;
     m_previous_wndproc = previous;
+    m_keyboard_notification = keyboard_notification;
+    m_mouse_notification = mouse_notification;
     recompute_capabilities();
     return gltfx_rslt<void>::ok();
 }
 
 void win32_seat_adapter::close() noexcept {
     if (m_window != nullptr) {
-        // RIDEV_REMOVE first, hwndTarget = NULL (RAWINPUTDEVICE's own
-        // documented precondition for that flag, seat_adapter.hpp's own
-        // "MECHANISM" paragraph: "If RIDEV_REMOVE is set and the
-        // hwndTarget member is not set to NULL, then
-        // RegisterRawInputDevices function will fail") - done BEFORE
-        // DestroyWindow, while m_window is still a valid handle to name
-        // as the target being un-registered from.
-        RAWINPUTDEVICE devices[2]{};
-        devices[0].usUsagePage = k_usage_page_generic_desktop;
-        devices[0].usUsage = k_usage_mouse;
-        devices[0].dwFlags = RIDEV_REMOVE;
-        devices[0].hwndTarget = nullptr;
-        devices[1].usUsagePage = k_usage_page_generic_desktop;
-        devices[1].usUsage = k_usage_keyboard;
-        devices[1].dwFlags = RIDEV_REMOVE;
-        devices[1].hwndTarget = nullptr;
-        ::RegisterRawInputDevices(devices, static_cast<UINT>(std::size(devices)),
-                                  sizeof(RAWINPUTDEVICE));
+        // Unregister ONLY this instance's own two handles (D-WS-7) -
+        // never a process-wide flag like RIDEV_REMOVE (this file's
+        // predecessor), so a SIBLING win32_seat_adapter in the same
+        // process is untouched by this call (two_seats_test proves
+        // exactly this).
+        if (m_keyboard_notification != nullptr) {
+            ::UnregisterDeviceNotification(m_keyboard_notification);
+            m_keyboard_notification = nullptr;
+        }
+        if (m_mouse_notification != nullptr) {
+            ::UnregisterDeviceNotification(m_mouse_notification);
+            m_mouse_notification = nullptr;
+        }
 
         ::DestroyWindow(m_window);
         m_window = nullptr;

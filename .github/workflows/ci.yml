@@ -1480,6 +1480,25 @@ jobs:
             glintfx-wltest-clean seat_test | tee -a container_measured_raw.log
           echo "seat_test" >> parity_inventory.txt
 
+      # WIN-SEAT SF-1 (/var/tmp/glintfx-plan/win-seat.md sec. 3, D-WS-7,
+      # D-090918 em DECISOES_AUTONOMAS.md, 09/09/2026): two_seats_test.cpp
+      # abre DOIS wayland_seat_adapter, cada um sob sua PROPRIA conexao,
+      # contra este MESMO compositor real - o lado Linux do par que
+      # tambem roda no Windows (tests/two_seats_test.cpp, tests/
+      # CMakeLists.txt if(WIN32)), MESMO NOME nos dois lados (tests/
+      # tools/check_test_parity.py's own P-0 inventory). Prova que
+      # fechar um assento nunca perturba o outro. Roda logo apos o seat_
+      # test acima, antes de qualquer coisa que precise do compositor
+      # vivo abaixo.
+      - name: WIN-SEAT SF-1 - dois assentos no mesmo processo dentro do container
+        run: |
+          set -eu -o pipefail
+          docker exec \
+            -e XDG_RUNTIME_DIR=/run/glintfx-test \
+            -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean two_seats_test | tee -a container_measured_raw.log
+          echo "two_seats_test" >> parity_inventory.txt
+
       # FACADE-PIN, T0/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
       # o mecanismo por tras do conserto desta fatia, provado ao vivo -
       # abre display/janela pela API publica, mede o par (endereco do

@@ -9,9 +9,12 @@
 #endif
 #include <windows.h>
 
+#include <dbt.h>
+
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 #include "platform/input/seat_capabilities.hpp"
+#include "platform/win32/device_change_message.hpp"
 #include "platform/win32/seat_adapter.hpp"
 
 // win32_seat_translation_test.cpp - Y-1 (docs/plano-w6a-janela.md
@@ -42,6 +45,8 @@
 // display_adapter.cpp's own symbols are pulled in but never exercised
 // here.
 
+using glintfx::platform::classify_device_change;
+using glintfx::platform::device_change_kind;
 using glintfx::platform::seat_capabilities;
 using glintfx::platform::seat_capability;
 using glintfx::platform::win32_seat_adapter;
@@ -164,6 +169,50 @@ GLINTFX_TEST(translate_clears_a_previously_present_capability_no_longer_in_the_l
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::pointer));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::keyboard));
     GLINTFX_CHECK(!capabilities.has_capability(seat_capability::touch));
+}
+
+// classify_device_change() (device_change_message.hpp/.cpp) - SF-1 of
+// WIN-SEAT's 09/09/2026 reopening (win-seat.md sec. 1.3/3.1, D-090918):
+// the pure half of deciding what a WM_DEVICECHANGE message means, fed
+// synthetic (WPARAM, DEV_BROADCAST_HDR*) pairs, no window, no live
+// registration at all - the counterpart of translate()'s own "pure
+// half" role, for the OTHER mechanism win32_seat_adapter now uses.
+
+// Guard 1 (win-seat.md sec. 1.3): DBT_DEVNODES_CHANGED and other
+// unregistered broadcasts carry no block at all - a null header must
+// never be dereferenced, regardless of which wParam code arrives with
+// it. The mutation this case exists to catch: removing the null-header
+// guard in classify_device_change() (a real deref-of-null in
+// production, not just a test artifact).
+GLINTFX_TEST(classify_ignores_broadcast_wparam_and_null_block) {
+    GLINTFX_CHECK(classify_device_change(DBT_DEVNODES_CHANGED, nullptr) ==
+                  device_change_kind::none);
+    GLINTFX_CHECK(classify_device_change(DBT_DEVICEARRIVAL, nullptr) == device_change_kind::none);
+}
+
+// Guard 2 (win-seat.md sec. 1.3): even a non-null header may name a
+// broadcast type other than DBT_DEVTYP_DEVICEINTERFACE (e.g.
+// DBT_DEVTYP_VOLUME) - this adapter registered interest in device
+// INTERFACE changes only, so a differently-typed block must classify as
+// none even though it carries a recognized wParam. The mutation this
+// case exists to catch: comparing wParam alone and ignoring
+// dbch_devicetype (trading the setup-class-vs-interface-class trap,
+// learn.microsoft.com/windows-hardware/drivers/install/comparison-of-
+// setup-classes-and-interface-classes, for a type-blind one).
+GLINTFX_TEST(classify_reports_arrival_and_removal_for_device_interface_blocks) {
+    DEV_BROADCAST_HDR device_interface_header{};
+    device_interface_header.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+
+    GLINTFX_CHECK(classify_device_change(DBT_DEVICEARRIVAL, &device_interface_header) ==
+                  device_change_kind::arrival);
+    GLINTFX_CHECK(classify_device_change(DBT_DEVICEREMOVECOMPLETE, &device_interface_header) ==
+                  device_change_kind::removal);
+
+    DEV_BROADCAST_HDR volume_header{};
+    volume_header.dbch_devicetype = DBT_DEVTYP_VOLUME;
+
+    GLINTFX_CHECK(classify_device_change(DBT_DEVICEARRIVAL, &volume_header) ==
+                  device_change_kind::none);
 }
 
 #endif // defined(_WIN32)

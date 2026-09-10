@@ -273,6 +273,24 @@ SO_HEADER_ALLOWLIST = frozenset(
         # header - included exactly once, in the one translation unit
         # that names the GUID by value.
         "initguid.h",
+        # WIN-SEAT SF-1 (/var/tmp/glintfx-plan/win-seat.md, D-090918 in
+        # DECISOES_AUTONOMAS.md, GODS_LAWS.md L-07, 09/09/2026): dbt.h is
+        # the Windows SDK header declaring the DBT_*/DEV_BROADCAST_*
+        # types (DEV_BROADCAST_HDR, DEV_BROADCAST_DEVICEINTERFACE_W,
+        # DBT_DEVTYP_DEVICEINTERFACE, DBT_DEVICEARRIVAL, DBT_DEVICE
+        # REMOVECOMPLETE) that RegisterDeviceNotificationW/WM_DEVICECHANGE
+        # use - the SAME "API do sistema" category windows.h already is,
+        # not a vendored third-party library. Needed by seat_adapter.cpp
+        # and device_change_message.cpp (the redesign that replaced
+        # RegisterRawInputDevices - see those files' own header comments
+        # for why) and by the tests that build synthetic WM_DEVICECHANGE
+        # blocks (win32_seat_translation_test.cpp, seat_test.cpp,
+        # two_seats_test.cpp). No new DLL import: RegisterDeviceNotifica
+        # tionW/UnregisterDeviceNotification ship in user32.dll, already
+        # on tools/ci/check-dep-zero-win.ps1's own IMPORT_ALLOWLIST_EXACT
+        # (that script's own allowlist is link-time DLLs, not headers -
+        # unchanged by this addition).
+        "dbt.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own

@@ -176,6 +176,7 @@ COPY egl_probe_smoke.cpp /build/egl_probe_smoke.cpp
 COPY egl_protocol_error_smoke.cpp /build/egl_protocol_error_smoke.cpp
 COPY egl_device_reader_probe.cpp /build/egl_device_reader_probe.cpp
 COPY seat_test.cpp /build/seat_test.cpp
+COPY two_seats_test.cpp /build/two_seats_test.cpp
 COPY two_displays_test.cpp /build/two_displays_test.cpp
 COPY facade_pin_smoke.cpp /build/facade_pin_smoke.cpp
 COPY window_active_after_map_smoke.cpp /build/window_active_after_map_smoke.cpp
@@ -338,6 +339,21 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/seat_test.cpp \
+        $(pkg-config --libs wayland-client) \
+    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
+        $(pkg-config --cflags wayland-client) \
+        -o /build/two_seats_test \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
+        /build/_arch_ports_src/src/platform/input/seat_capabilities.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/two_seats_test.cpp \
         $(pkg-config --libs wayland-client) \
     && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
@@ -653,6 +669,7 @@ COPY --from=arch-ports-builder /build/shell_smoke /usr/local/bin/shell_smoke
 COPY --from=arch-ports-builder /build/window_smoke /usr/local/bin/window_smoke
 COPY --from=arch-ports-builder /build/egl_probe_smoke /usr/local/bin/egl_probe_smoke
 COPY --from=arch-ports-builder /build/seat_test /usr/local/bin/seat_test
+COPY --from=arch-ports-builder /build/two_seats_test /usr/local/bin/two_seats_test
 COPY --from=arch-ports-builder /build/window_parity_test /usr/local/bin/window_parity_test
 COPY --from=arch-ports-builder /build/gl_context_parity_test /usr/local/bin/gl_context_parity_test
 COPY --from=arch-ports-builder /build/egl_protocol_error_smoke /usr/local/bin/egl_protocol_error_smoke
@@ -666,7 +683,7 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/fatal_error_smoke /usr/local/bin/pump_smoke \
         /usr/local/bin/wait_events_smoke \
         /usr/local/bin/shell_smoke /usr/local/bin/window_smoke /usr/local/bin/egl_probe_smoke \
-        /usr/local/bin/seat_test /usr/local/bin/window_parity_test \
+        /usr/local/bin/seat_test /usr/local/bin/two_seats_test /usr/local/bin/window_parity_test \
         /usr/local/bin/gl_context_parity_test /usr/local/bin/egl_protocol_error_smoke \
         /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \

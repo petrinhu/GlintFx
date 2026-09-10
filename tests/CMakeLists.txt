@@ -1406,6 +1406,7 @@ if(WIN32)
     target_include_directories(win32_seat_translation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(win32_seat_translation_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/device_change_message.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
         # window_message_route.cpp/window_state.cpp - link-only, same
@@ -1434,6 +1435,7 @@ if(WIN32)
     target_include_directories(seat_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(seat_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/device_change_message.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
         # window_message_route.cpp/window_state.cpp - link-only, same
@@ -1445,6 +1447,31 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
     )
     target_link_libraries(seat_test PRIVATE user32)
+
+    # SF-1 of WIN-SEAT's 09/09/2026 reopening (win-seat.md sec. 3, D-WS-7,
+    # D-090918): two_seats_test, the case §1.1 of that plan named as
+    # never having had a test - two win32_seat_adapter instances in the
+    # SAME process, proving each holds its OWN pair of RegisterDevice
+    # NotificationW handles (device_notification_count() == 2 in each,
+    # independent of the other), and that closing ONE never disturbs the
+    # OTHER (a real, if synthetic, exercise of the exact defect a
+    # process-wide RIDEV_REMOVE would have had). NAMED "two_seats_test",
+    # not "win32_two_seats_test" - same "no platform prefix" requirement
+    # tests/two_displays_test.cpp's own header comment documents for its
+    # own name, so tests/tools/check_test_parity.py's own P-0 inventory
+    # lines this up against the Wayland side's own container fixture of
+    # the same name (tests/container/two_seats_test.cpp).
+    glintfx_add_test(two_seats_test)
+    target_include_directories(two_seats_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(two_seats_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/seat_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/device_change_message.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+    )
+    target_link_libraries(two_seats_test PRIVATE user32)
 endif()
 
 # X-2 (docs/plano-w6a-janela.md fatia 9, TODO.md WIN-WINDOW): win32_

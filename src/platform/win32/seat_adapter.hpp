@@ -14,123 +14,107 @@
 #include <glintfx/core/err.hpp>
 
 #include "platform/input/seat_capabilities.hpp"
+#include "platform/win32/device_change_message.hpp"
 #include "platform/win32/display_adapter.hpp"
 
 // platform/win32/seat_adapter.hpp - Y-1 (docs/plano-w6a-janela.md
-// fatia 13, TODO.md WIN-SEAT, GODS_LAWS.md L-04): the Windows
-// counterpart of S-B (src/platform/wayland/, fatia 12, not yet
-// implemented at the time this file was written - see this project's
-// own briefing for this fatia, docs/plano-w6a-janela.md sec. 2.2 row
-// 12/13). Wayland's wl_seat announces capabilities through a bitmask
-// EVENT the compositor pushes; Win32 has no equivalent push channel
-// for "which device CLASSES exist" - the two facts this adapter
-// stitches together instead are GetRawInputDeviceList() (an
-// ENUMERATION, pulled, not pushed) for pointer/keyboard, and
-// GetSystemMetrics(SM_DIGITIZER) (a single bitmask read, also pulled)
-// for touch. WM_INPUT_DEVICE_CHANGE (delivered only after
-// RegisterRawInputDevices(..., RIDEV_DEVNOTIFY)) is the closest Win32
-// analogue of "the set of seats changed" - it fires on a SINGLE
-// device's arrival/removal, not a capability bitmask, so this
-// adapter's own reaction to it is to RE-ENUMERATE from scratch
-// (recompute_capabilities(), same function open() itself calls) and
-// let the class-level counts speak, rather than trying to patch one
-// bit in place from a device type this project would have to decode
-// out of the HANDLE alone. GODS_LAWS.md L-04's own rule ("mecanismo
-// pode diferir; comportamento observavel e cobertura, nao") is why
-// this file exists at all: the OBSERVABLE fact - does THIS seat have
-// a pointer, a keyboard, a touch surface - is the same
-// glintfx::platform::seat_capabilities (platform/input/
-// seat_capabilities.hpp) S-B feeds from its own, completely different,
-// event-driven mechanism.
+// fatia 13, TODO.md WIN-SEAT, GODS_LAWS.md L-04). REDESENHADO em
+// 09/09/2026 (D-090918, DECISOES_AUTONOMAS.md; plano completo em
+// /var/tmp/glintfx-plan/win-seat.md, produto da pesquisa que GODS_LAWS.md
+// L-43 exige ANTES de fatiar): a fatia original (05/09/2026) registrava
+// RAW INPUT (RegisterRawInputDevices + RIDEV_DEVNOTIFY) para saber
+// quando um dispositivo mudava - e a propria Microsoft desaconselha isso
+// PARA UMA BIBLIOTECA, verbatim (learn.microsoft.com/windows/win32/api/
+// winuser/nf-winuser-registerrawinputdevices, Remarks): "Only one window
+// per raw input device class may be registered to receive raw input
+// within a process... RegisterRawInputDevices should not be used from a
+// library, as it may interfere with any raw input processing logic
+// already present in applications that load it." Este projeto E'
+// exatamente essa biblioteca (CLAUDE.md's own LEI ZERO deste
+// repositorio: consumidor externo desconhecido) - um consumidor que
+// registrasse entrada bruta para o proprio jogo desligava o aviso deste
+// adaptador em silencio; o close() deste adaptador desligava a entrada
+// bruta DELE (RIDEV_REMOVE e' por CLASSE de dispositivo, no PROCESSO
+// inteiro, nunca por janela - RAWINPUTDEVICE's own documentation:
+// hwndTarget "If NULL, raw input events follow the keyboard focus", e
+// RIDEV_REMOVE "removes the top level collection from the inclusion
+// list"); e dois assentos no mesmo processo roubavam o registro um do
+// outro. Nenhum teste desta fatia jamais pegou os tres, porque em todos
+// eles a biblioteca era a UNICA registrante.
 //
-// MEASURED ON THE SERVER TODAY (05/09/2026, the sonda this fatia's own
-// briefing names, X-GL-0 case (b), windows-latest runner): a mouse and
-// a keyboard, no HID beyond those two, SM_DIGITIZER=0x00 (no
-// digitizer), GetDpiForWindow=96. This header's own tests build every
-// assertion around what THAT machine reports - touch/digitizer
-// presence on THIS runner is false, and seat_test (tests/seat_test.cpp,
-// tests/CMakeLists.txt - NAMED to match the Wayland side's own
-// container fixture, tests/container/seat_test.cpp's own header
-// comment) prints, never asserts, the live numbers so a runner
-// that later gains a digitizer is a fact the next reader sees, not a
-// silently wrong assumption baked into a boolean here (GODS_LAWS.md
-// L-04: "nao invente capacidade que a maquina nao reporta... mas a
-// ausencia tem de ser visivel, nao silenciosa" - printed every run,
-// piso de varredura nao-vazia, GODS_LAWS.md L-40).
+// O MECANISMO NOVO: RegisterDeviceNotificationW (learn.microsoft.com/
+// windows/win32/api/winuser/nf-winuser-registerdevicenotificationw) na
+// MESMA janela so' de mensagens este adaptador ja abria - por HANDLE,
+// sem estado de processo ("The same window handle can be used in
+// multiple calls" - a mesma pagina, e a razao de D-WS-7: dois assentos
+// no mesmo processo guardam DOIS PARES de HDEVNOTIFY independentes,
+// nunca um estado compartilhado). Cada chamada registra um FILTRO
+// DEV_BROADCAST_DEVICEINTERFACE_W (dbcc_devicetype =
+// DBT_DEVTYP_DEVICEINTERFACE) contra o GUID da classe de interface -
+// teclado, GUID_DEVINTERFACE_KEYBOARD; mouse, GUID_DEVINTERFACE_MOUSE
+// (learn.microsoft.com/windows-hardware/drivers/install/
+// guid-devinterface-keyboard e .../guid-devinterface-mouse) - NUNCA um
+// GUID de setup class, a armadilha que a mesma documentacao nomeia: "If
+// a driver registers for notification using a setup class GUID instead
+// of an interface class GUID, it isn't notified." Os dois GUIDs vivem
+// como `constexpr GUID` no .cpp (D-WS-2: escritos a mao a partir do
+// valor documentado, em vez de <ntddkbd.h>/<ntddmou.h> + <initguid.h> -
+// DEFINE_GUID so' produz a definicao na TU que inclui <initguid.h>
+// primeiro, a mesma armadilha que ja custou caro para PKEY_AppUserModel_
+// ID, src/platform/win32/CMakeLists.txt's own comment).
 //
-// MECHANISM, written from Microsoft's own current documentation (this
-// project has no usable Windows toolchain on this machine - display_
-// adapter.hpp's own header comment already declares the same thing
-// for the fatia this one extends, GODS_LAWS.md L-27):
-//   - RAWINPUTDEVICE/RegisterRawInputDevices/RIDEV_DEVNOTIFY:
-//     learn.microsoft.com/windows/win32/api/winuser/ns-winuser-rawinputdevice
-//     ("RIDEV_DEVNOTIFY - 0x00002000 - enables the caller to receive
-//     WM_INPUT_DEVICE_CHANGE notifications"); RIDEV_REMOVE (0x00000001,
-//     same page) "requires hwndTarget to be NULL, or RegisterRawInputDevices
-//     fails" - close() below follows that exactly.
-//   - Usage page/usage pair for mouse and keyboard: learn.microsoft.com/
-//     windows-hardware/drivers/hid/hid-usages ("Generic Desktop
-//     Controls" usage page 0x01; usage ID 0x02 = Mouse, 0x06 =
-//     Keyboard) - the SAME page tests/win32_runner_probe_test.cpp's
-//     own RIM_TYPEMOUSE/RIM_TYPEKEYBOARD classification already proved
-//     live on this runner (05/09/2026), just read from the other end
-//     (declaring interest in a usage instead of classifying a
-//     RAWINPUTDEVICELIST entry's dwType - the enum this file's own
-//     GetRawInputDeviceList() call classifies is the SAME
-//     RIM_TYPEMOUSE/RIM_TYPEKEYBOARD/RIM_TYPEHID that probe already
-//     exercised, from <windows.h>, not redeclared here).
-//   - WM_INPUT_DEVICE_CHANGE/GIDC_ARRIVAL/GIDC_REMOVAL: learn.microsoft.com/
-//     windows/win32/inputdev/wm-input-device-change ("Sent... through
-//     its WindowProc function... If an application processes this
-//     message, it should return zero").
-//   - SM_DIGITIZER/NID_* bitmask: learn.microsoft.com/windows/win32/api/
-//     winuser/nf-winuser-getsystemmetrics, Remarks section
-//     ("NID_INTEGRATED_TOUCH 0x01, NID_EXTERNAL_TOUCH 0x02,
-//     NID_INTEGRATED_PEN 0x04, NID_EXTERNAL_PEN 0x08, NID_MULTI_INPUT
-//     0x40, NID_READY 0x80"). This adapter reads touch presence as
-//     "either touch bit set" (NID_INTEGRATED_TOUCH | NID_EXTERNAL_TOUCH)
-//     - seat_capability::touch names "touch/digitizer surface"
-//     (seat_capabilities.hpp's own header comment), and the pen bits
-//     answer a DIFFERENT question (stylus, not finger/touch) that this
-//     project's three-value enum has no slot for yet; NID_MULTI_INPUT/
-//     NID_READY are qualifiers on an existing digitizer, never proof of
-//     one by themselves, so neither is read here.
-//   - GWLP_WNDPROC instance subclassing: learn.microsoft.com/windows/
-//     win32/winmsg/about-window-procedures#window-procedure-subclassing
-//     ("An application subclasses an instance of a window by using
-//     SetWindowLongPtr... passes GWL_WNDPROC... SetWindowLongPtr
-//     returns the address of the window's original window procedure.
-//     The application must save this address... to pass intercepted
-//     messages to the original window procedure") - m_previous_wndproc
-//     below is exactly that saved address, passed to CallWindowProcW
-//     for every message seat_window_proc does not itself handle,
-//     rather than assuming DefWindowProcW alone is equivalent: correct
-//     TODAY (the class's own window_proc, display_adapter.cpp, only
-//     ever acts on WM_NCCREATE, already spent by the time this
-//     instance's subclass takes over), but chaining through the saved
-//     pointer means this file never has to be revisited if fatia 9
-//     (X-2, window_adapter, not yet implemented) ever teaches that
-//     SHARED window_proc to do more.
+// A janela recebe WM_DEVICECHANGE com wParam
+// DBT_DEVICEARRIVAL/DBT_DEVICEREMOVECOMPLETE e lParam apontando para o
+// bloco - device_change_message.hpp's own classify_device_change() e' a
+// metade PURA que decide isso a partir do (wParam, lParam) sozinho, sem
+// janela nem registro algum, aplicando as duas guardas que win-seat.md
+// sec. 1.3 exige (lParam pode ser nulo; o bloco pode nomear um tipo de
+// difusao diferente de DBT_DEVTYP_DEVICEINTERFACE).
 //
-// WHY A SECOND HWND, UNDER THE DISPLAY'S OWN CLASS, RATHER THAN A
-// SECOND RegisterClassExW: docs/plano-w6a-janela.md fatia 13's own row
-// says "janela so de mensagens na classe do display" - this fatia
-// reuses win32_display_adapter::window_class_name() (display_
-// adapter.hpp's own public seam, already written for exactly this
-// reuse by fatia 9/X-2's own header comment - "a future window it
-// opens under the same display connection reuses this SAME class")
-// instead of registering a second class this project would have to
-// track and unregister on its own. The class's own window_proc
-// (display_adapter.cpp, anonymous namespace) still runs first for
-// THIS window's own WM_NCCREATE - installing GWLP_USERDATA = the
-// `this` pointer passed as CreateWindowExW's lpParam below, the SAME
-// "Managing Application State" sequence display_adapter.cpp's own
-// window_proc comment cites - before open() below ever subclasses the
-// INSTANCE (not the class) with seat_window_proc to add
-// WM_INPUT_DEVICE_CHANGE handling on top. Two different HWNDs sharing
-// one class each have their OWN GWLP_USERDATA slot (a per-WINDOW piece
-// of state, not per-class), so the display adapter's own window and
-// this seat window's window never collide over it.
+// D-WS-3: so' teclado e mouse sao registrados aqui - toque continua
+// vindo de GetSystemMetrics(SM_DIGITIZER) na releitura
+// (recompute_capabilities(), abaixo, inalterado por esta fatia).
+// Registrar GUID_DEVINTERFACE_HID acordaria o assento em toda chegada de
+// gamepad/joystick para reler uma metrica que a propria Microsoft
+// documenta como nao-PnP (learn.microsoft.com/windows/win32/wintouch/
+// getting-started-with-multi-touch-messages: "there is no support for
+// plug and play").
+//
+// SDL3 lido para a TECNICA, nada copiado (GODS_LAWS.md L-29, win-seat.md
+// sec. 1.5): SDL_hid.c's own WIN_InitDeviceNotification usa CM_Register_
+// Notification (cfgmgr32.dll carregada a mao, thread propria); este
+// adaptador NAO adota isso - RegisterDeviceNotificationW entrega pela
+// MESMA bomba de mensagens da thread do display (pump_events),
+// preservando a entrega deterministica da GODS_LAWS.md L-35 sem cadeado
+// algum. O que SIM foi aprendido do SDL3 e' mantido: o aviso e' so' um
+// GATILHO, a verdade sempre vem de RE-ENUMERAR do zero
+// (recompute_capabilities(), a mesma funcao open() ja chamava e
+// continua chamando).
+//
+// O QUE SO' O SERVIDOR WINDOWS PROVA (win-seat.md sec. 4, GODS_LAWS.md
+// L-09/L-27): que RegisterDeviceNotificationW aceita esta janela so' de
+// mensagens como destinatario (handle nao-nulo); que o assento DEIXA de
+// ocupar o slot de raw input do processo
+// (GetRegisteredRawInputDevices == 0, o teste que prova o defeito de
+// verdade consertado); que o roteamento sintetico de WM_DEVICECHANGE
+// chega a` instancia certa; e que dois assentos no mesmo processo tem
+// vidas independentes. NAO provado por nenhum ambiente de CI: que o
+// sistema de fato ENVIA WM_DEVICECHANGE registrado quando um teclado/
+// mouse real e' conectado/removido - so' o laboratorio Windows opcional
+// (D-WS-8, win-seat.md sec. 4) prova isso, nunca a sessao viva do lider
+// (GODS_LAWS.md L-09). Nada neste arquivo foi compilado nem executado
+// nesta maquina (sem toolchain Windows utilizavel, mesma limitacao
+// declarada por display_adapter.cpp's own header comment, GODS_LAWS.md
+// L-27).
+//
+// WHY A SECOND HWND, UNDER THE DISPLAY'S OWN CLASS, RATHER THAN A SECOND
+// RegisterClassExW: unchanged by this redesign - see this header's own
+// predecessor comment, preserved in git history, and display_adapter.
+// hpp's own window_class_name() accessor comment for the full reasoning.
+// Two different HWNDs sharing one class each have their OWN GWLP_USERDATA
+// slot (a per-WINDOW piece of state, not per-class), so the display
+// adapter's own window and this seat window's window never collide over
+// it.
 namespace glintfx::platform {
 
 class win32_seat_adapter {
@@ -140,15 +124,9 @@ class win32_seat_adapter {
     win32_seat_adapter() noexcept = default;
 
     // PINNED, NEVER MOVABLE (FACADE-PIN, docs/plano-conserto-fachadas-
-    // uaf.md sec. 6/7.2, varredura #10) - copying a live HWND (and the
-    // RegisterRawInputDevices registration tied to it) would hand two
-    // owners the same OS resource, same reasoning as before. This class
-    // used to re-point GWLP_USERDATA at the new address on every move -
-    // that re-homing code is DELETED here, not kept alongside the pin
-    // (same reasoning win32_window_adapter.hpp's own header comment
-    // gives, one directory over): a second, hand-written mechanism
-    // doing the same job the concept already guarantees is exactly the
-    // dependency D-UAF-1 rejects.
+    // uaf.md sec. 6/7.2) - copying a live HWND (and the two
+    // RegisterDeviceNotificationW registrations tied to it) would hand
+    // two owners the same OS resources.
     win32_seat_adapter(const win32_seat_adapter &) = delete;
     win32_seat_adapter &operator=(const win32_seat_adapter &) = delete;
     win32_seat_adapter(win32_seat_adapter &&) = delete;
@@ -159,35 +137,28 @@ class win32_seat_adapter {
     ~win32_seat_adapter();
 
     // `display` must already be open (win32_display_adapter::is_open()
-    // true) - window_class_name() is "empty/undefined before open()
-    // succeeds" by that header's own accessor comment, and this
-    // adapter has nothing of its own to register a class from. Reading
-    // that precondition failure back as gltfx_err_code::invalid_argument
-    // (never an assert/abort - GODS_LAWS.md L-22, no exception crosses
-    // the public boundary) rather than silently creating a window under
-    // an empty class name that CreateWindowExW would refuse anyway with
-    // a much less specific error.
+    // true) - reading that precondition failure back as
+    // gltfx_err_code::invalid_argument (never an assert/abort -
+    // GODS_LAWS.md L-22, no exception crosses the public boundary).
     //
-    // On success: creates the message-only window under `display`'s
-    // own class (this header's own "WHY A SECOND HWND" paragraph),
-    // subclasses it with seat_window_proc, calls
-    // RegisterRawInputDevices() for the mouse and keyboard usages with
-    // RIDEV_DEVNOTIFY, and computes the FIRST capabilities() reading
-    // via recompute_capabilities() - the same function
-    // WM_INPUT_DEVICE_CHANGE re-invokes later. A failure at any step
-    // tears down whatever this call had already created before
-    // returning (same "close() to undo a partial open()" shape
-    // win32_display_adapter::open() already documents for its own
-    // class/window pair) - is_open() reads false either way.
+    // On success: creates the message-only window under `display`'s own
+    // class, subclasses it with seat_window_proc, registers TWO device
+    // interface notifications (keyboard, mouse - this header's own
+    // "D-WS-3" paragraph explains why touch is not a third), and
+    // computes the FIRST capabilities() reading via
+    // recompute_capabilities() - the same function a routed
+    // WM_DEVICECHANGE re-invokes later. A failure at any step tears
+    // down whatever this call had already created before returning
+    // (including unregistering a notification handle a previous step
+    // already won) - is_open() reads false either way.
     [[nodiscard]] gltfx_rslt<void> open(const win32_display_adapter &display) noexcept;
 
     // Idempotent-safe, same shape as win32_display_adapter::close():
-    // RIDEV_REMOVE first (hwndTarget MUST be NULL for that flag, per
-    // RAWINPUTDEVICE's own documentation quoted in this header's
-    // "MECHANISM" paragraph - done BEFORE DestroyWindow, while the
-    // window handle this registration named is still valid, exactly
-    // the ordering RIDEV_REMOVE's own precondition requires), then
-    // DestroyWindow.
+    // UnregisterDeviceNotification on both handles this INSTANCE holds
+    // (D-WS-7 - per-instance handles, so closing THIS seat never
+    // touches a SIBLING seat's own registration in the same process,
+    // the exact defect this header's own top comment names for the
+    // predecessor's process-wide RIDEV_REMOVE), then DestroyWindow.
     void close() noexcept;
 
     [[nodiscard]] bool is_open() const noexcept { return m_window != nullptr; }
@@ -204,48 +175,45 @@ class win32_seat_adapter {
     // open()/close()/recompute_capabilities() themselves.
     [[nodiscard]] HWND native_handle() const noexcept { return m_window; }
 
-    // "guarda o diff" (docs/plano-w6a-janela.md fatia 13's own row):
-    // the wParam/lParam of the LAST WM_INPUT_DEVICE_CHANGE this
-    // adapter's window procedure observed - GIDC_ARRIVAL (1),
-    // GIDC_REMOVAL (2), or 0 if none has arrived yet. This is
-    // DELIBERATELY not "which capability changed": recompute_
-    // capabilities() re-reads the WHOLE device list from scratch on
-    // every notification (this header's own top comment explains why
-    // - a single HANDLE alone does not carry enough information to
-    // patch one bit of seat_capabilities in place without another
-    // GetRawInputDeviceInfo round trip this fatia's own scope does not
-    // call for), so these two accessors exist only to let a test PROVE
+    // Test seam only (SF-1, D-WS-7, two_seats_test): how many of the
+    // TWO RegisterDeviceNotificationW calls the SYSTEM actually
+    // accepted (a non-null HDEVNOTIFY), never a constant this class
+    // asserts about itself - so a test can prove that TWO independent
+    // seats in one process each hold their OWN pair, rather than one
+    // seat's open() silently stealing (or being starved of) the
+    // other's registration.
+    [[nodiscard]] int device_notification_count() const noexcept;
+
+    // "guarda o diff" (docs/plano-w6a-janela.md fatia 13's own row): the
+    // KIND of the LAST WM_DEVICECHANGE this adapter's window procedure
+    // routed to itself - device_change_kind::none until the first one
+    // arrives. This is DELIBERATELY not "which capability changed":
+    // recompute_capabilities() re-reads the WHOLE device list from
+    // scratch on every notification (this header's own top comment
+    // explains why), so this accessor exists only to let a test PROVE
     // the notification was routed to the right instance at all -
-    // nothing internal reads them back.
-    [[nodiscard]] WPARAM last_change_kind() const noexcept { return m_last_change_kind; }
-    [[nodiscard]] HANDLE last_change_device() const noexcept { return m_last_change_device; }
+    // nothing internal reads it back.
+    [[nodiscard]] device_change_kind last_device_change() const noexcept {
+        return m_last_device_change;
+    }
 
     // Pure translation seam (win32_seat_translation_test,
     // tests/CMakeLists.txt): the SAME logic open() and the
-    // WM_INPUT_DEVICE_CHANGE handler both call against the REAL
+    // WM_DEVICECHANGE handler both call against the REAL
     // GetRawInputDeviceList()/GetSystemMetrics(SM_DIGITIZER) results,
     // exposed here so a test can feed a SYNTHETIC device list and
-    // bitmask - no window, no RegisterRawInputDevices, no syscall at
-    // all - the same "prove the pure half without a live backend"
-    // shape wayland_window_adapter's own listener tests already use
-    // for window_configure_sequence (this fatia's own briefing: "a
-    // sonda X-GL-0 (b) ja tera dito o que o executor devolve", this is
-    // the counterpart that lets a test assert something stronger than
-    // print-and-hope against that one fixed machine). `devices` may be
-    // nullptr when `device_count` is 0 (an empty device list is a
-    // legitimate answer, not a caller error).
+    // bitmask - no window, no RegisterDeviceNotificationW, no syscall
+    // at all. `devices` may be nullptr when `device_count` is 0 (an
+    // empty device list is a legitimate answer, not a caller error).
     static void translate(const RAWINPUTDEVICELIST *devices, UINT device_count,
                           int digitizer_bitmask, seat_capabilities &out) noexcept;
 
     // INTERNAL SEAM, public only because seat_window_proc (seat_
     // adapter.cpp, anonymous namespace) is a plain WNDPROC callback -
-    // the system calls it directly, so it cannot be a private member,
-    // and these two are what it needs to route WM_INPUT_DEVICE_CHANGE
-    // and everything else correctly (this header's own "WHY A SECOND
-    // HWND" paragraph). Never call either from anywhere but that
-    // callback - open()/close() do not need them, and no other caller
-    // has a reason to.
-    void handle_input_device_change(WPARAM kind, HANDLE device) noexcept;
+    // the system calls it directly, so it cannot be a private member.
+    // Never call either from anywhere but that callback - open()/
+    // close() do not need them, and no other caller has a reason to.
+    void handle_device_change(device_change_kind kind) noexcept;
     [[nodiscard]] WNDPROC previous_wndproc() const noexcept;
 
   private:
@@ -253,9 +221,10 @@ class win32_seat_adapter {
 
     HWND m_window = nullptr;
     WNDPROC m_previous_wndproc = nullptr;
+    HDEVNOTIFY m_keyboard_notification = nullptr;
+    HDEVNOTIFY m_mouse_notification = nullptr;
     seat_capabilities m_capabilities;
-    WPARAM m_last_change_kind = 0;
-    HANDLE m_last_change_device = nullptr;
+    device_change_kind m_last_device_change = device_change_kind::none;
 };
 
 } // namespace glintfx::platform

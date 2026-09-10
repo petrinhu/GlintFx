@@ -1751,19 +1751,33 @@ def selftest_main(image, timeout_seconds):
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
-    ran = [ok for _name, ok in parsing_results if ok is not None]
+    # GODS_LAWS.md L-36 ("portao que nunca mordeu"): achado real, 10/09/
+    # 2026, revisao adversarial - "N/N executados, zero pulados" e
+    # VERDADEIRO sobre veredito (cada slot tem True ou False, nenhum
+    # None), mas nao diz a um humano o que sumiu quando um deles vira
+    # False - a AUSENCIA de uma linha "OK" no meio da saida, nao uma
+    # linha "FALHOU" com nome, e' o unico sinal, e ninguem le a saida
+    # inteira procurando o que NAO esta la. O resumo passa a nomear
+    # explicitamente quem passou e quem reprovou, nunca so contar.
     skipped = [name for name, ok in parsing_results if ok is None]
-    print(
-        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/{len(parsing_results)} | "
-        f"pulados: {len(skipped)} ({', '.join(skipped) if skipped else 'nenhum'})"
-    )
+    passed = [name for name, ok in parsing_results if ok is True]
+    failed = [name for name, ok in parsing_results if ok is False]
 
-    if not all(ran):
-        print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
+    resumo = f"{SCRIPT_NAME} --selftest: {len(parsing_results)} controles: {len(passed)} passaram"
+    resumo += f", {len(failed)} reprovaram: {', '.join(failed)}" if failed else ", 0 reprovaram"
+    resumo += f" | pulados: {len(skipped)} ({', '.join(skipped) if skipped else 'nenhum'})"
+    print(resumo)
+
+    if failed:
+        print(
+            f"{SCRIPT_NAME} --selftest: FALHOU - reprovaram ({len(failed)}): {', '.join(failed)} "
+            "(ver mensagens de cada um acima)",
+            file=sys.stderr,
+        )
         sys.exit(1)
     if skipped:
         sys.exit(GATE_SKIP_RETURN_CODE)
-    print(f"{SCRIPT_NAME} --selftest: os {len(ran)} controles OK")
+    print(f"{SCRIPT_NAME} --selftest: os {len(passed)} controles OK")
 
 
 # --- main --------------------------------------------------------------------

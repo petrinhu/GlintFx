@@ -102,6 +102,21 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
                  second_seat.wndproc_is_installed() ? 1 : 0);
     GLINTFX_CHECK(second_seat.wndproc_is_installed());
 
+    // DIAGNOSTIC, third round (10/09/2026 - see tests/seat_test.cpp's
+    // own diagnostic comment on the identical pattern, team-lead's own
+    // correction: record_raw_message() is conditional, not
+    // unconditional - these two answer what that comment's own claim
+    // could not).
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_seat_object_address=%llu\n",
+                 static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(&second_seat)));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_raw_userdata=%llu\n",
+                 static_cast<unsigned long long>(glintfx::platform::win32_seat_window_raw_userdata(
+                     second_seat.native_handle())));
+    const std::uint64_t invocations_before_send =
+        glintfx::platform::win32_seat_window_proc_invocation_count();
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_invocations_before_send=%llu\n",
+                 static_cast<unsigned long long>(invocations_before_send));
+
     ::SetLastError(0);
     const LRESULT send_result =
         ::SendMessageW(second_seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
@@ -110,6 +125,9 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
                  static_cast<long long>(send_result));
     std::fprintf(stdout, "MEASURED two_seats_test.diag_send_last_error=%lu\n",
                  static_cast<unsigned long>(::GetLastError()));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_invocations_after_send=%llu\n",
+                 static_cast<unsigned long long>(
+                     glintfx::platform::win32_seat_window_proc_invocation_count()));
 
     // DIAGNOSTIC (server run 34432463346 found this exact check failing
     // - see tests/seat_test.cpp's own diagnostic comment on the

@@ -207,18 +207,33 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
                   device_change_kind::arrival);
 
     // DIAGNOSTIC, second round (server run 34434559496 found record_
-    // raw_message() staying at its constructed default - the message
-    // never reached seat_window_proc with a non-null adapter at all,
-    // even though it is recorded UNCONDITIONALLY before any WM_
-    // DEVICECHANGE-specific guard): the direct handle this call is
-    // about to target, and whether the ACTIVE window procedure (read
-    // LIVE, never cached) is really seat_window_proc - team-lead's own
-    // hypotheses 1 and 2 (wrong handle; wrong/overwritten procedure).
+    // raw_message() staying at its constructed default): the direct
+    // handle this call is about to target, and whether the ACTIVE
+    // window procedure (read LIVE, never cached) is really seat_
+    // window_proc - team-lead's own hypotheses 1 and 2 (wrong handle;
+    // wrong/overwritten procedure).
     std::println("MEASURED seat_test.diag_native_handle={}",
                  reinterpret_cast<std::uintptr_t>(seat.native_handle()));
     std::println("MEASURED seat_test.diag_wndproc_installed={}",
                  seat.wndproc_is_installed() ? 1 : 0);
     GLINTFX_CHECK(seat.wndproc_is_installed());
+
+    // DIAGNOSTIC, third round (10/09/2026 - team-lead's own correction:
+    // record_raw_message() below is NOT unconditional, it only runs
+    // when GWLP_USERDATA already resolved to a non-null adapter, which
+    // is exactly the fact under suspicion once dbch_size stopped
+    // making SendMessageW itself refuse the call). `&seat` is this
+    // process's own known-good address for the adapter object;
+    // win32_seat_window_raw_userdata() reads GWLP_USERDATA off the
+    // window RAW, no cast, no guard - if the two numbers differ, or the
+    // second is zero, that is the whole investigation, right there.
+    std::println("MEASURED seat_test.diag_seat_object_address={}",
+                 reinterpret_cast<std::uintptr_t>(&seat));
+    std::println("MEASURED seat_test.diag_raw_userdata={}",
+                 glintfx::platform::win32_seat_window_raw_userdata(seat.native_handle()));
+    const std::uint64_t invocations_before_send =
+        glintfx::platform::win32_seat_window_proc_invocation_count();
+    std::println("MEASURED seat_test.diag_invocations_before_send={}", invocations_before_send);
 
     // Sent with the CALLING thread's own SendMessageW - the message-
     // only window this adapter owns belongs to this same thread, so
@@ -232,12 +247,21 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
     std::println("MEASURED seat_test.diag_send_last_error={}",
                  static_cast<unsigned long long>(::GetLastError()));
 
-    // DIAGNOSTIC: what seat_window_proc actually saw, unconditionally
-    // recorded before any WM_DEVICECHANGE-specific guard runs (seat_
-    // adapter.hpp's own record_raw_message() comment) - printed always,
-    // asserted only on the message id, since a mismatch there means the
-    // message never arrived at all (the more useful of the two facts to
-    // know before touching any production line).
+    // The TRULY unconditional counter (g_seat_window_proc_invocation_
+    // count, seat_adapter.cpp) - if this did not increment, seat_
+    // window_proc never ran at all, period, regardless of GWLP_
+    // USERDATA. If it DID increment but last_raw_message() below stays
+    // at its default, the procedure ran with a null adapter.
+    std::println("MEASURED seat_test.diag_invocations_after_send={}",
+                 glintfx::platform::win32_seat_window_proc_invocation_count());
+
+    // DIAGNOSTIC: what seat_window_proc actually saw, recorded
+    // WHENEVER GWLP_USERDATA resolved to a non-null adapter (seat_
+    // adapter.hpp's own record_raw_message() comment, corrected this
+    // round) - printed always, asserted only on the message id, since
+    // a mismatch there means either the procedure never ran or it ran
+    // with a null adapter (the invocation counters above tell the two
+    // apart).
     std::println("MEASURED seat_test.diag_last_raw_message={}",
                  static_cast<unsigned long long>(seat.last_raw_message()));
     std::println("MEASURED seat_test.diag_last_raw_wparam={}",

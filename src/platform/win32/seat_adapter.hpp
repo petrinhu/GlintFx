@@ -273,11 +273,27 @@ class win32_seat_adapter {
     // question, never seen live before, that code review and the
     // official Microsoft documentation for WM_DEVICECHANGE/DEV_
     // BROADCAST_HDR/RegisterDeviceNotificationW/message-only windows do
-    // not explain). Unconditionally records the LAST message this
-    // instance's window procedure ever saw, msg id and wParam, BEFORE
-    // any WM_DEVICECHANGE-specific guard runs - answers "did the
-    // message even arrive at seat_window_proc at all" independently of
-    // whatever classify_device_change() decides. Never read by
+    // not explain).
+    //
+    // CORRECTION (10/09/2026, third round - team-lead's own catch,
+    // server run 34437115635): this comment used to claim
+    // "unconditionally" - FALSE, measured false by the same run that
+    // caught it. seat_window_proc (seat_adapter.cpp) only calls this
+    // from inside `if (adapter != nullptr)`, so a call whose
+    // GWLP_USERDATA resolved to null records NOTHING - indistinguishable
+    // from the procedure never having run at all, which is exactly the
+    // ambiguity this whole round exists to remove. The text now says
+    // what the code actually does; it does not claim more.
+    //
+    // Records the LAST message THIS INSTANCE's window procedure saw,
+    // msg id and wParam, BEFORE any WM_DEVICECHANGE-specific guard
+    // runs, WHENEVER GWLP_USERDATA resolved to a non-null adapter for
+    // that call. For the TRULY unconditional counterpart - counts
+    // every call to seat_window_proc regardless of what GWLP_USERDATA
+    // holds - see the free functions win32_seat_window_proc_
+    // invocation_count()/win32_seat_window_raw_userdata() below the
+    // class, deliberately NOT members (a member would need the very
+    // adapter pointer under suspicion to reach it). Never read by
     // production code; a test-only seam like native_handle() above.
     void record_raw_message(UINT msg, WPARAM wparam) noexcept;
     [[nodiscard]] UINT last_raw_message() const noexcept { return m_last_raw_message; }
@@ -316,6 +332,31 @@ class win32_seat_adapter {
     bool m_last_device_change_block_present = false;
     DWORD m_last_device_change_block_devicetype = 0;
 };
+
+// DIAGNOSTIC SEAM, free functions (10/09/2026, third round - team-
+// lead's own correction, server run 34437115635): record_raw_
+// message() above is NOT the unconditional counter its predecessor
+// comment claimed - it runs only when GWLP_USERDATA already resolved
+// to a non-null win32_seat_adapter*, which is precisely the fact
+// under suspicion this round. These two answer the two questions that
+// fact cannot: did seat_window_proc run AT ALL (independent of any
+// adapter pointer), and what does GWLP_USERDATA actually hold on a
+// given window RIGHT NOW, read with no cast and no null guard.
+// Deliberately free functions, not members: a member would need the
+// very adapter pointer under suspicion to be reachable at all.
+
+// A file-scope counter (seat_adapter.cpp, anonymous namespace),
+// incremented at the very TOP of seat_window_proc, before GWLP_
+// USERDATA is even read - counts every call to that procedure,
+// regardless of outcome. Never read by production code.
+[[nodiscard]] std::uint64_t win32_seat_window_proc_invocation_count() noexcept;
+
+// GetWindowLongPtrW(window, GWLP_USERDATA), read RAW - no cast to
+// win32_seat_adapter*, no null guard beyond `window` itself. Lets a
+// test compare this value directly against a known adapter object's
+// own address, printed side by side, instead of going through the
+// adapter's own (possibly wrong) reading of itself.
+[[nodiscard]] std::uintptr_t win32_seat_window_raw_userdata(HWND window) noexcept;
 
 } // namespace glintfx::platform
 

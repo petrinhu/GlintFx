@@ -20,9 +20,12 @@
 // comment enumerates, plus the closed-enumeration test at the bottom
 // that re-runs all eight through one loop and prints the count
 // (GODS_LAWS.md L-40: a matrix silently missing a cell would still
-// look green without that) - PLUS the two new destroy_context cells
-// LOOP-CALLBACK-THROW adds (D-LF-7's own S1a half: filled is refused
-// by name, regardless of what S1b later decides about `context`).
+// look green without that) - PLUS the two destroy_context cells
+// D-LF-7 (LOOP-CONTEXT-OWNERSHIP, S1b, /var/tmp/glintfx-plan/loop-fix.
+// md sec. 3.2) settles: filled WITH a context is accepted (posse
+// honored elsewhere - platform::owned_loop_context, store_loop_
+// callbacks.hpp/.cpp); filled with NO context is refused by name -
+// there is nothing for it to ever be called with.
 
 using glintfx::gltfx_input_event;
 using glintfx::gltfx_loop_callbacks;
@@ -128,12 +131,11 @@ GLINTFX_TEST(on_event_filled_is_refused_once_on_frame_and_on_render_are_both_fil
     GLINTFX_CHECK(result.err().rejected_value() == std::string_view("on_event"));
 }
 
-GLINTFX_TEST(destroy_context_filled_is_refused_even_when_everything_else_is_valid) {
-    // LOOP-CALLBACK-THROW (/var/tmp/glintfx-plan/loop-fix.md sec. 5.1,
-    // D-LF-7's S1a half): LOOP-CONTEXT-OWNERSHIP has not landed - a
-    // caller that already fills destroy_context in is refused by
-    // name, exactly the on_event precedent right above, never accepted
-    // and silently ignored.
+GLINTFX_TEST(destroy_context_with_no_context_is_refused_by_name) {
+    // D-LF-7: a destroy function with NO context to ever be called
+    // with is refused by name - the same discipline the on_event
+    // precedent right above already uses (never accepted and silently
+    // ignored). `context` is left null on purpose below.
     gltfx_loop_callbacks callbacks{};
     callbacks.on_frame = &filled_on_frame;
     callbacks.on_render = &filled_on_render;
@@ -143,6 +145,24 @@ GLINTFX_TEST(destroy_context_filled_is_refused_even_when_everything_else_is_vali
 
     GLINTFX_CHECK(result.has_error());
     GLINTFX_CHECK(result.err().rejected_value() == std::string_view("destroy_context"));
+}
+
+GLINTFX_TEST(destroy_context_with_a_context_is_accepted) {
+    // LOOP-CONTEXT-OWNERSHIP (S1b): the field this validation used to
+    // refuse unconditionally (S1a) is now the posse handoff -
+    // platform::owned_loop_context/store_loop_callbacks.hpp/.cpp own
+    // what happens to it; this file's own job stops at "well-formed
+    // enough to accept".
+    int marker = 0;
+    gltfx_loop_callbacks callbacks{};
+    callbacks.context = &marker;
+    callbacks.on_frame = &filled_on_frame;
+    callbacks.on_render = &filled_on_render;
+    callbacks.destroy_context = &filled_destroy_context;
+
+    const glintfx::gltfx_rslt<void> result = validate_loop_callbacks(callbacks);
+
+    GLINTFX_CHECK(!result.has_error());
 }
 
 namespace {

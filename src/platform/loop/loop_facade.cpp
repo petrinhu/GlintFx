@@ -282,9 +282,8 @@ gltfx_rslt<gltfx_frame_tick> gltfx_loop::step() noexcept {
     // presentation of its own.
     const gltfx_time_point now = gltfx_now();
     const bool probe_says_visible = !m_impl->context->adapter.present_would_skip();
-    const gltfx_frame_tick tick =
-        platform::compute_frame_tick(m_impl->previous_now, now, m_impl->frame_index,
-                                     m_impl->last_present, probe_says_visible);
+    const gltfx_frame_tick tick = platform::compute_frame_tick(
+        m_impl->previous_now, now, m_impl->frame_index, m_impl->last_present, probe_says_visible);
 
     m_impl->previous_now = now;
     m_impl->frame_index = tick.frame_index;

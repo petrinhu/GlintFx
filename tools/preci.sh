@@ -14,14 +14,20 @@
 #                                     configure (-DGLINTFX_WERROR=ON),
 #                                     build, clang-tidy, cppcheck, NOLINT
 #                                     justification, gitleaks, ctest,
-#                                     sanitizer stage, debug stage.
-#   tools/preci.sh --fast            same, minus the sanitizer stage and
-#                                     the debug stage - for a
-#                                     documentation-only push. Still runs
-#                                     GATE-PS-SYNTAX: it is cheap (no C++
-#                                     build involved) and a documentation-
-#                                     only push is exactly the shape of
-#                                     push most likely to touch a *.ps1.
+#                                     sanitizer stage, debug stage, win32-
+#                                     link stage (WIN-CROSS-STAGE - stage
+#                                     9, see stage_win32_link's own
+#                                     comment for the docker/image
+#                                     requirement and its declared-
+#                                     exception shape).
+#   tools/preci.sh --fast            same, minus the sanitizer stage, the
+#                                     debug stage and the win32-link stage -
+#                                     for a documentation-only push. Still
+#                                     runs GATE-PS-SYNTAX: it is cheap (no
+#                                     C++ build involved) and a
+#                                     documentation-only push is exactly
+#                                     the shape of push most likely to
+#                                     touch a *.ps1.
 #   tools/preci.sh --lint-only       guard, then format + configure +
 #                                     build + clang-tidy + cppcheck +
 #                                     NOLINT justification only (what
@@ -1058,14 +1064,17 @@ stage_debug() {
 # GATE-WIN32-LINK (CORE-LOG-CI fatia 4, tests/tools/check_win32_test_
 # link.py's own header comment tem a razao de existir completa: TRES
 # encarnacoes do mesmo defeito - um alvo win32_* de tests/CMakeLists.txt
-# faltando um .cpp em tempo de LINK - em tres dias, 07-09/09/2026). Fora
-# de --fast/--lint-only/--sanitizer-only/--debug-only/--selftest: e o
+# faltando um .cpp em tempo de LINK - em tres dias, 07-09/09/2026). E o
 # unico estagio deste script que precisa de docker + a imagem MSVC
 # (glintfx-msvc:latest, tools/msvc-container/README.md), nunca
-# construida/baixada por este script (GODS_LAWS.md L-14) - so acionado
-# explicitamente por `--win32-link-only`, nunca dentro de `--fast`/rodada
-# completa. NAO e' add_test: a prova real e' o job `windows` do CI; isto
-# e' o espelho local, antes do push (L-24/L-36).
+# construida/baixada por este script (GODS_LAWS.md L-14). WIN-CROSS-
+# STAGE (plano em /var/tmp/glintfx-plan/win-cross-stage.md, sub-fatia
+# S1): entra tambem na RODADA COMPLETA (`preci.sh` sem flag), como
+# estagio 9, depois de stage_debug - so continua sendo o UNICO estagio
+# de `--win32-link-only` isolado (modo de diagnostico, nao reprova por
+# ausencia de docker/imagem - ver essa flag no `main()`). NAO e' add_
+# test: a prova real e' o job `windows` do CI; isto e' o espelho local,
+# antes do push (L-24/L-36).
 readonly GLINTFX_WIN32_LINK_IMAGE='glintfx-msvc:latest'
 
 stage_win32_link() {
@@ -1639,11 +1648,14 @@ run_full_pipeline() {
     if [ "$fast" = "yes" ]; then
         echo "preci.sh --fast: estagio 7 (sanitizer) PULADO"
         echo "preci.sh --fast: estagio 8 (debug) PULADO"
+        echo "preci.sh --fast: estagio 9 (win32-link) PULADO"
     else
         log "estagio 7: sanitizer (ASan/UBSan)"
         stage_sanitizer
         log "estagio 8: debug (NDEBUG indefinido, assert() de produto ligado)"
         stage_debug
+        log "estagio 9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)"
+        stage_win32_link
     fi
     echo "preci.sh: TUDO VERDE"
 }

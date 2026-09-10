@@ -119,7 +119,7 @@ constexpr std::uint32_t k_hidden_wait_budget_ms = 100;
 wait_while_hidden(platform::selected_display_adapter &display) noexcept {
     if (const gltfx_rslt<bool> waited = display.wait_events(k_hidden_wait_budget_ms);
         waited.has_error()) {
-        return gltfx_rslt<void>::err(waited.error());
+        return gltfx_rslt<void>::err(waited.err());
     }
     return display.pump_events();
 }
@@ -142,7 +142,7 @@ wait_while_hidden(platform::selected_display_adapter &display) noexcept {
     std::uint32_t wait_ms = schedule.plan(gltfx_now(), cap_hz);
     while (wait_ms > 1) {
         if (const gltfx_rslt<bool> waited = display.wait_events(wait_ms - 1); waited.has_error()) {
-            return gltfx_rslt<void>::err(waited.error());
+            return gltfx_rslt<void>::err(waited.err());
         }
         if (const gltfx_rslt<void> pumped = display.pump_events(); pumped.has_error()) {
             return pumped;
@@ -194,7 +194,7 @@ gltfx_rslt<gltfx_loop> gltfx_loop::open(gltfx_display &display, gltfx_window &wi
 
     gltfx_rslt<loop_impl *> allocated = allocate_loop_impl();
     if (allocated.has_error()) {
-        return gltfx_rslt<gltfx_loop>::err(allocated.error());
+        return gltfx_rslt<gltfx_loop>::err(allocated.err());
     }
 
     // Borrowed pointers only (D-W6b-55/loop_impl.hpp's own header
@@ -242,7 +242,7 @@ gltfx_rslt<gltfx_frame_tick> gltfx_loop::step() noexcept {
     // (P3) - the state on_frame reads below already includes whatever
     // the system delivered before this tick.
     if (const gltfx_rslt<void> pumped = display_adapter.pump_events(); pumped.has_error()) {
-        return gltfx_rslt<gltfx_frame_tick>::err(pumped.error());
+        return gltfx_rslt<gltfx_frame_tick>::err(pumped.err());
     }
 
     // Step 2 (D-W6b-44): read close_requested() to skip steps 3/4
@@ -259,7 +259,7 @@ gltfx_rslt<gltfx_frame_tick> gltfx_loop::step() noexcept {
         if (m_impl->last_present == gltfx_present_outcome::skipped_hidden) {
             if (const gltfx_rslt<void> waited = wait_while_hidden(display_adapter);
                 waited.has_error()) {
-                return gltfx_rslt<gltfx_frame_tick>::err(waited.error());
+                return gltfx_rslt<gltfx_frame_tick>::err(waited.err());
             }
         }
 
@@ -271,7 +271,7 @@ gltfx_rslt<gltfx_frame_tick> gltfx_loop::step() noexcept {
             if (const gltfx_rslt<void> capped =
                     wait_for_frame_cap(display_adapter, m_impl->cap_schedule, cap_hz);
                 capped.has_error()) {
-                return gltfx_rslt<gltfx_frame_tick>::err(capped.error());
+                return gltfx_rslt<gltfx_frame_tick>::err(capped.err());
             }
         }
     }
@@ -318,7 +318,7 @@ gltfx_rslt<void> gltfx_loop::run(const gltfx_loop_callbacks &callbacks) noexcept
     for (;;) {
         const gltfx_rslt<gltfx_frame_tick> ticked = step();
         if (ticked.has_error()) {
-            return gltfx_rslt<void>::err(ticked.error());
+            return gltfx_rslt<void>::err(ticked.err());
         }
         const gltfx_frame_tick &tick = ticked.value();
 
@@ -334,7 +334,7 @@ gltfx_rslt<void> gltfx_loop::run(const gltfx_loop_callbacks &callbacks) noexcept
             callbacks.on_render(tick);
             const gltfx_rslt<gltfx_present_outcome> presented = present();
             if (presented.has_error()) {
-                return gltfx_rslt<void>::err(presented.error());
+                return gltfx_rslt<void>::err(presented.err());
             }
         }
 

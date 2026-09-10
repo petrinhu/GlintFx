@@ -126,7 +126,7 @@ GLINTFX_TEST(allocate_loop_impl_degrades_to_out_of_memory_when_the_heap_refuses)
     // noexcept function calls std::terminate(), which would have ended
     // the process before this check ever ran).
     GLINTFX_CHECK(allocated.has_error());
-    GLINTFX_CHECK(allocated.error().code() == glintfx::gltfx_err_code::out_of_memory);
+    GLINTFX_CHECK(allocated.err().code() == glintfx::gltfx_err_code::out_of_memory);
 }
 
 GLINTFX_TEST(allocate_loop_impl_succeeds_with_a_healthy_allocator) {

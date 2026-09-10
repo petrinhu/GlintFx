@@ -11,6 +11,7 @@
 
 #include <dbt.h>
 
+#include <cstdint>
 #include <cstdio>
 
 #include <glintfx/core/err.hpp>
@@ -79,8 +80,28 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
     // alive.
     DEV_BROADCAST_HDR arrival_block{};
     arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
-    ::SendMessageW(second_seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
-                   reinterpret_cast<LPARAM>(&arrival_block));
+
+    // DIAGNOSTIC, second round (server run 34434559496 - see tests/
+    // seat_test.cpp's own diagnostic comment on the identical pattern,
+    // added the same day): the handle this call targets, and whether
+    // the ACTIVE window procedure (read live) is really seat_window_
+    // proc.
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_native_handle=%llu\n",
+                 static_cast<unsigned long long>(
+                     reinterpret_cast<std::uintptr_t>(second_seat.native_handle())));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_wndproc_installed=%d\n",
+                 second_seat.wndproc_is_installed() ? 1 : 0);
+    GLINTFX_CHECK(second_seat.wndproc_is_installed());
+
+    ::SetLastError(0);
+    const LRESULT send_result =
+        ::SendMessageW(second_seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
+                       reinterpret_cast<LPARAM>(&arrival_block));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_send_result=%lld\n",
+                 static_cast<long long>(send_result));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_send_last_error=%lu\n",
+                 static_cast<unsigned long>(::GetLastError()));
+
     // DIAGNOSTIC (server run 34432463346 found this exact check failing
     // - see tests/seat_test.cpp's own diagnostic comment on the
     // identical pattern, added the same day).

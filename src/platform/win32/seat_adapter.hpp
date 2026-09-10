@@ -179,6 +179,21 @@ class win32_seat_adapter {
     // open()/close()/recompute_capabilities() themselves.
     [[nodiscard]] HWND native_handle() const noexcept { return m_window; }
 
+    // DIAGNOSTIC SEAM (10/09/2026, second round - server run
+    // 34434559496 measured record_raw_message() staying at its
+    // constructed default even though the "two device-interface
+    // registrations accepted" case passes, meaning the window is real
+    // but no message this adapter sent itself ever reached seat_
+    // window_proc with a non-null adapter). Reads GWLP_WNDPROC LIVE
+    // (never cached) and compares it against the ADDRESS open() itself
+    // installed - the direct test of the team-lead's own hypothesis 2
+    // ("o procedimento registrado na classe da janela nao e o que
+    // contem o seu registrador"): if this ever reads false while
+    // is_open() is true, the subclass silently failed or was silently
+    // overwritten by something else, and THAT is the defect, not
+    // anything downstream of it.
+    [[nodiscard]] bool wndproc_is_installed() const noexcept;
+
     // Test seam only (SF-1, D-WS-7, two_seats_test): how many of the
     // TWO RegisterDeviceNotificationW calls the SYSTEM actually
     // accepted (a non-null HDEVNOTIFY), never a constant this class

@@ -11,6 +11,7 @@
 
 #include <dbt.h>
 
+#include <cstdint>
 #include <print>
 
 #include <glintfx/core/err.hpp>
@@ -191,12 +192,31 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
     GLINTFX_CHECK(glintfx::platform::classify_device_change(DBT_DEVICEARRIVAL, &arrival_block) ==
                   device_change_kind::arrival);
 
+    // DIAGNOSTIC, second round (server run 34434559496 found record_
+    // raw_message() staying at its constructed default - the message
+    // never reached seat_window_proc with a non-null adapter at all,
+    // even though it is recorded UNCONDITIONALLY before any WM_
+    // DEVICECHANGE-specific guard): the direct handle this call is
+    // about to target, and whether the ACTIVE window procedure (read
+    // LIVE, never cached) is really seat_window_proc - team-lead's own
+    // hypotheses 1 and 2 (wrong handle; wrong/overwritten procedure).
+    std::println("MEASURED seat_test.diag_native_handle={}",
+                 reinterpret_cast<std::uintptr_t>(seat.native_handle()));
+    std::println("MEASURED seat_test.diag_wndproc_installed={}",
+                 seat.wndproc_is_installed() ? 1 : 0);
+    GLINTFX_CHECK(seat.wndproc_is_installed());
+
     // Sent with the CALLING thread's own SendMessageW - the message-
     // only window this adapter owns belongs to this same thread, so
     // this is delivered synchronously, straight into seat_window_proc
     // (seat_adapter.cpp), before SendMessageW returns.
-    ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
-                   reinterpret_cast<LPARAM>(&arrival_block));
+    ::SetLastError(0);
+    const LRESULT send_result =
+        ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
+                       reinterpret_cast<LPARAM>(&arrival_block));
+    std::println("MEASURED seat_test.diag_send_result={}", static_cast<long long>(send_result));
+    std::println("MEASURED seat_test.diag_send_last_error={}",
+                 static_cast<unsigned long long>(::GetLastError()));
 
     // DIAGNOSTIC: what seat_window_proc actually saw, unconditionally
     // recorded before any WM_DEVICECHANGE-specific guard runs (seat_

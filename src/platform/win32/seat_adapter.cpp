@@ -265,6 +265,21 @@ void win32_seat_adapter::handle_device_change(device_change_kind kind) noexcept 
 
 WNDPROC win32_seat_adapter::previous_wndproc() const noexcept { return m_previous_wndproc; }
 
+bool win32_seat_adapter::wndproc_is_installed() const noexcept {
+    if (m_window == nullptr) {
+        return false;
+    }
+    // Reads the ACTIVE window procedure LIVE, never the cached
+    // `previous` value open() stored - this is the direct test of
+    // "is seat_window_proc really what Windows dispatches this
+    // window's messages through right now", never an inference from
+    // open()'s own success alone (SetWindowLongPtrW's return value is
+    // the PREVIOUS procedure, not proof the NEW one stuck).
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
+    const auto installed = reinterpret_cast<WNDPROC>(::GetWindowLongPtrW(m_window, GWLP_WNDPROC));
+    return installed == &seat_window_proc;
+}
+
 void win32_seat_adapter::record_raw_message(UINT msg, WPARAM wparam) noexcept {
     m_last_raw_message = msg;
     m_last_raw_wparam = wparam;

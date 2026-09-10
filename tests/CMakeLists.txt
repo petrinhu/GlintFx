@@ -1031,6 +1031,24 @@ target_sources(loop_open_alloc_failure_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
 )
 
+# loop_engine_test - LOOP-RUN (cobertura), S2 (/var/tmp/glintfx-plan/
+# loop-fix.md sec. S2.2/S2.4, GODS_LAWS.md L-17/L-19/L-20/L-40): the
+# motor extraido de loop_facade.cpp (loop_engine.hpp), exercitado com
+# os doubles de tests/fake/fake_loop_ports.hpp mais o platform::window_
+# state REAL (S2-F3) - nenhum dos dois toca o sistema operacional
+# (S2-F11), a mesma forma de frame_tick_state_test/frame_cap_schedule_
+# test/loop_callbacks_validation_test acima: registra sem guarda de
+# plataforma, recompila os atomos reais que o motor consome (nunca os
+# dublados) direto no binario do teste.
+glintfx_add_test(loop_engine_test)
+target_include_directories(loop_engine_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(loop_engine_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+)
+
 # Wayland-only from here down: the real adapter case.
 if(UNIX)
     # wayland_display_adapter has no GLINTFX_API (deliberately - GODS_

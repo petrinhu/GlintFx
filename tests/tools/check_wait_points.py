@@ -50,15 +50,17 @@ MANIFEST_RELATIVE_PATH = os.path.join("tests", "wait_points.txt")
 # abrir/bombear a conexao e apresentar um quadro, mais o atomo
 # compartilhado que a fatia desta drenagem extraiu (bounded_output_
 # wait.cpp - ver o cabecalho dele: a duplicacao da MESMA espera em dois
-# arquivos e' o que deixou o gemeo do defeito original vivo), mais
-# src/platform/loop/loop_facade.cpp (LOOP-RUN fatia 6b, docs/plano-w6b-
-# fatias-6-8.md D-W6b-58/sec. 8.2: "e, na 6b, o giro de ate 1 ms sobre
-# gltfx_now() em src/platform/loop/, classe teto-nosso, mais as
-# leituras de relogio do step(), classe nao-espera") - o unico arquivo
-# deste diretorio que chama gltfx_now() fora de um teste (frame_tick_
-# state.cpp/frame_cap_schedule.cpp sao atomos puros, chamados COM um
-# gltfx_time_point ja pronto pelo chamador, nunca lendo o relogio eles
-# mesmos).
+# arquivos e' o que deixou o gemeo do defeito original vivo), mais tres
+# arquivos de src/platform/loop/ (LOOP-RUN, cobertura S2, /var/tmp/
+# glintfx-plan/loop-fix.md sec. S2.6): loop_engine.hpp (o motor - o
+# giro de ate 1 ms, classe teto-nosso, mais as leituras de relogio de
+# loop_step()/wait_for_frame_cap(), classe nao-espera - MIGROU para ca
+# de loop_facade.cpp nesta sub-fatia, junto com o codigo), steady_loop_
+# clock.hpp (a UNICA leitura de gltfx_now() que o motor faz, atras da
+# agulha `clock.now(` em vez de `gltfx_now(` - abaixo), e loop_facade.
+# cpp em si, que agora so' contem UM sitio (a leitura em open(), que
+# roda antes de qualquer porta existir e por isso continua lendo
+# gltfx_now() direto).
 # Forma canonica com "/" - a MESMA forma que tests/wait_points.txt usa
 # no campo `arquivo` (o manifesto e' um arquivo de texto versionado,
 # nunca escreve "\"). os.path.join() aqui produziria "\" no Windows e
@@ -76,6 +78,8 @@ TARGET_FILES = (
     "src/platform/win32/display_adapter.cpp",
     "src/platform/win32/wgl_context_adapter.cpp",
     "src/platform/loop/loop_facade.cpp",
+    "src/platform/loop/loop_engine.hpp",
+    "src/platform/loop/steady_loop_clock.hpp",
 )
 
 # docs/plano-w6b-fatias-6-8.md, D-W6b-58 - a lista fixada ANTES do dado
@@ -114,6 +118,13 @@ SIMPLE_NEEDLES = (
     "wait_for(",
     "wait_until(",
     "gltfx_now(",
+    # LOOP-RUN, cobertura S2 (D-W6b-58: agulha nova entra no commit que
+    # a introduz): o motor (loop_engine.hpp) le' o relogio atras da
+    # PORTA (loop_clock_port, platform/loop/loop_ports.hpp), nunca
+    # gltfx_now() diretamente - a agulha certa para os sitios dele e'
+    # a chamada ao metodo da porta, nao ao nome da funcao real que
+    # steady_loop_clock.hpp's own now() encaminha para.
+    "clock.now(",
 )
 
 # As duas unicas formas de "sem teto" que este projeto aceita (tests/

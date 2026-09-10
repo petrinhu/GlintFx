@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
-#include <cstdint>
-
 #include <glintfx/core/err.hpp>
-#include <glintfx/core/time.hpp>
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
-#include "platform/loop/frame_cap_schedule.hpp"
+#include "platform/loop/loop_book.hpp"
 
 // loop_impl.hpp - LOOP-RUN fatia 6b (docs/plano-w6b-fatias-6-8.md sec.
 // 8.3, D-W6b-41/44/49/55, GODS_LAWS.md L-17/L-19): the concrete type
@@ -44,18 +41,14 @@
 // real Wayland connection, an EGL context, or a live HWND - see that
 // atom's own header comment for why a test needs exactly this.
 //
-// previous_now/last_present/frame_index ARE THE BOOKKEEPING platform/
-// loop/frame_tick_state.hpp's own compute_frame_tick() (a pure
-// function, no member state of its own) is handed as plain arguments
-// every step() - this struct is where that bookkeeping actually LIVES
-// between calls, the same "the atom is pure, the caller owns the
-// state" division of labor frame_cap_schedule below already
-// establishes for a DIFFERENT budget (that class, unlike compute_
-// frame_tick(), does carry its own tiny bit of state - m_has_deadline/
-// m_next_deadline - because "the deadline advances from the PREVIOUS
-// deadline, never from `now`" needs a place to remember the previous
-// one across calls; loop_impl is that place for BOTH kinds of state at
-// once, since a gltfx_loop only ever has ONE of each).
+// `book` IS THE BOOKKEEPING loop_engine.hpp's own loop_step()/loop_
+// present() read and write between calls (LOOP-RUN cobertura, S2,
+// /var/tmp/glintfx-plan/loop-fix.md sec. S2.2) - previously four
+// separate fields directly on this struct (cap_schedule/previous_now/
+// last_present/frame_index), now grouped under platform::loop_book
+// (platform/loop/loop_book.hpp's own header comment has the full
+// reasoning for the move). loop_impl still owns the STORAGE; only the
+// grouping changed.
 namespace glintfx {
 
 struct loop_impl {
@@ -66,29 +59,10 @@ struct loop_impl {
     window_impl *window = nullptr;
     gl_context_impl *context = nullptr;
 
-    // The ONE piece of state frame_cap_schedule.hpp's own class
-    // carries (P7, D-W6b-49) - owned by this loop, reset to a fresh
-    // schedule only when the loop itself is (re)opened.
-    platform::frame_cap_schedule cap_schedule;
-
-    // The previous tick's own gltfx_now() reading - compute_frame_
-    // tick()'s own `previous_now` argument every step() (P5: elapsed
-    // is measured from here). Zero-valued (the same "zero on the very
-    // first tick" gltfx_frame_tick::elapsed already promises) until
-    // the first real step() overwrites it.
-    gltfx_time_point previous_now{};
-
-    // What the last present() call actually returned - `presented`
-    // before the very first one (the same default gltfx_frame_tick::
-    // last_present already documents, platform/loop/loop.hpp), fed
-    // straight into compute_frame_tick()'s own `last_present` argument
-    // every step().
-    gltfx_present_outcome last_present = gltfx_present_outcome::presented;
-
-    // The previous tick's own frame_index - 0 before the very first
-    // step() (P2: the first tick this loop ever produces reports 1,
-    // this field plus one).
-    std::uint64_t frame_index = 0;
+    // The engine's own memory between calls - see platform::loop_book's
+    // own header comment (platform/loop/loop_book.hpp) for what each
+    // field is and why it lives here.
+    platform::loop_book book;
 };
 
 // Allocates and default-initializes a fresh loop_impl ON THE HEAP,

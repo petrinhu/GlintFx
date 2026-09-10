@@ -142,8 +142,8 @@ GLINTFX_TEST(allocate_loop_impl_succeeds_with_a_healthy_allocator) {
     GLINTFX_CHECK(impl->display == nullptr);
     GLINTFX_CHECK(impl->window == nullptr);
     GLINTFX_CHECK(impl->context == nullptr);
-    GLINTFX_CHECK(impl->last_present == glintfx::gltfx_present_outcome::presented);
-    GLINTFX_CHECK(impl->frame_index == 0);
+    GLINTFX_CHECK(impl->book.last_present == glintfx::gltfx_present_outcome::presented);
+    GLINTFX_CHECK(impl->book.frame_index == 0);
 
     delete impl;
 }

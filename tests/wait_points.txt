@@ -50,9 +50,14 @@
 # egl_context_adapter.cpp agora chamam os dois para a mesma espera de
 # escrita (bounded_output_wait.cpp - a duplicacao dessa MESMA espera em
 # dois arquivos e' o que deixou o gemeo do defeito original vivo), mais
-# src/platform/loop/loop_facade.cpp (LOOP-RUN fatia 6b, D-W6b-58): o
-# giro de ate 1 ms de D-W6b-49 (`teto-nosso`) e as leituras de relogio
-# que o step()/open() do laco fazem sem esperar nada (`nao-espera`).
+# tres arquivos de src/platform/loop/ (LOOP-RUN, cobertura S2, D-W6b-58,
+# /var/tmp/glintfx-plan/loop-fix.md sec. S2.6): loop_engine.hpp (o
+# motor, desde esta sub-fatia) - o giro de ate 1 ms de D-W6b-49
+# (`teto-nosso`) e as leituras de relogio que loop_step()/wait_for_
+# frame_cap() fazem sem esperar nada (`nao-espera`); steady_loop_clock.
+# hpp (a UNICA leitura de gltfx_now() que o motor de fato faz, atras da
+# porta); e loop_facade.cpp, que desde esta sub-fatia so' le' o relogio
+# em open() (`nao-espera`) - o corpo do laco em si MIGROU para o motor.
 #
 # wl_display_roundtrip() (open()/roundtrip(), abaixo) e' `sem-teto-
 # fora-do-caminho`: bloqueia de verdade, sem orcamento, mas SO' roda
@@ -99,35 +104,47 @@ src/platform/win32/display_adapter.cpp|wait_events()|::MsgWaitForMultipleObjects
 
 src/platform/win32/wgl_context_adapter.cpp|swap_buffers()|::SwapBuffers(m_dc)|teto-do-sistema
 
-# src/platform/loop/loop_facade.cpp - LOOP-RUN fatia 6b (docs/plano-
-# w6b-fatias-6-8.md D-W6b-44/D-W6b-49/D-W6b-58): o laco nunca chama uma
-# primitiva do SO diretamente (poll/Sleep/etc - essas continuam so' nos
-# quatro adaptadores acima, atras de wait_events()/pump_events(), que
-# NAO sao agulha desta varredura), so' le' o relogio (gltfx_now(),
-# agulha da lista). Quatro sitios, tres textos distintos:
-#   - a leitura em open() (grava previous_now, nunca espera nada);
-#   - a leitura em step() (fecha o tick, nunca espera nada);
-#   - as DUAS chamadas `wait_ms = schedule.plan(gltfx_now(), cap_hz);`
-#     dentro de wait_for_frame_cap() (a primeira, antes do laco
-#     grosso; a segunda, dentro do proprio `while (wait_ms > 1)`) -
-#     texto IDENTICO nas duas, portanto UMA linha de manifesto cobre
-#     as duas (mesmo precedente do eglSwapBuffers/MsgWaitForMultiple
-#     ObjectsEx acima): nenhuma das duas espera por si so' - o
-#     orcamento de verdade sai de wait_events(), chamado na linha
-#     anterior, que e' metodo do adaptador de display, nao uma agulha
-#     aqui.
-src/platform/loop/loop_facade.cpp|gltfx_loop::open()|impl->previous_now = gltfx_now();|nao-espera
-src/platform/loop/loop_facade.cpp|gltfx_loop::step()|const gltfx_time_point now = gltfx_now();|nao-espera
-src/platform/loop/loop_facade.cpp|wait_for_frame_cap()|wait_ms = schedule.plan(gltfx_now(), cap_hz);|nao-espera
+# src/platform/loop/loop_facade.cpp - LOOP-RUN, cobertura S2 (/var/tmp/
+# glintfx-plan/loop-fix.md sec. S2.2/S2.6): o corpo do laco (step()/
+# wait_for_frame_cap()) MIGROU desta sub-fatia em diante para o motor
+# (loop_engine.hpp, dois sitios abaixo) - loop_facade.cpp so' continua
+# lendo o relogio UMA vez, em open(), que roda ANTES de qualquer porta
+# existir (nao ha `ports` ainda para ir atras) e por isso e' o UNICO
+# lugar sob src/platform/loop/ que ainda chama gltfx_now() diretamente.
+src/platform/loop/loop_facade.cpp|gltfx_loop::open()|impl->book.previous_now = gltfx_now();|nao-espera
+
+# src/platform/loop/loop_engine.hpp - LOOP-RUN, cobertura S2: o laco
+# nunca chama uma primitiva do SO diretamente (poll/Sleep/etc -
+# continuam so' nos quatro adaptadores acima, atras de wait_events()/
+# pump_events(), que NAO sao agulha desta varredura), so' le' o relogio
+# atras da PORTA (loop_clock_port, `clock.now(`, agulha da lista - o
+# motor nunca chama gltfx_now() por si). Tres sitios, dois textos
+# distintos:
+#   - a leitura em loop_step() (fecha o tique, nunca espera nada);
+#   - as DUAS chamadas `wait_ms = schedule.plan(clock.now(), cap_hz);`
+#     dentro de wait_for_frame_cap() (a primeira, antes do laco grosso;
+#     a segunda, dentro do proprio `while (wait_ms > 1)`) - texto
+#     IDENTICO nas duas, portanto UMA linha de manifesto cobre as duas
+#     (mesmo precedente do eglSwapBuffers/MsgWaitForMultipleObjectsEx
+#     acima): nenhuma das duas espera por si so' - o orcamento de
+#     verdade sai de wait_events(), chamado na linha anterior, que e'
+#     metodo do adaptador de display, nao uma agulha aqui.
+src/platform/loop/loop_engine.hpp|loop_step()|const gltfx_time_point now = ports.clock.now();|nao-espera
+src/platform/loop/loop_engine.hpp|wait_for_frame_cap()|wait_ms = schedule.plan(clock.now(), cap_hz);|nao-espera
 
 # O giro de ate 1 ms de D-W6b-49 - a UNICA espera de verdade que este
-# arquivo contem, e a razao pela qual este arquivo entrou nesta
-# varredura: nenhuma primitiva do SO, so' repetir a leitura do relogio
-# (gltfx_now()) ate plan() dizer que o prazo chegou - por isso
-# `spin_now`, um nome DIFERENTE do `wait_ms = schedule.plan(gltfx_now(),
-# cap_hz);` acima (loop_facade.cpp's own comentario no proprio sitio
-# explica por que o texto precisa ser distinto: as duas linhas nunca
-# esperam sozinhas, esta linha e' o proprio giro, `teto-nosso` porque
-# `wait_ms` ja' entrou neste laco com no maximo um periodo inteiro -
-# frame_cap_schedule_test.cpp's own "sem deriva" e' quem prova o teto).
-src/platform/loop/loop_facade.cpp|wait_for_frame_cap()|const gltfx_time_point spin_now = gltfx_now();|teto-nosso
+# arquivo contem, e a razao pela qual ele entrou nesta varredura:
+# nenhuma primitiva do SO, so' repetir a leitura do relogio (clock.
+# now()) ate plan() dizer que o prazo chegou - por isso `spin_now`, um
+# nome DIFERENTE do `wait_ms = schedule.plan(clock.now(), cap_hz);`
+# acima (loop_engine.hpp's own comentario no proprio sitio explica por
+# que o texto precisa ser distinto: as duas linhas nunca esperam
+# sozinhas, esta linha e' o proprio giro, `teto-nosso` porque `wait_ms`
+# ja' entrou neste laco com no maximo um periodo inteiro - frame_cap_
+# schedule_test.cpp's own "sem deriva" e' quem prova o teto).
+src/platform/loop/loop_engine.hpp|wait_for_frame_cap()|const gltfx_time_point spin_now = clock.now();|teto-nosso
+
+# src/platform/loop/steady_loop_clock.hpp - LOOP-RUN, cobertura S2: a
+# UNICA definicao de now() que de fato chama gltfx_now() - o motor em
+# si (loop_engine.hpp, acima) nunca chama gltfx_now(), so' clock.now().
+src/platform/loop/steady_loop_clock.hpp|steady_loop_clock::now()|return gltfx_now();|nao-espera

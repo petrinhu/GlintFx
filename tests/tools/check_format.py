@@ -98,6 +98,71 @@ continua sendo a segunda rede de protecao para esta maquina.
 ================================================================\
 """
 
+# Mesma convencao de check_container_fixture_link.py/check_win32_test_
+# link.py: "declarado PULADO" (CTest SKIP_RETURN_CODE), nem PASS nem
+# FAIL - reservado a lacuna de FERRAMENTA, nunca a reprovacao real do
+# gate (real_main() acima nunca sai com este codigo; so selftest_main()
+# usa, e so por este UM motivo).
+GATE_SKIP_RETURN_CODE = 77
+
+# CONSERTO (10/09/2026, item LOOP-FMT-CLASS, achado no run 34526530748
+# / commit a59a297): check_format_selftest foi registrado SEM guarda
+# de ferramenta (be66fa6) - a mesma classe de defeito que este proprio
+# gate existe para varrer em codigo C++ (GODS_LAWS.md L-36/L-40, "o
+# defeito que afirma medir e nao mede"). O controle NEGATIVO do
+# selftest (selftest_negative_control) so prova algo se clang-format
+# de fato reprovar um arquivo desformatado - sem a ferramenta,
+# check_format_staged() cai direto no ramo do MISSING_TOOL_BANNER
+# acima (aprova SEMPRE, warn-and-continue por desenho), entao o
+# controle negativo reprova o SELFTEST, nao porque o gate esta
+# quebrado, mas porque o proprio teste que deveria provar o gate
+# nao consegue provar nada sem a ferramenta.
+#
+# MEDIDO, nao presumido, antes de escolher SKIP_RETURN_CODE em vez de
+# registro condicional (o outro precedente da casa, preci_selftest):
+# nenhum job do CI hoje EXECUTA check_format_selftest com clang-format
+# presente. Os jobs `linux` (Fedora/Ubuntu/CachyOS/Arch) e `windows`
+# rodam `ctest --test-dir <builddir> --output-on-failure` (a suite
+# inteira, onde este teste de fato roda) mas instalam so
+# "gcc-c++ cmake ninja-build pkgconf-pkg-config git" - sem
+# clang-tools-extra, sem clang-format. O unico job que instala
+# clang-format e' `lint` (dnf install ... clang-tools-extra ...,
+# .github/workflows/ci.yml), mas `lint` nunca chama stage_ctest (so
+# run_lint_only, que para em clang-tidy/cppcheck) - o unico ctest que
+# `lint` roda e' `ctest --test-dir build-preci -N`, que so LISTA os
+# testes (para o inventario de paridade), nunca os EXECUTA. Ou seja:
+# hoje, com a ferramenta presente, este autoteste so roda de verdade
+# em maquina de desenvolvedor (`ctest --test-dir build -R
+# check_format_selftest`, ou este script direto com --selftest) - em
+# CI ele so e' EXERCIDO onde a ferramenta falta, nunca onde ela esta.
+# Isto e uma lacuna de cobertura conhecida e relatada ao lider (nao
+# corrigida aqui por conta propria - abrir job/passo novo em CI e'
+# decisao dele, GODS_LAWS.md L-51/L-14), nao escondida por este skip.
+#
+# Por que SKIP_RETURN_CODE (como win_vm_lab_isolamento_selftest) em
+# vez de registro condicional (como preci_selftest, tests/CMakeLists.
+# txt): registro condicional faz o teste SUMIR do inventario de
+# paridade Linux x Windows em metade da matriz - exatamente a
+# assimetria silenciosa que GODS_LAWS.md L-04 proibe. Com
+# SKIP_RETURN_CODE, o teste continua LISTADO (ctest -N) em toda perna,
+# so nao EXECUTA onde a ferramenta falta - "Not Run", nunca "Passed"
+# nem ausente do registro.
+SELFTEST_SKIP_BANNER = f"""\
+================================================================
+{SCRIPT_NAME} --selftest: 'clang-format' NAO ENCONTRADO NO PATH.
+O AUTOTESTE FOI PULADO (CTest SKIP_RETURN_CODE {GATE_SKIP_RETURN_CODE}),
+NUNCA REPROVADO NEM APROVADO.
+O controle NEGATIVO deste autoteste (selftest_negative_control) so
+prova algo executando clang-format de verdade contra um arquivo
+desformatado - sem a ferramenta ele so provaria que
+check_format_staged() aprova por causa do MISSING_TOOL_BANNER, e essa
+lacuna especifica ja tem controle proprio (selftest_missing_tool_
+control, que simula a ausencia via PATH privado e roda sempre, com ou
+sem a ferramenta real disponivel neste host). GODS_LAWS.md L-51
+proibe instalar clang-format sem autorizacao do lider.
+================================================================\
+"""
+
 
 def fail(message):
     print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
@@ -546,6 +611,17 @@ def selftest_readonly_cleanup_control():
 
 
 def selftest_main():
+    # Guarda ANTES de tocar disco (GODS_LAWS.md L-40/L-36): 'clang-format'
+    # ausente do PATH REAL deste processo (nao do PATH privado que
+    # selftest_missing_tool_control monta por conta propria mais abaixo -
+    # aquele controle continua rodando sempre, simulando a ausencia
+    # mesmo em host que TEM a ferramenta). Ver o comentario de
+    # SELFTEST_SKIP_BANNER acima para o porque de SKIP_RETURN_CODE em
+    # vez de reprovar ou de registro condicional.
+    if not clang_format_available():
+        print(SELFTEST_SKIP_BANNER, file=sys.stderr)
+        sys.exit(GATE_SKIP_RETURN_CODE)
+
     scratch = make_scratch_workdir()
     capture = _make_capture()
     try:

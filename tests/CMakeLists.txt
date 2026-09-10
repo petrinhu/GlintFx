@@ -4169,12 +4169,33 @@ set_tests_properties(check_selftest_orphan_selftest PROPERTIES LABELS selftest)
 # que faltava e que check_selftest_orphan_test (logo acima) reprovou
 # por ausencia (GATE-SELFTEST-ORFAO pegando o proprio commit que o
 # instalou).
+#
+# CONSERTO (10/09/2026, mesmo item LOOP-FMT-CLASS, achado no run
+# 34526530748 / commit a59a297): registrado SEM guarda de ferramenta -
+# reprovava em TODO job Linux/Windows da matriz porque nenhum deles
+# instala clang-format (medido: `linux`/`windows` rodam a suite
+# completa mas so instalam a cadeia de compilacao pura; `lint` instala
+# clang-format mas nunca EXECUTA a suite, so lista com `ctest -N` para
+# o inventario de paridade - ver o comentario de SELFTEST_SKIP_BANNER
+# em tools/check_format.py para os dois casos medidos por extenso).
+# check_format.py --selftest agora se auto-pula (GATE_SKIP_RETURN_CODE
+# = 77) quando 'clang-format' falta no PATH REAL do processo, e
+# SKIP_RETURN_CODE 77 aqui e' o que ensina o CTest a ler esse codigo
+# como "Not Run" em vez de falha - a MESMA convencao de
+# win_vm_lab_isolamento_selftest logo abaixo neste arquivo. Escolhido
+# em vez de registro condicional (o outro precedente da casa,
+# preci_selftest): registro condicional faria o teste SUMIR do
+# inventario de paridade Linux x Windows em metade da matriz -
+# exatamente a assimetria silenciosa que GODS_LAWS.md L-04 proibe.
+# Com SKIP_RETURN_CODE o teste continua LISTADO (ctest -N) em toda
+# perna, so nao executa onde a ferramenta falta.
 add_test(
     NAME check_format_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_format.py" --selftest
 )
 set_tests_properties(check_format_selftest PROPERTIES LABELS selftest)
+set_tests_properties(check_format_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 # O ORFAO REAL que a pesquisa acima nomeia, fechado no mesmo commit
 # deste gate: tools/win-vm-lab/provar-isolamento.sh --selftest e'

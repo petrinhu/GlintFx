@@ -2861,3 +2861,27 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Achado colateral que vale além da fatia:** a onda W6a **não tem linha de fechamento**, então o portão de coerência que construí hoje nunca olha para ela. Está no critério de fechamento do plano.
 
 **E o oitavo item do dia com texto que não bate com a árvore:** o commit que fechou o assento do Wayland esqueceu de marcar o do Windows, embora a ordem do líder de 02/09 tenha tornado os dois *"uma entrega só"*. A tabela contradizia a própria linha.
+
+#### D-091003 — o espelho local troca de compilador, porque o desenho antigo morreu no mesmo dia em que nasceu  `[10/09/26 - 03:05:00]`
+
+**Quem decidiu:** o `fable` (CTO), sob modo autônomo, pela ordem do líder de 09/09/2026 verbatim: *"siga modo autonomo fechando todas as fatias até o final de w7"*. **Plano:** `/var/tmp/glintfx-plan/win-cross-stage.md`, seis sub-fatias, cada uma com a prova e a estreia vermelha do portão que ela cria.
+
+**A pergunta que abriu o trabalho, e ela era minha:** o desenho de `WIN-CROSS-STAGE`, fixado em 06/09/2026, manda o espelho local compilar o lado Windows com o compilador cruzado GNU desta máquina. Depois disso, entre 09 e 10/09, nasceu um portão que **liga** os alvos de teste do Windows com o compilador **real da Microsoft** dentro de container. Perguntei se o desenho ainda se sustentava, oferecendo três leituras e recusando escolher por ele.
+
+**O que ele decidiu, e a evidência é dura:** o valor do item fica inteiro, o MECANISMO muda. O compilador cruzado GNU **não compila o backend Windows do produto** — o arquivo de enumeração de placa de vídeo inclui um cabeçalho da Microsoft que não existe no ambiente cruzado desta máquina. **E o detalhe que fecha o caso: esse arquivo entrou em 06/09, no MESMO dia do desenho.** O desenho foi invalidado no dia em que foi escrito, pelo crescimento do próprio produto, e ninguém percebeu por quatro dias.
+
+**Reconferido por mim antes de aceitar (L-12), contra a máquina e não contra o relato dele:** zero arquivos do cabeçalho no ambiente cruzado; seis menções a ele no produto; zero menções ao compilador cruzado no espelho local; o estágio de ligação existe mas **não é chamado na rodada completa**; e a exigência de tratar aviso como erro **não está** no container — ou seja, hoje o espelho local é MENOS estrito que o servidor, que é o oposto do que o desenho prometia.
+
+**Achado colateral que vale além da fatia:** em quatro de quatro armadilhas preparadas, o compilador GNU não pegou nada que o da Microsoft não pegue, e o da Microsoft pegou uma família que o GNU nunca emite. A troca não perde cobertura; ganha.
+
+**As cinco decisões tomadas no lugar do líder, para ratificação retroativa:**
+
+1. **O item é reescrito, nunca apagado** (L-67). Mecanismo passa a ser o container com o compilador da Microsoft; o cruzado GNU sai como caminho de produto e fica só como a evidência comparativa que provou a troca.
+2. **Na rodada completa do espelho, a ausência do container REPROVA.** Hoje ela devolve um código e o estágio retorna sucesso — ou seja, cala. A exceção é única, explícita e impressa, na forma que a lei de permissões exige: negativa permanente mais exceção declarada, nunca liberação solta.
+3. **Tratar aviso como erro passa a ser obrigatório no container**, para o local parar de ser mais frouxo que o servidor. A família mais estrita que o desenho pedia entra apenas MEDINDO e imprimindo contagem — **transformá-la em reprovação é decisão do líder**, porque obrigaria mudança no código de produto.
+4. **A fatia irmã de ligação dos testes é reescopada** para todo alvo aplicável ao Windows, com pulo contado por motivo, e **deixa de depender** da fatia de geração de código: o script já reaproveita o artefato do build nativo.
+5. **A fatia de geração de código mantém o valor de produto** — ela impede construção cruzada por qualquer empacotador externo, e isso é problema de biblioteca pública, não nosso conforto — mas a frase que dizia destravar a outra cai, por ser falsa.
+
+**Discrepância que eu não vou inventar para fechar:** o resumo final dele fala em seis decisões; o relatório nomeia cinco. Registro as cinco que ele nomeou. Se existir uma sexta, ela não foi escrita, e eu não a estou adivinhando.
+
+**Três medições pesadas ficaram para mim**, porque o portão de um trabalho pesado por vez estava ocupado: o tempo real do estágio, se o código de hoje sobrevive à exigência de aviso-como-erro, e quantos dos alvos de teste são aplicáveis ao Windows.

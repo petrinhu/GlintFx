@@ -12,9 +12,10 @@
 #include "platform/loop/loop_callbacks_validation.hpp"
 #include "platform/loop/loop_ports.hpp"
 
-// platform/loop/loop_engine.hpp - LOOP-RUN (cobertura), S2 (/var/tmp/
-// glintfx-plan/loop-fix.md sec. S2.2, GODS_LAWS.md L-17/L-19/L-20): the
-// loop's own body, extracted out of the facade (loop_facade.cpp) into a
+// platform/loop/loop_engine.hpp - LOOP-RUN (cobertura, S2) +
+// LOOP-CLOSE-LATCH-SPIN (fixed here, S3) (/var/tmp/glintfx-plan/
+// loop-fix.md sec. S2.2/S3, GODS_LAWS.md L-17/L-19/L-20): the loop's
+// own body, extracted out of the facade (loop_facade.cpp) into a
 // function-TEMPLATE over the four ports (loop_ports.hpp) - chamável sem
 // sistema operacional, sem display, sem janela, sem contexto GL,
 // exercitada diretamente por tests/loop_engine_test.cpp.
@@ -22,25 +23,47 @@
 // FRASE SEM "E" (L-17): o corpo do laço sai da fachada e vira função-
 // modelo sobre portas de compilação.
 //
-// WHAT THIS SUB-FATIA DOES NOT DO, stated so nobody infers it from an
-// absence: does NOT fix LOOP-CLOSE-LATCH-SPIN (S3, next commit) - the
-// body below MIGRATED VERBATIM, defect included (see the comment on
-// the `closing` read, below); does NOT honor gltfx_loop_callbacks::
-// destroy_context (S1b - loop_callbacks_validation still refuses it by
-// name); does NOT change any observable behavior of gltfx_loop's own
-// public methods.
+// LOOP-CLOSE-LATCH-SPIN, FIXED (S3, this commit): loop_step() used to
+// read close_requested() on every tick and skip the hidden-window wait
+// and the frame-rate cap once it read true. Since the latch never
+// resets (window_state.hpp: "There is no unset_close_request()"), a
+// consumer that VETOES the close (its own on_frame keeps returning
+// true after the system asked to close - the point of D-W6b-54's own
+// veto path) made every tick from the first close request onward skip
+// BOTH waits forever: the loop kept spinning, pumping and rebuilding
+// ticks with no wait in between, burning CPU and battery for as long
+// as that process ran. The read is REMOVED here, not narrowed or
+// rate-limited - the plan's own S3 measured that removing it costs
+// nothing on the path that already worked: loop_run() (below) already
+// returns at the END of the very tick in which the close request
+// arrived (its own close_requested() check runs AFTER on_frame/
+// on_render/loop_present() for that tick, never before), so the read
+// this file used to do inside loop_step() only ever saved ONE wait,
+// once, on the way out - never more, because there never was a second
+// tick to skip a wait in in the non-veto path. tests/loop_engine_test.
+// cpp's own T10 (close_latched_consumer_keeps_stepping_waits_still_
+// happen) is the machine proof: it is UNCHANGED by this commit and
+// goes green because the code under it changed (L-20's own red-before-
+// green shape).
 //
-// ORDER INSIDE loop_step() (D-W6b-44, migrated here verbatim from
-// loop_facade.cpp): (1) pump the system's own events; (2) read
-// close_requested() - see this file's own comment on THAT line for
-// why this is a separate concern from run()'s own close check; (3) if
-// the LAST present() skipped a hidden window, wait a fixed budget, pump
-// again; (4) if a frame-rate cap is set, wait for it (hybrid budget:
-// wait_events() in coarse chunks, then a bounded spin for the last
-// <= 1 ms); (5) read the clock; (6) build the tick via the pure atom
-// (frame_tick_state.hpp). ORDER INSIDE loop_run() (D-W6b-54): loop_
-// step() -> (on_event, reserved) -> on_frame -> if should_render:
-// on_render -> loop_present().
+// WHAT THIS FILE DOES NOT DO, stated so nobody infers it from an
+// absence: does NOT honor gltfx_loop_callbacks::destroy_context (S1b -
+// loop_callbacks_validation still refuses it by name); does NOT change
+// any other observable behavior of gltfx_loop's own public methods.
+//
+// ORDER INSIDE loop_step() (D-W6b-44 steps 1/3/4/5/6 - step 2, the
+// close_requested() read above, is GONE as of S3, so this list keeps
+// the surviving steps' own original numbers rather than renumbering
+// and silently hiding that a step was removed): (1) pump the system's
+// own events; (3) if the LAST present() skipped a hidden window, wait
+// a fixed budget, pump again - unconditionally, whether or not a close
+// is pending; (4) if a frame-rate cap is set, wait for it (hybrid
+// budget: wait_events() in coarse chunks, then a bounded spin for the
+// last <= 1 ms) - same, unconditionally; (5) read the clock; (6) build
+// the tick via the pure atom (frame_tick_state.hpp). ORDER INSIDE
+// loop_run() (D-W6b-54): loop_step() -> (on_event, reserved) ->
+// on_frame -> if should_render: on_render -> loop_present() -> only
+// THEN check close_requested().
 //
 // THE CLOCK IS INJECTED (D-LF-4) - a fourth port, loop_clock_port
 // (loop_ports.hpp), with a single `now()` member. Production:
@@ -151,39 +174,38 @@ template <class D, class W, class C, class K>
         return gltfx_rslt<gltfx_frame_tick>::err(pumped.err());
     }
 
-    // Step 2 (D-W6b-44). LOOP-CLOSE-LATCH-SPIN (TODO.md, S3, the NEXT
-    // sub-fatia): this read is the defect - tests/loop_engine_test.cpp
-    // T10 is red BECAUSE of it. close_requested() is a one-way latch
-    // (window_state.hpp): once armed, it never resets, so from the
-    // very first close request onward this branch is permanently
-    // false, and steps 3/4 below (the hidden-window sleep, the
-    // frame-rate cap) stop running FOREVER, even while a consumer that
-    // vetoed the close keeps calling step() - the loop spins without
-    // ever waiting again. S3 removes this read; nothing else in this
-    // function changes.
-    const bool closing = ports.window.close_requested();
+    // Step 2 used to be a close_requested() read here that gated steps
+    // 3/4 below - REMOVED by LOOP-CLOSE-LATCH-SPIN (S3, this file's own
+    // top comment has the full "why": close_requested() is a one-way
+    // latch (window_state.hpp), so gating on it here made both waits
+    // stop running FOREVER after the first close request, even for a
+    // consumer that vetoes the close and keeps stepping - loop_run()'s
+    // own close check (below, after this tick's on_frame/on_render/
+    // loop_present() already ran) is already what ends the loop on the
+    // non-veto path, so this read never bought more than one skipped
+    // wait, once, on the way out.
 
-    if (!closing) {
-        // Step 3: last present() skipped a hidden window - wait with a
-        // fixed budget, pump again, before this tick's own probe
-        // (below) decides visibility.
-        if (book.last_present == gltfx_present_outcome::skipped_hidden) {
-            if (const gltfx_rslt<void> waited = wait_while_hidden(ports.display);
-                waited.has_error()) {
-                return gltfx_rslt<gltfx_frame_tick>::err(waited.err());
-            }
+    // Step 3 (D-W6b-44): last present() skipped a hidden window - wait
+    // with a fixed budget, pump again, before this tick's own probe
+    // (below) decides visibility. Runs on EVERY tick now, close pending
+    // or not - a pending-but-vetoed close still needs the compositor
+    // fed while it waits for the consumer to decide.
+    if (book.last_present == gltfx_present_outcome::skipped_hidden) {
+        if (const gltfx_rslt<void> waited = wait_while_hidden(ports.display); waited.has_error()) {
+            return gltfx_rslt<gltfx_frame_tick>::err(waited.err());
         }
+    }
 
-        // Step 4: a frame-rate cap, if the consumer asked for one (P7)
-        // - coexists with vsync (whichever is slower wins, by
-        // construction: this loop never touches vsync at all).
-        const std::uint32_t cap_hz = ports.context.frame_rate_cap_hz();
-        if (cap_hz > 0) {
-            if (const gltfx_rslt<void> capped =
-                    wait_for_frame_cap(ports.display, book.cap_schedule, cap_hz, ports.clock);
-                capped.has_error()) {
-                return gltfx_rslt<gltfx_frame_tick>::err(capped.err());
-            }
+    // Step 4 (D-W6b-44): a frame-rate cap, if the consumer asked for
+    // one (P7) - coexists with vsync (whichever is slower wins, by
+    // construction: this loop never touches vsync at all). Also runs
+    // on every tick now, for the same reason as step 3 above.
+    const std::uint32_t cap_hz = ports.context.frame_rate_cap_hz();
+    if (cap_hz > 0) {
+        if (const gltfx_rslt<void> capped =
+                wait_for_frame_cap(ports.display, book.cap_schedule, cap_hz, ports.clock);
+            capped.has_error()) {
+            return gltfx_rslt<gltfx_frame_tick>::err(capped.err());
         }
     }
 

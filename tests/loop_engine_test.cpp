@@ -60,8 +60,9 @@ struct engine_fixture {
     fake_loop_clock clock;
     glintfx::platform::loop_book book;
 
-    using ports_t = glintfx::platform::loop_ports<fake_loop_display, glintfx::platform::window_state,
-                                                  fake_loop_context, fake_loop_clock>;
+    using ports_t =
+        glintfx::platform::loop_ports<fake_loop_display, glintfx::platform::window_state,
+                                      fake_loop_context, fake_loop_clock>;
 
     [[nodiscard]] ports_t ports() noexcept {
         return ports_t{.display = display, .window = window, .context = context, .clock = clock};
@@ -205,8 +206,7 @@ GLINTFX_TEST(hidden_tick_runs_on_frame_skips_on_render_and_index_still_grows) {
     GLINTFX_CHECK(on_frame_indices == expected_indices);
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::on_render), 1);
     GLINTFX_CHECK_EQ(fx.log.count(loop_event::swap), 1);
-    std::println(
-        "hidden_tick_runs_on_frame_skips_on_render_and_index_still_grows: 2 of 2 cell(s)");
+    std::println("hidden_tick_runs_on_frame_skips_on_render_and_index_still_grows: 2 of 2 cell(s)");
 }
 
 GLINTFX_TEST(render_tick_is_on_render_then_present_and_the_outcome_feeds_the_next_tick) {
@@ -229,9 +229,9 @@ GLINTFX_TEST(render_tick_is_on_render_then_present_and_the_outcome_feeds_the_nex
     // Tique 1: on_frame -> on_render -> swap, nessa ordem.
     const std::vector<loop_event> full_sequence = fx.log.sequence();
     const std::vector<loop_event> first_six(full_sequence.begin(), full_sequence.begin() + 6);
-    const std::vector<loop_event> expected_first_six = {
-        loop_event::pump, loop_event::clock, loop_event::probe, loop_event::on_frame,
-        loop_event::on_render, loop_event::swap};
+    const std::vector<loop_event> expected_first_six = {loop_event::pump,      loop_event::clock,
+                                                        loop_event::probe,     loop_event::on_frame,
+                                                        loop_event::on_render, loop_event::swap};
     GLINTFX_CHECK(first_six == expected_first_six);
 
     // Tique 2: entregue (on_frame roda), mas NAO desenha - a formula de
@@ -250,8 +250,8 @@ GLINTFX_TEST(render_tick_is_on_render_then_present_and_the_outcome_feeds_the_nex
 GLINTFX_TEST(present_error_returns_unchanged_and_stops_the_loop) {
     engine_fixture fx;
     const glintfx::gltfx_err_code code = glintfx::gltfx_err_code::platform_failure;
-    fx.context.arm_swap_sequence(
-        {gltfx_rslt<gltfx_present_outcome>::err(glintfx::gltfx_err(code).with_rejected_value("swap"))});
+    fx.context.arm_swap_sequence({gltfx_rslt<gltfx_present_outcome>::err(
+        glintfx::gltfx_err(code).with_rejected_value("swap"))});
     fx.display.close_on_pump(3, fx.window); // rede de seguranca, nunca dispara
 
     gltfx_loop_callbacks callbacks{};

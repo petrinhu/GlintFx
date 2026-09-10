@@ -50,11 +50,15 @@ MANIFEST_RELATIVE_PATH = os.path.join("tests", "wait_points.txt")
 # abrir/bombear a conexao e apresentar um quadro, mais o atomo
 # compartilhado que a fatia desta drenagem extraiu (bounded_output_
 # wait.cpp - ver o cabecalho dele: a duplicacao da MESMA espera em dois
-# arquivos e' o que deixou o gemeo do defeito original vivo). src/
-# platform/loop/ (LOOP-RUN, docs/plano-w6b-fatias-6-8.md) ainda nao
-# existe nesta arvore - quando nascer, entra aqui como arquivo novo,
-# nunca antecipado (tests/wait_points.txt's own header comment repete
-# a mesma regra do lado do manifesto).
+# arquivos e' o que deixou o gemeo do defeito original vivo), mais
+# src/platform/loop/loop_facade.cpp (LOOP-RUN fatia 6b, docs/plano-w6b-
+# fatias-6-8.md D-W6b-58/sec. 8.2: "e, na 6b, o giro de ate 1 ms sobre
+# gltfx_now() em src/platform/loop/, classe teto-nosso, mais as
+# leituras de relogio do step(), classe nao-espera") - o unico arquivo
+# deste diretorio que chama gltfx_now() fora de um teste (frame_tick_
+# state.cpp/frame_cap_schedule.cpp sao atomos puros, chamados COM um
+# gltfx_time_point ja pronto pelo chamador, nunca lendo o relogio eles
+# mesmos).
 # Forma canonica com "/" - a MESMA forma que tests/wait_points.txt usa
 # no campo `arquivo` (o manifesto e' um arquivo de texto versionado,
 # nunca escreve "\"). os.path.join() aqui produziria "\" no Windows e
@@ -71,6 +75,7 @@ TARGET_FILES = (
     "src/platform/wayland/bounded_output_wait.cpp",
     "src/platform/win32/display_adapter.cpp",
     "src/platform/win32/wgl_context_adapter.cpp",
+    "src/platform/loop/loop_facade.cpp",
 )
 
 # docs/plano-w6b-fatias-6-8.md, D-W6b-58 - a lista fixada ANTES do dado

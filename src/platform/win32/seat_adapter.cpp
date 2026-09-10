@@ -113,6 +113,20 @@ LRESULT CALLBACK seat_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lpa
         // classify_device_change() (device_change_message.cpp) applies
         // both guards win-seat.md sec. 1.3 requires before this adapter
         // ever treats it as an arrival or removal.
+
+        // DIAGNOSTIC (seat_adapter.hpp's own record_device_change_block()
+        // comment, 10/09/2026, team-lead's own follow-up request):
+        // records whether a block arrived at all and its own
+        // dbch_devicetype, BEFORE classify_device_change() applies its
+        // verdict - the same read that function performs internally,
+        // duplicated here ONLY for observability, never as a second
+        // source of truth the adapter itself acts on.
+        // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
+        const auto *diagnostic_header = reinterpret_cast<const DEV_BROADCAST_HDR *>(lparam);
+        adapter->record_device_change_block(
+            diagnostic_header != nullptr,
+            diagnostic_header != nullptr ? diagnostic_header->dbch_devicetype : 0);
+
         // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: same idiom as GWLP_USERDATA above
         const auto kind = classify_device_change(wparam, reinterpret_cast<const void *>(lparam));
         if (kind != device_change_kind::none) {
@@ -254,6 +268,11 @@ WNDPROC win32_seat_adapter::previous_wndproc() const noexcept { return m_previou
 void win32_seat_adapter::record_raw_message(UINT msg, WPARAM wparam) noexcept {
     m_last_raw_message = msg;
     m_last_raw_wparam = wparam;
+}
+
+void win32_seat_adapter::record_device_change_block(bool has_block, DWORD devicetype) noexcept {
+    m_last_device_change_block_present = has_block;
+    m_last_device_change_block_devicetype = devicetype;
 }
 
 int win32_seat_adapter::device_notification_count() const noexcept {

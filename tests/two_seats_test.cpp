@@ -88,6 +88,10 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
                  static_cast<unsigned long>(second_seat.last_raw_message()));
     std::fprintf(stdout, "MEASURED two_seats_test.diag_last_raw_wparam=%lu\n",
                  static_cast<unsigned long>(second_seat.last_raw_wparam()));
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_block_present=%d\n",
+                 second_seat.last_device_change_block_present() ? 1 : 0);
+    std::fprintf(stdout, "MEASURED two_seats_test.diag_block_devicetype=%lu\n",
+                 static_cast<unsigned long>(second_seat.last_device_change_block_devicetype()));
     GLINTFX_CHECK(second_seat.last_device_change() == device_change_kind::arrival);
 
     second_seat.close();

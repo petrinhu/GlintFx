@@ -268,6 +268,24 @@ class win32_seat_adapter {
     [[nodiscard]] UINT last_raw_message() const noexcept { return m_last_raw_message; }
     [[nodiscard]] WPARAM last_raw_wparam() const noexcept { return m_last_raw_wparam; }
 
+    // DIAGNOSTIC SEAM addendum (10/09/2026, team-lead's own follow-up
+    // request): whether the LAST WM_DEVICECHANGE this window procedure
+    // saw carried a non-null lParam block at all, and if so, what
+    // dbch_devicetype it named. record_raw_message() above already
+    // answers "did the message arrive"; this answers the OTHER guard
+    // classify_device_change() applies - a message that arrived with
+    // wParam == DBT_DEVICEARRIVAL but a block naming some OTHER
+    // dbch_devicetype (or no block at all) would look identical to
+    // "never arrived" from last_device_change() alone, and this is
+    // what tells the two apart.
+    void record_device_change_block(bool has_block, DWORD devicetype) noexcept;
+    [[nodiscard]] bool last_device_change_block_present() const noexcept {
+        return m_last_device_change_block_present;
+    }
+    [[nodiscard]] DWORD last_device_change_block_devicetype() const noexcept {
+        return m_last_device_change_block_devicetype;
+    }
+
   private:
     void recompute_capabilities() noexcept;
 
@@ -280,6 +298,8 @@ class win32_seat_adapter {
     std::uint64_t m_last_change = 0;
     UINT m_last_raw_message = 0;
     WPARAM m_last_raw_wparam = 0;
+    bool m_last_device_change_block_present = false;
+    DWORD m_last_device_change_block_devicetype = 0;
 };
 
 } // namespace glintfx::platform

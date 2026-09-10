@@ -208,6 +208,16 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
                  static_cast<unsigned long long>(seat.last_raw_message()));
     std::println("MEASURED seat_test.diag_last_raw_wparam={}",
                  static_cast<unsigned long long>(seat.last_raw_wparam()));
+    // DIAGNOSTIC addendum (team-lead's own follow-up, 10/09/2026): the
+    // OTHER guard classify_device_change() applies - did the block
+    // arrive at all, and with which dbch_devicetype. A message that
+    // arrived with the right wParam but a block naming some OTHER
+    // devicetype (or no block at all) would look identical to "never
+    // arrived" from last_device_change() alone.
+    std::println("MEASURED seat_test.diag_block_present={}",
+                 seat.last_device_change_block_present() ? 1 : 0);
+    std::println("MEASURED seat_test.diag_block_devicetype={}",
+                 static_cast<unsigned long long>(seat.last_device_change_block_devicetype()));
     GLINTFX_CHECK(seat.last_raw_message() == WM_DEVICECHANGE);
     GLINTFX_CHECK(seat.last_raw_wparam() == static_cast<WPARAM>(DBT_DEVICEARRIVAL));
 

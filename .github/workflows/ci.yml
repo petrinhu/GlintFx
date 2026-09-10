@@ -978,28 +978,33 @@ jobs:
   # rodava, com um artefato de execucao anterior sendo consumido por
   # coincidencia, se algum ficasse retido). Acrescentar `wayland-
   # container` a este `needs` e' o que torna a dependencia real: o
-  # scheduler do GitHub Actions so inicia `parity` depois que os tres
+  # scheduler do GitHub Actions so inicia `parity` depois que os
+  # quatro (`lint` incluido desde PARITY-LINT-INV, 09/09/2026)
   # terminam, ordem correta ou nao entre eles.
   #
   # Uniao, nao interseccao, dentro de cada sistema: cada leg da
   # matriz `linux` (Fedora/Ubuntu/Arch/CachyOS x compartilhado/
-  # estatico), cada leg de `windows`, e agora tambem o job `wayland-
-  # container` publicou seu proprio inventario (parity-inv-linux-N /
-  # parity-inv-windows-N / parity-inv-linux-container, N = strategy.
-  # job-index); a comparacao e entre TODO teste que roda em QUALQUER
-  # leg Linux (incluindo o que o container executou de verdade) contra
-  # TODO teste que roda em QUALQUER leg Windows - um nome que existe
-  # so numa distro Linux (nao em todas) ainda conta como "existe do
-  # lado Linux" para este portao, que compara SISTEMAS, nao distros.
-  # Perda declarada (ja no relatorio desta fatia, e ainda verdadeira
-  # depois do P-0): uma lacuna exclusiva de UMA distro dentro do lado
-  # Linux fica invisivel aqui, escondida dentro da uniao - o container
-  # e' mais uma fonte dentro do MESMO lado "Linux" da uniao, nao uma
-  # dimensao nova de comparacao, entao ele nao fecha nem agrava esse
+  # estatico), cada leg de `windows`, o job `wayland-container`, e
+  # agora tambem o job `lint` (PARITY-LINT-INV, 09/09/2026) publicam
+  # cada um seu proprio inventario (parity-inv-linux-N /
+  # parity-inv-windows-N / parity-inv-linux-container /
+  # parity-inv-linux-lint, N = strategy.job-index - `lint` nao e
+  # matriz, entao usa nome literal em vez de indice); a comparacao e
+  # entre TODO teste que roda em QUALQUER leg Linux (incluindo o que o
+  # container executou de verdade e o que `lint` registrou com as tres
+  # ferramentas de analise presentes) contra TODO teste que roda em
+  # QUALQUER leg Windows - um nome que existe so numa distro Linux
+  # (nao em todas) ainda conta como "existe do lado Linux" para este
+  # portao, que compara SISTEMAS, nao distros. Perda declarada (ja no
+  # relatorio desta fatia, e ainda verdadeira depois do P-0): uma
+  # lacuna exclusiva de UMA distro dentro do lado Linux fica invisivel
+  # aqui, escondida dentro da uniao - o container e o `lint` sao mais
+  # uma fonte dentro do MESMO lado "Linux" da uniao, nao uma dimensao
+  # nova de comparacao, entao nenhum dos dois fecha nem agrava esse
   # ponto cego especifico.
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
-    needs: [linux, windows, wayland-container]
+    needs: [linux, windows, wayland-container, lint]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
@@ -1737,6 +1742,41 @@ jobs:
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --lint-only
+
+      # PARITY-LINT-INV (TODO.md, GODS_LAWS.md L-04/L-40, 09/09/2026):
+      # `preci_selftest` (tests/CMakeLists.txt, if(UNIX)) so se registra
+      # quando clang-format/clang-tidy/cppcheck estao TODOS presentes -
+      # e o job `linux` (Fedora/Ubuntu/Arch/CachyOS, os quatro legs que
+      # publicam `parity-inv-linux-*`) instala so a cadeia de compilacao
+      # pura, nunca as tres ferramentas, por desenho (evitar reprovacao
+      # espuria por ferramenta ausente numa perna que nao existe para
+      # isso). So este job `lint` tem as tres, mas nunca publicava
+      # inventario nenhum - a lacuna nao era falta de ferramenta, era
+      # falta de PUBLICACAO. Rota escolhida das tres que o item deixava
+      # escritas: publicar o inventario deste job (rota "a"), NUNCA
+      # instalar as tres ferramentas nos quatro legs de `linux` (rota
+      # "b") - custo medido antes de escolher: `build-preci` (BUILD_DIR
+      # de tools/preci.sh) ja SAI configurado e buildado do passo
+      # "preci.sh --lint-only" acima (run_lint_only chama stage_configure
+      # em tools/preci.sh:1589 e stage_build em :1591), entao `ctest -N`
+      # aqui custa segundos sem nenhum configure/build extra; a rota "b" pagaria
+      # clang-tools-extra+cppcheck (minutos de instalacao LLVM) em
+      # QUATRO jobs a mais, so para um teste que ja tem casa
+      # propria aqui. `if: always()` e o mesmo padrao do job `linux`
+      # (ctest -N sobrevive a --lint-only reprovar, GODS_LAWS.md L-40:
+      # o job `parity` decide o que fazer com Total Tests: 0, este
+      # passo so grava).
+      - name: Inventario de paridade (lint)
+        if: always()
+        run: ctest --test-dir build-preci -N > parity_inventory.txt
+
+      - name: Publicar inventario de paridade (lint)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: parity-inv-linux-lint
+          path: parity_inventory.txt
+          retention-days: 7
 
   # LACUNA 2 (GODS_LAWS.md L-04, medido pelo lider antes desta fatia):
   # o job `lint` acima roda em Fedora/Linux - src/platform/CMakeLists.txt

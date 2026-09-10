@@ -279,39 +279,6 @@ window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FAL
 # comportamento e cobertura, nao (GODS_LAWS.md L-04).
 window_active_after_map_smoke|windows|win32_facade_pin_test (GWLP_USERDATA lido a cada mensagem) + win32_iconic_present_test.cpp:75 (SW_SHOWNOACTIVATE) + win32_message_translation_test.cpp:110-133 (traducao de WM_ACTIVATE)|FACADE-PIN
 
-# --- Lacuna real, TEMPORARIA por divisao de trabalho dos jobs do
-# servidor (05/09/2026, mesma estreia, item PARITY-LINT-INV) -----------
-#
-# preci_win_selftest existe no Windows e falta no lado Linux da uniao
-# que a paridade le - mas o gemeo Linux EXISTE de verdade, so nao
-# aparece onde este portao olha: preci_selftest (tests/CMakeLists.txt,
-# if(UNIX)) so se registra quando clang-format/clang-tidy/cppcheck
-# estao TODOS presentes, e os quatro trabalhos da matriz `linux` que
-# PUBLICAM inventario (Fedora/Ubuntu/Arch/CachyOS) instalam so a
-# cadeia de compilacao pura, nunca as tres. Quem tem as tres e' o
-# trabalho `lint` dedicado - que nunca publica `parity-inv-linux-*`.
-# Nao e falta de ferramenta por acidente: e a propria separacao entre
-# "trabalhos que compilam e testam" e "trabalho que analisa" que este
-# servidor usa hoje. PRECI-SELFTEST-CI (TODO.md, ✅ Concluido) NAO
-# cobre isto - aquele item so garante que `tools/preci.sh --selftest`
-# RODE em algum lugar (o que ja acontece dentro do job `lint`), nunca
-# que o CASO `preci_selftest` entre no inventario que a paridade
-# consome; apontar esta excecao para ele reprovaria pela propria regra
-# deste arquivo ("concluido sem par").
-#
-# ⚠️ MORTE DESTA LINHA (o que precisa acontecer, para o proximo leitor
-# nao deixar virar permanente por inercia): UMA das tres rotas que
-# PARITY-LINT-INV ja deixa escritas - (a) o job `lint` passa a
-# publicar o proprio `parity-inv-linux-lint`; (b) o registro de
-# `preci_selftest` deixa de depender da presenca das tres ferramentas
-# (ex.: degradar pra aviso em vez de nao registrar, como DEPZERO-
-# SHALLOW ja fez noutro portao); ou (c) o lider decide que a
-# assimetria e permanente por desenho e esta linha vira SEM-PENDENCIA
-# com a razao escrita - a UNICA das tres que NAO fecha PARITY-LINT-INV
-# como esta hoje. Enquanto nenhuma das tres acontecer, esta linha e' a
-# unica coisa que mantem o portao verde para este nome.
-preci_win_selftest|linux|preci_selftest (tests/CMakeLists.txt if(UNIX), existe e roda de verdade quando as tres ferramentas de analise estao presentes - nao aparece nas legs que hoje publicam inventario de paridade)|PARITY-LINT-INV
-
 # --- Lacuna real, TEMPORARIA por falta de runner Windows proprio
 # (09/09/2026, CORE-LOG CL-7) ---------------------------------------
 #

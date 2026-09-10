@@ -62,6 +62,22 @@
 # hooks that never classify `docs/*.md` as public, and never run on
 # the server). Same take-no-flag-to-skip-it shape as the two gates
 # above.
+#
+# FORMAT-GATE-COMMIT (GODS_LAWS.md L-23 portao 1 / L-24 / L-36/L-40,
+# 10/09/2026, LOOP-FMT-CLASS): a fourth gate, tests/tools/
+# check_format.py --staged, closes the same "only caught on the
+# server" shape ONE MORE TIME, this time for clang-format compliance -
+# the CI job `Lint` reproved by "code should be clang-formatted"
+# THREE times in one day (runs 34511755389, 34516285084, 34518300110),
+# each fix treating only the one file the server had just pointed at,
+# never the class. Implementer agents run in a container without
+# clang-format installed (GODS_LAWS.md L-51 forbids installing one
+# without authorization) - check_format.py's own header documents why
+# THAT ONE case DECLARES a loud banner and lets the commit through
+# instead of blocking it (the job `Lint`, which always has
+# clang-format, stays the second net for that case only); every other
+# case (tool present, file staged dirty) reproves same as the other
+# three gates.
 
 set -eu
 
@@ -78,4 +94,5 @@ fi
 
 "$python_bin" "$repo_root/tests/tools/check_dep_zero.py" --staged "$repo_root"
 "$python_bin" "$repo_root/tests/tools/check_spdx.py" "$repo_root"
-exec "$python_bin" "$repo_root/tests/tools/check_dash_pubdoc.py" "$repo_root"
+"$python_bin" "$repo_root/tests/tools/check_dash_pubdoc.py" "$repo_root"
+exec "$python_bin" "$repo_root/tests/tools/check_format.py" --staged "$repo_root"

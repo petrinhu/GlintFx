@@ -86,19 +86,23 @@ later, silently start compiling against a different glintfx than the one
 that was tested - the failure mode ranges from a compiler error to a
 runtime bug with no compile-time signal at all.
 
-**The first version has been tagged: `v0.2.0.0`, pushed 05/09/2026.** It
-is not accompanied by a formal GitHub Release (checked directly against
-the repository: no entry exists on the releases page as of this
-writing) - the tag's own annotated message (`git show v0.2.0.0` on a
-clone) is the authoritative description of what it marks, not a
-release-notes page. Its own `CHANGELOG.md` has not been updated to
-reflect it either: every entry still sits under `[Unreleased]`, a known
-gap, not silently accepted as done.
+**Nine versions have been tagged so far; the most recent is
+`v0.3.7.0`, cut 10/09/2026** (`v0.2.0.0` through `v0.3.7.0` - run
+`git tag --list` against a clone to see all of them). None is
+accompanied by a formal GitHub Release (checked directly against
+the repository: no entry exists on the releases page for any tag as
+of this writing) - each tag's own annotated message (`git show
+<tag>` on a clone) is the authoritative description of what it
+marks, not a release-notes page. Its own `CHANGELOG.md` has fallen
+behind again: its most recent dated section is `[0.3.0.0]`, and the
+seven tags published after it (`v0.3.1.0` through `v0.3.7.0`) have
+no entry there yet, a known gap tracked in `TODO.md`, not silently
+accepted as done.
 
 Pin `GIT_TAG` to the tag name directly:
 
 ```bash
-GIT_TAG v0.2.0.0
+GIT_TAG v0.3.7.0
 ```
 
 A raw commit hash still works in the same field (find one with
@@ -112,9 +116,9 @@ number itself tells you what changed - full rules in the README's
 ["Versioning and compatibility"](README.md#versioning-and-compatibility)
 section (a human-oriented walkthrough of the same material lives in the
 project's [wiki](https://github.com/petrinhu/GlintFx/wiki/Pinning-a-Version)).
-**`v0.2.0.0` still carries the pre-1.0 caveat above: `MAJOR` is `0`,
-`SOVERSION` is `0`, and there is no cross-version compatibility promise
-until `1.0.0.0`.**
+**Every tag published so far still carries the pre-1.0 caveat above:
+`MAJOR` is `0`, `SOVERSION` is `0`, and there is no cross-version
+compatibility promise until `1.0.0.0`.**
 
 ## Working inside this repository
 

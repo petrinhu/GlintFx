@@ -249,7 +249,16 @@ GLINTFX_TEST(classify_ignores_broadcast_wparam_and_null_block) {
 // learn.microsoft.com/windows-hardware/drivers/install/comparison-of-
 // setup-classes-and-interface-classes, for a type-blind one).
 GLINTFX_TEST(classify_reports_arrival_and_removal_for_device_interface_blocks) {
+    // dbch_size set even though classify_device_change() itself never
+    // reads it (only dbch_devicetype) - kept correct here for the same
+    // reason tests/seat_test.cpp's own "ROOT CAUSE FOUND" comment
+    // fixed it there: a synthetic DEV_BROADCAST_HDR that violates its
+    // own documented contract (learn.microsoft.com/windows/win32/api/
+    // dbt/ns-dbt-dev_broadcast_hdr#members) is a latent trap for
+    // whoever next reuses this exact block through SendMessageW,
+    // regardless of whether THIS call site happens to dodge it.
     DEV_BROADCAST_HDR device_interface_header{};
+    device_interface_header.dbch_size = sizeof(device_interface_header);
     device_interface_header.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
 
     GLINTFX_CHECK(classify_device_change(DBT_DEVICEARRIVAL, &device_interface_header) ==
@@ -258,6 +267,7 @@ GLINTFX_TEST(classify_reports_arrival_and_removal_for_device_interface_blocks) {
                   device_change_kind::removal);
 
     DEV_BROADCAST_HDR volume_header{};
+    volume_header.dbch_size = sizeof(volume_header);
     volume_header.dbch_devicetype = DBT_DEVTYP_VOLUME;
 
     GLINTFX_CHECK(classify_device_change(DBT_DEVICEARRIVAL, &volume_header) ==

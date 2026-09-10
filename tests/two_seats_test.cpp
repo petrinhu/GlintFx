@@ -78,7 +78,16 @@ GLINTFX_TEST(two_seats_in_one_process_have_independent_registrations) {
     // its sibling closed - proves the routing itself (GWLP_USERDATA/
     // GWLP_WNDPROC, per-window) never depended on the sibling being
     // alive.
+    // dbch_size is a REQUIRED member (learn.microsoft.com/windows/
+    // win32/api/dbt/ns-dbt-dev_broadcast_hdr#members - "dbch_size: The
+    // size of this structure, in bytes"), never defaulted - the root
+    // cause found on server run 34435823776 (tests/seat_test.cpp's own
+    // "ROOT CAUSE FOUND" comment on the identical pattern): leaving it
+    // at the aggregate-init default of 0 made SendMessageW itself
+    // refuse the call with ERROR_INVALID_PARAMETER, so the message
+    // never reached seat_window_proc at all.
     DEV_BROADCAST_HDR arrival_block{};
+    arrival_block.dbch_size = sizeof(arrival_block);
     arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
 
     // DIAGNOSTIC, second round (server run 34434559496 - see tests/

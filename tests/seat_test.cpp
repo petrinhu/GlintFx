@@ -178,7 +178,21 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
     // reads dbch_devicetype off this block - the class GUID is
     // irrelevant to routing, only to WHICH registration the real system
     // would have fired this notification from.
+    //
+    // ROOT CAUSE FOUND (server run 34435823776, team-lead's own
+    // instruction to research before coding, GODS_LAWS.md L-22/L-43):
+    // dbch_size is a REQUIRED member, documented verbatim by Microsoft
+    // (learn.microsoft.com/windows/win32/api/dbt/ns-dbt-dev_broadcast_
+    // hdr#members - "dbch_size: The size of this structure, in bytes")
+    // - never optional, never defaulted. Leaving it at the aggregate-
+    // init default of 0 is exactly why the first two diagnostic rounds
+    // (this file's own comments below) measured SendMessageW itself
+    // refusing the call with ERROR_INVALID_PARAMETER (87): the message
+    // never reached seat_window_proc at all, so nothing downstream of
+    // it - classify_device_change(), the subclass, GWLP_USERDATA - was
+    // ever the defect.
     DEV_BROADCAST_HDR arrival_block{};
+    arrival_block.dbch_size = sizeof(arrival_block);
     arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
 
     // DIAGNOSTIC (server run 34432463346 found this exact check failing
@@ -244,6 +258,7 @@ GLINTFX_TEST(win32_seat_adapter_routes_a_synthetic_wm_devicechange_to_itself) {
     GLINTFX_CHECK(seat.last_device_change() == device_change_kind::arrival);
 
     DEV_BROADCAST_HDR removal_block{};
+    removal_block.dbch_size = sizeof(removal_block);
     removal_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
     ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEREMOVECOMPLETE,
                    reinterpret_cast<LPARAM>(&removal_block));
@@ -267,13 +282,19 @@ GLINTFX_TEST(capability_events_count_the_initial_read_and_each_device_change) {
     GLINTFX_CHECK(seat.open(display).has_value());
     GLINTFX_CHECK(seat.last_change() == 1);
 
+    // dbch_size set (see win32_seat_adapter_routes_a_synthetic_wm_
+    // devicechange_to_itself's own "ROOT CAUSE FOUND" comment above) -
+    // required by DEV_BROADCAST_HDR's own documented contract, and the
+    // reason SendMessageW itself refused this call before the fix.
     DEV_BROADCAST_HDR arrival_block{};
+    arrival_block.dbch_size = sizeof(arrival_block);
     arrival_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
     ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEARRIVAL,
                    reinterpret_cast<LPARAM>(&arrival_block));
     GLINTFX_CHECK(seat.last_change() == 2);
 
     DEV_BROADCAST_HDR removal_block{};
+    removal_block.dbch_size = sizeof(removal_block);
     removal_block.dbch_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
     ::SendMessageW(seat.native_handle(), WM_DEVICECHANGE, DBT_DEVICEREMOVECOMPLETE,
                    reinterpret_cast<LPARAM>(&removal_block));

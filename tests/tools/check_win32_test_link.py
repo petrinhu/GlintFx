@@ -51,7 +51,11 @@
 #
 # CADA FUNCAO ABAIXO FAZ UMA COISA (GODS_LAWS.md L-17):
 #   extract_win32_test_targets()   - le tests/CMakeLists.txt, devolve os
-#                                     alvos win32_* com suas fontes/libs
+#                                     alvos APLICAVEIS ao Windows (WIN-
+#                                     CROSS-STAGE S6: incondicional +
+#                                     if(WIN32), nunca if(UNIX)/if(NOT
+#                                     WIN32)) com suas fontes/libs, mais
+#                                     a contagem de exclusao por motivo
 #   collect_win32_library_layout() - le os src/**/CMakeLists.txt, segue
 #                                     add_subdirectory() simulando WIN32,
 #                                     devolve as fontes/libs da propria
@@ -143,17 +147,27 @@ def _strip_cmake_comments_from_text(text):
 
 def _tokenize_cmake_args(raw_text):
     """Tokens de uma lista de argumentos CMake (o meio de um target_
-    sources(...)/target_link_libraries(...) capturado por regex),
-    aceitando tanto tokens entre aspas ("${PROJECT_SOURCE_DIR}/src/...")
-    quanto tokens nus (version.cpp, user32) - as duas formas coexistem
-    entre tests/CMakeLists.txt e src/**/CMakeLists.txt."""
+    sources(...)/target_link_libraries(...)/target_compile_definitions(
+    ...) capturado por regex), aceitando tanto tokens entre aspas
+    ("${PROJECT_SOURCE_DIR}/src/...") quanto tokens nus (version.cpp,
+    user32) - as duas formas coexistem entre tests/CMakeLists.txt e
+    src/**/CMakeLists.txt. `shlex.split()` (modo POSIX, default) ja
+    remove a aspa dupla que ENVOLVE um token inteiro - achado ao
+    escrever WIN-CROSS-STAGE S6 (10/09/2026, ao extrair target_compile_
+    definitions pela primeira vez neste arquivo): o `.strip('"')` extra
+    que costumava vir depois disto era redundante no caso comum e
+    ATIVAMENTE ERRADO no caso de um token cujo VALOR de verdade termina
+    em aspa literal (`GLTFX_X_SOURCE="...arquivo.hpp\\""` vira, depois
+    de shlex.split, `GLTFX_X_SOURCE="...arquivo.hpp"` - com a aspa
+    final fazendo parte do DADO, nao um envelope; `.strip('"')` comia
+    essa aspa de dado por engano, tarde demais para reconstruir).
+    Removido - shlex.split() sozinho ja e o parser certo aqui."""
     tokens = []
     for line in raw_text.splitlines():
         stripped = _strip_cmake_comment(line).strip()
         if not stripped:
             continue
-        for tok in shlex.split(stripped):
-            tokens.append(tok.strip('"'))
+        tokens.extend(shlex.split(stripped))
     return tokens
 
 
@@ -191,70 +205,119 @@ def _extract_call_args(text, func_name, target_name):
 # --- 1. extract_win32_test_targets: tests/CMakeLists.txt -----------------
 
 
-# So "if(" abre um NIVEL novo de aninhamento - "elseif("/"else()" sao o
-# MESMO nivel do "if(" que os precede (um ramo alternativo, nao um
-# bloco aninhado), e um "endif()" fecha exatamente o nivel do "if("
-# mais recente. Contar "elseif(" como abertura (erro corrigido antes de
-# rodar contra a arvore real, achado em teste manual: o bloco se(WIN32)/
-# elseif(BUILD_SHARED_LIBS)/else()/endif() de tests/CMakeLists.txt
-# nunca fechava, porque cada "elseif(" empurrava a profundidade de novo
-# e o UNICO endif() do bloco so tirava um nivel) faria _find_matching_
-# endif() nunca encontrar o endif() certo em qualquer bloco if/elseif/
-# else real.
-_IF_OPEN_RE = re.compile(r"^\s*if\s*\(")
+# WIN-CROSS-STAGE S6 (D-4, plano em /var/tmp/glintfx-plan/win-cross-
+# stage.md): antes desta fatia, so' os glintfx_add_test() dentro de um
+# if(WIN32) contavam (15 hoje) - os 65 incondicionais (fora de
+# qualquer if) NUNCA passavam pelo cl.exe local, e foi exatamente ai
+# que 5edd6bf escondeu um defeito de teste que so' o servidor viu.
+# Passa a devolver TODO glintfx_add_test() aplicavel ao Windows:
+# incondicional OU dentro de if(WIN32); EXCLUI so' o que esta
+# EXPLICITAMENTE sob if(UNIX)/if(NOT WIN32) - as unicas duas formas
+# que algum dia citam UNIX/WIN32 ao redor de um glintfx_add_test() em
+# toda a arvore de tests/CMakeLists.txt hoje (medido: `if(elseif(else`
+# ao redor de add_test so' usa "WIN32", "UNIX" ou nenhuma - nunca "NOT
+# WIN32" na pratica, mas a forma e reconhecida do mesmo jeito, para o
+# dia em que alguem escrever uma).
+#
+# Reusa o MESMO walker se/elseif/else/endif por profundidade que
+# collect_win32_library_layout() ja usa mais abaixo (_IF_RE/_ELSEIF_RE/
+# _ELSE_RE/_ENDIF_RE, definidos logo depois desta funcao neste mesmo
+# modulo - Python resolve nomes de modulo em tempo de CHAMADA, nao de
+# definicao, entao a ordem textual nao importa aqui).
+_ADD_TEST_ANY_RE = re.compile(r"glintfx_add_test\(\s*(\w+)\s*\)")
+# Reaproveitado por collect_win32_library_layout() mais abaixo tambem
+# (_add_subdirectory_calls_for_win32) - UM so' padrao de "endif()" para
+# o arquivo inteiro, nunca dois padroes divergentes por acidente.
 _ENDIF_RE = re.compile(r"^\s*endif\s*\(\s*\)\s*$")
-_WIN32_IF_RE = re.compile(r"^\s*if\s*\(\s*WIN32\s*\)\s*$")
-_ADD_TEST_RE = re.compile(r"glintfx_add_test\(\s*(\w+)\s*\)")
 
 
-def _find_matching_endif(lines, if_line_idx):
-    depth = 1
-    i = if_line_idx + 1
-    while i < len(lines):
-        if _IF_OPEN_RE.match(lines[i]):
-            depth += 1
-        elif _ENDIF_RE.match(lines[i]):
-            depth -= 1
-            if depth == 0:
-                return i
-        i += 1
-    return None
+def _excludes_windows(condition_text):
+    """True so' para as duas formas literais que EXCLUEM Windows
+    (GODS_LAWS.md L-40: reconhecer de MENOS e' o lado seguro aqui - um
+    alvo que deveria ser excluido e nao foi e' descoberto na hora de
+    ligar (rc de link real), um alvo que sumiu por engano nunca seria
+    descoberto por ninguem)."""
+    return condition_text.strip() in ("UNIX", "NOT WIN32")
 
 
 def extract_win32_test_targets(cmake_text):
-    """Cada glintfx_add_test(<nome>) dentro de um bloco if(WIN32) de
-    tests/CMakeLists.txt, com as fontes extras (target_sources) e libs
-    extras (target_link_libraries) que o MESMO bloco declara para ele -
-    a "receita" real que cmake/GlintfxTest.cmake usa para montar cada
-    executavel de teste. Zero alvos e piso vazio (GODS_LAWS.md L-40),
-    verificado pelo chamador (run_link_check), nao aqui - esta funcao so
-    reporta o que encontrou."""
-    lines = _strip_cmake_comments_from_text(cmake_text).splitlines()
+    """(targets, exclusion_counts) - targets e' TODO glintfx_add_test()
+    aplicavel ao Windows (incondicional + if(WIN32)), cada um com as
+    fontes extras (target_sources) e libs extras (target_link_
+    libraries) que o MESMO nome de alvo declara EM QUALQUER LUGAR do
+    arquivo (busca global por nome, nao mais so' dentro do bloco
+    if(WIN32) - convencao real deste projeto: target_sources/target_
+    link_libraries de um alvo sempre citam o MESMO nome que o
+    glintfx_add_test() dele, nunca um nome diferente). exclusion_counts
+    e' um dict {condicao_textual: quantidade} dos alvos EXCLUIDOS por
+    if(UNIX)/if(NOT WIN32) - sempre presente, mesmo vazio (piso de
+    FORMATO, GODS_LAWS.md L-40: o chamador confere sources+excluidos ==
+    total bruto). Zero alvos aplicaveis e' piso vazio, verificado pelo
+    chamador (run_link_check), nao aqui - esta funcao so reporta o que
+    encontrou."""
+    stripped_text = _strip_cmake_comments_from_text(cmake_text)
+    lines = stripped_text.splitlines()
     targets = []
+    exclusion_counts = {}
+    stack = []
+
     i = 0
     while i < len(lines):
-        if _WIN32_IF_RE.match(lines[i]):
-            end = _find_matching_endif(lines, i)
-            if end is None:
-                fail(
-                    f"if(WIN32) sem endif() correspondente em tests/CMakeLists.txt, "
-                    f"linha {i + 1} - arvore malformada, gate recusado antes de tentar ligar nada"
-                )
-            block_text = "\n".join(lines[i + 1 : end])
-            for match in _ADD_TEST_RE.finditer(block_text):
+        line = lines[i]
+        if_match = _IF_RE.match(line)
+        elseif_match = _ELSEIF_RE.match(line)
+        else_match = _ELSE_RE.match(line)
+        endif_match = _ENDIF_RE.match(line)
+        if if_match:
+            stack.append(if_match.group(1).strip())
+        elif elseif_match:
+            if not stack:
+                fail(f"elseif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack[-1] = elseif_match.group(1).strip()
+        elif else_match:
+            if not stack:
+                fail(f"else() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack[-1] = "__else__"
+        elif endif_match:
+            if not stack:
+                fail(f"endif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
+            stack.pop()
+        else:
+            for match in _ADD_TEST_ANY_RE.finditer(line):
                 name = match.group(1)
-                raw_sources = _extract_call_args(block_text, "target_sources", name)
+                excluding = [c for c in stack if _excludes_windows(c)]
+                if excluding:
+                    reason = excluding[-1]
+                    exclusion_counts[reason] = exclusion_counts.get(reason, 0) + 1
+                    continue
+                raw_sources = _extract_call_args(stripped_text, "target_sources", name)
+                raw_defines = _extract_call_args(stripped_text, "target_compile_definitions", name)
                 targets.append(
                     {
                         "name": name,
                         "sources": [_resolve_project_source_dir_token(s) for s in raw_sources],
-                        "libs": _extract_call_args(block_text, "target_link_libraries", name),
+                        "libs": _extract_call_args(stripped_text, "target_link_libraries", name),
+                        # target_compile_definitions - achado ao rodar S6 contra a
+                        # arvore real (10/09/2026): dois alvos "oracle" (log_
+                        # field_test, gfss_declaration_registry_doc_oracle_test)
+                        # citam macro GLTFX_..._SOURCE apontando para o proprio
+                        # arquivo-fonte deles, via ${PROJECT_SOURCE_DIR} - resolvido
+                        # para /src (o mount do container), igual sources/libs.
+                        # O VALOR nunca precisa ser um caminho Windows valido: este
+                        # estagio nunca EXECUTA o binario (S5), so compila - a
+                        # macro so precisa ser uma string literal valida em tempo
+                        # de compilacao.
+                        "defines": [
+                            d.replace("${PROJECT_SOURCE_DIR}", "/src") for d in raw_defines
+                        ],
                     }
                 )
-            i = end + 1
-        else:
-            i += 1
-    return targets
+        i += 1
+
+    if stack:
+        fail(f"tests/CMakeLists.txt termina com {len(stack)} bloco(s) if() sem endif() correspondente")
+
+    return targets, exclusion_counts
 
 
 # --- 2. collect_win32_library_layout: src/**/CMakeLists.txt --------------
@@ -635,26 +698,80 @@ def build_library_dll(image, repo_root, scratch, sources, libs, generated_gl_sou
     }
 
 
+# --- 4b. build_harness_objects (WIN-CROSS-STAGE S6, otimizacao condicionada) -
+#
+# ANTES desta fatia, link_one_test() recompilava as MESMAS 3 fontes do
+# harness (tests/harness/*.cpp) em TODO alvo - 15 vezes hoje, dezenas
+# depois que extract_win32_test_targets() passou a devolver todo alvo
+# aplicavel (nao so os win32_*). Condicao medida em 10/09/2026 (nao
+# adivinhada, GODS_LAWS.md L-43: criterio antes do dado): o tempo TOTAL
+# do estagio win32-link ja era MAIOR que o do stage_sanitizer da mesma
+# rodada ANTES desta fatia expandir a contagem de alvos - `tools/
+# preci.sh --win32-link-only` mediu 110.7s com 15 alvos; `time tools/
+# preci.sh --sanitizer-only` mediu 83.3s. Por isso a otimizacao entra
+# JUNTO com a expansao de escopo desta fatia, nao como passo separado
+# condicionado a uma comparacao em tempo de execucao (a condicao que o
+# plano descreve ja estava satisfeita pelo medido, e so fica mais
+# verdadeira com mais alvos).
+_HARNESS_SOURCES = (
+    "/src/tests/harness/harness_main.cpp",
+    "/src/tests/harness/check.cpp",
+    "/src/tests/harness/test_registry.cpp",
+)
+_HARNESS_OBJ_NAMES = ("harness_main.obj", "check.obj", "test_registry.obj")
+
+
+def build_harness_objects(image, repo_root, scratch, timeout_seconds):
+    """UMA chamada docker (GODS_LAWS.md L-11) que compila o harness uma
+    unica vez; os .obj resultantes sao reusados por link_one_test() em
+    TODO alvo, em vez de cada alvo recompilar as mesmas 3 fontes."""
+    objs_dir = os.path.join(scratch, "objs_harness")
+    os.makedirs(objs_dir, exist_ok=True)
+    source_args = " ".join(shlex.quote(s) for s in _HARNESS_SOURCES)
+    command = (
+        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX /c "
+        "/I /src/include /I /build/generated_include /I /src/src "
+        "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 "
+        '/Fo"/build/objs_harness/" '
+        f"{source_args}"
+    )
+    returncode, stdout, stderr, elapsed, timed_out = _run_docker(
+        image, repo_root, scratch, command, timeout_seconds
+    )
+    ok = (
+        not timed_out
+        and returncode == 0
+        and all(os.path.isfile(os.path.join(objs_dir, n)) for n in _HARNESS_OBJ_NAMES)
+    )
+    return {
+        "ok": ok,
+        "returncode": returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "elapsed": elapsed,
+        "timed_out": timed_out,
+        "obj_paths": [f"/build/objs_harness/{n}" for n in _HARNESS_OBJ_NAMES] if ok else [],
+    }
+
+
 # --- 5. link_one_test -------------------------------------------------------
 
 
-def link_one_test(image, repo_root, scratch, target, timeout_seconds):
+def link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs=None):
     """UMA chamada `cl ... /link glintfx.lib <libs>` por alvo - o
-    harness (tests/harness/*.cpp) mais o proprio <nome>.cpp mais as
-    fontes extras que tests/CMakeLists.txt lista para ESTE alvo
-    (cmake/GlintfxTest.cmake's own glintfx_add_test(): todo teste linca
-    glintfx::glintfx inteiro E o proprio <nome>.cpp - o target_sources
-    extra e sempre uma segunda compilacao de arquivo(s) de src/, nunca
-    substitui esses dois)."""
+    harness (tests/harness/*.cpp, ou os .obj pre-compilados por
+    build_harness_objects() quando `harness_objs` e' dado - cl aceita
+    misturar .cpp e .obj na mesma linha de comando) mais o proprio
+    <nome>.cpp mais as fontes extras que tests/CMakeLists.txt lista
+    para ESTE alvo (cmake/GlintfxTest.cmake's own glintfx_add_test():
+    todo teste linca glintfx::glintfx inteiro E o proprio <nome>.cpp -
+    o target_sources extra e sempre uma segunda compilacao de
+    arquivo(s) de src/, nunca substitui esses dois)."""
     name = target["name"]
-    harness_sources = [
-        "/src/tests/harness/harness_main.cpp",
-        "/src/tests/harness/check.cpp",
-        "/src/tests/harness/test_registry.cpp",
-    ]
+    harness_inputs = list(harness_objs) if harness_objs else list(_HARNESS_SOURCES)
     test_source = f"/src/tests/{name}.cpp"
     extra_sources = [f"/src/{src}" for src in target["sources"]]
-    all_sources = harness_sources + [test_source] + extra_sources
+    all_sources = harness_inputs + [test_source] + extra_sources
 
     objs_dir = os.path.join(scratch, f"objs_{name}")
     os.makedirs(objs_dir, exist_ok=True)
@@ -662,11 +779,18 @@ def link_one_test(image, repo_root, scratch, target, timeout_seconds):
     lib_flags = " ".join(f"{lib}.lib" for lib in dict.fromkeys(target["libs"]))
     source_args = " ".join(shlex.quote(s) for s in all_sources)
     link_clause = f"/link /LIBPATH:/build glintfx.lib {lib_flags}".rstrip()
+    # shlex.quote() na flag /D INTEIRA (nao so no valor): o valor pode
+    # conter aspas literais (macro de string, "..." dentro do proprio
+    # /D), e precisam chegar ao cl.exe intactas - shlex.quote() decide
+    # sozinho a forma mais segura de preservar isso pelo bash -c do
+    # container (mesma tecnica ja usada para source_args acima).
+    define_flags = " ".join(shlex.quote(f"/D{d}") for d in target.get("defines", []))
 
     command = (
         "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX "
         "/I /src/include /I /build/generated_include /I /src/src "
         "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 "
+        f"{define_flags + ' ' if define_flags else ''}"
         f'/Fo"/build/objs_{name}/" /Fe"/build/{name}.exe" '
         f"{source_args} {link_clause}"
     )
@@ -874,11 +998,18 @@ def _not_measured_block_ok(text):
     return has_version_line and not_measured_count >= 6
 
 
-def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados):
+def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos):
     cl_version = _read_cl_version(image, repo_root, timeout_seconds)
     version_text = cl_version if cl_version else "desconhecida (nao foi possivel ler 'cl' no container)"
+    # WIN-CROSS-STAGE S6 fechou: extract_win32_test_targets() ja devolve
+    # TODO alvo aplicavel, entao a diferenca contra a contagem bruta de
+    # texto (`grep -c 'glintfx_add_test('`) nunca mais e' "nao
+    # exercitado" - e' so' a soma de duas coisas estruturais: exclusao
+    # explicita (if(UNIX)/if(NOT WIN32)) e as poucas linhas de
+    # comentario/prosa que citam a chamada sem invoca-la (5 em
+    # 10/09/2026). Declarado como o que E, nunca mais como pendencia.
     raw_add_test_count = _raw_add_test_grep_count(repo_root)
-    nao_exercitados = raw_add_test_count - alvos_encontrados
+    ruido_comentario = raw_add_test_count - alvos_encontrados - alvos_excluidos
     lines = [
         f"{SCRIPT_NAME}: compilador deste estagio: cl.exe {version_text} - o servidor usa o MSVC de "
         "`windows-latest`, versao lida so no log do CI, NUNCA presumida igual"
@@ -886,14 +1017,16 @@ def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrado
     for item in _NOT_MEASURED_ITEMS:
         lines.append(f"{SCRIPT_NAME}: NAO MEDIDO AQUI: {item}")
     lines.append(
-        f"{SCRIPT_NAME}: NAO MEDIDO AQUI: alvos multiplataforma nao exercitados={nao_exercitados} "
-        "(ate WIN-CROSS-STAGE S6 fechar - ver TODO.md WIN-CROSS-TESTS-LINK)"
+        f"{SCRIPT_NAME}: NAO MEDIDO AQUI: {raw_add_test_count} ocorrencia(s) bruta(s) de "
+        f"'glintfx_add_test(' no arquivo = {alvos_encontrados} aplicavel(is) e ligado(s) aqui + "
+        f"{alvos_excluidos} excluido(s) estruturalmente (if(UNIX)/if(NOT WIN32)) + {ruido_comentario} "
+        "mencao(oes) em comentario/prosa (nunca invocam a chamada de verdade)"
     )
     return "\n".join(lines)
 
 
-def print_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados):
-    text = build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados)
+def print_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos):
+    text = build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos)
     if not _not_measured_block_ok(text):
         fail(
             "bloco 'NAO MEDIDO AQUI' malformado (GODS_LAWS.md L-40 aplicado ao formato do resumo) - "
@@ -942,23 +1075,25 @@ def new_summary():
         "ligados": 0,
         "falharam": 0,
         "ambiente": 0,
+        "exclusion_counts": {},
         "tempo_total_s": 0.0,
     }
 
 
 def run_link_check(repo_root, image, timeout_seconds):
     cmake_text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
-    targets = extract_win32_test_targets(cmake_text)
+    targets, exclusion_counts = extract_win32_test_targets(cmake_text)
 
     summary = new_summary()
     summary["alvos_encontrados"] = len(targets)
+    summary["exclusion_counts"] = exclusion_counts
     errors = []
     detalhes_lnk = []
 
     if len(targets) == 0:
         errors.append(
-            "varredura vazia: nenhum glintfx_add_test() dentro de um bloco if(WIN32) em "
-            "tests/CMakeLists.txt - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca "
+            "varredura vazia: nenhum glintfx_add_test() aplicavel ao Windows (incondicional ou "
+            "if(WIN32)) em tests/CMakeLists.txt - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca "
             "de 'nenhum teste win32 existe'"
         )
         return summary, errors
@@ -1008,8 +1143,24 @@ def run_link_check(repo_root, image, timeout_seconds):
             )
             return summary, errors
 
+        # WIN-CROSS-STAGE S6: harness compilado UMA vez, reusado por
+        # todo alvo (ver o comentario de build_harness_objects()). Se
+        # ele falhar, e' pre-requisito ausente igual a DLL - nenhum
+        # alvo chega a ser tentado, mesma contabilizacao "ambiente".
+        harness_result = build_harness_objects(image, repo_root, scratch, timeout_seconds)
+        summary["tempo_total_s"] += harness_result["elapsed"]
+        if not harness_result["ok"]:
+            summary["ambiente"] = len(targets)
+            reason = "timeout" if harness_result["timed_out"] else f"rc={harness_result['returncode']}"
+            errors.append(
+                f"harness (pre-requisito de todo alvo) nao compilou ({reason}):\n"
+                f"{stderr_tail(harness_result['stdout'] + harness_result['stderr'])}"
+            )
+            return summary, errors
+        harness_objs = harness_result["obj_paths"]
+
         for target in targets:
-            result = link_one_test(image, repo_root, scratch, target, timeout_seconds)
+            result = link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_objs)
             summary["tempo_total_s"] += result["elapsed"]
             classification, note = classify_link_result(result)
             if classification == "ligou":
@@ -1042,12 +1193,21 @@ def run_link_check(repo_root, image, timeout_seconds):
 # --- 7. print_summary -------------------------------------------------------
 
 
+def _format_exclusion_counts(exclusion_counts):
+    if not exclusion_counts:
+        return "nenhum"
+    return ", ".join(f"{cond}={n}" for cond, n in sorted(exclusion_counts.items()))
+
+
 def print_summary(summary):
+    total_pulados = sum(summary["exclusion_counts"].values())
     print(
         f"{SCRIPT_NAME}: alvos encontrados={summary['alvos_encontrados']} | "
         f"fontes biblioteca encontradas={summary['fontes_biblioteca_encontradas']} | "
         f"ligados={summary['ligados']} | falharam={summary['falharam']} | "
-        f"ambiente={summary['ambiente']} | tempo total (s)={summary['tempo_total_s']:.1f}"
+        f"ambiente={summary['ambiente']} | pulados={total_pulados} por: "
+        f"{_format_exclusion_counts(summary['exclusion_counts'])} | "
+        f"tempo total (s)={summary['tempo_total_s']:.1f}"
     )
 
 
@@ -1104,7 +1264,13 @@ def real_main(repo_root, image, timeout_seconds, strict=False):
     # WIN-CROSS-STAGE S5: SEMPRE impresso, com ou sem --strict, com ou
     # sem erro no gate normal - e' declaracao de escopo, nao resultado
     # de teste.
-    print_not_measured_block(image, abs_repo_root, timeout_seconds, summary["alvos_encontrados"])
+    print_not_measured_block(
+        image,
+        abs_repo_root,
+        timeout_seconds,
+        summary["alvos_encontrados"],
+        sum(summary["exclusion_counts"].values()),
+    )
 
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
@@ -1126,6 +1292,10 @@ def real_main(repo_root, image, timeout_seconds, strict=False):
 
 
 def _selftest_parsing_positive():
+    # WIN-CROSS-STAGE S6: as TRES formas reais que tests/CMakeLists.txt
+    # usa ao redor de glintfx_add_test() - incondicional (fake_gamma_
+    # test, sem nenhum if ao redor), if(WIN32) (fake_alpha_test) e
+    # if(UNIX) (fake_delta_test, tem que ser EXCLUIDO, nunca ligado).
     cmake_text = """
 if(WIN32)
     glintfx_add_test(fake_alpha_test)
@@ -1136,21 +1306,39 @@ if(WIN32)
     )
     target_link_libraries(fake_alpha_test PRIVATE user32 gdi32)
 endif()
+
+glintfx_add_test(fake_gamma_test)
+target_sources(fake_gamma_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/common/gamma.cpp"
+)
+
+if(UNIX)
+    glintfx_add_test(fake_delta_test)
+    target_sources(fake_delta_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/delta.cpp"
+    )
+endif()
 """
-    targets = extract_win32_test_targets(cmake_text)
+    targets, exclusion_counts = extract_win32_test_targets(cmake_text)
+    names = sorted(t["name"] for t in targets)
+    by_name = {t["name"]: t for t in targets}
     ok = (
-        len(targets) == 1
-        and targets[0]["name"] == "fake_alpha_test"
-        and targets[0]["sources"] == [
+        names == ["fake_alpha_test", "fake_gamma_test"]
+        and by_name["fake_alpha_test"]["sources"] == [
             "src/platform/win32/alpha.cpp",
             "src/platform/win32/beta.cpp",
         ]
-        and targets[0]["libs"] == ["user32", "gdi32"]
+        and by_name["fake_alpha_test"]["libs"] == ["user32", "gdi32"]
+        and by_name["fake_gamma_test"]["sources"] == ["src/common/gamma.cpp"]
+        and exclusion_counts == {"UNIX": 1}
     )
     if not ok:
-        print(f"selftest: PARSING-POSITIVO FALHOU: {targets}", file=sys.stderr)
+        print(
+            f"selftest: PARSING-POSITIVO FALHOU: targets={targets} exclusion_counts={exclusion_counts}",
+            file=sys.stderr,
+        )
         return False
-    print(f"selftest: PARSING-POSITIVO OK: {targets}")
+    print(f"selftest: PARSING-POSITIVO OK: targets={names} exclusion_counts={exclusion_counts}")
     return True
 
 
@@ -1163,9 +1351,13 @@ if(WIN32)
     message(STATUS "nada aqui")
 endif()
 """
-    targets = extract_win32_test_targets(cmake_text)
-    if targets != []:
-        print(f"selftest: PARSING-VAZIO FALHOU (esperava lista vazia): {targets}", file=sys.stderr)
+    targets, exclusion_counts = extract_win32_test_targets(cmake_text)
+    if targets != [] or exclusion_counts != {}:
+        print(
+            f"selftest: PARSING-VAZIO FALHOU (esperava lista vazia): targets={targets} "
+            f"exclusion_counts={exclusion_counts}",
+            file=sys.stderr,
+        )
         return False
     print("selftest: PARSING-VAZIO OK (bloco if(WIN32) sem glintfx_add_test, lista vazia)")
     return True

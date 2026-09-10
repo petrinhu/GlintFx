@@ -2975,3 +2975,36 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **A régua que ele fixou ANTES do dado, e que vale como critério:** a matriz de teste foi de 6 para 28 casos ao dobrar as formas. **Se na implementação passar de ~35, é regra cruzada entrando pela porta dos fundos, e a fatia volta ao planejamento** em vez de crescer calada.
 
 **Achado preservado por exigência do orquestrador:** a sobrecarga apagada **NÃO é** o mecanismo que recusa objeto temporário - o parâmetro de referência não-constante já recusa sozinho, medido removendo a sobrecarga e vendo o teste seguir verde. Ela fica apenas pela mensagem de erro, e o comentário no código diz isso, para o próximo leitor não confundir enfeite com mecanismo.
+
+#### D-091013 — ORDEM DO LÍDER: marca `v0.4.0.0` ao fim, limpeza autorizada, entrega só com tudo verde  `[10/09/26 - 16:44:47]`
+
+**Não é decisão autônoma. É do líder**, 10/09/2026, verbatim: *"pode ir. E tag 0.4.0.0 no final. Autorizo apagar build/tmp no final, merge se precisar, push. So me entregue com tudo verde"*.
+
+**O que ele autorizou, item a item:** (a) executar o trabalho das camadas sem parar a cada passo; (b) **marcar `v0.4.0.0`** no fim; (c) apagar o material de compilação e o temporário ao fim; (d) juntar ao tronco se preciso, e publicar; (e) **condição única de aceite: tudo verde**.
+
+**A objeção que EU levantei antes, e como ele resolveu:** ele escreveu primeiro *"tag 4.0.0.0"*. Apontei que isso pularia as versões 1, 2 e 3 e prometeria ao consumidor externo uma estabilidade que a biblioteca não tem - antes da 1.0, quem muda a promessa mexe no SEGUNDO número, não no primeiro, e é assim que a política de compatibilidade do próprio pacote está escrita. Ele confirmou **`v0.4.0.0`**.
+
+**O que a marca vai custar, escrito antes de acontecer, para ninguém confundir com falha:** o teste que finge ser um consumidor externo pede a versão `0.3` com política de menor igual; no instante em que a versão declarada virar `0.4.0.0`, esse teste e os dois irmãos dele **reprovam de propósito**, com "not compatible with the version requested", até a linha do pedido subir para `0.4` **no mesmo commit**. Isso é o portão funcionando, não regressão.
+
+**Restrição que continua valendo apesar do "autorizo apagar":** o laboratório da máquina virtual Windows (23 GB) está **fora de toda limpeza**, por ordem anterior dele, e a limpeza dos planos temporários depende de `PLANOS-TEMP-REFERENCIADOS` (INBOX) ser resolvido primeiro.
+
+#### D-091014 — ORDEM DO LÍDER: os planos de versão passam a viver no repositório  `[10/09/26 - 16:44:47]`
+
+**Não é decisão autônoma. É do líder**, 10/09/2026, por `AskUserQuestion`, ao ser perguntado onde o plano desta fatia deveria morar depois de pronto.
+
+**O problema que a pergunta trazia:** os planos das ondas viviam em diretório temporário da máquina, e temporário desaparece - já desapareceu duas vezes nesta sessão (a lente de produto, recuperada à mão; e a versão do plano que um implementador precisava, destruída por uma reescrita no mesmo caminho, que fez o trabalho dele parar).
+
+**A escolha dele: versionados no repositório.** Consequência aceita: o plano passa a ser lido pelos portões de texto do próprio repositório (travessão, documentação pública), e a proveniência dos itens deixa de apontar para fora da árvore.
+
+**Aplicação imediata:** o plano do laço vira `docs/plano-loop-callbacks.md` na sub-fatia de texto, e as 26 citações versionadas ao caminho temporário passam a apontar para ele.
+
+#### D-091015 — quatro decisões do CTO no lugar do líder, sob modo autônomo (D-LF-19 a D-LF-22)  `[10/09/26 - 16:44:47]`
+
+**Quem decidiu:** o `fable` (CTO), ao escrever o critério de fechamento e a prova ao vivo. **Modo autônomo em vigor** (ordem do líder, 10/09/2026: *"SIga como o modo em vigor"*), registro para ratificação retroativa.
+
+1. **D-LF-19 - o teste de janela escondida nasce como dois arquivos de mesmo nome, um de cada lado.** Razão medida: o container não tem o arcabouço de teste da casa, então o par não pode ser um arquivo só; o molde já existe e já foi aceito antes (o teste de dois monitores segue exatamente esse desenho).
+2. **D-LF-20 - o plano versionado se chamará `docs/plano-loop-callbacks.md` e fica FORA do portão de travessão**, porque a isenção do prefixo `plano-` já estava fechada antes desta fatia. **Mitigação que ele impôs a si mesmo:** a contagem de travessões é impressa mesmo assim, e hoje dá zero.
+3. **D-LF-21 - tolerar a troca de quadro no Windows sem placa dedicada**, pela regra de três fatores que o líder já aprovou para o teste de paridade do contexto gráfico; não é exceção nova, é a mesma régua aplicada ao caso irmão.
+4. **D-LF-22 - três lacunas declaradas e deliberadamente NÃO cobertas:** a asserção sobre o objeto do qual já se moveu o conteúdo (vai para a fila como item próprio), o veto ao vivo provado só pelo motor e não pela fachada, e a recusa de objeto temporário provada só por compilação. **O valor da decisão está em declará-las**: nenhuma delas é vendida como coberta.
+
+**Alerta dele que eu assumi:** as duas ordens do líder acima (D-091013 e D-091014) não estavam registradas quando ele escreveu o plano, e o plano as tratava como fato do briefing. Registradas agora, com o verbatim.

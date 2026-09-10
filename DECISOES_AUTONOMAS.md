@@ -2885,3 +2885,23 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Discrepância que eu não vou inventar para fechar:** o resumo final dele fala em seis decisões; o relatório nomeia cinco. Registro as cinco que ele nomeou. Se existir uma sexta, ela não foi escrita, e eu não a estou adivinhando.
 
 **Três medições pesadas ficaram para mim**, porque o portão de um trabalho pesado por vez estava ocupado: o tempo real do estágio, se o código de hoje sobrevive à exigência de aviso-como-erro, e quantos dos alvos de teste são aplicáveis ao Windows.
+
+#### D-091005 — o que foi decidido ao IMPLEMENTAR a troca de compilador do espelho local  `[10/09/26 - 05:55:00]`
+
+**Quem decidiu:** o implementador (`sonnet`), sob modo autônomo, executando o plano do CTO registrado em **D-091003**. Seis sub-fatias, seis commits. **Reconferido por mim antes de aceitar (L-12):** os dois autotestes verdes, e as 89 chamadas reais de alvo de teste batem exatamente com o número declarado por ele.
+
+**O delta real, que é o que o líder observa:** o compilador da Microsoft passa a examinar **80 alvos de teste, contra 15 antes**. Os 65 alvos multiplataforma nunca passavam por ele - e foi exatamente ali que um defeito escapou em 09/09 e só o servidor viu.
+
+**Decisões tomadas no lugar do líder, para ratificação retroativa:**
+
+1. **Ausência do ambiente de compilação passa a REPROVAR na rodada completa**, com uma exceção única, nomeada e impressa. Antes ela devolvia TUDO VERDE em silêncio - o implementador reproduziu esse defeito antes de consertá-lo, e a reprodução é a estreia vermelha do portão.
+2. **Tratar aviso como erro passa a valer nas duas invocações do compilador**, para o espelho local parar de ser mais frouxo que o servidor. **Medido antes de aplicar: o código de hoje sobrevive** - nada foi suprimido para caber na regra.
+3. **A família de conversão numérica entra apenas MEDINDO**, com contagem impressa, e hoje mede zero. **Transformá-la em reprovação continua sendo decisão do líder**, porque obrigaria mudar código de produto.
+4. **A verificação passa a cobrir todo alvo aplicável ao Windows**, com os pulos contados por motivo.
+
+**Duas decisões que ele tomou sozinho e nomeou como tal, e eu aceito as duas:**
+
+- O plano mandava construir uma comparação de tempo entre estágios antes de otimizar. Ele **mediu os dois separadamente** e viu que a condição já estava satisfeita, então aplicou a otimização direto em vez de construir a máquina de comparação. Efeito idêntico, uma peça a menos.
+- Achou, fora do escopo do plano, dois alvos que apontam para o próprio arquivo-fonte por um caminho que o plano não previa, mais um defeito latente na leitura desses argumentos. Consertou, **porque sem isso a própria prova da sub-fatia não fechava**. Corte de escopo ao contrário: ele ampliou, e a ampliação era necessária para a prova existir.
+
+**Erro de processo dele, corrigido no ato:** ficou parado esperando aviso de trabalho em segundo plano que nunca chega, em vez de ler o arquivo de código de saída que o próprio comando grava. É modo de falha conhecido desta casa. Aceitou a correção sem defesa.

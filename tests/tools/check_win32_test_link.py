@@ -809,12 +809,27 @@ def link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_ob
 
 # GODS_LAWS.md L-49: distingue ferramenta morrendo (timeout, codigo de
 # saida >=128 - um sinal matando o processo) de reprovacao LEGITIMA do
-# `link.exe` (LNK2019/LNK1120, codigo de saida pequeno e positivo - o
-# cl.exe real usa 2, nao 1, medido ao vivo nesta maquina antes de
-# escrever esta funcao). Uma reprovacao sem NENHUMA linha "LNK" no
-# texto tambem cai em "ambiente": o `link.exe` nao chegou a rodar (erro
-# de flag, arquivo ausente etc.), o que e um problema desta ferramenta/
-# receita, nunca do codigo sob teste.
+# `cl.exe`/`link.exe` (codigo de saida pequeno e positivo - o cl.exe
+# real usa 2, nao 1, medido ao vivo nesta maquina antes de escrever
+# esta funcao). Reprovacao legitima tem DUAS formas, nao uma: falha de
+# LINK (uma linha "LNK", ex. LNK2019/LNK1120) OU falha de COMPILACAO
+# (uma linha "error C<numero>", ex. C2220/C3861/C1083) - um erro de
+# compilacao acontece ANTES do link.exe rodar e por isso NUNCA carrega
+# "LNK" (medido ao vivo, 10/09/2026: `cl /W4 /WX` sobre fonte com
+# identificador inexistente sai com rc=2 e so' "error C3861", nenhuma
+# linha LNK; a mesma forma do achado real revertendo o guard
+# `#ifndef _MSC_VER` de tests/hostile_gawk_macros_shim.hpp, que produz
+# 573 avisos C4081 mais 1 "error C2220" e nenhuma linha LNK). A versao
+# anterior desta funcao classificava esse caso como "ambiente", o que
+# e' FALSO: e' exatamente o tipo de regressao real de codigo que este
+# portao existe para pegar. So' cai em "ambiente" a reprovacao que nao
+# tem NENHUMA das duas formas: nem "LNK" nem "error C<numero>" no
+# texto - ai' sim o cl.exe/link.exe nao chegou a produzir um
+# diagnostico de codigo (erro de flag, arquivo ausente etc.), problema
+# desta ferramenta/receita, nunca do codigo sob teste.
+_MSVC_COMPILE_ERROR_RE = re.compile(r"error C\d+\b")
+
+
 def classify_link_result(result):
     if result["timed_out"]:
         return "ambiente", "timeout da invocacao docker (GODS_LAWS.md L-49: ferramenta, nao codigo)"
@@ -828,11 +843,12 @@ def classify_link_result(result):
             f"codigo de saida {result['returncode']} (>=128, ferramenta morrendo - GODS_LAWS.md L-49)",
         )
     text = (result["stdout"] or "") + (result["stderr"] or "")
-    if "LNK" in text:
+    if "LNK" in text or _MSVC_COMPILE_ERROR_RE.search(text):
         return "falhou", None
     return (
         "ambiente",
-        f"codigo de saida {result['returncode']} sem nenhuma linha LNK - link.exe nao chegou a rodar",
+        f"codigo de saida {result['returncode']} sem linha LNK nem 'error C<numero>' - cl.exe/link.exe "
+        "nao chegou a produzir um diagnostico de codigo",
     )
 
 
@@ -1062,6 +1078,92 @@ def _selftest_not_measured_block_negative():
         )
         return False
     print("selftest: NOT-MEASURED-FORMATO-NEGATIVO OK (reprovado por faltar a linha de versao)")
+    return True
+
+
+def _fake_link_result(returncode, stdout="", stderr="", timed_out=False):
+    return {
+        "name": "fixture_sintetico",
+        "returncode": returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "elapsed": 0.0,
+        "timed_out": timed_out,
+    }
+
+
+# GODS_LAWS.md L-49: os quatro controles sinteticos abaixo cobrem a
+# distincao que WIN-CROSS-STAGE reprovou (classify_link_result()
+# classificando erro de COMPILACAO como "ambiente" so por nao ter
+# linha "LNK") sem depender do container/imagem - rodam sempre, mesmo
+# quando docker/glintfx-msvc:latest estao ausentes. O caso real com
+# cl.exe de verdade (LNK2019 e compilacao) mora em _selftest_real_
+# toolchain(), abaixo; estes sao a rede de seguranca rapida contra
+# REGRESSAO da propria classificacao.
+def _selftest_classify_compile_error_falhou():
+    # Mesma forma do achado real (broken.cpp(1): error C3861: ...) -
+    # rc pequeno e positivo, ZERO linhas "LNK".
+    result = _fake_link_result(2, stdout="broken.cpp(1): error C3861: 'x': identifier not found\n")
+    classification, note = classify_link_result(result)
+    if classification != "falhou":
+        print(
+            f"selftest: CLASSIFY-COMPILACAO-FALHOU FALHOU: esperava 'falhou', veio "
+            f"'{classification}' (nota={note})",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: CLASSIFY-COMPILACAO-FALHOU OK (error C sem LNK classifica 'falhou')")
+    return True
+
+
+def _selftest_classify_link_error_falhou():
+    result = _fake_link_result(
+        2,
+        stdout="main.obj : error LNK2019: unresolved external symbol\nout.exe : fatal error LNK1120: 1 unresolved externals\n",
+    )
+    classification, note = classify_link_result(result)
+    if classification != "falhou":
+        print(
+            f"selftest: CLASSIFY-LINK-FALHOU FALHOU: esperava 'falhou', veio '{classification}' (nota={note})",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: CLASSIFY-LINK-FALHOU OK (LNK2019/LNK1120 classifica 'falhou')")
+    return True
+
+
+def _selftest_classify_ambiente_sem_diagnostico():
+    # O lado OPOSTO que o conserto nao pode inverter: rc pequeno e
+    # positivo, mas SEM "LNK" e SEM "error C<numero>" - a forma real de
+    # um erro de linha de comando do proprio cl.exe (driver, nao
+    # compilador: "D8003" e' familia D, nunca C).
+    result = _fake_link_result(2, stdout="cl : Command line error D8003: missing source filename\n")
+    classification, note = classify_link_result(result)
+    if classification != "ambiente":
+        print(
+            f"selftest: CLASSIFY-AMBIENTE-SEM-DIAGNOSTICO FALHOU: esperava 'ambiente', veio "
+            f"'{classification}' (nota={note})",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: CLASSIFY-AMBIENTE-SEM-DIAGNOSTICO OK (sem LNK e sem error C continua 'ambiente')")
+    return True
+
+
+def _selftest_classify_ambiente_ferramenta_morrendo():
+    # O outro lado que ja funcionava antes do conserto (timeout e
+    # rc>=128) - continua intacto: nao pode virar "falhou" so porque um
+    # texto qualquer contem a substring "error" em algum lugar.
+    timeout_ok = classify_link_result(_fake_link_result(None, timed_out=True))[0] == "ambiente"
+    killed_ok = classify_link_result(_fake_link_result(139))[0] == "ambiente"
+    if not (timeout_ok and killed_ok):
+        print(
+            f"selftest: CLASSIFY-AMBIENTE-FERRAMENTA-MORRENDO FALHOU: timeout_ok={timeout_ok} "
+            f"killed_ok={killed_ok}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: CLASSIFY-AMBIENTE-FERRAMENTA-MORRENDO OK (timeout e rc>=128 continuam 'ambiente')")
     return True
 
 
@@ -1472,6 +1574,16 @@ def _build_link_fixture(scratch):
         "extern int fixture_internal_helper();\n"
         "int fixture_call_under_test() { return fixture_internal_helper(); }\n",
     )
+    # VERMELHO de COMPILACAO (a forma que o conserto de classify_link_
+    # result() acrescenta, GODS_LAWS.md L-49): identificador inexistente
+    # e' erro de COMPILACAO, nao de link - `cl.exe` nunca chega a
+    # invocar `link.exe`, entao o texto nao carrega nenhuma linha "LNK"
+    # (medido ao vivo, 10/09/2026, ver o comentario de classify_link_
+    # result()). Precisa classificar "falhou", nunca "ambiente".
+    _write(
+        os.path.join(root, "tests", "fixture_compile_error_test.cpp"),
+        "int fixture_call_under_test() { return fixture_this_identifier_does_not_exist(); }\n",
+    )
     return root
 
 
@@ -1517,6 +1629,35 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
         return False
     print(f"selftest: REAL-TOOLCHAIN VERMELHO OK (LNK2019 real citando fixture_internal_helper)")
 
+    # Segundo vermelho, forma DIFERENTE do primeiro (GODS_LAWS.md L-49):
+    # erro de COMPILACAO, nunca de link - prova que classify_link_
+    # result() classifica "falhou" mesmo sem nenhuma linha "LNK" no
+    # texto (o defeito que reprovou WIN-CROSS-STAGE classificava este
+    # caso como "ambiente").
+    compile_error_target = {"name": "fixture_compile_error_test", "sources": [], "libs": []}
+    compile_error_result = link_one_test(
+        image, fixture_root, build_scratch, compile_error_target, timeout_seconds
+    )
+    compile_error_class, compile_error_note = classify_link_result(compile_error_result)
+    if compile_error_class != "falhou":
+        print(
+            f"selftest: REAL-TOOLCHAIN FALHOU (erro de compilacao real classificado como "
+            f"'{compile_error_class}' em vez de 'falhou', nota={compile_error_note}) "
+            f"rc={compile_error_result['returncode']}\n"
+            f"{stderr_tail(compile_error_result['stdout'] + compile_error_result['stderr'])}",
+            file=sys.stderr,
+        )
+        return False
+    compile_error_combined = (compile_error_result["stdout"] or "") + (compile_error_result["stderr"] or "")
+    if "error C" not in compile_error_combined or "LNK" in compile_error_combined:
+        print(
+            f"selftest: REAL-TOOLCHAIN FALHOU (vermelho de compilacao nao tem a forma esperada - "
+            f"'error C<numero>' sem nenhuma linha LNK): {compile_error_combined}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: REAL-TOOLCHAIN VERMELHO-COMPILACAO OK (error C real, nenhuma linha LNK, classificado 'falhou')")
+
     linked_target = {
         "name": "fixture_linked_atom_test",
         "sources": ["src/atom_internal.cpp"],
@@ -1541,6 +1682,10 @@ def selftest_main(image, timeout_seconds):
         ("parsing-vazio", _selftest_parsing_empty_block()),
         ("not-measured-formato-positivo", _selftest_not_measured_block_positive()),
         ("not-measured-formato-negativo", _selftest_not_measured_block_negative()),
+        ("classify-compilacao-falhou", _selftest_classify_compile_error_falhou()),
+        ("classify-link-falhou", _selftest_classify_link_error_falhou()),
+        ("classify-ambiente-sem-diagnostico", _selftest_classify_ambiente_sem_diagnostico()),
+        ("classify-ambiente-ferramenta-morrendo", _selftest_classify_ambiente_ferramenta_morrendo()),
     ]
 
     scratch = tempfile.mkdtemp(prefix="glintfx-win32-link-selftest-", dir=os.environ.get("TMPDIR"))

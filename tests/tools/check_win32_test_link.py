@@ -610,7 +610,7 @@ def build_library_dll(image, repo_root, scratch, sources, libs, generated_gl_sou
     link_clause = f"/link {lib_flags}" if lib_flags else ""
 
     command = (
-        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /LD "
+        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX /LD "
         "/I /src/include /I /build/generated_include /I /src/src "
         f"{extra_include_flag}"
         "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 /Dglintfx_library_EXPORTS "
@@ -664,7 +664,7 @@ def link_one_test(image, repo_root, scratch, target, timeout_seconds):
     link_clause = f"/link /LIBPATH:/build glintfx.lib {lib_flags}".rstrip()
 
     command = (
-        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 "
+        "cl /nologo /std:c++latest /Zc:__cplusplus /EHsc /W4 /WX "
         "/I /src/include /I /build/generated_include /I /src/src "
         "/D_WIN32=1 /DWIN32=1 /D_WIN32_WINNT=0x0A00 "
         f'/Fo"/build/objs_{name}/" /Fe"/build/{name}.exe" '

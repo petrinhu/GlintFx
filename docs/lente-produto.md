@@ -63,18 +63,37 @@ Leitura das âncoras que guiou as sete notas abaixo: **portão de verificação 
 - **Redução de Risco 3:** um ponto acima do irmão, porque o lado Windows carrega a armadilha de **estado de processo**: consciência de DPI é por processo, e biblioteca pública não pode tomá-la do consumidor (a mesma classe de defeito que reabriu `WIN-SEAT` com `RegisterRawInputDevices`, `TODO.md:510`). A fatia é onde essa decisão se fixa e se testa, antes de virar promessa.
 - **Tamanho M:** mensagem de mudança de DPI, leitura de DPI por janela, mapeamento para o value type comum de escala, prova no servidor Windows.
 - **Conta:** `(5 + 3 + 3) / 3 = 11 / 3 = 3,67`.
-- **Onda:** está em W6b, mas o irmão está em W9 e a paridade os fecha juntos. Recomendo W9, ao lado de `WL-SCALE`. Decisão do orquestrador; a nota não muda com a onda.
+- **Onda:** estava em W6b com o irmão em W9; recomendei W9 e o líder aceitou (commit `9170e84`, 10/09/2026). A nota não mudou com a onda.
 
-### 4.2 `WIN-KEYTRANS` (`TODO.md:522`) - WSJF **7,00**
+### 4.2 `WIN-KEYTRANS` (`TODO.md:522`) - WSJF **13,00** e `WIN-KEYTRANS-COMPOSE` (`TODO.md:523`) - WSJF **7,00**
 
-- **Fato:** par Windows da trilha de teclado (`KEYMAP-LEX` até `KEYMAP-COMPOSE`, sete fatias, W11c-W12, todas entre 2,33 e 13,00); a descrição exige "o MESMO texto para a mesma tecla". Prerrequisito declarado: `WIN-SEAT` (fechado).
-- **Valor 8:** P2 é diretamente este item: campo de texto em Windows que produz o caractere certo para qualquer leiaute, tecla morta e AltGr. Sem ele, o consumidor Windows não tem texto digitado, e o Linux tem. É o maior valor das sete porque é a única que entrega capacidade nova visível ao consumidor.
-- **Criticidade 5:** a promessa pública de entrega igual nos dois sistemas (L-35 do projeto) fica quebrada para texto enquanto só um lado existe; nada em W6b espera, mas `gfui` com campo de texto espera.
-- **Redução de Risco 8:** a tradução de tecla no Windows tem armadilha conhecida de estado do teclado do kernel (consultar a tradução pode consumir a tecla morta pendente); descobrir isso depois de o `gfui` ter campo de texto custa retrabalho na fachada de entrada inteira. Fixar cedo o contrato "mesmo texto" com harness de paridade é a redução de risco.
-- **Tamanho M:** o sistema já faz o trabalho de leiaute; sobra a tradução, tecla morta, AltGr e a prova de paridade. `Dificuldade = Alta` está certa (armadilhas), o tamanho não é L (não se escreve interpretador aqui).
+**O que mudou (fato, commit `9170e84`, 10/09/2026):** o líder aceitou a recomendação de onda e a de divisão. A fatia inteira, que eu tinha pontuado em 7,00 (V8 C5 RR8 = CoD 21, M) na manhã do mesmo dia, foi para W11c com prerrequisito `WIN-INPUT` e se dividiu em duas linhas: a **metade simples** (`WIN-KEYTRANS`: tecla vira texto no caso comum) e a **metade difícil** (`WIN-KEYTRANS-COMPOSE`: tecla morta, combinação de terceiro nível, e o harness de paridade que prova que a MESMA tecla produz o MESMO texto nos dois sistemas). A nota de 7,00 **não vale para nenhuma das duas**: era para o conjunto, e nota se deriva, não se transpõe. As duas abaixo são derivadas do zero, pela mesma régua das outras sete.
+
+#### 4.2a `WIN-KEYTRANS`, a metade simples - WSJF **13,00**
+
+- **Fato:** prerrequisito `WIN-INPUT` (W9, 7,67, a metade de teclado). O irmão Wayland deste passo exato (tecla para texto sem tecla morta nem compose) é `KEYMAP-UTF8` (`TODO.md:330`, W11c, **13,00**), com `KEYMAP-MODSTATE` (`TODO.md:334`, W11c, 3,67) ao lado.
+- **Valor 5:** P2 em Windows passa a ter campo de texto que escreve letra, número e símbolo com shift, em qualquer leiaute que o sistema conheça. É a maior parte de tudo que se digita, e sem ela o Windows não tem texto nenhum enquanto o Linux tem. Não é 8 porque quem escreve em português, francês ou alemão bate na primeira letra acentuada e o campo falha (a própria `KEYMAP-COMPOSE`, `TODO.md:454`, registra que *"quem escreve em português, francês ou alemão sente na primeira tecla"*): para esses consumidores a capacidade fica visivelmente incompleta.
+- **Criticidade 5:** duas coisas concretas esperam por ela: a metade difícil (`WIN-KEYTRANS-COMPOSE`, item da tabela) e o campo de texto do `gfui` no Windows, que não existe sem o caso comum.
+- **Redução de Risco 3:** fixa o seam: em que ponto da entrada o texto nasce e que forma o evento público de texto tem. Errar isso custa retrabalho na metade difícil e na fachada de entrada. Não elimina a classe de divergência silenciosa entre os dois sistemas: isso é do harness, que está na outra metade.
+- **Tamanho S:** um seam (na mensagem de tecla, pedir ao sistema o texto daquela tecla sob os modificadores correntes e emitir o evento) e uma prova no servidor Windows com o leiaute que o servidor já tem. O sistema faz o trabalho de leiaute. Nada de tecla morta, nada de harness.
+- **Conta:** `(5 + 5 + 3) / 1 = 13,00`.
+- **Calibração:** igual ao irmão `KEYMAP-UTF8` (13,00), que é o mesmo passo visto do outro sistema; abaixo de `WIN-GL` (23,00), que era par de capacidade JÁ entregue no Wayland, e esta é par de capacidade que o Wayland só entrega em W11c; abaixo de `LOOP-RUN` (17,67). Acima das sete de W6b (teto 9,00) porque nenhuma delas entrega capacidade nova visível ao consumidor, e esta entrega por um ponto.
+
+#### 4.2b `WIN-KEYTRANS-COMPOSE`, a metade difícil - WSJF **7,00**
+
+- **Fato:** prerrequisitos declarados `WIN-INPUT` e `WIN-KEYTRANS`. **Achado de dependência não declarada:** o harness compara contra o interpretador de mapa de teclas do lado Wayland, e a perna de tecla morta desse interpretador é `KEYMAP-COMPOSE` (`TODO.md:454`, **W12**, 2,67); a perna de terceiro nível é `KEYMAP-MODSTATE` (W11c). Em W11c o harness tem contra o que provar terceiro nível, mas **não tem contra o que provar tecla morta**: esse lado só nasce em W12.
+- **Valor 8:** para o P2 com leiaute de tecla morta (português, francês, alemão, e o `us-intl` que muita gente usa) o campo de texto só funciona com esta metade; sem ela é a capacidade ausente, não reduzida. E o harness é o que o P1 mais pesa (§2: *"comportamento igual nos dois sistemas"*) tornado observável: sem ele, "mesmo texto" é esperança; com ele, é promessa provada a cada mudança de qualquer dos dois lados.
+- **Criticidade 5:** a promessa pública de entrega igual nos dois sistemas (L-35 do projeto) fica quebrada para texto até esta metade fechar; nenhum item da tabela espera por ela.
+- **Redução de Risco 8:** duas coisas. (a) A armadilha conhecida do Windows: consultar a tradução pode engolir a tecla morta pendente, e o acento seguinte sai errado; descobrir isso com o `gfui` já digitando custa retrabalho na entrada inteira. (b) O harness torna visível, antes de chegar ao consumidor, a classe de defeito que nenhum outro portão pega: os dois tradutores divergindo em silêncio, com o consumidor de teclado diferente do nosso descobrindo por último. Não é 13 pela mesma régua de 4.5: 13 é para classe com defeito já medido (o caso de 4.3), e aqui ainda não existe código para ter divergido.
+- **Tamanho M:** estado de tecla morta, terceiro nível, e o harness com leiaute-fixture igual nos dois lados (um leiaute com tecla morta carregado no servidor Windows e o mesmo leiaute em texto XKB no container). Não é L: não se escreve interpretador aqui, o sistema faz o leiaute; o que se escreve é a prova.
 - **Conta:** `(8 + 5 + 8) / 3 = 21 / 3 = 7,00`.
-- **Onda e prerrequisito, dois achados:** (a) não se traduz tecla que não chega: o prerrequisito real é a metade de teclado de `WIN-INPUT` (W9, 7,67), não `WIN-SEAT`; (b) pela paridade, a capacidade "tecla vira texto" só fecha quando o lado Wayland fechar, e isso é W11c (`KEYMAP-UTF8`/`KEYMAP-MODSTATE`) ou W12 (`KEYMAP-COMPOSE`). Recomendo **W11c**, com prerrequisito `WIN-INPUT`. Em W6b ela não tem o que traduzir.
-- **Divisão sugerida (L-17 do projeto):** tradução simples (S) e tecla morta mais AltGr com harness de paridade (M). Como um item só, a nota acima vale.
+- **Onda (recomendação, decisão do orquestrador; a nota não muda com a onda):** W12, ao lado de `KEYMAP-COMPOSE`, que é o irmão de nome e de assunto (*"Compose e tecla morta"*), com prerrequisitos `WIN-KEYTRANS`, `KEYMAP-MODSTATE`, `KEYMAP-COMPOSE`. Em W11c a perna de tecla morta do harness compararia contra nada. Alternativa se o orquestrador preferir manter W11c: declarar na linha que a perna de tecla morta do harness fecha em W12, para a onda não ser declarada fechada com o harness pela metade (o mesmo defeito que a lei de paridade existe para impedir).
+
+#### As três perguntas do orquestrador, respondidas
+
+1. **A soma não fecha em 21, e é sinal de valor escondido.** CoD da inteira: 21. CoD das metades: 13 + 21 = **34**. O que a fatia grande escondia: a metade simples é uma capacidade entregável sozinha, com valor próprio (5) e um seam próprio (RR 3), e custa **um ponto**; presa dentro de uma M de 7,00 ela ficava na fila com a nota do conjunto. A metade difícil mantém o Valor 8 da inteira porque, para o consumidor de tecla morta, a capacidade não existe sem ela, e porque o harness é a única prova da promessa. A criticidade 5 aparece nas duas porque cada uma tem espera concreta própria (a simples: a difícil e o campo do `gfui`; a difícil: a L-35).
+2. **Onde mora o valor: inverte no CoD, não inverte no WSJF.** A metade difícil carrega mais CoD (21 contra 13): o Valor 8 e a RR 8 estão nela, pelo harness. Mas ela custa três pontos e a simples custa um, e o divisor é o tamanho: 13,00 contra 7,00. A ordem simples antes de difícil se sustenta pelas duas razões ao mesmo tempo: por dependência (a difícil precisa do seam da simples) e por WSJF. Se a simples fosse M, a nota dela cairia a 4,33 e a difícil (7,00) viria primeiro pelo número, mas a dependência ainda venceria. Não há cenário em que a difícil vá antes.
+3. **A metade simples virou S.** O tamanho da inteira era M porque juntava tecla morta, terceiro nível e harness; tirados os três, sobra um seam e uma prova no leiaute do servidor. É S pelo mesmo critério que fez `CONTAINER-LOG-SIGNAL-FIRST` (4.6) ser S: uma unidade com nome próprio e uma estreia vermelha.
 
 ### 4.3 `SANITIZER-CONTAINER-GAP` (`TODO.md:530`) - WSJF **8,67**
 
@@ -125,23 +144,21 @@ Leitura das âncoras que guiou as sete notas abaixo: **portão de verificação 
 - **Tamanho S:** a via mais honesta é a declaração (L-67: submeter ao líder, não decidir sozinho) apontando o unitário que já morde; uma fixture forçando orçamento zero exigiria gancho interno de teste no adaptador e mudaria o tamanho para M (nota 1,67).
 - **Conta:** `(1 + 1 + 3) / 1 = 5,00`.
 
-## 5. Ordem resultante da onda W6b (10/09/2026)
+## 5. Ordem resultante da onda W6b (10/09/2026, atualizada após `9170e84`)
 
-Só os itens abertos; os fechados ficam onde estão. Dependência vence nota.
+Só os itens abertos; os fechados ficam onde estão. Dependência vence nota. `WIN-KEYTRANS` e `WIN-SCALE` saíram desta onda por ordem do líder (W11c e W9), e por isso saíram desta tabela.
 
 | # | Item | WSJF | Tamanho | Nota de ordem |
 |---|---|---|---|---|
 | 1 | `CONTAINER-LOG-SIGNAL-FIRST` | 9,00 | S | Primeiro porque custa um ponto e melhora a leitura de tudo que vem depois |
 | 2 | `SANITIZER-CONTAINER-GAP` | 8,67 | M | Prerrequisito `FACADE-PIN` já fechado |
-| 3 | `WIN-CROSS-STAGE` | 8,00 | M | Em obra, reprovado duas vezes; nota mantida |
-| 4 | `WIN-KEYTRANS` | 7,00 | M | Recomendo mover para W11c com prerrequisito `WIN-INPUT`; em W6b não tem o que traduzir |
-| 5 | `CONFIG-RECOGNITION-GRAPHICAL-GAP` | 5,33 | M | Desempate por consumidor interno mais próximo (`LOOP-RUN`, W7) |
-| 6 | `SURFACE-SIZE-POLICY-ADAPTER-GAP` | 5,33 | M | |
-| 7 | `GIVE-UP-BUDGET-ZERO-UNEXERCISED` | 5,00 | S | Desfecho provável: declaração ao líder |
-| 8 | `WIN-SCALE` | 3,67 | M | Recomendo mover para W9, ao lado de `WL-SCALE` |
-| 9 | `CI-VERDE-W6b` | 1,00 | S | Último por dependência (todas as fatias) |
+| 3 | `WIN-CROSS-STAGE` | 8,00 | M | Em obra, reprovado três vezes; nota mantida |
+| 4 | `CONFIG-RECOGNITION-GRAPHICAL-GAP` | 5,33 | M | Desempate por consumidor interno mais próximo (`LOOP-RUN`, W7) |
+| 5 | `SURFACE-SIZE-POLICY-ADAPTER-GAP` | 5,33 | M | |
+| 6 | `GIVE-UP-BUDGET-ZERO-UNEXERCISED` | 5,00 | S | Desfecho provável: declaração ao líder |
+| 7 | `CI-VERDE-W6b` | 1,00 | S | Último por dependência (todas as fatias) |
 
-Se as duas recomendações de onda forem aceitas, W6b fica com sete abertos, e as duas fatias Windows vão para as ondas em que os irmãos Wayland fecham, que é o que a paridade pede.
+As duas fatias de teclado ficam na ordem da própria trilha: `WIN-KEYTRANS` (13,00, S) depois de `WIN-INPUT` (W9) e ao lado de `KEYMAP-UTF8` em W11c; `WIN-KEYTRANS-COMPOSE` (7,00, M) depois dela, e ao lado de `KEYMAP-COMPOSE` (W12) se a recomendação de onda de 4.2b for aceita.
 
 ## 6. Itens de W6b que também estão sem nota, fora do pedido
 
@@ -149,6 +166,6 @@ Medido em 10/09/2026, fora das sete: `GATE-LINT-WIN-ZERO`, `GATE-SIBLING-LIST`, 
 
 ## 7. O que é fato e o que é inferência neste arquivo
 
-- **Fato (arquivo:linha ou medição):** a fórmula e a régua; o sumiço da lente e o estado de `/var/tmp`; as citações de código e de CI em cada uma das sete; os números vigentes da `TODO.md` usados como âncora; a lista de itens fechados sem nota.
-- **Inferência do CPO:** os quatro perfis (§2); o tamanho deduzido e a composição de parcelas das âncoras (§3, só o CoD total é aritmética); cada parcela das sete (§4); a regra de desempate; as recomendações de onda e de divisão.
+- **Fato (arquivo:linha ou medição):** a fórmula e a régua; a divisão e as ondas aplicadas em `9170e84`; a onda e a nota de `KEYMAP-UTF8`, `KEYMAP-MODSTATE` e `KEYMAP-COMPOSE`; o sumiço da lente e o estado de `/var/tmp`; as citações de código e de CI em cada uma das sete; os números vigentes da `TODO.md` usados como âncora; a lista de itens fechados sem nota.
+- **Inferência do CPO:** os quatro perfis (§2); o tamanho deduzido e a composição de parcelas das âncoras (§3, só o CoD total é aritmética); cada parcela das sete e das duas metades de teclado (§4); a regra de desempate; as recomendações de onda e de divisão, inclusive a de W12 para `WIN-KEYTRANS-COMPOSE`.
 - **Não verificado, declarado:** a causa exata do apagamento em `/var/tmp` (só a política de 30 dias é fato).

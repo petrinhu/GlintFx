@@ -356,3 +356,35 @@ gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo
 # `_WIN32`, mora no proprio header do shim - GODS_LAWS.md L-04 exige
 # que a reducao fique registrada, nao silenciosa dentro de um #ifdef;
 # este paragrafo e essa a marca.
+
+# --- Sonda exclusiva de UM sistema, sem par possivel (10/09/2026,
+# achado GATE-SELFTEST-ORFAO, run 34509142938 commit 5243dd5) --------
+#
+# win_vm_lab_isolamento_selftest (tools/win-vm-lab/provar-isolamento.sh
+# --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX))
+# prova, contra fixtures XML hermeticas versionadas (tools/win-vm-lab/
+# fixtures/dominio-{sabotado,limpo}.xml, nunca libvirt/QEMU real), o
+# ISOLAMENTO da maquina virtual Windows-convidada que tools/win-vm-lab/
+# hospeda contra a sessao de trabalho do lider (GODS_LAWS.md L-09/
+# L-50) - e uma sonda do proprio LABORATORIO de teste, nao um
+# comportamento da biblioteca, mesma categoria de win32_runner_probe_
+# test/egl_probe_smoke ja registrados acima neste arquivo.
+#
+# O laboratorio e' host Linux (libvirt/QEMU) hospedando uma VM
+# Windows-convidada isolada; nao ha, e nunca vai haver, um "laboratorio
+# Windows hospedando VM Windows" do lado Windows, pela mesma razao ja
+# registrada no comentario de tests/CMakeLists.txt (conserto de
+# 10/09/2026, commit 32b7044, GODS_LAWS.md L-04/L-17): quando o proprio
+# runner JA E' Windows, nao ha maquina virtual Windows a isolar - nao e'
+# lacuna de protecao, e' a fronteira correta. Reforca a mesma ausencia:
+# o script e' POSIX sh (`#!/usr/bin/env bash`), sem interprete que os
+# runners Windows da matriz reconhecam, razao pela qual o proprio
+# add_test entrou condicionado a if(UNIX) e nao a uma guarda de
+# ausencia de ferramenta em tempo de execucao.
+#
+# MORTE DESTA LINHA: nunca - a assimetria e' permanente por desenho,
+# nao lacuna temporaria esperando maquina/runner novo (distinto de
+# gpu_kind_report_smoke acima, cujo dono e' WIN-RUNNER-PROPRIO). Sem
+# item para rastrear, mesmo padrao das demais linhas SEM-PENDENCIA
+# desta secao inicial do arquivo.
+win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA

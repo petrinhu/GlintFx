@@ -827,6 +827,16 @@ def link_one_test(image, repo_root, scratch, target, timeout_seconds, harness_ob
 # texto - ai' sim o cl.exe/link.exe nao chegou a produzir um
 # diagnostico de codigo (erro de flag, arquivo ausente etc.), problema
 # desta ferramenta/receita, nunca do codigo sob teste.
+#
+# ESCOLHA CONSCIENTE sobre C1083 (header nao encontrado) e primos
+# ambiguos da mesma familia: cabem tanto em "codigo errado" (#include
+# com caminho quebrado) quanto em "receita errada" (flag /I faltando,
+# arquivo gerado ausente). Esta funcao erra para o lado de CODIGO
+# (classifica "falhou") de proposito - o custo de um falso "falhou" e'
+# visivel e barato (alguem investiga e acha que a causa e' a receita,
+# nao o codigo), enquanto um falso "ambiente" e' silencioso: cai na
+# excecao de pulo da GLINTFX_PRECI_WIN32=skip (S2) e deixa passar
+# exatamente a classe de regressao que este portao existe para pegar.
 _MSVC_COMPILE_ERROR_RE = re.compile(r"error C\d+\b")
 
 

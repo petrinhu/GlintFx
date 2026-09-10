@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tests/lib_source_exceptions.txt
+#
+# Excecoes do portao GATE-LIB-SOURCE-PARITY (tests/tools/check_lib_
+# source_parity.py, TODO.md, GODS_LAWS.md L-36/L-40): fontes .cpp que
+# existem de proposito em src/platform/<dir>/ mas NUNCA devem entrar em
+# target_sources(glintfx_library ...) daquele diretorio - legitimamente
+# so-de-teste, nunca um esquecimento.
+#
+# Formato, um por linha, campos separados por '|':
+#   <dir>/<arquivo.cpp>|motivo|item-TODO
+#
+# <dir> e' o nome do diretorio sob src/platform/ (ex.: wayland, win32,
+# port, window, input, gl, loop) - nunca o caminho completo.
+#
+# Vazio hoje (09/09/2026): a varredura que motivou este portao (ver o
+# cabecalho de check_lib_source_parity.py) encontrou toda fonte de
+# plataforma ja entregue a biblioteca dos dois lados - nao ha, hoje,
+# nenhuma fonte legitimamente so-de-teste sob src/platform/. Uma linha
+# entra aqui SOMENTE quando esse deixar de ser o caso, com o motivo e o
+# item de TODO.md que a justificam.

@@ -2078,6 +2078,46 @@ if(UNIX)
     set_tests_properties(lib_no_undef_selftest PROPERTIES LABELS selftest)
 endif()
 
+# Source-parity gate (TODO.md item GATE-LIB-SOURCE-PARITY, GODS_LAWS.md
+# L-36/L-40), the DECLARED pair of lib_no_undef_test right above: that
+# gate audits SYMBOLS (nothing of ours left unresolved in the shipped
+# artifact); this one audits SOURCE (nothing on disk under src/
+# platform/<dir>/ left OUT of that same directory's own target_sources(
+# glintfx_library ...) call). Neither subsumes the other - see tests/
+# tools/check_lib_source_parity.py's own header for the real defect
+# that needed BOTH gaps closed to reproduce (05/09/2026, run
+# 33997698610): lib_no_undef_test PASSED on the Linux side of that
+# exact defect, correctly, because no caller inside glintfx_library
+# meant no pending symbol to find - only comparing disk against
+# target_sources() caught the missing wayland/seat_adapter.cpp and the
+# never-wired src/platform/input/seat_capabilities.cpp.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): pure text scanner over
+# versioned CMakeLists.txt files plus `git ls-files` - nothing
+# platform-specific to diverge on, registered without a system guard,
+# same shape as dup_laws_test/sibling_lists_test above. "nas duas
+# arvores de configuracao" (TODO.md's own words for shared/static) is
+# satisfied by construction, not by running twice: target_sources() is
+# plain text read once from the same CMakeLists.txt both trees
+# configure from (grep confirms no BUILD_SHARED_LIBS/generator-
+# expression conditional inside any target_sources(glintfx_library ...)
+# call in this tree today) - see that script's own header for what
+# happens the day that stops being true.
+add_test(
+    NAME lib_source_parity_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lib_source_parity.py" --check
+        "${CMAKE_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/tests/lib_source_exceptions.txt"
+)
+set_tests_properties(lib_source_parity_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME lib_source_parity_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lib_source_parity.py" --selftest
+)
+set_tests_properties(lib_source_parity_selftest PROPERTIES LABELS selftest)
+
 # Layer gate (GODS_LAWS.md L-19, item 1: "a CI gate reproves the
 # violation"). PORTED from POSIX sh (tests/tools/check_layers.sh,
 # if(UNIX)-guarded, never exercised on Windows) to python3 and

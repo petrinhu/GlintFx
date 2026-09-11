@@ -564,13 +564,36 @@ def selftest_missing_tool_control(scratch, capture):
     # PATH inteiro quebraria 'git' tambem (ambos moram em /usr/bin
     # nesta maquina) e derrubaria o proprio is_git_repo()/git diff
     # antes de chegar no caminho que este controle quer provar.
+    #
+    # CONSERTO (10/09/2026, item LOOP-FMT-CLASS, medido nos tres jobs
+    # Windows do run 34550278978 - Windows-compartilhado, Windows-
+    # estatico e Windows-Debug, TODOS reprovando so' este selftest,
+    # com Linux inteiro verde): o link precisa nascer com o MESMO
+    # sufixo de extensao do executavel real (vazio em Unix, '.exe' no
+    # Windows). Sem isso, o link chamava-se literalmente 'git' (sem
+    # extensao) e o Windows nunca o achava: ao lancar um comando sem
+    # extensao, a resolucao de processo do Windows completa o nome com
+    # '.exe' antes de procurar nos diretorios de busca (raiz do
+    # comportamento documentado de CreateProcess quando o nome do
+    # modulo nao traz extensao) - ou seja, procurava por 'git.exe'
+    # dentro de private_bin, nao achava (so' havia 'git', sem
+    # extensao), e todo subprocess.run(['git', ...]) morria com
+    # FileNotFoundError. is_git_repo() ja' captura FileNotFoundError e
+    # devolve False, entao o controle caia no ramo ERRADO ('not a git
+    # repository', a mesma mensagem do controle NAO-E-REPO) em vez do
+    # ramo que ele proprio quer provar (MISSING_TOOL_BANNER) - o log
+    # do CI confirma, byte a byte: 'check_format.py: not a git
+    # repository: C:\...\missing_tool'. No Linux o link sem extensao
+    # ja funcionava (nao ha convencao de extensao para executavel), o
+    # que explica por que so' os tres jobs Windows reprovavam.
     git_real = shutil.which("git")
     if git_real is None:
         print("selftest: controle de FERRAMENTA AUSENTE FALHOU ('git' nao encontrado para montar o PATH privado)", file=sys.stderr)
         return False
     private_bin = os.path.join(scratch, "private_bin_missing_clang_format")
     os.makedirs(private_bin, exist_ok=True)
-    os.symlink(git_real, os.path.join(private_bin, "git"))
+    git_link_name = "git" + os.path.splitext(git_real)[1]
+    os.symlink(git_real, os.path.join(private_bin, git_link_name))
     saved_path = os.environ.get("PATH", "")
     os.environ["PATH"] = private_bin
     try:

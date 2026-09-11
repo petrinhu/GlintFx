@@ -3046,3 +3046,15 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **Decisão minha, declarada e disputável:** o item nasce na onda de infraestrutura, **não** na cauda que estamos drenando - pô-lo na cauda adiaria o fechamento da onda. E o número de prioridade é proposta minha, nunca passou pela lente de produto.
 
+#### D-091103 — DUAS ORDENS DO LÍDER sobre o contador de vazamento  `[11/09/26 - 10:18:45]`
+
+**Não são decisões autônomas. São dele**, 11/09/2026, por `AskUserQuestion`, depois de o plano ficar pronto.
+
+**(1) A medição de crescimento por ciclo fica DENTRO do item, como última parte e separável.** Ela abre e fecha a janela várias vezes e exige que o consumo pare de subir - pega o vazamento que contador nenhum pega, porque é recurso de terceiro que cresce a cada volta. **Razão da escolha:** o item entrega a história completa (saldo zero mais crescimento zero) sem fragmentar a fila, e sendo a última parte, sai sem travar as três primeiras se complicar. **Custo aceito:** o fechamento do item passa a depender de um teste novo que só roda em container.
+
+**(2) A pergunta sobre afrouxar o isolamento do container está FECHADA, respondida pela medição, e a trava fica intocada.** Ela nasceu na fatia anterior: a literatura diz que a detecção de vazamento precisa de uma permissão de sistema que o container não tem, e a receita usual é concedê-la. **O agente testou e não resolve** - medido, não suposto. Então não há razão para mexer na trava que impede teste de alcançar a sessão do líder, e a pergunta sai da fila em vez de ficar viva esperando alguém reabri-la sem dado novo.
+
+**O que sustenta a resposta do plano à pergunta central**, e é por isso que ele foi aceito: o risco era o compilador **apagar** a alocação, o contador medir zero, e zero parecer limpo - falso verde, pior que não ter contador. O CTO não respondeu com declaração nem com opção de compilação: respondeu com **quatro provas de execução** - o símbolo substituto presente em cada binário (contado, e comparado com o inventário), o piso que exige contagem maior que zero em cada teste, a estreia vermelha com um vazamento que **escapa** da análise do compilador, e uma mutação em caminho realmente executado. **E recusou** ligar a opção que desligaria a otimização, com razão medida: mudaria a forma do código em relação ao que o consumidor compila, e alocação que o compilador apaga não vaza para ninguém.
+
+**Desvio consciente que ele declarou, e eu aceito:** o critério da cauda dizia que vazamento com pilha **inteiramente** fora do nosso código vira supressão. Aplicado ao pé da letra aqui, o estado global da biblioteca de compilação gráfica, disparado por uma chamada NOSSA, faria toda fixture reprovar para sempre. O plano troca por classificação no instante da alocação, pelo quadro que decide, e publica o número de terceiros sem julgá-lo - exceto no crescimento por ciclo, onde crescer é vermelho.
+

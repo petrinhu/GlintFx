@@ -429,18 +429,14 @@ GFX_HOOK_FN glintfx_leak_counter::alloc_classify_result classify_current_stack()
         const_cast<const void *const *>(static_cast<void *const *>(frames)), count, g_ranges);
 }
 
-GFX_HOOK_FN void *hook_new_impl(std::size_t size, bool nothrow) {
-    g_new_calls.fetch_add(1, std::memory_order_relaxed);
-
-    const std::size_t total = sizeof(alloc_header) + size;
-    void *raw = std::malloc(total);
-    if (raw == nullptr) {
-        if (nothrow) {
-            return nullptr;
-        }
-        throw std::bad_alloc();
-    }
-
+// hook_new_bookkeep - o que os dois lados (throwing e nothrow) fazem
+// DEPOIS que o malloc do bloco ja teve sucesso: so classifica a pilha
+// (classify_current_stack, noexcept, L.413) e mexe nos contadores/
+// tabela (fetch_add e table_insert, ambos noexcept, L.169-181) - nada
+// aqui pode lancar, e por isso a funcao e noexcept de verdade, nao so
+// de comentario (CONTAINER-LEAK-COUNTER: cppcheck throwInNoexceptFunction
+// apontou exatamente a falta dessa garantia no tipo).
+GFX_HOOK_FN void *hook_new_bookkeep(void *raw) noexcept {
     const glintfx_leak_counter::alloc_classify_result result = classify_current_stack();
 
     auto *header = static_cast<alloc_header *>(raw);
@@ -458,6 +454,35 @@ GFX_HOOK_FN void *hook_new_impl(std::size_t size, bool nothrow) {
         g_live_third_party.fetch_add(1, std::memory_order_relaxed);
     }
     return user_ptr;
+}
+
+// hook_new_impl - forma THROWING (::operator new escalar): malloc
+// falhando e bad_alloc de verdade, [new.delete.single] exige. NAO
+// noexcept, e por isso nunca pode ser chamada do lado nothrow (era
+// exatamente esse o defeito: o lado nothrow chamava esta mesma funcao
+// por um bool de runtime, e o tipo dela nunca provava nada).
+GFX_HOOK_FN void *hook_new_impl(std::size_t size) {
+    g_new_calls.fetch_add(1, std::memory_order_relaxed);
+    const std::size_t total = sizeof(alloc_header) + size;
+    void *raw = std::malloc(total);
+    if (raw == nullptr) {
+        throw std::bad_alloc();
+    }
+    return hook_new_bookkeep(raw);
+}
+
+// hook_new_impl_nothrow - forma NOTHROW (::operator new(size,
+// std::nothrow) escalar): malloc falhando devolve nullptr, nunca
+// lanca. noexcept aqui e verificavel por leitura - malloc nao lanca,
+// hook_new_bookkeep acima e noexcept - nao supressao, garantia real.
+GFX_HOOK_FN void *hook_new_impl_nothrow(std::size_t size) noexcept {
+    g_new_calls.fetch_add(1, std::memory_order_relaxed);
+    const std::size_t total = sizeof(alloc_header) + size;
+    void *raw = std::malloc(total);
+    if (raw == nullptr) {
+        return nullptr;
+    }
+    return hook_new_bookkeep(raw);
 }
 
 GFX_HOOK_FN void hook_delete_impl(void *ptr) noexcept {
@@ -498,10 +523,10 @@ GFX_HOOK_FN void hook_delete_impl(void *ptr) noexcept {
 // impl's own backtrace() capture, and that frame otherwise reads as
 // `ours` by being inside the executable). --------------------------
 
-GFX_HOOK_FN void *operator new(std::size_t size) { return hook_new_impl(size, false); }
+GFX_HOOK_FN void *operator new(std::size_t size) { return hook_new_impl(size); }
 
 GFX_HOOK_FN void *operator new(std::size_t size, const std::nothrow_t &) noexcept {
-    return hook_new_impl(size, true);
+    return hook_new_impl_nothrow(size);
 }
 
 GFX_HOOK_FN void *operator new[](std::size_t size) { return ::operator new(size); }

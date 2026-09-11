@@ -1140,9 +1140,56 @@ jobs:
   # nunca monta /dev/uinput, nunca fala X11 (L-05). Bloqueante como os
   # demais jobs (L-18): job que nao consegue ficar verde nao entra no
   # push.
+  # SANITIZER-CONTAINER-GAP (TODO.md, /var/tmp/glintfx-plan/cauda-w6b.md
+  # sec. 4.2, D-CAUDA-3): duas pernas da MESMA receita (Containerfile,
+  # com $GLINTFX_FIXTURE_SANITIZE), nao um segundo job - um job separado
+  # duplicaria os 17 passos `docker exec` a mao, a mesma doenca que
+  # tests/tools/check_container_fixture_link.py nasceu para conter.
+  # `fail-fast: false`: uma perna vermelha nao cancela a outra - as duas
+  # legendas (`plain`, `asan`) carregam informacao distinta.
   wayland-container:
-    name: Container Wayland isolado (TEST-WLCONT, L-09)
+    name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perna: [plain, asan]
+    env:
+      # D-CAUDA-4: as MESMAS flags que cmake/GlintfxCompileOptions.cmake:125
+      # ja usa para a biblioteca, espelhadas aqui, nunca inventadas -
+      # -O1 depois de -O2 (GCC honra o ultimo -O), deteccao de uso apos
+      # retorno de pilha (o detector do UAF real, plano-conserto-
+      # fachadas-uaf.md:83), abort_on_error=1 da o rc de sinal (134,
+      # SIGABRT) que exec_fixture.sh (fatia 1, CONTAINER-LOG-SIGNAL-FIRST)
+      # ja sabe nomear ANTES do ruido.
+      GLINTFX_FIXTURE_SANITIZE_FLAGS: "-fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g -O1"
+      # detect_leaks=0, NAO o 1 que D-CAUDA-4 previa - medido antes de
+      # escrever esta linha (GODS_LAWS.md L-43: criterio fixado antes do
+      # dado, mas o dado mudou o valor do proprio criterio, caso (iv) de
+      # D-CAUDA-5): um binario com o MESMO HostConfig
+      # (--cap-drop=ALL --cap-add=SYS_NICE) desta perna, deliberadamente
+      # vazando um malloc(64) e nunca liberando, roda ate `LeakSanitizer:
+      # checking for leaks` / `SuspendAllThreads retry: 0` e sai 0 SEM
+      # nunca reportar o vazamento nem imprimir o texto de erro que a
+      # pesquisa (sec. 2.2 do plano) esperava ("LeakSanitizer does not
+      # work under ptrace"/"has encountered a fatal error") - falha
+      # SILENCIOSA, pior que a documentada. Acrescentar --cap-add=
+      # SYS_PTRACE (fora desta config, so' como sonda descartavel) NAO
+      # resolveu - o mesmo binario, sob o mesmo HostConfig mais essa
+      # capacidade, tambem saiu 0 sem reportar, entao a causa nao e' so'
+      # a ausencia de CAP_SYS_PTRACE (pode ser Yama ptrace_scope do
+      # kernel do runner, ou o seccomp default do Docker bloqueando uma
+      # syscall que LSan precisa mesmo com a capability concedida - nao
+      # investigado mais fundo, fora do porte desta fatia). Alargar
+      # `hostconfig_baseline.txt` e' decisao do lider (L-09), nao
+      # tomada aqui - vai a ele por AskUserQuestion (plano sec. 7,
+      # pergunta B), junto com o fato de que a capacidade sozinha nao
+      # bastou. detect_stack_use_after_return (o detector do UAF real)
+      # e os avisos UBSan continuam ligados - so' o vazamento fica fora
+      # ate essa decisao.
+      GLINTFX_ASAN_RUNTIME_OPTS: >-
+        --env ASAN_OPTIONS=detect_stack_use_after_return=1:abort_on_error=1:detect_leaks=0:strict_string_checks=1
+        --env UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1:abort_on_error=1
     steps:
       - uses: actions/checkout@v7
 
@@ -1187,17 +1234,70 @@ jobs:
         with:
           context: tests/container
           file: tests/container/Containerfile
-          tags: glintfx-wltest:ci
+          tags: glintfx-wltest:ci-${{ matrix.perna }}
+          # A perna `plain` passa a mesma string vazia que este build-arg
+          # ja tinha por default no Containerfile (byte-a-byte o que a
+          # imagem sempre foi); a perna `asan` passa as flags do bloco
+          # `env:` acima do job - uma receita so, duas construcoes
+          # (D-CAUDA-3).
+          build-args: |
+            GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
           load: true
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
+          cache-to: type=gha,mode=max,scope=wayland-container-${{ matrix.perna }}
 
       - name: Tempo de build da imagem
         run: |
           set -eu
           fim=$(date +%s)
           echo "tempo de build da imagem: $((fim - ${{ steps.build_image.outputs.inicio }}))s"
+
+      # DESVIO MEDIDO do texto literal do plano (GODS_LAWS.md L-01: medir
+      # e argumentar antes de desviar, nao decidir sozinho em silencio -
+      # registrado tambem no relatorio ao CTO): a receita do plano pedia
+      # `docker run --rm --entrypoint gcc <img> --version` contra a
+      # imagem final unica. Medido contra ESTA imagem (`rpm -qf
+      # /usr/bin/gcc` no estagio final antes de escrever este passo):
+      # gcc-c++ NUNCA esteve no `dnf install` do estagio final (linha
+      # ~683 abaixo) - so o builder o instala, e o estagio final so
+      # copia os BINARIOS ja ligados (COPY --from=arch-ports-builder).
+      # `--entrypoint gcc` contra a tag final falharia sempre com
+      # "executable file not found", nunca um teste real. Construir a
+      # mesma receita uma SEGUNDA vez com `target: arch-ports-builder`
+      # (mesmo cache-from/scope do build acima - camadas ja quentes,
+      # nao um segundo trabalho pesado) tagueia o estagio que de fato
+      # tem o compilador, sem tocar o Containerfile so' para isto.
+      - name: Build da imagem do estagio builder (para inspecionar o compilador)
+        uses: docker/build-push-action@v7
+        with:
+          context: tests/container
+          file: tests/container/Containerfile
+          target: arch-ports-builder
+          tags: glintfx-wltest:builder-${{ matrix.perna }}
+          build-args: |
+            GLINTFX_FIXTURE_SANITIZE=${{ matrix.perna == 'asan' && env.GLINTFX_FIXTURE_SANITIZE_FLAGS || '' }}
+          load: true
+          push: false
+          cache-from: type=gha,scope=wayland-container-${{ matrix.perna }}
+          cache-to: type=gha,mode=max,scope=wayland-container-${{ matrix.perna }}
+
+      # SANITIZER-CONTAINER-GAP (sec. 4.2 do plano, docs/plano-conserto-
+      # fachadas-uaf.md:253 - "o job deve imprimir gcc --version antes de
+      # a G4 ser desenhada"): fato medido contra as imagens que ESTE run
+      # acabou de construir, nunca suposto - gcc --version contra o
+      # estagio BUILDER (unico que o tem), libasan/libubsan contra o
+      # estagio FINAL (o que os fixtures de fato carregam em runtime).
+      # Roda nas duas pernas (barato, `docker run --rm`, nao um trabalho
+      # pesado novo) - a perna `plain` prova que nada mudou; a perna
+      # `asan` prova que libasan/libubsan realmente chegaram na imagem
+      # final (a mesma armadilha que derrubou o job `sanitizer` na
+      # estreia, 25/08/2026, CLAUDE.md's own "quatro jobs" bullet).
+      - name: gcc --version e libasan da imagem
+        run: |
+          set -eux
+          docker run --rm --entrypoint gcc glintfx-wltest:builder-${{ matrix.perna }} --version
+          docker run --rm --entrypoint rpm glintfx-wltest:ci-${{ matrix.perna }} -q libasan libubsan
 
       # Fato medido ao vivo contra esta mesma imagem, nao suposto: o
       # kwin_wayland do Fedora carrega a capability de arquivo
@@ -1215,17 +1315,17 @@ jobs:
       - name: Sobe o compositor limpo (nenhuma montagem do host)
         run: |
           set -eux
-          docker run -d --name glintfx-wltest-clean --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci
+          docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
           for _ in $(seq 1 30); do
-            docker exec glintfx-wltest-clean pgrep -x kwin_wayland >/dev/null 2>&1 && break
+            docker exec glintfx-wltest-clean-${{ matrix.perna }} pgrep -x kwin_wayland >/dev/null 2>&1 && break
             sleep 1
           done
-          docker exec glintfx-wltest-clean pgrep -x kwin_wayland
+          docker exec glintfx-wltest-clean-${{ matrix.perna }} pgrep -x kwin_wayland
 
       # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
       # interagir. Este passo roda antes do smoke test de proposito.
       - name: Isolamento provado (controle positivo)
-        run: tests/container/check_isolation.sh glintfx-wltest-clean glintfx-test
+        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
 
       # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
       # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a
@@ -1243,7 +1343,7 @@ jobs:
       - name: Controle negativo 5 - sinal nomeado antes do ruido
         run: |
           set -eu
-          if tests/container/exec_fixture.sh glintfx-wltest-clean sh -c 'echo ruido-do-driver; kill -SEGV $$' > cn5.out 2>&1; then
+          if tests/container/exec_fixture.sh glintfx-wltest-clean-${{ matrix.perna }} sh -c 'echo ruido-do-driver; kill -SEGV $$' > cn5.out 2>&1; then
             echo "ERRO: exec_fixture.sh deveria ter reprovado (processo morto por SIGSEGV dentro do container)" >&2
             cat cn5.out >&2
             exit 1
@@ -1256,7 +1356,7 @@ jobs:
           echo "ok: docker exec propaga 128+sinal (SIGSEGV=139) para um processo do proprio exec, sinal nomeado antes do ruido"
 
       - name: Smoke test - wayland-info dentro do container
-        run: docker exec glintfx-wltest-clean smoke.sh glintfx-test
+        run: docker exec glintfx-wltest-clean-${{ matrix.perna }} smoke.sh glintfx-test
 
       # P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, GODS_LAWS.md
       # L-04/L-40): o portao de paridade (job `parity` abaixo) compara
@@ -1296,7 +1396,7 @@ jobs:
       - name: ARCH-PORTS - conecta e desconecta via o adaptador real (R4)
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean arch_ports_connect_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} arch_ports_connect_smoke
           echo "arch_ports_connect_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia B, TDD case B (GODS_LAWS.md L-09/L-20 -
@@ -1311,7 +1411,7 @@ jobs:
       - name: WL-DISPLAY fatia B - registry real dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean registry_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} registry_smoke
           echo "registry_smoke" >> parity_inventory.txt
 
       # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, "Prova
@@ -1325,7 +1425,7 @@ jobs:
       - name: WIN-WINDOW fatia 7 - dois displays no mesmo processo dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean two_displays_test
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} two_displays_test
           echo "two_displays_test" >> parity_inventory.txt
 
       # WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, mesmo padrao dos
@@ -1335,7 +1435,7 @@ jobs:
       - name: WL-DISPLAY fatia D - pump nao-bloqueante dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean pump_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} pump_smoke
           echo "pump_smoke" >> parity_inventory.txt
 
       # LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2, D-W6b-
@@ -1349,7 +1449,7 @@ jobs:
       - name: LOOP-RUN fatia 7 - wait_events com orcamento dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean wait_events_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} wait_events_smoke
           echo "wait_events_smoke" >> parity_inventory.txt
 
       # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): shell_
@@ -1360,7 +1460,7 @@ jobs:
       - name: WL-WINDOW fatia W-B - shell (wl_compositor/xdg_wm_base) dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean shell_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} shell_smoke
           echo "shell_smoke" >> parity_inventory.txt
 
       # WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8): window_
@@ -1376,7 +1476,7 @@ jobs:
       - name: WL-WINDOW fatia W-E - janela com buffer real dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean window_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} window_smoke
           echo "window_smoke" >> parity_inventory.txt
 
       # GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1):
@@ -1391,7 +1491,7 @@ jobs:
       - name: GL-CONTEXT fatia 1 - sonda EGL/GL 3.3 core dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean egl_probe_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} egl_probe_smoke
           echo "egl_probe_smoke" >> parity_inventory.txt
 
       # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11,
@@ -1405,7 +1505,7 @@ jobs:
       - name: WL-WINDOW-HANDLE - paridade da API publica de janela dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean window_parity_test
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} window_parity_test
           echo "window_parity_test" >> parity_inventory.txt
 
       # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-28):
@@ -1418,7 +1518,7 @@ jobs:
       - name: GL-CONTEXT fatia 5 - erro de protocolo nomeado pelo adaptador EGL
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean egl_protocol_error_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} egl_protocol_error_smoke
           echo "egl_protocol_error_smoke" >> parity_inventory.txt
 
       # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-29):
@@ -1437,7 +1537,7 @@ jobs:
       - name: GL-CONTEXT fatia 5 - paridade do contexto GL dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean gl_context_parity_test
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test
           echo "gl_context_parity_test" >> parity_inventory.txt
 
       # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 4.6):
@@ -1451,7 +1551,7 @@ jobs:
       - name: GL-GPU-KIND - sonda de leitor EGL, valores crus (paridade com dxcore_reader_probe_test)
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean egl_device_reader_probe
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} egl_device_reader_probe
           echo "egl_device_reader_probe" >> parity_inventory.txt
 
       # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
@@ -1466,7 +1566,7 @@ jobs:
       - name: WL-SEAT fatia S-B - seat (wl_seat) dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean seat_test
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} seat_test
           echo "seat_test" >> parity_inventory.txt
 
       # WIN-SEAT SF-1 (/var/tmp/glintfx-plan/win-seat.md sec. 3, D-WS-7,
@@ -1482,7 +1582,7 @@ jobs:
       - name: WIN-SEAT SF-1 - dois assentos no mesmo processo dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean two_seats_test
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} two_seats_test
           echo "two_seats_test" >> parity_inventory.txt
 
       # FACADE-PIN, T0/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
@@ -1499,7 +1599,7 @@ jobs:
       - name: FACADE-PIN T0/G3 - pino do adaptador provado contra o compositor real
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean facade_pin_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} facade_pin_smoke
           echo "facade_pin_smoke" >> parity_inventory.txt
 
       # FACADE-PIN, T1/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8):
@@ -1515,7 +1615,7 @@ jobs:
       - name: FACADE-PIN T1/G3 - janela ativa apos mapear dentro do orcamento
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean window_active_after_map_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} window_active_after_map_smoke
           echo "window_active_after_map_smoke" >> parity_inventory.txt
 
       # CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md L-04/L-09/L-20): a
@@ -1530,7 +1630,7 @@ jobs:
       - name: CORE-LOG CL-7 - gpu_kind_resolved emitido pelo adaptador EGL real
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean gpu_kind_report_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gpu_kind_report_smoke
           echo "gpu_kind_report_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
@@ -1552,7 +1652,7 @@ jobs:
       - name: WL-DISPLAY fatia C - erro fatal dentro do container
         run: |
           set -eu -o pipefail
-          tests/container/exec_fixture.sh glintfx-wltest-clean fatal_error_smoke
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} fatal_error_smoke
           echo "fatal_error_smoke" >> parity_inventory.txt
 
       # P-0, piso de varredura nao-vazia (GODS_LAWS.md L-40): inventario
@@ -1572,6 +1672,80 @@ jobs:
             exit 1
           fi
 
+      # PROVA POR FIXTURE DE QUE O BINARIO ESTA INSTRUMENTADO (sec. 4.2
+      # do plano, mutacao M3: remover $GLINTFX_FIXTURE_SANITIZE de UMA
+      # linha g++ deixaria aquela fixture rodar sem instrumentacao e a
+      # M1/UAF sobre ela passaria verde por acidente - so' este passo
+      # pega isso). Conta, por fixture do inventario REAL desta perna
+      # (nunca um numero fixo), quantas ligam contra libasan dentro da
+      # imagem, e exige IGUALDADE com o total de fixtures - zero
+      # instrumentadas reprova (GODS_LAWS.md L-40), e qualquer numero
+      # menor que o total tambem. So' roda na perna `asan`: a perna
+      # `plain` nunca carrega libasan de proposito (0 de N e o
+      # comportamento correto la', nao um defeito a medir aqui).
+      - name: Prova de instrumentacao por fixture (ldd libasan)
+        if: matrix.perna == 'asan'
+        run: |
+          set -eu
+          total=$(wc -l < parity_inventory.txt)
+          instrumentados=0
+          while IFS= read -r fixture; do
+            [ -n "$fixture" ] || continue
+            n=$(docker exec glintfx-wltest-clean-asan sh -c "ldd /usr/local/bin/${fixture} 2>/dev/null | grep -c libasan" || true)
+            n=${n:-0}
+            if [ "$n" -ge 1 ]; then
+              instrumentados=$((instrumentados + 1))
+            else
+              echo "AVISO: ${fixture} nao carrega libasan" >&2
+            fi
+          done < parity_inventory.txt
+          echo "instrumentados: ${instrumentados} de ${total}"
+          if [ "$instrumentados" -ne "$total" ]; then
+            echo "ERRO: nem toda fixture do inventario esta ligada contra libasan (GODS_LAWS.md L-40/L-36)" >&2
+            exit 1
+          fi
+
+      # CRITERIO FIXADO ANTES DO DADO (D-CAUDA-5, sec. 4.2 do plano): (i)
+      # qualquer linha AddressSanitizer/UndefinedBehaviorSanitizer/
+      # runtime error em qualquer fixture -> vermelho, sem excecao. As
+      # celulas (ii)-(iv) - vazamento com pilha em src/tests, supressao
+      # por biblioteca de terceiro, ou LSan incapaz de rodar sob o
+      # HostConfig atual - so' se aplicam quando este grep achar algo; a
+      # decisao delas nao e' automatizavel neste passo (exige ler a
+      # pilha), e por isso fica para quem le o log quando (e se) ele
+      # reprovar aqui - nunca desligada em silencio, nunca decidida por
+      # este script. So' roda na perna `asan`.
+      - name: Varredura de relatorios do sanitizer
+        if: matrix.perna == 'asan'
+        run: |
+          set -eu
+          n=$(grep -cE 'AddressSanitizer|UndefinedBehaviorSanitizer|runtime error:' container_measured_raw.log || true)
+          n=${n:-0}
+          echo "relatorios de sanitizer: ${n}"
+          f=$(wc -l < parity_inventory.txt)
+          # A perna `plain` publica parity-inv-linux-container (passo
+          # abaixo, if: matrix.perna == 'plain' - D-CAUDA-3: dois
+          # inventarios confundiriam o job `parity`), entao esta perna
+          # nao tem, dentro do MESMO job, um arquivo irmao para comparar
+          # contra - imprime o proprio numero, igualdade com a perna
+          # `plain` e' conferida por quem le os dois logs de job lado a
+          # lado (o revisor adversarial desta fatia, GODS_LAWS.md L-45:
+          # nunca inventar uma comparacao que este passo nao pode fazer
+          # de verdade).
+          echo "fixtures no inventario desta perna (asan): ${f} - comparar com o total da perna plain no mesmo run"
+          if [ "$n" -ne 0 ]; then
+            echo "ERRO: relatorio(s) de sanitizer encontrado(s) - ver container_measured_raw.log (D-CAUDA-5, criterio i-iv)" >&2
+            exit 1
+          fi
+          # Caso (iv), medido ANTES desta fatia fechar (nao suposto): um
+          # binario sob o MESMO HostConfig, vazando de proposito, nunca
+          # reportou o vazamento (nem o texto de erro esperado) - ver o
+          # comentario junto de GLINTFX_ASAN_RUNTIME_OPTS no `env:` deste
+          # job. A linha MEASURED entra no mesmo arquivo que o MEASURED-
+          # COLLECTOR ja le (container_measured_raw.log), para o
+          # coletor de baixo publicar o fato como qualquer outra medida.
+          echo "MEASURED container_asan.leak_detection=off" >> container_measured_raw.log
+
       # MEASURED-COLLECTOR: le container_measured_raw.log (acumulado
       # pelos `tee -a` de cada fixture acima) e extrai as linhas
       # `MEASURED <owner>.<key>=<valor>` - collect_measured.py's proprio
@@ -1585,15 +1759,20 @@ jobs:
           set -eu
           python3 tests/tools/collect_measured.py --collect --out measured_linux_container.txt \
             container_measured_raw.log
-          echo "### MEASURED - container Linux" >> "$GITHUB_STEP_SUMMARY"
+          echo "### MEASURED - container Linux (${{ matrix.perna }})" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat measured_linux_container.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      # D-CAUDA-3: as duas pernas publicam MEASURED (e' informacao nova
+      # nas duas), sob nomes DIFERENTES - `measured-linux-container` para
+      # `plain` (nome que ja existia, nenhum consumidor downstream
+      # precisa mudar), `measured-linux-container-asan` para `asan` (um
+      # artefato A MAIS, nunca substituindo o outro).
       - name: Publicar MEASURED do container (MEASURED-COLLECTOR)
         uses: actions/upload-artifact@v7
         with:
-          name: measured-linux-container
+          name: measured-linux-container${{ matrix.perna == 'asan' && '-asan' || '' }}
           path: measured_linux_container.txt
           retention-days: 7
 
@@ -1605,7 +1784,15 @@ jobs:
       # `pattern: parity-inv-linux-*`) ja recolhe este artefato sem
       # nenhuma mudanca no proprio job de download - so o `needs`
       # muda (ver comentario do job `parity`).
+      #
+      # SO' A PERNA `plain` PUBLICA (D-CAUDA-3): as duas pernas rodam o
+      # MESMO conjunto de fixtures, entao um segundo inventario da perna
+      # `asan` seria um duplicata, nunca um dado novo para o job
+      # `parity` - e dois inventarios Linux-container com o MESMO padrao
+      # de nome confundiriam a paridade contra o Windows (paridade
+      # compara CONTEUDO de nomes, nao contagem de artefatos).
       - name: Publica o inventario do container (P-0)
+        if: matrix.perna == 'plain'
         uses: actions/upload-artifact@v7
         with:
           name: parity-inv-linux-container
@@ -1626,9 +1813,9 @@ jobs:
       - name: Controle negativo 1 - montagem proibida (FURO 1/3)
         run: |
           set -eux
-          docker create --name glintfx-wltest-poisoned-mount --cap-drop=ALL --cap-add=SYS_NICE \
-            -v /tmp:/run/user/1000:ro glintfx-wltest:ci
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount glintfx-test; then
+          docker create --name glintfx-wltest-poisoned-mount-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
+            -v /tmp:/run/user/1000:ro glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-mount-${{ matrix.perna }} glintfx-test; then
             echo "ERRO: check_isolation.sh deveria ter acusado a montagem proibida" >&2
             exit 1
           fi
@@ -1637,9 +1824,9 @@ jobs:
       - name: Controle negativo 2 - device passado (FURO 1)
         run: |
           set -eux
-          docker create --name glintfx-wltest-poisoned-device --cap-drop=ALL --cap-add=SYS_NICE \
-            --device=/dev/uinput glintfx-wltest:ci
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device glintfx-test; then
+          docker create --name glintfx-wltest-poisoned-device-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
+            --device=/dev/uinput glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-test; then
             echo "ERRO: check_isolation.sh deveria ter acusado o --device proibido" >&2
             exit 1
           fi
@@ -1654,9 +1841,9 @@ jobs:
       - name: Controle negativo 3 - --pid=host (FURO 2)
         run: |
           set -eux
-          docker create --name glintfx-wltest-poisoned-pid --cap-drop=ALL --cap-add=SYS_NICE \
-            --pid=host glintfx-wltest:ci
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid glintfx-test; then
+          docker create --name glintfx-wltest-poisoned-pid-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
+            --pid=host glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-pid-${{ matrix.perna }} glintfx-test; then
             echo "ERRO: check_isolation.sh deveria ter acusado --pid=host" >&2
             exit 1
           fi
@@ -1678,9 +1865,9 @@ jobs:
       - name: Controle negativo 4 - --security-opt systempaths=unconfined
         run: |
           set -eux
-          docker create --name glintfx-wltest-poisoned-systempaths --cap-drop=ALL --cap-add=SYS_NICE \
-            --security-opt systempaths=unconfined glintfx-wltest:ci
-          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths glintfx-test; then
+          docker create --name glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE \
+            --security-opt systempaths=unconfined glintfx-wltest:ci-${{ matrix.perna }}
+          if tests/container/check_isolation.sh glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} glintfx-test; then
             echo "ERRO: check_isolation.sh deveria ter acusado --security-opt systempaths=unconfined" >&2
             exit 1
           fi
@@ -1689,9 +1876,9 @@ jobs:
       - name: Limpeza
         if: always()
         run: |
-          docker rm -f glintfx-wltest-clean glintfx-wltest-poisoned-mount \
-            glintfx-wltest-poisoned-device glintfx-wltest-poisoned-pid \
-            glintfx-wltest-poisoned-systempaths || true
+          docker rm -f glintfx-wltest-clean-${{ matrix.perna }} glintfx-wltest-poisoned-mount-${{ matrix.perna }} \
+            glintfx-wltest-poisoned-device-${{ matrix.perna }} glintfx-wltest-poisoned-pid-${{ matrix.perna }} \
+            glintfx-wltest-poisoned-systempaths-${{ matrix.perna }} || true
 
   lint:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)

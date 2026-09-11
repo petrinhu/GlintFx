@@ -602,7 +602,7 @@ def discover_selftest_compiler(cli_compiler, cli_compiler_id):
 # (mirroring display_adapter.cpp calling flush_write_wait_is_fatal()) -
 # the SAME shape as the real defect, kept hermetic (no wayland headers,
 # so this selftest never needs the host's dev packages).
-def _build_base_fixture(scratch, label, include_atom_in_link, compiler):
+def _build_base_fixture(scratch, label, include_atom_in_link, compiler, include_sanitize_token=False):
     root = os.path.join(scratch, label)
     context_dir = os.path.join(root, "tests", "container")
     staged_dir = os.path.join(context_dir, "_arch_ports_src")
@@ -642,13 +642,23 @@ def _build_base_fixture(scratch, label, include_atom_in_link, compiler):
     # token here.
     quoted_compiler = shlex.quote(compiler)
 
+    # SANITIZER-CONTAINER-GAP (/var/tmp/glintfx-plan/cauda-w6b.md sec.
+    # 4.2): the real Containerfile now embeds $GLINTFX_FIXTURE_SANITIZE
+    # literally in every g++ line, right after -O2. This selftest fixture
+    # mirrors that exact placement when include_sanitize_token is set -
+    # the token is NEVER exported into this process's environment, so
+    # `sh -c` expands it to empty, proving the same claim the real
+    # Containerfile's own header comment makes (an unset build ARG
+    # collapses to the byte-for-byte flags this image already had).
+    sanitize_token = " $GLINTFX_FIXTURE_SANITIZE" if include_sanitize_token else ""
+
     containerfile = (
         "FROM fedora:44 AS arch-ports-builder\n"
         "RUN dnf -y install gcc-c++ \\\n"
         "    && dnf clean all\n"
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY main_smoke.cpp /build/main_smoke.cpp\n"
-        f"RUN {quoted_compiler} -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
+        f"RUN {quoted_compiler} -std=c++23 -O2{sanitize_token} -Wall -Wextra -Werror \\\n"
         "        -I /build/_arch_ports_src/src \\\n"
         "        -o /build/main_smoke \\\n"
         + consumer_line
@@ -662,9 +672,9 @@ def _build_base_fixture(scratch, label, include_atom_in_link, compiler):
     return root, context_dir, staged_dir, containerfile
 
 
-def _run_selftest_case(scratch, label, include_atom_in_link, compiler):
+def _run_selftest_case(scratch, label, include_atom_in_link, compiler, include_sanitize_token=False):
     root, context_dir, staged_dir, containerfile = _build_base_fixture(
-        scratch, label, include_atom_in_link, compiler
+        scratch, label, include_atom_in_link, compiler, include_sanitize_token=include_sanitize_token
     )
     build_dir = tempfile.mkdtemp(prefix=f"glintfx-fixture-link-selftest-build-{label}-", dir=scratch)
     try:
@@ -682,6 +692,34 @@ def selftest_positive_control(scratch, compiler):
         print(f"selftest: controle POSITIVO FALHOU (contagens inesperadas: {summary})", file=sys.stderr)
         return False
     print(f"selftest: controle POSITIVO OK (atom.cpp presente no link, liga limpo: {summary})")
+    return True
+
+
+# SANITIZER-CONTAINER-GAP (TODO.md, /var/tmp/glintfx-plan/cauda-w6b.md
+# sec. 4.2): prova que o portao continua ligando depois que o token
+# $GLINTFX_FIXTURE_SANITIZE entrou em toda linha g++ real do
+# Containerfile - este mesmo script (--exec) roda o texto literal do
+# estagio via `sh -c` SEM exportar essa variavel (run_subcommand() nao
+# passa `env=`), entao o token tem que expandir para vazio sem quebrar
+# a linha. Sem este controle, um erro de sintaxe no ponto de insercao
+# do token (por exemplo um `$GLINTFX_FIXTURE_SANITIZE` colado sem
+# espaco, ou dentro de aspas que o engolissem) passaria despercebido
+# aqui e so apareceria no `docker build` real, o mesmo furo que este
+# arquivo inteiro existe para fechar (ver o docstring do modulo).
+def selftest_sanitize_token_expands_empty(scratch, compiler):
+    summary, errors = _run_selftest_case(
+        scratch, "sanitize-token", include_atom_in_link=True, compiler=compiler, include_sanitize_token=True
+    )
+    if errors:
+        print(f"selftest: controle SANITIZE-TOKEN FALHOU (esperava zero erros, veio {errors})", file=sys.stderr)
+        return False
+    if summary["compile_total"] != 1 or summary["compile_ok"] != 1:
+        print(f"selftest: controle SANITIZE-TOKEN FALHOU (contagens inesperadas: {summary})", file=sys.stderr)
+        return False
+    print(
+        "selftest: controle SANITIZE-TOKEN OK (linha g++ com $GLINTFX_FIXTURE_SANITIZE embutido "
+        f"liga limpo com o token nao-exportado expandindo para vazio: {summary})"
+    )
     return True
 
 
@@ -806,7 +844,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
     else:
         print(
             f"{SCRIPT_NAME} --selftest: nenhum compilador GNU-compativel encontrado (CMAKE_CXX_COMPILER nao e "
-            f"GNU/Clang/AppleClang e nenhum candidato {_SELFTEST_COMPILER_CANDIDATES} esta no PATH) - os 3 "
+            f"GNU/Clang/AppleClang e nenhum candidato {_SELFTEST_COMPILER_CANDIDATES} esta no PATH) - os 4 "
             "controles que compilam ficam PULADOS, contados e declarados, nunca escondidos (GODS_LAWS.md L-40)",
             file=sys.stderr,
         )
@@ -816,10 +854,12 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
         named_results = [("empty", selftest_empty_containerfile_reproves(scratch))]
         if compiler:
             named_results.append(("positive", selftest_positive_control(scratch, compiler)))
+            named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
             named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
             named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
         else:
             named_results.append(("positive", None))
+            named_results.append(("sanitize-token", None))
             named_results.append(("missing-atom", None))
             named_results.append(("multi", None))
     finally:
@@ -828,7 +868,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
     ran = [ok for _name, ok in named_results if ok is not None]
     skipped = [name for name, ok in named_results if ok is None]
     print(
-        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/4 | "
+        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/5 | "
         f"pulados (sem compilador): {len(skipped)} ({', '.join(skipped) if skipped else 'nenhum'})"
     )
 

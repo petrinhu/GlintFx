@@ -161,8 +161,47 @@
 # reproves with the real `ld` "undefined reference" the moment a future
 # atom repeats this exact shape - never again only a server round-trip
 # away.
+# SANITIZER-CONTAINER-GAP (TODO.md, /var/tmp/glintfx-plan/cauda-w6b.md
+# sec. 4.2): before this ARG, every g++ invocation below was fixed at
+# -O2 -Wall -Wextra -Werror, zero -fsanitize - the class of defect
+# ASan/UBSan exist to catch (use-after-free, use-after-return, stack/
+# heap overflow, undefined behaviour) could only ever be found in the
+# plain `ctest` suite (tools/preci.sh --sanitizer-only), never in the
+# Wayland/EGL paths this container is the ONLY place that exercises
+# for real (window_facade.cpp's own use-after-move, measured and fixed
+# in commit 605ea61, is the concrete instance this fatia's own vermelho
+# de estreia reproduces). $GLINTFX_FIXTURE_SANITIZE defaults to empty
+# (byte-for-byte the flags this image already had) and is set by the
+# CI matrix's `asan` leg (.github/workflows/ci.yml, matrix.perna) to
+# the exact list cmake/GlintfxCompileOptions.cmake:125 already uses for
+# the library itself, spelled out again here rather than invented:
+# -fsanitize=address,undefined -fno-sanitize-recover=all
+# -fno-omit-frame-pointer -g -O1 - placed AFTER -O2 in every g++ line
+# below on purpose (GCC honours the LAST -O flag on the command line,
+# so -O1 from this token wins over the fixed -O2 when set, and -O2
+# alone wins when the token is empty). tests/tools/check_container_
+# fixture_link.py's own --selftest runs every line below through a
+# real shell with $GLINTFX_FIXTURE_SANITIZE unset, so an empty
+# expansion is exercised there, never assumed. libasan/libubsan are
+# added to BOTH stages below (build stage: linking against them here
+# needs the runtime import libs present at link time even for the
+# `plain` leg, which never references them, same reasoning distutils/
+# rpm dependency resolution already forces; final stage: the actual
+# runtime the asan leg's fixtures execute against) - the SAME trap
+# that broke the `sanitizer` unit job on its own debut (25/08/2026,
+# CLAUDE.md's own "Os quatro jobs acrescentados pela onda W1" bullet:
+# Fedora ships libasan/libubsan as packages SEPARATE from gcc-c++, and
+# a link that never installed them died with "cannot find
+# libasan.so") - not repeated here a second time.
 FROM fedora:44 AS arch-ports-builder
+# ARG must come AFTER this stage's own FROM to be visible to the RUN
+# lines below (a global ARG declared before the first FROM only ever
+# seeds that FROM's own image reference, never a build stage's shell
+# environment - measured against Docker's own documented scoping
+# rules before writing this line, GODS_LAWS.md L-44).
+ARG GLINTFX_FIXTURE_SANITIZE=""
 RUN dnf -y install gcc-c++ pkgconf-pkg-config wayland-devel wayland-protocols-devel mesa-libEGL-devel \
+        libasan libubsan \
     && dnf clean all
 COPY _arch_ports_src /build/_arch_ports_src
 COPY connect_smoke.cpp /build/connect_smoke.cpp
@@ -189,7 +228,7 @@ RUN wayland-scanner client-header \
         /build/xdg-shell-protocol.c \
     && gcc -O2 -Wall -Wextra -Werror $(pkg-config --cflags wayland-client) \
         -c /build/xdg-shell-protocol.c -o /build/xdg-shell-protocol.o
-RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/arch_ports_connect_smoke \
@@ -202,7 +241,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/connect_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/registry_smoke \
@@ -215,7 +254,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/registry_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/two_displays_test \
@@ -228,7 +267,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/two_displays_test.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror -pthread \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror -pthread \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/fatal_error_smoke \
@@ -241,7 +280,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/fatal_error_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/pump_smoke \
@@ -254,7 +293,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/pump_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/wait_events_smoke \
@@ -267,7 +306,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/wait_events_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client) \
         -o /build/shell_smoke \
@@ -283,7 +322,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/shell_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client) \
         -o /build/window_smoke \
@@ -304,7 +343,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/window_smoke.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_probe_smoke \
@@ -325,7 +364,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/egl_probe_smoke.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/seat_test \
@@ -340,7 +379,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/seat_test.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/two_seats_test \
@@ -355,7 +394,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/two_seats_test.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client) \
         -o /build/window_parity_test \
@@ -378,7 +417,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/_arch_ports_src/tests/parity/window_parity_test.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/gl_context_parity_test \
@@ -424,7 +463,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/_arch_ports_src/tests/parity/gl_context_parity_test.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_device_reader_probe \
@@ -470,7 +509,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/egl_device_reader_probe.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_protocol_error_smoke \
@@ -508,7 +547,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/egl_protocol_error_smoke.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/facade_pin_smoke \
@@ -548,7 +587,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/facade_pin_smoke.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/window_active_after_map_smoke \
@@ -594,7 +633,7 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
         /build/xdg-shell-protocol.o \
         /build/window_active_after_map_smoke.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/gpu_kind_report_smoke \
@@ -643,6 +682,15 @@ RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \
 
 FROM fedora:44
 
+# libasan/libubsan/binutils: always installed, one recipe for both
+# legs (D-CAUDA-6, /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.2) - a
+# `plain`-only final image without them would need a SECOND dnf
+# recipe just to add them for `asan`, doubling this list to keep in
+# sync by hand; the `plain` leg simply never loads a binary that
+# references them. `-static-libasan` was considered and discarded: the
+# sanitizer report still needs `addr2line` (binutils) in the final
+# image to symbolize a stack trace either way, so static linking saves
+# nothing but makes every fixture binary bigger.
 RUN dnf -y install \
         kwin \
         mesa-dri-drivers \
@@ -655,6 +703,9 @@ RUN dnf -y install \
         lsof \
         procps-ng \
         libstdc++ \
+        libasan \
+        libubsan \
+        binutils \
     && dnf clean all
 
 COPY run_compositor.sh /usr/local/bin/run_compositor.sh

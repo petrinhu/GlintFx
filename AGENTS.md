@@ -18,6 +18,10 @@ anyone who distributes a program built with it (see "Pinning a version"
 below, and the license itself, before assuming you can use it freely in
 a closed-source product).
 
+## Handing the loop your callbacks
+
+`gltfx_loop`'s `run()`/`set_callbacks()` take a plain `gltfx_loop_callbacks` struct of function pointers - no `std::function`, no virtual dispatch (`docs/api-conventions.md` R10, R8). If your `on_frame`/`on_render` are methods on an object rather than free functions or stateless lambdas, the **recommended form** is `gltfx_bind_loop_callbacks<&Type::on_frame, &Type::on_render>(object)` (borrow) or `gltfx_adopt_loop_callbacks<&Type::on_frame, &Type::on_render>(heap_object)` (hand ownership to the loop) - `include/glintfx/platform/loop/loop_bind.hpp`. Read R10's own "Layer 3" section before hand-writing a thunk yourself; it already exists, is header-only, and costs nothing beyond the four layers R10 documents in full.
+
 ## Consuming glintfx from another project
 
 Three supported ways to bring glintfx into a build. All three are

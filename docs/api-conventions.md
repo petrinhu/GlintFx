@@ -134,9 +134,32 @@ The two are **ortogonal**: `run(callbacks)` never reads or touches whatever `set
 
 **Proved by:** `tests/owned_loop_context_test.cpp` (the RAII atom underneath both forms: destroys exactly once, `reset()` destroys the previous AFTER the new one is stored, never touches a null half of the pair), `tests/store_loop_callbacks_test.cpp` (`set_callbacks()`'s own storage, substitution, refusal and - through `loop_impl`'s own destructor - final destruction, with no operating system anywhere), `tests/loop_engine_test.cpp`'s own T13-T16 (both forms exercised through `platform::loop_run()` directly: destruction on every one of the five return paths, zero destructions across repeated `run()` calls on the stored form, and the `"running"` refusal from inside a callback) and `tests/loop_callbacks_validation_test.cpp` (`destroy_context` with a `context` now accepted; without one, still refused by name).
 
-### Layer 3: amarração tipada (`LOOP-CALLBACK-BIND`, not yet landed)
+### Layer 3: amarração tipada (`LOOP-CALLBACK-BIND`, landed)
 
-Not yet landed. Will state here the borrow-vs-adopt binding helpers (`gltfx_bind_loop_callbacks`/`gltfx_adopt_loop_callbacks`, `include/glintfx/platform/loop/loop_bind.hpp`) and what borrowing does NOT protect a consumer from.
+Header-only, template-based, and the ONLY layer that never touches the ABI: `gltfx_bind_loop_callbacks<&Type::on_frame, &Type::on_render>(object)` and `gltfx_adopt_loop_callbacks<&Type::on_frame, &Type::on_render>(heap_object)` (`include/glintfx/platform/loop/loop_bind.hpp`) exist purely so a consumer with an object-and-method pair never has to hand-write the two thunks (a free function that casts `void *context` back and calls through a stored pointer-to-member) themselves, or the delete thunk layer 2's own `destroy_context` needs when they choose to hand ownership over.
+
+Three ways to fill in `gltfx_loop_callbacks::on_frame`/`on_render`, side by side - camada 3 is needed for ONLY the third:
+
+```cpp
+// 1. A free function - plain assignment, no camada 3:
+callbacks.on_frame = &my_free_on_frame;
+
+// 2. A stateless lambda that converts directly (layer 1's own property,
+//    tests/loop_callbacks_type_test.cpp) - still no camada 3, as long
+//    as it is declared noexcept:
+callbacks.on_frame = [](void *, const gltfx_frame_tick &) noexcept { return true; };
+
+// 3. An object-and-method pair - what camada 3 is for:
+callbacks = gltfx_bind_loop_callbacks<&app::on_frame, &app::on_render>(my_app);
+```
+
+`gltfx_bind_loop_callbacks()` **borrows**: `context` is `&object`, `destroy_context` stays null (layer 2's own "nullptr means borrowed"). `gltfx_adopt_loop_callbacks()` **hands ownership over**: `context` is the heap pointer, `destroy_context` is a typed thunk that runs `delete` on it - layer 2's own "non-null means handed over", filled in for you instead of you writing that one-liner by hand. Both refuse a candidate `OnFrame`/`OnRender` missing `noexcept`, at YOUR own compile step - the same "the mistake surfaces on your build, never as a crash inside this library" property layer 1 already gives a plain function pointer, extended here to a pointer-to-member. `gltfx_bind_loop_callbacks()` also refuses a temporary (`gltfx_bind_loop_callbacks<...>(my_type{})`) at compile time - a separate, deleted `Object &&` overload exists ONLY so the diagnostic names your own call site (`use of deleted function ...(Object&&)`) instead of a generic deduction failure; the actual refusal is the non-const lvalue-reference parameter of the real overload, which already refuses an rvalue on its own.
+
+**The truth this layer does NOT give you, stated so nobody has to infer it from an absence:**
+
+> **Borrowing makes YOU responsible for the object outliving the loop** - exactly as layer 1's own bare `void *context` already required; camada 3 changes nothing about WHO is responsible, only HOW the pointer is produced. The temporary refusal above catches only the single most common mistake (passing `my_type{}` directly): it does NOT catch a local object that goes out of scope before `run()` is called, and it does NOT catch a `std::unique_ptr<my_type>` reset to something else partway through the loop's own lifetime - both stay the consumer's own responsibility to avoid, the same way an ordinary dangling pointer always is in C++.
+
+**Proved by:** `tests/loop_bind_test.cpp` - the refusal of a temporary/rvalue and acceptance of an lvalue (compile-time, three concepts over the actual call expression), a stateless lambda still needing no camada 3, `const`-vs-non-`const` method binding with no special-casing, a `constexpr` bind result proving zero runtime cost and the frozen five-pointer layout, and two runtime cases (in a genuinely separate translation unit, `tests/loop_bind_alloc_probe.cpp`, so the optimizer cannot elide the very allocation being measured) proving `bind()` allocates nothing and `adopt()` adds nothing beyond the consumer's own `new`, plus a case proving the adopted object's real destructor runs through the typed delete thunk.
 
 ### Layer 4: marca de depuração (`LOOP-CONTEXT-MARK`, not yet landed)
 

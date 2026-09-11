@@ -1013,6 +1013,21 @@ target_sources(loop_callbacks_validation_test PRIVATE
 # nothing this test needs from src/.
 glintfx_add_test(loop_callbacks_type_test)
 
+# loop_bind_test - LOOP-CALLBACK-BIND (S1c, /var/tmp/glintfx-plan/
+# loop-fix.md sec. 3.3/S1c): platform/loop/loop_bind.hpp is entirely
+# inline/template (nothing here reaches an operating-system header,
+# the same shape loop_callbacks_type_test.cpp right above already
+# uses), so this registers unguarded, on all five platforms.
+# loop_bind_alloc_probe.cpp is a SEPARATE translation unit ON PURPOSE
+# (loop_bind_alloc_probe.hpp's own top comment: the allocation-counting
+# case needs a genuine cross-TU boundary the optimizer cannot see
+# through, measured necessary after a same-TU version had its
+# allocation silently elided).
+glintfx_add_test(loop_bind_test)
+target_sources(loop_bind_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/loop_bind_alloc_probe.cpp"
+)
+
 # loop_open_alloc_failure_test - LOOP-RUN fatia 6b (docs/plano-w6b-
 # fatias-6-8.md sec. 8.3, F17, GODS_LAWS.md L-20/L-22/L-27): recompiles
 # loop_impl.cpp a SECOND time, straight into this test binary - the

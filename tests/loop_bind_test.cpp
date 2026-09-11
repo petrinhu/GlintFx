@@ -64,6 +64,17 @@ struct app {
     // reasoning tests/loop_callbacks_type_test.cpp's own header
     // comment already documents for its eight bodies.
     [[maybe_unused]] bool throwing_frame(const gltfx_frame_tick &) { return true; }
+
+    // The RENDER-side twin of throwing_frame above - measured missing
+    // (mutation review, S1c LOOP-CALLBACK-BIND): gltfx_loop_bindable's
+    // own concept is TWO halves (loop_bind.hpp's own comment on
+    // gltfx_loop_bindable) - OnFrame must be nothrow-invocable AND
+    // OnRender must be nothrow-invocable. Before this case, only the
+    // OnFrame half had a negative static_assert below; a mutation that
+    // deleted the SECOND half of the `&&` (accepting an OnRender that
+    // may throw) compiled clean and passed the whole 179-case suite.
+    // Never called, same reasoning as throwing_frame.
+    [[maybe_unused]] void throwing_render(const gltfx_frame_tick &) {}
 };
 
 // destroy_flag_app - the SEPARATE fixture "adopt entrega posse de
@@ -138,6 +149,11 @@ static_assert(gltfx_loop_bindable<&app::const_frame, &app::render, app>,
 static_assert(!gltfx_loop_bindable<&app::throwing_frame, &app::render, app>,
               "a method missing noexcept must be refused - removing the requires clause "
               "is the mutation this static_assert kills");
+static_assert(!gltfx_loop_bindable<&app::frame, &app::throwing_render, app>,
+              "an OnRender missing noexcept must be refused too - deleting the SECOND half "
+              "of gltfx_loop_bindable's own `&&` (the OnRender clause) is the mutation this "
+              "static_assert kills; measured to compile clean and pass the whole suite "
+              "without it (S1c LOOP-CALLBACK-BIND mutation review)");
 
 // --- property "custo zero, sem alocacao" (row 4), measures (i) and
 // (ii) - the two that are themselves compile-time (F16); (iii) and
@@ -254,7 +270,7 @@ GLINTFX_TEST(adopt_hands_ownership_through_the_typed_delete_thunk) {
 }
 
 GLINTFX_TEST(loop_callback_bind_table_is_enumerated_in_full) {
-    // Thirteen static_assert(s) above are what actually proves the
+    // Fourteen static_assert(s) above are what actually proves the
     // compile-time half of the plan's own sec. 3.3 table (this file's
     // own top comment) - this case only counts them plus the four
     // runtime cases, so an empty or gutted translation unit could
@@ -262,7 +278,7 @@ GLINTFX_TEST(loop_callback_bind_table_is_enumerated_in_full) {
     constexpr int static_asserts_checked =
         3    /* refusal: temporary, rvalue, lvalue */
         + 1  /* stateless lambda needs no camada 3 */
-        + 3  /* gltfx_loop_bindable: method, const, throwing */
+        + 4  /* gltfx_loop_bindable: method, const, throwing frame, throwing render */
         + 5  /* constexpr k: context/on_frame/on_render/on_event/destroy_context */
         + 1; /* five-pointer layout */
     constexpr int runtime_cases_checked =

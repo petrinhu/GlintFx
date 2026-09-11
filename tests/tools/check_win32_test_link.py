@@ -76,6 +76,7 @@
 #   print_summary()                - imprime as quatro contagens SEMPRE
 
 import os
+import posixpath
 import re
 import shlex
 import shutil
@@ -204,11 +205,26 @@ def _resolve_project_source_dir_token(token):
     numa mensagem de erro enganosa - o custo de reprovar cedo, aqui,
     com o nome do token, e' visivel e barato; o custo de deixar passar
     e' o mesmo buraco de novo, so' que descoberto de novo pelo rc do
-    link.exe, nunca por este script (GODS_LAWS.md L-40)."""
+    link.exe, nunca por este script (GODS_LAWS.md L-40).
+
+    WIN-CROSS-STAGE (achado real, 11/09/2026, GODS_LAWS.md L-04/L-17):
+    o valor devolvido aqui NUNCA e' um caminho de FILESYSTEM do host -
+    e' um token relativo ao repositorio, no MESMO estilo POSIX que
+    tests/CMakeLists.txt ja usa (barra normal), que este script depois
+    embute literalmente em `f"/src/{src}"` para montar dentro do
+    container Linux (build_library_dll()/link_one_test()). `os.path.
+    join()` usa o separador NATIVO do host (`os.sep`) - numa CI Windows
+    real, devolveria "tests\\probe.cpp", e o portao reprovou
+    exatamente assim (`sources=['tests\\probe.cpp']` contra o valor
+    esperado com barra normal). `posixpath.join()` e' o ÚNICO dos dois
+    que sempre produz barra normal, em QUALQUER host - por isso, e nao
+    por acaso, e' o mesmo remedio que collect_win32_library_layout()'s
+    own walk() usa logo abaixo neste arquivo, para o GEMEO exato deste
+    defeito do lado de src/**/CMakeLists.txt."""
     if token.startswith(_PROJECT_SOURCE_DIR_PREFIX):
         return token[len(_PROJECT_SOURCE_DIR_PREFIX) :]
     if token.startswith(_CURRENT_SOURCE_DIR_PREFIX):
-        return os.path.join(_CURRENT_SOURCE_DIR_RESOLVED, token[len(_CURRENT_SOURCE_DIR_PREFIX) :])
+        return posixpath.join(_CURRENT_SOURCE_DIR_RESOLVED, token[len(_CURRENT_SOURCE_DIR_PREFIX) :])
     if "${" in token:
         fail(
             "token CMake nao reconhecido em target_sources() de tests/CMakeLists.txt: "
@@ -449,6 +465,20 @@ def collect_win32_library_layout(repo_root):
     esse caso e resolvido sem reconstruir o codegen aqui.
 
     Devolve (sources, libs, needs_generated_gl_loader, visited_files).
+
+    GEMEO do WIN-CROSS-STAGE (L-17/L-04, 11/09/2026): `rel_dir` e cada
+    entrada de `sources` sao tokens relativos ao repositorio no MESMO
+    estilo POSIX que os proprios `target_sources()` deste projeto usam
+    - nunca um caminho de FILESYSTEM. Eles acabam embutidos literalmente
+    em `f"/src/{src}"` para montar o caminho DENTRO do container Linux
+    (build_library_dll()). `os.path.join()`/`os.path.normpath()` usam o
+    separador NATIVO do host (barra invertida numa CI Windows real) -
+    exatamente o mesmo defeito que _resolve_project_source_dir_token()
+    (acima neste arquivo) tinha e o servidor pegou primeiro. `rel_dir`
+    e' construido com `posixpath.join()` (nunca `os.path.join()`) por
+    isso; `cmake_path` continua usando `os.path.join()` porque ESSE e'
+    um caminho de FILESYSTEM de verdade (le o CMakeLists.txt do disco),
+    e o Windows aceita barra normal misturada nele sem problema.
     """
     sources = []
     libs = []
@@ -467,7 +497,7 @@ def collect_win32_library_layout(repo_root):
             r"target_sources\(\s*glintfx_library\s+PRIVATE\s*(.*?)\)", text, re.DOTALL
         ):
             for token in _tokenize_cmake_args(match.group(1)):
-                sources.append(os.path.normpath(os.path.join(rel_dir, token)))
+                sources.append(posixpath.normpath(posixpath.join(rel_dir, token)))
 
         for match in re.finditer(
             r"target_link_libraries\(\s*glintfx_library\s+PRIVATE\s*(.*?)\)", text, re.DOTALL
@@ -478,7 +508,7 @@ def collect_win32_library_layout(repo_root):
             needs_generated_gl_loader = True
 
         for subdir in _add_subdirectory_calls_for_win32(text):
-            walk(os.path.join(rel_dir, subdir))
+            walk(posixpath.join(rel_dir, subdir))
 
     walk("src")
 
@@ -1601,12 +1631,19 @@ def _selftest_layout_respects_win32_branch(scratch):
     _write(os.path.join(root, "src", "platform", "win_only", "win_atom.cpp"), "int win_atom() { return 3; }\n")
 
     sources, libs, needs_gl_loader, _visited = collect_win32_library_layout(root)
+    # GEMEO do WIN-CROSS-STAGE (11/09/2026): o valor esperado aqui e' um
+    # token POSIX (o mesmo que collect_win32_library_layout() agora
+    # sempre devolve via posixpath.join/posixpath.normpath, independente
+    # do host), NUNCA `os.path.normpath()` - esse usaria o separador
+    # NATIVO do host e reprovaria este proprio selftest numa CI Windows
+    # (mesma forma exata do defeito real que _selftest_current_source_
+    # dir_token() ja prova para o lado de tests/CMakeLists.txt).
     ok = (
         sorted(sources)
         == sorted(
             [
-                os.path.normpath("src/common/common_atom.cpp"),
-                os.path.normpath("src/platform/win_only/win_atom.cpp"),
+                "src/common/common_atom.cpp",
+                "src/platform/win_only/win_atom.cpp",
             ]
         )
         and libs == ["user32"]

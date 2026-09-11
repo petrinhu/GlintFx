@@ -20,14 +20,34 @@
 // from seeing through them. That was not enough: GCC's own new/delete
 // elision ([expr.new], "an implementation is allowed to omit a call to
 // a replaceable global allocation function... if it can prove the
-// result is unobserved") is an INTERPROCEDURAL analysis WITHIN one
-// translation unit, and `[[gnu::noinline]]`/`__declspec(noinline)`
-// only stop INLINING - they do not stop that separate analysis from
-// seeing across the noinline boundary. Measured directly:
-// `objdump -d build/tests/loop_bind_test` showed the noinline
-// `allocate_app_opaque()` compiled down to nothing but the counter
-// increment, no call to `operator new` anywhere - the SAME elision,
-// just proven immune to noinline.
+// result is unobserved") is NOT stopped by `[[gnu::noinline]]`/
+// `__declspec(noinline)` - those only stop INLINING, a different
+// optimization.
+//
+// REPRODUCED IN ISOLATION (S1c LOOP-CALLBACK-BIND mutation review),
+// with the EXACT condition, not "noinline genericamente": a minimal
+// single-TU reconstruction where ONE `[[gnu::noinline]]` function
+// performs `new`, calls gltfx_adopt_loop_callbacks(), AND invokes the
+// returned `destroy_context` on that SAME local value - all inside
+// that one function body, built with this project's own release flags
+// (`-O3 -DNDEBUG`) - compiles down to nothing but a bare counter
+// increment and `ret`; `objdump -d` shows no call to `operator new`/
+// `operator delete` anywhere in that function. The elision needs
+// `destroy_context`'s VALUE to stay resolvable by the compiler's own
+// dataflow inside that ONE function, never escaping through a
+// return-by-value into a DIFFERENT call frame: the moment the same
+// reconstruction instead RETURNS the `gltfx_loop_callbacks` by value
+// and a SEPARATE function invokes `destroy_context` off the returned
+// struct - still the SAME translation unit, still noinline - the call
+// is a genuinely indirect one the compiler cannot resolve, and the
+// allocation is real: `objdump -d` shows the actual call into
+// `operator new`'s own body, matched instruction for instruction. This
+// project's actual split goes one step further than that boundary, on
+// purpose: `new`+`adopt()` and the `destroy_context()` invocation
+// don't just live in different functions, they live in DIFFERENT
+// TRANSLATION UNITS (this header/.cpp vs. tests/loop_bind_test.cpp) -
+// the exact opacity a real consumer's own call site has against
+// libglintfx.so in production (this header's own next paragraph).
 //
 // WHY A SEPARATE .cpp FIXES IT: this project's own CMake has no
 // `-flto`/`CMAKE_INTERPROCEDURAL_OPTIMIZATION` anywhere

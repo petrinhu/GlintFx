@@ -586,18 +586,70 @@ stage_cppcheck() {
 # line. A suppression with no recorded reason is not auditable later,
 # which is exactly the failure mode a NOLINT is supposed to be an
 # EXCEPTION to, not a habit.
+#
+# CONTAINER-LEAK-COUNTER, measured: `grep -n 'NOLINT'` alone flags any
+# line that merely MENTIONS the word, not only a real directive -
+# tests/container/alloc_counter_hook.cpp:250 is a comment PARAGRAPH
+# explaining why each cast has its own NOLINTNEXTLINE right above it
+# (so clang-format re-wrapping never separates marker from line), and
+# clang-format's own re-wrap happened to land the word "NOLINTNEXTLINE"
+# at the start of that one physical line - prose, not a directive.
+#
+# What actually distinguishes them is NOT the line's own shape (both
+# "// NOLINTNEXTLINE(check) reason: ..." and the line 250 prose start
+# their comment with the same word) - it is ADJACENCY, which is also
+# exactly what clang-tidy itself keys on. Probed empirically against
+# the real clang-tidy binary: a NOLINTNEXTLINE comment suppresses the
+# diagnostic on the SINGLE physical line right after it, full stop; if
+# that next line is itself another `//` comment (as with line 250,
+# whose neighbour is line 251, more prose), the directive is INERT -
+# clang-tidy never treats it as live, confirmed by reproducing the
+# exact wrapped-paragraph shape in front of a real int-to-ptr cast and
+# watching the diagnostic still fire, unsuppressed. Repo-wide (git
+# grep -n 'NOLINT' -- '*.cpp' '*.hpp' '*.h' at commit time, 62
+# occurrences, L-17 gemeo): line 250 is the ONLY one whose next
+# physical line is a `//` comment - every real directive is adjacent
+# to real code (or, for NOLINT/NOLINTBEGIN/NOLINTEND, is not a
+# NEXTLINE form at all, so adjacency does not apply the same way).
+#
+# So: NOLINTNEXTLINE is a directive candidate only when the next
+# physical line is NOT itself a bare `//` comment (nor blank) - that
+# is genuinely what clang-tidy will act on. NOLINT/NOLINTBEGIN/
+# NOLINTEND are ALWAYS candidates regardless of adjacency (NOLINT
+# suppresses on its OWN line; BEGIN/END open/close a range) - no
+# escape route by picking one of those three forms instead. A
+# candidate still MUST carry `reason:` on its own line, parens or not
+# - dropping the check list never exempts it.
 stage_nolint_justification() {
     enumerate_tracked_cpp_hpp
     require_nonempty "NOLINT-justification" || fail "estagio NOLINT recusado (varredura vazia)"
     offenders=""
+    directive_count=0
+    inert_count=0
     for f in "${FILES[@]}"; do
-        while IFS= read -r line; do
-            case "$line" in
-                *reason:*) ;;
-                *) offenders="${offenders}${f}:${line}"$'\n' ;;
-            esac
+        while IFS= read -r match; do
+            lineno="${match%%:*}"
+            content="${match#*:}"
+            is_candidate=1
+            if [[ "$content" == *NOLINTNEXTLINE* ]]; then
+                nextline=$(sed -n "$((lineno + 1))p" "$ROOT_DIR/$f")
+                trimmed="${nextline#"${nextline%%[![:space:]]*}"}"
+                case "$trimmed" in
+                    "" | //*) is_candidate=0 ;;
+                esac
+            fi
+            if [ "$is_candidate" -eq 1 ]; then
+                directive_count=$((directive_count + 1))
+                case "$content" in
+                    *reason:*) ;;
+                    *) offenders="${offenders}${f}:${lineno}:${content}"$'\n' ;;
+                esac
+            else
+                inert_count=$((inert_count + 1))
+            fi
         done < <(grep -n 'NOLINT' "$ROOT_DIR/$f" 2>/dev/null || true)
     done
+    echo "NOLINT-justification: ${directive_count} diretiva(s) real(is) varrida(s), ${inert_count} mencao(oes) inerte(s)/prosa descartada(s) (nao adjacente a codigo)"
     if [ -n "$offenders" ]; then
         printf '%s' "$offenders" >&2
         fail "NOLINT sem justificativa 'reason:' na mesma linha (ver .clang-tidy)"

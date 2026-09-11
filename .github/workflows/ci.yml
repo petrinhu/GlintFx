@@ -1227,6 +1227,34 @@ jobs:
       - name: Isolamento provado (controle positivo)
         run: tests/container/check_isolation.sh glintfx-wltest-clean glintfx-test
 
+      # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
+      # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a
+      # pergunta que a literatura de terceiro NAO responde sozinha -
+      # se `docker exec` propaga o codigo 128+sinal de um processo
+      # morto por sinal que NAO e' o PID 1 do container (kwin_wayland
+      # continua vivo; o alvo aqui e' um `sh -c` avulso rodando DENTRO
+      # do mesmo container, o mesmo caminho que os 18 passos de
+      # fixture abaixo vao seguir). Roda ANTES de qualquer fixture
+      # real, mesma posicao do controle positivo acima - prova o
+      # mecanismo antes de confiar nele pelo resto do job. Se a
+      # medicao contrariar a literatura (rc diferente de 139), este
+      # passo reprova E FICA reprovado - nunca se ajusta o `grep` para
+      # o que apareceu (GODS_LAWS.md L-43).
+      - name: Controle negativo 5 - sinal nomeado antes do ruido
+        run: |
+          set -eu
+          if tests/container/exec_fixture.sh glintfx-wltest-clean sh -c 'echo ruido-do-driver; kill -SEGV $$' > cn5.out 2>&1; then
+            echo "ERRO: exec_fixture.sh deveria ter reprovado (processo morto por SIGSEGV dentro do container)" >&2
+            cat cn5.out >&2
+            exit 1
+          fi
+          if ! head -1 cn5.out | grep -q 'rc=139 signal=SEGV'; then
+            echo "ERRO: primeira linha nao trouxe 'rc=139 signal=SEGV' - docker exec pode nao estar propagando 128+sinal para um processo do proprio exec (ver secao 2.1 do plano)" >&2
+            cat cn5.out >&2
+            exit 1
+          fi
+          echo "ok: docker exec propaga 128+sinal (SIGSEGV=139) para um processo do proprio exec, sinal nomeado antes do ruido"
+
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean smoke.sh glintfx-test
 
@@ -1268,10 +1296,7 @@ jobs:
       - name: ARCH-PORTS - conecta e desconecta via o adaptador real (R4)
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean arch_ports_connect_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean arch_ports_connect_smoke
           echo "arch_ports_connect_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia B, TDD case B (GODS_LAWS.md L-09/L-20 -
@@ -1286,10 +1311,7 @@ jobs:
       - name: WL-DISPLAY fatia B - registry real dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean registry_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean registry_smoke
           echo "registry_smoke" >> parity_inventory.txt
 
       # WIN-WINDOW fatia 7 (X-1', docs/plano-w6a-janela.md, "Prova
@@ -1303,10 +1325,7 @@ jobs:
       - name: WIN-WINDOW fatia 7 - dois displays no mesmo processo dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean two_displays_test | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean two_displays_test
           echo "two_displays_test" >> parity_inventory.txt
 
       # WL-DISPLAY fatia D, TDD case D: pump_smoke.cpp, mesmo padrao dos
@@ -1316,10 +1335,7 @@ jobs:
       - name: WL-DISPLAY fatia D - pump nao-bloqueante dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean pump_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean pump_smoke
           echo "pump_smoke" >> parity_inventory.txt
 
       # LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md sec. 8.2, D-W6b-
@@ -1333,10 +1349,7 @@ jobs:
       - name: LOOP-RUN fatia 7 - wait_events com orcamento dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean wait_events_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean wait_events_smoke
           echo "wait_events_smoke" >> parity_inventory.txt
 
       # WL-WINDOW fatia W-B (docs/plano-w6a-janela.md fatia 5): shell_
@@ -1347,10 +1360,7 @@ jobs:
       - name: WL-WINDOW fatia W-B - shell (wl_compositor/xdg_wm_base) dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean shell_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean shell_smoke
           echo "shell_smoke" >> parity_inventory.txt
 
       # WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8): window_
@@ -1366,10 +1376,7 @@ jobs:
       - name: WL-WINDOW fatia W-E - janela com buffer real dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean window_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean window_smoke
           echo "window_smoke" >> parity_inventory.txt
 
       # GL-CONTEXT fatia 1 (docs/plano-w6b-placa-e-laco.md, G-1):
@@ -1384,10 +1391,7 @@ jobs:
       - name: GL-CONTEXT fatia 1 - sonda EGL/GL 3.3 core dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean egl_probe_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean egl_probe_smoke
           echo "egl_probe_smoke" >> parity_inventory.txt
 
       # WL-WINDOW-HANDLE (docs/plano-w6a-janela.md fatias 6/9/11,
@@ -1401,10 +1405,7 @@ jobs:
       - name: WL-WINDOW-HANDLE - paridade da API publica de janela dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean window_parity_test | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean window_parity_test
           echo "window_parity_test" >> parity_inventory.txt
 
       # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-28):
@@ -1417,10 +1418,7 @@ jobs:
       - name: GL-CONTEXT fatia 5 - erro de protocolo nomeado pelo adaptador EGL
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean egl_protocol_error_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean egl_protocol_error_smoke
           echo "egl_protocol_error_smoke" >> parity_inventory.txt
 
       # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-29):
@@ -1439,10 +1437,7 @@ jobs:
       - name: GL-CONTEXT fatia 5 - paridade do contexto GL dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean gl_context_parity_test | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean gl_context_parity_test
           echo "gl_context_parity_test" >> parity_inventory.txt
 
       # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 4.6):
@@ -1456,10 +1451,7 @@ jobs:
       - name: GL-GPU-KIND - sonda de leitor EGL, valores crus (paridade com dxcore_reader_probe_test)
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean egl_device_reader_probe | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean egl_device_reader_probe
           echo "egl_device_reader_probe" >> parity_inventory.txt
 
       # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): seat_
@@ -1474,10 +1466,7 @@ jobs:
       - name: WL-SEAT fatia S-B - seat (wl_seat) dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean seat_test | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean seat_test
           echo "seat_test" >> parity_inventory.txt
 
       # WIN-SEAT SF-1 (/var/tmp/glintfx-plan/win-seat.md sec. 3, D-WS-7,
@@ -1493,10 +1482,7 @@ jobs:
       - name: WIN-SEAT SF-1 - dois assentos no mesmo processo dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean two_seats_test | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean two_seats_test
           echo "two_seats_test" >> parity_inventory.txt
 
       # FACADE-PIN, T0/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
@@ -1513,10 +1499,7 @@ jobs:
       - name: FACADE-PIN T0/G3 - pino do adaptador provado contra o compositor real
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean facade_pin_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean facade_pin_smoke
           echo "facade_pin_smoke" >> parity_inventory.txt
 
       # FACADE-PIN, T1/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8):
@@ -1532,10 +1515,7 @@ jobs:
       - name: FACADE-PIN T1/G3 - janela ativa apos mapear dentro do orcamento
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean window_active_after_map_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean window_active_after_map_smoke
           echo "window_active_after_map_smoke" >> parity_inventory.txt
 
       # CORE-LOG CL-7 (TODO.md W5, GODS_LAWS.md L-04/L-09/L-20): a
@@ -1550,10 +1530,7 @@ jobs:
       - name: CORE-LOG CL-7 - gpu_kind_resolved emitido pelo adaptador EGL real
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean gpu_kind_report_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean gpu_kind_report_smoke
           echo "gpu_kind_report_smoke" >> parity_inventory.txt
 
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
@@ -1575,10 +1552,7 @@ jobs:
       - name: WL-DISPLAY fatia C - erro fatal dentro do container
         run: |
           set -eu -o pipefail
-          docker exec \
-            -e XDG_RUNTIME_DIR=/run/glintfx-test \
-            -e WAYLAND_DISPLAY=glintfx-test \
-            glintfx-wltest-clean fatal_error_smoke | tee -a container_measured_raw.log
+          tests/container/exec_fixture.sh glintfx-wltest-clean fatal_error_smoke
           echo "fatal_error_smoke" >> parity_inventory.txt
 
       # P-0, piso de varredura nao-vazia (GODS_LAWS.md L-40): inventario

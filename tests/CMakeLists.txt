@@ -3733,6 +3733,39 @@ add_test(
 set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest)
 set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
+# CONTAINER-LOG-SIGNAL-FIRST (TODO.md, GODS_LAWS.md L-40/L-45/L-49,
+# /var/tmp/glintfx-plan/cauda-w6b.md sec. 4.1): tests/container/
+# exec_fixture.sh e' o atomo que os 17 passos `docker exec ... | tee
+# -a` do job `wayland-container` (.github/workflows/ci.yml) passam a
+# usar - imprime o veredito (fixture, codigo de saida, NOME do sinal
+# quando >=128, tamanho da saida) ANTES de qualquer byte da saida
+# capturada, para que uma fixture morta por sinal nao esconda o
+# veredito atras do ruido do driver. --selftest exercita os quatro
+# controles (sucesso limpo, morte por sinal, reprovacao comum, piso
+# de varredura vazia de GODS_LAWS.md L-40) via `--runner "sh -c"` -
+# uma substituicao do `docker exec` real que so' o --selftest usa,
+# entao roda por completo sem Docker.
+#
+# GATE-SELFTEST-ORFAO (tests/tools/check_selftest_orphan.py): este
+# script declara "--selftest" no proprio dispatcher de argumentos, e
+# so' escapa da reprovacao daquele portao por estar registrado aqui -
+# nascer sem este bloco o tornaria orfao no mesmo commit.
+#
+# if(UNIX): o script e' POSIX sh (`#!/usr/bin/env sh`) e usa `kill -l`,
+# `mktemp`, `sh -c` como runner alternativo - nenhum existe nativamente
+# no Windows CI deste projeto (sem WSL/MSYS na matriz). O job
+# `wayland-container` que de fato EXECUTA este atomo em modo real so'
+# roda em `ubuntu-latest` de qualquer forma (.github/workflows/ci.yml);
+# mesmo GATE-TREE-PARITY downgrade que layers_test/port_privacy_test
+# ja documentam para os proprios scripts sh deste diretorio.
+if(UNIX)
+    add_test(
+        NAME container_exec_fixture_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/exec_fixture.sh" --selftest
+    )
+    set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest)
+endif()
+
 # WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
 # revisor adversarial NOVO em 10/09/2026, segunda reprovacao da mesma
 # fatia): check_win32_test_link.py's own selftest_main() prova, entre

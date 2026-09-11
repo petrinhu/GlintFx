@@ -388,3 +388,35 @@ gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo
 # item para rastrear, mesmo padrao das demais linhas SEM-PENDENCIA
 # desta secao inicial do arquivo.
 win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
+
+# --- Sonda exclusiva de UM sistema, sem par possivel (11/09/2026,
+# item CONTAINER-LOG-SIGNAL-FIRST) -------------------------------------
+#
+# container_exec_fixture_selftest (tests/container/exec_fixture.sh
+# --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX))
+# prova, via `--runner "sh -c"` (sem Docker nenhum), os quatro
+# controles do atomo que os 17 passos `docker exec ... <fixture>` do
+# job `wayland-container` (.github/workflows/ci.yml) agora usam:
+# sucesso limpo, morte por sinal (rc=139/signal=SEGV), reprovacao
+# comum (rc=1/signal=none) e o piso de varredura vazia (bytes=0)
+# de GODS_LAWS.md L-40.
+#
+# O job `wayland-container` que este atomo serve so' existe do lado
+# Linux (`runs-on: ubuntu-latest`) - o lado Windows nao tem, e nunca
+# vai ter, um `docker exec` contra um compositor Wayland dentro de
+# container, pela mesma razao que este projeto nao tem backend X11
+# nenhum do lado Linux (CLAUDE.md: "Linux e' Wayland puro"). Nao ha
+# comportamento equivalente a espelhar do lado Windows - a assimetria
+# nao e' lacuna esperando fixture nova, e' a fronteira do proprio
+# mecanismo (mesma categoria de win_vm_lab_isolamento_selftest acima:
+# sonda de UM laboratorio de teste, nunca comportamento da biblioteca).
+# Reforca a mesma ausencia: o script e' POSIX sh (`#!/usr/bin/env sh`),
+# usa `kill -l`/`mktemp`/`sh -c` como runner alternativo, nenhum deles
+# nativo nos runners Windows desta matriz - razao pela qual o proprio
+# add_test entrou condicionado a if(UNIX), mesma forma de tests/
+# CMakeLists.txt que win_vm_lab_isolamento_selftest ja usa.
+#
+# MORTE DESTA LINHA: nunca - a assimetria e' permanente por desenho.
+# Sem item para rastrear, mesmo padrao SEM-PENDENCIA das demais linhas
+# desta secao do arquivo.
+container_exec_fixture_selftest|windows|nenhum|SEM-PENDENCIA

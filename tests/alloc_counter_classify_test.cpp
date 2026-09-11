@@ -88,6 +88,27 @@ GLINTFX_TEST(classify_hook_then_libstdcxx_then_executable_is_ours) {
     GLINTFX_CHECK(result.decisive_frame == frames[2]);
 }
 
+// Caso gemeo do (b), para a libc em vez da libstdc++ (achado da
+// revisao de S1, CONTAINER-LEAK-COUNTER: a mutacao "parar de pular
+// quadros da libc" sobrevivia porque nenhum caso usava um endereco
+// dessa faixa como QUADRO DE PILHA - so aparecia montando o intervalo
+// em fixture_ranges(), nunca como entrada de classify_allocation_
+// frames()). Gancho, depois libc (ex.: um quadro dentro de malloc()
+// que a implementacao de operator new da libstdc++ as vezes atravessa
+// antes de retornar - nao decide), depois executavel - os dois
+// primeiros sao pulados, o terceiro decide: ours.
+GLINTFX_TEST(classify_hook_then_libc_then_executable_is_ours) {
+    const alloc_classify_ranges ranges = fixture_ranges();
+    const void *const frames[] = {
+        fake_addr(k_hook_begin + 0x10),
+        fake_addr(k_libc_begin + 0x10),
+        fake_addr(k_exec_begin + 0x20),
+    };
+    const alloc_classify_result result = classify_allocation_frames(frames, 3, ranges);
+    GLINTFX_CHECK(result.klass == alloc_frame_class::ours);
+    GLINTFX_CHECK(result.decisive_frame == frames[2]);
+}
+
 // Caso (c) do plano: gancho, libstdc++, biblioteca desconhecida - o
 // terceiro decide, e nao esta no executavel: third_party.
 GLINTFX_TEST(classify_hook_then_libstdcxx_then_unknown_library_is_third_party) {

@@ -3020,3 +3020,15 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **Medido por mim, não aceito do relato:** o formato da estrutura pública continua congelado, e agora o congelamento é provado por TAMANHO e não só por forma - o cabeçalho ganhou a asserção de que a estrutura tem exatamente cinco ponteiros, que reprova em compilação se alguém acrescentar um sexto campo. Suítes do laço: 16, 6, 6 e 11 casos, zero falhas; portão de verdades do texto, 10 de 10 âncoras.
 
+#### D-091101 — ORDEM DO LÍDER: o item de reconhecimento de configuração gráfica é FUNDIDO, não mantido nem apagado  `[11/09/26 - 06:16:38]`
+
+**Não é decisão autônoma. É do líder**, 11/09/2026, por `AskUserQuestion`, entre três opções.
+
+**O que motivou a pergunta:** ao planejar a cauda da onda W6b, o CTO foi medir os cinco itens e descobriu que **um deles tinha premissa falsa**. O item cobrava uma prova de reconhecimento de configuração pelo caminho gráfico, supondo que a prova existente (pelo caminho de memória compartilhada) funcionasse e só faltasse repeti-la. **Não funciona nenhuma das duas:** ele foi ao fonte do compositor e achou a razão - o compositor marca a configuração como aceita no instante em que a **envia**, nunca quando recebe a confirmação de volta. Logo nenhuma fixture nossa, em caminho nenhum, consegue flagrar a confirmação faltando. Não é limitação da fixture: é construção do compositor.
+
+**Por que a decisão é do líder e não nossa:** agente não declara nada morto, obsoleto ou descartável por conta própria (L-67). O CTO recomendou, o orquestrador levou, o líder decidiu.
+
+**A escolha dele: FUNDIR no item irmão**, que já mede exatamente isso noutra onda, em vez de manter duas linhas com donos separados. **O que se ganha:** um dono só, um plano só, e o desenho honesto (um servidor de protocolo falso dentro do container, que responde no lugar do compositor e assevera a confirmação) cabe naturalmente no item que fica. **O que se aceita:** a cauda de W6b perde um item, e a solução real espera a onda W7-C rodar.
+
+**Aplicado no mesmo commit** (`5f60a73`): a linha saiu da tabela - o que o líder revoga é apagado, nunca arquivado com o texto morto dentro -, a substância passou ao item irmão com o escopo ampliado por escrito, e a varredura de gêmeo (L-17) achou a menção ao ID na seção de proveniência, que ficaria apontando para linha inexistente e ganhou nota dizendo onde o assunto passou a viver.
+

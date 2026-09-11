@@ -31,6 +31,10 @@ using glintfx_leak_counter::alloc_frame_class;
 using glintfx_leak_counter::classify_allocation_frames;
 
 [[nodiscard]] const void *fake_addr(std::uintptr_t value) {
+    // Endereco de fantasia, nunca desreferenciado - ver o comentario
+    // do topo do arquivo. Mesmo idioma ja usado em src/platform/
+    // win32/display_adapter.cpp e tests/fake/fake_arena_tree.hpp.
+    // NOLINTNEXTLINE(performance-no-int-to-ptr) reason: ver comentario acima
     return reinterpret_cast<const void *>(value);
 }
 
@@ -63,7 +67,7 @@ constexpr std::uintptr_t k_third_party_addr = 0x90000;
 // executavel - nada a pular, decide de cara: ours.
 GLINTFX_TEST(classify_first_frame_in_executable_is_ours) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_exec_begin + 0x10)};
+    const void *const frames[] = {fake_addr(k_exec_begin + 0x10)};
     const alloc_classify_result result = classify_allocation_frames(frames, 1, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::ours);
     GLINTFX_CHECK(result.decisive_frame == frames[0]);
@@ -74,7 +78,7 @@ GLINTFX_TEST(classify_first_frame_in_executable_is_ours) {
 // sao pulados, o terceiro decide: ours.
 GLINTFX_TEST(classify_hook_then_libstdcxx_then_executable_is_ours) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {
+    const void *const frames[] = {
         fake_addr(k_hook_begin + 0x10),
         fake_addr(k_libstdcxx_begin + 0x10),
         fake_addr(k_exec_begin + 0x20),
@@ -88,7 +92,7 @@ GLINTFX_TEST(classify_hook_then_libstdcxx_then_executable_is_ours) {
 // terceiro decide, e nao esta no executavel: third_party.
 GLINTFX_TEST(classify_hook_then_libstdcxx_then_unknown_library_is_third_party) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {
+    const void *const frames[] = {
         fake_addr(k_hook_begin + 0x10),
         fake_addr(k_libstdcxx_begin + 0x10),
         fake_addr(k_third_party_addr),
@@ -102,7 +106,8 @@ GLINTFX_TEST(classify_hook_then_libstdcxx_then_unknown_library_is_third_party) {
 // thread do llvmpipe) - o primeiro quadro ja decide: third_party.
 GLINTFX_TEST(classify_unknown_library_stack_is_third_party) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_third_party_addr), fake_addr(k_third_party_addr + 0x100)};
+    const void *const frames[] = {fake_addr(k_third_party_addr),
+                                  fake_addr(k_third_party_addr + 0x100)};
     const alloc_classify_result result = classify_allocation_frames(frames, 2, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::third_party);
     GLINTFX_CHECK(result.decisive_frame == frames[0]);
@@ -122,7 +127,7 @@ GLINTFX_TEST(classify_empty_stack_is_third_party_with_null_decisive_frame) {
 // pulados, mesmo resultado do (e1): third_party, quadro decisivo nulo.
 GLINTFX_TEST(classify_stack_only_hook_frames_is_third_party_with_null_decisive_frame) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_hook_begin + 0x10), fake_addr(k_hook_begin + 0x50)};
+    const void *const frames[] = {fake_addr(k_hook_begin + 0x10), fake_addr(k_hook_begin + 0x50)};
     const alloc_classify_result result = classify_allocation_frames(frames, 2, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::third_party);
     GLINTFX_CHECK(result.decisive_frame == nullptr);
@@ -132,7 +137,7 @@ GLINTFX_TEST(classify_stack_only_hook_frames_is_third_party_with_null_decisive_f
 // executavel (equivalente a __executable_start) esta DENTRO: ours.
 GLINTFX_TEST(classify_address_exactly_at_executable_begin_is_ours) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_exec_begin)};
+    const void *const frames[] = {fake_addr(k_exec_begin)};
     const alloc_classify_result result = classify_allocation_frames(frames, 1, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::ours);
     GLINTFX_CHECK(result.decisive_frame == frames[0]);
@@ -143,7 +148,7 @@ GLINTFX_TEST(classify_address_exactly_at_executable_begin_is_ours) {
 // third_party.
 GLINTFX_TEST(classify_address_exactly_at_executable_end_is_third_party) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_exec_end)};
+    const void *const frames[] = {fake_addr(k_exec_end)};
     const alloc_classify_result result = classify_allocation_frames(frames, 1, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::third_party);
     GLINTFX_CHECK(result.decisive_frame == frames[0]);
@@ -154,7 +159,7 @@ GLINTFX_TEST(classify_address_exactly_at_executable_end_is_third_party) {
 // esta FORA.
 GLINTFX_TEST(classify_address_one_before_executable_begin_is_third_party) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_exec_begin - 1)};
+    const void *const frames[] = {fake_addr(k_exec_begin - 1)};
     const alloc_classify_result result = classify_allocation_frames(frames, 1, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::third_party);
     GLINTFX_CHECK(result.decisive_frame == frames[0]);
@@ -165,7 +170,7 @@ GLINTFX_TEST(classify_address_one_before_executable_begin_is_third_party) {
 // exato em vez de um passo alem dele.
 GLINTFX_TEST(classify_address_one_after_executable_end_is_third_party) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {fake_addr(k_exec_end + 1)};
+    const void *const frames[] = {fake_addr(k_exec_end + 1)};
     const alloc_classify_result result = classify_allocation_frames(frames, 1, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::third_party);
     GLINTFX_CHECK(result.decisive_frame == frames[0]);
@@ -177,7 +182,7 @@ GLINTFX_TEST(classify_address_one_after_executable_end_is_third_party) {
 // evidencia negativa como qualquer outro endereco fora: third_party.
 GLINTFX_TEST(classify_null_frame_address_is_third_party) {
     const alloc_classify_ranges ranges = fixture_ranges();
-    const void *frames[] = {nullptr};
+    const void *const frames[] = {nullptr};
     const alloc_classify_result result = classify_allocation_frames(frames, 1, ranges);
     GLINTFX_CHECK(result.klass == alloc_frame_class::third_party);
     GLINTFX_CHECK(result.decisive_frame == nullptr);

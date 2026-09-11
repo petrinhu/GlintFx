@@ -703,20 +703,40 @@ def selftest_measured_false_positive_count_on_real_tree():
     candidate_paths = [p for p in all_paths if p.endswith(_CANDIDATE_SUFFIXES)]
     file_texts = {p: read_text_lenient(os.path.join(repo_root, p)) for p in candidate_paths}
     declared = discover_declared_tools(file_texts)
-    # Diretorios onde uma ferramenta com autoteste de verdade pode
-    # legitimamente morar neste projeto, medido em 10/09/2026
-    # (tests/tools/, tools/, tools/ci/, tools/win-vm-lab/). Qualquer
-    # achado FORA destes quatro e, por definicao, um falso positivo do
-    # detector e reprova o controle.
-    allowed_prefixes = ("tests/tools/", "tools/")
+    # Diretorios onde uma ferramenta com autoteste de verdade mora
+    # legitimamente neste projeto - lista MEDIDA em 10/09/2026 (tests/
+    # container/, tests/tools/, tools/, tools/ci/, tools/win-vm-lab/),
+    # nao uma verdade fixa "por definicao": e um retrato da arvore
+    # naquela data, e a arvore cresce. tests/container/ entrou nela em
+    # 11/09/2026, menos de 24h depois da medicao anterior, quando a
+    # fatia 1 criou tests/container/exec_fixture.sh - uma ferramenta
+    # legitima fora dos quatro diretorios de entao. Um achado FORA
+    # desta lista e UMA DE DUAS COISAS, nunca presumida sem checar
+    # qual: (a) falso positivo do detector (comentario/banner que
+    # parece despacho de flag, ver os selftests acima), ou (b) um
+    # diretorio novo e legitimo que a lista ainda nao capturou. O
+    # conserto do caso (b) e ACRESCENTAR o diretorio aqui, com a data,
+    # nunca silenciar ou alargar o controle para aceitar qualquer
+    # caminho - isso mataria o proprio proposito dele, que e pegar o
+    # caso (a).
+    allowed_prefixes = ("tests/container/", "tests/tools/", "tools/")
     false_positives = [relpath for relpath, _lang, _flag in declared if not relpath.startswith(allowed_prefixes)]
     print(
         f"selftest: controle MEDIDO-ARVORE-REAL: {len(candidate_paths)} candidato(s) .py/.sh/.ps1 "
         f"na arvore real, {len(declared)} classificado(s) como ferramenta com autoteste proprio, "
-        f"{len(false_positives)} falso(s) positivo(s) fora de tests/tools//tools/"
+        f"{len(false_positives)} falso(s) positivo(s) fora de {', '.join(allowed_prefixes)}"
     )
     if false_positives:
-        print(f"selftest: controle MEDIDO-ARVORE-REAL FALHOU: {false_positives}", file=sys.stderr)
+        print(
+            "selftest: controle MEDIDO-ARVORE-REAL FALHOU "
+            f"(achado fora da lista permitida {allowed_prefixes}): {false_positives}. "
+            "Isto significa UMA DE DUAS COISAS - (a) falso positivo do detector "
+            "(ferramenta classificada por engano, corrija discover_declared_tools), ou "
+            "(b) diretorio novo e legitimo (acrescente-o a allowed_prefixes, com a data, "
+            "neste arquivo). NUNCA alargue allowed_prefixes para um prefixo generico so "
+            "para silenciar isto - o controle existe para pegar o caso (a).",
+            file=sys.stderr,
+        )
         return False
     return True
 

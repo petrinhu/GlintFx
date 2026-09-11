@@ -291,6 +291,26 @@ SO_HEADER_ALLOWLIST = frozenset(
         # (that script's own allowlist is link-time DLLs, not headers -
         # unchanged by this addition).
         "dbt.h",
+        # CONTAINER-LEAK-COUNTER S2 (/var/tmp/glintfx-plan/leak-counter.
+        # md sec. 5, GODS_LAWS.md L-07): execinfo.h (backtrace(), the
+        # GNU/glibc call that captures the raw stack frames an
+        # allocation's classifier - tests/container/alloc_counter_
+        # classify.{hpp,cpp}, S1 - decides `ours` vs `third_party` from)
+        # and link.h (dl_iterate_phdr()/dl_phdr_info/ElfW, used ONCE at
+        # process start to read the libstdc++/libc address ranges the
+        # same classifier skips) are both glibc's own extensions to the
+        # C library, documented in their own man pages (`man 3
+        # backtrace`, `man 3 dl_iterate_phdr`) - the identical "API do
+        # sistema" category unistd.h/fcntl.h/sys/mman.h already sit in
+        # on this list, never a third-party library. Used ONLY by
+        # tests/container/alloc_counter_hook.cpp, itself scoped to
+        # tests/container/ the same way sys/mman.h's own entry above
+        # already is (built solely by tests/container/Containerfile
+        # inside the wayland-container CI job, Linux-only by
+        # construction, GODS_LAWS.md L-09 - never CMake, never the
+        # `windows` job).
+        "execinfo.h",
+        "link.h",
     }
 )
 # Complete enumeration measured live in the real tree (sh version's own

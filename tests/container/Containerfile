@@ -220,6 +220,17 @@ COPY two_displays_test.cpp /build/two_displays_test.cpp
 COPY facade_pin_smoke.cpp /build/facade_pin_smoke.cpp
 COPY window_active_after_map_smoke.cpp /build/window_active_after_map_smoke.cpp
 COPY gpu_kind_report_smoke.cpp /build/gpu_kind_report_smoke.cpp
+# CONTAINER-LEAK-COUNTER S2 (/var/tmp/glintfx-plan/leak-counter.md
+# sec. 5): alloc_counter_classify.hpp travels alongside the two .cpp
+# files below because both alloc_counter_classify.cpp (S1) and alloc_
+# counter_hook.cpp (S2) #include it by a bare quote-name - the C++
+# preprocessor's quote-form search checks the INCLUDING file's own
+# directory first (here, /build, since every fixture .cpp above is
+# copied flat into /build too), so no extra `-I` is needed on any of
+# the 18 g++ invocations below.
+COPY alloc_counter_classify.hpp /build/alloc_counter_classify.hpp
+COPY alloc_counter_classify.cpp /build/alloc_counter_classify.cpp
+COPY alloc_counter_hook.cpp /build/alloc_counter_hook.cpp
 RUN wayland-scanner client-header \
         "$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml" \
         /build/xdg-shell-client-protocol.h \
@@ -228,7 +239,7 @@ RUN wayland-scanner client-header \
         /build/xdg-shell-protocol.c \
     && gcc -O2 -Wall -Wextra -Werror $(pkg-config --cflags wayland-client) \
         -c /build/xdg-shell-protocol.c -o /build/xdg-shell-protocol.o
-RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/arch_ports_connect_smoke \
@@ -240,8 +251,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/connect_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/registry_smoke \
@@ -253,8 +266,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/registry_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/two_displays_test \
@@ -266,8 +281,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/two_displays_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror -pthread \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror -pthread \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/fatal_error_smoke \
@@ -279,8 +296,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/fatal_error_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/pump_smoke \
@@ -292,8 +311,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/pump_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/wait_events_smoke \
@@ -305,8 +326,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/wait_events_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client) \
         -o /build/shell_smoke \
@@ -321,8 +344,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/shell_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client) \
         -o /build/window_smoke \
@@ -342,8 +367,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/window_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_probe_smoke \
@@ -363,8 +390,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/egl_probe_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/seat_test \
@@ -378,8 +407,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/seat_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \
         $(pkg-config --cflags wayland-client) \
         -o /build/two_seats_test \
@@ -393,8 +424,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/two_seats_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client) \
         -o /build/window_parity_test \
@@ -416,8 +449,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/xdg-shell-protocol.o \
         /build/_arch_ports_src/tests/parity/window_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/gl_context_parity_test \
@@ -462,8 +497,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/log/sink.cpp \
         /build/xdg-shell-protocol.o \
         /build/_arch_ports_src/tests/parity/gl_context_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_device_reader_probe \
@@ -508,8 +545,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/log/sink.cpp \
         /build/xdg-shell-protocol.o \
         /build/egl_device_reader_probe.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/egl_protocol_error_smoke \
@@ -546,8 +585,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/log/sink.cpp \
         /build/xdg-shell-protocol.o \
         /build/egl_protocol_error_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/facade_pin_smoke \
@@ -586,8 +627,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/log/sink.cpp \
         /build/xdg-shell-protocol.o \
         /build/facade_pin_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/window_active_after_map_smoke \
@@ -632,8 +675,10 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/log/sink.cpp \
         /build/xdg-shell-protocol.o \
         /build/window_active_after_map_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl) \
-    && g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/gpu_kind_report_smoke \
@@ -678,6 +723,8 @@ RUN g++ -std=c++23 -O2 $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/log/sink.cpp \
         /build/xdg-shell-protocol.o \
         /build/gpu_kind_report_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl)
 
 FROM fedora:44

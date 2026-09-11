@@ -837,6 +837,116 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
     return True
 
 
+# CONTAINER-LEAK-COUNTER S2 (/var/tmp/glintfx-plan/leak-counter.md sec.
+# 5): the real Containerfile now compiles TWO extra context-local .cpp
+# files straight into all 18 fixtures (alloc_counter_classify.cpp,
+# alloc_counter_hook.cpp) - a SHAPE this portao never exercised before:
+# a g++ line naming MULTIPLE plain COPY'd .cpp files (not staged under
+# _arch_ports_src) that reach a SIBLING header (alloc_counter_classify.
+# hpp) purely through the C++ preprocessor's own quote-include rule
+# ("first search the including file's own directory" - C++ standard,
+# [cpp.include]) - WITH NO `-I /build` FLAG ANYWHERE on those 18 lines
+# (see the Containerfile's own comment beside the three new COPY lines).
+# _build_base_fixture()'s existing main_smoke.cpp never tested this: it
+# reaches consumer.hpp through `-I /build/_arch_ports_src/src`, an
+# explicit search path, never same-directory quote resolution alone.
+def _build_gancho_style_fixture(scratch, label, include_header_copy, compiler):
+    root = os.path.join(scratch, label)
+    context_dir = os.path.join(root, "tests", "container")
+    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+
+    # helper.hpp/helper_impl.cpp mirror alloc_counter_classify.hpp/.cpp
+    # (S1); gancho_like.cpp mirrors alloc_counter_hook.cpp (S2) - a
+    # SECOND, SEPARATE context-local .cpp that also quote-includes the
+    # same sibling header, with no header of its own.
+    _write(os.path.join(context_dir, "helper.hpp"), "#pragma once\nint helper_value();\n")
+    _write(
+        os.path.join(context_dir, "helper_impl.cpp"),
+        '#include "helper.hpp"\nint helper_value() { return 7; }\n',
+    )
+    _write(
+        os.path.join(context_dir, "gancho_like.cpp"),
+        '#include "helper.hpp"\n#include <cstdio>\n'
+        'int main() { std::printf("%d\\n", helper_value()); return 0; }\n',
+    )
+
+    header_copy_line = "COPY helper.hpp /build/helper.hpp\n" if include_header_copy else ""
+    quoted_compiler = shlex.quote(compiler)
+
+    containerfile = (
+        "FROM fedora:44 AS arch-ports-builder\n"
+        "RUN dnf -y install gcc-c++ \\\n"
+        "    && dnf clean all\n"
+        + header_copy_line
+        + "COPY helper_impl.cpp /build/helper_impl.cpp\n"
+        "COPY gancho_like.cpp /build/gancho_like.cpp\n"
+        # NO "-I /build" anywhere below, on purpose - see this function's
+        # own comment above: quote-include alone must resolve helper.hpp,
+        # exactly like the real Containerfile's 18 lines do today.
+        f"RUN {quoted_compiler} -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
+        "        -o /build/gancho_like_smoke \\\n"
+        "        /build/helper_impl.cpp \\\n"
+        "        /build/gancho_like.cpp\n"
+        "\n"
+        "FROM fedora:44\n"
+        "RUN echo runtime-stage-never-compiles-anything\n"
+    )
+
+    return context_dir, staged_dir, containerfile
+
+
+def selftest_gancho_sibling_header_resolves(scratch, compiler):
+    context_dir, staged_dir, containerfile = _build_gancho_style_fixture(
+        scratch, "gancho-header-ok", include_header_copy=True, compiler=compiler
+    )
+    build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-selftest-build-gancho-ok-", dir=scratch)
+    try:
+        summary, errors = run_link_check(containerfile, context_dir, staged_dir, build_dir)
+    finally:
+        shutil.rmtree(build_dir, ignore_errors=True)
+    if errors:
+        print(f"selftest: GANCHO-HEADER FALHOU (esperava zero erros, veio {errors})", file=sys.stderr)
+        return False
+    if summary["compile_total"] != 1 or summary["compile_ok"] != 1:
+        print(f"selftest: GANCHO-HEADER FALHOU (contagens inesperadas: {summary})", file=sys.stderr)
+        return False
+    print(
+        "selftest: GANCHO-HEADER OK (dois .cpp COPY'd separados resolvem um header irmao so por "
+        f"quote-include, sem nenhum -I: {summary})"
+    )
+    return True
+
+
+# VERMELHO da mesma fixture: omitir a COPY do header (a mesma classe de
+# esquecimento que deixaria alloc_counter_hook.cpp sem alloc_counter_
+# classify.hpp no /build real) tem que reprovar pelo erro real do
+# compilador, nunca passar em silencio.
+def selftest_gancho_sibling_header_missing_copy_reproves(scratch, compiler):
+    context_dir, staged_dir, containerfile = _build_gancho_style_fixture(
+        scratch, "gancho-header-missing", include_header_copy=False, compiler=compiler
+    )
+    build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-selftest-build-gancho-missing-", dir=scratch)
+    try:
+        summary, errors = run_link_check(containerfile, context_dir, staged_dir, build_dir)
+    finally:
+        shutil.rmtree(build_dir, ignore_errors=True)
+    if not errors:
+        print(
+            "selftest: GANCHO-HEADER-VERMELHO FALHOU (header.hpp ausente da COPY deveria ter reprovado)",
+            file=sys.stderr,
+        )
+        return False
+    if summary["compile_ok"] != 0 or len(summary["failures"]) != 1:
+        print(f"selftest: GANCHO-HEADER-VERMELHO FALHOU (contagens erradas): {summary}", file=sys.stderr)
+        return False
+    failure_text = "\n".join(errors)
+    if "helper.hpp" not in failure_text:
+        print(f"selftest: GANCHO-HEADER-VERMELHO FALHOU (nao cita o header ausente): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: GANCHO-HEADER-VERMELHO OK (header irmao ausente pego pelo cc1plus real): {errors}")
+    return True
+
+
 def selftest_main(cli_compiler=None, cli_compiler_id=None):
     compiler, source = discover_selftest_compiler(cli_compiler, cli_compiler_id)
     if compiler:
@@ -844,7 +954,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
     else:
         print(
             f"{SCRIPT_NAME} --selftest: nenhum compilador GNU-compativel encontrado (CMAKE_CXX_COMPILER nao e "
-            f"GNU/Clang/AppleClang e nenhum candidato {_SELFTEST_COMPILER_CANDIDATES} esta no PATH) - os 4 "
+            f"GNU/Clang/AppleClang e nenhum candidato {_SELFTEST_COMPILER_CANDIDATES} esta no PATH) - os 6 "
             "controles que compilam ficam PULADOS, contados e declarados, nunca escondidos (GODS_LAWS.md L-40)",
             file=sys.stderr,
         )
@@ -857,18 +967,29 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
             named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
             named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
             named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
+            named_results.append(
+                ("gancho-header", selftest_gancho_sibling_header_resolves(scratch, compiler))
+            )
+            named_results.append(
+                (
+                    "gancho-header-vermelho",
+                    selftest_gancho_sibling_header_missing_copy_reproves(scratch, compiler),
+                )
+            )
         else:
             named_results.append(("positive", None))
             named_results.append(("sanitize-token", None))
             named_results.append(("missing-atom", None))
             named_results.append(("multi", None))
+            named_results.append(("gancho-header", None))
+            named_results.append(("gancho-header-vermelho", None))
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
     ran = [ok for _name, ok in named_results if ok is not None]
     skipped = [name for name, ok in named_results if ok is None]
     print(
-        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/5 | "
+        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/7 | "
         f"pulados (sem compilador): {len(skipped)} ({', '.join(skipped) if skipped else 'nenhum'})"
     )
 

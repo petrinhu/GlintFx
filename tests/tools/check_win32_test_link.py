@@ -172,16 +172,51 @@ def _tokenize_cmake_args(raw_text):
 
 
 _PROJECT_SOURCE_DIR_PREFIX = "${PROJECT_SOURCE_DIR}/"
+_CURRENT_SOURCE_DIR_PREFIX = "${CMAKE_CURRENT_SOURCE_DIR}/"
+# extract_win32_test_targets() so' le UM arquivo (tests/CMakeLists.txt),
+# entao ${CMAKE_CURRENT_SOURCE_DIR} dentro dele resolve, sempre, para o
+# proprio diretorio tests/ - nunca para outro, nunca precisa ser lido de
+# uma variavel de ambiente/CMake de verdade.
+_CURRENT_SOURCE_DIR_RESOLVED = "tests"
 
 
 def _resolve_project_source_dir_token(token):
-    """tests/CMakeLists.txt sempre referencia arquivo de src/ por
-    caminho absoluto-estilo "${PROJECT_SOURCE_DIR}/src/..." (nunca
-    relativo a tests/, ao contrario de src/**/CMakeLists.txt - ver
-    collect_win32_library_layout()'s own header comment). Devolve o
-    caminho relativo a raiz do repositorio."""
+    """tests/CMakeLists.txt referencia arquivo de duas formas: caminho
+    absoluto-estilo "${PROJECT_SOURCE_DIR}/src/..." para algo em src/
+    (fora do proprio diretorio de tests/) e, desde loop_bind_test (WIN-
+    CROSS-STAGE, 10/09/2026), "${CMAKE_CURRENT_SOURCE_DIR}/..." para
+    algo dentro do proprio tests/ - ver collect_win32_library_layout()'s
+    own header comment para o lado de src/**/CMakeLists.txt, que nunca
+    usa nenhum dos dois (caminho sempre nu, relativo ao proprio
+    diretorio). Devolve o caminho relativo a raiz do repositorio.
+
+    ACHADO REAL (WIN-CROSS-STAGE, medido 11/09/2026): antes desta
+    funcao reconhecer o segundo prefixo, ele passava por aqui ILESO -
+    nenhuma traducao, o gemeo do prefixo PROJECT_SOURCE_DIR nunca tinha
+    sido enumerado (GODS_LAWS.md L-17). O alvo loop_bind_test perdia a
+    fonte inteira em silencio, e o link REAL reprovava com LNK2019
+    ("unresolved external symbol") - uma mensagem que parece defeito de
+    portabilidade Windows quando o buraco estava neste proprio portao.
+
+    DECISAO CONSCIENTE sobre um TERCEIRO token nao reconhecido: reprova
+    explicitamente (fail()), nunca passa em silencio. Foi exatamente o
+    silencio do caso acima que transformou um caminho nao resolvido
+    numa mensagem de erro enganosa - o custo de reprovar cedo, aqui,
+    com o nome do token, e' visivel e barato; o custo de deixar passar
+    e' o mesmo buraco de novo, so' que descoberto de novo pelo rc do
+    link.exe, nunca por este script (GODS_LAWS.md L-40)."""
     if token.startswith(_PROJECT_SOURCE_DIR_PREFIX):
         return token[len(_PROJECT_SOURCE_DIR_PREFIX) :]
+    if token.startswith(_CURRENT_SOURCE_DIR_PREFIX):
+        return os.path.join(_CURRENT_SOURCE_DIR_RESOLVED, token[len(_CURRENT_SOURCE_DIR_PREFIX) :])
+    if "${" in token:
+        fail(
+            "token CMake nao reconhecido em target_sources() de tests/CMakeLists.txt: "
+            f"'{token}' - so ${{PROJECT_SOURCE_DIR}}/... e ${{CMAKE_CURRENT_SOURCE_DIR}}/... sao "
+            "traduzidos aqui; um token de variavel nao traduzido passaria em silencio e o link "
+            "real reprovaria depois com uma mensagem enganosa (ver o achado de loop_bind_test, "
+            "GODS_LAWS.md L-17/L-40)"
+        )
     return token
 
 
@@ -1475,6 +1510,58 @@ endif()
     return True
 
 
+def _selftest_current_source_dir_token():
+    """GEMEO do WIN-CROSS-STAGE (11/09/2026): antes do conserto de
+    _resolve_project_source_dir_token(), este controle MORDIA nas duas
+    pontas contra o codigo antigo - a fonte de fake_bind_test saia
+    ILESA (token literal "${CMAKE_CURRENT_SOURCE_DIR}/probe.cpp", nunca
+    "tests/probe.cpp") e um terceiro token nao reconhecido passava em
+    silencio (nenhum SystemExit) em vez de reprovar declaradamente. Os
+    dois comportamentos passaram a valer depois do conserto - visto
+    reprovar antes, visto passar depois (GODS_LAWS.md L-36)."""
+    cmake_text = """
+glintfx_add_test(fake_bind_test)
+target_sources(fake_bind_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/probe.cpp"
+)
+"""
+    targets, _exclusion_counts = extract_win32_test_targets(cmake_text)
+    by_name = {t["name"]: t for t in targets}
+    resolved_ok = by_name.get("fake_bind_test", {}).get("sources") == ["tests/probe.cpp"]
+    if not resolved_ok:
+        print(
+            "selftest: CURRENT-SOURCE-DIR FALHOU (resolucao): "
+            f"sources={by_name.get('fake_bind_test', {}).get('sources')}",
+            file=sys.stderr,
+        )
+        return False
+
+    unrecognized_cmake_text = """
+glintfx_add_test(fake_unknown_var_test)
+target_sources(fake_unknown_var_test PRIVATE
+    "${SOME_UNKNOWN_CMAKE_VAR}/probe.cpp"
+)
+"""
+    unrecognized_rejected = False
+    try:
+        extract_win32_test_targets(unrecognized_cmake_text)
+    except SystemExit:
+        unrecognized_rejected = True
+    if not unrecognized_rejected:
+        print(
+            "selftest: CURRENT-SOURCE-DIR FALHOU (token nao reconhecido deveria reprovar via "
+            "fail(), passou em silencio)",
+            file=sys.stderr,
+        )
+        return False
+
+    print(
+        "selftest: CURRENT-SOURCE-DIR OK (${CMAKE_CURRENT_SOURCE_DIR}/... resolve para tests/..., "
+        "token nao reconhecido reprova)"
+    )
+    return True
+
+
 def _selftest_layout_respects_win32_branch(scratch):
     """src/ sintetico com o MESMO desenho if(UNIX)/elseif(WIN32) que
     src/platform/CMakeLists.txt usa de verdade: uma fonte incondicional,
@@ -1714,6 +1801,7 @@ def selftest_main(image, timeout_seconds):
     parsing_results = [
         ("parsing-positivo", _selftest_parsing_positive()),
         ("parsing-vazio", _selftest_parsing_empty_block()),
+        ("current-source-dir-token", _selftest_current_source_dir_token()),
         ("not-measured-formato-positivo", _selftest_not_measured_block_positive()),
         ("not-measured-formato-negativo", _selftest_not_measured_block_negative()),
         ("classify-compilacao-falhou", _selftest_classify_compile_error_falhou()),

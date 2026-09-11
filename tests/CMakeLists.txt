@@ -3735,9 +3735,12 @@ set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE
 
 # CONTAINER-LOG-SIGNAL-FIRST (TODO.md, GODS_LAWS.md L-40/L-45/L-49,
 # /var/tmp/glintfx-plan/cauda-w6b.md sec. 4.1): tests/container/
-# exec_fixture.sh e' o atomo que os 17 passos `docker exec ... | tee
+# exec_fixture.sh e' o atomo que os 18 passos `docker exec ... | tee
 # -a` do job `wayland-container` (.github/workflows/ci.yml) passam a
-# usar - imprime o veredito (fixture, codigo de saida, NOME do sinal
+# usar (meca com `grep -c "tests/container/exec_fixture.sh
+# glintfx-wltest-clean" .github/workflows/ci.yml`, descontando o
+# controle negativo cn5, que usa o mesmo atomo mas nao e' passo de
+# fixture) - imprime o veredito (fixture, codigo de saida, NOME do sinal
 # quando >=128, tamanho da saida) ANTES de qualquer byte da saida
 # capturada, para que uma fixture morta por sinal nao esconda o
 # veredito atras do ruido do driver. --selftest exercita os quatro

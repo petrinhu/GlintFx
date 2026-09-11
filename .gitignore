@@ -68,6 +68,15 @@ vgcore.*
 scratch/
 tmp/
 
+# MEASURED-COLLECTOR (CONTAINER-LOG-SIGNAL-FIRST, GODS_LAWS.md L-40):
+# acumulador que .github/workflows/ci.yml cria de proposito na raiz do
+# checkout (rm -f && touch) durante o job wayland-container, e que
+# tests/container/exec_fixture.sh alimenta via tee -a. Defesa ADICIONAL,
+# nao o conserto - o conserto real e' o --selftest nunca mais tocar este
+# nome (ver GLINTFX_MEASURED_LOG em exec_fixture.sh); esta linha so'
+# cobre quem rodar o modo REAL do script direto na raiz por engano.
+/container_measured_raw.log
+
 # ARCH-PORTS (TDD case R4): fixture regenerada por
 # tests/container/prepare_arch_ports_fixture.sh a cada build do
 # container - a fonte real e src/platform/wayland/, src/core/ e

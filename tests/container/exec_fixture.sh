@@ -62,7 +62,10 @@
 # `--env NOME=VALOR` (repetivel) acrescenta variaveis de ambiente ao
 # `docker exec` default, alem de XDG_RUNTIME_DIR/WAYLAND_DISPLAY que
 # ja saem sempre - reservado para a fatia 2 (ASAN_OPTIONS/UBSAN_
-# OPTIONS), sem uso nos 18 passos desta fatia. So' e' honrado no modo
+# OPTIONS), sem uso nos passos desta fatia (meca a quantidade com
+# `grep -c "tests/container/exec_fixture.sh glintfx-wltest-clean"
+# .github/workflows/ci.yml`, descontando o controle negativo cn5).
+# So' e' honrado no modo
 # default; e' ignorado sob --runner (o runner alternativo do
 # --selftest nao precisa de env de container nenhum).
 #
@@ -120,8 +123,9 @@ real_main() {
     fixture_name="$2"
     shift 2
 
-    # Args extras (raramente usados hoje - nenhum dos 17 passos desta
-    # fatia precisa deles) guardados em variaveis numeradas: POSIX sh
+    # Args extras (raramente usados hoje - nenhum dos passos desta
+    # fatia precisa deles, meca com o mesmo grep do cabecalho) guardados
+    # em variaveis numeradas: POSIX sh
     # nao tem array, e "$@" ja vai ser reconstruido abaixo para montar
     # o comando final (docker exec ... ou o runner do --selftest).
     extra_count=0
@@ -143,6 +147,11 @@ real_main() {
         i=1
         while [ "$i" -le "$env_count" ]; do
             eval "v=\"\$exec_fixture_env_${i}\""
+            # Falso positivo: "v" E' atribuida na linha `eval` acima,
+            # mas shellcheck nao segue atribuicao feita por `eval`
+            # (mesma construcao POSIX sh para simular lista/array usada
+            # no restante deste arquivo, ver disable=SC2086 acima).
+            # shellcheck disable=SC2154
             set -- "$@" -e "$v"
             i=$((i + 1))
         done
@@ -221,12 +230,22 @@ run_and_report() {
     fi
 
     # So' agora o conteudo capturado - e o mesmo `tee -a
-    # container_measured_raw.log` que os 17 passos antigos faziam
+    # container_measured_raw.log` que os 18 passos antigos faziam
     # (a colheita MEASURED continua identica, so' que agora depois do
     # veredito em vez de antes). Falha ao escrever no log nao pode
     # esconder um veredito ja impresso - por isso `|| true` aqui, o
     # codigo de saida final desta funcao vem so' de $rc/$bytes abaixo.
-    cat "$capture_file" | tee -a container_measured_raw.log || true
+    #
+    # ALVO DO LOG (achado de revisao adversarial, 11/09/2026): o passo
+    # real do job (.github/workflows/ci.yml, MEASURED-COLLECTOR) roda
+    # com cwd na raiz do checkout de proposito - e' o mesmo arquivo que
+    # o passo seguinte publica como artefato, entao o default abaixo
+    # PRECISA continuar relativo ao cwd. O --selftest sobrescreve
+    # GLINTFX_MEASURED_LOG para um arquivo dentro de diretorio proprio
+    # (ver selftest_main), senao os controles sinteticos escrevem e
+    # sujam a raiz do repositorio de quem rodar `--selftest` local -
+    # medido: reaparecia depois de apagado, sem entrar no .gitignore.
+    cat "$capture_file" | tee -a "${GLINTFX_MEASURED_LOG:-container_measured_raw.log}" || true
 
     exit_code="$rc"
     if [ "$bytes" -eq 0 ]; then
@@ -273,19 +292,42 @@ selftest_positive_control() {
     return 1
 }
 
-selftest_negative_control_signal() {
-    if output="$(real_main --runner 'sh -c' x 'kill -SEGV $$' 2>&1)"; then
-        echo "selftest: controle NEGATIVO (sinal) FALHOU (deveria ter reprovado, saiu 0)" >&2
+# selftest_check_one_signal <nome-do-sinal> <rc-esperado>
+#
+# ACHADO DE REVISAO ADVERSARIAL (11/09/2026): com um UNICO sinal
+# testado (so' SEGV), uma mutacao que troca a conversao real
+# (`kill -l "$signal_num"`) por um texto fixo "SEGV" passa sem ser
+# pega - acerta por acidente. Testar um SEGUNDO sinal, de numero
+# diferente, reprova qualquer mapeamento que nao seja a conversao de
+# verdade (GODS_LAWS.md L-40: cobertura estreita e' a mesma familia
+# de portao que nao olha).
+selftest_check_one_signal() {
+    sig_name="$1"
+    expected_rc="$2"
+
+    if output="$(real_main --runner 'sh -c' x "kill -${sig_name} \$\$" 2>&1)"; then
+        echo "selftest: controle NEGATIVO (sinal ${sig_name}) FALHOU (deveria ter reprovado, saiu 0)" >&2
         printf '%s\n' "$output" >&2
         return 1
     fi
-    if printf '%s\n' "$output" | head -1 | grep -q 'rc=139 signal=SEGV'; then
-        echo "selftest: controle NEGATIVO (sinal) OK (rc=139 signal=SEGV na primeira linha)"
+    if printf '%s\n' "$output" | head -1 | grep -q "rc=${expected_rc} signal=${sig_name}"; then
+        echo "selftest: controle NEGATIVO (sinal ${sig_name}) OK (rc=${expected_rc} signal=${sig_name} na primeira linha)"
         return 0
     fi
-    echo "selftest: controle NEGATIVO (sinal) FALHOU (primeira linha nao casou 'rc=139 signal=SEGV')" >&2
+    echo "selftest: controle NEGATIVO (sinal ${sig_name}) FALHOU (primeira linha nao casou 'rc=${expected_rc} signal=${sig_name}')" >&2
     printf '%s\n' "$output" >&2
     return 1
+}
+
+selftest_negative_control_signal() {
+    # Dois sinais de numero diferente (SEGV=11/rc=139, ABRT=6/rc=134):
+    # os dois tem de casar, senao um mapeamento fixo que so' acerta um
+    # deles passaria. Ambas as chamadas rodam antes de decidir o
+    # resultado - reprovar cedo esconderia qual delas falhou.
+    ok=0
+    selftest_check_one_signal SEGV 139 || ok=1
+    selftest_check_one_signal ABRT 134 || ok=1
+    return "$ok"
 }
 
 selftest_negative_control_plain_failure() {
@@ -319,6 +361,20 @@ selftest_empty_output_floor_control() {
 }
 
 selftest_main() {
+    # ISOLAMENTO DO LOG MEASURED (achado de revisao adversarial,
+    # 11/09/2026): os quatro controles abaixo chamam real_main, que por
+    # sua vez chama run_and_report - e run_and_report SEMPRE escreve em
+    # GLINTFX_MEASURED_LOG (default: container_measured_raw.log no
+    # cwd). Sem este diretorio proprio, rodar `--selftest` da raiz do
+    # repositorio cria/suja container_measured_raw.log ali - medido por
+    # experimento controlado (apagar o arquivo, rodar o selftest,
+    # reaparece). GODS_LAWS.md L-53: sem lixeira, entao a limpeza no
+    # `trap EXIT` abaixo e' obrigatoria, nao so' desejavel.
+    selftest_log_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-exec-fixture-selftest-XXXXXX")"
+    trap 'rm -rf "$selftest_log_dir"' EXIT
+    GLINTFX_MEASURED_LOG="${selftest_log_dir}/container_measured_raw.log"
+    export GLINTFX_MEASURED_LOG
+
     exercitados=0
     reprovados=0
 

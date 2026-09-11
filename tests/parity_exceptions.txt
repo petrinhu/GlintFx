@@ -395,8 +395,11 @@ win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
 # container_exec_fixture_selftest (tests/container/exec_fixture.sh
 # --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX))
 # prova, via `--runner "sh -c"` (sem Docker nenhum), os quatro
-# controles do atomo que os 17 passos `docker exec ... <fixture>` do
-# job `wayland-container` (.github/workflows/ci.yml) agora usam:
+# controles do atomo que os 18 passos `docker exec ... <fixture>` do
+# job `wayland-container` (.github/workflows/ci.yml) agora usam -
+# meca com `grep -c "tests/container/exec_fixture.sh glintfx-wltest-clean"
+# .github/workflows/ci.yml`, descontando o controle negativo cn5 (que
+# usa o mesmo atomo, mas nao e' um passo de fixture do job):
 # sucesso limpo, morte por sinal (rc=139/signal=SEGV), reprovacao
 # comum (rc=1/signal=none) e o piso de varredura vazia (bytes=0)
 # de GODS_LAWS.md L-40.

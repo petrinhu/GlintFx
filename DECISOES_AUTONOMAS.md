@@ -3086,3 +3086,15 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **O bug real que ele achou DURANTE a própria estreia, e que vale mais que o código:** a primeira versão registrava o relatório por um caminho que depende da **ordem de ligação** entre arquivos, não da ordem que o comentário afirmava. **E todos os testes dele escondiam isso por acidente**, porque listavam o gancho antes do arquivo sob teste - o arquivo de imagem real lista na ordem oposta. Sob a ordem real, uma das dezoito provas acusou vazamento **falso**, de forma determinística. Ele isolou a causa em bancada com sete arquivos sintéticos, sem compositor, consertou, e **refez todas as provas depois**. É o defeito que esta casa persegue há dias - o teste que passa porque foi montado do jeito que esconde -, achado pelo próprio autor.
 
+#### D-091106 — RATIFICADO PELO LÍDER: os dois cabeçalhos do sistema na lista de permitidos  `[11/09/26 - 12:02:23]`
+
+**Ratificação expressa dele**, 11/09/2026, por `AskUserQuestion`, sobre a decisão autônoma **D-091105**.
+
+**O que foi ratificado:** `execinfo.h` (captura da pilha de chamadas) e `link.h` (varredura dos módulos carregados) entram na lista de permitidos do portão de dependência zero, **como estão**.
+
+**As razões que sustentam, e que ficam escritas para quem ler a lista depois:** os dois são extensões do próprio sistema, da mesma categoria dos que já estavam lá; o uso é **exclusivo de código de teste dentro do container** - a biblioteca que o consumidor externo compila não os enxerga; e os quarenta controles do autoteste do portão continuam passando.
+
+**A alternativa que ele NÃO escolheu, registrada porque pode voltar:** separar a lista em duas, uma para o código da biblioteca e outra só para teste. Hoje é uma lista só, e a distinção mora no texto, não na estrutura. Se um dia alguém usar essa permissão fora de teste, é aí que a separação passa a valer o custo.
+
+**Com isso, nada da sessão de 11/09/2026 fica pendente de ratificação.**
+

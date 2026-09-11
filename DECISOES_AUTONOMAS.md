@@ -3072,3 +3072,17 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **Fica valendo, sem precisar de nova pergunta:** quando o laço fechar, a marca é `v0.4.0.0`, e a subida da versão declarada vai no MESMO commit que a linha do teste de consumidor externo (hoje pedindo a série `0.3`), porque a política de compatibilidade do pacote reprova de propósito enquanto as duas não casarem.
 
+#### D-091105 — quatro decisões do implementador do gancho de alocação, e uma delas ALARGA um portão  `[11/09/26 - 11:53:47]`
+
+**Quem decidiu:** o agente que implementou o gancho (`sonnet`), sob modo autônomo. Verificadas por mim contra a árvore antes deste registro.
+
+**A que precisa da sua atenção, e por isso vem primeira: ele ACRESCENTOU dois cabeçalhos à lista de permitidos do portão de dependência zero** (`execinfo.h` e `link.h`). Esse portão existe para a sua lei de dependência zero, e alargá-lo é mexer numa trava sua. **O argumento dele, que eu aceito e submeto à sua ratificação:** os dois são extensões do próprio sistema (a captura de quadros de pilha e a varredura de módulos carregados), da mesma categoria dos que já estão na lista; o uso é **só em código de teste** dentro do container, nunca na biblioteca que o consumidor compila; e sem eles o portão bloqueava o commit. **Conferi:** os quarenta controles do autoteste desse portão continuam passando. **Se você discordar, o conserto é pequeno** - o gancho é código de teste e pode ser isolado de outra forma.
+
+**As outras três, todas com razão medida:**
+
+1. **Três linhas de cópia no arquivo de imagem, não duas como o plano dizia** - o cabeçalho compartilhado também precisa ir, senão nenhum dos dois arquivos que o incluem resolve.
+2. **Informação de depuração acrescentada às dezoito linhas de compilação.** Sem ela, a ferramenta que traduz endereço em arquivo e linha devolve interrogação - e a prova que o plano exige é justamente a resolução para arquivo e linha. Ele testou dos dois jeitos antes de decidir.
+3. **Dois controles novos no autoteste do portão de ligação, não um** - par positivo e negativo, no idioma que o arquivo já usava.
+
+**O bug real que ele achou DURANTE a própria estreia, e que vale mais que o código:** a primeira versão registrava o relatório por um caminho que depende da **ordem de ligação** entre arquivos, não da ordem que o comentário afirmava. **E todos os testes dele escondiam isso por acidente**, porque listavam o gancho antes do arquivo sob teste - o arquivo de imagem real lista na ordem oposta. Sob a ordem real, uma das dezoito provas acusou vazamento **falso**, de forma determinística. Ele isolou a causa em bancada com sete arquivos sintéticos, sem compositor, consertou, e **refez todas as provas depois**. É o defeito que esta casa persegue há dias - o teste que passa porque foi montado do jeito que esconde -, achado pelo próprio autor.
+

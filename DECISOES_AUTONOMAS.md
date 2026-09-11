@@ -3058,3 +3058,17 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **Desvio consciente que ele declarou, e eu aceito:** o critério da cauda dizia que vazamento com pilha **inteiramente** fora do nosso código vira supressão. Aplicado ao pé da letra aqui, o estado global da biblioteca de compilação gráfica, disparado por uma chamada NOSSA, faria toda fixture reprovar para sempre. O plano troca por classificação no instante da alocação, pelo quadro que decide, e publica o número de terceiros sem julgá-lo - exceto no crescimento por ciclo, onde crescer é vermelho.
 
+#### D-091104 — ORDEM DO LÍDER: a marca `v0.4.0.0` ESPERA o laço fechar  `[11/09/26 - 11:23:45]`
+
+**Não é decisão autônoma. É dele**, 11/09/2026, por `AskUserQuestion`, depois de eu apontar o fato que a autorização anterior não previa.
+
+**O contexto:** ele autorizou a marca em 10/09/2026 (D-091013), no mesmo contrato em que disse *"só me entregue com tudo verde"*, e hoje me lembrou dela (*"nao esqueca do tag"*). **Antes de marcar, apontei o que a árvore mostra:** o laço **não fechou**. Das quatro camadas, três estão entregues e revisadas por agente distinto do implementador; faltam a marca de depuração, a prova ao vivo em container e o texto final. O item `LOOP-RUN` segue **reprovado** na tabela.
+
+**A escolha dele: esperar.** A marca sai quando as quatro camadas, a prova ao vivo e o texto estiverem prontos - que é o que o próprio contrato dele pedia.
+
+**Por que a alternativa era ruim, e por isso recomendei esperar:** marcar hoje publicaria, para um consumidor externo que ainda não conhecemos, uma versão que promete uma fronteira de laço completa quando ela está pela metade; e o item continuaria reprovado na tabela **depois** de marcado, que é uma contradição difícil de ler para quem chegar depois.
+
+**O custo aceito, declarado:** 64 envios desde a marca anterior ficam sem etiqueta até o laço fechar - e entre eles há trabalho fechado de verdade: o estágio cruzado do Windows, a verificação de memória dentro do container, o veredito nomeado antes do ruído, e as três camadas do laço.
+
+**Fica valendo, sem precisar de nova pergunta:** quando o laço fechar, a marca é `v0.4.0.0`, e a subida da versão declarada vai no MESMO commit que a linha do teste de consumidor externo (hoje pedindo a série `0.3`), porque a política de compatibilidade do pacote reprova de propósito enquanto as duas não casarem.
+

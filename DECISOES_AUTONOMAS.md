@@ -3032,3 +3032,17 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **Aplicado no mesmo commit** (`5f60a73`): a linha saiu da tabela - o que o líder revoga é apagado, nunca arquivado com o texto morto dentro -, a substância passou ao item irmão com o escopo ampliado por escrito, e a varredura de gêmeo (L-17) achou a menção ao ID na seção de proveniência, que ficaria apontando para linha inexistente e ganhou nota dizendo onde o assunto passou a viver.
 
+#### D-091102 — ORDEM DO LÍDER: abrir agora a fatia do contador de vazamento  `[11/09/26 - 09:54:52]`
+
+**Não é decisão autônoma. É do líder**, 11/09/2026. Ele perguntou, diante do defeito, *"alguma outra forma de identificar isso?"*, e depois de eu trazer a pesquisa e a recomendação, ordenou: **"abra a fatia agora"**.
+
+**O fato que motivou:** na fatia do sanitizador, a detecção de vazamento **não funcionou dentro do container e falhou CALADA** - vazamento plantado de propósito não foi acusado, e nem a mensagem de erro que a documentação pública prevê apareceu. A permissão extra de sistema que a literatura recomenda foi testada e **também não resolveu**.
+
+**A pesquisa que respondi a ele, com fontes:** tanto o detector atual quanto o Valgrind dependem do mesmo mecanismo do sistema para parar as threads e varrer a memória, e é esse mecanismo que o container bloqueia - de propósito, porque é a trava que impede teste de alcançar a sessão dele. A receita de fora é afrouxar o isolamento ou rodar privilegiado; nenhuma das duas vale o preço, e a medição indica que nem resolveria.
+
+**A saída recomendada, e que ele mandou abrir:** contador próprio de alocação e liberação, exigindo saldo zero. Sem permissão de sistema, sem dependência nova (lei de dependência zero deste projeto), funciona em qualquer container. **Já é prática da casa em três testes**, e a armadilha dele já está medida e documentada (o compilador pode apagar a alocação inteira quando enxerga o caminho todo dentro de uma função só, fazendo o contador medir zero pelo motivo errado).
+
+**O que o contador NÃO cobre, declarado antes de começar:** vazamento inteiramente dentro de biblioteca de terceiro. Isso não é perda: o critério fixado antes do dado já mandava suprimir esse caso, então o contador cobre exatamente a fatia que o critério considera vermelho.
+
+**Decisão minha, declarada e disputável:** o item nasce na onda de infraestrutura, **não** na cauda que estamos drenando - pô-lo na cauda adiaria o fechamento da onda. E o número de prioridade é proposta minha, nunca passou pela lente de produto.
+

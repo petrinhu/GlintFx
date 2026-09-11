@@ -1028,6 +1028,23 @@ target_sources(loop_bind_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/loop_bind_alloc_probe.cpp"
 )
 
+# alloc_counter_classify_test - CONTAINER-LEAK-COUNTER sub-fatia S1
+# (/var/tmp/glintfx-plan/leak-counter.md sec. 5, GODS_LAWS.md L-04/
+# L-07/L-17/L-20): o classificador PURO que decide, por aritmetica de
+# intervalo de enderecos (sem backtrace()/dl_iterate_phdr/estado), se
+# um quadro de pilha de alocacao e "nosso" ou "de terceiro" - o atomo
+# que o gancho de S2 vai usar dentro do container. Testado aqui, fora
+# de qualquer container, porque nao toca nada de sistema: registra
+# unguarded, nas cinco plataformas, igual a loop_bind_test acima.
+# alloc_counter_classify.cpp mora em tests/container/ (onde o gancho
+# de S2 vai nascer ao lado dele) e nao em tests/ direto, mas tests/ ja
+# e include path publico de glintfx_test_harness (topo deste arquivo),
+# entao nenhum target_include_directories extra e preciso.
+glintfx_add_test(alloc_counter_classify_test)
+target_sources(alloc_counter_classify_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/container/alloc_counter_classify.cpp"
+)
+
 # loop_open_alloc_failure_test - LOOP-RUN fatia 6b (docs/plano-w6b-
 # fatias-6-8.md sec. 8.3, F17, GODS_LAWS.md L-20/L-22/L-27): recompiles
 # loop_impl.cpp a SECOND time, straight into this test binary - the

@@ -8,9 +8,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+## [0.3.8.0] - 2026-09-13
+
+### Added
+
+- A memory-allocation leak counter for the eighteen test fixtures that run inside the isolated Wayland container (`CONTAINER-LEAK-COUNTER`), closing a gap where the container's own memory-safety instrumentation (AddressSanitizer's leak detector) is disabled there and fails silently: a classifier that decides, purely by the calling stack frame, whether a live allocation came from this library's own code or from a third-party library (`tests/container/alloc_counter_classify.{hpp,cpp}`); a hook that replaces the global `operator new`/`operator delete` inside each fixture binary and reports the result at process exit (`tests/container/alloc_counter_hook.cpp`); and the script that applies the pass/fail criterion against that report - zero live blocks attributed to this library's own code, third-party blocks measured and published but not yet judged (`tests/container/check_alloc_report.sh`). Two new steps run in both legs (`plain`, `asan`) of the `wayland-container` CI job: a check that every fixture binary actually carries the counting symbol before any fixture runs, and the report-verdict check after all eighteen have run. The gate was proven catching a real regression on the CI server itself (a fixture rebuilt without the counting hook), not only in a local rehearsal.
+- `tests/container/exec_fixture.sh`: the atom the `wayland-container` job now uses to run every one of its fixtures, printing the exit code and, when the process died by signal, the signal name, before any of the fixture's own captured output reaches the log - a fixture killed by a signal no longer hides its own verdict behind unrelated driver noise printed earlier in the same output.
+
+### Infrastructure
+
+- The `wayland-container` CI job gained a second leg (`asan`) that runs the same eighteen fixtures under AddressSanitizer/UndefinedBehaviorSanitizer: the only fixtures in this project that exercise a real compositor, window, and graphics context now run with memory-safety instrumentation too. Total CI jobs: 22 to 23.
+
 ### Fixed
 
-- The library's own declared version (`project(VERSION)` in `CMakeLists.txt`, and everything generated from it: the version macro a consumer reads at compile time, and the packaging files a packager reads) now matches the latest published tag. From v0.3.1.0 through v0.3.7.0 the declaration itself had stayed at `0.3.0.0`, so a consumer building against any of those seven tags was told `0.3.0.0` by the library, never the real version it actually received.
+- The library's own declared version (`project(VERSION)` in `CMakeLists.txt`, and everything generated from it: the version macro a consumer reads at compile time, and the packaging files a packager reads) now matches the latest published tag. From v0.3.1.0 through v0.3.7.0 the declaration itself had stayed at `0.3.0.0`, so a consumer building against any of those seven tags was told `0.3.0.0` by the library, never the real version it actually received. The declaration is bumped again here, from `0.3.7.0` to `0.3.8.0`, to keep matching this tag.
 
 ## [0.3.7.0] - 2026-09-10
 
@@ -135,7 +146,8 @@ The first tagged version of glintfx. It marks the point where all five supported
 
 - glintfx is pre-1.0: the public surface can still change at any time, and any compatibility promise made today only holds within the same second version component.
 
-[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.3.7.0...HEAD
+[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.3.8.0...HEAD
+[0.3.8.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.7.0...v0.3.8.0
 [0.3.7.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.6.0...v0.3.7.0
 [0.3.6.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.5.0...v0.3.6.0
 [0.3.5.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.4.0...v0.3.5.0

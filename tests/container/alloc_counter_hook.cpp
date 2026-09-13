@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "alloc_counter_classify.hpp"
+#include "alloc_counter_snapshot.hpp"
 
 // alloc_counter_hook.cpp - CONTAINER-LEAK-COUNTER sub-fatia S2 (/var/
 // tmp/glintfx-plan/leak-counter.md sec. 5, GODS_LAWS.md L-04/L-07/
@@ -91,6 +92,23 @@ constexpr std::size_t k_max_leak_lines = 32;
 constexpr std::size_t k_max_backtrace_frames = 16;
 constexpr std::uint32_t k_alloc_magic = 0x474C4B31u; // "GLK1", ASCII
 
+// CONTAINER-LEAK-COUNTER sub-fatia S4 (leak-counter.md sec. 5 S4): a
+// SMALL, best-effort histogram of the decisive frame behind every
+// `third_party` allocation - never a proof mechanism (that is S4's own
+// third_party_growth_c2_c3 MEASURED line, applied by check_alloc_
+// report.sh), only the diagnostic trail the plan requires be available
+// WHEN a clean-tree run ever DOES show growth: "o valor e a pilha do
+// quadro decisivo vao ao lider". 64 distinct frames is far more than
+// this project's own driver stack needs in practice (F9/F10: a handful
+// of call sites inside libLLVM/libgallium account for the hundreds of
+// thousands of blocks they allocate) - a distinct frame arriving after
+// the table is full is silently NOT recorded (declared here, not
+// hidden): the counters (alloc_live_third_party itself, and this
+// fixture's own third_party_growth_c2_c3) stay correct regardless,
+// only the HISTOGRAM'S coverage of rare/one-off call sites narrows.
+constexpr std::size_t k_third_party_histogram_capacity = 64;
+constexpr std::size_t k_third_party_histogram_report_top = 8;
+
 enum class alloc_owner_klass : std::uint8_t {
     ours = 0,
     third_party = 1,
@@ -127,6 +145,24 @@ std::atomic<std::uint64_t> g_foreign_delete{0};
 std::atomic_flag g_ours_table_lock = ATOMIC_FLAG_INIT;
 const void *g_ours_table[k_ours_table_capacity];
 std::size_t g_ours_table_count = 0; // guarded by g_ours_table_lock
+
+// S4's own histogram (see the constants' own comment above): frame ==
+// nullptr marks an empty slot, both fields zero-initialized by static
+// storage duration (BSS) like every other array in this file - no
+// explicit initializer needed, same reasoning g_ours_table above
+// already relies on. A SEPARATE spinlock from g_ours_table_lock: the
+// two are never touched by the same allocation (a block is either
+// `ours` or `third_party`, never both), and third_party allocations
+// arrive from many threads at once (F10, LLVM/gallium worker threads)
+// - sharing one lock would serialize two unrelated hot paths against
+// each other for no reason.
+struct third_party_histogram_entry {
+    const void *frame;
+    std::uint64_t count;
+};
+std::atomic_flag g_third_party_hist_lock = ATOMIC_FLAG_INIT;
+third_party_histogram_entry g_third_party_hist[k_third_party_histogram_capacity];
+std::size_t g_third_party_hist_used = 0; // guarded by g_third_party_hist_lock
 
 // The four ranges classify_allocation_frames() compares against - all
 // zero-initialized (BSS: {nullptr, nullptr}) until compute_ranges()
@@ -195,6 +231,38 @@ GFX_HOOK_FN void table_remove(const void *user_ptr) noexcept {
         // (g_live_ours) still stays correct either way.
     }
     table_unlock();
+}
+
+// record_third_party_frame - S4's own bookkeeping, called once per
+// `third_party` allocation from hook_new_bookkeep below (never from
+// the `ours` path, which has no use for it). Linear scan is fine: the
+// table this function scans is capped at k_third_party_histogram_
+// capacity (64) by construction, never the millions of allocations
+// LLVM/gallium make (F9) - this function runs once PER ALLOCATION, but
+// only ever walks at most 64 entries to do it.
+GFX_HOOK_FN void record_third_party_frame(const void *decisive_frame) noexcept {
+    while (g_third_party_hist_lock.test_and_set(std::memory_order_acquire)) {
+        // spin - same reasoning table_lock() above already gives: the
+        // critical section below is a short, bounded scan, never a
+        // hot path worth a real mutex/futex.
+    }
+    bool found = false;
+    for (std::size_t i = 0; i < g_third_party_hist_used; ++i) {
+        if (g_third_party_hist[i].frame == decisive_frame) {
+            ++g_third_party_hist[i].count;
+            found = true;
+            break;
+        }
+    }
+    if (!found && g_third_party_hist_used < k_third_party_histogram_capacity) {
+        g_third_party_hist[g_third_party_hist_used].frame = decisive_frame;
+        g_third_party_hist[g_third_party_hist_used].count = 1;
+        ++g_third_party_hist_used;
+        // A distinct frame arriving once the table is already full is
+        // silently NOT recorded - declared in this file's own top
+        // comment on k_third_party_histogram_capacity, not hidden here.
+    }
+    g_third_party_hist_lock.clear(std::memory_order_release);
 }
 
 // dl_iterate_phdr callback (leak-counter.md sec. 2): walks every
@@ -344,6 +412,46 @@ GFX_HOOK_FN void print_report() noexcept {
             write_all(STDOUT_FILENO, buf, static_cast<std::size_t>(n));
         }
     }
+
+    // S4's own diagnostic trail (leak-counter.md sec. 5 S4): the top
+    // k_third_party_histogram_report_top frames by count, printed
+    // ALWAYS (every fixture, not only alloc_cycle_growth_smoke.cpp) -
+    // one report shape, no special-casing by fixture name. No lock
+    // needed, same reasoning the ALLOC_LEAK loop above already gives
+    // (every allocating thread has already exited by the time atexit
+    // runs, F12). Partial selection sort over at most 64 entries,
+    // called once - `printed` is a fixed-size STACK array (64 bools),
+    // never heap allocation, safe from this noexcept, post-static-
+    // destructor context.
+    {
+        bool printed[k_third_party_histogram_capacity] = {};
+        const std::size_t top_n = g_third_party_hist_used < k_third_party_histogram_report_top
+                                      ? g_third_party_hist_used
+                                      : k_third_party_histogram_report_top;
+        for (std::size_t rank = 0; rank < top_n; ++rank) {
+            std::size_t best = k_third_party_histogram_capacity; // sentinel: none found yet
+            for (std::size_t i = 0; i < g_third_party_hist_used; ++i) {
+                if (printed[i]) {
+                    continue;
+                }
+                if (best == k_third_party_histogram_capacity ||
+                    g_third_party_hist[i].count > g_third_party_hist[best].count) {
+                    best = i;
+                }
+            }
+            if (best == k_third_party_histogram_capacity) {
+                break;
+            }
+            printed[best] = true;
+            const int n =
+                std::snprintf(buf, sizeof(buf), "THIRD_PARTY_FRAME frame=%p count=%llu\n",
+                              g_third_party_hist[best].frame,
+                              static_cast<unsigned long long>(g_third_party_hist[best].count));
+            if (n > 0) {
+                write_all(STDOUT_FILENO, buf, static_cast<std::size_t>(n));
+            }
+        }
+    }
 }
 
 GFX_HOOK_FN void compute_ranges() noexcept {
@@ -452,6 +560,7 @@ GFX_HOOK_FN void *hook_new_bookkeep(void *raw) noexcept {
         table_insert(user_ptr);
     } else {
         g_live_third_party.fetch_add(1, std::memory_order_relaxed);
+        record_third_party_frame(result.decisive_frame);
     }
     return user_ptr;
 }
@@ -515,6 +624,20 @@ GFX_HOOK_FN void hook_delete_impl(void *ptr) noexcept {
 }
 
 } // namespace
+
+// CONTAINER-LEAK-COUNTER sub-fatia S4 (alloc_counter_snapshot.hpp's own
+// header comment has the full contract): defined here, OUTSIDE the
+// anonymous namespace above, so it links with EXTERNAL linkage under
+// its declared name - g_live_ours/g_live_third_party are still visible
+// here by ordinary unqualified lookup (anonymous-namespace names have
+// internal linkage, not restricted visibility, within the same
+// translation unit).
+namespace glintfx_leak_counter {
+alloc_snapshot alloc_counter_snapshot() noexcept {
+    return alloc_snapshot{.live_ours = g_live_ours.load(std::memory_order_relaxed),
+                          .live_third_party = g_live_third_party.load(std::memory_order_relaxed)};
+}
+} // namespace glintfx_leak_counter
 
 // --- the replaceable global allocation functions themselves ([basic.
 // stc.dynamic.allocation]) - GFX_HOOK_FN on every one of them, see

@@ -45,7 +45,15 @@
 #   alloc_live_third_party NUNCA e' julgado aqui - so MEDIDO e
 #                         publicado (leak-counter.md sec. 4: o
 #                         julgamento do crescimento entre ciclos e' da
-#                         sub-fatia S4, separavel).
+#                         sub-fatia S4, ver a chave seguinte).
+#   third_party_growth_c2_c3 (S4, so alloc_cycle_growth_smoke.cpp
+#                         imprime esta chave): quando a linha existe,
+#                         tem que ser EXATAMENTE 0 - GODS_LAWS.md L-43,
+#                         criterio fixado ANTES do dado. Diferente das
+#                         seis chaves acima: nao e' "sem contador"
+#                         quando ausente (nem toda fixture cicla), e a
+#                         propria fixture escolhe o dono do prefixo, ao
+#                         contrario das linhas ALLOC_LEAK.
 #
 # ATRIBUICAO DAS LINHAS ALLOC_LEAK AO DONO CERTO, SEM PREFIXO DE NOME:
 # print_report() (S2) imprime "ALLOC_LEAK ours=<endereco>" SEM o nome
@@ -154,6 +162,15 @@ FILENAME == inv_file_name {
         if (dot == 0) next
         owner = substr(ownerkey, 1, dot - 1)
         key = substr(ownerkey, dot + 1)
+        if (key == "third_party_growth_c2_c3") {
+            # S4 (leak-counter.md sec. 5 S4): not one of the six per-
+            # fixture keys above (only alloc_cycle_growth_smoke prints
+            # it) - captured separately, checked in END below, BEFORE
+            # the is_alloc_key filter so it is never silently dropped.
+            growth_seen[owner] = 1
+            growth_val[owner] = value
+            next
+        }
         is_alloc_key = 0
         for (i = 1; i <= n_keys; i++) { if (key == keys[i]) { is_alloc_key = 1 } }
         if (!is_alloc_key) next
@@ -223,6 +240,22 @@ END {
     }
     printf "fixtures_com_contador: %d de %d\n", with_contador, inv_count
     printf "vazamentos_ours: %d\n", total_live_ours
+
+    # S4 (leak-counter.md sec. 5 S4, GODS_LAWS.md L-43: criterio fixado
+    # ANTES do dado): quando a linha third_party_growth_c2_c3 existe,
+    # tem que ser EXATAMENTE 0 - nem crescimento nem encolhimento, e
+    # NUNCA uma tolerancia numerica decidida por este script (uma
+    # arvore limpa que der diferente de 0 vai ao lider, nao vira um
+    # `!= 0` frouxo aqui).
+    for (owner in growth_seen) {
+        growth = growth_val[owner] + 0
+        printf "MEDIDO %s: third_party_growth_c2_c3=%d\n", owner, growth
+        if (growth != 0) {
+            printf "ERRO: %s: third_party_growth_c2_c3=%d - terceiro cresceu (ou encolheu) entre o ciclo 2 e o ciclo 3, esperado exatamente 0\n", owner, growth > "/dev/stderr"
+            exit_code = 1
+        }
+    }
+
     exit exit_code
 }
 '
@@ -420,6 +453,43 @@ selftest_empty_inventory_control() {
     return 1
 }
 
+selftest_growth_zero_control() {
+    log_file="$(mktemp "${scratch}/log-growth-zero-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-growth-zero-XXXXXX")"
+    write_measured_lines alloc_cycle_growth_smoke 3 3 0 5 0 0 >"$log_file"
+    printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=0\n' >>"$log_file"
+    echo "alloc_cycle_growth_smoke" >"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        if printf '%s\n' "$out" | grep -q 'third_party_growth_c2_c3=0'; then
+            echo "selftest: controle de CRESCIMENTO ZERO OK (third_party_growth_c2_c3=0 aceito)"
+            return 0
+        fi
+    fi
+    echo "selftest: controle de CRESCIMENTO ZERO FALHOU (deveria ter aceito com growth=0)" >&2
+    printf '%s\n' "${out:-}" >&2
+    return 1
+}
+
+selftest_growth_nonzero_control() {
+    log_file="$(mktemp "${scratch}/log-growth-nonzero-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-growth-nonzero-XXXXXX")"
+    write_measured_lines alloc_cycle_growth_smoke 3 3 0 5 0 0 >"$log_file"
+    printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=3\n' >>"$log_file"
+    echo "alloc_cycle_growth_smoke" >"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: controle de CRESCIMENTO NAO-ZERO FALHOU (deveria ter reprovado, saiu 0)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'third_party_growth_c2_c3=3'; then
+        echo "selftest: controle de CRESCIMENTO NAO-ZERO OK (growth=3 acusado)"
+        return 0
+    fi
+    echo "selftest: controle de CRESCIMENTO NAO-ZERO FALHOU (reprovou mas nao citou o valor esperado)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
 selftest_main() {
     scratch="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-alloc-report-selftest-XXXXXX")"
     trap 'rm -rf "$scratch"' EXIT
@@ -445,13 +515,19 @@ selftest_main() {
     exercitados=$((exercitados + 1))
     selftest_empty_inventory_control || reprovados=$((reprovados + 1))
 
+    exercitados=$((exercitados + 1))
+    selftest_growth_zero_control || reprovados=$((reprovados + 1))
+
+    exercitados=$((exercitados + 1))
+    selftest_growth_nonzero_control || reprovados=$((reprovados + 1))
+
     echo "controles: ${exercitados} exercitados, ${reprovados} reprovados"
 
     if [ "$reprovados" -ne 0 ]; then
         echo "check_alloc_report.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_alloc_report.sh --selftest: os seis controles OK"
+    echo "check_alloc_report.sh --selftest: os oito controles OK"
 }
 
 main() {

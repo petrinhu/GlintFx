@@ -220,6 +220,7 @@ COPY two_displays_test.cpp /build/two_displays_test.cpp
 COPY facade_pin_smoke.cpp /build/facade_pin_smoke.cpp
 COPY window_active_after_map_smoke.cpp /build/window_active_after_map_smoke.cpp
 COPY gpu_kind_report_smoke.cpp /build/gpu_kind_report_smoke.cpp
+COPY alloc_cycle_growth_smoke.cpp /build/alloc_cycle_growth_smoke.cpp
 # CONTAINER-LEAK-COUNTER S2 (/var/tmp/glintfx-plan/leak-counter.md
 # sec. 5): alloc_counter_classify.hpp travels alongside the two .cpp
 # files below because both alloc_counter_classify.cpp (S1) and alloc_
@@ -227,9 +228,13 @@ COPY gpu_kind_report_smoke.cpp /build/gpu_kind_report_smoke.cpp
 # preprocessor's quote-form search checks the INCLUDING file's own
 # directory first (here, /build, since every fixture .cpp above is
 # copied flat into /build too), so no extra `-I` is needed on any of
-# the 18 g++ invocations below.
+# the 19 g++ invocations below. alloc_counter_snapshot.hpp (S4) travels
+# the same way - alloc_counter_hook.cpp (its own definition) AND
+# alloc_cycle_growth_smoke.cpp (its own consumer) both #include it by
+# the same bare quote-name, same reasoning.
 COPY alloc_counter_classify.hpp /build/alloc_counter_classify.hpp
 COPY alloc_counter_classify.cpp /build/alloc_counter_classify.cpp
+COPY alloc_counter_snapshot.hpp /build/alloc_counter_snapshot.hpp
 COPY alloc_counter_hook.cpp /build/alloc_counter_hook.cpp
 RUN wayland-scanner client-header \
         "$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml" \
@@ -725,6 +730,46 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/gpu_kind_report_smoke.cpp \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp \
+        $(pkg-config --libs wayland-client wayland-egl egl) \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client wayland-egl egl) \
+        -o /build/alloc_cycle_growth_smoke \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_report.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/_arch_ports_src/src/core/log/severity.cpp \
+        /build/_arch_ports_src/src/core/log/event.cpp \
+        /build/_arch_ports_src/src/core/log/sink.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/alloc_cycle_growth_smoke.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl)
 
 FROM fedora:44
@@ -775,6 +820,7 @@ COPY --from=arch-ports-builder /build/egl_device_reader_probe /usr/local/bin/egl
 COPY --from=arch-ports-builder /build/facade_pin_smoke /usr/local/bin/facade_pin_smoke
 COPY --from=arch-ports-builder /build/window_active_after_map_smoke /usr/local/bin/window_active_after_map_smoke
 COPY --from=arch-ports-builder /build/gpu_kind_report_smoke /usr/local/bin/gpu_kind_report_smoke
+COPY --from=arch-ports-builder /build/alloc_cycle_growth_smoke /usr/local/bin/alloc_cycle_growth_smoke
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
@@ -785,7 +831,7 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/gl_context_parity_test /usr/local/bin/egl_protocol_error_smoke \
         /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \
-        /usr/local/bin/gpu_kind_report_smoke
+        /usr/local/bin/gpu_kind_report_smoke /usr/local/bin/alloc_cycle_growth_smoke
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

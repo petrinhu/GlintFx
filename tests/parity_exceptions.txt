@@ -236,6 +236,20 @@ registry_smoke|windows|nenhum|SEM-PENDENCIA
 pump_smoke|windows|nenhum|SEM-PENDENCIA
 fatal_error_smoke|windows|nenhum|SEM-PENDENCIA
 
+# alloc_cycle_growth_smoke (tests/container/alloc_cycle_growth_smoke.
+# cpp, CONTAINER-LEAK-COUNTER sub-fatia S4, /var/tmp/glintfx-plan/leak-
+# counter.md sec. 5 S4) - MESMA assimetria dos quatro nomes acima
+# (mecanismo Wayland puro dentro do job `wayland-container`, que so
+# existe do lado Linux), e mais uma camada: o que este fixture prova
+# (que abrir e fechar display/shell/janela/contexto GL tres vezes nao
+# faz a memoria de TERCEIRO - llvmpipe/mesa, o driver software deste
+# container - crescer sem limite entre ciclos) nao tem NENHUM conceito
+# equivalente do lado Windows deste projeto: nao ha classificador
+# ours/third_party por endereco de retorno la, nem gancho de alocacao,
+# nem job de container algum. Nome proprio, sem gemeo possivel -
+# SEM-PENDENCIA, nunca apelido, mesma razao dos quatro acima.
+alloc_cycle_growth_smoke|windows|nenhum|SEM-PENDENCIA
+
 # --- WL-WINDOW fatia W-E (docs/plano-w6a-janela.md fatia 8), lacuna
 # real, ATUALIZADA por WL-WINDOW-HANDLE (fatia 11/P-1, 06/09/2026) -----
 #

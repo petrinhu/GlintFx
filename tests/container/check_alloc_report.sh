@@ -46,14 +46,32 @@
 #                         publicado (leak-counter.md sec. 4: o
 #                         julgamento do crescimento entre ciclos e' da
 #                         sub-fatia S4, ver a chave seguinte).
-#   third_party_growth_c2_c3 (S4, so alloc_cycle_growth_smoke.cpp
-#                         imprime esta chave): quando a linha existe,
-#                         tem que ser EXATAMENTE 0 - GODS_LAWS.md L-43,
-#                         criterio fixado ANTES do dado. Diferente das
-#                         seis chaves acima: nao e' "sem contador"
-#                         quando ausente (nem toda fixture cicla), e a
-#                         propria fixture escolhe o dono do prefixo, ao
-#                         contrario das linhas ALLOC_LEAK.
+#   third_party_after_cycle_2, third_party_after_cycle_3 (S4) e
+#   third_party_growth_c2_c3 (a mesma S4, so alloc_cycle_growth_smoke.cpp
+#                         imprime as tres): o script RECALCULA o
+#                         crescimento (ciclo3 menos ciclo2) e reprova se o
+#                         valor recalculado divergir do que a propria
+#                         fixture relatou em third_party_growth_c2_c3 -
+#                         achado da revisao adversarial de 13/09/2026
+#                         (rev-leak-s4): antes desta correcao, o portao
+#                         nunca lia os dois brutos, so' confiava na conta
+#                         que o proprio medido ja tinha feito, e um log
+#                         em que a linha de crescimento MENTIA "0" com os
+#                         brutos mostrando +1 passava verde. Depois de
+#                         recalculado, tem que ser EXATAMENTE 0 -
+#                         GODS_LAWS.md L-43, criterio fixado ANTES do
+#                         dado, sem tolerancia numerica. Diferente das
+#                         seis chaves acima: nao e' "sem contador" para
+#                         QUALQUER fixture que nunca as imprima (nem toda
+#                         fixture cicla, e a propria fixture escolhe o
+#                         dono do prefixo, ao contrario das linhas
+#                         ALLOC_LEAK) - mas para a fixture NOMEADA
+#                         alloc_cycle_growth_smoke especificamente, as
+#                         tres linhas SAO exigidas (piso de varredura), e
+#                         a propria fixture e' exigida no INVENTARIO -
+#                         ver o bloco do END abaixo, mesmo achado da
+#                         revisao (a 19a fixture podia sumir do job
+#                         inteiro sem reprovacao nenhuma).
 #
 # ATRIBUICAO DAS LINHAS ALLOC_LEAK AO DONO CERTO, SEM PREFIXO DE NOME:
 # print_report() (S2) imprime "ALLOC_LEAK ours=<endereco>" SEM o nome
@@ -171,6 +189,19 @@ FILENAME == inv_file_name {
             growth_val[owner] = value
             next
         }
+        if (key == "third_party_after_cycle_2") {
+            # S4, achado 13/09/2026: capturado para RECALCULAR o
+            # crescimento no END, em vez de so confiar na conta que a
+            # propria fixture ja fez em third_party_growth_c2_c3.
+            cycle2_seen[owner] = 1
+            cycle2_val[owner] = value
+            next
+        }
+        if (key == "third_party_after_cycle_3") {
+            cycle3_seen[owner] = 1
+            cycle3_val[owner] = value
+            next
+        }
         is_alloc_key = 0
         for (i = 1; i <= n_keys; i++) { if (key == keys[i]) { is_alloc_key = 1 } }
         if (!is_alloc_key) next
@@ -241,17 +272,72 @@ END {
     printf "fixtures_com_contador: %d de %d\n", with_contador, inv_count
     printf "vazamentos_ours: %d\n", total_live_ours
 
-    # S4 (leak-counter.md sec. 5 S4, GODS_LAWS.md L-43: criterio fixado
-    # ANTES do dado): quando a linha third_party_growth_c2_c3 existe,
-    # tem que ser EXATAMENTE 0 - nem crescimento nem encolhimento, e
-    # NUNCA uma tolerancia numerica decidida por este script (uma
-    # arvore limpa que der diferente de 0 vai ao lider, nao vira um
-    # `!= 0` frouxo aqui).
-    for (owner in growth_seen) {
-        growth = growth_val[owner] + 0
-        printf "MEDIDO %s: third_party_growth_c2_c3=%d\n", owner, growth
-        if (growth != 0) {
-            printf "ERRO: %s: third_party_growth_c2_c3=%d - terceiro cresceu (ou encolheu) entre o ciclo 2 e o ciclo 3, esperado exatamente 0\n", owner, growth > "/dev/stderr"
+    # S4 (leak-counter.md sec. 5 S4, GODS_LAWS.md L-40/L-43, achado da
+    # revisao adversarial de 13/09/2026 - rev-leak-s4): tres regras,
+    # nenhuma delas confia no autorrelato da fixture sozinha.
+    #
+    # 1) EXIGENCIA NOMEADA: alloc_cycle_growth_smoke tem que estar no
+    #    inventario. Sem isto, a fiacao inteira podia sumir do job (o
+    #    passo inteiro removido de ci.yml) e este script nunca notava -
+    #    o revisor mediu "18 de 18, rc=0" com a 19a fixture inteiramente
+    #    ausente do log E do inventario. So dispara com inv_count > 0
+    #    para nao duplicar a mensagem ja coberta pelo piso de inventario
+    #    vazio, acima.
+    required_cycle_fixture = "alloc_cycle_growth_smoke"
+    if (inv_count > 0 && !(required_cycle_fixture in inv)) {
+        printf "ERRO: %s ausente do inventario - GODS_LAWS.md L-40, exigencia nomeada (S4): esta fixture tem que aparecer no inventario mesmo que a fiacao dela tenha sido removida\n", required_cycle_fixture > "/dev/stderr"
+        exit_code = 1
+    }
+
+    # Uniao de donos que emitiram QUALQUER uma das tres chaves de ciclo -
+    # generico por desenho (uma fixture futura que tambem cicle usa o
+    # mesmo prefixo, nao so a de hoje).
+    for (owner in growth_seen) { cycle_owner[owner] = 1 }
+    for (owner in cycle2_seen) { cycle_owner[owner] = 1 }
+    for (owner in cycle3_seen) { cycle_owner[owner] = 1 }
+
+    # 2) PISO DE VARREDURA DA CHAVE NOVA: se a fixture nomeada esta no
+    #    inventario mas nao emitiu NENHUMA das tres chaves de ciclo, a
+    #    fiacao foi removida da propria fixture (ou ela morreu antes de
+    #    chegar la) - reprova aqui, antes do bloco abaixo (que so visita
+    #    quem emitiu ALGUMA das tres).
+    if ((required_cycle_fixture in inv) && !(required_cycle_fixture in cycle_owner)) {
+        printf "ERRO: %s: nenhuma linha MEASURED de ciclo encontrada (third_party_after_cycle_2, third_party_after_cycle_3, third_party_growth_c2_c3) - GODS_LAWS.md L-40, piso de varredura: fiacao de S4 removida\n", required_cycle_fixture > "/dev/stderr"
+        exit_code = 1
+    }
+
+    # 3) PISO DE COMPLETUDE + RECALCULO: quem emitiu alguma chave de
+    #    ciclo tem que ter emitido as TRES, e o crescimento recalculado
+    #    (ciclo3 menos ciclo2) tem que BATER com o que a fixture relatou
+    #    - divergencia reprova citando os dois valores, porque ou a
+    #    fixture tem defeito de calculo ou o log foi adulterado, e as
+    #    duas exigem reacoes diferentes. So DEPOIS de bater, o criterio
+    #    de negocio se aplica: exatamente 0, sem tolerancia numerica
+    #    (GODS_LAWS.md L-43, fixado antes do dado).
+    for (owner in cycle_owner) {
+        missing_cycle = ""
+        if (!(owner in cycle2_seen)) { missing_cycle = missing_cycle " third_party_after_cycle_2" }
+        if (!(owner in cycle3_seen)) { missing_cycle = missing_cycle " third_party_after_cycle_3" }
+        if (!(owner in growth_seen)) { missing_cycle = missing_cycle " third_party_growth_c2_c3" }
+        if (missing_cycle != "") {
+            printf "ERRO: %s: falta linha(s) MEASURED de ciclo exigida(s) -%s (S4 sem contador completo)\n", owner, missing_cycle > "/dev/stderr"
+            exit_code = 1
+            continue
+        }
+        cycle2 = cycle2_val[owner] + 0
+        cycle3 = cycle3_val[owner] + 0
+        reported_growth = growth_val[owner] + 0
+        recalculated_growth = cycle3 - cycle2
+        printf "MEDIDO %s: third_party_after_cycle_2=%d third_party_after_cycle_3=%d\n", owner, cycle2, cycle3
+        if (recalculated_growth != reported_growth) {
+            printf "MEDIDO %s: third_party_growth_c2_c3 relatado=%d\n", owner, reported_growth
+            printf "ERRO: %s: third_party_growth_c2_c3 relatado=%d diverge do recalculado (ciclo3 menos ciclo2)=%d - fixture com defeito de calculo, ou log adulterado\n", owner, reported_growth, recalculated_growth > "/dev/stderr"
+            exit_code = 1
+            continue
+        }
+        printf "MEDIDO %s: third_party_growth_c2_c3=%d\n", owner, recalculated_growth
+        if (recalculated_growth != 0) {
+            printf "ERRO: %s: third_party_growth_c2_c3=%d - terceiro cresceu (ou encolheu) entre o ciclo 2 e o ciclo 3, esperado exatamente 0\n", owner, recalculated_growth > "/dev/stderr"
             exit_code = 1
         }
     }
@@ -333,15 +419,32 @@ selftest_positive_control() {
     inv_file="$(mktemp "${scratch}/inv-positive-XXXXXX")"
     i=1
     while [ "$i" -le 18 ]; do
-        name="fixture_${i}"
+        # A 18a fixture deste controle e' a nomeada de verdade
+        # (alloc_cycle_growth_smoke), nao mais um nome generico - desde
+        # o achado de 13/09/2026 (rev-leak-s4), o inventario positivo
+        # tem que refletir o job real, onde ela SEMPRE aparece com as
+        # tres chaves de ciclo, ou a exigencia nomeada nova (ver o bloco
+        # END do awk acima) reprova este controle por engano.
+        if [ "$i" -eq 18 ]; then
+            name="alloc_cycle_growth_smoke"
+        else
+            name="fixture_${i}"
+        fi
         write_measured_lines "$name" 3 3 0 0 0 0 >>"$log_file"
+        if [ "$name" = "alloc_cycle_growth_smoke" ]; then
+            {
+                printf 'MEASURED %s.third_party_after_cycle_2=1188\n' "$name"
+                printf 'MEASURED %s.third_party_after_cycle_3=1188\n' "$name"
+                printf 'MEASURED %s.third_party_growth_c2_c3=0\n' "$name"
+            } >>"$log_file"
+        fi
         echo "$name" >>"$inv_file"
         i=$((i + 1))
     done
     if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
         if printf '%s\n' "$out" | grep -q 'fixtures_com_contador: 18 de 18' \
             && printf '%s\n' "$out" | grep -q 'vazamentos_ours: 0'; then
-            echo "selftest: controle POSITIVO OK (18 fixtures limpas, 0 vazamento)"
+            echo "selftest: controle POSITIVO OK (18 fixtures limpas, 0 vazamento, ciclo de alloc_cycle_growth_smoke consistente)"
             return 0
         fi
     fi
@@ -457,11 +560,15 @@ selftest_growth_zero_control() {
     log_file="$(mktemp "${scratch}/log-growth-zero-XXXXXX")"
     inv_file="$(mktemp "${scratch}/inv-growth-zero-XXXXXX")"
     write_measured_lines alloc_cycle_growth_smoke 3 3 0 5 0 0 >"$log_file"
-    printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=0\n' >>"$log_file"
+    {
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_2=1188\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_3=1188\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=0\n'
+    } >>"$log_file"
     echo "alloc_cycle_growth_smoke" >"$inv_file"
     if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
         if printf '%s\n' "$out" | grep -q 'third_party_growth_c2_c3=0'; then
-            echo "selftest: controle de CRESCIMENTO ZERO OK (third_party_growth_c2_c3=0 aceito)"
+            echo "selftest: controle de CRESCIMENTO ZERO OK (recalculado bate com o relatado, aceito)"
             return 0
         fi
     fi
@@ -474,7 +581,11 @@ selftest_growth_nonzero_control() {
     log_file="$(mktemp "${scratch}/log-growth-nonzero-XXXXXX")"
     inv_file="$(mktemp "${scratch}/inv-growth-nonzero-XXXXXX")"
     write_measured_lines alloc_cycle_growth_smoke 3 3 0 5 0 0 >"$log_file"
-    printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=3\n' >>"$log_file"
+    {
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_2=1188\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_3=1191\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=3\n'
+    } >>"$log_file"
     echo "alloc_cycle_growth_smoke" >"$inv_file"
     if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
         echo "selftest: controle de CRESCIMENTO NAO-ZERO FALHOU (deveria ter reprovado, saiu 0)" >&2
@@ -482,10 +593,81 @@ selftest_growth_nonzero_control() {
         return 1
     fi
     if printf '%s\n' "$out" | grep -q 'third_party_growth_c2_c3=3'; then
-        echo "selftest: controle de CRESCIMENTO NAO-ZERO OK (growth=3 acusado)"
+        echo "selftest: controle de CRESCIMENTO NAO-ZERO OK (growth=3 acusado, recalculo bate com o relatado)"
         return 0
     fi
     echo "selftest: controle de CRESCIMENTO NAO-ZERO FALHOU (reprovou mas nao citou o valor esperado)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
+# ACHADO DA REVISAO ADVERSARIAL, 13/09/2026 (rev-leak-s4): o portao NUNCA
+# lia third_party_after_cycle_2/_3 - so' a linha third_party_growth_c2_c3
+# que a PROPRIA fixture ja calculou. O revisor montou um log em que os
+# brutos mostravam crescimento real (+1) e a linha de crescimento MENTIA
+# "0", e o portao antigo passava verde - o instrumento aceitava o
+# autorrelato do medido em vez de medir. Os tres controles abaixo fecham
+# essa lacuna e as duas outras que o mesmo revisor mediu (chave nova sem
+# piso de varredura, e a propria fixture podendo sumir do inventario sem
+# reprovacao nenhuma).
+selftest_growth_divergence_control() {
+    log_file="$(mktemp "${scratch}/log-growth-divergence-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-growth-divergence-XXXXXX")"
+    write_measured_lines alloc_cycle_growth_smoke 3 3 0 5 0 0 >"$log_file"
+    {
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_2=1188\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_3=1189\n'
+        printf 'MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=0\n'
+    } >>"$log_file"
+    echo "alloc_cycle_growth_smoke" >"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: controle de DIVERGENCIA FALHOU (deveria ter reprovado, saiu 0 - o portao aceitou o autorrelato da fixture sem recalcular)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'relatado=0' && printf '%s\n' "$out" | grep -q 'recalculado.*=1'; then
+        echo "selftest: controle de DIVERGENCIA OK (relatado=0 e recalculado=1 acusados, log mentiroso reprovado)"
+        return 0
+    fi
+    echo "selftest: controle de DIVERGENCIA FALHOU (reprovou mas nao citou os dois valores esperados)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
+selftest_growth_missing_keys_control() {
+    log_file="$(mktemp "${scratch}/log-growth-missing-keys-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-growth-missing-keys-XXXXXX")"
+    write_measured_lines alloc_cycle_growth_smoke 3 3 0 5 0 0 >"$log_file"
+    echo "alloc_cycle_growth_smoke" >"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: controle de CHAVES DE CICLO FALTANDO FALHOU (deveria ter reprovado, saiu 0 - fixture no inventario sem nenhuma linha de ciclo passou calada)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'alloc_cycle_growth_smoke'; then
+        echo "selftest: controle de CHAVES DE CICLO FALTANDO OK (fixture sem nenhuma linha de ciclo acusada, apesar de estar no inventario)"
+        return 0
+    fi
+    echo "selftest: controle de CHAVES DE CICLO FALTANDO FALHOU (reprovou mas nao citou a fixture esperada)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
+selftest_growth_absent_from_inventory_control() {
+    log_file="$(mktemp "${scratch}/log-growth-absent-inv-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-growth-absent-inv-XXXXXX")"
+    write_measured_lines outra_fixture_qualquer 3 3 0 0 0 0 >"$log_file"
+    echo "outra_fixture_qualquer" >"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: controle de FIXTURE AUSENTE DO INVENTARIO FALHOU (deveria ter reprovado, saiu 0 - a fiacao inteira pode sumir do job sem reprovacao nenhuma)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'alloc_cycle_growth_smoke' && printf '%s\n' "$out" | grep -q 'ausente do inventario'; then
+        echo "selftest: controle de FIXTURE AUSENTE DO INVENTARIO OK (exigencia nomeada acusou a ausencia)"
+        return 0
+    fi
+    echo "selftest: controle de FIXTURE AUSENTE DO INVENTARIO FALHOU (reprovou mas nao citou a exigencia nomeada esperada)" >&2
     printf '%s\n' "$out" >&2
     return 1
 }
@@ -521,13 +703,22 @@ selftest_main() {
     exercitados=$((exercitados + 1))
     selftest_growth_nonzero_control || reprovados=$((reprovados + 1))
 
+    exercitados=$((exercitados + 1))
+    selftest_growth_divergence_control || reprovados=$((reprovados + 1))
+
+    exercitados=$((exercitados + 1))
+    selftest_growth_missing_keys_control || reprovados=$((reprovados + 1))
+
+    exercitados=$((exercitados + 1))
+    selftest_growth_absent_from_inventory_control || reprovados=$((reprovados + 1))
+
     echo "controles: ${exercitados} exercitados, ${reprovados} reprovados"
 
     if [ "$reprovados" -ne 0 ]; then
         echo "check_alloc_report.sh --selftest: FALHOU (ver acima)" >&2
         exit 1
     fi
-    echo "check_alloc_report.sh --selftest: os oito controles OK"
+    echo "check_alloc_report.sh --selftest: os onze controles OK"
 }
 
 main() {

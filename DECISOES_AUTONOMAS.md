@@ -3203,3 +3203,17 @@ alloc_live_third_party=13 (era 10 sem a sabotagem - exatamente +3, um por ciclo)
 - **D6 — a parte (b) do contrato do cabeçalho é só texto**, sem mecanismo novo. Razão: o mecanismo correspondente já existe; o que falta é a promessa estar escrita onde o consumidor lê.
 
 **Régua que vale para a onda inteira, por ordem do líder:** nada fecha em `🔍`; cada item chega a `✅` só depois de revisão adversária por agente distinto de quem escreveu, e a onda termina com auditoria independente. Promessa pública do cabeçalho que não tiver teste que morde ao fim da onda **tem de estar declarada ali mesmo como não garantida** — hoje, medido, doze promessas mordem fora do sistema operacional e **nenhuma** morde pela fachada ao vivo.
+
+#### D-091305 — A promessa P10 vai ser PROVADA ao vivo, e a premissa de como prová-la foi refutada por medição  `[13/09/26 - 15:48:00]`
+
+**Contexto:** a revisão adversária de `LOOP-CONTRATO-HEADER` mediu que o cabeçalho público anuncia **treze** promessas (não doze, como o orquestrador vinha dizendo; a contagem do revisor é a correta) e que **uma delas, P10, não tem teste nenhum em toda a suíte** — a que promete que a abertura do laço recusa **pelo nome** quando display, janela ou contexto grafico nao estao abertos. Estava escrita como fato consumado, sem ressalva. Promessa publica sem prova e sem confissao e o defeito que esta onda existe para eliminar.
+
+**Primeira decisao (tomada as 15:41): dar TESTE, nao ressalva**, com base na medicao do revisor de que seria testavel sem container.
+
+**REFUTACAO, medida pelo implementador antes de escrever uma linha de codigo, e aceita:** nao existe hoje, em lugar nenhum da arvore, costura que fabrique um identificador "fechado" sem antes ter passado por uma abertura REAL contra o backend. Os tres tipos sao move-only, sem construtor padrao, com construtor privado cujo unico amigo apenas LE o ponteiro interno de uma instancia ja existente; o adaptador e escolhido em tempo de compilacao, nao e parametrizavel por teste. O proprio `tests/loop_open_alloc_failure_test.cpp` ja documentava essa impossibilidade, um nivel abaixo, escrita por outro autor. **A premissa estava errada, e codar sobre ela produziria teste que nao prova o que promete.**
+
+**O que a medicao SALVOU da premissa:** "movido-de" funciona como tecnica — mas so DEPOIS de uma abertura real, porque o ponteiro bruto que a janela captura nao muda de endereco quando o invólucro e movido.
+
+**DECISAO FINAL: a prova de P10 entra na fatia da PROVA AO VIVO do laco (S4)**, que ja vai abrir display, janela e contexto reais dentro do container. **Razao de economia medida:** um teste de container separado custaria um trabalho pesado inteiro a mais para montar duas vezes o mesmo cenario, contra a lei de um trabalho pesado por vez.
+
+**COBRANCA REGISTRADA, para nao virar promessa esquecida:** se a S4 nao conseguir provar a recusa pelo nome, **P10 ganha ressalva explicita no cabecalho antes de a onda fechar**. Uma das duas tem de acontecer; nao existe terceira saida.

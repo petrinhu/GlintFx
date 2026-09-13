@@ -3128,3 +3128,38 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 **Bug achado durante a estreia vermelha LOCAL de `check_alloc_report.sh` (antes até de chegar ao servidor):** o truque clássico `FNR==NR` do awk para distinguir os dois arquivos de entrada quebra exatamente no caso de inventário vazio - com o primeiro arquivo em zero linhas, toda linha do segundo bate a condição por coincidência aritmética, e viraria "fixture fantasma" em vez de "inventário vazio". Trocado por comparação direta contra `FILENAME` (passado via `-v`), que não depende de quantas linhas cada lado tem.
 
 **Estado da árvore:** commits locais `00a4c5d` (implementação) e `bd5f9e3` (a exceção de paridade), ainda NÃO empurrados - a branch descartável `sonda-leak-counter-s3-vermelho` e o PR #3 continuam abertos até o orquestrador confirmar que os dois IDs acima estão registrados no item do TODO.md (ordem dele, para não apagar a evidência antes da leitura).
+
+#### D-091302 — CONTAINER-LEAK-COUNTER S4: a mutação planejada não move o contador, e a sabotagem que a substituiu  `[13/09/26 - 13:49:01]`
+
+**Quem fez:** o agente que implementou a sub-fatia S4 (`sonnet`). A troca de mutação NÃO foi decisão minha - foi ordem direta do líder, tomada por `AskUserQuestion`, registrada aqui para o histórico.
+
+**O achado que bloqueou a estreia vermelha planejada, medido duas vezes:** o plano (`/var/tmp/glintfx-plan/leak-counter.md` sec. 5 S4) previa que comentar `eglDestroyContext()` no `close()` da fachada de contexto GL, numa cópia fora da árvore, faria `third_party_growth_c2_c3` sair maior que zero. **Não saiu.** Construí duas imagens (uma com a mutação, outra a árvore limpa, mesmo `HostConfig` do job real) e rodei `alloc_cycle_growth_smoke` nas duas: os números saíram **idênticos, byte a byte** - `third_party_after_cycle_1/2/3=1188/1188/1188`, `growth_c2_c3=0`, `alloc_live_third_party=10` no relatório final, nos dois casos. Nesta pilha (mesa/llvmpipe, zink caindo para software por falta de `/dev/dri`), o que `eglDestroyContext()` de fato libera é memória pedida por `malloc` (código C do driver) - invisível ao gancho por desenho, a mesma lacuna que o plano já declarava para `libwayland-client`/`libEGL_mesa`, agora medida também para o ciclo de vida do próprio contexto EGL.
+
+**A segunda mutação prevista também não se aplicava, pelo mesmo motivo de fundo:** trocar `B3 menos B2` por `B2 menos B1` só reprovaria se o ciclo 1 fosse mais caro (inicialização única do LLVM). Nos meus dados os três ciclos já saem idênticos entre si, não só o 2º e o 3º - o pano de fundo que a mutação previa não existe nesta pilha. Registrado como refutação (GODS_LAWS.md L-44), não forçado.
+
+**Parei e relatei em vez de emendar** - três opções levadas ao orquestrador sem escolher sozinho, exatamente o momento que a L-01 pede.
+
+**Decisão do líder, via `AskUserQuestion`:** sabotar a **CLASSIFICAÇÃO**, não o produto. Na cópia fora da árvore (L-27):
+- `alloc_counter_hook.cpp`: um `bool g_sabotage_force_third_party` (fora do namespace anônimo, com um setter `extern "C" alloc_counter_sabotage_set_force_third_party(bool)`) que, quando ligado, força `hook_new_bookkeep()` a classificar a PRÓXIMA alocação como `third_party`, mesmo sendo genuinamente nossa.
+- `alloc_cycle_growth_smoke.cpp`: a cada ciclo, liga a sabotagem, aloca `new int[64]` (guardado num ponteiro `void *volatile` de escopo de arquivo - sem o `volatile` o compilador prova que o ponteiro é descartado e APAGA a alocação inteira a `-O2`, a mesma armadilha que `tests/loop_bind_alloc_probe.hpp`/`leak_plant_smoke.cpp` já documentam; medido ao vivo aqui: sem o `volatile` a sabotagem não aparecia em lugar nenhum), nunca libera, desliga a sabotagem.
+
+**Números do vermelho sintético, medidos em 13/09/2026:**
+```
+third_party_after_cycle_1=1189
+third_party_after_cycle_2=1190
+third_party_after_cycle_3=1191
+third_party_growth_c2_c3=1
+alloc_live_third_party=13 (era 10 sem a sabotagem - exatamente +3, um por ciclo)
+```
+`check_alloc_report.sh` contra este log saiu `rc=1`, citando `ERRO: alloc_cycle_growth_smoke: third_party_growth_c2_c3=1 - terceiro cresceu (ou encolheu) entre o ciclo 2 e o ciclo 3, esperado exatamente 0`.
+
+**Comando exato da sabotagem** (fora da árvore, `/var/tmp/glintfx-plan/leak-counter/s4-sabotage/container/`, cópia de `tests/container/`): edição em `alloc_counter_hook.cpp` (o bool + o setter, aplicado logo antes de `header->klass = ...` em `hook_new_bookkeep`) e em `alloc_cycle_growth_smoke.cpp` (a declaração `extern "C"` do setter, o ponteiro `volatile` de sink, e as três linhas ao redor de `new int[64]` dentro de `run_one_cycle`, logo após os quatro `close()`). `docker build -t glintfx-wltest:s4-sabotage2 -f Containerfile .` a partir dessa cópia; `docker run -d --cap-drop=ALL --cap-add=SYS_NICE`; `tests/container/exec_fixture.sh <container> alloc_cycle_growth_smoke`; `check_alloc_report.sh container_measured_raw.log parity_inventory.txt <container>`.
+
+**O que esta prova cobre, e o que NÃO cobre - texto que entra também na seção 6 do plano:** duas provas que se sobrepõem cobrem a corrente inteira; nenhuma das duas sozinha cobre. A sabotagem prova que fixture → contadores → relatório → `check_alloc_report.sh` → reprovação do passo do job funciona de ponta a ponta com o observável real do portão (`third_party` crescendo por ciclo). Ela NÃO prova que um crescimento REAL de memória de terceiro seria visto - a rota pela qual o número cresceu foi sintética. O elo que fica sem prova nova é a CLASSIFICAÇÃO em si, e esse elo já tem prova própria: os casos de unidade do classificador puro de S1.
+
+**Árvore confirmada limpa ao fim:** `git status --porcelain src/` vazio; `git diff --stat -- src/platform/wayland/egl_context_adapter.cpp` vazio; a sabotagem inteira (gancho e fixture) existiu só em `/var/tmp/glintfx-plan/leak-counter/s4-sabotage/container/`, nunca na árvore rastreada. Todos os containers/imagens Docker descartáveis (`s4-red`, `s4-red2`, `s4-clean`, `s4-sabotage`, `s4-sabotage2`) removidos ao fim de cada rodada.
+
+**Decisões minhas dentro do escopo que o líder já fechou, numeradas com a razão medida:**
+1. Ponteiro de vazamento `void *volatile`, não `static_cast<void>(new ...)` descartado. Razão: medido ao vivo - sem o `volatile`, o compilador `-O2` prova que o resultado nunca é lido e apaga a alocação inteira (F14, mesma família de `tests/loop_bind_alloc_probe.hpp`); a primeira tentativa da sabotagem saiu com os MESMOS números da árvore limpa exatamente por isso.
+2. Setter `extern "C"`, sem header novo. Razão: é sonda descartável, existe só na cópia; um header novo seria mais um arquivo a lembrar de apagar/nunca commitar, sem ganho nenhum sobre uma declaração `extern "C"` direta na fixture.
+3. A sabotagem liga/desliga o `bool` só ao redor da UMA alocação que se quer marcar, nunca globalmente. Razão: qualquer outra alocação real da fixture (janela, shell, contexto GL) que fosse acidentalmente marcada como `third_party` destruiria a comparação limpa (`alloc_live_ours` deixaria de ser 0 por um motivo espúrio, ou o `third_party` cresceria por ruído, não pela sabotagem deliberada).

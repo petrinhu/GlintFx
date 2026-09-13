@@ -3098,3 +3098,17 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **Com isso, nada da sessão de 11/09/2026 fica pendente de ratificação.**
 
+#### D-091201 — ORDEM DO LÍDER: a quina é NOSSA, e a biblioteca entrega o passo já resolvido  `[12/09/26 - 23:41:59]`
+
+**Não é decisão autônoma. É dele**, 12/09/2026, verbatim: *"ignore gosworld se ele disser que a quina é deles. A quina é nossa"*. Alcance confirmado por `AskUserQuestion`: **a biblioteca decide e entrega o passo já resolvido**.
+
+**O contexto, que chegou minutos antes:** o GusWorld mandou pelo barramento o requisito de movimento diagonal (move-se em oito, desenha-se em quatro) e **traçou uma fronteira por conta própria**: *"Quem decide se a diagonal é legal naquele passo (a regra de colisão em grade: a diagonal só passa se as duas células vizinhas estiverem livres) é o GusWorld, não vocês. Vocês entregam o vetor; a parede é problema nosso."* Eu registrei essa fronteira como eles a escreveram. **O líder a revogou.**
+
+**O que passa a valer:** o tratamento da quina - o canto onde duas células se encontram, e a pergunta de se o passo diagonal atravessa quando as duas vizinhas estão ocupadas - é **do GlintFx**. A biblioteca conhece a grade e a colisão o bastante para decidir, e entrega ao consumidor um passo **já válido**, não um vetor cru para ele filtrar.
+
+**Por que ele decidiu assim, e é coerente com a lei deste projeto:** o GlintFx é biblioteca **para distribuição**, com base de consumidores aberta e desconhecida. Deixar a regra do canto com cada consumidor faria cada um inventar a sua - e o comportamento de atravessar quina é exatamente o tipo de coisa que o jogador **sente** e que difere de jogo para jogo por acidente, não por escolha.
+
+**A consequência de escopo, medida e declarada aqui para não ser descoberta tarde:** `INPUT-EVENTS` (onda W7) passa a depender de a biblioteca conhecer grade e colisão - e **a trilha de mapa está BLOQUEADA hoje** (`MAP-MODEL`, `MAP-LOS`, `MAP-FOV`, todos `⛔`, onda W11a). Ou a trilha de mapa desbloqueia antes, ou `INPUT-EVENTS` precisa de um átomo de grade próprio, menor, definido nesta fatia. **Isso é decisão de arquitetura e vai ao líder quando a fatia for planejada**, não agora.
+
+**O que NÃO muda:** as três exigências de forma que o GusWorld mandou continuam valendo, e são boas - saber que duas direções estão acionadas ao mesmo tempo (entrada por estado, não só por borda), eixo analógico como valor contínuo, e teclado e gamepad pelo mesmo caminho.
+

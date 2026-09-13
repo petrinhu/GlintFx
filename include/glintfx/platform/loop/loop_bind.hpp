@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cassert>
 #include <type_traits>
 
 #include <glintfx/platform/loop/loop.hpp>
+#include <glintfx/platform/loop/loop_context_mark.hpp>
 
 // platform/loop/loop_bind.hpp - LOOP-CALLBACK-BIND (S1c, /var/tmp/
 // glintfx-plan/loop-fix.md sec. 3.3/S1c, GODS_LAWS.md L-17/L-19/L-20/
@@ -75,14 +77,48 @@ concept gltfx_loop_bindable =
 // happens to have is an implementation fact those two functions hand
 // back through gltfx_loop_callbacks::on_frame/on_render/destroy_
 // context, never an API surface of its own.
+// CAMADA 4 (LOOP-CONTEXT-MARK, S1d, /var/tmp/glintfx-plan/loop-fix.md
+// sec. 3.4/S1d) hooks in RIGHT HERE, in BOTH thunks below, and nowhere
+// else: `if constexpr (std::is_base_of_v<gltfx_loop_context_mark,
+// Object>)` is a COMPILE-TIME branch (an Object that never inherits
+// from the mark costs nothing - the branch does not even exist in the
+// compiled code for that instantiation), and the `assert()` inside it
+// is itself compiled to nothing whenever the CONSUMER'S OWN
+// translation unit defines NDEBUG (loop_context_mark.hpp's own top
+// comment, "WHERE THE CHECK LIVES" - this header is the only place in
+// the whole four-layer contract that CAN make this check, because it
+// is the only layer the consumer themselves compiles). An Object that
+// does inherit from the mark, in a build where NDEBUG is undefined,
+// gets a deterministic, named abort() the instant it is called
+// through after its own destructor already ran - proved live by
+// tests/tools/check_loop_mark_precondition.py's own subprocess-based
+// portal (the SAME "the metade Debug is what mutation review kills"
+// discipline tests/tools/check_rslt_precondition.py already proves
+// for core/err.hpp's own precondition guard, F22).
 template <class Object, auto Method>
 bool gltfx_loop_frame_thunk(void *context, const gltfx_frame_tick &tick) noexcept {
-    return (static_cast<Object *>(context)->*Method)(tick);
+    auto *object = static_cast<Object *>(context);
+#ifndef NDEBUG
+    if constexpr (std::is_base_of_v<gltfx_loop_context_mark, Object>) {
+        assert(gltfx_loop_context_mark_is_live(*object) &&
+               "gltfx_loop: the bound object no longer carries its mark - it was destroyed "
+               "before, or while, the loop was still calling it");
+    }
+#endif
+    return (object->*Method)(tick);
 }
 
 template <class Object, auto Method>
 void gltfx_loop_render_thunk(void *context, const gltfx_frame_tick &tick) noexcept {
-    (static_cast<Object *>(context)->*Method)(tick);
+    auto *object = static_cast<Object *>(context);
+#ifndef NDEBUG
+    if constexpr (std::is_base_of_v<gltfx_loop_context_mark, Object>) {
+        assert(gltfx_loop_context_mark_is_live(*object) &&
+               "gltfx_loop: the bound object no longer carries its mark - it was destroyed "
+               "before, or while, the loop was still calling it");
+    }
+#endif
+    (object->*Method)(tick);
 }
 
 // gltfx_loop_delete_thunk - the ONLY thing gltfx_adopt_loop_callbacks()
@@ -122,6 +158,14 @@ template <class Object> void gltfx_loop_delete_thunk(void *context) noexcept {
 //     no virtual dispatch, a constant expression when `object` has
 //     static storage duration (tests/loop_bind_test.cpp's own
 //     constexpr case).
+//   - Opt-in liveness checking, camada 4 (loop_context_mark.hpp): when
+//     `Object` inherits from `gltfx_loop_context_mark`, both thunks
+//     below assert, in a build where NDEBUG is undefined, that the
+//     bound object still carries its mark before calling through -
+//     see that header's own top comment for what this catches and
+//     what it does not. An `Object` that does not inherit from the
+//     mark pays nothing for this: the check is an `if constexpr`
+//     branch that does not exist in the compiled code otherwise.
 // ============================================================
 // WHAT THIS LAYER DOES NOT SOLVE - truth (c), stated so nobody has to
 // infer it from an absence (/var/tmp/glintfx-plan/loop-fix.md sec.

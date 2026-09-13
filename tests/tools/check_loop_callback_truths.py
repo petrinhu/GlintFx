@@ -49,11 +49,24 @@
 # frame_elapsed clamps (c), and the compositor-drop risk of a slow
 # callback in the "WHAT THIS FATIA DOES NOT PROMISE" list (d) - all
 # four "code" kind, all four in loop.hpp only (this fatia touches no
-# other file's content). Layer 4 (LOOP-CONTEXT-MARK) adds ITS OWN
-# anchors to the SAME list when it lands - this script's own mechanism
-# does not change, only _ANCHORS grows (GODS_LAWS.md L-40: never widen
-# the allowlist/anchor list without a citation of why - each entry
-# below names the plan section it comes from).
+# other file's content). LOOP-CONTEXT-MARK (S1d, /var/tmp/glintfx-plan/
+# loop-fix.md sec. 3.4/S1d, THIS COMMIT) adds the two fixed section
+# titles for layer 4's own comment block, anchored to the ONE symbol
+# that block sits above (`struct gltfx_loop_context_mark`, a NEW file,
+# include/glintfx/platform/loop/loop_context_mark.hpp) - "code" kind,
+# not "code_whole_file": layer 4 lives in its own header, so a
+# whole-file anchor there would be indistinguishable from a "code"
+# anchor on its only struct; "code" is used for parity with every
+# other per-symbol anchor above, and because it is the more precise
+# check when a choice exists (GODS_LAWS.md L-32: prefer the tighter
+# tool when it costs nothing extra). Layer 4 states no lettered truth
+# the way layers 1/2 do (/var/tmp/glintfx-plan/loop-fix.md sec. 3.4's
+# own "WHAT THIS LAYER DOES NOT SOLVE" column is prose, never a single
+# quoted sentence) - only the two titles are anchored here. This
+# script's own mechanism does not change, only _ANCHORS grows
+# (GODS_LAWS.md L-40: never widen the allowlist/anchor list without a
+# citation of why - each entry below names the plan section it comes
+# from).
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -218,6 +231,22 @@ _ANCHORS = (
         "symbol_regex": r"^class gltfx_loop \{",
         "phrase": "the compositor can simply drop the connection outright",
         "why": "S6 sec. 3 (d) - the compositor-drop risk, inside the not-promise list above the class",
+    },
+    {
+        "id": "layer4-title-solves",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop_context_mark.hpp",
+        "symbol_regex": r"^struct gltfx_loop_context_mark\b",
+        "phrase": "WHAT THIS LAYER SOLVES",
+        "why": "S1d sec. 3.4/5.0 item 1 - the fixed title, above the struct it governs",
+    },
+    {
+        "id": "layer4-title-does-not-solve",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop_context_mark.hpp",
+        "symbol_regex": r"^struct gltfx_loop_context_mark\b",
+        "phrase": "WHAT THIS LAYER DOES NOT SOLVE",
+        "why": "S1d sec. 3.4/5.0 item 1 - the fixed title, above the struct it governs",
     },
 )
 

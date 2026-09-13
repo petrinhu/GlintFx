@@ -1028,6 +1028,17 @@ target_sources(loop_bind_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/loop_bind_alloc_probe.cpp"
 )
 
+# loop_context_mark_test - LOOP-CONTEXT-MARK (S1d, /var/tmp/glintfx-plan/
+# loop-fix.md sec. 3.4/S1d): platform/loop/loop_context_mark.hpp and the
+# camada-4 hook inside loop_bind.hpp's own thunks are both entirely
+# inline/template - registers unguarded, on all five platforms, the
+# same shape loop_bind_test right above already uses. The debug-only
+# guard actually FIRING against a genuinely dead object is proved
+# separately, in a real subprocess, by loop_mark_precondition_test
+# below (this in-process suite never touches an object across its own
+# lifetime end - see that test's own top comment for why).
+glintfx_add_test(loop_context_mark_test)
+
 # alloc_counter_classify_test - CONTAINER-LEAK-COUNTER sub-fatia S1
 # (/var/tmp/glintfx-plan/leak-counter.md sec. 5, GODS_LAWS.md L-04/
 # L-07/L-17/L-20): o classificador PURO que decide, por aritmetica de
@@ -2864,6 +2875,30 @@ add_test(
         "$<TARGET_GENEX_EVAL:glintfx_library,$<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY>>"
 )
 set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
+
+# loop_mark_precondition_test - LOOP-CONTEXT-MARK (S1d, /var/tmp/
+# glintfx-plan/loop-fix.md sec. 3.4 item 4): the SAME subprocess-based
+# molde as rslt_precondition_test right above (see check_loop_mark_
+# precondition.py's own header for what differs and why), proving
+# camada 4's own debug-only liveness guard actually FIRES against a
+# genuinely dead object in Debug, and costs nothing in Release. Same
+# eight positional arguments, same reason each one exists (that
+# script's own predecessor comment three paragraphs up explains the
+# MSVC runtime/CRT-linkage argument in full; unchanged here).
+add_test(
+    NAME loop_mark_precondition_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_loop_mark_precondition.py"
+        "${PROJECT_SOURCE_DIR}/include"
+        "${GLINTFX_GENERATED_INCLUDE_DIR}"
+        "$<TARGET_FILE_DIR:glintfx_library>"
+        "$<TARGET_LINKER_FILE_DIR:glintfx_library>"
+        "${CMAKE_CXX_COMPILER}"
+        "${CMAKE_CXX_COMPILER_ID}"
+        "${CMAKE_CXX23_STANDARD_COMPILE_OPTION}"
+        "$<TARGET_GENEX_EVAL:glintfx_library,$<TARGET_PROPERTY:glintfx_library,MSVC_RUNTIME_LIBRARY>>"
+)
+set_tests_properties(loop_mark_precondition_test PROPERTIES LABELS consume)
 
 # Consumption gate (FIX-CONSUMO, achados A2/A3/A4/A6): proves the
 # INSTALLED package, not the in-tree build. Installs whatever this

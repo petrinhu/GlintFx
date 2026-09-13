@@ -63,6 +63,15 @@ class gltfx_window;
 // keeps core::gltfx_fixed_step_accumulate() (core/fixed_step.hpp) from
 // ever seeing a multi-second `elapsed` and reporting a spiral-sized
 // step count on the very next call.
+//
+// LOOP-CONTRATO-HEADER (c): the jump this ceiling clamps has a
+// DIFFERENT origin per platform. Linux's own steady_clock does not
+// count time the machine spent suspended, Windows' does count it - so
+// without this ceiling, the very same suspend/resume would report a
+// small `elapsed` on Linux and a multi-hour one on Windows. This
+// single ceiling is what makes both systems report the SAME bounded
+// number afterward, not a value that happens to agree with either
+// clock's own raw behavior.
 inline constexpr gltfx_duration k_gltfx_max_frame_elapsed{.nanoseconds = 250'000'000};
 
 // What one gltfx_loop::step() (or one iteration of gltfx_loop::run())
@@ -338,7 +347,11 @@ struct loop_internal_access {
 //       times per second, measured by DEADLINE (never accumulating
 //       drift), and changing the cap live takes effect on the very
 //       next tick. Coexists with vsync being on - whichever of the two
-//       is slower wins, by construction.
+//       is slower wins, by construction. LOOP-CONTRATO-HEADER (b): a
+//       cap set to the SAME rate as vsync's own refresh can visibly
+//       beat (frames landing early or late by one swap, in a pattern
+//       that repeats every few seconds) - this library measures that
+//       cadence (P5 above) but does not smooth the beat away.
 //
 //   P8. A hidden window (minimized, on either platform) never draws
 //       and never spins the CPU: present() returns skipped_hidden WITH
@@ -399,6 +412,11 @@ struct loop_internal_access {
 //     platforms; being merely covered by another window is not).
 //   - More than one thread - v1 is single-thread only, the same
 //     restriction gltfx_gl_context::make_current() already documents.
+//   - LOOP-CONTRATO-HEADER (d): a callback that blocks for seconds -
+//     the compositor can simply drop the connection outright, ending
+//     the loop with an error the very next step()/present() call
+//     surfaces. That is the platform's own rule, not something this
+//     library can prevent or paper over.
 class gltfx_loop {
   public:
     // Opens a loop over an already-open display, window and context -
@@ -450,6 +468,13 @@ class gltfx_loop {
     // rules. BY VALUE (five trivial pointers, cheap to copy, and "by
     // value" is what tells a reader that ownership of `context` may be
     // changing hands, /var/tmp/glintfx-plan/loop-fix.md sec. 3.1).
+    //
+    // LOOP-CONTRATO-HEADER (a): the tick that received the close
+    // request is still delivered in full before run() returns -
+    // on_frame runs, and on_render/present() run too if should_render
+    // was true, and only THEN does run() return ok(). A consumer that
+    // watches for the close request inside its own on_frame never sees
+    // a tick cut short because the window is about to close.
     //
     // Callbacks handed to run(callbacks) live for that call only:
     // destroyed on every return path, refusal included. What this does

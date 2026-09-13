@@ -34,18 +34,26 @@
 # THIS FATIA (S1a, LOOP-CALLBACK-THROW) wired up the anchors ITS OWN
 # scope landed: the two fixed titles for layer 1, and truth (a) (the
 # noexcept-is-a-promise warning), in both loop.hpp and docs/api-
-# conventions.md's own R10. LOOP-CONTEXT-OWNERSHIP (S1b, THIS COMMIT)
-# adds layer 2's own three truths (b0/b1/b2, /var/tmp/glintfx-plan/
-# loop-fix.md sec. 5.0 item 2(b)) - the two fixed titles are NOT
-# re-added here as separate anchors: "code_whole_file" already checks
-# the WHOLE file, and layer 1's own two entries already prove they are
-# present somewhere in loop.hpp, which remains true regardless of which
-# layer's own comment block carries them. Layers 3/4 (LOOP-CALLBACK-
-# BIND, LOOP-CONTEXT-MARK) add THEIR OWN anchors to the SAME list when
-# they land - this script's own mechanism does not change, only
-# _ANCHORS grows (GODS_LAWS.md L-40: never widen the allowlist/anchor
-# list without a citation of why - each entry below names the plan
-# section it comes from).
+# conventions.md's own R10. LOOP-CONTEXT-OWNERSHIP (S1b) adds layer 2's
+# own three truths (b0/b1/b2, /var/tmp/glintfx-plan/loop-fix.md sec.
+# 5.0 item 2(b)) - the two fixed titles are NOT re-added here as
+# separate anchors: "code_whole_file" already checks the WHOLE file,
+# and layer 1's own two entries already prove they are present
+# somewhere in loop.hpp, which remains true regardless of which
+# layer's own comment block carries them. LOOP-CONTRATO-HEADER (S6,
+# /var/tmp/glintfx-plan/onda-loop-w7.md sec. 3, THIS COMMIT) adds four
+# anchors of its own: the four promises the fachada makes but that
+# lived only in an implementation file or nowhere at all - P9's own
+# "the close tick still runs to completion" (a), P7's own vsync-beat
+# warning (b), the per-platform origin of the suspend jump k_gltfx_max_
+# frame_elapsed clamps (c), and the compositor-drop risk of a slow
+# callback in the "WHAT THIS FATIA DOES NOT PROMISE" list (d) - all
+# four "code" kind, all four in loop.hpp only (this fatia touches no
+# other file's content). Layer 4 (LOOP-CONTEXT-MARK) adds ITS OWN
+# anchors to the SAME list when it lands - this script's own mechanism
+# does not change, only _ANCHORS grows (GODS_LAWS.md L-40: never widen
+# the allowlist/anchor list without a citation of why - each entry
+# below names the plan section it comes from).
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -163,6 +171,53 @@ _ANCHORS = (
         "phrase": "Callbacks handed to set_callbacks() live with the loop: destroyed when "
         "replaced, or when the loop is destroyed, never earlier.",
         "why": "S1b sec. 5.0 item 3 - truth (b2), inside R10's own section",
+    },
+    {
+        "id": "loop-contrato-header-a",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        # Same declaration truth-b1-code already anchors to (the run()
+        # overload that takes gltfx_loop_callbacks BY VALUE) - the two
+        # anchors share one comment block on purpose: this is where a
+        # reader already learns the context lifetime rule (b1), and the
+        # close-tick-still-runs guarantee belongs right beside it.
+        "symbol_regex": (
+            r"^\s*\[\[nodiscard\]\] GLINTFX_API gltfx_rslt<void> run\(gltfx_loop_callbacks\b"
+        ),
+        "phrase": "the tick that received the close request is still delivered in full "
+        "before run() returns",
+        "why": "S6 sec. 3 (a) - P9's close-tick guarantee, above run(gltfx_loop_callbacks)",
+    },
+    {
+        "id": "loop-contrato-header-b",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        # The P1..P12 promise list and the "WHAT THIS FATIA DOES NOT
+        # PROMISE" bullets that follow it are ONE contiguous comment
+        # block (no blank non-comment line breaks it) ending right above
+        # this declaration - so a phrase anywhere inside P7's own item,
+        # or inside the not-promise list below it, is caught the same
+        # way truth (b) and truth (d) both use this one symbol.
+        "symbol_regex": r"^class gltfx_loop \{",
+        "phrase": "a cap set to the SAME rate as vsync's own refresh can visibly beat",
+        "why": "S6 sec. 3 (b) - P7's vsync-beat warning, inside the promise list above the class",
+    },
+    {
+        "id": "loop-contrato-header-c",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        "symbol_regex": r"^inline constexpr gltfx_duration k_gltfx_max_frame_elapsed\b",
+        "phrase": "Linux's own steady_clock does not count time the machine spent suspended, "
+        "Windows' does count it",
+        "why": "S6 sec. 3 (c) - the per-platform origin of the suspend jump this ceiling clamps",
+    },
+    {
+        "id": "loop-contrato-header-d",
+        "kind": "code",
+        "file": "include/glintfx/platform/loop/loop.hpp",
+        "symbol_regex": r"^class gltfx_loop \{",
+        "phrase": "the compositor can simply drop the connection outright",
+        "why": "S6 sec. 3 (d) - the compositor-drop risk, inside the not-promise list above the class",
     },
 )
 

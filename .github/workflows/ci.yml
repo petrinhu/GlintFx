@@ -1592,6 +1592,54 @@ jobs:
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gl_context_parity_test
           echo "gl_context_parity_test" >> parity_inventory.txt
 
+      # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a
+      # PROVA AO VIVO do laco principal contra este MESMO compositor
+      # real, so pela API publica e atraves da fronteira binaria da
+      # biblioteca empacotada - o irmao Windows de mesmo nome e um alvo
+      # ctest comum (tests/CMakeLists.txt, if(WIN32)), e a paridade dos
+      # dois lados sai do inventario P-0 logo abaixo.
+      #
+      # O QUE ESTE PASSO PROVA: indices de quadro contiguos em 30 step()
+      # reais; `elapsed` dentro do contrato do cabecalho publico e zero
+      # no primeiro tique; relogio nao-decrescente; as duas implicacoes
+      # de should_render; o veto de trivialidade (o laco desenhou ao
+      # menos uma vez); run() encerrando em exatamente 5 tiques pela
+      # camada de amarracao tipada; recusa pelo nome atraves da fachada
+      # (on_frame vazio, e contexto fechado - P10, provada ao vivo pela
+      # primeira vez aqui); o teto de 30 Hz mordendo por prazo; e as
+      # cinco celulas de posse do contexto, por contagem de destrutor.
+      #
+      # ORDEM: DEPOIS de gl_context_parity_test (precisa do MESMO EGL e
+      # do compositor vivo) e muito antes de fatal_error_smoke, que mata
+      # o compositor de proposito - regra que hoje e portao de verdade
+      # (tests/tools/check_container_kill_order.py), nao mais comentario.
+      - name: LOOP-RUN fatia 8 (S4) - paridade do laco principal dentro do container
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} loop_parity_test
+          echo "loop_parity_test" >> parity_inventory.txt
+
+      # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.4/S4.6): a
+      # metade Linux do par de mesmo nome que prova P8 - janela real
+      # minimizada por xdg_toplevel_set_minimized() contra este mesmo
+      # compositor, nos DOIS modos de sincronia vertical. O irmao
+      # Windows (tests/loop_hidden_test.cpp) usa ShowWindow(SW_MINIMIZE)
+      # e IsIconic(): mecanismo diferente, efeito identico, um nome so.
+      #
+      # O QUE ESTE PASSO PROVA: dez tiques com a janela escondida gastam
+      # no maximo um quarto do proprio tempo de parede em processador
+      # (um laco que gira em vez de dormir mede perto do total) e levam
+      # ao menos meio segundo de relogio; nada e desenhado enquanto o
+      # ambiente reportou a ocultacao; o bit `suspended` chega quando o
+      # protocolo tem a versao que o carrega; e o desenho volta em ate
+      # dez tiques depois de restaurar. Toda chave medida sai impressa
+      # mesmo quando vale zero - silencio nao e dado.
+      - name: LOOP-RUN fatia 8 (S4) - janela escondida nao desenha nem gira o processador
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} loop_hidden_test
+          echo "loop_hidden_test" >> parity_inventory.txt
+
       # GL-GPU-KIND (docs/plano-w6b-fatias-5b-revisao.md sec. 4.6):
       # "o leitor rodou de verdade contra o sistema real e isto e' o que
       # ele viu" - o par Linux de tests/dxcore_reader_probe_test.cpp

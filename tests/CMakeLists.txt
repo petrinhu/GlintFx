@@ -1802,6 +1802,107 @@ if(WIN32)
     set_tests_properties(gl_context_parity_test PROPERTIES LABELS consume)
 endif()
 
+# LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_parity_
+# test.cpp (tests/parity/) is the third member of the window_parity_
+# test/gl_context_parity_test family - ONE file, only-public-API,
+# no-#if, proving gltfx_loop behaves identically on both systems
+# (GODS_LAWS.md L-04), this time over the WHOLE stack (display, window,
+# graphics context and loop) through the packaged library boundary.
+# Same mechanism as the two above: linked against the PUBLIC glintfx::
+# glintfx target directly, if(WIN32) only here - the Linux side of this
+# SAME name is the container fixture P-0 (tests/tools/check_container_
+# fixture_inventory.py) feeds into the paridade inventory instead,
+# never a second ctest registration here.
+if(WIN32)
+    add_executable(loop_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/loop_parity_test.cpp")
+    target_link_libraries(loop_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(loop_parity_test)
+    glintfx_copy_runtime_dlls_after_build(loop_parity_test)
+    add_test(NAME loop_parity_test COMMAND loop_parity_test)
+    set_tests_properties(loop_parity_test PROPERTIES LABELS consume)
+endif()
+
+# LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_
+# test is a PAIR OF FILES SHARING ONE NAME - tests/loop_hidden_test.cpp
+# here (harness, ShowWindow(SW_MINIMIZE)/IsIconic) and tests/container/
+# loop_hidden_test.cpp on the Linux side (plain int main(), xdg_
+# toplevel_set_minimized, run as a container fixture). The SAME shape
+# two_displays_test already uses, and for the SAME reason (its own
+# comment further up this file): the MECHANISM of "hide this window"
+# has no common expression across the two systems, while the EFFECT the
+# library must produce is identical - so check_test_parity.py pairs
+# them by this shared name, with no line in tests/parity_exceptions.txt
+# and no alias.
+#
+# UNLIKE loop_parity_test right above, this target does NOT link
+# glintfx::glintfx: it needs BOTH the public factories (exported with
+# GLINTFX_API) AND window_internal_access::get() (declared in the
+# public header, DEFINED only in window_facade.cpp, never in glintfx.
+# dll's export table, GODS_LAWS.md L-19) to reach the ONE HWND it has
+# to minimize. Every source below is the whole chain those public
+# handles PIMPL over on Windows, recompiled standalone - the same shape
+# win32_facade_pin_test already uses, including its GLINTFX_LIBRARY_
+# STATIC_DEFINE (without it MSVC raises C4273 "inconsistent dll
+# linkage" for a TU that both imports and defines the same symbol, and
+# /WX turns that into an error - CI run 34067447918).
+if(WIN32)
+    glintfx_add_test(loop_hidden_test)
+    target_include_directories(loop_hidden_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(loop_hidden_test PRIVATE
+        # Window and display, the same set win32_facade_pin_test links.
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/app_user_model_id.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/display_facade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_facade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+        # Graphics context, the same set win32_iconic_present_test links
+        # (its own comment there records the THREE separate rounds of
+        # LNK2019 that taught this list what it has to carry).
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_extension_loader.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_adapter_match.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/dxcore_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/gl_device_luid.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_context_facade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_enumeration_facade.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_option_registry.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_option_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_context_desc_validation.cpp"
+        # The loop itself - the subject of this fixture.
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_tick_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/store_loop_callbacks.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_facade.cpp"
+        # core/time.cpp is gltfx_now()'s own definition - this fixture
+        # reads the monotonic clock directly to measure the hidden
+        # stretch, and loop_facade.cpp links it anyway.
+        "${PROJECT_SOURCE_DIR}/src/core/err.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/err_code.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/time.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/log/severity.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/log/event.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/log/sink.cpp"
+    )
+    target_compile_definitions(loop_hidden_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+    target_link_libraries(loop_hidden_test PRIVATE user32 shell32 ole32 propsys gdi32 opengl32)
+endif()
+
 # FACADE-PIN, T4/G3 (docs/plano-conserto-fachadas-uaf.md sec. 8/9):
 # the Windows counterpart of facade_pin_smoke.cpp (tests/container/,
 # T0) - paired by name in tests/parity_aliases.txt. UNLIKE window_

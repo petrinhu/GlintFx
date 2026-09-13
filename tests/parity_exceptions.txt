@@ -423,3 +423,15 @@ win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
 # Sem item para rastrear, mesmo padrao SEM-PENDENCIA das demais linhas
 # desta secao do arquivo.
 container_exec_fixture_selftest|windows|nenhum|SEM-PENDENCIA
+
+# container_alloc_report_selftest (tests/container/check_alloc_report.sh
+# --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX),
+# CONTAINER-LEAK-COUNTER sub-fatia S3) - MESMA assimetria que container_
+# exec_fixture_selftest logo acima, pelo mesmo motivo: prova, com dois
+# arquivos sinteticos (sem Docker), os seis controles do criterio que o
+# job `wayland-container` aplica ao relatorio do gancho de alocacao das
+# 18 fixtures - um job que so' existe do lado Linux. POSIX sh, `mktemp`/
+# `awk` plain POSIX, nenhum nativo nos runners Windows desta matriz;
+# add_test tambem condicionado a if(UNIX). MORTE DESTA LINHA: nunca -
+# mesma assimetria permanente por desenho, sem item para rastrear.
+container_alloc_report_selftest|windows|nenhum|SEM-PENDENCIA

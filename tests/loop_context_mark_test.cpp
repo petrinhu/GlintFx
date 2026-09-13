@@ -125,7 +125,7 @@ GLINTFX_TEST(unmarked_object_binds_and_calls_through_camada_4_never_involved) {
 
 GLINTFX_TEST(copy_of_a_live_object_is_live) {
     marked_app original{};
-    marked_app copy = original; // NOLINT - copy is the point of this case
+    marked_app copy = original; // NOLINT - reason: copy is the point of this case
     GLINTFX_CHECK(gltfx_loop_context_mark_is_live(original));
     GLINTFX_CHECK(gltfx_loop_context_mark_is_live(copy));
 }
@@ -157,7 +157,26 @@ GLINTFX_TEST(loop_context_mark_table_is_enumerated_in_full) {
         4; // marked binds, unmarked binds, copy-is-live, moved-from-is-live
     constexpr const char *build_mode = "NDEBUG undefined (Debug)";
 #endif
+
+    // GENUINE comparison, not documentation (S1d review, GODS_LAWS.md
+    // L-36/L-40): the two constants above used to be printed and NEVER
+    // compared against anything - renumbering them to any value still
+    // compiled and still passed, the exact "afirma que mede e não mede"
+    // shape. glintfx::test::all_cases() (harness/test_registry.hpp,
+    // already included above) is the REAL, live count of every
+    // GLINTFX_TEST registered in THIS translation unit - glintfx_add_
+    // test() (cmake/GlintfxTest.cmake) builds one standalone executable
+    // per test file with no extra target_sources for this one (tests/
+    // CMakeLists.txt's own loop_context_mark_test entry), so this
+    // binary's registry holds exactly this file's own cases, nothing
+    // borrowed from a sibling TU. runtime_cases_checked's own cases plus
+    // this very GLINTFX_TEST (it registers itself too) is the whole
+    // registry; a case added or removed here without updating the
+    // constant above now FAILS this check instead of silently drifting.
+    const int registered_cases = static_cast<int>(glintfx::test::all_cases().size());
+    GLINTFX_CHECK_EQ(registered_cases, runtime_cases_checked + 1);
+
     std::println("loop_context_mark_table_is_enumerated_in_full: {} static_assert(s) + {} "
-                 "runtime GLINTFX_TEST case(s) checked ({})",
-                 static_asserts_checked, runtime_cases_checked, build_mode);
+                 "runtime GLINTFX_TEST case(s) checked ({}), {} case(s) registered",
+                 static_asserts_checked, runtime_cases_checked, build_mode, registered_cases);
 }

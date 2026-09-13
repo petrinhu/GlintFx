@@ -20,20 +20,37 @@
 # signal-exit-status convention) without re-deriving them here - read
 # that file's own header for the full reasoning behind each piece
 # below. The differences, named so nobody re-derives them by
-# comparison: (1) there is only ONE precondition to violate here (no
-# "primary"/"void" argv split - the fixture takes no arguments at
-# all); (2) Release never calls the guarded path at all (calling it
-# would be real UB, not a controlled demonstration of a guard that no
-# longer exists) - it only prints two structural facts and exits 0,
-# so there is nothing to "expect absent" the way check_rslt_
-# precondition.py's own release cases check for an absent message;
-# (3) the expected Debug fault is SIGABRT (128+6=134 on the four POSIX
-# targets - a real assert()-triggered abort(), not a null-pointer
-# SIGSEGV), reusing normalize_posix_signal_exit_status()'s own
-# reasoning; the MSVC abort() shape is measured, not assumed, exactly
-# like check_rslt_precondition.py's own Windows leg was until its
-# first real run corrected it (R1's own history is the precedent for
-# treating this as declared-until-measured, not guessed).
+# comparison: (1) TWO cases, "frame" and "render", selected by argv[1]
+# exactly like that file's own "primary"/"void" pair - see below,
+# LOOP-CONTEXT-MARK-BOTH-THUNKS, for why a single case used to be
+# enough here and stopped being enough; (2) Release never calls the
+# guarded path at all (calling it would be real UB, not a controlled
+# demonstration of a guard that no longer exists) - it only prints two
+# structural facts and exits 0, so there is nothing to "expect absent"
+# beyond the same debug-only message check_rslt_precondition.py's own
+# release cases already look for; (3) the expected Debug fault is
+# SIGABRT (128+6=134 on the four POSIX targets - a real
+# assert()-triggered abort(), not a null-pointer SIGSEGV), reusing
+# normalize_posix_signal_exit_status()'s own reasoning; the MSVC
+# abort() shape is measured, not assumed, exactly like check_rslt_
+# precondition.py's own Windows leg was until its first real run
+# corrected it (R1's own history is the precedent for treating this as
+# declared-until-measured, not guessed).
+#
+# LOOP-CONTEXT-MARK-BOTH-THUNKS (reprovação da revisão adversarial da
+# fatia S1d, GODS_LAWS.md L-36): loop_bind.hpp's own camada 4 hook
+# lives in BOTH thunks (gltfx_loop_frame_thunk AND gltfx_loop_render_
+# thunk), each with its OWN independent assert() - loop_bind.hpp's own
+# top comment already promised "in BOTH thunks below, and nowhere
+# else". The single-case version of this script (and of loop_mark_
+# fixture.cpp) only ever drove the frame thunk: sabotaging ONLY the
+# render thunk's assert() left this gate GREEN, because the fixture
+# never called on_render() over the dead object at all - the process
+# still aborted, via the still-intact frame assert, before the render
+# one was ever reached. The fixture now takes the SAME case argument
+# this script passes it (argv[1], "frame" or "render"); this script
+# runs BOTH cases, in BOTH Debug and Release, so a mutation to EITHER
+# thunk's assert() is now caught independently of the other.
 #
 # WHY THIS COMPILES THE FIXTURE TWICE INSTEAD OF RECONFIGURING A
 # SEPARATE CMAKE BUILD TREE: the guard lives ENTIRELY in loop_bind.hpp
@@ -59,7 +76,22 @@ import tempfile
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parent.parent.parent
 FIXTURE_SRC = ROOT_DIR / "tests" / "tools" / "fixtures" / "loop_mark_fixture.cpp"
+
+# ASSERT_MESSAGE is the text BOTH thunks' assert() carries verbatim
+# (loop_bind.hpp) - necessary but not SUFFICIENT to prove which of the
+# two independent asserts fired (LOOP-CONTEXT-MARK-BOTH-THUNKS above).
+# THUNK_NAME_BY_CASE is the second, discriminating fact: the compiler's
+# own assert() diagnostic names the failing FUNCTION (measured live -
+# "bool glintfx::detail::gltfx_loop_frame_thunk(...)" - g++/libstdc++'s
+# own __assert_fail() message shape), so a case whose expected thunk
+# name is absent proves the OTHER thunk's assert fired instead, never
+# the one this case asked for.
 ASSERT_MESSAGE = "no longer carries its mark"
+THUNK_NAME_BY_CASE = {
+    "frame": "gltfx_loop_frame_thunk",
+    "render": "gltfx_loop_render_thunk",
+}
+FIXTURE_CASES = tuple(THUNK_NAME_BY_CASE)
 
 # check_rslt_precondition.py's own CRT_DIALOG_SUPPRESSION_HEADER/MARKER
 # - same file, same reasoning (win_crt_dialog_suppress.hpp's own top
@@ -251,7 +283,7 @@ def normalize_posix_signal_exit_status(returncode):
     return returncode
 
 
-def run_capture(binary, runtimedir, compiler_id):
+def run_capture(binary, case_arg, runtimedir, compiler_id):
     env = os.environ.copy()
     if is_msvc(compiler_id):
         env["PATH"] = f"{runtimedir}{os.pathsep}{env.get('PATH', '')}"
@@ -260,7 +292,7 @@ def run_capture(binary, runtimedir, compiler_id):
 
     try:
         result = subprocess.run(
-            [str(binary)],
+            [str(binary), case_arg],
             capture_output=True,
             text=True,
             env=env,
@@ -274,8 +306,8 @@ def run_capture(binary, runtimedir, compiler_id):
         stdout = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
         stderr = exc.stderr.decode("utf-8", "replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
         note = (
-            f"\n[check_loop_mark_precondition.py: TIMED OUT after {FIXTURE_TIMEOUT_SECONDS}s - "
-            "most likely an interactive crash dialog that apply_windows_crash_dialog_"
+            f"\n[check_loop_mark_precondition.py: TIMED OUT after {FIXTURE_TIMEOUT_SECONDS}s running "
+            f"'{case_arg}' - most likely an interactive crash dialog that apply_windows_crash_dialog_"
             "suppression() did not fully suppress; this file's own header declares this exact "
             "risk as unmeasured without a Windows toolchain]"
         )
@@ -299,58 +331,73 @@ def assert_crt_dialog_suppression_applied(output, case_label, compiler_id):
         )
 
 
-def assert_debug_stops_with_message(binary, runtimedir, compiler_id):
-    status, output = run_capture(binary, runtimedir, compiler_id)
-    print(f"check_loop_mark_precondition.py: debug run exited with status {status}, output:")
+def assert_debug_case_stops_with_message(binary, case_arg, runtimedir, compiler_id):
+    expected_thunk_name = THUNK_NAME_BY_CASE[case_arg]
+    status, output = run_capture(binary, case_arg, runtimedir, compiler_id)
+    print(f"check_loop_mark_precondition.py: debug/{case_arg} exited with status {status}, output:")
     print(output)
 
     if status is None:
-        fail(f"debug run did not stop within {FIXTURE_TIMEOUT_SECONDS}s - see output above")
+        fail(f"debug/{case_arg} did not stop within {FIXTURE_TIMEOUT_SECONDS}s - see output above")
     if status == 0:
-        fail("debug run exited 0 - the mark guard did not stop the process at all")
+        fail(f"debug/{case_arg} exited 0 - the mark guard did not stop the process at all")
     if not is_msvc(compiler_id) and status != POSIX_SIGABRT_EXIT_STATUS:
         fail(
-            f"debug run exited {status}, expected {POSIX_SIGABRT_EXIT_STATUS} (128+SIGABRT) - "
+            f"debug/{case_arg} exited {status}, expected {POSIX_SIGABRT_EXIT_STATUS} (128+SIGABRT) - "
             "the process stopped, but not by the assert()-triggered abort() this guard is "
             "supposed to raise"
         )
     if ASSERT_MESSAGE not in output:
         fail(
-            f"debug run stopped (status {status}) but its output did not name the violation "
+            f"debug/{case_arg} stopped (status {status}) but its output did not name the violation "
             f"(expected to contain: {ASSERT_MESSAGE!r})"
         )
-    assert_crt_dialog_suppression_applied(output, "debug", compiler_id)
+    # THE discriminating check (LOOP-CONTEXT-MARK-BOTH-THUNKS above): the
+    # generic ASSERT_MESSAGE alone is shared by both thunks and would stay
+    # green even if THIS case's own thunk never fired at all, as long as
+    # the OTHER one did somewhere else in the same run - the exact shape
+    # of the gap the S1d review found. Requiring the case's OWN thunk name
+    # in the diagnostic proves it was specifically gltfx_loop_frame_thunk
+    # (case "frame") or gltfx_loop_render_thunk (case "render") that
+    # stopped the process, never the sibling.
+    if expected_thunk_name not in output:
+        fail(
+            f"debug/{case_arg} stopped (status {status}) with the mark message, but its output "
+            f"did not name {expected_thunk_name!r} - the assert that fired was not the one this "
+            "case is supposed to exercise (see LOOP-CONTEXT-MARK-BOTH-THUNKS above)"
+        )
+    assert_crt_dialog_suppression_applied(output, f"debug/{case_arg}", compiler_id)
 
     print(
-        "check_loop_mark_precondition.py: debug run OK (stopped deterministically, "
-        "message present)"
+        f"check_loop_mark_precondition.py: debug/{case_arg} OK (stopped deterministically via "
+        f"{expected_thunk_name}, message present)"
     )
 
 
-def assert_release_shows_no_debug_message_and_exits_clean(binary, runtimedir, compiler_id):
-    status, output = run_capture(binary, runtimedir, compiler_id)
-    print(f"check_loop_mark_precondition.py: release run exited with status {status}, output:")
+def assert_release_case_shows_no_debug_message_and_exits_clean(binary, case_arg, runtimedir, compiler_id):
+    status, output = run_capture(binary, case_arg, runtimedir, compiler_id)
+    print(f"check_loop_mark_precondition.py: release/{case_arg} exited with status {status}, output:")
     print(output)
 
     if status is None:
-        fail(f"release run did not stop within {FIXTURE_TIMEOUT_SECONDS}s - see output above")
+        fail(f"release/{case_arg} did not stop within {FIXTURE_TIMEOUT_SECONDS}s - see output above")
     if status != 0:
         fail(
-            f"release run exited {status}, expected 0 - the fixture's own Release branch never "
-            "calls through the dead object; a non-zero exit means something else broke"
+            f"release/{case_arg} exited {status}, expected 0 - the fixture's own Release branch "
+            "never calls through the dead object; a non-zero exit means something else broke"
         )
     if ASSERT_MESSAGE in output:
         fail(
-            "release run printed the DEBUG-ONLY assert message even though compiled with "
+            f"release/{case_arg} printed the DEBUG-ONLY assert message even though compiled with "
             "NDEBUG - the guard is not actually compiled out"
         )
     if "UNEXPECTED" in output:
-        fail("release run printed an UNEXPECTED marker - see fixture output above")
-    assert_crt_dialog_suppression_applied(output, "release", compiler_id)
+        fail(f"release/{case_arg} printed an UNEXPECTED marker - see fixture output above")
+    assert_crt_dialog_suppression_applied(output, f"release/{case_arg}", compiler_id)
 
     print(
-        "check_loop_mark_precondition.py: release run OK (no debug-only message, clean exit - "
-        "the guard compiled to nothing)"
+        f"check_loop_mark_precondition.py: release/{case_arg} OK (no debug-only message, clean "
+        "exit - the guard compiled to nothing)"
     )
 
 
@@ -404,13 +451,22 @@ def main():
         if result.returncode != 0:
             fail(f"release fixture failed to compile: {result.stdout}{result.stderr}")
 
-        assert_debug_stops_with_message(debug_bin, runtimedir, compiler_id)
-        assert_release_shows_no_debug_message_and_exits_clean(release_bin, runtimedir, compiler_id)
+        # BOTH cases, in BOTH modes (LOOP-CONTEXT-MARK-BOTH-THUNKS above):
+        # each of the four runs below drives exactly one thunk's own
+        # assert(), independently of its sibling - a single compile of
+        # each mode is enough because the case is a RUNTIME argv choice,
+        # never a recompile axis (loop_mark_fixture.cpp's own top comment).
+        for case_arg in FIXTURE_CASES:
+            assert_debug_case_stops_with_message(debug_bin, case_arg, runtimedir, compiler_id)
+        for case_arg in FIXTURE_CASES:
+            assert_release_case_shows_no_debug_message_and_exits_clean(
+                release_bin, case_arg, runtimedir, compiler_id
+            )
 
     print(
         "ok: gltfx_loop_context_mark's debug-only liveness guard stops deterministically with "
-        "a message in Debug, and costs nothing (no message, clean exit) in Release, on this "
-        f"platform's compiler ({compiler_id})."
+        "a message in Debug, and costs nothing (no message, clean exit) in Release, for BOTH "
+        f"the frame and the render thunk, on this platform's compiler ({compiler_id})."
     )
 
 

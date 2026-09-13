@@ -3112,3 +3112,19 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 **O que NÃO muda:** as três exigências de forma que o GusWorld mandou continuam valendo, e são boas - saber que duas direções estão acionadas ao mesmo tempo (entrada por estado, não só por borda), eixo analógico como valor contínuo, e teclado e gamepad pelo mesmo caminho.
 
+
+#### D-091301 — CONTAINER-LEAK-COUNTER S3: vermelho real no servidor, e um achado genuíno na própria prova  `[13/09/26 - 00:38:50]`
+
+**Quem fez:** o agente que implementou a sub-fatia S3 (`sonnet`), sob ordem de serviço do orquestrador. Registro de evidência exigido pelo próprio plano (`/var/tmp/glintfx-plan/leak-counter.md` sec. 5 S3), não uma decisão substituindo o líder.
+
+**Par de runs, os dois IDs que o plano exige:**
+- **Vermelho (sonda descartável):** run `34734751690`, branch `sonda-leak-counter-s3-vermelho`, sha `c4a96a0a81c6f05dd999f02373b808b355fdc1ac` (mutação M3: removida `alloc_counter_hook.cpp` da linha `g++` de `arch_ports_connect_smoke`), PR #3 (não mesclado). Os dois legs do job `wayland-container` (`plain` e `asan`) reprovaram exatamente na etapa nova "Substitutos de alocação presentes (prova 1, CONTAINER-LEAK-COUNTER)", citando `substitutos_presentes: 17 de 18` e nomeando a fixture mutada - lido do log de dentro do job (`gh run view --log-failed`), não do painel (GODS_LAWS.md L-49).
+- **Verde de referência (commit limpo já existente em main, sem esta sub-fatia):** run `34733686806`, sha `424fd7d5cc6cd75f218821649783af41896fe868`, 23 trabalhos, 0 falhas.
+
+**A terceira reprovação do mesmo run vermelho (job `Paridade Linux x Windows`) é ruído explicado, não achado novo:** o `wayland-container` morreu antes de publicar o artefato `parity-inv-linux-container` (a etapa "Publica o inventário do container (P-0)" nunca roda quando um passo anterior falha) - sem ele, nove nomes que só existem dentro daquele inventário (`window_parity_test`, `gl_context_parity_test`, `seat_test`, etc.) aparecem como "faltando no Linux". Mecanismo confirmado lendo o log da etapa "Baixar inventários Linux" (9 de 10 artefatos de sempre, faltando exatamente o `-container`).
+
+**O achado genuíno, e é o que justifica a prova em servidor ao invés de só local:** o mesmo log de paridade também citou `container_alloc_report_selftest: existe no inventário Linux e falta no Windows, sem exceção registrada` - uma lacuna REAL na minha própria entrega (o novo `add_test` se registra `if(UNIX)`, mesma assimetria que `container_exec_fixture_selftest` já tinha exceção documentada para, e eu tinha esquecido a linha irmã). Corrigido em `tests/parity_exceptions.txt` (commit local `bd5f9e3`) e reconfirmado offline: união do inventário Linux atual (`ctest -N` deste build + os legs `container`/`lint` do run limpo `34733686806`) contra a união Windows do mesmo run, via `check_test_parity.py --compare`, sai "paridade OK - nenhuma lacuna sem exceção registrada" (200 Linux / 189 Windows, 18 exceções).
+
+**Bug achado durante a estreia vermelha LOCAL de `check_alloc_report.sh` (antes até de chegar ao servidor):** o truque clássico `FNR==NR` do awk para distinguir os dois arquivos de entrada quebra exatamente no caso de inventário vazio - com o primeiro arquivo em zero linhas, toda linha do segundo bate a condição por coincidência aritmética, e viraria "fixture fantasma" em vez de "inventário vazio". Trocado por comparação direta contra `FILENAME` (passado via `-v`), que não depende de quantas linhas cada lado tem.
+
+**Estado da árvore:** commits locais `00a4c5d` (implementação) e `bd5f9e3` (a exceção de paridade), ainda NÃO empurrados - a branch descartável `sonda-leak-counter-s3-vermelho` e o PR #3 continuam abertos até o orquestrador confirmar que os dois IDs acima estão registrados no item do TODO.md (ordem dele, para não apagar a evidência antes da leitura).

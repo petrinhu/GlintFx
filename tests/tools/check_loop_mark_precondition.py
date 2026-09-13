@@ -77,15 +77,30 @@ import tempfile
 ROOT_DIR = pathlib.Path(__file__).resolve().parent.parent.parent
 FIXTURE_SRC = ROOT_DIR / "tests" / "tools" / "fixtures" / "loop_mark_fixture.cpp"
 
-# ASSERT_MESSAGE is the text BOTH thunks' assert() carries verbatim
+# ASSERT_MESSAGE is text BOTH thunks' assert() literals share
 # (loop_bind.hpp) - necessary but not SUFFICIENT to prove which of the
 # two independent asserts fired (LOOP-CONTEXT-MARK-BOTH-THUNKS above).
-# THUNK_NAME_BY_CASE is the second, discriminating fact: the compiler's
-# own assert() diagnostic names the failing FUNCTION (measured live -
-# "bool glintfx::detail::gltfx_loop_frame_thunk(...)" - g++/libstdc++'s
-# own __assert_fail() message shape), so a case whose expected thunk
-# name is absent proves the OTHER thunk's assert fired instead, never
-# the one this case asked for.
+# THUNK_NAME_BY_CASE is the second, discriminating fact.
+#
+# CONSERTO (13/09/2026, run 34777846858, job "Windows - compartilhado",
+# GODS_LAWS.md L-04/L-36): this discriminating name used to come from
+# the PLATFORM's own assert() diagnostic naming the failing function
+# (measured live on Linux - "bool glintfx::detail::gltfx_loop_frame_
+# thunk(...)" - g++/libstdc++'s own __assert_fail() message shape).
+# That is true on the four POSIX targets but FALSE on MSVC: the
+# standard assert() macro there stringizes only the CONDITION
+# EXPRESSION as written in the source, never the enclosing function's
+# name - this run's own real failure proved it ("Assertion failed:
+# gltfx_loop_context_mark_is_live(*object) && \"gltfx_loop: the bound
+# object no longer carries...\"", no function name anywhere), so every
+# Windows job failed this check for a fact of the platform's assert()
+# shape, never a fact of which thunk fired. loop_bind.hpp's own two
+# assert() literals now OPEN with their own plain thunk name
+# (gltfx_loop_frame_thunk / gltfx_loop_render_thunk) as the first words
+# of the string - THUNK_NAME_BY_CASE below is unchanged (same two
+# names), but what it is matched against is now bytes this file's own
+# literal puts there on purpose, on all five targets alike, never a
+# name some libc/CRT happens to print around the call.
 ASSERT_MESSAGE = "no longer carries its mark"
 THUNK_NAME_BY_CASE = {
     "frame": "gltfx_loop_frame_thunk",

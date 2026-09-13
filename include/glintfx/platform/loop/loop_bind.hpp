@@ -95,14 +95,43 @@ concept gltfx_loop_bindable =
 // portal (the SAME "the metade Debug is what mutation review kills"
 // discipline tests/tools/check_rslt_precondition.py already proves
 // for core/err.hpp's own precondition guard, F22).
+//
+// THE THUNK NAME LIVES INSIDE THE assert()'S OWN STRING LITERAL, NOT
+// IN A NAME THE PLATFORM PRINTS AROUND IT (CONSERTO, 13/09/2026, run
+// 34777846858, job "Windows - compartilhado", GODS_LAWS.md L-04/L-36):
+// the first version of this guard put ONLY "gltfx_loop: ..." in the
+// literal and relied on the surrounding assert() diagnostic to name
+// the failing FUNCTION - true on the four POSIX targets, where glibc's
+// own __assert_fail() prints the enclosing function's signature
+// (measured live: "bool glintfx::detail::gltfx_loop_frame_thunk(...)")
+// but FALSE on MSVC: the standard assert() macro there stringizes only
+// the CONDITION EXPRESSION as it appears in the source
+// (learn.microsoft.com's own documented shape, confirmed by the real
+// failure this run produced - "Assertion failed:
+// gltfx_loop_context_mark_is_live(*object) && \"gltfx_loop: the bound
+// object no longer carries...\"", no function name anywhere in it) -
+// the check_loop_mark_precondition.py's own discriminating check
+// (LOOP-CONTEXT-MARK-BOTH-THUNKS, that file's own header) failed on
+// EVERY Windows job for a fact of the platform's assert() shape, never
+// a fact of which thunk actually fired. Each thunk's own literal now
+// OPENS with its own plain name (gltfx_loop_frame_thunk /
+// gltfx_loop_render_thunk) before any other text, so the SAME bytes
+// that are always part of the printed expression on every one of the
+// five targets (MSVC's stringized condition included) carry the
+// discriminating fact directly - nothing here depends any more on
+// which name, if any, a given libc/CRT chooses to print around the
+// assert() call. Kept at the very FRONT of the literal, never the
+// back, in case any target's own report path truncates a long
+// expression - see that Python file's own header for the declared,
+// not-yet-Windows-measured scope of this fix.
 template <class Object, auto Method>
 bool gltfx_loop_frame_thunk(void *context, const gltfx_frame_tick &tick) noexcept {
     auto *object = static_cast<Object *>(context);
 #ifndef NDEBUG
     if constexpr (std::is_base_of_v<gltfx_loop_context_mark, Object>) {
         assert(gltfx_loop_context_mark_is_live(*object) &&
-               "gltfx_loop: the bound object no longer carries its mark - it was destroyed "
-               "before, or while, the loop was still calling it");
+               "gltfx_loop_frame_thunk: the bound object no longer carries its mark - it "
+               "was destroyed before, or while, the loop was still calling it");
     }
 #endif
     return (object->*Method)(tick);
@@ -114,8 +143,8 @@ void gltfx_loop_render_thunk(void *context, const gltfx_frame_tick &tick) noexce
 #ifndef NDEBUG
     if constexpr (std::is_base_of_v<gltfx_loop_context_mark, Object>) {
         assert(gltfx_loop_context_mark_is_live(*object) &&
-               "gltfx_loop: the bound object no longer carries its mark - it was destroyed "
-               "before, or while, the loop was still calling it");
+               "gltfx_loop_render_thunk: the bound object no longer carries its mark - it "
+               "was destroyed before, or while, the loop was still calling it");
     }
 #endif
     (object->*Method)(tick);

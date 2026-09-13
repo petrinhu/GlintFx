@@ -252,7 +252,6 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/core/err_code.cpp \
         /build/connect_smoke.cpp \
         /build/alloc_counter_classify.cpp \
-        /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client) \
     && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \

@@ -3786,6 +3786,32 @@ if(UNIX)
     set_tests_properties(container_exec_fixture_selftest PROPERTIES LABELS selftest)
 endif()
 
+# CONTAINER-LEAK-COUNTER sub-fatia S3 (/var/tmp/glintfx-plan/leak-
+# counter.md sec. 5, GODS_LAWS.md L-36/L-40): check_alloc_report.sh e
+# QUEM APLICA O CRITERIO que o gancho de S2 (tests/container/alloc_
+# counter_hook.cpp) so mede e relata - o job `wayland-container`
+# (.github/workflows/ci.yml) chama este script em modo real, nas duas
+# pernas, depois das dezoito fixtures rodarem. --selftest prova a
+# logica de criterio (seis controles: positivo, vazamento, fixture sem
+# contador, piso de varredura, estouro da tabela de blocos vivos, e
+# inventario vazio) sem Docker nenhum - mesmo idioma de container_exec_
+# fixture_selftest logo acima.
+#
+# if(UNIX): mesmo motivo de container_exec_fixture_selftest - POSIX sh
+# (`#!/usr/bin/env sh`) com `mktemp`/`awk` plain POSIX, e o job real
+# que EXECUTA este atomo contra Docker so roda em `ubuntu-latest`
+# de qualquer forma. GATE-SELFTEST-ORFAO (tests/tools/check_selftest_
+# orphan.py): este registro e o que evita este script nascer orfao no
+# mesmo commit (o dispatcher `--selftest` dele e o padrao que aquele
+# gate procura).
+if(UNIX)
+    add_test(
+        NAME container_alloc_report_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/check_alloc_report.sh" --selftest
+    )
+    set_tests_properties(container_alloc_report_selftest PROPERTIES LABELS selftest)
+endif()
+
 # WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
 # revisor adversarial NOVO em 10/09/2026, segunda reprovacao da mesma
 # fatia): check_win32_test_link.py's own selftest_main() prova, entre

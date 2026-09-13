@@ -1358,6 +1358,58 @@ jobs:
       - name: Smoke test - wayland-info dentro do container
         run: docker exec glintfx-wltest-clean-${{ matrix.perna }} smoke.sh glintfx-test
 
+      # CONTAINER-LEAK-COUNTER sub-fatia S3, prova 1 (/var/tmp/glintfx-
+      # plan/leak-counter.md sec. 3): confere, ANTES de qualquer
+      # fixture rodar, que CADA fixture do Containerfile define o
+      # substituto de operator new (simbolo _Znwm, GODS_LAWS.md L-40)
+      # dentro do proprio binario - uma linha g++ que perder alloc_
+      # counter_hook.cpp (mutacao M3 do plano de S2) reprova aqui, sem
+      # gastar o tempo das dezoito execucoes primeiro. A lista de nomes
+      # vem da MESMA fonte de verdade que tests/tools/check_container_
+      # fixture_inventory_test ja usa (COPY --from=arch-ports-builder
+      # .../usr/local/bin/<nome> no Containerfile), nunca uma lista
+      # mantida a mao aqui. Tambem confere que nenhuma fixture importa
+      # a forma ALINHADA (align_val_t) do operator new - o gancho nao a
+      # intercepta hoje (F5/leak-counter.md sec. 6); no dia em que
+      # alguma fixture passar a importa-la, este passo reprova em vez
+      # de deixar um buraco calado (nm e binutils, ja instalados no
+      # estagio final da imagem, F19).
+      - name: Substitutos de alocacao presentes (prova 1, CONTAINER-LEAK-COUNTER)
+        run: |
+          set -eu
+          total=0
+          presentes=0
+          alinhado_indevido=0
+          fixtures=$(grep -E '^COPY --from=arch-ports-builder ' tests/container/Containerfile | awk '{print $NF}' | xargs -n1 basename)
+          for fixture in $fixtures; do
+            total=$((total + 1))
+            n=$(docker exec glintfx-wltest-clean-${{ matrix.perna }} sh -c "nm -D --defined-only /usr/local/bin/${fixture} 2>/dev/null | grep -c ' T _Znwm'" || true)
+            n=${n:-0}
+            if [ "$n" -ge 1 ]; then
+              presentes=$((presentes + 1))
+            else
+              echo "AVISO: ${fixture} nao define o substituto de operator new (_Znwm)" >&2
+            fi
+            a=$(docker exec glintfx-wltest-clean-${{ matrix.perna }} sh -c "nm -D --undefined-only /usr/local/bin/${fixture} 2>/dev/null | grep -c ' U _ZnwmSt11align_val_t'" || true)
+            a=${a:-0}
+            if [ "$a" -ne 0 ]; then
+              echo "ERRO: ${fixture} importa a forma alinhada de operator new (align_val_t), que este gancho NAO intercepta (leak-counter.md sec. 6) - o gancho precisa crescer" >&2
+              alinhado_indevido=$((alinhado_indevido + 1))
+            fi
+          done
+          echo "substitutos_presentes: ${presentes} de ${total}"
+          if [ "$total" -eq 0 ]; then
+            echo "ERRO: varredura vazia - nenhuma fixture encontrada no Containerfile (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          if [ "$presentes" -ne "$total" ]; then
+            echo "ERRO: nem toda fixture do Containerfile define o substituto de alocacao (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          if [ "$alinhado_indevido" -ne 0 ]; then
+            exit 1
+          fi
+
       # P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, GODS_LAWS.md
       # L-04/L-40): o portao de paridade (job `parity` abaixo) compara
       # nomes de `ctest -N` - um fixture do container "existe" para
@@ -1669,6 +1721,36 @@ jobs:
           echo "inventario do container: $n fixture(s) executado(s) com sucesso"
           if [ "$n" -eq 0 ]; then
             echo "ERRO: inventario do container vazio - GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca de ausencia de casos" >&2
+            exit 1
+          fi
+
+      # CONTAINER-LEAK-COUNTER sub-fatia S3 (/var/tmp/glintfx-plan/leak-
+      # counter.md sec. 5): QUEM APLICA O CRITERIO que o gancho de S2
+      # so mede e relata - saldo NOSSO zero, piso de contagem de
+      # alocacao/liberacao maior que zero (gancho alcancado), zero
+      # estouro da tabela de blocos vivos, zero liberacao de ponteiro
+      # alheio. O numero de terceiro (`alloc_live_third_party`) e'
+      # so' MEDIDO aqui, nunca julgado (o julgamento do crescimento
+      # entre ciclos e' da sub-fatia S4, separavel). Roda nas DUAS
+      # pernas, contra o container ainda de pe' (o terceiro argumento
+      # resolve os enderecos ALLOC_LEAK em arquivo:linha via
+      # `addr2line` de dentro do proprio container). GODS_LAWS.md
+      # L-45: `set +e` em volta do script, rc lido do ARQUIVO, nunca de
+      # notificacao nem so' de variavel de shell.
+      - name: Varredura do contador de alocacao (CONTAINER-LEAK-COUNTER S3)
+        run: |
+          set -eu
+          set +e
+          tests/container/check_alloc_report.sh container_measured_raw.log parity_inventory.txt \
+            glintfx-wltest-clean-${{ matrix.perna }} > alloc_report.out 2> alloc_report.err
+          echo $? > alloc_report.rc
+          set -e
+          cat alloc_report.out
+          cat alloc_report.err >&2 || true
+          echo "MEASURED container_${{ matrix.perna }}.alloc_counter=on" >> container_measured_raw.log
+          rc="$(cat alloc_report.rc)"
+          if [ "$rc" -ne 0 ]; then
+            echo "ERRO: check_alloc_report.sh reprovou (ver saida acima) - GODS_LAWS.md L-40/L-43" >&2
             exit 1
           fi
 

@@ -1685,6 +1685,35 @@ jobs:
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gpu_kind_report_smoke
           echo "gpu_kind_report_smoke" >> parity_inventory.txt
 
+      # CONTAINER-LEAK-COUNTER sub-fatia S4 (/var/tmp/glintfx-plan/leak-
+      # counter.md sec. 5 S4): a 18a fixture, e a unica que abre e
+      # fecha display/shell/janela/contexto GL TRES VEZES no mesmo
+      # processo, para o passo "Varredura do contador de alocacao (S3)"
+      # abaixo aplicar o unico criterio deste gate que julga a classe
+      # third_party (third_party_growth_c2_c3 tem que ser exatamente 0
+      # - GODS_LAWS.md L-43, criterio fixado antes do dado). Roda
+      # ANTES do passo "WL-DISPLAY fatia C" logo abaixo, de proposito:
+      # aquele passo MATA o compositor deste container, e esta fixture
+      # so' consegue reabrir display/shell/janela/contexto GL porque o
+      # compositor ainda esta vivo quando ela roda.
+      #
+      # CONSERTO, 13/09/2026 (GODS_LAWS.md L-44/L-49): esta fixture
+      # nasceu (commit e69fe40) DEPOIS do passo "WL-DISPLAY fatia C" no
+      # job real, e o job de container reprovou de verdade (run
+      # 34771360899, jobs 103761435188/103761435190/103762867408) com
+      # "display open() failed: platform_failure" logo no ciclo 1 - o
+      # compositor ja estava morto quando ela tentou abrir. Reproduzido
+      # e confirmado num container proprio, na ordem certa (esta
+      # fixture primeiro, fatal_error_smoke depois, ambas rc=0 no mesmo
+      # container) antes deste conserto entrar. A posicao desta fixture
+      # em relacao a fatal_error_smoke e' carga (load-bearing), nao
+      # estetica - nao mover para depois dele de novo.
+      - name: CONTAINER-LEAK-COUNTER S4 - crescimento por ciclo dentro do container
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} alloc_cycle_growth_smoke
+          echo "alloc_cycle_growth_smoke" >> parity_inventory.txt
+
       # WL-DISPLAY fatia C, TDD case C: fatal_error_smoke.cpp mata o
       # kwin_wayland DESTE MESMO container (pkill -x kwin_wayland de
       # DENTRO dele, nunca do host - GODS_LAWS.md L-09) e prova que o
@@ -1695,9 +1724,12 @@ jobs:
       # window_parity_test, seat_test) todos precisam do compositor
       # vivo, e depois deste passo ele nao esta mais - a lista acima
       # cresceu para dez com wait_events_smoke (LOOP-RUN fatia 7), que
-      # entrou logo apos pump_smoke pela mesma razao. O
-      # CONTAINER em si sobrevive ao teste -
-      # run_compositor.sh deixou de rodar o compositor como PID 1
+      # entrou logo apos pump_smoke pela mesma razao, e para dezoito
+      # com CONTAINER-LEAK-COUNTER S4 (alloc_cycle_growth_smoke) logo
+      # ACIMA deste passo (conserto de 13/09/2026: ela precisa do
+      # compositor vivo tanto quanto as demais, e por isso roda antes
+      # deste passo, nao depois). O CONTAINER em si sobrevive ao teste
+      # - run_compositor.sh deixou de rodar o compositor como PID 1
       # exatamente para isso (conserto desta mesma revisao,
       # run_compositor.sh's own header comment) - entao a limpeza no
       # fim do job continua alcancando este container normalmente.
@@ -1706,23 +1738,6 @@ jobs:
           set -eu -o pipefail
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} fatal_error_smoke
           echo "fatal_error_smoke" >> parity_inventory.txt
-
-      # CONTAINER-LEAK-COUNTER sub-fatia S4 (/var/tmp/glintfx-plan/leak-
-      # counter.md sec. 5 S4): a 19a e ULTIMA fixture, e a unica que
-      # abre e fecha display/shell/janela/contexto GL TRES VEZES no
-      # mesmo processo, para o passo "Varredura do contador de alocacao
-      # (S3)" abaixo aplicar o unico criterio deste gate que julga a
-      # classe third_party (third_party_growth_c2_c3 tem que ser
-      # exatamente 0 - GODS_LAWS.md L-43, criterio fixado antes do
-      # dado). Roda por ULTIMO de proposito: os quatro passos acima ja
-      # provaram o compositor deste container vivo e funcional, entao
-      # um crescimento medido aqui nunca e explicado por um recurso que
-      # outra fixture deixou aberto antes dela.
-      - name: CONTAINER-LEAK-COUNTER S4 - crescimento por ciclo dentro do container
-        run: |
-          set -eu -o pipefail
-          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} alloc_cycle_growth_smoke
-          echo "alloc_cycle_growth_smoke" >> parity_inventory.txt
 
       # P-0, piso de varredura nao-vazia (GODS_LAWS.md L-40): inventario
       # vazio e SEMPRE coleta quebrada, nunca ausencia legitima de

@@ -3668,6 +3668,43 @@ add_test(
 )
 set_tests_properties(container_fixture_inventory_selftest PROPERTIES LABELS selftest)
 
+# Container fixture KILL ORDER gate (13/09/2026, GODS_LAWS.md L-04/L-17/
+# L-36/L-40, conserto do commit 8e88ac5): a regra "fatal_error_smoke
+# roda por ULTIMO entre as fixtures do container" vivia so' como
+# comentario no passo "WL-DISPLAY fatia C" de .github/workflows/ci.yml.
+# Comentario nao e' portao: CONTAINER-LEAK-COUNTER S4 (alloc_cycle_
+# growth_smoke) foi acrescentada DEPOIS do passo que mata o compositor
+# deste mesmo container, precisando dele vivo - o job real reprovou nas
+# duas pernas (run 34771360899). Este gate le a mesma fonte de verdade
+# que container_fixture_inventory_test acima (a linha `echo "<nome>"
+# >> parity_inventory.txt` de cada passo de fixture, P-0) e reprova se
+# QUALQUER fixture aparecer depois de `fatal_error_smoke` na ORDEM em
+# que o job de fato as executa. Ver tests/tools/check_container_kill_
+# order.py's own header para a forma completa do achado e o motivo da
+# fonte de verdade escolhida.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): registrado sem guarda de
+# sistema, mesma forma que container_fixture_inventory_test/_selftest
+# acima - o script so' le .github/workflows/ci.yml, texto puro, nenhum
+# Docker envolvido, entao roda identico nas cinco plataformas. Nenhuma
+# entrada em tests/parity_exceptions.txt nem tests/parity_aliases.txt
+# e' necessaria, pelo mesmo motivo que os dois acima nao precisam.
+add_test(
+    NAME container_kill_order_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_kill_order.py"
+        --compare
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(container_kill_order_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME container_kill_order_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_kill_order.py" --selftest
+)
+set_tests_properties(container_kill_order_selftest PROPERTIES LABELS selftest)
+
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
 # spot the whole-tree rewrite of prepare_arch_ports_fixture.sh's own

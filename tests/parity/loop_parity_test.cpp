@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 
 #include <glintfx/core/err.hpp>
@@ -44,7 +45,7 @@
 //
 // THE CRITERION IS FIXED HERE, BEFORE THE DATA EXISTS (sec. S4.4,
 // GODS_LAWS.md L-43) - three kinds of line, never confused:
-//   - ASSERTED EQUAL on both systems: the eighteen check() call sites
+//   - ASSERTED EQUAL on both systems: the nineteen check() call sites
 //     below, each printing its own "camada 2" verdict line (sec.
 //     S4.5's own two-layer report: raw numbers first, then one line
 //     per assertion with the criterion spelled out, so a reviewer
@@ -125,14 +126,17 @@ gl_clear_fn g_clear = nullptr;
 // avaliadas" on one system and "4 de 18" on the other is exactly the
 // silent coverage loss this floor exists to make loud.
 // ---------------------------------------------------------------
-constexpr int k_planned_assertions = 18;
+// LOOP-FIRST-TICK-ELAPSED (13/09/2026): 18 -> 19, the new
+// elapsed_do_segundo_tique_mede_de_verdade check (L-40 global: this
+// constant IS the floor, so it moves the instant a check is added).
+constexpr int k_planned_assertions = 19;
 
 int g_assertions_evaluated = 0;
 int g_assertions_failed = 0;
 
 // One assertion, one printed verdict line, always - the "camada 2" of
 // sec. S4.5's own two-layer report. NEVER returns early out of main():
-// every one of the eighteen has to be evaluated on BOTH systems for
+// every one of the nineteen has to be evaluated on BOTH systems for
 // the counts to be comparable, so a failure is recorded and execution
 // continues wherever continuing is physically possible.
 void check(const char *key, bool condition, const char *criterion, const std::string &observed) {
@@ -373,6 +377,19 @@ int main() {
     }
     glintfx::gltfx_loop loop = std::move(loop_opened.value());
 
+    // LOOP-FIRST-TICK-ELAPSED (13/09/2026): simulates the consumer's
+    // own loading time between gltfx_loop::open() and the first
+    // step() - 400 ms is bigger than k_gltfx_max_frame_elapsed
+    // (250 ms) plus any scheduler jitter this container could plausibly
+    // add, so the vermelho this proves (elapsed clamped to the ceiling
+    // instead of P5's promised zero) is large and deterministic, never
+    // "some small nonzero number that could be clock noise". sleep_for
+    // never wakes EARLY, only late - oversleeping only widens this
+    // margin, it can't shrink it. Same technique tests/container/
+    // fatal_error_smoke.cpp's own line already uses in this same
+    // fixture family.
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+
     // ===============================================================
     // Thirty manual step()/present() cycles: P2, P5, the monotonic
     // clock, and the two implications of P4 (called P-a and P-b in
@@ -384,6 +401,10 @@ int main() {
     bool frame_index_contiguous = true;
     bool elapsed_within_contract = true;
     bool first_elapsed_zero = false;
+    std::int64_t first_elapsed_ns = -1;  // LOOP-FIRST-TICK-ELAPSED: the observable prints the
+                                         // NUMBER, never just "diferente de 0" (sec. S4.4).
+    std::int64_t second_elapsed_ns = -1; // the tick right after the first - proves the
+                                         // first-tick rule does not leak past it.
     bool now_never_went_back = true;
     bool p_a_holds = true;
     bool p_b_holds = true;
@@ -433,6 +454,20 @@ int main() {
         }
         if (i == 0) {
             first_elapsed_zero = tick.elapsed.nanoseconds == 0;
+            first_elapsed_ns = tick.elapsed.nanoseconds;
+            // LOOP-FIRST-TICK-ELAPSED, L-43 global ("testar sempre um
+            // passo alem da fronteira recem-alargada"): a real gap
+            // between tick 1 and tick 2, so a conserto that zeroed
+            // EVERY tick (or reset frame_index every step) would be
+            // caught by elapsed_do_segundo_tique_mede_de_verdade below
+            // - this check is a veto against a super-conserto, and it
+            // already passes today (the second tick already measures
+            // for real); only the gemeo sem SO (loop_engine_test.cpp's
+            // own second_step_measures_the_real_gap_from_the_first)
+            // proves it bites, by mutation.
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        } else if (i == 1) {
+            second_elapsed_ns = tick.elapsed.nanoseconds;
         }
 
         if (have_previous_now && tick.now.ticks < previous_now.ticks) {
@@ -519,8 +554,12 @@ int main() {
                                  : std::string("lacuna detectada (ver stderr)"));
     check("elapsed_dentro_do_contrato", elapsed_within_contract, "0 <= elapsed <= 250 ms",
           elapsed_within_contract ? std::string("dentro") : std::string("fora"));
-    check("elapsed_zero_no_primeiro_tique", first_elapsed_zero, "== 0",
-          first_elapsed_zero ? std::string("0") : std::string("diferente de 0"));
+    check("elapsed_zero_no_primeiro_tique", first_elapsed_zero, "== 0", to_text(first_elapsed_ns));
+    const bool elapsed_second_tick_measures_for_real =
+        second_elapsed_ns >= 20'000'000 &&
+        second_elapsed_ns <= glintfx::k_gltfx_max_frame_elapsed.nanoseconds;
+    check("elapsed_do_segundo_tique_mede_de_verdade", elapsed_second_tick_measures_for_real,
+          ">= 20ms e <= 250ms", to_text(second_elapsed_ns));
     check("now_nao_decrescente", now_never_went_back, "monotonico entre tiques",
           now_never_went_back ? std::string("monotonico") : std::string("andou para tras"));
     check("P_a_presented_implica_should_render", p_a_holds, "presented => should_render",

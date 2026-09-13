@@ -973,3 +973,48 @@ GLINTFX_TEST(reentrant_calls_from_inside_on_frame_are_refused_by_name) {
     std::println("reentrant_calls_from_inside_on_frame_are_refused_by_name: {} of {} cell(s)",
                  cells, total_cells);
 }
+
+GLINTFX_TEST(first_step_reports_zero_elapsed_even_when_the_book_reference_is_far_in_the_past) {
+    // LOOP-FIRST-TICK-ELAPSED (13/09/2026), closing the gap the review
+    // of that sub-fatia named: the DEFAULT fixture hid it - loop_book's
+    // own previous_now and fake_loop_clock's own origin both start at
+    // 0, so the first loop_step() ever measured 0 - 0 by COINCIDENCE
+    // of the fixture's own defaults, never because the engine did
+    // anything about the first tick. Advancing the clock 5 s ahead of
+    // the book's own previous_now (left at its default 0) reproduces
+    // the real facade's own shape - a live gltfx_loop::open() followed,
+    // seconds later, by the first step() - without any real clock or
+    // display.
+    engine_fixture fx;
+    fx.clock.advance(5'000'000'000); // 5 s
+
+    const gltfx_rslt<glintfx::gltfx_frame_tick> stepped =
+        glintfx::platform::loop_step(fx.ports(), fx.book);
+    GLINTFX_CHECK(stepped.has_value());
+    GLINTFX_CHECK_EQ(stepped.value().elapsed.nanoseconds, static_cast<std::int64_t>(0));
+    GLINTFX_CHECK_EQ(stepped.value().frame_index, static_cast<std::uint64_t>(1));
+}
+
+GLINTFX_TEST(second_step_measures_the_real_gap_from_the_first) {
+    // The gemeo sem SO of tests/parity/loop_parity_test.cpp's own
+    // "elapsed_do_segundo_tique_mede_de_verdade" (LOOP-FIRST-TICK-
+    // ELAPSED, GODS_LAWS.md L-43: a step beyond the boundary just
+    // widened) - proves the first-tick rule above does NOT leak into
+    // the tick that follows it. Asserted against the GAP BETWEEN THE
+    // TWO READINGS this run actually produced, never a literal step_ns
+    // copied from fake_loop_clock's own default
+    // (feedback_teste_copiado_da_implementacao.md).
+    engine_fixture fx;
+    fx.clock.advance(5'000'000'000); // 5 s, same setup as the case above
+
+    const gltfx_rslt<glintfx::gltfx_frame_tick> step1 =
+        glintfx::platform::loop_step(fx.ports(), fx.book);
+    GLINTFX_CHECK(step1.has_value());
+    const gltfx_rslt<glintfx::gltfx_frame_tick> step2 =
+        glintfx::platform::loop_step(fx.ports(), fx.book);
+    GLINTFX_CHECK(step2.has_value());
+
+    const std::int64_t real_gap_ns = step2.value().now.ticks - step1.value().now.ticks;
+    GLINTFX_CHECK(real_gap_ns > 0);
+    GLINTFX_CHECK_EQ(step2.value().elapsed.nanoseconds, real_gap_ns);
+}

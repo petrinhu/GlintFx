@@ -104,14 +104,16 @@ src/platform/win32/display_adapter.cpp|wait_events()|::MsgWaitForMultipleObjects
 
 src/platform/win32/wgl_context_adapter.cpp|swap_buffers()|::SwapBuffers(m_dc)|teto-do-sistema
 
-# src/platform/loop/loop_facade.cpp - LOOP-RUN, cobertura S2 (/var/tmp/
-# glintfx-plan/loop-fix.md sec. S2.2/S2.6): o corpo do laco (step()/
-# wait_for_frame_cap()) MIGROU desta sub-fatia em diante para o motor
-# (loop_engine.hpp, dois sitios abaixo) - loop_facade.cpp so' continua
-# lendo o relogio UMA vez, em open(), que roda ANTES de qualquer porta
-# existir (nao ha `ports` ainda para ir atras) e por isso e' o UNICO
-# lugar sob src/platform/loop/ que ainda chama gltfx_now() diretamente.
-src/platform/loop/loop_facade.cpp|gltfx_loop::open()|impl->book.previous_now = gltfx_now();|nao-espera
+# src/platform/loop/loop_facade.cpp - LOOP-FIRST-TICK-ELAPSED
+# (13/09/2026): gltfx_loop::open() no longer reads gltfx_now() at all
+# - the write it used to make (impl->book.previous_now = gltfx_now())
+# was removed together with this row, because compute_frame_tick()
+# (frame_tick_state.cpp) now ignores previous_now entirely on the
+# first tick, and the old write let the consumer's own loading time
+# leak into the loop's first elapsed. No site under src/platform/loop/
+# reads gltfx_now() directly anymore - only steady_loop_clock.hpp's
+# own port does, and that site is already covered elsewhere in this
+# manifest (see loop_engine.hpp's own rows below).
 
 # src/platform/loop/loop_engine.hpp - LOOP-RUN, cobertura S2: o laco
 # nunca chama uma primitiva do SO diretamente (poll/Sleep/etc -

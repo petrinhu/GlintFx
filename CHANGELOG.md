@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+### Fixed
+
+- The first tick a loop delivers now reports `elapsed == 0`, as the header always promised; before, it reported the wall time between `gltfx_loop::open()` and the first `step()` - the consumer's own loading time - clamped to 250 ms, which reached the consumer's first physics integration as one large step. Found live on 13/09/2026 by `loop_parity_test` (`LOOP-FIRST-TICK-ELAPSED`).
+
 ## [0.3.8.0] - 2026-09-13
 
 ### Added

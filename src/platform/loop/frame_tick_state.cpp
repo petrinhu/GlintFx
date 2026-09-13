@@ -22,6 +22,22 @@ gltfx_frame_tick compute_frame_tick(gltfx_time_point previous_now, gltfx_time_po
         elapsed_ns = k_gltfx_max_frame_elapsed.nanoseconds;
     }
 
+    // P5's third rule (LOOP-FIRST-TICK-ELAPSED, 13/09/2026, D-091306):
+    // zero on the first tick, BY INDEX, never by clock. When
+    // previous_frame_index == 0 there is no previous tick to measure
+    // from, so elapsed is zero WHATEVER previous_now holds - this
+    // wins over both clamps above. The wall time between
+    // gltfx_loop::open() and the first step() is the consumer's own
+    // loading time (image, sound, map) and must never reach its first
+    // physics integration as one large step - measured live
+    // 13/09/2026 by tests/parity/loop_parity_test.cpp's own
+    // elapsed_zero_no_primeiro_tique check, after the facade had been
+    // stamping that instant inside open() (src/platform/loop/
+    // loop_facade.cpp, removed in this same commit).
+    if (previous_frame_index == 0) {
+        elapsed_ns = 0;
+    }
+
     // P4, exactly (this header's own top comment carries the formula
     // and the two implications it proves): `last_present` is copied
     // through untouched, on the SAME line, so a reviewer can see

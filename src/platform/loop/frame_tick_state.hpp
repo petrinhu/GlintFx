@@ -50,7 +50,9 @@ namespace glintfx::platform {
 // bookkeeping and what the caller measured just now:
 //
 //   previous_now         - the gltfx_time_point the PREVIOUS tick
-//                           closed on (elapsed is measured from here).
+//                           closed on (elapsed is measured from here) -
+//                           IGNORED ENTIRELY when previous_frame_index
+//                           == 0 (see TOTAL below, P5's third rule).
 //   now                   - the fresh gltfx_now() reading THIS tick
 //                           closes on.
 //   previous_frame_index  - the PREVIOUS tick's own frame_index (0
@@ -74,7 +76,14 @@ namespace glintfx::platform {
 // gltfx_duration_between() itself; this atom then additionally clamps
 // the OTHER direction (an `elapsed` larger than
 // glintfx::k_gltfx_max_frame_elapsed, platform/loop/loop.hpp) that
-// gltfx_duration_between() alone has no opinion about.
+// gltfx_duration_between() alone has no opinion about. A THIRD rule
+// (LOOP-FIRST-TICK-ELAPSED, 13/09/2026) sits above both clamps: zero
+// on the first tick, BY INDEX, never by clock - when
+// previous_frame_index == 0 there is no previous tick to measure
+// from, so `elapsed` is zero whatever `previous_now` holds. The wall
+// time between gltfx_loop::open() and the first step() is the
+// consumer's own loading time (image, sound, map) and must never
+// reach its first physics integration as one large step.
 [[nodiscard]] gltfx_frame_tick compute_frame_tick(gltfx_time_point previous_now,
                                                   gltfx_time_point now,
                                                   std::uint64_t previous_frame_index,

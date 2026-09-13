@@ -49,7 +49,13 @@ struct loop_book {
     // own `previous_now` argument every loop_step() (P5: elapsed is
     // measured from here). Zero-valued (the same "zero on the very
     // first tick" gltfx_frame_tick::elapsed already promises) until the
-    // first real loop_step() overwrites it.
+    // first real loop_step() overwrites it - and NEVER READ by
+    // compute_frame_tick() while frame_index == 0 (LOOP-FIRST-TICK-
+    // ELAPSED, 13/09/2026, P5's first-tick rule): gltfx_loop::open()
+    // (loop_facade.cpp) no longer stamps a real instant here either,
+    // so this field's own zero-initialization is now the value the
+    // first tick actually sees, not just the value it happens to be
+    // left at.
     gltfx_time_point previous_now{};
 
     // What the last loop_present() call actually returned - `presented`

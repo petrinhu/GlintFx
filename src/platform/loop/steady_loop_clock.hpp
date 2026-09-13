@@ -17,11 +17,16 @@
 // about by COUNT, never by wall time - a real clock would make them
 // intermittent under a scheduler this project does not control.
 //
-// THE ONE OTHER SITE UNDER src/platform/loop/ THAT STILL READS gltfx_
-// now() DIRECTLY: gltfx_loop::open() (loop_facade.cpp) - it runs once,
-// before any loop_step()/loop_present()/loop_run() call, so it has no
-// ports object to go through yet (tests/wait_points.txt's own updated
-// comment on this file names the same split).
+// NO OTHER SITE UNDER src/platform/loop/ READS gltfx_now() DIRECTLY
+// (LOOP-FIRST-TICK-ELAPSED, 13/09/2026): gltfx_loop::open() (loop_
+// facade.cpp) used to be the one exception - it ran once, before any
+// loop_step()/loop_present()/loop_run() call, stamping impl->book.
+// previous_now with a real wall-clock instant. That write is gone: it
+// was dead the moment compute_frame_tick() (frame_tick_state.cpp)
+// started ignoring previous_now on the first tick (previous_frame_
+// index == 0), and before that it let the consumer's own loading time
+// leak into the loop's first elapsed as one large step. This port is
+// now the ONLY reader of gltfx_now() under this directory.
 namespace glintfx::platform {
 
 struct steady_loop_clock {

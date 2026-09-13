@@ -137,12 +137,19 @@ gltfx_rslt<gltfx_loop> gltfx_loop::open(gltfx_display &display, gltfx_window &wi
     impl->display = display_internal_access::get(display);
     impl->window = window_internal_access::get(window);
     impl->context = gl_context_internal_access::get(context);
-    // Runs ONCE, outside any loop_step()/loop_present()/loop_run()
-    // call, so it has no ports object to go through yet - still reads
-    // gltfx_now() directly (steady_loop_clock.hpp's own header comment
-    // names this as the one other site under src/platform/loop/ that
-    // does; tests/wait_points.txt's own row for this line stays).
-    impl->book.previous_now = gltfx_now();
+    // LOOP-FIRST-TICK-ELAPSED (13/09/2026): no longer stamps
+    // impl->book.previous_now here - compute_frame_tick() (frame_tick_
+    // state.cpp) now ignores previous_now entirely on the first tick
+    // (previous_frame_index == 0, left at loop_book.hpp's own default),
+    // so a write here was dead the instant the engine ran its first
+    // loop_step() - and, before this change, it was WORSE than dead:
+    // it fed the atom a real wall-clock instant that let the
+    // consumer's own loading time (between this open() and the first
+    // step()) reach elapsed as one large step, exactly the defect this
+    // commit fixes. steady_loop_clock.hpp's own header comment and
+    // tests/wait_points.txt's own manifest are updated in this same
+    // commit to match - this is no longer a site that reads
+    // gltfx_now() directly.
     impl->book.last_present = gltfx_present_outcome::presented;
     impl->book.frame_index = 0;
 

@@ -137,6 +137,9 @@ GLINTFX_TEST(moved_from_object_stays_alive_and_marked) {
     // object stays alive and marked - this is DECLARED behavior, not
     // an accident this case merely observes.
     marked_app moved_to = std::move(original);
+    // cppcheck-suppress accessMoved ; reason: accessing the moved-from
+    // object is this case's own point (see the comment block above) -
+    // not an accident cppcheck's generic heuristic understands.
     GLINTFX_CHECK(gltfx_loop_context_mark_is_live(original));
     GLINTFX_CHECK(gltfx_loop_context_mark_is_live(moved_to));
 }

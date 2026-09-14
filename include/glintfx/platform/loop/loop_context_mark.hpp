@@ -4,10 +4,10 @@
 #include <cstdint>
 
 // platform/loop/loop_context_mark.hpp - LOOP-CONTEXT-MARK (S1d, docs/plano-loop-callbacks.md
-// sec. 3.4/S1d, GODS_LAWS.md L-17/L-19/L-20/ L-22/L-28/L-32): camada 4 of the four-layer contract
+// sec. 3.4/S1d, GODS_LAWS.md L-17/L-19/L-20/ L-22/L-28/L-32): layer 4 of the four-layer contract
 // loop.hpp's own gltfx_loop_callbacks builds (docs/api-conventions.md R10) - an OPT-IN, DEBUG-ONLY
-// liveness mark a consumer's own type can inherit from, so the thunks loop_bind.hpp's own camada 3
-// generates can catch, in a build where NDEBUG is undefined, the single most dangerous way camada
+// liveness mark a consumer's own type can inherit from, so the thunks loop_bind.hpp's own layer 3
+// generates can catch, in a build where NDEBUG is undefined, the single most dangerous way layer
 // 3's own borrowing contract can be violated: calling a bound method on an object whose destructor
 // has already run.
 //

@@ -18,16 +18,16 @@
 // consumer's own `while` can wrap, or into three calls (step/on_frame/
 // present) a consumer with its own loop shape calls by hand.
 //
-// THIS FATIA (6a, docs/plano-w6b-fatias-6-8.md sec. 8.1) FREEZES THE
+// THIS SLICE (6a, docs/plano-w6b-fatias-6-8.md sec. 8.1) FREEZES THE
 // SURFACE BELOW, BUT DOES NOT IMPLEMENT IT: gltfx_loop::open()/step()/
 // present()/run() are declared here so the promises P1..P10 below have
-// a real signature to attach to, and so the pure atoms this fatia DOES
+// a real signature to attach to, and so the pure atoms this slice DOES
 // ship (core/fixed_step.hpp, platform/loop/frame_tick_state.hpp,
 // platform/loop/frame_cap_schedule.hpp, platform/loop/loop_callbacks_
 // validation.hpp) have a public vocabulary to build gltfx_frame_tick
 // values against. The actual PIMPL (loop_impl, defined in a later
-// fatia's own loop_impl.hpp) and the facade that defines every method
-// below land in fatia 6b, once fatia 7's own wait_events()/present_
+// slice's own loop_impl.hpp) and the facade that defines every method
+// below land in slice 6b, once slice 7's own wait_events()/present_
 // would_skip() ports exist for the facade to call - the same "header
 // freezes the vocabulary before the concrete handle needs it" sequence
 // this library already used once, for gltfx_window (include/glintfx/
@@ -130,8 +130,8 @@ static_assert(std::is_trivially_copyable_v<gltfx_frame_tick>,
               "gltfx_frame_tick is a value type, safe to copy across the ABI boundary");
 
 // Reserved for INPUT-EVENTS (W7, docs/plano-w6b-fatias-6-8.md sec. 10,
-// item 6) - only DECLARED here, never defined by this fatia. See
-// gltfx_loop_callbacks::on_event below for the one thing this fatia
+// item 6) - only DECLARED here, never defined by this slice. See
+// gltfx_loop_callbacks::on_event below for the one thing this slice
 // DOES decide about it: the field exists in the frozen struct layout
 // today, but run() below refuses a caller that has already filled it
 // in (GODS_LAWS.md L-35: a delivery guarantee this library has not
@@ -156,14 +156,14 @@ struct gltfx_input_event;
 using gltfx_on_frame_fn = bool (*)(void *context, const gltfx_frame_tick &tick) noexcept;
 using gltfx_on_render_fn = void (*)(void *context, const gltfx_frame_tick &tick) noexcept;
 // Reserved for INPUT-EVENTS (W7) - see gltfx_loop_callbacks::on_event
-// below for the one thing this fatia DOES decide about it today.
+// below for the one thing this slice DOES decide about it today.
 using gltfx_on_event_fn = void (*)(void *context, const gltfx_input_event &event) noexcept;
-// LAYER 2 (posse opcional, LOOP-CONTEXT-OWNERSHIP - not yet honored by
-// this fatia, see gltfx_loop_callbacks::destroy_context below).
+// LAYER 2 (optional ownership, LOOP-CONTEXT-OWNERSHIP - not yet honored by
+// this slice, see gltfx_loop_callbacks::destroy_context below).
 using gltfx_loop_context_destroy_fn = void (*)(void *context) noexcept;
 
 // ============================================================
-// WHAT THIS LAYER SOLVES (layer 1 - the boundary, this addition's own
+// WHAT THIS LAYER SOLVES (layer 1 - the boundary, this slice's own
 // scope; the struct and the four `using` above it together):
 // ============================================================
 //   - The compiler refuses a callback that does not declare
@@ -208,7 +208,7 @@ struct gltfx_loop_callbacks {
     // function, a stateless lambda that converts directly (both
     // available today), or an object-and-method pair through
     // gltfx_bind_loop_callbacks() (platform/loop/loop_bind.hpp,
-    // LOOP-CALLBACK-BIND - not yet part of this addition).
+    // LOOP-CALLBACK-BIND - not yet part of this slice).
     gltfx_on_frame_fn on_frame = nullptr;
 
     // Runs once per tick, ONLY when gltfx_frame_tick::should_render is
@@ -231,8 +231,18 @@ struct gltfx_loop_callbacks {
     // LOOP-CONTEXT-OWNERSHIP, this field's own scope; docs/plano-loop-callbacks.md sec. 3.2):
     // ============================================================
     //   nullptr means `context` above is BORROWED - the consumer owns
-    //   it and is responsible for its lifetime, exactly as layer 1
-    //   already promises. A non-null function here means ownership was
+    //   it and must keep it alive for at least as long as this loop can
+    //   still call through it: for run(gltfx_loop_callbacks) below,
+    //   until that one call returns; for set_callbacks(gltfx_loop_
+    //   callbacks) below, until it is replaced by a later call or this
+    //   loop itself is destroyed. This is layer 1's own promise, made
+    //   concrete here. Destroying a borrowed object any earlier turns
+    //   every callback call that follows into a call through freed
+    //   memory; this layer cannot detect that on its own (layer 4
+    //   below, gltfx_loop_context_mark, is the opt-in way to catch it
+    //   in a build where NDEBUG is undefined).
+    //
+    //   A non-null function here means ownership was
     //   HANDED OVER: this library destroys `context` through it,
     //   exactly once, on whichever of TWO lifetimes the consumer chose
     //   BY THE METHOD THEY CALLED - never a sixth field (the leader
@@ -271,7 +281,7 @@ static_assert(std::is_trivially_copyable_v<gltfx_loop_callbacks>);
 static_assert(sizeof(gltfx_loop_callbacks) == 5 * sizeof(void *));
 
 // loop_impl - the opaque implementation gltfx_loop below PIMPLs over,
-// defined ONLY in a later fatia's own src/platform/loop/loop_impl.hpp
+// defined ONLY in a later slice's own src/platform/loop/loop_impl.hpp
 // (the exact same "full layout is a private implementation detail"
 // shape include/glintfx/platform/window/window.hpp's own window_impl
 // forward declaration already documents, one directory over). No
@@ -283,7 +293,7 @@ struct loop_impl;
 // this library already uses (display_internal_access, display.hpp;
 // window_internal_access, window.hpp) - a friend struct outside
 // gltfx_loop itself, get() declared here but DEFINED only in a later
-// fatia's own loop_facade.cpp, so a consumer's own translation unit
+// slice's own loop_facade.cpp, so a consumer's own translation unit
 // can never synthesize the access itself, only ask the linker for a
 // symbol this library never exports.
 struct loop_internal_access {
@@ -304,7 +314,7 @@ struct loop_internal_access {
 //
 //   P1. step() and present() never block indefinitely, with the
 //       exceptions this library declares AND COUNTS (never audits from
-//       memory - tests/wait_points.txt, a later fatia's own manifest,
+//       memory - tests/wait_points.txt, a later slice's own manifest,
 //       is what makes that claim provable instead of asserted): with
 //       vsync on, on Windows, present() waits at most one display
 //       refresh period; on a driver that refuses to honor vsync being
@@ -480,7 +490,7 @@ class gltfx_loop {
     // NOT give you: there is no way to run the SAME handed-over state a
     // second time - a fresh call needs a fresh (or still-borrowed)
     // context. See set_callbacks() below for the OTHER lifetime
-    // (posse pelo laço), and gltfx_loop_callbacks::destroy_context's
+    // (ownership by the loop), and gltfx_loop_callbacks::destroy_context's
     // own header comment for the rule both forms share.
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> run(gltfx_loop_callbacks callbacks) noexcept;
 

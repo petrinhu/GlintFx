@@ -8,7 +8,7 @@
 #include <glintfx/platform/loop/loop_context_mark.hpp>
 
 // platform/loop/loop_bind.hpp - LOOP-CALLBACK-BIND (S1c, docs/plano-loop-callbacks.md sec. 3.3/S1c,
-// GODS_LAWS.md L-17/L-19/L-20/ L-22/L-28/L-32): camada 3 of the four-layer contract loop.hpp's own
+// GODS_LAWS.md L-17/L-19/L-20/ L-22/L-28/L-32): layer 3 of the four-layer contract loop.hpp's own
 // gltfx_loop_callbacks builds (docs/api-conventions.md R10) - the ONLY
 // layer that is header-only, template-based, and buys the consumer
 // NOTHING at the ABI boundary (it never touches loop_impl, never adds
@@ -17,8 +17,8 @@
 // on_render never has to hand-write the two thunks (a free function
 // that casts `void *context` back and calls through a stored pointer-
 // to-member) themselves, and never has to hand-write the delete thunk
-// camada 2's own `destroy_context` needs when they choose to hand over
-// ownership (gltfx_adopt_loop_callbacks below).
+// that layer 2's own `destroy_context` needs when they choose to hand
+// over ownership (gltfx_adopt_loop_callbacks below).
 //
 // ============================================================
 // THE EFFECT, IN ONE SENTENCE: a consumer who already has an object
@@ -150,10 +150,10 @@ void gltfx_loop_render_thunk(void *context, const gltfx_frame_tick &tick) noexce
 }
 
 // gltfx_loop_delete_thunk - the ONLY thing gltfx_adopt_loop_callbacks()
-// below buys over camada 2 alone: without it, the only typed way to
-// use camada 2's own destroy_context would be for the consumer to
+// below buys over layer 2 alone: without it, the only typed way to
+// use layer 2's own destroy_context would be for the consumer to
 // write this exact one-liner themselves - which is precisely what
-// camada 3 exists to remove (D-LF-8). `noexcept` here carries the SAME
+// layer 3 exists to remove (D-LF-8). `noexcept` here carries the SAME
 // promise gltfx_loop_context_destroy_fn's own type already requires
 // (loop.hpp): if Object's destructor throws, the C++ language ends the
 // process at this boundary (std::terminate) before this library's own
@@ -248,7 +248,7 @@ template <auto OnFrame, auto OnRender, class Object>
 // The overload the compiler actually PICKS for a temporary (F15,
 // docs/plano-loop-callbacks.md) - NOT what refuses it. The
 // non-const lvalue reference above already refuses an rvalue argument
-// on its own: measured (S1c red-before-green, this sub-fatia's own
+// on its own: measured (S1c red-before-green, this sub-slice's own
 // implementation step) by compiling gltfx_bind_loop_callbacks() with
 // ONLY the `Object &` overload above and no deleted overload at all -
 // tests/loop_bind_test.cpp's own `binds_temporary`/`binds_rvalue`
@@ -278,7 +278,7 @@ gltfx_loop_callbacks gltfx_bind_loop_callbacks(Object &&) = delete;
 // the consumer hand-writing that exact one-liner themselves for every
 // type they adopt). Takes a raw pointer, never `std::unique_ptr` or
 // anything else from the standard library, on purpose - the same
-// fronteira-extended-to-the-header-by-coherence rule the plan's own
+// boundary-extended-to-the-header-by-coherence rule the plan's own
 // sec. 3.3 states for this exact signature (GODS_LAWS.md L-07/L-22).
 template <auto OnFrame, auto OnRender, class Object>
     requires detail::gltfx_loop_bindable<OnFrame, OnRender, Object>

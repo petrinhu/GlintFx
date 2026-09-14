@@ -2,7 +2,7 @@
 #pragma once
 
 // platform/loop/running_guard.hpp - LOOP-CONTEXT-OWNERSHIP (S1b,
-// /var/tmp/glintfx-plan/loop-fix.md sec. 3.2/S1b, D-LF-6d): arms a
+// docs/plano-loop-callbacks.md sec. 3.2/S1b, D-LF-6d): arms a
 // `bool running` flag for the lifetime of ONE outer loop_run()/
 // store_loop_callbacks() call, and disarms it unconditionally on scope
 // exit (RAII) - the re-entrance guard tests/loop_engine_test.cpp's own

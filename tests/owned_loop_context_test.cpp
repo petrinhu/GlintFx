@@ -6,9 +6,8 @@
 #include "harness/test_registry.hpp"
 #include "platform/loop/owned_loop_context.hpp"
 
-// owned_loop_context_test.cpp - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/
-// glintfx-plan/loop-fix.md sec. S1b): the six cases that prove
-// platform::owned_loop_context (owned_loop_context.hpp) destroys
+// owned_loop_context_test.cpp - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-loop-callbacks.md sec.
+// S1b): the six cases that prove platform::owned_loop_context (owned_loop_context.hpp) destroys
 // whatever it holds EXACTLY ONCE - on its own destruction, and on
 // reset() - and never touches a null half of the (context, destroy)
 // pair. No SO anywhere here: the atom is pure C++, no adapter, no

@@ -5,9 +5,8 @@
 
 #include <glintfx/platform/loop/loop.hpp>
 
-// loop_bind_alloc_probe.hpp - LOOP-CALLBACK-BIND (S1c, /var/tmp/
-// glintfx-plan/loop-fix.md sec. 3.3/S1c): the allocation-counting half
-// of tests/loop_bind_test.cpp's own sec. 3.3 property (iii), "custo
+// loop_bind_alloc_probe.hpp - LOOP-CALLBACK-BIND (S1c, docs/plano-loop-callbacks.md sec. 3.3/S1c):
+// the allocation-counting half of tests/loop_bind_test.cpp's own sec. 3.3 property (iii), "custo
 // zero, sem alocacao" - split into its OWN translation unit
 // (loop_bind_alloc_probe.cpp) ON PURPOSE, MEASURED necessary, not
 // decoration.

@@ -18,11 +18,16 @@
 #include "platform/loop/store_loop_callbacks.hpp"
 #include "platform/window/window_state.hpp"
 
-// loop_engine_test.cpp - LOOP-RUN (cobertura), S2 (/var/tmp/glintfx-
-// plan/loop-fix.md sec. S2.4, GODS_LAWS.md L-20/L-40): the twelve cases
-// that give platform::loop_step()/loop_present()/loop_run() (loop_
-// engine.hpp) their FIRST callers in this repository - the achado that
-// opened this sub-fatia was exactly their absence (TODO.md, LOOP-RUN,
+// loop_engine_test.cpp - LOOP-RUN (cobertura), S2 (docs/plano-loop-
+// callbacks.md sec. S2.4, GODS_LAWS.md L-20/L-40): the cases (count
+// them with `grep -c '^GLINTFX_TEST(' tests/loop_engine_test.cpp` -
+// anchored at the start of the line so this very sentence, which
+// names the macro, is never counted as a case of its own; this file
+// grows past S2 itself, so a written number rots the same way
+// TODO.md's own DOC-ESTADO rule warns against) that give
+// platform::loop_step()/loop_present()/loop_run() (loop_engine.hpp)
+// their FIRST callers in this repository - the achado that opened
+// this sub-fatia was exactly their absence (TODO.md, LOOP-RUN,
 // reprovacao de 10/09/2026). Every case runs on all five systems, with
 // NO operating system anywhere in sight (S2-F11): the doubles are
 // tests/fake/fake_loop_ports.hpp's own fake_loop_display/fake_loop_
@@ -579,9 +584,8 @@ GLINTFX_TEST(frame_cap_waits_by_deadline_spins_the_last_ms_and_reads_the_cap_liv
 }
 
 // ======================================================================
-// T13..T16 - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/glintfx-plan/
-// loop-fix.md sec. S1b): platform::loop_run()'s own fourth parameter
-// (owned_loop_context&, loop_engine.hpp) and platform::
+// T13..T16 - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-loop-callbacks.md sec. S1b):
+// platform::loop_run()'s own fourth parameter (owned_loop_context&, loop_engine.hpp) and platform::
 // store_loop_callbacks() (store_loop_callbacks.hpp), both forms of
 // posse (P11/P12, include/glintfx/platform/loop/loop.hpp).
 // ======================================================================

@@ -21,7 +21,7 @@
 // context for exactly this reason. The loop's own callbacks
 // (platform/loop/loop.hpp's own gltfx_loop_callbacks) use this SAME
 // shape today (fixed by LOOP-CALLBACK-THROW,
-// /var/tmp/glintfx-plan/loop-fix.md) - it went the OTHER way with
+// docs/plano-loop-callbacks.md) - it went the OTHER way with
 // `std::function` until then, and that was the bug: `std::function`
 // erases whether the wrapped callable is `noexcept`, so nothing in
 // the TYPE SYSTEM stopped a consumer from handing the loop a callback

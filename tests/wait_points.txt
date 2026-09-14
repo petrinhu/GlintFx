@@ -51,8 +51,8 @@
 # escrita (bounded_output_wait.cpp - a duplicacao dessa MESMA espera em
 # dois arquivos e' o que deixou o gemeo do defeito original vivo), mais
 # tres arquivos de src/platform/loop/ (LOOP-RUN, cobertura S2, D-W6b-58,
-# /var/tmp/glintfx-plan/loop-fix.md sec. S2.6): loop_engine.hpp (o
-# motor, desde esta sub-fatia) - o giro de ate 1 ms de D-W6b-49
+# docs/plano-loop-callbacks.md sec. S2.6): loop_engine.hpp (o motor,
+# desde esta sub-fatia) - o giro de ate 1 ms de D-W6b-49
 # (`teto-nosso`) e as leituras de relogio que loop_step()/wait_for_
 # frame_cap() fazem sem esperar nada (`nao-espera`); steady_loop_clock.
 # hpp (a UNICA leitura de gltfx_now() que o motor de fato faz, atras da

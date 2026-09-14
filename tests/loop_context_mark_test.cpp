@@ -10,9 +10,8 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// loop_context_mark_test.cpp - LOOP-CONTEXT-MARK (S1d, /var/tmp/
-// glintfx-plan/loop-fix.md sec. 3.4/S1d, GODS_LAWS.md L-17/L-19/L-20/
-// L-22/L-40): proves camada 4's own sec. 3.4 items 1-3 - BOTH halves
+// loop_context_mark_test.cpp - LOOP-CONTEXT-MARK (S1d, docs/plano-loop-callbacks.md sec. 3.4/S1d,
+// GODS_LAWS.md L-17/L-19/L-20/ L-22/L-40): proves camada 4's own sec. 3.4 items 1-3 - BOTH halves
 // of the Debug/Release split run in the SAME translation unit, under
 // `#ifdef NDEBUG`, with the count of what each half checked printed
 // in both (never a test conditioned on a mode it never proves it ran

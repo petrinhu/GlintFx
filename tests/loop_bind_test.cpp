@@ -12,13 +12,11 @@
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
 
-// loop_bind_test.cpp - LOOP-CALLBACK-BIND (S1c, /var/tmp/glintfx-plan/
-// loop-fix.md sec. 3.3/S1c, GODS_LAWS.md L-17/L-19/L-20/L-22/L-40):
-// proves, line by line, the table that plan's own sec. 3.3 names -
-// compilation properties as static_assert (the REAL proof, the same
-// discipline tests/loop_callbacks_type_test.cpp's own header comment
-// already documents: if any of these regressed, THIS FILE WOULD NOT
-// COMPILE, before any GLINTFX_TEST case below ever ran) and the two
+// loop_bind_test.cpp - LOOP-CALLBACK-BIND (S1c, docs/plano-loop-callbacks.md sec. 3.3/S1c,
+// GODS_LAWS.md L-17/L-19/L-20/L-22/L-40): proves, line by line, the table that plan's own sec. 3.3
+// names - compilation properties as static_assert (the REAL proof, the same discipline
+// tests/loop_callbacks_type_test.cpp's own header comment already documents: if any of these
+// regressed, THIS FILE WOULD NOT COMPILE, before any GLINTFX_TEST case below ever ran) and the two
 // properties only observable at runtime (allocation count, F24; which
 // object the thunk actually calls) as GLINTFX_TEST cases.
 //

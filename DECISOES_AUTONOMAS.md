@@ -2962,7 +2962,7 @@ no ponto exato, medido direto, e provada no remoto por `git ls-remote`.
 
 #### D-091012 — as cinco decisões técnicas do desenho de posse, sob modo autônomo  `[10/09/26 - 14:44:00]`
 
-**Quem decidiu:** o `fable` (CTO). **Ordem do líder em 10/09/2026, ao ser oferecida a escolha entre ratificar uma a uma ou seguir pelo modo em vigor:** *"SIga como o modo em vigor"* - ou seja, registro para ratificação retroativa. Plano: `/var/tmp/glintfx-plan/loop-fix.md`.
+**Quem decidiu:** o `fable` (CTO). **Ordem do líder em 10/09/2026, ao ser oferecida a escolha entre ratificar uma a uma ou seguir pelo modo em vigor:** *"SIga como o modo em vigor"* - ou seja, registro para ratificação retroativa. Plano: `docs/plano-loop-callbacks.md`.
 
 **Contexto:** depois de o líder escolher que **o consumidor decide o escopo da posse na entrega** (D-091011), o CTO teve de desenhar como isso cabe numa fronteira que já ia ser congelada. As cinco:
 

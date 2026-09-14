@@ -8,7 +8,7 @@
 #include "harness/test_registry.hpp"
 
 // loop_callbacks_type_test.cpp - LOOP-CALLBACK-THROW (TODO.md;
-// /var/tmp/glintfx-plan/loop-fix.md sec. 3.1/5.1, GODS_LAWS.md L-17/
+// docs/plano-loop-callbacks.md sec. 3.1/5.1, GODS_LAWS.md L-17/
 // L-19/L-20/L-22/L-40): the fix for the finding TODO.md names - a
 // consumer callback that throws used to kill the consumer's process
 // with zero protection, because gltfx_loop_callbacks held

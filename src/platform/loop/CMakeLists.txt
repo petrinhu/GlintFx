@@ -9,8 +9,8 @@
 # 6b's own facade (sec. 8.3) - loop_impl.cpp (the allocate_loop_impl()
 # atom, loop_impl.hpp's own header comment) and loop_facade.cpp (the
 # gltfx_loop PIMPL itself, loop_facade.cpp's own header comment) - plus
-# LOOP-CONTEXT-OWNERSHIP's own store_loop_callbacks.cpp (S1b, /var/tmp/
-# glintfx-plan/loop-fix.md sec. S1b - gltfx_loop::set_callbacks()'s own
+# LOOP-CONTEXT-OWNERSHIP's own store_loop_callbacks.cpp (S1b, docs/
+# plano-loop-callbacks.md sec. S1b - gltfx_loop::set_callbacks()'s own
 # engine, store_loop_callbacks.hpp's own header comment). None of the
 # fatia-6a atoms (nor store_loop_callbacks.cpp) reaches an operating-
 # system header (each is a pure atom over plain data, the same "gl/

@@ -7,9 +7,8 @@
 #include <glintfx/platform/loop/loop.hpp>
 #include <glintfx/platform/loop/loop_context_mark.hpp>
 
-// platform/loop/loop_bind.hpp - LOOP-CALLBACK-BIND (S1c, /var/tmp/
-// glintfx-plan/loop-fix.md sec. 3.3/S1c, GODS_LAWS.md L-17/L-19/L-20/
-// L-22/L-28/L-32): camada 3 of the four-layer contract loop.hpp's own
+// platform/loop/loop_bind.hpp - LOOP-CALLBACK-BIND (S1c, docs/plano-loop-callbacks.md sec. 3.3/S1c,
+// GODS_LAWS.md L-17/L-19/L-20/ L-22/L-28/L-32): camada 3 of the four-layer contract loop.hpp's own
 // gltfx_loop_callbacks builds (docs/api-conventions.md R10) - the ONLY
 // layer that is header-only, template-based, and buys the consumer
 // NOTHING at the ABI boundary (it never touches loop_impl, never adds
@@ -43,7 +42,7 @@ namespace detail {
 // convertible to `bool`, WITHOUT throwing; Object::*OnRender the same,
 // except its return value is discarded (void).
 // std::is_nothrow_invocable_r_v/std::is_nothrow_invocable_v are what
-// F17 (/var/tmp/glintfx-plan/loop-fix.md) measured: they accept a
+// F17 (docs/plano-loop-callbacks.md) measured: they accept a
 // const method, a non-const method, and reject one missing `noexcept`,
 // with NO special-casing needed for either.
 template <auto OnFrame, auto OnRender, class Object>
@@ -77,7 +76,7 @@ concept gltfx_loop_bindable =
 // happens to have is an implementation fact those two functions hand
 // back through gltfx_loop_callbacks::on_frame/on_render/destroy_
 // context, never an API surface of its own.
-// CAMADA 4 (LOOP-CONTEXT-MARK, S1d, /var/tmp/glintfx-plan/loop-fix.md
+// CAMADA 4 (LOOP-CONTEXT-MARK, S1d, docs/plano-loop-callbacks.md
 // sec. 3.4/S1d) hooks in RIGHT HERE, in BOTH thunks below, and nowhere
 // else: `if constexpr (std::is_base_of_v<gltfx_loop_context_mark,
 // Object>)` is a COMPILE-TIME branch (an Object that never inherits
@@ -197,7 +196,7 @@ template <class Object> void gltfx_loop_delete_thunk(void *context) noexcept {
 //     branch that does not exist in the compiled code otherwise.
 // ============================================================
 // WHAT THIS LAYER DOES NOT SOLVE - truth (c), stated so nobody has to
-// infer it from an absence (/var/tmp/glintfx-plan/loop-fix.md sec.
+// infer it from an absence (docs/plano-loop-callbacks.md sec.
 // 3.3):
 // ============================================================
 //   Borrowing (gltfx_bind_loop_callbacks) makes YOU responsible for
@@ -247,7 +246,7 @@ template <auto OnFrame, auto OnRender, class Object>
 }
 
 // The overload the compiler actually PICKS for a temporary (F15,
-// /var/tmp/glintfx-plan/loop-fix.md) - NOT what refuses it. The
+// docs/plano-loop-callbacks.md) - NOT what refuses it. The
 // non-const lvalue reference above already refuses an rvalue argument
 // on its own: measured (S1c red-before-green, this sub-fatia's own
 // implementation step) by compiling gltfx_bind_loop_callbacks() with

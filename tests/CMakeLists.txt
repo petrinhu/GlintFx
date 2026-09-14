@@ -1006,15 +1006,15 @@ target_sources(loop_callbacks_validation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
 )
 
-# loop_callbacks_type_test - LOOP-CALLBACK-THROW (TODO.md, /var/tmp/
-# glintfx-plan/loop-fix.md sec. 3.1/5.1): pure header test, no .cpp
+# loop_callbacks_type_test - LOOP-CALLBACK-THROW (TODO.md, docs/plano-
+# loop-callbacks.md sec. 3.1/5.1): pure header test, no .cpp
 # dependency - every check is a static_assert against
 # include/glintfx/platform/loop/loop.hpp's own function-pointer types,
 # nothing this test needs from src/.
 glintfx_add_test(loop_callbacks_type_test)
 
-# loop_bind_test - LOOP-CALLBACK-BIND (S1c, /var/tmp/glintfx-plan/
-# loop-fix.md sec. 3.3/S1c): platform/loop/loop_bind.hpp is entirely
+# loop_bind_test - LOOP-CALLBACK-BIND (S1c, docs/plano-loop-callbacks.md
+# sec. 3.3/S1c): platform/loop/loop_bind.hpp is entirely
 # inline/template (nothing here reaches an operating-system header,
 # the same shape loop_callbacks_type_test.cpp right above already
 # uses), so this registers unguarded, on all five platforms.
@@ -1028,8 +1028,8 @@ target_sources(loop_bind_test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/loop_bind_alloc_probe.cpp"
 )
 
-# loop_context_mark_test - LOOP-CONTEXT-MARK (S1d, /var/tmp/glintfx-plan/
-# loop-fix.md sec. 3.4/S1d): platform/loop/loop_context_mark.hpp and the
+# loop_context_mark_test - LOOP-CONTEXT-MARK (S1d, docs/plano-loop-
+# callbacks.md sec. 3.4/S1d): platform/loop/loop_context_mark.hpp and the
 # camada-4 hook inside loop_bind.hpp's own thunks are both entirely
 # inline/template - registers unguarded, on all five platforms, the
 # same shape loop_bind_test right above already uses. The debug-only
@@ -1074,8 +1074,8 @@ target_sources(loop_open_alloc_failure_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_impl.cpp"
 )
 
-# owned_loop_context_test - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/
-# glintfx-plan/loop-fix.md sec. S1b): pure header test, no .cpp
+# owned_loop_context_test - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-
+# loop-callbacks.md sec. S1b): pure header test, no .cpp
 # dependency - platform::owned_loop_context (owned_loop_context.hpp) is
 # entirely inline, and this file's own six cases only ever call
 # function pointers this TU itself declares - nothing from src/.
@@ -1098,8 +1098,8 @@ target_sources(store_loop_callbacks_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/loop/loop_callbacks_validation.cpp"
 )
 
-# loop_engine_test - LOOP-RUN (cobertura), S2 (/var/tmp/glintfx-plan/
-# loop-fix.md sec. S2.2/S2.4, GODS_LAWS.md L-17/L-19/L-20/L-40), plus
+# loop_engine_test - LOOP-RUN (cobertura), S2 (docs/plano-loop-callbacks.md
+# sec. S2.2/S2.4, GODS_LAWS.md L-17/L-19/L-20/L-40), plus
 # LOOP-CONTEXT-OWNERSHIP's own T13..T16 (S1b, sec. S1b): the motor
 # extraido de loop_facade.cpp (loop_engine.hpp), exercitado com os
 # doubles de tests/fake/fake_loop_ports.hpp mais o platform::window_
@@ -2977,8 +2977,8 @@ add_test(
 )
 set_tests_properties(rslt_precondition_test PROPERTIES LABELS consume)
 
-# loop_mark_precondition_test - LOOP-CONTEXT-MARK (S1d, /var/tmp/
-# glintfx-plan/loop-fix.md sec. 3.4 item 4): the SAME subprocess-based
+# loop_mark_precondition_test - LOOP-CONTEXT-MARK (S1d, docs/plano-
+# loop-callbacks.md sec. 3.4 item 4): the SAME subprocess-based
 # molde as rslt_precondition_test right above (see check_loop_mark_
 # precondition.py's own header for what differs and why), proving
 # camada 4's own debug-only liveness guard actually FIRES against a
@@ -3482,7 +3482,7 @@ add_test(
 set_tests_properties(macro_balance_selftest PROPERTIES LABELS selftest)
 
 # Loop-callback-truths gate (TODO.md LOOP-CALLBACK-THROW,
-# /var/tmp/glintfx-plan/loop-fix.md sec. 5.0 item 4, GODS_LAWS.md
+# docs/plano-loop-callbacks.md sec. 5.0 item 4, GODS_LAWS.md
 # L-36/L-40): the leader made "well commented, in the code AND the
 # documentation" a criterion of ACCEPTANCE for this fix
 # (DECISOES_AUTONOMAS.md D-091010) - this is the mechanical proof that

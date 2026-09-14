@@ -21,7 +21,7 @@
 
 // loop_facade.cpp - LOOP-RUN fatia 6b (docs/plano-w6b-fatias-6-8.md
 // sec. 8.3, D-W6b-41/42/43/44/45/49/54/55, GODS_LAWS.md L-17/L-19/
-// L-22), cobertura S2 (/var/tmp/glintfx-plan/loop-fix.md sec. S2.2):
+// L-22), cobertura S2 (docs/plano-loop-callbacks.md sec. S2.2):
 // the ONE translation unit that turns the frozen surface include/
 // glintfx/platform/loop/loop.hpp declares into a real handle - the
 // exact same "allocation and deallocation on the SAME side of the
@@ -63,9 +63,8 @@
 // public, P10) never reaches this loop's own bookkeeping at all - the
 // loop simply never finds out, exactly as the header promises.
 //
-// LOOP-CONTEXT-OWNERSHIP (S1b, THIS COMMIT, /var/tmp/glintfx-plan/
-// loop-fix.md sec. 3.2): run(callbacks) below builds its own platform::
-// owned_loop_context fresh on the STACK every call (FORM 1); set_
+// LOOP-CONTEXT-OWNERSHIP (S1b, THIS COMMIT, docs/plano-loop-callbacks.md sec. 3.2): run(callbacks)
+// below builds its own platform:: owned_loop_context fresh on the STACK every call (FORM 1); set_
 // callbacks()/run() (no arguments) below store and read the SAME kind
 // of atom instead through m_impl->book (FORM 2, store_loop_callbacks.
 // hpp/.cpp) - neither wrapper here decides WHEN a handed-over context

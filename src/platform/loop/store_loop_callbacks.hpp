@@ -7,7 +7,7 @@
 #include "platform/loop/loop_impl.hpp"
 
 // platform/loop/store_loop_callbacks.hpp - LOOP-CONTEXT-OWNERSHIP
-// (S1b, /var/tmp/glintfx-plan/loop-fix.md sec. 3.2/S1b, D-LF-6a/6b/6e):
+// (S1b, docs/plano-loop-callbacks.md sec. 3.2/S1b, D-LF-6a/6b/6e):
 // the ONE place gltfx_loop::set_callbacks() (loop_facade.cpp) stores a
 // gltfx_loop_callbacks for FORM 2 (posse pelo laço, loop.hpp's own
 // (b2)) - the same "validated once, common to every caller" shape

@@ -11,9 +11,8 @@
 #include "platform/loop/loop_impl.hpp"
 #include "platform/loop/store_loop_callbacks.hpp"
 
-// store_loop_callbacks_test.cpp - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/
-// glintfx-plan/loop-fix.md sec. S1b): the six cases that prove
-// store_loop_callbacks() (store_loop_callbacks.hpp) - FORM 2's own
+// store_loop_callbacks_test.cpp - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-loop-callbacks.md sec.
+// S1b): the six cases that prove store_loop_callbacks() (store_loop_callbacks.hpp) - FORM 2's own
 // entry point, gltfx_loop::set_callbacks() (loop_facade.cpp) - stores,
 // substitutes, refuses, and, through loop_impl's own default
 // destructor (F29 - a member with a destructor runs at BOTH of the

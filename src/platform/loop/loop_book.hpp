@@ -10,10 +10,9 @@
 #include "platform/loop/frame_cap_schedule.hpp"
 #include "platform/loop/owned_loop_context.hpp"
 
-// platform/loop/loop_book.hpp - LOOP-RUN (cobertura), S2 (/var/tmp/
-// glintfx-plan/loop-fix.md sec. S2.2, GODS_LAWS.md L-17/L-19): the four
-// pieces of bookkeeping the loop engine (loop_engine.hpp) remembers
-// BETWEEN calls - previously four separate fields directly on loop_impl
+// platform/loop/loop_book.hpp - LOOP-RUN (cobertura), S2 (docs/plano-loop-callbacks.md sec. S2.2,
+// GODS_LAWS.md L-17/L-19): the four pieces of bookkeeping the loop engine (loop_engine.hpp)
+// remembers BETWEEN calls - previously four separate fields directly on loop_impl
 // (src/platform/loop/loop_impl.hpp), grouped here under one name
 // because they are read and written by the SAME functions (loop_step()
 // /loop_present(), loop_engine.hpp) for the SAME reason: they are the
@@ -22,7 +21,7 @@
 // `loop_book book;` member) - only the GROUPING moved; nothing about
 // lifetime or ownership changed.
 //
-// LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/glintfx-plan/loop-fix.md sec.
+// LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-loop-callbacks.md sec.
 // 3.2/S1b) ADDS `running`, `stored_callbacks` and `stored_context`
 // HERE, not on the facade - loop_book is where the engine's own state
 // lives, and posse-tracking (FORM 2, "posse pelo laço", loop.hpp's own

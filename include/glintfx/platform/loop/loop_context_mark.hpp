@@ -3,16 +3,13 @@
 
 #include <cstdint>
 
-// platform/loop/loop_context_mark.hpp - LOOP-CONTEXT-MARK (S1d, /var/tmp/
-// glintfx-plan/loop-fix.md sec. 3.4/S1d, GODS_LAWS.md L-17/L-19/L-20/
-// L-22/L-28/L-32): camada 4 of the four-layer contract loop.hpp's own
-// gltfx_loop_callbacks builds (docs/api-conventions.md R10) - an
-// OPT-IN, DEBUG-ONLY liveness mark a consumer's own type can inherit
-// from, so the thunks loop_bind.hpp's own camada 3 generates can
-// catch, in a build where NDEBUG is undefined, the single most
-// dangerous way camada 3's own borrowing contract can be violated:
-// calling a bound method on an object whose destructor has already
-// run.
+// platform/loop/loop_context_mark.hpp - LOOP-CONTEXT-MARK (S1d, docs/plano-loop-callbacks.md
+// sec. 3.4/S1d, GODS_LAWS.md L-17/L-19/L-20/ L-22/L-28/L-32): camada 4 of the four-layer contract
+// loop.hpp's own gltfx_loop_callbacks builds (docs/api-conventions.md R10) - an OPT-IN, DEBUG-ONLY
+// liveness mark a consumer's own type can inherit from, so the thunks loop_bind.hpp's own camada 3
+// generates can catch, in a build where NDEBUG is undefined, the single most dangerous way camada
+// 3's own borrowing contract can be violated: calling a bound method on an object whose destructor
+// has already run.
 //
 // ============================================================
 // THE EFFECT, IN ONE SENTENCE: a consumer who writes `struct my_app :
@@ -27,7 +24,7 @@
 // it.
 // ============================================================
 //
-// PRECEDENT (F22, /var/tmp/glintfx-plan/loop-fix.md): the SAME shape
+// PRECEDENT (F22, docs/plano-loop-callbacks.md): the SAME shape
 // include/glintfx/core/err.hpp already uses for gltfx_rslt<T>::
 // value()/err()'s own debug-only precondition guard - a check
 // compiled ONLY into a build without NDEBUG, that turns an existing
@@ -91,7 +88,7 @@ inline constexpr std::uint32_t k_gltfx_loop_context_mark_live = 0x584C5447;
 //     own static_assert).
 // ============================================================
 // WHAT THIS LAYER DOES NOT SOLVE - stated so nobody has to infer it
-// from an absence (/var/tmp/glintfx-plan/loop-fix.md sec. 3.4):
+// from an absence (docs/plano-loop-callbacks.md sec. 3.4):
 // ============================================================
 //   - Does NOT stop the object from dying - it only lets a
 //     SUBSEQUENT call notice, after the fact, that it already did.

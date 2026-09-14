@@ -13,9 +13,8 @@
 #include <glintfx/platform/loop/loop_context_mark.hpp>
 
 // loop_mark_fixture.cpp - proves BOTH halves of camada 4's own
-// debug-only liveness guard (LOOP-CONTEXT-MARK, S1d, /var/tmp/
-// glintfx-plan/loop-fix.md sec. 3.4 item 4): in a build where NDEBUG
-// is undefined (Debug), calling a bound method on an object whose
+// debug-only liveness guard (LOOP-CONTEXT-MARK, S1d, docs/plano-loop-callbacks.md sec. 3.4 item 4):
+// in a build where NDEBUG is undefined (Debug), calling a bound method on an object whose
 // destructor already ran stops the process DETERMINISTICALLY, with a
 // message naming exactly what went wrong, through the SAME assert()/
 // abort() mechanism include/glintfx/core/err.hpp's own precondition

@@ -8,9 +8,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+### Changed (Breaking)
+
+- **The main loop's callbacks (`gltfx_loop_callbacks::on_frame`/`on_render`/`on_event`) are now a plain `noexcept` function pointer plus an opaque `void *context`, never `std::function` (`LOOP-CALLBACK-THROW`).** Code that passed a lambda with captured state, or a function not declared `noexcept`, stops compiling at the exact line that assigns it - it never compiled correctly before either: `std::function` erased the `noexcept` guarantee, so a throwing callback had nothing in the type system stopping it, and the resulting exception crossing `gltfx_loop::run()`'s own `noexcept` boundary ended the consumer's process with no diagnostic from this library at all. See `docs/api-conventions.md` R10 for the full four-layer contract this closes, including what none of the four layers can do for a consumer.
+- **This confesses something the project owes its consumers, not a new change:** the type change above already shipped, silently, inside `v0.3.8.0` (13/09/2026) - the commit that made it (`51af0d3`, `LOOP-CALLBACK-THROW` S1a) is an ancestor of that tag, and that tag's own `[0.3.8.0]` section below does not mention it (measured: zero occurrences of `callback`/`noexcept`/`breaking` in that section). A consumer who updated to `v0.3.8.0` and found their build broken was given no warning why. `v0.3.8.0` itself is not rewritten - a published tag never is (`GODS_LAWS.md` L-25) - this entry is the announcement that should have shipped with it, made here instead, on the first release afterward.
+
+### Added
+
+- **`gltfx_loop::set_callbacks()` plus a no-argument `run()` (`LOOP-CONTEXT-OWNERSHIP`):** a second way to hand the loop its callbacks, alongside the existing `run(callbacks)`, so the SAME callbacks can survive across repeated `run()` calls instead of being destroyed at the end of every one.
+- **Optional ownership of the callbacks' own context (`LOOP-CONTEXT-OWNERSHIP`):** `destroy_context`, a field of `gltfx_loop_callbacks` that was already frozen in the ABI, is now honored - nullptr keeps the context **borrowed** (the consumer owns it, as before), a non-null function means the context is **handed over** and this library destroys it, through that function, exactly once, on every path out (including error and refusal).
+- **`include/glintfx/platform/loop/loop_bind.hpp` (`LOOP-CALLBACK-BIND`):** `gltfx_bind_loop_callbacks<&Type::on_frame, &Type::on_render>(object)` (borrow) and `gltfx_adopt_loop_callbacks<&Type::on_frame, &Type::on_render>(heap_object)` (hand ownership over) - header-only, zero-cost helpers so a consumer with an object-and-method pair never has to hand-write the two thunks themselves. Both refuse, at compile time, a method that is not `noexcept`, or a temporary object.
+- **`include/glintfx/platform/loop/loop_context_mark.hpp` (`LOOP-CONTEXT-MARK`):** an opt-in base class a consumer's own callback-context type can inherit from to get a liveness mark, checked by `loop_bind.hpp`'s own thunks in a build without `NDEBUG` (Debug), that stops the process deterministically, with a message naming the mistake, instead of calling through an object whose destructor already ran. Zero cost in Release (`-DNDEBUG`, this project's own default), proven by size.
+
 ### Fixed
 
+- **A consumer that VETOES the system's close request no longer loses the frame-rate cap and the hidden-window sleep, forever (`LOOP-CLOSE-LATCH-SPIN`).** Once a close was requested, every subsequent `step()` spun without ever waiting again - burning battery and CPU on the consumer's own machine for as long as the process ran - because the request is a one-way latch (`window_state.hpp`), and the loop used to gate both waits on it. The read that caused this is gone; ending the loop on the non-veto path was already handled elsewhere.
 - The first tick a loop delivers now reports `elapsed == 0`, as the header always promised; before, it reported the wall time between `gltfx_loop::open()` and the first `step()` - the consumer's own loading time - clamped to 250 ms, which reached the consumer's first physics integration as one large step. Found live on 13/09/2026 by `loop_parity_test` (`LOOP-FIRST-TICK-ELAPSED`).
+
+### Infrastructure
+
+- **`loop_engine_test`:** the main loop's own engine (`loop_step()`/`loop_present()`/`loop_run()`, `src/platform/loop/loop_engine.hpp`) gets its first callers in this repository, exercised directly against test-only doubles, needing no operating system at all.
+- **`tests/parity/loop_parity_test.cpp` and `tests/loop_hidden_test.cpp` (`LOOP-RUN` fatia 8):** the first tests that call `gltfx_loop::open()`/`step()`/`present()`/`run()`/`set_callbacks()` through the public API alone, against a real display, window and graphics context - run against a real compositor inside this project's isolated Linux container, and registered as a Windows `ctest` target.
+- **`tests/tools/check_loop_callback_truths.py`:** a gate that a documented truth about the callback contract (`docs/api-conventions.md` R10) actually appears, verbatim, in the comment immediately above the symbol it describes - a passage rewritten for readability cannot silently drop what it promised.
 
 ## [0.3.8.0] - 2026-09-13
 

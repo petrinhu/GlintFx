@@ -4,7 +4,7 @@
 #include <glintfx/platform/loop/loop.hpp>
 
 // platform/loop/owned_loop_context.hpp - LOOP-CONTEXT-OWNERSHIP (S1b,
-// /var/tmp/glintfx-plan/loop-fix.md sec. S1b/3.2, GODS_LAWS.md
+// docs/plano-loop-callbacks.md sec. S1b/3.2, GODS_LAWS.md
 // L-17/L-19/L-22): the internal RAII atom BOTH forms of posse
 // (gltfx_loop::run(callbacks) and set_callbacks()+run(), loop.hpp's
 // own header comment on gltfx_loop_callbacks::destroy_context) are

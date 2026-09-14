@@ -21,7 +21,7 @@
 #include <glintfx/platform/window/window.hpp>
 
 // loop_parity_test.cpp - LOOP-RUN fatia 8, sub-fatia S4 (docs/plano-
-// loop-callbacks.md / /var/tmp/glintfx-plan/loop-fix.md sec. S4.4-
+// loop-callbacks.md / docs/plano-loop-callbacks.md sec. S4.4-
 // S4.6, GODS_LAWS.md L-04): ONE file, ONLY the public API
 // (glintfx::gltfx_display/gltfx_window/gltfx_gl_context/gltfx_loop),
 // NO #if of any kind, no harness - the SAME shape window_parity_test.

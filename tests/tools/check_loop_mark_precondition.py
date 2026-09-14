@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # check_loop_mark_precondition.py - proves BOTH halves of camada 4's
-# own debug-only liveness guard (LOOP-CONTEXT-MARK, S1d, /var/tmp/
-# glintfx-plan/loop-fix.md sec. 3.4 item 4, GODS_LAWS.md L-36/L-40):
-# calling a bound method (through loop_bind.hpp's own thunks) on an
+# own debug-only liveness guard (LOOP-CONTEXT-MARK, S1d, docs/plano-
+# loop-callbacks.md sec. 3.4 item 4, GODS_LAWS.md L-36/L-40): calling
+# a bound method (through loop_bind.hpp's own thunks) on an
 # object that inherits from gltfx_loop_context_mark, after that
 # object's own destructor already ran, is a documented precondition
 # violation. In a build where NDEBUG is undefined (Debug) it stops

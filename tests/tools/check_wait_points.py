@@ -51,9 +51,9 @@ MANIFEST_RELATIVE_PATH = os.path.join("tests", "wait_points.txt")
 # compartilhado que a fatia desta drenagem extraiu (bounded_output_
 # wait.cpp - ver o cabecalho dele: a duplicacao da MESMA espera em dois
 # arquivos e' o que deixou o gemeo do defeito original vivo), mais tres
-# arquivos de src/platform/loop/ (LOOP-RUN, cobertura S2, /var/tmp/
-# glintfx-plan/loop-fix.md sec. S2.6): loop_engine.hpp (o motor - o
-# giro de ate 1 ms, classe teto-nosso, mais as leituras de relogio de
+# arquivos de src/platform/loop/ (LOOP-RUN, cobertura S2, docs/plano-
+# loop-callbacks.md sec. S2.6): loop_engine.hpp (o motor - o giro de
+# ate 1 ms, classe teto-nosso, mais as leituras de relogio de
 # loop_step()/wait_for_frame_cap(), classe nao-espera - MIGROU para ca
 # de loop_facade.cpp nesta sub-fatia, junto com o codigo), steady_loop_
 # clock.hpp (a UNICA leitura de gltfx_now() que o motor faz, atras da

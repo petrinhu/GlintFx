@@ -19,7 +19,7 @@
 // last, after the three that already shipped, so a caller upgrading
 // from a version without this field never sees its own violation
 // reordered ahead of one it already knew about; LOOP-CONTEXT-
-// OWNERSHIP's own S1b, /var/tmp/glintfx-plan/loop-fix.md sec. 3.2/
+// OWNERSHIP's own S1b, docs/plano-loop-callbacks.md sec. 3.2/
 // D-LF-7, narrowed WHAT this last check refuses - destroy_context WITH
 // a context is no longer refused here at all, see this file's own
 // .cpp for what honors it now) - a caller with more than one violation

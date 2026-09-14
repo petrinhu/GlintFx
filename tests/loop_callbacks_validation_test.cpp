@@ -14,15 +14,15 @@
 
 // loop_callbacks_validation_test.cpp - LOOP-RUN fatia 6a (docs/plano-
 // w6b-fatias-6-8.md D-W6b-43, GODS_LAWS.md L-19/L-20/L-40), extended by
-// LOOP-CALLBACK-THROW (/var/tmp/glintfx-plan/loop-fix.md sec. 5.1): the
+// LOOP-CALLBACK-THROW (docs/plano-loop-callbacks.md sec. 5.1): the
 // closed {empty, filled}^3 matrix over on_frame/on_render/on_event -
 // eight cells, one GLINTFX_TEST per combination this file's own top
 // comment enumerates, plus the closed-enumeration test at the bottom
 // that re-runs all eight through one loop and prints the count
 // (GODS_LAWS.md L-40: a matrix silently missing a cell would still
 // look green without that) - PLUS the two destroy_context cells
-// D-LF-7 (LOOP-CONTEXT-OWNERSHIP, S1b, /var/tmp/glintfx-plan/loop-fix.
-// md sec. 3.2) settles: filled WITH a context is accepted (posse
+// D-LF-7 (LOOP-CONTEXT-OWNERSHIP, S1b, docs/plano-loop-callbacks.md
+// sec. 3.2) settles: filled WITH a context is accepted (posse
 // honored elsewhere - platform::owned_loop_context, store_loop_
 // callbacks.hpp/.cpp); filled with NO context is refused by name -
 // there is nothing for it to ever be called with.

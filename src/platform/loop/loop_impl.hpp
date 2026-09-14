@@ -43,7 +43,7 @@
 //
 // `book` IS THE BOOKKEEPING loop_engine.hpp's own loop_step()/loop_
 // present() read and write between calls (LOOP-RUN cobertura, S2,
-// /var/tmp/glintfx-plan/loop-fix.md sec. S2.2) - previously four
+// docs/plano-loop-callbacks.md sec. S2.2) - previously four
 // separate fields directly on this struct (cap_schedule/previous_now/
 // last_present/frame_index), now grouped under platform::loop_book
 // (platform/loop/loop_book.hpp's own header comment has the full

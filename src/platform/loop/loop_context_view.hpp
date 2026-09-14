@@ -10,7 +10,7 @@
 #include "platform/gl/gl_context_impl.hpp"
 
 // platform/loop/loop_context_view.hpp - LOOP-RUN (cobertura), S2
-// (/var/tmp/glintfx-plan/loop-fix.md sec. S2.2): the ONE header under
+// (docs/plano-loop-callbacks.md sec. S2.2): the ONE header under
 // src/platform/loop/ that reaches the operating system - transitively,
 // through gl_context_impl.hpp's own #include of the real GL/EGL/WGL
 // backend. loop_context_view satisfies loop_context_port (loop_ports.

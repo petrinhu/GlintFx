@@ -138,7 +138,7 @@ static_assert(std::is_trivially_copyable_v<gltfx_frame_tick>,
 // built yet is never promised by accepting the callback silently).
 struct gltfx_input_event;
 
-// LOOP-CALLBACK-THROW (TODO.md; /var/tmp/glintfx-plan/loop-fix.md sec.
+// LOOP-CALLBACK-THROW (TODO.md; docs/plano-loop-callbacks.md sec.
 // 3.1, GODS_LAWS.md L-17/L-20/L-22): the four function-pointer TYPES
 // gltfx_loop_callbacks below is built from - PLAIN pointer plus opaque
 // context, EACH carrying `noexcept` in its own type, never
@@ -177,7 +177,7 @@ using gltfx_loop_context_destroy_fn = void (*)(void *context) noexcept;
 //     C++ standard-library ABI (docs/api-conventions.md R8).
 // ============================================================
 // WHAT THIS LAYER DOES NOT SOLVE (truth (a), stated so nobody has to
-// infer it from an absence - /var/tmp/glintfx-plan/loop-fix.md sec.
+// infer it from an absence - docs/plano-loop-callbacks.md sec.
 // 5.0.2(a)):
 // ============================================================
 //   noexcept on your callback is a PROMISE, not a proof: the
@@ -228,8 +228,7 @@ struct gltfx_loop_callbacks {
 
     // ============================================================
     // WHAT THIS LAYER SOLVES (layer 2 - posse opcional,
-    // LOOP-CONTEXT-OWNERSHIP, this field's own scope; /var/tmp/
-    // glintfx-plan/loop-fix.md sec. 3.2):
+    // LOOP-CONTEXT-OWNERSHIP, this field's own scope; docs/plano-loop-callbacks.md sec. 3.2):
     // ============================================================
     //   nullptr means `context` above is BORROWED - the consumer owns
     //   it and is responsible for its lifetime, exactly as layer 1
@@ -467,7 +466,7 @@ class gltfx_loop {
     // own P3/P9/P11 above for the exact order and the exact refusal
     // rules. BY VALUE (five trivial pointers, cheap to copy, and "by
     // value" is what tells a reader that ownership of `context` may be
-    // changing hands, /var/tmp/glintfx-plan/loop-fix.md sec. 3.1).
+    // changing hands, docs/plano-loop-callbacks.md sec. 3.1).
     //
     // LOOP-CONTRATO-HEADER (a): the tick that received the close
     // request is still delivered in full before run() returns -
@@ -485,7 +484,7 @@ class gltfx_loop {
     // own header comment for the rule both forms share.
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> run(gltfx_loop_callbacks callbacks) noexcept;
 
-    // LOOP-CONTEXT-OWNERSHIP, form 2 (/var/tmp/glintfx-plan/loop-fix.md
+    // LOOP-CONTEXT-OWNERSHIP, form 2 (docs/plano-loop-callbacks.md
     // sec. 3.2, D-091011): stores `callbacks` for THIS loop, replacing
     // whatever was stored before - validated the SAME way run(callbacks)
     // above validates its own argument (loop_callbacks_validation.hpp).

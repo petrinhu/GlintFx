@@ -6,10 +6,9 @@
 #include "platform/loop/loop_callbacks_validation.hpp"
 #include "platform/loop/owned_loop_context.hpp"
 
-// store_loop_callbacks.cpp - LOOP-CONTEXT-OWNERSHIP (S1b, /var/tmp/
-// glintfx-plan/loop-fix.md sec. 3.2/S1b) - see this file's own header
-// comment (store_loop_callbacks.hpp) for what this solves and does
-// not.
+// store_loop_callbacks.cpp - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-loop-callbacks.md
+// sec. 3.2/S1b) - see this file's own header comment (store_loop_callbacks.hpp) for what this
+// solves and does not.
 
 namespace glintfx::platform {
 

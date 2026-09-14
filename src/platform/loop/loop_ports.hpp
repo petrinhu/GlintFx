@@ -8,9 +8,8 @@
 #include <glintfx/core/time.hpp>
 #include <glintfx/platform/gl/context.hpp>
 
-// platform/loop/loop_ports.hpp - LOOP-RUN (cobertura), S2 (/var/tmp/
-// glintfx-plan/loop-fix.md sec. S2.2, GODS_LAWS.md L-19: "portas em
-// compile-time, fronteira opaca"): the four concepts loop_engine.hpp
+// platform/loop/loop_ports.hpp - LOOP-RUN (cobertura), S2 (docs/plano-loop-callbacks.md sec. S2.2,
+// GODS_LAWS.md L-19: "portas em compile-time, fronteira opaca"): the four concepts loop_engine.hpp
 // (the motor) is written against, and the aggregate of references that
 // lets the motor take all four as ONE four-byte-pointer parameter
 // (GODS_LAWS.md L-17: at most 4 parameters).

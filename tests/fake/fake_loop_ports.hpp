@@ -13,13 +13,11 @@
 
 #include "platform/window/window_state.hpp"
 
-// tests/fake/fake_loop_ports.hpp - LOOP-RUN (cobertura), S2 (/var/tmp/
-// glintfx-plan/loop-fix.md sec. S2.3): the test-only doubles that
-// satisfy loop_engine.hpp's own loop_display_port/loop_context_port/
-// loop_clock_port concepts (platform/loop/loop_ports.hpp), plus the
-// ONE shared registry (loop_call_log) every one of them - and the
-// on_frame/on_render callbacks tests/loop_engine_test.cpp itself
-// declares - writes into, IN THE ORDER things happened.
+// tests/fake/fake_loop_ports.hpp - LOOP-RUN (cobertura), S2 (docs/plano-loop-callbacks.md sec.
+// S2.3): the test-only doubles that satisfy loop_engine.hpp's own
+// loop_display_port/loop_context_port/ loop_clock_port concepts (platform/loop/loop_ports.hpp),
+// plus the ONE shared registry (loop_call_log) every one of them - and the on_frame/on_render
+// callbacks tests/loop_engine_test.cpp itself declares - writes into, IN THE ORDER things happened.
 //
 // ONE FILE, DELIBERATELY (GODS_LAWS.md L-17): the ORDER between ports
 // and callbacks is what tests/loop_engine_test.cpp's own T2/T5/T8/T11
@@ -57,12 +55,10 @@
 
 namespace glintfx::test {
 
-// `destroy` (LOOP-CONTEXT-OWNERSHIP, S1b, /var/tmp/glintfx-plan/
-// loop-fix.md sec. S1b) - pushed by a destroy_context function
-// tests/loop_engine_test.cpp's own T13-T16 declare, into this SAME
-// log, so posse's own ordering claim ("destroyed AFTER the last
-// callback") is provable the identical way T2/T5/T8/T11 already prove
-// port/callback ordering: one shared registry, never a second one.
+// `destroy` (LOOP-CONTEXT-OWNERSHIP, S1b, docs/plano-loop-callbacks.md sec. S1b) - pushed by a
+// destroy_context function tests/loop_engine_test.cpp's own T13-T16 declare, into this SAME log, so
+// posse's own ordering claim ("destroyed AFTER the last callback") is provable the identical way
+// T2/T5/T8/T11 already prove port/callback ordering: one shared registry, never a second one.
 enum class loop_event : std::uint8_t {
     pump,
     wait,

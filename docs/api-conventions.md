@@ -100,7 +100,7 @@ An event the library emits through its log sink (`gltfx_log_event`, `include/gli
 
 ## R10: Handing your callbacks to the library: four layers, and the three things none of them can do for you
 
-**All four layers below have landed (`LOOP-CALLBACK-THROW`, `/var/tmp/glintfx-plan/loop-fix.md`).** `gltfx_loop_callbacks` (`include/glintfx/platform/loop/loop.hpp`) is built from four independent layers, each solving one problem and, deliberately, not the others - a consumer who only reads the fronteira layer below does not yet know everything they owe the library.
+**All four layers below have landed (`LOOP-CALLBACK-THROW`, `docs/plano-loop-callbacks.md`).** `gltfx_loop_callbacks` (`include/glintfx/platform/loop/loop.hpp`) is built from four independent layers, each solving one problem and, deliberately, not the others - a consumer who only reads the fronteira layer below does not yet know everything they owe the library.
 
 ### Layer 1: the fronteira (`LOOP-CALLBACK-THROW`, landed)
 

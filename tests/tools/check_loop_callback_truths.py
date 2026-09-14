@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # check_loop_callback_truths.py - CI gate for the text half of
-# LOOP-CALLBACK-THROW (TODO.md; /var/tmp/glintfx-plan/loop-fix.md sec.
+# LOOP-CALLBACK-THROW (TODO.md; docs/plano-loop-callbacks.md sec.
 # 5.0 item 4, GODS_LAWS.md L-36/L-40).
 #
 # WHY THIS GATE EXISTS: the leader made "well commented, in the code
@@ -35,7 +35,7 @@
 # scope landed: the two fixed titles for layer 1, and truth (a) (the
 # noexcept-is-a-promise warning), in both loop.hpp and docs/api-
 # conventions.md's own R10. LOOP-CONTEXT-OWNERSHIP (S1b) adds layer 2's
-# own three truths (b0/b1/b2, /var/tmp/glintfx-plan/loop-fix.md sec.
+# own three truths (b0/b1/b2, docs/plano-loop-callbacks.md sec.
 # 5.0 item 2(b)) - the two fixed titles are NOT re-added here as
 # separate anchors: "code_whole_file" already checks the WHOLE file,
 # and layer 1's own two entries already prove they are present
@@ -49,8 +49,8 @@
 # frame_elapsed clamps (c), and the compositor-drop risk of a slow
 # callback in the "WHAT THIS FATIA DOES NOT PROMISE" list (d) - all
 # four "code" kind, all four in loop.hpp only (this fatia touches no
-# other file's content). LOOP-CONTEXT-MARK (S1d, /var/tmp/glintfx-plan/
-# loop-fix.md sec. 3.4/S1d, THIS COMMIT) adds the two fixed section
+# other file's content). LOOP-CONTEXT-MARK (S1d, docs/plano-loop-
+# callbacks.md sec. 3.4/S1d, THIS COMMIT) adds the two fixed section
 # titles for layer 4's own comment block, anchored to the ONE symbol
 # that block sits above (`struct gltfx_loop_context_mark`, a NEW file,
 # include/glintfx/platform/loop/loop_context_mark.hpp) - "code" kind,
@@ -60,7 +60,7 @@
 # other per-symbol anchor above, and because it is the more precise
 # check when a choice exists (GODS_LAWS.md L-32: prefer the tighter
 # tool when it costs nothing extra). Layer 4 states no lettered truth
-# the way layers 1/2 do (/var/tmp/glintfx-plan/loop-fix.md sec. 3.4's
+# the way layers 1/2 do (docs/plano-loop-callbacks.md sec. 3.4's
 # own "WHAT THIS LAYER DOES NOT SOLVE" column is prose, never a single
 # quoted sentence) - only the two titles are anchored here. This
 # script's own mechanism does not change, only _ANCHORS grows

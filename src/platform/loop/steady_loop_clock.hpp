@@ -4,7 +4,7 @@
 #include <glintfx/core/time.hpp>
 
 // platform/loop/steady_loop_clock.hpp - LOOP-RUN (cobertura), S2
-// (/var/tmp/glintfx-plan/loop-fix.md sec. S2.2, D-LF-4): the PRODUCTION
+// (docs/plano-loop-callbacks.md sec. S2.2, D-LF-4): the PRODUCTION
 // loop_clock_port (loop_ports.hpp) - one method, one call, the SAME
 // gltfx_now() reading loop_facade.cpp's own step() used to make
 // directly before this sub-fatia. Costs nothing over calling

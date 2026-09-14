@@ -15,9 +15,8 @@
 #include "platform/loop/running_guard.hpp"
 
 // platform/loop/loop_engine.hpp - LOOP-RUN (cobertura, S2) +
-// LOOP-CLOSE-LATCH-SPIN (fixed here, S3) (/var/tmp/glintfx-plan/
-// loop-fix.md sec. S2.2/S3, GODS_LAWS.md L-17/L-19/L-20): the loop's
-// own body, extracted out of the facade (loop_facade.cpp) into a
+// LOOP-CLOSE-LATCH-SPIN (fixed here, S3) (docs/plano-loop-callbacks.md sec. S2.2/S3, GODS_LAWS.md
+// L-17/L-19/L-20): the loop's own body, extracted out of the facade (loop_facade.cpp) into a
 // function-TEMPLATE over the four ports (loop_ports.hpp) - chamável sem
 // sistema operacional, sem display, sem janela, sem contexto GL,
 // exercitada diretamente por tests/loop_engine_test.cpp.
@@ -48,16 +47,13 @@
 // goes green because the code under it changed (L-20's own red-before-
 // green shape).
 //
-// LOOP-CONTEXT-OWNERSHIP (S1b, this commit, /var/tmp/glintfx-plan/
-// loop-fix.md sec. 3.2/S1b): loop_run() below now takes a FOURTH
-// parameter, `owned_loop_context &owned` (owned_loop_context.hpp) -
-// the SAME atom that guards a handed-over context, whichever of the
-// two forms (loop.hpp's own (b1)/(b2)) the caller is exercising. This
-// function's own BODY never reads or writes `owned` - it exists purely
-// so the atom's own LIFETIME is provably pinned to this exact call, on
-// the CALLER's stack (FORM 1, gltfx_loop::run(callbacks), builds one
-// fresh every call; FORM 2, gltfx_loop::run() with no arguments, hands
-// in an EMPTY one - the real atom lives in loop_book::stored_context
+// LOOP-CONTEXT-OWNERSHIP (S1b, this commit, docs/plano-loop-callbacks.md sec. 3.2/S1b): loop_run()
+// below now takes a FOURTH parameter, `owned_loop_context &owned` (owned_loop_context.hpp) - the
+// SAME atom that guards a handed-over context, whichever of the two forms (loop.hpp's own
+// (b1)/(b2)) the caller is exercising. This function's own BODY never reads or writes `owned` - it
+// exists purely so the atom's own LIFETIME is provably pinned to this exact call, on the CALLER's
+// stack (FORM 1, gltfx_loop::run(callbacks), builds one fresh every call; FORM 2, gltfx_loop::run()
+// with no arguments, hands in an EMPTY one - the real atom lives in loop_book::stored_context
 // instead, loop_book.hpp's own header comment). C++'s own rule for
 // local objects - destroyed only after the return EXPRESSION that
 // names them has fully evaluated - is what already guarantees

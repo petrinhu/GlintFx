@@ -163,7 +163,7 @@ using gltfx_on_event_fn = void (*)(void *context, const gltfx_input_event &event
 using gltfx_loop_context_destroy_fn = void (*)(void *context) noexcept;
 
 // ============================================================
-// WHAT THIS LAYER SOLVES (layer 1 - the fronteira, this fatia's own
+// WHAT THIS LAYER SOLVES (layer 1 - the boundary, this addition's own
 // scope; the struct and the four `using` above it together):
 // ============================================================
 //   - The compiler refuses a callback that does not declare
@@ -208,7 +208,7 @@ struct gltfx_loop_callbacks {
     // function, a stateless lambda that converts directly (both
     // available today), or an object-and-method pair through
     // gltfx_bind_loop_callbacks() (platform/loop/loop_bind.hpp,
-    // LOOP-CALLBACK-BIND - not yet part of this fatia).
+    // LOOP-CALLBACK-BIND - not yet part of this addition).
     gltfx_on_frame_fn on_frame = nullptr;
 
     // Runs once per tick, ONLY when gltfx_frame_tick::should_render is
@@ -227,7 +227,7 @@ struct gltfx_loop_callbacks {
     gltfx_on_event_fn on_event = nullptr;
 
     // ============================================================
-    // WHAT THIS LAYER SOLVES (layer 2 - posse opcional,
+    // WHAT THIS LAYER SOLVES (layer 2 - optional ownership,
     // LOOP-CONTEXT-OWNERSHIP, this field's own scope; docs/plano-loop-callbacks.md sec. 3.2):
     // ============================================================
     //   nullptr means `context` above is BORROWED - the consumer owns

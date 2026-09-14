@@ -172,7 +172,7 @@ template <class Object> void gltfx_loop_delete_thunk(void *context) noexcept {
 //   - Binds an object-and-method pair to gltfx_loop_callbacks without
 //     the consumer writing a single thunk by hand - gltfx_bind_loop_
 //     callbacks() (borrow) or gltfx_adopt_loop_callbacks() (hand over,
-//     typed, camada 2's own destroy_context filled in for you).
+//     typed, layer 2's own destroy_context filled in for you).
 //   - Refuses a temporary at the consumer's OWN call site, in
 //     compilation (the `gltfx_bind_loop_callbacks(Object &&) = delete`
 //     overload below) - std::move(local_object) or a prvalue argument
@@ -186,7 +186,7 @@ template <class Object> void gltfx_loop_delete_thunk(void *context) noexcept {
 //     no virtual dispatch, a constant expression when `object` has
 //     static storage duration (tests/loop_bind_test.cpp's own
 //     constexpr case).
-//   - Opt-in liveness checking, camada 4 (loop_context_mark.hpp): when
+//   - Opt-in liveness checking, layer 4 (loop_context_mark.hpp): when
 //     `Object` inherits from `gltfx_loop_context_mark`, both thunks
 //     below assert, in a build where NDEBUG is undefined, that the
 //     bound object still carries its mark before calling through -
@@ -201,7 +201,7 @@ template <class Object> void gltfx_loop_delete_thunk(void *context) noexcept {
 // ============================================================
 //   Borrowing (gltfx_bind_loop_callbacks) makes YOU responsible for
 //   `object` outliving the loop - exactly as layer 1's own bare
-//   `void *context` already required; camada 3 changes nothing about
+//   `void *context` already required; layer 3 changes nothing about
 //   WHO is responsible, only HOW the pointer is produced. The
 //   temporary refusal above catches only the single most common
 //   mistake (passing `my_type{}` directly): it does NOT catch a local
@@ -212,15 +212,15 @@ template <class Object> void gltfx_loop_delete_thunk(void *context) noexcept {
 //   dangling pointer always is in C++.
 //
 //   Three ways to fill in gltfx_loop_callbacks::on_frame/on_render,
-//   side by side - camada 3 (this header) is needed for ONLY the
+//   side by side - layer 3 (this header) is needed for ONLY the
 //   third:
 //
-//     // 1. A free function - plain assignment, no camada 3:
+//     // 1. A free function - plain assignment, no layer 3:
 //     callbacks.on_frame = &my_free_on_frame;
 //
 //     // 2. A stateless lambda that converts directly (layer 1's own
 //     //    property, tests/loop_callbacks_type_test.cpp) - still no
-//     //    camada 3, as long as it is declared `noexcept`:
+//     //    layer 3, as long as it is declared `noexcept`:
 //     callbacks.on_frame = [](void *, const gltfx_frame_tick &) noexcept { return true; };
 //
 //     // 3. An object-and-method pair - what THIS header is for:

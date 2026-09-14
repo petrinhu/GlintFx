@@ -100,11 +100,11 @@ An event the library emits through its log sink (`gltfx_log_event`, `include/gli
 
 ## R10: Handing your callbacks to the library: four layers, and the three things none of them can do for you
 
-**All four layers below have landed (`LOOP-CALLBACK-THROW`, `docs/plano-loop-callbacks.md`).** `gltfx_loop_callbacks` (`include/glintfx/platform/loop/loop.hpp`) is built from four independent layers, each solving one problem and, deliberately, not the others - a consumer who only reads the fronteira layer below does not yet know everything they owe the library.
+**All four layers below have landed (`LOOP-CALLBACK-THROW`, `docs/plano-loop-callbacks.md`).** `gltfx_loop_callbacks` (`include/glintfx/platform/loop/loop.hpp`) is built from four independent layers, each solving one problem and, deliberately, not the others - a consumer who only reads the boundary layer below does not yet know everything they owe the library.
 
-### Layer 1: the fronteira (`LOOP-CALLBACK-THROW`, landed)
+### Layer 1: the boundary (`LOOP-CALLBACK-THROW`, landed)
 
-Every callback field of `gltfx_loop_callbacks` is a plain `void *context` plus a `noexcept` function-pointer type (`gltfx_on_frame_fn`, `gltfx_on_render_fn`, `gltfx_on_event_fn`, `gltfx_loop_context_destroy_fn` - R8 above states why, reason (4)). This closes the finding that motivated this whole section: before this fatia, the callback fields were `std::function`, whose type erases `noexcept`, so a consumer's throwing callback had nothing in the type system stopping it, and the resulting exception crossing a `noexcept` `gltfx_loop::run()` ended the consumer's process with no diagnostic from this library at all.
+Every callback field of `gltfx_loop_callbacks` is a plain `void *context` plus a `noexcept` function-pointer type (`gltfx_on_frame_fn`, `gltfx_on_render_fn`, `gltfx_on_event_fn`, `gltfx_loop_context_destroy_fn` - R8 above states why, reason (4)). This closes the finding that motivated this whole section: before this change, the callback fields were `std::function`, whose type erases `noexcept`, so a consumer's throwing callback had nothing in the type system stopping it, and the resulting exception crossing a `noexcept` `gltfx_loop::run()` ended the consumer's process with no diagnostic from this library at all.
 
 **The truth this layer does NOT give you, stated so nobody has to infer it from an absence:**
 
@@ -112,17 +112,17 @@ Every callback field of `gltfx_loop_callbacks` is a plain `void *context` plus a
 
 **Proved by:** `tests/loop_callbacks_type_test.cpp` (the static_assert matrix: every callback field's type refuses a candidate function missing `noexcept`, and the frozen five-pointer layout) and `tests/loop_callbacks_validation_test.cpp` (the field-emptiness refusal rules; `destroy_context` without a `context` is refused by name - see layer 2 below for what a `destroy_context` WITH a `context` means, now that layer 2 has landed).
 
-### Layer 2: posse opcional (`LOOP-CONTEXT-OWNERSHIP`, landed)
+### Layer 2: optional ownership (`LOOP-CONTEXT-OWNERSHIP`, landed)
 
 `destroy_context` is nullptr for `context` **borrowed** (the consumer owns it, responsible for its lifetime exactly as before this layer), or a non-null function for `context` **handed over** - this library then destroys it, through that function, exactly once. The leader chose, by `AskUserQuestion` (`DECISOES_AUTONOMAS.md` D-091011), that the consumer decides WHICH of two lifetimes that handover means, **by the method they call**, never by a sixth struct field (the five-pointer layout stays frozen - a new method is a compatible ABI addition, a new field is not):
 
 | | `run(callbacks)` - lives for that ONE call | `set_callbacks(callbacks)` + `run()` - lives WITH the loop |
 |---|---|---|
-| When it is destroyed | when `run(callbacks)` returns, on **every** return path: `on_frame` false, the trinco, an error from `step()`/`present()`, or a refusal | when **replaced** by a later successful `set_callbacks()`, or when the **loop itself is destroyed** - never earlier |
+| When it is destroyed | when `run(callbacks)` returns, on **every** return path: `on_frame` false, the close latch firing, an error from `step()`/`present()`, or a refusal | when **replaced** by a later successful `set_callbacks()`, or when the **loop itself is destroyed** - never earlier |
 | Can you run it again with the same state? | no - destroyed on the way out; call `run(callbacks)` again with a fresh (or the same, still-borrowed) context | yes - as many `run()` calls as you like, in between |
 | A refused call | the context THIS call was just handed is destroyed; nothing else changes | the context THIS call was just handed is destroyed; whatever was already stored is left completely untouched |
 
-The two are **ortogonal**: `run(callbacks)` never reads or touches whatever `set_callbacks()` may have stored, and vice versa. Calling `run()`/`run(callbacks)`/`set_callbacks()` again from INSIDE your own `on_frame`/`on_render` is refused by name (`rejected_value() == "running"`) - without that, the second lifetime would destroy the very context the first, outer call is still using.
+The two are **orthogonal**: `run(callbacks)` never reads or touches whatever `set_callbacks()` may have stored, and vice versa. Calling `run()`/`run(callbacks)`/`set_callbacks()` again from INSIDE your own `on_frame`/`on_render` is refused by name (`rejected_value() == "running"`) - without that, the second lifetime would destroy the very context the first, outer call is still using.
 
 **The truths this layer does NOT give you, stated so nobody has to infer them from an absence:**
 
@@ -134,22 +134,22 @@ The two are **ortogonal**: `run(callbacks)` never reads or touches whatever `set
 
 **Proved by:** `tests/owned_loop_context_test.cpp` (the RAII atom underneath both forms: destroys exactly once, `reset()` destroys the previous AFTER the new one is stored, never touches a null half of the pair), `tests/store_loop_callbacks_test.cpp` (`set_callbacks()`'s own storage, substitution, refusal and - through `loop_impl`'s own destructor - final destruction, with no operating system anywhere), `tests/loop_engine_test.cpp`'s own T13-T16 (both forms exercised through `platform::loop_run()` directly: destruction on every one of the five return paths, zero destructions across repeated `run()` calls on the stored form, and the `"running"` refusal from inside a callback) and `tests/loop_callbacks_validation_test.cpp` (`destroy_context` with a `context` now accepted; without one, still refused by name).
 
-### Layer 3: amarração tipada (`LOOP-CALLBACK-BIND`, landed)
+### Layer 3: typed binding (`LOOP-CALLBACK-BIND`, landed)
 
-Header-only, template-based, and the ONLY layer that never touches the ABI: `gltfx_bind_loop_callbacks<&Type::on_frame, &Type::on_render>(object)` and `gltfx_adopt_loop_callbacks<&Type::on_frame, &Type::on_render>(heap_object)` (`include/glintfx/platform/loop/loop_bind.hpp`) exist purely so a consumer with an object-and-method pair never has to hand-write the two thunks (a free function that casts `void *context` back and calls through a stored pointer-to-member) themselves, or the delete thunk layer 2's own `destroy_context` needs when they choose to hand ownership over.
+Header-only, template-based, and the ONLY layer that never touches the ABI: `gltfx_bind_loop_callbacks<&Type::on_frame, &Type::on_render>(object)` and `gltfx_adopt_loop_callbacks<&Type::on_frame, &Type::on_render>(heap_object)` (`include/glintfx/platform/loop/loop_bind.hpp`) exist purely so a consumer with an object-and-method pair never has to hand-write the two thunks (a free function that casts `void *context` back and calls through a stored pointer-to-member) themselves, or the delete thunk that layer 2's own `destroy_context` needs when they choose to hand ownership over.
 
-Three ways to fill in `gltfx_loop_callbacks::on_frame`/`on_render`, side by side - camada 3 is needed for ONLY the third:
+Three ways to fill in `gltfx_loop_callbacks::on_frame`/`on_render`, side by side - layer 3 is needed for ONLY the third:
 
 ```cpp
-// 1. A free function - plain assignment, no camada 3:
+// 1. A free function - plain assignment, no layer 3:
 callbacks.on_frame = &my_free_on_frame;
 
 // 2. A stateless lambda that converts directly (layer 1's own property,
-//    tests/loop_callbacks_type_test.cpp) - still no camada 3, as long
+//    tests/loop_callbacks_type_test.cpp) - still no layer 3, as long
 //    as it is declared noexcept:
 callbacks.on_frame = [](void *, const gltfx_frame_tick &) noexcept { return true; };
 
-// 3. An object-and-method pair - what camada 3 is for:
+// 3. An object-and-method pair - what layer 3 is for:
 callbacks = gltfx_bind_loop_callbacks<&app::on_frame, &app::on_render>(my_app);
 ```
 
@@ -157,13 +157,13 @@ callbacks = gltfx_bind_loop_callbacks<&app::on_frame, &app::on_render>(my_app);
 
 **The truth this layer does NOT give you, stated so nobody has to infer it from an absence:**
 
-> **Borrowing makes YOU responsible for the object outliving the loop** - exactly as layer 1's own bare `void *context` already required; camada 3 changes nothing about WHO is responsible, only HOW the pointer is produced. The temporary refusal above catches only the single most common mistake (passing `my_type{}` directly): it does NOT catch a local object that goes out of scope before `run()` is called, and it does NOT catch a `std::unique_ptr<my_type>` reset to something else partway through the loop's own lifetime - both stay the consumer's own responsibility to avoid, the same way an ordinary dangling pointer always is in C++.
+> **Borrowing makes YOU responsible for the object outliving the loop** - exactly as layer 1's own bare `void *context` already required; layer 3 changes nothing about WHO is responsible, only HOW the pointer is produced. The temporary refusal above catches only the single most common mistake (passing `my_type{}` directly): it does NOT catch a local object that goes out of scope before `run()` is called, and it does NOT catch a `std::unique_ptr<my_type>` reset to something else partway through the loop's own lifetime - both stay the consumer's own responsibility to avoid, the same way an ordinary dangling pointer always is in C++.
 
-**Proved by:** `tests/loop_bind_test.cpp` - the refusal of a temporary/rvalue and acceptance of an lvalue (compile-time, three concepts over the actual call expression), a stateless lambda still needing no camada 3, `const`-vs-non-`const` method binding with no special-casing, a `constexpr` bind result proving zero runtime cost and the frozen five-pointer layout, and two runtime cases (in a genuinely separate translation unit, `tests/loop_bind_alloc_probe.cpp`, so the optimizer cannot elide the very allocation being measured) proving `bind()` allocates nothing and `adopt()` adds nothing beyond the consumer's own `new`, plus a case proving the adopted object's real destructor runs through the typed delete thunk.
+**Proved by:** `tests/loop_bind_test.cpp` - the refusal of a temporary/rvalue and acceptance of an lvalue (compile-time, three concepts over the actual call expression), a stateless lambda still needing no layer 3, `const`-vs-non-`const` method binding with no special-casing, a `constexpr` bind result proving zero runtime cost and the frozen five-pointer layout, and two runtime cases (in a genuinely separate translation unit, `tests/loop_bind_alloc_probe.cpp`, so the optimizer cannot elide the very allocation being measured) proving `bind()` allocates nothing and `adopt()` adds nothing beyond the consumer's own `new`, plus a case proving the adopted object's real destructor runs through the typed delete thunk.
 
-### Layer 4: marca de depuração (`LOOP-CONTEXT-MARK`, landed)
+### Layer 4: debug mark (`LOOP-CONTEXT-MARK`, landed)
 
-Header-only and opt-in: a consumer's own type inherits from `gltfx_loop_context_mark` (`include/glintfx/platform/loop/loop_context_mark.hpp`) to get a liveness mark that camada 3's own thunks (`loop_bind.hpp`) check, in a build where `NDEBUG` is undefined, before calling through to a bound method - catching the single most dangerous way camada 3's own borrowing contract (layer 3 above) can be violated: calling a bound method on an object whose destructor already ran. The mark is a 32-bit word, set by the constructor and cleared by the destructor - the SAME "debug-only guard, deterministic abort, zero Release cost" shape `include/glintfx/core/err.hpp` already uses for `gltfx_rslt<T>::value()`/`err()`'s own precondition guard (R1 above), applied here to an object's own lifetime instead of a result envelope's active alternative. The check can only live here, in code the consumer themselves compiles: this library's own `.so`/`.dll` is built once, by whoever distributes it, in whatever mode they chose, and can never see the consumer's own `NDEBUG` setting - `run()` itself, compiled into that already-built binary, is not an option.
+Header-only and opt-in: a consumer's own type inherits from `gltfx_loop_context_mark` (`include/glintfx/platform/loop/loop_context_mark.hpp`) to get a liveness mark that layer 3's own thunks (`loop_bind.hpp`) check, in a build where `NDEBUG` is undefined, before calling through to a bound method - catching the single most dangerous way layer 3's own borrowing contract can be violated: calling a bound method on an object whose destructor already ran. The mark is a 32-bit word, set by the constructor and cleared by the destructor - the SAME "debug-only guard, deterministic abort, zero Release cost" shape `include/glintfx/core/err.hpp` already uses for `gltfx_rslt<T>::value()`/`err()`'s own precondition guard (R1 above), applied here to an object's own lifetime instead of a result envelope's active alternative. The check can only live here, in code the consumer themselves compiles: this library's own `.so`/`.dll` is built once, by whoever distributes it, in whatever mode they chose, and can never see the consumer's own `NDEBUG` setting - `run()` itself, compiled into that already-built binary, is not an option.
 
 | Build mode | What happens | How to recognize it |
 |---|---|---|

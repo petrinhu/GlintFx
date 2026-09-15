@@ -22,6 +22,7 @@ target_sources(glintfx_library PRIVATE
     color_parse.cpp
     selector_parse.cpp
     anb_parse.cpp
+    specificity.cpp
     value_kind.cpp
     value_parse.cpp
     keyword_kind.cpp

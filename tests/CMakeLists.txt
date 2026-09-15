@@ -260,6 +260,22 @@ target_sources(gfss_selector_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
+# GFSS-SPECIFICITY (docs/plano-w6-folha-de-estilo.md fatia S-1,
+# GODS_LAWS.md L-19): specificity_of_simple()/specificity_of_compound()/
+# specificity_of_complex() (src/gfss/specificity.hpp) carry no
+# GLINTFX_API either - deliberately, the SAME reason every other
+# internal gfss header above compiles its own .cpp a second time here
+# instead of linking the hidden copy inside glintfx_library's own .so.
+# This target also needs selector_parse.cpp/anb_parse.cpp (parses the
+# selector text each case is built from) and specificity.cpp itself.
+glintfx_add_test(gfss_specificity_test)
+target_include_directories(gfss_specificity_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_specificity_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/specificity.cpp"
+)
+
 # GFSS-VALUE (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-27/L-28/L-40):
 # the closed value-nature/length-unit representation (public,
 # include/glintfx/gfss/value.hpp - [PMU], ratified by the project

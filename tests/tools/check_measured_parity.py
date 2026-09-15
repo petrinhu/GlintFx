@@ -211,24 +211,68 @@ def parse_todo_status(todo_text):
     return status_by_item
 
 
-def validate_key_exception_deaths(key_exceptions, todo_status):
+def validate_key_exception_deaths(key_exceptions, todo_status, todo_text=None):
     """Returns the list of death-rule error strings - a key exception
     whose OWN item is already CONCLUDED in TODO.md (never SEM-
     PENDENCIA, which by definition has no item to conclude) is the
     exact 'concluido sem par' shape tests/parity_exceptions.txt's own
     validate_exceptions() already catches one file over, applied here
-    to a MEASURED key instead of a ctest name."""
+    to a MEASURED key instead of a ctest name.
+
+    A SECOND death, found by auditoria independente (GODS_LAWS.md
+    L-36 do projeto, "portao que aceita ponteiro para o nada"): an
+    item that does not exist AT ALL in TODO.md used to fall through
+    this same `if status is not None` check without ever being
+    flagged - `todo_status.get(item)` returned None, the concluded
+    check never ran, and the exception was silently accepted as if it
+    pointed somewhere real (LOOP-CAP30-KWIN-VIRTUAL, zero occurrences
+    anywhere in TODO.md, is the case the audit measured).
+
+    `todo_status` alone is NOT the full truth of "exists in TODO.md":
+    it only indexes the pipe-table rows (parse_todo_status()'s own
+    12-column parse), and this project's own TODO.md also carries a
+    whole INBOX/"ausencia declarada" section of prose bullets - real,
+    intentionally undecided items, referenced everywhere else in this
+    file as a backtick-quoted id (`GL-GPU-KIND-HW-EVIDENCE`, `SONDA-
+    OCULTA-PUNE-JANELA-VISIVEL`), never as a table row. Treating "not
+    in the table" as "does not exist" would be a NEW false positive on
+    every such item - measured live against this very file's own
+    tests/measured_exceptions.txt while writing this fix (three keys
+    citing `GL-GPU-KIND-HW-EVIDENCE`, a real, still-open prose item).
+    So a key exception's item only dies here when it is absent from
+    the table AND its backtick-quoted form is absent from the raw
+    TODO.md text too - genuinely nowhere, not just outside the table.
+
+    The sibling gate one file over (check_test_parity.py's own
+    validate_exceptions()) already catches the table-only shape of
+    this same death ('excecao cita item ..., que nao existe em
+    TODO.md'); this function now catches the full shape, for a
+    MEASURED key instead of a ctest name."""
     errors = []
     for key, (_lado, item, is_permanent) in key_exceptions.items():
         if is_permanent:
             continue
         status = todo_status.get(item)
-        if status is not None and status["concluded"]:
-            errors.append(
-                f"{key}: excecao por chave aponta para o item {item!r}, marcado como CONCLUIDO "
-                f"({status['status_text']}) em TODO.md - regra 'concluido sem par': apague esta "
-                "linha de tests/measured_exceptions.txt, o par que ela promete ja deveria existir"
-            )
+        if status is not None:
+            if status["concluded"]:
+                errors.append(
+                    f"{key}: excecao por chave aponta para o item {item!r}, marcado como "
+                    f"CONCLUIDO ({status['status_text']}) em TODO.md - regra 'concluido sem "
+                    "par': apague esta linha de tests/measured_exceptions.txt, o par que ela "
+                    "promete ja deveria existir"
+                )
+            continue
+        if todo_text is not None and f"`{item}`" in todo_text:
+            # Real item, declared only in prose (INBOX or a similar
+            # bullet section) - not a dangling pointer, and this
+            # script has no "concluded" signal for prose, so it is
+            # left alone rather than guessed at.
+            continue
+        errors.append(
+            f"{key}: excecao por chave cita item {item!r}, que nao existe em TODO.md (nem na "
+            "tabela nem como `id` entre crases em prosa) - ponteiro para o nada: corrija o "
+            "item para o dono real ou marque item=SEM-PENDENCIA se a ausencia for permanente"
+        )
     return errors
 
 
@@ -390,8 +434,9 @@ def real_main(args):
             key_exceptions = parse_key_exceptions(handle.read())
         if parsed.todo is not None:
             with open(parsed.todo, "r", encoding="utf-8") as handle:
-                todo_status = parse_todo_status(handle.read())
-            death_errors = validate_key_exception_deaths(key_exceptions, todo_status)
+                todo_text = handle.read()
+            todo_status = parse_todo_status(todo_text)
+            death_errors = validate_key_exception_deaths(key_exceptions, todo_status, todo_text)
             if death_errors:
                 fail(
                     f"{len(death_errors)} excecao(oes) por chave morta(s) (tests/measured_"
@@ -717,6 +762,105 @@ def selftest_key_exception_with_concluded_item_reproves(tmp_path):
     return False
 
 
+def selftest_key_exception_with_nonexistent_item_reproves(tmp_path):
+    """The gap the auditoria found live, against this project's own
+    real files: a key exception whose item has ZERO occurrences
+    anywhere in TODO.md (not in the table, not as a backtick-quoted
+    id in prose) used to return `status = None` from `todo_status.
+    get(item)` and fall straight through the old `if status is not
+    None and status["concluded"]` guard, never flagged - exactly
+    LOOP-CAP30-KWIN-VIRTUAL, measured absent from TODO.md entirely
+    before this fix landed. A ponteiro para o nada must reprove."""
+    linux_file = _write_temp(tmp_path, "linux_ghost.txt", "MEASURED some_test.ghost_key=1\n")
+    windows_file = _write_temp(tmp_path, "windows_ghost_empty.txt", "")
+    key_exceptions_file = _write_temp(
+        tmp_path, "measured_exc_ghost.txt", "some_test.ghost_key|windows|razao qualquer|ITEM-FANTASMA\n"
+    )
+    todo_file = _write_temp(
+        tmp_path,
+        "todo_ghost.md",
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-REAL | W1 | X | y | Alta | - | Media | ⏳ Pendente | - |\n"
+        "\n## INBOX\n\n- **`OUTRO-ITEM-REAL`: prosa qualquer, sem relacao com o fantasma.**\n",
+    )
+    try:
+        real_main(
+            [
+                "--linux",
+                linux_file,
+                "--windows",
+                windows_file,
+                "--measured-exceptions",
+                key_exceptions_file,
+                "--todo",
+                todo_file,
+            ]
+        )
+    except SystemExit as exc:
+        if exc.code == 1:
+            print("selftest: excecao por chave com item INEXISTENTE (fora da tabela e fora da "
+                  "prosa) reprova - ok")
+            return True
+        print(f"selftest: codigo inesperado {exc.code} para excecao por chave fantasma",
+              file=sys.stderr)
+        return False
+    print("selftest: excecao por chave com item inexistente NAO reprovou - esperado exit 1 "
+          "(este e o bug que a auditoria mediu: ponteiro para o nada aceito em silencio)",
+          file=sys.stderr)
+    return False
+
+
+def selftest_key_exception_with_prose_only_item_accepted(tmp_path):
+    """The false positive this exact fix would have introduced if it
+    only checked the pipe-table: an item declared for real, but ONLY
+    as a backtick-quoted id in a prose bullet (TODO.md's own INBOX
+    section, or a similar 'ausencia declarada' block) - never a table
+    row. Measured live while writing this fix: `GL-GPU-KIND-HW-
+    EVIDENCE` is exactly this shape in the real TODO.md, cited by
+    three real key exceptions. This item is NOT a dangling pointer and
+    must not reprove, even though `parse_todo_status()` never indexes
+    it."""
+    linux_file = _write_temp(tmp_path, "linux_prose.txt", "MEASURED some_test.prose_key=1\n")
+    windows_file = _write_temp(tmp_path, "windows_prose_empty.txt", "")
+    key_exceptions_file = _write_temp(
+        tmp_path, "measured_exc_prose.txt", "some_test.prose_key|windows|razao qualquer|ITEM-SO-EM-PROSA\n"
+    )
+    todo_file = _write_temp(
+        tmp_path,
+        "todo_prose.md",
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-REAL | W1 | X | y | Alta | - | Media | ⏳ Pendente | - |\n"
+        "\n## INBOX\n\n- **`ITEM-SO-EM-PROSA`: achado real, ainda sem linha na tabela.**\n",
+    )
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buffer):
+            real_main(
+                [
+                    "--linux",
+                    linux_file,
+                    "--windows",
+                    windows_file,
+                    "--measured-exceptions",
+                    key_exceptions_file,
+                    "--todo",
+                    todo_file,
+                ]
+            )
+    except SystemExit as exc:
+        print(f"selftest: excecao por chave so-em-prosa reprovou por engano (codigo {exc.code}) "
+              "- falso positivo, o item existe em TODO.md fora da tabela", file=sys.stderr)
+        return False
+    print("selftest: excecao por chave citando item real declarado so em prosa (INBOX) e' "
+          "aceita, nunca tratada como ponteiro para o nada - ok")
+    return True
+
+
 def selftest_one_side_empty_still_succeeds(tmp_path):
     """One side genuinely having zero MEASURED lines (a leg that never
     ran, or a snapshot that came back empty for a REAL reason on just
@@ -748,6 +892,8 @@ def selftest_main():
             selftest_scancount_never_compared(tmp_path),
             selftest_key_exception_accepted(tmp_path),
             selftest_key_exception_with_concluded_item_reproves(tmp_path),
+            selftest_key_exception_with_nonexistent_item_reproves(tmp_path),
+            selftest_key_exception_with_prose_only_item_accepted(tmp_path),
             selftest_declared_divergence_with_concluded_item_reproves(tmp_path),
             selftest_one_side_empty_still_succeeds(tmp_path),
         ]

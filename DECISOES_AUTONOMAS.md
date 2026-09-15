@@ -3283,3 +3283,24 @@ Registro das duas ordens, verbatim, porque cercam gestos irreversiveis e visivei
 **O que NAO muda com estas autorizacoes, e o orquestrador responde por isso:** a onda esta **REPROVADA** pela auditoria independente neste instante. Autorizacao para empurrar no fim da onda nao e autorizacao para declarar a onda fechada - **o fim da onda e o criterio escrito no plano dela, nunca o cansaco nem a pressa**. Antes do push: a auditoria reexamina; o portao do compilador da Microsoft prova as duas pontas (88 de 88 **e** continuar mordendo sob sabotagem); o espelho local roda antes, nunca depois; e a subida de versao mostra o vermelho de proposito (so a declaracao da biblioteca, sem a linha do consumidor, tem de reprovar).
 
 **O que a mensagem da marca tem de carregar,** porque nao ha pagina de notas de versao neste projeto e `git show <marca>` e' o **unico** documento autoritativo que o consumidor externo tem: o que quebra (as chamadas de volta), o que entra (posse em duas formas, amarracao tipada, marca de depuracao, primeiro quadro com tempo zerado de verdade), **o que foi provado ao vivo e em qual sistema**, e **o que ficou declarado sem prova** - inclusive as duas promessas que nenhum sistema exercitou (teto de quadros e recuperacao apos restaurar a janela). Marca que omite a segunda metade mente por silencio.
+
+#### D-091501 — O bloqueio C1 era do PORTAO, nao do produto: correcao ao veredito da auditoria  `[15/09/26 - 00:06:00]`
+
+A auditoria independente classificou C1 como defeito de **produto** que impedia a onda de fechar. **A classificacao estava errada, e agora esta provado por execucao, nao por leitura.**
+
+**O que eu medi por conta propria, contra a arvore:**
+- `tests/CMakeLists.txt:1904` - o alvo do lado Windows **nao linka a biblioteca**; compila as fontes dentro de si e linka so bibliotecas do sistema.
+- `tests/CMakeLists.txt:1957-1958` - o irmao `win32_facade_pin_test` usa **o mesmo padrao**, e `:1845` ja documentava que sem ele o compilador da Microsoft levanta ligacao inconsistente.
+- `tests/tools/check_win32_test_link.py:345` e `:852` - o portao **extrai as definicoes por alvo e as entrega ao compilador**; a macro ja chegava, mas o cabecalho sintetico do portao nunca a consultava.
+- Entre os 88 alvos varridos, **so um** declara a macro: o raio da correcao e 1 em 88.
+
+**As tres provas, lidas por mim nos arquivos de log, nunca da tela:**
+1. **Antes:** 88 encontrados, 87 ligados, 1 falhou (`loop_hidden_test`, nove avisos de ligacao inconsistente).
+2. **Depois:** 88 encontrados, **88 ligados, 0 falharam**.
+3. **Sabotagem, que e a prova que importa:** injetada a mesma duplicacao de simbolo num alvo que **nao** declara a macro (`win32_wait_events_test`), o portao **REPROVOU** - 87 ligados, 1 falhou, e o que falhou e exatamente o sabotado.
+
+A terceira e o que separa "portao consertado" de "portao cego": sem ela, um portao que passou a aprovar tudo seria indistinguivel de um portao que passou a nao verificar nada. **Foi exigida antes de o conserto ser aceito, e o agente so a entregou depois de eu recusar o autoteste como substituto.**
+
+- **D10.1 — C1 deixa de ser bloqueio de produto.** O texto da matriz que afirmava que o lado Windows "compila do mesmo jeito" era **falso pelo portao, verdadeiro pelo produto**; a correcao ja entrou com as ressalvas honestas.
+- **D10.2 — o buraco de cobertura que isso revelou fica registrado, nao consertado agora:** o alvo que serve de **modelo da forma correta** (`win32_facade_pin_test`) e' justamente um dos que o portao **nunca varre**, porque usa uma forma de declaracao que o script nao reconhece. Item `PORTAO-MSVC-NAO-VE-ADD-EXECUTABLE` na caixa de entrada.
+- **D10.3 — a auditoria reexamina.** Corrigir o achado nao aprova a onda: quem reprovou reexamina, com os mesmos criterios.

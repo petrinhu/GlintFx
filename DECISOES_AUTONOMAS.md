@@ -3410,3 +3410,29 @@ cap30_motor_wall_ms=32   (criterio 900..1500)   FALHOU
 - **D14.1 — o conserto vira fatia propria**, com o vermelho que ja existe (o gemeo Linux, que agora roda aqui e reprova) como ponto de partida. **Nao e fatia de Windows: e do motor.**
 - **D14.2 — a hipotese registrada pelo implementador fica, e ele acertou em registra-la.** Eu pedi so o numero cru; ele registrou o numero **mais** o mecanismo, marcado como hipotese de alta confianca e nao como fato, com a instrucao de medir antes de acreditar. Numero sem interpretacao obriga o proximo a refazer a investigacao inteira; interpretacao sem marcacao vira fato falso. Ele fez as duas coisas certas ao mesmo tempo.
 - **D14.3 — a excecao que desligava a faixa no Linux passa a ser divida nomeada, nao excecao.** Ela escondeu por dias um defeito que existe nos dois sistemas. E a D13.3 valendo no primeiro caso real.
+
+#### D-091508 — Os DOIS defeitos de produto estao consertados e provados no Windows; o que sobrou vermelho e a regua nova  `[15/09/26 - 09:52:00]`
+
+Execucao `34969449304` (ramo de prova `prova-teto-e-regua`, pedido de integracao #4). **Primeira vez que este projeto colhe execucao de servidor em ramo antes do tronco** - o mecanismo adotado hoje de manha (D13.2), no primeiro caso real.
+
+**O QUE FICOU PROVADO, no Windows, pela primeira vez:**
+- **Teto de quadros: CONSERTADO.** `loop_parity_test` **nao aparece** na lista de reprovados. O conserto do zero ambiguo vale nos dois sistemas, como previsto - e agora provado no unico executor que faltava.
+- **Janela minimizada: o laco DORME.** `cpu_ratio_permille=0`. O defeito que eu anunciei ao lider como "queima um nucleo" nunca existiu: era a regua.
+- **Windows sanitizador e Windows depuracao: VERDES**, pela primeira vez com estes testes.
+
+**O QUE SOBROU VERMELHO: a celula de calibracao que eu mesmo exigi.**
+```
+instrumento_giro_permille=777 e 781  (criterio >= 800)  FALHOU
+instrumento_sono_permille=259        (criterio <= 250)  FALHOU
+```
+
+**A causa, calculada e conclusiva:** o relogio de tempo de processador do Windows tem grao de cerca de **15,6 ms**. A janela de calibracao e de **60 ms**. Os numeros denunciam:
+- sono: `259` por mil de 60 ms = **15,5 ms** medidos = **exatamente 1,00 quantum**;
+- giro: falta `13,4 ms` para os 60 = **0,86 quantum**.
+
+**Nao e ruido nem maquina lenta: e quantizacao.** Uma janela de 60 ms nao consegue resolver melhor que +/- 26% num relogio de grao 15,6 ms. Os limiares 800 e 250 foram fixados nesta maquina, onde o grao e fino, e **nao sobrevivem no executor do servidor**.
+
+**Setima encarnacao de "portao que congela um fato do ambiente do autor" nesta onda** - e a primeira com mecanismo calculado em vez de adivinhado.
+
+- **D15.1 — conserta-se a JANELA, nao o limiar.** Alargar 800/250 ate caber calaria este executor e deixaria a regua incapaz de distinguir girar de dormir em qualquer maquina de grao grosso - exatamente o defeito que a calibracao existe para impedir. A janela passa a ser longa o bastante para o quantum ser desprezivel; com meio segundo, o erro cai para cerca de 3%.
+- **D15.2 — a regra vale para toda celula de calibracao futura:** a janela se dimensiona pelo **grao do relogio do pior executor**, nunca pelo da maquina de quem escreve. Entra junto com a D13.1.

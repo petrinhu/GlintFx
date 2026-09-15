@@ -3436,3 +3436,26 @@ instrumento_sono_permille=259        (criterio <= 250)  FALHOU
 
 - **D15.1 — conserta-se a JANELA, nao o limiar.** Alargar 800/250 ate caber calaria este executor e deixaria a regua incapaz de distinguir girar de dormir em qualquer maquina de grao grosso - exatamente o defeito que a calibracao existe para impedir. A janela passa a ser longa o bastante para o quantum ser desprezivel; com meio segundo, o erro cai para cerca de 3%.
 - **D15.2 — a regra vale para toda celula de calibracao futura:** a janela se dimensiona pelo **grao do relogio do pior executor**, nunca pelo da maquina de quem escreve. Entra junto com a D13.1.
+
+#### D-091509 — A mensagem da marca `v0.4.0.0` SUBESTIMA o que foi provado, e a marca publicada nao se reescreve  `[15/09/26 - 15:22:00]`
+
+O agente que atualizou a wiki **discordou de uma instrucao minha, com medicao, e estava certo**. Quinta vez nesta sessao que quem mede me corrige.
+
+**O erro:** a mensagem da marca `v0.4.0.0`, que eu escrevi e publiquei, diz:
+
+> `RECUPERACAO APOS RESTAURAR A JANELA: sem prova ao vivo em sistema nenhum.`
+
+**E falso.** Medido no registro do servidor, nos dois modos de sincronismo:
+```
+[vsync=off] recuperacao_em_ate_10_tiques=recuperou em 1 tique(s), restored=1 ... OK
+[vsync=on]  recuperacao_em_ate_10_tiques=recuperou em 1 tique(s), restored=1 ... OK
+```
+**No Windows a recuperacao ESTA provada ao vivo**, e a assercao passou incondicionalmente. Quem nao prova e' o **Linux**: o compositor isolado do container **nunca restaura** janela minimizada, entao la a recuperacao fica estruturalmente indemonstravel - e a assercao e' condicionada a isso.
+
+**De onde veio o erro:** eu carreguei para a mensagem da marca uma frase verdadeira **antes** da execucao do Windows, e nao remedi depois que ela ficou verde. **O mesmo defeito que a onda inteira cacou, cometido por mim no documento mais visivel de todos.**
+
+- **D16.1 — a marca publicada NAO e reescrita.** E' a mesma regra que a propria mensagem dela aplica a `v0.3.8.0`, e a regra vale contra quem a escreveu. Apagar e recriar marca publicada e' reescrever historia visivel de fora.
+- **D16.2 — o erro e na direcao CONSERVADORA, e isso importa para decidir.** A marca **subestima**: diz que algo nao esta provado quando esta. Um consumidor que a leia deixa de confiar numa garantia que existe - perde oportunidade, nunca quebra. Fosse o contrario (afirmar prova inexistente), a decisao seria outra e mais grave.
+- **D16.3 — a correcao vai onde ainda cabe:** a wiki (ja corrigida pelo agente, com a distincao certa: provado no Windows, estruturalmente indemonstravel no Linux por causa do executor), a matriz de portabilidade, e a proxima secao do registro de mudancas. **A marca fica como esta, com o erro conhecido e registrado aqui.**
+
+**Segundo achado do mesmo agente, fora do escopo dele, aceito:** `docs/gl-loop-portability-matrix.md` tem contradicao interna - o paragrafo de abertura diz que o defeito do teto de quadros foi achado e consertado pela execucao real no Windows, e a linha da propria tabela ainda diz que nao ha prova ao vivo em sistema nenhum. Repassado a quem esta atualizando os documentos do repositorio.

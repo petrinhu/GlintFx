@@ -608,24 +608,59 @@ def default_generated_build_roots(repo_root):
 # colapsa GLINTFX_API para nada - o que apagaria justamente a diferenca
 # exportado/nao-exportado que o DEFEITO 1 desta fatia existe para
 # provar (secao 0 do plano: "o defeito e exclusivo do modo
-# compartilhado"). Aqui o par dllexport/dllimport tem de ser real.
+# compartilhado"). Aqui o par dllexport/dllimport tem de ser real POR
+# PADRAO. Este script em si NUNCA define GLINTFX_LIBRARY_STATIC_DEFINE
+# (nem em build_library_dll() nem em link_one_test()) - a distincao
+# exportado/nao-exportado continua real para os 87 alvos que nao pedem
+# o contrario.
+#
+# ACHADO C1 (14/09/2026, achado I na auditoria independente do onda W7,
+# /var/tmp/glintfx-plan/auditoria-onda-w7.md): o header ACIMA, sem o
+# ramo abaixo, ignorava por completo um `#define` que um ALVO (nao o
+# script) declara por si so via target_compile_definitions() em tests/
+# CMakeLists.txt - `loop_hidden_test` (e win32_facade_pin_test, fora do
+# escaneamento deste script) usam GLINTFX_LIBRARY_STATIC_DEFINE
+# exatamente pela MESMA razao que o generate_export_header() real do
+# CMake documenta essa macro: um alvo que recompila fontes que DEFINEM
+# um simbolo GLINTFX_API sem nunca cruzar a fronteira de uma DLL (nao
+# linca glintfx::glintfx) precisa que GLINTFX_API colapse para nada,
+# senao o cl.exe ve o simbolo declarado dllimport (nenhum
+# glintfx_library_EXPORTS neste alvo) E definido na mesma unidade de
+# traducao - C4273 "inconsistent dll linkage", escalado a erro por
+# /WX. Medido: 9 avisos C4273 (severity.cpp x1, event.cpp x4, sink.cpp
+# x4, incluindo log_would_emit/log_emit de emit.hpp), o unico dos 88
+# alvos que nao ligou. O ramo abaixo faz este header sintetico
+# respeitar essa macro na MESMA ordem que o header real gerado pelo
+# CMake usa (STATIC_DEFINE primeiro, EXPORTS depois) - nao muda nada
+# para os 87 alvos que nunca a definem, e destrava exatamente o alvo
+# que a define pela razao certa.
 _MSVC_EXPORT_HEADER = """// SPDX-License-Identifier: AGPL-3.0-or-later
 // Gerado por check_win32_test_link.py - par dllexport/dllimport REAL
 // para o cl.exe da Microsoft (o export.hpp que um configure CMake+GCC
 // gera carrega __attribute__((visibility)), que o cl.exe nao entende -
 // ver README.md deste diretorio, secao do GLINTFX_LIBRARY_STATIC_
-// DEFINE). GLINTFX_LIBRARY_STATIC_DEFINE NUNCA e definido por este
-// gate: colapsar GLINTFX_API para nada apagaria a distincao
+// DEFINE). Este script em si NUNCA define GLINTFX_LIBRARY_STATIC_
+// DEFINE: colapsar GLINTFX_API para nada apagaria a distincao
 // exportado/nao-exportado que o DEFEITO 1 (CORE-LOG-CI) existe para
-// provar.
+// provar. Mas um ALVO especifico (tests/CMakeLists.txt, via target_
+// compile_definitions) pode definir essa macro por si so, pela mesma
+// razao que o export.hpp REAL gerado pelo CMake a honra: um alvo que
+// recompila fontes exportadas sem nunca linkar a DLL precisa que
+// GLINTFX_API colapse para nada (ACHADO C1, auditoria-onda-w7.md,
+// 14/09/2026) - o ramo abaixo casa a MESMA ordem de checagem que esse
+// header real usa.
 #ifndef GLINTFX_API_H
 #define GLINTFX_API_H
 
 #ifndef GLINTFX_API
-#  ifdef glintfx_library_EXPORTS
-#    define GLINTFX_API __declspec(dllexport)
+#  ifdef GLINTFX_LIBRARY_STATIC_DEFINE
+#    define GLINTFX_API
 #  else
-#    define GLINTFX_API __declspec(dllimport)
+#    ifdef glintfx_library_EXPORTS
+#      define GLINTFX_API __declspec(dllexport)
+#    else
+#      define GLINTFX_API __declspec(dllimport)
+#    endif
 #  endif
 #endif
 

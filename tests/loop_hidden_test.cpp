@@ -201,6 +201,10 @@ struct mode_result {
     int rendered_while_hidden = 0;
     long long cpu_ratio_permille = 0;
     long long visible_wall_ms = 0;
+    // ACHADO 6 (14/09/2026): true so quando as 5 apresentacoes da fase
+    // visivel tiveram sucesso - ver o comentario junto de
+    // hidden_detected_all, mais abaixo, para o porque.
+    bool visible_clean = false;
 };
 
 } // namespace
@@ -317,6 +321,10 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
         check(mode, "visible_presented", visible_presented >= 1, ">= 1 em 5 tiques visiveis",
               to_text(visible_presented));
 
+        // ACHADO 6 (14/09/2026): ver o comentario junto de
+        // hidden_detected_all, mais abaixo, para o porque deste campo.
+        result.visible_clean = (visible_presented == 5);
+
         // DIAGNOSTICO, nunca assercao nem chave MEASURED (sec. S4.4 nao
         // tem linha para ele): o bit `suspended` lido ENQUANTO a janela
         // ainda esta visivel. Sem esta linha, o valor lido depois de
@@ -327,8 +335,9 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
             window.state(glintfx::gltfx_window_state_bit::suspended);
         std::fprintf(stdout,
                      "loop_hidden_test: [vsync=%s] diagnostico: suspended_antes_de_esconder=%d, "
-                     "presents_visiveis_bem_sucedidos=%d de 5\n",
-                     mode, suspended_before_hiding ? 1 : 0, visible_presented);
+                     "presents_visiveis_bem_sucedidos=%d de 5, fase_visivel_limpa=%d\n",
+                     mode, suspended_before_hiding ? 1 : 0, visible_presented,
+                     result.visible_clean ? 1 : 0);
 
         // --- hide it ------------------------------------------------
         // pump_events() after EVERY ShowWindow (win32_iconic_present_
@@ -551,7 +560,33 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
     // did. `xdg_wm_base_version` has no Windows counterpart and is the
     // one key of this pair that lives on one side only (tests/
     // measured_exceptions.txt carries its line).
-    const bool hidden_detected_all = results[0].hidden_detected && results[1].hidden_detected;
+    // ACHADO 6 (14/09/2026, achado I5 da auditoria independente, dossie
+    // /var/tmp/glintfx-plan/auditoria-onda-w7.md): a chave agregada
+    // `hidden_detected` cruzava os dois modos sem checar se a deteccao,
+    // em CADA um, era de fato atribuivel ao minimizar. Medido pelo
+    // auditor (logs/h3_loop_hidden.log, irmao Linux): no modo vsync=on,
+    // so 1 de 5 apresentacoes da fase visivel teve sucesso ANTES de
+    // minimizar - a sonda ja relatava "nao desenhar" numa janela ainda
+    // mapeada e ativa, por um defeito de ambiente ja registrado
+    // (TODO.md, INBOX, SONDA-OCULTA-PUNE-JANELA-VISIVEL, decisao de
+    // produto do lider, fora de escopo aqui). Nesse modo, ver
+    // hidden_detected=1 DEPOIS de minimizar nao prova que foi o
+    // minimizar que causou a deteccao - pode ser a MESMA leitura falsa
+    // que ja vinha de antes. So o modo vsync=off (5 de 5 na fase
+    // visivel) prova isso de verdade. ANTES: `hidden_detected_all`
+    // exigia so `hidden_detected` nos dois modos. DEPOIS: exige TAMBEM
+    // `visible_clean` (fase visivel 100% bem-sucedida) em cada modo -
+    // um modo com fase visivel suja nao pode assinar P8.
+    // POR QUE ESSE E O OBSERVAVEL CERTO, pelo texto da promessa:
+    // loop.hpp:365-368 (P8) promete o comportamento de UMA JANELA
+    // OCULTA (minimizada); uma deteccao que pode ter comecado antes do
+    // minimizar nao fala sobre o caso que P8 descreve, fala sobre outro
+    // caso (janela mapeada mas com o retorno de quadro atrasado) que
+    // este teste nao cobre. Nenhuma das oito assercoes por modo muda -
+    // isso e so a chave agregada MEASURED ficando honesta sobre o que
+    // ela cruza.
+    const bool hidden_detected_all = results[0].hidden_detected && results[0].visible_clean &&
+                                     results[1].hidden_detected && results[1].visible_clean;
     const bool suspended_all = results[0].suspended_seen && results[1].suspended_seen;
     const bool restored_all = results[0].restored && results[1].restored;
     const long long worst_cpu_ratio = results[0].cpu_ratio_permille > results[1].cpu_ratio_permille

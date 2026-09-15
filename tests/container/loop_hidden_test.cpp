@@ -155,6 +155,27 @@
 // morde; a de giro fica como o segundo controle (positivo) que a L-40
 // exige.
 // ===================================================================
+//
+// ===================================================================
+// JANELA DE 60 MS, MANTIDA - POR QUE ESTE LADO NAO ALARGA, 15/09/2026
+// (o gemeo desta nota vive em tests/loop_hidden_test.cpp's own header
+// comment, "JANELA DE CALIBRACAO ALARGADA"; DECISOES_AUTONOMAS.md
+// D-091508, D15.1/D15.2): a execucao de servidor 34969449304 reprovou
+// a celula de calibracao SO na metade Windows (GetProcessTimes(), grao
+// de ~15,6 ms), nunca aqui. A prova acima, rodada no MESMO dia, com a
+// MESMA janela de 60 ms que este arquivo continua usando, ja mede
+// 997/0 por mil - folga de mais de 8x dos limiares 800/250, porque
+// std::clock() no POSIX (glibc) tem grao muito mais fino que o quantum
+// de agendamento do Windows. D15.2 manda dimensionar pelo grao do PIOR
+// executor conhecido, nunca pelo da maquina de quem escreve - e o pior
+// executor conhecido, para ESTE instrumento, e' o proprio Windows, que
+// nao usa este arquivo. Alargar aqui tambem so pagaria ~880 ms a mais
+// por execucao sem comprar nenhuma seguranca nova (GODS_LAWS.md L-43:
+// nao se mexe num criterio/instrumento que ja mede bem so por simetria
+// textual). As duas metades ficarem com janelas diferentes e' portanto
+// deliberado, nao descuido - e a divergencia que a L-17 do projeto
+// ("gemeo exato") exige nomear em vez de deixar implicita.
+// ===================================================================
 
 namespace {
 
@@ -178,6 +199,12 @@ constexpr int k_checks_per_mode = 8;
 // qualquer numero de producao.
 constexpr int k_calibration_checks = 2;
 constexpr int k_planned_assertions = 2 * k_checks_per_mode + k_calibration_checks;
+// JANELA DE CALIBRACAO (este arquivo's own header comment, "JANELA DE
+// 60 MS, MANTIDA"): fica em 60 ms - o grao de std::clock() no POSIX ja
+// e' fino o bastante para esta janela medir limpo (997/0 por mil, com
+// folga de mais de 8x dos limiares abaixo). O gemeo Windows sobe para
+// 500 ms, com a razao documentada no mesmo bloco.
+constexpr std::int64_t k_calibration_window_ms = 60;
 
 int g_assertions_evaluated = 0;
 int g_assertions_failed = 0;
@@ -316,8 +343,10 @@ int main() {
     // nunca no laco - e por isso `calibration_ok` abaixo passa a gatear
     // a assercao de producao `cpu_ratio_permille` de cada modo, mais
     // longe neste arquivo.
-    const std::int64_t calib_giro_permille = measure_cpu_ratio_permille_for(60, true);
-    const std::int64_t calib_sono_permille = measure_cpu_ratio_permille_for(60, false);
+    const std::int64_t calib_giro_permille =
+        measure_cpu_ratio_permille_for(k_calibration_window_ms, true);
+    const std::int64_t calib_sono_permille =
+        measure_cpu_ratio_permille_for(k_calibration_window_ms, false);
     const bool calibration_ok = calib_giro_permille >= 800 && calib_sono_permille <= 250;
     check("calibracao", "instrumento_giro_permille", calib_giro_permille >= 800,
           ">= 800 (60ms girando)", to_text(calib_giro_permille));

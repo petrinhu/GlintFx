@@ -149,10 +149,15 @@
 //
 // CELULA DE CALIBRACAO DO INSTRUMENTO, nas DUAS metades (GODS_LAWS.md
 // L-36 aplicada ao INSTRUMENTO, nao so ao portao; L-17 do projeto, "o
-// gemeo exato"): 60 ms girando tem de medir razao ALTA (>= 800 por
-// mil); 60 ms dormindo tem de medir razao BAIXA (<= 250 por mil).
-// Calibracao reprovada NUNCA reprova o produto - o gate de cpu_ratio_
-// permille por modo, abaixo, so conta quando a calibracao passou.
+// gemeo exato"): a janela girando tem de medir razao ALTA (>= 800 por
+// mil); a mesma janela dormindo tem de medir razao BAIXA (<= 250 por
+// mil). A JANELA (k_calibration_window_ms, abaixo) NAO e' mais a mesma
+// nas duas metades desde 15/09/2026 - ver o bloco "JANELA DE
+// CALIBRACAO ALARGADA" logo a seguir para o porque, e o gemeo desta
+// nota em tests/container/loop_hidden_test.cpp para o porque do outro
+// lado ficar em 60 ms. Calibracao reprovada NUNCA reprova o produto -
+// o gate de cpu_ratio_permille por modo, abaixo, so conta quando a
+// calibracao passou.
 //
 // PROVA DE QUE A CELULA PEGA A FAMILIA EXATA DO DEFEITO (L-27: cópia
 // fora da arvore, nunca in-place): /var/tmp/builds/claude-1000/glintfx-
@@ -166,7 +171,54 @@
 // distingue os dois instrumentos), instrumento_sono_permille=1000
 // (<=250 FALHOU - exatamente a assinatura ~1000 da execucao real),
 // exit=1. A celula de sono e' a que morde; a de giro fica como o
-// segundo controle (positivo) que a L-40 exige.
+// segundo controle (positivo) que a L-40 exige. (Esta prova rodou com
+// janela de 60 ms, em Linux - o instrumento provado aqui e' a LOGICA da
+// celula, nao o numero da janela de nenhuma metade especifica.)
+// ===================================================================
+//
+// ===================================================================
+// JANELA DE CALIBRACAO ALARGADA, 15/09/2026 (DECISOES_AUTONOMAS.md
+// D-091508, D15.1/D15.2 - GODS_LAWS.md global L-43, "conserta-se o
+// FURO DO CRITERIO antes da fase seguinte, nunca o criterio"): a
+// execucao de servidor 34969449304 (ramo prova-teto-e-regua) reprovou
+// esta celula, so nesta metade:
+//   instrumento_giro_permille=777 e 781  (criterio >= 800)  FALHOU
+//   instrumento_sono_permille=259        (criterio <= 250)  FALHOU
+// A CAUSA, CALCULADA: GetProcessTimes() no Windows conta tempo de
+// processador em quanta de relogio de sistema de ~15,6 ms (o tique de
+// 64 Hz padrao do HAL, sem timeBeginPeriod(1) - a mesma granularidade
+// que a documentacao da Microsoft cita para este relogio). Os numeros
+// denunciam exatamente isso: sono mediu 259/1000 de 60 ms = 15,54 ms =
+// 1,00 quantum quase exato; giro faltou 13,4 ms dos 60 = 0,86 quantum.
+// Uma janela de 60 ms nao resolve melhor que +/-26% neste relogio - os
+// limiares 800/250 foram fixados na maquina do autor, onde o grao e'
+// fino, e nao sobrevivem no executor do servidor.
+//
+// O CONSERTO E' A JANELA, NUNCA O LIMIAR (D15.1): alargar 800/250 ate
+// caber calaria justamente ESTE executor - o de grao grosso -, e
+// deixaria a regua incapaz de distinguir girar de dormir em qualquer
+// maquina parecida, que e' o defeito que a calibracao inteira existe
+// para impedir. k_calibration_window_ms sobe de 60 para 500 ms. Erro
+// relativo do quantum nessa janela: 15,6 / 500 ~= 3,1% (contra 26% em
+// 60 ms) - giro passa a medir por volta de 969/1000 (bem acima do piso
+// 800) e sono por volta de 31/1000 (bem abaixo do teto 250), as duas
+// com folga de mais de 8x em relacao ao limiar mais proximo. D15.2:
+// esta janela se dimensiona pelo grao do relogio do PIOR executor
+// conhecido, nunca pelo da maquina de quem escreve o teste - e' a
+// mesma regra que toda celula de calibracao futura deste projeto
+// segue a partir de hoje.
+//
+// CUSTO: duas chamadas de measure_cpu_ratio_permille_for() por
+// execucao deste arquivo (giro + sono, uma vez cada, nunca por modo -
+// ver k_calibration_checks abaixo), 500 ms cada uma no lugar de 60 ms -
+// cerca de 880 ms a mais por execucao da suite neste arquivo. O gemeo
+// Linux (tests/container/loop_hidden_test.cpp) NAO muda: o mesmo
+// instrumento, na mesma janela de 60 ms, ja mede 997/0 por mil neste
+// mesmo dia (bloco de prova acima) - std::clock() no POSIX tem grao
+// muito mais fino que o relogio do Windows, e alargar sem uma reprovacao
+// real so pagaria custo sem comprar seguranca. As duas metades ficarem
+// com janelas diferentes e' a divergencia documentada que a L-17 do
+// projeto exige nomear, nao um descuido.
 // ===================================================================
 //
 // ASCII ONLY IN EVERY LITERAL: no /utf-8 flag is passed anywhere in
@@ -191,6 +243,13 @@ constexpr int k_checks_per_mode = 8;
 // (nunca por modo) antes de qualquer numero de produto.
 constexpr int k_calibration_checks = 2;
 constexpr int k_planned_assertions = 2 * k_checks_per_mode + k_calibration_checks;
+// JANELA DE CALIBRACAO (este arquivo's own header comment, "JANELA DE
+// CALIBRACAO ALARGADA"): 500 ms, nao 60 - dimensionada pelo quantum de
+// ~15,6 ms do relogio de processador do Windows (GetProcessTimes()),
+// para que o erro relativo do quantum (~3,1% nesta janela) fique bem
+// abaixo da folga dos limiares 800/250 abaixo. So esta metade muda; o
+// gemeo Linux fica em 60 ms, com a razao documentada no mesmo bloco.
+constexpr std::int64_t k_calibration_window_ms = 500;
 
 int g_assertions_evaluated = 0;
 int g_assertions_failed = 0;
@@ -325,13 +384,15 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
     // nunca no laco - e por isso `calibration_ok` abaixo passa a gatear
     // a assercao de producao `cpu_ratio_permille` de cada modo, mais
     // longe neste arquivo.
-    const std::int64_t calib_giro_permille = measure_cpu_ratio_permille_for(60, true);
-    const std::int64_t calib_sono_permille = measure_cpu_ratio_permille_for(60, false);
+    const std::int64_t calib_giro_permille =
+        measure_cpu_ratio_permille_for(k_calibration_window_ms, true);
+    const std::int64_t calib_sono_permille =
+        measure_cpu_ratio_permille_for(k_calibration_window_ms, false);
     const bool calibration_ok = calib_giro_permille >= 800 && calib_sono_permille <= 250;
     check("calibracao", "instrumento_giro_permille", calib_giro_permille >= 800,
-          ">= 800 (60ms girando)", to_text(calib_giro_permille));
+          ">= 800 (500ms girando)", to_text(calib_giro_permille));
     check("calibracao", "instrumento_sono_permille", calib_sono_permille <= 250,
-          "<= 250 (60ms dormindo)", to_text(calib_sono_permille));
+          "<= 250 (500ms dormindo)", to_text(calib_sono_permille));
 
     bool any_swap_succeeded = false;
     mode_result results[2];

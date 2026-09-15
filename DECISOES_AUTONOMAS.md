@@ -3347,3 +3347,25 @@ A reauditoria independente (mesmo auditor que reprovou, SHA `a9c95e3`, dossie em
 - **D12.1 — a marca `v0.4.0.0` fica SUSPENSA.** O lider autorizou o numero, nao a mentira. Marca sobre servidor vermelho e marca que mente, e a mensagem dela e o unico documento autoritativo que o consumidor externo tem.
 - **D12.2 — proibido reexecutar o trabalho para "ver se passa".** Ele rodou quatro minutos e reprovou com numero; reexecutar sem entender apaga a evidencia.
 - **D12.3 — a onda NAO fecha.** O criterio escrito no plano dela exige o servidor verde. Dois defeitos de produto achados e' o melhor resultado possivel para uma prova ao vivo que estreia num sistema - e' exatamente para isso que ela existe -, mas nao e fechamento.
+
+#### D-091505 — CORRECAO: o "defeito 1" era do INSTRUMENTO, nao do produto; e a minha hipotese de causa unica foi refutada  `[15/09/26 - 08:20:00]`
+
+Eu relatei ao lider **dois defeitos reais de produto** no Windows. **Um deles nao e defeito de produto**, e a minha hipotese de que os dois tinham a mesma causa foi **refutada por medicao** pelo C-level que planejou o conserto. Corrijo aqui, sem apagar o registro anterior.
+
+**DEFEITO 1 — era o INSTRUMENTO.** O teste mede processador com `std::clock()` (`tests/loop_hidden_test.cpp:417,478,481`). **No compilador da Microsoft, `clock()` devolve tempo de PAREDE desde o inicio do processo, nao tempo de processador** - ao contrario do Unix, onde devolve tempo de processador. Documentado pela propria Microsoft.
+
+**A assinatura numerica nao deixa duvida, e eu a medi:**
+```
+wall_ns=707018400  cpu_ns=707000000
+wall_ns=805139600  cpu_ns=805000000
+wall_ns=902195500  cpu_ns=903000000
+```
+O valor de "processador" e' **sempre multiplo exato de um milissegundo** (o grao de `CLOCKS_PER_SEC`) e **sempre a menos de um milissegundo do tempo de parede**. Ou seja: a razao `cpu/parede` ia dar mil no Windows **quer o laco dormisse, quer nao**. O criterio era incapaz de reprovar ou aprovar naquele sistema.
+
+**Consequencia: o laco DORME certo no Windows com a janela minimizada.** Nao ha queima de processador; havia uma regua quebrada. Conserto: a metade Windows do teste passa a ler tempo de processador pela chamada propria do sistema, e as duas metades ganham a mesma prova.
+
+**DEFEITO 2 — continua real, mas nao pela razao que eu supus.** Minha hipotese era "a mesma porta de espera nao espera nos dois casos". **Refutada por medicao:** a porta de espera **dorme** os cem milissegundos no Windows. O que acontece no teto de quadros e' que o motor **nao esperou de todo** - nao "esperou pouco". Restam duas hipoteses, que so instrumentacao no servidor separa: ou o valor do teto nao chega a quem o le, ou o calculo do prazo devolve zero toda vez.
+
+**O que fica de licao, contra mim:** eu tinha **dois numeros** e inventei **uma historia** que os unia. A historia era plausivel, encaixava nos dois sintomas, e estava errada. O C-level nao aceitou a hipotese do orquestrador e foi medir - e e' por isso que o papel dele existe. **Numero medido vence historia coerente, inclusive a minha.**
+
+**E fica um registro sobre o metodo que acertou:** a pesquisa da dor da comunidade, que o lider exige ANTES do desenho, e' o que trouxe o comportamento de `clock()` no Windows. Sem ela, o conserto teria comecado reescrevendo a espera do Win32 - trabalho no lugar errado, num caminho que ja funcionava.

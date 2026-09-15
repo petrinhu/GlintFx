@@ -26,7 +26,7 @@ This section states what actually exists in the source tree today, not what is p
 
 **Not implemented yet:** 2D rendering (an internal OpenGL function loader exists, `src/render/`, but nothing draws a shape or an image yet), input event delivery (keyboard, mouse, gamepad), audio, font rendering, asset loading, and the map format. A style-sheet parser and a selector-matching engine for a future style/layout engine already exist internally (see [`docs/node-view-and-matching.md`](docs/node-view-and-matching.md) for the one part of that engine that is a public contract today), but there is no public API for styling or layout yet. There is no working demo application yet. If you need any of the above today, glintfx is not ready for you. Watch [`TODO.md`](TODO.md) (in Portuguese, the maintainer's working language) for progress, or run `git tag --list 'v*'` against a clone for what has been marked so far.
 
-**Ten versions have been tagged so far; the most recent is `v0.3.8.0`, cut 13/09/2026** (`v0.2.0.0` through `v0.3.8.0` - run `git tag --list 'v*'` against a clone to see all of them). None of them is accompanied by a formal GitHub Release: as of this writing there is no entry on the repository's releases page for any tag (checked directly against the repository, not assumed from this file), so each tag's own annotated message, not a release-notes page, is the authoritative description of what it marks and what it does not guarantee - read it with `git show <tag>` on a clone. There is still no ABI or file-format compatibility guarantee across a `MAJOR` bump before `1.0.0.0`; see "Versioning" below for exactly what that means, and "Pinning a version" below for what a consumer can do with a tag today.
+**Eleven versions have been tagged so far; the most recent is `v0.4.0.0`, cut 15/09/2026** (`v0.2.0.0` through `v0.4.0.0` - run `git tag --list 'v*'` against a clone to see all of them). None of them is accompanied by a formal GitHub Release: as of this writing there is no entry on the repository's releases page for any tag (checked directly against the repository, not assumed from this file), so each tag's own annotated message, not a release-notes page, is the authoritative description of what it marks and what it does not guarantee - read it with `git show <tag>` on a clone. There is still no ABI or file-format compatibility guarantee across a `MAJOR` bump before `1.0.0.0`; see "Versioning" below for exactly what that means, and "Pinning a version" below for what a consumer can do with a tag today.
 
 ## Supported platforms
 
@@ -108,14 +108,14 @@ glintfx tracks **three separate compatibility contracts**, not two, because a bi
 
 "Pinning" means telling your build to always use one exact, specific copy of glintfx, instead of whatever the latest commit happens to be at the moment you build. **If you do not pin, a later build of your own project can silently pull in a glintfx that compiles differently, links differently, or behaves differently than the one you tested against** - before 1.0 (see the table above), that is not a rare edge case, it is the expected state of this repository at any given moment.
 
-**Ten versions have been tagged so far; the most recent is `v0.3.8.0`** (see "Status" above). Pin to the latest directly, or to any earlier tag (`git tag --list 'v*'` against a clone shows all ten) - `GIT_TAG` takes a tag name exactly the way it takes a commit SHA:
+**Eleven versions have been tagged so far; the most recent is `v0.4.0.0`** (see "Status" above). Pin to the latest directly, or to any earlier tag (`git tag --list 'v*'` against a clone shows all eleven) - `GIT_TAG` takes a tag name exactly the way it takes a commit SHA:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
   glintfx
   GIT_REPOSITORY https://github.com/petrinhu/GlintFx.git
-  GIT_TAG        v0.3.8.0
+  GIT_TAG        v0.4.0.0
 )
 FetchContent_MakeAvailable(glintfx)
 ```
@@ -128,7 +128,7 @@ The public error-handling contract (the type every fallible function returns, wh
 
 ## Changes
 
-See [`CHANGELOG.md`](CHANGELOG.md), kept current with the tags as of this writing: its most recent dated section is `[0.3.8.0]`, matching the most recent tag (see "Status" above), and the compare/release links at the bottom of the file point at it too.
+See [`CHANGELOG.md`](CHANGELOG.md), kept current with the tags as of this writing: its most recent dated section is `[0.4.0.0]`, matching the most recent tag (see "Status" above), and the compare/release links at the bottom of the file point at it too.
 
 ## License
 

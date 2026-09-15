@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), ada
 
 ## [Unreleased]
 
+## [0.4.0.0] - 2026-09-15
+
 ### Changed (Breaking)
 
 - **The main loop's callbacks (`gltfx_loop_callbacks::on_frame`/`on_render`/`on_event`) are now a plain `noexcept` function pointer plus an opaque `void *context`, never `std::function` (`LOOP-CALLBACK-THROW`).** Code that passed a lambda with captured state, or a function not declared `noexcept`, stops compiling at the exact line that assigns it - it never compiled correctly before either: `std::function` erased the `noexcept` guarantee, so a throwing callback had nothing in the type system stopping it, and the resulting exception crossing `gltfx_loop::run()`'s own `noexcept` boundary ended the consumer's process with no diagnostic from this library at all. See `docs/api-conventions.md` R10 for the full four-layer contract this closes, including what none of the four layers can do for a consumer.
@@ -169,7 +171,8 @@ The first tagged version of glintfx. It marks the point where all five supported
 
 - glintfx is pre-1.0: the public surface can still change at any time, and any compatibility promise made today only holds within the same second version component.
 
-[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.3.8.0...HEAD
+[Unreleased]: https://github.com/petrinhu/GlintFx/compare/v0.4.0.0...HEAD
+[0.4.0.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.8.0...v0.4.0.0
 [0.3.8.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.7.0...v0.3.8.0
 [0.3.7.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.6.0...v0.3.7.0
 [0.3.6.0]: https://github.com/petrinhu/GlintFx/compare/v0.3.5.0...v0.3.6.0

@@ -90,8 +90,8 @@ later, silently start compiling against a different glintfx than the one
 that was tested - the failure mode ranges from a compiler error to a
 runtime bug with no compile-time signal at all.
 
-**Ten versions have been tagged so far; the most recent is
-`v0.3.8.0`, cut 13/09/2026** (`v0.2.0.0` through `v0.3.8.0` - run
+**Eleven versions have been tagged so far; the most recent is
+`v0.4.0.0`, cut 15/09/2026** (`v0.2.0.0` through `v0.4.0.0` - run
 `git tag --list 'v*'` against a clone to see all of them). None is
 accompanied by a formal GitHub Release (checked directly against
 the repository: no entry exists on the releases page for any tag as
@@ -99,13 +99,13 @@ of this writing) - each tag's own annotated message (`git show
 <tag>` on a clone) is the authoritative description of what it
 marks, not a release-notes page. Its own `CHANGELOG.md` is kept
 current with the tags as of this writing: its most recent dated
-section is `[0.3.8.0]`, matching the most recent tag, and the
+section is `[0.4.0.0]`, matching the most recent tag, and the
 compare/release links at the bottom of that file point at it too.
 
 Pin `GIT_TAG` to the tag name directly:
 
 ```bash
-GIT_TAG v0.3.8.0
+GIT_TAG v0.4.0.0
 ```
 
 A raw commit hash still works in the same field (find one with

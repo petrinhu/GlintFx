@@ -26,7 +26,7 @@ project(glintfx_consumer LANGUAGES CXX)
 # Ao subir o segundo numero de novo, esta linha sobe junto; ao chegar na
 # 1.0, a politica vira SameMajorVersion e esta linha passa a acompanhar o
 # PRIMEIRO numero.
-find_package(glintfx 0.3 REQUIRED)
+find_package(glintfx 0.4 REQUIRED)
 
 add_executable(consumer main.cpp)
 target_link_libraries(consumer PRIVATE glintfx::glintfx)

@@ -3385,3 +3385,28 @@ O valor de "processador" e' **sempre multiplo exato de um milissegundo** (o grao
 - **D13.3 — excecao que desliga uma assercao em TODOS os executores nao e excecao, e ausencia de prova.** O teto de quadros esta exatamente nesse estado: desligado no Linux por excecao, reprovando no Windows, **nunca provado vivo**. O portao passa a reprovar linha assim, salvo item de pendencia nomeado que assuma a divida.
 
 **Ordem de execucao decidida:** o conserto do instrumento (defeito 1) e a instrumentacao do teto (defeito 2, passo 1) entram **juntos**, porque os dois so se provam no servidor e uma ida serve para os dois. O conserto do teto (passo 2) so depois do numero.
+
+#### D-091507 — O teto de quadros esta quebrado em TODO sistema, e a causa esta identificada: o zero ambiguo  `[15/09/26 - 09:00:00]`
+
+O implementador foi alem do pedido: **rodou** o gemeo Linux do teto, em container com compositor real, em vez de so compilar. Resultado:
+
+```
+cap30_motor_wall_ms=32   (criterio 900..1500)   FALHOU
+```
+
+**O defeito NAO e do Windows. Ele esta no motor, e vale para todo sistema.** No Linux ele estava escondido porque a faixa esta desligada por excecao declarada; o Windows foi so o primeiro executor a **medir**. E o caso que reprovou nem abre janela nem contexto grafico - chama o teto direto -, entao **refuta por medicao** a hipotese de fiacao e **confirma** a do motor.
+
+**A causa, que eu reconferi linha a linha no codigo:**
+
+- `src/platform/loop/frame_cap_schedule.cpp:71-78` - quando o prazo **ainda nao chegou**, `plan()` devolve `(remaining_ns + 500'000) / 1'000'000`, ou seja, **arredonda para o milissegundo mais proximo**. Com menos de meio milissegundo restante, isso devolve **zero** - e esse caminho **nao avanca o prazo**.
+- `src/platform/loop/loop_engine.hpp:179-182` - o giro final e `while (wait_ms > 0) { wait_ms = plan(now); }`, e o comentario logo acima diz, com todas as letras, que **"plan() e quem diz a este laco que o prazo foi finalmente alcancado (valor de retorno 0), consumindo e avancando o proprio prazo na MESMA chamada que encerra este giro"**.
+
+**Essa suposicao e falsa.** `plan()` devolve zero em **duas** situacoes diferentes: prazo alcancado (e ai **avanca**) e resto menor que meio milissegundo (e ai **nao avanca**). O motor nao consegue distinguir as duas. Resultado medido: a primeira chamada espera certo (32 ms, o periodo); **as vinte e oito seguintes devolvem zero instantaneo**, porque o prazo ficou para tras e nunca mais foi realmente esperado.
+
+**Efeito para o consumidor externo:** pedir limite de quadros funciona **no primeiro quadro e em mais nenhum**. O laco corre livre a partir do segundo. Em qualquer sistema.
+
+**O texto do motor e um caso exemplar da familia que esta onda cacou a noite inteira:** um comentario longo, bem escrito, que **afirma uma propriedade que o codigo nao tem** - e que por isso mesmo impediu que alguem desconfiasse ao ler.
+
+- **D14.1 — o conserto vira fatia propria**, com o vermelho que ja existe (o gemeo Linux, que agora roda aqui e reprova) como ponto de partida. **Nao e fatia de Windows: e do motor.**
+- **D14.2 — a hipotese registrada pelo implementador fica, e ele acertou em registra-la.** Eu pedi so o numero cru; ele registrou o numero **mais** o mecanismo, marcado como hipotese de alta confianca e nao como fato, com a instrucao de medir antes de acreditar. Numero sem interpretacao obriga o proximo a refazer a investigacao inteira; interpretacao sem marcacao vira fato falso. Ele fez as duas coisas certas ao mesmo tempo.
+- **D14.3 — a excecao que desligava a faixa no Linux passa a ser divida nomeada, nao excecao.** Ela escondeu por dias um defeito que existe nos dois sistemas. E a D13.3 valendo no primeiro caso real.

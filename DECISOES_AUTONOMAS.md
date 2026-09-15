@@ -3331,3 +3331,19 @@ A reauditoria independente (mesmo auditor que reprovou, SHA `a9c95e3`, dossie em
 - **D11.1 — os tres achados de texto se consertam agora**, e a reauditoria reexamina so eles (nao exige container: sao texto).
 - **D11.2 — a FORMA do alvo nao muda nesta onda.** O auditor apontou que a forma coerente seria a do irmao (criacao direta, sem a ligacao inerte). Concordo com o diagnostico e **adio o conserto**: trocar o modo de criacao do unico alvo que levou a noite inteira para estabilizar, no fechamento da onda, troca um estado **medido e bom** por risco **nao medido**, e obrigaria a repetir o portao do compilador real. Vai para a caixa de entrada com a medicao e a razao do adiamento. Mesmo criterio que usei para o residuo de jargao em portugues: defeito conhecido e registrado vale mais que risco desconhecido introduzido as pressas.
 - **D11.3 — a ligacao inerte e a causa-raiz do desperdicio desta onda, e fica dito.** Ela fez a auditoria, o agente que consertou e **eu duas vezes, em direcoes opostas**, errarmos sobre o mesmo arquivo. Uma dependencia que nao faz nada mas engana quem le custa mais que uma que falta.
+
+#### D-091504 — A prova ao vivo achou DOIS defeitos reais de produto no Windows; a marca fica suspensa  `[15/09/26 - 08:05:00]`
+
+**A onda foi empurrada** (`247dc17`, push provado por `git ls-remote` contra `git rev-parse HEAD`, zero commits pendentes) e o servidor **REPROVOU**: 18 de 23 trabalhos verdes, e os **quatro** trabalhos do Windows vermelhos, mais o de paridade que depende deles.
+
+**Nao e falha de infraestrutura, e nao e regressao em codigo antigo.** Sao **os dois testes novos desta onda** reprovando no Windows **na primeira vez que executaram em maquina nenhuma** - exatamente o risco que estava declarado em todo documento desta onda, e a razao de a marca so poder sair depois do servidor.
+
+**DEFEITO 1 - a janela minimizada queima o processador inteiro.** Medido nos dois modos de sincronismo, nos quatro trabalhos: `cpu_ratio_permille` sai **999/1000** contra o criterio de **250**. No Linux sai **zero**. O tempo de parede e gasto (700 a 900 ms nos dez tiques ocultos), mas **gastando processador o tempo todo**: e' espera ocupada, nao sono. **Efeito para o consumidor:** um aplicativo minimizado no Windows queima um nucleo inteiro - bateria, calor e ventoinha, exatamente a familia de `LOOP-CLOSE-LATCH-SPIN`, agora no outro sistema.
+
+**DEFEITO 2 - o teto de quadros nao e respeitado.** Trinta quadros com teto de 30 por segundo deveriam levar perto de mil milissegundos; no Windows levaram **200 a 366**, com **0 de 30 tiques sem desenho** (ou seja, a janela estava visivel e desenhando, e a faixa valia). **Efeito para o consumidor:** pedir limite de quadros no Windows nao limita nada - o laco corre tres a cinco vezes mais rapido que o pedido.
+
+**Hipotese unica, a medir, nao afirmada:** os dois sao sobre **espera** e ambos no Win32. A espera de janela oculta gasta tempo de parede mas gira; a espera do teto nao gasta tempo nenhum. Cheira a implementacao de espera do Win32 que nao espera de verdade - e uma explicacao so cobriria os dois. **Isto e hipotese; quem for consertar mede antes de acreditar.**
+
+- **D12.1 — a marca `v0.4.0.0` fica SUSPENSA.** O lider autorizou o numero, nao a mentira. Marca sobre servidor vermelho e marca que mente, e a mensagem dela e o unico documento autoritativo que o consumidor externo tem.
+- **D12.2 — proibido reexecutar o trabalho para "ver se passa".** Ele rodou quatro minutos e reprovou com numero; reexecutar sem entender apaga a evidencia.
+- **D12.3 — a onda NAO fecha.** O criterio escrito no plano dela exige o servidor verde. Dois defeitos de produto achados e' o melhor resultado possivel para uma prova ao vivo que estreia num sistema - e' exatamente para isso que ela existe -, mas nao e fechamento.

@@ -1834,17 +1834,41 @@ endif()
 # them by this shared name, with no line in tests/parity_exceptions.txt
 # and no alias.
 #
-# UNLIKE loop_parity_test right above, this target does NOT link
-# glintfx::glintfx: it needs BOTH the public factories (exported with
-# GLINTFX_API) AND window_internal_access::get() (declared in the
-# public header, DEFINED only in window_facade.cpp, never in glintfx.
-# dll's export table, GODS_LAWS.md L-19) to reach the ONE HWND it has
-# to minimize. Every source below is the whole chain those public
-# handles PIMPL over on Windows, recompiled standalone - the same shape
-# win32_facade_pin_test already uses, including its GLINTFX_LIBRARY_
-# STATIC_DEFINE (without it MSVC raises C4273 "inconsistent dll
-# linkage" for a TU that both imports and defines the same symbol, and
-# /WX turns that into an error - CI run 34067447918).
+# MEASURED 15/09/2026 (reauditoria W7), correcting what this comment
+# used to claim: this target DOES link glintfx::glintfx - glintfx_add_
+# test() (cmake/GlintfxTest.cmake) links glintfx::glintfx into EVERY
+# target it creates, unconditionally, and loop_hidden_test is created
+# by glintfx_add_test() a few lines below, same as any other case in
+# this file. The form that does NOT link the DLL is win32_facade_pin_
+# test's own add_executable() further down, which this target does NOT
+# share. What this target actually is, measured: a hybrid - the DLL
+# imported for its exported factories AND window_internal_access::
+# get() (declared in the public header, DEFINED only in window_facade.
+# cpp, never placed in glintfx.dll's own export table, GODS_LAWS.md
+# L-19) PLUS the sources below recompiled standalone to reach the ONE
+# HWND it has to minimize.
+# GLINTFX_LIBRARY_STATIC_DEFINE is what makes that hybrid compile
+# (without it MSVC raises C4273 "inconsistent dll linkage" for a TU
+# that both imports and defines the same symbol, and /WX turns that
+# into an error - CI run 34067447918).
+#
+# Why the hybrid is not a defect, measured by the reauditoria: the
+# target links the DLL but uses NOTHING from it - it links clean with
+# no unresolved symbol even without the library, and there is no
+# duplicate symbol against the static build either; the real import
+# table of the linked executable (checked by the actual cl.exe/link.exe
+# toolchain, a positive control confirming system libraries DO show up
+# there) never lists the dynamic library. So there is exactly ONE copy
+# of the global state in this process, not two. check_win32_test_link.
+# py's own gate always links glintfx.lib too (the same hybrid a shared
+# build produces for real), which is why it catches a symbol collision
+# inside this one target (the sole target that defines GLINTFX_LIBRARY_
+# STATIC_DEFINE) and nowhere else. Changing this target's own shape to
+# match win32_facade_pin_test's add_executable() form is NOT done here
+# - it is a separate, measured, not-yet-acted-on item (`LOOP-HIDDEN-
+# TEST-FORMA-DO-ALVO`, TODO.md INBOX): reshaping the one target that
+# took a whole night to stabilize, at the close of this wave, trades a
+# measured-good state for an unmeasured risk.
 if(WIN32)
     glintfx_add_test(loop_hidden_test)
     target_include_directories(loop_hidden_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

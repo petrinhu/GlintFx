@@ -63,14 +63,21 @@
 //     install-mesa-opengl32.ps1) and gpu().kind resolves to `software`,
 //     which is exactly the third factor of the swap tolerance below.
 //
-// WHY THIS FIXTURE RECOMPILES THE FACADES INSTEAD OF LINKING THE DLL:
-// it needs BOTH the public factories and window_internal_access::get()
-// - declared in the public header, DEFINED only in window_facade.cpp,
-// never placed in glintfx.dll's export table (GODS_LAWS.md L-19). The
-// same reasoning, and the same GLINTFX_LIBRARY_STATIC_DEFINE, that
-// win32_facade_pin_test.cpp already carries. The passkey is used for
-// exactly ONE thing: the HWND to minimize. Everything asserted goes
-// through gltfx_loop/gltfx_window's public surface.
+// WHY THIS FIXTURE ALSO RECOMPILES THE FACADES, ON TOP OF LINKING THE
+// DLL (MEASURED 15/09/2026, reauditoria W7 - this target DOES link
+// glintfx::glintfx, same as every case glintfx_add_test() creates; the
+// gêmeo of the comment this one corrects lives in tests/CMakeLists.txt
+// right above where this target is registered):
+// it needs BOTH the public factories, imported from the DLL, AND
+// window_internal_access::get() - declared in the public header,
+// DEFINED only in window_facade.cpp, never placed in glintfx.dll's
+// export table (GODS_LAWS.md L-19). The same reasoning, and the same
+// GLINTFX_LIBRARY_STATIC_DEFINE, that win32_facade_pin_test.cpp already
+// carries (win32_facade_pin_test does NOT link the DLL; this fixture
+// does, on top of the recompiled sources - the two are not the same
+// shape, measured). The passkey is used for exactly ONE thing: the
+// HWND to minimize. Everything asserted goes through gltfx_loop/
+// gltfx_window's public surface.
 //
 // This project has no Windows toolchain on the machine that wrote this
 // file: it is proven ONLY by the server (sec. S4-F6 - the local

@@ -1963,8 +1963,12 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src"
     )
     # CI run 34067447918: this target compiles display_facade.cpp/
-    # window_facade.cpp/err.cpp/err_code.cpp DIRECTLY (this file's own
-    # comment above, "does NOT link glintfx::glintfx"), so it never
+    # window_facade.cpp/err.cpp/err_code.cpp DIRECTLY (per the FACADE-
+    # PIN comment right above this target's own add_executable() call,
+    # about THIS target, win32_facade_pin_test - "this target does NOT
+    # link glintfx::glintfx" - MEASURED true, 15/09/2026 reauditoria,
+    # unchanged by the loop_hidden_test correction further up this
+    # file, a DIFFERENT target that DOES link the DLL), so it never
     # inherits glintfx_apply_static_define()'s define the normal way
     # (PUBLIC target_link_libraries propagation - cmake/GlintfxLibrary.
     # cmake). Without it, include/glintfx/platform/window/display.hpp's

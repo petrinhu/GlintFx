@@ -331,6 +331,8 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
         /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/_arch_ports_src/src/core/time.cpp \
+        /build/_arch_ports_src/src/platform/loop/frame_cap_schedule.cpp \
         /build/wait_events_smoke.cpp \
         /build/alloc_counter_classify.cpp \
         /build/alloc_counter_hook.cpp \

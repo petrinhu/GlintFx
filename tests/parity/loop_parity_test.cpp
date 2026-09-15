@@ -129,7 +129,10 @@ gl_clear_fn g_clear = nullptr;
 // LOOP-FIRST-TICK-ELAPSED (13/09/2026): 18 -> 19, the new
 // elapsed_do_segundo_tique_mede_de_verdade check (L-40 global: this
 // constant IS the floor, so it moves the instant a check is added).
-constexpr int k_planned_assertions = 19;
+// LOOP-RUN, INSTRUMENTAR O TETO (15/09/2026, plano espera-win32.md sec.
+// 5.2 item 1): 19 -> 20, the new cap30_opcao_lida check (leitura de
+// volta da opcao de teto, separa a hipotese H2-A por conta propria).
+constexpr int k_planned_assertions = 20;
 
 int g_assertions_evaluated = 0;
 int g_assertions_failed = 0;
@@ -640,6 +643,23 @@ int main() {
             return EXIT_FAILURE;
         }
 
+        // LEITURA DE VOLTA DA OPCAO (plano espera-win32.md sec. 5.2
+        // item 1, achado H2-A): separa "o motor nao esperou porque
+        // frame_rate_cap_hz() nunca chegou a 30" de qualquer outra
+        // hipotese. O teste ja reprova se set_option() falhar (acima);
+        // esta linha reprova TAMBEM se ele gravar e nao ler de volta o
+        // mesmo valor - a mesma classe de defeito que este arquivo's
+        // own header comment ja descreve para set_option()/present().
+        const glintfx::gltfx_rslt<std::int64_t> cap_read_back =
+            context.option(glintfx::gltfx_gfx_option::frame_rate_cap);
+        const std::int64_t cap30_opcao_lida =
+            cap_read_back.has_value() ? cap_read_back.value() : -1;
+        std::fprintf(stdout, "MEASURED loop_parity_test.cap30_opcao_lida=%lld\n",
+                     static_cast<long long>(cap30_opcao_lida));
+        check("cap30_opcao_lida", !cap_read_back.has_error() && cap30_opcao_lida == 30, "== 30",
+              cap_read_back.has_error() ? err_text(cap_read_back.err())
+                                        : to_text(cap30_opcao_lida));
+
         // UM numero so para este trecho, lido pelo laco E pelo portao
         // logo abaixo: se alguem mudar a quantidade de ciclos e o
         // portao continuar comparando com um literal antigo, a
@@ -647,13 +667,34 @@ int main() {
         // exata de defeito que esta fatia existe para cacar.
         constexpr int k_cap_ticks = 30;
         int cap_ticks_without_render = 0;
+        // INSTRUMENTACAO POR TIQUE (plano sec. 5.2 item 2): separa "o
+        // motor nao esperou" de "esperou pouco" - nunca asseverada
+        // igual entre sistemas (tests/measured_exceptions.txt carrega a
+        // linha), so' impressa. Com o teto vivo o minimo de 29 dos 30
+        // tiques e' >= ~20 ms; se sair em microssegundos, o motor nao
+        // chegou a esperar (F9/F10 do plano).
+        std::int64_t cap_step_ns_min = -1;
+        std::int64_t cap_step_ns_max = -1;
+        std::int64_t cap_step_ns_total = 0;
         const auto cap_start = std::chrono::steady_clock::now();
         for (int i = 0; i < k_cap_ticks; ++i) {
+            const auto cap_step_start = std::chrono::steady_clock::now();
             glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
+            const auto cap_step_end = std::chrono::steady_clock::now();
             if (ticked.has_error()) {
                 std::fprintf(stderr, "loop_parity_test: step() com teto #%d falhou: %s\n", i + 1,
                              err_text(ticked.err()).c_str());
                 return EXIT_FAILURE;
+            }
+            const std::int64_t cap_step_ns =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(cap_step_end - cap_step_start)
+                    .count();
+            cap_step_ns_total += cap_step_ns;
+            if (cap_step_ns_min < 0 || cap_step_ns < cap_step_ns_min) {
+                cap_step_ns_min = cap_step_ns;
+            }
+            if (cap_step_ns > cap_step_ns_max) {
+                cap_step_ns_max = cap_step_ns;
             }
             if (!ticked.value().should_render) {
                 ++cap_ticks_without_render;
@@ -685,6 +726,13 @@ int main() {
             std::chrono::duration_cast<std::chrono::milliseconds>(cap_end - cap_start).count();
         std::fprintf(stdout, "MEASURED loop_parity_test.cap30_wall_ms=%lld\n",
                      static_cast<long long>(cap30_wall_ms));
+        const std::int64_t cap_step_ns_mean = cap_step_ns_total / k_cap_ticks;
+        std::fprintf(stdout, "MEASURED loop_parity_test.cap30_step_ns_min=%lld\n",
+                     static_cast<long long>(cap_step_ns_min));
+        std::fprintf(stdout, "MEASURED loop_parity_test.cap30_step_ns_mean=%lld\n",
+                     static_cast<long long>(cap_step_ns_mean));
+        std::fprintf(stdout, "MEASURED loop_parity_test.cap30_step_ns_max=%lld\n",
+                     static_cast<long long>(cap_step_ns_max));
         // DIAGNOSTICO, nunca assercao: um tique que recusa desenhar paga
         // a espera de janela escondida (100 ms) EM VEZ da espera do teto
         // de quadros, entao este numero e' o que separa "o teto nao

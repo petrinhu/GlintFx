@@ -10,6 +10,9 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "platform/loop/frame_cap_schedule.hpp"
+#include "platform/loop/loop_engine.hpp"
+#include "platform/loop/steady_loop_clock.hpp"
 #include "platform/wayland/display_adapter.hpp"
 
 // wait_events_smoke.cpp - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-6-8.md
@@ -39,6 +42,24 @@
 // connection during leg 1 (something the compositor sent unprompted)
 // retries ONCE, printing stray_event=1 - a second occurrence fails the
 // fixture for real, never silently absorbed.
+//
+// LOOP-RUN, INSTRUMENTAR O TETO, PASSO 1, GEMEO LINUX (15/09/2026,
+// plano espera-win32.md sec. 5.2 item 3, execucao 34959739763): o
+// PRIMEIRO teste do teto de quadros VIVO que este lado jamais teve -
+// loop_parity_test.cpp's own cap30_wall_ms esteve desligada aqui desde
+// 13/09/2026 pela excecao SONDA-OCULTA-PUNE-JANELA-VISIVEL (tests/
+// measured_exceptions.txt), porque aquele teste abre janela e contexto
+// grafico, e o kwin_wayland --virtual deste container nunca entrega o
+// retorno de quadro do EGL. Este arquivo ganha uma segunda prova, mais
+// abaixo em main(), que chama wait_for_frame_cap() (platform/loop/
+// loop_engine.hpp) DIRETO sobre o MESMO adapter real ja aberto acima -
+// sem janela, sem contexto grafico, sem present() - entao o defeito de
+// ambiente que desliga a faixa em loop_parity_test.cpp nao tem como
+// existir aqui: nao ha janela nenhuma para o compositor julgar
+// escondida. Gemeo Windows: tests/win32_wait_events_test.cpp's own
+// win32_wait_events_frame_cap_30hz_motor_isolated_from_fiacao - mesma
+// faixa (900..1500 ms), mesmo motor, mesma isolacao da fiacao que le
+// frame_rate_cap_hz() do contexto grafico (H2-A x H2-B, plano sec. 3).
 
 namespace {
 
@@ -145,7 +166,39 @@ int main() {
     std::fprintf(stdout, "wait_events_smoke: no_event_ms=%lld (criterio 40..500) OK\n",
                  no_event_ms);
     std::fprintf(stdout, "wait_events_smoke: event_ms=%lld (criterio <500) OK\n", event_ms);
-    std::fprintf(stdout, "wait_events_smoke: assercoes 2 de 2 avaliadas\n");
+
+    // GEMEO LINUX DO TETO DE QUADROS AO VIVO (este arquivo's own header
+    // comment, "INSTRUMENTAR O TETO, PASSO 1"): wait_for_frame_cap()
+    // DIRETO sobre o MESMO adapter real, sem janela nem contexto
+    // grafico - 30 tiques a 30 Hz.
+    glintfx::platform::frame_cap_schedule cap_schedule;
+    glintfx::platform::steady_loop_clock cap_clock;
+    constexpr int k_cap_ticks = 30;
+    constexpr std::uint32_t k_cap_hz = 30;
+    const auto cap_start = std::chrono::steady_clock::now();
+    for (int i = 0; i < k_cap_ticks; ++i) {
+        const glintfx::gltfx_rslt<void> capped =
+            glintfx::platform::wait_for_frame_cap(adapter, cap_schedule, k_cap_hz, cap_clock);
+        if (capped.has_error()) {
+            std::fprintf(stderr, "wait_events_smoke: wait_for_frame_cap #%d falhou: %s\n", i + 1,
+                         std::string(glintfx::gltfx_err_code_name(capped.err().code())).c_str());
+            return EXIT_FAILURE;
+        }
+    }
+    const long long cap30_motor_wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                              std::chrono::steady_clock::now() - cap_start)
+                                              .count();
+    std::fprintf(stdout, "MEASURED wait_events_smoke.cap30_motor_wall_ms=%lld\n",
+                 cap30_motor_wall_ms);
+    if (cap30_motor_wall_ms < 900 || cap30_motor_wall_ms > 1500) {
+        std::fprintf(stderr,
+                     "wait_events_smoke: cap30_motor_wall_ms=%lld (criterio 900..1500) FAIL\n",
+                     cap30_motor_wall_ms);
+        return EXIT_FAILURE;
+    }
+    std::fprintf(stdout, "wait_events_smoke: cap30_motor_wall_ms=%lld (criterio 900..1500) OK\n",
+                 cap30_motor_wall_ms);
+    std::fprintf(stdout, "wait_events_smoke: assercoes 3 de 3 avaliadas\n");
 
     if (adapter.has_fatal_error()) {
         std::fprintf(stderr,

@@ -700,8 +700,8 @@ int main() {
         // nao fala mais sobre o teto - fato de ambiente medido em
         // 13/09/2026 (kwin_wayland --virtual nunca entrega o retorno de
         // quadro do EGL), declarado e CONTADO em tests/measured_
-        // exceptions.txt sob o item LOOP-CAP30-KWIN-VIRTUAL, com a
-        // prova da biblioteca no lugar dele (frame_cap_schedule_test,
+        // exceptions.txt sob o item SONDA-OCULTA-PUNE-JANELA-VISIVEL
+        // (TODO.md), com a prova da biblioteca no lugar dele (frame_cap_schedule_test,
         // sem sistema operacional, seis celulas que mordem por mutacao).
         // Num executor que mostra a janela - o Windows de hoje, e um
         // compositor de sessao real amanha - a faixa volta a reprovar.
@@ -721,7 +721,7 @@ int main() {
         check("cap30_wall_ms",
               cap_every_tick_was_hidden || (cap30_wall_ms >= 900 && cap30_wall_ms <= 1500),
               "900..1500 ms, desligado SO quando os 30 tiques recusaram desenhar "
-              "(LOOP-CAP30-KWIN-VIRTUAL)",
+              "(SONDA-OCULTA-PUNE-JANELA-VISIVEL)",
               to_text(cap30_wall_ms) + " ms, com " + to_text(cap_ticks_without_render) + " de " +
                   to_text(k_cap_ticks) + " tiques sem desenho");
 

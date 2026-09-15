@@ -17,6 +17,9 @@
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
+#include "platform/loop/frame_cap_schedule.hpp"
+#include "platform/loop/loop_engine.hpp"
+#include "platform/loop/steady_loop_clock.hpp"
 #include "platform/win32/display_adapter.hpp"
 
 // win32_wait_events_test.cpp - LOOP-RUN fatia 7 (docs/plano-w6b-fatias-
@@ -120,6 +123,54 @@ GLINTFX_TEST(win32_wait_events_reports_high_resolution_wait_capability) {
 
     std::println("MEASURED win32_wait_events_test.high_resolution_wait={}",
                  display.high_resolution_wait());
+}
+
+// LOOP-RUN, INSTRUMENTAR O TETO, PASSO 1 (15/09/2026, plano espera-
+// win32.md sec. 3/5.2 item 3, execucao 34959739763 - vermelho:
+// cap30_wall_ms de loop_parity_test.cpp saiu 200..366 ms onde a
+// construcao do motor garante >= 967 ms): prova do MOTOR do teto de
+// quadros ISOLADO da FIACAO que le frame_rate_cap_hz() do contexto
+// grafico - chama wait_for_frame_cap() (platform/loop/loop_engine.hpp)
+// DIRETO, com um win32_display_adapter REAL e um frame_cap_schedule
+// REAL, 30 vezes a 30 Hz, sem NENHUM contexto grafico, janela ou
+// present() envolvido. Separa as duas hipoteses do plano (sec. 3):
+//   - H2-A (a fiacao nunca entrega 30 a frame_rate_cap_hz()): este
+//     teste passaria mesmo com o defeito presente, porque ele nunca
+//     passa pela fiacao - a leitura de volta da opcao em loop_parity_
+//     test.cpp (cap30_opcao_lida) e' quem prova ou refuta H2-A;
+//   - H2-B (o motor/wait_for_frame_cap nao espera de verdade): este
+//     teste reprova pela MESMA faixa 900..1500 ms que loop_parity_
+//     test.cpp usa, porque aqui NAO HA fiacao nenhuma para culpar - se
+//     reprovar aqui, a causa esta' em frame_cap_schedule.cpp ou em
+//     loop_engine.hpp, nunca na leitura da opcao.
+// Gemeo Linux: tests/container/wait_events_smoke.cpp (mesma faixa,
+// mesmo par display real + schedule real + clock real, com o adaptador
+// Wayland) - o PRIMEIRO teste do teto de quadros vivo que o Linux
+// jamais teve (F6 do plano: cap30_wall_ms sempre esteve desligada la'
+// pela excecao SONDA-OCULTA-PUNE-JANELA-VISIVEL).
+GLINTFX_TEST(win32_wait_events_frame_cap_30hz_motor_isolated_from_fiacao) {
+    glintfx::platform::win32_display_adapter display;
+    GLINTFX_CHECK(!display.open().has_error());
+
+    glintfx::platform::frame_cap_schedule schedule;
+    glintfx::platform::steady_loop_clock clock;
+
+    constexpr int k_cap_ticks = 30;
+    constexpr std::uint32_t k_cap_hz = 30;
+
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < k_cap_ticks; ++i) {
+        const glintfx::gltfx_rslt<void> waited =
+            glintfx::platform::wait_for_frame_cap(display, schedule, k_cap_hz, clock);
+        GLINTFX_CHECK(!waited.has_error());
+    }
+    const long long cap30_motor_wall_ms = elapsed_ms_since(start);
+
+    std::println("MEASURED win32_wait_events_test.cap30_motor_wall_ms={}", cap30_motor_wall_ms);
+    GLINTFX_CHECK(cap30_motor_wall_ms >= 900 && cap30_motor_wall_ms <= 1500);
+    std::println("win32_wait_events_test: cap30_motor_wall_ms={} (criterio 900..1500, motor "
+                 "isolado da fiacao) OK",
+                 cap30_motor_wall_ms);
 }
 
 #endif // defined(_WIN32)

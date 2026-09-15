@@ -3331,3 +3331,108 @@ A reauditoria independente (mesmo auditor que reprovou, SHA `a9c95e3`, dossie em
 - **D11.1 — os tres achados de texto se consertam agora**, e a reauditoria reexamina so eles (nao exige container: sao texto).
 - **D11.2 — a FORMA do alvo nao muda nesta onda.** O auditor apontou que a forma coerente seria a do irmao (criacao direta, sem a ligacao inerte). Concordo com o diagnostico e **adio o conserto**: trocar o modo de criacao do unico alvo que levou a noite inteira para estabilizar, no fechamento da onda, troca um estado **medido e bom** por risco **nao medido**, e obrigaria a repetir o portao do compilador real. Vai para a caixa de entrada com a medicao e a razao do adiamento. Mesmo criterio que usei para o residuo de jargao em portugues: defeito conhecido e registrado vale mais que risco desconhecido introduzido as pressas.
 - **D11.3 — a ligacao inerte e a causa-raiz do desperdicio desta onda, e fica dito.** Ela fez a auditoria, o agente que consertou e **eu duas vezes, em direcoes opostas**, errarmos sobre o mesmo arquivo. Uma dependencia que nao faz nada mas engana quem le custa mais que uma que falta.
+
+#### D-091504 — A prova ao vivo achou DOIS defeitos reais de produto no Windows; a marca fica suspensa  `[15/09/26 - 08:05:00]`
+
+**A onda foi empurrada** (`247dc17`, push provado por `git ls-remote` contra `git rev-parse HEAD`, zero commits pendentes) e o servidor **REPROVOU**: 18 de 23 trabalhos verdes, e os **quatro** trabalhos do Windows vermelhos, mais o de paridade que depende deles.
+
+**Nao e falha de infraestrutura, e nao e regressao em codigo antigo.** Sao **os dois testes novos desta onda** reprovando no Windows **na primeira vez que executaram em maquina nenhuma** - exatamente o risco que estava declarado em todo documento desta onda, e a razao de a marca so poder sair depois do servidor.
+
+**DEFEITO 1 - a janela minimizada queima o processador inteiro.** Medido nos dois modos de sincronismo, nos quatro trabalhos: `cpu_ratio_permille` sai **999/1000** contra o criterio de **250**. No Linux sai **zero**. O tempo de parede e gasto (700 a 900 ms nos dez tiques ocultos), mas **gastando processador o tempo todo**: e' espera ocupada, nao sono. **Efeito para o consumidor:** um aplicativo minimizado no Windows queima um nucleo inteiro - bateria, calor e ventoinha, exatamente a familia de `LOOP-CLOSE-LATCH-SPIN`, agora no outro sistema.
+
+**DEFEITO 2 - o teto de quadros nao e respeitado.** Trinta quadros com teto de 30 por segundo deveriam levar perto de mil milissegundos; no Windows levaram **200 a 366**, com **0 de 30 tiques sem desenho** (ou seja, a janela estava visivel e desenhando, e a faixa valia). **Efeito para o consumidor:** pedir limite de quadros no Windows nao limita nada - o laco corre tres a cinco vezes mais rapido que o pedido.
+
+**Hipotese unica, a medir, nao afirmada:** os dois sao sobre **espera** e ambos no Win32. A espera de janela oculta gasta tempo de parede mas gira; a espera do teto nao gasta tempo nenhum. Cheira a implementacao de espera do Win32 que nao espera de verdade - e uma explicacao so cobriria os dois. **Isto e hipotese; quem for consertar mede antes de acreditar.**
+
+- **D12.1 — a marca `v0.4.0.0` fica SUSPENSA.** O lider autorizou o numero, nao a mentira. Marca sobre servidor vermelho e marca que mente, e a mensagem dela e o unico documento autoritativo que o consumidor externo tem.
+- **D12.2 — proibido reexecutar o trabalho para "ver se passa".** Ele rodou quatro minutos e reprovou com numero; reexecutar sem entender apaga a evidencia.
+- **D12.3 — a onda NAO fecha.** O criterio escrito no plano dela exige o servidor verde. Dois defeitos de produto achados e' o melhor resultado possivel para uma prova ao vivo que estreia num sistema - e' exatamente para isso que ela existe -, mas nao e fechamento.
+
+#### D-091505 — CORRECAO: o "defeito 1" era do INSTRUMENTO, nao do produto; e a minha hipotese de causa unica foi refutada  `[15/09/26 - 08:20:00]`
+
+Eu relatei ao lider **dois defeitos reais de produto** no Windows. **Um deles nao e defeito de produto**, e a minha hipotese de que os dois tinham a mesma causa foi **refutada por medicao** pelo C-level que planejou o conserto. Corrijo aqui, sem apagar o registro anterior.
+
+**DEFEITO 1 — era o INSTRUMENTO.** O teste mede processador com `std::clock()` (`tests/loop_hidden_test.cpp:417,478,481`). **No compilador da Microsoft, `clock()` devolve tempo de PAREDE desde o inicio do processo, nao tempo de processador** - ao contrario do Unix, onde devolve tempo de processador. Documentado pela propria Microsoft.
+
+**A assinatura numerica nao deixa duvida, e eu a medi:**
+```
+wall_ns=707018400  cpu_ns=707000000
+wall_ns=805139600  cpu_ns=805000000
+wall_ns=902195500  cpu_ns=903000000
+```
+O valor de "processador" e' **sempre multiplo exato de um milissegundo** (o grao de `CLOCKS_PER_SEC`) e **sempre a menos de um milissegundo do tempo de parede**. Ou seja: a razao `cpu/parede` ia dar mil no Windows **quer o laco dormisse, quer nao**. O criterio era incapaz de reprovar ou aprovar naquele sistema.
+
+**Consequencia: o laco DORME certo no Windows com a janela minimizada.** Nao ha queima de processador; havia uma regua quebrada. Conserto: a metade Windows do teste passa a ler tempo de processador pela chamada propria do sistema, e as duas metades ganham a mesma prova.
+
+**DEFEITO 2 — continua real, mas nao pela razao que eu supus.** Minha hipotese era "a mesma porta de espera nao espera nos dois casos". **Refutada por medicao:** a porta de espera **dorme** os cem milissegundos no Windows. O que acontece no teto de quadros e' que o motor **nao esperou de todo** - nao "esperou pouco". Restam duas hipoteses, que so instrumentacao no servidor separa: ou o valor do teto nao chega a quem o le, ou o calculo do prazo devolve zero toda vez.
+
+**O que fica de licao, contra mim:** eu tinha **dois numeros** e inventei **uma historia** que os unia. A historia era plausivel, encaixava nos dois sintomas, e estava errada. O C-level nao aceitou a hipotese do orquestrador e foi medir - e e' por isso que o papel dele existe. **Numero medido vence historia coerente, inclusive a minha.**
+
+**E fica um registro sobre o metodo que acertou:** a pesquisa da dor da comunidade, que o lider exige ANTES do desenho, e' o que trouxe o comportamento de `clock()` no Windows. Sem ela, o conserto teria comecado reescrevendo a espera do Win32 - trabalho no lugar errado, num caminho que ja funcionava.
+
+#### D-091506 — Mais uma correcao minha, e os tres mecanismos que impedem o proximo caso  `[15/09/26 - 08:25:00]`
+
+**CORRECAO 2, minha, medida pelo C-level:** eu afirmei em D-091504 e repeti ao lider que **"a espera do Win32 nunca foi executada"**. **E falso.** `win32_wait_events_test` compila o adaptador **real** e passou no servidor em 13/09 e hoje. O que nunca tinha executado no Windows era **o LACO por cima da espera** (`loop_parity_test`/`loop_hidden_test`, nascidos em `e6ed604`, que chegaram ao servidor hoje pela primeira vez). Terceira vez que concluo a partir de leitura estreita nesta onda; nas tres quem mediu me corrigiu.
+
+**E uma correcao que muda o enquadramento do defeito 2:** eu disse "no Linux funciona". **Vale para o defeito 1, nao para o 2.** No Linux a faixa do teto de quadros esta **DESLIGADA** pela excecao `SONDA-OCULTA-PUNE-JANELA-VISIVEL` (trinta de trinta tiques sem desenho). **O teto de quadros nunca foi provado vivo em sistema nenhum** - so o atomo sem sistema operacional. O Windows nao esta pior que o Linux aqui; e o primeiro executor a **medir** o teto, e ele reprovou.
+
+**O que a leitura fecha, e e forte:** o motor repete planejar-e-esperar ate o prazo chegar **pelo relogio**, com giro final. Com teto de trinta, a parede de trinta tiques seria pelo menos **967 ms aconteca o que acontecer dentro da espera** (retorno imediato, temporizador invalido ou grao grosso **so atrasam**). O relogio do motor mede certo (medido: 21,97 ms para um sono de 20). Logo, 200 a 366 ms **so e possivel se o motor nao chegou a esperar** - e as duas hipoteses que sobram (o valor do teto nao chega a quem le, ou o calculo do prazo devolve zero) **so a instrumentacao no servidor separa**.
+
+**A pergunta de processo, respondida com mecanismo e nao com aviso.** O que segurou o defeito nao foi desatencao: foi **ausencia de executor** entre o commit e o tronco. O projeto empurra por onda e nao tem Windows local; o instrumento foi **portado de uma metade para a outra sem calibracao**; e uma frase no canon ("so o servidor prova") **nao executa nada**. Adoto os tres:
+
+- **D13.1 — toda chave medida nasce com CELULA DE CALIBRACAO**, com estimulo positivo e negativo conhecidos, executada em **todo** executor **antes** da assercao de produto. Sessenta milissegundos girando tem de dar razao alta; sessenta dormindo, razao baixa. **Se o instrumento nao distingue os dois, ele nao mede** - e foi exatamente isso que aconteceu. Vira portao, com sabotagem de estreia.
+- **D13.2 — fatia cujo unico executor e o servidor so entra no tronco com uma execucao de servidor sobre RAMO DE PROVA, citada no commit.** **Medi a L-11 do projeto antes de propor: ela ja manda todo codigo passar por ramo** (emenda de 06/09, "todo o resto vai para ramo"; so registro de decisao vai direto). Entao **isto nao quebra nem flexibiliza lei nenhuma** - e' procedimento dentro da lei que ja existe, e eu nao preciso de dispensa do lider para adota-lo. Fica para ratificacao retroativa como qualquer decisao autonoma.
+- **D13.3 — excecao que desliga uma assercao em TODOS os executores nao e excecao, e ausencia de prova.** O teto de quadros esta exatamente nesse estado: desligado no Linux por excecao, reprovando no Windows, **nunca provado vivo**. O portao passa a reprovar linha assim, salvo item de pendencia nomeado que assuma a divida.
+
+**Ordem de execucao decidida:** o conserto do instrumento (defeito 1) e a instrumentacao do teto (defeito 2, passo 1) entram **juntos**, porque os dois so se provam no servidor e uma ida serve para os dois. O conserto do teto (passo 2) so depois do numero.
+
+#### D-091507 — O teto de quadros esta quebrado em TODO sistema, e a causa esta identificada: o zero ambiguo  `[15/09/26 - 09:00:00]`
+
+O implementador foi alem do pedido: **rodou** o gemeo Linux do teto, em container com compositor real, em vez de so compilar. Resultado:
+
+```
+cap30_motor_wall_ms=32   (criterio 900..1500)   FALHOU
+```
+
+**O defeito NAO e do Windows. Ele esta no motor, e vale para todo sistema.** No Linux ele estava escondido porque a faixa esta desligada por excecao declarada; o Windows foi so o primeiro executor a **medir**. E o caso que reprovou nem abre janela nem contexto grafico - chama o teto direto -, entao **refuta por medicao** a hipotese de fiacao e **confirma** a do motor.
+
+**A causa, que eu reconferi linha a linha no codigo:**
+
+- `src/platform/loop/frame_cap_schedule.cpp:71-78` - quando o prazo **ainda nao chegou**, `plan()` devolve `(remaining_ns + 500'000) / 1'000'000`, ou seja, **arredonda para o milissegundo mais proximo**. Com menos de meio milissegundo restante, isso devolve **zero** - e esse caminho **nao avanca o prazo**.
+- `src/platform/loop/loop_engine.hpp:179-182` - o giro final e `while (wait_ms > 0) { wait_ms = plan(now); }`, e o comentario logo acima diz, com todas as letras, que **"plan() e quem diz a este laco que o prazo foi finalmente alcancado (valor de retorno 0), consumindo e avancando o proprio prazo na MESMA chamada que encerra este giro"**.
+
+**Essa suposicao e falsa.** `plan()` devolve zero em **duas** situacoes diferentes: prazo alcancado (e ai **avanca**) e resto menor que meio milissegundo (e ai **nao avanca**). O motor nao consegue distinguir as duas. Resultado medido: a primeira chamada espera certo (32 ms, o periodo); **as vinte e oito seguintes devolvem zero instantaneo**, porque o prazo ficou para tras e nunca mais foi realmente esperado.
+
+**Efeito para o consumidor externo:** pedir limite de quadros funciona **no primeiro quadro e em mais nenhum**. O laco corre livre a partir do segundo. Em qualquer sistema.
+
+**O texto do motor e um caso exemplar da familia que esta onda cacou a noite inteira:** um comentario longo, bem escrito, que **afirma uma propriedade que o codigo nao tem** - e que por isso mesmo impediu que alguem desconfiasse ao ler.
+
+- **D14.1 — o conserto vira fatia propria**, com o vermelho que ja existe (o gemeo Linux, que agora roda aqui e reprova) como ponto de partida. **Nao e fatia de Windows: e do motor.**
+- **D14.2 — a hipotese registrada pelo implementador fica, e ele acertou em registra-la.** Eu pedi so o numero cru; ele registrou o numero **mais** o mecanismo, marcado como hipotese de alta confianca e nao como fato, com a instrucao de medir antes de acreditar. Numero sem interpretacao obriga o proximo a refazer a investigacao inteira; interpretacao sem marcacao vira fato falso. Ele fez as duas coisas certas ao mesmo tempo.
+- **D14.3 — a excecao que desligava a faixa no Linux passa a ser divida nomeada, nao excecao.** Ela escondeu por dias um defeito que existe nos dois sistemas. E a D13.3 valendo no primeiro caso real.
+
+#### D-091508 — Os DOIS defeitos de produto estao consertados e provados no Windows; o que sobrou vermelho e a regua nova  `[15/09/26 - 09:52:00]`
+
+Execucao `34969449304` (ramo de prova `prova-teto-e-regua`, pedido de integracao #4). **Primeira vez que este projeto colhe execucao de servidor em ramo antes do tronco** - o mecanismo adotado hoje de manha (D13.2), no primeiro caso real.
+
+**O QUE FICOU PROVADO, no Windows, pela primeira vez:**
+- **Teto de quadros: CONSERTADO.** `loop_parity_test` **nao aparece** na lista de reprovados. O conserto do zero ambiguo vale nos dois sistemas, como previsto - e agora provado no unico executor que faltava.
+- **Janela minimizada: o laco DORME.** `cpu_ratio_permille=0`. O defeito que eu anunciei ao lider como "queima um nucleo" nunca existiu: era a regua.
+- **Windows sanitizador e Windows depuracao: VERDES**, pela primeira vez com estes testes.
+
+**O QUE SOBROU VERMELHO: a celula de calibracao que eu mesmo exigi.**
+```
+instrumento_giro_permille=777 e 781  (criterio >= 800)  FALHOU
+instrumento_sono_permille=259        (criterio <= 250)  FALHOU
+```
+
+**A causa, calculada e conclusiva:** o relogio de tempo de processador do Windows tem grao de cerca de **15,6 ms**. A janela de calibracao e de **60 ms**. Os numeros denunciam:
+- sono: `259` por mil de 60 ms = **15,5 ms** medidos = **exatamente 1,00 quantum**;
+- giro: falta `13,4 ms` para os 60 = **0,86 quantum**.
+
+**Nao e ruido nem maquina lenta: e quantizacao.** Uma janela de 60 ms nao consegue resolver melhor que +/- 26% num relogio de grao 15,6 ms. Os limiares 800 e 250 foram fixados nesta maquina, onde o grao e fino, e **nao sobrevivem no executor do servidor**.
+
+**Setima encarnacao de "portao que congela um fato do ambiente do autor" nesta onda** - e a primeira com mecanismo calculado em vez de adivinhado.
+
+- **D15.1 — conserta-se a JANELA, nao o limiar.** Alargar 800/250 ate caber calaria este executor e deixaria a regua incapaz de distinguir girar de dormir em qualquer maquina de grao grosso - exatamente o defeito que a calibracao existe para impedir. A janela passa a ser longa o bastante para o quantum ser desprezivel; com meio segundo, o erro cai para cerca de 3%.
+- **D15.2 — a regra vale para toda celula de calibracao futura:** a janela se dimensiona pelo **grao do relogio do pior executor**, nunca pelo da maquina de quem escreve. Entra junto com a D13.1.

@@ -1756,6 +1756,14 @@ if(WIN32)
         # gives in full for the identical pair.
         "${PROJECT_SOURCE_DIR}/src/platform/win32/window_message_route.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        # LOOP-RUN, INSTRUMENTAR O TETO (15/09/2026, plano espera-win32.md
+        # sec. 5.2 item 3): wait_for_frame_cap() (platform/loop/
+        # loop_engine.hpp) e' um template, header-only - mas frame_cap_
+        # schedule::plan() (platform/loop/frame_cap_schedule.cpp) que ele
+        # chama NAO e', e sem esta linha o novo caso win32_wait_events_
+        # frame_cap_30hz_motor_isolated_from_fiacao falha o link
+        # (LNK2019 em frame_cap_schedule::plan()).
+        "${PROJECT_SOURCE_DIR}/src/platform/loop/frame_cap_schedule.cpp"
     )
     target_link_libraries(win32_wait_events_test PRIVATE user32)
 endif()

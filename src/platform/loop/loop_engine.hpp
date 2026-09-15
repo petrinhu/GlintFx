@@ -175,7 +175,41 @@ template <loop_display_port D, loop_clock_port K>
     // classification that could not honestly be both). plan() itself
     // is what tells this loop the deadline was finally reached (return
     // value 0), consuming/advancing its own internal deadline in the
-    // SAME call that ends this spin.
+    // SAME call that ends this spin - both while loops above stop on
+    // that exact signal, WITHOUT re-checking the clock themselves.
+    //
+    // THIS IS A GUARANTEE, NOT A DESCRIPTION (bug fixed 15/09/2026,
+    // LOOP-RUN, plano espera-win32.md sec. 5.2): it used to be false.
+    // frame_cap_schedule::plan()'s own "not reached yet" branch
+    // rounded the remaining time to the nearest millisecond, which
+    // could ALSO return 0 for any remaining_ns below half a
+    // millisecond - a zero that meant "not reached, but very close",
+    // indistinguishable here from the zero above. Both while loops
+    // then stopped on that false zero: the outer one before the
+    // remaining sub-millisecond gap ever closed, the inner spin
+    // without ever entering (`wait_ms` was already 0 the moment
+    // control reached it) - so the tight spin this comment describes
+    // sometimes never spun, and the deadline was never actually
+    // consumed. The NEXT call to this function read a `now` only
+    // nanoseconds later (nothing here waited to let real time close
+    // the gap), landed in that same rounding hole, and returned 0
+    // again - repeating tens of times, near-instantly, never once
+    // reaching a `now` past the real deadline. Measured live in the
+    // container: 30 ticks at a 30 Hz cap took 32 ms wall-clock where
+    // the criterion is 900..1500 (wait_events_smoke.cpp's own
+    // cap30_motor_wall_ms). frame_cap_schedule.cpp's own fix makes
+    // the guarantee this comment states actually hold: its "not
+    // reached yet" branch never returns 0 now, only ever a positive
+    // number of milliseconds still remaining - so 0 from plan() means
+    // exactly one thing, always: this call reached the deadline and
+    // advanced it. tests/frame_cap_schedule_test.cpp's own
+    // a_deadline_less_than_half_a_millisecond_away_never_returns_the_
+    // reached_zero is the proof, at the unit closest to the bug;
+    // tests/container/wait_events_smoke.cpp's own cap30_motor_wall_ms
+    // and tests/win32_wait_events_test.cpp's own
+    // win32_wait_events_frame_cap_30hz_motor_isolated_from_fiacao are
+    // the two live proofs, one per platform, both calling this exact
+    // function against a real display adapter.
     while (wait_ms > 0) {
         const gltfx_time_point spin_now = clock.now();
         wait_ms = schedule.plan(spin_now, cap_hz);

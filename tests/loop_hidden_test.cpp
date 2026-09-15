@@ -11,7 +11,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <ctime>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -131,6 +130,97 @@
 //     compartilhada.
 // ===================================================================
 //
+// ===================================================================
+// TROCA DE INSTRUMENTO DE CPU, 15/09/2026 (plano /var/tmp/glintfx-plan/
+// espera-win32.md sec. 1/4/5.1, execucao 34959739763): std::clock() no
+// CRT da Microsoft mede tempo de PAREDE, nao tempo de processador -
+// documentacao oficial, verbatim: "The clock function tells how much
+// wall-clock time has passed since the CRT initialization during
+// process start... To obtain CPU times, use the Win32 GetProcessTimes
+// function" (learn.microsoft.com/en-us/cpp/c-runtime-library/reference/
+// clock). A ASSINATURA NUMERICA que provou isso naquela execucao:
+// cpu_ns sempre multiplo exato de 1_000_000 e a MENOS de 1 ms de
+// wall_ns - a marca de CLOCKS_PER_SEC==1000 lendo o MESMO relogio de
+// parede. O substituto e' o que a propria Microsoft nomeia:
+// GetProcessTimes() (kernel+user, FILETIME em unidades de 100 ns) -
+// process_cpu_ns() abaixo. A metade Linux (tests/container/loop_
+// hidden_test.cpp) NAO muda: std::clock() la' e' tempo de CPU de
+// verdade (POSIX), e continua sendo o instrumento correto daquele lado.
+//
+// CELULA DE CALIBRACAO DO INSTRUMENTO, nas DUAS metades (GODS_LAWS.md
+// L-36 aplicada ao INSTRUMENTO, nao so ao portao; L-17 do projeto, "o
+// gemeo exato"): a janela girando tem de medir razao ALTA (>= 800 por
+// mil); a mesma janela dormindo tem de medir razao BAIXA (<= 250 por
+// mil). A JANELA (k_calibration_window_ms, abaixo) NAO e' mais a mesma
+// nas duas metades desde 15/09/2026 - ver o bloco "JANELA DE
+// CALIBRACAO ALARGADA" logo a seguir para o porque, e o gemeo desta
+// nota em tests/container/loop_hidden_test.cpp para o porque do outro
+// lado ficar em 60 ms. Calibracao reprovada NUNCA reprova o produto -
+// o gate de cpu_ratio_permille por modo, abaixo, so conta quando a
+// calibracao passou.
+//
+// PROVA DE QUE A CELULA PEGA A FAMILIA EXATA DO DEFEITO (L-27: cópia
+// fora da arvore, nunca in-place): /var/tmp/builds/claude-1000/glintfx-
+// calib-proof/ (calib_check.cpp/calib_check_sabotaged.cpp), compilados
+// e executados em container (glintfx-devbuild:latest, GODS_LAWS.md
+// L-09), 15/09/2026 - a MESMA logica de medicao, com a UNICA linha que
+// le CPU trocada por relogio de parede. Real: instrumento_giro_
+// permille=997 (>=800 OK), instrumento_sono_permille=0 (<=250 OK),
+// exit=0. Sabotado: instrumento_giro_permille=1000 (>=800 OK, porque
+// girar tambem teria razao alta num relogio de parede - o giro NAO
+// distingue os dois instrumentos), instrumento_sono_permille=1000
+// (<=250 FALHOU - exatamente a assinatura ~1000 da execucao real),
+// exit=1. A celula de sono e' a que morde; a de giro fica como o
+// segundo controle (positivo) que a L-40 exige. (Esta prova rodou com
+// janela de 60 ms, em Linux - o instrumento provado aqui e' a LOGICA da
+// celula, nao o numero da janela de nenhuma metade especifica.)
+// ===================================================================
+//
+// ===================================================================
+// JANELA DE CALIBRACAO ALARGADA, 15/09/2026 (DECISOES_AUTONOMAS.md
+// D-091508, D15.1/D15.2 - GODS_LAWS.md global L-43, "conserta-se o
+// FURO DO CRITERIO antes da fase seguinte, nunca o criterio"): a
+// execucao de servidor 34969449304 (ramo prova-teto-e-regua) reprovou
+// esta celula, so nesta metade:
+//   instrumento_giro_permille=777 e 781  (criterio >= 800)  FALHOU
+//   instrumento_sono_permille=259        (criterio <= 250)  FALHOU
+// A CAUSA, CALCULADA: GetProcessTimes() no Windows conta tempo de
+// processador em quanta de relogio de sistema de ~15,6 ms (o tique de
+// 64 Hz padrao do HAL, sem timeBeginPeriod(1) - a mesma granularidade
+// que a documentacao da Microsoft cita para este relogio). Os numeros
+// denunciam exatamente isso: sono mediu 259/1000 de 60 ms = 15,54 ms =
+// 1,00 quantum quase exato; giro faltou 13,4 ms dos 60 = 0,86 quantum.
+// Uma janela de 60 ms nao resolve melhor que +/-26% neste relogio - os
+// limiares 800/250 foram fixados na maquina do autor, onde o grao e'
+// fino, e nao sobrevivem no executor do servidor.
+//
+// O CONSERTO E' A JANELA, NUNCA O LIMIAR (D15.1): alargar 800/250 ate
+// caber calaria justamente ESTE executor - o de grao grosso -, e
+// deixaria a regua incapaz de distinguir girar de dormir em qualquer
+// maquina parecida, que e' o defeito que a calibracao inteira existe
+// para impedir. k_calibration_window_ms sobe de 60 para 500 ms. Erro
+// relativo do quantum nessa janela: 15,6 / 500 ~= 3,1% (contra 26% em
+// 60 ms) - giro passa a medir por volta de 969/1000 (bem acima do piso
+// 800) e sono por volta de 31/1000 (bem abaixo do teto 250), as duas
+// com folga de mais de 8x em relacao ao limiar mais proximo. D15.2:
+// esta janela se dimensiona pelo grao do relogio do PIOR executor
+// conhecido, nunca pelo da maquina de quem escreve o teste - e' a
+// mesma regra que toda celula de calibracao futura deste projeto
+// segue a partir de hoje.
+//
+// CUSTO: duas chamadas de measure_cpu_ratio_permille_for() por
+// execucao deste arquivo (giro + sono, uma vez cada, nunca por modo -
+// ver k_calibration_checks abaixo), 500 ms cada uma no lugar de 60 ms -
+// cerca de 880 ms a mais por execucao da suite neste arquivo. O gemeo
+// Linux (tests/container/loop_hidden_test.cpp) NAO muda: o mesmo
+// instrumento, na mesma janela de 60 ms, ja mede 997/0 por mil neste
+// mesmo dia (bloco de prova acima) - std::clock() no POSIX tem grao
+// muito mais fino que o relogio do Windows, e alargar sem uma reprovacao
+// real so pagaria custo sem comprar seguranca. As duas metades ficarem
+// com janelas diferentes e' a divergencia documentada que a L-17 do
+// projeto exige nomear, nao um descuido.
+// ===================================================================
+//
 // ASCII ONLY IN EVERY LITERAL: no /utf-8 flag is passed anywhere in
 // cmake/, and /WX would turn C4819 into an error.
 
@@ -148,7 +238,18 @@ gl_clear_color_fn g_clear_color = nullptr;
 gl_clear_fn g_clear = nullptr;
 
 constexpr int k_checks_per_mode = 8;
-constexpr int k_planned_assertions = 2 * k_checks_per_mode;
+// TROCA DE INSTRUMENTO DE CPU (15/09/2026, este arquivo's own header
+// comment): duas assercoes novas de calibracao, avaliadas UMA vez
+// (nunca por modo) antes de qualquer numero de produto.
+constexpr int k_calibration_checks = 2;
+constexpr int k_planned_assertions = 2 * k_checks_per_mode + k_calibration_checks;
+// JANELA DE CALIBRACAO (este arquivo's own header comment, "JANELA DE
+// CALIBRACAO ALARGADA"): 500 ms, nao 60 - dimensionada pelo quantum de
+// ~15,6 ms do relogio de processador do Windows (GetProcessTimes()),
+// para que o erro relativo do quantum (~3,1% nesta janela) fique bem
+// abaixo da folga dos limiares 800/250 abaixo. So esta metade muda; o
+// gemeo Linux fica em 60 ms, com a razao documentada no mesmo bloco.
+constexpr std::int64_t k_calibration_window_ms = 500;
 
 int g_assertions_evaluated = 0;
 int g_assertions_failed = 0;
@@ -161,6 +262,58 @@ void check(const char *mode, const char *key, bool condition, const char *criter
     }
     std::fprintf(stdout, "loop_hidden_test: [vsync=%s] %s=%s (criterio %s) %s\n", mode, key,
                  observed.c_str(), criterion, condition ? "OK" : "FALHOU");
+}
+
+// process_cpu_ns() - GetProcessTimes(), o substituto que a propria
+// Microsoft nomeia para std::clock() (este arquivo's own header
+// comment, "TROCA DE INSTRUMENTO DE CPU"). Soma kernel+user, FILETIME
+// em unidades de 100 ns convertidas para nanosegundos. Falha de
+// GetProcessTimes() (nunca observada, mas GetProcessTimes() e' capaz de
+// falhar por contrato) devolve 0 - a mesma degradacao "nao-fatal, valor
+// nao confiavel" que a celula de calibracao abaixo existe para pegar,
+// nunca um crash.
+[[nodiscard]] std::int64_t process_cpu_ns() noexcept {
+    FILETIME creation_time{};
+    FILETIME exit_time{};
+    FILETIME kernel_time{};
+    FILETIME user_time{};
+    if (::GetProcessTimes(::GetCurrentProcess(), &creation_time, &exit_time, &kernel_time,
+                          &user_time) == 0) {
+        return 0;
+    }
+    const auto to_ns = [](const FILETIME &ft) noexcept -> std::int64_t {
+        const std::uint64_t ticks_100ns =
+            (static_cast<std::uint64_t>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+        return static_cast<std::int64_t>(ticks_100ns) * 100;
+    };
+    return to_ns(kernel_time) + to_ns(user_time);
+}
+
+// A CELULA DE CALIBRACAO (este arquivo's own header comment): mede a
+// razao de CPU por mil que process_cpu_ns() reporta para `target_ms`
+// girando (`spin == true`, consumindo CPU de verdade via gltfx_now())
+// ou dormindo (`spin == false`, via Sleep()). MESMA formula da medicao
+// de producao abaixo (wall_ns > 0 ? (cpu_ns * 1000) / wall_ns : 1000),
+// deliberadamente - a calibracao tem de exercitar o MESMO caminho que
+// ela prova, nunca um atalho que poderia divergir dele.
+[[nodiscard]] std::int64_t measure_cpu_ratio_permille_for(std::int64_t target_ms,
+                                                          bool spin) noexcept {
+    const std::int64_t cpu_start_ns = process_cpu_ns();
+    const glintfx::gltfx_time_point wall_start = glintfx::gltfx_now();
+    if (spin) {
+        glintfx::gltfx_time_point now = wall_start;
+        while (glintfx::gltfx_duration_between(wall_start, now).nanoseconds <
+               target_ms * 1000000LL) {
+            now = glintfx::gltfx_now();
+        }
+    } else {
+        ::Sleep(static_cast<DWORD>(target_ms));
+    }
+    const glintfx::gltfx_time_point wall_end = glintfx::gltfx_now();
+    const std::int64_t cpu_end_ns = process_cpu_ns();
+    const std::int64_t wall_ns = glintfx::gltfx_duration_between(wall_start, wall_end).nanoseconds;
+    const std::int64_t cpu_ns = cpu_end_ns - cpu_start_ns;
+    return wall_ns > 0 ? (cpu_ns * 1000) / wall_ns : 1000;
 }
 
 // The scope line has to survive a GLINTFX_CHECK reproval too: the
@@ -224,6 +377,22 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     GLINTFX_CHECK(!display_opened.has_error());
     glintfx::gltfx_display display = std::move(display_opened.value());
+
+    // CALIBRACAO DO INSTRUMENTO, ANTES de qualquer numero de producao
+    // (este arquivo's own header comment, "TROCA DE INSTRUMENTO DE
+    // CPU"): se qualquer uma reprovar, o defeito e' no INSTRUMENTO -
+    // nunca no laco - e por isso `calibration_ok` abaixo passa a gatear
+    // a assercao de producao `cpu_ratio_permille` de cada modo, mais
+    // longe neste arquivo.
+    const std::int64_t calib_giro_permille =
+        measure_cpu_ratio_permille_for(k_calibration_window_ms, true);
+    const std::int64_t calib_sono_permille =
+        measure_cpu_ratio_permille_for(k_calibration_window_ms, false);
+    const bool calibration_ok = calib_giro_permille >= 800 && calib_sono_permille <= 250;
+    check("calibracao", "instrumento_giro_permille", calib_giro_permille >= 800,
+          ">= 800 (500ms girando)", to_text(calib_giro_permille));
+    check("calibracao", "instrumento_sono_permille", calib_sono_permille <= 250,
+          "<= 250 (500ms dormindo)", to_text(calib_sono_permille));
 
     bool any_swap_succeeded = false;
     mode_result results[2];
@@ -414,7 +583,7 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
         // o bloco ACHADO 3 mais abaixo para por que este, e nao o
         // retorno de present(), e' o observavel que P8 descreve.
         bool hidden_detected_in_stretch = false;
-        const std::clock_t cpu_start = std::clock();
+        const std::int64_t cpu_start_ns = process_cpu_ns();
         const glintfx::gltfx_time_point hidden_start = glintfx::gltfx_now();
         for (int i = 0; i < 10; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
@@ -475,18 +644,21 @@ GLINTFX_TEST(loop_hidden_vsync_on_and_off) {
         }
         result.hidden_detected = hidden_detected_in_stretch;
         const glintfx::gltfx_time_point hidden_end = glintfx::gltfx_now();
-        const std::clock_t cpu_end = std::clock();
+        const std::int64_t cpu_end_ns = process_cpu_ns();
         const std::int64_t wall_ns =
             glintfx::gltfx_duration_between(hidden_start, hidden_end).nanoseconds;
-        const std::int64_t cpu_ns = static_cast<std::int64_t>(
-            (static_cast<double>(cpu_end - cpu_start) / static_cast<double>(CLOCKS_PER_SEC)) *
-            1000000000.0);
+        const std::int64_t cpu_ns = cpu_end_ns - cpu_start_ns;
         result.cpu_ratio_permille = wall_ns > 0 ? (cpu_ns * 1000) / wall_ns : 1000;
 
         std::fprintf(stdout, "loop_hidden_test: [vsync=%s] wall_ns=%lld cpu_ns=%lld\n", mode,
                      static_cast<long long>(wall_ns), static_cast<long long>(cpu_ns));
 
-        check(mode, "cpu_ratio_permille", result.cpu_ratio_permille <= 250, "<= 250 (25% de CPU)",
+        // Gateado pela calibracao (este arquivo's own header comment,
+        // "TROCA DE INSTRUMENTO DE CPU"): instrumento suspeito nunca
+        // reprova o produto - a calibracao ja reprovou por conta
+        // propria, mais acima, se foi o caso.
+        check(mode, "cpu_ratio_permille", !calibration_ok || result.cpu_ratio_permille <= 250,
+              "<= 250 (25% de CPU), OU instrumento suspeito (calibracao FALHOU)",
               to_text(result.cpu_ratio_permille));
         check(mode, "wall_ns", wall_ns >= 500000000, ">= 500 ms em 10 tiques ocultos",
               to_text(wall_ns / 1000000) + " ms");

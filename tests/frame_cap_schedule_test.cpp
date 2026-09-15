@@ -121,6 +121,47 @@ GLINTFX_TEST(a_clock_stepping_backward_never_waits_longer_than_one_period) {
     GLINTFX_CHECK(wait <= 34); // one 30 Hz period, rounded up
 }
 
+GLINTFX_TEST(a_deadline_less_than_half_a_millisecond_away_never_returns_the_reached_zero) {
+    // LOOP-RUN (15/09/2026, wait_events_smoke.cpp's own
+    // cap30_motor_wall_ms caught this live, 32 ms measured where the
+    // criterio is 900..1500): plan() used to round remaining_ns to
+    // the NEAREST millisecond even in the "not reached yet" branch,
+    // so any remaining_ns below 500'000 ns (half a millisecond)
+    // rounded DOWN to 0 - the SAME return value the two branches
+    // below (frame_cap_schedule.cpp) use to mean "deadline reached,
+    // consumed, m_next_deadline already advanced". wait_for_frame_cap()
+    // (loop_engine.hpp) trusts that meaning literally: both its own
+    // while loops stop the instant plan() returns 0. This is the hole
+    // in this file's own suite - none of the other six cases ever
+    // probes a `now` closer than a whole millisecond to the deadline,
+    // so all of them passed clean with the bug still standing.
+    frame_cap_schedule schedule;
+    const gltfx_time_point t0{.ticks = 0};
+    constexpr std::int64_t period_ns_30hz = 33'333'333;
+
+    const std::uint32_t first_wait = schedule.plan(t0, 30); // arms deadline at period_ns_30hz
+    GLINTFX_CHECK_EQ(first_wait, static_cast<std::uint32_t>(0));
+
+    // 300 000 ns (0.3 ms) short of the deadline - inside the rounding
+    // trap (< 500 000 ns) and still genuinely NOT reached.
+    const gltfx_time_point almost_there{.ticks = period_ns_30hz - 300'000};
+    const std::uint32_t wait = schedule.plan(almost_there, 30);
+    GLINTFX_CHECK(wait >= 1); // never the "reached" zero while time genuinely remains
+
+    // The deadline must be UNCHANGED by that call - probing again at
+    // the SAME instant returns the SAME non-zero wait, never a
+    // shorter one (a shorter one would mean the deadline silently
+    // advanced without `now` ever reaching it).
+    const std::uint32_t wait_again = schedule.plan(almost_there, 30);
+    GLINTFX_CHECK_EQ(wait_again, wait);
+
+    // Only once `now` genuinely reaches the deadline does plan()
+    // return the real zero - and THIS is the call that consumes it.
+    const gltfx_time_point at_deadline{.ticks = period_ns_30hz};
+    const std::uint32_t reached_wait = schedule.plan(at_deadline, 30);
+    GLINTFX_CHECK_EQ(reached_wait, static_cast<std::uint32_t>(0));
+}
+
 GLINTFX_TEST(three_hundred_consecutive_periods_at_sixty_hertz_sum_without_drift) {
     // GUARDS THE DEADLINE, NEVER THE INSTANT (this class's own header
     // comment) - ALTERNATING jitter, not a CONSTANT one, is the point:

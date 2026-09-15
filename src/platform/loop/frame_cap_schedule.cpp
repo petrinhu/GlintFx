@@ -75,7 +75,43 @@ std::uint32_t frame_cap_schedule::plan(gltfx_time_point now, std::uint32_t cap_h
         // backward" safety valve.
         const std::int64_t remaining_ns =
             (-since_deadline_ns < period_ns) ? -since_deadline_ns : period_ns;
-        return static_cast<std::uint32_t>((remaining_ns + 500'000) / 1'000'000);
+
+        // ZERO IS RESERVED FOR "DEADLINE REACHED, CONSUMED THIS CALL"
+        // (bug fixed here, LOOP-RUN, 15/09/2026 - plano espera-
+        // win32.md sec. 5.2, tests/frame_cap_schedule_test.cpp's own
+        // a_deadline_less_than_half_a_millisecond_away_never_returns_
+        // the_reached_zero). `remaining_ns` here is ALWAYS strictly
+        // positive (this branch only runs when since_deadline_ns < 0,
+        // so -since_deadline_ns > 0, and remaining_ns is the min of
+        // two positive values) - the deadline genuinely has not been
+        // reached. Rounding it to the nearest millisecond used to be
+        // able to return 0 anyway, for any remaining_ns below 500'000
+        // ns (half a millisecond): the SAME return value the two
+        // branches below use to mean "reached, consumed, m_next_
+        // deadline already advanced". loop_engine.hpp's own
+        // wait_for_frame_cap() trusts that meaning literally - both
+        // its while loops stop the instant plan() returns 0. A
+        // remaining_ns of, say, 300'000 ns rounds to 0 ms under
+        // nearest-millisecond rounding, so the caller stopped
+        // waiting/spinning ~0.3 ms early WITHOUT the deadline having
+        // advanced; the very next call reads a `now` only nanoseconds
+        // later (no wait or spin ran in between to let real time
+        // close that gap), lands back in this exact branch, and
+        // rounds to 0 again - repeating instantly, tens of times,
+        // never once crossing into the branches below. Measured live
+        // in the container: 30 ticks at a 30 Hz cap took 32 ms
+        // wall-clock where the criterion is 900..1500 (wait_events_
+        // smoke.cpp, cap30_motor_wall_ms). `std::max` against 1 -
+        // never a truncating round instead, which would only move the
+        // same hole to a different boundary - keeps this branch
+        // honest: it can only ever return a POSITIVE number of
+        // milliseconds still remaining, so 0 stays the EXCLUSIVE
+        // signal of "the deadline was reached, right here, this
+        // call", true both for the immediate reader of the return
+        // value and for this class's own header comment.
+        const std::uint32_t rounded_ms =
+            static_cast<std::uint32_t>((remaining_ns + 500'000) / 1'000'000);
+        return std::max(rounded_ms, static_cast<std::uint32_t>(1));
     }
 
     if (since_deadline_ns >= period_ns) {

@@ -408,7 +408,7 @@ O value type `glintfx::version` ganha o **quarto campo** (`tweak_version`), para
 
 **De onde a especificação sai agora — e isto é INFERÊNCIA minha sobre a decisão dele, não verbatim, sujeita a correção:** ao batizar os formatos de `gfss` e `gfml` e ao dizer *"com as propriedades de html"*, ele os torna **formatos nossos modelados no vocabulário dos padrões web**, e não mais o formato de terceiro que a versão original desta lei adotava. **A fonte da especificação passa a ser a documentação pública dos padrões (CSS e HTML), nunca um consumidor específico** — e a proibição de tirar a lista do que um jogo precisou **continua exatamente como está**, pelo mesmo argumento: a lista de um consumidor é subconjunto do que o padrão já define, e o risco não é copiar código, é **a lista parar a pergunta certa**.
 
-**O que NÃO mudou:** as cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora, animação e transição fora) **continuam de pé**. Layout entrar não as reabre.
+**O que NÃO mudou:** quatro das cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora) **continuam de pé**. A quinta, sobre animação e transição, foi REVOGADA em 26/08/2026 pelo líder, ver a seção "As 8 decisões de 26/08/2026 sobre movimento e luz" abaixo. Layout entrar não as reabre.
 
 ### Nome do motor: `gfui` — decidido em 26/08/2026
 
@@ -450,7 +450,7 @@ Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
 2. **Folha imutável após o parse.** A única dinâmica é o estado de pseudo-classe do nó, com recomputação sob demanda. Simples, seguro entre threads por construção, e cobre `:hover`, `:focus` e `:checked`.
 3. **Seletor: o formato COMPLETO na v1.** Atributo com os sete operadores, `:not()` com lista de seletores complexos, os quatro combinadores, a família estrutural inteira, `:placeholder-shown` e `:scope`.
 4. **`@media` fica FORA da v1**, ignorada com diagnóstico.
-5. **Animação, transição e `@keyframes` ficam FORA da v1**, ignorados com diagnóstico. Entram como escopo próprio quando o loop principal e o relógio existirem.
+5. **REVOGADA em 26/08/2026, ver a seção "As 8 decisões de 26/08/2026 sobre movimento e luz" abaixo.** A decisão original excluía animação e transição do escopo da v1, com diagnóstico no lugar delas; a própria condição que ela escreveu ("quando o loop principal e o relógio existirem") foi medida e satisfeita, e o líder reabriu.
 
 **Defaults registrados para veto, que o líder não vetou:** namespace `glintfx::style` com IDs de item `RCSS-*`; as cores modernas `lab()`, `lch()`, `oklab()` e `oklch()` fora da v1; e, quanto a aspas no valor de seletor de atributo, seguir a convenção do CSS (aceitar identificador sem aspas e string com aspas), já que a documentação do formato não especifica.
 
@@ -1297,3 +1297,23 @@ As duas primeiras entram como pedidas. A terceira **mudou depois da objeção**,
 **`.gf.anim`**, escolhida pelo líder. Segue a forma do precedente do mapa (`.gw.map`): sobrenome curto identificando a origem, mais a palavra que diz o que é. O arquivo descreve os ciclos - quais desenhos, em que ordem, quanto tempo cada um, qual direção - e é dado, não binário, o que a **L-38** já autoriza (*"Dado é nosso e pode ter extensão própria"*).
 
 **O que NÃO foi decidido aqui, e não deve ser inventado por agente nenhum:** a gramática de dentro do arquivo, como as três fontes de quadro se declaram nele, e como o ciclo se liga à direção do personagem. Isso é fatiamento, e o fatiamento passa pelo passo 2 da L-34 com pesquisa antes (L-43), olhando como o RmlUi, o SDL3 e os motores 2D resolvem o mesmo problema.
+
+## Ordem de produto de 15/09/2026: :where(), especificidade zero, e mais duas decisões da folha de estilo `[15/09/26 - 17:40:46]`
+
+Quatro decisões do líder sobre a trilha `gfss`, tomadas na sessão que planejou a onda W6 (`docs/plano-w6-folha-de-estilo.md`, decisões D-W6-12, D-W6-7, D-W6-6 e D-W6-14). **Todas registradas aqui pelo orquestrador; não são verbatim do líder.**
+
+### Decisão 1 - o nome do seletor de especificidade-zero
+
+**`:where()`**, contra a recomendação do CTO (que propunha `:without-specificity()`) e a do orquestrador. Executado sem discussão. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-12), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 2 - a lista dentro de `:where()` é ESTRITA
+
+Um seletor inválido dentro de `:where()` recusa a **regra inteira**, com diagnóstico, a mesma disciplina que o `:not()` do formato já usa. **Isto é divergência deliberada do CSS real**, datada 15/09/2026: no padrão, `:where()` é tolerante e descarta em silêncio o seletor inválido; aqui não. O diagnóstico sai em inglês, nomeando o vocabulário do analisador (`known_where_selector`), nunca a gramática do CSS ou uma frase explicativa; a comparação com o padrão é prosa de documentação, não texto de diagnóstico. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-7), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 3 - `:scope` seguido de `+` ou `~` é aceito, com aviso
+
+`:scope` seguido de um combinador de irmão (`+` ou `~`) é um seletor válido que nunca casa. Fica **aceito**, não é erro: a regra entra na folha, inerte, e um aviso numa lista **separada** (nunca no tipo de diagnóstico, que não carrega gravidade) registra o motivo, com linha e coluna. Não é silêncio nem recusa. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-6), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 4 - aviso de reset acidental por atalho
+
+Quando um atalho (shorthand) anula, no mesmo bloco, um valor de longhand que o autor já havia escrito antes, o comportamento **não muda** (o atalho continua apagando o que foi omitido); mas o autor da folha passa a receber um **aviso** por longhand anulado, com linha e coluna do atalho. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-14), 15/09/2026, sem verbatim do líder capturado nesta sessão.

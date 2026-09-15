@@ -3315,3 +3315,19 @@ A reauditoria contestou a entrada anterior e **tinha razao nas duas**. Corrijo a
 - **A pergunta que decide agora, e que a reauditoria vai medir:** o alvo compila as fontes da biblioteca dentro de si **E** linka a biblioteca que exporta os mesmos simbolos. Com a macro colapsando, o conflito de ligacao some, mas ficam **duas copias** do mesmo simbolo no processo. Para funcao pura, indiferente; **para estado global, nao**: o executavel teria um estado e a biblioteca outro, e configurar um nao afetaria o outro. Se `severity.cpp`/`event.cpp`/`sink.cpp` guardam estado, o conserto do portao pode ter **mascarado defeito real de produto**.
 
 **O que fica de licao, e vale contra mim mesmo:** eu exigi a noite inteira que ninguem aceitasse leitura no lugar de medicao, e depois aceitei a minha propria leitura estreita como prova. O antidoto e o mesmo que impus aos outros: quando a resposta **destrava** o trabalho, ela precisa de MAIS medicao, nao de menos.
+
+#### D-091503 — Reauditoria: reprovada por texto, nenhum defeito de produto; e por que a forma do alvo NAO muda agora  `[15/09/26 - 06:55:00]`
+
+A reauditoria independente (mesmo auditor que reprovou, SHA `a9c95e3`, dossie em `/var/tmp/glintfx-plan/auditoria-onda-w7.md`) fechou com **REPROVADA**, pelo criterio fixado antes do dado (zero achado importante em aberto). **Nenhum dos tres abertos e de produto** - dois sao texto, um e registro meu.
+
+**O que ficou PROVADO, e fecha o assunto do bloqueio:**
+- Sabotagem no **proprio portao** (removidas as definicoes por alvo): o defeito original volta, 85 de 88. Isso prova que o verde de hoje vem do caminho certo, **nao de uma isencao disfarcada** - era a duvida que eu levantei e ela morreu por execucao.
+- Sabotagem no alvo **com** a macro: reprova por simbolo duplicado, 87 de 88. Cobre o lado que a minha prova anterior nao cobria.
+- **Sonda da tabela de importacao:** o executavel ligado da forma real **nao tem a biblioteca dinamica na lista do que carrega** (controle positivo: as bibliotecas do sistema estao la). Logo **uma** copia do estado global, nunca duas. O risco que eu levantei em D-091502 **nao se concretiza**.
+- Ao vivo, em container isolado: 19 de 19 e 16 de 16 assercoes; linha de base 186 de 186 sem sistema operacional.
+
+**Uma correcao do auditor a um fato meu, aceita:** eu chamei de anomalia o alvo recompilar fontes da biblioteca. **Nao e** - 65 alvos fazem isso, e' padrao da casa. O que e unico neste alvo e recompilar fontes que **definem simbolos exportados**, e isso porque ele precisa de uma funcao interna que a lei do projeto (L-19) mantem fora da tabela de exportacao.
+
+- **D11.1 — os tres achados de texto se consertam agora**, e a reauditoria reexamina so eles (nao exige container: sao texto).
+- **D11.2 — a FORMA do alvo nao muda nesta onda.** O auditor apontou que a forma coerente seria a do irmao (criacao direta, sem a ligacao inerte). Concordo com o diagnostico e **adio o conserto**: trocar o modo de criacao do unico alvo que levou a noite inteira para estabilizar, no fechamento da onda, troca um estado **medido e bom** por risco **nao medido**, e obrigaria a repetir o portao do compilador real. Vai para a caixa de entrada com a medicao e a razao do adiamento. Mesmo criterio que usei para o residuo de jargao em portugues: defeito conhecido e registrado vale mais que risco desconhecido introduzido as pressas.
+- **D11.3 — a ligacao inerte e a causa-raiz do desperdicio desta onda, e fica dito.** Ela fez a auditoria, o agente que consertou e **eu duas vezes, em direcoes opostas**, errarmos sobre o mesmo arquivo. Uma dependencia que nao faz nada mas engana quem le custa mais que uma que falta.

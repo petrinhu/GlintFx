@@ -3272,3 +3272,14 @@ O plano da onda do laco, hoje versionado em `docs/plano-loop-callbacks.md`, tomo
   Alternativa descartada: perseguir a prova completa aqui dentro exigiria compositor de sessao real, e **a janela de autorizacao da placa de video do lider esta FECHADA por ordem dele**.
 - **D9.3 — os quatro textos falsos (I1..I4) se apagam, e o portao que aceitou ponteiro para o nada se conserta.** Medido por mim: `tests/measured_exceptions.txt` cita o item `LOOP-CAP30-KWIN-VIRTUAL`, que tem **zero ocorrencias no `TODO.md`**, e o portao passa calado. **Portao que aceita ponteiro para item inexistente nao e portao** - e' a mesma familia do portao que nunca mordeu, e conserta-lo vale mais que o texto que ele deixou passar.
 - **D9.4 — a marca `v0.4.0.0` so sai depois de a auditoria reprovar de novo ou aprovar.** A auditoria que reprovou e a mesma que precisa reexaminar; marca criada sobre reprovacao seria marca mentindo, e o texto dela e o unico documento autoritativo que o consumidor externo tem.
+
+#### D-091402 — Autorizacoes do lider no contexto: push no fim da onda e marca `v0.4.0.0`  `[14/09/26 - 22:41:00]`
+
+Registro das duas ordens, verbatim, porque cercam gestos irreversiveis e visiveis de fora, e a guarda desta maquina exige autorizacao **no contexto**, nunca herdada de outra sessao.
+
+- **Push:** *"pode empurrar no fim da onda"* (14/09/2026).
+- **Marca:** *"a marca pode ser 0.4.0.0"* (14/09/2026).
+
+**O que NAO muda com estas autorizacoes, e o orquestrador responde por isso:** a onda esta **REPROVADA** pela auditoria independente neste instante. Autorizacao para empurrar no fim da onda nao e autorizacao para declarar a onda fechada - **o fim da onda e o criterio escrito no plano dela, nunca o cansaco nem a pressa**. Antes do push: a auditoria reexamina; o portao do compilador da Microsoft prova as duas pontas (88 de 88 **e** continuar mordendo sob sabotagem); o espelho local roda antes, nunca depois; e a subida de versao mostra o vermelho de proposito (so a declaracao da biblioteca, sem a linha do consumidor, tem de reprovar).
+
+**O que a mensagem da marca tem de carregar,** porque nao ha pagina de notas de versao neste projeto e `git show <marca>` e' o **unico** documento autoritativo que o consumidor externo tem: o que quebra (as chamadas de volta), o que entra (posse em duas formas, amarracao tipada, marca de depuracao, primeiro quadro com tempo zerado de verdade), **o que foi provado ao vivo e em qual sistema**, e **o que ficou declarado sem prova** - inclusive as duas promessas que nenhum sistema exercitou (teto de quadros e recuperacao apos restaurar a janela). Marca que omite a segunda metade mente por silencio.

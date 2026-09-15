@@ -1842,7 +1842,7 @@ endif()
 # this file. The form that does NOT link the DLL is win32_facade_pin_
 # test's own add_executable() further down, which this target does NOT
 # share. What this target actually is, measured: a hybrid - the DLL
-# imported for its exported factories AND window_internal_access::
+# linked (inertly, by glintfx_add_test()) AND window_internal_access::
 # get() (declared in the public header, DEFINED only in window_facade.
 # cpp, never placed in glintfx.dll's own export table, GODS_LAWS.md
 # L-19) PLUS the sources below recompiled standalone to reach the ONE

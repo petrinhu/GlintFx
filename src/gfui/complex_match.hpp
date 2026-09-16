@@ -64,11 +64,22 @@ namespace glintfx::gfui::detail {
 // the SAME three values match_compound() does (match_verdict.hpp), for
 // the SAME reason: a chain carrying `:placeholder-shown` or a pseudo-
 // element anywhere along it is honestly `deferred`, never a guessed
-// `matched`/`rejected` (GODS_LAWS.md L-40). noexcept, no allocation -
-// the recursion is bounded by the selector's own already-finite shape
-// (parsed once, D-W6-8's own shared depth budget), and the ancestor/
-// sibling walk is bounded by the consumer's own tree, which this
-// function only ever navigates, never allocates.
+// `matched`/`rejected` (GODS_LAWS.md L-40). `noexcept`, but NOT
+// allocation-free: this function walks an explicit, HEAP-ALLOCATED
+// stack (`std::vector<frame>`, one frame per compound still open)
+// instead of recursing - see complex_match.cpp's own header comment
+// for why (selector_parse.cpp's own compound-chain loop has no depth
+// cap of its own, unlike `:not()`'s D-W6-8 budget, so native recursion
+// here would have been an unbounded call-stack overflow). Being
+// `noexcept` while it allocates has a real consequence for the
+// consumer: an allocation failure inside this call is NOT a
+// recoverable error - it surfaces as `std::terminate()` (a `noexcept`
+// function that lets an exception escape ends the process immediately,
+// same as `libstdc++`'s own `bad_alloc` unwinding here would), never
+// as a caught exception the caller could handle. This trades native
+// stack overflow (undefined behavior) for a clean process abort under
+// memory exhaustion - safer, but still ends the consumer's process,
+// not "no allocation" as an earlier draft of this comment claimed.
 [[nodiscard]] match_verdict match_complex(const style::detail::gfss_complex_selector &selector,
                                           const gltfx_node_view &node,
                                           const gltfx_node_view &scope) noexcept;

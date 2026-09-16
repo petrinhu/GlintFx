@@ -737,9 +737,63 @@ GLINTFX_TEST(match_complex_still_defers_placeholder_shown_and_pseudo_elements) {
         GLINTFX_CHECK(match_complex(selector, node, k_no_scope) == match_verdict::deferred);
     }
 
-    std::printf("gfui_complex_match_test: 2 deferral-preserved cases checked "
-                "(:placeholder-shown, ::before)\n");
-    std::printf("SCANCOUNT gfui_complex_match_test.deferral_preserved_cases=2\n");
+    // BLOQUEIA #1 da revisão adversarial de d1e677b (2025/2026): os dois
+    // casos acima só exercitam o atalho `top.index == 0` de
+    // match_complex.cpp - um composto SOZINHO, sem combinador, nunca
+    // chama combine(). Os dois casos abaixo cruzam um combinador de
+    // verdade, provando que "adiamento e infeccioso" (GODS_LAWS.md L-40)
+    // sobrevive à combinação, nas DUAS ordens de argumento de combine()
+    // (local deferido + upstream decidido, e o inverso).
+    arena crossing_tree;
+    const std::size_t crossing_parent_idx =
+        crossing_tree.add(entry{.tag = "div",
+                                .id = "",
+                                .classes = {},
+                                .attributes = {},
+                                .state = glintfx::gfui::gltfx_node_state::none,
+                                .parent = k_no_index,
+                                .previous_sibling = k_no_index,
+                                .next_sibling = k_no_index,
+                                .child_count = 0,
+                                .first_child = k_no_index});
+    const std::size_t crossing_child_idx =
+        crossing_tree.add(entry{.tag = "input",
+                                .id = "",
+                                .classes = {},
+                                .attributes = {},
+                                .state = glintfx::gfui::gltfx_node_state::none,
+                                .parent = crossing_parent_idx,
+                                .previous_sibling = k_no_index,
+                                .next_sibling = k_no_index,
+                                .child_count = 0,
+                                .first_child = k_no_index});
+    const gltfx_node_view crossing_child =
+        glintfx::test::fake_arena::view(crossing_tree, crossing_child_idx);
+
+    {
+        // Sujeito (`input:placeholder-shown`, local=deferred) cruza o
+        // combinador descendente até o ancestral (`div`, local=matched):
+        // combine(deferred, matched) tem de continuar deferred. A
+        // mutação da revisão (combine() sempre devolvendo `matched`)
+        // faria este bloco enxergar `matched` em vez de `deferred`.
+        const gfss_complex_selector selector = parse_one_complex("div input:placeholder-shown");
+        GLINTFX_CHECK(match_complex(selector, crossing_child, k_no_scope) ==
+                      match_verdict::deferred);
+    }
+    {
+        // Ordem invertida dos argumentos de combine(): sujeito
+        // (`input`, local=matched) cruza o mesmo combinador até um
+        // ancestral cujo PRÓPRIO composto já defere
+        // (`div:placeholder-shown`, local=deferred) - combine(matched,
+        // deferred) tem de continuar deferred pelo mesmo motivo.
+        const gfss_complex_selector selector = parse_one_complex("div:placeholder-shown input");
+        GLINTFX_CHECK(match_complex(selector, crossing_child, k_no_scope) ==
+                      match_verdict::deferred);
+    }
+
+    std::printf("gfui_complex_match_test: 4 deferral-preserved cases checked "
+                "(:placeholder-shown, ::before, and 2 crossing a combinator)\n");
+    std::printf("SCANCOUNT gfui_complex_match_test.deferral_preserved_cases=4\n");
 }
 
 // --- case 5: right-to-left proved by counting, never by reading the source ---

@@ -53,12 +53,19 @@ namespace glintfx::gfui::detail {
 // deferred selector fails (same "rejeicao vence adiamento" order this
 // whole track uses), `matched` when every owned deferred selector
 // holds AND nothing still-unowned (`:placeholder-shown`, a pseudo-
-// element) is present, `deferred` otherwise. noexcept, no allocation -
-// the recursion `:not()` drives (through complex_match.hpp's own
-// match_complex(), called back from this function's own .cpp) is
-// bounded by selector_parse.cpp's own k_max_nested_selector_list_depth
-// parse-time limit (D-W6-8), never by anything this function enforces
-// itself.
+// element) is present, `deferred` otherwise. `noexcept`, but NOT
+// allocation-free (same gap complex_match.hpp's own header comment
+// corrects, GODS_LAWS.md L-17's "gêmeo"): the recursion `:not()`
+// drives (through complex_match.hpp's own match_complex(), called back
+// from this function's own .cpp) is bounded by selector_parse.cpp's
+// own k_max_nested_selector_list_depth parse-time limit (D-W6-8),
+// never by anything this function enforces itself - but each level of
+// that bounded recursion calls back into match_complex(), which DOES
+// allocate (its own explicit heap stack, `std::vector<frame>`). A
+// `noexcept` function calling into an allocating one carries the SAME
+// consequence documented there: allocation failure surfaces as
+// `std::terminate()`, not as a caught exception this function's own
+// caller could recover from.
 [[nodiscard]] match_verdict
 judge_deferred_simple_selectors(const style::detail::gfss_compound_selector &compound,
                                 const gltfx_node_view &node, const gltfx_node_view &scope) noexcept;

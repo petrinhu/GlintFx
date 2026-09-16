@@ -3,6 +3,7 @@
 
 #include "declaration_parse.hpp"
 #include "declaration_split.hpp"
+#include "shorthand_expand.hpp"
 
 // declaration_list_parse.cpp - GFSS-DECL-PARSE, DP-8 (GODS_LAWS.md
 // L-17: each function below answers exactly one question of
@@ -33,23 +34,54 @@ namespace {
     return tokens;
 }
 
+// Appends one ALREADY-EXPANDED longhand to `result`, updating the SAME
+// two L-40 counters a directly-authored declaration would (D-DP-2/D-DP-
+// 4) - the one place BOTH fold_into_result() below and its own
+// shorthand branch push a final declaration, so the counters can never
+// drift between the two paths.
+void append_declaration(gfss_declaration declaration, declaration_list_parse_result &result) {
+    if (declaration.has_reserved_notice) {
+        ++result.reserved_notice_count;
+    }
+    if (!declaration.is_shorthand && declaration.form == gfss_declaration_value_form::raw) {
+        ++result.raw_composite_count;
+    }
+    result.declarations.push_back(std::move(declaration));
+}
+
 // Folds ONE parsed declaration into `result` - accepted declarations
 // update the two L-40 counters D-DP-2/D-DP-4 require printed, rejected
 // ones append their own diagnostic; this is the one place that decides
 // which list a declaration_parse_result lands in.
+//
+// GFSS-SHORTHAND, D-W6-3 (TODO.md wave W6): an accepted SHORTHAND
+// (`is_shorthand == true`) is never itself appended to `declarations` -
+// expand_shorthand() (shorthand_expand.hpp) replaces it, IN PLACE, with
+// its own N longhand declarations (D-W6-3's own "a posicao e preservada
+// por construcao": this function is called once per declaration span,
+// in source order, so appending the expansion right here, instead of
+// the raw shorthand, is what makes the expansion land at the
+// shorthand's own original index rather than the front or the back of
+// the block). A shorthand that fails to expand contributes its own
+// diagnostic to `rejected`, the SAME list a directly-rejected
+// declaration already uses - never a declaration of its own.
 void fold_into_result(declaration_parse_result parsed, declaration_list_parse_result &result) {
     if (!parsed.accepted) {
         result.rejected.push_back(parsed.diagnostic);
         return;
     }
-    if (parsed.declaration.has_reserved_notice) {
-        ++result.reserved_notice_count;
+    if (parsed.declaration.is_shorthand) {
+        shorthand_expand_result expanded = expand_shorthand(parsed.declaration);
+        if (!expanded.ok) {
+            result.rejected.push_back(expanded.diagnostic);
+            return;
+        }
+        for (gfss_declaration &longhand : expanded.longhands) {
+            append_declaration(std::move(longhand), result);
+        }
+        return;
     }
-    if (!parsed.declaration.is_shorthand &&
-        parsed.declaration.form == gfss_declaration_value_form::raw) {
-        ++result.raw_composite_count;
-    }
-    result.declarations.push_back(std::move(parsed.declaration));
+    append_declaration(std::move(parsed.declaration), result);
 }
 
 } // namespace

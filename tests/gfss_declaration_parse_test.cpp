@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <print>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -23,6 +25,7 @@
 #include "gfss/property_table.hpp"
 #include "gfss/property_value_contract.hpp"
 #include "gfss/refused_property_names.hpp"
+#include "gfss/shorthand_longhand_table.hpp"
 #include "gfss/shorthand_name_vocabulary.hpp"
 
 #include "harness/check.hpp"
@@ -200,6 +203,55 @@ GLINTFX_TEST(eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists) 
         "eleven_accepted_shorthands_and_ten_refused_names_are_closed_lists: {} shorthand(s), "
         "{} refused name(s)",
         shorthand_checked, refused_checked);
+}
+
+// GFSS-SHORTHAND (TODO.md wave W6, docs/plano-w6-folha-de-estilo.md
+// F3/D-W6-3): the block-level invariant every shorthand fatia's own
+// expansion has to hold - a shorthand this track ACCEPTS never survives,
+// AS a shorthand, past parse_declaration_list(). The per-family
+// distribution/arity/universal-keyword cases live in their own file,
+// tests/gfss_shorthand_expand_test.cpp - this one only proves the
+// invariant declaration_list_parse.cpp's own fold_into_result() exists
+// to keep, for all eleven names at once.
+GLINTFX_TEST(no_is_shorthand_declaration_survives_parse_declaration_list) {
+    struct one_valid_value {
+        std::string_view name;
+        std::string_view value_text;
+    };
+    static constexpr std::array<one_valid_value, 11> k_one_valid_value_per_shorthand{{
+        {"margin", "1px"},
+        {"padding", "1px"},
+        {"border-width", "1px"},
+        {"border-style", "solid"},
+        {"border-color", "red"},
+        {"border-radius", "1px"},
+        {"gap", "1px"},
+        {"overflow", "hidden"},
+        {"border", "solid"},
+        {"outline", "solid"},
+        {"flex-flow", "row"},
+    }};
+
+    int checked = 0;
+    for (const one_valid_value &row : k_one_valid_value_per_shorthand) {
+        const shorthand_longhand_entry *entry = find_shorthand_longhand_entry(row.name);
+        GLINTFX_CHECK(entry != nullptr);
+
+        const std::string source = std::string(row.name) + ": " + std::string(row.value_text) + ";";
+        const declaration_list_parse_result result =
+            parse_declaration_list(gltfx_gfss_cursor{.source = source});
+
+        GLINTFX_CHECK(result.declarations.size() == entry->longhand_count);
+        for (const gfss_declaration &declaration : result.declarations) {
+            GLINTFX_CHECK(declaration.is_shorthand == false);
+        }
+        ++checked;
+    }
+
+    std::println(
+        "no_is_shorthand_declaration_survives_parse_declaration_list: {} shorthand(s) checked",
+        checked);
+    GLINTFX_CHECK(checked == 11);
 }
 
 // === DP-5: property_value_contract =====================================
@@ -447,22 +499,36 @@ GLINTFX_TEST(every_accepted_declaration_of_a_reserved_property_carries_the_reser
 // ever read it - proved by sabotage: removing the `++result.raw_
 // composite_count` line in declaration_list_parse.cpp's own fold_
 // into_result() left the whole 21-case suite green. This sheet mixes
-// all three cases fold_into_result() has to tell apart: two
-// raw_composite, non-shorthand properties (`filter`/`transform`, both
-// property_value_contract.hpp's own contract_raw() rows) that MUST
-// count; one ordinary values-form property (`width`) that must NOT;
-// and one accepted SHORTHAND (`margin`) whose own value ALSO reaches
-// form == raw (build_shorthand(), declaration_parse.cpp) but is
-// excluded by fold_into_result()'s own `!parsed.declaration.is_
-// shorthand` guard - the counter names ONLY D-DP-4's own composite
-// debt, never D-DP-5's shorthand-pending-expansion, and this is the
-// one case in the suite that proves the guard, not just the count.
+// all three cases fold_into_result()/append_declaration() have to tell
+// apart: two raw_composite, non-shorthand properties (`filter`/
+// `transform`, both property_value_contract.hpp's own contract_raw()
+// rows) that MUST count; one ordinary values-form property (`width`)
+// that must NOT; and one accepted SHORTHAND (`margin`) whose own value
+// ALSO reaches form == raw (build_shorthand(), declaration_parse.cpp).
+//
+// GFSS-SHORTHAND (TODO.md wave W6) changed WHAT happens to that
+// shorthand, not the counter's own contract: `margin` no longer stays
+// in `declarations` as a raw, unexpanded entry at all - fold_into_
+// result() now expands it (shorthand_expand.hpp) into its own four
+// longhands (margin-top/-right/-bottom/-left, all natures-typed, none
+// raw_composite) BEFORE either counter is ever consulted for it. The
+// counter still counts only REAL raw-composite properties, never a
+// shorthand's own pending-expansion form - this test proves it by a
+// different route now (the four expanded margin longhands are present
+// in `declarations` and NONE of them bump raw_composite_count) instead
+// of the old route (a raw shorthand excluded by an is_shorthand guard,
+// which no longer applies because no shorthand ever reaches this
+// counter's own call site as `is_shorthand == true` any more).
 GLINTFX_TEST(raw_composite_count_counts_only_non_shorthand_raw_composite_declarations) {
     const declaration_list_parse_result result = parse_declaration_list(
         gltfx_gfss_cursor{.source = "filter: none; transform: none; width: 10px; margin: 1px"});
     GLINTFX_CHECK(result.rejected.empty());
-    GLINTFX_CHECK(result.declarations.size() == 4);
+    // filter + transform + width + margin's own four expanded longhands.
+    GLINTFX_CHECK(result.declarations.size() == 7);
     GLINTFX_CHECK(result.raw_composite_count == 2);
+    for (const gfss_declaration &declaration : result.declarations) {
+        GLINTFX_CHECK(declaration.is_shorthand == false);
+    }
     std::println("raw_composite_count_counts_only_non_shorthand_raw_composite_declarations: "
                  "raw_composite_count={} declarations={}",
                  result.raw_composite_count, result.declarations.size());

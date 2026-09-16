@@ -1317,3 +1317,21 @@ Um seletor inválido dentro de `:where()` recusa a **regra inteira**, com diagn�
 ### Decisão 4 - aviso de reset acidental por atalho
 
 Quando um atalho (shorthand) anula, no mesmo bloco, um valor de longhand que o autor já havia escrito antes, o comportamento **não muda** (o atalho continua apagando o que foi omitido); mas o autor da folha passa a receber um **aviso** por longhand anulado, com linha e coluna do atalho. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-14), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 5 - teto de complexidade de seletor, com o número na mão do consumidor
+
+O `gfss` passa a ter **teto para o comprimento da cadeia de combinadores** de um seletor. Passando do teto, a folha é **recusada com diagnóstico que explica o limite**, nunca aceita em silêncio, nunca truncada. Forma decidida pelo líder: **uma única função pública**, com o teto como **declaração opcional na chamada**; quem não declara nada recebe o **padrão de 256**. Não são três funções por tamanho, e o número não precisa ser um dos três candidatos pesquisados, pode ser qualquer valor.
+
+**Fato técnico que tornou essa forma barata:** o casamento foi reescrito na fatia S-2 desta onda para usar pilha em memória dinâmica em vez da pilha nativa do processo, então o teto **não reserva memória adiantada**, é o ponto de recusa, não uma alocação. Escolher 256 não custa mais memória que escolher 32; a memória acompanha o seletor real que chegou. Três funções de tamanho fixo só fariam sentido se houvesse buffer pré-dimensionado, que não é o caso.
+
+**Por que existe:** o laço que monta a cadeia em `src/gfss/selector_parse.cpp` é um `for (;;)` **sem contador de profundidade** (o `:not()` tem orçamento de 10, a cadeia não tinha nenhum). A pesquisa desta onda achou o mesmo vetor catalogado como falha de segurança em `postcss-selector-parser` (`GHSA-836r-79rf-4m37`), corrigido com limite de profundidade 256, o mesmo número que o líder escolheu como padrão.
+
+**Margem medida:** folhas legítimas ficam em torno de 10 a 15 elos por seletor no percentil 90, em análise de cerca de cem mil sites (Project Wallace, 2026). O padrão de 256 deixa margem de mais de uma ordem de grandeza sobre o uso real conhecido. **A assimetria que orientou a escolha:** subir o teto depois é indolor (passa a aceitar mais), baixar depois quebra consumidor que já dependia do valor antigo, por isso o padrão foi escolhido no lado generoso. **Origem:** relato do orquestrador (dossiê da pesquisa em `/var/tmp/glintfx-plan/teto-complexidade-seletor.md`), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 6 - cadência de subida da onda W6
+
+Cada **lote** da onda vai ao servidor **assim que fechar**, sem esperar o fim da onda inteira. Motivo registrado: vermelho aparece cedo e num pedaço pequeno, em vez de tudo misturado no fim, quando descobrir qual fatia quebrou fica caro. **Origem:** relato do orquestrador, 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 7 - o que vem depois da W6
+
+Quando a W6 fechar, o alvo seguinte são **os três itens pendentes da onda W6b**, não a trilha de entrada (teclado e ponteiro). Motivo: dois dos três são defeitos em código **já publicado na marca v0.4.0.0** (um teste que não alcança o que declara cobrir, e um ramo de decisão que nunca dispara em uso real), mais o portão de servidor verde daquela onda. Fecha uma onda que ficou aberta para trás, antes de abrir trilha nova. **Origem:** relato do orquestrador, 15/09/2026, sem verbatim do líder capturado nesta sessão.

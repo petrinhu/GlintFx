@@ -202,6 +202,17 @@
 // REUSED from declaration_parse - the SAME condition (a universal
 // keyword mixed with other tokens), reached through the shorthand's own
 // value instead of a known property's.
+//
+// GFSS-SHORTHAND, S-3b (TODO.md wave W6, docs/plano-w6-folha-de-
+// estilo.md D-W6-14, decisao do lider D4, 15/09/2026) IS THE NINTH
+// FATIA TO ADD A ROW HERE: `longhand_not_overridden_by_later_
+// shorthand` is shorthand_reset_notice.cpp's OWN - the SAME
+// `shorthand_expand` producer tag as the seven rows above (the diagnostic
+// still names a fact about a shorthand's own expansion, just a NOTICE
+// instead of a rejection - D-W6-13's own separate `notices` list is
+// what carries the distinction, never a second producer tag here). Its
+// own line/column point at the SHORTHAND that did the overriding, never
+// at the longhand it silently reset.
 
 namespace glintfx::style::detail {
 
@@ -261,7 +272,8 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(one_or_two_axis_values, shorthand_expand)                                                    \
     X(border_part_width_style_or_color, shorthand_expand)                                          \
     X(each_border_part_at_most_once, shorthand_expand)                                             \
-    X(flex_direction_or_flex_wrap_word, shorthand_expand)
+    X(flex_direction_or_flex_wrap_word, shorthand_expand)                                          \
+    X(longhand_not_overridden_by_later_shorthand, shorthand_expand)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

@@ -91,11 +91,29 @@ struct gfss_declaration {
 // requires printed even when the underlying condition never fires
 // (raw_composite_count for D-DP-4's own declared debt; reserved_notice_
 // count for E1's own "ruido do property_reserved").
+//
+// `notices` (GFSS-SHORTHAND S-3b, D-W6-13, docs/plano-w6-folha-de-
+// estilo.md, decisao do lider D4, 15/09/2026): a THIRD list, distinct
+// from both `declarations` and `rejected` - an ACCEPTED declaration a
+// shorthand later, silently, reset (the "reset acidental" the community
+// dossie desta onda names as its dor numero um) is never itself
+// rejected, and the reset itself is never undone (D-W6-4/D-W6-3 do not
+// change) - the author is only warned. Born HERE, in the BLOCK's own
+// result (never the sheet's, GFSS-SHEET-PARSE, W10, only RECOLLECTS
+// it), so the inline style-attribute path (this SAME parse_declaration_
+// list(), never routed through a sheet) carries the SAME warning.
+// notice_count is the SAME "counted even at zero" discipline GODS_LAWS.
+// md L-40 already requires of raw_composite_count/reserved_notice_count
+// above - never a stand-in for `notices.size()`, always kept equal to
+// it by construction (declaration_list_parse.cpp's own fold_into_
+// result(), the one place either grows).
 struct declaration_list_parse_result {
     std::vector<gfss_declaration> declarations;
     std::vector<gltfx_gfss_diagnostic> rejected;
+    std::vector<gltfx_gfss_diagnostic> notices;
     std::size_t raw_composite_count = 0;
     std::size_t reserved_notice_count = 0;
+    std::size_t notice_count = 0;
 };
 
 } // namespace glintfx::style::detail

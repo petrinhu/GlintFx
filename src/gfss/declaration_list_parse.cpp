@@ -4,6 +4,7 @@
 #include "declaration_parse.hpp"
 #include "declaration_split.hpp"
 #include "shorthand_expand.hpp"
+#include "shorthand_reset_notice.hpp"
 
 // declaration_list_parse.cpp - GFSS-DECL-PARSE, DP-8 (GODS_LAWS.md
 // L-17: each function below answers exactly one question of
@@ -65,6 +66,23 @@ void append_declaration(gfss_declaration declaration, declaration_list_parse_res
 // the block). A shorthand that fails to expand contributes its own
 // diagnostic to `rejected`, the SAME list a directly-rejected
 // declaration already uses - never a declaration of its own.
+//
+// GFSS-SHORTHAND, S-3b (D-W6-13/D-W6-14, docs/plano-w6-folha-de-
+// estilo.md, decisao do lider D4, 15/09/2026): AFTER the expansion
+// lands, shorthand_reset_notices() (shorthand_reset_notice.hpp) is
+// asked, over the SAME `result.declarations` it just grew, which of
+// the N just-appended longhands already had an explicit value earlier
+// in THIS block - one notice per overridden longhand, appended to
+// `result.notices`, the block's own THIRD list (declaration_ast.hpp).
+// `shorthand_line`/`shorthand_column` come from the shortcut's OWN
+// first raw value token (`parsed.declaration.raw_tokens.front()`) -
+// the closest position this crude, pre-expansion declaration carries
+// (build_shorthand(), declaration_parse.cpp, never leaves raw_tokens
+// empty: parse_declaration() already rejects an empty value span
+// before ever calling it). `parsed.declaration` is read here, never
+// moved - only `expanded.longhands`' own elements are moved into
+// `result`, so raw_tokens stays valid for this read even after the
+// append loop below.
 void fold_into_result(declaration_parse_result parsed, declaration_list_parse_result &result) {
     if (!parsed.accepted) {
         result.rejected.push_back(parsed.diagnostic);
@@ -76,8 +94,17 @@ void fold_into_result(declaration_parse_result parsed, declaration_list_parse_re
             result.rejected.push_back(expanded.diagnostic);
             return;
         }
+        const std::size_t expansion_begin = result.declarations.size();
+        const std::size_t longhand_count = expanded.longhands.size();
         for (gfss_declaration &longhand : expanded.longhands) {
             append_declaration(std::move(longhand), result);
+        }
+        const gltfx_gfss_token &shorthand_token = parsed.declaration.raw_tokens.front();
+        for (gltfx_gfss_diagnostic &notice :
+             shorthand_reset_notices(result.declarations, expansion_begin, longhand_count,
+                                     shorthand_token.line, shorthand_token.column)) {
+            result.notices.push_back(notice);
+            ++result.notice_count;
         }
         return;
     }

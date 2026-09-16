@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
-#include <cstdint>
-
 #include <glintfx/gfui/node_view.hpp>
 
 #include "gfss/selector_ast.hpp"
+#include "gfui/match_verdict.hpp"
 
 // compound_match.hpp - GFSS-MATCH-SIMPLE (TODO.md, GODS_LAWS.md
 // L-17/L-19/L-20/L-22/L-28/L-40; /var/tmp/glintfx-plan/gfss-match-
@@ -28,18 +27,31 @@
 // HERE as well, for the same reason.
 //
 // WHAT STILL DEFERS, AND WHY EACH ONE DOES (docs/node-view-and-
-// matching.md's own "What is not judged yet", the two items its own
-// "Two gaps" section names, and this file's own scope line before
-// today): `:not(...)` and `:scope` anchoring both depend on the
-// combinator work GFSS-MATCH-COMBINE (TODO.md, wave W6) still owns;
-// `:placeholder-shown` has no answer anywhere in the eight-fact
-// contract (docs/node-view-and-matching.md's own gap 1, unresolved by
-// design); `::before`/`::after` ask for a box that does not exist in
-// the consumer's tree at all, which is layout's job (LAYOUT-PSEUDO-
-// BOXES), never a node-only judgment's. Combinators and specificity
-// are never seen here at all, structural pseudo-classes or not: this
-// file's own entry point takes a single gfss_compound_selector, never
-// a gfss_complex_selector's own `rest`.
+// matching.md's own "What is not judged yet", updated by GFSS-MATCH-
+// COMBINE, TODO.md wave W6): `:not(...)` and `:scope` anchoring USED
+// TO both depend on the combinator work this file's own header
+// comment named as still-missing - that work now exists
+// (complex_match.hpp's own match_complex(), docs/plano-w6-folha-de-
+// estilo.md fatia S-2), so THIS file keeps deferring them (a single
+// compound, on its own, still cannot resolve either one - judging
+// `:not()` needs to run the SAME two-level match recursively on its
+// own argument, and `:scope` needs to compare against a scope root
+// neither `match_compound()` nor its caller here ever receives), but
+// the DEFERRED answer this function returns for them is no longer a
+// dead end: deferred_simple_match.hpp's own judge_deferred_simple_
+// selectors() is their new owner, called by complex_match.cpp right
+// after this function returns `deferred`. `:placeholder-shown` still
+// has no answer anywhere in the eight-fact contract (docs/node-view-
+// and-matching.md's own gap 1, unresolved by design);
+// `::before`/`::after` still ask for a box that does not exist in the
+// consumer's tree at all, which is layout's job (LAYOUT-PSEUDO-BOXES),
+// never a node-only judgment's - both stay deferred forever through
+// this function AND through judge_deferred_simple_selectors() alike.
+// Combinators and specificity are never seen here at all, structural
+// pseudo-classes or not: this file's own entry point takes a single
+// gfss_compound_selector, never a gfss_complex_selector's own `rest` -
+// complex_match.cpp is what walks `rest`, calling back into this
+// function once per compound along the way.
 //
 // WHY src/gfui/, NOT src/gfss/ (D-MS-1 of the plan above): ESCOPO.md
 // SS4 fixes the trio - gfss is the leaf FORMAT (data), gfml the
@@ -64,9 +76,11 @@ namespace glintfx::gfui::detail {
 // deferred (none judged here failed, but the compound also carries at
 // least one simple selector this evaluator does not own - :not(...),
 // :scope anchoring, :placeholder-shown, or a pseudo-element - so the
-// final answer belongs to a later evaluator, GFSS-MATCH-COMBINE's own
-// W6 or a product decision not yet made, this file's own header
-// comment names which for each).
+// final answer belongs to a later evaluator, this file's own header
+// comment names which one for each). See match_verdict.hpp's own
+// header comment for why this exact three-value type is now shared
+// with complex_match.hpp's own match_complex(), not private to this
+// file any more (GFSS-MATCH-COMBINE, TODO.md wave W6).
 //
 // WHY THREE VALUES, NOT bool (plan SS3.3): with bool, a compound
 // "a:first-child" would have to answer true (a lie: :first-child was
@@ -74,7 +88,6 @@ namespace glintfx::gfui::detail {
 // structural half is judged) - either one is exactly the "green
 // without looking" GODS_LAWS.md L-40 forbids. deferred tells the
 // truth: "what is mine is settled; what is not mine is still open".
-enum class compound_match_verdict : std::uint8_t { matched, rejected, deferred };
 
 // `compound` is one gfss_compound_selector (glued simple selectors,
 // e.g. "button.primary#ok" - no combinator inside it); `node` must have
@@ -84,8 +97,7 @@ enum class compound_match_verdict : std::uint8_t { matched, rejected, deferred }
 // node_facts_first_missing(), not here). noexcept: no allocation
 // anywhere in the algorithm (plan SS3.8), the same guarantee every
 // gltfx_node_facts callback already carries across the ABI boundary.
-[[nodiscard]] compound_match_verdict
-match_compound(const style::detail::gfss_compound_selector &compound,
-               const gltfx_node_view &node) noexcept;
+[[nodiscard]] match_verdict match_compound(const style::detail::gfss_compound_selector &compound,
+                                           const gltfx_node_view &node) noexcept;
 
 } // namespace glintfx::gfui::detail

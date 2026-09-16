@@ -408,7 +408,7 @@ O value type `glintfx::version` ganha o **quarto campo** (`tweak_version`), para
 
 **De onde a especificação sai agora — e isto é INFERÊNCIA minha sobre a decisão dele, não verbatim, sujeita a correção:** ao batizar os formatos de `gfss` e `gfml` e ao dizer *"com as propriedades de html"*, ele os torna **formatos nossos modelados no vocabulário dos padrões web**, e não mais o formato de terceiro que a versão original desta lei adotava. **A fonte da especificação passa a ser a documentação pública dos padrões (CSS e HTML), nunca um consumidor específico** — e a proibição de tirar a lista do que um jogo precisou **continua exatamente como está**, pelo mesmo argumento: a lista de um consumidor é subconjunto do que o padrão já define, e o risco não é copiar código, é **a lista parar a pergunta certa**.
 
-**O que NÃO mudou:** as cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora, animação e transição fora) **continuam de pé**. Layout entrar não as reabre.
+**O que NÃO mudou:** quatro das cinco decisões de escopo (árvore do consumidor apagada de tipo, folha imutável depois de parseada, seletor completo na v1, `@media` fora) **continuam de pé**. A quinta, sobre animação e transição, foi REVOGADA em 26/08/2026 pelo líder, ver a seção "As 8 decisões de 26/08/2026 sobre movimento e luz" abaixo. Layout entrar não as reabre.
 
 ### Nome do motor: `gfui` — decidido em 26/08/2026
 
@@ -450,7 +450,7 @@ Cinco decisões, por `AskUserQuestion` (L-10). **Não são mais perguntas.**
 2. **Folha imutável após o parse.** A única dinâmica é o estado de pseudo-classe do nó, com recomputação sob demanda. Simples, seguro entre threads por construção, e cobre `:hover`, `:focus` e `:checked`.
 3. **Seletor: o formato COMPLETO na v1.** Atributo com os sete operadores, `:not()` com lista de seletores complexos, os quatro combinadores, a família estrutural inteira, `:placeholder-shown` e `:scope`.
 4. **`@media` fica FORA da v1**, ignorada com diagnóstico.
-5. **Animação, transição e `@keyframes` ficam FORA da v1**, ignorados com diagnóstico. Entram como escopo próprio quando o loop principal e o relógio existirem.
+5. **REVOGADA em 26/08/2026, ver a seção "As 8 decisões de 26/08/2026 sobre movimento e luz" abaixo.** A decisão original excluía animação e transição do escopo da v1, com diagnóstico no lugar delas; a própria condição que ela escreveu ("quando o loop principal e o relógio existirem") foi medida e satisfeita, e o líder reabriu.
 
 **Defaults registrados para veto, que o líder não vetou:** namespace `glintfx::style` com IDs de item `RCSS-*`; as cores modernas `lab()`, `lch()`, `oklab()` e `oklch()` fora da v1; e, quanto a aspas no valor de seletor de atributo, seguir a convenção do CSS (aceitar identificador sem aspas e string com aspas), já que a documentação do formato não especifica.
 
@@ -1297,3 +1297,56 @@ As duas primeiras entram como pedidas. A terceira **mudou depois da objeção**,
 **`.gf.anim`**, escolhida pelo líder. Segue a forma do precedente do mapa (`.gw.map`): sobrenome curto identificando a origem, mais a palavra que diz o que é. O arquivo descreve os ciclos - quais desenhos, em que ordem, quanto tempo cada um, qual direção - e é dado, não binário, o que a **L-38** já autoriza (*"Dado é nosso e pode ter extensão própria"*).
 
 **O que NÃO foi decidido aqui, e não deve ser inventado por agente nenhum:** a gramática de dentro do arquivo, como as três fontes de quadro se declaram nele, e como o ciclo se liga à direção do personagem. Isso é fatiamento, e o fatiamento passa pelo passo 2 da L-34 com pesquisa antes (L-43), olhando como o RmlUi, o SDL3 e os motores 2D resolvem o mesmo problema.
+
+## Ordem de produto de 15/09/2026: :where(), especificidade zero, e mais duas decisões da folha de estilo `[15/09/26 - 17:40:46]`
+
+Quatro decisões do líder sobre a trilha `gfss`, tomadas na sessão que planejou a onda W6 (`docs/plano-w6-folha-de-estilo.md`, decisões D-W6-12, D-W6-7, D-W6-6 e D-W6-14). **Todas registradas aqui pelo orquestrador; não são verbatim do líder.**
+
+### Decisão 1 - o nome do seletor de especificidade-zero
+
+**`:where()`**, contra a recomendação do CTO (que propunha `:without-specificity()`) e a do orquestrador. Executado sem discussão. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-12), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 2 - a lista dentro de `:where()` é ESTRITA
+
+Um seletor inválido dentro de `:where()` recusa a **regra inteira**, com diagnóstico, a mesma disciplina que o `:not()` do formato já usa. **Isto é divergência deliberada do CSS real**, datada 15/09/2026: no padrão, `:where()` é tolerante e descarta em silêncio o seletor inválido; aqui não. O diagnóstico sai em inglês, nomeando o vocabulário do analisador (`known_where_selector`), nunca a gramática do CSS ou uma frase explicativa; a comparação com o padrão é prosa de documentação, não texto de diagnóstico. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-7), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 3 - `:scope` seguido de `+` ou `~` é aceito, com aviso
+
+`:scope` seguido de um combinador de irmão (`+` ou `~`) é um seletor válido que nunca casa. Fica **aceito**, não é erro: a regra entra na folha, inerte, e um aviso numa lista **separada** (nunca no tipo de diagnóstico, que não carrega gravidade) registra o motivo, com linha e coluna. Não é silêncio nem recusa. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-6), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 4 - aviso de reset acidental por atalho
+
+Quando um atalho (shorthand) anula, no mesmo bloco, um valor de longhand que o autor já havia escrito antes, o comportamento **não muda** (o atalho continua apagando o que foi omitido); mas o autor da folha passa a receber um **aviso** por longhand anulado, com linha e coluna do atalho. **Origem:** relato do orquestrador (docs/plano-w6-folha-de-estilo.md, D-W6-14), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 5 - teto de complexidade de seletor, com o número na mão do consumidor
+
+O `gfss` passa a ter **teto para o comprimento da cadeia de combinadores** de um seletor. Passando do teto, a folha é **recusada com diagnóstico que explica o limite**, nunca aceita em silêncio, nunca truncada. Forma decidida pelo líder: **uma única função pública**, com o teto como **declaração opcional na chamada**; quem não declara nada recebe o **padrão de 256**. Não são três funções por tamanho, e o número não precisa ser um dos três candidatos pesquisados, pode ser qualquer valor.
+
+**Fato técnico que tornou essa forma barata:** o casamento foi reescrito na fatia S-2 desta onda para usar pilha em memória dinâmica em vez da pilha nativa do processo, então o teto **não reserva memória adiantada**, é o ponto de recusa, não uma alocação. Escolher 256 não custa mais memória que escolher 32; a memória acompanha o seletor real que chegou. Três funções de tamanho fixo só fariam sentido se houvesse buffer pré-dimensionado, que não é o caso.
+
+**Por que existe:** o laço que monta a cadeia em `src/gfss/selector_parse.cpp` é um `for (;;)` **sem contador de profundidade** (o `:not()` tem orçamento de 10, a cadeia não tinha nenhum). A pesquisa desta onda achou o mesmo vetor catalogado como falha de segurança em `postcss-selector-parser` (`GHSA-836r-79rf-4m37`), corrigido com limite de profundidade 256, o mesmo número que o líder escolheu como padrão.
+
+**Margem medida:** folhas legítimas ficam em torno de 10 a 15 elos por seletor no percentil 90, em análise de cerca de cem mil sites (Project Wallace, 2026). O padrão de 256 deixa margem de mais de uma ordem de grandeza sobre o uso real conhecido. **A assimetria que orientou a escolha:** subir o teto depois é indolor (passa a aceitar mais), baixar depois quebra consumidor que já dependia do valor antigo, por isso o padrão foi escolhido no lado generoso. **Origem:** relato do orquestrador (dossiê da pesquisa em `/var/tmp/glintfx-plan/teto-complexidade-seletor.md`), 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 6 - cadência de subida da onda W6
+
+Cada **lote** da onda vai ao servidor **assim que fechar**, sem esperar o fim da onda inteira. Motivo registrado: vermelho aparece cedo e num pedaço pequeno, em vez de tudo misturado no fim, quando descobrir qual fatia quebrou fica caro. **Origem:** relato do orquestrador, 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 7 - o que vem depois da W6
+
+Quando a W6 fechar, o alvo seguinte são **os três itens pendentes da onda W6b**, não a trilha de entrada (teclado e ponteiro). Motivo: dois dos três são defeitos em código **já publicado na marca v0.4.0.0** (um teste que não alcança o que declara cobrir, e um ramo de decisão que nunca dispara em uso real), mais o portão de servidor verde daquela onda. Fecha uma onda que ficou aberta para trás, antes de abrir trilha nova. **Origem:** relato do orquestrador, 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 8 - falta de memória no casamento de seletor nunca mata o processo do consumidor
+
+**Ordem do líder:** quando a memória acabar durante o casamento de um seletor, a biblioteca **devolve erro e o aplicativo do consumidor decide o que fazer**; nunca mata o processo dele. Decisão tomada na madrugada de 16/09/2026, continuando a série da noite anterior (Decisões 1-7 acima). **Origem:** relato do orquestrador, 16/09/2026, sem verbatim do líder capturado nesta sessão.
+
+**O estado medido que motivou a pergunta:** `match_complex()` (`src/gfui/complex_match.hpp`) é declarada `noexcept` **e aloca** (`std::vector<frame>` em memória dinâmica, a pilha explícita que substituiu a recursão na fatia S-2 desta mesma onda). Falha de alocação dentro de função `noexcept` chama `std::terminate()`: o processo de quem usa a biblioteca morre na hora, sem chance de reagir. O mesmo vale para `deferred_simple_match.hpp`, que chama `match_complex()` e herda a alocação.
+
+**O que a decisão custa, e fica registrado:** o veredito do casamento hoje tem **três** valores (`matched`, `rejected`, `deferred`). Passar a carregar "recurso esgotado" muda a **forma pública** do veredito, e **todo ponto que consome esse resultado** passa a ter de tratar o desfecho novo. Essa forma congela na 1.0 (ver `GFSS-API`, W10).
+
+**Fato que pesou na escolha, também registrado:** o teto de 256 elos de cadeia de combinadores (Decisão 5, mais cedo na mesma noite) **ainda não está no código**: é da fatia S-5. Enquanto ele não existir, a alocação segue sem limite pelo tamanho do seletor, então o risco é real, não hipotético.
+
+**Alternativas recusadas:**
+
+- Manter `noexcept` e apenas documentar o término: deixaria o defeito vivo, só nomeado.
+- Manter `noexcept`, condicionando a correção à implantação prévia do teto da Decisão 5: adiaria o conserto por uma fatia inteira (S-5) enquanto o risco já está publicado.

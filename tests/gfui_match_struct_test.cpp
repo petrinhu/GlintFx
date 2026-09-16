@@ -383,8 +383,8 @@ GLINTFX_TEST(structural_functional_holds_negative_coefficient_an_plus_b) {
 // --- fatia C: real gfss selector text through match_compound() ---
 
 GLINTFX_TEST(match_compound_evaluates_structural_selectors_through_real_text) {
-    using glintfx::gfui::detail::compound_match_verdict;
     using glintfx::gfui::detail::match_compound;
+    using glintfx::gfui::detail::match_verdict;
 
     arena tree;
     const std::array<gltfx_node_view, 5> chain = build_five_sibling_chain(tree);
@@ -392,17 +392,17 @@ GLINTFX_TEST(match_compound_evaluates_structural_selectors_through_real_text) {
     struct text_case {
         std::string_view text;
         std::size_t chain_index = 0;
-        compound_match_verdict expected = compound_match_verdict::rejected;
+        match_verdict expected = match_verdict::rejected;
     };
     const std::array<text_case, 8> cases{{
-        {":first-child", 0, compound_match_verdict::matched},
-        {":first-child", 1, compound_match_verdict::rejected},
-        {":last-child", 4, compound_match_verdict::matched},
-        {"a:only-of-type", 0, compound_match_verdict::rejected},
-        {"b:first-of-type", 1, compound_match_verdict::matched},
-        {":nth-child(2n+1)", 2, compound_match_verdict::matched},
-        {":nth-child(2n+1)", 1, compound_match_verdict::rejected},
-        {"a:nth-of-type(3)", 4, compound_match_verdict::matched},
+        {":first-child", 0, match_verdict::matched},
+        {":first-child", 1, match_verdict::rejected},
+        {":last-child", 4, match_verdict::matched},
+        {"a:only-of-type", 0, match_verdict::rejected},
+        {"b:first-of-type", 1, match_verdict::matched},
+        {":nth-child(2n+1)", 2, match_verdict::matched},
+        {":nth-child(2n+1)", 1, match_verdict::rejected},
+        {"a:nth-of-type(3)", 4, match_verdict::matched},
     }};
     for (const text_case &c : cases) {
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(c.text);
@@ -421,13 +421,11 @@ GLINTFX_TEST(match_compound_evaluates_structural_selectors_through_real_text) {
     // documents.
     const glintfx::style::detail::gfss_compound_selector rejecting_and_deferred =
         parse_one_compound(":last-child:placeholder-shown");
-    GLINTFX_CHECK(match_compound(rejecting_and_deferred, chain[0]) ==
-                  compound_match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(rejecting_and_deferred, chain[0]) == match_verdict::rejected);
 
     // A structural requirement that HOLDS, alongside something still
     // deferred, defers.
     const glintfx::style::detail::gfss_compound_selector matching_and_deferred =
         parse_one_compound(":first-child:placeholder-shown");
-    GLINTFX_CHECK(match_compound(matching_and_deferred, chain[0]) ==
-                  compound_match_verdict::deferred);
+    GLINTFX_CHECK(match_compound(matching_and_deferred, chain[0]) == match_verdict::deferred);
 }

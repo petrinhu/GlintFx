@@ -414,27 +414,27 @@ attribute_and_structural_selectors_hold(const style::detail::gfss_compound_selec
 
 } // namespace
 
-compound_match_verdict match_compound(const style::detail::gfss_compound_selector &compound,
-                                      const gltfx_node_view &node) noexcept {
+match_verdict match_compound(const style::detail::gfss_compound_selector &compound,
+                             const gltfx_node_view &node) noexcept {
     const compound_requirements req = collect_requirements(compound);
 
     // D-MS-7's own order: id -> state -> tag -> classes, cheapest and
     // most selective first, first rejection wins - see this file's own
     // header comment and every step's own comment above for why.
     if (!id_holds(req, node)) {
-        return compound_match_verdict::rejected;
+        return match_verdict::rejected;
     }
     if (!state_holds(req, node)) {
-        return compound_match_verdict::rejected;
+        return match_verdict::rejected;
     }
     if (!type_holds(req, node)) {
-        return compound_match_verdict::rejected;
+        return match_verdict::rejected;
     }
     if (!all_classes_present(req, compound, node)) {
-        return compound_match_verdict::rejected;
+        return match_verdict::rejected;
     }
     if (!attribute_and_structural_selectors_hold(compound, node)) {
-        return compound_match_verdict::rejected;
+        return match_verdict::rejected;
     }
 
     // "Rejeicao vence adiamento" (plan SS3.1): only reached once every
@@ -442,9 +442,9 @@ compound_match_verdict match_compound(const style::detail::gfss_compound_selecto
     // selector never costs a single call when the owned half already
     // settles the answer as rejected.
     if (req.has_deferred_requirement) {
-        return compound_match_verdict::deferred;
+        return match_verdict::deferred;
     }
-    return compound_match_verdict::matched;
+    return match_verdict::matched;
 }
 
 } // namespace glintfx::gfui::detail

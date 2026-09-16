@@ -144,8 +144,8 @@ GLINTFX_TEST(state_pseudo_class_table_answers_the_five_names_case_insensitively_
 // --- fatia C: id/tag/state/universal/case/deferral, real parsed text ---
 
 GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
-    using glintfx::gfui::detail::compound_match_verdict;
     using glintfx::gfui::detail::match_compound;
+    using glintfx::gfui::detail::match_verdict;
     using glintfx::test::fake_arena::arena;
     using glintfx::test::fake_arena::entry;
     using glintfx::test::fake_arena::k_no_index;
@@ -192,18 +192,18 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     struct matrix_case {
         std::string_view text;
         const glintfx::gfui::gltfx_node_view *node = nullptr;
-        compound_match_verdict expected = compound_match_verdict::rejected;
+        match_verdict expected = match_verdict::rejected;
     };
     const std::array<matrix_case, 9> matrix{{
-        {"#one", &node_a, compound_match_verdict::matched},
-        {"#other", &node_a, compound_match_verdict::rejected},
-        {"a", &node_a, compound_match_verdict::matched},
-        {"a", &node_a, compound_match_verdict::matched},
-        {"b", &node_a, compound_match_verdict::rejected},
-        {"#one", &node_a, compound_match_verdict::matched},
-        {":hover", &node_b, compound_match_verdict::matched},
-        {":active", &node_b, compound_match_verdict::rejected},
-        {"b", &node_b, compound_match_verdict::matched},
+        {"#one", &node_a, match_verdict::matched},
+        {"#other", &node_a, match_verdict::rejected},
+        {"a", &node_a, match_verdict::matched},
+        {"a", &node_a, match_verdict::matched},
+        {"b", &node_a, match_verdict::rejected},
+        {"#one", &node_a, match_verdict::matched},
+        {":hover", &node_b, match_verdict::matched},
+        {":active", &node_b, match_verdict::rejected},
+        {"b", &node_b, match_verdict::matched},
     }};
     std::printf("gfui_compound_match_test: %zu species-matrix cases (id/tag/state x present-equal/"
                 "present-different/absent) checked\n",
@@ -215,38 +215,29 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     }
 
     // Universal: matches unconditionally, alone or glued to a type.
-    GLINTFX_CHECK(match_compound(parse_one_compound("*"), node_a) ==
-                  compound_match_verdict::matched);
-    GLINTFX_CHECK(match_compound(parse_one_compound("*a"), node_a) ==
-                  compound_match_verdict::matched);
-    GLINTFX_CHECK(match_compound(parse_one_compound("a*"), node_a) ==
-                  compound_match_verdict::matched);
+    GLINTFX_CHECK(match_compound(parse_one_compound("*"), node_a) == match_verdict::matched);
+    GLINTFX_CHECK(match_compound(parse_one_compound("*a"), node_a) == match_verdict::matched);
+    GLINTFX_CHECK(match_compound(parse_one_compound("a*"), node_a) == match_verdict::matched);
 
     // Case policy (D-MS-4 tag/pseudo-class ASCII case-insensitive,
     // D-MS-5 class/id exact).
-    GLINTFX_CHECK(match_compound(parse_one_compound("A"), node_a) ==
-                  compound_match_verdict::matched);
-    GLINTFX_CHECK(match_compound(parse_one_compound("#One"), node_a) ==
-                  compound_match_verdict::rejected);
-    GLINTFX_CHECK(match_compound(parse_one_compound(".Alpha"), node_a) ==
-                  compound_match_verdict::rejected);
-    GLINTFX_CHECK(match_compound(parse_one_compound(":HOVER"), node_b) ==
-                  compound_match_verdict::matched);
+    GLINTFX_CHECK(match_compound(parse_one_compound("A"), node_a) == match_verdict::matched);
+    GLINTFX_CHECK(match_compound(parse_one_compound("#One"), node_a) == match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound(".Alpha"), node_a) == match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound(":HOVER"), node_b) == match_verdict::matched);
     GLINTFX_CHECK(match_compound(parse_one_compound(":Focus-Visible"), node_b) ==
-                  compound_match_verdict::rejected);
+                  match_verdict::rejected);
 
     // Two state pseudo-classes in one compound fold into one mask.
     GLINTFX_CHECK(match_compound(parse_one_compound(":hover:focus"), node_b) ==
-                  compound_match_verdict::matched);
+                  match_verdict::matched);
     GLINTFX_CHECK(match_compound(parse_one_compound(":hover:active"), node_b) ==
-                  compound_match_verdict::rejected);
+                  match_verdict::rejected);
 
     // id conflict never matches any node; a repeated EQUAL id is not a
     // conflict.
-    GLINTFX_CHECK(match_compound(parse_one_compound("#a#b"), node_a) ==
-                  compound_match_verdict::rejected);
-    GLINTFX_CHECK(match_compound(parse_one_compound("#one#one"), node_a) ==
-                  compound_match_verdict::matched);
+    GLINTFX_CHECK(match_compound(parse_one_compound("#a#b"), node_a) == match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound("#one#one"), node_a) == match_verdict::matched);
 
     // Type conflict is the same shape as id conflict, one sibling
     // branch below in compound_match.cpp (note_type_selector's own
@@ -254,12 +245,10 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     // never match any node, and a repeated EQUAL type (case-
     // insensitive, D-MS-4) is not a conflict. node_a's own type is
     // "a" (matrix above, "a" matches / "b" rejects).
-    GLINTFX_CHECK(match_compound(parse_one_compound("a*b"), node_a) ==
-                  compound_match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound("a*b"), node_a) == match_verdict::rejected);
     GLINTFX_CHECK(match_compound(parse_one_compound("div*span"), node_a) ==
-                  compound_match_verdict::rejected);
-    GLINTFX_CHECK(match_compound(parse_one_compound("a*a"), node_a) ==
-                  compound_match_verdict::matched);
+                  match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound("a*a"), node_a) == match_verdict::matched);
 
     // Deferral: only the two simple pseudo-classes still unowned
     // (:placeholder-shown, :scope) - the five state ones settle via
@@ -279,7 +268,7 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
         ++deferred_simple_count;
         const std::string text = "a:" + std::string(name);
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(text);
-        GLINTFX_CHECK(match_compound(compound, node_a) == compound_match_verdict::deferred);
+        GLINTFX_CHECK(match_compound(compound, node_a) == match_verdict::deferred);
     }
     GLINTFX_CHECK_EQ(deferred_simple_count, glintfx::style::detail::k_simple_pseudo_count -
                                                 glintfx::gfui::gltfx_node_state_count -
@@ -308,7 +297,7 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
         // simple selector as the argument instead.
         const std::string text = "a:" + std::string(name) + "(.zzz)";
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(text);
-        GLINTFX_CHECK(match_compound(compound, node_a) == compound_match_verdict::deferred);
+        GLINTFX_CHECK(match_compound(compound, node_a) == match_verdict::deferred);
     }
     GLINTFX_CHECK_EQ(deferred_functional_count,
                      glintfx::style::detail::k_functional_pseudo_count - std::size_t{4});
@@ -331,7 +320,7 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
         ++deferred_pseudo_element_count;
         const std::string text = "a::" + std::string(name);
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(text);
-        GLINTFX_CHECK(match_compound(compound, node_a) == compound_match_verdict::deferred);
+        GLINTFX_CHECK(match_compound(compound, node_a) == match_verdict::deferred);
     }
     GLINTFX_CHECK_EQ(deferred_pseudo_element_count, glintfx::style::detail::k_pseudo_element_count);
     std::printf("gfui_compound_match_test: %zu pseudo-elements deferred\n",
@@ -343,7 +332,7 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     // answer before :first-child (this fatia's own, deferred) is even
     // considered.
     GLINTFX_CHECK(match_compound(parse_one_compound("#nope:first-child"), node_a) ==
-                  compound_match_verdict::rejected);
+                  match_verdict::rejected);
 }
 
 // --- fatia D: classes - repetition, early stop, 64-requirement fallback ---
@@ -407,8 +396,8 @@ make_visit_counting_view(const class_visit_counting_tree &counting_tree,
 } // namespace
 
 GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
-    using glintfx::gfui::detail::compound_match_verdict;
     using glintfx::gfui::detail::match_compound;
+    using glintfx::gfui::detail::match_verdict;
     using glintfx::test::fake_arena::arena;
     using glintfx::test::fake_arena::entry;
     using glintfx::test::fake_arena::k_no_index;
@@ -430,11 +419,10 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
     const glintfx::gfui::gltfx_node_view node = view(tree, index);
 
     GLINTFX_CHECK(match_compound(parse_one_compound(".alpha.gamma"), node) ==
-                  compound_match_verdict::matched);
+                  match_verdict::matched);
     GLINTFX_CHECK(match_compound(parse_one_compound(".alpha.zzz"), node) ==
-                  compound_match_verdict::rejected);
-    GLINTFX_CHECK(match_compound(parse_one_compound(".Alpha"), node) ==
-                  compound_match_verdict::rejected);
+                  match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(parse_one_compound(".Alpha"), node) == match_verdict::rejected);
 
     // Repeated class in the consumer's OWN enumeration must not be
     // double-counted by a counter - the mutation a bit-per-requirement
@@ -453,7 +441,7 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
     });
     const glintfx::gfui::gltfx_node_view repeated_node = view(tree, repeated_index);
     GLINTFX_CHECK(match_compound(parse_one_compound(".beta.gamma"), repeated_node) ==
-                  compound_match_verdict::rejected);
+                  match_verdict::rejected);
 
     // Early stop: [alpha, beta, gamma] visited in author order; the
     // enumeration stops the MOMENT every requirement is satisfied.
@@ -477,7 +465,7 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
         // COUNT (compound_match.hpp's own match_compound() is
         // [[nodiscard]]), so the read itself keeps GODS_LAWS.md L-40's
         // own "never a green without looking" contract honored.
-        const compound_match_verdict verdict = match_compound(compound, counting_view);
+        const match_verdict verdict = match_compound(compound, counting_view);
         (void)verdict;
         GLINTFX_CHECK_EQ(visit_count, c.expected_visits);
     }
@@ -515,8 +503,7 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
     }
     const glintfx::style::detail::gfss_compound_selector all_present_compound =
         parse_one_compound(all_present_text);
-    GLINTFX_CHECK(match_compound(all_present_compound, big_node) ==
-                  compound_match_verdict::matched);
+    GLINTFX_CHECK(match_compound(all_present_compound, big_node) == match_verdict::matched);
 
     std::string one_missing_text = "a";
     for (std::size_t i = 0; i < 64; ++i) {
@@ -525,8 +512,7 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
     one_missing_text += ".zzz_missing";
     const glintfx::style::detail::gfss_compound_selector one_missing_compound =
         parse_one_compound(one_missing_text);
-    GLINTFX_CHECK(match_compound(one_missing_compound, big_node) ==
-                  compound_match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(one_missing_compound, big_node) == match_verdict::rejected);
     std::printf("gfui_compound_match_test: 65-class fallback checked (all-present matched, "
                 "65th-absent rejected)\n");
 }
@@ -534,8 +520,8 @@ GLINTFX_TEST(match_compound_classes_bitmask_repetition_stop_and_fallback) {
 // --- fatia E: D-MS-7's own call order, proved by counting real calls ---
 
 GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
-    using glintfx::gfui::detail::compound_match_verdict;
     using glintfx::gfui::detail::match_compound;
+    using glintfx::gfui::detail::match_verdict;
     using glintfx::test::fake_arena::arena;
     using glintfx::test::fake_arena::entry;
     using glintfx::test::fake_arena::k_no_index;
@@ -556,12 +542,12 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
 
     struct order_case {
         std::string_view selector_text;
-        compound_match_verdict expected_verdict = compound_match_verdict::rejected;
+        match_verdict expected_verdict = match_verdict::rejected;
         glintfx::test::fake_counting::counters expected_counts{};
     };
     const std::array<order_case, 6> cases{{
         {"div#nope.alpha:hover",
-         compound_match_verdict::rejected,
+         match_verdict::rejected,
          {.tag_name = 0,
           .id = 1,
           .for_each_class = 0,
@@ -573,7 +559,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
           .child_count = 0,
           .first_child = 0}},
         {"a#one:active",
-         compound_match_verdict::rejected,
+         match_verdict::rejected,
          {.tag_name = 0,
           .id = 1,
           .for_each_class = 0,
@@ -585,7 +571,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
           .child_count = 0,
           .first_child = 0}},
         {"b#one:hover",
-         compound_match_verdict::rejected,
+         match_verdict::rejected,
          {.tag_name = 1,
           .id = 1,
           .for_each_class = 0,
@@ -597,7 +583,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
           .child_count = 0,
           .first_child = 0}},
         {"a#one.zzz",
-         compound_match_verdict::rejected,
+         match_verdict::rejected,
          {.tag_name = 1,
           .id = 1,
           .for_each_class = 1,
@@ -609,7 +595,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
           .child_count = 0,
           .first_child = 0}},
         {"#a#b",
-         compound_match_verdict::rejected,
+         match_verdict::rejected,
          {.tag_name = 0,
           .id = 0,
           .for_each_class = 0,
@@ -627,7 +613,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
         // prove: the deferred half of a compound costs NOTHING when
         // the owned half already holds.
         {"a#one.alpha:placeholder-shown",
-         compound_match_verdict::deferred,
+         match_verdict::deferred,
          {.tag_name = 1,
           .id = 1,
           .for_each_class = 1,
@@ -647,7 +633,7 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
             glintfx::test::fake_counting::view(counting_tree, index);
         const glintfx::style::detail::gfss_compound_selector compound =
             parse_one_compound(c.selector_text);
-        const compound_match_verdict verdict = match_compound(compound, node);
+        const match_verdict verdict = match_compound(compound, node);
         GLINTFX_CHECK(verdict == c.expected_verdict);
         GLINTFX_CHECK_EQ(counts.tag_name, c.expected_counts.tag_name);
         GLINTFX_CHECK_EQ(counts.id, c.expected_counts.id);

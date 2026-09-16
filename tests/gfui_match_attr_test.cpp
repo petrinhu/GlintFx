@@ -215,8 +215,8 @@ GLINTFX_TEST(attribute_selector_holds_species_matrix) {
 // --- fatia B: real gfss selector text through match_compound() ---
 
 GLINTFX_TEST(match_compound_evaluates_attribute_selectors_through_real_text) {
-    using glintfx::gfui::detail::compound_match_verdict;
     using glintfx::gfui::detail::match_compound;
+    using glintfx::gfui::detail::match_verdict;
     using glintfx::test::fake_arena::arena;
     using glintfx::test::fake_arena::entry;
     using glintfx::test::fake_arena::k_no_index;
@@ -239,15 +239,15 @@ GLINTFX_TEST(match_compound_evaluates_attribute_selectors_through_real_text) {
 
     struct text_case {
         std::string_view text;
-        compound_match_verdict expected = compound_match_verdict::rejected;
+        match_verdict expected = match_verdict::rejected;
     };
     const std::array<text_case, 6> cases{{
-        {"input[disabled]", compound_match_verdict::matched},
-        {"input[missing]", compound_match_verdict::rejected},
-        {"[class~=\"beta\"]", compound_match_verdict::matched},
-        {"[class~=\"bet\"]", compound_match_verdict::rejected},
-        {"[lang|=\"pt\"]", compound_match_verdict::matched},
-        {"[lang^=\"\"]", compound_match_verdict::rejected},
+        {"input[disabled]", match_verdict::matched},
+        {"input[missing]", match_verdict::rejected},
+        {"[class~=\"beta\"]", match_verdict::matched},
+        {"[class~=\"bet\"]", match_verdict::rejected},
+        {"[lang|=\"pt\"]", match_verdict::matched},
+        {"[lang^=\"\"]", match_verdict::rejected},
     }};
     for (const text_case &c : cases) {
         const glintfx::style::detail::gfss_compound_selector compound = parse_one_compound(c.text);
@@ -265,12 +265,12 @@ GLINTFX_TEST(match_compound_evaluates_attribute_selectors_through_real_text) {
     // compound_match.hpp's own header comment already documents.
     const glintfx::style::detail::gfss_compound_selector rejecting_and_deferred =
         parse_one_compound("[missing]:not(.zzz)");
-    GLINTFX_CHECK(match_compound(rejecting_and_deferred, node) == compound_match_verdict::rejected);
+    GLINTFX_CHECK(match_compound(rejecting_and_deferred, node) == match_verdict::rejected);
 
     // An attribute requirement that HOLDS, alongside something still
     // deferred, defers - the owned half no longer settles the answer
     // by itself.
     const glintfx::style::detail::gfss_compound_selector matching_and_deferred =
         parse_one_compound("[disabled]:not(.zzz)");
-    GLINTFX_CHECK(match_compound(matching_and_deferred, node) == compound_match_verdict::deferred);
+    GLINTFX_CHECK(match_compound(matching_and_deferred, node) == match_verdict::deferred);
 }

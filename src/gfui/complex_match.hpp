@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+#pragma once
+
+#include <glintfx/gfui/node_view.hpp>
+
+#include "gfss/selector_ast.hpp"
+#include "gfui/match_verdict.hpp"
+
+// complex_match.hpp - GFSS-MATCH-COMBINE (TODO.md, GODS_LAWS.md
+// L-17/L-19/L-20/L-22/L-28/L-40; docs/plano-w6-folha-de-estilo.md,
+// fatia S-2): the entry point this whole fatia exists to ship -
+// match_complex(), whether one WHOLE gfss_complex_selector (compounds
+// glued by combinators, e.g. "button.primary #ok > a") matches ONE
+// subject node, navigating other nodes as its own combinators demand.
+// Everything else this fatia ships (combinator_step.hpp,
+// deferred_simple_match.hpp) is an atom THIS file's own algorithm
+// consumes, never a second public entry point of its own.
+//
+// DIRECTION AND SHAPE (D-W6-2, dossier SS5.1): right to left, with
+// backtrack. `head combinator1 compound1 combinator2 compound2 ...` is
+// read starting from the LAST compound (the "subject" - the node a
+// style query is actually asking about) and walking BACKWARD toward
+// `head`. `>` and `+` are single-step (D-MS-7's own D-W6-2 table: one
+// candidate, no retry - the parent or the previous sibling, or the
+// chain rejects outright). `descendant` (the whitespace combinator)
+// and `~` iterate every ancestor/every earlier sibling in turn,
+// stopping at the FIRST one for which the rest of the chain does not
+// reject - `.a > .b .c` matching `.a > .b > .b > .c` is exactly this:
+// the nearest `.b` leads to a dead end two levels up, and the search
+// has to retry with the FARTHER `.b` (docs/plano-w6-folha-de-estilo.md
+// dossier item 5.1, this file's own test proves it by counting calls,
+// never by reading the source - F10 of the plan).
+//
+// WHY RIGHT TO LEFT (D-W6-2's own reasoning, unchanged here): the
+// subject is what most style queries actually reject on - most nodes
+// in a real tree do NOT match most rules - so judging it FIRST means a
+// selector with zero chance of matching a given node costs nothing
+// past the subject's own compound: complex_match.cpp's own test proves
+// this too, with a fake_counting_tree.hpp fixture that shows ZERO
+// calls into an ancestor's own facts once the subject alone already
+// rejects.
+//
+// EACH COMPOUND ALONG THE WAY IS JUDGED BY THE SAME TWO-LEVEL RULE
+// (compound_match.hpp's match_compound(), then, only if it answers
+// `deferred`, deferred_simple_match.hpp's judge_deferred_simple_
+// selectors()) - never re-implemented here. This file's own job is
+// ONLY the combinator-driven walk and the three-value combination
+// across compounds; every question about ONE node's own simple
+// selectors is answered by those two files.
+//
+// `:where()` (D-W6-12, plano S-4) IS NOT PART OF THIS FATIA - see
+// deferred_simple_match.hpp's own header comment for why nothing here
+// has to change in advance of it.
+
+namespace glintfx::gfui::detail {
+
+// `selector` is the whole complex selector (`head` plus `rest`, in
+// SOURCE order left to right - selector_ast.hpp's own gfss_complex_
+// selector shape); `node` is the SUBJECT candidate - the node a query
+// asks "does this selector match YOU"; `scope` is the query's own
+// scoping root for `:scope` (`scope.node == nullptr` means "no
+// explicit scope", D-W6-5's own second context - `:scope` then behaves
+// as `:root`, holding only for a node with no parent). Answers with
+// the SAME three values match_compound() does (match_verdict.hpp), for
+// the SAME reason: a chain carrying `:placeholder-shown` or a pseudo-
+// element anywhere along it is honestly `deferred`, never a guessed
+// `matched`/`rejected` (GODS_LAWS.md L-40). noexcept, no allocation -
+// the recursion is bounded by the selector's own already-finite shape
+// (parsed once, D-W6-8's own shared depth budget), and the ancestor/
+// sibling walk is bounded by the consumer's own tree, which this
+// function only ever navigates, never allocates.
+[[nodiscard]] match_verdict match_complex(const style::detail::gfss_complex_selector &selector,
+                                          const gltfx_node_view &node,
+                                          const gltfx_node_view &scope) noexcept;
+
+} // namespace glintfx::gfui::detail

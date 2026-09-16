@@ -42,11 +42,23 @@
 # selector) - measured live: a standalone probe linking only against
 # the .so hit exactly that "referencia nao definida" the moment it
 # needed one of these four symbols.
+# GFSS-MATCH-COMBINE (TODO.md, wave W6, docs/plano-w6-folha-de-estilo.
+# md fatia S-2): combinator_step.cpp/deferred_simple_match.cpp/
+# complex_match.cpp are the combinator-driven layer ABOVE compound_
+# match.cpp - complex_match.cpp calls back into compound_match.cpp
+# (one compound at a time) and into deferred_simple_match.cpp (which
+# itself calls back into complex_match.cpp for `:not()`'s own argument
+# selectors, match_verdict.hpp's own header comment names the two-way
+# dependency at the .cpp level - no header includes another header
+# here, only .cpp files call across).
 target_sources(glintfx_library PRIVATE
     node_state.cpp
     compound_match.cpp
     attribute_match.cpp
     structural_match.cpp
+    combinator_step.cpp
+    deferred_simple_match.cpp
+    complex_match.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

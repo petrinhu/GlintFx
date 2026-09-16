@@ -503,6 +503,31 @@ target_sources(gfui_match_struct_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
+# GFSS-MATCH-COMBINE (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-28/
+# L-40, docs/plano-w6-folha-de-estilo.md fatia S-2): whether a WHOLE
+# complex selector (compounds glued by the four combinators) matches
+# ONE subject node, right to left, with backtrack - see gfui_complex_
+# match_test.cpp's own header comment for the matrix, the `:not()`/
+# `:scope` cases, and the call-counting proof of direction. Needs the
+# SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir every other
+# internal-header consumer above already adds.
+glintfx_add_test(gfui_complex_match_test)
+target_include_directories(gfui_complex_match_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# Same second-compile reasoning as gfui_match_struct_test immediately
+# above (F7 of the plan: no file in this track exports GLINTFX_API) -
+# plus the three files this fatia itself adds.
+target_sources(gfui_complex_match_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/combinator_step.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/deferred_simple_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/complex_match.cpp"
+)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

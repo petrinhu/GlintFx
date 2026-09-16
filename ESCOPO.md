@@ -1335,3 +1335,18 @@ Cada **lote** da onda vai ao servidor **assim que fechar**, sem esperar o fim da
 ### Decisão 7 - o que vem depois da W6
 
 Quando a W6 fechar, o alvo seguinte são **os três itens pendentes da onda W6b**, não a trilha de entrada (teclado e ponteiro). Motivo: dois dos três são defeitos em código **já publicado na marca v0.4.0.0** (um teste que não alcança o que declara cobrir, e um ramo de decisão que nunca dispara em uso real), mais o portão de servidor verde daquela onda. Fecha uma onda que ficou aberta para trás, antes de abrir trilha nova. **Origem:** relato do orquestrador, 15/09/2026, sem verbatim do líder capturado nesta sessão.
+
+### Decisão 8 - falta de memória no casamento de seletor nunca mata o processo do consumidor
+
+**Ordem do líder:** quando a memória acabar durante o casamento de um seletor, a biblioteca **devolve erro e o aplicativo do consumidor decide o que fazer**; nunca mata o processo dele. Decisão tomada na madrugada de 16/09/2026, continuando a série da noite anterior (Decisões 1-7 acima). **Origem:** relato do orquestrador, 16/09/2026, sem verbatim do líder capturado nesta sessão.
+
+**O estado medido que motivou a pergunta:** `match_complex()` (`src/gfui/complex_match.hpp`) é declarada `noexcept` **e aloca** (`std::vector<frame>` em memória dinâmica, a pilha explícita que substituiu a recursão na fatia S-2 desta mesma onda). Falha de alocação dentro de função `noexcept` chama `std::terminate()`: o processo de quem usa a biblioteca morre na hora, sem chance de reagir. O mesmo vale para `deferred_simple_match.hpp`, que chama `match_complex()` e herda a alocação.
+
+**O que a decisão custa, e fica registrado:** o veredito do casamento hoje tem **três** valores (`matched`, `rejected`, `deferred`). Passar a carregar "recurso esgotado" muda a **forma pública** do veredito, e **todo ponto que consome esse resultado** passa a ter de tratar o desfecho novo. Essa forma congela na 1.0 (ver `GFSS-API`, W10).
+
+**Fato que pesou na escolha, também registrado:** o teto de 256 elos de cadeia de combinadores (Decisão 5, mais cedo na mesma noite) **ainda não está no código**: é da fatia S-5. Enquanto ele não existir, a alocação segue sem limite pelo tamanho do seletor, então o risco é real, não hipotético.
+
+**Alternativas recusadas:**
+
+- Manter `noexcept` e apenas documentar o término: deixaria o defeito vivo, só nomeado.
+- Manter `noexcept`, condicionando a correção à implantação prévia do teto da Decisão 5: adiaria o conserto por uma fatia inteira (S-5) enquanto o risco já está publicado.

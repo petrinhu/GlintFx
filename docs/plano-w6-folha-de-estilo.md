@@ -235,3 +235,22 @@ Por fatia, o que o revisor confere **antes** de olhar o código, e o que reprova
 - **L-09:** nenhum teste, portão ou julgador roda na sessão viva; `check_plan_scope_diff.py` e `preci.sh` rodam em container no fechamento. A varredura de S-0 é `grep` de leitura, fora da regra.
 - **L-67 global:** canon desatualizado bloqueia o trabalho que dele depende, por isso S-0 vem antes de S-5; o que o líder revoga é apagado, não arquivado, por isso a linha 453 perde o texto morto e o registro da revogação (536-540) fica intacto.
 - **L-17 global (gêmeo):** o texto morto foi procurado na superfície inteira antes de a fatia nascer; achou dois gêmeos (`ESCOPO.md:411`, `TODO.md:53`) além da linha apontada.
+
+---
+
+## 11. Decisão 8 do líder (16/09/2026): `GFUI-VERDICT-RESOURCE-EXHAUSTED` reabre o cabeçalho que S-2 acabou de escrever
+
+**Conserto do orquestrador, escrito depois do fechamento do texto acima; não muda nenhuma das onze decisões D-W6-1 a D-W6-11 nem a ordem das fatias já commitadas (S-0, S-1, S-2).** Registro da decisão inteira, com o verbatim relatado, mora em `ESCOPO.md`, seção "Ordem de produto de 15/09/2026", Decisão 8; esta seção só responde à pergunta que o líder deixou aberta ali: onde o trabalho novo entra nesta onda.
+
+**O fato que abre a pergunta:** `match_complex()` (nasceu em S-2, linha 126 da tabela do §4 acima) é `noexcept` **e** aloca (`std::vector<frame>` da pilha explícita que substituiu a recursão); falha de alocação sob `noexcept` chama `std::terminate()` e mata o processo do consumidor. `deferred_simple_match()`, também de S-2, herda o mesmo risco por chamar `match_complex()`. **Isto já está publicado** (S-2 é `d1e677b`/`90330c0`, ambos em `main`), então o risco não é hipotético a caminho, é vivo hoje.
+
+**Por que isto NÃO é um sexto valor barato no enum:** `match_verdict` (D-W6-10, S-2) é consumido por S-4 (`deferred_simple_match.cpp`, linha 128 da tabela) e por S-5 (a lista `rejected` da folha, linha 130); mudar a forma do veredito depois que as duas já leem o valor de três estados custa duas migrações em vez de uma. É também mudança de **forma pública** (`ESCOPO.md`, Decisão 8): "o veredito do casamento hoje tem três valores... todo ponto que consome esse resultado passa a ter de tratar o desfecho novo", e o congelamento formal da forma pública já tem dono e data, `GFSS-API` em W10 (`TODO.md`, linha do item, coluna Onda).
+
+**Proposta de colocação (do redator deste plano; não é decisão tomada, nem pelo líder nem pelo CTO):** entrar como fatia **antes de S-4**, ou seja, entre o push 2 (S-3 + S-3b) e o push 3 (S-4) da ordem de trabalho do §4. Duas razões:
+
+1. **S-4 toca os dois arquivos que carregam o defeito** (`src/gfui/deferred_simple_match.cpp` e, por composição, `match_complex()`): construir o `:where()` em cima do contrato `noexcept`-que-termina de hoje significa tocar os mesmos dois arquivos duas vezes na mesma onda, um risco de conflito que a memória da casa (dois agentes na mesma árvore, §2) já nomeia para os arquivos de CMake e vocabulário.
+2. **S-5 lê o resultado do casamento para preencher `rejected`** (D-W6-10): se o quarto estado nascer depois de S-5 estar escrita, o leitor da folha também precisa de um segundo toque.
+
+**O que esta fatia NÃO faz, para não invadir W10:** não decide a forma pública final do veredito de quatro estados (isso é congelamento de `GFSS-API`, revisão de API dedicada, W10); resolve só o defeito interno, `noexcept` sobre função que aloca, com um mecanismo interno (`detail`, ainda sem símbolo exportado, mesma régua que toda fatia desta onda já segue, F11 e §9). Quando `GFSS-API` chegar, ela herda a forma interna já corrigida em vez de herdar o `std::terminate()`.
+
+**O que fica para o CTO decidir, e não é chamado aqui:** o nome exato da fatia (`GFUI-VERDICT-RESOURCE-EXHAUSTED` é o ID proposto em `TODO.md`, não fixado como fatia `S-*` desta onda), se ela nasce dentro da onda W6 ou como onda própria logo em seguida, e o WSJF final (proposto em `TODO.md`, não ratificado).

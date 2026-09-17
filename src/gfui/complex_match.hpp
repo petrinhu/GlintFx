@@ -60,26 +60,81 @@ namespace glintfx::gfui::detail {
 // asks "does this selector match YOU"; `scope` is the query's own
 // scoping root for `:scope` (`scope.node == nullptr` means "no
 // explicit scope", D-W6-5's own second context - `:scope` then behaves
-// as `:root`, holding only for a node with no parent). Answers with
-// the SAME three values match_compound() does (match_verdict.hpp), for
-// the SAME reason: a chain carrying `:placeholder-shown` or a pseudo-
-// element anywhere along it is honestly `deferred`, never a guessed
-// `matched`/`rejected` (GODS_LAWS.md L-40). `noexcept`, but NOT
-// allocation-free: this function walks an explicit, HEAP-ALLOCATED
-// stack (`std::vector<frame>`, one frame per compound still open)
-// instead of recursing - see complex_match.cpp's own header comment
-// for why (selector_parse.cpp's own compound-chain loop has no depth
-// cap of its own, unlike `:not()`'s D-W6-8 budget, so native recursion
-// here would have been an unbounded call-stack overflow). Being
-// `noexcept` while it allocates has a real consequence for the
-// consumer: an allocation failure inside this call is NOT a
-// recoverable error - it surfaces as `std::terminate()` (a `noexcept`
-// function that lets an exception escape ends the process immediately,
-// same as `libstdc++`'s own `bad_alloc` unwinding here would), never
-// as a caught exception the caller could handle. This trades native
-// stack overflow (undefined behavior) for a clean process abort under
-// memory exhaustion - safer, but still ends the consumer's process,
-// not "no allocation" as an earlier draft of this comment claimed.
+// as `:root`, holding only for a node with no parent). Answers in ALL
+// FOUR match_verdict.hpp values (match_verdict.hpp's own header
+// comment): match_compound() itself only ever answers in THREE of them
+// (matched/rejected/deferred - it allocates nothing, compound_match.cpp's
+// own header comment, so it can never reach the fourth); this function
+// shares that same three-value reasoning on those three - a chain
+// carrying `:placeholder-shown` or a pseudo-element anywhere along it
+// is honestly `deferred`, never a guessed `matched`/`rejected`
+// (GODS_LAWS.md L-40) - and adds the fourth, `resource_exhausted`, of
+// its own (see below). `noexcept`, but NOT allocation-free: this
+// function walks an explicit, HEAP-ALLOCATED stack (`std::vector<
+// frame>`, one frame per compound still open) instead of recursing -
+// see complex_match.cpp's own header comment for why (selector_parse.
+// cpp's own compound-chain loop has no depth cap of its own, unlike
+// `:not()`'s D-W6-8 budget, so native recursion here would have been
+// an unbounded call-stack overflow).
+//
+// THE FOURTH VALUE, `resource_exhausted` (GFUI-VERDICT-RESOURCE-
+// EXHAUSTED, ESCOPO.md "Ordem de produto de 15/09/2026" Decisao 8,
+// 16/09/2026), IS WHY `noexcept` IS HONEST HERE, NOT A DANGER IT
+// HIDES: an earlier draft of this fatia (S-2) shipped this function
+// `noexcept` while allocating and let a failed allocation's
+// `std::bad_alloc` escape - a `noexcept` function that lets an
+// exception escape calls `std::terminate()` immediately, ending the
+// CONSUMER's whole process with no chance to react. A SECOND draft of
+// this same fatia narrowed the fix to "the ONE allocation this
+// function's own stack ever needs is its initial `reserve()` +
+// `push_back()`, sized exactly to the deepest chain this selector's
+// own combinators can ever walk, so wrapping just that pair in `try`/
+// `catch` is enough" - true of what the C++ standard itself guarantees
+// (`push_back()` past a sufficient `reserve()` never reallocates), but
+// WRONG about what a real Windows Debug build does: MSVC's own C++
+// Standard Library allocates a debug container-proxy object at
+// CONSTRUCTION time whenever `_ITERATOR_DEBUG_LEVEL` is nonzero (2 by
+// default in Debug builds), independent of `reserve()` - measured live
+// on this project's own Windows CI runner (GATE-DEBUG job), where the
+// bare `std::vector<frame> stack;` declaration, sitting BEFORE that
+// narrower try/catch even started, escaped a forced allocation
+// failure and called `std::terminate()` (GODS_LAWS.md L-04's own
+// "comportamento igual em todo sistema, provado em cada um" - a
+// platform this project's own matrix promises to cover, invisible to
+// every Linux job because libstdc++ never allocates on a `std::vector`'s
+// own default construction). A THIRD draft widened the `try` to span
+// this whole function's body and stopped there - STILL WRONG, proved by
+// a minimal repro against the real cl.exe/link.exe: `vector()`, the
+// plain DEFAULT constructor, is itself `noexcept` by the language's own
+// rule (`noexcept(noexcept(Allocator()))`, and `std::allocator<T>`'s own
+// constructor is unconditionally `noexcept`), so an exception thrown by
+// its own debug-proxy allocation calls `std::terminate()` at THAT
+// constructor's own boundary - no enclosing `try` in the CALLER, however
+// widely drawn, ever gets a chance to run. The fix that actually works,
+// confirmed by the same repro: construct `stack` through the SIZED
+// constructor (`vector(size_type, const Allocator& = Allocator())`,
+// called with `0`) instead - NOT `noexcept` by the standard, so the
+// identical debug-proxy allocation failure is caught normally through
+// it. complex_match.cpp's own match_complex() header comment spells out
+// why "simplifying" that construction back to `std::vector<frame>
+// stack;` would silently reintroduce the crash. With BOTH pieces in
+// place - the sized construction AND the `try`/`catch (const std::bad_
+// alloc&)` spanning this function's own entire body (construction,
+// `reserve()`, and every `push_back()` the walk reaches) - no exception
+// ever actually crosses this function's own boundary any more, on any
+// platform. A failure there, or one reached through `:not()`'s own recursive call
+// back into this SAME function (deferred_simple_match.cpp's own
+// judge_not(), each with its own independent stack and its own
+// independent allocation point), now surfaces as
+// `match_verdict::resource_exhausted` - an honest "could not finish
+// judging this", propagated by every caller ABOVE every other verdict
+// (complex_match.cpp's own combine(), deferred_simple_match.cpp's own
+// judge_not()/judge_deferred_simple_selectors()), never silently
+// downgraded to a guessed `matched`/`rejected`/`deferred`. GODS_LAWS.
+// md L-22's own "no exception crosses the public API" was already
+// true before this fatia and remains true now - what changed is that
+// it is ALSO now true of this internal `noexcept` boundary, which it
+// was not.
 [[nodiscard]] match_verdict match_complex(const style::detail::gfss_complex_selector &selector,
                                           const gltfx_node_view &node,
                                           const gltfx_node_view &scope) noexcept;

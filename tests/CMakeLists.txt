@@ -608,6 +608,32 @@ target_sources(gfui_complex_match_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfui/complex_match.cpp"
 )
 
+# GFUI-VERDICT-RESOURCE-EXHAUSTED (TODO.md, GODS_LAWS.md L-20/L-40;
+# ESCOPO.md "Ordem de produto de 15/09/2026", Decisao 8; docs/plano-
+# w6-folha-de-estilo.md SS11): match_complex() is `noexcept` AND
+# allocates its own explicit std::vector<frame> stack - this OWN
+# executable (never gfui_complex_match_test above) replaces the global
+# operator new/delete to force that allocation to fail on demand, so
+# it needs complex_match.cpp/deferred_simple_match.cpp compiled a
+# SECOND time directly into IT, never sharing gfui_complex_match_test's
+# own binary - two different global-operator-new overrides in the same
+# executable would be an ODR collision, the exact reason err_context_
+# test's own header comment gives for giving every OOM-forcing case
+# its own glintfx_add_test() executable in the first place.
+glintfx_add_test(gfui_complex_match_resource_exhausted_test)
+target_include_directories(gfui_complex_match_resource_exhausted_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfui_complex_match_resource_exhausted_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/combinator_step.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/deferred_simple_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/complex_match.cpp"
+)
+
 # GODS_LAWS.md L-40, INBOX achado 1 of 26/08/2026 ("o portao passa, mas
 # nao diz o que verificou"): glintfx_test::format_patch_diagnostic()
 # lives OUTSIDE harness/win_dll_alloc_hook.hpp's `#if defined(_WIN32)`

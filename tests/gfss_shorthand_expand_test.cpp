@@ -17,6 +17,7 @@
 #include "gfss/declaration_list_parse.hpp"
 #include "gfss/diagnostic_vocabulary.hpp"
 #include "gfss/property_table.hpp"
+#include "gfss/shorthand_expand.hpp"
 #include "gfss/shorthand_longhand_table.hpp"
 
 #include "harness/check.hpp"
@@ -79,6 +80,31 @@ GLINTFX_TEST(eleven_shorthands_map_to_a_family_and_a_closed_longhand_list) {
     std::println("eleven_shorthands_map_to_a_family_and_a_closed_longhand_list: {} row(s) checked",
                  checked);
     GLINTFX_CHECK(checked == 11);
+}
+
+// GODS_LAWS.md L-36/L-40, finding #1 of the 16/09/2026 adversarial
+// review (wave W6, batch 2): expand_shorthand() can no longer
+// dereference find_shorthand_longhand_entry() blindly - a name that
+// matches no table row (something that can only happen today if a
+// caller passes a shorthand_name outside k_shorthand_names, since
+// shorthand_longhand_table.hpp's own every_vocabulary_shorthand_has_a_
+// table_row() static_assert proves the whole vocabulary by
+// construction) has to become a DECLARED outcome - a diagnosed refusal
+// - never UB. This test proves that outcome directly, without going
+// through parse_declaration_list() (which never builds a shorthand_name
+// outside the vocabulary), by calling expand_shorthand() with a made-up
+// name.
+GLINTFX_TEST(expand_shorthand_of_an_unknown_name_is_a_declared_refusal_never_a_dereference) {
+    gfss_declaration shorthand;
+    shorthand.is_shorthand = true;
+    shorthand.shorthand_name = "not-one-of-the-eleven-accepted-names";
+    shorthand.important = false;
+    shorthand.raw_tokens = {};
+
+    const shorthand_expand_result result = expand_shorthand(shorthand);
+    GLINTFX_CHECK(!result.ok);
+    GLINTFX_CHECK(result.longhands.empty());
+    GLINTFX_CHECK(result.diagnostic.expected == k_expected_internal_shorthand_table_defect);
 }
 
 // === S-3's own closed matrix: 11 shorthands x {no !important, with} x

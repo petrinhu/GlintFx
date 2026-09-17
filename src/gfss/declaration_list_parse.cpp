@@ -100,7 +100,7 @@ void fold_into_result(declaration_parse_result parsed, declaration_list_parse_re
             append_declaration(std::move(longhand), result);
         }
         const gltfx_gfss_token &shorthand_token = parsed.declaration.raw_tokens.front();
-        for (gltfx_gfss_diagnostic &notice :
+        for (const gltfx_gfss_diagnostic &notice :
              shorthand_reset_notices(result.declarations, expansion_begin, longhand_count,
                                      shorthand_token.line, shorthand_token.column)) {
             result.notices.push_back(notice);

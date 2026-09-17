@@ -109,10 +109,34 @@ expand_to_universal_keyword(const shorthand_longhand_entry &entry, gfss_universa
 
 shorthand_expand_result expand_shorthand(const gfss_declaration &shorthand) {
     const shorthand_longhand_entry *entry = find_shorthand_longhand_entry(shorthand.shorthand_name);
-    // Never nullptr: `shorthand.shorthand_name` is only ever set from
-    // k_shorthand_names (declaration_parse.cpp's own build_shorthand()),
-    // and k_shorthand_longhand_table's own static_assert (shorthand_
-    // longhand_table.hpp) proves it carries one row per name there.
+    if (entry == nullptr) {
+        // Should not happen for any caller inside this library's own
+        // sources: `shorthand.shorthand_name` is only ever set from
+        // k_shorthand_names (declaration_parse.cpp's own
+        // build_shorthand()), and shorthand_longhand_table.hpp's own
+        // every_vocabulary_shorthand_has_a_table_row() static_assert
+        // (GODS_LAWS.md L-36/L-40, finding #1 of the 16/09/2026
+        // adversarial review - the OLD assert there only ever proved a
+        // number equal to itself, never that every name actually had a
+        // row) now really does prove every vocabulary name has a
+        // matching row. That proof covers THIS library's own closed
+        // table, never an arbitrary caller-supplied std::string_view -
+        // GODS_LAWS.md LEI ZERO's own "base de consumidores aberta e
+        // desconhecida" means this function refuses to trust an
+        // invariant it cannot itself verify. A declared, diagnosed
+        // refusal, never a dereference of `entry` (GODS_LAWS.md L-22: no
+        // UB crosses a function this library exposes, the same
+        // discipline "no exception crosses the public API" already
+        // applies to).
+        return shorthand_expand_result{
+            .ok = false,
+            .longhands = {},
+            .diagnostic = gltfx_gfss_diagnostic{
+                .line = shorthand.raw_tokens.empty() ? 0 : shorthand.raw_tokens.front().line,
+                .column = shorthand.raw_tokens.empty() ? 0 : shorthand.raw_tokens.front().column,
+                .expected = k_expected_internal_shorthand_table_defect,
+                .detail = {}}};
+    }
 
     const universal_scan_outcome universal =
         scan_shorthand_for_universal_keyword(shorthand.raw_tokens);

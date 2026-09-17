@@ -127,17 +127,58 @@ inline constexpr std::array<shorthand_longhand_entry, k_shorthand_name_count>
          2},
     }};
 
+// GODS_LAWS.md L-36, finding #1 of the 16/09/2026 adversarial review
+// (wave W6, batch 2): `k_shorthand_longhand_table.size() ==
+// k_shorthand_name_count` can NEVER fail - `.size()` of a
+// `std::array<T, k_shorthand_name_count>` IS `k_shorthand_name_count`
+// BY DECLARATION, no matter how many rows the `{{...}}` initializer
+// above actually writes. A twelfth name added to shorthand_name_
+// vocabulary.hpp with no matching row here grows this array to twelve
+// SILENTLY (the twelfth entry zero-initialized, `name` empty) while
+// that dead assert stayed green - the review proved this in practice:
+// a clean build, and `find_shorthand_longhand_entry` returning nullptr
+// for the new name. The function below walks `k_shorthand_names` (the
+// VOCABULARY, never this array) and PROVES each name actually has a row
+// here whose `.name` matches - the zero-init twelfth entry matches no
+// name at all, so the function returns false and the static_assert
+// fails the build. This is the real guard; the old one only ever proved
+// a number equal to itself.
+[[nodiscard]] constexpr bool every_vocabulary_shorthand_has_a_table_row() {
+    for (const std::string_view vocabulary_name : k_shorthand_names) {
+        bool found = false;
+        for (const shorthand_longhand_entry &entry : k_shorthand_longhand_table) {
+            if (entry.name == vocabulary_name) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static_assert(
-    k_shorthand_longhand_table.size() == k_shorthand_name_count,
-    "GODS_LAWS.md L-40: one row here per shorthand_name_vocabulary.hpp's own entry - a "
-    "twelfth shorthand added there without a matching row here must not compile silently");
+    every_vocabulary_shorthand_has_a_table_row(),
+    "GODS_LAWS.md L-40: every shorthand_name_vocabulary.hpp entry needs a matching row here (by "
+    "NAME, not by array size) - a twelfth shorthand added there without a matching row here must "
+    "not compile silently");
 
 // Finds the table row for `shorthand_name` (the sheet spelling GFSS-
 // DECL-PARSE's own property_name_lookup.cpp already resolved as one of
-// the eleven accepted shorthands) - never nullptr for a caller that only
-// ever passes a `gfss_declaration::shorthand_name` value, since that
-// field is only ever set from `k_shorthand_names` in the first place
-// (declaration_parse.cpp's own build_shorthand()).
+// the eleven accepted shorthands) - the static_assert right above PROVES
+// this is never nullptr for a caller that only ever passes a
+// `gfss_declaration::shorthand_name` value coming from `k_shorthand_
+// names` in the first place (declaration_parse.cpp's own build_
+// shorthand()), THIS library's own sources being the only place that
+// call ever originates today. That proof is about THIS library's own
+// closed table, never about an arbitrary `std::string_view` a future
+// caller might pass - shorthand_expand.cpp's own expand_shorthand()
+// still checks this return for nullptr and returns a diagnosed refusal
+// instead of dereferencing it (GODS_LAWS.md LEI ZERO/L-22: no UB crosses
+// a function this library exposes past its own translation unit,
+// whatever a caller this static_assert cannot see about does).
 [[nodiscard]] inline const shorthand_longhand_entry *
 find_shorthand_longhand_entry(std::string_view shorthand_name) noexcept {
     for (const shorthand_longhand_entry &entry : k_shorthand_longhand_table) {

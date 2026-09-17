@@ -213,6 +213,21 @@
 // what carries the distinction, never a second producer tag here). Its
 // own line/column point at the SHORTHAND that did the overriding, never
 // at the longhand it silently reset.
+//
+// GFSS-SHORTHAND, WAVE W6 BATCH 2 FIX (GODS_LAWS.md L-36, finding #1 of
+// the 16/09/2026 adversarial review) IS THE TENTH ROW HERE:
+// `internal_shorthand_table_defect` is shorthand_expand.cpp's OWN -
+// same `shorthand_expand` producer tag, same "internal defect" category
+// `internal_tokenizer_defect` (tokenizer.cpp) already names (this file's
+// own "THREE OF THE FIRST FOUR..." paragraph above draws that line: the
+// CSS spec has no concept of this at all). Emitted ONLY when
+// `find_shorthand_longhand_entry()` (shorthand_longhand_table.hpp)
+// returns nullptr for a `shorthand.shorthand_name` this library's own
+// static_assert there proves cannot happen for any caller inside this
+// library's own sources - a declared, diagnosed refusal instead of a
+// dereference, never reachable through this track's own accepted
+// eleven names, kept anyway per LEI ZERO's own "base de consumidores
+// aberta e desconhecida" (a defensive floor, not a spec condition).
 
 namespace glintfx::style::detail {
 
@@ -273,7 +288,8 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(border_part_width_style_or_color, shorthand_expand)                                          \
     X(each_border_part_at_most_once, shorthand_expand)                                             \
     X(flex_direction_or_flex_wrap_word, shorthand_expand)                                          \
-    X(longhand_not_overridden_by_later_shorthand, shorthand_expand)
+    X(longhand_not_overridden_by_later_shorthand, shorthand_expand)                                \
+    X(internal_shorthand_table_defect, shorthand_expand)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

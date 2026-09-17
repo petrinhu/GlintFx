@@ -14,6 +14,8 @@
 #include <array>
 #include <cstdint>
 
+#include "platform/nul_terminated_name.hpp"
+
 // wgl_proc_address.cpp - see this file's own header comment for the
 // two-part armadilha this resolver closes. wglGetProcAddress/
 // GetProcAddress/GetModuleHandleW are declared in <windows.h> already
@@ -40,8 +42,6 @@ bool is_unresolved_sentinel(void *address) noexcept {
     return value == 0 || value == 1 || value == 2 || value == 3 || value == -1;
 }
 
-namespace {
-
 // wglGetProcAddress needs a NUL-terminated name, but `name` arrives as
 // a std::string_view with no such guarantee - the same reasoning
 // egl_context_adapter.cpp's own proc_address() already documents for
@@ -57,27 +57,19 @@ namespace {
 // even though this atom sits below the public API surface). A `name`
 // too long to fit is treated as an ordinary lookup miss (the same
 // shape any other unresolvable name already gets), never truncated.
-constexpr std::size_t k_max_name_chars = 256;
-
-[[nodiscard]] bool copy_name_into(std::array<char, k_max_name_chars> &buffer,
-                                  std::string_view name) noexcept {
-    if (name.size() >= buffer.size()) {
-        return false;
-    }
-    // string_view::copy(dest, count, pos) with the literal pos=0 used
-    // here can never hit its own out_of_range precondition (pos=0 is
-    // always <= size(), empty or not) - the one call left in this
-    // function that the standard leaves free to declare throwing.
-    name.copy(buffer.data(), name.size());
-    buffer[name.size()] = '\0';
-    return true;
-}
-
-} // namespace
-
+//
+// NOEXCEPT-ALLOC-B8 fatia F1 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md, GODS_LAWS.md L-04): this used to be a PRIVATE
+// k_max_name_chars/copy_name_into() pair, duplicated on the Wayland
+// side (egl_context_adapter.cpp) with no mechanism keeping the two
+// tetos in sync - now both sides share the SAME copy_nul_terminated()
+// template and the SAME k_max_proc_name_chars constant
+// (platform/nul_terminated_name.hpp), so a change to one without the
+// other is a straightforward, single-definition change instead of two
+// files a reader has to compare by hand.
 void *resolve_wgl_proc_address(std::string_view name) noexcept {
-    std::array<char, k_max_name_chars> name_buffer{};
-    if (!copy_name_into(name_buffer, name)) {
+    std::array<char, k_max_proc_name_chars> name_buffer{};
+    if (!copy_nul_terminated(name_buffer, name)) {
         // Longer than any real WGL/GL function name - neither path
         // below could ever resolve it anyway.
         return nullptr;

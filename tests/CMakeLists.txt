@@ -714,6 +714,20 @@ glintfx_apply_compile_options(gl_proc_address_assign_test)
 add_test(NAME gl_proc_address_assign_test COMMAND gl_proc_address_assign_test)
 set_tests_properties(gl_proc_address_assign_test PROPERTIES LABELS unit)
 
+# NOEXCEPT-ALLOC-B8 fatia F1 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F1", GODS_LAWS.md L-04/L-20/L-33): unit coverage of
+# the shared, allocation-free copy_nul_terminated() atom itself
+# (src/platform/nul_terminated_name.hpp) - pure template, no OS header,
+# unguarded on all five systems, the same shape check_layers.py's own
+# tests use. Header-only, same "no glintfx_library dependency" shape
+# gl_proc_address_assign_test right above already uses.
+add_executable(proc_name_buffer_test proc_name_buffer_test.cpp)
+target_include_directories(proc_name_buffer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(proc_name_buffer_test PRIVATE glintfx_test_harness)
+glintfx_apply_compile_options(proc_name_buffer_test)
+add_test(NAME proc_name_buffer_test COMMAND proc_name_buffer_test)
+set_tests_properties(proc_name_buffer_test PROPERTIES LABELS unit)
+
 # GL-LOADER: the resolved GL 3.3 core command list rendered into the
 # TEXT of the two generated files - see gl_loader_codegen_test.cpp's own
 # header comment.
@@ -1461,6 +1475,54 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
     )
     glintfx_add_wayland_xdg_shell_binding(window_adapter_listener_test)
+
+    # NOEXCEPT-ALLOC-B8 fatia F1 (/var/tmp/glintfx-plan/plano-conserto-
+    # noexcept.md sec. "F1", GODS_LAWS.md L-04/L-09/L-19/L-20/L-22):
+    # wayland_egl_context_adapter::proc_address() (egl_context_adapter.
+    # cpp) under a forced allocation failure - see gl_proc_address_
+    # oom_test.cpp's own header comment for why NO live compositor is
+    # needed (eglGetProcAddress() is display-independent, and this
+    # adapter is never open()'d). Second-compile technique, same shape
+    # window_adapter_listener_test above already uses (glintfx.so's own
+    # -fvisibility=hidden). The file list is egl_context_adapter.cpp's
+    # OWN transitive callee set (its own #include list plus what those
+    # headers' matching .cpp files need in turn) - "the whole .cpp is
+    # one link unit" reasoning, same as every other second-compile
+    # target in this if(UNIX) block. No facade layer here (gl_context_
+    # facade.cpp and friends): this test never goes through the public
+    # gltfx_gl_context surface, only the concrete adapter directly.
+    glintfx_add_test(gl_proc_address_oom_test)
+    target_include_directories(gl_proc_address_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(gl_proc_address_oom_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(gl_proc_address_oom_test)
+    glintfx_add_egl(gl_proc_address_oom_test)
 
     # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): the pure-
     # listener half of wayland_seat_adapter - both callbacks

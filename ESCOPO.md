@@ -1350,3 +1350,33 @@ Quando a W6 fechar, o alvo seguinte são **os três itens pendentes da onda W6b*
 
 - Manter `noexcept` e apenas documentar o término: deixaria o defeito vivo, só nomeado.
 - Manter `noexcept`, condicionando a correção à implantação prévia do teto da Decisão 5: adiaria o conserto por uma fatia inteira (S-5) enquanto o risco já está publicado.
+
+## Ordem de produto de 17/09/2026: a promessa de nunca matar o processo do consumidor vale para a biblioteca INTEIRA
+
+**Origem:** relato do orquestrador, não verbatim do líder. As duas decisões abaixo foram tomadas por ele em 17/09/2026, por `AskUserQuestion`, diante dos números de uma varredura só de leitura feita contra `main` em `1d7be83`.
+
+### Decisão 9 - o conserto da família que mata em qualquer sistema vem ANTES da onda W6 continuar
+
+A Decisão 8 (16/09/2026) nasceu olhando para um mecanismo, o casamento de seletor. A varredura de 17/09/2026 mostrou que a mesma família de defeito vive em outros pontos, e que a promessa feita ali só é verdadeira se valer para a biblioteca inteira.
+
+**O que foi medido, e é fato, não estimativa:** a régua foi calibrada antes de contar (acusa `c08d0ed`, o arquivo com o defeito vivo; absolve `603db6f`, o mesmo arquivo consertado), e a prova de cada forma rodou contra o `cl.exe` real da Microsoft, um processo por caso, código de saída lido de variável. Resultado:
+
+- **8 pontos que chamam `std::terminate()` nos CINCO sistemas**, modo normal incluído, porque alocam dentro de função `noexcept` por um caminho que `try`/`catch` cobriria, mas que ninguém cobriu. **Três deles são alcançáveis direto pelo consumidor**: abrir contexto gráfico, consultar placas de vídeo e resolver ponteiro de função gráfica.
+- **Cerca de 140 pontos de uma segunda família**, que só mata quando o consumidor compila em modo de depuração no Windows, e onde `try`/`catch` **não** salva (a alocação acontece dentro de um construtor que é `noexcept` por regra da linguagem).
+
+**A decisão:** os 8 primeiros são consertados **em fatia própria, antes de a onda W6 continuar**, começando pelos três que o consumidor alcança sozinho. A segunda família fica **registrada com o número medido**, não consertada agora, e a escolha entre eliminá-la ou declará-la como limitação do modo de depuração da Microsoft continua aberta.
+
+**Um achado de paridade que a varredura trouxe de brinde, e que a L-04 já proibia:** a mesma falha foi consertada no lado Windows em `babbd77` (nome copiado para buffer de tamanho fixo) e **continua viva no lado Wayland**, no mesmo ponto, com a mesma forma. Verde num sistema nunca autorizou declarar o outro coberto.
+
+### Decisão 10 - o risco aceito em 07/09/2026 fica REVOGADO
+
+`src/platform/gl/gpu_kind_exclusion.cpp` carrega, desde 07/09/2026, um comentário que nomeia este mesmo defeito e o **aceita como risco residual**, com razão escrita: consertá-lo exigiria dar canal de erro a funções que não têm nenhum, e a saída barata (devolver lista vazia ou menor) trocaria um término de processo por um acesso fora dos limites, que é pior.
+
+A razão continua tecnicamente correta. **O que mudou é a ordem:** a Decisão 8, de 16/09/2026, é posterior e não abre exceção. O líder, confrontado com o choque entre as duas, decidiu em 17/09/2026 que **a ordem de 16/09 vence e o risco aceito está revogado**.
+
+**Consequência prática, dita para quem for implementar:** o conserto precisa dar um canal de erro onde hoje não existe, e isso alcança a forma pública - a fatia tem de declarar o que congela e passa pela revisão de API dedicada. **O texto do risco aceito é APAGADO do arquivo, nunca arquivado num bloco de histórico** (GODS_LAWS.md global, L-67: o que o líder revoga é apagado). O registro da revogação vive aqui, nesta seção.
+
+**Alternativas recusadas pelo líder:**
+
+- Manter o risco aceito como exceção nomeada da Decisão 8: deixaria a promessa deixando de ser absoluta, e a biblioteca é pública, com base de consumidores aberta e desconhecida.
+- Adiar a escolha para a revisão de API da v1: manteria publicado, por mais tempo, um ponto que derruba o processo de quem usa a biblioteca.

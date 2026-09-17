@@ -60,12 +60,16 @@ namespace glintfx::gfui::detail {
 // asks "does this selector match YOU"; `scope` is the query's own
 // scoping root for `:scope` (`scope.node == nullptr` means "no
 // explicit scope", D-W6-5's own second context - `:scope` then behaves
-// as `:root`, holding only for a node with no parent). Answers with
-// the SAME FOUR values match_compound() does (match_verdict.hpp), for
-// the SAME reason on three of them: a chain carrying
-// `:placeholder-shown` or a pseudo-element anywhere along it is
-// honestly `deferred`, never a guessed `matched`/`rejected`
-// (GODS_LAWS.md L-40). `noexcept`, but NOT allocation-free: this
+// as `:root`, holding only for a node with no parent). Answers in ALL
+// FOUR match_verdict.hpp values (match_verdict.hpp's own header
+// comment): match_compound() itself only ever answers in THREE of them
+// (matched/rejected/deferred - it allocates nothing, compound_match.cpp's
+// own header comment, so it can never reach the fourth); this function
+// shares that same three-value reasoning on those three - a chain
+// carrying `:placeholder-shown` or a pseudo-element anywhere along it
+// is honestly `deferred`, never a guessed `matched`/`rejected`
+// (GODS_LAWS.md L-40) - and adds the fourth, `resource_exhausted`, of
+// its own (see below). `noexcept`, but NOT allocation-free: this
 // function walks an explicit, HEAP-ALLOCATED stack (`std::vector<
 // frame>`, one frame per compound still open) instead of recursing -
 // see complex_match.cpp's own header comment for why (selector_parse.

@@ -319,3 +319,132 @@ GLINTFX_TEST(match_complex_propagates_resource_exhausted_from_a_nested_not_argum
     GLINTFX_CHECK(g_override_new_call_count - calls_before >= static_cast<std::size_t>(2));
     GLINTFX_CHECK(verdict == match_verdict::resource_exhausted);
 }
+
+// --- case 4: the allocation fails at a MIDDLE compound (index strictly
+// between 0 and selector.rest.size()), found by mutation testing
+// during this fatia's own review to be a gap the three cases above
+// never close.
+//
+// Every case above uses a selector with `selector.rest.size() == 0`
+// ("div", "div:not(.hidden)"): ONE compound, so `resource_exhausted`
+// can only ever be produced for the frame at index 0. complex_match.cpp's
+// own while-loop first-visit branch has TWO ways to turn a frame's
+// `local == resource_exhausted` into the final answer: the explicit
+// check right before "rejeicao vence adiamento"
+// (`if (top.local == match_verdict::resource_exhausted) { pending = ...;
+// }`, complex_match.cpp around line 232) and, separately, the
+// `top.index == 0` chain-exhausted fallback a few lines below it
+// (`pending = top.local;`) - and for index 0 BOTH branches agree, so
+// removing the FIRST one is invisible: the second one still forwards
+// the same value. A mutation-tested copy of this file's own tree
+// (GODS_LAWS.md L-27) proved this directly: deleting the explicit
+// check left this file's own case 1-3 at 3/3 PASS, RC=0 - the mutation
+// SURVIVED. The other propagation point, `combine()` (complex_match.cpp
+// lines 107-121, called only from the "have_pending" branch around
+// line 268), is never even REACHED by a one-compound selector: combine()
+// only runs once a candidate frame has already popped with a real
+// verdict for `top` to fold in, which needs a SECOND frame on the
+// stack.
+//
+// This case selects the shape the reviewer's own dossier note names,
+// ".a :not(.x) .c" (the SAME three-compound shape gfui_complex_match_
+// test.cpp's own "body :not(table) a" dossier case already proves is
+// valid grammar - a compound made of nothing but a pseudo-function,
+// with no type/class of its own, sitting in the MIDDLE position): head
+// ".a" (index 0), middle ":not(.x)" (index 1), subject ".c" (index 2,
+// `selector.rest.size() == 2`). The tree below makes the MIDDLE node
+// the ROOT (`parent = k_no_index`) on purpose: this is what forces
+// BOTH propagation points to matter, not just one -
+//
+//   - the explicit `resource_exhausted` check (line ~232): with it
+//     REMOVED, index 1 is neither `rejected` nor `index == 0`, so
+//     first-visit execution falls through to "try a candidate"
+//     (complex_match.cpp's own `next_candidate()`) - and because the
+//     middle node has NO parent, that search finds none, and the
+//     "no candidate left" branch a few lines further down sets
+//     `pending = match_verdict::rejected`, silently DISCARDING the
+//     resource_exhausted local verdict. Removing the check therefore
+//     changes this case's own answer from `resource_exhausted` to
+//     `rejected` - the mutation is caught.
+//   - `combine()` (lines 107-121): WITH the explicit check present,
+//     the middle frame still pops with `pending = resource_exhausted`
+//     immediately (no candidate search even attempted), and the
+//     subject frame (index 2, a plain, real, non-allocating ".c" class
+//     match, `local == matched`) is what is left on top of the stack -
+//     its own "have_pending" branch calls `combine(top.local ==
+//     matched, pending == resource_exhausted)` to fold the middle
+//     frame's answer in. A `combine()` that skipped its own
+//     `resource_exhausted` check would fall to the plain matched/
+//     deferred logic and answer `matched` instead - the mutation is
+//     caught too, by the SAME test.
+//
+// One allocator-forcing shape therefore kills BOTH survivors the
+// review found, without needing two separate selector shapes (this
+// fatia's own briefing's acceptance criterion (c) asks for exactly
+// this when one shape can do it).
+GLINTFX_TEST(match_complex_propagates_resource_exhausted_from_an_unreachable_middle_compound) {
+    if (oom_forcing_declared_not_applicable()) {
+        declare_oom_forcing_not_applicable(
+            "match_complex_propagates_resource_exhausted_from_an_unreachable_middle_compound");
+        return;
+    }
+
+    using glintfx::test::fake_arena::arena;
+    using glintfx::test::fake_arena::entry;
+    using glintfx::test::fake_arena::k_no_index;
+    using glintfx::test::fake_arena::view;
+
+    // The MIDDLE node (tested against ":not(.x)") is the tree ROOT -
+    // `parent = k_no_index` - so no ancestor exists for a search
+    // towards the head compound (".a") to ever find, on purpose (see
+    // this case's own header comment above for why that is what makes
+    // the explicit resource_exhausted check at complex_match.cpp's own
+    // line ~232 observably matter, not just the index==0 fallback).
+    arena tree;
+    const std::size_t middle_idx = tree.add(entry{.tag = "div",
+                                                  .id = "",
+                                                  .classes = {},
+                                                  .attributes = {},
+                                                  .state = glintfx::gfui::gltfx_node_state::none,
+                                                  .parent = k_no_index,
+                                                  .previous_sibling = k_no_index,
+                                                  .next_sibling = k_no_index,
+                                                  .child_count = 1,
+                                                  .first_child = k_no_index});
+    // The SUBJECT node (tested against ".c") is the middle node's own
+    // child - a plain, real, non-allocating class match
+    // (`local == matched`), never itself at risk of resource_exhausted,
+    // exactly what makes it the frame still on top of the stack when
+    // combine() is called (this case's own header comment, second
+    // bullet).
+    const std::size_t subject_idx = tree.add(entry{.tag = "span",
+                                                   .id = "",
+                                                   .classes = {"c"},
+                                                   .attributes = {},
+                                                   .state = glintfx::gfui::gltfx_node_state::none,
+                                                   .parent = middle_idx,
+                                                   .previous_sibling = k_no_index,
+                                                   .next_sibling = k_no_index,
+                                                   .child_count = 0,
+                                                   .first_child = k_no_index});
+    tree.entries[middle_idx].first_child = subject_idx;
+
+    const gltfx_node_view subject_node = view(tree, subject_idx);
+    const gfss_complex_selector selector = parse_one_complex(".a :not(.x) .c");
+    GLINTFX_CHECK_EQ(selector.rest.size(), static_cast<std::size_t>(2));
+
+    const std::size_t calls_before = g_override_new_call_count;
+    g_force_alloc_failure = true;
+    // The outer match_complex() call's own reserve(3) (selector.rest.
+    // size() + 1) succeeds; the NESTED match_complex() call
+    // judge_not() drives for ".x" (against the middle/root node) is
+    // the second allocation attempt, and that one fails.
+    g_calls_to_allow_before_failure = 1;
+    const match_verdict verdict = match_complex(selector, subject_node, k_no_scope);
+    g_force_alloc_failure = false;
+
+    // Proves the override was actually reached at least twice (outer +
+    // nested) before trusting the verdict below.
+    GLINTFX_CHECK(g_override_new_call_count - calls_before >= static_cast<std::size_t>(2));
+    GLINTFX_CHECK(verdict == match_verdict::resource_exhausted);
+}

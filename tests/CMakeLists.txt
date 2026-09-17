@@ -381,6 +381,86 @@ target_sources(gfss_declaration_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_component_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_longhand_apply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_sides.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_corners.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_axis_pair.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_border_parts.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_flex_flow.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_expand.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
+)
+
+# GFSS-SHORTHAND (TODO.md wave W6, GODS_LAWS.md L-17/L-19/L-20/L-40,
+# docs/plano-w6-folha-de-estilo.md S-3): the eleven accepted shorthands'
+# own expansion into longhands - shorthand_longhand_table.hpp's own
+# closed family/longhand-list table, shorthand_component_split.hpp's own
+# whitespace-run splitter, the five family files, and shorthand_
+# expand.hpp's own dispatcher (universal keyword + family dispatch),
+# built on top of GFSS-DECL-PARSE's own declaration_value_check.hpp/
+# declaration_color_value.hpp/property_value_contract.hpp/property_
+# table.hpp. Needs the SAME "${PROJECT_SOURCE_DIR}/src" PRIVATE include
+# dir every other internal-header consumer above already adds.
+glintfx_add_test(gfss_shorthand_expand_test)
+target_include_directories(gfss_shorthand_expand_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_shorthand_expand_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/important_flag.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_name_lookup.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_value_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_color_value.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_list_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_status.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_component_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_longhand_apply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_sides.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_corners.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_axis_pair.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_border_parts.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_flex_flow.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_expand.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
+)
+
+# GFSS-SHORTHAND, S-3b (TODO.md wave W6, GODS_LAWS.md L-17/L-19/L-20/
+# L-40, docs/plano-w6-folha-de-estilo.md S-3b/D-W6-14, decisao do lider
+# D4, 15/09/2026): the "reset acidental" warning - shorthand_reset_
+# notice.hpp/.cpp's own pure atom, built on the SAME declaration
+# pipeline gfss_shorthand_expand_test above already links (declaration_
+# list_parse.cpp is where the atom is WIRED, D-W6-13). Same explicit,
+# non-glob source list discipline as every sibling test target above.
+glintfx_add_test(gfss_shorthand_reset_notice_test)
+target_include_directories(gfss_shorthand_reset_notice_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_shorthand_reset_notice_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/important_flag.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_name_lookup.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_value_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_color_value.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_list_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_status.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_component_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_longhand_apply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_sides.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_corners.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_axis_pair.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_border_parts.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_flex_flow.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_expand.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
 )
 
 # GFSS-DECL-PARSE review remediation (achado CRITICO da revisao

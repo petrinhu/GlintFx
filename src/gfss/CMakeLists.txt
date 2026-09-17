@@ -35,4 +35,13 @@ target_sources(glintfx_library PRIVATE
     declaration_color_value.cpp
     declaration_parse.cpp
     declaration_list_parse.cpp
+    shorthand_component_split.cpp
+    shorthand_longhand_apply.cpp
+    shorthand_four_sides.cpp
+    shorthand_four_corners.cpp
+    shorthand_axis_pair.cpp
+    shorthand_border_parts.cpp
+    shorthand_flex_flow.cpp
+    shorthand_expand.cpp
+    shorthand_reset_notice.cpp
 )

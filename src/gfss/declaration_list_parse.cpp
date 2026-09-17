@@ -3,6 +3,8 @@
 
 #include "declaration_parse.hpp"
 #include "declaration_split.hpp"
+#include "shorthand_expand.hpp"
+#include "shorthand_reset_notice.hpp"
 
 // declaration_list_parse.cpp - GFSS-DECL-PARSE, DP-8 (GODS_LAWS.md
 // L-17: each function below answers exactly one question of
@@ -33,23 +35,80 @@ namespace {
     return tokens;
 }
 
+// Appends one ALREADY-EXPANDED longhand to `result`, updating the SAME
+// two L-40 counters a directly-authored declaration would (D-DP-2/D-DP-
+// 4) - the one place BOTH fold_into_result() below and its own
+// shorthand branch push a final declaration, so the counters can never
+// drift between the two paths.
+void append_declaration(gfss_declaration declaration, declaration_list_parse_result &result) {
+    if (declaration.has_reserved_notice) {
+        ++result.reserved_notice_count;
+    }
+    if (!declaration.is_shorthand && declaration.form == gfss_declaration_value_form::raw) {
+        ++result.raw_composite_count;
+    }
+    result.declarations.push_back(std::move(declaration));
+}
+
 // Folds ONE parsed declaration into `result` - accepted declarations
 // update the two L-40 counters D-DP-2/D-DP-4 require printed, rejected
 // ones append their own diagnostic; this is the one place that decides
 // which list a declaration_parse_result lands in.
+//
+// GFSS-SHORTHAND, D-W6-3 (TODO.md wave W6): an accepted SHORTHAND
+// (`is_shorthand == true`) is never itself appended to `declarations` -
+// expand_shorthand() (shorthand_expand.hpp) replaces it, IN PLACE, with
+// its own N longhand declarations (D-W6-3's own "a posicao e preservada
+// por construcao": this function is called once per declaration span,
+// in source order, so appending the expansion right here, instead of
+// the raw shorthand, is what makes the expansion land at the
+// shorthand's own original index rather than the front or the back of
+// the block). A shorthand that fails to expand contributes its own
+// diagnostic to `rejected`, the SAME list a directly-rejected
+// declaration already uses - never a declaration of its own.
+//
+// GFSS-SHORTHAND, S-3b (D-W6-13/D-W6-14, docs/plano-w6-folha-de-
+// estilo.md, decisao do lider D4, 15/09/2026): AFTER the expansion
+// lands, shorthand_reset_notices() (shorthand_reset_notice.hpp) is
+// asked, over the SAME `result.declarations` it just grew, which of
+// the N just-appended longhands already had an explicit value earlier
+// in THIS block - one notice per overridden longhand, appended to
+// `result.notices`, the block's own THIRD list (declaration_ast.hpp).
+// `shorthand_line`/`shorthand_column` come from the shortcut's OWN
+// first raw value token (`parsed.declaration.raw_tokens.front()`) -
+// the closest position this crude, pre-expansion declaration carries
+// (build_shorthand(), declaration_parse.cpp, never leaves raw_tokens
+// empty: parse_declaration() already rejects an empty value span
+// before ever calling it). `parsed.declaration` is read here, never
+// moved - only `expanded.longhands`' own elements are moved into
+// `result`, so raw_tokens stays valid for this read even after the
+// append loop below.
 void fold_into_result(declaration_parse_result parsed, declaration_list_parse_result &result) {
     if (!parsed.accepted) {
         result.rejected.push_back(parsed.diagnostic);
         return;
     }
-    if (parsed.declaration.has_reserved_notice) {
-        ++result.reserved_notice_count;
+    if (parsed.declaration.is_shorthand) {
+        shorthand_expand_result expanded = expand_shorthand(parsed.declaration);
+        if (!expanded.ok) {
+            result.rejected.push_back(expanded.diagnostic);
+            return;
+        }
+        const std::size_t expansion_begin = result.declarations.size();
+        const std::size_t longhand_count = expanded.longhands.size();
+        for (gfss_declaration &longhand : expanded.longhands) {
+            append_declaration(std::move(longhand), result);
+        }
+        const gltfx_gfss_token &shorthand_token = parsed.declaration.raw_tokens.front();
+        for (const gltfx_gfss_diagnostic &notice :
+             shorthand_reset_notices(result.declarations, expansion_begin, longhand_count,
+                                     shorthand_token.line, shorthand_token.column)) {
+            result.notices.push_back(notice);
+            ++result.notice_count;
+        }
+        return;
     }
-    if (!parsed.declaration.is_shorthand &&
-        parsed.declaration.form == gfss_declaration_value_form::raw) {
-        ++result.raw_composite_count;
-    }
-    result.declarations.push_back(std::move(parsed.declaration));
+    append_declaration(std::move(parsed.declaration), result);
 }
 
 } // namespace

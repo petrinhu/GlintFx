@@ -2,6 +2,7 @@
 #include "complex_match.hpp"
 
 #include <cstddef>
+#include <new>
 #include <optional>
 #include <vector>
 
@@ -41,16 +42,23 @@
 // below still walks right to left with the SAME direction and backtracking semantics
 // the recursive draft had (D-W6-2), but the walk is now a loop over an
 // explicit, HEAP-allocated stack (`std::vector<frame>`) instead of the
-// native call stack - a `std::vector` that grows past available memory
-// still ends the process, but as a clean allocation failure, never as
-// the memory-unsafe class of failure stack overflow is. `:not()`'s own
-// recursion (match_complex() -> judge_deferred_simple_selectors() ->
-// match_complex() again, for each of its arguments) is UNCHANGED and
-// stays real recursion - it already has the shared, parser-enforced
-// D-W6-8 budget (at most 10 levels), the exact "bounded and cited"
-// shape selector_parse.cpp's own NOLINTNEXTLINE(misc-no-recursion)
-// comments already use elsewhere in this codebase, so it needed no
-// change here.
+// native call stack - trading native stack overflow (undefined
+// behavior) for a single, well-defined allocation point this function
+// now catches itself (GFUI-VERDICT-RESOURCE-EXHAUSTED, ESCOPO.md
+// Decisao 8 of 16/09/2026, this file's own match_complex() header
+// comment below): a `std::vector` that cannot grow past available
+// memory answers `match_verdict::resource_exhausted`, it no longer
+// ends the consumer's process the way an EARLIER draft of this file's
+// own comment used to claim. `:not()`'s own recursion (match_complex()
+// -> judge_deferred_simple_selectors() -> match_complex() again, for
+// each of its arguments) is UNCHANGED and stays real recursion - it
+// already has the shared, parser-enforced D-W6-8 budget (at most 10
+// levels), the exact "bounded and cited" shape selector_parse.cpp's
+// own NOLINTNEXTLINE(misc-no-recursion) comments already use elsewhere
+// in this codebase, so it needed no change here; each of those levels
+// carries its OWN independent stack and its OWN independent
+// allocation point, whose own failure now surfaces the same honest
+// verdict, propagated by judge_not() (deferred_simple_match.cpp).
 //
 // ONE COMPOUND, TWO LEVELS, ONE HELPER: compound_verdict_at() below is
 // the ONLY place this file calls compound_match()/judge_deferred_
@@ -97,6 +105,21 @@ compound_verdict_at(const style::detail::gfss_compound_selector &compound,
 // guessed matched"); otherwise both halves are `matched`, so the
 // combination is too.
 [[nodiscard]] match_verdict combine(match_verdict local, match_verdict upstream) noexcept {
+    // GFUI-VERDICT-RESOURCE-EXHAUSTED (ESCOPO.md Decisao 8, 16/09/
+    // 2026): checked FIRST, above "rejeicao vence adiamento" itself -
+    // `resource_exhausted` is not a real answer this call reached, it
+    // is "the allocation a NESTED compound needed (through `:not()`'s
+    // own recursive match_complex() call, deferred_simple_match.cpp's
+    // own judge_not()) failed", so neither half can be trusted enough
+    // to combine with the other. Every caller below already treats it
+    // this way for `top.local` itself (the first-visit branch just
+    // above this function's own call sites); this is the SAME rule
+    // for the case where the upstream half - a candidate's already-
+    // decided answer - is the one carrying it.
+    if (local == match_verdict::resource_exhausted ||
+        upstream == match_verdict::resource_exhausted) {
+        return match_verdict::resource_exhausted;
+    }
     if (local == match_verdict::deferred || upstream == match_verdict::deferred) {
         return match_verdict::deferred;
     }
@@ -163,8 +186,24 @@ struct frame {
 match_verdict match_complex(const style::detail::gfss_complex_selector &selector,
                             const gltfx_node_view &node, const gltfx_node_view &scope) noexcept {
     std::vector<frame> stack;
-    stack.reserve(selector.rest.size() + 1);
-    stack.push_back(make_frame(selector, selector.rest.size(), node, scope));
+    // GFUI-VERDICT-RESOURCE-EXHAUSTED (ESCOPO.md Decisao 8, 16/09/
+    // 2026): this `reserve()`/`push_back()` pair is the ONLY
+    // allocation this function's own explicit heap stack ever needs -
+    // `frame` itself owns nothing, and every candidate this function
+    // walks is a view, never a copy. Before this fatia, letting the
+    // std::bad_alloc a failed allocation throws escape this `noexcept`
+    // function called std::terminate() (a `noexcept` function that
+    // lets an exception escape ends the process immediately) - the
+    // CONSUMER's whole process died, with no chance to react. Caught
+    // HERE, at the single point of allocation, `noexcept` is now
+    // honest: no exception ever actually escapes this function, the
+    // failure surfaces as an honest verdict instead.
+    try {
+        stack.reserve(selector.rest.size() + 1);
+        stack.push_back(make_frame(selector, selector.rest.size(), node, scope));
+    } catch (const std::bad_alloc &) {
+        return match_verdict::resource_exhausted;
+    }
 
     match_verdict pending = match_verdict::rejected;
     bool have_pending = false; // true when `pending` is a CHILD frame's already-decided answer,
@@ -174,13 +213,35 @@ match_verdict match_complex(const style::detail::gfss_complex_selector &selector
         frame &top = stack.back();
 
         if (!have_pending) {
-            // First visit to `top` (just pushed): "rejeicao vence
-            // adiamento", the SAME order every compound-level
-            // evaluator in this track already uses - a rejected
-            // compound never even asks for a candidate. `index == 0`
-            // (head reached, nothing rejected) is the chain-exhausted
-            // base case: whatever `local` says (matched or still
-            // deferred) is the final word for this branch.
+            // First visit to `top` (just pushed). GFUI-VERDICT-
+            // RESOURCE-EXHAUSTED (ESCOPO.md Decisao 8): checked BEFORE
+            // "rejeicao vence adiamento" itself - `top.local` reaches
+            // this value only through compound_verdict_at() ->
+            // judge_deferred_simple_selectors() -> judge_not() -> a
+            // NESTED match_complex() call (for a `:not()` argument)
+            // whose OWN allocation failed. That failure means this
+            // frame's own local verdict was never actually decided -
+            // trying a combinator candidate for it next (the "falls
+            // through" path every other branch here takes) would
+            // waste another allocation attempt on a search already
+            // known to be running out of memory, and any candidate it
+            // DID find would be combined with an answer that was never
+            // real. Abandon the whole walk immediately instead - same
+            // "stack.pop_back() and propagate" shape as every other
+            // branch below, just with the strongest verdict winning.
+            if (top.local == match_verdict::resource_exhausted) {
+                pending = match_verdict::resource_exhausted;
+                have_pending = true;
+                stack.pop_back();
+                continue;
+            }
+            // "rejeicao vence adiamento", the SAME order every
+            // compound-level evaluator in this track already uses - a
+            // rejected compound never even asks for a candidate.
+            // `index == 0` (head reached, nothing rejected) is the
+            // chain-exhausted base case: whatever `local` says
+            // (matched or still deferred) is the final word for this
+            // branch.
             if (top.local == match_verdict::rejected) {
                 pending = match_verdict::rejected;
                 have_pending = true;

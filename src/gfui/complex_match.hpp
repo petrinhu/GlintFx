@@ -61,25 +61,45 @@ namespace glintfx::gfui::detail {
 // scoping root for `:scope` (`scope.node == nullptr` means "no
 // explicit scope", D-W6-5's own second context - `:scope` then behaves
 // as `:root`, holding only for a node with no parent). Answers with
-// the SAME three values match_compound() does (match_verdict.hpp), for
-// the SAME reason: a chain carrying `:placeholder-shown` or a pseudo-
-// element anywhere along it is honestly `deferred`, never a guessed
-// `matched`/`rejected` (GODS_LAWS.md L-40). `noexcept`, but NOT
-// allocation-free: this function walks an explicit, HEAP-ALLOCATED
-// stack (`std::vector<frame>`, one frame per compound still open)
-// instead of recursing - see complex_match.cpp's own header comment
-// for why (selector_parse.cpp's own compound-chain loop has no depth
-// cap of its own, unlike `:not()`'s D-W6-8 budget, so native recursion
-// here would have been an unbounded call-stack overflow). Being
-// `noexcept` while it allocates has a real consequence for the
-// consumer: an allocation failure inside this call is NOT a
-// recoverable error - it surfaces as `std::terminate()` (a `noexcept`
-// function that lets an exception escape ends the process immediately,
-// same as `libstdc++`'s own `bad_alloc` unwinding here would), never
-// as a caught exception the caller could handle. This trades native
-// stack overflow (undefined behavior) for a clean process abort under
-// memory exhaustion - safer, but still ends the consumer's process,
-// not "no allocation" as an earlier draft of this comment claimed.
+// the SAME FOUR values match_compound() does (match_verdict.hpp), for
+// the SAME reason on three of them: a chain carrying
+// `:placeholder-shown` or a pseudo-element anywhere along it is
+// honestly `deferred`, never a guessed `matched`/`rejected`
+// (GODS_LAWS.md L-40). `noexcept`, but NOT allocation-free: this
+// function walks an explicit, HEAP-ALLOCATED stack (`std::vector<
+// frame>`, one frame per compound still open) instead of recursing -
+// see complex_match.cpp's own header comment for why (selector_parse.
+// cpp's own compound-chain loop has no depth cap of its own, unlike
+// `:not()`'s D-W6-8 budget, so native recursion here would have been
+// an unbounded call-stack overflow).
+//
+// THE FOURTH VALUE, `resource_exhausted` (GFUI-VERDICT-RESOURCE-
+// EXHAUSTED, ESCOPO.md "Ordem de produto de 15/09/2026" Decisao 8,
+// 16/09/2026), IS WHY `noexcept` IS HONEST HERE, NOT A DANGER IT
+// HIDES: an earlier draft of this fatia (S-2) shipped this function
+// `noexcept` while allocating and let a failed allocation's
+// `std::bad_alloc` escape - a `noexcept` function that lets an
+// exception escape calls `std::terminate()` immediately, ending the
+// CONSUMER's whole process with no chance to react. That defect is
+// gone: the ONE allocation this function's own stack ever needs (its
+// initial `reserve()`, sized exactly to the deepest chain this
+// selector's own combinators can ever walk - complex_match.cpp's own
+// header comment proves no SECOND allocation is ever reachable after
+// it) is wrapped in its own `try`/`catch (const std::bad_alloc&)`,
+// so no exception ever actually crosses this function's own boundary
+// any more. A failure there, or one reached through `:not()`'s own
+// recursive call back into this SAME function (deferred_simple_match.
+// cpp's own judge_not(), each with its own independent stack and its
+// own independent allocation point), now surfaces as
+// `match_verdict::resource_exhausted` - an honest "could not finish
+// judging this", propagated by every caller ABOVE every other verdict
+// (complex_match.cpp's own combine(), deferred_simple_match.cpp's own
+// judge_not()/judge_deferred_simple_selectors()), never silently
+// downgraded to a guessed `matched`/`rejected`/`deferred`. GODS_LAWS.
+// md L-22's own "no exception crosses the public API" was already
+// true before this fatia and remains true now - what changed is that
+// it is ALSO now true of this internal `noexcept` boundary, which it
+// was not.
 [[nodiscard]] match_verdict match_complex(const style::detail::gfss_complex_selector &selector,
                                           const gltfx_node_view &node,
                                           const gltfx_node_view &scope) noexcept;

@@ -61,6 +61,22 @@ judge_not(const std::vector<style::detail::gfss_complex_selector> &not_selectors
     bool any_deferred = false;
     for (const style::detail::gfss_complex_selector &nested : not_selectors) {
         const match_verdict nested_verdict = match_complex(nested, node, scope);
+        // GFUI-VERDICT-RESOURCE-EXHAUSTED (ESCOPO.md Decisao 8, 16/09/
+        // 2026): checked FIRST, above "rejeicao vence adiamento"
+        // itself - this recursive match_complex() call is exactly
+        // where THIS function's own allocation risk lives (this file's
+        // own header comment, "noexcept, but NOT allocation-free"):
+        // its own explicit std::vector<frame> stack can fail to
+        // allocate independently of whatever this compound's outer
+        // caller already decided. `resource_exhausted` here is not "one
+        // argument's real answer", it is "this argument's own answer
+        // could not be computed" - short-circuit immediately, never
+        // treat it as though the argument merely rejected (which would
+        // silently let ":not()" claim a confident hold it never
+        // earned).
+        if (nested_verdict == match_verdict::resource_exhausted) {
+            return match_verdict::resource_exhausted;
+        }
         if (nested_verdict == match_verdict::matched) {
             // One argument matched THIS node - ":not()" fails outright,
             // "rejeicao vence adiamento" applies even here.
@@ -103,6 +119,15 @@ match_verdict judge_deferred_simple_selectors(const style::detail::gfss_compound
         case style::detail::gfss_simple_selector_kind::pseudo_function:
             if (glintfx::style::detail::ascii_case_insensitive_equal(simple.name, "not")) {
                 const match_verdict not_verdict = judge_not(simple.not_selectors, node, scope);
+                // GFUI-VERDICT-RESOURCE-EXHAUSTED (ESCOPO.md Decisao 8,
+                // 16/09/2026): propagated immediately, above "rejeicao
+                // vence adiamento" - judge_not() only ever returns this
+                // when it could not finish computing a real answer
+                // (see its own header comment), so this compound's own
+                // verdict cannot honestly be anything but the same.
+                if (not_verdict == match_verdict::resource_exhausted) {
+                    return match_verdict::resource_exhausted;
+                }
                 if (not_verdict == match_verdict::rejected) {
                     return match_verdict::rejected;
                 }

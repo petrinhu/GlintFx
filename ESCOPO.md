@@ -1374,9 +1374,24 @@ A Decisão 8 (16/09/2026) nasceu olhando para um mecanismo, o casamento de selet
 
 A razão continua tecnicamente correta. **O que mudou é a ordem:** a Decisão 8, de 16/09/2026, é posterior e não abre exceção. O líder, confrontado com o choque entre as duas, decidiu em 17/09/2026 que **a ordem de 16/09 vence e o risco aceito está revogado**.
 
-**Consequência prática, dita para quem for implementar:** o conserto precisa dar um canal de erro onde hoje não existe, e isso alcança a forma pública - a fatia tem de declarar o que congela e passa pela revisão de API dedicada. **O texto do risco aceito é APAGADO do arquivo, nunca arquivado num bloco de histórico** (GODS_LAWS.md global, L-67: o que o líder revoga é apagado). O registro da revogação vive aqui, nesta seção.
+**Consequência prática, CORRIGIDA no mesmo dia por medição (17/09/2026):** a frase que estava aqui dizia que o conserto "precisa dar um canal de erro onde hoje não existe" e que isso alcançaria a forma pública. **Estava errada, e foi apagada.** Ela não era medição: era o raciocínio do próprio comentário de 07/09 repetido pelo orquestrador sem conferir. O planejamento da fatia mediu e o orquestrador reconferiu linha a linha: a função copia a lista inteira apenas para substituir valor **elemento a elemento** (cada saída depende só da própria entrada mais uma bandeira global), e o único consumidor indexa o resultado. Logo **a alocação é EVITÁVEL**: dá para devolver o mesmo valor sem alocar nada, sem canal de erro novo e sem congelar forma pública nenhuma. **Decisão do líder em 17/09/2026: corrigir este texto e consertar sem alocar.**
+
+**O que isso revela sobre o risco aceito, e é o que vale guardar:** a razão escrita em 07/09 para ACEITAR o risco era justamente que consertá-lo exigiria um canal de erro. Essa razão não se sustenta. O risco foi aceito com base num raciocínio que ninguém mediu, e o texto dele ficou dois meses no arquivo sendo lido como fato. **Risco aceito por escrito carrega a mesma exigência de prova que um conserto: quem aceita mede o custo de consertar, não o estima.** **O texto do risco aceito é APAGADO do arquivo, nunca arquivado num bloco de histórico** (GODS_LAWS.md global, L-67: o que o líder revoga é apagado). O registro da revogação vive aqui, nesta seção.
 
 **Alternativas recusadas pelo líder:**
 
 - Manter o risco aceito como exceção nomeada da Decisão 8: deixaria a promessa deixando de ser absoluta, e a biblioteca é pública, com base de consumidores aberta e desconhecida.
 - Adiar a escolha para a revisão de API da v1: manteria publicado, por mais tempo, um ponto que derruba o processo de quem usa a biblioteca.
+
+### Decisão 11 - a leitura de `:nth-child()` para de alocar, com espaço de tamanho fixo
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 17/09/2026, por `AskUserQuestion`.
+
+Um dos oito pontos da Decisão 9 vive na leitura da fórmula de `:nth-child(2n+1)` e companhia, e é alcançado **em tempo de casamento** - ou seja, dentro do mesmo mecanismo que a Decisão 8 mandou nunca matar. O planejamento trouxe três saídas.
+
+**Escolhida:** a leitura passa a caber num espaço de **tamanho fixo** e nunca pede memória. Não mexe em nada que congele na revisão de API da v1. **O limite desse espaço tem de ser escolhido com razão escrita e provado um passo ALÉM da borda**, nunca só na borda exata (regra da casa, GODS_LAWS.md global L-43).
+
+**Alternativas recusadas:**
+
+- Guardar a fórmula já analisada na árvore de sintaxe, em vez de reanalisar o texto a cada comparação: é o conserto certo de desenho e elimina desperdício real, mas mexe na estrutura que congela na W10, virando porta de mão única fora do escopo desta fatia. **Fica registrado como trabalho futuro, não como ideia descartada.**
+- Propagar o desfecho de falta de memória introduzido em `GFUI-VERDICT-RESOURCE-EXHAUSTED`: carregaria o erro por uma cadeia longa para um caso que as outras duas saídas simplesmente eliminam.

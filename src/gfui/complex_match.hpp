@@ -84,17 +84,48 @@ namespace glintfx::gfui::detail {
 // `noexcept` while allocating and let a failed allocation's
 // `std::bad_alloc` escape - a `noexcept` function that lets an
 // exception escape calls `std::terminate()` immediately, ending the
-// CONSUMER's whole process with no chance to react. That defect is
-// gone: the ONE allocation this function's own stack ever needs (its
-// initial `reserve()`, sized exactly to the deepest chain this
-// selector's own combinators can ever walk - complex_match.cpp's own
-// header comment proves no SECOND allocation is ever reachable after
-// it) is wrapped in its own `try`/`catch (const std::bad_alloc&)`,
-// so no exception ever actually crosses this function's own boundary
-// any more. A failure there, or one reached through `:not()`'s own
-// recursive call back into this SAME function (deferred_simple_match.
-// cpp's own judge_not(), each with its own independent stack and its
-// own independent allocation point), now surfaces as
+// CONSUMER's whole process with no chance to react. A SECOND draft of
+// this same fatia narrowed the fix to "the ONE allocation this
+// function's own stack ever needs is its initial `reserve()` +
+// `push_back()`, sized exactly to the deepest chain this selector's
+// own combinators can ever walk, so wrapping just that pair in `try`/
+// `catch` is enough" - true of what the C++ standard itself guarantees
+// (`push_back()` past a sufficient `reserve()` never reallocates), but
+// WRONG about what a real Windows Debug build does: MSVC's own C++
+// Standard Library allocates a debug container-proxy object at
+// CONSTRUCTION time whenever `_ITERATOR_DEBUG_LEVEL` is nonzero (2 by
+// default in Debug builds), independent of `reserve()` - measured live
+// on this project's own Windows CI runner (GATE-DEBUG job), where the
+// bare `std::vector<frame> stack;` declaration, sitting BEFORE that
+// narrower try/catch even started, escaped a forced allocation
+// failure and called `std::terminate()` (GODS_LAWS.md L-04's own
+// "comportamento igual em todo sistema, provado em cada um" - a
+// platform this project's own matrix promises to cover, invisible to
+// every Linux job because libstdc++ never allocates on a `std::vector`'s
+// own default construction). A THIRD draft widened the `try` to span
+// this whole function's body and stopped there - STILL WRONG, proved by
+// a minimal repro against the real cl.exe/link.exe: `vector()`, the
+// plain DEFAULT constructor, is itself `noexcept` by the language's own
+// rule (`noexcept(noexcept(Allocator()))`, and `std::allocator<T>`'s own
+// constructor is unconditionally `noexcept`), so an exception thrown by
+// its own debug-proxy allocation calls `std::terminate()` at THAT
+// constructor's own boundary - no enclosing `try` in the CALLER, however
+// widely drawn, ever gets a chance to run. The fix that actually works,
+// confirmed by the same repro: construct `stack` through the SIZED
+// constructor (`vector(size_type, const Allocator& = Allocator())`,
+// called with `0`) instead - NOT `noexcept` by the standard, so the
+// identical debug-proxy allocation failure is caught normally through
+// it. complex_match.cpp's own match_complex() header comment spells out
+// why "simplifying" that construction back to `std::vector<frame>
+// stack;` would silently reintroduce the crash. With BOTH pieces in
+// place - the sized construction AND the `try`/`catch (const std::bad_
+// alloc&)` spanning this function's own entire body (construction,
+// `reserve()`, and every `push_back()` the walk reaches) - no exception
+// ever actually crosses this function's own boundary any more, on any
+// platform. A failure there, or one reached through `:not()`'s own recursive call
+// back into this SAME function (deferred_simple_match.cpp's own
+// judge_not(), each with its own independent stack and its own
+// independent allocation point), now surfaces as
 // `match_verdict::resource_exhausted` - an honest "could not finish
 // judging this", propagated by every caller ABOVE every other verdict
 // (complex_match.cpp's own combine(), deferred_simple_match.cpp's own

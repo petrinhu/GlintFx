@@ -3459,3 +3459,34 @@ O agente que atualizou a wiki **discordou de uma instrucao minha, com medicao, e
 - **D16.3 — a correcao vai onde ainda cabe:** a wiki (ja corrigida pelo agente, com a distincao certa: provado no Windows, estruturalmente indemonstravel no Linux por causa do executor), a matriz de portabilidade, e a proxima secao do registro de mudancas. **A marca fica como esta, com o erro conhecido e registrado aqui.**
 
 **Segundo achado do mesmo agente, fora do escopo dele, aceito:** `docs/gl-loop-portability-matrix.md` tem contradicao interna - o paragrafo de abertura diz que o defeito do teto de quadros foi achado e consertado pela execucao real no Windows, e a linha da propria tabela ainda diz que nao ha prova ao vivo em sistema nenhum. Repassado a quem esta atualizando os documentos do repositorio.
+
+## Noite de 17 para 18/09/2026: autorização ampla do líder e as três respostas dele
+
+**Ordem dele, verbatim, ao ligar o modo autônomo e ir dormir:** *"siga até termina a onda completa. Autorizo commit por fatia, merge to main, push no fim da onda. Em caso de duvidas, pergunte a clevel opus max effort, registre log das decisoes para avaliar deppis. Nunca devidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web. Pode APRENDER com outras libs e frameworks, incluindo rmlui e sdl3, mas NUNCA copiar ou pinar nelas."*
+
+**Flag do modo autônomo:** ligada em 17/09/2026 22:34:32, válida por 24h, escopos `push` e `clean`. **A autorização de MERGE em `main` vem da frase acima, não da flag** (a flag não carrega esse escopo), e por isso está registrada aqui.
+
+### O que esta autorização cobre, e o que não cobre
+
+| Coberto | Não coberto |
+|---|---|
+| commit por fatia | relaxar qualquer portão de qualidade |
+| merge em `main` | seguir com o servidor vermelho (bloqueia, sempre) |
+| push no fim da onda | decidir no lugar dele o que ele marcou como decisão em aberto |
+| marca de versão **se** a onda fechar verde (resposta 3 abaixo) | copiar ou prender o projeto a biblioteca de terceiro |
+
+### As três perguntas que fiz antes de ele dormir, e as respostas
+
+1. **Até onde ir:** fechar as **seis fatias do conserto** e depois **seguir para dentro da onda W6** (`:where()`, leitura da folha inteira, portão de fechamento). Recusadas: parar depois do conserto; parar depois só dos três pontos públicos.
+2. **A segunda família de defeito (cerca de 140 pontos, só Windows em modo de depuração):** **levantar e trazer proposta, sem executar.** É decisão de forma, não de conserto: são cerca de 180 lugares e mexe em como 26 tipos do projeto são passados adiante. Recusadas: eliminar tudo agora; declarar limitação e travar por teste.
+3. **Marca de versão:** **autorizada se a onda fechar verde**, por julgamento meu, com número e razão registrados. Recusada: deixar a marca para ele fazer acordado.
+
+### Regra de trabalho que passa a valer, e onde ficou gravada
+
+- *"Nunca decidir pelo mais fácil, mas pelo mais completo"* entrou como **ampliação da L-32** (que já proibia escolher a fatia mais fácil; agora o critério vale **dentro** da fatia, entre dois desenhos que passam nos mesmos testes).
+- *"Aprender sim, copiar ou pinar não"* entrou como **reafirmação da L-29**, com a palavra **pinar** acrescentando o que a L-07 já dizia por outro caminho: não prender o projeto a terceiro, nem por dependência, nem por versão fixada.
+- **Dúvida vai a C-level** (`fable`, esforço máximo; caindo a cota, `opus` no esforço máximo, conforme a L-11 global emendada hoje), e a decisão volta para este arquivo.
+
+### Registro corrente das decisões da noite
+
+*(cada decisão autônoma tomada daqui em diante entra abaixo, com hora medida, a razão, e o que foi recusado)*

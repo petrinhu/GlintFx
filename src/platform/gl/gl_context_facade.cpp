@@ -181,7 +181,14 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
             std::span<const gltfx_gfx_option_entry>(*window_impl_ptr->fixed_open_only_gfx_options);
     }
 
-    const platform::gfx_open_only_fixation_result fixation =
+    // FIX-OOM-B9 (fatia de conserto 19/09/2026, GODS_LAWS.md L-17/L-22
+    // do projeto, docs/api-conventions.md R3): `fixation` NAO e' const -
+    // a razao mora no ponto de escrita la embaixo (fix_now branch),
+    // onde `fixation.fixed` precisa ser MOVIDO, nunca copiado. Nada
+    // entre esta linha e aquele branch MUTA `fixation`; a ausencia de
+    // `const` existe so' para permitir o unico std::move() que este
+    // arquivo faz sobre ela.
+    platform::gfx_open_only_fixation_result fixation =
         platform::resolve_gfx_open_only_fixation(already_fixed, requested);
 
     if (fixation.outcome == platform::gfx_open_only_fixation_outcome::refuse) {
@@ -245,13 +252,35 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     // type this old sequence needed to move - the ordering accident is
     // replaced by a construction that is safe BY DESIGN.
     // WIN-DEBUG-CTORALLOC (07/09/2026, gemeo do achado em gfx_open_
-    // only_fixation.cpp): `new (std::nothrow)` only guards the raw
-    // ALLOCATION - if `gl_context_impl`'s own constructor throws (its
-    // `current_values` std::vector member's default construction,
-    // under the same MSVC Debug risk this whole sweep is about), the
-    // exception still propagates through a successful nothrow-new,
-    // memory freed by the matching delete, straight past this noexcept
-    // function.
+    // only_fixation.cpp) - CORRIGIDO 19/09/2026, L-67: uma versao
+    // anterior deste comentario dava a entender que o `try` logo
+    // abaixo PROTEGE a construcao de `gl_context_impl{}` (seu membro
+    // `current_values`, um `std::vector`, tem construcao padrao sob o
+    // mesmo risco de depuracao da Microsoft que este comentario ja
+    // citava). NAO PROTEGE, e ha prova, nao so' suspeita: o caso `c6`
+    // de /var/tmp/builds/claude-1000/varredura-noexcept/RELATORIO.md
+    // reproduziu, ao vivo, uma struct com membro `vector` construida
+    // DENTRO de um `try` de funcao comum (nem precisa ser `noexcept`)
+    // sob `_ITERATOR_DEBUG_LEVEL != 0` - o processo TERMINA mesmo
+    // assim. A falha nao aparece como `std::bad_alloc` capturavel;
+    // ela morre por outro caminho, dentro do proprio construtor
+    // chamado, antes de qualquer `catch` ter chance de rodar. O `try`/
+    // `catch` abaixo continua escrito porque nao ha razao para tira-lo
+    // (ele nao piora nada, e cobre o `throw` hipotetico de qualquer
+    // outro compilador/modo onde o construtor realmente lance uma
+    // excecao capturavel), mas ele NAO e' o que torna este sitio
+    // seguro - hoje, nao e'. Este e' um sitio de FAMILIA A (construcao
+    // padrao de um TIPO DO PROJETO que carrega `std::vector` por
+    // membro - a parte "composicao" que a regua automatica de
+    // check_noexcept_alloc.py declara nao enxergar, ESCOPO.md Decisao
+    // 13), e o conserto dele e' trabalho FUTURO, ja sequenciado pelo
+    // lider: ESCOPO.md Decisao 15 fixa a ordem "1: os 60 ja
+    // localizaveis, 2: descobrir como localizar os outros ~80, 3:
+    // localiza-los, 4: conserta-los" - este sitio, por carregar o
+    // `vector` por composicao (nao construcao direta), cai nos ~80 do
+    // passo 2/3, nao no passo 1. Nao consertado aqui; nomeado com
+    // precisao para o proximo leitor nao repetir a leitura otimista
+    // que este comentario, na forma anterior, convidava.
     gl_context_impl *impl = nullptr;
     try {
         impl = new (std::nothrow) gl_context_impl{};
@@ -280,8 +309,24 @@ gltfx_rslt<gltfx_gl_context> gltfx_gl_context::open(gltfx_window &window,
     // outcome get written back to the window - see this file's own
     // top comment for why a failed open() must never leave a window
     // believing something was fixed.
+    //
+    // FIX-OOM-B9 (achado do lint real do Windows, 19/09/2026, GODS_
+    // LAWS.md L-17/L-22 do projeto): esta linha ERA `= fixation.fixed`
+    // (copia). `window_impl_ptr->fixed_open_only_gfx_options` e' um
+    // `std::optional<std::vector<gltfx_gfx_option_entry>>`
+    // (window_impl.hpp); copiar um `std::vector` no lado direito de
+    // um `optional<vector>::operator=` invoca o construtor de COPIA do
+    // vector, que ALOCA e NAO e' `noexcept` - em QUALQUER sistema,
+    // Release incluido (familia B, nao a familia A/MSVC-Debug do
+    // achado vizinho duas telas abaixo). `fixation.fixed` nao e' mais
+    // lido depois deste ponto (o span `fixed_open_only` que apontava
+    // para ele so' foi usado na chamada a resolve_full_option_table(),
+    // la em cima, ja terminada) - mover em vez de copiar e' o PRIMEIRO
+    // degrau da escada (nao alocar), nao so' um degrau de emergencia:
+    // o move-construtor de `std::vector` e' `noexcept` e nunca aloca,
+    // ele so' rouba o ponteiro.
     if (fixation.outcome == platform::gfx_open_only_fixation_outcome::fix_now) {
-        window_impl_ptr->fixed_open_only_gfx_options = fixation.fixed;
+        window_impl_ptr->fixed_open_only_gfx_options = std::move(fixation.fixed);
     }
 
     impl->current_values = std::move(resolved);

@@ -1050,6 +1050,22 @@ target_sources(gfx_open_only_fixation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
 )
 
+# FIX-OOM-B9 (conserto 19/09/2026, GODS_LAWS.md L-17/L-20/L-22/L-27):
+# mecanismo dos dois sitios de familia B consertados nesta fatia
+# (gl_context_facade.cpp's own open()/fix_now branch e gpu_enumeration_
+# facade.cpp's own query()/ramo Windows) - ver o header comment do
+# proprio arquivo de teste para o escopo declarado (nao chama open()/
+# query() diretamente, nenhum dos dois e' alcancavel sem, respectivamente,
+# um compositor Wayland real isolado em container ou uma maquina
+# Windows). Recompila gfx_open_only_fixation.cpp pela mesma razao de
+# gfx_open_only_fixation_test acima (sem GLINTFX_API); gltfx_err vem do
+# glintfx::glintfx que glintfx_add_test() ja' linka.
+glintfx_add_test(fixation_write_and_err_copy_oom_test)
+target_include_directories(fixation_write_and_err_copy_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(fixation_write_and_err_copy_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
+)
+
 # GL-CONTEXT (docs/plano-w6b-placa-e-laco.md fatia 2b, GODS_LAWS.md
 # L-17/L-19/L-20/L-26/L-40): the four OS-agnostic pure atoms this fatia
 # adds on top of C-OPT above - the descriptor-shape validator, the GL

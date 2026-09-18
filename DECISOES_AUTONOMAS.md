@@ -3520,3 +3520,85 @@ Ele pediu, antes de dormir: *"traga decisoes autonomas antigas para eu aprovar, 
 **O que fica sem prova, declarado:** a mutação (o vermelho) não é executável nesta máquina. A régua do projeto já fixa que execução sob `wine64` é pista, nunca oráculo. O verde vem do job `windows` do servidor; o vermelho só é oráculo no runner real ou na máquina virtual. Isso vai escrito no cabeçalho do arquivo novo.
 
 **ACHADO DO CTO, registrado e não consertado:** o contrato de `tests/parity_exceptions.txt` só sabe expressar dois estados (ausência permanente por desenho, ou lacuna temporária rastreada por item). **Não existe forma de dizer "o gêmeo existe e está completo, mas UM PASSO DE PROVA não pôde ser executado naquele sistema por razão de ambiente".** Não é hipótese: a linha `gpu_kind_report_smoke` do próprio arquivo é exatamente esse caso e teve de ser espremida na segunda forma. Um portão cujo formato não consegue expressar a verdade empurra o próximo autor para a desonestidade ou para criar item que a lei proíbe. Vai para a INBOX.
+
+#### Lição de orquestração, minha: portão que varre a árvore inteira não roda em árvore viva com vários agentes  `[17/09/26 - 23:28]`
+
+**O fato:** mandei um agente rodar `tools/preci.sh --win32-link-only --strict` na árvore real, com **quatro agentes trabalhando nela ao mesmo tempo**. O script reprovou no **estágio 0** (`stage_untracked_guard`), que varre a árvore INTEIRA atrás de `*.cpp`/`*.hpp` novo fora do controle de versão, antes mesmo de chegar ao portão de ligação. Ele achou os arquivos novos dos outros três agentes e recusou, como devia.
+
+**O portão está certo; quem errou fui eu.** Arquivo de código novo fora do controle de versão é exatamente o que ele existe para pegar - o próprio comentário do script já previa esta situação, com todas as letras: *"a real tree can legitimately have another agent's WIP untracked *.cpp mid-onda right now"*.
+
+**A saída que eu NÃO escolhi, e por quê:** mandar cada agente preparar o próprio trabalho no índice, ou preparar eu pelos outros. As duas mexem no **índice compartilhado**, que é como esta casa já engoliu 311 linhas de trabalho de outro agente uma vez. Negociar em volta do acoplamento é pior que removê-lo.
+
+**A saída escolhida:** o portão roda contra um **clone isolado** em `/var/tmp`, com apenas os arquivos do agente dono da fatia copiados para dentro. É o mesmo método do espelho completo, pela mesma razão. O agente declara no relatório que o clone tem só o registro dele, para ninguém ler o número como se fosse a árvore inteira.
+
+**A regra que fica:** portão de escopo global (varredura de árvore inteira, licença, dependência zero, paridade) **não roda na árvore viva enquanto houver mais de um agente trabalhando nela**. Ou roda contra clone isolado, ou espera a árvore ficar quieta. Isto vale junto com a regra de um trabalho pesado por vez, e pela mesma causa raiz: paralelismo de agentes que a árvore compartilhada não comporta.
+
+**Mérito do agente, registrado:** ele diagnosticou sozinho que a reprovação não era sobre o alvo dele, leu o `main()` do script para confirmar que o estágio 0 vale para todos os modos menos um, listou os arquivos alheios um a um, e **recusou tocar neles**, dizendo que não era decisão dele tomar sozinho. Foi exatamente o comportamento certo.
+
+#### ⚠️ QUESTÃO DE INTERPRETAÇÃO DE LEI, PARA O LÍDER RATIFICAR OU CORRIGIR: clone descartável é "cópia de trabalho"?  `[17/09/26 - 23:30]`
+
+**Como apareceu:** mandei um agente rodar um portão contra um clone em `/var/tmp`. Ele **barrou a minha ordem citando a L-55** (*"cópia de trabalho de um repositório nasce em SUBPASTA do próprio projeto, nunca fora do diretório de trabalho"*, ordem do líder de 07/09/2026, verbatim: *"nao crie pastas fora do cwd. você pode criar os ramos em subpastas"*), nomeou o que a lei protege, propôs uma alternativa dentro do projeto, e **parou esperando resposta**. É exatamente o que a LEI DAS LEIS exige, e está registrado como mérito dele.
+
+**O que eu fiz:** li o corpo inteiro da L-55, não o resumo da tabela de gatilhos.
+
+**A proposta dele (clonar para `scratch/` dentro do projeto) foi RECUSADA por mim, e não por conveniência:** a **condição 3** da própria L-55 documenta que **três portões deste projeto varrem por CAMINHO de arquivo**, e que uma cópia dentro da árvore os fez **enxergar duas versões do mesmo arquivo**, produzindo reprovação vermelha sem defeito correspondente. Pôr um clone dentro do projeto e rodar um portão que varre a árvore é o modo de falha que a lei documenta.
+
+**A saída adotada não depende de interpretação nenhuma:** o portão espera a árvore ficar limpa. O estágio 0 reprova por arquivo **não rastreado**; assim que eu commitar as fatias, os arquivos deixam de ser não rastreados e o portão roda na árvore viva, sem clone e sem conflito.
+
+**A PERGUNTA QUE FICA, e é do líder:** um clone **descartável**, criado só para rodar um portão ou o espelho e apagado em seguida, é "cópia de trabalho" para efeito da L-55, ou é área de rascunho como o resto do que vive em `/var/tmp`?
+
+**Meu voto, com a razão, e explicitamente sujeito à correção dele:** entendo que **não é** cópia de trabalho, por três medições: (a) a ordem verbatim fala em *"os ramos"*, isto é, cópias onde se DESENVOLVE um ramo, não em área efêmera de verificação; (b) a **condição 1 da própria lei** manda o resultado de compilação ficar **em `/var/tmp`**, porque o projeto vive sob pasta sincronizada com nuvem e 776 MB de 789 MB medidos eram resultado de compilação - um clone para rodar portão é quase todo resultado de compilação; (c) o próprio ambiente desta sessão designa um diretório de rascunho sob `/var/tmp` e manda usá-lo.
+
+**Declaração de interesse, dita porque não quero me autoabsolver:** **eu venho clonando para `/var/tmp` a noite inteira** para rodar o espelho completo, e o espelho do lote 3 de hoje também. Se a leitura dele estiver certa e a minha errada, **a irregularidade é minha e é repetida**, não pontual. Por isso a questão vai ao líder com o meu voto declarado, e não resolvida por mim.
+
+#### Lição de orquestração, minha: cinco agentes entregaram verde, e o verde era verdadeiro e incompleto ao mesmo tempo  `[18/09/26 - 00:31]`
+
+**O fato, medido:** commitei as cinco fatias da noite (`1171003`, `c01650c`, `0b15769`, `5cdc5c5`, `8c0783b`, `f6227a7`) e rodei o espelho completo pela primeira vez sobre o conjunto. Ele **reprovou no estágio 4** (clang-tidy), com exatamente duas violações, ambas em arquivos de teste nascidos esta noite:
+
+- `tests/drm_device_facts_oom_test.cpp:280` - `misc-const-correctness`, variável que podia ser declarada imutável.
+- `tests/gpu_kind_exclusion_test.cpp:53` - `performance-inefficient-vector-operation`, crescimento de lista dentro de laço que já conhece o tamanho final.
+
+Nenhuma das duas é de comportamento. Nenhuma das duas afeta quem consome a biblioteca. **E nenhuma das duas foi detectada por nenhum dos cinco agentes**, porque todos rodaram a suíte (`ctest`) e **nenhum rodou o estágio de estilo**. Cada relatório que recebi dizia verde, e cada um estava dizendo a verdade sobre o que mediu.
+
+**A forma do defeito, que é a que importa:** não é agente mentindo, é **briefing meu que pediu a prova errada**. Eu exigi vermelho visto, verde depois, mutação e contagem de suíte - tudo sobre COMPORTAMENTO - e não exigi uma única vez o portão de estilo. O agente entrega o que o briefing cobra.
+
+**A regra que fica, e ela é minha obrigação, não do agente:** briefing de fatia que toca código C++ **cobra `tools/preci.sh --lint-only` como prova de fechamento**, na mesma linha em que cobra a suíte. Já existe lição registrada nesta casa sobre rodar o espelho antes de commitar; ela era conselho ao orquestrador e passa a ser **exigência escrita no briefing**, porque conselho que mora só na cabeça do orquestrador não sobrevive a cinco despachos na mesma noite.
+
+**O agravante, e é o que quase escondeu tudo:** a notificação de fim de comando do próprio ambiente anunciou **código de saída 0**. O arquivo de registro gravava `PRECI_RC=1`. Os dois números estão certos: o 0 é do comando composto (o espelho, mais o `tail` que imprimiu o fim do registro), o 1 é do espelho. **Se eu tivesse lido a notificação em vez do arquivo, teria empurrado a onda com o espelho vermelho e chamado de verde.** Esta casa já tem lição escrita sobre ler código de saída de arquivo e nunca da tela; esta é a primeira encarnação em que a mentira veio de uma NOTIFICAÇÃO DO AMBIENTE, não de um comando meu. A forma nova é: **notificação de conclusão de trabalho em segundo plano relata o processo que o ambiente supervisionou, que pode não ser o processo cujo veredicto você quer.**
+
+**O que NÃO foi medido nesta rodada, dito em voz alta:** o espelho abortou no estágio 4, então os estágios 5 em diante (sanitizer, cppcheck, suíte completa, ligação contra o compilador da Microsoft) **nunca rodaram**. A onda não tem verde; tem um vermelho conhecido e quatro estágios sem medição. O verde só passa a existir depois de uma rodada completa, do zero, sobre a árvore já consertada.
+
+#### ⚠️ ERRO MEU DE CONTAGEM, achado pelo planejador da F6 e reconferido por mim: a fatia F5 nunca foi feita  `[18/09/26 - 00:42]`
+
+**Como apareceu:** o C-level que planejou o portão (F6) precisou saber contra o que o portão nasceria vermelho, e ao medir a árvore de hoje encontrou **quatro pontos da família ainda vivos**. Ele então declarou, no próprio plano: *"A fatia F5 nao foi feita"*, e concluiu que **F6 depende de F5**.
+
+**Reconferi contra a árvore, arquivo por linha, antes de aceitar** (não aceito relatório de agente sem conferência própria):
+
+- `src/gfss/declaration_split.cpp:33-38` - `append_span_if_non_empty(...) noexcept` com `spans.push_back(...)` dentro. VIVO.
+- `src/gfss/selector_parse.cpp:800` - `compound.simple_selectors.push_back(...)`. VIVO.
+- `src/gfss/selector_parse.cpp:853` - `complex_selector.rest.push_back(...)`, dentro de `parse_complex_selector(...) noexcept` (assinatura em `:825-826`). VIVO.
+- `src/gfss/selector_parse.cpp:392-393` - `parse_not_argument(...) noexcept`, que aloca por cadeia. VIVO.
+
+**O erro é meu, e é de leitura do meu próprio plano.** O plano de conserto (`/var/tmp/glintfx-plan/plano-conserto-noexcept.md:347`) diz, com todas as letras: *"**Seis fatias**, uma por commit: F1 [...], F2 [...], F3 [...], F4 [...], **F5 (quatro `noexcept` decorativos no gfss)**, F6 (o portão + a R3 refundida)"*. Eu executei F1, F2, F3, F4 e o gêmeo Windows de F1 (que o plano nunca contou como fatia separada), **contei cinco, e dei o lote por fechado**. O gêmeo Windows entrou no lugar da F5 na minha contagem, e nada me corrigiu porque **nenhum portão conta fatias**: a suíte ficou verde, o commit ficou bem formado, e o buraco só apareceu quando outro agente foi medir a árvore para outro fim.
+
+**A forma do defeito, para reconhecer da próxima vez:** trabalho imprevisto que nasce no meio de uma fatia (o gêmeo Windows nasceu de uma reprovação do portão de paridade, não do plano) **ocupa um lugar na contagem mental sem ocupar um lugar no plano**. A contagem de fatias tem de ser lida do plano no fechamento, nunca da memória de quem despachou.
+
+**Consequência dura para o sequenciamento, e ela é do planejador, não minha:** se F6 entrasse agora, as quatro linhas vivas teriam de virar exceção no arquivo de exceções do portão novo, e **nenhuma delas cabe lá**: não são falso positivo da régua (são defeitos de verdade) nem decisão do líder (ele decidiu o contrário). O portão nasceria calando exatamente o que veio impedir. **Ordem corrigida: F5 primeiro, F6 depois.**
+
+**Resposta honesta à ordem do líder (L-06, "parcialmente" É NÃO):** a ordem da noite era seis fatias de conserto e depois a onda W6. **NÃO foi cumprida.** Cinco fatias fechadas, uma (F5) não iniciada, e o portão (F6) planejado mas não implementado. O que existe é trabalho real e verificável, não a ordem cumprida.
+
+#### ✅ RESOLVIDA PELO LÍDER: clone descartável NÃO é cópia de trabalho  `[18/09/26 - 00:52]`
+
+A questão de interpretação registrada em `17/09/26 - 23:30` **foi ao líder e ele decidiu**, por `AskUserQuestion`, em 18/09/2026: **clone descartável não é cópia de trabalho para efeito da L-55.** Clone criado só para rodar um portão ou o espelho completo, e apagado em seguida, é área de rascunho e nasce em `/var/tmp`.
+
+**O teste objetivo que ele ratificou, e que passa a separar os dois casos:** a cópia sobrevive ao fim do comando e alguém vai editar código nela? É cópia de trabalho, nasce em subpasta do projeto com as três condições da lei. Ela existe só enquanto um portão roda, sem nenhuma edição de código dentro, e morre no fim? É rascunho.
+
+**Registrado onde manda o protocolo:** o corpo da L-55 em `/home/petrus/.claude/GODS_LAWS.md`, refundido na lei existente em vez de virar entrada nova (L-68), com a data e a razão medida.
+
+**Consequência para o que eu já fiz:** o método que venho usando há noites fica regular, e a declaração de interesse que eu mesmo escrevi (*"se a leitura dele estiver certa e a minha errada, a irregularidade é minha e é repetida"*) fica resolvida a favor do método. **O mérito do agente que barrou a ordem continua de pé**: ele fez exatamente o que a LEI DAS LEIS exige, e a dúvida dele era legítima o bastante para o líder ter de decidir.
+
+#### Escopo do resto da noite, decidido pelo líder  `[18/09/26 - 00:52]`
+
+Confrontado com o meu erro de contagem (cinco fatias fechadas de seis), ele escolheu **terminar o conserto e o portão**, adiando a onda W6. Ordem de execução: **F5** (os quatro pontos vivos no interior do interpretador de folha de estilo) e depois **F6** (o portão, que não pode nascer antes porque reprovaria a própria árvore).
+
+As outras duas escolhas dele da mesma rodada (a catraca dos ~140 e o piloto do atributo do Clang) estão em `ESCOPO.md`, Decisões 13 e 14, porque são decisões de PRODUTO e não de orquestração.

@@ -1409,3 +1409,27 @@ Um dos oito pontos da Decisão 9 vive na leitura da fórmula de `:nth-child(2n+1
 **Trabalho que nasce daqui:** fatia própria, pequena, com os casos de teste existentes reforçados para asseverar o identificador correto em cada um dos três cenários. **O caso das duas dimensões zero precisa de identificador próprio, decidido e não improvisado** - ele não é "largura" nem "altura".
 
 **A lição de processo, que vale mais que a fatia:** decisão autônoma marcada "confirmar retroativamente" **não se confirma sozinha**. Ela precisa de um momento em que alguém a leve ao líder, e esse momento não existia. Passou a existir: a varredura por pendências de confirmação entra no fim de onda, junto com os outros portões de fechamento.
+
+### Decisão 13 - os ~140 pontos que só matam na depuração da Microsoft ganham CATRACA, não conserto
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 18/09/2026, por `AskUserQuestion`, sobre a proposta que ele mesmo tinha encomendado (*"Levantar e trazer proposta, sem executar"*, 17/09/2026).
+
+**O fato medido:** além dos 8 pontos que matam o processo do consumidor **em qualquer sistema** (Decisão 9, consertados nas fatias F1 a F5), a varredura de 17/09/2026 encontrou **~140 pontos de uma segunda família**: construtor padrão ou de movimento de contentor dentro de função `noexcept`. Esses construtores são `noexcept` **por regra da linguagem**, e a biblioteca padrão da Microsoft aloca dentro deles quando o modo de depuração de iterador está ligado (`_ITERATOR_DEBUG_LEVEL != 0`, que é o padrão em Debug). A biblioteca padrão do GCC **não** aloca ali, então a família é **invisível no Linux**. Nenhum `try` do chamador salva: o processo morre na fronteira do próprio construtor.
+
+**A decisão:** eles **não são consertados agora**, e o destino final deles continua aberto (eliminar a família, ou declará-la limitação conhecida do modo de depuração da Microsoft). **Mas o número para de crescer:** nasce `tests/noexcept_alloc_family_a_baseline.txt`, uma linha por sítio, com a chave sendo `caminho|função` e **nunca número de linha** (número de linha apodrece a cada edição). O portão da fatia F6 reprova em dois sentidos: **sítio novo que não esteja na lista reprova**, e **linha da lista cujo sítio sumiu também reprova**.
+
+**A razão que ele aceitou, e ela é sobre processo, não sobre C++:** um número registrado em relatório **cresce em silêncio**, porque relatório ninguém relê. Esta casa acabou de medir exatamente isso: uma decisão de produto marcada "confirmar retroativamente" passou **onze dias** publicada sem a palavra dele (Decisão 12). A catraca não conserta nada, não antecipa a escolha dele e não muda a forma de nenhuma função; ela só impede que o problema engorde enquanto ele não decide.
+
+**O custo, declarado e aceito por ele:** ~140 linhas de lista geram atrito de manutenção em toda fatia que mexer nesses arquivos. Quem mexer tem de atualizar a lista no mesmo commit, e o portão reprova quem esquecer.
+
+### Decisão 14 - o mecanismo do Clang que PROVA ausência de alocação entra por piloto, em fatia própria
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 18/09/2026, por `AskUserQuestion`, sobre achado da pesquisa obrigatória que precede o planejamento (L-22 global, L-43 do projeto).
+
+**O achado da pesquisa:** a análise de efeitos de função do Clang (`[[clang::nonallocating]]` / `[[clang::nonblocking]]`, diagnosticada por `-Wfunction-effects`) **prova, em tempo de compilação, que uma função não aloca**, inclusive por cadeia de chamadas, e assume o pior para função sem definição visível. É categoricamente diferente de tudo mais que a pesquisa encontrou: `-Wterminate` do GCC e `throwInNoexceptFunction` do cppcheck só veem `throw` escrito à mão e **não servem** (medido na documentação das duas ferramentas, não por chute); `bugprone-exception-escape` do clang-tidy só anda por corpos visíveis e por isso **é cego do lado do GCC**, onde o lançador mora fora do cabeçalho.
+
+**A decisão: entra, mas como PILOTO em fatia própria, depois do portão.** Marca-se somente a ilha já provada sem alocação (o átomo de cópia de `src/platform/nul_terminated_name.hpp` e o caminho de casamento da Decisão 8), com uma macro que expande para o atributo **só no Clang** e para nada nos outros compiladores, mais um trabalho de CI dedicado com `-Wfunction-effects`.
+
+**Por que a decisão é dele e não do agente:** o atributo **muda a forma do código-fonte na fronteira pública**, e nenhuma decisão de forma pública sai da mão dele.
+
+**O que se ganha, e é o ponto:** hoje a ausência de alocação é **estimada por uma régua de texto** que declara, por escrito, o que não enxerga (concatenação com `+`, `optional::emplace`, construção de `std::variant`, cópia de struct que carrega contentor). O atributo **prova** em vez de procurar formas conhecidas. **O que fica por medir, declarado:** o volume de reclamação do atributo sobre a árvore real nunca foi medido; é justamente o que o piloto existe para medir, numa ilha pequena, antes de qualquer adoção larga.

@@ -556,10 +556,66 @@ stage_build() {
     cmake --build "$BUILD_DIR"
 }
 
+# PORTAO-DE-ESTILO-CONTA-O-QUE-NAO-ANALISA (TODO.md INBOX, medido em
+# 18/09/2026, passo 5 do plano da fatia F6 de NOEXCEPT-ALLOC-B8,
+# /var/tmp/glintfx-f6-plano/plano-f6-portao.md): antes deste conserto,
+# este estagio passava TODOS os 277 (hoje) arquivos rastreados por
+# `enumerate_tracked_cpp` (inclusive os 69 que run-clang-tidy nunca
+# analisa aqui - src/platform/win32/, tests/container/, testes soltos,
+# tools/bench, tools/msvc-container, empacotamento/paridade) para
+# run-clang-tidy DE UMA VEZ SO, e imprimia "clang-tidy: 277 arquivo(s)
+# varrido(s))" como se cobertura real fosse essa - run-clang-tidy
+# SILENCIOSAMENTE PULA cada arquivo fora do banco de compilacao deste
+# container Linux (devolve vazio com sucesso), a mesma "varredura que
+# processa em lote e pode crashar/pular no meio ESCONDE cobertura
+# perdida" que GODS_LAWS.md L-36 do lider ja nomeia. Conserto: cruza a
+# enumeracao com `compile_commands.json` do PROPRIO configure deste
+# script (nao do CI - cada ambiente tem o banco que tem), analisa SO o
+# que esta no banco, e o numero impresso e o numero REAL.
 stage_tidy() {
     enumerate_tracked_cpp
     require_nonempty "clang-tidy" || fail "estagio clang-tidy recusado (varredura vazia)"
-    run-clang-tidy -p "$BUILD_DIR" -quiet "${FILES[@]}"
+
+    compile_db="$BUILD_DIR/compile_commands.json"
+    [ -f "$compile_db" ] || fail "estagio clang-tidy recusado: $compile_db ausente (configure nao rodou ainda)"
+
+    bank_list="$(mktemp "${TMPDIR}/glintfx-tidy-bank.XXXXXX")"
+    python3 -c '
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    entries = json.load(handle)
+for entry in entries:
+    print(entry.get("file", ""))
+' "$compile_db" >"$bank_list"
+
+    in_bank=()
+    out_of_bank=()
+    for f in "${FILES[@]}"; do
+        base="$(basename "$f")"
+        if grep -qF "/${base}" "$bank_list" || grep -qxF "$base" "$bank_list"; then
+            in_bank+=("$f")
+        else
+            out_of_bank+=("$f")
+        fi
+    done
+    rm -f "$bank_list"
+
+    echo "clang-tidy: encontrados=${#FILES[@]} no_banco=${#in_bank[@]} analisados=${#in_bank[@]} fora_do_banco=${#out_of_bank[@]}"
+    if [ "${#out_of_bank[@]}" -gt 0 ]; then
+        printf 'clang-tidy: fora do banco de compilacao deste container/ambiente (nunca analisado aqui): %s\n' \
+            "${out_of_bank[@]}"
+    fi
+    # analisados == no_banco vale AQUI por construcao (in_bank e a
+    # MESMA lista que run-clang-tidy recebe abaixo, nunca uma segunda
+    # contagem que poderia divergir em silencio) - a forma mais forte
+    # de garantir a invariante que GODS_LAWS.md L-36 exige, em vez de
+    # computar duas vezes e comparar depois.
+    if [ "${#in_bank[@]}" -eq 0 ]; then
+        fail "estagio clang-tidy recusado: 0 arquivo(s) no banco de compilacao (GODS_LAWS.md L-40, piso de varredura nao-vazia)"
+    fi
+    run-clang-tidy -p "$BUILD_DIR" -quiet "${in_bank[@]}"
 }
 
 # --enable is deliberately warning,performance,portability, NOT `all`:
@@ -655,6 +711,17 @@ stage_nolint_justification() {
         fail "NOLINT sem justificativa 'reason:' na mesma linha (ver .clang-tidy)"
     fi
     echo "NOLINT-justification: ok"
+}
+
+# NOEXCEPT-ALLOC-B8 fatia F6 (GODS_LAWS.md L-22: "nenhuma excecao
+# cruza a API publica"; docs/api-conventions.md R3): espelho local do
+# ctest case noexcept_alloc_test (tests/CMakeLists.txt) - roda como
+# estagio de LINT porque nao depende de build nenhum (o portao le
+# texto-fonte, nao binario), entao mora em --lint-only (que nunca
+# chega a stage_ctest) e no pipeline completo, ambos ANTES do build
+# gastar tempo num defeito que o texto sozinho ja denuncia.
+stage_noexcept_alloc() {
+    python3 "$ROOT_DIR/tests/tools/check_noexcept_alloc.py" "$ROOT_DIR"
 }
 
 # GODS_LAWS.md L-23 portao 4. `gitleaks detect` (no flags) scans the
@@ -1760,6 +1827,21 @@ run_selftest_win32_link_controls() {
     run_selftest_win32_link_negative_control
 }
 
+# NOEXCEPT-ALLOC-B8 fatia F6: stage_noexcept_alloc so chama o script
+# python (nenhuma logica propria em shell), entao o unico controle que
+# faz sentido aqui e provar que o AUTOTESTE do proprio script (os dez
+# controles de check_noexcept_alloc.py, incluindo as cinco fixtures
+# sujas acusadas e as seis limpas absolvidas) roda de dentro de
+# --selftest e sai 0 - a prova funda (calibracao, catraca, colisao de
+# nome) mora no --selftest do script python, nunca duplicada aqui.
+run_selftest_noexcept_alloc_controls() {
+    log "selftest: check_noexcept_alloc.py --selftest (calibracao, fixtures, catraca de familia A)"
+    if ! python3 "$ROOT_DIR/tests/tools/check_noexcept_alloc.py" --selftest; then
+        fail "selftest: check_noexcept_alloc.py --selftest reprovou (ver saida acima)"
+    fi
+    echo "selftest: noexcept-alloc OK"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -1769,6 +1851,7 @@ run_selftest() {
     run_selftest_untracked_guard_controls
     run_selftest_assert_count_controls
     run_selftest_win32_link_controls
+    run_selftest_noexcept_alloc_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -1787,6 +1870,8 @@ run_lint_only() {
     stage_cppcheck
     log "estagio 5b: justificativa de NOLINT"
     stage_nolint_justification
+    log "estagio 5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)"
+    stage_noexcept_alloc
     echo "preci.sh --lint-only: VERDE"
 }
 
@@ -1827,6 +1912,8 @@ run_full_pipeline() {
     stage_nolint_justification
     log "estagio 5c: gitleaks"
     stage_gitleaks
+    log "estagio 5d: noexcept-alloc (NOEXCEPT-ALLOC-B8)"
+    stage_noexcept_alloc
     log "estagio 6: ctest completo"
     stage_ctest
     if [ "$fast" = "yes" ]; then

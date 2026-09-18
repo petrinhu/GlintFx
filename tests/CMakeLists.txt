@@ -2410,6 +2410,33 @@ add_test(
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
 
+# NOEXCEPT-ALLOC-B8 fatia F6 (GODS_LAWS.md L-22 do projeto: "nenhuma
+# excecao cruza a API publica"; docs/api-conventions.md R3; ESCOPO.md
+# Decisao 8/9/13). Promovido de /var/tmp/builds/claude-1000/varredura-
+# noexcept/varre_noexcept.py (a regua ja calibrada, 17/09/2026) para
+# tests/tools/check_noexcept_alloc.py - o portao que impede a familia
+# de defeitos consertada pelas fatias F1 a F5 de voltar: alocar dentro
+# de funcao `noexcept` sem `try` eficaz, mata o processo do consumidor
+# sob falta de memoria. Registrado SEM guarda de sistema, mesmo motivo
+# de spdx_test acima: roda no MESMO ctest que os cinco alvos ja
+# executam. Ver o cabecalho de check_noexcept_alloc.py para as duas
+# familias (A = so Windows em depuracao, catraca; B = cinco sistemas,
+# bloqueante) e o que a regua NAO ve.
+add_test(
+    NAME noexcept_alloc_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_noexcept_alloc.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(noexcept_alloc_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME noexcept_alloc_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_noexcept_alloc.py" --selftest
+)
+set_tests_properties(noexcept_alloc_selftest PROPERTIES LABELS selftest)
+
 # Vendor purity gate (GODS_LAWS.md L-07 EXCECAO No 1: third_party/
 # khronos/ e a UNICA excecao de glintfx a lei de dependencia zero).
 # PORTED from POSIX sh (tests/tools/check_vendor_purity.sh, invoked

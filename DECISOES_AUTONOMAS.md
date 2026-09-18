@@ -3502,3 +3502,21 @@ Ele pediu, antes de dormir: *"traga decisoes autonomas antigas para eu aprovar, 
 3. **NÃO É DECISÃO DE PRODUTO - despacho de três agentes em paralelo** (`898`/`904`). Orquestração, não produto.
 
 **A lacuna de processo que isto expôs, e ela é o achado real:** uma decisão marcada "confirmar retroativamente" **não tem quem a leve ao líder**. Ela fica no arquivo esperando que alguém lembre. A de 06/09 esperou onze dias, publicada e mudando o que a biblioteca aceita. **Passa a valer: a varredura por pendências de confirmação entra no fechamento de onda**, junto com os outros portões, e não depende de o líder perguntar.
+
+#### D-170901 - o portão de paridade mordeu a fatia que veio honrar a paridade, e a saída escolhida foi a completa  `[17/09/26 - 22:50]`
+
+**Quem decidiu:** o CTO (`opus`, esforço máximo), consultado por ordem expressa do líder (*"Em caso de duvidas, pergunte a clevel opus max effort"*). **Quem conferiu:** o orquestrador, contra a árvore, antes de executar. **Quem implementa:** agente próprio.
+
+**O fato:** execução `35295723754`, SHA `1171003`, trabalho `Paridade Linux x Windows`. Reprovou com uma linha: `gl_proc_address_oom_test` existe no inventário Linux (214 testes) e falta no do Windows (201), sem exceção registrada. **A fatia F1 existe porque um defeito foi consertado no Windows e deixado vivo no Wayland; o portão de paridade acaba de morder a própria fatia que veio honrar a paridade.**
+
+**As três saídas, e por que a escolhida não foi a barata:**
+
+- **(B) registrar a ausência** em `tests/parity_exceptions.txt`: dois minutos de trabalho, e concede que o sítio Windows nunca prova nem "não aloca" nem "não mata o processo". Pior: exigiria pendurar a linha num item de `TODO.md`, e a L-32 proíbe criar item só para satisfazer o arquivo.
+- **(C) mudar o desenho do teste** para rodar nos cinco: **é o que ele já é**. Não há o que mudar sem perder o sítio.
+- **(A) ESCOLHIDA - escrever o gêmeo Windows**, zero exceção, uma linha em `tests/parity_aliases.txt`. Custa mais e entrega o que as outras não entregam: os dois lados do conserto provados **no sítio real**, nos dois sistemas, com o mesmo par de casos.
+
+**O obstáculo que eu temia foi MEDIDO COMO FALSO, e essa é a parte que importa.** Eu supus que o gêmeo exigiria contexto gráfico corrente no Windows, logo máquina virtual. Medição do CTO, conferida por mim: `tests/win32_wgl_proc_address_test.cpp:24-25` declara no próprio cabeçalho que **nunca cria janela, contexto de dispositivo nem contexto de renderização**, e já chama o sítio três vezes no runner real. Além disso, forçar falta de memória **já roda nos cinco sistemas** nesta árvore (`err_context_test`, registrado sem guarda, sobrescreve `operator new`). **A suposição que quase virou exceção permanente era minha, e não tinha sido medida.**
+
+**O que fica sem prova, declarado:** a mutação (o vermelho) não é executável nesta máquina. A régua do projeto já fixa que execução sob `wine64` é pista, nunca oráculo. O verde vem do job `windows` do servidor; o vermelho só é oráculo no runner real ou na máquina virtual. Isso vai escrito no cabeçalho do arquivo novo.
+
+**ACHADO DO CTO, registrado e não consertado:** o contrato de `tests/parity_exceptions.txt` só sabe expressar dois estados (ausência permanente por desenho, ou lacuna temporária rastreada por item). **Não existe forma de dizer "o gêmeo existe e está completo, mas UM PASSO DE PROVA não pôde ser executado naquele sistema por razão de ambiente".** Não é hipótese: a linha `gpu_kind_report_smoke` do próprio arquivo é exatamente esse caso e teve de ser espremida na segunda forma. Um portão cujo formato não consegue expressar a verdade empurra o próximo autor para a desonestidade ou para criar item que a lei proíbe. Vai para a INBOX.

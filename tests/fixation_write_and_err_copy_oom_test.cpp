@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <new>
 #include <optional>
+#include <print>
 #include <span>
 #include <vector>
 
@@ -13,6 +14,7 @@
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
+#include "harness/win_dll_alloc_hook.hpp"
 #include "platform/gl/gfx_open_only_fixation.hpp"
 
 // fixation_write_and_err_copy_oom_test.cpp - FIX-OOM-B9 (conserto
@@ -94,6 +96,41 @@
 // chamada, comprovado da mesma forma (script isolado, delta correto
 // com atomic mesmo sem `-fno-builtin`).
 
+// ARMADILHA MEDIDA, NAO PRESUMIDA (achado do time-lead, servidor run que
+// reprovou o pedido de juncao numero 10, tres legs Windows: compartilhado,
+// Debug e Sanitizer - GODS_LAWS.md L-44/L-27): substituir `operator new`
+// NESTA TRADUCTION UNIT so alcanca alocacao que acontece DENTRO DELA. No
+// Linux, interposicao de simbolo ELF faz esse override valer tambem para
+// o que a biblioteca (glintfx.so) aloca - MAS NO WINDOWS/SHARED NAO: PE/
+// COFF nao tem interposicao global de simbolo, e cada modulo (glintfx.dll
+// e este executavel) resolve `operator new` contra o proprio CRT no
+// PROPRIO link-time do modulo. CASO 3 abaixo e' o UNICO dos quatro casos
+// deste arquivo que cruza essa fronteira: `gltfx_err`'s own copy ctor e'
+// DECLARADO em err.hpp mas DEFINIDO em err.cpp, exportado (GLINTFX_API) -
+// ver a "LIFECYCLE" paragraph la (mesma razao de ABI, alocacao/
+// desalocacao no MESMO lado do boundary). Os outros tres casos (mover/
+// copiar um std::optional<std::vector<T>>, e o construtor trivial de
+// gltfx_err) sao inteiramente header-only/inline - nunca cruzam para
+// dentro da .dll, entao o override desta TU sempre alcanca.
+//
+// A MESMA armadilha ja mordeu err_context_test.cpp (CORE-ERROR, CI real
+// em 25/08/2026, corrigida em harness/win_dll_alloc_hook.hpp - LEIA o
+// cabecalho daquele arquivo antes de tocar o que segue). CASO 3 abaixo
+// reusa exatamente aquele mecanismo (IAT patch de dentro de glintfx.dll,
+// nao um segundo override desta TU) em vez de inventar um outro - este
+// arquivo E' o segundo ponto de uso do dll_alloc_hook (win_dll_alloc_
+// hook.hpp's own "CONFINED TO TEST" paragraph foi corrigido no mesmo
+// commit que este comentario para nomear os dois arquivos).
+//
+// ESTE PROJETO TEM SEIS testes que substituem operator new
+// (gfss_anb_parse_no_alloc_test, alloc_counter_classify_test, gfui_
+// complex_match_resource_exhausted_test, drm_device_facts_oom_test,
+// err_context_test, e este) - so' os dois que chamam simbolo exportado
+// da biblioteca (err_context_test e este) podiam morder esta armadilha;
+// os outros quatro nunca cruzam o boundary (contagem de chamada = zero
+// na auditoria que motivou este comentario), entao nunca precisaram do
+// dll_alloc_hook.
+
 namespace {
 
 std::atomic<bool> g_force_alloc_failure{false};
@@ -109,6 +146,44 @@ std::atomic<std::size_t> g_override_new_call_count{0};
         return false;
     }
     return true;
+}
+
+// CASO 3 UNICAMENTE (mesma decisao ja tomada em err_context_test.cpp's
+// own oom_forcing_declared_not_applicable(), mesma citacao): sob MSVC
+// AddressSanitizer, o proprio operator new da ASan vence por PRECEDENCIA
+// DE LINKER sobre qualquer override de usuario linkado no mesmo binario
+// (learn.microsoft.com/cpp/sanitizers/asan-known-issues, "Overriding
+// operator new and delete" - sem /INFERASANLIBS, nem este projeto passa)
+// - E TAMBEM sobre o IAT patch de dentro da .dll que dll_alloc_hook
+// instala (learn.microsoft.com/cpp/sanitizers/asan-runtime, "Function
+// interception": ASan intercepta as primitivas de alocacao do CRT por
+// hotpatch direto, nao por resolucao atraves da IAT do modulo que a
+// importa - o MESMO fato, MESMA fonte, que ja bloqueia err_context_
+// test.cpp's own dois casos de degradacao no leg windows-sanitizer).
+// Os outros tres casos deste arquivo (1, 2, 4) NAO dependem disto: sao
+// inteiramente inline/header-only nesta TU, e o leg Windows-Sanitizer
+// real (servidor run que motivou este conserto) mediu os TRES passando
+// - so' o caso que cruza pra dentro de glintfx.dll (CASO 3) reprovou nos
+// tres legs shared, e so' ASan, entre eles, tem este segundo motivo
+// documentado para continuar reprovando mesmo depois do dll_alloc_hook.
+[[nodiscard]] bool err_copy_oom_forcing_declared_not_applicable() {
+#if defined(_WIN32) && defined(__SANITIZE_ADDRESS__)
+    return true;
+#else
+    return false;
+#endif
+}
+
+void declare_err_copy_oom_forcing_not_applicable() {
+    std::println(stderr,
+                 "fixation_write_and_err_copy_oom_test: "
+                 "err_copy_with_attached_context_throws_a_catchable_bad_alloc_when_forced "
+                 "declared NOT APPLICABLE under MSVC AddressSanitizer (learn.microsoft.com/cpp/"
+                 "sanitizers/asan-known-issues + asan-runtime, same citation err_context_test.cpp "
+                 "already gives in full: ASan's own operator new wins by linker precedence, AND "
+                 "hotpatches the CRT allocation primitives directly, so neither this TU's override "
+                 "nor win_dll_alloc_hook.hpp's IAT patch inside glintfx.dll ever gets a chance to "
+                 "run - the assertion this case exists to prove would measure nothing)");
 }
 
 } // namespace
@@ -228,10 +303,40 @@ GLINTFX_TEST(fixation_fixed_copy_into_window_style_optional_does_allocate) {
 // citado no comentario corrigido de gl_context_facade.cpp), onde nem o
 // catch salva. Isto e' o que torna o degrau 2 (capturar e converter)
 // uma escolha honesta para ESTE sitio e nao para o outro.
+//
+// UNICO caso deste arquivo que cruza para dentro de glintfx.dll (ver o
+// comentario de armadilha no topo do arquivo): `gltfx_err`'s own copy
+// ctor e' GLINTFX_API, DEFINIDO em err.cpp. No Windows/SHARED, este
+// TU's own operator new override (acima) nunca alcanca essa alocacao -
+// dll_alloc_hook (harness/win_dll_alloc_hook.hpp) fecha o buraco
+// patcheando a IAT de glintfx.dll de fora, o MESMO mecanismo que
+// err_context_test.cpp's own allocator_reach_probe ja usa e prova
+// funcionar nos legs Windows compartilhado/Debug (servidor run que
+// motivou este conserto: so' este caso, dos quatro, reprovava, e nos
+// tres legs shared - a assinatura exata de um site que cruza o boundary
+// contra tres que nao cruzam).
 GLINTFX_TEST(err_copy_with_attached_context_throws_a_catchable_bad_alloc_when_forced) {
+    if (err_copy_oom_forcing_declared_not_applicable()) {
+        declare_err_copy_oom_forcing_not_applicable();
+        return;
+    }
+
     glintfx::gltfx_err original(glintfx::gltfx_err_code::not_found);
     original.with_rejected_value("adapter"); // attaches context -> copy ctor below allocates
 
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    // Patches glintfx.dll's OWN import table for the CRT allocation
+    // primitive its (statically-linked) operator new calls internally -
+    // see win_dll_alloc_hook.hpp's own header comment for the full
+    // mechanism and what is FACT versus INFERENCE in it. On Windows/
+    // STATIC (GLINTFX_STATIC_DEFINE defined) there is no separate .dll
+    // module to patch - err.cpp is compiled directly into this
+    // executable, so this TU's own operator new override below already
+    // reaches it, same as Linux; this whole block compiles out there.
+    glintfx_test::dll_alloc_hook dll_hook(L"glintfx.dll");
+    const std::size_t dll_calls_before = glintfx_test::hooked_call_count();
+    glintfx_test::arm_forced_failure();
+#endif
     g_force_alloc_failure = true;
     g_calls_to_allow_before_failure = 0;
     bool threw_bad_alloc = false;
@@ -246,6 +351,21 @@ GLINTFX_TEST(err_copy_with_attached_context_throws_a_catchable_bad_alloc_when_fo
         threw_bad_alloc = true;
     }
     g_force_alloc_failure = false;
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    glintfx_test::disarm_forced_failure();
+    // Proves the forcing mechanism actually reached the allocator this
+    // copy needed, BEFORE trusting what the library did in response -
+    // same discipline err_context_test.cpp's own allocator_reach_probe
+    // already applies (GODS_LAWS.md L-44: not declaring a mechanism
+    // worked without measuring it). A failure HERE, not below, means
+    // this platform/configuration could not force the failure at all -
+    // see win_dll_alloc_hook.hpp's own "achado 1" for why patched_count()
+    // and the call-count delta are two DIFFERENT facts, checked
+    // separately.
+    const std::size_t dll_calls_after = glintfx_test::hooked_call_count();
+    GLINTFX_CHECK(dll_hook.patched_count() > 0);
+    GLINTFX_CHECK(dll_calls_after > dll_calls_before);
+#endif
 
     GLINTFX_CHECK(threw_bad_alloc);
 }

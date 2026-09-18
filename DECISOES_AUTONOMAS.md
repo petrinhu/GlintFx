@@ -3602,3 +3602,19 @@ A questão de interpretação registrada em `17/09/26 - 23:30` **foi ao líder e
 Confrontado com o meu erro de contagem (cinco fatias fechadas de seis), ele escolheu **terminar o conserto e o portão**, adiando a onda W6. Ordem de execução: **F5** (os quatro pontos vivos no interior do interpretador de folha de estilo) e depois **F6** (o portão, que não pode nascer antes porque reprovaria a própria árvore).
 
 As outras duas escolhas dele da mesma rodada (a catraca dos ~140 e o piloto do atributo do Clang) estão em `ESCOPO.md`, Decisões 13 e 14, porque são decisões de PRODUTO e não de orquestração.
+
+#### Decisão do líder: o conserto do `:not()` se estende às QUATRO funções que o plano não nomeou  `[18/09/26 - 08:29]`
+
+**Origem:** achado do implementador da fatia F5, levado ao líder por `AskUserQuestion` em 18/09/2026, porque a cláusula do próprio plano (`plano-conserto-noexcept.md:115`) declarava que este caso **volta a ser decisão dele**.
+
+**O QUE O AGENTE ACHOU, e é o melhor trabalho do lote:** o plano nomeou três sítios em `src/gfss/selector_parse.cpp`. Ele varreu a cadeia de chamadores como a L-17 manda, e encontrou **quatro funções que ninguém tinha nomeado**, todas sentadas entre `parse_not_argument` e o resto do caminho, todas ainda `noexcept`: `attach_not_argument` (`:429`), `parse_functional_pseudo` (`:498`), `parse_pseudo_selector` (`:527`) e `parse_one_simple_selector` (`:735`).
+
+**E ele não parou em achar: PROVOU que o plano era insuficiente.** Repro isolado fora da árvore, em `/var/tmp/builds/claude-1000/f5-measure/`: consertando só os três sítios do plano, `:not(a > b)` **continua matando o processo** - a exceção sai de `parse_not_argument`, já consertada, e morre na parede de `attach_not_argument`, uma linha acima. Consertando as sete, o caso sobrevive em toda a faixa de N medida (0 a 19). **Um agente que apenas executasse o plano teria entregue verde com o defeito vivo.**
+
+**A DECISÃO:** estender às quatro. As quatro são de espaço anônimo, sem marca de exportação; **nenhuma assinatura pública muda, nenhuma compatibilidade binária é tocada**. A razão que pesou é a Decisão 8 do próprio líder (verbatim: *"Devolve erro; o aplicativo decide"*): ficar nas três deixaria `:not()` matando o processo do consumidor sob falta de memória, e o teste novo nasceria vermelho no tronco ou desligado, que é pior.
+
+**Exigência que acompanha a autorização:** mutação por sítio nos quatro novos, um a um, dentro do desenho de sete. Sítio consertado **sem necessidade provada** é ruído e tem de ser declarado, não calado.
+
+**Lição de processo, e ela é sobre planos, não sobre C++:** o plano foi escrito por um C-level, atacado adversarialmente, e ainda assim **subcontou os sítios de um caminho de chamada**. O que o salvou foi a cláusula de parada que ele mesmo escreveu (*"se houver um `noexcept` entre... o desenho muda e para"*) mais a exigência de varredura de cadeia no briefing. **Plano bom não é o que acerta tudo; é o que declara onde pode estar errado e manda parar ali.**
+
+**Correção minha ao agente, registrada porque foi informação desatualizada que eu dei:** ele declarou (corretamente, em vez de pular calado) que não rodaria `tools/preci.sh --lint-only` por risco de colidir com o agente `lint-conserta`. Esse agente **já tinha sido recolhido por mim** com `TaskStop` antes do despacho dele, e a árvore estava limpa. O comportamento dele foi certo; o dado que ele tinha é que estava velho, e **o briefing não disse que a árvore tinha ficado livre**. Briefing de despacho passa a declarar explicitamente o estado da árvore e quais agentes estão vivos nela.

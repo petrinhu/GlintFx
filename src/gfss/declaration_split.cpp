@@ -30,9 +30,22 @@ namespace {
 // (span_has_content() above); this is the ONE place that decides
 // whether a candidate boundary becomes a real declaration_span, so the
 // caller never has to repeat the check.
+// NOEXCEPT-ALLOC-B8 fatia F5 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F5", GODS_LAWS.md L-20/L-22, ESCOPO.md Decisao 8,
+// 16/09/2026: "Devolve erro; o aplicativo decide"): NOT noexcept
+// anymore - spans.push_back() below can throw std::bad_alloc, and this
+// helper's only caller, split_declarations_at_top_level_semicolons(),
+// is itself not noexcept either, so the ordinary C++ propagation rules
+// already carry that exception to whoever calls THAT (see gfss_
+// selector_parse_oom_test.cpp's own header comment for the measured
+// std::terminate() this removal fixes). The sibling this file's own
+// header comment on split_declarations_at_top_level_semicolons()
+// already names, shorthand_component_split.cpp's own equivalent
+// helper, was never noexcept in the first place - this brings the two
+// back into agreement (GODS_LAWS.md L-17's own "o gemeo").
 void append_span_if_non_empty(std::vector<declaration_span> &spans,
                               const std::vector<gltfx_gfss_token> &tokens, std::size_t begin,
-                              std::size_t end) noexcept {
+                              std::size_t end) {
     if (span_has_content(tokens, begin, end)) {
         spans.push_back(declaration_span{.begin = begin, .end = end});
     }

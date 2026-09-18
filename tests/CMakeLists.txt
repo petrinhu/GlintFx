@@ -260,6 +260,23 @@ target_sources(gfss_selector_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
+# NOEXCEPT-ALLOC-B8 fatia F5 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F5", GODS_LAWS.md L-09/L-20/L-40): a SEPARATE
+# executable from gfss_selector_parse_test above, on purpose - this one
+# replaces the global operator new/delete to force an allocation
+# failure (gfss_selector_parse_oom_test.cpp's own header comment), and
+# two different global-operator-new overrides in the same binary would
+# be an ODR collision (the same reason gfss_anb_parse_no_alloc_test
+# above never shares gfss_selector_parse_test's own binary either).
+# Needs the SAME second-compile pair (selector_parse.cpp/anb_parse.cpp)
+# for the identical "not yet GLINTFX_API" reason as the target above.
+glintfx_add_test(gfss_selector_parse_oom_test)
+target_include_directories(gfss_selector_parse_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_selector_parse_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
 # NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
 # noexcept.md sec. "F4", GODS_LAWS.md L-20/L-40): proves, by COUNTING
 # (the SAME idiom err_no_alloc_test/log_no_alloc_test/gfui_complex_

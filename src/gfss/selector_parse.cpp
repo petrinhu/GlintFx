@@ -388,9 +388,21 @@ struct not_argument_outcome {
 // level of `:not()` nesting is counted as exactly one step, never zero
 // (which would let an unbounded chain hide behind a single level's own
 // budget) and never two (double-counting the same step).
+// NOEXCEPT-ALLOC-B8 fatia F5 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F5", GODS_LAWS.md L-20/L-22, ESCOPO.md Decisao 8):
+// NOT noexcept anymore - the recursive parse_selector_list_impl() call
+// below allocates (its own tokenize() call, and every push_back() down
+// its own call tree), and this function's own caller chain up through
+// attach_not_argument()/parse_functional_pseudo()/parse_pseudo_
+// selector()/parse_one_simple_selector() is ALSO stripped of noexcept
+// by this SAME fatia, right below - removing noexcept from only THIS
+// function, alone, would still terminate the process the moment the
+// exception tried to cross attach_not_argument()'s own boundary one
+// frame up (measured, not assumed: gfss_selector_parse_oom_test.cpp's
+// own header comment documents the exact N that proved this the hard
+// way before this comment existed).
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
-[[nodiscard]] not_argument_outcome parse_not_argument(std::string_view raw_argument,
-                                                      int depth) noexcept {
+[[nodiscard]] not_argument_outcome parse_not_argument(std::string_view raw_argument, int depth) {
     // NOT `const` (GODS_LAWS.md L-17's own "o gemeo" caught this once
     // already in this fatia, by performance-move-const-arg, before this
     // comment existed): a `const selector_parse_result` here would make
@@ -423,10 +435,19 @@ struct not_argument_outcome {
 // nest, made before recursing, so the most specific true statement is
 // "this `:not(` is one nesting level too many", not a byte position that
 // was never reached.
+// NOEXCEPT-ALLOC-B8 fatia F5, EXTENSAO AUTORIZADA PELO LIDER (18/09/2026,
+// GODS_LAWS.md L-20/L-22, ESCOPO.md Decisao 8): NOT noexcept anymore -
+// this function sits directly between parse_not_argument() (fixed by
+// this SAME fatia, below) and its own caller, parse_functional_pseudo()
+// (also fixed right below) - measured, not assumed (gfss_selector_
+// parse_oom_test.cpp's own header comment documents the exact N that
+// proved, before this edit, that fixing parse_not_argument() ALONE was
+// not enough: the exception hit THIS function's own noexcept boundary
+// one frame up and terminated the process anyway).
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
 [[nodiscard]] simple_selector_outcome attach_not_argument(gfss_simple_selector selector,
                                                           const gltfx_gfss_token &function_token,
-                                                          int depth) noexcept {
+                                                          int depth) {
     if (depth >= k_max_not_nesting_depth) {
         return {.ok = false,
                 .selector = {},
@@ -491,11 +512,13 @@ attach_anb_validation(gfss_simple_selector selector) noexcept {
 // every other functional pseudo-class's own argument (An+B, GFSS-SEL-
 // PARSE-NTH) has no recursion of its own, so `depth` passes through
 // untouched for them.
+// NOEXCEPT-ALLOC-B8 fatia F5, EXTENSAO AUTORIZADA PELO LIDER (18/09/2026):
+// NOT noexcept anymore - same chain-link reasoning as attach_not_
+// argument() above, one level further out (this function calls it).
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
 [[nodiscard]] simple_selector_outcome parse_functional_pseudo(const token_vector &tokens,
                                                               std::size_t function_index,
-                                                              std::size_t &index,
-                                                              int depth) noexcept {
+                                                              std::size_t &index, int depth) {
     const gltfx_gfss_token &function_token = tokens[function_index];
     const std::string_view name = function_name(function_token.lexeme);
     const auto argument = capture_functional_argument(tokens, function_index + 1, function_token);
@@ -522,9 +545,12 @@ attach_anb_validation(gfss_simple_selector selector) noexcept {
 // argument) or a function-token (functional pseudo) IMMEDIATELY
 // adjacent to it. Advances `index` past the whole pseudo-class on
 // success.
+// NOEXCEPT-ALLOC-B8 fatia F5, EXTENSAO AUTORIZADA PELO LIDER (18/09/2026):
+// NOT noexcept anymore - same chain-link reasoning as attach_not_
+// argument()/parse_functional_pseudo() above, one level further out.
 [[nodiscard]] simple_selector_outcome
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
-parse_pseudo_selector(const token_vector &tokens, std::size_t &index, int depth) noexcept {
+parse_pseudo_selector(const token_vector &tokens, std::size_t &index, int depth) {
     const gltfx_gfss_token &colon = tokens[index];
     const std::size_t next_index = index + 1;
     if (next_index >= tokens.size() || !tokens_are_adjacent(colon, tokens[next_index])) {
@@ -730,9 +756,14 @@ struct compound_parse_outcome {
 // L-17). Returns std::nullopt for a token kind that cannot start (or
 // continue) a compound selector - the caller reads that as "the
 // compound selector ends here", never as an error by itself.
+// NOEXCEPT-ALLOC-B8 fatia F5, EXTENSAO AUTORIZADA PELO LIDER (18/09/2026):
+// NOT noexcept anymore - the last link of this chain: this function
+// calls parse_pseudo_selector() above, and is itself called directly
+// by parse_compound_selector() (fixed earlier in this SAME fatia), so
+// removing noexcept here closes the gap between the two.
 [[nodiscard]] std::optional<simple_selector_outcome>
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
-parse_one_simple_selector(const token_vector &tokens, std::size_t &index, int depth) noexcept {
+parse_one_simple_selector(const token_vector &tokens, std::size_t &index, int depth) {
     const gltfx_gfss_token &tok = tokens[index];
     if (tok.kind == gltfx_gfss_token_kind::ident) {
         const gfss_simple_selector selector{.kind = gfss_simple_selector_kind::type,
@@ -785,9 +816,16 @@ parse_one_simple_selector(const token_vector &tokens, std::size_t &index, int de
 // simply ends the compound, the SAME "stop the loop, do not fail"
 // shape parse_complex_selector() below uses for its own combinator
 // loop).
+// NOEXCEPT-ALLOC-B8 fatia F5 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F5", GODS_LAWS.md L-20/L-22, ESCOPO.md Decisao 8):
+// NOT noexcept anymore - compound.simple_selectors.push_back() below
+// can throw std::bad_alloc. This function's own caller,
+// parse_complex_selector() below, is ALSO stripped of noexcept by this
+// SAME fatia, so the exception keeps propagating up to parse_selector_
+// list_impl() (never noexcept) without crossing a noexcept boundary.
 [[nodiscard]] compound_parse_outcome
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
-parse_compound_selector(const token_vector &tokens, std::size_t &index, int depth) noexcept {
+parse_compound_selector(const token_vector &tokens, std::size_t &index, int depth) {
     gfss_compound_selector compound;
     for (;;) {
         auto one = parse_one_simple_selector(tokens, index, depth);
@@ -821,9 +859,14 @@ struct complex_parse_outcome {
 // not the end of this complex selector (a comma or eof) - trying it
 // unconditionally would misreport trailing whitespace before a comma
 // as "expected a simple selector".
+// NOEXCEPT-ALLOC-B8 fatia F5 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F5", GODS_LAWS.md L-20/L-22, ESCOPO.md Decisao 8):
+// NOT noexcept anymore - complex_selector.rest.push_back() below can
+// throw std::bad_alloc, and this function's own caller, parse_
+// selector_list_impl() below, was never noexcept in the first place.
 // NOLINTNEXTLINE(misc-no-recursion) reason: bounded by k_max_not_nesting_depth (see top comment).
 [[nodiscard]] complex_parse_outcome parse_complex_selector(const token_vector &tokens,
-                                                           std::size_t &index, int depth) noexcept {
+                                                           std::size_t &index, int depth) {
     auto head = parse_compound_selector(tokens, index, depth);
     if (!head.ok) {
         return {.ok = false, .complex_selector = {}, .diagnostic = head.diagnostic};

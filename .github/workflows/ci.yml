@@ -2311,11 +2311,34 @@ jobs:
           }
           Write-Host "Encontrados $($arquivos.Count) arquivo(s) rastreado(s) em src/."
 
-          $db = Get-Content build-lint/compile_commands.json -Raw
+          # CONSERTO (GODS_LAWS.md L-17/L-36/L-40, 18/09/2026, PR#10): a
+          # regua antiga comparava so o NOME-FOLHA contra o texto CRU do
+          # JSON (`$db -match [regex]::Escape((Split-Path $_ -Leaf))`) -
+          # este projeto tem seis pares de nome repetido entre
+          # src/platform/wayland/ e src/platform/win32/ (display_adapter.cpp,
+          # seat_adapter.cpp, selected_display_adapter_check.cpp,
+          # selected_gl_context_adapter_check.cpp,
+          # selected_window_adapter_check.cpp, window_adapter.cpp), e
+          # src/platform/wayland/display_adapter.cpp casava com a entrada
+          # de src/platform/win32/display_adapter.cpp - o arquivo de Linux
+          # era classificado "no banco" e analisado sem os cabecalhos
+          # certos, produzindo dezenas de milhares de avisos falsos que
+          # escondiam defeitos reais no meio do ruido. Agora o
+          # compile_commands.json e lido como JSON de verdade
+          # (ConvertFrom-Json), o campo "file" de cada entrada e
+          # normalizado (barra invertida -> barra, minusculas - Windows
+          # nao diferencia caixa), e o casamento e por CAMINHO INTEIRO
+          # (o caminho relativo do git tem que ser o SUFIXO do caminho
+          # absoluto da entrada), nunca por nome-folha isolado.
+          $dbEntradas = Get-Content build-lint/compile_commands.json -Raw | ConvertFrom-Json
+          $dbCaminhos = @($dbEntradas | ForEach-Object { ($_.file -replace '\\', '/').ToLowerInvariant() })
+
           $noBanco = @()
           $foraDoBanco = @()
           foreach ($arquivo in $arquivos) {
-            if ($db -match [regex]::Escape((Split-Path $arquivo -Leaf))) {
+            $arquivoNorm = $arquivo.ToLowerInvariant()
+            $casou = @($dbCaminhos | Where-Object { $_ -eq $arquivoNorm -or $_.EndsWith("/$arquivoNorm") })
+            if ($casou.Count -gt 0) {
               $noBanco += $arquivo
             } else {
               # Razao mais comum e conhecida: arquivo Linux-only (o
@@ -2338,6 +2361,18 @@ jobs:
           }
           if ($noBanco.Count -eq 0) {
             Write-Error "0 arquivo(s) no banco de compilacao - varredura RECUSADA (GODS_LAWS.md L-40, piso de varredura nao-vazia)."
+            exit 1
+          }
+
+          # PISO NOVO (GODS_LAWS.md L-36/L-40, 18/09/2026, PR#10): nenhum
+          # arquivo de src/platform/wayland/ pode cair em "no banco" num
+          # configure Windows - e impossivel por desenho (ramo if(UNIX)
+          # de src/platform/CMakeLists.txt). Se acontecer de novo, a
+          # regua de casamento voltou a confundir caminho - reprova
+          # nomeando os arquivos, nunca em silencio.
+          $waylandNoBanco = @($noBanco | Where-Object { $_ -match '^src/platform/wayland/' })
+          if ($waylandNoBanco.Count -gt 0) {
+            Write-Error "Arquivo(s) de src/platform/wayland/ caiu(ram) no banco de compilacao Windows - impossivel por desenho (GODS_LAWS.md L-36/L-40, a regua de casamento voltou a confundir caminho): $($waylandNoBanco -join ', ')"
             exit 1
           }
 

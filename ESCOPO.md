@@ -1395,3 +1395,17 @@ Um dos oito pontos da Decisão 9 vive na leitura da fórmula de `:nth-child(2n+1
 
 - Guardar a fórmula já analisada na árvore de sintaxe, em vez de reanalisar o texto a cada comparação: é o conserto certo de desenho e elimina desperdício real, mas mexe na estrutura que congela na W10, virando porta de mão única fora do escopo desta fatia. **Fica registrado como trabalho futuro, não como ideia descartada.**
 - Propagar o desfecho de falta de memória introduzido em `GFUI-VERDICT-RESOURCE-EXHAUSTED`: carregaria o erro por uma cadeia longa para um caso que as outras duas saídas simplesmente eliminam.
+
+### Decisão 12 - a recusa de janela com dimensão zero fica RATIFICADA, e o erro passa a dizer QUAL dimensão
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 17/09/2026, por `AskUserQuestion`, ao ser confrontado com uma pendência de 11 dias.
+
+**A história, e ela importa mais que a decisão:** em 06/09/2026, sob modo autônomo, decidiu-se que pedir janela com largura ou altura zero passa a ser **recusado**, com a recusa acontecendo na camada comum, antes de qualquer sistema ver o pedido. A decisão foi implementada, entrou no tronco (`626f126`, `src/platform/window/window_desc_validation.cpp`, quatro casos de teste), e ficou marcada "confirmar retroativamente" em `DECISOES_AUTONOMAS.md`. **Ninguém a mostrou ao líder.** Ela passou onze dias publicada, mudando o que a biblioteca aceita, sem a palavra de quem decide isso.
+
+**A razão que a sustenta, e que ele aceitou:** recusar é a **menor promessa possível**, e é reversível na direção certa. Aceitar zero um dia é **extensão**; prometer hoje e retirar depois é **quebra**. O que se perde, declarado: no Windows, o consumidor perde a noção de "o sistema escolhe o tamanho" pela API pública; é noção de um sistema só, e a biblioteca promete o mesmo nos cinco.
+
+**A RATIFICAÇÃO, e o refino que ele acrescentou:** a recusa continua. **Mas o erro passa a dizer QUAL das duas dimensões é zero.** Medido em 17/09/2026: hoje o erro nomeia `logical_size` nos três casos (largura zero, altura zero, as duas), sem distinguir. Quem recebe o erro não sabe qual campo consertar, e a regra R7 de `docs/api-conventions.md` (nome é identificador estável, nunca frase) permite perfeitamente três identificadores distintos em vez de um.
+
+**Trabalho que nasce daqui:** fatia própria, pequena, com os casos de teste existentes reforçados para asseverar o identificador correto em cada um dos três cenários. **O caso das duas dimensões zero precisa de identificador próprio, decidido e não improvisado** - ele não é "largura" nem "altura".
+
+**A lição de processo, que vale mais que a fatia:** decisão autônoma marcada "confirmar retroativamente" **não se confirma sozinha**. Ela precisa de um momento em que alguém a leve ao líder, e esse momento não existia. Passou a existir: a varredura por pendências de confirmação entra no fim de onda, junto com os outros portões de fechamento.

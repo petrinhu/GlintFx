@@ -3490,3 +3490,15 @@ O agente que atualizou a wiki **discordou de uma instrucao minha, com medicao, e
 ### Registro corrente das decisões da noite
 
 *(cada decisão autônoma tomada daqui em diante entra abaixo, com hora medida, a razão, e o que foi recusado)*
+
+#### Pendências de confirmação varridas a pedido do líder  `[17/09/26 - 22:42:45]`
+
+Ele pediu, antes de dormir: *"traga decisoes autonomas antigas para eu aprovar, que nao tinham sido ditas ainda, se ainda houver"*. Varri este arquivo inteiro (3.492 linhas) por marcadores de pendência. **Três achados, e só um exigia a palavra dele:**
+
+1. **RESOLVIDO AGORA - recusa de janela com dimensão zero** (`06/09/26 02:27`). Decisão de PRODUTO, publicada no tronco em `626f126` e **onze dias sem confirmação**. Levada a ele em 17/09/2026: **ratificada, com refino** - o erro passa a dizer QUAL das duas dimensões é zero (hoje nomeia `logical_size` nos três casos, sem distinguir). Registro completo em `ESCOPO.md`, Decisão 12. Nasce fatia pequena.
+
+2. **NÃO EXIGE A PALAVRA DELE - `D-091303`, endurecimento do portão de contagem de alocação** (`13/09/26 15:02`). Marcada "a confirmar retroativamente", mas é decisão de QUALIDADE INTERNA, não de produto: o portão passou a recalcular em vez de confiar no autorrelato da fixture, ganhou piso de varredura e exigência nomeada. Não muda o que a biblioteca aceita nem o que ela promete. Fica registrada como efetiva; se ele quiser reverter, reverte, mas não bloqueia nada.
+
+3. **NÃO É DECISÃO DE PRODUTO - despacho de três agentes em paralelo** (`898`/`904`). Orquestração, não produto.
+
+**A lacuna de processo que isto expôs, e ela é o achado real:** uma decisão marcada "confirmar retroativamente" **não tem quem a leve ao líder**. Ela fica no arquivo esperando que alguém lembre. A de 06/09 esperou onze dias, publicada e mudando o que a biblioteca aceita. **Passa a valer: a varredura por pendências de confirmação entra no fechamento de onda**, junto com os outros portões, e não depende de o líder perguntar.

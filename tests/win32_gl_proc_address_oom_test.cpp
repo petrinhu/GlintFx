@@ -113,11 +113,16 @@ std::size_t g_override_new_call_count = 0;
     return true;
 }
 
-// Same MSVC-ASan-only valve tests/err_context_test.cpp's own oom_
-// forcing_declared_not_applicable() already uses, narrowed to the two
-// branches this file can EVER reach (it only compiles under defined(
-// _WIN32) - the third branch, "not Windows at all", is unreachable
-// here, unlike the Linux sibling which needs it).
+// Same MSVC-ASan valve tests/err_context_test.cpp's own oom_
+// forcing_declared_not_applicable() uses, in the same three-branch shape:
+// MSVC's own <cstdlib> flags std::getenv() as C4996 ("may be unsafe")
+// under /W4, which -DGLINTFX_WERROR=ON escalates to a build failure, so
+// a plain "#if ASan #else getenv #endif" would break plain Windows
+// builds for a code path they never take. Splitting the Windows case in
+// two (this file only ever compiles under defined(_WIN32), so there is
+// no third, non-Windows branch to fall through to here) keeps that call
+// scoped to where it can ever matter - see err_context_test.cpp for the
+// full citation and the Linux sibling that still needs the third branch.
 [[nodiscard]] bool oom_forcing_declared_not_applicable() {
 #if defined(__SANITIZE_ADDRESS__)
     return true; // learn.microsoft.com/cpp/sanitizers/asan-known-issues,
@@ -126,6 +131,8 @@ std::size_t g_override_new_call_count = 0;
                  // override linked into the same binary - the same
                  // citation err_context_test.cpp's own header comment
                  // already gives in full.
+#elif defined(_WIN32)
+    return false;
 #else
     return std::getenv("GLINTFX_OOM_TEST_FORCE_NOT_APPLICABLE") != nullptr;
 #endif

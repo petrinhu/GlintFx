@@ -3462,7 +3462,7 @@ O agente que atualizou a wiki **discordou de uma instrucao minha, com medicao, e
 
 ## Noite de 17 para 18/09/2026: autorização ampla do líder e as três respostas dele
 
-**Ordem dele, verbatim, ao ligar o modo autônomo e ir dormir:** *"siga até termina a onda completa. Autorizo commit por fatia, merge to main, push no fim da onda. Em caso de duvidas, pergunte a clevel opus max effort, registre log das decisoes para avaliar deppis. Nunca devidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web. Pode APRENDER com outras libs e frameworks, incluindo rmlui e sdl3, mas NUNCA copiar ou pinar nelas."*
+**Ordem dele, verbatim, ao ligar o modo autônomo e ir dormir:** *"siga até termina a onda completa. Autorizo commit por fatia, merge to main, push no fim da onda. Em caso de duvidas, pergunte a clevel opus max effort, registre log das decisoes para avaliar deppis. Nunca decidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web. Pode APRENDER com outras libs e frameworks, incluindo rmlui e sdl3, mas NUNCA copiar ou pinar nelas."*
 
 **Flag do modo autônomo:** ligada em 17/09/2026 22:34:32, válida por 24h, escopos `push` e `clean`. **A autorização de MERGE em `main` vem da frase acima, não da flag** (a flag não carrega esse escopo), e por isso está registrada aqui.
 

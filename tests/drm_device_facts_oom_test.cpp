@@ -277,7 +277,7 @@ GLINTFX_TEST(read_drm_device_facts_refuses_a_path_one_byte_past_path_max_boundar
         return;
     }
 
-    scoped_scratch_tree tree;
+    const scoped_scratch_tree tree;
     const std::string boundary_path = build_path_of_exact_length(tree, PATH_MAX - 1);
     GLINTFX_CHECK_EQ(boundary_path.size(), static_cast<std::size_t>(PATH_MAX - 1));
 

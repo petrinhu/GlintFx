@@ -49,6 +49,7 @@ constexpr gltfx_gpu_kind sw = gltfx_gpu_kind::software;
 [[nodiscard]] std::vector<gltfx_gpu_kind>
 all_after_exclusion(std::span<const gltfx_gpu_kind> kinds) {
     std::vector<gltfx_gpu_kind> result;
+    result.reserve(kinds.size());
     for (std::size_t i = 0; i < kinds.size(); ++i) {
         result.push_back(gpu_kind_after_exclusion(kinds, static_cast<std::uint32_t>(i)));
     }

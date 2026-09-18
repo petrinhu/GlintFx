@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <cstdint>
 #include <span>
-#include <vector>
 
 #include <glintfx/platform/gl/gpu.hpp>
 
@@ -16,13 +16,14 @@
 // backed classifier (drm_gpu_kind.hpp) already answered for every
 // entry.
 //
-// THE RULE, EXACTLY (revisao.md sec. 1.5): every `unknown` entry is
-// promoted to `dedicated` IF at least one OTHER entry in the same
-// enumeration is `shared`, AS ANSWERED BY THE KERNEL (never another
-// promoted `unknown`, never a `dedicated` or `software` neighbour -
-// only a kernel-confirmed `shared` counts as "the integrated one").
-// `shared` and `dedicated` and `software` entries are NEVER rebaixados
-// nem promovidos by this atom - only `unknown` entries ever change.
+// THE RULE, EXACTLY (revisao.md sec. 1.5): the entry AT `index` is
+// promoted to `dedicated` IF it is `unknown` AND at least one OTHER
+// entry in the same enumeration is `shared`, AS ANSWERED BY THE KERNEL
+// (never another promoted `unknown`, never a `dedicated` or `software`
+// neighbour - only a kernel-confirmed `shared` counts as "the
+// integrated one"). `shared`, `dedicated` and `software` entries are
+// NEVER rebaixados nem promovidos by this atom - only an `unknown`
+// entry ever changes.
 //
 // THE PREMISE THIS RULE RESTS ON IS INFERENCE, NOT FACT (revisao.md
 // sec. 1.5, the reviewer's own 06/09/2026, 19:51 annotation): "um
@@ -38,10 +39,23 @@
 // not answer IsIntegrated (D-W6b-37 regra 4) - the SAME reasoning,
 // over the SAME enum, regardless of which kernel or driver produced
 // the input.
+//
+// PER-ELEMENT, NOT PER-LIST (NOEXCEPT-ALLOC-B8 fatia F3, ESCOPO.md
+// Decisao 10, 17/09/2026): this atom used to materialize a whole
+// std::vector<gltfx_gpu_kind> copy of `kinds` just so its ONE caller
+// (gpu_kind_seam.cpp's own resolve_kernel_and_exclusion()) could index
+// it by `enumeration_index` - an allocation inside a `noexcept`
+// function that could kill the consumer's whole process on failure
+// (GODS_LAWS.md L-22; ESCOPO.md, Decisao 8). Every output cell depends
+// only on its OWN input cell plus the single `any_kernel_shared` flag
+// over the whole enumeration, so the list was never needed: this
+// function answers the SAME question for exactly the one index the
+// caller wants, with no allocation anywhere in it (degrau 1 of R3's
+// own escada, docs/api-conventions.md).
 
 namespace glintfx::platform {
 
-[[nodiscard]] std::vector<gltfx_gpu_kind>
-apply_gpu_kind_exclusion(std::span<const gltfx_gpu_kind> kinds) noexcept;
+[[nodiscard]] gltfx_gpu_kind gpu_kind_after_exclusion(std::span<const gltfx_gpu_kind> kinds,
+                                                      std::uint32_t index) noexcept;
 
 } // namespace glintfx::platform

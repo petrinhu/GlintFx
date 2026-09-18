@@ -1114,6 +1114,22 @@ target_sources(gpu_kind_seam_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
 )
 
+# NOEXCEPT-ALLOC-B8 fatia F3 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F3", ESCOPO.md Decisao 10): proves, with the
+# global allocator armed, that resolve_kernel_and_exclusion() (the
+# real SITE, not just the atom) no longer allocates anything along
+# the exclusion path, and that the consumer's process survives an
+# armed allocation failure where it used to die (std::terminate()).
+# PLATFORM-AGNOSTIC like the site it proves - runs on all five
+# systems, with no if(UNIX)/if(WIN32) guard, the same shape as
+# gpu_kind_exclusion_test/gpu_kind_seam_test above.
+glintfx_add_test(gpu_kind_exclusion_no_alloc_test)
+target_include_directories(gpu_kind_exclusion_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gpu_kind_exclusion_no_alloc_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
 # CONSERTO (06/09/2026, GL-GPU-KIND, achado do team-lead medido dentro
 # do container real: um driver que responde "GL_NVX_gpu_memory_info
 # suportada" mas escreve memoria nao inicializada de volta) -

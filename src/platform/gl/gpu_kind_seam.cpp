@@ -16,8 +16,7 @@ resolve_kernel_and_exclusion(gltfx_gpu_kind kernel_kind, std::uint32_t enumerati
         return gltfx_gpu_kind::unknown;
     }
 
-    const std::vector<gltfx_gpu_kind> excluded = apply_gpu_kind_exclusion(enumeration_kinds);
-    return excluded[enumeration_index];
+    return gpu_kind_after_exclusion(enumeration_kinds, enumeration_index);
 }
 
 gltfx_gpu_kind

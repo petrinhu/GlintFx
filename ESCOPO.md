@@ -1420,7 +1420,15 @@ Um dos oito pontos da Decisão 9 vive na leitura da fórmula de `:nth-child(2n+1
 
 **A razão que ele aceitou, e ela é sobre processo, não sobre C++:** um número registrado em relatório **cresce em silêncio**, porque relatório ninguém relê. Esta casa acabou de medir exatamente isso: uma decisão de produto marcada "confirmar retroativamente" passou **onze dias** publicada sem a palavra dele (Decisão 12). A catraca não conserta nada, não antecipa a escolha dele e não muda a forma de nenhuma função; ela só impede que o problema engorde enquanto ele não decide.
 
-**O custo, declarado e aceito por ele:** ~140 linhas de lista geram atrito de manutenção em toda fatia que mexer nesses arquivos. Quem mexer tem de atualizar a lista no mesmo commit, e o portão reprova quem esquecer.
+**CORREÇÃO MEDIDA EM 18/09/2026, e o líder decidiu sobre ela: a catraca cobre 60 sítios, não ~140.** Ao construir o portão da fatia F6, o implementador rodou a régua ANTIGA e a NOVA contra o MESMO alvo (`1d7be83`) e provou que a diferença **não é defeito de medição**: os hits brutos de família A são **idênticos nas duas** (80 em ambas), e 60 é o mesmo conjunto **deduplicado por arquivo+função+forma**.
+
+**A causa real é UNIDADE, e ela expunha uma lacuna de cobertura:** o número "~140" do relatório de 17/09 somava a saída da régua automática MAIS uma contagem **feita à mão** de "26 tipos do próprio projeto que carregam `std::vector`/`std::string` POR MEMBRO" (141 ocorrências). **Nenhuma versão da régua jamais rastreou essa segunda parte** - o motor só reconhece construção DIRETA de contentor, nunca um tipo nosso que o carrega por composição. Confirmado ao vivo: `err_context` (`src/core/err.cpp`) tem dois `std::string` por membro e é construído via `new (std::nothrow)`; tem alocação de família A real lá dentro, e o motor não a vê.
+
+**DECISÃO DO LÍDER, 18/09/2026, por `AskUserQuestion`, confrontado com essa lacuna: congelar os 60 e ESCREVER que faltam os ~80.** A trava entra cobrindo o que a máquina sabe medir, e a ausência do resto fica **nomeada no cabeçalho do próprio portão e neste canon**, nunca calada. **O que ele aceitou perder, declarado:** os ~80 podem crescer sem que nenhum portao perceba; só leitura humana pegaria. **O que ele recusou:** parar a fatia para ensinar a régua a enxergar composição de tipos (motor novo, volume de falso positivo não medido, protecao inteira fora do tronco enquanto isso).
+
+**A regra que essa decisão reforça:** portao que cobre parte do universo **declara a parte que não cobre**, no lugar onde quem confia nele vai ler. Verde de cobertura parcial apresentado como verde total é a família de defeito que esta casa chama de "afirma que mede e não mede".
+
+**O custo, declarado e aceito por ele:** as linhas de lista geram atrito de manutenção em toda fatia que mexer nesses arquivos. Quem mexer tem de atualizar a lista no mesmo commit, e o portão reprova quem esquecer.
 
 ### Decisão 14 - o mecanismo do Clang que PROVA ausência de alocação entra por piloto, em fatia própria
 
@@ -1433,3 +1441,24 @@ Um dos oito pontos da Decisão 9 vive na leitura da fórmula de `:nth-child(2n+1
 **Por que a decisão é dele e não do agente:** o atributo **muda a forma do código-fonte na fronteira pública**, e nenhuma decisão de forma pública sai da mão dele.
 
 **O que se ganha, e é o ponto:** hoje a ausência de alocação é **estimada por uma régua de texto** que declara, por escrito, o que não enxerga (concatenação com `+`, `optional::emplace`, construção de `std::variant`, cópia de struct que carrega contentor). O atributo **prova** em vez de procurar formas conhecidas. **O que fica por medir, declarado:** o volume de reclamação do atributo sobre a árvore real nunca foi medido; é justamente o que o piloto existe para medir, numa ilha pequena, antes de qualquer adoção larga.
+
+### Decisão 15 - a família A vai ser CONSERTADA, e o líder fixou a ordem dos quatro passos
+
+**Origem:** ordem direta do líder em 18/09/2026, primeiro *"eu quero que conserte os 140"* e, ao ser confrontado com o obstáculo de que 80 deles ninguém enxerga, o sequenciamento **verbatim**:
+
+```
+1- conserte os 60 que já sabe localizar
+2- descubra como localiza os outros 80
+3- localize os outros 80
+4- conserte os outros 80
+```
+
+**O que isto REVOGA, e é preciso dizer com todas as letras:** a Decisão 13 tratava a família A como coisa a **congelar**, não a consertar, e deixava o destino final em aberto. **O destino está decidido: conserto.** A catraca dos 60 continua valendo e não é desfeita - ela segue impedindo que o número cresça enquanto o conserto não chega -, mas deixou de ser o fim da linha e passou a ser a rede de proteção durante o trabalho.
+
+**O obstáculo que motivou o sequenciamento, medido e não suposto:** dos ~140, a régua automática enxerga **60**; os outros ~80 são tipos do próprio projeto que carregam `std::vector`/`std::string` **por composição**, e foram contados **à mão** em 17/09/2026. Nenhuma versão da régua jamais os rastreou. **Não se conserta o que não se enxerga**, e uma lista feita à mão num dia não é base para onda de conserto: não se revalida, não pega o sítio que nasceu depois, e não separa defeito real de falso positivo. O líder aceitou o obstáculo e o transformou em passo próprio (o 2), em vez de mandar consertar às cegas contra a lista velha.
+
+**Consequência para a Decisão 14 (o mecanismo do Clang):** ela foi tomada como **piloto em fatia própria**, e continua sendo. Mas o passo 2 muda o peso dela: o atributo `[[clang::nonallocating]]` é o único mecanismo conhecido que **prova** ausência de alocação por cadeia de chamadas, em vez de procurar formas de texto conhecidas, e por isso é candidato natural a resolver "como localizar os 80". **Se o passo 2 concluir que ele é a via, a fatia-piloto deixa de ser exploração e vira dependência do caminho crítico** - e isso volta ao líder, porque muda a forma do código na fronteira pública.
+
+**O que fica explicitamente por decidir, e é dele:** se o conserto de algum dos 60 exigir o TERCEIRO degrau da escada (deixar de prometer `noexcept`) numa função que **atravessa a fronteira pública**, a decisão é dele, caso a caso. O plano tem de trazer **quantos dos 60 caem nesse caso**, separados dos demais.
+
+**O risco que esta onda carrega, e que vai escrito no plano:** consertar 60 sítios significa mexer em muita superfície interna de uma vez. Cento e quarenta consertos são cento e quarenta chances de errar; o plano tem de dizer onde isso pode quebrar comportamento que hoje funciona, e como cada fatia prova que não quebrou.

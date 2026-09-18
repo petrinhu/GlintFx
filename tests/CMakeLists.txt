@@ -260,6 +260,24 @@ target_sources(gfss_selector_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
+# NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F4", GODS_LAWS.md L-20/L-40): proves, by COUNTING
+# (the SAME idiom err_no_alloc_test/log_no_alloc_test/gfui_complex_
+# match_resource_exhausted_test above already establish), that parse_
+# anb() (anb_parse.cpp) never touches the heap any more - this OWN
+# executable (never gfss_selector_parse_test above) replaces the
+# global operator new/delete, so it needs anb_parse.cpp compiled a
+# SECOND time directly into IT, never sharing gfss_selector_parse_
+# test's own binary (two different global-operator-new overrides in
+# the same executable would be an ODR collision, the same reason
+# gfui_complex_match_resource_exhausted_test's own CMakeLists.txt
+# comment already gives).
+glintfx_add_test(gfss_anb_parse_no_alloc_test)
+target_include_directories(gfss_anb_parse_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_anb_parse_no_alloc_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
 # GFSS-SPECIFICITY (docs/plano-w6-folha-de-estilo.md fatia S-1,
 # GODS_LAWS.md L-19): specificity_of_simple()/specificity_of_compound()/
 # specificity_of_complex() (src/gfss/specificity.hpp) carry no
@@ -576,6 +594,27 @@ target_include_directories(gfui_match_struct_test PRIVATE "${PROJECT_SOURCE_DIR}
 # above - structural_match.cpp/attribute_match.cpp/compound_match.cpp/
 # selector_parse.cpp/anb_parse.cpp carry no GLINTFX_API either.
 target_sources(gfui_match_struct_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
+# NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F4", GODS_LAWS.md L-20/L-22/L-40; ESCOPO.md
+# "Ordem de produto de 15/09/2026", Decisao 8): ":nth-child(2n+1)"
+# reached at MATCH TIME, through match_compound() - this OWN
+# executable (never gfui_match_struct_test above) replaces the global
+# operator new/delete to force allocation to fail on demand, so it
+# needs the SAME five files compiled a SECOND time directly into IT,
+# never sharing gfui_match_struct_test's own binary (two different
+# global-operator-new overrides in the same executable would be an
+# ODR collision, the same reason gfui_complex_match_resource_
+# exhausted_test's own CMakeLists.txt comment already gives).
+glintfx_add_test(gfui_nth_child_oom_test)
+target_include_directories(gfui_nth_child_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfui_nth_child_oom_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
     "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"

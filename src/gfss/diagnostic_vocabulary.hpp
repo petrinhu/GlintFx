@@ -228,6 +228,24 @@
 // dereference, never reachable through this track's own accepted
 // eleven names, kept anyway per LEI ZERO's own "base de consumidores
 // aberta e desconhecida" (a defensive floor, not a spec condition).
+//
+// NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F4", ESCOPO.md Decisao 11, 17/09/2026) IS THE
+// ELEVENTH ROW HERE: `anb_expression_too_long` is anb_parse.cpp's OWN
+// (same `anb_parse` producer tag as its existing three rows) - emitted
+// when an argument needs more tokens than anb_parse.cpp's own fixed-
+// capacity token buffer (k_max_anb_tokens) can hold. THE SAME "self-
+// imposed defensive floor, not a spec condition" category `not_
+// recursion_limit` (selector_parse.cpp) already belongs to, above:
+// CSS Syntax's own <an+b> microsyntax places no limit of its own on an
+// argument's length, so refusing one that is merely LONG is this
+// LIBRARY's own anti-DoS/anti-unbounded-allocation policy (LEI ZERO,
+// "base de consumidores aberta e desconhecida"), never a grammar
+// violation - which is exactly why this could not honestly reuse
+// `end_of_anb_expression` (that one means "a value already finished
+// parsing has trailing garbage after it", a real grammar fact; this
+// one means "this parser refused to even try, because reading further
+// would have meant allocating").
 
 namespace glintfx::style::detail {
 
@@ -269,6 +287,7 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(anb_expression, anb_parse)                                                                   \
     X(anb_offset, anb_parse)                                                                       \
     X(end_of_anb_expression, anb_parse)                                                            \
+    X(anb_expression_too_long, anb_parse)                                                          \
     X(property_name, declaration_parse)                                                            \
     X(known_property_name, declaration_parse)                                                      \
     X(longhand_property_names, declaration_parse)                                                  \

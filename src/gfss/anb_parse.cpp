@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "anb_parse.hpp"
 
+#include <array>
 #include <charconv>
 #include <cstddef>
 #include <limits>
 #include <optional>
 #include <string_view>
 #include <system_error>
-#include <vector>
 
 #include <glintfx/gfss/tokenizer.hpp>
 
@@ -74,12 +74,140 @@
 // number_lexeme_is_integer()/decode_anb_integer() below mirror
 // value_parse.cpp's own number_lexeme_is_integer()/decode_integer_
 // lexeme() the SAME way, for the SAME reason - see this comment.
-
+//
+// NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F4", ESCOPO.md Decisao 11, 17/09/2026,
+// GODS_LAWS.md L-04/L-20/L-40/L-43): parse_anb() below used to call
+// tokenizer.hpp's own gltfx_gfss_tokenize(), an INLINE convenience
+// that grows a std::vector<gltfx_gfss_token> one push_back() at a
+// time - allocating, inside a function this file declares `noexcept`.
+// Reached at MATCH TIME, not only at READ time: src/gfui/
+// structural_match.cpp's own structural_functional_holds() (itself
+// noexcept) calls parse_anb() on EVERY ":nth-child()"/":nth-last-
+// child()"/":nth-of-type()"/":nth-last-of-type()" comparison, through
+// src/gfui/attribute_match.cpp's own attribute_and_structural_
+// selectors_hold() (noexcept) and src/gfui/compound_match.cpp's own
+// match_compound() (noexcept) - a std::bad_alloc escaping from THIS
+// file therefore calls std::terminate() from inside the very
+// mechanism ESCOPO.md's own Decisao 8 (16/09/2026, "a biblioteca
+// nunca mata o processo do consumidor... devolve erro; o aplicativo
+// decide") named as never allowed to kill the consumer's process -
+// match_verdict.hpp's own header comment already promises
+// "match_compound() itself... never [answers resource_exhausted] -
+// it does not allocate", a claim this file's OLD body made false.
+//
+// THE FIX, DECIDED BY THE LEADER (Decisao 11 of the plan above, not
+// re-opened here): stop calling gltfx_gfss_tokenize() at all. anb_
+// token_stream/fill_anb_token_stream() below are a fixed-capacity,
+// NEVER-ALLOCATING substitute fed one token at a time by tokenizer.
+// hpp's own gltfx_gfss_next_token() - the EXPORTED, non-allocating
+// primitive gltfx_gfss_tokenize() itself is only a convenience layer
+// over (that header's own comment on why THAT convenience wrapper is
+// not noexcept, and why the primitive underneath it already is).
+// Every helper below that used to take `const std::vector<gltfx_gfss_
+// token> &tokens` still takes a `token_vector` - the alias now names
+// anb_token_stream instead of std::vector, so none of those helpers'
+// own bodies (skip_whitespace(), tokens_are_adjacent(),
+// match_optional_offset(), require_end(), finish_an_shape()... every
+// one of them only ever calls `tokens[i]`/`tokens.size()`) had to
+// change AT ALL - only what FILLS the buffer, and what happens when
+// filling it overflows, are new.
 namespace glintfx::style::detail {
 
 namespace {
 
-using token_vector = std::vector<gltfx_gfss_token>;
+// The teto: how many tokens (INCLUDING the terminal <EOF-token> this
+// file's own require_end() already depends on) a legitimate An+B
+// argument can ever need - measured against this file's own 16
+// productions (this file's own top comment), never guessed
+// (GODS_LAWS.md L-43: the limit is fixed before any failing case is
+// looked at).
+//
+// THE RICHEST PRODUCTION THIS PARSER ACCEPTS is production 11 ('+'? n
+// <signed-integer>) spelled with the SEPARATED sign this file's own
+// match_signless_offset_after_sign() already allows ("n + 1", not
+// only the merged "n+1"), with the leading whitespace selector_
+// parse.cpp's own capture_functional_argument() may hand this file
+// (it captures the raw bytes between '(' and ')' VERBATIM, including
+// whatever whitespace the author put right after '(' or right before
+// ')') on both ends:
+//
+//     " +n - 1 "  ->  [ws][delim '+'][ident 'n'][ws][delim '-']
+//                     [ws][number '1'][ws][<EOF-token>]
+//
+// NINE tokens. No other production reaches this: the dimension-headed
+// forms ("3n - 1") spend ONE token on coefficient+unit together
+// instead of two ('+' delim then ident), so they top out at eight;
+// the ndashdigit-ident/-dimension/dashndashdigit-ident forms
+// (productions 7-9) embed B in the SAME token as A, with no separate
+// offset slot at all, so they never exceed five. A run of whitespace
+// is always exactly ONE token no matter how many bytes long
+// (tokenizer.cpp's own consume_whitespace() eats every consecutive
+// whitespace byte before returning a single token) - padding with
+// more spaces never buys this grammar another slot, so nine is not
+// merely "the worst I tried", it is the true ceiling of what this
+// parser's own accepted forms can ever ask for.
+//
+// k_max_anb_tokens below gives that measured nine a written margin,
+// not a guess: three extra slots (twelve total, one third more than
+// the proven worst case) against a form this comment's own
+// enumeration might have missed - the SAME "documented margin above a
+// measured worst case" reasoning src/platform/nul_terminated_name.hpp
+// already gives itself for k_max_proc_name_chars, sized down here
+// because THIS grammar is a small, closed, sixteen-production table
+// (fully walked above), never an open-ended "real-world name" the way
+// a GL/WGL function name is. tests/gfss_anb_parse_no_alloc_test.cpp's
+// own boundary case re-measures this file's own worst production with
+// the REAL tokenizer (gltfx_gfss_tokenize(), test-only code, never
+// this file's own noexcept path) rather than trusting this comment's
+// arithmetic on faith, and tests/gfss_selector_parse_test.cpp's own
+// overflow sample proves the OTHER edge: a token count past this
+// teto is a NAMED refusal (k_expected_anb_expression_too_long),
+// never silent truncation.
+inline constexpr std::size_t k_max_anb_tokens = 12;
+
+// A fixed-capacity, NEVER-ALLOCATING substitute for tokenizer.hpp's
+// own gltfx_gfss_tokenize() (this file's own top-of-namespace comment
+// above) - `operator[]`/`size()` give every helper below the SAME read
+// surface a std::vector already gave them.
+struct anb_token_stream {
+    std::array<gltfx_gfss_token, k_max_anb_tokens> tokens{};
+    std::size_t count = 0;
+
+    [[nodiscard]] const gltfx_gfss_token &operator[](std::size_t index) const noexcept {
+        return tokens[index];
+    }
+    [[nodiscard]] std::size_t size() const noexcept { return count; }
+};
+
+using token_vector = anb_token_stream;
+
+// Fills `out` with every token gltfx_gfss_next_token() produces for
+// `text`, INCLUDING the terminal <EOF-token> - the SAME loop
+// tokenizer.hpp's own gltfx_gfss_tokenize() already runs
+// (`bool more = true; while (more) { more = next_token(...);
+// tokens.push_back(token); }`), except this one never grows a
+// std::vector: `out` is filled in place, one std::array slot at a
+// time. Returns false the INSTANT a (k_max_anb_tokens + 1)-th token
+// would be needed and there is nowhere left to put it - `out` is left
+// holding exactly `k_max_anb_tokens` tokens in that case (never a
+// partial write past the array's own bound), and the caller must
+// treat that as a REFUSAL, never as a complete, well-formed stream to
+// keep reading.
+[[nodiscard]] bool fill_anb_token_stream(std::string_view text, anb_token_stream &out) noexcept {
+    gltfx_gfss_cursor cursor{.source = text};
+    gltfx_gfss_token token;
+    bool more = true;
+    while (more) {
+        if (out.count >= out.tokens.size()) {
+            return false;
+        }
+        more = gltfx_gfss_next_token(cursor, token);
+        out.tokens[out.count] = token;
+        ++out.count;
+    }
+    return true;
+}
 
 [[nodiscard]] gltfx_gfss_diagnostic make_diagnostic(const gltfx_gfss_token &at,
                                                     std::string_view expected) noexcept {
@@ -496,7 +624,22 @@ parse_optional_plus_then_ident(const token_vector &tokens, std::size_t index,
 } // namespace
 
 anb_parse_result parse_anb(std::string_view text) noexcept {
-    const token_vector tokens = gltfx_gfss_tokenize(text);
+    token_vector tokens;
+    if (!fill_anb_token_stream(text, tokens)) {
+        // OVERFLOW, NEVER TRUNCATION (Decisao 11 of the plan cited at
+        // this file's own top comment: "recusa com diagnostico
+        // nomeado apontando para o token que estourou, nunca
+        // truncamento e nunca aceitacao silenciosa"). `tokens` holds
+        // exactly k_max_anb_tokens tokens at this point
+        // (fill_anb_token_stream()'s own contract) - never empty, so
+        // anchoring the diagnostic at the LAST one that fit is always
+        // safe, and points a consumer's own error message at real
+        // text near where the argument outgrew this parser's own
+        // teto, rather than at byte 0 of an argument that may be
+        // hundreds of bytes long.
+        return finish_fail(
+            make_diagnostic(tokens[tokens.size() - 1], k_expected_anb_expression_too_long));
+    }
     std::size_t index = 0;
     skip_whitespace(tokens, index);
     const gltfx_gfss_token &tok = tokens[index];

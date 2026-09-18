@@ -59,6 +59,7 @@ using glintfx::style::detail::gfss_combinator_table;
 using glintfx::style::detail::gfss_diagnostic_producer;
 using glintfx::style::detail::gfss_simple_selector_kind;
 using glintfx::style::detail::k_expected_anb_expression;
+using glintfx::style::detail::k_expected_anb_expression_too_long;
 using glintfx::style::detail::k_expected_anb_offset;
 using glintfx::style::detail::k_expected_attribute_name;
 using glintfx::style::detail::k_expected_attribute_operator_or_close;
@@ -647,12 +648,28 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_hostile_input_with_the_right
 // still proves, and the only thing it ever needed to prove, is that
 // capture_functional_argument() itself found the TRUE matching close
 // paren at depth 5000 without recursing or hanging: the diagnostic that
-// comes back is k_expected_anb_expression (a CONTENT complaint from
-// validation, reached only AFTER a correct capture), never k_expected_
-// closing_parenthesis (which is what an INCORRECT capture - one that
-// lost count of the nesting - would produce instead, the same
-// diagnostic the UNBALANCED case below gets for a genuinely unclosed
-// argument).
+// comes back is a CONTENT complaint from validation, reached only AFTER
+// a correct capture, never k_expected_closing_parenthesis (which is
+// what an INCORRECT capture - one that lost count of the nesting -
+// would produce instead, the same diagnostic the UNBALANCED case below
+// gets for a genuinely unclosed argument).
+//
+// REVISED AGAIN 17/09/2026 (NOEXCEPT-ALLOC-B8 fatia F4, /var/tmp/
+// glintfx-plan/plano-conserto-noexcept.md sec. "F4", ESCOPO.md
+// Decisao 11): WHICH content complaint changed, not whether one comes
+// back. 10000 open_paren/close_paren tokens (one per byte - token.hpp's
+// own GLINTFX_GFSS_TOKEN_KIND_LIST has no multi-character paren token)
+// is nowhere near a legitimate An+B argument's own measured worst case
+// of nine tokens (anb_parse.cpp's own k_max_anb_tokens comment) - before
+// this fatia, parse_anb() tokenized the WHOLE 10000-byte argument first
+// (allocating a huge std::vector along the way) and only THEN looked at
+// token[0], an open_paren, which matches no An+B production
+// (k_expected_anb_expression). anb_parse.cpp's own fixed-capacity
+// buffer now refuses at the TWELFTH token, long before either the
+// allocation or the semantic dispatch this comment used to describe -
+// k_expected_anb_expression_too_long, still "a content complaint from
+// validation, reached only AFTER a correct capture", just a more
+// specific one.
 GLINTFX_TEST(
     gltfx_gfss_parse_selector_list_handles_deeply_nested_functional_argument_without_recursing) {
     constexpr int k_depth = 5000;
@@ -661,7 +678,7 @@ GLINTFX_TEST(
     const std::string balanced_text = ":nth-child(" + balanced_argument + ")";
     const auto balanced_result = parse_selector_list(balanced_text);
     GLINTFX_CHECK(!balanced_result.ok);
-    GLINTFX_CHECK(balanced_result.diagnostic.expected == k_expected_anb_expression);
+    GLINTFX_CHECK(balanced_result.diagnostic.expected == k_expected_anb_expression_too_long);
 
     const std::string unbalanced_argument(static_cast<std::size_t>(k_depth), '(');
     const std::string unbalanced_text = ":nth-child(" + unbalanced_argument;
@@ -1171,6 +1188,13 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_rejects_hostile_input_with_the_right_diagnosti
         {"odd 1", k_expected_end_of_anb_expression, "trailing garbage after keyword"},
         {"5 5", k_expected_end_of_anb_expression, "trailing garbage after bare integer"},
         {"n 1", k_expected_end_of_anb_expression, "unsigned integer with no sign delim at all"},
+        // Fatia F4 (NOEXCEPT-ALLOC-B8): more tokens than anb_parse.cpp's
+        // own fixed-capacity buffer holds - refused BEFORE the ordinary
+        // grammar even gets a chance to call this "trailing garbage",
+        // the same distinction this file's own diagnostic_vocabulary.hpp
+        // comment on anb_expression_too_long draws.
+        {"1 1 1 1 1 1 1", k_expected_anb_expression_too_long,
+         "argument needs more tokens than the fixed buffer holds"},
     };
 
     std::size_t swept = 0;
@@ -1182,7 +1206,7 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_rejects_hostile_input_with_the_right_diagnosti
     }
     // GODS_LAWS.md L-40: zero swept is a floor violation, never a pass.
     GLINTFX_CHECK(swept > 0);
-    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(18));
+    GLINTFX_CHECK_EQ(swept, static_cast<std::size_t>(19));
     std::println("gltfx_gfss_parse_anb_rejects_hostile_input_with_the_right_diagnostic: {} hostile "
                  "case(s) checked",
                  swept);
@@ -1209,8 +1233,10 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_saturates_on_overflow) {
     }
 }
 
-// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): anb_parse's own THREE
-// diagnostics (anb_expression/anb_offset/end_of_anb_expression) - the
+// GFSS-VOCAB-BIND (TODO.md, GODS_LAWS.md L-40): anb_parse's own FOUR
+// diagnostics (anb_expression/anb_offset/end_of_anb_expression/
+// anb_expression_too_long, the last one added by NOEXCEPT-ALLOC-B8
+// fatia F4, /var/tmp/glintfx-plan/plano-conserto-noexcept.md) - the
 // SAME per-producer directed-production discipline gltfx_gfss_parse_
 // selector_list_diagnostics_are_produced_from_the_shared_vocabulary
 // above already applies to selector_parse's own rows. The static_assert
@@ -1227,6 +1253,12 @@ GLINTFX_TEST(gltfx_gfss_parse_anb_diagnostics_are_produced_from_the_shared_vocab
         {"", k_expected_anb_expression},
         {"n-", k_expected_anb_offset},
         {"3n extra", k_expected_end_of_anb_expression},
+        // anb_parse.cpp's own k_max_anb_tokens fixed-capacity buffer
+        // (fatia F4): seven number tokens, six whitespace tokens
+        // between them and the terminal <EOF-token> is fourteen -
+        // past the twelve this parser's own buffer holds, so this
+        // never reaches the ordinary "trailing garbage" check at all.
+        {"1 1 1 1 1 1 1", k_expected_anb_expression_too_long},
     };
     static_assert(std::size(k_anb_diagnostic_samples) ==
                       count_owned_by(gfss_diagnostic_producer::anb_parse),

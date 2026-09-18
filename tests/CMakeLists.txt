@@ -1579,6 +1579,23 @@ if(UNIX)
     glintfx_add_wayland_xdg_shell_binding(gl_proc_address_oom_test)
     glintfx_add_egl(gl_proc_address_oom_test)
 
+    # NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
+    # noexcept.md sec. "F2", GODS_LAWS.md L-04/L-09/L-20/L-22): read_drm_
+    # device_facts() (drm_device_facts.cpp) under a forced allocation
+    # failure. Self-contained second compile - unlike gl_proc_address_
+    # oom_test.cpp above, this site touches no Wayland/EGL header at all
+    # (only <fcntl.h>/<sys/ioctl.h>/<unistd.h>/<drm/*.h>, all Linux-only,
+    # which is why this target still lives inside this if(UNIX) block),
+    # so drm_device_facts.cpp is the ONLY production .cpp this target
+    # needs - the same "second compile needs every callee linked
+    # alongside it" reasoning as every other target in this file, with
+    # an empty callee list because this .cpp calls out to nothing else.
+    glintfx_add_test(drm_device_facts_oom_test)
+    target_include_directories(drm_device_facts_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(drm_device_facts_oom_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+    )
+
     # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): the pure-
     # listener half of wayland_seat_adapter - both callbacks
     # (capabilities, name) exercised DIRECTLY with a null wl_seat*

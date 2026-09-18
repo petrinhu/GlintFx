@@ -2333,6 +2333,32 @@ jobs:
           $dbEntradas = Get-Content build-lint/compile_commands.json -Raw | ConvertFrom-Json
           $dbCaminhos = @($dbEntradas | ForEach-Object { ($_.file -replace '\\', '/').ToLowerInvariant() })
 
+          # WAYLAND-DOMINIO-NAO-WAYLAND-SO (GODS_LAWS.md L-04/L-17/L-36/
+          # L-40, 18/09/2026, pedido nro 10): a hipotese do coordenador
+          # para o vermelho 1 ("a regua de casamento ainda confunde
+          # sufixo/substring") foi MEDIDA e REFUTADA - os cinco nomes
+          # citados (drm_gpu_kind.cpp, egl_device_dedup.cpp, frame_
+          # callback_sequence.cpp, global_catalog.cpp, window_configure_
+          # sequence.cpp) so existem uma vez na arvore (`git ls-files`),
+          # entao nao ha par de nome repetido causando falso positivo
+          # por sufixo. A premissa que estava errada e outra: nem TODO
+          # `.cpp` de src/platform/wayland/ e Linux-only. tests/
+          # CMakeLists.txt (comentario acima de global_catalog_test e dos
+          # quatro alvos irmaos, "Wayland-DOMINIO, nao Wayland-SO")
+          # registra estes cinco SEM guarda if(UNIX) de proposito, porque
+          # nenhum dos cinco inclui cabecalho ou tipo Wayland - cada um
+          # tem alvo de teste PROPRIO que os recompila em todas as cinco
+          # plataformas, Windows incluido. Aparecerem no banco de
+          # compilacao Windows e o comportamento CORRETO e ESPERADO
+          # para estes cinco, nunca um sintoma de regua quebrada.
+          $waylandDominioNaoSo = @(
+            'src/platform/wayland/global_catalog.cpp',
+            'src/platform/wayland/window_configure_sequence.cpp',
+            'src/platform/wayland/frame_callback_sequence.cpp',
+            'src/platform/wayland/drm_gpu_kind.cpp',
+            'src/platform/wayland/egl_device_dedup.cpp'
+          )
+
           $noBanco = @()
           $foraDoBanco = @()
           foreach ($arquivo in $arquivos) {
@@ -2344,8 +2370,14 @@ jobs:
               # Razao mais comum e conhecida: arquivo Linux-only (o
               # ramo `if(UNIX)` de src/platform/CMakeLists.txt) nunca
               # aparece no compile_commands.json de um configure
-              # Windows - declarado por nome, nunca chutado.
-              if ($arquivo -match '^src/platform/wayland/') {
+              # Windows - declarado por nome, nunca chutado. Os cinco
+              # arquivos Wayland-dominio-nao-so sao a EXCECAO: se um
+              # deles cair aqui, nao e a razao comum, e falta real
+              # (o alvo de teste proprio dele sumiu ou parou de
+              # compila-lo) - nunca herda a razao dos outros 15.
+              if ($waylandDominioNaoSo -contains $arquivo) {
+                $razao = "Wayland-dominio-nao-so (tests/CMakeLists.txt) - deveria estar no banco Windows; falta REAL, investigar o alvo de teste dedicado"
+              } elseif ($arquivo -match '^src/platform/wayland/') {
                 $razao = "so compila em Linux (ramo if(UNIX) de src/platform/CMakeLists.txt)"
               } else {
                 $razao = "fora do banco de compilacao deste job (investigar antes de aceitar como permanente)"
@@ -2364,13 +2396,19 @@ jobs:
             exit 1
           }
 
-          # PISO NOVO (GODS_LAWS.md L-36/L-40, 18/09/2026, PR#10): nenhum
-          # arquivo de src/platform/wayland/ pode cair em "no banco" num
-          # configure Windows - e impossivel por desenho (ramo if(UNIX)
-          # de src/platform/CMakeLists.txt). Se acontecer de novo, a
-          # regua de casamento voltou a confundir caminho - reprova
-          # nomeando os arquivos, nunca em silencio.
-          $waylandNoBanco = @($noBanco | Where-Object { $_ -match '^src/platform/wayland/' })
+          # PISO NOVO, CORRIGIDO (GODS_LAWS.md L-36/L-40/L-44, 18/09/2026,
+          # pedido nro 10): a versao anterior deste piso tratava QUALQUER
+          # arquivo de src/platform/wayland/ no banco Windows como
+          # impossivel por desenho - falso para os cinco arquivos
+          # Wayland-dominio-nao-so declarados acima (todos com alvo de
+          # teste proprio, sem guarda if(UNIX), rodando nas cinco
+          # plataformas por desenho deliberado de 03/09/2026 e
+          # 06/09/2026). O piso agora exclui esses cinco por nome antes
+          # de reprovar - continua reprovando se qualquer um dos OUTROS
+          # quinze (os que de fato tocam Wayland/EGL/DRM e vivem so no
+          # ramo if(UNIX)) aparecer no banco, que e o sintoma real da
+          # regua de casamento confundindo caminho.
+          $waylandNoBanco = @($noBanco | Where-Object { $_ -match '^src/platform/wayland/' -and $waylandDominioNaoSo -notcontains $_ })
           if ($waylandNoBanco.Count -gt 0) {
             Write-Error "Arquivo(s) de src/platform/wayland/ caiu(ram) no banco de compilacao Windows - impossivel por desenho (GODS_LAWS.md L-36/L-40, a regua de casamento voltou a confundir caminho): $($waylandNoBanco -join ', ')"
             exit 1

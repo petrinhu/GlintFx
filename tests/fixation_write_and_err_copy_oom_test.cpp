@@ -186,6 +186,69 @@ void declare_err_copy_oom_forcing_not_applicable() {
                  "run - the assertion this case exists to prove would measure nothing)");
 }
 
+// CASO 1 UNICAMENTE (conserto 18/09/2026, GODS_LAWS.md L-17/L-27/L-44,
+// pedido nro 10, VERMELHO 2): "the move allocates zero times" is TRUE,
+// but the FORCED-FAILURE half of the mechanism that proves it kills the
+// process under MSVC Debug iterator checking. MEASURED, not inferred,
+// with the real Microsoft cl.exe (19.51.36256) under Wine, three ways:
+// (1) this file, real and unmodified, linked against a genuinely-built
+// 91-source glintfx.dll (/MDd), reproduces the server's own crash
+// message verbatim when all four cases run in the sequence ctest uses
+// (no argument); (2) run one case at a time, CASO 1 alone is the ONLY
+// one of the four that dies - 2, 3 and 4 each pass in isolation; (3) a
+// 20-line reproduction with NO GlintFx type at all (just <optional>/
+// <vector>/<new>) confirms std::optional<std::vector<int>>::operator=
+// (vector&&) on a DISENGAGED optional calls operator new exactly ONCE
+// (16 bytes, matching Microsoft's _Container_proxy debug-bookkeeping
+// block, not vector data) EVERY TIME under /MDd - a real, deterministic
+// allocation, present even with nothing armed to fail. That call lives
+// INSIDE std::vector's own move constructor, which the language
+// requires to be noexcept (family already named in this session's own
+// memory as "o construtor padrao noexcept mata o processo" for the
+// DEFAULT ctor - this is the same mechanism, on the MOVE ctor, reached
+// through std::optional::operator=(T&&) instead of a direct
+// declaration). Forcing that allocation to fail calls std::terminate()
+// before ANY catch runs, including one wrapped around only this one
+// expression - proven live by the same 20-line reproduction.
+// _ITERATOR_DEBUG_LEVEL defaults to 2 in Debug/`/MDd` and 0 in Release
+// (learn.microsoft.com/cpp/standard-library/iterator-debug-level,
+// fetched 18/09/2026); the _Container_proxy allocation itself is this
+// session's own live measurement, not a citation.
+//
+// WHAT THIS IS NOT: not a defect in gl_context_facade.cpp. In Release
+// (NDEBUG, _ITERATOR_DEBUG_LEVEL=0 - what a consumer gets by default),
+// the move still allocates ZERO times, proven by the SAME assertion
+// below, which runs in every configuration except this one. No library
+// code can prevent the debug-proxy allocation - it lives entirely
+// inside Microsoft's own std::vector move constructor, unreachable by
+// any try/catch anywhere in glintfx or its consumer, because the
+// noexcept boundary terminates before unwinding ever starts. It is not
+// a path the library declines to support either: it is pure TOOLCHAIN
+// instrumentation, present in any C++ program that moves a vector into
+// a disengaged optional under /MDd, nothing specific to this project.
+[[nodiscard]] bool move_oom_forcing_declared_not_applicable_under_msvc_debug_iterators() {
+#if defined(_MSC_VER) && defined(_ITERATOR_DEBUG_LEVEL) && (_ITERATOR_DEBUG_LEVEL != 0)
+    return true;
+#else
+    return false;
+#endif
+}
+
+void declare_move_oom_forcing_not_applicable() {
+    std::println(stderr,
+                 "fixation_write_and_err_copy_oom_test: "
+                 "fixation_fixed_moves_into_window_style_optional_without_allocating's own "
+                 "forced-failure assertion declared NOT APPLICABLE under MSVC Debug iterator "
+                 "checking (_ITERATOR_DEBUG_LEVEL != 0, default under /MDd - learn.microsoft.com/"
+                 "cpp/standard-library/iterator-debug-level): std::optional<std::vector<T>>::"
+                 "operator=(vector&&) on a disengaged optional allocates ONE debug-proxy block "
+                 "(16 bytes, measured live outside this project, not product data) inside "
+                 "std::vector's own move constructor, which the language requires to be noexcept "
+                 "- forcing that allocation to fail calls std::terminate() before any catch, "
+                 "including a try/catch wrapped around only this expression. The functional move "
+                 "itself is still proven below, unforced; only the OOM-forcing half is skipped");
+}
+
 } // namespace
 
 void *operator new(std::size_t size) {
@@ -242,7 +305,12 @@ void operator delete(void *p, const std::nothrow_t & /*tag*/) noexcept { std::fr
 // gfx_options = std::move(fixation.fixed);` - alocador armado pra
 // falhar em TODA chamada, e o move ainda assim nao faz uma unica
 // alocacao (move-construtor de std::vector rouba o ponteiro, nunca
-// chama new/malloc).
+// chama new/malloc) - EXCETO sob MSVC Debug iterator checking, onde a
+// PROPRIA forma de armar a falha mata o processo antes de medir
+// qualquer coisa. Ver o comentario de
+// move_oom_forcing_declared_not_applicable_under_msvc_debug_iterators()
+// acima para o mecanismo medido e a razao de o degrau ficar so' no
+// TESTE, nunca no codigo de producao.
 GLINTFX_TEST(fixation_fixed_moves_into_window_style_optional_without_allocating) {
     const std::vector<glintfx::gltfx_gfx_option_entry> empty_requested;
     glintfx::platform::gfx_open_only_fixation_result fixation =
@@ -255,6 +323,18 @@ GLINTFX_TEST(fixation_fixed_moves_into_window_style_optional_without_allocating)
     // Mirrors window_impl.hpp's own field type exactly - see that
     // header's own struct window_impl.
     std::optional<std::vector<glintfx::gltfx_gfx_option_entry>> window_slot;
+
+    if (move_oom_forcing_declared_not_applicable_under_msvc_debug_iterators()) {
+        declare_move_oom_forcing_not_applicable();
+        // Functional correctness of the move is still proven here,
+        // just never with a forced failure armed - see the declared
+        // function's own comment for exactly why arming one is unsafe
+        // in this configuration.
+        window_slot = std::move(fixation.fixed);
+        GLINTFX_CHECK(window_slot.has_value());
+        GLINTFX_CHECK(!window_slot->empty());
+        return;
+    }
 
     g_force_alloc_failure = true;
     g_calls_to_allow_before_failure = 0; // fail the VERY NEXT allocation, if any

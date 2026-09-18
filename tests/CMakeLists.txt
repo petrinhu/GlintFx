@@ -19,6 +19,12 @@ glintfx_add_test(version_test)
 glintfx_add_test(err_code_test)
 glintfx_add_test(err_no_alloc_test)
 glintfx_add_test(err_context_test)
+
+# ERR-COPY-RED, T1 (TODO.md, ESCOPO.md Decisao 17, GODS_LAWS.md
+# L-20/L-35): vermelho de COMPILACAO - o static_assert do proprio
+# arquivo reprova o build, nao uma asserção em runtime. Ver o header
+# comment do arquivo para a razao exata.
+glintfx_add_test(err_copy_is_nothrow_static_assert_test)
 glintfx_add_test(rslt_test)
 glintfx_add_test(err_format_test)
 
@@ -1006,6 +1012,24 @@ target_sources(utf8_validation_test PRIVATE
 glintfx_add_test(window_desc_validation_test)
 target_include_directories(window_desc_validation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(window_desc_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+)
+
+# ERR-COPY-RED, T3 (TODO.md, ESCOPO.md Decisao 17, GODS_LAWS.md
+# L-09/L-20/L-35): recompila window_desc_validation.cpp (sem
+# GLINTFX_API, mesma tecnica de window_desc_validation_test acima) na
+# MESMA TU do override de operator new deste teste, pra que o alocador
+# armado alcance o sitio real - so' a copia de gltfx_err
+# (GLINTFX_API, definida em err.cpp, dentro de glintfx::glintfx)
+# cruza o boundary da biblioteca, e a interposicao de simbolo do
+# Linux/ELF a alcanca do mesmo jeito que tests/err_context_test.cpp e
+# tests/fixation_write_and_err_copy_oom_test.cpp ja' usam.
+glintfx_add_test(err_copy_terminates_window_validation_test)
+target_include_directories(err_copy_terminates_window_validation_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+)
+target_sources(err_copy_terminates_window_validation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
 )

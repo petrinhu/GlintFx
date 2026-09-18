@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <new>
 #include <print>
+#include <string_view>
 #include <utility>
 
 #include <glintfx/core/err.hpp>
@@ -43,8 +45,26 @@
 
 namespace {
 
-std::size_t g_alloc_count = 0;
-std::size_t g_dealloc_count = 0;
+// ATOMIC, NAO std::size_t PLANO (achado ERR-COPY-RED, GODS_LAWS.md
+// L-40/L-43, mesmo mecanismo ja documentado em fixation_write_and_err_
+// copy_oom_test.cpp): com contadores planos e -O2, o GCC reordena a
+// leitura "antes"/"depois" em torno da chamada real a operator new
+// (reconhece a ASSINATURA como a `new` builtin e aplica suas proprias
+// suposicoes de efeito colateral, mesmo com o simbolo substituido) - a
+// chamada acontece de verdade, mas o delta lido pelo teste pode dar
+// ZERO mesmo assim. Isto nunca mordeu os casos JA' existentes neste
+// arquivo porque a verdade de campo deles TAMBEM e' zero (um
+// gltfx_err sem contexto genuinamente nao aloca) - um falso-zero e um
+// zero verdadeiro sao indistinguiveis ali. O caso novo abaixo
+// (context_bearing_error_copy_allocates_zero_times) tem verdade de
+// campo DIFERENTE DE ZERO hoje (a copia com contexto aloca sempre,
+// ESCOPO.md Decisao 17) - um falso-zero aqui daria um VERDE FALSO
+// exatamente onde a fatia F2 precisa do vermelho verdadeiro. std::atomic
+// e' a barreira de otimizacao que fecha esse buraco, comprovada nesta
+// mesma sessao (script isolado, delta correto com atomic mesmo sem
+// -fno-builtin).
+std::atomic<std::size_t> g_alloc_count{0};
+std::atomic<std::size_t> g_dealloc_count{0};
 
 void reset_counts() {
     g_alloc_count = 0;
@@ -54,7 +74,7 @@ void reset_counts() {
 } // namespace
 
 void *operator new(std::size_t size) {
-    ++g_alloc_count;
+    g_alloc_count.fetch_add(1, std::memory_order_relaxed);
     if (void *p = std::malloc(size); p != nullptr) {
         return p;
     }
@@ -64,7 +84,7 @@ void *operator new(std::size_t size) {
 void *operator new[](std::size_t size) { return ::operator new(size); }
 
 void operator delete(void *p) noexcept {
-    ++g_dealloc_count;
+    g_dealloc_count.fetch_add(1, std::memory_order_relaxed);
     std::free(p);
 }
 
@@ -132,4 +152,56 @@ GLINTFX_TEST(context_less_error_lifecycle_never_allocates) {
 
     GLINTFX_CHECK(final_alloc_count == 0);
     GLINTFX_CHECK(final_dealloc_count == 0);
+}
+
+// context_bearing_error_copy_allocates_zero_times - T2 da onda
+// W-ERRCOPY (TODO.md ERR-COPY-RED, ESCOPO.md Decisao 17,
+// GODS_LAWS.md L-20/L-35): o caso ACIMA so' prova que um gltfx_err
+// SEM contexto nunca aloca - o proprio nome dele diz "of a
+// context-less gltfx_err". Nenhum caso deste arquivo, ate' esta
+// fatia, contou uma copia de um erro QUE CARREGA contexto. A Decisao
+// 17 fixa que essa copia tambem deve ficar livre de alocacao
+// (contagem de referencia intrusiva + copia-na-escrita); hoje ela
+// aloca SEMPRE que ha' contexto (src/core/err.cpp:33-37, `new
+// err_context(*other.m_context)`), entao este caso e' vermelho por
+// construcao, nao por acidente.
+//
+// ISOLAMENTO DA MEDICAO: attach (with_rejected_value) aloca de
+// verdade (a criacao do err_context em si) - isso e' esperado e NAO
+// e' o que este caso mede. reset_counts() roda DEPOIS do attach,
+// ANTES da copia, para que o unico delta contado seja o da copia em
+// si, o unico ponto que a Decisao 17 promete consertar.
+GLINTFX_TEST(context_bearing_error_copy_allocates_zero_times) {
+    glintfx::gltfx_err original(glintfx::gltfx_err_code::not_found);
+    // "adapter" cabe folgado no buffer de small-string-optimization de
+    // libstdc++/MSVC (tipicamente 15-22 bytes) - a unica alocacao real
+    // do attach e' a do proprio err_context, nao uma segunda para o
+    // conteudo da string.
+    original.with_rejected_value("adapter");
+
+    reset_counts(); // a partir daqui, so' a copia abaixo e' medida
+
+    const glintfx::gltfx_err copy(original);
+
+    // Mesma disciplina SNAPSHOT-IMEDIATAMENTE do caso acima: congela os
+    // dois contadores antes de qualquer outra coisa (inclusive
+    // std::println) ter chance de rodar.
+    const std::size_t final_alloc_count = g_alloc_count;
+    const std::size_t final_dealloc_count = g_dealloc_count;
+
+    // L-40: contagem impressa mesmo quando (ainda) nao e' zero - o
+    // ponto desta fatia e' justamente que ela NAO e' zero hoje.
+    std::println("err_no_alloc_test: {} allocation(s), {} deallocation(s) copying a gltfx_err "
+                 "WITH an attached context (ESCOPO.md Decisao 17: deveria ser zero e zero)",
+                 final_alloc_count, final_dealloc_count);
+
+    // Sanidade: a copia e' de verdade uma copia funcional, nao um erro
+    // vazio - se este check falhar, o vermelho seria pelo motivo
+    // errado (a copia nao aconteceu como esperado), nao pelo defeito
+    // de alocacao que este caso existe para provar.
+    GLINTFX_CHECK(copy.rejected_value() == std::string_view{"adapter"});
+
+    // O CHECK QUE HOJE REPROVA (ESCOPO.md Decisao 17): a copia com
+    // contexto anexado aloca >=1 vez hoje; deve virar 0 na fatia F4.
+    GLINTFX_CHECK(final_alloc_count == 0);
 }

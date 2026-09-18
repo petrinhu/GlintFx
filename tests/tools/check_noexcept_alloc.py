@@ -63,16 +63,37 @@
 # falando sozinho" e o defeito nomeado que isto evita): concatenacao de
 # string com `+`/`+=` fora do padrao reconhecido; `std::optional<contentor>
 # ::emplace`; construcao de `std::variant` fora da forma
-# `::ok(std::move(...))`; copia de struct com vetor por `= other`;
-# sobrecargas de mesmo NOME colapsadas na propagacao transitiva (o
-# fecho e por nome, nao por assinatura); corpo de lambda anonima cuja
-# alocacao mora fora do texto analisado por esta chamada; e, so para a
-# familia A automatica, apenas construcao DIRETA de
-# `std::vector`/`std::string` e contada - um tipo do PROJETO que carrega
-# um `std::vector`/`std::string` por MEMBRO (COMPOSICAO, nao construcao
-# direta) nao e rastreado sitio a sitio por este motor automatico; a
-# baseline da familia A cobre so os sitios que o motor efetivamente
-# enxerga.
+# `::ok(std::move(...))`; sobrecargas de mesmo NOME colapsadas na
+# propagacao transitiva (o fecho e por nome, nao por assinatura); corpo
+# de lambda anonima cuja alocacao mora fora do texto analisado por esta
+# chamada.
+#
+# COPIA DE CONTENTOR POR ATRIBUICAO (`destino = origem;`) E INVISIVEL
+# INTEIRA, NAS DUAS FAMILIAS - NAO SO NA FAMILIA A (achado do time-lead,
+# 18/09/2026, medido contra `src/platform/gl/gl_context_facade.cpp:329`
+# ANTES do conserto do commit `7a34bb2`): nem a copia de uma struct
+# inteira que carrega vetor (`dest = other;`), nem a ATRIBUICAO direta
+# de um `std::vector` comum para dentro de um MEMBRO ja existente -
+# inclusive para dentro de um `std::optional<std::vector<...>>`
+# (`holder->campo = valor;`) - produz qualquer token
+# `std::vector`/`std::optional` no texto da propria atribuicao, entao
+# `container_hits()` nunca casa ali. Plantado de volta e rodado contra a
+# arvore real: `familia_B_achados=0`, veredito APROVADO, com o defeito
+# no lugar. **ESTE CASO E FAMILIA B: MATA O PROCESSO DO CONSUMIDOR EM
+# QUALQUER UM DOS CINCO SISTEMAS, EM RELEASE - NAO SO no modo de
+# depuracao da Microsoft que o proximo paragrafo descreve.** Fixture
+# que documenta esta lacuna especifica (nao consertada, so registrada):
+# `tests/tools/fixtures/noexcept_alloc/gap_optional_vector_assignment.cpp`,
+# ligada a `--selftest` como marcador de lacuna, nunca como controle de
+# acerto.
+#
+# SO PARA A FAMILIA A AUTOMATICA (a que DEPENDE do modo de depuracao de
+# iterador da Microsoft, `_ITERATOR_DEBUG_LEVEL != 0`): apenas
+# construcao DIRETA de `std::vector`/`std::string` e contada - um tipo
+# do PROJETO que carrega um `std::vector`/`std::string` por MEMBRO
+# (COMPOSICAO, nao construcao direta) nao e rastreado sitio a sitio por
+# este motor automatico; a baseline da familia A cobre so os sitios que
+# o motor efetivamente enxerga.
 #
 # ESTA LACUNA FOI POSTA DIANTE DO LIDER E ACEITA POR ELE, NAO E
 # OMISSAO HERDADA (decisao dele, 18/09/2026, por `AskUserQuestion`,
@@ -88,7 +109,11 @@
 # falso positivo nao medido) - ele congelou os 60 e aceitou por
 # escrito que os ~80 sitios restantes podem crescer SEM QUE PORTAO
 # NENHUM PERCEBA; so leitura humana os pegaria. Ver ESCOPO.md, Decisao
-# 13, para o texto completo da decisao.
+# 13, para o texto completo da decisao. **A COPIA POR ATRIBUICAO,
+# acima, e uma lacuna DIFERENTE e MAIS AMPLA que esta - cobre familia B
+# tambem, mata em qualquer sistema, e ainda nao tem numero de sitios
+# medido; corrigido o que o portao DECLARA nesta fatia, o motor em si
+# continua sem alargar, por decisao do lider, fatia propria futura.**
 #
 # USO:
 #   check_noexcept_alloc.py <raiz-do-repo> [--json <arquivo>]
@@ -883,8 +908,16 @@ def validate_item_deaths(items_by_key, todo_status, todo_text, label):
 BLIND_SPOTS_TEXT = (
     "o que esta regua NAO ve (declarado, nunca implicito): concatenacao com + / +=,\n"
     "  std::optional<contentor>::emplace, construcao de std::variant fora da forma\n"
-    "  ::ok(std::move(...)), copia de struct com vetor por = other, sobrecargas\n"
-    "  colapsadas por nome, lambda anonima cujo corpo aloca fora do texto\n"
+    "  ::ok(std::move(...)), sobrecargas colapsadas por nome, lambda anonima cujo\n"
+    "  corpo aloca fora do texto\n"
+    "COPIA DE CONTENTOR POR ATRIBUICAO (destino = origem;) e INVISIVEL INTEIRA, nas\n"
+    "  DUAS familias, NAO SO na A: struct inteira com vetor por dest = other, ou\n"
+    "  atribuicao direta pra dentro de um MEMBRO ja existente (inclusive pra dentro\n"
+    "  de std::optional<std::vector<...>>) - medido contra gl_context_facade.cpp:329\n"
+    "  (consertado em 7a34bb2): plantado de volta, o motor devolveu\n"
+    "  familia_B_achados=0 - ESTE CASO MATA EM QUALQUER UM DOS CINCO SISTEMAS, em\n"
+    "  Release, nao so no modo de depuracao da Microsoft; marcado por fixture em\n"
+    "  fixtures/noexcept_alloc/gap_optional_vector_assignment.cpp (--selftest)\n"
     "familia_A_linha_de_base cobre SO construcao DIRETA de vector/string - tipo do\n"
     "  projeto que carrega vector/string por MEMBRO (composicao) fica de fora, cerca\n"
     "  de 80 sitios adicionais medidos a mao (RELATORIO.md), que podem crescer SEM\n"
@@ -1479,6 +1512,49 @@ def selftest_family_b_duplicate_site_merges_into_one_line():
     return True
 
 
+def selftest_known_gap_optional_vector_assignment_currently_absolved():
+    """MARCADOR DE LACUNA, NAO CONTROLE DE ACERTO (GODS_LAWS.md L-43,
+    ESCOPO.md Decisao 13; achado do time-lead em 18/09/2026 contra
+    src/platform/gl/gl_context_facade.cpp:329, consertado no codigo
+    real pelo commit 7a34bb2). Este controle prova que o motor ATUAL
+    ainda ABSOLVE uma copia de std::vector por ATRIBUICAO para dentro
+    de um std::optional<std::vector<...>> ja existente, dentro de
+    funcao noexcept - a MESMA forma que matava o processo do
+    consumidor em QUALQUER sistema (familia B, nao familia A: nao
+    depende do modo de depuracao da Microsoft). O veredito esperado
+    AQUI E ABSOLVIDA - e o proprio ponto do controle, nao um bug dele.
+
+    SE ISTO COMECAR A FALHAR: nao conserte o controle nem a fixture.
+    E SINAL DE ACERTO - o motor foi alargado para rastrear atribuicao
+    de contentor (fatia futura, fora do escopo desta). Nesse dia, mova
+    tests/tools/fixtures/noexcept_alloc/gap_optional_vector_assignment.cpp
+    para DIRTY_FIXTURES e apague este controle-marcador (GODS_LAWS.md
+    L-67: o que se revoga se apaga, nunca se arquiva)."""
+    name = "gap_optional_vector_assignment.cpp"
+    path = _fixture_path(name)
+    if not path.exists():
+        print(f"selftest: fixture de lacuna ausente: {path}", file=sys.stderr)
+        return False
+    text = path.read_text(encoding="utf-8")
+    tree = analyze_tree([(name, text)])
+    found = _tree_has_any_finding(tree)
+    if found:
+        print(
+            f"selftest: LACUNA-ATRIBUICAO-OPTIONAL: o motor passou a acusar "
+            f"(linha(s) {sorted(found)}) - isto E SINAL DE ACERTO (a lacuna foi "
+            "fechada), NAO uma regressao a consertar: mova a fixture para "
+            "DIRTY_FIXTURES e apague este controle-marcador",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: LACUNA-ATRIBUICAO-OPTIONAL OK (marcador de lacuna: o motor ATUAL "
+        "ainda absolve atribuicao de vector para dentro de optional<vector>, "
+        "ESCOPO.md Decisao 13 - gl_context_facade.cpp:329, consertado em 7a34bb2)"
+    )
+    return True
+
+
 def selftest_main():
     controls = [
         selftest_dirty_fixtures_are_accused(),
@@ -1492,6 +1568,7 @@ def selftest_main():
         selftest_family_b_exception_accepted(),
         selftest_family_b_exception_with_concluded_item_reproves(),
         selftest_family_b_duplicate_site_merges_into_one_line(),
+        selftest_known_gap_optional_vector_assignment_currently_absolved(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

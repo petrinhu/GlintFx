@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "platform/wayland/egl_context_adapter.hpp"
 
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <new>
@@ -8,6 +9,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "platform/nul_terminated_name.hpp"
 
 // WL_EGL_PLATFORM before <EGL/egl.h> (tests/container/egl_probe_
 // smoke.cpp's own header comment, this fatia's own briefing "leia-a
@@ -843,19 +846,38 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
 
 void *wayland_egl_context_adapter::proc_address(std::string_view name) const noexcept {
     // eglGetProcAddress() needs a NUL-terminated name; `name` is a
-    // string_view that may not own one - a short-lived std::string
-    // pays for that terminator once per lookup, never per frame (a
-    // consumer resolves a GL entry point once and caches the address
-    // itself, the same convention SDL/GLFW already document for their
-    // own equivalents).
-    const std::string owned(name);
+    // string_view that may not own one. NOEXCEPT-ALLOC-B8 fatia F1
+    // (/var/tmp/glintfx-plan/plano-conserto-noexcept.md, GODS_LAWS.md
+    // L-04/L-20/L-22): a short-lived `const std::string owned(name)`
+    // used to pay for that terminator here - an allocating, throw-
+    // capable constructor inside a function that promises `noexcept`
+    // (docs/api-conventions.md R3). tests/gl_proc_address_oom_test.cpp
+    // proved that exact defect, by execution, against this SAME site
+    // (std::terminate() under a forced allocation failure) before this
+    // fix - the Windows gemeo of this same defect was already fixed in
+    // babbd77 (src/platform/win32/wgl_proc_address.cpp), and this atom
+    // is what now guarantees the two sides cannot silently diverge
+    // again: both call the SAME copy_nul_terminated() template, over
+    // the SAME k_max_proc_name_chars teto, so a change to one without
+    // the other shows up as a straightforward, single-definition
+    // change instead of two files a reader has to compare by hand
+    // (the same reasoning src/platform/gl/gpu_kind_seam.hpp's own
+    // header comment already gives itself for the identical shape).
+    // A name too long to fit is treated as an ordinary lookup miss
+    // (the same shape any other unresolvable name already gets), never
+    // truncated - platform::nul_terminated_name.hpp's own header
+    // comment has the full contract.
+    std::array<char, k_max_proc_name_chars> name_buffer{};
+    if (!copy_nul_terminated(name_buffer, name)) {
+        return nullptr;
+    }
     using egl_proc_fn = void (*)();
     // Function-pointer-to-object-pointer conversion: the SAME
     // universally-supported (if not strictly standard-blessed)
     // technique every GL loader (dlsym, GLAD, GLEW) already relies on -
     // this project's own public proc_address() contract (context.hpp)
     // exists to hand a consumer exactly this kind of address.
-    egl_proc_fn function = eglGetProcAddress(owned.c_str());
+    egl_proc_fn function = eglGetProcAddress(name_buffer.data());
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast) reason: the universal
     // dlsym-style function-to-object-pointer cast every GL loader already relies on.
     return reinterpret_cast<void *>(function);

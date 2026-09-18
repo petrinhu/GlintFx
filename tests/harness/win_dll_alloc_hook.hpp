@@ -71,7 +71,11 @@
 // success.
 //
 // CONFINED TO TEST, NEVER TOUCHES PRODUCT CODE: this header is
-// #include-d ONLY from a test .cpp (tests/err_context_test.cpp).
+// #include-d ONLY from test .cpp files - tests/err_context_test.cpp
+// (original use, 25/08/2026) and tests/fixation_write_and_err_copy_
+// oom_test.cpp (second use, its CASO 3, added when the SAME class of
+// site - gltfx_err's copy ctor, GLINTFX_API, defined in err.cpp - hit
+// the SAME Windows/SHARED module boundary in a different call site).
 // Nothing in include/ or src/ references it, changes because of it,
 // or needs to know it exists - not the tail wagging the dog. It also
 // does nothing outside WIN32+SHARED: on Linux the whole file is not

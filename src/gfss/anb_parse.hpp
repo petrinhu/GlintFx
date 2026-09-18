@@ -47,31 +47,51 @@
 //
 // LAYERED ON TOP OF GFSS-TOKEN'S OWN TOKEN STREAM, THE SAME
 // RELATIONSHIP EVERY OTHER PARSER IN THIS TRACK ALREADY HAS
-// (color_parse.cpp/selector_parse.cpp's own header comments):
-// parse_anb() below re-tokenizes `text` with gltfx_gfss_tokenize()
-// rather than scanning bytes itself - the An+B grammar's own
-// token-level shapes (a <dimension-token> whose unit is "n" or
-// "n-<digits>", a bare <ident-token> "n"/"-n"/"n-<digits>"/
-// "-n-<digits>", a signed or signless <number-token>) are exactly the
-// CSS Syntax token classes GFSS-TOKEN already produces - there is no
-// reason for a second, hand-rolled character scanner to exist
-// alongside it.
+// (color_parse.cpp/selector_parse.cpp's own header comments) - BUT,
+// SINCE NOEXCEPT-ALLOC-B8 FATIA F4 (/var/tmp/glintfx-plan/plano-
+// conserto-noexcept.md sec. "F4", ESCOPO.md Decisao 11, 17/09/2026),
+// NOT THROUGH tokenizer.hpp's OWN gltfx_gfss_tokenize(): that
+// convenience wrapper grows a std::vector one push_back() at a time,
+// which allocates - anb_parse.cpp's own token stream is instead a
+// fixed-capacity buffer, fed one token at a time by tokenizer.hpp's
+// own gltfx_gfss_next_token() (the EXPORTED, non-allocating
+// primitive), sized to this grammar's own measured worst case (that
+// file's own top-of-namespace comment on k_max_anb_tokens). The An+B
+// grammar's own token-level shapes (a <dimension-token> whose unit is
+// "n" or "n-<digits>", a bare <ident-token> "n"/"-n"/"n-<digits>"/
+// "-n-<digits>", a signed or signless <number-token>) are still
+// exactly the CSS Syntax token classes GFSS-TOKEN already produces -
+// there is still no reason for a second, hand-rolled character
+// scanner to exist alongside it; only WHICH of tokenizer.hpp's own two
+// entry points supplies them changed.
 //
 // DIAGNOSTIC-SHAPED RESULT, SAME UNRESOLVED TENSION selector_parse.hpp
 // AND color_parse.hpp ALREADY NAME (GODS_LAWS.md L-27, marked
 // INFERENCE): anb_parse_result below follows the SAME line/column/
 // "what was expected" shape as selector_parse_result - a malformed
 // An+B argument is a DIAGNOSABLE SYNTAX defect, not the OS/runtime
-// failure category gltfx_err's own CE-3 fields are shaped around.
+// failure category gltfx_err's own CE-3 fields are shaped around. An
+// argument that needed MORE tokens than this parser's own fixed
+// buffer holds is diagnosed the SAME way (k_expected_anb_expression_
+// too_long, diagnostic_vocabulary.hpp) - a refusal, never silent
+// truncation.
 //
-// noexcept, UNLIKE parse_selector_list() (selector_parse.hpp) - a
-// DIFFERENT shape than that function's own return value explains why:
-// gfss_anb (anb.hpp) is two plain long long fields, no std::vector
-// anywhere in the type this function returns or in any local it builds
-// along the way (unlike gfss_selector_list, which is std::vector all
-// the way down) - so nothing on this call's own path can ever throw
-// std::bad_alloc, the SAME reasoning color_parse.hpp's own
-// parse_color() already gives for its own noexcept.
+// noexcept, AND - SINCE FATIA F4 - HONESTLY SO (GODS_LAWS.md L-44:
+// this paragraph used to claim more than the code before it actually
+// delivered, and is corrected here rather than left to rot): gfss_anb
+// (anb.hpp) is two plain long long fields, no std::vector anywhere in
+// the type this function RETURNS - but before this fatia, the LOCAL
+// token stream this function built ALONG THE WAY (gltfx_gfss_
+// tokenize()'s own std::vector<gltfx_gfss_token>) very much could
+// throw std::bad_alloc, from inside a function declared noexcept -
+// exactly the defect NOEXCEPT-ALLOC-B8's own varredura found here
+// (ESCOPO.md, point B5) and this fatia removed. What is true NOW,
+// having actually been checked rather than assumed the way this
+// paragraph originally was: nothing on this call's own path allocates
+// at all any more (anb_parse.cpp's own k_max_anb_tokens buffer is a
+// fixed std::array), so nothing on it can throw - the SAME reasoning
+// color_parse.hpp's own parse_color() already gives for its own
+// noexcept, now actually true of this function too.
 
 namespace glintfx::style::detail {
 

@@ -449,3 +449,36 @@ container_exec_fixture_selftest|windows|nenhum|SEM-PENDENCIA
 # add_test tambem condicionado a if(UNIX). MORTE DESTA LINHA: nunca -
 # mesma assimetria permanente por desenho, sem item para rastrear.
 container_alloc_report_selftest|windows|nenhum|SEM-PENDENCIA
+
+# drm_device_facts_oom_test (tests/drm_device_facts_oom_test.cpp,
+# tests/CMakeLists.txt dentro de if(UNIX), NOEXCEPT-ALLOC-B8 fatia F2,
+# /var/tmp/glintfx-plan/plano-conserto-noexcept.md sec. "F2") prova que
+# read_drm_device_facts() (src/platform/wayland/drm_device_facts.cpp),
+# sob falta de memoria forcada, nao mata o processo do consumidor ao
+# abrir um NO DE DISPOSITIVO DRM identificado por CAMINHO DE ARQUIVO
+# (open(2) sobre algo como /dev/dri/renderD128) - o mecanismo que a
+# varredura de 17/09/2026 achou desprotegido (GL-GPU-KIND).
+#
+# O Windows NAO TEM, e nunca vai ter, esse mecanismo: a enumeracao de
+# placa de video do lado Win32 (src/platform/win32/dxcore_adapter_
+# enumeration.cpp) e' inteiramente LUID/COM via IDXCoreAdapter - medido
+# por leitura do arquivo inteiro, a unica ocorrencia da palavra "path"
+# ali e' um comentario sobre caminho de EXECUCAO de codigo, nunca um
+# caminho de SISTEMA DE ARQUIVOS. Nao existe, no lado Windows, nenhuma
+# chamada que abra um dispositivo grafico por uma string de caminho -
+# a API inteira de descoberta de adaptador e' outra, por construcao do
+# proprio DXCore (mesma distincao que wl_proto_link_test/display_bind_
+# refusal_test, acima neste arquivo, ja registram para o mecanismo de
+# globais do protocolo Wayland: "porta que L-05 fecha por desenho").
+# read_driver_description() (dxcore_adapter_enumeration.cpp:108), o
+# unico ponto daquele arquivo que copia string dentro de funcao
+# noexcept, ja e' guardado por try/catch (comentario no proprio
+# arquivo cita a mesma disciplina) - nao e' um ponto da familia B, e
+# nao tem relacao com esta linha.
+#
+# MORTE DESTA LINHA: nunca - abrir um no de dispositivo por caminho de
+# arquivo e' conceito do kernel Linux (DRM/UAPI), permanente por
+# desenho, nao lacuna temporaria esperando mecanismo Windows novo. Sem
+# item para rastrear, mesmo padrao SEM-PENDENCIA das demais linhas
+# desta secao do arquivo.
+drm_device_facts_oom_test|windows|nenhum|SEM-PENDENCIA

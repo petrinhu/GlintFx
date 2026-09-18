@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "platform/wayland/drm_device_facts.hpp"
 
+#include <array>
+#include <climits>
 #include <cstddef>
 #include <new>
 #include <vector>
@@ -19,6 +21,25 @@
 #include <drm/i915_drm.h>
 #include <drm/nouveau_drm.h>
 #include <drm/xe_drm.h>
+
+#include "platform/nul_terminated_name.hpp"
+
+// NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
+// noexcept.md sec. "F2", D-2, GODS_LAWS.md L-04/L-20/L-22): read_drm_
+// device_facts() below used to build `const std::string node(node_
+// path)` inside a `noexcept` function - an allocating, throw-capable
+// constructor inside a boundary that promises `noexcept`, the SAME
+// shape F1 already fixed on the OTHER site that copies a bounded,
+// well-known string into a stack buffer before handing it to a C API
+// (wayland_egl_context_adapter::proc_address(), egl_context_adapter.
+// cpp). PATH_MAX (D-2 of the plan: the cap the system's own open()
+// call already imposes, not a number invented for this fatia) is the
+// cap glintfx::platform::copy_nul_terminated() (platform/nul_
+// terminated_name.hpp, F1's own atom) is instantiated with here - the
+// SAME template F1 already uses for k_max_proc_name_chars, just a
+// different N, so a change to the atom's own contract (never
+// truncating, always refusing past the boundary) changes both sites
+// at once, by construction.
 
 // drm_device_facts.cpp - GL-GPU-KIND (docs/plano-w6b-fatias-5.md sec.
 // 4.1, D-W6b-30; docs/plano-w6b-fatias-5b-revisao.md sec. 1.1/3,
@@ -55,14 +76,14 @@ namespace {
         return true;
     }
 
-    // GODS_LAWS.md L-22: a construcao de std::vector<char>/std::string::
-    // assign() abaixo podem lancar std::bad_alloc dentro de uma funcao
-    // noexcept - a mesma guarda que gfx_open_only_fixation.cpp's own
-    // resolve_gfx_open_only_fixation() ja aplica. Degrada para `false`,
-    // o MESMO desfecho honesto que este atomo ja usa para "o ioctl
-    // falhou" alguns linhas acima - o chamador (read_drm_device_facts())
-    // ja trata `false` como "query_ok=false" e segue sem essa
-    // classificacao, nunca lendo `out`.
+    // GODS_LAWS.md L-22: constructing the std::vector<char>/std::string::
+    // assign() below can throw std::bad_alloc inside a noexcept function -
+    // the SAME guard gfx_open_only_fixation.cpp's own resolve_gfx_
+    // open_only_fixation() already applies. Degrades to `false`, the
+    // SAME honest outcome this atom already uses for "the ioctl failed"
+    // a few lines above - the caller (read_drm_device_facts()) already
+    // treats `false` as "query_ok=false" and moves on without this
+    // classification, never reading `out`.
     try {
         std::vector<char> buffer(static_cast<std::size_t>(probe_size.name_len));
         drm_version fetch{};
@@ -105,12 +126,12 @@ void query_i915_local_memory(int fd, bool &has_local_out) noexcept {
         return;
     }
 
-    // GODS_LAWS.md L-22: a construcao de std::vector<std::byte> abaixo
-    // pode lancar std::bad_alloc dentro de uma funcao noexcept - a
-    // mesma guarda que read_driver_name() ja aplica, no mesmo arquivo.
-    // Degrada para o MESMO retorno antecipado que este atomo ja usa
-    // quando o ioctl falha - `has_local_out` mantem o default que o
-    // chamador ja forneceu.
+    // GODS_LAWS.md L-22: constructing the std::vector<std::byte> below
+    // can throw std::bad_alloc inside a noexcept function - the SAME
+    // guard read_driver_name() already applies, in this same file.
+    // Degrades to the SAME early return this atom already uses when
+    // the ioctl fails - `has_local_out` keeps the default the caller
+    // already supplied.
     try {
         std::vector<std::byte> buffer(static_cast<std::size_t>(item.length));
         item.data_ptr = reinterpret_cast<__u64>(buffer.data());
@@ -140,9 +161,9 @@ void query_xe_local_memory(int fd, bool &has_local_out) noexcept {
         return;
     }
 
-    // GODS_LAWS.md L-22: mesma guarda de query_i915_local_memory()
-    // acima, para a mesma classe de alocacao (std::vector<std::byte>
-    // dentro de uma funcao noexcept).
+    // GODS_LAWS.md L-22: same guard as query_i915_local_memory() above,
+    // for the same class of allocation (std::vector<std::byte> inside
+    // a noexcept function).
     try {
         std::vector<std::byte> buffer(query.size);
         query.data = reinterpret_cast<__u64>(buffer.data());
@@ -177,8 +198,19 @@ void query_nouveau_bus_type(int fd, int &bus_type_out) noexcept {
 drm_device_facts read_drm_device_facts(std::string_view node_path) noexcept {
     drm_device_facts facts;
 
-    const std::string node(node_path);
-    const int fd = open(node.c_str(), O_RDWR | O_CLOEXEC);
+    // A path longer than PATH_MAX (counting the terminator, the SAME
+    // contract copy_nul_terminated() already has) is a REFUSAL, never
+    // a silent truncation (docs/api-conventions.md R3, "internal
+    // failure degrades, it never throws across it or aborts" - a
+    // truncated path would open a DIFFERENT node than the one asked
+    // for, which is worse than refusing). Refusing here is the SAME
+    // honest outcome this function already uses just below for "open()
+    // failed" - no new state, no new error channel.
+    std::array<char, PATH_MAX> node_buffer{};
+    if (!glintfx::platform::copy_nul_terminated(node_buffer, node_path)) {
+        return facts; // opened=false: path >= PATH_MAX, refused without allocating
+    }
+    const int fd = open(node_buffer.data(), O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         return facts; // opened=false
     }

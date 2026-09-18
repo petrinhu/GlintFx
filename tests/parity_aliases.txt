@@ -321,3 +321,14 @@ egl_device_reader_probe|dxcore_reader_probe_test
 # no Win32. Par verificado contra os dois lados existindo HOJE, nunca
 # suposto.
 wait_events_smoke|win32_wait_events_test
+
+# NOEXCEPT-ALLOC-B8 fatia F1 (achado do servidor real, PARITY-GATE,
+# 17/09/2026): gl_proc_address_oom_test (tests/CMakeLists.txt, if(UNIX))
+# e win32_gl_proc_address_oom_test (if(WIN32)) provam a MESMA promessa -
+# resolver um nome GL/WGL/EGL nunca aloca dentro de uma funcao noexcept,
+# entao um std::bad_alloc nunca vira std::terminate() no sitio - por
+# mecanismos diferentes (GODS_LAWS.md L-04): eglGetProcAddress() sobre
+# um wayland_egl_context_adapter nunca open()'d do lado Linux,
+# resolve_wgl_proc_address() chamado direto do lado Windows (win32_gl_
+# context_adapter::proc_address() delega para ele numa linha so').
+gl_proc_address_oom_test|win32_gl_proc_address_oom_test

@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# NOEXCEPT-ALLOC-B8 familia A baseline (ESCOPO.md Decisao 13,
+# 18/09/2026: "os ~140 pontos que so matam na depuracao da Microsoft
+# ganham CATRACA, nao conserto" - ordem do lider, por AskUserQuestion,
+# sobre proposta que ele mesmo encomendou em 17/09/2026). Consumido por
+# tests/tools/check_noexcept_alloc.py.
+#
+# Familia A: construtor padrao ou de movimento de `std::vector`/
+# `std::string` (e tipos irmaos), noexcept POR REGRA DA LINGUAGEM, que
+# a STL da Microsoft aloca por dentro quando o modo de depuracao de
+# iterador esta ligado (`_ITERATOR_DEBUG_LEVEL != 0`, padrao em build
+# Debug) - so mata no Windows em depuracao; a `libstdc++` (Linux) nunca
+# aloca ali. Nenhum `try` do chamador salva: a fronteira e o proprio
+# construtor chamado, nunca a funcao que envolve.
+#
+# Esta lista NAO conserta nada e nao antecipa a escolha do lider entre
+# eliminar a familia A e declara-la limitacao permanente do modo de
+# depuracao da Microsoft (ESCOPO.md Decisao 13, paragrafo final) - ela
+# so IMPEDE QUE O NUMERO CRESCA em silencio enquanto ele nao decide. A
+# razao, dele: "um numero registrado em relatorio cresce em silencio,
+# porque relatorio ninguem rele" - esta casa acabou de medir
+# exatamente isso com a Decisao 12 (onze dias sem a palavra dele).
+#
+# Formato, um registro por linha, tres campos separados por "|"
+# (comentarios com "#", linhas em branco ignoradas):
+#
+#   caminho | funcao | forma
+#
+# - caminho: caminho relativo do arquivo onde o sitio mora.
+# - funcao: nome da funcao que contem o sitio, ou o sentinela
+#   `<fora de funcao>` para uma declaracao de membro/global fora de
+#   qualquer corpo de funcao (ex.: campo `std::vector` de uma struct).
+#   SEM NUMERO DE LINHA - numero de linha apodrece a cada edicao; a
+#   chave e o nome, nao a posicao.
+# - forma: `<tipo>:<tipo-de-construcao>` (ex.: `vector:default-decl`,
+#   `string:move-temp`, `vector:return-default`), exatamente como a
+#   regua classifica o sitio.
+#
+# REGRA DE REPROVACAO, DUPLA (a mesma forma de morte de
+# tests/parity_exceptions.txt, aplicada aos dois lados): um sitio que a
+# regua acha na arvore e NAO esta nesta lista REPROVA ("novo", fora da
+# linha de base); uma linha desta lista cujo sitio SUMIU da arvore
+# TAMBEM reprova ("orfa" - remova a linha, o sitio nao existe mais).
+#
+# Gerada em 18/09/2026, primeira vez, contra o HEAD apos as fatias F1 a
+# F5 (fatia F6, passo 7). Todo sitio abaixo e responsabilidade da
+# familia A automatica - o que a regua NAO enxerga (tipos do PROJETO
+# que carregam vector/string por membro, nao rastreados sitio a sitio;
+# ver o cabecalho de check_noexcept_alloc.py) fica FORA desta lista por
+# definicao, nao por omissao: a lista cobre o que o motor mede, nunca
+# mais que isso.
+include/glintfx/core/err_format.hpp|<fora de funcao>|string:default-decl
+include/glintfx/core/err_format.hpp|gltfx_err_fields|vector:default-decl
+include/glintfx/core/err_format.hpp|gltfx_err_fields|vector:return-local(move-se-sem-NRVO)
+include/glintfx/gfss/tokenizer.hpp|gltfx_gfss_tokenize|vector:default-decl
+include/glintfx/gfss/tokenizer.hpp|gltfx_gfss_tokenize|vector:return-local(move-se-sem-NRVO)
+include/glintfx/platform/asset/file.hpp|read_stream_bytes|vector:default-decl
+include/glintfx/platform/asset/file.hpp|read_stream_bytes|vector:return-move
+src/core/err.cpp|<fora de funcao>|string:default-decl
+src/gfss/declaration_ast.hpp|<fora de funcao>|vector:default-decl
+src/gfss/declaration_list_parse.cpp|tokenize_from_real_cursor|vector:default-decl
+src/gfss/declaration_list_parse.cpp|tokenize_from_real_cursor|vector:return-local(move-se-sem-NRVO)
+src/gfss/declaration_split.cpp|split_declarations_at_top_level_semicolons|vector:default-decl
+src/gfss/declaration_split.cpp|split_declarations_at_top_level_semicolons|vector:return-local(move-se-sem-NRVO)
+src/gfss/declaration_value_check.cpp|accepted_keyword_detail_table|string:default-decl
+src/gfss/declaration_value_check.cpp|accepted_keyword_detail_table|string:return-local(move-se-sem-NRVO)
+src/gfss/declaration_value_check.hpp|<fora de funcao>|vector:default-decl
+src/gfss/selector_ast.hpp|<fora de funcao>|vector:default-decl
+src/gfss/selector_parse.cpp|<fora de funcao>|vector:default-decl
+src/gfss/shorthand_component_split.cpp|split_shorthand_components|vector:default-decl
+src/gfss/shorthand_component_split.cpp|split_shorthand_components|vector:return-local(move-se-sem-NRVO)
+src/gfss/shorthand_expand_result.hpp|<fora de funcao>|vector:default-decl
+src/gfss/shorthand_longhand_apply.cpp|longhand_names_detail|string:default-decl
+src/gfss/shorthand_reset_notice.cpp|shorthand_reset_notices|vector:default-decl
+src/gfss/shorthand_reset_notice.cpp|shorthand_reset_notices|vector:return-local(move-se-sem-NRVO)
+src/platform/gl/gfx_open_only_fixation.hpp|<fora de funcao>|vector:default-decl
+src/platform/gl/gfx_option_validation.cpp|validate_gfx_option_entry|string:default-decl
+src/platform/gl/gl_context_facade.cpp|gltfx_gl_context::open|vector:move-decl
+src/platform/gl/gl_context_facade.cpp|resolve_full_option_table|vector:default-decl
+src/platform/gl/gl_context_facade.cpp|resolve_full_option_table|vector:return-move
+src/platform/gl/gl_context_impl.hpp|<fora de funcao>|vector:default-decl
+src/platform/gl/gpu_enumeration_facade.cpp|gltfx_gpu_enumeration::query|string:default-temp
+src/platform/gl/gpu_enumeration_impl.hpp|<fora de funcao>|vector:default-decl
+src/platform/wayland/display_adapter.cpp|wayland_display_adapter::registry_global|string:default-temp
+src/platform/wayland/drm_device_facts.hpp|<fora de funcao>|string:default-decl
+src/platform/wayland/egl_context_adapter.cpp|classify_current_gpu|vector:default-decl
+src/platform/wayland/egl_device_dedup.cpp|dedup_egl_devices|vector:default-decl
+src/platform/wayland/egl_device_dedup.cpp|dedup_egl_devices|vector:return-default
+src/platform/wayland/egl_device_dedup.cpp|dedup_egl_devices|vector:return-local(move-se-sem-NRVO)
+src/platform/wayland/egl_device_enumeration.cpp|enumerate_egl_devices|vector:default-decl
+src/platform/wayland/egl_device_enumeration.cpp|enumerate_egl_devices|vector:return-move
+src/platform/wayland/egl_device_enumeration.cpp|enumerate_gpus_egl|string:default-temp
+src/platform/wayland/egl_device_enumeration.cpp|enumerate_gpus_egl|vector:default-decl
+src/platform/wayland/egl_device_enumeration.cpp|enumerate_gpus_egl|vector:return-move
+src/platform/wayland/egl_device_query.hpp|<fora de funcao>|string:default-decl
+src/platform/wayland/global_catalog.hpp|<fora de funcao>|string:default-decl
+src/platform/wayland/global_catalog.hpp|<fora de funcao>|vector:default-decl
+src/platform/wayland/global_catalog.hpp|all|vector:return-local(move-se-sem-NRVO)
+src/platform/wayland/seat_adapter.hpp|<fora de funcao>|string:default-decl
+src/platform/wayland/seat_adapter.hpp|name|string:return-local(move-se-sem-NRVO)
+src/platform/win32/app_user_model_id.cpp|set_window_application_id|wstring:default-decl
+src/platform/win32/dxcore_adapter_enumeration.cpp|enumerate_dxcore_adapters|vector:default-decl
+src/platform/win32/dxcore_adapter_enumeration.cpp|enumerate_dxcore_adapters|vector:return-move
+src/platform/win32/dxcore_adapter_enumeration.cpp|read_driver_description|string:default-decl
+src/platform/win32/dxcore_adapter_enumeration.cpp|read_driver_description|string:return-default
+src/platform/win32/dxcore_adapter_enumeration.cpp|read_driver_description|string:return-local(move-se-sem-NRVO)
+src/platform/win32/dxcore_adapter_enumeration.hpp|<fora de funcao>|string:default-decl
+src/platform/win32/seat_adapter.cpp|win32_seat_adapter::recompute_capabilities|vector:default-decl
+src/platform/win32/wgl_context_adapter.cpp|classify_current_gpu|vector:default-decl
+src/platform/win32/window_adapter.cpp|win32_window_adapter::open|wstring:default-decl
+src/platform/win32/window_adapter.cpp|win32_window_adapter::set_title|wstring:default-decl

@@ -1350,3 +1350,115 @@ Quando a W6 fechar, o alvo seguinte são **os três itens pendentes da onda W6b*
 
 - Manter `noexcept` e apenas documentar o término: deixaria o defeito vivo, só nomeado.
 - Manter `noexcept`, condicionando a correção à implantação prévia do teto da Decisão 5: adiaria o conserto por uma fatia inteira (S-5) enquanto o risco já está publicado.
+
+## Ordem de produto de 17/09/2026: a promessa de nunca matar o processo do consumidor vale para a biblioteca INTEIRA
+
+**Origem:** relato do orquestrador, não verbatim do líder. As duas decisões abaixo foram tomadas por ele em 17/09/2026, por `AskUserQuestion`, diante dos números de uma varredura só de leitura feita contra `main` em `1d7be83`.
+
+### Decisão 9 - o conserto da família que mata em qualquer sistema vem ANTES da onda W6 continuar
+
+A Decisão 8 (16/09/2026) nasceu olhando para um mecanismo, o casamento de seletor. A varredura de 17/09/2026 mostrou que a mesma família de defeito vive em outros pontos, e que a promessa feita ali só é verdadeira se valer para a biblioteca inteira.
+
+**O que foi medido, e é fato, não estimativa:** a régua foi calibrada antes de contar (acusa `c08d0ed`, o arquivo com o defeito vivo; absolve `603db6f`, o mesmo arquivo consertado), e a prova de cada forma rodou contra o `cl.exe` real da Microsoft, um processo por caso, código de saída lido de variável. Resultado:
+
+- **8 pontos que chamam `std::terminate()` nos CINCO sistemas**, modo normal incluído, porque alocam dentro de função `noexcept` por um caminho que `try`/`catch` cobriria, mas que ninguém cobriu. **Três deles são alcançáveis direto pelo consumidor**: abrir contexto gráfico, consultar placas de vídeo e resolver ponteiro de função gráfica.
+- **Cerca de 140 pontos de uma segunda família**, que só mata quando o consumidor compila em modo de depuração no Windows, e onde `try`/`catch` **não** salva (a alocação acontece dentro de um construtor que é `noexcept` por regra da linguagem).
+
+**A decisão:** os 8 primeiros são consertados **em fatia própria, antes de a onda W6 continuar**, começando pelos três que o consumidor alcança sozinho. A segunda família fica **registrada com o número medido**, não consertada agora, e a escolha entre eliminá-la ou declará-la como limitação do modo de depuração da Microsoft continua aberta.
+
+**Um achado de paridade que a varredura trouxe de brinde, e que a L-04 já proibia:** a mesma falha foi consertada no lado Windows em `babbd77` (nome copiado para buffer de tamanho fixo) e **continua viva no lado Wayland**, no mesmo ponto, com a mesma forma. Verde num sistema nunca autorizou declarar o outro coberto.
+
+### Decisão 10 - o risco aceito em 07/09/2026 fica REVOGADO
+
+`src/platform/gl/gpu_kind_exclusion.cpp` carrega, desde 07/09/2026, um comentário que nomeia este mesmo defeito e o **aceita como risco residual**, com razão escrita: consertá-lo exigiria dar canal de erro a funções que não têm nenhum, e a saída barata (devolver lista vazia ou menor) trocaria um término de processo por um acesso fora dos limites, que é pior.
+
+A razão continua tecnicamente correta. **O que mudou é a ordem:** a Decisão 8, de 16/09/2026, é posterior e não abre exceção. O líder, confrontado com o choque entre as duas, decidiu em 17/09/2026 que **a ordem de 16/09 vence e o risco aceito está revogado**.
+
+**Consequência prática, CORRIGIDA no mesmo dia por medição (17/09/2026):** a frase que estava aqui dizia que o conserto "precisa dar um canal de erro onde hoje não existe" e que isso alcançaria a forma pública. **Estava errada, e foi apagada.** Ela não era medição: era o raciocínio do próprio comentário de 07/09 repetido pelo orquestrador sem conferir. O planejamento da fatia mediu e o orquestrador reconferiu linha a linha: a função copia a lista inteira apenas para substituir valor **elemento a elemento** (cada saída depende só da própria entrada mais uma bandeira global), e o único consumidor indexa o resultado. Logo **a alocação é EVITÁVEL**: dá para devolver o mesmo valor sem alocar nada, sem canal de erro novo e sem congelar forma pública nenhuma. **Decisão do líder em 17/09/2026: corrigir este texto e consertar sem alocar.**
+
+**O que isso revela sobre o risco aceito, e é o que vale guardar:** a razão escrita em 07/09 para ACEITAR o risco era justamente que consertá-lo exigiria um canal de erro. Essa razão não se sustenta. O risco foi aceito com base num raciocínio que ninguém mediu, e o texto dele ficou dois meses no arquivo sendo lido como fato. **Risco aceito por escrito carrega a mesma exigência de prova que um conserto: quem aceita mede o custo de consertar, não o estima.** **O texto do risco aceito é APAGADO do arquivo, nunca arquivado num bloco de histórico** (GODS_LAWS.md global, L-67: o que o líder revoga é apagado). O registro da revogação vive aqui, nesta seção.
+
+**Alternativas recusadas pelo líder:**
+
+- Manter o risco aceito como exceção nomeada da Decisão 8: deixaria a promessa deixando de ser absoluta, e a biblioteca é pública, com base de consumidores aberta e desconhecida.
+- Adiar a escolha para a revisão de API da v1: manteria publicado, por mais tempo, um ponto que derruba o processo de quem usa a biblioteca.
+
+### Decisão 11 - a leitura de `:nth-child()` para de alocar, com espaço de tamanho fixo
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 17/09/2026, por `AskUserQuestion`.
+
+Um dos oito pontos da Decisão 9 vive na leitura da fórmula de `:nth-child(2n+1)` e companhia, e é alcançado **em tempo de casamento** - ou seja, dentro do mesmo mecanismo que a Decisão 8 mandou nunca matar. O planejamento trouxe três saídas.
+
+**Escolhida:** a leitura passa a caber num espaço de **tamanho fixo** e nunca pede memória. Não mexe em nada que congele na revisão de API da v1. **O limite desse espaço tem de ser escolhido com razão escrita e provado um passo ALÉM da borda**, nunca só na borda exata (regra da casa, GODS_LAWS.md global L-43).
+
+**Alternativas recusadas:**
+
+- Guardar a fórmula já analisada na árvore de sintaxe, em vez de reanalisar o texto a cada comparação: é o conserto certo de desenho e elimina desperdício real, mas mexe na estrutura que congela na W10, virando porta de mão única fora do escopo desta fatia. **Fica registrado como trabalho futuro, não como ideia descartada.**
+- Propagar o desfecho de falta de memória introduzido em `GFUI-VERDICT-RESOURCE-EXHAUSTED`: carregaria o erro por uma cadeia longa para um caso que as outras duas saídas simplesmente eliminam.
+
+### Decisão 12 - a recusa de janela com dimensão zero fica RATIFICADA, e o erro passa a dizer QUAL dimensão
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 17/09/2026, por `AskUserQuestion`, ao ser confrontado com uma pendência de 11 dias.
+
+**A história, e ela importa mais que a decisão:** em 06/09/2026, sob modo autônomo, decidiu-se que pedir janela com largura ou altura zero passa a ser **recusado**, com a recusa acontecendo na camada comum, antes de qualquer sistema ver o pedido. A decisão foi implementada, entrou no tronco (`626f126`, `src/platform/window/window_desc_validation.cpp`, quatro casos de teste), e ficou marcada "confirmar retroativamente" em `DECISOES_AUTONOMAS.md`. **Ninguém a mostrou ao líder.** Ela passou onze dias publicada, mudando o que a biblioteca aceita, sem a palavra de quem decide isso.
+
+**A razão que a sustenta, e que ele aceitou:** recusar é a **menor promessa possível**, e é reversível na direção certa. Aceitar zero um dia é **extensão**; prometer hoje e retirar depois é **quebra**. O que se perde, declarado: no Windows, o consumidor perde a noção de "o sistema escolhe o tamanho" pela API pública; é noção de um sistema só, e a biblioteca promete o mesmo nos cinco.
+
+**A RATIFICAÇÃO, e o refino que ele acrescentou:** a recusa continua. **Mas o erro passa a dizer QUAL das duas dimensões é zero.** Medido em 17/09/2026: hoje o erro nomeia `logical_size` nos três casos (largura zero, altura zero, as duas), sem distinguir. Quem recebe o erro não sabe qual campo consertar, e a regra R7 de `docs/api-conventions.md` (nome é identificador estável, nunca frase) permite perfeitamente três identificadores distintos em vez de um.
+
+**Trabalho que nasce daqui:** fatia própria, pequena, com os casos de teste existentes reforçados para asseverar o identificador correto em cada um dos três cenários. **O caso das duas dimensões zero precisa de identificador próprio, decidido e não improvisado** - ele não é "largura" nem "altura".
+
+**A lição de processo, que vale mais que a fatia:** decisão autônoma marcada "confirmar retroativamente" **não se confirma sozinha**. Ela precisa de um momento em que alguém a leve ao líder, e esse momento não existia. Passou a existir: a varredura por pendências de confirmação entra no fim de onda, junto com os outros portões de fechamento.
+
+### Decisão 13 - os ~140 pontos que só matam na depuração da Microsoft ganham CATRACA, não conserto
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 18/09/2026, por `AskUserQuestion`, sobre a proposta que ele mesmo tinha encomendado (*"Levantar e trazer proposta, sem executar"*, 17/09/2026).
+
+**O fato medido:** além dos 8 pontos que matam o processo do consumidor **em qualquer sistema** (Decisão 9, consertados nas fatias F1 a F5), a varredura de 17/09/2026 encontrou **~140 pontos de uma segunda família**: construtor padrão ou de movimento de contentor dentro de função `noexcept`. Esses construtores são `noexcept` **por regra da linguagem**, e a biblioteca padrão da Microsoft aloca dentro deles quando o modo de depuração de iterador está ligado (`_ITERATOR_DEBUG_LEVEL != 0`, que é o padrão em Debug). A biblioteca padrão do GCC **não** aloca ali, então a família é **invisível no Linux**. Nenhum `try` do chamador salva: o processo morre na fronteira do próprio construtor.
+
+**A decisão:** eles **não são consertados agora**, e o destino final deles continua aberto (eliminar a família, ou declará-la limitação conhecida do modo de depuração da Microsoft). **Mas o número para de crescer:** nasce `tests/noexcept_alloc_family_a_baseline.txt`, uma linha por sítio, com a chave sendo `caminho|função` e **nunca número de linha** (número de linha apodrece a cada edição). O portão da fatia F6 reprova em dois sentidos: **sítio novo que não esteja na lista reprova**, e **linha da lista cujo sítio sumiu também reprova**.
+
+**A razão que ele aceitou, e ela é sobre processo, não sobre C++:** um número registrado em relatório **cresce em silêncio**, porque relatório ninguém relê. Esta casa acabou de medir exatamente isso: uma decisão de produto marcada "confirmar retroativamente" passou **onze dias** publicada sem a palavra dele (Decisão 12). A catraca não conserta nada, não antecipa a escolha dele e não muda a forma de nenhuma função; ela só impede que o problema engorde enquanto ele não decide.
+
+**CORREÇÃO MEDIDA EM 18/09/2026, e o líder decidiu sobre ela: a catraca cobre 60 sítios, não ~140.** Ao construir o portão da fatia F6, o implementador rodou a régua ANTIGA e a NOVA contra o MESMO alvo (`1d7be83`) e provou que a diferença **não é defeito de medição**: os hits brutos de família A são **idênticos nas duas** (80 em ambas), e 60 é o mesmo conjunto **deduplicado por arquivo+função+forma**.
+
+**A causa real é UNIDADE, e ela expunha uma lacuna de cobertura:** o número "~140" do relatório de 17/09 somava a saída da régua automática MAIS uma contagem **feita à mão** de "26 tipos do próprio projeto que carregam `std::vector`/`std::string` POR MEMBRO" (141 ocorrências). **Nenhuma versão da régua jamais rastreou essa segunda parte** - o motor só reconhece construção DIRETA de contentor, nunca um tipo nosso que o carrega por composição. Confirmado ao vivo: `err_context` (`src/core/err.cpp`) tem dois `std::string` por membro e é construído via `new (std::nothrow)`; tem alocação de família A real lá dentro, e o motor não a vê.
+
+**DECISÃO DO LÍDER, 18/09/2026, por `AskUserQuestion`, confrontado com essa lacuna: congelar os 60 e ESCREVER que faltam os ~80.** A trava entra cobrindo o que a máquina sabe medir, e a ausência do resto fica **nomeada no cabeçalho do próprio portão e neste canon**, nunca calada. **O que ele aceitou perder, declarado:** os ~80 podem crescer sem que nenhum portao perceba; só leitura humana pegaria. **O que ele recusou:** parar a fatia para ensinar a régua a enxergar composição de tipos (motor novo, volume de falso positivo não medido, protecao inteira fora do tronco enquanto isso).
+
+**A regra que essa decisão reforça:** portao que cobre parte do universo **declara a parte que não cobre**, no lugar onde quem confia nele vai ler. Verde de cobertura parcial apresentado como verde total é a família de defeito que esta casa chama de "afirma que mede e não mede".
+
+**O custo, declarado e aceito por ele:** as linhas de lista geram atrito de manutenção em toda fatia que mexer nesses arquivos. Quem mexer tem de atualizar a lista no mesmo commit, e o portão reprova quem esquecer.
+
+### Decisão 14 - o mecanismo do Clang que PROVA ausência de alocação entra por piloto, em fatia própria
+
+**Origem:** relato do orquestrador, não verbatim do líder. Decisão dele em 18/09/2026, por `AskUserQuestion`, sobre achado da pesquisa obrigatória que precede o planejamento (L-22 global, L-43 do projeto).
+
+**O achado da pesquisa:** a análise de efeitos de função do Clang (`[[clang::nonallocating]]` / `[[clang::nonblocking]]`, diagnosticada por `-Wfunction-effects`) **prova, em tempo de compilação, que uma função não aloca**, inclusive por cadeia de chamadas, e assume o pior para função sem definição visível. É categoricamente diferente de tudo mais que a pesquisa encontrou: `-Wterminate` do GCC e `throwInNoexceptFunction` do cppcheck só veem `throw` escrito à mão e **não servem** (medido na documentação das duas ferramentas, não por chute); `bugprone-exception-escape` do clang-tidy só anda por corpos visíveis e por isso **é cego do lado do GCC**, onde o lançador mora fora do cabeçalho.
+
+**A decisão: entra, mas como PILOTO em fatia própria, depois do portão.** Marca-se somente a ilha já provada sem alocação (o átomo de cópia de `src/platform/nul_terminated_name.hpp` e o caminho de casamento da Decisão 8), com uma macro que expande para o atributo **só no Clang** e para nada nos outros compiladores, mais um trabalho de CI dedicado com `-Wfunction-effects`.
+
+**Por que a decisão é dele e não do agente:** o atributo **muda a forma do código-fonte na fronteira pública**, e nenhuma decisão de forma pública sai da mão dele.
+
+**O que se ganha, e é o ponto:** hoje a ausência de alocação é **estimada por uma régua de texto** que declara, por escrito, o que não enxerga (concatenação com `+`, `optional::emplace`, construção de `std::variant`, cópia de struct que carrega contentor). O atributo **prova** em vez de procurar formas conhecidas. **O que fica por medir, declarado:** o volume de reclamação do atributo sobre a árvore real nunca foi medido; é justamente o que o piloto existe para medir, numa ilha pequena, antes de qualquer adoção larga.
+
+### Decisão 15 - a família A vai ser CONSERTADA, e o líder fixou a ordem dos quatro passos
+
+**Origem:** ordem direta do líder em 18/09/2026, primeiro *"eu quero que conserte os 140"* e, ao ser confrontado com o obstáculo de que 80 deles ninguém enxerga, o sequenciamento **verbatim**:
+
+```
+1- conserte os 60 que já sabe localizar
+2- descubra como localiza os outros 80
+3- localize os outros 80
+4- conserte os outros 80
+```
+
+**O que isto REVOGA, e é preciso dizer com todas as letras:** a Decisão 13 tratava a família A como coisa a **congelar**, não a consertar, e deixava o destino final em aberto. **O destino está decidido: conserto.** A catraca dos 60 continua valendo e não é desfeita - ela segue impedindo que o número cresça enquanto o conserto não chega -, mas deixou de ser o fim da linha e passou a ser a rede de proteção durante o trabalho.
+
+**O obstáculo que motivou o sequenciamento, medido e não suposto:** dos ~140, a régua automática enxerga **60**; os outros ~80 são tipos do próprio projeto que carregam `std::vector`/`std::string` **por composição**, e foram contados **à mão** em 17/09/2026. Nenhuma versão da régua jamais os rastreou. **Não se conserta o que não se enxerga**, e uma lista feita à mão num dia não é base para onda de conserto: não se revalida, não pega o sítio que nasceu depois, e não separa defeito real de falso positivo. O líder aceitou o obstáculo e o transformou em passo próprio (o 2), em vez de mandar consertar às cegas contra a lista velha.
+
+**Consequência para a Decisão 14 (o mecanismo do Clang):** ela foi tomada como **piloto em fatia própria**, e continua sendo. Mas o passo 2 muda o peso dela: o atributo `[[clang::nonallocating]]` é o único mecanismo conhecido que **prova** ausência de alocação por cadeia de chamadas, em vez de procurar formas de texto conhecidas, e por isso é candidato natural a resolver "como localizar os 80". **Se o passo 2 concluir que ele é a via, a fatia-piloto deixa de ser exploração e vira dependência do caminho crítico** - e isso volta ao líder, porque muda a forma do código na fronteira pública.
+
+**O que fica explicitamente por decidir, e é dele:** se o conserto de algum dos 60 exigir o TERCEIRO degrau da escada (deixar de prometer `noexcept`) numa função que **atravessa a fronteira pública**, a decisão é dele, caso a caso. O plano tem de trazer **quantos dos 60 caem nesse caso**, separados dos demais.
+
+**O risco que esta onda carrega, e que vai escrito no plano:** consertar 60 sítios significa mexer em muita superfície interna de uma vez. Cento e quarenta consertos são cento e quarenta chances de errar; o plano tem de dizer onde isso pode quebrar comportamento que hoje funciona, e como cada fatia prova que não quebrou.

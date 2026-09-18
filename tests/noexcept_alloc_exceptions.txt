@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# NOEXCEPT-ALLOC-B8 exceptions file (GODS_LAWS.md L-22 do projeto:
+# "nenhuma excecao cruza a API publica"; docs/api-conventions.md R3;
+# ESCOPO.md Decisao 8: "Devolve erro; o aplicativo decide", verbatim do
+# lider, 16/09/2026). Consumido por tests/tools/check_noexcept_alloc.py.
+#
+# Uma linha aqui declara que uma funcao noexcept, achada pela regua
+# como alocando (direta ou transitivamente) sem `try` eficaz, NAO
+# reprova o portao - e POR QUE isso e aceitavel, nunca uma forma de
+# calar o portao. Formato, um registro por linha, cinco campos
+# separados por "|" (comentarios com "#", linhas em branco ignoradas):
+#
+#   caminho | funcao | tipo | razao | item
+#
+# - caminho: caminho relativo do arquivo (raiz do repositorio) onde a
+#   funcao noexcept esta declarada.
+# - funcao: nome exato da funcao, como a regua o extrai (sem
+#   qualificador de classe/namespace, sem numero de linha - numero de
+#   linha apodrece a cada edicao).
+# - tipo: EXATAMENTE um dos dois valores abaixo, nunca outro:
+#     * FALSO-POSITIVO-DA-REGUA - afirmacao sobre a FERRAMENTA: a forma
+#       nao aloca de verdade (ex.: uma classe de construcao que a
+#       calibracao ainda nao cobre). O orquestrador pode decidir, com
+#       razao escrita e, quando fizer sentido, uma fixture nova no
+#       mesmo commit que prove a classe.
+#     * DECISAO-LIDER:DD/MM/AAAA - afirmacao sobre o PRODUTO: aqui a
+#       biblioteca aceita alocar dentro de `noexcept`, por decisao
+#       explicita do lider naquela data. Excecao a uma ordem dele - SO
+#       ele abre uma linha deste tipo (GODS_LAWS.md L-01/L-10).
+# - razao: texto livre explicando o motivo, nunca vazio.
+# - item: o ID do item em TODO.md que rastreia a morte desta linha, ou
+#   o sentinela SEM-PENDENCIA quando a razao e permanente. Item
+#   marcado CONCLUIDO em TODO.md com a linha ainda viva REPROVA (mesma
+#   regra de morte de tests/parity_exceptions.txt,
+#   check_test_parity.py's own validate_exceptions()).
+#
+# O estado correto deste arquivo HOJE e VAZIO (so este cabecalho): as
+# fatias F1 a F5 (17-18/09/2026) fecharam os oito pontos que a
+# auditoria de 17/09/2026 encontrou
+# (/var/tmp/builds/claude-1000/varredura-noexcept/RELATORIO.md) sem
+# precisar de excecao nenhuma - cada um foi CONSERTADO (a alocacao
+# parou, o try passou a ser eficaz, ou o `noexcept` decorativo caiu),
+# nunca perdoado por linha aqui. O portao NAO exige que este arquivo
+# tenha linhas; exige que cada linha, se existir, tenha os cinco
+# campos e um item vivo.

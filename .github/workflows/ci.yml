@@ -2159,7 +2159,7 @@ jobs:
   #     cobre todo arquivo, inclusive os de src/platform/win32/, sem
   #     depender de plataforma nenhuma.
   windows-lint:
-    name: Windows - Lint (clang-tidy sobre src/platform/win32)
+    name: Windows - Lint (clang-tidy sobre src/)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -2271,31 +2271,152 @@ jobs:
       # descoberto por caminhada de diretorio a partir de cada arquivo,
       # entao a mesma politica de checks vale aqui.
       #
-      # DEFEITO CONSERTADO NESTA FATIA (06/09/2026, GODS_LAWS.md L-17/L-36/
-      # L-40): este passo so mandava dois .cpp, escritos a mao, para o
-      # clang-tidy - o diretorio tem sete, e cinco nunca eram analisados
-      # (entre eles seat_adapter.cpp e window_message_route.cpp, onde moram
-      # supressoes de analise estatica escritas em 05-06/09/2026 que por
-      # isso NUNCA tinham sido exercidas pelo lint real). A lista vira
-      # enumeracao por `git ls-files` (o MESMO comando do passo acima -
-      # lista gemea em segundo lugar seria repetir o defeito com outro
-      # nome), rodada item a item para nao esconder cobertura perdida se
-      # o clang-tidy morrer no meio de um lote: cada arquivo e contado,
-      # `analisados` precisa bater com `encontrados` antes de qualquer
-      # veredicto, e zero arquivos encontrados reprova a varredura inteira.
-      - name: clang-tidy - src/platform/win32
+      # ALARGADO NESTA FATIA (NOEXCEPT-ALLOC-B8 fatia F6, passo 4,
+      # /var/tmp/glintfx-f6-plano/plano-f6-portao.md, 18/09/2026):
+      # antes deste conserto, este passo enumerava so
+      # `src/platform/win32/*.cpp` - o UNICO analisador de verdade que
+      # enxerga a STL da Microsoft (o `clang-tidy` do job `lint` no
+      # Fedora usa a `libstdc++`, que nao aloca da mesma forma dentro
+      # de `noexcept` - ver o cabecalho de tests/tools/
+      # check_noexcept_alloc.py) nunca varria `src/gfss/`, `src/gfui/`,
+      # `src/core/` nem o resto de `src/platform/` fora do win32, entao
+      # a familia de defeito das fatias F1 a F5
+      # (NOEXCEPT-ALLOC-B8) so seria pega aqui se acontecesse a morar
+      # justamente nos sete arquivos do win32. Enumeracao passa a ser
+      # TODO `.cpp` rastreado de `src/` (nao so win32), cruzado com o
+      # `compile_commands.json` deste configure - um arquivo Linux-only
+      # (Wayland, condicionado por `if(UNIX)` em
+      # src/platform/CMakeLists.txt) nunca vai entrar no banco de um
+      # configure Windows, e isso e impresso como razao NOMEADA, nunca
+      # como silencio. O nome do job muda (de "sobre src/platform/
+      # win32" para "sobre src/") porque um nome que nao bate mais com
+      # o escopo real e a mesma familia de defeito que GODS_LAWS.md
+      # L-17/L-36/L-40 ja pegou aqui duas vezes.
+      #
+      # SABOTAGEM DE ESTREIA (secao 4.4 do plano): antes de confiar
+      # neste alargamento, uma isca foi colocada num ramo descartavel -
+      # `const std::string owned(name);` dentro de uma funcao noexcept
+      # de um arquivo FORA de src/platform/win32/ (em src/gfss/) - e
+      # provou que este job novo REPROVA e o job antigo (escopo
+      # estreito) NAO reprovaria. So o servidor prova isto (nao existe
+      # clang-tidy da Microsoft nesta maquina) - o resultado dessa
+      # execucao entra no commit que promove este alargamento.
+      - name: clang-tidy - src/
         shell: pwsh
         run: |
-          $arquivos = @(git ls-files -- 'src/platform/win32/*.cpp')
+          $arquivos = @(git ls-files -- 'src/*.cpp')
           if ($arquivos.Count -eq 0) {
-            Write-Error "Nenhum .cpp rastreado em src/platform/win32/ - varredura RECUSADA (GODS_LAWS.md L-40, piso de varredura nao-vazia)."
+            Write-Error "Nenhum .cpp rastreado em src/ - varredura RECUSADA (GODS_LAWS.md L-40, piso de varredura nao-vazia)."
             exit 1
           }
-          Write-Host "Encontrados $($arquivos.Count) arquivo(s) em src/platform/win32/."
+          Write-Host "Encontrados $($arquivos.Count) arquivo(s) rastreado(s) em src/."
+
+          # CONSERTO (GODS_LAWS.md L-17/L-36/L-40, 18/09/2026, PR#10): a
+          # regua antiga comparava so o NOME-FOLHA contra o texto CRU do
+          # JSON (`$db -match [regex]::Escape((Split-Path $_ -Leaf))`) -
+          # este projeto tem seis pares de nome repetido entre
+          # src/platform/wayland/ e src/platform/win32/ (display_adapter.cpp,
+          # seat_adapter.cpp, selected_display_adapter_check.cpp,
+          # selected_gl_context_adapter_check.cpp,
+          # selected_window_adapter_check.cpp, window_adapter.cpp), e
+          # src/platform/wayland/display_adapter.cpp casava com a entrada
+          # de src/platform/win32/display_adapter.cpp - o arquivo de Linux
+          # era classificado "no banco" e analisado sem os cabecalhos
+          # certos, produzindo dezenas de milhares de avisos falsos que
+          # escondiam defeitos reais no meio do ruido. Agora o
+          # compile_commands.json e lido como JSON de verdade
+          # (ConvertFrom-Json), o campo "file" de cada entrada e
+          # normalizado (barra invertida -> barra, minusculas - Windows
+          # nao diferencia caixa), e o casamento e por CAMINHO INTEIRO
+          # (o caminho relativo do git tem que ser o SUFIXO do caminho
+          # absoluto da entrada), nunca por nome-folha isolado.
+          $dbEntradas = Get-Content build-lint/compile_commands.json -Raw | ConvertFrom-Json
+          $dbCaminhos = @($dbEntradas | ForEach-Object { ($_.file -replace '\\', '/').ToLowerInvariant() })
+
+          # WAYLAND-DOMINIO-NAO-WAYLAND-SO (GODS_LAWS.md L-04/L-17/L-36/
+          # L-40, 18/09/2026, pedido nro 10): a hipotese do coordenador
+          # para o vermelho 1 ("a regua de casamento ainda confunde
+          # sufixo/substring") foi MEDIDA e REFUTADA - os cinco nomes
+          # citados (drm_gpu_kind.cpp, egl_device_dedup.cpp, frame_
+          # callback_sequence.cpp, global_catalog.cpp, window_configure_
+          # sequence.cpp) so existem uma vez na arvore (`git ls-files`),
+          # entao nao ha par de nome repetido causando falso positivo
+          # por sufixo. A premissa que estava errada e outra: nem TODO
+          # `.cpp` de src/platform/wayland/ e Linux-only. tests/
+          # CMakeLists.txt (comentario acima de global_catalog_test e dos
+          # quatro alvos irmaos, "Wayland-DOMINIO, nao Wayland-SO")
+          # registra estes cinco SEM guarda if(UNIX) de proposito, porque
+          # nenhum dos cinco inclui cabecalho ou tipo Wayland - cada um
+          # tem alvo de teste PROPRIO que os recompila em todas as cinco
+          # plataformas, Windows incluido. Aparecerem no banco de
+          # compilacao Windows e o comportamento CORRETO e ESPERADO
+          # para estes cinco, nunca um sintoma de regua quebrada.
+          $waylandDominioNaoSo = @(
+            'src/platform/wayland/global_catalog.cpp',
+            'src/platform/wayland/window_configure_sequence.cpp',
+            'src/platform/wayland/frame_callback_sequence.cpp',
+            'src/platform/wayland/drm_gpu_kind.cpp',
+            'src/platform/wayland/egl_device_dedup.cpp'
+          )
+
+          $noBanco = @()
+          $foraDoBanco = @()
+          foreach ($arquivo in $arquivos) {
+            $arquivoNorm = $arquivo.ToLowerInvariant()
+            $casou = @($dbCaminhos | Where-Object { $_ -eq $arquivoNorm -or $_.EndsWith("/$arquivoNorm") })
+            if ($casou.Count -gt 0) {
+              $noBanco += $arquivo
+            } else {
+              # Razao mais comum e conhecida: arquivo Linux-only (o
+              # ramo `if(UNIX)` de src/platform/CMakeLists.txt) nunca
+              # aparece no compile_commands.json de um configure
+              # Windows - declarado por nome, nunca chutado. Os cinco
+              # arquivos Wayland-dominio-nao-so sao a EXCECAO: se um
+              # deles cair aqui, nao e a razao comum, e falta real
+              # (o alvo de teste proprio dele sumiu ou parou de
+              # compila-lo) - nunca herda a razao dos outros 15.
+              if ($waylandDominioNaoSo -contains $arquivo) {
+                $razao = "Wayland-dominio-nao-so (tests/CMakeLists.txt) - deveria estar no banco Windows; falta REAL, investigar o alvo de teste dedicado"
+              } elseif ($arquivo -match '^src/platform/wayland/') {
+                $razao = "so compila em Linux (ramo if(UNIX) de src/platform/CMakeLists.txt)"
+              } else {
+                $razao = "fora do banco de compilacao deste job (investigar antes de aceitar como permanente)"
+              }
+              $foraDoBanco += "$arquivo ($razao)"
+            }
+          }
+
+          Write-Host "encontrados=$($arquivos.Count) no_banco=$($noBanco.Count) fora_do_banco=$($foraDoBanco.Count)"
+          if ($foraDoBanco.Count -gt 0) {
+            Write-Host "fora do banco de compilacao, com razao:"
+            foreach ($linha in $foraDoBanco) { Write-Host "  - $linha" }
+          }
+          if ($noBanco.Count -eq 0) {
+            Write-Error "0 arquivo(s) no banco de compilacao - varredura RECUSADA (GODS_LAWS.md L-40, piso de varredura nao-vazia)."
+            exit 1
+          }
+
+          # PISO NOVO, CORRIGIDO (GODS_LAWS.md L-36/L-40/L-44, 18/09/2026,
+          # pedido nro 10): a versao anterior deste piso tratava QUALQUER
+          # arquivo de src/platform/wayland/ no banco Windows como
+          # impossivel por desenho - falso para os cinco arquivos
+          # Wayland-dominio-nao-so declarados acima (todos com alvo de
+          # teste proprio, sem guarda if(UNIX), rodando nas cinco
+          # plataformas por desenho deliberado de 03/09/2026 e
+          # 06/09/2026). O piso agora exclui esses cinco por nome antes
+          # de reprovar - continua reprovando se qualquer um dos OUTROS
+          # quinze (os que de fato tocam Wayland/EGL/DRM e vivem so no
+          # ramo if(UNIX)) aparecer no banco, que e o sintoma real da
+          # regua de casamento confundindo caminho.
+          $waylandNoBanco = @($noBanco | Where-Object { $_ -match '^src/platform/wayland/' -and $waylandDominioNaoSo -notcontains $_ })
+          if ($waylandNoBanco.Count -gt 0) {
+            Write-Error "Arquivo(s) de src/platform/wayland/ caiu(ram) no banco de compilacao Windows - impossivel por desenho (GODS_LAWS.md L-36/L-40, a regua de casamento voltou a confundir caminho): $($waylandNoBanco -join ', ')"
+            exit 1
+          }
 
           $analisados = 0
           $comFalha = @()
-          foreach ($arquivo in $arquivos) {
+          foreach ($arquivo in $noBanco) {
             Write-Host "--- clang-tidy: $arquivo ---"
             clang-tidy -p build-lint --quiet $arquivo
             $rc = $LASTEXITCODE
@@ -2305,16 +2426,21 @@ jobs:
             }
           }
 
-          Write-Host "Analisados $analisados de $($arquivos.Count) arquivo(s) encontrado(s)."
-          if ($analisados -ne $arquivos.Count) {
-            Write-Error "Cobertura perdida: encontrados $($arquivos.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
+          # analisados == no_banco por CONSTRUCAO ($noBanco e a MESMA
+          # lista percorrida acima) - checagem explicita mantida aqui
+          # de proposito (GODS_LAWS.md L-36: uma edicao futura que
+          # quebre essa igualdade tem que reprovar alto e cedo, nunca
+          # voltar a mentir em silencio).
+          Write-Host "Analisados $analisados de $($noBanco.Count) arquivo(s) no banco."
+          if ($analisados -ne $noBanco.Count) {
+            Write-Error "Cobertura perdida: no_banco $($noBanco.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."
             exit 1
           }
           if ($comFalha.Count -gt 0) {
             Write-Error "clang-tidy reprovou em $($comFalha.Count) de $analisados arquivo(s): $($comFalha -join ', ')"
             exit 1
           }
-          Write-Host "ok: clang-tidy passou nos $analisados arquivo(s) de src/platform/win32/."
+          Write-Host "ok: clang-tidy passou nos $analisados arquivo(s) de src/ presentes no banco de compilacao."
 
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)

@@ -52,9 +52,47 @@ gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
 #if defined(_WIN32)
     const gltfx_rslt<std::vector<dxcore_adapter_facts>> adapters = enumerate_dxcore_adapters();
     if (adapters.has_error()) {
-        const gltfx_err error = adapters.err();
+        // FIX-OOM-B9 (lint real do Windows, 19/09/2026, GODS_LAWS.md
+        // L-17/L-22 do projeto): o clang-tidy rotulou a forma antiga
+        // (`const gltfx_err error = adapters.err();`) como cosmetica
+        // (performance-unnecessary-copy-initialization), mas o rotulo
+        // subestima a gravidade - `gltfx_err`'s own copy constructor
+        // (include/glintfx/core/err.hpp) NAO e' `noexcept` e faz copia
+        // PROFUNDA (aloca `err_context` quando ha diagnostico anexado),
+        // entao essa copia dentro de `query() noexcept`, sem `try`, e'
+        // o MESMO defeito do sitio irmao em gl_context_facade.cpp -
+        // uma alocacao que pode falhar em QUALQUER sistema, Release
+        // incluido (familia B).
+        //
+        // O PRIMEIRO DEGRAU DA ESCADA (nao alocar) so' resolve METADE
+        // do problema aqui: ligar `error` por REFERENCIA em vez de
+        // copiar elimina a copia LOCAL que o clang-tidy apontou (uma
+        // referencia nunca aloca), e `error` sobrevive ao `delete impl`
+        // logo abaixo porque refere-se a `adapters` (variavel local
+        // desta funcao, viva ate o fim do escopo), nao a `impl`. Mas
+        // `gltfx_rslt<gltfx_gpu_enumeration>::err(gltfx_err failure)`
+        // recebe o parametro POR VALOR - nao ha overload por referencia
+        // nem forma de MOVER um `const gltfx_err&` (adapters e'
+        // `const`, e `gltfx_rslt<T>::err()` so' tem overload `const`,
+        // sem par rvalue-qualified) -, entao a copia final, ao montar
+        // esse parametro, e' inevitavel pela API publica atual de
+        // gltfx_rslt<T>. O SEGUNDO DEGRAU (capturar e converter num
+        // valor que o tipo ja' carrega) cobre essa parte: sob falta de
+        // memoria, o `catch` devolve um `gltfx_err` construido pelo
+        // construtor trivial (`explicit gltfx_err(gltfx_err_code)
+        // noexcept` - "Inline, e NUNCA aloca", err.hpp's own comment),
+        // perdendo o contexto de diagnostico original mas nunca
+        // derrubando o processo do consumidor (docs/api-conventions.md
+        // R3) - o mesmo idioma que resolve_full_option_table() (gl_
+        // context_facade.cpp) e o ramo Windows logo abaixo, neste MESMO
+        // arquivo, ja usam.
+        const gltfx_err &error = adapters.err();
         delete impl;
-        return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
+        try {
+            return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
+        } catch (const std::bad_alloc &) {
+            return gltfx_rslt<gltfx_gpu_enumeration>::err(gltfx_err(gltfx_err_code::out_of_memory));
+        }
     }
 
     const std::vector<dxcore_adapter_facts> &list = adapters.value();
@@ -98,9 +136,25 @@ gltfx_rslt<gltfx_gpu_enumeration> gltfx_gpu_enumeration::query() noexcept {
     // it - never copied through a temporary that would dangle them.
     gltfx_rslt<std::vector<gltfx_gpu_info>> enumerated = platform::enumerate_gpus_egl(impl->names);
     if (enumerated.has_error()) {
+        // FIX-OOM-B9, GEMEO DO SITIO WINDOWS ACIMA (varredura de gemeos,
+        // GODS_LAWS.md L-17, 19/09/2026): este ramo compila em Linux -
+        // e' o unico que compila NESTA maquina - e ja alcanca o mesmo
+        // degrau 2 abaixo. `enumerate_gpus_egl()` (egl_device_
+        // enumeration.cpp) usa `.with_rejected_value("egl_device_
+        // enumeration")` no proprio erro que devolve, entao `error`
+        // AQUI genuinamente pode carregar contexto - a copia que
+        // `::err(gltfx_err failure)` faz ao montar o parametro por
+        // valor pode alocar, sem `try`, dentro de `query() noexcept`.
+        // Mesmo idioma do ramo Windows: `error` por referencia (nao
+        // aloca ao ligar), copia final guardada por `try`/`catch`,
+        // fallback pro construtor trivial de codigo-so'.
         const gltfx_err &error = enumerated.err();
         delete impl;
-        return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
+        try {
+            return gltfx_rslt<gltfx_gpu_enumeration>::err(error);
+        } catch (const std::bad_alloc &) {
+            return gltfx_rslt<gltfx_gpu_enumeration>::err(gltfx_err(gltfx_err_code::out_of_memory));
+        }
     }
     impl->entries = std::move(enumerated.value());
 #endif

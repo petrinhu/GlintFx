@@ -260,6 +260,41 @@ target_sources(gfss_selector_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
+# NOEXCEPT-ALLOC-B8 fatia F5 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F5", GODS_LAWS.md L-09/L-20/L-40): a SEPARATE
+# executable from gfss_selector_parse_test above, on purpose - this one
+# replaces the global operator new/delete to force an allocation
+# failure (gfss_selector_parse_oom_test.cpp's own header comment), and
+# two different global-operator-new overrides in the same binary would
+# be an ODR collision (the same reason gfss_anb_parse_no_alloc_test
+# above never shares gfss_selector_parse_test's own binary either).
+# Needs the SAME second-compile pair (selector_parse.cpp/anb_parse.cpp)
+# for the identical "not yet GLINTFX_API" reason as the target above.
+glintfx_add_test(gfss_selector_parse_oom_test)
+target_include_directories(gfss_selector_parse_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_selector_parse_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
+# NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F4", GODS_LAWS.md L-20/L-40): proves, by COUNTING
+# (the SAME idiom err_no_alloc_test/log_no_alloc_test/gfui_complex_
+# match_resource_exhausted_test above already establish), that parse_
+# anb() (anb_parse.cpp) never touches the heap any more - this OWN
+# executable (never gfss_selector_parse_test above) replaces the
+# global operator new/delete, so it needs anb_parse.cpp compiled a
+# SECOND time directly into IT, never sharing gfss_selector_parse_
+# test's own binary (two different global-operator-new overrides in
+# the same executable would be an ODR collision, the same reason
+# gfui_complex_match_resource_exhausted_test's own CMakeLists.txt
+# comment already gives).
+glintfx_add_test(gfss_anb_parse_no_alloc_test)
+target_include_directories(gfss_anb_parse_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_anb_parse_no_alloc_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
 # GFSS-SPECIFICITY (docs/plano-w6-folha-de-estilo.md fatia S-1,
 # GODS_LAWS.md L-19): specificity_of_simple()/specificity_of_compound()/
 # specificity_of_complex() (src/gfss/specificity.hpp) carry no
@@ -583,6 +618,27 @@ target_sources(gfui_match_struct_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
 )
 
+# NOEXCEPT-ALLOC-B8 fatia F4 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F4", GODS_LAWS.md L-20/L-22/L-40; ESCOPO.md
+# "Ordem de produto de 15/09/2026", Decisao 8): ":nth-child(2n+1)"
+# reached at MATCH TIME, through match_compound() - this OWN
+# executable (never gfui_match_struct_test above) replaces the global
+# operator new/delete to force allocation to fail on demand, so it
+# needs the SAME five files compiled a SECOND time directly into IT,
+# never sharing gfui_match_struct_test's own binary (two different
+# global-operator-new overrides in the same executable would be an
+# ODR collision, the same reason gfui_complex_match_resource_
+# exhausted_test's own CMakeLists.txt comment already gives).
+glintfx_add_test(gfui_nth_child_oom_test)
+target_include_directories(gfui_nth_child_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfui_nth_child_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/compound_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/attribute_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfui/structural_match.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+)
+
 # GFSS-MATCH-COMBINE (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-22/L-28/
 # L-40, docs/plano-w6-folha-de-estilo.md fatia S-2): whether a WHOLE
 # complex selector (compounds glued by the four combinators) matches
@@ -713,6 +769,20 @@ target_link_libraries(gl_proc_address_assign_test PRIVATE glintfx_test_harness)
 glintfx_apply_compile_options(gl_proc_address_assign_test)
 add_test(NAME gl_proc_address_assign_test COMMAND gl_proc_address_assign_test)
 set_tests_properties(gl_proc_address_assign_test PROPERTIES LABELS unit)
+
+# NOEXCEPT-ALLOC-B8 fatia F1 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F1", GODS_LAWS.md L-04/L-20/L-33): unit coverage of
+# the shared, allocation-free copy_nul_terminated() atom itself
+# (src/platform/nul_terminated_name.hpp) - pure template, no OS header,
+# unguarded on all five systems, the same shape check_layers.py's own
+# tests use. Header-only, same "no glintfx_library dependency" shape
+# gl_proc_address_assign_test right above already uses.
+add_executable(proc_name_buffer_test proc_name_buffer_test.cpp)
+target_include_directories(proc_name_buffer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(proc_name_buffer_test PRIVATE glintfx_test_harness)
+glintfx_apply_compile_options(proc_name_buffer_test)
+add_test(NAME proc_name_buffer_test COMMAND proc_name_buffer_test)
+set_tests_properties(proc_name_buffer_test PROPERTIES LABELS unit)
 
 # GL-LOADER: the resolved GL 3.3 core command list rendered into the
 # TEXT of the two generated files - see gl_loader_codegen_test.cpp's own
@@ -980,6 +1050,22 @@ target_sources(gfx_open_only_fixation_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
 )
 
+# FIX-OOM-B9 (conserto 19/09/2026, GODS_LAWS.md L-17/L-20/L-22/L-27):
+# mecanismo dos dois sitios de familia B consertados nesta fatia
+# (gl_context_facade.cpp's own open()/fix_now branch e gpu_enumeration_
+# facade.cpp's own query()/ramo Windows) - ver o header comment do
+# proprio arquivo de teste para o escopo declarado (nao chama open()/
+# query() diretamente, nenhum dos dois e' alcancavel sem, respectivamente,
+# um compositor Wayland real isolado em container ou uma maquina
+# Windows). Recompila gfx_open_only_fixation.cpp pela mesma razao de
+# gfx_open_only_fixation_test acima (sem GLINTFX_API); gltfx_err vem do
+# glintfx::glintfx que glintfx_add_test() ja' linka.
+glintfx_add_test(fixation_write_and_err_copy_oom_test)
+target_include_directories(fixation_write_and_err_copy_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(fixation_write_and_err_copy_oom_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_open_only_fixation.cpp"
+)
+
 # GL-CONTEXT (docs/plano-w6b-placa-e-laco.md fatia 2b, GODS_LAWS.md
 # L-17/L-19/L-20/L-26/L-40): the four OS-agnostic pure atoms this fatia
 # adds on top of C-OPT above - the descriptor-shape validator, the GL
@@ -1096,6 +1182,22 @@ target_sources(memory_separation_kind_test PRIVATE
 glintfx_add_test(gpu_kind_seam_test)
 target_include_directories(gpu_kind_seam_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(gpu_kind_seam_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+    "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+)
+
+# NOEXCEPT-ALLOC-B8 fatia F3 (/var/tmp/glintfx-plan/plano-conserto-
+# noexcept.md sec. "F3", ESCOPO.md Decisao 10): proves, with the
+# global allocator armed, that resolve_kernel_and_exclusion() (the
+# real SITE, not just the atom) no longer allocates anything along
+# the exclusion path, and that the consumer's process survives an
+# armed allocation failure where it used to die (std::terminate()).
+# PLATFORM-AGNOSTIC like the site it proves - runs on all five
+# systems, with no if(UNIX)/if(WIN32) guard, the same shape as
+# gpu_kind_exclusion_test/gpu_kind_seam_test above.
+glintfx_add_test(gpu_kind_exclusion_no_alloc_test)
+target_include_directories(gpu_kind_exclusion_no_alloc_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(gpu_kind_exclusion_no_alloc_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
 )
@@ -1462,6 +1564,71 @@ if(UNIX)
     )
     glintfx_add_wayland_xdg_shell_binding(window_adapter_listener_test)
 
+    # NOEXCEPT-ALLOC-B8 fatia F1 (/var/tmp/glintfx-plan/plano-conserto-
+    # noexcept.md sec. "F1", GODS_LAWS.md L-04/L-09/L-19/L-20/L-22):
+    # wayland_egl_context_adapter::proc_address() (egl_context_adapter.
+    # cpp) under a forced allocation failure - see gl_proc_address_
+    # oom_test.cpp's own header comment for why NO live compositor is
+    # needed (eglGetProcAddress() is display-independent, and this
+    # adapter is never open()'d). Second-compile technique, same shape
+    # window_adapter_listener_test above already uses (glintfx.so's own
+    # -fvisibility=hidden). The file list is egl_context_adapter.cpp's
+    # OWN transitive callee set (its own #include list plus what those
+    # headers' matching .cpp files need in turn) - "the whole .cpp is
+    # one link unit" reasoning, same as every other second-compile
+    # target in this if(UNIX) block. No facade layer here (gl_context_
+    # facade.cpp and friends): this test never goes through the public
+    # gltfx_gl_context surface, only the concrete adapter directly.
+    glintfx_add_test(gl_proc_address_oom_test)
+    target_include_directories(gl_proc_address_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(gl_proc_address_oom_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(gl_proc_address_oom_test)
+    glintfx_add_egl(gl_proc_address_oom_test)
+
+    # NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
+    # noexcept.md sec. "F2", GODS_LAWS.md L-04/L-09/L-20/L-22): read_drm_
+    # device_facts() (drm_device_facts.cpp) under a forced allocation
+    # failure. Self-contained second compile - unlike gl_proc_address_
+    # oom_test.cpp above, this site touches no Wayland/EGL header at all
+    # (only <fcntl.h>/<sys/ioctl.h>/<unistd.h>/<drm/*.h>, all Linux-only,
+    # which is why this target still lives inside this if(UNIX) block),
+    # so drm_device_facts.cpp is the ONLY production .cpp this target
+    # needs - the same "second compile needs every callee linked
+    # alongside it" reasoning as every other target in this file, with
+    # an empty callee list because this .cpp calls out to nothing else.
+    glintfx_add_test(drm_device_facts_oom_test)
+    target_include_directories(drm_device_facts_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(drm_device_facts_oom_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+    )
+
     # WL-SEAT fatia S-B (docs/plano-w6a-janela.md fatia 12): the pure-
     # listener half of wayland_seat_adapter - both callbacks
     # (capabilities, name) exercised DIRECTLY with a null wl_seat*
@@ -1806,6 +1973,20 @@ if(WIN32)
         "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
     )
     target_link_libraries(win32_wgl_proc_address_test PRIVATE opengl32)
+
+    # win32_gl_proc_address_oom_test - PARITY-GATE found gl_proc_address_
+    # oom_test (if(UNIX) above) with no counterpart here (NOEXCEPT-
+    # ALLOC-B8 fatia F1). Same minimal shape as the target right above
+    # (only wgl_proc_address.cpp against opengl32) - the test file's own
+    # header comment declares why this is PLAN B (calling resolve_wgl_
+    # proc_address() directly) instead of compiling wgl_context_adapter.
+    # cpp a second time.
+    glintfx_add_test(win32_gl_proc_address_oom_test)
+    target_include_directories(win32_gl_proc_address_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_gl_proc_address_oom_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+    )
+    target_link_libraries(win32_gl_proc_address_oom_test PRIVATE opengl32)
 
     # The disposable-window dance (wgl_extension_loader.hpp's own
     # header comment) needs RegisterClassExW/CreateWindowExW (user32),
@@ -2244,6 +2425,33 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spdx.py" --selftest
 )
 set_tests_properties(spdx_selftest PROPERTIES LABELS selftest)
+
+# NOEXCEPT-ALLOC-B8 fatia F6 (GODS_LAWS.md L-22 do projeto: "nenhuma
+# excecao cruza a API publica"; docs/api-conventions.md R3; ESCOPO.md
+# Decisao 8/9/13). Promovido de /var/tmp/builds/claude-1000/varredura-
+# noexcept/varre_noexcept.py (a regua ja calibrada, 17/09/2026) para
+# tests/tools/check_noexcept_alloc.py - o portao que impede a familia
+# de defeitos consertada pelas fatias F1 a F5 de voltar: alocar dentro
+# de funcao `noexcept` sem `try` eficaz, mata o processo do consumidor
+# sob falta de memoria. Registrado SEM guarda de sistema, mesmo motivo
+# de spdx_test acima: roda no MESMO ctest que os cinco alvos ja
+# executam. Ver o cabecalho de check_noexcept_alloc.py para as duas
+# familias (A = so Windows em depuracao, catraca; B = cinco sistemas,
+# bloqueante) e o que a regua NAO ve.
+add_test(
+    NAME noexcept_alloc_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_noexcept_alloc.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(noexcept_alloc_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME noexcept_alloc_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_noexcept_alloc.py" --selftest
+)
+set_tests_properties(noexcept_alloc_selftest PROPERTIES LABELS selftest)
 
 # Vendor purity gate (GODS_LAWS.md L-07 EXCECAO No 1: third_party/
 # khronos/ e a UNICA excecao de glintfx a lei de dependencia zero).

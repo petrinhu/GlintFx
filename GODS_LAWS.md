@@ -687,6 +687,8 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Data:** 21/08/2026. **Verbatim do líder:** *"você pode LER sem clonar os repos de rmlui e SDL3 para aprender, memorizar adequadamente como fazer aqui. Nào copie, não quero plágio. Mas pode refazer mais eficiente ou de maneiras diferentes."*
 
+**REAFIRMADA em 17/09/2026**, no instante em que o líder autorizou uma noite de trabalho autônomo, verbatim dele: *"Pode APRENDER com outras libs e frameworks, incluindo rmlui e sdl3, mas NUNCA copiar ou pinar nelas."* A palavra **pinar** acrescenta, em uma sílaba, o que a L-07 já dizia por outro caminho: além de não copiar linha, não se **prende** o projeto a elas - nem por dependência, nem por versão fixada, nem por "só este trecho, só desta vez". Aprender é irrestrito; depender é proibido; copiar é proibido.
+
 **O que está PERMITIDO:** ler o código-fonte e a documentação do **RmlUi** e do **SDL3** para **aprender a técnica**: como um problema costuma ser atacado, que armadilhas existem, que estrutura de dados serve. Aprender de prior art é engenharia normal, e a lei de dependência zero (L-07) proíbe **depender**, não proíbe **saber**.
 
 **Sem clonar.** Leitura pela web. Nada de `git clone`, nada de vendorizar, nada de baixar a árvore para dentro do repositório ou do disco de trabalho.
@@ -774,6 +776,8 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **A regra, em duas metades que não se separam:**
 
 1. **Dentro da onda, a sequência é a das linhas do `TODO.md`, de cima para baixo.** Não se escolhe a de maior valor, nem a mais fácil, nem a que já está meio pronta. A tabela foi ordenada por dependência e valor no momento em que foi montada; reordenar por conveniência do dia desfaz esse trabalho em silêncio.
+
+   **AMPLIAÇÃO de 17/09/2026, ordem do líder, verbatim:** *"Nunca decidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web."* A regra acima proibia escolher a FATIA mais fácil; esta ampliação leva o mesmo critério para **dentro** da fatia, onde ele é mais fácil de burlar sem ninguém perceber: entre dois desenhos que passam nos mesmos testes, **vence o mais completo**, e completude se mede pela necessidade real de quem usa a biblioteca, pesquisada na web e em prior art, nunca pelo que dá menos trabalho hoje. **Consequência operacional:** quando duas saídas empatam em esforço aparente, a escolha vira DECISÃO e precisa de razão escrita; quando a mais completa custa mais, ela ainda vence, e só o líder pode cortá-la. Isto é o antídoto do defeito que ele mesmo diagnosticou nesta casa e que a memória `feedback_caminho_menos_dificil` registra: o agente converge para o caminho menos difícil e apresenta o resultado como se fosse o desenho certo.
 2. **Achou que uma fatia não pertence à onda? MOVA-A para outra onda, explicitamente, com o motivo escrito na própria linha.** O que está proibido é pular: deixar a fatia onde está e seguir para a próxima, porque isso deixa a onda com um buraco que ninguém vê — a linha continua ali, marcada como pendente, e a onda é declarada fechada em cima dela.
 
 **Por que a segunda metade existe, e ela é o coração da ordem:** pular e mover parecem a mesma coisa e não são. Pular é decisão invisível, tomada por conveniência, que não deixa rastro; mover é decisão registrada, que muda o plano de propósito e pode ser conferida depois. O líder não proibiu mudar de ideia sobre onde uma fatia mora — proibiu mudar de ideia **sem dizer**.

@@ -70,7 +70,7 @@
 // proc_address_allocates_nothing_resolving_a_long_name below is the
 // POSITIVE form of that same fact (the "no_alloc" family shape
 // gpu_kind_exclusion_no_alloc_test/gfss_anb_parse_no_alloc_test also
-// use, plan sec. F3/F4), and proc_address_survives_an_armed_allocator
+// use, plan sec. F3/F4), and proc_address_does_not_terminate_under_an_armed_allocator
 // below still exists as the crash witness/mutation catcher: it proves
 // the call is safe EVEN WITH an armed override present, without
 // depending on that override ever firing.
@@ -183,9 +183,10 @@ void operator delete(void *p, const std::nothrow_t & /*tag*/) noexcept { std::fr
 // site to `const std::string owned(name);` makes this exact case
 // std::terminate() again, because the armed override IS reached again
 // the moment the site allocates.
-GLINTFX_TEST(proc_address_survives_an_armed_allocator) {
+GLINTFX_TEST(proc_address_does_not_terminate_under_an_armed_allocator) {
     if (oom_forcing_declared_not_applicable()) {
-        declare_oom_forcing_not_applicable("proc_address_survives_an_armed_allocator");
+        declare_oom_forcing_not_applicable(
+            "proc_address_does_not_terminate_under_an_armed_allocator");
         return;
     }
 

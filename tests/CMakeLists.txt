@@ -1869,6 +1869,20 @@ if(WIN32)
     )
     target_link_libraries(win32_wgl_proc_address_test PRIVATE opengl32)
 
+    # win32_gl_proc_address_oom_test - PARITY-GATE found gl_proc_address_
+    # oom_test (if(UNIX) above) with no counterpart here (NOEXCEPT-
+    # ALLOC-B8 fatia F1). Same minimal shape as the target right above
+    # (only wgl_proc_address.cpp against opengl32) - the test file's own
+    # header comment declares why this is PLAN B (calling resolve_wgl_
+    # proc_address() directly) instead of compiling wgl_context_adapter.
+    # cpp a second time.
+    glintfx_add_test(win32_gl_proc_address_oom_test)
+    target_include_directories(win32_gl_proc_address_oom_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(win32_gl_proc_address_oom_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/win32/wgl_proc_address.cpp"
+    )
+    target_link_libraries(win32_gl_proc_address_oom_test PRIVATE opengl32)
+
     # The disposable-window dance (wgl_extension_loader.hpp's own
     # header comment) needs RegisterClassExW/CreateWindowExW (user32),
     # ChoosePixelFormat/SetPixelFormat/DescribePixelFormat (gdi32) and

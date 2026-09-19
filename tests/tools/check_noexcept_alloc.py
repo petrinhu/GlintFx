@@ -115,6 +115,75 @@
 # medido; corrigido o que o portao DECLARA nesta fatia, o motor em si
 # continua sem alargar, por decisao do lider, fatia propria futura.**
 #
+# TERCEIRA CEGUEIRA, FECHADA NESTA FATIA (F3 da onda W-ERRCOPY,
+# TODO.md ERR-COPY-GATE; ESCOPO.md Decisao 16/17; plano em
+# /var/tmp/glintfx-errcopia/plano.md secao 6) - FAMILIA C: copia de
+# `gltfx_err` dentro de `noexcept` sem `try` eficaz. Nem A nem B
+# pegavam isto: `gltfx_rslt<T>::err(gltfx_err failure)` recebe o
+# parametro POR VALOR (err.hpp:299/:391); `with_path()`/
+# `with_rejected_value()`/`with_byte_offset()`/`with_position()`/
+# `with_os_error_code()` devolvem `gltfx_err&` (err.hpp:254-258) - uma
+# REFERENCIA de lvalue, nao um prvalue. Ligar um lvalue a um parametro
+# por valor chama o construtor de copia (err.hpp:194), que NAO e'
+# `noexcept` e aloca (`new err_context(*other.m_context)`,
+# err.cpp:34). Medido contra a arvore real em 18/09/2026 (oracle
+# congelado, /var/tmp/glintfx-errcopia/sitios_classificados.json):
+# 179 sitios `::err(` com argumento, 129 defeitos reais em 27
+# arquivos.
+#
+# A PERGUNTA QUE ESTE DETECTOR FAZ, e por que NAO e' "isto e'
+# '::err('?": sob a opcao de conserto que o lider escolheu (ESCOPO.md
+# Decisao 17 - contexto compartilhado por contagem intrusiva,
+# copia-na-escrita), a copia de `gltfx_err` PASSA A SER `noexcept` -
+# nesse dia, todo sitio abaixo vira legitimamente inocente, e um
+# detector que perguntasse "isto e' '::err('?" continuaria acusando
+# codigo correto para sempre. Este detector pergunta "esta e' uma
+# copia de `gltfx_err`, dentro de `noexcept` sem `try` eficaz?" -
+# textualmente ancorado ao NOME `gltfx_err` e a' chamada `::err(`
+# (a mesma familia de ancoragem por nome que CONTAINERS/ALLOC_METHODS
+# ja' usam acima; nao e' inferencia de tipo real), classificando o
+# ARGUMENTO da chamada em cinco formas (funcao classify_err_copy_arg):
+# `gltfx_err(codigo).with_*(v)` (cadeia, SEMPRE copia - 108 sitios
+# reais, 102 defeitos), `X.err()` (acessor de `const&`, copia
+# CONDICIONAL - 28 sitios, 27 defeitos), identificador nomeado isolado
+# (copia, mas as duas ocorrencias reais ja' estao protegidas por
+# `try`, idioma FIX-OOM-B9), `gltfx_err(codigo)` puro sem cadeia
+# (PRVALUE, elisao garantida, NUNCA copia - o controle que impede este
+# detector de acusar TODO `::err(`) e `std::move(...)` (nunca copia).
+# Chamada que devolve `gltfx_err` POR VALOR de uma funcao auxiliar
+# (`build_connection_failure(display)`, 15 sitios reais) tambem e'
+# prvalue e cai no mesmo balde de "nao copia" - absolvida.
+#
+# CALIBRACAO DEDICADA (DEGRAU 4b, roda em TODA execucao real, os
+# MESMOS dois arquivos de fixture usados no --selftest, nunca
+# fixture sintetica so' para o teste): `bad_err_copy_accessor.cpp`
+# mimetiza a forma REAL de src/platform/wayland/seat_adapter.cpp:88
+# (`seat_proxy.err()` dentro de `open() noexcept`, sem `try`) e TEM
+# de ser acusada; `good_err_copy_in_try.cpp` mimetiza a forma REAL,
+# ja' consertada, de src/platform/gl/gpu_enumeration_facade.cpp:92 e
+# :154 (idioma FIX-OOM-B9: identificador nomeado dentro de
+# `try`/`catch (const std::bad_alloc&)`) e TEM de ser absolvida. Se
+# a calibracao nao rodar em toda execucao, ela nao vale
+# (GODS_LAWS.md L-43).
+#
+# O QUE ESTE DETECTOR NAO VE (declarado aqui, reimpresso em BLIND_
+# SPOTS_TEXT em toda execucao real, GODS_LAWS.md L-43): ancorado ao
+# NOME `gltfx_err` e a' chamada literal `::err(` - uma copia de
+# `gltfx_err` por OUTRA via (atribuicao direta, passagem por
+# referencia que so' e' copiada varias chamadas depois, uma funcao
+# auxiliar do projeto que devolve `gltfx_err&` e NAO se chama
+# `with_*`) fica invisivel; sobrecarga de `err()` colapsada por nome,
+# como toda a propagacao transitiva deste motor. **TEMPORARIO POR
+# DESENHO:** depois que a fatia ERR-COPY-FIX (F4) tornar a copia de
+# `gltfx_err` `noexcept` (ESCOPO.md Decisao 17), este detector de
+# TEXTO passa a absolver os 129 legitimamente - a garantia real vira
+# `static_assert(std::is_nothrow_copy_constructible_v<gltfx_err>)` em
+# `err.hpp` (portao de TIPO, conferido em todo build, infinitamente
+# mais forte que portao de texto). A base congelada em
+# `tests/noexcept_alloc_err_copy_baseline.txt` e' EXATAMENTE isso -
+# uma catraca temporaria para o CI nao ficar vermelho entre F3 e F4,
+# nunca uma tolerancia permanente; F4 a esvazia.
+#
 # USO:
 #   check_noexcept_alloc.py <raiz-do-repo> [--json <arquivo>]
 #   check_noexcept_alloc.py --selftest
@@ -627,6 +696,57 @@ def method_hits(s, start, end):
     return out
 
 
+# ============================================================
+# FAMILIA C: copia de `gltfx_err` (TODO.md ERR-COPY-GATE, ESCOPO.md
+# Decisao 16/17 - ver o paragrafo dedicado no cabecalho deste
+# arquivo). Ancorado por NOME (`gltfx_err`) e por chamada literal
+# (`::err(`), na mesma familia de ancoragem que CONTAINERS/
+# ALLOC_METHODS ja usam acima - nao e' inferencia de tipo real.
+# ============================================================
+
+ERR_COPY_CALL_RE = re.compile(r"::err\s*\(")
+ERR_COPY_ACCESSOR_RE = re.compile(r"^[A-Za-z_]\w*\s*\.\s*err\s*\(\s*\)$")
+
+
+def classify_err_copy_arg(arg_text):
+    """Classifica o ARGUMENTO de uma chamada `::err(...)` numa das
+    seis formas medidas contra a arvore real (plano.md secao 3.1).
+    Devolve o par (kind, is_copy) - is_copy=True e' exatamente a
+    familia C ("achado" quando desprotegido e noexcept)."""
+    a = re.sub(r"\s+", " ", arg_text).strip()
+    if a.startswith("std::move("):
+        return "moved", False
+    if ERR_COPY_ACCESSOR_RE.match(a):
+        return "copy-accessor", True
+    if a.startswith("gltfx_err") and re.search(r"\.\s*with_", a):
+        return "copy-chain", True
+    if a.startswith("gltfx_err"):
+        return "prvalue", False
+    if re.fullmatch(r"[A-Za-z_]\w*", a):
+        return "copy-named", True
+    return "outro", False
+
+
+def err_copy_hits(s, start, end):
+    """Encontra todo sitio `::err(` no intervalo [start,end) do texto
+    JA' sem comentario/literal, e classifica o argumento. Devolve uma
+    lista no MESMO formato que container_hits()/method_hits() -
+    cada item ganha "func"/"protected"/"family" pelo mesmo loop
+    generico de analyze_source(), sem mecanismo novo."""
+    hits = []
+    for m in ERR_COPY_CALL_RE.finditer(s[start:end]):
+        open_paren = start + m.end() - 1
+        close = match_forward(s, open_paren, "(", ")")
+        if close < 0 or close > end:
+            continue
+        arg = s[open_paren + 1:close]
+        pos = start + m.start()
+        kind, _is_copy = classify_err_copy_arg(arg)
+        hits.append({"pos": pos, "line": line_of(s, pos), "type": "errcopy", "kind": kind,
+                     "text": re.sub(r"\s+", " ", s[pos:min(end, pos + 90)]).strip()})
+    return hits
+
+
 CALL_RE = re.compile(r"(?<![\w.>])([A-Za-z_][\w:]*)\s*\(")
 
 
@@ -653,7 +773,7 @@ def analyze_source(text, rel_path):
     for f in funcs:
         f["tries"] = try_ranges(s, f["start"], f["end"])
         f["calls"] = called_names(s, f["init_start"], f["end"])
-    hits = container_hits(s, 0, len(s)) + method_hits(s, 0, len(s))
+    hits = container_hits(s, 0, len(s)) + method_hits(s, 0, len(s)) + err_copy_hits(s, 0, len(s))
     for f in funcs:
         hits += return_hits(s, f)
     for h in hits:
@@ -674,7 +794,14 @@ def analyze_source(text, rel_path):
         h["protected"] = prot
         k = h["kind"]
         t = h["type"]
-        if t in PROXY_NOEXCEPT and k in ("default-decl", "default-temp", "move-decl", "move-temp",
+        if t == "errcopy":
+            # FAMILIA C (copia de gltfx_err) - "C" so' para as tres
+            # formas que SAO copia (copy-chain/copy-accessor/
+            # copy-named); prvalue/moved/outro nao copiam e caem
+            # em "-" (nunca contam como familia B por acidente do
+            # else generico logo abaixo).
+            fam = "C" if k in ("copy-chain", "copy-accessor", "copy-named") else "-"
+        elif t in PROXY_NOEXCEPT and k in ("default-decl", "default-temp", "move-decl", "move-temp",
                                           "return-default", "return-move"):
             fam = "A"
         elif t in PROXY_NOEXCEPT and k == "return-local(move-se-sem-NRVO)":
@@ -846,6 +973,25 @@ def parse_family_a_baseline(text, source_label="tests/noexcept_alloc_family_a_ba
 
 
 # ============================================================
+# BASELINE DE FAMILIA C - copia de gltfx_err
+# (tests/noexcept_alloc_err_copy_baseline.txt, TODO.md ERR-COPY-GATE)
+# ============================================================
+
+def parse_err_copy_baseline(text, source_label="tests/noexcept_alloc_err_copy_baseline.txt"):
+    """MESMO formato de 3 campos que a familia A ja usa
+    ('caminho|campo2|campo3') - reaproveita o parser generico em vez
+    de duplicar 15 linhas identicas so' para trocar o nome do arquivo
+    (GODS_LAWS.md L-33, DRY). A CATRACA em si (novos/orfaos contra
+    esta base) e' TEMPORARIA por desenho: F3 grava aqui os 129
+    defeitos reais medidos em 18/09/2026 para o CI nao ficar vermelho
+    ate' o conserto (ERR-COPY-FIX, F4) fechar; F4 esvazia este
+    arquivo, e a partir dai' QUALQUER sitio de familia C volta a
+    reprovar na hora (arquivo=vazio - sitio novo=todos). Nunca uma
+    tolerancia permanente."""
+    return parse_family_a_baseline(text, source_label=source_label)
+
+
+# ============================================================
 # TODO.md - so para a regra de morte de item (mesmo parse de
 # check_test_parity.py/check_measured_parity.py)
 # ============================================================
@@ -921,7 +1067,13 @@ BLIND_SPOTS_TEXT = (
     "familia_A_linha_de_base cobre SO construcao DIRETA de vector/string - tipo do\n"
     "  projeto que carrega vector/string por MEMBRO (composicao) fica de fora, cerca\n"
     "  de 80 sitios adicionais medidos a mao (RELATORIO.md), que podem crescer SEM\n"
-    "  este portao perceber; decisao do lider, 18/09/2026, ESCOPO.md Decisao 13"
+    "  este portao perceber; decisao do lider, 18/09/2026, ESCOPO.md Decisao 13\n"
+    "FAMILIA C (copia de gltfx_err, TODO.md ERR-COPY-GATE) e' ancorada por NOME\n"
+    "  (gltfx_err) e por chamada literal (::err() - copia por OUTRA via (atribuicao\n"
+    "  direta, referencia so' copiada varias chamadas depois, funcao auxiliar do\n"
+    "  projeto que devolve gltfx_err& e nao se chama with_*) fica invisivel; a base\n"
+    "  congelada (tests/noexcept_alloc_err_copy_baseline.txt) e' CATRACA TEMPORARIA\n"
+    "  ate' ERR-COPY-FIX (F4) esvazia-la - nao e' tolerancia permanente"
 )
 
 
@@ -930,7 +1082,8 @@ BLIND_SPOTS_TEXT = (
 # ============================================================
 
 def run_gate(root, exceptions_text, baseline_text, todo_text, calibration_dir,
-             enumerate_fn=enumerate_tracked_files, read_fn=None):
+             enumerate_fn=enumerate_tracked_files, read_fn=None,
+             err_copy_baseline_text=None, enforce_err_copy_universe_floor=False):
     """O portao inteiro, como uma funcao pura o bastante para
     --selftest poder chamar com fixtures em vez de tocar o disco real
     quando faz sentido. Devolve (report_lines, ok, findings) -
@@ -1014,6 +1167,50 @@ def run_gate(root, exceptions_text, baseline_text, todo_text, calibration_dir,
         calib_ok = False
         calib_detail = f"FALHOU: fixture de calibracao ilegivel ({exc})"
         reasons.append(f"calibracao nao rodou: {calib_detail}")
+
+    # ---- DEGRAU 4b: calibracao da FAMILIA C (copia de gltfx_err),
+    # roda em TODA execucao, mesma logica do DEGRAU 4 acima - le
+    # SEMPRE do disco real (calibration_dir), nunca via `read_fn`.
+    # Os DOIS arquivos sao os MESMOS usados pelo --selftest (nunca uma
+    # fixture so' para a calibracao): bad_err_copy_accessor.cpp
+    # mimetiza a forma REAL, hoje desprotegida, de
+    # src/platform/wayland/seat_adapter.cpp:88 (`seat_proxy.err()`
+    # dentro de `open() noexcept`, sem `try`) e TEM de ser acusada;
+    # good_err_copy_in_try.cpp mimetiza a forma REAL, ja' consertada,
+    # de src/platform/gl/gpu_enumeration_facade.cpp:92/:154 (idioma
+    # FIX-OOM-B9) e TEM de ser absolvida.
+    err_copy_calib_dirty_path = calibration_dir / "bad_err_copy_accessor.cpp"
+    err_copy_calib_clean_path = calibration_dir / "good_err_copy_in_try.cpp"
+    err_copy_calib_ok = True
+    err_copy_calib_detail = "nao rodada"
+    try:
+        ec_dirty_text = err_copy_calib_dirty_path.read_text(encoding="utf-8")
+        ec_clean_text = err_copy_calib_clean_path.read_text(encoding="utf-8")
+        ec_dirty_tree = analyze_tree([("bad_err_copy_accessor.cpp", ec_dirty_text)])
+        ec_clean_tree = analyze_tree([("good_err_copy_in_try.cpp", ec_clean_text)])
+        ec_dirty_reproved = _tree_has_any_finding(ec_dirty_tree)
+        ec_clean_reproved = _tree_has_any_finding(ec_clean_tree)
+        if ec_dirty_reproved and not ec_clean_reproved:
+            ec_line = next(iter(ec_dirty_reproved))
+            err_copy_calib_detail = (
+                f"fixture_suja=ACUSADA(linha {ec_line}, mimetiza "
+                "seat_adapter.cpp:88) fixture_limpa=ABSOLVIDA(mimetiza "
+                "gpu_enumeration_facade.cpp:92/:154)"
+            )
+        else:
+            err_copy_calib_ok = False
+            err_copy_calib_detail = (
+                f"FALHOU: fixture_suja acusada={bool(ec_dirty_reproved)}, "
+                f"fixture_limpa acusada={bool(ec_clean_reproved)} (esperava suja=True, limpa=False)"
+            )
+            reasons.append(
+                f"calibracao familia C reprovou: {err_copy_calib_detail} - o detector de copia "
+                "de gltfx_err nao esta calibrado, nada abaixo dele pode ser confiado (GODS_LAWS.md L-43)"
+            )
+    except OSError as exc:
+        err_copy_calib_ok = False
+        err_copy_calib_detail = f"FALHOU: fixture de calibracao da familia C ilegivel ({exc})"
+        reasons.append(f"calibracao familia C nao rodou: {err_copy_calib_detail}")
 
     # ---- FAMILIA B: achados bloqueantes ----
     b_exceptions, b_exc_errors = parse_b_exceptions(exceptions_text)
@@ -1100,6 +1297,59 @@ def run_gate(root, exceptions_text, baseline_text, todo_text, calibration_dir,
             "tests/noexcept_alloc_family_a_baseline.txt"
         )
 
+    # ---- FAMILIA C: copia de gltfx_err - catraca temporaria (F3/F4,
+    # TODO.md ERR-COPY-GATE) ----
+    if err_copy_baseline_text is None:
+        err_copy_baseline_text = "# nenhum sitio na linha de base\n"
+    err_copy_baseline_sites, err_copy_baseline_errors = parse_err_copy_baseline(err_copy_baseline_text)
+    reasons.extend(f"tests/noexcept_alloc_err_copy_baseline.txt: {e}" for e in err_copy_baseline_errors)
+
+    # copia_de_err_sitios_analisados: TODO sitio `::err(` encontrado,
+    # copia ou nao (o UNIVERSO, piso da L-40 - "o que o portao OLHOU",
+    # nunca "o que ele ACHOU"). copia_de_err_achados: so' os que SAO
+    # copia (familia C), dentro de noexcept, sem try eficaz.
+    copia_de_err_sitios_analisados = sum(1 for h in tree["hits"] if h["type"] == "errcopy")
+    err_copy_current_sites = set()
+    for h in tree["hits"]:
+        if h["type"] != "errcopy" or h["family"] != "C":
+            continue
+        if h["func_noexcept"] and not h["protected"]:
+            err_copy_current_sites.add((h["file"], str(h["line"]), h["kind"]))
+
+    # PISO (opt-in, GODS_LAWS.md L-40): "analisados=0 e' varredura
+    # quebrada; achados=0 e' desfecho legitimo depois do conserto -
+    # nunca inverter os dois". Desligado por padrao porque
+    # copia_de_err_sitios_analisados=0 e' o resultado NORMAL de
+    # qualquer arvore sintetica de 1-2 arquivos que os OUTROS
+    # controles do --selftest usam (eles nunca continham um `::err(`
+    # e nao tem por que passar a conter) - real_main() liga este piso
+    # explicitamente, porque so' ali "179" e' uma expectativa real
+    # sobre ESTE projeto.
+    if enforce_err_copy_universe_floor and copia_de_err_sitios_analisados == 0:
+        reasons.append(
+            "copia_de_err_sitios_analisados=0 - a varredura da familia C (copia de "
+            "gltfx_err via '::err(') nao encontrou nenhum sitio na arvore real, o que "
+            "parece limpeza mas e' regua quebrada (GODS_LAWS.md L-40): a fabrica "
+            "gltfx_rslt<T>::err() existe e e' chamada em toda a base"
+        )
+
+    err_copy_novos = sorted(err_copy_current_sites - err_copy_baseline_sites)
+    err_copy_orfaos = sorted(err_copy_baseline_sites - err_copy_current_sites)
+    for site in err_copy_novos:
+        reasons.append(
+            f"familia C (copia de gltfx_err): sitio novo fora da base congelada: "
+            f"{site[0]}:{site[1]} ({site[2]}) - acrescente a "
+            "tests/noexcept_alloc_err_copy_baseline.txt (ESCOPO.md Decisao 17, catraca "
+            "temporaria ate' ERR-COPY-FIX) ou conserte"
+        )
+    for site in err_copy_orfaos:
+        reasons.append(
+            f"familia C (copia de gltfx_err): linha da base congelada sem sitio "
+            f"correspondente (orfa): {site[0]}:{site[1]} ({site[2]}) - o sitio sumiu "
+            "(conserto chegou?); remova a linha de "
+            "tests/noexcept_alloc_err_copy_baseline.txt"
+        )
+
     ok = not reasons
 
     # ---- RELATORIO, DUAS CAMADAS ----
@@ -1111,10 +1361,17 @@ def run_gate(root, exceptions_text, baseline_text, todo_text, calibration_dir,
     )
     lines.append(f"funcoes={funcoes}  funcoes_noexcept={funcoes_noexcept}")
     lines.append(f"calibracao: {calib_detail}")
+    lines.append(f"calibracao_familia_C: {err_copy_calib_detail}")
     lines.append(f"familia_B_achados={familia_B_achados}  familia_B_excecoes_declaradas={familia_B_excecoes}")
     lines.append(
         f"familia_A_sitios={len(current_sites)}  familia_A_linha_de_base={len(baseline_sites)}  "
         f"familia_A_novos={len(familia_A_novos)}  familia_A_orfaos={len(familia_A_orfaos)}"
+    )
+    lines.append(
+        f"copia_de_err_sitios_analisados={copia_de_err_sitios_analisados}  "
+        f"copia_de_err_achados={len(err_copy_current_sites)}  "
+        f"copia_de_err_linha_de_base={len(err_copy_baseline_sites)}  "
+        f"copia_de_err_novos={len(err_copy_novos)}  copia_de_err_orfaos={len(err_copy_orfaos)}"
     )
     lines.append("[camada 2 - criterio aplicado]")
     lines.append(BLIND_SPOTS_TEXT)
@@ -1134,6 +1391,11 @@ def run_gate(root, exceptions_text, baseline_text, todo_text, calibration_dir,
         "arquivos_analisados": arquivos_analisados,
         "funcoes_noexcept": funcoes_noexcept,
         "reasons": reasons,
+        "err_copy_calib_ok": err_copy_calib_ok,
+        "copia_de_err_sitios_analisados": copia_de_err_sitios_analisados,
+        "err_copy_current_sites": sorted(err_copy_current_sites),
+        "err_copy_novos": err_copy_novos,
+        "err_copy_orfaos": err_copy_orfaos,
     }
     return lines, ok, findings
 
@@ -1153,6 +1415,8 @@ def _tree_has_any_finding(tree):
     lines = set()
     for h in tree["hits"]:
         if h["family"] in ("A", "A?"):
+            lines.add(h["line"])
+        if h["family"] == "C" and h["func_noexcept"] and not h["protected"]:
             lines.add(h["line"])
     for f in tree["funcs"]:
         if not f["noexcept"]:
@@ -1178,6 +1442,7 @@ def real_main(args):
     root = Path(parsed.root)
     exceptions_path = root / "tests" / "noexcept_alloc_exceptions.txt"
     baseline_path = root / "tests" / "noexcept_alloc_family_a_baseline.txt"
+    err_copy_baseline_path = root / "tests" / "noexcept_alloc_err_copy_baseline.txt"
     todo_path = root / "TODO.md"
     calibration_dir = Path(__file__).resolve().parent / FIXTURES_DIR_NAME
 
@@ -1189,11 +1454,23 @@ def real_main(args):
         baseline_text = baseline_path.read_text(encoding="utf-8")
     except OSError as exc:
         fail(f"nao consegui ler {baseline_path}: {exc}")
+    try:
+        err_copy_baseline_text = err_copy_baseline_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(f"nao consegui ler {err_copy_baseline_path}: {exc}")
     todo_text = None
     if todo_path.exists():
         todo_text = todo_path.read_text(encoding="utf-8", errors="replace")
 
-    lines, ok, findings = run_gate(root, exceptions_text, baseline_text, todo_text, calibration_dir)
+    # enforce_err_copy_universe_floor=True: SO' aqui, no scan REAL do
+    # projeto, "179 sitios ::err(" e' uma expectativa que faz sentido
+    # (GODS_LAWS.md L-40 - ver o comentario ao lado do uso da flag em
+    # run_gate() para o porque de --selftest nao ligar isto).
+    lines, ok, findings = run_gate(
+        root, exceptions_text, baseline_text, todo_text, calibration_dir,
+        err_copy_baseline_text=err_copy_baseline_text,
+        enforce_err_copy_universe_floor=True,
+    )
     for line in lines:
         print(f"{SCRIPT_NAME}: {line}" if not line.startswith(" ") else line)
 
@@ -1219,6 +1496,8 @@ DIRTY_FIXTURES = [
     "bad_new_array.cpp",
     "bad_duplicate_site_merges.cpp",
     "calib_dirty_complex_match.cpp",
+    "bad_err_copy_chain.cpp",
+    "bad_err_copy_accessor.cpp",
 ]
 CLEAN_FIXTURES = [
     "good_fixed_buffer.cpp",
@@ -1227,6 +1506,9 @@ CLEAN_FIXTURES = [
     "good_nothrow_new.cpp",
     "good_string_view_substr.cpp",
     "calib_clean_complex_match.cpp",
+    "good_err_copy_prvalue.cpp",
+    "good_err_copy_moved.cpp",
+    "good_err_copy_in_try.cpp",
 ]
 
 
@@ -1555,6 +1837,157 @@ def selftest_known_gap_optional_vector_assignment_currently_absolved():
     return True
 
 
+_ERR_COPY_PROBE_SRC = (
+    "struct gltfx_err {};\n"
+    "template <typename T> struct gltfx_rslt {\n"
+    "    static gltfx_rslt err(gltfx_err e) noexcept { return gltfx_rslt{e}; }\n"
+    "    gltfx_err m;\n"
+    "};\n"
+    "namespace {\n"
+    "gltfx_rslt<int> forward(gltfx_rslt<int> src) noexcept {\n"
+    "    return gltfx_rslt<int>::err(src.err());\n"
+    "}\n"
+    "} // namespace\n"
+)
+_ERR_COPY_PROBE_CALL_LINE = _ERR_COPY_PROBE_SRC.splitlines().index(
+    "    return gltfx_rslt<int>::err(src.err());"
+) + 1
+
+
+def selftest_err_copy_ratchet_new_site_reproves():
+    """FAMILIA C - mesma prova que CATRACA-A-NOVO ja faz para familia
+    A (linha 88 do arquivo `src/probe.cpp` sintetico contem um
+    `::err(src.err())` desprotegido, dentro de noexcept - forma
+    ACESSOR_err_constref, uma das 129 defeitos reais)."""
+    files = {"src/probe.cpp": _ERR_COPY_PROBE_SRC}
+
+    def enumerate_one(_root):
+        return ["src/probe.cpp"]
+
+    def read_one(_path):
+        return files["src/probe.cpp"]
+
+    lines, ok, findings = run_gate(
+        Path("/nonexistent"), "# nenhuma excecao\n", "# nenhum sitio na linha de base\n",
+        None, _fixture_path("."), enumerate_fn=enumerate_one, read_fn=read_one,
+        err_copy_baseline_text="# nenhum sitio na linha de base\n",
+    )
+    if ok:
+        print("selftest: ERRCOPY-CATRACA-NOVO FALHOU (sitio de familia C fora da base deveria reprovar)", file=sys.stderr)
+        return False
+    if not findings["err_copy_novos"]:
+        print(f"selftest: ERRCOPY-CATRACA-NOVO FALHOU (nao listou sitio novo): {lines}", file=sys.stderr)
+        return False
+    print(f"selftest: ERRCOPY-CATRACA-NOVO OK (sitio fora da base congelada reprova): {findings['err_copy_novos']}")
+    return True
+
+
+def selftest_err_copy_ratchet_orphan_reproves():
+    files = {"src/probe.cpp": "void f() noexcept {}\n"}  # nenhum sitio de familia C
+
+    def enumerate_one(_root):
+        return ["src/probe.cpp"]
+
+    def read_one(_path):
+        return files["src/probe.cpp"]
+
+    baseline = "src/probe.cpp|3|copy-accessor\n"  # linha que nao existe mais na fonte
+    lines, ok, findings = run_gate(
+        Path("/nonexistent"), "# nenhuma excecao\n", "# nenhum sitio na linha de base\n",
+        None, _fixture_path("."), enumerate_fn=enumerate_one, read_fn=read_one,
+        err_copy_baseline_text=baseline,
+    )
+    if ok:
+        print("selftest: ERRCOPY-CATRACA-ORFAO FALHOU (linha da base sem sitio deveria reprovar)", file=sys.stderr)
+        return False
+    if not findings["err_copy_orfaos"]:
+        print(f"selftest: ERRCOPY-CATRACA-ORFAO FALHOU (nao listou orfao): {lines}", file=sys.stderr)
+        return False
+    print(f"selftest: ERRCOPY-CATRACA-ORFAO OK (sitio que sumiu da fonte reprova): {findings['err_copy_orfaos']}")
+    return True
+
+
+def selftest_err_copy_ratchet_matching_baseline_passes():
+    files = {"src/probe.cpp": _ERR_COPY_PROBE_SRC}
+
+    def enumerate_one(_root):
+        return ["src/probe.cpp"]
+
+    def read_one(_path):
+        return files["src/probe.cpp"]
+
+    baseline = f"src/probe.cpp|{_ERR_COPY_PROBE_CALL_LINE}|copy-accessor\n"
+    lines, ok, findings = run_gate(
+        Path("/nonexistent"), "# nenhuma excecao\n", "# nenhum sitio na linha de base\n",
+        None, _fixture_path("."), enumerate_fn=enumerate_one, read_fn=read_one,
+        err_copy_baseline_text=baseline,
+    )
+    if not ok:
+        print(
+            f"selftest: ERRCOPY-CATRACA-ESTAVEL FALHOU (sitio identico a base congelada nao "
+            f"deveria reprovar): {lines}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: ERRCOPY-CATRACA-ESTAVEL OK (sitio igual a base congelada nao reprova)")
+    return True
+
+
+def selftest_err_copy_universe_floor_reproves_when_enabled():
+    """PISO opt-in (GODS_LAWS.md L-40): com `enforce_err_copy_
+    universe_floor=True` (o que real_main() liga), uma arvore sem
+    NENHUM `::err(` reprova - "analisados=0 e' varredura quebrada"."""
+    files = {"src/probe.cpp": "void f() noexcept {}\n"}
+
+    def enumerate_one(_root):
+        return ["src/probe.cpp"]
+
+    def read_one(_path):
+        return files["src/probe.cpp"]
+
+    lines, ok, findings = run_gate(
+        Path("/nonexistent"), "# nenhuma excecao\n", "# nenhum sitio na linha de base\n",
+        None, _fixture_path("."), enumerate_fn=enumerate_one, read_fn=read_one,
+        err_copy_baseline_text="# nenhum sitio na linha de base\n",
+        enforce_err_copy_universe_floor=True,
+    )
+    if ok:
+        print(
+            "selftest: ERRCOPY-PISO-LIGADO FALHOU (universo zero com o piso ligado deveria reprovar)",
+            file=sys.stderr,
+        )
+        return False
+    if not any("copia_de_err_sitios_analisados=0" in r for r in findings["reasons"]):
+        print(f"selftest: ERRCOPY-PISO-LIGADO FALHOU (nao imprimiu o motivo do piso): {lines}", file=sys.stderr)
+        return False
+    print("selftest: ERRCOPY-PISO-LIGADO OK (universo zero reprova quando o piso esta ligado)")
+    return True
+
+
+def selftest_err_copy_universe_floor_off_by_default():
+    """O outro sentido do piso: DESLIGADO (o default de todo chamador
+    que nao e' real_main() - inclusive os outros 12 controles deste
+    --selftest, cujas fixtures nunca contem '::err('), universo zero
+    NAO reprova."""
+    files = {"src/probe.cpp": "void f() noexcept {}\n"}
+
+    def enumerate_one(_root):
+        return ["src/probe.cpp"]
+
+    def read_one(_path):
+        return files["src/probe.cpp"]
+
+    lines, ok, _findings = run_gate(
+        Path("/nonexistent"), "# nenhuma excecao\n", "# nenhum sitio na linha de base\n",
+        None, _fixture_path("."), enumerate_fn=enumerate_one, read_fn=read_one,
+    )
+    if not ok:
+        print(f"selftest: ERRCOPY-PISO-DESLIGADO FALHOU (deveria passar com o piso desligado): {lines}", file=sys.stderr)
+        return False
+    print("selftest: ERRCOPY-PISO-DESLIGADO OK (universo zero nao reprova quando o piso esta desligado, o default)")
+    return True
+
+
 def selftest_main():
     controls = [
         selftest_dirty_fixtures_are_accused(),
@@ -1569,6 +2002,11 @@ def selftest_main():
         selftest_family_b_exception_with_concluded_item_reproves(),
         selftest_family_b_duplicate_site_merges_into_one_line(),
         selftest_known_gap_optional_vector_assignment_currently_absolved(),
+        selftest_err_copy_ratchet_new_site_reproves(),
+        selftest_err_copy_ratchet_orphan_reproves(),
+        selftest_err_copy_ratchet_matching_baseline_passes(),
+        selftest_err_copy_universe_floor_reproves_when_enabled(),
+        selftest_err_copy_universe_floor_off_by_default(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

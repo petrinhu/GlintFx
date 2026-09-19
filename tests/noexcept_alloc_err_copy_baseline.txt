@@ -1,0 +1,178 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# NOEXCEPT-ALLOC-B8 familia C baseline (TODO.md ERR-COPY-GATE,
+# ESCOPO.md Decisao 16/17, 18/09/2026). Consumido por
+# tests/tools/check_noexcept_alloc.py.
+#
+# Familia C: copia de `gltfx_err` dentro de `noexcept` sem `try`
+# eficaz, via `gltfx_rslt<T>::err(...)` (fabrica que recebe o
+# parametro POR VALOR - err.hpp:299/:391). Mata nos CINCO sistemas,
+# Release incluido - NAO depende de modo de depuracao nenhum (ao
+# contrario da familia A). Ver o paragrafo dedicado no cabecalho de
+# check_noexcept_alloc.py para a forma exata do defeito.
+#
+# ESTA CATRACA E' TEMPORARIA POR DESENHO, DIFERENTE DA FAMILIA A: o
+# lider ja' escolheu o conserto (ESCOPO.md Decisao 17 - contexto
+# compartilhado por contagem intrusiva, copia-na-escrita; TODO.md
+# ERR-COPY-FIX) e ele MATA a familia inteira na raiz, sem tocar um
+# sitio. Este arquivo existe so' para o CI nao ficar vermelho no
+# intervalo entre a fatia que ensina o portao a ver o defeito
+# (ERR-COPY-GATE, esta) e a fatia que conserta (ERR-COPY-FIX) - o
+# vermelho fica registrado no repositorio como evidencia (ver a
+# mensagem do commit que criou este arquivo), nunca como CI quebrado.
+# ERR-COPY-FIX ESVAZIA ESTE ARQUIVO POR COMPLETO: a partir dali,
+# QUALQUER sitio de familia C volta a reprovar na hora, porque a
+# fabrica `::err()` passa a nao copiar mais nada (a garantia real vira
+# um `static_assert` de TIPO em err.hpp, infinitamente mais forte que
+# este portao de texto).
+#
+# Formato, um registro por linha, tres campos separados por "|"
+# (comentarios com "#", linhas em branco ignoradas):
+#
+#   caminho | linha | forma
+#
+# - caminho: caminho relativo do arquivo (raiz do repositorio).
+# - linha: numero da linha onde a chamada `::err(` comeca, NO MOMENTO
+#   em que esta base foi gravada - apodrece a cada edicao do arquivo
+#   fonte; e' aceitavel porque esta base inteira e' descartada em
+#   ERR-COPY-FIX, nunca mantida no longo prazo (diferente da familia
+#   A, que usa nome de funcao para ser mais resistente a refactor).
+# - forma: um dos tres kinds que classify_err_copy_arg() produz e que
+#   SAO copia - "copy-chain" (`gltfx_err(c).with_*(v)`, 102 dos 129),
+#   "copy-accessor" (`X.err()`, 27 dos 129), "copy-named" (variavel
+#   local, 0 dos 129 hoje - as duas ocorrencias reais ja estao
+#   protegidas por `try`, idioma FIX-OOM-B9).
+#
+# GERADO PELO PROPRIO DETECTOR (nao escrito a mao) contra a arvore
+# medida em 18/09/2026 (129 linhas abaixo) - ver o relatorio da fatia
+# ERR-COPY-GATE para o comando exato e a "estreia vermelha" contra
+# base vazia que precedeu esta gravacao.
+src/platform/gl/gfx_option_registry.cpp|61|copy-chain
+src/platform/gl/gfx_option_validation.cpp|38|copy-chain
+src/platform/gl/gfx_option_validation.cpp|43|copy-chain
+src/platform/gl/gfx_option_validation.cpp|48|copy-chain
+src/platform/gl/gfx_option_validation.cpp|53|copy-chain
+src/platform/gl/gl_context_desc_validation.cpp|17|copy-chain
+src/platform/gl/gl_context_desc_validation.cpp|40|copy-accessor
+src/platform/gl/gl_context_facade.cpp|153|copy-chain
+src/platform/gl/gl_context_facade.cpp|161|copy-accessor
+src/platform/gl/gl_context_facade.cpp|195|copy-chain
+src/platform/gl/gl_context_facade.cpp|237|copy-accessor
+src/platform/gl/gl_context_facade.cpp|305|copy-accessor
+src/platform/gl/gl_context_facade.cpp|385|copy-accessor
+src/platform/gl/gl_context_facade.cpp|392|copy-chain
+src/platform/gl/gl_context_facade.cpp|398|copy-accessor
+src/platform/gl/gl_context_facade.cpp|422|copy-chain
+src/platform/gl/gl_surface_size_policy.cpp|13|copy-chain
+src/platform/gl/gl_version_policy.cpp|17|copy-chain
+src/platform/loop/loop_callbacks_validation.cpp|10|copy-chain
+src/platform/loop/loop_callbacks_validation.cpp|14|copy-chain
+src/platform/loop/loop_callbacks_validation.cpp|25|copy-chain
+src/platform/loop/loop_callbacks_validation.cpp|39|copy-chain
+src/platform/loop/loop_engine.hpp|135|copy-accessor
+src/platform/loop/loop_engine.hpp|156|copy-accessor
+src/platform/loop/loop_engine.hpp|230|copy-accessor
+src/platform/loop/loop_engine.hpp|251|copy-accessor
+src/platform/loop/loop_engine.hpp|264|copy-accessor
+src/platform/loop/loop_engine.hpp|325|copy-chain
+src/platform/loop/loop_engine.hpp|340|copy-accessor
+src/platform/loop/loop_engine.hpp|356|copy-accessor
+src/platform/loop/loop_facade.cpp|114|copy-chain
+src/platform/loop/loop_facade.cpp|118|copy-chain
+src/platform/loop/loop_facade.cpp|122|copy-chain
+src/platform/loop/loop_facade.cpp|128|copy-accessor
+src/platform/loop/loop_facade.cpp|226|copy-chain
+src/platform/loop/store_loop_callbacks.cpp|31|copy-chain
+src/platform/wayland/display_adapter.cpp|370|copy-accessor
+src/platform/wayland/display_adapter.cpp|400|copy-accessor
+src/platform/wayland/display_adapter.cpp|416|copy-accessor
+src/platform/wayland/egl_context_adapter.cpp|330|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|336|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|343|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|352|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|433|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|441|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|447|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|452|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|455|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|470|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|483|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|503|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|509|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|563|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|626|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|631|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|644|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|737|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|794|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|839|copy-chain
+src/platform/wayland/egl_context_adapter.cpp|889|copy-chain
+src/platform/wayland/egl_device_enumeration.cpp|40|copy-chain
+src/platform/wayland/egl_device_enumeration.cpp|47|copy-chain
+src/platform/wayland/egl_device_enumeration.cpp|93|copy-accessor
+src/platform/wayland/seat_adapter.cpp|82|copy-chain
+src/platform/wayland/seat_adapter.cpp|88|copy-accessor
+src/platform/wayland/shell_adapter.cpp|60|copy-accessor
+src/platform/wayland/shell_adapter.cpp|70|copy-accessor
+src/platform/wayland/shell_requirements.cpp|10|copy-chain
+src/platform/wayland/shell_requirements.cpp|14|copy-chain
+src/platform/wayland/window_adapter.cpp|168|copy-chain
+src/platform/wayland/window_adapter.cpp|174|copy-chain
+src/platform/wayland/window_adapter.cpp|189|copy-chain
+src/platform/wayland/window_adapter.cpp|201|copy-chain
+src/platform/wayland/window_adapter.cpp|281|copy-chain
+src/platform/wayland/window_adapter.cpp|331|copy-chain
+src/platform/win32/app_user_model_id.cpp|103|copy-chain
+src/platform/win32/app_user_model_id.cpp|121|copy-chain
+src/platform/win32/app_user_model_id.cpp|131|copy-chain
+src/platform/win32/app_user_model_id.cpp|142|copy-chain
+src/platform/win32/app_user_model_id.cpp|157|copy-chain
+src/platform/win32/display_adapter.cpp|201|copy-chain
+src/platform/win32/display_adapter.cpp|228|copy-chain
+src/platform/win32/display_adapter.cpp|333|copy-accessor
+src/platform/win32/dxcore_adapter_enumeration.cpp|207|copy-chain
+src/platform/win32/dxcore_adapter_enumeration.cpp|214|copy-chain
+src/platform/win32/dxcore_adapter_enumeration.cpp|225|copy-chain
+src/platform/win32/dxcore_adapter_enumeration.cpp|238|copy-chain
+src/platform/win32/dxcore_adapter_enumeration.cpp|273|copy-chain
+src/platform/win32/seat_adapter.cpp|261|copy-chain
+src/platform/win32/seat_adapter.cpp|269|copy-chain
+src/platform/win32/seat_adapter.cpp|286|copy-chain
+src/platform/win32/seat_adapter.cpp|310|copy-chain
+src/platform/win32/seat_adapter.cpp|327|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|321|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|325|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|382|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|389|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|415|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|424|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|481|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|486|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|492|copy-accessor
+src/platform/win32/wgl_context_adapter.cpp|502|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|568|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|616|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|630|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|639|copy-chain
+src/platform/win32/wgl_context_adapter.cpp|650|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|102|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|110|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|125|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|147|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|157|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|162|copy-chain
+src/platform/win32/wgl_extension_loader.cpp|183|copy-chain
+src/platform/win32/window_adapter.cpp|103|copy-chain
+src/platform/win32/window_adapter.cpp|178|copy-chain
+src/platform/win32/window_adapter.cpp|240|copy-chain
+src/platform/win32/window_adapter.cpp|250|copy-chain
+src/platform/win32/window_adapter.cpp|256|copy-chain
+src/platform/win32/window_adapter.cpp|85|copy-chain
+src/platform/window/display_facade.cpp|74|copy-accessor
+src/platform/window/display_facade.cpp|91|copy-accessor
+src/platform/window/window_desc_validation.cpp|16|copy-chain
+src/platform/window/window_desc_validation.cpp|20|copy-chain
+src/platform/window/window_desc_validation.cpp|28|copy-chain
+src/platform/window/window_facade.cpp|123|copy-chain
+src/platform/window/window_facade.cpp|136|copy-accessor
+src/platform/window/window_facade.cpp|189|copy-accessor

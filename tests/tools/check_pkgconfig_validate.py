@@ -1820,7 +1820,7 @@ def run_windows_forced_broken_conversation_scenario(build_dir, intact_prefix, sc
             handle.write(
                 "@echo off\r\n"
                 "if \"%~1\"==\"--version\" (\r\n"
-                "    echo 0.29.2 (glintfx scenario-19 FAKE pkg-config, forced-broken)\r\n"
+                "    echo 0.29.2 ^(glintfx scenario-19 FAKE pkg-config, forced-broken^)\r\n"
                 "    exit /b 0\r\n"
                 ")\r\n"
                 "echo Package glintfx was not found in the pkg-config search path "

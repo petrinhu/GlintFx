@@ -6,77 +6,66 @@
 #include "harness/test_registry.hpp"
 
 // flush_retry_policy_test.cpp - LOOP-RUN fatia 7, conserto pos-revisao
-// (docs/plano-w6b-fatias-6-8.md, D-W6b-57; GODS_LAWS.md L-20): the TDD
-// red/green witness for glintfx::platform::flush_write_wait_is_fatal()
-// (src/platform/wayland/flush_retry_policy.hpp) - the exact decision
-// that was missing a test entirely before this fatia's own revisao
-// adversarial (07/09/2026) named it: "nenhum teste existente
-// exercitaria uma regressao aqui" (display_adapter.cpp::flush_with_
-// retry() ignorava o orcamento do chamador e sempre trancava m_fatal,
-// mesmo com budget_ms == 0).
+// (docs/plano-w6b-fatias-6-8.md, D-W6b-57), REABERTO por
+// WL-WRITE-TIMEOUT-NAO-FATAL (TODO.md; ordem do lider, 08/09/2026, via
+// AskUserQuestion): the TDD red/green witness for glintfx::platform::
+// flush_write_wait_is_fatal() (src/platform/wayland/flush_retry_
+// policy.hpp).
 //
-// RED, SEEN: before flush_retry_policy.{hpp,cpp} existed, this file's
-// own #include line for flush_retry_policy.hpp failed to compile -
-// `fatal: platform/wayland/flush_retry_policy.hpp: No such file or
-// directory` (this fatia's own commit message carries the literal
-// compiler transcript). No socket, no wl_display, no container needed:
-// bounded_wait_outcome is plain data the caller already has after its
-// own call to wait_for_writable_until() (already proven bounded and
-// never-hanging by tests/bounded_output_wait_test.cpp) - this atom
-// only decides what that outcome MEANS for the connection, which is
-// exactly the four cases below.
+// A DECISAO NOVA, E O QUE ELA REVERTE: pesquisa externa (citada na
+// propria linha da TODO.md) mediu que NENHUM cliente de referencia mata
+// a conexao por tempo de escrita esgotado - o manual do libwayland
+// manda usar poll() e esperar, o GLFW espera SEM LIMITE por POLLOUT, o
+// SDL segue adiante sem marcar nada. D-W6b-57 (07/09/2026) ja tinha
+// consertado UM defeito real (m_fatal travando mesmo com budget_ms ==
+// 0), mas manteve um segundo: qualquer orcamento != 0 esgotado
+// continuava fatal, uma regra que a propria TODO.md nomeia como
+// acidental (o limiar era literalmente "quanto tempo o chamador
+// escolheu dormir", 100ms a quase 1s conforme o teto de quadros) e
+// assimetrica (o mesmo timeout do lado LEITURA, em
+// wait_for_incoming_data() dentro de display_adapter.cpp, ja era
+// perdoado incondicionalmente, sob qualquer orcamento). Esta fatia
+// fecha as duas: agora `budget_ms` NAO EXISTE MAIS na assinatura - a
+// unica coisa que decide se a espera de escrita e' fatal e' o
+// `outcome` em si. timed_out nunca e' fatal (buffer do kernel cheio
+// agora prova so' isso, nunca que o par do outro lado morreu);
+// poll_failed continua fatal SEMPRE (POLLERR/POLLHUP/POLLNVAL, ou
+// poll() falhando de verdade, e' a conexao QUEBRADA, categoria
+// diferente de "ainda nao drenou").
+//
+// RED, SEEN (WL-WRITE-TIMEOUT-NAO-FATAL): antes deste conserto,
+// flush_retry_policy_nonzero_budget_timeout_is_never_fatal chamava
+// `flush_write_wait_is_fatal(100, bounded_wait_outcome::timed_out)` e
+// exigia falso - a implementacao antiga devolvia verdadeiro para
+// qualquer budget_ms != 0, reprovando o caso. Ver o relato da fatia
+// para o codigo de saida medido do binario antes e depois.
+//
+// No socket, no wl_display, no container needed: bounded_wait_outcome
+// is plain data the caller already has after its own call to wait_
+// for_writable_until() (already proven bounded and never-hanging by
+// tests/bounded_output_wait_test.cpp) - this atom only decides what
+// that outcome MEANS for the connection, which is exactly the two
+// cases below (the precondition on flush_write_wait_is_fatal()'s own
+// header comment excludes bounded_wait_outcome::ready - the caller's
+// retry loop already keeps flushing whenever it is).
 
 using glintfx::platform::bounded_wait_outcome;
 using glintfx::platform::flush_write_wait_is_fatal;
 
-GLINTFX_TEST(flush_retry_policy_zero_budget_timeout_is_never_fatal) {
-    // D-W6b-57's own text, verbatim reasoning: pump_events()'s own
-    // budget_ms == 0 call means "is the kernel send buffer free RIGHT
-    // NOW" - a buffer still full is normal, transient backpressure
-    // under load, never proof the compositor died. THIS is the exact
-    // case that used to latch m_fatal with no test catching it.
-    GLINTFX_CHECK(!flush_write_wait_is_fatal(0, bounded_wait_outcome::timed_out));
+GLINTFX_TEST(flush_retry_policy_timeout_is_never_fatal) {
+    // WL-WRITE-TIMEOUT-NAO-FATAL: nem pump_events() (antigo budget_ms
+    // == 0) nem wait_events() (antigo budget_ms > 0) marcam a conexao
+    // como morta so' porque o tempo de escrita esgotou - a mesma
+    // clemencia que wait_for_incoming_data() (display_adapter.cpp) ja
+    // dava ao lado leitura, agora simetrica dos dois lados.
+    GLINTFX_CHECK(!flush_write_wait_is_fatal(bounded_wait_outcome::timed_out));
 }
 
-GLINTFX_TEST(flush_retry_policy_zero_budget_poll_failure_is_still_fatal) {
-    // Zero budget forgives a merely-full buffer, never a genuinely
-    // broken socket (POLLERR/POLLHUP/POLLNVAL, or poll() itself
-    // failing) - bounded_output_wait.hpp's own "conexao inutilizavel"
-    // verdict for poll_failed does not become "try again next time"
-    // just because the caller only asked to check once.
-    GLINTFX_CHECK(flush_write_wait_is_fatal(0, bounded_wait_outcome::poll_failed));
-}
-
-GLINTFX_TEST(flush_retry_policy_nonzero_budget_timeout_is_fatal) {
-    // wait_events()'s own caller-chosen budget (e.g. 100ms) already
-    // gave the compositor real time to drain the socket - exhausting
-    // it is the same "connection no longer usable" verdict 72754af
-    // already reaches for egl_context_adapter.cpp's twin write-wait,
-    // always a non-zero budget there.
-    GLINTFX_CHECK(flush_write_wait_is_fatal(100, bounded_wait_outcome::timed_out));
-}
-
-GLINTFX_TEST(flush_retry_policy_nonzero_budget_poll_failure_is_fatal) {
-    GLINTFX_CHECK(flush_write_wait_is_fatal(100, bounded_wait_outcome::poll_failed));
-}
-
-// FRONTEIRA NAO EXERCITADA (revisao adversarial, 08/09/2026, GODS_LAWS.md
-// L-17): os quatro casos acima so usam budget_ms 0 e 100 - a faixa 1..99
-// nunca foi tocada por ninguem. A regra real (flush_retry_policy.cpp) tem
-// UMA fronteira logica so: budget_ms == 0 (perdoado) contra qualquer
-// budget_ms != 0 (fatal). Uma mutacao que trocasse `!= 0` por `> K` para
-// qualquer K >= 1 sobreviveria aos quatro casos existentes sem que nada
-// ficasse vermelho - provado por mutation testing contra `> 1`
-// especificamente (relatorio da fatia, nao versionado aqui).
-//
-// Um unico caso fecha essa fronteira inteira: budget_ms == 1 e o valor
-// nao-zero MAIS PROXIMO do zero ja coberto acima - e por isso o unico
-// ponto onde a regra correta (fatal, porque 1 != 0) e QUALQUER mutante
-// da familia `budget_ms > K` (K >= 1) divergem sempre (1 > K e falso
-// para todo K >= 1). Nao ha necessidade de enumerar os demais valores de
-// 2 a 99: nenhum outro mutante plausivel dessa comparacao introduz uma
-// segunda fronteira ali - a unica fronteira que a regra em si declara e
-// 0 contra nao-zero, e este caso e o ponto mais estreito dela.
-GLINTFX_TEST(flush_retry_policy_boundary_budget_of_one_timeout_is_fatal) {
-    GLINTFX_CHECK(flush_write_wait_is_fatal(1, bounded_wait_outcome::timed_out));
+GLINTFX_TEST(flush_retry_policy_poll_failure_is_always_fatal) {
+    // Perdoar um buffer que so' ainda nao drenou nunca perdoa um
+    // socket genuinamente quebrado - bounded_output_wait.hpp's own
+    // "conexao inutilizavel" verdict for poll_failed continua valendo
+    // sem excecao, e' a UNICA coisa que ainda derruba a conexao por
+    // este caminho.
+    GLINTFX_CHECK(flush_write_wait_is_fatal(bounded_wait_outcome::poll_failed));
 }

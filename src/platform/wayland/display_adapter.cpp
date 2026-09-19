@@ -238,27 +238,30 @@ gltfx_rslt<void> wayland_display_adapter::drain_pending_and_prepare_read() noexc
 // OWN fixed 100ms budget (k_flush_budget_ms, now gone) and ALWAYS
 // latched m_fatal on a timeout no matter what the caller had actually
 // asked for - INCLUDING pump_events()'s own budget_ms == 0 ("is the
-// kernel send buffer free RIGHT NOW"). `budget_ms` and `deadline` now
-// both come from dispatch_ready_events() below, computed ONCE from the
-// caller's own request and shared with the step-3 read-side wait in
-// wait_for_incoming_data() - the same "one clock, not two independent
-// guesses" shape 72754af already applies within egl_context_adapter.
-// cpp's own poll_and_dispatch_with_budget().
+// kernel send buffer free RIGHT NOW"). `deadline` comes from dispatch_
+// ready_events() below, computed ONCE from the caller's own request and
+// shared with the step-3 read-side wait in wait_for_incoming_data() -
+// the same "one clock, not two independent guesses" shape 72754af
+// already applies within egl_context_adapter.cpp's own poll_and_
+// dispatch_with_budget().
 //
-// WHETHER A TIMEOUT IS FATAL is flush_retry_policy.hpp's own decision
-// (flush_write_wait_is_fatal()), never this function's own inline
-// judgment call: a zero-budget caller only asked to check once, so a
-// merely-full buffer (bounded_wait_outcome::timed_out) is normal,
-// transient backpressure under load, forgiven here - ok(false), the
-// prepared read already canceled, the unsent data staying queued
-// INSIDE libwayland (wl_display_flush()'s own manpage contract for
-// EAGAIN: nothing is lost) for the NEXT pump_events()/wait_events()
-// call to retry. Any other outcome (a real, non-zero budget exhausted,
-// or the socket itself having broken - poll_failed) IS fatal, the same
-// verdict this function always reached before this conserto.
+// WL-WRITE-TIMEOUT-NAO-FATAL (TODO.md; ordem do lider, 08/09/2026, via
+// AskUserQuestion), REABRINDO D-W6b-57: a distincao acima por orcamento
+// (zero perdoado, qualquer outro fatal) era ela mesma o defeito - ver
+// flush_retry_policy.hpp's own header comment para a pesquisa externa e
+// os dois defeitos que a decisao nova conserta. WHETHER A TIMEOUT IS
+// FATAL continua sendo flush_retry_policy.hpp's own decision (flush_
+// write_wait_is_fatal()), nunca o julgamento embutido desta funcao, mas
+// agora ela nao recebe mais `budget_ms`: bounded_wait_outcome::timed_out
+// NUNCA e' fatal, para nenhum orcamento - a espera de escrita esgotada e'
+// backpressure normal, transiente, sob carga, perdoada aqui - ok(false),
+// a leitura preparada ja cancelada, o dado nao enviado continuando na
+// fila DENTRO da libwayland (wl_display_flush()'s own manpage contract
+// for EAGAIN: nothing is lost) para a PROXIMA chamada de pump_events()/
+// wait_events() tentar de novo. So' o socket tendo quebrado de verdade
+// (poll_failed) continua fatal.
 [[nodiscard]] gltfx_rslt<bool>
-wayland_display_adapter::flush_with_retry(std::uint32_t budget_ms,
-                                          std::chrono::steady_clock::time_point deadline) noexcept {
+wayland_display_adapter::flush_with_retry(std::chrono::steady_clock::time_point deadline) noexcept {
     while (wl_display_flush(m_display) == -1) {
         if (errno != EAGAIN) {
             wl_display_cancel_read(m_display);
@@ -274,7 +277,7 @@ wayland_display_adapter::flush_with_retry(std::uint32_t budget_ms,
             // that now decides whether that means "compositor is not
             // draining, connection dead" or "transient, try next call".
             wl_display_cancel_read(m_display);
-            if (flush_write_wait_is_fatal(budget_ms, outcome)) {
+            if (flush_write_wait_is_fatal(outcome)) {
                 m_fatal = true;
                 return gltfx_rslt<bool>::err(build_connection_failure(m_display));
             }
@@ -358,31 +361,31 @@ gltfx_rslt<void> wayland_display_adapter::read_and_dispatch_incoming() noexcept 
 // and the read-side poll (wait_for_incoming_data) now share that SAME
 // total budget instead of each getting its own full `timeout_ms`, so a
 // flush that used up part of the budget leaves only what remains for
-// the read-side wait - never `timeout_ms` twice over. flush_with_retry
-// also gets the RAW `timeout_ms` (not just the deadline): it is the
-// only thing that tells flush_write_wait_is_fatal() (flush_retry_
-// policy.hpp) whether this was a zero-budget call (pump_events(),
-// where a timeout is forgiven) or a real wait (wait_events(), where it
-// is not) - the deadline alone cannot answer that once time has
-// already elapsed.
+// the read-side wait - never `timeout_ms` twice over. WL-WRITE-TIMEOUT-
+// NAO-FATAL (TODO.md, 08/09/2026): flush_with_retry no longer needs the
+// RAW `timeout_ms`, only `deadline` - flush_write_wait_is_fatal()
+// (flush_retry_policy.hpp) stopped distinguishing a zero-budget call
+// (pump_events()) from a real wait (wait_events()) entirely, so there is
+// nothing left here for the raw budget to answer.
 gltfx_rslt<bool> wayland_display_adapter::dispatch_ready_events(std::uint32_t timeout_ms) noexcept {
     if (const gltfx_rslt<void> prepared = drain_pending_and_prepare_read(); prepared.has_error()) {
         return gltfx_rslt<bool>::err(prepared.err());
     }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    gltfx_rslt<bool> flushed = flush_with_retry(timeout_ms, deadline);
+    gltfx_rslt<bool> flushed = flush_with_retry(deadline);
     if (flushed.has_error()) {
         return flushed;
     }
     if (!flushed.value()) {
-        // D-W6b-57: the write side could not be flushed within its
-        // share of the budget and flush_with_retry() itself already
-        // decided that is not fatal (budget_ms == 0, transient kernel
-        // backpressure) - the prepared read is already canceled
-        // (ARMADILHA 2's pairing, done inside flush_with_retry()), so
-        // this returns the SAME "nothing happened this call" outcome
-        // wait_for_incoming_data()'s own false already represents,
-        // never a second, redundant poll with whatever time is left.
+        // WL-WRITE-TIMEOUT-NAO-FATAL: the write side could not be
+        // flushed within its share of the budget and flush_with_retry()
+        // itself already decided that is never fatal by itself
+        // (transient kernel backpressure, regardless of how much budget
+        // was spent) - the prepared read is already canceled (ARMADILHA
+        // 2's pairing, done inside flush_with_retry()), so this returns
+        // the SAME "nothing happened this call" outcome wait_for_
+        // incoming_data()'s own false already represents, never a
+        // second, redundant poll with whatever time is left.
         return gltfx_rslt<bool>::ok(false);
     }
     const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(

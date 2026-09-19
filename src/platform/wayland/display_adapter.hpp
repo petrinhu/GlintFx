@@ -237,12 +237,12 @@ class wayland_display_adapter {
     // an idle connection whose budget simply expired, never an error;
     // the same four fatal-connection paths pump_events() already
     // reports through the err() channel are the only way this returns
-    // one. D-W6b-57's own conserto (07/09/2026): with a NON-ZERO
-    // `budget_ms`, exhausting the write side of that budget still
-    // takes this same err() path (the caller explicitly asked to wait
-    // this long and the compositor still did not drain) - only
-    // pump_events()'s own `budget_ms == 0` call forgives that as
-    // transient (flush_retry_policy.hpp).
+    // one. WL-WRITE-TIMEOUT-NAO-FATAL (TODO.md, 08/09/2026), REABRINDO
+    // D-W6b-57's own conserto (07/09/2026): exhausting the write side
+    // of the budget NEVER takes the err() path by itself anymore,
+    // whether `budget_ms` is zero or not - flush_retry_policy.hpp's
+    // own header comment carries the research and the two defects this
+    // reverts.
     [[nodiscard]] gltfx_rslt<bool> wait_events(std::uint32_t budget_ms) noexcept;
 
     // registry_global()/registry_global_remove() are the wl_registry_
@@ -278,16 +278,16 @@ class wayland_display_adapter {
     // budget_ms respectively, never two copies of the same sequence.
     [[nodiscard]] gltfx_rslt<bool> dispatch_ready_events(std::uint32_t timeout_ms) noexcept;
     [[nodiscard]] gltfx_rslt<void> drain_pending_and_prepare_read() noexcept;
-    // `budget_ms` and `deadline` (LOOP-RUN fatia 7 conserto, D-W6b-57,
-    // 07/09/2026) - both come from dispatch_ready_events()'s own single
-    // shared clock, never a fixed constant local to this method: the
-    // return value's `false` (not an error) means the write side did
-    // not clear within `budget_ms == 0`'s own zero-wait attempt - see
-    // this method's own .cpp header comment and flush_retry_policy.hpp
-    // for the fatal/transient split that decides between the two.
+    // `deadline` (LOOP-RUN fatia 7 conserto, D-W6b-57, 07/09/2026) comes
+    // from dispatch_ready_events()'s own single shared clock, never a
+    // fixed constant local to this method. WL-WRITE-TIMEOUT-NAO-FATAL
+    // (TODO.md, 08/09/2026) dropped the `budget_ms` this method used to
+    // also take: the return value's `false` (not an error) now means
+    // the write side simply did not clear before `deadline`, period -
+    // see this method's own .cpp header comment and flush_retry_
+    // policy.hpp for why that is never fatal by itself anymore.
     [[nodiscard]] gltfx_rslt<bool>
-    flush_with_retry(std::uint32_t budget_ms,
-                     std::chrono::steady_clock::time_point deadline) noexcept;
+    flush_with_retry(std::chrono::steady_clock::time_point deadline) noexcept;
     // Returns whether data is ready to read (true) or nothing arrived
     // (false, wl_display_cancel_read() already called) - the one step
     // whose "nothing to do" outcome is success, not an error, which is

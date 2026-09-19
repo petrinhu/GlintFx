@@ -4241,6 +4241,50 @@ add_test(
 )
 set_tests_properties(test_parity_selftest PROPERTIES LABELS selftest)
 
+# LINT-CONTAINER-SMOKES (TODO.md, GODS_LAWS.md L-09/L-40): puts every
+# tests/container/*.cpp fixture INTO this build's compile_commands.json
+# (tests/container/CMakeLists.txt's own header comment has the full
+# reasoning - an OBJECT library, COMPILED ONLY, never linked, never run
+# on the host, GODS_LAWS.md L-09). if(UNIX): the fixtures are Wayland/
+# EGL-only (GODS_LAWS.md L-05), the same guard tests/container/
+# CMakeLists.txt itself carries, and the same guard every other
+# container-* gate below already uses.
+if(UNIX)
+    add_subdirectory(container)
+endif()
+
+# check_container_smokes_in_compile_db.py's OWN gate (LINT-CONTAINER-
+# SMOKES): proves the OBJECT library right above actually lands every
+# tracked tests/container/*.cpp in compile_commands.json - see that
+# script's own header comment for the full shape of the gap it closes
+# (run-clang-tidy silently skipping a fixture never in the bank) and why
+# it matches by full normalized path, never by leaf name.
+# alloc_counter_classify.cpp is excluded from the OBJECT library above
+# on purpose (it already compiles via alloc_counter_classify_test) and
+# is still expected to be found in the bank through that OTHER target -
+# this gate does not care WHICH target put a file there, only that one
+# did.
+#
+# if(UNIX): same reason as the add_subdirectory() above - the fixtures
+# this gate is about exist only under that guard.
+if(UNIX)
+    add_test(
+        NAME container_smokes_in_compile_db_test
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_smokes_in_compile_db.py"
+            "${CMAKE_SOURCE_DIR}"
+            "${CMAKE_BINARY_DIR}/compile_commands.json"
+    )
+    set_tests_properties(container_smokes_in_compile_db_test PROPERTIES LABELS consume)
+
+    add_test(
+        NAME container_smokes_in_compile_db_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_smokes_in_compile_db.py" --selftest
+    )
+    set_tests_properties(container_smokes_in_compile_db_selftest PROPERTIES LABELS selftest)
+endif()
+
 # Container fixture wiring gate (P-0, docs/plano-w6a-janela.md fatia
 # 1, D-W6a-19): closes the blind spot the P-0 implementer named in
 # his own report - a fixture can gain a `COPY --from=...` line in

@@ -13,6 +13,7 @@
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/gl/gl_memory_facts.hpp"
 #include "platform/wayland/egl_device_query.hpp"
 
@@ -48,11 +49,12 @@
 // correction).
 
 int main() {
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
-        std::fprintf(stderr, "egl_device_reader_probe: gltfx_display::open() failed\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_device_reader_probe: gltfx_display::open() failed\n");
         return EXIT_FAILURE;
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
@@ -65,7 +67,8 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
         glintfx::gltfx_window::open(display, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr, "egl_device_reader_probe: gltfx_window::open() failed\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_device_reader_probe: gltfx_window::open() failed\n");
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -74,13 +77,15 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_gl_context> context_opened =
         glintfx::gltfx_gl_context::open(window, empty_desc);
     if (context_opened.has_error()) {
-        std::fprintf(stderr, "egl_device_reader_probe: gltfx_gl_context::open() failed\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_device_reader_probe: gltfx_gl_context::open() failed\n");
         return EXIT_FAILURE;
     }
     glintfx::gltfx_gl_context context = std::move(context_opened.value());
 
-    if (glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
-        std::fprintf(stderr, "egl_device_reader_probe: make_current() failed\n");
+    if (const glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_device_reader_probe: make_current() failed\n");
         return EXIT_FAILURE;
     }
 
@@ -89,20 +94,22 @@ int main() {
     EGLDisplay egl_display = eglGetCurrentDisplay();
     const egl_device_facts device = query_egl_display_device(egl_display);
 
-    std::fprintf(stdout, "MEASURED egl_device_reader_probe.egl_device_queried=%d\n",
-                 device.queried ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_device_reader_probe.egl_device_queried=%d\n", device.queried ? 1 : 0);
     if (!device.queried) {
-        std::fprintf(stderr,
-                     "egl_device_reader_probe: query_egl_display_device() nao conseguiu resolver "
-                     "eglQueryDisplayAttribEXT/eglQueryDeviceStringEXT - egl_device_queried=0, "
-                     "esperado 1 (GODS_LAWS.md L-40)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_device_reader_probe: query_egl_display_device() nao conseguiu resolver "
+                    "eglQueryDisplayAttribEXT/eglQueryDeviceStringEXT - egl_device_queried=0, "
+                    "esperado 1 (GODS_LAWS.md L-40)\n");
         return EXIT_FAILURE;
     }
 
-    std::fprintf(stdout, "MEASURED egl_device_reader_probe.egl_device_software=%d\n",
-                 device.software ? 1 : 0);
-    std::fprintf(stdout, "MEASURED egl_device_reader_probe.egl_device_render_node_present=%d\n",
-                 !device.render_node.empty() ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_device_reader_probe.egl_device_software=%d\n",
+        device.software ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_device_reader_probe.egl_device_render_node_present=%d\n",
+        !device.render_node.empty() ? 1 : 0);
 
     // GL_NVX_gpu_memory_info, resolved the SAME way gl_context_parity_
     // test.cpp already resolves anything else - proc_address() is the
@@ -116,8 +123,9 @@ int main() {
     const auto get_error = reinterpret_cast<gl_get_error_fn>(get_error_addr);
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast) reason: closes the block above
     const gl_memory_facts memory_facts = read_gl_memory_facts(get_integerv, get_error);
-    std::fprintf(stdout, "MEASURED egl_device_reader_probe.nvx_present=%d\n",
-                 memory_facts.nvx_present ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "MEASURED egl_device_reader_probe.nvx_present=%d\n",
+                                                memory_facts.nvx_present ? 1 : 0);
 
     return EXIT_SUCCESS;
 }

@@ -14,6 +14,7 @@
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/egl_context_adapter.hpp"
 #include "platform/window/display_impl.hpp"
 #include "platform/window/window_impl.hpp"
@@ -75,14 +76,14 @@ int main() {
     // Unbuffer stdout explicitly - same fix, same reason, applied to
     // every fixture in this family (window_smoke.cpp's own header
     // comment on this exact line).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::gltfx_log_set_sink(
         glintfx::gltfx_log_sink{&recording_sink, nullptr, glintfx::gltfx_log_severity::trace});
 
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr, "gpu_kind_report_smoke: gltfx_display::open() failed: %s\n",
             std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return EXIT_FAILURE;
@@ -97,8 +98,9 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
         glintfx::gltfx_window::open(display, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr, "gpu_kind_report_smoke: gltfx_window::open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "gpu_kind_report_smoke: gltfx_window::open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -106,10 +108,11 @@ int main() {
 
     auto *egl_ptr = new glintfx::platform::wayland_egl_context_adapter();
     const std::span<const glintfx::gltfx_gfx_option_entry> no_options{};
-    if (glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(w_impl->adapter, no_options);
+    if (const glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(w_impl->adapter, no_options);
         egl_opened.has_error()) {
-        std::fprintf(stderr, "gpu_kind_report_smoke: egl adapter open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "gpu_kind_report_smoke: egl adapter open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str());
         delete egl_ptr;
         return EXIT_FAILURE;
     }
@@ -122,21 +125,26 @@ int main() {
     // future run that behaves differently leaves a record of exactly
     // what it saw (same discipline egl_probe_smoke.cpp's own header
     // comment documents for its own MEASURED lines).
-    std::fprintf(stdout, "MEASURED gpu_kind_report_smoke.received=%s\n",
-                 g_received ? "true" : "false");
-    std::fprintf(stdout, "MEASURED gpu_kind_report_smoke.category=%s\n", g_category.c_str());
-    std::fprintf(stdout, "MEASURED gpu_kind_report_smoke.name=%s\n", g_name.c_str());
-    std::fprintf(stdout, "MEASURED gpu_kind_report_smoke.kind=%s\n", g_kind_field.c_str());
-    std::fprintf(stdout, "MEASURED gpu_kind_report_smoke.path=%s\n", g_path_field.c_str());
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED gpu_kind_report_smoke.received=%s\n", g_received ? "true" : "false");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED gpu_kind_report_smoke.category=%s\n", g_category.c_str());
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED gpu_kind_report_smoke.name=%s\n",
+                                                g_name.c_str());
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED gpu_kind_report_smoke.kind=%s\n",
+                                                g_kind_field.c_str());
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED gpu_kind_report_smoke.path=%s\n",
+                                                g_path_field.c_str());
 
     if (!g_received || g_category != "platform.gl" || g_name != "gpu_kind_resolved") {
-        std::fprintf(stderr, "gpu_kind_report_smoke: FAIL - gpu_kind_resolved event not "
-                             "received or malformed\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "gpu_kind_report_smoke: FAIL - gpu_kind_resolved event not "
+                    "received or malformed\n");
         return EXIT_FAILURE;
     }
 
-    std::fprintf(stdout,
-                 "gpu_kind_report_smoke: ok - gpu_kind_resolved received, kind=%s path=%s\n",
-                 g_kind_field.c_str(), g_path_field.c_str());
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "gpu_kind_report_smoke: ok - gpu_kind_resolved received, kind=%s path=%s\n",
+        g_kind_field.c_str(), g_path_field.c_str());
     return EXIT_SUCCESS;
 }

@@ -21,6 +21,7 @@
 #include <glintfx/platform/gl/context.hpp>
 #include <glintfx/platform/gl/gfx_option.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/egl_context_adapter.hpp"
 #include "platform/wayland/shell_adapter.hpp"
@@ -80,7 +81,7 @@ constexpr std::int32_t kHeight = 240;
 [[nodiscard]] bool swap_until_error(glintfx::platform::wayland_egl_context_adapter &context,
                                     glintfx::gltfx_err_code &out_code, std::string &out_rejected) {
     for (int attempt = 0; attempt < 2; ++attempt) {
-        glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+        const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
         if (swapped.has_error()) {
             out_code = swapped.err().code();
             out_rejected = std::string(swapped.err().rejected_value());
@@ -98,53 +99,54 @@ int main() {
     // comment on this exact line; `_IONBF` never triggers MSVC's
     // narrower `_IOLBF`/size-range abort, though this fixture is
     // Linux-only).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "egl_protocol_error_smoke: display open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_protocol_error_smoke: display open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_shell_adapter shell;
-    glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
+    const glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
-        std::fprintf(stderr,
-                     "egl_protocol_error_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
-                     std::string(shell_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_protocol_error_smoke: shell.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
+            std::string(shell_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_window_adapter window;
-    glintfx::platform::wayland_window_desc desc{
+    glintfx::platform::wayland_window_desc const desc{
         .logical_width = static_cast<std::uint32_t>(kWidth),
         .logical_height = static_cast<std::uint32_t>(kHeight),
         .title = "egl_protocol_error_smoke",
         .application_id = "org.glintfx.egl_protocol_error_smoke",
     };
-    glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
+    const glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr,
-                     "egl_protocol_error_smoke: window.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
-                     std::string(window_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_protocol_error_smoke: window.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+            std::string(window_opened.err().rejected_value()).c_str());
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_egl_context_adapter context;
-    glintfx::gltfx_rslt<void> context_opened =
+    const glintfx::gltfx_rslt<void> context_opened =
         context.open(window, std::span<const glintfx::gltfx_gfx_option_entry>{});
     if (context_opened.has_error()) {
-        std::fprintf(stderr,
-                     "egl_protocol_error_smoke: context.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(context_opened.err().code())).c_str(),
-                     std::string(context_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_protocol_error_smoke: context.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(context_opened.err().code())).c_str(),
+            std::string(context_opened.err().rejected_value()).c_str());
         window.close();
         shell.close();
         adapter.close();
@@ -161,11 +163,12 @@ int main() {
     for (int attempt = 0; attempt < 5 && !presented; ++attempt) {
         glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
         if (swapped.has_error()) {
-            std::fprintf(stderr,
-                         "egl_protocol_error_smoke: swap_buffers() before provoking anything "
-                         "failed: %s (rejected_value=%s)\n",
-                         std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str(),
-                         std::string(swapped.err().rejected_value()).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_protocol_error_smoke: swap_buffers() before provoking anything "
+                "failed: %s (rejected_value=%s)\n",
+                std::string(glintfx::gltfx_err_code_name(swapped.err().code())).c_str(),
+                std::string(swapped.err().rejected_value()).c_str());
             context.close();
             window.close();
             shell.close();
@@ -175,8 +178,9 @@ int main() {
         presented = swapped.value() == glintfx::gltfx_present_outcome::presented;
     }
     if (!presented) {
-        std::fprintf(stderr, "egl_protocol_error_smoke: never reached a presented frame before "
-                             "provoking anything\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_protocol_error_smoke: never reached a presented frame before "
+                    "provoking anything\n");
         context.close();
         window.close();
         shell.close();
@@ -193,34 +197,36 @@ int main() {
     glintfx::gltfx_err_code primary_code{};
     std::string primary_rejected;
     const bool primary_provoked = swap_until_error(context, primary_code, primary_rejected);
-    std::fprintf(stdout, "MEASURED egl_protocol_error_smoke.provoked=%d\n",
-                 primary_provoked ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_protocol_error_smoke.provoked=%d\n", primary_provoked ? 1 : 0);
 
     if (primary_provoked) {
         if (primary_code != glintfx::gltfx_err_code::platform_failure ||
             primary_rejected != std::string_view{"wl_surface"}) {
-            std::fprintf(stderr,
-                         "egl_protocol_error_smoke: swap_buffers falhou: code=%s "
-                         "rejected_value=%s (esperado platform_failure/wl_surface)\n",
-                         std::string(glintfx::gltfx_err_code_name(primary_code)).c_str(),
-                         primary_rejected.c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_protocol_error_smoke: swap_buffers falhou: code=%s "
+                "rejected_value=%s (esperado platform_failure/wl_surface)\n",
+                std::string(glintfx::gltfx_err_code_name(primary_code)).c_str(),
+                primary_rejected.c_str());
             context.close();
             window.close();
             shell.close();
             adapter.close();
             return EXIT_FAILURE;
         }
-        std::fprintf(stdout, "egl_protocol_error_smoke: swap_buffers falhou: code=platform_failure "
-                             "rejected_value=wl_surface (como esperado)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "egl_protocol_error_smoke: swap_buffers falhou: code=platform_failure "
+                    "rejected_value=wl_surface (como esperado)\n");
     } else {
         // RESERVE PROVOCATION, fixed BEFORE the data existed (D-W6b-29,
         // GODS_LAWS.md L-42/L-43): the compositor did not reject scale
         // 0 - never a second attempt at the SAME request, the next
         // step is xdg_toplevel_set_max_size(-1, -1) (xdg-shell.xml: a
         // negative size is invalid), naming `xdg_toplevel` instead.
-        std::fprintf(stdout,
-                     "egl_protocol_error_smoke: escala 0 nao foi acusada pelo compositor - "
-                     "tentando o provocador de reserva (xdg_toplevel_set_max_size(-1,-1))\n");
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "egl_protocol_error_smoke: escala 0 nao foi acusada pelo compositor - "
+                    "tentando o provocador de reserva (xdg_toplevel_set_max_size(-1,-1))\n");
         xdg_toplevel_set_max_size(window.toplevel(), -1, -1);
         wl_display_flush(adapter.native_display());
 
@@ -228,10 +234,10 @@ int main() {
         std::string reserve_rejected;
         const bool reserve_provoked = swap_until_error(context, reserve_code, reserve_rejected);
         if (!reserve_provoked) {
-            std::fprintf(stderr,
-                         "egl_protocol_error_smoke: NENHUM dos dois provocadores foi acusado "
-                         "pelo compositor - esta fixture nao pode provar nada (GODS_LAWS.md "
-                         "L-42), reprovando em vez de passar em silencio\n");
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "egl_protocol_error_smoke: NENHUM dos dois provocadores foi acusado "
+                        "pelo compositor - esta fixture nao pode provar nada (GODS_LAWS.md "
+                        "L-42), reprovando em vez de passar em silencio\n");
             context.close();
             window.close();
             shell.close();
@@ -240,19 +246,21 @@ int main() {
         }
         if (reserve_code != glintfx::gltfx_err_code::platform_failure ||
             reserve_rejected != std::string_view{"xdg_toplevel"}) {
-            std::fprintf(stderr,
-                         "egl_protocol_error_smoke: provocador de reserva falhou: code=%s "
-                         "rejected_value=%s (esperado platform_failure/xdg_toplevel)\n",
-                         std::string(glintfx::gltfx_err_code_name(reserve_code)).c_str(),
-                         reserve_rejected.c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_protocol_error_smoke: provocador de reserva falhou: code=%s "
+                "rejected_value=%s (esperado platform_failure/xdg_toplevel)\n",
+                std::string(glintfx::gltfx_err_code_name(reserve_code)).c_str(),
+                reserve_rejected.c_str());
             context.close();
             window.close();
             shell.close();
             adapter.close();
             return EXIT_FAILURE;
         }
-        std::fprintf(stdout, "egl_protocol_error_smoke: provocador de reserva acusado - code="
-                             "platform_failure rejected_value=xdg_toplevel (como esperado)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "egl_protocol_error_smoke: provocador de reserva acusado - code="
+                    "platform_failure rejected_value=xdg_toplevel (como esperado)\n");
     }
 
     // The connection is now fatally errored - close() on every adapter
@@ -265,7 +273,7 @@ int main() {
     shell.close();
     adapter.close();
 
-    std::fprintf(stdout,
-                 "egl_protocol_error_smoke: closed cleanly after a provoked protocol error\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "egl_protocol_error_smoke: closed cleanly after a provoked protocol error\n");
     return EXIT_SUCCESS;
 }

@@ -6,6 +6,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/global_catalog.hpp"
 
@@ -68,38 +69,42 @@ bool open_and_check_catalog(glintfx::platform::wayland_display_adapter &adapter,
                             const char *label) {
     const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "two_displays_test: %s.open() failed: %s\n", label,
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: %s.open() failed: %s\n", label,
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return false;
     }
     if (!adapter.is_open()) {
-        std::fprintf(stderr,
-                     "two_displays_test: %s.open() reported success but is_open() is false\n",
-                     label);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: %s.open() reported success but is_open() is false\n",
+            label);
         return false;
     }
 
     const glintfx::platform::global_catalog &globals = adapter.globals();
     if (globals.size() == 0) {
-        std::fprintf(stderr,
-                     "two_displays_test: %s's catalog is empty after open() (varredura vazia)\n",
-                     label);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: %s's catalog is empty after open() (varredura vazia)\n",
+            label);
         return false;
     }
     if (globals.find_by_interface("wl_compositor") == nullptr) {
-        std::fprintf(stderr, "two_displays_test: wl_compositor absent from %s's catalog\n", label);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: wl_compositor absent from %s's catalog\n", label);
         return false;
     }
     if (globals.find_by_interface("xdg_wm_base") == nullptr) {
-        std::fprintf(stderr, "two_displays_test: xdg_wm_base absent from %s's catalog\n", label);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: xdg_wm_base absent from %s's catalog\n", label);
         return false;
     }
-    std::fprintf(stdout, "two_displays_test: %s open, catalog has %zu global(s)\n", label,
-                 globals.size());
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "two_displays_test: %s open, catalog has %zu global(s)\n", label, globals.size());
     // MEASURED-COLLECTOR: `label` ("first"/"second") folds into the key
     // itself, so the two independent connections this fixture opens
     // never collide under one owner.
-    std::fprintf(stdout, "MEASURED two_displays_test.%s_global_count=%zu\n", label, globals.size());
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED two_displays_test.%s_global_count=%zu\n", label, globals.size());
     return true;
 }
 
@@ -114,7 +119,7 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter first;
     glintfx::platform::wayland_display_adapter second;
@@ -137,7 +142,8 @@ int main() {
     // reason, in reverse). This ONE key is the common ground both
     // sides genuinely share: two independent connections/adapters
     // coexisted in the same process without colliding, at all.
-    std::fprintf(stdout, "MEASURED two_displays_test.both_opened=1\n");
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "MEASURED two_displays_test.both_opened=1\n");
 
     // Close SECOND first (reverse of creation order, same "teardown in
     // reverse" shape this project's own close() methods document
@@ -147,28 +153,33 @@ int main() {
     // is neither available nor meaningful here.
     second.close();
     if (second.is_open()) {
-        std::fprintf(stderr, "two_displays_test: second.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: second.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
     if (!first.is_open()) {
-        std::fprintf(stderr,
-                     "two_displays_test: closing second left first closed too (shared state)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: closing second left first closed too (shared state)\n");
         return EXIT_FAILURE;
     }
     if (first.globals().find_by_interface("wl_compositor") == nullptr ||
         first.globals().find_by_interface("xdg_wm_base") == nullptr) {
-        std::fprintf(stderr, "two_displays_test: closing second corrupted first's own catalog\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: closing second corrupted first's own catalog\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "two_displays_test: closing second left first untouched (is_open() still "
-                         "true, catalog intact)\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "two_displays_test: closing second left first untouched (is_open() still "
+                "true, catalog intact)\n");
 
     first.close();
     if (first.is_open()) {
-        std::fprintf(stderr, "two_displays_test: first.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_displays_test: first.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "two_displays_test: both adapters closed cleanly\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "two_displays_test: both adapters closed cleanly\n");
 
     return EXIT_SUCCESS;
 }

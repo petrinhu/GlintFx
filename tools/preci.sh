@@ -628,12 +628,35 @@ for entry in entries:
 # here). CONTRACT.md's own gate philosophy is "0 security/bugprone
 # errors", not zero style opinions; measured both ways building this
 # slice before choosing this flag.
+#
+# -I "$ROOT_DIR/src" (LINT-CONTAINER-SMOKES, TODO.md): without it,
+# cppcheck could never resolve a bare "platform/wayland/..." #include -
+# the exact form every tests/container/*.cpp fixture uses to reach the
+# adapters it fixture-tests (tests/container/CMakeLists.txt's own OBJECT
+# library needs the identical -I for the SAME reason, on the CMake
+# side) - so those fixtures were being scanned half-blind. Measured live
+# before/after adding it (whole tracked *.cpp/*.hpp tree, 485 files):
+# BEFORE, 0 findings; AFTER, 4 - all four pre-existing, all OUTSIDE
+# tests/container/ (src/platform/loop/loop_ports.hpp:71/:73
+# uninitMemberVarNoCtor, src/platform/loop/loop_facade.cpp:209
+# passedByValue, tests/gfss_specificity_test.cpp:81
+# uninitMemberVarNoCtor) - cppcheck could only reach them once -I src let
+# it follow the same #include chain deeper. GODS_LAWS.md L-63/L-32: a
+# finding OUTSIDE this fatia's own tests/container/ is not fixed here
+# (that would be unrelated src/ code changed by a lint-scope fatia) -
+# it is logged in TODO.md's INBOX instead, one line each, undecided. ⚠
+# CONSEQUENCE, undeclared nowhere else: this makes stage_cppcheck (and
+# therefore a plain `tools/preci.sh`/CI run) newly RED today, on
+# pre-existing code this fatia's own scope does not cover - not
+# suppressed, not silently downgraded, because either of those would
+# defeat the exact "cppcheck could not see this before" gap -I src
+# exists to close.
 stage_cppcheck() {
     enumerate_tracked_cpp_hpp
     require_nonempty "cppcheck" || fail "estagio cppcheck recusado (varredura vazia)"
     cppcheck --enable=warning,performance,portability --inline-suppr \
         --error-exitcode=1 --suppress=missingIncludeSystem --std=c++20 \
-        -I "$ROOT_DIR/include" -I "$BUILD_DIR/generated/include" \
+        -I "$ROOT_DIR/include" -I "$BUILD_DIR/generated/include" -I "$ROOT_DIR/src" \
         "${FILES[@]}"
 }
 

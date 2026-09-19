@@ -15,6 +15,7 @@
 #include "platform/wayland/window_adapter.hpp"
 
 #include "alloc_counter_snapshot.hpp"
+#include "checked_stdio.hpp"
 
 // alloc_cycle_growth_smoke.cpp - CONTAINER-LEAK-COUNTER sub-fatia S4
 // (/var/tmp/glintfx-plan/leak-counter.md sec. 5 S4, GODS_LAWS.md
@@ -103,20 +104,20 @@ struct cycle_result {
 // (leak-counter.md sec. 5 S4: "apos cada ciclo le os contadores").
 [[nodiscard]] cycle_result run_one_cycle(int cycle_number) {
     glintfx::platform::wayland_display_adapter adapter;
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "alloc_cycle_growth_smoke: cycle %d: display open() failed: %s\n",
-                     cycle_number,
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "alloc_cycle_growth_smoke: cycle %d: display open() failed: %s\n", cycle_number,
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return {.ok = false, .third_party_live = 0};
     }
 
     glintfx::platform::wayland_shell_adapter shell;
-    glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
+    const glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
-        std::fprintf(stderr, "alloc_cycle_growth_smoke: cycle %d: shell.open() failed: %s\n",
-                     cycle_number,
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "alloc_cycle_growth_smoke: cycle %d: shell.open() failed: %s\n", cycle_number,
+            std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str());
         adapter.close();
         return {.ok = false, .third_party_live = 0};
     }
@@ -128,11 +129,11 @@ struct cycle_result {
         .title = "alloc_cycle_growth_smoke",
         .application_id = "org.glintfx.alloc_cycle_growth_smoke",
     };
-    glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
+    const glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr, "alloc_cycle_growth_smoke: cycle %d: window.open() failed: %s\n",
-                     cycle_number,
-                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "alloc_cycle_growth_smoke: cycle %d: window.open() failed: %s\n", cycle_number,
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str());
         shell.close();
         adapter.close();
         return {.ok = false, .third_party_live = 0};
@@ -140,11 +141,12 @@ struct cycle_result {
 
     auto *egl_ptr = new glintfx::platform::wayland_egl_context_adapter();
     const std::span<const glintfx::gltfx_gfx_option_entry> no_options{};
-    if (glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(window, no_options);
+    if (const glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(window, no_options);
         egl_opened.has_error()) {
-        std::fprintf(stderr, "alloc_cycle_growth_smoke: cycle %d: egl adapter open() failed: %s\n",
-                     cycle_number,
-                     std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "alloc_cycle_growth_smoke: cycle %d: egl adapter open() failed: %s\n",
+            cycle_number,
+            std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str());
         delete egl_ptr;
         window.close();
         shell.close();
@@ -165,10 +167,10 @@ struct cycle_result {
     // to reach that path; swap_buffers() failing (a skipped/hidden
     // window, expected under this container's own budget) is NOT
     // itself a failure of this fixture - only open() failures are.
-    if (glintfx::gltfx_rslt<void> current = egl_ptr->make_current(); current.has_error()) {
-        std::fprintf(stderr, "alloc_cycle_growth_smoke: cycle %d: make_current() failed: %s\n",
-                     cycle_number,
-                     std::string(glintfx::gltfx_err_code_name(current.err().code())).c_str());
+    if (const glintfx::gltfx_rslt<void> current = egl_ptr->make_current(); current.has_error()) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "alloc_cycle_growth_smoke: cycle %d: make_current() failed: %s\n", cycle_number,
+            std::string(glintfx::gltfx_err_code_name(current.err().code())).c_str());
         delete egl_ptr;
         window.close();
         shell.close();
@@ -177,10 +179,10 @@ struct cycle_result {
     }
     const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = egl_ptr->swap_buffers();
     if (presented.has_error()) {
-        std::fprintf(stderr,
-                     "alloc_cycle_growth_smoke: cycle %d: swap_buffers() failed (not fatal): %s\n",
-                     cycle_number,
-                     std::string(glintfx::gltfx_err_code_name(presented.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "alloc_cycle_growth_smoke: cycle %d: swap_buffers() failed (not fatal): %s\n",
+            cycle_number,
+            std::string(glintfx::gltfx_err_code_name(presented.err().code())).c_str());
     }
 
     // Close order: GL context first (the resource this fixture exists
@@ -203,7 +205,7 @@ int main() {
     // Unbuffer stdout explicitly - same fix, same reason, applied to
     // every fixture in this family (window_smoke.cpp's own header
     // comment on this exact line).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     std::uint64_t after_cycle[kCycles] = {0, 0, 0};
 
@@ -213,8 +215,9 @@ int main() {
             return EXIT_FAILURE;
         }
         after_cycle[cycle - 1] = result.third_party_live;
-        std::fprintf(stdout, "MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_%d=%llu\n",
-                     cycle, static_cast<unsigned long long>(result.third_party_live));
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "MEASURED alloc_cycle_growth_smoke.third_party_after_cycle_%d=%llu\n", cycle,
+            static_cast<unsigned long long>(result.third_party_live));
     }
 
     // Signed: a cycle that FREES more third-party memory than it
@@ -225,15 +228,17 @@ int main() {
     // a one-sided inequality decided here.
     const std::int64_t growth =
         static_cast<std::int64_t>(after_cycle[2]) - static_cast<std::int64_t>(after_cycle[1]);
-    std::fprintf(stdout, "MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=%lld\n",
-                 static_cast<long long>(growth));
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED alloc_cycle_growth_smoke.third_party_growth_c2_c3=%lld\n",
+        static_cast<long long>(growth));
 
-    std::fprintf(stdout,
-                 "alloc_cycle_growth_smoke: three cycles completed - third_party_after_cycle: "
-                 "%llu %llu %llu\n",
-                 static_cast<unsigned long long>(after_cycle[0]),
-                 static_cast<unsigned long long>(after_cycle[1]),
-                 static_cast<unsigned long long>(after_cycle[2]));
+    glintfx::container_fixture::checked_fprintf(
+        stdout,
+        "alloc_cycle_growth_smoke: three cycles completed - third_party_after_cycle: "
+        "%llu %llu %llu\n",
+        static_cast<unsigned long long>(after_cycle[0]),
+        static_cast<unsigned long long>(after_cycle[1]),
+        static_cast<unsigned long long>(after_cycle[2]));
 
     return EXIT_SUCCESS;
 }

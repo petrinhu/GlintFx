@@ -10,6 +10,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/loop/frame_cap_schedule.hpp"
 #include "platform/loop/loop_engine.hpp"
 #include "platform/loop/steady_loop_clock.hpp"
@@ -81,13 +82,14 @@ int main() {
     // Unbuffer stdout explicitly - same fix, same reason, as every
     // other fixture in this family (connect_smoke.cpp's own header
     // comment).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
     const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "wait_events_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -101,37 +103,41 @@ int main() {
                                          std::chrono::steady_clock::now() - start)
                                          .count();
         if (waited.has_error()) {
-            std::fprintf(stderr, "wait_events_smoke: wait_events(50) failed: %s\n",
-                         std::string(glintfx::gltfx_err_code_name(waited.err().code())).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "wait_events_smoke: wait_events(50) failed: %s\n",
+                std::string(glintfx::gltfx_err_code_name(waited.err().code())).c_str());
             return EXIT_FAILURE;
         }
         if (waited.value() || elapsed_ms < 40) {
             ++stray_events;
-            std::fprintf(stdout, "wait_events_smoke: stray_event=1 (attempt=%d elapsed_ms=%lld)\n",
-                         attempt, elapsed_ms);
+            glintfx::container_fixture::checked_fprintf(
+                stdout, "wait_events_smoke: stray_event=1 (attempt=%d elapsed_ms=%lld)\n", attempt,
+                elapsed_ms);
             continue;
         }
         if (elapsed_ms > 500) {
-            std::fprintf(stderr,
-                         "wait_events_smoke: no_event_ms=%lld (criterio 40..500) FAIL "
-                         "(attempt=%d)\n",
-                         elapsed_ms, attempt);
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "wait_events_smoke: no_event_ms=%lld (criterio 40..500) FAIL "
+                "(attempt=%d)\n",
+                elapsed_ms, attempt);
             return EXIT_FAILURE;
         }
         no_event_ms = elapsed_ms;
         leg1_ok = true;
     }
     if (!leg1_ok) {
-        std::fprintf(stderr,
-                     "wait_events_smoke: leg 1 never observed a clean no-event wait (stray_event "
-                     "twice)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: leg 1 never observed a clean no-event wait (stray_event "
+                    "twice)\n");
         return EXIT_FAILURE;
     }
 
     sync_state state;
     wl_callback *sync_callback = wl_display_sync(adapter.native_display());
     if (sync_callback == nullptr) {
-        std::fprintf(stderr, "wait_events_smoke: wl_display_sync() returned null\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: wl_display_sync() returned null\n");
         return EXIT_FAILURE;
     }
     wl_callback_add_listener(sync_callback, &kSyncListener, &state);
@@ -142,30 +148,36 @@ int main() {
                                    std::chrono::steady_clock::now() - start2)
                                    .count();
     if (waited2.has_error()) {
-        std::fprintf(stderr, "wait_events_smoke: wait_events(1000) failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(waited2.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: wait_events(1000) failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(waited2.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (!state.done) {
-        std::fprintf(stderr,
-                     "wait_events_smoke: the provoked sync callback never arrived within 1000ms\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: the provoked sync callback never arrived within 1000ms\n");
         return EXIT_FAILURE;
     }
     if (event_ms > 500) {
-        std::fprintf(stderr, "wait_events_smoke: event_ms=%lld (criterio <500) FAIL\n", event_ms);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: event_ms=%lld (criterio <500) FAIL\n", event_ms);
         return EXIT_FAILURE;
     }
 
     // Camada 1 (§6.3): os numeros crus, sempre, mesmo quando o desfecho
     // e' zero.
-    std::fprintf(stdout, "MEASURED wait_events_smoke.no_event_ms=%lld\n", no_event_ms);
-    std::fprintf(stdout, "MEASURED wait_events_smoke.event_ms=%lld\n", event_ms);
-    std::fprintf(stdout, "MEASURED wait_events_smoke.stray_event=%d\n", stray_events > 0 ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED wait_events_smoke.no_event_ms=%lld\n", no_event_ms);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED wait_events_smoke.event_ms=%lld\n", event_ms);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED wait_events_smoke.stray_event=%d\n", stray_events > 0 ? 1 : 0);
     // Camada 2 (§6.3): o criterio aplicado, com veredito, na mesma
     // linha - para o revisor ler sem recalcular.
-    std::fprintf(stdout, "wait_events_smoke: no_event_ms=%lld (criterio 40..500) OK\n",
-                 no_event_ms);
-    std::fprintf(stdout, "wait_events_smoke: event_ms=%lld (criterio <500) OK\n", event_ms);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "wait_events_smoke: no_event_ms=%lld (criterio 40..500) OK\n", no_event_ms);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "wait_events_smoke: event_ms=%lld (criterio <500) OK\n", event_ms);
 
     // GEMEO LINUX DO TETO DE QUADROS AO VIVO (este arquivo's own header
     // comment, "INSTRUMENTAR O TETO, PASSO 1"): wait_for_frame_cap()
@@ -180,38 +192,42 @@ int main() {
         const glintfx::gltfx_rslt<void> capped =
             glintfx::platform::wait_for_frame_cap(adapter, cap_schedule, k_cap_hz, cap_clock);
         if (capped.has_error()) {
-            std::fprintf(stderr, "wait_events_smoke: wait_for_frame_cap #%d falhou: %s\n", i + 1,
-                         std::string(glintfx::gltfx_err_code_name(capped.err().code())).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "wait_events_smoke: wait_for_frame_cap #%d falhou: %s\n", i + 1,
+                std::string(glintfx::gltfx_err_code_name(capped.err().code())).c_str());
             return EXIT_FAILURE;
         }
     }
     const long long cap30_motor_wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                               std::chrono::steady_clock::now() - cap_start)
                                               .count();
-    std::fprintf(stdout, "MEASURED wait_events_smoke.cap30_motor_wall_ms=%lld\n",
-                 cap30_motor_wall_ms);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED wait_events_smoke.cap30_motor_wall_ms=%lld\n", cap30_motor_wall_ms);
     if (cap30_motor_wall_ms < 900 || cap30_motor_wall_ms > 1500) {
-        std::fprintf(stderr,
-                     "wait_events_smoke: cap30_motor_wall_ms=%lld (criterio 900..1500) FAIL\n",
-                     cap30_motor_wall_ms);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: cap30_motor_wall_ms=%lld (criterio 900..1500) FAIL\n",
+            cap30_motor_wall_ms);
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "wait_events_smoke: cap30_motor_wall_ms=%lld (criterio 900..1500) OK\n",
-                 cap30_motor_wall_ms);
-    std::fprintf(stdout, "wait_events_smoke: assercoes 3 de 3 avaliadas\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "wait_events_smoke: cap30_motor_wall_ms=%lld (criterio 900..1500) OK\n",
+        cap30_motor_wall_ms);
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "wait_events_smoke: assercoes 3 de 3 avaliadas\n");
 
     if (adapter.has_fatal_error()) {
-        std::fprintf(stderr,
-                     "wait_events_smoke: has_fatal_error() true after an all-successful run\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: has_fatal_error() true after an all-successful run\n");
         return EXIT_FAILURE;
     }
 
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "wait_events_smoke: close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "wait_events_smoke: close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "wait_events_smoke: closed cleanly\n");
+    glintfx::container_fixture::checked_fprintf(stdout, "wait_events_smoke: closed cleanly\n");
 
     return EXIT_SUCCESS;
 }

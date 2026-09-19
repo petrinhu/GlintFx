@@ -6,6 +6,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 
 // connect_smoke.cpp - ARCH-PORTS, TDD case R4 (GODS_LAWS.md L-09/L-20:
@@ -69,28 +70,33 @@ int main() {
     // like `_IOFBF` (full buffering) on Win32 anyway, so the original
     // line was never delivering the per-line flush its own comment
     // above promised on that platform in the first place.
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "connect_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "connect_smoke: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (!adapter.is_open()) {
-        std::fprintf(stderr, "connect_smoke: open() reported success but is_open() is false\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "connect_smoke: open() reported success but is_open() is false\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "connect_smoke: connected (is_open() == true)\n");
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "connect_smoke: connected (is_open() == true)\n");
 
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "connect_smoke: close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "connect_smoke: close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "connect_smoke: disconnected (is_open() == false)\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "connect_smoke: disconnected (is_open() == false)\n");
 
     return EXIT_SUCCESS;
 }

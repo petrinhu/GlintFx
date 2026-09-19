@@ -8,6 +8,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 
 // fatal_error_smoke.cpp - WL-DISPLAY fatia C, TDD case C (w4-plano.md
@@ -40,42 +41,55 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "fatal_error_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (adapter.has_fatal_error()) {
-        std::fprintf(stderr, "fatal_error_smoke: has_fatal_error() true right after a "
-                             "successful open() - the latch fired too early\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: has_fatal_error() true right after a "
+                    "successful open() - the latch fired too early\n");
         return EXIT_FAILURE;
     }
 
     // A roundtrip against a compositor that is still alive must
     // succeed, and must NOT latch has_fatal_error().
-    glintfx::gltfx_rslt<void> first_roundtrip = adapter.roundtrip();
+    const glintfx::gltfx_rslt<void> first_roundtrip = adapter.roundtrip();
     if (first_roundtrip.has_error()) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr, "fatal_error_smoke: roundtrip() against a live compositor failed: %s\n",
             std::string(glintfx::gltfx_err_code_name(first_roundtrip.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (adapter.has_fatal_error()) {
-        std::fprintf(stderr, "fatal_error_smoke: has_fatal_error() true after a roundtrip "
-                             "that reported success\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: has_fatal_error() true after a roundtrip "
+                    "that reported success\n");
         return EXIT_FAILURE;
     }
 
     // Cuts the connection out from under this adapter: kills the
     // compositor process THIS SAME CONTAINER'S run_compositor.sh
     // started, closing the socket this adapter is connected to.
+    // LINT-CONTAINER-SMOKES: fixed string literal, no environment/user/
+    // argv input ever reaches this command (see this file's own header
+    // comment above for why std::system() itself is in bounds), and this
+    // binary only ever runs inside the throwaway wayland-container image
+    // (GODS_LAWS.md L-09) - pkill by exact process name is the direct way
+    // to kill the compositor run_compositor.sh started, to prove
+    // has_fatal_error() latches when the connection dies underneath this
+    // adapter.
+    // NOLINTNEXTLINE(bugprone-command-processor,cert-env33-c) reason: see comment immediately above
     if (std::system("pkill -x kwin_wayland") != 0) {
-        std::fprintf(stderr, "fatal_error_smoke: pkill -x kwin_wayland did not report success\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: pkill -x kwin_wayland did not report success\n");
         return EXIT_FAILURE;
     }
     // Give the kernel a moment to actually tear the socket down
@@ -87,54 +101,63 @@ int main() {
     // roundtrip on a connection whose peer just died must come back
     // as an ORDINARY gltfx_rslt<void> error - never a crash, never an
     // abort - and must latch has_fatal_error().
-    glintfx::gltfx_rslt<void> after_cut = adapter.roundtrip();
+    const glintfx::gltfx_rslt<void> after_cut = adapter.roundtrip();
     if (after_cut.has_value()) {
-        std::fprintf(stderr, "fatal_error_smoke: roundtrip() reported SUCCESS after the "
-                             "compositor was killed - the fatal path never fired\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: roundtrip() reported SUCCESS after the "
+                    "compositor was killed - the fatal path never fired\n");
         return EXIT_FAILURE;
     }
     if (after_cut.err().code() != glintfx::gltfx_err_code::platform_failure) {
-        std::fprintf(stderr, "fatal_error_smoke: wrong error code after the cut: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(after_cut.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: wrong error code after the cut: %s\n",
+            std::string(glintfx::gltfx_err_code_name(after_cut.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (!adapter.has_fatal_error()) {
-        std::fprintf(stderr, "fatal_error_smoke: has_fatal_error() still false after a "
-                             "roundtrip() that reported the connection dead\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: has_fatal_error() still false after a "
+                    "roundtrip() that reported the connection dead\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout,
-                 "fatal_error_smoke: roundtrip() after the cut reported %s "
-                 "(os_error_code=%lld), has_fatal_error() == true\n",
-                 std::string(glintfx::gltfx_err_code_name(after_cut.err().code())).c_str(),
-                 static_cast<long long>(after_cut.err().os_error_code()));
+    glintfx::container_fixture::checked_fprintf(
+        stdout,
+        "fatal_error_smoke: roundtrip() after the cut reported %s "
+        "(os_error_code=%lld), has_fatal_error() == true\n",
+        std::string(glintfx::gltfx_err_code_name(after_cut.err().code())).c_str(),
+        static_cast<long long>(after_cut.err().os_error_code()));
     // MEASURED-COLLECTOR: the raw OS error code a severed Wayland
     // socket reports on this kernel - Linux-only key (Windows has no
     // equivalent fixture that severs its own transport yet), lands in
     // "so de um lado" until one exists.
-    std::fprintf(stdout, "MEASURED fatal_error_smoke.os_error_code=%lld\n",
-                 static_cast<long long>(after_cut.err().os_error_code()));
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED fatal_error_smoke.os_error_code=%lld\n",
+        static_cast<long long>(after_cut.err().os_error_code()));
 
     // A SECOND roundtrip() call, on the already-latched adapter, must
     // ALSO come back as an ordinary error - never crash - proving the
     // latch actually holds rather than firing once and then trying
     // libwayland again.
-    glintfx::gltfx_rslt<void> second_after_cut = adapter.roundtrip();
+    const glintfx::gltfx_rslt<void> second_after_cut = adapter.roundtrip();
     if (second_after_cut.has_value()) {
-        std::fprintf(stderr, "fatal_error_smoke: SECOND roundtrip() after the cut reported "
-                             "success - the latch did not hold\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: SECOND roundtrip() after the cut reported "
+                    "success - the latch did not hold\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "fatal_error_smoke: second roundtrip() after the cut also reported "
-                         "an error, as expected - no crash\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "fatal_error_smoke: second roundtrip() after the cut also reported "
+                "an error, as expected - no crash\n");
 
     // close() on a fatally-errored adapter must still work cleanly.
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "fatal_error_smoke: close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "fatal_error_smoke: closed cleanly after a fatal error - no crash\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "fatal_error_smoke: closed cleanly after a fatal error - no crash\n");
 
     return EXIT_SUCCESS;
 }

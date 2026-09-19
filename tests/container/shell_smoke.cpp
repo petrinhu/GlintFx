@@ -6,6 +6,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/shell_adapter.hpp"
 
@@ -44,47 +45,54 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "shell_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "shell_smoke: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_shell_adapter shell;
-    glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
+    const glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
-        std::fprintf(stderr, "shell_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
-                     std::string(shell_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "shell_smoke: shell.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
+            std::string(shell_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
     if (!shell.is_open()) {
-        std::fprintf(stderr, "shell_smoke: shell.open() reported success but is_open() is false\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "shell_smoke: shell.open() reported success but is_open() is false\n");
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "shell_smoke: wl_compositor and xdg_wm_base bound (is_open() == true)\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "shell_smoke: wl_compositor and xdg_wm_base bound (is_open() == true)\n");
 
     shell.close();
     if (shell.is_open()) {
-        std::fprintf(stderr, "shell_smoke: shell.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "shell_smoke: shell.close() ran but is_open() is still true\n");
         adapter.close();
         return EXIT_FAILURE;
     }
 
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "shell_smoke: adapter.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "shell_smoke: adapter.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "shell_smoke: disconnected (is_open() == false)\n");
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "shell_smoke: disconnected (is_open() == false)\n");
 
     return EXIT_SUCCESS;
 }

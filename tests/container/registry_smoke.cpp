@@ -6,6 +6,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/global_catalog.hpp"
 
@@ -37,18 +38,20 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "registry_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "registry_smoke: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
     if (!adapter.is_open()) {
-        std::fprintf(stderr, "registry_smoke: open() reported success but is_open() is false\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "registry_smoke: open() reported success but is_open() is false\n");
         return EXIT_FAILURE;
     }
 
@@ -61,18 +64,21 @@ int main() {
     // file.
     const glintfx::platform::global_catalog &globals = adapter.globals();
     if (globals.size() == 0) {
-        std::fprintf(stderr, "registry_smoke: catalog is empty after open() (varredura vazia)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "registry_smoke: catalog is empty after open() (varredura vazia)\n");
         return EXIT_FAILURE;
     }
     if (globals.find_by_interface("wl_compositor") == nullptr) {
-        std::fprintf(stderr, "registry_smoke: wl_compositor absent from the catalog\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "registry_smoke: wl_compositor absent from the catalog\n");
         return EXIT_FAILURE;
     }
     if (globals.find_by_interface("xdg_wm_base") == nullptr) {
-        std::fprintf(stderr, "registry_smoke: xdg_wm_base absent from the catalog\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "registry_smoke: xdg_wm_base absent from the catalog\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(
+    glintfx::container_fixture::checked_fprintf(
         stdout,
         "registry_smoke: catalog has %zu global(s), wl_compositor and xdg_wm_base present\n",
         globals.size());
@@ -80,7 +86,8 @@ int main() {
     // fact (no Windows equivalent enumerates Wayland globals) - lands
     // in the parity table's "so de um lado" section, declared, not a
     // gap anyone has to go looking for.
-    std::fprintf(stdout, "MEASURED registry_smoke.global_count=%zu\n", globals.size());
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED registry_smoke.global_count=%zu\n", globals.size());
 
     // docs/plano-w6b-placa-e-laco.md fatia 1, F13: this compositor's
     // own announced VERSION for wl_compositor/wl_seat/xdg_wm_base (and
@@ -94,18 +101,22 @@ int main() {
     // "wl_compositor version" fact on the Windows side to diverge
     // from or match, only the aggregate global_count already measured
     // above.
-    std::fprintf(stdout, "registry_smoke: globals announced (interface@version):");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "registry_smoke: globals announced (interface@version):");
     for (const glintfx::platform::wayland_global &global : globals.all()) {
-        std::fprintf(stdout, " %s@%u", global.interface.c_str(), global.version);
+        glintfx::container_fixture::checked_fprintf(stdout, " %s@%u", global.interface.c_str(),
+                                                    global.version);
     }
-    std::fprintf(stdout, "\n");
+    glintfx::container_fixture::checked_fprintf(stdout, "\n");
 
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "registry_smoke: close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "registry_smoke: close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "registry_smoke: disconnected (is_open() == false)\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "registry_smoke: disconnected (is_open() == false)\n");
 
     return EXIT_SUCCESS;
 }

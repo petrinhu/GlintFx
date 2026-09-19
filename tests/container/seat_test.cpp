@@ -6,6 +6,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/input/seat_capabilities.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/seat_adapter.hpp"
@@ -63,28 +64,31 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "seat_test: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_seat_adapter seat;
-    glintfx::gltfx_rslt<void> seat_opened = seat.open(adapter);
+    const glintfx::gltfx_rslt<void> seat_opened = seat.open(adapter);
     if (seat_opened.has_error()) {
-        std::fprintf(stderr, "seat_test: seat.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(seat_opened.err().code())).c_str(),
-                     std::string(seat_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: seat.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(seat_opened.err().code())).c_str(),
+            std::string(seat_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
     if (!seat.is_open()) {
-        std::fprintf(stderr, "seat_test: seat.open() reported success but is_open() is false\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: seat.open() reported success but is_open() is false\n");
         adapter.close();
         return EXIT_FAILURE;
     }
@@ -93,10 +97,11 @@ int main() {
     // (wayland.xml, wl_seat_listener's own capabilities documentation) -
     // one roundtrip is enough to have it (and, if the compositor sends
     // it, wl_seat.name) already dispatched by the time we read either.
-    glintfx::gltfx_rslt<void> roundtripped = adapter.roundtrip();
+    const glintfx::gltfx_rslt<void> roundtripped = adapter.roundtrip();
     if (roundtripped.has_error()) {
-        std::fprintf(stderr, "seat_test: roundtrip() after seat.open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: roundtrip() after seat.open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str());
         seat.close();
         adapter.close();
         return EXIT_FAILURE;
@@ -107,10 +112,11 @@ int main() {
     const int has_keyboard = seat.capabilities().has_capability(seat_capability::keyboard) ? 1 : 0;
     const int has_touch = seat.capabilities().has_capability(seat_capability::touch) ? 1 : 0;
     const auto last_change = static_cast<unsigned long long>(seat.last_change());
-    std::fprintf(stdout,
-                 "seat_test: name=\"%s\" pointer=%d keyboard=%d touch=%d last_change=%llu "
-                 "(measured, not asserted)\n",
-                 seat.name().c_str(), has_pointer, has_keyboard, has_touch, last_change);
+    glintfx::container_fixture::checked_fprintf(
+        stdout,
+        "seat_test: name=\"%s\" pointer=%d keyboard=%d touch=%d last_change=%llu "
+        "(measured, not asserted)\n",
+        seat.name().c_str(), has_pointer, has_keyboard, has_touch, last_change);
     // MEASURED-COLLECTOR (tests/tools/collect_measured.py): same four
     // facts, one MEASURED line each - this fixture is Linux-only
     // (Wayland's own wl_seat), so these land in the parity table's
@@ -126,10 +132,13 @@ int main() {
     // reads a single WM_INPUT_DEVICE_CHANGE message's own wParam CODE.
     // A counter is not a code - renamed so the key's own name says
     // which grandeza it measures, never "the same word, two units".
-    std::fprintf(stdout, "MEASURED seat_test.pointer=%d\n", has_pointer);
-    std::fprintf(stdout, "MEASURED seat_test.keyboard=%d\n", has_keyboard);
-    std::fprintf(stdout, "MEASURED seat_test.touch=%d\n", has_touch);
-    std::fprintf(stdout, "MEASURED seat_test.capability_events=%llu\n", last_change);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED seat_test.pointer=%d\n",
+                                                has_pointer);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED seat_test.keyboard=%d\n",
+                                                has_keyboard);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED seat_test.touch=%d\n", has_touch);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED seat_test.capability_events=%llu\n", last_change);
 
     // The one assertion this fixture makes (docs/plano-w6a-janela.md,
     // fatia 12's own briefing: "asserçao minima: leitura inicial
@@ -139,8 +148,9 @@ int main() {
     // answer (a real "no device classes" answer still arrives AS an
     // event, with an empty bitmask, and still increments last_change()).
     if (seat.last_change() == 0) {
-        std::fprintf(stderr, "seat_test: no capabilities/name event observed at all "
-                             "(last_change() == 0)\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: no capabilities/name event observed at all "
+                    "(last_change() == 0)\n");
         seat.close();
         adapter.close();
         return EXIT_FAILURE;
@@ -148,17 +158,20 @@ int main() {
 
     seat.close();
     if (seat.is_open()) {
-        std::fprintf(stderr, "seat_test: seat.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: seat.close() ran but is_open() is still true\n");
         adapter.close();
         return EXIT_FAILURE;
     }
 
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "seat_test: adapter.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "seat_test: adapter.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "seat_test: disconnected (is_open() == false)\n");
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "seat_test: disconnected (is_open() == false)\n");
 
     return EXIT_SUCCESS;
 }

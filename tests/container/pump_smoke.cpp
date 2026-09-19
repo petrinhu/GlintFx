@@ -7,6 +7,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 
 // pump_smoke.cpp - WL-DISPLAY fatia D, TDD case D (w4-plano.md
@@ -35,14 +36,15 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
 
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "pump_smoke: open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "pump_smoke: open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
@@ -60,47 +62,51 @@ int main() {
 
     const auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < kIterations; ++i) {
-        glintfx::gltfx_rslt<void> pumped = adapter.pump_events();
+        const glintfx::gltfx_rslt<void> pumped = adapter.pump_events();
         if (pumped.has_error()) {
-            std::fprintf(stderr, "pump_smoke: pump_events() iteration %d failed: %s\n", i,
-                         std::string(glintfx::gltfx_err_code_name(pumped.err().code())).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "pump_smoke: pump_events() iteration %d failed: %s\n", i,
+                std::string(glintfx::gltfx_err_code_name(pumped.err().code())).c_str());
             return EXIT_FAILURE;
         }
         const auto elapsed = std::chrono::steady_clock::now() - start;
         if (elapsed > kBudget) {
-            std::fprintf(stderr,
-                         "pump_smoke: iteration %d exceeded the non-blocking budget - "
-                         "pump_events() is blocking\n",
-                         i);
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "pump_smoke: iteration %d exceeded the non-blocking budget - "
+                "pump_events() is blocking\n",
+                i);
             return EXIT_FAILURE;
         }
     }
     const auto total_elapsed = std::chrono::steady_clock::now() - start;
     const auto total_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(total_elapsed).count();
-    std::fprintf(stdout,
-                 "pump_smoke: %d pump_events() call(s) completed in %lldms (budget %lldms)\n",
-                 kIterations, static_cast<long long>(total_ms),
-                 static_cast<long long>(
-                     std::chrono::duration_cast<std::chrono::milliseconds>(kBudget).count()));
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "pump_smoke: %d pump_events() call(s) completed in %lldms (budget %lldms)\n",
+        kIterations, static_cast<long long>(total_ms),
+        static_cast<long long>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(kBudget).count()));
     // MEASURED-COLLECTOR: wall-clock cost of pump_events() on a
     // real compositor - has no comparable Windows leg today (no
     // equivalent pump-cost fixture exists there yet), so this lands in
     // "so de um lado" until one does.
-    std::fprintf(stdout, "MEASURED pump_smoke.total_ms=%lld\n", static_cast<long long>(total_ms));
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED pump_smoke.total_ms=%lld\n",
+                                                static_cast<long long>(total_ms));
 
     if (adapter.has_fatal_error()) {
-        std::fprintf(stderr,
-                     "pump_smoke: has_fatal_error() true after an all-successful pump loop\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "pump_smoke: has_fatal_error() true after an all-successful pump loop\n");
         return EXIT_FAILURE;
     }
 
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "pump_smoke: close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "pump_smoke: close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "pump_smoke: closed cleanly\n");
+    glintfx::container_fixture::checked_fprintf(stdout, "pump_smoke: closed cleanly\n");
 
     return EXIT_SUCCESS;
 }

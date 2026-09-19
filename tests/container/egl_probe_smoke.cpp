@@ -107,6 +107,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/shell_adapter.hpp"
 #include "platform/wayland/window_adapter.hpp"
@@ -284,12 +285,14 @@ class egl_context_guard {
     // process's own glintfx window already opened is a baseline
     // libwayland-egl mechanic, unrelated to the EGL/GL capability
     // question everything past this point exists to answer.
-    wl_egl_window_guard egl_window(wl_egl_window_create(
+    wl_egl_window_guard const egl_window(wl_egl_window_create(
         window.surface(), static_cast<int>(pixel_size.width), static_cast<int>(pixel_size.height)));
-    std::fprintf(stdout, "MEASURED egl_probe_smoke.wl_egl_window_create_ok=%d\n",
-                 egl_window.is_valid() ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_probe_smoke.wl_egl_window_create_ok=%d\n",
+        egl_window.is_valid() ? 1 : 0);
     if (!egl_window.is_valid()) {
-        std::fprintf(stderr, "egl_probe_smoke: wl_egl_window_create() returned null\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_probe_smoke: wl_egl_window_create() returned null\n");
         return false;
     }
 
@@ -297,10 +300,11 @@ class egl_context_guard {
     // comment) - docs/plano-w6b-placa-e-laco.md sec. 5's own decision
     // tree is what turns these MEASURED lines into a decision, not
     // this probe.
-    egl_display_guard egl_display(
+    egl_display_guard const egl_display(
         eglGetPlatformDisplay(EGL_PLATFORM_WAYLAND_KHR, adapter.native_display(), nullptr));
-    std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_get_platform_display_ok=%d\n",
-                 egl_display.is_valid() ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_probe_smoke.egl_get_platform_display_ok=%d\n",
+        egl_display.is_valid() ? 1 : 0);
 
     EGLint egl_major = 0;
     EGLint egl_minor = 0;
@@ -308,10 +312,12 @@ class egl_context_guard {
     if (egl_display.is_valid()) {
         egl_initialized = eglInitialize(egl_display.get(), &egl_major, &egl_minor) == EGL_TRUE;
     }
-    std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_initialize_ok=%d\n",
-                 egl_initialized ? 1 : 0);
-    std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_major=%d\n", egl_major);
-    std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_minor=%d\n", egl_minor);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_probe_smoke.egl_initialize_ok=%d\n", egl_initialized ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED egl_probe_smoke.egl_major=%d\n",
+                                                egl_major);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED egl_probe_smoke.egl_minor=%d\n",
+                                                egl_minor);
 
     bool gl_api_bound = false;
     EGLConfig config = nullptr;
@@ -321,18 +327,21 @@ class egl_context_guard {
         const char *egl_version_text = eglQueryString(egl_display.get(), EGL_VERSION);
         const char *egl_vendor_text = eglQueryString(egl_display.get(), EGL_VENDOR);
         const char *egl_client_apis_text = eglQueryString(egl_display.get(), EGL_CLIENT_APIS);
-        std::fprintf(stdout, "egl_probe_smoke: EGL_VERSION=%s EGL_VENDOR=%s EGL_CLIENT_APIS=%s\n",
-                     text_or_null(egl_version_text), text_or_null(egl_vendor_text),
-                     text_or_null(egl_client_apis_text));
-        std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_version=%s\n",
-                     text_or_null(egl_version_text));
-        std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_vendor=%s\n",
-                     text_or_null(egl_vendor_text));
-        std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_client_apis=%s\n",
-                     text_or_null(egl_client_apis_text));
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "egl_probe_smoke: EGL_VERSION=%s EGL_VENDOR=%s EGL_CLIENT_APIS=%s\n",
+            text_or_null(egl_version_text), text_or_null(egl_vendor_text),
+            text_or_null(egl_client_apis_text));
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "MEASURED egl_probe_smoke.egl_version=%s\n", text_or_null(egl_version_text));
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "MEASURED egl_probe_smoke.egl_vendor=%s\n", text_or_null(egl_vendor_text));
+        glintfx::container_fixture::checked_fprintf(stdout,
+                                                    "MEASURED egl_probe_smoke.egl_client_apis=%s\n",
+                                                    text_or_null(egl_client_apis_text));
 
         gl_api_bound = eglBindAPI(EGL_OPENGL_API) == EGL_TRUE;
-        std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_bind_api_ok=%d\n", gl_api_bound ? 1 : 0);
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "MEASURED egl_probe_smoke.egl_bind_api_ok=%d\n", gl_api_bound ? 1 : 0);
     }
 
     if (gl_api_bound) {
@@ -362,8 +371,8 @@ class egl_context_guard {
         config_chosen = eglChooseConfig(egl_display.get(), config_attribs, &config, 1,
                                         &num_configs) == EGL_TRUE &&
                         num_configs > 0;
-        std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_choose_config_ok=%d\n",
-                     config_chosen ? 1 : 0);
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "MEASURED egl_probe_smoke.egl_choose_config_ok=%d\n", config_chosen ? 1 : 0);
     }
 
     // Nested rather than a flat sequence of reassigned guards on
@@ -375,11 +384,12 @@ class egl_context_guard {
     // has a value worth giving it - never default-constructed empty
     // and reassigned later.
     if (config_chosen) {
-        egl_surface_guard surface(
+        egl_surface_guard const surface(
             egl_display.get(),
             eglCreateWindowSurface(egl_display.get(), config, egl_window.get(), nullptr));
-        std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_create_window_surface_ok=%d\n",
-                     surface.is_valid() ? 1 : 0);
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "MEASURED egl_probe_smoke.egl_create_window_surface_ok=%d\n",
+            surface.is_valid() ? 1 : 0);
 
         if (surface.is_valid()) {
             const EGLint context_attribs[] = {
@@ -391,18 +401,20 @@ class egl_context_guard {
                 k_gl_context_core_profile_bit,
                 EGL_NONE,
             };
-            egl_context_guard context(
+            egl_context_guard const context(
                 egl_display.get(),
                 eglCreateContext(egl_display.get(), config, EGL_NO_CONTEXT, context_attribs));
-            std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_create_context_33_core_ok=%d\n",
-                         context.is_valid() ? 1 : 0);
+            glintfx::container_fixture::checked_fprintf(
+                stdout, "MEASURED egl_probe_smoke.egl_create_context_33_core_ok=%d\n",
+                context.is_valid() ? 1 : 0);
 
             if (context.is_valid()) {
                 const bool context_current =
                     eglMakeCurrent(egl_display.get(), surface.get(), surface.get(),
                                    context.get()) == EGL_TRUE;
-                std::fprintf(stdout, "MEASURED egl_probe_smoke.egl_make_current_ok=%d\n",
-                             context_current ? 1 : 0);
+                glintfx::container_fixture::checked_fprintf(
+                    stdout, "MEASURED egl_probe_smoke.egl_make_current_ok=%d\n",
+                    context_current ? 1 : 0);
 
                 if (context_current) {
                     // wglGetProcAddress-style resolve-by-name (this
@@ -414,28 +426,44 @@ class egl_context_guard {
                     // mechanism D-W6b-2's own public proc_address()
                     // will expose, exercised here one layer below any
                     // handle this project ships.
-                    const auto get_string = reinterpret_cast<gl_get_string_fn>(
-                        reinterpret_cast<void *>(eglGetProcAddress("glGetString")));
-                    const auto get_integerv = reinterpret_cast<gl_get_integerv_fn>(
-                        reinterpret_cast<void *>(eglGetProcAddress("glGetIntegerv")));
-                    std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_get_string_resolved=%d\n",
-                                 get_string != nullptr ? 1 : 0);
-                    std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_get_integerv_resolved=%d\n",
-                                 get_integerv != nullptr ? 1 : 0);
+                    // LINT-CONTAINER-SMOKES (bugprone-casting-through-void):
+                    // eglGetProcAddress() already returns a distinct
+                    // function-pointer typedef (__eglMustCastToProperFunctionPointerType,
+                    // "void (*)()"), never a plain object pointer - the
+                    // intermediate reinterpret_cast<void *> this used to
+                    // round-trip through was both unnecessary (function-
+                    // pointer-to-function-pointer conversion via
+                    // reinterpret_cast is valid on its own) and the exact
+                    // shape the check flags (function-pointer-through-
+                    // void*-and-back is not portably guaranteed to survive
+                    // the round trip, unlike a direct conversion).
+                    const auto get_string =
+                        reinterpret_cast<gl_get_string_fn>(eglGetProcAddress("glGetString"));
+                    const auto get_integerv =
+                        reinterpret_cast<gl_get_integerv_fn>(eglGetProcAddress("glGetIntegerv"));
+                    glintfx::container_fixture::checked_fprintf(
+                        stdout, "MEASURED egl_probe_smoke.gl_get_string_resolved=%d\n",
+                        get_string != nullptr ? 1 : 0);
+                    glintfx::container_fixture::checked_fprintf(
+                        stdout, "MEASURED egl_probe_smoke.gl_get_integerv_resolved=%d\n",
+                        get_integerv != nullptr ? 1 : 0);
 
                     if (get_string != nullptr) {
                         const gl_ubyte *vendor = get_string(k_gl_vendor);
                         const gl_ubyte *renderer = get_string(k_gl_renderer);
                         const gl_ubyte *version = get_string(k_gl_version);
-                        std::fprintf(
+                        glintfx::container_fixture::checked_fprintf(
                             stdout, "egl_probe_smoke: GL_VENDOR=%s GL_RENDERER=%s GL_VERSION=%s\n",
                             text_or_null(vendor), text_or_null(renderer), text_or_null(version));
-                        std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_vendor=%s\n",
-                                     text_or_null(vendor));
-                        std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_renderer=%s\n",
-                                     text_or_null(renderer));
-                        std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_version=%s\n",
-                                     text_or_null(version));
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_vendor=%s\n",
+                            text_or_null(vendor));
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_renderer=%s\n",
+                            text_or_null(renderer));
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_version=%s\n",
+                            text_or_null(version));
                     }
 
                     if (get_integerv != nullptr) {
@@ -447,20 +475,21 @@ class egl_context_guard {
                         get_integerv(k_gl_context_profile_mask, &gl_profile_mask);
                         const bool core_profile =
                             (gl_profile_mask & k_gl_context_core_profile_bit) != 0;
-                        std::fprintf(stdout,
-                                     "egl_probe_smoke: GL_MAJOR_VERSION=%d GL_MINOR_VERSION=%d "
-                                     "GL_CONTEXT_PROFILE_MASK=%#x (core=%d)\n",
-                                     gl_major, gl_minor, gl_profile_mask, core_profile ? 1 : 0);
-                        std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_major_version=%d\n",
-                                     gl_major);
-                        std::fprintf(stdout, "MEASURED egl_probe_smoke.gl_minor_version=%d\n",
-                                     gl_minor);
-                        std::fprintf(stdout,
-                                     "MEASURED egl_probe_smoke.gl_context_profile_mask=%#x\n",
-                                     gl_profile_mask);
-                        std::fprintf(stdout,
-                                     "MEASURED egl_probe_smoke.gl_context_is_core_profile=%d\n",
-                                     core_profile ? 1 : 0);
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout,
+                            "egl_probe_smoke: GL_MAJOR_VERSION=%d GL_MINOR_VERSION=%d "
+                            "GL_CONTEXT_PROFILE_MASK=%#x (core=%d)\n",
+                            gl_major, gl_minor, gl_profile_mask, core_profile ? 1 : 0);
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_major_version=%d\n", gl_major);
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_minor_version=%d\n", gl_minor);
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_context_profile_mask=%#x\n",
+                            gl_profile_mask);
+                        glintfx::container_fixture::checked_fprintf(
+                            stdout, "MEASURED egl_probe_smoke.gl_context_is_core_profile=%d\n",
+                            core_profile ? 1 : 0);
                     }
                 }
             }
@@ -503,44 +532,48 @@ int main() {
     // buffering) on Win32 anyway, so the line was never buying the
     // per-line flush this comment promises on that platform in the
     // first place.
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
     glintfx::platform::wayland_display_adapter adapter;
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "egl_probe_smoke: display open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_probe_smoke: display open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_shell_adapter shell;
-    glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
+    const glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
-        std::fprintf(stderr, "egl_probe_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
-                     std::string(shell_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_probe_smoke: shell.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
+            std::string(shell_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_window_adapter window;
-    glintfx::platform::wayland_window_desc desc{
+    glintfx::platform::wayland_window_desc const desc{
         .logical_width = static_cast<std::uint32_t>(kWidth),
         .logical_height = static_cast<std::uint32_t>(kHeight),
         .title = "egl_probe_smoke",
         .application_id = "org.glintfx.egl_probe_smoke",
     };
-    glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
+    const glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr, "egl_probe_smoke: window.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
-                     std::string(window_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_probe_smoke: window.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+            std::string(window_opened.err().rejected_value()).c_str());
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
     }
     const glintfx::platform::window_size pixel_size = window.state().pixel_size();
-    std::fprintf(stdout, "egl_probe_smoke: window configured - pixel_size=%ux%u\n",
-                 pixel_size.width, pixel_size.height);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "egl_probe_smoke: window configured - pixel_size=%ux%u\n", pixel_size.width,
+        pixel_size.height);
 
     // probe_egl_and_gl() owns EVERY EGL/wl_egl_window resource this
     // probe creates, and destroys all of them before it returns here -
@@ -554,7 +587,8 @@ int main() {
 
     window.close();
     if (window.is_open()) {
-        std::fprintf(stderr, "egl_probe_smoke: window.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_probe_smoke: window.close() ran but is_open() is still true\n");
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
@@ -562,13 +596,14 @@ int main() {
     shell.close();
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "egl_probe_smoke: adapter.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "egl_probe_smoke: adapter.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
     if (!probe_completed) {
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "egl_probe_smoke: closed cleanly\n");
+    glintfx::container_fixture::checked_fprintf(stdout, "egl_probe_smoke: closed cleanly\n");
 
     return EXIT_SUCCESS;
 }

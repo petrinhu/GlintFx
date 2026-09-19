@@ -13,6 +13,7 @@
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/egl_context_adapter.hpp"
 #include "platform/window/display_impl.hpp"
 #include "platform/window/window_impl.hpp"
@@ -79,8 +80,9 @@ void check_pair(const char *name, const void *impl_address, const void *proxy_us
     } else {
         ++g_diferentes;
     }
-    std::fprintf(stdout, "facade_pin_smoke: par %s: impl=%p proxy_user_data=%p (%s)\n", name,
-                 impl_address, proxy_user_data, same ? "igual" : "diferente");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "facade_pin_smoke: par %s: impl=%p proxy_user_data=%p (%s)\n", name, impl_address,
+        proxy_user_data, same ? "igual" : "diferente");
 }
 
 } // namespace
@@ -89,11 +91,11 @@ int main() {
     // Unbuffer stdout explicitly - same fix, same reason, applied to
     // every fixture in this family (window_smoke.cpp's own header
     // comment on this exact line).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr, "facade_pin_smoke: gltfx_display::open() failed: %s\n",
             std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return EXIT_FAILURE;
@@ -109,10 +111,10 @@ int main() {
     glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
         glintfx::gltfx_window::open(display, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr,
-                     "facade_pin_smoke: gltfx_window::open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
-                     std::string(window_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "facade_pin_smoke: gltfx_window::open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+            std::string(window_opened.err().rejected_value()).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_window window = std::move(window_opened.value());
@@ -142,26 +144,29 @@ int main() {
     // comment acima para por que nao se passa por gltfx_gl_context.
     auto *egl_ptr = new glintfx::platform::wayland_egl_context_adapter();
     const std::span<const glintfx::gltfx_gfx_option_entry> no_options{};
-    if (glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(w_impl->adapter, no_options);
+    if (const glintfx::gltfx_rslt<void> egl_opened = egl_ptr->open(w_impl->adapter, no_options);
         egl_opened.has_error()) {
-        std::fprintf(stderr,
-                     "facade_pin_smoke: egl adapter open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str(),
-                     std::string(egl_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "facade_pin_smoke: egl adapter open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(egl_opened.err().code())).c_str(),
+            std::string(egl_opened.err().rejected_value()).c_str());
         delete egl_ptr;
         return EXIT_FAILURE;
     }
 
-    if (glintfx::gltfx_rslt<void> current = egl_ptr->make_current(); current.has_error()) {
-        std::fprintf(stderr, "facade_pin_smoke: egl adapter make_current() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(current.err().code())).c_str());
+    if (const glintfx::gltfx_rslt<void> current = egl_ptr->make_current(); current.has_error()) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "facade_pin_smoke: egl adapter make_current() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(current.err().code())).c_str());
         delete egl_ptr;
         return EXIT_FAILURE;
     }
-    if (glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = egl_ptr->swap_buffers();
+    if (const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented =
+            egl_ptr->swap_buffers();
         presented.has_error()) {
-        std::fprintf(stderr, "facade_pin_smoke: egl adapter swap_buffers() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(presented.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "facade_pin_smoke: egl adapter swap_buffers() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(presented.err().code())).c_str());
         delete egl_ptr;
         return EXIT_FAILURE;
     }
@@ -172,8 +177,9 @@ int main() {
 
     delete egl_ptr;
 
-    std::fprintf(stdout, "facade_pin_smoke: pares=%d iguais=%d diferentes=%d\n", g_pares, g_iguais,
-                 g_diferentes);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "facade_pin_smoke: pares=%d iguais=%d diferentes=%d\n", g_pares, g_iguais,
+        g_diferentes);
 
     // A REGRA QUE M3 (docs/plano-conserto-fachadas-uaf.md sec. 8) EXISTE
     // PARA PROVAR: contar e imprimir "diferentes" nao e o mesmo que
@@ -183,10 +189,11 @@ int main() {
     // facade_pin_smoke saia EXIT_SUCCESS mesmo com os quatro pares
     // diferentes que T0 mediu contra a arvore pre-conserto.
     if (g_diferentes > 0) {
-        std::fprintf(stderr,
-                     "facade_pin_smoke: FAIL - %d par(es) diferente(s) de %d (o adaptador se "
-                     "moveu depois de registrar o proprio endereco com o sistema)\n",
-                     g_diferentes, g_pares);
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "facade_pin_smoke: FAIL - %d par(es) diferente(s) de %d (o adaptador se "
+            "moveu depois de registrar o proprio endereco com o sistema)\n",
+            g_diferentes, g_pares);
         return EXIT_FAILURE;
     }
 

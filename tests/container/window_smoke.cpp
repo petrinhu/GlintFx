@@ -14,6 +14,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/shell_adapter.hpp"
 #include "platform/wayland/window_adapter.hpp"
@@ -78,7 +79,7 @@ constexpr std::int32_t kPoolSize = kStride * kHeight;
 // these bytes, and an uninitialized wl_shm pool is not a fixture this
 // project wants to hand a real compositor, mutation test or not.
 [[nodiscard]] int make_zeroed_shm_fd(std::int32_t size) {
-    int fd = memfd_create("glintfx-window-smoke", 0);
+    const int fd = memfd_create("glintfx-window-smoke", 0);
     if (fd < 0) {
         return -1;
     }
@@ -108,22 +109,24 @@ int main() {
     // Windows CI job with 0xC0000409 - MSVC's setvbuf rejects that
     // combination outside its documented 2 <= size <= INT_MAX range,
     // while `_IONBF` ignores `size`/`buffer` entirely).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter adapter;
-    glintfx::gltfx_rslt<void> opened = adapter.open();
+    const glintfx::gltfx_rslt<void> opened = adapter.open();
     if (opened.has_error()) {
-        std::fprintf(stderr, "window_smoke: display open() failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: display open() failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(opened.err().code())).c_str());
         return EXIT_FAILURE;
     }
 
     glintfx::platform::wayland_shell_adapter shell;
-    glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
+    const glintfx::gltfx_rslt<void> shell_opened = shell.open(adapter);
     if (shell_opened.has_error()) {
-        std::fprintf(stderr, "window_smoke: shell.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
-                     std::string(shell_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: shell.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(shell_opened.err().code())).c_str(),
+            std::string(shell_opened.err().rejected_value()).c_str());
         adapter.close();
         return EXIT_FAILURE;
     }
@@ -131,15 +134,17 @@ int main() {
     const glintfx::platform::wayland_global *shm_global =
         adapter.globals().find_by_interface("wl_shm");
     if (shm_global == nullptr) {
-        std::fprintf(stderr, "window_smoke: wl_shm absent from the registry\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: wl_shm absent from the registry\n");
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
     }
     glintfx::gltfx_rslt<void *> shm_proxy = adapter.bind(*shm_global, wl_shm_interface, 1);
     if (shm_proxy.has_error()) {
-        std::fprintf(stderr, "window_smoke: bind(wl_shm) failed: %s\n",
-                     std::string(glintfx::gltfx_err_code_name(shm_proxy.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: bind(wl_shm) failed: %s\n",
+            std::string(glintfx::gltfx_err_code_name(shm_proxy.err().code())).c_str());
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
@@ -147,45 +152,48 @@ int main() {
     auto *shm = static_cast<wl_shm *>(shm_proxy.value());
 
     glintfx::platform::wayland_window_adapter window;
-    glintfx::platform::wayland_window_desc desc{
+    glintfx::platform::wayland_window_desc const desc{
         .logical_width = static_cast<std::uint32_t>(kWidth),
         .logical_height = static_cast<std::uint32_t>(kHeight),
         .title = "window_smoke",
         .application_id = "org.glintfx.window_smoke",
     };
-    glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
+    const glintfx::gltfx_rslt<void> window_opened = window.open(adapter, shell, desc);
     if (window_opened.has_error()) {
-        std::fprintf(stderr, "window_smoke: window.open() failed: %s (rejected_value=%s)\n",
-                     std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
-                     std::string(window_opened.err().rejected_value()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: window.open() failed: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(window_opened.err().code())).c_str(),
+            std::string(window_opened.err().rejected_value()).c_str());
         wl_shm_destroy(shm);
         shell.close();
         adapter.close();
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "window_smoke: window configured - logical_size=%ux%u pixel_size=%ux%u\n",
-                 window.state().logical_size().width, window.state().logical_size().height,
-                 window.state().pixel_size().width, window.state().pixel_size().height);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "window_smoke: window configured - logical_size=%ux%u pixel_size=%ux%u\n",
+        window.state().logical_size().width, window.state().logical_size().height,
+        window.state().pixel_size().width, window.state().pixel_size().height);
     // MEASURED-COLLECTOR: this fixture talks to the INTERNAL Wayland
     // adapter directly (platform::wayland_window_adapter), not the
     // public gltfx_window window_parity_test.cpp already collects the
     // same four facts for - kept as its own keys, never merged, since
     // the two never claim to measure the same call path.
-    std::fprintf(stdout, "MEASURED window_smoke.logical_width=%u\n",
-                 window.state().logical_size().width);
-    std::fprintf(stdout, "MEASURED window_smoke.logical_height=%u\n",
-                 window.state().logical_size().height);
-    std::fprintf(stdout, "MEASURED window_smoke.pixel_width=%u\n",
-                 window.state().pixel_size().width);
-    std::fprintf(stdout, "MEASURED window_smoke.pixel_height=%u\n",
-                 window.state().pixel_size().height);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED window_smoke.logical_width=%u\n",
+                                                window.state().logical_size().width);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED window_smoke.logical_height=%u\n",
+                                                window.state().logical_size().height);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED window_smoke.pixel_width=%u\n",
+                                                window.state().pixel_size().width);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED window_smoke.pixel_height=%u\n",
+                                                window.state().pixel_size().height);
 
     // D-W5-9: the ONE wl_shm buffer this whole fatia ever attaches -
     // never wayland_window_adapter's own job (see this file's own
     // header comment).
-    int shm_fd = make_zeroed_shm_fd(kPoolSize);
+    const int shm_fd = make_zeroed_shm_fd(kPoolSize);
     if (shm_fd < 0) {
-        std::fprintf(stderr, "window_smoke: could not create the shm-backed fd\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: could not create the shm-backed fd\n");
         window.close();
         wl_shm_destroy(shm);
         shell.close();
@@ -207,9 +215,9 @@ int main() {
     // configure() surfaces HERE, as a protocol error on this
     // roundtrip() - never earlier, because nothing was ever attached
     // for the compositor to reject until the two lines right above ran.
-    glintfx::gltfx_rslt<void> roundtripped = adapter.roundtrip();
+    const glintfx::gltfx_rslt<void> roundtripped = adapter.roundtrip();
     if (roundtripped.has_error()) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr,
             "window_smoke: roundtrip() after buffer commit failed: %s (rejected_value=%s)\n",
             std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str(),
@@ -221,14 +229,15 @@ int main() {
         adapter.close();
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout,
-                 "window_smoke: buffer committed and acknowledged without a protocol error\n");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "window_smoke: buffer committed and acknowledged without a protocol error\n");
 
     wl_buffer_destroy(buffer);
 
     window.close();
     if (window.is_open()) {
-        std::fprintf(stderr, "window_smoke: window.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: window.close() ran but is_open() is still true\n");
         wl_shm_destroy(shm);
         shell.close();
         adapter.close();
@@ -239,10 +248,11 @@ int main() {
     shell.close();
     adapter.close();
     if (adapter.is_open()) {
-        std::fprintf(stderr, "window_smoke: adapter.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "window_smoke: adapter.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout, "window_smoke: closed cleanly\n");
+    glintfx::container_fixture::checked_fprintf(stdout, "window_smoke: closed cleanly\n");
 
     return EXIT_SUCCESS;
 }

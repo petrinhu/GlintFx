@@ -22,6 +22,7 @@
 #include <glintfx/platform/window/display.hpp>
 #include <glintfx/platform/window/window.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/window/display_impl.hpp"
 #include "platform/window/window_impl.hpp"
 
@@ -215,8 +216,9 @@ void check(const char *mode, const char *key, bool condition, const char *criter
     if (!condition) {
         ++g_assertions_failed;
     }
-    std::fprintf(stdout, "loop_hidden_test: [vsync=%s] %s=%s (criterio %s) %s\n", mode, key,
-                 observed.c_str(), criterion, condition ? "OK" : "FALHOU");
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "loop_hidden_test: [vsync=%s] %s=%s (criterio %s) %s\n", mode, key,
+        observed.c_str(), criterion, condition ? "OK" : "FALHOU");
 }
 
 // cpu_ns_reading() - std::clock() convertido para nanosegundos. Este
@@ -256,8 +258,9 @@ void check(const char *mode, const char *key, bool condition, const char *criter
 
 struct scope_reporter {
     ~scope_reporter() noexcept {
-        std::fprintf(stdout, "loop_hidden_test: assercoes %d de %d avaliadas\n",
-                     g_assertions_evaluated, k_planned_assertions);
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "loop_hidden_test: assercoes %d de %d avaliadas\n", g_assertions_evaluated,
+            k_planned_assertions);
     }
 };
 
@@ -312,13 +315,14 @@ int main() {
     // Unbuffer stdout explicitly - same fix, same reason, applied to
     // every fixture in this family (window_smoke.cpp's own header
     // comment on this exact line).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
     const scope_reporter reporter;
 
     glintfx::gltfx_rslt<glintfx::gltfx_display> display_opened = glintfx::gltfx_display::open();
     if (display_opened.has_error()) {
-        std::fprintf(stderr, "loop_hidden_test: gltfx_display::open() failed: %s\n",
-                     err_text(display_opened.err()).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "loop_hidden_test: gltfx_display::open() failed: %s\n",
+            err_text(display_opened.err()).c_str());
         return EXIT_FAILURE;
     }
     glintfx::gltfx_display display = std::move(display_opened.value());
@@ -335,7 +339,8 @@ int main() {
         wm_base != nullptr) {
         xdg_wm_base_version = wm_base->version;
     }
-    std::fprintf(stdout, "MEASURED loop_hidden_test.xdg_wm_base_version=%u\n", xdg_wm_base_version);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED loop_hidden_test.xdg_wm_base_version=%u\n", xdg_wm_base_version);
 
     // CALIBRACAO DO INSTRUMENTO, ANTES de qualquer numero de producao
     // (este arquivo's own header comment, "CALIBRACAO DO INSTRUMENTO DE
@@ -355,7 +360,7 @@ int main() {
 
     bool any_swap_succeeded = false;
     mode_result results[2];
-    const char *mode_names[2] = {"on", "off"};
+    const char *const mode_names[2] = {"on", "off"};
     const std::int64_t mode_values[2] = {1, 0};
 
     for (int mode_index = 0; mode_index < 2; ++mode_index) {
@@ -378,32 +383,36 @@ int main() {
         glintfx::gltfx_rslt<glintfx::gltfx_window> window_opened =
             glintfx::gltfx_window::open(display, desc);
         if (window_opened.has_error()) {
-            std::fprintf(stderr, "loop_hidden_test: gltfx_window::open() failed: %s\n",
-                         err_text(window_opened.err()).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "loop_hidden_test: gltfx_window::open() failed: %s\n",
+                err_text(window_opened.err()).c_str());
             return EXIT_FAILURE;
         }
         glintfx::gltfx_window window = std::move(window_opened.value());
-        glintfx::window_impl *w_impl = glintfx::window_internal_access::get(window);
+        const glintfx::window_impl *w_impl = glintfx::window_internal_access::get(window);
 
         const glintfx::gltfx_gl_context_desc empty_desc{};
         glintfx::gltfx_rslt<glintfx::gltfx_gl_context> context_opened =
             glintfx::gltfx_gl_context::open(window, empty_desc);
         if (context_opened.has_error()) {
-            std::fprintf(stderr, "loop_hidden_test: gltfx_gl_context::open() failed: %s\n",
-                         err_text(context_opened.err()).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "loop_hidden_test: gltfx_gl_context::open() failed: %s\n",
+                err_text(context_opened.err()).c_str());
             return EXIT_FAILURE;
         }
         glintfx::gltfx_gl_context context = std::move(context_opened.value());
-        if (glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
-            std::fprintf(stderr, "loop_hidden_test: make_current() failed: %s\n",
-                         err_text(current.err()).c_str());
+        if (const glintfx::gltfx_rslt<void> current = context.make_current(); current.has_error()) {
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "loop_hidden_test: make_current() failed: %s\n",
+                err_text(current.err()).c_str());
             return EXIT_FAILURE;
         }
 
         void *clear_color_addr = context.proc_address("glClearColor");
         void *clear_addr = context.proc_address("glClear");
         if (clear_color_addr == nullptr || clear_addr == nullptr) {
-            std::fprintf(stderr, "loop_hidden_test: proc_address falhou\n");
+            glintfx::container_fixture::checked_fprintf(stderr,
+                                                        "loop_hidden_test: proc_address falhou\n");
             return EXIT_FAILURE;
         }
         // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) reason: the universal
@@ -418,8 +427,9 @@ int main() {
         glintfx::gltfx_rslt<glintfx::gltfx_loop> loop_opened =
             glintfx::gltfx_loop::open(display, window, context);
         if (loop_opened.has_error()) {
-            std::fprintf(stderr, "loop_hidden_test: gltfx_loop::open() failed: %s\n",
-                         err_text(loop_opened.err()).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "loop_hidden_test: gltfx_loop::open() failed: %s\n",
+                err_text(loop_opened.err()).c_str());
             return EXIT_FAILURE;
         }
         glintfx::gltfx_loop loop = std::move(loop_opened.value());
@@ -427,18 +437,20 @@ int main() {
         xdg_toplevel *toplevel = w_impl->adapter.toplevel();
         wl_display *native_display = d_impl->connection.adapter().native_display();
         if (toplevel == nullptr || native_display == nullptr) {
-            std::fprintf(stderr,
-                         "loop_hidden_test: toplevel=%p native_display=%p - sem o par nao ha "
-                         "como esconder a janela\n",
-                         static_cast<void *>(toplevel), static_cast<void *>(native_display));
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "loop_hidden_test: toplevel=%p native_display=%p - sem o par nao ha "
+                "como esconder a janela\n",
+                static_cast<void *>(toplevel), static_cast<void *>(native_display));
             return EXIT_FAILURE;
         }
 
-        if (glintfx::gltfx_rslt<void> set_vsync = context.set_option(
+        if (const glintfx::gltfx_rslt<void> set_vsync = context.set_option(
                 {.id = glintfx::gltfx_gfx_option::vsync, .value = mode_values[mode_index]});
             set_vsync.has_error()) {
-            std::fprintf(stderr, "loop_hidden_test: set_option(vsync=%s) falhou: %s\n", mode,
-                         err_text(set_vsync.err()).c_str());
+            glintfx::container_fixture::checked_fprintf(
+                stderr, "loop_hidden_test: set_option(vsync=%s) falhou: %s\n", mode,
+                err_text(set_vsync.err()).c_str());
             return EXIT_FAILURE;
         }
 
@@ -448,8 +460,9 @@ int main() {
         for (int i = 0; i < 5; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
             if (ticked.has_error()) {
-                std::fprintf(stderr, "loop_hidden_test: [vsync=%s] step() visivel falhou: %s\n",
-                             mode, err_text(ticked.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr, "loop_hidden_test: [vsync=%s] step() visivel falhou: %s\n", mode,
+                    err_text(ticked.err()).c_str());
                 return EXIT_FAILURE;
             }
             if (!ticked.value().should_render) {
@@ -460,17 +473,19 @@ int main() {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
                 if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_hidden_test visible present tolerada "
-                                 "- %s, os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
+                    glintfx::container_fixture::checked_fprintf(
+                        stdout,
+                        "DOWNGRADE: loop_hidden_test visible present tolerada "
+                        "- %s, os_error_code=0, gpu().kind=software.\n",
+                        err_text(presented.err()).c_str());
                     continue;
                 }
                 untolerated_swap_failure = true;
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] present() visivel falhou fora da "
-                             "tolerancia: %s\n",
-                             mode, err_text(presented.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr,
+                    "loop_hidden_test: [vsync=%s] present() visivel falhou fora da "
+                    "tolerancia: %s\n",
+                    mode, err_text(presented.err()).c_str());
                 continue;
             }
             if (presented.value() == glintfx::gltfx_present_outcome::presented) {
@@ -497,11 +512,11 @@ int main() {
         // dessa distincao.
         const bool suspended_before_hiding =
             window.state(glintfx::gltfx_window_state_bit::suspended);
-        std::fprintf(stdout,
-                     "loop_hidden_test: [vsync=%s] diagnostico: suspended_antes_de_esconder=%d, "
-                     "presents_visiveis_bem_sucedidos=%d de 5, fase_visivel_limpa=%d\n",
-                     mode, suspended_before_hiding ? 1 : 0, visible_presented,
-                     result.visible_clean ? 1 : 0);
+        glintfx::container_fixture::checked_fprintf(
+            stdout,
+            "loop_hidden_test: [vsync=%s] diagnostico: suspended_antes_de_esconder=%d, "
+            "presents_visiveis_bem_sucedidos=%d de 5, fase_visivel_limpa=%d\n",
+            mode, suspended_before_hiding ? 1 : 0, visible_presented, result.visible_clean ? 1 : 0);
 
         // --- hide it ------------------------------------------------
         // xdg-shell request, no commit needed: set_minimized is a
@@ -536,9 +551,9 @@ int main() {
             ++settle_cycles;
             glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> settled = loop.step();
             if (settled.has_error()) {
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] step() pos-minimizar falhou: %s\n", mode,
-                             err_text(settled.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr, "loop_hidden_test: [vsync=%s] step() pos-minimizar falhou: %s\n", mode,
+                    err_text(settled.err()).c_str());
                 return EXIT_FAILURE;
             }
             if (!settled.value().should_render) {
@@ -551,10 +566,11 @@ int main() {
                 if (!should_tolerate_swap_failure(settle_present.err(), gpu.kind,
                                                   any_swap_succeeded)) {
                     untolerated_swap_failure = true;
-                    std::fprintf(stderr,
-                                 "loop_hidden_test: [vsync=%s] present() pos-minimizar falhou fora "
-                                 "da tolerancia: %s\n",
-                                 mode, err_text(settle_present.err()).c_str());
+                    glintfx::container_fixture::checked_fprintf(
+                        stderr,
+                        "loop_hidden_test: [vsync=%s] present() pos-minimizar falhou fora "
+                        "da tolerancia: %s\n",
+                        mode, err_text(settle_present.err()).c_str());
                 }
                 continue;
             }
@@ -563,9 +579,9 @@ int main() {
             }
         }
         result.suspended_seen = window.state(glintfx::gltfx_window_state_bit::suspended);
-        std::fprintf(stdout,
-                     "loop_hidden_test: [vsync=%s] diagnostico: ciclos_ate_assentar=%d de 20\n",
-                     mode, settle_cycles);
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "loop_hidden_test: [vsync=%s] diagnostico: ciclos_ate_assentar=%d de 20\n",
+            mode, settle_cycles);
 
         // --- ten hidden ticks, measured ------------------------------
         bool p_a_holds = true;
@@ -579,8 +595,9 @@ int main() {
         for (int i = 0; i < 10; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
             if (ticked.has_error()) {
-                std::fprintf(stderr, "loop_hidden_test: [vsync=%s] step() oculto falhou: %s\n",
-                             mode, err_text(ticked.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr, "loop_hidden_test: [vsync=%s] step() oculto falhou: %s\n", mode,
+                    err_text(ticked.err()).c_str());
                 return EXIT_FAILURE;
             }
             const glintfx::gltfx_frame_tick tick = ticked.value();
@@ -620,17 +637,19 @@ int main() {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
                 if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_hidden_test hidden present tolerada - "
-                                 "%s, os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
+                    glintfx::container_fixture::checked_fprintf(
+                        stdout,
+                        "DOWNGRADE: loop_hidden_test hidden present tolerada - "
+                        "%s, os_error_code=0, gpu().kind=software.\n",
+                        err_text(presented.err()).c_str());
                     continue;
                 }
                 untolerated_swap_failure = true;
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] present() oculto falhou fora da "
-                             "tolerancia: %s\n",
-                             mode, err_text(presented.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr,
+                    "loop_hidden_test: [vsync=%s] present() oculto falhou fora da "
+                    "tolerancia: %s\n",
+                    mode, err_text(presented.err()).c_str());
                 continue;
             }
             if (presented.value() == glintfx::gltfx_present_outcome::presented) {
@@ -645,8 +664,9 @@ int main() {
         const std::int64_t cpu_ns = cpu_end_ns - cpu_start_ns;
         result.cpu_ratio_permille = wall_ns > 0 ? (cpu_ns * 1000) / wall_ns : 1000;
 
-        std::fprintf(stdout, "loop_hidden_test: [vsync=%s] wall_ns=%lld cpu_ns=%lld\n", mode,
-                     static_cast<long long>(wall_ns), static_cast<long long>(cpu_ns));
+        glintfx::container_fixture::checked_fprintf(
+            stdout, "loop_hidden_test: [vsync=%s] wall_ns=%lld cpu_ns=%lld\n", mode,
+            static_cast<long long>(wall_ns), static_cast<long long>(cpu_ns));
 
         // Gateado pela calibracao (este arquivo's own header comment,
         // "CALIBRACAO DO INSTRUMENTO DE CPU"): instrumento suspeito
@@ -685,12 +705,13 @@ int main() {
         wl_surface_commit(w_impl->adapter.surface());
         wl_display_flush(native_display);
         for (int i = 0; i < 10; ++i) {
-            if (glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
+            if (const glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
                 ticked.has_error()) {
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] step() pos-restaurar falhou: "
-                             "%s\n",
-                             mode, err_text(ticked.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr,
+                    "loop_hidden_test: [vsync=%s] step() pos-restaurar falhou: "
+                    "%s\n",
+                    mode, err_text(ticked.err()).c_str());
                 return EXIT_FAILURE;
             }
             if (!window.state(glintfx::gltfx_window_state_bit::suspended)) {
@@ -704,10 +725,11 @@ int main() {
         for (int i = 0; i < 10 && !recovered; ++i) {
             glintfx::gltfx_rslt<glintfx::gltfx_frame_tick> ticked = loop.step();
             if (ticked.has_error()) {
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] step() de recuperacao falhou: "
-                             "%s\n",
-                             mode, err_text(ticked.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr,
+                    "loop_hidden_test: [vsync=%s] step() de recuperacao falhou: "
+                    "%s\n",
+                    mode, err_text(ticked.err()).c_str());
                 return EXIT_FAILURE;
             }
             ++recovery_ticks;
@@ -719,17 +741,19 @@ int main() {
             glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> presented = loop.present();
             if (presented.has_error()) {
                 if (should_tolerate_swap_failure(presented.err(), gpu.kind, any_swap_succeeded)) {
-                    std::fprintf(stdout,
-                                 "DOWNGRADE: loop_hidden_test recovery present tolerada "
-                                 "- %s, os_error_code=0, gpu().kind=software.\n",
-                                 err_text(presented.err()).c_str());
+                    glintfx::container_fixture::checked_fprintf(
+                        stdout,
+                        "DOWNGRADE: loop_hidden_test recovery present tolerada "
+                        "- %s, os_error_code=0, gpu().kind=software.\n",
+                        err_text(presented.err()).c_str());
                     continue;
                 }
                 untolerated_swap_failure = true;
-                std::fprintf(stderr,
-                             "loop_hidden_test: [vsync=%s] present() de recuperacao falhou fora "
-                             "da tolerancia: %s\n",
-                             mode, err_text(presented.err()).c_str());
+                glintfx::container_fixture::checked_fprintf(
+                    stderr,
+                    "loop_hidden_test: [vsync=%s] present() de recuperacao falhou fora "
+                    "da tolerancia: %s\n",
+                    mode, err_text(presented.err()).c_str());
                 continue;
             }
             if (presented.value() == glintfx::gltfx_present_outcome::presented) {
@@ -797,31 +821,38 @@ int main() {
     // records that, and no assertion depends on it.
     const bool swap_interval_honored = results[1].visible_wall_ms < 200;
 
-    std::fprintf(stdout, "MEASURED loop_hidden_test.hidden_detected=%d\n",
-                 hidden_detected_all ? 1 : 0);
-    std::fprintf(stdout, "MEASURED loop_hidden_test.suspended_while_minimized=%d\n",
-                 suspended_all ? 1 : 0);
-    std::fprintf(stdout, "MEASURED loop_hidden_test.rendered_while_hidden_vsync_off=%d\n",
-                 results[1].rendered_while_hidden);
-    std::fprintf(stdout, "MEASURED loop_hidden_test.restored=%d\n", restored_all ? 1 : 0);
-    std::fprintf(stdout, "MEASURED loop_hidden_test.cpu_ratio_permille=%lld\n", worst_cpu_ratio);
-    std::fprintf(stdout, "MEASURED loop_hidden_test.swap_interval_honored=%d\n",
-                 swap_interval_honored ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED loop_hidden_test.hidden_detected=%d\n", hidden_detected_all ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED loop_hidden_test.suspended_while_minimized=%d\n", suspended_all ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED loop_hidden_test.rendered_while_hidden_vsync_off=%d\n",
+        results[1].rendered_while_hidden);
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED loop_hidden_test.restored=%d\n",
+                                                restored_all ? 1 : 0);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED loop_hidden_test.cpu_ratio_permille=%lld\n", worst_cpu_ratio);
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED loop_hidden_test.swap_interval_honored=%d\n",
+        swap_interval_honored ? 1 : 0);
 
     if (!results[0].ran || !results[1].ran) {
-        std::fprintf(stderr, "loop_hidden_test: FAIL - um dos dois modos de vsync nao rodou\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "loop_hidden_test: FAIL - um dos dois modos de vsync nao rodou\n");
         return EXIT_FAILURE;
     }
     if (g_assertions_evaluated != k_planned_assertions) {
-        std::fprintf(stderr,
-                     "loop_hidden_test: FAIL - %d assercoes avaliadas, %d planejadas "
-                     "(GODS_LAWS.md L-40)\n",
-                     g_assertions_evaluated, k_planned_assertions);
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "loop_hidden_test: FAIL - %d assercoes avaliadas, %d planejadas "
+            "(GODS_LAWS.md L-40)\n",
+            g_assertions_evaluated, k_planned_assertions);
         return EXIT_FAILURE;
     }
     if (g_assertions_failed > 0) {
-        std::fprintf(stderr, "loop_hidden_test: FAIL - %d de %d assercoes reprovaram\n",
-                     g_assertions_failed, g_assertions_evaluated);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "loop_hidden_test: FAIL - %d de %d assercoes reprovaram\n", g_assertions_failed,
+            g_assertions_evaluated);
         return EXIT_FAILURE;
     }
 

@@ -6,6 +6,7 @@
 #include <glintfx/core/err.hpp>
 #include <glintfx/core/err_code.hpp>
 
+#include "checked_stdio.hpp"
 #include "platform/input/seat_capabilities.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/seat_adapter.hpp"
@@ -54,7 +55,7 @@ bool open_seat_and_check_announced(glintfx::platform::wayland_display_adapter &d
                                    const char *label) {
     const glintfx::gltfx_rslt<void> display_opened = display.open();
     if (display_opened.has_error()) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr, "two_seats_test: %s display.open() failed: %s\n", label,
             std::string(glintfx::gltfx_err_code_name(display_opened.err().code())).c_str());
         return false;
@@ -62,27 +63,30 @@ bool open_seat_and_check_announced(glintfx::platform::wayland_display_adapter &d
 
     const glintfx::gltfx_rslt<void> seat_opened = seat.open(display);
     if (seat_opened.has_error()) {
-        std::fprintf(stderr, "two_seats_test: %s seat.open() failed: %s\n", label,
-                     std::string(glintfx::gltfx_err_code_name(seat_opened.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_seats_test: %s seat.open() failed: %s\n", label,
+            std::string(glintfx::gltfx_err_code_name(seat_opened.err().code())).c_str());
         return false;
     }
 
     const glintfx::gltfx_rslt<void> roundtripped = display.roundtrip();
     if (roundtripped.has_error()) {
-        std::fprintf(stderr, "two_seats_test: %s roundtrip() failed: %s\n", label,
-                     std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str());
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_seats_test: %s roundtrip() failed: %s\n", label,
+            std::string(glintfx::gltfx_err_code_name(roundtripped.err().code())).c_str());
         return false;
     }
 
     if (seat.last_change() == 0) {
-        std::fprintf(stderr,
-                     "two_seats_test: %s seat had no capabilities/name event observed at all\n",
-                     label);
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_seats_test: %s seat had no capabilities/name event observed at all\n",
+            label);
         return false;
     }
 
-    std::fprintf(stdout, "two_seats_test: %s seat open, last_change=%llu\n", label,
-                 static_cast<unsigned long long>(seat.last_change()));
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "two_seats_test: %s seat open, last_change=%llu\n", label,
+        static_cast<unsigned long long>(seat.last_change()));
     return true;
 }
 
@@ -92,7 +96,7 @@ int main() {
     // Unbuffer stdout explicitly - same fix, same reason, applied to
     // every fixture in this family (connect_smoke.cpp's own header
     // comment).
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    glintfx::container_fixture::checked_setvbuf(stdout, nullptr, _IONBF, 0);
 
     glintfx::platform::wayland_display_adapter first_display;
     glintfx::platform::wayland_display_adapter second_display;
@@ -111,37 +115,39 @@ int main() {
     // own, independent connection and listener registration.
     first_seat.close();
     if (first_seat.is_open()) {
-        std::fprintf(stderr,
-                     "two_seats_test: first_seat.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_seats_test: first_seat.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
     if (!second_seat.is_open()) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr,
             "two_seats_test: closing first_seat left second_seat closed too (shared state)\n");
         return EXIT_FAILURE;
     }
     if (second_seat.last_change() == 0) {
-        std::fprintf(
+        glintfx::container_fixture::checked_fprintf(
             stderr, "two_seats_test: closing first_seat corrupted second_seat's own last_change\n");
         return EXIT_FAILURE;
     }
-    std::fprintf(stdout,
-                 "two_seats_test: closing first_seat left second_seat untouched (is_open() still "
-                 "true, last_change=%llu)\n",
-                 static_cast<unsigned long long>(second_seat.last_change()));
+    glintfx::container_fixture::checked_fprintf(
+        stdout,
+        "two_seats_test: closing first_seat left second_seat untouched (is_open() still "
+        "true, last_change=%llu)\n",
+        static_cast<unsigned long long>(second_seat.last_change()));
 
     second_seat.close();
     if (second_seat.is_open()) {
-        std::fprintf(stderr,
-                     "two_seats_test: second_seat.close() ran but is_open() is still true\n");
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "two_seats_test: second_seat.close() ran but is_open() is still true\n");
         return EXIT_FAILURE;
     }
 
     first_display.close();
     second_display.close();
 
-    std::fprintf(stdout, "two_seats_test: both seats closed cleanly\n");
+    glintfx::container_fixture::checked_fprintf(stdout,
+                                                "two_seats_test: both seats closed cleanly\n");
     // MEASURED-COLLECTOR: same one shared key two_displays_test.cpp's
     // own pair already uses (this file's own header comment) - "two
     // independent seats coexisted in the same process without
@@ -149,7 +155,7 @@ int main() {
     // share; the mechanism-specific facts (device_notification_count()
     // on Windows, last_change() per seat here) are printed above,
     // never as a MEASURED key with no equivalent on the other side.
-    std::fprintf(stdout, "MEASURED two_seats_test.both_opened=1\n");
+    glintfx::container_fixture::checked_fprintf(stdout, "MEASURED two_seats_test.both_opened=1\n");
 
     return EXIT_SUCCESS;
 }

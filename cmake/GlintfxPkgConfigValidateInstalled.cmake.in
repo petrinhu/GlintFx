@@ -158,11 +158,24 @@
 #     native list separator before talking to pkg-config on Windows -
 #     is applied below, unchanged by PKG-NATIVE. If the conversation
 #     with the binary still fails after that fix,
-#     glintfx_validate_installed_pkgconfig() reports it as a WARNING on
-#     Windows, not a FATAL_ERROR, and names ONLY that one conversation
-#     as unverified: the filesystem/cmake_pkg_config() content check
-#     above it already ran, on THIS same invocation, and already had
-#     full veto power over whatever it found.
+#     glintfx_validate_installed_pkgconfig() now (PKG-WIN-VALIDATE-FATAL,
+#     decisao do lider, 09/09/2026) draws ONE more distinction before
+#     deciding: a binary find_program() FOUND but could never even be
+#     LAUNCHED (RESULT_VARIABLE holds a non-numeric error string, never
+#     a real exit code - the ERROR_BAD_EXE_FORMAT class this same
+#     section already measured) is still a DECLARED SKIP, a WARNING on
+#     Windows, never a FATAL_ERROR, because there was no conversation to
+#     have at all; but a binary genuinely FOUND and LAUNCHED (a real,
+#     numeric exit code) that still REJECTS glintfx.pc now IS a
+#     FATAL_ERROR, on Windows exactly like every other platform - it is
+#     a real, reproducible failure of the conversation this validation
+#     exists to prove, not a platform quirk to silently downgrade.
+#     glintfx_pkgconfig_print_conversation_diagnosis() (defined further
+#     down) prints everything a packager we have never met needs to
+#     reproduce either outcome by hand: the filesystem/
+#     cmake_pkg_config() content check above it already ran, on THIS
+#     same invocation, and already had full veto power over whatever it
+#     found.
 #   - DESTDIR is Unix-only BY THE BUILD TOOL'S OWN DOCUMENTATION, not
 #     by anything this file assumes: "DESTDIR may not be used on
 #     Windows because installation prefix usually contains a drive
@@ -579,6 +592,77 @@ function(glintfx_pkgconfig_validate_content_on_disk pc_file)
     )
 endfunction()
 
+# THE DIAGNOSTIC ATOM (PKG-WIN-VALIDATE-FATAL, decisao do lider,
+# 09/09/2026): everything a packager we have never met (GODS_LAWS.md
+# LEI ZERO - the base of glintfx's consumers is public and unknown)
+# needs to diagnose, and dispute, a failed pkg-config CONVERSATION by
+# hand, without re-running anything themselves: the binary path
+# find_program() actually resolved, that SAME binary's own --version
+# output (a second, independent probe - proves the binary can be
+# launched at all, useful precisely when the FIRST probe, the --exists
+# conversation this validation cares about, is what just failed), the
+# PKG_CONFIG_PATH this script set, VERBATIM (never re-derived, never
+# summarized), the exact command line that was run, its numeric exit
+# result, its combined stdout+stderr, the resolved glintfx.pc path, and
+# that file's own first lines (a packager can eyeball the content
+# without opening a second file), and the two escape hatches this
+# file's own header already documents in full (one name,
+# GLINTFX_SKIP_PKGCONFIG_VALIDATION, two mechanisms: a CACHE option at
+# CONFIGURE time, an ENVIRONMENT variable at INSTALL time). Called from
+# BOTH honest outcomes that can follow a binary genuinely being found
+# by find_program() (numeric-failure FATAL_ERROR, and launch-failure
+# declared-skip WARNING, both below in glintfx_validate_installed_pkgconfig()) -
+# never from the "tool not found on PATH at all" branch above it, which
+# has no binary path, command, or exit code to report in the first
+# place.
+function(glintfx_pkgconfig_print_conversation_diagnosis pkgconfig_exe exists_command exists_result exists_combined_output pc_file)
+    execute_process(
+        COMMAND "${pkgconfig_exe}" --version
+        RESULT_VARIABLE _glintfx_diag_version_result
+        OUTPUT_VARIABLE _glintfx_diag_version_output
+        ERROR_VARIABLE _glintfx_diag_version_error
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if(_glintfx_diag_version_result EQUAL 0)
+        set(_glintfx_diag_version_text "${_glintfx_diag_version_output}")
+    else()
+        set(_glintfx_diag_version_text
+            "('${pkgconfig_exe}' --version ALSO could not be run - "
+            "result='${_glintfx_diag_version_result}', "
+            "stderr='${_glintfx_diag_version_error}')"
+        )
+    endif()
+
+    if(EXISTS "${pc_file}")
+        file(STRINGS "${pc_file}" _glintfx_diag_pc_first_lines LIMIT_COUNT 10)
+        list(JOIN _glintfx_diag_pc_first_lines "\n      " _glintfx_diag_pc_first_lines_joined)
+    else()
+        set(_glintfx_diag_pc_first_lines_joined "(file does not exist: '${pc_file}')")
+    endif()
+
+    string(REPLACE ";" " " _glintfx_diag_command_human "${exists_command}")
+
+    message(STATUS
+        "glintfx: pkg-config CONVERSATION diagnosis (for a packager we "
+        "have never met, GODS_LAWS.md LEI ZERO, to reproduce or dispute "
+        "this by hand):\n"
+        "    binary path: ${pkgconfig_exe}\n"
+        "    binary --version: ${_glintfx_diag_version_text}\n"
+        "    PKG_CONFIG_PATH: $ENV{PKG_CONFIG_PATH}\n"
+        "    command run: ${_glintfx_diag_command_human}\n"
+        "    exit result: ${exists_result}\n"
+        "    stdout+stderr: ${exists_combined_output}\n"
+        "    glintfx.pc path: ${pc_file}\n"
+        "    glintfx.pc first lines:\n      ${_glintfx_diag_pc_first_lines_joined}\n"
+        "    escape hatches (same name, two mechanisms - see this "
+        "file's own header): -DGLINTFX_SKIP_PKGCONFIG_VALIDATION=ON at "
+        "CONFIGURE time (skips this whole validation for the build "
+        "directory), or GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the "
+        "environment of this 'cmake --install' invocation (skips it "
+        "for this one install only)."
+    )
+endfunction()
+
 function(glintfx_validate_installed_pkgconfig)
     if(DEFINED ENV{GLINTFX_SKIP_PKGCONFIG_VALIDATION}
        AND NOT "$ENV{GLINTFX_SKIP_PKGCONFIG_VALIDATION}" STREQUAL ""
@@ -693,44 +777,100 @@ function(glintfx_validate_installed_pkgconfig)
         set(ENV{PKG_CONFIG_PATH} "${_glintfx_pkgconfig_dir}")
     endif()
 
-    execute_process(
-        COMMAND "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --print-errors --exists glintfx
-        RESULT_VARIABLE _glintfx_exists_result
-        ERROR_VARIABLE _glintfx_exists_error
-        OUTPUT_QUIET
+    set(_glintfx_exists_command
+        "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" --print-errors --exists glintfx
     )
+    execute_process(
+        COMMAND ${_glintfx_exists_command}
+        RESULT_VARIABLE _glintfx_exists_result
+        OUTPUT_VARIABLE _glintfx_exists_output
+        ERROR_VARIABLE _glintfx_exists_error
+    )
+    set(_glintfx_exists_combined_output "${_glintfx_exists_output}${_glintfx_exists_error}")
+
+    if(NOT _glintfx_exists_result MATCHES "^-?[0-9]+$")
+        # PKG-WIN-VALIDATE-FATAL (decisao do lider, 09/09/2026): a
+        # RESULT_VARIABLE that is not a plain integer means
+        # execute_process() could not even START the child process -
+        # CMake's own execute_process() documentation: "an integer
+        # return code from the last child process, or a string
+        # describing an error condition if the child process(es) could
+        # not be run". This is the exact ERROR_BAD_EXE_FORMAT class
+        # PKG-WIN-INTEROP already measured live (a bare, unlaunchable
+        # script sharing pkg-config's own base name, matched by
+        # find_program()'s "no suffix" fallback before ".bat" is ever
+        # tried) - a LAUNCH failure in the PARENT, never a real
+        # conversation with a broken/incompatible pkg-config: there was
+        # no conversation to have at all. Anti false-positive
+        # (GODS_LAWS.md L-27): this stays a DECLARED SKIP, never fatal,
+        # never silent - this file's own content check (LAYER A, above)
+        # already confirmed the installed content is genuinely good;
+        # only THIS binary's ability to be launched at all is
+        # unverified.
+        glintfx_pkgconfig_print_conversation_diagnosis(
+            "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" "${_glintfx_exists_command}"
+            "${_glintfx_exists_result}" "${_glintfx_exists_combined_output}"
+            "${_glintfx_pc_file}"
+        )
+        message(WARNING
+            "glintfx: post-install pkg-config CONVERSATION SKIPPED "
+            "(declared, not verified) on this Windows machine - the "
+            "pkg-config binary find_program() resolved "
+            "('${GLINTFX_PKGCONFIG_VALIDATE_EXE}') could not even be "
+            "LAUNCHED (RESULT_VARIABLE='${_glintfx_exists_result}', not "
+            "a numeric exit code) - see the diagnosis printed above for "
+            "everything needed to reproduce this by hand. This file's "
+            "OWN native content check already ran before this point "
+            "(CMake's own pkg-config parser, no pkg-config binary "
+            "involved) and already confirmed glintfx.pc, the headers "
+            "and the library artifact are genuinely on disk with real "
+            "content; only whether THIS machine's pkg-config binary can "
+            "even be started is unverified. Set "
+            "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 to silence this "
+            "warning intentionally, or verify by hand with the "
+            "pkg-config on this machine."
+        )
+        return()
+    endif()
+
     if(NOT _glintfx_exists_result EQUAL 0)
         if(WIN32)
-            # The LAYER A content check above has ALREADY run,
-            # unconditionally, by the time this line can even be
-            # reached, and it is what actually confirmed glintfx.pc,
-            # the headers and the library artifact are genuinely on
-            # disk with real content - not this `--exists` call, and
-            # not any other check below it. What could NOT be
-            # confirmed is whether THIS pkg-config binary, on THIS
-            # machine, can also find and parse glintfx.pc via
-            # PKG_CONFIG_PATH - a binary-specific quirk this file
-            # cannot enumerate for every Windows pkg-config that could
-            # exist (GODS_LAWS.md L-27: declared downgrade, not a
-            # silent "ok").
-            message(WARNING
-                "glintfx: post-install pkg-config CONVERSATION could not "
-                "be verified on this Windows machine - 'pkg-config "
-                "--exists glintfx' failed against the file just "
-                "installed at '${_glintfx_pc_file}' "
-                "(PKG_CONFIG_PATH=$ENV{PKG_CONFIG_PATH}): "
-                "${_glintfx_exists_error}. This file's OWN native "
-                "content check already ran before this point (CMake's "
-                "own pkg-config parser, no pkg-config binary involved) "
-                "and already confirmed glintfx.pc, the headers and the "
-                "library artifact are genuinely on disk with real "
-                "content; only whether THIS machine's pkg-config "
-                "binary additionally resolves them via PKG_CONFIG_PATH "
-                "is unverified. Set GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 "
-                "to silence this warning intentionally, or verify by "
-                "hand with the pkg-config on this machine."
+            # Decisao do lider, 09/09/2026 (fecha o "aviso, decisao
+            # pendente" do commit 9304585): the binary WAS found AND
+            # genuinely LAUNCHED (a real, numeric exit result - the
+            # branch immediately above already ruled out a launch
+            # failure) and it REJECTED glintfx.pc. This is a real,
+            # reproducible failure of the exact conversation this
+            # validation exists to prove, not a platform quirk this
+            # file cannot enumerate - so it is FATAL_ERROR here too,
+            # exactly like every other platform, never silently
+            # downgraded to a warning just because the host happens to
+            # be Windows. The diagnosis atom gives a packager we have
+            # never met everything needed to reproduce or dispute this
+            # by hand (GODS_LAWS.md LEI ZERO).
+            glintfx_pkgconfig_print_conversation_diagnosis(
+                "${GLINTFX_PKGCONFIG_VALIDATE_EXE}" "${_glintfx_exists_command}"
+                "${_glintfx_exists_result}" "${_glintfx_exists_combined_output}"
+                "${_glintfx_pc_file}"
             )
-            return()
+            message(FATAL_ERROR
+                "glintfx: 'pkg-config --exists glintfx' failed against "
+                "the file just installed at '${_glintfx_pc_file}' "
+                "(PKG_CONFIG_PATH=$ENV{PKG_CONFIG_PATH}, exit result "
+                "${_glintfx_exists_result}): ${_glintfx_exists_error}. "
+                "This file's OWN native content check already ran "
+                "before this point and already confirmed glintfx.pc, "
+                "the headers and the library artifact are genuinely on "
+                "disk with real content - a real, genuinely LAUNCHED "
+                "pkg-config binary on this machine still refuses to "
+                "resolve it, which is a genuine defect (in the "
+                "installed glintfx.pc, or in this machine's "
+                "PKG_CONFIG_PATH/environment), not something to "
+                "downgrade to a warning. Skip this check with "
+                "GLINTFX_SKIP_PKGCONFIG_VALIDATION=1 in the environment "
+                "of this `cmake --install` invocation, then verify the "
+                "install by hand."
+            )
         endif()
         message(FATAL_ERROR
             "glintfx: 'pkg-config --exists glintfx' failed against "

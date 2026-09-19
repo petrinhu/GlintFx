@@ -24,14 +24,17 @@
 # funcionar para check_layers.py/check_vendor_purity.py/
 # check_blank_install_dir_rejected.py.
 #
-# EIGHTEEN scenarios, not eight: this file's own header, and the
-# comment this port replaces in tests/CMakeLists.txt, said "the eight
-# scenarios" - stale prose left behind by PKG-WIN-SCOPE's and
-# PKG-NATIVE's own later additions (scenarios 9 through 18 were bolted
-# on after that comment was written, and it was never updated). The
-# closed list actually enumerated below, and exercised by main(), is
-# the EIGHTEEN run_*_scenario() functions this file's own main() calls -
-# counted, not assumed (GODS_LAWS.md L-40).
+# TWENTY scenarios, not eight, not eighteen: this file's own header,
+# and the comment this port replaces in tests/CMakeLists.txt, said "the
+# eight scenarios" - stale prose left behind by PKG-WIN-SCOPE's,
+# PKG-NATIVE's and PKG-WIN-VALIDATE-FATAL's own later additions
+# (scenarios 9 through 20 were bolted on after that comment was
+# written, and it was never updated). The closed list actually
+# enumerated below, and exercised by real_main(), is the TWENTY
+# run_*_scenario() functions this file's own real_main() calls -
+# counted against SCENARIO_COUNT, not assumed (GODS_LAWS.md L-40; see
+# real_main()'s own scenario-floor summary, printed even when every
+# scenario passes outright).
 #
 #   1. run_default_layout_scenario - default layout, real end-to-end
 #      install (GREEN).
@@ -106,6 +109,25 @@
 #      exercised - differently on this Linux machine no matter what a
 #      script sets `-DWIN32=1` to), so this exact classification is
 #      proven, RED then GREEN, on Linux too (GODS_LAWS.md project L-04).
+#  19. run_windows_forced_broken_conversation_scenario - PKG-WIN-
+#      VALIDATE-FATAL (decisao do lider, 09/09/2026): a pkg-config
+#      binary that IS found AND genuinely LAUNCHED (a real, numeric exit
+#      code) and REJECTS a genuinely healthy glintfx.pc now FAILS CLOSED
+#      (FATAL_ERROR, RED) on Windows too - forced via -DWIN32=1 against
+#      a synthetic, launchable, always-exits-1 pkg-config script placed
+#      first on PATH; reproduces identically on every platform (pure
+#      argv/exit-code plumbing), so no real Windows host is needed.
+#  20. run_windows_unlaunchable_conversation_scenario - the OTHER honest
+#      outcome a FOUND binary can produce: never even being LAUNCHED at
+#      all (RESULT_VARIABLE holds a descriptive error STRING, not a
+#      numeric exit code - PKG-WIN-INTEROP's own ERROR_BAD_EXE_FORMAT
+#      class). Stays a DECLARED SKIP (WARNING, GREEN, exit 0), never
+#      FATAL, never silent. MEASURED not reproducible on a non-Windows
+#      host (the nearest analogous "unlaunchable" shape on Linux still
+#      returns a NUMERIC 126, never a string) - this scenario runs for
+#      real only on a REAL Windows host (os.name == "nt") and returns a
+#      "skipped: <reason>" string, counted (never silently omitted), on
+#      every other host - see real_main()'s own scenario-floor summary.
 #
 # What this script does NOT test, declared (GODS_LAWS.md L-27):
 # component-scoped installs (`cmake --install --component X`) and
@@ -186,6 +208,13 @@ import tempfile
 from pathlib import Path
 
 SCRIPT_NAME = "check_pkgconfig_validate.py"
+
+# PKG-WIN-VALIDATE-FATAL: the closed count of run_*_scenario() functions
+# real_main() calls - GODS_LAWS.md L-40's own floor for THIS file (see
+# real_main()'s own scenario-floor summary at the end): a mismatch
+# between this constant and how many actually ran is a broken floor,
+# never a detail to shrug off.
+SCENARIO_COUNT = 20
 
 # See this file's own header, "LIBRARY_ARTIFACT_PATTERNS" - DUPLICATED,
 # not imported, from cmake/GlintfxPkgConfigValidateInstalled.cmake.in's
@@ -1061,13 +1090,33 @@ def run_windows_forced_healthy_conversation_scenario(build_dir, intact_prefix):
     validator_script = find_generated_validator_script(build_dir)
     pc_file = find_pc_file_under(intact_prefix)
 
-    output = run_expect_success(
-        ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script],
-        "re-running the validator against a genuinely intact install, with the Windows "
-        "branch forced, unexpectedly FAILED.",
-    )
+    # PKG-WIN-VALIDATE-FATAL (decisao do lider, 09/09/2026) changes what
+    # the NON-Windows half of this scenario must expect: effect 1 above
+    # (PKG_CONFIG_PATH corrupted by this file's own native-path-list
+    # conversion, on a host where ';' is NOT the real separator) makes a
+    # REAL, genuinely-present pkg-config binary genuinely LAUNCH and
+    # genuinely FAIL (MEASURED live on this machine: a real pkg-config
+    # queried against a corrupted PKG_CONFIG_PATH exits with a plain
+    # NUMERIC 1, "package not found" - never a launch failure) - exactly
+    # the "found, launched, numeric, nonzero" shape
+    # glintfx_validate_installed_pkgconfig() now (this fatia) treats as
+    # a real, reproducible defect, FATAL_ERROR, on every platform this
+    # WIN32 branch runs on. This was ALWAYS true of what effect 1
+    # produces; only the CONSEQUENCE changed (WARNING before this fatia,
+    # FATAL_ERROR after it) - so the outcome this half of the scenario
+    # proves changes too, and the call below can no longer assume
+    # success (`run_expect_success`) unconditionally the way it did
+    # before this fatia, since the non-Windows branch now genuinely
+    # exits nonzero.
+    rc, output = run(["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script])
 
     if os.name == "nt":
+        if rc != 0:
+            fail(
+                "re-running the validator against a genuinely intact install, with the "
+                f"Windows branch forced, unexpectedly FAILED (rc={rc}) on a REAL Windows "
+                f"host - it should have PASSED.\n{output}"
+            )
         # A REAL Windows host: -DWIN32=1 is redundant (WIN32 is already
         # TRUE here), effect 1 above does not corrupt anything (its own
         # native-path-list conversion IS this platform's real format),
@@ -1103,19 +1152,43 @@ def run_windows_forced_healthy_conversation_scenario(build_dir, intact_prefix):
     # Any OTHER host: forcing WIN32=1 is a deliberate SIMULATION, and
     # effect 1 above (the trailing ';' this .cmake.in's own WIN32
     # branch always appends) corrupts PKG_CONFIG_PATH on this platform
-    # regardless of which binary find_program() picked - this half of
-    # the scenario is what still proves the declared-downgrade WARNING
-    # branch (GODS_LAWS.md L-27) fires, and fires honestly, when the
-    # conversation genuinely cannot be verified.
-    assert_windows_degraded_conversation_is_honest(
-        output, on_fail_prefix="Windows-forced healthy-content install succeeded"
+    # regardless of which binary find_program() picked - a REAL
+    # pkg-config binary GENUINELY launches against that corrupted value
+    # and GENUINELY fails (numeric, nonzero) - PKG-WIN-VALIDATE-FATAL
+    # (see this function's own docstring update, above) means this is
+    # now the SAME "found, launched, rejects glintfx.pc" shape
+    # run_windows_forced_broken_conversation_scenario (scenario 19)
+    # exercises with a synthetic binary - FATAL_ERROR, closed, with the
+    # full diagnosis atom, never a silent or downgraded warning.
+    if rc == 0:
+        fail(
+            "re-running the validator against a genuinely intact install, with the "
+            "Windows branch forced, unexpectedly SUCCEEDED on this non-Windows host - "
+            "PKG-WIN-VALIDATE-FATAL requires the corrupted-PKG_CONFIG_PATH conversation "
+            "(a REAL pkg-config binary genuinely launched and genuinely rejecting the "
+            f"install) to FAIL CLOSED now, not degrade to a warning.\n{output}"
+        )
+    must_contain_in_order(
+        output,
+        "post-install pkg-config content check",
+        "pkg-config CONVERSATION diagnosis",
+        "binary path:",
+        "exit result: 1",
+        "'pkg-config --exists glintfx' failed against",
+        "genuine defect",
+        on_fail=(
+            "the Windows-forced healthy-content FATAL (non-Windows host) did not print, "
+            "IN ORDER, its own content-check STATUS line, the full diagnosis atom, and "
+            "the FATAL_ERROR message itself."
+        ),
     )
     print(
-        "ok: Windows-forced healthy-content WARNING (non-Windows host) - with genuinely "
-        "correct content on disk, forcing the WIN32 branch's own native-path-list "
-        "conversion still corrupts PKG_CONFIG_PATH on this platform, degrading the "
-        "conversation to a WARNING at exit 0, and the warning truthfully names its own, "
-        "already-run content check as the thing that verified the filesystem."
+        "ok: Windows-forced healthy-content FATAL (non-Windows host, PKG-WIN-VALIDATE-"
+        "FATAL) - with genuinely correct content on disk, forcing the WIN32 branch's own "
+        "native-path-list conversion still corrupts PKG_CONFIG_PATH on this platform, "
+        "making a REAL pkg-config binary genuinely launch and genuinely reject the "
+        "install - which this fatia now fails closed, with a full diagnosis, instead of "
+        "degrading to a warning."
     )
 
 
@@ -1695,6 +1768,207 @@ def run_looks_rooted_selftest_scenario(build_dir, intact_prefix):
     )
 
 
+# --- scenario 19 --------------------------------------------------------
+
+
+def run_windows_forced_broken_conversation_scenario(build_dir, intact_prefix, scratch):
+    """PKG-WIN-VALIDATE-FATAL (decisao do lider, 09/09/2026, fecha o
+    "aviso, decisao pendente" do commit 9304585): a pkg-config binary
+    that IS found by find_program() AND genuinely LAUNCHED (a real,
+    numeric exit code) and REJECTS a genuinely healthy glintfx.pc must
+    now FAIL CLOSED (FATAL_ERROR) on Windows too - not silently degrade
+    to a warning the way it did before this fatia.
+
+    Forced via -DWIN32=1 - this scenario needs no real Windows host,
+    UNLIKE scenario 20 (below): the defect it proves (a launched
+    process that exits 1) is pure argv/exit-code plumbing, identical on
+    every platform, never the platform-specific PROCESS-LAUNCH quirk
+    scenario 20 exists for. The fake pkg-config script placed first on
+    PATH always exits 0 for '--version' (so the diagnosis atom's own
+    independent probe proves the binary CAN genuinely be launched - the
+    exact fact that distinguishes this scenario from scenario 20) and
+    always exits 1 for anything else, simulating a real, LAUNCHABLE, but
+    INCOMPATIBLE-with-this-request pkg-config.
+    """
+    validator_script = find_generated_validator_script(build_dir)
+
+    fake_bin_dir = os.path.join(scratch, "broken-pkgconfig-bin")
+    os.makedirs(fake_bin_dir, exist_ok=True)
+    fake_path = os.path.join(fake_bin_dir, "pkg-config")
+    with open(fake_path, "w", encoding="utf-8") as handle:
+        handle.write(
+            "#!/bin/sh\n"
+            "if [ \"$1\" = \"--version\" ]; then\n"
+            "    echo '0.29.2 (glintfx scenario-19 FAKE pkg-config, forced-broken)'\n"
+            "    exit 0\n"
+            "fi\n"
+            "echo 'Package glintfx was not found in the pkg-config search path "
+            "(FAKE, glintfx scenario 19)' >&2\n"
+            "exit 1\n"
+        )
+    os.chmod(fake_path, 0o755)
+
+    env = dict(os.environ)
+    env["PATH"] = fake_bin_dir + os.pathsep + env.get("PATH", "")
+
+    output = run_expect_failure(
+        ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script],
+        "re-running the validator, with the Windows branch FORCED and a FAKE, "
+        "launchable-but-always-failing pkg-config binary placed first on PATH, against "
+        "a genuinely healthy install, unexpectedly SUCCEEDED - PKG-WIN-VALIDATE-FATAL "
+        "(decisao do lider, 09/09/2026) requires this to FAIL CLOSED, not degrade to a "
+        "warning, when a real, launchable pkg-config binary genuinely rejects "
+        "glintfx.pc.",
+        env=env,
+    )
+    must_contain_in_order(
+        output,
+        "post-install pkg-config content check",
+        "pkg-config CONVERSATION diagnosis",
+        "binary path:",
+        "binary --version:",
+        "PKG_CONFIG_PATH:",
+        "command run:",
+        "exit result: 1",
+        "stdout+stderr:",
+        "glintfx.pc path:",
+        "escape hatches",
+        "'pkg-config --exists glintfx' failed against",
+        "genuine defect",
+        on_fail=(
+            "the forced-broken-conversation FATAL did not print, IN ORDER, its own "
+            "content-check STATUS line, the full diagnosis atom (binary path, "
+            "--version, PKG_CONFIG_PATH, command run, exit result, stdout+stderr, .pc "
+            "path, escape hatches), and the FATAL_ERROR message itself naming a "
+            "genuine defect."
+        ),
+    )
+    must_not_contain(
+        output,
+        "CONVERSATION SKIPPED",
+        on_fail=(
+            "the forced-broken-conversation scenario took the declared-skip WARNING "
+            "branch instead of FATAL - the fake pkg-config script IS launchable (its "
+            "own --version call succeeds, printed by the diagnosis atom above), so "
+            "this must be a real, numeric exit-1 failure, never a launch failure."
+        ),
+    )
+    must_not_contain(
+        output,
+        "could not be verified on this Windows machine",
+        on_fail=(
+            "the forced-broken-conversation scenario still printed the OLD, pre-PKG-"
+            "WIN-VALIDATE-FATAL warning wording - a WARNING-only outcome for a "
+            "genuinely launched, genuinely rejecting pkg-config binary is exactly what "
+            "this fatia removes."
+        ),
+    )
+    print(
+        "ok: Windows forced broken-conversation FATAL (PKG-WIN-VALIDATE-FATAL) - a "
+        "pkg-config binary that is found, genuinely LAUNCHED (proven by its own "
+        "--version probe in the diagnosis atom), and REJECTS a healthy glintfx.pc now "
+        "fails the install closed, with a full self-sufficient diagnosis, on Windows "
+        "exactly like every other platform."
+    )
+
+
+# --- scenario 20 --------------------------------------------------------
+
+
+def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scratch):
+    """PKG-WIN-VALIDATE-FATAL sub-fatia (a)/(c): the OTHER honest
+    outcome a binary genuinely FOUND by find_program() can produce -
+    never even being LAUNCHED at all (RESULT_VARIABLE holds a
+    descriptive error STRING, never a numeric exit code) - must stay a
+    DECLARED SKIP (WARNING, exit 0), never FATAL, never silent. This is
+    what distinguishes this scenario from scenario 19, above: there, a
+    real conversation happened and failed; here, there was never a
+    conversation to have at all.
+
+    This is PKG-WIN-INTEROP's own ERROR_BAD_EXE_FORMAT class (a bare,
+    PE-less script sharing pkg-config's own base name, matched by
+    find_program()'s "no suffix" fallback before ".bat" is ever tried) -
+    MEASURED to reproduce ONLY on a REAL Windows host: a probe on THIS
+    file's own development machine (see the header this function's own
+    docstring keeps for the exact reproduction) found the nearest
+    analogous "unlaunchable file" shape on Linux (a garbage, non-PE,
+    executable-bit file) still returns a NUMERIC result (126, the same
+    convention a POSIX shell itself uses for "found but not
+    executable"), never the non-numeric STRING PKG-WIN-INTEROP's own
+    defect produces - so this scenario cannot be forced on a
+    non-Windows host the way scenarios 9/10/11 force their own WIN32
+    branches: forcing -DWIN32=1 here would only prove
+    glintfx_validate_installed_pkgconfig()'s OWN `MATCHES "^-?[0-9]+$"`
+    string check (not in question - see
+    run_looks_rooted_selftest_scenario, scenario 18, for the precedent
+    of testing pure string logic separately), never the actual
+    OPERATING SYSTEM behavior this scenario exists to prove.
+
+    Returns "passed" (a REAL Windows host proved the declared-skip
+    branch for real) or a "skipped: <reason>" string (any other host -
+    counted, never silent, in real_main()'s own scenario-floor summary,
+    GODS_LAWS.md L-40).
+    """
+    if os.name != "nt":
+        return (
+            "skipped: needs a REAL Windows host to reproduce a genuine "
+            "execute_process() launch failure (non-numeric RESULT_VARIABLE) - MEASURED "
+            "on this (non-Windows) machine that the nearest analogous 'unlaunchable "
+            "file' shape (a garbage, non-PE, executable-bit file) still returns a "
+            "NUMERIC result (126, a shell-style 'found but not executable' code), never "
+            "the non-numeric string PKG-WIN-INTEROP's own ERROR_BAD_EXE_FORMAT class "
+            "produces on real Windows - declared, not forced (GODS_LAWS.md L-27)."
+        )
+
+    validator_script = find_generated_validator_script(build_dir)
+
+    fake_bin_dir = os.path.join(scratch, "unlaunchable-pkgconfig-bin")
+    os.makedirs(fake_bin_dir, exist_ok=True)
+    bare_path = os.path.join(fake_bin_dir, "pkg-config")
+    with open(bare_path, "wb") as handle:
+        handle.write(b"this is not a valid Win32 executable - glintfx scenario 20 fixture\r\n")
+
+    env = dict(os.environ)
+    env["PATH"] = fake_bin_dir + os.pathsep + env.get("PATH", "")
+
+    output = run_expect_success(
+        ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script],
+        "re-running the validator with ONLY a bare, PE-less 'pkg-config' file on PATH "
+        "(no .bat/.exe sibling) unexpectedly FAILED - a genuinely UNLAUNCHABLE binary "
+        "must degrade to a declared skip, never abort a genuinely good install.",
+        env=env,
+    )
+    must_contain_in_order(
+        output,
+        "pkg-config CONVERSATION diagnosis",
+        "binary path:",
+        "CONVERSATION SKIPPED",
+        "could not even be",
+        "not a numeric exit code",
+        on_fail=(
+            "the unlaunchable-binary scenario did not print, IN ORDER, its own "
+            "diagnosis atom followed by the declared-skip warning naming the launch "
+            "failure explicitly."
+        ),
+    )
+    must_not_contain(
+        output,
+        "CMake Error",
+        on_fail=(
+            "the unlaunchable-binary scenario printed a CMake Error (FATAL_ERROR) - it "
+            "must degrade to a warning, never fail closed, on a binary that could not "
+            "even be launched."
+        ),
+    )
+    print(
+        "ok: Windows unlaunchable-binary declared SKIP (real Windows host) - a "
+        "pkg-config binary found by find_program() but genuinely unable to be "
+        "LAUNCHED (non-numeric RESULT_VARIABLE) degrades to a WARNING with a full "
+        "diagnosis, never FATAL, never silent."
+    )
+    return "passed"
+
+
 # --- real mode -----------------------------------------------------------
 
 
@@ -1706,6 +1980,18 @@ def real_main(args):
         fail(f"glintfx source dir not found: {glintfx_src}")
     if not cxx:
         fail("cxx-compiler argument is empty")
+
+    # GODS_LAWS.md L-40 floor: every scenario call is TALLIED, not just
+    # trusted to have run because it appears in the source - "passed"
+    # for an ordinary call (an exception inside it is fail()'s own
+    # sys.exit(1), which aborts this whole function before the tally
+    # would ever be wrong), or the "skipped: <reason>" string a scenario
+    # itself returns when it declines to exercise something this host
+    # cannot reproduce (scenario 20 only, today).
+    scenario_results = []
+
+    def record(number, name, outcome="passed"):
+        scenario_results.append((number, name, outcome))
 
     scratch = make_scratch_workdir()
     try:
@@ -1721,35 +2007,76 @@ def real_main(args):
 
         prefix_default = os.path.join(scratch, "prefix-default")
         run_default_layout_scenario(build_dir, prefix_default)
+        record(1, "default-layout")
         real_libdir = find_libdir_relative_to_prefix(prefix_default)
 
         run_destdir_scenario(glintfx_src, cxx, build_dir, scratch)
+        record(2, "destdir")
         run_configure_time_hatch_scenario(glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-hatch-configure"))
+        record(3, "configure-time-hatch")
         run_install_time_hatch_scenario(glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-hatch-install"))
+        record(4, "install-time-hatch")
         run_broken_library_scenario(glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-broken-library"))
+        record(5, "broken-library")
         run_missing_pc_file_scenario(glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-missing-pc"))
+        record(6, "missing-pc-file")
         run_empty_flags_floor_scenario(build_dir, scratch, real_libdir)
+        record(7, "empty-flags-floor")
         run_pkgconfig_absent_scenario(build_dir, scratch, prefix_default)
+        record(8, "pkgconfig-absent")
         run_windows_forced_broken_library_scenario(
             glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-windows-forced-broken-library")
         )
+        record(9, "windows-forced-broken-library")
         run_windows_forced_healthy_conversation_scenario(build_dir, prefix_default)
+        record(10, "windows-forced-healthy-conversation")
         run_headers_missing_scenario(glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-headers-missing"))
+        record(11, "headers-missing")
         run_relative_libdir_cwd_attack_scenario(
             glintfx_src, cxx, build_dir, os.path.join(scratch, "prefix-relative-cwd-attack"), scratch
         )
+        record(12, "relative-libdir-cwd-attack")
         run_real_pkgconfig_syntax_variants_scenario(build_dir, scratch, real_libdir)
+        record(13, "real-pkgconfig-syntax-variants")
         run_duplicate_variable_rejected_scenario(build_dir, scratch, real_libdir)
+        record(14, "duplicate-variable-rejected")
         run_relative_prefix_ordinary_dispatch_scenario(
             build_dir, os.path.join(scratch, "dispatch-relative-prefix"), real_libdir
         )
+        record(15, "relative-prefix-ordinary-dispatch")
         run_destdir_relative_ordinary_dispatch_scenario(
             build_dir, os.path.join(scratch, "dispatch-relative-destdir"), real_libdir
         )
+        record(16, "destdir-relative-ordinary-dispatch")
         run_absolute_libdir_scenario(glintfx_src, cxx, os.path.join(scratch, "build-absolute-libdir"), scratch)
+        record(17, "absolute-libdir")
         run_looks_rooted_selftest_scenario(build_dir, prefix_default)
+        record(18, "looks-rooted-selftest")
+        run_windows_forced_broken_conversation_scenario(build_dir, prefix_default, scratch)
+        record(19, "windows-forced-broken-conversation")
+        outcome_20 = run_windows_unlaunchable_conversation_scenario(build_dir, prefix_default, scratch)
+        record(20, "windows-unlaunchable-conversation", outcome_20)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+    ran = len(scenario_results)
+    passed = [item for item in scenario_results if item[2] == "passed"]
+    skipped = [item for item in scenario_results if item[2] != "passed"]
+    if ran != SCENARIO_COUNT:
+        fail(
+            f"real_main() ran {ran} scenario(s), but SCENARIO_COUNT declares "
+            f"{SCENARIO_COUNT} - GODS_LAWS.md L-40: a mismatched count is a broken "
+            "floor, never a detail to shrug off."
+        )
+    print(
+        f"ok: scenario floor - {ran}/{SCENARIO_COUNT} scenario(s) ran, {len(passed)} "
+        f"passed outright, {len(skipped)} declared SKIP (never silent)"
+        + (
+            ": " + "; ".join(f"#{number} {name} ({outcome})" for number, name, outcome in skipped)
+            if skipped
+            else " (none)."
+        )
+    )
 
     print(
         "ok: the PKG-VALIDATE install(CODE) step runs on real installs (default relative "
@@ -1760,17 +2087,23 @@ def real_main(args):
         "a hand-assembled empty-Cflags/Libs (L-40) fixture, and a relative libdir "
         "resolved from an attacker-controlled working directory - on the real Unix path "
         "AND with the Windows branch forced alike - while degrading to a WARNING (not a "
-        "FATAL_ERROR) only when pkg-config itself is absent, or when a real pkg-config "
-        "binary genuinely cannot be talked to despite content already confirmed correct; "
-        "accepts real pkg-config's own whitespace/comment syntax, cross-checked against a "
-        "real pkg-config binary when one is on PATH, while a variable defined TWICE is "
-        "now refused, closed, by CMake's own native pkg-config parser under STRICTNESS "
-        "STRICT; no longer doubles a shared prefix/libdir/pkgconfig or DESTDIR path "
-        "segment when --prefix or DESTDIR is given as a plain relative path; and no "
-        "longer borrows a wrong drive letter (PKG-WIN-SCOPE round 7) when a staged, "
-        "DESTDIR-aware directory is concatenated with a driveless-but-rooted prefix - "
-        "proven with portable, platform-independent string logic (all eighteen "
-        "scenarios, unguarded by platform)."
+        "FATAL_ERROR) only when pkg-config itself is absent, or when a binary find_program() "
+        "found could not even be LAUNCHED (PKG-WIN-VALIDATE-FATAL, 09/09/2026); a "
+        "pkg-config binary that IS found AND genuinely launched, and still REJECTS a "
+        "healthy glintfx.pc, now FAILS CLOSED (FATAL_ERROR) on Windows too, with a full "
+        "self-sufficient diagnosis (binary path, --version, PKG_CONFIG_PATH, exact "
+        "command, exit result, stdout+stderr, .pc path and first lines, both escape "
+        "hatches) - never silently downgraded to a warning just because the host "
+        "happens to be Windows; accepts real pkg-config's own whitespace/comment "
+        "syntax, cross-checked against a real pkg-config binary when one is on PATH, "
+        "while a variable defined TWICE is now refused, closed, by CMake's own native "
+        "pkg-config parser under STRICTNESS STRICT; no longer doubles a shared "
+        "prefix/libdir/pkgconfig or DESTDIR path segment when --prefix or DESTDIR is "
+        "given as a plain relative path; and no longer borrows a wrong drive letter "
+        "(PKG-WIN-SCOPE round 7) when a staged, DESTDIR-aware directory is concatenated "
+        "with a driveless-but-rooted prefix - proven with portable, "
+        "platform-independent string logic (all twenty scenarios, unguarded by "
+        "platform)."
     )
 
 

@@ -97,6 +97,40 @@ namespace glintfx::asset {
 
 namespace detail {
 
+// ERR-COPY-TWINS (TODO.md W-ERRCOPY F5, GODS_LAWS.md L-17 "avisar o
+// gemeo") - DECISAO REGISTRADA, NAO OMISSAO: os dois auxiliares abaixo,
+// require_regular_file() e read_stream_bytes(), NAO sao noexcept e NAO
+// tem try/catch proprio. Toda a protecao contra std::bad_alloc escapando
+// (de std::filesystem::path, std::ifstream ou std::vector<std::byte>::
+// insert() crescendo) vem INTEIRAMENTE do UNICO chamador real hoje,
+// gltfx_load_file_bytes() (fim deste arquivo), que envolve as duas
+// chamadas num so' try{...}catch(...) - a cobertura vem do CHAMADOR, nao
+// do SITIO. Isto e' fragil POR DESENHO se um segundo chamador `noexcept`
+// aparecer sem repetir esse try/catch ao redor: ele mataria o processo
+// do consumidor exatamente como os 129 sitios de gltfx_err matavam antes
+// de ERR-COPY-FIX (ESCOPO.md Decisao 17).
+//
+// FICOU COMO ESTA', por decisao desta fatia, com dois argumentos
+// medidos, nao presumidos:
+// (1) hoje ha' UM UNICO chamador de cada funcao (grep contra a arvore
+//     inteira, tests/ incluido), e esse chamador ja' protege - acrescentar
+//     noexcept+try DENTRO destas duas funcoes tambem seria duplicar uma
+//     protecao que ja existe, exatamente o excesso que GODS_LAWS.md
+//     L-17 tambem proibe (fragmentacao/ruido sem ganho);
+// (2) a fragilidade NAO fica sem vigilancia: tests/tools/
+//     check_noexcept_alloc.py JA' pega mecanicamente um segundo chamador
+//     `noexcept` desprotegido, por propagacao transitiva por NOME - PROVADO
+//     ao vivo nesta fatia (nao suposto, GODS_LAWS.md L-44): um chamador
+//     `noexcept` fabricado, sem try, chamando read_stream_bytes() daqui,
+//     fez o portao ir de `familia_B_achados=0`/APROVADO para
+//     `familia_B_achados=2`/REPROVADO, acusando `arquivo:linha` tanto do
+//     novo chamador quanto de gltfx_load_file_bytes() (propagacao "via
+//     read_stream_bytes"). O experimento foi revertido sem deixar
+//     residuo (git diff limpo depois).
+// Se um dia um SEGUNDO chamador legitimo precisar existir, ele repete o
+// idioma de gltfx_load_file_bytes() (try{...}catch(...) envolvendo a
+// chamada), nunca assume a protecao do primeiro chamador.
+
 // require_regular_file - the "resolve o caminho" half of ESCOPO.md's
 // three-step pipeline: classifies `path` BEFORE any attempt to open it,
 // so a caller gets not_found/invalid_argument instead of a generic

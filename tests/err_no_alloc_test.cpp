@@ -42,6 +42,47 @@
 // positive - it could only make a real bug harder to see on that one
 // leg, not report one that is not there). Declared, not silently
 // assumed.
+//
+// ALLOC-DEALLOC-MISMATCH SOB ASAN, achado medido (preci.sh, estagio
+// Sanitizer, apos a onda W-ERRCOPY acrescentar o caso T2 abaixo, nao
+// presumido): "AddressSanitizer: alloc-dealloc-mismatch (operator new
+// vs free)" neste arquivo. Ate' aqui esta TU so' substituia as formas
+// QUE LANCAM de operator new/delete (escalar e array) - nunca as
+// formas `nothrow`. `ensure_context()` (src/core/err.cpp) usa `new
+// (std::nothrow) err_context()` na PRIMEIRA vez que um gltfx_err ganha
+// contexto (aqui, dentro de `with_rejected_value()`, ANTES de
+// reset_counts() - a alocacao em si nunca era o que este caso mede).
+// No GCC/Linux, sem sanitizador, a forma nothrow default de libstdc++
+// delega para a `::operator new(size_t)` PLANA (por isso os 204 testes
+// do Release sempre passaram) - mas o runtime do AddressSanitizer
+// GANHA da forma nothrow default do libstdc++ por precedencia de
+// simbolo fraco/forte NA VERSAO NOTHROW (ao contrario da versao QUE
+// LANCA, que esta TU JA substituia e por isso sempre venceu - mesmo
+// fato de precedencia fraca/forte que err_context_test.cpp's own
+// "MSVC-SPECIFIC ROOT CAUSE" paragraph documenta para o Windows/MSVC,
+// so' que ali e' o CONTRARIO: no GCC/Linux o override do usuario VENCE
+// quando ele EXISTE - o problema aqui era a AUSENCIA do override, nao
+// a precedencia do ASan). O bloco alocado pelo `operator new(nothrow)`
+// do proprio ASan e' depois liberado por `~gltfx_err()` atraves do
+// `operator delete(void*)` QUE ESTA TU JA SUBSTITUiA (`std::free()`) -
+// dois alocadores diferentes para o mesmo ponteiro, o mismatch que o
+// ASan aborta. O CASO ANTIGO (context_less_error_lifecycle_never_
+// allocates, acima) nunca chama with_*()/ensure_context() - nunca
+// atravessa este caminho, entao nunca era "quebrado por sorte": e'
+// genuinamente livre deste defeito, por construcao, e continua sendo
+// depois deste conserto.
+//
+// CONSERTO, mesmo padrao que TODO OUTRO arquivo deste diretorio que
+// toca ensure_context() ja usa (err_context_test.cpp, err_copy_on_
+// write_test.cpp, err_copy_terminates_window_validation_test.cpp,
+// entre outros - "isolado ou padrao?", GODS_LAWS.md L-17 do projeto:
+// este arquivo era o UNICO desse grupo sem as duas formas nothrow):
+// adicionar `operator new(size_t, const std::nothrow_t&)` e `operator
+// delete(void*, const std::nothrow_t&)`, alimentando OS MESMOS
+// contadores atomicos ja usados pelas formas que lancam - a chamada
+// de with_rejected_value() acontece antes de reset_counts(), entao
+// contar esta alocacao aqui nao contamina a janela que o caso T2
+// mede.
 
 namespace {
 
@@ -83,12 +124,25 @@ void *operator new(std::size_t size) {
 
 void *operator new[](std::size_t size) { return ::operator new(size); }
 
+// As duas formas que faltavam (ver o paragrafo "ALLOC-DEALLOC-MISMATCH
+// SOB ASAN" no topo do arquivo) - `ensure_context()` e' o unico
+// chamador real, dentro deste binario de teste, de `new (std::nothrow)`.
+void *operator new(std::size_t size, const std::nothrow_t & /*tag*/) noexcept {
+    g_alloc_count.fetch_add(1, std::memory_order_relaxed);
+    return std::malloc(size);
+}
+
 void operator delete(void *p) noexcept {
     g_dealloc_count.fetch_add(1, std::memory_order_relaxed);
     std::free(p);
 }
 
 void operator delete(void *p, std::size_t /*size*/) noexcept { ::operator delete(p); }
+
+void operator delete(void *p, const std::nothrow_t & /*tag*/) noexcept {
+    g_dealloc_count.fetch_add(1, std::memory_order_relaxed);
+    std::free(p);
+}
 
 void operator delete[](void *p) noexcept { ::operator delete(p); }
 

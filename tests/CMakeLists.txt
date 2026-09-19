@@ -4176,6 +4176,40 @@ add_test(
 )
 set_tests_properties(dash_pubdoc_selftest PROPERTIES LABELS selftest)
 
+# Version-vs-tag gate (TODO.md item VERSION-TAG-SYNC, 5.33, WM1;
+# GODS_LAWS.md do projeto L-26/L-23; ESCOPO.md SS3 tem a regra por
+# extenso). O defeito medido: em 10/09/2026 `project(glintfx VERSION
+# ...)` ainda declarava 0.3.0.0 com sete etiquetas ja publicadas em
+# cima (v0.3.1.0 ate v0.3.7.0) - nenhum portao via a etiqueta,
+# version_test so prova header==macros==string em runtime, nunca a
+# tag. check_version_matches_tag.py le a versao declarada no HEAD
+# (`git show`, nunca o working tree sujo) e compara com a etiqueta
+# `vA.B.C.D` que aponta para HEAD (igualdade nos quatro componentes,
+# decisao do lider) ou, sem etiqueta em HEAD, com a mais alta
+# alcancavel (declarada >= etiqueta, nunca comparacao de string).
+#
+# Registrado SEM guarda de `.git` (diferente do que um plano anterior
+# cogitou): o proprio script trata "nao e repositorio git" como PULO
+# DECLARADO, nunca fatal (um tarball de consumidor com
+# GLINTFX_BUILD_TESTS=ON so ve esta linha passar, nunca falhar) -
+# ver o cabecalho do script. Sem guarda de plataforma tambem
+# (GODS_LAWS.md L-04 do projeto): le git e texto, roda igual nos
+# cinco alvos.
+add_test(
+    NAME version_matches_tag_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_version_matches_tag.py"
+        "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(version_matches_tag_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME version_matches_tag_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_version_matches_tag.py" --selftest
+)
+set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest)
+
 # Rounding-order gate (TODO.md GATE-LLROUND-ORDER, GODS_LAWS.md L-20/
 # L-36/L-40): closed static check that every llround/lround/round/
 # nearbyint/rint call under src/ and include/ is either guarded by a

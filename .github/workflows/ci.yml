@@ -67,6 +67,16 @@ name: CI
 on:
   push:
     branches: [main]
+    # VERSION-TAG-SYNC (GODS_LAWS.md do projeto L-26/L-23; TODO.md 5.33):
+    # etiqueta vA.B.C.D publicada dispara SO o job `version-tag` abaixo,
+    # que audita a etiqueta contra a versao declarada em CMakeLists.txt.
+    # Nenhum outro job desta matriz roda num push de etiqueta - cada um
+    # ganhou `if: github.ref_type != 'tag'` (ou, no caso de `parity`, que
+    # ja tinha `if:`, a clausula foi combinada) para nao reencenar a
+    # matriz/lint/sanitizer/debug/gitleaks/leis inteira a cada etiqueta,
+    # coisa que nunca acontecia antes (o gatilho de push so tinha
+    # `branches`) e nao tem por que comecar a acontecer agora.
+    tags: ['v[0-9]*']
   pull_request:
   workflow_dispatch:
 
@@ -78,6 +88,7 @@ jobs:
   linux:
     name: ${{ matrix.nome }}
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: ${{ matrix.imagem }}
     strategy:
       fail-fast: false
@@ -507,6 +518,7 @@ jobs:
   windows:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
       fail-fast: false
       matrix:
@@ -1005,7 +1017,7 @@ jobs:
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
     needs: [linux, windows, wayland-container, lint]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.ref_type != 'tag' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -1150,6 +1162,7 @@ jobs:
   wayland-container:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
       fail-fast: false
       matrix:
@@ -2045,6 +2058,7 @@ jobs:
   lint:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     steps:
       - name: Instalar toolchain e ferramentas de lint
@@ -2162,6 +2176,7 @@ jobs:
   ps-syntax:
     name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
 
@@ -2217,6 +2232,7 @@ jobs:
   windows-lint:
     name: Windows - Lint (clang-tidy sobre src/)
     runs-on: windows-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
 
@@ -2557,6 +2573,7 @@ jobs:
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     steps:
       # libasan/libubsan: pacotes de RUNTIME, separados de gcc-c++ no
@@ -2617,6 +2634,7 @@ jobs:
   windows-sanitizer:
     name: Windows - Sanitizer (ASan)
     runs-on: windows-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
 
@@ -2724,6 +2742,7 @@ jobs:
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     steps:
       # Mesmo toolchain do job `lint` acima (nenhum runtime de
@@ -2798,6 +2817,7 @@ jobs:
   windows-debug:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
     runs-on: windows-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
 
@@ -2957,6 +2977,7 @@ jobs:
   clang:
     name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     strategy:
       fail-fast: false
@@ -3027,6 +3048,7 @@ jobs:
   gitleaks:
     name: Gitleaks (scan de segredo)
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       # fetch-depth 0: `gitleaks detect` (sem flags) varre o git log
       # inteiro por padrao (verificado ao vivo nesta versao, 8.30.0 - ver
@@ -3050,6 +3072,7 @@ jobs:
   leis:
     name: Gate das leis
     runs-on: ubuntu-latest
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
 
@@ -3109,3 +3132,43 @@ jobs:
       # (ja eram so ctest, if(UNIX)-guardado); os antigos tests/tools/
       # check_dup_laws.sh e check_public_name_collision.sh foram
       # apagados no mesmo passo, junto com o resto de GATE-TREE-PARITY.
+
+  # VERSION-TAG-SYNC (TODO.md 5.33, ESCOPO.md SS3): unico job desta
+  # matriz que dispara em push de ETIQUETA (`if:` acima, em cada job -
+  # todos os outros se recusam quando github.ref_type == 'tag').
+  # Audita a etiqueta que acabou de ser publicada contra a versao que
+  # o commit apontado por ela declara em CMakeLists.txt - a mesma
+  # regra que tests/CMakeLists.txt ja roda localmente via
+  # version_matches_tag_test (portanto tambem em tools/preci.sh e nas
+  # cinco plataformas a cada push de branch/PR), so que aqui contra o
+  # estado REAL, publico, do servidor - a unica prova de que a
+  # etiqueta que acabou de sair para o mundo bate com o numero que a
+  # biblioteca anuncia.
+  #
+  # `fetch-depth: 0` + `fetch-tags: true`: o evento de push de
+  # etiqueta ja faz o checkout na propria etiqueta (HEAD cai nela
+  # detached), mas sem historico completo e SEM as OUTRAS etiquetas
+  # trazidas o script veria "zero etiquetas alcancaveis" e reprovaria
+  # pelo piso (GODS_LAWS.md L-40) - falso vermelho, nao o defeito real.
+  #
+  # ESTREIA: nao foi possivel provar este job vermelho AO VIVO no
+  # servidor sem publicar uma etiqueta real (GODS_LAWS.md do projeto
+  # L-11: etiqueta exige aval explicito do lider no contexto, e este
+  # agente nao tem esse aval) - fica DECLARADO como vermelho so no
+  # autoteste (`version_matches_tag_selftest`, controle HEAD-TAGGED-
+  # BEHIND, que reproduz por mutacao em copia o dano real de
+  # 10/09/2026) e nas duas mutacoes em copia fora da arvore descritas
+  # no commit que introduziu este job - nunca visto reprovar aqui, no
+  # `version-tag.yml`, contra o servidor de verdade.
+  version-tag:
+    name: Versao == etiqueta (VERSION-TAG-SYNC)
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: check_version_matches_tag.py
+        run: python3 tests/tools/check_version_matches_tag.py .

@@ -372,6 +372,25 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 O value type `glintfx::version` ganha o **quarto campo** (`tweak_version`), para struct e string dizerem a mesma coisa — reabriu a porta de mão única do `HDR-HYGIENE` uma única vez, com revisão de API dedicada, na janela barata (pré-1.0, `SOVERSION` 0, sem consumidor externo). O campo entra **no fim**, sem reordenar os três existentes.
 
+### O portão que amarra a etiqueta à versão declarada (`VERSION-TAG-SYNC`)
+
+**Origem:** `TODO.md` 5.33 (WM1). **Decisão do líder confirmada por `AskUserQuestion`, `19/09/26 - 13:11:36`: "IGUALDADE NOS QUATRO NUMEROS".** Não é decisão nova — é a leitura direta da tabela A/B/C/D acima, aplicada ao formato de etiqueta `vA.B.C.D` que já é regra desde 21/08/2026.
+
+**O defeito que motivou o portão, medido, não hipotético:** em 10/09/2026 `CMakeLists.txt` ainda declarava `0.3.0.0` com **sete etiquetas já publicadas em cima** (`v0.3.1.0` até `v0.3.7.0`) — o pacote CMake e o `.pc` que o consumidor lê anunciavam um número que não era o que ele tinha em mãos. Nenhum portão via a etiqueta; `version_test` só prova `header == macros == string em runtime`, nunca a etiqueta git.
+
+**A regra, escrita por extenso** (implementada em `tests/tools/check_version_matches_tag.py`, `version_matches_tag_test`/`_selftest`):
+
+- **`HEAD` carrega uma etiqueta `vA.B.C.D`:** a versão declarada tem de ser **igual, nos quatro componentes**. É a cláusula que pega o dano real.
+- **`HEAD` sem etiqueta:** a declarada tem de ser **maior ou igual** à etiqueta `v*` alcançável mais alta (comparação numérica por componente, nunca de string — `0.10.0.0 > 0.9.0.0`). Igual é o estado normal entre duas etiquetas; maior é o estado legítimo "à frente, ainda não etiquetado".
+- **Zero etiquetas `v[0-9]*` alcançáveis** (com histórico presente): reprova pelo piso de varredura não-vazia (`GODS_LAWS.md` L-40) — este repositório carrega etiqueta desde `v0.2.0.0`, ver zero é sinal de checkout raso ou varredura quebrada, não de regra inaplicável.
+- **Sem `.git`** (tarball de consumidor): **pulo declarado, nunca fatal** — a verificação não faz sentido fora de um clone.
+
+**A consequência que o líder aceitou de olhos abertos, e que fica registrada aqui para não se perder:** o quarto componente (`D`, "build ou revisão de empacotamento, sem mudança de código", tabela acima) **também** entra na igualdade exigida. Isso significa que **mesmo uma revisão de empacotamento pura** (sem nenhuma linha de código tocada) precisa subir o `D` em `project(glintfx VERSION A.B.C.D ...)` **antes** de a etiqueta correspondente ser criada — do contrário o portão reprova pela mesma regra que pega o dano real, só que no quarto campo em vez do primeiro três. Provado por mutação em cópia fora da árvore, `19/09/2026`: `0.4.0.1` declarado contra a etiqueta real `v0.4.0.0` reprova, isolado dos outros três componentes.
+
+**Onde roda:** `ctest` (portanto `tools/preci.sh` e as cinco plataformas do CI, sem guarda de sistema — lê git e texto, comportamento igual em todo lugar, `GODS_LAWS.md` do projeto L-04) e um job dedicado `version-tag` em `.github/workflows/ci.yml`, disparado só por `push: tags: v[0-9]*` — os demais jobs da matriz ganharam `if: github.ref_type != 'tag'` para não reencenar a suíte inteira a cada etiqueta publicada (nunca acontecia antes, o gatilho só tinha `branches`).
+
+**O que o portão NÃO cobre, por escrito:** uma declaração à frente da última etiqueta por tempo indefinido, sem que ninguém nunca etiqueie. Não é a classe de dano medida (a lib anuncia um número que ainda não foi publicado, não um número velho) e decidir "quanto tempo à frente é demais" é protocolo de release (`GODS_LAWS.md` do projeto L-11: etiqueta exige aval explícito do líder no contexto), não algo que um portão julga.
+
 ---
 
 ## §4 — `gfui` / `gfss` / `gfml`

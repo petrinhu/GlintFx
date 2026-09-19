@@ -482,3 +482,33 @@ container_alloc_report_selftest|windows|nenhum|SEM-PENDENCIA
 # item para rastrear, mesmo padrao SEM-PENDENCIA das demais linhas
 # desta secao do arquivo.
 drm_device_facts_oom_test|windows|nenhum|SEM-PENDENCIA
+
+# --- Sondas exclusivas de UM sistema, sem par possivel (19/09/2026,
+# achado do time-lead, server run 35449851650, PARITY-GATE contra o
+# commit f8da8c3/LINT-CONTAINER-SMOKES) -------------------------------
+#
+# container_smokes_in_compile_db_test e container_smokes_in_compile_db_
+# selftest (tests/tools/check_container_smokes_in_compile_db.py,
+# registrados em tests/CMakeLists.txt dentro de if(UNIX), junto do
+# proprio `add_subdirectory(container)` logo acima deles no mesmo
+# arquivo) provam que a OBJECT library de tests/container/*.cpp -
+# compilada apenas para o banco de compilacao (compile_commands.json),
+# nunca ligada nem executada no host, GODS_LAWS.md L-09 - realmente
+# entra nesse banco, para que run-clang-tidy nao pule nenhum fixture em
+# silencio.
+#
+# O Windows nao tem, e nunca vai ter, par: tests/container/ inteiro
+# (o subdiretorio que tests/CMakeLists.txt so' adiciona dentro de
+# if(UNIX)) existe para compilar fixtures Wayland/EGL contra o
+# adaptador ARCH-PORTS - GODS_LAWS.md L-05 fecha essa porta por desenho
+# do lado Windows, mesma razao ja registrada acima para wl_proto_link_
+# test e display_bind_refusal_test. Sem OBJECT library nenhuma do lado
+# Windows, nao ha banco de compilacao dela para este gate comparar -
+# nome proprio do mecanismo Linux, sem gemeo possivel por natureza.
+#
+# MORTE DESTA LINHA: nunca - a assimetria e' permanente por desenho,
+# mesma categoria de wl_proto_link_test/display_bind_refusal_test. Sem
+# item para rastrear, mesmo padrao SEM-PENDENCIA das demais linhas
+# desta secao do arquivo.
+container_smokes_in_compile_db_test|windows|nenhum|SEM-PENDENCIA
+container_smokes_in_compile_db_selftest|windows|nenhum|SEM-PENDENCIA

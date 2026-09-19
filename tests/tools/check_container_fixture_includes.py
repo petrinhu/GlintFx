@@ -155,6 +155,46 @@ def parse_containerfile(containerfile_text):
     return tu_order, tu_include_roots, generated_header_tokens
 
 
+# TEST-WLCONT fix (19/09/2026, server run 35449851650): the blind spot
+# this gate was born blind to. `context_dir` (passed by
+# prepare_arch_ports_fixture.sh) is `$repo_root/tests/container` - the
+# REAL directory, not a throwaway copy - so a header that merely EXISTS
+# there on disk was, before this fix, indistinguishable from a header
+# the Containerfile actually `COPY`s into the image. checked_stdio.hpp
+# proved this the hard way: eighteen fixtures `#include` it by a bare
+# quote-name, no COPY line ever named it, and this gate still printed
+# "OK" every time, because resolve_in_fixture() (below) only ever asked
+# "does this file exist on disk next to the includer", never "did a
+# COPY line actually put it there". flat_build_copies() answers the
+# second question - the ONLY ground truth for what lands flat in
+# `/build` inside the image (`COPY <src> /build/<name>`, never the
+# whole-directory `_arch_ports_src` stage, which is a different shape
+# entirely and already trusted via staged_dir).
+_COPY_RE = re.compile(r"^COPY\s+(\S+)\s+(/build/\S+)\s*$")
+
+
+# Every basename this Containerfile actually `COPY`s FLAT into `/build`
+# from the build context (never a `COPY --from=` stage-to-stage copy -
+# those land in the FINAL image only, after every g++/gcc invocation
+# here has already run - and never the `_arch_ports_src` directory
+# stage, which copy_source_tree() already mirrors wholesale, so a file
+# found there is trusted without this extra check).
+def flat_build_copies(containerfile_text):
+    names = set()
+    for line in containerfile_text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("COPY ") or stripped.startswith("COPY --from="):
+            continue
+        match = _COPY_RE.match(stripped)
+        if not match:
+            continue
+        dest = match.group(2)
+        if dest == "/build/_arch_ports_src":
+            continue
+        names.add(os.path.basename(dest))
+    return names
+
+
 # --- mapping a Containerfile `/build/...` token to a real path ----------
 
 
@@ -186,18 +226,37 @@ def map_build_path(token, context_dir, staged_dir):
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s*([<"])([^>"]+)[>"]')
 
 
+# A root that resolves to `context_dir` itself (the includer's own
+# directory when the includer is a flat-copied file, or a literal `-I
+# /build` token) is NOT a staged copy - it IS the real repository
+# directory (see flat_build_copies()'s own header comment) - so a name
+# found there only counts when a COPY line in the Containerfile actually
+# names it. A root under `staged_dir` needs no such check: copy_source_
+# tree() already mirrors that whole subtree, so physical presence there
+# already proves the file was staged.
+def _is_flat_context_root(root, context_dir):
+    return os.path.normpath(root) == os.path.normpath(context_dir)
+
+
 # Quoted names resolve first against the includer's OWN directory, then
 # against every `-I` root in order (matching how quoted resolution
 # already behaves in this codebase - e.g. window_facade.cpp's own
 # `#include "platform/window/window_impl.hpp"` resolves via the `-I src`
 # root, not relative to its own directory). Angle-bracket names skip the
-# includer's own directory and only ever search the `-I` roots.
-def resolve_in_fixture(name, is_quoted, includer_dir, mapped_roots):
+# includer's own directory and only ever search the `-I` roots. Every
+# root checked against `context_dir` itself is gated by `flat_copies`
+# (TEST-WLCONT fix, see flat_build_copies()'s own header comment) -
+# every other root (staged_dir or a subdirectory of it) is trusted on
+# physical presence alone, unchanged from before that fix.
+def resolve_in_fixture(name, is_quoted, includer_dir, mapped_roots, context_dir, flat_copies):
     if is_quoted:
-        candidate = os.path.join(includer_dir, name)
-        if os.path.isfile(candidate):
-            return os.path.normpath(candidate)
+        if not _is_flat_context_root(includer_dir, context_dir) or name in flat_copies:
+            candidate = os.path.join(includer_dir, name)
+            if os.path.isfile(candidate):
+                return os.path.normpath(candidate)
     for root in mapped_roots:
+        if _is_flat_context_root(root, context_dir) and name not in flat_copies:
+            continue
         candidate = os.path.join(root, name)
         if os.path.isfile(candidate):
             return os.path.normpath(candidate)
@@ -264,6 +323,7 @@ def relpath_for_display(path, repo_root):
 # rediscover the same names (GODS_LAWS.md L-11: no repeated work per
 # item scanned, not just no repeated process).
 def walk_tu(tu_path, mapped_roots, generated_basenames, staged_dir, repo_root,
+            context_dir, flat_copies,
             resolved_headers, generated_hits, externals, missing):
     stack = [tu_path]
     walked = set()
@@ -280,7 +340,7 @@ def walk_tu(tu_path, mapped_roots, generated_basenames, staged_dir, repo_root,
             quote_char, name = match.group(1), match.group(2)
             is_quoted = quote_char == '"'
 
-            resolved = resolve_in_fixture(name, is_quoted, includer_dir, mapped_roots)
+            resolved = resolve_in_fixture(name, is_quoted, includer_dir, mapped_roots, context_dir, flat_copies)
             if resolved is not None:
                 if resolved not in resolved_headers:
                     resolved_headers.add(resolved)
@@ -315,6 +375,7 @@ def walk_tu(tu_path, mapped_roots, generated_basenames, staged_dir, repo_root,
 def run_comparison(containerfile_text, context_dir, staged_dir, repo_root):
     tu_order, tu_include_roots, generated_tokens = parse_containerfile(containerfile_text)
     generated_basenames = {os.path.basename(tok) for tok in generated_tokens}
+    flat_copies = flat_build_copies(containerfile_text)
 
     present_count = 0
     resolved_headers = set()
@@ -333,6 +394,7 @@ def run_comparison(containerfile_text, context_dir, staged_dir, repo_root):
             if mapped_root is not None:
                 mapped_roots.append(mapped_root)
         walk_tu(mapped_tu, mapped_roots, generated_basenames, staged_dir, repo_root,
+                context_dir, flat_copies,
                 resolved_headers, generated_hits, externals, missing)
 
     summary = {
@@ -555,6 +617,57 @@ def selftest_only_system_include_reproves(scratch):
     return True
 
 
+# VERMELHO#5 (TEST-WLCONT fix, 19/09/2026 - a forma EXATA do defeito
+# real): um header quote-includeado por uma TU copiada FLAT (nao pelo
+# staged tree) existe fisicamente no `context_dir` - porque este e' o
+# diretorio REAL do repositorio, nunca uma copia isolada - mas nenhuma
+# linha `COPY` do Containerfile o nomeia. Antes do conserto de
+# resolve_in_fixture()/flat_build_copies(), este cenario passava limpo
+# (a mesma cegueira que deixou checked_stdio.hpp faltando por 18
+# fixtures, achado real do server run 35449851650): a existencia no
+# disco bastava, sem checar se um COPY realmente colocou o arquivo
+# dentro da imagem.
+def selftest_flat_header_without_copy_reproves(scratch):
+    root = os.path.join(scratch, "flat-header-no-copy")
+    context_dir = os.path.join(root, "tests", "container")
+    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+    os.makedirs(staged_dir, exist_ok=True)
+    # o header vive no MESMO diretorio real do checkout que o Containerfile
+    # usa como build context - exatamente como checked_stdio.hpp vive em
+    # tests/container/ ao lado do Containerfile real, nao numa copia.
+    _write(os.path.join(context_dir, "extra_header.hpp"), "#pragma once\nint extra();\n")
+    _write(
+        os.path.join(context_dir, "flat_smoke.cpp"),
+        '#include "extra_header.hpp"\nint main() { return extra(); }\n',
+    )
+
+    containerfile = (
+        "FROM fedora:44 AS arch-ports-builder\n"
+        "COPY _arch_ports_src /build/_arch_ports_src\n"
+        "COPY flat_smoke.cpp /build/flat_smoke.cpp\n"
+        # nenhum COPY para extra_header.hpp - esta e' a lacuna real
+        "RUN g++ -std=c++23 -O2 -Wall -Wextra -Werror \\\n"
+        "        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \\\n"
+        "        -o /build/flat_smoke \\\n"
+        "        /build/flat_smoke.cpp\n"
+    )
+    summary, errors = run_comparison(containerfile, context_dir, staged_dir, root)
+    if not errors:
+        print(
+            "selftest: VERMELHO#5 FALHOU (header quote-includeado sem COPY correspondente "
+            "deveria ter reprovado - esta e' a forma exata do defeito real)",
+            file=sys.stderr,
+        )
+        return False
+    if not any(
+        "extra_header.hpp" in e and "incluido por" in e and "raiz nao estagiada: tests" in e for e in errors
+    ):
+        print(f"selftest: VERMELHO#5 FALHOU (reprovou, mas sem citar includente/raiz): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: VERMELHO#5 OK (header presente no context_dir real, sem COPY, pego e citado): {errors}")
+    return True
+
+
 # Controle POSITIVO adicional: header GERADO na imagem (wayland-scanner
 # client-header) nao e' tratado como faltando nem como externo - conta
 # como "gerado" e passa.
@@ -632,6 +745,7 @@ def selftest_main():
         selftest_missing_tu_reproves(scratch),
         selftest_empty_containerfile_reproves(),
         selftest_only_system_include_reproves(scratch),
+        selftest_flat_header_without_copy_reproves(scratch),
         selftest_generated_header_passes(scratch),
         selftest_system_header_passes(scratch),
     ]

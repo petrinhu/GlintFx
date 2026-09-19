@@ -222,6 +222,25 @@ COPY window_active_after_map_smoke.cpp /build/window_active_after_map_smoke.cpp
 COPY gpu_kind_report_smoke.cpp /build/gpu_kind_report_smoke.cpp
 COPY alloc_cycle_growth_smoke.cpp /build/alloc_cycle_growth_smoke.cpp
 COPY loop_hidden_test.cpp /build/loop_hidden_test.cpp
+# TEST-WLCONT fix (LINT-CONTAINER-SMOKES gemeo, commit f8da8c3, 19/09/2026):
+# checked_stdio.hpp travels here, flat into /build, for the SAME quote-
+# form-searches-the-includer's-own-directory reason the comment right
+# below this one already explains for alloc_counter_classify.hpp -
+# eighteen of the twenty .cpp files above #include it by a bare quote-
+# name (`#include "checked_stdio.hpp"`). LINT-CONTAINER-SMOKES added
+# that #include to every fixture here so tests/CMakeLists.txt could
+# compile-check them in the ordinary build (checked_stdio.hpp already
+# lived in this directory, used by fixtures that predate that fatia),
+# but never added the COPY line this image itself needs - the ordinary
+# build resolves the quote-include straight off disk, so it stayed
+# green locally and only this image's own `docker build`, which needs
+# an explicit COPY per file, ever exercised the gap (GODS_LAWS.md L-36:
+# a portao that only reads the source tree, never what actually lands
+# inside the image, cannot catch this - see check_container_fixture_
+# includes.py's own resolve_in_fixture() fix, same commit, for the
+# matching blind spot in the GATE that was supposed to catch exactly
+# this).
+COPY checked_stdio.hpp /build/checked_stdio.hpp
 # CONTAINER-LEAK-COUNTER S2 (/var/tmp/glintfx-plan/leak-counter.md
 # sec. 5): alloc_counter_classify.hpp travels alongside the two .cpp
 # files below because both alloc_counter_classify.cpp (S1) and alloc_

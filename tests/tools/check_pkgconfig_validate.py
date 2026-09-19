@@ -1789,24 +1789,58 @@ def run_windows_forced_broken_conversation_scenario(build_dir, intact_prefix, sc
     exact fact that distinguishes this scenario from scenario 20) and
     always exits 1 for anything else, simulating a real, LAUNCHABLE, but
     INCOMPATIBLE-with-this-request pkg-config.
+
+    -DWIN32=1 only forces the VALIDATOR's own branch, never the HOST
+    this Python process is actually running on - the fake tool still
+    has to be found and genuinely launched by THIS host's real process
+    launcher (GODS_LAWS.md L-17, o gemeo de _probe_tool_fixture(),
+    abaixo, achado real de 05/09/2026, run 33949568634, e o mesmo
+    achado desta fatia, 19/09/2026, run 35453845941): on the forced
+    Windows branch, find_program() searches NAMES "pkg-config.bat
+    pkgconf.bat pkg-config pkgconf", in that order (see
+    cmake/GlintfxPkgConfigValidateInstalled.cmake.in). A bare,
+    extensionless "pkg-config" file holding POSIX shell text is neither
+    matched by that NAMES list as a ".bat" NOR launchable at all on a
+    real Windows host - the fake tool is silently skipped, a REAL
+    pkg-config on the runner's PATH answers instead, and the scenario
+    passes for the wrong reason (the exact defect PKG-WIN-VALIDATE-
+    FATAL exists to catch, now hiding behind its own test). The fixture
+    therefore writes the SAME behavior in the syntax and with the
+    extension the host it is actually running on requires: a real
+    ".bat" script on a real Windows host, the POSIX shell script (as
+    before) everywhere else.
     """
     validator_script = find_generated_validator_script(build_dir)
 
     fake_bin_dir = os.path.join(scratch, "broken-pkgconfig-bin")
     os.makedirs(fake_bin_dir, exist_ok=True)
-    fake_path = os.path.join(fake_bin_dir, "pkg-config")
-    with open(fake_path, "w", encoding="utf-8") as handle:
-        handle.write(
-            "#!/bin/sh\n"
-            "if [ \"$1\" = \"--version\" ]; then\n"
-            "    echo '0.29.2 (glintfx scenario-19 FAKE pkg-config, forced-broken)'\n"
-            "    exit 0\n"
-            "fi\n"
-            "echo 'Package glintfx was not found in the pkg-config search path "
-            "(FAKE, glintfx scenario 19)' >&2\n"
-            "exit 1\n"
-        )
-    os.chmod(fake_path, 0o755)
+    if os.name == "nt":
+        fake_path = os.path.join(fake_bin_dir, "pkg-config.bat")
+        with open(fake_path, "w", encoding="utf-8", newline="") as handle:
+            handle.write(
+                "@echo off\r\n"
+                "if \"%~1\"==\"--version\" (\r\n"
+                "    echo 0.29.2 (glintfx scenario-19 FAKE pkg-config, forced-broken)\r\n"
+                "    exit /b 0\r\n"
+                ")\r\n"
+                "echo Package glintfx was not found in the pkg-config search path "
+                "(FAKE, glintfx scenario 19) 1>&2\r\n"
+                "exit /b 1\r\n"
+            )
+    else:
+        fake_path = os.path.join(fake_bin_dir, "pkg-config")
+        with open(fake_path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "#!/bin/sh\n"
+                "if [ \"$1\" = \"--version\" ]; then\n"
+                "    echo '0.29.2 (glintfx scenario-19 FAKE pkg-config, forced-broken)'\n"
+                "    exit 0\n"
+                "fi\n"
+                "echo 'Package glintfx was not found in the pkg-config search path "
+                "(FAKE, glintfx scenario 19)' >&2\n"
+                "exit 1\n"
+            )
+        os.chmod(fake_path, 0o755)
 
     env = dict(os.environ)
     env["PATH"] = fake_bin_dir + os.pathsep + env.get("PATH", "")

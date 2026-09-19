@@ -4985,3 +4985,39 @@ if(UNIX)
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
+
+# Checagem estatica SERIAL em job Windows (GODS_LAWS.md L-23 item 3,
+# ordem do lider 19/09/2026: "Nos proximos runs com Windows, paralelize
+# a checagem estatica"). Ja cumprida hoje para o unico passo real
+# (`clang-tidy - src/` do job `windows-lint`, paralelizado pelo commit
+# 1e950b6 - serial media 43m44s/44m25s/45m22s/34m47s medidos no
+# servidor, paralelo mediu 14m10s); este portao existe para que NENHUM
+# passo novo, em NENHUM job Windows futuro, volte a chamar clang-tidy/
+# cppcheck/clang-format/clang-query um arquivo por vez dentro de um
+# laco `foreach (`/`for (`/`ForEach-Object` sem `-Parallel`. Ver
+# tests/tools/check_windows_static_parallel.py's own header para a
+# classificacao estrutural (pilha de chaves, nunca substring solta) e
+# a exclusao de linha de comentario que a prosa deste proprio ci.yml
+# exige.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): registrado sem guarda de
+# sistema, mesma forma que container_kill_order_test/check_no_x11_test
+# acima - o script so' le .github/workflows/ci.yml, texto puro, nenhum
+# Docker envolvido, roda identico nas cinco plataformas.
+add_test(
+    NAME check_windows_static_parallel_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_windows_static_parallel.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(check_windows_static_parallel_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME check_windows_static_parallel_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_windows_static_parallel.py"
+        --selftest
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(check_windows_static_parallel_selftest PROPERTIES LABELS selftest)

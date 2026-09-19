@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <atomic>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <new>
 #include <print>
@@ -11,6 +12,7 @@
 
 #include "harness/check.hpp"
 #include "harness/test_registry.hpp"
+#include "harness/win_dll_alloc_hook.hpp"
 
 // err_copy_on_write_test.cpp - T4 e T5 da onda W-ERRCOPY (TODO.md
 // ERR-COPY-FIX, ESCOPO.md Decisao 17, GODS_LAWS.md L-17/L-20/L-22/L-35
@@ -39,11 +41,67 @@
 // and_err_copy_oom_test.cpp ja' estabelecem - GODS_LAWS.md L-17 do
 // projeto (nao reinventar).
 
+// ARMADILHA MEDIDA NO SERVIDOR REAL, NAO PRESUMIDA (pedido nro 10 pos-
+// merge, run 35414417506, tres legs Windows/SHARED: "Windows -
+// compartilhado", "Windows - Debug" e "Windows - Sanitizer (ASan)" -
+// GODS_LAWS.md L-04/L-17/L-27/L-44 do projeto): substituir `operator
+// new` NESTA TRADUCTION UNIT so alcanca alocacao que acontece DENTRO
+// DELA. No Windows/SHARED, `gltfx_err::ensure_context()` (privado,
+// chamado por `with_position()`, GLINTFX_API, os DOIS definidos em
+// src/core/err.cpp) roda DENTRO de glintfx.dll - o `new err_context(
+// *m_context)` que o destacar (copia-na-escrita) chama quando o
+// contexto esta' compartilhado nunca passa pelo override desta TU, e
+// os tres logs (D:\a\GlintFx\GlintFx\tests\err_copy_on_write_test.cpp:
+// 202: failed: copy.line() == 0) mostram exatamente isso: o alocador
+// "armado" nunca viu a chamada, ela alocou de verdade dentro da DLL, o
+// destacar teve sucesso, e `copy.line()` virou 9 em vez de continuar 0.
+// Mesma armadilha, mesmo mecanismo, ja fechado uma vez neste projeto -
+// harness/win_dll_alloc_hook.hpp (primeiro uso: err_context_test.cpp,
+// CI real 25/08/2026; segundo uso: fixation_write_and_err_copy_oom_
+// test.cpp's own CASO 3, mesmo boundary, mesmo `gltfx_err`'s own copy
+// ctor). Este arquivo e' o TERCEIRO ponto de uso - leia o cabecalho
+// daquele header antes de tocar o que segue (GODS_LAWS.md L-17 do
+// projeto: nao reinventar).
+//
+// Sob MSVC AddressSanitizer, a mesma citacao ja registrada em
+// fixation_write_and_err_copy_oom_test.cpp's own CASO 3 vale aqui:
+// ASan intercepta as primitivas de alocacao do CRT por hotpatch direto
+// (learn.microsoft.com/cpp/sanitizers/asan-runtime, "Function
+// interception"), o que vence tanto o override desta TU quanto o IAT
+// patch de dentro da DLL - o mecanismo de FORCAR falha nao tem chance
+// de rodar, entao o caso e' declarado NAO APLICAVEL nesse alvo, nao
+// afrouxado (L-40: ausencia declarada E contada, nunca pulo calado).
+
 namespace {
 
 std::atomic<bool> g_force_alloc_failure{false};
 std::atomic<std::size_t> g_calls_to_allow_before_failure{0};
 std::atomic<std::size_t> g_override_new_call_count{0};
+
+// So' para o caso T5 (detach_under_forced_oom_degrades_without_
+// corrupting_shared_owner) - a mesma decisao e a mesma citacao que
+// fixation_write_and_err_copy_oom_test.cpp's own err_copy_oom_forcing_
+// declared_not_applicable() ja usa para o MESMO sitio (gltfx_err's own
+// copy ctor/ensure_context(), ambos GLINTFX_API em err.cpp).
+[[nodiscard]] bool detach_oom_forcing_declared_not_applicable_under_msvc_asan() noexcept {
+#if defined(_WIN32) && defined(__SANITIZE_ADDRESS__)
+    return true;
+#else
+    return false;
+#endif
+}
+
+void declare_detach_oom_forcing_not_applicable() {
+    std::println(
+        stderr, "err_copy_on_write_test: "
+                "detach_under_forced_oom_degrades_without_corrupting_shared_owner's own "
+                "forced-failure assertion declared NOT APPLICABLE under MSVC AddressSanitizer "
+                "(same citation fixation_write_and_err_copy_oom_test.cpp's own CASO 3 already "
+                "gives in full: ASan's own operator new wins by linker precedence, AND hotpatches "
+                "the CRT allocation primitives directly, so neither this TU's override nor "
+                "win_dll_alloc_hook.hpp's IAT patch inside glintfx.dll ever gets a chance to run - "
+                "the assertion this case exists to prove would measure nothing)");
+}
 
 [[nodiscard]] bool should_fail_this_allocation() noexcept {
     if (!g_force_alloc_failure.load(std::memory_order_relaxed)) {
@@ -171,17 +229,52 @@ GLINTFX_TEST(write_through_copy_does_not_mutate_shared_original) {
 // LANCA (nao a nothrow). g_calls_to_allow_before_failure=0 forca ESSA
 // primeira chamada pos-armamento a falhar direto.
 GLINTFX_TEST(detach_under_forced_oom_degrades_without_corrupting_shared_owner) {
+    if (detach_oom_forcing_declared_not_applicable_under_msvc_asan()) {
+        declare_detach_oom_forcing_not_applicable();
+        return;
+    }
+
     glintfx::gltfx_err original(glintfx::gltfx_err_code::io_failure);
     original.with_rejected_value("seed");
 
     glintfx::gltfx_err copy(original); // compartilha, zero alocacao
 
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    // Windows/SHARED: ensure_context() do destacar roda DENTRO de
+    // glintfx.dll (ver o comentario de armadilha no topo do arquivo) -
+    // sem este gancho, "armar" so' o override desta TU nunca alcanca a
+    // alocacao real, e o destacar sempre sucede de verdade. No Windows/
+    // STATIC (GLINTFX_STATIC_DEFINE definido) err.cpp compila direto
+    // neste executavel, entao o override desta TU ja alcanca sozinho -
+    // este bloco compila fora la, mesma condicao que win_dll_alloc_
+    // hook.hpp's own header comment documenta.
+    glintfx_test::dll_alloc_hook dll_hook(L"glintfx.dll");
+    const std::size_t dll_calls_before = glintfx_test::hooked_call_count();
+    glintfx_test::arm_forced_failure();
+#endif
     g_force_alloc_failure = true;
     g_calls_to_allow_before_failure = 0;
 
     glintfx::gltfx_err &result_ref = copy.with_position(9, 9);
 
     g_force_alloc_failure = false;
+#if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
+    glintfx_test::disarm_forced_failure();
+    // REACH, provado, nao presumido (GODS_LAWS.md L-44/L-40, mesmo
+    // idioma que fixation_write_and_err_copy_oom_test.cpp's own CASO 3
+    // ja usa): patched_count() prova que o gancho conseguiu interceptar
+    // pelo menos um slot da IAT (fato de INSTALACAO); o delta abaixo
+    // prova que, com o gancho ATIVO, ele de fato OBSERVOU uma chamada
+    // real durante a janela armada - sem essa segunda asserção, "o
+    // destacar degradou" e "o gancho nunca foi exercitado" ficariam
+    // indistinguiveis (o mesmo "zero que significa duas coisas" que
+    // aquele arquivo ja documenta, aqui com o sentido invertido: o que
+    // se quer provar e' que a chamada ACONTECEU e foi FORCADA a falhar,
+    // nao que ficou em zero).
+    const std::size_t dll_calls_after = glintfx_test::hooked_call_count();
+    GLINTFX_CHECK(dll_hook.patched_count() > 0);
+    GLINTFX_CHECK(dll_calls_after > dll_calls_before);
+#endif
 
     const std::size_t override_calls = g_override_new_call_count;
     std::println("err_copy_on_write_test: sobreviveu ao alocador armado durante o destacar, "

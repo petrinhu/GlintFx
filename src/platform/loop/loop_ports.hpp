@@ -68,8 +68,19 @@ concept loop_clock_port = requires(K &clock) {
 // object the facade hands in, never through this view.
 template <loop_display_port D, loop_window_port W, loop_context_port C, loop_clock_port K>
 struct loop_ports {
+    // cppcheck-suppress uninitMemberVarNoCtor ; reason: `display` is a
+    // REFERENCE, not a scalar - the language itself forbids any
+    // construction path that leaves a reference member unbound
+    // (`loop_ports_t{}` and any braced-init that omits `.display` are
+    // both ill-formed, not merely risky), and the ONE real constructor
+    // site (make_loop_ports(), loop_facade.cpp) always sets all four.
+    // cppcheck's own heuristic does not special-case reference members
+    // the way the compiler does.
     D &display;
     const W &window;
+    // cppcheck-suppress uninitMemberVarNoCtor ; reason: same as
+    // `display` above - `context` is a reference, and make_loop_ports()
+    // is this aggregate's only constructor site, always setting it.
     C &context;
     K &clock;
 };

@@ -21,8 +21,8 @@
 // GODS_LAWS.md L-17's own DRY "regra de 3": the SAME unchecked-return
 // shape repeating 269 times across 18 files is the textbook case for
 // extracting the check ONCE, never scattering 269 near-identical
-// `if (... < 0) { ... }` blocks (or 269 NOLINT lines, each demanding
-// its own "reason:" under this project's own NOLINT policy) across the
+// `if (... < 0) { ... }` blocks (or 269 NOLINTNEXTLINE lines, each
+// demanding its own "reason:" under this project's own NOLINT policy) across the
 // fixtures themselves. This header is that one place - a plain,
 // non-project-namespaced diagnostic write has exactly one sane failure
 // response for a throwaway smoke-test fixture: if the fixture cannot

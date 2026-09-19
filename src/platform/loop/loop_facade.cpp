@@ -206,6 +206,18 @@ gltfx_rslt<void> gltfx_loop::run(gltfx_loop_callbacks callbacks) noexcept {
     return platform::loop_run(make_loop_ports(*m_impl, bound), m_impl->book, callbacks, owned);
 }
 
+// `callbacks` is FROZEN public API (GLINTFX_API, include/glintfx/
+// platform/loop/loop.hpp:517) - changing this parameter to a const
+// reference would change the exported symbol's ABI (GODS_LAWS.md
+// L-26), a one-way door this fatia does not open on its own judgment.
+// It is also a small (40-byte), trivially-copyable POD of five
+// pointer-sized fields (loop.hpp's own gltfx_loop_callbacks, the same
+// shape gltfx_log_sink/gltfx_gfss_cursor already use by value on
+// purpose - src/core/log/sink.cpp, src/gfss/declaration_list_parse.cpp)
+// - by-value is the deliberate idiom here, not an oversight.
+// cppcheck-suppress passedByValue ; reason: see the comment above -
+// changing this to a const reference would break the ABI of a frozen
+// public API function (GODS_LAWS.md L-26).
 gltfx_rslt<void> gltfx_loop::set_callbacks(gltfx_loop_callbacks callbacks) noexcept {
     assert(m_impl != nullptr && "gltfx_loop::set_callbacks() called on a moved-from loop - the "
                                 "object no longer owns an impl");

@@ -78,7 +78,13 @@ GLINTFX_TEST(gltfx_gfss_specificity_of_id_class_and_descendant_type_is_one_one_o
 namespace {
 
 struct simple_selector_kind_case {
-    gfss_simple_selector_kind kind;
+    // Every entry of k_simple_selector_kind_cases below sets `kind`
+    // explicitly, positionally - this default (the enum's own first
+    // value, selector_ast.hpp's own header comment) exists only so a
+    // future default-constructed instance is never left with an
+    // indeterminate enum value (cppcheck uninitMemberVarNoCtor); it is
+    // never the value any CHECK below actually exercises.
+    gfss_simple_selector_kind kind = gfss_simple_selector_kind::type;
     std::string_view name;
     gfss_specificity expected;
 };

@@ -1887,6 +1887,26 @@ run_debug_only() {
     echo "preci.sh --debug-only: VERDE"
 }
 
+# GATE-PS-SYNTAX-SERVER-GAP (TODO.md INBOX, achado do inventario de
+# exercicio da W2, 19/09/2026): stage_ps_syntax so' era alcancado por
+# run_full_pipeline, que so' e' despachado nos modos vazio e --fast - e
+# o CI nunca chama nenhum dos dois (chama --selftest/--lint-only/
+# --sanitizer-only/--debug-only), entao o portao nunca mordia no
+# servidor, so' se um humano rodasse o script inteiro a mao. Modo novo,
+# minimo, que isola so' este estagio - nao dobrado dentro de
+# run_lint_only (que roda no job `lint`, container `fedora:latest`: o
+# job usa `container:` no nivel do job, e nada garante `docker` de
+# verdade dentro dele sem docker-in-docker; stage_ps_syntax PRECISA de
+# `docker run` real, ver seu proprio comentario) - o modo novo e' o job
+# de CI proprio que roda direto no runner (sem `container:`), onde o
+# Docker do host ja esta disponivel sem nenhuma camada extra (mesmo
+# padrao do job `wayland-container`).
+run_ps_syntax_only() {
+    log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
+    stage_ps_syntax
+    echo "preci.sh --ps-syntax-only: VERDE"
+}
+
 run_win32_link_only() {
     strict_flag="${1:-}"
     log "estagio win32-link: alvos win32_* de tests/CMakeLists.txt ligados contra o cl.exe/link.exe real (GATE-WIN32-LINK)"
@@ -1938,13 +1958,13 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only [--strict]|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only [--strict]|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--win32-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -1974,6 +1994,9 @@ main() {
             ;;
         --debug-only)
             run_debug_only
+            ;;
+        --ps-syntax-only)
+            run_ps_syntax_only
             ;;
         --win32-link-only)
             run_win32_link_only "$extra"

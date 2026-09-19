@@ -346,11 +346,26 @@ não afirma resultado de execução, só existência do portão.
 **Gates que já existem e rodam hoje, em `tests/tools/`.** A lista cresce a cada gate novo; a
 versão anterior deste capítulo enumerava oito nomes e ficou pra trás. **Meça, não leia a lista:**
 `ls tests/tools/`. Os que os capítulos 2 e 3 deste documento já citam nominalmente
-(`check_layers.sh`, `check_exports.sh`) continuam entre eles. **Quase todos** são exercitados por
-`ctest` via `tests/CMakeLists.txt`, com duas exceções: `check_spdx.sh` e `check_vendor_purity.sh`
-não têm `add_test` nenhum lá (confira com `grep -n 'check_spdx\|check_vendor_purity'
-tests/CMakeLists.txt`, que não retorna nada), e rodam só como passo direto do job `leis` em
-`.github/workflows/ci.yml`. Comando real de hoje (`CLAUDE.md`): `ctest --test-dir build
+(`check_layers.sh` — nome desatualizado nos próprios capítulos 2/3, hoje é `check_layers.py`,
+correção fora do escopo desta fatia — e `check_exports.sh`) continuam entre eles.
+**`check_spdx.sh` e `check_vendor_purity.sh`, citados numa versão anterior deste parágrafo como as
+duas exceções sem `add_test`, foram apagados** (`AUDCAP9-FRESHNESS-GAP`, achado em 19/09/2026 pelo
+inventário de exercício da `W3`): portados para `check_spdx.py`/`check_vendor_purity.py`
+(`SPDX-GATE-PY`, `GATE-TREE-PARITY` — ver os comentários do job `leis` em
+`.github/workflows/ci.yml`), registrados como `ctest` (`spdx_test`/`spdx_selftest`,
+`vendor_purity_test`/`vendor_purity_selftest`) SEM guarda de sistema, nas cinco plataformas — não
+rodam mais como passo direto de job nenhum (confira com `grep -n 'check_spdx\|check_vendor_purity'
+tests/CMakeLists.txt`, que agora RETORNA as linhas de `add_test`, o oposto do que este parágrafo
+dizia antes). O job `leis`, que hospedava aquele passo direto, ficou reduzido a
+`actions/checkout@v7`: a lógica que vivia ali (`check_no_x11`, `check_spdx`, `check_vendor_purity`,
+`check_dup_laws`, `check_public_name_collision`) virou `ctest` Python, sem guarda de sistema.
+**Exceção real hoje, medida ao escrever este parágrafo:** `check_plan_scope_diff.py` — sem
+`add_test`, invocado à mão contra plano versionado (`TODO.md`, item `PLAN-SCOPE-COLUMNS`, ainda
+pendente). Este parágrafo tem portão de frescor próprio a partir de `AUDCAP9-FRESHNESS-GAP`
+(`tests/tools/check_auditorias_cap9_freshness.py`, `ctest` `audcap9_freshness_test`) — ele executa
+de verdade os `grep` prometidos acima e reprova se a lista de nomes de job ou a promessa de
+resultado divergir da árvore real; não cobre a frase sobre `check_plan_scope_diff.py`, que continua
+sendo fato lido, não medido. Comando real de hoje (`CLAUDE.md`): `ctest --test-dir build
 --output-on-failure`.
 
 **Não inventar comando para o que falta.** Este princípio continua valendo para o que ainda não

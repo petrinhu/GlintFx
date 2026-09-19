@@ -2120,6 +2120,62 @@ jobs:
           path: parity_inventory.txt
           retention-days: 7
 
+  # GATE-PS-SYNTAX-SERVER-GAP (TODO.md INBOX, achado do inventario de
+  # exercicio da onda W2, 19/09/2026, GODS_LAWS.md L-36/L-40): o portao
+  # de sintaxe PowerShell (stage_ps_syntax, tools/preci.sh) so era
+  # alcancado por run_full_pipeline, e o CI nunca chamava esse caminho
+  # completo - chamava --selftest/--lint-only/--sanitizer-only/
+  # --debug-only, nenhum dos quatro passa por stage_ps_syntax. O portao
+  # existia, era plausivel, e so mordia se um humano rodasse o script
+  # inteiro a mao.
+  #
+  # POR QUE JOB PROPRIO, SEM CONTAINER, EM VEZ DE DOBRAR DENTRO DO JOB
+  # `lint`: `lint` roda com `container: fedora:latest` (nivel do JOB,
+  # nao um passo `docker run` dentro dele) - stage_ps_syntax PRECISA de
+  # `docker run` real contra a imagem pwsh (ver o proprio comentario do
+  # estagio em tools/preci.sh), e nao ha docker-in-docker configurado
+  # para jobs containerizados nesta matriz, nem o pacote `docker`
+  # instalado dentro da imagem `fedora:latest` que o job `lint` usa.
+  # Um job separado, `runs-on: ubuntu-latest` SEM `container:` (mesmo
+  # padrao do job `wayland-container` abaixo), fala com o Docker do
+  # proprio runner sem nenhuma camada extra.
+  #
+  # CUSTO EM TEMPO DE SERVIDOR (a pergunta que importa antes de
+  # acrescentar job novo - o `windows-lint` ja leva ~45min e o lider
+  # repara em tempo de CI): a imagem `mcr.microsoft.com/powershell:latest`
+  # pesa 128 MB medidos localmente (`docker image inspect ... --format
+  # '{{.Size}}'`) - pull rapido na rede do runner, e o parser embutido
+  # so' le 15 arquivos *.ps1 rastreados hoje (`git ls-files '*.ps1' | wc
+  # -l`), sem compilar nada. Este job nao builda C++, nao roda ctest, e
+  # nao compartilha nada caro com `lint`/`sanitizer`/`debug` - o custo
+  # inteiro e' "baixar 128 MB uma vez e parsear 15 arquivos de texto",
+  # ordens de grandeza abaixo do build+analise estatica do Windows.
+  #
+  # `docker pull` aqui, e' o WORKFLOW que pulla (nunca o script): o
+  # proprio tools/preci.sh se recusa a puxar a imagem sozinho, de
+  # proposito ("nada de rede" no dia a dia local, ver o comentario de
+  # GLINTFX_PS_IMAGE ali) - isso continua verdade neste job: quem
+  # povoa o cache antes de chamar --ps-syntax-only e' o passo abaixo,
+  # nao o script. Nome da imagem lido de dentro de tools/preci.sh via
+  # grep (fonte unica, nunca reescrito aqui - duas copias do mesmo nome
+  # e' exatamente a classe de gemeo que diverge, GODS_LAWS.md L-17).
+  ps-syntax:
+    name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Popular o cache da imagem pwsh (GLINTFX_PS_IMAGE)
+        run: |
+          set -eux
+          img="$(grep -oP "readonly GLINTFX_PS_IMAGE='\K[^']+" tools/preci.sh)"
+          docker pull "$img"
+
+      - name: preci.sh --ps-syntax-only
+        run: |
+          set -eux
+          tools/preci.sh --ps-syntax-only
+
   # LACUNA 2 (GODS_LAWS.md L-04, medido pelo lider antes desta fatia):
   # o job `lint` acima roda em Fedora/Linux - src/platform/CMakeLists.txt
   # so entra em src/platform/win32/ quando WIN32 e verdadeiro

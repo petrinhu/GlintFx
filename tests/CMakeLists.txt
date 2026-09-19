@@ -4060,6 +4060,66 @@ add_test(
 )
 set_tests_properties(claude_md_state_numbers_selftest PROPERTIES LABELS selftest)
 
+# AUDITORIAS.md capitulo 9 freshness gate (AUDCAP9-FRESHNESS-GAP,
+# TODO.md INBOX, achado do inventario de exercicio da onda W3,
+# 19/09/2026): DOC-AUDCAP9 corrigiu texto obsoleto naquele capitulo uma
+# unica vez a mao (28/08/2026) e nada mecanico ficou vigiando-o depois -
+# os dois gates de frescor acima (README/CLAUDE.md) nunca olharam para
+# AUDITORIAS.md. Escopo deliberadamente estreito ao capitulo 9 (o
+# capitulo cita numero legitimo o tempo todo - "capitulo 2 e 3", "nove
+# capitulos" - um escaneamento de digito cru como os dois gates acima
+# produziria falso positivo aos montes; ver o cabecalho do proprio
+# script para os tres fatos concretos que de fato apodrecem ali: nomes
+# de job entre crases, contagem por extenso da lista de jobs, e as
+# proprias promessas "confira com `grep ...`" do capitulo, executadas de
+# verdade contra a arvore). Registrado SEM guarda de plataforma
+# (GODS_LAWS.md L-04): le texto e executa grep-equivalente em Python
+# puro, sem depender do binario `grep` no PATH do job `windows`.
+add_test(
+    NAME audcap9_freshness_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_auditorias_cap9_freshness.py"
+        "${PROJECT_SOURCE_DIR}/AUDITORIAS.md"
+)
+set_tests_properties(audcap9_freshness_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME audcap9_freshness_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_auditorias_cap9_freshness.py" --selftest
+)
+set_tests_properties(audcap9_freshness_selftest PROPERTIES LABELS selftest)
+
+# README.md "On Windows" build-recipe freshness gate (README-WIN-DRIFT-GAP,
+# TODO.md INBOX, achado correlato do inventario de exercicio da onda
+# W3-B, 19/09/2026): a sincronia entre a receita manual do README e o
+# job `windows` do ci.yml foi conferida a mao uma unica vez (28/08/2026)
+# e nunca mais - se o ci.yml mudar, o README fica pra tras em silencio.
+# Nao e' o mesmo desenho de check_readme_volatile_numbers.py (prosa
+# livre sem digito, escopo largo): aqui a prosa e' free-form de
+# proposito (narra o PORQUE do Ninja/vcvarsall) e nao pode ser diffada
+# palavra a palavra sem reprovar por parafrase; o gate verifica so' as
+# TRES ancoras fixas que o proprio paragrafo cita entre aspas/crases
+# (nome do passo, marcador de comentario, "Ninja exclusively") - ver o
+# cabecalho do proprio script para a razao completa de nao tentar mais
+# que isso. Registrado SEM guarda de plataforma (GODS_LAWS.md L-04): le
+# dois arquivos de texto, nao builda nada.
+add_test(
+    NAME readme_windows_build_anchors_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_windows_build_anchors.py"
+        "${PROJECT_SOURCE_DIR}/README.md"
+        "${PROJECT_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(readme_windows_build_anchors_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME readme_windows_build_anchors_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_readme_windows_build_anchors.py" --selftest
+)
+set_tests_properties(readme_windows_build_anchors_selftest PROPERTIES LABELS selftest)
+
 # Pre-commit hook chain gate (TODO.md INBOX drenagem 06/09/2026,
 # GODS_LAWS.md L-36/L-40): tools/git-hooks/pre-commit is a plain text
 # file this repository's own tree can read directly, so this gate reads

@@ -84,14 +84,30 @@ def fail(message):
 
 def find_row_line(plan_text, marker):
     """Returns the ONE line of `plan_text` that both starts a markdown
-    table row (`| <digits> |`) and contains `marker` - never just "row
-    number N", because this document has more than one table that
-    numbers its own rows starting at 1 (this script's own header
-    comment explains why that ambiguity is real, not hypothetical)."""
+    table row (`| <digits><letras?> |`) and contains `marker` - never
+    just "row number N", because this document has more than one table
+    that numbers its own rows starting at 1 (this script's own header
+    comment explains why that ambiguity is real, not hypothetical).
+
+    CONSERTO (TODO.md, PLAN-SCOPE-REGEX-BLIND, achado 08/09/2026 pelo
+    agente de fechamento da W6b): a forma antiga (`\\d+` sozinho) exigia
+    identificador de fatia PURAMENTE numerico - as fatias `2a`, `5b` e
+    `5c` do plano da onda W6b (docs/plano-w6b-placa-e-laco.md) NUNCA
+    casavam, entao find_row_line() nunca encontrava a linha e fail()
+    disparava com "nenhuma linha... encontrada" - uma mensagem que nao
+    fala nada sobre o conteudo real da fatia (o caminho prometido que
+    faltava). Foi assim que a fatia 5c (GFX-PRESET) ficou sem ser
+    entregue e sem ninguem notar por maquina: o portao nunca chegou
+    perto de checar a existencia dos caminhos, so errou cedo demais,
+    com um motivo que nada tem a ver com escopo. O padrao novo aceita
+    um sufixo de letras minusculas depois do digito (`2a`, `5b`, `5c`),
+    a forma real usada nos planos deste projeto - e continua rejeitando
+    a linha de cabecalho (`| # | Fatia | ...`, `#` nao e digito) e
+    qualquer prosa que nao comece por `| <numero><letras?> |`."""
     matches = [
         line
         for line in plan_text.splitlines()
-        if re.match(r"^\|\s*\d+\s*\|", line) and marker in line
+        if re.match(r"^\|\s*\d+[a-z]*\s*\|", line) and marker in line
     ]
     if len(matches) == 0:
         fail(f"nenhuma linha de tabela (\"| N | ...\") contendo o marcador {marker!r} encontrada")
@@ -629,6 +645,82 @@ def selftest_ambiguous_marker_reproves():
         Path(plan_path).unlink(missing_ok=True)
 
 
+def selftest_alphanumeric_fatia_id_found_and_absolved(tmp_path):
+    """PLAN-SCOPE-REGEX-BLIND (TODO.md): uma fatia `5c` (a forma REAL
+    usada em docs/plano-w6b-placa-e-laco.md, linha 127 - GFX-PRESET)
+    cujo unico caminho prometido EXISTE tem que ser encontrada e
+    absolvida (exit 0) - antes do conserto, find_row_line() nunca
+    encontrava a linha, entao nem chegava a checar existencia nenhuma."""
+    marker = "MARCADOR-5C-ABSOLVE"
+    good_path = "src/platform/gl/gfx_preset_table.hpp"
+    (tmp_path / good_path).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / good_path).write_text("", encoding="utf-8")
+    plan_path = tmp_path / "plano-5c-ok.md"
+    plan_path.write_text(
+        "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
+        "|---|---|---|---|---|---|---|\n"
+        f"| 5c | **{marker}** | comum | `{good_path}` | p | q | r |\n",
+        encoding="utf-8",
+    )
+    try:
+        real_main([str(plan_path), "--marker", marker, "--root", str(tmp_path)])
+    except SystemExit as exc:
+        print(
+            f"selftest: fatia alfanumerica ('5c') com caminho existente reprovou inesperadamente "
+            f"(codigo {exc.code}) - find_row_line() ainda esta cega para identificador nao-numerico",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: fatia alfanumerica ('5c') com caminho existente e' encontrada e absolvida - ok")
+    return True
+
+
+def selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path):
+    """A METADE que faz a fatia PLAN-SCOPE-REGEX-BLIND grave: antes do
+    conserto, uma fatia `5c` com caminho FALTANDO nao reprovava pelo
+    motivo real (arquivo ausente) - reprovava, se reprovasse, com
+    'nenhuma linha... encontrada', uma mensagem que nao fala nada sobre
+    o caminho prometido. Isto e' o que deixou GFX-PRESET (a fatia 5c
+    real de docs/plano-w6b-placa-e-laco.md) sem ser entregue e sem
+    ninguem notar por maquina. O conserto tem que reprovar CITANDO o
+    caminho ausente, nao com a mensagem antiga de linha nao encontrada."""
+    marker = "MARCADOR-5C-GAP"
+    missing_path = "does/not/exist_gfx_preset.cpp"
+    plan_path = tmp_path / "plano-5c-gap.md"
+    plan_path.write_text(
+        "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
+        "|---|---|---|---|---|---|---|\n"
+        f"| 5c | **{marker}** | comum | `{missing_path}` | p | q | r |\n",
+        encoding="utf-8",
+    )
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stderr(buffer):
+        try:
+            real_main([str(plan_path), "--marker", marker, "--root", str(tmp_path)])
+        except SystemExit as exc:
+            stderr_text = buffer.getvalue()
+            if exc.code == 1 and missing_path in stderr_text and "ausente da arvore" in stderr_text:
+                print(
+                    "selftest: fatia alfanumerica ('5c') com caminho ausente reprova CITANDO o "
+                    "caminho real (nao mais 'linha nao encontrada') - ok"
+                )
+                return True
+            print(
+                f"selftest: reprovou pelo motivo ERRADO ou codigo errado (codigo {exc.code}): "
+                f"{stderr_text!r}",
+                file=sys.stderr,
+            )
+            return False
+    print(
+        "selftest: fatia alfanumerica ('5c') com caminho ausente NAO reprovou - esperado exit 1",
+        file=sys.stderr,
+    )
+    return False
+
+
 def selftest_main():
     import tempfile
     from pathlib import Path as _Path
@@ -640,6 +732,8 @@ def selftest_main():
             selftest_end_to_end_column_offset(),
             selftest_zero_candidates_reproves(),
             selftest_ambiguous_marker_reproves(),
+            selftest_alphanumeric_fatia_id_found_and_absolved(tmp_path),
+            selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path),
             selftest_declared_absence_with_open_item_accepted(tmp_path),
             selftest_declared_absence_with_concluded_item_dies(tmp_path),
             selftest_undeclared_absence_reproves(tmp_path),

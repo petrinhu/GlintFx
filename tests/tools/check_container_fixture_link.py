@@ -352,9 +352,55 @@ def is_wayland_scanner_line(subcommand):
 # mais facil, busque o melhor e mais completo." Quoting closes the
 # family (any special character a path can carry), not just the one
 # character this run's log happened to show.
+# CONSERTO (TODO.md, LINK-PREFIX-SUBSTRING, achado colateral em
+# 08/09/2026 durante a reconstrucao do defeito de barra invertida
+# acima): a forma antiga fazia `subcommand.replace("/build", ...)` na
+# string INTEIRA, inclusive DENTRO do token do compilador (o unico
+# token shlex.quote()'d desta linha - ver _build_base_fixture()'s
+# proprio comentario acima, "quoted_compiler"). Nesta MESMA maquina,
+# TMPDIR=/var/tmp/builds contem a substring literal "/build" (os seis
+# primeiros caracteres de "/builds" JA SAO "/build") - qualquer
+# compilador descoberto sob esse TMPDIR (--selftest's own discover_
+# selftest_compiler(), 2a fonte: busca no PATH) tem "/build" embutido
+# no proprio caminho, sem NENHUMA relacao com o prefixo "/build" que
+# este portao promete reescrever. A troca cega corrompia esse caminho
+# no MEIO ("/var/tmp/builds/g++" virava "/var/tmp/<build_dir>s/g++",
+# medido literalmente como "/var/tmp/var/tmp/builds/.../s/g++: Arquivo
+# ou diretorio inexistente"), matando o compilador - e o pior efeito
+# colateral: o controle VERMELHO (que deveria reprovar por "undefined
+# reference to atom_value()", o defeito real que este arquivo inteiro
+# existe para pegar) reprovava pelo motivo ERRADO (compilador ausente),
+# mascarando o sinal real atras de um sinal falso.
+#
+# TENTATIVA REJEITADA, deixada aqui porque o proprio conserto real so'
+# se entende contra ela: "proteger so' o que esta entre aspas simples"
+# (a primeira forma deste conserto) parecia certo - o compilador e' o
+# UNICO token shlex.quote()'d desta linha - mas shlex.quote() SO' aspa
+# quando o texto tem caractere especial (espaco, por exemplo); um
+# caminho "seguro" como "/var/tmp/builds/.../g++" (sem espaco) sai de
+# shlex.quote() BYTE A BYTE IGUAL, sem aspa nenhuma - medido ao rodar a
+# reproducao contra este mesmo caminho, que continuou corrompido depois
+# da "primeira forma" do conserto, exigindo a segunda tentativa abaixo.
+#
+# O conserto real ancora a troca por LIMITE DE TOKEN, nao por aspa: o
+# Containerfile's proprio texto SO' cita "/build" como o PRIMEIRO
+# caractere de um token inteiro (precedido de espaco/quebra-de-linha/
+# inicio da string - nunca colado a outro texto, medido antes de
+# escrever esta funcao original - ver o comentario de rewrite_build_
+# prefix acima). Um caminho HOST-DESCOBERTO (compilador) que contenha
+# "/build" no MEIO de si mesmo (ex.: "/var/tmp/builds/.../g++", onde
+# "/build" comeca logo depois de "tmp", nao no inicio do token) falha o
+# lookbehind "nao precedido por caractere que nao seja espaco" e fica
+# INTOCADO. O lookahead ("/", espaco ou fim) evita casar um token que
+# so' COMECA como "/build" mas continua com outra palavra (ex.:
+# hipotetico "/buildtools", que nunca ocorre no Containerfile real,
+# mas fecha a familia por construcao, nao so o caso medido).
+_BUILD_PREFIX_TOKEN_RE = re.compile(r"(?<!\S)/build(?=/|\s|$)")
+
+
 def rewrite_build_prefix(subcommand, build_dir):
     build_dir_for_shell = build_dir.replace("\\", "/")
-    return subcommand.replace("/build", build_dir_for_shell)
+    return _BUILD_PREFIX_TOKEN_RE.sub(lambda _m: build_dir_for_shell, subcommand)
 
 
 def run_subcommand(subcommand, build_dir):
@@ -744,6 +790,64 @@ def selftest_missing_atom_reproves(scratch, compiler):
     return True
 
 
+# LINK-PREFIX-SUBSTRING (TODO.md): controle PURO sobre rewrite_build_
+# prefix() em si, sem depender de compilador nenhum nem de um TMPDIR
+# especifico de host - ao contrario dos controles acima (que so'
+# expuseram o defeito real quando o compilador descoberto do PATH
+# calhava de morar sob um TMPDIR que contem "/build" no meio, como
+# TMPDIR=/var/tmp/builds desta maquina), este roda em toda plataforma,
+# sempre, com um caminho HOST-DESCOBERTO fabricado deliberadamente para
+# conter "/build" no MEIO (nunca no inicio de um token) - a forma
+# exata que corrompia o compilador antes do conserto (medido ao vivo:
+# "/var/tmp/builds/glintfx-repro-compiler-dir/g++" virava "/var/tmp/
+# var/tmp/builds/.../s/glintfx-repro-compiler-dir/g++", "Arquivo ou
+# diretorio inexistente").
+def selftest_rewrite_build_prefix_ignores_unrelated_build_substring():
+    unrelated_compiler_path = "/opt/tmp/builds/host-discovered-compiler/g++"
+    subcommand = (
+        f"{unrelated_compiler_path} -std=c++23 -O2 -Wall -Wextra -Werror "
+        "-I /build/_arch_ports_src/src -o /build/main_smoke "
+        "/build/_arch_ports_src/src/consumer.cpp /build/main_smoke.cpp"
+    )
+    build_dir = "/tmp/real-build-dir"
+    rewritten = rewrite_build_prefix(subcommand, build_dir)
+
+    checks = [
+        (
+            unrelated_compiler_path in rewritten,
+            "caminho HOST-DESCOBERTO (contem '/build' no MEIO, nunca no inicio de um "
+            "token) foi corrompido pela troca",
+        ),
+        (
+            f"{build_dir}/_arch_ports_src/src " in rewritten,
+            "placeholder '-I /build/_arch_ports_src/src' (autorado pelo Containerfile) "
+            "nao foi reescrito",
+        ),
+        (
+            f"{build_dir}/main_smoke " in rewritten,
+            "placeholder '-o /build/main_smoke' (autorado pelo Containerfile) nao foi "
+            "reescrito",
+        ),
+        (
+            f"{build_dir}/_arch_ports_src/src/consumer.cpp" in rewritten,
+            "placeholder do caminho de consumer.cpp (autorado pelo Containerfile) nao "
+            "foi reescrito",
+        ),
+    ]
+    ok = True
+    for passed, why in checks:
+        if not passed:
+            print(f"selftest: REWRITE-PREFIX FALHOU ({why}): {rewritten!r}", file=sys.stderr)
+            ok = False
+    if ok:
+        print(
+            "selftest: REWRITE-PREFIX OK (caminho host-descoberto com '/build' no meio "
+            f"sobrevive intocado; os quatro placeholders do Containerfile foram "
+            f"reescritos): {rewritten!r}"
+        )
+    return ok
+
+
 def selftest_empty_containerfile_reproves(scratch):
     root = os.path.join(scratch, "empty")
     context_dir = os.path.join(root, "tests", "container")
@@ -961,7 +1065,13 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
 
     scratch = _make_scratch()
     try:
-        named_results = [("empty", selftest_empty_containerfile_reproves(scratch))]
+        named_results = [
+            ("empty", selftest_empty_containerfile_reproves(scratch)),
+            (
+                "rewrite-prefix",
+                selftest_rewrite_build_prefix_ignores_unrelated_build_substring(),
+            ),
+        ]
         if compiler:
             named_results.append(("positive", selftest_positive_control(scratch, compiler)))
             named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
@@ -989,7 +1099,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
     ran = [ok for _name, ok in named_results if ok is not None]
     skipped = [name for name, ok in named_results if ok is None]
     print(
-        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/7 | "
+        f"{SCRIPT_NAME} --selftest: controles executados: {len(ran)}/{len(named_results)} | "
         f"pulados (sem compilador): {len(skipped)} ({', '.join(skipped) if skipped else 'nenhum'})"
     )
 

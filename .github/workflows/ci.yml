@@ -2470,23 +2470,79 @@ jobs:
             exit 1
           }
 
-          $analisados = 0
-          $comFalha = @()
-          foreach ($arquivo in $noBanco) {
-            Write-Host "--- clang-tidy: $arquivo ---"
-            clang-tidy -p build-lint --quiet $arquivo
-            $rc = $LASTEXITCODE
-            $analisados++
-            if ($rc -ne 0) {
-              $comFalha += $arquivo
-            }
-          }
+          # PARALELIZACAO (GODS_LAWS.md L-04/L-17/L-36/L-40, 19/09/2026,
+          # ordem do lider apos pesquisa trazida por ele): este passo
+          # media ~45min contra os ~poucos minutos dos outros 23 jobs do
+          # servidor - o gargalo inteiro da execucao. Causa medida (nao
+          # suposta): o job `lint` do Fedora ja usa `run-clang-tidy`
+          # (tools/preci.sh:618), que paraleliza por padrao; este laco
+          # era o UNICO lugar do CI ainda chamando clang-tidy.exe UM
+          # ARQUIVO POR VEZ, em serie, para 111 arquivos (`git ls-files
+          # -- 'src/*.cpp' | wc -l` em 19/09/2026). Fonte da tecnica:
+          # relato medido de terceiro reduzindo lint de ~3min para ~30s
+          # ao trocar for-serial por `ForEach-Object -Parallel`
+          # (developercommunity.visualstudio.com/t/Run-clang-tidy-in-
+          # parallel/10889295). Cache de analise (clang-tidy-cache) e
+          # troca de motor (clangd-tidy) ficaram de fora desta fatia por
+          # decisao do lider - exigem ferramenta nova (GODS_LAWS.md L-51),
+          # e ele quis medir o ganho da paralelizacao pura primeiro.
+          #
+          # GEMEOS (L-17): procurada toda ocorrencia de `clang-tidy -p`
+          # neste arquivo e em tools/preci.sh - so existem duas: esta
+          # (Windows) e a de preci.sh:618 (Linux, ja paralela via
+          # run-clang-tidy). O passo que antes rodava SO
+          # src/platform/win32/ em serie (citado no cabecalho desta
+          # fatia acima, "clang-tidy - src/platform/win32") ja tinha
+          # sido CONSOLIDADO neste mesmo passo pela fatia F6 de
+          # 18/09/2026 (alargamento de win32-so para src/ inteiro) -
+          # nao sobrou irmao serial para consertar aqui, 0 encontrados
+          # alem deste.
+          #
+          # GRAU DE PARALELISMO: $env:NUMBER_OF_PROCESSORS, os nucleos
+          # logicos REAIS deste executor (nunca um numero chutado) - o
+          # runner padrao `windows-latest` de repositorio PUBLICO (este
+          # projeto e AGPL-3.0 publico, CLAUDE.md) tem 4 vCPU/16GB
+          # (docs.github.com/en/actions/reference/runners/larger-runners,
+          # "Standard GitHub-hosted runners for public repositories"),
+          # entao o valor esperado e 4; lido em runtime em vez de
+          # hardcoded porque a GitHub pode trocar o tamanho do runner
+          # padrao sem aviso, e o job continua correto nos dois casos.
+          # Fallback 4 so se a variavel vier vazia (nunca visto
+          # acontecer, defesa contra ambiente exotico).
+          $dop = if ($env:NUMBER_OF_PROCESSORS) { [int]$env:NUMBER_OF_PROCESSORS } else { 4 }
+          Write-Host "grau de paralelismo (ForEach-Object -Parallel -ThrottleLimit): $dop (env:NUMBER_OF_PROCESSORS)"
 
-          # analisados == no_banco por CONSTRUCAO ($noBanco e a MESMA
-          # lista percorrida acima) - checagem explicita mantida aqui
-          # de proposito (GODS_LAWS.md L-36: uma edicao futura que
-          # quebre essa igualdade tem que reprovar alto e cedo, nunca
-          # voltar a mentir em silencio).
+          # Caminho absoluto de build-lint, capturado FORA do bloco
+          # paralelo e injetado via $using: - cada iteracao de
+          # ForEach-Object -Parallel roda num runspace PROPRIO, que nao
+          # herda variavel nenhuma do escopo de fora sem $using:
+          # (diferenca de contadores como $analisados/$comFalha do laco
+          # antigo, que se perderiam em silencio se so fossem
+          # incrementados/anexados de dentro do paralelo - por isso a
+          # contagem abaixo NAO usa contador compartilhado nenhum,
+          # usa a saida do proprio pipeline, que o PowerShell agrega de
+          # forma thread-safe por construcao).
+          $buildLintPath = (Resolve-Path "build-lint").Path
+
+          $resultados = @($noBanco | ForEach-Object -Parallel {
+            $arquivo = $_
+            $buildDir = $using:buildLintPath
+            $saida = & clang-tidy -p $buildDir --quiet $arquivo 2>&1
+            $rc = $LASTEXITCODE
+            Write-Host "--- clang-tidy: $arquivo ---"
+            if ($saida) { $saida | ForEach-Object { Write-Host $_ } }
+            [PSCustomObject]@{ Arquivo = $arquivo; Rc = $rc }
+          } -ThrottleLimit $dop)
+
+          # analisados vem da CONTAGEM REAL de objetos que voltaram do
+          # pipeline paralelo, nunca de um contador incrementado dentro
+          # do runspace (esse se perderia) - se um runspace morrer sem
+          # emitir objeto, $resultados.Count cai sozinho e a checagem
+          # abaixo reprova alto e cedo (GODS_LAWS.md L-36, armadilha do
+          # lote agora vale tambem para o modo paralelo).
+          $analisados = $resultados.Count
+          $comFalha = @($resultados | Where-Object { $_.Rc -ne 0 } | ForEach-Object { $_.Arquivo })
+
           Write-Host "Analisados $analisados de $($noBanco.Count) arquivo(s) no banco."
           if ($analisados -ne $noBanco.Count) {
             Write-Error "Cobertura perdida: no_banco $($noBanco.Count), analisados $analisados - o lote morreu no meio (GODS_LAWS.md L-36, armadilha do lote)."

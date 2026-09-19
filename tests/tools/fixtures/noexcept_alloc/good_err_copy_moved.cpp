@@ -8,9 +8,14 @@
 // a biblioteca inteira nunca move um erro, so' copia ou constroi novo.
 // Este fixture prova que, SE algum dia um sitio usar `std::move`, o
 // detector o absolve corretamente.
+//
+// Namespace NOMEADO (mesma razao das 4 fixturas-irmas desta pasta -
+// ver o comentario em bad_err_copy_accessor.cpp: `namespace { ... }`
+// anonimo sozinho nao evita `ctuOneDefinitionRuleViolation` do
+// cppcheck, item TODO.md CPPCHECK-ODR-FALSO-NAS-FIXTURES-DE-ERRCOPY).
 #include <utility>
 
-namespace {
+namespace fixture_good_err_copy_moved {
 
 struct gltfx_err {
     explicit gltfx_err(int code) : m_code(code) {}
@@ -26,4 +31,4 @@ gltfx_rslt<int> forward_error(gltfx_err error) noexcept {
     return gltfx_rslt<int>::err(std::move(error));
 }
 
-} // namespace
+} // namespace fixture_good_err_copy_moved

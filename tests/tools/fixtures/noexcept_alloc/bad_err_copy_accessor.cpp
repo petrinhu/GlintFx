@@ -11,7 +11,16 @@
 // dentro de `open() noexcept`, sem `try`) - por isso este arquivo
 // tambem serve de CALIBRACAO deste portao (DEGRAU 4b de run_gate(),
 // roda em toda execucao real, nao so' no --selftest).
-namespace {
+//
+// Namespace NOMEADO, nao anonimo (item TODO.md
+// CPPCHECK-ODR-FALSO-NAS-FIXTURES-DE-ERRCOPY): `namespace { ... }`
+// sozinho nao evita `ctuOneDefinitionRuleViolation` do cppcheck entre
+// as 5 fixtures desta pasta que declaram `gltfx_err`/`gltfx_rslt` -
+// medido ao vivo, o matcher `ctu` normaliza o namespace anonimo para
+// o MESMO texto de escopo em toda TU. Um nome UNICO por arquivo
+// resolve; o TEXTO do tipo continua `gltfx_err` (e' nisso que
+// classify_err_copy_arg ancora).
+namespace fixture_bad_err_copy_accessor {
 
 struct gltfx_err {
     explicit gltfx_err(int code) : m_code(code) {}
@@ -32,4 +41,4 @@ gltfx_rslt<void> bind_seat(gltfx_rslt<int> seat_proxy) noexcept {
     return gltfx_rslt<void>::err(gltfx_err(0));
 }
 
-} // namespace
+} // namespace fixture_bad_err_copy_accessor

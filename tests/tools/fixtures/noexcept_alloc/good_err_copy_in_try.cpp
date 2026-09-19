@@ -10,9 +10,14 @@
 // src/platform/gl/gpu_enumeration_facade.cpp:92 e :154 - por isso
 // este arquivo tambem serve de CALIBRACAO deste portao (DEGRAU 4b de
 // run_gate(), roda em toda execucao real, nao so' no --selftest).
+//
+// Namespace NOMEADO (mesma razao das 4 fixturas-irmas desta pasta -
+// ver o comentario em bad_err_copy_accessor.cpp: `namespace { ... }`
+// anonimo sozinho nao evita `ctuOneDefinitionRuleViolation` do
+// cppcheck, item TODO.md CPPCHECK-ODR-FALSO-NAS-FIXTURES-DE-ERRCOPY).
 #include <new>
 
-namespace {
+namespace fixture_good_err_copy_in_try {
 
 struct gltfx_err {
     explicit gltfx_err(int code) : m_code(code) {}
@@ -32,4 +37,4 @@ gltfx_rslt<int> forward_error_guarded(const gltfx_err &error) noexcept {
     }
 }
 
-} // namespace
+} // namespace fixture_good_err_copy_in_try

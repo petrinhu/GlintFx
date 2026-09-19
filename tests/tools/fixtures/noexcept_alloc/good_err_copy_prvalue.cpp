@@ -8,7 +8,12 @@
 // impede o detector de acusar TODO `::err(` (plano.md secao 6): 26
 // dos 179 sitios reais sao exatamente esta forma
 // ("PRVALUE_trivial"), e nenhum e' defeito.
-namespace {
+//
+// Namespace NOMEADO (mesma razao das 4 fixturas-irmas desta pasta -
+// ver o comentario em bad_err_copy_accessor.cpp: `namespace { ... }`
+// anonimo sozinho nao evita `ctuOneDefinitionRuleViolation` do
+// cppcheck, item TODO.md CPPCHECK-ODR-FALSO-NAS-FIXTURES-DE-ERRCOPY).
+namespace fixture_good_err_copy_prvalue {
 
 struct gltfx_err {
     explicit gltfx_err(int code) : m_code(code) {}
@@ -22,4 +27,4 @@ template <typename T> struct gltfx_rslt {
 
 gltfx_rslt<int> out_of_memory() noexcept { return gltfx_rslt<int>::err(gltfx_err(2)); }
 
-} // namespace
+} // namespace fixture_good_err_copy_prvalue

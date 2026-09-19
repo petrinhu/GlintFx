@@ -177,7 +177,7 @@ std::atomic<std::size_t> g_override_new_call_count{0};
 void declare_err_copy_oom_forcing_not_applicable() {
     std::println(stderr,
                  "fixation_write_and_err_copy_oom_test: "
-                 "err_copy_with_attached_context_throws_a_catchable_bad_alloc_when_forced "
+                 "err_copy_with_attached_context_never_allocates_after_err_copy_fix "
                  "declared NOT APPLICABLE under MSVC AddressSanitizer (learn.microsoft.com/cpp/"
                  "sanitizers/asan-known-issues + asan-runtime, same citation err_context_test.cpp "
                  "already gives in full: ASan's own operator new wins by linker precedence, AND "
@@ -377,12 +377,36 @@ GLINTFX_TEST(fixation_fixed_copy_into_window_style_optional_does_allocate) {
 }
 
 // CASO 3 (gpu_enumeration_facade.cpp, `query()`'s own Windows branch,
-// PRIMEIRA METADE do conserto): copiar um gltfx_err QUE CARREGA
+// PRIMEIRA METADE do conserto) - AMENDA, ESCOPO.md Decisao 17 / TODO.md
+// ERR-COPY-FIX (fatia F4 da onda W-ERRCOPY, o conserto que torna a
+// copia de gltfx_err noexcept e livre de alocacao, contexto
+// compartilhado + copia-na-escrita, src/core/err.cpp): O PARAGRAFO
+// ORIGINAL ABAIXO (mantido, riscado apenas em prosa, nunca apagado -
+// GODS_LAWS.md L-67 do global: o que o lider revoga e' apagado, o que
+// um FATO NOVO supera fica registrado como superado) descrevia um
+// mecanismo que DEIXOU DE EXISTIR: "copiar um gltfx_err QUE CARREGA
 // CONTEXTO aloca de verdade, e sob alocador armado lanca std::bad_
-// alloc CAPTURAVEL - ao contrario da familia A (c6, RELATORIO.md,
-// citado no comentario corrigido de gl_context_facade.cpp), onde nem o
-// catch salva. Isto e' o que torna o degrau 2 (capturar e converter)
-// uma escolha honesta para ESTE sitio e nao para o outro.
+// alloc CAPTURAVEL". Isso era verdade ANTES desta fatia (copia
+// profunda, `new err_context(*other.m_context)`, forma que lanca,
+// SEMPRE que a origem carregava contexto) e passou a ser FALSO depois
+// dela: a copia agora so' compartilha um ponteiro e incrementa um
+// contador atomico - nunca aloca, e por isso nunca lanca, mesmo sob o
+// MESMO alocador armado que este caso usa. O `try`/`catch` real em
+// gpu_enumeration_facade.cpp (o sitio que este caso documenta)
+// continua correto e inofensivo - so' deixou de ter algo para
+// capturar NESTE ponto especifico; auditar se ele deve ser removido e'
+// trabalho do "isolado ou padrao?" (GODS_LAWS.md L-17 do projeto,
+// TODO.md ERR-COPY-TWINS, F5 da onda W-ERRCOPY), nao desta fatia.
+//
+// O QUE ESTE CASO PROVA AGORA, COM O TIPO REAL, SOB O MESMO ALOCADOR
+// ARMADO: nem o construtor de copia trivial (ja provado por
+// err_trivial_code_only_fallback_never_allocates_even_when_forced,
+// abaixo) NEM a copia de um erro QUE CARREGA CONTEXTO alocam sob falta
+// de memoria total - a MESMA garantia que tests/err_no_alloc_test.cpp
+// ::context_bearing_error_copy_allocates_zero_times ja conta (T2 da
+// onda W-ERRCOPY), reprovada aqui de novo, contra o MESMO alocador
+// armado que reprovava este caso antes do conserto (prova negativa
+// virou prova positiva, mesmo instrumento).
 //
 // UNICO caso deste arquivo que cruza para dentro de glintfx.dll (ver o
 // comentario de armadilha no topo do arquivo): `gltfx_err`'s own copy
@@ -390,19 +414,38 @@ GLINTFX_TEST(fixation_fixed_copy_into_window_style_optional_does_allocate) {
 // TU's own operator new override (acima) nunca alcanca essa alocacao -
 // dll_alloc_hook (harness/win_dll_alloc_hook.hpp) fecha o buraco
 // patcheando a IAT de glintfx.dll de fora, o MESMO mecanismo que
-// err_context_test.cpp's own allocator_reach_probe ja usa e prova
-// funcionar nos legs Windows compartilhado/Debug (servidor run que
-// motivou este conserto: so' este caso, dos quatro, reprovava, e nos
-// tres legs shared - a assinatura exata de um site que cruza o boundary
-// contra tres que nao cruzam).
-GLINTFX_TEST(err_copy_with_attached_context_throws_a_catchable_bad_alloc_when_forced) {
+// err_context_test.cpp's own allocator_reach_probe ja usa.
+//
+// UM ZERO QUE SIGNIFICA DUAS COISAS (achado da revisao, GODS_LAWS.md
+// L-40/L-43, mesma familia ja registrada na memoria deste projeto): uma
+// versao anterior desta amenda tinha SO' `calls_after == calls_before`
+// e removera as DUAS asserções de alcance que a forma antiga do caso
+// tinha (`dll_hook.patched_count() > 0` e `dll_calls_after >
+// dll_calls_before`) - o comentario dizia "prova que o override
+// alcancaria a alocacao SE ela existisse", mas NADA no corpo provava
+// isso. No Windows/SHARED, com a copia agora nao-alocante POR DESENHO,
+// `calls_after == calls_before` fica trivialmente satisfeita
+// INDEPENDENTE do gancho de IAT ter grudado ou nao - "nao alocou" e "o
+// instrumento nao estava olhando" viram indistinguiveis, exatamente o
+// buraco que win_dll_alloc_hook.hpp existe para fechar. O conserto:
+// DUAS asserções de alcance, SEPARADAS da asserção de contagem -
+// `dll_hook.patched_count() > 0` prova que o gancho conseguiu
+// interceptar PELO MENOS UM slot da tabela de importacao (fato de
+// INSTALACAO, verdadeiro independente de qualquer chamada acontecer
+// depois); `dll_calls_after == dll_calls_before` prova que, com o
+// gancho ATIVO e provadamente capaz de contar, ele contou ZERO
+// chamadas de verdade - a mesma dupla asserção que a forma ORIGINAL
+// deste caso ja' tinha (so' com o SENTIDO do delta invertido: a forma
+// antiga esperava `>`, porque a copia antiga alocava de verdade; esta
+// espera `==`, porque a Decisao 17 congela que ela NUNCA mais aloca).
+GLINTFX_TEST(err_copy_with_attached_context_never_allocates_after_err_copy_fix) {
     if (err_copy_oom_forcing_declared_not_applicable()) {
         declare_err_copy_oom_forcing_not_applicable();
         return;
     }
 
     glintfx::gltfx_err original(glintfx::gltfx_err_code::not_found);
-    original.with_rejected_value("adapter"); // attaches context -> copy ctor below allocates
+    original.with_rejected_value("adapter"); // attaches context
 
 #if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
     // Patches glintfx.dll's OWN import table for the CRT allocation
@@ -419,35 +462,46 @@ GLINTFX_TEST(err_copy_with_attached_context_throws_a_catchable_bad_alloc_when_fo
 #endif
     g_force_alloc_failure = true;
     g_calls_to_allow_before_failure = 0;
+    const std::size_t calls_before = g_override_new_call_count;
     bool threw_bad_alloc = false;
     try {
-        // The copy itself is THE MECHANISM under test (the exact
-        // expression the try{} in gpu_enumeration_facade.cpp now
-        // guards) - a reference would defeat the point of this case.
+        // The copy itself is THE MECHANISM under test - a reference
+        // would defeat the point of this case.
         // NOLINTNEXTLINE(performance-unnecessary-copy-initialization) reason: see above
         const glintfx::gltfx_err copy(original);
         GLINTFX_CHECK_EQ(std::string_view(copy.rejected_value()), std::string_view("adapter"));
     } catch (const std::bad_alloc &) {
         threw_bad_alloc = true;
     }
+    const std::size_t calls_after = g_override_new_call_count;
     g_force_alloc_failure = false;
 #if defined(_WIN32) && !defined(GLINTFX_STATIC_DEFINE)
     glintfx_test::disarm_forced_failure();
-    // Proves the forcing mechanism actually reached the allocator this
-    // copy needed, BEFORE trusting what the library did in response -
-    // same discipline err_context_test.cpp's own allocator_reach_probe
-    // already applies (GODS_LAWS.md L-44: not declaring a mechanism
-    // worked without measuring it). A failure HERE, not below, means
-    // this platform/configuration could not force the failure at all -
-    // see win_dll_alloc_hook.hpp's own "achado 1" for why patched_count()
-    // and the call-count delta are two DIFFERENT facts, checked
-    // separately.
+    // REACH, provado, nao presumido (GODS_LAWS.md L-44): patched_count()
+    // e' um fato de INSTALACAO (quantos slots da IAT o gancho conseguiu
+    // interceptar), verdadeiro mesmo que nenhuma chamada real aconteca
+    // depois - e' o que separa "o mecanismo estava ativo e contou zero"
+    // de "o mecanismo nunca esteve olhando". Zero aqui e' FATO
+    // reportado (nao presumido silenciosamente), ver win_dll_alloc_
+    // hook.hpp's own header.
     const std::size_t dll_calls_after = glintfx_test::hooked_call_count();
     GLINTFX_CHECK(dll_hook.patched_count() > 0);
-    GLINTFX_CHECK(dll_calls_after > dll_calls_before);
+    // CONTAGEM, separada do ALCANCE acima: com o gancho provadamente
+    // ativo, ele observou ZERO chamadas atraves da IAT durante a copia -
+    // o oposto do `>` que a forma PRE-CONSERTO deste caso verificava.
+    GLINTFX_CHECK_EQ(dll_calls_after, dll_calls_before);
 #endif
 
-    GLINTFX_CHECK(threw_bad_alloc);
+    // L-40: printed even when (now) zero - the point of this amended
+    // case is exactly that it IS zero, under the same forced allocator
+    // that used to make it >=1.
+    std::println("fixation_write_and_err_copy_oom_test: {} operator new call(s) copying a "
+                 "context-bearing gltfx_err under a fully-armed allocator (ESCOPO.md Decisao "
+                 "17: deveria ser 0, era >=1 antes do conserto)",
+                 calls_after - calls_before);
+
+    GLINTFX_CHECK_EQ(calls_after, calls_before);
+    GLINTFX_CHECK(!threw_bad_alloc);
 }
 
 // CASO 4, o outro lado do degrau 2: o fallback que o `catch` escreve

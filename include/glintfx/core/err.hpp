@@ -151,15 +151,27 @@
 //
 // LIFECYCLE, AND THIS IS A SAFETY RULE, NOT STYLE: the copy
 // constructor and the destructor are declared here and DEFINED in
-// err.cpp, exported (GLINTFX_API) - so the allocation (copy ctor)
-// and the matching deallocation (destructor) both run INSIDE the
-// library's own compiled object code, no matter which side of the
-// .so/.dll boundary calls them. On Windows, a block allocated by one
-// C runtime and freed by a DIFFERENT one (library vs. executable, each
-// linking its own CRT) corrupts the heap; keeping new/delete on the
-// SAME side is what this design exists to guarantee. Copy is DEEP;
-// move STEALS the pointer, is noexcept, and stays fully inline (moving
-// a pointer VALUE never needs err_context's complete layout).
+// err.cpp, exported (GLINTFX_API) - so the ONE allocation this type can
+// still make (detaching a SHARED context on write, see below) and the
+// matching deallocation (destructor) both run INSIDE the library's own
+// compiled object code, no matter which side of the .so/.dll boundary
+// calls them. On Windows, a block allocated by one C runtime and freed
+// by a DIFFERENT one (library vs. executable, each linking its own
+// CRT) corrupts the heap; keeping new/delete on the SAME side is what
+// this design exists to guarantee.
+//
+// COPY IS SHARED, COPY-ON-WRITE (ESCOPO.md Decisao 17, TODO.md
+// ERR-COPY-FIX - supersedes an earlier "copy is deep" design): copying
+// only shares the context pointer and bumps an intrusive atomic
+// refcount, NEVER allocates, and is `noexcept` (proven by the
+// static_assert right after this class). A write through with_*()
+// detaches (clones) the context first if it is still shared, so the
+// two gltfx_err instances still never observe each other's later
+// writes - the ISOLATION a deep copy gave is preserved, only the COST
+// moved from "every copy" to "only a copy that later gets written to,
+// while still shared". Move STEALS the pointer, is noexcept, and stays
+// fully inline (moving a pointer VALUE never needs err_context's
+// complete layout).
 //
 // COLLISION CHECKLIST (GODS_LAWS.md L-19/CORE-ERROR; extended by the
 // CE-1 correction to also cover standard-library names, not just
@@ -188,10 +200,22 @@ class gltfx_err {
     // move and destroy of a context-less gltfx_err.
     explicit gltfx_err(gltfx_err_code code) noexcept : m_code(code) {}
 
-    // Deep copy. Declared here, DEFINED in err.cpp, exported - see
-    // the "LIFECYCLE" paragraph above for why this one crosses the
-    // boundary instead of staying inline.
-    GLINTFX_API gltfx_err(const gltfx_err &other);
+    // Shared, copy-on-write (ESCOPO.md Decisao 17, TODO.md
+    // ERR-COPY-FIX): NEVER allocates - shares the context pointer and
+    // increments an intrusive atomic refcount inside err_context
+    // (defined in err.cpp, opaque here). A write through with_*()
+    // detaches (clones) first if the context is still shared -
+    // observably, this still behaves like a deep copy (the two
+    // gltfx_err instances never see each other's later writes), it
+    // just no longer PAYS for that isolation until a write actually
+    // happens. Declared here, DEFINED in err.cpp, exported - see the
+    // "LIFECYCLE" paragraph above for why this one crosses the
+    // boundary instead of staying inline. `noexcept`: proven, not
+    // promised, by the static_assert right after this class (CE-2)
+    // and by tests/err_no_alloc_test.cpp's
+    // context_bearing_error_copy_allocates_zero_times, which COUNTS
+    // zero allocator calls copying a gltfx_err that carries context.
+    GLINTFX_API gltfx_err(const gltfx_err &other) noexcept;
 
     // Steals the pointer; never allocates, and never needs
     // err_context's complete layout (only the pointer VALUE moves), so
@@ -200,14 +224,18 @@ class gltfx_err {
         other.m_context = nullptr;
     }
 
-    // Copy-and-swap, inline: gltfx_err(other) above performs the
-    // out-of-line deep copy (the only step that can throw
-    // std::bad_alloc); swapping members afterwards only touches the
-    // pointer VALUE, not err_context's layout. `tmp`'s destructor - the
-    // exported ~gltfx_err() below - frees whatever *this used to own,
-    // on the library's side of the boundary, the moment `tmp` goes out
-    // of scope at the end of this function.
-    gltfx_err &operator=(const gltfx_err &other) {
+    // Copy-and-swap, inline: gltfx_err(other) above now shares the
+    // context and increments the refcount (noexcept, never allocates -
+    // see the copy constructor's own comment above), so this whole
+    // function is noexcept BY CONSTRUCTION, the same "family irma"
+    // fix the leader named alongside the copy constructor itself
+    // (ESCOPO.md Decisao 17: "operator=(const gltfx_err&) tem o mesmo
+    // defeito ... o mesmo desenho o conserta"). `tmp`'s destructor -
+    // the exported ~gltfx_err() below - releases *this's OLD share (or
+    // frees it outright, if *this held the last one) the moment `tmp`
+    // goes out of scope at the end of this function; std::swap on an
+    // enum and a pointer never throws either.
+    gltfx_err &operator=(const gltfx_err &other) noexcept {
         if (this != &other) {
             gltfx_err tmp(other);
             std::swap(m_code, tmp.m_code);
@@ -286,6 +314,23 @@ static_assert(std::is_nothrow_move_constructible_v<gltfx_err>,
               "gltfx_err move construction must stay noexcept, CORE-ERROR CE-2");
 static_assert(std::is_nothrow_move_assignable_v<gltfx_err>,
               "gltfx_err move assignment must stay noexcept, CORE-ERROR CE-2");
+
+// ESCOPO.md Decisao 17 (TODO.md ERR-COPY-FIX): copy is now shared,
+// copy-on-write, and PROVEN noexcept and allocation-free by this type
+// trait, not just promised in prose - a compiler-checked gate on
+// every one of this project's five targets, at every build, strictly
+// stronger than any text-based scanner (tests/tools/
+// check_noexcept_alloc.py's own header names this exact tradeoff).
+// This is a ONE-WAY DOOR (plano da onda W-ERRCOPY secao 5.1): once a
+// consumer compiles against this guarantee, it cannot be walked back
+// without breaking them.
+static_assert(std::is_nothrow_copy_constructible_v<gltfx_err>,
+              "gltfx_err copy construction must be noexcept, ESCOPO.md Decisao 17 "
+              "(shared context, copy-on-write, TODO.md ERR-COPY-FIX)");
+static_assert(std::is_nothrow_copy_assignable_v<gltfx_err>,
+              "gltfx_err copy assignment must be noexcept, ESCOPO.md Decisao 17 - "
+              "operator=(const gltfx_err&) is a 'familia irma' of the copy "
+              "constructor fix, both consertados pelo mesmo desenho");
 
 // CE-4: the single return-value envelope. See the header comment above
 // for the full design rationale (one convention, [[nodiscard]] on the

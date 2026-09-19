@@ -25,6 +25,12 @@ glintfx_add_test(err_context_test)
 # arquivo reprova o build, nao uma asserção em runtime. Ver o header
 # comment do arquivo para a razao exata.
 glintfx_add_test(err_copy_is_nothrow_static_assert_test)
+
+# ERR-COPY-FIX, T4/T5 (TODO.md, ESCOPO.md Decisao 17, GODS_LAWS.md
+# L-20/L-35 do projeto): guardas de regressao da semantica nova
+# (contexto compartilhado + copia-na-escrita) - ver o header comment
+# do arquivo para a razao de nao serem TDD.
+glintfx_add_test(err_copy_on_write_test)
 glintfx_add_test(rslt_test)
 glintfx_add_test(err_format_test)
 

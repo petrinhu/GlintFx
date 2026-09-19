@@ -122,6 +122,16 @@ void *operator new(std::size_t size, const std::nothrow_t & /*tag*/) noexcept {
     return std::malloc(size);
 }
 
+// clang-tidy cert-dcl54-cpp/misc-new-delete-overloads (only reachable
+// once ERR-COPY-FIX made the build compile past this file's own
+// static_assert-adjacent dependency for the first time - see this
+// file's own header comment): a TU declaring `operator delete[]`
+// (below) needs a matching `operator new[]` at the same scope, same
+// idiom tests/err_no_alloc_test.cpp already uses. No test in this file
+// ever exercises the array form; forwarding to the scalar override
+// keeps the counting/forcing mechanism consistent if one ever does.
+void *operator new[](std::size_t size) { return ::operator new(size); }
+
 // GCC's -Wmismatched-new-delete (mesmo achado ja documentado em
 // tests/fixation_write_and_err_copy_oom_test.cpp): quando o
 // otimizador consegue inlinear a cadeia inteira new -> string/vector

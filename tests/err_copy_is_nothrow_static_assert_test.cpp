@@ -48,6 +48,16 @@ static_assert(
 // alguma execucao real.
 GLINTFX_TEST(copy_constructor_type_is_nothrow_after_fix) {
     const glintfx::gltfx_err original(glintfx::gltfx_err_code::not_found);
+    // The copy itself is THE MECHANISM under test (this case exists to
+    // exercise the copy CONSTRUCTOR the static_assert above checks the
+    // type of, not just read `original` back) - a reference would
+    // defeat the point, same reasoning already documented at this
+    // exact clang-tidy check's other use in this test suite
+    // (fixation_write_and_err_copy_oom_test.cpp). Lint-only annotation,
+    // added once the fatia that fixed the static_assert above (ERR-
+    // COPY-FIX) made this function body reachable by clang-tidy for
+    // the first time - no assertion below changed.
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization) reason: see above
     const glintfx::gltfx_err copy(original);
     GLINTFX_CHECK(copy.code() == glintfx::gltfx_err_code::not_found);
 }

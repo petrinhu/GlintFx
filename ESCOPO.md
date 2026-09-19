@@ -391,6 +391,19 @@ O value type `glintfx::version` ganha o **quarto campo** (`tweak_version`), para
 
 **O que o portão NÃO cobre, por escrito:** uma declaração à frente da última etiqueta por tempo indefinido, sem que ninguém nunca etiqueie. Não é a classe de dano medida (a lib anuncia um número que ainda não foi publicado, não um número velho) e decidir "quanto tempo à frente é demais" é protocolo de release (`GODS_LAWS.md` do projeto L-11: etiqueta exige aval explícito do líder no contexto), não algo que um portão julga.
 
+
+### Publicar marca NÃO reexecuta a bateria completa
+
+**Decisão do líder, 19/09/2026, por `AskUserQuestion`** (opção *"Manter como está"*), tomada depois de eu apresentar as três alternativas com o custo de cada uma.
+
+**A regra:** o disparo por `push: tags: v*` roda **apenas** o job `version-tag`. Os outros 14 jobs carregam `if: github.ref_type != 'tag'` e não reencenam.
+
+**A razão:** o commit que a marca aponta **já passou pela bateria completa quando entrou em `main`** — o conteúdo é byte a byte o mesmo, então reexecutar não produz informação nova e custa mais de meia hora de máquina por marca.
+
+**O risco ASSUMIDO, escrito para não virar surpresa:** se alguém marcar um commit que **nunca** passou pela bateria — um commit antigo, ou um que foi marcado antes de o envio ao servidor completar — ninguém percebe, porque a marca não dispara validação nenhuma além da coerência de versão. **Quem publicar marca é responsável por conferir que o commit apontado tem execução verde própria** (`gh run list --commit <sha>`).
+
+**A alternativa que ficou de fora, e por quê:** reexecutar só os cinco alvos (compilação e testes), pulando análise estática, sanitizadores e varredura de segredo. Pegaria deriva de ambiente — real: em 27/08/2026 a imagem do alvo primário passou a ser `:latest` justamente para acompanhar a máquina do líder, e ela se move. Foi recusada por acrescentar mais uma condição para manter no fluxo, sem defeito medido que a justificasse.
+
 ---
 
 ## §4 — `gfui` / `gfss` / `gfml`

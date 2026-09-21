@@ -271,7 +271,17 @@ jobs:
       - name: Instalar toolchain
         run: ${{ matrix.instalar }}
 
+      # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
+      # 19/09/2026): esta matriz roda a suite ctest INTEIRA sem filtro
+      # de rotulo (ver "ctest --test-dir" abaixo), e version_matches_
+      # tag_test (LABELS consume) esta nela - sem historico completo +
+      # etiquetas o script via "reachable_v_tags=0" numa arvore que
+      # genuinamente tem etiquetas e reprovava por um checkout raso,
+      # nunca por deriva real. Mesmo par usado no job version-tag.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # git config --global --add safe.directory (DEPZERO-TRACE, CAUSA 1
       # do bloqueador de estreia, GHA run 33248706044, branch
@@ -532,7 +542,14 @@ jobs:
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
     steps:
+      # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
+      # 19/09/2026): mesmo motivo do job `linux` acima - esta matriz
+      # roda a suite ctest INTEIRA sem filtro de rotulo, e
+      # version_matches_tag_test (LABELS consume) esta nela.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # PRECI-WIN-SELFTEST: tools/preci.ps1 -Selftest era um passo cru
       # aqui, rodando PRIMEIRO (antes do preparo pesado de MSVC/CMake,
@@ -2763,7 +2780,14 @@ jobs:
           dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
           wayland-devel wayland-protocols-devel libglvnd-devel python3
 
+      # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
+      # 19/09/2026): este job roda `preci.sh --debug-only`, que executa
+      # a suite ctest INTEIRA sem filtro `-L unit` (ver comentario logo
+      # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # GODS_LAWS.md L-40 / TODO.md GATE-DEBUG / DECISOES_AUTONOMAS.md
       # D4: -DCMAKE_BUILD_TYPE=Release (todo OUTRO job desta matriz)
@@ -2819,7 +2843,14 @@ jobs:
     runs-on: windows-latest
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
+      # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
+      # 19/09/2026): este job roda a suite ctest INTEIRA sem filtro de
+      # rotulo (ver "ctest --test-dir build-debug --output-on-failure"
+      # abaixo), e version_matches_tag_test (LABELS consume) esta nela.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       # Mesmo passo do job `windows`/`windows-sanitizer` acima (CI-WIN-ENV/PKG-NATIVE).
       - name: Instalar CMake >= 4.1 (Windows)

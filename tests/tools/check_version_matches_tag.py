@@ -32,7 +32,31 @@
 #   - Zero reachable `v[0-9]*` tags: REPROVES (GODS_LAWS.md L-40,
 #     non-empty-scan floor - this repository has carried tags since
 #     v0.2.0.0; seeing none means the checkout/scan is broken, not
-#     that the rule does not apply).
+#     that the rule does not apply) - UNLESS the checkout is a
+#     shallow clone (`git rev-parse --is-shallow-repository`), in
+#     which case zero is SKIPS DECLARED, never a pass and never a
+#     fail. THE NARROW EXCEPTION, and why it stays narrow (GHA run
+#     35455822838, 19/09/2026): 14 of this workflow's 15
+#     `actions/checkout` steps ran with the actions/checkout default
+#     (depth 1, no tags) while `version_matches_tag_test` is
+#     registered unconditionally in the `consume` ctest label, so
+#     those 14 jobs failed with `reachable_v_tags=0` on a tree that
+#     genuinely has tags - the checkout, not the tree, was the
+#     defect. "Zero because I could not look" (shallow: the ancestry
+#     walk `--merged HEAD` cannot be trusted - a tag's target commit
+#     may sit outside the fetched depth) is a DIFFERENT fact than
+#     "zero because there is nothing to find" (full history, still
+#     zero): the first is a broken instrument and reproves nothing;
+#     the second is the L-40 floor doing its job and must keep
+#     reproving. This is why the fix is BOTH sides at once (lider's
+#     decision, same date): the 14 checkouts now also fetch full
+#     history + tags (`fetch-depth: 0`, `fetch-tags: true`, matching
+#     the `version-tag` job's own checkout at line ~3168) so the gate
+#     has real data to judge in the common case, AND this shallow
+#     check stays as the declared-skip escape hatch for whatever
+#     checkout config drifts out of that guarantee later - a skip
+#     that can never fire in normal CI is not a real skip, it is
+#     dead code pretending to be one.
 #   - A tag matching `v` + a digit that is NOT exactly four dot-
 #     separated integers (`v0.4.0`, three components) counts as
 #     malformed; if it sits on HEAD, REPROVES on form (GODS_LAWS.md
@@ -186,6 +210,24 @@ def head_commit(root):
     return result.stdout.strip()
 
 
+def is_shallow_repo(root):
+    """True when `root` is a shallow clone (`.git/shallow` present) -
+    `git rev-parse --is-shallow-repository` prints exactly `true` or
+    `false`. A shallow clone cannot be trusted to answer "which tags
+    are reachable from HEAD" (the ancestry walk `--merged HEAD` needs
+    every commit between the tag and HEAD, and a shallow fetch may
+    have none of them) - see the header comment for the narrow
+    exception this feeds. Never called for anything BUT deciding
+    whether a zero-reachable-tags reading is "genuinely zero" or
+    "instrument could not look" - it plays no role in the head-tagged
+    branches above, which need no ancestry walk at all.
+    """
+    result = run_git(root, ["rev-parse", "--is-shallow-repository"], check=False)
+    if result.returncode != 0:
+        return False
+    return result.stdout.strip() == "true"
+
+
 # --- the rule -----------------------------------------------------------
 
 
@@ -275,11 +317,22 @@ def check_version(root):
     # HEAD sem etiqueta.
     if not reachable_well_formed:
         print(f"{SCRIPT_NAME}: declared={declared_str} reachable_v_tags=0")
+        if is_shallow_repo(root):
+            print(
+                f"{SCRIPT_NAME}: PULADO - clone raso (git rev-parse "
+                "--is-shallow-repository=true): a varredura de "
+                "'--merged HEAD' nao pode ser confiada aqui, uma "
+                "etiqueta pode existir fora do historico buscado - "
+                "isto e 'nao pude olhar', nunca 'nao ha nada', entao "
+                "o piso da GODS_LAWS.md L-40 nao se aplica (excecao "
+                "estreita, ver o cabecalho deste arquivo)",
+            )
+            return True
         print(
             f"{SCRIPT_NAME}: REPROVADO - zero etiquetas vA.B.C.D "
-            "alcancaveis a partir de HEAD (piso de varredura nao-vazia, "
-            "GODS_LAWS.md L-40 - historico raso ou repositorio sem "
-            "nenhuma etiqueta publicada)",
+            "alcancaveis a partir de HEAD, e o clone NAO e raso "
+            "(piso de varredura nao-vazia, GODS_LAWS.md L-40 - "
+            "repositorio sem nenhuma etiqueta publicada)",
             file=sys.stderr,
         )
         return False
@@ -543,6 +596,60 @@ def selftest_zero_reachable_tags_floor(scratch, capture):
     return True
 
 
+def selftest_shallow_clone_skip(scratch, capture):
+    """A metade que ZERO-RECHABLE-TAGS-FLOOR acima NAO cobre: ali o
+    repositorio tem historico completo e zero etiquetas e' o piso da
+    L-40 fazendo o trabalho dele (REPROVA); aqui o zero vem de um
+    clone GENUINAMENTE raso (`git clone --depth 1`, via `file://` para
+    que o transporte nao caia no atalho local que a documentacao do
+    git descreve, e que ignoraria `--depth`), onde o fetch nunca
+    trouxe historico suficiente para a caminhada `--merged HEAD`
+    responder direito - "nao pude olhar", nunca "nao ha nada" (ver o
+    cabecalho do arquivo). Exige a escotilha PULO DECLARADO: nem passa
+    silenciosamente (sucesso sem a palavra do pulo seria indistinguivel
+    de um zero real, o defeito exato que a L-40 existe para matar),
+    nem reprova (reprovar aqui puniria o checkout raso, nao a arvore).
+    """
+    source = os.path.join(scratch, "shallow-source")
+    init_fixture_repo(source)
+    write_cmakelists(source, "0.1.0.0")
+    commit_all(source, "commit 1, sem etiqueta")
+    write_cmakelists(source, "0.1.0.0", extra_comment="# segundo commit, ainda sem etiqueta\n")
+    commit_all(source, "commit 2, ainda sem etiqueta")
+
+    clone = os.path.join(scratch, "shallow-clone")
+    _run_quiet(["git", "clone", "--quiet", "--depth", "1", f"file://{source}", clone])
+
+    if not is_shallow_repo(clone):
+        print(
+            "selftest: controle SHALLOW-CLONE-SKIP FALHOU (fixture nao "
+            "produziu um clone raso de verdade - 'git rev-parse "
+            "--is-shallow-repository' nao disse 'true')",
+            file=sys.stderr,
+        )
+        return False
+
+    output = capture(lambda: check_version(clone))
+    if not output.result:
+        print(
+            "selftest: controle SHALLOW-CLONE-SKIP FALHOU (clone raso "
+            "sem etiqueta alcancavel deveria ser PULO DECLARADO, nunca "
+            "reprovar)",
+            file=sys.stderr,
+        )
+        return False
+    if "PULADO" not in output.text or "raso" not in output.text:
+        print(
+            "selftest: controle SHALLOW-CLONE-SKIP FALHOU (passou, mas "
+            "nao declarou o pulo - sucesso silencioso e indistinguivel "
+            "de um zero real, exatamente o que a L-40 proibe)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: controle SHALLOW-CLONE-SKIP OK (clone raso e pulo declarado, nunca sucesso silencioso)")
+    return True
+
+
 def selftest_malformed_tag_at_head(scratch, capture):
     root = os.path.join(scratch, "malformed-at-head")
     init_fixture_repo(root)
@@ -620,12 +727,13 @@ def selftest_main():
             selftest_untagged_ahead(scratch, capture),
             selftest_fourth_component_boundary(scratch, capture),
             selftest_zero_reachable_tags_floor(scratch, capture),
+            selftest_shallow_clone_skip(scratch, capture),
             selftest_malformed_tag_at_head(scratch, capture),
             selftest_duplicate_tag_at_head(scratch, capture),
             selftest_numeric_not_string_compare(scratch, capture),
             selftest_not_a_repo(scratch, capture),
         ]
-        expected = 10
+        expected = 11
         if len(controls) != expected:
             print(f"check_version_matches_tag.py --selftest: FALHOU (piso do selftest: {len(controls)} executados, {expected} esperados)", file=sys.stderr)
             sys.exit(1)

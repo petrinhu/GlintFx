@@ -3711,3 +3711,28 @@ asset_load_test: closed matrix exercised 6 of 6 scenarios
 - **Integridade:** árvore limpa, 4 commits à frente do remoto, commit com caminhos explícitos tocando 3 arquivos.
 
 **DECISÃO AUTÔNOMA (minha, como orquestrador, para confirmação retroativa): EMPURRAR mesmo com o defeito 2 sem prova local.** A razão, e o trade-off está declarado: **o servidor é o único Windows que temos**, e a única alternativa seria ligar a VM — que hoje é recurso compartilhado com outra sessão e ainda assim não bastaria sem instalar CMake nela, o que exige palavra do líder. Segurar o commit não produz conhecimento nenhum e deixa o tronco vermelho; empurrar produz o veredito. **Se o defeito 2 voltar vermelho, a informação nova vem do próprio servidor e o custo é uma execução.**
+
+---
+
+## 21/09/2026 - 23:06 | A regressão que o portão do sanitizador pegou, e o que EU deixei passar
+
+**Falha minha, do orquestrador, nomeada antes de qualquer outra coisa:** aceitei `ASSET-PARITY-ROOT` (`abc19fb`) sem rodar o build de **ASan/UBSan**, embora a **L-23 mande rodá-lo a cada fatia fechada**. Verifiquei a fatia por um ângulo que o implementador não tinha coberto (usuário não privilegiado) e acertei ali — mas pulei o portão que a própria lei nomeia como *"o que salva C++ de defeito silencioso"*. O servidor pegou o que eu não peguei. **A regra que fica: fatia que mexe em estado de processo (privilégio, sinal, `fork`, ambiente) exige o build do sanitizador ANTES do aceite, não depois do vermelho.**
+
+**A causa, medida pelo agente com um probe em C dentro do container, não suposta:**
+
+```
+initial                        euid=0      dumpable=1
+after seteuid(65534)           euid=65534  dumpable=2
+after seteuid(restore)         euid=0      dumpable=2   <- seteuid() NAO restaura
+after prctl(PR_SET_DUMPABLE,1) euid=0      dumpable=1
+```
+
+Um `seteuid()` bem-sucedido zera o atributo `dumpable` do processo (efeito colateral do `commit_creds()` do núcleo). Com `dumpable=2` (`SUID_DUMP_ROOT`), só quem tem `CAP_SYS_PTRACE` pode inspecionar o processo — e é exatamente disso que o **LeakSanitizer** precisa ao encerrar. Restaurar o uid **não** restaura o `dumpable`, então o fim do programa inteiro ficava com o LSan cego. Conserto (`802c9f1`): a guarda captura `PR_GET_DUMPABLE` no construtor e o restaura no destrutor logo após o `seteuid()` de volta, abortando alto se falhar — mesma postura já usada para o euid.
+
+**RE-VERIFICAÇÃO DO ORQUESTRADOR (L-12), e desta vez em família diferente da dele:**
+
+- **Varredura de gêmeo (L-17), feita por mim sobre a árvore RASTREADA inteira:** quem mais troca de identidade de processo neste repositório? `git ls-files | xargs grep -l "seteuid\|setuid\|setresuid\|setegid\|setgid"` devolve **2 arquivos**, e um deles é a própria `TODO.md` (prosa). **O único código que faz isso é `tests/asset_load_test.cpp`.** Defeito isolado, sem gêmeo, sem item novo.
+- **A armadilha de C++ que eu conferi e que ninguém tinha citado:** a ordem de captura. Em C++ os membros são inicializados na **ordem de DECLARAÇÃO**, não na ordem em que aparecem na lista de inicialização — se `m_outcome` (que executa a queda de privilégio) fosse declarado antes dos dois campos de captura, ambos leriam valores **já corrompidos** e o conserto seria silenciosamente inútil. Conferi a declaração: `m_original_euid`, depois `m_original_dumpable`, depois `m_outcome`. Correta.
+- **Integridade:** árvore limpa, commit com caminhos explícitos tocando 2 arquivos, `Status` do item mantido em `🔍`.
+
+**O que continua vermelho, e a causa que EU achei lendo o código depois do segundo servidor:** o cenário 20 do portão de empacotamento falhou **com saída idêntica** à de antes — o renome do fixture para `.exe` não mudou **nada**. Lendo `cmake/GlintfxPkgConfigValidateInstalled.cmake.in:743-750`, a razão é estrutural: no Windows a busca é `NAMES pkg-config.bat pkgconf.bat pkg-config pkgconf`, e o `find_program()` sem `NAMES_PER_DIR` **esgota o PATH inteiro procurando o PRIMEIRO nome antes de tentar o segundo**. O executor do GitHub tem Strawberry Perl com um `pkg-config.bat` **real**, então o nome nº 1 casa em outro diretório e o fixture **nunca é alcançado** — com qualquer extensão que se dê a ele. **Consequência para o próximo conserto:** não adianta renomear o fixture; ou ele se chama `pkg-config.bat` (o primeiro nome da lista), ou o cenário precisa entregar ao passo de instalação um PATH **podado**, sem o diretório do Perl.

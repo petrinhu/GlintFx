@@ -216,6 +216,20 @@ GLINTFX_TEST(gltfx_gfss_parse_color_resolves_the_named_keyword_red) {
 // entry is round-tripped through parse_color() ITSELF, not merely
 // lookup_named_color() directly - this is what proves the ANALYZER,
 // not only the table, reaches every one of the 149 keywords.
+//
+// THIS IS NOT THE ORACLE (GFSS-COLOR-ORACLE, TODO.md, GODS_LAWS.md
+// L-27): the `entry.value` compared against below comes from
+// named_color_at(i), the SAME k_table this loop's own parse_color()
+// call is ultimately backed by - a wrong channel baked into that table
+// would make parse_color() and named_color_at() agree perfectly, and
+// this loop would stay green. What this loop DOES prove, honestly, is
+// REACH: that the analyzer resolves all 149 keywords through the real
+// parsing pipeline (tokenizer + parse_color()), not merely that
+// lookup_named_color() itself has 149 entries. The independent check
+// against the real CSS Color 4 specification text lives in
+// tests/gfss_named_colors_doc_oracle_test.cpp - see that file's own
+// header comment for why a doc read at test time is what closes this
+// gap and this loop cannot.
 
 GLINTFX_TEST(gltfx_gfss_parse_color_resolves_every_named_color_keyword) {
     using glintfx::style::detail::named_color_at;

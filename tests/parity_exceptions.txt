@@ -465,6 +465,25 @@ win_vm_lab_rodar_caminho_selftest|windows|nenhum|SEM-PENDENCIA
 win_vm_lab_rodar_um_selftest|windows|nenhum|SEM-PENDENCIA
 win_vm_lab_sessao_selftest|windows|nenhum|SEM-PENDENCIA
 
+# win_vm_lab_coletar_resultados_selftest (tools/win-vm-lab/coletar-
+# resultados.sh --selftest, sub-fatia V-3, /var/tmp/glintfx-plan/win-runner-
+# local.md secao 1.1 e 6) prova, contra um dublê de `virsh` (nunca libvirt/
+# QEMU real), o coletor de resultado por `guest-file-read`: piso de
+# varredura nao-vazia (E6, diretorio sem arquivo -> recusa com
+# encontrados=0 coletados=0 impressos), md5 conferido nas duas pontas (E8,
+# copia integra aceita, copia truncada de proposito grita e nao deixa
+# arquivo parcial), e lista de PERMISSAO para nome de arquivo (achado do
+# team-lead no mesmo dia: o convidado escolhe cada nome devolvido pela
+# listagem e e' NAO CONFIAVEL por desenho - nome fora do padrao
+# `^[A-Za-z0-9][A-Za-z0-9._-]*$` e' rejeitado ANTES de virar caminho no
+# hospedeiro, nunca por `continue` calado, com codigo de saida proprio).
+# MESMA razao estrutural dos tres vizinhos logo acima
+# (script POSIX `#!/usr/bin/env bash`, sem interprete que os runners
+# Windows da matriz reconhecam - add_test tambem condicionado a if(UNIX));
+# o proprio laboratorio e' o host Linux/libvirt hospedando e dirigindo o
+# convidado Windows, nunca o inverso.
+win_vm_lab_coletar_resultados_selftest|windows|nenhum|SEM-PENDENCIA
+
 # --- Sonda exclusiva de UM sistema, sem par possivel (11/09/2026,
 # item CONTAINER-LOG-SIGNAL-FIRST) -------------------------------------
 #

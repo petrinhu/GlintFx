@@ -5222,6 +5222,22 @@ if(UNIX)
     )
     set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+    # WIN-RUNNER-PROPRIO sub-fatia V-3 (22/09/2026): coletor de resultado por
+    # guest-file-read, com md5 conferido nas duas pontas (o hash pedido ao
+    # CONVIDADO via certutil -hashfile, contra o hash calculado sobre a copia
+    # local depois da reconstrucao) e piso de varredura nao-vazia (L-40) -
+    # pedir a coleta de um diretorio sem arquivo nenhum e' recusa, nunca
+    # sucesso silencioso. MESMA forma hermetica dos quatro vizinhos acima
+    # (duble de virsh, nunca libvirt/QEMU real; SKIP_RETURN_CODE 77 para
+    # ferramenta ausente - aqui jq/md5sum/base64/dd/stat, ver a guarda no
+    # topo do proprio script).
+    add_test(
+        NAME win_vm_lab_coletar_resultados_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Checagem estatica SERIAL em job Windows (GODS_LAWS.md L-23 item 3,

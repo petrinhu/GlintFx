@@ -3966,3 +3966,30 @@ rebeccapurple 102 51 153                    tomato 255 99 71
 **Corrigida a quarta referência podre em dois dias:** o comentário de `named_colors.hpp` dizia que `transparent` está na `§4.2.4`; está na **§6.3**. As outras três foram `asset_load_test.cpp:139`, `egl_context_adapter.hpp:250` e a marca `⛔` de `KEYMAP-LEX`. **A família é sempre a mesma: o texto envelhece e ninguém re-mede ao citar.**
 
 **Lacuna declarada, não contornada:** `GATE-PS-SYNTAX` do espelho continua sem rodar por falta da imagem de PowerShell no cache — ambiente, não fatia, e o agente **não** rodou `docker pull` sem autorização. Cobertura real: `--lint-only` verde e `--sanitizer-only` verde com **107/107** sob ASan/UBSan.
+
+---
+
+## 22/09/2026 - 12:37 | `W6` entregue, e a minha própria verificação produziu DOIS artefatos antes de dar a resposta
+
+**As duas fatias de conteúdo fechadas, cada uma no seu commit** (ordem do líder de hoje, *"toda fatia termina com commit"*), mais um terceiro para a exceção da linha de base:
+
+- `b2aa736` — `GFSS-SEL-REJECT-ORPHAN`: a decisão do líder de 02/09 (*"Recusar na leitura da folha"*) finalmente implementada. A condição órfã era **a única** do contrato dos oito — não uma entre várias.
+- `810201b` — `GFSS-SHEET-PARSE`: folha completa, recuperação por regra, e os três comportamentos de at-rule separados (ignorada **com** diagnóstico / guardada **crua sem** diagnóstico / desconhecida com *"o que se esperava"*).
+- `bae8190` — os dois sítios novos de família A na linha de base do `NOEXCEPT-ALLOC-B8`.
+
+**A FRONTEIRA DO LÍDER, conferida por mim arquivo por arquivo:** o item dizia *"não mexe no contrato dos oito"*. O agente tocou `src/gfui/compound_match.cpp` — e são **12 linhas, TODAS de comentário, zero linha de código**. O ramo defensivo fica intacto; o comentário explica que a recusa passou a acontecer **antes**, na leitura da folha, e que o ramo segue correto para quem monte um seletor à mão. **Respeitou a fronteira e ainda fechou a "lacuna 1" de `docs/node-view-and-matching.md` pela via que o líder decidiu.**
+
+**O PORTÃO REPROVOU E EU NÃO DEIXEI CALAREM O ALARME.** `check_noexcept_alloc.py` acusou dois sítios novos fora da linha de base congelada, e a própria mensagem sugere *"acrescente à linha de base"*. **Acrescentar por reflexo é calar alarme**, e este alarme existe por uma família que já derrubou o processo do consumidor (`feedback_construtor_noexcept_mata`). Exigi medição antes de qualquer linha nova. O agente entregou: precedente idêntico já baselinado em arquivos irmãos, e — o que decide — o cruzamento de alcançabilidade (`--json`, `b_findings`) **vazio**, nenhum dos dois alcançado por função `noexcept`. **Rodei eu mesmo e confirmei**: `b_findings = VAZIO`, veredito `APROVADO`, e os marcadores de calibração do próprio portão todos verdadeiros — ele **ainda enxerga**, não ficou cego. Exatamente 2 linhas acrescentadas; família C **intocada**.
+
+**HONESTIDADE DO AGENTE, que merece registro:** ele **declarou sozinho** que a fatia 2 não teve vermelho-antes-do-verde (nasceu de desenho pronto, teste e implementação escritos juntos) e **compensou com mutação** — três sabotagens independentes, revertidas depois. A melhor: **truncar UM byte** do bloco de animação guardado, e o teste pegou. Isso prova que a comparação byte a byte é real, não conferência frouxa de tamanho.
+
+### As DUAS armadilhas que a minha própria verificação criou — e a lição é sobre mim
+
+O agente declarou não ter rodado a suíte completa contra o estado final. Fui rodar. **Errei duas vezes seguidas, e as duas por instrumento, nunca por código:**
+
+1. **Extraí o estado com `git archive` — que não leva o `.git`.** Resultado: **9 testes "falharam"**. Todos os 9 são portões que varrem a árvore perguntando ao git quais arquivos existem, e todos disseram a mesma coisa: ***"varredura recusada, nunca presumida vazia (GODS_LAWS.md L-40)"***. **É o oposto de defeito: é a lei funcionando.** Se eu tivesse escrito "9 testes quebrados na W6" sem abrir o registro, mandaria um agente caçar fantasma.
+2. **Refeito com `git init` na cópia: sobrou 1 falha** — `version_matches_tag_test`, porque a minha cópia tem **1 commit e zero etiquetas**. O portão que nós mesmos construímos ontem reprovou com a mensagem exata que escrevemos: *"zero etiquetas vA.B.C.D alcançáveis, e o clone NÃO é raso"*. A árvore real tem **15 etiquetas**, a mais alta `v0.4.2.1`, batendo com o `project(VERSION)`.
+
+**Resultado real: 218 de 219 verdes**, e a única falha é a ausência de etiqueta na minha fixture.
+
+**A regra que fica, e ela é minha:** ***quando a medição acusa muita coisa de uma vez, desconfie do instrumento antes do objeto.*** Nove falhas simultâneas em portões que não têm nada em comum **exceto o modo de enxergar** é assinatura de ferramenta cega, não de código quebrado. E o corolário: **`git archive` não é um clone** — para rodar qualquer portão que consulte o git, a cópia precisa de `git init` + commit, e ainda assim não terá etiquetas.

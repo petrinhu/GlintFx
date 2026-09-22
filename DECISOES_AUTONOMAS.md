@@ -4041,3 +4041,39 @@ CMake Error: Could not find a configuration file for package "glintfx"
 **Isso fecha uma lacuna declarada desde 19/09**, que estava escrita em dois lugares: *"o job `version-tag` nunca rodou no servidor real"*. Agora rodou. **O que continua honesto dizer:** ele rodou **verde**; o **vermelho** dele segue provado só pelo autoteste e pelas mutações em cópia, porque provar o vermelho ao vivo exigiria publicar uma marca deliberadamente errada — e marca publicada não se desfaz sem reescrever história.
 
 **Cinco itens promovidos a `✅`** — e só agora, depois do verde real: `GFSS-SEL-REJECT-ORPHAN`, `GFSS-SHEET-PARSE`, `CI-VERDE-W6`, `GFSS-COLOR-ORACLE` e `CI-VERDE-WM1`. **Três ondas do passivo fechadas** (`W6b`, `WM1`, `W6`), restam quatro (`W7-B`, `W7-C`, `W7-D`, `W8`).
+
+---
+
+## 22/09/2026 - 13:48 | O portão de coerência de onda pegou um erro MEU, e o erro é de critério de varredura
+
+**15 de 25 jobs vermelhos num commit que só tocou dois arquivos `.md`.** A causa é uma só, e é minha: `check_wave_closure_coherence.py` reprovou com
+
+```
+check_wave_closure_coherence.py: 1 onda(s) fechada(s) com item(ns) pendente(s)
+```
+
+**Eu marquei `CI-VERDE-W6` como `✅` com TRÊS itens da W6 ainda em `🔍 Pendente verificação`** — `GFSS-SPECIFICITY`, `GFSS-SHORTHAND`, `GFSS-MATCH-COMBINE`.
+
+**A CAUSA-RAIZ, e ela é a mesma família que passei dois dias caçando nos outros: critério de varredura estreito.** Quando enumerei os itens abertos das sete ondas do passivo, filtrei por `⏳` e `⛔` e **deixei `🔍` de fora**. A W6 me pareceu ter **3 itens**; tem **6**. Menos do que existe **parece completo** — é exatamente `feedback_zero_de_varredura_estreita`, aplicada a mim.
+
+**O agravante:** eu **tinha visto** esses três itens. Horas antes, listei os cinco `🔍` parados e escrevi ao líder que eram *"anteriores a esta noite"* e que eu **não os tinha tocado**. Não liguei uma coisa à outra — vi os itens numa varredura e os esqueci na outra, porque as duas usaram critérios diferentes.
+
+**Desmarcado, com a razão escrita na própria linha**, e o portão rodado localmente confirma: *"nenhuma onda fechada com item pendente - ok"*.
+
+**RE-MEDIÇÃO DO PASSIVO com o critério corrigido** (e ela muda o plano, por isso está aqui):
+
+| onda | abertos | detalhe | fechados |
+|---|---|---|---|
+| `WM1` | **0** | — | 7 |
+| `W6b` | **0** | — | 14 |
+| `W6` | **4** | ⏳1 🔍3 | 2 |
+| `W7-B` | **8** | ⏳6 🔍2 | 6 |
+| `W7-C` | **7** | ⏳7 | 2 |
+| `W7-D` | **4** | ⏳4 | 1 |
+| `W8` | **7** | ⏳7 | 0 |
+
+**Duas ondas fechadas de verdade** (`WM1` e `W6b`), não três. E o passivo tem **30 itens abertos**, não os 32 que contei antes — número diferente por dois motivos que se cancelam em parte: entraram os `🔍` que eu ignorava, e saíram os que fechamos hoje.
+
+**A regra que fica, e é para mim:** ***quando eu enumerar "o que falta", o critério é "tudo que NÃO é `✅`"***, nunca uma lista de estados que eu escolho na hora. Lista escolhida à mão esquece um estado, e o estado esquecido é invisível por construção.
+
+**O mérito do portão:** ele existe exatamente para esta falha, mordeu na primeira vez em que ela aconteceu, e a mensagem dele nomeia a onda e conta os itens. Sem ele, a W6 ficaria marcada como fechada com três itens por verificar, e ninguém notaria até alguém tropeçar.

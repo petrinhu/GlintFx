@@ -74,17 +74,31 @@
 #
 # THE ONE HARD, EXPLICIT PRUNE THAT KEEPS THIS SAFE FOR PERFORMANCE
 # AND FALSE POSITIVES (GODS_LAWS.md L-40 item 3: a prune is reported,
-# never a silent hole): any directory segment matching build*
-# (case-folded) is skipped outright, never descended, and its count is
-# printed. Measured on this exact repository, 21/09/2026: seven such
-# directories (build, build-static, build-preci, build-preci-debug,
-# build-errcopy-red, build-f5-oom, build-verif-f4) hold ~4600 files
-# between them, and EVERY .o/.a/.so/.exe the real compiler writes
-# there is the project's OWN build output, never distributed - without
-# this prune, E3 would flag thousands of legitimate build artifacts as
-# "third-party". CLAUDE.md documents this naming convention and
-# .gitignore's own "build/" + "build-*/" rules already assume it; this
-# prune is the filesystem-walk equivalent of the same fact.
+# never a silent hole): a directory is skipped, never descended, ONLY
+# when it actually CONTAINS a CMake build marker at its own root
+# (CMakeCache.txt, build.ninja or CMakeFiles/ - is_build_output_dir()
+# below), and its count is printed. Measured on this exact repository,
+# 21-22/09/2026: six such directories (build, build-static,
+# build-preci, build-errcopy-red, build-f5-oom, build-verif-f4) hold
+# thousands of files between them, and EVERY .o/.a/.so/.exe the real
+# compiler writes there is the project's OWN build output, never
+# distributed - without this prune, E3 would flag thousands of
+# legitimate build artifacts as "third-party".
+#
+# THIS PRUNE USED TO MATCH BY NAME PREFIX ("build*", case-folded) -
+# FIXED to presence-only after a real sabotage caught it: a directory
+# only has to START WITH "build" to satisfy a prefix test, never has
+# to BE a build tree. The team-lead's own review (against commit
+# 016fbad, 22/09/2026) planted a third-party header, AGPL-stamped,
+# under `builder/third_party/stb/` - "builder" starts with "build",
+# so the prefix rule pruned it, the universe count (E1) still rose by
+# one (698 instead of 697), and the verdict still said "nenhum
+# intruso". Reproduced and confirmed red before this fix, same as any
+# other sabotage in this file. Presence-based pruning covers every
+# real build* directory this repository has (measured above) without
+# guessing a name at all, and a directory this cannot even list
+# (permission, race) is never pruned by assumption - fail toward
+# scanning it, not toward skipping it.
 #
 # WHY NOTHING ELSE IS PRUNED BY GENERIC GIT-IGNORE STATUS, ON PURPOSE:
 # a vendor-form directory (E2) or a third-party artifact (E3) is never
@@ -117,10 +131,14 @@
 #   check_vendor_purity.py <repo-root-directory>
 #   check_vendor_purity.py --selftest
 #
-# --selftest runs the eight controls GODS_LAWS.md L-40 and this fatia's
-# plan (SS5.3) require: positive, negative(E2: vendor-form directory),
-# negative(E3: binary artifact), negative(E3: submodule marker), empty
-# scan (universe, E1), empty scan (vendor exception vanished, DECISAO
+# --selftest runs the nine controls GODS_LAWS.md L-40, this fatia's
+# plan (SS5.3) and the team-lead's own review (22/09/2026, the fake-
+# build-directory sabotage against commit 016fbad) require: positive,
+# negative(E2: vendor-form directory), negative(FAKE BUILD DIRECTORY:
+# vendor-form nested under a directory that starts with "build" but
+# holds no CMake marker - the review's own sabotage), negative(E3:
+# binary artifact), negative(E3: submodule marker), empty scan
+# (universe, E1), empty scan (vendor exception vanished, DECISAO
 # AUTONOMA 2), the ESCAPE control (widening the exception is only
 # possible by editing this file's own source, never at the command
 # line), and non-git (scan refusal, never presumed empty - the same
@@ -246,11 +264,41 @@ def scanned_repo_files(root):
 # --- E2 + E3: the real filesystem walk -------------------------------
 
 
-def is_build_output_dirname(name):
+# GODS_LAWS.md L-40 finding (team-lead sabotage against commit
+# 016fbad, 22/09/2026, reproduced and confirmed red by the
+# implementer before this fix): the previous version of this prune
+# matched by NAME PREFIX (`name.casefold().startswith("build")`) -
+# and a directory only has to START WITH "build" to satisfy that,
+# never has to BE a build tree. `builder/`, `build_tools/`,
+# `buildsystem/`, `src/buildings/` all match the prefix and hold no
+# build output whatsoever; a third-party artifact planted under any
+# of them was pruned away unseen, while the universe count (E1) still
+# rose to include it - "contagem certa, universo errado", the same
+# shape this project already named for the OPPOSITE defect
+# (feedback_lista_vazia_degenera_o_comando). Declaring the prune in
+# the success message (this file already did that) does not turn a
+# blind spot into coverage.
+BUILD_MARKER_ENTRIES = frozenset({"CMakeCache.txt", "build.ninja", "CMakeFiles"})
+
+
+def is_build_output_dir(dir_abs_path):
     """The one hard, explicit, always-reported prune (see this file's
-    header). Matches 'build', 'build-static', 'build-preci-debug', ...
+    header) - now by PRESENCE, never by name. A directory is pruned
+    only when it actually CONTAINS a CMake build-system marker at its
+    own root. Measured against every build* directory this repository
+    has today (build, build-static, build-preci, build-errcopy-red,
+    build-f5-oom, build-verif-f4, 21-22/09/2026): all six carry
+    CMakeCache.txt, build.ninja AND CMakeFiles/ at their own root -
+    presence-based pruning covers every one of them without any name
+    guess at all. A directory this cannot open (permission, race) is
+    never pruned by assumption - fail toward scanning it, not toward
+    skipping it.
     """
-    return name.casefold().startswith("build")
+    try:
+        entries = set(os.listdir(dir_abs_path))
+    except OSError:
+        return False
+    return bool(entries & BUILD_MARKER_ENTRIES)
 
 
 def is_vendor_form_segment(name):
@@ -299,10 +347,12 @@ def scan_tree(root):
     a filesystem walk and not `git ls-files` filtered by extension.
 
     '.git' is never listed, never descended (not a vendor form; not
-    a question this gate asks). Any 'build*' segment is pruned the
-    same way, explicitly, and counted (pruned_build_dirs) - never a
-    silent hole. Every OTHER directory is walked in full regardless of
-    git-ignore status - deliberately (this file's header).
+    a question this gate asks). Any directory that actually CONTAINS a
+    CMake build marker (is_build_output_dir() - presence, never name)
+    is pruned the same way, explicitly, and counted
+    (pruned_build_dirs) - never a silent hole. Every OTHER directory
+    is walked in full regardless of git-ignore status - deliberately
+    (this file's header).
 
     A directory whose own segment matches VENDOR_FORM_VOCABULARY is
     NEVER pruned (matched or not), and every file physically under it
@@ -327,12 +377,20 @@ def scan_tree(root):
         for name in dirnames:
             if name == ".git":
                 continue
-            if is_build_output_dirname(name):
+            # Vendor-form match wins over the build prune, always - a
+            # directory named "vendor-build-cache" is still a vendor
+            # form first (this file's own docstring for scan_tree()
+            # already promises vendor-form directories are NEVER
+            # pruned, and that promise has to hold before the build
+            # check runs, not after).
+            if is_vendor_form_segment(name):
+                keep.append(name)
+                vendor_dirs.append(_join_posix(rel_dirpath, name))
+                continue
+            if is_build_output_dir(os.path.join(dirpath, name)):
                 pruned_build_dirs.append(_join_posix(rel_dirpath, name))
                 continue
             keep.append(name)
-            if is_vendor_form_segment(name):
-                vendor_dirs.append(_join_posix(rel_dirpath, name))
         dirnames[:] = keep
 
         under_vendor_dir = _is_under_any(rel_dirpath, vendor_dirs)
@@ -619,6 +677,63 @@ def selftest_negative_vendor_dir_control(scratch, capture):
     return ok
 
 
+# Negative control, FAKE BUILD DIRECTORY (GODS_LAWS.md L-40 finding,
+# team-lead sabotage against commit 016fbad, 22/09/2026): the three
+# legitimate files PLUS a vendor-form directory nested under a
+# directory whose NAME starts with "build" but that holds no CMake
+# build marker at all - `builder/third_party/stb/stb_image.h`, AGPL-
+# stamped. The name-prefix prune this fatia originally shipped with
+# pruned "builder/" away unseen (it starts with "build") while the
+# universe count (E1) still rose to include the planted file -
+# "contagem certa, universo errado". Expected: reproves, cites the
+# exact nested path, names the form - `builder/` is never confused
+# with a real build tree just because of its name.
+def selftest_negative_fake_build_dir_control(scratch, capture):
+    root = os.path.join(scratch, "negative-fake-build-dir")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    intruder_dir = os.path.join(root, "builder", "third_party", "stb")
+    os.makedirs(intruder_dir, exist_ok=True)
+    with open(os.path.join(intruder_dir, "stb_image.h"), "w", encoding="utf-8") as handle:
+        handle.write("// SPDX-License-Identifier: AGPL-3.0-or-later\nint stb_decode(void);\n")
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result:
+        print(
+            "selftest: controle NEGATIVO(FAKE-BUILD-DIR) FALHOU "
+            "(builder/third_party/stb/stb_image.h deveria ter sido "
+            "reprovado - 'builder' nao e' arvore de build so' por "
+            "comecar com 'build')",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    ok = True
+    if "builder/third_party/stb/stb_image.h" not in outcome.text or FORM_VENDOR_DIRECTORY not in outcome.text:
+        print(
+            "selftest: controle NEGATIVO(FAKE-BUILD-DIR) FALHOU "
+            "(reprovou, mas nao citou o caminho exato ou a forma)",
+            file=sys.stderr,
+        )
+        ok = False
+    for legitimo in KNOWN_VENDOR_FILES:
+        if legitimo in outcome.text:
+            print(
+                f"selftest: controle NEGATIVO(FAKE-BUILD-DIR) FALHOU "
+                f"(acusou o arquivo legitimo '{legitimo}')",
+                file=sys.stderr,
+            )
+            ok = False
+    if ok:
+        print(
+            "selftest: controle NEGATIVO(FAKE-BUILD-DIR) OK "
+            "(builder/third_party/stb/stb_image.h citado pelo caminho "
+            "exato - 'builder/' nunca podado so' por comecar com 'build')"
+        )
+    return ok
+
+
 # Negative control, E3-binary: the three legitimate files PLUS a
 # binary library extension planted OUTSIDE any vendor-form directory
 # (src/core/, an ordinary source directory). Expected: reproves,
@@ -875,6 +990,7 @@ def selftest_main():
         controls = [
             selftest_positive_control(scratch, capture),
             selftest_negative_vendor_dir_control(scratch, capture),
+            selftest_negative_fake_build_dir_control(scratch, capture),
             selftest_negative_binary_artifact_control(scratch, capture),
             selftest_negative_submodule_control(scratch, capture),
             selftest_empty_universe_control(scratch, capture),

@@ -84,36 +84,53 @@ de trazer `<link state='down'/>` explícito, e a categoria `[7/7]` do portão
 de isolamento (`provar-isolamento.sh`) reprova qualquer definição que não
 tenha essa marca em cada interface, seja qual for o `@type`.
 
-**Estado medido nesta máquina, 22/09/2026:** a interface real do domínio
-`glintfx-win11-lab` é `type='user'` (SLIRP), MAC `52:54:00:fa:f5:80`, **sem**
-`<link state='down'/>` ainda - a definição persistente **não foi alterada**
-por esta fatia (V-4). A alteração (`virsh domif-setlink ... down --config`,
-ou a alternativa por `detach-device --config` caso `domif-setlink` não
-morda numa interface `type='user'`) foi **autorizada pelo líder** mas ficou
-**bloqueada pelo classificador de permissão automático** desta sessão
-("Modify Shared Resources" - a definição do domínio é compartilhada com
-outra sessão autorizada, e o classificador não distingue autorização dada
-em chat de autorização de ferramenta). A definição atual, íntegra, está
-salva em `/var/tmp/glintfx-win-lab/dominio-antes-da-V4.xml` (fora deste
-repositório - é estado de máquina, não de código). **Pendente para quem
-tiver a permissão de ferramenta liberada:**
+**Estado real, aplicado em 22/09/2026 às ~16:19 (fato medido, não mais
+`[A VERIFICAR]`):** a definição persistente do domínio `glintfx-win11-lab`
+já tem `<link state='down'/>` dentro do `<interface type='user'>`
+(MAC `52:54:00:fa:f5:80`). **Quem aplicou foi o próprio líder, no terminal
+dele** - o classificador de permissão automático desta sessão de agente
+negou a ação duas vezes ("Modify Shared Resources"), e a alteração real
+não foi contornada por este agente. Comando e saída literais, do líder:
 
-1. Medir se `domif-setlink glintfx-win11-lab 52:54:00:fa:f5:80 down --config`
-   morde numa interface `type='user'` (conferir por `dumpxml --inactive` se
-   aparece `<link state='down'/>`); se não morder, usar
-   `detach-device --config` da interface como alternativa.
-2. Rodar `./provar-isolamento.sh --dominio glintfx-win11-lab` depois da
-   mudança - tem de aprovar (código 0) as sete categorias.
-3. A metade VIVA de E4 (de dentro do convidado, tentar alcançar um destino
+```
+$ virsh -c qemu:///session domif-setlink glintfx-win11-lab 52:54:00:fa:f5:80 down --config
+Dispositivo atualizado com sucesso
+```
+
+**Resposta à pergunta que ficava `[A VERIFICAR]` na seção 4 do plano:
+`domif-setlink --config` MORDE numa interface `type='user'`, com o domínio
+desligado.** A alternativa por `detach-device --config` não foi necessária.
+
+Conferido de forma independente, só por leitura (nunca escrita) nesta
+sessão de agente:
+
+- `./provar-isolamento.sh --dominio glintfx-win11-lab` aprova (código 0) as
+  sete categorias contra a definição real, e `./provar-isolamento.sh --file
+  fixtures/dominio-sabotado.xml` continua reprovando (código 1) - a
+  categoria `[7/7]` distingue as duas definições corretamente.
+- `diff` entre a cópia guardada antes da mudança
+  (`/var/tmp/glintfx-win-lab/dominio-antes-da-V4.xml`, md5
+  `2f5a3db6f98f60552b28ea9d23966aaa`) e o `dumpxml --inactive` atual mostra
+  **uma única linha acrescentada** (`<link state='down'/>`) - nada mais na
+  definição mudou.
+- `/home/petrus/.config/libvirt/qemu/glintfx-win11-lab.xml` (o arquivo de
+  configuração persistente do libvirt) tem `mtime` de 22/09/2026 16:19:57,
+  batendo com o horário do comando; o `nvram` do domínio manteve o `mtime`
+  de antes (09:04:35) - nenhuma outra parte do domínio foi tocada.
+
+**Pendente, fora do alcance de leitura:**
+
+1. A metade VIVA de E4 (de dentro do convidado, tentar alcançar um destino
    externo e ver falhar) só é possível com a máquina ligada - fica para a
    sessão de arranque que ligar a VM, junto da medição do limite de bytes
    por chamada `guest-file-read` (ver o cabeçalho de `coletar-resultados.sh`).
 
 **Para religar a rede numa sessão de instalação autorizada:**
 `virsh -c qemu:///session domif-setlink glintfx-win11-lab 52:54:00:fa:f5:80 up --config`
-(ou reanexar a interface, se o caminho tiver sido por `detach-device`), e
-desligar de novo (`... down --config`) ao fim da sessão - nunca deixar a
-rede ligada por padrão fora de uma sessão explicitamente autorizada.
+(comando já medido `down`/mordendo em `type='user'` - `up` usa a mesma
+sintaxe), e desligar de novo (`... down --config`) ao fim da sessão -
+nunca deixar a rede ligada por padrão fora de uma sessão explicitamente
+autorizada.
 
 ## Sobre a senha: nunca versionada, sempre gerada de novo
 

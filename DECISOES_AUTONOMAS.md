@@ -3868,3 +3868,35 @@ O primeiro era o que mais me preocupava: portão que confere só **presença** d
 **Lacuna declarada, não contornada:** `tools/preci.sh --fast` parou no `GATE-PS-SYNTAX` porque a imagem de PowerShell não está no cache do container de verificação. O agente **não** rodou `docker pull` sem autorização (L-14/L-51) — resultado negativo honesto. Nenhum `.ps1` foi tocado nesta fatia, e a cobertura real veio das rodadas de suíte inteira em container, mais completas que o `--fast`.
 
 **O efeito, que é o que interessa:** o trabalho `clang` do servidor sai de **106 de 216** casos para a **suíte inteira**, e os três defeitos que o mantinham rebaixado desde 26/08/2026 estão fechados, verdes nos **dois** compiladores (216/216 em cada). Tempo de parede: 210s sob GCC, 123s sob Clang — folga larga contra o teto de 40 min instituído na onda anterior.
+
+---
+
+## 22/09/2026 - 02:25 | ONDA DA NOITE FECHADA: servidor verde, seis itens promovidos
+
+**Medido, não lido da notificação:** execução `35689281562`, conclusão `success`, **25 jobs, 24 verdes, 0 falhas, 1 pulado** (o de marca, que só acorda em envio de etiqueta). Os dois jobs `clang` passaram **rodando a suíte inteira pela primeira vez** — 6 e 8 minutos, contra os 2-3 de quando rodavam 106 dos 216 casos, e com folga larga contra o teto de 40 min instituído horas antes.
+
+**Seis itens promovidos de `🔍` para `✅`**, e só agora, depois do verde real: `CI-TIMEOUTS`, `CI-TIMEOUTS-GATE`, `VENDOR-SWEEP-GATE`, `CLANG-INSTALL-LAYOUT-ARCH`, `CLANG-PKGCONFIG-PROBE`, `CLANG-PUBLIC-NAME-COLLISION`. Somados aos três da onda anterior (`VERSION-TAG-SYNC`, `ASSET-PARITY-ROOT`, `PKG-WIN-VALIDATE-FATAL`), são **nove itens fechados** desde que o líder ligou o modo autônomo.
+
+**Os cinco itens que continuam em `🔍` NÃO são meus e não foram promovidos:** `GFSS-SPECIFICITY`, `GFSS-SHORTHAND`, `GFSS-MATCH-COMBINE`, `CONTAINER-LEAK-COUNTER`, `CONTAINER-KILL-ORDER-GATE`. São anteriores a esta noite e precisam de verificação própria.
+
+### O que esta noite ensinou, e vale mais que as fatias
+
+**1. O revisor sabota a EXCLUSÃO; o implementador sabota o vocabulário.** As quatro sabotagens do implementador do portão de vendorização plantaram nomes óbvios e foram todas pegas. As duas minhas atacaram **a lista do que o portão decide não olhar**, e acharam **dois buracos**. Não foi sorte: exclusão é onde portão cega.
+
+**2. "Contagem certa do universo errado" apareceu TRÊS vezes no mesmo arquivo numa noite.** O portão conta, imprime o número honesto, e mente — porque varreu o lugar errado. O piso da L-40 passa ileso, porque ele protege contra *"não olhei"*, nunca contra *"olhei no lugar errado"*.
+
+**3. Duas tentativas falhando pelo mesmo motivo PROÍBEM uma terceira por palpite.** O cenário 20 do Windows levou três: as duas primeiras raciocinaram sobre como a busca de programa *deveria* funcionar; a terceira montou um experimento de dez minutos, provou a premissa executando, e acertou de primeira. **E a premissa quase sempre é testável na máquina que temos, mesmo quando o defeito só aparece na que não temos.**
+
+**4. "Em que elo da cadeia isso ainda existia?"** Um símbolo que some no ligador quase nunca é problema de ligação. Um `nm` de dois segundos no arquivo objeto encerrou um item que estava aberto havia **27 dias** — e a causa errada estava escrita no próprio item, envenenando todo agente que o lia.
+
+**5. O medidor não escreve dentro do que ele mede.** Três contaminações na mesma tarefa (saída do `ctest`, diretório de build, registro do espelho), todas acusadas corretamente pelo portão de licença. E o sinal que as denuncia é barato: **duas medições que discordam sem a variável sob teste ter mudado acusam o instrumento, nunca o objeto.**
+
+**6. "Esperando" não é estado aceito.** Duas vezes um agente ficou ocioso aguardando aviso que já havia chegado — uma delas com o resultado gravado em arquivo **sete minutos** antes. Conferir custa um comando.
+
+**7. Arquivo `root:root` deixado por container se limpa POR CONTAINER**, nunca por `sudo` na máquina do líder. E a recusa do agente em escalar privilégio sozinho foi o comportamento certo — faltou só procurar a saída sem privilégio antes de escalar.
+
+### Erros meus, nomeados
+
+- Aceitei `ASSET-PARITY-ROOT` **sem rodar o build de ASan/UBSan** que a L-23 exige a cada fatia fechada; o servidor pegou a regressão que eu não peguei. **Regra que fica:** fatia que mexe em **estado de processo** exige o sanitizador antes do aceite.
+- Afirmei num briefing, **como medido**, que havia mais de um arquivo em `.github/workflows/`. Havia um. **Regra que fica:** quando eu escrever "medi", o comando tem de estar na mesma frase; se não estiver, é inferência e se declara como tal.
+- Listei quatro hipóteses de ligação para o defeito 2 do Clang. **As quatro erradas** — a referência sumia antes do ligador.

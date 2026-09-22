@@ -3774,3 +3774,46 @@ Um `seteuid()` bem-sucedido zera o atributo `dumpable` do processo (efeito colat
 **As duas primeiras raciocinaram sobre como a busca deveria funcionar. A terceira mediu.** Dez minutos de experimento valeram mais que duas rodadas inteiras do servidor. **Quando duas tentativas falham pelo mesmo motivo aparente, a terceira não pode ser outro palpite — tem de ser uma medição** (é a L-42 do projeto, "buscar antes da terceira tentativa", e ela se cumpre medindo, não só lendo documentação).
 
 **Saldo da noite:** 5 fatias fechadas e verificadas (`VERSION-TAG-SYNC` em duas metades, `ASSET-PARITY-ROOT`, a regressão do LeakSanitizer, `PKG-WIN-VALIDATE-FATAL`), 2 planejamentos entregues (`ASSET-PARITY-ROOT` e `VENDOR-SWEEP-GATE`), **2 fatos escritos na `TODO.md` refutados por medição** (a pasta vendorizada que "passava por todos os portões" e a referência de linha velha), **1 regressão nossa pega pelo portão do sanitizador** e uma falha minha nomeada (aceitar fatia de estado de processo sem rodar o sanitizador), e um item novo descoberto (`VENDOR-LIST-SIBLING`).
+
+---
+
+## 22/09/2026 - 00:20 | `VENDOR-SWEEP-GATE`: dois buracos que a sabotagem do implementador não podia achar
+
+Três commits (`016fbad` → `b7a7712` → `315111f`), porque **eu achei dois buracos depois da entrega**, atacando a mesma superfície por famílias que as quatro sabotagens dele não cobriam. As dele usaram vocabulário óbvio em lugares não podados; **eu ataquei a EXCLUSÃO**, que é onde portão cega.
+
+**BURACO 1 — poda por nome.** O portão pulava qualquer diretório cujo nome **começasse** com `build`, em qualquer profundidade. Plantei uma biblioteca de terceiro em `builder/third_party/stb/stb_image.h`, com o cabeçalho AGPL da casa carimbado (para o portão de licença não morder por outro motivo):
+
+```
+check_vendor_purity.py: 698 caminho(s) varrido(s) ... - nenhum intruso (1 diretorio(s) build*/ podado(s))
+rc=0
+```
+
+**Conserto ordenado por mim:** a poda deixa de ser por **nome** e passa a ser por **presença** — só é diretório de build o que **contém** `CMakeCache.txt`, `build.ninja` ou `CMakeFiles/`. Presença se verifica; prefixo de nome é chute, e `builder/`, `build_tools/`, `buildsystem/` não são build nenhum.
+
+**BURACO 2 — a garantia não descia.** Com o conserto 1, um diretório de forma vendorizada nunca era podado — mas **os filhos dele sim**. Bastava forjar um `CMakeCache.txt` vazio ao lado do intruso, um nível abaixo:
+
+```
+mkdir -p builder/third_party/stb
+echo ... > builder/third_party/stb/stb_image.h
+echo '# fake' > builder/third_party/stb/CMakeCache.txt
+-> 698 caminho(s) varrido(s) ... - nenhum intruso   rc=0
+```
+
+**Conserto ordenado por mim:** **regra de contenção** — nenhuma poda, nem por nome nem por marcador, se aplica **abaixo** de um ancestral de forma vendorizada. Uma vez lá dentro, analisa tudo, em qualquer profundidade.
+
+**A ASSINATURA, e ela apareceu TRÊS vezes no mesmo arquivo numa noite:** o universo é contado **certo** (697 → 698, o arquivo intruso ENTRA na varredura) e o veredicto sai **errado**. O piso de varredura não-vazia da L-40 passa ileso enquanto o portão erra, porque ele protege contra *"não olhei"* e não contra *"olhei no lugar errado"*. Está escrito agora no cabeçalho do próprio arquivo, nomeada, para o próximo revisor procurar por ela. É a mesma família de `feedback_contagem_certa_do_universo_errado` na memória do projeto, registrada hoje mais cedo por outro caso.
+
+**RE-VERIFICAÇÃO DO ORQUESTRADOR (L-12), tudo medido por mim contra o BLOB COMMITADO, nunca contra a árvore de trabalho:**
+
+| o que eu rodei | resultado |
+|---|---|
+| minha sabotagem 1 contra `315111f` | **REPROVA**, cita o caminho exato |
+| minha sabotagem 2 (marcador forjado) contra `315111f` | **REPROVA**, cita os dois arquivos |
+| árvore REAL, com os 6 `build*/` de verdade presentes | `rc=0`, **697 varridos, 6 podados**, nenhum falso vermelho |
+| os 10 controles do `--selftest`, rodados por mim | todos OK |
+
+**Achado do implementador que refuta o plano (L-44), e é bom:** o desenho literal do plano mandava E3 filtrar `git ls-files` por extensão binária. **O `.gitignore` deste repositório já exclui `*.a *.o *.obj *.lib *.so *.dylib *.dll *.exe`** — exatamente as extensões que E3 existe para pegar. `git ls-files --others --exclude-standard` nunca lista o que o `.gitignore` exclui, então o desenho literal seria **estruturalmente cego** e o próprio S4 do plano provaria isso. Ele mediu antes de escrever e implementou E3 como varredura real de sistema de arquivos.
+
+**Desvio que ele declarou e eu aceito:** não implementou a poda genérica por `git check-ignore` que o plano pedia — um diretório vendorizado escondido atrás de uma entrada **nova** no `.gitignore` não é podado nem pego. Mais estreito que o plano e **mais seguro**: a poda genérica criaria exatamente o buraco que os dois achados acima mostram ser fácil de abrir. Fica como quinta lacuna declarada.
+
+**As lacunas declaradas desta fatia, escritas na `TODO.md` para ninguém ler "fatia fechada" como "assunto coberto":** inclusão por aspas (`#include "..."`), pasta vendorizada de **nome inocente** (`src/stb/`), arquivo único de terceiro com o cabeçalho AGPL carimbado por cima, e agora a do `.gitignore` novo.

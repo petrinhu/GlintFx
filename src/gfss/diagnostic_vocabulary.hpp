@@ -246,6 +246,26 @@
 // parsing has trailing garbage after it", a real grammar fact; this
 // one means "this parser refused to even try, because reading further
 // would have meant allocating").
+//
+// GFSS-SEL-REJECT-ORPHAN (TODO.md wave W6, GODS_LAWS.md L-20/L-40,
+// decision of the leader in ESCOPO.md's own "As seis decisoes da manha
+// de 02/09" SS1, verbatim "Recusar na leitura da folha") IS THE
+// TWELFTH ROW HERE: `answerable_pseudo_class` is selector_parse.cpp's
+// OWN (same `selector_parse` producer tag as its existing rows, since
+// it is emitted by the SAME parse_pseudo_selector() that already emits
+// `known_pseudo_class`) - a DIFFERENT question from that sibling
+// diagnostic, never a re-spelling of it: `known_pseudo_class` fires
+// when the name is not pseudo-class VOCABULARY at all
+// (selector_pseudo_vocabulary.hpp's own GLINTFX_GFSS_SIMPLE_PSEUDO_LIST
+// does not name it); `answerable_pseudo_class` fires when the name IS
+// known vocabulary but is also a member of that SAME file's own new
+// GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST - a name the eight-fact node
+// contract (docs/node-view-and-matching.md's own "gap 1") can never
+// answer. Before this fatia, such a selector was silently ACCEPTED and
+// would simply never match; this diagnostic is what makes that failure
+// visible at parse time instead. Does not touch the eight-fact contract
+// itself (the leader's own order for this fatia, verbatim in TODO.md:
+// "Nao mexe no contrato dos oito").
 
 namespace glintfx::style::detail {
 
@@ -282,6 +302,7 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(attribute_value, selector_parse)                                                             \
     X(closing_square_bracket, selector_parse)                                                      \
     X(not_recursion_limit, selector_parse)                                                         \
+    X(answerable_pseudo_class, selector_parse)                                                     \
     X(component_value, value_parse)                                                                \
     X(known_dimension_unit, value_parse)                                                           \
     X(anb_expression, anb_parse)                                                                   \

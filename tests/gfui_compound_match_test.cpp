@@ -250,19 +250,30 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
                   match_verdict::rejected);
     GLINTFX_CHECK(match_compound(parse_one_compound("a*a"), node_a) == match_verdict::matched);
 
-    // Deferral: only the two simple pseudo-classes still unowned
-    // (:placeholder-shown, :scope) - the five state ones settle via
-    // state_holds() (PASS 2 step 2) and the seven structural ones
-    // (GFSS-MATCH-STRUCT, TODO.md wave W5) now settle via compound_
-    // match.cpp's own attribute_and_structural_selectors_hold() (PASS
-    // 2 step 5) - enumerated from selector_pseudo_vocabulary.hpp's own
-    // closed list, never a hand-picked subset.
+    // Deferral: only the one simple pseudo-class still unowned
+    // (:scope) - the five state ones settle via state_holds() (PASS 2
+    // step 2), the seven structural ones (GFSS-MATCH-STRUCT, TODO.md
+    // wave W5) now settle via compound_match.cpp's own attribute_and_
+    // structural_selectors_hold() (PASS 2 step 5), and :placeholder-
+    // shown no longer reaches this matcher at all - GFSS-SEL-REJECT-
+    // ORPHAN (TODO.md, GODS_LAWS.md L-20/L-40, ESCOPO.md's own
+    // "Recusar na leitura da folha") makes selector_parse.cpp reject it
+    // at PARSE time, with its own dedicated red/green witness in
+    // gfss_selector_parse_test.cpp - never silently deferred forever
+    // the way this loop used to exercise. Still enumerated from
+    // selector_pseudo_vocabulary.hpp's own closed list, never a
+    // hand-picked subset - is_orphan_simple_pseudo() is the SAME
+    // skip-by-closed-list technique the two checks below already use,
+    // not a hand-picked exception.
     std::size_t deferred_simple_count = 0;
     for (const std::string_view &name : glintfx::style::detail::k_simple_pseudo_names) {
         if (glintfx::gfui::detail::state_bit_for_pseudo_class(name).has_value()) {
             continue;
         }
         if (glintfx::gfui::detail::structural_simple_kind_for_pseudo_class(name).has_value()) {
+            continue;
+        }
+        if (glintfx::style::detail::is_orphan_simple_pseudo(name)) {
             continue;
         }
         ++deferred_simple_count;
@@ -272,9 +283,9 @@ GLINTFX_TEST(match_compound_species_matrix_case_state_and_deferral) {
     }
     GLINTFX_CHECK_EQ(deferred_simple_count, glintfx::style::detail::k_simple_pseudo_count -
                                                 glintfx::gfui::gltfx_node_state_count -
-                                                std::size_t{7});
-    std::printf("gfui_compound_match_test: %zu non-state, non-structural simple pseudo-classes "
-                "still deferred\n",
+                                                std::size_t{7} - std::size_t{1});
+    std::printf("gfui_compound_match_test: %zu non-state, non-structural, non-orphan simple "
+                "pseudo-classes still deferred\n",
                 deferred_simple_count);
     std::printf("SCANCOUNT gfui_compound_match_test.deferred_simple_pseudo_class_count=%zu\n",
                 deferred_simple_count);
@@ -606,13 +617,19 @@ GLINTFX_TEST(match_compound_call_order_and_short_circuit_over_counting_tree) {
           .next_sibling = 0,
           .child_count = 0,
           .first_child = 0}},
-        // ":placeholder-shown", not ":first-child" - the latter is
-        // owned by GFSS-MATCH-STRUCT now (compound_match.hpp's own
-        // updated header comment) and would cost an extra previous_
-        // sibling() call to settle, muddying what this case exists to
-        // prove: the deferred half of a compound costs NOTHING when
-        // the owned half already holds.
-        {"a#one.alpha:placeholder-shown",
+        // ":scope", not ":first-child" - the latter is owned by
+        // GFSS-MATCH-STRUCT now (compound_match.hpp's own updated
+        // header comment) and would cost an extra previous_sibling()
+        // call to settle, muddying what this case exists to prove: the
+        // deferred half of a compound costs NOTHING when the owned
+        // half already holds. Was ":placeholder-shown" until GFSS-SEL-
+        // REJECT-ORPHAN (TODO.md, GODS_LAWS.md L-20/L-40) made
+        // selector_parse.cpp reject that name at parse time - ":scope"
+        // is still unowned by THIS matcher today (GFSS-MATCH-COMBINE's
+        // own future job, docs/node-view-and-matching.md), so it still
+        // proves the exact same zero-cost deferral this case exists
+        // for.
+        {"a#one.alpha:scope",
          match_verdict::deferred,
          {.tag_name = 1,
           .id = 1,

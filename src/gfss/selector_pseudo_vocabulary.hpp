@@ -186,4 +186,64 @@ inline constexpr std::array<std::string_view, k_pseudo_element_count> k_pseudo_e
     return false;
 }
 
+// A FOURTH LIST, GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST, ADDED BY
+// GFSS-SEL-REJECT-ORPHAN (TODO.md, GODS_LAWS.md L-20/L-40, decision of
+// the leader in ESCOPO.md's own "As seis decisoes da manha de 02/09"
+// SS1, verbatim "Recusar na leitura da folha"): the CLOSED subset of
+// GLINTFX_GFSS_SIMPLE_PSEUDO_LIST above whose name is syntactically
+// known but that none of the eight facts the public node contract
+// exposes (docs/node-view-and-matching.md's own "gap 1", compound_
+// match.cpp's own note_pseudo_class_selector() comment) can ever
+// answer, and that no future matching slice owns either -
+// ":placeholder-shown" is the only member today. This is NOT the same
+// question GLINTFX_GFSS_SIMPLE_PSEUDO_LIST answers ("is this name
+// pseudo-class vocabulary at all") - it is a narrower one, "of the
+// names that ARE vocabulary, which one can this library's contract
+// never honor". ":scope" and every structural/state name stay OUT of
+// this list on purpose: each already has an assigned owner (state_
+// pseudo_class_table.hpp for the five states, structural_match.hpp for
+// the seven structural ones, GFSS-MATCH-COMBINE for ":scope" anchoring)
+// even where today's matcher still answers `deferred` for lack of that
+// owner's OWN fatia yet landing - "not yet wired" is not "orphaned".
+// Before this fatia, a leaf writing ":placeholder-shown" was accepted
+// at parse time and would simply never match, in silence - the same
+// "aceitar e nunca casar e falha silenciosa" the leader's own decision
+// named. Does NOT touch the eight-fact contract itself
+// (include/glintfx/gfui/node_view.hpp) - the leader's own order for
+// this fatia, verbatim in TODO.md: "Nao mexe no contrato dos oito".
+#define GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST(X) X("placeholder-shown")
+
+inline constexpr std::size_t k_orphan_simple_pseudo_count = [] {
+    std::size_t count = 0;
+#define GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_COUNT_ONE(text) ++count;
+    GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST(GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_COUNT_ONE)
+#undef GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_COUNT_ONE
+    return count;
+}();
+
+inline constexpr std::array<std::string_view, k_orphan_simple_pseudo_count>
+    k_orphan_simple_pseudo_names{
+#define GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE(text) std::string_view{text},
+        GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST(GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE)
+#undef GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_ARRAY_ONE
+    };
+
+#undef GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST
+
+// `name` is already known to satisfy is_known_simple_pseudo() above -
+// this asks the NARROWER question, whether the contract can ever
+// answer it. selector_parse.cpp's own parse_pseudo_selector() calls
+// this ONLY after is_known_simple_pseudo() already returned true, the
+// same ordering GFSS-SEL-PARSE-CORE's own two-question split (list
+// membership, then argument analysis) already establishes for the
+// functional pseudo-classes.
+[[nodiscard]] constexpr bool is_orphan_simple_pseudo(std::string_view name) noexcept {
+    for (const auto &candidate : k_orphan_simple_pseudo_names) {
+        if (ascii_case_insensitive_equal(name, candidate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace glintfx::style::detail

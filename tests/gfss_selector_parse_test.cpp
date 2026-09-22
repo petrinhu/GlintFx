@@ -58,9 +58,11 @@ using glintfx::style::detail::gfss_combinator_count;
 using glintfx::style::detail::gfss_combinator_table;
 using glintfx::style::detail::gfss_diagnostic_producer;
 using glintfx::style::detail::gfss_simple_selector_kind;
+using glintfx::style::detail::is_orphan_simple_pseudo;
 using glintfx::style::detail::k_expected_anb_expression;
 using glintfx::style::detail::k_expected_anb_expression_too_long;
 using glintfx::style::detail::k_expected_anb_offset;
+using glintfx::style::detail::k_expected_answerable_pseudo_class;
 using glintfx::style::detail::k_expected_attribute_name;
 using glintfx::style::detail::k_expected_attribute_operator_or_close;
 using glintfx::style::detail::k_expected_attribute_value;
@@ -124,6 +126,15 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_reads_compound_then_descendant_combi
 // argument-less pseudo-classes this fatia's own service order names,
 // swept from selector_pseudo_vocabulary.hpp's own k_simple_pseudo_names
 // - never a hand-copied second list that could drift from it.
+//
+// GFSS-SEL-REJECT-ORPHAN's OWN GEMEO (GODS_LAWS.md L-17, "corrigir a
+// condicao, procurar o gemeo"): this sweep used to assert `result.ok`
+// for all 14 names unconditionally - true before this fatia, false for
+// "placeholder-shown" after it (selector_pseudo_vocabulary.hpp's own
+// GLINTFX_GFSS_ORPHAN_SIMPLE_PSEUDO_LIST). The branch below keeps the
+// enumeration CLOSED and every one of the 14 still swept - it only
+// stops asserting the SAME outcome for a name the parser no longer
+// treats the same way.
 GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_simple_pseudo_class) {
     static_assert(
         k_simple_pseudo_count == 14,
@@ -134,6 +145,14 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_simple_pseudo_class
     for (const std::string_view name : k_simple_pseudo_names) {
         const std::string text = ":" + std::string(name);
         const auto result = parse_selector_list(text);
+        if (is_orphan_simple_pseudo(name)) {
+            GLINTFX_CHECK(!result.ok);
+            if (!result.ok) {
+                GLINTFX_CHECK(result.diagnostic.expected == k_expected_answerable_pseudo_class);
+            }
+            ++swept;
+            continue;
+        }
         GLINTFX_CHECK(result.ok);
         if (result.ok) {
             GLINTFX_CHECK_EQ(result.value.selectors.size(), static_cast<std::size_t>(1));
@@ -153,6 +172,46 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_recognizes_every_simple_pseudo_class
         "gltfx_gfss_parse_selector_list_recognizes_every_simple_pseudo_class: {} pseudo-class(es) "
         "checked",
         swept);
+}
+
+// GFSS-SEL-REJECT-ORPHAN (TODO.md, GODS_LAWS.md L-20/L-40, decision of
+// the leader in ESCOPO.md's own "As seis decisoes da manha de 02/09" SS1,
+// verbatim "Recusar na leitura da folha"): ":placeholder-shown" is
+// syntactically a known simple pseudo-class (selector_pseudo_
+// vocabulary.hpp's own GLINTFX_GFSS_SIMPLE_PSEUDO_LIST names it, and the
+// sweep test above proves the PARSER recognizes it) - but none of the
+// eight facts the public node contract exposes (docs/node-view-and-
+// matching.md's own "gap 1", compound_match.cpp's own note_pseudo_class_
+// selector() comment) can ever answer it, and no future matching slice
+// owns it either. Before this fatia, a leaf writing this condition was
+// silently ACCEPTED and would simply never match - failure nobody sees.
+// This is the RED half of that fatia's own TDD cycle (GODS_LAWS.md L-20:
+// "execute e veja falhar"): today's parser still accepts this selector,
+// so `result.ok` is still true here until selector_parse.cpp's own
+// orphan check exists.
+GLINTFX_TEST(gltfx_gfss_parse_selector_list_rejects_placeholder_shown_as_unanswerable_orphan) {
+    const auto result = parse_selector_list(":placeholder-shown");
+    GLINTFX_CHECK(!result.ok);
+    if (!result.ok) {
+        GLINTFX_CHECK(result.diagnostic.expected == k_expected_answerable_pseudo_class);
+        // the ident "placeholder-shown" starts right after the leading
+        // ':' - line 1, column 2, the SAME position identifier_after_
+        // colon/known_pseudo_class would point at for this same source.
+        GLINTFX_CHECK_EQ(result.diagnostic.line, static_cast<std::uint32_t>(1));
+        GLINTFX_CHECK_EQ(result.diagnostic.column, static_cast<std::uint32_t>(2));
+    }
+    // a compound that MIXES the orphan with an otherwise-fine simple
+    // selector still rejects whole - GFSS-SEL-REJECT-ORPHAN's own service
+    // order says the SHEET fails to load, never "match what parsed, drop
+    // what did not".
+    const auto compound_result = parse_selector_list("input:placeholder-shown");
+    GLINTFX_CHECK(!compound_result.ok);
+    if (!compound_result.ok) {
+        GLINTFX_CHECK(compound_result.diagnostic.expected == k_expected_answerable_pseudo_class);
+    }
+    std::println("gltfx_gfss_parse_selector_list_rejects_placeholder_shown_as_unanswerable_orphan: "
+                 "bare selector rejected={}, compound selector rejected={}",
+                 !result.ok, !compound_result.ok);
 }
 
 // ENUMERATION: the four combinators selector_ast.hpp's own
@@ -898,7 +957,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_limit) {
                  "both ways (10 nesting levels ok, 11 reproved)");
 }
 
-// TWELVE OF THE NINETEEN, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
+// THIRTEEN OF THE COUNT, PRODUCED FOR REAL BY THIS LAYER (GODS_LAWS.md
 // L-40 - gfss_tokenizer_test.cpp's own T2 proves format for the WHOLE
 // shared list and production for the tokenizer's own original four;
 // closing_parenthesis and closing_quote are REUSED here, not re-proven,
@@ -918,7 +977,7 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_enforces_not_nesting_depth_limit) {
 // own static_assert already checked, so this file's own coverage below
 // could silently fall behind while that unrelated static_assert still
 // matched. k_selector_diagnostic_samples below is this layer's own
-// directed-production table (the twelve it alone owns - closing_
+// directed-production table (the thirteen it alone owns - closing_
 // parenthesis and closing_quote, both reused above, are NOT among
 // them; identifier_after_double_colon/known_pseudo_element are GFSS-
 // SEL-PARSE-PSEUDO-ELEMENT's own two, 05/09/2026; attribute_name/
@@ -959,6 +1018,15 @@ GLINTFX_TEST(gltfx_gfss_parse_selector_list_diagnostics_are_produced_from_the_sh
         // the DIAGNOSTIC is produced from the shared vocabulary).
         {":not(:not(:not(:not(:not(:not(:not(:not(:not(:not(:not(a)))))))))))",
          k_expected_not_recursion_limit},
+        // GFSS-SEL-REJECT-ORPHAN (TODO.md, 22/09/2026) - its own one row:
+        // a syntactically known simple pseudo-class the eight-fact
+        // contract can never answer. Its own dedicated test above,
+        // gltfx_gfss_parse_selector_list_rejects_placeholder_shown_as_
+        // unanswerable_orphan, proves the line/column and the compound-
+        // selector case in full; this row only proves the diagnostic is
+        // produced from the shared vocabulary, the same division of
+        // labor every other row here already follows.
+        {":placeholder-shown", k_expected_answerable_pseudo_class},
     };
     static_assert(std::size(k_selector_diagnostic_samples) ==
                       count_owned_by(gfss_diagnostic_producer::selector_parse),

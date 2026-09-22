@@ -158,6 +158,18 @@ void note_class_selector(compound_requirements &out, std::string_view name) noex
 // compound deferred: neither has an owner yet (docs/node-view-and-
 // matching.md's own "two gaps" for the first, the combinator
 // dependency GFSS-MATCH-COMBINE still owns for the second).
+//
+// GFSS-SEL-REJECT-ORPHAN (TODO.md, GODS_LAWS.md L-20/L-40, 22/09/2026):
+// selector_parse.cpp now REJECTS ":placeholder-shown" at parse time
+// (docs/node-view-and-matching.md's own "gap 1" is now resolved that
+// way, not by giving it a matching-layer owner) - no gfss_compound_
+// selector this library's own public parser produces can carry that
+// name anymore. The branch below is left UNCHANGED, on purpose: it
+// stays correct, and now purely DEFENSIVE, for a gfss_compound_
+// selector a caller assembles BY HAND rather than through parse_
+// selector_list() (this whole file's own algorithm never assumes its
+// input came from that one parser) - never a live code path a style
+// sheet can still reach.
 void note_pseudo_class_selector(compound_requirements &out, std::string_view name) noexcept {
     const std::optional<gltfx_node_state> state_bit = state_bit_for_pseudo_class(name);
     if (state_bit.has_value()) {

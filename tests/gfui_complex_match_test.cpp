@@ -710,7 +710,30 @@ GLINTFX_TEST(match_complex_scope_anchors_to_the_explicit_root_or_the_tree_root) 
 
 // --- case 4: deferral preserved for what this fatia still does not own ---
 
-GLINTFX_TEST(match_complex_still_defers_placeholder_shown_and_pseudo_elements) {
+// Used to run two INDEPENDENTLY unowned kinds through this same case -
+// ":placeholder-shown" (an unowned simple pseudo-CLASS) alongside
+// "::before" (a pseudo-ELEMENT) - until GFSS-SEL-REJECT-ORPHAN
+// (TODO.md, GODS_LAWS.md L-20/L-40, ESCOPO.md's own "Recusar na
+// leitura da folha") made selector_parse.cpp reject ":placeholder-
+// shown" at PARSE time, before match_complex() (or parse_one_complex()
+// below, which calls parse_selector_list() the same way) ever sees it -
+// its own dedicated red/green witness lives in gfss_selector_parse_
+// test.cpp now. ":scope" is NOT a substitute here the way it is one
+// level down in gfui_compound_match_test.cpp/gfui_match_struct_test.cpp
+// (both of which call match_compound() directly): GFSS-MATCH-COMBINE
+// (deferred_simple_match.cpp's own judge_deferred_simple_selectors())
+// RESOLVES ":scope" at THIS level, one level up from match_compound() -
+// docs/node-view-and-matching.md's own SS"combinators" is explicit that
+// ":scope" no longer defers through match_complex(), only through
+// match_compound() alone. The ONLY vehicle that still defers through
+// match_complex() today, now that ":placeholder-shown" is gone from the
+// reachable grammar, is a pseudo-element - so every case below now uses
+// one ("::before" or "::after", both from the same closed two-name
+// list GFSS-SEL-PARSE-PSEUDO-ELEMENT already enumerates elsewhere),
+// and the redundant "single compound, standalone" case that used to
+// exist for BOTH kinds collapses to the one that is still constructible
+// through the parser.
+GLINTFX_TEST(match_complex_still_defers_pseudo_elements) {
     using glintfx::test::fake_arena::arena;
     using glintfx::test::fake_arena::entry;
     using glintfx::test::fake_arena::k_no_index;
@@ -729,11 +752,11 @@ GLINTFX_TEST(match_complex_still_defers_placeholder_shown_and_pseudo_elements) {
     const gltfx_node_view node = glintfx::test::fake_arena::view(tree, input_idx);
 
     {
-        const gfss_complex_selector selector = parse_one_complex("input:placeholder-shown");
+        const gfss_complex_selector selector = parse_one_complex("input::before");
         GLINTFX_CHECK(match_complex(selector, node, k_no_scope) == match_verdict::deferred);
     }
     {
-        const gfss_complex_selector selector = parse_one_complex("input::before");
+        const gfss_complex_selector selector = parse_one_complex("input::after");
         GLINTFX_CHECK(match_complex(selector, node, k_no_scope) == match_verdict::deferred);
     }
 
@@ -771,28 +794,32 @@ GLINTFX_TEST(match_complex_still_defers_placeholder_shown_and_pseudo_elements) {
         glintfx::test::fake_arena::view(crossing_tree, crossing_child_idx);
 
     {
-        // Sujeito (`input:placeholder-shown`, local=deferred) cruza o
-        // combinador descendente até o ancestral (`div`, local=matched):
+        // Sujeito (`input::before`, local=deferred) cruza o combinador
+        // descendente até o ancestral (`div`, local=matched):
         // combine(deferred, matched) tem de continuar deferred. A
         // mutação da revisão (combine() sempre devolvendo `matched`)
-        // faria este bloco enxergar `matched` em vez de `deferred`.
-        const gfss_complex_selector selector = parse_one_complex("div input:placeholder-shown");
+        // faria este bloco enxergar `matched` em vez de `deferred`. Era
+        // `div input:placeholder-shown` até GFSS-SEL-REJECT-ORPHAN
+        // (TODO.md, GODS_LAWS.md L-20/L-40) - mesma prova, veiculo
+        // trocado pelo unico que ainda defere neste nivel.
+        const gfss_complex_selector selector = parse_one_complex("div input::before");
         GLINTFX_CHECK(match_complex(selector, crossing_child, k_no_scope) ==
                       match_verdict::deferred);
     }
     {
         // Ordem invertida dos argumentos de combine(): sujeito
         // (`input`, local=matched) cruza o mesmo combinador até um
-        // ancestral cujo PRÓPRIO composto já defere
-        // (`div:placeholder-shown`, local=deferred) - combine(matched,
-        // deferred) tem de continuar deferred pelo mesmo motivo.
-        const gfss_complex_selector selector = parse_one_complex("div:placeholder-shown input");
+        // ancestral cujo PRÓPRIO composto já defere (`div::before`,
+        // local=deferred) - combine(matched, deferred) tem de continuar
+        // deferred pelo mesmo motivo. Era `div:placeholder-shown input`
+        // até GFSS-SEL-REJECT-ORPHAN - mesma prova, mesmo veiculo trocado.
+        const gfss_complex_selector selector = parse_one_complex("div::before input");
         GLINTFX_CHECK(match_complex(selector, crossing_child, k_no_scope) ==
                       match_verdict::deferred);
     }
 
     std::printf("gfui_complex_match_test: 4 deferral-preserved cases checked "
-                "(:placeholder-shown, ::before, and 2 crossing a combinator)\n");
+                "(::before, ::after, and 2 crossing a combinator)\n");
     std::printf("SCANCOUNT gfui_complex_match_test.deferral_preserved_cases=4\n");
 }
 

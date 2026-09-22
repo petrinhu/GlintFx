@@ -415,17 +415,21 @@ GLINTFX_TEST(match_compound_evaluates_structural_selectors_through_real_text) {
                 cases.size());
 
     // Rejection from a NOW-owned structural requirement still beats
-    // deferral from something this fatia does not own (:placeholder-
-    // shown, unresolved by design) - the same "rejeicao vence
+    // deferral from something this fatia does not own (:scope,
+    // unresolved until GFSS-MATCH-COMBINE) - the same "rejeicao vence
     // adiamento" rule compound_match.hpp's own header comment already
-    // documents.
+    // documents. Was ":placeholder-shown" until GFSS-SEL-REJECT-ORPHAN
+    // (TODO.md, GODS_LAWS.md L-20/L-40) made selector_parse.cpp reject
+    // that name at parse time, before match_compound() ever sees it -
+    // ":scope" is still unowned by this matcher today, so it still
+    // proves the exact same deferral this case exists for.
     const glintfx::style::detail::gfss_compound_selector rejecting_and_deferred =
-        parse_one_compound(":last-child:placeholder-shown");
+        parse_one_compound(":last-child:scope");
     GLINTFX_CHECK(match_compound(rejecting_and_deferred, chain[0]) == match_verdict::rejected);
 
     // A structural requirement that HOLDS, alongside something still
     // deferred, defers.
     const glintfx::style::detail::gfss_compound_selector matching_and_deferred =
-        parse_one_compound(":first-child:placeholder-shown");
+        parse_one_compound(":first-child:scope");
     GLINTFX_CHECK(match_compound(matching_and_deferred, chain[0]) == match_verdict::deferred);
 }

@@ -565,6 +565,22 @@ parse_pseudo_selector(const token_vector &tokens, std::size_t &index, int depth)
                     .selector = {},
                     .diagnostic = make_diagnostic(next, k_expected_known_pseudo_class)};
         }
+        // GFSS-SEL-REJECT-ORPHAN (TODO.md, GODS_LAWS.md L-20/L-40,
+        // ESCOPO.md "As seis decisoes da manha de 02/09" SS1, verbatim
+        // "Recusar na leitura da folha"): `name` is known pseudo-class
+        // VOCABULARY (the check above already passed), but the eight-
+        // fact node contract can never answer some of that vocabulary -
+        // selector_pseudo_vocabulary.hpp's own GLINTFX_GFSS_ORPHAN_
+        // SIMPLE_PSEUDO_LIST names exactly which. Checked AFTER, never
+        // instead of, is_known_simple_pseudo() above - a genuinely
+        // unknown name still gets k_expected_known_pseudo_class, never
+        // this diagnostic, which only ever fires for a name that IS
+        // real vocabulary the contract happens to be unable to honor.
+        if (is_orphan_simple_pseudo(next.lexeme)) {
+            return {.ok = false,
+                    .selector = {},
+                    .diagnostic = make_diagnostic(next, k_expected_answerable_pseudo_class)};
+        }
         index = next_index + 1;
         return {.ok = true,
                 .selector = gfss_simple_selector{.kind = gfss_simple_selector_kind::pseudo_class,

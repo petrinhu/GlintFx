@@ -85,9 +85,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ============================================================
+  # CI-TIMEOUTS (22/09/2026) - teto de tempo por trabalho.
+  #
+  # Regra: teto(classe) = max(10, proximo multiplo de 5 >= 3 x pior caso
+  # observado da classe, no regime atual). O fator 3 vem da maior
+  # dispersao medida (2,85x, job "Container Wayland - asan": 3,1 a 9,0
+  # min na mesma semana, mesmo conteudo). Piso de 10 min porque abaixo
+  # disso o teto passaria a medir checkout/pull de imagem, nao o nosso
+  # trabalho. Regime atual = a partir da execucao 35445164240
+  # (19/09/2026), dia em que a L-23 paralelizou a checagem estatica do
+  # Windows; execucoes anteriores sao um regime que a lei aboliu e nao
+  # calibram nada. Detalhe completo, com a medicao das 15 chaves:
+  # /var/tmp/glintfx-plan/ci-timeouts.md.
+  #
+  # Remedir (nunca copiar o numero envelhecido daqui):
+  #   gh run view <id> --json jobs -q \
+  #     '.jobs[] | "\((((.completedAt|fromdate) - (.startedAt|fromdate))/60|floor))min  \(.name)"'
+  #
+  # Classes:
+  #   curta             = 10 min  (portao que nao compila nada)
+  #   compilacao        = 40 min  (configura, compila, testa, ou sobe container)
+  #   estatica_windows  = 65 min  (checagem estatica paralela do Windows)
+  #   dependente        = 45 min  (trabalho com `needs:` - hoje so `parity`.
+  #                                A espera pela dependencia pode ou nao
+  #                                contar contra o relogio do teto; isto
+  #                                NAO foi provado ao vivo nesta fatia -
+  #                                decisao do orquestrador foi dar-lhe
+  #                                classe propria e folgada em vez de
+  #                                provar a semantica no servidor. Se um
+  #                                dia isto reprovar em falso, e esta a
+  #                                lacuna.)
+  #
+  # tests/tools/check_ci_timeouts.py (CI-TIMEOUTS-GATE) casa esta lista
+  # nos dois sentidos contra os trabalhos deste arquivo: trabalho novo
+  # sem classe reprova, entrada desta tabela sem trabalho correspondente
+  # reprova, teto fora do valor da classe reprova.
+  # ============================================================
   linux:
     name: ${{ matrix.nome }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: ${{ matrix.imagem }}
     strategy:
@@ -528,6 +566,7 @@ jobs:
   windows:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
       fail-fast: false
@@ -1036,6 +1075,7 @@ jobs:
     needs: [linux, windows, wayland-container, lint]
     if: ${{ !cancelled() && github.ref_type != 'tag' }}  # VERSION-TAG-SYNC, ver on:push:tags acima
     runs-on: ubuntu-latest
+    timeout-minutes: 45  # classe `dependente` - ver o bloco de classes logo abaixo de `jobs:`
     steps:
       - uses: actions/checkout@v7
 
@@ -1179,6 +1219,7 @@ jobs:
   wayland-container:
     name: Container Wayland isolado (TEST-WLCONT, L-09) - ${{ matrix.perna }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     strategy:
       fail-fast: false
@@ -2075,6 +2116,7 @@ jobs:
   lint:
     name: Lint (Fedora - clang-format, clang-tidy, cppcheck)
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     steps:
@@ -2193,6 +2235,7 @@ jobs:
   ps-syntax:
     name: Sintaxe PowerShell (GATE-PS-SYNTAX, container pwsh)
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
@@ -2249,6 +2292,7 @@ jobs:
   windows-lint:
     name: Windows - Lint (clang-tidy sobre src/)
     runs-on: windows-latest
+    timeout-minutes: 65  # classe `estatica_windows` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
@@ -2590,6 +2634,7 @@ jobs:
   sanitizer:
     name: Sanitizer (Fedora - ASan/UBSan)
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     steps:
@@ -2651,6 +2696,7 @@ jobs:
   windows-sanitizer:
     name: Windows - Sanitizer (ASan)
     runs-on: windows-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
@@ -2759,6 +2805,7 @@ jobs:
   debug:
     name: Debug (Fedora - assert() de produto ligado, GATE-DEBUG)
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     steps:
@@ -2841,6 +2888,7 @@ jobs:
   windows-debug:
     name: Windows - Debug (assert() de produto ligado, GATE-DEBUG)
     runs-on: windows-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
@@ -3008,6 +3056,7 @@ jobs:
   clang:
     name: Clang (Fedora - segundo compilador, ${{ matrix.modo }})
     runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     container: fedora:latest
     strategy:
@@ -3079,6 +3128,7 @@ jobs:
   gitleaks:
     name: Gitleaks (scan de segredo)
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       # fetch-depth 0: `gitleaks detect` (sem flags) varre o git log
@@ -3103,6 +3153,7 @@ jobs:
   leis:
     name: Gate das leis
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
@@ -3194,6 +3245,7 @@ jobs:
   version-tag:
     name: Versao == etiqueta (VERSION-TAG-SYNC)
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # classe `curta` - ver o bloco de classes logo abaixo de `jobs:`
     if: github.ref_type == 'tag'
     steps:
       - uses: actions/checkout@v7

@@ -3993,3 +3993,35 @@ O agente declarou não ter rodado a suíte completa contra o estado final. Fui r
 **Resultado real: 218 de 219 verdes**, e a única falha é a ausência de etiqueta na minha fixture.
 
 **A regra que fica, e ela é minha:** ***quando a medição acusa muita coisa de uma vez, desconfie do instrumento antes do objeto.*** Nove falhas simultâneas em portões que não têm nada em comum **exceto o modo de enxergar** é assinatura de ferramenta cega, não de código quebrado. E o corolário: **`git archive` não é um clone** — para rodar qualquer portão que consulte o git, a cópia precisa de `git init` + commit, e ainda assim não terá etiquetas.
+
+---
+
+## 22/09/2026 - 13:02 | A subida para `v0.5.0.0`, e o erro meu que o próprio repositório tinha PREVISTO por escrito
+
+**Decisão do líder, por `AskUserQuestion`:** versão **0.5.0.0**, aplicando a tabela de quatro componentes da L-26 — o **B** sobe com **recurso novo compatível**, e entrou a leitura de folha de estilo completa (`GFSS-SHEET-PARSE`). `C` e `D` zeram. **Por que o A NÃO subiu, registrado no commit:** a recusa de folha antes aceita (`GFSS-SEL-REJECT-ORPHAN`) **não quebra API** — código do consumidor continua compilando — e antes da 1.0 o formato declara versão zero, sem promessa, como a própria L-26 diz.
+
+**ERRO MEU, e o mais incômodo da sessão porque estava ESCRITO E DATADO no repositório.** Subi `project(VERSION 0.5.0.0)` e empurrei **sem atualizar, no mesmo commit, a linha do consumidor de teste**. Oito jobs vermelhos, nos dois modos:
+
+```
+CMake Error: Could not find a configuration file for package "glintfx"
+  compatible with requested version "0.4".
+  ... glintfxConfig.cmake, version: 0.5.0.0
+      The version found is not compatible with the version requested.
+  152 - consume_test (Failed)    156 - install_packager_layout_test (Failed)
+```
+
+**`docs/plano-loop-callbacks.md:815` descreve exatamente isto, avisa que já mordeu duas vezes (`0.2` em 05/09, `0.3` em 08/09) e prevê literalmente que _"vai morder a terceira"_.** Mordeu. E manda a sequência: subir a declaração → ver o vermelho → subir a linha do consumidor **no mesmo commit**. **Fiz o primeiro passo e pulei o último.**
+
+**A regra que fica, e ela é sobre mim:** antes de mexer em qualquer número que o produto publica, **procurar no repositório quem mais depende dele**. O documento existia, estava indexado, e eu não o procurei — repeti um erro que o projeto já tinha catalogado **duas vezes com data**.
+
+**Um detalhe que atenua e vale reter:** os 8 vermelhos **não eram 8 problemas**, eram **um problema em 8 lugares**. Conferi antes de afirmar, pegando um job de modo **compartilhado** (não só os estáticos) e achando a mesma mensagem. E a política de versão **fez o que devia**: avisou que o número menor mudou. Se ela não reclamasse, a lib teria trocado de faixa em silêncio — que é pior.
+
+**Conserto (`5cfb9f8`), verificado por mim:** uma linha, `find_package(glintfx 0.4)` → `0.5`, no **único** lugar que fixa versão (enumeração fechada, confirmada por mim de forma independente; o "gêmeo Windows" `tools/ci/check-consume.ps1` **não** fixa versão própria — reaproveita o mesmo `CMakeLists.txt`). O agente rodou o **modo ESTÁTICO**, que é onde apareceu primeiro e que o agente da W6 **declarou honestamente nunca ter rodado**: `217/217`, com `consume_test` e `install_packager_layout_test` verdes.
+
+### O ACHADO DE MECANISMO QUE EXPLICA OS DOIS DIAS DE CEGUEIRA
+
+`.github/workflows/ci.yml:83-85` declara `concurrency` com **`cancel-in-progress: true`** no grupo `workflow+ref`. **Todo push em `main` mata a execução do push anterior.** As execuções canceladas de 19/09 estão a **um minuto uma da outra** (16:41 `140d5e8`, 16:42 `9b72450`) — assinatura de pushes sucessivos se atropelando, **nunca de cancelamento manual**. O último push daquele dia nunca teve veredito, e o Windows ficou vermelho por dois dias sem ninguém saber.
+
+**Corrijo o que eu mesmo escrevi antes:** eu havia registrado que "as execuções foram canceladas", com sujeito implícito humano. Foram canceladas **pelo próprio servidor**, por configuração nossa.
+
+**E apliquei o achado na hora:** com o conserto pronto, **segurei dois commits de propósito** para não matar a execução em curso — e só empurrei quando o veredito dela já era conhecido e inútil (8 vermelhos da mesma causa). Registrado na INBOX com três saídas para o líder decidir.

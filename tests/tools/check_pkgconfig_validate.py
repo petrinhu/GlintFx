@@ -1909,6 +1909,101 @@ def run_windows_forced_broken_conversation_scenario(build_dir, intact_prefix, sc
 # --- scenario 20 --------------------------------------------------------
 
 
+# The exact, CLOSED set of filenames find_program()'s own WIN32-only
+# NAMES list (cmake/GlintfxPkgConfigValidateInstalled.cmake.in:744-747,
+# "NAMES pkg-config.bat pkgconf.bat pkg-config pkgconf") can ever
+# resolve to on a real Windows host - enumerated in FULL (GODS_LAWS.md
+# L-40, item 5: a small, closed space is enumerated whole, never
+# pattern-matched or guessed at) instead of searched for. The two names
+# that already carry an extension ("pkg-config.bat", "pkgconf.bat") are
+# tried LITERALLY, with no further suffix; the two that do not
+# ("pkg-config", "pkgconf") each go through Windows' own documented
+# suffix order (".com", ".exe", then no suffix - find_program.html).
+_WINDOWS_REAL_PKGCONFIG_FILENAMES = (
+    "pkg-config.bat",
+    "pkgconf.bat",
+    "pkg-config.com",
+    "pkg-config.exe",
+    "pkg-config",
+    "pkgconf.com",
+    "pkgconf.exe",
+    "pkgconf",
+)
+
+
+def prune_real_pkgconfig_from_path(env):
+    """Fixes what commit 9a6c3a6's own fixture rename could not: renaming
+    the scenario 20 fixture to "pkg-config.exe" changed WHICH suffix
+    pass of find_program()'s THIRD name ("pkg-config") would match it,
+    but the real Windows CI run (35676752492) that re-tried it failed
+    with byte-for-byte IDENTICAL output to before the rename -
+    DECISOES_AUTONOMAS.md, 21/09/2026 23:06, names the reason: WITHOUT
+    NAMES_PER_DIR, find_program() exhausts the WHOLE PATH for the
+    FIRST name in NAMES ("pkg-config.bat") before ever trying the
+    second, third or fourth name (CMake's own find_program.html: "the
+    command considers one name at a time and searches every directory
+    for it" before moving on) - PROVEN by direct execution against this
+    project's own real find_program(), not simulated (see this fatia's
+    own commit for the probe and its printed output: a name earlier in
+    NAMES wins even when it lives in a LATER PATH directory than a
+    name later in NAMES). The windows-latest runner's Strawberry Perl
+    already ships a real, launchable "pkg-config.bat" somewhere on
+    PATH (this file's own VERMELHO 3/4 headers, above, already
+    establish this as measured fact, not assumption) - so the search
+    always resolves there FIRST, and this scenario's own fixture
+    (living at name #3's suffix pass) is never even reached, no matter
+    what it is named or where fake_bin_dir sits on PATH.
+
+    The fix is therefore not the fixture's name (already tried, and
+    could not have worked for the reason above): it is removing every
+    PATH directory that holds a REAL binary matching one of the four
+    WIN32 NAMES (with their suffix expansion, enumerated in full by
+    _WINDOWS_REAL_PKGCONFIG_FILENAMES above) from the PATH handed to
+    THIS ONE subprocess call, so names #1 and #2 find nothing anywhere
+    on the pruned PATH and the search actually reaches name #3, where
+    the fixture - kept at "pkg-config.exe", see its own comment below
+    for why that still matters even with pruning - wins.
+
+    cmake.exe's own directory is always kept, explicitly: Python's
+    subprocess.run(), called with a bare "cmake" and a replacement env,
+    resolves the executable from THAT env's PATH, not the parent
+    process's - pruning it away would make this subprocess call defeat
+    itself before ever reaching the validator at all.
+
+    Returns (pruned_env, dropped_directories) - the second value is
+    printed by the caller, never discarded, so a run where nothing was
+    found to prune is a DECLARED fact ("0 directories pruned"), never a
+    silent no-op (GODS_LAWS.md L-40).
+    """
+    original_path = env.get("PATH", "")
+    cmake_path = shutil.which("cmake", path=original_path)
+    cmake_dir = os.path.dirname(cmake_path) if cmake_path else None
+
+    kept, dropped = [], []
+    for directory in original_path.split(os.pathsep):
+        if not directory:
+            continue
+        holds_real_tool = any(
+            os.path.isfile(os.path.join(directory, filename))
+            for filename in _WINDOWS_REAL_PKGCONFIG_FILENAMES
+        )
+        if holds_real_tool and directory != cmake_dir:
+            dropped.append(directory)
+        else:
+            kept.append(directory)
+
+    if cmake_dir and cmake_dir not in kept:
+        # Defensive-only: cmake_dir cannot plausibly hold one of the
+        # eight enumerated filenames (it would have survived the loop
+        # above already), but this guarantees "cmake" is still
+        # resolvable from the pruned PATH even if it somehow did.
+        kept.insert(0, cmake_dir)
+
+    pruned_env = dict(env)
+    pruned_env["PATH"] = os.pathsep.join(kept)
+    return pruned_env, dropped
+
+
 def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scratch):
     """PKG-WIN-VALIDATE-FATAL sub-fatia (a)/(c): the OTHER honest
     outcome a binary genuinely FOUND by find_program() can produce -
@@ -1966,6 +2061,28 @@ def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scr
     documentation, unchanged from before, for why ".bat" is never
     tried at all here for the plain "pkg-config"/"pkgconf" names).
 
+    NECESSARY, BUT NOT SUFFICIENT (real Windows run 35676752492,
+    21/09/2026, DECISOES_AUTONOMAS.md 23:06): the ".exe" rename above
+    only fixes the ordering WITHIN name #3's own suffix passes; it does
+    nothing about names #1 ("pkg-config.bat") and #2 ("pkgconf.bat")
+    being tried, and possibly resolved, FIRST - across the WHOLE PATH -
+    before name #3 is ever considered at all (find_program() without
+    NAMES_PER_DIR searches one name at a time, exhausting PATH for it,
+    per CMake's own find_program.html; PROVEN against this project's
+    real find_program() in this fatia's own commit, not simulated). The
+    windows-latest runner's Strawberry Perl ships a real, launchable
+    "pkg-config.bat" (this file's own VERMELHO 3/4 headers, above), so
+    name #1 always wins there first, and the ".exe" fixture at name #3
+    was never even reached - the rename produced byte-for-byte
+    IDENTICAL output to before it, which is what a defect in an
+    UNREACHED code path looks like. prune_real_pkgconfig_from_path(),
+    above, is the fix for THIS half: it removes every PATH directory
+    holding a real binary matching any of the four WIN32 NAMES (with
+    their suffix expansion) from the PATH handed to this subprocess,
+    so names #1 and #2 find nothing anywhere and the search actually
+    reaches name #3, where the ".exe" fixture then wins for the reason
+    already proven above. Neither half alone was enough; both are kept.
+
     Returns "passed" (a REAL Windows host proved the declared-skip
     branch for real) or a "skipped: <reason>" string (any other host -
     counted, never silent, in real_main()'s own scenario-floor summary,
@@ -1996,8 +2113,19 @@ def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scr
     with open(unlaunchable_exe_path, "wb") as handle:
         handle.write(b"this is not a valid Win32 executable - glintfx scenario 20 fixture\r\n")
 
-    env = dict(os.environ)
-    env["PATH"] = fake_bin_dir + os.pathsep + env.get("PATH", "")
+    # prune_real_pkgconfig_from_path() first: without it, name #1
+    # ("pkg-config.bat") resolves to Strawberry Perl's real wrapper
+    # elsewhere on PATH before the search ever reaches name #3, where
+    # this fixture lives - see this function's own docstring, "NECESSARY,
+    # BUT NOT SUFFICIENT", and prune_real_pkgconfig_from_path()'s own
+    # docstring for the full causal chain.
+    env, pruned_dirs = prune_real_pkgconfig_from_path(dict(os.environ))
+    print(
+        f"scenario 20: pruned {len(pruned_dirs)} real pkg-config/pkgconf PATH "
+        f"director{'y' if len(pruned_dirs) == 1 else 'ies'} before the fixture: "
+        f"{pruned_dirs!r}"
+    )
+    env["PATH"] = fake_bin_dir + os.pathsep + env["PATH"]
 
     output = run_expect_success(
         ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script],

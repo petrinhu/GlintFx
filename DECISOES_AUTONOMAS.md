@@ -4077,3 +4077,31 @@ check_wave_closure_coherence.py: 1 onda(s) fechada(s) com item(ns) pendente(s)
 **A regra que fica, e é para mim:** ***quando eu enumerar "o que falta", o critério é "tudo que NÃO é `✅`"***, nunca uma lista de estados que eu escolho na hora. Lista escolhida à mão esquece um estado, e o estado esquecido é invisível por construção.
 
 **O mérito do portão:** ele existe exatamente para esta falha, mordeu na primeira vez em que ela aconteceu, e a mensagem dele nomeia a onda e conta os itens. Sem ele, a W6 ficaria marcada como fechada com três itens por verificar, e ninguém notaria até alguém tropeçar.
+
+---
+
+## 22/09/2026 - 14:36 | Verificação adversarial das três fatias da `W6`: duas limpas, uma com buraco real
+
+**Papéis separados como a L-12 exige:** as três foram escritas por outro agente, dias atrás; quem verificou foi um terceiro; e eu re-verifiquei por fora. **Ninguém aprovou o próprio trabalho.**
+
+**`GFSS-SPECIFICITY` — APROVADA.** 4 mutações, **4 mordidas**. A mais bonita **nem compilou**: ao inverter a ordem dos campos `ids/classes/types`, o próprio estilo de escrita do teste (inicializador designado, `{.ids=.., .classes=.., .types=..}`) barra a mutação no compilador — `designator order does not match declaration order`. **Proteção estrutural é mais forte que teste**, porque não depende de alguém lembrar de escrever a asserção.
+
+**`GFSS-MATCH-COMBINE` — APROVADA.** 4 mutações, **4 mordidas**: sentido do combinador adjacente invertido (irmão anterior → seguinte), `:not()` casando com **UM** em vez de **NENHUM**, âncora de `:scope` removida, e retrocesso do descendente desligado. Todas produziram 2 a 3 falhas.
+
+**`GFSS-SHORTHAND` — APROVADA COM RESSALVA, e o buraco é real.**
+
+**Reproduzi por conta própria**, sem confiar no relatório: extraí `HEAD` para fora da árvore, troquei `row_gap`/`column_gap` de lugar em `shorthand_longhand_table.hpp:104`, compilei e rodei:
+
+```
+gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCADAS
+```
+
+**A causa, e ela é uma variante nova de uma família que já catalogamos:** todo teste de distribuição verifica `declarations[i].values[0]...` — **o valor** — e **nunca** `declarations[i].property` — **a identidade**. O revisor generalizou e confirmou com `margin_top`/`margin_right`: não é caso isolado. **Só `overflow` tem a checagem de identidade**; `border` e `outline` separam por **tipo** de valor, nunca por **lado** dentro do mesmo tipo; e a matriz de 66 testa a **posição de inserção** do bloco expandido, não a identidade dentro dele.
+
+**O produto está CORRETO hoje** — a ordem bate com o CSS e com o registro de propriedades. **O furo é na rede de segurança**, e virou item de INBOX com a reprodução escrita.
+
+**PREMISSA DO MEU BRIEFING CORRIGIDA PELO AGENTE, e é a quinta referência podre em dois dias:** eu escrevi *"os shorthands são nove"*, copiando o texto do item. **São ONZE** — a emenda de 05/09/2026 subiu `outline` e `flex-flow`, o código tem `static_assert(... == 11)`, e só o texto da tabela ficou para trás. **Ele pegou porque conferiu contra o CÓDIGO em vez de confiar na linha que eu lhe dei.** É exatamente o comportamento que eu peço aos outros e que eu mesmo falhei em ter ao montar o briefing. Corrigido no item.
+
+**Armadilha que o revisor declarou sozinho, e é da L-27:** ao desfazer uma mutação com `mv arquivo.orig arquivo`, o restaurado ficou com **mtime mais antigo** que o `.o` do mutante — o `ninja` não recompilou, e o "binário limpo" ainda **era o mutante**. Ele percebeu, corrigiu com `touch` após cada revert, e conferiu os **seis** arquivos byte a byte contra o `HEAD` antes de confiar em qualquer resultado. É o *"prove que a mutação chegou ao código executado"* da lei, na forma inversa: **prove que ela SAIU**.
+
+**Três itens promovidos a `✅`.** Com isso a `W6` fica com só o portão de fechamento aberto, que espera o servidor.

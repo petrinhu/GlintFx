@@ -3618,3 +3618,50 @@ As outras duas escolhas dele da mesma rodada (a catraca dos ~140 e o piloto do a
 **Lição de processo, e ela é sobre planos, não sobre C++:** o plano foi escrito por um C-level, atacado adversarialmente, e ainda assim **subcontou os sítios de um caminho de chamada**. O que o salvou foi a cláusula de parada que ele mesmo escreveu (*"se houver um `noexcept` entre... o desenho muda e para"*) mais a exigência de varredura de cadeia no briefing. **Plano bom não é o que acerta tudo; é o que declara onde pode estar errado e manda parar ali.**
 
 **Correção minha ao agente, registrada porque foi informação desatualizada que eu dei:** ele declarou (corretamente, em vez de pular calado) que não rodaria `tools/preci.sh --lint-only` por risco de colidir com o agente `lint-conserta`. Esse agente **já tinha sido recolhido por mim** com `TaskStop` antes do despacho dele, e a árvore estava limpa. O comportamento dele foi certo; o dado que ele tinha é que estava velho, e **o briefing não disse que a árvore tinha ficado livre**. Briefing de despacho passa a declarar explicitamente o estado da árvore e quais agentes estão vivos nela.
+
+---
+
+## 21/09/2026 - 21:11 | Modo autônomo religado; decisões do planejamento de `VENDOR-SWEEP-GATE`
+
+**Ordem do líder, verbatim:** *"ligue modo autonomo"* (21/09/2026, 21:11). Escopos concedidos pelo gancho: `push` (envio ao fim de onda + marca no contrato) e `clean` (limpeza de build em onda verde). Validade: 24h, até 22/09/2026 21:11. Ordem de execução que ele deu na mesma sessão, por `AskUserQuestion`: **`1 > 2 > 3 > 4`** = `ASSET-PARITY-ROOT` → `VENDOR-SWEEP-GATE` → `CI-TIMEOUTS` → o par `CLANG-INSTALL-LAYOUT-ARCH`/`CLANG-PKGCONFIG-PROBE`.
+
+As três decisões abaixo são do C-level planejador (`caetano-cto`, opus) sob a L-34 do projeto, que no modo autônomo o autoriza a decidir no lugar do líder. **Ficam para confirmação retroativa.**
+
+**DECISÃO AUTÔNOMA 1 — alargar o portão existente em vez de criar um portão novo.** `check_vendor_purity.py` passa a varrer a árvore inteira atrás de diretório de forma vendorizada (vocabulário fechado, caixa dobrada, qualquer profundidade), mais submódulo de git e artefato binário/comprimido rastreado: três enumerações, um veredicto só, mesmo nome de teste e mesmo registro no `ctest`. **Razão:** portão novo criaria a **quarta** cópia da lista do Khronos e duas perguntas quase idênticas sobre o mesmo diretório — fragmentação, que a L-17 proíbe tanto quanto o monolito.
+
+**DECISÃO AUTÔNOMA 2 — zero arquivos sob diretório vendorizado também REPROVA.** É a semântica que o portão já tem hoje quando `third_party/khronos/` desaparece, e é o piso de varredura não-vazia da L-40 aplicado à enumeração nova.
+
+**DECISÃO AUTÔNOMA 3 — a fatia vira duas.** A do item, mais uma nova (`VENDOR-LIST-SIBLING`) que amarra por marcador as cópias de código da lista do Khronos, hoje ligadas só por prosa. **Medido: a lista está TRIPLICADA** — `check_vendor_purity.py`, `check_spdx.py` e `AUDITORIAS.md` cap. 1.
+
+**REFUTAÇÃO DE UM FATO ESCRITO NA `TODO.md` (L-44), e ela muda o que se pode alegar no commit.** O item afirma que a pasta vendorizada nova *"passa por TODOS os portões atuais"*. **Não passa.** O portão de licença não confere "presença de cabeçalho": ele exige a string `SPDX-License-Identifier: AGPL-3.0-or-later` especificamente (`tests/tools/check_spdx.py:105`), e reprovou 2 dos 3 arquivos da sabotagem, que levavam licença MIT. **A cobertura de hoje é parcial e acidental** — reprova pelo motivo errado, e tem três saídas conhecidas: cabeçalho AGPL carimbado por cima, conteúdo `.md`/`.json`, e o fato de nenhum portão dizer a palavra "vendorizado". A fatia continua necessária; o que muda é a alegação.
+
+**LACUNAS DECLARADAS, que entram na `TODO.md` para ninguém ler "fechada" como "coberta":** inclusão por aspas (`#include "..."`), pasta vendorizada de nome inocente (`src/stb/`), e arquivo único de terceiro com o cabeçalho AGPL carimbado.
+
+**RE-VERIFICAÇÃO DO ORQUESTRADOR (L-12), medida por mim e não herdada do relatório:** `check_spdx.py:105` confirmado literal. Risco de falso vermelho medido de forma independente: a árvore rastreada tem **50 segmentos de diretório distintos**, e **exatamente 1** casa o vocabulário de vendorização (`third_party`, a exceção legítima); **nenhum** `.gitmodules`; **zero** binários rastreados. O portão proposto não acusa nada que seja legítimo hoje.
+
+**O que o planejador NÃO conseguiu medir, e declarou:** por que a sabotagem do revisor da W3 (05/09/2026) não foi acusada por portão nenhum, se o de licença hoje acusaria — o registro não diz que cabeçalho os arquivos plantados levavam. Não muda o desenho.
+
+**Detalhe acrescentado depois do aceite, e ele barateia a DECISÃO AUTÔNOMA 3:** o mecanismo para amarrar as listas irmãs **já existe** — `check_sibling_lists.py` — pronto e sem uso neste caso. A fatia `VENDOR-LIST-SIBLING` é registrar as três cópias nele, não construir maquinário novo.
+
+**A lição que o planejamento produziu, e ela refina a L-40 em vez de repeti-la:** `check_vendor_purity.py` imprimiu `3 arquivo(s) varrido(s) ... nenhum intruso` **com um intruso plantado ao lado**. Ele cumpre a L-40 ao pé da letra — conta, compara contra zero, imprime o número — **e ainda assim mente**, porque o piso de varredura não-vazia protege contra *"não olhei"*, nunca contra *"olhei no lugar errado"*. O desenho novo separa as duas contagens de propósito: **universo varrido** (o piso) × **casamentos encontrados** (o veredicto).
+
+---
+
+## 21/09/2026 - 21:29 | Decisões do planejamento de `ASSET-PARITY-ROOT`
+
+C-level planejador (`caetano-cto`, opus), sob a L-34 do projeto em modo autônomo. **Para confirmação retroativa.**
+
+**Diagnóstico medido (não inferido):** o cenário de leitura negada **assevera o contrário do nome dele** sob usuário privilegiado, e **não existe ambiente legal onde ele seja exercido no Linux** — o container de desenvolvimento mede `id -u`=0; a matriz do servidor roda com `container:` sem `options:`, privilegiada por padrão; e a única máquina que exerceria o caso é a sessão viva do líder, onde a L-09 proíbe rodar.
+
+**D1 — o desenho é derrubar temporariamente o privilégio efetivo do processo dentro do próprio caso** (guarda RAII, espelho do `exclusive_handle_guard` que o lado Windows já tem no mesmo arquivo). Rejeitadas: trocar o usuário do container/CI, produzir a condição por mecanismo alternativo, e tirar capacidade do container.
+**D2 — a asserção é incondicional.** A queda de privilégio é melhor esforço e **falhar nela não reprova por si**; quem reprova é a leitura ter dado certo.
+**D3 — nenhum portão novo.** Varredura de gêmeo (L-17): 1 ocorrência, 0 gêmeos.
+**D4 —** o nome do caso fica; o auxiliar de privilégio (`running_as_root`) some inteiro.
+**D5 — CI, imagem, CMake e invocação da suíte ficam intocados:** um arquivo de teste mais a linha de status.
+**D6 —** o usuário alvo da queda é melhor esforço; a correção nunca depende do número.
+
+**A DESCOBERTA QUE MUDOU O DESENHO, medida em container e não inferida:** usuário privilegiado **sem** a capacidade de atravessar permissão já é barrado pelo arquivo **e** não consegue mais trocar de usuário. Ou seja, o desenho óbvio — *"se sou privilegiado, a troca TEM de dar certo, senão reprovo"* — **reprovaria um ambiente saudável**, e este repositório já roda um trabalho assim. É a razão de D2 existir.
+
+**Correção de fato na `TODO.md` (L-44):** o item aponta `tests/asset_load_test.cpp:139`; o código real está em **149-160** (definição de `running_as_root`) e **246-295** (o uso). **Re-verificado por mim:** a linha 139 é o auxiliar `write_file`; `running_as_root` é declarado em 149 e definido em 154, usado em 268; o `exclusive_handle_guard` citado como espelho está em 169. A referência do item está velha e a linha da tabela precisa ser corrigida no mesmo commit da fatia.
+
+**Ausências declaradas pelo planejador, como resultado negativo honesto:** (a) não re-mediu a afirmação de que a violação de compartilhamento do lado Windows não tem degradação por privilégio — é comentário no código, não medição dele, e não há Windows executando nesta fronteira para este teste; (b) mediu só Fedora em container, não as outras quatro plataformas — a paridade dos cinco é do servidor, e está marcada como ausência declarada no plano.

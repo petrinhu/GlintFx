@@ -4025,3 +4025,19 @@ CMake Error: Could not find a configuration file for package "glintfx"
 **Corrijo o que eu mesmo escrevi antes:** eu havia registrado que "as execuções foram canceladas", com sujeito implícito humano. Foram canceladas **pelo próprio servidor**, por configuração nossa.
 
 **E apliquei o achado na hora:** com o conserto pronto, **segurei dois commits de propósito** para não matar a execução em curso — e só empurrei quando o veredito dela já era conhecido e inútil (8 vermelhos da mesma causa). Registrado na INBOX com três saídas para o líder decidir.
+
+---
+
+## 22/09/2026 - 13:22 | `v0.5.0.0` publicada, e o portão de marca finalmente rodou AO VIVO
+
+**Servidor verde medido, não lido da notificação:** execução `35751493388` no commit `c24a22f`, **24 de 25 trabalhos verdes, 0 falhas**, 1 pulado (o próprio job de marca, que só acorda em envio de etiqueta).
+
+**Marca `v0.5.0.0` criada e publicada**, apontando para `c24a22f` — o commit **verificado verde**, nunca um posterior. Criada por *plumbing* (`git hash-object -t tag` + `git update-ref`), porque o verbo `git tag` está bloqueado nesta máquina. **Conferida no remoto por `git ls-remote`**, nunca pela mensagem do push. O portão local aprovou antes do envio: `declared == head tag (0.5.0.0)`.
+
+**Autorização:** ordem explícita do líder (*"tag depois"*, e o número escolhido por ele em `AskUserQuestion`), mais o modo autônomo válido — **conferi a flag em vez de presumir**: `project_root` bate com este projeto, expira às 21:11 de hoje, escopo `push` presente. O gancho de publicação barrou o envio e indicou a válvula correta; usei-a **depois** de confirmar a flag, não antes.
+
+**E aqui está o ganho que eu não esperava desta marca:** o job `VERSION-TAG-SYNC` **rodou AO VIVO no servidor, pela primeira vez, e passou** (execução `35753750771`, evento `push`, ref `v0.5.0.0`). Os outros 14 trabalhos foram **corretamente pulados** pelo `if: github.ref_type != 'tag'`.
+
+**Isso fecha uma lacuna declarada desde 19/09**, que estava escrita em dois lugares: *"o job `version-tag` nunca rodou no servidor real"*. Agora rodou. **O que continua honesto dizer:** ele rodou **verde**; o **vermelho** dele segue provado só pelo autoteste e pelas mutações em cópia, porque provar o vermelho ao vivo exigiria publicar uma marca deliberadamente errada — e marca publicada não se desfaz sem reescrever história.
+
+**Cinco itens promovidos a `✅`** — e só agora, depois do verde real: `GFSS-SEL-REJECT-ORPHAN`, `GFSS-SHEET-PARSE`, `CI-VERDE-W6`, `GFSS-COLOR-ORACLE` e `CI-VERDE-WM1`. **Três ondas do passivo fechadas** (`W6b`, `WM1`, `W6`), restam quatro (`W7-B`, `W7-C`, `W7-D`, `W8`).

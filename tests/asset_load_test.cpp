@@ -11,6 +11,7 @@
 #include <vector>
 
 #if !defined(_WIN32)
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #else
@@ -184,10 +185,37 @@ struct privilege_drop_outcome {
 // here as decision D2 of the ASSET-PARITY-ROOT plan): dropped()/
 // drop_errno() let the caller SEE what happened; no_read_permission_
 // is_io_failure below never asserts on them, only on the read outcome.
+//
+// SANITIZER REGRESSION (GODS_LAWS.md L-23 portao 2, ASan/UBSan job,
+// caught the very fatia that introduced this class - fixed 21/09/2026):
+// a successful seteuid() is not credential-neutral on Linux. The
+// kernel's commit_creds() resets the process's "dumpable" attribute
+// (Linux's own name, see proc(5) PR_SET_DUMPABLE) to SUID_DUMP_ROOT
+// whenever the effective uid stops matching the real uid - measured
+// live in this project's own container: dumpable reads 1 before the
+// drop, 2 immediately after seteuid(k_unprivileged_uid) succeeds, and
+// STAYS 2 even after seteuid(m_original_euid) restores the euid above.
+// seteuid() only ever promised to restore the UID, never this
+// side-effect. With dumpable=2, only a process with CAP_SYS_PTRACE may
+// ptrace this process (or its own threads) - which is exactly the
+// mechanism LeakSanitizer's end-of-program leak check uses on itself,
+// so every scenario that ran after this guard's first use died with
+// "LeakSanitizer has encountered a fatal error" (its own hint pointing
+// at ptrace was the correct clue) regardless of whether it touched
+// this file at all. The fix restores dumpable together with the euid,
+// not instead of it: captured before the drop (declaration order below
+// puts it ahead of m_outcome, so it reads the ORIGINAL value, same
+// reasoning as m_original_euid), restored right after the euid
+// restore succeeds, and a restore failure aborts loudly for the exact
+// same reason as the euid restore above - a process that silently keeps
+// dumpable=2 does not corrupt the NEXT check's boolean result, it
+// corrupts the sanitizer's ability to report on the entire rest of the
+// program's execution.
 class unprivileged_euid_guard {
   public:
     explicit unprivileged_euid_guard(::uid_t target_uid)
-        : m_original_euid(::geteuid()), m_outcome(try_drop_effective_privilege(target_uid)) {}
+        : m_original_euid(::geteuid()), m_original_dumpable(::prctl(PR_GET_DUMPABLE)),
+          m_outcome(try_drop_effective_privilege(target_uid)) {}
 
     unprivileged_euid_guard(const unprivileged_euid_guard &) = delete;
     unprivileged_euid_guard &operator=(const unprivileged_euid_guard &) = delete;
@@ -216,6 +244,23 @@ class unprivileged_euid_guard {
                                  static_cast<unsigned>(m_original_euid), errno));
                 std::abort();
             }
+
+            // Restoring the euid above does NOT restore "dumpable" -
+            // see the class comment above for the measured mechanism.
+            // Same non-best-effort posture as the euid restore just
+            // above: PR_SET_DUMPABLE with a value this same process
+            // read from PR_GET_DUMPABLE moments earlier is not expected
+            // to fail on any kernel this project targets, so a failure
+            // here aborts rather than leaves the rest of this process's
+            // execution unable to report its own leaks.
+            if (::prctl(PR_SET_DUMPABLE, m_original_dumpable) != 0) {
+                static_cast<void>(
+                    std::fprintf(stderr,
+                                 "asset_load_test: FATAL - could not restore dumpable to %d after "
+                                 "unprivileged_euid_guard (errno=%d)\n",
+                                 m_original_dumpable, errno));
+                std::abort();
+            }
         }
     }
 
@@ -224,6 +269,7 @@ class unprivileged_euid_guard {
 
   private:
     ::uid_t m_original_euid;
+    int m_original_dumpable;
     privilege_drop_outcome m_outcome;
 };
 

@@ -63,6 +63,8 @@ comando literal de cada chamada: `RELATORIO.md` neste mesmo diretório.
 | `check-sem-segredo.sh` | Portão que reprova se a senha do laboratório (ou algo com a forma dela) aparecer em qualquer arquivo deste diretório. Rode antes de qualquer commit aqui. |
 | `type-string.sh` | Digita texto no convidado via `virsh send-key`, caractere a caractere; só necessário enquanto o canal do agente QEMU (ver abaixo) não estiver de pé. Depois dele, prefira `transferir-executar.sh`. Contém o mapeamento de teclado medido para o layout pt-BR/ABNT2 do convidado (`\` e `:` não saem das teclas óbvias do codeset `linux`). |
 | `transferir-executar.sh` | Transfere um arquivo para o convidado pelo canal `org.qemu.guest_agent.0` (`guest-file-write`, em blocos, com contagem de bytes conferida). |
+| `rodar-caminho.sh` | Roda um binário Windows por CAMINHO completo via `guest-exec`, espera terminar e devolve o resultado no próprio código de saída do script (0 sucesso, 1 falha ao iniciar, 3 convidado terminou com erro, 124 estourou o prazo). Prazo configurável por argumento. Tem `--selftest`. |
+| `rodar-um.sh` | Mesma coisa que `rodar-caminho.sh`, mas recebe só o NOME do arquivo (resolvido para `C:\Users\glintfx\<nome>`). Tem `--selftest`. |
 | `autounattend.xml` | Arquivo de respostas do instalador do Windows, comentado linha a linha. **Senha substituída pelos marcadores `__ADMIN_PASSWORD__`/`__USER_PASSWORD__`**, nunca a senha real (ver seção própria abaixo). |
 | `fixtures/dominio-limpo.xml`, `fixtures/dominio-sabotado.xml` | Definições de VM usadas pelo `--selftest` do portão de isolamento. |
 | `RELATORIO.md` | Registro completo do primeiro fecho desta fronteira: decisões tomadas, defeitos achados e corrigidos (na própria receita, nunca escondidos), e o par verde/vermelho provado contra o Windows real. |
@@ -132,6 +134,7 @@ recusa rodar se algum dos dois aparecer instalado.
 mkdir -p /var/tmp/glintfx-win-lab/fixtures
 cp tools/win-vm-lab/criar-vm.sh tools/win-vm-lab/provar-isolamento.sh \
    tools/win-vm-lab/type-string.sh tools/win-vm-lab/transferir-executar.sh \
+   tools/win-vm-lab/rodar-caminho.sh tools/win-vm-lab/rodar-um.sh \
    tools/win-vm-lab/autounattend.xml /var/tmp/glintfx-win-lab/
 cp tools/win-vm-lab/fixtures/*.xml /var/tmp/glintfx-win-lab/fixtures/
 chmod +x /var/tmp/glintfx-win-lab/*.sh

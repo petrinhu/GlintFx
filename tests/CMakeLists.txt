@@ -5170,6 +5170,48 @@ if(UNIX)
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
+# WIN-RUNNER-PROPRIO sub-fatia V-1 (GODS_LAWS.md L-35/L-36/L-40/L-45,
+# 22/09/2026): os dois runners que levam um binario ao convidado Windows e
+# leem o resultado (tools/win-vm-lab/rodar-caminho.sh, por caminho completo;
+# rodar-um.sh, por nome em C:\Users\glintfx\) tinham `set -u` sem `set -e` e
+# o ultimo comando sempre um `echo` - o codigo de saida do PROPRIO SCRIPT
+# era sempre 0, mesmo com o convidado falhando ou nunca terminando (medido
+# com dubles de `virsh`). Cada script agora prova, contra dubles de `virsh`
+# (nunca contra libvirt/QEMU real), os quatro sinais distintos que o
+# convidado pode produzir: sucesso (0), guest terminou com erro (3), estouro
+# de prazo (124, mesma convencao do `timeout(1)` do GNU coreutils) e falha
+# ao iniciar o processo (1) - MESMA forma de GATE-SELFTEST-ORFAO/registro
+# hermetico que win_vm_lab_isolamento_selftest logo acima ja usa nesta
+# mesma pasta, e MESMA guarda de plataforma (Unix-only: os dois scripts sao
+# bash, sem interprete nos runners Windows da matriz) e MESMO
+# SKIP_RETURN_CODE 77 para `jq` ausente (a mesma convencao que
+# win_vm_lab_isolamento_selftest ja usa para `xmlstarlet`).
+#
+# MEDIDO, nao a mencao no arquivo (achado do team-lead, 22/09/2026:
+# contar "jq" no texto de ci.yml mede MENCAO, nao INSTALACAO): nenhuma
+# linha de instalacao de pacote (`dnf install`/`apt-get install`/
+# `pacman -S`) cita jq, e a imagem REAL do alvo primario ja em cache
+# local confirma por execucao - `docker run --rm fedora:latest sh -c
+# "command -v jq"` nao acha nada. NAO MEDIDO: as imagens de Ubuntu/
+# CachyOS/Arch. SKIP_RETURN_CODE 77 acima faz o CTest ler esse codigo
+# como "Not Run" (pulo), nunca como falha - a mesma leitura que
+# check_format_selftest ja usa mais acima neste arquivo.
+if(UNIX)
+    add_test(
+        NAME win_vm_lab_rodar_caminho_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+    add_test(
+        NAME win_vm_lab_rodar_um_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-um.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 # Checagem estatica SERIAL em job Windows (GODS_LAWS.md L-23 item 3,
 # ordem do lider 19/09/2026: "Nos proximos runs com Windows, paralelize
 # a checagem estatica"). Ja cumprida hoje para o unico passo real

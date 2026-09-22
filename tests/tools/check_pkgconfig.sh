@@ -115,12 +115,20 @@
 #      wl_seat_interface/wl_output_interface (confirmed live: `nm -u`
 #      on the extracted xdg-shell-protocol.c.o member lists exactly
 #      those three as undefined) that only wayland-client provides.
-#      Two controls, both executed: linking the probe WITHOUT
-#      Libs.private (plain `pkg-config --cflags --libs glintfx`, no
-#      --static) FAILS with those exact undefined references
-#      (negative control - reproduced live before writing this
-#      scenario); linking it WITH Libs.private (`--cflags --libs
-#      --static`) SUCCEEDS (positive control).
+#      Three controls, all executed, in this order: (0) the probe
+#      compiled to an OBJECT ONLY (-c) carries xdg_wm_base_interface
+#      as an UNDEFINED symbol (`nm`) - CLANG-PKGCONFIG-PROBE, proves
+#      the premise itself before either link is attempted, added
+#      after a real regression under Clang (see
+#      write_wayland_symbol_probe_source's own header comment for the
+#      mechanism: an earlier probe shape lost this exact reference to
+#      internal-linkage dead-code elimination, invisible until this
+#      control existed); (1) linking the probe WITHOUT Libs.private
+#      (plain `pkg-config --cflags --libs glintfx`, no --static) FAILS
+#      with those exact undefined references (negative control -
+#      reproduced live before writing this scenario); (2) linking it
+#      WITH Libs.private (`--cflags --libs --static`) SUCCEEDS
+#      (positive control).
 #
 #      Trade-off accepted, and it is real (this is now the actual, and
 #      only, reason the proof stays this shape rather than something
@@ -661,6 +669,27 @@ compile_and_run_static_consumer() {
 # ONLY way to make Libs.private's presence or absence OBSERVABLE
 # through a real link (see the file-level comment, scenario 5, for the
 # full reasoning and the trade-off this accepts).
+#
+# CLANG-PKGCONFIG-PROBE (TODO.md, mecanismo isolado ate o objeto): a
+# forma anterior desta sonda guardava a referencia num
+# `const void* const` em escopo de espaco de nomes. Em C++, isso tem
+# LIGACAO INTERNA ([basic.link]/3); nao usada dentro da propria
+# unidade de traducao, o Clang a descarta mesmo em -O0, e com ela some
+# a UNICA referencia a xdg_wm_base_interface - o objeto sai sem
+# simbolo indefinido, o ligador nao tem o que resolver, e o membro do
+# arquivo estatico nunca e extraido (medido: `nm` no .o do Clang nao
+# mostra nada, o do GCC mostra `U xdg_wm_base_interface`). O GCC so
+# escapava porque a linha de compilacao da sonda nunca carregou `-O`
+# nenhum: medido perder a MESMA referencia a partir de -O2 - a forma
+# antiga nao era "quebrada no Clang", era quebrada em qualquer
+# compilador que faca eliminacao de codigo morto de ligacao interna.
+#
+# A referencia agora vive DENTRO de main(), atraves de um ponteiro
+# `volatile`: acesso a um glvalue `volatile` e efeito observavel que a
+# regra do "como se" NAO pode remover ([intro.execution]) - a garantia
+# vem da execucao da linguagem, nao das regras de ligacao que foram
+# justamente o que falhou aqui. NAO "limpe" este volatile: sem ele a
+# sonda volta a nao provar nada, em silencio.
 write_wayland_symbol_probe_source() {
     scratch="$1"
     probe_src="${scratch}/wayland_symbol_probe.cpp"
@@ -674,15 +703,51 @@ write_wayland_symbol_probe_source() {
 // undefined references to wl_surface_interface/wl_seat_interface/
 // wl_output_interface become part of THIS link - proving
 // Libs.private is genuinely load-bearing, not merely present.
+//
+// CLANG-PKGCONFIG-PROBE: the reference lives inside main(), through a
+// volatile pointer, on purpose. A plain namespace-scope
+// `const void* const` has INTERNAL linkage ([basic.link]/3) and, when
+// unused within this translation unit, gets discarded by Clang even
+// at -O0 (and by GCC from -O2) - the reference disappears before the
+// linker exists in the story. A `volatile` glvalue access is an
+// OBSERVABLE SIDE EFFECT the "as-if" rule cannot remove
+// ([intro.execution]): that guarantee comes from the language's
+// execution model, not from linkage rules. Do NOT "clean up" this
+// volatile - without it the probe silently stops proving anything.
 extern "C" const struct wl_interface xdg_wm_base_interface;
 
-const void* const g_glintfx_wayland_symbol_probe = &xdg_wm_base_interface;
-
 int main() {
-    return 0;
+    const void* volatile p = &xdg_wm_base_interface;
+    return p == nullptr;
 }
 PROBE_EOF
     printf '%s' "$probe_src"
+}
+
+# DECISAO AUTONOMA 4 (TODO.md CLANG-PKGCONFIG-PROBE, GODS_LAWS.md
+# L-40): proves the PREMISE itself, executed BEFORE the two link
+# controls below - compiles the probe to an OBJECT FILE ONLY (-c, no
+# link) and requires `nm` to show xdg_wm_base_interface as UNDEFINED
+# ("U") in that object. That fact is exactly what the two link
+# controls assume without ever checking directly. If it ever stops
+# being true (a future compiler or flag removes the reference again,
+# the way Clang did here), THIS assertion names what broke instead of
+# letting the negative control fail later with a message that blames
+# Libs.private for a regression that was never its fault. Counted and
+# printed even when it passes (GODS_LAWS.md L-40 item 3).
+assert_probe_object_carries_undefined_wayland_symbol() {
+    pkgconfig_dir="$1"
+    probe_src="$2"
+    cxx="$3"
+    output_obj="$4"
+    cflags="$(PKG_CONFIG_PATH="$pkgconfig_dir" pkg-config --cflags glintfx)"
+    # shellcheck disable=SC2086 # cflags is pkg-config output, a space-separated argument list meant to word-split
+    "$cxx" -std=c++23 ${cflags} -c "$probe_src" -o "$output_obj" \
+        || fail "probe object compile failed: $probe_src"
+    [ -f "$output_obj" ] || fail "probe object not found after compile: $output_obj"
+    undefined_count="$(nm "$output_obj" | awk '$1 == "U" && $2 == "xdg_wm_base_interface" { n++ } END { print n + 0 }')"
+    echo "check_pkgconfig.sh: probe object carries $undefined_count undefined reference(s) to xdg_wm_base_interface"
+    [ "$undefined_count" -ge 1 ] || fail "a sonda parou de forcar a extracao; o objeto nao carrega a referencia indefinida a xdg_wm_base_interface ('nm $output_obj' nao mostra 'U xdg_wm_base_interface') - o link SEM Libs.private pode 'suceder' por este motivo, e o controle negativo abaixo estaria culpando o Libs.private por algo que nao e culpa dele"
 }
 
 # Negative control: linking the probe WITHOUT Libs.private (the plain,
@@ -867,8 +932,10 @@ run_static_scenario() {
     compile_and_run_static_consumer "$pkgconfig_dir" "$consumer_src" "$cxx" "$binary"
 
     probe_src="$(write_wayland_symbol_probe_source "$scratch")"
+    probe_obj="${scratch}/probe-object-only.o"
     probe_negative_bin="${scratch}/probe-without-libsprivate"
     probe_positive_bin="${scratch}/probe-with-libsprivate"
+    assert_probe_object_carries_undefined_wayland_symbol "$pkgconfig_dir" "$probe_src" "$cxx" "$probe_obj"
     assert_probe_links_without_wayland_client_fails "$pkgconfig_dir" "$probe_src" "$cxx" "$probe_negative_bin"
     assert_probe_links_with_wayland_client_succeeds "$pkgconfig_dir" "$probe_src" "$cxx" "$probe_positive_bin"
 

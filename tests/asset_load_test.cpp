@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -146,18 +147,98 @@ void write_file(const std::filesystem::path &path, const std::vector<std::byte> 
               static_cast<std::streamsize>(content.size()));
 }
 
-// running_as_root - the declared downgrade this project's own memory
-// already names (feedback in MEMORY.md, "container roda como root e
-// root ignora bits de permissao"): the four Linux CI matrix jobs run
-// inside a container as uid 0, where chmod 0000 does not block a read.
-// Named and printed, never silently skipped (GODS_LAWS.md L-40).
-[[nodiscard]] bool running_as_root() {
-#if defined(_WIN32)
-    return false;
-#else
-    return geteuid() == 0;
-#endif
+#if !defined(_WIN32)
+// k_unprivileged_uid - the target of the effective-uid drop below.
+// BEST-EFFORT only (GODS_LAWS.md ASSET-PARITY-ROOT plan, decision D6):
+// no assertion in this file depends on this exact number, because it
+// is a fact of the environment, not a promise this project can make -
+// the same category of "do not freeze a fact of the machine inside a
+// gate" that already bit this repository four times before.
+inline constexpr ::uid_t k_unprivileged_uid = 65534;
+
+// privilege_drop_outcome - the two facts one euid-swap attempt leaves
+// behind: whether it landed, and the errno when it did not.
+struct privilege_drop_outcome {
+    bool dropped;
+    int drop_errno;
+};
+
+// try_drop_effective_privilege - one verb, no "e": attempts the swap
+// and reports what happened. Never prints (print_privilege_state below
+// owns that) and never asserts - a privileged process WITHOUT the
+// capability to cross a permission bit cannot make this swap either
+// (measured against this project's own container, ASSET-PARITY-ROOT
+// plan SS2.3), and that is not itself a defect.
+[[nodiscard]] privilege_drop_outcome try_drop_effective_privilege(::uid_t target_uid) {
+    if (::seteuid(target_uid) == 0) {
+        return {.dropped = true, .drop_errno = 0};
+    }
+    return {.dropped = false, .drop_errno = errno};
 }
+
+// unprivileged_euid_guard - RAII, one subject only: own an effective-
+// uid swap and undo it. Same non-copyable, destructor-restores shape
+// as exclusive_handle_guard below, for a process privilege level
+// instead of a file HANDLE. The swap is BEST-EFFORT (GODS_LAWS.md
+// L-40's own "estado impresso, nunca degradacao silenciosa", applied
+// here as decision D2 of the ASSET-PARITY-ROOT plan): dropped()/
+// drop_errno() let the caller SEE what happened; no_read_permission_
+// is_io_failure below never asserts on them, only on the read outcome.
+class unprivileged_euid_guard {
+  public:
+    explicit unprivileged_euid_guard(::uid_t target_uid)
+        : m_original_euid(::geteuid()), m_outcome(try_drop_effective_privilege(target_uid)) {}
+
+    unprivileged_euid_guard(const unprivileged_euid_guard &) = delete;
+    unprivileged_euid_guard &operator=(const unprivileged_euid_guard &) = delete;
+
+    ~unprivileged_euid_guard() {
+        if (m_outcome.dropped) {
+            // UNLIKE the drop attempt above, this restore is NOT best-
+            // effort: POSIX guarantees seteuid() back to the process's
+            // OWN real or saved-set-user-id always succeeds, and
+            // m_original_euid is exactly that (captured by this same
+            // process, above, before the drop). A failure here would
+            // mean every scenario running AFTER this one silently keeps
+            // the wrong privilege (ASSET-PARITY-ROOT plan SS10.3) -
+            // checked (clang-tidy clang-analyzer-security.insecureAPI.
+            // UncheckedReturn) and aborted loudly rather than left to
+            // corrupt the rest of this executable's cases quietly.
+            if (::seteuid(m_original_euid) != 0) {
+                // The diagnostic print is best-effort on purpose: the
+                // process is about to abort() unconditionally right
+                // below regardless of whether this write lands, so its
+                // own return value carries no decision either way.
+                static_cast<void>(
+                    std::fprintf(stderr,
+                                 "asset_load_test: FATAL - could not restore effective uid to %u "
+                                 "after unprivileged_euid_guard (errno=%d)\n",
+                                 static_cast<unsigned>(m_original_euid), errno));
+                std::abort();
+            }
+        }
+    }
+
+    [[nodiscard]] bool dropped() const noexcept { return m_outcome.dropped; }
+    [[nodiscard]] int drop_errno() const noexcept { return m_outcome.drop_errno; }
+
+  private:
+    ::uid_t m_original_euid;
+    privilege_drop_outcome m_outcome;
+};
+
+// print_privilege_state - reports, never asserts (GODS_LAWS.md L-40:
+// state printed on every run, passing or failing). Reads the CURRENT
+// effective uid itself, at the instant it is called, so a caller that
+// invokes this right before the read it is about to make gets the
+// euid that ACTUALLY governed that read, not the one recorded at guard
+// construction.
+void print_privilege_state(::uid_t initial_euid, const unprivileged_euid_guard &guard) {
+    std::println("asset_load_test: no_read_permission_is_io_failure privilege state - "
+                 "initial_euid={} drop_attempted_ok={} drop_errno={} euid_at_read={}",
+                 initial_euid, guard.dropped(), guard.drop_errno(), ::geteuid());
+}
+#endif
 
 #if defined(_WIN32)
 // exclusive_handle_guard - RAII so a GLINTFX_CHECK failure inside
@@ -261,35 +342,37 @@ GLINTFX_TEST(no_read_permission_is_io_failure) {
     GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
 #else
     GLINTFX_CHECK(::chmod((dir / "secret.bin").c_str(), 0000) == 0);
+    // The directory itself must stay traversable, or the unprivileged
+    // euid below could be denied by directory TRAVERSAL instead of by
+    // the file's own permission bits, and the scenario would pass for
+    // the wrong reason (ASSET-PARITY-ROOT plan SS10.2). This is a fact
+    // of THIS container's umask, not something to trust across
+    // environments, so it is set explicitly rather than assumed.
+    GLINTFX_CHECK(::chmod(dir.c_str(), 0755) == 0);
 
-    const glintfx::gltfx_rslt<std::vector<std::byte>> result =
-        glintfx::asset::gltfx_load_file_bytes("secret.bin");
+    // The read happens INSIDE the guard's scope, the assertions below
+    // happen OUTSIDE it (ASSET-PARITY-ROOT plan SS8.3): a lambda, not a
+    // manually-restored variable, so the effective uid comes back even
+    // if gltfx_load_file_bytes() itself threw (it does not, per its own
+    // noexcept boundary, but the guard's destructor is what makes that
+    // a structural guarantee instead of a hoped-for one).
+    const ::uid_t initial_euid = ::geteuid();
+    const glintfx::gltfx_rslt<std::vector<std::byte>> result = [&] {
+        const unprivileged_euid_guard guard(k_unprivileged_uid);
+        print_privilege_state(initial_euid, guard);
+        return glintfx::asset::gltfx_load_file_bytes("secret.bin");
+    }();
 
-    if (running_as_root()) {
-        // Declared downgrade (GODS_LAWS.md L-40): uid 0 reads through
-        // the permission bits this scenario relies on, so the file
-        // opens and reads successfully here instead of failing - the
-        // scenario still ran (the counter below still increments), it
-        // just could not exercise the permission-denied branch on this
-        // process's privilege level.
-        //
-        // ASSERTS has_value(), NOT "has_value() || has_error()"
-        // (adversarial review, 28/08/2026 - GODS_LAWS.md L-40's own
-        // "isto e testado" corollary): gltfx_rslt<T> is a closed union
-        // of exactly those two states, so the disjunction can NEVER be
-        // false - it proves only that the call did not crash, nothing
-        // this scenario actually claims. The paragraph right above
-        // already names the real, checkable claim: under uid 0 the
-        // permission bits this scenario relies on do not apply, so the
-        // read genuinely succeeds - that is the assertion that wants
-        // to be made here.
-        std::println("asset_load_test: no_read_permission_is_io_failure running as root - "
-                     "permission bits do not apply, downgrading to a no-crash check");
-        GLINTFX_CHECK(result.has_value());
-    } else {
-        GLINTFX_CHECK(result.has_error());
-        GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
-    }
+    // UNCONDITIONAL, no branch on whether the drop above succeeded
+    // (GODS_LAWS.md L-40, ASSET-PARITY-ROOT plan decision D2): a
+    // privileged process WITHOUT the capability to cross a permission
+    // bit is already denied by chmod 0000 alone and cannot make the
+    // drop either - measured live in this project's own container
+    // (plan SS2.3, `--cap-drop=ALL`) - so requiring the drop to succeed
+    // would reprove that healthy environment. The read failing is the
+    // only thing this scenario claims.
+    GLINTFX_CHECK(result.has_error());
+    GLINTFX_CHECK(result.err().code() == glintfx::gltfx_err_code::io_failure);
 #endif
     ++g_scenarios_exercised;
 }

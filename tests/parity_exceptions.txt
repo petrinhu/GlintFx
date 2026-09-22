@@ -415,6 +415,56 @@ gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo
 # desta secao inicial do arquivo.
 win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
 
+# --- Tres sondas exclusivas de UM sistema, sem par possivel (22/09/2026,
+# item WIN-RUNNER-PROPRIO, sub-fatias V-1 e V-2 - reprovacao real do run
+# 35767005619, commit 5bf505a, conserto neste commit) -------------------
+#
+# As tres a seguir vivem em tools/win-vm-lab/, registradas em
+# tests/CMakeLists.txt dentro do MESMO if(UNIX) que ja protege
+# win_vm_lab_isolamento_selftest acima - motivo estrutural identico
+# (script POSIX `#!/usr/bin/env bash`, sem interprete que os runners
+# Windows da matriz reconhecam), mas cada uma prova uma coisa diferente
+# e por isso ganha seu proprio paragrafo em vez de reaproveitar o texto
+# do irmao.
+#
+# win_vm_lab_rodar_caminho_selftest (tools/win-vm-lab/rodar-caminho.sh
+# --selftest) prova, contra um dublê de `virsh` (nunca libvirt/QEMU
+# real), que o script traduz os quatro desfechos possiveis de
+# `guest-exec`/`guest-exec-status` (sucesso, o convidado termina com
+# erro, o prazo estoura, o `guest-exec` falha ao iniciar) no PROPRIO
+# codigo de saida do script - e o conserto do falso verde achado em
+# 22/09/2026 (o corpo antigo tinha `set -u` sem `set -e` e sempre saia
+# 0). E' um roteiro que RODA NO HOSPEDEIRO Linux e fala com a VM
+# Windows-convidada pelo canal do agente QEMU; nao ha, e nunca vai
+# haver, um roteiro simetrico rodando dentro do runner Windows que
+# dirija uma VM a partir de la - o proprio ponto do laboratorio e' o
+# host Linux/libvirt hospedar e dirigir o convidado, nao o inverso.
+#
+# win_vm_lab_rodar_um_selftest (tools/win-vm-lab/rodar-um.sh --selftest)
+# e' o MESMO mecanismo do paragrafo acima, so que resolvendo o alvo por
+# NOME de arquivo (para `C:\Users\glintfx\<nome>`) em vez de caminho
+# completo - mesma ausencia, mesma razao estrutural, mesmo host que
+# dirige, nunca o inverso.
+#
+# win_vm_lab_sessao_selftest (tools/win-vm-lab/sessao.sh --selftest,
+# sub-fatia V-2, /var/tmp/glintfx-plan/win-runner-local.md secao 1) e' o
+# motorista de sessao: trava de exclusao mutua (`flock` sobre
+# .vm.lock), segunda verificacao independente por `virsh domstate`, e
+# sobreposicao qcow2 descartavel (`qemu-img create -b/-F`) que nasce e
+# morre dentro da mesma posse da trava. As tres ferramentas que ele usa
+# (`flock`, `virsh`, `qemu-img`) sao do HOSPEDEIRO libvirt/QEMU; nao
+# existe, por desenho, um "motorista de sessao" do lado Windows porque
+# o lado Windows aqui e' sempre o CONVIDADO sendo dirigido, nunca quem
+# dirige.
+#
+# MORTE DESTAS TRES LINHAS: nunca - mesma classe de assimetria
+# permanente por desenho que win_vm_lab_isolamento_selftest acima ja
+# registra, nao lacuna temporaria. Sem item para rastrear, gemeo=nenhum
+# nos tres, mesmo padrao SEM-PENDENCIA desta secao inicial do arquivo.
+win_vm_lab_rodar_caminho_selftest|windows|nenhum|SEM-PENDENCIA
+win_vm_lab_rodar_um_selftest|windows|nenhum|SEM-PENDENCIA
+win_vm_lab_sessao_selftest|windows|nenhum|SEM-PENDENCIA
+
 # --- Sonda exclusiva de UM sistema, sem par possivel (11/09/2026,
 # item CONTAINER-LOG-SIGNAL-FIRST) -------------------------------------
 #

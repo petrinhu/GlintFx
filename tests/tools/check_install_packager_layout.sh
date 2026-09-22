@@ -34,17 +34,31 @@
 #   1. "hinted": configura o consumidor com CMAKE_LIBRARY_ARCHITECTURE
 #      explicito - o formato que cross-compilacao, sysroot ou um
 #      pipeline de empacotamento de terceiros que fixa a variavel a mao
-#      realmente usa. Sempre roda, em qualquer imagem.
+#      realmente usa. Roda de verdade quando o compilador NAO reporta
+#      arquitetura nativa nenhuma (hoje: GCC no Fedora/Arch/CachyOS).
 #   2. "native zero-flag": configura o consumidor SEM nenhum -D extra,
 #      contra um install cuja CMAKE_INSTALL_LIBDIR usa a MESMA
 #      arquitetura que ESTE compilador reporta nativamente
 #      (CMAKE_CXX_LIBRARY_ARCHITECTURE, lido do proprio
 #      CMakeCXXCompiler.cmake que a deteccao de ABI do CMake escreve -
-#      nao uma reimplementacao propria do regex). So roda de verdade
-#      quando o compilador da imagem reporta essa arquitetura (hoje:
-#      Ubuntu). Nas imagens onde nao reporta (Fedora/Arch/CachyOS), o
-#      script DECLARA a limitacao com a causa, em vez de fingir que
-#      provou o caminho - resultado negativo honesto (GODS_LAWS.md L-27).
+#      nao uma reimplementacao propria do regex). Roda de verdade
+#      quando o compilador da imagem REPORTA essa arquitetura (hoje:
+#      Ubuntu, e Clang no Fedora).
+#
+#   CLANG-INSTALL-LAYOUT-ARCH (26/08/2026, TODO.md): medido que o
+#   Clang do Fedora TAMBEM auto-detecta uma arquitetura nativa
+#   (CMAKE_CXX_LIBRARY_ARCHITECTURE=x86_64-redhat-linux-gnu), e esse
+#   valor SEMPRE sobrepoe o hint explicito do cenario 1 antes de
+#   find_package procurar - quatro formas de forcar o hint de volta
+#   foram medidas e as quatro perderam (cache -D, -D especifico de
+#   CXX, as duas juntas, arquivo de cadeia de ferramentas; ver
+#   TODO.md). Por isso os dois cenarios agora sao MUTUAMENTE
+#   EXCLUSIVOS por construcao: exatamente um dos dois roda de verdade
+#   em qualquer compilador, decidido por essa MESMA deteccao de
+#   arquitetura nativa - o outro DECLARA a limitacao com a causa, em
+#   vez de fingir que provou um caminho inalcancavel (GODS_LAWS.md
+#   L-27). main() confere essa invariante contando quantos cenarios
+#   rodaram de verdade e reprovando se for zero (GODS_LAWS.md L-40).
 #
 # Usage: check_install_packager_layout.sh <glintfx-source-dir> <package-src-dir> <cxx-compiler>
 #
@@ -161,22 +175,46 @@ declare_zero_flag_limitation() {
     echo "check_install_packager_layout.sh: zero-flag find_package path NOT exercised for '$cxx' on this image - CMAKE_CXX_LIBRARY_ARCHITECTURE is empty in $build_dir (compiler ABI detection found no arch-suffixed implicit library directory). CMake's automatic lib/<arch> search (Modules/CMakeParseLibraryArchitecture.cmake) never activates for this toolchain; that is a property of the compiler/distro packaging (Fedora/Arch/CachyOS gcc report no multiarch implicit dir), not a defect in glintfx or in glintfx-config.cmake.in. Proven instead by the hinted scenario above, which reproduces exactly what CMAKE_LIBRARY_ARCHITECTURE is set to automatically on a genuine Debian/Ubuntu multiarch toolchain."
 }
 
+# CLANG-INSTALL-LAYOUT-ARCH (GODS_LAWS.md L-40 DECISAO AUTONOMA 1): the
+# mirror image of declare_zero_flag_limitation() above. On a compiler
+# whose OWN ABI detection reports a native library architecture (e.g.
+# Clang on Fedora: CMAKE_CXX_LIBRARY_ARCHITECTURE=x86_64-redhat-linux-
+# gnu), that auto-detected value ALWAYS overrides the consumer's
+# explicit -DCMAKE_LIBRARY_ARCHITECTURE hint before find_package's
+# Config-mode search ever runs - measured, not assumed: four override
+# forms were tried (cache -D, the CXX-specific -D, both together, a
+# toolchain file) and all four lost to the detected value. No consumer
+# can force this variable to something other than what CMake detected
+# (CMAKE_LIBRARY_ARCHITECTURE is documented as "if detected", i.e. an
+# OUTPUT of ABI detection, never an INPUT), so asserting that
+# find_package resolves here would prove an unreachable premise.
+# Declares the limitation instead; the zero-flag scenario below proves
+# the equivalent coverage for this exact compiler (see the invariant
+# in main()).
+declare_hinted_limitation() {
+    cxx="$1"
+    native_arch="$2"
+    echo "check_install_packager_layout.sh: hinted find_package path NOT exercised for '$cxx' on this image - this compiler's own ABI detection reports CMAKE_CXX_LIBRARY_ARCHITECTURE=$native_arch, which CMake's Config-mode search prefers over the consumer's explicit -DCMAKE_LIBRARY_ARCHITECTURE=$LIBDIR_ARCH hint (four override forms measured and lost: cache -D, the CXX-specific -D, both together, and a toolchain file - see TODO.md CLANG-INSTALL-LAYOUT-ARCH). Proven instead by the zero-flag scenario below, which installs into lib/$native_arch and configures the consumer with NO flag at all - exactly what this compiler's own detection makes happen automatically, the same coverage the hinted scenario gives on a compiler that stays silent."
+}
+
 # Orchestrates the zero-flag scenario in its own build/prefix, separate
 # from the hinted one above (CMAKE_INSTALL_LIBDIR is a cache variable
 # fixed at glintfx's own configure time, so it needs its own build dir).
 # Declares the limitation instead of running when this image's compiler
 # cannot autopopulate CMAKE_LIBRARY_ARCHITECTURE (GODS_LAWS.md L-27:
-# honest negative result over a gate that overclaims).
+# honest negative result over a gate that overclaims). Runs for real
+# exactly when run_hinted_scenario() below declares instead of running
+# - see the invariant asserted in main() (GODS_LAWS.md L-40 DECISAO
+# AUTONOMA 2).
 run_native_zero_flag_scenario() {
     glintfx_src="$1"
     package_src="$2"
     cxx="$3"
     scratch="$4"
+    native_arch="$5"
 
-    hinted_build="$scratch/glintfx-build-hinted"
-    native_arch="$(detect_native_library_architecture "$hinted_build")"
     if [ -z "$native_arch" ]; then
-        declare_zero_flag_limitation "$cxx" "$hinted_build"
+        declare_zero_flag_limitation "$cxx" "$scratch/glintfx-build-hinted"
         return 0
     fi
 
@@ -191,6 +229,44 @@ run_native_zero_flag_scenario() {
     build_and_run_consumer "$native_consumer_build"
 
     echo "ok: find_package(glintfx) resolves a non-default multiarch-style install layout with NO hint flag at all (zero-flag path), using this toolchain's own native library architecture ($native_arch) - the scenario a real Debian/Ubuntu packager or end user experiences after installing the -dev package and calling find_package(glintfx), with no -D flag involved."
+    scenarios_executed_for_real=$((scenarios_executed_for_real + 1))
+}
+
+# Runs the hinted scenario for REAL only when this compiler stays
+# silent about its own library architecture (native_arch empty) - see
+# declare_hinted_limitation() above for why a non-empty native_arch
+# makes the premise unreachable instead.
+run_hinted_scenario() {
+    package_src="$1"
+    hinted_prefix="$2"
+    hinted_consumer_build="$3"
+    cxx="$4"
+    native_arch="$5"
+
+    if [ -n "$native_arch" ]; then
+        declare_hinted_limitation "$cxx" "$native_arch"
+        return 0
+    fi
+
+    configure_consumer_with_architecture_hint "$package_src" "$hinted_consumer_build" "$hinted_prefix" "$cxx"
+    build_and_run_consumer "$hinted_consumer_build"
+    echo "ok: find_package(glintfx) resolves a non-default multiarch-style install layout when the consumer supplies the architecture hint (CMAKE_INSTALL_LIBDIR=$NONDEFAULT_LIBDIR, CMAKE_INSTALL_INCLUDEDIR=$NONDEFAULT_INCLUDEDIR)."
+    scenarios_executed_for_real=$((scenarios_executed_for_real + 1))
+}
+
+# GODS_LAWS.md L-40 DECISAO AUTONOMA 2: counts scenarios that resolved
+# find_package FOR REAL (never merely declared), and reprova on zero -
+# the piso de varredura nao-vazia applied to this pair of scenarios.
+# The count is printed even when it passes, so "looked and proved" is
+# never indistinguishable from "never looked". By construction
+# (run_hinted_scenario and run_native_zero_flag_scenario branch on the
+# SAME native_arch emptiness, in opposite directions), this value is
+# always exactly 1 in practice - but the assertion only enforces the
+# L-40 floor (count >= 1), which is the order actually given.
+assert_scenario_coverage_nonempty() {
+    count="$1"
+    echo "check_install_packager_layout.sh: $count cenario(s) executado(s) de verdade (find_package resolvido de fato, nao apenas declarado)"
+    [ "$count" -ge 1 ] || fail "varredura vazia: 0 cenarios executados de verdade - nem o hinted nem o zero-flag resolveram find_package por conta propria (GODS_LAWS.md L-40)"
 }
 
 main() {
@@ -209,11 +285,14 @@ main() {
     configure_glintfx_with_packager_layout "$glintfx_src" "$hinted_build" "$cxx" "$NONDEFAULT_LIBDIR"
     build_and_install_glintfx "$hinted_build" "$hinted_prefix"
     assert_pkgconfig_pc_installed "$hinted_prefix" "hinted"
-    configure_consumer_with_architecture_hint "$package_src" "$hinted_consumer_build" "$hinted_prefix" "$cxx"
-    build_and_run_consumer "$hinted_consumer_build"
-    echo "ok: find_package(glintfx) resolves a non-default multiarch-style install layout when the consumer supplies the architecture hint (CMAKE_INSTALL_LIBDIR=$NONDEFAULT_LIBDIR, CMAKE_INSTALL_INCLUDEDIR=$NONDEFAULT_INCLUDEDIR)."
 
-    run_native_zero_flag_scenario "$glintfx_src" "$package_src" "$cxx" "$scratch"
+    native_arch="$(detect_native_library_architecture "$hinted_build")"
+    scenarios_executed_for_real=0
+
+    run_hinted_scenario "$package_src" "$hinted_prefix" "$hinted_consumer_build" "$cxx" "$native_arch"
+    run_native_zero_flag_scenario "$glintfx_src" "$package_src" "$cxx" "$scratch" "$native_arch"
+
+    assert_scenario_coverage_nonempty "$scenarios_executed_for_real"
 }
 
 main "$@"

@@ -3669,3 +3669,45 @@ C-level planejador (`caetano-cto`, opus), sob a L-34 do projeto em modo autônom
 **Por que a alternativa "mecanismo independente de privilégio" morreu, e é por fato externo verificável, não por gosto (L-22, pesquisa antes do plano):** o equivalente Linux exato do mecanismo que o lado Windows usa — trava obrigatória de arquivo — **foi removido do núcleo do Linux na 5.15**. Sem ele, qualquer mecanismo dito "independente de privilégio" **trocaria a alegação do teste** em vez de restaurar a cobertura perdida. Fontes que o planejador citou: SEI CERT POS37-C e POS02-C, a thread de remoção da trava obrigatória em `lore.kernel.org/linux-fsdevel` (agosto/2021) e `fcntl_locking(2)`.
 
 **A forma do vermelho aqui é diferente da usual, e vale registrar porque vai se repetir:** o defeito **não é comportamento errado, é cobertura ausente**. Não dá para rodar o código de hoje e vê-lo falhar — ele passa. O vermelho legítimo vem de **escrever a asserção honesta primeiro** e vê-la falhar no ambiente real. É o mesmo padrão que a fatia irmã do lado Windows já tinha usado.
+
+**RE-VERIFICAÇÃO DO ORQUESTRADOR (L-12), `ASSET-PARITY-ROOT`, commit `abc19fb` — 21/09/2026 22:30.** Não repeti o que o implementador já demonstrou. Fiz as três coisas que a emenda da L-12 me atribui:
+
+**(1) Sabotagem minha, em família DIFERENTE da dele.** Ele provou o caminho do usuário **privilegiado** (vermelho, verde, e as sabotagens S1/S2/S3). Eu ataquei o outro lado do mundo: **o desenvolvedor comum, sem privilégio nenhum** — se a guarda nova quebrasse ali, todo colaborador não-root quebraria junto, e nenhuma prova dele teria pego isso. Extraí o **blob commitado** (`git archive abc19fb`, md5 conferido contra `git show abc19fb:tests/asset_load_test.cpp` = `fae47fbe65b45c0ae3954fc117206153`), nunca a árvore de trabalho, e rodei em container com `--user 1000:1000`:
+
+```
+euid=1000
+rc_configure=0
+rc_build=0
+rc_ctest=0
+asset_load_test: no_read_permission_is_io_failure privilege state - initial_euid=1000 drop_attempted_ok=false drop_errno=1 euid_at_read=1000
+[PASS] no_read_permission_is_io_failure
+asset_load_test: closed matrix exercised 6 of 6 scenarios
+--- 9 case(s), 0 failure(s) ---
+```
+
+**O que essas linhas provam, e por que eu não aceitei só o `rc=0`:** código de saída zero sozinho **não distingue** "o cenário rodou e passou" de "o cenário foi pulado em silêncio" — e pulo silencioso é exatamente o defeito que esta fatia existe para matar. As linhas de estado provam que o cenário **foi exercido** (`6 of 6`), que a queda de privilégio **falhou** (`drop_attempted_ok=false`, `errno=1`=EPERM, correto: quem não é privilegiado não pode trocar de usuário) e que **mesmo assim o caso passou**, porque a leitura foi genuinamente negada. É a **decisão D2 funcionando ao vivo** no ambiente que ninguém tinha testado.
+
+**(2) Integridade da árvore e do histórico:** árvore limpa, 3 commits à frente do remoto, e o commit da fatia toca exatamente 2 arquivos (`tests/asset_load_test.cpp`, `TODO.md`), com caminhos explícitos — não engoliu o `DECISOES_AUTONOMAS.md` que eu estava editando em paralelo, e ele declarou isso por conta própria.
+
+**(3) Spot-check arquivo:linha contra o blob commitado:** `running_as_root` tem **0** ocorrências (D4 cumprida, o auxiliar sumiu inteiro); `unprivileged_euid_guard` existe (declarado em 179, classe em 187); `Status` do item = `🔍 Pendente verificação`, nunca `✅`.
+
+**Desvio que ele declarou e eu aceito, com a razão:** usou a imagem `glintfx-devbuild:verify` em vez da `:latest` do plano, porque a `:latest` **não configura nada** — falta `mesa-libEGL-devel`, e o `pkg_check_modules(... REQUIRED egl wayland-egl)` derruba o configure antes de qualquer alvo. Isso **não é problema desta fatia**: bloqueia qualquer build naquela imagem, e consertar exige instalar pacote, o que é decisão do líder (L-14/L-51). Fica registrado como achado separado.
+
+---
+
+## 21/09/2026 - 22:41 | Os dois vermelhos só-Windows, e a re-verificação deles (commit `9a6c3a6`)
+
+**Contexto que faltava a todo mundo até hoje:** o Windows estava vermelho **desde 19/09/2026** e ninguém sabia, porque as três execuções seguintes do servidor foram **canceladas** antes de terminar. A execução completa anterior (`35453845941`, 19/09 16:05) falhava em **quatro** jobs; a de hoje (`35670443221`) falhou em **dois**. Os dois são resíduo de 19/09, não regressão do trabalho de hoje.
+
+**Defeito 1 — `create_annotated_tag` corrompia o objeto de etiqueta no Windows.** `subprocess.run(text=True, input=<str>)` escreve por um `io.TextIOWrapper(newline=None)`, que traduz `\n` para `\r\n` no Windows antes de o processo filho receber. O formato de objeto de etiqueta do git exige `\n` exato. Conserto: `input=content.encode("utf-8")`, sem `text=True`. **Provado vermelho→verde aqui mesmo**, e o mecanismo foi reproduzido direto contra o `git` real desta máquina (`\n` → saída 0; `\r\n` → saída 128, `unterminatedHeader`, a mesma mensagem do log do servidor). Controle de regressão novo: `ANNOTATED-TAG-SURVIVES-STDIN-NEWLINE-TRANSLATION`, 12 controles no total.
+
+**Defeito 2 — o cenário 20 do portão de empacotamento nunca exercia a condição no Windows.** A causa é mais específica do que a minha hipótese inicial, e o agente a corrigiu com documentação oficial do CMake: sem `NAMES_PER_DIR`, o `find_program()` considera **um nome por vez varrendo todo o PATH**, e no Windows os sufixos vêm na ordem `.com`, `.exe`, sem sufixo. O fixture sem extensão só entrava na **terceira** passada — e qualquer `pkg-config.exe` real em qualquer diretório do PATH do executor vencia na **segunda**, não importando que o diretório do fixture fosse o primeiro. Conserto: nomear o fixture `pkg-config.exe`. **Rebaixamento declarado: este não tem prova vermelho→verde local** — o mecanismo é interno ao `find_program()` do CMake rodando em Windows real, e nem o container Linux nem o de Wine (que não tem `cmake.exe`) o reproduzem. A VM Windows **não foi ligada**, corretamente: ela deixou de ser exclusiva desta sessão por ordem do líder de hoje.
+
+**RE-VERIFICAÇÃO DO ORQUESTRADOR (L-12) — o que eu fiz, e é diferente do que ele fez:**
+
+- **Refiz a varredura de gêmeo por ANÁLISE SINTÁTICA, não por `grep`.** A L-40, item 5, manda enumerar o espaço fechado em vez de buscar dentro dele; `grep "input="` casa comentário, texto de docstring e parâmetro de função homônimo. Percorri a árvore sintática de todo `.py` **rastreado** atrás de `subprocess.run/check_output/Popen` com `input=`, e o resultado **bate exatamente** com o dele: 5 chamadas reais — `check_dep_zero.py:1017` (binário), `check_format.py:235` (binário), `check_no_undef_glintfx.py:184` (`text=True` + `str`), `check_public_name_collision.py:586` (`text=True` + `''`, nada a corromper) e a consertada. Confirma também que `check_lib_source_parity.py:354` **não é** chamada de subprocesso — falso positivo do `grep`, como ele já dizia.
+- **Fui um passo além do relatório dele, e fechei o risco que ele deixou nomeado.** Ele apontou `check_no_undef_glintfx.py:184` como risco secundário não consertado. **Medi se ele pode disparar: não pode.** O portão está registrado dentro de `if(UNIX)` (`tests/CMakeLists.txt`, ~2724-2744), então nunca roda no Windows, que é o único sistema onde a tradução acontece. **Risco fechado por construção, sem precisar de item novo** — e isto é o oposto de "declarar coberto sem olhar": foi medido.
+- **Procurei referência pendurada depois do renome do fixture** (o gêmeo esquecido é a falha clássica de renomear): `bare_path` tem **zero** ocorrências no blob commitado, e o cenário 20 continua registrado e contado no piso (`ran = len(scenario_results)`).
+- **Integridade:** árvore limpa, 4 commits à frente do remoto, commit com caminhos explícitos tocando 3 arquivos.
+
+**DECISÃO AUTÔNOMA (minha, como orquestrador, para confirmação retroativa): EMPURRAR mesmo com o defeito 2 sem prova local.** A razão, e o trade-off está declarado: **o servidor é o único Windows que temos**, e a única alternativa seria ligar a VM — que hoje é recurso compartilhado com outra sessão e ainda assim não bastaria sem instalar CMake nela, o que exige palavra do líder. Segurar o commit não produz conhecimento nenhum e deixa o tronco vermelho; empurrar produz o veredito. **Se o defeito 2 voltar vermelho, a informação nova vem do próprio servidor e o custo é uma execução.**

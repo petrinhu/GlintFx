@@ -396,6 +396,7 @@ _PHASE_KEYS = (
     "tempo listar (s)",
     "tempo ler e varrer (s)",
     "tempo classificar (s)",
+    "guarda textual (sonda nao compilou)",
 )
 
 _PHASE_NOT_MEASURED = "nao medido"
@@ -739,11 +740,28 @@ def name_is_undef_in_same_file(file_path, name):
 # does NOT hand-parse nested #ifdef/#elif/#endif - it asks the SAME
 # compiler this whole gate already trusts for the search path to
 # preprocess that ONE file standalone (`-E -dM`, dumping every macro
-# alive at end-of-file) and checks whether NAME is in that dump. If the
-# compiler cannot even preprocess the file standalone, the function
-# answers "active" (GODS_LAWS.md L-40: "recusar alto e melhor que
-# aprovar em silencio" - an unprovable case must never quietly turn
-# into a neutralization).
+# alive at end-of-file) and checks whether NAME is in that dump.
+#
+# CLANG-PUBLIC-NAME-COLLISION (TODO.md): when the compiler CANNOT even
+# preprocess the file standalone, this function used to answer
+# "active" outright - a real header can fail to preprocess standalone
+# for reasons that have NOTHING to do with whether the guard around
+# NAME is active (e.g. Clang 22's own bundled gpuintrin.h: valid up to
+# and past the `#define bool _Bool` line, then a later, unconditional
+# `#error "This header is only meant to be used on GPU
+# architectures."` aborts preprocessing - measured live). Answering
+# "active" there produced a FALSE collision the day this gate first
+# ran its whole suite under Clang. But the opposite blanket answer
+# ("compile failed, so neutralize") is worse: it would silently
+# exempt every header this probe cannot compile-test, real collisions
+# included - trading a false red for a blind green.
+#
+# "Nao pude olhar" is therefore its OWN, third state here - returned
+# as None, never coerced into True or False by this function. The
+# caller (classify_matches() below) falls back to
+# guard_is_textually_inactive_for_cpp(), which answers from the
+# guard's own source text instead of from a preprocessing run this
+# probe already proved impossible for this file.
 def macro_active_under_default_preprocessing_gcc(file_path, name, cxx, usage=None):
     try:
         proc = subprocess.run(
@@ -753,12 +771,59 @@ def macro_active_under_default_preprocessing_gcc(file_path, name, cxx, usage=Non
             check=False,
         )
     except OSError:
-        return True
+        return None
     record_usage(usage, proc.stdout + proc.stderr)
     if proc.returncode != 0 or not proc.stdout:
-        return True
+        return None
     pattern = re.compile(rf"^#define\s+{re.escape(name)}\b")
     return any(pattern.match(line) for line in proc.stdout.splitlines())
+
+
+# THIRD-STATE FALLBACK (TODO.md CLANG-PUBLIC-NAME-COLLISION): used only
+# when macro_active_under_default_preprocessing_gcc() answers None -
+# the probe could not compile-test the file at all. Tracks
+# #if/#ifdef/#ifndef/#elif/#else/#endif nesting with a simple depth
+# stack (NOT full macro evaluation - only enough to name the directive
+# that textually governs `lineno`) and recognizes exactly the guard
+# shapes already known to gate the well-understood stdbool.h idiom:
+# "#if !defined(__cplusplus)" and "#ifndef __cplusplus". Anything else
+# - no enclosing directive, or one this function does not recognize -
+# answers False (REAL), fail-closed: a fallback that neutralizes
+# everything it cannot compile-test would hide a genuine collision
+# behind an unrelated compile failure, exactly the defect this
+# function exists to avoid reintroducing.
+_CPP_INACTIVE_GUARD_PATTERNS = (
+    re.compile(r"^#\s*if\s*!\s*defined\s*\(\s*__cplusplus\s*\)\s*$"),
+    re.compile(r"^#\s*ifndef\s+__cplusplus\s*$"),
+)
+
+
+def _enclosing_conditional_directive_text(file_path, lineno):
+    stack = []
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as handle:
+            for current_lineno, line in enumerate(handle, start=1):
+                if current_lineno >= lineno:
+                    break
+                stripped = line.strip()
+                if re.match(r"^#\s*(if|ifdef|ifndef)\b", stripped):
+                    stack.append(stripped)
+                elif re.match(r"^#\s*(elif|else)\b", stripped):
+                    if stack:
+                        stack[-1] = stripped
+                elif re.match(r"^#\s*endif\b", stripped):
+                    if stack:
+                        stack.pop()
+    except OSError:
+        return None
+    return stack[-1] if stack else None
+
+
+def guard_is_textually_inactive_for_cpp(file_path, lineno):
+    directive = _enclosing_conditional_directive_text(file_path, lineno)
+    if directive is None:
+        return False
+    return any(pattern.match(directive) for pattern in _CPP_INACTIVE_GUARD_PATTERNS)
 
 
 # THIRD neutralizing reason (policy decision 2, third shape): the
@@ -1023,7 +1088,23 @@ def classify_matches(matches, cxx, frontend, usage=None):
             })
             continue
 
-        if not macro_active_under_default_preprocessing_gcc(file_path, name, cxx, usage):
+        probe_result = macro_active_under_default_preprocessing_gcc(file_path, name, cxx, usage)
+        if probe_result is None:
+            # THIRD state (TODO.md CLANG-PUBLIC-NAME-COLLISION): the
+            # probe could not compile-test this file at all - never
+            # silently decided either way here, see
+            # macro_active_under_default_preprocessing_gcc()'s own
+            # header for why.
+            if guard_is_textually_inactive_for_cpp(file_path, lineno):
+                classified.append({
+                    "status": "NEUTRALIZED", "file": file_path, "line": lineno,
+                    "name": name, "reason": "guarda-textual-sonda-nao-compilou",
+                })
+            else:
+                classified.append({"status": "REAL", "file": file_path, "line": lineno, "name": name})
+            continue
+
+        if not probe_result:
             classified.append({
                 "status": "NEUTRALIZED", "file": file_path, "line": lineno,
                 "name": name, "reason": "guarda-inativa-por-padrao",
@@ -1175,13 +1256,22 @@ def check_public_name_collision(include_dir, cxx, cxx_id, system_dirs=None, syst
 
         real = real_collisions(classified)
         neutralized = neutralized_collisions(classified)
+        # TODO.md CLANG-PUBLIC-NAME-COLLISION, GODS_LAWS.md L-40 item 3:
+        # this ONE reason is counted and printed on its own, SEMPRE -
+        # mesmo zero - porque e' o caminho novo que decide sem poder
+        # compilar a sonda; um numero sempre presente distingue "nenhum
+        # cabecalho caiu neste caminho" de "o caminho nunca rodou".
+        report["guarda textual (sonda nao compilou)"] = sum(
+            1 for c in classified if c.get("reason") == "guarda-textual-sonda-nao-compilou"
+        )
 
         if neutralized:
             print(
                 f"{SCRIPT_NAME}: {len(neutralized)} colisao(oes) NEUTRALIZADA(S) (define+undef no mesmo "
                 "arquivo, ou define ativo so sob guarda de simbolo que a inclusao normal nao define, ou o "
-                "proprio arquivo nao e C/C++ valido segundo o compilador - motivo por linha abaixo, "
-                "GODS_LAWS.md L-40 nao esconde a contagem nem o motivo):"
+                "proprio arquivo nao e C/C++ valido segundo o compilador, ou guarda textual reconhecida "
+                "quando a sonda de vivacidade nao compila - motivo por linha abaixo, GODS_LAWS.md L-40 nao "
+                "esconde a contagem nem o motivo):"
             )
             for c in neutralized:
                 print(f"  {c['file']}:{c['line']}:{c['name']}:{c['reason']}")
@@ -1420,6 +1510,115 @@ def selftest_guard_active_control(scratch, cxx, frontend):
         )
         return False
     print("selftest: controle de GUARDA ATIVA OK (macro cujo simbolo-guarda esta definido continua REAL)")
+    return True
+
+
+# TODO.md CLANG-PUBLIC-NAME-COLLISION, terceiro conserto (achado real:
+# gpuintrin.h do proprio pacote clang define `bool` sob
+# "#if !defined(__cplusplus)", igual ao stdbool.h, mas o proprio
+# arquivo nunca preprocessa standalone - morre num #error
+# INCONDICIONAL mais abaixo, "This header is only meant to be used on
+# GPU architectures"). Este fixture reproduz a MESMA forma: guarda
+# textual reconhecida, seguida de um #error incondicional que faz a
+# sonda de vivacidade falhar ao compilar. Esperado: NEUTRALIZADO sob
+# "guarda-textual-sonda-nao-compilou", nunca REAL - prova que o
+# fallback textual resolve o achado real. GCC/Clang apenas
+# (macro_active_under_default_preprocessing_gcc() e seu fallback nao
+# fazem parte do caminho MSVC, que classifica por lote via C1021); sob
+# "msvc" este controle e' um NAO-APLICAVEL declarado, nunca um pulo
+# silencioso.
+def selftest_guard_textual_fallback_neutralizes_guarded_control(scratch, cxx, frontend):
+    if frontend != "gcc":
+        print(
+            "selftest: controle de GUARDA TEXTUAL (guardada, sonda nao compila) - NAO APLICAVEL neste "
+            f"frontend ({frontend}); mecanismo e' exclusivo do caminho GCC/Clang"
+        )
+        return True
+
+    include_dir = make_fixture_include_dir(scratch, "guard_textual_fallback_guarded")
+    _write(os.path.join(include_dir, "widget.hpp"),
+           "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
+    sys_dir = make_fixture_system_dir(scratch, "guard_textual_fallback_guarded")
+    hostile = os.path.join(sys_dir, "hostile.h")
+    _write(
+        hostile,
+        "#if !defined(__cplusplus)\n"
+        "#define planted_collision_name 1\n"
+        "#endif\n"
+        '#error "planted: this header never preprocesses standalone"\n',
+    )
+
+    names = enumerate_our_names(include_dir)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    classified = _classify(matches, cxx, frontend, scratch, "guard_textual_fallback_guarded")
+    real = real_collisions(classified)
+    neutralized = neutralized_collisions(classified)
+
+    if real:
+        print(
+            "selftest: controle de GUARDA TEXTUAL (guardada) FALHOU (cabecalho que nao compila standalone, "
+            "com guarda textual reconhecida, deveria ser NEUTRALIZADO, apareceu como REAL)",
+            file=sys.stderr,
+        )
+        return False
+    if not any(
+        c["name"] == "planted_collision_name" and c["reason"] == "guarda-textual-sonda-nao-compilou"
+        for c in neutralized
+    ):
+        print(
+            "selftest: controle de GUARDA TEXTUAL (guardada) FALHOU (nao apareceu NEUTRALIZADO com o "
+            "motivo certo)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle de GUARDA TEXTUAL (guardada) OK (cabecalho que nao compila standalone, com "
+        "guarda #if !defined(__cplusplus), nao reprova)"
+    )
+    return True
+
+
+# A METADE que impede o conserto de virar decoracao (ordem explicita do
+# lider: "e' esse controle que impede o conserto de virar decoracao").
+# MESMA forma - cabecalho que nao compila standalone - mas SEM guarda
+# nenhuma ao redor da definicao. Esperado: continua REAL. Um fallback
+# que neutraliza tudo que nao compila esconderia colisao de verdade
+# atras de falha de compilacao sem relacao nenhuma com ela.
+def selftest_guard_textual_fallback_reproves_unguarded_control(scratch, cxx, frontend):
+    if frontend != "gcc":
+        print(
+            "selftest: controle de GUARDA TEXTUAL (sem guarda, sonda nao compila) - NAO APLICAVEL neste "
+            f"frontend ({frontend}); mecanismo e' exclusivo do caminho GCC/Clang"
+        )
+        return True
+
+    include_dir = make_fixture_include_dir(scratch, "guard_textual_fallback_unguarded")
+    _write(os.path.join(include_dir, "widget.hpp"),
+           "class widget {\n  public:\n    [[nodiscard]] int planted_collision_name() const noexcept;\n};\n")
+    sys_dir = make_fixture_system_dir(scratch, "guard_textual_fallback_unguarded")
+    hostile = os.path.join(sys_dir, "hostile.h")
+    _write(
+        hostile,
+        "#define planted_collision_name 1\n"
+        '#error "planted: this header never preprocesses standalone"\n',
+    )
+
+    names = enumerate_our_names(include_dir)
+    matches, _stats = scan_defines_in_files(list_files_under_dirs([sys_dir]), names)
+    classified = _classify(matches, cxx, frontend, scratch, "guard_textual_fallback_unguarded")
+    real = real_collisions(classified)
+    if not any(c["name"] == "planted_collision_name" for c in real):
+        print(
+            "selftest: controle de GUARDA TEXTUAL (sem guarda) FALHOU (cabecalho que nao compila "
+            "standalone e SEM guarda nenhuma deveria reprovar como REAL, nao reprovou - o fallback virou "
+            "uma porta destrancada)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle de GUARDA TEXTUAL (sem guarda) OK (cabecalho que nao compila standalone, sem "
+        "guarda nenhuma, continua REAL)"
+    )
     return True
 
 
@@ -1801,6 +2000,8 @@ def _run_all_controls(scratch, cxx, cxx_id, frontend):
         selftest_undef_neutralizes_control(scratch, cxx, frontend),
         selftest_guard_inactive_control(scratch, cxx, frontend),
         selftest_guard_active_control(scratch, cxx, frontend),
+        selftest_guard_textual_fallback_neutralizes_guarded_control(scratch, cxx, frontend),
+        selftest_guard_textual_fallback_reproves_unguarded_control(scratch, cxx, frontend),
         selftest_not_a_header_control(scratch, cxx, frontend),
         selftest_assignment_not_declaration_control(scratch),
         selftest_empty_our_names_control(scratch, cxx, cxx_id),

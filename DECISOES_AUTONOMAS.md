@@ -3754,3 +3754,23 @@ Um `seteuid()` bem-sucedido zera o atributo `dumpable` do processo (efeito colat
   **DECISÃO AUTÔNOMA:** aceito como está e **registro a limitação em vez de abrir outra rodada**. São formas degeneradas de nome duplo de extensão que nenhuma distribuição produz, o custo de outra ida e volta é maior que o risco, e o que a L-40 proíbe de verdade é a alegação sem medida — por isso a alegação fica corrigida **aqui**: a enumeração cobre **8 dos 12** candidatos, e os 4 omitidos estão nomeados. Se um quarto vermelho vier deste cenário, **esta é a primeira coisa a conferir.**
 - **Observação que muda o valor do verde local:** no Linux a poda quase certamente **não remove nada** — o `pkg-config` real mora no mesmo diretório do `cmake`, e o código preserva o diretório do `cmake` explicitamente. Ou seja, o verde local prova que **nada quebrou**, mas **não exercita o efeito real da poda**. Isso só acontece no Windows, onde os dois moram em lugares diferentes. **Declarado, não vendido como prova.**
 - **Integridade:** árvore limpa, commit com caminhos explícitos em 2 arquivos, `Status` mantido em `🔍`.
+
+---
+
+## 21/09/2026 - 23:42 | ONDA FECHADA: servidor verde, e o que a noite ensinou
+
+**Medido, não lido da notificação:** execução `35679188879`, conclusão `success`, **25 jobs, 24 verdes, 0 falhas, 1 pulado** (o job de marca, que só acorda em envio de etiqueta — pulo correto). O SHA que o servidor testou (`1744c2c...`) **bate** com o `HEAD` local.
+
+**Três itens promovidos de `🔍` para `✅`**, e só agora, depois do verde real: `VERSION-TAG-SYNC`, `ASSET-PARITY-ROOT`, `PKG-WIN-VALIDATE-FATAL`.
+
+**O que estava vermelho quando a noite começou, e por quanto tempo:** o Windows estava quebrado **desde 19/09/2026** e ninguém sabia, porque as três execuções seguintes àquele dia foram **canceladas** antes de terminar. A primeira execução completa depois disso foi a de hoje.
+
+**A lição de método, e ela é a mais cara da noite.** O cenário 20 levou **três** tentativas:
+
+1. Fixture sem extensão, diretório primeiro no PATH — falhou.
+2. Fixture renomeado para `.exe`, pelo raciocínio de que a passada de sufixo `.exe` viria antes — falhou com saída **byte a byte idêntica**, o que por si só já dizia que o fixture nunca era alcançado.
+3. Premissa **provada executando** (dois diretórios de mentira, `find_program` de verdade, o nome anterior na lista vencendo num diretório posterior) → poda do PATH → **verde na primeira tentativa**.
+
+**As duas primeiras raciocinaram sobre como a busca deveria funcionar. A terceira mediu.** Dez minutos de experimento valeram mais que duas rodadas inteiras do servidor. **Quando duas tentativas falham pelo mesmo motivo aparente, a terceira não pode ser outro palpite — tem de ser uma medição** (é a L-42 do projeto, "buscar antes da terceira tentativa", e ela se cumpre medindo, não só lendo documentação).
+
+**Saldo da noite:** 5 fatias fechadas e verificadas (`VERSION-TAG-SYNC` em duas metades, `ASSET-PARITY-ROOT`, a regressão do LeakSanitizer, `PKG-WIN-VALIDATE-FATAL`), 2 planejamentos entregues (`ASSET-PARITY-ROOT` e `VENDOR-SWEEP-GATE`), **2 fatos escritos na `TODO.md` refutados por medição** (a pasta vendorizada que "passava por todos os portões" e a referência de linha velha), **1 regressão nossa pega pelo portão do sanitizador** e uma falha minha nomeada (aceitar fatia de estado de processo sem rodar o sanitizador), e um item novo descoberto (`VENDOR-LIST-SIBLING`).

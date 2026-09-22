@@ -3900,3 +3900,19 @@ O primeiro era o que mais me preocupava: portão que confere só **presença** d
 - Aceitei `ASSET-PARITY-ROOT` **sem rodar o build de ASan/UBSan** que a L-23 exige a cada fatia fechada; o servidor pegou a regressão que eu não peguei. **Regra que fica:** fatia que mexe em **estado de processo** exige o sanitizador antes do aceite.
 - Afirmei num briefing, **como medido**, que havia mais de um arquivo em `.github/workflows/`. Havia um. **Regra que fica:** quando eu escrever "medi", o comando tem de estar na mesma frase; se não estiver, é inferência e se declara como tal.
 - Listei quatro hipóteses de ligação para o defeito 2 do Clang. **As quatro erradas** — a referência sumia antes do ligador.
+
+---
+
+## 22/09/2026 - 09:20 | Duas decisões do líder, e a virada de rumo da onda
+
+**Levei duas ao líder por `AskUserQuestion`, porque o planejador as levantou e nenhuma era dele para resolver.**
+
+**DECISÃO DO LÍDER 1 — tecla e texto viram DOIS eventos.** Porta de mão única, e por isso não foi decidida no modo autônomo. Um aviso diz *"a tecla tal foi pressionada"* (jogo, atalho, movimento); outro diz *"isto virou o texto tal"* (digitar nome, conversar). **A consequência que fez a diferença:** a parte da **tecla** passa a funcionar sem esperar o parser XKB próprio, que está estacionado atrás de outra trilha — `INPUT-EVENTS` deixa de depender de `KEYMAP-MODSTATE`/`KEYMAP-UTF8`. Reverter hoje é barato (`gltfx_input_event` ainda não tem definição); depois de publicado, não.
+
+**DECISÃO DO LÍDER 2 — fechar as ondas antigas ANTES da onda de entrada.** O planejador nomeou o conflito e se recusou a resolvê-lo sozinho: *"a escolha dele hoje aponta para a entrada; a L-24 e a contabilidade da tabela apontam para trás. Leve a ele."* **Levei, e ele escolheu fechar o passivo.** Medi antes de perguntar: **sete ondas com trabalho em aberto antes da W9, 32 itens** — `WM1` (2), `W6` (3), `W6b` (3), `W7-B` (6), `W7-C` (7), `W7-D` (4), `W8` (7). O plano da entrada fica **guardado e válido** em `/var/tmp/glintfx-plan/entrada-teclado-ponteiro.md`; nada dele se perde.
+
+**DECISÃO AUTÔNOMA minha — a ordem DENTRO do passivo é execução, não decisão nova:** menor primeiro, `W6b` → `WM1` → `W6`, depois as maiores. Cada onda tem um item `CI-VERDE-<onda>` cujo pré-requisito é literalmente *"todas as fatias da onda"* — ou seja, **a própria tabela já define o que é fechar uma onda**, e não preciso inventar critério.
+
+**MARCA PODRE CORRIGIDA (L-44), achada pelo planejador e conferida por mim:** `KEYMAP-LEX` estava `⛔ Bloqueado` apontando `FUND-4` como impedimento, e **`FUND-4` está `✅ Concluído` há tempos**. O `⛔` era desinformação: quem lesse a tabela concluiria que existe um bloqueio técnico onde não existe. Status corrigido para `⏳ Pendente`, com a razão real escrita na descrição — **o que trava é a fila (a L-32 dá o slot único ao GFSS até a W10), não o pré-requisito.** O planejador acertou duas vezes aqui: achou a marca podre **e** se recusou a reverter a decisão de fila do líder por conta própria.
+
+**Achado do planejador que vale para a onda de entrada quando ela vier:** `tests/container/` **não tem uma linha** de injeção de entrada. O candidato que ele mediu é o protocolo de entrada falsa do KWin, presente no compositor instalado (`org_kde_kwin_fake_input`), cujo propósito declarado é teste e cujo evento nasce **no compositor dentro do container**, nunca no núcleo — que é o que a L-09 exige. Custa uma linha de pacote no `Containerfile`, e ele declarou isso em vez de fazer sozinho.

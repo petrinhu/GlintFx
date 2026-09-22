@@ -883,6 +883,18 @@ void *wayland_egl_context_adapter::proc_address(std::string_view name) const noe
     return reinterpret_cast<void *>(function);
 }
 
+std::pair<std::uint32_t, std::uint32_t>
+wayland_egl_context_adapter::egl_surface_pixel_size() const noexcept {
+    if (m_egl_surface == nullptr) {
+        return {0, 0};
+    }
+    EGLint width = 0;
+    EGLint height = 0;
+    eglQuerySurface(m_egl_display, m_egl_surface, EGL_WIDTH, &width);
+    eglQuerySurface(m_egl_display, m_egl_surface, EGL_HEIGHT, &height);
+    return {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
+}
+
 gltfx_rslt<void> wayland_egl_context_adapter::apply_option(gltfx_gfx_option_entry entry) noexcept {
     if (entry.id == gltfx_gfx_option::vsync) {
         if (entry.value == 2) { // adaptive - D-W6b-18, no Wayland/EGL equivalent

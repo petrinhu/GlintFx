@@ -169,6 +169,20 @@ class wayland_window_adapter {
     // other adapter accessor in this file already has.
     [[nodiscard]] xdg_toplevel *toplevel() const noexcept { return m_xdg_toplevel; }
 
+    // TEST-ONLY (same "internal, never installed" shape as xdg_surface_
+    // proxy()/toplevel() above): acks whatever configure is currently
+    // pending (window_configure_sequence::take_serial_to_ack()), for a
+    // fixture that triggers a SECOND configure after open() - a
+    // fullscreen/maximize toggle, this project's own real resize path
+    // (SURFACE-SIZE-POLICY-ADAPTER-GAP, TODO.md W6b). wait_first_
+    // configure() above already does this exact half, but only for the
+    // FIRST configure: its own roundtrip loop runs only while
+    // `m_configured` is still false, which becomes true forever after
+    // the first configure ever arrives. A caller drives the dispatch
+    // half itself (connection.roundtrip(), already public) until
+    // state().pixel_size() reflects the new configure, then calls this.
+    void ack_pending_configure() noexcept;
+
     // The three listeners' own callbacks (C function-pointer ABI).
     // PUBLIC ONLY so window_adapter.cpp's own anonymous-namespace
     // listener constants can take their address from outside the class -

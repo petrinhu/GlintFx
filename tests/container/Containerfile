@@ -222,6 +222,7 @@ COPY window_active_after_map_smoke.cpp /build/window_active_after_map_smoke.cpp
 COPY gpu_kind_report_smoke.cpp /build/gpu_kind_report_smoke.cpp
 COPY alloc_cycle_growth_smoke.cpp /build/alloc_cycle_growth_smoke.cpp
 COPY loop_hidden_test.cpp /build/loop_hidden_test.cpp
+COPY surface_size_policy_adapter_test.cpp /build/surface_size_policy_adapter_test.cpp
 # TEST-WLCONT fix (LINT-CONTAINER-SMOKES gemeo, commit f8da8c3, 19/09/2026):
 # checked_stdio.hpp travels here, flat into /build, for the SAME quote-
 # form-searches-the-includer's-own-directory reason the comment right
@@ -728,6 +729,46 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
     && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
         $(pkg-config --cflags wayland-client wayland-egl egl) \
+        -o /build/surface_size_policy_adapter_test \
+        /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
+        /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
+        /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_configure_sequence.cpp \
+        /build/_arch_ports_src/src/platform/window/window_state.cpp \
+        /build/_arch_ports_src/src/platform/window/window_desc_validation.cpp \
+        /build/_arch_ports_src/src/platform/window/utf8_validation.cpp \
+        /build/_arch_ports_src/src/platform/wayland/window_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_context_adapter.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_query.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_device_facts.cpp \
+        /build/_arch_ports_src/src/platform/wayland/drm_gpu_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_dedup.cpp \
+        /build/_arch_ports_src/src/platform/wayland/egl_device_enumeration.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_exclusion.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_seam.cpp \
+        /build/_arch_ports_src/src/platform/gl/gpu_kind_report.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_memory_facts.cpp \
+        /build/_arch_ports_src/src/platform/gl/memory_separation_kind.cpp \
+        /build/_arch_ports_src/src/platform/wayland/frame_callback_sequence.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_version_policy.cpp \
+        /build/_arch_ports_src/src/platform/gl/gl_surface_size_policy.cpp \
+        /build/_arch_ports_src/src/core/err.cpp \
+        /build/_arch_ports_src/src/core/err_code.cpp \
+        /build/_arch_ports_src/src/core/log/severity.cpp \
+        /build/_arch_ports_src/src/core/log/event.cpp \
+        /build/_arch_ports_src/src/core/log/sink.cpp \
+        /build/xdg-shell-protocol.o \
+        /build/surface_size_policy_adapter_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
+        $(pkg-config --libs wayland-client wayland-egl egl) \
+    && g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src -I /build \
+        $(pkg-config --cflags wayland-client wayland-egl egl) \
         -o /build/facade_pin_smoke \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
@@ -955,6 +996,7 @@ COPY --from=arch-ports-builder /build/gpu_kind_report_smoke /usr/local/bin/gpu_k
 COPY --from=arch-ports-builder /build/alloc_cycle_growth_smoke /usr/local/bin/alloc_cycle_growth_smoke
 COPY --from=arch-ports-builder /build/loop_parity_test /usr/local/bin/loop_parity_test
 COPY --from=arch-ports-builder /build/loop_hidden_test /usr/local/bin/loop_hidden_test
+COPY --from=arch-ports-builder /build/surface_size_policy_adapter_test /usr/local/bin/surface_size_policy_adapter_test
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \
@@ -966,7 +1008,8 @@ RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/egl_device_reader_probe \
         /usr/local/bin/facade_pin_smoke /usr/local/bin/window_active_after_map_smoke \
         /usr/local/bin/gpu_kind_report_smoke /usr/local/bin/alloc_cycle_growth_smoke \
-        /usr/local/bin/loop_parity_test /usr/local/bin/loop_hidden_test
+        /usr/local/bin/loop_parity_test /usr/local/bin/loop_hidden_test \
+        /usr/local/bin/surface_size_policy_adapter_test
 
 # ENTRYPOINT + default CMD: `docker run <image>` alone starts the
 # compositor on the "glintfx-test" socket; overriding CMD swaps the

@@ -297,6 +297,13 @@ wayland_window_adapter::wait_first_configure(wayland_display_adapter &connection
     return gltfx_rslt<void>::ok();
 }
 
+void wayland_window_adapter::ack_pending_configure() noexcept {
+    if (std::optional<std::uint32_t> serial = m_configure_sequence.take_serial_to_ack();
+        serial.has_value()) {
+        xdg_surface_ack_configure(m_xdg_surface, *serial);
+    }
+}
+
 gltfx_rslt<void> wayland_window_adapter::open(wayland_display_adapter &connection,
                                               wayland_shell_adapter &shell,
                                               const wayland_window_desc &desc) noexcept {

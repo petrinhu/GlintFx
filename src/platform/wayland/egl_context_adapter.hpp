@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <utility>
 
 #include <glintfx/core/err.hpp>
 #include <glintfx/platform/gl/context.hpp>
@@ -215,6 +216,21 @@ class wayland_egl_context_adapter {
     // eglSwapBuffers() sites as `sem-teto-declarado` for exactly this
     // reason), not a crash and not silently assumed away.
     [[nodiscard]] bool swap_interval_honored() const noexcept { return m_swap_interval_honored; }
+
+    // TEST-ONLY, "internal, never installed" visibility - same shape as
+    // pending_frame_callback()/swap_interval_honored() above (added
+    // ONLY so a fixture can read this back; nothing inside this class
+    // needs it exposed for its own sake). SURFACE-SIZE-POLICY-ADAPTER-
+    // GAP (TODO.md, W6b): reads the REAL EGL surface geometry via
+    // eglQuerySurface(EGL_WIDTH/EGL_HEIGHT) - the ONLY way a fixture
+    // outside this adapter can confirm resize_surface_if_due() (private,
+    // called from swap_buffers() above) actually reached the driver
+    // through a real wl_egl_window_resize() call, rather than trusting
+    // this adapter's OWN bookkeeping (m_buffer_width/m_buffer_height),
+    // which resize_surface_if_due() itself writes and so cannot prove
+    // anything about whether the real call it makes still runs. {0, 0}
+    // before a context is open (no surface to query yet).
+    [[nodiscard]] std::pair<std::uint32_t, std::uint32_t> egl_surface_pixel_size() const noexcept;
 
     // The wl_callback listener's own `done` callback (wayland-client's
     // C ABI - PUBLIC only so egl_context_adapter.cpp's own anonymous-

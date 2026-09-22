@@ -1804,6 +1804,22 @@ jobs:
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} gpu_kind_report_smoke
           echo "gpu_kind_report_smoke" >> parity_inventory.txt
 
+      # SURFACE-SIZE-POLICY-ADAPTER-GAP (TODO.md, W6b, GODS_LAWS.md
+      # L-04/L-09/L-17/L-20): a mutacao obrigatoria desta fatia -
+      # esvaziar resize_surface_if_due() (egl_context_adapter.cpp) faz
+      # este fixture reprovar na comparacao final (EGL surface fica no
+      # tamanho antigo apos o resize real por fullscreen) - medido fora
+      # deste job, numa copia do commit desta fatia com essa funcao
+      # esvaziada (GODS_LAWS.md L-27), nao repetido aqui porque nunca
+      # toca um arquivo rastreado. Este passo prova a chamada REAL,
+      # contra o compositor REAL deste container - ver surface_size_
+      # policy_adapter_test.cpp's own header comment.
+      - name: SURFACE-SIZE-POLICY-ADAPTER-GAP - resize real (fullscreen) chega ao wl_egl_window_resize()
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} surface_size_policy_adapter_test
+          echo "surface_size_policy_adapter_test" >> parity_inventory.txt
+
       # CONTAINER-LEAK-COUNTER sub-fatia S4 (/var/tmp/glintfx-plan/leak-
       # counter.md sec. 5 S4): a 18a fixture, e a unica que abre e
       # fecha display/shell/janela/contexto GL TRES VEZES no mesmo

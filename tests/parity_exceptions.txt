@@ -94,6 +94,18 @@ egl_probe_smoke|windows|nenhum|SEM-PENDENCIA
 # universo de nomes (interfaces Wayland) que este portao compara.
 egl_protocol_error_smoke|windows|nenhum|SEM-PENDENCIA
 
+# surface_size_policy_adapter_test (tests/container/surface_size_
+# policy_adapter_test.cpp, TODO.md SURFACE-SIZE-POLICY-ADAPTER-GAP,
+# docs/plano-w6b-placa-e-laco.md D-W6b-5) prova que resize_surface_
+# if_due() (egl_context_adapter.cpp) reage a um resize REAL (fullscreen)
+# chamando wl_egl_window_resize() de verdade - a linha D-W6b-5 da
+# propria decisao registrada ja diz por que nao ha par: "No Win32 nao
+# ha o que fazer: o DC segue o HWND". wgl_context_adapter.cpp nao tem
+# NENHUMA chamada de resize (medido: `grep -n resize src/platform/
+# win32/wgl_context_adapter.cpp` devolve vazio) - o mecanismo Windows
+# resolve isso sozinho, sem nenhum ponto de codigo equivalente a testar.
+surface_size_policy_adapter_test|windows|nenhum|SEM-PENDENCIA
+
 # wl_proto_link_test (tests/CMakeLists.txt:427) prova que o binding
 # do protocolo Wayland xdg-shell, gerado via wayland-scanner contra o
 # XML do SISTEMA, linka e resolve o simbolo esperado - GODS_LAWS.md

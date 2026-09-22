@@ -528,6 +528,48 @@ target_compile_definitions(gfss_declaration_registry_doc_oracle_test PRIVATE
     "GLTFX_GFSS_REGISTRY_DOC_SOURCE=\"${PROJECT_SOURCE_DIR}/docs/gfss-property-registry-v1.md\""
 )
 
+# GFSS-COLOR-ORACLE (TODO.md, GODS_LAWS.md L-17/L-20/L-27/L-29/L-36/
+# L-40): the INDEPENDENT witness that named_colors.cpp's own 149-row
+# k_table matches the real CSS Color 4 specification - see gfss_named_
+# colors_doc_oracle_test.cpp's own header comment for the achado this
+# closes (gfss_color_parse_test.cpp's own enumeration loop compares
+# parse_color() against the SAME table it is backed by, proving only
+# self-agreement). Needs src/gfss/color_parse.hpp/named_colors.hpp,
+# both PRIVATE headers (GODS_LAWS.md L-19) - the SAME
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir gfss_color_parse_test
+# above already adds, and the SAME "compile the .cpp a second time"
+# technique for the same reason (no GLINTFX_API, not in the .so's
+# dynamic symbol table - see gfss_color_parse_test's own comment above
+# for the full reasoning).
+glintfx_add_test(gfss_named_colors_doc_oracle_test)
+target_include_directories(gfss_named_colors_doc_oracle_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src")
+target_sources(gfss_named_colors_doc_oracle_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+)
+
+# GLTFX_GFSS_NAMED_COLORS_FIXTURE_SOURCE_OVERRIDE - a CACHE variable,
+# empty by default (the real, committed fixture below is used).
+# GODS_LAWS.md L-27's own "sabotar COPIA extraida fora da arvore"
+# mutation-testing discipline needs a way to point ONLY this test
+# target at a mutated copy of the fixture living outside this tree,
+# without ever editing the tracked fixture or this file to do it:
+#   cmake -S . -B <SEPARATE build dir, never the normal one> \
+#       -DGLTFX_GFSS_NAMED_COLORS_FIXTURE_SOURCE_OVERRIDE=/path/to/mutated-copy.txt
+set(GLTFX_GFSS_NAMED_COLORS_FIXTURE_SOURCE_OVERRIDE "" CACHE FILEPATH
+    "Override path for gfss_named_colors_doc_oracle_test's fixture - mutation testing only (GODS_LAWS.md L-27), never set for a normal build")
+if(GLTFX_GFSS_NAMED_COLORS_FIXTURE_SOURCE_OVERRIDE)
+    set(_gfss_named_colors_fixture_source "${GLTFX_GFSS_NAMED_COLORS_FIXTURE_SOURCE_OVERRIDE}")
+else()
+    set(_gfss_named_colors_fixture_source "${PROJECT_SOURCE_DIR}/tests/fixtures/css_color_4_named_colors.txt")
+endif()
+target_compile_definitions(gfss_named_colors_doc_oracle_test PRIVATE
+    "GLTFX_GFSS_NAMED_COLORS_FIXTURE_SOURCE=\"${_gfss_named_colors_fixture_source}\""
+)
+unset(_gfss_named_colors_fixture_source)
+
 # GFSS-NODE-VIEW, fatia A (TODO.md, GODS_LAWS.md L-17/L-19/L-20/L-26/
 # L-28/L-40, ESCOPO.md SS2 decision 6): the five gltfx_node_state
 # pseudo-class bits, their frozen numeric values and
@@ -4593,6 +4635,24 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/collect_measured.py" --selftest
 )
 set_tests_properties(collect_measured_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# extract_css_named_colors.py: generates tests/fixtures/css_color_4_
+# named_colors.txt from a LOCAL, never-committed copy of the CSS Color
+# 4 spec source (GFSS-COLOR-ORACLE, TODO.md, GODS_LAWS.md L-07/L-08/
+# L-29) - the SAME shape as collect_measured.py immediately above:
+# never called with --selftest anywhere else, its REAL invocation needs
+# external input this repository deliberately never commits (the spec
+# TEXT itself), so only --selftest is registered here as a ctest case -
+# see that script's own header comment for the full pipeline this
+# exercises against small, in-memory spec-text fixtures.
+add_test(
+    NAME extract_css_named_colors_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/extract_css_named_colors.py" --selftest
+)
+set_tests_properties(extract_css_named_colors_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 

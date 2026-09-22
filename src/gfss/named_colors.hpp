@@ -30,7 +30,13 @@
 // PLUS "transparent", which MDN's own <named-color> reference
 // (https://developer.mozilla.org/en-US/docs/Web/CSS/named-color) lists
 // as part of the SAME value type, mapped here to rgba(0,0,0,0), CSS
-// Color 4 SS4.2.4's own definition of that keyword. 148 + 1 = 149,
+// Color 4 SS6.3's own definition of that keyword ("The 'transparent'
+// keyword ... specifies a transparent black" - verified against the
+// spec source itself, TODO.md GFSS-COLOR-ORACLE, GODS_LAWS.md L-27:
+// this comment used to cite SS4.2.4, wrong section numbering,
+// corrected here; tests/gfss_named_colors_doc_oracle_test.cpp checks
+// this literal against that same section, independently of this
+// comment). 148 + 1 = 149,
 // k_named_color_count below (this file's own mechanically-counted
 // constant, never a hand-copied literal - the SAME technique
 // token.hpp's own gltfx_gfss_token_kind_count already uses).

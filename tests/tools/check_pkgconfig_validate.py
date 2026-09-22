@@ -1919,13 +1919,13 @@ def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scr
     real conversation happened and failed; here, there was never a
     conversation to have at all.
 
-    This is PKG-WIN-INTEROP's own ERROR_BAD_EXE_FORMAT class (a bare,
-    PE-less script sharing pkg-config's own base name, matched by
-    find_program()'s "no suffix" fallback before ".bat" is ever tried) -
-    MEASURED to reproduce ONLY on a REAL Windows host: a probe on THIS
-    file's own development machine (see the header this function's own
-    docstring keeps for the exact reproduction) found the nearest
-    analogous "unlaunchable file" shape on Linux (a garbage, non-PE,
+    This is PKG-WIN-INTEROP's own ERROR_BAD_EXE_FORMAT class - a
+    garbage, non-PE "pkg-config.exe" that find_program() genuinely
+    FINDS but Windows genuinely refuses to LAUNCH. MEASURED to
+    reproduce ONLY on a REAL Windows host: a probe on THIS file's own
+    development machine (see the header this function's own docstring
+    keeps for the exact reproduction) found the nearest analogous
+    "unlaunchable file" shape on Linux (a garbage, non-PE,
     executable-bit file) still returns a NUMERIC result (126, the same
     convention a POSIX shell itself uses for "found but not
     executable"), never the non-numeric STRING PKG-WIN-INTEROP's own
@@ -1937,6 +1937,34 @@ def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scr
     run_looks_rooted_selftest_scenario, scenario 18, for the precedent
     of testing pure string logic separately), never the actual
     OPERATING SYSTEM behavior this scenario exists to prove.
+
+    THE FIXTURE SHAPE, and why it is ".exe", never bare (regression
+    measured on run 35670443221, Windows job, 21/09/2026): a fixture
+    named plain "pkg-config" (no extension) is ONLY ever matched
+    during find_program()'s THIRD and LAST suffix pass ("no suffix"),
+    and - per CMake's own documented default order (find_program()'s
+    own reference: "without NAMES_PER_DIR, the command considers one
+    name at a time and searches EVERY DIRECTORY for it" before moving
+    on) - that pass runs ACROSS THE WHOLE PATH only after the ".com"
+    and ".exe" passes have ALREADY scanned every directory on PATH and
+    come up empty. A genuine pkg-config.exe/pkgconf.exe installed
+    ANYWHERE else on this CI runner's PATH (this project's own build
+    dependencies put one there) wins the ".exe" pass before the bare
+    fixture's "no suffix" pass is ever reached, no matter how early
+    fake_bin_dir sits on PATH - which is exactly what run 35670443221
+    measured: the scenario silently fell through to that real binary
+    and printed the SUCCESS path's text instead of ever exercising an
+    unlaunchable one. Naming the fixture "pkg-config.exe" instead
+    moves it into the ".exe" pass itself, where fake_bin_dir being
+    FIRST on PATH does what it was always meant to do: within a given
+    suffix pass, directories are scanned in PATH order, so this
+    fixture is found before any real installed pkg-config.exe further
+    down PATH ever gets a chance - proving Windows Explorer's exact,
+    well-documented "not a valid Win32 application"
+    (ERROR_BAD_EXE_FORMAT) failure instead of a shell/CreateProcess
+    NAME resolution near-miss (see the header's find_program()
+    documentation, unchanged from before, for why ".bat" is never
+    tried at all here for the plain "pkg-config"/"pkgconf" names).
 
     Returns "passed" (a REAL Windows host proved the declared-skip
     branch for real) or a "skipped: <reason>" string (any other host -
@@ -1958,8 +1986,14 @@ def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scr
 
     fake_bin_dir = os.path.join(scratch, "unlaunchable-pkgconfig-bin")
     os.makedirs(fake_bin_dir, exist_ok=True)
-    bare_path = os.path.join(fake_bin_dir, "pkg-config")
-    with open(bare_path, "wb") as handle:
+    # ".exe", never bare - see the WHY above: a bare "pkg-config" only
+    # enters find_program()'s LAST suffix pass, which a real
+    # pkg-config.exe/pkgconf.exe anywhere else on this runner's PATH
+    # already wins during the earlier ".exe" pass. Naming it
+    # "pkg-config.exe" puts fake_bin_dir's PATH-first position to work
+    # in the pass that actually matters.
+    unlaunchable_exe_path = os.path.join(fake_bin_dir, "pkg-config.exe")
+    with open(unlaunchable_exe_path, "wb") as handle:
         handle.write(b"this is not a valid Win32 executable - glintfx scenario 20 fixture\r\n")
 
     env = dict(os.environ)
@@ -1967,9 +2001,9 @@ def run_windows_unlaunchable_conversation_scenario(build_dir, intact_prefix, scr
 
     output = run_expect_success(
         ["cmake", f"-DCMAKE_INSTALL_PREFIX={intact_prefix}", "-DWIN32=1", "-P", validator_script],
-        "re-running the validator with ONLY a bare, PE-less 'pkg-config' file on PATH "
-        "(no .bat/.exe sibling) unexpectedly FAILED - a genuinely UNLAUNCHABLE binary "
-        "must degrade to a declared skip, never abort a genuinely good install.",
+        "re-running the validator with a garbage, non-PE 'pkg-config.exe' FIRST on PATH "
+        "unexpectedly FAILED - a genuinely UNLAUNCHABLE binary must degrade to a "
+        "declared skip, never abort a genuinely good install.",
         env=env,
     )
     must_contain_in_order(

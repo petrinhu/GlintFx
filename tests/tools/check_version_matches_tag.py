@@ -453,17 +453,30 @@ def create_lightweight_tag(root, name, commit_oid):
 def create_annotated_tag(root, name, commit_oid, message="selftest tag"):
     """`git hash-object -t tag` + `git update-ref` - the plumbing an
     annotated `git tag -a` uses under the hood, never the porcelain
-    verb itself."""
+    verb itself.
+
+    Fed as raw BYTES, never `text=True` + `str`: a git tag object's
+    header is `\\n`-delimited and `fsck`-checked byte for byte. On
+    Windows, `subprocess.run(text=True, input=<str>)` writes through
+    an `io.TextIOWrapper(newline=None)`, which silently translates
+    every `\\n` the caller wrote into `os.linesep` (`\\r\\n` there)
+    before the child ever reads it - corrupting the object, so `git
+    hash-object` refuses it with `fsck: unterminatedHeader`, exit 128
+    (measured live on the Windows job of run 35670443221, GODS_LAWS.md
+    L-04). Linux's `os.linesep` is `\\n`, a no-op, which is why this
+    was invisible here. Binary mode (`input=<bytes>`, no `text=`) skips
+    `TextIOWrapper` entirely and passes the bytes through unchanged on
+    every platform - see `selftest_annotated_tag_survives_stdin_
+    newline_translation` below for the regression control this earns."""
     tagger = "check_version_matches_tag selftest <selftest@check-version-tag.invalid> 0 +0000"
     content = f"object {commit_oid}\ntype commit\ntag {name}\ntagger {tagger}\n\n{message}\n"
     result = subprocess.run(
         ["git", "-C", root, "hash-object", "-w", "-t", "tag", "--stdin"],
-        input=content,
+        input=content.encode("utf-8"),
         capture_output=True,
-        text=True,
         check=True,
     )
-    tag_oid = result.stdout.strip()
+    tag_oid = result.stdout.decode("utf-8").strip()
     _run_quiet(["git", "-C", root, "update-ref", f"refs/tags/{name}", tag_oid])
 
 
@@ -716,6 +729,94 @@ def selftest_not_a_repo(scratch, capture):
     return True
 
 
+def _simulate_windows_stdin_newline_translation(real_run):
+    """Returns a `subprocess.run` stand-in that reproduces, on ANY
+    platform, exactly the corruption Windows performs and Linux does
+    not: a text-mode stdin pipe (`text=True` fed a `str` `input`) is
+    written through an `io.TextIOWrapper` with `newline=None`, which
+    translates every `\\n` the caller wrote into `os.linesep` before
+    the child process ever reads it. On Linux `os.linesep` is `\\n`
+    (a no-op, which is why the real defect this guards against was
+    invisible on this machine until it reached the Windows job of the
+    CI matrix). `os.linesep` itself cannot be monkeypatched to prove
+    this - CPython's `_io` C extension reads the OS-level constant at
+    build time, not the Python attribute (measured directly: patching
+    `os.linesep` and rerunning an unrelated `subprocess.run(text=True,
+    input=...)` produces unchanged output). Intercepting `subprocess.
+    run` at the call site sidesteps that and reproduces the OBSERVABLE
+    corruption instead: any `str` `input` passed in text mode gets its
+    `\\n` replaced by `\\r\\n`, byte-encoded, and handed to the REAL
+    `subprocess.run` in binary mode - `bytes` `input` (the fixed path,
+    immune by construction, same as a real binary-mode pipe) passes
+    through untouched."""
+
+    def run(*args, **kwargs):
+        raw_input = kwargs.get("input")
+        text_mode = bool(kwargs.get("text")) or bool(kwargs.get("universal_newlines"))
+        if raw_input is not None and isinstance(raw_input, str) and text_mode:
+            patched_kwargs = dict(kwargs)
+            patched_kwargs["input"] = raw_input.replace("\n", "\r\n").encode("utf-8")
+            patched_kwargs.pop("text", None)
+            patched_kwargs.pop("universal_newlines", None)
+            patched_kwargs.pop("encoding", None)
+            result = real_run(*args, **patched_kwargs)
+            if kwargs.get("text"):
+                if isinstance(result.stdout, (bytes, bytearray)):
+                    result.stdout = result.stdout.decode("utf-8")
+                if isinstance(result.stderr, (bytes, bytearray)):
+                    result.stderr = result.stderr.decode("utf-8")
+            return result
+        return real_run(*args, **kwargs)
+
+    return run
+
+
+def selftest_annotated_tag_survives_stdin_newline_translation(scratch, capture):
+    """GODS_LAWS.md L-04 (paridade de comportamento entre sistemas):
+    the defect measured on the Windows job of run 35670443221 was
+    `create_annotated_tag` feeding `git hash-object -t tag --stdin` a
+    `str` under `text=True` - on Windows this silently corrupts the
+    tag object's `\\n`-delimited header into `\\r\\n`, and `git`
+    refuses it with `fsck: unterminatedHeader`, exit 128 (reproduced
+    directly against the real `git` binary on THIS machine by feeding
+    it CRLF content by hand, before writing this control). This
+    control catches a REGRESSION back to that path without needing a
+    Windows machine: it wraps `subprocess.run` so any `str` input fed
+    in text mode is corrupted exactly like Windows would corrupt it,
+    then calls the real `create_annotated_tag` and demands it still
+    succeeds - which it only can if it feeds `bytes`, never `str`
+    under `text=True`, to the tag object's stdin."""
+    root = os.path.join(scratch, "annotated-tag-newline-translation")
+    init_fixture_repo(root)
+    write_cmakelists(root, "0.5.0.0")
+    c1 = commit_all(root, "0.5.0.0")
+
+    real_run = subprocess.run
+    subprocess.run = _simulate_windows_stdin_newline_translation(real_run)
+    try:
+        create_annotated_tag(root, "v0.5.0.0", c1)
+    except subprocess.CalledProcessError as error:
+        print(
+            "selftest: controle ANNOTATED-TAG-SURVIVES-STDIN-NEWLINE-TRANSLATION FALHOU "
+            f"(create_annotated_tag corrompeu sob traducao de stdin simulada do Windows: {error.stderr!r})",
+            file=sys.stderr,
+        )
+        return False
+    finally:
+        subprocess.run = real_run
+
+    output = capture(lambda: check_version(root))
+    if not output.result:
+        print(
+            "selftest: controle ANNOTATED-TAG-SURVIVES-STDIN-NEWLINE-TRANSLATION FALHOU "
+            "(etiqueta sobreviveu a criacao mas o portao nao a leu de volta)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: controle ANNOTATED-TAG-SURVIVES-STDIN-NEWLINE-TRANSLATION OK (stdin binario, imune a traducao de nova linha)")
+    return True
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -732,8 +833,9 @@ def selftest_main():
             selftest_duplicate_tag_at_head(scratch, capture),
             selftest_numeric_not_string_compare(scratch, capture),
             selftest_not_a_repo(scratch, capture),
+            selftest_annotated_tag_survives_stdin_newline_translation(scratch, capture),
         ]
-        expected = 11
+        expected = 12
         if len(controls) != expected:
             print(f"check_version_matches_tag.py --selftest: FALHOU (piso do selftest: {len(controls)} executados, {expected} esperados)", file=sys.stderr)
             sys.exit(1)

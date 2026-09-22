@@ -5210,6 +5210,18 @@ if(UNIX)
     )
     set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+    # WIN-RUNNER-PROPRIO sub-fatia V-2 (22/09/2026): motorista de sessao
+    # (trava + domstate + sobreposicao descartavel + teardown por trap).
+    # MESMA forma hermetica dos tres vizinhos acima (registro incondicional
+    # dentro de if(UNIX), SKIP_RETURN_CODE 77 para ferramenta ausente -
+    # aqui qemu-img/flock, ver a guarda no topo do proprio script).
+    add_test(
+        NAME win_vm_lab_sessao_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Checagem estatica SERIAL em job Windows (GODS_LAWS.md L-23 item 3,

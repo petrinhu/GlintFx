@@ -20,6 +20,8 @@
       <target dev="sdb" bus="sata"/>
       <readonly/>
     </disk>
+    <!-- VIOLACAO 7 (22/09/2026): enlace de rede ainda ativo, sem
+         <link state='down'/>, categoria [7/7] de provar-isolamento.sh -->
     <interface type="network">
       <source network="default"/>
       <model type="virtio"/>

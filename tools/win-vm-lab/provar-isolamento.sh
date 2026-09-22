@@ -16,6 +16,18 @@
 # montagem de escrita, nao e area de transferencia) -- e categoria propria,
 # e um portao que nao a conhece nao a vigia.
 #
+# Setima categoria acrescentada em 22/09/2026, item WIN-RUNNER-PROPRIO
+# sub-fatia V-4 (/var/tmp/glintfx-plan/win-runner-local.md secao 4), decisao
+# do lider por AskUserQuestion no mesmo dia ("dirigir daqui, sem ligar ao
+# servidor"): com o desenho novo o convidado nao precisa de rede para NADA
+# do fluxo (o canal e' org.qemu.guest_agent.0, virtio-serial, sem IP), entao
+# a rede vira NEGACAO PERMANENTE (GODS_LAWS.md global L-02) - todo <interface>
+# tem de trazer <link state='down'/>, e a excecao (religar para instalar)
+# so roda por sessao explicitamente autorizada pelo lider, fora deste
+# portao. Categoria propria, mesma razao das duas anteriores: um enlace de
+# rede nao e nenhuma das seis coisas ja previstas, e um portao que nao a
+# conhece nao a vigia.
+#
 # Uso:
 #   provar-isolamento.sh --dominio <nome-libvirt> [--allow-ro <caminho>]
 #   provar-isolamento.sh --file <caminho-do-xml> [--allow-ro <caminho>]
@@ -136,8 +148,13 @@ obter_xml() {
   return 1
 }
 
-# --- as cinco varreduras ------------------------------------------------------
+# --- as sete varreduras --------------------------------------------------------
 # Cada funcao imprime "encontrados=N" (sempre, mesmo zero) e devolve 1 se N>0.
+#
+# NOTA (achado ao acrescentar a setima categoria, 22/09/2026, GODS_LAWS.md
+# global L-17): este comentario ja dizia "cinco" quando o arquivo tinha seis
+# funcoes -- gemeo desatualizado que ninguem tinha corrigido. Consertado
+# junto, nao deixado para tras so' porque nao era o alvo desta fatia.
 
 check_entrada_hospedeiro() {
   local xml="$1"
@@ -149,7 +166,7 @@ check_entrada_hospedeiro() {
   n_usb=${n_usb:-0}
   total=$((n_evdev + n_usb))
 
-  echo "[1/6] dispositivo de entrada/USB real do hospedeiro repassado: encontrados=${total} (evdev=${n_evdev}, hostdev-usb=${n_usb})"
+  echo "[1/7] dispositivo de entrada/USB real do hospedeiro repassado: encontrados=${total} (evdev=${n_evdev}, hostdev-usb=${n_usb})"
 
   if [ "$total" -gt 0 ]; then
     if [ "$n_evdev" -gt 0 ]; then
@@ -178,7 +195,7 @@ check_servidor_imagem() {
   n_naolocal=${n_naolocal:-0}
   total=$((n_sdl + n_naolocal))
 
-  echo "[2/6] servidor de imagem (VNC/Spice) fora de 127.0.0.1, ou tipo que abre janela no hospedeiro (sdl/desktop): encontrados=${total} (sdl/desktop=${n_sdl}, listen-nao-local=${n_naolocal})"
+  echo "[2/7] servidor de imagem (VNC/Spice) fora de 127.0.0.1, ou tipo que abre janela no hospedeiro (sdl/desktop): encontrados=${total} (sdl/desktop=${n_sdl}, listen-nao-local=${n_naolocal})"
 
   if [ "$total" -gt 0 ]; then
     echo "      -> elementos <graphics> da definicao:"
@@ -215,7 +232,7 @@ check_pasta_usuario() {
   done
   total="$n"
 
-  echo "[3/6] pasta do usuario (fora da arvore permitida ${ALLOW_RO}) montada: encontrados=${total}"
+  echo "[3/7] pasta do usuario (fora da arvore permitida ${ALLOW_RO}) montada: encontrados=${total}"
   if [ "$total" -gt 0 ]; then
     printf '      -> %s\n' "${achados[@]}"
     return 1
@@ -242,7 +259,7 @@ check_montagem_escrita_fora_projeto() {
     fi
   done < <(xmlstarlet sel -t -m "/domain/devices/filesystem" -v "concat(source/@dir, '|', count(readonly))" -n "$xml" 2>/dev/null)
 
-  echo "[4/6] montagem de escrita para fora da arvore do projeto (ou dentro dela sem <readonly/>): encontrados=${total}"
+  echo "[4/7] montagem de escrita para fora da arvore do projeto (ou dentro dela sem <readonly/>): encontrados=${total}"
   if [ "$total" -gt 0 ]; then
     printf '      -> %s\n' "${achados[@]}"
     return 1
@@ -260,7 +277,7 @@ check_canal_area_transferencia() {
   n_clipboard=${n_clipboard:-0}
   total=$((n_spicevmc + n_clipboard))
 
-  echo "[5/6] canal de area de transferencia compartilhada (spicevmc / clipboard copypaste=yes): encontrados=${total} (spicevmc=${n_spicevmc}, clipboard-yes=${n_clipboard})"
+  echo "[5/7] canal de area de transferencia compartilhada (spicevmc / clipboard copypaste=yes): encontrados=${total} (spicevmc=${n_spicevmc}, clipboard-yes=${n_clipboard})"
   if [ "$total" -gt 0 ]; then
     return 1
   fi
@@ -283,7 +300,35 @@ check_canal_nao_declarado() {
     fi
   done < <(xmlstarlet sel -t -m "/domain/devices/channel" -v "concat(@type,'|',target/@name)" -n "$xml" 2>/dev/null)
 
-  echo "[6/6] canal para o convidado que nao seja o agente declarado (org.qemu.guest_agent.0): encontrados=${total}"
+  echo "[6/7] canal para o convidado que nao seja o agente declarado (org.qemu.guest_agent.0): encontrados=${total}"
+  if [ "$total" -gt 0 ]; then
+    printf '      -> %s\n' "${achados[@]}"
+    return 1
+  fi
+  return 0
+}
+
+check_rede_ativa() {
+  local xml="$1"
+  local total=0
+  local -a achados=()
+
+  # Todo <interface> SEM filho <link state='down'/> conta como enlace ainda
+  # ativo -- a ausencia do elemento e' o padrao do libvirt para "up" (nao ha
+  # forma de "omitir e ficar down"), entao a UNICA marca aceitavel de
+  # conformidade e' o elemento presente com state='down' explicito. Nao
+  # importa o @type da interface (network/user/bridge/...): o portao nao
+  # confia em NENHUM backend continuar desligado so por convencao.
+  while IFS='|' read -r if_type if_src has_down; do
+    [ -z "$if_type" ] && continue
+    if [ "$has_down" != "1" ]; then
+      total=$((total + 1))
+      achados+=("type=${if_type} source=${if_src:-<sem-fonte>}")
+    fi
+  done < <(xmlstarlet sel -t -m "/domain/devices/interface" \
+    -v "concat(@type,'|',source/@network,source/@bridge,source/@dev,'|',count(link[@state='down']))" -n "$xml" 2>/dev/null)
+
+  echo "[7/7] enlace de rede do convidado ainda ativo (sem <link state='down'/> explicito): encontrados=${total}"
   if [ "$total" -gt 0 ]; then
     printf '      -> %s\n' "${achados[@]}"
     return 1
@@ -302,12 +347,13 @@ rodar_varredura() {
   check_montagem_escrita_fora_projeto "$xml" || falhou=1
   check_canal_area_transferencia "$xml" || falhou=1
   check_canal_nao_declarado "$xml" || falhou=1
+  check_rede_ativa "$xml" || falhou=1
 
   if [ "$falhou" -ne 0 ]; then
     echo "=== REPROVADO: pelo menos uma categoria achou violacao acima. ==="
     return 1
   fi
-  echo "=== APROVADO: as seis categorias varreram e nenhuma achou violacao. ==="
+  echo "=== APROVADO: as sete categorias varreram e nenhuma achou violacao. ==="
   return 0
 }
 

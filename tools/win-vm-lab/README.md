@@ -38,9 +38,10 @@ assinatura.
   projeto: um binário mutante (mesmo teste, compilado contra código
   sabotado de propósito) reprova com código de saída diferente de zero; o
   binário real passa com código zero. Par verde/vermelho, não só "rodou".
-- **Isolamento da sessão do líder**, com portão próprio de seis categorias
+- **Isolamento da sessão do líder**, com portão próprio de sete categorias
   (`provar-isolamento.sh`), cada uma provada mordendo por sabotagem antes
-  de valer.
+  de valer. A sétima (enlace de rede do convidado) entrou em 22/09/2026 -
+  ver a seção "Rede do convidado" abaixo.
 
 **Não provado ainda, dito com todas as letras para não ficar calado:**
 
@@ -59,15 +60,60 @@ comando literal de cada chamada: `RELATORIO.md` neste mesmo diretório.
 | Arquivo | O que é |
 |---|---|
 | `criar-vm.sh` | Cria (e, com `--arrancar-de-verdade`, liga) a máquina via `virt-install`. Sem esse argumento, só mostra o XML que seria gerado. |
-| `provar-isolamento.sh` | Portão de isolamento, seis categorias (entrada real do hospedeiro, servidor de imagem fora de `127.0.0.1`, pasta do usuário montada, montagem de escrita fora do projeto, canal de área de transferência, canal para o convidado que não seja o agente QEMU declarado). Tem `--selftest`. |
+| `provar-isolamento.sh` | Portão de isolamento, sete categorias (entrada real do hospedeiro, servidor de imagem fora de `127.0.0.1`, pasta do usuário montada, montagem de escrita fora do projeto, canal de área de transferência, canal para o convidado que não seja o agente QEMU declarado, enlace de rede do convidado ainda ativo). Tem `--selftest`. |
 | `check-sem-segredo.sh` | Portão que reprova se a senha do laboratório (ou algo com a forma dela) aparecer em qualquer arquivo deste diretório. Rode antes de qualquer commit aqui. |
 | `type-string.sh` | Digita texto no convidado via `virsh send-key`, caractere a caractere; só necessário enquanto o canal do agente QEMU (ver abaixo) não estiver de pé. Depois dele, prefira `transferir-executar.sh`. Contém o mapeamento de teclado medido para o layout pt-BR/ABNT2 do convidado (`\` e `:` não saem das teclas óbvias do codeset `linux`). |
 | `transferir-executar.sh` | Transfere um arquivo para o convidado pelo canal `org.qemu.guest_agent.0` (`guest-file-write`, em blocos, com contagem de bytes conferida). |
 | `rodar-caminho.sh` | Roda um binário Windows por CAMINHO completo via `guest-exec`, espera terminar e devolve o resultado no próprio código de saída do script (0 sucesso, 1 falha ao iniciar, 3 convidado terminou com erro, 124 estourou o prazo). Prazo configurável por argumento. Tem `--selftest`. |
 | `rodar-um.sh` | Mesma coisa que `rodar-caminho.sh`, mas recebe só o NOME do arquivo (resolvido para `C:\Users\glintfx\<nome>`). Tem `--selftest`. |
+| `sessao.sh` | Motorista de ciclo de vida (WIN-RUNNER-PROPRIO V-2): trava de exclusão mútua (`flock`), segunda verificação independente por `domstate`, sobreposição qcow2 descartável que nasce e morre dentro da mesma posse da trava, teardown incondicional por `trap`. Não liga a máquina nem altera a definição do domínio. Tem `--selftest`. |
+| `coletar-resultados.sh` | Coletor de resultado (WIN-RUNNER-PROPRIO V-3): traz de volta TODO arquivo de um diretório de resultados do convidado via `guest-file-read`, com md5 conferido nas duas pontas (hash pedido ao convidado por `certutil -hashfile` contra o hash da cópia local reconstruída), piso de varredura não-vazia (diretório vazio é recusa, nunca sucesso silencioso) e lista de PERMISSÃO para nome de arquivo (o convidado é não confiável por desenho; nome fora do padrão `^[A-Za-z0-9][A-Za-z0-9._-]*$` é rejeitado ANTES de virar caminho no hospedeiro, nunca por `continue` calado - código de saída próprio, 2). Tem `--selftest`. |
 | `autounattend.xml` | Arquivo de respostas do instalador do Windows, comentado linha a linha. **Senha substituída pelos marcadores `__ADMIN_PASSWORD__`/`__USER_PASSWORD__`**, nunca a senha real (ver seção própria abaixo). |
 | `fixtures/dominio-limpo.xml`, `fixtures/dominio-sabotado.xml` | Definições de VM usadas pelo `--selftest` do portão de isolamento. |
 | `RELATORIO.md` | Registro completo do primeiro fecho desta fronteira: decisões tomadas, defeitos achados e corrigidos (na própria receita, nunca escondidos), e o par verde/vermelho provado contra o Windows real. |
+
+## Rede do convidado: desligada por padrão (22/09/2026)
+
+Decisão do líder por `AskUserQuestion`, 22/09/2026: **"Dirigir daqui, sem
+ligar ao servidor"**. Com o ciclo de vida dirigido pelo hospedeiro
+(`sessao.sh` + `coletar-resultados.sh`, sub-fatias V-2/V-3), o convidado não
+precisa de rede para NADA do fluxo - entrada, execução e saída passam todas
+pelo canal `org.qemu.guest_agent.0` (virtio-serial, sem IP). A rede virou
+**negação permanente** (GODS_LAWS.md global L-02): todo `<interface>` tem
+de trazer `<link state='down'/>` explícito, e a categoria `[7/7]` do portão
+de isolamento (`provar-isolamento.sh`) reprova qualquer definição que não
+tenha essa marca em cada interface, seja qual for o `@type`.
+
+**Estado medido nesta máquina, 22/09/2026:** a interface real do domínio
+`glintfx-win11-lab` é `type='user'` (SLIRP), MAC `52:54:00:fa:f5:80`, **sem**
+`<link state='down'/>` ainda - a definição persistente **não foi alterada**
+por esta fatia (V-4). A alteração (`virsh domif-setlink ... down --config`,
+ou a alternativa por `detach-device --config` caso `domif-setlink` não
+morda numa interface `type='user'`) foi **autorizada pelo líder** mas ficou
+**bloqueada pelo classificador de permissão automático** desta sessão
+("Modify Shared Resources" - a definição do domínio é compartilhada com
+outra sessão autorizada, e o classificador não distingue autorização dada
+em chat de autorização de ferramenta). A definição atual, íntegra, está
+salva em `/var/tmp/glintfx-win-lab/dominio-antes-da-V4.xml` (fora deste
+repositório - é estado de máquina, não de código). **Pendente para quem
+tiver a permissão de ferramenta liberada:**
+
+1. Medir se `domif-setlink glintfx-win11-lab 52:54:00:fa:f5:80 down --config`
+   morde numa interface `type='user'` (conferir por `dumpxml --inactive` se
+   aparece `<link state='down'/>`); se não morder, usar
+   `detach-device --config` da interface como alternativa.
+2. Rodar `./provar-isolamento.sh --dominio glintfx-win11-lab` depois da
+   mudança - tem de aprovar (código 0) as sete categorias.
+3. A metade VIVA de E4 (de dentro do convidado, tentar alcançar um destino
+   externo e ver falhar) só é possível com a máquina ligada - fica para a
+   sessão de arranque que ligar a VM, junto da medição do limite de bytes
+   por chamada `guest-file-read` (ver o cabeçalho de `coletar-resultados.sh`).
+
+**Para religar a rede numa sessão de instalação autorizada:**
+`virsh -c qemu:///session domif-setlink glintfx-win11-lab 52:54:00:fa:f5:80 up --config`
+(ou reanexar a interface, se o caminho tiver sido por `detach-device`), e
+desligar de novo (`... down --config`) ao fim da sessão - nunca deixar a
+rede ligada por padrão fora de uma sessão explicitamente autorizada.
 
 ## Sobre a senha: nunca versionada, sempre gerada de novo
 
@@ -148,7 +194,7 @@ cd /var/tmp/glintfx-win-lab
 ```
 
 Tem de reprovar a definição sabotada (código 1) e aprovar a limpa (código
-0), nas seis categorias. Portão que nasce sem essa prova não vale; não
+0), nas sete categorias. Portão que nasce sem essa prova não vale; não
 prossiga sem ver os dois códigos certos.
 
 ### 5. Crie e arranque a máquina
@@ -176,7 +222,7 @@ nunca só a tela, para saber se a máquina está trabalhando ou parada.
 ./provar-isolamento.sh --dominio glintfx-win11-lab
 ```
 
-Tem de aprovar (código 0) as seis categorias contra `virsh dumpxml`, não
+Tem de aprovar (código 0) as sete categorias contra `virsh dumpxml`, não
 contra um arquivo candidato.
 
 ### 7. Ligue o canal do agente QEMU (recomendado, substitui a ponte de arquivo)

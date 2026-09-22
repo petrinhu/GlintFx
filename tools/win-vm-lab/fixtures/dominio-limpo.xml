@@ -25,9 +25,13 @@
       <target dev="sdc" bus="sata"/>
       <readonly/>
     </disk>
+    <!-- V-4 (22/09/2026): enlace desligado por padrao, categoria [7/7] de
+         provar-isolamento.sh, exige <link state='down'/> explicito em TODO
+         <interface>, qualquer que seja o @type. -->
     <interface type="network">
       <source network="default"/>
       <model type="virtio"/>
+      <link state="down"/>
     </interface>
     <filesystem type="mount" accessmode="mapped">
       <driver type="virtiofs"/>

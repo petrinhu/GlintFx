@@ -33,9 +33,9 @@
 # projeto inteiro (trava, rede desligada, portao de isolamento). Todo nome
 # que nao casar a lista de permissao e' rejeitado ANTES de virar caminho,
 # nunca com `continue` calado - a linha de contagem sempre mostra
-# "rejeitados=N", e o script sai com o codigo 2 (distinto de 0/1) se algum
-# nome foi rejeitado, mesmo que os demais arquivos tenham sido coletados
-# com sucesso.
+# "rejeitados=N", e o script sai com o codigo 3 (proprio, distinto de
+# 0/1/2 - ver a tabela completa abaixo) se algum nome foi rejeitado, mesmo
+# que os demais arquivos tenham sido coletados com sucesso.
 #
 # [A VERIFICAR] O LIMITE REAL DE BYTES POR CHAMADA guest-file-read NAO FOI
 # MEDIDO NESTA MAQUINA -- a maquina esta desligada nesta sessao (ordem do
@@ -49,10 +49,22 @@
 # A medicao real fica pendente para a sessao de arranque que ligar a
 # maquina (mesma pendencia que a secao 7 do plano ja nomeia).
 #
-# Codigos de saida: 0 sucesso (tudo encontrado foi coletado e conferido por
-# md5); 1 diretorio vazio (piso de varredura), OU pelo menos um nome VALIDO
-# nao bateu md5; 2 pelo menos um nome REJEITADO pela lista de permissao
-# (travessia de caminho ou nome hostil - nunca vira caminho no hospedeiro).
+# Codigos de saida (achado do team-lead, 22/09/2026: o codigo 2 chegou a
+# significar DUAS coisas - uso incorreto E rejeicao de nome hostil -, e
+# quem le o codigo de saida nao distinguia as duas; mesma familia do
+# defeito "CANAL-QUEBRADO-SE-DISFARCA-DE-PRAZO-ESTOURADO" ja catalogado
+# neste projeto: dois fatos, um sinal so. Consertado dando um codigo
+# PROPRIO a cada fato, nunca reaproveitando um numero que outro caso ja
+# usa neste MESMO arquivo):
+#   0   sucesso - tudo encontrado foi coletado e conferido por md5
+#   1   diretorio vazio (piso de varredura), OU pelo menos um nome VALIDO
+#       nao bateu md5
+#   2   USO INCORRETO (argumento faltando/invalido) - mesma convencao que
+#       rodar-caminho.sh/rodar-um.sh (mesma pasta) ja usam para uso
+#       incorreto; nunca reaproveitado para outro fato
+#   3   pelo menos um nome REJEITADO pela lista de permissao (travessia de
+#       caminho ou nome hostil - nunca vira caminho no hospedeiro) - EVENTO
+#       DE SEGURANCA, distinto de erro de digitacao de quem chamou
 #
 # Uso:
 #   coletar-resultados.sh <diretorio-windows> <diretorio-destino-local>
@@ -65,6 +77,12 @@ DOM="glintfx-win11-lab"
 CONNECT="qemu:///session"
 CHUNK_BYTES_PADRAO=65536   # [A VERIFICAR] - ver o paragrafo acima, nao medido para LEITURA.
 PRAZO_PADRAO=60
+
+# Caminho absoluto do proprio script - usado so' pelo selftest de codigos
+# distintos (selftest_codigos_distintos) para invocar o SCRIPT COMO
+# SUBPROCESSO no caminho de uso() (que faz `exit 2` direto, nao `return`;
+# so' testavel de fora, nao chamando a funcao interna).
+SCRIPT_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)/$(basename -- "${BASH_SOURCE[0]}")"
 
 # GATE-SELFTEST-ORFAO / GODS_LAWS.md L-40: mesma guarda que os tres vizinhos
 # nesta pasta (provar-isolamento.sh para xmlstarlet, rodar-caminho.sh e
@@ -289,7 +307,8 @@ coletar_um() {
 # "encontrados-coletados" (isso confundiria travessia de caminho com falha
 # de md5, dois defeitos bem diferentes) - por isso tem a PROPRIA contagem,
 # impressa sempre, mesmo em zero (GODS_LAWS.md global L-40), e o PROPRIO
-# codigo de saida (2), distinto de 1 (vazio / md5 nao bateu).
+# codigo de saida (3), distinto de 1 (vazio / md5 nao bateu) e de 2 (uso
+# incorreto - ver a tabela de codigos no cabecalho do arquivo).
 coletar_diretorio() {
   local diretorio_win="$1" destino_dir_local="$2" chunk_bytes="$3" prazo="$4"
   local encontrados rejeitados coletados=0 arquivo
@@ -323,7 +342,7 @@ coletar_diretorio() {
 
   if [ "$rejeitados" -gt 0 ]; then
     echo "REPROVADO: pelo menos um nome hostil foi rejeitado - nunca sucesso silencioso com menos arquivos do que o convidado devolveu (GODS_LAWS.md global L-40)." >&2
-    return 2
+    return 3
   fi
   if [ "$coletados" -ne "$encontrados" ]; then
     echo "REPROVADO: ${encontrados} arquivo(s) encontrado(s), so ${coletados} coletado(s) com md5 conferido nas duas pontas." >&2
@@ -501,14 +520,14 @@ selftest_seguranca_nomes() {
   printf 'conteudo legitimo' >"${state_dir}/conteudo.bin"
   escrever_duble_virsh_nomes_hostis "$stub_dir"
 
-  printf '%s\n' ">>> SEGURANCA (travessia de caminho, achado do team-lead 22/09/2026): listagem devolve 1 nome legitimo + 2 nomes HOSTIS ('../../escapou', 'sub\\dir\\arquivo') - esperado: os hostis sao rejeitados (nunca viram caminho), o legitimo e' coletado, codigo de saida 2, NADA escrito fora de '${destino}'"
+  printf '%s\n' ">>> SEGURANCA (travessia de caminho, achado do team-lead 22/09/2026): listagem devolve 1 nome legitimo + 2 nomes HOSTIS ('../../escapou', 'sub\\dir\\arquivo') - esperado: os hostis sao rejeitados (nunca viram caminho), o legitimo e' coletado, codigo de saida 3 (proprio, distinto do 2 de uso incorreto), NADA escrito fora de '${destino}'"
   saida="$(PATH="${stub_dir}:$PATH" DUBLE_STATE_DIR="$state_dir" coletar_diretorio 'C:\Users\glintfx\resultados' "$destino" 8 2 2>&1)"
   rc=$?
   echo "$saida"
   echo ">>> codigo obtido: ${rc}"
 
-  if [ "$rc" -ne 2 ]; then
-    echo "SEGURANCA FALHOU: esperava codigo 2 (rejeicao de nome hostil), obteve ${rc}."
+  if [ "$rc" -ne 3 ]; then
+    echo "SEGURANCA FALHOU: esperava codigo 3 (rejeicao de nome hostil), obteve ${rc}."
     ok=0
   fi
   if ! printf '%s' "$saida" | grep -q "rejeitados=2"; then
@@ -527,6 +546,44 @@ selftest_seguranca_nomes() {
     ok=0
   else
     echo "SEGURANCA OK: nenhum arquivo apareceu fora de '${destino}' - a travessia nao escapou."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
+# Achado do team-lead, 22/09/2026: o codigo 2 chegou a significar DUAS
+# coisas neste arquivo - uso incorreto (uso(), `exit 2` direto) e rejeicao
+# de nome hostil (coletar_diretorio, ANTES do conserto tambem `return 2`) -
+# a mesma familia de "dois fatos, um sinal so" ja catalogada neste projeto
+# (CANAL-QUEBRADO-SE-DISFARCA-DE-PRAZO-ESTOURADO). Este controle prova que
+# os dois codigos SAO DISTINTOS: chama o SCRIPT como subprocesso sem
+# argumento nenhum (caminho de uso()) e compara contra a rejeicao de nome
+# hostil (via coletar_diretorio, no processo) - se os dois codigos forem
+# iguais, o controle reprova.
+selftest_codigos_distintos() {
+  local work_dir="$1" stub_dir state_dir saida rc_uso rc_rejeicao ok=1
+
+  echo ">>> CODIGOS-DISTINTOS 1/2: uso incorreto (script chamado sem argumento nenhum)"
+  "$SCRIPT_PATH" >/dev/null 2>&1
+  rc_uso=$?
+  echo ">>> codigo obtido (uso incorreto): ${rc_uso}"
+
+  echo ">>> CODIGOS-DISTINTOS 2/2: rejeicao de nome hostil (mesmo dublê do cenario SEGURANCA)"
+  stub_dir="${work_dir}/cod-bin"
+  state_dir="${work_dir}/cod-state"
+  mkdir -p "$stub_dir" "$state_dir"
+  printf 'conteudo' >"${state_dir}/conteudo.bin"
+  escrever_duble_virsh_nomes_hostis "$stub_dir"
+  saida="$(PATH="${stub_dir}:$PATH" DUBLE_STATE_DIR="$state_dir" coletar_diretorio 'C:\Users\glintfx\resultados' "${work_dir}/cod-destino" 8 2 2>&1)"
+  rc_rejeicao=$?
+  echo ">>> codigo obtido (rejeicao de nome hostil): ${rc_rejeicao}"
+
+  if [ "$rc_uso" -eq "$rc_rejeicao" ]; then
+    echo "CODIGOS-DISTINTOS FALHOU: uso incorreto (${rc_uso}) e rejeicao de nome hostil (${rc_rejeicao}) colidem no MESMO codigo - quem le o codigo de saida nao consegue distinguir os dois fatos."
+    ok=0
+  else
+    echo "CODIGOS-DISTINTOS OK: uso incorreto=${rc_uso}, rejeicao de nome hostil=${rc_rejeicao} - codigos distintos, cada fato com o seu proprio sinal."
   fi
 
   [ "$ok" -eq 1 ] && return 0
@@ -598,7 +655,7 @@ selftest() {
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
   trap 'rm -rf -- "$work_dir"' RETURN
 
-  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA) -- diretorio de trabalho: ${work_dir} ==="
+  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS) -- diretorio de trabalho: ${work_dir} ==="
   echo
   selftest_e6 "$work_dir" || ok=0
   echo
@@ -606,9 +663,11 @@ selftest() {
   echo
   selftest_seguranca_nomes "$work_dir" || ok=0
   echo
+  selftest_codigos_distintos "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E6, E8 e SEGURANCA se comportaram como esperado."
+    echo "SELFTEST OK: E6, E8, SEGURANCA e CODIGOS-DISTINTOS se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

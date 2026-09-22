@@ -23,10 +23,16 @@ project(glintfx_consumer LANGUAGES CXX)
 # install_packager_layout_test enquanto esta linha ainda pedia 0.2 (medido
 # ao vivo, tools/preci.sh --fast, "not compatible with the version
 # requested"), confirmando pela segunda vez que o portao morde de verdade.
-# Ao subir o segundo numero de novo, esta linha sobe junto; ao chegar na
-# 1.0, a politica vira SameMajorVersion e esta linha passa a acompanhar o
-# PRIMEIRO numero.
-find_package(glintfx 0.4 REQUIRED)
+# **Mordeu pela terceira vez** na subida para 0.5.0.0 em 22/09/2026
+# (commit 245515a, chore(versao): 0.4.2.1 -> 0.5.0.0): esta linha ficou
+# para tras em 0.4, e o SERVIDOR (nao uma rodada local) reprovou tres jobs
+# de modo ESTATICO -- Fedora, Ubuntu, CachyOS -- com "Could not find a
+# configuration file for package glintfx that is compatible with requested
+# version 0.4" e "99% tests passed, 2 tests failed out of 216: consume_test,
+# install_packager_layout_test". Ao subir o segundo numero de novo, esta
+# linha sobe junto; ao chegar na 1.0, a politica vira SameMajorVersion e
+# esta linha passa a acompanhar o PRIMEIRO numero.
+find_package(glintfx 0.5 REQUIRED)
 
 add_executable(consumer main.cpp)
 target_link_libraries(consumer PRIVATE glintfx::glintfx)

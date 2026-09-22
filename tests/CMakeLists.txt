@@ -5099,3 +5099,37 @@ add_test(
         "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
 )
 set_tests_properties(check_windows_static_parallel_selftest PROPERTIES LABELS selftest)
+
+# Teto de tempo por trabalho no CI (TODO.md CI-TIMEOUTS-GATE, GODS_LAWS.md
+# L-04/L-17/L-20/L-23/L-36/L-40). A fatia CI-TIMEOUTS deu timeout-minutes
+# aos 15 trabalhos de .github/workflows/ci.yml, por classe medida contra
+# execucoes reais do servidor (ver o bloco de comentario logo abaixo de
+# 'jobs:' em ci.yml). Este portao e' o anti-regressao: casa a lista de
+# trabalhos do(s) arquivo(s) de workflow nos DOIS SENTIDOS contra uma
+# tabela fechada job->classe - trabalho novo sem classe reprova, entrada
+# morta na tabela reprova, teto fora do valor da classe reprova.
+#
+# Recebe o DIRETORIO .github/workflows/ (nunca "ci.yml" por nome) - e'
+# assim que ele cobre o arquivo irmao que ainda nao nasceu sem ninguem
+# lembrar de atualiza-lo.
+#
+# GATE-TREE-PARITY (GODS_LAWS.md L-04): registrado sem guarda de sistema,
+# mesma forma que check_windows_static_parallel_test acima - texto puro,
+# nenhum Docker, roda identico nas cinco plataformas.
+add_test(
+    NAME check_ci_timeouts_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_timeouts.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows"
+)
+set_tests_properties(check_ci_timeouts_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME check_ci_timeouts_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_timeouts.py"
+        --selftest
+        "${CMAKE_SOURCE_DIR}/.github/workflows"
+)
+set_tests_properties(check_ci_timeouts_selftest PROPERTIES LABELS selftest)

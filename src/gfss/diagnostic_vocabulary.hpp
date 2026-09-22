@@ -281,6 +281,7 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     anb_parse,         // src/gfss/anb_parse.cpp (GFSS-SEL-PARSE-NTH)
     declaration_parse, // src/gfss/declaration_parse.cpp (GFSS-DECL-PARSE)
     shorthand_expand,  // src/gfss/shorthand_expand.cpp + its five family files (GFSS-SHORTHAND)
+    sheet_parse,       // src/gfss/sheet_parse.cpp (GFSS-SHEET-PARSE)
 };
 
 #define GLINTFX_GFSS_DIAGNOSTIC_EXPECTED_LIST(X)                                                   \
@@ -329,7 +330,14 @@ enum class gfss_diagnostic_producer : std::uint8_t {
     X(each_border_part_at_most_once, shorthand_expand)                                             \
     X(flex_direction_or_flex_wrap_word, shorthand_expand)                                          \
     X(longhand_not_overridden_by_later_shorthand, shorthand_expand)                                \
-    X(internal_shorthand_table_defect, shorthand_expand)
+    X(internal_shorthand_table_defect, shorthand_expand)                                           \
+    X(style_rule_or_at_rule, sheet_parse)                                                          \
+    X(opening_curly_brace_after_selector, sheet_parse)                                             \
+    X(opening_curly_brace_after_at_rule, sheet_parse)                                              \
+    X(closing_curly_brace, sheet_parse)                                                            \
+    X(keyframes_name, sheet_parse)                                                                 \
+    X(supported_at_rule, sheet_parse)                                                              \
+    X(at_rule_media_is_outside_v1, sheet_parse)
 
 // One named constexpr std::string_view per entry, spelled from the
 // entry's own name via stringizing (#name) so the identifier and its

@@ -44,4 +44,5 @@ target_sources(glintfx_library PRIVATE
     shorthand_flex_flow.cpp
     shorthand_expand.cpp
     shorthand_reset_notice.cpp
+    sheet_parse.cpp
 )

@@ -439,6 +439,52 @@ target_sources(gfss_declaration_parse_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
 )
 
+# GFSS-SHEET-PARSE (TODO.md wave W6, GODS_LAWS.md L-17/L-19/L-20/L-40):
+# reads a WHOLE sheet - recovery by rule, `@media`/`@keyframes`/unknown
+# at-rule dispatch - built on top of BOTH GFSS-SEL-PARSE-CORE's own
+# selector reader AND GFSS-DECL-PARSE's own declaration-block reader
+# (sheet_parse.cpp's own header comment). Needs the SAME
+# "${PROJECT_SOURCE_DIR}/src" PRIVATE include dir every other internal-
+# header consumer above already adds.
+glintfx_add_test(gfss_sheet_parse_test)
+target_include_directories(gfss_sheet_parse_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+# sheet_parse.cpp defines glintfx::style::detail::parse_sheet() with NO
+# GLINTFX_API (GODS_LAWS.md L-19 - not yet public, ABI-frozen surface),
+# so this test recompiles it, and every internal .cpp BOTH of its own
+# two dependency chains need, a second time into its own object set -
+# the UNION of gfss_selector_parse_test's own list above (selector_
+# parse.cpp + anb_parse.cpp) and gfss_declaration_parse_test's own list
+# above (the whole declaration/shorthand chain), since parse_sheet()
+# calls into both parse_selector_list() and parse_declaration_list().
+target_sources(gfss_sheet_parse_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/gfss/sheet_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/selector_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/anb_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/important_flag.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_name_lookup.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_value_check.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_color_value.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/declaration_list_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/property_status.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/value_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/numeric_lexeme.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/lexical_rules.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/color_parse.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/named_colors.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_component_split.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_longhand_apply.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_sides.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_four_corners.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_axis_pair.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_border_parts.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_flex_flow.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_expand.cpp"
+    "${PROJECT_SOURCE_DIR}/src/gfss/shorthand_reset_notice.cpp"
+)
+
 # GFSS-SHORTHAND (TODO.md wave W6, GODS_LAWS.md L-17/L-19/L-20/L-40,
 # docs/plano-w6-folha-de-estilo.md S-3): the eleven accepted shorthands'
 # own expansion into longhands - shorthand_longhand_table.hpp's own

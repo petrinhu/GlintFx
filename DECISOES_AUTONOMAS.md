@@ -3938,3 +3938,31 @@ O primeiro era o que mais me preocupava: portão que confere só **presença** d
 **O custo real desta onda não foi qualidade, foi relógio.** O agente ficou ocioso **cinco vezes** anunciando espera; em quatro delas nada estava rodando, e numa o trabalho já tinha terminado havia sete minutos. Três intervenções minhas não mudaram o padrão; o que mudou foi dar a regra na forma **mecânica** — *"teste a condição de término no disco, e se precisar disparar algo longo, encadeie o passo seguinte no mesmo comando"*. **Na quarta vez eu quase errei na direção oposta:** ia tratar a espera como falsa por inércia, medi, e havia container, `cmake` e quatro compiladores rodando. **Padrão observado três vezes não autoriza concluir a quarta.**
 
 **Lacuna declarada, não contornada:** `tools/preci.sh --fast` para no estágio de sintaxe PowerShell porque a imagem não está em cache — ambiente, não fatia, e nenhum `.ps1` foi tocado. O agente **não** rodou `docker pull` sem autorização. Cobertura real veio de configure+build+ctest dentro do container: **216/216**.
+
+---
+
+## 22/09/2026 - 11:17 | `W6b` fechada de verdade, e `GFSS-COLOR-ORACLE` entregue em quatro commits
+
+**`W6b` fechou:** o servidor se pronunciou **verde** no commit que a fecha (`242cf06`, 24/25, 0 falhas), e só agora os três itens viraram `✅` — `SURFACE-SIZE-POLICY-ADAPTER-GAP`, `GIVE-UP-BUDGET-ZERO-UNEXERCISED` e o portão `CI-VERDE-W6b`. **Segunda onda do passivo entregue**, das sete que o líder mandou fechar.
+
+**`GFSS-COLOR-ORACLE` — o defeito mais elegante da série, e é primo do da `W6b`.** O teste das 149 cores nomeadas conferia o parser **contra a própria tabela que deveria auditar** (`named_color_at(i)`), com literal escrito à mão só para `red` e `rebeccapurple`. Provava que **o programa concorda consigo mesmo**; um canal errado na tabela passaria feliz.
+
+**Quatro sub-fatias, quatro commits** — a ordem do líder de hoje (*"toda fatia termina com commit"*) valendo na prática, e a atomização é limpa: cada commit toca um grupo de arquivo só (extrator / fixture / oráculo+CMake+correção / comentário+status).
+
+**As três mutações obrigatórias, todas vistas vermelhas antes do verde** (cópia fora da árvore, L-27): canal de `aliceblue` alterado → o oráculo aponta *"doc diz 241 248 255, lookup tem 240 248 255"*; linha apagada da fixture → piso de 148 reprova; nome trocado → a bijeção nome↔fixture reprova. **E o extrator tem autoteste próprio com vermelho provado** em duas cópias sabotadas.
+
+**RE-VERIFICAÇÃO DO ORQUESTRADOR (L-12) — usei um TERCEIRO oráculo, e é a única forma honesta de auditar isto.** O risco desta fatia é circularidade de segundo grau: se a **fixture** estivesse errada, o oráculo compararia a tabela contra um espelho também torto, e tudo passaria. O agente diz ter feito conferência cruzada, mas isso é afirmação dele. **Então conferi valores contra o que eu mesmo sei da especificação**, independente da tabela **e** do extrator:
+
+```
+aliceblue 240 248 255   black 0 0 0         blue 0 0 255      gold 255 215 0
+lime 0 255 0            navy 0 0 128        red 255 0 0       white 255 255 255
+rebeccapurple 102 51 153                    tomato 255 99 71
+```
+
+**Dez de dez corretos**, e a fixture tem **148** linhas de dado — que somadas a `transparent` (tratado à parte, §6.3) dão as 149. A fixture é confiável.
+
+**Duas decisões do agente que eu aprovo e registro:** (1) **não commitou o texto da especificação** — baixou para `/var/tmp`, conferiu a licença (W3C Software and Document License, permissiva) **antes de ler**, e commitou só a fixture extraída, que é dado nosso com proveniência; (2) rodou tudo em container **com o uid do hospedeiro**, evitando por construção o `root:root` que travou o espelho ontem — aprendeu com a armadilha em vez de repeti-la.
+
+**Corrigida a quarta referência podre em dois dias:** o comentário de `named_colors.hpp` dizia que `transparent` está na `§4.2.4`; está na **§6.3**. As outras três foram `asset_load_test.cpp:139`, `egl_context_adapter.hpp:250` e a marca `⛔` de `KEYMAP-LEX`. **A família é sempre a mesma: o texto envelhece e ninguém re-mede ao citar.**
+
+**Lacuna declarada, não contornada:** `GATE-PS-SYNTAX` do espelho continua sem rodar por falta da imagem de PowerShell no cache — ambiente, não fatia, e o agente **não** rodou `docker pull` sem autorização. Cobertura real: `--lint-only` verde e `--sanitizer-only` verde com **107/107** sob ASan/UBSan.

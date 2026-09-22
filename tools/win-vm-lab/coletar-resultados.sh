@@ -149,6 +149,33 @@ _guest_exec_aguardar() {
   return 3
 }
 
+# ROTULO POR CODIGO, NUNCA LISTA DE PROIBICAO NOS CHAMADORES (achado do
+# team-lead, 22/09/2026): os dois chamadores de _guest_exec_aguardar
+# tratavam como erro SO' 1 e 124 - `[ "$rc" -eq 1 ] || [ "$rc" -eq 124 ]` -
+# e o 3 (comando rodou DENTRO do convidado, mas terminou com erro, ex.:
+# `dir` numa pasta que nao existe) passava direto pro resto do codigo,
+# que seguia analisando a saida de um comando que tinha FALHADO. Provado
+# com dublê: `dir` numa pasta inexistente (exitcode=1, err-data=
+# "File Not Found") virava "encontrados=0 coletados=0" - "pasta vazia",
+# quando o fato real era "a listagem falhou" e a mensagem do Windows
+# desaparecia. Mesma familia de CANAL-QUEBRADO-SE-DISFARCA-DE-PRAZO-
+# ESTOURADO: dois fatos (vazio genuino x listagem falhou) escondidos atras
+# do mesmo sinal.
+#
+# CORRECAO: tratar como erro TUDO que nao for 0 (`[ "$rc" -ne 0 ]`), nunca
+# aumentar a lista de codigos aceitos - lista de proibicao esquece o
+# proximo codigo que alguem inventar. Esta funcao so' da' o ROTULO certo
+# para cada codigo, sempre incluindo _GE_ERR (o que o convidado disse) na
+# mensagem - nunca engolido.
+_rotulo_rc_guest_exec() {
+  case "$1" in
+    1) echo "falha ao INICIAR o comando no convidado" ;;
+    124) echo "ESTOUROU o prazo" ;;
+    3) echo "o comando TERMINOU com erro dentro do convidado (codigo de saida do convidado: ${_GE_RC})" ;;
+    *) echo "codigo de retorno desconhecido (${1})" ;;
+  esac
+}
+
 # --- listagem do diretorio de resultados no convidado ------------------------
 # Usa cmd.exe /c dir /b /a-d (so nomes de ARQUIVO, uma linha cada) -- o
 # resultado de EXIT CODE do proprio dir e' ignorado de proposito (Windows
@@ -193,8 +220,8 @@ _dir_listar() {
     "$(jq -n --arg d "$diretorio_win" '["/c","dir","/b","/a-d",$d]')" "$prazo"
   local rc=$?
 
-  if [ "$rc" -eq 1 ] || [ "$rc" -eq 124 ]; then
-    echo "ERRO ao listar '${diretorio_win}' no convidado: ${_GE_ERR}" >&2
+  if [ "$rc" -ne 0 ]; then
+    echo "ERRO: a LISTAGEM de '${diretorio_win}' no convidado FALHOU - $(_rotulo_rc_guest_exec "$rc"). Mensagem do convidado: ${_GE_ERR}" >&2
     return 1
   fi
 
@@ -223,8 +250,8 @@ _hash_remoto() {
   _guest_exec_aguardar "C:\\Windows\\System32\\certutil.exe" \
     "$(jq -n --arg c "$caminho_win" '["-hashfile",$c,"MD5"]')" "$prazo"
   local rc=$?
-  if [ "$rc" -eq 1 ] || [ "$rc" -eq 124 ]; then
-    echo "ERRO: falha ao pedir hash remoto de '${caminho_win}': ${_GE_ERR}" >&2
+  if [ "$rc" -ne 0 ]; then
+    echo "ERRO: o PEDIDO DE HASH remoto de '${caminho_win}' FALHOU - $(_rotulo_rc_guest_exec "$rc"). Mensagem do convidado: ${_GE_ERR}" >&2
     return 1
   fi
 
@@ -590,6 +617,100 @@ selftest_codigos_distintos() {
   return 1
 }
 
+# Achado do team-lead, 22/09/2026, ao varrer TODOS os return/exit do
+# arquivo atras de colisao: _dir_listar e _hash_remoto tratavam como erro
+# SO' rc=1 e rc=124 de _guest_exec_aguardar - o rc=3 (comando RODOU dentro
+# do convidado mas terminou com erro, ex.: `dir` numa pasta que nao
+# existe) passava direto, e o resto do codigo seguia analisando a saida
+# de um comando que tinha FALHADO. Nao era falso verde (ainda saia
+# diferente de zero), mas o DIAGNOSTICO MENTIA: "pasta vazia" em vez de
+# "a listagem falhou", com a mensagem do Windows (err-data) desaparecendo
+# - mesma familia de CANAL-QUEBRADO-SE-DISFARCA-DE-PRAZO-ESTOURADO.
+escrever_duble_virsh_comando_falha() {
+  local stub_dir="$1"
+  cat >"${stub_dir}/virsh" <<'STUB'
+#!/usr/bin/env bash
+set -u
+JSON="${*: -1}"
+EXECUTE=$(echo "$JSON" | jq -r '.execute')
+STATE_DIR="${DUBLE_STATE_DIR:?DUBLE_STATE_DIR nao definido}"
+CENARIO="${DUBLE_FALHA:-listagem}"
+
+case "$EXECUTE" in
+  guest-exec)
+    PATH_ARG=$(echo "$JSON" | jq -r '.arguments.path')
+    case "$PATH_ARG" in
+      *cmd.exe) echo "listar" >"${STATE_DIR}/tipo" ;;
+      *certutil.exe) echo "hash" >"${STATE_DIR}/tipo" ;;
+      *) echo "outro" >"${STATE_DIR}/tipo" ;;
+    esac
+    echo '{"return":{"pid":1}}'
+    ;;
+  guest-exec-status)
+    TIPO=$(cat "${STATE_DIR}/tipo" 2>/dev/null || echo outro)
+    if [ "$TIPO" = "listar" ] && [ "$CENARIO" = "listagem" ]; then
+      # dir numa pasta que NAO EXISTE: o comando RODOU, terminou com erro.
+      ERR_B64=$(printf 'File Not Found' | base64 -w0)
+      printf '{"return":{"exited":true,"exitcode":1,"out-data":"","err-data":"%s"}}\n' "$ERR_B64"
+    elif [ "$TIPO" = "listar" ]; then
+      # cenario "hash": listagem tem de dar CERTO, com um nome valido, para
+      # o fluxo chegar ate o pedido de hash.
+      OUT_B64=$(printf 'resultado.log\r\n' | base64 -w0)
+      printf '{"return":{"exited":true,"exitcode":0,"out-data":"%s","err-data":""}}\n' "$OUT_B64"
+    elif [ "$TIPO" = "hash" ] && [ "$CENARIO" = "hash" ]; then
+      # certutil FALHA (ex.: acesso negado ao arquivo).
+      ERR_B64=$(printf 'Access is denied.' | base64 -w0)
+      printf '{"return":{"exited":true,"exitcode":1,"out-data":"","err-data":"%s"}}\n' "$ERR_B64"
+    else
+      printf '{"return":{"exited":true,"exitcode":0,"out-data":"","err-data":""}}\n'
+    fi
+    ;;
+  *) echo '{"return":{}}' ;;
+esac
+STUB
+  chmod +x "${stub_dir}/virsh"
+}
+
+selftest_diagnostico_falha_convidado() {
+  local work_dir="$1" stub_dir state_dir saida rc ok=1
+
+  stub_dir="${work_dir}/diag-bin"
+  state_dir="${work_dir}/diag-state"
+  mkdir -p "$stub_dir" "$state_dir"
+  escrever_duble_virsh_comando_falha "$stub_dir"
+
+  echo ">>> DIAGNOSTICO 1/2: a LISTAGEM falha dentro do convidado (pasta que nao existe, exitcode=1, 'File Not Found') - esperado: mensagem diz que a listagem FALHOU e mostra 'File Not Found', NUNCA 'nada para coletar' (isso mentiria: a pasta pode ate existir e ter arquivo, so' nao foi possivel saber)"
+  saida="$(PATH="${stub_dir}:$PATH" DUBLE_STATE_DIR="$state_dir" DUBLE_FALHA=listagem coletar_diretorio 'C:\nao\existe' "${work_dir}/diag-destino-a" 8 2 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> codigo obtido: ${rc}"
+  if printf '%s' "$saida" | grep -qi "nada para coletar\|piso de varredura"; then
+    echo "DIAGNOSTICO 1/2 FALHOU: ainda diz 'nada para coletar'/'piso de varredura' quando o fato real e' que a listagem FALHOU."
+    ok=0
+  elif printf '%s' "$saida" | grep -q "FALHOU" && printf '%s' "$saida" | grep -q "File Not Found"; then
+    echo "DIAGNOSTICO 1/2 OK: diz que a listagem FALHOU e mostra a mensagem do convidado ('File Not Found')."
+  else
+    echo "DIAGNOSTICO 1/2 FALHOU: nao diz claramente que a listagem falhou, ou engoliu a mensagem do convidado."
+    ok=0
+  fi
+
+  echo
+  echo ">>> DIAGNOSTICO 2/2: o CERTUTIL (pedido de hash) falha dentro do convidado (exitcode=1, 'Access is denied.') - esperado: mensagem diz que o PEDIDO DE HASH falhou e mostra a mensagem do convidado, nunca confundido com md5 que nao bate"
+  saida="$(PATH="${stub_dir}:$PATH" DUBLE_STATE_DIR="$state_dir" DUBLE_FALHA=hash coletar_diretorio 'C:\Users\glintfx\resultados' "${work_dir}/diag-destino-b" 8 2 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> codigo obtido: ${rc}"
+  if printf '%s' "$saida" | grep -q "PEDIDO DE HASH" && printf '%s' "$saida" | grep -q "Access is denied."; then
+    echo "DIAGNOSTICO 2/2 OK: diz que o pedido de hash FALHOU e mostra a mensagem do convidado ('Access is denied.')."
+  else
+    echo "DIAGNOSTICO 2/2 FALHOU: nao identificou a falha do certutil separada de uma divergencia de md5."
+    ok=0
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
 selftest_e6() {
   local work_dir="$1" stub_dir state_dir saida rc
 
@@ -655,7 +776,7 @@ selftest() {
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
   trap 'rm -rf -- "$work_dir"' RETURN
 
-  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS) -- diretorio de trabalho: ${work_dir} ==="
+  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO) -- diretorio de trabalho: ${work_dir} ==="
   echo
   selftest_e6 "$work_dir" || ok=0
   echo
@@ -665,9 +786,11 @@ selftest() {
   echo
   selftest_codigos_distintos "$work_dir" || ok=0
   echo
+  selftest_diagnostico_falha_convidado "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E6, E8, SEGURANCA e CODIGOS-DISTINTOS se comportaram como esperado."
+    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS e DIAGNOSTICO se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

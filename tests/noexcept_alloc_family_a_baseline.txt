@@ -68,6 +68,8 @@ src/gfss/declaration_value_check.cpp|accepted_keyword_detail_table|string:return
 src/gfss/declaration_value_check.hpp|<fora de funcao>|vector:default-decl
 src/gfss/selector_ast.hpp|<fora de funcao>|vector:default-decl
 src/gfss/selector_parse.cpp|<fora de funcao>|vector:default-decl
+src/gfss/sheet_ast.hpp|<fora de funcao>|vector:default-decl
+src/gfss/sheet_parse.cpp|supported_at_rule_names_joined|string:default-decl
 src/gfss/shorthand_component_split.cpp|split_shorthand_components|vector:default-decl
 src/gfss/shorthand_component_split.cpp|split_shorthand_components|vector:return-local(move-se-sem-NRVO)
 src/gfss/shorthand_expand_result.hpp|<fora de funcao>|vector:default-decl

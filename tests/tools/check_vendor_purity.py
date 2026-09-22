@@ -100,6 +100,32 @@
 # (permission, race) is never pruned by assumption - fail toward
 # scanning it, not toward skipping it.
 #
+# CONTAINMENT RULE (team-lead finding #2 against commit b7a7712, same
+# night, 22/09/2026): presence-only pruning fixed the direct case but
+# missed the NESTED one - `builder/third_party/stb/` with a FORGED
+# `CMakeCache.txt` dropped next to the intruder file. `third_party`
+# (the parent) is correctly never pruned (it matches the vocabulary),
+# but `stb` (the child) matches no vocabulary word of its own, so the
+# presence check alone pruned IT away, and the one file living inside
+# it disappeared with it - universe count still rose (698), verdict
+# still said "nenhum intruso". Fixed in scan_tree() below: no prune of
+# ANY kind (vendor-form match or build-marker presence) is ever
+# evaluated for a directory that is already a descendant of a matched
+# vendor-form ancestor - the vocabulary match, once found, extends to
+# the WHOLE subtree beneath it, unconditionally.
+#
+# THE FAMILY THIS FILE KEEPS ATTRACTING, NAMED SO THE NEXT REVIEWER
+# LOOKS FOR IT ON SIGHT: three times in one evening (the name-prefix
+# build prune, this containment gap, and see also E3-over-E1 above,
+# which is the same shape one layer up) the SAME signature appeared -
+# the universe count (E1) is measured HONESTLY and rises to include
+# the planted file, while the VERDICT still says clean. A rising
+# universe count is not proof of coverage; only the presence of the
+# planted PATH in the violation list is. Any future change to this
+# file's pruning or classification logic has to be checked against
+# this shape specifically: plant something, confirm E1 counted it,
+# THEN confirm the verdict names it - counting is not catching.
+#
 # WHY NOTHING ELSE IS PRUNED BY GENERIC GIT-IGNORE STATUS, ON PURPOSE:
 # a vendor-form directory (E2) or a third-party artifact (E3) is never
 # skipped for being gitignored, even though the plan document's SS3.3
@@ -131,12 +157,15 @@
 #   check_vendor_purity.py <repo-root-directory>
 #   check_vendor_purity.py --selftest
 #
-# --selftest runs the nine controls GODS_LAWS.md L-40, this fatia's
-# plan (SS5.3) and the team-lead's own review (22/09/2026, the fake-
-# build-directory sabotage against commit 016fbad) require: positive,
+# --selftest runs the ten controls GODS_LAWS.md L-40, this fatia's
+# plan (SS5.3) and the team-lead's own review (two rounds, 22/09/2026,
+# against commits 016fbad and b7a7712) require: positive,
 # negative(E2: vendor-form directory), negative(FAKE BUILD DIRECTORY:
 # vendor-form nested under a directory that starts with "build" but
-# holds no CMake marker - the review's own sabotage), negative(E3:
+# holds no CMake marker - the review's FIRST sabotage), negative
+# (FORGED MARKER UNDER A VENDOR-FORM ANCESTOR: a build marker planted
+# two levels deep, inside an already-matched vendor-form directory -
+# the review's SECOND sabotage, against the first fix), negative(E3:
 # binary artifact), negative(E3: submodule marker), empty scan
 # (universe, E1), empty scan (vendor exception vanished, DECISAO
 # AUTONOMA 2), the ESCAPE control (widening the exception is only
@@ -362,6 +391,15 @@ def scan_tree(root):
     parent's dirnames is already in `vendor_dirs` by the time that
     child directory's own files are visited (_is_under_any() below).
 
+    CONTAINMENT RULE (team-lead finding #2, 22/09/2026, this file's
+    header): that "never pruned" promise is not just about the
+    matched directory itself - it extends to EVERY descendant of it,
+    unconditionally. `under_vendor_dir` is computed once per
+    directory, from the SAME ancestor list, and consulted BEFORE any
+    prune decision for that directory's own children - a build marker
+    (forged or real) found inside an already-matched vendor-form
+    subtree prunes nothing.
+
     Returns (vendor_files, artifacts, pruned_build_dirs), all POSIX-
     relative to root, all de-duplicated and sorted.
     """
@@ -372,6 +410,16 @@ def scan_tree(root):
 
     for dirpath, dirnames, filenames in os.walk(root, topdown=True):
         rel_dirpath = _relative_posix(dirpath, root)
+
+        # Computed BEFORE the dirnames loop below, on purpose (team-
+        # lead finding #2 against commit b7a7712, 22/09/2026): the
+        # containment rule has to gate the PRUNE decision for this
+        # directory's own children, not just the later classification
+        # of ITS files. `rel_dirpath` was already resolved by the
+        # PARENT iteration (os.walk visits a directory before its
+        # children), so if a vendor-form ancestor was found on the way
+        # here, it is already in `vendor_dirs`.
+        under_vendor_dir = _is_under_any(rel_dirpath, vendor_dirs)
 
         keep = []
         for name in dirnames:
@@ -387,13 +435,33 @@ def scan_tree(root):
                 keep.append(name)
                 vendor_dirs.append(_join_posix(rel_dirpath, name))
                 continue
+            # CONTAINMENT RULE (team-lead finding #2, 22/09/2026): no
+            # prune of ANY kind applies below a vendor-form ancestor,
+            # build marker or not. A single earlier fix (vendor-form
+            # match wins over the build prune, right above) covered
+            # only the DIRECT child that itself matches the
+            # vocabulary - it did not descend. Reproduced: a forged
+            # `CMakeCache.txt` dropped next to an intruder INSIDE an
+            # already-matched vendor-form directory
+            # (builder/third_party/stb/, with `stb/` itself matching
+            # no vocabulary word) pruned `stb/` away by presence alone,
+            # and the one file that lived there was the whole reason
+            # to look - "698 caminhos varridos ... nenhum intruso",
+            # the exact universe-right-verdict-wrong shape this file's
+            # header already names for the sibling defect this commit
+            # fixes. Once ANY ancestor of the CURRENT directory matched
+            # the vocabulary, every one of ITS descendants is walked
+            # in full, no exceptions, regardless of what marker sits
+            # inside them.
+            if under_vendor_dir:
+                keep.append(name)
+                continue
             if is_build_output_dir(os.path.join(dirpath, name)):
                 pruned_build_dirs.append(_join_posix(rel_dirpath, name))
                 continue
             keep.append(name)
         dirnames[:] = keep
 
-        under_vendor_dir = _is_under_any(rel_dirpath, vendor_dirs)
         for name in filenames:
             rel_path = _join_posix(rel_dirpath, name)
             if under_vendor_dir:
@@ -734,6 +802,70 @@ def selftest_negative_fake_build_dir_control(scratch, capture):
     return ok
 
 
+# Negative control, FORGED MARKER UNDER A VENDOR-FORM ANCESTOR
+# (GODS_LAWS.md L-40 finding #2, team-lead sabotage against commit
+# b7a7712, 22/09/2026): the three legitimate files PLUS an intruder
+# nested TWO levels under a vendor-form directory
+# (builder/third_party/stb/) sharing its own immediate directory with
+# a FORGED CMakeCache.txt - "stb/" itself matches no vocabulary word,
+# so presence-based pruning alone (the b7a7712 fix) would still prune
+# it away, taking the one file living inside it with it. Deliberately
+# nothing else lives under builder/third_party/ in this fixture: if a
+# sibling legitimate file existed there too, the gate would reprove
+# regardless of whether the containment rule worked, and this control
+# would pass by accident (exactly the shape the team-lead's own
+# instructions warn about). Expected: reproves, cites the intruder's
+# exact path despite the forged marker sitting right next to it.
+def selftest_negative_forged_marker_under_vendor_control(scratch, capture):
+    root = os.path.join(scratch, "negative-forged-marker-under-vendor")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    intruder_dir = os.path.join(root, "builder", "third_party", "stb")
+    os.makedirs(intruder_dir, exist_ok=True)
+    with open(os.path.join(intruder_dir, "stb_image.h"), "w", encoding="utf-8") as handle:
+        handle.write("// SPDX-License-Identifier: AGPL-3.0-or-later\nint stb_decode(void);\n")
+    with open(os.path.join(intruder_dir, "CMakeCache.txt"), "w", encoding="utf-8") as handle:
+        handle.write("# fake\n")
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result:
+        print(
+            "selftest: controle NEGATIVO(FORGED-MARKER-UNDER-VENDOR) "
+            "FALHOU (builder/third_party/stb/stb_image.h deveria ter "
+            "sido reprovado mesmo com CMakeCache.txt forjado ao lado)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+
+    ok = True
+    if "builder/third_party/stb/stb_image.h" not in outcome.text or FORM_VENDOR_DIRECTORY not in outcome.text:
+        print(
+            "selftest: controle NEGATIVO(FORGED-MARKER-UNDER-VENDOR) "
+            "FALHOU (reprovou, mas nao citou o caminho exato ou a forma "
+            "- o marcador forjado podou o diretorio e o intruso "
+            "desapareceu junto)",
+            file=sys.stderr,
+        )
+        ok = False
+    for legitimo in KNOWN_VENDOR_FILES:
+        if legitimo in outcome.text:
+            print(
+                f"selftest: controle NEGATIVO(FORGED-MARKER-UNDER-VENDOR) "
+                f"FALHOU (acusou o arquivo legitimo '{legitimo}')",
+                file=sys.stderr,
+            )
+            ok = False
+    if ok:
+        print(
+            "selftest: controle NEGATIVO(FORGED-MARKER-UNDER-VENDOR) OK "
+            "(builder/third_party/stb/stb_image.h citado mesmo com "
+            "CMakeCache.txt forjado no mesmo diretorio - nenhuma poda "
+            "se aplica abaixo de um ancestral de forma vendorizada)"
+        )
+    return ok
+
+
 # Negative control, E3-binary: the three legitimate files PLUS a
 # binary library extension planted OUTSIDE any vendor-form directory
 # (src/core/, an ordinary source directory). Expected: reproves,
@@ -991,6 +1123,7 @@ def selftest_main():
             selftest_positive_control(scratch, capture),
             selftest_negative_vendor_dir_control(scratch, capture),
             selftest_negative_fake_build_dir_control(scratch, capture),
+            selftest_negative_forged_marker_under_vendor_control(scratch, capture),
             selftest_negative_binary_artifact_control(scratch, capture),
             selftest_negative_submodule_control(scratch, capture),
             selftest_empty_universe_control(scratch, capture),

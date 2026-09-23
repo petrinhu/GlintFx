@@ -2700,6 +2700,59 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --sanitizer-only
 
+  # GATE-GL-CROSS-COVERAGE (achado 3 da revisao adversarial de
+  # 23/09/2026, /var/tmp/glintfx-plan/revisao-gl-codegen-host.md secao
+  # 3): antes deste job, CMAKE_CROSSCOMPILING era falso nas CINCO
+  # pernas desta matriz (windows-latest compila NATIVAMENTE, os quatro
+  # alvos Linux tambem) - as quatro vias que GL-CODEGEN-HOST-TOOL
+  # existe para entregar (cmake/GlintfxGlCodegenHostTool.cmake, D-11 de
+  # docs/plano-fecho-w7b.md) nunca eram exercitadas por NENHUMA
+  # execucao automatica, so por comando manual documentado num
+  # relatorio. So Fedora, alvo primario (GODS_LAWS.md L-04) - mesmo
+  # raciocinio que ja isola `lint`/`sanitizer`/`gitleaks` acima/abaixo:
+  # a mecanica de resolucao cruzada nao muda por distro Linux, e nenhum
+  # dos quatro alvos Linux prova algo especifico de distro aqui.
+  #
+  # mingw64-gcc-c++ traz consigo mingw64-filesystem (o pacote que
+  # instala /usr/share/mingw/toolchain-mingw64.cmake), mingw64-gcc,
+  # mingw64-crt, mingw64-headers, mingw64-binutils e
+  # mingw64-winpthreads como dependencias - nenhuma delas muda o que
+  # glintfx linka em producao (GODS_LAWS.md L-07): e toolchain do
+  # AMBIENTE DE BUILD, a mesma categoria que o pacote libasan/libubsan
+  # do job `sanitizer` acima ja e.
+  #
+  # tests/tools/check_gl_codegen_host_cross.sh e quem faz o trabalho de
+  # verdade (configura+builda cruzado de verdade, quatro vias,
+  # comparando por cmp com uma referencia nativa dourada, mais o gate
+  # permanente de regressao do achado critico desta rodada - rebuild
+  # incremental do modo "nested" tem que regenerar o header apos
+  # mudanca de fonte, nunca ficar obsoleto em silencio). Chamado
+  # DIRETAMENTE, nao via `ctest`: o toolchain MinGW e ferramenta de
+  # ambiente especifica do Fedora, a mesma razao pela qual
+  # `lint`/`sanitizer`/`gitleaks` tambem nao rodam via `ctest` nas
+  # outras pernas da matriz.
+  gl-codegen-host-cross:
+    name: GL-CODEGEN-HOST-TOOL (Fedora - construcao cruzada MinGW, 4 vias)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    container: fedora:latest
+    steps:
+      - name: Instalar toolchain (nativo + cruzado MinGW)
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel libglvnd-devel mingw64-gcc-c++
+
+      - uses: actions/checkout@v7
+
+      - name: check_gl_codegen_host_cross.sh (Ninja)
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          export TMPDIR=/var/tmp
+          tests/tools/check_gl_codegen_host_cross.sh \
+            "$GITHUB_WORKSPACE" /usr/bin/c++ /usr/share/mingw/toolchain-mingw64.cmake Ninja
+
   # LACUNA 1 (GODS_LAWS.md L-04, medido pelo lider antes desta fatia):
   # o job `sanitizer` acima so roda no Fedora/GNU-Clang - MSVC nunca
   # tinha sido exercitado sob nenhum sanitizer. GlintfxCompileOptions.cmake

@@ -256,32 +256,64 @@ def selftest_positive_control(scratch, capture):
     return False
 
 
+# The TWO installed-file shapes a real leak could hide in (mirrors
+# _INSTALLED_SUFFIXES above) - GATE-GL-PC-COVERAGE (achado do
+# orquestrador, ESTENDIDO pela revisao adversarial de 23/09/2026:
+# antes desta fatia, selftest_negative_control() only ever mutated the
+# .cmake copy - _copy_real_templates_as_fixture_install() copies BOTH
+# real templates, but nothing ever planted a token into the .pc one,
+# so a regression that broke leak-detection SPECIFICALLY for .pc files
+# (a typo'd suffix, an accidental exclusion, a refactor that only
+# walks .cmake) would pass --selftest clean. Measured live by the
+# revisor: narrowing _INSTALLED_SUFFIXES to (".cmake",) alone still
+# left all three controls green.
+_PLANTED_TARGETS = (
+    ("cmake", os.path.join("lib", "cmake", "glintfx", "glintfx-config.cmake")),
+    ("pc", os.path.join("lib", "pkgconfig", "glintfx.pc")),
+)
+
+
 # Negative control (the estreia vermelha docs/plano-fecho-w7b.md's own
 # H-5 row names verbatim: "plantar a variavel no gabarito do config
-# numa copia reprova"): for EACH forbidden token, plant it into a
-# FRESH copy of the real glintfx-config.cmake.in TEMPLATE and confirm
+# numa copia reprova"): for EACH forbidden token, AND for EACH of the
+# two installed-file shapes above, plant it into a FRESH copy of the
+# real TEMPLATE (glintfx-config.cmake.in or glintfx.pc.in) and confirm
 # the gate reproves, citing the mutated fixture path and the exact
-# token.
+# token - one file mutated at a time, so a leak-detection bug specific
+# to ONE of the two shapes cannot hide behind the other shape's own,
+# unrelated correctness (the same isolation principle H-1's own
+# per-token loop already used, now crossed with per-file-shape too).
 def selftest_negative_control(scratch, capture):
     ok = True
-    for token in FORBIDDEN_TOKENS:
-        root = os.path.join(scratch, f"negative_{token}")
-        _copy_real_templates_as_fixture_install(root)
-        planted_path = os.path.join(root, "lib", "cmake", "glintfx", "glintfx-config.cmake")
-        with open(planted_path, "a", encoding="utf-8") as handle:
-            handle.write(f"\n# vazamento plantado: {token}=/algum/caminho\n")
+    for suffix_label, relative_path in _PLANTED_TARGETS:
+        for token in FORBIDDEN_TOKENS:
+            root = os.path.join(scratch, f"negative_{suffix_label}_{token}")
+            _copy_real_templates_as_fixture_install(root)
+            planted_path = os.path.join(root, relative_path)
+            with open(planted_path, "a", encoding="utf-8") as handle:
+                handle.write(f"\n# vazamento plantado: {token}=/algum/caminho\n")
 
-        outcome = capture(lambda root=root: check_gl_codegen_host_leak(root))
-        if outcome.result:
-            print(f"selftest: controle NEGATIVO FALHOU (token '{token}' plantado nao foi pego)", file=sys.stderr)
-            ok = False
-        elif token not in outcome.text:
-            print(f"selftest: controle NEGATIVO FALHOU (reprovou, mas nao citou o token '{token}')", file=sys.stderr)
-            print(outcome.text, file=sys.stderr)
-            ok = False
+            outcome = capture(lambda root=root: check_gl_codegen_host_leak(root))
+            if outcome.result:
+                print(
+                    f"selftest: controle NEGATIVO FALHOU ({suffix_label}: token '{token}' plantado nao foi pego)",
+                    file=sys.stderr,
+                )
+                ok = False
+            elif token not in outcome.text:
+                print(
+                    f"selftest: controle NEGATIVO FALHOU ({suffix_label}: reprovou, mas nao citou o token '{token}')",
+                    file=sys.stderr,
+                )
+                print(outcome.text, file=sys.stderr)
+                ok = False
 
     if ok:
-        print(f"selftest: controle NEGATIVO OK ({len(FORBIDDEN_TOKENS)} token(s) plantado(s), todos pegos)")
+        total = len(_PLANTED_TARGETS) * len(FORBIDDEN_TOKENS)
+        print(
+            f"selftest: controle NEGATIVO OK ({total} plantio(s) em {len(_PLANTED_TARGETS)} "
+            "formato(s) de arquivo instalado, todos pegos)"
+        )
     return ok
 
 

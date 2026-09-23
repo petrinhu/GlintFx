@@ -87,6 +87,30 @@ set(GLINTFX_GL_FUNCTIONS_SOURCE "${GLINTFX_GENERATED_RENDER_DIR}/gl_functions.cp
 function(glintfx_setup_nested_gl_codegen_host_build out_tool_path_var out_depend_target_var)
     set(_nested_bin "${PROJECT_BINARY_DIR}/gl-codegen-host-nested-build")
 
+    # Computed BEFORE add_custom_target() below (not after, as this
+    # function's first draft had it) so it can be passed as that
+    # target's own BYPRODUCTS - GATE-GL-NESTED-STALE (achado critico da
+    # revisao adversarial de 23/09/2026, reproduzido com mutacao de
+    # fonte real: um rebuild incremental deste alvo RECOMPILAVA e
+    # RELINKAVA o binario aninhado, mas gl_functions.hpp/.cpp ficavam
+    # com o texto ANTIGO, sem erro nenhum - tests/tools/
+    # check_gl_codegen_host_cross.sh, funcao
+    # assert_nested_incremental_rebuild_regenerates(), e o gate
+    # permanente que prova que isto NAO volta a acontecer).
+    #
+    # CMAKE_HOST_WIN32, NOT WIN32 (bug caught live, H-3's own first red
+    # run): WIN32 reflects the OUTER, cross-compiling configuration's
+    # TARGET (true here, we are cross-building FOR Windows) - the
+    # nested build below is never cross-compiled, it always targets
+    # THIS machine, so its own executable only gets a .exe suffix when
+    # the HOST this configure is running on is Windows, which
+    # CMAKE_HOST_WIN32 is the one variable that actually says.
+    if(CMAKE_HOST_WIN32)
+        set(_nested_tool_path "${_nested_bin}/tools/gl_registry_codegen/gl_registry_codegen.exe")
+    else()
+        set(_nested_tool_path "${_nested_bin}/tools/gl_registry_codegen/gl_registry_codegen")
+    endif()
+
     if(NOT TARGET glintfx_gl_codegen_host_nested)
         # CC/CXX cleared for BOTH the nested configure and the nested
         # build step (D-11: "variaveis de ambiente CC/CXX do cruzado
@@ -118,6 +142,25 @@ function(glintfx_setup_nested_gl_codegen_host_build out_tool_path_var out_depend
         # that DEPENDS on this one (below) inherits that same
         # always-rebuild behavior, because a dependency on a
         # never-up-to-date target is itself never up to date.
+        #
+        # BYPRODUCTS "${_nested_tool_path}" (GATE-GL-NESTED-STALE, fix
+        # for the achado critico above): this is what makes "always
+        # reruns" above actually REACH the file glintfx_generate_gl_
+        # functions()'s "nested" branch depends on. Without it, this
+        # target has no declared OUTPUT and no declared BYPRODUCTS, so
+        # Ninja/Make have no file to associate with it - a downstream
+        # add_custom_command() that names this TARGET in its own
+        # DEPENDS gets an order-only edge ("||" in the emitted
+        # build.ninja: run this before, never "and rebuild me if its
+        # own output changed"). BYPRODUCTS marks _nested_tool_path
+        # GENERATED and ties it to this target's build edge, so a
+        # downstream DEPENDS on the PATH (not the target name) becomes
+        # a REAL file dependency: Ninja's own restat semantics for
+        # custom commands then correctly propagate "this nested build
+        # reran AND its output's mtime moved" into "the header this
+        # tool feeds is stale too" - exactly the ExternalProject_Add()
+        # mechanism GODS_LAWS.md L-07 forbids importing, spelled out by
+        # hand with the plain primitive it is built on top of.
         add_custom_target(glintfx_gl_codegen_host_nested
             COMMAND "${CMAKE_COMMAND}" -E env --unset=CC --unset=CXX
                 "${CMAKE_COMMAND}"
@@ -131,22 +174,10 @@ function(glintfx_setup_nested_gl_codegen_host_build out_tool_path_var out_depend
             COMMAND "${CMAKE_COMMAND}" -E env --unset=CC --unset=CXX
                 "${CMAKE_COMMAND}" --build "${_nested_bin}" --target gl_registry_codegen
             COMMENT "gl_registry_codegen (nested native build): configuring and building the HOST tool"
+            BYPRODUCTS "${_nested_tool_path}"
             USES_TERMINAL
             VERBATIM
         )
-    endif()
-
-    # CMAKE_HOST_WIN32, NOT WIN32 (bug caught live, H-3's own first red
-    # run): WIN32 reflects the OUTER, cross-compiling configuration's
-    # TARGET (true here, we are cross-building FOR Windows) - the
-    # nested build below is never cross-compiled, it always targets
-    # THIS machine, so its own executable only gets a .exe suffix when
-    # the HOST this configure is running on is Windows, which
-    # CMAKE_HOST_WIN32 is the one variable that actually says.
-    if(CMAKE_HOST_WIN32)
-        set(_nested_tool_path "${_nested_bin}/tools/gl_registry_codegen/gl_registry_codegen.exe")
-    else()
-        set(_nested_tool_path "${_nested_bin}/tools/gl_registry_codegen/gl_registry_codegen")
     endif()
 
     set("${out_tool_path_var}" "${_nested_tool_path}" PARENT_SCOPE)
@@ -214,10 +245,29 @@ function(glintfx_generate_gl_functions)
         # up and hands back the path the finished binary lands at, plus
         # the nested build target name to order against.
         glintfx_setup_nested_gl_codegen_host_build(_nested_tool_path _nested_depend_target)
+        # DEPENDS on _nested_tool_path (the BYPRODUCTS file path), NOT
+        # _nested_depend_target (the bare target name) - GATE-GL-
+        # NESTED-STALE, the fix for this fatia's achado critico
+        # (revisao adversarial de 23/09/2026): naming the TARGET here
+        # produces an order-only edge ("run the nested build before
+        # this", never "and regenerate if its output changed"), which
+        # is exactly how a rebuilt-but-unchanged-header slipped past
+        # rc=0 with no warning. Naming the PATH is the real file
+        # dependency Ninja/Make can restat against - the same shape
+        # PATH 2 (emulator) above already uses correctly (DEPENDS
+        # names the gl_registry_codegen TARGET there too, but that
+        # target has a real OUTPUT/artifact of its own, unlike the
+        # bare add_custom_target() this nested path is built on).
+        # _nested_depend_target is still passed as a DEPENDS entry
+        # alongside the path: BYPRODUCTS ties the path to that target's
+        # build edge, but keeping the target name too costs nothing and
+        # documents the ordering explicitly for a reader who has not
+        # read glintfx_setup_nested_gl_codegen_host_build()'s own
+        # comment above.
         add_custom_command(
             OUTPUT "${GLINTFX_GL_FUNCTIONS_HEADER}" "${GLINTFX_GL_FUNCTIONS_SOURCE}"
             COMMAND "${_nested_tool_path}" ${_glintfx_codegen_args}
-            DEPENDS "${GLINTFX_GL_XML_PATH}" "${_nested_depend_target}"
+            DEPENDS "${GLINTFX_GL_XML_PATH}" "${_nested_tool_path}" "${_nested_depend_target}"
             COMMENT "gl_registry_codegen (nested native build): generating GL 3.3 core loader"
             VERBATIM
         )

@@ -2463,6 +2463,45 @@ def selftest_oracle_build_parent_map(scratch, capture):
     return ok, 1
 
 
+def _o28_raising_control(scratch, capture):
+    """Controle SINTETICO que so' existe pra alimentar o META-controle
+    O-28 - NUNCA registrado em `_SELFTEST_ORACLE_GROUPS`. Levanta de
+    proposito, simulando um controle futuro que esquece um `next()`
+    sem default ou um `try/except` faltando (a mesma classe de defeito
+    de O-20/O-22/O-23/O-27)."""
+    del scratch, capture
+    raise RuntimeError("excecao sintetica do meta-controle O-28")
+
+
+def selftest_oracle_o28_executor_catches_exceptions(scratch, capture):
+    """O-28 (achado da re-revisao independente, 23/09/2026, QUARTA
+    ocorrencia de "explode em vez de reprova limpo" - O-20/O-22/O-23/
+    O-27): prova que `_run_one_selftest_group()` - o EXECUTOR que
+    `selftest_main()` usa pra CADA controle - captura QUALQUER excecao
+    e reprova nomeando a FUNCAO, sem traceback cru, POR CONSTRUCAO
+    (vale pra controles futuros tambem, nunca testados individualmente
+    de novo). Roda `_o28_raising_control` (que sempre levanta) por
+    baixo do MESMO executor, capturando stdout/stderr."""
+    del capture
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        result_ok, result_count = _run_one_selftest_group(scratch, None, (_o28_raising_control,))
+    printed = buffer.getvalue()
+    ok = (
+        result_ok is False
+        and result_count == 1
+        and "_o28_raising_control FALHOU" in printed
+        and "excecao inesperada: RuntimeError" in printed
+        and "Traceback" not in printed
+    )
+    label = "selftest: O-28"
+    print(f"{label} OK" if ok else f"{label} FALHOU (printed={printed!r})", file=(sys.stdout if ok else sys.stderr))
+    return ok, 1
+
+
 _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o0_real_executor_guard,),
     (selftest_oracle_positive_control,),
@@ -2496,6 +2535,7 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o27_msvc_prefix_anchor,),
     (selftest_oracle_o17_unknown_dialect_named,),
     (selftest_oracle_build_parent_map,),
+    (selftest_oracle_o28_executor_catches_exceptions,),
 )
 
 
@@ -2519,6 +2559,27 @@ def _make_capture():
     return capture
 
 
+def _run_one_selftest_group(scratch, capture, group):
+    """docs/plano-layers-l5-adendo-calibracao.md, achado da re-revisao
+    independente (23/09/2026, QUARTA ocorrencia da mesma classe de
+    defeito - O-20/O-22/O-23/O-27 todos "explodiam" com excecao crua
+    em vez de reprovar NOMEANDO o controle, GODS_LAWS.md L-27): conserto
+    ESTRUTURAL, no EXECUTOR, nao controle por controle - qualquer
+    excecao levantada por QUALQUER controle (previsto ou nao, deste
+    ou de um controle FUTURO) vira reprovacao LIMPA, nomeando a
+    FUNCAO do controle, nunca um traceback cru. Prova: O-28 (meta-
+    controle, roda um controle sintetico que sempre levanta)."""
+    fn = group[0]
+    try:
+        return fn(scratch, capture, *group[1:])
+    except Exception as exc:  # captura DELIBERADA - ver docstring
+        print(
+            f"selftest: {fn.__name__} FALHOU (excecao inesperada: {type(exc).__name__}: {exc})",
+            file=sys.stderr,
+        )
+        return False, 1
+
+
 def selftest_main():
     """GODS_LAWS.md L-45: marca `_SELFTEST_MODE_ACTIVE` durante a rodada
     inteira, em cima da guarda do proprio executor real (defesa em
@@ -2528,7 +2589,7 @@ def selftest_main():
     capture = _make_capture()
     _SELFTEST_MODE_ACTIVE = True
     try:
-        outcomes = [group[0](scratch, capture, *group[1:]) for group in _SELFTEST_ORACLE_GROUPS]
+        outcomes = [_run_one_selftest_group(scratch, capture, group) for group in _SELFTEST_ORACLE_GROUPS]
         results = [ok for ok, _count in outcomes]
         total_cases = sum(count for _ok, count in outcomes)
         if not all(results):

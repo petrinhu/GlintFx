@@ -240,6 +240,27 @@ bounded_output_wait_test|windows|nenhum|SEM-PENDENCIA
 # ganhou o atomo que faltava no link; esta e' a unica real.
 flush_retry_policy_test|windows|nenhum|SEM-PENDENCIA
 
+# incoming_poll_outcome_test (tests/incoming_poll_outcome_test.cpp,
+# tests/CMakeLists.txt, if(UNIX)) prova classify_incoming_poll() (src/
+# platform/wayland/incoming_poll_outcome.hpp) - o atomo puro que decide,
+# a partir do retorno bruto de um `::poll()` POSIX (int poll_result,
+# short revents), o que fazer no lado LEITURA da conexao (CONT-WARMUP
+# C-2, docs/plano-fecho-w7b.md D-10, GODS_LAWS.md L-17/L-20) - o gemeo
+# de leitura do atomo de escrita ja registrado nas duas entradas acima.
+# MESMA ausencia, MESMO motivo, um nivel abaixo do lado leitura em vez
+# do lado escrita: pump_events() do Windows (src/platform/win32/
+# display_adapter.cpp, win32_display_adapter::pump_events()) drena a
+# fila de mensagens via PeekMessageW(..., PM_REMOVE), que nunca produz
+# um par (poll_result, revents) porque nao existe `::poll()` nenhum
+# naquele caminho - toda a entrega de evento do Win32 e' por fila de
+# mensagens do sistema, nunca por um descritor Unix sondado com poll(2)
+# (mesma varredura de src/platform/win32/ ja citada acima: zero
+# ocorrencias de `poll(`/`select(`). Sem o par de entrada, nao ha
+# "decisao sobre esses valores" a testar do lado Windows - a ausencia
+# e' consequencia direta e permanente da ausencia de poll(2) naquela
+# API, nao um caso novo a decidir.
+incoming_poll_outcome_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do

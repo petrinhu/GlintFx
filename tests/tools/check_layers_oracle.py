@@ -2368,6 +2368,35 @@ def selftest_oracle_o26_include_dirs_read_and_remapped(scratch, capture):
     return ok, 1
 
 
+_O27_MSVC_PREFIX = "Note: including file:"
+_SYNTHETIC_O27_MID_LINE_NOISE = (
+    f"{_O27_MSVC_PREFIX} d:\\proj\\src\\core\\sentinela_projeto.hpp\n"
+    f"{_O27_MSVC_PREFIX}  d:\\msvc\\include\\cstdint\n"
+    f"  aviso do compilador que so' MENCIONA \"{_O27_MSVC_PREFIX}\" no MEIO da linha, nao no inicio\n"
+    f"{_O27_MSVC_PREFIX}  d:\\msvc\\include\\cstddef\n"
+)
+
+
+def selftest_oracle_o27_msvc_prefix_anchor(scratch, capture):
+    """O-27 (achado da revisao independente, 23/09/2026, M-REV-2): o
+    leitor do `/showIncludes` reconhece o prefixo SO' NO INICIO da
+    linha (`line.startswith`, nunca `learned_prefix in line`) - uma
+    linha que so' MENCIONA o texto do prefixo no MEIO (ex.: um
+    diagnostico do compilador citando a propria mensagem como exemplo)
+    NAO pode virar no, e a leitura continua normal depois dela."""
+    del scratch, capture
+    nodes = parse_msvc_showincludes_tree(_SYNTHETIC_O27_MID_LINE_NOISE, _O27_MSVC_PREFIX)
+    expected = [
+        (1, "d:\\proj\\src\\core\\sentinela_projeto.hpp"),
+        (2, "d:\\msvc\\include\\cstdint"),
+        (2, "d:\\msvc\\include\\cstddef"),
+    ]
+    ok = nodes == expected
+    label = "selftest: O-27"
+    print(f"{label} OK" if ok else f"{label} FALHOU (nodes={nodes!r})", file=(sys.stdout if ok else sys.stderr))
+    return ok, 1
+
+
 def selftest_oracle_o17_unknown_dialect_named(scratch, capture):
     """O-17: dialeto desconhecido (ex.: "Intel") -> reprova, NOMEADO -
     nunca cai no GNU por omissao (M-O17)."""
@@ -2429,6 +2458,7 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o15_named_counts_add_up,),
     (selftest_oracle_o16_flags_family_closed,),
     (selftest_oracle_o26_include_dirs_read_and_remapped,),
+    (selftest_oracle_o27_msvc_prefix_anchor,),
     (selftest_oracle_o17_unknown_dialect_named,),
     (selftest_oracle_build_parent_map,),
 )

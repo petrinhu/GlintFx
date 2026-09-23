@@ -23,17 +23,42 @@
 #   - tests/parity_exceptions.txt: AUSENCIAS aceitas (o par nao
 #     existe no sistema que falta, com um motivo e um item de
 #     TODO.md - ou o sentinela SEM-PENDENCIA quando a ausencia e
-#     permanente por desenho).
+#     permanente por desenho). Um quinto campo opcional,
+#     "PROVA-PARCIAL=<nome_do_teste_gemeo>", declara que o gemeo
+#     citado no quarto campo (gemeo) EXISTE como ctest de verdade do
+#     lado que falta, mas so prova uma parte (ex.: compila limpo, nao
+#     executa a mutacao real) - o nome apos "PROVA-PARCIAL=" e
+#     conferido por maquina contra o inventario do sistema declarado
+#     em missing_on, nunca aceito de leitura humana (PARITY-ALIAS-
+#     HYGIENE, D10, 23/09/2026).
 #   - tests/parity_aliases.txt: PRESENCAS sob nome diferente (o par
 #     existe nos dois lados, mecanismo diferente, mesmo nome logico
 #     nao) - nunca checado contra TODO.md, porque nao ha "concluido
-#     sem par" possivel quando o par ja existe dos dois lados.
+#     sem par" possivel quando o par ja existe dos dois lados. Um
+#     terceiro campo opcional, "bilateral=<motivo>", declara que o
+#     nome do lado "exclusivo" do par TAMBEM roda no outro sistema -
+#     sem essa declaracao o portao reprova (PARITY-ALIAS-HYGIENE, D8,
+#     23/09/2026: "reprovar salvo declaracao", nunca so avisar).
 #   - TODO.md: usado so para ler o Status (coluna 9) da linha cujo ID
 #     (coluna 2) uma excecao cita - a REGRA que da nome a este portao:
 #     "excecao que aponta para item marcado como concluido reprova,
 #     porque e exatamente a regra 'concluido sem par'" (verbatim do
 #     CTO, TODO.md). Uma excecao esquecida depois que o item fechou e
 #     o sintoma exato que motivou esta fatia.
+#
+# HIGIENE DA TABELA DE APELIDOS E DE EXCECOES (PARITY-ALIAS-HYGIENE,
+# TODO.md W7-C, 23/09/2026): as duas tabelas acima eram checadas so
+# quanto USO (um apelido/excecao cobre uma lacuna real hoje), nunca
+# quanto a VERDADE DO PROPRIO REGISTRO - um apelido cujo nome nao
+# existe em inventario nenhum (teste renomeado ou apagado, ninguem
+# limpou a linha) passava calado, e o mesmo valia para uma excecao
+# cujo par ja fechou ou cujo teste sumiu dos dois lados. GODS_LAWS.md
+# L-40 exige o piso de varredura: toda execucao real imprime "N
+# apelidos, M mortos, K bilaterais declarados, J bilaterais sem
+# declaracao" e "N excecoes, M mortas", e reprova em M>0 (apelido
+# morto), J>0 (bilateral sem declaracao) e M>0 (excecao morta) -
+# gemeo direto da GODS_LAWS.md L-17 (o mesmo defeito, o mesmo remedio,
+# nos dois lados da tabela).
 #
 # LIMITACAO DECLARADA (para quem for confiar neste portao ler ANTES de
 # confiar, GODS_LAWS.md L-40: um portao vendido como mais forte do que
@@ -192,14 +217,8 @@ def parse_inventory_text(text):
     return names
 
 
-def _strip_pipe_fields(line, expected_fields, source_label):
-    parts = [p.strip() for p in line.split("|")]
-    if len(parts) != expected_fields:
-        fail(
-            f"{source_label}: linha malformada (esperava {expected_fields} campos "
-            f"separados por '|', achou {len(parts)}): {line!r}"
-        )
-    return parts
+_PROVA_PARCIAL_PREFIX = "PROVA-PARCIAL="
+_BILATERAL_PREFIX = "bilateral="
 
 
 def parse_exceptions_text(text, source_label="tests/parity_exceptions.txt"):
@@ -208,14 +227,41 @@ def parse_exceptions_text(text, source_label="tests/parity_exceptions.txt"):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        test_name, missing_on, gemeo, item = _strip_pipe_fields(line, 4, source_label)
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) == 4:
+            test_name, missing_on, gemeo, item = parts
+            prova_parcial_gemeo = None
+        elif len(parts) == 5:
+            test_name, missing_on, gemeo, item, quinto = parts
+            if not quinto.startswith(_PROVA_PARCIAL_PREFIX):
+                fail(
+                    f"{source_label}: quinto campo tem de comecar com "
+                    f"{_PROVA_PARCIAL_PREFIX!r} (achou {quinto!r}): {line!r}"
+                )
+            prova_parcial_gemeo = quinto[len(_PROVA_PARCIAL_PREFIX):].strip()
+            if not prova_parcial_gemeo:
+                fail(
+                    f"{source_label}: {_PROVA_PARCIAL_PREFIX!r} exige o nome do teste "
+                    f"gemeo, nao vazio: {line!r}"
+                )
+        else:
+            fail(
+                f"{source_label}: linha malformada (esperava 4 ou 5 campos separados "
+                f"por '|', achou {len(parts)}): {line!r}"
+            )
         if missing_on not in SISTEMAS_VALIDOS:
             fail(
                 f"{source_label}: sistema_onde_falta invalido {missing_on!r} para "
                 f"{test_name!r} (esperado 'linux' ou 'windows')"
             )
         exceptions.append(
-            {"test_name": test_name, "missing_on": missing_on, "gemeo": gemeo, "item": item}
+            {
+                "test_name": test_name,
+                "missing_on": missing_on,
+                "gemeo": gemeo,
+                "item": item,
+                "prova_parcial_gemeo": prova_parcial_gemeo,
+            }
         )
     return exceptions
 
@@ -226,8 +272,35 @@ def parse_aliases_text(text, source_label="tests/parity_aliases.txt"):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        linux_name, windows_name = _strip_pipe_fields(line, 2, source_label)
-        aliases.append((linux_name, windows_name))
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) == 2:
+            linux_name, windows_name = parts
+            bilateral_reason = None
+        elif len(parts) == 3:
+            linux_name, windows_name, terceiro = parts
+            if not terceiro.startswith(_BILATERAL_PREFIX):
+                fail(
+                    f"{source_label}: terceiro campo tem de comecar com "
+                    f"{_BILATERAL_PREFIX!r} (achou {terceiro!r}): {line!r}"
+                )
+            bilateral_reason = terceiro[len(_BILATERAL_PREFIX):].strip()
+            if not bilateral_reason:
+                fail(
+                    f"{source_label}: {_BILATERAL_PREFIX!r} exige um motivo, nao vazio: "
+                    f"{line!r}"
+                )
+        else:
+            fail(
+                f"{source_label}: linha malformada (esperava 2 ou 3 campos separados "
+                f"por '|', achou {len(parts)}): {line!r}"
+            )
+        aliases.append(
+            {
+                "linux_name": linux_name,
+                "windows_name": windows_name,
+                "bilateral_reason": bilateral_reason,
+            }
+        )
     return aliases
 
 
@@ -293,7 +366,9 @@ def parse_todo_status_text(text):
 def apply_aliases(linux_only, windows_only, linux_inventory, windows_inventory, aliases):
     linux_to_win = {}
     win_to_linux = {}
-    for linux_name, windows_name in aliases:
+    for alias in aliases:
+        linux_name = alias["linux_name"]
+        windows_name = alias["windows_name"]
         linux_to_win.setdefault(linux_name, set()).add(windows_name)
         win_to_linux.setdefault(windows_name, set()).add(linux_name)
 
@@ -314,6 +389,102 @@ def apply_aliases(linux_only, windows_only, linux_inventory, windows_inventory, 
         remaining_windows_only.add(name)
 
     return remaining_linux_only, remaining_windows_only
+
+
+# PARITY-ALIAS-HYGIENE (a), TODO.md W7-C, GODS_LAWS.md L-17/L-40:
+# um apelido MORTO e uma linha cuja dupla de nomes nao aparece em
+# NENHUM inventario (nem Linux, nem Windows) - o teste que ele
+# apontava foi renomeado ou apagado, e ninguem limpou tests/
+# parity_aliases.txt. apply_aliases() acima nunca pega isto porque so
+# olha para os nomes que JA sao candidatos a lacuna (linux_only/
+# windows_only); um apelido morto nunca chega la, porque nenhum dos
+# dois lados dele esta em inventario nenhum para comecar - por isso a
+# checagem precisa iterar a TABELA DE APELIDOS diretamente, nao os
+# conjuntos de lacuna.
+#
+# PARITY-ALIAS-HYGIENE (b), D8: um apelido BILATERAL e uma linha cujo
+# nome do lado "exclusivo" TAMBEM roda no outro sistema (o parceiro
+# nao e exclusivo de lado nenhum - ex.: dep_zero_binary_test roda
+# incondicional, nos dois sistemas, mas o par declara windows como se
+# fosse so dele). Nao esconde cobertura (o outro lado tem MAIS, nunca
+# menos), mas fere a semantica que o cabecalho do arquivo declara -
+# por isso reprova SALVO quando a linha traz o terceiro campo
+# "bilateral=<motivo>" (D8: "reprovar salvo declaracao", nunca so
+# avisar - a licao do ESLint #18665).
+def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
+    combined_inventory = linux_inventory | windows_inventory
+    dead = []
+    bilateral_declared = []
+    bilateral_undeclared = []
+    for alias in aliases:
+        linux_name = alias["linux_name"]
+        windows_name = alias["windows_name"]
+        if linux_name not in combined_inventory and windows_name not in combined_inventory:
+            dead.append(alias)
+            continue
+        is_bilateral = linux_name in windows_inventory or windows_name in linux_inventory
+        if not is_bilateral:
+            continue
+        if alias["bilateral_reason"]:
+            bilateral_declared.append(alias)
+        else:
+            bilateral_undeclared.append(alias)
+    return dead, bilateral_declared, bilateral_undeclared
+
+
+# PARITY-ALIAS-HYGIENE (c), D9 - gemeo direto do apelido morto acima
+# aplicado a tests/parity_exceptions.txt (GODS_LAWS.md L-17: o mesmo
+# defeito, o mesmo remedio, no outro lado da tabela). Uma excecao e
+# MORTA de duas formas: (1) o teste que ela cita nao existe em
+# inventario nenhum (renomeado/apagado, orfa); (2) o teste que ela
+# cita ja existe TAMBEM do lado declarado "onde falta" - a lacuna
+# fechou e ninguem apagou a linha (a mesma regra "concluido sem par"
+# que validate_exceptions ja aplica via TODO.md, aqui aplicada
+# diretamente contra o inventario real, que e mais forte: pega mesmo
+# quando ninguem lembrou de marcar o item como Concluido).
+def compute_exception_hygiene(exceptions, linux_inventory, windows_inventory):
+    combined_inventory = linux_inventory | windows_inventory
+    dead = []
+    for exc in exceptions:
+        test_name = exc["test_name"]
+        missing_side_inventory = (
+            windows_inventory if exc["missing_on"] == "windows" else linux_inventory
+        )
+        if test_name not in combined_inventory:
+            dead.append(exc)
+            continue
+        if test_name in missing_side_inventory:
+            dead.append(exc)
+    return dead
+
+
+# PARITY-ALIAS-HYGIENE (d), D10: a forma PROVA-PARCIAL so e honesta
+# quando o gemeo que ela cita EXISTE de verdade, como ctest
+# registrado, no inventario do sistema declarado em missing_on - a
+# mesma disciplina que compute_alias_hygiene/compute_exception_
+# hygiene aplicam: nunca aceitar de leitura humana o que da para
+# conferir por maquina (GODS_LAWS.md L-40). Sem essa conferencia, a
+# forma PROVA-PARCIAL seria so um jeito novo de calar o portao com
+# prosa nunca verificada - exatamente o defeito que tests/
+# parity_exceptions.txt:317 (gpu_kind_report_smoke) tem hoje, citando
+# um ARQUIVO-FONTE (wgl_context_adapter.cpp), nunca um nome de ctest -
+# essa linha continua como excecao comum ate ganhar um gemeo de
+# verdade (D10: "se nao existir, a linha e uma ausencia e fica como
+# esta").
+def validate_prova_parcial(exceptions, linux_inventory, windows_inventory):
+    errors = []
+    for exc in exceptions:
+        gemeo_nome = exc.get("prova_parcial_gemeo")
+        if gemeo_nome is None:
+            continue
+        target_inventory = windows_inventory if exc["missing_on"] == "windows" else linux_inventory
+        if gemeo_nome not in target_inventory:
+            errors.append(
+                f"{exc['test_name']}: excecao marca PROVA-PARCIAL com gemeo {gemeo_nome!r}, "
+                f"mas esse nome nao existe no inventario {exc['missing_on']} (gemeo nao "
+                "conferido por maquina - GODS_LAWS.md L-40)"
+            )
+    return errors
 
 
 # A regra que da nome ao portao: uma excecao cujo item aponta para
@@ -350,10 +521,12 @@ def validate_exceptions(exceptions, todo_status):
 
 
 # O veredicto inteiro, como uma lista de erros - lista vazia significa
-# que o portao passa. Reune os tres controles que --selftest exige
-# provar em vermelho: piso de varredura vazia (GODS_LAWS.md L-40),
-# excecao invalida (validate_exceptions acima), e lacuna sem excecao
-# registrada.
+# que o portao passa. Reune os controles que --selftest exige provar
+# em vermelho: piso de varredura vazia (GODS_LAWS.md L-40), excecao
+# invalida (validate_exceptions acima), lacuna sem excecao
+# registrada, e a higiene das duas tabelas acrescentada por PARITY-
+# ALIAS-HYGIENE (apelido morto, apelido bilateral sem declaracao,
+# excecao morta, PROVA-PARCIAL com gemeo nao conferido).
 def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo_status):
     errors = []
 
@@ -380,6 +553,31 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
     )
 
     errors.extend(validate_exceptions(exceptions, todo_status))
+
+    alias_dead, _alias_bilateral_declared, alias_bilateral_undeclared = compute_alias_hygiene(
+        aliases, linux_inventory, windows_inventory
+    )
+    for alias in alias_dead:
+        errors.append(
+            f"apelido morto: {alias['linux_name']}|{alias['windows_name']} nao aparece em "
+            "inventario nenhum (nem Linux, nem Windows) - tests/parity_aliases.txt"
+        )
+    for alias in alias_bilateral_undeclared:
+        errors.append(
+            f"apelido bilateral sem declaracao: {alias['linux_name']}|{alias['windows_name']} "
+            "roda nos dois sistemas, precisa do terceiro campo 'bilateral=<motivo>' em "
+            "tests/parity_aliases.txt"
+        )
+
+    exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
+    for exc in exception_dead:
+        errors.append(
+            f"excecao morta: {exc['test_name']} (missing_on={exc['missing_on']}) em "
+            "tests/parity_exceptions.txt nao aparece em inventario nenhum, ou ja existe "
+            "tambem do lado declarado como faltante - apague a linha"
+        )
+
+    errors.extend(validate_prova_parcial(exceptions, linux_inventory, windows_inventory))
 
     exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
 
@@ -431,6 +629,26 @@ def real_main(args):
         f"{len(todo_status)} item(ns) lido(s) de TODO.md"
     )
 
+    # PARITY-ALIAS-HYGIENE (TODO.md W7-C, GODS_LAWS.md L-40): estas
+    # duas linhas imprimem SEMPRE, ganhe ou perca o portao - o piso de
+    # varredura exige a contagem, nao so o veredicto. Calculadas aqui
+    # (nao dentro de run_comparison) porque valem mesmo quando um
+    # inventario vem vazio: nesse caso todo apelido/excecao aparece
+    # "morto" por definicao (nao ha nada em inventario nenhum para
+    # bater), o que e' verdade honesta, nao um segundo erro de
+    # varredura vazia disfarcado - a lista de erros que decide
+    # REPROVADO continua vindo so de run_comparison().
+    alias_dead, alias_bilateral_declared, alias_bilateral_undeclared = compute_alias_hygiene(
+        aliases, linux_inventory, windows_inventory
+    )
+    print(
+        f"{SCRIPT_NAME}: {len(aliases)} apelido(s), {len(alias_dead)} morto(s), "
+        f"{len(alias_bilateral_declared)} bilateral(is) declarado(s), "
+        f"{len(alias_bilateral_undeclared)} bilateral(is) sem declaracao"
+    )
+    exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
+    print(f"{SCRIPT_NAME}: {len(exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
+
     errors = run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo_status)
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
@@ -442,6 +660,14 @@ def real_main(args):
 
 
 # --- fixtures and controls for --selftest -----------------------------
+
+
+def _alias_fixture(linux_name, windows_name, bilateral_reason=None):
+    return {
+        "linux_name": linux_name,
+        "windows_name": windows_name,
+        "bilateral_reason": bilateral_reason,
+    }
 
 
 def _todo_fixture(item_id, status_text):
@@ -543,7 +769,7 @@ def selftest_empty_inventory_reproves():
 def selftest_alias_control():
     linux_inv = {"a_test", "display_connect_failure_test"}
     windows_inv = {"a_test", "win32_display_connect_test"}
-    aliases = [("display_connect_failure_test", "win32_display_connect_test")]
+    aliases = [_alias_fixture("display_connect_failure_test", "win32_display_connect_test")]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
     if errors:
         print(f"selftest: controle APELIDO FALHOU (par com apelido nao deveria reprovar): {errors}", file=sys.stderr)
@@ -592,9 +818,9 @@ def selftest_alias_shared_windows_partner_control():
     }
     windows_inv = {"a_test", "win32_display_connect_test"}
     aliases = [
-        ("display_connect_failure_test", "win32_display_connect_test"),
-        ("shell_requirements_test", "win32_display_connect_test"),
-        ("shell_smoke", "win32_display_connect_test"),
+        _alias_fixture("display_connect_failure_test", "win32_display_connect_test"),
+        _alias_fixture("shell_requirements_test", "win32_display_connect_test"),
+        _alias_fixture("shell_smoke", "win32_display_connect_test"),
     ]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
     if errors:
@@ -668,18 +894,41 @@ def selftest_parsing_round_trip():
         "\n"
         "meu_teste|windows|outro_teste|ITEM-1\n"
         "outro|linux|nenhum|SEM-PENDENCIA\n"
+        "gpu_teste|windows|arquivo.cpp|ITEM-2|PROVA-PARCIAL=gemeo_win_test\n"
     )
     exceptions = parse_exceptions_text(exceptions_text)
     if exceptions != [
-        {"test_name": "meu_teste", "missing_on": "windows", "gemeo": "outro_teste", "item": "ITEM-1"},
-        {"test_name": "outro", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA},
+        {
+            "test_name": "meu_teste",
+            "missing_on": "windows",
+            "gemeo": "outro_teste",
+            "item": "ITEM-1",
+            "prova_parcial_gemeo": None,
+        },
+        {
+            "test_name": "outro",
+            "missing_on": "linux",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        },
+        {
+            "test_name": "gpu_teste",
+            "missing_on": "windows",
+            "gemeo": "arquivo.cpp",
+            "item": "ITEM-2",
+            "prova_parcial_gemeo": "gemeo_win_test",
+        },
     ]:
         print(f"selftest: PARSING FALHOU (exceptions): {exceptions}", file=sys.stderr)
         return False
 
-    aliases_text = "# comentario\na_linux|a_windows\n"
+    aliases_text = "# comentario\na_linux|a_windows\nb_linux|b_windows|bilateral=roda nos dois\n"
     aliases = parse_aliases_text(aliases_text)
-    if aliases != [("a_linux", "a_windows")]:
+    if aliases != [
+        _alias_fixture("a_linux", "a_windows"),
+        _alias_fixture("b_linux", "b_windows", bilateral_reason="roda nos dois"),
+    ]:
         print(f"selftest: PARSING FALHOU (aliases): {aliases}", file=sys.stderr)
         return False
 
@@ -851,6 +1100,176 @@ def selftest_corrupted_inventory_line_reproves():
     return False
 
 
+# PARITY-ALIAS-HYGIENE C1 (VERMELHO): um apelido cujos dois nomes nao
+# aparecem em inventario nenhum - o teste que ele apontava sumiu e a
+# linha ficou orfa. Esperado: reprova, citando o par.
+def selftest_alias_dead_reproves():
+    linux_inv = {"a_test"}
+    windows_inv = {"a_test"}
+    aliases = [_alias_fixture("apelido_morto_linux", "apelido_morto_windows")]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C1 FALHOU (apelido morto deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any("apelido morto" in e and "apelido_morto_linux" in e for e in errors):
+        print(f"selftest: PARITY-ALIAS-HYGIENE C1 FALHOU (reprovou, mas nao citou o apelido morto): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1 OK (apelido morto pego): {errors}")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C2 (VERMELHO): apelido cujo lado "exclusivo"
+# tambem roda no outro sistema, sem o terceiro campo declarando isso
+# - D8, "reprovar salvo declaracao". Esperado: reprova.
+def selftest_alias_bilateral_undeclared_reproves():
+    linux_inv = {"a_test", "dep_zero_binary_test"}
+    windows_inv = {"a_test", "dep_zero_binary_test", "dep_zero_binary_win_test"}
+    aliases = [_alias_fixture("dep_zero_binary_test", "dep_zero_binary_win_test")]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C2 FALHOU (apelido bilateral sem declaracao deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any("bilateral sem declaracao" in e and "dep_zero_binary_test" in e for e in errors):
+        print(f"selftest: PARITY-ALIAS-HYGIENE C2 FALHOU (reprovou, mas nao citou o bilateral): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C2 OK (bilateral sem declaracao pego): {errors}")
+    return True
+
+
+# Controle-irmao de C2: a MESMA forma bilateral, mas COM o terceiro
+# campo preenchido - deve contar e passar, nunca reprovar.
+def selftest_alias_bilateral_declared_control():
+    linux_inv = {"a_test", "dep_zero_binary_test"}
+    windows_inv = {"a_test", "dep_zero_binary_test", "dep_zero_binary_win_test"}
+    aliases = [
+        _alias_fixture(
+            "dep_zero_binary_test",
+            "dep_zero_binary_win_test",
+            bilateral_reason="roda nos dois lados por ser fonte incondicional",
+        )
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if errors:
+        print(f"selftest: controle BILATERAL-DECLARADO FALHOU (deveria ter passado): {errors}", file=sys.stderr)
+        return False
+    print("selftest: controle BILATERAL-DECLARADO OK (bilateral com motivo conta e passa)")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C3a (VERMELHO): excecao cujo teste ja existe
+# TAMBEM do lado declarado como faltante - a lacuna fechou e a linha
+# ficou para tras (gemeo L-17 do apelido morto). Esperado: reprova.
+def selftest_exception_dead_gap_closed_reproves():
+    linux_inv = {"a_test", "so_linux_antes_test"}
+    windows_inv = {"a_test", "so_linux_antes_test"}
+    exceptions = [
+        {
+            "test_name": "so_linux_antes_test",
+            "missing_on": "windows",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], {})
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C3a FALHOU (excecao com lacuna ja fechada deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any("excecao morta" in e and "so_linux_antes_test" in e for e in errors):
+        print(f"selftest: PARITY-ALIAS-HYGIENE C3a FALHOU (reprovou, mas nao citou a excecao morta): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C3a OK (excecao com par ja fechado pega): {errors}")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C3b (VERMELHO): excecao cujo teste nao existe
+# em inventario nenhum - orfa, teste renomeado ou apagado. Esperado:
+# reprova.
+def selftest_exception_dead_orphaned_reproves():
+    linux_inv = {"a_test"}
+    windows_inv = {"a_test"}
+    exceptions = [
+        {
+            "test_name": "teste_que_nao_existe_mais",
+            "missing_on": "windows",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], {})
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C3b FALHOU (excecao orfa deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any("excecao morta" in e and "teste_que_nao_existe_mais" in e for e in errors):
+        print(f"selftest: PARITY-ALIAS-HYGIENE C3b FALHOU (reprovou, mas nao citou a excecao orfa): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C3b OK (excecao orfa pega): {errors}")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C4a (VERMELHO): excecao com PROVA-PARCIAL
+# cujo gemeo citado NAO existe no inventario do sistema declarado em
+# missing_on - a forma nao pode ser aceita de leitura humana.
+# Esperado: reprova.
+def selftest_prova_parcial_gemeo_absent_reproves():
+    linux_inv = {"a_test", "gpu_kind_report_smoke"}
+    windows_inv = {"a_test"}
+    exceptions = [
+        {
+            "test_name": "gpu_kind_report_smoke",
+            "missing_on": "windows",
+            "gemeo": "wgl_context_adapter.cpp",
+            "item": "WIN-RUNNER-PROPRIO",
+            "prova_parcial_gemeo": "gpu_kind_report_compile_win_test",
+        }
+    ]
+    todo_status = parse_todo_status_text(_todo_fixture("WIN-RUNNER-PROPRIO", "🔍 Em verificação"))
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], todo_status)
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C4a FALHOU (PROVA-PARCIAL com gemeo ausente deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any("PROVA-PARCIAL" in e and "gpu_kind_report_compile_win_test" in e for e in errors):
+        print(f"selftest: PARITY-ALIAS-HYGIENE C4a FALHOU (reprovou, mas nao citou o gemeo ausente): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C4a OK (PROVA-PARCIAL com gemeo nao conferido pego): {errors}")
+    return True
+
+
+# Controle-irmao de C4a: o MESMO cenario, mas com o gemeo REALMENTE
+# presente no inventario do sistema que falta - deve contar e passar.
+def selftest_prova_parcial_gemeo_present_control():
+    linux_inv = {"a_test", "gpu_kind_report_smoke"}
+    windows_inv = {"a_test", "gpu_kind_report_compile_win_test"}
+    exceptions = [
+        {
+            "test_name": "gpu_kind_report_smoke",
+            "missing_on": "windows",
+            "gemeo": "wgl_context_adapter.cpp",
+            "item": "WIN-RUNNER-PROPRIO",
+            "prova_parcial_gemeo": "gpu_kind_report_compile_win_test",
+        },
+        # O proprio gemeo (o teste de compilacao Windows-only) precisa
+        # da sua propria excecao, como qualquer nome exclusivo de um
+        # lado - sem ela, o gap analysis abaixo reprovaria um segundo
+        # problema, sem relacao com o que este controle prova.
+        {
+            "test_name": "gpu_kind_report_compile_win_test",
+            "missing_on": "linux",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        },
+    ]
+    todo_status = parse_todo_status_text(_todo_fixture("WIN-RUNNER-PROPRIO", "🔍 Em verificação"))
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], todo_status)
+    if errors:
+        print(f"selftest: controle PROVA-PARCIAL-PRESENTE FALHOU (deveria ter passado): {errors}", file=sys.stderr)
+        return False
+    print("selftest: controle PROVA-PARCIAL-PRESENTE OK (gemeo conferido no inventario, aceito)")
+    return True
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -868,6 +1287,13 @@ def selftest_main():
         selftest_ctest_header_only_yields_empty_inventory(),
         selftest_mixed_ctest_and_clean_list_control(),
         selftest_corrupted_inventory_line_reproves(),
+        selftest_alias_dead_reproves(),
+        selftest_alias_bilateral_undeclared_reproves(),
+        selftest_alias_bilateral_declared_control(),
+        selftest_exception_dead_gap_closed_reproves(),
+        selftest_exception_dead_orphaned_reproves(),
+        selftest_prova_parcial_gemeo_absent_reproves(),
+        selftest_prova_parcial_gemeo_present_control(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

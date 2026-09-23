@@ -14,10 +14,24 @@
 # existe dos dois lados, entao nao ha "concluido sem par" possivel
 # aqui por definicao.
 #
-# Formato, um registro por linha, dois campos separados por "|"
-# (comentarios com "#", linhas em branco ignoradas):
+# Formato, um registro por linha, dois ou tres campos separados por
+# "|" (comentarios com "#", linhas em branco ignoradas):
 #
 #   nome_no_linux | nome_no_windows
+#   nome_no_linux | nome_no_windows | bilateral=<motivo>
+#
+# O terceiro campo e opcional e SO existe para o caso em que o nome
+# do lado "exclusivo" do par TAMBEM roda no outro sistema (ex.:
+# dep_zero_binary_test e' add_test() incondicional - roda nos dois -
+# mas o par existe porque quem VERIFICA de verdade no Windows e'
+# dep_zero_binary_win_test via dumpbin). Sem essa declaracao, tests/
+# tools/check_test_parity.py reprova a linha como "apelido bilateral
+# sem declaracao" (PARITY-ALIAS-HYGIENE, TODO.md W7-C, GODS_LAWS.md
+# L-17/L-40, D8, 23/09/2026: "reprovar salvo declaracao", nunca so
+# avisar - a mesma licao do ESLint #18665, aviso e ignorado). O MESMO
+# portao tambem reprova um apelido MORTO - uma linha cuja dupla de
+# nomes nao aparece em inventario nenhum, teste renomeado ou apagado
+# sem ninguem limpar esta linha.
 #
 # Antes de adicionar uma linha aqui, confirme que o par realmente
 # roda nos dois lados HOJE (nao "vai rodar quando X terminar") - um
@@ -131,8 +145,15 @@ preci_selftest|preci_win_selftest
 # win_test (dumpbin /imports); no Windows, dep_zero_binary_test roda
 # tambem (e a mesma unica fonte), mas so IMPRIME a ausencia declarada -
 # a verificacao de verdade la e a do lado win, dumpbin.
-dep_zero_binary_test|dep_zero_binary_win_test
-dep_zero_binary_selftest|dep_zero_binary_win_selftest
+#
+# PARITY-ALIAS-HYGIENE (D8, 23/09/2026): os dois pares abaixo sao
+# BILATERAIS por desenho (o `add_test()` que os registra e incondicional,
+# tests/CMakeLists.txt:3144/3152 - roda nos DOIS sistemas de verdade,
+# nao so "aparece"), e o terceiro campo declara isso explicitamente -
+# sem ele, o portao passaria a reprovar como apelido bilateral sem
+# declaracao (o achado (b) do item original).
+dep_zero_binary_test|dep_zero_binary_win_test|bilateral=dep_zero_binary_test roda nos dois sistemas por ser add_test() incondicional (tests/CMakeLists.txt:3144); no Windows so imprime a ausencia declarada, a verificacao de verdade e dumpbin em dep_zero_binary_win_test
+dep_zero_binary_selftest|dep_zero_binary_win_selftest|bilateral=dep_zero_binary_selftest roda nos dois sistemas pelo mesmo motivo do par acima (add_test() incondicional, tests/CMakeLists.txt:3152)
 
 # visibility_selftest (tests/CMakeLists.txt, if(BUILD_SHARED_LIBS AND
 # UNIX) - check_exports.sh --selftest, novo nesta fatia, mesmos quatro
@@ -266,7 +287,14 @@ egl_probe_smoke|win32_wgl_extension_loader_test
 # "frame_callback_sequence_test", nome que nunca aparece em windows_
 # only por ja ser comum). O mesmo run 34168049144 reproduziu o
 # vermelho para este nome tambem, com esta linha ja presente na arvore.
-frame_callback_sequence_test|win32_iconic_present_test
+#
+# PARITY-ALIAS-HYGIENE (D8, 23/09/2026): frame_callback_sequence_test
+# e BILATERAL - o proprio comentario acima ja documentava "roda nos
+# DOIS lados (comum), W-EGL fatia 3" - so a linha, ate hoje, nunca
+# declarava isso no terceiro campo. A exclusividade e so de win32_
+# iconic_present_test; o parceiro Linux e so o mecanismo que prova o
+# MESMO efeito por outro caminho.
+frame_callback_sequence_test|win32_iconic_present_test|bilateral=frame_callback_sequence_test roda nos cinco sistemas (comum, W-EGL fatia 3); so win32_iconic_present_test e exclusivo do Windows
 
 # FACADE-PIN, T0/T4 (docs/plano-conserto-fachadas-uaf.md sec. 8/10):
 # facade_pin_smoke (container fixture, tests/container/) e

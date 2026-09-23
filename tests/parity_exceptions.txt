@@ -8,10 +8,11 @@
 # Uma linha aqui declara que um nome de teste existe no inventario de
 # UM sistema e nao existe no do outro, POR QUE ISSO E ACEITAVEL AGORA -
 # nunca uma forma de calar o portao. Formato, um registro por linha,
-# quatro campos separados por "|" (comentarios com "#", linhas em
-# branco ignoradas):
+# quatro ou cinco campos separados por "|" (comentarios com "#",
+# linhas em branco ignoradas):
 #
 #   nome_do_teste | sistema_onde_falta | gemeo | item
+#   nome_do_teste | sistema_onde_falta | gemeo | item | PROVA-PARCIAL=<nome_do_teste_gemeo>
 #
 # - nome_do_teste: nome exato do caso ctest que falta de um lado.
 # - sistema_onde_falta: "linux" ou "windows" - o lado que NAO tem o
@@ -21,12 +22,26 @@
 #   nenhum (o caso e proprio de UM sistema por natureza, ex.: uma
 #   sonda do ambiente Win32 do proprio runner). "nenhum" so e honesto
 #   quando a ausencia e permanente por desenho - nunca use "nenhum"
-#   para uma lacuna real ainda sem par.
+#   para uma lacuna real ainda sem par. Este campo aceita PROSA LIVRE
+#   (nome de arquivo-fonte, explicacao) - nunca e conferido por
+#   maquina, so o quinto campo abaixo e.
 # - item: o ID do item em TODO.md que rastreia o fechamento desta
 #   lacuna, OU o sentinela SEM-PENDENCIA quando a assimetria e
 #   permanente por desenho e nenhum item precisa rastrea-la (exige
 #   gemeo=nenhum - GODS_LAWS.md L-32 proibe criar item novo em
 #   TODO.md so para isto).
+# - PROVA-PARCIAL=<nome_do_teste_gemeo> (quinto campo, opcional):
+#   diferente do campo "gemeo" acima (prosa livre, nunca conferida),
+#   este quinto campo cita um nome de ctest DE VERDADE, que tem de
+#   EXISTIR no inventario do sistema declarado em sistema_onde_falta -
+#   tests/tools/check_test_parity.py confere isso por maquina
+#   (validate_prova_parcial()) e reprova se o nome nao existir la.
+#   Use quando o gemeo existe como ctest registrado mas so prova uma
+#   PARTE do comportamento (ex.: compila limpo, nao executa a mutacao
+#   real) - nunca para declarar um gemeo que e' so um arquivo-fonte ou
+#   uma intencao futura (PARITY-ALIAS-HYGIENE, TODO.md W7-C, D10,
+#   23/09/2026: "o gemeo tem de existir no inventario do outro lado,
+#   conferido por maquina, coisa que a forma atual nunca confere").
 #
 # A REGRA que este arquivo existe para provar (verbatim do CTO,
 # TODO.md): "exececao que aponta para item marcado como concluido
@@ -314,6 +329,17 @@ window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FAL
 # forma de facade_pin_smoke/window_active_after_map_smoke, mutacao
 # incluida) fecha o par - so entao esta linha sai, nunca antes por
 # presuncao de que a compilacao limpa bastava.
+#
+# NAO usa o quinto campo PROVA-PARCIAL= (PARITY-ALIAS-HYGIENE, D10,
+# 23/09/2026): o "gemeo" acima cita um ARQUIVO-FONTE (wgl_context_
+# adapter.cpp), nunca um nome de ctest - `grep -n gpu_kind
+# tests/CMakeLists.txt` medido em 23/09/2026 confirma que nao existe
+# hoje nenhum ctest de compilacao-so registrado para o lado Windows
+# deste fixture. D10 e explicito: "se o gemeo nao existir [como ctest
+# no inventario do outro lado], a linha e uma ausencia e fica como
+# esta" - converter aqui sem esse ctest existir de verdade seria
+# reintroduzir a mesma prosa nao conferida que o quinto campo existe
+# para banir.
 gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo ponto, mesma funcao compartilhada (gpu_kind_report.cpp) - PROVADO que compila limpo sob o cl.exe real da Microsoft; a mutacao por execucao real NAO foi provada no Windows nesta maquina (CreateWindowExW falha sob Wine headless, ja documentado em tools/msvc-container/README.md)|WIN-RUNNER-PROPRIO
 
 # --- Historico: os sete nomes que faltavam par, todos fechados ---------

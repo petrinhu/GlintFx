@@ -155,6 +155,7 @@ class _OracleContext:
         "dialect", "compiler", "flags", "include_dirs", "executor",
         "msvc_prefix", "camadas_puras", "layer_dirs",
         "stub_generated_paths", "standard_paths", "out_of_tree_lines_total",
+        "case_include_dirs",
     )
 
     def __init__(self, dialect, compiler, flags, include_dirs):
@@ -168,6 +169,13 @@ class _OracleContext:
         self.layer_dirs = ()
         self.stub_generated_paths = frozenset()
         self.standard_paths = frozenset()
+        # docs/plano-layers-l5-adendo-calibracao.md L-5f: as DUAS listas
+        # de diretorios EXPLICITAS (secao 4, "nenhuma funcao descobre a
+        # configuracao por efeito colateral") - `include_dirs` continua
+        # sendo a REAL/calibracao (sem std_stubs/); `case_include_dirs`
+        # e' ela + std_stubs/ por ULTIMO, so' pra judging de caso e
+        # sentinela (O-23).
+        self.case_include_dirs = ()
         # docs/plano-layers-l5-adendo-calibracao.md L-5d: acumulador de
         # linhas fora do formato de arvore (-H/showIncludes), somado a
         # CADA chamada de _parse_tree() pro trabalho INTEIRO (calibracao
@@ -231,9 +239,13 @@ def extract_language_family_flags(tokens, dialect):
 # --- linha de comando por dialeto (secao 3.1) ---------------------------
 
 
-def build_preprocess_command(ctx, file_path, out_scratch_dir):
+def build_preprocess_command(ctx, file_path, out_scratch_dir, include_dirs):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 4 (L-5f):
+    `include_dirs` chega EXPLICITO (nunca `ctx.include_dirs` lido por
+    conta propria) - o chamador decide se e' a configuracao REAL ou a
+    de CASO (`ctx.case_include_dirs`, com `std_stubs/` por ULTIMO)."""
     is_c = file_path.lower().endswith(".c")
-    include_flags_gnu = [f"-I{d}" for d in ctx.include_dirs]
+    include_flags_gnu = [f"-I{d}" for d in include_dirs]
     if ctx.dialect == "GNU":
         lang = "c" if is_c else "c++"
         command = [
@@ -242,7 +254,7 @@ def build_preprocess_command(ctx, file_path, out_scratch_dir):
         ]
         return command, (os.path.dirname(file_path) or ".")
     lang_flag = "/TC" if is_c else "/TP"
-    include_flags_msvc = [f"/I{d}" for d in ctx.include_dirs]
+    include_flags_msvc = [f"/I{d}" for d in include_dirs]
     out_file = os.path.join(out_scratch_dir, "out.i")
     command = [
         ctx.compiler, "/nologo", *ctx.flags, *include_flags_msvc,
@@ -487,19 +499,23 @@ class _CalibrationExpectedPaths:
 
 
 class _CalibrationResult:
-    """docs/plano-layers-l5-adendo-calibracao.md L-5e: `standard_paths`
-    (o conjunto de caminhos REAIS que vira `ctx.standard_paths` pra
-    classificacao - ate' L-5f repor esse papel pelos vazios de
-    `std_stubs/`), `census` (nomes-base do C-2, pro piso e pro
-    relatorio) e `absent` (nomes permitidos FORA do censo, sempre
-    impressos - GODS_LAWS.md L-40)."""
+    """docs/plano-layers-l5-adendo-calibracao.md L-5e/L-5f:
+    `standard_paths` (o conjunto de caminhos REAIS achados na
+    calibracao - informativo desde L-5f, que repoe o papel dele na
+    classificacao de CASO pelos vazios de `std_stubs/`), `census`
+    (nomes-base do C-2, pro piso e pro relatorio), `absent` (nomes
+    permitidos FORA do censo, sempre impressos - GODS_LAWS.md L-40) e
+    `cstdint_children` (os filhos do `<cstdint>` REAL sob a sentinela,
+    na ORDEM em que apareceram - de onde `X` da sentinela de sombra e'
+    escolhido, secao 1.6)."""
 
-    __slots__ = ("standard_paths", "census", "absent")
+    __slots__ = ("standard_paths", "census", "absent", "cstdint_children")
 
-    def __init__(self, standard_paths, census, absent):
+    def __init__(self, standard_paths, census, absent, cstdint_children):
         self.standard_paths = standard_paths
         self.census = census
         self.absent = absent
+        self.cstdint_children = cstdint_children
 
 
 def build_calibration_fixture(scratch_dir, stdlib_permitidos, layer_dir_parts):
@@ -554,6 +570,21 @@ def _stdlib_census(normalized_nodes, depth1, stdlib_names):
     }
 
 
+def _cstdint_index_under(normalized_nodes, sentinel_index):
+    return next(
+        (idx for idx, (_d, path, parent) in enumerate(normalized_nodes)
+         if parent == sentinel_index and os.path.basename(path) == "cstdint"),
+        None,
+    )
+
+
+def _children_paths(normalized_nodes, parent_index):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 1.6: os filhos
+    DIRETOS de um no, na ordem em que apareceram - usado pra achar `X`
+    da sentinela de sombra (`cstdint_children` de `_CalibrationResult`)."""
+    return tuple(path for _d, path, parent in normalized_nodes if parent == parent_index)
+
+
 def evaluate_calibration(ctx, normalized_nodes, expected, stdlib_permitidos):
     """Reprova (falha de INSTRUMENTO, NUNCA pulo), nesta ordem, se: a
     sentinela nao e' o PRIMEIRO no de profundidade 1; a folha nao
@@ -574,10 +605,8 @@ def evaluate_calibration(ctx, normalized_nodes, expected, stdlib_permitidos):
     )
     if not leaf_under:
         raise _IncludeTreeError("calibracao: folha_projeto.hpp nao apareceu sob a sentinela (falha de instrumento)")
-    cstdint_under = any(
-        parent == sentinel_index and os.path.basename(path) == "cstdint" for _d, path, parent in normalized_nodes
-    )
-    if not cstdint_under:
+    cstdint_index = _cstdint_index_under(normalized_nodes, sentinel_index)
+    if cstdint_index is None:
         raise _IncludeTreeError("calibracao: <cstdint> nao apareceu sob a sentinela (falha de instrumento)")
 
     standard_paths = {path for _idx, path in depth1 if os.path.basename(path) in stdlib_names}
@@ -587,7 +616,8 @@ def evaluate_calibration(ctx, normalized_nodes, expected, stdlib_permitidos):
             f"calibracao: so' {len(census)} nomes no censo, piso e {_MIN_STDLIB_PATHS} (instrumento cego)"
         )
     absent = sorted(stdlib_names - census)
-    return _CalibrationResult(standard_paths, census, absent)
+    cstdint_children = _children_paths(normalized_nodes, cstdint_index)
+    return _CalibrationResult(standard_paths, census, absent, cstdint_children)
 
 
 class _CalibrationRawResult:
@@ -672,7 +702,7 @@ def run_calibration(ctx, scratch, manifest):
     calib_path, sentinel_path, leaf_path = build_calibration_fixture(
         calib_dir, manifest["stdlib_permitidos"], layer_parts
     )
-    raw_output, returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path)
+    raw_output, returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path, ctx.include_dirs)
     if ctx.dialect == "MSVC":
         ctx.msvc_prefix = learn_msvc_prefix(raw_output, os.path.basename(sentinel_path))
     normalized_nodes = _parse_tree(ctx, raw_output, workdir)
@@ -687,10 +717,38 @@ def run_calibration(ctx, scratch, manifest):
         diagnostics = _format_calibration_diagnostics(ctx, normalized_nodes, expected.sentinel_norm, raw_result)
         raise _IncludeTreeError(f"{original}\n{diagnostics}") from original
     _print_calibration_report(ctx, result)
-    return result.standard_paths
+    # docs/plano-layers-l5-adendo-calibracao.md L-5f: devolve o
+    # _CalibrationResult INTEIRO (nao so' standard_paths) - quem chama
+    # (run_oracle) precisa de `cstdint_children` pra escolher X da
+    # sentinela de sombra (secao 1.6). `ctx.standard_paths` pra
+    # classificacao de CASO deixa de vir daqui: L-5f a substitui pelos
+    # caminhos de `std_stubs/` (secao 1.3).
+    return result
 
 
 # --- sentinelas por fixture (secao 7.2) ----------------------------------
+
+
+def _assert_no_children_of_empty_leaves(ctx, normalized_nodes):
+    """TRAVA DE FOLHA VAZIA (docs/plano-layers-l5-adendo-calibracao.md
+    secao 1.6, L-5f) - funcao IRMA de `find_forbidden_pulls` (nao
+    mistura logica de classificacao com esta prova estrutural, O-24):
+    na CONFIGURACAO DE CASO, um arquivo GERADO ou de `std_stubs/` e'
+    VAZIO por construcao e NAO PODE ter filho. Olha os caminhos direto
+    (`ctx.stub_generated_paths` | `ctx.standard_paths`, que em
+    configuracao de caso SAO os vazios), nao a classificacao - por
+    isso nao interfere no O-2/O-3/O-4 (que simulam a classificacao
+    'padrao' antiga, sem vir de arquivo vazio de verdade)."""
+    empty_paths = ctx.stub_generated_paths | ctx.standard_paths
+    path_by_index = {idx: path for idx, (_d, path, _p) in enumerate(normalized_nodes)}
+    for _depth, path, parent_index in normalized_nodes:
+        if parent_index is None:
+            continue
+        if path_by_index.get(parent_index) in empty_paths:
+            raise _IncludeTreeError(
+                f"trava de folha vazia: {path!r} e' filho de {path_by_index[parent_index]!r} "
+                "(VAZIO por construcao, falha de instrumento)"
+            )
 
 
 def _judge_sentinel(ctx, scratch_dir, content, expect_forbidden):
@@ -700,34 +758,98 @@ def _judge_sentinel(ctx, scratch_dir, content, expect_forbidden):
     path = os.path.join(layer_dir, "sentinel_probe.hpp")
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(content)
-    raw, returncode, workdir = _run_one_alvo(ctx, scratch_dir, path)
-    forbidden = find_forbidden_pulls(ctx, _parse_tree(ctx, raw, workdir))
+    # docs/plano-layers-l5-adendo-calibracao.md L-5f: sentinelas rodam
+    # na configuracao de CASO (com std_stubs/) - a negativa mede, a
+    # cada rodada, que um proibido real continua sendo visto mesmo
+    # tropecando nos vazios.
+    raw, returncode, workdir = _run_one_alvo(ctx, scratch_dir, path, ctx.case_include_dirs)
+    normalized_nodes = _parse_tree(ctx, raw, workdir)
+    _assert_no_children_of_empty_leaves(ctx, normalized_nodes)
+    forbidden = find_forbidden_pulls(ctx, normalized_nodes)
     if expect_forbidden and not forbidden:
         raise _IncludeTreeError("sentinela negativa: <fstream> nao apareceu como puxado (falha de instrumento)")
     if not expect_forbidden and (forbidden or returncode != 0):
         raise _IncludeTreeError("sentinela positiva: <cstdint> nao saiu limpa (falha de instrumento)")
 
 
-def run_sentinels(ctx, scratch):
-    """docs/plano-layers-l5.md §7.2: `<fstream>` tem de sair "puxou
-    proibido"; `<cstdint>` tem de sair "so' permitidos, codigo 0" -
-    qualquer outro resultado e' falha de instrumento, medida a cada
-    rodada."""
+def _choose_shadow_sentinel_candidate(cstdint_children, stdlib_permitidos):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 1.6: `X` = o
+    PRIMEIRO filho do `<cstdint>` REAL cujo nome-base NAO esta em
+    `stdlib_permitidos` - a prova viva de que o `<cstdint>` do sistema
+    abre por dentro algo que o portao proibiria se fosse escrito
+    direto num arquivo de camada pura."""
+    stdlib_names = set(stdlib_permitidos)
+    for path in cstdint_children:
+        if os.path.basename(path) not in stdlib_names:
+            return path
+    return None
+
+
+def _run_shadow_probe(ctx, scratch_dir, shadow_candidate, include_dirs):
+    """Roda `#include <cstdint>` seguido de `#include "X"` (caminho
+    ABSOLUTO real, entre aspas) numa CONFIGURACAO dada, e devolve True
+    se `X` aparece como FILHO DIRETO da sonda (profundidade 1) - visto
+    de verdade, nao sombreado por uma abertura anterior na MESMA
+    unidade de traducao (secao 1.6)."""
+    layer_parts = ctx.camadas_puras[0]["partes"]
+    layer_dir = os.path.join(scratch_dir, *layer_parts)
+    os.makedirs(layer_dir, exist_ok=True)
+    probe_path = os.path.join(layer_dir, "shadow_probe.hpp")
+    with open(probe_path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(f'#include <cstdint>\n#include "{shadow_candidate}"\n')
+    raw, _returncode, workdir = _run_one_alvo(ctx, scratch_dir, probe_path, include_dirs)
+    nodes = _parse_tree(ctx, raw, workdir)
+    candidate_norm = normalize_compiler_path(ctx.dialect, shadow_candidate, workdir)
+    return any(depth == 1 and path == candidate_norm for depth, path, _parent in nodes)
+
+
+def _run_shadow_sentinel(ctx, scratch, calib_result, stdlib_permitidos):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 1.6: sem
+    candidato `X` -> falha de instrumento (nada pra provar). Config.
+    REAL: impressa SEMPRE, NUNCA reprova - mede o FENOMENO (a regra da
+    casa e' que "sombra: sim" e' esperado, nao um defeito). Config. de
+    CASO: `X` TEM que aparecer como filho direto - senao a construcao
+    anti-sombra (secao 1.3) nao fechou, e isso e' falha de instrumento."""
+    candidate = _choose_shadow_sentinel_candidate(calib_result.cstdint_children, stdlib_permitidos)
+    if candidate is None:
+        raise _IncludeTreeError(
+            "sentinela de sombra: nenhum candidato X achado sob <cstdint> real (falha de instrumento)"
+        )
+    seen_real = _run_shadow_probe(ctx, os.path.join(scratch, "shadow_real"), candidate, ctx.include_dirs)
+    print(f"{SCRIPT_NAME}: sombra presente neste compilador: {'nao' if seen_real else 'sim'}")
+    seen_case = _run_shadow_probe(ctx, os.path.join(scratch, "shadow_case"), candidate, ctx.case_include_dirs)
+    if not seen_case:
+        raise _IncludeTreeError(
+            f"sentinela de sombra: X={candidate!r} nao apareceu como filho direto na configuracao de "
+            "caso (falha de instrumento - a construcao anti-sombra nao fechou)"
+        )
+
+
+def run_sentinels(ctx, scratch, calib_result, stdlib_permitidos):
+    """docs/plano-layers-l5.md §7.2, reformado por docs/plano-layers-
+    l5-adendo-calibracao.md L-5f: `<fstream>` tem de sair "puxou
+    proibido"; `<cstdint>` tem de sair "so' permitidos, codigo 0" - as
+    duas na CONFIGURACAO DE CASO (com `std_stubs/`); qualquer outro
+    resultado e' falha de instrumento, medida a cada rodada. A
+    sentinela de SOMBRA roda nas DUAS configuracoes (secao 1.6)."""
     ctx.layer_dirs = _layer_dirs_for_root(ctx, os.path.join(scratch, "sentinels"))
     _judge_sentinel(ctx, os.path.join(scratch, "sentinels_neg"), "#include <fstream>\n", expect_forbidden=True)
     _judge_sentinel(ctx, os.path.join(scratch, "sentinels_pos"), "#include <cstdint>\n", expect_forbidden=False)
+    _run_shadow_sentinel(ctx, scratch, calib_result, stdlib_permitidos)
 
 
 # --- execucao sequencial, um caso por vez (secao 3, 9) -------------------
 
 
-def _run_one_alvo(ctx, scratch_dir, alvo_abs_path):
+def _run_one_alvo(ctx, scratch_dir, alvo_abs_path, include_dirs):
     """UMA invocacao SEQUENCIAL de compilador (docs/plano-layers-l5.md
     §3.1: "nada de pool de processos" - a L-45 abre excecao a L-11 so'
     no servidor e SEM paralelismo). Devolve o texto BRUTO - quem chama
     decide como interpretar (a calibracao MSVC precisa do texto cru pra
-    aprender o prefixo ANTES de qualquer parse)."""
-    command, workdir = build_preprocess_command(ctx, alvo_abs_path, scratch_dir)
+    aprender o prefixo ANTES de qualquer parse). `include_dirs` chega
+    EXPLICITO do chamador (L-5f) - real (`ctx.include_dirs`) ou de caso
+    (`ctx.case_include_dirs`)."""
+    command, workdir = build_preprocess_command(ctx, alvo_abs_path, scratch_dir, include_dirs)
     result = ctx.executor(command, workdir, _INVOCATION_TIMEOUT_SECONDS)
     if result.timed_out:
         raise _IncludeTreeError(f"teto de {_INVOCATION_TIMEOUT_SECONDS}s estourado em {alvo_abs_path}")
@@ -753,8 +875,10 @@ def _judge_one_case(ctx, scratch_dir, case, root_abs):
         if alvo["tipo"] != "fonte":
             continue
         alvo_abs = os.path.join(root_abs, *alvo["caminho"].split("/"))
-        raw_output, returncode, workdir = _run_one_alvo(ctx, scratch_dir, alvo_abs)
+        # L-5f: configuracao de CASO (com std_stubs/ por ultimo).
+        raw_output, returncode, workdir = _run_one_alvo(ctx, scratch_dir, alvo_abs, ctx.case_include_dirs)
         normalized_nodes = _parse_tree(ctx, raw_output, workdir)
+        _assert_no_children_of_empty_leaves(ctx, normalized_nodes)
         forbidden = find_forbidden_pulls(ctx, normalized_nodes)
         pulled_forbidden_overall = pulled_forbidden_overall or bool(forbidden)
         if returncode != 0:
@@ -832,6 +956,25 @@ def _write_stub_headers(stub_dir, generated_names):
             pass
 
 
+def _write_std_stubs(ctx, stub_dir, stdlib_permitidos):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 1.3 (D-L5d-1): um
+    arquivo VAZIO, SEM guarda, por nome de `stdlib_permitidos` - fecha o
+    falso negativo por SOMBRA por CONSTRUCAO (secao 1): um `<nome>`
+    permitido resolve pra este vazio (a pasta entra como o ULTIMO `-I`,
+    O-23), e um proibido continua resolvendo pro real. Devolve o
+    conjunto de caminhos NORMALIZADOS - vira `ctx.standard_paths` pra
+    classificacao de CASO, substituindo o papel que a calibracao
+    (caminhos reais) tinha antes de L-5f."""
+    os.makedirs(stub_dir, exist_ok=True)
+    for name in stdlib_permitidos:
+        with open(os.path.join(stub_dir, name), "w", encoding="utf-8"):
+            pass
+    return frozenset(
+        normalize_compiler_path(ctx.dialect, os.path.join(stub_dir, name), stub_dir)
+        for name in stdlib_permitidos
+    )
+
+
 def run_oracle(ctx, manifest, export_dir, scratch):
     """O laco principal (docs/plano-layers-l5.md §2): calibracao,
     sentinelas, depois um processo SEQUENCIAL por caso "compilar"."""
@@ -843,8 +986,15 @@ def run_oracle(ctx, manifest, export_dir, scratch):
         normalize_compiler_path(ctx.dialect, os.path.join(stub_dir, *name.split("/")), stub_dir)
         for name in manifest["gerados"]
     )
-    ctx.standard_paths = run_calibration(ctx, scratch, manifest)
-    run_sentinels(ctx, scratch)
+    # docs/plano-layers-l5-adendo-calibracao.md L-5f: a configuracao de
+    # CASO ganha std_stubs/ como ULTIMO diretorio (O-23); a calibracao
+    # continua SEM ele (ctx.include_dirs, acima, fica intocado).
+    std_stub_dir = os.path.join(scratch, "std_stubs")
+    ctx.standard_paths = _write_std_stubs(ctx, std_stub_dir, manifest["stdlib_permitidos"])
+    ctx.case_include_dirs = (*ctx.include_dirs, std_stub_dir)
+
+    calib_result = run_calibration(ctx, scratch, manifest)
+    run_sentinels(ctx, scratch, calib_result, manifest["stdlib_permitidos"])
 
     calibracao_cases, fora_de_escopo_cases, compilar_cases = summarize_manifest_cases(manifest)
     buckets = collections.Counter()
@@ -1364,6 +1514,147 @@ def selftest_oracle_o22_census_whole_tree_directory_filtered(scratch, capture):
     return ok, 1
 
 
+def selftest_oracle_o23_std_stubs_written_and_ordered(scratch, capture):
+    """O-23 (L-5f, secao 1.3/1.6): `std_stubs/` tem EXATAMENTE os nomes
+    do manifesto, todos com zero byte; o comando de CASO tem
+    `std_stubs/` como ULTIMO `-I` (depois da fixture e dos gerados); o
+    de CALIBRACAO nao tem."""
+    del capture
+    stub_dir = os.path.join(scratch, "o23_stubs")
+    ctx = _make_ctx_for_test("GNU")
+    names = ("cstdint", "vector", "flat_map")
+    normalized = _write_std_stubs(ctx, stub_dir, names)
+
+    on_disk = set(os.listdir(stub_dir))
+    all_empty = all(os.path.getsize(os.path.join(stub_dir, n)) == 0 for n in names)
+    names_match = on_disk == set(names) and len(normalized) == len(names)
+
+    ctx.include_dirs = ("/fixture/include", "/fixture/generated")
+    ctx.case_include_dirs = (*ctx.include_dirs, stub_dir)
+    case_command, _wd = build_preprocess_command(ctx, "/fixture/src/core/x.hpp", scratch, ctx.case_include_dirs)
+    calib_command, _wd2 = build_preprocess_command(ctx, "/fixture/calib/probe.hpp", scratch, ctx.include_dirs)
+    case_flags = [t for t in case_command if t.startswith("-I")]
+    calib_flags = [t for t in calib_command if t.startswith("-I")]
+
+    case_ok = case_flags == [f"-I{d}" for d in ctx.include_dirs] + [f"-I{stub_dir}"]
+    calib_ok = f"-I{stub_dir}" not in calib_flags and calib_flags == [f"-I{d}" for d in ctx.include_dirs]
+
+    ok = names_match and all_empty and case_ok and calib_ok
+    label = "selftest: O-23"
+    print(
+        f"{label} OK" if ok else
+        f"{label} FALHOU (names_match={names_match}, all_empty={all_empty}, case_ok={case_ok}, calib_ok={calib_ok})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+def selftest_oracle_o24_empty_leaf_trap(scratch, capture):
+    """O-24 (L-5f, secao 1.6): qualquer no cujo PAI seja classificado
+    'padrao' (`std_stubs/`) ou 'gerado' (cabecalho gerado vazio) e'
+    IMPOSSIVEL por construcao - a trava de folha vazia (funcao IRMA de
+    `find_forbidden_pulls`) reprova, nomeando o culpado."""
+    del scratch, capture
+    ctx = _make_ctx_for_test("GNU")
+    ctx.standard_paths = frozenset({"/scratch/std_stubs/cstdint"})
+    ctx.stub_generated_paths = frozenset({"/scratch/stubs/glintfx/export.hpp"})
+
+    padrao_child_nodes = [
+        (1, "/proj/src/core/x.hpp", None),
+        (2, "/scratch/std_stubs/cstdint", 0),
+        (3, "/usr/include/whatever.h", 1),
+    ]
+    raised_padrao = _raises_include_tree_error(_assert_no_children_of_empty_leaves, ctx, padrao_child_nodes)
+
+    gerado_child_nodes = [
+        (1, "/proj/src/core/x.hpp", None),
+        (2, "/scratch/stubs/glintfx/export.hpp", 0),
+        (3, "/usr/include/whatever.h", 1),
+    ]
+    raised_gerado = _raises_include_tree_error(_assert_no_children_of_empty_leaves, ctx, gerado_child_nodes)
+
+    clean_nodes = [(1, "/proj/src/core/x.hpp", None), (2, "/scratch/std_stubs/cstdint", 0)]
+    raised_clean = _raises_include_tree_error(_assert_no_children_of_empty_leaves, ctx, clean_nodes)
+
+    ok = raised_padrao and raised_gerado and not raised_clean
+    label = "selftest: O-24"
+    print(
+        f"{label} OK" if ok else
+        f"{label} FALHOU (padrao={raised_padrao}, gerado={raised_gerado}, clean_falso_positivo={raised_clean})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+def _fake_executor_by_command_marker(marker, when_marker_output, otherwise_output):
+    """Executor FALSO (O-0/L-45: nunca chama compilador de verdade) que
+    decide a saida ENLATADA pela PRESENCA de um token no COMANDO (ex.:
+    o `-I` de `std_stubs/`) - o suficiente pra diferenciar configuracao
+    REAL de configuracao de CASO na mesma bateria, sem sequencia
+    implicita de chamadas (O-25)."""
+
+    def executor(command, cwd, timeout):
+        del cwd, timeout
+        output = when_marker_output if any(marker in token for token in command) else otherwise_output
+        return _ExecResult(0, output)
+
+    return executor
+
+
+def selftest_oracle_o25_shadow_sentinel(scratch, capture):
+    """O-25 (L-5f, secao 1.6): (a) `X` = primeiro filho de `<cstdint>`
+    REAL fora de `stdlib_permitidos`; (b) configuracao REAL imprime
+    sim/nao e NUNCA reprova; (c) configuracao de CASO exige `X` como
+    filho direto, senao falha de instrumento."""
+    import contextlib
+    import io
+
+    del capture
+    ctx = _make_ctx_for_test("GNU")
+    cstdint_children = ("/usr/include/c++/16/stdint.h", "/usr/include/c++/16/bits/c++config.h")
+    stdlib_permitidos = ("cstdint", "stdint.h")
+    candidate = _choose_shadow_sentinel_candidate(cstdint_children, stdlib_permitidos)
+    candidate_ok = candidate == "/usr/include/c++/16/bits/c++config.h"
+
+    calib_result = _CalibrationResult(set(), set(), [], cstdint_children)
+    ctx.include_dirs = ("/real_inc",)
+    ctx.case_include_dirs = ("/real_inc", "/marker_case_stub")
+
+    # (b)+(c) juntos: sombra presente na REAL (X sombreado, so' <cstdint>
+    # aparece) e X aparece na config de CASO -> sucesso, sem reprovar.
+    ctx.executor = _fake_executor_by_command_marker(
+        "/marker_case_stub",
+        f". /usr/include/c++/16/cstdint\n. {candidate}\n",
+        ". /usr/include/c++/16/cstdint\n",
+    )
+    buffer = io.StringIO()
+    ok_run = True
+    with contextlib.redirect_stdout(buffer):
+        try:
+            _run_shadow_sentinel(ctx, scratch, calib_result, stdlib_permitidos)
+        except _IncludeTreeError:
+            ok_run = False
+    message_ok = "sombra presente neste compilador: sim" in buffer.getvalue()
+
+    # (c) invertido: X TAMBEM ausente na config de CASO -> falha de
+    # instrumento (a construcao anti-sombra nao fechou).
+    ctx.executor = _fake_executor_by_command_marker(
+        "/marker_case_stub", ". /usr/include/c++/16/cstdint\n", ". /usr/include/c++/16/cstdint\n",
+    )
+    reproves_case_absent = _raises_include_tree_error(
+        _run_shadow_sentinel, ctx, scratch, calib_result, stdlib_permitidos
+    )
+
+    ok = candidate_ok and ok_run and message_ok and reproves_case_absent
+    label = "selftest: O-25"
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (candidate={candidate!r}, ok_run={ok_run}, "
+        f"message_ok={message_ok}, reproves_case_absent={reproves_case_absent})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
 def _build_o19_fake_raw_output():
     """25 linhas: 24 de arvore (`header_0`..`header_23`) mais UMA linha
     de erro fatal (nao casa o padrao de arvore) - grande o bastante pra
@@ -1838,6 +2129,9 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o8_calibration_instrument_failures,),
     (selftest_oracle_o21_sentinel_first_and_leaf_required,),
     (selftest_oracle_o22_census_whole_tree_directory_filtered,),
+    (selftest_oracle_o23_std_stubs_written_and_ordered,),
+    (selftest_oracle_o24_empty_leaf_trap,),
+    (selftest_oracle_o25_shadow_sentinel,),
     (selftest_oracle_o19_calibration_diagnostics_on_failure,),
     (selftest_oracle_o20_reader_does_not_stop_on_odd_line,),
     (selftest_oracle_o9_msvc_prefix_learned_any_locale,),

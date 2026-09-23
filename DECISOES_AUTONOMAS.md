@@ -4129,7 +4129,7 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 
 **O que continua exigindo o líder, mesmo em modo autônomo:** a V-6b (escrita irreversível no disco de 17 GiB; o plano informa que cópia por `reflink` em btrfs a tornaria reversível); a V-7 (instalar no convidado, L-51); a ratificação de D-1 a D-14; e **o desvio da L-11 já consumado** - código da onda enviado direto ao principal antes de existir o ramo `onda-w7b`, erro do main, relatado a ele em 22/09 às 22:18. **Pendência de lei, não alterada:** a L-18 ainda diz `fable`; a confirmação de hoje foi sobre a L-34.
 
-## 23/09/2026 - 06:52 | Plano da `W7-D`: dezessete decisões do C-level no lugar do líder, e uma decisão sua que nunca tinha sido aplicada
+## 23/09/2026 - 06:43 | Plano da `W7-D`: dezessete decisões do C-level no lugar do líder, e uma decisão sua que nunca tinha sido aplicada
 
 **Quem decidiu:** C-level `opus`, esforço alto, depois de pesquisar (SDL3, GLFW, raylib, sokol, bgfx, NanoVG e outras; licença conferida antes de ler código). **Texto inteiro de cada decisão:** `docs/plano-w7d.md`, seção 9, um bloco por decisão.
 

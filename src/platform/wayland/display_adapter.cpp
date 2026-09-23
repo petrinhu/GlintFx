@@ -335,16 +335,27 @@ gltfx_rslt<bool>
 wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexcept {
     pollfd incoming{.fd = wl_display_get_fd(m_display), .events = POLLIN, .revents = 0};
     const int poll_result = poll(&incoming, 1, static_cast<int>(timeout_ms));
-    if (poll_result == -1) {
+    switch (classify_incoming_poll(poll_result, incoming.revents)) {
+    case incoming_poll_outcome::poll_call_failed:
+        // CONT-WARMUP C-5 (GODS_LAWS.md L-17 "gemeo"): `poll_result ==
+        // -1` used to be checked inline, BEFORE ever reaching
+        // classify_incoming_poll() - moved into the switch itself so
+        // this call site and egl_context_adapter.cpp's own poll_and_
+        // dispatch_with_budget() (this same fatia) decide about a
+        // failed ::poll() through the exact same atom, never two
+        // separately-maintained pre-checks that could drift apart
+        // again. Behavior UNCHANGED from before this fatia: EINTR is a
+        // signal arriving mid-wait, never a reason to declare the
+        // connection unusable (the same "transient, not fatal"
+        // distinction bounded_output_wait.hpp's own header comment
+        // draws for the write-side twin) - the NEXT caller-driven pump
+        // tries again. Any other errno is a real, unusable connection.
+        wl_display_cancel_read(m_display);
         if (errno == EINTR) {
-            wl_display_cancel_read(m_display);
             return gltfx_rslt<bool>::ok(false);
         }
-        wl_display_cancel_read(m_display);
         m_fatal = true;
         return gltfx_rslt<bool>::err(build_connection_failure(m_display));
-    }
-    switch (classify_incoming_poll(poll_result, incoming.revents)) {
     case incoming_poll_outcome::nothing_yet:
         wl_display_cancel_read(m_display);
         return gltfx_rslt<bool>::ok(false);
@@ -356,7 +367,7 @@ wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexce
         return gltfx_rslt<bool>::ok(true);
     }
     // Unreachable (the switch above is exhaustive over incoming_poll_
-    // outcome's three enumerators) - GODS_LAWS.md L-22 style safety net
+    // outcome's four enumerators) - GODS_LAWS.md L-22 style safety net
     // only, never meant to be hit; treated as "nothing to read" rather
     // than silently falling through with no return.
     wl_display_cancel_read(m_display);

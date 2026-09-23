@@ -257,6 +257,24 @@ int main() {
             kPumpAttemptsAfterCut);
         return EXIT_FAILURE;
     }
+    // CONT-WARMUP C-5 (revisao adversarial C-4, achado IMPORTANTE-2,
+    // mutante m4 da revisao: afrouxar kPumpAttemptsAfterCut de 2 para
+    // 10 sobrevivia porque o laco acima so' reprovava se o numero de
+    // chamadas EXCEDESSE o teto, nunca se fosse DIFERENTE do valor
+    // medido. Igualdade estrita contra a MESMA constante que dimensiona
+    // o laco: o comportamento real (latch na chamada #2, medido quatro
+    // vezes contra kwin_wayland de verdade) nao muda so' porque alguem
+    // afrouxa o teto, entao mutar a constante agora DESCASA do valor
+    // realmente medido e reprova.
+    if (pump_calls_taken != kPumpAttemptsAfterCut) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "fatal_error_smoke: pump_events() latchou na chamada #%d, mas o contrato "
+            "medido e' exatamente %d - regressao (ou o teto foi afrouxado sem que o "
+            "comportamento real tivesse mudado)\n",
+            pump_calls_taken, kPumpAttemptsAfterCut);
+        return EXIT_FAILURE;
+    }
     if (!pumped_after_cut.has_error()) {
         glintfx::container_fixture::checked_fprintf(
             stderr, "fatal_error_smoke: has_fatal_error() latched, but the pump_events() "
@@ -391,6 +409,18 @@ int main() {
             "has_fatal_error() dentro de %d tentativa(s) (contrato medido: exatamente 2) "
             "apos o processo confirmado morto\n",
             kGemeoWaitAttemptsAfterCut);
+        return EXIT_FAILURE;
+    }
+    // CONT-WARMUP C-5, gemeo da checagem de pump_events() acima (mesmo
+    // achado IMPORTANTE-2 da revisao C-4, mesma constante usada para o
+    // teto do laco E para o valor esperado).
+    if (gemeo_wait_calls_taken != kGemeoWaitAttemptsAfterCut) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "fatal_error_smoke: wait_events() de gemeo_adapter latchou na chamada #%d, "
+            "mas o contrato medido e' exatamente %d - regressao (ou o teto foi afrouxado "
+            "sem que o comportamento real tivesse mudado)\n",
+            gemeo_wait_calls_taken, kGemeoWaitAttemptsAfterCut);
         return EXIT_FAILURE;
     }
     if (!gemeo_waited.has_error()) {

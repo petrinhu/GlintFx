@@ -75,7 +75,16 @@ src/platform/wayland/display_adapter.cpp|read_and_dispatch_incoming()|wl_display
 
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_prepare_read(display)|nao-espera
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_flush(display)|nao-espera
-src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll(&incoming, 1, static_cast<int>(budget_ms))|teto-nosso
+# CONT-WARMUP C-5 (GODS_LAWS.md L-17 "gemeo" de display_adapter.cpp:72-73
+# acima): o texto do poll( mudou de `static_cast<int>(budget_ms)` para
+# `wait_ms` (o laco novo refaz o poll() com o que sobra do orcamento em
+# EINTR, nunca do zero) - e a linha nova, classify_incoming_poll(...),
+# e' o proprio mecanismo que prova o mutante "reverter para a condicao
+# antiga": tirar essa chamada do arquivo faz esta linha ficar "podre"
+# (trecho nao encontrado na arvore), e check_wait_points.py ja reprova
+# manifesto podre.
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll(&incoming, 1, wait_ms)|teto-nosso
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|classify_incoming_poll(poll_result, incoming.revents)|nao-espera
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_read_events(display)|nao-espera
 # As duas chamadas abaixo sao o MESMO texto, uma em cada ramo de
 # swap_buffers() (vsync=off e o ramo pos-espera de vsync=on) - as duas

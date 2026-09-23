@@ -6,6 +6,17 @@
 namespace glintfx::platform {
 
 incoming_poll_outcome classify_incoming_poll(int poll_result, short revents) noexcept {
+    if (poll_result < 0) {
+        // A real ::poll() failure - checked BEFORE any revents-based
+        // branch below, on purpose: POSIX leaves revents untouched by
+        // the kernel on this path, so a caller's zero-initialized
+        // pollfd (or, CONT-WARMUP C-5's own added test: a STALE,
+        // non-zero revents left over from a previous call reusing the
+        // same pollfd) must never be read as if it meant something
+        // here. Which errno it was is the CALLER's job (this header's
+        // own comment on this enumerator).
+        return incoming_poll_outcome::poll_call_failed;
+    }
     if (poll_result == 0) {
         // Budget genuinely exhausted, nothing reported at all - the
         // ordinary "nothing arrived yet" outcome, never fatal by

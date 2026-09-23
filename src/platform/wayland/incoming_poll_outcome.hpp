@@ -35,17 +35,35 @@
 namespace glintfx::platform {
 
 enum class incoming_poll_outcome : std::uint8_t {
-    nothing_yet,   // budget exhausted, or a spurious wake with none of
-                   // POLLIN/POLLHUP/POLLERR/POLLNVAL set - ordinary
-                   // "nothing arrived yet", never fatal by itself.
-    ready_to_read, // proceed to read_and_dispatch_incoming() - covers
-                   // plain POLLIN AND POLLHUP/POLLERR without POLLIN
-                   // (poll(2)'s own contract: a hangup can still have
-                   // real buffered data ahead of the EOF; the read
-                   // itself is what discovers true end-of-file).
-    fatal,         // POLLNVAL: an invalid fd is never something a read
-                   // could make sense of - latched before any read is
-                   // attempted, never absorbed as "nothing to read".
+    nothing_yet,      // budget exhausted, or a spurious wake with none of
+                      // POLLIN/POLLHUP/POLLERR/POLLNVAL set - ordinary
+                      // "nothing arrived yet", never fatal by itself.
+    ready_to_read,    // proceed to read_and_dispatch_incoming() - covers
+                      // plain POLLIN AND POLLHUP/POLLERR without POLLIN
+                      // (poll(2)'s own contract: a hangup can still have
+                      // real buffered data ahead of the EOF; the read
+                      // itself is what discovers true end-of-file).
+    fatal,            // POLLNVAL: an invalid fd is never something a read
+                      // could make sense of - latched before any read is
+                      // attempted, never absorbed as "nothing to read".
+    poll_call_failed, // poll_result < 0: ::poll() itself failed. CONT-
+                      // WARMUP C-5 (revisao adversarial C-4, GODS_LAWS.md
+                      // L-17 "gemeo"): a THIRD read-side call site (src/
+                      // platform/wayland/egl_context_adapter.cpp) used to
+                      // fold this straight into "budget exhausted" via
+                      // `poll_result <= 0`, and even THIS atom's own
+                      // pre-C-5 body agreed by accident - `revents` is
+                      // left untouched by the kernel on a real poll(2)
+                      // failure (POSIX; a caller's zero-initialized pollfd
+                      // still reads 0), so `poll_result < 0` used to fall
+                      // through to the SAME "spurious wake, nothing set"
+                      // branch a genuine `poll_result == 0` timeout takes.
+                      // WHICH errno it was (EINTR, retriable, vs anything
+                      // else, a real connection failure) is real OS state
+                      // this pure atom never reads (this header's own
+                      // comment) - that distinction is the CALLER's job,
+                      // read right after this call returns, before errno
+                      // can be clobbered by anything else.
 };
 
 // `poll_result`/`revents` are exactly what a caller's own `::poll(&pfd,

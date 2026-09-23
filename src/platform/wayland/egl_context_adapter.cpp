@@ -39,6 +39,7 @@
 #include "platform/wayland/drm_device_facts.hpp"
 #include "platform/wayland/drm_gpu_kind.hpp"
 #include "platform/wayland/egl_device_enumeration.hpp"
+#include "platform/wayland/incoming_poll_outcome.hpp"
 #include "platform/wayland/window_adapter.hpp"
 #include "platform/window/window_state.hpp"
 
@@ -115,6 +116,34 @@ constexpr wl_callback_listener k_frame_callback_listener{
 // budget" is NOT a failure, it is reported through frame_callback_
 // sequence.hpp's own decide_after_wait() instead, read by the caller
 // after this function returns.
+//
+// CONT-WARMUP C-5 (revisao adversarial C-4, /var/tmp/glintfx-plan/
+// revisao-cont-warmup-C4.md, achado CRITICO-1/IMPORTANTE-1,
+// GODS_LAWS.md L-17 "gemeo"): the read-side wait below used to decide
+// with its OWN inline `poll_result <= 0 || (incoming.revents &
+// POLLIN) == 0` - the exact composite condition display_adapter.cpp's
+// own wait_for_incoming_data() had BEFORE 99b5138, and this file was
+// never touched by that fix. Two bugs, both closed now: (1) POLLHUP/
+// POLLERR without POLLIN, and POLLNVAL, were absorbed as "nothing to
+// read, success" instead of the fatal connection failure poll(2)'s own
+// contract calls for; (2) `poll_result <= 0` folded a REAL poll()
+// error (-1, any errno, EINTR included) into the SAME branch as
+// "budget merely exhausted" - a caller here would read that as
+// skipped_hidden (an ordinary, silent degrade), never the connection
+// failure it actually is. Both now route through classify_incoming_
+// poll() (platform/wayland/incoming_poll_outcome.hpp), the SAME atom
+// display_adapter.cpp's own wait_for_incoming_data() already uses.
+// EINTR retries WITH WHATEVER TIME IS LEFT of `budget_ms` (its own
+// `read_deadline`, computed the same way `write_deadline` above is) -
+// unlike wait_for_incoming_data(), which simply reports "nothing yet"
+// and lets the NEXT caller-driven pump retry: THIS function's own
+// caller (swap_buffers()) is mid-frame-wait, budgeted for one specific
+// frame, and a bare EINTR must not silently cost the whole remaining
+// budget the way a single non-retried "nothing yet" would - the same
+// "keep trying with whatever time is left" shape wait_for_writable_
+// until() above already uses for its own EINTR (poll(2)'s own manpage:
+// a signal arriving mid-wait is never a reason to declare the
+// connection unusable).
 [[nodiscard]] bool poll_and_dispatch_with_budget(wl_display *display,
                                                  std::uint32_t budget_ms) noexcept {
     while (wl_display_prepare_read(display) != 0) {
@@ -143,20 +172,57 @@ constexpr wl_callback_listener k_frame_callback_listener{
         }
     }
 
-    pollfd incoming{.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
-    const int poll_result = poll(&incoming, 1, static_cast<int>(budget_ms));
-    if (poll_result <= 0 || (incoming.revents & POLLIN) == 0) {
-        // Budget exhausted with nothing to read - the mandatory other
-        // half of ARMADILHA 2's pairing, never a bare poll() left
-        // hanging without its matching cancel_read().
+    const auto read_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
+    for (;;) {
+        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                      read_deadline - std::chrono::steady_clock::now())
+                                      .count();
+        const int wait_ms = remaining_ms > 0 ? static_cast<int>(remaining_ms) : 0;
+        pollfd incoming{.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
+        const int poll_result = poll(&incoming, 1, wait_ms);
+        switch (classify_incoming_poll(poll_result, incoming.revents)) {
+        case incoming_poll_outcome::poll_call_failed:
+            if (errno == EINTR) {
+                if (remaining_ms <= 0) {
+                    // Budget exhausted while retrying an interrupted
+                    // poll() - the mandatory other half of ARMADILHA
+                    // 2's pairing (cancel_read below), reported exactly
+                    // like "nothing arrived within budget", never a
+                    // failure this connection caused.
+                    wl_display_cancel_read(display);
+                    return true;
+                }
+                continue;
+            }
+            // Any OTHER errno is a real, unusable connection - never
+            // folded into "budget exhausted" the way the OLD
+            // `poll_result <= 0` condition did.
+            wl_display_cancel_read(display);
+            return false;
+        case incoming_poll_outcome::nothing_yet:
+            // Budget exhausted with nothing to read - the mandatory
+            // other half of ARMADILHA 2's pairing, never a bare poll()
+            // left hanging without its matching cancel_read().
+            wl_display_cancel_read(display);
+            return true;
+        case incoming_poll_outcome::fatal:
+            wl_display_cancel_read(display);
+            return false;
+        case incoming_poll_outcome::ready_to_read:
+            if (wl_display_read_events(display) == -1) {
+                return false;
+            }
+            return wl_display_dispatch_pending(display) != -1;
+        }
+        // Unreachable (the switch above is exhaustive over incoming_
+        // poll_outcome's four enumerators) - GODS_LAWS.md L-22 style
+        // safety net only, never meant to be hit; treated as "nothing
+        // to read" rather than silently falling through with no
+        // return.
         wl_display_cancel_read(display);
         return true;
     }
-
-    if (wl_display_read_events(display) == -1) {
-        return false;
-    }
-    return wl_display_dispatch_pending(display) != -1;
 }
 
 // classify_current_gpu() - GL-GPU-KIND (docs/plano-w6b-fatias-5.md

@@ -97,3 +97,36 @@ GLINTFX_TEST(classify_incoming_poll_pollnval_takes_priority_over_pollhup) {
     GLINTFX_CHECK(classify_incoming_poll(1, static_cast<short>(POLLNVAL | POLLHUP)) ==
                   incoming_poll_outcome::fatal);
 }
+
+// CONT-WARMUP C-5 (revisao adversarial C-4, /var/tmp/glintfx-plan/
+// revisao-cont-warmup-C4.md, achado CRITICO-1/IMPORTANTE-1): RED,
+// MEASURED against the body this fatia replaces - `poll_result < 0`
+// (a REAL poll(2) failure, EINTR included) fell through the OLD
+// composite condition exactly like `poll_result == 0` (a genuine
+// timeout) does: `revents` is left untouched by the kernel on error
+// (POSIX; this header's own comment), so a caller's zero-initialized
+// pollfd still reads 0, and `(revents & (POLLIN|POLLHUP|POLLERR)) ==
+// 0` was `true` for BOTH cases - the pre-C-5 body returned
+// nothing_yet for poll_result == -1 exactly as it did for 0. The THIRD
+// call site (egl_context_adapter.cpp) that the C-4 review found never
+// separated the two cases either. This new outcome makes the
+// distinction a property of the pure atom itself, so BOTH read-side
+// call sites can now switch on it uniformly instead of each having to
+// remember to special-case `poll_result < 0` before ever reaching the
+// classifier.
+GLINTFX_TEST(classify_incoming_poll_negative_poll_result_is_poll_call_failed) {
+    // revents == 0, exactly what a caller's own zero-initialized pollfd
+    // already has right after a failed ::poll() - the kernel does not
+    // touch it on this path.
+    GLINTFX_CHECK(classify_incoming_poll(-1, 0) == incoming_poll_outcome::poll_call_failed);
+}
+
+GLINTFX_TEST(classify_incoming_poll_negative_poll_result_ignores_stale_revents) {
+    // A caller's own `incoming.revents` field is only ever meaningful
+    // when poll_result >= 0 (poll(2)'s own contract) - a negative
+    // poll_result must win over whatever bit pattern happens to be
+    // sitting in a caller's (possibly non-zero-initialized, or stale
+    // from a PREVIOUS call reusing the same pollfd) revents field.
+    GLINTFX_CHECK(classify_incoming_poll(-1, POLLIN) == incoming_poll_outcome::poll_call_failed);
+    GLINTFX_CHECK(classify_incoming_poll(-1, POLLNVAL) == incoming_poll_outcome::poll_call_failed);
+}

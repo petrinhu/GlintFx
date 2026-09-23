@@ -80,8 +80,13 @@
 #
 # Cada funcao faz uma coisa (GODS_LAWS.md L-17).
 
+import contextlib
+import io
+import os
 import re
 import sys
+import tempfile
+from dataclasses import dataclass
 
 # ENCODING-WIN (05/09/2026, GODS_LAWS.md L-40): TODO.md's own status
 # column carries markers outside the Basic Latin/Latin-1 range (`✅`
@@ -113,6 +118,23 @@ SISTEMAS_VALIDOS = ("linux", "windows")
 def fail(message):
     print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
     sys.exit(1)
+
+
+# PARITY-ALIAS-HYGIENE P-3, revisao independente (23/09/2026, achado
+# bloqueante N6): todo `except SystemExit:` deste arquivo que nunca lia
+# `.code` contava "levantou ALGUMA SystemExit" como prova de
+# reprovacao - um mutante que troca sys.exit(1) por sys.exit(0) aqui
+# em fail() sobrevivia a TODOS os controles de guarda do arquivo,
+# porque sys.exit(0) tambem levanta SystemExit (GODS_LAWS.md L-45: o
+# codigo de saida se le de uma VARIAVEL, nunca se infere do simples
+# fato de a excecao ter sido levantada). Um controle so conta como
+# "reprovou" quando o codigo e' exatamente o esperado.
+def _expect_fail_exit(callable_fn, *args, **kwargs):
+    try:
+        callable_fn(*args, **kwargs)
+    except SystemExit as exc:
+        return exc.code == 1
+    return False
 
 
 # --- parsing -----------------------------------------------------------
@@ -455,72 +477,132 @@ def apply_aliases(linux_only, windows_only, linux_inventory, windows_inventory, 
 # apelido apontando pro MESMO parceiro presente) tambem esta' vivo -
 # um apelido redundante/nao confirmado nesta chamada nao e' o mesmo
 # que um apelido comprovadamente podre.
-def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
-    combined_inventory = linux_inventory | windows_inventory
+# PARITY-ALIAS-HYGIENE, sub-fatia P-3 (23/09/2026, GODS_LAWS.md L-17,
+# achado bloqueante da revisao independente de P-2,
+# /var/tmp/glintfx-plan/revisao-parity-p2.md secao 3): compute_alias_
+# hygiene() cresceu de 31 para 74 linhas fisicas em P-2, estourando o
+# teto duro de 40 (CONTRACT.md SS6.2). A checagem de "irmao vivo"
+# estava DUPLICADA linha a linha entre o ramo linux_absent e o ramo
+# windows_absent - so o dicionario e o inventario trocados - e o
+# classificador por-apelido (dead/half_dead/bilateral) fazia o
+# trabalho de tres perguntas ("e morto? e meio-morto, de que lado? e
+# bilateral, declarado ou nao?") dentro de um laco so. Extraidos os
+# tres atomos que a propria revisao nomeou: _build_alias_sibling_maps
+# (o agrupamento, sem mudanca de logica), _has_live_sibling (a
+# checagem repetida) e _classify_alias (a decisao por apelido,
+# devolvendo so' a categoria e o lado - nunca decide O QUE FAZER com
+# ela, so' fabricas menores). compute_alias_hygiene() vira so' o laco
+# que despacha a categoria pro balde certo.
+# PARITY-ALIAS-HYGIENE, sub-fatia P-3, 2a verificacao L-12 do
+# orquestrador (23/09/2026, GODS_LAWS.md L-17, achado bloqueante da
+# revisao independente: `_classify_alias` nascia com 6 parametros -
+# `alias, combined_inventory, linux_inventory, windows_inventory,
+# linux_to_win, win_to_linux` - estourando o teto duro de 4. Os quatro
+# ultimos SEMPRE viajam juntos, nos quatro pontos onde a funcao e'
+# chamada - por isso viram um unico parametro estruturado, nunca
+# quatro soltos. `frozen=True` porque o contexto nao muda depois de
+# montado (o mesmo espirito de imutabilidade que o dict de CONJUNTOS
+# ja seguia).
+@dataclass(frozen=True)
+class AliasSiblingContext:
+    combined_inventory: frozenset
+    linux_inventory: frozenset
+    windows_inventory: frozenset
+    linux_to_win: dict
+    win_to_linux: dict
 
-    # Mesmo agrupamento de apply_aliases() acima (dict de CONJUNTOS,
-    # nunca dict simples - GODS_LAWS.md L-40/achado do lider
-    # 05/09/2026): usado so' para a supressao por irmao vivo, nunca
-    # para decidir dead/bilateral, que continuam por PAR individual.
+
+def _build_alias_sibling_maps(aliases):
+    # Dict de CONJUNTOS, nunca dict simples (GODS_LAWS.md L-40/achado
+    # do lider 05/09/2026, ver o comentario de apply_aliases() acima -
+    # o mesmo motivo vale aqui: mais de um apelido pode apontar pro
+    # mesmo parceiro, e nenhum pode ser sobrescrito em silencio).
     linux_to_win = {}
     win_to_linux = {}
     for alias in aliases:
         linux_to_win.setdefault(alias["linux_name"], set()).add(alias["windows_name"])
         win_to_linux.setdefault(alias["windows_name"], set()).add(alias["linux_name"])
+    return linux_to_win, win_to_linux
 
-    dead = []
-    half_dead = []
-    # PARITY-ALIAS-HYGIENE, sub-fatia P-2, achado do orquestrador
-    # (verificacao L-12 sobre c1de2ad, "metade provada vira provado"):
-    # a supressao por irmao vivo e' um desvio deliberado do piso de
-    # varredura (L-40) - um apelido que PARECE meio-morto mas tem
-    # cobertura real via irmao some da lista `half_dead` sem deixar
-    # rastro. GODS_LAWS.md L-40 exige que TODA supressao calada seja
-    # contada e impressa (nunca zero por padrao/silencio) - por isso
-    # `half_dead_suppressed` guarda cada candidato que a supressao
-    # engoliu, mesmo quando a supressao esta correta.
-    half_dead_suppressed = []
-    bilateral_declared = []
-    bilateral_undeclared = []
-    bilateral_false = []
+
+def _build_alias_sibling_context(aliases, linux_inventory, windows_inventory):
+    linux_to_win, win_to_linux = _build_alias_sibling_maps(aliases)
+    return AliasSiblingContext(
+        combined_inventory=linux_inventory | windows_inventory,
+        linux_inventory=linux_inventory,
+        windows_inventory=windows_inventory,
+        linux_to_win=linux_to_win,
+        win_to_linux=win_to_linux,
+    )
+
+
+# A checagem que estava duplicada entre os dois ramos de _classify_
+# alias: um candidato so' tem "irmao vivo" quando ALGUM nome do grupo
+# de apelidos que aponta pro MESMO parceiro aparece DE FATO no
+# inventario do lado certo (nunca no inventario do lado errado, nem so
+# "o grupo nao esta vazio" - os controles C1b-siblings-*/C1b-lado-
+# errado-* abaixo provam as duas distincoes por mutacao).
+def _has_live_sibling(partner_name, sibling_groups, live_inventory):
+    return any(name in live_inventory for name in sibling_groups.get(partner_name, ()))
+
+
+# Classifica UM apelido, devolvendo (categoria, lado) - lado so' e
+# usado por half_dead/half_dead_suppressed, None nos demais casos, e
+# categoria None significa "apelido normal, nada a reportar" (a
+# checagem de is_bilateral pode nao achar problema nenhum: par nao-
+# bilateral sem declaracao e o caso comum, coberto em outro lugar por
+# apply_aliases()/run_comparison(), nao aqui). So' 2 parametros -
+# `alias` (o que varia por chamada) e `context` (o que viaja junto,
+# imutavel, ver AliasSiblingContext acima).
+def _classify_alias(alias, context):
+    linux_name = alias["linux_name"]
+    windows_name = alias["windows_name"]
+    linux_absent = linux_name not in context.combined_inventory
+    windows_absent = windows_name not in context.combined_inventory
+
+    if linux_absent and windows_absent:
+        return "dead", None
+    if linux_absent:
+        suppressed = _has_live_sibling(windows_name, context.win_to_linux, context.linux_inventory)
+        return ("half_dead_suppressed" if suppressed else "half_dead"), "linux"
+    if windows_absent:
+        suppressed = _has_live_sibling(linux_name, context.linux_to_win, context.windows_inventory)
+        return ("half_dead_suppressed" if suppressed else "half_dead"), "windows"
+
+    is_bilateral = linux_name in context.windows_inventory or windows_name in context.linux_inventory
+    if not is_bilateral:
+        # P-2, achado IMPORTANTE: declaracao bilateral cujo fato
+        # descrito nao e' verdade - nao pode passar calada so porque o
+        # par nao e' candidato a lacuna hoje.
+        return ("bilateral_false" if alias["bilateral_reason"] else None), None
+    return ("bilateral_declared" if alias["bilateral_reason"] else "bilateral_undeclared"), None
+
+
+def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
+    context = _build_alias_sibling_context(aliases, linux_inventory, windows_inventory)
+
+    dead, half_dead, half_dead_suppressed = [], [], []
+    bilateral_declared, bilateral_undeclared, bilateral_false = [], [], []
+    # GODS_LAWS.md L-40 (achado P-2, "metade provada vira provado"):
+    # supressao por irmao vivo fica contada e visivel, nunca calada.
+    buckets = {
+        "dead": dead,
+        "bilateral_declared": bilateral_declared,
+        "bilateral_undeclared": bilateral_undeclared,
+        "bilateral_false": bilateral_false,
+    }
+
     for alias in aliases:
-        linux_name = alias["linux_name"]
-        windows_name = alias["windows_name"]
-        linux_absent = linux_name not in combined_inventory
-        windows_absent = windows_name not in combined_inventory
-        if linux_absent and windows_absent:
-            dead.append(alias)
+        category, side = _classify_alias(alias, context)
+        if category is None:
             continue
-        if linux_absent:
-            sibling_alive = any(
-                name in linux_inventory for name in win_to_linux.get(windows_name, ())
-            )
-            if sibling_alive:
-                half_dead_suppressed.append((alias, "linux"))
-            else:
-                half_dead.append((alias, "linux"))
-            continue
-        if windows_absent:
-            sibling_alive = any(
-                name in windows_inventory for name in linux_to_win.get(linux_name, ())
-            )
-            if sibling_alive:
-                half_dead_suppressed.append((alias, "windows"))
-            else:
-                half_dead.append((alias, "windows"))
-            continue
-        is_bilateral = linux_name in windows_inventory or windows_name in linux_inventory
-        if not is_bilateral:
-            if alias["bilateral_reason"]:
-                # P-2, achado IMPORTANTE: declaracao bilateral cujo
-                # fato descrito nao e' verdade - nao pode passar calada
-                # so porque o par nao e' candidato a lacuna hoje.
-                bilateral_false.append(alias)
-            continue
-        if alias["bilateral_reason"]:
-            bilateral_declared.append(alias)
+        if category == "half_dead":
+            half_dead.append((alias, side))
+        elif category == "half_dead_suppressed":
+            half_dead_suppressed.append((alias, side))
         else:
-            bilateral_undeclared.append(alias)
+            buckets[category].append(alias)
+
     return (
         dead,
         bilateral_declared,
@@ -619,16 +701,16 @@ def validate_exceptions(exceptions, todo_status):
     return errors
 
 
-# O veredicto inteiro, como uma lista de erros - lista vazia significa
-# que o portao passa. Reune os controles que --selftest exige provar
-# em vermelho: piso de varredura vazia (GODS_LAWS.md L-40), excecao
-# invalida (validate_exceptions acima), lacuna sem excecao
-# registrada, e a higiene das duas tabelas acrescentada por PARITY-
-# ALIAS-HYGIENE (apelido morto, apelido bilateral sem declaracao,
-# excecao morta, PROVA-PARCIAL com gemeo nao conferido).
-def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo_status):
+# PARITY-ALIAS-HYGIENE, sub-fatia P-3 (23/09/2026, GODS_LAWS.md L-17,
+# achado de seguimento SS4.3 da revisao de P-2): run_comparison() ja
+# violava o teto de 40 linhas ANTES de P-2 (73 linhas em 5d0c173) e
+# P-2 agravou (+15, os dois lacos novos de half-dead/bilateral-falso).
+# Cada bloco "calcula uma categoria, formata as mensagens dela" vira
+# uma funcao nomeada - a mesma receita de extracao usada em
+# compute_alias_hygiene() acima. run_comparison() fica so' a ORDEM em
+# que as checagens rodam, nunca a formatacao delas.
+def _empty_inventory_errors(linux_inventory, windows_inventory):
     errors = []
-
     if not linux_inventory:
         errors.append(
             "varredura vazia: o inventario Linux tem 0 testes - GODS_LAWS.md L-40, "
@@ -639,20 +721,10 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
             "varredura vazia: o inventario Windows tem 0 testes - GODS_LAWS.md L-40, "
             "isto e sinal de coleta quebrada, nunca de paridade"
         )
-    if not linux_inventory or not windows_inventory:
-        # Sem os dois lados a comparacao de nomes nao tem sentido -
-        # devolve so o(s) erro(s) de varredura vazia, nao um "todo
-        # mundo falta do outro lado" espurio.
-        return errors
+    return errors
 
-    linux_only = linux_inventory - windows_inventory
-    windows_only = windows_inventory - linux_inventory
-    linux_only, windows_only = apply_aliases(
-        linux_only, windows_only, linux_inventory, windows_inventory, aliases
-    )
 
-    errors.extend(validate_exceptions(exceptions, todo_status))
-
+def _format_alias_hygiene_errors(aliases, linux_inventory, windows_inventory):
     (
         alias_dead,
         _alias_bilateral_declared,
@@ -661,6 +733,8 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
         alias_half_dead,
         _alias_half_dead_suppressed,
     ) = compute_alias_hygiene(aliases, linux_inventory, windows_inventory)
+
+    errors = []
     for alias in alias_dead:
         errors.append(
             f"apelido morto: {alias['linux_name']}|{alias['windows_name']} nao aparece em "
@@ -687,19 +761,21 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
             "tests/parity_aliases.txt aponta para um nome que foi renomeado ou apagado "
             "de um dos lados (PARITY-ALIAS-HYGIENE P-2)"
         )
+    return errors
 
+
+def _format_exception_hygiene_errors(exceptions, linux_inventory, windows_inventory):
     exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
-    for exc in exception_dead:
-        errors.append(
-            f"excecao morta: {exc['test_name']} (missing_on={exc['missing_on']}) em "
-            "tests/parity_exceptions.txt nao aparece em inventario nenhum, ou ja existe "
-            "tambem do lado declarado como faltante - apague a linha"
-        )
+    return [
+        f"excecao morta: {exc['test_name']} (missing_on={exc['missing_on']}) em "
+        "tests/parity_exceptions.txt nao aparece em inventario nenhum, ou ja existe "
+        "tambem do lado declarado como faltante - apague a linha"
+        for exc in exception_dead
+    ]
 
-    errors.extend(validate_prova_parcial(exceptions, linux_inventory, windows_inventory))
 
-    exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
-
+def _format_gap_errors(linux_only, windows_only, exception_index):
+    errors = []
     for name in sorted(linux_only):
         if (name, "windows") not in exception_index:
             errors.append(
@@ -712,6 +788,37 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
                 f"{name}: existe no inventario Windows e falta no Linux, sem excecao "
                 "registrada em tests/parity_exceptions.txt"
             )
+    return errors
+
+
+# O veredicto inteiro, como uma lista de erros - lista vazia significa
+# que o portao passa. Reune os controles que --selftest exige provar
+# em vermelho: piso de varredura vazia (GODS_LAWS.md L-40), excecao
+# invalida (validate_exceptions acima), lacuna sem excecao
+# registrada, e a higiene das duas tabelas acrescentada por PARITY-
+# ALIAS-HYGIENE (apelido morto, apelido bilateral sem declaracao,
+# excecao morta, PROVA-PARCIAL com gemeo nao conferido).
+def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo_status):
+    errors = _empty_inventory_errors(linux_inventory, windows_inventory)
+    if not linux_inventory or not windows_inventory:
+        # Sem os dois lados a comparacao de nomes nao tem sentido -
+        # devolve so o(s) erro(s) de varredura vazia, nao um "todo
+        # mundo falta do outro lado" espurio.
+        return errors
+
+    linux_only = linux_inventory - windows_inventory
+    windows_only = windows_inventory - linux_inventory
+    linux_only, windows_only = apply_aliases(
+        linux_only, windows_only, linux_inventory, windows_inventory, aliases
+    )
+
+    errors.extend(validate_exceptions(exceptions, todo_status))
+    errors.extend(_format_alias_hygiene_errors(aliases, linux_inventory, windows_inventory))
+    errors.extend(_format_exception_hygiene_errors(exceptions, linux_inventory, windows_inventory))
+    errors.extend(validate_prova_parcial(exceptions, linux_inventory, windows_inventory))
+
+    exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
+    errors.extend(_format_gap_errors(linux_only, windows_only, exception_index))
 
     return errors
 
@@ -727,36 +834,65 @@ def _read_file(path):
         fail(f"arquivo nao encontrado: {path} ({exc})")
 
 
-def real_main(args):
+# PARITY-ALIAS-HYGIENE P-3 (23/09/2026, GODS_LAWS.md L-17, achado da
+# verificacao L-12 do orquestrador): real_main() estava em 49 linhas
+# fisicas em `5d0c173` e `07499e3` (fundacao/P-2 - nao violava) e
+# chegou a 57 nesta fatia - dividido por responsabilidade, o mesmo
+# criterio que a revisao original usou pra `compute_alias_hygiene()`:
+# ler os argumentos, carregar os cinco arquivos de entrada, imprimir
+# as contagens (o piso L-40), e decidir o codigo de saida. Cada parte
+# nomeada, real_main() fica so' a ORDEM em que elas rodam.
+#
+# 2a verificacao L-12 (achado bloqueante da revisao independente):
+# `_print_real_main_counts` nascia com 5 parametros soltos - os
+# mesmos cinco que `_load_real_main_inputs` ja devolve juntos.
+# Agrupados numa unica estrutura nomeada, o mesmo remedio de
+# AliasSiblingContext acima.
+@dataclass(frozen=True)
+class RealMainInputs:
+    linux_inventory: frozenset
+    windows_inventory: frozenset
+    exceptions: list
+    aliases: list
+    todo_status: dict
+
+
+def _parse_real_main_args(args):
     if len(args) != 5:
         fail(
             "usage: check_test_parity.py --compare <inv-linux> <inv-windows> "
             "<exceptions.txt> <aliases.txt> <TODO.md>"
         )
+    return args
+
+
+def _load_real_main_inputs(args):
     linux_inv_path, windows_inv_path, exceptions_path, aliases_path, todo_path = args
-
-    linux_inventory = parse_inventory_text(_read_file(linux_inv_path))
-    windows_inventory = parse_inventory_text(_read_file(windows_inv_path))
-    exceptions = parse_exceptions_text(_read_file(exceptions_path))
-    aliases = parse_aliases_text(_read_file(aliases_path))
-    todo_status = parse_todo_status_text(_read_file(todo_path))
-
-    print(
-        f"{SCRIPT_NAME}: inventario Linux={len(linux_inventory)} teste(s), "
-        f"Windows={len(windows_inventory)} teste(s), "
-        f"{len(exceptions)} excecao(oes), {len(aliases)} apelido(s), "
-        f"{len(todo_status)} item(ns) lido(s) de TODO.md"
+    return RealMainInputs(
+        linux_inventory=parse_inventory_text(_read_file(linux_inv_path)),
+        windows_inventory=parse_inventory_text(_read_file(windows_inv_path)),
+        exceptions=parse_exceptions_text(_read_file(exceptions_path)),
+        aliases=parse_aliases_text(_read_file(aliases_path)),
+        todo_status=parse_todo_status_text(_read_file(todo_path)),
     )
 
-    # PARITY-ALIAS-HYGIENE (TODO.md W7-C, GODS_LAWS.md L-40): estas
-    # duas linhas imprimem SEMPRE, ganhe ou perca o portao - o piso de
-    # varredura exige a contagem, nao so o veredicto. Calculadas aqui
-    # (nao dentro de run_comparison) porque valem mesmo quando um
-    # inventario vem vazio: nesse caso todo apelido/excecao aparece
-    # "morto" por definicao (nao ha nada em inventario nenhum para
-    # bater), o que e' verdade honesta, nao um segundo erro de
-    # varredura vazia disfarcado - a lista de erros que decide
-    # REPROVADO continua vindo so de run_comparison().
+
+# PARITY-ALIAS-HYGIENE (TODO.md W7-C, GODS_LAWS.md L-40): as tres
+# linhas abaixo imprimem SEMPRE, ganhe ou perca o portao - o piso de
+# varredura exige a contagem, nao so o veredicto. Calculadas aqui (nao
+# dentro de run_comparison) porque valem mesmo quando um inventario
+# vem vazio: nesse caso todo apelido/excecao aparece "morto" por
+# definicao (nao ha nada em inventario nenhum para bater), o que e'
+# verdade honesta, nao um segundo erro de varredura vazia disfarcado -
+# a lista de erros que decide REPROVADO continua vindo so de
+# run_comparison().
+def _print_real_main_counts(inputs):
+    print(
+        f"{SCRIPT_NAME}: inventario Linux={len(inputs.linux_inventory)} teste(s), "
+        f"Windows={len(inputs.windows_inventory)} teste(s), "
+        f"{len(inputs.exceptions)} excecao(oes), {len(inputs.aliases)} apelido(s), "
+        f"{len(inputs.todo_status)} item(ns) lido(s) de TODO.md"
+    )
     (
         alias_dead,
         alias_bilateral_declared,
@@ -764,26 +900,36 @@ def real_main(args):
         alias_bilateral_false,
         alias_half_dead,
         alias_half_dead_suppressed,
-    ) = compute_alias_hygiene(aliases, linux_inventory, windows_inventory)
+    ) = compute_alias_hygiene(inputs.aliases, inputs.linux_inventory, inputs.windows_inventory)
     print(
-        f"{SCRIPT_NAME}: {len(aliases)} apelido(s), {len(alias_dead)} morto(s), "
+        f"{SCRIPT_NAME}: {len(inputs.aliases)} apelido(s), {len(alias_dead)} morto(s), "
         f"{len(alias_bilateral_declared)} bilateral(is) declarado(s), "
         f"{len(alias_bilateral_undeclared)} bilateral(is) sem declaracao, "
         f"{len(alias_bilateral_false)} bilateral(is) falso(s), "
         f"{len(alias_half_dead)} meio-morto(s), "
         f"{len(alias_half_dead_suppressed)} meio-morto(s) suprimido(s) por irmao vivo"
     )
-    exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
-    print(f"{SCRIPT_NAME}: {len(exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
+    exception_dead = compute_exception_hygiene(inputs.exceptions, inputs.linux_inventory, inputs.windows_inventory)
+    print(f"{SCRIPT_NAME}: {len(inputs.exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
 
-    errors = run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo_status)
+
+def _exit_with_verdict(errors):
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         sys.exit(1)
-
     print(f"{SCRIPT_NAME}: paridade OK - nenhuma lacuna sem excecao registrada")
+
+
+def real_main(args):
+    args = _parse_real_main_args(args)
+    inputs = _load_real_main_inputs(args)
+    _print_real_main_counts(inputs)
+    errors = run_comparison(
+        inputs.linux_inventory, inputs.windows_inventory, inputs.exceptions, inputs.aliases, inputs.todo_status
+    )
+    _exit_with_verdict(errors)
 
 
 # --- fixtures and controls for --selftest -----------------------------
@@ -833,6 +979,43 @@ def selftest_unregistered_gap_reproves():
         print(f"selftest: VERMELHO#1 FALHOU (reprovou, mas nao citou o teste): {errors}", file=sys.stderr)
         return False
     print(f"selftest: VERMELHO#1 OK (lacuna sem excecao pega): {errors}")
+    return True
+
+
+# GODS_LAWS.md L-17 P-3, 3a verificacao L-12 (achado bloqueante N7 da
+# revisao independente, DIVIDA DA FUNDACAO desde `5d0c173` - a mesma
+# doenca que motivou a fatia inteira, achada agora numa familia que
+# P-2/P-3 nunca tocaram): VERMELHO#1 acima so' confere que o NOME do
+# teste aparece na mensagem, nunca a DIRECAO. Um mutante que troca o
+# texto "existe no inventario Linux e falta no Windows"/"existe no
+# inventario Windows e falta no Linux" entre os dois lacos de
+# _format_gap_errors() sobrevive - o nome continua la', so' a direcao
+# mentiria. Este controle tem lacuna dos DOIS lados AO MESMO TEMPO,
+# com nomes distintos, e confere a frase inteira de cada lado.
+def selftest_gap_message_names_correct_direction_reproves():
+    linux_inv = {"a_test", "somente_linux_direcao_test"}
+    windows_inv = {"a_test", "somente_windows_direcao_test"}
+    errors = run_comparison(linux_inv, windows_inv, [], [], {})
+    linux_ok = any(
+        "somente_linux_direcao_test" in e and "existe no inventario Linux e falta no Windows" in e
+        for e in errors
+    )
+    windows_ok = any(
+        "somente_windows_direcao_test" in e and "existe no inventario Windows e falta no Linux" in e
+        for e in errors
+    )
+    if not (linux_ok and windows_ok):
+        print(
+            f"selftest: GAP-DIRECAO FALHOU (a mensagem de lacuna nao nomeia a direcao certa "
+            f"para cada lado - texto pode ter trocado de lugar entre os dois lacos de "
+            f"_format_gap_errors): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: GAP-DIRECAO OK (lacuna Linux-falta-Windows e Windows-falta-Linux nao "
+        "trocam de texto entre si)"
+    )
     return True
 
 
@@ -1231,9 +1414,7 @@ def selftest_corrupted_inventory_line_reproves():
         "isto aqui nao e saida crua de ctest nem um nome limpo!!\n"
         "Total Tests: 1\n"
     )
-    try:
-        parse_inventory_text(garbled_text)
-    except SystemExit:
+    if _expect_fail_exit(parse_inventory_text, garbled_text):
         print(
             "selftest: controle ENTRADA-CORROMPIDA OK (linha sem forma reconhecida "
             "reprova, GODS_LAWS.md L-40, em vez de virar nome fantasma ou sumir)"
@@ -1274,25 +1455,80 @@ def selftest_alias_dead_reproves():
 # a categoria propria "apelido meio-morto", nomeando qual lado sumiu -
 # a analise de lacuna generica tambem reprova o mesmo nome (nao e'
 # suprimida), entao os dois erros coexistem.
+#
+# CONSERTO DA TAUTOLOGIA (P-3, 23/09/2026, achado bloqueante da
+# revisao independente de P-2, /var/tmp/glintfx-plan/revisao-parity-
+# p2.md secao 2.3): a versao anterior usava fixtures chamadas
+# "meio_morto_linux_ok_test"/"meio_morto_windows_apagado_test" e
+# conferia "linux" in e / "windows" in e na MENSAGEM formatada - a
+# asserção passava so' porque o proprio NOME DO APELIDO contem a
+# substring do lado, nunca porque checou o lado de verdade (provado
+# por mutacao: trocar o rotulo do lado sobrevivia aos 31 controles
+# antigos). O conserto tem duas partes, as duas obrigatorias: (1) os
+# nomes de fixture daqui pra baixo NUNCA contem "linux"/"windows" como
+# substring; (2) a asserção confere o `side` ESTRUTURADO que
+# compute_alias_hygiene() devolve (chamado direto, sem passar pela
+# formatacao de string de run_comparison()), por igualdade exata -
+# nunca por substring de mensagem.
+# Helper comum aos seis controles C1b* abaixo (P-3, verificacao L-12
+# rodada 2 do orquestrador): confere as DUAS coisas que a rodada 2
+# achou que o "side" estruturado sozinho nao prova - (1) a mensagem
+# CITA o apelido certo, (2) o TEXTO dela nomeia o lado certo na frase
+# exata "tem o lado X ausente" (nunca substring solta, que colidiria
+# com o "(nem Linux, nem Windows)" fixo de toda mensagem meio-morta).
+# Um mutante que troca so' o {missing_side} da FORMATACAO (nunca o
+# dado que compute_alias_hygiene() devolve) sobrevivia sem isto.
+def _check_half_dead_message(errors, alias_substring, expected_side, label):
+    if not any("apelido meio-morto" in e and alias_substring in e for e in errors):
+        print(
+            f"selftest: {label} FALHOU (reprovou, mas nao citou o apelido meio-morto): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    if not any(f"tem o lado {expected_side} ausente" in e for e in errors):
+        print(
+            f"selftest: {label} FALHOU (o TEXTO da mensagem nao nomeia o lado "
+            f"{expected_side!r} - so' o dado estruturado nao basta): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+# Variante para os controles com DOIS apelidos meio-mortos do mesmo
+# lado (C1b-siblings-*): cada substring precisa aparecer numa mensagem
+# PROPRIA que tambem nomeia o lado certo no texto - devolve quantos
+# dos `alias_substrings` bateram os dois criterios juntos.
+def _count_half_dead_messages(errors, alias_substrings, expected_side):
+    phrase = f"tem o lado {expected_side} ausente"
+    return sum(
+        1
+        for substring in alias_substrings
+        if any("apelido meio-morto" in e and substring in e and phrase in e for e in errors)
+    )
+
+
 def selftest_alias_half_dead_reproves():
-    linux_inv = {"a_test", "meio_morto_linux_ok_test"}
+    linux_inv = {"a_test", "alfa_presente_test"}
     windows_inv = {"a_test"}
-    aliases = [_alias_fixture("meio_morto_linux_ok_test", "meio_morto_windows_apagado_test")]
+    aliases = [_alias_fixture("alfa_presente_test", "alfa_sumido_test")]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
     if not errors:
         print("selftest: PARITY-ALIAS-HYGIENE C1b FALHOU (apelido meio-morto deveria ter reprovado)", file=sys.stderr)
         return False
-    if not any(
-        "apelido meio-morto" in e and "meio_morto_linux_ok_test" in e and "windows" in e
-        for e in errors
-    ):
+    if not _check_half_dead_message(errors, "alfa_presente_test", "windows", "PARITY-ALIAS-HYGIENE C1b"):
+        return False
+    _dead, _decl, _undecl, _false, half_dead, _supp = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    if half_dead != [(aliases[0], "windows")]:
         print(
-            f"selftest: PARITY-ALIAS-HYGIENE C1b FALHOU (reprovou, mas nao citou o apelido "
-            f"meio-morto com o lado ausente): {errors}",
+            f"selftest: PARITY-ALIAS-HYGIENE C1b FALHOU (lado estruturado errado - esperava "
+            f"'windows', veio {half_dead}): rotulo trocado nao morre mais so por substring",
             file=sys.stderr,
         )
         return False
-    print(f"selftest: PARITY-ALIAS-HYGIENE C1b OK (apelido meio-morto pego, com o lado ausente nomeado): {errors}")
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b OK (apelido meio-morto pego, lado 'windows' conferido por valor): {errors}")
     return True
 
 
@@ -1309,26 +1545,29 @@ def selftest_alias_half_dead_reproves():
 # (`win_to_linux[windows_name]` inclui `linux_name`) - o mutante conta
 # a si mesmo como "irmao vivo" sem nunca checar o inventario de
 # verdade. Esperado: reprova, com a categoria "apelido meio-morto" e
-# o lado "linux" nomeado.
+# o lado "linux" nomeado - conferido por VALOR (side, P-3), nomes de
+# fixture sem "linux"/"windows" embutido (ver comentario de C1b acima).
 def selftest_alias_half_dead_linux_side_reproves():
     linux_inv = {"a_test"}
-    windows_inv = {"a_test", "meio_morto_windows_vivo_test"}
-    aliases = [_alias_fixture("meio_morto_linux_apagado_test", "meio_morto_windows_vivo_test")]
+    windows_inv = {"a_test", "beta_presente_test"}
+    aliases = [_alias_fixture("beta_sumido_test", "beta_presente_test")]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
     if not errors:
         print("selftest: PARITY-ALIAS-HYGIENE C1b-linux FALHOU (apelido meio-morto deveria ter reprovado)", file=sys.stderr)
         return False
-    if not any(
-        "apelido meio-morto" in e and "meio_morto_linux_apagado_test" in e and "linux" in e
-        for e in errors
-    ):
+    if not _check_half_dead_message(errors, "beta_sumido_test", "linux", "PARITY-ALIAS-HYGIENE C1b-linux"):
+        return False
+    _dead, _decl, _undecl, _false, half_dead, _supp = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    if half_dead != [(aliases[0], "linux")]:
         print(
-            f"selftest: PARITY-ALIAS-HYGIENE C1b-linux FALHOU (reprovou, mas nao citou o apelido "
-            f"meio-morto com o lado 'linux' nomeado): {errors}",
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-linux FALHOU (lado estruturado errado - "
+            f"esperava 'linux', veio {half_dead})",
             file=sys.stderr,
         )
         return False
-    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-linux OK (ramo linux_absent pego, lado nomeado): {errors}")
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-linux OK (ramo linux_absent pego, lado 'linux' conferido por valor): {errors}")
     return True
 
 
@@ -1340,25 +1579,38 @@ def selftest_alias_half_dead_linux_side_reproves():
 # conta qualquer nome do grupo como prova de vida (em vez de checar se
 # ele esta' de fato no inventario) suprimiria os DOIS em silencio,
 # porque cada um "encontraria" o outro (tambem morto) no mesmo grupo.
-# Esperado: os dois reprovam como meio-mortos, nenhum suprimido.
+# Esperado: os dois reprovam como meio-mortos, nenhum suprimido. Nomes
+# de fixture sem "linux"/"windows" embutido, side conferido por valor
+# (P-3, ver comentario de C1b acima).
 def selftest_alias_half_dead_linux_dead_siblings_not_counted_reproves():
     linux_inv = {"a_test"}
-    windows_inv = {"a_test", "parceiro_presente_test"}
+    windows_inv = {"a_test", "gama_presente_test"}
     aliases = [
-        _alias_fixture("irmao_morto_um_test", "parceiro_presente_test"),
-        _alias_fixture("irmao_morto_dois_test", "parceiro_presente_test"),
+        _alias_fixture("gama_orfa_um_test", "gama_presente_test"),
+        _alias_fixture("gama_orfa_dois_test", "gama_presente_test"),
     ]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
-    ok_um = any("apelido meio-morto" in e and "irmao_morto_um_test" in e for e in errors)
-    ok_dois = any("apelido meio-morto" in e and "irmao_morto_dois_test" in e for e in errors)
-    if not (ok_um and ok_dois):
+    ok_count = _count_half_dead_messages(errors, ["gama_orfa_um_test", "gama_orfa_dois_test"], "linux")
+    if ok_count != 2:
         print(
-            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux FALHOU (os dois irmaos mortos "
-            f"deveriam ter reprovado, nenhum suprimido pelo outro): {errors}",
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux FALHOU (esperava os dois "
+            f"irmaos mortos reprovando com 'tem o lado linux ausente' cada um, achou "
+            f"{ok_count}): {errors}",
             file=sys.stderr,
         )
         return False
-    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux OK (irmao morto nao conta como vivo): {errors}")
+    _dead, _decl, _undecl, _false, half_dead, _supp = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    sides = {alias["linux_name"]: side for alias, side in half_dead}
+    if sides != {"gama_orfa_um_test": "linux", "gama_orfa_dois_test": "linux"}:
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux FALHOU (lado estruturado "
+            f"errado, esperava os dois em 'linux', veio {sides})",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux OK (irmao morto nao conta como vivo, lado conferido por valor): {errors}")
     return True
 
 
@@ -1367,23 +1619,34 @@ def selftest_alias_half_dead_linux_dead_siblings_not_counted_reproves():
 # remedio, no lado espelhado (GODS_LAWS.md L-17). Um nome Linux vivo
 # com DOIS apelidos Windows, nenhum dos dois existe em lugar nenhum.
 def selftest_alias_half_dead_windows_dead_siblings_not_counted_reproves():
-    linux_inv = {"a_test", "parceiro_presente_linux_test"}
+    linux_inv = {"a_test", "delta_presente_test"}
     windows_inv = {"a_test"}
     aliases = [
-        _alias_fixture("parceiro_presente_linux_test", "irmao_morto_um_win_test"),
-        _alias_fixture("parceiro_presente_linux_test", "irmao_morto_dois_win_test"),
+        _alias_fixture("delta_presente_test", "delta_orfa_um_test"),
+        _alias_fixture("delta_presente_test", "delta_orfa_dois_test"),
     ]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
-    ok_um = any("apelido meio-morto" in e and "irmao_morto_um_win_test" in e for e in errors)
-    ok_dois = any("apelido meio-morto" in e and "irmao_morto_dois_win_test" in e for e in errors)
-    if not (ok_um and ok_dois):
+    ok_count = _count_half_dead_messages(errors, ["delta_orfa_um_test", "delta_orfa_dois_test"], "windows")
+    if ok_count != 2:
         print(
-            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows FALHOU (os dois irmaos mortos "
-            f"deveriam ter reprovado, nenhum suprimido pelo outro): {errors}",
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows FALHOU (esperava os dois "
+            f"irmaos mortos reprovando com 'tem o lado windows ausente' cada um, achou "
+            f"{ok_count}): {errors}",
             file=sys.stderr,
         )
         return False
-    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows OK (irmao morto nao conta como vivo): {errors}")
+    _dead, _decl, _undecl, _false, half_dead, _supp = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    sides = {alias["windows_name"]: side for alias, side in half_dead}
+    if sides != {"delta_orfa_um_test": "windows", "delta_orfa_dois_test": "windows"}:
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows FALHOU (lado estruturado "
+            f"errado, esperava os dois em 'windows', veio {sides})",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows OK (irmao morto nao conta como vivo, lado conferido por valor): {errors}")
     return True
 
 
@@ -1397,20 +1660,21 @@ def selftest_alias_half_dead_windows_dead_siblings_not_counted_reproves():
 # prova de vida do lado LINUX, o que e' logicamente impossivel (um
 # nome que so aparece no inventario Windows nunca rodou como teste
 # Linux - ele nao da NENHUMA cobertura Linux ao parceiro). O irmao
-# "nome_que_so_existe_no_windows" aqui existe de verdade (aparece em
+# "epsilon_fantasma_test" aqui existe de verdade (aparece em
 # windows_inv, entao nao e' ele mesmo um apelido morto - e' um segundo
 # apelido legitimo bilateral, so' para forjar o grupo de irmaos do
 # parceiro), mas NUNCA no lado Linux - nao pode suprimir o meio-morto
-# de apelido_linux_morto_test. Esperado: reprova, "apelido meio-morto"
-# com o lado "linux" nomeado, apesar do irmao existir do lado errado.
+# de epsilon_orfa_test. Esperado: reprova, "apelido meio-morto" com o
+# lado "linux" (conferido por VALOR, P-3), apesar do irmao existir do
+# lado errado. Nome de fixture sem "linux"/"windows" embutido.
 def selftest_alias_half_dead_linux_sibling_must_be_linux_side_reproves():
     linux_inv = {"a_test"}
-    windows_inv = {"a_test", "parceiro_vivo_test", "nome_que_so_existe_no_windows"}
+    windows_inv = {"a_test", "epsilon_presente_test", "epsilon_fantasma_test"}
     aliases = [
-        _alias_fixture("apelido_linux_morto_test", "parceiro_vivo_test"),
+        _alias_fixture("epsilon_orfa_test", "epsilon_presente_test"),
         _alias_fixture(
-            "nome_que_so_existe_no_windows",
-            "parceiro_vivo_test",
+            "epsilon_fantasma_test",
+            "epsilon_presente_test",
             bilateral_reason=(
                 "fixture de teste - este nome existe so do lado windows, usado so "
                 "para forjar o grupo de irmaos do parceiro (nao e' o que este "
@@ -1419,38 +1683,44 @@ def selftest_alias_half_dead_linux_sibling_must_be_linux_side_reproves():
         ),
     ]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
-    if not any(
-        "apelido meio-morto" in e and "apelido_linux_morto_test" in e and "linux" in e
-        for e in errors
+    if not _check_half_dead_message(
+        errors, "epsilon_orfa_test", "linux", "PARITY-ALIAS-HYGIENE C1b-lado-errado-linux"
     ):
+        return False
+    _dead, _decl, _undecl, _false, half_dead, _supp = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    half_dead_orfa = [side for alias, side in half_dead if alias["linux_name"] == "epsilon_orfa_test"]
+    if half_dead_orfa != ["linux"]:
         print(
-            f"selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-linux FALHOU (irmao so do lado "
-            f"windows nao pode suprimir o meio-morto do lado linux): {errors}",
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-linux FALHOU (lado estruturado "
+            f"errado, esperava ['linux'], veio {half_dead_orfa})",
             file=sys.stderr,
         )
         return False
     print(
         "selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-linux OK (irmao do lado errado nao "
-        f"suprime): {errors}"
+        f"suprime, lado conferido por valor): {errors}"
     )
     return True
 
 
 # PARITY-ALIAS-HYGIENE C1b-lado-errado-windows: gemeo direto do
 # controle acima no ramo `windows_absent` (linha 505, mesma familia de
-# mutante - GODS_LAWS.md L-17). O irmao "nome_que_so_existe_no_linux"
+# mutante - GODS_LAWS.md L-17). O irmao "zeta_fantasma_test"
 # compartilha o MESMO linux_name do candidato (`linux_to_win` e'
 # chaveado por linux_name nesse ramo), existe de verdade do lado
 # Linux, mas nunca do lado Windows - nao pode suprimir o meio-morto de
-# apelido_windows_morto_test.
+# zeta_orfa_test. Nome de fixture sem "linux"/"windows" embutido, side
+# conferido por VALOR (P-3).
 def selftest_alias_half_dead_windows_sibling_must_be_windows_side_reproves():
-    linux_inv = {"a_test", "parceiro_vivo_linux_test", "nome_que_so_existe_no_linux"}
+    linux_inv = {"a_test", "zeta_presente_test", "zeta_fantasma_test"}
     windows_inv = {"a_test"}
     aliases = [
-        _alias_fixture("parceiro_vivo_linux_test", "apelido_windows_morto_test"),
+        _alias_fixture("zeta_presente_test", "zeta_orfa_test"),
         _alias_fixture(
-            "parceiro_vivo_linux_test",
-            "nome_que_so_existe_no_linux",
+            "zeta_presente_test",
+            "zeta_fantasma_test",
             bilateral_reason=(
                 "fixture de teste - este nome existe so do lado linux, usado so "
                 "para forjar o grupo de irmaos do parceiro (nao e' o que este "
@@ -1459,19 +1729,24 @@ def selftest_alias_half_dead_windows_sibling_must_be_windows_side_reproves():
         ),
     ]
     errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
-    if not any(
-        "apelido meio-morto" in e and "apelido_windows_morto_test" in e and "windows" in e
-        for e in errors
+    if not _check_half_dead_message(
+        errors, "zeta_orfa_test", "windows", "PARITY-ALIAS-HYGIENE C1b-lado-errado-windows"
     ):
+        return False
+    _dead, _decl, _undecl, _false, half_dead, _supp = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    half_dead_orfa = [side for alias, side in half_dead if alias["windows_name"] == "zeta_orfa_test"]
+    if half_dead_orfa != ["windows"]:
         print(
-            f"selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-windows FALHOU (irmao so do lado "
-            f"linux nao pode suprimir o meio-morto do lado windows): {errors}",
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-windows FALHOU (lado estruturado "
+            f"errado, esperava ['windows'], veio {half_dead_orfa})",
             file=sys.stderr,
         )
         return False
     print(
         "selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-windows OK (irmao do lado errado nao "
-        f"suprime): {errors}"
+        f"suprime, lado conferido por valor): {errors}"
     )
     return True
 
@@ -1602,6 +1877,28 @@ def selftest_alias_bilateral_false_declaration_reproves():
     return True
 
 
+# GODS_LAWS.md L-17 P-3, 3a verificacao L-12 (achado bloqueante N4 da
+# revisao independente): a mensagem "excecao morta" nunca tinha o
+# TEXTO conferido alem do nome do teste - um espaco duplo inserido no
+# MEIO da frase (`"nao aparece em  inventario"`) sobrevivia. Mesmo
+# padrao de _check_half_dead_message (rodada 2): a frase EXATA, nao so
+# o nome.
+def _check_exception_dead_message(errors, test_name, label):
+    if not any(
+        "excecao morta" in e
+        and test_name in e
+        and "nao aparece em inventario nenhum, ou ja existe tambem do lado declarado" in e
+        for e in errors
+    ):
+        print(
+            f"selftest: {label} FALHOU (reprovou, mas a mensagem nao bate a frase exata "
+            f"de 'excecao morta'): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 # PARITY-ALIAS-HYGIENE C3a (VERMELHO): excecao cujo teste ja existe
 # TAMBEM do lado declarado como faltante - a lacuna fechou e a linha
 # ficou para tras (gemeo L-17 do apelido morto). Esperado: reprova.
@@ -1621,8 +1918,7 @@ def selftest_exception_dead_gap_closed_reproves():
     if not errors:
         print("selftest: PARITY-ALIAS-HYGIENE C3a FALHOU (excecao com lacuna ja fechada deveria ter reprovado)", file=sys.stderr)
         return False
-    if not any("excecao morta" in e and "so_linux_antes_test" in e for e in errors):
-        print(f"selftest: PARITY-ALIAS-HYGIENE C3a FALHOU (reprovou, mas nao citou a excecao morta): {errors}", file=sys.stderr)
+    if not _check_exception_dead_message(errors, "so_linux_antes_test", "PARITY-ALIAS-HYGIENE C3a"):
         return False
     print(f"selftest: PARITY-ALIAS-HYGIENE C3a OK (excecao com par ja fechado pega): {errors}")
     return True
@@ -1647,8 +1943,7 @@ def selftest_exception_dead_orphaned_reproves():
     if not errors:
         print("selftest: PARITY-ALIAS-HYGIENE C3b FALHOU (excecao orfa deveria ter reprovado)", file=sys.stderr)
         return False
-    if not any("excecao morta" in e and "teste_que_nao_existe_mais" in e for e in errors):
-        print(f"selftest: PARITY-ALIAS-HYGIENE C3b FALHOU (reprovou, mas nao citou a excecao orfa): {errors}", file=sys.stderr)
+    if not _check_exception_dead_message(errors, "teste_que_nao_existe_mais", "PARITY-ALIAS-HYGIENE C3b"):
         return False
     print(f"selftest: PARITY-ALIAS-HYGIENE C3b OK (excecao orfa pega): {errors}")
     return True
@@ -1716,10 +2011,314 @@ def selftest_prova_parcial_gemeo_present_control():
     return True
 
 
-def selftest_main():
-    controls = [
+# --- P-3, achados de seguimento SS4.1 da revisao de P-2 --------------
+#
+# TRES GUARDAS DE PARSING NUNCA VISTAS VERMELHAS (GODS_LAWS.md L-36:
+# "portao so conta depois de PROVADO vermelho"). As tres guardas ja
+# existiam antes de P-2 e nunca tinham controle proprio - MUT-5, MUT-6
+# e MUT-8 da revisao de P-2 (remover cada guarda) sobreviviam aos 31
+# controles antigos porque nenhum deles chamava o parser com a entrada
+# malformada especifica. Mesmo padrao de
+# selftest_corrupted_inventory_line_reproves() acima: try/except
+# SystemExit, nunca ler codigo de saida da tela (GODS_LAWS.md L-45).
+
+
+# MUT-5: motivo vazio de "bilateral=" em parse_aliases_text().
+def selftest_alias_bilateral_reason_empty_reproves():
+    if _expect_fail_exit(parse_aliases_text, "a_linux|a_windows|bilateral=\n"):
+        print(
+            "selftest: BILATERAL-MOTIVO-VAZIO OK (terceiro campo 'bilateral=' sem motivo "
+            "reprova, GODS_LAWS.md L-40, em vez de aceitar motivo vazio calado)"
+        )
+        return True
+    print(
+        "selftest: BILATERAL-MOTIVO-VAZIO FALHOU (motivo vazio de 'bilateral=' deveria ter "
+        "reprovado)",
+        file=sys.stderr,
+    )
+    return False
+
+
+# GODS_LAWS.md L-36 (achado bloqueante da revisao independente de P-3,
+# 23/09/2026, MUT-N5): o prefixo "bilateral=" e' case-sensitive por
+# desenho (so' a forma minuscula exata e' aceita), mas nenhum controle
+# jamais provou isso - uma regressao pra case-insensitive (ex.:
+# `terceiro.lower().startswith(...)`) sobrevivia inteira. Duas
+# variantes de maiuscula, as duas tem de reprovar.
+def selftest_alias_bilateral_prefix_is_case_sensitive_reproves():
+    for variante in ("Bilateral=motivo\n", "BILATERAL=motivo\n"):
+        linha = f"a_linux|a_windows|{variante}"
+        if not _expect_fail_exit(parse_aliases_text, linha):
+            print(
+                f"selftest: BILATERAL-PREFIXO-CASE-SENSITIVE FALHOU (variante {variante!r} "
+                f"deveria ter reprovado - 'bilateral=' e' case-sensitive por desenho): {linha!r}",
+                file=sys.stderr,
+            )
+            return False
+    print(
+        "selftest: BILATERAL-PREFIXO-CASE-SENSITIVE OK (variantes de maiuscula do prefixo "
+        "'bilateral=' reprovam, GODS_LAWS.md L-36)"
+    )
+    return True
+
+
+# MUT-6: gemeo vazio de "PROVA-PARCIAL=" em parse_exceptions_text().
+def selftest_prova_parcial_gemeo_empty_reproves():
+    linha = "meu_teste|windows|outro_teste|ITEM-1|PROVA-PARCIAL=\n"
+    if _expect_fail_exit(parse_exceptions_text, linha):
+        print(
+            "selftest: PROVA-PARCIAL-GEMEO-VAZIO OK (quinto campo 'PROVA-PARCIAL=' sem nome "
+            "reprova, GODS_LAWS.md L-40, em vez de aceitar gemeo vazio calado)"
+        )
+        return True
+    print(
+        "selftest: PROVA-PARCIAL-GEMEO-VAZIO FALHOU (gemeo vazio de 'PROVA-PARCIAL=' deveria "
+        "ter reprovado)",
+        file=sys.stderr,
+    )
+    return False
+
+
+# MUT-8: missing_on fora de SISTEMAS_VALIDOS em parse_exceptions_text().
+def selftest_exception_invalid_missing_on_reproves():
+    linha = "meu_teste|macos|outro_teste|ITEM-1\n"
+    if _expect_fail_exit(parse_exceptions_text, linha):
+        print(
+            "selftest: MISSING-ON-INVALIDO OK (sistema_onde_falta fora de "
+            "('linux', 'windows') reprova, GODS_LAWS.md L-40)"
+        )
+        return True
+    print(
+        "selftest: MISSING-ON-INVALIDO FALHOU (sistema_onde_falta invalido deveria ter "
+        "reprovado)",
+        file=sys.stderr,
+    )
+    return False
+
+
+# PARITY-ALIAS-HYGIENE P-3, achado do orquestrador ao aceitar a
+# revisao final (23/09/2026, GODS_LAWS.md L-20/L-40): o comentario
+# acima de _expect_fail_exit() explica por que o codigo de saida tem
+# de vir de uma VARIAVEL (`exc.code == 1`) e nunca do simples fato de
+# SystemExit ter sido levantada - sys.exit(0) tambem levanta
+# SystemExit. Mas nenhum dos 39 controles anteriores chama
+# _expect_fail_exit() com uma funcao que sai com codigo DIFERENTE de
+# 1: todo `callable_fn` real deste arquivo, quando reprova, sai com
+# exatamente 1. Um mutante que trocasse a funcao por
+# `except SystemExit: return True` sobrevivia a todos eles - o
+# proprio guardiao dos outros 39 controles ficava sem guardiao. Este
+# meta-controle fecha o buraco, testando _expect_fail_exit() em SI
+# MESMO com (a) uma funcao que sai com codigo 0 e (b) uma funcao que
+# RETORNA sem sair nenhuma - as duas tem de ser recusadas (False).
+def selftest_expect_fail_exit_meta_control():
+    def _exits_zero():
+        sys.exit(0)
+
+    def _returns_without_exit():
+        return "nao levantou nada"
+
+    if _expect_fail_exit(_exits_zero):
+        print(
+            "selftest: EXPECT-FAIL-EXIT-META FALHOU (sys.exit(0) deveria ter sido recusado)",
+            file=sys.stderr,
+        )
+        return False
+    if _expect_fail_exit(_returns_without_exit):
+        print(
+            "selftest: EXPECT-FAIL-EXIT-META FALHOU (retorno sem sair deveria ter sido recusado)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: EXPECT-FAIL-EXIT-META OK (exit(0) e retorno-sem-sair, ambos recusados)"
+    )
+    return True
+
+
+# --- P-3, achado de seguimento SS4.2 da revisao de P-2 ----------------
+#
+# real_main() (--compare, o MODO REAL) nunca tinha cobertura nenhuma
+# de ctest/--selftest - MUT-7 da revisao de P-2 (trocar as contagens
+# impressas alias_dead <-> alias_half_dead no piso L-40) sobrevivia
+# porque nenhum dos 31 controles antigos jamais invocava real_main().
+# As duas funcoes abaixo fecham isso ponta a ponta, sobre arquivos
+# sinteticos em diretorio temporario descartavel (nunca a arvore
+# real), capturando stdout e o codigo de saida DA VARIAVEL da excecao
+# SystemExit (GODS_LAWS.md L-45 - nunca inferido da tela).
+#
+# 2a verificacao L-12 (achado bloqueante da revisao independente):
+# `_run_real_main_capturing` nascia com 5 parametros de texto soltos -
+# agrupados no mesmo espirito de RealMainInputs acima, so' que com o
+# TEXTO CRU (antes do parse) que os controles escrevem em arquivo.
+@dataclass(frozen=True)
+class RealMainFixtureTexts:
+    linux_text: str
+    windows_text: str
+    exceptions_text: str
+    aliases_text: str
+    todo_text: str
+
+
+def _write_temp(tmpdir, name, content):
+    path = os.path.join(tmpdir, name)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(content)
+    return path
+
+
+def _run_real_main_capturing(fixture_texts):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        args = [
+            _write_temp(tmpdir, "linux.txt", fixture_texts.linux_text),
+            _write_temp(tmpdir, "windows.txt", fixture_texts.windows_text),
+            _write_temp(tmpdir, "exceptions.txt", fixture_texts.exceptions_text),
+            _write_temp(tmpdir, "aliases.txt", fixture_texts.aliases_text),
+            _write_temp(tmpdir, "TODO.md", fixture_texts.todo_text),
+        ]
+        buffer = io.StringIO()
+        exit_code = None
+        with contextlib.redirect_stdout(buffer):
+            try:
+                real_main(args)
+            except SystemExit as exc:
+                exit_code = exc.code
+        return exit_code, buffer.getvalue()
+
+
+# Cenario com os dois inventarios identicos e nenhuma tabela auxiliar:
+# tudo em zero (0 apelidos, 0 excecoes) - prova que o piso L-40 imprime
+# as duas linhas de contagem MESMO quando nada existe pra contar,
+# nunca so quando ha problema.
+def selftest_real_main_zero_counts_prints_piso():
+    exit_code, output = _run_real_main_capturing(
+        RealMainFixtureTexts("a_test\nb_test\n", "a_test\nb_test\n", "", "", "")
+    )
+    if exit_code not in (None, 0):
+        print(
+            f"selftest: REAL-MAIN-ZERO FALHOU (esperava sucesso, saiu com codigo {exit_code!r}): "
+            f"{output}",
+            file=sys.stderr,
+        )
+        return False
+    if "0 apelido(s), 0 morto(s)" not in output or "0 excecao(oes), 0 morta(s)" not in output:
+        print(
+            f"selftest: REAL-MAIN-ZERO FALHOU (piso L-40 nao imprimiu as contagens zeradas): "
+            f"{output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: REAL-MAIN-ZERO OK (--compare imprime as contagens mesmo todas zeradas)")
+    return True
+
+
+# Cenario com 1 apelido morto e 2 meio-mortos (contagens DIFERENTES de
+# proposito): mata MUT-7 (trocar alias_dead <-> alias_half_dead no
+# print de real_main()) porque a mensagem certa so aparece quando as
+# duas contagens NAO estao trocadas.
+def selftest_real_main_counts_distinguish_dead_from_half_dead():
+    exit_code, output = _run_real_main_capturing(
+        RealMainFixtureTexts(
+            "a_test\nalive_um_test\nalive_dois_test\n",
+            "a_test\n",
+            "",
+            "morto_linux_test|morto_windows_test\n"
+            "alive_um_test|sumido_um_test\n"
+            "alive_dois_test|sumido_dois_test\n",
+            "",
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: REAL-MAIN-CONTAGENS FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "3 apelido(s), 1 morto(s)" not in output or "2 meio-morto(s)" not in output:
+        print(
+            f"selftest: REAL-MAIN-CONTAGENS FALHOU (esperava '3 apelido(s), 1 morto(s)' e "
+            f"'2 meio-morto(s)' na saida, contagens trocadas ou erradas): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: REAL-MAIN-CONTAGENS OK (--compare distingue morto de meio-morto na linha "
+        "impressa, nunca trocados)"
+    )
+    return True
+
+
+# PARITY-ALIAS-HYGIENE P-3, verificacao L-12 RODADA 2 do orquestrador
+# (achado bloqueante novo, mesma tautologia com outra roupa): os dois
+# cenarios de real_main() acima nunca tinham meio-morto E suprimido
+# JUNTOS na mesma chamada - selftest_real_main_zero_counts_prints_piso
+# tem os dois zerados, selftest_real_main_counts_distinguish_dead_
+# from_half_dead tem 2 meio-mortos e 0 suprimidos. Um mutante que troca
+# a contagem IMPRESSA de suprimidos (`len(alias_half_dead_suppressed)`)
+# por uma constante `0` sobrevive aos dois, porque "suprimido = 0" ja'
+# era o valor certo nos dois cenarios - a mutacao nunca muda a saida
+# observavel. Este cenario tem os DOIS categorias com contagem
+# DIFERENTE de zero ao mesmo tempo (1 meio-morto de verdade, 1
+# suprimido por irmao vivo), sobre o mesmo padrao de
+# selftest_half_dead_suppressed_count_visible() (varios apelidos
+# apontando pro MESMO parceiro, um deles com irmao vivo) - so' que
+# passando pelo modo REAL (--compare/real_main), nunca so' pela funcao
+# interna.
+def selftest_real_main_half_dead_and_suppressed_counts_distinct():
+    exit_code, output = _run_real_main_capturing(
+        RealMainFixtureTexts(
+            "a_test\nvivo_um_test\nvivo_dois_test\n",
+            "a_test\nparceiro_test\n",
+            "",
+            # vivo_um_test e orfa_suprimida_test apontam pro MESMO
+            # parceiro Windows vivo ("parceiro_test") -
+            # orfa_suprimida_test nao existe em lugar nenhum, mas tem
+            # irmao vivo (vivo_um_test) no mesmo grupo, entao e'
+            # SUPRIMIDO, nao meio-morto de verdade. vivo_dois_test
+            # aponta pra um parceiro que nao existe em lugar nenhum,
+            # SEM irmao - e' meio-morto de verdade.
+            "vivo_um_test|parceiro_test\n"
+            "orfa_suprimida_test|parceiro_test\n"
+            "vivo_dois_test|sumido_test\n",
+            "",
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: REAL-MAIN-SUPRIMIDO-E-MEIO-MORTO FALHOU (esperava reprovar com codigo "
+            f"1, veio {exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "1 meio-morto(s), 1 meio-morto(s) suprimido(s) por irmao vivo" not in output:
+        print(
+            f"selftest: REAL-MAIN-SUPRIMIDO-E-MEIO-MORTO FALHOU (esperava '1 meio-morto(s), 1 "
+            f"meio-morto(s) suprimido(s) por irmao vivo' na saida - contagem de suprimidos "
+            f"trocada por constante nao morre mais so' com os dois cenarios zerados): "
+            f"{output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: REAL-MAIN-SUPRIMIDO-E-MEIO-MORTO OK (--compare imprime meio-morto e "
+        "suprimido corretos quando os dois valem mais que zero ao mesmo tempo)"
+    )
+    return True
+
+
+# PARITY-ALIAS-HYGIENE P-3 (23/09/2026, GODS_LAWS.md L-17): selftest_
+# main() cresceu de 31 para 36 chamadas nesta fatia - mais uma linha
+# nova a cada controle acrescentado, PARA SEMPRE, e' exatamente o
+# padrao "quem paga a proxima feature" que a lei pede pra vigiar.
+# Divide a lista, agrupada por o que cada bloco prova, em quatro
+# funcoes nomeadas - cada uma so' MONTA a lista do seu grupo (a
+# chamada de cada selftest_* continua acontecendo aqui, na mesma
+# ordem de antes, print incluso).
+def _core_controls():
+    return [
         selftest_positive_control(),
         selftest_unregistered_gap_reproves(),
+        selftest_gap_message_names_correct_direction_reproves(),
         selftest_exception_pointing_to_concluded_item_reproves(),
         selftest_exception_pointing_to_pending_item_passes(),
         selftest_empty_inventory_reproves(),
@@ -1729,11 +2328,21 @@ def selftest_main():
         selftest_sem_pendencia_control(),
         selftest_sem_pendencia_with_gemeo_reproves(),
         selftest_unknown_item_reproves(),
+    ]
+
+
+def _inventory_parsing_controls():
+    return [
         selftest_parsing_round_trip(),
         selftest_ctest_project_header_not_swallowed(),
         selftest_ctest_header_only_yields_empty_inventory(),
         selftest_mixed_ctest_and_clean_list_control(),
         selftest_corrupted_inventory_line_reproves(),
+    ]
+
+
+def _alias_hygiene_controls():
+    return [
         selftest_alias_dead_reproves(),
         selftest_alias_half_dead_reproves(),
         selftest_alias_half_dead_linux_side_reproves(),
@@ -1749,6 +2358,28 @@ def selftest_main():
         selftest_exception_dead_orphaned_reproves(),
         selftest_prova_parcial_gemeo_absent_reproves(),
         selftest_prova_parcial_gemeo_present_control(),
+    ]
+
+
+def _parsing_guard_and_real_main_controls():
+    return [
+        selftest_alias_bilateral_reason_empty_reproves(),
+        selftest_alias_bilateral_prefix_is_case_sensitive_reproves(),
+        selftest_prova_parcial_gemeo_empty_reproves(),
+        selftest_exception_invalid_missing_on_reproves(),
+        selftest_expect_fail_exit_meta_control(),
+        selftest_real_main_zero_counts_prints_piso(),
+        selftest_real_main_counts_distinguish_dead_from_half_dead(),
+        selftest_real_main_half_dead_and_suppressed_counts_distinct(),
+    ]
+
+
+def selftest_main():
+    controls = [
+        *_core_controls(),
+        *_inventory_parsing_controls(),
+        *_alias_hygiene_controls(),
+        *_parsing_guard_and_real_main_controls(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

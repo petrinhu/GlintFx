@@ -66,6 +66,12 @@ start_compositor() {
 : "${GLINTFX_COMPOSITOR_WAIT_TRIES:=30}"
 : "${GLINTFX_COMPOSITOR_WAIT_SLEEP:=1}"
 
+# CONT-WARMUP C-1 (TODO.md, docs/plano-fecho-w7b.md D-10, GODS_LAWS.md
+# L-40/L-51): only --selftest below overrides this (to a value small
+# enough that its own fake-hang case returns in well under a second
+# instead of really sleeping) - production callers never set it.
+: "${GLINTFX_COMPOSITOR_PROBE_TIMEOUT:=5}"
+
 # CONT-WARMUP (TODO.md, GODS_LAWS.md L-40/L-51): a REAL Wayland
 # roundtrip against the socket - wayland-info is already installed in
 # this image (dnf install list above) and tests/container/smoke.sh
@@ -74,9 +80,22 @@ start_compositor() {
 # that exists but has not bound/accepted on the socket yet fails this
 # probe exactly like a compositor that never started at all - there is
 # no third state this can mistake for "ready".
+#
+# CONT-WARMUP C-1 conserto (docs/plano-fecho-w7b.md D-10): `timeout`
+# added around the `wayland-info` call itself - MEASURED (this fatia's
+# own report), a socket that accepts the TCP-equivalent connection and
+# then never answers hangs THIS SINGLE CALL forever, and
+# wait_for_compositor_ready()'s own bounded `tries` loop below never
+# gets a chance to apply its own budget, because it never regains
+# control from a probe call that itself never returns - GLINTFX_
+# COMPOSITOR_WAIT_TRIES stops meaning anything the moment a single
+# probe hangs. Wrapping EACH CALL is what turns the loop's total
+# budget into a genuine TIME bound (tries * (probe_timeout + sleep)),
+# not just a call-count bound that assumes every call returns quickly.
 compositor_probe() {
     socket_name="$1"
-    WAYLAND_DISPLAY="$socket_name" wayland-info >/dev/null 2>&1
+    WAYLAND_DISPLAY="$socket_name" timeout "$GLINTFX_COMPOSITOR_PROBE_TIMEOUT" wayland-info \
+        >/dev/null 2>&1
 }
 
 # CONT-WARMUP conserto: o antigo `pgrep -x kwin_wayland` provava que um
@@ -91,6 +110,14 @@ compositor_probe() {
 # script continua falhando LOUDLY (GODS_LAWS.md L-40) se o orcamento
 # de tentativas esgotar, o mesmo dever que o `pgrep`-loop antigo tinha
 # - so que agora medindo a coisa certa.
+#
+# CONT-WARMUP C-1: o ORCAMENTO TOTAL agora e' de TEMPO, nao so' de
+# CONTAGEM - GLINTFX_COMPOSITOR_WAIT_TRIES sozinho nunca foi um limite
+# de tempo (uma tentativa pendurada consumia tempo ilimitado sem gastar
+# nenhuma "tentativa"); com compositor_probe() acima agora bounded por
+# GLINTFX_COMPOSITOR_PROBE_TIMEOUT, o pior caso passa a ser genuinamente
+# GLINTFX_COMPOSITOR_WAIT_TRIES * (GLINTFX_COMPOSITOR_PROBE_TIMEOUT +
+# GLINTFX_COMPOSITOR_WAIT_SLEEP) segundos, nunca mais.
 wait_for_compositor_ready() {
     socket_name="$1"
     tries=0
@@ -152,6 +179,47 @@ selftest_case_ready_after_delay() (
     echo "selftest: laco esperou a sonda aceitar (tries=$selftest_probe_tries) e so entao declarou pronto - OK"
 )
 
+# CONT-WARMUP C-1, CASO VERMELHO contra o codigo de HOJE (docs/plano-
+# fecho-w7b.md D-10, estreia vermelha medida por este fatia's own
+# report): esta sonda NAO redefine compositor_probe() como os dois
+# casos acima - ela poe um `wayland-info` FALSO na FRENTE do PATH (um
+# script que so' dorme) e deixa a funcao REAL deste arquivo chama-lo,
+# exatamente como um compositor que aceitou a conexao e nunca respondeu
+# faria. Isso e' o que prova o `timeout` DENTRO de compositor_probe() -
+# uma redefinicao da funcao inteira (como os dois casos acima) nunca
+# exercitaria esse `timeout`, so' o caminho de producao real exercita.
+# MEDIDO antes deste conserto (relatorio desta fatia): contra o codigo
+# de `de72850` (sem o `timeout`), este EXATO cenario nunca retornou
+# sozinho - um `timeout` EXTERNO de 8s (GODS_LAWS.md L-40/L-50: nunca
+# se deixa um comando pendurar de verdade, nem em teste) teve que matar
+# o processo (rc=124). Com o conserto, a funcao real volta sozinha,
+# dentro do orcamento, sem precisar de nenhum `timeout` externo.
+selftest_case_probe_hangs_but_returns() (
+    fake_bin_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-XXXXXX")" || exit 1
+    trap 'rm -rf "$fake_bin_dir"' EXIT
+    cat >"$fake_bin_dir/wayland-info" <<'FAKE_WAYLAND_INFO'
+#!/usr/bin/env sh
+# Simula um soquete que aceitou a conexao e nunca respondeu - dorme
+# bem mais que qualquer orcamento razoavel deste selftest, entao
+# retornar aqui SO' prova que algo de fora desta sonda a cortou.
+sleep 300
+FAKE_WAYLAND_INFO
+    chmod +x "$fake_bin_dir/wayland-info"
+    PATH="$fake_bin_dir:$PATH"
+    export PATH
+
+    GLINTFX_COMPOSITOR_PROBE_TIMEOUT=1
+    GLINTFX_COMPOSITOR_WAIT_TRIES=2
+    GLINTFX_COMPOSITOR_WAIT_SLEEP=0
+    wait_for_compositor_ready "selftest-hang" >/dev/null 2>&1
+    # So' chega aqui (saindo com 99) se wait_for_compositor_ready
+    # RETORNASSE em vez de fail() terminar a subshell primeiro - o
+    # mesmo idioma de selftest_case_never_ready acima, pela mesma razao
+    # (fail() usa `exit`, nunca `return`). A sonda falsa acima nunca
+    # aceita de verdade, entao isto NUNCA deveria acontecer.
+    exit 99
+)
+
 run_selftest() {
     ok=0
 
@@ -165,6 +233,26 @@ run_selftest() {
     fi
 
     selftest_case_ready_after_delay || ok=1
+
+    started="$(date +%s)"
+    rc=0
+    selftest_case_probe_hangs_but_returns || rc="$?"
+    elapsed=$(($(date +%s) - started))
+    if [ "$rc" -eq 99 ]; then
+        echo "SELFTEST FALHOU: sonda pendurada (fake wayland-info) declarou o compositor pronto" >&2
+        ok=1
+    elif [ "$elapsed" -gt 10 ]; then
+        # Orcamento nominal: 2 tentativas * 1s de GLINTFX_COMPOSITOR_
+        # PROBE_TIMEOUT = 2s; 10s de folga generosa contra jitter de
+        # agendador, ainda MUITO abaixo dos 300s que a sonda pendurada
+        # dormiria se o `timeout` de dentro de compositor_probe() nao a
+        # cortasse (o cenario MEDIDO contra o codigo de hoje, ver o
+        # comentario do caso acima).
+        echo "SELFTEST FALHOU: laco levou ${elapsed}s com sonda pendurada (fake wayland-info) - GLINTFX_COMPOSITOR_PROBE_TIMEOUT nao esta cortando (codigo=$rc)" >&2
+        ok=1
+    else
+        echo "selftest: sonda pendurada (fake wayland-info) cortada por GLINTFX_COMPOSITOR_PROBE_TIMEOUT, laco terminou em ${elapsed}s (codigo=$rc), dentro do orcamento - OK"
+    fi
 
     [ "$ok" -eq 0 ] || fail "selftest reprovou (ver mensagens acima)"
     echo "run_compositor.sh --selftest: todos os casos passaram"

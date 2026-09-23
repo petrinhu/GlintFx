@@ -1383,15 +1383,32 @@ jobs:
       # (GODS_LAWS.md L-09 regra 4 - render por software, reproduzivel
       # em qualquer runner); check_isolation.sh confere esse HostConfig
       # exato por lista branca.
+      # CONT-WARMUP C-1 conserto (docs/plano-fecho-w7b.md D-10,
+      # GODS_LAWS.md L-17 "gemeo"): este passo tinha o MESMO defeito
+      # que tests/container/run_compositor.sh's own wait_for_
+      # compositor_ready() ja tinha consertado por dentro do container
+      # (commit de72850) - um laco de `docker exec ... pgrep -x
+      # kwin_wayland` prova que o PROCESSO existe, nunca que ele ja
+      # ACEITA conexao no soquete. O que segurava este passo especifico
+      # ate aqui era a mesma garantia ACIDENTAL, nao declarada, que o
+      # comentario de run_compositor.sh ja nomeia: os passos seguintes
+      # (isolamento, depois o smoke test de verdade) davam tempo de
+      # sobra antes de qualquer um deles precisar de uma conexao real.
+      # Trocado pela MESMA sonda que compositor_probe() usa por dentro
+      # (`timeout N wayland-info`, com as env vars que um `docker exec`
+      # nao herda do ENTRYPOINT sozinho) - agora prova conexao real
+      # aqui tambem, nunca so' a existencia do processo.
       - name: Sobe o compositor limpo (nenhuma montagem do host)
         run: |
           set -eux
           docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
           for _ in $(seq 1 30); do
-            docker exec glintfx-wltest-clean-${{ matrix.perna }} pgrep -x kwin_wayland >/dev/null 2>&1 && break
+            docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
+              glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null 2>&1 && break
             sleep 1
           done
-          docker exec glintfx-wltest-clean-${{ matrix.perna }} pgrep -x kwin_wayland
+          docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null
 
       # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
       # interagir. Este passo roda antes do smoke test de proposito.

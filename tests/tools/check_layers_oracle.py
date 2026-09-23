@@ -1240,11 +1240,17 @@ def selftest_oracle_o20_reader_does_not_stop_on_odd_line(scratch, capture):
     nodes, out_of_format_count = parse_gnu_dash_h_tree(_SYNTHETIC_O20_INTERLEAVED_WARNINGS)
     with_parent = build_parent_map(nodes)
     depths_paths = [(depth, path) for depth, path, _parent in with_parent]
-    sentinel_idx = next(i for i, (_d, p, _pi) in enumerate(with_parent) if p == "sentinela_projeto.hpp")
-    cstdint_entry = next(entry for entry in with_parent if entry[1] == "cstdint")
+    # next(..., None): um mutante que PARA cedo (M-O20a) nao acha a
+    # sentinela nem o cstdint - isto tem de reprovar LIMPO (L-27: "o
+    # autoteste tem de reprovar E NOMEAR o controle esperado"), nunca
+    # explodir com StopIteration antes de chegar no print do label.
+    sentinel_idx = next((i for i, (_d, p, _pi) in enumerate(with_parent) if p == "sentinela_projeto.hpp"), None)
+    cstdint_entry = next((entry for entry in with_parent if entry[1] == "cstdint"), None)
     ok = (
         depths_paths == [(1, "root_a.hpp"), (2, "root_b.hpp"), (1, "sentinela_projeto.hpp"), (2, "cstdint")]
+        and sentinel_idx is not None
         and with_parent[sentinel_idx][2] is None
+        and cstdint_entry is not None
         and cstdint_entry[2] == sentinel_idx
         and out_of_format_count == 4
     )

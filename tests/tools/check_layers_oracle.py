@@ -2343,11 +2343,31 @@ def _o26_check_scenario(dialect, tokens, build_dir):
     return remapped == _o26_expected(dialect) and counts == {"build": 1, "fonte": 2, "outra": 1} and none_under_build
 
 
+_O26_MESSY_FIXTURE_ROOT = "/fixture/sub/../actual/"
+_O26_MESSY_EXPECTED = "/fixture/actual/src"
+
+
+def _o26_check_gnu_normalization():
+    """Achado da revisao independente (23/09/2026, M-REV-1/M-REV-5): os
+    mutantes que tiram `normpath()` da regra "fonte" so' morriam pelo
+    lado MSVC (onde a troca de separador `/` -> `\\` ja' quebra a
+    comparacao mesmo sem nenhuma redundancia de verdade no caminho).
+    Este cenario prova a normalizacao POR SI SO no lado GNU/posixpath:
+    uma pasta de FIXTURE com componente redundante (`sub/../actual`) e
+    um `-I` com barra dupla/final (`-I/repo//src/`) - o resultado so'
+    bate com o esperado se `path_mod.normpath()` rodar de verdade."""
+    dirs = extract_include_dir_tokens(("-I/repo//src/",), "GNU")
+    roots = _RemapRoots(("/repo/build-debug", _O26_SOURCE_ROOT), _O26_MESSY_FIXTURE_ROOT, _O26_GENERATED_DIR, "GNU")
+    remapped, counts = remap_include_dirs(dirs, roots)
+    return remapped == (_O26_MESSY_EXPECTED,) and counts == {"build": 0, "fonte": 1, "outra": 0}
+
+
 def selftest_oracle_o26_include_dirs_read_and_remapped(scratch, capture):
     """O-26 (L-5g, secao 2): (a) pasta de build ANINHADA no codigo-fonte
     (como no CI) e (b) pasta de build SEPARADA - as duas remapeiam
     IGUAL, sem nenhuma saida sob a pasta de build; (c) `-include`/`/FI`
-    e' falha de instrumento nomeada. GNU e MSVC."""
+    e' falha de instrumento nomeada. GNU e MSVC. (d, achado da revisao
+    independente) a normalizacao em si, provada so' pelo lado GNU."""
     del scratch, capture
     nested_gnu = _o26_check_scenario("GNU", _o26_gnu_tokens("/repo/build-debug"), "/repo/build-debug")
     nested_msvc = _o26_check_scenario("MSVC", _o26_msvc_tokens("/repo/build-debug"), "/repo/build-debug")
@@ -2356,13 +2376,18 @@ def selftest_oracle_o26_include_dirs_read_and_remapped(scratch, capture):
 
     pre_include_gnu = _raises_include_tree_error(extract_include_dir_tokens, ("-include", "foo.h"), "GNU")
     pre_include_msvc = _raises_include_tree_error(extract_include_dir_tokens, ("/FIfoo.h",), "MSVC")
+    gnu_normalization = _o26_check_gnu_normalization()
 
-    ok = nested_gnu and nested_msvc and separate_gnu and separate_msvc and pre_include_gnu and pre_include_msvc
+    ok = (
+        nested_gnu and nested_msvc and separate_gnu and separate_msvc
+        and pre_include_gnu and pre_include_msvc and gnu_normalization
+    )
     label = "selftest: O-26"
     print(
         f"{label} OK" if ok else
         f"{label} FALHOU (nested_gnu={nested_gnu}, nested_msvc={nested_msvc}, separate_gnu={separate_gnu}, "
-        f"separate_msvc={separate_msvc}, pre_gnu={pre_include_gnu}, pre_msvc={pre_include_msvc})",
+        f"separate_msvc={separate_msvc}, pre_gnu={pre_include_gnu}, pre_msvc={pre_include_msvc}, "
+        f"gnu_normalization={gnu_normalization})",
         file=(sys.stdout if ok else sys.stderr),
     )
     return ok, 1

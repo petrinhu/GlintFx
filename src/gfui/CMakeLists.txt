@@ -8,10 +8,9 @@
 # comment (D-NV-1) explains why the node contract belongs here, not in
 # gfss/. Pure core, same reason src/core/ and src/gfss/ are: no file
 # here includes an OS header (tests/tools/check_layers.py's
-# OS_HEADER_PATTERN would reprove one that did, though this directory,
-# like gfss/ before it, is not yet named in that script's own
-# core_source_dirs() list - the plano's own INBOX line, TODO.md,
-# records that gap for a future higiene fatia, not this one).
+# OS_HEADER_PATTERN would reprove one that did; LAYERS-GATE-GFSS-GFUI,
+# TODO.md, enumerates this directory in that gate too, same as core/
+# and gfss/).
 #
 # Single subject: the sources of this layer. Properties of the
 # `glintfx_library` target stay in src/CMakeLists.txt; this file only

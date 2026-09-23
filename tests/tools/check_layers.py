@@ -8,25 +8,61 @@
 # PORT of the former tests/tools/check_layers.sh (POSIX sh), retired
 # in the same fatia that wrote this file (GATE-TREE-PARITY, GODS_LAWS.md
 # L-04, decisao do lider: "O comportamento deve ser igual em qualquer
-# OS" - the sh version was if(UNIX)-guarded in tests/CMakeLists.txt,
+# OS") - the sh version was if(UNIX)-guarded in tests/CMakeLists.txt,
 # so nothing checked layer discipline on the Windows CI job at all).
 # Registered here, unguarded, as an ordinary ctest case - the same
 # shape check_spdx.py and check_hygiene_coverage.py already proved
 # works on all five platforms.
 #
-# Verifies that the core layer (src/core/, include/glintfx/core/) does
-# not include (a) a header from a layer above (glintfx/platform/), nor
-# (b) an operating system header. The pure core knows nothing about
-# the OS.
+# Verifies that the pure layers (src/core/, include/glintfx/core/,
+# src/gfss/, include/glintfx/gfss/, src/gfui/, include/glintfx/gfui/)
+# do not include (a) a header from a layer above (glintfx/platform/),
+# nor (b) an operating system header. None of these layers knows
+# anything about the OS - only platform/ does (GODS_LAWS.md L-19), and
+# render/ is a documented, deliberate exception of its own (GODS_LAWS.md
+# L-31, L-07 EXCECAO No 1: the GL loader), so this gate does not scan it.
+#
+# LAYERS-GATE-GFSS-GFUI (TODO.md, GODS_LAWS.md L-19/L-40/L-67): gfss/
+# and gfui/ used to be a KNOWN, DOCUMENTED gap - src/gfss/CMakeLists.txt
+# and src/gfui/CMakeLists.txt's own header comments said so in prose,
+# while a system header planted in either directory went unseen by
+# this gate. This fatia closes the gap: both layers are enumerated
+# below, with their OWN per-directory non-empty floor (see
+# GFSS_GFUI_DIR_SPECS's own comment for why aggregate is not enough).
+# The two CMakeLists.txt comments that documented the gap are deleted
+# in the same commit (GODS_LAWS.md L-67: what stops being true is
+# removed, not archived).
+#
+# ANCHOR-ON-DIRECTIVE (achado real, 22/09/2026, ordem do lider por
+# AskUserQuestion: "Olhar so diretivas de inclusao"): alargar o
+# escopo acima descobriu que a agulha era procurada em QUALQUER linha,
+# comentario incluido - src/gfss/anb_parse.cpp:159's own prose ("a
+# GL/WGL function name is") casava com a agulha "GL/" sem nunca ter
+# sido um #include. A mesma fragilidade sempre existiu em src/core/,
+# so nunca se manifestou porque nenhum comentario de core/ citava uma
+# dessas substrings fora de contexto de include. O lider decidiu
+# corrigir a semantica do portao para TODAS as camadas que ele varre,
+# core/ inclusive: a agulha so e procurada dentro de uma linha que SEJA
+# uma diretiva de inclusao - #include (com ou sem espaco depois do
+# '#', com ou sem espaco antes do '<'/'"') ou, por este projeto ser
+# C++23, a forma de unidade de cabecalho `import <...>;`/`import
+# "...";` (com ou sem `export` na frente). Ancorar so em #include
+# teria trocado o falso positivo por um falso NEGATIVO pior - um
+# `import <fstream>;` real passaria em silencio -, entao as duas
+# formas sao reconhecidas. Ver _directive_argument() e
+# _ANCHOR_DIRECTIVE_CASES abaixo.
 #
 # Usage:
 #   check_layers.py <source-root-directory>
 #   check_layers.py --selftest
 #
-# --selftest runs the same four GODS_LAWS.md L-40 controls the sh
-# version did (positive, negative, a SECOND negative specific to the
-# file-I/O headers added by the ASSET-LOAD conserto of 28/08/2026,
-# empty-scan) against disposable fixtures under a scratch directory,
+# --selftest runs the four original GODS_LAWS.md L-40 controls (positive,
+# negative, a SECOND negative specific to the file-I/O headers added by
+# the ASSET-LOAD conserto of 28/08/2026, empty-scan) PLUS the three
+# controls LAYERS-GATE-GFSS-GFUI adds (a violation control and a
+# per-directory floor control, each looped over the four gfss/gfui
+# directories, and the ANCHOR-ON-DIRECTIVE control table) against
+# disposable fixtures under a scratch directory,
 # never against the real tracked tree.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -72,6 +108,30 @@ _FORBIDDEN_PATTERN = re.compile(
     "|".join(re.escape(needle) for needle in (UPPER_LAYER_NEEDLE,) + OS_HEADER_NEEDLES)
 )
 
+# ANCHOR-ON-DIRECTIVE (see this file's own top-of-file comment): the
+# needle is only ever searched inside the ARGUMENT of one of these two
+# directive forms, never in a bare line. `^\s*` only tolerates leading
+# WHITESPACE before the keyword - a "//" comment prefix, or any other
+# non-whitespace text, rules the line out before the keyword is even
+# reached, so a commented-out include ("// #include <windows.h>") does
+# not match either pattern.
+_INCLUDE_DIRECTIVE_PATTERN = re.compile(r'^\s*#\s*include\s*(<[^>\n]*>|"[^"\n]*")')
+_IMPORT_DIRECTIVE_PATTERN = re.compile(r'^\s*(?:export\s+)?import\s*(<[^>\n]*>|"[^"\n]*")\s*;')
+
+
+def _directive_argument(line):
+    """Returns the bracketed/quoted header-name argument of a line that
+    is a #include or a C++23 header-unit import directive, or None
+    when the line is neither (prose, a comment, plain code, a module
+    import with no header-name form). Only the captured argument -
+    never the rest of the line - is searched for the forbidden
+    needles, so a real include followed by an unrelated trailing
+    comment on the same physical line ("#include <good.hpp> // GL/
+    stuff") does not false-positive on the comment half either.
+    """
+    match = _INCLUDE_DIRECTIVE_PATTERN.match(line) or _IMPORT_DIRECTIVE_PATTERN.match(line)
+    return match.group(1) if match else None
+
 
 def fail(message):
     print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
@@ -87,6 +147,15 @@ def core_source_dirs(root):
             yield candidate
 
 
+def _walk_header_files(directory):
+    files = []
+    for dirpath, _dirnames, filenames in os.walk(directory):
+        for name in filenames:
+            if name.endswith(_HEADER_EXTENSIONS):
+                files.append(os.path.join(dirpath, name))
+    return files
+
+
 def core_source_files(root):
     """One os.walk() per candidate directory - directory entries come
     back as discrete strings from the filesystem, never a newline-
@@ -96,10 +165,7 @@ def core_source_files(root):
     """
     files = []
     for source_dir in core_source_dirs(root):
-        for dirpath, _dirnames, filenames in os.walk(source_dir):
-            for name in filenames:
-                if name.endswith(_HEADER_EXTENSIONS):
-                    files.append(os.path.join(dirpath, name))
+        files.extend(_walk_header_files(source_dir))
     return files
 
 
@@ -108,7 +174,8 @@ def violations_in_file(path):
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as handle:
             for lineno, line in enumerate(handle, start=1):
-                if _FORBIDDEN_PATTERN.search(line):
+                argument = _directive_argument(line)
+                if argument is not None and _FORBIDDEN_PATTERN.search(argument):
                     violations.append((path, lineno))
     except OSError as exc:
         print(f"{SCRIPT_NAME}: {path}: open refused ({exc})", file=sys.stderr)
@@ -129,15 +196,79 @@ def require_nonempty_scan(file_count):
     return True
 
 
+# --- gfss/gfui additions (LAYERS-GATE-GFSS-GFUI) ----------------------
+#
+# Unlike core_source_dirs()/require_nonempty_scan() above, whose floor
+# is on the AGGREGATE file count across src/core/ and
+# include/glintfx/core/ combined, each of these four directories gets
+# its OWN floor, checked separately: a layer split across
+# src/<name>/ and include/glintfx/<name>/ can have its files
+# concentrated almost entirely in one of the two (measured against the
+# real tree on 22/09/2026: include/glintfx/gfui/ has exactly ONE
+# public header, node_view.hpp, against dozens under src/gfui/) - an
+# AGGREGATE check would let a directory that silently lost every file
+# hide behind the other directory's count. GODS_LAWS.md L-40: absence
+# is declared and counted, never a quiet skip - so a missing directory
+# and an existing-but-empty one are both failures, reported by name.
+GFSS_GFUI_DIR_SPECS = (
+    ("src/gfss", ("src", "gfss")),
+    ("src/gfui", ("src", "gfui")),
+    ("include/glintfx/gfss", ("include", "glintfx", "gfss")),
+    ("include/glintfx/gfui", ("include", "glintfx", "gfui")),
+)
+
+
+def gfss_gfui_dir_files(root):
+    """Returns {label: (files, exists)} for each of the four directories
+    in GFSS_GFUI_DIR_SPECS. `exists` is False when the directory itself
+    is missing (distinct from existing-but-empty; both fail the floor
+    below, but the message says which case it is)."""
+    result = {}
+    for label, parts in GFSS_GFUI_DIR_SPECS:
+        path = os.path.join(root, *parts)
+        if not os.path.isdir(path):
+            result[label] = ([], False)
+            continue
+        result[label] = (_walk_header_files(path), True)
+    return result
+
+
+def require_nonempty_gfss_gfui_dirs(dir_files):
+    ok = True
+    for label, (files, exists) in dir_files.items():
+        if not exists:
+            print(
+                f"{SCRIPT_NAME}: varredura vazia ({label} nao existe) - "
+                "GODS_LAWS.md L-40",
+                file=sys.stderr,
+            )
+            ok = False
+        elif len(files) == 0:
+            print(
+                f"{SCRIPT_NAME}: varredura vazia (0 arquivos em {label}) - "
+                "GODS_LAWS.md L-40",
+                file=sys.stderr,
+            )
+            ok = False
+    return ok
+
+
 # The actual gate logic, factored out of real_main() so --selftest
 # exercises the EXACT same function - not a reimplementation that
 # could drift from production.
 def check_layers(root):
-    files = core_source_files(root)
-    file_count = len(files)
-
-    if not require_nonempty_scan(file_count):
+    core_files = core_source_files(root)
+    if not require_nonempty_scan(len(core_files)):
         return False
+
+    gfss_gfui_files = gfss_gfui_dir_files(root)
+    if not require_nonempty_gfss_gfui_dirs(gfss_gfui_files):
+        return False
+
+    files = list(core_files)
+    for dir_file_list, _exists in gfss_gfui_files.values():
+        files.extend(dir_file_list)
+    file_count = len(files)
 
     violations = []
     for f in files:
@@ -177,11 +308,20 @@ def make_scratch_workdir():
     return tempfile.mkdtemp(prefix="glintfx-layers-selftest-", dir=os.environ.get("TMPDIR"))
 
 
+def _write_clean_file(path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write("#include <cstdint>\n// clean layer file, no OS or upper-layer header\n")
+
+
+def make_gfss_gfui_clean_fixture(root):
+    for _label, parts in GFSS_GFUI_DIR_SPECS:
+        _write_clean_file(os.path.join(root, *parts, "clean.hpp"))
+
+
 def make_clean_fixture(root):
-    core_dir = os.path.join(root, "src", "core")
-    os.makedirs(core_dir, exist_ok=True)
-    with open(os.path.join(core_dir, "clean.cpp"), "w", encoding="utf-8") as handle:
-        handle.write("#include <cstdint>\n// clean core file, no OS or upper-layer header\n")
+    _write_clean_file(os.path.join(root, "src", "core", "clean.cpp"))
+    make_gfss_gfui_clean_fixture(root)
 
 
 def _make_capture():
@@ -318,6 +458,154 @@ def selftest_empty_scan_control(scratch, capture):
     return True
 
 
+# LAYERS-GATE-GFSS-GFUI control 1: a forbidden OS header planted in
+# EACH of the four gfss/gfui directories in turn (own fixture per
+# directory, so one broken branch cannot hide behind another passing).
+# Expected: reproves and cites the planted file, for all four.
+def selftest_negative_control_gfss_gfui(scratch, capture):
+    ok = True
+    for label, parts in GFSS_GFUI_DIR_SPECS:
+        safe_label = label.replace("/", "_")
+        root = os.path.join(scratch, f"negative_gfss_gfui_{safe_label}")
+        make_clean_fixture(root)
+        target = os.path.join(root, *parts, "dirty.hpp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("#include <wayland-client.h>\n")
+
+        outcome = capture(lambda: check_layers(root))
+        if outcome.result:
+            print(
+                f"selftest: controle NEGATIVO ({label}) FALHOU (header do SO "
+                "nao foi pego)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if target not in outcome.text:
+            print(
+                f"selftest: controle NEGATIVO ({label}) FALHOU (reprovou, mas "
+                f"nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        print(f"selftest: controle NEGATIVO ({label}) OK (header do SO pego e citado)")
+    return ok
+
+
+# LAYERS-GATE-GFSS-GFUI control 2: the PER-DIRECTORY floor. For each of
+# the four directories in turn, build a fixture where the OTHER three
+# are populated and clean, and THIS one is present but empty (zero
+# matching files). Expected: reproves, naming exactly this directory -
+# proving the floor is per-directory, not an aggregate that the other
+# three's files could mask.
+def selftest_gfss_gfui_per_directory_floor(scratch, capture):
+    ok = True
+    for label, parts in GFSS_GFUI_DIR_SPECS:
+        safe_label = label.replace("/", "_")
+        root = os.path.join(scratch, f"floor_gfss_gfui_{safe_label}")
+        make_clean_fixture(root)
+        empty_dir = os.path.join(root, *parts)
+        # empty it back out: make_clean_fixture already wrote clean.hpp
+        # into it above, remove just that one file so the directory
+        # exists but is empty, while the other three keep theirs.
+        os.remove(os.path.join(empty_dir, "clean.hpp"))
+
+        outcome = capture(lambda: check_layers(root))
+        if outcome.result:
+            print(
+                f"selftest: controle de PISO POR DIRETORIO ({label}) FALHOU "
+                "(diretorio vazio deveria ter sido recusado, mas passou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if f"0 arquivos em {label}" not in outcome.text:
+            print(
+                f"selftest: controle de PISO POR DIRETORIO ({label}) FALHOU "
+                f"(recusou, mas nao citou '0 arquivos em {label}')",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        print(
+            f"selftest: controle de PISO POR DIRETORIO ({label}) OK "
+            "(diretorio vazio recusado nominalmente, sem mascaramento pelos outros tres)"
+        )
+    return ok
+
+
+# ANCHOR-ON-DIRECTIVE control (ordem do lider, 22/09/2026: "Olhar so
+# diretivas de inclusao"): the needle search only fires inside a line
+# that IS an #include or C++23 header-unit import directive - never
+# inside a comment that merely mentions one of the needle substrings
+# in prose (the false positive that started this: anb_parse.cpp:159's
+# own "a GL/WGL function name is"), and never missed just because the
+# real include uses C++23 `import <header>;` instead of `#include
+# <header>` (a naive #include-only anchor would have opened exactly
+# that hole - a real forbidden import passing silently, worse than the
+# false positive it fixes). Each case below is planted, alone, into an
+# otherwise-clean fixture; `True` means the gate must reprove and cite
+# the planted file, `False` means it must pass clean.
+_ANCHOR_DIRECTIVE_CASES = (
+    ("#include <fstream>\n", True),
+    ("#  include <GL/gl.h>\n", True),
+    ("#include<windows.h>\n", True),
+    ("import <fstream>;\n", True),
+    ("export import <fstream>;\n", True),
+    ("// a GL/WGL function name is a mouthful\n", False),
+    ("// #include <windows.h>\n", False),
+)
+
+
+def selftest_anchor_directive_control(scratch, capture):
+    ok = True
+    for index, (planted_line, should_reprove) in enumerate(_ANCHOR_DIRECTIVE_CASES):
+        root = os.path.join(scratch, f"anchor_{index}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"anchor_case_{index}.cpp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(planted_line)
+
+        outcome = capture(lambda: check_layers(root))
+        reproved = not outcome.result
+        label = repr(planted_line.rstrip("\n"))
+
+        if should_reprove and not reproved:
+            print(
+                f"selftest: controle de ANCORA FALHOU ({label} deveria ter "
+                "reprovado, mas passou)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if should_reprove and target not in outcome.text:
+            print(
+                f"selftest: controle de ANCORA FALHOU ({label} reprovou, mas "
+                f"nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if not should_reprove and reproved:
+            print(
+                f"selftest: controle de ANCORA FALHOU ({label} deveria ter "
+                "passado (nao e diretiva de inclusao), mas reprovou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+
+        verdict = "reprovado" if should_reprove else "passou"
+        print(f"selftest: controle de ANCORA OK ({label} {verdict} como esperado)")
+    return ok
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -327,6 +615,9 @@ def selftest_main():
             selftest_negative_control(scratch, capture),
             selftest_negative_control_file_header(scratch, capture),
             selftest_empty_scan_control(scratch, capture),
+            selftest_negative_control_gfss_gfui(scratch, capture),
+            selftest_gfss_gfui_per_directory_floor(scratch, capture),
+            selftest_anchor_directive_control(scratch, capture),
         ]
         if not all(controls):
             print("check_layers.py --selftest: FALHOU (ver acima)", file=sys.stderr)

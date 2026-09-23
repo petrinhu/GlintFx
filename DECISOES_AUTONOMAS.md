@@ -4173,3 +4173,9 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D22:** `GFSS-VALUE-LAYOUT-ASSERT` fica na W10.
 
 **Continua exigindo o líder:** ratificar D1 a D22, **com destaque para D18 e D19** (remoção de símbolos do cabeçalho público: é a única desta onda que muda o que o consumidor externo compila); e uma pergunta que o planejador levantou e não é dele: o portão de travessão trata documentos internos como públicos, e corrigir isso **estreitaria** um portão - decisão do líder, não do modo autônomo. **As mudanças na tabela** entram quando a W7-C abrir, no ramo dela.
+
+## 23/09/2026 - 08:48 | Verificação do main: `PARITY-ALIAS-HYGIENE` aprovada pelo revisor, mas não fecha
+
+**Fato:** o revisor independente aprovou `5d0c173` com quatro mutações que chegaram. O main repetiu a verificação com sabotagem de outra família (L-12): numa cópia de `7beb354`, desligar o piso de varredura vazia do lado Windows deixou o `--selftest` verde, porque o único controle de inventário vazio esvazia só o lado Linux. Somado ao achado IMPORTANTE do revisor (declaração bilateral em apelido não bilateral passa calada, provado sem mutação), o item volta a ⏳ com a sub-fatia P-2.
+
+**Por que isto não é decisão no lugar do líder:** a ordem vigente dele (22/09/2026) manda buscar sempre o mais completo; fechar com dois buracos conhecidos seria o contrário. Nenhuma opção de desenho foi escolhida aqui; o desenho da P-2 é do implementador sob a especificação da fatia.

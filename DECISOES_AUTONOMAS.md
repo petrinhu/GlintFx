@@ -4154,3 +4154,22 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D-W7D-17:** `GFX-PRESET` antes de `R2D-BATCH`, com as revisões de API adiantáveis em paralelo.
 
 **Marca ao fim da W7-D, pela tabela da L-26:** `v0.6.0.0` (recurso novo). **Continua exigindo o líder:** ratificar as dezessete, com destaque para D-W7D-01, D-W7D-02 e D-W7D-08. Nenhuma API pública congela antes das duas revisões de API dedicadas. Nenhuma lei muda; nenhum pacote a instalar. **As mudanças na tabela** (mover `INPUT-EVENTS`, criar as seis fatias novas, corrigir a coluna de pré-requisitos e o texto podre "bloqueado por GL-API" em `R2D-BATCH` e `DEMO-1`) entram quando a W7-D abrir, no ramo dela, com o portão pedido pelo plano: nenhum item depende de item de onda posterior, nenhum ciclo entre os itens de entrada.
+
+## 23/09/2026 - 06:44 | Plano da `W7-C`: vinte e duas decisões do C-level no lugar do líder
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois de pesquisar (regras do wlroots para confirmação de configuração, prática de portões de alegação e de paridade em projetos semelhantes). **Texto inteiro de cada decisão:** `docs/plano-w7c.md`. Medições brutas guardadas pelo planejador em `/var/tmp/glintfx-plan/w7c-medidas/` (não versionadas).
+
+**Fatos que o main conferiu antes de registrar:** `PLAN-SCOPE-REGEX-BLIND` e `LINK-PREFIX-SUBSTRING` estão ✅, mas o texto das duas linhas ainda diz que aguardam envio, e o commit `92d85a2` já é ancestral do principal remoto (texto podre, a corrigir); e `src/platform/wayland/window_adapter.cpp` tem **dois** pontos de `xdg_surface_ack_configure` (linhas 294 e 303), não um - o item `WL-ACK-SMOKE-BLUNT` é maior do que o escrito.
+
+- **D1 a D5:** a prova de que a janela confirma a configuração certa usa um **retransmissor estrito escrito em casa**, em C++, dentro do contêiner, sem pacote novo e sem `libwayland-server`: ele fica na frente do KWin aplicando as regras do wlroots, passa a rotear todas as fixturas, e uma configuração injetada exercita o segundo ponto de confirmação. `window_smoke` não se aposenta e vira exceção sem pendência. **Por que em casa:** as duas alternativas (um segundo compositor estrito instalado no contêiner, ou ligar `libwayland-server`) exigiriam o líder (L-14 e L-07).
+- **D6:** linha nova `LINK-PREFIX-RESIDUOS` (W7-C), absorvendo dois itens da INBOX.
+- **D7 a D10:** na paridade, apelido morto, apelido bilateral sem declaração e exceção morta passam a reprovar; entra a forma `PROVA-PARCIAL` (resolve `PARIDADE-EXCECAO-SEM-FORMA-PARA-PROVA-PARCIAL` da INBOX), com o gêmeo conferido no outro inventário. Medido pelo planejador: 30 apelidos, 0 mortos, 3 bilaterais; 28 exceções, 0 mortas.
+- **D11 a D15:** os portões de contagem e de alegação reusam a enumeração do portão de travessão; número em documento só com citação datada; seção já lançada do registro de mudanças conta como histórico; dois módulos compartilhados (gramática de citação e inventário de nomes de teste); `tests/claim_exceptions.txt` com regra de morte.
+- **D16:** o jargão em português nos cabeçalhos **não** entra agora (congelamento até `DEMO-1`).
+- **D17:** o portão de plano passa a ler tabela e coluna pelo cabeçalho, com ausência obrigatória e registro no `ctest`; absorve dois itens da INBOX. **Achado do planejador:** o portão de plano de hoje é cego ao plano inteiro do fecho da W7-B.
+- **D18 e D19:** as quatro chaves internas saem do cabeçalho público (tipo incompleto, com falha de compilação provada nos dois modos e nos dois sistemas). **É mudança de API pública**, e por isso a marca da W7-C sobe o segundo número pela L-26.
+- **D20:** o plano fica versionado em `docs/plano-w7c.md` (feito neste commit).
+- **D21:** `WL-RELAY-FAULTS` (compositor pendurado) fica registrado para depois de `DEMO-1`.
+- **D22:** `GFSS-VALUE-LAYOUT-ASSERT` fica na W10.
+
+**Continua exigindo o líder:** ratificar D1 a D22, **com destaque para D18 e D19** (remoção de símbolos do cabeçalho público: é a única desta onda que muda o que o consumidor externo compila); e uma pergunta que o planejador levantou e não é dele: o portão de travessão trata documentos internos como públicos, e corrigir isso **estreitaria** um portão - decisão do líder, não do modo autônomo. **As mudanças na tabela** entram quando a W7-C abrir, no ramo dela.

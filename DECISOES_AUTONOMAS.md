@@ -4224,3 +4224,9 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D-L5-1:** a estreia vermelha do oráculo roda num ramo DESCARTÁVEL no servidor, com um defeito conhecido reintroduzido no portão, e o ramo é apagado logo depois. É a única forma de ver o oráculo reprovar, porque pela L-45 ele só roda no servidor; o mutante nunca vai ao ramo da onda nem a `main`. Há precedente de ramos de sonda no remoto, e a ação cabe na autorização de push do modo autônomo.
 - **D-L5-2:** se o tempo estourar o teto de `check_ci_timeouts.py`, primeiro o plano B (compilar as fixtures em lote no MSVC), antes de mexer em teto calibrado por medição.
 - **D-L5-3:** se o `ctest -N` omitir o teste desligado e a paridade Linux x Windows ficar vermelha (risco R-1), o par é declarado no mecanismo de paridade, em vez de carregar o trabalho Windows compartilhado, que está a um minuto do teto.
+
+## 23/09/2026 - 15:16 | L-5 do portão de camadas: como o teste desligado aparece no inventário (revisão da D-L5-3)
+
+**Fato medido pelo implementador:** com `DISABLED` no `add_test`, o `ctest -N` lista a linha `layers_oracle_test (Disabled)`, e `tests/tools/check_test_parity.py` QUEBRA no parse dessa linha antes de qualquer comparação. A D-L5-3 (declarar o par no mecanismo de paridade) não resolveria, porque o erro acontece antes.
+
+**Decisão do main (técnica, dentro da L-45 e da intenção do plano):** o teste não usa `DISABLED`. Fica registrado igual em todo sistema, com `SKIP_RETURN_CODE`; fora do CI, o próprio roteiro do oráculo sai com o código de pulado e imprime que está desligado pela L-45, sem chamar compilador. O inventário fica igual nos dois lados, e o `ctest` local mostra "Skipped", visível (L-40). Além disso, o portão de paridade passa a reconhecer o sufixo ` (Disabled)`, contando e imprimindo esses testes numa categoria própria, em vez de quebrar, para um teste desligado no futuro não derrubar o portão.

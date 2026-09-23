@@ -4105,3 +4105,26 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 **Armadilha que o revisor declarou sozinho, e é da L-27:** ao desfazer uma mutação com `mv arquivo.orig arquivo`, o restaurado ficou com **mtime mais antigo** que o `.o` do mutante — o `ninja` não recompilou, e o "binário limpo" ainda **era o mutante**. Ele percebeu, corrigiu com `touch` após cada revert, e conferiu os **seis** arquivos byte a byte contra o `HEAD` antes de confiar em qualquer resultado. É o *"prove que a mutação chegou ao código executado"* da lei, na forma inversa: **prove que ela SAIU**.
 
 **Três itens promovidos a `✅`.** Com isso a `W6` fica com só o portão de fechamento aberto, que espera o servidor.
+
+## 22/09/2026 - 23:02 | Fecho da `W7-B`: catorze decisões do C-level no lugar do líder
+
+**Quem decidiu:** C-level `opus`, esforço alto (L-34, emendada hoje), depois de pesquisar mais de trinta fontes, todas com URL. **Onde está o texto inteiro de cada decisão** (opções, a recomendada, o porquê e a fonte): `docs/plano-fecho-w7b.md`, seção 4, um bloco por decisão. Abaixo, só o que foi escolhido, para o líder ratificar ou reverter linha a linha.
+
+**Fatos do plano que o main conferiu antes de registrar** (L-12/L-18): o item de ligação cruzada dos testes do Windows já tinha sido entregue em `07c4310` (10/09/2026); a memória de firmware (`~/.config/libvirt/qemu/nvram/glintfx-win11-lab_VARS.qcow2`) e o estado do TPM (`~/.config/libvirt/qemu/swtpm/214f47ad-ab8d-4e57-bc50-7ea9ca995230`) existem e ficam **fora** do disco de sobreposição; `bounded_output_wait.cpp` trata queda de conexão como falha na ESCRITA, enquanto `display_adapter.cpp:327` a trata como "nada a ler" na LEITURA; a sonda `wayland-info` do `run_compositor.sh` não tem prazo por tentativa. **Divergência pequena, sem efeito em decisão:** o plano diz 23 commits da onda enviados direto ao principal; o main contou 19 no intervalo `61aa20c..98035e8`.
+
+- **D-1:** `WIN-RUNNER-PROPRIO` fecha sem a V-6b (consolidar no disco verdadeiro) e sem a V-7 (instalar no convidado); as duas **movidas** para item novo `WIN-LAB-INSTALAR`, onda W9.
+- **D-2:** a cópia avulsa da definição liga com o **mesmo nome e identificador** do domínio.
+- **D-3:** a sobreposição continua sendo nossa, explícita, e não o disco `<transient/>` do libvirt.
+- **D-4:** firmware (NVRAM) e TPM também ganham **cópia por sessão** - o "descartável" vazava por eles.
+- **D-5:** a prova de que o convidado não sai para a rede é por **TCP, com régua calibrada**, nunca por ICMP.
+- **D-6:** o critério do limite de bytes por leitura do agente convidado foi fixado **antes** de medir (teto de 16 MiB; um pedido de 48 MiB mais 1 byte tem de ser recusado).
+- **D-7:** saída truncada do convidado ganha **código de saída próprio**.
+- **D-8:** `CANAL-QUEBRADO-SE-DISFARCA-DE-PRAZO-ESTOURADO` sai da INBOX e entra na W7-B, **antes** da V-5.
+- **D-9:** `PORTAO-DE-CAMADA-NAO-CONHECE-CADEIA-BRUTA` sai da INBOX e entra em `LAYERS-GATE-GFSS-GFUI` (o Clang teve o mesmo defeito, PR #139504).
+- **D-10:** `CONT-WARMUP` **volta a pendente**: falta prazo por tentativa na sonda, e entra o **conserto de produto** do lado de leitura (a queda do compositor tem de ser fatal na primeira bombeada), mais o gêmeo em `wait_events`.
+- **D-11:** `GL-CODEGEN-HOST-TOOL` com quatro caminhos (variável, emulador pelo nome do alvo, construção nativa aninhada, falha alta), aperto de mão de versão, e portão contra vazamento para o instalado.
+- **D-12:** a prova de construção cruzada usa o **MinGW do Fedora**, já instalado; o compilador da Microsoft sob Wine trava na configuração.
+- **D-13:** número da marca ao fim da W7-B pela tabela da L-26: **`v0.5.1.0`** se o conserto de produto de leitura entrar (é mudança de comportamento observável), senão **`v0.5.0.1`**.
+- **D-14:** o pré-requisito `PKG-WIN-INTEROP` já está satisfeito.
+
+**O que continua exigindo o líder, mesmo em modo autônomo:** a V-6b (escrita irreversível no disco de 17 GiB; o plano informa que cópia por `reflink` em btrfs a tornaria reversível); a V-7 (instalar no convidado, L-51); a ratificação de D-1 a D-14; e **o desvio da L-11 já consumado** - código da onda enviado direto ao principal antes de existir o ramo `onda-w7b`, erro do main, relatado a ele em 22/09 às 22:18. **Pendência de lei, não alterada:** a L-18 ainda diz `fable`; a confirmação de hoje foi sobre a L-34.

@@ -27,6 +27,20 @@
 #      L-40 - "zero" e' sinal de varredura quebrada, nunca de "nada a
 #      relatar" quando a varredura em si e' a promessa deste portao).
 #
+# CONSERTO 23/09/2026 (CONT-WARMUP C-7, revisao-cont-warmup-c6.md,
+# achado m-needle-removed - GODS_LAWS.md L-40): "manifesto podre" (item
+# 2 acima) costumava conferir o trecho de CADA linha contra o arquivo
+# INTEIRO (toda linha de codigo, nao so' as que bateram alguma agulha)
+# - remover uma agulha de SIMPLE_NEEDLES (ex.: "poll_impl(") faz o
+# sitio correspondente sumir da varredura (nunca vira "sitio"), mas o
+# TEXTO da chamada continua la, entao a linha do manifesto NAO ficava
+# podre e o portao continuava mudo (RC=0), so' com a contagem total
+# caida em silencio - medido ao vivo: 23 sitios viraram 21 sem nenhum
+# sinal. A checagem agora compara cada linha do manifesto contra as
+# linhas que REALMENTE bateram alguma agulha (per_file_sites), nunca
+# contra o arquivo inteiro - uma agulha removida por engano faz a linha
+# do manifesto correspondente ficar "podre" de verdade, reprovando.
+#
 # Comentarios ("//") sao descartados de cada linha ANTES da comparacao
 # com as agulhas - as proprias agulhas aparecem dentro de comentarios
 # deste arquivo-fonte e dos quatro adaptadores que ele varre (citando o
@@ -164,10 +178,16 @@ def strip_comment(line):
     return line.split("//", 1)[0]
 
 
-def line_wait_sites(code):
-    """Every needle that matches this (comment-stripped) line of code."""
+def line_wait_sites(code, needles=None):
+    """Every needle that matches this (comment-stripped) line of code.
+
+    `needles` defaults to the real SIMPLE_NEEDLES tuple; --selftest's own
+    m-needle-removed control (below) passes a REDUCED tuple to simulate
+    an agulha desaparecendo por engano, sem tocar o modulo real.
+    """
+    active_needles = SIMPLE_NEEDLES if needles is None else needles
     found = []
-    for needle in SIMPLE_NEEDLES:
+    for needle in active_needles:
         if needle in code:
             found.append(needle)
     idx = 0
@@ -182,16 +202,19 @@ def line_wait_sites(code):
     return found
 
 
-def scan_file(root, relpath):
-    """Returns (sites, code_lines) - sites is [(lineno, code)], one
-    entry per LINE that matched at least one needle (not one per
-    needle - a line with two needles is one site, same as a human
-    reading it would count it); code_lines is every comment-stripped
-    line, kept for the manifest staleness check below (a manifest row
-    can cite a line that itself carries no needle - GODS_LAWS.md L-43's
-    own honesty: the classification text lives on the SAME line as the
-    call, and that line already matched by construction, but a future
-    row citing a helper's own doc line should still resolve).
+def scan_file(root, relpath, needles=None):
+    """Returns sites - [(lineno, code)], one entry per LINE that matched
+    at least one needle (not one per needle - a line with two needles is
+    one site, same as a human reading it would count it).
+
+    CONSERTO 23/09/2026 (m-needle-removed): usada a costumar devolver
+    tambem TODA linha de codigo do arquivo (code_lines), para a checagem
+    de manifesto podre comparar um trecho contra o arquivo INTEIRO -
+    exatamente o que deixava uma agulha removida por engano muda (ver o
+    comentario no topo deste modulo). A checagem de manifesto podre
+    agora compara so' contra os SITIOS que esta funcao devolve, entao
+    code_lines nunca mais era usado por ninguem - removido, nao deixado
+    morto (GODS_LAWS.md L-33 DRY/YAGNI).
     """
     # relpath chega sempre com "/" (TARGET_FILES's own comment) - so'
     # aqui, no unico ponto que abre o arquivo de verdade, ele vira
@@ -200,14 +223,12 @@ def scan_file(root, relpath):
     if not os.path.isfile(path):
         fail(f"arquivo-alvo nao encontrado: {relpath} (TARGET_FILES esta desatualizada?)")
     sites = []
-    code_lines = []
     with open(path, "r", encoding="utf-8", errors="replace") as handle:
         for lineno, raw_line in enumerate(handle, start=1):
             code = strip_comment(raw_line)
-            code_lines.append(code)
-            if line_wait_sites(code):
+            if line_wait_sites(code, needles=needles):
                 sites.append((lineno, code))
-    return sites, code_lines
+    return sites
 
 
 def parse_manifest(manifest_path):
@@ -237,24 +258,22 @@ def parse_manifest(manifest_path):
     return rows
 
 
-def check_wait_points(root, target_files=None, manifest_path=None):
+def check_wait_points(root, target_files=None, manifest_path=None, needles=None):
     target_files = TARGET_FILES if target_files is None else target_files
     manifest_path = (
         os.path.join(root, MANIFEST_RELATIVE_PATH) if manifest_path is None else manifest_path
     )
+    active_needles = SIMPLE_NEEDLES if needles is None else needles
 
     if not os.path.isfile(manifest_path):
         fail(f"manifesto nao encontrado: {manifest_path}")
     rows = parse_manifest(manifest_path)
 
-    print(f"{SCRIPT_NAME}: agulhas = {', '.join(SIMPLE_NEEDLES + (_DISPATCH_NEEDLE,))}")
+    print(f"{SCRIPT_NAME}: agulhas = {', '.join(active_needles + (_DISPATCH_NEEDLE,))}")
 
     per_file_sites = {}
-    per_file_code = {}
     for relpath in target_files:
-        sites, code_lines = scan_file(root, relpath)
-        per_file_sites[relpath] = sites
-        per_file_code[relpath] = code_lines
+        per_file_sites[relpath] = scan_file(root, relpath, needles=active_needles)
 
     counts = {klass: 0 for klass in VALID_CLASSES}
     undeclared = []
@@ -276,13 +295,21 @@ def check_wait_points(root, target_files=None, manifest_path=None):
                 continue
             counts[next(iter(classes_here))] += 1
 
+    # CONSERTO 23/09/2026 (m-needle-removed, ver o comentario no topo
+    # deste modulo): comparado contra per_file_sites (so' as linhas que
+    # bateram alguma agulha), nunca contra o arquivo inteiro - uma
+    # agulha removida por engano faz o sitio correspondente sumir de
+    # per_file_sites, e a linha do manifesto que o citava fica podre de
+    # verdade, mesmo que o TEXTO da chamada continue presente em algum
+    # lugar do arquivo.
     stale_rows = []
     for row in rows:
-        code_lines = per_file_code.get(row["file"])
-        if code_lines is None:
+        matched_sites = per_file_sites.get(row["file"])
+        if matched_sites is None:
             stale_rows.append(row)
             continue
-        if not any(row["snippet"] in code for code in code_lines):
+        site_lines = [code for _lineno, code in matched_sites]
+        if not any(row["snippet"] in code for code in site_lines):
             stale_rows.append(row)
 
     total_found = sum(counts.values()) + len(undeclared) + len(ambiguous)
@@ -401,8 +428,10 @@ def _write_fixture_manifest(root, rows_text):
     write_file(os.path.join(root, MANIFEST_RELATIVE_PATH), rows_text)
 
 
-def _run_fixture(root, capture):
-    return capture(lambda: check_wait_points(root, target_files=(_FIXTURE_TARGET,)))
+def _run_fixture(root, capture, needles=None):
+    return capture(
+        lambda: check_wait_points(root, target_files=(_FIXTURE_TARGET,), needles=needles)
+    )
 
 
 # Positive control: one declared, bounded site. Expected: passes, with
@@ -537,6 +566,86 @@ def selftest_comment_is_not_a_site_control(scratch, capture):
     return True
 
 
+# Negative control 3 (CONT-WARMUP C-7, revisao-cont-warmup-c6.md,
+# achado m-needle-removed - GODS_LAWS.md L-40): reproduz ao vivo o
+# defeito exato que a mutacao do revisor achou - uma agulha REMOVIDA de
+# SIMPLE_NEEDLES (nunca tocada aqui, o modulo real; simulada por um
+# needle set REDUZIDO passado a check_wait_points()) faz um sitio real
+# sumir da varredura SEM que o manifesto acuse "podre" nem "varredura
+# vazia", porque outro sitio no MESMO arquivo continua batendo com uma
+# agulha diferente (o total nunca cai a zero - o mesmo formato do
+# defeito real: 23 sitios viraram 21, nunca 0). Fixture com DOIS sitios
+# de propósito, por isso: um que só bate com "poll_impl(" (a agulha
+# "removida"), outro que só bate com "poll(" (intocada) - "poll(" não é
+# substring de "poll_impl(" (a MESMA razão pela qual a agulha "poll_
+# impl(" precisou nascer nesta fatia, ver o cabeçalho do módulo).
+def selftest_negative_control_needle_removed_orphans_manifest_row(scratch, capture):
+    root = _fixture_root(scratch, "negative_needle_removed")
+    write_file(
+        os.path.join(root, _FIXTURE_TARGET),
+        "void f() {\n"
+        "    poll_impl(&incoming, 1, wait_ms);\n"
+        "    poll(&pfd, 1, 100);\n"
+        "}\n",
+    )
+    _write_fixture_manifest(
+        root,
+        f"{_FIXTURE_TARGET}|f()|poll_impl(&incoming, 1, wait_ms)|teto-nosso\n"
+        f"{_FIXTURE_TARGET}|f()|poll(&pfd, 1, 100)|teto-nosso\n",
+    )
+
+    full_needles = SIMPLE_NEEDLES
+    outcome_full = _run_fixture(root, capture, needles=full_needles)
+    if not outcome_full.result or "encontrados=2" not in outcome_full.text:
+        print(
+            "selftest: controle AGULHA-REMOVIDA FALHOU (controle positivo previo: com as duas "
+            "agulhas presentes, os dois sitios deveriam ter sido achados e aprovados)",
+            file=sys.stderr,
+        )
+        print(outcome_full.text, file=sys.stderr)
+        return False
+
+    reduced_needles = tuple(n for n in SIMPLE_NEEDLES if n != "poll_impl(")
+    if len(reduced_needles) != len(SIMPLE_NEEDLES) - 1:
+        print(
+            "selftest: controle AGULHA-REMOVIDA FALHOU (fixture presume 'poll_impl(' em "
+            "SIMPLE_NEEDLES - a lista real mudou e este controle precisa ser revisto)",
+            file=sys.stderr,
+        )
+        return False
+
+    outcome_reduced = _run_fixture(root, capture, needles=reduced_needles)
+    if outcome_reduced.result:
+        print(
+            "selftest: controle AGULHA-REMOVIDA FALHOU (agulha 'poll_impl(' removida deveria ter "
+            "feito o sitio sumir E o portao reprovar - passou em silencio, o defeito real medido "
+            "pela revisao)",
+            file=sys.stderr,
+        )
+        print(outcome_reduced.text, file=sys.stderr)
+        return False
+    if "manifesto podre" not in outcome_reduced.text:
+        print(
+            "selftest: controle AGULHA-REMOVIDA FALHOU (reprovou, mas nao por 'manifesto podre' - "
+            "motivo errado)",
+            file=sys.stderr,
+        )
+        print(outcome_reduced.text, file=sys.stderr)
+        return False
+    if "encontrados=1" not in outcome_reduced.text:
+        print(
+            "selftest: controle AGULHA-REMOVIDA FALHOU (esperava a contagem cair de 2 para 1, "
+            f"nunca para 0 - e' esse o formato exato do defeito real): {outcome_reduced.text}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: controle AGULHA-REMOVIDA OK (agulha 'poll_impl(' removida faz o sitio sumir "
+        "E o manifesto ficar podre de verdade, reprovando - o portao nao fica mudo)"
+    )
+    return True
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -547,6 +656,7 @@ def selftest_main():
             selftest_negative_control_stale_manifest(scratch, capture),
             selftest_empty_scan_control(scratch, capture),
             selftest_comment_is_not_a_site_control(scratch, capture),
+            selftest_negative_control_needle_removed_orphans_manifest_row(scratch, capture),
         ]
         if not all(controls):
             print("check_wait_points.py --selftest: FALHOU (ver acima)", file=sys.stderr)

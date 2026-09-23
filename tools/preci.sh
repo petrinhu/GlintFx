@@ -760,6 +760,41 @@ stage_gitleaks() {
     gitleaks detect --no-banner --source "$ROOT_DIR"
 }
 
+# GATE-CONT-LINK (CONT-WARMUP C-7, revisao-cont-warmup-c6.md CRITICO-3,
+# GODS_LAWS.md L-09/L-17/L-36/L-40): a QUINTA vez que "lista de fontes
+# mantida a mao em tests/container/Containerfile" mordeu - desta vez o
+# atomo novo is_incoming_poll_connection_fatal() (C-6) nunca entrou nas
+# 22 fixtures que precisavam dele, e nem `preci.sh --fast` nem
+# `--sanitizer-only` (as duas rodadas que a C-6 de fato rodou antes do
+# commit) tocam nenhuma fixture de container - so' um `docker build`
+# real, ou o script que reproduz os mesmos g++/ld fora do Docker, revela
+# o problema (check_container_fixture_link.py's own header comment tem
+# o relato completo). Este estagio roda EXATAMENTE o mesmo tests/
+# container/prepare_arch_ports_fixture.sh que .github/workflows/ci.yml's
+# own job `wayland-container` chama ANTES do `docker build` - nenhuma
+# logica duplicada (GODS_LAWS.md L-17 "gemeo"): estagia a arvore real,
+# confere os #include (check_container_fixture_includes.py) e LIGA de
+# verdade as 23 invocacoes g++/gcc do estagio arch-ports-builder
+# (check_container_fixture_link.py --exec) contra ela. Quando o host
+# nao tem os pacotes wayland de desenvolvimento, o proprio script
+# declara e CONTA o pulo (rc=77 tratado como sucesso por verify_
+# fixture_link() - nunca um pulo silencioso) e devolve 0 mesmo assim;
+# esta funcao so' precisa reprovar quando o script de fato reprova.
+#
+# CUSTO MEDIDO 23/09/2026, maquina de desenvolvedor: ~3m30s de parede
+# (23 invocacoes g++/gcc reais, nenhuma cacheada) - mais que DOBRA o
+# tempo tipico de `preci.sh --fast` (~3min) se entrasse no estagio 6
+# (ctest completo, que roda incondicionalmente em --fast). NAO fica
+# barato o bastante para --fast: segue o MESMO padrao que sanitizer/
+# debug/win32-link ja usam (estagios 7/8/9) - so' entra na RODADA
+# COMPLETA (`preci.sh` sem flag), pulado sob `--fast`, com seu proprio
+# modo standalone (--container-link-only) para quem precisa rodar so'
+# este estagio.
+stage_container_link() {
+    sh "${ROOT_DIR}/tests/container/prepare_arch_ports_fixture.sh" "$ROOT_DIR" ||
+        fail "estagio container-link recusado: prepare_arch_ports_fixture.sh reprovou (ver acima) - GATE-CONT-LINK, GODS_LAWS.md L-17/L-36/L-40"
+}
+
 stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
@@ -1937,6 +1972,12 @@ run_win32_link_only() {
     echo "preci.sh --win32-link-only: VERDE"
 }
 
+run_container_link_only() {
+    log "estagio container-link: check_container_fixture_link.py --exec real contra a arvore estagiada (GATE-CONT-LINK)"
+    stage_container_link
+    echo "preci.sh --container-link-only: VERDE"
+}
+
 run_full_pipeline() {
     fast="$1"
     log "estagio 1: clang-format"
@@ -1963,6 +2004,7 @@ run_full_pipeline() {
         echo "preci.sh --fast: estagio 7 (sanitizer) PULADO"
         echo "preci.sh --fast: estagio 8 (debug) PULADO"
         echo "preci.sh --fast: estagio 9 (win32-link) PULADO"
+        echo "preci.sh --fast: estagio 10 (container-link) PULADO - custo medido ~3m30s, ver o cabecalho de stage_container_link()"
     else
         log "estagio 7: sanitizer (ASan/UBSan)"
         stage_sanitizer
@@ -1970,6 +2012,8 @@ run_full_pipeline() {
         stage_debug
         log "estagio 9: win32-link (cl.exe/link.exe reais em container, GATE-WIN32-LINK)"
         stage_win32_link strict
+        log "estagio 10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)"
+        stage_container_link
     fi
     echo "preci.sh: TUDO VERDE"
 }
@@ -1981,13 +2025,13 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only [--strict]|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only|--container-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -2023,6 +2067,9 @@ main() {
             ;;
         --win32-link-only)
             run_win32_link_only "$extra"
+            ;;
+        --container-link-only)
+            run_container_link_only
             ;;
         --selftest)
             run_selftest

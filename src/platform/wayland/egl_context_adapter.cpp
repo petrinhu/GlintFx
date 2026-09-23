@@ -241,20 +241,26 @@ constexpr wl_callback_listener k_frame_callback_listener{
                 continue; // retry with whatever time is left of the budget
             }
             wl_display_cancel_read(display);
-            if (errno_is_eintr) {
-                // Budget exhausted while retrying an interrupted
-                // poll() - the mandatory other half of ARMADILHA 2's
-                // pairing, reported exactly like "nothing arrived
-                // within budget", never a failure this connection
-                // caused.
-                return true;
-            }
-            // Any OTHER errno, or `fatal` (POLLNVAL), is a real,
-            // unusable connection - never folded into "budget
-            // exhausted" the way the OLD `poll_result <= 0` condition
-            // did. is_incoming_poll_connection_fatal() (this function's
-            // own header comment above) is the ONE place that now
-            // decides this.
+            // CONT-WARMUP C-7 (revisao-cont-warmup-c6.md, achado
+            // m-eintr-budget-bypass): este `case` costumava ter um
+            // TERCEIRO caminho aqui - "EINTR com o orcamento ja
+            // esgotado" respondia com um `return true;` HARDCODED,
+            // nunca passando por is_incoming_poll_connection_fatal(). A
+            // mutacao sobreviveu porque nenhum teste alcancava a
+            // combinacao exata (errno_is_eintr==true E remaining_ms<=0
+            // no MESMO poll()), e o valor hardcoded so' concordava com
+            // o atomo por COINCIDENCIA
+            // (is_incoming_poll_connection_fatal(poll_call_failed,
+            // true) == !true == false, `!false` == true) - nunca por
+            // construcao. Removido: agora os TRES desfechos deste
+            // `case` (EINTR-exhausted, outro errno, `fatal`/POLLNVAL)
+            // passam pela MESMA e UNICA chamada ao atomo abaixo - nao
+            // ha mais nenhum jeito de reintroduzir o bug original sem
+            // editar o atomo em si (pego pelo teste dele) ou inverter
+            // esta chamada (pego pelos testes de fiacao existentes,
+            // poll_call_failed_non_eintr_returns_false/pollnval_returns
+            // _false, que ja exercitam o MESMO `return` para os outros
+            // dois desfechos).
             return !is_incoming_poll_connection_fatal(outcome, errno_is_eintr);
         }
         case incoming_poll_outcome::nothing_yet:

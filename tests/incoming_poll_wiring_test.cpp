@@ -363,6 +363,102 @@ GLINTFX_TEST(poll_and_dispatch_with_budget_eintr_retries_within_budget_then_time
     GLINTFX_CHECK(result == true);
 }
 
+GLINTFX_TEST(poll_and_dispatch_with_budget_eintr_with_budget_exhausted_is_not_fatal) {
+    // CONT-WARMUP C-7 (revisao-cont-warmup-c6.md, achado m-eintr-
+    // budget-bypass): antes desta fatia, o ramo "EINTR com o orcamento
+    // ja esgotado" tinha um `return true;` HARDCODED em egl_context_
+    // adapter.cpp, sem NUNCA passar por is_incoming_poll_connection_
+    // fatal() - o UNICO dos tres caminhos deste `case` que nao ia pelo
+    // atomo. Nenhum teste alcancava a combinacao exata que aciona esse
+    // ramo (errno_is_eintr==true E remaining_ms<=0 no MESMO poll()) -
+    // orcamento ZERO garante isso (remaining_ms nunca fica > 0, entao o
+    // `continue` de retry nunca acontece, e um UNICO passo de script
+    // basta). O conserto desta fatia REMOVEU o `return true;` hardcoded
+    // - agora este ramo tambem chama is_incoming_poll_connection_
+    // fatal(), a MESMA linha que os outros dois desfechos deste `case`
+    // ja chamavam (ver o comentario no proprio call site) - nao ha mais
+    // como reintroduzir o bug original sem tambem quebrar os testes
+    // vizinhos (poll_call_failed_non_eintr_returns_false/pollnval_
+    // returns_false), porque os tres desfechos agora compartilham o
+    // MESMO `return`.
+    const egl_fake_display fd;
+    GLINTFX_CHECK(fd.display != nullptr);
+
+    reset_script({{.poll_result = -1, .errno_value = EINTR}});
+    const bool result = poll_and_dispatch_with_budget(fd.display, 0, &scripted_poll);
+
+    GLINTFX_CHECK(g_script_calls_made == 1);
+    GLINTFX_CHECK(result == true);
+}
+
+GLINTFX_TEST(poll_and_dispatch_with_budget_ready_to_read_with_closed_peer_is_fatal) {
+    // CONT-WARMUP C-7 (revisao-cont-warmup-c6.md, achado m-ready-
+    // ignore-real-errors): o UNICO teste anterior deste `case ready_to_
+    // read:` (..._with_real_data_is_not_fatal, abaixo) escrevia um byte
+    // de verdade no par do socketpair - suficiente para provar que o
+    // roteamento NAO trata "ha dado" como falha, mas NUNCA suficiente
+    // para fazer wl_display_read_events()/wl_display_dispatch_pending()
+    // falharem de verdade (a mensagem fica incompleta, sem erro
+    // imediato) - uma mutacao que ignorasse o valor de retorno das duas
+    // chamadas e sempre devolvesse `true` sobrevivia. Este teste fecha
+    // fechando o PAR do socketpair SEM escrever NENHUM byte antes -
+    // sondado ao vivo (GODS_LAWS.md L-44, nunca assumido): o kernel
+    // real entrega POLLIN|POLLHUP para o lado do display (a leitura vai
+    // devolver EOF), classify_incoming_poll() roteia para ready_to_read
+    // (poll(2): "um hangup pode ter dado real antes do EOF" - aqui nao
+    // ha dado nenhum, so' o EOF em si), e wl_display_read_events()
+    // encontra um `read()` que devolve 0 - a biblioteca trata isso como
+    // uma falha REAL de conexao (EPIPE) e devolve -1, o `return false;`
+    // deste `case` que nenhum teste alcancava antes.
+    egl_fake_display fd;
+    GLINTFX_CHECK(fd.display != nullptr);
+    GLINTFX_CHECK(fd.peer_fd != -1);
+    ::close(fd.peer_fd);
+    fd.peer_fd = -1; // evita fechar duas vezes no destrutor de egl_fake_display
+
+    const bool result = poll_and_dispatch_with_budget(fd.display, 0);
+
+    GLINTFX_CHECK(result == false);
+}
+
+GLINTFX_TEST(poll_and_dispatch_with_budget_default_poll_impl_reads_real_data) {
+    // CONT-WARMUP C-7 (revisao-cont-warmup-c6.md, achado m-default-
+    // poll-swap): uma mutacao que troca o `poll_impl` PADRAO de
+    // producao (`&::poll`, egl_incoming_poll_step.hpp) por um stub que
+    // nunca reporta dado disponivel sobrevivia ao teste antigo (..._
+    // ready_to_read_with_real_data_is_not_fatal, abaixo): `nothing_yet`
+    // e o sucesso de `ready_to_read` devolvem `true` os DOIS, entao a
+    // asserção `result == true` nao distinguia "leu o dado real" de
+    // "nunca tentou ler". Este teste confere um SEGUNDO sinal, fora da
+    // funcao sob teste: depois da chamada com o poll_impl PADRAO
+    // (omitido, exatamente como o unico chamador de producao,
+    // swap_buffers(), sempre usa), o descritor cru do display
+    // (wl_display_get_fd) nao pode ter mais NENHUM byte pendente no
+    // buffer de leitura do kernel - sondado ao vivo (GODS_LAWS.md
+    // L-44): isso so' acontece se wl_display_read_events() de fato leu
+    // de verdade, o que so' acontece se o `::poll()` REAL reportou
+    // POLLIN de verdade. Com o poll_impl PADRAO trocado por um stub
+    // (a mutacao), wl_display_read_events() nunca seria chamada e o
+    // byte ficaria pendente - `recv(MSG_PEEK)` devolveria o byte, nunca
+    // EAGAIN.
+    const egl_fake_display fd;
+    GLINTFX_CHECK(fd.display != nullptr);
+    const char byte = 'x';
+    GLINTFX_CHECK(::write(fd.peer_fd, &byte, 1) == 1);
+
+    const bool result = poll_and_dispatch_with_budget(fd.display, 0);
+    GLINTFX_CHECK(result == true);
+
+    const int display_fd = wl_display_get_fd(fd.display);
+    char probe = 0;
+    const ssize_t peeked = ::recv(display_fd, &probe, 1, MSG_DONTWAIT | MSG_PEEK);
+    // Nenhum dado deveria sobrar no buffer do kernel: -1/EAGAIN e' a
+    // UNICA leitura que prova que wl_display_read_events() de fato
+    // consumiu o byte que este teste escreveu, via o `::poll()` REAL.
+    GLINTFX_CHECK(peeked == -1);
+    GLINTFX_CHECK(errno == EAGAIN || errno == EWOULDBLOCK);
+}
+
 GLINTFX_TEST(poll_and_dispatch_with_budget_ready_to_read_with_real_data_is_not_fatal) {
     // NAO por injecao pura (ver o cabecalho deste arquivo: fingir
     // POLLIN/POLLHUP sem dado real arrisca travar wl_display_read_

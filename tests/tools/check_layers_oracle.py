@@ -312,18 +312,21 @@ def extract_include_dir_tokens(tokens, dialect):
 class _RemapRoots:
     """Agrupa as raizes que o remapeamento precisa (GODS_LAWS.md L-17:
     reduz `remap_include_dirs`/`_remap_one_include_dir` pro teto de 4
-    parametros). `dialect` decide o MODULO de caminho (`ntpath`/
-    `posixpath`) - nunca `os.path` cru: o mesmo defeito e' mesmo
-    conserto de `normalize_compiler_path`/`classify_include_path`
-    (achado 23/09/2026, run 35906529355, O-18) - o `--selftest` roda
-    IGUAL em todo host (GODS_LAWS.md L-04), e so' ali dialeto e host
-    podem divergir."""
+    parametros - achado da propria varredura AST desta rodada: com
+    `dialect` acrescentado em L-5g, o construtor tinha ido pra 5;
+    `work_roots` agrupa `build_dir`/`source_root`, que SEMPRE viajam
+    juntos - as duas raizes FIXAS do trabalho inteiro, nunca uma sem a
+    outra). `dialect` decide o MODULO de caminho (`ntpath`/`posixpath`)
+    - nunca `os.path` cru: o mesmo defeito e' mesmo conserto de
+    `normalize_compiler_path`/`classify_include_path` (achado
+    23/09/2026, run 35906529355, O-18) - o `--selftest` roda IGUAL em
+    todo host (GODS_LAWS.md L-04), e so' ali dialeto e host podem
+    divergir."""
 
     __slots__ = ("build_dir", "source_root", "fixture_root", "generated_fixture_dir", "dialect")
 
-    def __init__(self, build_dir, source_root, fixture_root, generated_fixture_dir, dialect):
-        self.build_dir = build_dir
-        self.source_root = source_root
+    def __init__(self, work_roots, fixture_root, generated_fixture_dir, dialect):
+        self.build_dir, self.source_root = work_roots
         self.fixture_root = fixture_root
         self.generated_fixture_dir = generated_fixture_dir
         self.dialect = dialect
@@ -381,7 +384,7 @@ def _include_dirs_for_root(ctx, fixture_root, extra_last=None):
     chamam isto a CADA invocacao). `extra_last`, quando dado, entra por
     ULTIMO via `_compose_case_include_dirs` (L-5f: `std_stubs/`, so' na
     configuracao de caso)."""
-    roots = _RemapRoots(ctx.build_dir, ctx.source_root, fixture_root, ctx.generated_stub_dir, ctx.dialect)
+    roots = _RemapRoots((ctx.build_dir, ctx.source_root), fixture_root, ctx.generated_stub_dir, ctx.dialect)
     remapped, counts = remap_include_dirs(ctx.raw_include_dirs, roots)
     print(
         f"{SCRIPT_NAME}: pastas de inclusao para {fixture_root!r}: "
@@ -1148,9 +1151,15 @@ def _compose_case_include_dirs(include_dirs, std_stub_dir):
     return (*include_dirs, std_stub_dir)
 
 
-def run_oracle(ctx, manifest, export_dir, scratch):
-    """O laco principal (docs/plano-layers-l5.md §2): calibracao,
-    sentinelas, depois um processo SEQUENCIAL por caso "compilar"."""
+def _prepare_case_configuration(ctx, manifest, scratch):
+    """docs/plano-layers-l5-adendo-calibracao.md L-5f/L-5g: prepara em
+    `ctx` tudo que a configuracao de CASO precisa antes de qualquer
+    fixture rodar - os cabecalhos GERADOS vazios, `std_stubs/` (L-5f),
+    e as pastas de inclusao "genericas" que so' a sentinela de sombra
+    usa (`_judge_one_case`/`run_calibration`/`_judge_sentinel` montam
+    as PROPRIAS por raiz, a cada chamada - L-5g). Fatorada de
+    `run_oracle` pelo teto de linhas de L-17 (achado da revisao
+    independente, 23/09/2026: `run_oracle` tinha ido pra 45 linhas)."""
     ctx.camadas_puras = manifest["camadas_puras"]
     ctx.generated_stub_dir = os.path.join(scratch, "stubs")
     _write_stub_headers(ctx.generated_stub_dir, manifest["gerados"])
@@ -1165,13 +1174,17 @@ def run_oracle(ctx, manifest, export_dir, scratch):
     # continua sem ele.
     ctx.std_stub_dir = os.path.join(scratch, "std_stubs")
     ctx.standard_paths = _write_std_stubs(ctx, ctx.std_stub_dir, manifest["stdlib_permitidos"])
-    # L-5g: `_judge_one_case`/`run_calibration`/`_judge_sentinel` montam
-    # as PROPRIAS pastas por raiz a cada chamada; `ctx.include_dirs`/
-    # `ctx.case_include_dirs` aqui servem so' a sentinela de sombra
-    # (que nao tem raiz de fixture propria), com `scratch` como raiz
-    # generica.
+    # L-5g: ctx.include_dirs/ctx.case_include_dirs aqui servem so' a
+    # sentinela de sombra (que nao tem raiz de fixture propria), com
+    # `scratch` como raiz generica.
     ctx.include_dirs = _include_dirs_for_root(ctx, scratch)
     ctx.case_include_dirs = _include_dirs_for_root(ctx, scratch, extra_last=ctx.std_stub_dir)
+
+
+def run_oracle(ctx, manifest, export_dir, scratch):
+    """O laco principal (docs/plano-layers-l5.md §2): calibracao,
+    sentinelas, depois um processo SEQUENCIAL por caso "compilar"."""
+    _prepare_case_configuration(ctx, manifest, scratch)
 
     calib_result = run_calibration(ctx, scratch, manifest)
     run_sentinels(ctx, scratch, calib_result, manifest["stdlib_permitidos"])
@@ -1239,6 +1252,24 @@ def _load_manifest(export_dir):
         return json.load(handle)
 
 
+def _read_compile_command(build_dir, dialect):
+    """Le compile_commands.json do build, acha a entrada de src/core/,
+    tokeniza, e extrai flags (secao 3.3) + pastas de inclusao CRUAS
+    (secao 2, L-5g) - fonte UNICA pras duas familias fechadas, nunca
+    escritas/copiadas no codigo (D-L5g-1). Fatorada de `oracle_main`
+    pelo teto de linhas de L-17 (achado da revisao independente,
+    23/09/2026: `oracle_main` tinha ido pra 42 linhas)."""
+    with open(os.path.join(build_dir, "compile_commands.json"), "r", encoding="utf-8") as handle:
+        compile_commands = json.load(handle)
+    entry = find_compile_command_entry(compile_commands)
+    if entry is None:
+        fail("compile_commands.json: nenhuma entrada em src/core/ encontrada")
+    tokens = tokenize_compile_command(entry)
+    flags = extract_language_family_flags(tokens[1:], dialect)
+    raw_include_dirs = extract_include_dir_tokens(tokens[1:], dialect)
+    return tokens, flags, raw_include_dirs
+
+
 def oracle_main(args):
     if len(args) != 5:
         fail(
@@ -1249,18 +1280,7 @@ def oracle_main(args):
     skip_if_not_enabled(oracle_option_flag)
     validate_dialect(dialect)
 
-    with open(os.path.join(build_dir, "compile_commands.json"), "r", encoding="utf-8") as handle:
-        compile_commands = json.load(handle)
-    entry = find_compile_command_entry(compile_commands)
-    if entry is None:
-        fail("compile_commands.json: nenhuma entrada em src/core/ encontrada")
-    tokens = tokenize_compile_command(entry)
-    flags = extract_language_family_flags(tokens[1:], dialect)
-    # docs/plano-layers-l5-adendo-calibracao.md L-5g (secao 2): as
-    # pastas de inclusao vem da MESMA entrada de compile_commands.json
-    # de onde saem as flags, na ordem da linha de comando - nunca
-    # escritas/copiadas no codigo (D-L5g-1).
-    raw_include_dirs = extract_include_dir_tokens(tokens[1:], dialect)
+    tokens, flags, raw_include_dirs = _read_compile_command(build_dir, dialect)
 
     scratch = tempfile.mkdtemp(prefix="glintfx-layers-oracle-", dir=os.environ.get("TMPDIR"))
     try:
@@ -1792,14 +1812,30 @@ def _fake_executor_by_command_marker(marker, when_marker_output, otherwise_outpu
     return executor
 
 
+def _run_shadow_sentinel_capturing(ctx, scratch, calib_result, stdlib_permitidos):
+    """Roda `_run_shadow_sentinel()` capturando stdout e a excecao (se
+    houver) - devolve `(ok_run, texto_impresso)`. Fatorada de
+    `selftest_oracle_o25_shadow_sentinel` pelo teto de linhas de L-17
+    (achado da revisao independente, 23/09/2026: a funcao tinha ido
+    pra 52 linhas)."""
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    ok_run = True
+    with contextlib.redirect_stdout(buffer):
+        try:
+            _run_shadow_sentinel(ctx, scratch, calib_result, stdlib_permitidos)
+        except _IncludeTreeError:
+            ok_run = False
+    return ok_run, buffer.getvalue()
+
+
 def selftest_oracle_o25_shadow_sentinel(scratch, capture):
     """O-25 (L-5f, secao 1.6): (a) `X` = primeiro filho de `<cstdint>`
     REAL fora de `stdlib_permitidos`; (b) configuracao REAL imprime
     sim/nao e NUNCA reprova; (c) configuracao de CASO exige `X` como
     filho direto, senao falha de instrumento."""
-    import contextlib
-    import io
-
     del capture
     ctx = _make_ctx_for_test("GNU")
     cstdint_children = ("/usr/include/c++/16/stdint.h", "/usr/include/c++/16/bits/c++config.h")
@@ -1810,28 +1846,16 @@ def selftest_oracle_o25_shadow_sentinel(scratch, capture):
     calib_result = _CalibrationResult(set(), set(), [], cstdint_children)
     ctx.include_dirs = ("/real_inc",)
     ctx.case_include_dirs = ("/real_inc", "/marker_case_stub")
+    only_cstdint = ". /usr/include/c++/16/cstdint\n"
 
     # (b)+(c) juntos: sombra presente na REAL (X sombreado, so' <cstdint>
     # aparece) e X aparece na config de CASO -> sucesso, sem reprovar.
-    ctx.executor = _fake_executor_by_command_marker(
-        "/marker_case_stub",
-        f". /usr/include/c++/16/cstdint\n. {candidate}\n",
-        ". /usr/include/c++/16/cstdint\n",
-    )
-    buffer = io.StringIO()
-    ok_run = True
-    with contextlib.redirect_stdout(buffer):
-        try:
-            _run_shadow_sentinel(ctx, scratch, calib_result, stdlib_permitidos)
-        except _IncludeTreeError:
-            ok_run = False
-    message_ok = "sombra presente neste compilador: sim" in buffer.getvalue()
+    ctx.executor = _fake_executor_by_command_marker("/marker_case_stub", f"{only_cstdint}. {candidate}\n", only_cstdint)
+    ok_run, printed = _run_shadow_sentinel_capturing(ctx, scratch, calib_result, stdlib_permitidos)
+    message_ok = "sombra presente neste compilador: sim" in printed
 
-    # (c) invertido: X TAMBEM ausente na config de CASO -> falha de
-    # instrumento (a construcao anti-sombra nao fechou).
-    ctx.executor = _fake_executor_by_command_marker(
-        "/marker_case_stub", ". /usr/include/c++/16/cstdint\n", ". /usr/include/c++/16/cstdint\n",
-    )
+    # (c) invertido: X TAMBEM ausente na config de CASO -> falha de instrumento.
+    ctx.executor = _fake_executor_by_command_marker("/marker_case_stub", only_cstdint, only_cstdint)
     reproves_case_absent = _raises_include_tree_error(
         _run_shadow_sentinel, ctx, scratch, calib_result, stdlib_permitidos
     )
@@ -2311,7 +2335,7 @@ def _o26_check_scenario(dialect, tokens, build_dir):
     NENHUMA saida comeca pela pasta de build - a prova direta de que a
     regra 1 (build) venceu por CONTENCAO (o que M-O26d inverte)."""
     dirs = extract_include_dir_tokens(tokens, dialect)
-    roots = _RemapRoots(build_dir, _O26_SOURCE_ROOT, _O26_FIXTURE_ROOT, _O26_GENERATED_DIR, dialect)
+    roots = _RemapRoots((build_dir, _O26_SOURCE_ROOT), _O26_FIXTURE_ROOT, _O26_GENERATED_DIR, dialect)
     remapped, counts = remap_include_dirs(dirs, roots)
     path_mod = _path_module_for_dialect(dialect)
     build_norm = path_mod.normpath(build_dir)

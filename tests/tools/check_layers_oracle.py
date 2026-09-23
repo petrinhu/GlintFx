@@ -1338,8 +1338,18 @@ def selftest_oracle_o22_census_whole_tree_directory_filtered(scratch, capture):
 
     nodes_60, sentinel_norm, leaf_norm = _o22_nodes(59, include_homonym=True)
     expected = _CalibrationExpectedPaths(sentinel_norm, leaf_norm)
-    result_60 = evaluate_calibration(ctx, nodes_60, expected, stdlib_names)
-    exact_60 = len(result_60.census) == _MIN_STDLIB_PATHS and _O22_HOMONYM_NAME not in result_60.census
+    # try/except explicito, NUNCA deixado explodir: um mutante que
+    # quebra o filtro de profundidade (M-O22a) faz o censo CAIR abaixo
+    # do piso pra este cenario "60 passa" - sem isto, o controle
+    # crasharia em vez de reprovar NOMEANDO O-22 (GODS_LAWS.md L-27,
+    # mesmo achado do O-20/StopIteration).
+    census_60, exact_60 = set(), False
+    try:
+        result_60 = evaluate_calibration(ctx, nodes_60, expected, stdlib_names)
+        census_60 = result_60.census
+        exact_60 = len(census_60) == _MIN_STDLIB_PATHS and _O22_HOMONYM_NAME not in census_60
+    except _IncludeTreeError:
+        exact_60 = False
 
     nodes_59, _s, _l = _o22_nodes(58, include_homonym=False)
     reproves_59 = _raises_include_tree_error(evaluate_calibration, ctx, nodes_59, expected, stdlib_names)
@@ -1348,7 +1358,7 @@ def selftest_oracle_o22_census_whole_tree_directory_filtered(scratch, capture):
     label = "selftest: O-22"
     print(
         f"{label} OK" if ok else f"{label} FALHOU (exact_60={exact_60}, reproves_59={reproves_59}, "
-        f"census={sorted(result_60.census)!r})",
+        f"census={sorted(census_60)!r})",
         file=(sys.stdout if ok else sys.stderr),
     )
     return ok, 1

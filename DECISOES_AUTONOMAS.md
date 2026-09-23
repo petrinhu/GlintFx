@@ -4210,3 +4210,10 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 **O que o main mandou, e por que não é decisão no lugar do líder:** trocar só o MECANISMO, mantendo tudo o que a H-3 promete: uma chamada ao próprio CMake sobre a pasta da nossa ferramenta, que é como o LLVM constrói as ferramentas de hospedeiro. Não se abriu exceção no portão, e não se mexeu na lei: a mensagem do portão diz que exceção é decisão do líder, e ela não é necessária, porque existe um caminho que cumpre a lei.
 
 **Lição de processo:** plano que escolhe mecanismo de build tem de ser conferido contra os portões existentes antes de virar ordem de serviço.
+
+## 23/09/2026 - 12:06 | O líder ratificou as decisões pendentes (`AskUserQuestion`)
+
+- **D-2 do portão de camadas (oráculo contra o compilador):** *"Só no CI do servidor"*. Registrado como L-45 em `GODS_LAWS.md`, exceção fechada à L-11 global. Vira a sub-fatia L-5 de `LAYERS-GATE-GFSS-GFUI`.
+- **D-1 (lista de permitidos) e D-A1 (import, module, _Pragma e asm proibidos nas camadas puras):** *"Ratificar as duas"*.
+- **W7-C, D18 e D19 (as quatro chaves internas saem do cabeçalho público; a marca sobe o segundo número):** *"Ratificar"*.
+- **Todas as demais decisões autônomas registradas** (D-1 a D-14 do fecho da W7-B; D-W7D-01 a 17; W7-C D1 a D17 e D20 a D22; D-A2 a D-A4 do portão): *"Ratificar em bloco"*.

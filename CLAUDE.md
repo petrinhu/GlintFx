@@ -64,6 +64,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | escrever qualquer coisa dirigida ao líder: mensagem, pergunta, relatório | L-41 explique pelo EFEITO, nunca pela implementação |
 | ⚖ | uma falha voltar para revisão pela segunda vez | L-42 buscar na web antes da terceira tentativa |
 | ⚖ | iniciar QUALQUER onda, antes de fatiar | L-43 buscar na web, no RmlUi e no SDL3 ANTES da primeira linha |
+| ⚖ | escrever teste que roda o compilador uma vez por fixture, ou mexer no oráculo do portão de camadas | L-45 oráculo diferencial só no CI do servidor, nunca nesta máquina; exceção fechada à L-11 global |
 
 ---
 

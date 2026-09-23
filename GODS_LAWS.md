@@ -1086,3 +1086,15 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **Relação com a L-43, e as duas são distintas:** a L-43 obriga a busca **no início de onda**, sobre como o problema costuma ser atacado. Esta obriga a busca **em toda dúvida de decisão**, e acrescenta o eixo das **dores relatadas por quem usa**. A L-43 é sobre construir; esta é sobre **decidir**.
 
 **O que o líder está protegendo:** ele é o consumidor final do que a biblioteca decide, e a biblioteca é para distribuição, com base de consumidores aberta e desconhecida (o preâmbulo do `CLAUDE.md`). Um C-level que decide só com a documentação oficial na mão desenha para o caso que a documentação descreve, e **não para o caso que faz as pessoas xingarem em fórum**.
+
+## L-45
+
+**Data:** 23/09/2026, decisão do líder por `AskUserQuestion`, levada pelo orquestrador segundo a LEI DAS LEIS (lei nomeada, texto citado, o que protege e o que se perde, antes de perguntar). **Verbatim da opção que ele escolheu:** *"Só no CI do servidor"*.
+
+**Exceção de escopo fechado à L-11 global** (*"PROIBIDO desenho que gasta um processo por item varrido"*): o **oráculo diferencial do portão de camadas** (sub-fatia L-5 de `LAYERS-GATE-GFSS-GFUI`), que compila cada fixture do autoteste com o compilador de verdade e exige que o portão reprove sempre que o compilador puxar cabeçalho proibido, **roda só nos trabalhos do CI do servidor (GitHub), nunca nesta máquina.**
+
+**O que a L-11 protege, e continua protegido:** o teto de 4000 processos por usuário desta máquina, cujo estouro derrubou o compositor gráfico em 01/09/2026. O oráculo não roda aqui: nem no `tools/preci.sh`, nem em agente, nem "só desta vez". O `ctest` local o registra desligado, e o desligamento aparece na saída (L-40), nunca calado.
+
+**Por que o líder aceitou quebrar a letra no servidor:** as nove reprovações do portão de camadas em 23/09/2026 foram todas achadas comparando o portão com o g++ e o clang. Um teste que faça isso sozinho pega a família inteira, inclusive o lado da Microsoft, que esta máquina não mede.
+
+**O que esta exceção NÃO autoriza:** nenhum outro desenho que gaste um processo por item, em lugar nenhum; nem o oráculo nesta máquina. Ampliar é decisão nova do líder.

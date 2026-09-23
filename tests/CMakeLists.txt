@@ -4632,6 +4632,34 @@ if(UNIX)
     set_tests_properties(container_alloc_report_selftest PROPERTIES LABELS selftest)
 endif()
 
+# CONT-WARMUP (TODO.md, GODS_LAWS.md L-35/L-36/L-40): run_compositor.sh's
+# own wait_for_compositor_ready() used to prove only that a process
+# named kwin_wayland EXISTS (`pgrep -x kwin_wayland`), never that it
+# already ACCEPTS a connection - measured live, 06/09/2026 (the first
+# real connection attempt failed with a platform error; later ones
+# passed seconds after, with the process already long visible to
+# pgrep). --selftest proves the fixed loop with two cases (a probe that
+# never accepts must reprove within budget; a probe that accepts only
+# after a fixed number of tries must be WAITED for, never declared
+# ready early) - both hermetic, no Docker/kwin_wayland involved, same
+# idiom container_exec_fixture_selftest/container_alloc_report_selftest
+# above already use.
+#
+# if(UNIX): mesmo motivo dos dois blocos acima - POSIX sh
+# (`#!/usr/bin/env sh`), e o job real que sobe este script como
+# ENTRYPOINT contra Docker so roda em `ubuntu-latest` de qualquer
+# forma. GATE-SELFTEST-ORFAO (tests/tools/check_selftest_orphan.py):
+# este registro e o que evita run_compositor.sh nascer orfao no mesmo
+# commit (o dispatcher `--selftest` dele e o padrao que aquele gate
+# procura).
+if(UNIX)
+    add_test(
+        NAME container_run_compositor_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/run_compositor.sh" --selftest
+    )
+    set_tests_properties(container_run_compositor_selftest PROPERTIES LABELS selftest)
+endif()
+
 # WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
 # revisor adversarial NOVO em 10/09/2026, segunda reprovacao da mesma
 # fatia): check_win32_test_link.py's own selftest_main() prova, entre

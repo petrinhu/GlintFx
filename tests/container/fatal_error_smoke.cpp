@@ -97,10 +97,87 @@ int main() {
     // is not synchronous with the peer socket closing.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    // THIS is the case the plan's own TDD case C is about: a
-    // roundtrip on a connection whose peer just died must come back
-    // as an ORDINARY gltfx_rslt<void> error - never a crash, never an
-    // abort - and must latch has_fatal_error().
+    // FATAL-SMOKE-PUMP (TODO.md, GODS_LAWS.md L-35/L-36/L-40): before
+    // this block, NOTHING in this fixture family ever called
+    // pump_events() on a connection whose peer just died - `grep -c
+    // pump tests/container/fatal_error_smoke.cpp` returned zero
+    // (pump_smoke.cpp's own 50-iteration loop only ever runs against a
+    // LIVE compositor, GODS_LAWS.md L-17's own "gemeo" check). pump_
+    // events() is a WHOLLY DIFFERENT code path from the roundtrip()
+    // below it - display_adapter.cpp's own four-step dispatch_ready_
+    // events() sequence (drain_pending_and_prepare_read() / flush_
+    // with_retry() / wait_for_incoming_data() / read_and_dispatch_
+    // incoming()), never wl_display_roundtrip() itself.
+    //
+    // MEASURED live against a real kwin_wayland, 22/09/2026 (CONT-
+    // WARMUP drenagem): the FIRST pump_events() call right after the
+    // kill comes back ok(), has_fatal_error() still false - it lands
+    // on wait_for_incoming_data()'s own composite condition (display_
+    // adapter.cpp: "poll_result == 0 || (incoming.revents & POLLIN) ==
+    // 0"), on the branch a plain roundtrip() never takes at all (a
+    // POLLHUP-without-POLLIN wakeup absorbed as "nothing to read yet",
+    // never latched fatal by itself). The CTO confirmed this is its
+    // OWN gap, not a twin of the read()-on-a-dead-descriptor defect
+    // the roundtrip() calls below already cover. The SECOND call is
+    // what actually latches: flush_with_retry()'s own wl_display_
+    // flush() finally observes the socket is gone (EPIPE, MEASURED-
+    // COLLECTOR below) and sets m_fatal. The bounded loop below never
+    // hard-codes "exactly the second try" - that count is an observed
+    // fact of THIS kernel/timing, not a contract this fixture gets to
+    // assume holds everywhere else.
+    constexpr int kPumpAttemptsAfterCut = 10;
+    glintfx::gltfx_rslt<void> pumped_after_cut = glintfx::gltfx_rslt<void>::ok();
+    for (int attempt = 0; attempt < kPumpAttemptsAfterCut && !adapter.has_fatal_error();
+         ++attempt) {
+        pumped_after_cut = adapter.pump_events();
+        if (pumped_after_cut.has_error()) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    if (!adapter.has_fatal_error()) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "fatal_error_smoke: pump_events() never latched has_fatal_error() "
+            "within %d attempt(s) after the compositor was killed\n",
+            kPumpAttemptsAfterCut);
+        return EXIT_FAILURE;
+    }
+    if (!pumped_after_cut.has_error()) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: has_fatal_error() latched, but the pump_events() "
+                    "call that latched it did not itself report an error\n");
+        return EXIT_FAILURE;
+    }
+    if (pumped_after_cut.err().code() != glintfx::gltfx_err_code::platform_failure) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr, "fatal_error_smoke: wrong error code from pump_events() after the cut: %s\n",
+            std::string(glintfx::gltfx_err_code_name(pumped_after_cut.err().code())).c_str());
+        return EXIT_FAILURE;
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stdout,
+        "fatal_error_smoke: pump_events() after the cut reported %s "
+        "(os_error_code=%lld), has_fatal_error() == true\n",
+        std::string(glintfx::gltfx_err_code_name(pumped_after_cut.err().code())).c_str(),
+        static_cast<long long>(pumped_after_cut.err().os_error_code()));
+    // MEASURED-COLLECTOR: same shape as fatal_error_smoke.os_error_code
+    // below, for the pump_events() path specifically - Linux-only key
+    // (no Windows equivalent fixture severs its own transport yet).
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED fatal_error_smoke.pump_os_error_code=%lld\n",
+        static_cast<long long>(pumped_after_cut.err().os_error_code()));
+
+    // The case the plan's own TDD case C is about: a roundtrip on a
+    // connection whose peer just died must come back as an ORDINARY
+    // gltfx_rslt<void> error - never a crash, never an abort. By this
+    // point pump_events() above has ALREADY latched has_fatal_error()
+    // (it is what first discovered the cut) - this call now exercises
+    // roundtrip()'s OWN m_fatal guard ("never a second real roundtrip
+    // attempt on a connection already known to be dead", this class's
+    // own header comment on the method), proving that guard reports
+    // the SAME diagnostic shape a caller who never touches pump_
+    // events() at all would see.
     const glintfx::gltfx_rslt<void> after_cut = adapter.roundtrip();
     if (after_cut.has_value()) {
         glintfx::container_fixture::checked_fprintf(

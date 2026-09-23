@@ -531,6 +531,22 @@ container_exec_fixture_selftest|windows|nenhum|SEM-PENDENCIA
 # mesma assimetria permanente por desenho, sem item para rastrear.
 container_alloc_report_selftest|windows|nenhum|SEM-PENDENCIA
 
+# container_run_compositor_selftest (tests/container/run_compositor.sh
+# --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX),
+# item CONT-WARMUP) - MESMA assimetria que container_exec_fixture_
+# selftest/container_alloc_report_selftest logo acima, pelo mesmo
+# motivo: prova, com uma sonda dublada (sem Docker/kwin_wayland),
+# a logica do laco que espera o compositor aceitar conexao real antes
+# de declarar pronto - laco que so' existe porque run_compositor.sh e'
+# o ENTRYPOINT de uma imagem que so' o job `wayland-container` (Linux)
+# sobe. POSIX sh (`#!/usr/bin/env sh`), redefine funcao dentro de
+# subshell `nome() ( ... )` como mecanismo de isolamento entre casos -
+# nenhum runner Windows desta matriz tem `sh` nativo; add_test tambem
+# condicionado a if(UNIX), mesma forma dos dois vizinhos acima. MORTE
+# DESTA LINHA: nunca - mesma assimetria permanente por desenho, sem
+# item para rastrear.
+container_run_compositor_selftest|windows|nenhum|SEM-PENDENCIA
+
 # drm_device_facts_oom_test (tests/drm_device_facts_oom_test.cpp,
 # tests/CMakeLists.txt dentro de if(UNIX), NOEXCEPT-ALLOC-B8 fatia F2,
 # /var/tmp/glintfx-plan/plano-conserto-noexcept.md sec. "F2") prova que

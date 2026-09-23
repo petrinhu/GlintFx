@@ -4202,3 +4202,11 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D-A4:** o léxico passa a tratar número de pré-processamento e nome de cabeçalho, e recusa literal não terminado na linha.
 
 **Continua exigindo o líder:** ratificar D-A1 a D-A4; e a D-2 (oráculo contra o compilador), que o planejador recomenda levar agora, com esta contagem de dessincronias como argumento.
+
+## 23/09/2026 - 11:32 | `GL-CODEGEN-HOST-TOOL`: o plano pedia um mecanismo que o portão da dependência zero proíbe
+
+**Fato:** a D-11 do plano do fecho da W7-B (`docs/plano-fecho-w7b.md`) escolheu `ExternalProject` do CMake para a construção nativa aninhada da ferramenta de geração (sub-fatia H-3). O portão da L-07 (`dep_zero_test`) proíbe `ExternalProject` em qualquer uso e reprovou a suíte do implementador às 11:31:57 (226 de 227). O planejador não conferiu o desenho contra os portões que já existem.
+
+**O que o main mandou, e por que não é decisão no lugar do líder:** trocar só o MECANISMO, mantendo tudo o que a H-3 promete: uma chamada ao próprio CMake sobre a pasta da nossa ferramenta, que é como o LLVM constrói as ferramentas de hospedeiro. Não se abriu exceção no portão, e não se mexeu na lei: a mensagem do portão diz que exceção é decisão do líder, e ela não é necessária, porque existe um caminho que cumpre a lei.
+
+**Lição de processo:** plano que escolhe mecanismo de build tem de ser conferido contra os portões existentes antes de virar ordem de serviço.

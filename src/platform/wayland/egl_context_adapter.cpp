@@ -39,6 +39,7 @@
 #include "platform/wayland/drm_device_facts.hpp"
 #include "platform/wayland/drm_gpu_kind.hpp"
 #include "platform/wayland/egl_device_enumeration.hpp"
+#include "platform/wayland/egl_incoming_poll_step.hpp"
 #include "platform/wayland/incoming_poll_outcome.hpp"
 #include "platform/wayland/incoming_poll_reaction.hpp"
 #include "platform/wayland/window_adapter.hpp"
@@ -88,6 +89,26 @@ constexpr wl_callback_listener k_frame_callback_listener{
     .done = &wayland_egl_context_adapter::frame_callback_done,
 };
 
+} // namespace
+
+// CONT-WARMUP C-6, EMENDA (ordem do team-lead sobre o residual
+// declarado da primeira rodada de C-6): poll_and_dispatch_with_budget()
+// SAIU do namespace anônimo acima - antes disto, TU-local, sem linkage
+// externo, um arquivo de teste em OUTRA translation unit não tinha
+// como chamá-la, então só o átomo que ela consome
+// (is_incoming_poll_connection_fatal(), incoming_poll_reaction.hpp)
+// podia ser testado diretamente, nunca a fiação real em volta dele
+// (o `switch` inteiro). Agora vive direto em `namespace glintfx::
+// platform` (linkage externo comum, exatamente como qualquer método de
+// classe deste arquivo), declarada em `src/platform/wayland/egl_
+// incoming_poll_step.hpp` - um cabeçalho INTERNO (`src/`, nunca
+// `include/glintfx/`, GODS_LAWS.md L-19 intacto) que só
+// tests/incoming_poll_wiring_test.cpp e este `.cpp` incluem. Nada mais
+// deste arquivo referenciava esta função por fora do namespace
+// anônimo (só o call site dentro de swap_buffers(), mais abaixo, na
+// MESMA translation unit - continua resolvendo por nome comum, sem
+// precisar do cabeçalho novo).
+//
 // Local BUDGETED variant of wayland_display_adapter's own manpage-
 // blessed prepare_read/flush/poll/read_events sequence (display_
 // adapter.cpp, one directory over) - duplicated here rather than
@@ -173,8 +194,8 @@ constexpr wl_callback_listener k_frame_callback_listener{
 // residual, DECLARED limitation - see that test file's own header
 // comment for the honest accounting of what real-kernel coverage
 // exists and what does not).
-[[nodiscard]] bool poll_and_dispatch_with_budget(wl_display *display,
-                                                 std::uint32_t budget_ms) noexcept {
+[[nodiscard]] bool poll_and_dispatch_with_budget(wl_display *display, std::uint32_t budget_ms,
+                                                 incoming_poll_syscall_fn poll_impl) noexcept {
     while (wl_display_prepare_read(display) != 0) {
         if (wl_display_dispatch_pending(display) == -1) {
             return false;
@@ -209,7 +230,7 @@ constexpr wl_callback_listener k_frame_callback_listener{
                                       .count();
         const int wait_ms = remaining_ms > 0 ? static_cast<int>(remaining_ms) : 0;
         pollfd incoming{.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
-        const int poll_result = poll(&incoming, 1, wait_ms);
+        const int poll_result = poll_impl(&incoming, 1, wait_ms);
         const incoming_poll_outcome outcome = classify_incoming_poll(poll_result, incoming.revents);
         switch (outcome) {
         case incoming_poll_outcome::fatal:
@@ -257,6 +278,8 @@ constexpr wl_callback_listener k_frame_callback_listener{
         return true;
     }
 }
+
+namespace {
 
 // classify_current_gpu() - GL-GPU-KIND (docs/plano-w6b-fatias-5.md
 // sec. 4.1; docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3, D-W6b-30/

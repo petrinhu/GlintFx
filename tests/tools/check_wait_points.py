@@ -92,6 +92,15 @@ _DISPATCH_PENDING_SUFFIX = "_pending"
 
 SIMPLE_NEEDLES = (
     "poll(",
+    # CONT-WARMUP C-6, EMENDA (GODS_LAWS.md L-04/L-40): display_adapter.
+    # cpp::wait_for_incoming_data() e egl_context_adapter.cpp::poll_and_
+    # dispatch_with_budget() passaram a chamar `poll_impl(...)` (uma
+    # costura injetavel, `src/platform/wayland/incoming_poll_syscall.
+    # hpp`, padrao `&::poll`) em vez de `poll(...)` direto - sem esta
+    # agulha nova, os dois sitios SUMIRIAM da varredura (a mesma classe
+    # de regressao que este portao existe para impedir), porque "poll("
+    # nao e' substring de "poll_impl(".
+    "poll_impl(",
     "ppoll(",
     "select(",
     "wl_display_roundtrip",

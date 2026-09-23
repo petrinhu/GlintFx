@@ -1740,6 +1740,57 @@ if(UNIX)
     glintfx_add_wayland_xdg_shell_binding(gl_proc_address_oom_test)
     glintfx_add_egl(gl_proc_address_oom_test)
 
+    # incoming_poll_wiring_test - CONT-WARMUP C-6, EMENDA (ordem do
+    # team-lead sobre o residual declarado da primeira rodada de C-6,
+    # GODS_LAWS.md L-12/L-17/L-20/L-27): chama wait_for_incoming_data()
+    # (display_adapter.cpp) e poll_and_dispatch_with_budget() (egl_
+    # context_adapter.cpp) REAIS, com um `::poll()` fabricado (a
+    # costura poll_impl, incoming_poll_syscall.hpp) devolvendo cada
+    # desfecho - fecha o buraco que so' testar o atomo extraido
+    # (incoming_poll_reaction_test acima) deixava: o mutante "o ponto
+    # de uso inverte ou ignora o resultado" agora tem uma prova de
+    # execucao dedicada. MESMA lista de fontes de gl_proc_address_oom_
+    # test acima (egl_context_adapter.cpp e' uma translation unit so',
+    # precisa do proprio conjunto transitivo de callees inteiro) -
+    # nenhum compositor, nenhuma janela real: wl_display_connect_to_fd()
+    # sobre um socketpair() da as duas funcoes um wl_display* valido
+    # sem I/O de rede (ver o cabecalho do .cpp para o raciocinio
+    # completo e o risco de travamento que o desenho evita).
+    glintfx_add_test(incoming_poll_wiring_test)
+    target_include_directories(incoming_poll_wiring_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(incoming_poll_wiring_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(incoming_poll_wiring_test)
+    glintfx_add_egl(incoming_poll_wiring_test)
+
     # NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
     # noexcept.md sec. "F2", GODS_LAWS.md L-04/L-09/L-20/L-22): read_drm_
     # device_facts() (drm_device_facts.cpp) under a forced allocation

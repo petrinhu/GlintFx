@@ -350,9 +350,10 @@ wayland_display_adapter::flush_with_retry(std::chrono::steady_clock::time_point 
 // accounting, the same "prova por seam" shape this function's own
 // comment above already accepts for classify_incoming_poll() itself).
 gltfx_rslt<bool>
-wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexcept {
+wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms,
+                                                incoming_poll_syscall_fn poll_impl) noexcept {
     pollfd incoming{.fd = wl_display_get_fd(m_display), .events = POLLIN, .revents = 0};
-    const int poll_result = poll(&incoming, 1, static_cast<int>(timeout_ms));
+    const int poll_result = poll_impl(&incoming, 1, static_cast<int>(timeout_ms));
     const incoming_poll_outcome outcome = classify_incoming_poll(poll_result, incoming.revents);
     switch (outcome) {
     case incoming_poll_outcome::fatal:

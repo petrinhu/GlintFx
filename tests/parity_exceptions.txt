@@ -282,6 +282,27 @@ incoming_poll_outcome_test|windows|nenhum|SEM-PENDENCIA
 # test acima ja registra para o lado ESCRITA).
 incoming_poll_reaction_test|windows|nenhum|SEM-PENDENCIA
 
+# incoming_poll_wiring_test (tests/incoming_poll_wiring_test.cpp, tests/
+# CMakeLists.txt:1743-1792, if(UNIX)) e' a COSTURA: chama wait_for_
+# incoming_data() (src/platform/wayland/display_adapter.cpp) e poll_
+# and_dispatch_with_budget() (src/platform/wayland/egl_context_adapter.
+# cpp) REAIS, com um `::poll()` fabricado (a costura poll_impl, src/
+# platform/wayland/incoming_poll_syscall.hpp) devolvendo cada desfecho -
+# um nivel ACIMA das duas entradas logo acima (incoming_poll_outcome_
+# test e incoming_poll_reaction_test), exercitando os dois atomos la'
+# excetuados ATRAVES do ponto de uso real, no lugar de testa-los
+# isolados (CONT-WARMUP C-6, EMENDA, GODS_LAWS.md L-12/L-17/L-20/L-27).
+# MESMA ausencia, MESMO motivo, um nivel acima: pump_events() do Windows
+# (src/platform/win32/display_adapter.cpp) drena a fila de mensagens via
+# PeekMessageW(..., PM_REMOVE) - nao ha `::poll()` nenhum naquele
+# caminho pra fabricar (varredura confirmada: zero ocorrencias de
+# `poll(`/`select(`/`WSAPoll` em src/platform/win32/), entao nao ha
+# costura nenhuma a exercitar do lado Windows. A ausencia e' consequen-
+# cia direta e permanente da ausencia de poll(2) naquela API, nao um
+# caso novo a decidir - o MESMO raciocinio em cascata das duas entradas
+# acima, agora no nivel de integracao.
+incoming_poll_wiring_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do

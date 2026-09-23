@@ -57,14 +57,33 @@
 # PROPRIO a cada fato, nunca reaproveitando um numero que outro caso ja
 # usa neste MESMO arquivo):
 #   0   sucesso - tudo encontrado foi coletado e conferido por md5
-#   1   diretorio vazio (piso de varredura), OU pelo menos um nome VALIDO
-#       nao bateu md5
+#   1   diretorio vazio (piso de varredura), pelo menos um nome VALIDO
+#       nao bateu md5, OU a listagem/pedido de hash falhou por um motivo
+#       GENERICO (o comando rodou dentro do convidado mas terminou com
+#       erro - ver a mensagem impressa, que traz o texto do Windows)
 #   2   USO INCORRETO (argumento faltando/invalido) - mesma convencao que
 #       rodar-caminho.sh/rodar-um.sh (mesma pasta) ja usam para uso
 #       incorreto; nunca reaproveitado para outro fato
 #   3   pelo menos um nome REJEITADO pela lista de permissao (travessia de
 #       caminho ou nome hostil - nunca vira caminho no hospedeiro) - EVENTO
 #       DE SEGURANCA, distinto de erro de digitacao de quem chamou
+#   5   SAIDA TRUNCADA (D-7, docs/plano-fecho-w7b.md, achado do
+#       team-lead, 23/09/2026 - mesmo defeito de rodar-caminho.sh/
+#       rodar-um.sh, mesma pasta): a LISTAGEM ou o PEDIDO DE HASH
+#       devolveram `out-truncated`/`err-truncated` = true na resposta de
+#       guest-exec-status - o TEXTO capturado (nomes de arquivo, ou o
+#       hash extraido do certutil) pode ter vindo cortado, e nenhum
+#       veredito tirado dele e' confiavel. MESMO NUMERO que os irmaos
+#       (5) por escolha deliberada - este arquivo nunca usou 5 para
+#       outro fato, entao nao ha colisao
+#   6   CANAL NAO RESPONDEU (D-8, mesmo achado, mesma pasta): a consulta
+#       a guest-exec-status falhou (virsh devolveu erro, ou JSON sem
+#       campo `.return`) - piso de tentativas seguidas, ou nenhuma
+#       resposta valida ate o prazo esgotar. Distinto do 1 generico
+#       (que exige que o comando tenha RODADO e TERMINADO, com ou sem
+#       erro, dentro do convidado) e distinto de "ESTOUROU o prazo" (que
+#       exige que o canal tenha RESPONDIDO com sucesso pelo menos uma
+#       vez). MESMO NUMERO que os irmaos (6), mesma razao
 #
 # Uso:
 #   coletar-resultados.sh <diretorio-windows> <diretorio-destino-local>
@@ -77,6 +96,13 @@ DOM="glintfx-win11-lab"
 CONNECT="qemu:///session"
 CHUNK_BYTES_PADRAO=65536   # [A VERIFICAR] - ver o paragrafo acima, nao medido para LEITURA.
 PRAZO_PADRAO=60
+
+# Piso de tentativas (D-8), mesmo valor e mesma razao de rodar-caminho.sh/
+# rodar-um.sh (mesma pasta): quantas consultas SEGUIDAS a guest-exec-status
+# tem de falhar antes de _guest_exec_aguardar declarar o canal quebrado
+# (codigo 6) em vez de esperar o PRAZO inteiro - nao declara por uma
+# UNICA falha isolada.
+PISO_FALHAS_CONSULTA=3
 
 # Caminho absoluto do proprio script - usado so' pelo selftest de codigos
 # distintos (selftest_codigos_distintos) para invocar o SCRIPT COMO
@@ -114,6 +140,7 @@ _GE_RC=0
 _guest_exec_aguardar() {
   local path_exe="$1" args_json="$2" prazo="$3"
   local exec_res pid status_res exited i exitcode
+  local falhas_consulta=0 consulta_teve_sucesso="false" out_truncado err_truncado
 
   exec_res=$(virsh -c "$CONNECT" qemu-agent-command "$DOM" \
     "$(jq -n --arg p "$path_exe" --argjson a "$args_json" '{execute:"guest-exec",arguments:{path:$p,arg:$a,"capture-output":true}}')" 2>&1)
@@ -130,15 +157,51 @@ _guest_exec_aguardar() {
     sleep 1
     status_res=$(virsh -c "$CONNECT" qemu-agent-command "$DOM" \
       "$(jq -n --argjson p "$pid" '{execute:"guest-exec-status",arguments:{pid:$p}}')" 2>&1)
-    exited=$(echo "$status_res" | jq -r '.return.exited // false')
-    [ "$exited" = "true" ] && break
+
+    # D-8, mesmo criterio de rodar-caminho.sh/rodar-um.sh (mesma pasta):
+    # uma consulta so' conta como "respondeu" se virou JSON valido COM o
+    # campo `.return` - erro do virsh ou `{"error":...}` do QEMU nao tem
+    # esse campo, e os dois casos hoje se disfarçavam de "exited:false".
+    if echo "$status_res" | jq -e '.return != null' >/dev/null 2>&1; then
+      falhas_consulta=0
+      consulta_teve_sucesso="true"
+      exited=$(echo "$status_res" | jq -r '.return.exited // false')
+      [ "$exited" = "true" ] && break
+    else
+      falhas_consulta=$((falhas_consulta + 1))
+      if [ "$falhas_consulta" -ge "$PISO_FALHAS_CONSULTA" ]; then
+        _GE_RC=6
+        _GE_OUT=""
+        _GE_ERR="canal nao respondeu: ${falhas_consulta} consultas seguidas ao agente falharam (piso de tentativas atingido, D-8). Ultima resposta: ${status_res}"
+        return 6
+      fi
+    fi
   done
 
   if [ "$exited" != "true" ]; then
+    if [ "$consulta_teve_sucesso" != "true" ]; then
+      # o prazo esgotou sem que UMA UNICA consulta obtivesse resposta
+      # valida - o fato e' canal quebrado, nunca "processo ainda rodando".
+      _GE_RC=6
+      _GE_OUT=""
+      _GE_ERR="canal nao respondeu: nenhuma consulta ao agente obteve resposta valida dentro do prazo de ${prazo}s. Ultima resposta: ${status_res}"
+      return 6
+    fi
     _GE_RC=124
     _GE_OUT=""
     _GE_ERR="estourou o prazo de ${prazo}s"
     return 124
+  fi
+
+  # D-7: truncamento se checa ANTES do exitcode - se a captura veio
+  # cortada, o TEXTO nao e' confiavel mesmo que o exitcode em si seja.
+  out_truncado=$(echo "$status_res" | jq -r '.return["out-truncated"] // false')
+  err_truncado=$(echo "$status_res" | jq -r '.return["err-truncated"] // false')
+  if [ "$out_truncado" = "true" ] || [ "$err_truncado" = "true" ]; then
+    _GE_RC=5
+    _GE_OUT=""
+    _GE_ERR="saida truncada: out-truncated=${out_truncado} err-truncated=${err_truncado} (D-7) - a captura de stdout/stderr do convidado nao veio inteira"
+    return 5
   fi
 
   exitcode=$(echo "$status_res" | jq -r '.return.exitcode // "DESCONHECIDO"')
@@ -172,6 +235,8 @@ _rotulo_rc_guest_exec() {
     1) echo "falha ao INICIAR o comando no convidado" ;;
     124) echo "ESTOUROU o prazo" ;;
     3) echo "o comando TERMINOU com erro dentro do convidado (codigo de saida do convidado: ${_GE_RC})" ;;
+    5) echo "SAIDA TRUNCADA - a captura de stdout/stderr nao veio inteira (D-7)" ;;
+    6) echo "CANAL NAO RESPONDEU - a consulta ao agente falhou (D-8)" ;;
     *) echo "codigo de retorno desconhecido (${1})" ;;
   esac
 }
@@ -222,6 +287,12 @@ _dir_listar() {
 
   if [ "$rc" -ne 0 ]; then
     echo "ERRO: a LISTAGEM de '${diretorio_win}' no convidado FALHOU - $(_rotulo_rc_guest_exec "$rc"). Mensagem do convidado: ${_GE_ERR}" >&2
+    # D-7/D-8: os dois fatos novos (5 truncado, 6 canal quebrado) tem
+    # sinal PROPRIO - nunca decaem para o 1 generico que os demais
+    # motivos de falha de _guest_exec_aguardar ainda usam.
+    if [ "$rc" -eq 5 ] || [ "$rc" -eq 6 ]; then
+      return "$rc"
+    fi
     return 1
   fi
 
@@ -252,6 +323,11 @@ _hash_remoto() {
   local rc=$?
   if [ "$rc" -ne 0 ]; then
     echo "ERRO: o PEDIDO DE HASH remoto de '${caminho_win}' FALHOU - $(_rotulo_rc_guest_exec "$rc"). Mensagem do convidado: ${_GE_ERR}" >&2
+    # D-7/D-8: mesmo criterio de _dir_listar (mesmo arquivo) - 5 e 6 tem
+    # sinal proprio, nunca decaem para o 1 generico.
+    if [ "$rc" -eq 5 ] || [ "$rc" -eq 6 ]; then
+      return "$rc"
+    fi
     return 1
   fi
 
@@ -308,9 +384,14 @@ _ler_arquivo_remoto() {
 # --- coleta de UM arquivo, com a conferencia de md5 nas duas pontas --------
 coletar_um() {
   local caminho_win="$1" destino_local="$2" chunk_bytes="$3" prazo="$4"
-  local hash_remoto hash_local
+  local hash_remoto hash_local rc_hash
 
-  hash_remoto=$(_hash_remoto "$caminho_win" "$prazo") || return 1
+  hash_remoto=$(_hash_remoto "$caminho_win" "$prazo")
+  rc_hash=$?
+  if [ "$rc_hash" -ne 0 ]; then
+    # propaga 5/6 distintos (D-7/D-8); qualquer outro motivo continua 1.
+    return "$rc_hash"
+  fi
 
   if ! _ler_arquivo_remoto "$caminho_win" "$destino_local" "$chunk_bytes"; then
     return 1
@@ -338,12 +419,17 @@ coletar_um() {
 # incorreto - ver a tabela de codigos no cabecalho do arquivo).
 coletar_diretorio() {
   local diretorio_win="$1" destino_dir_local="$2" chunk_bytes="$3" prazo="$4"
-  local encontrados rejeitados coletados=0 arquivo
+  local encontrados rejeitados coletados=0 arquivo rc_listar rc_arquivo codigo_especial=0
 
   mkdir -p -- "$destino_dir_local"
 
-  if ! _dir_listar "$diretorio_win" "$prazo"; then
-    return 1
+  _dir_listar "$diretorio_win" "$prazo"
+  rc_listar=$?
+  if [ "$rc_listar" -ne 0 ]; then
+    # D-7/D-8: propaga 5/6 quando a LISTAGEM em si e' quem carrega o
+    # fato especifico (nunca decai para o 1 generico que os outros
+    # motivos ainda usam).
+    return "$rc_listar"
   fi
   rejeitados=${#_ARQUIVOS_REJEITADOS[@]}
   encontrados=$((${#_ARQUIVOS[@]} + rejeitados))
@@ -362,11 +448,25 @@ coletar_diretorio() {
   for arquivo in "${_ARQUIVOS[@]}"; do
     if coletar_um "${diretorio_win}\\${arquivo}" "${destino_dir_local}/${arquivo}" "$chunk_bytes" "$prazo"; then
       coletados=$((coletados + 1))
+    else
+      rc_arquivo=$?
+      # D-7/D-8: o fato mais especifico (5/6) nunca fica escondido atras
+      # do "so N de M coletados" generico - guarda o ultimo visto para
+      # decidir o codigo de saida DEPOIS da linha de contagem impressa
+      # (GODS_LAWS.md global L-40: contagem sempre sai, mesmo quando o
+      # motivo real e' mais especifico que ela).
+      if [ "$rc_arquivo" -eq 5 ] || [ "$rc_arquivo" -eq 6 ]; then
+        codigo_especial="$rc_arquivo"
+      fi
     fi
   done
 
   echo "encontrados=${encontrados} coletados=${coletados} rejeitados=${rejeitados}"
 
+  if [ "$codigo_especial" -ne 0 ]; then
+    echo "REPROVADO: pelo menos um arquivo teve um problema mais especifico que 'nao coletado' - $(_rotulo_rc_guest_exec "$codigo_especial")." >&2
+    return "$codigo_especial"
+  fi
   if [ "$rejeitados" -gt 0 ]; then
     echo "REPROVADO: pelo menos um nome hostil foi rejeitado - nunca sucesso silencioso com menos arquivos do que o convidado devolveu (GODS_LAWS.md global L-40)." >&2
     return 3
@@ -771,12 +871,119 @@ selftest_e8() {
   return 1
 }
 
+# Duble DEDICADO de canal quebrado (D-8, achado do team-lead, 23/09/2026 -
+# mesmo gemeo de rodar-caminho.sh/rodar-um.sh, mesma pasta): guest-exec
+# inicia normalmente (devolve pid), mas TODA consulta de guest-exec-status
+# falha com o MESMO texto que o QEMU emite quando o agente convidado nao
+# responde (TODO.md:149) - nunca JSON valido, nunca campo `.return`.
+escrever_duble_virsh_canal_quebrado() {
+  local stub_dir="$1"
+  cat >"${stub_dir}/virsh" <<'STUB'
+#!/usr/bin/env bash
+set -u
+JSON="${*: -1}"
+EXECUTE=$(echo "$JSON" | jq -r '.execute')
+case "$EXECUTE" in
+  guest-exec)
+    echo '{"return":{"pid":6001}}'
+    ;;
+  guest-exec-status)
+    echo "error: Guest agent is not responding: QEMU guest agent is not connected" >&2
+    exit 1
+    ;;
+  *) echo '{"return":{}}' ;;
+esac
+STUB
+  chmod +x "${stub_dir}/virsh"
+}
+
+selftest_canal_quebrado() {
+  local work_dir="$1" stub_dir saida rc ok=1
+
+  stub_dir="${work_dir}/canal-bin"
+  mkdir -p "$stub_dir"
+  escrever_duble_virsh_canal_quebrado "$stub_dir"
+
+  echo ">>> CANAL-NAO-RESPONDEU, D-8: toda consulta a guest-exec-status falha (prazo=5s, maior que o piso de tentativas=${PISO_FALHAS_CONSULTA}, para provar o corte precoce) - esperado: codigo 6, NUNCA o 1 generico nem 'ESTOUROU o prazo'"
+  saida="$(PATH="${stub_dir}:$PATH" coletar_diretorio 'C:\Users\glintfx\resultados' "${work_dir}/canal-destino" 8 5 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> codigo obtido: ${rc}"
+
+  if [ "$rc" -ne 6 ]; then
+    echo "CANAL-NAO-RESPONDEU FALHOU: esperava codigo 6, obteve ${rc}."
+    ok=0
+  elif ! printf '%s' "$saida" | grep -qi "CANAL NAO RESPONDEU"; then
+    echo "CANAL-NAO-RESPONDEU FALHOU: codigo certo (6), mas o rotulo 'CANAL NAO RESPONDEU' nao apareceu na mensagem."
+    ok=0
+  elif printf '%s' "$saida" | grep -qi "ESTOUROU o prazo"; then
+    echo "CANAL-NAO-RESPONDEU FALHOU: a mensagem ainda diz 'ESTOUROU o prazo' - o canal quebrado nao pode se disfarcar de timeout."
+    ok=0
+  else
+    echo "CANAL-NAO-RESPONDEU OK: codigo 6, rotulo correto, nunca confundido com estouro de prazo."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
+# Duble DEDICADO de saida truncada (D-7, mesmo achado, mesma pasta): a
+# LISTAGEM roda e termina (exited:true, exitcode:0), mas com
+# out-truncated:true - o nome do arquivo devolvido pode ter vindo cortado.
+escrever_duble_virsh_truncado() {
+  local stub_dir="$1"
+  cat >"${stub_dir}/virsh" <<'STUB'
+#!/usr/bin/env bash
+set -u
+JSON="${*: -1}"
+EXECUTE=$(echo "$JSON" | jq -r '.execute')
+case "$EXECUTE" in
+  guest-exec)
+    echo '{"return":{"pid":6002}}'
+    ;;
+  guest-exec-status)
+    OUT_B64=$(printf 'resultado.log\r\n' | base64 -w0)
+    printf '{"return":{"exited":true,"exitcode":0,"out-data":"%s","err-data":"","out-truncated":true}}\n' "$OUT_B64"
+    ;;
+  *) echo '{"return":{}}' ;;
+esac
+STUB
+  chmod +x "${stub_dir}/virsh"
+}
+
+selftest_truncado() {
+  local work_dir="$1" stub_dir saida rc ok=1
+
+  stub_dir="${work_dir}/trunc-bin"
+  mkdir -p "$stub_dir"
+  escrever_duble_virsh_truncado "$stub_dir"
+
+  echo ">>> SAIDA-TRUNCADA, D-7: a LISTAGEM devolve out-truncated=true - esperado: codigo 5, NUNCA sucesso silencioso com uma lista de nomes possivelmente cortada"
+  saida="$(PATH="${stub_dir}:$PATH" coletar_diretorio 'C:\Users\glintfx\resultados' "${work_dir}/trunc-destino" 8 2 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> codigo obtido: ${rc}"
+
+  if [ "$rc" -ne 5 ]; then
+    echo "SAIDA-TRUNCADA FALHOU: esperava codigo 5, obteve ${rc}."
+    ok=0
+  elif ! printf '%s' "$saida" | grep -qi "SAIDA TRUNCADA"; then
+    echo "SAIDA-TRUNCADA FALHOU: codigo certo (5), mas o rotulo 'SAIDA TRUNCADA' nao apareceu na mensagem."
+    ok=0
+  else
+    echo "SAIDA-TRUNCADA OK: codigo 5, rotulo presente, nada coletado a partir de uma listagem que pode estar cortada."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
 selftest() {
   local work_dir ok=1
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
   trap 'rm -rf -- "$work_dir"' RETURN
 
-  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO) -- diretorio de trabalho: ${work_dir} ==="
+  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA) -- diretorio de trabalho: ${work_dir} ==="
   echo
   selftest_e6 "$work_dir" || ok=0
   echo
@@ -788,9 +995,13 @@ selftest() {
   echo
   selftest_diagnostico_falha_convidado "$work_dir" || ok=0
   echo
+  selftest_canal_quebrado "$work_dir" || ok=0
+  echo
+  selftest_truncado "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS e DIAGNOSTICO se comportaram como esperado."
+    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU e SAIDA-TRUNCADA se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

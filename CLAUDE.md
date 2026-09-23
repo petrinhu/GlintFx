@@ -53,8 +53,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
 | ⚖ | escolher a próxima fatia, antes de a demo rodar | L-32 caminho principal sempre, mais no máximo UMA trilha paralela |
 | ⚖ | tocar qualquer coisa de mapa | L-33 avisar o `mapeditor`; se fora do ar, pelo bus |
-| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, fable planeja, main verifica, sonnet implementa |
-| ⚖ | operar em modo autônomo, ou sair dele | L-34 o `fable` decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
+| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level opus (esforço alto) planeja, main verifica, sonnet implementa |
+| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level `opus` (esforço alto), depois de pesquisar, decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
 | ⚖ | tocar a superfície de entrada, ou a entrega de evento | L-35 entrega determinística, sem duplicar e sem reordenar; é promessa pública |
 | ⚖ | tocar cursor, áudio, gamepad ou compose | L-36 as quatro decisões de escopo de 23/08; nenhuma é mais pergunta |
 | ⚖ | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | L-37 avisar o Gus Dragon sem ele perguntar |

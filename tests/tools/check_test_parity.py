@@ -1387,6 +1387,95 @@ def selftest_alias_half_dead_windows_dead_siblings_not_counted_reproves():
     return True
 
 
+# PARITY-ALIAS-HYGIENE C1b-lado-errado-linux (VERMELHO, achado do
+# orquestrador, segunda rodada de verificacao L-12 sobre c77b215): os
+# dois mutantes "True for name in ..." morrem agora (C1b-linux/
+# C1b-siblings-*), mas um mutante de OUTRA familia sobrevivia contra
+# os 29 controles anteriores - trocar `name in linux_inventory` (linha
+# 496) por `name in (linux_inventory | windows_inventory)` (a UNIAO)
+# deixa um "irmao" cujo nome so existe do lado WINDOWS contar como
+# prova de vida do lado LINUX, o que e' logicamente impossivel (um
+# nome que so aparece no inventario Windows nunca rodou como teste
+# Linux - ele nao da NENHUMA cobertura Linux ao parceiro). O irmao
+# "nome_que_so_existe_no_windows" aqui existe de verdade (aparece em
+# windows_inv, entao nao e' ele mesmo um apelido morto - e' um segundo
+# apelido legitimo bilateral, so' para forjar o grupo de irmaos do
+# parceiro), mas NUNCA no lado Linux - nao pode suprimir o meio-morto
+# de apelido_linux_morto_test. Esperado: reprova, "apelido meio-morto"
+# com o lado "linux" nomeado, apesar do irmao existir do lado errado.
+def selftest_alias_half_dead_linux_sibling_must_be_linux_side_reproves():
+    linux_inv = {"a_test"}
+    windows_inv = {"a_test", "parceiro_vivo_test", "nome_que_so_existe_no_windows"}
+    aliases = [
+        _alias_fixture("apelido_linux_morto_test", "parceiro_vivo_test"),
+        _alias_fixture(
+            "nome_que_so_existe_no_windows",
+            "parceiro_vivo_test",
+            bilateral_reason=(
+                "fixture de teste - este nome existe so do lado windows, usado so "
+                "para forjar o grupo de irmaos do parceiro (nao e' o que este "
+                "controle prova, so' precisa nao gerar erro proprio)"
+            ),
+        ),
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not any(
+        "apelido meio-morto" in e and "apelido_linux_morto_test" in e and "linux" in e
+        for e in errors
+    ):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-linux FALHOU (irmao so do lado "
+            f"windows nao pode suprimir o meio-morto do lado linux): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-linux OK (irmao do lado errado nao "
+        f"suprime): {errors}"
+    )
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C1b-lado-errado-windows: gemeo direto do
+# controle acima no ramo `windows_absent` (linha 505, mesma familia de
+# mutante - GODS_LAWS.md L-17). O irmao "nome_que_so_existe_no_linux"
+# compartilha o MESMO linux_name do candidato (`linux_to_win` e'
+# chaveado por linux_name nesse ramo), existe de verdade do lado
+# Linux, mas nunca do lado Windows - nao pode suprimir o meio-morto de
+# apelido_windows_morto_test.
+def selftest_alias_half_dead_windows_sibling_must_be_windows_side_reproves():
+    linux_inv = {"a_test", "parceiro_vivo_linux_test", "nome_que_so_existe_no_linux"}
+    windows_inv = {"a_test"}
+    aliases = [
+        _alias_fixture("parceiro_vivo_linux_test", "apelido_windows_morto_test"),
+        _alias_fixture(
+            "parceiro_vivo_linux_test",
+            "nome_que_so_existe_no_linux",
+            bilateral_reason=(
+                "fixture de teste - este nome existe so do lado linux, usado so "
+                "para forjar o grupo de irmaos do parceiro (nao e' o que este "
+                "controle prova, so' precisa nao gerar erro proprio)"
+            ),
+        ),
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not any(
+        "apelido meio-morto" in e and "apelido_windows_morto_test" in e and "windows" in e
+        for e in errors
+    ):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-windows FALHOU (irmao so do lado "
+            f"linux nao pode suprimir o meio-morto do lado windows): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARITY-ALIAS-HYGIENE C1b-lado-errado-windows OK (irmao do lado errado nao "
+        f"suprime): {errors}"
+    )
+    return True
+
+
 # Controle do PISO (GODS_LAWS.md L-40): a supressao por irmao vivo tem
 # que deixar rastro contavel, nunca ser silenciosa. Reusa o cenario
 # exato de selftest_alias_shared_windows_partner_control (tres
@@ -1650,6 +1739,8 @@ def selftest_main():
         selftest_alias_half_dead_linux_side_reproves(),
         selftest_alias_half_dead_linux_dead_siblings_not_counted_reproves(),
         selftest_alias_half_dead_windows_dead_siblings_not_counted_reproves(),
+        selftest_alias_half_dead_linux_sibling_must_be_linux_side_reproves(),
+        selftest_alias_half_dead_windows_sibling_must_be_windows_side_reproves(),
         selftest_half_dead_suppressed_count_visible(),
         selftest_alias_bilateral_undeclared_reproves(),
         selftest_alias_bilateral_declared_control(),

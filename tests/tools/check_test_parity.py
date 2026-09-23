@@ -147,6 +147,25 @@ def _expect_fail_exit(callable_fn, *args, **kwargs):
 # misturar as duas sem o chamador precisar normalizar antes.
 _CTEST_LINE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)\s*$")
 
+# LAYERS-GATE-GFSS-GFUI sub-fatia L-5 (docs/plano-layers-l5.md, GODS_LAWS.md
+# L-40/L-45, decisao do main em DECISOES_AUTONOMAS.md 23/09/2026): CTest
+# marca um teste com a propriedade SKIP_RETURN_CODE que nunca chegou a
+# rodar do MESMO jeito de sempre em `ctest -N` - so que quando o teste tem
+# a propriedade DISABLED (nao usada por este projeto ate esta fatia, mas
+# generica do CTest), a linha ganha o sufixo LITERAL " (Disabled)". MEDIDO
+# ao vivo pelo implementador de L-5 antes deste conserto existir: o parser
+# de ENTAO nao reconhecia essa forma e reprovava a listagem inteira como
+# "entrada de inventario nao reconhecida" - nao uma paridade vermelha
+# comum, um CRASH do proprio parser, na PRIMEIRA vez que qualquer perna
+# alimentasse este portao com um teste desligado. `_CTEST_DISABLED_LINE_RE`
+# reconhece a forma; `parse_inventory_text()` abaixo NAO conta esses nomes
+# no conjunto de comparacao (um teste desligado no CTest nao prova
+# comportamento nenhum, entao nao pode "salvar" a paridade por presenca
+# calada) - mas tambem nunca os descarta em silencio: quem passa um
+# `disabled_collector` (real_main - ver `_load_real_main_inputs()`) recebe
+# a lista, impressa SEMPRE, mesmo vazia (GODS_LAWS.md L-40).
+_CTEST_DISABLED_LINE_RE = re.compile(r"^\s*Test\s+#\d+:\s+(\S+)\s+\(Disabled\)\s*$")
+
 # ESTREIA-CTEST-HEADER (05/09/2026, achado do PRIMEIRO run real deste
 # portao no servidor, 33989546515): `ctest -N` sempre abre com esta
 # linha, ANTES de qualquer "Test #N:" - testes ou nao ("Test project
@@ -213,7 +232,13 @@ _CLEAN_LIST_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 # um custo aceito de proposito (a alternativa, engolir qualquer coisa
 # desconhecida, e' exatamente o defeito que este conserto existe para
 # fechar).
-def parse_inventory_text(text):
+def parse_inventory_text(text, disabled_collector=None):
+    """`disabled_collector`, se dado (um `set`, mutado in place): recebe o
+    nome de todo teste listado com o sufixo " (Disabled)" - NUNCA entram
+    em `names` (um teste desligado nao prova comportamento, entao nao
+    pode contar pra paridade por presenca calada), mas tambem nunca
+    desaparecem sem que quem chamou tenha PEDIDO explicitamente pra
+    guarda-los (LAYERS-GATE-GFSS-GFUI L-5, GODS_LAWS.md L-40)."""
     content_lines = [ln.strip() for ln in text.splitlines()]
     content_lines = [ln for ln in content_lines if ln and not ln.startswith("#")]
 
@@ -225,6 +250,11 @@ def parse_inventory_text(text):
         if m:
             names.add(m.group(1))
             continue
+        m_disabled = _CTEST_DISABLED_LINE_RE.match(line)
+        if m_disabled:
+            if disabled_collector is not None:
+                disabled_collector.add(m_disabled.group(1))
+            continue
         if _CTEST_TOTAL_RE.match(line):
             continue
         if line == _CTEST_NO_TESTS_FOUND:
@@ -234,7 +264,8 @@ def parse_inventory_text(text):
             continue
         fail(
             f"linha de inventario nao reconhecida (nem cabecalho/rodape de ctest, nem "
-            f"'Test #N: nome', nem nome de lista limpa em snake_case): {line!r}"
+            f"'Test #N: nome', nem 'Test #N: nome (Disabled)', nem nome de lista limpa "
+            f"em snake_case): {line!r}"
         )
     return names
 
@@ -852,6 +883,8 @@ def _read_file(path):
 class RealMainInputs:
     linux_inventory: frozenset
     windows_inventory: frozenset
+    linux_disabled: frozenset
+    windows_disabled: frozenset
     exceptions: list
     aliases: list
     todo_status: dict
@@ -868,9 +901,15 @@ def _parse_real_main_args(args):
 
 def _load_real_main_inputs(args):
     linux_inv_path, windows_inv_path, exceptions_path, aliases_path, todo_path = args
+    linux_disabled = set()
+    windows_disabled = set()
+    linux_inventory = parse_inventory_text(_read_file(linux_inv_path), linux_disabled)
+    windows_inventory = parse_inventory_text(_read_file(windows_inv_path), windows_disabled)
     return RealMainInputs(
-        linux_inventory=parse_inventory_text(_read_file(linux_inv_path)),
-        windows_inventory=parse_inventory_text(_read_file(windows_inv_path)),
+        linux_inventory=linux_inventory,
+        windows_inventory=windows_inventory,
+        linux_disabled=frozenset(linux_disabled),
+        windows_disabled=frozenset(windows_disabled),
         exceptions=parse_exceptions_text(_read_file(exceptions_path)),
         aliases=parse_aliases_text(_read_file(aliases_path)),
         todo_status=parse_todo_status_text(_read_file(todo_path)),
@@ -892,6 +931,15 @@ def _print_real_main_counts(inputs):
         f"Windows={len(inputs.windows_inventory)} teste(s), "
         f"{len(inputs.exceptions)} excecao(oes), {len(inputs.aliases)} apelido(s), "
         f"{len(inputs.todo_status)} item(ns) lido(s) de TODO.md"
+    )
+    # LAYERS-GATE-GFSS-GFUI L-5 (GODS_LAWS.md L-40): piso de varredura
+    # impresso SEMPRE, ganhe ou perca o portao, mesmo com as duas
+    # contagens em zero - um teste "(Disabled)" nunca conta pra
+    # paridade (nao prova comportamento), mas tambem nunca some calado.
+    print(
+        f"{SCRIPT_NAME}: desligados (Disabled) Linux={len(inputs.linux_disabled)} teste(s) "
+        f"{sorted(inputs.linux_disabled)}, Windows={len(inputs.windows_disabled)} teste(s) "
+        f"{sorted(inputs.windows_disabled)}"
     )
     (
         alias_dead,
@@ -1426,6 +1474,76 @@ def selftest_corrupted_inventory_line_reproves():
         file=sys.stderr,
     )
     return False
+
+
+# LAYERS-GATE-GFSS-GFUI L-5 (GODS_LAWS.md L-40/L-45, DECISOES_AUTONOMAS.md
+# 23/09/2026): CTest marca um teste registrado com SKIP_RETURN_CODE mas
+# tambem com a propriedade DISABLED (generica do CTest) com o sufixo " (Disabled)"
+# em `ctest -N`. MEDIDO ao vivo pelo implementador de L-5, ANTES deste
+# conserto existir: essa linha derrubava `parse_inventory_text()` inteiro
+# com "linha de inventario nao reconhecida", nao uma paridade vermelha
+# comum - um CRASH do proprio parser. Este controle prova as DUAS metades:
+# (1) a forma NOVA e' reconhecida sem quebrar, fica fora de `names` (um
+# teste desligado nao prova comportamento) e aparece no disabled_collector
+# quando pedido; (2) reproduz, sem reimplementar o parser inteiro, que a
+# MESMA linha bateria em fail() se a regra nova nao existisse - a mesma
+# forma do crash medido ao vivo.
+def _check_disabled_line_parsed():
+    """Metade 1: a linha `(Disabled)` e' reconhecida sem quebrar o
+    parse, fica FORA de `names` e DENTRO do `disabled_collector`."""
+    text = (
+        "Test project /__w/GlintFx/GlintFx/build-shared\n"
+        "  Test #1: layers_test\n"
+        "  Test #2: layers_oracle_test (Disabled)\n"
+        "Total Tests: 2\n"
+    )
+    disabled = set()
+    names = parse_inventory_text(text, disabled)
+    if names != {"layers_test"}:
+        print(
+            f"selftest: DISABLED-LINE FALHOU (names esperava so' layers_test, veio {names})",
+            file=sys.stderr,
+        )
+        return False
+    if disabled != {"layers_oracle_test"}:
+        print(
+            f"selftest: DISABLED-LINE FALHOU (disabled_collector esperava "
+            f"layers_oracle_test, veio {disabled})",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _check_disabled_line_would_crash_without_fix():
+    """Metade 2: reproduz a forma do parser DE ANTES desta fatia (sem
+    `_CTEST_DISABLED_LINE_RE`) - confere que a MESMA linha bateria em
+    NENHUMA outra forma reconhecida, ou seja, cairia em `fail()` no
+    parser real, exatamente como foi medido ao vivo (achado da revisao
+    independente, 23/09/2026: extraida da funcao principal pra manter
+    as duas sob o teto de 40 linhas de L-17)."""
+    problem_line = "  Test #2: layers_oracle_test (Disabled)"
+    old_form_matches = bool(_CTEST_LINE_RE.match(problem_line))
+    also_clean_list = bool(_CLEAN_LIST_NAME_RE.match(problem_line.strip()))
+    if old_form_matches or also_clean_list:
+        print(
+            "selftest: DISABLED-LINE FALHOU (o mutante nao reproduziu o crash - a "
+            "linha bateria em outra forma reconhecida, o que invalidaria a prova)",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def selftest_disabled_line_recognized_not_swallowed():
+    ok = _check_disabled_line_parsed() and _check_disabled_line_would_crash_without_fix()
+    if ok:
+        print(
+            "selftest: DISABLED-LINE OK (reconhecido sem quebrar o parse, fora de "
+            "'names', dentro do disabled_collector; confirmado que SEM esta regra a "
+            "mesma linha cairia em fail() - o crash real medido pelo implementador de L-5)"
+        )
+    return ok
 
 
 # PARITY-ALIAS-HYGIENE C1 (VERMELHO): um apelido cujos dois nomes nao
@@ -2376,6 +2494,7 @@ def _inventory_parsing_controls():
         selftest_ctest_header_only_yields_empty_inventory(),
         selftest_mixed_ctest_and_clean_list_control(),
         selftest_corrupted_inventory_line_reproves(),
+        selftest_disabled_line_recognized_not_swallowed(),
     ]
 
 

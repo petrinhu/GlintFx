@@ -177,3 +177,26 @@ set(GLINTFX_GL_CODEGEN_EXECUTABLE "" CACHE FILEPATH
 set(GLINTFX_HOST_CXX_COMPILER "" CACHE FILEPATH
     "Host C++ compiler for the nested native gl_registry_codegen build when neither GLINTFX_GL_CODEGEN_EXECUTABLE nor CMAKE_CROSSCOMPILING_EMULATOR is set (GL-CODEGEN-HOST-TOOL, cross-compiling builds only)"
 )
+
+# LAYERS-GATE-GFSS-GFUI sub-fatia L-5 (docs/plano-layers-l5.md, GODS_LAWS.md
+# projeto L-45, decisao do lider 23/09/2026, reformado por DECISOES_
+# AUTONOMAS.md 23/09/2026): liga o oraculo diferencial de tests/tools/
+# check_layers_oracle.py, que pergunta ao COMPILADOR DE VERDADE
+# (-H/showIncludes) o que cada fixture de check_layers.py de fato puxa. A
+# L-45 e' inequivoca - "o oraculo NAO roda nesta maquina, nem no
+# tools/preci.sh, nem em agente, nem 'so' pra testar'" - por isso o default
+# e' OFF. tests/CMakeLists.txt passa este valor (ON/OFF, literal) como
+# QUINTO argumento de `layers_oracle_test`, e o proprio script PULA
+# (SKIP_RETURN_CODE 77, nunca DISABLED - achado do implementador de L-5:
+# DISABLED grava o sufixo " (Disabled)" em `ctest -N`, que quebrava
+# tests/tools/check_test_parity.py no parse) a menos que `GITHUB_ACTIONS`
+# seja "true" **e** este valor seja "ON" ao mesmo tempo - mesmo que
+# alguem ligue esta opcao a mao fora do CI real, o oraculo continua
+# pulando. `ctest -N` lista `layers_oracle_test` IDENTICO em todo
+# sistema, sem sufixo nenhum; `ctest` local mostra "Skipped". O
+# layers_oracle_selftest (autoteste, saidas enlatadas, ZERO compilador)
+# continua ligado em TODO lugar, opcao ou nao.
+option(GLINTFX_LAYERS_ORACLE
+    "Liga o oraculo diferencial do portao de camadas (GODS_LAWS.md L-45) - SO' roda de verdade no CI do servidor, mesmo com esta opcao ON"
+    OFF
+)

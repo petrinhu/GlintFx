@@ -2962,6 +2962,57 @@ add_test(
 )
 set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 
+# ORACULO DIFERENCIAL DE CAMADAS (LAYERS-GATE-GFSS-GFUI sub-fatia L-5,
+# docs/plano-layers-l5.md, GODS_LAWS.md projeto L-45, decisao do lider
+# 23/09/2026): pergunta ao COMPILADOR DE VERDADE (-H no GCC/Clang,
+# /showIncludes no MSVC) o que cada fixture de check_layers.py de fato
+# puxa, e reprova quando o compilador viu cabecalho proibido ser puxado e
+# o portao, pra aquela MESMA fixture, deixou passar. A L-45 e' inequivoca:
+# o oraculo SO' roda no CI do servidor - registrado SEM guarda de sistema
+# (mesma forma de layers_test acima), pra dar PARIDADE DE INVENTARIO nos
+# dois lados do ctest -N em TODO sistema.
+#
+# NAO usa a propriedade DISABLED (DECISOES_AUTONOMAS.md 23/09/2026,
+# achado do implementador de L-5, MEDIDO: com DISABLED, `ctest -N` grava
+# o sufixo literal " (Disabled)" e tests/tools/check_test_parity.py
+# QUEBRAVA no parse dessa linha - nao uma paridade vermelha comum, um
+# crash do proprio parser, na primeira perna que alimentasse o trabalho
+# `parity` com um teste desligado; o portao de paridade ja foi corrigido
+# nesta mesma fatia pra reconhecer o sufixo, mas o mecanismo de
+# desligar TROCOU pra nao depender so' disso). Em vez disso: SKIP_
+# RETURN_CODE 77 (o valor convencional do CTest pra "pulado") - o teste
+# fica registrado IDENTICO em todo sistema, sem sufixo nenhum em `ctest
+# -N`, e o proprio `check_layers_oracle.py` decide em tempo de EXECUCAO
+# se roda ou pula, recebendo a opcao `GLINTFX_LAYERS_ORACLE` como quinto
+# argumento (`ON`/`OFF`, literal do CMake) - so' roda quando ela e' `ON`
+# **e** `GITHUB_ACTIONS` e' "true" ao mesmo tempo (skip_if_not_enabled(),
+# GODS_LAWS.md L-45: nem ligando a opcao a mao nesta maquina). Com a
+# opcao OFF (default, ou em qualquer perna/trabalho fora dos seis
+# escolhidos), o `ctest` local mostra "Skipped" - visivel (GODS_LAWS.md
+# L-40), nunca um pulo calado - e NENHUM processo do oraculo nasce.
+add_test(
+    NAME layers_oracle_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py"
+        "${CMAKE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py"
+        "${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}"
+        "${GLINTFX_LAYERS_ORACLE}"
+)
+set_tests_properties(layers_oracle_test PROPERTIES LABELS consume TIMEOUT 900 SKIP_RETURN_CODE 77)
+
+# Autoteste do oraculo - saidas ENLATADAS, ZERO compilador (docs/plano-
+# layers-l5.md §10.1, controle O-0: o executor real levanta excecao se
+# for chamado durante --selftest). Roda em TODO sistema, opcao ligada ou
+# nao - mesma taxonomia consume/selftest dos demais portoes deste
+# arquivo.
+add_test(
+    NAME layers_oracle_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py" --selftest
+)
+set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest)
+
 # FACADE-PIN, G2 (docs/plano-conserto-fachadas-uaf.md sec. 9, GODS_
 # LAWS.md L-19/L-36): the portao G1 (the pinned_adapter<A> concept
 # every port now requires) structurally cannot reach - a class that

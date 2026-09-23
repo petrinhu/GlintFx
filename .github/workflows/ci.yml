@@ -212,6 +212,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Fedora (primario) - estatico
             cc: c++
             c_compiler: cc
@@ -222,6 +223,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
           # Ubuntu deixou de precisar de instalacao manual de CMake em
           # 27/08/2026: a imagem passou de ubuntu:24.04 (pinada) para
           # ubuntu:latest, por ordem do lider (ESCOPO.md S1, PKG-NATIVE
@@ -254,6 +256,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Ubuntu - estatico
             cc: g++-14
             c_compiler: gcc-14
@@ -265,6 +268,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
           - nome: Arch - compartilhado
             cc: c++
             c_compiler: cc
@@ -275,6 +279,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Arch - estatico
             cc: c++
             c_compiler: cc
@@ -285,6 +290,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
           - nome: CachyOS - compartilhado
             cc: c++
             c_compiler: cc
@@ -295,6 +301,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: CachyOS - estatico
             cc: c++
             c_compiler: cc
@@ -305,6 +312,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
     steps:
       - name: Instalar toolchain
         run: ${{ matrix.instalar }}
@@ -459,7 +467,7 @@ jobs:
           CC: ${{ matrix.c_compiler }}
         run: |
           set -eux
-          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
           set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
@@ -3084,7 +3092,7 @@ jobs:
       - name: Configurar e compilar (Debug)
         shell: pwsh
         run: |
-          cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
+          cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DGLINTFX_LAYERS_ORACLE=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-debug
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -3152,9 +3160,11 @@ jobs:
           - modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
     steps:
       - name: Instalar toolchain
         run: >-
@@ -3170,7 +3180,7 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
 
       # REBAIXAMENTO REMOVIDO em 22/09/2026 (TODO.md CLANG-INSTALL-

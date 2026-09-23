@@ -52,12 +52,27 @@
 # aberto); a nota UTF-16 "LIMITACAO DECLARADA"; e as duas linhas do
 # INBOX no TODO.md.
 #
-# O QUE FICA FORA DESTA FATIA (INBOX, ver docs/plano-layers-l4.md §7):
-# um oraculo diferencial contra o compilador real (proposta L-5, D-2
-# do lider); direcao de inclusao ENTRE as camadas puras (core nao
-# inclui gfss, gfss nao inclui gfui); <cstdio>/<iostream> como agulha
-# nova (decisao de produto do lider); e a divisao deste arquivo em
-# modulos por assunto.
+# ORACULO DIFERENCIAL (GODS_LAWS.md projeto L-5, docs/plano-layers-l5.
+# md): este arquivo NAO chama compilador nenhum - so oferece, pelo modo
+# `--export-fixtures <pasta-vazia>` da linha de comando, as fixtures
+# das proprias tabelas de _CASE_TABLES (abaixo) mais o veredito REAL de
+# check_layers() pra cada uma, num manifest.json. Quem consome isso e'
+# tests/tools/check_layers_oracle.py, um script SEPARADO que roda so'
+# no CI do servidor (nunca nesta maquina - GODS_LAWS.md L-45): ele
+# pergunta ao compilador de verdade que cabecalho cada arquivo de
+# camada pura puxa de fato, e reprova se o compilador viu cabecalho
+# proibido num caso que este portao deixou passar. `_CASE_TABLES` e' a
+# fonte unica das duas pontas (autoteste E exportacao); a trava X1 (ver
+# `selftest_case_table_registry_x1` abaixo) enumera o modulo inteiro e
+# reprova tabela de Case esquecida fora do registro.
+#
+# O QUE AINDA FICA FORA DESTA FATIA (INBOX, ver docs/plano-layers-l4.md
+# §7 e docs/plano-layers-l5.md §11): direcao de inclusao ENTRE as
+# camadas puras (core nao inclui gfss, gfss nao inclui gfui);
+# <cstdio>/<iostream> como agulha nova (decisao de produto do lider); a
+# divisao deste arquivo em modulos por assunto; e a direcao 2 do
+# oraculo (portao reprovou, compilador so' puxou permitido) cruzada
+# ENTRE sistemas (ORACULO-CAMADAS-DIRECAO-2-ENTRE-SISTEMAS, TODO.md).
 #
 # ADENDO (docs/plano-layers-l4-adendo.md, GODS_LAWS.md L-40/L-42/L-67):
 # a revisao independente achou que `import`/`export import` de unidade
@@ -105,6 +120,7 @@
 # Each function below does one thing (GODS_LAWS.md L-17).
 
 import collections
+import json
 import os
 import re
 import shutil
@@ -3135,6 +3151,265 @@ def selftest_normalize_newlines_property(scratch, capture):
     return all(checks), len(checks)
 
 
+# --- registro unico das tabelas de Case, e exportacao pro oraculo ------
+#
+# docs/plano-layers-l5.md §4.1: fonte UNICA para o autoteste E para
+# `--export-fixtures` - o oraculo (tests/tools/check_layers_oracle.py)
+# nunca importa este modulo nem copia fixture, so' fala com ele pela
+# linha de comando e por um manifest.json (L-4 §5, "o oraculo nao
+# substitui o portao e nao pode reusar a logica que existe pra
+# vigiar"). `modo_oraculo` e' "compilar" pra toda tabela, exceto C12
+# ("calibracao"): o conteudo de cada caso de C12 e' `#include <nome>\n`
+# - exatamente o que a calibracao do oraculo ja pre-processa de uma vez
+# so' (secao 7.1 do plano) - compilar os 105 separados custaria 105
+# processos pra repetir a MESMA pergunta que a calibracao ja responde.
+_CASE_TABLES = (
+    ("anchor", _ANCHOR_DIRECTIVE_CASES, "compilar"),
+    ("phase23", _PHASE23_DIRECTIVE_CASES, "compilar"),
+    ("rawstring", _RAW_STRING_CASES, "compilar"),
+    ("crlf", _CRLF_DIRECTIVE_CASES, "compilar"),
+    ("bom", _BOM_CASES, "compilar"),
+    ("A", _FAMILY_A_CASES, "compilar"),
+    ("A_legacy", _FAMILY_A_LEGACY_CASES, "compilar"),
+    ("B", _FAMILY_B_CASES, "compilar"),
+    ("B7", _FAMILY_B7_CASES, "compilar"),
+    ("C", _FAMILY_C_CASES, "compilar"),
+    ("C12", _FAMILY_C12_CASES, "calibracao"),
+    ("D", _FAMILY_D_EXTENSION_CASES, "compilar"),
+    ("E", _FAMILY_E_CASES, "compilar"),
+    ("F", _FAMILY_F_CASES, "compilar"),
+    ("F18", _FAMILY_F18_CASES, "compilar"),
+    ("Fneg", _FAMILY_F_NEG_CASES, "compilar"),
+    ("G", _FAMILY_G_CASES, "compilar"),
+    ("H", _FAMILY_H_CASES, "compilar"),
+    ("L", _FAMILY_L_CASES, "compilar"),
+    ("M", _FAMILY_M_CASES, "compilar"),
+)
+
+
+def _iter_module_case_tables():
+    """Enumeracao FECHADA do modulo (GODS_LAWS.md L-40 item 5): toda
+    tupla NAO VAZIA no escopo do modulo cujos elementos sao todos
+    `Case`. So' o nivel do modulo - uma tabela PRIVADA, vivendo dentro
+    de uma funcao (como a de X3 abaixo, de proposito), nunca aparece
+    aqui. Usada pela trava X1 - nunca uma lista mantida a mao, que uma
+    tabela nova esqueceria de atualizar."""
+    found = {}
+    for name, value in globals().items():
+        if not isinstance(value, tuple) or not value:
+            continue
+        if all(isinstance(item, Case) for item in value):
+            found[name] = value
+    return found
+
+
+def selftest_case_table_registry_x1(scratch, capture):
+    """X1 (docs/plano-layers-l5.md §4.1 item 2): toda tupla de `Case`
+    do modulo tem de estar em `_CASE_TABLES` (por IDENTIDADE, nao por
+    igualdade de conteudo - duas tabelas com o mesmo conteudo por
+    acidente continuam sendo tabelas DIFERENTES), o registro nunca cita
+    tabela que nao existe, e nenhum rotulo se repete."""
+    del scratch, capture  # X1 so' inspeciona o proprio modulo, nao roda check_layers()
+    ok = True
+    discovered = _iter_module_case_tables()
+    discovered_ids = {id(table) for table in discovered.values()}
+    registered_ids = {id(table) for _label, table, _mode in _CASE_TABLES}
+    registered_labels = [label for label, _table, _mode in _CASE_TABLES]
+
+    missing = sorted(name for name, table in discovered.items() if id(table) not in registered_ids)
+    if missing:
+        print(f"selftest: X1 FALHOU (tabela(s) de Case fora do registro: {missing})", file=sys.stderr)
+        ok = False
+
+    dangling = sorted(label for label, table, _mode in _CASE_TABLES if id(table) not in discovered_ids)
+    if dangling:
+        print(f"selftest: X1 FALHOU (registro cita tabela que nao existe no modulo: {dangling})", file=sys.stderr)
+        ok = False
+
+    duplicate_labels = sorted({label for label in registered_labels if registered_labels.count(label) > 1})
+    if duplicate_labels:
+        print(f"selftest: X1 FALHOU (rotulo repetido em _CASE_TABLES: {duplicate_labels})", file=sys.stderr)
+        ok = False
+
+    if ok:
+        print(f"selftest: X1 OK ({len(discovered)} tabelas descobertas, {len(_CASE_TABLES)} registradas)")
+    return ok, 1
+
+
+def _classify_target_kind(filename):
+    """Traduz o veredito de `_classify_source_filename()` (fonte/skip/
+    desconhecido) pro vocabulario do manifesto do oraculo (docs/plano-
+    layers-l5.md §4.1) - uma fonte so', nunca uma segunda lista mantida
+    a parte."""
+    verdict = _classify_source_filename(filename)
+    return {"skip": "nao-fonte-conhecido", "source": "fonte", "unknown": "desconhecido"}[verdict]
+
+
+def _relpath_under_pure_layer(root, abs_path):
+    """Caminho de `abs_path` relativo a `root`, em POSIX, SE e somente
+    se cair dentro de uma das seis camadas puras (_PURE_LAYER_DIR_
+    SPECS) - None quando fica fora delas (o oraculo so' examina o que
+    o proprio portao tambem examinaria)."""
+    rel = os.path.relpath(abs_path, root).replace(os.sep, "/")
+    for _label, parts in _PURE_LAYER_DIR_SPECS:
+        prefix = "/".join(parts) + "/"
+        if rel.startswith(prefix):
+            return rel
+    return None
+
+
+def _case_export_targets(root, target, case):
+    """Alvos de UM caso: o arquivo plantado, mais cada `extra_files`
+    que caia numa das seis camadas puras (docs/plano-layers-l5.md
+    §4.1 item 3)."""
+    targets = []
+    main_rel = _relpath_under_pure_layer(root, target)
+    if main_rel is not None:
+        targets.append(main_rel)
+    for rel_path in case.extra_files:
+        abs_extra = os.path.join(root, *rel_path.split("/"))
+        extra_rel = _relpath_under_pure_layer(root, abs_extra)
+        if extra_rel is not None and extra_rel not in targets:
+            targets.append(extra_rel)
+    return targets
+
+
+# Achado da revisao independente (23/09/2026): _export_one_case() tinha
+# 5 parametros soltos (teto de L-17 e' 4) - (label, case, mode) sao os
+# TRES que ja vem juntos de cada linha do registro _CASE_TABLES, entao
+# agrupa-los numa tupla nomeada e' o mesmo remedio que RealMainInputs
+# ja usa em check_test_parity.py, sem introduzir estado nenhum.
+_CaseExportJob = collections.namedtuple("_CaseExportJob", ("label", "case", "mode"))
+
+
+def _export_one_case(dest_dir, job, capture):
+    """Exporta UM caso: mesma `_plant_case_fixture()` do autoteste
+    (fonte unica, R-9 do plano), mesma `check_layers()` sob captura -
+    o oraculo compara com o VEREDITO REAL aqui capturado, nunca com o
+    declarado na tabela (docs/plano-layers-l5.md §5.2)."""
+    root, target = _plant_case_fixture(dest_dir, job.label, job.case)
+    outcome = capture(lambda: check_layers(root))
+    return {
+        "tabela": job.label,
+        "caso": job.case.name,
+        "modo_oraculo": job.mode,
+        "raiz": os.path.relpath(root, dest_dir).replace(os.sep, "/"),
+        "alvos": [
+            {"caminho": rel, "tipo": _classify_target_kind(rel.rsplit("/", 1)[-1])}
+            for rel in _case_export_targets(root, target, job.case)
+        ],
+        "veredito_declarado": job.case.verdict,
+        "veredito_real": "passou" if outcome.result else "reprovou",
+        "saida_real": outcome.text,
+    }
+
+
+def _export_case_tables(dest_dir, registry):
+    """Fonte UNICA de exportacao - `--export-fixtures` real E os
+    controles X2/X3 do autoteste chamam esta mesma funcao (docs/plano-
+    layers-l5.md §4.1: 'os dois chamam a mesma _plant_case_fixture()',
+    X2 confere byte a byte). `dest_dir` precisa existir e estar vazio -
+    responsabilidade do chamador (nunca mistura exportacao velha com
+    nova)."""
+    capture = _make_capture()
+    cases_out = [
+        _export_one_case(dest_dir, _CaseExportJob(label, case, mode), capture)
+        for label, table, mode in registry
+        for case in table
+    ]
+    manifest = {
+        "stdlib_permitidos": sorted(_STDLIB_ALLOWED_NAMES),
+        "stdlib_banidos": sorted(_STDLIB_BANNED_NAMES),
+        "gerados": sorted(_GENERATED_HEADERS),
+        "camadas_puras": [
+            {"rotulo": label, "partes": list(parts)} for label, parts in _PURE_LAYER_DIR_SPECS
+        ],
+        "total_casos": len(cases_out),
+        "casos": cases_out,
+    }
+    with open(os.path.join(dest_dir, "manifest.json"), "w", encoding="utf-8") as handle:
+        json.dump(manifest, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return manifest
+
+
+def export_fixtures_main(args):
+    """`check_layers.py --export-fixtures <pasta-vazia>` (docs/plano-
+    layers-l5.md §4.1 item 3). Nunca roda oraculo nenhum aqui - so'
+    planta fixture e chama a MESMA check_layers() do modo real."""
+    if len(args) != 1:
+        fail("usage: check_layers.py --export-fixtures <pasta-vazia>")
+    dest_dir = args[0]
+    if os.path.isdir(dest_dir) and os.listdir(dest_dir):
+        fail(f"pasta de exportacao nao esta vazia: {dest_dir}")
+    os.makedirs(dest_dir, exist_ok=True)
+    manifest = _export_case_tables(dest_dir, _CASE_TABLES)
+    print(f"{SCRIPT_NAME}: --export-fixtures: {manifest['total_casos']} casos exportados em {dest_dir}")
+
+
+def selftest_case_table_registry_x2(scratch, capture):
+    """X2 (docs/plano-layers-l5.md §4.1 item 4): ida e volta - exporta
+    pro scratch e confere que `total_casos` bate com a soma do
+    registro, e que os bytes de cada alvo plantado sao IDENTICOS a
+    `case.content` (nunca lidos como texto - L-4 §3, 'toda fixture e
+    gravada em binario')."""
+    del capture  # X2 usa o proprio capture de _export_case_tables(), nao o do chamador
+    dest_dir = os.path.join(scratch, "x2_export")
+    manifest = _export_case_tables(dest_dir, _CASE_TABLES)
+    expected_total = sum(len(table) for _label, table, _mode in _CASE_TABLES)
+    ok = True
+    if manifest["total_casos"] != expected_total:
+        print(
+            f"selftest: X2 FALHOU (total_casos={manifest['total_casos']}, esperado {expected_total})",
+            file=sys.stderr,
+        )
+        ok = False
+    for label, table, _mode in _CASE_TABLES:
+        for case in table:
+            planted_path = os.path.join(dest_dir, f"{label}_{case.name}", *case.plant_dir, case.plant_name)
+            with open(planted_path, "rb") as handle:
+                actual_bytes = handle.read()
+            if actual_bytes != case.content:
+                print(f"selftest: X2 FALHOU (bytes divergem em {label}:{case.name})", file=sys.stderr)
+                ok = False
+    if ok:
+        print(f"selftest: X2 OK ({expected_total} casos, ida e volta byte a byte)")
+    return ok, 1
+
+
+def selftest_case_table_registry_x3(scratch, capture):
+    """X3 (docs/plano-layers-l5.md §4.1 item 5): o manifesto grava o
+    veredito REAL, nunca o declarado. Tabela PRIVADA de proposito - vive
+    DENTRO desta funcao, nunca no nivel do modulo, entao X1 (que so'
+    enxerga o nivel do modulo) nunca a enumera."""
+    del capture
+    private_table = (
+        Case(
+            "X3_declared_passes_real_reproves",
+            b"#include <fstream>\n",
+            "passes",  # DECLARADO errado de proposito - o real tem de reprovar
+        ),
+    )
+    private_registry = (("X3", private_table, "compilar"),)
+    dest_dir = os.path.join(scratch, "x3_export")
+    manifest = _export_case_tables(dest_dir, private_registry)
+    ok = True
+    entry = manifest["casos"][0]
+    if entry["veredito_declarado"] != "passes":
+        print("selftest: X3 FALHOU (veredito_declarado nao capturado)", file=sys.stderr)
+        ok = False
+    if entry["veredito_real"] != "reprovou":
+        print(
+            f"selftest: X3 FALHOU (veredito_real={entry['veredito_real']!r}, esperado 'reprovou' - "
+            "o manifesto gravou o declarado no lugar do real)",
+            file=sys.stderr,
+        )
+        ok = False
+    if ok:
+        print("selftest: X3 OK (manifesto grava o veredito REAL, nao o declarado)")
+    return ok, 1
+
+
 # Cada entrada e' (funcao, *args-extra-alem-de-scratch/capture) - a
 # lista declarativa que selftest_main() abaixo so' percorre, no lugar
 # de uma chamada por linha (L-17: a antiga tinha 50 linhas so' de
@@ -3176,6 +3451,9 @@ _SELFTEST_GROUPS = (
     (run_case_table, "L", _FAMILY_L_CASES),
     (run_case_table, "M", _FAMILY_M_CASES),
     (selftest_normalize_newlines_property,),
+    (selftest_case_table_registry_x1,),
+    (selftest_case_table_registry_x2,),
+    (selftest_case_table_registry_x3,),
 )
 
 
@@ -3207,6 +3485,8 @@ def main():
     args = sys.argv[1:]
     if args and args[0] == "--selftest":
         selftest_main()
+    elif args and args[0] == "--export-fixtures":
+        export_fixtures_main(args[1:])
     else:
         real_main(args)
 

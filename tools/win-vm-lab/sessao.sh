@@ -229,12 +229,44 @@ remover_sobreposicao() {
 
 # --- 3b. copia avulsa da definicao (V-5b, D-2/D-3/D-4) -----------------------
 # `criar_sobreposicao`/`remover_sobreposicao` acima ja sao genericas (dois
-# parametros, base/overlay, sem nada hardcoded do disco da VM) -- V-5b as
-# REUSA tal qual para a sobreposicao do NVRAM, porque o NVRAM do OVMF
-# moderno tambem e' qcow2 (confirmado no XML real:
-# `<nvram ... format='qcow2'>`, medido 22/09/2026). O TPM nao e' qcow2 (e'
-# um DIRETORIO de estado do swtpm), por isso ganha o par proprio logo
-# abaixo.
+# parametros, base/overlay, sem nada hardcoded do disco da VM). A V-5b
+# original tentou REUSA-LAS tal qual para o NVRAM (mesmo mecanismo do
+# disco), por o NVRAM do OVMF moderno tambem ser qcow2 (confirmado no XML
+# real: `<nvram ... format='qcow2'>`, medido 22/09/2026) -- mas a V-5c
+# (primeiro arranque real, 23/09/2026, V5-RELATORIO.md) MEDIU que isso
+# nao funciona: libvirt abre o pflash da copia com `"backing":null`, UM
+# SO no de blockdev (diferente do `<disk>`, que ganha DOIS nos com religa
+# explicita `"backing":"..."`); a cadeia de backing embutida no cabecalho
+# do overlay nunca e' honrada em tempo de execucao, e o convidado arranca
+# com a area de variaveis de firmware ZERADA (nem Secure Boot enrolado,
+# nem ordem de arranque) -- guest-ping nunca responde. Por isso o NVRAM
+# usa `criar_copia_nvram` (copia INTEIRA, `cp`), no MESMO molde que o
+# estado do TPM ja usava por nao ser qcow2 (`criar_copia_tpm_state`,
+# abaixo) -- a semelhanca acabou sendo com o TPM, nao com o disco. O
+# arquivo de VARS mede ~528 KiB (medido); copia inteira por sessao e'
+# barata.
+
+criar_copia_nvram() {
+  local base="$1" destino="$2"
+
+  if [ ! -f "$base" ]; then
+    echo "ERRO: arquivo de NVRAM base nao existe: ${base}" >&2
+    return 1
+  fi
+  if [ -e "$destino" ]; then
+    echo "ERRO: copia de sessao do NVRAM ja existe, recuso sobrescrever: ${destino}" >&2
+    return 1
+  fi
+
+  cp -- "$base" "$destino"
+  local rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "ERRO: copia do NVRAM falhou (codigo ${rc})." >&2
+    return 1
+  fi
+  echo "copia de sessao do NVRAM criada: ${destino} (de ${base}, copia INTEIRA, nao sobreposicao)"
+  return 0
+}
 
 criar_copia_tpm_state() {
   local permanente_dir="$1" sessao_dir="$2"
@@ -502,8 +534,8 @@ passo_ligar_vm() {
   fi
   TEARDOWN_TPM_STATE_DIR="$tpm_dir_sessao"
 
-  echo "--- criando sobreposicao de NVRAM por sessao (mesmo mecanismo do disco) ---"
-  if ! criar_sobreposicao "$(xmlstarlet sel -t -v "/domain/os/nvram" "$permanente" 2>/dev/null)" "$nvram_sessao"; then
+  echo "--- criando copia INTEIRA do NVRAM por sessao (V-5c: nao e mais sobreposicao qcow2) ---"
+  if ! criar_copia_nvram "$(xmlstarlet sel -t -v "/domain/os/nvram" "$permanente" 2>/dev/null)" "$nvram_sessao"; then
     return 1
   fi
   TEARDOWN_NVRAM_OVERLAY="$nvram_sessao"
@@ -1127,6 +1159,130 @@ STUB
   return 1
 }
 
+# --- selftest V-5c (achado do primeiro arranque real da V-5, 23/09/2026) ----
+# Estreia vermelha proposital (L-36): contra o codigo de ANTES do conserto
+# (passo_ligar_vm ainda chamando criar_sobreposicao() para o NVRAM), esta
+# prova REPROVA -- a copia de sessao do NVRAM sai com "backing file:" no
+# cabecalho qcow2 e nao bate em tamanho/soma com a base, exatamente o
+# defeito medido contra a maquina real (V5-RELATORIO.md, sub-fatia V-5):
+# libvirt abre o pflash da copia com "backing":null, UM SO no de blockdev
+# (diferente do <disk>, que ganha dois nos com religa explicita) -- a
+# cadeia de backing do overlay nunca e' honrada em tempo de execucao, e o
+# convidado arranca com a area de variaveis de firmware ZERADA. So depois
+# do conserto (criar_copia_nvram, definida acima) esta prova aprova.
+#
+# Roda o script INTEIRO por --ligar, com dublê de virsh (nunca a maquina
+# real), e a verificacao acontece DENTRO da sessao, antes do teardown
+# apagar a copia -- por isso um MUTANTE que reverta passo_ligar_vm de
+# volta para criar_sobreposicao() no ramo do NVRAM e' pego por ESTE
+# teste (exercita a fiacao real), nao so por uma chamada direta e isolada
+# a criar_copia_nvram().
+selftest_v5c_nvram_sem_backing() {
+  local work_dir="$1"
+  local base_disco base_nvram tpm_perm permanente_fix bin_ok verify_script
+  local lock_c overlay_c nvram_c tpm_c
+  local ok
+
+  base_disco="${work_dir}/v5c-disco-base.qcow2"
+  base_nvram="${work_dir}/v5c-nvram-base.qcow2"
+  tpm_perm="${work_dir}/v5c-tpm-permanente"
+  qemu-img create -f qcow2 -- "$base_disco" 4M >/dev/null
+  qemu-img create -f qcow2 -- "$base_nvram" 1M >/dev/null
+  # marca de conteudo real na base -- um qcow2 recem-criado sem nenhuma
+  # escrita poderia, por acidente, colidir em soma com um overlay vazio;
+  # a marca garante que a prova de soma prova algo de verdade.
+  printf 'v5c-nvram-marca-de-conteudo-real' | dd of="$base_nvram" bs=1 seek=131072 conv=notrunc status=none 2>/dev/null
+  mkdir -p "$tpm_perm"
+  echo "duble-tpm-state" >"${tpm_perm}/tpm2-00.permall"
+
+  permanente_fix="${work_dir}/v5c-permanente.xml"
+  cp -- "${SCRIPT_DIR}/fixtures/dominio-limpo.xml" "$permanente_fix"
+  xmlstarlet ed -L -u "/domain/devices/disk[@device='disk']/source/@file" -v "$base_disco" "$permanente_fix"
+  xmlstarlet ed -L -u "/domain/os/nvram" -v "$base_nvram" "$permanente_fix"
+
+  bin_ok="${work_dir}/v5c-bin-ok"
+  mkdir -p "$bin_ok"
+  cat >"${bin_ok}/virsh" <<STUB
+#!/usr/bin/env bash
+[ "\$1" = "-c" ] && shift 2
+sub="\$1"; shift
+case "\$sub" in
+  domstate) echo "desligado"; exit 0 ;;
+  dumpxml) cat "$permanente_fix"; exit 0 ;;
+  create) exit 0 ;;
+  destroy) exit 0 ;;
+  qemu-agent-command) echo '{"return":{}}'; exit 0 ;;
+  *) echo "duble virsh: subcomando nao esperado: \$sub \$*" >&2; exit 99 ;;
+esac
+STUB
+  chmod +x "${bin_ok}/virsh"
+
+  verify_script="${work_dir}/v5c-verify.sh"
+  cat >"$verify_script" <<'VERIFY'
+#!/usr/bin/env bash
+set -u
+nvram_c="$1"
+base_nvram="$2"
+if [ ! -e "$nvram_c" ]; then
+  echo "FALTA: copia de sessao do NVRAM nao existe"
+  exit 1
+fi
+if qemu-img info "$nvram_c" 2>/dev/null | grep -qi "backing file:"; then
+  echo "REPROVADO: copia de sessao do NVRAM ainda tem backing file (sobreposicao, nao copia inteira)"
+  qemu-img info "$nvram_c" 2>&1
+  exit 1
+fi
+tam_base=$(stat -c %s "$base_nvram")
+tam_copia=$(stat -c %s "$nvram_c")
+if [ "$tam_base" != "$tam_copia" ]; then
+  echo "REPROVADO: tamanho diverge (base=${tam_base} copia=${tam_copia})"
+  exit 1
+fi
+soma_base=$(sha256sum "$base_nvram" | cut -d' ' -f1)
+soma_copia=$(sha256sum "$nvram_c" | cut -d' ' -f1)
+if [ "$soma_base" != "$soma_copia" ]; then
+  echo "REPROVADO: soma sha256 diverge (base=${soma_base} copia=${soma_copia})"
+  exit 1
+fi
+echo "APROVADO: sem backing, tamanho e soma identicos a base"
+exit 0
+VERIFY
+  chmod +x "$verify_script"
+
+  lock_c="${work_dir}/v5c-a/.vm.lock"
+  overlay_c="${work_dir}/v5c-a/overlay.qcow2"
+  nvram_c="${work_dir}/v5c-a/nvram-sessao.qcow2"
+  tpm_c="${work_dir}/v5c-a/tpm-sessao"
+  mkdir -p "${work_dir}/v5c-a"
+
+  echo ">>> V5C-NVRAM-SEM-BACKING: dentro da sessao ligada, a copia de sessao do NVRAM tem de:"
+  echo "    (1) NAO ter 'backing file:' no cabecalho qcow2 (nao e mais sobreposicao);"
+  echo "    (2) ter o MESMO tamanho em bytes da base;"
+  echo "    (3) ter a MESMA soma sha256 da base (copia INTEIRA, nao so metadados)."
+  local saida_c rc_c
+  saida_c="$(PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+    --lock "$lock_c" --base "$base_disco" --overlay "$overlay_c" \
+    --ligar --nvram-overlay "$nvram_c" --tpm-state-dir "$tpm_c" \
+    --tpm-state-dir-permanente "$tpm_perm" --prazo-ping 5 \
+    -- bash "$verify_script" "$nvram_c" "$base_nvram" 2>&1)"
+  rc_c=$?
+  echo "$saida_c" | grep -E "APROVADO|REPROVADO|FALTA|backing file|ERRO"
+  echo ">>> rc=${rc_c} (esperado 0)"
+
+  if [ "$rc_c" -eq 0 ]; then
+    ok=1
+  else
+    ok=0
+  fi
+
+  if [ "$ok" -eq 1 ]; then
+    echo "V5C-NVRAM-SEM-BACKING OK: a copia de sessao do NVRAM e' copia inteira, sem backing, tamanho/soma batendo."
+    return 0
+  fi
+  echo "V5C-NVRAM-SEM-BACKING FALHOU."
+  return 1
+}
+
 selftest() {
   local work_dir ok=1
   work_dir="$(mktemp -d /var/tmp/glintfx-sessao-selftest.XXXXXX)"
@@ -1148,9 +1304,11 @@ selftest() {
   echo
   selftest_v5b_tres_copias "$work_dir" || ok=0
   echo
+  selftest_v5c_nvram_sem_backing "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E1, E2, E7 e os quatro cenarios V5B-* se comportaram como esperado."
+    echo "SELFTEST OK: E1, E2, E7, os quatro cenarios V5B-* e o V5C-NVRAM-SEM-BACKING se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

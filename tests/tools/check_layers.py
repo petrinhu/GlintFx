@@ -52,17 +52,34 @@
 # formas sao reconhecidas. Ver _directive_argument() e
 # _ANCHOR_DIRECTIVE_CASES abaixo.
 #
+# PHASE-2-3 (re-verificacao do lider, 22/09/2026, apos o ANCHOR-ON-
+# DIRECTIVE acima): a ancora por LINHA FISICA sozinha trocou o falso
+# positivo original por DOIS falsos negativos, medidos contra
+# src/core/ - `#include \` + quebra + `<fstream>` e `#include /* nada
+# */ <fstream>` (a diretiva partida entre duas linhas fisicas, ou com
+# um comentario no meio) nao eram mais vistos. A causa e que o
+# pre-processador real nao le linha fisica: a fase 2 da traducao
+# emenda barra-invertida-e-nova-linha ANTES de qualquer diretiva ser
+# reconhecida, e a fase 3 troca cada comentario por um espaco,
+# respeitando literais de cadeia e de caractere. _splice_lines() e
+# _strip_comments_and_literals() modelam as duas fases; _directive_
+# lines() as encadeia e so entao aplica _directive_argument() por
+# linha LOGICA resultante. Ver o comentario PHASE-2-3 mais abaixo, no
+# topo dessas tres funcoes, para o detalhe e os cinco casos
+# confirmados contra `g++ -std=c++23 -fsyntax-only`.
+#
 # Usage:
 #   check_layers.py <source-root-directory>
 #   check_layers.py --selftest
 #
 # --selftest runs the four original GODS_LAWS.md L-40 controls (positive,
 # negative, a SECOND negative specific to the file-I/O headers added by
-# the ASSET-LOAD conserto of 28/08/2026, empty-scan) PLUS the three
+# the ASSET-LOAD conserto of 28/08/2026, empty-scan) PLUS the four
 # controls LAYERS-GATE-GFSS-GFUI adds (a violation control and a
 # per-directory floor control, each looped over the four gfss/gfui
-# directories, and the ANCHOR-ON-DIRECTIVE control table) against
-# disposable fixtures under a scratch directory,
+# directories; the ANCHOR-ON-DIRECTIVE control table; and the
+# PHASE-2-3 control table) against disposable fixtures under a
+# scratch directory,
 # never against the real tracked tree.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -120,17 +137,195 @@ _IMPORT_DIRECTIVE_PATTERN = re.compile(r'^\s*(?:export\s+)?import\s*(<[^>\n]*>|"
 
 
 def _directive_argument(line):
-    """Returns the bracketed/quoted header-name argument of a line that
-    is a #include or a C++23 header-unit import directive, or None
-    when the line is neither (prose, a comment, plain code, a module
-    import with no header-name form). Only the captured argument -
-    never the rest of the line - is searched for the forbidden
-    needles, so a real include followed by an unrelated trailing
-    comment on the same physical line ("#include <good.hpp> // GL/
-    stuff") does not false-positive on the comment half either.
+    """Returns the bracketed/quoted header-name argument of a LOGICAL
+    line (post phase-2/phase-3, see _directive_lines() below) that is
+    a #include or a C++23 header-unit import directive, or None when
+    the line is neither (prose, a comment, plain code, a module import
+    with no header-name form). Only the captured argument - never the
+    rest of the line - is searched for the forbidden needles, so a
+    real include followed by an unrelated trailing comment on the same
+    logical line ("#include <good.hpp> // GL/ stuff") does not false-
+    positive on the comment half either.
     """
     match = _INCLUDE_DIRECTIVE_PATTERN.match(line) or _IMPORT_DIRECTIVE_PATTERN.match(line)
     return match.group(1) if match else None
+
+
+# PHASE-2-3 (achado real, 22/09/2026, re-verificacao do lider apos o
+# ANCHOR-ON-DIRECTIVE acima): _directive_argument() sozinho ancora
+# certo NA LINHA FISICA, mas o pre-processador real NAO le linha
+# fisica. Medido em copia fora da arvore, nos DOIS sentidos, contra
+# src/core/ (a camada que ja era protegida antes desta fatia):
+#   - `#include \` + quebra + `<fstream>` - o portao ancorado por linha
+#     fisica NAO via (falso negativo: cada metade da diretiva cai em
+#     uma linha fisica diferente, nenhuma delas casa sozinha).
+#   - `#include /* nada */ <fstream>` - idem (o comentario de bloco no
+#     meio da diretiva impede o regex de casar `#\s*include\s*<...>`
+#     como uma unica sequencia).
+# A causa: a norma C++ especifica duas fases de traducao ANTES de
+# qualquer diretiva ser reconhecida - fase 2 emenda toda linha
+# terminada em barra invertida com a seguinte (ANTES de qualquer
+# comentario ou literal ser identificado, entao a emenda acontece
+# mesmo "dentro" do que vira comentario/string), e fase 3 troca cada
+# comentario por um unico espaco, respeitando literais de cadeia e de
+# caractere (um '/*' ou uma '"' dentro de aspas nao abre comentario
+# nem fecha a string). _splice_lines() modela a fase 2; _strip_
+# comments_and_literals() modela a fase 3; _directive_lines() as
+# encadeia e SO ENTAO aplica _directive_argument() por linha LOGICA
+# resultante, preservando o numero da linha FISICA original (a do
+# primeiro caractere da linha logica) para a mensagem de reprovacao
+# continuar citando arquivo:linha certo. Cada caso deste comentario
+# foi confirmado contra o compilador real (`g++ -std=c++23
+# -fsyntax-only`) antes de virar controle de --selftest - GODS_LAWS.md
+# L-22: "a pesquisa vem antes do planejamento", aqui aplicada como "o
+# compilador vem antes da minha tabela".
+#
+# LIMITACAO CONHECIDA, verificada ausente em src/core, src/gfss,
+# src/gfui, include/glintfx/{core,gfss,gfui} em 22/09/2026 (grep por
+# `R"..."(`  devolveu zero ocorrencias): string literal bruta
+# (`R"delim(...)delim"`) nao e reconhecida como estado proprio - seu
+# conteudo e varrido como codigo comum. Nao e lacuna silenciosa: este
+# paragrafo a nomeia, para quando este projeto passar a usar `R"(...)"`
+# nessas camadas.
+def _splice_lines(text):
+    """Phase 2 (emenda de linha): uma barra invertida imediatamente
+    seguida de nova linha (\\n ou \\r\\n) e removida, juntando a linha
+    fisica com a seguinte - incondicionalmente, antes de qualquer
+    comentario ou literal ser reconhecido. Retorna (spliced_text,
+    origin_lines): origin_lines[i] e o numero da linha fisica (1-based)
+    de onde veio o caractere spliced_text[i] - mesmo tamanho dos dois,
+    sempre.
+    """
+    origin_lines = []
+    out = []
+    line_no = 1
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if ch == "\\" and i + 1 < n and text[i + 1] in ("\n", "\r"):
+            if text[i + 1] == "\r" and i + 2 < n and text[i + 2] == "\n":
+                i += 3
+            else:
+                i += 2
+            line_no += 1
+            continue
+        out.append(ch)
+        origin_lines.append(line_no)
+        if ch == "\n":
+            line_no += 1
+        i += 1
+    return "".join(out), origin_lines
+
+
+def _strip_comments_and_literals(text, origin_lines):
+    """Phase 3 (parcial): troca cada comentario de bloco (/* ... */,
+    podendo atravessar linhas) e de linha (// ... ate a proxima nova
+    linha real) por um UNICO espaco, sem entrar em literais de cadeia
+    ou de caractere (uma barra invertida escapa o proximo caractere
+    dentro de um literal, entao uma aspas escapada nao o fecha cedo).
+    Retorna (clean_text, clean_lines) no mesmo contrato de alinhamento
+    de _splice_lines() acima - sempre do mesmo tamanho um do outro.
+    """
+    state_code, state_string, state_char, state_block, state_line = range(5)
+    state = state_code
+    out = []
+    out_lines = []
+    comment_start_line = None
+    n = len(text)
+    i = 0
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if state == state_code:
+            if ch == "/" and nxt == "*":
+                state = state_block
+                comment_start_line = origin_lines[i]
+                i += 2
+                continue
+            if ch == "/" and nxt == "/":
+                state = state_line
+                comment_start_line = origin_lines[i]
+                i += 2
+                continue
+            if ch == '"':
+                state = state_string
+            elif ch == "'":
+                state = state_char
+            out.append(ch)
+            out_lines.append(origin_lines[i])
+            i += 1
+            continue
+        if state in (state_string, state_char):
+            out.append(ch)
+            out_lines.append(origin_lines[i])
+            if ch == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                out_lines.append(origin_lines[i + 1])
+                i += 2
+                continue
+            if (state == state_string and ch == '"') or (state == state_char and ch == "'"):
+                state = state_code
+            i += 1
+            continue
+        if state == state_block:
+            if ch == "*" and nxt == "/":
+                out.append(" ")
+                out_lines.append(comment_start_line)
+                state = state_code
+                i += 2
+                continue
+            i += 1
+            continue
+        if state == state_line:
+            if ch == "\n":
+                out.append(" ")
+                out_lines.append(comment_start_line)
+                out.append(ch)
+                out_lines.append(origin_lines[i])
+                state = state_code
+                i += 1
+                continue
+            i += 1
+            continue
+    if state in (state_line, state_block):
+        # Comentario nao fechado ate o fim do arquivo (arquivo mal
+        # formado) - emite o espaco mesmo assim, em vez de descartar
+        # o restante em silencio; um '*/' faltando ja seria erro de
+        # compilacao real antes disso.
+        out.append(" ")
+        out_lines.append(comment_start_line)
+    return "".join(out), out_lines
+
+
+def _directive_lines(text):
+    """Gera (linha_fisica, argumento) para cada diretiva #include/
+    import encontrada em `text`, apos modelar as fases 2 e 3 da
+    traducao (ver o comentario PHASE-2-3 acima). `linha_fisica` e a
+    linha do PRIMEIRO caractere da linha logica correspondente - onde
+    a diretiva de fato comeca no arquivo real, mesmo quando ela foi
+    emendada ou teve um comentario no meio.
+    """
+    spliced_text, spliced_lines = _splice_lines(text)
+    clean_text, clean_lines = _strip_comments_and_literals(spliced_text, spliced_lines)
+
+    start = 0
+    n = len(clean_text)
+    for idx, ch in enumerate(clean_text):
+        if ch != "\n":
+            continue
+        segment = clean_text[start:idx]
+        if segment.strip():
+            argument = _directive_argument(segment)
+            if argument is not None:
+                yield clean_lines[start], argument
+        start = idx + 1
+    if start < n:
+        segment = clean_text[start:n]
+        if segment.strip():
+            argument = _directive_argument(segment)
+            if argument is not None:
+                yield clean_lines[start], argument
 
 
 def fail(message):
@@ -173,12 +368,13 @@ def violations_in_file(path):
     violations = []
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as handle:
-            for lineno, line in enumerate(handle, start=1):
-                argument = _directive_argument(line)
-                if argument is not None and _FORBIDDEN_PATTERN.search(argument):
-                    violations.append((path, lineno))
+            text = handle.read()
     except OSError as exc:
         print(f"{SCRIPT_NAME}: {path}: open refused ({exc})", file=sys.stderr)
+        return violations
+    for lineno, argument in _directive_lines(text):
+        if _FORBIDDEN_PATTERN.search(argument):
+            violations.append((path, lineno))
     return violations
 
 
@@ -606,6 +802,78 @@ def selftest_anchor_directive_control(scratch, capture):
     return ok
 
 
+# PHASE-2-3 control (re-verificacao do lider, 22/09/2026): os cinco
+# casos abaixo, cada um confirmado contra `g++ -std=c++23
+# -fsyntax-only` antes de virar controle (ver o comentario PHASE-2-3
+# no topo do arquivo). Cada entrada e o CONTEUDO MULTI-LINHA completo
+# plantado num arquivo novo de src/core/ - nao uma unica linha, porque
+# o proprio fenomeno sob teste (emenda de linha, comentario
+# multi-linha) so existe atravessando mais de uma linha fisica.
+_PHASE23_DIRECTIVE_CASES = (
+    ("case_a_splice_before_bracket", "#include \\\n<fstream>\n", True),
+    ("case_b_block_comment_mid_directive", "#include /* nada */ <fstream>\n", True),
+    (
+        "case_c_directive_inside_block_comment",
+        "/*\n#include <windows.h>\n*/\n",
+        False,
+    ),
+    (
+        "case_d_quote_does_not_open_comment",
+        'const char* s = "/*";\n#include <fstream>\n// */\n',
+        True,
+    ),
+    (
+        "case_e_line_comment_swallows_spliced_continuation",
+        "// comentario \\\n#include <fstream>\n",
+        False,
+    ),
+)
+
+
+def selftest_phase23_directive_control(scratch, capture):
+    ok = True
+    for name, content, should_reprove in _PHASE23_DIRECTIVE_CASES:
+        root = os.path.join(scratch, f"phase23_{name}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"{name}.cpp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(content)
+
+        outcome = capture(lambda: check_layers(root))
+        reproved = not outcome.result
+
+        if should_reprove and not reproved:
+            print(
+                f"selftest: controle FASE-2-3 FALHOU ({name} deveria ter "
+                "reprovado, mas passou)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if should_reprove and target not in outcome.text:
+            print(
+                f"selftest: controle FASE-2-3 FALHOU ({name} reprovou, mas "
+                f"nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if not should_reprove and reproved:
+            print(
+                f"selftest: controle FASE-2-3 FALHOU ({name} deveria ter "
+                "passado, mas reprovou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+
+        verdict = "reprovado" if should_reprove else "passou"
+        print(f"selftest: controle FASE-2-3 OK ({name} {verdict} como esperado)")
+    return ok
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -618,6 +886,7 @@ def selftest_main():
             selftest_negative_control_gfss_gfui(scratch, capture),
             selftest_gfss_gfui_per_directory_floor(scratch, capture),
             selftest_anchor_directive_control(scratch, capture),
+            selftest_phase23_directive_control(scratch, capture),
         ]
         if not all(controls):
             print("check_layers.py --selftest: FALHOU (ver acima)", file=sys.stderr)

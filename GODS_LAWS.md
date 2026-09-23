@@ -253,7 +253,7 @@ Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativ
 
 **Data:** regra permanente. **Verbatim:** *"commite cada fatia e push cada onda completada"*.
 
-**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag continuam exigindo aval explícito no contexto.**
+**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag, ao fim de onda com tudo verde, estão autorizados de forma permanente, sem nova pergunta** (terceira emenda, 22/09/2026, abaixo). Fora do fim de onda, continuam exigindo aval explícito no contexto.
 
 **EMENDA de 28/08/2026, ordem do líder. Verbatim:** *"qualquer push sem verificacao fica sendo branch. push / merge para main apenas apoś fim de onda com tudo verde"*.
 
@@ -283,7 +283,7 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 ⚠️ **"Tudo verde" é o conjunto, não a fatia.** Cada fatia ter passado o próprio portão **não substitui** a verificação de conjunto: é justamente onde fatias entregues em paralelo se atropelam, e onde uma contagem que cada uma ajustou sozinha deixa de bater.
 
-⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag continuam exigindo **aval explícito no contexto**. O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
+⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag fora do fim de onda continuam exigindo **aval explícito no contexto** (ao fim de onda com tudo verde, ver a terceira emenda). O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
 
 **Corolário de honestidade:** o agente **não decide** que "está verificado o bastante". Verificado significa **medido, com a saída à vista**; na dúvida, é ramo.
 
@@ -301,6 +301,19 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 **Vermelho nela bloqueia a onda inteira**, ainda que todas as outras linhas estejam ✅, e o conserto entra como fatia da **própria** onda — nunca é empurrado para a seguinte, porque isso seria a onda fechando com dívida.
 
 **É sempre a ÚLTIMA linha da onda**, por construção: depende de todas as outras. E o `Depende de` dela é a onda inteira, não um item específico.
+
+**TERCEIRA EMENDA, de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Verbatim, na ordem em que vieram:
+*"autorizo push/merge/tag ao fim de ondas"*; em seguida *"Ao fim da onda, a tag é sempre aumentar um ponto no segundo número"*. Essa segunda frase alteraria a L-26, e foi contestada antes (o aumento do segundo número avisa incompatibilidade ao consumidor, porque antes da 1.0 o pacote usa compatibilidade pela versão menor, e a subida para 0.5 tinha acabado de quebrar o consumidor de teste e deixar 8 trabalhos vermelhos; e o número deixaria de distinguir recurso de correção). Levada a escolha, o líder respondeu *"opcao 2 e nao precisa ficar me perguntando a cada tag"*: **a tabela da L-26 fica como está**, e o pedido de não ser perguntado alterava esta L-11, que foi contestada também (a marca é pública e na prática permanente; em 08/09 uma saiu antes do veredito do servidor). Confirmação final do líder, por `AskUserQuestion`: *"Confirmar a alteração"*.
+
+**A regra que fica:**
+
+| Momento | O que o agente faz |
+|---|---|
+| Fim de onda, com a linha `CI-VERDE-<onda>` fechada (todos os trabalhos do servidor lidos da ferramenta, nunca do painel) | **Merge em `main` e cria a marca, sem perguntar.** Relata depois. |
+| Número da marca | **Pela tabela da L-26**: recurso novo sobe o segundo; só correção sobe o terceiro; só construção, empacotamento ou teste sobe o quarto. Nunca "sempre o segundo". |
+| Onda em andamento | Continua valendo a primeira e a segunda emenda: ramo próprio, nunca `main`. |
+
+**O que esta emenda NÃO autoriza:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. A autorização é para o fim de onda **com tudo verde**, e o portão de fechamento é o que prova isso, e não a impressão do agente.
 
 ## L-12
 

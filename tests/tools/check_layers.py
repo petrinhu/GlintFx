@@ -702,7 +702,63 @@ def real_main(args):
 
 # --- fixtures and controls for --selftest -----------------------------
 
-
+# FIXTURE-WRITE-CRLF-DOUBLING (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3,
+# 23/09/2026, vermelho do servidor real - run 35845851878, os tres
+# trabalhos Windows do CI reprovaram em selftest_crlf_control() com
+# "case_splice_crlf deveria ter reprovado, mas passou" e o gemeo do
+# outro caso invertido): TODA gravacao de fixture abaixo abria com
+# `open(path, "w", encoding="utf-8")` - modo texto SEM `newline=""`.
+# O modulo `io` do Python, em modo texto de escrita com `newline=None`
+# (o default), traduz cada caractere `\n` da string para `os.linesep`
+# ANTES de gravar, e faz isso incondicionalmente - nao verifica se ja
+# havia um `\r` logo antes. No Windows, `os.linesep` e `\r\n`; um
+# conteudo que ja carrega `\r\n` literal (as quatro fixtures de
+# _CRLF_DIRECTIVE_CASES, unicas com isso) virava `\r` (inalterado) +
+# `\r\n` (o `\n` traduzido) = `\r\r\n` em disco - TRIPLICADO, nao o
+# `\r\n` unico que um checkout git real produz. Reproduzido com o
+# CODIGO DE PRODUCAO desta mesma funcao (nao uma reimplementacao),
+# gravando os bytes que uma escrita em modo texto do Windows produziria
+# e chamando check_layers() puro: o controle inverte exatamente como no
+# servidor (`check_layers() == True` quando deveria reprovar).
+#
+# Por que a duplicacao quebra justo o caso do SPLICE: a leitura de
+# violations_in_file() usa modo texto universal (`newline=None` no
+# `open("r", ...)`, ver o comentario dali) - toda sequencia `\r\n`,
+# `\r` ou `\n` vira `\n` ANTES do texto chegar em
+# _translate_phases_2_and_3(). Um `\r\r\n` em disco e' lido como `\r`
+# sozinho (nao seguido de `\n` de imediato) -> um `\n`, e depois o
+# `\r\n` seguinte -> outro `\n`: DOIS `\n` para cada UM que devia
+# existir. No caso_splice_crlf isso insere uma linha logica extra
+# exatamente entre `#include \` e `<fstream>` depois da fase 2 emendar
+# a barra invertida com o primeiro `\n` - o `<fstream>` sobrevivente
+# fica isolado na SUA PROPRIA linha logica, sem `#include` na frente, e
+# o portao nao acha diretiva nenhuma para examinar: falso negativo.
+#
+# Conserto: `newline=""` em TODAS as nove gravacoes de fixture deste
+# arquivo (L-17, "isolado ou padrao" - a duplicacao so se MANIFESTA nos
+# quatro casos com `\r\n` literal, mas a causa e generica a qualquer
+# `open(..., "w", encoding="utf-8")` sem `newline`, entao o conserto e
+# generico tambem, nao so nas quatro gravacoes de CRLF). `newline=""`
+# desliga a traducao de fim de linha por completo - contrato documentado
+# do modulo `io`, nao comportamento medido so nesta maquina -, e por
+# isso o byte gravado e sempre `conteudo.encode("utf-8")` exato,
+# QUALQUER que seja o SO: confirmado abaixo (nao so citado da doc) que,
+# com o conserto, o arquivo em disco bate byte a byte com
+# `content.encode("utf-8")`, sem nenhuma substituicao dependente de
+# `os.linesep` - o mesmo resultado, byte a byte, que uma gravacao real
+# no Windows produziria.
+#
+# Lado da LEITURA, conferido e DEIXADO como esta (nao e o defeito): um
+# `\r` isolado (nao seguido de `\n`) DENTRO de uma diretiva de inclusao
+# foi testado contra g++ 16.2.1 e clang++ 22.1.8 nesta fatia
+# (`#include\r<fstream>\n`, arquivo `lonecr_in_directive.cpp` de
+# verificacao) - os DOIS compiladores tratam o `\r` isolado como
+# terminador de linha, identico a `\n`: `#include` sozinho reprova por
+# faltar argumento, e `<fstream>` sobra intacto na proxima linha, nunca
+# expandido. Isso e EXATAMENTE o que o modo texto universal do Python
+# ja faz na leitura (`\r` isolado -> `\n`), entao `violations_in_file()`
+# concorda com os dois compiladores sem precisar de `newline=""` do
+# lado de leitura - so o lado de ESCRITA das fixtures tinha o defeito.
 def make_scratch_workdir():
     # A hand written Unix path does not exist on every platform (Windows
     # has no /tmp). dir=os.environ.get("TMPDIR") without a hardcoded
@@ -713,7 +769,7 @@ def make_scratch_workdir():
 
 def _write_clean_file(path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as handle:
+    with open(path, "w", encoding="utf-8", newline="") as handle:
         handle.write("#include <cstdint>\n// clean layer file, no OS or upper-layer header\n")
 
 
@@ -772,7 +828,7 @@ def selftest_negative_control(scratch, capture):
     target_dir = os.path.join(root, "include", "glintfx", "core")
     os.makedirs(target_dir, exist_ok=True)
     target = os.path.join(target_dir, "dirty.hpp")
-    with open(target, "w", encoding="utf-8") as handle:
+    with open(target, "w", encoding="utf-8", newline="") as handle:
         handle.write("#include <wayland-client.h>\n")
 
     outcome = capture(lambda: check_layers(root))
@@ -807,7 +863,7 @@ def selftest_negative_control_file_header(scratch, capture):
     root = os.path.join(scratch, "negative_file_header")
     make_clean_fixture(root)
     target = os.path.join(root, "src", "core", "dirty_file_io.cpp")
-    with open(target, "w", encoding="utf-8") as handle:
+    with open(target, "w", encoding="utf-8", newline="") as handle:
         handle.write("#include <fstream>\n")
 
     outcome = capture(lambda: check_layers(root))
@@ -872,7 +928,7 @@ def selftest_negative_control_gfss_gfui(scratch, capture):
         root = os.path.join(scratch, f"negative_gfss_gfui_{safe_label}")
         make_clean_fixture(root)
         target = os.path.join(root, *parts, "dirty.hpp")
-        with open(target, "w", encoding="utf-8") as handle:
+        with open(target, "w", encoding="utf-8", newline="") as handle:
             handle.write("#include <wayland-client.h>\n")
 
         outcome = capture(lambda: check_layers(root))
@@ -970,7 +1026,7 @@ def selftest_anchor_directive_control(scratch, capture):
         root = os.path.join(scratch, f"anchor_{index}")
         make_clean_fixture(root)
         target = os.path.join(root, "src", "core", f"anchor_case_{index}.cpp")
-        with open(target, "w", encoding="utf-8") as handle:
+        with open(target, "w", encoding="utf-8", newline="") as handle:
             handle.write(planted_line)
 
         outcome = capture(lambda: check_layers(root))
@@ -1043,7 +1099,7 @@ def selftest_phase23_directive_control(scratch, capture):
         root = os.path.join(scratch, f"phase23_{name}")
         make_clean_fixture(root)
         target = os.path.join(root, "src", "core", f"{name}.cpp")
-        with open(target, "w", encoding="utf-8") as handle:
+        with open(target, "w", encoding="utf-8", newline="") as handle:
             handle.write(content)
 
         outcome = capture(lambda: check_layers(root))
@@ -1174,7 +1230,7 @@ def selftest_raw_string_control(scratch, capture):
         root = os.path.join(scratch, f"rawstring_{name}")
         make_clean_fixture(root)
         target = os.path.join(root, "src", "core", f"{name}.cpp")
-        with open(target, "w", encoding="utf-8") as handle:
+        with open(target, "w", encoding="utf-8", newline="") as handle:
             handle.write(content)
 
         outcome = capture(lambda: check_layers(root))
@@ -1249,7 +1305,7 @@ def selftest_crlf_control(scratch, capture):
         root = os.path.join(scratch, f"crlf_{name}")
         make_clean_fixture(root)
         target = os.path.join(root, "src", "core", f"{name}.cpp")
-        with open(target, "w", encoding="utf-8") as handle:
+        with open(target, "w", encoding="utf-8", newline="") as handle:
             handle.write(content)
 
         outcome = capture(lambda: check_layers(root))
@@ -1308,7 +1364,7 @@ def selftest_bom_control(scratch, capture):
         root = os.path.join(scratch, f"bom_{name}")
         make_clean_fixture(root)
         target = os.path.join(root, "src", "core", f"{name}.cpp")
-        with open(target, "w", encoding="utf-8") as handle:
+        with open(target, "w", encoding="utf-8", newline="") as handle:
             handle.write(content)
 
         outcome = capture(lambda: check_layers(root))

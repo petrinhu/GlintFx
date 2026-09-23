@@ -4128,3 +4128,29 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D-14:** o pré-requisito `PKG-WIN-INTEROP` já está satisfeito.
 
 **O que continua exigindo o líder, mesmo em modo autônomo:** a V-6b (escrita irreversível no disco de 17 GiB; o plano informa que cópia por `reflink` em btrfs a tornaria reversível); a V-7 (instalar no convidado, L-51); a ratificação de D-1 a D-14; e **o desvio da L-11 já consumado** - código da onda enviado direto ao principal antes de existir o ramo `onda-w7b`, erro do main, relatado a ele em 22/09 às 22:18. **Pendência de lei, não alterada:** a L-18 ainda diz `fable`; a confirmação de hoje foi sobre a L-34.
+
+## 23/09/2026 - 06:52 | Plano da `W7-D`: dezessete decisões do C-level no lugar do líder, e uma decisão sua que nunca tinha sido aplicada
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois de pesquisar (SDL3, GLFW, raylib, sokol, bgfx, NanoVG e outras; licença conferida antes de ler código). **Texto inteiro de cada decisão:** `docs/plano-w7d.md`, seção 9, um bloco por decisão.
+
+**A decisão principal foi REFEITA depois de o main medir um erro de fato.** A primeira versão da D-W7D-01 dizia que os pré-requisitos de `INPUT-EVENTS` estavam "todos na W9". O main mediu a coluna: são quatro, dois na W9 (`WL-KEYBOARD`, `WL-POINTER`) e **dois na W11c** (`KEYMAP-MODSTATE`, `KEYMAP-UTF8`). Mover para a W9 só trocaria um bloqueio por outro. Refazendo, o C-level mediu a cadeia inteira e achou mais duas coisas: **um ciclo** (`WIN-INPUT`, na W9, depende de `INPUT-EVENTS`, que não fecha sem o lado Windows pela L-04) e **uma decisão do líder que nunca foi aplicada na tabela**: em 22/09/2026 às 09:20 (entrada acima neste arquivo, linha 3910), ao decidir que tecla e texto são dois eventos, o líder registrou que *"`INPUT-EVENTS` deixa de depender de `KEYMAP-MODSTATE`/`KEYMAP-UTF8`"*. O main conferiu a frase no arquivo.
+
+- **D-W7D-01 (refeita):** dividir pela dependência real. Na W9: um núcleo interno de entrada novo (`INPUT-SEQUENCE-CORE`, sem nada público, primeira linha da onda), depois teclado e ponteiro no Wayland e no Windows, depois `INPUT-EVENTS` com tecla física, ponteiro, foco e estado por passo. Na W11c, duas fatias novas: `INPUT-TEXT` (texto digitado) e `INPUT-KEY-LOGICAL` (modificador lógico e símbolo pelo leiaute), chegando por acréscimo compatível. **O que se perde, declarado:** até a W11c não há texto digitado nem estado da trava de maiúsculas; para jogo não falta, para caixa de texto falta.
+- **D-W7D-02:** a quina fica em fatia nova da trilha de mapa, `MAP-STEP-RESOLVE` (W11a), não numa grade mínima dentro da entrada.
+- **D-W7D-03:** teclado e controle pelo mesmo caminho numa camada própria, `INPUT-ACTIONS` (W11c).
+- **D-W7D-04:** entrada por evento **e** por estado, com contagem de descidas e subidas por passo - toque curto nunca some (defeito que raylib, GLFW e SDL têm).
+- **D-W7D-05:** identificador físico de tecla = uso HID, página 0x07.
+- **D-W7D-06:** o modo de economia do sistema vira fatia nova pós-demo, `GFX-POWER-SAVER` (W9-B).
+- **D-W7D-07:** `balanced` e `performance` continuam iguais, e isso é declarado.
+- **D-W7D-08:** o relato de falha do desenho sai uma única vez, em `finish_frame()`, chamado pelo consumidor antes de apresentar - **porta de mão única, ponto obrigatório da revisão de API**.
+- **D-W7D-09:** a transformação do lote é feita no processador, em precisão dupla; só a matriz pixel para recorte vai em precisão simples à placa (honra a decisão do líder sobre precisão).
+- **D-W7D-10:** ordem por chave única (camada, submissão), sem reordenar por textura; o otimizador vira fatia nova `R2D-BATCH-OPTIMIZER` (W9-B).
+- **D-W7D-11:** o desenhador não confia em estado de GL deixado pelo consumidor, e oferece `flush()` público.
+- **D-W7D-12:** a cor segue a opção `srgb_framebuffer`, com os dois caminhos provados.
+- **D-W7D-13:** peça inválida é descartada e contada; falta de memória vira erro no fim do quadro.
+- **D-W7D-14:** o desenho 2D mora numa camada nova, `src/draw2d` e `include/glintfx/draw2d`, acima de `platform/gl`.
+- **D-W7D-15:** o gerador do carregador de GL passa a emitir um resolvedor com contexto (`void *user`).
+- **D-W7D-16:** `fill_quad` entra na primeira versão, junto de `fill_rect`.
+- **D-W7D-17:** `GFX-PRESET` antes de `R2D-BATCH`, com as revisões de API adiantáveis em paralelo.
+
+**Marca ao fim da W7-D, pela tabela da L-26:** `v0.6.0.0` (recurso novo). **Continua exigindo o líder:** ratificar as dezessete, com destaque para D-W7D-01, D-W7D-02 e D-W7D-08. Nenhuma API pública congela antes das duas revisões de API dedicadas. Nenhuma lei muda; nenhum pacote a instalar. **As mudanças na tabela** (mover `INPUT-EVENTS`, criar as seis fatias novas, corrigir a coluna de pré-requisitos e o texto podre "bloqueado por GL-API" em `R2D-BATCH` e `DEMO-1`) entram quando a W7-D abrir, no ramo dela, com o portão pedido pelo plano: nenhum item depende de item de onda posterior, nenhum ciclo entre os itens de entrada.

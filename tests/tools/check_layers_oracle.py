@@ -1535,7 +1535,11 @@ def selftest_oracle_o23_std_stubs_written_and_ordered(scratch, capture):
     normalized = _write_std_stubs(ctx, stub_dir, names)
 
     on_disk = set(os.listdir(stub_dir))
-    all_empty = all(os.path.getsize(os.path.join(stub_dir, n)) == 0 for n in names)
+    # os.path.getsize SO' pros nomes que de fato existem em disco - um
+    # mutante que pula um nome (M-O23c) nao pode fazer isto EXPLODIR em
+    # vez de reprovar nomeando O-23 (GODS_LAWS.md L-27, mesmo achado ja'
+    # visto em O-20/O-22).
+    all_empty = all(os.path.getsize(os.path.join(stub_dir, n)) == 0 for n in on_disk)
     names_match = on_disk == set(names) and len(normalized) == len(names)
 
     ctx.include_dirs = ("/fixture/include", "/fixture/generated")

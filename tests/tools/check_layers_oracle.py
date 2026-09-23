@@ -473,60 +473,121 @@ def compare_direction(pulled_forbidden, returncode, veredito_real):
 # --- calibracao (secao 7.1) ----------------------------------------------
 
 
+class _CalibrationExpectedPaths:
+    """Agrupa os dois caminhos ESPERADOS que `evaluate_calibration()`
+    confere contra a arvore reconstruida (GODS_LAWS.md L-17: reduz a
+    assinatura de `evaluate_calibration` de 5 pra 4 parametros - mesmo
+    motivo de `_OracleContext`/`_CalibrationRawResult`)."""
+
+    __slots__ = ("sentinel_norm", "leaf_norm")
+
+    def __init__(self, sentinel_norm, leaf_norm):
+        self.sentinel_norm = sentinel_norm
+        self.leaf_norm = leaf_norm
+
+
+class _CalibrationResult:
+    """docs/plano-layers-l5-adendo-calibracao.md L-5e: `standard_paths`
+    (o conjunto de caminhos REAIS que vira `ctx.standard_paths` pra
+    classificacao - ate' L-5f repor esse papel pelos vazios de
+    `std_stubs/`), `census` (nomes-base do C-2, pro piso e pro
+    relatorio) e `absent` (nomes permitidos FORA do censo, sempre
+    impressos - GODS_LAWS.md L-40)."""
+
+    __slots__ = ("standard_paths", "census", "absent")
+
+    def __init__(self, standard_paths, census, absent):
+        self.standard_paths = standard_paths
+        self.census = census
+        self.absent = absent
+
+
 def build_calibration_fixture(scratch_dir, stdlib_permitidos, layer_dir_parts):
     """Um arquivo, numa pasta pura de uma raiz de CALIBRACAO (propria,
-    nunca a raiz de um caso real), tentando incluir CADA nome permitido
-    via `__has_include` (ausencia de um cabecalho num compilador velho
-    nao mata a calibracao inteira), mais `sentinela_projeto.hpp`
-    (arquivo IRMAO que por sua vez inclui `<cstdint>`)."""
+    nunca a raiz de um caso real). docs/plano-layers-l5-adendo-
+    calibracao.md secao 3 (C-3 endurecido): a SONDA comeca pela
+    sentinela (`#include "sentinela_projeto.hpp"` e' a PRIMEIRA linha -
+    antes vinha por ultimo), e a sentinela inclui `<cstdint>` e DEPOIS
+    `folha_projeto.hpp` (arquivo IRMAO, vazio, nome unico - so' prova
+    atribuicao de pai). So' DEPOIS da sentinela vem a tentativa de
+    incluir CADA nome permitido via `__has_include` (ausencia de um
+    cabecalho num compilador velho nao mata a calibracao inteira)."""
     layer_dir = os.path.join(scratch_dir, *layer_dir_parts)
     os.makedirs(layer_dir, exist_ok=True)
+    leaf_path = os.path.join(layer_dir, "folha_projeto.hpp")
+    with open(leaf_path, "w", encoding="utf-8", newline="\n"):
+        pass
     sentinel_path = os.path.join(layer_dir, "sentinela_projeto.hpp")
     with open(sentinel_path, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("#include <cstdint>\n")
-    lines = []
+        handle.write('#include <cstdint>\n#include "folha_projeto.hpp"\n')
+    lines = ['#include "sentinela_projeto.hpp"']
     for name in stdlib_permitidos:
         lines.append(f"#if __has_include(<{name}>)")
         lines.append(f"#include <{name}>")
         lines.append("#endif")
-    lines.append('#include "sentinela_projeto.hpp"')
     calibration_path = os.path.join(layer_dir, "calibration_probe.hpp")
     with open(calibration_path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(lines) + "\n")
-    return calibration_path, sentinel_path
+    return calibration_path, sentinel_path, leaf_path
 
 
-def evaluate_calibration(ctx, normalized_nodes, sentinel_norm, stdlib_permitidos):
-    """Reprova (falha de instrumento, docs/plano-layers-l5.md §7.1),
-    NUNCA pulo, se: sentinela_projeto.hpp nao aparece como filho
-    direto; `<cstdint>` nao aparece nem direto nem sob a sentinela; ou
-    o conjunto de caminhos padrao achado tem menos que
-    `_MIN_STDLIB_PATHS` nomes (instrumento cego, O-8)."""
+def _sentinel_first_depth1_index(depth1, sentinel_norm):
+    """C-3 endurecido (docs/plano-layers-l5-adendo-calibracao.md secao
+    3): a sentinela tem de ser o PRIMEIRO no de profundidade 1 - nao
+    so' 'aparecer em algum lugar'. A valvula antiga ("`<cstdint>`
+    direto") SAI: so' existia porque a sentinela vinha por ultimo."""
+    if depth1 and depth1[0][1] == sentinel_norm:
+        return depth1[0][0]
+    return None
+
+
+def _stdlib_census(normalized_nodes, depth1, stdlib_names):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 3 (C-2): nomes-
+    base permitidos presentes em QUALQUER profundidade, cujo DIRETORIO
+    e' o de pelo menos um filho DIRETO da sonda com nome permitido -
+    barra homonimos em `tr1/`, `experimental/`, `ext/` (O-22)."""
+    allowed_dirs = {os.path.dirname(path) for _idx, path in depth1 if os.path.basename(path) in stdlib_names}
+    return {
+        os.path.basename(path)
+        for _depth, path, _parent in normalized_nodes
+        if os.path.basename(path) in stdlib_names and os.path.dirname(path) in allowed_dirs
+    }
+
+
+def evaluate_calibration(ctx, normalized_nodes, expected, stdlib_permitidos):
+    """Reprova (falha de INSTRUMENTO, NUNCA pulo), nesta ordem, se: a
+    sentinela nao e' o PRIMEIRO no de profundidade 1; a folha nao
+    aparece como filha dela; `<cstdint>` nao aparece como filho dela
+    (as tres exigencias duras de docs/plano-layers-l5-adendo-
+    calibracao.md secao 3); ou o CENSO (secao 3, C-2) tem menos que
+    `_MIN_STDLIB_PATHS` nomes (O-8/O-22)."""
     del ctx  # mantido na assinatura por simetria com as demais funcoes de baixo nivel
     stdlib_names = set(stdlib_permitidos)
     depth1 = [(idx, path) for idx, (depth, path, _parent) in enumerate(normalized_nodes) if depth == 1]
-    sentinel_matches = [idx for idx, path in depth1 if path == sentinel_norm]
-    if not sentinel_matches:
-        raise _IncludeTreeError("calibracao: sentinela_projeto.hpp nao apareceu como filho direto (falha de instrumento)")
-    sentinel_index = sentinel_matches[0]
-
-    direct_cstdint = any(os.path.basename(path) == "cstdint" for _idx, path in depth1)
-    under_sentinel_cstdint = any(
-        parent == sentinel_index and os.path.basename(path) == "cstdint"
-        for _depth, path, parent in normalized_nodes
-    )
-    if not (direct_cstdint or under_sentinel_cstdint):
+    sentinel_index = _sentinel_first_depth1_index(depth1, expected.sentinel_norm)
+    if sentinel_index is None:
         raise _IncludeTreeError(
-            "calibracao: <cstdint> nao apareceu nem direto nem sob sentinela_projeto.hpp (falha de instrumento)"
+            "calibracao: sentinela_projeto.hpp nao e' o PRIMEIRO no de profundidade 1 (falha de instrumento)"
         )
+    leaf_under = any(
+        parent == sentinel_index and path == expected.leaf_norm for _d, path, parent in normalized_nodes
+    )
+    if not leaf_under:
+        raise _IncludeTreeError("calibracao: folha_projeto.hpp nao apareceu sob a sentinela (falha de instrumento)")
+    cstdint_under = any(
+        parent == sentinel_index and os.path.basename(path) == "cstdint" for _d, path, parent in normalized_nodes
+    )
+    if not cstdint_under:
+        raise _IncludeTreeError("calibracao: <cstdint> nao apareceu sob a sentinela (falha de instrumento)")
 
     standard_paths = {path for _idx, path in depth1 if os.path.basename(path) in stdlib_names}
-    if len(standard_paths) < _MIN_STDLIB_PATHS:
+    census = _stdlib_census(normalized_nodes, depth1, stdlib_names)
+    if len(census) < _MIN_STDLIB_PATHS:
         raise _IncludeTreeError(
-            f"calibracao: so' {len(standard_paths)} caminhos padrao encontrados, piso e {_MIN_STDLIB_PATHS} "
-            "(instrumento cego)"
+            f"calibracao: so' {len(census)} nomes no censo, piso e {_MIN_STDLIB_PATHS} (instrumento cego)"
         )
-    return standard_paths
+    absent = sorted(stdlib_names - census)
+    return _CalibrationResult(standard_paths, census, absent)
 
 
 class _CalibrationRawResult:
@@ -588,6 +649,16 @@ def _format_calibration_diagnostics(ctx, normalized_nodes, sentinel_norm, raw_re
     return "\n".join(lines)
 
 
+def _print_calibration_report(ctx, result):
+    """docs/plano-layers-l5-adendo-calibracao.md L-5e: censo, ausentes
+    e (no MSVC) o prefixo aprendido - impressos SEMPRE, nunca so' na
+    falha (GODS_LAWS.md L-40)."""
+    print(f"{SCRIPT_NAME}: calibracao: censo={len(result.census)} (piso {_MIN_STDLIB_PATHS})")
+    print(f"{SCRIPT_NAME}: calibracao: ausentes ({len(result.absent)}): {result.absent!r}")
+    if ctx.dialect == "MSVC":
+        print(f"{SCRIPT_NAME}: calibracao: prefixo MSVC aprendido: {ctx.msvc_prefix!r}")
+
+
 def run_calibration(ctx, scratch, manifest):
     """UM processo, antes de qualquer fixture de caso (docs/plano-
     layers-l5.md §6.1/§7.1). Falha de instrumento (`_IncludeTreeError`
@@ -598,18 +669,25 @@ def run_calibration(ctx, scratch, manifest):
     calib_dir = os.path.join(scratch, "calibration")
     os.makedirs(calib_dir, exist_ok=True)
     layer_parts = manifest["camadas_puras"][0]["partes"]
-    calib_path, sentinel_path = build_calibration_fixture(calib_dir, manifest["stdlib_permitidos"], layer_parts)
+    calib_path, sentinel_path, leaf_path = build_calibration_fixture(
+        calib_dir, manifest["stdlib_permitidos"], layer_parts
+    )
     raw_output, returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path)
     if ctx.dialect == "MSVC":
         ctx.msvc_prefix = learn_msvc_prefix(raw_output, os.path.basename(sentinel_path))
     normalized_nodes = _parse_tree(ctx, raw_output, workdir)
-    sentinel_norm = normalize_compiler_path(ctx.dialect, sentinel_path, workdir)
+    expected = _CalibrationExpectedPaths(
+        normalize_compiler_path(ctx.dialect, sentinel_path, workdir),
+        normalize_compiler_path(ctx.dialect, leaf_path, workdir),
+    )
     try:
-        return evaluate_calibration(ctx, normalized_nodes, sentinel_norm, manifest["stdlib_permitidos"])
+        result = evaluate_calibration(ctx, normalized_nodes, expected, manifest["stdlib_permitidos"])
     except _IncludeTreeError as original:
         raw_result = _CalibrationRawResult(raw_output, returncode)
-        diagnostics = _format_calibration_diagnostics(ctx, normalized_nodes, sentinel_norm, raw_result)
+        diagnostics = _format_calibration_diagnostics(ctx, normalized_nodes, expected.sentinel_norm, raw_result)
         raise _IncludeTreeError(f"{original}\n{diagnostics}") from original
+    _print_calibration_report(ctx, result)
+    return result.standard_paths
 
 
 # --- sentinelas por fixture (secao 7.2) ----------------------------------
@@ -1108,35 +1186,169 @@ def selftest_oracle_o7_depth_jump_is_instrument_failure(scratch, capture):
     return raised, 1
 
 
+def _raises_include_tree_error(fn, *args):
+    """Roda `fn(*args)` e devolve True SO' se `_IncludeTreeError` for
+    levantada - reduz o boilerplate de try/except repetido nos
+    controles de calibracao (O-8, O-21, O-22)."""
+    try:
+        fn(*args)
+    except _IncludeTreeError:
+        return True
+    return False
+
+
+def _o21_o22_filler(count=_MIN_STDLIB_PATHS, dirpath="/usr/include/c++/16"):
+    """Gera `count` cabecalhos padrao SINTETICOS, cada um filho DIRETO
+    da sonda (profundidade 1) no MESMO diretorio - completa o censo
+    (piso `_MIN_STDLIB_PATHS`) sem que O-8/O-21 precisem testar o
+    filtro de diretorio (essa e' a tarefa exclusiva do O-22)."""
+    names = tuple(f"filler{i}" for i in range(count))
+    nodes = [(1, f"{dirpath}/{name}", None) for name in names]
+    return nodes, names
+
+
 def selftest_oracle_o8_calibration_instrument_failures(scratch, capture):
-    """O-8: calibracao SEM a sentinela -> falha; com menos de
-    `_MIN_STDLIB_PATHS` caminhos padrao -> falha."""
+    """O-8 (forma nova, L-5e): calibracao SEM a sentinela -> falha;
+    censo abaixo de `_MIN_STDLIB_PATHS` -> falha. A medida EXATA do
+    censo (filtro de diretorio, homonimos) e' tarefa do O-22; aqui e'
+    so' a borda grosseira."""
     del scratch, capture
     ctx = _make_ctx_for_test("GNU")
+    expected = _CalibrationExpectedPaths(
+        "/proj/src/core/sentinela_projeto.hpp", "/proj/src/core/folha_projeto.hpp",
+    )
     missing_sentinel_nodes = [(1, "/usr/include/c++/16/cstdint", None)]
-    raised_missing_sentinel = False
-    try:
-        evaluate_calibration(ctx, missing_sentinel_nodes, "/proj/src/core/sentinela_projeto.hpp", ("cstdint",))
-    except _IncludeTreeError:
-        raised_missing_sentinel = True
+    raised_missing_sentinel = _raises_include_tree_error(
+        evaluate_calibration, ctx, missing_sentinel_nodes, expected, ("cstdint",)
+    )
 
+    filler_nodes, filler_names = _o21_o22_filler(count=_MIN_STDLIB_PATHS - 1)
     too_few_nodes = [
-        (1, "/proj/src/core/sentinela_projeto.hpp", None),
-        (1, "/usr/include/c++/16/cstdint", None),
-    ]
-    raised_too_few = False
-    try:
-        evaluate_calibration(
-            ctx, too_few_nodes, "/proj/src/core/sentinela_projeto.hpp",
-            tuple(f"nome{i}" for i in range(200)),
-        )
-    except _IncludeTreeError:
-        raised_too_few = True
+        (1, expected.sentinel_norm, None),
+        (2, expected.leaf_norm, 0),
+        (2, "/usr/include/c++/16/cstdint", 0),
+    ] + filler_nodes
+    # "cstdint" fica DE FORA da lista de permitidos aqui de proposito:
+    # o no <cstdint> sob a sentinela so' precisa satisfazer a exigencia
+    # dura (basename literal, evaluate_calibration nao consulta a lista
+    # pra isso); incluir "cstdint" nela inflaria o censo em +1 e o piso
+    # de 59 fillers passaria a 60, escondendo o proprio caso que este
+    # controle testa.
+    raised_too_few = _raises_include_tree_error(evaluate_calibration, ctx, too_few_nodes, expected, filler_names)
 
     ok = raised_missing_sentinel and raised_too_few
     label = "selftest: O-8"
     print(
         f"{label} OK" if ok else f"{label} FALHOU (sentinela={raised_missing_sentinel}, piso={raised_too_few})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+def _o21_scenarios(filler_nodes, sentinel_norm, leaf_norm):
+    """Os quatro cenarios (b)-(e) do O-21 (docs/plano-layers-l5-adendo-
+    calibracao.md L-5e), fatorados pra `selftest_oracle_o21_*` caber no
+    teto de linhas de L-17. `filler_nodes` (60 cabecalhos SINTETICOS,
+    profundidade 1) completa o censo em TODOS os cenarios que chegam
+    ate' o piso."""
+    cstdint_path = "/usr/include/c++/16/cstdint"
+    good = [(1, sentinel_norm, None), (2, leaf_norm, 0), (2, cstdint_path, 0)] + filler_nodes
+    no_leaf = [(1, sentinel_norm, None), (2, cstdint_path, 0)] + filler_nodes
+    old_valve = [(1, sentinel_norm, None), (2, leaf_norm, 0), (1, cstdint_path, None)] + filler_nodes
+    not_first = [
+        (1, filler_nodes[0][1], None), (1, sentinel_norm, None), (2, leaf_norm, 1), (2, cstdint_path, 1),
+    ] + filler_nodes[1:]
+    return (
+        ("b_passa", good, True),
+        ("c_sem_folha", no_leaf, False),
+        ("d_valvula_antiga", old_valve, False),
+        ("e_nao_primeiro", not_first, False),
+    )
+
+
+def selftest_oracle_o21_sentinel_first_and_leaf_required(scratch, capture):
+    """O-21 (L-5e, C-3 endurecido): a sentinela tem de ser o PRIMEIRO no
+    de profundidade 1, com a folha e `<cstdint>` sob ela - a valvula
+    antiga ("`<cstdint>` direto") sai. (a) o ARQUIVO de sonda comeca
+    pela sentinela; (b)-(e): quatro cenarios enlatados de
+    `_o21_scenarios`."""
+    del capture
+    filler_nodes, filler_names = _o21_o22_filler()
+    stdlib_names = filler_names + ("cstdint",)
+    sentinel_norm = "/proj/src/core/sentinela_projeto.hpp"
+    leaf_norm = "/proj/src/core/folha_projeto.hpp"
+    expected = _CalibrationExpectedPaths(sentinel_norm, leaf_norm)
+    ctx = _make_ctx_for_test("GNU")
+
+    calib_dir = os.path.join(scratch, "o21a_probe")
+    calib_path, _sentinel_disk, _leaf_disk = build_calibration_fixture(calib_dir, ("cstdint",), ("src", "core"))
+    with open(calib_path, "r", encoding="utf-8") as handle:
+        first_directive_ok = handle.readline().strip() == '#include "sentinela_projeto.hpp"'
+
+    scenarios = _o21_scenarios(filler_nodes, sentinel_norm, leaf_norm)
+    results = {
+        name: _raises_include_tree_error(evaluate_calibration, ctx, nodes, expected, stdlib_names) == (not expect_pass)
+        for name, nodes, expect_pass in scenarios
+    }
+    ok = first_directive_ok and all(results.values())
+    label = "selftest: O-21"
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (arquivo={first_directive_ok}, cenarios={results!r})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+_O22_ANCHOR_DIR = "/usr/include/c++/16"
+_O22_ANCHOR_NAME = "vector"
+_O22_HOMONYM_NAME = "tuple"
+
+
+def _o22_nodes(depth2_count, include_homonym):
+    """docs/plano-layers-l5-adendo-calibracao.md L-5e, O-22: sentinela +
+    folha + `<cstdint>` (as tres exigencias duras, satisfeitas a parte)
+    MAIS um filho DIRETO ancora (profundidade 1, no diretorio ANCHOR) e
+    `depth2_count` nomes permitidos SINTETICOS em profundidade 2,
+    filhos da ancora - "so' em profundidade 2 ou maior, dentro de um
+    diretorio com filho direto permitido". Um homonimo opcional em
+    `tr1/`, cujo diretorio NAO tem filho direto permitido."""
+    sentinel_norm = "/proj/src/core/sentinela_projeto.hpp"
+    leaf_norm = "/proj/src/core/folha_projeto.hpp"
+    anchor_path = f"{_O22_ANCHOR_DIR}/{_O22_ANCHOR_NAME}"
+    nodes = [
+        (1, sentinel_norm, None),
+        (2, leaf_norm, 0),
+        (2, f"{_O22_ANCHOR_DIR}/cstdint", 0),
+        (1, anchor_path, None),
+    ]
+    nodes.extend((2, f"{_O22_ANCHOR_DIR}/stdname{i}", 3) for i in range(depth2_count))
+    if include_homonym:
+        nodes.append((3, f"{_O22_ANCHOR_DIR}/tr1/{_O22_HOMONYM_NAME}", len(nodes) - 1))
+    return nodes, sentinel_norm, leaf_norm
+
+
+def selftest_oracle_o22_census_whole_tree_directory_filtered(scratch, capture):
+    """O-22 (L-5e, C-2): o censo conta nomes permitidos em QUALQUER
+    profundidade, filtrados pelo DIRETORIO de um filho direto permitido
+    - um homonimo em `tr1/` (diretorio SEM filho direto permitido) NAO
+    conta; 60 nomes passa (piso exato), 59 reprova."""
+    del capture
+    ctx = _make_ctx_for_test("GNU")
+    stdlib_names = (_O22_ANCHOR_NAME, _O22_HOMONYM_NAME) + tuple(f"stdname{i}" for i in range(59))
+
+    nodes_60, sentinel_norm, leaf_norm = _o22_nodes(59, include_homonym=True)
+    expected = _CalibrationExpectedPaths(sentinel_norm, leaf_norm)
+    result_60 = evaluate_calibration(ctx, nodes_60, expected, stdlib_names)
+    exact_60 = len(result_60.census) == _MIN_STDLIB_PATHS and _O22_HOMONYM_NAME not in result_60.census
+
+    nodes_59, _s, _l = _o22_nodes(58, include_homonym=False)
+    reproves_59 = _raises_include_tree_error(evaluate_calibration, ctx, nodes_59, expected, stdlib_names)
+
+    ok = exact_60 and reproves_59
+    label = "selftest: O-22"
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (exact_60={exact_60}, reproves_59={reproves_59}, "
+        f"census={sorted(result_60.census)!r})",
         file=(sys.stdout if ok else sys.stderr),
     )
     return ok, 1
@@ -1614,6 +1826,8 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o6_judges_by_pulled_not_exit_code,),
     (selftest_oracle_o7_depth_jump_is_instrument_failure,),
     (selftest_oracle_o8_calibration_instrument_failures,),
+    (selftest_oracle_o21_sentinel_first_and_leaf_required,),
+    (selftest_oracle_o22_census_whole_tree_directory_filtered,),
     (selftest_oracle_o19_calibration_diagnostics_on_failure,),
     (selftest_oracle_o20_reader_does_not_stop_on_odd_line,),
     (selftest_oracle_o9_msvc_prefix_learned_any_locale,),

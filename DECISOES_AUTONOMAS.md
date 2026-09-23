@@ -4217,3 +4217,10 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D-1 (lista de permitidos) e D-A1 (import, module, _Pragma e asm proibidos nas camadas puras):** *"Ratificar as duas"*.
 - **W7-C, D18 e D19 (as quatro chaves internas saem do cabeçalho público; a marca sobe o segundo número):** *"Ratificar"*.
 - **Todas as demais decisões autônomas registradas** (D-1 a D-14 do fecho da W7-B; D-W7D-01 a 17; W7-C D1 a D17 e D20 a D22; D-A2 a D-A4 do portão): *"Ratificar em bloco"*.
+
+## 23/09/2026 - 13:24 | Plano da sub-fatia L-5 (oráculo do portão de camadas, só no CI pela L-45): três decisões do main
+
+**Plano:** `docs/plano-layers-l5.md` (C-level `opus`, esforço alto, com pesquisa e fonte em cada fato; nesta máquina rodou um único `g++ -H` de três linhas, nenhum oráculo). As três decisões que o planejador deixou ao orquestrador não mudam o que a biblioteca aceita nem entrega:
+- **D-L5-1:** a estreia vermelha do oráculo roda num ramo DESCARTÁVEL no servidor, com um defeito conhecido reintroduzido no portão, e o ramo é apagado logo depois. É a única forma de ver o oráculo reprovar, porque pela L-45 ele só roda no servidor; o mutante nunca vai ao ramo da onda nem a `main`. Há precedente de ramos de sonda no remoto, e a ação cabe na autorização de push do modo autônomo.
+- **D-L5-2:** se o tempo estourar o teto de `check_ci_timeouts.py`, primeiro o plano B (compilar as fixtures em lote no MSVC), antes de mexer em teto calibrado por medição.
+- **D-L5-3:** se o `ctest -N` omitir o teste desligado e a paridade Linux x Windows ficar vermelha (risco R-1), o par é declarado no mecanismo de paridade, em vez de carregar o trabalho Windows compartilhado, que está a um minuto do teto.

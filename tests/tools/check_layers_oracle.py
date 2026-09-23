@@ -1882,6 +1882,33 @@ def _build_o19_fake_raw_output():
     return "\n".join(tree_lines + [error_line]) + "\n"
 
 
+def _o19_diagnostic_checks(raised, message):
+    """As oito exigencias do diagnostico de falha de instrumento (O-19)
+    - fatorada de `selftest_oracle_o19_calibration_diagnostics_on_
+    failure` pelo teto de linhas de L-17 (achado da revisao
+    independente, 23/09/2026: a funcao tinha ido pra 53 linhas -
+    nascida em L-5b/L-5c, mesmo item LAYERS-GATE-GFSS-GFUI que L-5d-g,
+    entao dentro do escopo do fechamento, nao divida antiga)."""
+    return (
+        raised,
+        "falha de instrumento" in message,
+        "profundidade 1 normalizados" in message,
+        "sentinel_norm esperado" in message,
+        "returncode da calibracao: 1" in message,
+        "primeiras linhas CRUAS" in message and "header_0.hpp" in message,
+        "ultimas linhas CRUAS" in message and "header_23.hpp" in message,
+        "header_0.hpp" not in message.rsplit("ultimas linhas CRUAS", 1)[-1],  # janelas DIFERENTES
+        # a mensagem fatal tem de estar DENTRO do bloco "NAO-arvore" especificamente -
+        # ela TAMBEM aparece nas "ultimas linhas CRUAS" (e' a ultima linha crua de
+        # verdade), entao checar "em algum lugar da mensagem" nao provaria nada. E o
+        # PROPRIO ROTULO "NAO-arvore" tem de existir - um mutante que apague o bloco
+        # inteiro (rotulo junto) faz `rsplit` devolver a mensagem INTEIRA sem separar
+        # nada, e a checagem sozinha (sem esta primeira metade) sobrevivia.
+        "ultimas linhas NAO-arvore" in message
+        and "mensagem fatal de teste" in message.rsplit("ultimas linhas NAO-arvore", 1)[-1],
+    )
+
+
 def selftest_oracle_o19_calibration_diagnostics_on_failure(scratch, capture):
     """O-19 (achado 23/09/2026, runs 35906529355/35912952114):
     `run_calibration()` tem de anexar o diagnostico
@@ -1910,24 +1937,7 @@ def selftest_oracle_o19_calibration_diagnostics_on_failure(scratch, capture):
     except _IncludeTreeError as exc:
         raised = True
         message = str(exc)
-    checks = (
-        raised,
-        "falha de instrumento" in message,
-        "profundidade 1 normalizados" in message,
-        "sentinel_norm esperado" in message,
-        "returncode da calibracao: 1" in message,
-        "primeiras linhas CRUAS" in message and "header_0.hpp" in message,
-        "ultimas linhas CRUAS" in message and "header_23.hpp" in message,
-        "header_0.hpp" not in message.rsplit("ultimas linhas CRUAS", 1)[-1],  # janelas DIFERENTES
-        # a mensagem fatal tem de estar DENTRO do bloco "NAO-arvore" especificamente -
-        # ela TAMBEM aparece nas "ultimas linhas CRUAS" (e' a ultima linha crua de
-        # verdade), entao checar "em algum lugar da mensagem" nao provaria nada. E o
-        # PROPRIO ROTULO "NAO-arvore" tem de existir - um mutante que apague o bloco
-        # inteiro (rotulo junto) faz `rsplit` devolver a mensagem INTEIRA sem separar
-        # nada, e a checagem sozinha (sem esta primeira metade) sobrevivia.
-        "ultimas linhas NAO-arvore" in message
-        and "mensagem fatal de teste" in message.rsplit("ultimas linhas NAO-arvore", 1)[-1],
-    )
+    checks = _o19_diagnostic_checks(raised, message)
     ok = all(checks)
     label = "selftest: O-19"
     print(

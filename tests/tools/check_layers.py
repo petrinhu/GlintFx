@@ -102,8 +102,10 @@
 # the CRLF control table, the same splice/comment/raw-string shapes
 # rewritten byte-for-byte with \r\n, proving Windows-checkout line
 # endings behave identically to \n - GATE-ENV-SWEEP's LINE_ENDING
-# category) against disposable fixtures under a scratch directory,
-# never against the real tracked tree.
+# category; and the BOM control table, a leading UTF-8 byte-order mark
+# before a real directive vs. before prose only) against disposable
+# fixtures under a scratch directory, never against the real tracked
+# tree.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
 
@@ -538,10 +540,41 @@ def core_source_files(root):
     return files
 
 
+# BOM-STRIP (achado real, 23/09/2026, re-verificacao do orquestrador,
+# familia DIFERENTE da minha - codificacao, nao sintaxe): uma marca de
+# ordem de bytes UTF-8 (`EF BB BF`, decodifica pra `U+FEFF`) no INICIO
+# do arquivo e' descartada pelo compilador ANTES da fase 1 - g++
+# 16.2.1 e clang++ 22.1.8 confirmados, os dois aceitam `<BOM>#include
+# <fstream>` e puxam `<fstream>` normalmente. `encoding="utf-8"` puro
+# NAO faz isso: o Python devolve a marca como o primeiro caractere da
+# string (`\ufeff`), que nao casa `\s` (`'\ufeff'.isspace()` e' False),
+# entao `^\s*#` de _INCLUDE_DIRECTIVE_PATTERN falhava bem no inicio do
+# arquivo - falso negativo, o mesmo lado perigoso das duas familias
+# anteriores. `encoding="utf-8-sig"` e' o codec padrao do Python pra
+# exatamente isso: descarta a marca se ela existir no INICIO da
+# decodificacao, e e' identico a `"utf-8"` quando ela nao existe -
+# nunca precisa de `if` proprio. **Uma marca no MEIO do arquivo (nao
+# no inicio) e' erro de compilacao de verdade nos dois compiladores**
+# ("stray '#' in program" / "unexpected character <U+FEFF>"), entao
+# so' a do inicio precisa de tratamento - modelar mais que isso seria
+# consertar codigo que ja nao compila.
+#
+# LIMITACAO DECLARADA, medida em 23/09/2026 e NAO consertada aqui
+# (fora do escopo desta fatia, orientacao do orquestrador): um arquivo
+# em UTF-16 (com ou sem marca) e' INVISIVEL tanto pro portao antigo
+# (substring, commit 87a778f) quanto pro novo - `encoding="utf-8"`/
+# `"utf-8-sig"` decodificam UTF-16 como uma sequencia de caracteres
+# intercalados com NUL (`#\x00i\x00n\x00c\x00l\x00u\x00d\x00e\x00...`),
+# que nao casa nenhum padrao deste arquivo. Nao e' regressao desta
+# fatia - e' lacuna pre-existente nas duas versoes, registrada aqui
+# para o orquestrador abrir item proprio se decidir que vale consertar
+# (o compilador da Microsoft aceita fonte em UTF-16; g++/clang++ desta
+# maquina nao, sem opcao extra - nao ha como confirmar contra os dois
+# compiladores do resto deste arquivo).
 def violations_in_file(path):
     violations = []
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as handle:
             text = handle.read()
     except OSError as exc:
         print(f"{SCRIPT_NAME}: {path}: open refused ({exc})", file=sys.stderr)
@@ -1254,6 +1287,65 @@ def selftest_crlf_control(scratch, capture):
     return ok
 
 
+# BOM control (BOM-STRIP - ver a declaracao por perto de
+# violations_in_file() acima para a razao de cada caso). Os dois casos
+# que o orquestrador pediu, confirmados contra g++ 16.2.1 e clang++
+# 22.1.8 antes de virarem controle (GODS_LAWS.md L-22): marca no
+# inicio do arquivo, seguida de um #include de verdade, reprova; marca
+# no inicio seguida so' de prosa passa. `\ufeff` no INICIO da string
+# de conteudo vira, ao escrever com `encoding="utf-8"`, os tres bytes
+# `EF BB BF` no inicio do arquivo real - a mesma marca que o Visual
+# Studio grava.
+_BOM_CASES = (
+    ("case_bom_start_then_real_include", "\ufeff#include <fstream>\n", True),
+    ("case_bom_start_then_prose_only", "\ufeff// so prosa, sem diretiva\n", False),
+)
+
+
+def selftest_bom_control(scratch, capture):
+    ok = True
+    for name, content, should_reprove in _BOM_CASES:
+        root = os.path.join(scratch, f"bom_{name}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"{name}.cpp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(content)
+
+        outcome = capture(lambda: check_layers(root))
+        reproved = not outcome.result
+
+        if should_reprove and not reproved:
+            print(
+                f"selftest: controle de MARCA UTF-8 FALHOU ({name} deveria ter "
+                "reprovado, mas passou)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if should_reprove and target not in outcome.text:
+            print(
+                f"selftest: controle de MARCA UTF-8 FALHOU ({name} reprovou, "
+                f"mas nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if not should_reprove and reproved:
+            print(
+                f"selftest: controle de MARCA UTF-8 FALHOU ({name} deveria ter "
+                "passado, mas reprovou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+
+        verdict = "reprovado" if should_reprove else "passou"
+        print(f"selftest: controle de MARCA UTF-8 OK ({name} {verdict} como esperado)")
+    return ok
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -1269,6 +1361,7 @@ def selftest_main():
             selftest_phase23_directive_control(scratch, capture),
             selftest_raw_string_control(scratch, capture),
             selftest_crlf_control(scratch, capture),
+            selftest_bom_control(scratch, capture),
         ]
         if not all(controls):
             print("check_layers.py --selftest: FALHOU (ver acima)", file=sys.stderr)

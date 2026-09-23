@@ -4179,3 +4179,13 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 **Fato:** o revisor independente aprovou `5d0c173` com quatro mutações que chegaram. O main repetiu a verificação com sabotagem de outra família (L-12): numa cópia de `7beb354`, desligar o piso de varredura vazia do lado Windows deixou o `--selftest` verde, porque o único controle de inventário vazio esvazia só o lado Linux. Somado ao achado IMPORTANTE do revisor (declaração bilateral em apelido não bilateral passa calada, provado sem mutação), o item volta a ⏳ com a sub-fatia P-2.
 
 **Por que isto não é decisão no lugar do líder:** a ordem vigente dele (22/09/2026) manda buscar sempre o mais completo; fechar com dois buracos conhecidos seria o contrário. Nenhuma opção de desenho foi escolhida aqui; o desenho da P-2 é do implementador sob a especificação da fatia.
+
+## 23/09/2026 - 08:58 | Plano da sub-fatia L-4 de `LAYERS-GATE-GFSS-GFUI`: três decisões do C-level, uma delas trava numa lei
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois da busca na web obrigatória pela L-42 (segunda reprovação do item). Plano inteiro, com fontes e licenças: `docs/plano-layers-l4.md`. O planejador ampliou o achado do revisor: a tabela de macros guarda UM valor por nome, e cinco formas passam (não só `#if`/`#else`); a lista de agulhas deixou passar mais onze formas medidas nos dois compiladores.
+
+- **D-1 (adotada):** o portão troca a lista de PROIBIDOS por lista de PERMITIDOS fechada (biblioteca padrão do C++23 menos `fstream` e `filesystem`, cabeçalhos do projeto que existem nas camadas puras, os dois gerados, e inclusão relativa que resolve dentro delas). **Muda o que o portão promete detectar:** passa de "estes nomes de SO" para "só estes nomes".
+- **D-3 (adotada):** as duas lacunas da INBOX (`PORTAO-DE-CAMADA-CEGO-A-UTF16` e `PORTAO-DE-CAMADA-AGULHA-SO-MORDE-ANGULO`) entram na L-4.
+- **D-2 (NÃO adotada; espera o líder):** a sub-fatia L-5, um oráculo que compara o portão com o compilador real, gastaria um processo do compilador por fixture (cerca de 80 por rodada). A L-11 global diz, verbatim: *"PROIBIDO desenho que gasta um processo por item varrido"*. Pela LEI DAS LEIS, só o líder decide isso. A L-4 não depende da L-5; a pergunta fica para quando ele voltar, ou para um desenho da L-5 que não fira a lei.
+
+**Continua exigindo o líder:** ratificar D-1 e D-3; decidir D-2.

@@ -154,7 +154,7 @@ class _OracleContext:
     __slots__ = (
         "dialect", "compiler", "flags", "include_dirs", "executor",
         "msvc_prefix", "camadas_puras", "layer_dirs",
-        "stub_generated_paths", "standard_paths",
+        "stub_generated_paths", "standard_paths", "out_of_tree_lines_total",
     )
 
     def __init__(self, dialect, compiler, flags, include_dirs):
@@ -168,6 +168,12 @@ class _OracleContext:
         self.layer_dirs = ()
         self.stub_generated_paths = frozenset()
         self.standard_paths = frozenset()
+        # docs/plano-layers-l5-adendo-calibracao.md L-5d: acumulador de
+        # linhas fora do formato de arvore (-H/showIncludes), somado a
+        # CADA chamada de _parse_tree() pro trabalho INTEIRO (calibracao
+        # + sentinelas + todos os casos) - impresso sempre por
+        # run_oracle(), nunca so' na falha (GODS_LAWS.md L-40).
+        self.out_of_tree_lines_total = 0
 
 
 # --- dialeto: enumeracao fechada (O-17) --------------------------------
@@ -250,17 +256,23 @@ def build_preprocess_command(ctx, file_path, out_scratch_dir):
 
 def parse_gnu_dash_h_tree(output_text):
     """`-H` do GCC/Clang: cada linha `<pontos><espaco><caminho>` vira um
-    no; a PRIMEIRA linha que nao casa ENCERRA a leitura (e' o comeco da
-    lista de guardas de inclusao - traduzida pela localidade, entao
-    NUNCA reconhecida pelo conteudo, so' pela forma que para de casar -
-    O-1). Salto de profundidade (>1 de uma vez) e' falha de instrumento
-    (O-7)."""
+    no. docs/plano-layers-l5-adendo-calibracao.md L-5d (C-1): a leitura
+    NUNCA para na primeira linha que nao casa - um `#warning` (ex.:
+    backward_warning.h) pode aparecer NO MEIO do fluxo de `-H`, e os
+    nos que vem DEPOIS dele continuam fazendo parte da arvore. Cada
+    linha fora do formato (inclusive o bloco final de guardas de
+    inclusao - traduzido pela localidade, entao NUNCA reconhecido pelo
+    CONTEUDO, so' pela forma que nao casa - O-1) e' CONTADA, nunca
+    encerra o laco (O-20). Salto de profundidade (>1 de uma vez) e'
+    falha de instrumento (O-7)."""
     nodes = []
     previous_depth = 0
+    out_of_format_count = 0
     for line in output_text.splitlines():
         match = _GNU_TREE_LINE_PATTERN.match(line)
         if not match:
-            break
+            out_of_format_count += 1
+            continue
         depth = len(match.group(1))
         if depth > previous_depth + 1:
             raise _IncludeTreeError(
@@ -268,7 +280,7 @@ def parse_gnu_dash_h_tree(output_text):
             )
         nodes.append((depth, match.group(2)))
         previous_depth = depth
-    return nodes
+    return nodes, out_of_format_count
 
 
 _MSVC_NOTE_LINE_PATTERN = re.compile(r"^(.*\S)( +)(\S+)$")
@@ -375,11 +387,21 @@ def normalize_compiler_path(dialect, raw_path, workdir):
 def _parse_tree(ctx, raw_output, workdir):
     """Parse + normalizacao num passo so' - tudo a jusante trabalha com
     caminho JA normalizado, sem precisar carregar dialeto/workdir por
-    toda parte (GODS_LAWS.md L-17)."""
+    toda parte (GODS_LAWS.md L-17). docs/plano-layers-l5-adendo-
+    calibracao.md L-5d: "repassa a contagem" de linhas fora do formato
+    - via EFEITO COLATERAL em `ctx.out_of_tree_lines_total` (o mesmo
+    padrao ja usado por `ctx.msvc_prefix`/`ctx.layer_dirs`), nao por um
+    retorno em tupla, pra nao alargar a assinatura de TODO chamador
+    (`_judge_one_case`, `_judge_sentinel`, `run_calibration` e varios
+    selftests). MSVC nao tem contador proprio (parse_msvc_showincludes_
+    tree ja PULA linha sem contar, nunca parou o laco); a contagem sai
+    por diferenca (total de linhas - nos lidos), mesma semantica."""
     if ctx.dialect == "GNU":
-        nodes = parse_gnu_dash_h_tree(raw_output)
+        nodes, out_of_format_count = parse_gnu_dash_h_tree(raw_output)
     else:
         nodes = parse_msvc_showincludes_tree(raw_output, ctx.msvc_prefix)
+        out_of_format_count = len(raw_output.splitlines()) - len(nodes)
+    ctx.out_of_tree_lines_total += out_of_format_count
     with_parent = build_parent_map(nodes)
     return [
         (depth, normalize_compiler_path(ctx.dialect, raw_path, workdir), parent_index)
@@ -542,8 +564,11 @@ def _format_calibration_diagnostics(ctx, normalized_nodes, sentinel_norm, raw_re
     (a rodada anterior so' tinha as primeiras - o dado que faltou pra
     diagnosticar 35912952114 estava nas ultimas), o `returncode` do
     processo de calibracao (antes descartado, `run_calibration:542`), e
-    as 20 ultimas linhas que NAO sao de arvore (onde um `#error`/
-    mensagem fatal do compilador apareceria, se houver)."""
+    as 20 primeiras E as 20 ultimas linhas que NAO sao de arvore (onde
+    um `#error`/mensagem fatal do compilador apareceria, se houver -
+    docs/plano-layers-l5-adendo-calibracao.md L-5d: antes so' as
+    ultimas; a primeira metade do fluxo tambem pode carregar o
+    diagnostico, ex. um `#warning` cedo na arvore)."""
     depth1 = [(idx, path) for idx, (depth, path, _parent) in enumerate(normalized_nodes) if depth == 1]
     all_lines = raw_result.raw_output.splitlines()
     non_tree_lines = [line for line in all_lines if not _is_tree_output_line(ctx, line)]
@@ -556,6 +581,8 @@ def _format_calibration_diagnostics(ctx, normalized_nodes, sentinel_norm, raw_re
     lines.extend(f"    {line!r}" for line in all_lines[:20])
     lines.append(f"  20 ultimas linhas CRUAS do -H/showIncludes ({min(20, len(all_lines))} mostradas):")
     lines.extend(f"    {line!r}" for line in all_lines[-20:])
+    lines.append(f"  20 primeiras linhas NAO-arvore ({min(20, len(non_tree_lines))} mostradas):")
+    lines.extend(f"    {line!r}" for line in non_tree_lines[:20])
     lines.append(f"  20 ultimas linhas NAO-arvore ({min(20, len(non_tree_lines))} mostradas):")
     lines.extend(f"    {line!r}" for line in non_tree_lines[-20:])
     return "\n".join(lines)
@@ -751,6 +778,11 @@ def run_oracle(ctx, manifest, export_dir, scratch):
         if bucket == "violacao":
             violations.append(case)
 
+    # docs/plano-layers-l5-adendo-calibracao.md L-5d: total de linhas
+    # fora do formato de arvore, SEMPRE impresso (GODS_LAWS.md L-40) -
+    # acumulado por _parse_tree() em CADA chamada (calibracao,
+    # sentinelas, todos os casos "compilar"), nunca so' na falha.
+    print(f"{SCRIPT_NAME}: linhas fora da arvore (total do trabalho): {ctx.out_of_tree_lines_total}")
     out_of_scope_counts = (len(calibracao_cases), len(fora_de_escopo_cases))
     return _final_report(buckets, violations, manifest, out_of_scope_counts)
 
@@ -960,12 +992,17 @@ def selftest_oracle_empty_scan_control(scratch, capture):
 def selftest_oracle_o1_locale_guard_list_ignored(scratch, capture):
     """O-1: a lista de guardas traduzida no fim do `-H` e' IGNORADA -
     prova que so' os quatro nos de profundidade aparecem, mesmo com o
-    texto PT-BR medido no plano logo depois."""
+    texto PT-BR medido no plano logo depois. As duas linhas da lista de
+    guardas (o rotulo traduzido + o caminho sem pontos) contam como
+    "fora do formato" (L-5d), nunca viram no."""
     del scratch, capture
-    nodes = parse_gnu_dash_h_tree(_MEASURED_GNU_POSITIVE_CONTROL)
-    ok = len(nodes) == 4 and nodes[-1] == (2, "/usr/include/c++/16/cstddef")
+    nodes, out_of_format_count = parse_gnu_dash_h_tree(_MEASURED_GNU_POSITIVE_CONTROL)
+    ok = len(nodes) == 4 and nodes[-1] == (2, "/usr/include/c++/16/cstddef") and out_of_format_count == 2
     label = "selftest: O-1"
-    print(f"{label} OK" if ok else f"{label} FALHOU (nodes={nodes!r})", file=(sys.stdout if ok else sys.stderr))
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (nodes={nodes!r}, fora_do_formato={out_of_format_count})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
     return ok, 1
 
 
@@ -987,7 +1024,7 @@ def selftest_oracle_m_o1_mutant_is_caught(scratch, capture):
     um resultado DIFERENTE do parser real - se nao desse, O-1 nao
     estaria matando nada."""
     del scratch, capture
-    real_nodes = parse_gnu_dash_h_tree(_MEASURED_GNU_POSITIVE_CONTROL)
+    real_nodes, _out_of_format_count = parse_gnu_dash_h_tree(_MEASURED_GNU_POSITIVE_CONTROL)
     mutant_nodes = _mutant_m_o1_parse_accepts_guard_list(_MEASURED_GNU_POSITIVE_CONTROL)
     ok = real_nodes != mutant_nodes and len(mutant_nodes) > len(real_nodes)
     label = "selftest: M-O1"
@@ -1016,7 +1053,7 @@ def selftest_oracle_o2_o3_o4_depth_and_layer_gating(scratch, capture):
     ctx = _make_ctx_for_test("GNU")
     ctx.layer_dirs = ("/proj/src/core",)
     ctx.standard_paths = {"/usr/include/c++/16/cstdint"}
-    nodes = parse_gnu_dash_h_tree(_SYNTHETIC_O2_O3_O4)
+    nodes, _out_of_format_count = parse_gnu_dash_h_tree(_SYNTHETIC_O2_O3_O4)
     with_parent = build_parent_map(nodes)
     normalized = [
         (depth, ("/proj/src/core/x.hpp" if raw == "x.hpp" else "/usr/include/c++/16/" + raw.rsplit("/", 1)[-1]
@@ -1167,6 +1204,53 @@ def selftest_oracle_o19_calibration_diagnostics_on_failure(scratch, capture):
     label = "selftest: O-19"
     print(
         f"{label} OK" if ok else f"{label} FALHOU (checks={checks!r}, message={message!r})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+# --- fonte 3: SINTETICA - leitor nao para em linha estranha (L-5d/C-1) --
+#
+# docs/plano-layers-l5-adendo-calibracao.md secao 4 (L-5d): saida
+# enlatada com um NO, um `#warning` de backward_warning.h NO MEIO do
+# fluxo (nao casa o formato -H), MAIS NOS depois dele (inclusive a
+# sentinela), uma linha de aviso citando um arquivo do PROPRIO projeto,
+# e o bloco final de guardas com um caminho comecando por `../` (dois
+# pontos seguidos de `/`, NUNCA de espaco - nao casa `^\.+ `).
+_SYNTHETIC_O20_INTERLEAVED_WARNINGS = (
+    ". root_a.hpp\n"
+    ".. root_b.hpp\n"
+    "/usr/include/c++/16/backward/backward_warning.h:32:2: warning: #warning "
+    "This file includes at least one deprecated or antiquated header.\n"
+    ". sentinela_projeto.hpp\n"
+    ".. cstdint\n"
+    "./src/core/x.cpp:1:2: warning: mensagem de teste\n"
+    "Multiplos include guards podem ser uteis para:\n"
+    "../header_qualquer.hpp\n"
+)
+
+
+def selftest_oracle_o20_reader_does_not_stop_on_odd_line(scratch, capture):
+    """O-20 (L-5d, C-1): o leitor do `-H` NAO PARA na primeira linha
+    fora do formato - le os nos que vem DEPOIS de um `#warning`, com o
+    pai certo, e conta (sem virar no) as tres linhas estranhas MAIS o
+    caminho de guarda `../...`. Mata M-O20a (recoloca o `break`) e
+    M-O20b (zera a contagem)."""
+    del scratch, capture
+    nodes, out_of_format_count = parse_gnu_dash_h_tree(_SYNTHETIC_O20_INTERLEAVED_WARNINGS)
+    with_parent = build_parent_map(nodes)
+    depths_paths = [(depth, path) for depth, path, _parent in with_parent]
+    sentinel_idx = next(i for i, (_d, p, _pi) in enumerate(with_parent) if p == "sentinela_projeto.hpp")
+    cstdint_entry = next(entry for entry in with_parent if entry[1] == "cstdint")
+    ok = (
+        depths_paths == [(1, "root_a.hpp"), (2, "root_b.hpp"), (1, "sentinela_projeto.hpp"), (2, "cstdint")]
+        and with_parent[sentinel_idx][2] is None
+        and cstdint_entry[2] == sentinel_idx
+        and out_of_format_count == 4
+    )
+    label = "selftest: O-20"
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (nodes={nodes!r}, fora_do_formato={out_of_format_count})",
         file=(sys.stdout if ok else sys.stderr),
     )
     return ok, 1
@@ -1525,6 +1609,7 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o7_depth_jump_is_instrument_failure,),
     (selftest_oracle_o8_calibration_instrument_failures,),
     (selftest_oracle_o19_calibration_diagnostics_on_failure,),
+    (selftest_oracle_o20_reader_does_not_stop_on_odd_line,),
     (selftest_oracle_o9_msvc_prefix_learned_any_locale,),
     (selftest_oracle_o10_msvc_nesting_one_space_per_level,),
     (selftest_oracle_o11_msvc_case_insensitive_path,),

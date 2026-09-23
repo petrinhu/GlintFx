@@ -4236,3 +4236,44 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 **Fato medido pelo revisor (`/var/tmp/glintfx-plan/revisao-cont-warmup-c7.md` §2.5), reconferido pelo main na árvore:** reinserir o antigo `if (errno_is_eintr) { return true; }` logo depois de `wl_display_cancel_read()` em `egl_context_adapter.cpp` passa 13/13. `errno_is_eintr` só é verdadeiro com `poll_call_failed`, e o átomo devolve "não fatal" para esse par. Então o atalho e o átomo dão a MESMA resposta: é um mutante equivalente com o átomo de hoje. Nenhum teste de caixa-preta consegue matá-lo. O comentário das linhas 244-263 afirma "não há mais nenhum jeito de reintroduzir o bug original", e isso é falso, medido.
 
 **Decisão do main (dentro da ordem do líder de 22/09, "NUNCA busque o caminho mais fácil"):** o caminho barato seria só corrigir o comentário e declarar o resíduo. Ele foi recusado como fecho único. O conserto completo põe o átomo atrás de uma porta com padrão, no MESMO molde da costura `poll_impl` que já existe (ponteiro de função com `&is_incoming_poll_connection_fatal` como padrão). Um teste injeta um átomo DIVERGENTE, que declara EINTR fatal, e exige que o adaptador obedeça. O desvio deixa de ser equivalente e morre. O comentário é reescrito para dizer o que o teste prova, e não mais do que isso. Confirmar retroativamente.
+
+## 23/09/2026 - 19:15 | V-5 autorizada de novo pelo líder (não é decisão autônoma)
+
+A autorização do primeiro arranque real da máquina virtual Windows (`WIN-RUNNER-PROPRIO` V-5, `docs/plano-fecho-w7b.md` §2.2.3) valia para a noite de 22/09. O main perguntou de novo por AskUserQuestion às 19:14 de 23/09, porque aprovação dada num contexto não vale para outro. Resposta do líder: **"Pode ligar (Recomendado)"**. Condições da pergunta: sessão única, sozinha na máquina, sem nenhum outro trabalho pesado ao mesmo tempo, rede desligada, disco descartável, sem placa de vídeo, desligamento incondicional no fim.
+
+## 23/09/2026 - 19:40 | L-5 do portão de camadas: adendo de calibração (C-level opus, depois da pesquisa L-42 e de um ataque independente)
+
+**Plano:** `docs/plano-layers-l5-adendo-calibracao.md` (Caetano/CTO, opus, esforço alto), emendado por um ataque de outra família de modelo (`/var/tmp/glintfx-plan/ataque-adendo-l5.md`, APROVA COM EMENDAS). Fatos que motivam: CI de 25579ed, run 35915733879, calibração GCC com `returncode 0` e o leitor parando na primeira linha fora do formato; pesquisa em `/var/tmp/glintfx-plan/pesquisa-calibracao-l5.md`. O main conferiu na árvore `check_layers_oracle.py:828` (pasta de inclusão errada) e o `break` do leitor. As decisões abaixo são as da §7 do adendo, transcritas; o texto integral e as fontes estão lá. Confirmar retroativamente.
+
+
+Formato do arquivo: título com data e hora reais, "Quem decidiu", pergunta, opções, escolha e porquê, porta de mão única, custo de reverter, fontes. Um bloco por decisão; nenhuma muda o que a biblioteca aceita ou entrega (todas são do instrumento de teste).
+
+**D-L5d-1: o falso negativo por sombra fecha por construção, com cabeçalhos padrão vazios só no julgamento dos casos.**
+Quem decidiu: Caetano (CTO, `opus`). Pergunta que teria ido ao líder: "o oráculo pode deixar passar uma inclusão proibida escrita depois de uma permitida que já a abriu por dentro; aceitamos o risco, fechamos só no Clang, ou fechamos nos três compiladores?" Opções: declarar e aceitar; `-fshow-skipped-includes` só no Clang; `-dI` no GCC e Clang; cascas por arquivo; **cabeçalhos padrão vazios na configuração de caso (escolhida)**. Porquê: única que fecha nos três com o mesmo mecanismo (L-04) e custo zero por caso; a semântica de união do portão impede violação falsa. Não é porta de mão única; reverter é barato (um diretório de inclusão). Fontes: cpplib Guard-Macros, Clang Command Line Reference, Microsoft `once`, pycparser, clang-tidy Contributing (URLs na seção 1).
+
+**D-L5d-2: resíduo declarado, `stdc-predef.h`.**
+Quem decidiu: Caetano. Pergunta: "a pré-inclusão implícita do GCC e do Clang no Linux esconde um nome; fechamos agora ou declaramos?" Opções: `-ffreestanding` (muda o compilador sob teste); **declarar e registrar `ORACULO-CAMADAS-PREINCLUDE` (escolhida)**. Porquê: um nome só, já reprovado pela lista de permitidos do portão; mudar o modo do compilador falsearia o resto. Reverter: barato.
+
+**D-L5d-3: o leitor do `-H` lê todas as linhas e conta as estranhas (C-1), em vez de silenciar avisos.**
+Quem decidiu: Caetano. Opções: `-w`/`-Wno-deprecated`; **ler tudo e contar (escolhida)**; as duas juntas. Porquê: silenciar tapa um aviso e deixa o próximo; é o que o Ninja faz. Reverter: barato.
+
+**D-L5e-1: o piso de 60 da calibração não muda; muda o universo em que é contado.**
+Quem decidiu: Caetano. Pergunta: "o piso fixado antes do dado se mostrou inatingível; baixamos o número ou consertamos o que ele conta?" Opções: baixar para caber no que a profundidade 1 mostra; **manter 60 e contar na árvore inteira com filtro de diretório (escolhida)**. Porquê: o mecanismo documentado dos três compiladores torna a profundidade 1 incompleta por desenho; baixar o número seria ajustar critério depois de ver resultado (L-43). Reverter: barato.
+
+**D-L5e-2: a calibração exige sentinela primeiro, folha e `<cstdint>` sob a sentinela, e perde a válvula "`<cstdint>` direto".**
+Quem decidiu: Caetano. Opções: só a folha (proposta do main); **folha e `<cstdint>`, sem válvula (escolhida)**. Porquê: a folha prova a atribuição de pai sem depender da biblioteca; o `<cstdint>` prova que um padrão sob arquivo do projeto aparece; a válvula só existia porque a sentinela vinha por último. Reverter: barato.
+
+**D-L5g-1: as pastas de inclusão vêm do `compile_commands.json`, remapeadas por regra fechada com a pasta de build antes da raiz do código-fonte, e `-include`/`/FI` reprovam.**
+Quem decidiu: Caetano, emendado depois do ataque independente de 23/09 (`/var/tmp/glintfx-plan/ataque-adendo-l5.md`, achado 1). Pergunta: "o oráculo procura cabeçalhos na pasta do repositório em vez da fixture, e sem a pasta `src/` do build; escrevemos as duas pastas no código ou lemos do build?" Opções: fixar `<raiz>/include` e `<raiz>/src` no código; **ler do build e remapear por regra fechada, a mais específica primeiro: pasta de build (vira a pasta dos gerados vazios), depois raiz do código-fonte (rebaseada na fixture), depois o resto (mantido) (escolhida)**. Porquê: segue o princípio do plano §3.3 (lido da fonte, nunca copiado) e acompanha sozinho qualquer pasta nova do build. A precedência existe porque, no CI, a pasta de build fica dentro do código-fonte (`ci.yml:470`, `CMakeLists.txt:73`); na ordem inversa, os dois cabeçalhos gerados sumiriam da comparação em silêncio. Prova: controle O-26 com build aninhado e mutante `M-O26d`. Reverter: barato.
+
+**D-L5-4: as quatro sub-fatias vão num push só, e a estreia de D-L5-1 espera uma rodada verde delas.**
+Quem decidiu: Caetano. Opções: um push por sub-fatia; **um push para as quatro (escolhida)**. Porquê: a rodada do servidor é a estreia comum das quatro, e o laboratório já prova cada uma por mutante; quatro rodadas custariam quatro CIs para o mesmo dado. Reverter: barato. A autorização de ramo descartável da D-L5-1 continua a mesma, sem ampliação.
+
+---
+
+
+## 23/09/2026 - 19:45 | WIN-RUNNER-PROPRIO V-5c: NVRAM por sessão vira cópia inteira, não sobreposição
+
+**Fato medido (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`):** as duas tentativas da V-5 ligaram a máquina (P0 passou, e o permanente ficou com a mesma soma antes e depois), mas o agente convidado nunca respondeu. A linha de comando real do QEMU abre a sobreposição qcow2 do NVRAM com `"backing":null`: o libvirt não reconecta a cadeia de apoio para pflash, só para disco. O firmware arranca com as variáveis ZERADAS. Fontes: libvirt.org/kbase/backing_chains.html; formatdomain.html não promete cadeia de apoio para `<nvram>`; há um patch em desenvolvimento na lista do libvirt ("NVRAM template handling fixes..."). Segunda falha, então a pesquisa (L-42) foi feita antes da terceira tentativa.
+
+**Decisão do main:** o NVRAM por sessão passa a ser CÓPIA INTEIRA (`cp`, 528 KiB), no mesmo molde da cópia do estado do TPM, que já funciona. O plano (`docs/plano-fecho-w7b.md` §2.2.2, V-5b) pedia "`<nvram>` para cópia por sessão"; a sobreposição foi escolha de implementação, e a cópia inteira volta ao texto do plano. Vira a sub-fatia V-5c, com autoteste, antes da terceira tentativa. Confirmar retroativamente.

@@ -155,13 +155,19 @@ class _OracleContext:
         "dialect", "compiler", "flags", "include_dirs", "executor",
         "msvc_prefix", "camadas_puras", "layer_dirs",
         "stub_generated_paths", "standard_paths", "out_of_tree_lines_total",
-        "case_include_dirs",
+        "case_include_dirs", "raw_include_dirs", "build_dir", "source_root",
+        "generated_stub_dir", "std_stub_dir",
     )
 
     def __init__(self, dialect, compiler, flags, include_dirs):
         self.dialect = dialect
         self.compiler = compiler
         self.flags = flags
+        # `include_dirs`/`case_include_dirs` (abaixo) sao ESCOPO DE
+        # TESTE - o --selftest os usa como armazenamento ad-hoc (O-23,
+        # O-25). Em producao, desde L-5g, quem monta os diretorios de
+        # verdade e' `_include_dirs_for_root()`, por RAIZ, a partir de
+        # `raw_include_dirs`/`build_dir`/`source_root` abaixo.
         self.include_dirs = include_dirs
         self.executor = None
         self.msvc_prefix = None
@@ -169,13 +175,21 @@ class _OracleContext:
         self.layer_dirs = ()
         self.stub_generated_paths = frozenset()
         self.standard_paths = frozenset()
-        # docs/plano-layers-l5-adendo-calibracao.md L-5f: as DUAS listas
-        # de diretorios EXPLICITAS (secao 4, "nenhuma funcao descobre a
-        # configuracao por efeito colateral") - `include_dirs` continua
-        # sendo a REAL/calibracao (sem std_stubs/); `case_include_dirs`
-        # e' ela + std_stubs/ por ULTIMO, so' pra judging de caso e
-        # sentinela (O-23).
         self.case_include_dirs = ()
+        # docs/plano-layers-l5-adendo-calibracao.md L-5g (secao 2): as
+        # pastas de inclusao CRUAS lidas de compile_commands.json (na
+        # ordem da linha de comando, nunca copiadas - D-L5g-1), mais as
+        # DUAS raizes fixas do trabalho inteiro (`build_dir`,
+        # `source_root`) que `_include_dirs_for_root()` usa pra
+        # remapear, e as DUAS pastas de gerados/vazios (globais, uma
+        # so' vez por trabalho - `generated_stub_dir` pros dois
+        # cabecalhos gerados do CMake, `std_stub_dir` pro `std_stubs/`
+        # do L-5f).
+        self.raw_include_dirs = ()
+        self.build_dir = None
+        self.source_root = None
+        self.generated_stub_dir = None
+        self.std_stub_dir = None
         # docs/plano-layers-l5-adendo-calibracao.md L-5d: acumulador de
         # linhas fora do formato de arvore (-H/showIncludes), somado a
         # CADA chamada de _parse_tree() pro trabalho INTEIRO (calibracao
@@ -234,6 +248,148 @@ def extract_language_family_flags(tokens, dialect):
             "compile_commands.json: nenhuma flag de padrao da linguagem encontrada (instrumento cego)"
         )
     return kept
+
+
+# --- pastas de inclusao: extracao por familia fechada (L-5g, secao 2) ----
+
+
+_GNU_INCLUDE_DIR_PREFIXES = ("-isystem", "-iquote", "-idirafter", "-I")
+_MSVC_INCLUDE_DIR_PREFIXES = ("/external:I", "-external:I", "/I", "-I")
+_GNU_PRE_INCLUDE_TOKENS = frozenset({"-include", "-imacros"})
+
+
+def _is_pre_include_token(token, dialect):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 2: `-include`/
+    `-imacros` (GNU) ou `/FI`/`-FI` (MSVC) sao PRE-INCLUSAO, que o
+    oraculo NAO MODELA - presenca e' FALHA DE INSTRUMENTO nomeada,
+    nunca ignorada em silencio."""
+    if dialect == "GNU":
+        return token in _GNU_PRE_INCLUDE_TOKENS
+    return token.startswith("/FI") or token.startswith("-FI")
+
+
+def _match_include_dir(token, next_token, prefixes):
+    """Devolve `(diretorio, tokens_consumidos)` se `token` (+ talvez
+    `next_token`) for uma flag de pasta de inclusao da familia FECHADA
+    `prefixes` - colada (`-I/x`) ou em token separado (`-I`, `/x`)."""
+    for prefix in prefixes:
+        if token == prefix:
+            if next_token is None:
+                raise _IncludeTreeError(f"compile_commands.json: {prefix!r} sem argumento (instrumento cego)")
+            return next_token, 2
+        if token.startswith(prefix) and len(token) > len(prefix):
+            return token[len(prefix):], 1
+    return None, 0
+
+
+def extract_include_dir_tokens(tokens, dialect):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 2 (L-5g): pastas
+    de inclusao, na ORDEM da linha de comando, por familia GNU/MSVC
+    fechada (colada ou em token separado). `-include`/`-imacros`/`/FI`
+    e' falha de instrumento NOMEADA (pre-inclusao nao modelada)."""
+    prefixes = _GNU_INCLUDE_DIR_PREFIXES if dialect == "GNU" else _MSVC_INCLUDE_DIR_PREFIXES
+    dirs = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        next_token = tokens[index + 1] if index + 1 < len(tokens) else None
+        directory, consumed = _match_include_dir(token, next_token, prefixes)
+        if consumed:
+            dirs.append(directory)
+            index += consumed
+            continue
+        if _is_pre_include_token(token, dialect):
+            raise _IncludeTreeError(
+                f"compile_commands.json: {token!r} e' pre-inclusao (falha de instrumento, nao modelada)"
+            )
+        index += 1
+    return tuple(dirs)
+
+
+# --- pastas de inclusao: remapeamento por raiz (L-5g, secao 2, D-L5g-1) ---
+
+
+class _RemapRoots:
+    """Agrupa as raizes que o remapeamento precisa (GODS_LAWS.md L-17:
+    reduz `remap_include_dirs`/`_remap_one_include_dir` pro teto de 4
+    parametros). `dialect` decide o MODULO de caminho (`ntpath`/
+    `posixpath`) - nunca `os.path` cru: o mesmo defeito e' mesmo
+    conserto de `normalize_compiler_path`/`classify_include_path`
+    (achado 23/09/2026, run 35906529355, O-18) - o `--selftest` roda
+    IGUAL em todo host (GODS_LAWS.md L-04), e so' ali dialeto e host
+    podem divergir."""
+
+    __slots__ = ("build_dir", "source_root", "fixture_root", "generated_fixture_dir", "dialect")
+
+    def __init__(self, build_dir, source_root, fixture_root, generated_fixture_dir, dialect):
+        self.build_dir = build_dir
+        self.source_root = source_root
+        self.fixture_root = fixture_root
+        self.generated_fixture_dir = generated_fixture_dir
+        self.dialect = dialect
+
+
+def _path_contains(path_mod, parent, child):
+    parent_norm = path_mod.normpath(parent)
+    child_norm = path_mod.normpath(child)
+    return child_norm == parent_norm or child_norm.startswith(parent_norm + path_mod.sep)
+
+
+def _remap_one_include_dir(directory, roots):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 2 (D-L5g-1),
+    NESTA ORDEM, a regra mais ESPECIFICA primeiro: (1) dentro da pasta
+    de BUILD -> pasta dos gerados vazios da fixture; (2) dentro da raiz
+    do codigo-fonte, fora do build -> rebaseada pra fixture, mesmo
+    caminho relativo; (3) qualquer outra -> mantida como esta. A ordem
+    1 antes de 2 e' por CONTENCAO, nao por posicao na lista (a pasta de
+    build nasce DENTRO do codigo-fonte no CI - com a 2 primeiro, os
+    gerados sumiriam pra um caminho que nao existe na fixture - M-O26d)."""
+    path_mod = _path_module_for_dialect(roots.dialect)
+    if _path_contains(path_mod, roots.build_dir, directory):
+        return roots.generated_fixture_dir, "build"
+    if _path_contains(path_mod, roots.source_root, directory):
+        rel = path_mod.relpath(directory, roots.source_root)
+        return path_mod.normpath(path_mod.join(roots.fixture_root, rel)), "fonte"
+    return directory, "outra"
+
+
+def remap_include_dirs(dirs, roots):
+    """Aplica `_remap_one_include_dir` a CADA pasta, preservando a
+    ORDEM da linha de comando; a pasta dos GERADOS (regra 1) entra so'
+    UMA VEZ, mesmo que mais de um `-I` real va' pra ela (secao 2).
+    Devolve `(pastas_remapeadas, contagem_por_regra)` - a contagem e'
+    IMPRESSA sempre (GODS_LAWS.md L-40)."""
+    result = []
+    counts = {"build": 0, "fonte": 0, "outra": 0}
+    generated_already_added = False
+    for directory in dirs:
+        remapped, rule = _remap_one_include_dir(directory, roots)
+        counts[rule] += 1
+        if rule == "build":
+            if generated_already_added:
+                continue
+            generated_already_added = True
+        result.append(remapped)
+    return tuple(result), counts
+
+
+def _include_dirs_for_root(ctx, fixture_root, extra_last=None):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 2/L-5f: monta os
+    diretorios de inclusao PARA ESTA RAIZ especifica (fixture de caso,
+    raiz de calibracao ou raiz de sentinela) - NUNCA uma tupla fixa do
+    trabalho (`_judge_one_case`/`run_calibration`/`_judge_sentinel`
+    chamam isto a CADA invocacao). `extra_last`, quando dado, entra por
+    ULTIMO via `_compose_case_include_dirs` (L-5f: `std_stubs/`, so' na
+    configuracao de caso)."""
+    roots = _RemapRoots(ctx.build_dir, ctx.source_root, fixture_root, ctx.generated_stub_dir, ctx.dialect)
+    remapped, counts = remap_include_dirs(ctx.raw_include_dirs, roots)
+    print(
+        f"{SCRIPT_NAME}: pastas de inclusao para {fixture_root!r}: "
+        f"build={counts['build']} fonte={counts['fonte']} outra={counts['outra']}"
+    )
+    if extra_last is None:
+        return remapped
+    return _compose_case_include_dirs(remapped, extra_last)
 
 
 # --- linha de comando por dialeto (secao 3.1) ---------------------------
@@ -702,7 +858,11 @@ def run_calibration(ctx, scratch, manifest):
     calib_path, sentinel_path, leaf_path = build_calibration_fixture(
         calib_dir, manifest["stdlib_permitidos"], layer_parts
     )
-    raw_output, returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path, ctx.include_dirs)
+    # docs/plano-layers-l5-adendo-calibracao.md L-5g: pastas montadas
+    # PRA ESTA RAIZ (calib_dir), sem std_stubs/ (a calibracao continua
+    # na configuracao REAL).
+    include_dirs = _include_dirs_for_root(ctx, calib_dir)
+    raw_output, returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path, include_dirs)
     if ctx.dialect == "MSVC":
         ctx.msvc_prefix = learn_msvc_prefix(raw_output, os.path.basename(sentinel_path))
     normalized_nodes = _parse_tree(ctx, raw_output, workdir)
@@ -758,11 +918,12 @@ def _judge_sentinel(ctx, scratch_dir, content, expect_forbidden):
     path = os.path.join(layer_dir, "sentinel_probe.hpp")
     with open(path, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(content)
-    # docs/plano-layers-l5-adendo-calibracao.md L-5f: sentinelas rodam
-    # na configuracao de CASO (com std_stubs/) - a negativa mede, a
-    # cada rodada, que um proibido real continua sendo visto mesmo
-    # tropecando nos vazios.
-    raw, returncode, workdir = _run_one_alvo(ctx, scratch_dir, path, ctx.case_include_dirs)
+    # docs/plano-layers-l5-adendo-calibracao.md L-5f/L-5g: sentinelas
+    # rodam na configuracao de CASO (com std_stubs/), montada PRA ESTA
+    # RAIZ (scratch_dir) - a negativa mede, a cada rodada, que um
+    # proibido real continua sendo visto mesmo tropecando nos vazios.
+    include_dirs = _include_dirs_for_root(ctx, scratch_dir, extra_last=ctx.std_stub_dir)
+    raw, returncode, workdir = _run_one_alvo(ctx, scratch_dir, path, include_dirs)
     normalized_nodes = _parse_tree(ctx, raw, workdir)
     _assert_no_children_of_empty_leaves(ctx, normalized_nodes)
     forbidden = find_forbidden_pulls(ctx, normalized_nodes)
@@ -869,14 +1030,17 @@ def _judge_one_case(ctx, scratch_dir, case, root_abs):
     portao e' UM SO' pra fixture inteira - check_layers() nao devolve
     um veredito por arquivo)."""
     ctx.layer_dirs = _layer_dirs_for_root(ctx, root_abs)
+    # docs/plano-layers-l5-adendo-calibracao.md L-5g: pastas montadas
+    # PRA ESTA RAIZ (root_abs, a raiz DESTE caso) - L-5f: configuracao
+    # de CASO, std_stubs/ por ultimo.
+    include_dirs = _include_dirs_for_root(ctx, root_abs, extra_last=ctx.std_stub_dir)
     pulled_forbidden_overall = False
     worst_returncode = 0
     for alvo in case["alvos"]:
         if alvo["tipo"] != "fonte":
             continue
         alvo_abs = os.path.join(root_abs, *alvo["caminho"].split("/"))
-        # L-5f: configuracao de CASO (com std_stubs/ por ultimo).
-        raw_output, returncode, workdir = _run_one_alvo(ctx, scratch_dir, alvo_abs, ctx.case_include_dirs)
+        raw_output, returncode, workdir = _run_one_alvo(ctx, scratch_dir, alvo_abs, include_dirs)
         normalized_nodes = _parse_tree(ctx, raw_output, workdir)
         _assert_no_children_of_empty_leaves(ctx, normalized_nodes)
         forbidden = find_forbidden_pulls(ctx, normalized_nodes)
@@ -988,19 +1152,26 @@ def run_oracle(ctx, manifest, export_dir, scratch):
     """O laco principal (docs/plano-layers-l5.md §2): calibracao,
     sentinelas, depois um processo SEQUENCIAL por caso "compilar"."""
     ctx.camadas_puras = manifest["camadas_puras"]
-    stub_dir = os.path.join(scratch, "stubs")
-    _write_stub_headers(stub_dir, manifest["gerados"])
-    ctx.include_dirs = (*ctx.include_dirs, stub_dir)
+    ctx.generated_stub_dir = os.path.join(scratch, "stubs")
+    _write_stub_headers(ctx.generated_stub_dir, manifest["gerados"])
     ctx.stub_generated_paths = frozenset(
-        normalize_compiler_path(ctx.dialect, os.path.join(stub_dir, *name.split("/")), stub_dir)
+        normalize_compiler_path(
+            ctx.dialect, os.path.join(ctx.generated_stub_dir, *name.split("/")), ctx.generated_stub_dir
+        )
         for name in manifest["gerados"]
     )
-    # docs/plano-layers-l5-adendo-calibracao.md L-5f: a configuracao de
-    # CASO ganha std_stubs/ como ULTIMO diretorio (O-23); a calibracao
-    # continua SEM ele (ctx.include_dirs, acima, fica intocado).
-    std_stub_dir = os.path.join(scratch, "std_stubs")
-    ctx.standard_paths = _write_std_stubs(ctx, std_stub_dir, manifest["stdlib_permitidos"])
-    ctx.case_include_dirs = _compose_case_include_dirs(ctx.include_dirs, std_stub_dir)
+    # docs/plano-layers-l5-adendo-calibracao.md L-5f: std_stubs/ - a
+    # configuracao de CASO ganha por ULTIMO (O-23); a calibracao
+    # continua sem ele.
+    ctx.std_stub_dir = os.path.join(scratch, "std_stubs")
+    ctx.standard_paths = _write_std_stubs(ctx, ctx.std_stub_dir, manifest["stdlib_permitidos"])
+    # L-5g: `_judge_one_case`/`run_calibration`/`_judge_sentinel` montam
+    # as PROPRIAS pastas por raiz a cada chamada; `ctx.include_dirs`/
+    # `ctx.case_include_dirs` aqui servem so' a sentinela de sombra
+    # (que nao tem raiz de fixture propria), com `scratch` como raiz
+    # generica.
+    ctx.include_dirs = _include_dirs_for_root(ctx, scratch)
+    ctx.case_include_dirs = _include_dirs_for_root(ctx, scratch, extra_last=ctx.std_stub_dir)
 
     calib_result = run_calibration(ctx, scratch, manifest)
     run_sentinels(ctx, scratch, calib_result, manifest["stdlib_permitidos"])
@@ -1085,6 +1256,11 @@ def oracle_main(args):
         fail("compile_commands.json: nenhuma entrada em src/core/ encontrada")
     tokens = tokenize_compile_command(entry)
     flags = extract_language_family_flags(tokens[1:], dialect)
+    # docs/plano-layers-l5-adendo-calibracao.md L-5g (secao 2): as
+    # pastas de inclusao vem da MESMA entrada de compile_commands.json
+    # de onde saem as flags, na ordem da linha de comando - nunca
+    # escritas/copiadas no codigo (D-L5g-1).
+    raw_include_dirs = extract_include_dir_tokens(tokens[1:], dialect)
 
     scratch = tempfile.mkdtemp(prefix="glintfx-layers-oracle-", dir=os.environ.get("TMPDIR"))
     try:
@@ -1094,8 +1270,10 @@ def oracle_main(args):
             check=True, cwd=source_root,
         )
         manifest = _load_manifest(export_dir)
-        include_dirs = (os.path.join(source_root, "include"),)
-        ctx = _OracleContext(dialect, tokens[0], flags, include_dirs)
+        ctx = _OracleContext(dialect, tokens[0], flags, ())
+        ctx.raw_include_dirs = raw_include_dirs
+        ctx.build_dir = build_dir
+        ctx.source_root = source_root
         ctx.executor = real_compiler_executor
         ok = run_oracle(ctx, manifest, export_dir, scratch)
     finally:
@@ -2097,6 +2275,75 @@ def selftest_oracle_o16_flags_family_closed(scratch, capture):
     return ok, 1
 
 
+_O26_SOURCE_ROOT = "/repo"
+_O26_FIXTURE_ROOT = "/fixture"
+_O26_GENERATED_DIR = "/fixture_generated_stub"
+
+
+def _o26_gnu_tokens(build_dir):
+    return (
+        "-I/repo/include",
+        "-I", "/repo/src",
+        "-isystem", "/opt/x",
+        f"-I{build_dir}/generated/include",
+    )
+
+
+def _o26_msvc_tokens(build_dir):
+    return (
+        "/I/repo/include",
+        "-I", "/repo/src",
+        "-external:I", "/opt/x",
+        f"/I{build_dir}/generated/include",
+    )
+
+
+def _o26_expected(dialect):
+    path_mod = _path_module_for_dialect(dialect)
+    include_r = path_mod.normpath(path_mod.join(_O26_FIXTURE_ROOT, "include"))
+    src_r = path_mod.normpath(path_mod.join(_O26_FIXTURE_ROOT, "src"))
+    return (include_r, src_r, "/opt/x", _O26_GENERATED_DIR)
+
+
+def _o26_check_scenario(dialect, tokens, build_dir):
+    """docs/plano-layers-l5-adendo-calibracao.md O-26 (a)/(b): extrai +
+    remapeia, confere a saida EXATA, as contagens LITERAIS, e que
+    NENHUMA saida comeca pela pasta de build - a prova direta de que a
+    regra 1 (build) venceu por CONTENCAO (o que M-O26d inverte)."""
+    dirs = extract_include_dir_tokens(tokens, dialect)
+    roots = _RemapRoots(build_dir, _O26_SOURCE_ROOT, _O26_FIXTURE_ROOT, _O26_GENERATED_DIR, dialect)
+    remapped, counts = remap_include_dirs(dirs, roots)
+    path_mod = _path_module_for_dialect(dialect)
+    build_norm = path_mod.normpath(build_dir)
+    none_under_build = not any(path_mod.normpath(d).startswith(build_norm) for d in remapped)
+    return remapped == _o26_expected(dialect) and counts == {"build": 1, "fonte": 2, "outra": 1} and none_under_build
+
+
+def selftest_oracle_o26_include_dirs_read_and_remapped(scratch, capture):
+    """O-26 (L-5g, secao 2): (a) pasta de build ANINHADA no codigo-fonte
+    (como no CI) e (b) pasta de build SEPARADA - as duas remapeiam
+    IGUAL, sem nenhuma saida sob a pasta de build; (c) `-include`/`/FI`
+    e' falha de instrumento nomeada. GNU e MSVC."""
+    del scratch, capture
+    nested_gnu = _o26_check_scenario("GNU", _o26_gnu_tokens("/repo/build-debug"), "/repo/build-debug")
+    nested_msvc = _o26_check_scenario("MSVC", _o26_msvc_tokens("/repo/build-debug"), "/repo/build-debug")
+    separate_gnu = _o26_check_scenario("GNU", _o26_gnu_tokens("/var/tmp/out-build"), "/var/tmp/out-build")
+    separate_msvc = _o26_check_scenario("MSVC", _o26_msvc_tokens("/var/tmp/out-build"), "/var/tmp/out-build")
+
+    pre_include_gnu = _raises_include_tree_error(extract_include_dir_tokens, ("-include", "foo.h"), "GNU")
+    pre_include_msvc = _raises_include_tree_error(extract_include_dir_tokens, ("/FIfoo.h",), "MSVC")
+
+    ok = nested_gnu and nested_msvc and separate_gnu and separate_msvc and pre_include_gnu and pre_include_msvc
+    label = "selftest: O-26"
+    print(
+        f"{label} OK" if ok else
+        f"{label} FALHOU (nested_gnu={nested_gnu}, nested_msvc={nested_msvc}, separate_gnu={separate_gnu}, "
+        f"separate_msvc={separate_msvc}, pre_gnu={pre_include_gnu}, pre_msvc={pre_include_msvc})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
 def selftest_oracle_o17_unknown_dialect_named(scratch, capture):
     """O-17: dialeto desconhecido (ex.: "Intel") -> reprova, NOMEADO -
     nunca cai no GNU por omissao (M-O17)."""
@@ -2157,6 +2404,7 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o14_super_approximation_never_fails,),
     (selftest_oracle_o15_named_counts_add_up,),
     (selftest_oracle_o16_flags_family_closed,),
+    (selftest_oracle_o26_include_dirs_read_and_remapped,),
     (selftest_oracle_o17_unknown_dialect_named,),
     (selftest_oracle_build_parent_map,),
 )

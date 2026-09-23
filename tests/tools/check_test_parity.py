@@ -411,25 +411,103 @@ def apply_aliases(linux_only, windows_only, linux_inventory, windows_inventory, 
 # por isso reprova SALVO quando a linha traz o terceiro campo
 # "bilateral=<motivo>" (D8: "reprovar salvo declaracao", nunca so
 # avisar - a licao do ESLint #18665).
+#
+# PARITY-ALIAS-HYGIENE, sub-fatia P-2, achado IMPORTANTE do revisor
+# independente (23/09/2026, /var/tmp/glintfx-plan/revisao-parity-
+# alias-hygiene.md secao 4): a metade que faltava do proprio par (b) -
+# uma linha com "bilateral=<motivo>" cujo par NAO e de fato bilateral
+# (cada nome so existe do seu proprio lado) passava em silencio, sem
+# entrar em nenhuma das tres listas acima, porque o `continue` do
+# `not is_bilateral` disparava ANTES de olhar `bilateral_reason`. E a
+# MESMA familia de defeito que esta fatia inteira existe para banir -
+# "prosa nunca conferida por maquina" - so que na direcao oposta (falta
+# de declaracao e punida; declaracao superflua/falsa nao era). Reprova
+# sempre, sem excecao possivel: uma declaracao bilateral so e' honesta
+# quando o fato que ela descreve e' verdadeiro.
+#
+# PARITY-ALIAS-HYGIENE, sub-fatia P-2, achado COSMETICO do revisor
+# (mesma secao): um apelido MEIO-MORTO - um lado inteiro ausente de
+# QUALQUER inventario, enquanto o outro lado existe de verdade (so do
+# seu proprio lado, nunca bilateral) - nao e "morto" (exige os DOIS
+# lados ausentes) nem "bilateral" (exige os dois lados presentes em
+# ALGUM inventario para is_bilateral fazer sentido), entao escapava
+# tambem do `continue`, silencioso, e so era pego mais tarde pela
+# analise de lacuna generica no fim de run_comparison() - com uma
+# mensagem que aponta para o nome orfao, nunca para a LINHA de apelido
+# podre que o citou. Categoria propria, mensagem que nomeia qual lado
+# sumiu - diagnostico melhor, nao lacuna nova (a analise generica
+# continua reprovando o mesmo nome do jeito de sempre).
+#
+# SUPRESSAO POR IRMAO VIVO (achado do PROPRIO implementador, medido
+# rodando --selftest contra este conserto antes de commitar): um nome
+# de UM lado pode legitimamente ter VARIOS apelidos apontando pro
+# MESMO parceiro do outro lado (tests/parity_aliases.txt tem hoje tres
+# apelidos Linux para win32_display_connect_test - achado do lider,
+# 05/09/2026, run 33995142570, ver apply_aliases() acima e o controle
+# selftest_alias_shared_windows_partner_control). Sem a supressao
+# abaixo, esta checagem quebrava EXATAMENTE aquele controle: a linha
+# shell_smoke|win32_display_connect_test (shell_smoke e' fixture do
+# container, so' publicado por um artefato separado - P-0 - nunca por
+# `ctest -N`) passava a reprovar como "meio-morta" mesmo com DOIS
+# irmaos (display_connect_failure_test, shell_requirements_test)
+# provando que o parceiro Windows continua vivo. A linha so' conta
+# como meio-morta de verdade quando NENHUM irmao do mesmo grupo (outro
+# apelido apontando pro MESMO parceiro presente) tambem esta' vivo -
+# um apelido redundante/nao confirmado nesta chamada nao e' o mesmo
+# que um apelido comprovadamente podre.
 def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
     combined_inventory = linux_inventory | windows_inventory
+
+    # Mesmo agrupamento de apply_aliases() acima (dict de CONJUNTOS,
+    # nunca dict simples - GODS_LAWS.md L-40/achado do lider
+    # 05/09/2026): usado so' para a supressao por irmao vivo, nunca
+    # para decidir dead/bilateral, que continuam por PAR individual.
+    linux_to_win = {}
+    win_to_linux = {}
+    for alias in aliases:
+        linux_to_win.setdefault(alias["linux_name"], set()).add(alias["windows_name"])
+        win_to_linux.setdefault(alias["windows_name"], set()).add(alias["linux_name"])
+
     dead = []
+    half_dead = []
     bilateral_declared = []
     bilateral_undeclared = []
+    bilateral_false = []
     for alias in aliases:
         linux_name = alias["linux_name"]
         windows_name = alias["windows_name"]
-        if linux_name not in combined_inventory and windows_name not in combined_inventory:
+        linux_absent = linux_name not in combined_inventory
+        windows_absent = windows_name not in combined_inventory
+        if linux_absent and windows_absent:
             dead.append(alias)
+            continue
+        if linux_absent:
+            sibling_alive = any(
+                name in linux_inventory for name in win_to_linux.get(windows_name, ())
+            )
+            if not sibling_alive:
+                half_dead.append((alias, "linux"))
+            continue
+        if windows_absent:
+            sibling_alive = any(
+                name in windows_inventory for name in linux_to_win.get(linux_name, ())
+            )
+            if not sibling_alive:
+                half_dead.append((alias, "windows"))
             continue
         is_bilateral = linux_name in windows_inventory or windows_name in linux_inventory
         if not is_bilateral:
+            if alias["bilateral_reason"]:
+                # P-2, achado IMPORTANTE: declaracao bilateral cujo
+                # fato descrito nao e' verdade - nao pode passar calada
+                # so porque o par nao e' candidato a lacuna hoje.
+                bilateral_false.append(alias)
             continue
         if alias["bilateral_reason"]:
             bilateral_declared.append(alias)
         else:
             bilateral_undeclared.append(alias)
-    return dead, bilateral_declared, bilateral_undeclared
+    return dead, bilateral_declared, bilateral_undeclared, bilateral_false, half_dead
 
 
 # PARITY-ALIAS-HYGIENE (c), D9 - gemeo direto do apelido morto acima
@@ -554,9 +632,13 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
 
     errors.extend(validate_exceptions(exceptions, todo_status))
 
-    alias_dead, _alias_bilateral_declared, alias_bilateral_undeclared = compute_alias_hygiene(
-        aliases, linux_inventory, windows_inventory
-    )
+    (
+        alias_dead,
+        _alias_bilateral_declared,
+        alias_bilateral_undeclared,
+        alias_bilateral_false,
+        alias_half_dead,
+    ) = compute_alias_hygiene(aliases, linux_inventory, windows_inventory)
     for alias in alias_dead:
         errors.append(
             f"apelido morto: {alias['linux_name']}|{alias['windows_name']} nao aparece em "
@@ -567,6 +649,21 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
             f"apelido bilateral sem declaracao: {alias['linux_name']}|{alias['windows_name']} "
             "roda nos dois sistemas, precisa do terceiro campo 'bilateral=<motivo>' em "
             "tests/parity_aliases.txt"
+        )
+    for alias in alias_bilateral_false:
+        errors.append(
+            f"declaracao bilateral falsa: {alias['linux_name']}|{alias['windows_name']} traz "
+            f"'bilateral={alias['bilateral_reason']}' em tests/parity_aliases.txt, mas o par "
+            "NAO roda nos dois sistemas de verdade (nenhum dos dois nomes aparece no "
+            "inventario do outro lado) - uma declaracao bilateral so e honesta quando o "
+            "fato que ela descreve e verdadeiro (PARITY-ALIAS-HYGIENE P-2, GODS_LAWS.md L-40)"
+        )
+    for alias, missing_side in alias_half_dead:
+        errors.append(
+            f"apelido meio-morto: {alias['linux_name']}|{alias['windows_name']} tem o lado "
+            f"{missing_side} ausente de inventario nenhum (nem Linux, nem Windows) - "
+            "tests/parity_aliases.txt aponta para um nome que foi renomeado ou apagado "
+            "de um dos lados (PARITY-ALIAS-HYGIENE P-2)"
         )
 
     exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
@@ -638,13 +735,19 @@ def real_main(args):
     # bater), o que e' verdade honesta, nao um segundo erro de
     # varredura vazia disfarcado - a lista de erros que decide
     # REPROVADO continua vindo so de run_comparison().
-    alias_dead, alias_bilateral_declared, alias_bilateral_undeclared = compute_alias_hygiene(
-        aliases, linux_inventory, windows_inventory
-    )
+    (
+        alias_dead,
+        alias_bilateral_declared,
+        alias_bilateral_undeclared,
+        alias_bilateral_false,
+        alias_half_dead,
+    ) = compute_alias_hygiene(aliases, linux_inventory, windows_inventory)
     print(
         f"{SCRIPT_NAME}: {len(aliases)} apelido(s), {len(alias_dead)} morto(s), "
         f"{len(alias_bilateral_declared)} bilateral(is) declarado(s), "
-        f"{len(alias_bilateral_undeclared)} bilateral(is) sem declaracao"
+        f"{len(alias_bilateral_undeclared)} bilateral(is) sem declaracao, "
+        f"{len(alias_bilateral_false)} bilateral(is) falso(s), "
+        f"{len(alias_half_dead)} meio-morto(s)"
     )
     exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
     print(f"{SCRIPT_NAME}: {len(exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
@@ -760,6 +863,26 @@ def selftest_empty_inventory_reproves():
         print(f"selftest: VERMELHO#3 FALHOU (reprovou, mas sem 'varredura vazia'): {errors}", file=sys.stderr)
         return False
     print(f"selftest: VERMELHO#3 OK (inventario vazio pego): {errors}")
+    return True
+
+
+# VERMELHO #3b (P-2, PARITY-ALIAS-HYGIENE, achado do orquestrador
+# 23/09/2026: sabotagem numa copia de 7beb354 desligando SO o `if not
+# windows_inventory:` deixava o --selftest inteiro verde, porque
+# VERMELHO#3 acima so exercita o lado Linux vazio - o piso de
+# varredura L-40 vale para os DOIS lados, e faltava o controle
+# simetrico que prova isso do lado Windows). Esperado: reprova,
+# mensagem cita "varredura vazia", com o inventario Linux desta vez
+# NAO vazio (para isolar exatamente o ramo Windows do `if`).
+def selftest_empty_inventory_windows_reproves():
+    errors = run_comparison({"a_test"}, set(), [], [], {})
+    if not errors:
+        print("selftest: VERMELHO#3b FALHOU (inventario Windows vazio deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any("varredura vazia" in e for e in errors):
+        print(f"selftest: VERMELHO#3b FALHOU (reprovou, mas sem 'varredura vazia'): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: VERMELHO#3b OK (inventario Windows vazio pego): {errors}")
     return True
 
 
@@ -1118,6 +1241,37 @@ def selftest_alias_dead_reproves():
     return True
 
 
+# PARITY-ALIAS-HYGIENE C1b (VERMELHO, P-2, achado COSMETICO do
+# revisor): apelido MEIO-morto - um lado inteiro ausente de inventario
+# nenhum, enquanto o outro lado existe de verdade (so do seu proprio
+# lado, nunca bilateral). Diferente de C1 (os DOIS lados ausentes):
+# aqui o lado Windows do par foi renomeado/apagado, mas o lado Linux
+# continua existindo, hoje, como um nome real. Esperado: reprova com
+# a categoria propria "apelido meio-morto", nomeando qual lado sumiu -
+# a analise de lacuna generica tambem reprova o mesmo nome (nao e'
+# suprimida), entao os dois erros coexistem.
+def selftest_alias_half_dead_reproves():
+    linux_inv = {"a_test", "meio_morto_linux_ok_test"}
+    windows_inv = {"a_test"}
+    aliases = [_alias_fixture("meio_morto_linux_ok_test", "meio_morto_windows_apagado_test")]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C1b FALHOU (apelido meio-morto deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any(
+        "apelido meio-morto" in e and "meio_morto_linux_ok_test" in e and "windows" in e
+        for e in errors
+    ):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b FALHOU (reprovou, mas nao citou o apelido "
+            f"meio-morto com o lado ausente): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b OK (apelido meio-morto pego, com o lado ausente nomeado): {errors}")
+    return True
+
+
 # PARITY-ALIAS-HYGIENE C2 (VERMELHO): apelido cujo lado "exclusivo"
 # tambem roda no outro sistema, sem o terceiro campo declarando isso
 # - D8, "reprovar salvo declaracao". Esperado: reprova.
@@ -1153,6 +1307,49 @@ def selftest_alias_bilateral_declared_control():
         print(f"selftest: controle BILATERAL-DECLARADO FALHOU (deveria ter passado): {errors}", file=sys.stderr)
         return False
     print("selftest: controle BILATERAL-DECLARADO OK (bilateral com motivo conta e passa)")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C2b (VERMELHO, P-2, achado IMPORTANTE do
+# revisor independente, 23/09/2026, provado sem mutacao contra o
+# commit 5d0c173: uma linha com "bilateral=<motivo>" cujo par NAO e'
+# de fato bilateral (cada nome so existe do seu proprio lado, nenhum
+# aparece no inventario do OUTRO sistema) passava calada - o `continue`
+# do `not is_bilateral` disparava antes de olhar bilateral_reason, e a
+# declaracao nunca entrava em nenhuma das tres listas antigas (nao
+# conta como morta, nao conta como bilateral declarada, nao conta como
+# bilateral sem declaracao). Esperado: reprova, citando "declaracao
+# bilateral falsa" e o par. Os dois nomes SAO um par de apelido valido
+# (existem cada um so do seu lado, cobrindo a lacuna um do outro) -
+# isola exatamente o defeito da declaracao, sem lacuna generica junto.
+def selftest_alias_bilateral_false_declaration_reproves():
+    linux_inv = {"a_test", "falso_bilateral_linux_test"}
+    windows_inv = {"a_test", "falso_bilateral_windows_test"}
+    aliases = [
+        _alias_fixture(
+            "falso_bilateral_linux_test",
+            "falso_bilateral_windows_test",
+            bilateral_reason="mentira, na verdade nao roda nos dois sistemas",
+        )
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not errors:
+        print(
+            "selftest: PARITY-ALIAS-HYGIENE C2b FALHOU (declaracao bilateral falsa deveria "
+            "ter reprovado)",
+            file=sys.stderr,
+        )
+        return False
+    if not any(
+        "declaracao bilateral falsa" in e and "falso_bilateral_linux_test" in e for e in errors
+    ):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C2b FALHOU (reprovou, mas nao citou a declaracao "
+            f"bilateral falsa): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C2b OK (declaracao bilateral falsa pega): {errors}")
     return True
 
 
@@ -1277,6 +1474,7 @@ def selftest_main():
         selftest_exception_pointing_to_concluded_item_reproves(),
         selftest_exception_pointing_to_pending_item_passes(),
         selftest_empty_inventory_reproves(),
+        selftest_empty_inventory_windows_reproves(),
         selftest_alias_control(),
         selftest_alias_shared_windows_partner_control(),
         selftest_sem_pendencia_control(),
@@ -1288,8 +1486,10 @@ def selftest_main():
         selftest_mixed_ctest_and_clean_list_control(),
         selftest_corrupted_inventory_line_reproves(),
         selftest_alias_dead_reproves(),
+        selftest_alias_half_dead_reproves(),
         selftest_alias_bilateral_undeclared_reproves(),
         selftest_alias_bilateral_declared_control(),
+        selftest_alias_bilateral_false_declaration_reproves(),
         selftest_exception_dead_gap_closed_reproves(),
         selftest_exception_dead_orphaned_reproves(),
         selftest_prova_parcial_gemeo_absent_reproves(),

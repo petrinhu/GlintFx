@@ -1534,6 +1534,7 @@ if(UNIX)
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -1575,6 +1576,7 @@ if(UNIX)
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1609,6 +1611,7 @@ if(UNIX)
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1680,6 +1683,7 @@ if(UNIX)
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -1713,6 +1717,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
@@ -1803,6 +1808,7 @@ if(UNIX)
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -5093,6 +5099,29 @@ if(UNIX)
     target_include_directories(incoming_poll_outcome_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
     target_sources(incoming_poll_outcome_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+    )
+endif()
+
+# incoming_poll_reaction_test - CONT-WARMUP C-6 (revisao adversarial C-5,
+# /var/tmp/glintfx-plan/revisao-cont-warmup-c5.md, achado CRITICO-2;
+# GODS_LAWS.md L-17/L-20/L-27): the red/green witness for is_incoming_
+# poll_connection_fatal() (src/platform/wayland/incoming_poll_reaction.
+# hpp) - the atom that closes the exact gap CRITICO-2 named: the
+# decision "is a classify_incoming_poll() outcome a real connection
+# failure?" used to live, hand-written, inside EACH of the two read-side
+# adapters' own switch cases, with nothing testing it directly. Sources
+# both the new atom AND incoming_poll_outcome.cpp (this test's own real-
+# kernel cases chain a real ::poll() through classify_incoming_poll()
+# before ever reaching the atom under test - same shape as flush_retry_
+# policy_test right above needing bounded_output_wait.cpp). Same
+# if(UNIX) guard as every other atom test in this block - POSIX-only
+# (<poll.h>, socketpair(), pipe()), no wayland-client, no wl_display.
+if(UNIX)
+    glintfx_add_test(incoming_poll_reaction_test)
+    target_include_directories(incoming_poll_reaction_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(incoming_poll_reaction_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
 endif()
 

@@ -18,6 +18,7 @@
 #include "platform/wayland/connection_failure.hpp"
 #include "platform/wayland/flush_retry_policy.hpp"
 #include "platform/wayland/incoming_poll_outcome.hpp"
+#include "platform/wayland/incoming_poll_reaction.hpp"
 
 // display_adapter.cpp - see display_adapter.hpp's own header comment
 // for scope. ARCH-PORTS's own connect/disconnect (TDD case R3,
@@ -331,12 +332,31 @@ wayland_display_adapter::flush_with_retry(std::chrono::steady_clock::time_point 
 // too), so the branch this conserto adds is proven by the unit seam,
 // never by this project's own container fixture - see that header's
 // own comment for the full reasoning.
+//
+// CONT-WARMUP C-6 (revisao adversarial C-5, /var/tmp/glintfx-plan/
+// revisao-cont-warmup-c5.md, achado CRITICO-2, GODS_LAWS.md L-17
+// "gemeo"): `case fatal:`/`case poll_call_failed:` below used to decide
+// "is this a real connection failure?" with their OWN hand-written
+// bodies - nothing tested that decision directly, and the review's own
+// mutant (swapping those two outcomes to ok(false) instead of a real
+// error) survived every test that existed. Both cases now share ONE
+// call to is_incoming_poll_connection_fatal() (platform/wayland/
+// incoming_poll_reaction.hpp) - the SAME atom egl_context_adapter.cpp's
+// own poll_and_dispatch_with_budget() (this same fatia) now calls too -
+// directly unit-tested (tests/incoming_poll_reaction_test.cpp), so the
+// only way to reintroduce that exact bug is to edit THAT atom (caught
+// by its own test) or to invert the call below (a residual, DECLARED
+// limitation - see that test file's own header comment for the honest
+// accounting, the same "prova por seam" shape this function's own
+// comment above already accepts for classify_incoming_poll() itself).
 gltfx_rslt<bool>
 wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexcept {
     pollfd incoming{.fd = wl_display_get_fd(m_display), .events = POLLIN, .revents = 0};
     const int poll_result = poll(&incoming, 1, static_cast<int>(timeout_ms));
-    switch (classify_incoming_poll(poll_result, incoming.revents)) {
-    case incoming_poll_outcome::poll_call_failed:
+    const incoming_poll_outcome outcome = classify_incoming_poll(poll_result, incoming.revents);
+    switch (outcome) {
+    case incoming_poll_outcome::fatal:
+    case incoming_poll_outcome::poll_call_failed: {
         // CONT-WARMUP C-5 (GODS_LAWS.md L-17 "gemeo"): `poll_result ==
         // -1` used to be checked inline, BEFORE ever reaching
         // classify_incoming_poll() - moved into the switch itself so
@@ -344,25 +364,27 @@ wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexce
         // dispatch_with_budget() (this same fatia) decide about a
         // failed ::poll() through the exact same atom, never two
         // separately-maintained pre-checks that could drift apart
-        // again. Behavior UNCHANGED from before this fatia: EINTR is a
-        // signal arriving mid-wait, never a reason to declare the
-        // connection unusable (the same "transient, not fatal"
-        // distinction bounded_output_wait.hpp's own header comment
-        // draws for the write-side twin) - the NEXT caller-driven pump
-        // tries again. Any other errno is a real, unusable connection.
+        // again. Behavior UNCHANGED from before C-5: EINTR is a signal
+        // arriving mid-wait, never a reason to declare the connection
+        // unusable (the same "transient, not fatal" distinction
+        // bounded_output_wait.hpp's own header comment draws for the
+        // write-side twin) - the NEXT caller-driven pump tries again.
+        // Any other errno, or `fatal` (POLLNVAL), is a real, unusable
+        // connection - is_incoming_poll_connection_fatal() (this
+        // function's own header comment above) is the ONE place that
+        // now decides which.
         wl_display_cancel_read(m_display);
-        if (errno == EINTR) {
+        const bool errno_is_eintr =
+            outcome == incoming_poll_outcome::poll_call_failed && errno == EINTR;
+        if (!is_incoming_poll_connection_fatal(outcome, errno_is_eintr)) {
             return gltfx_rslt<bool>::ok(false);
         }
         m_fatal = true;
         return gltfx_rslt<bool>::err(build_connection_failure(m_display));
+    }
     case incoming_poll_outcome::nothing_yet:
         wl_display_cancel_read(m_display);
         return gltfx_rslt<bool>::ok(false);
-    case incoming_poll_outcome::fatal:
-        wl_display_cancel_read(m_display);
-        m_fatal = true;
-        return gltfx_rslt<bool>::err(build_connection_failure(m_display));
     case incoming_poll_outcome::ready_to_read:
         return gltfx_rslt<bool>::ok(true);
     }

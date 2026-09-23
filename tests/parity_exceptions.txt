@@ -261,6 +261,27 @@ flush_retry_policy_test|windows|nenhum|SEM-PENDENCIA
 # API, nao um caso novo a decidir.
 incoming_poll_outcome_test|windows|nenhum|SEM-PENDENCIA
 
+# incoming_poll_reaction_test (tests/incoming_poll_reaction_test.cpp,
+# tests/CMakeLists.txt, if(UNIX)) prova is_incoming_poll_connection_
+# fatal() (src/platform/wayland/incoming_poll_reaction.hpp) - o atomo
+# puro que decide, a partir de um incoming_poll_outcome mais um
+# `errno_is_eintr` booleano, se a conexao esta realmente morta
+# (CONT-WARMUP C-6, revisao adversarial C-5, /var/tmp/glintfx-plan/
+# revisao-cont-warmup-c5.md, achado CRITICO-2, GODS_LAWS.md L-17/L-20) -
+# um nivel ACIMA do atomo ja excetuado na entrada logo acima
+# (incoming_poll_outcome_test|windows|nenhum|SEM-PENDENCIA), consumindo
+# o MESMO tipo (incoming_poll_outcome) que so existe do lado da leitura
+# via poll(2). MESMA ausencia, MESMO motivo, um nivel acima: pump_
+# events() do Windows nunca produz um incoming_poll_outcome porque nao
+# ha `::poll()` naquele caminho (varredura ja citada duas entradas
+# acima: zero ocorrencias de `poll(`/`select(` em src/platform/win32/).
+# Sem o valor de entrada, nao ha "decisao sobre esse valor" a testar do
+# lado Windows - a ausencia e' consequencia direta e permanente da
+# ausencia do atomo que ele consome, nao um caso novo a decidir (o
+# MESMO raciocinio, em cascata, que a entrada de flush_retry_policy_
+# test acima ja registra para o lado ESCRITA).
+incoming_poll_reaction_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do

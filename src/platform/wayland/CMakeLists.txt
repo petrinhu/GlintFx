@@ -78,6 +78,7 @@ target_sources(glintfx_library PRIVATE
     bounded_output_wait.cpp
     flush_retry_policy.cpp
     incoming_poll_outcome.cpp
+    incoming_poll_reaction.cpp
     egl_context_adapter.cpp
     selected_gl_context_adapter_check.cpp
     drm_gpu_kind.cpp

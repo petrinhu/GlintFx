@@ -62,7 +62,7 @@
 # emenda barra-invertida-e-nova-linha ANTES de qualquer diretiva ser
 # reconhecida, e a fase 3 troca cada comentario por um espaco,
 # respeitando literais de cadeia e de caractere. _translate_phases_2_
-# and_3() modela as duas fases num unico laco; _directive_lines() a
+# and_3() modela as duas fases num unico laco; _logical_lines() a
 # chama e so entao aplica _directive_argument() por linha LOGICA
 # resultante. Ver o comentario PHASE-2-3 mais abaixo, no topo dessa
 # funcao, para o detalhe e os cinco casos confirmados contra `g++
@@ -144,7 +144,39 @@ OS_HEADER_NEEDLES = (
     "<fstream",
 )
 
-_HEADER_EXTENSIONS = (".hpp", ".cpp", ".h", ".hh", ".hxx", ".cc", ".cxx")
+# FILE-EXTENSIONS-CPP23 (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, achado do
+# revisor de 23/09/2026: "extensoes de C++ fora da lista - .ipp e
+# unidades de modulo como .cppm/.ixx - relevantes agora que o portao
+# reconhece import"). Alarga a lista original com as extensoes de
+# implementacao inline reais (.ipp/.tpp/.inl - corpo de template incluido
+# de volta num .hpp, nunca compilado sozinho, mas pode conter uma
+# diretiva de inclusao tanto quanto qualquer .hpp) e as quatro extensoes
+# de unidade de modulo C++20/23 que os principais toolchains usam
+# (.cppm - Clang/CMake; .ixx - MSVC; .mpp e .ccm/.cxxm - vistas noutros
+# projetos/toolchains; nenhuma delas e' normativa da ISO, que so define a
+# SINTAXE de unidade de modulo, nunca uma extensao de arquivo). Medido
+# em 23/09/2026 (GODS_LAWS.md L-44, fato antes de suposicao): nenhum
+# arquivo com qualquer uma destas oito extensoes existe hoje na arvore
+# real (find sem resultado nos seis diretorios cobertos), entao alargar
+# a lista e' seguro - nao ha arquivo novo pra varredura real descobrir e
+# quebrar a paridade do piso nao-vazio.
+_HEADER_EXTENSIONS = (
+    ".hpp",
+    ".cpp",
+    ".h",
+    ".hh",
+    ".hxx",
+    ".cc",
+    ".cxx",
+    ".ipp",
+    ".tpp",
+    ".inl",
+    ".cppm",
+    ".ixx",
+    ".mpp",
+    ".ccm",
+    ".cxxm",
+)
 
 _FORBIDDEN_PATTERN = re.compile(
     "|".join(re.escape(needle) for needle in (UPPER_LAYER_NEEDLE,) + OS_HEADER_NEEDLES)
@@ -157,23 +189,124 @@ _FORBIDDEN_PATTERN = re.compile(
 # non-whitespace text, rules the line out before the keyword is even
 # reached, so a commented-out include ("// #include <windows.h>") does
 # not match either pattern.
-_INCLUDE_DIRECTIVE_PATTERN = re.compile(r'^\s*#\s*include\s*(<[^>\n]*>|"[^"\n]*")')
+#
+# DIGRAPH (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, regressao (b) do
+# revisor de 23/09/2026: "%:include <fstream> - forma alternativa
+# valida de # no C++23, puxa o cabecalho, e a ancora so reconhece #").
+# `%:` e' um dos seis TOKENS ALTERNATIVOS da norma (junto com `<%` `%>`
+# `<:` `:>` `%:%:`), spelling puramente lexico do token `#` - qualquer
+# lugar onde `#` introduz uma diretiva, `%:` funciona identico.
+# Confirmado contra g++ 16.2.1 e clang++ 22.1.8 (GODS_LAWS.md L-22, o
+# compilador antes da minha tabela) em TRES formas: `%:include
+# <fstream>` (colado), `%:  include <fstream>` (espaco depois do `:`,
+# antes de `include`) e `%:define HDR <fstream>` - as tres puxam
+# <fstream> de verdade nos dois compiladores, igual a `#include
+# <fstream>`. UMA forma NAO e reconhecida por nenhum dos dois: `% :
+# include <fstream>` (espaco ENTRE `%` e `:`) - os dois compiladores
+# ecoam a linha como texto comum, sem processar diretiva nenhuma, porque
+# o digrafo e' um token de DOIS CARACTERES ADJACENTES, nao duas
+# pontuacoes soltas que a tokenizacao junta com espaco no meio. Por
+# isso o regex casa `%:` colado (sem `\s*` entre os dois caracteres),
+# com `\s*` so' ENTRE o digrafo/`#` e a palavra `include` - selftest_
+# anchor_directive_control() abaixo tem os quatro casos (as tres formas
+# que reprovam mais a que nao e digrafo e deve passar limpa).
+_INCLUDE_DIRECTIVE_PATTERN = re.compile(r'^\s*(?:#|%:)\s*include\s*(<[^>\n]*>|"[^"\n]*")')
 _IMPORT_DIRECTIVE_PATTERN = re.compile(r'^\s*(?:export\s+)?import\s*(<[^>\n]*>|"[^"\n]*")\s*;')
 
 
 def _directive_argument(line):
     """Returns the bracketed/quoted header-name argument of a LOGICAL
-    line (post phase-2/phase-3, see _directive_lines() below) that is
-    a #include or a C++23 header-unit import directive, or None when
-    the line is neither (prose, a comment, plain code, a module import
-    with no header-name form). Only the captured argument - never the
-    rest of the line - is searched for the forbidden needles, so a
-    real include followed by an unrelated trailing comment on the same
-    logical line ("#include <good.hpp> // GL/ stuff") does not false-
-    positive on the comment half either.
+    line (post phase-2/phase-3, see _scan_directives() below) that is
+    a #include/%:include or a C++23 header-unit import directive with a
+    LITERAL header-name argument, or None when the line is not that
+    (prose, a comment, plain code, a module import with no header-name
+    form, OR a #include/%:include whose argument is not literal - see
+    COMPUTED-INCLUDE below for that last case, which this function
+    deliberately leaves to its caller). Only the captured argument -
+    never the rest of the line - is searched for the forbidden needles,
+    so a real include followed by an unrelated trailing comment on the
+    same logical line ("#include <good.hpp> // GL/ stuff") does not
+    false-positive on the comment half either.
     """
     match = _INCLUDE_DIRECTIVE_PATTERN.match(line) or _IMPORT_DIRECTIVE_PATTERN.match(line)
     return match.group(1) if match else None
+
+
+# COMPUTED-INCLUDE (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, regressao (a)
+# do revisor de 23/09/2026: "#define X <fstream> seguido de #include X
+# puxa o cabecalho de verdade e passa limpo, porque o portao nao modela
+# a fase 4 da traducao e nao declara isso"). _directive_argument() so'
+# reconhece a forma LITERAL (`<...>`/`"..."` direto depois de
+# include/import) - um `#include X` com X um identificador bruto nunca
+# batia em `_INCLUDE_DIRECTIVE_PATTERN` (o grupo capturado exige
+# `<...>`/`"..."`), entao a linha inteira era invisivel pra
+# _directive_lines() (nem contava como diretiva, nem entrava na lista
+# de violacoes) - o portao simplesmente nao via a diretiva, muito menos
+# o cabecalho que ela puxava de verdade.
+#
+# Confirmado contra g++ 16.2.1 e clang++ 22.1.8 (GODS_LAWS.md L-22)
+# ANTES de desenhar o conserto: `#define HDR <fstream>` + `#include
+# HDR` PUXA <fstream> de verdade nos dois compiladores - com corpo em
+# aspas (`#define HDR "fstream"`, a forma "..." tambem resolve, cai no
+# caminho de busca do <...> quando nao acha local), combinado com o
+# digrafo (`%:include HDR`), e ATE com macro de FUNCAO (`#define
+# HDR(x) <fstream>` + `#include HDR(1)`) - as quatro formas funcionam
+# de verdade no preprocessador real.
+#
+# Desenho FECHADO POR PADRAO (GODS_LAWS.md L-02, "e' biblioteca, nao
+# aplicacao" - mas o principio vale aqui: o portao nunca da o beneficio
+# da duvida): toda diretiva #include/%:include cujo argumento NAO e' um
+# nome de cabecalho literal reprova com mensagem propria ("inclusao
+# computada nao verificavel"), EXCETO quando o argumento e' um
+# identificador BRUTO (nenhum outro token na linha) que casa com uma
+# macro de OBJETO (sem parametros - `#define IDENT <literal>`, nunca
+# `#define IDENT(x) ...`) definida no MESMO ARQUIVO cujo corpo e'
+# EXATAMENTE um nome de cabecalho literal - so' entao o literal
+# resolvido e' buscado contra as agulhas, exatamente como o argumento
+# direto sempre foi.
+#
+# Por que macro de FUNCAO fica de fora por desenho, mesmo funcionando
+# no compilador real (confirmado acima): resolver o valor de uma
+# invocacao de macro de funcao exigiria modelar substituicao de
+# parametro, o que este portao NUNCA fez pra nenhuma outra forma de
+# macro - e o desenho fechado-por-padrao ja cobre o caso com seguranca
+# SEM resolver: `#include HDR(1)` cai no ramo "identificador bruto" so'
+# se a linha inteira apos "include" for UM identificador e mais nada
+# (`_BARE_MACRO_IDENTIFIER_PATTERN`); "HDR(1)" tem `(1)` sobrando, entao
+# nunca casa esse padrao, e a macro de objeto nunca e' encontrada pra
+# esse nome (mesmo que exista uma FUNCAO com esse nome) - cai direto em
+# "computada nao verificavel", o veredito seguro. Nenhum #include/
+# #define computado existe hoje na arvore real (medido em 23/09/2026,
+# grep vazio nos seis diretorios cobertos) - fechar isso nao quebra a
+# varredura real.
+#
+# `import`: NENHUMA resolucao por macro se aplica - `import IDENT;` com
+# IDENT bruto (nao literal `<...>`/"...") fica como estava ANTES desta
+# fatia, inteiramente ignorado pelo portao, tanto quando IDENT e' macro
+# de objeto de cabecalho literal quanto quando nao e' - DECISAO DE
+# ESCOPO DECLARADA, nao lacuna escondida: import de MODULO NOMEADO
+# (`import std;`, `import foo.bar;`) e' sintaxe legitima do C++23 sem
+# relacao nenhuma com cabecalho ou SO, e e' INDISTINGUIVEL de um import
+# de header-unit computado por macro sem analise mais funda (a norma so
+# decide "e' header-unit" ou "e' modulo" depois de tentar expandir
+# macro e ver se o resultado tem forma de nome-de-cabecalho - este
+# portao nao faz esse nivel de analise pra nenhuma forma de import).
+# Resolver SO' os casos "macro reconhecida" e reprovar so' os "nao
+# reconhecida" criaria uma REGRA ASSIMETRICA dificil de justificar (por
+# que so' import ganha macro-resolucao, e so' quando a macro existe?) -
+# a opcao mais simples e mais segura e' nao mexer no comportamento de
+# `import` nenhum, e deixar a lacuna estreita que sobra declarada: um
+# import de header-unit computado por macro (que nunca apareceu neste
+# projeto ate hoje - projeto nao usa modulo nomeado nenhum ainda) fica
+# fora do escopo desta fatia, tanto pra resolver quanto pra reprovar.
+# `#include`/`%:include`, ao contrario, NUNCA sao ambiguos com outra
+# sintaxe legitima - todo #include tem de resolver pra um cabecalho ou
+# reprovar, entao o fechado-por-padrao se aplica ali sem esse risco.
+_INCLUDE_KEYWORD_PATTERN = re.compile(r'^\s*(?:#|%:)\s*include\s*(.*)$')
+_BARE_MACRO_IDENTIFIER_PATTERN = re.compile(r'^([A-Za-z_]\w*)\s*$')
+_OBJECT_MACRO_DEFINE_PATTERN = re.compile(
+    r'^\s*(?:#|%:)\s*define\s+([A-Za-z_]\w*)\s+(<[^>\n]*>|"[^"\n]*")\s*$'
+)
 
 
 # PHASE-2-3 (achado real, 22/09/2026, re-verificacao do lider apos o
@@ -200,7 +333,7 @@ def _directive_argument(line):
 # LACO (nao duas passadas sequenciais - a cadeia bruta so pode ser
 # isenta da fase 2 se a decisao "estou numa cadeia bruta?" for tomada
 # ANTES da emenda de linha rodar sobre aquele trecho, nao depois);
-# _directive_lines() a chama e SO ENTAO aplica _directive_argument()
+# _logical_lines() a chama e SO ENTAO _scan_directives() aplica _directive_argument()
 # por linha LOGICA resultante, preservando o numero da linha FISICA
 # original (a do primeiro caractere da linha logica) para a mensagem
 # de reprovacao continuar citando arquivo:linha certo. Cada caso deste
@@ -222,7 +355,7 @@ def _directive_argument(line):
 # comentario de linha, fecho de cadeia bruta) do MESMO jeito que um
 # `\n`-terminado? MEDIDO, nao suposto (GODS_LAWS.md L-04): sim, nos
 # tres, confirmado contra g++ 16.2.1 e clang++ 22.1.8 e contra
-# _directive_lines() desta funcao, com fixtures `\r\n`-puros -
+# _logical_lines()/_scan_directives() desta funcao, com fixtures `\r\n`-puros -
 # selftest_crlf_control() mais abaixo, quatro casos. As razoes, uma
 # por peça: (1) a emenda de linha (fase 2) JA tratava `\r\n` desde
 # antes desta fatia - o ramo `text[i + 1] == "\r" and ... == "\n"`
@@ -331,7 +464,7 @@ def _translate_phases_2_and_3(text):
     Comentarios (state_block/state_line, inalterados) e corpo de
     cadeia bruta (state_raw_string, novo) colapsam para um UNICO
     espaco na saida, mesmo tratamento e mesmo motivo: o unico
-    consumidor desta funcao, _directive_lines() abaixo, acha diretivas
+    consumidor desta funcao, _logical_lines() abaixo, separa linhas logicas que _scan_directives() acha diretivas
     casando um regex POR LINHA LOGICA depois de separar clean_text em
     '\\n' - qualquer coisa que nao pode nunca ser confundida com texto
     de #include/import tem de SUMIR de clean_text, nao so ser marcada,
@@ -475,13 +608,18 @@ def _translate_phases_2_and_3(text):
     return "".join(out), out_lines
 
 
-def _directive_lines(text):
-    """Gera (linha_fisica, argumento) para cada diretiva #include/
-    import encontrada em `text`, apos modelar as fases 2 e 3 da
-    traducao (ver o comentario PHASE-2-3 acima). `linha_fisica` e a
-    linha do PRIMEIRO caractere da linha logica correspondente - onde
-    a diretiva de fato comeca no arquivo real, mesmo quando ela foi
-    emendada ou teve um comentario no meio.
+def _logical_lines(text):
+    """Gera (linha_fisica, texto_logico) para toda linha logica NAO-VAZIA
+    de `text`, apos modelar as fases 2 e 3 da traducao (ver o comentario
+    PHASE-2-3 acima). `linha_fisica` e a linha do PRIMEIRO caractere da
+    linha logica correspondente - onde ela de fato comeca no arquivo
+    real, mesmo quando foi emendada ou teve um comentario no meio. Era o
+    laco interno de _directive_lines() (retirada nesta fatia, virou
+    _scan_directives() abaixo) - fatorada porque COMPUTED-INCLUDE
+    precisa de DUAS passadas pelas mesmas linhas logicas (uma pra
+    coletar macro de objeto via #define, outra pra resolver diretivas),
+    e as duas tem de ver a MESMA segmentacao, nao duas independentes que
+    pudessem divergir.
     """
     clean_text, clean_lines = _translate_phases_2_and_3(text)
 
@@ -492,16 +630,69 @@ def _directive_lines(text):
             continue
         segment = clean_text[start:idx]
         if segment.strip():
-            argument = _directive_argument(segment)
-            if argument is not None:
-                yield clean_lines[start], argument
+            yield clean_lines[start], segment
         start = idx + 1
     if start < n:
         segment = clean_text[start:n]
         if segment.strip():
-            argument = _directive_argument(segment)
-            if argument is not None:
-                yield clean_lines[start], argument
+            yield clean_lines[start], segment
+
+
+def _collect_object_macros(logical_lines):
+    """Retorna {nome: literal} para toda macro de OBJETO (sem parametro,
+    ver COMPUTED-INCLUDE acima) cujo corpo e' EXATAMENTE um nome de
+    cabecalho literal, definida em qualquer lugar do arquivo. NAO
+    exige que o #define apareca ANTES do #include que a usa (o
+    preprocessador real exigiria - um #include de macro ainda nao
+    definida e' erro de compilacao de verdade) - simplificacao
+    DECLARADA (GODS_LAWS.md L-44, nao escondida): um arquivo que usa a
+    macro fora de ordem nao compila de qualquer forma, entao o
+    veredito deste portao pra esse caso e' irrelevante pro produto -
+    nunca esconde uma diretiva que compilaria de verdade.
+    """
+    object_macros = {}
+    for _lineno, segment in logical_lines:
+        match = _OBJECT_MACRO_DEFINE_PATTERN.match(segment)
+        if match:
+            object_macros[match.group(1)] = match.group(2)
+    return object_macros
+
+
+def _scan_directives(text):
+    """Substitui _directive_lines() (retirada nesta fatia). Retorna
+    (resolved, unresolved): `resolved` e uma lista de (linha_fisica,
+    argumento_literal) - toda diretiva #include/%:include/import cujo
+    argumento e' um nome de cabecalho literal, direto ou resolvido por
+    macro de objeto do MESMO arquivo (ver COMPUTED-INCLUDE acima) -, a
+    buscar contra as agulhas exatamente como antes desta fatia;
+    `unresolved` e a lista de linha_fisica de toda diretiva #include/
+    %:include cujo argumento NAO e' literal e NAO resolve por macro
+    local - reprova por si so' (fechado por padrao), sem precisar bater
+    com nenhuma agulha, porque o portao nao consegue provar que o
+    cabecalho puxado e' seguro.
+    """
+    logical_lines = list(_logical_lines(text))
+    object_macros = _collect_object_macros(logical_lines)
+
+    resolved = []
+    unresolved = []
+    for lineno, segment in logical_lines:
+        argument = _directive_argument(segment)
+        if argument is not None:
+            resolved.append((lineno, argument))
+            continue
+
+        include_match = _INCLUDE_KEYWORD_PATTERN.match(segment)
+        if include_match is None:
+            continue  # nao e #include/%:include nem import - codigo comum, ja limpo de comentario/string pela fase 2/3.
+
+        bare_match = _BARE_MACRO_IDENTIFIER_PATTERN.match(include_match.group(1))
+        macro_value = object_macros.get(bare_match.group(1)) if bare_match else None
+        if macro_value is not None:
+            resolved.append((lineno, macro_value))
+        else:
+            unresolved.append(lineno)
+    return resolved, unresolved
 
 
 def fail(message):
@@ -572,6 +763,12 @@ def core_source_files(root):
 # maquina nao, sem opcao extra - nao ha como confirmar contra os dois
 # compiladores do resto deste arquivo).
 def violations_in_file(path):
+    """Cada item de `violations` e (kind, path, lineno). kind="needle" e
+    o caso original (o argumento resolvido bate com uma agulha
+    proibida); kind="computed" e' o caso novo do COMPUTED-INCLUDE acima
+    (a diretiva #include/%:include nao pode ser verificada e reprova
+    por si so', sem precisar bater com agulha nenhuma).
+    """
     violations = []
     try:
         with open(path, "r", encoding="utf-8-sig", errors="replace") as handle:
@@ -579,9 +776,12 @@ def violations_in_file(path):
     except OSError as exc:
         print(f"{SCRIPT_NAME}: {path}: open refused ({exc})", file=sys.stderr)
         return violations
-    for lineno, argument in _directive_lines(text):
+    resolved, unresolved = _scan_directives(text)
+    for lineno, argument in resolved:
         if _FORBIDDEN_PATTERN.search(argument):
-            violations.append((path, lineno))
+            violations.append(("needle", path, lineno))
+    for lineno in unresolved:
+        violations.append(("computed", path, lineno))
     return violations
 
 
@@ -656,6 +856,78 @@ def require_nonempty_gfss_gfui_dirs(dir_files):
     return ok
 
 
+# SYMLINK-DIR-REFUSED (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, lacuna
+# antiga declarada pelo revisor de 23/09/2026: "diretorio alcancado por
+# ligacao simbolica, que a varredura nao segue"). `os.walk()`, no modo
+# padrao (`followlinks=False`, o que `_walk_header_files()` sempre
+# usou), lista o NOME de um subdiretorio-ligacao em `dirnames` mas
+# NUNCA entra nele como um `dirpath` de uma proxima iteracao - o
+# conteudo por tras da ligacao fica INVISIVEL pra `_walk_header_files()`
+# hoje: nem os arquivos de la contam pro piso nao-vazio, nem sao
+# varridos por violacao. Um cabecalho de SO plantado atras de uma
+# ligacao simbolica dentro de uma camada "pura" passaria como se a
+# camada estivesse limpa - falso negativo silencioso, sem nenhum aviso.
+#
+# Duas saidas possiveis (o time pediu pra escolher a mais completa e
+# justificar): (a) SEGUIR a ligacao (`followlinks=True`) - varreria o
+# conteudo de verdade, mas troca um blind spot por dois riscos novos:
+# uma ligacao apontando pra um ANCESTRAL do proprio diretorio cria um
+# CICLO que faz `os.walk()` nunca terminar (GODS_LAWS.md L-11, proibido
+# desenho que gasta tempo/processo sem teto por item varrido), e uma
+# ligacao pode apontar pra QUALQUER lugar do sistema de arquivos,
+# inclusive fora da arvore deste projeto inteiramente - a promessa "so
+# varro estes seis diretorios" deixaria de valer sem ninguem decidir
+# isso explicitamente. (b) REPROVAR a MERA PRESENCA da ligacao, nomeada,
+# sem seguir. Escolhida (b): GODS_LAWS.md L-02 (fechado por padrao) - a
+# lacuna de hoje e' invisibilidade TOTAL (0 violacoes, sem aviso nenhum
+# nem pro operador saber que uma ligacao existe ali); uma camada que
+# este portao promete pura nao ganha uma saida nao-declarada por
+# ligacao simbolica. Reprovar e' estritamente MAIS protetor que o
+# comportamento de hoje (silencio) mesmo nao sendo mais "completo" no
+# sentido de escanear o conteudo de la - a decisao de abrir excecao pra
+# um caso real fica com o lider (GODS_LAWS.md L-01), nao com este
+# portao sozinho.
+def _find_symlinked_directories(root_dir):
+    """Retorna a lista ordenada de subdiretorios de `root_dir` (o
+    proprio `root_dir` incluido) alcancados por ligacao simbolica.
+    `root_dir` inexistente devolve lista vazia (quem chama ja trata
+    ausencia via require_nonempty_scan()/require_nonempty_gfss_gfui_
+    dirs() antes desta funcao rodar)."""
+    if not os.path.isdir(root_dir):
+        return []
+    if os.path.islink(root_dir):
+        return [root_dir]
+    found = []
+    for dirpath, dirnames, _filenames in os.walk(root_dir):
+        for name in dirnames:
+            candidate = os.path.join(dirpath, name)
+            if os.path.islink(candidate):
+                found.append(candidate)
+    return sorted(found)
+
+
+def require_no_symlinked_layer_dirs(root):
+    ok = True
+    for source_dir in core_source_dirs(root):
+        for linked in _find_symlinked_directories(source_dir):
+            print(
+                f"{SCRIPT_NAME}: ligacao simbolica dentro de camada pura "
+                f"(nao seguida): {linked} - GODS_LAWS.md L-02",
+                file=sys.stderr,
+            )
+            ok = False
+    for _label, parts in GFSS_GFUI_DIR_SPECS:
+        path = os.path.join(root, *parts)
+        for linked in _find_symlinked_directories(path):
+            print(
+                f"{SCRIPT_NAME}: ligacao simbolica dentro de camada pura "
+                f"(nao seguida): {linked} - GODS_LAWS.md L-02",
+                file=sys.stderr,
+            )
+            ok = False
+    return ok
+
+
 # The actual gate logic, factored out of real_main() so --selftest
 # exercises the EXACT same function - not a reimplementation that
 # could drift from production.
@@ -666,6 +938,9 @@ def check_layers(root):
 
     gfss_gfui_files = gfss_gfui_dir_files(root)
     if not require_nonempty_gfss_gfui_dirs(gfss_gfui_files):
+        return False
+
+    if not require_no_symlinked_layer_dirs(root):
         return False
 
     files = list(core_files)
@@ -679,8 +954,15 @@ def check_layers(root):
 
     if violations:
         print(f"{SCRIPT_NAME}: layer violations (GODS_LAWS.md L-19):", file=sys.stderr)
-        for path, lineno in violations:
-            print(f"{path}:{lineno}", file=sys.stderr)
+        for kind, path, lineno in violations:
+            if kind == "computed":
+                print(
+                    f"{path}:{lineno}: inclusao computada nao verificavel "
+                    "(GODS_LAWS.md L-02)",
+                    file=sys.stderr,
+                )
+            else:
+                print(f"{path}:{lineno}", file=sys.stderr)
         return False
 
     print(f"{SCRIPT_NAME}: violations: 0 in {file_count} files scanned")
@@ -1017,6 +1299,14 @@ _ANCHOR_DIRECTIVE_CASES = (
     ("export import <fstream>;\n", True),
     ("// a GL/WGL function name is a mouthful\n", False),
     ("// #include <windows.h>\n", False),
+    # DIGRAPH (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, regressao (b) - ver
+    # o comentario DIGRAPH acima de _INCLUDE_DIRECTIVE_PATTERN): as tres
+    # formas confirmadas contra g++ 16.2.1 e clang++ 22.1.8, mais a
+    # forma com espaco DENTRO do digrafo que os dois compiladores NAO
+    # reconhecem como diretiva nenhuma (ecoada como texto comum).
+    ("%:include <fstream>\n", True),
+    ("%:  include <fstream>\n", True),
+    ("% : include <fstream>\n", False),
 )
 
 
@@ -1402,6 +1692,302 @@ def selftest_bom_control(scratch, capture):
     return ok
 
 
+# COMPUTED-INCLUDE control (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, ver o
+# comentario COMPUTED-INCLUDE acima de _INCLUDE_KEYWORD_PATTERN). Cada
+# caso confirmado contra g++ 16.2.1 e clang++ 22.1.8 antes de virar
+# controle (GODS_LAWS.md L-22), EXCETO os dois marcados "nunca compila"
+# abaixo, que sao erro de compilacao de verdade nos dois - o portao
+# reprova mesmo assim (fechado por padrao: nao resolver e' o veredito
+# seguro, nao uma tentativa de simular o compilador nesses dois).
+# `expects_message` distingue reprovacao por AGULHA (a de sempre,
+# "path:lineno") de reprovacao por COMPUTADA NAO VERIFICAVEL - as duas
+# reprovam (outcome.result False), mas por motivos diferentes, e o
+# controle confere qual das duas mensagens saiu.
+_COMPUTED_INCLUDE_CASES = (
+    (
+        "case_a_object_macro_forbidden_resolves_and_bites",
+        "#define HDR <fstream>\n#include HDR\n",
+        True,
+        "needle",
+    ),
+    (
+        "case_b_object_macro_clean_resolves_and_passes",
+        "#define HDR <cstdint>\n#include HDR\n",
+        False,
+        None,
+    ),
+    (
+        # Corpo em aspas (nao so' <...>) - GODS_LAWS.md L-22 confirmou
+        # contra g++ que `#define HDR "fstream"` + `#include HDR`
+        # tambem resolve de verdade (cai na busca do sistema quando nao
+        # acha local). Usa a agulha "wayland" (sem "<" embutido na
+        # propria agulha), NAO "<fstream" - achado a parte, fora do
+        # escopo desta fatia, registrado no relato ao time: seis das
+        # onze agulhas de OS_HEADER_NEEDLES ("<fstream", "<filesystem",
+        # "<dlfcn", "<unistd", "<sys/", "<fcntl") tem o `<` GRAVADO na
+        # propria agulha, entao nunca mordem a forma "..." (aspas) do
+        # mesmo cabecalho, computada ou direta - pre-existe a esta
+        # fatia (nao criada por ela), e nao e uma das quatro frentes.
+        "case_c_object_macro_quoted_body_resolves_and_bites",
+        '#define HDR "wayland-client.h"\n#include HDR\n',
+        True,
+        "needle",
+    ),
+    (
+        "case_d_digraph_plus_object_macro_resolves_and_bites",
+        "#define HDR <fstream>\n%:include HDR\n",
+        True,
+        "needle",
+    ),
+    (
+        "case_e_no_macro_defined_anywhere",
+        "#include SOME_UNDEFINED_MACRO\n",
+        True,
+        "computed",
+    ),
+    (
+        # Macro de FUNCAO: funciona no compilador real (confirmado),
+        # mas este portao deliberadamente NUNCA resolve macro de
+        # funcao - "HDR(1)" nao casa _BARE_MACRO_IDENTIFIER_PATTERN
+        # (sobra "(1)"), entao cai direto em "computada", o veredito
+        # seguro sem precisar modelar substituicao de parametro.
+        "case_f_function_like_macro_never_resolved",
+        "#define HDR(x) <fstream>\n#include HDR(1)\n",
+        True,
+        "computed",
+    ),
+    (
+        # Corpo da macro NAO e' um cabecalho literal (nunca compilaria
+        # de verdade tambem) - _OBJECT_MACRO_DEFINE_PATTERN exige que o
+        # grupo 2 seja `<...>`/"..."; "42" nao bate, entao HDR nunca
+        # entra na tabela de macros e o #include fica sem resolucao.
+        "case_g_macro_body_not_a_literal_header_never_resolved",
+        "#define HDR 42\n#include HDR\n",
+        True,
+        "computed",
+    ),
+    (
+        # Import de MODULO NOMEADO, nao de header-unit - nao e' macro
+        # nenhuma envolvida. Tem de passar limpo (decisao de escopo do
+        # comentario `import` acima) - reprovar aqui seria falso
+        # positivo contra sintaxe C++23 legitima.
+        "case_h_named_module_import_is_not_computed_include",
+        "import glintfx_demo_module;\n",
+        False,
+        None,
+    ),
+)
+
+
+def selftest_computed_include_control(scratch, capture):
+    ok = True
+    for name, content, should_reprove, expected_kind in _COMPUTED_INCLUDE_CASES:
+        root = os.path.join(scratch, f"computed_{name}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"{name}.cpp")
+        with open(target, "w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
+
+        outcome = capture(lambda: check_layers(root))
+        reproved = not outcome.result
+
+        if should_reprove and not reproved:
+            print(
+                f"selftest: controle de INCLUSAO COMPUTADA FALHOU ({name} "
+                "deveria ter reprovado, mas passou)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if should_reprove and target not in outcome.text:
+            print(
+                f"selftest: controle de INCLUSAO COMPUTADA FALHOU ({name} "
+                f"reprovou, mas nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if should_reprove and expected_kind == "computed" and "computada" not in outcome.text:
+            print(
+                f"selftest: controle de INCLUSAO COMPUTADA FALHOU ({name} "
+                "reprovou, mas nao pela mensagem de inclusao computada "
+                "nao verificavel)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if should_reprove and expected_kind == "needle" and "computada" in outcome.text:
+            print(
+                f"selftest: controle de INCLUSAO COMPUTADA FALHOU ({name} "
+                "reprovou pela mensagem de computada, mas deveria ter sido "
+                "pela agulha (macro resolvida)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if not should_reprove and reproved:
+            print(
+                f"selftest: controle de INCLUSAO COMPUTADA FALHOU ({name} "
+                "deveria ter passado, mas reprovou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+
+        verdict = "reprovado" if should_reprove else "passou"
+        print(f"selftest: controle de INCLUSAO COMPUTADA OK ({name} {verdict} como esperado)")
+    return ok
+
+
+# NEEDLE-BITES control (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, buraco de
+# prova do revisor de 23/09/2026: "das 12 palavras que o portao
+# procura, 8 sobrevivem a remocao sem o --selftest notar - inclusive
+# glintfx/platform/, a regra que da nome ao portao"). Antes desta
+# fatia, so' quatro das doze agulhas (UPPER_LAYER_NEEDLE + as onze de
+# OS_HEADER_NEEDLES) tinham algum controle que as plantava sozinhas e
+# conferia a reprovacao: "wayland" (via wayland-client.h nos controles
+# NEGATIVO e NEGATIVO-gfss/gfui), "GL/" e "windows.h" (via
+# _ANCHOR_DIRECTIVE_CASES) e "<fstream" (onipresente). As outras oito -
+# "glintfx/platform/", "winuser", "EGL/", "<dlfcn", "<unistd", "<sys/",
+# "<fcntl", "<filesystem" - nunca apareciam plantadas em NENHUM
+# fixture, entao remove-las de OS_HEADER_NEEDLES/UPPER_LAYER_NEEDLE nao
+# fazia NENHUM controle reprovar - a logica funcionava, a prova nao
+# existia. Este controle planta, isolado, um #include cujo argumento
+# contem EXATAMENTE cada uma das doze agulhas (uma forma real de
+# cabecalho, nao a substring sozinha) e confere reprovacao citando o
+# arquivo - se uma agulha for removida de _FORBIDDEN_PATTERN, o caso
+# correspondente para de bater e este controle FALHA, provando a
+# mordida. Estreia vermelha verificada manualmente (L-36): comentar
+# UPPER_LAYER_NEEDLE numa copia fora da arvore e rodar --selftest faz
+# exatamente este controle (o caso "glintfx/platform/") reprovar - os
+# outros dez continuam OK, confirmando que cada caso testa SO' a sua
+# propria agulha, nenhum mascara o outro.
+_NEEDLE_BITES_CASES = (
+    ("upper_layer_needle_glintfx_platform", '#include "glintfx/platform/window.hpp"\n'),
+    ("wayland", "#include <wayland-client.h>\n"),
+    ("windows_h", "#include <windows.h>\n"),
+    ("winuser", "#include <winuser.h>\n"),
+    ("gl_slash", "#include <GL/gl.h>\n"),
+    ("egl_slash", "#include <EGL/egl.h>\n"),
+    ("dlfcn", "#include <dlfcn.h>\n"),
+    ("unistd", "#include <unistd.h>\n"),
+    ("sys_slash", "#include <sys/stat.h>\n"),
+    ("fcntl", "#include <fcntl.h>\n"),
+    ("filesystem", "#include <filesystem>\n"),
+    ("fstream", "#include <fstream>\n"),
+)
+
+
+def selftest_needle_bites_control(scratch, capture):
+    ok = True
+    seen = set()
+    for name, content in _NEEDLE_BITES_CASES:
+        root = os.path.join(scratch, f"needle_{name}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"{name}.cpp")
+        with open(target, "w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
+
+        outcome = capture(lambda: check_layers(root))
+        if outcome.result:
+            print(
+                f"selftest: controle de AGULHA MORDE ({name}) FALHOU "
+                "(deveria ter reprovado, mas passou - agulha nao morde)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if target not in outcome.text:
+            print(
+                f"selftest: controle de AGULHA MORDE ({name}) FALHOU "
+                f"(reprovou, mas nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        seen.add(name)
+        print(f"selftest: controle de AGULHA MORDE ({name}) OK (agulha morde e cita o arquivo)")
+    # GODS_LAWS.md L-40 (piso de varredura nao-vazia, aplicado a ESTE
+    # controle tambem): _NEEDLE_BITES_CASES tem de cobrir as DOZE
+    # agulhas reais, nunca um subconjunto que uma edicao futura
+    # encolheu em silencio.
+    expected_needle_count = len((UPPER_LAYER_NEEDLE,) + OS_HEADER_NEEDLES)
+    if len(_NEEDLE_BITES_CASES) != expected_needle_count:
+        print(
+            "selftest: controle de AGULHA MORDE FALHOU (tabela de casos tem "
+            f"{len(_NEEDLE_BITES_CASES)} entradas, mas ha {expected_needle_count} "
+            "agulhas reais - alguma ficou sem prova)",
+            file=sys.stderr,
+        )
+        ok = False
+    return ok
+
+
+# SYMLINK-DIR-REFUSED control (LAYERS-GATE-GFSS-GFUI, sub-fatia L-3, ver
+# o comentario SYMLINK-DIR-REFUSED acima de _find_symlinked_directories()).
+def selftest_symlinked_layer_dir_control(scratch, capture):
+    root = os.path.join(scratch, "symlinked_layer_dir")
+    make_clean_fixture(root)
+
+    # Diretorio de verdade FORA das seis camadas cobertas, com um
+    # cabecalho de SO plantado dentro - o mesmo conteudo que, se
+    # alcancado, seria uma violacao normal de agulha.
+    external_dir = os.path.join(root, "_external_not_a_layer")
+    os.makedirs(external_dir, exist_ok=True)
+    with open(
+        os.path.join(external_dir, "dirty.hpp"), "w", encoding="utf-8", newline=""
+    ) as handle:
+        handle.write("#include <wayland-client.h>\n")
+
+    # Ligacao simbolica DENTRO de src/core/ apontando pro diretorio
+    # externo acima - o caso que os.walk(followlinks=False) listaria em
+    # dirnames mas nunca visitaria como dirpath.
+    link_path = os.path.join(root, "src", "core", "linked")
+    os.symlink(external_dir, link_path, target_is_directory=True)
+
+    outcome = capture(lambda: check_layers(root))
+    if outcome.result:
+        print(
+            "selftest: controle de LIGACAO SIMBOLICA FALHOU (ligacao dentro "
+            "de src/core/ deveria ter sido recusada, mas passou)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    if link_path not in outcome.text:
+        print(
+            "selftest: controle de LIGACAO SIMBOLICA FALHOU (recusou, mas "
+            f"nao citou {link_path})",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    # A parte mais importante da prova: o conteudo por TRAS da ligacao
+    # (dirty.hpp, fora da arvore de camadas) nunca deveria ter sido
+    # varrido - se aparecesse citado, o portao estaria SEGUINDO a
+    # ligacao, nao recusando a presenca dela (o desenho ESCOLHIDO,
+    # ver o comentario SYMLINK-DIR-REFUSED).
+    if "dirty.hpp" in outcome.text:
+        print(
+            "selftest: controle de LIGACAO SIMBOLICA FALHOU (citou "
+            "dirty.hpp - o portao seguiu a ligacao em vez de so recusar a "
+            "presenca dela)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle de LIGACAO SIMBOLICA OK (presenca recusada, "
+        "nomeada, sem seguir o conteudo por tras dela)"
+    )
+    return True
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -1418,6 +2004,9 @@ def selftest_main():
             selftest_raw_string_control(scratch, capture),
             selftest_crlf_control(scratch, capture),
             selftest_bom_control(scratch, capture),
+            selftest_computed_include_control(scratch, capture),
+            selftest_needle_bites_control(scratch, capture),
+            selftest_symlinked_layer_dir_control(scratch, capture),
         ]
         if not all(controls):
             print("check_layers.py --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -975,6 +975,15 @@ def _write_std_stubs(ctx, stub_dir, stdlib_permitidos):
     )
 
 
+def _compose_case_include_dirs(include_dirs, std_stub_dir):
+    """docs/plano-layers-l5-adendo-calibracao.md O-23: `std_stubs/` e'
+    sempre o ULTIMO diretorio de inclusao da configuracao de CASO,
+    depois dos da fixture e dos gerados (`include_dirs`) - fatorado do
+    corpo de `run_oracle` pra virar ponto de mutacao unico e testavel
+    (M-O23a/b)."""
+    return (*include_dirs, std_stub_dir)
+
+
 def run_oracle(ctx, manifest, export_dir, scratch):
     """O laco principal (docs/plano-layers-l5.md §2): calibracao,
     sentinelas, depois um processo SEQUENCIAL por caso "compilar"."""
@@ -991,7 +1000,7 @@ def run_oracle(ctx, manifest, export_dir, scratch):
     # continua SEM ele (ctx.include_dirs, acima, fica intocado).
     std_stub_dir = os.path.join(scratch, "std_stubs")
     ctx.standard_paths = _write_std_stubs(ctx, std_stub_dir, manifest["stdlib_permitidos"])
-    ctx.case_include_dirs = (*ctx.include_dirs, std_stub_dir)
+    ctx.case_include_dirs = _compose_case_include_dirs(ctx.include_dirs, std_stub_dir)
 
     calib_result = run_calibration(ctx, scratch, manifest)
     run_sentinels(ctx, scratch, calib_result, manifest["stdlib_permitidos"])
@@ -1530,7 +1539,7 @@ def selftest_oracle_o23_std_stubs_written_and_ordered(scratch, capture):
     names_match = on_disk == set(names) and len(normalized) == len(names)
 
     ctx.include_dirs = ("/fixture/include", "/fixture/generated")
-    ctx.case_include_dirs = (*ctx.include_dirs, stub_dir)
+    ctx.case_include_dirs = _compose_case_include_dirs(ctx.include_dirs, stub_dir)
     case_command, _wd = build_preprocess_command(ctx, "/fixture/src/core/x.hpp", scratch, ctx.case_include_dirs)
     calib_command, _wd2 = build_preprocess_command(ctx, "/fixture/calib/probe.hpp", scratch, ctx.include_dirs)
     case_flags = [t for t in case_command if t.startswith("-I")]

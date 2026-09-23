@@ -1094,10 +1094,14 @@ def _raw_add_test_grep_count(repo_root):
     """Mesma convencao de `grep -c 'glintfx_add_test(' tests/CMakeLists.
     txt` (substring por LINHA, nao regex de nome) - inclui as poucas
     linhas de comentario/prosa que citam a chamada sem invoca-la
-    (medido: 5 em 10/09/2026). Usado so' para a contagem de "alvos
-    multiplataforma nao exercitados" enquanto WIN-CROSS-TESTS-LINK
-    (WIN-CROSS-STAGE S6) nao fecha com uma contagem exata por motivo de
-    exclusao - ver o comentario do proprio chamador."""
+    (medido: 5 em 10/09/2026, 9 em 23/09/2026). Usado so' para a
+    contagem bruta que o resumo de build_not_measured_block() reconcilia
+    contra alvos_encontrados + alvos_excluidos (a diferenca e' so'
+    ruido de comentario/prosa) - WIN-CROSS-TESTS-LINK fechou com essa
+    contagem exata em 07c4310 (WIN-CROSS-STAGE S6), com a estreia
+    vermelha contra o defeito de 6e049ad provada em cima disso em
+    23/09/2026 (WIN-CROSS-TESTS-LINK X-1..X-3) - ver o comentario do
+    proprio chamador."""
     text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
     return sum(1 for line in text.splitlines() if "glintfx_add_test(" in line)
 

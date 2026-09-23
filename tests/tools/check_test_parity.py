@@ -1883,16 +1883,27 @@ def selftest_alias_bilateral_false_declaration_reproves():
 # MEIO da frase (`"nao aparece em  inventario"`) sobrevivia. Mesmo
 # padrao de _check_half_dead_message (rodada 2): a frase EXATA, nao so
 # o nome.
-def _check_exception_dead_message(errors, test_name, label):
+#
+# Revisao FINAL (achado bloqueante NOVO A, mesma familia de N4): a
+# mensagem tambem cita `(missing_on={exc['missing_on']})`, e nenhum
+# controle conferia ESSE campo - um mutante que fixa a constante
+# "missing_on=linux" na formatacao, independente do valor real,
+# sobrevivia por inteiro (os dois cenarios C3a/C3b usavam "windows"
+# nos dois, entao a lacuna nunca foi exercitada). Conferido aqui, e os
+# dois cenarios abaixo passam a usar lados DIFERENTES entre si - senao
+# a checagem vira tautologica pelo MESMO motivo que motivou N7 (o
+# valor certo por coincidencia bater com o unico valor testado).
+def _check_exception_dead_message(errors, test_name, missing_on, label):
     if not any(
         "excecao morta" in e
         and test_name in e
+        and f"missing_on={missing_on}" in e
         and "nao aparece em inventario nenhum, ou ja existe tambem do lado declarado" in e
         for e in errors
     ):
         print(
             f"selftest: {label} FALHOU (reprovou, mas a mensagem nao bate a frase exata "
-            f"de 'excecao morta'): {errors}",
+            f"de 'excecao morta' com missing_on={missing_on!r}): {errors}",
             file=sys.stderr,
         )
         return False
@@ -1918,7 +1929,7 @@ def selftest_exception_dead_gap_closed_reproves():
     if not errors:
         print("selftest: PARITY-ALIAS-HYGIENE C3a FALHOU (excecao com lacuna ja fechada deveria ter reprovado)", file=sys.stderr)
         return False
-    if not _check_exception_dead_message(errors, "so_linux_antes_test", "PARITY-ALIAS-HYGIENE C3a"):
+    if not _check_exception_dead_message(errors, "so_linux_antes_test", "windows", "PARITY-ALIAS-HYGIENE C3a"):
         return False
     print(f"selftest: PARITY-ALIAS-HYGIENE C3a OK (excecao com par ja fechado pega): {errors}")
     return True
@@ -1926,14 +1937,16 @@ def selftest_exception_dead_gap_closed_reproves():
 
 # PARITY-ALIAS-HYGIENE C3b (VERMELHO): excecao cujo teste nao existe
 # em inventario nenhum - orfa, teste renomeado ou apagado. Esperado:
-# reprova.
+# reprova. `missing_on="linux"` (revisao FINAL, achado NOVO A) - lado
+# DIFERENTE de C3a de proposito, para a checagem de missing_on acima
+# nao virar tautologica testando so' um valor possivel.
 def selftest_exception_dead_orphaned_reproves():
     linux_inv = {"a_test"}
     windows_inv = {"a_test"}
     exceptions = [
         {
             "test_name": "teste_que_nao_existe_mais",
-            "missing_on": "windows",
+            "missing_on": "linux",
             "gemeo": "nenhum",
             "item": SEM_PENDENCIA,
             "prova_parcial_gemeo": None,
@@ -1943,7 +1956,7 @@ def selftest_exception_dead_orphaned_reproves():
     if not errors:
         print("selftest: PARITY-ALIAS-HYGIENE C3b FALHOU (excecao orfa deveria ter reprovado)", file=sys.stderr)
         return False
-    if not _check_exception_dead_message(errors, "teste_que_nao_existe_mais", "PARITY-ALIAS-HYGIENE C3b"):
+    if not _check_exception_dead_message(errors, "teste_que_nao_existe_mais", "linux", "PARITY-ALIAS-HYGIENE C3b"):
         return False
     print(f"selftest: PARITY-ALIAS-HYGIENE C3b OK (excecao orfa pega): {errors}")
     return True
@@ -2058,6 +2071,31 @@ def selftest_alias_bilateral_prefix_is_case_sensitive_reproves():
     print(
         "selftest: BILATERAL-PREFIXO-CASE-SENSITIVE OK (variantes de maiuscula do prefixo "
         "'bilateral=' reprovam, GODS_LAWS.md L-36)"
+    )
+    return True
+
+
+# GODS_LAWS.md L-36, revisao FINAL (achado bloqueante NOVO B, mesma
+# familia de N5): o guard real e' `terceiro.startswith(_BILATERAL_
+# PREFIX)` - duas invariantes independentes, (a) maiuscula exata (ja
+# provada acima) e (b) POSICAO no inicio do campo. O controle acima
+# so' prova (a). Um mutante que troca `startswith` por `_BILATERAL_
+# PREFIX in terceiro` (aceita o prefixo em QUALQUER posicao do
+# terceiro campo, nao so' no inicio) sobrevivia por inteiro - nenhuma
+# fixture do arquivo tinha "bilateral=" fora da posicao 0.
+def selftest_alias_bilateral_prefix_must_be_at_start_reproves():
+    linha = "a_linux|a_windows|xbilateral=motivo\n"
+    if not _expect_fail_exit(parse_aliases_text, linha):
+        print(
+            f"selftest: BILATERAL-PREFIXO-POSICAO FALHOU (prefixo fora do inicio do campo "
+            f"deveria ter reprovado - 'bilateral=' so' e' aceito na POSICAO 0, "
+            f"GODS_LAWS.md L-36): {linha!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: BILATERAL-PREFIXO-POSICAO OK (prefixo 'bilateral=' fora da posicao "
+        "inicial reprova, GODS_LAWS.md L-36)"
     )
     return True
 
@@ -2365,6 +2403,7 @@ def _parsing_guard_and_real_main_controls():
     return [
         selftest_alias_bilateral_reason_empty_reproves(),
         selftest_alias_bilateral_prefix_is_case_sensitive_reproves(),
+        selftest_alias_bilateral_prefix_must_be_at_start_reproves(),
         selftest_prova_parcial_gemeo_empty_reproves(),
         selftest_exception_invalid_missing_on_reproves(),
         selftest_expect_fail_exit_meta_control(),

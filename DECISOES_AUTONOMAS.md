@@ -4189,3 +4189,16 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 - **D-2 (NÃO adotada; espera o líder):** a sub-fatia L-5, um oráculo que compara o portão com o compilador real, gastaria um processo do compilador por fixture (cerca de 80 por rodada). A L-11 global diz, verbatim: *"PROIBIDO desenho que gasta um processo por item varrido"*. Pela LEI DAS LEIS, só o líder decide isso. A L-4 não depende da L-5; a pergunta fica para quando ele voltar, ou para um desenho da L-5 que não fira a lei.
 
 **Continua exigindo o líder:** ratificar D-1 e D-3; decidir D-2.
+
+## 23/09/2026 - 10:13 | Adendo da L-4 do portão de camada: quatro decisões do C-level, e o portão de hoje já é cego
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois de nova busca pela L-42 (terceira reprovação do item). Texto inteiro: `docs/plano-layers-l4-adendo.md`.
+
+**Fato que o main reproduziu antes de registrar:** o portão que está HOJE na árvore (e também a L-4 congelada) passa com zero violações um arquivo cuja segunda linha é `#include <fstream>` comum, quando a primeira linha usa separador de dígito (`1'0`) seguido de uma cadeia com aspa simples: o léxico do portão desalinha do compilador e esconde a inclusão dentro de um comentário que só ele enxerga. O g++ puxa `<fstream>` na profundidade 1. O separador de dígito já aparece na biblioteca (`src/core/time.cpp:26`). O adendo mediu oito dessincronias assim, quatro delas sem nenhum aviso do compilador, e onze formas de `import` que passam.
+
+- **D-A1:** os tokens `import`, `module`, `_Pragma`, `__pragma` e as grafias de `asm` ficam proibidos nas camadas puras (zero ocorrências na árvore hoje). **Custo declarado:** uma camada pura não poderá usar módulos do C++ sem mudar o portão; é porta que se reabre com decisão, não por acidente.
+- **D-A2:** a regra de colagem `##` é aplicada por cadeia.
+- **D-A3:** `#pragma` vira lista de permitidos, só `once`.
+- **D-A4:** o léxico passa a tratar número de pré-processamento e nome de cabeçalho, e recusa literal não terminado na linha.
+
+**Continua exigindo o líder:** ratificar D-A1 a D-A4; e a D-2 (oráculo contra o compilador), que o planejador recomenda levar agora, com esta contagem de dessincronias como argumento.

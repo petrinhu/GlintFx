@@ -161,6 +161,16 @@
 # reproves with the real `ld` "undefined reference" the moment a future
 # atom repeats this exact shape - never again only a server round-trip
 # away.
+#
+# incoming_poll_outcome.cpp (CONT-WARMUP C-2, docs/plano-fecho-w7b.md
+# D-10) rides the SAME way, right after flush_retry_policy.cpp, in
+# every one of those same 22 invocations - added by a script pass that
+# located every flush_retry_policy.cpp line and inserted the new one
+# immediately after it, never by hand-counting, precisely to not become
+# a FIFTH occurrence of the "lista de fontes mantida a mao" defect two
+# paragraphs above. tests/tools/check_container_fixture_link.py's own
+# `--exec` run (this fatia's own report) is what actually proved this
+# is complete, not the count in this comment.
 # SANITIZER-CONTAINER-GAP (TODO.md, /var/tmp/glintfx-plan/cauda-w6b.md
 # sec. 4.2): before this ARG, every g++ invocation below was fixed at
 # -O2 -Wall -Wextra -Werror, zero -fsanitize - the class of defect
@@ -272,6 +282,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -287,6 +298,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -302,6 +314,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -317,6 +330,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -332,6 +346,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -347,6 +362,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/core/err.cpp \
@@ -364,6 +380,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -382,6 +399,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -405,6 +423,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -428,6 +447,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
@@ -445,6 +465,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/seat_adapter.cpp \
@@ -462,6 +483,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -487,6 +509,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -535,6 +558,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -590,6 +614,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -645,6 +670,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -693,6 +719,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -733,6 +760,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_adapter.cpp \
@@ -773,6 +801,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -815,6 +844,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -863,6 +893,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \
@@ -911,6 +942,7 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/_arch_ports_src/src/platform/wayland/display_adapter.cpp \
         /build/_arch_ports_src/src/platform/wayland/bounded_output_wait.cpp \
         /build/_arch_ports_src/src/platform/wayland/flush_retry_policy.cpp \
+        /build/_arch_ports_src/src/platform/wayland/incoming_poll_outcome.cpp \
         /build/_arch_ports_src/src/platform/wayland/global_catalog.cpp \
         /build/_arch_ports_src/src/platform/wayland/connection_failure.cpp \
         /build/_arch_ports_src/src/platform/wayland/shell_requirements.cpp \

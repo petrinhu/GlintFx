@@ -17,6 +17,7 @@
 #include "platform/wayland/bounded_output_wait.hpp"
 #include "platform/wayland/connection_failure.hpp"
 #include "platform/wayland/flush_retry_policy.hpp"
+#include "platform/wayland/incoming_poll_outcome.hpp"
 
 // display_adapter.cpp - see display_adapter.hpp's own header comment
 // for scope. ARCH-PORTS's own connect/disconnect (TDD case R3,
@@ -311,6 +312,25 @@ wayland_display_adapter::flush_with_retry(std::chrono::steady_clock::time_point 
 // pairing, wl_display_cancel_read() already called - when nothing
 // arrived (by timeout OR by EINTR), so the caller can return success
 // without a read_and_dispatch_incoming() call that has nothing to do.
+// CONT-WARMUP C-2 (docs/plano-fecho-w7b.md D-10, GODS_LAWS.md L-17
+// "gemeo", L-20): this used to fold POLLHUP/POLLERR WITHOUT POLLIN
+// into the SAME "nothing to read yet" branch a genuine timeout takes -
+// the write-side twin (bounded_output_wait.cpp's own POLLERR|POLLHUP|
+// POLLNVAL-is-failure branch) already disagreed with that, and this
+// composite condition was wrong. The DECISION itself now lives in
+// classify_incoming_poll() (platform/wayland/incoming_poll_outcome.hpp)
+// - a pure atom, unit-tested with synthetic revents (tests/incoming_
+// poll_outcome_test.cpp) because GODS_LAWS.md L-20's own declared TDD
+// exception for an "adaptador que so encaminha chamada ao sistema
+// operacional" does not reach a function that never touches the OS at
+// all. DECLARADO (this fatia's own report,
+// /var/tmp/glintfx-plan/impl-cont-warmup.md): a real kwin_wayland kill
+// never delivered POLLHUP without POLLIN in four measured runs - this
+// kernel reports POLLIN alongside POLLHUP once a peer closes (POLLIN
+// meaning "read() will not block", which covers returning 0 for EOF
+// too), so the branch this conserto adds is proven by the unit seam,
+// never by this project's own container fixture - see that header's
+// own comment for the full reasoning.
 gltfx_rslt<bool>
 wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexcept {
     pollfd incoming{.fd = wl_display_get_fd(m_display), .events = POLLIN, .revents = 0};
@@ -324,11 +344,23 @@ wayland_display_adapter::wait_for_incoming_data(std::uint32_t timeout_ms) noexce
         m_fatal = true;
         return gltfx_rslt<bool>::err(build_connection_failure(m_display));
     }
-    if (poll_result == 0 || (incoming.revents & POLLIN) == 0) {
+    switch (classify_incoming_poll(poll_result, incoming.revents)) {
+    case incoming_poll_outcome::nothing_yet:
         wl_display_cancel_read(m_display);
         return gltfx_rslt<bool>::ok(false);
+    case incoming_poll_outcome::fatal:
+        wl_display_cancel_read(m_display);
+        m_fatal = true;
+        return gltfx_rslt<bool>::err(build_connection_failure(m_display));
+    case incoming_poll_outcome::ready_to_read:
+        return gltfx_rslt<bool>::ok(true);
     }
-    return gltfx_rslt<bool>::ok(true);
+    // Unreachable (the switch above is exhaustive over incoming_poll_
+    // outcome's three enumerators) - GODS_LAWS.md L-22 style safety net
+    // only, never meant to be hit; treated as "nothing to read" rather
+    // than silently falling through with no return.
+    wl_display_cancel_read(m_display);
+    return gltfx_rslt<bool>::ok(false);
 }
 
 gltfx_rslt<void> wayland_display_adapter::read_and_dispatch_incoming() noexcept {

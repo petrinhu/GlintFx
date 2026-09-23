@@ -1533,6 +1533,7 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -1573,6 +1574,7 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1606,6 +1608,7 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1676,6 +1679,7 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -1708,6 +1712,7 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
@@ -1797,6 +1802,7 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -5041,6 +5047,25 @@ if(UNIX)
     target_sources(flush_retry_policy_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+    )
+endif()
+
+# incoming_poll_outcome_test - CONT-WARMUP C-2 (docs/plano-fecho-w7b.md
+# D-10; GODS_LAWS.md L-20): the red/green witness for the READ-side
+# twin of flush_retry_policy_test right above - the pure atom display_
+# adapter.cpp::wait_for_incoming_data() calls to decide what a
+# completed poll() means, proven with synthetic `revents` because the
+# real kwin_wayland kill-timing never delivers POLLHUP without POLLIN
+# live (see incoming_poll_outcome.hpp's own header comment). Pure data
+# in (an int and a short), pure enum out - <poll.h> is POSIX-only, same
+# if(UNIX) guard as bounded_output_wait_test/flush_retry_policy_test
+# right above.
+if(UNIX)
+    glintfx_add_test(incoming_poll_outcome_test)
+    target_include_directories(incoming_poll_outcome_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(incoming_poll_outcome_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
     )
 endif()
 

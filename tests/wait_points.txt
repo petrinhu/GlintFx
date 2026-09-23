@@ -70,6 +70,7 @@ src/platform/wayland/display_adapter.cpp|roundtrip()|wl_display_roundtrip(m_disp
 src/platform/wayland/display_adapter.cpp|drain_pending_and_prepare_read()|wl_display_prepare_read(m_display)|nao-espera
 src/platform/wayland/display_adapter.cpp|flush_with_retry()|wl_display_flush(m_display)|nao-espera
 src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|poll(&incoming, 1, static_cast<int>(timeout_ms))|teto-nosso
+src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|classify_incoming_poll(poll_result, incoming.revents)|nao-espera
 src/platform/wayland/display_adapter.cpp|read_and_dispatch_incoming()|wl_display_read_events(m_display)|nao-espera
 
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_prepare_read(display)|nao-espera

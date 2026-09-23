@@ -3698,6 +3698,33 @@ if(UNIX)
     set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume)
 endif()
 
+# GL-CODEGEN-HOST-TOOL H-5 (D-11 of docs/plano-fecho-w7b.md, the Qt 6
+# QT_HOST_PATH dor that gate's own header cites): proves none of
+# GLINTFX_GL_CODEGEN_EXECUTABLE/GLINTFX_HOST_CXX_COMPILER/etc. leak
+# into the INSTALLED glintfx-config.cmake or glintfx.pc. python3, NOT
+# guarded by if(UNIX) (GATE-TREE-PARITY, the SAME shape x11_test/
+# check_pkgconfig_validate.py already proved works on all five
+# platforms - unlike its sh siblings above, this gate never shells out
+# to anything but `cmake` itself).
+add_test(
+    NAME gl_codegen_host_leak_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gl_codegen_host_leak.py"
+        "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_CXX_COMPILER}"
+        "${CMAKE_GENERATOR}"
+)
+set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME gl_codegen_host_leak_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gl_codegen_host_leak.py" --selftest
+)
+set_tests_properties(gl_codegen_host_leak_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # Output name gate (FIX-CONSUMO-3, achado QA-2-2): proves the
 # OUTPUT_NAME contract in cmake/GlintfxLibrary.cmake - the compiled
 # artifact basename (libglintfx.so*/libglintfx.a), not the internal

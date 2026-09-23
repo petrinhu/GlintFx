@@ -47,7 +47,9 @@
 
 import collections
 import json
+import ntpath
 import os
+import posixpath
 import re
 import shlex
 import shutil
@@ -340,12 +342,34 @@ def _normcase_for_dialect(dialect, path):
     return path.lower() if dialect == "MSVC" else path
 
 
+def _path_module_for_dialect(dialect):
+    """achado do conserto de 23/09/2026 (run 35906529355, job Windows,
+    layers_oracle_selftest FALHOU: caminho POSIX enlatado do autoteste
+    virou caminho de unidade Windows - GODS_LAWS.md L-04): a sintaxe do
+    caminho e' do DIALETO do compilador, nunca do HOST que roda o
+    Python. `os.path` (isabs/join/realpath) e' escolhido pelo HOST
+    (ntpath se o processo roda em Windows, posixpath se roda em Linux),
+    e por isso um caminho enlatado POSIX (`/usr/include/...`) que passa
+    por `os.path.realpath()` num host Windows ganha letra de unidade
+    (`D:\\usr\\include\\...`) mesmo sem tocar disco nenhum. Em producao
+    isto nunca aparecia porque dialeto e host sempre coincidem (GNU so'
+    roda em job Linux, MSVC so' no windows-debug); o autoteste, que roda
+    IGUAL nos seis trabalhos (GODS_LAWS.md L-04), e' o unico lugar onde
+    dialeto e host podem divergir - MSVC dialeto Windows, autoteste GNU
+    rodando no MESMO processo Windows."""
+    return ntpath if dialect == "MSVC" else posixpath
+
+
 def normalize_compiler_path(dialect, raw_path, workdir):
     """Resolve o caminho como o compilador o ABRIU: absoluto pro de
     sistema, relativo ao DIRETORIO DE TRABALHO pro de aspas (docs/
-    plano-layers-l5.md §1.1/§3.1, medicao do g++)."""
-    candidate = raw_path if os.path.isabs(raw_path) else os.path.join(workdir, raw_path)
-    return _normcase_for_dialect(dialect, os.path.realpath(candidate))
+    plano-layers-l5.md §1.1/§3.1, medicao do g++). `isabs`/`join`/
+    `realpath` vem do modulo de caminho do DIALETO (`_path_module_for_
+    dialect`), nunca de `os.path` cru - ver o comentario ali pro
+    defeito real que isto fecha."""
+    path_mod = _path_module_for_dialect(dialect)
+    candidate = raw_path if path_mod.isabs(raw_path) else path_mod.join(workdir, raw_path)
+    return _normcase_for_dialect(dialect, path_mod.realpath(candidate))
 
 
 def _parse_tree(ctx, raw_output, workdir):
@@ -372,9 +396,16 @@ def classify_include_path(ctx, normalized_path):
     TAMBEM sao examinados, O-4); (2) e' um dos cabecalhos GERADOS ->
     "gerado" (folha, O-3); (3) esta no conjunto de caminhos PADRAO
     aprendido na calibracao -> "padrao" (folha, O-3); (4) qualquer
-    outra coisa -> "proibido"."""
+    outra coisa -> "proibido". O separador de subpasta vem do DIALETO
+    (`_path_module_for_dialect`), nunca de `os.sep` cru - mesmo defeito
+    e mesmo conserto de `normalize_compiler_path` (achado 23/09/2026,
+    run 35906529355): `os.sep` e' do HOST, e um `layer_dir` ja'
+    normalizado em POSIX (dialeto GNU) rodando num host Windows nunca
+    bate contra `normalized_path + "\\"` - o proprio no do caminho da
+    camada pura caia em "proibido" por essa fresta."""
+    sep = _path_module_for_dialect(ctx.dialect).sep
     for layer_dir in ctx.layer_dirs:
-        if normalized_path == layer_dir or normalized_path.startswith(layer_dir + os.sep):
+        if normalized_path == layer_dir or normalized_path.startswith(layer_dir + sep):
             return "projeto"
     if normalized_path in ctx.stub_generated_paths:
         return "gerado"
@@ -476,9 +507,34 @@ def evaluate_calibration(ctx, normalized_nodes, sentinel_norm, stdlib_permitidos
     return standard_paths
 
 
+def _format_calibration_diagnostics(normalized_nodes, sentinel_norm, raw_output):
+    """docs/plano-layers-l5.md §7.1, achado 23/09/2026 (run 35906529355,
+    job Fedora, `calibracao: sentinela_projeto.hpp nao apareceu como
+    filho direto`): a mensagem de falha de instrumento passa a IMPRIMIR
+    o dado cru, nunca so' o nome do defeito (GODS_LAWS.md L-40/L-44) -
+    os nos de profundidade 1 JA' normalizados, o `sentinel_norm`
+    esperado, e as 20 primeiras linhas CRUAS de `-H`/`/showIncludes`,
+    pro proximo CI mostrar a verdade se a hipotese (docs/plano-layers-
+    l5.md, achado registrado no commit que introduz esta funcao)
+    estiver errada."""
+    depth1 = [(idx, path) for idx, (depth, path, _parent) in enumerate(normalized_nodes) if depth == 1]
+    raw_lines = raw_output.splitlines()[:20]
+    lines = [
+        f"  no(s) de profundidade 1 normalizados ({len(depth1)}): {[p for _i, p in depth1]!r}",
+        f"  sentinel_norm esperado: {sentinel_norm!r}",
+        f"  20 primeiras linhas CRUAS do -H/showIncludes ({len(raw_lines)} mostradas):",
+    ]
+    lines.extend(f"    {line!r}" for line in raw_lines)
+    return "\n".join(lines)
+
+
 def run_calibration(ctx, scratch, manifest):
     """UM processo, antes de qualquer fixture de caso (docs/plano-
-    layers-l5.md §6.1/§7.1)."""
+    layers-l5.md §6.1/§7.1). Falha de instrumento (`_IncludeTreeError`
+    de `evaluate_calibration`) e' re-levantada com o diagnostico de
+    `_format_calibration_diagnostics` anexado - achado 23/09/2026: a
+    mensagem curta sozinha nao bastou pra diagnosticar a calibracao
+    quebrando so' no servidor (run 35906529355)."""
     calib_dir = os.path.join(scratch, "calibration")
     os.makedirs(calib_dir, exist_ok=True)
     layer_parts = manifest["camadas_puras"][0]["partes"]
@@ -488,7 +544,11 @@ def run_calibration(ctx, scratch, manifest):
         ctx.msvc_prefix = learn_msvc_prefix(raw_output, os.path.basename(sentinel_path))
     normalized_nodes = _parse_tree(ctx, raw_output, workdir)
     sentinel_norm = normalize_compiler_path(ctx.dialect, sentinel_path, workdir)
-    return evaluate_calibration(ctx, normalized_nodes, sentinel_norm, manifest["stdlib_permitidos"])
+    try:
+        return evaluate_calibration(ctx, normalized_nodes, sentinel_norm, manifest["stdlib_permitidos"])
+    except _IncludeTreeError as original:
+        diagnostics = _format_calibration_diagnostics(normalized_nodes, sentinel_norm, raw_output)
+        raise _IncludeTreeError(f"{original}\n{diagnostics}") from original
 
 
 # --- sentinelas por fixture (secao 7.2) ----------------------------------
@@ -1011,6 +1071,47 @@ def selftest_oracle_o8_calibration_instrument_failures(scratch, capture):
     return ok, 1
 
 
+def selftest_oracle_o19_calibration_diagnostics_on_failure(scratch, capture):
+    """O-19 (achado 23/09/2026, run 35906529355): `run_calibration()`
+    tem de anexar o diagnostico (`_format_calibration_diagnostics`) na
+    excecao de falha de instrumento - as tres pecas exigidas
+    (profundidade 1 normalizada, `sentinel_norm` esperado, linhas cruas
+    do -H), nunca so' o nome do defeito. Usa um executor FALSO (nunca
+    o real - O-0/L-45) que devolve uma saida -H sem a sentinela, pra
+    reproduzir de verdade o caminho de `run_calibration` (nao so'
+    `evaluate_calibration` isolada, que e' o que O-8 ja cobre)."""
+    del capture
+    fake_raw = ". /usr/include/c++/16/cstdint\n.. /usr/include/c++/16/bits/std_abs.h\n"
+    ctx = _make_ctx_for_test("GNU")
+    ctx.executor = _fake_executor(fake_raw)
+    manifest = {
+        "camadas_puras": [{"rotulo": "src/core", "partes": ["src", "core"]}],
+        "stdlib_permitidos": ("cstdint",),
+    }
+    message = ""
+    raised = False
+    try:
+        run_calibration(ctx, scratch, manifest)
+    except _IncludeTreeError as exc:
+        raised = True
+        message = str(exc)
+    checks = (
+        raised,
+        "falha de instrumento" in message,
+        "profundidade 1 normalizados" in message,
+        "sentinel_norm esperado" in message,
+        "linhas CRUAS" in message,
+        "bits/std_abs.h" in message,  # dado cru de verdade, nao so' o rotulo
+    )
+    ok = all(checks)
+    label = "selftest: O-19"
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (checks={checks!r}, message={message!r})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
 # --- fonte 2: DOCUMENTADO pela Microsoft (formato /showIncludes) --------
 #
 # "Note: including file: d:\MyDir\include\stdio.h" e "one space for each
@@ -1075,6 +1176,55 @@ def selftest_oracle_o11_msvc_case_insensitive_path(scratch, capture):
     label = "selftest: O-11"
     print(
         f"{label} OK" if ok else f"{label} FALHOU (msvc upper={upper!r} lower={lower!r})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+def _run_o18_scenario_with_simulated_windows_host():
+    """Troca `os.path`/`os.sep` que o MODULO enxerga por `ntpath`/`"\\\\"`
+    - simula "processo rodando em Windows" SEM host Windows real, sem
+    tocar disco, sem compilador (GODS_LAWS.md L-45) - e roda a MESMA
+    fixture GNU que quebrou no CI (`x.hpp` sob `/tmp/x`, run
+    35906529355). Restaura os dois no `finally`, pra nao vazar estado
+    pro resto da bateria; devolve so' a lista `forbidden`, que O-18
+    interpreta."""
+    module = sys.modules[__name__]
+    original_os_path = module.os.path
+    original_os_sep = module.os.sep
+    module.os.path = ntpath
+    module.os.sep = "\\"
+    try:
+        ctx = _make_ctx_for_test("GNU")
+        ctx.layer_dirs = ("/tmp/x",)
+        ctx.standard_paths = {"/usr/include/c++/16/cstdint", "/usr/include/c++/16/cstddef"}
+        nodes = _parse_tree(ctx, _MEASURED_GNU_POSITIVE_CONTROL, "/tmp/x")
+        return find_forbidden_pulls(ctx, nodes)
+    finally:
+        module.os.path = original_os_path
+        module.os.sep = original_os_sep
+
+
+def selftest_oracle_o18_dialect_not_host_path_syntax(scratch, capture):
+    """O-18 (achado real, run 35906529355, job Windows, 23/09/2026):
+    `layers_oracle_selftest` reprovava no trabalho Windows em DUAS
+    metades - `normalize_compiler_path` (caminho POSIX enlatado virando
+    caminho de unidade) e `classify_include_path` (comparacao de
+    subpasta via `os.sep`, que num host Windows nunca bate contra um
+    `layer_dir` normalizado em POSIX). As duas vinham da MESMA doenca:
+    sintaxe de caminho decidida pelo HOST, nunca pelo DIALETO da
+    fixture (GNU) - `_run_o18_scenario_with_simulated_windows_host()`
+    reproduz as duas de uma vez (`M-O18b`, so' a metade de
+    `classify_include_path`, sobrevivia a uma versao anterior que so'
+    trocava `os.path`)."""
+    del scratch, capture
+    forbidden = _run_o18_scenario_with_simulated_windows_host()
+    ok = not forbidden
+    label = "selftest: O-18"
+    print(
+        f"{label} OK (dialeto GNU, os.path/os.sep simulados=Windows, sem forbidden)" if ok
+        else f"{label} FALHOU (forbidden={forbidden!r} com os.path/os.sep simulados=Windows - "
+             "regressao do achado do run 35906529355)",
         file=(sys.stdout if ok else sys.stderr),
     )
     return ok, 1
@@ -1314,9 +1464,11 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o6_judges_by_pulled_not_exit_code,),
     (selftest_oracle_o7_depth_jump_is_instrument_failure,),
     (selftest_oracle_o8_calibration_instrument_failures,),
+    (selftest_oracle_o19_calibration_diagnostics_on_failure,),
     (selftest_oracle_o9_msvc_prefix_learned_any_locale,),
     (selftest_oracle_o10_msvc_nesting_one_space_per_level,),
     (selftest_oracle_o11_msvc_case_insensitive_path,),
+    (selftest_oracle_o18_dialect_not_host_path_syntax,),
     (selftest_oracle_o12_skips_outside_ci,),
     (selftest_oracle_o12b_env_value_must_be_exact_true,),
     (selftest_oracle_o13_preci_sh_guard,),

@@ -507,24 +507,57 @@ def evaluate_calibration(ctx, normalized_nodes, sentinel_norm, stdlib_permitidos
     return standard_paths
 
 
-def _format_calibration_diagnostics(normalized_nodes, sentinel_norm, raw_output):
+class _CalibrationRawResult:
+    """Agrupa o resultado cru da UMA invocacao de calibracao (raw_output
+    + returncode) - existe so' pra `_format_calibration_diagnostics`
+    caber em 4 parametros (GODS_LAWS.md L-17), mesmo motivo de
+    `_OracleContext`."""
+
+    __slots__ = ("raw_output", "returncode")
+
+    def __init__(self, raw_output, returncode):
+        self.raw_output = raw_output
+        self.returncode = returncode
+
+
+def _is_tree_output_line(ctx, line):
+    """Uma linha e' "de arvore" (-H/showIncludes) se casa o formato do
+    DIALETO - GNU pelo padrao de pontos, MSVC pelo prefixo JA' aprendido
+    (`ctx.msvc_prefix`, sempre setado antes desta funcao rodar dentro de
+    `run_calibration` - achado 23/09/2026, run 35906529355/35912952114:
+    a mensagem de falha precisa separar linha de arvore de linha de
+    DIAGNOSTICO do compilador, porque e' ali - nao na arvore - que um
+    `#error`/mensagem fatal apareceria)."""
+    if ctx.dialect == "MSVC":
+        return ctx.msvc_prefix is not None and line.startswith(ctx.msvc_prefix)
+    return bool(_GNU_TREE_LINE_PATTERN.match(line))
+
+
+def _format_calibration_diagnostics(ctx, normalized_nodes, sentinel_norm, raw_result):
     """docs/plano-layers-l5.md §7.1, achado 23/09/2026 (run 35906529355,
-    job Fedora, `calibracao: sentinela_projeto.hpp nao apareceu como
-    filho direto`): a mensagem de falha de instrumento passa a IMPRIMIR
-    o dado cru, nunca so' o nome do defeito (GODS_LAWS.md L-40/L-44) -
-    os nos de profundidade 1 JA' normalizados, o `sentinel_norm`
-    esperado, e as 20 primeiras linhas CRUAS de `-H`/`/showIncludes`,
-    pro proximo CI mostrar a verdade se a hipotese (docs/plano-layers-
-    l5.md, achado registrado no commit que introduz esta funcao)
-    estiver errada."""
+    35912952114): a mensagem de falha de instrumento passa a IMPRIMIR o
+    dado cru, nunca so' o nome do defeito (GODS_LAWS.md L-40/L-44) - os
+    nos de profundidade 1 JA' normalizados, o `sentinel_norm` esperado,
+    as 20 primeiras E as 20 ULTIMAS linhas CRUAS de `-H`/`/showIncludes`
+    (a rodada anterior so' tinha as primeiras - o dado que faltou pra
+    diagnosticar 35912952114 estava nas ultimas), o `returncode` do
+    processo de calibracao (antes descartado, `run_calibration:542`), e
+    as 20 ultimas linhas que NAO sao de arvore (onde um `#error`/
+    mensagem fatal do compilador apareceria, se houver)."""
     depth1 = [(idx, path) for idx, (depth, path, _parent) in enumerate(normalized_nodes) if depth == 1]
-    raw_lines = raw_output.splitlines()[:20]
+    all_lines = raw_result.raw_output.splitlines()
+    non_tree_lines = [line for line in all_lines if not _is_tree_output_line(ctx, line)]
     lines = [
         f"  no(s) de profundidade 1 normalizados ({len(depth1)}): {[p for _i, p in depth1]!r}",
         f"  sentinel_norm esperado: {sentinel_norm!r}",
-        f"  20 primeiras linhas CRUAS do -H/showIncludes ({len(raw_lines)} mostradas):",
+        f"  returncode da calibracao: {raw_result.returncode!r}",
+        f"  20 primeiras linhas CRUAS do -H/showIncludes ({min(20, len(all_lines))} mostradas):",
     ]
-    lines.extend(f"    {line!r}" for line in raw_lines)
+    lines.extend(f"    {line!r}" for line in all_lines[:20])
+    lines.append(f"  20 ultimas linhas CRUAS do -H/showIncludes ({min(20, len(all_lines))} mostradas):")
+    lines.extend(f"    {line!r}" for line in all_lines[-20:])
+    lines.append(f"  20 ultimas linhas NAO-arvore ({min(20, len(non_tree_lines))} mostradas):")
+    lines.extend(f"    {line!r}" for line in non_tree_lines[-20:])
     return "\n".join(lines)
 
 
@@ -534,12 +567,12 @@ def run_calibration(ctx, scratch, manifest):
     de `evaluate_calibration`) e' re-levantada com o diagnostico de
     `_format_calibration_diagnostics` anexado - achado 23/09/2026: a
     mensagem curta sozinha nao bastou pra diagnosticar a calibracao
-    quebrando so' no servidor (run 35906529355)."""
+    quebrando so' no servidor (run 35906529355/35912952114)."""
     calib_dir = os.path.join(scratch, "calibration")
     os.makedirs(calib_dir, exist_ok=True)
     layer_parts = manifest["camadas_puras"][0]["partes"]
     calib_path, sentinel_path = build_calibration_fixture(calib_dir, manifest["stdlib_permitidos"], layer_parts)
-    raw_output, _returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path)
+    raw_output, returncode, workdir = _run_one_alvo(ctx, calib_dir, calib_path)
     if ctx.dialect == "MSVC":
         ctx.msvc_prefix = learn_msvc_prefix(raw_output, os.path.basename(sentinel_path))
     normalized_nodes = _parse_tree(ctx, raw_output, workdir)
@@ -547,7 +580,8 @@ def run_calibration(ctx, scratch, manifest):
     try:
         return evaluate_calibration(ctx, normalized_nodes, sentinel_norm, manifest["stdlib_permitidos"])
     except _IncludeTreeError as original:
-        diagnostics = _format_calibration_diagnostics(normalized_nodes, sentinel_norm, raw_output)
+        raw_result = _CalibrationRawResult(raw_output, returncode)
+        diagnostics = _format_calibration_diagnostics(ctx, normalized_nodes, sentinel_norm, raw_result)
         raise _IncludeTreeError(f"{original}\n{diagnostics}") from original
 
 
@@ -1071,19 +1105,35 @@ def selftest_oracle_o8_calibration_instrument_failures(scratch, capture):
     return ok, 1
 
 
+def _build_o19_fake_raw_output():
+    """25 linhas: 24 de arvore (`header_0`..`header_23`) mais UMA linha
+    de erro fatal (nao casa o padrao de arvore) - grande o bastante pra
+    a janela das 20 PRIMEIRAS (header_0..header_19) e a das 20 ULTIMAS
+    (header_5..header_23 + a linha de erro) serem DIFERENTES, provando
+    que o conserto de 23/09/2026 (run 35912952114) le as duas pontas,
+    nao so' uma."""
+    tree_lines = [f". /usr/include/c++/16/header_{i}.hpp" for i in range(24)]
+    error_line = "check_layers_oracle_test.cpp:1:2: error: #error mensagem fatal de teste"
+    return "\n".join(tree_lines + [error_line]) + "\n"
+
+
 def selftest_oracle_o19_calibration_diagnostics_on_failure(scratch, capture):
-    """O-19 (achado 23/09/2026, run 35906529355): `run_calibration()`
-    tem de anexar o diagnostico (`_format_calibration_diagnostics`) na
-    excecao de falha de instrumento - as tres pecas exigidas
-    (profundidade 1 normalizada, `sentinel_norm` esperado, linhas cruas
-    do -H), nunca so' o nome do defeito. Usa um executor FALSO (nunca
-    o real - O-0/L-45) que devolve uma saida -H sem a sentinela, pra
-    reproduzir de verdade o caminho de `run_calibration` (nao so'
-    `evaluate_calibration` isolada, que e' o que O-8 ja cobre)."""
+    """O-19 (achado 23/09/2026, runs 35906529355/35912952114):
+    `run_calibration()` tem de anexar o diagnostico
+    (`_format_calibration_diagnostics`) na excecao de falha de
+    instrumento - as SEIS pecas exigidas (profundidade 1 normalizada,
+    `sentinel_norm` esperado, returncode, 20 primeiras linhas cruas, 20
+    ultimas linhas cruas, 20 ultimas linhas NAO-arvore), nunca so' o
+    nome do defeito. Usa um executor FALSO com `returncode=1` (nunca o
+    real - O-0/L-45) que devolve uma saida -H sem a sentinela e maior
+    que 20 linhas, pra reproduzir de verdade o caminho de
+    `run_calibration` (nao so' `evaluate_calibration` isolada, que e' o
+    que O-8 ja cobre) E provar que as janelas de primeiras/ultimas
+    linhas sao DIFERENTES."""
     del capture
-    fake_raw = ". /usr/include/c++/16/cstdint\n.. /usr/include/c++/16/bits/std_abs.h\n"
+    fake_raw = _build_o19_fake_raw_output()
     ctx = _make_ctx_for_test("GNU")
-    ctx.executor = _fake_executor(fake_raw)
+    ctx.executor = _fake_executor(fake_raw, returncode=1)
     manifest = {
         "camadas_puras": [{"rotulo": "src/core", "partes": ["src", "core"]}],
         "stdlib_permitidos": ("cstdint",),
@@ -1100,8 +1150,18 @@ def selftest_oracle_o19_calibration_diagnostics_on_failure(scratch, capture):
         "falha de instrumento" in message,
         "profundidade 1 normalizados" in message,
         "sentinel_norm esperado" in message,
-        "linhas CRUAS" in message,
-        "bits/std_abs.h" in message,  # dado cru de verdade, nao so' o rotulo
+        "returncode da calibracao: 1" in message,
+        "primeiras linhas CRUAS" in message and "header_0.hpp" in message,
+        "ultimas linhas CRUAS" in message and "header_23.hpp" in message,
+        "header_0.hpp" not in message.rsplit("ultimas linhas CRUAS", 1)[-1],  # janelas DIFERENTES
+        # a mensagem fatal tem de estar DENTRO do bloco "NAO-arvore" especificamente -
+        # ela TAMBEM aparece nas "ultimas linhas CRUAS" (e' a ultima linha crua de
+        # verdade), entao checar "em algum lugar da mensagem" nao provaria nada. E o
+        # PROPRIO ROTULO "NAO-arvore" tem de existir - um mutante que apague o bloco
+        # inteiro (rotulo junto) faz `rsplit` devolver a mensagem INTEIRA sem separar
+        # nada, e a checagem sozinha (sem esta primeira metade) sobrevivia.
+        "ultimas linhas NAO-arvore" in message
+        and "mensagem fatal de teste" in message.rsplit("ultimas linhas NAO-arvore", 1)[-1],
     )
     ok = all(checks)
     label = "selftest: O-19"

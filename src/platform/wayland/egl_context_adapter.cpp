@@ -195,7 +195,8 @@ constexpr wl_callback_listener k_frame_callback_listener{
 // comment for the honest accounting of what real-kernel coverage
 // exists and what does not).
 [[nodiscard]] bool poll_and_dispatch_with_budget(wl_display *display, std::uint32_t budget_ms,
-                                                 incoming_poll_syscall_fn poll_impl) noexcept {
+                                                 incoming_poll_syscall_fn poll_impl,
+                                                 incoming_poll_reaction_fn reaction_impl) noexcept {
     while (wl_display_prepare_read(display) != 0) {
         if (wl_display_dispatch_pending(display) == -1) {
             return false;
@@ -245,23 +246,32 @@ constexpr wl_callback_listener k_frame_callback_listener{
             // m-eintr-budget-bypass): este `case` costumava ter um
             // TERCEIRO caminho aqui - "EINTR com o orcamento ja
             // esgotado" respondia com um `return true;` HARDCODED,
-            // nunca passando por is_incoming_poll_connection_fatal(). A
-            // mutacao sobreviveu porque nenhum teste alcancava a
-            // combinacao exata (errno_is_eintr==true E remaining_ms<=0
-            // no MESMO poll()), e o valor hardcoded so' concordava com
-            // o atomo por COINCIDENCIA
-            // (is_incoming_poll_connection_fatal(poll_call_failed,
-            // true) == !true == false, `!false` == true) - nunca por
-            // construcao. Removido: agora os TRES desfechos deste
-            // `case` (EINTR-exhausted, outro errno, `fatal`/POLLNVAL)
-            // passam pela MESMA e UNICA chamada ao atomo abaixo - nao
-            // ha mais nenhum jeito de reintroduzir o bug original sem
-            // editar o atomo em si (pego pelo teste dele) ou inverter
-            // esta chamada (pego pelos testes de fiacao existentes,
-            // poll_call_failed_non_eintr_returns_false/pollnval_returns
-            // _false, que ja exercitam o MESMO `return` para os outros
-            // dois desfechos).
-            return !is_incoming_poll_connection_fatal(outcome, errno_is_eintr);
+            // nunca passando pelo atomo de decisao. Removido: os TRES
+            // desfechos deste `case` (EINTR-exhausted, outro errno,
+            // `fatal`/POLLNVAL) agora passam pela MESMA e UNICA chamada
+            // abaixo.
+            //
+            // CONT-WARMUP C-8 (revisao-cont-warmup-c7.md S2.4/S2.5): a
+            // frase que costumava estar aqui - "nao ha mais nenhum jeito
+            // de reintroduzir o bug original" - era FALSA, medida: o
+            // atalho hardcoded e o atomo de hoje concordam POR
+            // COINCIDENCIA para o par (poll_call_failed,
+            // errno_is_eintr==true) (`is_incoming_poll_connection_fatal`
+            // devolve `!true == false`, `!false == true`, o MESMO valor
+            // do atalho), entao reinserir o atalho e' um mutante
+            // EQUIVALENTE ao atomo real - nenhum teste de caixa-preta
+            // contra o atomo alcanca a diferenca. O que este arquivo
+            // prova agora e' mais estreito e honesto: `reaction_impl` (o
+            // atomo por tras de uma costura, egl_incoming_poll_step.hpp,
+            // padrao `&is_incoming_poll_connection_fatal`) e' de fato
+            // CONSULTADO aqui, nunca decidido por conta propria - prova
+            // por tests/incoming_poll_wiring_test.cpp injetando um atomo
+            // DIVERGENTE (que discorda do real de proposito) e exigindo
+            // que o resultado siga o injetado. Residual DECLARADO que
+            // continua aberto: um atalho hardcoded inserido DEPOIS desta
+            // chamada, ou que IGNORE o valor de retorno de
+            // `reaction_impl`, nao e' pego por nenhum teste existente.
+            return !reaction_impl(outcome, errno_is_eintr);
         }
         case incoming_poll_outcome::nothing_yet:
             // Budget exhausted with nothing to read - the mandatory

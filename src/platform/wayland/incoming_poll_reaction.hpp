@@ -59,4 +59,21 @@ namespace glintfx::platform {
 [[nodiscard]] bool is_incoming_poll_connection_fatal(incoming_poll_outcome outcome,
                                                      bool errno_is_eintr) noexcept;
 
+// incoming_poll_reaction_fn - CONT-WARMUP C-8 (revisao-cont-warmup-c7.md
+// S2.4/S2.5, GODS_LAWS.md L-17 "gemeo"): a MESMA costura que incoming_
+// poll_syscall.hpp ja da a `::poll()` em si (um ponteiro de funcao com o
+// atomo real como padrao), agora um nivel acima, para a DECISAO que um
+// caller toma com o resultado do poll(). Sem esta costura, o mutante que
+// reinsere o atalho historico `if (errno_is_eintr) { return true; }`
+// direto no call site e' EQUIVALENTE ao atomo de hoje para o par
+// (poll_call_failed, errno_is_eintr==true) - as duas respostas coincidem
+// por valor, entao nenhum teste de caixa-preta contra o atomo real
+// alcanca a diferenca. Com a decisao por tras de um parametro, um teste
+// pode injetar um atomo DIVERGENTE (que discorda do real por proposito)
+// e provar que o call site de fato CONSULTA o parametro, em vez de
+// decidir sozinho com um atalho hardcoded - a unica forma de o mutante
+// sobreviver a ESSE teste seria ignorar o parametro por completo, o que
+// e' exatamente o defeito que ele existe para detectar.
+using incoming_poll_reaction_fn = bool (*)(incoming_poll_outcome, bool) noexcept;
+
 } // namespace glintfx::platform

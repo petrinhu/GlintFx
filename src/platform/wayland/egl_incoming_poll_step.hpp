@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "platform/wayland/incoming_poll_reaction.hpp"
 #include "platform/wayland/incoming_poll_syscall.hpp"
 
 struct wl_display;
@@ -26,10 +27,18 @@ struct wl_display;
 // `&::poll` como padrão: a costura que o teste substitui por uma
 // função script, sem custo nenhum para o único chamador de produção
 // (swap_buffers(), mesma translation unit, sempre usa o padrão).
+//
+// `reaction_impl` (src/platform/wayland/incoming_poll_reaction.hpp,
+// CONT-WARMUP C-8): a MESMA ideia, um nível acima - com
+// `&is_incoming_poll_connection_fatal` como padrão, é a costura que
+// tests/incoming_poll_wiring_test.cpp usa para injetar um átomo
+// DIVERGENTE e provar que este call site de fato consulta a decisão em
+// vez de a hardcoded. Custo em produção: zero, o padrão é o mesmo átomo
+// que já rodava antes desta fatia.
 namespace glintfx::platform {
 
-[[nodiscard]] bool
-poll_and_dispatch_with_budget(wl_display *display, std::uint32_t budget_ms,
-                              incoming_poll_syscall_fn poll_impl = &::poll) noexcept;
+[[nodiscard]] bool poll_and_dispatch_with_budget(
+    wl_display *display, std::uint32_t budget_ms, incoming_poll_syscall_fn poll_impl = &::poll,
+    incoming_poll_reaction_fn reaction_impl = &is_incoming_poll_connection_fatal) noexcept;
 
 } // namespace glintfx::platform

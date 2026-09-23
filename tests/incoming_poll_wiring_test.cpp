@@ -12,6 +12,7 @@
 #include "harness/test_registry.hpp"
 #include "platform/wayland/display_adapter.hpp"
 #include "platform/wayland/egl_incoming_poll_step.hpp"
+#include "platform/wayland/incoming_poll_reaction.hpp"
 #include "platform/wayland/incoming_poll_syscall.hpp"
 
 // incoming_poll_wiring_test.cpp - CONT-WARMUP C-6, EMENDA (ordem do
@@ -118,6 +119,26 @@ int scripted_poll(pollfd *fds, nfds_t /*nfds*/, int /*timeout_ms*/) noexcept {
     }
     fds[0].revents = step.revents;
     return step.poll_result;
+}
+
+// CONT-WARMUP C-8 (revisao-cont-warmup-c7.md S2.4/S2.5): um atomo que
+// DISCORDA do real (is_incoming_poll_connection_fatal(), incoming_poll_
+// reaction.hpp) de proposito, so' para o par (poll_call_failed,
+// errno_is_eintr==true) - o real devolve "nao fatal" para esse par; este
+// devolve "fatal". Serve so' para provar que poll_and_dispatch_with_
+// budget() de fato CONSULTA o parametro reaction_impl em vez de decidir
+// sozinho com um atalho hardcoded - o atalho historico
+// (`if (errno_is_eintr) { return true; }`) e o atomo real CONCORDAM por
+// coincidencia nesse par, entao so' um atomo que DISCORDA consegue
+// distinguir "consultou o parametro" de "ignorou e decidiu por conta
+// propria" (ver o comentario de poll_and_dispatch_with_budget() em egl_
+// context_adapter.cpp).
+bool divergent_eintr_exhausted_is_fatal(glintfx::platform::incoming_poll_outcome outcome,
+                                        bool errno_is_eintr) noexcept {
+    if (outcome == glintfx::platform::incoming_poll_outcome::poll_call_failed && errno_is_eintr) {
+        return true;
+    }
+    return glintfx::platform::is_incoming_poll_connection_fatal(outcome, errno_is_eintr);
 }
 
 // Um `wl_display*` genuinamente válido, sem compositor: socketpair()
@@ -389,6 +410,32 @@ GLINTFX_TEST(poll_and_dispatch_with_budget_eintr_with_budget_exhausted_is_not_fa
 
     GLINTFX_CHECK(g_script_calls_made == 1);
     GLINTFX_CHECK(result == true);
+}
+
+GLINTFX_TEST(poll_and_dispatch_with_budget_honors_injected_reaction_atom) {
+    // CONT-WARMUP C-8 (revisao-cont-warmup-c7.md S2.4/S2.5, GODS_LAWS.md
+    // L-17 "gemeo"): o mutante que reinsere o atalho historico
+    // `if (errno_is_eintr) { return true; }` logo apos o cancel_read
+    // SOBREVIVE ao teste vizinho (..._eintr_with_budget_exhausted_is_
+    // not_fatal, acima), porque o atomo de producao concorda com o
+    // atalho para ESSE par (poll_call_failed, EINTR) - mutante
+    // EQUIVALENTE por coincidencia de valor, nao por ausencia de bug.
+    // Este teste injeta um atomo que DISCORDA do real para o MESMO par
+    // (divergent_eintr_exhausted_is_fatal, acima): se a fiacao de fato
+    // consulta `reaction_impl` (em vez de decidir sozinha com o atalho
+    // hardcoded), o resultado segue o atomo INJETADO (`false`, fatal) -
+    // nunca o `true` que tanto o atalho quanto o atomo real
+    // concordariam. Um atalho hardcoded reinserido no call site faria
+    // este teste voltar a `true` e reprovar.
+    const egl_fake_display fd;
+    GLINTFX_CHECK(fd.display != nullptr);
+
+    reset_script({{.poll_result = -1, .errno_value = EINTR}});
+    const bool result = poll_and_dispatch_with_budget(fd.display, 0, &scripted_poll,
+                                                      &divergent_eintr_exhausted_is_fatal);
+
+    GLINTFX_CHECK(g_script_calls_made == 1);
+    GLINTFX_CHECK(result == false);
 }
 
 GLINTFX_TEST(poll_and_dispatch_with_budget_ready_to_read_with_closed_peer_is_fatal) {

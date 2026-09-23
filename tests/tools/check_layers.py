@@ -61,12 +61,30 @@
 # pre-processador real nao le linha fisica: a fase 2 da traducao
 # emenda barra-invertida-e-nova-linha ANTES de qualquer diretiva ser
 # reconhecida, e a fase 3 troca cada comentario por um espaco,
-# respeitando literais de cadeia e de caractere. _splice_lines() e
-# _strip_comments_and_literals() modelam as duas fases; _directive_
-# lines() as encadeia e so entao aplica _directive_argument() por
-# linha LOGICA resultante. Ver o comentario PHASE-2-3 mais abaixo, no
-# topo dessas tres funcoes, para o detalhe e os cinco casos
-# confirmados contra `g++ -std=c++23 -fsyntax-only`.
+# respeitando literais de cadeia e de caractere. _translate_phases_2_
+# and_3() modela as duas fases num unico laco; _directive_lines() a
+# chama e so entao aplica _directive_argument() por linha LOGICA
+# resultante. Ver o comentario PHASE-2-3 mais abaixo, no topo dessa
+# funcao, para o detalhe e os cinco casos confirmados contra `g++
+# -std=c++23 -fsyntax-only`.
+#
+# RAW-STRING-NO-SPLICE (LAYERS-GATE-GFSS-GFUI, sub-fatia L-2,
+# 22/09/2026, absorve o item de INBOX PORTAO-DE-CAMADA-NAO-CONHECE-
+# CADEIA-BRUTA - o mesmo defeito que o proprio varredor do Clang teve,
+# PR #139504): a cadeia bruta do C++ (`R"delim(...)delim"`, com ou sem
+# prefixo de codificacao `u8R`/`uR`/`UR`/`LR`) agora e um estado
+# proprio do automato (state_raw_string), nao mais texto comum. Antes
+# desta fatia, uma aspas ou um `/*` DENTRO do conteudo de uma cadeia
+# bruta podia abrir um comentario ou uma string falsos que escondiam
+# uma diretiva de inclusao real na linha seguinte - falso negativo, o
+# lado perigoso. A funcao que faz o trabalho, _translate_phases_2_and_
+# 3(), fundiu o que antes eram duas passadas separadas (_splice_lines()
+# e _strip_comments_and_literals(), agora retiradas) numa unica: o
+# conteudo de uma cadeia bruta e ISENTO da emenda de linha da fase 2
+# (confirmado contra g++ 16.2.1 e clang++ 22.1.8, ver o docstring de
+# _translate_phases_2_and_3() para o fixture que prova a diferenca), e
+# isso so pode ser modelado processando as duas fases juntas, nunca
+# como dois passes sequenciais sobre o texto inteiro.
 #
 # Usage:
 #   check_layers.py <source-root-directory>
@@ -77,9 +95,14 @@
 # the ASSET-LOAD conserto of 28/08/2026, empty-scan) PLUS the four
 # controls LAYERS-GATE-GFSS-GFUI adds (a violation control and a
 # per-directory floor control, each looped over the four gfss/gfui
-# directories; the ANCHOR-ON-DIRECTIVE control table; and the
-# PHASE-2-3 control table) against disposable fixtures under a
-# scratch directory,
+# directories; the ANCHOR-ON-DIRECTIVE control table; the PHASE-2-3
+# control table; the RAW-STRING control table, nine cases covering
+# every prefix form, the 16-character delimiter ceiling, mismatched-
+# delimiter non-closure and the no-splice-inside-raw-string trap; and
+# the CRLF control table, the same splice/comment/raw-string shapes
+# rewritten byte-for-byte with \r\n, proving Windows-checkout line
+# endings behave identically to \n - GATE-ENV-SWEEP's LINE_ENDING
+# category) against disposable fixtures under a scratch directory,
 # never against the real tracked tree.
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
@@ -169,99 +192,231 @@ def _directive_argument(line):
 # mesmo "dentro" do que vira comentario/string), e fase 3 troca cada
 # comentario por um unico espaco, respeitando literais de cadeia e de
 # caractere (um '/*' ou uma '"' dentro de aspas nao abre comentario
-# nem fecha a string). _splice_lines() modela a fase 2; _strip_
-# comments_and_literals() modela a fase 3; _directive_lines() as
-# encadeia e SO ENTAO aplica _directive_argument() por linha LOGICA
-# resultante, preservando o numero da linha FISICA original (a do
-# primeiro caractere da linha logica) para a mensagem de reprovacao
-# continuar citando arquivo:linha certo. Cada caso deste comentario
-# foi confirmado contra o compilador real (`g++ -std=c++23
+# nem fecha a string) - EXCETO dentro de uma cadeia bruta, onde nem a
+# fase 2 se aplica (RAW-STRING-NO-SPLICE, ver o docstring da funcao
+# abaixo). _translate_phases_2_and_3() modela as duas fases NUM SO
+# LACO (nao duas passadas sequenciais - a cadeia bruta so pode ser
+# isenta da fase 2 se a decisao "estou numa cadeia bruta?" for tomada
+# ANTES da emenda de linha rodar sobre aquele trecho, nao depois);
+# _directive_lines() a chama e SO ENTAO aplica _directive_argument()
+# por linha LOGICA resultante, preservando o numero da linha FISICA
+# original (a do primeiro caractere da linha logica) para a mensagem
+# de reprovacao continuar citando arquivo:linha certo. Cada caso deste
+# comentario foi confirmado contra o compilador real (`g++ -std=c++23
 # -fsyntax-only`) antes de virar controle de --selftest - GODS_LAWS.md
 # L-22: "a pesquisa vem antes do planejamento", aqui aplicada como "o
 # compilador vem antes da minha tabela".
 #
-# LIMITACAO CONHECIDA, verificada ausente em src/core, src/gfss,
-# src/gfui, include/glintfx/{core,gfss,gfui} em 22/09/2026 (grep por
-# `R"..."(`  devolveu zero ocorrencias): string literal bruta
-# (`R"delim(...)delim"`) nao e reconhecida como estado proprio - seu
-# conteudo e varrido como codigo comum. Nao e lacuna silenciosa: este
-# paragrafo a nomeia, para quando este projeto passar a usar `R"(...)"`
-# nessas camadas.
-def _splice_lines(text):
-    """Phase 2 (emenda de linha): uma barra invertida imediatamente
-    seguida de nova linha (\\n ou \\r\\n) e removida, juntando a linha
-    fisica com a seguinte - incondicionalmente, antes de qualquer
-    comentario ou literal ser reconhecido. Retorna (spliced_text,
-    origin_lines): origin_lines[i] e o numero da linha fisica (1-based)
-    de onde veio o caractere spliced_text[i] - mesmo tamanho dos dois,
-    sempre.
+# FIM DE LINHA \r\n (GATE-ENV-SWEEP, categoria LINE_ENDING, TODO.md):
+# o `\r` no frozenset logo abaixo e' so' MAIS UM caractere proibido de
+# delimitador de cadeia bruta (junto com espaco/tab/parenteses/barra
+# invertida/aspas), nao tratamento especial de fim de linha - mas o
+# projeto roda nos cinco alvos (GODS_LAWS.md L-04, "comportamento
+# igual em todo sistema, provado em cada um"), inclusive Windows, onde
+# o checkout entrega `\r\n` (`core.autocrlf`, o mesmo fato que ja
+# mordeu `check_dep_zero.py::_read_lines_latin1()`, commit 9288916) -
+# entao a pergunta de produto e' real: um arquivo `\r\n`-terminado
+# passa pelas TRES peças novas desta fatia (emenda de linha, fim de
+# comentario de linha, fecho de cadeia bruta) do MESMO jeito que um
+# `\n`-terminado? MEDIDO, nao suposto (GODS_LAWS.md L-04): sim, nos
+# tres, confirmado contra g++ 16.2.1 e clang++ 22.1.8 e contra
+# _directive_lines() desta funcao, com fixtures `\r\n`-puros -
+# selftest_crlf_control() mais abaixo, quatro casos. As razoes, uma
+# por peça: (1) a emenda de linha (fase 2) JA tratava `\r\n` desde
+# antes desta fatia - o ramo `text[i + 1] == "\r" and ... == "\n"`
+# em _translate_phases_2_and_3() e' herdado sem mudanca do antigo
+# _splice_lines(); (2) o fim de um comentario de linha e o fecho de
+# uma cadeia bruta so' testam `ch == "\n"`, nunca `ch == "\r"` - um
+# `\r` que sobra antes do `\n` e' apenas mais um caractere comum
+# (engolido dentro do comentario, ou dentro do corpo da cadeia bruta,
+# igual a qualquer outro), entao a fronteira real (o `\n`) chega no
+# mesmo lugar com ou sem o `\r` na frente; (3) um `\r` residual que
+# sobrevive em `out` (por exemplo, no FIM de uma linha logica comum)
+# nunca atrapalha _directive_argument(), porque a ancora e' so' no
+# INICIO da linha (`^\s*#...`) e a captura do argumento para antes de
+# qualquer `\r`/`\n`.
+_RAW_STRING_PREFIXES = ("u8R", "uR", "UR", "LR", "R")
+_RAW_STRING_MAX_DELIMITER_LENGTH = 16
+_RAW_STRING_FORBIDDEN_DELIMITER_CHARS = frozenset(" \t\v\f\r\n()\\\"")
+
+
+def _raw_string_prefix_length(out):
+    """`out` e a lista de caracteres ja emitidos (a view JA passada
+    pela fase 2, ate a posicao atual). Retorna o comprimento do
+    prefixo de cadeia bruta (`R`, `u8R`, `uR`, `UR` ou `LR`) que
+    termina exatamente no fim de `out`, ou 0 quando nenhuma das cinco
+    formas casa ali - inclusive quando a forma casa mas o caractere
+    imediatamente anterior a ela e alfanumerico ou `_`, o que
+    significa que faz parte de um identificador MAIOR (`fooR"(...)"` e
+    o identificador `fooR` seguido de uma string comum, nunca uma
+    cadeia bruta - GODS_LAWS.md L-17, enumerar o espaco fechado das
+    cinco formas inteiro, em vez de so casar a substring).
     """
-    origin_lines = []
-    out = []
-    line_no = 1
-    i = 0
+    tail = "".join(out[-3:])
+    for prefix in _RAW_STRING_PREFIXES:
+        if not tail.endswith(prefix):
+            continue
+        before_index = len(out) - len(prefix) - 1
+        if before_index >= 0:
+            before_char = out[before_index]
+            if before_char.isalnum() or before_char == "_":
+                continue
+        return len(prefix)
+    return 0
+
+
+def _raw_string_delimiter(text, start):
+    """`start` e o indice logo apos a aspas de abertura de uma cadeia
+    bruta ja confirmada por _raw_string_prefix_length(). Le o
+    delimitador (0 a 16 caracteres, nenhum deles espaco/tab/nova-linha/
+    parenteses/barra-invertida/aspas - GODS_LAWS.md projeto L-32
+    emenda 22/09/2026, confirmado contra g++ 16.2.1: um delimitador de
+    17 caracteres e erro de compilacao real, "delimitador de string
+    nao tratada (raw) maior do que 16 caracteres"). Retorna (delimiter,
+    body_start) quando a sequencia e valida e termina em '(' -
+    body_start e o indice do primeiro caractere DEPOIS desse '(' -, ou
+    None quando nao e uma abertura de cadeia bruta valida (a aspas
+    volta a ser tratada como string comum pelo chamador).
+    """
+    i = start
     n = len(text)
+    delimiter_chars = []
     while i < n:
         ch = text[i]
-        if ch == "\\" and i + 1 < n and text[i + 1] in ("\n", "\r"):
-            if text[i + 1] == "\r" and i + 2 < n and text[i + 2] == "\n":
-                i += 3
-            else:
-                i += 2
-            line_no += 1
-            continue
-        out.append(ch)
-        origin_lines.append(line_no)
-        if ch == "\n":
-            line_no += 1
+        if ch == "(":
+            return "".join(delimiter_chars), i + 1
+        if ch in _RAW_STRING_FORBIDDEN_DELIMITER_CHARS:
+            return None
+        if len(delimiter_chars) >= _RAW_STRING_MAX_DELIMITER_LENGTH:
+            return None
+        delimiter_chars.append(ch)
         i += 1
-    return "".join(out), origin_lines
+    return None
 
 
-def _strip_comments_and_literals(text, origin_lines):
-    """Phase 3 (parcial): troca cada comentario de bloco (/* ... */,
-    podendo atravessar linhas) e de linha (// ... ate a proxima nova
-    linha real) por um UNICO espaco, sem entrar em literais de cadeia
-    ou de caractere (uma barra invertida escapa o proximo caractere
-    dentro de um literal, entao uma aspas escapada nao o fecha cedo).
-    Retorna (clean_text, clean_lines) no mesmo contrato de alinhamento
-    de _splice_lines() acima - sempre do mesmo tamanho um do outro.
+def _translate_phases_2_and_3(text):
+    """Fases 2 (emenda de linha) e 3 (troca de comentario por espaco,
+    reconhecimento de string/char/cadeia-bruta) da traducao, FUNDIDAS
+    num unico laco sobre o texto ORIGINAL - substitui as antigas
+    _splice_lines()/_strip_comments_and_literals() (duas passadas
+    sequenciais, retiradas nesta fatia), porque o conteudo de uma
+    cadeia bruta e ISENTO da fase 2 (RAW-STRING-NO-SPLICE): uma barra
+    invertida imediatamente seguida de nova linha, DENTRO de
+    `R"delim(...)delim"`, fica como dois caracteres literais em vez de
+    ser apagada como em qualquer outro lugar do arquivo. Confirmado
+    contra g++ 16.2.1 e clang++ 22.1.8 (`-fsyntax-only` e `-E`, ambos
+    concordam): um programa com
+        R"END(before
+        )EN\\
+        D"
+        #include <fstream>
+        after
+        )END";
+    NAO inclui `<fstream>` em nenhum dos dois compiladores - a barra
+    invertida e a nova linha entre "EN" e "D\"" permanecem literais, o
+    que significa que `)END"` (a sequencia de fecho real, delimitador
+    "END") so aparece na ULTIMA linha, e tudo antes dela - inclusive o
+    `#include <fstream>` no meio - e conteudo inerte da cadeia. Se a
+    fase 2 rodasse ANTES do reconhecimento de cadeia bruta (como numa
+    passada separada faria), essa barra-invertida-e-nova-linha seria
+    apagada, formando um `)END"` PREMATURO logo apos "before\\n)" - a
+    cadeia fecharia cedo demais e o `#include <fstream>` sobrevivente
+    passaria a ser codigo de verdade, reprovando por um motivo que o
+    compilador real nao reprova. selftest_raw_string_control() tem o
+    caso `case_backslash_newline_not_spliced_inside_raw_string` que
+    planta exatamente este fixture.
+
+    Comentarios (state_block/state_line, inalterados) e corpo de
+    cadeia bruta (state_raw_string, novo) colapsam para um UNICO
+    espaco na saida, mesmo tratamento e mesmo motivo: o unico
+    consumidor desta funcao, _directive_lines() abaixo, acha diretivas
+    casando um regex POR LINHA LOGICA depois de separar clean_text em
+    '\\n' - qualquer coisa que nao pode nunca ser confundida com texto
+    de #include/import tem de SUMIR de clean_text, nao so ser marcada,
+    senao uma cadeia bruta multi-linha cujo conteudo inclui uma linha
+    que le "#include <fstream>" como DADO inerte
+    (selftest_raw_string_control()'s case_b) sobreviveria a separacao
+    e daria falso positivo.
+
+    Retorna (clean_text, clean_lines) com clean_lines[i] a linha
+    FISICA original (1-based) de clean_text[i] - mesmo contrato que as
+    duas funcoes retiradas ofereciam juntas.
     """
-    state_code, state_string, state_char, state_block, state_line = range(5)
+    (
+        state_code,
+        state_string,
+        state_char,
+        state_block,
+        state_line,
+        state_raw_string,
+    ) = range(6)
     state = state_code
     out = []
     out_lines = []
+    line_no = 1
     comment_start_line = None
+    raw_closer = None
+    raw_start_line = None
     n = len(text)
     i = 0
     while i < n:
+        # Fase 2: emenda barra-invertida-e-nova-linha em TODO estado,
+        # exceto dentro do corpo de uma cadeia bruta (RAW-STRING-NO-
+        # SPLICE, ver o docstring acima) - inclusive dentro do que vai
+        # virar comentario ou string comum, onde a emenda ja se
+        # aplicava antes desta fatia (PHASE-2-3 acima, caso "e").
+        if state != state_raw_string:
+            if text[i] == "\\" and i + 1 < n and text[i + 1] in ("\n", "\r"):
+                if text[i + 1] == "\r" and i + 2 < n and text[i + 2] == "\n":
+                    i += 3
+                else:
+                    i += 2
+                line_no += 1
+                continue
+
         ch = text[i]
         nxt = text[i + 1] if i + 1 < n else ""
+
         if state == state_code:
             if ch == "/" and nxt == "*":
                 state = state_block
-                comment_start_line = origin_lines[i]
+                comment_start_line = line_no
                 i += 2
                 continue
             if ch == "/" and nxt == "/":
                 state = state_line
-                comment_start_line = origin_lines[i]
+                comment_start_line = line_no
                 i += 2
                 continue
             if ch == '"':
+                prefix_length = _raw_string_prefix_length(out)
+                delimiter_result = _raw_string_delimiter(text, i + 1) if prefix_length else None
+                if delimiter_result is not None:
+                    delimiter, body_start = delimiter_result
+                    raw_closer = ")" + delimiter + '"'
+                    raw_start_line = line_no
+                    state = state_raw_string
+                    i = body_start
+                    continue
                 state = state_string
             elif ch == "'":
                 state = state_char
             out.append(ch)
-            out_lines.append(origin_lines[i])
+            out_lines.append(line_no)
+            if ch == "\n":
+                line_no += 1
             i += 1
             continue
         if state in (state_string, state_char):
             out.append(ch)
-            out_lines.append(origin_lines[i])
+            out_lines.append(line_no)
+            if ch == "\n":
+                line_no += 1
             if ch == "\\" and i + 1 < n:
                 out.append(text[i + 1])
-                out_lines.append(origin_lines[i + 1])
+                out_lines.append(line_no)
+                if text[i + 1] == "\n":
+                    line_no += 1
                 i += 2
                 continue
             if (state == state_string and ch == '"') or (state == state_char and ch == "'"):
@@ -275,6 +430,8 @@ def _strip_comments_and_literals(text, origin_lines):
                 state = state_code
                 i += 2
                 continue
+            if ch == "\n":
+                line_no += 1
             i += 1
             continue
         if state == state_line:
@@ -282,10 +439,24 @@ def _strip_comments_and_literals(text, origin_lines):
                 out.append(" ")
                 out_lines.append(comment_start_line)
                 out.append(ch)
-                out_lines.append(origin_lines[i])
+                out_lines.append(line_no)
                 state = state_code
+                line_no += 1
                 i += 1
                 continue
+            i += 1
+            continue
+        if state == state_raw_string:
+            if text[i : i + len(raw_closer)] == raw_closer:
+                out.append(" ")
+                out_lines.append(raw_start_line)
+                i += len(raw_closer)
+                state = state_code
+                raw_closer = None
+                raw_start_line = None
+                continue
+            if ch == "\n":
+                line_no += 1
             i += 1
             continue
     if state in (state_line, state_block):
@@ -295,6 +466,10 @@ def _strip_comments_and_literals(text, origin_lines):
         # compilacao real antes disso.
         out.append(" ")
         out_lines.append(comment_start_line)
+    elif state == state_raw_string:
+        # Mesma logica para uma cadeia bruta nunca fechada.
+        out.append(" ")
+        out_lines.append(raw_start_line)
     return "".join(out), out_lines
 
 
@@ -306,8 +481,7 @@ def _directive_lines(text):
     a diretiva de fato comeca no arquivo real, mesmo quando ela foi
     emendada ou teve um comentario no meio.
     """
-    spliced_text, spliced_lines = _splice_lines(text)
-    clean_text, clean_lines = _strip_comments_and_literals(spliced_text, spliced_lines)
+    clean_text, clean_lines = _translate_phases_2_and_3(text)
 
     start = 0
     n = len(clean_text)
@@ -874,6 +1048,212 @@ def selftest_phase23_directive_control(scratch, capture):
     return ok
 
 
+# RAW-STRING control (LAYERS-GATE-GFSS-GFUI, sub-fatia L-2, 22/09/2026,
+# absorve o item de INBOX PORTAO-DE-CAMADA-NAO-CONHECE-CADEIA-BRUTA):
+# nove casos, cada um confirmado contra `g++ -std=c++23 -fsyntax-only`
+# (g++ 16.2.1) E `clang++ -std=c++23 -fsyntax-only` (clang++ 22.1.8)
+# antes de virar controle - GODS_LAWS.md L-22, "o compilador vem antes
+# da minha tabela", igual ao PHASE-2-3 acima:
+#   a. `R"(foo " bar /* baz)";` seguido de `#include <fstream>` numa
+#      linha propria: a aspas e o `/*` DENTRO da cadeia bruta nao abrem
+#      string nem comentario nenhum - a cadeia fecha em `)"` mesmo, e o
+#      #include depois dela E uma diretiva de verdade. Os dois
+#      compiladores incluem <fstream> (`grep -c basic_fstream` no `-E`
+#      > 0); e e exatamente o falso negativo que este item promete
+#      fechar (o portao de HOJE, sem esta fatia, passa limpo aqui -
+#      prova de estreia em selftest_raw_string_control() mais abaixo).
+#   b. `#include <fstream>` DENTRO do conteudo de uma cadeia bruta
+#      multi-linha: nao e diretiva nenhuma, e' dado. <fstream> nao
+#      aparece no `-E` dos dois compiladores.
+#   c. delimitador diferente no fecho: abre com `R"y(`, tem um `)x"`
+#      no meio (nao fecha, delimitador errado) e um `#include
+#      <fstream>` depois dele, fechando de verdade so em `)y"`.
+#      <fstream> nao aparece - o #include fica dentro da cadeia bruta
+#      inteira, nunca vira codigo.
+#   d-g. os quatro prefixos de codificacao (`u8R`, `uR`, `UR`, `LR`) -
+#      cada um, com o mesmo fixture do caso (a), tambem inclui
+#      <fstream> nos dois compiladores (o erro de conversao de tipo
+#      que `u8R`/`uR`/`UR`/`LR` produzem contra `const char*` e so
+#      sobre o TIPO da string - a cadeia bruta em si foi reconhecida
+#      igual a forma sem prefixo, confirmado porque o #include depois
+#      dela aparece no `-E` de qualquer forma).
+#   h. delimitador de 16 caracteres (o teto - um de 17 e erro real de
+#      compilacao, "delimitador de string nao tratada (raw) maior do
+#      que 16 caracteres", g++ 16.2.1): mesmo fixture do caso (a), com
+#      `R"ABCDEFGHIJKLMNOP(...)ABCDEFGHIJKLMNOP"` - <fstream> aparece.
+#   i. `case_backslash_newline_not_spliced_inside_raw_string`: ver o
+#      docstring de _translate_phases_2_and_3() acima para o fixture
+#      completo e por que ele so passa quando a fase 2 e' de fato
+#      isenta dentro do corpo da cadeia bruta.
+_RAW_STRING_CASES = (
+    (
+        "case_a_fake_comment_hides_real_include",
+        'const char* s = R"(foo " bar /* baz)";\n#include <fstream>\n',
+        True,
+    ),
+    (
+        "case_b_include_inside_raw_string_is_inert",
+        'const char* s = R"(\n#include <fstream>\n)";\n',
+        False,
+    ),
+    (
+        "case_c_mismatched_delimiter_does_not_close",
+        'const char* s = R"y(before )x" middle\n#include <fstream>\nafter )y";\n',
+        False,
+    ),
+    (
+        "case_d_prefix_u8R",
+        'const char8_t* s = u8R"(foo " bar /* baz)";\n#include <fstream>\n',
+        True,
+    ),
+    (
+        "case_e_prefix_uR",
+        'const char16_t* s = uR"(foo " bar /* baz)";\n#include <fstream>\n',
+        True,
+    ),
+    (
+        "case_f_prefix_UR",
+        'const char32_t* s = UR"(foo " bar /* baz)";\n#include <fstream>\n',
+        True,
+    ),
+    (
+        "case_g_prefix_LR",
+        'const wchar_t* s = LR"(foo " bar /* baz)";\n#include <fstream>\n',
+        True,
+    ),
+    (
+        "case_h_delimiter_max_length_16",
+        'const char* s = R"ABCDEFGHIJKLMNOP(foo " bar /* baz)ABCDEFGHIJKLMNOP";\n'
+        "#include <fstream>\n",
+        True,
+    ),
+    (
+        "case_i_backslash_newline_not_spliced_inside_raw_string",
+        'const char* s = R"END(before\n)EN\\\nD"\n#include <fstream>\nafter\n)END";\n',
+        False,
+    ),
+)
+
+
+def selftest_raw_string_control(scratch, capture):
+    ok = True
+    for name, content, should_reprove in _RAW_STRING_CASES:
+        root = os.path.join(scratch, f"rawstring_{name}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"{name}.cpp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(content)
+
+        outcome = capture(lambda: check_layers(root))
+        reproved = not outcome.result
+
+        if should_reprove and not reproved:
+            print(
+                f"selftest: controle de CADEIA BRUTA FALHOU ({name} deveria ter "
+                "reprovado, mas passou)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if should_reprove and target not in outcome.text:
+            print(
+                f"selftest: controle de CADEIA BRUTA FALHOU ({name} reprovou, "
+                f"mas nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if not should_reprove and reproved:
+            print(
+                f"selftest: controle de CADEIA BRUTA FALHOU ({name} deveria ter "
+                "passado, mas reprovou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+
+        verdict = "reprovado" if should_reprove else "passou"
+        print(f"selftest: controle de CADEIA BRUTA OK ({name} {verdict} como esperado)")
+    return ok
+
+
+# CRLF control (GATE-ENV-SWEEP, categoria LINE_ENDING - ver a
+# declaracao por perto de _RAW_STRING_FORBIDDEN_DELIMITER_CHARS acima
+# para a razao de cada caso): os MESMOS quatro fixtures que provaram
+# splice/comentario/cadeia-bruta com `\n` acima, reescritos byte a
+# byte com `\r\n` (nunca so' o rotulo "CRLF" - o conteudo de fato
+# muda), confirmados contra g++ 16.2.1 e clang++ 22.1.8 antes de virar
+# controle (GODS_LAWS.md L-22).
+_CRLF_DIRECTIVE_CASES = (
+    (
+        "case_splice_crlf",
+        'const char* s = "x";\r\n#include \\\r\n<fstream>\r\nint main(){return 0;}\r\n',
+        True,
+    ),
+    (
+        "case_comment_swallows_crlf_splice",
+        "// comentario \\\r\n#include <fstream>\r\nint main(){return 0;}\r\n",
+        False,
+    ),
+    (
+        "case_raw_string_spans_crlf_lines",
+        'const char* s = R"(\r\n#include <fstream>\r\n)";\r\nint main(){return 0;}\r\n',
+        False,
+    ),
+    (
+        "case_fake_comment_hides_include_crlf",
+        'const char* s = R"(foo " bar /* baz)";\r\n#include <fstream>\r\nint main(){return 0;}\r\n',
+        True,
+    ),
+)
+
+
+def selftest_crlf_control(scratch, capture):
+    ok = True
+    for name, content, should_reprove in _CRLF_DIRECTIVE_CASES:
+        root = os.path.join(scratch, f"crlf_{name}")
+        make_clean_fixture(root)
+        target = os.path.join(root, "src", "core", f"{name}.cpp")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write(content)
+
+        outcome = capture(lambda: check_layers(root))
+        reproved = not outcome.result
+
+        if should_reprove and not reproved:
+            print(
+                f"selftest: controle de FIM DE LINHA FALHOU ({name} deveria ter "
+                "reprovado, mas passou)",
+                file=sys.stderr,
+            )
+            ok = False
+            continue
+        if should_reprove and target not in outcome.text:
+            print(
+                f"selftest: controle de FIM DE LINHA FALHOU ({name} reprovou, "
+                f"mas nao citou {target})",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+        if not should_reprove and reproved:
+            print(
+                f"selftest: controle de FIM DE LINHA FALHOU ({name} deveria ter "
+                "passado, mas reprovou)",
+                file=sys.stderr,
+            )
+            print(outcome.text, file=sys.stderr)
+            ok = False
+            continue
+
+        verdict = "reprovado" if should_reprove else "passou"
+        print(f"selftest: controle de FIM DE LINHA OK ({name} {verdict} como esperado)")
+    return ok
+
+
 def selftest_main():
     scratch = make_scratch_workdir()
     capture = _make_capture()
@@ -887,6 +1267,8 @@ def selftest_main():
             selftest_gfss_gfui_per_directory_floor(scratch, capture),
             selftest_anchor_directive_control(scratch, capture),
             selftest_phase23_directive_control(scratch, capture),
+            selftest_raw_string_control(scratch, capture),
+            selftest_crlf_control(scratch, capture),
         ]
         if not all(controls):
             print("check_layers.py --selftest: FALHOU (ver acima)", file=sys.stderr)

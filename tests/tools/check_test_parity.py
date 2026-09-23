@@ -470,6 +470,16 @@ def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
 
     dead = []
     half_dead = []
+    # PARITY-ALIAS-HYGIENE, sub-fatia P-2, achado do orquestrador
+    # (verificacao L-12 sobre c1de2ad, "metade provada vira provado"):
+    # a supressao por irmao vivo e' um desvio deliberado do piso de
+    # varredura (L-40) - um apelido que PARECE meio-morto mas tem
+    # cobertura real via irmao some da lista `half_dead` sem deixar
+    # rastro. GODS_LAWS.md L-40 exige que TODA supressao calada seja
+    # contada e impressa (nunca zero por padrao/silencio) - por isso
+    # `half_dead_suppressed` guarda cada candidato que a supressao
+    # engoliu, mesmo quando a supressao esta correta.
+    half_dead_suppressed = []
     bilateral_declared = []
     bilateral_undeclared = []
     bilateral_false = []
@@ -485,14 +495,18 @@ def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
             sibling_alive = any(
                 name in linux_inventory for name in win_to_linux.get(windows_name, ())
             )
-            if not sibling_alive:
+            if sibling_alive:
+                half_dead_suppressed.append((alias, "linux"))
+            else:
                 half_dead.append((alias, "linux"))
             continue
         if windows_absent:
             sibling_alive = any(
                 name in windows_inventory for name in linux_to_win.get(linux_name, ())
             )
-            if not sibling_alive:
+            if sibling_alive:
+                half_dead_suppressed.append((alias, "windows"))
+            else:
                 half_dead.append((alias, "windows"))
             continue
         is_bilateral = linux_name in windows_inventory or windows_name in linux_inventory
@@ -507,7 +521,14 @@ def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
             bilateral_declared.append(alias)
         else:
             bilateral_undeclared.append(alias)
-    return dead, bilateral_declared, bilateral_undeclared, bilateral_false, half_dead
+    return (
+        dead,
+        bilateral_declared,
+        bilateral_undeclared,
+        bilateral_false,
+        half_dead,
+        half_dead_suppressed,
+    )
 
 
 # PARITY-ALIAS-HYGIENE (c), D9 - gemeo direto do apelido morto acima
@@ -638,6 +659,7 @@ def run_comparison(linux_inventory, windows_inventory, exceptions, aliases, todo
         alias_bilateral_undeclared,
         alias_bilateral_false,
         alias_half_dead,
+        _alias_half_dead_suppressed,
     ) = compute_alias_hygiene(aliases, linux_inventory, windows_inventory)
     for alias in alias_dead:
         errors.append(
@@ -741,13 +763,15 @@ def real_main(args):
         alias_bilateral_undeclared,
         alias_bilateral_false,
         alias_half_dead,
+        alias_half_dead_suppressed,
     ) = compute_alias_hygiene(aliases, linux_inventory, windows_inventory)
     print(
         f"{SCRIPT_NAME}: {len(aliases)} apelido(s), {len(alias_dead)} morto(s), "
         f"{len(alias_bilateral_declared)} bilateral(is) declarado(s), "
         f"{len(alias_bilateral_undeclared)} bilateral(is) sem declaracao, "
         f"{len(alias_bilateral_false)} bilateral(is) falso(s), "
-        f"{len(alias_half_dead)} meio-morto(s)"
+        f"{len(alias_half_dead)} meio-morto(s), "
+        f"{len(alias_half_dead_suppressed)} meio-morto(s) suprimido(s) por irmao vivo"
     )
     exception_dead = compute_exception_hygiene(exceptions, linux_inventory, windows_inventory)
     print(f"{SCRIPT_NAME}: {len(exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
@@ -1272,6 +1296,142 @@ def selftest_alias_half_dead_reproves():
     return True
 
 
+# PARITY-ALIAS-HYGIENE C1b-linux (VERMELHO, achado do orquestrador,
+# verificacao L-12 sobre c1de2ad, familia "metade provada vira
+# provado" - feedback_metade_provada_vira_provado.md): C1b acima so'
+# exercita o ramo `windows_absent` de compute_alias_hygiene (lado
+# Windows apagado, lado Linux vivo). O ramo IRMAO, `linux_absent`
+# (lado Linux apagado, lado Windows vivo), nunca tinha controle
+# proprio - um mutante que troca a checagem real de pertencimento
+# (`name in linux_inventory for name in win_to_linux.get(...)`) por
+# `True for name in ...` SOBREVIVE contra os 25 controles anteriores,
+# porque o proprio apelido sempre aparece no seu proprio grupo
+# (`win_to_linux[windows_name]` inclui `linux_name`) - o mutante conta
+# a si mesmo como "irmao vivo" sem nunca checar o inventario de
+# verdade. Esperado: reprova, com a categoria "apelido meio-morto" e
+# o lado "linux" nomeado.
+def selftest_alias_half_dead_linux_side_reproves():
+    linux_inv = {"a_test"}
+    windows_inv = {"a_test", "meio_morto_windows_vivo_test"}
+    aliases = [_alias_fixture("meio_morto_linux_apagado_test", "meio_morto_windows_vivo_test")]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    if not errors:
+        print("selftest: PARITY-ALIAS-HYGIENE C1b-linux FALHOU (apelido meio-morto deveria ter reprovado)", file=sys.stderr)
+        return False
+    if not any(
+        "apelido meio-morto" in e and "meio_morto_linux_apagado_test" in e and "linux" in e
+        for e in errors
+    ):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-linux FALHOU (reprovou, mas nao citou o apelido "
+            f"meio-morto com o lado 'linux' nomeado): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-linux OK (ramo linux_absent pego, lado nomeado): {errors}")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C1b-siblings-linux (VERMELHO, mesma
+# verificacao L-12): a supressao por irmao vivo tem que checar
+# PERTENCIMENTO REAL no inventario, nunca so' "o grupo nao esta
+# vazio". Aqui DOIS apelidos Linux, nenhum dos dois existe em lugar
+# nenhum, apontam para o MESMO parceiro Windows vivo - um mutante que
+# conta qualquer nome do grupo como prova de vida (em vez de checar se
+# ele esta' de fato no inventario) suprimiria os DOIS em silencio,
+# porque cada um "encontraria" o outro (tambem morto) no mesmo grupo.
+# Esperado: os dois reprovam como meio-mortos, nenhum suprimido.
+def selftest_alias_half_dead_linux_dead_siblings_not_counted_reproves():
+    linux_inv = {"a_test"}
+    windows_inv = {"a_test", "parceiro_presente_test"}
+    aliases = [
+        _alias_fixture("irmao_morto_um_test", "parceiro_presente_test"),
+        _alias_fixture("irmao_morto_dois_test", "parceiro_presente_test"),
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    ok_um = any("apelido meio-morto" in e and "irmao_morto_um_test" in e for e in errors)
+    ok_dois = any("apelido meio-morto" in e and "irmao_morto_dois_test" in e for e in errors)
+    if not (ok_um and ok_dois):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux FALHOU (os dois irmaos mortos "
+            f"deveriam ter reprovado, nenhum suprimido pelo outro): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-linux OK (irmao morto nao conta como vivo): {errors}")
+    return True
+
+
+# PARITY-ALIAS-HYGIENE C1b-siblings-windows: gemeo direto do controle
+# acima no OUTRO ramo (`windows_absent`) - o mesmo defeito, o mesmo
+# remedio, no lado espelhado (GODS_LAWS.md L-17). Um nome Linux vivo
+# com DOIS apelidos Windows, nenhum dos dois existe em lugar nenhum.
+def selftest_alias_half_dead_windows_dead_siblings_not_counted_reproves():
+    linux_inv = {"a_test", "parceiro_presente_linux_test"}
+    windows_inv = {"a_test"}
+    aliases = [
+        _alias_fixture("parceiro_presente_linux_test", "irmao_morto_um_win_test"),
+        _alias_fixture("parceiro_presente_linux_test", "irmao_morto_dois_win_test"),
+    ]
+    errors = run_comparison(linux_inv, windows_inv, [], aliases, {})
+    ok_um = any("apelido meio-morto" in e and "irmao_morto_um_win_test" in e for e in errors)
+    ok_dois = any("apelido meio-morto" in e and "irmao_morto_dois_win_test" in e for e in errors)
+    if not (ok_um and ok_dois):
+        print(
+            f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows FALHOU (os dois irmaos mortos "
+            f"deveriam ter reprovado, nenhum suprimido pelo outro): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: PARITY-ALIAS-HYGIENE C1b-siblings-windows OK (irmao morto nao conta como vivo): {errors}")
+    return True
+
+
+# Controle do PISO (GODS_LAWS.md L-40): a supressao por irmao vivo tem
+# que deixar rastro contavel, nunca ser silenciosa. Reusa o cenario
+# exato de selftest_alias_shared_windows_partner_control (tres
+# apelidos Linux para o MESMO parceiro Windows, shell_smoke ausente do
+# inventario sintetico de proposito) e confere o RETORNO CRU de
+# compute_alias_hygiene(): zero meio-mortos de verdade (a supressao
+# funcionou), mas exatamente UM suprimido, e e' o shell_smoke.
+def selftest_half_dead_suppressed_count_visible():
+    linux_inv = {
+        "a_test",
+        "display_connect_failure_test",
+        "shell_requirements_test",
+        # shell_smoke DELIBERADAMENTE ausente - ver o comentario de
+        # selftest_alias_shared_windows_partner_control acima.
+    }
+    windows_inv = {"a_test", "win32_display_connect_test"}
+    aliases = [
+        _alias_fixture("display_connect_failure_test", "win32_display_connect_test"),
+        _alias_fixture("shell_requirements_test", "win32_display_connect_test"),
+        _alias_fixture("shell_smoke", "win32_display_connect_test"),
+    ]
+    _dead, _decl, _undecl, _false, half_dead, half_dead_suppressed = compute_alias_hygiene(
+        aliases, linux_inv, windows_inv
+    )
+    if half_dead:
+        print(
+            f"selftest: PISO-MEIO-MORTO-SUPRIMIDO FALHOU (nao deveria haver meio-morto de "
+            f"verdade aqui, os tres tem irmao vivo): {half_dead}",
+            file=sys.stderr,
+        )
+        return False
+    if len(half_dead_suppressed) != 1 or half_dead_suppressed[0][0]["linux_name"] != "shell_smoke":
+        print(
+            f"selftest: PISO-MEIO-MORTO-SUPRIMIDO FALHOU (esperava exatamente 1 suprimido, "
+            f"o shell_smoke): {half_dead_suppressed}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        f"selftest: PISO-MEIO-MORTO-SUPRIMIDO OK (1 suprimido por irmao vivo, contado e "
+        f"visivel, nunca calado): {half_dead_suppressed}"
+    )
+    return True
+
+
 # PARITY-ALIAS-HYGIENE C2 (VERMELHO): apelido cujo lado "exclusivo"
 # tambem roda no outro sistema, sem o terceiro campo declarando isso
 # - D8, "reprovar salvo declaracao". Esperado: reprova.
@@ -1487,6 +1647,10 @@ def selftest_main():
         selftest_corrupted_inventory_line_reproves(),
         selftest_alias_dead_reproves(),
         selftest_alias_half_dead_reproves(),
+        selftest_alias_half_dead_linux_side_reproves(),
+        selftest_alias_half_dead_linux_dead_siblings_not_counted_reproves(),
+        selftest_alias_half_dead_windows_dead_siblings_not_counted_reproves(),
+        selftest_half_dead_suppressed_count_visible(),
         selftest_alias_bilateral_undeclared_reproves(),
         selftest_alias_bilateral_declared_control(),
         selftest_alias_bilateral_false_declaration_reproves(),

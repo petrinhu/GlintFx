@@ -156,6 +156,67 @@ assert_path_variable_rejects_abi_mismatch() {
         || fail "PATH 1 (aperto de mao de versao, GATE-GL-ABI-HANDSHAKE): configure reprovou, mas a mensagem nao citou o aperto de mao de versao (--codegen-abi)"
 }
 
+# GATE-GL-ABI-HANDSHAKE, SEGUNDO TIPO (achado declarado, nao coberto, pela
+# propria revisao adversarial: /var/tmp/glintfx-plan/revisao-codegen-r2.md:181
+# - "Nao testei um SEGUNDO tipo de mutante de ABI (ex.: binario que nao
+# responde --codegen-abi de jeito nenhum, rc≠0 na sondagem)". As duas funcoes
+# acima so exercitam a SEGUNDA branch de glintfx_check_gl_codegen_host_tool_abi()
+# (cmake/GlintfxGlCodegenHostTool.cmake) - o valor devolvido difere do
+# esperado (STREQUAL). A PRIMEIRA branch dessa mesma funcao (RESULT_VARIABLE
+# != 0, "nao respondeu a --codegen-abi") continua sem nenhuma asserção: um
+# binario que falha a propria sondagem (nao roda neste hospedeiro, ou nao e o
+# gl_registry_codegen esperado) nunca foi provado rejeitado por este roteiro.
+# Dublê POSIX (nunca binario compilado, nunca Wine/.exe - GODS_LAWS.md
+# L-09/L-50) que sai com erro e SEM nada em stdout para --codegen-abi -
+# simula exatamente essa falha de sondagem.
+make_unresponsive_abi_double() {
+    double_path="$1"
+    cat > "$double_path" <<'EOF_UNRESPONSIVE_DOUBLE'
+#!/usr/bin/env sh
+# Dublê H-1 (aperto de mao de versao, segundo tipo, GATE-GL-ABI-HANDSHAKE):
+# NAO responde a --codegen-abi de jeito nenhum - sai com codigo de erro sem
+# escrever nada em stdout, simulando um binario que nao roda neste
+# hospedeiro ou que nao e o gl_registry_codegen esperado (a PRIMEIRA branch
+# de glintfx_check_gl_codegen_host_tool_abi(), RESULT_VARIABLE != 0).
+# Qualquer chamada falha alto - nunca deveria ser aceito como
+# GLINTFX_GL_CODEGEN_EXECUTABLE.
+echo "dublê nao-responsivo (GATE-GL-ABI-HANDSHAKE): nao implementa --codegen-abi" >&2
+exit 3
+EOF_UNRESPONSIVE_DOUBLE
+    chmod +x "$double_path"
+}
+
+assert_path_variable_rejects_unresponsive_abi() {
+    src="$1"; toolchain="$2"; generator="$3"; build_dir="$4"; double="$5"
+
+    set +e
+    configure_output=$(cmake -S "$src" -B "$build_dir" -G "$generator" \
+        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+        -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
+        -DGLINTFX_GL_CODEGEN_EXECUTABLE="$double" 2>&1)
+    configure_rc=$?
+    set -e
+
+    [ "$configure_rc" -ne 0 ] \
+        || fail "PATH 1 (aperto de mao de versao, segundo tipo GATE-GL-ABI-HANDSHAKE): configure deveria ter reprovado um binario que nao responde a --codegen-abi, mas passou (rc=0)"
+    printf '%s' "$configure_output" | grep -q "nao respondeu a --codegen-abi" \
+        || fail "PATH 1 (aperto de mao de versao, segundo tipo GATE-GL-ABI-HANDSHAKE): configure reprovou, mas a mensagem nao citou 'nao respondeu a --codegen-abi' (pode ter reprovado por outro motivo, nao pela sondagem)"
+    # A checagem acima sozinha NAO basta (mutante (c), medido 23/09/2026,
+    # H-6): o texto "nao respondeu a --codegen-abi" mora dentro do PROPRIO
+    # message(), entao continua aparecendo na saida mesmo se alguem trocar o
+    # message(FATAL_ERROR da branch de sondagem (RESULT_VARIABLE != 0,
+    # cmake/GlintfxGlCodegenHostTool.cmake:126) por um message(STATUS - a
+    # mensagem vira so informativa, a execucao NAO para ali, e quem de fato
+    # reprova e a segunda checagem (STREQUAL, linha 133), com uma mensagem
+    # DIFERENTE ("respondeu --codegen-abi=", sem o "a" e com "="). Medido:
+    # com a branch de sondagem demovida a STATUS, o grep acima ainda
+    # encontra a frase (falso verde) porque ela sobrevive no texto do
+    # STATUS - so a ausencia da mensagem da OUTRA branch prova que foi a
+    # branch certa que barrou.
+    ! printf '%s' "$configure_output" | grep -q "respondeu --codegen-abi=" \
+        || fail "PATH 1 (aperto de mao de versao, segundo tipo GATE-GL-ABI-HANDSHAKE): configure reprovou, mas pela branch ERRADA (STREQUAL, mensagem 'respondeu --codegen-abi=') - a branch de sondagem falha (RESULT_VARIABLE != 0, 'nao respondeu a --codegen-abi') parou de barrar sozinha e um binario que nunca responde esta sendo pego so por acidente, via a checagem de valor"
+}
+
 # --- PATH 2: CMAKE_CROSSCOMPILING_EMULATOR (dublê, nunca Wine) -------
 
 make_emulator_double() {
@@ -303,6 +364,12 @@ real_main() {
         "$scratch/cross-variable-abi-reject" "$abi_double"
     echo "$SCRIPT_NAME: PATH 1 (aperto de mao de versao, GATE-GL-ABI-HANDSHAKE) - binario incompativel REJEITADO - OK"
 
+    unresponsive_abi_double="$scratch/abi-unresponsive-double.sh"
+    make_unresponsive_abi_double "$unresponsive_abi_double"
+    assert_path_variable_rejects_unresponsive_abi "$src" "$toolchain" "$generator" \
+        "$scratch/cross-variable-abi-unresponsive" "$unresponsive_abi_double"
+    echo "$SCRIPT_NAME: PATH 1 (aperto de mao de versao, segundo tipo GATE-GL-ABI-HANDSHAKE) - binario que nao responde a --codegen-abi REJEITADO - OK"
+
     double="$scratch/emulator-double.sh"
     double_log="$scratch/emulator-double.log"
     make_emulator_double "$double" "$native_tool" "$double_log"
@@ -329,7 +396,7 @@ real_main() {
     # versao, ainda nao tinha assercao nenhuma aqui; o roteiro passava
     # verde mesmo com aquela checagem desligada no cmake). Nao resume
     # "tudo passou" - lista os fatos que cada bloco acima provou.
-    echo "$SCRIPT_NAME: provado - PATH 1 aceita o binario correto e REJEITA um binario com ABI incompativel (aperto de mao de versao); PATH 2 aciona o dublê pelo nome nu do alvo; PATH 3 builda limpo E regenera em rebuild incremental apos mudanca de fonte; PATH 4 reprova em configure time citando GLINTFX_GL_CODEGEN_EXECUTABLE. Todos os quatro artefatos gerados (PATH 1/2/3) batem byte a byte com a referencia nativa dourada."
+    echo "$SCRIPT_NAME: provado - PATH 1 aceita o binario correto e REJEITA tanto um binario com ABI incompativel quanto um binario que nao responde a --codegen-abi (aperto de mao de versao, os dois tipos de mutante); PATH 2 aciona o dublê pelo nome nu do alvo; PATH 3 builda limpo E regenera em rebuild incremental apos mudanca de fonte; PATH 4 reprova em configure time citando GLINTFX_GL_CODEGEN_EXECUTABLE. Todos os quatro artefatos gerados (PATH 1/2/3) batem byte a byte com a referencia nativa dourada."
 }
 
 real_main "$@"

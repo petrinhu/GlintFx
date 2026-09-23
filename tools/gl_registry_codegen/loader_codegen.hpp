@@ -24,6 +24,29 @@
 
 namespace glintfx::gl_codegen {
 
+// GL-CODEGEN-HOST-TOOL (TODO.md, GODS_LAWS.md L-17/L-40, D-11 of
+// docs/plano-fecho-w7b.md): the "aperto de mao de versao" a cross
+// build's configure step reads via `gl_registry_codegen --codegen-abi`
+// (main.cpp) BEFORE trusting a host-provided binary pointed at by
+// GLINTFX_GL_CODEGEN_EXECUTABLE. The dor this guards against is
+// documented, not hypothetical: protobuf's own tool-path variable
+// silently ignored in one build mode
+// (https://github.com/protocolbuffers/protobuf/issues/14576), and a
+// tool built from a different checkout generating incompatible code
+// (https://github.com/microsoft/onnxruntime/issues/8413).
+//
+// A LITERAL, not derived from anything else, on purpose - the SAME
+// double-key pattern src/render/CMakeLists.txt already uses for
+// third_party/khronos/gl.xml's own sha256 (GODS_LAWS.md L-07 EXCECAO
+// No 1, obligation 3): cmake/GlintfxGlCodegenHostTool.cmake carries
+// its OWN copy of this exact number, hardcoded there too. If this
+// generator's output FORMAT ever changes in a way an older/newer tool
+// binary could not safely stand in for, bump BOTH copies in the SAME
+// commit - a value derived from one side automatically would defeat
+// the whole point of a handshake between two SEPARATE binaries that
+// were not necessarily built from the same source tree.
+inline constexpr int codegen_abi_version = 1;
+
 // Renders the generated PRIVATE header (never installed, never under
 // include/glintfx/ - GODS_LAWS.md L-19: the public surface does not
 // move for an internal loading detail): the PFNGL*PROC typedef and

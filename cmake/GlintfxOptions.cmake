@@ -149,3 +149,31 @@ option(GLINTFX_SKIP_PKGCONFIG_VALIDATION
     "Skip the post-install validation that confirms the installed glintfx.pc resolves to real, populated directories (GODS_LAWS.md LEI ZERO / PKG-VALIDATE) - glintfx.pc is still installed either way, only the check is skipped"
     OFF
 )
+
+# GL-CODEGEN-HOST-TOOL (D-11 of docs/plano-fecho-w7b.md,
+# cmake/GlintfxGlCodegenHostTool.cmake): PATH 1 of the four-path
+# resolution a CROSS-compiling build uses to find a HOST-native
+# gl_registry_codegen binary - empty by default (every OTHER path is
+# tried first). Consulted in BOTH native and cross-compiling modes
+# (the protobuf dor this whole mechanism exists to avoid: a tool-path
+# variable silently ignored in one of the two - see that .cmake
+# module's own header for the sources). Never referenced by
+# cmake/glintfx-config.cmake.in or cmake/glintfx.pc.in - it is a
+# BUILD-time detail of one internal codegen step, never an installed
+# package's interface (H-5, tests/tools/check_gl_codegen_host_leak.py
+# proves it stays that way).
+set(GLINTFX_GL_CODEGEN_EXECUTABLE "" CACHE FILEPATH
+    "Path to an already-built, HOST-native gl_registry_codegen binary, used instead of cross-building one (GL-CODEGEN-HOST-TOOL, cross-compiling builds only)"
+)
+
+# GL-CODEGEN-HOST-TOOL, PATH 3's own optional knob: the host C++
+# compiler cmake/GlintfxGlCodegenHostTool.cmake's nested, native
+# ExternalProject build of gl_registry_codegen uses. Empty by default -
+# that module's own glintfx_resolve_gl_codegen_host_mode() then looks
+# for c++/g++/clang++ on PATH itself (safe under the mingw toolchain
+# this project's own D-12 pins for proof, whose
+# CMAKE_FIND_ROOT_PATH_MODE_PROGRAM is NEVER - find_program() never
+# resolves into the target sysroot there).
+set(GLINTFX_HOST_CXX_COMPILER "" CACHE FILEPATH
+    "Host C++ compiler for the nested native gl_registry_codegen build when neither GLINTFX_GL_CODEGEN_EXECUTABLE nor CMAKE_CROSSCOMPILING_EMULATOR is set (GL-CODEGEN-HOST-TOOL, cross-compiling builds only)"
+)

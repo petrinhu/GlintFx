@@ -447,15 +447,18 @@ win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
 # dirige, nunca o inverso.
 #
 # win_vm_lab_sessao_selftest (tools/win-vm-lab/sessao.sh --selftest,
-# sub-fatia V-2, /var/tmp/glintfx-plan/win-runner-local.md secao 1) e' o
+# sub-fatias V-2 e V-5b, docs/plano-fecho-w7b.md secao 2.2.2) e' o
 # motorista de sessao: trava de exclusao mutua (`flock` sobre
-# .vm.lock), segunda verificacao independente por `virsh domstate`, e
+# .vm.lock), segunda verificacao independente por `virsh domstate`,
 # sobreposicao qcow2 descartavel (`qemu-img create -b/-F`) que nasce e
-# morre dentro da mesma posse da trava. As tres ferramentas que ele usa
-# (`flock`, `virsh`, `qemu-img`) sao do HOSPEDEIRO libvirt/QEMU; nao
-# existe, por desenho, um "motorista de sessao" do lado Windows porque
-# o lado Windows aqui e' sempre o CONVIDADO sendo dirigido, nunca quem
-# dirige.
+# morre dentro da mesma posse da trava, e (V-5b, 22/09/2026) o mecanismo
+# de ligar pela copia avulsa (D-2/D-3/D-4: fonte do disco, nvram e
+# estado do TPM trocados, nunca a definicao permanente), provado inteiro
+# contra dubles de `virsh`. As quatro ferramentas que ele usa (`flock`,
+# `virsh`, `qemu-img`, `xmlstarlet` desde V-5b) sao do HOSPEDEIRO
+# libvirt/QEMU; nao existe, por desenho, um "motorista de sessao" do
+# lado Windows porque o lado Windows aqui e' sempre o CONVIDADO sendo
+# dirigido, nunca quem dirige.
 #
 # MORTE DESTAS TRES LINHAS: nunca - mesma classe de assimetria
 # permanente por desenho que win_vm_lab_isolamento_selftest acima ja

@@ -7,7 +7,19 @@ namespace glintfx::test::wire_relay {
 
 namespace {
 
-message_header parse_header(const std::uint8_t *bytes) {
+// Precondition the CALLER must already have checked (bytes points at
+// at least wire_header_size valid bytes) - this function itself never
+// re-checks it, on purpose: poll() and take_message() below each do
+// their OWN independent length check before calling this, in code
+// that does not call through the other. Team-lead's review, 24/09/
+// 2026: a SHARED checked wrapper here would mean one defect (a
+// mutation, or a future edit) disabling the check in ONE place
+// silently disables it for BOTH callers - measured live, the mutant
+// that only broke poll()'s guard still crashed take_message() too,
+// because both went through the same guarded function. Duplicating
+// the bound (two call sites, not the "rule of three" DRY threshold)
+// is the point, not an oversight - see each call site's own comment.
+message_header parse_header_unchecked(const std::uint8_t *bytes) {
     message_header header;
     std::memcpy(&header.object_id, bytes, sizeof(header.object_id));
     // Second wire word: opcode in the low 16 bits, message size
@@ -31,7 +43,7 @@ decode_outcome wire_decoder::poll() const {
     if (m_buffer.size() < wire_header_size) {
         return decode_outcome::need_more_bytes;
     }
-    const message_header header = parse_header(m_buffer.data());
+    const message_header header = parse_header_unchecked(m_buffer.data());
     if (header.size < wire_header_size || header.size > wire_message_size_cap) {
         return decode_outcome::message_too_large;
     }
@@ -41,8 +53,21 @@ decode_outcome wire_decoder::poll() const {
     return decode_outcome::message_ready;
 }
 
-decoded_message wire_decoder::take_message() {
-    const message_header header = parse_header(m_buffer.data());
+std::optional<decoded_message> wire_decoder::take_message() {
+    // Independent defense, deliberately NOT sharing poll()'s check
+    // (see parse_header_unchecked's own comment): a caller that skips
+    // poll() - or calls this directly on a buffer that never held a
+    // full message, GODS_LAWS.md L-09's own control - gets a clean
+    // std::nullopt here, never an out-of-bounds read, regardless of
+    // whether poll() was ever called at all.
+    if (m_buffer.size() < wire_header_size) {
+        return std::nullopt;
+    }
+    const message_header header = parse_header_unchecked(m_buffer.data());
+    if (header.size < wire_header_size || header.size > wire_message_size_cap ||
+        m_buffer.size() < header.size) {
+        return std::nullopt;
+    }
     decoded_message result;
     result.header = header;
     result.payload.assign(m_buffer.begin() + static_cast<std::ptrdiff_t>(wire_header_size),

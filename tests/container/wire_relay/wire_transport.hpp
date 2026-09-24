@@ -53,4 +53,17 @@ class wire_transport {
     int m_fd;
 };
 
+// D-A4 (docs/plano-w7c-adendo-revalidacao.md SS3.A, N6): "o fim de
+// conexao nao pode mudar de forma - o rele propaga o fim do lado do
+// compositor repassando TODO byte ja lido e so entao fechando a
+// escrita para o cliente, nunca fechando antes de esvaziar." This is
+// the transparent-mode pump A1 exercises and A3 will reuse as the
+// real relay's own upstream->client loop: forwards every chunk of
+// `upstream` to `downstream` the instant it arrives, and only calls
+// downstream.shutdown_write() once `upstream` reports end_of_file -
+// never before every already-read byte reached `downstream`. Returns
+// every byte forwarded, for callers that want to verify it.
+[[nodiscard]] std::vector<std::uint8_t> relay_until_eof(const wire_transport &upstream,
+                                                        const wire_transport &downstream);
+
 } // namespace glintfx::test::wire_relay

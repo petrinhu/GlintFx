@@ -4,6 +4,7 @@
 #include "wire_message.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 // wire_decoder.hpp - the DECODER atom of the wire relay
@@ -33,9 +34,16 @@ class wire_decoder {
 
     [[nodiscard]] decode_outcome poll() const;
 
-    // Precondition: poll() == message_ready. Consumes exactly one
-    // message's bytes from the internal buffer.
-    [[nodiscard]] decoded_message take_message();
+    // Normal use: poll() == message_ready, then this consumes exactly
+    // one message's bytes from the internal buffer. Defensive even
+    // when that precondition is violated (called with a short or
+    // partial buffer): re-checks the same bound poll() checks, INSIDE
+    // this function, and returns std::nullopt instead of reading past
+    // m_buffer's end - a caller that skips poll() (or a future one
+    // that gets the order wrong) gets a clean "no message" instead of
+    // undefined behaviour. Proven by wire_relay_a1_take_message_on_
+    // short_buffer_is_clean.
+    [[nodiscard]] std::optional<decoded_message> take_message();
 
   private:
     std::vector<std::uint8_t> m_buffer;

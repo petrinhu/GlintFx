@@ -5805,7 +5805,14 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_rule_engine.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_error_injector.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_transport.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_selftest.cpp"
+        # GODS_LAWS.md L-17/L-34 applied to the TEST too (team-lead's
+        # A2 review, 24/09/2026): one selftest source per sub-fatia,
+        # sharing wire_test_encoders.hpp's inline glue instead of one
+        # 557-line file - both compile into this SAME executable
+        # (GLINTFX_TEST's self-registration collects cases from every
+        # TU linked in, ctest still sees one "wire_relay_selftest").
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a1_selftest.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a2_selftest.cpp"
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)

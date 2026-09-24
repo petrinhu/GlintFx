@@ -86,4 +86,18 @@ void wire_transport::write_once(const std::uint8_t *bytes, std::size_t len,
 
 void wire_transport::shutdown_write() const { ::shutdown(m_fd, SHUT_WR); }
 
+std::vector<std::uint8_t> relay_until_eof(const wire_transport &upstream,
+                                          const wire_transport &downstream) {
+    std::vector<std::uint8_t> forwarded;
+    while (true) {
+        const wire_transport::read_result chunk = upstream.read_once();
+        if (chunk.end_of_file) {
+            downstream.shutdown_write();
+            return forwarded;
+        }
+        downstream.write_once(chunk.bytes.data(), chunk.bytes.size(), chunk.fds);
+        forwarded.insert(forwarded.end(), chunk.bytes.begin(), chunk.bytes.end());
+    }
+}
+
 } // namespace glintfx::test::wire_relay

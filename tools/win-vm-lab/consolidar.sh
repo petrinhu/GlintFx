@@ -125,50 +125,86 @@ fazer_copia_seguranca() {
 }
 
 # --- consolidacao propriamente dita -----------------------------------------
-consolidar_overlay() {
-  local dom="$1" connect="$2" lock_file="$3" base="$4" overlay="$5" backup="$6"
+# GODS_LAWS.md L-17 (achado da revisao independente, 23/09/2026): a forma
+# anterior desta funcao tinha SEIS parametros posicionais (dom connect
+# lock_file base overlay backup) e 49 linhas -- viola os dois tetos
+# duros. `verificar_overlay_pronta`/`executar_commit` abaixo saem dela
+# como funcoes NOMEADAS (nunca so' um corte arbitrario de linhas), e os
+# seis parametros viram um REGISTRO NOMEADO -- o `-n` (nameref) do bash
+# para o mais perto que a linguagem tem de struct: um array associativo
+# que o CHAMADOR monta (chaves dom/connect/lock_file/base/overlay/backup),
+# passado por NOME (um parametro so'). Callers atualizados junto.
 
-  if ! tomar_trava "$lock_file"; then
+# verificar_overlay_pronta: a sobreposicao existe E tem o `base` recebido
+# como backing file DE VERDADE (nunca outro disco).
+verificar_overlay_pronta() {
+  local overlay="$1" base="$2" backing_real
+
+  if [ ! -f "$overlay" ]; then
+    echo "ERRO: sobreposicao nao existe: ${overlay}" >&2
+    return 1
+  fi
+
+  backing_real="$(qemu-img info --output=json -- "$overlay" 2>/dev/null | grep -o '"backing-filename": *"[^"]*"' | sed 's/.*: *"//; s/"$//')"
+  if [ "$backing_real" != "$base" ]; then
+    echo "ERRO: a sobreposicao '${overlay}' nao tem '${base}' como backing file (achei '${backing_real}') -- recuso commitar no disco errado." >&2
+    return 1
+  fi
+  return 0
+}
+
+# executar_commit: o `qemu-img commit` em si, isolado para consolidar_overlay
+# ficar dentro do teto de linhas (L-17).
+executar_commit() {
+  local overlay="$1" base="$2" backup="$3" rc soma_base_pos
+
+  echo "--- commitando a sobreposicao no disco base (qemu-img commit) ---"
+  qemu-img commit -- "$overlay"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "ERRO: 'qemu-img commit' falhou (codigo ${rc}). O disco base pode estar em estado desconhecido -- a copia de seguranca em '${backup}' preserva o estado ANTES do commit." >&2
+    return 1
+  fi
+
+  soma_base_pos="$(sha256sum -- "$base" | cut -d' ' -f1)"
+  echo "commit concluido. soma do base APOS o commit: ${soma_base_pos}"
+  return 0
+}
+
+# consolidar_overlay: UM parametro (nameref para o registro montado pelo
+# chamador, chaves dom/connect/lock_file/base/overlay/backup). O nome do
+# parametro (`_reg`, nunca `cfg`) e' deliberado: um nameref cujo nome
+# colide com o nome da variavel do CHAMADOR vira referencia circular
+# (medido: todo `local -A cfg=(...)` no chamador quebrava esta funcao com
+# "cfg: referencia circular de nome", porque os dois lados enxergam o
+# mesmo nome na mesma cadeia de escopo).
+consolidar_overlay() {
+  local -n _reg="$1"
+
+  if ! tomar_trava "${_reg[lock_file]}"; then
     return 1
   fi
   trap soltar_trava EXIT
 
-  if ! verificar_domstate_desligado "$dom" "$connect"; then
+  if ! verificar_domstate_desligado "${_reg[dom]}" "${_reg[connect]}"; then
     soltar_trava
     return 1
   fi
 
-  if [ ! -f "$overlay" ]; then
-    echo "ERRO: sobreposicao nao existe: ${overlay}" >&2
+  if ! verificar_overlay_pronta "${_reg[overlay]}" "${_reg[base]}"; then
     soltar_trava
     return 1
   fi
 
-  local backing_real
-  backing_real="$(qemu-img info --output=json -- "$overlay" 2>/dev/null | grep -o '"backing-filename": *"[^"]*"' | sed 's/.*: *"//; s/"$//')"
-  if [ "$backing_real" != "$base" ]; then
-    echo "ERRO: a sobreposicao '${overlay}' nao tem '${base}' como backing file (achei '${backing_real}') -- recuso commitar no disco errado." >&2
+  if ! fazer_copia_seguranca "${_reg[base]}" "${_reg[backup]}"; then
     soltar_trava
     return 1
   fi
 
-  if ! fazer_copia_seguranca "$base" "$backup"; then
+  if ! executar_commit "${_reg[overlay]}" "${_reg[base]}" "${_reg[backup]}"; then
     soltar_trava
     return 1
   fi
-
-  echo "--- commitando a sobreposicao no disco base (qemu-img commit) ---"
-  qemu-img commit -- "$overlay"
-  local rc=$?
-  if [ "$rc" -ne 0 ]; then
-    echo "ERRO: 'qemu-img commit' falhou (codigo ${rc}). O disco base pode estar em estado desconhecido -- a copia de seguranca em '${backup}' preserva o estado ANTES do commit." >&2
-    soltar_trava
-    return 1
-  fi
-
-  local soma_base_pos
-  soma_base_pos="$(sha256sum -- "$base" | cut -d' ' -f1)"
-  echo "commit concluido. soma do base APOS o commit: ${soma_base_pos}"
 
   soltar_trava
   trap - EXIT
@@ -197,7 +233,14 @@ STUB
   qemu-img create -f qcow2 -b "$base" -F qcow2 -- "$overlay" >/dev/null
 
   echo ">>> RECUSA-MAQUINA-LIGADA: domstate simulado 'executando' -- esperado RECUSAR, nada de commit"
-  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay "duble-dom" "qemu:///session" "$lock_file" "$base" "$overlay" "$backup" 2>&1)"
+  # falso-positivo: passado por NOME a consolidar_overlay, que le por
+  # nameref (local -n _reg="$1"); o shellcheck nao rastreia esse uso
+  # indireto (medido: sinalizava so' duas das seis ocorrencias
+  # identicas, prova de que a deteccao estatica nao alcanca este
+  # padrao).
+  # shellcheck disable=SC2034
+  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -5
   echo ">>> codigo obtido (esperado != 0): ${rc}"
@@ -246,7 +289,14 @@ STUB
   holder_pid=$!
   sleep 1
 
-  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay "duble-dom" "qemu:///session" "$lock_file" "$base" "$overlay" "$backup" 2>&1)"
+  # falso-positivo: passado por NOME a consolidar_overlay, que le por
+  # nameref (local -n _reg="$1"); o shellcheck nao rastreia esse uso
+  # indireto (medido: sinalizava so' duas das seis ocorrencias
+  # identicas, prova de que a deteccao estatica nao alcanca este
+  # padrao).
+  # shellcheck disable=SC2034
+  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -5
   echo ">>> codigo obtido (esperado != 0): ${rc}"
@@ -310,7 +360,14 @@ STUB
   qemu-img create -f qcow2 -b "$base" -F qcow2 -- "$overlay" >/dev/null
 
   echo ">>> RECUSA-COPIA-CORROMPIDA: o duble de 'cp' devolve uma copia truncada -- esperado RECUSAR, apagar a copia ruim, NUNCA commitar"
-  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay "duble-dom" "qemu:///session" "$lock_file" "$base" "$overlay" "$backup" 2>&1)"
+  # falso-positivo: passado por NOME a consolidar_overlay, que le por
+  # nameref (local -n _reg="$1"); o shellcheck nao rastreia esse uso
+  # indireto (medido: sinalizava so' duas das seis ocorrencias
+  # identicas, prova de que a deteccao estatica nao alcanca este
+  # padrao).
+  # shellcheck disable=SC2034
+  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -6
   echo ">>> codigo obtido (esperado != 0): ${rc}"
@@ -379,7 +436,14 @@ STUB
 
   echo ">>> CONSOLIDACAO-COMPLETA 2/4: rodando consolidar_overlay"
   local saida rc
-  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay "duble-dom" "qemu:///session" "$lock_file" "$base" "$overlay" "$backup" 2>&1)"
+  # falso-positivo: passado por NOME a consolidar_overlay, que le por
+  # nameref (local -n _reg="$1"); o shellcheck nao rastreia esse uso
+  # indireto (medido: sinalizava so' duas das seis ocorrencias
+  # identicas, prova de que a deteccao estatica nao alcanca este
+  # padrao).
+  # shellcheck disable=SC2034
+  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida"
   echo ">>> codigo obtido (esperado 0): ${rc}"
@@ -471,5 +535,12 @@ done
 
 [ -z "$DOM" ] || [ -z "$CONNECT" ] || [ -z "$LOCK_FILE" ] || [ -z "$BASE" ] || [ -z "$OVERLAY" ] || [ -z "$BACKUP" ] && uso
 
-consolidar_overlay "$DOM" "$CONNECT" "$LOCK_FILE" "$BASE" "$OVERLAY" "$BACKUP"
+# falso-positivo: passado por NOME a consolidar_overlay, que le por
+# nameref (local -n _reg="$1"); o shellcheck nao rastreia esse uso
+# indireto (medido: sinalizava so' duas das seis ocorrencias
+# identicas, prova de que a deteccao estatica nao alcanca este
+# padrao).
+# shellcheck disable=SC2034
+declare -A CFG=([dom]="$DOM" [connect]="$CONNECT" [lock_file]="$LOCK_FILE" [base]="$BASE" [overlay]="$OVERLAY" [backup]="$BACKUP")
+consolidar_overlay CFG
 exit $?

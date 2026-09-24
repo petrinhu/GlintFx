@@ -215,35 +215,50 @@ def selftest_empty_tests_list_reproves():
     return True
 
 
-def selftest_real_main_reproves_on_missing():
-    """Ponta a ponta: real_main() roda 'ctest --show-only=json-v1' de
-    verdade contra um build-dir fabricado (um CTestTestfile.cmake
-    minimo, sem PYTHONUNBUFFERED em teste nenhum) e tem de sair 1."""
+def _make_scratch_ctest_dir():
+    """Fabrica um build-dir MINIMO com um unico teste (CTestTestfile.cmake
+    de verdade, sem PYTHONUNBUFFERED no ENVIRONMENT) - quem chama e'
+    responsavel por limpar com shutil.rmtree."""
+    scratch = Path(tempfile.mkdtemp(prefix="glintfx-python-unbuffered-selftest-"))
+    ctestfile = scratch / "CTestTestfile.cmake"
+    ctestfile.write_text(
+        'add_test(fake_test "/bin/true")\n'
+        'set_tests_properties(fake_test PROPERTIES LABELS "unit")\n',
+        encoding="utf-8",
+    )
+    return scratch
+
+
+def _probe_ctest_show_only_available(scratch):
+    """Confere, com uma chamada REAL, se 'ctest --show-only=json-v1'
+    roda neste ambiente contra o build-dir fabricado - devolve
+    (disponivel, motivo_se_nao)."""
     import subprocess
 
-    scratch = Path(tempfile.mkdtemp(prefix="glintfx-python-unbuffered-selftest-"))
     try:
-        ctestfile = scratch / "CTestTestfile.cmake"
-        ctestfile.write_text(
-            'add_test(fake_test "/bin/true")\n'
-            'set_tests_properties(fake_test PROPERTIES LABELS "unit")\n',
-            encoding="utf-8",
+        probe = subprocess.run(
+            ["ctest", "--show-only=json-v1", "--test-dir", str(scratch)],
+            capture_output=True, text=True, check=False,
         )
-        try:
-            probe = subprocess.run(
-                ["ctest", "--show-only=json-v1", "--test-dir", str(scratch)],
-                capture_output=True, text=True, check=False,
-            )
-        except OSError as exc:
-            print(f"selftest: REAL-MAIN pulado (ctest indisponivel neste ambiente: {exc})")
-            return True
-        if probe.returncode != 0:
-            print(
-                f"selftest: REAL-MAIN pulado (ctest --show-only nao rodou contra o build-dir "
-                f"fabricado: {probe.stderr.strip()!r})"
-            )
-            return True
+    except OSError as exc:
+        return False, f"ctest indisponivel neste ambiente: {exc}"
+    if probe.returncode != 0:
+        return False, f"ctest --show-only nao rodou: {probe.stderr.strip()!r}"
+    return True, ""
 
+
+def selftest_real_main_reproves_on_missing():
+    """Ponta a ponta: real_main() roda 'ctest --show-only=json-v1' de
+    verdade contra um build-dir fabricado (_make_scratch_ctest_dir, sem
+    PYTHONUNBUFFERED em teste nenhum) e tem de sair 1."""
+    import shutil
+
+    scratch = _make_scratch_ctest_dir()
+    try:
+        available, motivo = _probe_ctest_show_only_available(scratch)
+        if not available:
+            print(f"selftest: REAL-MAIN pulado ({motivo})")
+            return True
         try:
             real_main(["--compare", str(scratch)])
         except SystemExit as exc:
@@ -255,8 +270,6 @@ def selftest_real_main_reproves_on_missing():
         print("selftest: REAL-MAIN FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
         return False
     finally:
-        import shutil
-
         shutil.rmtree(scratch, ignore_errors=True)
 
 

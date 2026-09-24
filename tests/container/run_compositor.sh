@@ -34,6 +34,19 @@ create_private_runtime_dir() {
     chmod 700 "$RUNTIME_DIR"
 }
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 2 (achado do team-lead, 24/09/2026):
+# publicado por main() SO DEPOIS que wait_for_relay_ready() ja passou
+# de verdade - a fonte de verdade que tests/container/wait_for_ready_
+# marker.sh (chamado por quem sobe este container, ex.: ci.yml) passa
+# a esperar, no lugar de uma sonda externa independente sem sincronia
+# nenhuma com esta verificacao interna.
+readonly READY_MARKER_PATH="${RUNTIME_DIR}/ready"
+
+publish_ready_marker() {
+    marker_path="$1"
+    : >"$marker_path"
+}
+
 export_runtime_env() {
     export XDG_RUNTIME_DIR="$RUNTIME_DIR"
     # GODS_LAWS.md L-05: Linux is Wayland-only in this project. This
@@ -465,6 +478,35 @@ selftest_case_relay_all_zero_with_perror_noise() (
     exit 42
 )
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 2: publish_ready_marker() cria o
+# arquivo no lugar exato que tests/container/wait_for_ready_marker.sh
+# espera (RUNTIME_DIR/ready) - roda numa subshell com RUNTIME_DIR
+# apontado pra um diretorio temporario proprio, nunca o real
+# /run/glintfx-test (este selftest nunca toca a sessao do lider). A
+# ORDEM (marcador so depois de wait_for_relay_ready) e' garantida por
+# main() chamar as duas em sequencia (leitura direta do codigo, GODS_
+# LAWS.md L-44) - nao repetida aqui como teste de runtime assincrono.
+selftest_case_publish_ready_marker() (
+    tmp_runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-marker-XXXXXX")" || exit 1
+    trap 'rm -rf "$tmp_runtime_dir"' EXIT
+    tmp_marker_path="${tmp_runtime_dir}/ready"
+    [ ! -e "$tmp_marker_path" ] || {
+        echo "SELFTEST FALHOU: marcador ja existia antes de publish_ready_marker() rodar" >&2
+        exit 1
+    }
+    publish_ready_marker "$tmp_marker_path"
+    if [ ! -f "$tmp_marker_path" ]; then
+        echo "SELFTEST FALHOU: publish_ready_marker() nao criou o arquivo em $tmp_marker_path" >&2
+        exit 1
+    fi
+    echo "selftest: publish_ready_marker() cria o marcador no lugar certo - OK"
+)
+
+run_selftest_marker_cases() {
+    ok=0
+    selftest_case_publish_ready_marker || ok=1
+    return "$ok"
+}
 
 # GODS_LAWS.md L-17: run_selftest() e' o proprio exemplo do arquivo de
 # onde monolito nasce por conveniencia (cada caso novo "e' so' mais um
@@ -570,6 +612,7 @@ run_selftest() {
     overall_ok=0
     run_selftest_compositor_cases || overall_ok=1
     run_selftest_relay_cases || overall_ok=1
+    run_selftest_marker_cases || overall_ok=1
     [ "$overall_ok" -eq 0 ] || fail "selftest reprovou (ver mensagens acima)"
     echo "run_compositor.sh --selftest: todos os casos passaram"
 }
@@ -598,6 +641,7 @@ main() {
     wait_for_compositor_ready "$upstream_socket_name"
     start_relay "$upstream_socket_name" "$external_socket_name" "$relay_log_file"
     wait_for_relay_ready "$external_socket_name" "$relay_log_file"
+    publish_ready_marker "$READY_MARKER_PATH"
     stay_up_forever
 }
 

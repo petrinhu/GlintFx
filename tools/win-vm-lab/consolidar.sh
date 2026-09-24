@@ -47,9 +47,6 @@ for _ferramenta in qemu-img flock sha256sum cp; do
 done
 unset _ferramenta
 
-SCRIPT_PATH="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)/$(basename -- "${BASH_SOURCE[0]}")"
-SCRIPT_DIR="$(dirname -- "$SCRIPT_PATH")"
-
 uso() {
   echo "Uso: $0 --dom <nome> --connect <uri> --lock <caminho> --base <qcow2> --overlay <qcow2> --backup <caminho> | --selftest" >&2
   exit 2

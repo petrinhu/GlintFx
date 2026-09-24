@@ -4426,3 +4426,7 @@ Ordem do líder: *"pause tudo 17:45"*, confirmada por `AskUserQuestion` ("Pausar
 - `MESA-SWRAST-NULL-BACK`: rascunho pronto, falta o R-1 (reprodutor em C independente) e a conta que o líder vai criar.
 - CI `36036115151` (`d62fbf1`): vermelho só por `egl_protocol_error_smoke` (provoked=0), que a S4 trata; a subida pelo marcador da A3e passou no servidor.
 **Agentes:** `impl-egl-guard`, `impl-w7c-relay2` e `cto-segv-swap` em espera, sem trabalho em curso.
+
+## 24/09/2026 - 19:22 | Retomada ordenada pelo líder
+
+O líder escreveu *"ligue modo autonomo"* (hook: modo autônomo ligado até 25/09/2026 19:21, escopos push e clean). O main perguntou por `AskUserQuestion`: "O modo autônomo está ligado até 25/09 às 19:21 [...] O trabalho está pausado desde as 17:45 por ordem sua. Retomo agora?". Resposta do líder, verbatim: **"Retomar agora (Recomendado)"**. A pausa das 17:45 acabou. O monitor anti-parada foi recriado (`16258ddf`, L-61). Os agentes da manhã não sobreviveram à retomada da sessão; `impl-egl-guard2` foi despachado para S3b, M-1 e S4 de `EGL-DEAD-DISPLAY-GUARD`, a partir da árvore limpa em `171278c`.

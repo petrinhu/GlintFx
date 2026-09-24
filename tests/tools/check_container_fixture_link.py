@@ -395,7 +395,28 @@ def is_wayland_scanner_line(subcommand):
 # so' COMECA como "/build" mas continua com outra palavra (ex.:
 # hipotetico "/buildtools", que nunca ocorre no Containerfile real,
 # mas fecha a familia por construcao, nao so o caso medido).
-_BUILD_PREFIX_TOKEN_RE = re.compile(r"(?<!\S)/build(?=/|\s|$)")
+#
+# LINK-PREFIX-RESIDUOS B1 (24/09/2026, docs/plano-w7c.md secao 3.B2,
+# TODO.md): a ancora "precedido de espaco" acima era CEGA a tres formas
+# legitimas de colagem - "--out=/build/x", "'/build/x'" e "-I/build/
+# inc" (flag de uma letra sem espaco, sintaxe GCC valida) saiam
+# intactas. `docs/plano-w7c.md` sugere a ancora `(?<![\w/.-])`, mas
+# ISSO NAO CASA "-I/build/inc" (medido: o "I" de "-I" E' \w, o
+# lookbehind bloqueia do mesmo jeito que a forma antiga) - o texto do
+# plano fica CORRIGIDO aqui, nao seguido as cegas (a mesma disciplina
+# que esta onda inteira cobra de todo portao). A distincao real nao e'
+# "que caractere vem antes", e' QUANTOS: uma UNICA letra colada (flag
+# curta: -I, -o, -L, -D) e' aceita; DUAS OU MAIS letras coladas (uma
+# palavra inglesa de verdade, como em "configure/build" ou "staging/
+# build/exec" - prosa real medida em comentarios desta arvore) ficam
+# bloqueadas, porque `\w\w` (dois caracteres de palavra em sequencia)
+# casa exatamente uma palavra continuando, nunca uma flag de uma letra
+# so'. `/` e `.` diretamente antes tambem bloqueiam (evita "//build" e
+# "../build" solto). O caso ja conhecido, host path tipo "/opt/tmp/
+# builds/.../g++", continua protegido pelo LOOKAHEAD sozinho, sem
+# depender do lookbehind (a forma "/builds" e' seguida de "s", nunca
+# de "/"/espaco/fim - a mesma barreira de antes, intocada).
+_BUILD_PREFIX_TOKEN_RE = re.compile(r"(?<![/.])(?<!\w\w)/build(?=/|\s|$)")
 
 
 def rewrite_build_prefix(subcommand, build_dir):
@@ -848,6 +869,58 @@ def selftest_rewrite_build_prefix_ignores_unrelated_build_substring():
     return ok
 
 
+# LINK-PREFIX-RESIDUOS B1 (docs/plano-w7c.md secao 3.B2, D6; TODO.md):
+# a ancora antiga (`(?<!\S)`, "precedido de espaco ou inicio") exigia
+# ESPACO antes de "/build" - tres formas legitimas de placeholder que
+# o Containerfile poderia crescer para usar (medido: hoje 100% das 747
+# ocorrencias em tests/container/Containerfile sao precedidas de
+# espaco, mas nada IMPEDE as tres formas abaixo de aparecer numa fatia
+# futura) saiam INTACTAS: "--out=/build/x" (colado a "="), "'/build/x'"
+# (colado a aspa), "-I/build/inc" (colado a uma flag de UMA letra sem
+# espaco, sintaxe GCC valida). Se um caminho `/build` LITERAL e
+# inexistente no hospedeiro colasse assim, o teste vermelho reprovaria
+# pelo motivo ERRADO ("Arquivo ou diretorio inexistente" em vez de
+# "undefined reference") - o MESMO mascaramento que LINK-PREFIX-
+# SUBSTRING corrigiu, residual nestas tres formas (F1 do adendo de
+# revalidacao).
+def selftest_rewrite_build_prefix_recognizes_glued_forms():
+    build_dir = "/tmp/real-build-dir"
+    positive_cases = [
+        ("--out=/build/x", f"--out={build_dir}/x"),
+        ("'/build/x'", f"'{build_dir}/x'"),
+        ("-I/build/inc", f"-I{build_dir}/inc"),
+    ]
+    negative_cases = [
+        "the configure/build step that follows",
+        "verify the staging/build/exec chain works",
+    ]
+    ok = True
+    for subcommand, expected in positive_cases:
+        rewritten = rewrite_build_prefix(subcommand, build_dir)
+        if rewritten != expected:
+            print(
+                f"selftest: GLUED-FORMS FALHOU (forma colada nao foi reescrita: {subcommand!r} -> "
+                f"{rewritten!r}, esperava {expected!r})",
+                file=sys.stderr,
+            )
+            ok = False
+    for prosa in negative_cases:
+        rewritten = rewrite_build_prefix(prosa, build_dir)
+        if rewritten != prosa:
+            print(
+                f"selftest: GLUED-FORMS FALHOU (prosa em ingles com '/build' dentro de palavra "
+                f"foi corrompida): {prosa!r} -> {rewritten!r}",
+                file=sys.stderr,
+            )
+            ok = False
+    if ok:
+        print(
+            "selftest: GLUED-FORMS OK (--out=/build/x, '/build/x' e -I/build/inc reescritos; "
+            "prosa inglesa com '/build' dentro de palavra continua intocada)"
+        )
+    return ok
+
+
 def selftest_empty_containerfile_reproves(scratch):
     root = os.path.join(scratch, "empty")
     context_dir = os.path.join(root, "tests", "container")
@@ -1070,6 +1143,10 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
             (
                 "rewrite-prefix",
                 selftest_rewrite_build_prefix_ignores_unrelated_build_substring(),
+            ),
+            (
+                "rewrite-prefix-glued-forms",
+                selftest_rewrite_build_prefix_recognizes_glued_forms(),
             ),
         ]
         if compiler:

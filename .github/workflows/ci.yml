@@ -1506,15 +1506,25 @@ jobs:
       # (`timeout N wayland-info`, com as env vars que um `docker exec`
       # nao herda do ENTRYPOINT sozinho) - agora prova conexao real
       # aqui tambem, nunca so' a existencia do processo.
+      # WL-ACK-SMOKE-BLUNT A3e, passo 2 (achado do team-lead, 24/09/2026,
+      # GODS_LAWS.md L-09 rule 5): a sonda externa acima (loop de
+      # `docker exec ... wayland-info`) rodava sem NENHUMA sincronia
+      # com a verificacao INTERNA do proprio entrypoint (run_compositor.
+      # sh's own wait_for_relay_ready()) - achado real, medido ao vivo:
+      # o container podia ficar "pronto" para a sonda externa (o rele
+      # ja aceitava conexoes) e servir varias rodadas de teste com
+      # sucesso, enquanto a verificacao INTERNA ainda tentava por baixo
+      # do tapete e eventualmente falhava, matando o PID1 no MEIO de um
+      # teste que ja estava passando. tests/container/wait_for_ready_
+      # marker.sh espera o marcador (RUNTIME_DIR/ready) que main() so
+      # publica DEPOIS de wait_for_relay_ready() ja ter passado - a
+      # MESMA fonte de verdade que o proprio entrypoint usa, nunca uma
+      # sonda independente.
       - name: Sobe o compositor limpo (nenhuma montagem do host)
         run: |
           set -eux
           docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
-          for _ in $(seq 1 30); do
-            docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
-              glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null 2>&1 && break
-            sleep 1
-          done
+          tests/container/wait_for_ready_marker.sh glintfx-wltest-clean-${{ matrix.perna }}
           docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
             glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null
 

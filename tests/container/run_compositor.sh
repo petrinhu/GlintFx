@@ -413,6 +413,34 @@ selftest_case_relay_good_line_not_last() (
     echo "selftest: linha boa nao-ultima aceita (varredura do log inteiro, nao so tail -n 1) - OK"
 )
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 1b (achado do main em revisao
+# adversarial, 24/09/2026 - GODS_LAWS.md L-12, sabotagem de FAMILIA
+# DIFERENTE da do implementador): mutante M1 (`awk '$1 > 0'` vira
+# `awk '$1 >= 0'`, aceitando zero) SOBREVIVE ao caso acima e ao
+# controle negativo, porque nenhum dos dois tem uma linha N=0 ANTES de
+# uma linha N>0 no MESMO log - o cenario real que isso esconde: um
+# cliente que conecta e sai sem mandar nada (ex.: uma sonda externa)
+# ANTES da conexao boa. Com o mutante, `awk` para na PRIMEIRA linha
+# (N=0, por causa do `exit` logo que a condicao bate) e nunca chega na
+# boa - a sonda reprovaria por engano mesmo com uma conexao real ja
+# tendo decodificado mensagens.
+selftest_case_relay_zero_before_good_line() (
+    compositor_probe() { return 0; }
+    GLINTFX_RELAY_LOG_WAIT_TRIES=2
+    GLINTFX_RELAY_LOG_WAIT_SLEEP=0
+    fake_log="$(mktemp "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-relaylog-XXXXXX")" || exit 1
+    trap 'rm -f "$fake_log"' EXIT
+    {
+        printf 'wire_relay: connection closed - 0 message(s) from client, 0 from upstream, 0 violation(s)\n'
+        printf 'wire_relay: connection closed - 45 message(s) from client, 291 from upstream, 0 violation(s)\n'
+    } >"$fake_log"
+    if ! wait_for_relay_ready "selftest-relay-zero-before-good" "$fake_log" >/dev/null 2>&1; then
+        echo "SELFTEST FALHOU: linha N=0 seguida de linha N>0 devia ter sido aceita (a boa vem depois), foi reprovada" >&2
+        exit 1
+    fi
+    echo "selftest: linha N=0 antes da linha boa nao esconde a linha boa - OK"
+)
+
 # CONTROLE NEGATIVO (o par do caso acima, para a regua continuar
 # distinguindo os dois estados): so ha linhas "connection closed" com
 # N=0, mais ruido de producao (perror de poll) - tem que continuar
@@ -436,6 +464,7 @@ selftest_case_relay_all_zero_with_perror_noise() (
     wait_for_relay_ready "selftest-relay-all-zero" "$fake_log" >/dev/null 2>&1
     exit 42
 )
+
 
 # GODS_LAWS.md L-17: run_selftest() e' o proprio exemplo do arquivo de
 # onde monolito nasce por conveniencia (cada caso novo "e' so' mais um
@@ -508,6 +537,8 @@ run_selftest_relay_cases() {
 
     selftest_case_relay_good_line_not_last || ok=1
 
+    selftest_case_relay_zero_before_good_line || ok=1
+
     rc=0
     selftest_case_relay_all_zero_with_perror_noise || rc="$?"
     if [ "$rc" -eq 42 ]; then
@@ -521,10 +552,25 @@ run_selftest_relay_cases() {
 }
 
 run_selftest() {
-    ok=0
-    run_selftest_compositor_cases || ok=1
-    run_selftest_relay_cases || ok=1
-    [ "$ok" -eq 0 ] || fail "selftest reprovou (ver mensagens acima)"
+    # WL-ACK-SMOKE-BLUNT A3e, achado proprio (revisao adversarial do
+    # main pegou o sintoma - mutante M1 sobrevivendo - mas a causa raiz
+    # era esta): `ok` NAO e local a nenhuma das tres run_selftest_*_
+    # cases() abaixo (POSIX sh nao tem escopo de funcao sem `local`,
+    # que nao e portavel) - cada uma delas faz `ok=0` na PROPRIA
+    # primeira linha e usa o MESMO NOME. Chamar aqui `run_selftest_
+    # relay_cases || ok=1` e DEPOIS `run_selftest_marker_cases ||
+    # ok=1` significa que o `ok=0` que roda dentro de run_selftest_
+    # marker_cases() SOBRESCREVE o `ok=1` que acabou de ser setado
+    # pela chamada anterior - se a ULTIMA das tres passar (mesmo com
+    # uma ANTERIOR tendo reprovado), a reprovacao inteira desaparecia
+    # em silencio (medido ao vivo: --selftest devolvia rc=0 com um
+    # caso reprovando de verdade por baixo). `overall_ok`, nome
+    # diferente do `ok` que as tres sub-funcoes usam, elimina a
+    # colisao.
+    overall_ok=0
+    run_selftest_compositor_cases || overall_ok=1
+    run_selftest_relay_cases || overall_ok=1
+    [ "$overall_ok" -eq 0 ] || fail "selftest reprovou (ver mensagens acima)"
     echo "run_compositor.sh --selftest: todos os casos passaram"
 }
 

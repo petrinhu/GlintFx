@@ -4847,6 +4847,23 @@ if(UNIX)
     set_tests_properties(container_run_compositor_selftest PROPERTIES LABELS selftest)
 endif()
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 2 (achado do team-lead, 24/09/2026):
+# wait_for_ready_marker.sh substitui a sonda externa que .github/
+# workflows/ci.yml's own "Sobe o compositor limpo" usava, sem nenhuma
+# sincronia com a verificacao interna do proprio entrypoint (ver o
+# cabecalho do proprio script). Mesmo idioma hermetico de --selftest
+# que container_run_compositor_selftest acima ja usa (marker_probe()
+# redefinida dentro da subshell, sem Docker nenhum) - GATE-SELFTEST-
+# ORFAO (tests/tools/check_selftest_orphan.py) e' o que evita este
+# script nascer orfao no mesmo commit.
+if(UNIX)
+    add_test(
+        NAME container_wait_for_ready_marker_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/wait_for_ready_marker.sh" --selftest
+    )
+    set_tests_properties(container_wait_for_ready_marker_selftest PROPERTIES LABELS selftest)
+endif()
+
 # WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
 # revisor adversarial NOVO em 10/09/2026, segunda reprovacao da mesma
 # fatia): check_win32_test_link.py's own selftest_main() prova, entre

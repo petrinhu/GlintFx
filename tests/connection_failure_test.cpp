@@ -176,3 +176,37 @@ GLINTFX_TEST(connection_failure_if_dead_names_the_display_after_a_real_protocol_
     GLINTFX_CHECK(result->os_error_code() == EPROTO);
     GLINTFX_CHECK(result->rejected_value() == std::string_view{"wl_display"});
 }
+
+GLINTFX_TEST(connection_failure_if_dead_detects_a_dead_socket_without_a_protocol_error) {
+    // S1b (achado do main na revisao da S1, mutante M3: um atomo que so
+    // reconhece EPROTO deixaria a biblioteca chamando EGL sobre um
+    // compositor morto sem erro de protocolo - soquete fechado,
+    // EPIPE/ECONNRESET). O par fecha o soquete DE VERDADE (sem escrever
+    // nenhum evento de protocolo) - o unico sinal que sobra e' o EOF/
+    // reset no descritor cru, exatamente o que um compositor que
+    // morreu ou o kernel derrubando a conexao produzem.
+    fake_display fd;
+    GLINTFX_CHECK(fd.display != nullptr);
+    GLINTFX_CHECK(fd.peer_fd != -1);
+    ::close(fd.peer_fd);
+    fd.peer_fd = -1; // evita fechar duas vezes no destrutor de fake_display
+
+    bool dead = false;
+    for (int attempt = 0; attempt < 5 && !dead; ++attempt) {
+        dead = !glintfx::platform::poll_and_dispatch_with_budget(fd.display, 0);
+    }
+    GLINTFX_CHECK(dead);
+
+    const std::optional<glintfx::gltfx_err> result =
+        glintfx::platform::connection_failure_if_dead(fd.display);
+
+    // Medido (não suposto, GODS_LAWS.md L-44): sobre este par AF_UNIX
+    // SOCK_STREAM criado por socketpair(), o lado que ainda escreve
+    // depois do outro fechar recebe EPIPE (32) - não ECONNRESET, que é
+    // o valor típico de um socket TCP resetado, categoria diferente de
+    // conexão que este par nunca teve.
+    GLINTFX_CHECK(result.has_value());
+    GLINTFX_CHECK(result->code() == glintfx::gltfx_err_code::platform_failure);
+    GLINTFX_CHECK(result->os_error_code() == EPIPE);
+    GLINTFX_CHECK(result->rejected_value().empty());
+}

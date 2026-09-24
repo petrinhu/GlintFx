@@ -1520,8 +1520,24 @@ jobs:
 
       # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
       # interagir. Este passo roda antes do smoke test de proposito.
+      #
+      # WL-ACK-SMOKE-BLUNT A3b: o `echo` abaixo alimenta o inventario
+      # de paridade (check_container_fixture_inventory.py --compare,
+      # tests/tools/check_container_fixture_inventory.py's proprio
+      # cabecalho) com "wire_relay" - check_isolation.sh, chamado
+      # nesta MESMA linha, e' quem de fato prova que o binario do rele
+      # esta vivo dentro do container (PID + socket + lsof, ver o
+      # commit que estendeu esse script), entao este e' o lugar honesto
+      # para o append: nao ha um `docker exec ... wire_relay` isolado
+      # em passo proprio (o binario e' um daemon de longa duracao que o
+      # proprio ENTRYPOINT sobe, nunca uma fixture com veredito de
+      # pass/fail chamada a parte), mas a prova de que ele existe e
+      # funciona dentro do container ja acontece bem aqui.
       - name: Isolamento provado (controle positivo)
-        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
+        run: |
+          set -eu
+          tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
+          echo "wire_relay" >> parity_inventory.txt
 
       # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
       # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a

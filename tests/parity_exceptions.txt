@@ -737,3 +737,23 @@ container_smokes_in_compile_db_selftest|windows|nenhum|SEM-PENDENCIA
 # MORTE DESTA LINHA: nunca - assimetria permanente por desenho, mesmo
 # padrao SEM-PENDENCIA das demais linhas Wayland-only desta secao.
 wire_relay_selftest|windows|nenhum|SEM-PENDENCIA
+
+# wire_relay (WL-ACK-SMOKE-BLUNT, sub-fatia A3b, docs/plano-w7c-
+# adendo-revalidacao.md SS3.A item 2) - NAO confundir com wire_relay_
+# selftest logo acima: aquele e' o autoteste do CODIGO do rele (roda
+# no host, par de soquetes, sem compositor); este e' o BINARIO
+# compilado dentro do container (Containerfile, COPY --from=arch-
+# ports-builder /build/wire_relay_bin /usr/local/bin/wire_relay) que
+# run_compositor.sh sobe como daemon de longa duracao entre o cliente
+# e o KWin real. Mesmo padrao dos quatro fixtures P-0 logo acima
+# (arch_ports_connect_smoke e irmaos): nome proprio do container, sem
+# par possivel do lado Windows (GODS_LAWS.md L-05 fecha essa porta por
+# desenho), agora alimentando parity_inventory.txt porque tests/
+# container/check_isolation.sh (job wayland-container, passo
+# "Isolamento provado") prova ali mesmo que o binario esta vivo e
+# funcionando (PID + socket + lsof) antes de qualquer interacao.
+#
+# MORTE DESTA LINHA: nunca - mesma assimetria permanente por desenho,
+# mesmo padrao SEM-PENDENCIA das demais linhas Wayland-only desta
+# secao.
+wire_relay|windows|nenhum|SEM-PENDENCIA

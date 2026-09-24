@@ -317,12 +317,32 @@ def real_main(args):
     parser.add_argument("--root", default=".")
     parser.add_argument(
         "--absences",
-        default=None,
-        help="tests/parity_absences.txt - ausencias declaradas, mesma forma/regra de morte de "
-        "tests/parity_exceptions.txt",
+        default="tests/parity_absences.txt",
+        help="ausencias declaradas, mesma forma/regra de morte de tests/parity_exceptions.txt "
+        "(F3, D-A7: caminho fixo do projeto por padrao, NUNCA opcional - arquivo ausente reprova)",
     )
-    parser.add_argument("--todo", default=None, help="TODO.md - exigido junto de --absences")
+    parser.add_argument(
+        "--todo", default="TODO.md", help="TODO.md do projeto (F3: caminho fixo por padrao, nunca opcional)"
+    )
     parsed = parser.parse_args(args)
+
+    # F3 (PLAN-SCOPE-COLUMNS, docs/plano-w7c.md sec. 3.F): "ausencia nunca
+    # opcional" - antes desta sub-fatia, omitir --absences/--todo fazia o
+    # script rodar CEGO (toda ausencia virava "sem declaracao" sem checar
+    # nada de verdade, porque os dois argumentos default=None desligavam
+    # a validacao inteira, silenciosamente). Agora os dois tem caminho
+    # fixo do projeto por padrao, e o arquivo tem de EXISTIR sempre - sem
+    # isso, o portao nunca roda sem saber se a declaracao de ausencia
+    # esta la.
+    absences_path = Path(parsed.absences)
+    if not absences_path.is_file():
+        fail(f"'{parsed.absences}' nao existe - ausencia de caminho prometido nunca e opcional (F3)")
+    todo_path = Path(parsed.todo)
+    if not todo_path.is_file():
+        fail(f"'{parsed.todo}' nao existe - exigido junto de --absences (F3)")
+    absences = parse_absences(absences_path.read_text(encoding="utf-8"))
+    todo_text = todo_path.read_text(encoding="utf-8")
+    todo_status = parse_todo_status(todo_text)
 
     plan_text = Path(parsed.plan).read_text(encoding="utf-8")
     row_line_no, row_line = find_row_line_and_number(plan_text, parsed.marker)
@@ -368,16 +388,6 @@ def real_main(args):
 
     existing, missing = check_existence(parsed.root, parsed.ref, candidates)
     ref_label = parsed.ref if parsed.ref is not None else "árvore de trabalho"
-
-    absences = {}
-    todo_status = {}
-    todo_text = ""
-    if parsed.absences is not None:
-        if parsed.todo is None:
-            fail("--absences exige --todo junto (a regra de morte le o status do item la)")
-        absences = parse_absences(Path(parsed.absences).read_text(encoding="utf-8"))
-        todo_text = Path(parsed.todo).read_text(encoding="utf-8")
-        todo_status = parse_todo_status(todo_text)
 
     declared, undeclared, dead = validate_absence_deaths(missing, absences, todo_status, todo_text)
 
@@ -907,6 +917,82 @@ def selftest_declared_absence_with_concluded_item_dies(tmp_path):
     return False
 
 
+def selftest_missing_absences_file_reproves(tmp_path):
+    """F3: 'ausencia nunca opcional' - um caminho para --absences que NAO
+    existe reprova, nunca roda cego (o desenho antigo tratava
+    --absences=None como 'nao valida ausencia nenhuma', silenciosamente).
+    """
+    marker = "MARCADOR-ABSENCES-AUSENTE"
+    plan_path = _write_plan(tmp_path, marker, "qualquer/coisa.hpp")
+    (tmp_path / "existe.hpp").write_text("", encoding="utf-8")
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stderr(buffer):
+        try:
+            real_main(
+                [
+                    str(plan_path),
+                    "--marker",
+                    marker,
+                    "--root",
+                    str(tmp_path),
+                    "--absences",
+                    str(tmp_path / "nao_existe_absences.txt"),
+                    "--todo",
+                    str(tmp_path / "TODO.md"),
+                ]
+            )
+        except SystemExit as exc:
+            exit_code = exc.code
+    stderr_text = buffer.getvalue()
+    if exit_code == 1 and "nao_existe_absences.txt" in stderr_text and "nao existe" in stderr_text:
+        print("selftest: --absences apontando para arquivo ausente reprova (nunca roda cego) - ok")
+        return True
+    print(f"selftest: esperava reprovar citando o arquivo ausente - codigo {exit_code}, stderr {stderr_text!r}",
+          file=sys.stderr)
+    return False
+
+
+def selftest_missing_todo_file_reproves(tmp_path):
+    """Gemeo do controle acima para --todo (F3)."""
+    marker = "MARCADOR-TODO-AUSENTE"
+    plan_path = _write_plan(tmp_path, marker, "qualquer/coisa2.hpp")
+    absences_path = tmp_path / "absences_ok.txt"
+    absences_path.write_text("", encoding="utf-8")
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stderr(buffer):
+        try:
+            real_main(
+                [
+                    str(plan_path),
+                    "--marker",
+                    marker,
+                    "--root",
+                    str(tmp_path),
+                    "--absences",
+                    str(absences_path),
+                    "--todo",
+                    str(tmp_path / "nao_existe_TODO.md"),
+                ]
+            )
+        except SystemExit as exc:
+            exit_code = exc.code
+    stderr_text = buffer.getvalue()
+    if exit_code == 1 and "nao_existe_TODO.md" in stderr_text and "nao existe" in stderr_text:
+        print("selftest: --todo apontando para arquivo ausente reprova (nunca roda cego) - ok")
+        return True
+    print(f"selftest: esperava reprovar citando o TODO ausente - codigo {exit_code}, stderr {stderr_text!r}",
+          file=sys.stderr)
+    return False
+
+
 def selftest_undeclared_absence_reproves(tmp_path):
     """A path missing from the tree with NO line in tests/parity_
     absences.txt at all is never accepted - "ausencia sem item nao e'
@@ -1375,6 +1461,8 @@ def selftest_main():
             selftest_declared_absence_with_open_item_accepted(tmp_path),
             selftest_declared_absence_with_concluded_item_dies(tmp_path),
             selftest_undeclared_absence_reproves(tmp_path),
+            selftest_missing_absences_file_reproves(tmp_path),
+            selftest_missing_todo_file_reproves(tmp_path),
         ]
     controls += [
         selftest_missing_column_named_when_entrega_used(),

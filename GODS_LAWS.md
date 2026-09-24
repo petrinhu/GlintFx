@@ -107,6 +107,8 @@ O `Projects/GlintFx` nasce sem herança. Existiu uma biblioteca homônima em `gi
 
 **Aplicação:** ao fechar qualquer fatia, varra os ramos por sistema (`git grep -n '#if.*_WIN32'`) e pergunte de cada um: isto é **mecanismo** diferente para o mesmo efeito, ou é **cobertura que desaparece** de um lado? O segundo reprova a fatia.
 
+**Data:** 24/09/2026, verbatim, depois de perguntar *"o @astrometrica faz as checagens por sistemas operacionais de forma separada e conserta por cada um. Não seria mais rápido?"*: ***"use o mesmo sistema de astrometrica"***. **Estrutura do CI por sistema, no modelo do projeto astrometrica** (resposta daquela sessão, com arquivo:linha, em `DECISOES_AUTONOMAS.md` de 24/09 20:15): cada sistema-alvo roda de forma **independente e em paralelo** (a falha de um nunca cancela nem pula os outros: `fail-fast: false`, e um passo vermelho não esconde os passos seguintes do mesmo sistema); o conserto específico de um sistema mora **só** no preparo do ambiente daquele sistema (instalação de dependência, imagem), **nunca** no comportamento da biblioteca; o *rerun* só do trabalho que falhou vale **apenas** para falha de infraestrutura antes de qualquer teste (espelho fora do ar, 404 de pacote), no máximo uma vez, e a segunda falha é tratada como real. **O que esta ordem NÃO muda:** a paridade desta lei continua inteira. A mesma suíte roda em todo sistema, e o portão de paridade (`PARITY-GATE`) continua reprovando a cobertura que some de um lado.
+
 ## L-05
 
 <!-- DUP-BLOCK:L05-WAYLAND:START -->

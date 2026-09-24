@@ -4919,6 +4919,25 @@ set_tests_properties(check_measured_parity_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# PARITY-LOCAL-MIRROR I2 (TODO.md W7-C, docs/plano-w7c-adendo-
+# revalidacao.md SS3.I, GODS_LAWS.md L-04/L-17/L-20/L-40): o gemeo de
+# parity_textual_test acima, para o portao de MEASURED em vez do
+# portao de ctest. O modo --textual roda so a parte que nao depende de
+# nenhuma colheita MEASURED - a forma de tests/measured_exceptions.txt
+# e o item de cada excecao por chave contra TODO.md real
+# (validate_key_exception_deaths(), reusada sem copiar). Registrado
+# SEM guarda de sistema, mesma forma GATE-TREE-PARITY de
+# parity_textual_test/check_wave_closure_coherence_test: nenhum dos
+# dois arquivos que ele le e especifico de sistema.
+add_test(
+    NAME measured_parity_textual_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_measured_parity.py" --textual
+        "${CMAKE_CURRENT_SOURCE_DIR}/measured_exceptions.txt"
+        "${CMAKE_SOURCE_DIR}/TODO.md"
+)
+set_tests_properties(measured_parity_textual_test PROPERTIES LABELS consume)
+
 # PARITY-GATE, decisao do lider apos o achado desta mesma fatia: dez
 # verificacoes do lado Windows (DEPZERO-PARITY-WIN, PORT-PRIVACY-WIN,
 # EXPORTS-PARITY-WIN, PRECI-WIN, CI-CONSUME) rodavam soltas como passo

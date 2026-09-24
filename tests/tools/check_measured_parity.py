@@ -483,6 +483,69 @@ def real_main(args):
     )
 
 
+# --- textual mode (PARITY-LOCAL-MIRROR I2, TODO.md W7-C, GODS_LAWS.md ---
+# L-04/L-17/L-40) -----------------------------------------------------
+#
+# O gemeo de check_test_parity.py's own textual_main() (mesma familia
+# de defeito, achado N4 do adendo, docs/plano-w7c-adendo-revalidacao.md
+# SS3.I): a regra "excecao por chave aponta para item concluido/
+# inexistente reprova" (validate_key_exception_deaths() acima) so'
+# mordia dentro de real_main(), e SO quando chamado com --linux/
+# --windows tambem (real_main() exige pelo menos um dos dois antes de
+# sequer olhar --measured-exceptions/--todo) - nada local chamava isto
+# contra dado real, do mesmo jeito que N3 ja tinha medido para
+# tests/tools/check_test_parity.py um arquivo antes.
+#
+# --textual roda SO a parte que nao depende de MEASURED nenhum: a
+# FORMA de cada linha de tests/measured_exceptions.txt
+# (parse_key_exceptions(), reusada sem copiar) e o item de cada
+# excecao por chave contra TODO.md - tabela E prosa, a checagem MAIS
+# forte que este arquivo ja tinha (validate_key_exception_deaths()'s
+# own docstring acima: pega tambem o ponteiro para o nada que
+# check_test_parity.py's own validate_exceptions() nao cobre).
+def _parse_textual_main_args(args):
+    if len(args) != 2:
+        fail("usage: check_measured_parity.py --textual <measured_exceptions.txt> <TODO.md>")
+    return args
+
+
+def textual_main(args):
+    exceptions_path, todo_path = _parse_textual_main_args(args)
+    with open(exceptions_path, "r", encoding="utf-8") as handle:
+        key_exceptions = parse_key_exceptions(handle.read())
+    with open(todo_path, "r", encoding="utf-8") as handle:
+        todo_text = handle.read()
+    todo_status = parse_todo_status(todo_text)
+
+    print(
+        f"{SCRIPT_NAME} --textual: {len(key_exceptions)} excecao(oes) por chave, "
+        f"{len(todo_status)} item(ns) lido(s) de TODO.md"
+    )
+
+    # GODS_LAWS.md L-40, o mesmo piso que o gemeo em check_test_parity.py
+    # aplica: TODO.md tem centenas de linhas de item em toda execucao
+    # real deste portao - ler zero e sinal de leitura quebrada, nunca de
+    # tabela genuinamente vazia. tests/measured_exceptions.txt, ao
+    # contrario, pode legitimamente ter zero excecoes - so o TODO.md
+    # entra no piso.
+    if not todo_status:
+        fail(
+            "varredura vazia: TODO.md nao tem item de tabela nenhum reconhecido - "
+            "GODS_LAWS.md L-40, isto e sinal de leitura quebrada, nunca de tabela vazia"
+        )
+
+    death_errors = validate_key_exception_deaths(key_exceptions, todo_status, todo_text)
+    if death_errors:
+        fail(
+            f"{len(death_errors)} excecao(oes) por chave morta(s) (tests/measured_"
+            "exceptions.txt):\n  " + "\n  ".join(death_errors)
+        )
+    print(
+        f"{SCRIPT_NAME}: modo --textual OK - nenhuma excecao por chave aponta para item "
+        "concluido ou inexistente (lacuna de MEASURED nao conferida aqui, so no servidor)"
+    )
+
+
 # --- selftest -----------------------------------------------------
 
 def _write_temp(tmp_path, name, content):
@@ -880,6 +943,154 @@ def selftest_one_side_empty_still_succeeds(tmp_path):
     return True
 
 
+def _todo_textual_fixture(item_id, status_text):
+    return (
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | "
+        "Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        f"| 1.0 | {item_id} | W1 | X | y | Alta | - | Media | {status_text} | - |\n"
+    )
+
+
+def _run_textual_main_capturing(tmp_path, exceptions_text, todo_text):
+    import contextlib
+    import io
+
+    exceptions_file = _write_temp(tmp_path, "textual_measured_exceptions.txt", exceptions_text)
+    todo_file = _write_temp(tmp_path, "textual_TODO.md", todo_text)
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        try:
+            textual_main([exceptions_file, todo_file])
+        except SystemExit as exc:
+            exit_code = exc.code
+    return exit_code, buffer.getvalue()
+
+
+# Controle POSITIVO: excecao por chave apontando para item PENDENTE -
+# passa, e o piso L-40 imprime as duas contagens.
+def selftest_textual_positive_control(tmp_path):
+    exit_code, output = _run_textual_main_capturing(
+        tmp_path,
+        "algum_teste.alguma_chave|windows|motivo qualquer aqui|ITEM-A\n",
+        _todo_textual_fixture("ITEM-A", "⏳ Pendente"),
+    )
+    if exit_code not in (None, 0):
+        print(
+            f"selftest: TEXTUAL-POSITIVO FALHOU (esperava sucesso, saiu com codigo {exit_code!r}): "
+            f"{output}",
+            file=sys.stderr,
+        )
+        return False
+    if "1 excecao(oes) por chave, 1 item(ns) lido(s) de TODO.md" not in output:
+        print(
+            f"selftest: TEXTUAL-POSITIVO FALHOU (piso L-40 nao imprimiu as duas contagens): "
+            f"{output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-POSITIVO OK (modo --textual passa com excecao por chave pendente)")
+    return True
+
+
+# O VERMELHO central desta sub-fatia (o gemeo de I1): excecao por
+# chave apontando para item ja CONCLUIDO reprova no modo --textual.
+# Mutante que mata: pular a chamada a validate_key_exception_deaths()
+# dentro de textual_main() - sem ela este controle passaria calado.
+def selftest_textual_concluded_item_reproves(tmp_path):
+    exit_code, output = _run_textual_main_capturing(
+        tmp_path,
+        "algum_teste.alguma_chave|windows|motivo qualquer aqui|ITEM-CONCLUIDO\n",
+        _todo_textual_fixture("ITEM-CONCLUIDO", "✅ Concluído"),
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-VERMELHO FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "algum_teste.alguma_chave" not in output or "ITEM-CONCLUIDO" not in output:
+        print(
+            f"selftest: TEXTUAL-VERMELHO FALHOU (reprovou, mas nao citou a chave/item): "
+            f"{output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-VERMELHO OK (excecao por chave apontando para item concluido "
+        "reprova no modo --textual)"
+    )
+    return True
+
+
+# O gemeo do ponteiro-para-o-nada (validate_key_exception_deaths()'s
+# own SECOND death, mais forte que a de check_test_parity.py): item
+# que nao existe NEM na tabela NEM em prosa reprova no modo --textual.
+def selftest_textual_nonexistent_item_reproves(tmp_path):
+    exit_code, output = _run_textual_main_capturing(
+        tmp_path,
+        "algum_teste.alguma_chave|windows|motivo qualquer aqui|ITEM-FANTASMA\n",
+        _todo_textual_fixture("OUTRO-ITEM", "⏳ Pendente"),
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-PONTEIRO-PARA-O-NADA FALHOU (esperava reprovar com codigo 1, "
+            f"veio {exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-PONTEIRO-PARA-O-NADA OK (item que nao existe nem na tabela nem em "
+        "prosa reprova no modo --textual)"
+    )
+    return True
+
+
+# Item real, declarado so' em prosa (INBOX), NAO reprova - a mesma
+# aceitacao que validate_key_exception_deaths() ja prova por chamada
+# direta, exercitada aqui pela entrada --textual real.
+def selftest_textual_prose_only_item_accepted(tmp_path):
+    exit_code, output = _run_textual_main_capturing(
+        tmp_path,
+        "algum_teste.alguma_chave|windows|motivo qualquer aqui|ITEM-EM-PROSA\n",
+        _todo_textual_fixture("OUTRO-ITEM", "⏳ Pendente")
+        + "\n- `ITEM-EM-PROSA`: bullet de INBOX, real, ainda sem linha de tabela.\n",
+    )
+    if exit_code not in (None, 0):
+        print(
+            f"selftest: TEXTUAL-PROSA FALHOU (esperava sucesso, item em prosa e real, saiu com "
+            f"codigo {exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-PROSA OK (item real, so' em prosa, aceito no modo --textual)")
+    return True
+
+
+# Piso L-40 do proprio modo --textual: TODO.md sem nenhuma linha de
+# tabela reconhecida reprova como varredura vazia.
+def selftest_textual_empty_todo_reproves(tmp_path):
+    exit_code, output = _run_textual_main_capturing(tmp_path, "", "so prosa aqui, nenhuma linha de tabela\n")
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-TODO-VAZIO FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "varredura vazia" not in output:
+        print(
+            f"selftest: TEXTUAL-TODO-VAZIO FALHOU (reprovou, mas nao com a mensagem de "
+            f"varredura vazia - GODS_LAWS.md L-40): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-TODO-VAZIO OK (TODO.md sem item nenhum reconhecido reprova)")
+    return True
+
+
 def selftest_main():
     import tempfile
     from pathlib import Path
@@ -896,6 +1107,11 @@ def selftest_main():
             selftest_key_exception_with_prose_only_item_accepted(tmp_path),
             selftest_declared_divergence_with_concluded_item_reproves(tmp_path),
             selftest_one_side_empty_still_succeeds(tmp_path),
+            selftest_textual_positive_control(tmp_path),
+            selftest_textual_concluded_item_reproves(tmp_path),
+            selftest_textual_nonexistent_item_reproves(tmp_path),
+            selftest_textual_prose_only_item_accepted(tmp_path),
+            selftest_textual_empty_todo_reproves(tmp_path),
         ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
@@ -909,10 +1125,12 @@ def main():
         selftest_main()
     elif args and args[0] == "--compare":
         real_main(args[1:])
+    elif args and args[0] == "--textual":
+        textual_main(args[1:])
     else:
         fail(
             "usage: check_measured_parity.py --compare --linux <f1> [<f2> ...] --windows "
-            "<f1> [<f2> ...]  |  --selftest"
+            "<f1> [<f2> ...]  |  --textual <measured_exceptions.txt> <TODO.md>  |  --selftest"
         )
 
 

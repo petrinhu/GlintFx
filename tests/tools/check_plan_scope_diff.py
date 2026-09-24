@@ -382,7 +382,14 @@ def real_main(args):
     # a validacao inteira, silenciosamente). Agora os dois tem caminho
     # fixo do projeto por padrao, e o arquivo tem de EXISTIR sempre - sem
     # isso, o portao nunca roda sem saber se a declaracao de ausencia
-    # esta la.
+    # esta la. Os dois sao independentes de --root de proposito: --root
+    # e' onde os CAMINHOS PROMETIDOS pela fatia sao checados (pode ser
+    # uma arvore isolada, sintetica, num teste), enquanto --absences/
+    # --todo sao sempre os arquivos REAIS do projeto que registram
+    # decisao tomada - resolvidos contra o CWD do processo (F4, achado
+    # ao registrar em ctest: o WORKING_DIRECTORY do CTest precisa ser a
+    # raiz do repositorio para os defaults baterem; ver tests/CMakeLists.
+    # txt, propriedade WORKING_DIRECTORY de plan_scope_diff_selftest).
     absences_path = Path(parsed.absences)
     if not absences_path.is_file():
         fail(f"'{parsed.absences}' nao existe - ausencia de caminho prometido nunca e opcional (F3)")

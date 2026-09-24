@@ -5737,6 +5737,46 @@ set_tests_properties(docs_count_vocab_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# PLAN-SCOPE-COLUMNS sub-fatia F4 (docs/plano-w7c.md sec. 3.F, "Nasce
+# / muda": tests/CMakeLists.txt (plan_scope_diff_test com rotulo
+# consume, e o _selftest)). check_plan_scope_diff.py existia desde
+# 06/09/2026 sem NENHUM add_test() o citando (GATE-SELFTEST-ORFAO
+# achou o orfao no dia em que nasceu, 10/09/2026 - exceção reservada em
+# tests/tools/selftest_orphan_exceptions.txt, apagada neste mesmo
+# commit). plan_scope_diff_test roda o modo --audit (F0): varre TODO
+# docs/plano-*.md contra o esquema v1 e tests/plan_scope_legacy.txt,
+# nunca uma linha so - o modo --compare (fechamento de UMA fatia
+# especifica) continua sendo ferramenta manual, exercida pelo proprio
+# --selftest (28 controles, a maioria via real_main()) e por quem fecha
+# uma fatia, nao um ctest automatico contra um marcador fixo. Registrado
+# UNGUARDED (le texto e git, nao constroi nada - GODS_LAWS.md L-04),
+# mesma forma de docs_count_vocab_test/claim_citations_test acima.
+add_test(
+    NAME plan_scope_diff_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_plan_scope_diff.py"
+        --audit --root "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(plan_scope_diff_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME plan_scope_diff_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_plan_scope_diff.py" --selftest
+)
+set_tests_properties(plan_scope_diff_selftest PROPERTIES
+    LABELS selftest
+    # --selftest e' parameterless por convencao (mesma forma dos outros
+    # _selftest deste arquivo) e varios controles seus chamam real_main()
+    # SEM --root explicito, contando com os defaults fixos de F3
+    # (tests/parity_absences.txt, TODO.md) resolvidos contra o CWD do
+    # processo. O WORKING_DIRECTORY do CTest e' o diretorio de BUILD,
+    # nunca a arvore fonte (achado ao registrar isto de verdade, F4) -
+    # sem fixar aqui, os defaults nunca resolvem sob ctest, so' quando
+    # chamado a mao da raiz do repositorio.
+    WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
 # propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
 # CMake, de todo nome passado a add_test() neste diretorio ate aqui -

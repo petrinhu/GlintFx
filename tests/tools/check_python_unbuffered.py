@@ -215,18 +215,41 @@ def selftest_empty_tests_list_reproves():
     return True
 
 
-def _make_scratch_ctest_dir():
-    """Fabrica um build-dir MINIMO com um unico teste (CTestTestfile.cmake
-    de verdade, sem PYTHONUNBUFFERED no ENVIRONMENT) - quem chama e'
-    responsavel por limpar com shutil.rmtree."""
+def _make_scratch_ctest_dir(with_test=True):
+    """Fabrica um build-dir MINIMO (CTestTestfile.cmake de verdade) -
+    com um teste sem PYTHONUNBUFFERED quando with_test=True, ou
+    COMPLETAMENTE VAZIO (zero add_test, ctest --show-only devolve
+    "tests": [] de verdade - conferido ao vivo) quando with_test=False.
+    Quem chama e' responsavel por limpar com shutil.rmtree."""
     scratch = Path(tempfile.mkdtemp(prefix="glintfx-python-unbuffered-selftest-"))
-    ctestfile = scratch / "CTestTestfile.cmake"
-    ctestfile.write_text(
+    content = (
         'add_test(fake_test "/bin/true")\n'
-        'set_tests_properties(fake_test PROPERTIES LABELS "unit")\n',
-        encoding="utf-8",
-    )
+        'set_tests_properties(fake_test PROPERTIES LABELS "unit")\n'
+    ) if with_test else ""
+    (scratch / "CTestTestfile.cmake").write_text(content, encoding="utf-8")
     return scratch
+
+
+def selftest_real_main_reproves_malformed_ctestfile():
+    """Ponta a ponta (litmus 'if False' aplicado a TODO piso de
+    real_main(), 24/09/2026): nenhum controle antes deste fazia o
+    PROPRIO `ctest --show-only=json-v1` falhar (`completed.returncode
+    != 0`) - so' a falta de build-dir era testada, e essa e' pega mais
+    cedo pelo `is_dir()`. Aqui o diretorio EXISTE (passa o `is_dir()`),
+    mas o CTestTestfile.cmake dentro dele e' sintaxe CMake invalida de
+    proposito - ctest de verdade sai com codigo != 0 nisso (conferido
+    ao vivo, RC=8). real_main() tem de sair 1."""
+    import shutil
+
+    if shutil.which("ctest") is None:
+        print("selftest: REAL-MAIN-CTESTFILE-INVALIDO pulado (ctest nao esta no PATH)")
+        return True
+    scratch = Path(tempfile.mkdtemp(prefix="glintfx-python-unbuffered-selftest-"))
+    (scratch / "CTestTestfile.cmake").write_text("isto nao e sintaxe CMake valida (((\n", encoding="utf-8")
+    try:
+        return _run_real_main_expecting_exit_1(scratch, "REAL-MAIN-CTESTFILE-INVALIDO")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def _probe_ctest_show_only_available(scratch):
@@ -247,28 +270,79 @@ def _probe_ctest_show_only_available(scratch):
     return True, ""
 
 
+def selftest_real_main_reproves_missing_build_dir():
+    """Ponta a ponta (litmus 'if False' aplicado a TODO piso de
+    real_main(), 24/09/2026): nenhum controle antes deste passava um
+    build-dir INEXISTENTE - `if not build_dir.is_dir(): fail(...)`
+    desligado nunca mudava nenhum resultado, porque nenhum controle o
+    exercitava. real_main() com um caminho que nunca existiu tem de
+    sair 1."""
+    missing_dir = Path(tempfile.gettempdir()) / "glintfx-python-unbuffered-nao-existe"
+    try:
+        real_main(["--compare", str(missing_dir)])
+    except SystemExit as exc:
+        if exc.code != 1:
+            print(f"selftest: REAL-MAIN-DIR-AUSENTE FALHOU (codigo {exc.code}, esperava 1)",
+                  file=sys.stderr)
+            return False
+        print("selftest: REAL-MAIN-DIR-AUSENTE OK (build-dir inexistente reprova, codigo 1)")
+        return True
+    print("selftest: REAL-MAIN-DIR-AUSENTE FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
+    return False
+
+
+def _run_real_main_expecting_exit_1(scratch, label):
+    """Roda real_main() ponta a ponta contra `scratch` e confere que
+    sai com codigo 1 - fatorado (teto de linhas L-17) entre o controle
+    de teste sem a variavel e o de lista vazia, que fazem a MESMA
+    dança de SystemExit."""
+    try:
+        real_main(["--compare", str(scratch)])
+    except SystemExit as exc:
+        if exc.code != 1:
+            print(f"selftest: {label} FALHOU (codigo {exc.code}, esperava 1)", file=sys.stderr)
+            return False
+        print(f"selftest: {label} OK (codigo 1)")
+        return True
+    print(f"selftest: {label} FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
+    return False
+
+
 def selftest_real_main_reproves_on_missing():
     """Ponta a ponta: real_main() roda 'ctest --show-only=json-v1' de
     verdade contra um build-dir fabricado (_make_scratch_ctest_dir, sem
-    PYTHONUNBUFFERED em teste nenhum) e tem de sair 1."""
+    PYTHONUNBUFFERED em teste nenhum) e tem de sair 1 (bate no `if
+    missing: fail(...)`)."""
     import shutil
 
-    scratch = _make_scratch_ctest_dir()
+    scratch = _make_scratch_ctest_dir(with_test=True)
     try:
         available, motivo = _probe_ctest_show_only_available(scratch)
         if not available:
             print(f"selftest: REAL-MAIN pulado ({motivo})")
             return True
-        try:
-            real_main(["--compare", str(scratch)])
-        except SystemExit as exc:
-            if exc.code != 1:
-                print(f"selftest: REAL-MAIN FALHOU (codigo {exc.code}, esperava 1)", file=sys.stderr)
-                return False
-            print("selftest: REAL-MAIN OK (fake_test sem PYTHONUNBUFFERED=1 reprova, codigo 1)")
+        return _run_real_main_expecting_exit_1(scratch, "REAL-MAIN")
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def selftest_real_main_reproves_on_empty_test_list():
+    """Ponta a ponta (achado da revisao main, litmus 'if False' em
+    24/09/2026): selftest_empty_tests_list_reproves acima so' confere
+    missing_pythonunbuffered() PURO - nunca passa pelo `if total == 0:
+    fail(...)` de real_main(). Um mutante que troca esse `if` por `if
+    False:` sobrevivia (nenhum controle chamava real_main() sobre um
+    build-dir SEM teste nenhum). real_main() sobre
+    _make_scratch_ctest_dir(with_test=False) tem de sair 1."""
+    import shutil
+
+    scratch = _make_scratch_ctest_dir(with_test=False)
+    try:
+        available, motivo = _probe_ctest_show_only_available(scratch)
+        if not available:
+            print(f"selftest: REAL-MAIN-LISTA-VAZIA pulado ({motivo})")
             return True
-        print("selftest: REAL-MAIN FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
-        return False
+        return _run_real_main_expecting_exit_1(scratch, "REAL-MAIN-LISTA-VAZIA")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -279,7 +353,10 @@ def selftest_main():
         selftest_shell_wrapped_python_without_command_string_caught(),
         selftest_missing_environment_property_counted(),
         selftest_empty_tests_list_reproves(),
+        selftest_real_main_reproves_missing_build_dir(),
+        selftest_real_main_reproves_malformed_ctestfile(),
         selftest_real_main_reproves_on_missing(),
+        selftest_real_main_reproves_on_empty_test_list(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

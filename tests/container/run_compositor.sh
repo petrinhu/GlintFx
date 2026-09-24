@@ -83,17 +83,26 @@ internal_socket_name() {
     printf '%s-upstream\n' "$external_socket_name"
 }
 
-# Reads the LAST "connection closed" line wire_relay's own stdout
-# printed (serve_one_client() in wire_relay_main.cpp) and extracts the
-# message count it reports FROM THE CLIENT - the number A3b's own red
-# control ("zero reprova") exists to check. Empty output (no line
-# matched yet, or the log is still empty) is a legitimate "not ready
-# yet" signal, never an error by itself - the caller's own retry loop
-# is what turns repeated emptiness into a failure.
+# WL-ACK-SMOKE-BLUNT A3e (achado do team-lead, 24/09/2026, GODS_LAWS.md
+# L-17 "gemeo"): ate aqui isto so olhava a ULTIMA linha do log
+# (`tail -n 1`) - correto quando o rele so servia um cliente por vez
+# (A3b), mas com o rele multi-cliente (A3c) outras linhas de PRODUCAO
+# podem legitimamente ser a ultima (control truncated, falha ao
+# conectar montante, perror de accept/poll - catalogadas no relatorio
+# desta fatia, tests/container/wire_relay/wire_relay_connection_set.cpp),
+# sem que isso signifique "zero mensagens decodificadas". Varre o log
+# INTEIRO atras de QUALQUER linha "connection closed - N message(s)
+# from client" e devolve a primeira com N>0 - ignora silenciosamente
+# qualquer outra linha (de producao ou de outra conexao), exatamente
+# como antes so devolvia vazio pra qualquer linha que nao casasse o
+# formato exato. Empty output (nenhuma linha com N>0 ainda) continua
+# sendo um "not ready yet" legitimo, nunca um erro por si so - o retry
+# loop do chamador e' quem transforma vazio repetido em falha.
 relay_client_message_count() {
     log_file="$1"
-    tail -n 1 "$log_file" 2>/dev/null |
-        sed -n 's/.* - \([0-9][0-9]*\) message(s) from client.*/\1/p'
+    grep 'connection closed' "$log_file" 2>/dev/null |
+        sed -n 's/.* - \([0-9][0-9]*\) message(s) from client.*/\1/p' |
+        awk '$1 > 0 { print; exit }'
 }
 
 # GLINTFX_RELAY_LOG_WAIT_TRIES/_SLEEP: only --selftest below overrides
@@ -373,6 +382,61 @@ selftest_case_relay_log_arrives_late() (
     echo "selftest: rele que escreve a linha do log com atraso foi esperado (nao reprovado direto) - OK"
 )
 
+# WL-ACK-SMOKE-BLUNT A3e (achado do team-lead, 24/09/2026): a sonda
+# antiga so olhava `tail -n 1` - com o rele multi-cliente (A3c), OUTRAS
+# linhas de producao (control truncated, falha ao conectar montante,
+# perror de accept/poll) podem legitimamente ser a ULTIMA linha do log
+# sem que isso signifique "zero mensagens decodificadas" (GODS_LAWS.md
+# L-17 "gemeo": tests/container/wire_relay/wire_relay_connection_set.cpp
+# tem cinco pontos assim, catalogados no relatorio desta fatia).
+#
+# CASO VERMELHO (positivo): a linha BOA ("connection closed - N
+# message(s) from client", N>0) esta no log, mas NAO e' a ultima - uma
+# linha de ruido de producao ("control truncated from client, closing")
+# veio depois. Contra o codigo de HOJE (tail -n 1), isto reprova por
+# engano; depois do conserto (varrer o log inteiro atras de QUALQUER
+# linha "connection closed" com N>0), tem que passar.
+selftest_case_relay_good_line_not_last() (
+    compositor_probe() { return 0; }
+    GLINTFX_RELAY_LOG_WAIT_TRIES=2
+    GLINTFX_RELAY_LOG_WAIT_SLEEP=0
+    fake_log="$(mktemp "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-relaylog-XXXXXX")" || exit 1
+    trap 'rm -f "$fake_log"' EXIT
+    {
+        printf 'wire_relay: connection closed - 7 message(s) from client, 12 from upstream, 0 violation(s)\n'
+        printf 'wire_relay: control truncated from client, closing\n'
+    } >"$fake_log"
+    if ! wait_for_relay_ready "selftest-relay-good-not-last" "$fake_log" >/dev/null 2>&1; then
+        echo "SELFTEST FALHOU: linha boa presente (nao na ultima posicao) devia ter sido aceita, foi reprovada" >&2
+        exit 1
+    fi
+    echo "selftest: linha boa nao-ultima aceita (varredura do log inteiro, nao so tail -n 1) - OK"
+)
+
+# CONTROLE NEGATIVO (o par do caso acima, para a regua continuar
+# distinguindo os dois estados): so ha linhas "connection closed" com
+# N=0, mais ruido de producao (perror de poll) - tem que continuar
+# reprovando SEMPRE, antes e depois do conserto.
+selftest_case_relay_all_zero_with_perror_noise() (
+    compositor_probe() { return 0; }
+    GLINTFX_RELAY_LOG_WAIT_TRIES=2
+    GLINTFX_RELAY_LOG_WAIT_SLEEP=0
+    fake_log="$(mktemp "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-relaylog-XXXXXX")" || exit 1
+    trap 'rm -f "$fake_log"' EXIT
+    {
+        printf 'wire_relay: connection closed - 0 message(s) from client, 0 from upstream, 0 violation(s)\n'
+        printf 'wire_relay: poll: Interrupted system call\n'
+        printf 'wire_relay: connection closed - 0 message(s) from client, 5 from upstream, 0 violation(s)\n'
+    } >"$fake_log"
+    # Mesmo idioma de selftest_case_relay_never_accepts acima: fail()
+    # (chamada por wait_for_relay_ready quando reprova, o resultado
+    # ESPERADO aqui) sai com `exit`, nao `return` - o `exit 42` so e'
+    # alcancado se a funcao voltasse normalmente por engano (ou seja,
+    # se a checagem passasse quando deveria reprovar).
+    wait_for_relay_ready "selftest-relay-all-zero" "$fake_log" >/dev/null 2>&1
+    exit 42
+)
+
 # GODS_LAWS.md L-17: run_selftest() e' o proprio exemplo do arquivo de
 # onde monolito nasce por conveniencia (cada caso novo "e' so' mais um
 # bloco" - a quinta pergunta do revisor). Dividida por LADO (compositor
@@ -441,6 +505,17 @@ run_selftest_relay_cases() {
     fi
 
     selftest_case_relay_log_arrives_late || ok=1
+
+    selftest_case_relay_good_line_not_last || ok=1
+
+    rc=0
+    selftest_case_relay_all_zero_with_perror_noise || rc="$?"
+    if [ "$rc" -eq 42 ]; then
+        echo "SELFTEST FALHOU: log so com N=0 (mais ruido de perror) deveria ter reprovado, passou" >&2
+        ok=1
+    else
+        echo "selftest: log so com N=0 continua reprovando (controle negativo intacto, codigo=$rc) - OK"
+    fi
 
     return "$ok"
 }

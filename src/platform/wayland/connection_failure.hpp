@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #pragma once
 
+#include <optional>
+
 #include <glintfx/core/err.hpp>
 
 // platform/wayland/connection_failure.hpp - GL-CONTEXT fatia 5 (docs/
@@ -43,5 +45,18 @@ namespace glintfx::platform {
 // rejected, attached as rejected_value() - an interface name
 // ("wl_surface", "xdg_surface") is itself already an identifier token.
 [[nodiscard]] gltfx_err build_connection_failure(wl_display *display) noexcept;
+
+// EGL-DEAD-DISPLAY-GUARD S1 (docs/plano-egl-dead-display-guard.md sec.
+// 3, D-S2): the ONE atom that answers "is this connection already
+// dead?" - std::nullopt when wl_display_get_error(display) == 0
+// (still alive, no I/O, a single field read), or the SAME diagnostic
+// build_connection_failure() above already builds, otherwise. Exists
+// because llvmpipe/swrast's own dri2_wl_swrast_swap_buffers_with_
+// damage() returns EGL_TRUE UNCONDITIONALLY even once the compositor
+// has fatally errored the connection (plano sec. 1.1) - the EGL return
+// value alone can no longer be trusted to say whether the fio is still
+// usable, so every call site that talks to the fio checks THIS instead,
+// before and after (S2, egl_context_adapter.cpp).
+[[nodiscard]] std::optional<gltfx_err> connection_failure_if_dead(wl_display *display) noexcept;
 
 } // namespace glintfx::platform

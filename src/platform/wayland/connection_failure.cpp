@@ -33,4 +33,11 @@ gltfx_err build_connection_failure(wl_display *display) noexcept {
     return error;
 }
 
+std::optional<gltfx_err> connection_failure_if_dead(wl_display *display) noexcept {
+    if (wl_display_get_error(display) == 0) {
+        return std::nullopt;
+    }
+    return build_connection_failure(display);
+}
+
 } // namespace glintfx::platform

@@ -1791,6 +1791,50 @@ if(UNIX)
     glintfx_add_wayland_xdg_shell_binding(incoming_poll_wiring_test)
     glintfx_add_egl(incoming_poll_wiring_test)
 
+    # EGL-DEAD-DISPLAY-GUARD S1 (docs/plano-egl-dead-display-guard.md
+    # sec. 3, D-S2): hermético, mesma família de incoming_poll_wiring_
+    # test logo acima - socketpair() + wl_display_connect_to_fd() real,
+    # sem compositor e sem container (GODS_LAWS.md L-09). Precisa da
+    # MESMA árvore de fontes que incoming_poll_wiring_test (poll_and_
+    # dispatch_with_budget() vive em egl_context_adapter.cpp e arrasta
+    # o resto), porque o segundo caso deste alvo escreve um evento
+    # wl_display.error de verdade e despacha por ela antes de conferir
+    # connection_failure_if_dead().
+    glintfx_add_test(connection_failure_test)
+    target_include_directories(connection_failure_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(connection_failure_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(connection_failure_test)
+    glintfx_add_egl(connection_failure_test)
+
     # NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
     # noexcept.md sec. "F2", GODS_LAWS.md L-04/L-09/L-20/L-22): read_drm_
     # device_facts() (drm_device_facts.cpp) under a forced allocation

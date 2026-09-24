@@ -53,12 +53,71 @@
 // conserto, nao um crash: nada aqui exige que o processo caia (essa
 // prova mais funda, por mutacao numa copia fora da arvore, mora no
 // relatorio da sub-fatia, GODS_LAWS.md L-27).
+//
+// EGL-DEAD-DISPLAY-GUARD S3b (docs/plano-egl-dead-display-guard.md,
+// entrada de 24/09 17:45 em DECISOES_AUTONOMAS.md - "o mutante 'guarda
+// do topo removida' SOBREVIVE ao contador swap_calls_issued, que so
+// conta sucesso"): depois da primeira recusa acima,
+// verify_refusal_stays_identical() (mais abaixo) chama swap_buffers()
+// mais kAdditionalSwapsAfterFirstRefusal vezes e exige a MESMA recusa
+// (mesmo code, mesmo rejected_value) em cada uma - nunca sucesso, nunca
+// forma diferente, e sem o processo cair. A guarda no TOPO de
+// swap_buffers() (S2/S3) e' o que barra a segunda chamada real a
+// eglSwapBuffers() sobre a conexao morta; sem ela, cada repeticao
+// chamaria eglSwapBuffers() de novo, e e' essa chamada repetida que
+// esgota o pool de 4 buffers do llvmpipe/swrast e derruba o processo
+// (plano sec. 1.1, S0 mediu 139 por volta da 4a chamada).
 
 namespace {
 
 constexpr std::int32_t kWidth = 320;
 constexpr std::int32_t kHeight = 240;
 constexpr int kMaxSwapsAfterProvocation = 10;
+constexpr int kAdditionalSwapsAfterFirstRefusal = 10;
+
+struct refusal_shape {
+    glintfx::gltfx_err_code code{};
+    std::string rejected_value;
+};
+
+// verify_refusal_stays_identical - EGL-DEAD-DISPLAY-GUARD S3b: chama
+// swap_buffers() mais kAdditionalSwapsAfterFirstRefusal vezes depois
+// da primeira recusa e exige `first_refusal` identica em cada uma.
+// Devolve false na primeira chamada que suceder ou que recusar
+// diferente, imprimindo em qual repeticao e com que forma - nunca
+// silencio (GODS_LAWS.md L-40).
+bool verify_refusal_stays_identical(glintfx::platform::wayland_egl_context_adapter &context,
+                                    const refusal_shape &first_refusal) {
+    for (int repeat = 1; repeat <= kAdditionalSwapsAfterFirstRefusal; ++repeat) {
+        const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+        if (!swapped.has_error()) {
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_error_read_inside_swap_smoke: repeticao %d/%d depois da primeira "
+                "recusa NAO recusou (swap_buffers voltou a suceder sobre conexao morta) - "
+                "EGL-DEAD-DISPLAY-GUARD S3b, guarda do topo nao segurou\n",
+                repeat, kAdditionalSwapsAfterFirstRefusal);
+            return false;
+        }
+        const glintfx::gltfx_err_code code = swapped.err().code();
+        const std::string rejected = std::string(swapped.err().rejected_value());
+        if (code != first_refusal.code || rejected != first_refusal.rejected_value) {
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_error_read_inside_swap_smoke: repeticao %d/%d recusou diferente da "
+                "primeira: code=%s rejected_value=%s (esperado %s/%s)\n",
+                repeat, kAdditionalSwapsAfterFirstRefusal,
+                std::string(glintfx::gltfx_err_code_name(code)).c_str(), rejected.c_str(),
+                std::string(glintfx::gltfx_err_code_name(first_refusal.code)).c_str(),
+                first_refusal.rejected_value.c_str());
+            return false;
+        }
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_error_read_inside_swap_smoke.additional_swaps_after_refusal=%d\n",
+        kAdditionalSwapsAfterFirstRefusal);
+    return true;
+}
 
 } // namespace
 
@@ -256,6 +315,14 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    if (!verify_refusal_stays_identical(context, refusal_shape{reported_code, reported_rejected})) {
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+
     context.close();
     window.close();
     shell.close();
@@ -264,6 +331,8 @@ int main() {
     glintfx::container_fixture::checked_fprintf(
         stdout,
         "egl_error_read_inside_swap_smoke: swap_buffers respondeu platform_failure/"
-        "wl_surface antes de violar a invariante - guarda EGL-DEAD-DISPLAY-GUARD provada\n");
+        "wl_surface antes de violar a invariante, e manteve a MESMA recusa em mais %d "
+        "chamadas - guarda EGL-DEAD-DISPLAY-GUARD S0-S3b provada\n",
+        kAdditionalSwapsAfterFirstRefusal);
     return EXIT_SUCCESS;
 }

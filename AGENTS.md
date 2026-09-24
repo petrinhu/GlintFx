@@ -2,7 +2,7 @@
 
 This file is for AI agents (and the humans directing them) that need to
 work with glintfx: using it as a dependency in another project, or
-contributing to this repository directly. Two different jobs - read the
+contributing to this repository directly. `Two different jobs` - read the
 section that matches yours.
 
 ## What this project is, in three lines

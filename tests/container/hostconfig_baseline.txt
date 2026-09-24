@@ -37,7 +37,7 @@
 #   3. "OomKillDisable":false and "OomKillDisable":null both replaced
 #      with the same placeholder. Measured live comparing ci.yml's own
 #      two invocation shapes side by side on the identical clean
-#      image: `docker create` (used for the three negative controls,
+#      image: `docker create` (used for the `three negative controls`,
 #      whose poisoned ENTRYPOINT deliberately never runs) reads back
 #      `false`; the same container after `docker run -d` (used for the
 #      positive control) reads back `null` - nothing else in the whole

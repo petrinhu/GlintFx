@@ -4277,3 +4277,18 @@ Quem decidiu: Caetano. Opções: um push por sub-fatia; **um push para as quatro
 **Fato medido (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`):** as duas tentativas da V-5 ligaram a máquina (P0 passou, e o permanente ficou com a mesma soma antes e depois), mas o agente convidado nunca respondeu. A linha de comando real do QEMU abre a sobreposição qcow2 do NVRAM com `"backing":null`: o libvirt não reconecta a cadeia de apoio para pflash, só para disco. O firmware arranca com as variáveis ZERADAS. Fontes: libvirt.org/kbase/backing_chains.html; formatdomain.html não promete cadeia de apoio para `<nvram>`; há um patch em desenvolvimento na lista do libvirt ("NVRAM template handling fixes..."). Segunda falha, então a pesquisa (L-42) foi feita antes da terceira tentativa.
 
 **Decisão do main:** o NVRAM por sessão passa a ser CÓPIA INTEIRA (`cp`, 528 KiB), no mesmo molde da cópia do estado do TPM, que já funciona. O plano (`docs/plano-fecho-w7b.md` §2.2.2, V-5b) pedia "`<nvram>` para cópia por sessão"; a sobreposição foi escolha de implementação, e a cópia inteira volta ao texto do plano. Vira a sub-fatia V-5c, com autoteste, antes da terceira tentativa. Confirmar retroativamente.
+
+## 23/09/2026 - 20:30 | V-5: ordem da quarta sessão e o que a D-6 passa a medir
+
+**Fato (tentativa 3, `/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`):** P0, P1, P2, P3, E9 e E10 PASSARAM. A leitura de 8 MiB falha no TRANSPORTE do libvirt (resposta maior que o buffer fixo de 10485760 bytes, base64 incluso), e depois dessa falha o canal do agente morre para a sessão inteira. Por isso E3 e E4 caíram sem medir nada. Leituras de 65536 bytes e 1 MiB passaram limpas.
+
+**Decisão do main (só ordem e cobertura; nenhum critério da §2.2.3 muda):**
+1. Quarta sessão, nesta ordem: P0 a P3; E4 (com a calibração da D-5); E10; marca da E3 escrita; e o P4 POR ÚLTIMO, subindo 65536, 1, 2, 4, 6 e 7 MiB, com PARADA na primeira falha. A quinta sessão, curta, só lê a marca da E3 e mede as somas da E9.
+2. D-6 (a) fica como está: o bloco do coletor é o maior tamanho testado que passa limpo, limitado a 16 MiB. O dado de hoje limita esse valor a menos de 8 MiB.
+3. A exigência adicional da D-6 ("48 MiB + 1 tem de ser RECUSADO") fica declarada como NÃO MENSURÁVEL por este caminho: o transporte do libvirt falha antes de o agente avaliar o tamanho, e a falha mata o canal. É ausência declarada e contada, não pulo calado.
+
+## 23/09/2026 - 20:48 | V-5 concluída; D-6 aplicada com o valor medido
+
+**Fato (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md` e `v5-sessoes-4-5-completo.log`, lidos pelo main):** P0, P1, P2, P3, E3, E4, E9 e E10 PASSAM. A E4 foi reclassificada de INCONCLUSIVA para PASSA pela leitura do dado cru: `CALIB_LOCAL=True`, as três sondas `False` e o adaptador `Disconnected`. O "inconclusiva" veio de um `\r` do PowerShell que o roteiro de evidência, fora da árvore, não removia (`cat -A`). P4 é medida: 65536, 1 MiB e 2 MiB foram aceitos com a contagem igual à pedida; 4 MiB foi recusado com "Unable to encode message payload". Limite: `VIR_NET_MESSAGE_STRING_MAX = 4194304` (libvirt, `src/rpc/virnetprotocol.x`), sobre o texto base64 da leitura.
+
+**Decisão do main (D-6 (a), sem mudar o critério):** o bloco padrão do coletor passa a ser **2097152 bytes (2 MiB)**, o maior tamanho testado que passou limpo. Troca de constante no coletor, com autoteste, como sub-fatia V-5d. "48 MiB + 1 recusado" fica declarado NÃO MENSURÁVEL por este caminho. Antes de consertar, o `\r` passa por varredura de gêmeos no produto (`tools/win-vm-lab/`).

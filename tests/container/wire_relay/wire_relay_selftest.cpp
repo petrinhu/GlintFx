@@ -154,7 +154,7 @@ struct pipeline {
 std::optional<rule_violation> observe_and_evaluate(pipeline &pipe, const decoded_message &message,
                                                    bool from_client) {
     pipe.table.observe(message, from_client);
-    known_interface source = pipe.table.interface_of(message.header.object_id);
+    const known_interface source = pipe.table.interface_of(message.header.object_id);
 
     if (from_client && source == known_interface::wl_surface && message.header.opcode == 1) {
         std::uint32_t buffer_id = 0;
@@ -201,7 +201,7 @@ std::optional<rule_violation> feed_one(const wire_transport &writer, const wire_
         wire_transport::read_result chunk = reader.read_once();
         decoder.feed(chunk.bytes.data(), chunk.bytes.size());
     }
-    decoded_message message = decoder.take_message();
+    const decoded_message message = decoder.take_message();
     return observe_and_evaluate(pipe, message, from_client);
 }
 
@@ -224,13 +224,13 @@ void bootstrap_xdg_surface(const wire_transport &writer, const wire_transport &r
 // ============================================================
 
 GLINTFX_TEST(wire_relay_a1_message_split_across_reads) {
-    socket_pair sp = make_socketpair();
+    const socket_pair sp = make_socketpair();
     GLINTFX_CHECK(sp.a >= 0 && sp.b >= 0);
-    wire_transport reader(sp.b);
+    const wire_transport reader(sp.b);
 
     std::vector<std::uint8_t> message = encode_registry_bind(2, 0, "xdg_wm_base", 1, 3);
     GLINTFX_CHECK(message.size() > 16);
-    std::size_t first_len = message.size() / 2;
+    const std::size_t first_len = message.size() / 2;
 
     GLINTFX_CHECK(::send(sp.a, message.data(), first_len, MSG_NOSIGNAL) ==
                   static_cast<ssize_t>(first_len));
@@ -239,14 +239,14 @@ GLINTFX_TEST(wire_relay_a1_message_split_across_reads) {
     decoder.feed(first_chunk.bytes.data(), first_chunk.bytes.size());
     GLINTFX_CHECK(decoder.poll() == decode_outcome::need_more_bytes);
 
-    std::size_t remaining = message.size() - first_len;
+    const std::size_t remaining = message.size() - first_len;
     GLINTFX_CHECK(::send(sp.a, message.data() + first_len, remaining, MSG_NOSIGNAL) ==
                   static_cast<ssize_t>(remaining));
     wire_transport::read_result second_chunk = reader.read_once();
     decoder.feed(second_chunk.bytes.data(), second_chunk.bytes.size());
     GLINTFX_CHECK(decoder.poll() == decode_outcome::message_ready);
 
-    decoded_message decoded = decoder.take_message();
+    const decoded_message decoded = decoder.take_message();
     GLINTFX_CHECK_EQ(decoded.header.object_id, 2u);
     GLINTFX_CHECK_EQ(decoded.header.opcode, 0u);
     GLINTFX_CHECK_EQ(decoded.payload.size(), message.size() - wire_header_size);
@@ -256,9 +256,9 @@ GLINTFX_TEST(wire_relay_a1_message_split_across_reads) {
 }
 
 GLINTFX_TEST(wire_relay_a1_descriptor_with_correct_message) {
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
     wire_object_table table;
 
     std::vector<std::uint8_t> get_registry = encode_new_id_request(1, 1, 2);
@@ -285,7 +285,7 @@ GLINTFX_TEST(wire_relay_a1_descriptor_with_correct_message) {
     pool_decoder.feed(pool_chunk.bytes.data(), pool_chunk.bytes.size());
     GLINTFX_CHECK_EQ(pool_chunk.fds.size(), std::size_t{1});
     GLINTFX_CHECK(pool_decoder.poll() == decode_outcome::message_ready);
-    decoded_message pool_message = pool_decoder.take_message();
+    const decoded_message pool_message = pool_decoder.take_message();
     GLINTFX_CHECK_EQ(fd_argument_count(known_interface::wl_shm, pool_message.header.opcode),
                      std::size_t{1});
     GLINTFX_CHECK(table.observe(pool_message, true).has_value());
@@ -308,20 +308,20 @@ GLINTFX_TEST(wire_relay_a1_descriptor_with_correct_message) {
 }
 
 GLINTFX_TEST(wire_relay_a1_control_truncated_is_fatal) {
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
 
     int pipe_fds[2] = {-1, -1};
     GLINTFX_CHECK(::pipe(pipe_fds) == 0);
-    std::vector<int> too_many_fds(wire_transport::max_fds_per_read + 2, pipe_fds[0]);
+    const std::vector<int> too_many_fds(wire_transport::max_fds_per_read + 2, pipe_fds[0]);
     std::vector<std::uint8_t> tiny_message = encode_surface_commit(9);
     writer.write_once(tiny_message.data(), tiny_message.size(), too_many_fds);
 
-    wire_transport::read_result chunk = reader.read_once();
+    const wire_transport::read_result chunk = reader.read_once();
     GLINTFX_CHECK(chunk.control_truncated);
 
-    for (int fd : chunk.fds) {
+    for (const int fd : chunk.fds) {
         ::close(fd);
     }
     ::close(pipe_fds[0]);
@@ -332,7 +332,7 @@ GLINTFX_TEST(wire_relay_a1_control_truncated_is_fatal) {
 
 GLINTFX_TEST(wire_relay_a1_unknown_interface_passthrough_counted) {
     wire_object_table table;
-    std::size_t before = table.unknown_object_count();
+    const std::size_t before = table.unknown_object_count();
 
     std::vector<std::uint8_t> get_registry = encode_new_id_request(1, 1, 2);
     std::vector<std::uint8_t> bind_output = encode_registry_bind(2, 0, "wl_output", 2, 5);
@@ -388,9 +388,9 @@ GLINTFX_TEST(wire_relay_a1_zero_messages_decoded_is_flagged) {
     // counting mechanism a real gate relies on (docs/plano-w7c.md
     // SS3.A A5: "N mensagens ...  N = 0 reprova") has to be able to
     // SEE that zero, not paper over it.
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
 
     std::uint8_t partial_header[4] = {1, 0, 0, 0};
     writer.write_once(partial_header, sizeof(partial_header), {});
@@ -415,13 +415,13 @@ GLINTFX_TEST(wire_relay_a1_zero_messages_decoded_is_flagged) {
 }
 
 GLINTFX_TEST(wire_relay_a1_eof_drains_before_shutdown) {
-    socket_pair upstream = make_socketpair();   // fake upstream <-> relay
-    socket_pair downstream = make_socketpair(); // relay <-> client
+    const socket_pair upstream = make_socketpair();   // fake upstream <-> relay
+    const socket_pair downstream = make_socketpair(); // relay <-> client
 
-    wire_transport upstream_write(upstream.a);
-    wire_transport relay_upstream_read(upstream.b);
-    wire_transport relay_downstream_write(downstream.a);
-    wire_transport client_read(downstream.b);
+    const wire_transport upstream_write(upstream.a);
+    const wire_transport relay_upstream_read(upstream.b);
+    const wire_transport relay_downstream_write(downstream.a);
+    const wire_transport client_read(downstream.b);
 
     std::vector<std::uint8_t> message = encode_surface_commit(9);
     upstream_write.write_once(message.data(), message.size(), {});
@@ -443,11 +443,11 @@ GLINTFX_TEST(wire_relay_a1_eof_drains_before_shutdown) {
     }
     GLINTFX_CHECK(forwarded == message);
 
-    wire_transport::read_result client_chunk = client_read.read_once();
+    const wire_transport::read_result client_chunk = client_read.read_once();
     GLINTFX_CHECK(client_chunk.bytes == message);
     GLINTFX_CHECK(!client_chunk.end_of_file);
 
-    wire_transport::read_result client_eof = client_read.read_once();
+    const wire_transport::read_result client_eof = client_read.read_once();
     GLINTFX_CHECK(client_eof.end_of_file);
 
     ::close(upstream.b);
@@ -460,9 +460,9 @@ GLINTFX_TEST(wire_relay_a1_eof_drains_before_shutdown) {
 // ============================================================
 
 GLINTFX_TEST(wire_relay_a2_ack_after_configure_passes) {
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
     pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
     GLINTFX_CHECK(pipe.table.interface_of(11) == known_interface::xdg_surface);
@@ -483,9 +483,9 @@ GLINTFX_TEST(wire_relay_a2_ack_after_configure_passes) {
 }
 
 GLINTFX_TEST(wire_relay_a2_commit_before_ack_raises_error3) {
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
     pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
 
@@ -512,9 +512,9 @@ GLINTFX_TEST(wire_relay_a2_commit_before_ack_raises_error3) {
 }
 
 GLINTFX_TEST(wire_relay_a2_unknown_serial_raises_error4) {
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
     pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
 
@@ -529,9 +529,9 @@ GLINTFX_TEST(wire_relay_a2_unknown_serial_raises_error4) {
 }
 
 GLINTFX_TEST(wire_relay_a2_ack_only_last_of_two_configures_passes) {
-    socket_pair sp = make_socketpair();
-    wire_transport writer(sp.a);
-    wire_transport reader(sp.b);
+    const socket_pair sp = make_socketpair();
+    const wire_transport writer(sp.a);
+    const wire_transport reader(sp.b);
     pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
 
@@ -552,6 +552,6 @@ GLINTFX_TEST(wire_relay_a2_empty_scan_is_flagged) {
     // GODS_LAWS.md L-40: a rule engine nobody ever fed has to report
     // that honestly (zero, not a made-up "nothing failed so it
     // passed") - the same zero-floor A1's message counter proves.
-    wire_rule_engine engine;
+    const wire_rule_engine engine;
     GLINTFX_CHECK_EQ(engine.rules_evaluated(), std::size_t{0});
 }

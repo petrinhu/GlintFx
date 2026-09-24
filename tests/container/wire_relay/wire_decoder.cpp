@@ -31,7 +31,7 @@ decode_outcome wire_decoder::poll() const {
     if (m_buffer.size() < wire_header_size) {
         return decode_outcome::need_more_bytes;
     }
-    message_header header = parse_header(m_buffer.data());
+    const message_header header = parse_header(m_buffer.data());
     if (header.size < wire_header_size || header.size > wire_message_size_cap) {
         return decode_outcome::message_too_large;
     }
@@ -42,7 +42,7 @@ decode_outcome wire_decoder::poll() const {
 }
 
 decoded_message wire_decoder::take_message() {
-    message_header header = parse_header(m_buffer.data());
+    const message_header header = parse_header(m_buffer.data());
     decoded_message result;
     result.header = header;
     result.payload.assign(m_buffer.begin() + static_cast<std::ptrdiff_t>(wire_header_size),

@@ -27,13 +27,13 @@ bool read_wire_string(const std::vector<std::uint8_t> &payload, std::size_t offs
     if (!read_u32(payload, offset, stored_len) || stored_len == 0) {
         return false;
     }
-    std::size_t text_len = stored_len - 1;
-    std::size_t start = offset + 4;
+    const std::size_t text_len = stored_len - 1;
+    const std::size_t start = offset + 4;
     if (start + stored_len > payload.size()) {
         return false;
     }
     out.assign(reinterpret_cast<const char *>(payload.data() + start), text_len);
-    std::size_t padded = (static_cast<std::size_t>(stored_len) + 3) & ~std::size_t(3);
+    const std::size_t padded = (static_cast<std::size_t>(stored_len) + 3) & ~std::size_t(3);
     next_offset = start + padded;
     return true;
 }
@@ -140,7 +140,7 @@ wire_object_table::observe_get_xdg_surface(const std::vector<std::uint8_t> &payl
 
 std::optional<std::uint32_t> wire_object_table::observe(const decoded_message &message,
                                                         bool from_client) {
-    known_interface source = interface_of(message.header.object_id);
+    const known_interface source = interface_of(message.header.object_id);
 
     // wl_display opcode 1: get_registry (client REQUEST, creates wl_
     // registry) going one way, delete_id (server EVENT, retires an

@@ -30,7 +30,7 @@ void wire_rule_engine::note_buffer_attached(std::uint32_t xdg_surface_id) {
 std::optional<rule_violation> wire_rule_engine::note_commit(std::uint32_t xdg_surface_id) {
     ++m_rules_evaluated;
     surface_state &state = state_for(xdg_surface_id);
-    bool violates = state.has_pending_buffer && !state.ever_acknowledged;
+    const bool violates = state.has_pending_buffer && !state.ever_acknowledged;
     state.has_pending_buffer = false;
     if (violates) {
         return rule_violation{xdg_surface_id, xdg_surface_error::unconfigured_buffer};

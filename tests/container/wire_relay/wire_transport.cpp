@@ -23,7 +23,7 @@ void collect_fds(const struct msghdr &msg, std::vector<int> &out) {
         if (header->cmsg_level != SOL_SOCKET || header->cmsg_type != SCM_RIGHTS) {
             continue;
         }
-        std::size_t fd_count = (header->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+        const std::size_t fd_count = (header->cmsg_len - CMSG_LEN(0)) / sizeof(int);
         const auto *fd_data = reinterpret_cast<const int *>(CMSG_DATA(header));
         out.insert(out.end(), fd_data, fd_data + fd_count);
     }
@@ -47,7 +47,7 @@ wire_transport::read_result wire_transport::read_once() const {
     msg.msg_control = control.data();
     msg.msg_controllen = control.size();
 
-    ssize_t received = ::recvmsg(m_fd, &msg, 0);
+    const ssize_t received = ::recvmsg(m_fd, &msg, 0);
     if (received <= 0) {
         result.bytes.clear();
         result.end_of_file = true;

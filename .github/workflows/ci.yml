@@ -623,6 +623,46 @@ jobs:
           path: measured_linux.txt
           retention-days: 7
 
+      # RELATORIO-ORACULO (L-5h, docs/plano-layers-l5-adendo-
+      # calibracao.md secao 5.1 item 2; decisao do lider em
+      # DECISOES_AUTONOMAS.md 23/09/2026 22:00, apos o veredito do run
+      # 35939021453 medir que `ctest --output-on-failure` engole a
+      # saida do oraculo quando ele PASSA): mesmo mecanismo do MEASURED-
+      # COLLECTOR acima - le o snapshot PNC-FASES-SNAPSHOT ja tirado por
+      # "Build e testes", NUNCA re-roda o oraculo. So' roda nas pernas
+      # onde `oracle_flag` esta ligado (o oraculo nunca roda no modo
+      # estatico - docs/plano-layers-l5.md §6.1).
+      - name: Relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        run: |
+          set -eu
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if [ ! -f "$log" ]; then
+            echo "snapshot de log preservado nao encontrado: $log" >&2
+            exit 1
+          fi
+          grep '^check_layers_oracle.py:' "$log" > layers_oracle_report.txt || true
+          linhas=$(wc -l < layers_oracle_report.txt)
+          echo "linhas do relatorio do oraculo encontradas: $linhas"
+          if [ "$linhas" -eq 0 ]; then
+            echo "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          {
+            echo "### Relatorio do oraculo de camadas - Linux (${{ matrix.modo }})"
+            echo '```'
+            cat layers_oracle_report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: layers-oracle-report-linux-${{ strategy.job-index }}
+          path: layers_oracle_report.txt
+          retention-days: 7
+
   windows:
     name: Windows - ${{ matrix.modo }}
     runs-on: windows-latest
@@ -3179,11 +3219,50 @@ jobs:
           }
           Write-Host "ok: $total teste(s) no build Debug."
 
+      # PNC-FASES-SNAPSHOT (L-5h, gemeo do mesmo item do job `windows` -
+      # ver o comentario la para a medicao completa): copia LastTest.log
+      # ANTES de decidir sair, senao o relatorio do oraculo (abaixo)
+      # sumiria justo se a suite reprovasse.
       - name: Testes (Debug, suite inteira)
         shell: pwsh
         run: |
           ctest --test-dir build-debug --output-on-failure
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ctest_ec = $LASTEXITCODE
+          Copy-Item (Join-Path "build-debug" "Testing/Temporary/LastTest.log") (Join-Path "build-debug" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")
+          if ($ctest_ec -ne 0) { exit $ctest_ec }
+
+      # RELATORIO-ORACULO (L-5h): mesmo mecanismo dos jobs `linux`/
+      # `windows` - le o snapshot tirado pelo passo acima, nunca re-roda
+      # o oraculo. Este job liga GLINTFX_LAYERS_ORACLE incondicional
+      # (sem matrix), entao roda sempre, sem guarda de oracle_flag.
+      - name: Relatorio do oraculo de camadas (Debug)
+        if: always()
+        shell: pwsh
+        run: |
+          $log = Join-Path "build-debug" "Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if (-not (Test-Path $log)) {
+            Write-Error "snapshot de log preservado nao encontrado: $log"
+            exit 1
+          }
+          $linhas = @(Select-String -Path $log -SimpleMatch 'check_layers_oracle.py:')
+          Write-Host "linhas do relatorio do oraculo encontradas: $($linhas.Count)"
+          if ($linhas.Count -eq 0) {
+            Write-Error "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)"
+            exit 1
+          }
+          $linhas | ForEach-Object { $_.Line } | Set-Content -Path layers_oracle_report.txt
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Relatorio do oraculo de camadas - Windows Debug"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+          Get-Content -Path layers_oracle_report.txt | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+
+      - name: Publicar relatorio do oraculo de camadas (Debug)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layers-oracle-report-windows-debug
+          path: layers_oracle_report.txt
+          retention-days: 7
 
   # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez
   # entre compiladores diferentes da GODS_LAWS.md L-22 (o motivo dela e
@@ -3290,10 +3369,56 @@ jobs:
       # rotulo, verde - medido em container antes deste commit: 216/216
       # sob Clang e sob GCC, ~112s de parede (bem abaixo do teto de 40
       # min desta classe).
+      # PNC-FASES-SNAPSHOT (L-5h, gemeo do mesmo item do job `linux` -
+      # ver o comentario la para a medicao completa): `set -eux` sozinho
+      # sairia ANTES de qualquer copia se o ctest reprovasse, e o
+      # relatorio do oraculo (abaixo) sumiria justo no caso que mais
+      # importa registrar. `set +e`/`set -e` em volta: precisa do codigo
+      # de saida REAL do ctest (GODS_LAWS.md L-45), nunca de variavel
+      # perdida por `set -e` abortando a linha.
       - name: ctest (${{ matrix.modo }})
         run: |
           set -eux
+          set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          ctest_ec=$?
+          set -e
+          cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          exit $ctest_ec
+
+      # RELATORIO-ORACULO (L-5h): mesmo mecanismo do job `linux` - le o
+      # snapshot tirado pelo passo acima, nunca re-roda o oraculo. So'
+      # roda na perna compartilhada (`oracle_flag` ligado).
+      - name: Relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        run: |
+          set -eu
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if [ ! -f "$log" ]; then
+            echo "snapshot de log preservado nao encontrado: $log" >&2
+            exit 1
+          fi
+          grep '^check_layers_oracle.py:' "$log" > layers_oracle_report.txt || true
+          linhas=$(wc -l < layers_oracle_report.txt)
+          echo "linhas do relatorio do oraculo encontradas: $linhas"
+          if [ "$linhas" -eq 0 ]; then
+            echo "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          {
+            echo "### Relatorio do oraculo de camadas - Clang (${{ matrix.modo }})"
+            echo '```'
+            cat layers_oracle_report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: layers-oracle-report-clang-${{ strategy.job-index }}
+          path: layers_oracle_report.txt
+          retention-days: 7
 
   gitleaks:
     name: Gitleaks (scan de segredo)

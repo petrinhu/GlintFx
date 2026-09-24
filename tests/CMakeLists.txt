@@ -5817,7 +5817,18 @@ if(UNIX)
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)
     add_test(NAME wire_relay_selftest COMMAND wire_relay_selftest)
-    set_tests_properties(wire_relay_selftest PROPERTIES LABELS selftest)
+    # Both labels, on purpose (team-lead's finding, 24/09/2026): this
+    # is a compiled C++ binary doing real low-level I/O (socketpair,
+    # recvmsg/sendmsg/SCM_RIGHTS, raw memcpy) - exactly what stage_
+    # sanitizer's `ctest -L '^unit$'` filter (tools/preci.sh) exists to
+    # exercise under ASan/UBSan, unlike every OTHER *_selftest in this
+    # file (Python/shell gate self-tests, LABELS selftest only - see
+    # this same commit's own sweep in TODO.md/the report for which of
+    # those also do real memory/IO work). Without "unit" here, the
+    # sanitizer stage never ran this binary at all - proven absent
+    # (ctest -N -L '^unit$' on build-preci-sanitize) before this line,
+    # present after.
+    set_tests_properties(wire_relay_selftest PROPERTIES LABELS "selftest;unit")
 endif()
 
 # FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a

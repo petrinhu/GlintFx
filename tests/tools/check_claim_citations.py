@@ -77,6 +77,24 @@ import os
 import re
 import sys
 
+# GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md; achado de
+# 05/09/2026, GHA run 33986752839, job "Windows - compartilhado";
+# tests/tools/check_env_sweep.py's own header comment tem o relato
+# completo). A codificacao padrao de stdout/stderr e' um FATO DA
+# MAQUINA (UTF-8 no Linux/CI, cp1252 no console Windows) - este modulo
+# imprime os emblemas de status de TODO.md (✅/🔍/⏳) em varios pontos
+# (real_main(), validate_claim_exceptions(), o --selftest), e o
+# console Windows sem esta linha crasha com UnicodeEncodeError no
+# primeiro caractere fora de cp1252, a MESMA doenca que ja derrubou
+# check_test_parity.py's own validate_exceptions() (o remedio aqui e'
+# identico ao de la, arquivo inteiro, nunca por print). errors=
+# "backslashreplace" e' o fail-safe para o proximo simbolo que
+# TODO.md's status column ainda vai ganhar.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+
 import citation_grammar
 import check_selftest_orphan
 import test_name_inventory

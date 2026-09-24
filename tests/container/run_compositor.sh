@@ -59,6 +59,74 @@ start_compositor() {
     dbus-run-session -- kwin_wayland --virtual --socket "$socket_name" &
 }
 
+# WL-ACK-SMOKE-BLUNT A3b (docs/plano-w7c-adendo-revalidacao.md SS3.A,
+# N5/D-A3): "subida em dois tempos" - KWin comes up on an INTERNAL
+# socket name (never exposed to fixtures) first, THEN the relay takes
+# over the EXTERNAL name every fixture already connects to, itself a
+# client of the internal one. Backgrounded, same reasoning as
+# start_compositor() above (this process must not become the thing a
+# dead relay takes the container down with).
+start_relay() {
+    internal_socket_name="$1"
+    external_socket_name="$2"
+    log_file="$3"
+    wire_relay "$internal_socket_name" "$external_socket_name" >"$log_file" 2>&1 &
+}
+
+# The name run_compositor.sh's own two-stage startup uses for KWin -
+# never handed to a fixture, only to start_relay()'s own upstream arg.
+# A fixed suffix, not a random one: --selftest's own cases below (and
+# a human debugging a live container) can name it without reading this
+# script's PID first.
+internal_socket_name() {
+    external_socket_name="$1"
+    printf '%s-upstream\n' "$external_socket_name"
+}
+
+# Reads the LAST "connection closed" line wire_relay's own stdout
+# printed (serve_one_client() in wire_relay_main.cpp) and extracts the
+# message count it reports FROM THE CLIENT - the number A3b's own red
+# control ("zero reprova") exists to check. Empty output (no line
+# matched yet, or the log is still empty) is a legitimate "not ready
+# yet" signal, never an error by itself - the caller's own retry loop
+# is what turns repeated emptiness into a failure.
+relay_client_message_count() {
+    log_file="$1"
+    tail -n 1 "$log_file" 2>/dev/null |
+        sed -n 's/.* - \([0-9][0-9]*\) message(s) from client.*/\1/p'
+}
+
+# GLINTFX_RELAY_LOG_WAIT_TRIES/_SLEEP: only --selftest below overrides
+# these, same shape as GLINTFX_COMPOSITOR_WAIT_TRIES/_SLEEP above.
+: "${GLINTFX_RELAY_LOG_WAIT_TRIES:=10}"
+: "${GLINTFX_RELAY_LOG_WAIT_SLEEP:=1}"
+
+# The probe (wayland-info) and the relay are TWO SEPARATE PROCESSES:
+# wayland-info can exit(0) - compositor_probe() already returned - a
+# moment before the relay, on its own schedule, notices the client's
+# EOF, finishes serve_one_client() and flushes the "connection closed"
+# line this depends on. A single read right after the probe returns
+# races that write; this project has already measured concurrent load
+# turning a one-shot check into a false failure elsewhere (memoria
+# feedback_carga_concorrente_falseia_suite.md) - the same shape of bug,
+# caught here by reasoning before it reproduced live. A short retry
+# turns the race into a genuine wait, the same idiom wait_for_
+# compositor_ready() already uses for the probe itself.
+wait_for_relay_log_count() {
+    log_file="$1"
+    tries=0
+    while [ "$tries" -lt "$GLINTFX_RELAY_LOG_WAIT_TRIES" ]; do
+        count="$(relay_client_message_count "$log_file")"
+        if [ -n "$count" ] && [ "$count" -gt 0 ]; then
+            printf '%s\n' "$count"
+            return 0
+        fi
+        tries=$((tries + 1))
+        sleep "$GLINTFX_RELAY_LOG_WAIT_SLEEP"
+    done
+    return 1
+}
+
 # GLINTFX_COMPOSITOR_WAIT_TRIES/_SLEEP: only --selftest below overrides
 # these (to run its RED/GREEN cases in well under a second instead of
 # the real 30x1s budget) - production callers never set them, so the
@@ -127,6 +195,25 @@ wait_for_compositor_ready() {
         sleep "$GLINTFX_COMPOSITOR_WAIT_SLEEP"
     done
     fail "kwin_wayland nao aceitou conexao real em ${GLINTFX_COMPOSITOR_WAIT_TRIES}x${GLINTFX_COMPOSITOR_WAIT_SLEEP}s"
+}
+
+# WL-ACK-SMOKE-BLUNT A3b: the SECOND compositor_probe() the plan
+# demands - "de novo, agora ATRAVES do rele". Reuses wait_for_
+# compositor_ready() itself for the TCP-equivalent-connects half (a
+# probe through the relay is still just wayland-info against a
+# socket), then adds the part specific to going through a relay: the
+# relay's OWN stdout has to show it actually decoded something from
+# that probe - GODS_LAWS.md L-40, "zero reprova" (docs/plano-w7c.md
+# SS3.A, A3b's own red control - a relay that accepts the connection
+# but never really parses the wire is indistinguishable from no relay
+# at all, unless something checks past the socket accept).
+wait_for_relay_ready() {
+    external_socket_name="$1"
+    log_file="$2"
+    wait_for_compositor_ready "$external_socket_name"
+    if ! wait_for_relay_log_count "$log_file" >/dev/null; then
+        fail "rele aceitou a conexao mas decodificou zero mensagens do cliente (log: $(tail -n 3 "$log_file" 2>/dev/null | tr '\n' ' '))"
+    fi
 }
 
 # --- --selftest: prova o laco acima SEM Docker/kwin_wayland nenhum
@@ -220,7 +307,79 @@ FAKE_WAYLAND_INFO
     exit 99
 )
 
-run_selftest() {
+# WL-ACK-SMOKE-BLUNT A3b, CASO VERMELHO 1: "rele que nunca aceita" -
+# a extensao especifica de wait_for_relay_ready() (a segunda metade,
+# sobre wait_for_compositor_ready() que os casos acima ja cobrem). O
+# mesmo idioma de selftest_case_never_ready: fail() sai com `exit`, o
+# `exit 42` abaixo so e alcancado se a funcao voltasse normalmente por
+# engano.
+selftest_case_relay_never_accepts() (
+    compositor_probe() { return 1; }
+    GLINTFX_COMPOSITOR_WAIT_TRIES=3
+    GLINTFX_COMPOSITOR_WAIT_SLEEP=0
+    fake_log="$(mktemp "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-relaylog-XXXXXX")" || exit 1
+    trap 'rm -f "$fake_log"' EXIT
+    wait_for_relay_ready "selftest-relay-never" "$fake_log" >/dev/null 2>&1
+    exit 42
+)
+
+# CASO VERMELHO 2: "rele pronto com compositor morto" - o soquete
+# aceita (a sonda do lado de fora nunca saberia a diferenca sozinha),
+# mas o proprio log do rele mostra zero mensagens decodificadas da
+# sonda - o sintoma real de um rele cujo lado de cima (o KWin interno)
+# morreu ou nunca respondeu nada de util. wait_for_relay_ready() tem
+# que reprovar por ISSO, nao pela conexao em si (que aqui sempre
+# aceita).
+selftest_case_relay_ready_but_zero_messages() (
+    compositor_probe() { return 0; }
+    # Orcamento pequeno so' para este caso rodar rapido: o log ja' tem
+    # a linha de "0 message(s)" ANTES de wait_for_relay_ready() ser
+    # chamada, entao nao ha corrida real a esperar aqui - so' se quer
+    # que o retry de wait_for_relay_log_count() (que agora existe por
+    # causa da corrida real entre o processo do rele e o processo da
+    # sonda) nao segure o selftest pelos 10x1s de producao.
+    GLINTFX_RELAY_LOG_WAIT_TRIES=2
+    GLINTFX_RELAY_LOG_WAIT_SLEEP=0
+    fake_log="$(mktemp "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-relaylog-XXXXXX")" || exit 1
+    trap 'rm -f "$fake_log"' EXIT
+    printf 'wire_relay: connection closed - 0 message(s) from client, 0 from upstream, 0 violation(s)\n' \
+        >"$fake_log"
+    wait_for_relay_ready "selftest-relay-zero" "$fake_log" >/dev/null 2>&1
+    exit 42
+)
+
+# CONTROLE POSITIVO do proprio retry (o par de selftest_case_ready_
+# after_delay acima, agora para wait_for_relay_log_count()): a linha
+# "connection closed" so' aparece no log DEPOIS de um pequeno atraso -
+# a mesma corrida real entre o processo do rele e o processo da sonda
+# que motivou o retry existir (comentario de wait_for_relay_log_count()
+# acima). wait_for_relay_ready() tem que ESPERAR a linha aparecer, nao
+# reprovar so' porque a primeira leitura veio vazia.
+selftest_case_relay_log_arrives_late() (
+    compositor_probe() { return 0; }
+    GLINTFX_RELAY_LOG_WAIT_TRIES=20
+    GLINTFX_RELAY_LOG_WAIT_SLEEP=0.05
+    fake_log="$(mktemp "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-relaylog-XXXXXX")" || exit 1
+    trap 'rm -f "$fake_log"' EXIT
+    (
+        sleep 0.2
+        printf 'wire_relay: connection closed - 3 message(s) from client, 3 from upstream, 0 violation(s)\n' \
+            >"$fake_log"
+    ) &
+    if ! wait_for_relay_ready "selftest-relay-late" "$fake_log" >/dev/null 2>&1; then
+        echo "SELFTEST FALHOU: linha do rele chegando atrasada devia ter sido esperada, nao reprovada direto" >&2
+        exit 1
+    fi
+    echo "selftest: rele que escreve a linha do log com atraso foi esperado (nao reprovado direto) - OK"
+)
+
+# GODS_LAWS.md L-17: run_selftest() e' o proprio exemplo do arquivo de
+# onde monolito nasce por conveniencia (cada caso novo "e' so' mais um
+# bloco" - a quinta pergunta do revisor). Dividida por LADO (compositor
+# puro x rele, N5/D-A3): cada uma tem razao propria de crescer, e
+# ambas usam `return` (nao `exit`) porque run_selftest() as chama numa
+# chamada de funcao normal, nao numa subshell propria.
+run_selftest_compositor_cases() {
     ok=0
 
     rc=0
@@ -254,6 +413,42 @@ run_selftest() {
         echo "selftest: sonda pendurada (fake wayland-info) cortada por GLINTFX_COMPOSITOR_PROBE_TIMEOUT, laco terminou em ${elapsed}s (codigo=$rc), dentro do orcamento - OK"
     fi
 
+    return "$ok"
+}
+
+# WL-ACK-SMOKE-BLUNT A3b: os tres casos que so' existem por causa do
+# rele (os dois do plano, N5/D-A3, mais o controle positivo do proprio
+# retry de wait_for_relay_log_count() acima).
+run_selftest_relay_cases() {
+    ok=0
+
+    rc=0
+    selftest_case_relay_never_accepts || rc="$?"
+    if [ "$rc" -eq 42 ]; then
+        echo "SELFTEST FALHOU: rele que nunca aceita conexao foi declarado pronto" >&2
+        ok=1
+    else
+        echo "selftest: rele que nunca aceita conexao reprovou o laco (codigo=$rc), como esperado - OK"
+    fi
+
+    rc=0
+    selftest_case_relay_ready_but_zero_messages || rc="$?"
+    if [ "$rc" -eq 42 ]; then
+        echo "SELFTEST FALHOU: rele com zero mensagens decodificadas foi declarado pronto" >&2
+        ok=1
+    else
+        echo "selftest: rele que aceita mas decodifica zero mensagens reprovou (codigo=$rc), como esperado - OK"
+    fi
+
+    selftest_case_relay_log_arrives_late || ok=1
+
+    return "$ok"
+}
+
+run_selftest() {
+    ok=0
+    run_selftest_compositor_cases || ok=1
+    run_selftest_relay_cases || ok=1
     [ "$ok" -eq 0 ] || fail "selftest reprovou (ver mensagens acima)"
     echo "run_compositor.sh --selftest: todos os casos passaram"
 }
@@ -275,8 +470,13 @@ main() {
     require_socket_name_arg "$@"
     create_private_runtime_dir
     export_runtime_env
-    start_compositor "$1"
-    wait_for_compositor_ready "$1"
+    external_socket_name="$1"
+    upstream_socket_name="$(internal_socket_name "$external_socket_name")"
+    relay_log_file="$RUNTIME_DIR/wire_relay.log"
+    start_compositor "$upstream_socket_name"
+    wait_for_compositor_ready "$upstream_socket_name"
+    start_relay "$upstream_socket_name" "$external_socket_name" "$relay_log_file"
+    wait_for_relay_ready "$external_socket_name" "$relay_log_file"
     stay_up_forever
 }
 

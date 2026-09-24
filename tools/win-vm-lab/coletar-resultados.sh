@@ -1060,6 +1060,51 @@ selftest_bloco_padrao_2mib() {
   return 1
 }
 
+# --CHUNK-BYTES EXPLICITO (achado da revisao independente, 23/09/2026,
+# INBOX resolvida aqui): BLOCO-PADRAO-2MIB acima so exercita o caminho
+# "sem a flag" (default). Um mutante que fizesse o despacho da CLI
+# IGNORAR `--chunk-bytes` explicito (`--chunk-bytes) shift 2 ;;`, sem
+# atribuir a `CHUNK_BYTES`) passava 100% sem ser pego - nenhum selftest
+# chamava o script COM a flag. Esta prova fecha o outro lado: chama
+# "$SCRIPT_PATH" com `--chunk-bytes` explicito, valor DIFERENTE do
+# padrao (para nao coincidir por acidente com 2097152), e exige que o
+# primeiro count pedido seja exatamente esse valor.
+selftest_chunk_bytes_explicito() {
+  local work_dir="$1" stub_dir state_dir conteudo destino_dir primeiro_count saida rc ok=1
+  local valor_explicito=131072   # 128 KiB - deliberadamente != CHUNK_BYTES_PADRAO (2 MiB)
+
+  stub_dir="${work_dir}/cbe-bin"
+  state_dir="${work_dir}/cbe-state"
+  destino_dir="${work_dir}/cbe-destino"
+  mkdir -p "$stub_dir" "$state_dir" "$destino_dir"
+  escrever_duble_virsh "$stub_dir"
+
+  conteudo="${state_dir}/conteudo.bin"
+  head -c 1048576 /dev/urandom >"$conteudo"   # 1 MiB: maior que o valor_explicito, para pedir mais de um bloco
+
+  echo ">>> CHUNK-BYTES-EXPLICITO: o SCRIPT COMO SUBPROCESSO, COM --chunk-bytes ${valor_explicito}, tem de PEDIR exatamente esse valor, nao o padrao"
+  saida="$(DUBLE_STATE_DIR="$state_dir" PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" 'C:\Users\glintfx\resultados' "$destino_dir" --chunk-bytes "$valor_explicito" 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> rc do script (esperado 0): ${rc}"
+
+  primeiro_count="$(head -1 "${state_dir}/counts-recebidos" 2>/dev/null)"
+  echo "primeiro count PEDIDO DE VERDADE ao agente: ${primeiro_count} (esperado ${valor_explicito}, o valor explicito, nunca o padrao)"
+
+  if [ "$rc" -ne 0 ]; then
+    echo "CHUNK-BYTES-EXPLICITO FALHOU: o script (subprocesso) falhou (rc=${rc})."
+    ok=0
+  elif [ "$primeiro_count" != "$valor_explicito" ]; then
+    echo "CHUNK-BYTES-EXPLICITO FALHOU: o primeiro count pedido foi '${primeiro_count}', nao ${valor_explicito} -- o despacho ignorou a flag explicita."
+    ok=0
+  else
+    echo "CHUNK-BYTES-EXPLICITO OK: o despacho real respeitou --chunk-bytes explicito."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
 selftest() {
   local work_dir ok=1
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
@@ -1083,9 +1128,11 @@ selftest() {
   echo
   selftest_bloco_padrao_2mib "$work_dir" || ok=0
   echo
+  selftest_chunk_bytes_explicito "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA e BLOCO-PADRAO-2MIB se comportaram como esperado."
+    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA, BLOCO-PADRAO-2MIB e CHUNK-BYTES-EXPLICITO se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

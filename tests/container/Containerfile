@@ -1050,6 +1050,24 @@ COPY wire_relay/ /build/wire_relay/
 # output file .../wire_relay: É um diretório`, check_container_
 # fixture_link.py --exec, 24/09/2026) - the final image still exposes
 # it as plain "wire_relay" (COPY --from=... below renames it back).
+# CONTAINER-LEAK-COUNTER (achado do servidor, run 36013138929 sobre
+# 203f511, GODS_LAWS.md L-40): "Substitutos de alocacao presentes
+# (prova 1)" deriva a lista de fixtures a checar direto de TODA linha
+# `COPY --from=arch-ports-builder` do Containerfile (mesma fonte de
+# verdade que check_container_fixture_inventory_test ja usa) - o
+# wire_relay entrou nessa lista no commit A3 (COPY --from=... abaixo),
+# mas esta invocacao nunca linkou o gancho, e o passo reprovou nas
+# duas pernas por isso, nao pelo commit desta fatia que so tocou o
+# inventario de paridade (achado confirmado por leitura, nao suposto:
+# `grep -E '^COPY --from=arch-ports-builder ' Containerfile` ja
+# incluia "wire_relay" antes de qualquer commit de hoje). Decisao
+# (fonte, nao suposicao): LIGAR o contador aqui, nao isentar - o rele
+# e um daemon de longa duracao que aloca wire_object_table/wire_rule_
+# engine POR CONEXAO (A3's proprio commit), o candidato mais provavel
+# a vazamento por ciclo desta imagem inteira, e as outras dezoito
+# fixtures ja tem o mesmo gancho ligado (CONTAINER-LEAK-COUNTER S2,
+# 8372908) - isentar precisaria de motivo mais forte que "ainda nao
+# tinha", que e' so' descuido do commit A3, nao desenho.
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -o /build/wire_relay_bin \
         /build/wire_relay/wire_relay_main.cpp \
@@ -1059,7 +1077,9 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/wire_relay/wire_error_injector.cpp \
         /build/wire_relay/wire_transport.cpp \
         /build/wire_relay/wire_relay_pipeline.cpp \
-        /build/wire_relay/wire_message.cpp
+        /build/wire_relay/wire_message.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp
 
 FROM fedora:44
 

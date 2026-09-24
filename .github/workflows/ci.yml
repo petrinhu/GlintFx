@@ -1520,24 +1520,8 @@ jobs:
 
       # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
       # interagir. Este passo roda antes do smoke test de proposito.
-      #
-      # WL-ACK-SMOKE-BLUNT A3b: o `echo` abaixo alimenta o inventario
-      # de paridade (check_container_fixture_inventory.py --compare,
-      # tests/tools/check_container_fixture_inventory.py's proprio
-      # cabecalho) com "wire_relay" - check_isolation.sh, chamado
-      # nesta MESMA linha, e' quem de fato prova que o binario do rele
-      # esta vivo dentro do container (PID + socket + lsof, ver o
-      # commit que estendeu esse script), entao este e' o lugar honesto
-      # para o append: nao ha um `docker exec ... wire_relay` isolado
-      # em passo proprio (o binario e' um daemon de longa duracao que o
-      # proprio ENTRYPOINT sobe, nunca uma fixture com veredito de
-      # pass/fail chamada a parte), mas a prova de que ele existe e
-      # funciona dentro do container ja acontece bem aqui.
       - name: Isolamento provado (controle positivo)
-        run: |
-          set -eu
-          tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
-          echo "wire_relay" >> parity_inventory.txt
+        run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
 
       # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
       # /var/tmp/glintfx-plan/cauda-w6b.md sec. 2.1/4.1): responde a
@@ -1636,6 +1620,22 @@ jobs:
       # nunca aparece aqui como se tivesse passado).
       - name: Inicia o inventario de fixtures do container (P-0)
         run: rm -f parity_inventory.txt && touch parity_inventory.txt
+
+      # WL-ACK-SMOKE-BLUNT A3b (conserto de ordem, achado proprio antes
+      # do push - GODS_LAWS.md L-40): a primeira versao deste append
+      # vivia dentro do passo "Isolamento provado" ACIMA do reset acima
+      # ("Comeca vazio a cada run") - o `rm -f && touch` seguinte
+      # APAGAVA o append antes de qualquer outro passo ler o arquivo,
+      # entao "wire_relay" nunca sobrevivia ate o fim, apesar do portao
+      # de fiacao (check_container_fixture_inventory.py) passar verde
+      # (ele so le o TEXTO do ci.yml, nunca simula a ordem real de
+      # execucao dos passos). O append tem que vir DEPOIS do reset,
+      # mesmo padrao dos dezenove abaixo - check_isolation.sh (passo
+      # anterior a este bloco inteiro) e quem ja provou que o binario
+      # esta vivo (PID + socket + lsof); este passo so registra o nome
+      # no lugar certo da ordem.
+      - name: Registra wire_relay no inventario (rele ja provado vivo por check_isolation.sh)
+        run: echo "wire_relay" >> parity_inventory.txt
 
       # MEASURED-COLLECTOR (achado do time-lead, 06/09/2026): este
       # arquivo acumula, via `tee -a` em cada passo `docker exec`

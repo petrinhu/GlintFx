@@ -4304,3 +4304,52 @@ Quem decidiu: Caetano. Opções: um push por sub-fatia; **um push para as quatro
 **Fato (Caetano/CTO, medido só com leitura, conferido pelo main):** `tests/parity_exceptions.txt:406` aponta para WIN-RUNNER-PROPRIO, que o commit 84877aa marcou ✅. `validate_exceptions()` (check_test_parity.py:708-731) reprova exceção cujo item está concluído, então o CI de fechamento em 023e1c7 reprovaria no passo `check_test_parity.py --compare`. O comentário da própria linha (390-394) diz que ela só morre quando houver fixture Windows REAL com mutação. Isso não foi entregue: V-6b e V-7 saíram para WIN-LAB-INSTALAR (W9).
 
 **Decisão do main:** o dono da linha passa a ser WIN-LAB-INSTALAR, o item que liga o convidado para instalar e rodar coisa real. Os comentários 390-394 e 502-508 mudam junto, com o motivo. Apagar a linha seria mentira (o par Windows não existe), e deixar o item fechado com a linha apontando para ele reprova o portão, que foi feito exatamente para isso. Lição: o fecho de um item tem de varrer `tests/parity_exceptions.txt` e `tests/parity_aliases.txt` atrás do ID que está sendo fechado. Confirmar retroativamente.
+
+## 24/09/2026 - 00:20 | W7-C: revalidação do plano (Caetano/CTO) e ataque independente
+
+**Plano:** `docs/plano-w7c.md` (06:44 de 23/09), emendado por `docs/plano-w7c-adendo-revalidacao.md` (revalidação contra a árvore em 7d09889) e pelo ataque `/var/tmp/glintfx-plan/ataque-w7c.md` (APROVA COM EMENDAS, zero bloqueantes; emenda de F0 aplicada). As decisões abaixo são as da §6 do adendo, transcritas; o texto integral está lá. Confirmar retroativamente.
+
+
+Para o main registrar ao vivo. Quem decidiu: Caetano (CTO, `opus`, esforço alto), em modo autônomo. Nenhuma muda o que a biblioteca aceita ou entrega: todas são do instrumento de teste e da tabela. Todas: confirmar retroativamente.
+
+**D-A1: a linha `LINK-PREFIX-RESIDUOS` é registrada agora, antes de despachar.**
+Pergunta que teria ido ao líder: "a D6 do plano nunca foi executada; registramos a linha ou deixamos os resíduos na INBOX?" Opções: deixar na INBOX; **registrar agora (escolhida)**. Porquê: a D6 já foi decidida e ratificável; o que faltou foi execução, não decisão. Mão única: não. Reverter: barato. Fonte: F1 (medição).
+
+**D-A2: o relé mora em `tests/container/wire_relay/` e entra no banco de compilação por listagem explícita, não recursiva.**
+Opções: arquivos soltos em `tests/container/`; `GLOB_RECURSE`; **segunda listagem explícita (escolhida)**. Porquê: `GLOB_RECURSE` traria a pasta de encenação `_arch_ports_src/` (cópias de fontes do produto) em duplicata; arquivos soltos misturam o relé com as fixturas. Mão única: não. Reverter: barato. Fontes: N7 (medição do `pathspec` e da listagem); nenhuma externa necessária, a pergunta é da casa.
+
+**D-A3: a subida do compositor passa a ter duas sondas, antes e através do relé.**
+Opções: sonda só no relé; **as duas (escolhida)**. Porquê: sonda só no relé não distingue "compositor não subiu" de "relé quebrado"; a segunda sonda é a primeira prova viva do modo transparente. Mão única: não. Reverter: barato. Fonte: N5 (o desenho de prontidão que CONT-WARMUP já provou).
+
+**D-A4: o fim de conexão tem de sair igual com e sem relé; se não sair, a fixtura fica fora do relé, nunca ajustada.**
+Opções: aceitar a sequência nova; **exigir a mesma, com saída por lista fechada (escolhida)**. Porquê: `fatal_error_smoke` mede um comportamento do núcleo que o produto precisa tratar; um relé que o altere faria a fixtura medir o relé. Mão única: não. Reverter: barato. Fonte: N6.
+
+**D-A5: linha nova `PARITY-LOCAL-MIRROR`, com modo textual dos dois portões de paridade no `ctest` dos dois sistemas.**
+Pergunta: "o portão de paridade só morde no servidor; aceitamos, rodamos o portão inteiro local, ou rodamos localmente a metade que não depende de inventário?" Opções: aceitar; prever o inventário do Windows lendo o `CMakeLists`; **metade textual, com a outra metade declarada como perda (escolhida)**. Porquê: duas quedas medidas em dois dias (N2, N3); a previsão de inventário já foi medida enganosa ("`ctest -N` mede só metade"); a metade textual é idêntica em qualquer máquina. Mão única: não. Reverter: barato. Fontes: N2, N3, N4; ESLint e Rust (seção 2.C do plano: aviso é ignorado, reprovar é o remédio maduro) valem aqui também.
+
+**D-A6: `PARITY-ALIAS-HYGIENE` fecha com a revisão da P-4, sem sub-fatia nova.**
+Opções: acrescentar o modo local ao próprio item; **fechar e abrir linha própria (escolhida)**. Porquê: o item já passou por quatro sub-fatias e seus critérios estão cumpridos; o defeito novo é de outra natureza. Mão única: não. Reverter: barato.
+
+**D-A7: o portão de escopo de plano confere um esquema v1 declarado por nome de coluna, com lista de legado fechada que só encolhe; substitui o reconhecimento heurístico de D17.**
+Pergunta: "reconhecemos cada forma de tabela que os planos inventaram, reescrevemos os planos antigos, ou fixamos um esquema?" Opções: heurística (D17); reescrever os 16 planos; **esquema v1 + legado fechado + converter só o plano ainda não executado (`w7d`) (escolhida)**. Porquê: medido, a heurística alcança 5 de 16 e já perdeu um pela troca de uma palavra; plano executado é registro datado e não se reescreve; Sphinx-Needs e Doorstop mostram que a ferramenta madura exige esquema e reprova quem sai dele. Mão única: não. Reverter: barato. Fontes: 1.B; seção 2. **Emenda de 24/09 (ataque independente, achado IMPORTANTE):** cada linha da lista de legado traz categoria de lista fechada conferida contra o conteúdo do plano (`sem-tabela-de-fatia`, `tabela-fora-do-esquema`) e motivo com piso medível (vazio, menos de cinco palavras, marcador de lista fechada ou cópia de outra linha reprovam). Porquê: declaração em prosa não conferida é exatamente o defeito que `PARITY-ALIAS-HYGIENE` corrigiu em `bilateral=<motivo>`; a categoria conferida é a metade que a máquina garante, e o piso do motivo só barra o preenchimento vazio, declarado assim no cabeçalho.
+
+**D-A8: um analisador léxico de CMake só (`tests/tools/cmake_lexer.py`), consumido pelo inventário novo e pelos três leitores que existem; absorve `WIN-CROSS-GATE-CMAKE-LEXER`.**
+Opções: consertar só o leitor da INBOX; **átomo único e migração dos três (escolhida)**. Porquê: três leitores, três cortes de comentário diferentes, um deles com direção de verde falso (3.E); a regra de três está cumprida por medição. Mão única: não. Reverter: médio (três arquivos voltam ao corte próprio). Fonte: `cmake-language(7)`.
+
+**D-A9: o portão de contagem mantém o universo do portão de travessão, ganha a regra da data e nenhuma isenção nova.**
+Opções: estreitar o universo para `.md`; isentar texto entre aspas e parâmetro de desenho; **manter o universo, só a regra da data (escolhida)**. Porquê: estreitar afrouxa um portão; isenção por aspas é furo; a regra da data corrige um falso positivo medido sem abrir nada. Mão única: não. Reverter: barato. Fonte: F13, F14 (medição); Vale `existence` (seção 2.D do plano: vocabulário nomeado, exceção explícita).
+
+**D-A10: `WIN-CROSS-GATE-L17` não entra na onda; a função das 16 que E1c tocar sai dentro dos tetos no mesmo commit.**
+Opções: refatorar as 16 na W7-C; **regra do escoteiro só no que for tocado (escolhida)**; nada. Porquê: é débito de forma, sem defeito de medição (não é a família desta onda), num portão cujo autoteste mais pesado precisa do compilador real; a L-17 cobra a unidade tocada na revisão da fatia. Mão única: não. Reverter: barato. **Recomendação ao main, não decisão:** juntar `WIN-CROSS-GATE-L17` e `PARITY-GATE-DEBITO-L17-PRE-EXISTENTE` numa linha única de débito de forma dos portões, quando a tabela abrir espaço (congelamento de 27/08 até `DEMO-1`).
+
+**D-A11: linha nova `LAYERS-ORACLE-REPORT`, absorvendo três entradas da INBOX, com o conserto do buffer para todo portão Python.**
+Opções: consertar só o oráculo; deixar na INBOX; **linha própria, com o gêmeo de N9 incluído (escolhida)**. Porquê: J1 é verde falso no passo que existe para acusar ausência (N8); o buffer é o comportamento documentado do Python e atinge todos os portões (N9, L-17). Mão única: não. Reverter: barato. Fontes: `sys.stdout` e `-u` (seção 2); run `35946636755` (medido pela INBOX).
+
+**D-A12: `LAYERS-ORACULO-MSVC-CR-SOLITARIO` e `CENSO-STDLIB-GXX14-ACIMA-DO-PISO` ficam fora da W7-C.**
+Porquê: o primeiro é pergunta de desenho do portão de camadas com erro na direção segura: nos casos `M3` e `M15` (`check_layers.py:2891`, `:2964`), o portão reprova um `#include` que o MSVC nunca vê, porque ali o `\r` sozinho não quebra linha; é vermelho a mais no MSVC, nunca verde falso (`INF`, lido no código, não executado). O segundo é fato registrado "sem ação pendente" pela própria entrada. Mão única: não.
+
+**D-A13: ordem da onda com um implementador por vez na árvore (seção 5).**
+Opções: as duas pistas do plano; **fila única com laboratório do relé fora da árvore (escolhida)**. Porquê: é a restrição do pedido, e as colisões de arquivo medidas no plano (seção 8 dele) continuam valendo. Mão única: não. Reverter: barato.
+
+---
+

@@ -5666,6 +5666,22 @@ set_tests_properties(claim_citations_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# DOCS-COUNT-VOCAB sub-fatia D1b (achado do main, 24/09/2026,
+# check_selftest_orphan_test #223): citation_grammar.py declara
+# --selftest no proprio analisador desde a D1, mas nenhum add_test()
+# o citava - o portao de orfaos (GATE-SELFTEST-ORFAO) pegou certo.
+# Registrado aqui, sem guarda de sistema (L-04) e sem excecao em
+# selftest_orphan_exceptions.txt - o registro e' o conserto, nao uma
+# excecao a documentar.
+add_test(
+    NAME citation_grammar_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/citation_grammar.py" --selftest
+)
+set_tests_properties(citation_grammar_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # DOCS-COUNT-VOCAB sub-fatias D1/D2/D2b (docs/plano-w7c.md sec. 3.D,
 # decisoes D11-D14; docs/plano-w7c-adendo-revalidacao.md sec. 3.D,
 # decisao D-A9): vocabulario fechado de forma de contagem, universo

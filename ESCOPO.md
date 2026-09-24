@@ -77,7 +77,7 @@ Fronteira registrada: `libwayland-client` conta como API do sistema (mesma categ
 
 **ESCLARECIMENTO DE FRONTEIRA, 28/08/2026 — ferramenta de build NÃO é dependência, e `python3` entra nessa categoria.** Decisão do líder via `AskUserQuestion`, ao autorizar o portão que faz esta lei valer sozinha: *"Sim, Python como ferramenta de construção"*.
 
-**A fronteira que isto fixa:** o que **entra no artefato entregue** é dependência e está proibido; o que **só ajuda a construir ou a verificar, e nunca é linkado**, não é — mesma categoria em que `pkg-config`, `wayland-scanner`, CMake, Ninja e `ctest` já viviam sem ninguém questionar. `python3` está instalado de fábrica nos cinco alvos e não toca o binário.
+**A fronteira que isto fixa:** o que **entra no artefato entregue** é dependência e está proibido; o que **só ajuda a construir ou a verificar, e nunca é linkado**, não é — mesma categoria em que `pkg-config`, `wayland-scanner`, CMake, Ninja e `ctest` já viviam sem ninguém questionar. `python3` é ferramenta de construção e verificação, instalada explicitamente no preparo de cada ambiente (o próprio CI já a instala; a frase antiga, "instalado de fábrica nos cinco alvos", foi corrigida pelo líder em 24/09/2026 depois de o CTO medir que não valia), e não toca o binário.
 
 **Por que a pergunta chegou a ele em vez de o agente decidir:** seria o **primeiro arquivo Python do projeto** (medido: zero arquivos `.py` rastreados, zero menção a Python no fluxo de CI e nos 23 portões), então é precedente de casa, não só aplicação de regra existente.
 

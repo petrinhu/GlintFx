@@ -1795,6 +1795,23 @@ jobs:
           tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} egl_protocol_error_smoke
           echo "egl_protocol_error_smoke" >> parity_inventory.txt
 
+      # EGL-DEAD-DISPLAY-GUARD S0 (/var/tmp/glintfx-plan/plano-segv-
+      # swap-protocol-error.md sec. 3, D-S8, GODS_LAWS.md L-20): reproduz
+      # o defeito que esta linha inteira do item existe para fechar - o
+      # ramo vsync=off de swap_buffers() respondendo `presented` sobre
+      # uma conexao ja morta, porque o llvmpipe/swrast do Mesa devolve
+      # EGL_TRUE incondicionalmente (plano sec. 1.1). Roda logo depois
+      # de egl_protocol_error_smoke pelo mesmo motivo dos passos acima -
+      # precisa do compositor vivo - e antes de gl_context_parity_test
+      # de proposito: e' a fixture PERMANENTE que prova o vermelho de
+      # hoje e o verde depois de S2 landar, nao a variante com mutacao
+      # (essa mora numa copia fora da arvore, GODS_LAWS.md L-27).
+      - name: EGL-DEAD-DISPLAY-GUARD S0 - erro lido dentro do proprio swap (vsync=off)
+        run: |
+          set -eu -o pipefail
+          tests/container/exec_fixture.sh ${{ matrix.perna == 'asan' && env.GLINTFX_ASAN_RUNTIME_OPTS || '' }} glintfx-wltest-clean-${{ matrix.perna }} egl_error_read_inside_swap_smoke
+          echo "egl_error_read_inside_swap_smoke" >> parity_inventory.txt
+
       # GL-CONTEXT fatia 5, P-GL (docs/plano-w6b-fatias-5.md, D-W6b-29):
       # a paridade do gltfx_gl_context contra este MESMO compositor
       # real, atraves so' da API PUBLICA - o gemeo de window_parity_

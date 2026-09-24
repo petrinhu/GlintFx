@@ -109,6 +109,18 @@ egl_probe_smoke|windows|nenhum|SEM-PENDENCIA
 # universo de nomes (interfaces Wayland) que este portao compara.
 egl_protocol_error_smoke|windows|nenhum|SEM-PENDENCIA
 
+# egl_error_read_inside_swap_smoke (tests/container/egl_error_read_
+# inside_swap_smoke.cpp, EGL-DEAD-DISPLAY-GUARD S0, /var/tmp/glintfx-
+# plan/plano-segv-swap-protocol-error.md) prova que o ramo vsync=off de
+# swap_buffers() nunca responde `presented` sobre uma conexao Wayland
+# ja morta - defeito ESPECIFICO do backend llvmpipe/swrast do Mesa
+# (dri2_wl_swrast_swap_buffers_with_damage devolvendo EGL_TRUE
+# incondicionalmente, plano sec. 1.1). O Windows nao tem fio com
+# compositor nem esse backend de software especifico do Mesa - mesma
+# categoria de ausencia que egl_protocol_error_smoke, acima, ja declara
+# para o universo de erro de protocolo Wayland.
+egl_error_read_inside_swap_smoke|windows|nenhum|SEM-PENDENCIA
+
 # surface_size_policy_adapter_test (tests/container/surface_size_
 # policy_adapter_test.cpp, TODO.md SURFACE-SIZE-POLICY-ADAPTER-GAP,
 # docs/plano-w6b-placa-e-laco.md D-W6b-5) prova que resize_surface_

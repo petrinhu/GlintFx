@@ -5655,12 +5655,43 @@ set_tests_properties(cmake_lexer_selftest PROPERTIES
 # CLAIM-CITATIONS sub-fatia E1: inventario fechado de nomes de teste
 # (add_test(NAME ...)/glintfx_add_test() de tests/CMakeLists.txt via
 # cmake_lexer, fixturas do container, casos GLINTFX_TEST do harness
-# proprio) - fundacao que E3 (fora desta ordem) vai consumir para
-# validar toda citacao "Proved by: <nome>" em cabecalho publico.
+# proprio) - fundacao que E3 (abaixo) consome para validar toda
+# citacao "Proved by: <nome>" em cabecalho publico. Renomeado de
+# claim_citations_selftest para test_name_inventory_selftest em E3
+# (24/09/2026) - a mesma convencao um-script-um-selftest que cmake_
+# lexer_selftest/citation_grammar_selftest/docs_count_vocab_selftest
+# ja seguem neste arquivo; o nome "claim_citations_selftest" passa a
+# pertencer ao proprio check_claim_citations.py, logo abaixo.
+add_test(
+    NAME test_name_inventory_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_name_inventory.py" --selftest
+)
+set_tests_properties(test_name_inventory_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
+# CLAIM-CITATIONS sub-fatia E3 (docs/plano-w7c.md sec. 3.E; docs/plano-
+# w7c-adendo-revalidacao.md sec. 3.E): o portao real. claim_citations_
+# test varre include/**/*.hpp atras do vocabulario fechado de D15
+# (igualdade entre sistemas / medicao) e reprova qualquer alegacao sem
+# uma das tres formas de citacao (teste citado, static_assert nomeado,
+# "by construction") nem excecao valida em tests/claim_exceptions.txt -
+# GODS_LAWS.md L-40 (piso de varredura nao-vazia) aplicado tambem ao
+# proprio arquivo de excecoes (regra de morte identica a check_test_
+# parity.py's own alias hygiene, C3).
+add_test(
+    NAME claim_citations_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claim_citations.py"
+        --check "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(claim_citations_test PROPERTIES LABELS consume)
+
 add_test(
     NAME claim_citations_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_name_inventory.py" --selftest
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_claim_citations.py" --selftest
 )
 set_tests_properties(claim_citations_selftest PROPERTIES
     LABELS selftest

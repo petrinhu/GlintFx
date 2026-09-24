@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# CLAIM-CITATIONS exceptions file (TODO.md item CLAIM-CITATIONS,
+# docs/plano-w7c.md sec. 3.E, decisoes D14/D15). Consumido por
+# tests/tools/check_claim_citations.py.
+#
+# Uma linha aqui declara que um comentario publico (include/**/*.hpp)
+# alega comportamento medido/igual-entre-sistemas SEM citar teste,
+# static_assert ou "by construction" agora - POR QUE ISSO E ACEITAVEL
+# HOJE, nunca uma forma de calar o portao. Formato, um registro por
+# linha, tres campos separados por "|" (comentarios com "#", linhas em
+# branco ignoradas):
+#
+#   arquivo | trecho-ancora | item
+#
+# - arquivo: caminho relativo do cabecalho publico (ex.:
+#   include/glintfx/gfss/value.hpp).
+# - trecho-ancora: um trecho literal (substring) do bloco de
+#   comentario alegado - usado para localizar a linha certa quando o
+#   arquivo mudar; casa contra o bloco unido por espaco OU
+#   concatenado sem separador (citation_grammar.py's own header
+#   comment explica o porque das duas formas).
+# - item: o ID do item em TODO.md que rastreia a citacao que falta.
+#   MESMA regra de morte de tests/parity_exceptions.txt
+#   (check_test_parity.py's own validate_exceptions()): uma excecao
+#   cujo item ja aparece CONCLUIDO (✅) em TODO.md reprova - a
+#   alegacao deveria ter sido resolvida (citar teste real ou
+#   reescrever sem a promessa) e esta linha apagada. Nao existe aqui
+#   um sentinela SEM-PENDENCIA (diferente de tests/parity_
+#   exceptions.txt): uma alegacao sem citacao e sempre uma lacuna REAL
+#   rastreavel por um item, nunca uma ausencia permanente por desenho
+#   - o vocabulario so existe onde alguem escreveu uma promessa de
+#     medicao, nunca uma propriedade estrutural do sistema.
+#
+# GEMEO L-17 do apelido morto (check_test_parity.py's own alias
+# hygiene): uma excecao cujo trecho-ancora nunca casa com bloco
+# alegado nenhum da arvore real tambem reprova, contada e impressa
+# como "morta" - a alegacao ja foi resolvida de outro jeito (citada,
+# ou reescrita) e a linha aqui ficou para tras.
+

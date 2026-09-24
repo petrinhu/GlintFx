@@ -24,8 +24,36 @@
 # `docs/api-conventions.md` exigir crase em nome de teste); uma data
 # sozinha (nao e' um identificador de execucao - toda linha datada
 # deste projeto tem data, e' o assunto do arquivo, nao prova de nada).
-# CLAIM-CITATIONS (E2-E4, fora desta fatia) estende este modulo com a
-# forma "teste citado"; PLAN-SCOPE-COLUMNS (F, fora desta fatia) reusa.
+#
+# FORMA "TESTE CITADO" (CLAIM-CITATIONS E2-E4, docs/plano-w7c.md sec.
+# 3.E, docs/plano-w7c-adendo-revalidacao.md sec. 3.E): uma alegacao de
+# medicao/igualdade-entre-sistemas num comentario e' citada quando o
+# MESMO bloco de comentario tem uma frase-gatilho ("Proved by:",
+# "proven by", "see") E o nome de um teste que EXISTE no inventario
+# fechado (tests/tools/test_name_inventory.py, E1). has_cited_test_
+# reference() recebe DUAS juncoes do mesmo bloco - separadas por
+# espaco (o caso comum: uma frase que o reflow do comentario quebrou
+# numa fronteira de palavra de verdade) e concatenadas sem separador
+# (GODS_LAWS.md memoria feedback_referencia_quebrada_pela_linha: um
+# identificador longo, sem espaco nenhum no ponto onde o reflow
+# quebrou, como "window_desc_" + "\n" + "validation_test.cpp's own" -
+# so a juncao SEM separador reconstroi "window_desc_validation_test")
+# - porque o chamador (extrator de bloco) nao sabe, so olhando o
+# texto, qual dos dois casos aconteceu em cada quebra de linha.
+#
+# O QUE ISTO NAO VE (GODS_LAWS.md L-40): um nome de teste citado sem
+# NENHUMA das tres frases-gatilho por perto (prosa que so MENCIONA um
+# teste, sem alegar que ele PROVA a alegacao corrente, nao conta -
+# nome sozinho no bloco nunca e citacao); a busca e por SUBSTRING com
+# fronteira de palavra (`\bnome\b`) no bloco inteiro, nunca ancorada a
+# uma distancia fixa da frase-gatilho - um bloco muito longo com um
+# nome de teste em outro paragrafo, sem relacao com a frase-gatilho
+# deste, pode aceitar por coincidencia; o risco e aceito porque os
+# nomes de teste deste projeto sao longos e descritivos (varias
+# palavras coladas por "_"), tornando colisao por acaso rara na
+# pratica, e o cabeçalho do portao que consome esta funcao
+# (check_claim_citations.py) declara este limite tambem.
+# PLAN-SCOPE-COLUMNS (F, fora desta fatia) reusa este modulo.
 #
 # Usage:
 #   citation_grammar.py --selftest
@@ -65,6 +93,41 @@ def has_dated_measurement_citation(text):
     if _SHA_CITATION_RE.search(text):
         return True
     return False
+
+
+# --- forma "teste citado" (CLAIM-CITATIONS E2-E4) -----------------------
+
+_PROVED_BY_RE = re.compile(r"\bproved\s+by\b\s*:?", re.IGNORECASE)
+_PROVEN_BY_RE = re.compile(r"\bproven\s+by\b", re.IGNORECASE)
+_SEE_RE = re.compile(r"\bsee\b", re.IGNORECASE)
+
+
+def has_citation_trigger_phrase(spaced_text):
+    """True quando `spaced_text` contem alguma das tres frases-gatilho
+    de citacao de teste ("Proved by:"/"proven by"/"see"). Funcao
+    separada de has_cited_test_reference() porque um chamador (por
+    exemplo, uma exceptions.txt) pode precisar saber que HAVIA
+    intencao de citar, mesmo quando o nome citado nao existe."""
+    return bool(_PROVED_BY_RE.search(spaced_text) or _PROVEN_BY_RE.search(spaced_text) or _SEE_RE.search(spaced_text))
+
+
+def has_cited_test_reference(spaced_text, tight_text, known_test_names):
+    """True quando o bloco (as duas juncoes do MESMO texto - ver o
+    comentario do topo deste modulo para o porque das duas) tem uma
+    frase-gatilho E o nome de um teste que EXISTE em
+    `known_test_names` em qualquer uma das duas juncoes. Devolve o
+    nome citado (o primeiro achado, ordem de `known_test_names`), ou
+    None quando nao ha frase-gatilho, ou o nome citado nao existe no
+    inventario (a mesma "citacao de teste que nao existe reprova" da
+    tabela E3 - devolver None aqui e' o que faz o chamador tratar como
+    NAO citado, nunca aceitar uma citacao fantasma)."""
+    if not has_citation_trigger_phrase(spaced_text):
+        return None
+    for name in known_test_names:
+        pattern = re.compile(r"\b" + re.escape(name) + r"\b")
+        if pattern.search(spaced_text) or pattern.search(tight_text):
+            return name
+    return None
 
 
 # --- controles do --selftest -------------------------------------------
@@ -127,6 +190,71 @@ def _selftest_empty_text_no_citation():
     return True
 
 
+# VERMELHO: frase-gatilho + nome real do inventario, juntos no bloco -
+# tem que aceitar, e devolver o nome exato.
+def _selftest_cited_test_reference_accepted():
+    known = {"window_parity_test", "rslt_test"}
+    spaced = "None of these values is cached. Proved by: window_parity_test (both platforms, same name)."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got != "window_parity_test":
+        print(f"selftest: TESTE-CITADO FALHOU (deveria aceitar e devolver o nome): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: TESTE-CITADO OK ('Proved by:' + nome real aceito, nome devolvido)")
+    return True
+
+
+# VERMELHO da tabela E3: "citacao de teste que nao existe reprova" -
+# frase-gatilho presente, mas o nome citado NAO esta no inventario.
+def _selftest_cited_test_reference_rejected_unknown_name():
+    known = {"window_parity_test"}
+    spaced = "Refusal proved by nome_inventado_test, four cases, no container."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: TESTE-INVENTADO FALHOU (nome que nao existe no inventario foi aceito): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: TESTE-INVENTADO OK (nome fora do inventario nunca e citacao)")
+    return True
+
+
+# VERMELHO: nome real do inventario mencionado no bloco, mas SEM
+# nenhuma frase-gatilho por perto - mencao sozinha nunca e citacao
+# (o modulo nao pode aceitar so por o nome aparecer no texto).
+def _selftest_cited_test_reference_requires_trigger_phrase():
+    known = {"window_parity_test"}
+    spaced = "window_parity_test also exercises the same refusal case, unrelated to this claim."
+    got = has_cited_test_reference(spaced, spaced, known)
+    if got is not None:
+        print(f"selftest: SEM-GATILHO FALHOU (nome sem frase-gatilho foi aceito como citacao): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: SEM-GATILHO OK (nome de teste mencionado sem 'Proved by:'/'proven by'/'see' nunca e citacao)")
+    return True
+
+
+# VERMELHO: identificador quebrado pelo reflow do comentario sem
+# espaco no ponto da quebra (GODS_LAWS.md memoria feedback_
+# referencia_quebrada_pela_linha) - so a juncao SEM separador
+# (tight_text) reconstroi o nome; a juncao COM espaco (spaced_text)
+# quebra o nome em dois tokens e nao acha. Mutante que mata: chamar
+# has_cited_test_reference() so com spaced_text nos dois parametros.
+def _selftest_cited_test_reference_reconstructs_wrapped_identifier():
+    known = {"window_desc_validation_test"}
+    lines = [
+        "Refusal proven by window_desc_",
+        "validation_test.cpp's own both_dimensions_zero_is_rejected.",
+    ]
+    spaced_text = " ".join(lines)
+    tight_text = "".join(lines)
+    if has_cited_test_reference(spaced_text, spaced_text, known) is not None:
+        print("selftest: NOME-QUEBRADO FALHOU (spaced_text sozinho nao deveria reconstruir o nome partido)", file=sys.stderr)
+        return False
+    got = has_cited_test_reference(spaced_text, tight_text, known)
+    if got != "window_desc_validation_test":
+        print(f"selftest: NOME-QUEBRADO FALHOU (tight_text deveria reconstruir o nome partido): {got!r}", file=sys.stderr)
+        return False
+    print("selftest: NOME-QUEBRADO OK (tight_text reconstroi identificador quebrado pelo reflow, spaced_text sozinho nao)")
+    return True
+
+
 def selftest_main():
     controls = [
         _selftest_run_citation_accepted(),
@@ -135,6 +263,10 @@ def selftest_main():
         _selftest_sha_outside_backticks_rejected(),
         _selftest_bare_date_rejected(),
         _selftest_empty_text_no_citation(),
+        _selftest_cited_test_reference_accepted(),
+        _selftest_cited_test_reference_rejected_unknown_name(),
+        _selftest_cited_test_reference_requires_trigger_phrase(),
+        _selftest_cited_test_reference_reconstructs_wrapped_identifier(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

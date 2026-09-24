@@ -86,6 +86,8 @@ import tempfile
 import time
 from typing import NamedTuple
 
+import cmake_lexer
+
 SCRIPT_NAME = "check_win32_test_link.py"
 DEFAULT_IMAGE = "glintfx-msvc:latest"
 DEFAULT_TIMEOUT_SECONDS = 240
@@ -122,29 +124,20 @@ def stderr_tail(text, n=STDERR_TAIL_LINES):
 # --- tokenizacao compartilhada dos dois lados de CMake (tests/ e src/) ----
 
 
-def _strip_cmake_comment(line):
-    # "#" inicia comentario em CMake. Nenhuma linha de target_sources()/
-    # target_link_libraries() deste projeto carrega um "#" dentro de um
-    # caminho ou nome de lib (confirmado por leitura de todo tests/
-    # CMakeLists.txt e src/**/CMakeLists.txt antes de escrever esta
-    # funcao) - um corte simples por indice e correto aqui, sem
-    # precisar entender aspas.
-    idx = line.find("#")
-    return line if idx == -1 else line[:idx]
-
-
 def _strip_cmake_comments_from_text(text):
-    """Remove todo comentario ANTES de qualquer regex baseada em
-    parenteses rodar sobre o texto - achado real ao testar contra
-    tests/CMakeLists.txt: os comentarios explicativos deste projeto sao
-    prosa completa, e prosa completa cita parenteses de verdade (ex.:
-    "win32_window_adapter_route_message() (window_message_route.hpp)"
-    dentro do PROPRIO comentario de um bloco target_sources(...)). Uma
-    captura nao-gulosa "(.*?)\\)" para no primeiro ")" que encontrar -
-    inclusive um dentro de um comentario - e devolvia so a PRIMEIRA
-    fonte da lista, calada, sem erro nenhum. Comentario removido por
-    inteiro, nunca só uma tentativa de "pular" o parentese dele."""
-    return "\n".join(_strip_cmake_comment(line) for line in text.splitlines())
+    """CLAIM-CITATIONS sub-fatia E1c (docs/plano-w7c-adendo-revalidacao.
+    md sec. 3.E, decisao D-A8): delega a cmake_lexer.strip_comments()
+    (E0) em vez do corte ingenuo por linha que este arquivo tinha
+    antes. O corte antigo (primeiro '#' de CADA linha, sem ver aspas
+    nem comentario de colchete) tinha direcao VERMELHO FALSO: um '#'
+    DENTRO de um argumento entre aspas na mesma linha de um target_
+    sources()/target_compile_definitions() cortava a linha ali,
+    perdendo qualquer fonte real que viesse depois na mesma linha -
+    um alvo que na verdade linka ficaria com fonte faltando, e o
+    portao reprovaria por um motivo que nao existe. cmake_lexer conhece
+    aspas (um '#' dentro delas nunca e' comentario) e comentario de
+    colchete (#[[ ]], multi-linha, preservando o numero de linha)."""
+    return cmake_lexer.strip_comments(text)
 
 
 def _tokenize_cmake_args(raw_text):
@@ -163,10 +156,20 @@ def _tokenize_cmake_args(raw_text):
     de shlex.split, `GLTFX_X_SOURCE="...arquivo.hpp"` - com a aspa
     final fazendo parte do DADO, nao um envelope; `.strip('"')` comia
     essa aspa de dado por engano, tarde demais para reconstruir).
-    Removido - shlex.split() sozinho ja e o parser certo aqui."""
+    Removido - shlex.split() sozinho ja e o parser certo aqui.
+
+    CLAIM-CITATIONS E1c: nao corta comentario aqui - `raw_text` sempre
+    chega ja' filtrado por cmake_lexer.strip_comments() (todo chamador
+    tokeniza um trecho capturado de stripped_text, nunca de texto
+    cru). Cortar comentario de NOVO aqui, por linha e sem aspas, era
+    ATIVAMENTE ERRADO: um '#' dentro de uma string entre aspas ja
+    sobrevive corretamente na primeira passagem (nao e comentario) -
+    corta-lo aqui de novo, ingenuamente, reintroduziria o MESMO
+    defeito vermelho-falso que a primeira passagem acabou de
+    consertar."""
     tokens = []
     for line in raw_text.splitlines():
-        stripped = _strip_cmake_comment(line).strip()
+        stripped = line.strip()
         if not stripped:
             continue
         tokens.extend(shlex.split(stripped))
@@ -1723,6 +1726,63 @@ endif()
     return True
 
 
+# CLAIM-CITATIONS sub-fatia E1c (docs/plano-w7c-adendo-revalidacao.md
+# sec. 3.E, INBOX WIN-CROSS-GATE-CMAKE-LEXER): o caso fantasma dentro
+# de um comentario de bloco - um glintfx_add_test() que so' existe
+# dentro de #[[ ]] (nunca chega a compilar) nao pode virar alvo. O
+# corte antigo (primeiro '#' de cada linha) nunca via o '#[[' como
+# abertura de comentario de bloco - so' cortava a PROPRIA linha do
+# '#[[', e a linha seguinte, sem nenhum '#' nela, sobrevivia intacta
+# e _ADD_TEST_ANY_RE (nao ancorado a inicio de linha) a casava do
+# mesmo jeito que casaria codigo real.
+def _selftest_bracket_comment_never_a_phantom_target():
+    cmake_text = """
+#[[
+glintfx_add_test(fake_fantasma_test)
+]]
+glintfx_add_test(fake_real_test)
+target_sources(fake_real_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/common/real.cpp"
+)
+"""
+    targets, _exclusion_counts = extract_win32_test_targets(cmake_text)
+    names = sorted(t["name"] for t in targets)
+    if names != ["fake_real_test"]:
+        print(
+            f"selftest: COMENTARIO-DE-BLOCO-FANTASMA FALHOU (esperava so' fake_real_test): {names}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: COMENTARIO-DE-BLOCO-FANTASMA OK (glintfx_add_test dentro de #[[ ]] nunca vira alvo): {names}")
+    return True
+
+
+# CLAIM-CITATIONS sub-fatia E1c: a direcao VERMELHO FALSO nomeada no
+# adendo. Um '#' dentro de um argumento entre aspas, na MESMA linha de
+# uma segunda fonte real de target_sources(), nao pode truncar a
+# linha antes da segunda fonte - o corte antigo cortava no primeiro
+# '#' da linha inteira, sem saber que estava dentro de aspas, e
+# perdia a fonte que vinha depois (um alvo que de fato linka
+# reprovaria por "fonte faltando", motivo que nao existe de verdade).
+def _selftest_hash_inside_quotes_does_not_truncate_real_source():
+    cmake_text = (
+        "glintfx_add_test(fake_hash_test)\n"
+        'target_sources(fake_hash_test PRIVATE "${PROJECT_SOURCE_DIR}/src/common/weird_#name.cpp" '
+        '"${PROJECT_SOURCE_DIR}/src/common/depois.cpp")\n'
+    )
+    targets, _exclusion_counts = extract_win32_test_targets(cmake_text)
+    by_name = {t["name"]: t for t in targets}
+    sources = by_name.get("fake_hash_test", {}).get("sources", [])
+    if sources != ["src/common/weird_#name.cpp", "src/common/depois.cpp"]:
+        print(
+            f"selftest: HASH-EM-ASPAS-NAO-TRUNCA FALHOU (fonte apos o '#' entre aspas se perdeu): {sources}",
+            file=sys.stderr,
+        )
+        return False
+    print(f"selftest: HASH-EM-ASPAS-NAO-TRUNCA OK (as duas fontes sobrevivem, '#' entre aspas nunca e' comentario): {sources}")
+    return True
+
+
 def _selftest_parsing_empty_block():
     cmake_text = """
 if(WIN32)
@@ -2088,9 +2148,18 @@ def _selftest_real_toolchain(scratch, image, timeout_seconds):
     return results
 
 
-def selftest_main(image, timeout_seconds):
-    parsing_results = [
+# CLAIM-CITATIONS E1c, regra do escoteiro (D-A10): selftest_main()
+# estava entre as 16 funcoes de WIN-CROSS-GATE-L17 (TODO.md) - E1c
+# tocou o corpo dela (as duas linhas novas em parsing_results), entao
+# ela sai dentro dos tetos da L-17 no mesmo commit. Fatorada em tres:
+# a tabela pura de resultados sem dependencia externa, a parte que
+# depende de docker/scratch, e o relatorio final - nenhuma delas
+# reusada em outro lugar, e' so' quebra de tamanho.
+def _selftest_parsing_result_table():
+    return [
         ("parsing-positivo", _selftest_parsing_positive()),
+        ("comentario-de-bloco-fantasma", _selftest_bracket_comment_never_a_phantom_target()),
+        ("hash-em-aspas-nao-trunca", _selftest_hash_inside_quotes_does_not_truncate_real_source()),
         ("parsing-vazio", _selftest_parsing_empty_block()),
         ("parsing-multilinha", _selftest_parsing_multiline_call()),
         ("current-source-dir-token", _selftest_current_source_dir_token()),
@@ -2104,43 +2173,43 @@ def selftest_main(image, timeout_seconds):
         ("classify-ambiente-ferramenta-morrendo", _selftest_classify_ambiente_ferramenta_morrendo()),
     ]
 
+
+def _selftest_toolchain_dependent_results(image, timeout_seconds):
+    """(layout_ok, toolchain_results_or_none) - o segundo elemento e'
+    None quando docker/imagem estao ausentes (GODS_LAWS.md L-40:
+    declarado e contado pelo chamador, nunca escondido)."""
     scratch = tempfile.mkdtemp(prefix="glintfx-win32-link-selftest-", dir=os.environ.get("TMPDIR"))
     try:
         layout_ok = _selftest_layout_respects_win32_branch(scratch)
-        parsing_results.append(("layout-win32", layout_ok))
-
         docker_available = shutil.which("docker") is not None
         if docker_available:
             probe = subprocess.run(["docker", "image", "inspect", image], capture_output=True)
             docker_available = probe.returncode == 0
-
-        if docker_available:
-            # Cada sub-verificacao real vira o proprio slot no contador
-            # (GODS_LAWS.md L-36/L-40) - nao um unico "real-toolchain"
-            # agregado que esconderia uma delas parando de rodar.
-            toolchain_results = _selftest_real_toolchain(scratch, image, timeout_seconds)
-            for name in _REAL_TOOLCHAIN_CHECK_NAMES:
-                parsing_results.append((name, toolchain_results[name]))
-        else:
+        if not docker_available:
             print(
                 f"{SCRIPT_NAME} --selftest: docker/imagem '{image}' ausentes - as tres "
                 "sub-verificacoes real-toolchain PULADAS, contadas e declaradas (GODS_LAWS.md L-40), "
                 "nunca escondidas",
                 file=sys.stderr,
             )
-            for name in _REAL_TOOLCHAIN_CHECK_NAMES:
-                parsing_results.append((name, None))
+            return layout_ok, None
+        # Cada sub-verificacao real vira o proprio slot no contador
+        # (GODS_LAWS.md L-36/L-40) - nao um unico "real-toolchain"
+        # agregado que esconderia uma delas parando de rodar.
+        return layout_ok, _selftest_real_toolchain(scratch, image, timeout_seconds)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
-    # GODS_LAWS.md L-36 ("portao que nunca mordeu"): achado real, 10/09/
-    # 2026, revisao adversarial - "N/N executados, zero pulados" e
-    # VERDADEIRO sobre veredito (cada slot tem True ou False, nenhum
-    # None), mas nao diz a um humano o que sumiu quando um deles vira
-    # False - a AUSENCIA de uma linha "OK" no meio da saida, nao uma
-    # linha "FALHOU" com nome, e' o unico sinal, e ninguem le a saida
-    # inteira procurando o que NAO esta la. O resumo passa a nomear
-    # explicitamente quem passou e quem reprovou, nunca so contar.
+
+# GODS_LAWS.md L-36 ("portao que nunca mordeu"): achado real, 10/09/
+# 2026, revisao adversarial - "N/N executados, zero pulados" e
+# VERDADEIRO sobre veredito (cada slot tem True ou False, nenhum
+# None), mas nao diz a um humano o que sumiu quando um deles vira
+# False - a AUSENCIA de uma linha "OK" no meio da saida, nao uma
+# linha "FALHOU" com nome, e' o unico sinal, e ninguem le a saida
+# inteira procurando o que NAO esta la. O resumo passa a nomear
+# explicitamente quem passou e quem reprovou, nunca so contar.
+def _selftest_report_and_exit(parsing_results):
     skipped = [name for name, ok in parsing_results if ok is None]
     passed = [name for name, ok in parsing_results if ok is True]
     failed = [name for name, ok in parsing_results if ok is False]
@@ -2160,6 +2229,16 @@ def selftest_main(image, timeout_seconds):
     if skipped:
         sys.exit(GATE_SKIP_RETURN_CODE)
     print(f"{SCRIPT_NAME} --selftest: os {len(passed)} controles OK")
+
+
+def selftest_main(image, timeout_seconds):
+    parsing_results = _selftest_parsing_result_table()
+    layout_ok, toolchain_results = _selftest_toolchain_dependent_results(image, timeout_seconds)
+    parsing_results.append(("layout-win32", layout_ok))
+    for name in _REAL_TOOLCHAIN_CHECK_NAMES:
+        value = None if toolchain_results is None else toolchain_results[name]
+        parsing_results.append((name, value))
+    _selftest_report_and_exit(parsing_results)
 
 
 # --- main --------------------------------------------------------------------

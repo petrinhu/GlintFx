@@ -934,6 +934,11 @@ def _judge_sentinel(ctx, scratch_dir, content, expect_forbidden):
         raise _IncludeTreeError("sentinela negativa: <fstream> nao apareceu como puxado (falha de instrumento)")
     if not expect_forbidden and (forbidden or returncode != 0):
         raise _IncludeTreeError("sentinela positiva: <cstdint> nao saiu limpa (falha de instrumento)")
+    # docs/plano-layers-l5-adendo-calibracao.md L-5h item b: confirmacao
+    # impressa tambem no SUCESSO - antes so' o raise na falha aparecia,
+    # e "silencio = passou" nao serve pro relatorio completo exigido.
+    nome = "negativa" if expect_forbidden else "positiva"
+    print(f"{SCRIPT_NAME}: sentinela {nome}: OK")
 
 
 def _choose_shadow_sentinel_candidate(cstdint_children, stdlib_permitidos):
@@ -987,6 +992,9 @@ def _run_shadow_sentinel(ctx, scratch, calib_result, stdlib_permitidos):
             f"sentinela de sombra: X={candidate!r} nao apareceu como filho direto na configuracao de "
             "caso (falha de instrumento - a construcao anti-sombra nao fechou)"
         )
+    # L-5h item b: confirmacao impressa tambem no SUCESSO (mesmo motivo
+    # da sentinela negativa/positiva acima).
+    print(f"{SCRIPT_NAME}: sentinela de sombra (configuracao de caso): X={candidate!r} visto como filho direto - OK")
 
 
 def run_sentinels(ctx, scratch, calib_result, stdlib_permitidos):
@@ -1075,10 +1083,58 @@ def summarize_manifest_cases(manifest):
     return calibracao, fora_de_escopo, compilar
 
 
+# --- casos nomeados do adendo (secao 5.1 item 3, L-5h) -------------------
+#
+# FONTE UNICA (achado do veredito do run 35939021453,
+# /var/tmp/glintfx-plan/ci-l5dg-veredito.md secao 2/4): os SEIS casos
+# que docs/plano-layers-l5-adendo-calibracao.md secao 5.1 item 3 cita
+# por nome - "recusado" NUNCA reprova o oraculo por desenho (arquivo
+# nao encontrado e' erro fatal e esconde o resto do arquivo), entao um
+# destes caindo ali, silencioso, e' defeito do instrumento ate' prova
+# em contrario. Usada pela trava (abaixo) E pelo relatorio - nunca
+# duplicada.
+_NAMED_CASES_ADENDO_5_1 = (
+    "C14_own_header_exists",
+    "C20_relative_quote_via_src_root",
+    "C21a_generated_export",
+    "C21b_generated_version_macros",
+    "C23_relative_quote_escapes_via_src_root",
+    "C23b_relative_quote_escapes_via_include_root",
+)
+
+
+def _named_cases_stuck_at_recusado(case_buckets):
+    """Devolve os nomes, dentre `_NAMED_CASES_ADENDO_5_1`, cujo balde e'
+    'recusado' - a lista que a trava de L-5h reprova, nomeando."""
+    return [name for name in _NAMED_CASES_ADENDO_5_1 if case_buckets.get(name) == "recusado"]
+
+
+def _print_named_case_buckets(case_buckets):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 5.1 item 3
+    (L-5h item b): imprime o balde de CADA caso nomeado, SEMPRE - "nao
+    encontrado" e' impresso, nunca omitido (GODS_LAWS.md L-40), pro
+    relatorio mostrar C21a/C21b como concorda-passa sem depender de
+    leitura externa."""
+    for name in _NAMED_CASES_ADENDO_5_1:
+        print(f"{SCRIPT_NAME}: caso nomeado {name}: {case_buckets.get(name, 'nao encontrado')}")
+
+
+class _RunProblems:
+    """Agrupa as duas listas de problema que `_final_report()` confere -
+    violacoes (L-5) e casos NOMEADOS presos em 'recusado' (L-5h) -
+    GODS_LAWS.md L-17: mantem `_final_report` em 4 parametros."""
+
+    __slots__ = ("violations", "named_recusado")
+
+    def __init__(self, violations, named_recusado):
+        self.violations = violations
+        self.named_recusado = named_recusado
+
+
 # --- relatorio final e pisos (secao 7.3) ----------------------------------
 
 
-def _final_report(buckets, violations, manifest, out_of_scope_counts):
+def _final_report(buckets, problems, manifest, out_of_scope_counts):
     calibracao_n, fora_de_escopo_n = out_of_scope_counts
     comparados = sum(buckets.values())
     puxou_proibido = buckets["concorda-reprova"] + buckets["violacao"]
@@ -1090,6 +1146,7 @@ def _final_report(buckets, violations, manifest, out_of_scope_counts):
     )
     for bucket_name in ("concorda-passa", "concorda-reprova", "super-aproximacao", "recusado", "violacao"):
         print(f"{SCRIPT_NAME}: balde {bucket_name}: {buckets[bucket_name]}")
+    print(f"{SCRIPT_NAME}: puxou_proibido={puxou_proibido} (piso {_MIN_FORBIDDEN_PULLS})")
 
     ok = True
     if comparados == 0:
@@ -1105,9 +1162,13 @@ def _final_report(buckets, violations, manifest, out_of_scope_counts):
     if puxou_proibido < _MIN_FORBIDDEN_PULLS:
         print(f"{SCRIPT_NAME}: FALHOU (puxou_proibido={puxou_proibido} < piso {_MIN_FORBIDDEN_PULLS})", file=sys.stderr)
         ok = False
-    if violations:
-        names = ", ".join(f"{case['tabela']}:{case['caso']}" for case in violations)
+    if problems.violations:
+        names = ", ".join(f"{case['tabela']}:{case['caso']}" for case in problems.violations)
         print(f"{SCRIPT_NAME}: FALHOU (VIOLACAO em: {names})", file=sys.stderr)
+        ok = False
+    if problems.named_recusado:
+        names = ", ".join(problems.named_recusado)
+        print(f"{SCRIPT_NAME}: FALHOU (caso NOMEADO recusado: {names})", file=sys.stderr)
         ok = False
     return ok
 
@@ -1181,31 +1242,45 @@ def _prepare_case_configuration(ctx, manifest, scratch):
     ctx.case_include_dirs = _include_dirs_for_root(ctx, scratch, extra_last=ctx.std_stub_dir)
 
 
+def _judge_all_cases(ctx, scratch, export_dir, compilar_cases):
+    """Roda `_judge_one_case()` pra cada caso "compilar", devolvendo os
+    baldes agregados, as violacoes, e o balde de CADA caso por NOME
+    (`case_buckets` - secao 5.1 item 3, L-5h). Fatorada de
+    `run_oracle` pelo teto de linhas de L-17."""
+    buckets = collections.Counter()
+    violations = []
+    case_buckets = {}
+    for case in compilar_cases:
+        root_abs = os.path.join(export_dir, case["raiz"])
+        bucket = _judge_one_case(ctx, scratch, case, root_abs)
+        buckets[bucket] += 1
+        case_buckets[case["caso"]] = bucket
+        if bucket == "violacao":
+            violations.append(case)
+    return buckets, violations, case_buckets
+
+
 def run_oracle(ctx, manifest, export_dir, scratch):
     """O laco principal (docs/plano-layers-l5.md §2): calibracao,
     sentinelas, depois um processo SEQUENCIAL por caso "compilar"."""
     _prepare_case_configuration(ctx, manifest, scratch)
+    print(f"{SCRIPT_NAME}: comando: compilador={ctx.compiler!r} dialeto={ctx.dialect} flags={list(ctx.flags)!r}")
 
     calib_result = run_calibration(ctx, scratch, manifest)
     run_sentinels(ctx, scratch, calib_result, manifest["stdlib_permitidos"])
 
     calibracao_cases, fora_de_escopo_cases, compilar_cases = summarize_manifest_cases(manifest)
-    buckets = collections.Counter()
-    violations = []
-    for case in compilar_cases:
-        root_abs = os.path.join(export_dir, case["raiz"])
-        bucket = _judge_one_case(ctx, scratch, case, root_abs)
-        buckets[bucket] += 1
-        if bucket == "violacao":
-            violations.append(case)
+    buckets, violations, case_buckets = _judge_all_cases(ctx, scratch, export_dir, compilar_cases)
 
     # docs/plano-layers-l5-adendo-calibracao.md L-5d: total de linhas
     # fora do formato de arvore, SEMPRE impresso (GODS_LAWS.md L-40) -
     # acumulado por _parse_tree() em CADA chamada (calibracao,
     # sentinelas, todos os casos "compilar"), nunca so' na falha.
     print(f"{SCRIPT_NAME}: linhas fora da arvore (total do trabalho): {ctx.out_of_tree_lines_total}")
+    _print_named_case_buckets(case_buckets)
     out_of_scope_counts = (len(calibracao_cases), len(fora_de_escopo_cases))
-    return _final_report(buckets, violations, manifest, out_of_scope_counts)
+    problems = _RunProblems(violations, _named_cases_stuck_at_recusado(case_buckets))
+    return _final_report(buckets, problems, manifest, out_of_scope_counts)
 
 
 # --- modo real: CLI e recusa por GITHUB_ACTIONS (secao 6.2) --------------
@@ -1418,7 +1493,7 @@ def selftest_oracle_empty_scan_control(scratch, capture):
     grupo "compilar" -> `_final_report` reprova por "comparados=0"."""
     del scratch, capture
     manifest = {"total_casos": 0, "casos": []}
-    ok = _final_report(collections.Counter(), [], manifest, (0, 0)) is False
+    ok = _final_report(collections.Counter(), _RunProblems([], []), manifest, (0, 0)) is False
     label = "selftest: varredura vazia"
     print(f"{label} OK" if ok else f"{label} FALHOU", file=(sys.stdout if ok else sys.stderr))
     return ok, 1
@@ -2262,7 +2337,7 @@ def selftest_oracle_o14_super_approximation_never_fails(scratch, capture):
     # o que O-14 prova: a super-aproximacao sozinha nunca reprova.
     manifest = {"total_casos": 21, "casos": []}
     buckets = collections.Counter({bucket: 1, "concorda-reprova": 20})
-    ok = bucket == "super-aproximacao" and _final_report(buckets, [], manifest, (0, 0)) is True
+    ok = bucket == "super-aproximacao" and _final_report(buckets, _RunProblems([], []), manifest, (0, 0)) is True
     label = "selftest: O-14"
     print(f"{label} OK" if ok else f"{label} FALHOU (balde={bucket!r})", file=(sys.stdout if ok else sys.stderr))
     return ok, 1
@@ -2502,6 +2577,56 @@ def selftest_oracle_o28_executor_catches_exceptions(scratch, capture):
     return ok, 1
 
 
+def selftest_oracle_o29_named_case_recusado_fails(scratch, capture):
+    """O-29 (L-5h, adendo secao 5.1 item 3): um caso NOMEADO
+    (`_NAMED_CASES_ADENDO_5_1`) caindo em 'recusado' tem de REPROVAR o
+    oraculo - 'recusado' nunca reprova por desenho, entao um defeito
+    ali seria silencioso sem esta trava (achado do veredito do run
+    35939021453). Um caso NAO nomeado em 'recusado' continua passando
+    normal (a trava e' so' pros seis casos da lista, nunca geral)."""
+    del scratch, capture
+    manifest = {"total_casos": 21, "casos": []}
+    buckets = collections.Counter({"concorda-reprova": 20, "recusado": 1})
+
+    named_stuck = _named_cases_stuck_at_recusado({"C14_own_header_exists": "recusado"})
+    reproves_named = _final_report(buckets, _RunProblems([], named_stuck), manifest, (0, 0)) is False
+
+    other_stuck = _named_cases_stuck_at_recusado({"D99_caso_nao_nomeado": "recusado"})
+    passes_other = _final_report(buckets, _RunProblems([], other_stuck), manifest, (0, 0)) is True
+
+    ok = (
+        reproves_named and passes_other
+        and named_stuck == ["C14_own_header_exists"] and other_stuck == []
+    )
+    label = "selftest: O-29"
+    print(
+        f"{label} OK" if ok else f"{label} FALHOU (named_stuck={named_stuck!r}, other_stuck={other_stuck!r}, "
+        f"reproves_named={reproves_named}, passes_other={passes_other})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
+def selftest_oracle_o30_named_case_buckets_printed(scratch, capture):
+    """O-30 (L-5h item b): `_print_named_case_buckets()` imprime os
+    SEIS casos nomeados, sempre - um caso AUSENTE do dicionario (nunca
+    julgado, por qualquer motivo) sai como "nao encontrado", nunca
+    omitido (GODS_LAWS.md L-40)."""
+    del scratch
+    partial = {"C14_own_header_exists": "concorda-passa", "C21a_generated_export": "concorda-passa"}
+    outcome = capture(lambda: _print_named_case_buckets(partial))
+    printed = outcome.text
+    checks = [f"caso nomeado {name}:" in printed for name in _NAMED_CASES_ADENDO_5_1]
+    ok = (
+        all(checks)
+        and "C14_own_header_exists: concorda-passa" in printed
+        and "C20_relative_quote_via_src_root: nao encontrado" in printed
+    )
+    label = "selftest: O-30"
+    print(f"{label} OK" if ok else f"{label} FALHOU (printed={printed!r})", file=(sys.stdout if ok else sys.stderr))
+    return ok, 1
+
+
 _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o0_real_executor_guard,),
     (selftest_oracle_positive_control,),
@@ -2536,6 +2661,8 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o17_unknown_dialect_named,),
     (selftest_oracle_build_parent_map,),
     (selftest_oracle_o28_executor_catches_exceptions,),
+    (selftest_oracle_o29_named_case_recusado_fails,),
+    (selftest_oracle_o30_named_case_buckets_printed,),
 )
 
 

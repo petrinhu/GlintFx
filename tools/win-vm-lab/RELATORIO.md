@@ -753,7 +753,8 @@ inteira).
 
 `[FATO]` conferido em toda sessão desta seção: `sha256sum` do `virsh -c qemu:///session dumpxml
 --inactive glintfx-win11-lab` idêntico antes da primeira tentativa e depois da última - o permanente
-nunca mudou, apesar de quatro sessões reais terem ligado e desligado a máquina.
+nunca mudou, apesar de **cinco lançamentos reais** (`virsh create`) terem ligado e desligado a
+máquina: as tentativas 1, 2 e 3, mais as sessões 4 e 5 (seções 19.2 e 19.3 abaixo).
 
 ### 19.2. O defeito do NVRAM: duas tentativas reais, sem guest-ping, até a causa ser achada
 
@@ -863,8 +864,9 @@ explícito do líder (ações irreversíveis, L-01/L-51).
 
 ### 19.6. Estado final desta seção
 
-- Permanente do domínio (`dumpxml --inactive`) intocado por quatro sessões reais - mesma soma
-  sha256 do início ao fim.
+- Permanente do domínio (`dumpxml --inactive`) intocado por cinco lançamentos reais (`virsh
+  create`) - mesma soma sha256 do início ao fim. Três dos cinco chegaram a conversar com o
+  convidado (`guest-ping` respondeu): tentativa 3, sessão 4, sessão 5.
 - Disco base, NVRAM e estado do TPM (arquivos fora do convidado) - mesma soma sha256 do início ao
   fim.
 - `gh api repos/petrinhu/GlintFx/actions/runners --jq .total_count` = `0` (linha de base preservada).

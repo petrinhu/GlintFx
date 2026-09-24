@@ -47,8 +47,13 @@ assinatura.
   create` aceita uma cópia avulsa da definição, com o MESMO nome e
   identificador do domínio persistente, sem tocar a definição permanente -
   confirmado por `sha256sum` do `dumpxml --inactive` idêntico antes e
-  depois de quatro sessões reais. Ver "O ciclo novo: liga por cópia
-  avulsa" logo abaixo.
+  depois de **cinco lançamentos reais** do domínio (`virsh create`,
+  tentativas 1, 2 e 3, mais as sessões 4 e 5). **Três** desses cinco
+  chegaram a conversar com o convidado (`guest-ping` respondeu):
+  tentativa 3, sessão 4 e sessão 5. As duas primeiras tentativas ligaram a
+  máquina de verdade, mas nunca alcançaram o agente - o defeito do NVRAM
+  que a V-5c consertou (ver seção 19 do `RELATORIO.md`). Ver "O ciclo
+  novo: liga por cópia avulsa" logo abaixo.
 - **O par verde/vermelho, de novo, mas agora com o binário recompilado do
   HEAD no container e executado na máquina real** (não mais um par
   congelado de 07/09/2026): `wgl_proc_address_test.exe` sai com código 0

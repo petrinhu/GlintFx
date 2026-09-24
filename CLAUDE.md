@@ -119,7 +119,7 @@ Estas foram tomadas explicitamente via AskUserQuestion e são o ponto de partida
 
 **Fedora é o alvo primário**, por ser o sistema que o líder usa (ordem dele, 21/08/2026). **A partir de 27/08/2026, a imagem do CI é `fedora:latest`** (o pino antigo em `fedora:44` foi solto por ordem dele - texto completo e verbatim em `ESCOPO.md` §1, não repetido aqui para não apodrecer): o alvo primário continua tendo de falhar quando a máquina dele falharia, e a troca para `:latest` é o que garante isso sem exigir alguém subindo o número à mão a cada atualização dele. Os demais alvos são de portabilidade (desde 24/09/2026 incluem as distros varridas pelo astrometrica; ver `ESCOPO.md` §1).
 
-**CachyOS não é "Arch renomeado" e não é coberto pelo job de Arch.** Ordem explícita do líder. Toolchain, flags de otimização, kernel e empacotamento do CachyOS diferem; a matriz de CI precisa de **cinco entradas distintas** (Fedora, Ubuntu, CachyOS, Arch, Windows), e um verde no Arch não autoriza declarar CachyOS suportado.
+**CachyOS não é "Arch renomeado" e não é coberto pelo job de Arch.** Ordem explícita do líder. Toolchain, flags de otimização, kernel e empacotamento do CachyOS diferem; a matriz de CI precisa de **uma entrada distinta por plataforma suportada** (as cinco originais, Fedora, Ubuntu, CachyOS, Arch e Windows, mais as distros do astrometrica desde 24/09/2026), e um verde no Arch não autoriza declarar CachyOS suportado.
 
 ### Linux é Wayland puro, sem X11
 

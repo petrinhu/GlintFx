@@ -972,7 +972,7 @@ def selftest_end_to_end_column_offset():
         "|---|---|---|---|---|---|---|\n"
         "| 6 | **MARCADOR-E2E** | comum | `a/b/real_path.hpp` | — | — | par |\n"
     )
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as handle:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as handle:
         handle.write(content)
         plan_path = handle.name
     root_dir = Path(plan_path).parent
@@ -1266,7 +1266,7 @@ def selftest_test_name_nonexistent_in_inventory_reproves():
         "|---|---|---|---|---|\n"
         f"| 1 | **MARCADOR-F2-INEXISTENTE** | `TODO.md` | `{fake_test_name}` | — |\n"
     )
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, dir=".") as handle:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, dir=".", encoding="utf-8") as handle:
         handle.write(content)
         plan_path = handle.name
     buffer = io.StringIO()
@@ -1372,7 +1372,7 @@ def selftest_zero_candidates_reproves():
     row_text = "sem caminho nenhum aqui, so' `adapter()` e `<windows.h>` e `desc.logical_size`"
     import tempfile
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as handle:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as handle:
         handle.write(
             "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
             "|---|---|---|---|---|---|---|\n"
@@ -1408,7 +1408,7 @@ def selftest_ambiguous_marker_reproves():
         "| 6 | **fatia A, MARCADOR-COMUM** | x | `a.hpp` | p | q | r |\n"
         "| 6 | **risco B, MARCADOR-COMUM** | y | `b.hpp` | p | q | r |\n"
     )
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as handle:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as handle:
         handle.write(content)
         plan_path = handle.name
     try:

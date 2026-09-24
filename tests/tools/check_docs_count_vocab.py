@@ -151,9 +151,28 @@ def find_count_phrases(text):
 
 
 def _is_between_backticks(text, start, end):
-    before = text[start - 1 : start]
-    after = text[end : end + 1]
-    return before == "`" and after == "`"
+    """CLAIM-CITATIONS/DOCS-COUNT-VOCAB D2c (achado do main, revisao da
+    D3, 24/09/2026): uma crase que so' EMBRULHA a propria contagem,
+    sem mais nada dentro, NAO isenta - isso e' contornar o portao
+    (colar crase em volta do numero), nunca consertar o documento
+    (o "caminho menos dificil" que o lider proibe). A isencao real
+    (D-A9: "trecho entre crases") e' para SAIDA DE FERRAMENTA citada
+    por INTEIRO ou um comando/caminho que por acaso contem a forma de
+    contagem dentro de algo maior - nunca a contagem sozinha
+    reembrulhada. Por isso: acha o par de crases que de fato ENVOLVE
+    [start:end] (a mais proxima antes, a mais proxima depois, sem
+    outra crase no meio de nenhum dos dois lados) e so' isenta quando
+    o conteudo INTEIRO entre elas e' MAIOR que o proprio trecho
+    casado - nunca igual."""
+    open_pos = text.rfind("`", 0, start)
+    if open_pos == -1 or "`" in text[open_pos + 1 : start]:
+        return False
+    close_pos = text.find("`", end)
+    if close_pos == -1 or "`" in text[end:close_pos]:
+        return False
+    enclosed = text[open_pos + 1 : close_pos]
+    matched = text[start:end]
+    return enclosed != matched
 
 
 def _is_law_citation(text, start):
@@ -454,18 +473,46 @@ def _selftest_date_rule_n_of_m():
     return True
 
 
-def _selftest_backtick_exemption():
+# D2c (revisao da D3, 24/09/2026): uma crase que so' embrulha a
+# propria contagem NAO isenta mais - e' o contorno que o lider
+# proibiu, nao um conserto do documento.
+def _selftest_backtick_wrapping_only_the_count_not_exempt():
     text = "the suite has `90 tests` today, unchanged."
     phrases = find_count_phrases(text)
     if not phrases:
-        print(f"selftest: CRASE FALHOU (nao achou a forma dentro de crases): {text!r}", file=sys.stderr)
+        print(f"selftest: CRASE-ESTREITA FALHOU (nao achou a forma dentro de crases): {text!r}", file=sys.stderr)
         return False
     start, end = phrases[0]
     exempt, reason = is_exempt_count(text, start, end, text)
-    if not exempt or reason != "entre crases":
-        print(f"selftest: CRASE FALHOU (deveria isentar por crase): {text!r} exempt={exempt} reason={reason}", file=sys.stderr)
+    if exempt:
+        print(f"selftest: CRASE-ESTREITA FALHOU (crase que so' embrulha a contagem nao pode isentar): {text!r} exempt={exempt} reason={reason}", file=sys.stderr)
         return False
-    print("selftest: CRASE OK (trecho entre crases isenta)")
+    print("selftest: CRASE-ESTREITA OK (crase que so' embrulha a contagem nunca isenta - D2c)")
+    return True
+
+
+# Positivo: a crase isenta de verdade quando o trecho e' MAIOR que a
+# contagem - saida de ferramenta citada por inteiro, ou um comando que
+# por acaso contem a forma dentro de algo maior.
+def _selftest_backtick_wrapping_more_than_the_count_is_exempt():
+    text = 'the log said "`99% tests passed, 2 tests failed out of 216: consume_test`" verbatim.'
+    phrases = find_count_phrases(text)
+    if not phrases:
+        print(f"selftest: CRASE-LARGA FALHOU (nao achou a forma): {text!r}", file=sys.stderr)
+        return False
+    start, end = None, None
+    for s, e in phrases:
+        if text[s:e] == "2 tests":
+            start, end = s, e
+            break
+    if start is None:
+        print(f"selftest: CRASE-LARGA FALHOU (nao achou '2 tests' entre os achados): {phrases} em {text!r}", file=sys.stderr)
+        return False
+    exempt, reason = is_exempt_count(text, start, end, text)
+    if not exempt or reason != "entre crases":
+        print(f"selftest: CRASE-LARGA FALHOU (saida de ferramenta citada por inteiro deveria isentar): exempt={exempt} reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: CRASE-LARGA OK (crase que envolve mais que a contagem - saida de ferramenta citada - isenta)")
     return True
 
 
@@ -533,7 +580,8 @@ def selftest_main():
         _selftest_bridge_positive_real_docs(),
         _selftest_empty_universe_would_fail(),
         _selftest_date_rule_n_of_m(),
-        _selftest_backtick_exemption(),
+        _selftest_backtick_wrapping_only_the_count_not_exempt(),
+        _selftest_backtick_wrapping_more_than_the_count_is_exempt(),
         _selftest_dated_citation_exemption_same_paragraph(),
         _selftest_law_citation_exemption(),
         _selftest_changelog_released_section_exempt(),

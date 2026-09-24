@@ -36,7 +36,15 @@ message_header parse_header_unchecked(const std::uint8_t *bytes) {
 } // namespace
 
 void wire_decoder::feed(const std::uint8_t *data, std::size_t len) {
-    m_buffer.insert(m_buffer.end(), data, data + len);
+    // resize()+memcpy(), never insert(pos, first, last) - see wire_
+    // error_injector.cpp's own comment on this same GCC 12-14 false
+    // positive (PR libstdc++/117983), hit for real by the Ubuntu CI
+    // job on this project's append_u32 on 24/09/2026.
+    const std::size_t offset = m_buffer.size();
+    m_buffer.resize(offset + len);
+    if (len > 0) {
+        std::memcpy(m_buffer.data() + offset, data, len);
+    }
 }
 
 decode_outcome wire_decoder::poll() const {

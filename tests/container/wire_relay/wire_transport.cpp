@@ -25,7 +25,14 @@ void collect_fds(const struct msghdr &msg, std::vector<int> &out) {
         }
         const std::size_t fd_count = (header->cmsg_len - CMSG_LEN(0)) / sizeof(int);
         const auto *fd_data = reinterpret_cast<const int *>(CMSG_DATA(header));
-        out.insert(out.end(), fd_data, fd_data + fd_count);
+        // resize()+memcpy(), never insert(pos, first, last) - GCC
+        // 12-14 false positive -Wstringop-overflow, see wire_error_
+        // injector.cpp's own comment (PR libstdc++/117983).
+        const std::size_t offset = out.size();
+        out.resize(offset + fd_count);
+        if (fd_count > 0) {
+            std::memcpy(out.data() + offset, fd_data, fd_count * sizeof(int));
+        }
     }
 }
 
@@ -96,7 +103,14 @@ std::vector<std::uint8_t> relay_until_eof(const wire_transport &upstream,
             return forwarded;
         }
         downstream.write_once(chunk.bytes.data(), chunk.bytes.size(), chunk.fds);
-        forwarded.insert(forwarded.end(), chunk.bytes.begin(), chunk.bytes.end());
+        // resize()+memcpy(), never insert(pos, first, last) - GCC
+        // 12-14 false positive -Wstringop-overflow, see wire_error_
+        // injector.cpp's own comment (PR libstdc++/117983).
+        const std::size_t offset = forwarded.size();
+        forwarded.resize(offset + chunk.bytes.size());
+        if (!chunk.bytes.empty()) {
+            std::memcpy(forwarded.data() + offset, chunk.bytes.data(), chunk.bytes.size());
+        }
     }
 }
 

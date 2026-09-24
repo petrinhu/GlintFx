@@ -868,6 +868,7 @@ void wayland_egl_context_adapter::close() noexcept {
     m_msaa_supported = false;
     m_srgb_supported = false;
     m_swap_interval_honored = false;
+    m_swap_calls_issued = 0;
 }
 
 gltfx_rslt<void> wayland_egl_context_adapter::make_current() noexcept {
@@ -893,15 +894,29 @@ bool wayland_egl_context_adapter::present_would_skip() const noexcept {
 }
 
 gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() noexcept {
-    resize_surface_if_due();
-
     // D-W6b-28: every failure path below that COULD be the wl_display
     // connection itself dying (a protocol error the compositor sent
     // under our feet, or the socket going away) resolves through this
     // ONE wl_surface's own display - the same wl_proxy_get_display()
     // trick create_egl_display() already uses one function up, hoisted
-    // here so none of the three call sites below has to recompute it.
+    // here so none of the call sites below has to recompute it.
     wl_display *display = wl_proxy_get_display(reinterpret_cast<wl_proxy *>(m_surface));
+
+    // EGL-DEAD-DISPLAY-GUARD S2 (docs/plano-egl-dead-display-guard.md
+    // sec. 3, D-S2): guarda no TOPO, antes de QUALQUER outra coisa -
+    // inclusive antes de resize_surface_if_due(), que não fala com o
+    // fio mas fica atrás desta checagem de todo jeito (plano sec. 2:
+    // "a guarda vem antes dela"). Sem isto, uma troca anterior pode já
+    // ter lido um erro de protocolo por dentro do próprio eglSwapBuffers
+    // (llvmpipe/swrast, plano sec. 1.1) sem que ninguém tivesse
+    // perguntado ainda - a resposta de hoje seria `presented` sobre uma
+    // conexão já morta.
+    if (const std::optional<gltfx_err> dead_on_entry = connection_failure_if_dead(display);
+        dead_on_entry.has_value()) {
+        return gltfx_rslt<gltfx_present_outcome>::err(*dead_on_entry);
+    }
+
+    resize_surface_if_due();
 
     if (!m_vsync_on) {
         // D-W6b-46: `vsync=off` used to present as fast as the driver
@@ -917,33 +932,7 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
         if (present_would_skip()) {
             return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::skipped_hidden);
         }
-        if (eglSwapBuffers(m_egl_display, m_egl_surface) != EGL_TRUE) {
-            // D-W6b-28: a dead connection (this SAME `eglSwapBuffers`
-            // is exactly where the D-W6b-12 mutation - a removed
-            // ack_configure() - surfaces once a real buffer attach
-            // finally reaches the compositor) is named by the REAL
-            // interface that reprovou, never the generic "egl_swap_
-            // buffers" placeholder - checked first, since a display
-            // already fatally errored makes the EGL call itself fail
-            // for a reason this adapter did not cause.
-            if (wl_display_get_error(display) != 0) {
-                return gltfx_rslt<gltfx_present_outcome>::err(build_connection_failure(display));
-            }
-            return gltfx_rslt<gltfx_present_outcome>::err(
-                gltfx_err(gltfx_err_code::platform_failure)
-                    .with_rejected_value("egl_swap_buffers"));
-        }
-        // D-W6b-46: the frame listener is armed after EVERY
-        // presentation, in BOTH branches - this vsync=off branch never
-        // WAITS on it (the check above already decided this frame
-        // without touching the wire), but present_would_skip()'s own
-        // second criterion needs a callback outstanding to age in the
-        // first place, or a compositor that stops repainting this
-        // surface without ever affirming `suspended` would never be
-        // detected at all.
-        attach_frame_listener();
-        m_frame_sequence.arm_pending(steady_now_ns());
-        return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);
+        return present_through_egl(display);
     }
 
     const frame_wait_plan plan = m_frame_sequence.plan_before_wait(k_frame_callback_budget_ms);
@@ -957,8 +946,7 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
             // returns false when the wl_display connection itself is
             // now unusable (this file's own comment on that function) -
             // always a real connection failure, never conditional on
-            // wl_display_get_error() the way the two eglSwapBuffers
-            // sites above/below are.
+            // wl_display_get_error() the way present_through_egl() is.
             return gltfx_rslt<gltfx_present_outcome>::err(build_connection_failure(display));
         }
         if (m_frame_sequence.decide_after_wait() == gltfx_present_outcome::skipped_hidden) {
@@ -966,17 +954,43 @@ gltfx_rslt<gltfx_present_outcome> wayland_egl_context_adapter::swap_buffers() no
         }
     }
 
-    if (eglSwapBuffers(m_egl_display, m_egl_surface) != EGL_TRUE) {
-        // D-W6b-28: same reasoning as the vsync=off branch above - the
-        // vsync=on path is where the D-W6b-12 mutation (ack_configure()
-        // removed) actually gets exercised by gl_context_parity_test's
-        // own 2nd swap.
-        if (wl_display_get_error(display) != 0) {
-            return gltfx_rslt<gltfx_present_outcome>::err(build_connection_failure(display));
-        }
+    return present_through_egl(display);
+}
+
+gltfx_rslt<gltfx_present_outcome>
+wayland_egl_context_adapter::present_through_egl(wl_display *display) noexcept {
+    const EGLBoolean swapped = eglSwapBuffers(m_egl_display, m_egl_surface);
+
+    // EGL-DEAD-DISPLAY-GUARD S2 (D-S2): checado SEJA QUAL FOR o retorno
+    // do EGL acima, nunca só quando ele falha - a correção do defeito
+    // que motivou esta fatia inteira. O comentário antigo deste sítio
+    // dizia que a mutação D-W6b-12 (ack_configure() removido) "aparece
+    // aqui porque o EGL falha" - FALSO no llvmpipe/swrast (o backend
+    // que este container e todo consumidor sem GPU dedicada usam,
+    // plano sec. 1.1): dri2_wl_swrast_swap_buffers_with_damage()
+    // devolve EGL_TRUE incondicionalmente, erro de protocolo ou não. A
+    // única forma confiável de saber que a conexão morreu é perguntar
+    // a ELA (connection_failure_if_dead(), S1), nunca ao valor de
+    // retorno do EGL.
+    if (const std::optional<gltfx_err> dead_after = connection_failure_if_dead(display);
+        dead_after.has_value()) {
+        return gltfx_rslt<gltfx_present_outcome>::err(*dead_after);
+    }
+
+    if (swapped != EGL_TRUE) {
         return gltfx_rslt<gltfx_present_outcome>::err(
             gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_swap_buffers"));
     }
+
+    ++m_swap_calls_issued;
+    // D-W6b-46: the frame listener is armed after EVERY presentation,
+    // in BOTH branches - the vsync=off branch never WAITS on it (its
+    // own present_would_skip() already decided the frame without
+    // touching the wire), but present_would_skip()'s own second
+    // criterion needs a callback outstanding to age in the first
+    // place, or a compositor that stops repainting this surface
+    // without ever affirming `suspended` would never be detected at
+    // all.
     attach_frame_listener();
     m_frame_sequence.arm_pending(steady_now_ns());
     return gltfx_rslt<gltfx_present_outcome>::ok(gltfx_present_outcome::presented);

@@ -5449,6 +5449,25 @@ if(UNIX)
     )
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+    # WIN-RUNNER-PROPRIO sub-fatia V-6a (23/09/2026, docs/plano-fecho-w7b.md
+    # secao 2.2.2): caminho de CONSOLIDACAO da sobreposicao qcow2 de volta
+    # ao disco base (`qemu-img commit`), com tres guardas -- trava de
+    # exclusao mutua, maquina confirmada desligada por `virsh domstate`, e
+    # copia de seguranca (`cp --reflink=always`) conferida por soma ANTES
+    # do commit. NUNCA toca o disco real de 17 GiB: o --selftest roda so'
+    # contra um par base/sobreposicao de BRINQUEDO que ele mesmo cria e
+    # apaga (a primeira consolidacao REAL e' item separado,
+    # `WIN-LAB-INSTALAR`, que exige aval do lider - L-01). MESMA forma
+    # hermetica dos cinco vizinhos acima (duble de virsh, nunca libvirt/
+    # QEMU real; SKIP_RETURN_CODE 77 para ferramenta ausente - aqui
+    # qemu-img/flock/sha256sum/cp, ver a guarda no topo do proprio script).
+    add_test(
+        NAME win_vm_lab_consolidar_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Checagem estatica SERIAL em job Windows (GODS_LAWS.md L-23 item 3,

@@ -576,6 +576,22 @@ win_vm_lab_sessao_selftest|windows|nenhum|SEM-PENDENCIA
 # convidado Windows, nunca o inverso.
 win_vm_lab_coletar_resultados_selftest|windows|nenhum|SEM-PENDENCIA
 
+# win_vm_lab_consolidar_selftest (tools/win-vm-lab/consolidar.sh
+# --selftest, sub-fatia V-6a, docs/plano-fecho-w7b.md secao 2.2.2) prova,
+# contra um dublê de `virsh` (nunca libvirt/QEMU real) e um par
+# base/sobreposicao qcow2 de BRINQUEDO que o proprio autoteste cria e
+# apaga, o caminho de CONSOLIDACAO da sobreposicao (`qemu-img commit`):
+# recusa se a maquina nao estiver desligada, recusa sem a trava de
+# exclusao mutua, recusa (e apaga) uma copia de seguranca que saia
+# corrompida antes de chegar perto do commit, e confere que a marca escrita
+# na sobreposicao migra para o base e que a copia de seguranca, restaurada,
+# reproduz o base de ANTES do commit byte a byte. MESMA razao estrutural
+# dos cinco vizinhos acima (script POSIX `#!/usr/bin/env bash`, sem
+# interprete que os runners Windows da matriz reconhecam - add_test tambem
+# condicionado a if(UNIX)); o proprio laboratorio e' o host Linux/libvirt
+# hospedando e dirigindo o convidado Windows, nunca o inverso.
+win_vm_lab_consolidar_selftest|windows|nenhum|SEM-PENDENCIA
+
 # --- Sonda exclusiva de UM sistema, sem par possivel (11/09/2026,
 # item CONTAINER-LOG-SIGNAL-FIRST) -------------------------------------
 #

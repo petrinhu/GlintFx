@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# check_python_unbuffered.py - TODO.md item LAYERS-ORACLE-REPORT, sub-
+# fatia J2 (docs/plano-w7c-adendo-revalidacao.md secao 3.J, achado N9,
+# decisao D-A11, 24/09/2026).
+#
+# O FATO MEDIDO: nenhum portao Python registrado no ctest deste projeto
+# roda sem buffer (`grep -n PYTHONUNBUFFERED` em tests/CMakeLists.txt,
+# ci.yml e tools/preci.sh dava zero antes desta fatia). Sob `ctest`, a
+# saida padrao (stdout) de um processo Python vai para um cano, nao
+# para um terminal interativo - e a biblioteca padrao documenta que,
+# nesse caso, stdout e' "block-buffered" enquanto stderr continua
+# "line-buffered" (docs.python.org/3/library/sys.html, secao
+# sys.stdout). Consequencia MEDIDA no run 35946636755: as linhas de
+# erro de um portao Python aparecem no log ANTES das linhas de
+# progresso normal do mesmo portao - nao e' defeito do portao, e' o
+# comportamento documentado do interpretador, e vale para TODO portao
+# Python deste projeto, nao so' o oraculo de camadas que a INBOX citou
+# primeiro.
+#
+# O CONSERTO, em tests/CMakeLists.txt: `PYTHONUNBUFFERED=1` entra na
+# propriedade ENVIRONMENT de TODO teste registrado no diretorio (lidos
+# da propriedade de diretorio TESTS, no fim do arquivo - depois do
+# ULTIMO add_test) - equivalente a chamar todo `python3`/`python` deste
+# projeto com a flag `-u`. Uma variavel de ambiente extra em teste que
+# nao e' Python (a maioria dos ctest daqui e' binario C++) e' inofensiva:
+# nenhum executor de teste le PYTHONUNBUFFERED.
+#
+# ESTE SCRIPT E' O PORTAO QUE PROVA QUE O CONSERTO ACONTECEU E FICA: le
+# `ctest --show-only=json-v1` (GODS_LAWS.md L-45 - o que o CTEST
+# REALMENTE REGISTROU, nunca uma releitura estatica do CMakeLists.txt)
+# do diretorio de build dado, e reprova se ALGUM teste registrado nao
+# carrega PYTHONUNBUFFERED=1 no ENVIRONMENT dele. GODS_LAWS.md L-40:
+# zero teste lido e' varredura vazia, reprova tambem.
+#
+# O QUE ELE NAO VE: a variavel chegar ATE o processo Python de fato (um
+# runner exotico que apague o ambiente antes de invocar o interpretador
+# nao seria pego por este portao, que so' confere o que o ctest DIZ que
+# vai passar, nunca o processo em execucao).
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+SCRIPT_NAME = "check_python_unbuffered.py"
+REQUIRED_ENV_VALUE = "PYTHONUNBUFFERED=1"
+
+
+def fail(message):
+    print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def find_environment_values(test):
+    """Devolve a lista ENVIRONMENT de um teste (um item de data['tests']
+    do JSON de `ctest --show-only=json-v1`), ou [] se a propriedade nao
+    existir - forma pura, sem tocar disco, pra ser testada sem
+    subprocess algum."""
+    for prop in test.get("properties", []):
+        if prop.get("name") == "ENVIRONMENT":
+            return prop.get("value") or []
+    return []
+
+
+def missing_pythonunbuffered(data):
+    """Devolve (total_de_testes, [nomes sem PYTHONUNBUFFERED=1]), lendo
+    o dict ja parseado do JSON de `ctest --show-only=json-v1`."""
+    tests = data.get("tests", [])
+    missing = [
+        test.get("name", "<sem nome>")
+        for test in tests
+        if REQUIRED_ENV_VALUE not in find_environment_values(test)
+    ]
+    return len(tests), missing
+
+
+def _run_ctest_show_only(build_dir):
+    import subprocess
+
+    try:
+        completed = subprocess.run(
+            ["ctest", "--show-only=json-v1", "--test-dir", str(build_dir)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        fail(f"nao consegui executar 'ctest --show-only=json-v1 --test-dir {build_dir}': {exc}")
+    if completed.returncode != 0:
+        fail(
+            f"'ctest --show-only=json-v1 --test-dir {build_dir}' saiu com codigo "
+            f"{completed.returncode}: {completed.stderr.strip()}"
+        )
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        fail(f"saida de 'ctest --show-only=json-v1' nao e' JSON valido: {exc}")
+
+
+def real_main(args):
+    if not args or args[0] != "--compare":
+        fail(f"usage: {SCRIPT_NAME} --compare <build-dir>  |  --selftest")
+    if len(args) != 2:
+        fail(f"usage: {SCRIPT_NAME} --compare <build-dir>  |  --selftest")
+    build_dir = Path(args[1])
+    if not build_dir.is_dir():
+        fail(f"diretorio de build nao encontrado: {build_dir}")
+
+    data = _run_ctest_show_only(build_dir)
+    total, missing = missing_pythonunbuffered(data)
+    print(f"{SCRIPT_NAME}: {total} teste(s) lido(s) de 'ctest --show-only=json-v1 --test-dir {build_dir}'")
+    if total == 0:
+        fail("0 teste(s) lido(s) - varredura vazia (GODS_LAWS.md L-40)")
+    if missing:
+        fail(
+            f"{len(missing)} de {total} teste(s) sem {REQUIRED_ENV_VALUE!r} no ENVIRONMENT: "
+            f"{sorted(missing)!r}"
+        )
+    print(f"{SCRIPT_NAME}: os {total} teste(s) carregam {REQUIRED_ENV_VALUE!r}")
+
+
+# -- selftest --------------------------------------------------------
+
+def _fake_show_only_json(tests):
+    return {"kind": "ctestInfo", "version": {"major": 1, "minor": 0}, "tests": tests}
+
+
+def _test_entry(name, environment=None, command=None):
+    properties = []
+    if environment is not None:
+        properties.append({"name": "ENVIRONMENT", "value": environment})
+    return {
+        "name": name,
+        "command": command or [f"/build/tests/{name}"],
+        "properties": properties,
+    }
+
+
+def selftest_positive_control():
+    """GREEN: todo teste com PYTHONUNBUFFERED=1 no ENVIRONMENT dele -
+    zero faltando."""
+    data = _fake_show_only_json(
+        [
+            _test_entry("version_test", environment=["PYTHONUNBUFFERED=1"]),
+            _test_entry(
+                "layers_oracle_test",
+                environment=["PYTHONUNBUFFERED=1", "GLINTFX_LAYERS_ORACLE=ON"],
+            ),
+        ]
+    )
+    total, missing = missing_pythonunbuffered(data)
+    if total != 2 or missing:
+        print(f"selftest: POSITIVO FALHOU (total={total}, missing={missing!r})", file=sys.stderr)
+        return False
+    print(f"selftest: POSITIVO OK ({total} teste(s), 0 faltando)")
+    return True
+
+
+def selftest_shell_wrapped_python_without_command_string_caught():
+    """MUTANTE QUE MATA (tabela J1/J2 do adendo): um teste cujo COMANDO
+    e' um roteiro de shell (run_compositor.sh) que so' chama Python por
+    dentro - "command" nao contem a palavra "python" em lugar nenhum -
+    mas ficou SEM PYTHONUNBUFFERED=1 no ENVIRONMENT. Um portao que
+    filtrasse "so' testes cujo comando contem python" nunca acusaria
+    este caso; este portao tem de acusar, porque olha o ENVIRONMENT de
+    TODO teste, nunca o texto do comando."""
+    data = _fake_show_only_json(
+        [
+            _test_entry("version_test", environment=["PYTHONUNBUFFERED=1"]),
+            _test_entry(
+                "container_run_compositor_selftest",
+                environment=[],
+                command=["/bin/sh", "/build/tests/container/run_compositor.sh", "--selftest"],
+            ),
+        ]
+    )
+    total, missing = missing_pythonunbuffered(data)
+    if total != 2 or missing != ["container_run_compositor_selftest"]:
+        print(
+            f"selftest: WRAPPER-SHELL FALHOU (total={total}, missing={missing!r}, esperava "
+            f"['container_run_compositor_selftest'])",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: WRAPPER-SHELL OK (teste sem 'python' no comando, mas sem a variavel, e' "
+        "acusado do mesmo jeito - o mutante 'so filtra por texto do comando' morreria aqui)"
+    )
+    return True
+
+
+def selftest_missing_environment_property_counted():
+    """Teste sem a propriedade ENVIRONMENT alguma (nunca setada) conta
+    como faltando, nao como "nao se aplica"."""
+    data = _fake_show_only_json([_test_entry("err_code_test", environment=None)])
+    total, missing = missing_pythonunbuffered(data)
+    if total != 1 or missing != ["err_code_test"]:
+        print(f"selftest: SEM-ENVIRONMENT FALHOU (total={total}, missing={missing!r})", file=sys.stderr)
+        return False
+    print("selftest: SEM-ENVIRONMENT OK (ausencia total da propriedade conta como faltando)")
+    return True
+
+
+def selftest_empty_tests_list_reproves():
+    """Piso de varredura vazia (GODS_LAWS.md L-40): zero teste no JSON
+    tem de reprovar - nunca "nada a conferir, passa"."""
+    data = _fake_show_only_json([])
+    total, _missing = missing_pythonunbuffered(data)
+    if total != 0:
+        print(f"selftest: LISTA-VAZIA FALHOU (setup errado: total={total}, esperava 0)", file=sys.stderr)
+        return False
+    print("selftest: LISTA-VAZIA OK (missing_pythonunbuffered devolve total=0 - real_main() reprova aqui)")
+    return True
+
+
+def selftest_real_main_reproves_on_missing():
+    """Ponta a ponta: real_main() roda 'ctest --show-only=json-v1' de
+    verdade contra um build-dir fabricado (um CTestTestfile.cmake
+    minimo, sem PYTHONUNBUFFERED em teste nenhum) e tem de sair 1."""
+    import subprocess
+
+    scratch = Path(tempfile.mkdtemp(prefix="glintfx-python-unbuffered-selftest-"))
+    try:
+        ctestfile = scratch / "CTestTestfile.cmake"
+        ctestfile.write_text(
+            'add_test(fake_test "/bin/true")\n'
+            'set_tests_properties(fake_test PROPERTIES LABELS "unit")\n',
+            encoding="utf-8",
+        )
+        try:
+            probe = subprocess.run(
+                ["ctest", "--show-only=json-v1", "--test-dir", str(scratch)],
+                capture_output=True, text=True, check=False,
+            )
+        except OSError as exc:
+            print(f"selftest: REAL-MAIN pulado (ctest indisponivel neste ambiente: {exc})")
+            return True
+        if probe.returncode != 0:
+            print(
+                f"selftest: REAL-MAIN pulado (ctest --show-only nao rodou contra o build-dir "
+                f"fabricado: {probe.stderr.strip()!r})"
+            )
+            return True
+
+        try:
+            real_main(["--compare", str(scratch)])
+        except SystemExit as exc:
+            if exc.code != 1:
+                print(f"selftest: REAL-MAIN FALHOU (codigo {exc.code}, esperava 1)", file=sys.stderr)
+                return False
+            print("selftest: REAL-MAIN OK (fake_test sem PYTHONUNBUFFERED=1 reprova, codigo 1)")
+            return True
+        print("selftest: REAL-MAIN FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
+        return False
+    finally:
+        import shutil
+
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def selftest_main():
+    controls = [
+        selftest_positive_control(),
+        selftest_shell_wrapped_python_without_command_string_caught(),
+        selftest_missing_environment_property_counted(),
+        selftest_empty_tests_list_reproves(),
+        selftest_real_main_reproves_on_missing(),
+    ]
+    if not all(controls):
+        print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
+        sys.exit(1)
+    print(f"{SCRIPT_NAME} --selftest: os {len(controls)} controles OK")
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] == "--selftest":
+        selftest_main()
+    else:
+        real_main(args)
+
+
+if __name__ == "__main__":
+    main()

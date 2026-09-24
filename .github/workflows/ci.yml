@@ -84,6 +84,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
+# secao 3.J, N9, D-A11, 24/09/2026): reforco no nivel do WORKFLOW,
+# cinto-e-suspensorio do conserto real (a propriedade ENVIRONMENT de
+# TODO ctest, no fim de tests/CMakeLists.txt, e' quem o portao
+# python_unbuffered_test prova) - cobre qualquer invocacao de Python
+# FORA do ctest (scripts chamados direto de um `run:`, por exemplo).
+env:
+  PYTHONUNBUFFERED: "1"
+
 jobs:
   # ============================================================
   # CI-TIMEOUTS (22/09/2026) - teto de tempo por trabalho.

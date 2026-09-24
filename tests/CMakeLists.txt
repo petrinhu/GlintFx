@@ -5604,3 +5604,44 @@ add_test(
         "${CMAKE_SOURCE_DIR}/.github/workflows"
 )
 set_tests_properties(check_ci_timeouts_selftest PROPERTIES LABELS selftest)
+
+# LAYERS-ORACLE-REPORT sub-fatia J2 (docs/plano-w7c-adendo-revalidacao.md
+# secao 3.J, achado N9, decisao D-A11, 24/09/2026): nenhum portao Python
+# registrado neste arquivo rodava sem buffer - sob ctest, stdout de
+# Python vira "block-buffered" (documentado em sys.stdout da stdlib),
+# entao a saida de erro (line-buffered) de um portao aparece ANTES da
+# saida normal dele no mesmo log. check_python_unbuffered.py confere que
+# TODO teste registrado (ctest --show-only=json-v1, GODS_LAWS.md L-45)
+# carrega PYTHONUNBUFFERED=1 no ENVIRONMENT - o conserto em si e' o
+# bloco no FIM deste arquivo (depois do ultimo add_test), que aplica a
+# variavel a TODO teste do diretorio via a propriedade TESTS, nao so'
+# aos que "parecem" chamar Python (ver o cabecalho do script para o
+# mutante que isso mata).
+add_test(
+    NAME python_unbuffered_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_python_unbuffered.py"
+        --compare "${CMAKE_BINARY_DIR}"
+)
+set_tests_properties(python_unbuffered_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME python_unbuffered_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_python_unbuffered.py"
+        --selftest
+)
+set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
+
+# FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
+# propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
+# CMake, de todo nome passado a add_test() neste diretorio ate aqui -
+# por isso este bloco tem de ficar DEPOIS do ultimo add_test() do
+# arquivo, nunca antes, senao testes adicionados depois dele ficariam
+# de fora. APPEND (nunca set direto) preserva qualquer ENVIRONMENT que
+# um teste especifico ja tenha declarado antes (ex.: GLINTFX_LAYERS_
+# ORACLE em layers_oracle_test).
+get_property(_glintfx_every_registered_test DIRECTORY PROPERTY TESTS)
+foreach(_glintfx_test_name IN LISTS _glintfx_every_registered_test)
+    set_property(TEST "${_glintfx_test_name}" APPEND PROPERTY ENVIRONMENT "PYTHONUNBUFFERED=1")
+endforeach()

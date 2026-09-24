@@ -28,8 +28,21 @@
 
 set -eu
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 2c (achado do team-lead, 24/09/2026,
+# GODS_LAWS.md L-17 "gemeo" - familia "copia em vez de fonte", memoria
+# feedback_copia_em_vez_de_fonte.md): estes dois literais sao a metade
+# COMPARADA do caminho do marcador - a outra metade e run_compositor.sh
+# (quem ESCREVE o marcador, de dentro do container; este script so o
+# ESPERA, de fora, via `docker exec`). Marcados com o MESMO id
+# (ready-marker-path), sao comparados TOKEN A TOKEN pelo gate ja
+# existente tests/tools/check_sibling_lists.py (item GATE-SIBLING-LIST) -
+# uma divergencia reprova o `sibling_lists_test` do CI/preci, em vez de
+# so aparecer 40s depois num container que nunca fica pronto.
+# GLINTFX-SIBLING-LIST:ready-marker-path:START
 readonly RUNTIME_DIR="/run/glintfx-test"
-readonly MARKER_PATH="${RUNTIME_DIR}/ready"
+readonly MARKER_FILENAME="ready"
+# GLINTFX-SIBLING-LIST:ready-marker-path:END
+readonly MARKER_PATH="${RUNTIME_DIR}/${MARKER_FILENAME}"
 
 fail() {
     echo "wait_for_ready_marker.sh: $1" >&2

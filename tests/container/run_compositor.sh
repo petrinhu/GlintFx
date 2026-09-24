@@ -14,6 +14,32 @@
 
 set -eu
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 2c (achado do team-lead, 24/09/2026,
+# GODS_LAWS.md L-17 "gemeo" - familia "copia em vez de fonte",
+# memoria feedback_copia_em_vez_de_fonte.md): o caminho do marcador de
+# prontidao existe em DUAS copias - o RUNTIME_DIR/nome de arquivo daqui
+# (quem ESCREVE o marcador, de dentro do container) e o RUNTIME_DIR/
+# MARKER_FILENAME de tests/container/wait_for_ready_marker.sh (quem
+# ESPERA o marcador, de fora, via `docker exec`). Sao dois PROCESSOS
+# SEPARADOS - um dentro do container, outro no host - entao nao ha como
+# compartilhar uma variavel de ambiente entre eles; se um mudasse sem o
+# outro, nenhum teste local reprovava, e o sintoma so apareceria no CI
+# como um timeout de 40s esperando um arquivo que nunca aparece.
+#
+# Os dois literais abaixo (o valor default de RUNTIME_DIR e o nome do
+# arquivo do marcador) sao comparados, TOKEN A TOKEN, contra o par
+# marcado com o MESMO id em wait_for_ready_marker.sh, pelo gate ja
+# existente tests/tools/check_sibling_lists.py (item GATE-SIBLING-LIST -
+# reaproveitado aqui, nao reinventado: o mesmo mecanismo que ja prova
+# tests/tools/check_port_privacy.sh contra tools/ci/check-port-privacy-
+# win.ps1). Uma divergencia num dos dois lados agora reprova o
+# `sibling_lists_test` do CI/preci, em vez de so aparecer 40s depois
+# num container que nunca fica pronto.
+# GLINTFX-SIBLING-LIST:ready-marker-path:START
+readonly GLINTFX_READY_MARKER_RUNTIME_DIR_DEFAULT="/run/glintfx-test"
+readonly GLINTFX_READY_MARKER_FILENAME="ready"
+# GLINTFX-SIBLING-LIST:ready-marker-path:END
+
 # WL-ACK-SMOKE-BLUNT A3e, passo 2b (achado do main, GODS_LAWS.md L-12):
 # deixou de ser `readonly` para o --selftest poder provar a ORDEM real
 # de bring_up() (abaixo) - um caso de selftest aponta RUNTIME_DIR para
@@ -22,7 +48,7 @@ set -eu
 # TRIES/_SLEEP e pelos demais GLINTFX_* deste arquivo. Producao nunca
 # define RUNTIME_DIR no ambiente, entao o default abaixo sempre vale
 # fora do --selftest - nenhum comportamento de producao muda.
-: "${RUNTIME_DIR:=/run/glintfx-test}"
+: "${RUNTIME_DIR:=$GLINTFX_READY_MARKER_RUNTIME_DIR_DEFAULT}"
 
 fail() {
     echo "run_compositor.sh: $1" >&2
@@ -48,10 +74,13 @@ create_private_runtime_dir() {
 # ready_marker.sh (chamado por quem sobe este container, ex.: ci.yml)
 # passa a esperar, no lugar de uma sonda externa independente sem
 # sincronia nenhuma com esta verificacao interna. O caminho e' sempre
-# "${RUNTIME_DIR}/ready", calculado NA CHAMADA (dentro de bring_up(),
-# abaixo) em vez de guardado num `readonly` proprio - RUNTIME_DIR deixou
-# de ser fixo (ver comentario dela acima) exatamente para o --selftest
-# poder trocar o valor antes de chamar bring_up().
+# "${RUNTIME_DIR}/${GLINTFX_READY_MARKER_FILENAME}", calculado NA
+# CHAMADA (dentro de bring_up(), abaixo) em vez de guardado num
+# `readonly` proprio - RUNTIME_DIR deixou de ser fixo (ver comentario
+# dela acima) exatamente para o --selftest poder trocar o valor antes
+# de chamar bring_up(). Os dois pedacos do caminho (RUNTIME_DIR default
+# e o nome do arquivo) sao os literais marcados no passo 2c (comentario
+# deles acima) - a mesma fonte que wait_for_ready_marker.sh compara.
 publish_ready_marker() {
     marker_path="$1"
     : >"$marker_path"
@@ -548,7 +577,7 @@ selftest_case_bring_up_relay_never_ready_no_marker() (
     wait_for_compositor_ready() { :; }
     start_relay() { :; }
     wait_for_relay_ready() {
-        if [ -e "${RUNTIME_DIR}/ready" ]; then
+        if [ -e "${RUNTIME_DIR}/${GLINTFX_READY_MARKER_FILENAME}" ]; then
             echo "SELFTEST FALHOU: marcador ja existia quando wait_for_relay_ready() rodou, mesmo no caminho em que o rele nunca fica pronto - ordem trocada" >&2
             exit 97
         fi
@@ -572,14 +601,14 @@ selftest_case_bring_up_marker_after_relay_ready() (
     wait_for_compositor_ready() { :; }
     start_relay() { :; }
     wait_for_relay_ready() {
-        if [ -e "${RUNTIME_DIR}/ready" ]; then
+        if [ -e "${RUNTIME_DIR}/${GLINTFX_READY_MARKER_FILENAME}" ]; then
             echo "SELFTEST FALHOU: marcador ja existia quando wait_for_relay_ready() rodou - ordem trocada" >&2
             exit 97
         fi
         return 0
     }
     bring_up "selftest-bringup-marker-order" >/dev/null 2>&1
-    if [ ! -f "${RUNTIME_DIR}/ready" ]; then
+    if [ ! -f "${RUNTIME_DIR}/${GLINTFX_READY_MARKER_FILENAME}" ]; then
         echo "SELFTEST FALHOU: bring_up() nao publicou o marcador depois do rele ficar pronto" >&2
         exit 1
     fi
@@ -750,7 +779,7 @@ bring_up() {
     wait_for_compositor_ready "$upstream_socket_name"
     start_relay "$upstream_socket_name" "$external_socket_name" "$relay_log_file"
     wait_for_relay_ready "$external_socket_name" "$relay_log_file"
-    publish_ready_marker "${RUNTIME_DIR}/ready"
+    publish_ready_marker "${RUNTIME_DIR}/${GLINTFX_READY_MARKER_FILENAME}"
 }
 
 main() {

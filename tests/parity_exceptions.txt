@@ -729,7 +729,7 @@ container_smokes_in_compile_db_selftest|windows|nenhum|SEM-PENDENCIA
 # ele prova o rele estrito do protocolo Wayland (transporte, decoder,
 # tabela de objetos, motor de regras R1/R2, injetor de erro) - o wire
 # format que WL-ACK-SMOKE-BLUNT existe para exercer so' faz sentido do
-# lado Wayland (GODS_LAWS.md L-05 fecha X11/Windows por desenho, mesma
+# lado Wayland (GODS_LAWS.md L-05 fecha X11 e Windows por desenho, mesma
 # razao ja registrada acima para wl_proto_link_test e os fixtures de
 # tests/container/). O autoteste em si NUNCA sobe compositor nem
 # container (GODS_LAWS.md L-09: par de soquetes e montante falso).

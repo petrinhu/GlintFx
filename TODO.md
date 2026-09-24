@@ -144,6 +144,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`PRECI-IN-CONTAINER` - o espelho local e os autotestes soltos rodam na máquina do líder, contra a letra da L-09 ampliada em 29/08/2026.** Medido em 24/09/2026: `tools/preci.sh` roda `ctest` no hospedeiro (só `stage_ps_syntax`, `win32-link` e `container-link` usam `docker run`), e autotestes Python/shell eram chamados soltos por agentes e pelo main. Decisão do líder (24/09, `AskUserQuestion`, "Containerizar o espelho"): o espelho inteiro e os autotestes passam a rodar em container, com o repositório montado `:ro,Z` e o diretório de construção dentro do container ou em `/var/tmp`; até lá, downgrade declarado em cada relato; teste de superfície nunca fora do container. Registrado em `GODS_LAWS.md` L-09. Precisa de onda e WSJF no próximo `--reorder`.
+
 - **`PORTAO-DE-CAMADA-DIRECAO-ENTRE-PURAS`: o portão de camada não verifica a direção entre as camadas puras** (que `core` não inclua `gfss`/`gfui`, e que `gfss` não inclua `gfui`). Medido pelo planejador da L-4 de `LAYERS-GATE-GFSS-GFUI` em 23/09/2026: a árvore de hoje respeitaria (core só inclui core; gfss inclui core e gfss; gfui inclui gfss e gfui), mas nada o prova. Fonte: `docs/plano-layers-l4.md` §7.
 
 - **`PORTAO-DE-CAMADA-CSTDIO`: `<cstdio>` e `<iostream>` fazem entrada e saída de arquivo e não estão proibidos nas camadas puras**; a proibição de `fstream`/`filesystem` veio de `ASSET-LOAD`. Estender ou não é decisão de produto do líder. Fonte: `docs/plano-layers-l4.md` §7.

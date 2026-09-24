@@ -4390,3 +4390,17 @@ Pergunta: "Como ratifica as 19 decisões autônomas listadas (23/09 12:06 até a
 **Decisão:** sub-fatia nova **A3e**, antes da medição A3d: a sonda passa a ler qualquer linha "connection closed" com N>0, com controle negativo; o entrypoint publica um marcador de prontidão e os lugares que sobem o container esperam por ele (gêmeos listados). Mão única: não. Reverter: barato.
 **Fato medido (egl_protocol_error_smoke, mesmo binário, mesmo container):** com o relé, 7 de 10 passam; direto no KWin, 10 de 10. O gap a montante da conexão longa fica em ~63-69 ms em todas as rodadas, contra um orçamento de 100 ms por swap com 2 tentativas. As rodadas anteriores, colhidas com uma instrumentação que matava o container, foram descartadas.
 **Encaminhado:** o determinismo da fixtura e o conserto da queda de `eglSwapBuffers` sobre conexão morta (`src/platform/wayland/egl_context_adapter.cpp:920`, SIGSEGV dentro do Mesa, backtrace do coredump) ficam com o plano do Caetano/CTO (opus), em curso. A A3d mede se os ~65 ms estão no relé ou no KWin.
+
+## 24/09/2026 - 13:50 | EGL-DEAD-DISPLAY-GUARD: plano do Caetano/CTO aprovado pelo main (D-S1 a D-S8, confirmar retroativamente) e D-S6 decidida pelo líder
+
+**Plano:** `/var/tmp/glintfx-plan/plano-segv-swap-protocol-error.md` (md5 `38ffe2cb1d74f26922382a572e372c5c` na leitura do main; atualização das 13:27 na seção 5, linha S4 e D-S7). O main conferiu contra o commit `egl_context_adapter.cpp:920-934` (só consulta `wl_display_get_error` depois de falha do EGL) e `egl_protocol_error_smoke.cpp:81-92` (duas trocas com orçamento). Transcrição das decisões, com opções e fontes, na seção 6 do plano:
+- **D-S1:** linha própria `EGL-DEAD-DISPLAY-GUARD`, que bloqueia o fechamento de A3 de `WL-ACK-SMOKE-BLUNT` (mudança de produto não se esconde em item de teste).
+- **D-S2:** checar `wl_display_get_error` antes E depois de cada EGL que conversa com o fio, sem I/O novo (bombear o soquete no `vsync=off` mudaria a entrega de evento, L-35).
+- **D-S3:** `close()` continua chamando a liberação do EGL depois da morte (pular vazaria).
+- **D-S4:** a promessa nova vai para `context.hpp`. Mão única em espírito.
+- **D-S5:** o Windows não ganha fatia (não há fio nem erro externo no Win32); `swap_calls_issued()` é espelhado e as ausências entram com motivo.
+- **D-S7:** `egl_protocol_error_smoke` sincroniza pela barreira `wl_display_roundtrip`; a expectativa e o orçamento de 100 ms do produto não mudam; a prova do ramo `ready_to_read` desce para um teste hermético sobre `socketpair`.
+- **D-S8:** a queda é reproduzida dentro da árvore (S0) antes de qualquer linha de produto.
+**D-S6, decisão do líder (`AskUserQuestion`, 24/09/2026 ~13:49):** a pergunta "Abro um relato público no rastreador do Mesa, com um programa mínimo que reproduz a queda?" teve a resposta, verbatim: *"Relate e veja como a comunidade resolveu"*. Item de INBOX `MESA-SWRAST-NULL-BACK`. A pesquisa do que a comunidade já fez e o rascunho do relato estão com o CTO; a publicação espera o reprodutor de S0 provado.
+**Fato medido (A3d, impl-w7c-relay2, uma amostra):** o relé é transparente (<100 us entre ler e escrever) e o KWin respondeu em ~6,5 ms. Os gaps de até 66 ms, somando ~90 ms na conexão longa, estão no CLIENTE (llvmpipe), entre receber a resposta e mandar o próximo pedido. Isso reforça a D-S7.
+**CI `36023489188`:** o Ubuntu estático ficou verde na repetição (o 404 era do espelho de pacotes); o único vermelho real é `egl_protocol_error_smoke` (provoked=0), que a S4 trata.

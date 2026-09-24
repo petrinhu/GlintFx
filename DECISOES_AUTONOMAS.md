@@ -4416,3 +4416,13 @@ Pergunta: "Como ratifica as 19 decisões autônomas listadas (23/09 12:06 até a
 **Commits:** `2f18d77`, `c4dde7f`, `fc2db70`, `431963f`, `0aea7ba`. A sonda de prontidão lê qualquer linha "connection closed" com N>0 do log inteiro; o entrypoint publica um marcador em `/run/glintfx-test/ready` só depois de `wait_for_relay_ready` passar (sequência em `bring_up()`); o CI espera o marcador (`tests/container/wait_for_ready_marker.sh`); o caminho do marcador concorda por construção entre os dois scripts pelo portão `check_sibling_lists.py`.
 **Revisão do main (L-12, sabotagem de outra família, em cópias):** o mutante M1 (`$1 >= 0`) sobreviveu ao primeiro corte e foi morto pelo caso "N=0 antes de N>0" (1b). M2 (publicar cedo) e M3 (caminho errado) foram mortos. O marcador trocado em só um lado reprova o portão de listas irmãs. `tools/preci.sh --fast` verde nas três rodadas, com o md5 da árvore igual antes e depois (rodado no hospedeiro, downgrade da L-09 até PRECI-IN-CONTAINER).
 **Rótulo:** `c4dde7f` diz "passo 1b" mas leva arquivos do passo 2 (estado intermediário em que o CI espera um marcador ainda não publicado); declarado em `431963f`, sem reescrever o histórico (L-25).
+
+## 24/09/2026 - 17:45 | Pausa ordenada pelo líder
+
+Ordem do líder: *"pause tudo 17:45"*, confirmada por `AskUserQuestion` ("Pausar às 17:45"). O monitor anti-parada (`2d6142db`) foi suspenso por essa ordem; ele volta via `CronCreate` quando o líder mandar retomar (L-61).
+**Estado na pausa (árvore limpa, `onda-w7c` = `682b869`, empurrado):**
+- `EGL-DEAD-DISPLAY-GUARD`: S0, S1, S1b, S2 e S3 commitadas e aceitas pelo main (`73a789d`, `439c9cf`, `2531013`, `85d14ac`, `682b869`; plano em `docs/plano-egl-dead-display-guard.md`). **Falta:** S3b (laço de 10 trocas depois da morte, para matar o mutante "guarda do topo removida": o contador `swap_calls_issued` só conta sucesso e não distingue); M-1 e S4 (determinismo de `egl_protocol_error_smoke`); revisão de API da D-S4 pelo CTO; Status para 🔍 no último commit.
+- `WL-ACK-SMOKE-BLUNT`: A1 até A3e aceitas; faltam A4, A5 e A6 (com `impl-w7c-relay2`, depois do item acima).
+- `MESA-SWRAST-NULL-BACK`: rascunho pronto, falta o R-1 (reprodutor em C independente) e a conta que o líder vai criar.
+- CI `36036115151` (`d62fbf1`): vermelho só por `egl_protocol_error_smoke` (provoked=0), que a S4 trata; a subida pelo marcador da A3e passou no servidor.
+**Agentes:** `impl-egl-guard`, `impl-w7c-relay2` e `cto-segv-swap` em espera, sem trabalho em curso.

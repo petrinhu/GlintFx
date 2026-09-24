@@ -52,6 +52,13 @@ import sys
 import unicodedata
 from pathlib import Path
 
+# F2 (PLAN-SCOPE-COLUMNS, docs/plano-w7c.md sec. 3.F, decisao D14/D15):
+# "as colunas de prova e de par carregam nomes de teste entre crases, e
+# nome de teste se confere contra o inventario do ctest sem heuristica
+# nova" - reusa test_name_inventory.py (E1), nunca reimplementa a
+# varredura (GODS_LAWS.md L-33/L-17).
+import test_name_inventory
+
 # GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
 # tests/tools/check_test_parity.py, arquivo inteiro por declaracao, nao
 # janela - aquele script's own header comment explica por que): este
@@ -161,6 +168,48 @@ def extract_candidate_paths(column_text):
             if ext in FILE_EXTENSIONS:
                 candidates.append(token)
     return candidates
+
+
+# --- F2: nomes de teste citados nas colunas de Prova*/Par no portão ------
+#
+# CALIBRADO (L-43: o criterio se fixa ANTES do dado, contra dado real, nao
+# depois de ver resultado) contra TODOS os tokens entre crases das colunas
+# Prova*/Par no portão de TODAS as tabelas no esquema v1 dos 6 planos que
+# ja o tem (medido em 24/09/2026, script descartavel): 178 tokens distintos,
+# 102 com cara de identificador puro (sem parenteses/espaço/`::`). Cruzados
+# contra o inventario real (test_name_inventory.py): SO' os que terminam em
+# `_test`, `_smoke` ou `_selftest` batem com um nome REAL do inventario -
+# palavras soltas de prosa dentro da mesma celula (`border`, `near`, `ctest`,
+# `classes`, `margin`, `expected`, `static_assert`, `types`...) nunca tem
+# essa forma, e por isso nunca viram candidato. Os UNICOS dois nomes reais
+# que escapam desta forma (`display_header_declaration_survives_hostile_
+# system_headers`, `inline_style_text_parses_with_the_same_function`) sao
+# casos GLINTFX_TEST citados por extenso, fora do escopo desta sub-fatia -
+# perda declarada, nunca escondida.
+_TEST_NAME_BACKTICK_RE = re.compile(r"`([^`]+)`")
+_TEST_NAME_SUFFIXES = ("_test", "_smoke", "_selftest")
+_BARE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def extract_test_name_candidates(column_text):
+    """Tokens entre crases com cara de NOME DE TESTE registrado neste
+    projeto - ver o comentario acima para a calibracao. Mesma exclusao de
+    forma de extract_candidate_paths() (nunca chamada/metodo/template)."""
+    candidates = []
+    for token in _TEST_NAME_BACKTICK_RE.findall(column_text):
+        if "(" in token or ")" in token or "::" in token or " " in token:
+            continue
+        if not _BARE_IDENTIFIER_RE.match(token):
+            continue
+        if token.endswith(_TEST_NAME_SUFFIXES):
+            candidates.append(token)
+    return candidates
+
+
+def cell_declares_absence(cell_text):
+    """'—' é ausência declarada, com motivo na própria célula - a mesma
+    convenção que as tabelas do esquema v1 já usam (D-A7, F0)."""
+    return cell_text.strip().startswith("—")
 
 
 def path_exists_in_worktree(root, path):
@@ -391,6 +440,56 @@ def real_main(args):
 
     declared, undeclared, dead = validate_absence_deaths(missing, absences, todo_status, todo_text)
 
+    # F2 (PLAN-SCOPE-COLUMNS, docs/plano-w7c.md sec. 3.F): as colunas de
+    # Prova* e Par no portão tambem prometem algo mecanico - nomes de
+    # teste - e o portao ate agora nunca olhava para elas (achado do
+    # orquestrador, 06/09/2026). Mesmo esquema da coluna de entregaveis:
+    # piso de varredura nao-vazia (a menos que a celula declare ausencia
+    # com "—"), nome inexistente no inventario real vira FALTA, e uma
+    # ausencia declarada em tests/parity_absences.txt (mesmo arquivo,
+    # mesma regra de morte) conta como prova.
+    test_name_columns = [
+        (name, idx)
+        for idx, name in enumerate(header_columns)
+        if name.startswith(V1_PROVA_PREFIX) or name == "Par no portão"
+    ]
+    test_name_cells = []
+    for _name, header_idx in test_name_columns:
+        row_idx = header_idx + 1
+        if row_idx < len(columns):
+            test_name_cells.append(columns[row_idx])
+
+    test_candidates = sorted({name for cell in test_name_cells for name in extract_test_name_candidates(cell)})
+    any_cell_declares_absence = any(cell_declares_absence(cell) for cell in test_name_cells)
+    print(f"{SCRIPT_NAME}: {len(test_candidates)} nome(s) de teste citado(s) nas colunas de prova/par")
+    if not test_candidates and not any_cell_declares_absence and test_name_columns:
+        fail(
+            "0 nome(s) de teste citado(s) nas colunas de Prova/Par no portão - varredura vazia "
+            "(GODS_LAWS.md L-40): nem uma celula declara ausencia com \"—\""
+        )
+
+    test_existing, test_missing, test_declared, test_undeclared, test_dead = [], [], [], [], []
+    if test_candidates:
+        inventory_names = test_name_inventory.real_main([parsed.root])
+        test_existing = [name for name in test_candidates if name in inventory_names]
+        test_missing = [name for name in test_candidates if name not in inventory_names]
+        test_declared, test_undeclared, test_dead = validate_absence_deaths(
+            test_missing, absences, todo_status, todo_text
+        )
+        print(
+            f"{SCRIPT_NAME}: contra o inventario de testes - {len(test_existing)} existe(m), "
+            f"{len(test_missing)} falta(m) ({len(test_declared)} declarada(s), "
+            f"{len(test_undeclared)} sem declaracao, {len(test_dead)} morta(s))"
+        )
+        for name in test_candidates:
+            if name in test_existing:
+                print(f"  [OK ] {name}")
+            elif name in absences and any(n == name for n, _, _ in test_declared):
+                reason, item = absences[name]
+                print(f"  [DECLARADA] {name} (item {item}: {reason})")
+            else:
+                print(f"  [FALTA] {name}")
+
     print(
         f"{SCRIPT_NAME}: contra {ref_label} - {len(existing)} existe(m), {len(missing)} falta(m) "
         f"({len(declared)} declarada(s), {len(undeclared)} sem declaracao, {len(dead)} morta(s))"
@@ -409,6 +508,10 @@ def real_main(args):
         errors.append(f"{path}: ausente da arvore, sem linha em tests/parity_absences.txt")
     for path, _reason, item, why in dead:
         errors.append(f"{path}: ausencia declarada mas MORTA - {why}")
+    for name in test_undeclared:
+        errors.append(f"{name}: nome de teste ausente do inventario, sem linha em tests/parity_absences.txt")
+    for name, _reason, item, why in test_dead:
+        errors.append(f"{name}: ausencia de teste declarada mas MORTA - {why}")
 
     if errors:
         fail(
@@ -801,7 +904,7 @@ def selftest_end_to_end_column_offset():
     content = (
         "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
         "|---|---|---|---|---|---|---|\n"
-        "| 6 | **MARCADOR-E2E** | comum | `a/b/real_path.hpp` | prova | prova | par |\n"
+        "| 6 | **MARCADOR-E2E** | comum | `a/b/real_path.hpp` | — | — | par |\n"
     )
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as handle:
         handle.write(content)
@@ -828,7 +931,7 @@ def _write_plan(tmp_path, marker, missing_path):
     content = (
         "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
         "|---|---|---|---|---|---|---|\n"
-        f"| 6 | **{marker}** | comum | `{missing_path}` | prova | prova | par |\n"
+        f"| 6 | **{marker}** | comum | `{missing_path}` | — | — | par |\n"
     )
     plan_path = tmp_path / "plano.md"
     plan_path.write_text(content, encoding="utf-8")
@@ -993,6 +1096,167 @@ def selftest_missing_todo_file_reproves(tmp_path):
     return False
 
 
+def selftest_test_name_column_zero_candidates_reproves(tmp_path):
+    """F2: 'coluna de prova sem nenhum nome reprova pelo piso' (L-40) -
+    celula de Prova sem NENHUM token entre crases e sem declarar ausencia
+    com '—' tem que reprovar, mesmo com o caminho da coluna de
+    entregaveis existindo."""
+    good_path = "src/f2/existe.hpp"
+    (tmp_path / "src" / "f2").mkdir(parents=True, exist_ok=True)
+    (tmp_path / good_path).write_text("", encoding="utf-8")
+    plan_path = tmp_path / "plano-f2-piso.md"
+    plan_path.write_text(
+        "| # | Fatia | Nasce / muda | Prova | Par no portão |\n"
+        "|---|---|---|---|---|\n"
+        f"| 1 | **MARCADOR-F2-PISO** | `{good_path}` | prosa sem crase nenhuma | tambem sem crase |\n",
+        encoding="utf-8",
+    )
+    absences_path = tmp_path / "absences.txt"
+    absences_path.write_text("", encoding="utf-8")
+    todo_path = tmp_path / "TODO.md"
+    todo_path.write_text("| WSJF | ID |\n|---|---|\n", encoding="utf-8")
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stderr(buffer):
+        try:
+            real_main(
+                [
+                    str(plan_path),
+                    "--marker",
+                    "MARCADOR-F2-PISO",
+                    "--root",
+                    str(tmp_path),
+                    "--absences",
+                    str(absences_path),
+                    "--todo",
+                    str(todo_path),
+                ]
+            )
+        except SystemExit as exc:
+            exit_code = exc.code
+    stderr_text = buffer.getvalue()
+    if exit_code == 1 and "0 nome(s) de teste citado(s)" in stderr_text and "varredura vazia" in stderr_text:
+        print("selftest: coluna de Prova sem nome de teste nenhum (e sem '—') reprova pelo piso - ok")
+        return True
+    print(f"selftest: esperava reprovar pelo piso - codigo {exit_code}, stderr {stderr_text!r}", file=sys.stderr)
+    return False
+
+
+def selftest_test_name_declared_absence_skips_floor(tmp_path):
+    """Gemeo positivo: '—' na celula de Prova declara ausencia e tira o
+    piso do caminho - a linha passa (o caminho da coluna de entregaveis
+    existe, e nenhum nome de teste foi prometido de proposito)."""
+    good_path = "src/f2/existe2.hpp"
+    (tmp_path / "src" / "f2").mkdir(parents=True, exist_ok=True)
+    (tmp_path / good_path).write_text("", encoding="utf-8")
+    plan_path = tmp_path / "plano-f2-declarado.md"
+    plan_path.write_text(
+        "| # | Fatia | Nasce / muda | Prova | Par no portão |\n"
+        "|---|---|---|---|---|\n"
+        f"| 1 | **MARCADOR-F2-DECLARADO** | `{good_path}` | — (sonda de ambiente, sem par) | — |\n",
+        encoding="utf-8",
+    )
+    absences_path = tmp_path / "absences.txt"
+    absences_path.write_text("", encoding="utf-8")
+    todo_path = tmp_path / "TODO.md"
+    todo_path.write_text("| WSJF | ID |\n|---|---|\n", encoding="utf-8")
+    try:
+        real_main(
+            [
+                str(plan_path),
+                "--marker",
+                "MARCADOR-F2-DECLARADO",
+                "--root",
+                str(tmp_path),
+                "--absences",
+                str(absences_path),
+                "--todo",
+                str(todo_path),
+            ]
+        )
+    except SystemExit as exc:
+        print(f"selftest: '—' na coluna de Prova deveria ter passado - reprovou (codigo {exc.code})",
+              file=sys.stderr)
+        return False
+    print("selftest: '—' na coluna de Prova declara ausencia e tira o piso (controle positivo) - ok")
+    return True
+
+
+def selftest_test_name_nonexistent_in_inventory_reproves():
+    """F2: 'nome inexistente na coluna de prova reprova' - roda contra a
+    ARVORE REAL (o inventario de testes so' existe de verdade la), com um
+    nome de teste inventado que nunca vai estar registrado em
+    tests/CMakeLists.txt nem em GLINTFX_TEST nenhum."""
+    import contextlib
+    import io
+    import tempfile
+
+    fake_test_name = "nome_totalmente_inventado_que_nunca_existe_test"
+    content = (
+        "| # | Fatia | Nasce / muda | Prova | Par no portão |\n"
+        "|---|---|---|---|---|\n"
+        f"| 1 | **MARCADOR-F2-INEXISTENTE** | `TODO.md` | `{fake_test_name}` | — |\n"
+    )
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, dir=".") as handle:
+        handle.write(content)
+        plan_path = handle.name
+    buffer = io.StringIO()
+    exit_code = None
+    try:
+        with contextlib.redirect_stderr(buffer):
+            try:
+                real_main([plan_path, "--marker", "MARCADOR-F2-INEXISTENTE", "--root", "."])
+            except SystemExit as exc:
+                exit_code = exc.code
+    finally:
+        Path(plan_path).unlink(missing_ok=True)
+    stderr_text = buffer.getvalue()
+    if exit_code == 1 and fake_test_name in stderr_text:
+        print("selftest: nome de teste inexistente no inventario real reprova, citado - ok")
+        return True
+    print(f"selftest: esperava reprovar citando {fake_test_name!r} - codigo {exit_code}, stderr {stderr_text!r}",
+          file=sys.stderr)
+    return False
+
+
+def selftest_test_name_real_citation_against_real_tree_passes():
+    """Controle positivo contra dado real: docs/plano-w6a-janela.md,
+    fatia 6 (mesma linha de selftest_extraction_matches_real_row), cita
+    `header_hygiene_test`/`public_name_collision_test`/
+    `display_connection_fake_test`/`public_display_smoke` na coluna de
+    Prova Linux - todos tem de existir no inventario real (os tres
+    primeiros existem; o quarto, se a arvore mudou, aparece como
+    'sem-declaracao' e faz o controle reprovar - o que E' o sinal certo,
+    nunca falso-verde por acaso)."""
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stderr(buffer):
+        try:
+            real_main(
+                [
+                    "docs/plano-w6a-janela.md",
+                    "--marker",
+                    "W-D' headers públicos",
+                    "--root",
+                    ".",
+                ]
+            )
+        except SystemExit as exc:
+            exit_code = exc.code
+    if exit_code is None:
+        print("selftest: fatia 6 real de plano-w6a-janela.md passa com os nomes de teste reais citados - ok")
+        return True
+    print(f"selftest: esperava passar (nomes reais no inventario) - codigo {exit_code}, "
+          f"stderr {buffer.getvalue()!r}", file=sys.stderr)
+    return False
+
+
 def selftest_undeclared_absence_reproves(tmp_path):
     """A path missing from the tree with NO line in tests/parity_
     absences.txt at all is never accepted - "ausencia sem item nao e'
@@ -1111,7 +1375,7 @@ def selftest_column_found_by_name_not_fixed_position(tmp_path):
     plan_path.write_text(
         "| # | Fatia | Nasce / muda | Prova | Par no portão |\n"
         "|---|---|---|---|---|\n"
-        f"| 1 | **MARCADOR-SEM-LADO** | `{good_path}` | p | q |\n",
+        f"| 1 | **MARCADOR-SEM-LADO** | `{good_path}` | — | — |\n",
         encoding="utf-8",
     )
     try:
@@ -1175,7 +1439,7 @@ def selftest_alphanumeric_fatia_id_found_and_absolved(tmp_path):
     plan_path.write_text(
         "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
         "|---|---|---|---|---|---|---|\n"
-        f"| 5c | **{marker}** | comum | `{good_path}` | p | q | r |\n",
+        f"| 5c | **{marker}** | comum | `{good_path}` | — | — | r |\n",
         encoding="utf-8",
     )
     try:
@@ -1206,7 +1470,7 @@ def selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path):
     plan_path.write_text(
         "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
         "|---|---|---|---|---|---|---|\n"
-        f"| 5c | **{marker}** | comum | `{missing_path}` | p | q | r |\n",
+        f"| 5c | **{marker}** | comum | `{missing_path}` | — | — | r |\n",
         encoding="utf-8",
     )
     import contextlib
@@ -1271,6 +1535,26 @@ _ENTREGA_TABLE = (
     "|---|---|---|---|\n"
     "| P0 | X | algo | pronto |\n"
 )
+
+
+def selftest_test_name_extraction_ignores_bare_prose_words():
+    """F2, calibracao (comentario de extract_test_name_candidates): uma
+    palavra solta entre crases dentro da MESMA celula (`near`, `border`,
+    `ctest`...) nunca e' candidato, so' o e' quem termina em _test/
+    _smoke/_selftest - achado medido em 24/09/2026 contra o corpus real
+    (43 falsos positivos evitados, ver o comentario da funcao)."""
+    prose_cell = "cópia do header com campo `near` reprova, roda sob `ctest`, sem `border`"
+    real_cell = "`header_hygiene_test` e `wire_relay_selftest` e `public_display_smoke`"
+    prose_result = extract_test_name_candidates(prose_cell)
+    real_result = extract_test_name_candidates(real_cell)
+    if prose_result:
+        print(f"selftest: palavra solta virou candidato de teste - {prose_result}", file=sys.stderr)
+        return False
+    if set(real_result) != {"header_hygiene_test", "wire_relay_selftest", "public_display_smoke"}:
+        print(f"selftest: nomes reais (sufixo certo) deveriam ter sido achados - {real_result}", file=sys.stderr)
+        return False
+    print("selftest: extracao de nome de teste ignora palavra solta, acha só quem tem sufixo real - ok")
+    return True
 
 
 def selftest_missing_column_named_when_entrega_used():
@@ -1463,10 +1747,15 @@ def selftest_main():
             selftest_undeclared_absence_reproves(tmp_path),
             selftest_missing_absences_file_reproves(tmp_path),
             selftest_missing_todo_file_reproves(tmp_path),
+            selftest_test_name_column_zero_candidates_reproves(tmp_path),
+            selftest_test_name_declared_absence_skips_floor(tmp_path),
         ]
     controls += [
         selftest_missing_column_named_when_entrega_used(),
         selftest_prova_prefix_not_substring(),
+        selftest_test_name_extraction_ignores_bare_prose_words(),
+        selftest_test_name_nonexistent_in_inventory_reproves(),
+        selftest_test_name_real_citation_against_real_tree_passes(),
     ]
     for fn in (
         selftest_audit_plan_without_v1_and_without_legacy_reproves,

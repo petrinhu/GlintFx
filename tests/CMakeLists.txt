@@ -5777,16 +5777,15 @@ set_tests_properties(plan_scope_diff_selftest PROPERTIES
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
-# WL-ACK-SMOKE-BLUNT, sub-fatia A1 (docs/plano-w7c.md SS3.A, docs/
-# plano-w7c-adendo-revalidacao.md SS3.A) - wire_relay_selftest proves
-# the relay's transport+decoder atoms in transparent mode (no rules
-# yet - A2 adds the rule engine R1/R2 and the error injector as a
-# separate fatia, extending this same target), tests/container/
-# wire_relay/*.cpp (GODS_LAWS.md L-17: um arquivo por atomo). Unlike
-# every OTHER *.cpp under tests/container/, these do NOT enter the
-# compile-only glintfx_container_smokes OBJECT library (tests/
-# container/CMakeLists.txt) - that second listing is WL-ACK-SMOKE-
-# BLUNT's sub-fatia A0, explicitly out of scope for A1/A2 (docs/
+# WL-ACK-SMOKE-BLUNT, sub-fatias A1+A2 (docs/plano-w7c.md SS3.A,
+# docs/plano-w7c-adendo-revalidacao.md SS3.A) - wire_relay_selftest
+# proves the relay's transport+decoder atoms in transparent mode (A1)
+# and the rule engine R1/R2 + error injector atoms (A2), tests/
+# container/wire_relay/*.cpp (GODS_LAWS.md L-17: um arquivo por
+# atomo). Unlike every OTHER *.cpp under tests/container/, these do
+# NOT enter the compile-only glintfx_container_smokes OBJECT library
+# (tests/container/CMakeLists.txt) - that second listing is WL-ACK-
+# SMOKE-BLUNT's sub-fatia A0, explicitly out of scope for A1/A2 (docs/
 # plano-w7c-adendo-revalidacao.md SS3.A table). This target instead
 # runs DIRECTLY on the host, the same way every other *_selftest in
 # THIS file already does: GODS_LAWS.md L-09's own socketpair-only
@@ -5803,6 +5802,8 @@ if(UNIX)
     add_executable(wire_relay_selftest
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_decoder.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_object_table.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_rule_engine.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_error_injector.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_transport.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_selftest.cpp"
     )

@@ -151,7 +151,7 @@ namespace detail {
     // apenas parece garantir"): the type() check below runs BEFORE the
     // status_ec check on purpose, even though most prose describing
     // std::filesystem::status() says a nonexistent path is "not an
-    // error" and ec "is cleared". Measured live on this toolchain
+    // error" and ec "is cleared". Found live on this toolchain
     // (libstdc++, GCC 16): for a genuinely nonexistent path, status()
     // correctly sets type() to file_type::not_found AND STILL sets
     // status_ec to ENOENT - checking status_ec first, as an initial cut
@@ -159,7 +159,8 @@ namespace detail {
     // io_failure. Trusting type() == not_found first, regardless of
     // status_ec, matches what this function actually needs to promise
     // (docs/api-conventions.md R6/CE-1 lineage: never trust a claim
-    // about behavior this project has not watched fail and pass).
+    // about behavior this project has not watched fail and pass) -
+    // see `asset_load_test`'s own nonexistent_relative_path_is_not_found.
     if (status.type() == std::filesystem::file_type::not_found) {
         return gltfx_rslt<void>::err(gltfx_err(gltfx_err_code::not_found).with_path(path_view));
     }
@@ -188,7 +189,8 @@ namespace detail {
 // ASSET-PARITY-WIN, 04/09/2026): mecanismo pode diferir por sistema,
 // comportamento observavel e cobertura, nao. On POSIX, stream.bad() is
 // that signal (libstdc++'s own read() sets badbit for a genuine failure,
-// measured live via /proc/self/mem in this file's own test). On
+// proved by `asset_load_test`'s own mid_stream_read_failure_is_io_
+// failure_not_silent_partial_success, via /proc/self/mem). On
 // _WIN32, stream.bad() is NOT that signal, and this is not a hunch -
 // it is measured against microsoft/STL's own public source
 // (github.com/microsoft/STL, fetched 04/09/2026):
@@ -227,9 +229,9 @@ namespace detail {
 // rdbuf()->sgetn() at all - the sentry gate blocks it, per the
 // standard - so it neither performs I/O nor touches errno); this shape
 // breaks out of the loop the instant that same short read is seen,
-// with IDENTICAL bytes collected and an IDENTICAL final stream state -
-// proved by re-running this file's own suite unchanged (ASSET-PARITY-WIN
-// report) before and after this restructuring.
+// with the SAME bytes collected and the SAME final stream state -
+// proved by `asset_load_test` (ASSET-PARITY-WIN report), re-run
+// unchanged before and after this restructuring.
 //
 // LOCAL VARIABLE NAMED "contents", NOT "bytes" (docs/api-conventions.md
 // R6, tests/tools/check_public_name_collision.sh's own mechanical gate,

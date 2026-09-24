@@ -69,9 +69,11 @@ class gltfx_window;
 // count time the machine spent suspended, Windows' does count it - so
 // without this ceiling, the very same suspend/resume would report a
 // small `elapsed` on Linux and a multi-hour one on Windows. This
-// single ceiling is what makes both systems report the SAME bounded
-// number afterward, not a value that happens to agree with either
-// clock's own raw behavior.
+// single ceiling is what makes both systems report the same bounded
+// number afterward BY CONSTRUCTION, not by per-platform measurement:
+// the clamp itself is plain arithmetic in shared code, with no OS
+// branch - proved by `frame_tick_state_test`'s own
+// three_seconds_elapsed_clamps_to_the_public_max_frame_elapsed_constant.
 inline constexpr gltfx_duration k_gltfx_max_frame_elapsed{.nanoseconds = 250'000'000};
 
 // What one gltfx_loop::step() (or one iteration of gltfx_loop::run())
@@ -99,7 +101,7 @@ struct gltfx_frame_tick {
 
     // The gltfx_now() reading that closed THIS tick - the same reading
     // `elapsed` above was computed against, and the one the NEXT tick's
-    // own `elapsed` will be measured from.
+    // own `elapsed` will be computed from.
     gltfx_time_point now{};
 
     // 1 on the first tick, +1 every subsequent tick, with no gap -
@@ -196,8 +198,9 @@ using gltfx_loop_context_destroy_fn = void (*)(void *context) noexcept;
 struct gltfx_loop_callbacks {
     // Opaque, owned by the consumer, handed back BYTE-IDENTICAL to
     // every callback below - never read, never dereferenced, never
-    // interpreted by this library. nullptr is a legal context (a
-    // consumer whose callbacks need none).
+    // interpreted by this library. Proved by `loop_engine_test`'s own
+    // context_pointer_is_byte_identical_in_every_callback. nullptr is
+    // a legal context (a consumer whose callbacks need none).
     void *context = nullptr;
 
     // Runs once per tick, BEFORE on_render() below - returning `false`
@@ -517,8 +520,8 @@ class gltfx_loop {
     set_callbacks(gltfx_loop_callbacks callbacks) noexcept;
 
     // Runs the callbacks set_callbacks() above last stored - refused by
-    // name ("callbacks") if none were ever stored. Otherwise identical
-    // to run(gltfx_loop_callbacks) above in every other respect (P3,
+    // name ("callbacks") if none were ever stored. Otherwise the same
+    // as run(gltfx_loop_callbacks) above in every other respect (P3,
     // the refusal rules of P9, the re-entrance refusal) - the ONLY
     // difference between the two overloads is WHICH lifetime governs
     // the context, never how a tick itself behaves. Same precondition

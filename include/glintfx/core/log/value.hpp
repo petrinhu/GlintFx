@@ -35,8 +35,9 @@
 //
 // TRIVIALLY COPYABLE, ZERO ALLOCATION (Q4/CL-5): no member function
 // here ever allocates. Constructing, copying and reading a
-// gltfx_log_value is exactly as cheap as copying its bytes - proven,
-// not promised, by tests/log_no_alloc_test.cpp.
+// gltfx_log_value is exactly as cheap as copying its bytes - proved
+// by `log_no_alloc_test` (tests/log_no_alloc_test.cpp), not merely
+// promised.
 
 namespace glintfx {
 

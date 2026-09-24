@@ -52,10 +52,10 @@
 // AN EARLIER VERSION OF THIS HEADER, AND IS NOW FROZEN (WL-WINDOW-
 // HANDLE, docs/plano-w6a-janela.md fatias 6/9/11, absorbed by CTO
 // decision into one fatia): the precondition the earlier version of
-// this comment named for deferring it - "measured, not guessed... the
-// Win32 window adapter does not exist anywhere in this tree yet" - is
-// satisfied today (wayland_window_adapter AND win32_window_adapter both
-// exist and work), and this fatia is the one that closes the gap. See
+// this comment named for deferring it - that the Win32 window
+// adapter did not yet exist anywhere in this tree - is satisfied
+// today (wayland_window_adapter AND win32_window_adapter both exist
+// and work), and this fatia is the one that closes the gap. See
 // gltfx_window's own class comment below for the frozen surface.
 //
 // PLAIN, PUBLIC LAYOUT (CONTRACT.md's own opacity exception for a

@@ -37,7 +37,7 @@
 // change. A new named level is a NEW enumerator at a NEW number,
 // never a renumbering of an existing one.
 //
-// CORE-LOG-CI DEFEITO 3 (measured, run 34329543846, jobs "Arch -
+// CORE-LOG-CI DEFEITO 3 (found live, run 34329543846, jobs "Arch -
 // compartilhado"/"Arch - estatico"/"CachyOS - compartilhado"/"CachyOS
 // - estatico", 09/09/2026): `warning` collided for real with a system
 // macro - `#define warning` in gawk's own `gawkapi.h`
@@ -61,7 +61,7 @@
 // `WARN`, Go `slog.LevelWarn`, spdlog `warn`, SDL3 `SDL_LOG_PRIORITY_
 // WARN`, Rust `log::Level::Warn`), and `err` already IS this
 // project's own vocabulary (`gltfx_err`, `gltfx_err_code`, `err.hpp`,
-// `gltfx_rslt<T>::err()` - all chosen in CE-1 for the identical
+// `gltfx_rslt<T>::err()` - all chosen in CE-1 for the same
 // reason: `error_code` collided with `std::error_code`). Having
 // `gltfx_err` beside `gltfx_log_severity::error` was the
 // inconsistency; `err` in both places is the coherent form.

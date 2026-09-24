@@ -38,3 +38,5 @@
 # como "morta" - a alegacao ja foi resolvida de outro jeito (citada,
 # ou reescrita) e a linha aqui ficou para tras.
 
+include/glintfx/gfss/value.hpp | all five platforms lays out | GFSS-VALUE-LAYOUT-ASSERT
+include/glintfx/platform/window/display.hpp | the CTO's own consumer probe proved this by compiling a standalone | DISPLAY-PASSKEY-CONTROL

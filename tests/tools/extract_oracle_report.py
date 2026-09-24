@@ -280,6 +280,59 @@ def selftest_empty_block_reproves():
     return True
 
 
+def selftest_real_main_reproves_missing_log_file():
+    """Ponta a ponta (litmus 'if False' aplicado a TODO piso de
+    real_main(), 24/09/2026): nenhum controle antes deste passava um
+    caminho de log INEXISTENTE - `if not log_path.is_file(): fail(...)`
+    desligado nunca mudava nenhum resultado, porque nenhum controle o
+    exercitava (piso nao-testado, nao so' contornavel). real_main() com
+    um caminho de log que nunca existiu tem de sair 1."""
+    out = _write_temp("")
+    missing_log = Path(tempfile.gettempdir()) / "glintfx-extract-oracle-report-nao-existe.log"
+    try:
+        try:
+            real_main(["--out", str(out), str(missing_log)])
+        except SystemExit as exc:
+            if exc.code != 1:
+                print(f"selftest: REAL-MAIN-LOG-AUSENTE FALHOU (codigo {exc.code}, esperava 1)",
+                      file=sys.stderr)
+                return False
+            print("selftest: REAL-MAIN-LOG-AUSENTE OK (log inexistente reprova, codigo 1)")
+            return True
+        print("selftest: REAL-MAIN-LOG-AUSENTE FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
+        return False
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def selftest_real_main_reproves_empty_block():
+    """Ponta a ponta (achado da revisao main, mutante m2 sobrevivente em
+    24/09/2026): selftest_empty_block_reproves acima so' confere
+    split_into_test_blocks()/extract_report_lines() PUROS - nunca passa
+    pelo `if not lines: fail(...)` de real_main(). Um mutante que troca
+    esse `if` por `if False:` (piso "bloco achado, mas vazio" desligado)
+    sobrevivia com "os 5 controles OK", porque nenhum controle chamava
+    real_main() sobre o log so'-com-bloco-vazio. Este controle fecha o
+    buraco: real_main() sobre _FAKE_EMPTY_ORACLE_LOG tem de sair 1."""
+    log = _write_temp(_FAKE_EMPTY_ORACLE_LOG)
+    out = _write_temp("")
+    try:
+        try:
+            real_main(["--out", str(out), str(log)])
+        except SystemExit as exc:
+            if exc.code != 1:
+                print(f"selftest: REAL-MAIN-BLOCO-VAZIO FALHOU (codigo {exc.code}, esperava 1)",
+                      file=sys.stderr)
+                return False
+            print("selftest: REAL-MAIN-BLOCO-VAZIO OK (real_main reprova bloco achado e vazio, codigo 1)")
+            return True
+        print("selftest: REAL-MAIN-BLOCO-VAZIO FALHOU (nao reprovou - esperava exit 1)", file=sys.stderr)
+        return False
+    finally:
+        log.unlink(missing_ok=True)
+        out.unlink(missing_ok=True)
+
+
 def selftest_real_main_reproves_selftest_only_log():
     """Ponta a ponta: real_main() sobre o log so'-com-selftest tem de
     sair com codigo 1."""
@@ -333,6 +386,8 @@ def selftest_main():
         selftest_furo_reproduzido_e_documentado(),
         selftest_positive_control_ignores_selftest_block(),
         selftest_empty_block_reproves(),
+        selftest_real_main_reproves_missing_log_file(),
+        selftest_real_main_reproves_empty_block(),
         selftest_real_main_reproves_selftest_only_log(),
         selftest_real_main_succeeds_on_real_block(),
     ]

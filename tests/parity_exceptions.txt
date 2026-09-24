@@ -387,11 +387,14 @@ window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FAL
 # maquina (GetLastError=1400/ERROR_INVALID_WINDOW_HANDLE), nao uma
 # limitacao inventada agora para esta fatia.
 #
-# ⚠️ MORTE DESTA LINHA: quando WIN-RUNNER-PROPRIO (TODO.md, W7-B) puser
-# a maquina Windows propria no circuito, um fixture Windows real (mesma
-# forma de facade_pin_smoke/window_active_after_map_smoke, mutacao
-# incluida) fecha o par - so entao esta linha sai, nunca antes por
-# presuncao de que a compilacao limpa bastava.
+# ⚠️ MORTE DESTA LINHA: quando WIN-LAB-INSTALAR (TODO.md, W9) fizer a
+# instalacao real dentro do convidado Windows (V-7, dono trocado de
+# WIN-RUNNER-PROPRIO por decisao do main em 24/09/2026 - V-6b/V-7 saem
+# do item ja concluido e vao para WIN-LAB-INSTALAR, ainda pendente),
+# um fixture Windows real (mesma forma de facade_pin_smoke/window_
+# active_after_map_smoke, mutacao incluida) fecha o par - so entao esta
+# linha sai, nunca antes por presuncao de que a compilacao limpa
+# bastava.
 #
 # NAO usa o quinto campo PROVA-PARCIAL= (PARITY-ALIAS-HYGIENE, D10,
 # 23/09/2026): o "gemeo" acima cita um ARQUIVO-FONTE (wgl_context_
@@ -403,7 +406,7 @@ window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FAL
 # esta" - converter aqui sem esse ctest existir de verdade seria
 # reintroduzir a mesma prosa nao conferida que o quinto campo existe
 # para banir.
-gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo ponto, mesma funcao compartilhada (gpu_kind_report.cpp) - PROVADO que compila limpo sob o cl.exe real da Microsoft; a mutacao por execucao real NAO foi provada no Windows nesta maquina (CreateWindowExW falha sob Wine headless, ja documentado em tools/msvc-container/README.md)|WIN-RUNNER-PROPRIO
+gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo ponto, mesma funcao compartilhada (gpu_kind_report.cpp) - PROVADO que compila limpo sob o cl.exe real da Microsoft; a mutacao por execucao real NAO foi provada no Windows nesta maquina (CreateWindowExW falha sob Wine headless, ja documentado em tools/msvc-container/README.md)|WIN-LAB-INSTALAR
 
 # --- Historico: os sete nomes que faltavam par, todos fechados ---------
 #
@@ -499,7 +502,9 @@ gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo
 #
 # MORTE DESTA LINHA: nunca - a assimetria e' permanente por desenho,
 # nao lacuna temporaria esperando maquina/runner novo (distinto de
-# gpu_kind_report_smoke acima, cujo dono e' WIN-RUNNER-PROPRIO). Sem
+# gpu_kind_report_smoke acima, cujo dono e' WIN-LAB-INSTALAR desde
+# 24/09/2026 - antes WIN-RUNNER-PROPRIO, trocado quando esse item
+# fechou concluido e V-6b/V-7 saíram para WIN-LAB-INSTALAR). Sem
 # item para rastrear, mesmo padrao das demais linhas SEM-PENDENCIA
 # desta secao inicial do arquivo.
 win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA

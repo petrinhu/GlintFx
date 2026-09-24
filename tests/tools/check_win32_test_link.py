@@ -84,6 +84,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import NamedTuple
 
 SCRIPT_NAME = "check_win32_test_link.py"
 DEFAULT_IMAGE = "glintfx-msvc:latest"
@@ -1214,8 +1215,21 @@ def _not_measured_block_ok(text):
     return has_version_line and not_measured_count >= 6
 
 
-def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos):
-    cl_version = _read_cl_version(image, repo_root, timeout_seconds)
+# WIN-CROSS-TESTS-LINK X-4 (achado do lider em revisao, 23/09/2026,
+# GODS_LAWS.md L-17): image/repo_root/timeout_seconds sao um UNICO
+# conceito - "onde e como falar com o container MSVC" -, nunca tres
+# ideias separadas por acaso; andam juntos em quase toda funcao deste
+# arquivo que fala com o container. Agrupados aqui para tirar build_
+# not_measured_block() de 5 parametros (>4, violacao L-17) sem mudar
+# NENHUM comportamento - so' reempacota o que ja se passava solto.
+class _WinLinkExecContext(NamedTuple):
+    image: str
+    repo_root: str
+    timeout_seconds: int
+
+
+def build_not_measured_block(context, alvos_encontrados, alvos_excluidos):
+    cl_version = _read_cl_version(context.image, context.repo_root, context.timeout_seconds)
     version_text = cl_version if cl_version else "desconhecida (nao foi possivel ler 'cl' no container)"
     # WIN-CROSS-STAGE S6 fechou: extract_win32_test_targets() ja devolve
     # TODO alvo aplicavel, entao a diferenca contra a contagem bruta de
@@ -1227,8 +1241,8 @@ def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrado
     # agora e' CONTADA de verdade (_count_add_test_comment_mentions()),
     # nunca mais deduzida por subtracao, e _reconcile_add_test_counts()
     # reprova se a soma nao fechar - ver o comentario dela.
-    raw_add_test_count = _raw_add_test_grep_count(repo_root)
-    ruido_comentario = _count_add_test_comment_mentions(repo_root)
+    raw_add_test_count = _raw_add_test_grep_count(context.repo_root)
+    ruido_comentario = _count_add_test_comment_mentions(context.repo_root)
     _reconcile_add_test_counts(raw_add_test_count, alvos_encontrados, alvos_excluidos, ruido_comentario)
     lines = [
         f"{SCRIPT_NAME}: compilador deste estagio: cl.exe {version_text} - o servidor usa o MSVC de "
@@ -1246,7 +1260,14 @@ def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrado
 
 
 def print_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos):
-    text = build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos)
+    # print_not_measured_block() em si continua com 5 parametros -
+    # PRE-EXISTENTE, fora do escopo desta fatia (so' build_not_measured_
+    # block() foi apontado); o contexto e' montado aqui so' para casar
+    # com a nova assinatura do chamado, sem propagar a mudanca para
+    # quem chama ESTA funcao (real_main() continua passando os tres
+    # soltos, comportamento identico).
+    context = _WinLinkExecContext(image, repo_root, timeout_seconds)
+    text = build_not_measured_block(context, alvos_encontrados, alvos_excluidos)
     if not _not_measured_block_ok(text):
         fail(
             "bloco 'NAO MEDIDO AQUI' malformado (GODS_LAWS.md L-40 aplicado ao formato do resumo) - "

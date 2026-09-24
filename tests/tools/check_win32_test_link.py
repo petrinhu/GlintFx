@@ -122,22 +122,25 @@ def stderr_tail(text, n=STDERR_TAIL_LINES):
 
 
 # --- tokenizacao compartilhada dos dois lados de CMake (tests/ e src/) ----
-
-
-def _strip_cmake_comments_from_text(text):
-    """CLAIM-CITATIONS sub-fatia E1c (docs/plano-w7c-adendo-revalidacao.
-    md sec. 3.E, decisao D-A8): delega a cmake_lexer.strip_comments()
-    (E0) em vez do corte ingenuo por linha que este arquivo tinha
-    antes. O corte antigo (primeiro '#' de CADA linha, sem ver aspas
-    nem comentario de colchete) tinha direcao VERMELHO FALSO: um '#'
-    DENTRO de um argumento entre aspas na mesma linha de um target_
-    sources()/target_compile_definitions() cortava a linha ali,
-    perdendo qualquer fonte real que viesse depois na mesma linha -
-    um alvo que na verdade linka ficaria com fonte faltando, e o
-    portao reprovaria por um motivo que nao existe. cmake_lexer conhece
-    aspas (um '#' dentro delas nunca e' comentario) e comentario de
-    colchete (#[[ ]], multi-linha, preservando o numero de linha)."""
-    return cmake_lexer.strip_comments(text)
+#
+# CLAIM-CITATIONS sub-fatia E1c (docs/plano-w7c-adendo-revalidacao.md
+# sec. 3.E, decisao D-A8): todo corte de comentario CMake deste arquivo
+# chama cmake_lexer.strip_comments() (E0) DIRETO, sem invólucro proprio
+# - um invólucro so' de repasse ainda casaria o piso de varredura do
+# "Fecha quando" da fatia (o comando do adendo procura, no nome de
+# funcao, o prefixo do corte antigo mais o corte cru por indice de
+# caractere), que existe para achar corte de comentario CMake FORA de
+# cmake_lexer, nao dentro de um nome de funcao. O corte ingenuo que
+# este arquivo tinha antes (primeiro '#'
+# de CADA linha, sem ver aspas nem comentario de colchete) tinha
+# direcao VERMELHO FALSO: um '#' DENTRO de um argumento entre aspas na
+# mesma linha de um target_sources()/target_compile_definitions()
+# cortava a linha ali, perdendo qualquer fonte real que viesse depois
+# na mesma linha - um alvo que na verdade linka ficaria com fonte
+# faltando, e o portao reprovaria por um motivo que nao existe.
+# cmake_lexer conhece aspas (um '#' dentro delas nunca e' comentario) e
+# comentario de colchete (#[[ ]], multi-linha, preservando o numero de
+# linha).
 
 
 def _tokenize_cmake_args(raw_text):
@@ -393,7 +396,7 @@ def extract_win32_test_targets(cmake_text):
     que o comentario foi removido antes de _add_test_matches_with_
     line_index() rodar) - a chamada de UMA linha continua sendo o caso
     comum, nunca deixou de funcionar."""
-    stripped_text = _strip_cmake_comments_from_text(cmake_text)
+    stripped_text = cmake_lexer.strip_comments(cmake_text)
     lines = stripped_text.splitlines()
     exclusion_reasons = _line_exclusion_reasons(lines)
 
@@ -528,7 +531,7 @@ def collect_win32_library_layout(repo_root):
         cmake_path = os.path.join(repo_root, rel_dir, "CMakeLists.txt")
         if not os.path.isfile(cmake_path):
             fail(f"CMakeLists.txt ausente em {rel_dir} (add_subdirectory apontou para la)")
-        text = _strip_cmake_comments_from_text(read_file(cmake_path))
+        text = cmake_lexer.strip_comments(read_file(cmake_path))
         visited_files.append(os.path.join(rel_dir, "CMakeLists.txt"))
 
         for match in re.finditer(
@@ -1152,7 +1155,7 @@ def _add_test_call_line_index_set(cmake_text):
     devolve (acima, extract_win32_test_targets()), so' que como
     conjunto - a reconciliacao so' precisa saber SE a linha bruta e'
     onde uma chamada REAL comeca, nunca o nome dela."""
-    stripped_text = _strip_cmake_comments_from_text(cmake_text)
+    stripped_text = cmake_lexer.strip_comments(cmake_text)
     return {line_index for _name, line_index in _add_test_matches_with_line_index(stripped_text)}
 
 

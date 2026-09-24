@@ -14,7 +14,15 @@
 
 set -eu
 
-readonly RUNTIME_DIR="/run/glintfx-test"
+# WL-ACK-SMOKE-BLUNT A3e, passo 2b (achado do main, GODS_LAWS.md L-12):
+# deixou de ser `readonly` para o --selftest poder provar a ORDEM real
+# de bring_up() (abaixo) - um caso de selftest aponta RUNTIME_DIR para
+# um diretorio temporario proprio ANTES de chamar bring_up(), o mesmo
+# idioma `: "${VAR:=default}"` ja usado por GLINTFX_COMPOSITOR_WAIT_
+# TRIES/_SLEEP e pelos demais GLINTFX_* deste arquivo. Producao nunca
+# define RUNTIME_DIR no ambiente, entao o default abaixo sempre vale
+# fora do --selftest - nenhum comportamento de producao muda.
+: "${RUNTIME_DIR:=/run/glintfx-test}"
 
 fail() {
     echo "run_compositor.sh: $1" >&2
@@ -35,13 +43,15 @@ create_private_runtime_dir() {
 }
 
 # WL-ACK-SMOKE-BLUNT A3e, passo 2 (achado do team-lead, 24/09/2026):
-# publicado por main() SO DEPOIS que wait_for_relay_ready() ja passou
-# de verdade - a fonte de verdade que tests/container/wait_for_ready_
-# marker.sh (chamado por quem sobe este container, ex.: ci.yml) passa
-# a esperar, no lugar de uma sonda externa independente sem sincronia
-# nenhuma com esta verificacao interna.
-readonly READY_MARKER_PATH="${RUNTIME_DIR}/ready"
-
+# publicado por bring_up() SO DEPOIS que wait_for_relay_ready() ja
+# passou de verdade - a fonte de verdade que tests/container/wait_for_
+# ready_marker.sh (chamado por quem sobe este container, ex.: ci.yml)
+# passa a esperar, no lugar de uma sonda externa independente sem
+# sincronia nenhuma com esta verificacao interna. O caminho e' sempre
+# "${RUNTIME_DIR}/ready", calculado NA CHAMADA (dentro de bring_up(),
+# abaixo) em vez de guardado num `readonly` proprio - RUNTIME_DIR deixou
+# de ser fixo (ver comentario dela acima) exatamente para o --selftest
+# poder trocar o valor antes de chamar bring_up().
 publish_ready_marker() {
     marker_path="$1"
     : >"$marker_path"
@@ -508,6 +518,98 @@ run_selftest_marker_cases() {
     return "$ok"
 }
 
+# WL-ACK-SMOKE-BLUNT A3e, passo 2b (achado do main em revisao
+# adversarial, 24/09/2026, GODS_LAWS.md L-12 - sabotagem de familia
+# DIFERENTE da do passo 1b): selftest_case_publish_ready_marker() acima
+# so' prova que publish_ready_marker() cria um arquivo - passaria com
+# QUALQUER ordem de chamadas dentro de bring_up(). Os dois casos abaixo
+# rodam bring_up() DE VERDADE (a funcao real, nao uma copia) com as
+# quatro funcoes que ela chama sobrescritas por stubs e RUNTIME_DIR
+# apontado pra um diretorio temporario - a propriedade provada e' a
+# ORDEM: o stub de wait_for_relay_ready() confere, no INSTANTE em que
+# roda, se o marcador AINDA NAO existe. Mutante (o que o main pediu para
+# matar): trocar a ordem de `wait_for_relay_ready` e
+# `publish_ready_marker` dentro de bring_up() - com a ordem trocada, o
+# marcador ja existiria quando o stub roda, em QUALQUER um dos dois
+# casos abaixo, e o stub reprova com o codigo 97 antes de qualquer outra
+# coisa.
+
+# CASO 1: o rele nunca fica pronto - bring_up() tem que reprovar (o
+# stub chama fail(), mesmo idioma de selftest_case_never_ready/
+# selftest_case_relay_never_accepts acima: fail() sai com `exit`, nunca
+# `return`) SEM o marcador ter sido publicado antes. O stub confere isso
+# ele mesmo, porque e' o UNICO ponto que roda depois de onde o marcador
+# teria sido publicado se a ordem estivesse trocada.
+selftest_case_bring_up_relay_never_ready_no_marker() (
+    tmp_runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-bringup-XXXXXX")" || exit 1
+    trap 'rm -rf "$tmp_runtime_dir"' EXIT
+    RUNTIME_DIR="$tmp_runtime_dir"
+    start_compositor() { :; }
+    wait_for_compositor_ready() { :; }
+    start_relay() { :; }
+    wait_for_relay_ready() {
+        if [ -e "${RUNTIME_DIR}/ready" ]; then
+            echo "SELFTEST FALHOU: marcador ja existia quando wait_for_relay_ready() rodou, mesmo no caminho em que o rele nunca fica pronto - ordem trocada" >&2
+            exit 97
+        fi
+        fail "selftest: rele nunca ficou pronto (simulado)"
+    }
+    bring_up "selftest-bringup-never-ready" >/dev/null 2>&1
+    # So' chega aqui se bring_up() RETORNASSE normalmente por engano -
+    # o stub acima sempre termina o processo (fail() ou exit 97).
+    exit 42
+)
+
+# CASO 2 (controle positivo do caso 1): o rele fica pronto - bring_up()
+# tem que publicar o marcador, e SO' depois que wait_for_relay_ready()
+# ja' rodou (o stub confere a ausencia do marcador no proprio instante
+# em que e' chamado, antes de devolver sucesso).
+selftest_case_bring_up_marker_after_relay_ready() (
+    tmp_runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-run-compositor-selftest-bringup-XXXXXX")" || exit 1
+    trap 'rm -rf "$tmp_runtime_dir"' EXIT
+    RUNTIME_DIR="$tmp_runtime_dir"
+    start_compositor() { :; }
+    wait_for_compositor_ready() { :; }
+    start_relay() { :; }
+    wait_for_relay_ready() {
+        if [ -e "${RUNTIME_DIR}/ready" ]; then
+            echo "SELFTEST FALHOU: marcador ja existia quando wait_for_relay_ready() rodou - ordem trocada" >&2
+            exit 97
+        fi
+        return 0
+    }
+    bring_up "selftest-bringup-marker-order" >/dev/null 2>&1
+    if [ ! -f "${RUNTIME_DIR}/ready" ]; then
+        echo "SELFTEST FALHOU: bring_up() nao publicou o marcador depois do rele ficar pronto" >&2
+        exit 1
+    fi
+    echo "selftest: bring_up() so publica o marcador DEPOIS de wait_for_relay_ready confirmar pronto (ausente durante a chamada, presente depois) - OK"
+)
+
+run_selftest_bring_up_cases() {
+    ok=0
+
+    rc=0
+    selftest_case_bring_up_relay_never_ready_no_marker || rc="$?"
+    case "$rc" in
+        42)
+            echo "SELFTEST FALHOU: bring_up() nao reprovou quando o rele nunca ficou pronto" >&2
+            ok=1
+            ;;
+        97)
+            echo "SELFTEST FALHOU: ordem trocada detectada no caminho em que o rele nunca fica pronto (ver mensagem acima)" >&2
+            ok=1
+            ;;
+        *)
+            echo "selftest: rele nunca pronto -> bring_up() reprova sem publicar o marcador antes (codigo=$rc), como esperado - OK"
+            ;;
+    esac
+
+    selftest_case_bring_up_marker_after_relay_ready || ok=1
+
+    return "$ok"
+}
+
 # GODS_LAWS.md L-17: run_selftest() e' o proprio exemplo do arquivo de
 # onde monolito nasce por conveniencia (cada caso novo "e' so' mais um
 # bloco" - a quinta pergunta do revisor). Dividida por LADO (compositor
@@ -596,23 +698,23 @@ run_selftest_relay_cases() {
 run_selftest() {
     # WL-ACK-SMOKE-BLUNT A3e, achado proprio (revisao adversarial do
     # main pegou o sintoma - mutante M1 sobrevivendo - mas a causa raiz
-    # era esta): `ok` NAO e local a nenhuma das tres run_selftest_*_
-    # cases() abaixo (POSIX sh nao tem escopo de funcao sem `local`,
-    # que nao e portavel) - cada uma delas faz `ok=0` na PROPRIA
-    # primeira linha e usa o MESMO NOME. Chamar aqui `run_selftest_
-    # relay_cases || ok=1` e DEPOIS `run_selftest_marker_cases ||
-    # ok=1` significa que o `ok=0` que roda dentro de run_selftest_
-    # marker_cases() SOBRESCREVE o `ok=1` que acabou de ser setado
-    # pela chamada anterior - se a ULTIMA das tres passar (mesmo com
-    # uma ANTERIOR tendo reprovado), a reprovacao inteira desaparecia
-    # em silencio (medido ao vivo: --selftest devolvia rc=0 com um
-    # caso reprovando de verdade por baixo). `overall_ok`, nome
-    # diferente do `ok` que as tres sub-funcoes usam, elimina a
-    # colisao.
+    # era esta): `ok` NAO e local a nenhuma das run_selftest_*_cases()
+    # abaixo (POSIX sh nao tem escopo de funcao sem `local`, que nao e
+    # portavel) - cada uma delas faz `ok=0` na PROPRIA primeira linha e
+    # usa o MESMO NOME. Chamar `run_selftest_relay_cases || ok=1` e
+    # DEPOIS `run_selftest_marker_cases || ok=1` significa que o
+    # `ok=0` que roda dentro de run_selftest_marker_cases() SOBRESCREVE
+    # o `ok=1` que acabou de ser setado pela chamada anterior - se a
+    # ULTIMA passar (mesmo com uma ANTERIOR tendo reprovado), a
+    # reprovacao inteira desaparecia em silencio (medido ao vivo:
+    # --selftest devolvia rc=0 com um caso reprovando de verdade por
+    # baixo). `overall_ok`, nome diferente do `ok` que as sub-funcoes
+    # usam, elimina a colisao.
     overall_ok=0
     run_selftest_compositor_cases || overall_ok=1
     run_selftest_relay_cases || overall_ok=1
     run_selftest_marker_cases || overall_ok=1
+    run_selftest_bring_up_cases || overall_ok=1
     [ "$overall_ok" -eq 0 ] || fail "selftest reprovou (ver mensagens acima)"
     echo "run_compositor.sh --selftest: todos os casos passaram"
 }
@@ -626,11 +728,18 @@ stay_up_forever() {
     exec tail -f /dev/null
 }
 
-main() {
-    if [ "$#" -eq 1 ] && [ "$1" = "--selftest" ]; then
-        run_selftest
-        exit 0
-    fi
+# WL-ACK-SMOKE-BLUNT A3e, passo 2b (achado do main em revisao
+# adversarial, 24/09/2026 - GODS_LAWS.md L-12): extraida de main() para
+# que um selftest possa provar a ORDEM real das chamadas - o marcador
+# so' e' publicado DEPOIS que o rele confirma pronto de verdade, nunca
+# antes. Ate aqui isso so' estava garantido por LEITURA do codigo
+# (comentario antigo, GODS_LAWS.md L-44: "leitura direta do codigo" nao
+# e' prova); um mutante que trocasse a ORDEM das duas ultimas linhas
+# abaixo (publicar antes de esperar) nao reprovava nenhum selftest
+# existente. bring_up() e' a MESMA sequencia que main() chamava direto -
+# nao uma copia reescrita para o teste (GODS_LAWS.md L-27: o selftest
+# tem que exercitar o codigo real).
+bring_up() {
     require_socket_name_arg "$@"
     create_private_runtime_dir
     export_runtime_env
@@ -641,7 +750,15 @@ main() {
     wait_for_compositor_ready "$upstream_socket_name"
     start_relay "$upstream_socket_name" "$external_socket_name" "$relay_log_file"
     wait_for_relay_ready "$external_socket_name" "$relay_log_file"
-    publish_ready_marker "$READY_MARKER_PATH"
+    publish_ready_marker "${RUNTIME_DIR}/ready"
+}
+
+main() {
+    if [ "$#" -eq 1 ] && [ "$1" = "--selftest" ]; then
+        run_selftest
+        exit 0
+    fi
+    bring_up "$@"
     stay_up_forever
 }
 

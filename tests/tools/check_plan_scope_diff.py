@@ -105,9 +105,17 @@ def find_row_line(plan_text, marker):
     a forma real usada nos planos deste projeto - e continua rejeitando
     a linha de cabecalho (`| # | Fatia | ...`, `#` nao e digito) e
     qualquer prosa que nao comece por `| <numero><letras?> |`."""
+    return find_row_line_and_number(plan_text, marker)[1]
+
+
+def find_row_line_and_number(plan_text, marker):
+    """Mesma busca de find_row_line() (ver o docstring dela), mas devolve
+    o PAR (numero de linha 1-indexado, texto da linha) - F1 (PLAN-SCOPE-
+    COLUMNS, D-A7) precisa do numero para achar a tabela que contem essa
+    linha e ler o cabecalho real dela, em vez de supor posicao fixa."""
     matches = [
-        line
-        for line in plan_text.splitlines()
+        (line_no, line)
+        for line_no, line in enumerate(plan_text.splitlines(), start=1)
         if re.match(r"^\|\s*\d+[a-z]*\s*\|", line) and marker in line
     ]
     if len(matches) == 0:
@@ -317,25 +325,38 @@ def real_main(args):
     parsed = parser.parse_args(args)
 
     plan_text = Path(parsed.plan).read_text(encoding="utf-8")
-    row_line = find_row_line(plan_text, parsed.marker)
+    row_line_no, row_line = find_row_line_and_number(plan_text, parsed.marker)
     columns = split_row_columns(row_line)
-    # split_row_columns() splits on EVERY `|`, including the leading
-    # one before the first cell and the trailing one after the last -
-    # columns[0] is always "" (before "| # |"), so column 4 (not 3) is
-    # "Nasce / muda": [0]="", [1]="#", [2]="Fatia", [3]="Lado",
-    # [4]="Nasce / muda" (docs/plano-w6a-janela.md's own table header,
-    # section 2.2) - an off-by-one here silently reads "Lado" ("comum"/
-    # "Wayland"/"Windows", never a file path) instead, which the
-    # extraction floor below would ALSO have caught as zero candidates,
-    # but proving the right cause here is cheaper than making the
-    # reader guess (this exact bug was caught live while writing this
-    # script, against the real plan file, not hypothetical).
-    if len(columns) < 5:
+
+    # F1 (PLAN-SCOPE-COLUMNS, D-A7, docs/plano-w7c-adendo-revalidacao.md
+    # secao 3.F): a coluna certa e' achada pelo NOME do cabecalho real da
+    # tabela que contem esta linha, nunca por posicao fixa - F18 (TODO.md)
+    # era exatamente isso: `columns[4]` supunha [0]="", [1]="#", [2]="Fatia",
+    # [3]="Lado", [4]="Nasce / muda", uma forma que so um dos planos deste
+    # projeto usa (a maioria insere/omite colunas antes dela - 1.B do
+    # adendo). split_row_columns() ainda devolve uma celula vazia ANTES
+    # da primeira (o `|` de abertura), entao o indice da linha e' sempre
+    # header_index + 1 em relacao ao indice (sem essa celula vazia) que
+    # parse_markdown_tables() devolve.
+    header_columns = find_table_columns_for_row(plan_text, row_line_no)
+    if header_columns is None:
         fail(
-            f"linha da tabela tem {len(columns)} coluna(s), esperava pelo menos 5 "
-            "(vazio | # | Fatia | Lado | Nasce/muda | ...)"
+            f"linha {row_line_no} casou o marcador mas nao esta dentro de nenhuma tabela "
+            "reconhecida (cabecalho + separador nao encontrados antes dela)"
         )
-    deliverable_column = columns[4]
+    try:
+        header_index = header_columns.index("Nasce / muda")
+    except ValueError:
+        fail(
+            f"a tabela desta linha (cabecalho: {header_columns}) nao tem coluna 'Nasce / muda' - "
+            "nomeie a coluna certa ou ajuste o cabecalho do plano"
+        )
+    if len(columns) <= header_index + 1:
+        fail(
+            f"linha da tabela tem {len(columns)} coluna(s), esperava pelo menos {header_index + 2} "
+            f"para alcancar 'Nasce / muda' (indice {header_index} no cabecalho {header_columns})"
+        )
+    deliverable_column = columns[header_index + 1]
 
     candidates = extract_candidate_paths(deliverable_column)
     print(f"{SCRIPT_NAME}: {len(candidates)} caminho(s) citado(s) na coluna de entregáveis")
@@ -442,6 +463,27 @@ def parse_markdown_tables(text):
         columns = [cell.strip() for cell in header_line.strip("|").split("|")]
         tables.append({"line_no": i + 1, "columns": columns})
     return tables
+
+
+def find_table_columns_for_row(plan_text, row_line_no):
+    """F1 (PLAN-SCOPE-COLUMNS, D-A7): dado o numero de linha 1-indexado
+    de UMA linha de dados de tabela, devolve a lista de NOMES de coluna
+    do cabecalho da tabela que a contem - ou None se a linha nao cai
+    dentro do corpo (header+separador+linhas seguidas no formato de
+    tabela) de nenhuma tabela reconhecida por parse_markdown_tables().
+    Substitui a suposicao antiga de posicao fixa (`columns[4]`, F18 -
+    "a coluna certa e' lida por NOME, nunca por indice fixo")."""
+    lines = plan_text.splitlines()
+    for table in parse_markdown_tables(plan_text):
+        body_first = table["line_no"] + 2  # 1-indexado: header, separador, entao o corpo
+        idx = body_first - 1  # 0-indexado
+        body_last = table["line_no"] + 1  # ainda sem corpo nenhum lido
+        while idx < len(lines) and _TABLE_ROW_RE.match(lines[idx].strip()):
+            body_last = idx + 1  # 1-indexado
+            idx += 1
+        if body_first <= row_line_no <= body_last:
+            return table["columns"]
+    return None
 
 
 def find_fatia_tables(text):
@@ -904,11 +946,22 @@ def selftest_zero_candidates_reproves():
     import contextlib
     import io
 
+    # F1 (D-A7): a linha agora precisa estar DENTRO de uma tabela
+    # reconhecida (cabecalho + separador) para find_table_columns_for_row()
+    # achar 'Nasce / muda' por nome - uma linha solta, sem cabecalho
+    # nenhum acima, reprova mais cedo, por um motivo diferente (a
+    # ausencia de tabela), nunca chegando a este piso. O fixture ganhou
+    # o cabecalho real para continuar exercendo especificamente o piso
+    # de zero-caminhos, no lugar certo do pipeline.
     row_text = "sem caminho nenhum aqui, so' `adapter()` e `<windows.h>` e `desc.logical_size`"
     import tempfile
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as handle:
-        handle.write(f"| 1 | **MARCADOR-TESTE** | comum | {row_text} | a | b | c |\n")
+        handle.write(
+            "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
+            "|---|---|---|---|---|---|---|\n"
+            f"| 1 | **MARCADOR-TESTE** | comum | {row_text} | a | b | c |\n"
+        )
         plan_path = handle.name
     try:
         buffer = io.StringIO()
@@ -956,6 +1009,70 @@ def selftest_ambiguous_marker_reproves():
         return False
     finally:
         Path(plan_path).unlink(missing_ok=True)
+
+
+def selftest_column_found_by_name_not_fixed_position(tmp_path):
+    """F1: uma tabela SEM a coluna 'Lado' (a forma de
+    docs/plano-w6-folha-de-estilo.md, uma coluna 'Prova' so') poe
+    'Nasce / muda' no indice 2 do cabecalho (indice 3 da linha, apos a
+    celula vazia de abertura) - NUNCA 4. Achar por nome tem que ler a
+    coluna certa mesmo assim; a suposicao antiga (indice fixo 4)
+    teria lido 'p' (a coluna 'Prova') em vez do caminho real."""
+    good_path = "src/f1/coluna_por_nome.hpp"
+    (tmp_path / "src" / "f1").mkdir(parents=True, exist_ok=True)
+    (tmp_path / good_path).write_text("", encoding="utf-8")
+    plan_path = tmp_path / "plano-sem-lado.md"
+    plan_path.write_text(
+        "| # | Fatia | Nasce / muda | Prova | Par no portão |\n"
+        "|---|---|---|---|---|\n"
+        f"| 1 | **MARCADOR-SEM-LADO** | `{good_path}` | p | q |\n",
+        encoding="utf-8",
+    )
+    try:
+        real_main([str(plan_path), "--marker", "MARCADOR-SEM-LADO", "--root", str(tmp_path)])
+    except SystemExit as exc:
+        print(
+            f"selftest: tabela sem 'Lado' reprovou inesperadamente (codigo {exc.code}) - "
+            "a coluna ainda esta sendo lida por posicao fixa, nao por nome",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: 'Nasce / muda' achada por NOME mesmo fora do indice fixo 4 (tabela sem 'Lado') - ok")
+    return True
+
+
+def selftest_missing_nasce_muda_column_names_it(tmp_path):
+    """F1: uma tabela com 'Entrega' no lugar de 'Nasce / muda' (a forma
+    antiga de docs/plano-w7d.md, antes da conversao de F0) tem que
+    reprovar NOMEANDO a coluna que falta, nunca com uma mensagem
+    generica de 'poucas colunas'."""
+    plan_path = tmp_path / "plano-entrega.md"
+    plan_path.write_text(
+        "| # | Sub-fatia | Entrega | Fechamento |\n"
+        "|---|---|---|---|\n"
+        # identificador tem de casar `\\d+[a-z]*` (find_row_line_and_number,
+        # PLAN-SCOPE-REGEX-BLIND) - "0" e nao "P0", que nunca casaria e
+        # reprovaria mais cedo, por um motivo que nao e' o desta prova.
+        "| 0 | **MARCADOR-ENTREGA** | `algo.hpp` | pronto |\n",
+        encoding="utf-8",
+    )
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stderr(buffer):
+        try:
+            real_main([str(plan_path), "--marker", "MARCADOR-ENTREGA", "--root", str(tmp_path)])
+        except SystemExit as exc:
+            exit_code = exc.code
+    stderr_text = buffer.getvalue()
+    if exit_code == 1 and "Nasce / muda" in stderr_text:
+        print("selftest: tabela com 'Entrega' em vez de 'Nasce / muda' reprova nomeando a coluna - ok")
+        return True
+    print(f"selftest: esperava reprovar citando 'Nasce / muda' - codigo {exit_code}, stderr {stderr_text!r}",
+          file=sys.stderr)
+    return False
 
 
 def selftest_alphanumeric_fatia_id_found_and_absolved(tmp_path):
@@ -1251,6 +1368,8 @@ def selftest_main():
             selftest_end_to_end_column_offset(),
             selftest_zero_candidates_reproves(),
             selftest_ambiguous_marker_reproves(),
+            selftest_column_found_by_name_not_fixed_position(tmp_path),
+            selftest_missing_nasce_muda_column_names_it(tmp_path),
             selftest_alphanumeric_fatia_id_found_and_absolved(tmp_path),
             selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path),
             selftest_declared_absence_with_open_item_accepted(tmp_path),

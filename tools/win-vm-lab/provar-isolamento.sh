@@ -319,14 +319,22 @@ check_rede_ativa() {
   # conformidade e' o elemento presente com state='down' explicito. Nao
   # importa o @type da interface (network/user/bridge/...): o portao nao
   # confia em NENHUM backend continuar desligado so por convencao.
-  while IFS='|' read -r if_type if_src has_down; do
+  #
+  # Conta TOTAL de <link> e TOTAL de <link state='down'>, nunca so a
+  # presenca de um 'down' (achado real em 23/09/2026, WIN-RUNNER-PROPRIO
+  # V-6c: uma interface com DOIS <link>, um 'down' e outro 'up', passava
+  # antes porque count(link[@state='down'])=1 sozinho ja bastava - o
+  # segundo <link state='up'/> concorrente nunca era olhado). So conta
+  # limpa quando TODOS os <link> da interface sao 'down' e existe pelo
+  # menos um.
+  while IFS='|' read -r if_type if_src n_total n_down; do
     [ -z "$if_type" ] && continue
-    if [ "$has_down" != "1" ]; then
+    if [ "$n_total" -eq 0 ] || [ "$n_down" -ne "$n_total" ]; then
       total=$((total + 1))
-      achados+=("type=${if_type} source=${if_src:-<sem-fonte>}")
+      achados+=("type=${if_type} source=${if_src:-<sem-fonte>} link-total=${n_total} link-down=${n_down}")
     fi
   done < <(xmlstarlet sel -t -m "/domain/devices/interface" \
-    -v "concat(@type,'|',source/@network,source/@bridge,source/@dev,'|',count(link[@state='down']))" -n "$xml" 2>/dev/null)
+    -v "concat(@type,'|',source/@network,source/@bridge,source/@dev,'|',count(link),'|',count(link[@state='down']))" -n "$xml" 2>/dev/null)
 
   echo "[7/7] enlace de rede do convidado ainda ativo (sem <link state='down'/> explicito): encontrados=${total}"
   if [ "$total" -gt 0 ]; then
@@ -359,27 +367,50 @@ rodar_varredura() {
 
 # --- selftest: prova que o portao morde antes de alguem confiar nele --------
 
-selftest() {
-  local rc_bad rc_clean
+# GATE-REDE-BORDA (V-6c, WIN-RUNNER-PROPRIO, 23/09/2026): a categoria 7
+# (check_rede_ativa) reprovava por AUSENCIA de <link> mas nao provava nada
+# contra um <link state='up'/> EXPLICITO concorrente com um <link
+# state='down'/> na mesma interface. Sabotagem de familia nova (L-27)
+# mostrou o mutante count(link[@state]) sobrevivendo a suite inteira; esta
+# funcao extrai a contagem exata da linha "[7/7] ... encontrados=N" e
+# compara contra o esperado, em vez de confiar so no codigo de saida geral
+# (rc=1 nao distingue "achou 2" de "achou 3" - so a contagem exata prova
+# que TODOS os casos de borda foram pegos, GODS_LAWS.md L-40).
+extrair_encontrados_categoria7() {
+  local saida="$1"
+  echo "$saida" | grep -oE '^\[7/7\].*encontrados=[0-9]+' | grep -oE '[0-9]+$'
+}
 
-  echo ">>> SELFTEST 1/2: rodando contra a definicao SABOTADA (deve REPROVAR)"
+selftest() {
+  local rc_bad rc_clean rc_borda saida_borda n_borda
+  local esperado_borda=3
+
+  echo ">>> SELFTEST 1/3: rodando contra a definicao SABOTADA (deve REPROVAR)"
   rodar_varredura "$SCRIPT_DIR/fixtures/dominio-sabotado.xml"
   rc_bad=$?
   echo ">>> codigo de saida contra a definicao sabotada: ${rc_bad}"
   echo
 
-  echo ">>> SELFTEST 2/2: rodando contra a definicao LIMPA (deve APROVAR)"
+  echo ">>> SELFTEST 2/3: rodando contra a definicao LIMPA (deve APROVAR)"
   rodar_varredura "$SCRIPT_DIR/fixtures/dominio-limpo.xml"
   rc_clean=$?
   echo ">>> codigo de saida contra a definicao limpa: ${rc_clean}"
   echo
 
-  if [ "$rc_bad" -eq 1 ] && [ "$rc_clean" -eq 0 ]; then
-    echo "SELFTEST OK: o portao reprovou o sabotado (codigo ${rc_bad}) e aprovou o limpo (codigo ${rc_clean})."
+  echo ">>> SELFTEST 3/3: rodando contra os CASOS DE BORDA do enlace de rede (categoria 7 deve achar exatamente ${esperado_borda})"
+  saida_borda="$(rodar_varredura "$SCRIPT_DIR/fixtures/rede-casos-de-borda.xml")"
+  rc_borda=$?
+  echo "$saida_borda"
+  n_borda="$(extrair_encontrados_categoria7 "$saida_borda")"
+  echo ">>> codigo de saida contra os casos de borda: ${rc_borda}; categoria 7 encontrados=${n_borda:-<nao-encontrado>}"
+  echo
+
+  if [ "$rc_bad" -eq 1 ] && [ "$rc_clean" -eq 0 ] && [ "$rc_borda" -eq 1 ] && [ "$n_borda" = "$esperado_borda" ]; then
+    echo "SELFTEST OK: sabotado reprovado (${rc_bad}), limpo aprovado (${rc_clean}), casos de borda reprovados com categoria 7 encontrados=${n_borda} (esperado ${esperado_borda})."
     return 0
   fi
 
-  echo "SELFTEST FALHOU: esperado sabotado=1 e limpo=0; obtido sabotado=${rc_bad} limpo=${rc_clean}."
+  echo "SELFTEST FALHOU: esperado sabotado=1, limpo=0, borda=1 com encontrados=${esperado_borda}; obtido sabotado=${rc_bad} limpo=${rc_clean} borda=${rc_borda} encontrados=${n_borda:-<nao-encontrado>}."
   return 1
 }
 

@@ -1,0 +1,42 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Fixture dedicada a categoria [7/7] de provar-isolamento.sh (WIN-RUNNER-PROPRIO
+     V-6c). Isola tres casos de borda do enlace de rede, cada um numa
+     <interface> propria, sem nenhuma outra violacao no dominio: assim a
+     categoria 7 e' a UNICA que pode achar algo, e a contagem dela prova
+     exatamente o que este arquivo testa.
+
+     Caso 1: <link state='up'/> EXPLICITO (nao ausencia de <link>, um valor
+     positivo contrario). Achado ao reverificar por sabotagem: o mutante
+     count(link[@state]) (aceita QUALQUER valor de @state) deixa este caso
+     passar; o codigo correto (count(link[@state='down'])) reprova.
+
+     Caso 2: <link state=''/> com valor vazio, estado inesperado, nem
+     'down' nem 'up'. Medido antes de decidir (GODS_LAWS.md L-17): o codigo
+     ja reprovava este caso corretamente antes desta fatia; o teste fica
+     como regressao permanente.
+
+     Caso 3: interface com DOIS <link>, um 'down' e outro 'up'. Achado real
+     no proprio script (nao so no mutante hipotetico): count(link[@state=
+     'down']) sozinho da 1 mesmo com um segundo <link state='up'/> presente,
+     entao o portao aprovava uma interface que tem um enlace ativo
+     concorrente. Motivou o conserto em check_rede_ativa() nesta mesma
+     fatia (compara contagem TOTAL de <link> contra a contagem de
+     <link state='down'/>, nao so a presenca de um 'down'). -->
+<domain type="kvm">
+  <name>glintfx-win11-fixture-rede-casos-de-borda</name>
+  <devices>
+    <interface type="network">
+      <source network="caso1-link-up-explicito"/>
+      <link state="up"/>
+    </interface>
+    <interface type="network">
+      <source network="caso2-link-state-vazio"/>
+      <link state=""/>
+    </interface>
+    <interface type="bridge">
+      <source bridge="caso3-link-duplo-down-e-up"/>
+      <link state="down"/>
+      <link state="up"/>
+    </interface>
+  </devices>
+</domain>

@@ -381,8 +381,35 @@ extrair_encontrados_categoria7() {
   echo "$saida" | grep -oE '^\[7/7\].*encontrados=[0-9]+' | grep -oE '[0-9]+$'
 }
 
+# GATE-REDE-BORDA-NOMES (V-6d, achado do revisor da V-6c, 23/09/2026): a
+# V-6c so conferia o AGREGADO (encontrados=3) na categoria 7. Medido: uma
+# regressao que troca a classificacao de dois casos (um deixa de ser
+# acusado, outro aparece duplicado) mantem o total em 3 e passava sem ser
+# vista - provado em copia isolada com sabotagem deliberada (L-27) antes
+# desta funcao existir. Cada nome de fonte esperado tem de aparecer
+# EXATAMENTE uma vez (nao "pelo menos uma"): ausencia e duplicata sao os
+# dois lados do mesmo defeito, e so a contagem exata pega os dois
+# (GODS_LAWS.md L-40, L-42: a regua tem de distinguir os dois estados).
+verificar_nomes_borda() {
+  local saida="$1"
+  local -a nomes_esperados=(
+    "caso1-link-up-explicito"
+    "caso2-link-state-vazio"
+    "caso3-link-duplo-down-e-up"
+  )
+  local nome n_ocorrencias todos_ok=1
+
+  for nome in "${nomes_esperados[@]}"; do
+    n_ocorrencias=$(grep -oE "source=${nome} " <<<"$saida" | wc -l)
+    echo ">>> categoria 7, fonte '${nome}': ocorrencias=${n_ocorrencias} (esperado exatamente 1)"
+    [ "$n_ocorrencias" -eq 1 ] || todos_ok=0
+  done
+
+  [ "$todos_ok" -eq 1 ]
+}
+
 selftest() {
-  local rc_bad rc_clean rc_borda saida_borda n_borda
+  local rc_bad rc_clean rc_borda saida_borda n_borda nomes_borda_ok
   local esperado_borda=3
 
   echo ">>> SELFTEST 1/3: rodando contra a definicao SABOTADA (deve REPROVAR)"
@@ -397,20 +424,26 @@ selftest() {
   echo ">>> codigo de saida contra a definicao limpa: ${rc_clean}"
   echo
 
-  echo ">>> SELFTEST 3/3: rodando contra os CASOS DE BORDA do enlace de rede (categoria 7 deve achar exatamente ${esperado_borda})"
+  echo ">>> SELFTEST 3/3: rodando contra os CASOS DE BORDA do enlace de rede (categoria 7 deve achar exatamente ${esperado_borda}, um de cada nome)"
   saida_borda="$(rodar_varredura "$SCRIPT_DIR/fixtures/rede-casos-de-borda.xml")"
   rc_borda=$?
   echo "$saida_borda"
   n_borda="$(extrair_encontrados_categoria7 "$saida_borda")"
   echo ">>> codigo de saida contra os casos de borda: ${rc_borda}; categoria 7 encontrados=${n_borda:-<nao-encontrado>}"
+  if verificar_nomes_borda "$saida_borda"; then
+    nomes_borda_ok=1
+  else
+    nomes_borda_ok=0
+  fi
   echo
 
-  if [ "$rc_bad" -eq 1 ] && [ "$rc_clean" -eq 0 ] && [ "$rc_borda" -eq 1 ] && [ "$n_borda" = "$esperado_borda" ]; then
-    echo "SELFTEST OK: sabotado reprovado (${rc_bad}), limpo aprovado (${rc_clean}), casos de borda reprovados com categoria 7 encontrados=${n_borda} (esperado ${esperado_borda})."
+  if [ "$rc_bad" -eq 1 ] && [ "$rc_clean" -eq 0 ] && [ "$rc_borda" -eq 1 ] \
+     && [ "$n_borda" = "$esperado_borda" ] && [ "$nomes_borda_ok" -eq 1 ]; then
+    echo "SELFTEST OK: sabotado reprovado (${rc_bad}), limpo aprovado (${rc_clean}), casos de borda reprovados com categoria 7 encontrados=${n_borda} (esperado ${esperado_borda}) e os tres nomes confirmados um a um."
     return 0
   fi
 
-  echo "SELFTEST FALHOU: esperado sabotado=1, limpo=0, borda=1 com encontrados=${esperado_borda}; obtido sabotado=${rc_bad} limpo=${rc_clean} borda=${rc_borda} encontrados=${n_borda:-<nao-encontrado>}."
+  echo "SELFTEST FALHOU: esperado sabotado=1, limpo=0, borda=1 com encontrados=${esperado_borda} e os tres nomes exatos; obtido sabotado=${rc_bad} limpo=${rc_clean} borda=${rc_borda} encontrados=${n_borda:-<nao-encontrado>} nomes_ok=${nomes_borda_ok}."
   return 1
 }
 

@@ -150,29 +150,95 @@ def find_count_phrases(text):
 # --- isencoes, lista fechada (D-A9) -------------------------------------
 
 
+def _find_matching_close_run(text, search_from, run_len):
+    """A partir de search_from, acha a PROXIMA backtick string de
+    comprimento exatamente run_len - pulando runs de outro comprimento
+    (crase literal dentro do trecho ainda aberto, CommonMark). Devolve
+    (close_start, indice_logo_apos_o_fechamento) ou None se nao achar
+    nenhuma ate o fim do texto."""
+    n = len(text)
+    j = search_from
+    while j < n and text[j] != "`":
+        j += 1
+    while j < n:
+        close_start = j
+        while j < n and text[j] == "`":
+            j += 1
+        if j - close_start == run_len:
+            return close_start, j
+        while j < n and text[j] != "`":
+            j += 1
+    return None
+
+
+def find_code_spans(text):
+    """DOCS-COUNT-VOCAB D2d (achado do main, segunda revisao da regra
+    de crase, 24/09/2026 - GODS_LAWS.md L-22/L-42, pesquisa antes da
+    terceira tentativa): trecho de codigo (CODE SPAN) na definicao real
+    do CommonMark (spec.commonmark.org/0.31.2/#code-spans) - "a
+    backtick string is a string of one or more backtick characters
+    that is neither preceded nor followed by a backtick" abre um
+    trecho, e ele fecha na PROXIMA backtick string de comprimento
+    IGUAL (pareamento por COMPRIMENTO, nunca a proxima crase
+    qualquer); sem fechamento do mesmo comprimento, a abertura nao e'
+    delimitador, e' crase literal. D2c usava rfind/find (a crase mais
+    proxima antes e depois do achado) - isso pareia a crase de
+    FECHAMENTO de um trecho anterior com a de ABERTURA do proximo,
+    isentando tudo o que sobra entre dois trechos de codigo NAO
+    relacionados ("Run `ctest` then 43 of 53 jobs apply, see
+    `ci.yml`." isentava a contagem no meio, que nao esta dentro de
+    trecho de codigo nenhum). Devolve a lista de (content_start,
+    content_end) - os limites do CONTEUDO de cada trecho, sem as
+    proprias crases."""
+    spans = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != "`":
+            i += 1
+            continue
+        run_start = i
+        while i < n and text[i] == "`":
+            i += 1
+        run_len = i - run_start
+        content_start = i
+        found = _find_matching_close_run(text, content_start, run_len)
+        if found is None:
+            i = content_start  # sem fechamento do mesmo comprimento - crase literal
+            continue
+        close_start, i = found
+        spans.append((content_start, close_start))
+    return spans
+
+
+# Sinal de codigo/literal (D2d): um trecho entre crases so' isenta a
+# contagem que carrega quando o PROPRIO CONTEUDO do trecho tem pelo
+# menos um sinal de caminho/opcao/simbolo de ferramenta - prosa pura
+# entre crases ("SEVENTEEN scenarios it runs", "43 of 53 " com espaco
+# a mais) NAO isenta so' por estar dentro de um trecho de codigo real;
+# "99% tests passed, 2 tests failed out of 216" continua isento, pelo
+# '%'/'.'/':' que carrega. Hifen so' conta no INICIO de palavra (flag
+# de linha de comando, "-oom-kill-disable"), nunca um hifen de
+# pontuacao no meio de uma frase.
+_CODE_SIGNAL_RE = re.compile(r"[/\\.=()\[\]<>$%:#*_]|(?<!\S)-")
+
+
+def _has_code_signal(content):
+    return bool(_CODE_SIGNAL_RE.search(content))
+
+
 def _is_between_backticks(text, start, end):
-    """CLAIM-CITATIONS/DOCS-COUNT-VOCAB D2c (achado do main, revisao da
-    D3, 24/09/2026): uma crase que so' EMBRULHA a propria contagem,
-    sem mais nada dentro, NAO isenta - isso e' contornar o portao
-    (colar crase em volta do numero), nunca consertar o documento
-    (o "caminho menos dificil" que o lider proibe). A isencao real
-    (D-A9: "trecho entre crases") e' para SAIDA DE FERRAMENTA citada
-    por INTEIRO ou um comando/caminho que por acaso contem a forma de
-    contagem dentro de algo maior - nunca a contagem sozinha
-    reembrulhada. Por isso: acha o par de crases que de fato ENVOLVE
-    [start:end] (a mais proxima antes, a mais proxima depois, sem
-    outra crase no meio de nenhum dos dois lados) e so' isenta quando
-    o conteudo INTEIRO entre elas e' MAIOR que o proprio trecho
-    casado - nunca igual."""
-    open_pos = text.rfind("`", 0, start)
-    if open_pos == -1 or "`" in text[open_pos + 1 : start]:
-        return False
-    close_pos = text.find("`", end)
-    if close_pos == -1 or "`" in text[end:close_pos]:
-        return False
-    enclosed = text[open_pos + 1 : close_pos]
-    matched = text[start:end]
-    return enclosed != matched
+    """Isento so' quando [start:end] cai DENTRO do conteudo de um
+    trecho de codigo real (find_code_spans(), pareado por comprimento
+    - D2d) E esse trecho carrega ao menos um sinal de codigo
+    (_has_code_signal() - D2d). Uma crase que so' embrulha a propria
+    contagem, sem sinal nenhum, nao isenta (D2c) - agora medido pelo
+    CONTEUDO, nunca pelo tamanho (um espaco a mais bastava para
+    enganar o criterio de tamanho de D2c)."""
+    for content_start, content_end in find_code_spans(text):
+        if content_start <= start and end <= content_end:
+            return _has_code_signal(text[content_start:content_end])
+    return False
 
 
 def _is_law_citation(text, start):
@@ -494,6 +560,99 @@ def _selftest_backtick_wrapping_only_the_count_not_exempt():
 # Positivo: a crase isenta de verdade quando o trecho e' MAIOR que a
 # contagem - saida de ferramenta citada por inteiro, ou um comando que
 # por acaso contem a forma dentro de algo maior.
+# D2d (segunda revisao da regra de crase, 24/09/2026): as seis sondas
+# do main, uma funcao por sonda (GODS_LAWS.md L-17).
+def _matched_span_exempt(text, wanted):
+    for s, e in find_count_phrases(text):
+        if text[s:e] == wanted:
+            return is_exempt_count(text, s, e, text)
+    return None, None
+
+
+def _selftest_pairing_two_unrelated_code_spans_never_exempts_prose_between():
+    # A prosa entre os dois trechos de codigo carrega um '/' de
+    # proposito - um sinal de codigo por coincidencia, o suficiente
+    # para o pareamento ingenuo (rfind/find) escapar so' pelo
+    # _has_code_signal(); so' o pareamento por comprimento real
+    # (find_code_spans) prova que "43 of 53" fica FORA de qualquer
+    # trecho de codigo de verdade.
+    text = "Run `ctest -R foo` then 43 of 53 tests match /some/path, see `ci.yml`."
+    exempt, reason = _matched_span_exempt(text, "43 of 53")
+    if exempt is None:
+        print(f"selftest: PAREAMENTO FALHOU (nao achou '43 of 53'): {text!r}", file=sys.stderr)
+        return False
+    if exempt:
+        print(f"selftest: PAREAMENTO FALHOU (prosa entre dois trechos de codigo NAO relacionados isentou): reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: PAREAMENTO OK (prosa entre dois trechos de codigo distintos nunca isenta)")
+    return True
+
+
+def _selftest_extra_space_inside_backticks_does_not_exempt():
+    text = "the `43 of 53 ` apply"
+    exempt, reason = _matched_span_exempt(text, "43 of 53")
+    if exempt is None:
+        print(f"selftest: ESPACO-A-MAIS FALHOU (nao achou '43 of 53'): {text!r}", file=sys.stderr)
+        return False
+    if exempt:
+        print(f"selftest: ESPACO-A-MAIS FALHOU (um espaco extra dentro da crase nao pode isentar): reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: ESPACO-A-MAIS OK (espaco extra dentro da crase nao burla mais o criterio)")
+    return True
+
+
+def _selftest_prose_inside_backticks_without_code_signal_not_exempt():
+    text = "the `SEVENTEEN scenarios it runs`"
+    exempt, reason = _matched_span_exempt(text, "SEVENTEEN scenarios")
+    if exempt is None:
+        print(f"selftest: PROSA-PURA FALHOU (nao achou 'SEVENTEEN scenarios'): {text!r}", file=sys.stderr)
+        return False
+    if exempt:
+        print(f"selftest: PROSA-PURA FALHOU (prosa sem sinal de codigo entre crases nao pode isentar): reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: PROSA-PURA OK (prosa pura entre crases, sem sinal de codigo, nunca isenta)")
+    return True
+
+
+def _selftest_bare_count_alone_in_backticks_still_not_exempt():
+    text = "`43 of 53` alone"
+    exempt, reason = _matched_span_exempt(text, "43 of 53")
+    if exempt is None:
+        print(f"selftest: SO-A-CONTAGEM FALHOU (nao achou '43 of 53'): {text!r}", file=sys.stderr)
+        return False
+    if exempt:
+        print(f"selftest: SO-A-CONTAGEM FALHOU: reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: SO-A-CONTAGEM OK (so' a contagem entre crases continua reprovando)")
+    return True
+
+
+def _selftest_tool_literal_with_code_signal_still_exempt():
+    text = "the log said `99% tests passed, 2 tests failed out of 216` verbatim."
+    exempt, reason = _matched_span_exempt(text, "2 tests")
+    if exempt is None:
+        print(f"selftest: LITERAL-DE-FERRAMENTA FALHOU (nao achou '2 tests'): {text!r}", file=sys.stderr)
+        return False
+    if not exempt or reason != "entre crases":
+        print(f"selftest: LITERAL-DE-FERRAMENTA FALHOU (deveria continuar isento, pelo '%'): exempt={exempt} reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: LITERAL-DE-FERRAMENTA OK ('%' e ':' sao sinal de codigo, saida de ferramenta continua isenta)")
+    return True
+
+
+def _selftest_command_code_span_does_not_exempt_count_outside_it():
+    text = "`ctest -R foo` to run 12 tests"
+    exempt, reason = _matched_span_exempt(text, "12 tests")
+    if exempt is None:
+        print(f"selftest: COMANDO-FORA FALHOU (nao achou '12 tests'): {text!r}", file=sys.stderr)
+        return False
+    if exempt:
+        print(f"selftest: COMANDO-FORA FALHOU (a contagem esta FORA do trecho de codigo, nunca devia isentar): reason={reason}", file=sys.stderr)
+        return False
+    print("selftest: COMANDO-FORA OK (comando entre crases nao isenta contagem que fica fora dele, na prosa)")
+    return True
+
+
 def _selftest_backtick_wrapping_more_than_the_count_is_exempt():
     text = 'the log said "`99% tests passed, 2 tests failed out of 216: consume_test`" verbatim.'
     phrases = find_count_phrases(text)
@@ -582,6 +741,12 @@ def selftest_main():
         _selftest_date_rule_n_of_m(),
         _selftest_backtick_wrapping_only_the_count_not_exempt(),
         _selftest_backtick_wrapping_more_than_the_count_is_exempt(),
+        _selftest_pairing_two_unrelated_code_spans_never_exempts_prose_between(),
+        _selftest_extra_space_inside_backticks_does_not_exempt(),
+        _selftest_prose_inside_backticks_without_code_signal_not_exempt(),
+        _selftest_bare_count_alone_in_backticks_still_not_exempt(),
+        _selftest_tool_literal_with_code_signal_still_exempt(),
+        _selftest_command_code_span_does_not_exempt_count_outside_it(),
         _selftest_dated_citation_exemption_same_paragraph(),
         _selftest_law_citation_exemption(),
         _selftest_changelog_released_section_exempt(),

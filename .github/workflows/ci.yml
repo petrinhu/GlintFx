@@ -641,13 +641,12 @@ jobs:
             echo "snapshot de log preservado nao encontrado: $log" >&2
             exit 1
           fi
-          grep '^check_layers_oracle.py:' "$log" > layers_oracle_report.txt || true
-          linhas=$(wc -l < layers_oracle_report.txt)
-          echo "linhas do relatorio do oraculo encontradas: $linhas"
-          if [ "$linhas" -eq 0 ]; then
-            echo "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)" >&2
-            exit 1
-          fi
+          # LAYERS-ORACLE-REPORT J1 (docs/plano-w7c-adendo-revalidacao.md
+          # secao 3.J, N8, D-A11): grep por PREFIXO sobre o log inteiro
+          # tambem casava com layers_oracle_selftest (mesmo prefixo);
+          # extract_oracle_report.py extrai por BLOCO de teste do proprio
+          # ctest, e faz o piso de varredura vazia sozinho (exit 1).
+          python3 tests/tools/extract_oracle_report.py --out layers_oracle_report.txt "$log"
           {
             echo "### Relatorio do oraculo de camadas - Linux (${{ matrix.modo }})"
             echo '```'
@@ -3244,13 +3243,13 @@ jobs:
             Write-Error "snapshot de log preservado nao encontrado: $log"
             exit 1
           }
-          $linhas = @(Select-String -Path $log -SimpleMatch 'check_layers_oracle.py:')
-          Write-Host "linhas do relatorio do oraculo encontradas: $($linhas.Count)"
-          if ($linhas.Count -eq 0) {
-            Write-Error "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)"
-            exit 1
-          }
-          $linhas | ForEach-Object { $_.Line } | Set-Content -Path layers_oracle_report.txt
+          # LAYERS-ORACLE-REPORT J1 (docs/plano-w7c-adendo-revalidacao.md
+          # secao 3.J, N8, D-A11): Select-String por PREFIXO sobre o log
+          # inteiro tambem casava com layers_oracle_selftest (mesmo
+          # prefixo); extract_oracle_report.py extrai por BLOCO de teste
+          # do proprio ctest, e faz o piso de varredura vazia sozinho.
+          python tests/tools/extract_oracle_report.py --out layers_oracle_report.txt $log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Relatorio do oraculo de camadas - Windows Debug"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
           Get-Content -Path layers_oracle_report.txt | Add-Content -Path $env:GITHUB_STEP_SUMMARY
@@ -3398,13 +3397,12 @@ jobs:
             echo "snapshot de log preservado nao encontrado: $log" >&2
             exit 1
           fi
-          grep '^check_layers_oracle.py:' "$log" > layers_oracle_report.txt || true
-          linhas=$(wc -l < layers_oracle_report.txt)
-          echo "linhas do relatorio do oraculo encontradas: $linhas"
-          if [ "$linhas" -eq 0 ]; then
-            echo "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)" >&2
-            exit 1
-          fi
+          # LAYERS-ORACLE-REPORT J1 (docs/plano-w7c-adendo-revalidacao.md
+          # secao 3.J, N8, D-A11): grep por PREFIXO sobre o log inteiro
+          # tambem casava com layers_oracle_selftest (mesmo prefixo);
+          # extract_oracle_report.py extrai por BLOCO de teste do proprio
+          # ctest, e faz o piso de varredura vazia sozinho (exit 1).
+          python3 tests/tools/extract_oracle_report.py --out layers_oracle_report.txt "$log"
           {
             echo "### Relatorio do oraculo de camadas - Clang (${{ matrix.modo }})"
             echo '```'

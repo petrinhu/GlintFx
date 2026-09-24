@@ -3013,6 +3013,25 @@ add_test(
 )
 set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest)
 
+# LAYERS-ORACLE-REPORT sub-fatia J1 (docs/plano-w7c-adendo-
+# revalidacao.md secao 3.J, achado N8, decisao D-A11, 24/09/2026): as
+# tres copias do passo "Relatorio do oraculo de camadas" em ci.yml
+# extraiam o relatorio do oraculo com `grep '^check_layers_oracle.py:'`
+# sobre o LastTest.log INTEIRO - o layers_oracle_selftest ACIMA imprime
+# linhas com o mesmo prefixo (a mesma funcao f"{SCRIPT_NAME}: ..." roda
+# nos dois caminhos), entao se layers_oracle_test parar de rodar, o
+# passo que existe para acusar essa ausencia passa VERDE FALSO com o
+# texto do autoteste. extract_oracle_report.py extrai por BLOCO de
+# teste do proprio ctest, nunca por prefixo de linha solto - ver o
+# cabecalho do script para o furo medido e reproduzido no --selftest
+# dele.
+add_test(
+    NAME extract_oracle_report_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/extract_oracle_report.py" --selftest
+)
+set_tests_properties(extract_oracle_report_selftest PROPERTIES LABELS selftest)
+
 # FACADE-PIN, G2 (docs/plano-conserto-fachadas-uaf.md sec. 9, GODS_
 # LAWS.md L-19/L-36): the portao G1 (the pinned_adapter<A> concept
 # every port now requires) structurally cannot reach - a class that

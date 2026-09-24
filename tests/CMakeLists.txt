@@ -5777,6 +5777,41 @@ set_tests_properties(plan_scope_diff_selftest PROPERTIES
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# WL-ACK-SMOKE-BLUNT, sub-fatia A1 (docs/plano-w7c.md SS3.A, docs/
+# plano-w7c-adendo-revalidacao.md SS3.A) - wire_relay_selftest proves
+# the relay's transport+decoder atoms in transparent mode (no rules
+# yet - A2 adds the rule engine R1/R2 and the error injector as a
+# separate fatia, extending this same target), tests/container/
+# wire_relay/*.cpp (GODS_LAWS.md L-17: um arquivo por atomo). Unlike
+# every OTHER *.cpp under tests/container/, these do NOT enter the
+# compile-only glintfx_container_smokes OBJECT library (tests/
+# container/CMakeLists.txt) - that second listing is WL-ACK-SMOKE-
+# BLUNT's sub-fatia A0, explicitly out of scope for A1/A2 (docs/
+# plano-w7c-adendo-revalidacao.md SS3.A table). This target instead
+# runs DIRECTLY on the host, the same way every other *_selftest in
+# THIS file already does: GODS_LAWS.md L-09's own socketpair-only
+# exception (see wire_relay_selftest.cpp's own header comment) - no
+# compositor, no container, no wayland-0, no XDG_RUNTIME_DIR; the
+# autoteste uses only socketpair() and a fake upstream this process
+# writes itself.
+#
+# if(UNIX): socketpair()/sendmsg()/recvmsg()/SCM_RIGHTS are POSIX -
+# WL-ACK-SMOKE-BLUNT is Wayland-only by this project's own L-05 (no
+# X11, no Windows Wayland), so this target simply does not exist on
+# Windows (parity exception SEM-PENDENCIA, tests/parity_exceptions.txt).
+if(UNIX)
+    add_executable(wire_relay_selftest
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_decoder.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_object_table.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_transport.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_selftest.cpp"
+    )
+    target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
+    glintfx_apply_compile_options(wire_relay_selftest)
+    add_test(NAME wire_relay_selftest COMMAND wire_relay_selftest)
+    set_tests_properties(wire_relay_selftest PROPERTIES LABELS selftest)
+endif()
+
 # FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
 # propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
 # CMake, de todo nome passado a add_test() neste diretorio ate aqui -

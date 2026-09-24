@@ -722,3 +722,18 @@ drm_device_facts_oom_test|windows|nenhum|SEM-PENDENCIA
 # desta secao do arquivo.
 container_smokes_in_compile_db_test|windows|nenhum|SEM-PENDENCIA
 container_smokes_in_compile_db_selftest|windows|nenhum|SEM-PENDENCIA
+
+# wire_relay_selftest (WL-ACK-SMOKE-BLUNT, sub-fatias A1/A2, docs/
+# plano-w7c.md SS3.A e docs/plano-w7c-adendo-revalidacao.md SS3.A) -
+# tests/CMakeLists.txt registra este alvo dentro de if(UNIX), porque
+# ele prova o rele estrito do protocolo Wayland (transporte, decoder,
+# tabela de objetos, motor de regras R1/R2, injetor de erro) - o wire
+# format que WL-ACK-SMOKE-BLUNT existe para exercer so' faz sentido do
+# lado Wayland (GODS_LAWS.md L-05 fecha X11/Windows por desenho, mesma
+# razao ja registrada acima para wl_proto_link_test e os fixtures de
+# tests/container/). O autoteste em si NUNCA sobe compositor nem
+# container (GODS_LAWS.md L-09: par de soquetes e montante falso).
+#
+# MORTE DESTA LINHA: nunca - assimetria permanente por desenho, mesmo
+# padrao SEM-PENDENCIA das demais linhas Wayland-only desta secao.
+wire_relay_selftest|windows|nenhum|SEM-PENDENCIA

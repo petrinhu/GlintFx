@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <span>
@@ -200,6 +201,13 @@ int main() {
     glintfx::container_fixture::checked_fprintf(
         stdout, "MEASURED egl_protocol_error_smoke.provoked=%d\n", primary_provoked ? 1 : 0);
 
+    // EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
+    // sec. 3): a interface que QUALQUER UMA das duas provocações
+    // acabar nomeando é a que as três chamadas novas abaixo (depois de
+    // ambos os ramos) têm de repetir - nunca um nome hardcoded, porque
+    // qual provocador acusa primeiro varia por compositor/corrida.
+    std::string established_rejected_value;
+
     if (primary_provoked) {
         if (primary_code != glintfx::gltfx_err_code::platform_failure ||
             primary_rejected != std::string_view{"wl_surface"}) {
@@ -218,6 +226,7 @@ int main() {
         glintfx::container_fixture::checked_fprintf(
             stdout, "egl_protocol_error_smoke: swap_buffers falhou: code=platform_failure "
                     "rejected_value=wl_surface (como esperado)\n");
+        established_rejected_value = primary_rejected;
     } else {
         // RESERVE PROVOCATION, fixed BEFORE the data existed (D-W6b-29,
         // GODS_LAWS.md L-42/L-43): the compositor did not reject scale
@@ -261,7 +270,104 @@ int main() {
         glintfx::container_fixture::checked_fprintf(
             stdout, "egl_protocol_error_smoke: provocador de reserva acusado - code="
                     "platform_failure rejected_value=xdg_toplevel (como esperado)\n");
+        established_rejected_value = reserve_rejected;
     }
+
+    // EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
+    // sec. 3, D-S3): depois que a conexão já está fatalmente errada,
+    // as TRÊS chamadas que ainda falam com o fio (swap_buffers(),
+    // make_current(), e um SEGUNDO open()) têm de recusar de imediato,
+    // com a MESMA interface que o provocador real acabou de nomear -
+    // nunca "funcionar" silenciosamente sobre uma conexão morta, e
+    // nunca um nome genérico. close() fica de fora de propósito (D-S3:
+    // só libera, nunca fala com o fio de novo).
+    const std::uint32_t swap_calls_before_dead_swap = context.swap_calls_issued();
+    const glintfx::gltfx_rslt<void> vsync_off_on_dead =
+        context.apply_option({.id = glintfx::gltfx_gfx_option::vsync, .value = 0});
+    if (vsync_off_on_dead.has_error()) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "egl_protocol_error_smoke: apply_option(vsync=0) sobre conexao ja morta falhou "
+            "de forma inesperada: %s (rejected_value=%s)\n",
+            std::string(glintfx::gltfx_err_code_name(vsync_off_on_dead.err().code())).c_str(),
+            std::string(vsync_off_on_dead.err().rejected_value()).c_str());
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+    const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swap_on_dead = context.swap_buffers();
+    if (!swap_on_dead.has_error() ||
+        swap_on_dead.err().code() != glintfx::gltfx_err_code::platform_failure ||
+        swap_on_dead.err().rejected_value() != std::string_view{established_rejected_value} ||
+        context.swap_calls_issued() != swap_calls_before_dead_swap) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "egl_protocol_error_smoke: swap_buffers() sobre conexao ja morta (S3) nao "
+            "recusou como esperado - has_error=%d rejected_value=%s swap_calls_issued=%u "
+            "(esperado %u, sem chamar o driver)\n",
+            swap_on_dead.has_error() ? 1 : 0,
+            swap_on_dead.has_error() ? std::string(swap_on_dead.err().rejected_value()).c_str()
+                                     : "",
+            context.swap_calls_issued(), swap_calls_before_dead_swap);
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "egl_protocol_error_smoke: swap_buffers() sobre conexao ja morta (S3) "
+                "recusou sem chamar o driver - swap_calls_issued inalterado, como "
+                "esperado\n");
+
+    const glintfx::gltfx_rslt<void> make_current_on_dead = context.make_current();
+    if (!make_current_on_dead.has_error() ||
+        make_current_on_dead.err().code() != glintfx::gltfx_err_code::platform_failure ||
+        make_current_on_dead.err().rejected_value() !=
+            std::string_view{established_rejected_value}) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "egl_protocol_error_smoke: make_current() sobre conexao ja morta (S3) nao "
+            "recusou como esperado - has_error=%d rejected_value=%s\n",
+            make_current_on_dead.has_error() ? 1 : 0,
+            make_current_on_dead.has_error()
+                ? std::string(make_current_on_dead.err().rejected_value()).c_str()
+                : "");
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "egl_protocol_error_smoke: make_current() sobre conexao ja morta (S3) "
+                "recusou, como esperado\n");
+
+    glintfx::platform::wayland_egl_context_adapter second_context;
+    const glintfx::gltfx_rslt<void> second_open =
+        second_context.open(window, std::span<const glintfx::gltfx_gfx_option_entry>{});
+    if (!second_open.has_error() ||
+        second_open.err().code() != glintfx::gltfx_err_code::platform_failure ||
+        second_open.err().rejected_value() != std::string_view{established_rejected_value}) {
+        glintfx::container_fixture::checked_fprintf(
+            stderr,
+            "egl_protocol_error_smoke: um segundo open() sobre conexao ja morta (S3) nao "
+            "recusou como esperado - has_error=%d rejected_value=%s\n",
+            second_open.has_error() ? 1 : 0,
+            second_open.has_error() ? std::string(second_open.err().rejected_value()).c_str() : "");
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stdout,
+        "egl_protocol_error_smoke: um segundo open() sobre conexao ja morta (S3) "
+        "recusou com a interface certa (%s), como esperado\n",
+        established_rejected_value.c_str());
 
     // The connection is now fatally errored - close() on every adapter
     // still has to be safe to call, the same "never touch a fatally-

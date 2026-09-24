@@ -770,6 +770,21 @@ wayland_egl_context_adapter::open(wayland_window_adapter &window,
             gltfx_err(gltfx_err_code::invalid_argument).with_rejected_value("window"));
     }
 
+    // EGL-DEAD-DISPLAY-GUARD S3 (docs/plano-egl-dead-display-guard.md
+    // sec. 3, D-S3): guarda ANTES de create_egl_display() abaixo, sobre
+    // o wl_display obtido do wl_surface que acabou de ser resolvido -
+    // sem isso, um segundo open() (ex.: consumidor tentando reabrir o
+    // contexto depois de um close()) sobre uma conexão já morta chegava
+    // a eglInitialize() e falhava com o nome genérico "egl_display" em
+    // vez da interface que reprovou (plano sec. 2, linha "open() →
+    // create_egl_display()"). Nada foi alocado por este adaptador
+    // ainda neste ponto, então não há nada para close() liberar.
+    if (const std::optional<gltfx_err> dead_on_entry =
+            connection_failure_if_dead(wl_proxy_get_display(reinterpret_cast<wl_proxy *>(surface)));
+        dead_on_entry.has_value()) {
+        return gltfx_rslt<void>::err(*dead_on_entry);
+    }
+
     // D-W6b-18: `adaptive` has no Wayland/EGL equivalent - refused BY
     // NAME here too, not only from a LATER set_option() call, since
     // `vsync` is `live` and this fatia's own resolved-options span may
@@ -872,6 +887,15 @@ void wayland_egl_context_adapter::close() noexcept {
 }
 
 gltfx_rslt<void> wayland_egl_context_adapter::make_current() noexcept {
+    // EGL-DEAD-DISPLAY-GUARD S3 (D-S3): mesma guarda de swap_buffers()
+    // (S2) e de open() (acima) - no COMEÇO, antes de qualquer chamada
+    // EGL que fale com o fio.
+    wl_display *display = wl_proxy_get_display(reinterpret_cast<wl_proxy *>(m_surface));
+    if (const std::optional<gltfx_err> dead = connection_failure_if_dead(display);
+        dead.has_value()) {
+        return gltfx_rslt<void>::err(*dead);
+    }
+
     if (eglMakeCurrent(m_egl_display, m_egl_surface, m_egl_surface, m_egl_context) != EGL_TRUE) {
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_make_current"));

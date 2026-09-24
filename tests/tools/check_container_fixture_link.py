@@ -882,7 +882,9 @@ def selftest_rewrite_build_prefix_ignores_unrelated_build_substring():
 # pelo motivo ERRADO ("Arquivo ou diretorio inexistente" em vez de
 # "undefined reference") - o MESMO mascaramento que LINK-PREFIX-
 # SUBSTRING corrigiu, residual nestas tres formas (F1 do adendo de
-# revalidacao).
+# revalidacao). Ver o comentario junto de _BUILD_PREFIX_TOKEN_RE acima
+# para a correcao medida ao texto do plano e o raciocinio da ancora
+# nova (contagem de letras coladas, nao qual caractere).
 def selftest_rewrite_build_prefix_recognizes_glued_forms():
     build_dir = "/tmp/real-build-dir"
     positive_cases = [
@@ -955,10 +957,10 @@ def selftest_empty_containerfile_reproves(scratch):
 # que falta o atomo - prova que o portao acumula TODAS as falhas, nao
 # so a primeira (o defeito real mordeu 16 alvos ao mesmo tempo; um
 # portao que parasse no primeiro nunca provaria o tamanho real do dano).
-def selftest_accumulates_multiple_failures(scratch, compiler):
-    root = os.path.join(scratch, "multi")
-    context_dir = os.path.join(root, "tests", "container")
-    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+def _write_multi_fixture_sources(context_dir, staged_dir):
+    """Escreve os fontes do cenario MULTI (atom/consumer staged, dois
+    .cpp de contexto) - metade de _build_multi_fixture (teto de linhas
+    L-17)."""
     _write(os.path.join(staged_dir, "src", "atom.hpp"), "#pragma once\nint atom_value();\n")
     _write(os.path.join(staged_dir, "src", "atom.cpp"), '#include "atom.hpp"\nint atom_value() { return 42; }\n')
     _write(os.path.join(staged_dir, "src", "consumer.hpp"), "#pragma once\nint consumer_value();\n")
@@ -974,12 +976,16 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
         os.path.join(context_dir, "second_smoke.cpp"),
         '#include "consumer.hpp"\nint main() { return consumer_value() - 1; }\n',
     )
+
+
+def _multi_fixture_containerfile_text(compiler):
+    """O texto do Containerfile do cenario MULTI - metade de
+    _build_multi_fixture (teto de linhas L-17)."""
     # shlex.quote(): same reasoning as _build_base_fixture()'s own
     # comment beside its quoted_compiler - this token is host-discovered
     # and about to be embedded, unparsed, into text handed to `sh -c`.
     quoted_compiler = shlex.quote(compiler)
-
-    containerfile = (
+    return (
         "FROM fedora:44 AS arch-ports-builder\n"
         "COPY _arch_ports_src /build/_arch_ports_src\n"
         "COPY first_smoke.cpp /build/first_smoke.cpp\n"
@@ -996,11 +1002,33 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
         "FROM fedora:44\n"
         "RUN echo runtime-stage-never-compiles-anything\n"
     )
+
+
+def _build_multi_fixture(scratch, compiler):
+    """Fabrica o Containerfile/contexto do cenario MULTI (dois alvos que
+    faltam atom.cpp no link) - fatorado (L-17) de selftest_accumulates_
+    multiple_failures para ser reusado, sem duplicar, pela estreia de B2
+    (compilador inexistente) em selftest_multi_reproves_when_compiler_
+    missing() abaixo."""
+    root = os.path.join(scratch, "multi")
+    context_dir = os.path.join(root, "tests", "container")
+    staged_dir = os.path.join(context_dir, "_arch_ports_src")
+    _write_multi_fixture_sources(context_dir, staged_dir)
+    containerfile = _multi_fixture_containerfile_text(compiler)
+    return containerfile, context_dir, staged_dir
+
+
+def _run_multi_case(scratch, compiler):
+    containerfile, context_dir, staged_dir = _build_multi_fixture(scratch, compiler)
     build_dir = tempfile.mkdtemp(prefix="glintfx-fixture-link-selftest-build-multi-", dir=scratch)
     try:
-        summary, errors = run_link_check(containerfile, context_dir, staged_dir, build_dir)
+        return run_link_check(containerfile, context_dir, staged_dir, build_dir)
     finally:
         shutil.rmtree(build_dir, ignore_errors=True)
+
+
+def selftest_accumulates_multiple_failures(scratch, compiler):
+    summary, _errors = _run_multi_case(scratch, compiler)
     if summary["compile_total"] != 2 or len(summary["failures"]) != 2:
         print(f"selftest: MULTI FALHOU (esperava 2 alvos e 2 falhas, veio {summary})", file=sys.stderr)
         return False
@@ -1010,7 +1038,49 @@ def selftest_accumulates_multiple_failures(scratch, compiler):
     if not any("second_smoke" in f["target"] for f in summary["failures"]):
         print(f"selftest: MULTI FALHOU (second_smoke nao citado nas falhas): {summary['failures']}", file=sys.stderr)
         return False
-    print(f"selftest: MULTI OK (os DOIS alvos que faltam o atomo foram pegos, nenhum escondeu o outro)")
+    # LINK-PREFIX-RESIDUOS B2 (TODO.md, docs/plano-w7c.md secao 3.B2):
+    # ate aqui, MULTI so' conferia CONTAGEM e NOME do alvo - nunca o
+    # MOTIVO da falha. A propria reproducao de LINK-PREFIX-SUBSTRING
+    # mediu isto ao vivo: com o compilador descoberto sob um TMPDIR
+    # colidente, os DOIS alvos falhavam por "compilador nao encontrado"
+    # em vez de "undefined reference to atom_value()", e este controle
+    # dizia OK do mesmo jeito - o mascaramento que este arquivo inteiro
+    # existe para pegar, um nivel acima. Cada falha, individualmente
+    # (nao o texto combinado - um alvo certo nao pode esconder o outro
+    # errado), tem de citar "undefined reference".
+    for failure in summary["failures"]:
+        if "undefined reference" not in failure["stderr"]:
+            print(
+                f"selftest: MULTI FALHOU (falha de {failure['target']!r} nao cita 'undefined "
+                f"reference' - motivo mascarado): {failure['stderr']!r}",
+                file=sys.stderr,
+            )
+            return False
+    print(f"selftest: MULTI OK (os DOIS alvos que faltam o atomo foram pegos, nenhum escondeu o outro, "
+          f"os DOIS citam 'undefined reference')")
+    return True
+
+
+def selftest_multi_reproves_when_compiler_missing(scratch):
+    """B2, controle de estreia (docs/plano-w7c.md secao 3.B2, TODO.md
+    LINK-PREFIX-RESIDUOS): MESMO cenario MULTI (via _run_multi_case,
+    reusado), com um compilador cujo CAMINHO nunca existe - basename
+    'g++' reconhecido por is_compile_line(), mas o binario nao existe
+    ('sh: .../g++: Arquivo ou diretorio inexistente', NUNCA 'undefined
+    reference'). Medido ao vivo contra o codigo de ANTES desta fatia
+    (copia fora da arvore, blob de e5fe067): selftest_accumulates_
+    multiple_failures() dizia OK mesmo assim - so' conferia contagem e
+    nome do alvo, nunca o motivo. Depois do conserto (checagem de
+    'undefined reference' POR falha), a MESMA chamada tem de reprovar."""
+    ok = selftest_accumulates_multiple_failures(scratch, "/definitely/does/not/exist/g++")
+    if ok:
+        print(
+            "selftest: MULTI-ESTREIA FALHOU (compilador inexistente ainda passou como OK - o "
+            "mascaramento voltou)",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: MULTI-ESTREIA OK (compilador inexistente reprova, motivo mascarado detectado)")
     return True
 
 
@@ -1154,6 +1224,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
             named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
             named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
             named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
+            named_results.append(("multi-estreia", selftest_multi_reproves_when_compiler_missing(scratch)))
             named_results.append(
                 ("gancho-header", selftest_gancho_sibling_header_resolves(scratch, compiler))
             )
@@ -1168,6 +1239,7 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
             named_results.append(("sanitize-token", None))
             named_results.append(("missing-atom", None))
             named_results.append(("multi", None))
+            named_results.append(("multi-estreia", None))
             named_results.append(("gancho-header", None))
             named_results.append(("gancho-header-vermelho", None))
     finally:

@@ -5666,6 +5666,30 @@ set_tests_properties(claim_citations_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# DOCS-COUNT-VOCAB sub-fatias D1/D2/D2b (docs/plano-w7c.md sec. 3.D,
+# decisoes D11-D14; docs/plano-w7c-adendo-revalidacao.md sec. 3.D,
+# decisao D-A9): vocabulario fechado de forma de contagem, universo
+# importado de check_dash_pubdoc.py (nunca copiado), regra da data
+# (D2b) e citacao de medicao datada (D1, citation_grammar.py) como
+# isencao. Registrado UNGUARDED (le texto, nao constroi nada - GODS_
+# LAWS.md L-04), mesma forma de dash_pubdoc_test logo acima.
+add_test(
+    NAME docs_count_vocab_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_docs_count_vocab.py"
+        --check "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(docs_count_vocab_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME docs_count_vocab_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_docs_count_vocab.py" --selftest
+)
+set_tests_properties(docs_count_vocab_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
 # propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
 # CMake, de todo nome passado a add_test() neste diretorio ate aqui -

@@ -4353,3 +4353,10 @@ Opções: as duas pistas do plano; **fila única com laboratório do relé fora 
 
 ---
 
+
+## 24/09/2026 01:35 - W7-B mesclada em main e marcada v0.5.1.0 (decisão autônoma, confirmar retroativamente)
+
+- **Merge:** PR #11 (onda-w7b -> main), commit de merge `393ec30` (árvore idêntica a `032884f`), mesmo método dos PRs 8 a 10 (commit de merge). O PR estava em rascunho; foi marcado pronto e mesclado. Base: L-11 do projeto (ao fim de onda com tudo verde, merge e marca sem perguntar) e modo autônomo válido até 24/09 19:12.
+- **Evidência:** execução `35954516222` (pull_request, `032884f`): 25 de 26 verdes, 0 falhas, 1 pulado por desenho (VERSION-TAG-SYNC); lista de trabalhos idêntica à de `35951999649` e `35949812345`. Espelho local `tools/preci.sh --fast`: 232 de 232 (`/var/tmp/glintfx-preci-w7b-fecho.rc` = 0).
+- **Marca:** `v0.5.1.0` anotada em `393ec30`, pela D-13 (conserto de produto CONT-WARMUP C-2 entrou: sobe o terceiro número). `git ls-remote` prova `refs/tags/v0.5.1.0^{}` = `393ec30`. O job de marca rodou ao vivo na execução `35955986832` e passou.
+- **Execução redundante:** `35954517146` (workflow_dispatch no mesmo `032884f`) cancelada: o evento de PR já cobria o mesmo commit.

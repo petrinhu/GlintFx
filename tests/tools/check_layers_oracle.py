@@ -1109,6 +1109,67 @@ def _named_cases_stuck_at_recusado(case_buckets):
     return [name for name in _NAMED_CASES_ADENDO_5_1 if case_buckets.get(name) == "recusado"]
 
 
+# --- prova de que _NAMED_CASES_ADENDO_5_1 bate com a FONTE (achado da
+# revisao independente, 23/09/2026): uma tupla literal duplicada no
+# teste seria "copia em vez de fonte" (a mesma familia de defeito ja
+# medida nesta sessao) - o controle novo (O-31) LE o adendo do disco,
+# nunca guarda um segundo valor esperado escrito a mao.
+_ADENDO_SECTION_5_1_PATTERN = re.compile(r"^### 5\.1\b.*$", re.MULTILINE)
+_ADENDO_NEXT_HEADING_PATTERN = re.compile(r"^#{2,3} ", re.MULTILINE)
+_ADENDO_ITEM_3_PATTERN = re.compile(r"^3\..*Nenhum\b.*$", re.MULTILINE)
+_ADENDO_BACKTICK_CASE_LABEL_PATTERN = re.compile(r"`(C\d+[a-z]?)`")
+
+
+def _read_adendo_named_case_labels(adendo_path):
+    """docs/plano-layers-l5-adendo-calibracao.md secao 5.1 item 3 - a
+    LEITURA ESTRITA da fonte. REPROVA (falha de instrumento, nunca
+    pulo) se a secao "### 5.1" nao existir, se o item 3 (a linha que
+    comeca com "3." e cita "Nenhum") nao existir dentro dela, ou se
+    zero rotulos forem encontrados entre crases (GODS_LAWS.md L-40)."""
+    with open(adendo_path, "r", encoding="utf-8") as handle:
+        text = handle.read()
+    section_start = _ADENDO_SECTION_5_1_PATTERN.search(text)
+    if section_start is None:
+        raise _IncludeTreeError(f"adendo: secao '### 5.1' nao encontrada em {adendo_path!r} (falha de instrumento)")
+    rest = text[section_start.end():]
+    next_heading = _ADENDO_NEXT_HEADING_PATTERN.search(rest)
+    section = rest[: next_heading.start()] if next_heading else rest
+    item = _ADENDO_ITEM_3_PATTERN.search(section)
+    if item is None:
+        raise _IncludeTreeError(
+            f"adendo: item 3 (casos nomeados) nao encontrado dentro da secao 5.1 em {adendo_path!r} "
+            "(falha de instrumento)"
+        )
+    labels = _ADENDO_BACKTICK_CASE_LABEL_PATTERN.findall(item.group(0))
+    if not labels:
+        raise _IncludeTreeError("adendo: zero rotulos de caso encontrados no item 3 (falha de instrumento)")
+    return labels
+
+
+_CHECK_LAYERS_CASE_NAME_PATTERN = re.compile(r'Case\(\s*"([A-Za-z0-9_]+)"')
+
+
+def _read_check_layers_case_names(check_layers_path):
+    """Le `check_layers.py` como TEXTO - NUNCA import (docs/plano-
+    layers-l5.md §2, D-2: "o oraculo nao importa o portao, fala com
+    ele pela linha de comando e por manifesto"). Devolve o conjunto de
+    nomes literais `Case("NOME", ...)` encontrados - REPROVA se zero
+    (falha de instrumento, L-40)."""
+    with open(check_layers_path, "r", encoding="utf-8") as handle:
+        text = handle.read()
+    names = frozenset(_CHECK_LAYERS_CASE_NAME_PATTERN.findall(text))
+    if not names:
+        raise _IncludeTreeError(f"check_layers.py: zero nomes de caso encontrados em {check_layers_path!r}")
+    return names
+
+
+def _short_label(full_case_name):
+    """'C14_own_header_exists' -> 'C14' - o rotulo curto que o adendo
+    cita entre crases, pra comparar contra `_NAMED_CASES_ADENDO_5_1`
+    sem duplicar a lista completa em nenhum lugar."""
+    return full_case_name.split("_", 1)[0]
+
+
 def _print_named_case_buckets(case_buckets):
     """docs/plano-layers-l5-adendo-calibracao.md secao 5.1 item 3
     (L-5h item b): imprime o balde de CADA caso nomeado, SEMPRE - "nao
@@ -2627,6 +2688,39 @@ def selftest_oracle_o30_named_case_buckets_printed(scratch, capture):
     return ok, 1
 
 
+def selftest_oracle_o31_named_cases_match_adendo_source(scratch, capture):
+    """O-31 (achado da revisao independente, 23/09/2026): O-30 conferia
+    a impressao contra a PROPRIA `_NAMED_CASES_ADENDO_5_1` - remover um
+    nome dela passava calado. Este controle le a FONTE (o adendo,
+    secao 5.1 item 3) direto do disco com um extrator ESTRITO, e exige
+    IGUALDADE DE CONJUNTO entre os rotulos curtos do adendo e os
+    derivados da tupla (`_short_label`). Confere tambem que cada nome
+    COMPLETO da tupla existe de verdade nas tabelas de `check_layers.py`
+    (um nome digitado errado nunca casaria com caso nenhum, e a trava
+    nunca dispararia)."""
+    del scratch, capture
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    adendo_path = os.path.join(repo_root, "docs", "plano-layers-l5-adendo-calibracao.md")
+    check_layers_path = os.path.join(os.path.dirname(__file__), "check_layers.py")
+
+    adendo_labels = set(_read_adendo_named_case_labels(adendo_path))
+    tuple_labels = {_short_label(name) for name in _NAMED_CASES_ADENDO_5_1}
+    labels_match = adendo_labels == tuple_labels
+
+    real_case_names = _read_check_layers_case_names(check_layers_path)
+    missing_from_real = [name for name in _NAMED_CASES_ADENDO_5_1 if name not in real_case_names]
+
+    ok = labels_match and not missing_from_real
+    label = "selftest: O-31"
+    print(
+        f"{label} OK" if ok else
+        f"{label} FALHOU (adendo={sorted(adendo_labels)!r}, tupla={sorted(tuple_labels)!r}, "
+        f"ausentes_das_tabelas={missing_from_real!r})",
+        file=(sys.stdout if ok else sys.stderr),
+    )
+    return ok, 1
+
+
 _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o0_real_executor_guard,),
     (selftest_oracle_positive_control,),
@@ -2663,6 +2757,7 @@ _SELFTEST_ORACLE_GROUPS = (
     (selftest_oracle_o28_executor_catches_exceptions,),
     (selftest_oracle_o29_named_case_recusado_fails,),
     (selftest_oracle_o30_named_case_buckets_printed,),
+    (selftest_oracle_o31_named_cases_match_adendo_source,),
 )
 
 

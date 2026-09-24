@@ -28,8 +28,8 @@ project(glintfx_consumer LANGUAGES CXX)
 # para tras em 0.4, e o SERVIDOR (nao uma rodada local) reprovou tres jobs
 # de modo ESTATICO -- Fedora, Ubuntu, CachyOS -- com "Could not find a
 # configuration file for package glintfx that is compatible with requested
-# version 0.4" e "99% tests passed, `2 tests` failed out of 216: consume_test,
-# install_packager_layout_test". Ao subir o segundo numero de novo, esta
+# version 0.4" e `99% tests passed, 2 tests failed out of 216: consume_test,
+# install_packager_layout_test`. Ao subir o segundo numero de novo, esta
 # linha sobe junto; ao chegar na 1.0, a politica vira SameMajorVersion e
 # esta linha passa a acompanhar o PRIMEIRO numero.
 find_package(glintfx 0.5 REQUIRED)

@@ -821,7 +821,7 @@ glintfx_add_test(win_dll_alloc_hook_protect_restore_format_test)
 # libwayland-client on Linux.
 #
 # opengl32/gdi32 were added for X-GL-0 (docs/plano-w6a-janela.md sec.
-# 2.2 row 2): the file's own `two new cases` call ChoosePixelFormat/
+# 2.2 row 2): the file's own new cases call ChoosePixelFormat/
 # SetPixelFormat (Gdi32.lib/Gdi32.dll per their own Microsoft Learn
 # pages) and wglCreateContext/wglMakeCurrent/wglDeleteContext/
 # wglGetProcAddress/glGetString (Opengl32.lib/Opengl32.dll per theirs) -
@@ -903,7 +903,7 @@ add_test(NAME gl_sha256_test COMMAND gl_sha256_test)
 set_tests_properties(gl_sha256_test PROPERTIES LABELS unit)
 
 # GL-LOADER (GODS_LAWS.md L-40): the CLI itself, end to end, proving the
-# `three required controls` at the process-exit-code level - positive
+# required controls at the process-exit-code level - positive
 # (the real vendored file with its real, matching sha256 succeeds),
 # negative (a deliberately wrong --expect-sha256 reproves, GODS_LAWS.md
 # L-07 EXCECAO No 1 obligation 3), and empty-scan (a well-formed
@@ -947,7 +947,7 @@ set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES
 # - std::stod() on a malformed max-version argument threw
 # std::invalid_argument straight past main(), std::terminate()d, and
 # SIGABRT'd with a message that never even named the bad argument text.
-# Deliberately NOT WILL_FAIL-only (like the `two gates` above): the OLD,
+# Deliberately NOT WILL_FAIL-only (like the gates above): the OLD,
 # broken behavior ALSO exits non-zero (a crash's return code is
 # non-zero too), so a plain "did the process fail" check would stay
 # green across the regression this test exists to catch.
@@ -1028,7 +1028,7 @@ endif()
 # "${CMAKE_CURRENT_SOURCE_DIR}" (= tests/) include dir through
 # glintfx_add_test()'s PRIVATE link to it.
 #
-# The `three cases` below used to sit inside the if(UNIX) guard that
+# The cases below used to sit inside the if(UNIX) guard that
 # still wraps display_connect_failure_test further down, on the theory
 # that everything in this ARCH-PORTS block was Wayland-only. That
 # theory was wrong for these three (GODS_LAWS.md L-04, "comportamento
@@ -1039,7 +1039,7 @@ endif()
 # fake_test.cpp exercise display_connection_port/display_connection<A>
 # purely through fake_display_adapter and a deliberately deficient
 # local type - no Wayland type reachable from either TU. Guarding them
-# meant these `three cases` silently never ran on Windows; they are
+# meant these cases silently never ran on Windows; they are
 # registered unconditionally now, same as asset_load_test/
 # hygiene_coverage_test/spdx_test above.
 #
@@ -1076,7 +1076,7 @@ target_include_directories(display_connection_fake_test PRIVATE "${PROJECT_SOURC
 # comment for why fake_display_adapter is reused UNCHANGED as this
 # concept's own NEGATIVE control instead of being extended with a
 # pump_events() it was never meant to carry. OS-agnostic, same
-# reasoning as the `two cases` just above (no Wayland/Win32 type
+# reasoning as the cases just above (no Wayland/Win32 type
 # reachable from this TU).
 glintfx_add_test(display_backend_port_concept_test)
 target_include_directories(display_backend_port_concept_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -1444,7 +1444,7 @@ target_sources(loop_open_alloc_failure_test PRIVATE
 # owned_loop_context_test - LOOP-CONTEXT-OWNERSHIP (S1b, docs/plano-
 # loop-callbacks.md sec. S1b): pure header test, no .cpp
 # dependency - platform::owned_loop_context (owned_loop_context.hpp) is
-# entirely inline, and this file's own `six cases` only ever call
+# entirely inline, and this file's own cases only ever call
 # function pointers this TU itself declares - nothing from src/.
 glintfx_add_test(owned_loop_context_test)
 target_include_directories(owned_loop_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -2770,7 +2770,7 @@ set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
 # tests is the signature of a contended shared runner, not this one
 # script waiting on something that never arrives. A dedicated sweep of
 # every `LABELS consume` test's measured time across these same 8 job
-# logs (`43 of 53` apply to a Windows job; the other 10 are Unix-only or
+# logs (most apply to a Windows job; the other handful are Unix-only or
 # Linux-side twins, e.g. `visibility_test`/`pkgconfig_test`) found
 # exactly ONE test within 20% of its own ceiling: this one - no other
 # consume test needed its timeout touched.
@@ -3892,7 +3892,7 @@ endif()
 # pkg-config gate (PKG-DIST): proves the INSTALLED glintfx.pc, not just
 # the CMake package - a bare `pkg-config --cflags --libs glintfx`
 # resolves and links tests/raw_link/main.cpp with no CMake and no
-# find_package(glintfx) involved at all, across `six scenarios` (default
+# find_package(glintfx) involved at all, across scenarios (default
 # layout, Debian-multiarch, a malformed trailing-slash libdir, absolute
 # install dirs, static mode with a load-bearing Libs.private proof, and
 # a DESTDIR-staged Fedora-format install) - see check_pkgconfig.sh's
@@ -3979,7 +3979,7 @@ endif()
 # hand-assembled empty-Cflags/Libs fixture (GODS_LAWS.md L-40), while
 # degrading to a WARNING (not a FATAL_ERROR) when pkg-config itself is
 # absent from PATH - see check_pkgconfig_validate.py's own header for
-# the `SEVENTEEN scenarios` it actually exercises. The "eight" this
+# the scenarios it actually exercises. The "eight" this
 # comment used to claim was stale prose, never updated after
 # PKG-WIN-SCOPE/PKG-NATIVE grew the file; the count now lives in the
 # script's own header, next to the list it is derived from. This is a
@@ -4215,7 +4215,7 @@ add_test(
 set_tests_properties(env_sweep_selftest PROPERTIES LABELS selftest)
 
 # preci.sh selftest gate (FUND-4): proves the LOCAL quality gate proves
-# itself (`three controls` - clean fixture passes, dirty fixture is
+# itself with its own controls (clean fixture passes, dirty fixture is
 # reproved, empty directory fails the enumeration floor - see
 # tools/preci.sh and tests/preci_fixtures/). Registered ONLY when the
 # three tools tools/preci.sh's cheap stages need are actually present
@@ -4251,8 +4251,8 @@ endif()
 # acima ja apodreceu TRES vezes em tres commits - uma vez pega pelo gate
 # irmao que existia aqui (check_readme_test_count.py, a frase "has N
 # registered cases..."), duas vezes NAO pegas por nada (o "Linux's 90",
-# o "88", `ten renamed pairs` contra os 19 apelidos reais em tests/
-# parity_aliases.txt, `forty controls` contra os 38 que check_dep_
+# o "88", uma contagem obsoleta de pares renomeados contra os 19 apelidos reais em tests/
+# parity_aliases.txt, uma contagem obsoleta de controles contra os 38 que check_dep_
 # zero.py realmente declara, uma mensagem de programa citada em ingles
 # que ele nunca imprimiu, e por fim o proprio par de numeros "116/114" e
 # "114/114" - nenhuma sessao deste projeto tem toolchain MSVC a mao, e o
@@ -4467,7 +4467,7 @@ set_tests_properties(version_matches_tag_selftest PROPERTIES LABELS selftest)
 # std::numeric_limits<...>::max()/::min() (src/core/time.cpp) - never
 # satisfied by ANY comparison merely being present (see check_round_
 # order.py's own header comment for the loophole this closes and the
-# `two negative controls` in --selftest that prove it: wrong variable,
+# negative controls in --selftest that prove it: wrong variable,
 # and untied to numeric_limits). Reproduces the 28/08/2026 finding this
 # item is named after (moving the rounding call to BEFORE the range
 # comparisons left the WHOLE suite green, ASan/UBSan included, because
@@ -4511,7 +4511,7 @@ set_tests_properties(round_order_selftest PROPERTIES LABELS selftest)
 # job in .github/workflows/ci.yml) - a single local ctest run has only
 # ITS OWN platform's inventory, never the other leg's, so it cannot
 # self-compare. --selftest proves the comparison LOGIC itself (the
-# `three required red controls` plus the alias/SEM-PENDENCIA edge
+# required red controls plus the alias/SEM-PENDENCIA edge
 # cases) with synthetic fixtures, the same shape check_readme_test_
 # count.py's own --selftest already uses for cross-platform sentences
 # it cannot observe locally either. Unguarded by platform - same
@@ -4825,7 +4825,7 @@ endif()
 # already ACCEPTS a connection - measured live, 06/09/2026 (the first
 # real connection attempt failed with a platform error; later ones
 # passed seconds after, with the process already long visible to
-# pgrep). --selftest proves the fixed loop with `two cases` (a probe that
+# pgrep). --selftest proves the fixed loop with cases (a probe that
 # never accepts must reprove within budget; a probe that accepts only
 # after a fixed number of tries must be WAITED for, never declared
 # ready early) - both hermetic, no Docker/kwin_wayland involved, same

@@ -1023,6 +1023,44 @@ RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         /build/alloc_counter_hook.cpp \
         $(pkg-config --libs wayland-client wayland-egl egl)
 
+# WL-ACK-SMOKE-BLUNT A3 (docs/plano-w7c.md SS3.A): the real relay
+# binary that run_compositor.sh (A3b) puts in front of the real KWin.
+# Whole subdirectory, not one COPY per file (GODS_LAWS.md L-17
+# "gemeo": a file added under tests/container/wire_relay/ later needs
+# no second edit here, unlike the per-file COPY list above this stage
+# still carries for every OTHER fixture) - kept at the SAME relative
+# path as the real repository (tests/container/wire_relay/wire_relay_
+# main.cpp -> /build/wire_relay/wire_relay_main.cpp), the assumption
+# check_container_fixture_includes.py's own map_build_path() already
+# makes for every plain (non-_arch_ports_src) COPY target: renaming
+# the destination broke it (measured live, 24/09/2026 - "8 de 82 TUs
+# do Containerfile nao existem na fixture/contexto", looking for a
+# "wire_relay_src" directory the real tree never had).
+COPY wire_relay/ /build/wire_relay/
+
+# Own RUN, not folded into the giant g++ chain above: keeps this new
+# step independently reviewable, and a failure here never hides
+# inside forty other targets' worth of `&&`. Pure POSIX (poll/socket/
+# un.h) - no wayland-client/EGL: the relay never speaks the Wayland
+# protocol itself, only repeats the raw bytes (wire_relay_main.cpp's
+# own header comment). Output named wire_relay_bin, never plain
+# wire_relay: that name is the SOURCE directory just staged above,
+# and `ld -o` refusing to overwrite a directory with a file is exactly
+# what caught the first version of this line (`ld.bfd: cannot open
+# output file .../wire_relay: É um diretório`, check_container_
+# fixture_link.py --exec, 24/09/2026) - the final image still exposes
+# it as plain "wire_relay" (COPY --from=... below renames it back).
+RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
+        -o /build/wire_relay_bin \
+        /build/wire_relay/wire_relay_main.cpp \
+        /build/wire_relay/wire_decoder.cpp \
+        /build/wire_relay/wire_object_table.cpp \
+        /build/wire_relay/wire_rule_engine.cpp \
+        /build/wire_relay/wire_error_injector.cpp \
+        /build/wire_relay/wire_transport.cpp \
+        /build/wire_relay/wire_relay_pipeline.cpp \
+        /build/wire_relay/wire_message.cpp
+
 FROM fedora:44
 
 # libasan/libubsan/binutils: always installed, one recipe for both
@@ -1075,6 +1113,7 @@ COPY --from=arch-ports-builder /build/alloc_cycle_growth_smoke /usr/local/bin/al
 COPY --from=arch-ports-builder /build/loop_parity_test /usr/local/bin/loop_parity_test
 COPY --from=arch-ports-builder /build/loop_hidden_test /usr/local/bin/loop_hidden_test
 COPY --from=arch-ports-builder /build/surface_size_policy_adapter_test /usr/local/bin/surface_size_policy_adapter_test
+COPY --from=arch-ports-builder /build/wire_relay_bin /usr/local/bin/wire_relay
 RUN chmod 755 /usr/local/bin/run_compositor.sh /usr/local/bin/smoke.sh \
         /usr/local/bin/arch_ports_connect_smoke /usr/local/bin/registry_smoke \
         /usr/local/bin/two_displays_test \

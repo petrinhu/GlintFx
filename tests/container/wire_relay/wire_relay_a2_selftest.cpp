@@ -5,15 +5,15 @@
 // w7c.md SS3.A. A1 tem o proprio arquivo, wire_relay_a1_selftest.cpp
 // (GODS_LAWS.md L-17/L-34: um arquivo de casos por sub-fatia).
 //
-// A orquestracao abaixo ("decodifica, classifica, avalia, repassa ou
-// injeta erro") compoe os cinco atomos do rele exatamente como o
-// rele real vai compo-los - ela mora AQUI, e nao num sexto atomo de
-// producao, porque ligar isso num binario de fato em frente ao KWin
-// e' A3 (docs/plano-w7c-adendo-revalidacao.md SS3.A), fora do escopo
-// desta ordem de servico.
+// A orquestracao ("decodifica, classifica, avalia, repassa ou injeta
+// erro") mora em wire_relay_pipeline.hpp/.cpp desde A3 - o mesmo
+// observe_and_evaluate() que wire_relay_main.cpp (o rele de verdade
+// em frente ao KWin) usa, para os dois nunca divergirem (GODS_LAWS.md
+// L-17).
 #include "wire_decoder.hpp"
 #include "wire_error_injector.hpp"
 #include "wire_object_table.hpp"
+#include "wire_relay_pipeline.hpp"
 #include "wire_rule_engine.hpp"
 #include "wire_test_encoders.hpp"
 #include "wire_transport.hpp"
@@ -32,55 +32,13 @@ namespace {
 
 using namespace glintfx::test::wire_relay;
 
-struct pipeline {
-    wire_object_table table;
-    wire_rule_engine engine;
-};
-
-std::optional<rule_violation> observe_and_evaluate(pipeline &pipe, const decoded_message &message,
-                                                   bool from_client) {
-    pipe.table.observe(message, from_client);
-    const known_interface source = pipe.table.interface_of(message.header.object_id);
-
-    if (from_client && source == known_interface::wl_surface && message.header.opcode == 1) {
-        std::uint32_t buffer_id = 0;
-        if (message.payload.size() >= sizeof(buffer_id)) {
-            std::memcpy(&buffer_id, message.payload.data(), sizeof(buffer_id));
-        }
-        const auto xdg_id = pipe.table.xdg_surface_for(message.header.object_id);
-        if (buffer_id != 0 && xdg_id) {
-            pipe.engine.note_buffer_attached(*xdg_id);
-        }
-        return std::nullopt;
-    }
-    if (from_client && source == known_interface::wl_surface && message.header.opcode == 6) {
-        const auto xdg_id = pipe.table.xdg_surface_for(message.header.object_id);
-        return xdg_id ? pipe.engine.note_commit(*xdg_id) : std::nullopt;
-    }
-    if (from_client && source == known_interface::xdg_surface && message.header.opcode == 4) {
-        std::uint32_t serial = 0;
-        if (message.payload.size() >= sizeof(serial)) {
-            std::memcpy(&serial, message.payload.data(), sizeof(serial));
-        }
-        return pipe.engine.note_ack_configure(message.header.object_id, serial);
-    }
-    if (!from_client && source == known_interface::xdg_surface && message.header.opcode == 0) {
-        std::uint32_t serial = 0;
-        if (message.payload.size() >= sizeof(serial)) {
-            std::memcpy(&serial, message.payload.data(), sizeof(serial));
-        }
-        pipe.engine.note_configure_sent(message.header.object_id, serial);
-    }
-    return std::nullopt;
-}
-
 // Sends one message down `writer`, reads it back up through `reader`
 // (looping read_once() until a complete message is framed - proves
 // nothing here depends on a message arriving in a single recv()),
-// and feeds it through the shared pipeline.
+// and feeds it through the shared wire_relay_pipeline.
 std::optional<rule_violation> feed_one(const wire_transport &writer, const wire_transport &reader,
-                                       pipeline &pipe, const std::vector<std::uint8_t> &bytes,
-                                       bool from_client) {
+                                       wire_relay_pipeline &pipe,
+                                       const std::vector<std::uint8_t> &bytes, bool from_client) {
     writer.write_once(bytes.data(), bytes.size(), {});
     wire_decoder decoder;
     while (decoder.poll() != decode_outcome::message_ready) {
@@ -94,7 +52,8 @@ std::optional<rule_violation> feed_one(const wire_transport &writer, const wire_
 // wl_compositor -> bind xdg_wm_base -> create_surface -> get_xdg_
 // surface. Mirrors the exact request order a real client makes.
 void bootstrap_xdg_surface(const wire_transport &writer, const wire_transport &reader,
-                           pipeline &pipe, std::uint32_t surface_id, std::uint32_t xdg_surface_id) {
+                           wire_relay_pipeline &pipe, std::uint32_t surface_id,
+                           std::uint32_t xdg_surface_id) {
     feed_one(writer, reader, pipe, encode_new_id_request(1, 1, 2), true); // get_registry -> 2
     feed_one(writer, reader, pipe, encode_registry_bind(2, 0, "wl_compositor", 4, 3), true);
     feed_one(writer, reader, pipe, encode_registry_bind(2, 1, "xdg_wm_base", 2, 4), true);
@@ -108,7 +67,7 @@ GLINTFX_TEST(wire_relay_a2_ack_after_configure_passes) {
     const socket_pair sp = make_socketpair();
     const wire_transport writer(sp.a);
     const wire_transport reader(sp.b);
-    pipeline pipe;
+    wire_relay_pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
     GLINTFX_CHECK(pipe.table.interface_of(11) == known_interface::xdg_surface);
 
@@ -131,7 +90,7 @@ GLINTFX_TEST(wire_relay_a2_commit_before_ack_raises_error3) {
     const socket_pair sp = make_socketpair();
     const wire_transport writer(sp.a);
     const wire_transport reader(sp.b);
-    pipeline pipe;
+    wire_relay_pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
 
     feed_one(writer, reader, pipe, encode_surface_attach(10, 99), true);
@@ -160,7 +119,7 @@ GLINTFX_TEST(wire_relay_a2_unknown_serial_raises_error4) {
     const socket_pair sp = make_socketpair();
     const wire_transport writer(sp.a);
     const wire_transport reader(sp.b);
-    pipeline pipe;
+    wire_relay_pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
 
     feed_one(writer, reader, pipe, encode_configure(11, 5), false);
@@ -177,7 +136,7 @@ GLINTFX_TEST(wire_relay_a2_ack_only_last_of_two_configures_passes) {
     const socket_pair sp = make_socketpair();
     const wire_transport writer(sp.a);
     const wire_transport reader(sp.b);
-    pipeline pipe;
+    wire_relay_pipeline pipe;
     bootstrap_xdg_surface(writer, reader, pipe, 10, 11);
 
     feed_one(writer, reader, pipe, encode_configure(11, 1), false);

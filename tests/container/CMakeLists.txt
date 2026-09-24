@@ -45,6 +45,31 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/alloc_counter_classify.cpp"
     )
 
+    # WL-ACK-SMOKE-BLUNT A0/A3 (docs/plano-w7c-adendo-revalidacao.md
+    # SS3.A, decisao D-A2): wire_relay_main.cpp is the ONE file under
+    # tests/container/wire_relay/ this project's real build (tests/
+    # CMakeLists.txt) never compiles - it binds/listens/accepts/
+    # connects real Unix sockets (GODS_LAWS.md L-09: only ever run
+    # INSIDE the isolated container run_compositor.sh builds, never on
+    # this host), so unlike the five atoms (wire_decoder.cpp etc.,
+    # already covered by tests/CMakeLists.txt's real, RUNNING
+    # wire_relay_selftest - A0 confirmed that coverage sufficient,
+    # "encontrados=28 no_banco=28 faltando=0", nothing added there for
+    # them) it has no other path into compile_commands.json. Listed
+    # EXPLICITLY, not glob-widened into wire_relay/ (the ${CMAKE_
+    # CURRENT_SOURCE_DIR}/*.cpp glob above is already non-recursive and
+    # would not reach it anyway, but GLOB_RECURSE was rejected on
+    # purpose here too: tests/container/_arch_ports_src/ - staged by
+    # prepare_arch_ports_fixture.sh, gitignored, existing on disk
+    # during a real build - would enter this OBJECT library as a
+    # duplicate compile of files already compiled via THAT staging
+    # path, exactly the trap check_container_smokes_in_compile_db_test
+    # exists to catch by finding two compile_commands.json entries for
+    # the same logical source).
+    list(APPEND GLINTFX_CONTAINER_SMOKE_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/wire_relay/wire_relay_main.cpp"
+    )
+
     add_library(glintfx_container_smokes OBJECT ${GLINTFX_CONTAINER_SMOKE_SOURCES})
 
     # include/ for the public <glintfx/...> surface these fixtures

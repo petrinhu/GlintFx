@@ -271,3 +271,20 @@ GLINTFX_TEST(wire_relay_a1_eof_drains_before_shutdown) {
     ::close(downstream.a);
     ::close(downstream.b);
 }
+
+GLINTFX_TEST(wire_relay_a1_encode_raw_round_trips_decoded_message) {
+    // wire_relay_main.cpp (A3) forwards one validated message at a
+    // time by re-encoding it, never by copying the raw chunk it
+    // arrived in (so a rule violation can block exactly one message
+    // out of a batch) - encode_raw() has to be the exact inverse of
+    // what wire_decoder framed, byte-for-byte, or forwarding would
+    // silently corrupt the wire.
+    const std::vector<std::uint8_t> original = encode_registry_bind(2, 0, "xdg_wm_base", 1, 3);
+    wire_decoder decoder;
+    decoder.feed(original.data(), original.size());
+    GLINTFX_CHECK(decoder.poll() == decode_outcome::message_ready);
+    const decoded_message decoded = expect_message(decoder);
+
+    const std::vector<std::uint8_t> re_encoded = encode_raw(decoded);
+    GLINTFX_CHECK(re_encoded == original);
+}

@@ -47,4 +47,11 @@ inline constexpr std::size_t wire_header_size = 8;
 // without limit (GODS_LAWS.md L-40).
 inline constexpr std::size_t wire_message_size_cap = 4096;
 
+// The exact inverse of what a wire_decoder frames: header fields plus
+// payload back into the original wire bytes, byte-for-byte (decode
+// never transforms anything, only copies - see wire_message.cpp's own
+// comment). wire_relay_main.cpp (A3) uses this to forward one
+// validated message at a time instead of a raw byte chunk.
+[[nodiscard]] std::vector<std::uint8_t> encode_raw(const decoded_message &message);
+
 } // namespace glintfx::test::wire_relay

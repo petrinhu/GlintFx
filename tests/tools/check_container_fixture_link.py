@@ -192,9 +192,22 @@ def split_subcommands(run_block_text):
 # `COPY _arch_ports_src /build/_arch_ports_src` mirrors the WHOLE staged
 # tree; every other `COPY <file> /build/<file>` mirrors ONE fixture
 # source straight from the build context (tests/container/). A symlink
-# is enough for the tree (this script never writes into it) and cheaper
-# than copying a tree prepare_arch_ports_fixture.sh may have staged with
-# hundreds of files.
+# is enough for the staged tree (this script never writes into it) and
+# cheaper than copying a tree prepare_arch_ports_fixture.sh may have
+# staged with hundreds of files.
+#
+# `COPY <dir>/ /build/<dir>/` (WL-ACK-SMOKE-BLUNT A3, wire_relay/ -
+# GODS_LAWS.md L-17 "gemeo": a directory copy, not a hand-maintained
+# per-file list that a file added under it later would silently miss,
+# same reasoning prepare_arch_ports_fixture.sh's own copy_source_tree()
+# already argues for) is copied for real, recursively - it is a small,
+# ordinary directory straight from the build context, not the pre-
+# staged _arch_ports_src tree above, so a symlink would be copying
+# something this throwaway build_dir does not own. dirs_exist_ok=True:
+# the os.makedirs() call above already created dst_path itself when
+# dst_token ends in '/' (os.path.dirname() of a trailing-slash path
+# returns the path minus the slash, not its parent) - shutil.copytree()
+# would otherwise refuse a destination that already exists.
 def apply_copy(src_token, dst_token, context_dir, staged_dir, build_dir):
     if not dst_token.startswith("/build/"):
         fail(f"instrucao COPY com alvo fora de /build: {dst_token}")
@@ -205,6 +218,9 @@ def apply_copy(src_token, dst_token, context_dir, staged_dir, build_dir):
         os.symlink(staged_dir, dst_path)
         return
     src_path = os.path.join(context_dir, src_token)
+    if os.path.isdir(src_path):
+        shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
+        return
     if not os.path.isfile(src_path):
         fail(f"COPY cita {src_token}, que nao existe em {context_dir}")
     shutil.copyfile(src_path, dst_path)

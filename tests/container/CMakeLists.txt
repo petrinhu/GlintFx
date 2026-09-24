@@ -66,8 +66,15 @@ if(UNIX)
     # path, exactly the trap check_container_smokes_in_compile_db_test
     # exists to catch by finding two compile_commands.json entries for
     # the same logical source).
+    # A3c (docs/plano-w7c.md SS3.A): wire_relay_connection_set.cpp
+    # carries the multi-client poll() engine wire_relay_main.cpp calls
+    # - same L-09 reasoning as wire_relay_main.cpp above (binds/
+    # accepts/connects real Unix sockets), same "not the five atoms"
+    # exception (this file is glued to wire_relay_main.cpp's own
+    # process setup, not one of the socketpair-tested atoms).
     list(APPEND GLINTFX_CONTAINER_SMOKE_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/wire_relay/wire_relay_main.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/wire_relay/wire_relay_connection_set.cpp"
     )
 
     add_library(glintfx_container_smokes OBJECT ${GLINTFX_CONTAINER_SMOKE_SOURCES})

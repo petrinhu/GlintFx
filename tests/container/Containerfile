@@ -1071,6 +1071,7 @@ COPY wire_relay/ /build/wire_relay/
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -o /build/wire_relay_bin \
         /build/wire_relay/wire_relay_main.cpp \
+        /build/wire_relay/wire_relay_connection_set.cpp \
         /build/wire_relay/wire_decoder.cpp \
         /build/wire_relay/wire_object_table.cpp \
         /build/wire_relay/wire_rule_engine.cpp \

@@ -5807,6 +5807,14 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_transport.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_pipeline.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_message.cpp"
+        # A3c (docs/plano-w7c.md SS3.A): o motor de multiplexacao
+        # multi-cliente que wire_relay_a3c_selftest.cpp exercita - nao
+        # e um atomo socketpair-puro como os sete acima (accept()/
+        # connect() de verdade sobre soquetes AF_UNIX de teste, ver o
+        # cabecalho daquele arquivo), mas continua fora do container
+        # (L-09 permite, mesma excecao "soquete AF_UNIX de teste,
+        # nunca wayland-0" que o resto deste alvo ja usa).
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_connection_set.cpp"
         # GODS_LAWS.md L-17/L-34 applied to the TEST too (team-lead's
         # A2 review, 24/09/2026): one selftest source per sub-fatia,
         # sharing wire_test_encoders.hpp's inline glue instead of one
@@ -5815,6 +5823,7 @@ if(UNIX)
         # TU linked in, ctest still sees one "wire_relay_selftest").
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a1_selftest.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a2_selftest.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/container/wire_relay/wire_relay_a3c_selftest.cpp"
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)

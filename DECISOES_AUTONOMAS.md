@@ -4368,3 +4368,7 @@ Opções: as duas pistas do plano; **fila única com laboratório do relé fora 
 - **CLAIM-CITATIONS E1c:** o grep de fechamento conta uma exclusão declarada, `check_precommit_hook_chain.py:72` (corte de comentário de SHELL do gancho, não de CMake). Mão única: não.
 - **Rodadas de espelho invalidadas:** três agentes editaram a árvore durante o `preci.sh`; as rodadas foram descartadas e refeitas. O main passou a gravar a assinatura da árvore no início e conferir no fim (conferência manual, ainda não trava mecânica; candidata a item próprio).
 - **Rerun do Windows-Debug (35973142096):** falha só na calibração do instrumento de CPU do `loop_hidden_test` (718 contra piso 800 permille, critérios reais OK), passou no rerun do mesmo commit. Se repetir, vira item da INBOX.
+
+## 24/09/2026 - 07:35 | O líder ratificou as decisões pendentes (`AskUserQuestion`)
+
+Pergunta: "Como ratifica as 19 decisões autônomas listadas (23/09 12:06 até agora)?". Resposta do líder: **"Ratifico todas (Recomendado)"**. Ficam ratificadas todas as entradas deste arquivo de 23/09 13:24 até 24/09 05:58: D-L5-1 a D-L5-4, a revisão da D-L5-3 (teste pulado em vez de desligado), D-L5d-1 a D-L5d-3, D-L5e-1, D-L5e-2, D-L5g-1, L-5h, CONT-WARMUP C-8, V-5c, V-5/D-6 (ordem da quarta sessão e bloco de 2 MiB), troca de dono da exceção de `gpu_kind_report_smoke`, D-A1 a D-A13 da W7-C, merge da W7-B com a marca `v0.5.1.0`, e as decisões de revisão da madrugada (D2c/D2d, B1b, exclusão declarada da E1c, rodadas invalidadas, rerun do Windows-Debug). A entrada de 23/09 19:15 (V-5) já era do líder.

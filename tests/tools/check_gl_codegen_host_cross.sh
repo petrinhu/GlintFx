@@ -49,6 +49,34 @@
 #   check_gl_codegen_host_cross.sh <glintfx-source-dir> <host-cxx-compiler> <mingw-toolchain-file> <generator>
 #
 # Each function below does one thing (GODS_LAWS.md L-17).
+#
+# --- CROSS_* configuration globals --------------------------------------
+#
+# H-6b (revisao adversarial de 23/09/2026 contra check_gl_codegen_host_cross.sh,
+# /var/tmp/glintfx-plan/revisao-codegen-h6.md, Fase 3): antes desta fatia, os
+# quatro argumentos de linha de comando (fonte, compilador HOST, toolchain,
+# gerador) e os dois caminhos do golden nativo eram copiados POSICIONALMENTE
+# para dentro de CADA funcao assert_*/build_* que precisava deles, mesmo
+# nunca mudando entre uma chamada e outra - a familia "copia em vez de
+# fonte". Isso inflava assinaturas ate 8 parametros (GODS_LAWS.md L-17,
+# bloqueante) so re-passando o que ja tinha dono. As seis globais abaixo sao
+# a fonte unica, com prefixo proprio (nunca confundir com uma variavel local
+# de funcao) e documentadas aqui - resolve o acoplamento escondido que uma
+# copia solta (`src="$1"` sem marca nenhuma) deixaria.
+#
+#   CROSS_SRC        - diretorio fonte do glintfx (argv[1])
+#   CROSS_CXX        - compilador C++ de HOST (argv[2])
+#   CROSS_TOOLCHAIN  - arquivo de toolchain cruzado MinGW (argv[3])
+#   CROSS_GENERATOR  - gerador do CMake (argv[4])
+#   CROSS_GOLDEN_HPP - caminho do gl_functions.hpp do golden nativo
+#   CROSS_GOLDEN_CPP - caminho do gl_functions.cpp do golden nativo
+#
+# Atribuidas UMA UNICA VEZ em real_main() - as quatro primeiras logo apos
+# require_args(), as duas do golden logo apos build_native_golden() - e
+# marcadas `readonly` na sequencia. Nenhuma funcao abaixo tem permissao de
+# atribuir a elas, so de ler pelo nome; uma tentativa de reatribuicao morre
+# (`readonly`, medido pela revisao: RC=1, "a variavel permite somente
+# leitura", nunca aceita em silencio).
 
 set -eu
 
@@ -72,38 +100,37 @@ make_scratch_workdir() {
 # --- golden: a real, native build of the unmodified source dir -------
 
 build_native_golden() {
-    src="$1"; cxx="$2"; generator="$3"; build_dir="$4"
-    cmake -S "$src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$cxx" -DGLINTFX_BUILD_TESTS=OFF \
+    build_dir="$1"
+    cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CROSS_CXX" -DGLINTFX_BUILD_TESTS=OFF \
         >/dev/null || fail "golden: configure nativo falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
         || fail "golden: build nativo falhou"
 }
 
 assert_matches_golden() {
-    label="$1"; golden_hpp="$2"; golden_cpp="$3"; candidate_hpp="$4"; candidate_cpp="$5"
+    label="$1"; candidate_hpp="$2"; candidate_cpp="$3"
     [ -f "$candidate_hpp" ] || fail "$label: $candidate_hpp nao foi gerado"
     [ -f "$candidate_cpp" ] || fail "$label: $candidate_cpp nao foi gerado"
-    cmp -s "$golden_hpp" "$candidate_hpp" \
+    cmp -s "$CROSS_GOLDEN_HPP" "$candidate_hpp" \
         || fail "$label: gl_functions.hpp difere do golden nativo (cmp)"
-    cmp -s "$golden_cpp" "$candidate_cpp" \
+    cmp -s "$CROSS_GOLDEN_CPP" "$candidate_cpp" \
         || fail "$label: gl_functions.cpp difere do golden nativo (cmp)"
 }
 
 # --- PATH 1: GLINTFX_GL_CODEGEN_EXECUTABLE ----------------------------
 
 assert_path_variable_matches_golden() {
-    src="$1"; toolchain="$2"; generator="$3"; build_dir="$4"; native_tool="$5"
-    golden_hpp="$6"; golden_cpp="$7"
+    build_dir="$1"; native_tool="$2"
 
-    cmake -S "$src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+    cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
         -DGLINTFX_GL_CODEGEN_EXECUTABLE="$native_tool" \
         >/dev/null || fail "PATH 1 (variable): configure cruzado falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
         || fail "PATH 1 (variable): build cruzado falhou"
-    assert_matches_golden "PATH 1 (variable)" "$golden_hpp" "$golden_cpp" \
+    assert_matches_golden "PATH 1 (variable)" \
         "$build_dir/generated/render/gl_functions.hpp" "$build_dir/generated/render/gl_functions.cpp"
 }
 
@@ -140,11 +167,11 @@ EOF_ABI_DOUBLE
 }
 
 assert_path_variable_rejects_abi_mismatch() {
-    src="$1"; toolchain="$2"; generator="$3"; build_dir="$4"; double="$5"
+    build_dir="$1"; double="$2"
 
     set +e
-    configure_output=$(cmake -S "$src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+    configure_output=$(cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
         -DGLINTFX_GL_CODEGEN_EXECUTABLE="$double" 2>&1)
     configure_rc=$?
@@ -187,11 +214,11 @@ EOF_UNRESPONSIVE_DOUBLE
 }
 
 assert_path_variable_rejects_unresponsive_abi() {
-    src="$1"; toolchain="$2"; generator="$3"; build_dir="$4"; double="$5"
+    build_dir="$1"; double="$2"
 
     set +e
-    configure_output=$(cmake -S "$src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+    configure_output=$(cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
         -DGLINTFX_GL_CODEGEN_EXECUTABLE="$double" 2>&1)
     configure_rc=$?
@@ -240,11 +267,10 @@ EOF_DOUBLE
 }
 
 assert_path_emulator_matches_golden() {
-    src="$1"; toolchain="$2"; generator="$3"; build_dir="$4"; double="$5"; log_path="$6"
-    golden_hpp="$7"; golden_cpp="$8"
+    build_dir="$1"; double="$2"; log_path="$3"
 
-    cmake -S "$src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+    cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
         -DCMAKE_CROSSCOMPILING_EMULATOR="$double" \
         >/dev/null || fail "PATH 2 (emulator): configure cruzado falhou"
@@ -252,17 +278,17 @@ assert_path_emulator_matches_golden() {
         || fail "PATH 2 (emulator): build cruzado falhou"
     [ -s "$log_path" ] || fail "PATH 2 (emulator): o dublê nunca foi chamado (log vazio - CMAKE_CROSSCOMPILING_EMULATOR nao foi acionado, regressao para \$<TARGET_FILE:...> - H-2)"
     grep -q "^CHAMADO: " "$log_path" || fail "PATH 2 (emulator): log nao registrou nenhuma chamada valida"
-    assert_matches_golden "PATH 2 (emulator)" "$golden_hpp" "$golden_cpp" \
+    assert_matches_golden "PATH 2 (emulator)" \
         "$build_dir/generated/render/gl_functions.hpp" "$build_dir/generated/render/gl_functions.cpp"
 }
 
 # --- PATH 3: nested native build (a COPY, so it can be mutated later) -
 
 copy_source_tree() {
-    src="$1"; dst="$2"
+    dst="$1"
     mkdir -p "$dst"
-    if git -C "$src" rev-parse --git-dir >/dev/null 2>&1; then
-        git -C "$src" archive HEAD | tar -x -C "$dst"
+    if git -C "$CROSS_SRC" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$CROSS_SRC" archive HEAD | tar -x -C "$dst"
     else
         # Fallback for a source dir that is not itself a git checkout -
         # e.g. this script's own local verification runs against a lab
@@ -270,26 +296,25 @@ copy_source_tree() {
         # of its own. A single cp -a plus removing any build output
         # produces the same clean source tree git archive would have,
         # without a per-item loop (GODS_LAWS.md global L-11: proibido
-        # gastar um processo por item varrido). In real CI, $src is
+        # gastar um processo por item varrido). In real CI, CROSS_SRC is
         # always the actions/checkout clone, so this branch is never
         # taken there.
-        cp -a "$src"/. "$dst"/
+        cp -a "$CROSS_SRC"/. "$dst"/
         rm -rf "$dst"/build "$dst"/build-static "$dst"/.git
     fi
 }
 
 assert_path_nested_matches_golden() {
-    nested_src="$1"; cxx="$2"; toolchain="$3"; generator="$4"; build_dir="$5"
-    golden_hpp="$6"; golden_cpp="$7"
+    nested_src="$1"; build_dir="$2"
 
-    cmake -S "$nested_src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+    cmake -S "$nested_src" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
-        -DGLINTFX_HOST_CXX_COMPILER="$cxx" \
+        -DGLINTFX_HOST_CXX_COMPILER="$CROSS_CXX" \
         >/dev/null || fail "PATH 3 (nested): configure cruzado falhou"
     cmake --build "$build_dir" --target glintfx_gl_functions_generated >/dev/null \
         || fail "PATH 3 (nested): build cruzado falhou"
-    assert_matches_golden "PATH 3 (nested)" "$golden_hpp" "$golden_cpp" \
+    assert_matches_golden "PATH 3 (nested)" \
         "$build_dir/generated/render/gl_functions.hpp" "$build_dir/generated/render/gl_functions.cpp"
 }
 
@@ -300,7 +325,10 @@ assert_path_nested_matches_golden() {
 # reconfiguracao a mao - o comando exato que um desenvolvedor rodaria)
 # e prova que o header reflete o texto mutante. Antes do conserto desta
 # rodada, isto media rc=0 com o texto ANTIGO (achado critico da
-# revisao).
+# revisao). nested_src e build_dir continuam parametros (nao globais
+# CROSS_*): os dois variam por chamada - sao a copia mutavel e o
+# diretorio de build reusado do teste anterior, nunca constantes da
+# execucao inteira como CROSS_SRC/CXX/TOOLCHAIN/GENERATOR.
 assert_nested_incremental_rebuild_regenerates() {
     nested_src="$1"; build_dir="$2"
 
@@ -322,11 +350,11 @@ assert_nested_incremental_rebuild_regenerates() {
 # --- PATH 4: falha alta em CONFIGURE time -----------------------------
 
 assert_path4_hard_failure() {
-    src="$1"; toolchain="$2"; generator="$3"; build_dir="$4"
+    build_dir="$1"
 
     set +e
-    configure_output=$(cmake -S "$src" -B "$build_dir" -G "$generator" \
-        -DCMAKE_TOOLCHAIN_FILE="$toolchain" \
+    configure_output=$(cmake -S "$CROSS_SRC" -B "$build_dir" -G "$CROSS_GENERATOR" \
+        -DCMAKE_TOOLCHAIN_FILE="$CROSS_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_BUILD_TESTS=OFF \
         -DGLINTFX_HOST_CXX_COMPILER=/nao/existe/compilador-host 2>&1)
     configure_rc=$?
@@ -340,63 +368,97 @@ assert_path4_hard_failure() {
 
 # --- main --------------------------------------------------------------
 
-real_main() {
+# H-6b (revisao adversarial de 23/09/2026 contra este script, Fase 3):
+# real_main() sozinha tinha 52-55 linhas, acima do teto de L-17 - nao por
+# excesso de parametros (ainda usa "$@", igual require_args), mas por reunir
+# cinco fases num corpo so. Quebrada em cinco funcoes nomeadas por fase,
+# cada uma ≤40 linhas e sem parametro nenhum (le os globais que a fase
+# anterior deixou prontos). Ordem e comportamento de cada asserção
+# permanecem exatamente os mesmos - so a fronteira de funcao mudou.
+#
+# CROSS_RUN_* (correcao do orquestrador sobre a 1ª extração): `scratch`,
+# `native_tool` e `golden_build` tambem sao atribuidos UMA vez (em
+# prepare_run) e so lidos pelas fases seguintes - o MESMO padrao de fonte
+# unica que motivou os CROSS_* de configuracao, so que aqui e estado de UMA
+# execucao (diretorio de scratch, ferramenta HOST construida), nao valor
+# vindo de argv. Prefixo proprio `CROSS_RUN_` (para nao confundir com os
+# seis CROSS_* de configuracao) e `readonly` logo apos a atribuicao - global
+# mutavel sem marca e o mesmo acoplamento escondido que os CROSS_* vieram
+# evitar, so que entre fases de real_main em vez de entre argv e funcao.
+
+prepare_run() {
     require_args "$@"
-    src="$1"; cxx="$2"; toolchain="$3"; generator="$4"
+    CROSS_SRC="$1"; CROSS_CXX="$2"; CROSS_TOOLCHAIN="$3"; CROSS_GENERATOR="$4"
+    readonly CROSS_SRC CROSS_CXX CROSS_TOOLCHAIN CROSS_GENERATOR
 
-    scratch=$(make_scratch_workdir)
-    trap 'rm -rf "$scratch"' EXIT
+    CROSS_RUN_SCRATCH=$(make_scratch_workdir)
+    readonly CROSS_RUN_SCRATCH
+    trap 'rm -rf "$CROSS_RUN_SCRATCH"' EXIT
 
-    golden_build="$scratch/golden"
-    build_native_golden "$src" "$cxx" "$generator" "$golden_build"
-    golden_hpp="$golden_build/generated/render/gl_functions.hpp"
-    golden_cpp="$golden_build/generated/render/gl_functions.cpp"
-    native_tool="$golden_build/tools/gl_registry_codegen/gl_registry_codegen"
-    [ -x "$native_tool" ] || fail "golden: ferramenta HOST nativa nao encontrada/executavel: $native_tool"
+    CROSS_RUN_GOLDEN_BUILD="$CROSS_RUN_SCRATCH/golden"
+    readonly CROSS_RUN_GOLDEN_BUILD
+    build_native_golden "$CROSS_RUN_GOLDEN_BUILD"
+    CROSS_GOLDEN_HPP="$CROSS_RUN_GOLDEN_BUILD/generated/render/gl_functions.hpp"
+    CROSS_GOLDEN_CPP="$CROSS_RUN_GOLDEN_BUILD/generated/render/gl_functions.cpp"
+    readonly CROSS_GOLDEN_HPP CROSS_GOLDEN_CPP
+    CROSS_RUN_NATIVE_TOOL="$CROSS_RUN_GOLDEN_BUILD/tools/gl_registry_codegen/gl_registry_codegen"
+    readonly CROSS_RUN_NATIVE_TOOL
+    [ -x "$CROSS_RUN_NATIVE_TOOL" ] || fail "golden: ferramenta HOST nativa nao encontrada/executavel: $CROSS_RUN_NATIVE_TOOL"
+}
 
-    assert_path_variable_matches_golden "$src" "$toolchain" "$generator" \
-        "$scratch/cross-variable" "$native_tool" "$golden_hpp" "$golden_cpp"
+run_path1_checks() {
+    assert_path_variable_matches_golden "$CROSS_RUN_SCRATCH/cross-variable" "$CROSS_RUN_NATIVE_TOOL"
     echo "$SCRIPT_NAME: PATH 1 (GLINTFX_GL_CODEGEN_EXECUTABLE) - binario correto aceito, artefato bate com o golden - OK"
 
-    abi_double="$scratch/abi-mismatch-double.sh"
+    abi_double="$CROSS_RUN_SCRATCH/abi-mismatch-double.sh"
     make_mismatched_abi_double "$abi_double"
-    assert_path_variable_rejects_abi_mismatch "$src" "$toolchain" "$generator" \
-        "$scratch/cross-variable-abi-reject" "$abi_double"
+    assert_path_variable_rejects_abi_mismatch "$CROSS_RUN_SCRATCH/cross-variable-abi-reject" "$abi_double"
     echo "$SCRIPT_NAME: PATH 1 (aperto de mao de versao, GATE-GL-ABI-HANDSHAKE) - binario incompativel REJEITADO - OK"
 
-    unresponsive_abi_double="$scratch/abi-unresponsive-double.sh"
+    unresponsive_abi_double="$CROSS_RUN_SCRATCH/abi-unresponsive-double.sh"
     make_unresponsive_abi_double "$unresponsive_abi_double"
-    assert_path_variable_rejects_unresponsive_abi "$src" "$toolchain" "$generator" \
-        "$scratch/cross-variable-abi-unresponsive" "$unresponsive_abi_double"
+    assert_path_variable_rejects_unresponsive_abi "$CROSS_RUN_SCRATCH/cross-variable-abi-unresponsive" "$unresponsive_abi_double"
     echo "$SCRIPT_NAME: PATH 1 (aperto de mao de versao, segundo tipo GATE-GL-ABI-HANDSHAKE) - binario que nao responde a --codegen-abi REJEITADO - OK"
+}
 
-    double="$scratch/emulator-double.sh"
-    double_log="$scratch/emulator-double.log"
-    make_emulator_double "$double" "$native_tool" "$double_log"
-    assert_path_emulator_matches_golden "$src" "$toolchain" "$generator" \
-        "$scratch/cross-emulator" "$double" "$double_log" "$golden_hpp" "$golden_cpp"
+run_path2_and_path3_checks() {
+    double="$CROSS_RUN_SCRATCH/emulator-double.sh"
+    double_log="$CROSS_RUN_SCRATCH/emulator-double.log"
+    make_emulator_double "$double" "$CROSS_RUN_NATIVE_TOOL" "$double_log"
+    assert_path_emulator_matches_golden "$CROSS_RUN_SCRATCH/cross-emulator" "$double" "$double_log"
     echo "$SCRIPT_NAME: PATH 2 (CMAKE_CROSSCOMPILING_EMULATOR) - dublê acionado pelo nome nu do alvo, artefato bate com o golden - OK"
 
-    nested_src="$scratch/nested-src"
-    copy_source_tree "$src" "$nested_src"
-    assert_path_nested_matches_golden "$nested_src" "$cxx" "$toolchain" "$generator" \
-        "$scratch/cross-nested" "$golden_hpp" "$golden_cpp"
+    nested_src="$CROSS_RUN_SCRATCH/nested-src"
+    copy_source_tree "$nested_src"
+    assert_path_nested_matches_golden "$nested_src" "$CROSS_RUN_SCRATCH/cross-nested"
     echo "$SCRIPT_NAME: PATH 3 (construcao aninhada) - build limpo, artefato bate com o golden - OK"
 
-    assert_nested_incremental_rebuild_regenerates "$nested_src" "$scratch/cross-nested"
+    assert_nested_incremental_rebuild_regenerates "$nested_src" "$CROSS_RUN_SCRATCH/cross-nested"
     echo "$SCRIPT_NAME: PATH 3 (construcao aninhada) - rebuild incremental regenera apos mudanca de fonte - OK (GATE-GL-NESTED-STALE)"
+}
 
-    assert_path4_hard_failure "$src" "$toolchain" "$generator" "$scratch/cross-path4"
+run_path4_check() {
+    assert_path4_hard_failure "$CROSS_RUN_SCRATCH/cross-path4"
     echo "$SCRIPT_NAME: PATH 4 (falha alta em configure time, GLINTFX_HOST_CXX_COMPILER invalido) - configure reprova citando GLINTFX_GL_CODEGEN_EXECUTABLE - OK"
+}
 
-    # Mensagem final: enumera SO o que as asserções acima de fato
-    # exercitaram (achado da revisao de 23/09/2026 contra este mesmo
-    # script - a versao anterior desta linha dizia "H-1 a H-4 provadas
-    # de ponta a ponta" quando a via NEGATIVA do H-1, o aperto de mao de
-    # versao, ainda nao tinha assercao nenhuma aqui; o roteiro passava
-    # verde mesmo com aquela checagem desligada no cmake). Nao resume
-    # "tudo passou" - lista os fatos que cada bloco acima provou.
+# Mensagem final: enumera SO o que as asserções acima de fato exercitaram
+# (achado da revisao de 23/09/2026 contra este mesmo script - a versao
+# anterior desta linha dizia "H-1 a H-4 provadas de ponta a ponta" quando a
+# via NEGATIVA do H-1, o aperto de mao de versao, ainda nao tinha assercao
+# nenhuma aqui; o roteiro passava verde mesmo com aquela checagem desligada
+# no cmake). Nao resume "tudo passou" - lista os fatos que cada bloco
+# acima provou.
+print_summary() {
     echo "$SCRIPT_NAME: provado - PATH 1 aceita o binario correto e REJEITA tanto um binario com ABI incompativel quanto um binario que nao responde a --codegen-abi (aperto de mao de versao, os dois tipos de mutante); PATH 2 aciona o dublê pelo nome nu do alvo; PATH 3 builda limpo E regenera em rebuild incremental apos mudanca de fonte; PATH 4 reprova em configure time citando GLINTFX_GL_CODEGEN_EXECUTABLE. Todos os quatro artefatos gerados (PATH 1/2/3) batem byte a byte com a referencia nativa dourada."
+}
+
+real_main() {
+    prepare_run "$@"
+    run_path1_checks
+    run_path2_and_path3_checks
+    run_path4_check
+    print_summary
 }
 
 real_main "$@"

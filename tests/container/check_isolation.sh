@@ -635,6 +635,26 @@ compositor_pid_in_container() {
     docker exec "$container" pgrep -x kwin_wayland | head -n 1
 }
 
+# WL-ACK-SMOKE-BLUNT A3b (docs/plano-w7c-adendo-revalidacao.md SS3.A):
+# a cadeia agora tem DOIS processos dentro do container, nao um so' -
+# o rele (run_compositor.sh's own start_relay(), binario "wire_relay"
+# no Containerfile) escuta no nome EXTERNO que os fixtures usam, e o
+# KWin passa a escutar so' no nome INTERNO
+# ("$socket_name-upstream", run_compositor.sh's own
+# internal_socket_name() - duplicado aqui de proposito, os dois
+# scripts rodam em processos/maquinas de execucao diferentes, GODS_
+# LAWS.md L-17 "gemeo": qualquer mudanca no sufixo tem de mexer nos
+# dois). "Isolamento provado" so' pode dizer isso de verdade quando os
+# DOIS PIDs, e os DOIS soquetes, forem encontrados dentro do
+# container - um relatorio que so' visse o KWin estaria provando
+# metade da cadeia (cliente, rele, KWin) e chamando de inteira.
+relay_pid_in_container() {
+    container="$1"
+    # Mesmo raciocinio de `-x` que compositor_pid_in_container() ja
+    # documenta acima: nome exato do processo, nunca `-f`.
+    docker exec "$container" pgrep -x wire_relay | head -n 1
+}
+
 # Empty ss/lsof output must fail loudly, never be read as "nothing
 # forbidden was found, so it passed" - it could just as easily mean
 # the command itself did not run.
@@ -646,11 +666,31 @@ command_output_or_fail() {
     printf '%s' "$output"
 }
 
+# WL-ACK-SMOKE-BLUNT A3b: o nome INTERNO do KWin ("$socket_name-
+# upstream") CONTEM o nome externo como prefixo - um grep sem ancora
+# bate nos dois, e mascararia um container onde so' o KWin subiu e o
+# rele nunca chegou a escutar no nome externo (o furo que esta fatia
+# existe para fechar). O whitespace logo apos o nome, sempre presente
+# no formato de coluna do `ss` antes do campo de porta, e' a ancora: a
+# linha do socket interno tem "-upstream" logo em seguida, nunca
+# espaco, entao ela nunca casa aqui.
 assert_internal_socket_present() {
     ss_output="$1"
     socket_name="$2"
-    printf '%s\n' "$ss_output" | grep -q "$socket_name" \
-        || fail "socket interno esperado nao apareceu em ss -xap: $socket_name"
+    printf '%s\n' "$ss_output" | grep -qE "${socket_name}[[:space:]]" \
+        || fail "socket EXTERNO esperado (do rele) nao apareceu em ss -xap: $socket_name"
+}
+
+# O par do check acima, do OUTRO lado da cadeia: sem isto, um rele que
+# nunca conseguiu falar com um KWin de verdade (upstream morto ou
+# nunca subiu) ainda passaria, porque nada aqui teria checado a
+# METADE de cima da cadeia - so' a metade que fala com o cliente.
+assert_internal_upstream_socket_present() {
+    ss_output="$1"
+    external_socket_name="$2"
+    upstream_socket_name="${external_socket_name}-upstream"
+    printf '%s\n' "$ss_output" | grep -qE "${upstream_socket_name}[[:space:]]" \
+        || fail "socket INTERNO esperado (do KWin, run_compositor.sh internal_socket_name()) nao apareceu em ss -xap: $upstream_socket_name"
 }
 
 assert_output_has_no_forbidden_pattern() {
@@ -663,12 +703,23 @@ assert_output_has_no_forbidden_pattern() {
     return 0
 }
 
+assert_process_isolated() {
+    container="$1"
+    label="$2"
+    pid="$3"
+    output="$(command_output_or_fail "lsof -p $pid ($label)" docker exec "$container" lsof -p "$pid")"
+    assert_output_has_no_forbidden_pattern "lsof -p $pid ($label)" "$output"
+}
+
 assert_only_internal_socket() {
     container="$1"
     socket_name="$2"
 
-    pid="$(compositor_pid_in_container "$container")"
-    [ -n "$pid" ] || fail "kwin_wayland nao encontrado dentro de '$container' (varredura vazia)"
+    kwin_pid="$(compositor_pid_in_container "$container")"
+    [ -n "$kwin_pid" ] || fail "kwin_wayland nao encontrado dentro de '$container' (varredura vazia)"
+
+    relay_pid="$(relay_pid_in_container "$container")"
+    [ -n "$relay_pid" ] || fail "wire_relay nao encontrado dentro de '$container' (varredura vazia) - GODS_LAWS.md L-09/WL-ACK-SMOKE-BLUNT A3b: a cadeia inteira (cliente, rele, KWin) tem de estar dentro do container"
 
     # `-a` is load-bearing here, verified against the real container
     # (not assumed): plain `ss -xp` only lists ESTABLISHED unix
@@ -678,12 +729,13 @@ assert_only_internal_socket() {
     # have failed even on a perfectly isolated container.
     ss_output="$(command_output_or_fail "ss -xap" docker exec "$container" ss -xap)"
     assert_internal_socket_present "$ss_output" "$socket_name"
+    assert_internal_upstream_socket_present "$ss_output" "$socket_name"
     assert_output_has_no_forbidden_pattern "ss -xap" "$ss_output"
 
-    lsof_output="$(command_output_or_fail "lsof -p $pid" docker exec "$container" lsof -p "$pid")"
-    assert_output_has_no_forbidden_pattern "lsof -p $pid" "$lsof_output"
+    assert_process_isolated "$container" "kwin_wayland" "$kwin_pid"
+    assert_process_isolated "$container" "wire_relay" "$relay_pid"
 
-    echo "check_isolation.sh: ss/lsof ok (pid $pid so referencia o socket interno '$socket_name')"
+    echo "check_isolation.sh: ss/lsof ok (kwin pid $kwin_pid, rele pid $relay_pid; sockets interno '${socket_name}-upstream' e externo '$socket_name' confirmados)"
 }
 
 main() {

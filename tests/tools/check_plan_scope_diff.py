@@ -49,6 +49,7 @@ import argparse
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 # GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
@@ -382,6 +383,318 @@ def real_main(args):
         fail(
             f"{len(errors)} problema(s) de escopo ({ref_label}):\n  " + "\n  ".join(errors)
         )
+
+# --- PLAN-SCOPE-COLUMNS, esquema v1 e lista de legado (D-A7, docs/plano-w7c-
+# adendo-revalidacao.md secao 3.F, sub-fatia F0) --------------------------
+#
+# O portao antigo (real_main/find_row_line acima) reconhecia UMA tabela de
+# UM plano por marcador e posicao fixa de coluna (columns[4]). D17 propunha
+# reconhecer pelo CABECALHO - mas so foi medido contra 16 planos versionados
+# depois de escrito, e a heuristica "achar a linha com # + Fatia/Sub-fatia"
+# so alcanca 5 dos 16 (docs/plano-w7c-adendo-revalidacao.md, secao 1.B). O
+# problema nao e' o regex: e' a falta de um ESQUEMA DECLARADO (a licao de
+# Sphinx-Needs e Doorstop, mesma secao, "2. Pesquisa nova").
+#
+# O que segue e' um modo NOVO (--audit), que varre TODOS os
+# docs/plano-*.md, classifica cada um (tem tabela no esquema v1 | nao tem,
+# e por que) e confere essa classificacao contra uma lista de legado
+# (tests/plan_scope_legacy.txt) escrita e VERIFICADA por maquina - nunca
+# aceita a palavra do autor da linha de legado sem prova (a mesma doenca
+# que PARITY-ALIAS-HYGIENE pagou quatro sub-fatias para curar: uma
+# declaracao "bilateral=<motivo>" que passava calada ate o motivo ser
+# conferido).
+
+# Nome exato de coluna que marca uma tabela como "candidata a tabela de
+# fatia" - so estas duas formas, e so por igualdade EXATA da celula (uma
+# celula de PROSA que so MENCIONA a palavra "Fatia" - ex.: um cabecalho de
+# resumo como "O portao desenhado em D17 (`#` + `Fatia`/`Sub-fatia`) acha?"
+# - nao e' uma coluna chamada "Fatia", e nao pode contar).
+FATIA_COLUMN_NAMES = {"Fatia", "Sub-fatia"}
+
+# As colunas do esquema v1 (D-A7): tres exigidas por nome EXATO, mais a
+# coluna de Fatia/Sub-fatia (uma das duas, por definicao de candidata) e
+# pelo menos uma coluna cujo NOME COMECA POR "Prova" (prefixo, nunca
+# substring no meio - e' o mutante nomeado no proprio item F0: "aceitar
+# qualquer coluna que contenha 'Prova' no meio do nome").
+V1_EXACT_REQUIRED_COLUMNS = ("#", "Nasce / muda", "Par no portão")
+V1_PROVA_PREFIX = "Prova"
+
+_TABLE_ROW_RE = re.compile(r"^\|.*\|$")
+_TABLE_SEP_RE = re.compile(r"^\|[\s:|-]+\|$")
+
+
+def parse_markdown_tables(text):
+    """Returns every markdown table found in `text` as a list of
+    {"line_no": <1-indexed header line>, "columns": [...]} - a table is
+    recognized by a header row immediately followed by a separator row
+    (`|---|---|`), never by content alone (a normal prose row that
+    happens to look like "| a | b |" without a separator under it is NOT
+    a table header - GitHub-Flavored Markdown's own rule)."""
+    lines = text.splitlines()
+    tables = []
+    for i in range(len(lines) - 1):
+        header_line = lines[i].strip()
+        sep_line = lines[i + 1].strip()
+        if not _TABLE_ROW_RE.match(header_line):
+            continue
+        if not _TABLE_SEP_RE.match(sep_line) or "-" not in sep_line:
+            continue
+        columns = [cell.strip() for cell in header_line.strip("|").split("|")]
+        tables.append({"line_no": i + 1, "columns": columns})
+    return tables
+
+
+def find_fatia_tables(text):
+    """Tables whose header has a column named EXACTLY "Fatia" or
+    "Sub-fatia" - the "candidate" tables a plan needs at least one of to
+    ever be legitimately classified `tabela-fora-do-esquema` instead of
+    `sem-tabela-de-fatia` (D-A7)."""
+    return [t for t in parse_markdown_tables(text) if FATIA_COLUMN_NAMES & set(t["columns"])]
+
+
+def missing_v1_columns(columns):
+    """Returns the list of scheme-v1 required columns `columns` is
+    missing, by NAME (never a generic "malformed table" message) - the
+    F0 estreia vermelha explicitly requires a table with `Entrega`
+    instead of `Nasce / muda` to reprove NAMING the missing column."""
+    colset = set(columns)
+    missing = [name for name in V1_EXACT_REQUIRED_COLUMNS if name not in colset]
+    if not (FATIA_COLUMN_NAMES & colset):
+        missing.append("Fatia ou Sub-fatia")
+    if not any(col.startswith(V1_PROVA_PREFIX) for col in columns):
+        missing.append(f'uma coluna que comece por "{V1_PROVA_PREFIX}"')
+    return missing
+
+
+def table_is_v1(columns):
+    return len(missing_v1_columns(columns)) == 0
+
+
+def plan_v1_status(plan_text):
+    """Classifies one plan document's text. Returns a dict:
+    - "category": None (has at least one scheme-v1 table - not legacy),
+      "sem-tabela-de-fatia" (no table has a Fatia/Sub-fatia column at
+      all), or "tabela-fora-do-esquema" (has such a table, but none of
+      them satisfy the full v1 scheme).
+    - "fatia_tables": every candidate table found (line_no + columns).
+    - "missing_by_table": {line_no: [missing column names]} for every
+      candidate table that does NOT satisfy v1 (empty when the plan has
+      at least one v1 table already)."""
+    fatia_tables = find_fatia_tables(plan_text)
+    v1_tables = [t for t in fatia_tables if table_is_v1(t["columns"])]
+    if v1_tables:
+        category = None
+    elif fatia_tables:
+        category = "tabela-fora-do-esquema"
+    else:
+        category = "sem-tabela-de-fatia"
+    missing_by_table = {
+        t["line_no"]: missing_v1_columns(t["columns"]) for t in fatia_tables if t not in v1_tables
+    }
+    return {
+        "category": category,
+        "fatia_tables": fatia_tables,
+        "v1_tables": v1_tables,
+        "missing_by_table": missing_by_table,
+    }
+
+
+# --- tests/plan_scope_legacy.txt: forma `caminho|categoria|motivo`, mesma
+# regra de morte de tests/parity_exceptions.txt, mais a verificacao NOVA
+# que aquele arquivo nao tinha (24/09/2026, ataque-w7c.md): a CATEGORIA
+# se confere contra o proprio plano, nunca so contra a palavra do autor.
+
+LEGACY_CATEGORIES = {"sem-tabela-de-fatia", "tabela-fora-do-esquema"}
+
+# Lista fechada de motivo-marcador (D-A7): cada um destes, sozinho (depois
+# de tirar acento/pontuacao/caixa), e' motivo trivial - mesmo que, hoje,
+# todos ja tenham menos de cinco palavras e por isso ja' cassem na regra
+# (a) antes de chegar aqui. A lista fica escrita mesmo assim (L-43: a
+# definicao se fixa ANTES do dado, nao se poda por redundancia observada
+# hoje).
+TRIVIAL_REASON_MARKERS = {
+    "legado",
+    "antigo",
+    "historico",
+    "n/a",
+    "na",
+    "todo",
+    "idem",
+    "ver acima",
+    "mesmo motivo",
+    "sem motivo",
+}
+
+_WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
+
+
+def normalize_reason(text):
+    """Sem acento, sem pontuacao, em minusculas, espacos colapsados -
+    a mesma normalizacao serve para comparar contra a lista fechada de
+    marcadores E para achar motivo duplicado (D-A7 diz "a mesma
+    normalizacao" para os dois)."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    without_accents = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    lowered = without_accents.lower()
+    without_punctuation = re.sub(r"[^\w\s]", "", lowered, flags=re.UNICODE).replace("_", "")
+    return re.sub(r"\s+", " ", without_punctuation).strip()
+
+
+def reason_word_count(text):
+    """Palavra = sequencia de letras ou digitos (D-A7, literal)."""
+    return len(_WORD_RE.findall(text))
+
+
+def reason_is_empty(reason_text):
+    return reason_text.strip() == ""
+
+
+def reason_is_trivial(reason_text):
+    if reason_word_count(reason_text) < 5:
+        return True
+    return normalize_reason(reason_text) in TRIVIAL_REASON_MARKERS
+
+
+def parse_legacy_file(legacy_text):
+    """Returns [{"line_no", "path", "category", "reason"}] - blank lines
+    and `#` comments skipped; splits on the FIRST TWO `|` only, so a
+    motivo that itself contains `|` is never truncated."""
+    entries = []
+    for line_no, raw_line in enumerate(legacy_text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("|", 2)
+        if len(parts) != 3:
+            continue
+        path, category, reason = (part.strip() for part in parts)
+        entries.append({"line_no": line_no, "path": path, "category": category, "reason": reason})
+    return entries
+
+
+def find_duplicate_reasons(entries):
+    """Returns [(entry, first_entry_with_same_normalized_reason)] for
+    every entry whose motivo (normalized) already belongs to an earlier
+    entry - empty-after-normalization reasons are skipped here (already
+    caught by reason_is_empty/reason_is_trivial, never double-reported
+    as "duplicate of nothing")."""
+    seen = {}
+    duplicates = []
+    for entry in entries:
+        key = normalize_reason(entry["reason"])
+        if not key:
+            continue
+        if key in seen:
+            duplicates.append((entry, seen[key]))
+        else:
+            seen[key] = entry
+    return duplicates
+
+
+def validate_legacy_entries(root, entries):
+    """Cross-checks every tests/plan_scope_legacy.txt entry against the
+    REAL plan it names - never trusts the declared categoria/motivo on
+    their own. Returns a list of error strings (empty = all entries are
+    truthful)."""
+    errors = []
+    status_cache = {}
+
+    def status_for(path):
+        if path not in status_cache:
+            full_path = Path(root) / path
+            if not full_path.is_file():
+                status_cache[path] = None
+            else:
+                status_cache[path] = plan_v1_status(full_path.read_text(encoding="utf-8"))
+        return status_cache[path]
+
+    for entry in entries:
+        path, category, reason, line_no = entry["path"], entry["category"], entry["reason"], entry["line_no"]
+
+        if reason_is_empty(reason):
+            errors.append(f"tests/plan_scope_legacy.txt:{line_no}: {path} - motivo vazio")
+        elif reason_is_trivial(reason):
+            errors.append(
+                f"tests/plan_scope_legacy.txt:{line_no}: {path} - motivo trivial "
+                f"(menos de 5 palavras, ou marcador da lista fechada): {reason!r}"
+            )
+
+        if category not in LEGACY_CATEGORIES:
+            errors.append(
+                f"tests/plan_scope_legacy.txt:{line_no}: {path} - categoria {category!r} fora "
+                f"da lista fechada {sorted(LEGACY_CATEGORIES)}"
+            )
+            continue
+
+        status = status_for(path)
+        if status is None:
+            errors.append(f"tests/plan_scope_legacy.txt:{line_no}: {path} - plano nao existe na arvore")
+        elif status["category"] is None:
+            errors.append(
+                f"tests/plan_scope_legacy.txt:{line_no}: {path} - LEGADO MORTO: o plano ja tem "
+                "tabela no esquema v1 (regra de morte igual a tests/parity_exceptions.txt); apague esta linha"
+            )
+        elif status["category"] != category:
+            errors.append(
+                f"tests/plan_scope_legacy.txt:{line_no}: {path} - categoria declarada {category!r} "
+                f"e' motivo falso: a categoria real, conferida contra o proprio plano, e' "
+                f"{status['category']!r}"
+            )
+
+    for dup_entry, first_entry in find_duplicate_reasons(entries):
+        errors.append(
+            f"tests/plan_scope_legacy.txt:{dup_entry['line_no']}: {dup_entry['path']} - motivo "
+            f"identico (depois de normalizar acento/caixa/pontuacao) ao da linha "
+            f"{first_entry['line_no']} ({first_entry['path']}): {dup_entry['reason']!r}"
+        )
+
+    return errors
+
+
+def real_audit_main(args):
+    parser = argparse.ArgumentParser(prog=f"{SCRIPT_NAME} --audit", add_help=False)
+    parser.add_argument("--root", default=".")
+    parser.add_argument("--plans-glob", default="docs/plano-*.md")
+    parser.add_argument("--legacy", default="tests/plan_scope_legacy.txt")
+    parsed = parser.parse_args(args)
+
+    root = Path(parsed.root)
+    legacy_path = root / parsed.legacy
+    if not legacy_path.is_file():
+        fail(f"{parsed.legacy} nao existe")
+    entries = parse_legacy_file(legacy_path.read_text(encoding="utf-8"))
+    legacy_by_path = {}
+    for entry in entries:
+        legacy_by_path.setdefault(entry["path"], []).append(entry)
+
+    errors = validate_legacy_entries(root, entries)
+
+    plan_paths = sorted(root.glob(parsed.plans_glob))
+    v1_count = 0
+    legacy_count = 0
+    for plan_path in plan_paths:
+        rel = plan_path.relative_to(root).as_posix()
+        status = plan_v1_status(plan_path.read_text(encoding="utf-8"))
+        if status["category"] is None:
+            v1_count += 1
+        else:
+            legacy_count += 1
+            if rel not in legacy_by_path:
+                errors.append(
+                    f"{rel}: nao tem tabela no esquema v1 (categoria real {status['category']!r}) "
+                    f"e esta AUSENTE de {parsed.legacy} - declare a linha ou construa a tabela v1"
+                )
+
+    print(
+        f"{SCRIPT_NAME} --audit: {len(plan_paths)} plano(s) varrido(s), {v1_count} com tabela v1, "
+        f"{legacy_count} de legado, {len(entries)} linha(s) em {parsed.legacy}"
+    )
+    if len(plan_paths) == 0:
+        fail(f'0 planos varridos por "{parsed.plans_glob}" - varredura vazia (GODS_LAWS.md L-40)')
+
+    if errors:
+        fail(f"{len(errors)} problema(s) de escopo de plano:\n  " + "\n  ".join(errors))
+
 
 #-- - selftest -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -
 
@@ -721,6 +1034,212 @@ def selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path):
     return False
 
 
+# --- selftests do esquema v1 e da lista de legado (F0) --------------------
+
+
+def _write_legacy(tmp_path, name, lines):
+    path = tmp_path / name
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_docs_plan(tmp_path, name, body):
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir(exist_ok=True)
+    path = docs_dir / name
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+_V1_TABLE = (
+    "| # | Fatia | Lado | Nasce / muda | Prova Linux | Par no portão |\n"
+    "|---|---|---|---|---|---|\n"
+    "| 1 | X | comum | `a.hpp` | `x_test` | `x_test` |\n"
+)
+
+_NO_FATIA_TABLE = (
+    "| Caso | Mata |\n"
+    "|---|---|\n"
+    "| c1 | m1 |\n"
+)
+
+_ENTREGA_TABLE = (
+    "| # | Sub-fatia | Entrega | Fechamento |\n"
+    "|---|---|---|---|\n"
+    "| P0 | X | algo | pronto |\n"
+)
+
+
+def selftest_missing_column_named_when_entrega_used():
+    """Estreia vermelha F0: uma tabela com `Entrega` no lugar de `Nasce /
+    muda` reprova NOMEANDO a coluna que falta, nunca com um erro
+    generico."""
+    columns = ["#", "Sub-fatia", "Entrega", "Fechamento"]
+    missing = missing_v1_columns(columns)
+    if "Nasce / muda" not in missing:
+        print(f"selftest: 'Entrega' deveria acusar falta de 'Nasce / muda' - achou {missing}", file=sys.stderr)
+        return False
+    print("selftest: tabela com 'Entrega' no lugar de 'Nasce / muda' nomeia a coluna que falta - ok")
+    return True
+
+
+def selftest_prova_prefix_not_substring():
+    """Mutante nomeado no proprio item: aceitar qualquer coluna que
+    CONTENHA 'Prova' no meio do nome. Uma coluna 'Melhor Prova de Todas'
+    (Prova no meio, nao no inicio) NAO pode satisfazer o requisito."""
+    columns = ["#", "Fatia", "Nasce / muda", "Melhor Prova de Todas", "Par no portão"]
+    if table_is_v1(columns):
+        print("selftest: coluna com 'Prova' NO MEIO do nome foi aceita - mutante vivo", file=sys.stderr)
+        return False
+    columns_prefix = ["#", "Fatia", "Nasce / muda", "Prova única", "Par no portão"]
+    if not table_is_v1(columns_prefix):
+        print("selftest: coluna que COMECA por 'Prova' deveria satisfazer o requisito", file=sys.stderr)
+        return False
+    print("selftest: requisito de 'Prova' e' por PREFIXO, nunca substring no meio - ok")
+    return True
+
+
+def selftest_audit_plan_without_v1_and_without_legacy_reproves(tmp_path):
+    """'plano novo sem tabela v1 reprova': nenhuma linha em
+    plan_scope_legacy.txt para um plano que nao tem tabela no esquema
+    v1 tem que reprovar a auditoria inteira."""
+    _write_docs_plan(tmp_path, "plano-novo-sem-v1.md", _NO_FATIA_TABLE)
+    _write_legacy(tmp_path, "legacy_empty.txt", [])
+    code, _out, err = _run_audit_with(tmp_path, "legacy_empty.txt")
+    if code == 1 and "plano-novo-sem-v1.md" in err and "AUSENTE" in err:
+        print("selftest: plano novo sem tabela v1 e sem linha de legado reprova - ok")
+        return True
+    print(f"selftest: esperava reprovar citando o plano ausente - codigo {code}, stderr {err!r}", file=sys.stderr)
+    return False
+
+
+def _run_audit_with(tmp_path, legacy_name):
+    import contextlib
+    import io
+
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            real_audit_main(["--root", str(tmp_path), "--legacy", legacy_name])
+    except SystemExit as exc:
+        return exc.code, out.getvalue(), err.getvalue()
+    return 0, out.getvalue(), err.getvalue()
+
+
+def selftest_audit_legacy_plan_that_gained_v1_table_dies(tmp_path):
+    """'plano de legado que ganhou tabela v1 reprova como legado morto'."""
+    _write_docs_plan(tmp_path, "plano-graduado.md", _V1_TABLE)
+    _write_legacy(
+        tmp_path,
+        "legacy_dead.txt",
+        ["docs/plano-graduado.md|sem-tabela-de-fatia|escrito antes de a tabela real nascer no documento"],
+    )
+    code, _out, err = _run_audit_with(tmp_path, "legacy_dead.txt")
+    if code == 1 and "LEGADO MORTO" in err:
+        print("selftest: plano de legado que ganhou tabela v1 reprova como legado morto - ok")
+        return True
+    print(f"selftest: esperava 'LEGADO MORTO' - codigo {code}, stderr {err!r}", file=sys.stderr)
+    return False
+
+
+def selftest_audit_reason_empty_reproves(tmp_path):
+    _write_docs_plan(tmp_path, "plano-motivo-vazio.md", _NO_FATIA_TABLE)
+    _write_legacy(tmp_path, "legacy_empty_reason.txt", ["docs/plano-motivo-vazio.md|sem-tabela-de-fatia|"])
+    code, _out, err = _run_audit_with(tmp_path, "legacy_empty_reason.txt")
+    if code == 1 and "motivo vazio" in err:
+        print("selftest: motivo vazio reprova - ok")
+        return True
+    print(f"selftest: esperava 'motivo vazio' - codigo {code}, stderr {err!r}", file=sys.stderr)
+    return False
+
+
+def selftest_audit_reason_four_words_reproves(tmp_path):
+    _write_docs_plan(tmp_path, "plano-motivo-curto.md", _NO_FATIA_TABLE)
+    _write_legacy(
+        tmp_path, "legacy_short.txt", ["docs/plano-motivo-curto.md|sem-tabela-de-fatia|so quatro palavras aqui"]
+    )
+    code, _out, err = _run_audit_with(tmp_path, "legacy_short.txt")
+    if code == 1 and "motivo trivial" in err:
+        print("selftest: motivo com quatro palavras reprova como trivial - ok")
+        return True
+    print(f"selftest: esperava 'motivo trivial' - codigo {code}, stderr {err!r}", file=sys.stderr)
+    return False
+
+
+def selftest_audit_reason_marker_legado_reproves(tmp_path):
+    _write_docs_plan(tmp_path, "plano-motivo-marcador.md", _NO_FATIA_TABLE)
+    _write_legacy(tmp_path, "legacy_marker.txt", ["docs/plano-motivo-marcador.md|sem-tabela-de-fatia|legado"])
+    code, _out, err = _run_audit_with(tmp_path, "legacy_marker.txt")
+    if code == 1 and "motivo trivial" in err:
+        print("selftest: motivo 'legado' (marcador da lista fechada) reprova - ok")
+        return True
+    print(f"selftest: esperava 'motivo trivial' - codigo {code}, stderr {err!r}", file=sys.stderr)
+    return False
+
+
+def selftest_audit_duplicate_reasons_reprove_case_and_accent_insensitive(tmp_path):
+    """Mutante nomeado: comparar motivos SEM normalizar acento e caixa.
+    As duas linhas usam o MESMO motivo com acento/caixa diferentes - so'
+    reprovam como duplicata se a comparacao normalizar os dois lados."""
+    _write_docs_plan(tmp_path, "plano-dup-a.md", _NO_FATIA_TABLE)
+    _write_docs_plan(tmp_path, "plano-dup-b.md", _NO_FATIA_TABLE)
+    _write_legacy(
+        tmp_path,
+        "legacy_dup.txt",
+        [
+            "docs/plano-dup-a.md|sem-tabela-de-fatia|documento cobre discussao futura ainda nao fatiada",
+            "docs/plano-dup-b.md|sem-tabela-de-fatia|DOCUMENTO COBRE DISCUSSÃO FUTURA AINDA NÃO FATIADA",
+        ],
+    )
+    code, _out, err = _run_audit_with(tmp_path, "legacy_dup.txt")
+    if code == 1 and "motivo" in err and "identico" in err:
+        print("selftest: motivos identicos apos normalizar acento/caixa reprovam como duplicata - ok")
+        return True
+    print(f"selftest: esperava duplicata detectada - codigo {code}, stderr {err!r}", file=sys.stderr)
+    return False
+
+
+def selftest_audit_category_mismatch_is_false_reason(tmp_path):
+    """'categoria sem-tabela-de-fatia num plano que tem tabela com
+    coluna Fatia reprova como motivo falso' - a categoria conferida
+    contra o proprio plano (tabela-fora-do-esquema, por ter Entrega no
+    lugar de Nasce/muda) desmente a categoria declarada."""
+    _write_docs_plan(tmp_path, "plano-categoria-falsa.md", _ENTREGA_TABLE)
+    _write_legacy(
+        tmp_path,
+        "legacy_false.txt",
+        ["docs/plano-categoria-falsa.md|sem-tabela-de-fatia|categoria escrita errada de proposito aqui"],
+    )
+    code, _out, err = _run_audit_with(tmp_path, "legacy_false.txt")
+    if code == 1 and "motivo falso" in err and "tabela-fora-do-esquema" in err:
+        print("selftest: categoria que o conteudo do plano desmente reprova como motivo falso - ok")
+        return True
+    print(f"selftest: esperava 'motivo falso' citando a categoria real - codigo {code}, stderr {err!r}",
+          file=sys.stderr)
+    return False
+
+
+def selftest_audit_positive_control_passes(tmp_path):
+    """Controle positivo: categoria verdadeira, motivo de cinco palavras
+    de verdade, sem duplicata - a auditoria tem que passar (exit 0)."""
+    _write_docs_plan(tmp_path, "plano-legado-de-verdade.md", _NO_FATIA_TABLE)
+    _write_legacy(
+        tmp_path,
+        "legacy_ok.txt",
+        [
+            "docs/plano-legado-de-verdade.md|sem-tabela-de-fatia|"
+            "descreve mutacoes por caso sem nenhuma tabela de fatia"
+        ],
+    )
+    code, out, err = _run_audit_with(tmp_path, "legacy_ok.txt")
+    if code == 0 and "1 plano(s) varrido(s)" in out:
+        print("selftest: categoria verdadeira com motivo real de cinco palavras passa (controle positivo) - ok")
+        return True
+    print(f"selftest: controle positivo deveria passar - codigo {code}, stdout {out!r}, stderr {err!r}",
+          file=sys.stderr)
+    return False
+
+
 def selftest_main():
     import tempfile
     from pathlib import Path as _Path
@@ -738,6 +1257,22 @@ def selftest_main():
             selftest_declared_absence_with_concluded_item_dies(tmp_path),
             selftest_undeclared_absence_reproves(tmp_path),
         ]
+    controls += [
+        selftest_missing_column_named_when_entrega_used(),
+        selftest_prova_prefix_not_substring(),
+    ]
+    for fn in (
+        selftest_audit_plan_without_v1_and_without_legacy_reproves,
+        selftest_audit_legacy_plan_that_gained_v1_table_dies,
+        selftest_audit_reason_empty_reproves,
+        selftest_audit_reason_four_words_reproves,
+        selftest_audit_reason_marker_legado_reproves,
+        selftest_audit_duplicate_reasons_reprove_case_and_accent_insensitive,
+        selftest_audit_category_mismatch_is_false_reason,
+        selftest_audit_positive_control_passes,
+    ):
+        with tempfile.TemporaryDirectory() as case_tmp:
+            controls.append(fn(_Path(case_tmp)))
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)
@@ -750,10 +1285,13 @@ def main():
         selftest_main()
     elif args and args[0] == "--compare":
         real_main(args[1:])
+    elif args and args[0] == "--audit":
+        real_audit_main(args[1:])
     else:
         fail(
             "usage: check_plan_scope_diff.py --compare <plano.md> --marker <substring> "
-            "[--ref <sha>] [--root <dir>]  |  --selftest"
+            "[--ref <sha>] [--root <dir>]  |  --audit [--root <dir>] [--plans-glob <glob>] "
+            "[--legacy <arquivo>]  |  --selftest"
         )
 
 

@@ -5633,6 +5633,25 @@ add_test(
 )
 set_tests_properties(python_unbuffered_selftest PROPERTIES LABELS selftest)
 
+# CLAIM-CITATIONS sub-fatia E0 (docs/plano-w7c-adendo-revalidacao.md
+# sec. 3.E, decisao D-A8): analisador lexico de CMake so', consumido
+# por test_name_inventory.py (E1) logo abaixo e pelos tres leitores de
+# comentario CMake que existiam antes desta fatia (check_selftest_
+# orphan.py, check_win32_test_link.py, check_facade_export_boundary.py
+# - E1b/E1c). Hermetico (sem docker/toolchain externa), mesmo idioma
+# de collect_measured_selftest logo acima neste arquivo: so' o
+# --selftest e' registrado, nunca chamado com --check em lugar
+# nenhum ainda (a leitura real, tests/CMakeLists.txt, e' exercida
+# pelos tres leitores que o consomem, cada um com o proprio ctest).
+add_test(
+    NAME cmake_lexer_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/cmake_lexer.py" --selftest
+)
+set_tests_properties(cmake_lexer_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
 # propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
 # CMake, de todo nome passado a add_test() neste diretorio ate aqui -

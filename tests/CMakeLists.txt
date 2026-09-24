@@ -4504,6 +4504,33 @@ add_test(
 )
 set_tests_properties(test_parity_selftest PROPERTIES LABELS selftest)
 
+# PARITY-LOCAL-MIRROR I1 (TODO.md W7-C, docs/plano-w7c-adendo-
+# revalidacao.md SS3.I, GODS_LAWS.md L-04/L-20/L-40): o modo --textual
+# roda a METADE de check_test_parity.py que nao depende do inventario
+# `ctest -N` do outro sistema - a forma de cada linha de tests/
+# parity_exceptions.txt e tests/parity_aliases.txt, e o item de cada
+# excecao contra o Status real de TODO.md (validate_exceptions(), a
+# MESMA funcao que --compare chama, reusada aqui sem copiar). Ao
+# contrario de test_parity_selftest acima (so fixture sintetica), este
+# caso roda contra os TRES arquivos REAIS da arvore - e por isso
+# registrado SEM guarda de sistema (GODS_LAWS.md L-04, mesma forma
+# GATE-TREE-PARITY de check_wave_closure_coherence_test/dup_laws_test):
+# roda igual em Linux e em Windows, porque nenhum dos tres arquivos que
+# ele le e especifico de sistema. Nasceu porque a regra "excecao aponta
+# para item concluido reprova" so tinha mordido no servidor ate agora
+# (N2/N3 do adendo) - com este teste, uma excecao esquecida apos o
+# item fechar reprova localmente e no CI de qualquer sistema, nunca so
+# la.
+add_test(
+    NAME parity_textual_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_test_parity.py" --textual
+        "${CMAKE_CURRENT_SOURCE_DIR}/parity_exceptions.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/parity_aliases.txt"
+        "${CMAKE_SOURCE_DIR}/TODO.md"
+)
+set_tests_properties(parity_textual_test PROPERTIES LABELS consume)
+
 # LINT-CONTAINER-SMOKES (TODO.md, GODS_LAWS.md L-09/L-40): puts every
 # tests/container/*.cpp fixture INTO this build's compile_commands.json
 # (tests/container/CMakeLists.txt's own header comment has the full

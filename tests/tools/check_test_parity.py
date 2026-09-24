@@ -961,13 +961,13 @@ def _print_real_main_counts(inputs):
     print(f"{SCRIPT_NAME}: {len(inputs.exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
 
 
-def _exit_with_verdict(errors):
+def _exit_with_verdict(errors, success_message="paridade OK - nenhuma lacuna sem excecao registrada"):
     if errors:
         print(f"{SCRIPT_NAME}: REPROVADO ({len(errors)} problema(s)):", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         sys.exit(1)
-    print(f"{SCRIPT_NAME}: paridade OK - nenhuma lacuna sem excecao registrada")
+    print(f"{SCRIPT_NAME}: {success_message}")
 
 
 def real_main(args):
@@ -978,6 +978,92 @@ def real_main(args):
         inputs.linux_inventory, inputs.windows_inventory, inputs.exceptions, inputs.aliases, inputs.todo_status
     )
     _exit_with_verdict(errors)
+
+
+# --- textual mode (PARITY-LOCAL-MIRROR, TODO.md W7-C, GODS_LAWS.md ------
+# L-04/L-17/L-40) ----------------------------------------------------------
+#
+# --compare (real_main acima) so roda contra o servidor: precisa do
+# inventario `ctest -N` REAL dos dois sistemas, que so existe dentro de
+# um run de CI. Duas vezes em dois dias (N2, N3 - TODO.md,
+# docs/plano-w7c-adendo-revalidacao.md SS3.I) a regra "excecao aponta
+# para item concluido reprova" (validate_exceptions() acima) so mordeu
+# la, nunca nesta maquina, porque nada localmente chama essa funcao
+# contra dado real - so' o --selftest, com fixture sintetica.
+#
+# --textual fecha a METADE que nao depende de inventario nenhum: a
+# FORMA de cada linha de tests/parity_exceptions.txt e tests/
+# parity_aliases.txt (parse_exceptions_text/parse_aliases_text ja
+# reprovam malformado via fail(), reusadas aqui sem copiar - GODS_LAWS.md
+# L-17), e o item de cada excecao contra o Status de TODO.md
+# (validate_exceptions(), a MESMA funcao que --compare chama, nunca uma
+# copia). O que fica de fora, declarado (GODS_LAWS.md L-40: um portao
+# vendido como mais forte do que e' vira falso conforto): lacuna de
+# INVENTARIO (teste que existe de um lado e falta do outro sem excecao)
+# so' o servidor prova, porque o inventario do sistema que falta nesta
+# maquina nao existe aqui - tentar prever lendo o CMakeLists ja foi
+# medido enganoso ("ctest -N mede so metade").
+@dataclass(frozen=True)
+class TextualMainInputs:
+    exceptions: list
+    aliases: list
+    todo_status: dict
+
+
+def _parse_textual_main_args(args):
+    if len(args) != 3:
+        fail(
+            "usage: check_test_parity.py --textual <exceptions.txt> <aliases.txt> <TODO.md>"
+        )
+    return args
+
+
+def _load_textual_main_inputs(args):
+    exceptions_path, aliases_path, todo_path = args
+    return TextualMainInputs(
+        exceptions=parse_exceptions_text(_read_file(exceptions_path)),
+        aliases=parse_aliases_text(_read_file(aliases_path)),
+        todo_status=parse_todo_status_text(_read_file(todo_path)),
+    )
+
+
+# GODS_LAWS.md L-40: piso impresso SEMPRE, mesmo com tudo zerado - as
+# contagens de excecoes e apelidos podem legitimamente ser zero (um
+# projeto sem nenhuma lacuna aceita hoje), entao nao entram no piso de
+# reprovacao abaixo; so a contagem de itens de TODO.md entra (ver
+# _textual_empty_scan_errors).
+def _print_textual_main_counts(inputs):
+    print(
+        f"{SCRIPT_NAME} --textual: {len(inputs.exceptions)} excecao(oes), "
+        f"{len(inputs.aliases)} apelido(s), {len(inputs.todo_status)} item(ns) lido(s) de TODO.md"
+    )
+
+
+# TODO.md tem, hoje e em toda execucao real deste portao, centenas de
+# linhas de item - ler zero e sinal de coleta quebrada (caminho errado,
+# arquivo truncado, formato de tabela mudou sob o pe), nunca "tabela
+# genuinamente vazia" (GODS_LAWS.md L-40, o mesmo piso que
+# _empty_inventory_errors aplica ao inventario do lado --compare).
+def _textual_empty_scan_errors(inputs):
+    if not inputs.todo_status:
+        return [
+            "varredura vazia: TODO.md nao tem item de tabela nenhum reconhecido - "
+            "GODS_LAWS.md L-40, isto e sinal de leitura quebrada, nunca de tabela vazia"
+        ]
+    return []
+
+
+def textual_main(args):
+    args = _parse_textual_main_args(args)
+    inputs = _load_textual_main_inputs(args)
+    _print_textual_main_counts(inputs)
+    errors = _textual_empty_scan_errors(inputs)
+    errors.extend(validate_exceptions(inputs.exceptions, inputs.todo_status))
+    _exit_with_verdict(
+        errors,
+        "modo --textual OK - nenhuma excecao aponta para item concluido, nenhuma linha "
+        "malformada (lacuna de INVENTARIO nao conferida aqui, so no servidor)",
+    )
 
 
 # --- fixtures and controls for --selftest -----------------------------
@@ -2462,6 +2548,193 @@ def selftest_real_main_half_dead_and_suppressed_counts_distinct():
     return True
 
 
+# PARITY-LOCAL-MIRROR I1 (24/09/2026, TODO.md W7-C, GODS_LAWS.md
+# L-04/L-20/L-40) - os controles do modo --textual, ponta a ponta
+# (arquivo em disco -> textual_main() -> stdout+stderr capturados),
+# no mesmo molde de _run_real_main_capturing acima. Diferente
+# daquele helper, redireciona TAMBEM stderr para o mesmo buffer: a
+# mensagem de "REPROVADO" que prova a estreia contra o caso real
+# (gpu_kind_report_smoke/WIN-RUNNER-PROPRIO, docs/plano-w7c-adendo-
+# revalidacao.md SS3.I) sai por stderr (_exit_with_verdict acima),
+# e a citacao literal do nome/item so e verificavel capturando as
+# duas saidas - a mesma coisa que quem roda o comando no terminal
+# ve junta.
+@dataclass(frozen=True)
+class TextualMainFixtureTexts:
+    exceptions_text: str
+    aliases_text: str
+    todo_text: str
+
+
+def _run_textual_main_capturing(fixture_texts):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        args = [
+            _write_temp(tmpdir, "exceptions.txt", fixture_texts.exceptions_text),
+            _write_temp(tmpdir, "aliases.txt", fixture_texts.aliases_text),
+            _write_temp(tmpdir, "TODO.md", fixture_texts.todo_text),
+        ]
+        buffer = io.StringIO()
+        exit_code = None
+        with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+            try:
+                textual_main(args)
+            except SystemExit as exc:
+                exit_code = exc.code
+        return exit_code, buffer.getvalue()
+
+
+# Controle POSITIVO: excecao apontando para item PENDENTE, apelido
+# bem formado - passa, e o piso L-40 imprime as tres contagens.
+def selftest_textual_positive_control():
+    exit_code, output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "algum_teste|windows|motivo qualquer, com mais de quatro palavras|ITEM-A\n",
+            "nome_linux_test|nome_windows_test\n",
+            _todo_fixture("ITEM-A", "⏳ Pendente"),
+        )
+    )
+    if exit_code not in (None, 0):
+        print(
+            f"selftest: TEXTUAL-POSITIVO FALHOU (esperava sucesso, saiu com codigo {exit_code!r}): "
+            f"{output}",
+            file=sys.stderr,
+        )
+        return False
+    if "1 excecao(oes), 1 apelido(s), 1 item(ns) lido(s) de TODO.md" not in output:
+        print(
+            f"selftest: TEXTUAL-POSITIVO FALHOU (piso L-40 nao imprimiu as tres contagens): "
+            f"{output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-POSITIVO OK (modo --textual passa com excecao pendente)")
+    return True
+
+
+# O VERMELHO central desta sub-fatia: reproduz, com fixture sintetica,
+# a FORMA EXATA do caso real medido em 023e1c7 (excecao de
+# gpu_kind_report_smoke apontando para WIN-RUNNER-PROPRIO, que virou
+# Concluido em 84877aa e so foi consertado em c0fb96f depois de
+# avisado ao main - docs/plano-w7c-adendo-revalidacao.md N2). Mutante
+# que mata: pular a chamada a validate_exceptions() dentro de
+# textual_main() - sem ela este controle passaria calado (exit 0),
+# exatamente o furo que esta sub-fatia existe para fechar.
+def selftest_textual_concluded_item_reproves():
+    exit_code, output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "gpu_kind_report_smoke|windows|mutacao real nao provada no lado Windows nesta "
+            "maquina|WIN-RUNNER-PROPRIO\n",
+            "",
+            _todo_fixture("WIN-RUNNER-PROPRIO", "✅ Concluído"),
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-VERMELHO-023e1c7 FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "gpu_kind_report_smoke" not in output or "WIN-RUNNER-PROPRIO" not in output:
+        print(
+            f"selftest: TEXTUAL-VERMELHO-023e1c7 FALHOU (reprovou, mas nao citou o caso real "
+            f"de 023e1c7/c0fb96f): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-VERMELHO-023e1c7 OK (excecao apontando para item concluido "
+        "reprova no modo --textual - reproduz o caso real de 023e1c7, consertado em c0fb96f)"
+    )
+    return True
+
+
+# Linha malformada de tests/parity_exceptions.txt (nem 4 nem 5 campos)
+# tem de reprovar DENTRO do modo --textual, nao so quando chamado por
+# --compare: parse_exceptions_text() e reusada, nunca copiada
+# (GODS_LAWS.md L-17), e fail() ali chama sys.exit(1) direto.
+def selftest_textual_malformed_exception_reproves():
+    exit_code, _output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "nome_quebrado|so|tres_campos\n",
+            "",
+            _todo_fixture("ITEM-A", "⏳ Pendente"),
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-EXCECAO-MALFORMADA FALHOU (esperava reprovar com codigo 1, "
+            f"veio {exit_code!r})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-EXCECAO-MALFORMADA OK (linha malformada de parity_exceptions.txt "
+        "reprova no modo --textual)"
+    )
+    return True
+
+
+# O gemeo para tests/parity_aliases.txt: linha malformada (nem 2 nem
+# 3 campos) tambem reprova no modo --textual.
+def selftest_textual_malformed_alias_reproves():
+    exit_code, _output = _run_textual_main_capturing(
+        TextualMainFixtureTexts(
+            "",
+            "so_um_campo_sem_par\n",
+            _todo_fixture("ITEM-A", "⏳ Pendente"),
+        )
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-APELIDO-MALFORMADO FALHOU (esperava reprovar com codigo 1, "
+            f"veio {exit_code!r})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: TEXTUAL-APELIDO-MALFORMADO OK (linha malformada de parity_aliases.txt "
+        "reprova no modo --textual)"
+    )
+    return True
+
+
+# Piso L-40 do proprio modo --textual: TODO.md sem NENHUMA linha de
+# tabela reconhecida (formato mudou sob o pe, caminho errado, arquivo
+# truncado) tem de reprovar como varredura vazia, nunca passar calado
+# so porque nao havia excecao nenhuma para citar.
+def selftest_textual_empty_todo_reproves():
+    exit_code, output = _run_textual_main_capturing(
+        TextualMainFixtureTexts("", "", "so prosa aqui, nenhuma linha de tabela\n")
+    )
+    if exit_code != 1:
+        print(
+            f"selftest: TEXTUAL-TODO-VAZIO FALHOU (esperava reprovar com codigo 1, veio "
+            f"{exit_code!r}): {output}",
+            file=sys.stderr,
+        )
+        return False
+    if "varredura vazia" not in output:
+        print(
+            f"selftest: TEXTUAL-TODO-VAZIO FALHOU (reprovou, mas nao com a mensagem de "
+            f"varredura vazia - GODS_LAWS.md L-40): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: TEXTUAL-TODO-VAZIO OK (TODO.md sem item nenhum reconhecido reprova)")
+    return True
+
+
+def _textual_mode_controls():
+    return [
+        selftest_textual_positive_control(),
+        selftest_textual_concluded_item_reproves(),
+        selftest_textual_malformed_exception_reproves(),
+        selftest_textual_malformed_alias_reproves(),
+        selftest_textual_empty_todo_reproves(),
+    ]
+
+
 # PARITY-ALIAS-HYGIENE P-3 (23/09/2026, GODS_LAWS.md L-17): selftest_
 # main() cresceu de 31 para 36 chamadas nesta fatia - mais uma linha
 # nova a cada controle acrescentado, PARA SEMPRE, e' exatamente o
@@ -2538,6 +2811,7 @@ def selftest_main():
         *_inventory_parsing_controls(),
         *_alias_hygiene_controls(),
         *_parsing_guard_and_real_main_controls(),
+        *_textual_mode_controls(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
@@ -2551,8 +2825,14 @@ def main():
         selftest_main()
     elif args and args[0] == "--compare":
         real_main(args[1:])
+    elif args and args[0] == "--textual":
+        textual_main(args[1:])
     else:
-        fail("usage: check_test_parity.py --compare <inv-linux> <inv-windows> <exceptions.txt> <aliases.txt> <TODO.md>  |  --selftest")
+        fail(
+            "usage: check_test_parity.py --compare <inv-linux> <inv-windows> <exceptions.txt> "
+            "<aliases.txt> <TODO.md>  |  --textual <exceptions.txt> <aliases.txt> <TODO.md>  |  "
+            "--selftest"
+        )
 
 
 if __name__ == "__main__":

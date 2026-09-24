@@ -314,8 +314,60 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
     steps:
+      # ROTACAO-ESPELHO-CACHYOS (GODS_LAWS.md L-42, pesquisado antes de
+      # consertar - segunda falha do mesmo motivo, runs 35937778448 e
+      # 35939021453: github.com/CachyOS/distribution#443 e o topico do
+      # forum CachyOS "Problems with pacman and CachyOS keyring"
+      # 27/09/2025, ambos com o MESMO sintoma). Reproduzido aqui em
+      # container local (23-24/09/2026): "error: cachyos: signature from
+      # CachyOS <admin@cachyos.org> is invalid" nos dois jobs CachyOS.
+      # Medido, nao suposto: o .db do repo cachyos e IDENTICO (mesmo
+      # md5sum) entre os espelhos testados, mas cada espelho reassina em
+      # horario proprio, e 2 dos 4 espelhos testados tinham assinatura
+      # BAD contra esse MESMO .db (gpg --verify direto), enquanto os
+      # outros dois tinham assinatura GOOD - nao e chave expirada nem
+      # keyring desatualizado no cliente, e o pacman NAO cai sozinho para
+      # o proximo espelho da lista quando a assinatura do banco de dados
+      # falha (so faz fallback em erro de download; confirmado aqui com
+      # dois Server explicitos, bom depois de ruim, e ele falhou no
+      # primeiro sem tentar o segundo). SigLevel = Never/TrustAll fica
+      # PROIBIDO (calaria o portao de seguranca da L-02/L-40) - a defesa
+      # e rotacionar cachyos-mirrorlist e tentar de novo, o que basta
+      # porque a dessincronia e por espelho e transitoria. Escopo restrito
+      # as imagens `cachyos/*`: Fedora/Ubuntu/Arch continuam com uma unica
+      # tentativa, mesmo comportamento de antes (nao mude o que nao
+      # falha).
       - name: Instalar toolchain
-        run: ${{ matrix.instalar }}
+        shell: bash
+        run: |
+          set +e
+          maximo=1
+          if [[ "${{ matrix.imagem }}" == cachyos/* ]]; then
+            maximo=10
+          fi
+          tentativa=0
+          while [ "$tentativa" -lt "$maximo" ]; do
+            tentativa=$((tentativa + 1))
+            echo "=== instalar toolchain, tentativa $tentativa/$maximo ==="
+            ${{ matrix.instalar }} >/tmp/instalar_toolchain.log 2>&1
+            codigo=$?
+            cat /tmp/instalar_toolchain.log
+            if [ "$codigo" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$tentativa" -lt "$maximo" ] && grep -q "signature from" /tmp/instalar_toolchain.log; then
+              echo "::warning::assinatura do banco de dados CachyOS invalida (espelho dessincronizado), rotacionando cachyos-mirrorlist e tentando de novo"
+              lista=/etc/pacman.d/cachyos-mirrorlist
+              primeira=$(grep -n "^Server" "$lista" | head -1 | cut -d: -f1)
+              if [ -n "$primeira" ]; then
+                sed -n "${primeira}p" "$lista" >>"$lista"
+                sed -i "${primeira}d" "$lista"
+              fi
+              continue
+            fi
+            echo "falha em 'Instalar toolchain' (codigo $codigo), sem sinal de assinatura CachyOS invalida ou tentativas esgotadas"
+            exit "$codigo"
+          done
 
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
       # 19/09/2026): esta matriz roda a suite ctest INTEIRA sem filtro

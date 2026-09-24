@@ -390,6 +390,70 @@ STUB
   return 1
 }
 
+# QUARTA GUARDA, com prova propria (achado BLOQUEANTE da revisao
+# independente, 23/09/2026, para autorizar V-6b: a guarda
+# `verificar_overlay_pronta` ja existia no codigo, mas nenhum cenario do
+# --selftest montava base/overlay INCOMPATIVEIS - um mutante que a
+# removesse por inteiro passava 100% sem ser pego). Cria uma sobreposicao
+# cujo backing file de VERDADE e' um disco DIFERENTE do que e' passado
+# como `--base` - o cenario exato que a guarda existe para recusar.
+selftest_e_recusa_backing_incompativel() {
+  local work_dir="$1" stub_dir base_passado base_real_do_overlay overlay backup lock_file saida rc
+
+  stub_dir="${work_dir}/bi-bin"
+  mkdir -p "$stub_dir"
+  cat >"${stub_dir}/virsh" <<'STUB'
+#!/usr/bin/env bash
+echo "desligado"
+exit 0
+STUB
+  chmod +x "${stub_dir}/virsh"
+
+  base_passado="${work_dir}/bi-base-passado.qcow2"
+  base_real_do_overlay="${work_dir}/bi-base-real.qcow2"
+  overlay="${work_dir}/bi-overlay.qcow2"
+  backup="${work_dir}/bi-backup.qcow2"
+  lock_file="${work_dir}/bi.lock"
+  qemu-img create -f qcow2 -- "$base_passado" 1M >/dev/null
+  qemu-img create -f qcow2 -- "$base_real_do_overlay" 1M >/dev/null
+  # a sobreposicao e' filha de base_real_do_overlay, NUNCA de base_passado
+  qemu-img create -f qcow2 -b "$base_real_do_overlay" -F qcow2 -- "$overlay" >/dev/null
+
+  echo ">>> RECUSA-BACKING-INCOMPATIVEL: --base='${base_passado}', mas o backing REAL da sobreposicao e' '${base_real_do_overlay}' -- esperado RECUSAR, nada de commit"
+  # falso-positivo: passado por NOME a consolidar_overlay, que le por
+  # nameref (local -n _reg="$1"); o shellcheck nao rastreia esse uso
+  # indireto (medido: sinalizava so' duas das seis ocorrencias
+  # identicas, prova de que a deteccao estatica nao alcanca este
+  # padrao).
+  # shellcheck disable=SC2034
+  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base_passado" [overlay]="$overlay" [backup]="$backup")
+  saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
+  rc=$?
+  echo "$saida" | tail -5
+  echo ">>> codigo obtido (esperado != 0): ${rc}"
+
+  local ok=1
+  [ "$rc" -eq 0 ] && ok=0
+  [ -e "$backup" ] && { echo "RECUSA-BACKING-INCOMPATIVEL FALHOU: copia de seguranca foi criada mesmo com backing incompativel."; ok=0; }
+  # a sobreposicao nao pode ter sido consumida pelo commit, e o backing
+  # dela continua sendo o disco REAL (nunca o base_passado errado)
+  local backing_apos
+  backing_apos="$(qemu-img info -- "$overlay" 2>/dev/null | grep -i "backing file:" | sed 's/.*backing file: *//')"
+  if [ -z "$backing_apos" ]; then
+    echo "RECUSA-BACKING-INCOMPATIVEL FALHOU: a sobreposicao perdeu o backing file (parece ter sido commitada)."
+    ok=0
+  elif [ "$backing_apos" != "$base_real_do_overlay" ]; then
+    echo "RECUSA-BACKING-INCOMPATIVEL FALHOU: o backing file da sobreposicao mudou para algo inesperado (${backing_apos})."
+    ok=0
+  fi
+
+  if [ "$ok" -eq 1 ]; then
+    echo "RECUSA-BACKING-INCOMPATIVEL OK: recusou, nunca tocou a sobreposicao nem criou copia de seguranca."
+    return 0
+  fi
+  return 1
+}
+
 selftest_e_consolidacao_completa() {
   local work_dir="$1" base overlay backup lock_file stub_dir
   local marca_overlay="MARCA-DA-SOBREPOSICAO-v6a"
@@ -493,6 +557,8 @@ selftest() {
   echo
   selftest_e_recusa_copia_corrompida "$work_dir" || ok=0
   echo
+  selftest_e_recusa_backing_incompativel "$work_dir" || ok=0
+  echo
   local rc_completa
   selftest_e_consolidacao_completa "$work_dir"
   rc_completa=$?
@@ -504,7 +570,7 @@ selftest() {
   echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: as quatro provas (recusa-ligada, recusa-sem-trava, recusa-copia-corrompida, consolidacao-completa) se comportaram como esperado."
+    echo "SELFTEST OK: as cinco provas (recusa-ligada, recusa-sem-trava, recusa-copia-corrompida, recusa-backing-incompativel, consolidacao-completa) se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos uma prova nao se comportou como esperado."

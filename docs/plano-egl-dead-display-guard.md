@@ -18,9 +18,11 @@
 
 ## 1. Pesquisa (L-22, L-43; L-29 só para aprender)
 
-### 1.1 O Mesa, na versão exata do container (FATO, fonte lida)
+### 1.1 O Mesa do container e do hospedeiro (FATO, fonte lida)
 
-Container: `FROM fedora:44` (`tests/container/Containerfile:1085`) com `mesa-dri-drivers`, `mesa-libEGL` (`:1096-1100`); máquina do líder: `mesa-libEGL-26.2.2-6.fc44`, `libwayland-client-1.26.0-1.fc44` (medido com `rpm -q`). Fontes baixadas: `https://gitlab.freedesktop.org/mesa/mesa/-/raw/mesa-26.2.2/src/egl/drivers/dri2/platform_wayland.c` (3338 linhas) e o mesmo arquivo em `main` em 24/09/2026, **idêntico byte a byte** (`cmp`): o defeito não está corrigido a montante.
+**Correção (L-27), 24/09 ~15:2x:** a primeira versão deste título dizia "na versão exata do container" e atribuía ao container o Mesa 26.2.2. **Era inferência minha, e errada:** a 26.2.2-6 é a do hospedeiro do líder. Medido pelo `impl-egl-guard`: a imagem `fedora:44` do container tem **Mesa 26.1.8-1.fc44**. **Conferido por mim depois da correção:** `platform_wayland.c` nas tags `mesa-26.1.8` e `mesa-26.2.2` e no `main` de 24/09 tem o mesmo sha256 (`65011d90...cad53`), então toda linha citada abaixo vale para as três versões, e o defeito existe no container, no hospedeiro e a montante.
+
+Container: `FROM fedora:44` (`tests/container/Containerfile:1085`) com `mesa-dri-drivers`, `mesa-libEGL` (`:1096-1100`), Mesa 26.1.8-1.fc44 (medido pelo `impl-egl-guard`); hospedeiro do líder: `mesa-libEGL-26.2.2-6.fc44`, `libwayland-client-1.26.0-1.fc44` (medido com `rpm -q`; a versão da libwayland do container não foi medida). Fontes baixadas: `https://gitlab.freedesktop.org/mesa/mesa/-/raw/mesa-26.2.2/src/egl/drivers/dri2/platform_wayland.c` (3338 linhas) e o mesmo arquivo em `main` em 24/09/2026, **idêntico byte a byte** (`cmp`): o defeito não está corrigido a montante.
 
 - `platform_wayland.c:3076-3121`, `dri2_wl_swrast_swap_buffers_with_damage`:
   - `:3084` `(void)swrast_update_buffers(dri2_surf);` **descarta o retorno**.
@@ -85,6 +87,7 @@ Container: `FROM fedora:44` (`tests/container/Containerfile:1085`) com `mesa-dri
 | `proc_address`, `egl_surface_pixel_size`, `apply_option`, `option_support`, `gpu`, `present_would_skip` | `:985-1071`, `:881-893` | Não conversam com o fio (`eglGetProcAddress` sem display; `eglQuerySurface` local; o resto não chama EGL) | Não proteger; ausência declarada |
 
 **Conclusão (FATO + INF, com a sequência que o teste vermelho vai confirmar):** no `gl_context_parity_test` pelo relé com a variante, a troca 1 (`vsync=on`, `present_immediately`) comita o buffer sem confirmação; o relé injeta `xdg_surface.error 3` e fecha a escrita (`wire_relay_connection_set.cpp`, `forward_client_message`: `client.write_once(error_bytes)`, `client.shutdown_write()`). A troca 2 é a primeira do laço `vsync=off` (`gl_context_parity_test.cpp:484-503`), que é exatamente `:920`, a linha do backtrace. **Previsão (INF):** o Mesa lê o erro na espera do `throttle` da troca 2 e devolve `EGL_TRUE`; o produto responde `presented`; cada troca seguinte prende mais um dos 4 buffers (o compositor nunca os libera); na troca em que os 4 estão presos, `swrast_update_buffers` falha e `:3104` desreferencia nulo. **Confirmação barata:** a sub-fatia S0 conta em qual troca a queda acontece; o esperado é a troca 4 ou 5 do processo.
+**Confirmado (FATO, `impl-egl-guard`, 24/09 ~15:2x):** a fixtura de S0 com a invariante desligada, numa cópia, sem relé e sem variante, sai com código 139 **dentro da 4ª chamada** a `swap_buffers`. Backtrace simbolizado (`eu-addr2line` + debuginfod, contra a `libEGL_mesa` da imagem, Mesa 26.1.8): `#0 0x1e2b4 dri2_wl_swrast_get_backbuffer_data` (inlined em `dri2_wl_swrast_swap_buffers_with_damage`, `platform_wayland.c:3104`, de `:2945`); `#1 0x1e3e1 dri2_wl_swrast_swap_buffers :3128`; `#2 0x14e79 dri2_swap_buffers egl_dri2.c:1656`; `#3 0x93c4 eglSwapBuffers eglapi.c:1447`. É a leitura da seção 1.1, linha por linha.
 
 ---
 

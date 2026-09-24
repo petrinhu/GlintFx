@@ -64,6 +64,20 @@
 # `grep -n '\[' tests/CMakeLists.txt` antes de escrever este modulo -
 # toda ocorrencia e' `${...}` ou `[[...]]`/`#[[...]]`).
 #
+# Um comentario ou argumento de colchete NUNCA FECHADO (`#[=[` sem o
+# `]=]` correspondente em lugar nenhum do resto do texto) engole
+# silenciosamente todo o restante do arquivo como conteudo do bracket
+# (achado da revisao adversarial do main, 24/09/2026) - `_bracket_
+# close_end()` cai no seu proprio fallback "nao achou, consome ate o
+# fim do texto" (documentado na propria funcao), e strip_comments()
+# nunca reprova por isso. **Isto nunca morde um `tests/CMakeLists.txt`
+# real**: o proprio `cmake` reprova o `configure` inteiro num bracket
+# nao fechado (erro de parse fatal, antes de qualquer alvo existir),
+# entao um CMakeLists.txt deste tipo nunca chega a ser commitado -
+# mas um FRAGMENTO sintetico de teste (ex.: um autoteste que monta um
+# `cmake_text` incompleto por engano) passaria por este lexer sem
+# nenhum aviso, silenciosamente errado.
+#
 # Usage:
 #   cmake_lexer.py --selftest
 

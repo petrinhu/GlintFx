@@ -5652,6 +5652,20 @@ set_tests_properties(cmake_lexer_selftest PROPERTIES
     LABELS selftest
     FAIL_REGULAR_EXPRESSION "FALHOU")
 
+# CLAIM-CITATIONS sub-fatia E1: inventario fechado de nomes de teste
+# (add_test(NAME ...)/glintfx_add_test() de tests/CMakeLists.txt via
+# cmake_lexer, fixturas do container, casos GLINTFX_TEST do harness
+# proprio) - fundacao que E3 (fora desta ordem) vai consumir para
+# validar toda citacao "Proved by: <nome>" em cabecalho publico.
+add_test(
+    NAME claim_citations_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_name_inventory.py" --selftest
+)
+set_tests_properties(claim_citations_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
+
 # FIM DESTE ARQUIVO, DE PROPOSITO (LAYERS-ORACLE-REPORT J2): a
 # propriedade de DIRETORIO "TESTS" e' a lista, mantida pelo proprio
 # CMake, de todo nome passado a add_test() neste diretorio ate aqui -

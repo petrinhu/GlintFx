@@ -37,17 +37,25 @@
 # 0/1/2 - ver a tabela completa abaixo) se algum nome foi rejeitado, mesmo
 # que os demais arquivos tenham sido coletados com sucesso.
 #
-# [A VERIFICAR] O LIMITE REAL DE BYTES POR CHAMADA guest-file-read NAO FOI
-# MEDIDO NESTA MAQUINA -- a maquina esta desligada nesta sessao (ordem do
-# lider, "dirigir daqui, sem ligar ao servidor", 22/09/2026) e a medicao so
-# e' possivel com o convidado vivo. O default abaixo (CHUNK_BYTES_PADRAO)
-# reaproveita por PALPITE o mesmo valor que transferir-executar.sh (mesma
-# pasta) ja usa para guest-file-WRITE -- mas aquele valor foi medido para
-# ESCRITA, nao para LEITURA, e os dois lados do protocolo podem ter limites
-# diferentes. Nao presuma este numero como medido; --chunk-bytes existe
-# exatamente para nao cravar um palpite nao verificado no corpo do script.
-# A medicao real fica pendente para a sessao de arranque que ligar a
-# maquina (mesma pendencia que a secao 7 do plano ja nomeia).
+# LIMITE DE BYTES POR CHAMADA guest-file-read: MEDIDO em 23/09/2026, contra
+# a maquina real (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`,
+# secao "P4, em detalhe" - sub-fatia V-5, sessao 4). Sequencia testada:
+# 65536, 1 MiB e 2 MiB (2.097.152 bytes) ACEITOS, com `return.count` batendo
+# e nenhum erro; 4 MiB (4.194.304 bytes) RECUSADO pelo RPC do libvirt com
+# "Unable to encode message payload" - o campo que carrega o `buf-b64` da
+# resposta bate no teto de uma STRING individual dentro da mensagem RPC,
+# `VIR_NET_MESSAGE_STRING_MAX = 4194304`, definido em
+# `src/rpc/virnetprotocol.x` do libvirt
+# (https://github.com/libvirt/libvirt/blob/master/src/rpc/virnetprotocol.x),
+# com o comentario *"This is an arbitrary limit designed to stop the decoder
+# from trying to allocate unbounded amounts of memory when fed with a bad
+# message"*. O default abaixo (CHUNK_BYTES_PADRAO) passa a ser o MAIOR
+# tamanho TESTADO que passou limpo, **2.097.152 bytes (2 MiB)** - nao mais
+# palpite. A fronteira teorica exata (base64 de 3.145.728 bytes crus cruza
+# os 4.194.304 do STRING_MAX) fica so' como pista para quem quiser apertar
+# o numero depois; nao foi testada diretamente, e por isso nao vira o
+# default. `--chunk-bytes` continua existindo para quem precisar de outro
+# valor, mas o corpo do script deixa de citar um numero nao verificado.
 #
 # Codigos de saida (achado do team-lead, 22/09/2026: o codigo 2 chegou a
 # significar DUAS coisas - uso incorreto E rejeicao de nome hostil -, e
@@ -94,7 +102,7 @@ set -o pipefail
 
 DOM="glintfx-win11-lab"
 CONNECT="qemu:///session"
-CHUNK_BYTES_PADRAO=65536   # [A VERIFICAR] - ver o paragrafo acima, nao medido para LEITURA.
+CHUNK_BYTES_PADRAO=2097152   # 2 MiB - medido (V-5, D-6(a)), ver o paragrafo acima.
 PRAZO_PADRAO=60
 
 # Piso de tentativas (D-8), mesmo valor e mesma razao de rodar-caminho.sh/
@@ -529,6 +537,12 @@ case "$EXECUTE" in
     ;;
   guest-file-read)
     COUNT=$(echo "$JSON" | jq -r '.arguments.count')
+    # V-5d (BLOCO-PADRAO-2MIB, achado do team-lead 23/09/2026: a prova
+    # anterior conferia o VALOR da constante, nunca o USO - grava cada
+    # count PEDIDO DE VERDADE, para quem chama poder conferir o que a
+    # producao realmente mandou, nao o que a constante diz que deveria
+    # mandar).
+    echo "$COUNT" >>"${STATE_DIR}/counts-recebidos"
     OFFSET_FILE="${STATE_DIR}/offset-77"
     OFFSET=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
     if [ "$CENARIO" = "truncado" ] && [ "$OFFSET" -gt 0 ]; then
@@ -609,6 +623,12 @@ case "$EXECUTE" in
     ;;
   guest-file-read)
     COUNT=$(echo "$JSON" | jq -r '.arguments.count')
+    # V-5d (BLOCO-PADRAO-2MIB, achado do team-lead 23/09/2026: a prova
+    # anterior conferia o VALOR da constante, nunca o USO - grava cada
+    # count PEDIDO DE VERDADE, para quem chama poder conferir o que a
+    # producao realmente mandou, nao o que a constante diz que deveria
+    # mandar).
+    echo "$COUNT" >>"${STATE_DIR}/counts-recebidos"
     OFFSET_FILE="${STATE_DIR}/offset-77"
     OFFSET=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
     TAMANHO=$(stat -c%s "$CONTEUDO")
@@ -978,12 +998,74 @@ selftest_truncado() {
   return 1
 }
 
+# V-5d (docs/plano-fecho-w7b.md, D-6(a), decisao do team-lead 23/09/2026
+# 20:48): o bloco padrao do coletor deixa de ser palpite (65536, nunca
+# medido para LEITURA - o comentario de CHUNK_BYTES_PADRAO ja avisava
+# disso havia semanas) e passa a ser o maior tamanho MEDIDO limpo contra a
+# maquina real na V-5 (`/var/tmp/glintfx-plan/win-lab-estreia/
+# V5-RELATORIO.md`, secao "P4, em detalhe"): 2.097.152 bytes (2 MiB).
+# Tamanhos maiores (4 MiB) batem em VIR_NET_MESSAGE_STRING_MAX (constante
+# do libvirt, `src/rpc/virnetprotocol.x`, valor 4194304) e o RPC recusa
+# com "Unable to encode message payload" antes mesmo de chegar ao agente.
+# CONFERE O USO, NAO SO O VALOR (achado do team-lead, 23/09/2026: uma
+# prova que so olha a constante e' cega ao coletor IGNORAR a constante e
+# continuar pedindo 65536 na chamada real - "afirma que mede e nao mede").
+# SEGUNDO ACHADO do team-lead, na mesma tarde: a primeira versao desta
+# prova chamava `_ler_arquivo_remoto` DIRETO, pulando o DESPACHO da CLI
+# (o trecho final do script, que decide `CHUNK_BYTES="$CHUNK_BYTES_PADRAO"`
+# quando `--chunk-bytes` nao e' passado) - um mutante que trocasse esse
+# UM PONTO especifico (o despacho) por um literal continuaria passando,
+# porque a prova nunca exercitava aquele codigo. Corrigido: chama o
+# SCRIPT COMO SUBPROCESSO (`$SCRIPT_PATH`, mesmo padrao de
+# selftest_codigos_distintos acima), sem `--chunk-bytes` nenhum, com o
+# duble de virsh no PATH - exatamente como um usuario real chamaria.
+#
+# O duble de virsh (escrever_duble_virsh, acima) grava cada `count`
+# PEDIDO DE VERDADE em `${STATE_DIR}/counts-recebidos`; esta prova
+# compara o PRIMEIRO count recebido contra o numero ESPERADO fixo,
+# 2097152 -- nunca contra a propria variavel (se a variavel regredisse a
+# 65536, comparar contra ela mesma esconderia a regressao).
+selftest_bloco_padrao_2mib() {
+  local work_dir="$1" stub_dir state_dir conteudo destino_dir primeiro_count saida rc ok=1
+
+  stub_dir="${work_dir}/bloco-bin"
+  state_dir="${work_dir}/bloco-state"
+  destino_dir="${work_dir}/bloco-destino"
+  mkdir -p "$stub_dir" "$state_dir" "$destino_dir"
+  escrever_duble_virsh "$stub_dir"
+
+  conteudo="${state_dir}/conteudo.bin"
+  head -c 3145728 /dev/urandom >"$conteudo"   # 3 MiB: maior que os 2 MiB do bloco padrao
+
+  echo ">>> BLOCO-PADRAO-2MIB: o SCRIPT COMO SUBPROCESSO, sem --chunk-bytes, tem de PEDIR count=2097152 no primeiro guest-file-read (exercita o DESPACHO da CLI, nao so a funcao de leitura por dentro)"
+  saida="$(DUBLE_STATE_DIR="$state_dir" PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" 'C:\Users\glintfx\resultados' "$destino_dir" 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> rc do script (esperado 0): ${rc}"
+
+  primeiro_count="$(head -1 "${state_dir}/counts-recebidos" 2>/dev/null)"
+  echo "primeiro count PEDIDO DE VERDADE ao agente: ${primeiro_count} (esperado 2097152, literal fixo)"
+
+  if [ "$rc" -ne 0 ]; then
+    echo "BLOCO-PADRAO-2MIB FALHOU: o script (subprocesso) falhou (rc=${rc})."
+    ok=0
+  elif [ "$primeiro_count" != "2097152" ]; then
+    echo "BLOCO-PADRAO-2MIB FALHOU: o primeiro count pedido foi '${primeiro_count}', nao 2097152 -- ou a constante regrediu, ou o despacho/a chamada ignora a constante e usa outro valor."
+    ok=0
+  else
+    echo "BLOCO-PADRAO-2MIB OK: o despacho real, sem --chunk-bytes, pediu 2097152 de verdade."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
 selftest() {
   local work_dir ok=1
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
   trap 'rm -rf -- "$work_dir"' RETURN
 
-  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA) -- diretorio de trabalho: ${work_dir} ==="
+  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA, BLOCO-PADRAO-2MIB) -- diretorio de trabalho: ${work_dir} ==="
   echo
   selftest_e6 "$work_dir" || ok=0
   echo
@@ -999,9 +1081,11 @@ selftest() {
   echo
   selftest_truncado "$work_dir" || ok=0
   echo
+  selftest_bloco_padrao_2mib "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU e SAIDA-TRUNCADA se comportaram como esperado."
+    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA e BLOCO-PADRAO-2MIB se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

@@ -212,6 +212,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Fedora (primario) - estatico
             cc: c++
             c_compiler: cc
@@ -222,6 +223,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
           # Ubuntu deixou de precisar de instalacao manual de CMake em
           # 27/08/2026: a imagem passou de ubuntu:24.04 (pinada) para
           # ubuntu:latest, por ordem do lider (ESCOPO.md S1, PKG-NATIVE
@@ -254,6 +256,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Ubuntu - estatico
             cc: g++-14
             c_compiler: gcc-14
@@ -265,6 +268,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
           - nome: Arch - compartilhado
             cc: c++
             c_compiler: cc
@@ -275,6 +279,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Arch - estatico
             cc: c++
             c_compiler: cc
@@ -285,6 +290,7 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
           - nome: CachyOS - compartilhado
             cc: c++
             c_compiler: cc
@@ -295,6 +301,7 @@ jobs:
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: CachyOS - estatico
             cc: c++
             c_compiler: cc
@@ -305,9 +312,62 @@ jobs:
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
     steps:
+      # ROTACAO-ESPELHO-CACHYOS (GODS_LAWS.md L-42, pesquisado antes de
+      # consertar - segunda falha do mesmo motivo, runs 35937778448 e
+      # 35939021453: github.com/CachyOS/distribution#443 e o topico do
+      # forum CachyOS "Problems with pacman and CachyOS keyring"
+      # 27/09/2025, ambos com o MESMO sintoma). Reproduzido aqui em
+      # container local (23-24/09/2026): "error: cachyos: signature from
+      # CachyOS <admin@cachyos.org> is invalid" nos dois jobs CachyOS.
+      # Medido, nao suposto: o .db do repo cachyos e IDENTICO (mesmo
+      # md5sum) entre os espelhos testados, mas cada espelho reassina em
+      # horario proprio, e 2 dos 4 espelhos testados tinham assinatura
+      # BAD contra esse MESMO .db (gpg --verify direto), enquanto os
+      # outros dois tinham assinatura GOOD - nao e chave expirada nem
+      # keyring desatualizado no cliente, e o pacman NAO cai sozinho para
+      # o proximo espelho da lista quando a assinatura do banco de dados
+      # falha (so faz fallback em erro de download; confirmado aqui com
+      # dois Server explicitos, bom depois de ruim, e ele falhou no
+      # primeiro sem tentar o segundo). SigLevel = Never/TrustAll fica
+      # PROIBIDO (calaria o portao de seguranca da L-02/L-40) - a defesa
+      # e rotacionar cachyos-mirrorlist e tentar de novo, o que basta
+      # porque a dessincronia e por espelho e transitoria. Escopo restrito
+      # as imagens `cachyos/*`: Fedora/Ubuntu/Arch continuam com uma unica
+      # tentativa, mesmo comportamento de antes (nao mude o que nao
+      # falha).
       - name: Instalar toolchain
-        run: ${{ matrix.instalar }}
+        shell: bash
+        run: |
+          set +e
+          maximo=1
+          if [[ "${{ matrix.imagem }}" == cachyos/* ]]; then
+            maximo=10
+          fi
+          tentativa=0
+          while [ "$tentativa" -lt "$maximo" ]; do
+            tentativa=$((tentativa + 1))
+            echo "=== instalar toolchain, tentativa $tentativa/$maximo ==="
+            ${{ matrix.instalar }} >/tmp/instalar_toolchain.log 2>&1
+            codigo=$?
+            cat /tmp/instalar_toolchain.log
+            if [ "$codigo" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$tentativa" -lt "$maximo" ] && grep -q "signature from" /tmp/instalar_toolchain.log; then
+              echo "::warning::assinatura do banco de dados CachyOS invalida (espelho dessincronizado), rotacionando cachyos-mirrorlist e tentando de novo"
+              lista=/etc/pacman.d/cachyos-mirrorlist
+              primeira=$(grep -n "^Server" "$lista" | head -1 | cut -d: -f1)
+              if [ -n "$primeira" ]; then
+                sed -n "${primeira}p" "$lista" >>"$lista"
+                sed -i "${primeira}d" "$lista"
+              fi
+              continue
+            fi
+            echo "falha em 'Instalar toolchain' (codigo $codigo), sem sinal de assinatura CachyOS invalida ou tentativas esgotadas"
+            exit "$codigo"
+          done
 
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
       # 19/09/2026): esta matriz roda a suite ctest INTEIRA sem filtro
@@ -459,7 +519,7 @@ jobs:
           CC: ${{ matrix.c_compiler }}
         run: |
           set -eux
-          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
           set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
@@ -561,6 +621,46 @@ jobs:
         with:
           name: measured-linux-${{ strategy.job-index }}
           path: measured_linux.txt
+          retention-days: 7
+
+      # RELATORIO-ORACULO (L-5h, docs/plano-layers-l5-adendo-
+      # calibracao.md secao 5.1 item 2; decisao do lider em
+      # DECISOES_AUTONOMAS.md 23/09/2026 22:00, apos o veredito do run
+      # 35939021453 medir que `ctest --output-on-failure` engole a
+      # saida do oraculo quando ele PASSA): mesmo mecanismo do MEASURED-
+      # COLLECTOR acima - le o snapshot PNC-FASES-SNAPSHOT ja tirado por
+      # "Build e testes", NUNCA re-roda o oraculo. So' roda nas pernas
+      # onde `oracle_flag` esta ligado (o oraculo nunca roda no modo
+      # estatico - docs/plano-layers-l5.md §6.1).
+      - name: Relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        run: |
+          set -eu
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if [ ! -f "$log" ]; then
+            echo "snapshot de log preservado nao encontrado: $log" >&2
+            exit 1
+          fi
+          grep '^check_layers_oracle.py:' "$log" > layers_oracle_report.txt || true
+          linhas=$(wc -l < layers_oracle_report.txt)
+          echo "linhas do relatorio do oraculo encontradas: $linhas"
+          if [ "$linhas" -eq 0 ]; then
+            echo "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          {
+            echo "### Relatorio do oraculo de camadas - Linux (${{ matrix.modo }})"
+            echo '```'
+            cat layers_oracle_report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: layers-oracle-report-linux-${{ strategy.job-index }}
+          path: layers_oracle_report.txt
           retention-days: 7
 
   windows:
@@ -1383,15 +1483,32 @@ jobs:
       # (GODS_LAWS.md L-09 regra 4 - render por software, reproduzivel
       # em qualquer runner); check_isolation.sh confere esse HostConfig
       # exato por lista branca.
+      # CONT-WARMUP C-1 conserto (docs/plano-fecho-w7b.md D-10,
+      # GODS_LAWS.md L-17 "gemeo"): este passo tinha o MESMO defeito
+      # que tests/container/run_compositor.sh's own wait_for_
+      # compositor_ready() ja tinha consertado por dentro do container
+      # (commit de72850) - um laco de `docker exec ... pgrep -x
+      # kwin_wayland` prova que o PROCESSO existe, nunca que ele ja
+      # ACEITA conexao no soquete. O que segurava este passo especifico
+      # ate aqui era a mesma garantia ACIDENTAL, nao declarada, que o
+      # comentario de run_compositor.sh ja nomeia: os passos seguintes
+      # (isolamento, depois o smoke test de verdade) davam tempo de
+      # sobra antes de qualquer um deles precisar de uma conexao real.
+      # Trocado pela MESMA sonda que compositor_probe() usa por dentro
+      # (`timeout N wayland-info`, com as env vars que um `docker exec`
+      # nao herda do ENTRYPOINT sozinho) - agora prova conexao real
+      # aqui tambem, nunca so' a existencia do processo.
       - name: Sobe o compositor limpo (nenhuma montagem do host)
         run: |
           set -eux
           docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
           for _ in $(seq 1 30); do
-            docker exec glintfx-wltest-clean-${{ matrix.perna }} pgrep -x kwin_wayland >/dev/null 2>&1 && break
+            docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
+              glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null 2>&1 && break
             sleep 1
           done
-          docker exec glintfx-wltest-clean-${{ matrix.perna }} pgrep -x kwin_wayland
+          docker exec -e XDG_RUNTIME_DIR=/run/glintfx-test -e WAYLAND_DISPLAY=glintfx-test \
+            glintfx-wltest-clean-${{ matrix.perna }} timeout 5 wayland-info >/dev/null
 
       # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
       # interagir. Este passo roda antes do smoke test de proposito.
@@ -2683,6 +2800,59 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --sanitizer-only
 
+  # GATE-GL-CROSS-COVERAGE (achado 3 da revisao adversarial de
+  # 23/09/2026, /var/tmp/glintfx-plan/revisao-gl-codegen-host.md secao
+  # 3): antes deste job, CMAKE_CROSSCOMPILING era falso nas CINCO
+  # pernas desta matriz (windows-latest compila NATIVAMENTE, os quatro
+  # alvos Linux tambem) - as quatro vias que GL-CODEGEN-HOST-TOOL
+  # existe para entregar (cmake/GlintfxGlCodegenHostTool.cmake, D-11 de
+  # docs/plano-fecho-w7b.md) nunca eram exercitadas por NENHUMA
+  # execucao automatica, so por comando manual documentado num
+  # relatorio. So Fedora, alvo primario (GODS_LAWS.md L-04) - mesmo
+  # raciocinio que ja isola `lint`/`sanitizer`/`gitleaks` acima/abaixo:
+  # a mecanica de resolucao cruzada nao muda por distro Linux, e nenhum
+  # dos quatro alvos Linux prova algo especifico de distro aqui.
+  #
+  # mingw64-gcc-c++ traz consigo mingw64-filesystem (o pacote que
+  # instala /usr/share/mingw/toolchain-mingw64.cmake), mingw64-gcc,
+  # mingw64-crt, mingw64-headers, mingw64-binutils e
+  # mingw64-winpthreads como dependencias - nenhuma delas muda o que
+  # glintfx linka em producao (GODS_LAWS.md L-07): e toolchain do
+  # AMBIENTE DE BUILD, a mesma categoria que o pacote libasan/libubsan
+  # do job `sanitizer` acima ja e.
+  #
+  # tests/tools/check_gl_codegen_host_cross.sh e quem faz o trabalho de
+  # verdade (configura+builda cruzado de verdade, quatro vias,
+  # comparando por cmp com uma referencia nativa dourada, mais o gate
+  # permanente de regressao do achado critico desta rodada - rebuild
+  # incremental do modo "nested" tem que regenerar o header apos
+  # mudanca de fonte, nunca ficar obsoleto em silencio). Chamado
+  # DIRETAMENTE, nao via `ctest`: o toolchain MinGW e ferramenta de
+  # ambiente especifica do Fedora, a mesma razao pela qual
+  # `lint`/`sanitizer`/`gitleaks` tambem nao rodam via `ctest` nas
+  # outras pernas da matriz.
+  gl-codegen-host-cross:
+    name: GL-CODEGEN-HOST-TOOL (Fedora - construcao cruzada MinGW, 4 vias)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40  # classe `compilacao` - ver o bloco de classes logo abaixo de `jobs:`
+    if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
+    container: fedora:latest
+    steps:
+      - name: Instalar toolchain (nativo + cruzado MinGW)
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel libglvnd-devel mingw64-gcc-c++
+
+      - uses: actions/checkout@v7
+
+      - name: check_gl_codegen_host_cross.sh (Ninja)
+        run: |
+          set -eux
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          export TMPDIR=/var/tmp
+          tests/tools/check_gl_codegen_host_cross.sh \
+            "$GITHUB_WORKSPACE" /usr/bin/c++ /usr/share/mingw/toolchain-mingw64.cmake Ninja
+
   # LACUNA 1 (GODS_LAWS.md L-04, medido pelo lider antes desta fatia):
   # o job `sanitizer` acima so roda no Fedora/GNU-Clang - MSVC nunca
   # tinha sido exercitado sob nenhum sanitizer. GlintfxCompileOptions.cmake
@@ -3014,7 +3184,7 @@ jobs:
       - name: Configurar e compilar (Debug)
         shell: pwsh
         run: |
-          cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
+          cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DGLINTFX_LAYERS_ORACLE=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-debug
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -3049,11 +3219,50 @@ jobs:
           }
           Write-Host "ok: $total teste(s) no build Debug."
 
+      # PNC-FASES-SNAPSHOT (L-5h, gemeo do mesmo item do job `windows` -
+      # ver o comentario la para a medicao completa): copia LastTest.log
+      # ANTES de decidir sair, senao o relatorio do oraculo (abaixo)
+      # sumiria justo se a suite reprovasse.
       - name: Testes (Debug, suite inteira)
         shell: pwsh
         run: |
           ctest --test-dir build-debug --output-on-failure
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $ctest_ec = $LASTEXITCODE
+          Copy-Item (Join-Path "build-debug" "Testing/Temporary/LastTest.log") (Join-Path "build-debug" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")
+          if ($ctest_ec -ne 0) { exit $ctest_ec }
+
+      # RELATORIO-ORACULO (L-5h): mesmo mecanismo dos jobs `linux`/
+      # `windows` - le o snapshot tirado pelo passo acima, nunca re-roda
+      # o oraculo. Este job liga GLINTFX_LAYERS_ORACLE incondicional
+      # (sem matrix), entao roda sempre, sem guarda de oracle_flag.
+      - name: Relatorio do oraculo de camadas (Debug)
+        if: always()
+        shell: pwsh
+        run: |
+          $log = Join-Path "build-debug" "Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if (-not (Test-Path $log)) {
+            Write-Error "snapshot de log preservado nao encontrado: $log"
+            exit 1
+          }
+          $linhas = @(Select-String -Path $log -SimpleMatch 'check_layers_oracle.py:')
+          Write-Host "linhas do relatorio do oraculo encontradas: $($linhas.Count)"
+          if ($linhas.Count -eq 0) {
+            Write-Error "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)"
+            exit 1
+          }
+          $linhas | ForEach-Object { $_.Line } | Set-Content -Path layers_oracle_report.txt
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "### Relatorio do oraculo de camadas - Windows Debug"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+          Get-Content -Path layers_oracle_report.txt | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '```'
+
+      - name: Publicar relatorio do oraculo de camadas (Debug)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layers-oracle-report-windows-debug
+          path: layers_oracle_report.txt
+          retention-days: 7
 
   # Item CLANG-JOB da onda W2 (25/08/2026): honra a promessa de robustez
   # entre compiladores diferentes da GODS_LAWS.md L-22 (o motivo dela e
@@ -3082,9 +3291,11 @@ jobs:
           - modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            oracle_flag: ""
     steps:
       - name: Instalar toolchain
         run: >-
@@ -3100,7 +3311,7 @@ jobs:
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
 
       # REBAIXAMENTO REMOVIDO em 22/09/2026 (TODO.md CLANG-INSTALL-
@@ -3158,10 +3369,56 @@ jobs:
       # rotulo, verde - medido em container antes deste commit: 216/216
       # sob Clang e sob GCC, ~112s de parede (bem abaixo do teto de 40
       # min desta classe).
+      # PNC-FASES-SNAPSHOT (L-5h, gemeo do mesmo item do job `linux` -
+      # ver o comentario la para a medicao completa): `set -eux` sozinho
+      # sairia ANTES de qualquer copia se o ctest reprovasse, e o
+      # relatorio do oraculo (abaixo) sumiria justo no caso que mais
+      # importa registrar. `set +e`/`set -e` em volta: precisa do codigo
+      # de saida REAL do ctest (GODS_LAWS.md L-45), nunca de variavel
+      # perdida por `set -e` abortando a linha.
       - name: ctest (${{ matrix.modo }})
         run: |
           set -eux
+          set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          ctest_ec=$?
+          set -e
+          cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          exit $ctest_ec
+
+      # RELATORIO-ORACULO (L-5h): mesmo mecanismo do job `linux` - le o
+      # snapshot tirado pelo passo acima, nunca re-roda o oraculo. So'
+      # roda na perna compartilhada (`oracle_flag` ligado).
+      - name: Relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        run: |
+          set -eu
+          log="${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
+          if [ ! -f "$log" ]; then
+            echo "snapshot de log preservado nao encontrado: $log" >&2
+            exit 1
+          fi
+          grep '^check_layers_oracle.py:' "$log" > layers_oracle_report.txt || true
+          linhas=$(wc -l < layers_oracle_report.txt)
+          echo "linhas do relatorio do oraculo encontradas: $linhas"
+          if [ "$linhas" -eq 0 ]; then
+            echo "nenhuma linha do oraculo no snapshot preservado - o oraculo nao rodou, ou a instrumentacao sumiu (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          {
+            echo "### Relatorio do oraculo de camadas - Clang (${{ matrix.modo }})"
+            echo '```'
+            cat layers_oracle_report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar relatorio do oraculo de camadas (${{ matrix.modo }})
+        if: always() && matrix.oracle_flag != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: layers-oracle-report-clang-${{ strategy.job-index }}
+          path: layers_oracle_report.txt
+          retention-days: 7
 
   gitleaks:
     name: Gitleaks (scan de segredo)

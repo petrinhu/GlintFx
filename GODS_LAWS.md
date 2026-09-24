@@ -253,7 +253,7 @@ Diante de dúvida ou de mais de uma opção viável, apresentar 2 a 3 alternativ
 
 **Data:** regra permanente. **Verbatim:** *"commite cada fatia e push cada onda completada"*.
 
-**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag continuam exigindo aval explícito no contexto.**
+**Commit local** a cada fatia entregue, citando o ID do item na mensagem. **Push** quando a onda fecha, depois do review e com os gates verdes. **Merge em `main` por PR e criação de tag, ao fim de onda com tudo verde, estão autorizados de forma permanente, sem nova pergunta** (terceira emenda, 22/09/2026, abaixo). Fora do fim de onda, continuam exigindo aval explícito no contexto.
 
 **EMENDA de 28/08/2026, ordem do líder. Verbatim:** *"qualquer push sem verificacao fica sendo branch. push / merge para main apenas apoś fim de onda com tudo verde"*.
 
@@ -283,7 +283,7 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 
 ⚠️ **"Tudo verde" é o conjunto, não a fatia.** Cada fatia ter passado o próprio portão **não substitui** a verificação de conjunto: é justamente onde fatias entregues em paralelo se atropelam, e onde uma contagem que cada uma ajustou sozinha deixa de bater.
 
-⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag continuam exigindo **aval explícito no contexto**. O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
+⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag fora do fim de onda continuam exigindo **aval explícito no contexto** (ao fim de onda com tudo verde, ver a terceira emenda). O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
 
 **Corolário de honestidade:** o agente **não decide** que "está verificado o bastante". Verificado significa **medido, com a saída à vista**; na dúvida, é ramo.
 
@@ -301,6 +301,19 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 **Vermelho nela bloqueia a onda inteira**, ainda que todas as outras linhas estejam ✅, e o conserto entra como fatia da **própria** onda — nunca é empurrado para a seguinte, porque isso seria a onda fechando com dívida.
 
 **É sempre a ÚLTIMA linha da onda**, por construção: depende de todas as outras. E o `Depende de` dela é a onda inteira, não um item específico.
+
+**TERCEIRA EMENDA, de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Verbatim, na ordem em que vieram:
+*"autorizo push/merge/tag ao fim de ondas"*; em seguida *"Ao fim da onda, a tag é sempre aumentar um ponto no segundo número"*. Essa segunda frase alteraria a L-26, e foi contestada antes (o aumento do segundo número avisa incompatibilidade ao consumidor, porque antes da 1.0 o pacote usa compatibilidade pela versão menor, e a subida para 0.5 tinha acabado de quebrar o consumidor de teste e deixar 8 trabalhos vermelhos; e o número deixaria de distinguir recurso de correção). Levada a escolha, o líder respondeu *"opcao 2 e nao precisa ficar me perguntando a cada tag"*: **a tabela da L-26 fica como está**, e o pedido de não ser perguntado alterava esta L-11, que foi contestada também (a marca é pública e na prática permanente; em 08/09 uma saiu antes do veredito do servidor). Confirmação final do líder, por `AskUserQuestion`: *"Confirmar a alteração"*.
+
+**A regra que fica:**
+
+| Momento | O que o agente faz |
+|---|---|
+| Fim de onda, com a linha `CI-VERDE-<onda>` fechada (todos os trabalhos do servidor lidos da ferramenta, nunca do painel) | **Merge em `main` e cria a marca, sem perguntar.** Relata depois. |
+| Número da marca | **Pela tabela da L-26**: recurso novo sobe o segundo; só correção sobe o terceiro; só construção, empacotamento ou teste sobe o quarto. Nunca "sempre o segundo". |
+| Onda em andamento | Continua valendo a primeira e a segunda emenda: ramo próprio, nunca `main`. |
+
+**O que esta emenda NÃO autoriza:** marca antes do veredito do servidor; marca no meio de onda; merge de onda com qualquer trabalho vermelho ou item fora de concluído. A autorização é para o fim de onda **com tudo verde**, e o portão de fechamento é o que prova isso, e não a impressão do agente.
 
 ## L-12
 
@@ -784,6 +797,8 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 1. **Dentro da onda, a sequência é a das linhas do `TODO.md`, de cima para baixo.** Não se escolhe a de maior valor, nem a mais fácil, nem a que já está meio pronta. A tabela foi ordenada por dependência e valor no momento em que foi montada; reordenar por conveniência do dia desfaz esse trabalho em silêncio.
 
    **AMPLIAÇÃO de 17/09/2026, ordem do líder, verbatim:** *"Nunca decidir pelo mais fácil, mas pelo mais completo e que satisfaça a comunidade e necessidades buscadas na web."* A regra acima proibia escolher a FATIA mais fácil; esta ampliação leva o mesmo critério para **dentro** da fatia, onde ele é mais fácil de burlar sem ninguém perceber: entre dois desenhos que passam nos mesmos testes, **vence o mais completo**, e completude se mede pela necessidade real de quem usa a biblioteca, pesquisada na web e em prior art, nunca pelo que dá menos trabalho hoje. **Consequência operacional:** quando duas saídas empatam em esforço aparente, a escolha vira DECISÃO e precisa de razão escrita; quando a mais completa custa mais, ela ainda vence, e só o líder pode cortá-la. Isto é o antídoto do defeito que ele mesmo diagnosticou nesta casa e que a memória `feedback_caminho_menos_dificil` registra: o agente converge para o caminho menos difícil e apresenta o resultado como se fosse o desenho certo.
+
+   **REFINAMENTO de 22/09/2026, ordem do líder, verbatim:** *"continue até fechar w8 ou até eu acordar. Se tiver dúvidas, peça a clevel opus effort high que busque na comunidade, na web, nos docs, nas bibliotecas semelhantes apenas para aprender, nunca linkar. NUNCA busque o caminho mais fácil, buque sempre o mais completo e que resolva as dores da comunidade, mesmo que crie nocas fatias ou ondas."* Três acréscimos ao critério de 17/09, e só eles: **(1) a dúvida tem dono** - não é o main quem a resolve por conta própria, é um C-level `opus` com esforço alto, **depois** de pesquisar comunidade, web, documentação e bibliotecas semelhantes (a pesquisa é para APRENDER, nunca para ligar nem copiar: L-29); **(2) o critério de completude é a dor da comunidade**, não só a necessidade de quem usa a biblioteca hoje - o que outros projetos do tipo erraram, reclamaram e consertaram tarde entra no desenho desde já; **(3) completude pode criar trabalho novo** - se a saída completa exige fatia ou onda que não existia, ela é criada e registrada, e isso **não** conta como expansão indevida de escopo (a L-32 continua limitando a UMA trilha paralela, mas não limita o tamanho do que a completude exige dentro do caminho). **A parte temporal da ordem** (*"até fechar w8 ou até eu acordar"*) vale para a sessão de 22/09/2026 e não é regra permanente; as outras três partes são.
 2. **Achou que uma fatia não pertence à onda? MOVA-A para outra onda, explicitamente, com o motivo escrito na própria linha.** O que está proibido é pular: deixar a fatia onde está e seguir para a próxima, porque isso deixa a onda com um buraco que ninguém vê — a linha continua ali, marcada como pendente, e a onda é declarada fechada em cima dela.
 
 **Por que a segunda metade existe, e ela é o coração da ordem:** pular e mover parecem a mesma coisa e não são. Pular é decisão invisível, tomada por conveniência, que não deixa rastro; mover é decisão registrada, que muda o plano de propósito e pode ser conferida depois. O líder não proibiu mudar de ideia sobre onde uma fatia mora — proibiu mudar de ideia **sem dizer**.
@@ -813,32 +828,35 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Data:** 22/08/2026, ordem do líder. **Verbatim:** *"lei cada vez que vai fazer uma fatia ou onda (depende do que eu pedir, se pedir só a fatia ou a onda inteira): main faz brainstorm comigo, clevel fable planeja/audita, main verifica/orquestra e despacha agentes para implementar o plano."*
 
+**EMENDA de 22/09/2026, ordem do líder, levada pela LEI DAS LEIS.** Na ordem *"Se tiver dúvidas, peça a clevel opus effort high..."* (texto inteiro no refinamento da L-32, mesma data), o C-level que planeja, audita e decide no lugar do líder deixa de ser o `fable` e passa a ser **`opus` com esforço alto**. Contestada antes de cumprir: o orquestrador também é Opus, e com o planejador da mesma família, quem planeja e quem confere passam a ter os mesmos pontos cegos prováveis. Confirmação do líder por `AskUserQuestion`: *"Confirmar a alteração"*. As citações verbatim de 22/08/2026 abaixo, que dizem `clevel fable`, ficam como registro datado do que foi dito; **o texto que manda, daqui em diante, é o desta emenda.** **Contrapeso que a troca exige:** como planejador e orquestrador passam a ser da mesma família, a re-verificação do main (L-12: sabotagem de família DIFERENTE da do implementador e do planejador) deixa de ser opcional em qualquer plano deste C-level.
+
+
 **Todo trabalho de produto passa por este ciclo de quatro passos, na ordem, sem pular nenhum.** O ciclo abre em cada **fatia** ou em cada **onda** — **quem define a unidade é o líder no pedido**, não o agente. Na dúvida sobre qual das duas ele quis, **pergunte antes de começar**; adivinhar o tamanho é começar errado.
 
 | # | Quem | O quê |
 |---|---|---|
 | **1** | **main + líder** | **Brainstorm.** O ciclo **não abre sem esta conversa.** Não é anúncio do que vou fazer: é discussão, com as opções na mesa e o líder decidindo o que entra. |
-| **2** | **C-level, modelo `fable`** | **Planeja e audita.** Produz o plano, marca porta de mão única, separa fato de inferência (L-27), e diz o que exige o líder (L-10). |
+| **2** | **C-level, modelo `opus`, esforço alto** | **Planeja e audita.** Produz o plano, marca porta de mão única, separa fato de inferência (L-27), e diz o que exige o líder (L-10). |
 | **3** | **main** | **Verifica e orquestra.** Confere o plano contra a árvore antes de despachar qualquer um. |
 | **4** | **agentes, modelo `sonnet`** | **Implementam o plano.** Nunca o main, nunca o C-level (L-18). |
 
 **Nenhum passo se funde com o outro.** As três misturas que esta lei existe para impedir:
 
 - **Pular o passo 1** e ir direto ao C-level porque "o próximo item é óbvio". Se fosse óbvio, o brainstorm custaria um minuto; quando não é, é ali que o escopo errado morre antes de custar uma onda.
-- **O `fable` implementar** o que ele mesmo planejou. Planejador e implementador são pessoas diferentes, e quem audita o próprio plano não o audita.
+- **O C-level `opus` implementar** o que ele mesmo planejou. Planejador e implementador são pessoas diferentes, e quem audita o próprio plano não o audita.
 - **O main implementar** por ser "rápido demais para delegar". É a exceção que come a regra, e ela já foi tentada nesta casa.
 
 **O passo 3 é o que impede o resto de virar teatro.** Relatório de agente não é prova: o main confere o plano contra os arquivos reais antes de despachar, e confere o entregável contra a árvore antes de aceitar. Nesta noite isso pegou duas coisas que os relatórios não mostravam — um resumo de dossiê que listava 7 fatias quando o corpo mudava 10, e um índice de manual com 24 âncoras mortas que o relatório dava por resolvido.
 
 **Ordem única aceita para pular um passo: a do líder, naquele pedido.** Agente nenhum encurta o ciclo por julgamento próprio, nem por pressa, nem por tamanho da fatia.
 
-### Modo autônomo: o `fable` senta na cadeira do líder, e o main vira escrivão
+### Modo autônomo: o C-level `opus` senta na cadeira do líder, e o main vira escrivão
 
 **Data:** 22/08/2026, ordem do líder. **Verbatim:** *"se eu pedir modo autonomo, clevel fable assume meu papel nas decisoes e main fica registrando as decisoes para eu avaliar quando sair de modo autonomo"*.
 
-**Quando ele pedir modo autônomo, o passo 1 muda de ocupante, e só ele:** o brainstorm passa a ser **main + C-level `fable`**, e **é o `fable` quem decide** o que teria ido ao líder por `AskUserQuestion` (L-10). Os passos 2, 3 e 4 continuam **idênticos** — inclusive a exigência de que quem planeja não implementa, e de que o main verifique antes de despachar e antes de aceitar.
+**Quando ele pedir modo autônomo, o passo 1 muda de ocupante, e só ele:** o brainstorm passa a ser **main + C-level C-level `opus`**, e **é o C-level `opus` quem decide** o que teria ido ao líder por `AskUserQuestion` (L-10). Os passos 2, 3 e 4 continuam **idênticos** — inclusive a exigência de que quem planeja não implementa, e de que o main verifique antes de despachar e antes de aceitar.
 
-**O main vira escrivão, e essa é a contrapartida do poder que o `fable` recebe.** Toda decisão tomada no lugar do líder é registrada **no instante em que é tomada**, em `DECISOES_AUTONOMAS.md` na raiz, com:
+**O main vira escrivão, e essa é a contrapartida do poder que o C-level `opus` recebe.** Toda decisão tomada no lugar do líder é registrada **no instante em que é tomada**, em `DECISOES_AUTONOMAS.md` na raiz, com:
 
 - **data e hora reais** (L-13), a **fatia ou onda** em que caiu, e **quem decidiu**;
 - **a pergunta que teria ido a ele**, escrita como teria sido feita;
@@ -850,16 +868,16 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 
 **Ao sair do modo autônomo, o main apresenta o registro inteiro ao líder**, decisão por decisão, para ele ratificar ou reverter. **Enquanto esse registro não for apresentado, a saída do modo não está completa** — não é relatório opcional, é entregável.
 
-**O que o `fable` NÃO herda, e a lista é fechada:**
+**O que o C-level `opus` NÃO herda, e a lista é fechada:**
 
 - **Lei.** *"Agente nenhum revoga, flexibiliza ou reinterpreta lei. Só o líder."* O modo autônomo dá a cadeira das **decisões de produto**, não a caneta das leis. `GODS_LAWS.md` só muda por ordem dele.
 - **Os portões de qualidade.** Implementador ≠ revisor ≠ orquestrador; revisão adversarial que **executa**; CI vermelho **bloqueia**. Autonomia é sobre **quem decide**, nunca sobre **quanto se verifica**.
-- **A obrigação de contra-argumentar.** O `fable` na cadeira do líder continua devendo ao projeto o "problema, risco, alternativa" quando algo estiver errado — inclusive contra si mesmo.
+- **A obrigação de contra-argumentar.** O C-level `opus` na cadeira do líder continua devendo ao projeto o "problema, risco, alternativa" quando algo estiver errado — inclusive contra si mesmo.
 - **Ação irreversível de fora do repositório** que a lei já cerca: merge em `main` por PR e criação de tag seguem pedindo aval, na forma que a **L-11** fixa.
 
 **O sinal do modo é o mecanismo de flag que já existe nesta máquina** (`autonomo_mode.py`, com escopos), ou a ordem direta dele na conversa. **Na dúvida se o modo está ligado, ele está desligado** — presumir autonomia é o erro caro, e presumir que não há é o barato.
 
-**Emenda de 09/09/2026 — o `fable` NÃO decide de cabeça: pesquisa PRIMEIRO, e o próprio aprendizado é o ÚLTIMO recurso.** Ordem do líder, verbatim: *"o fable ao decidir deve antes buscar na web por manuais, dores/explicacoes da comunidade, web em geral, aprender com rmlui e sdl3, aprender com outras bibliotecas. Se nada disso ajudar, deve tentar usar o proprio aprendizado."*
+**Emenda de 09/09/2026 — o C-level `opus` NÃO decide de cabeça: pesquisa PRIMEIRO, e o próprio aprendizado é o ÚLTIMO recurso.** Ordem do líder, verbatim: *"o fable ao decidir deve antes buscar na web por manuais, dores/explicacoes da comunidade, web em geral, aprender com rmlui e sdl3, aprender com outras bibliotecas. Se nada disso ajudar, deve tentar usar o proprio aprendizado."*
 
 **A ordem das fontes, e ela é uma ORDEM, não uma lista de sugestões:**
 
@@ -869,11 +887,11 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 4. **RmlUi e SDL3**, pela L-29 deste projeto: ler para **aprender a técnica**, jamais para copiar ou portar a implementação. E, junto deles, **qualquer outra biblioteca** que já tenha resolvido o mesmo problema — o espaço de referência não termina nesses dois nomes.
 5. **O próprio aprendizado do modelo — SÓ se nada acima ajudou.** É o último recurso, e quando for usado, o registro em `DECISOES_AUTONOMAS.md` diz explicitamente que as quatro fontes anteriores foram buscadas e não responderam.
 
-**Por que a ordem importa, e não é formalidade:** decisão tomada de cabeça parece pesquisa quando é escrita com confiança. A L-22 global já fixou que *"a pesquisa deve ser feita antes do planejamento"* — briefing que já carrega o desenho escolhido transforma a pesquisa em confirmação, não em investigação. Esta emenda diz a mesma coisa do lado de quem DECIDE: o `fable` na cadeira do líder herda o dever de fundamentar, não a licença de improvisar.
+**Por que a ordem importa, e não é formalidade:** decisão tomada de cabeça parece pesquisa quando é escrita com confiança. A L-22 global já fixou que *"a pesquisa deve ser feita antes do planejamento"* — briefing que já carrega o desenho escolhido transforma a pesquisa em confirmação, não em investigação. Esta emenda diz a mesma coisa do lado de quem DECIDE: o C-level `opus` na cadeira do líder herda o dever de fundamentar, não a licença de improvisar.
 
 **O que entra no registro:** a decisão registrada em `DECISOES_AUTONOMAS.md` passa a trazer **as fontes consultadas** e o que cada uma disse — ou a declaração explícita de que foram buscadas e nada responderam. Fonte não citada é fonte não consultada.
 
-**Relação com a L-43 deste projeto**, que é a irmã e continua valendo inteira: a L-43 obriga a busca **ao iniciar qualquer onda, antes de fatiar**; esta emenda obriga a mesma busca **a cada decisão que o `fable` toma no lugar do líder**, inclusive as que aparecem no meio da onda, depois do plano pronto.
+**Relação com a L-43 deste projeto**, que é a irmã e continua valendo inteira: a L-43 obriga a busca **ao iniciar qualquer onda, antes de fatiar**; esta emenda obriga a mesma busca **a cada decisão que o C-level `opus` toma no lugar do líder**, inclusive as que aparecem no meio da onda, depois do plano pronto.
 
 **Relação com as leis vizinhas:** a **L-18** diz **quem** faz o quê (main orquestra, fable audita e cria, sonnet implementa); a **L-34** fixa **em que ordem** e acrescenta o passo que faltava — o brainstorm com o líder **antes** de qualquer planejamento. A **L-10** continua valendo dentro do ciclo: decisão de design que apareça no passo 2 vai ao líder por `AskUserQuestion`, não é resolvida pelo C-level.
 
@@ -1068,3 +1086,15 @@ Tag e release continuam exigindo **aval explícito do líder no contexto** (L-11
 **Relação com a L-43, e as duas são distintas:** a L-43 obriga a busca **no início de onda**, sobre como o problema costuma ser atacado. Esta obriga a busca **em toda dúvida de decisão**, e acrescenta o eixo das **dores relatadas por quem usa**. A L-43 é sobre construir; esta é sobre **decidir**.
 
 **O que o líder está protegendo:** ele é o consumidor final do que a biblioteca decide, e a biblioteca é para distribuição, com base de consumidores aberta e desconhecida (o preâmbulo do `CLAUDE.md`). Um C-level que decide só com a documentação oficial na mão desenha para o caso que a documentação descreve, e **não para o caso que faz as pessoas xingarem em fórum**.
+
+## L-45
+
+**Data:** 23/09/2026, decisão do líder por `AskUserQuestion`, levada pelo orquestrador segundo a LEI DAS LEIS (lei nomeada, texto citado, o que protege e o que se perde, antes de perguntar). **Verbatim da opção que ele escolheu:** *"Só no CI do servidor"*.
+
+**Exceção de escopo fechado à L-11 global** (*"PROIBIDO desenho que gasta um processo por item varrido"*): o **oráculo diferencial do portão de camadas** (sub-fatia L-5 de `LAYERS-GATE-GFSS-GFUI`), que compila cada fixture do autoteste com o compilador de verdade e exige que o portão reprove sempre que o compilador puxar cabeçalho proibido, **roda só nos trabalhos do CI do servidor (GitHub), nunca nesta máquina.**
+
+**O que a L-11 protege, e continua protegido:** o teto de 4000 processos por usuário desta máquina, cujo estouro derrubou o compositor gráfico em 01/09/2026. O oráculo não roda aqui: nem no `tools/preci.sh`, nem em agente, nem "só desta vez". O `ctest` local o registra desligado, e o desligamento aparece na saída (L-40), nunca calado.
+
+**Por que o líder aceitou quebrar a letra no servidor:** as nove reprovações do portão de camadas em 23/09/2026 foram todas achadas comparando o portão com o g++ e o clang. Um teste que faça isso sozinho pega a família inteira, inclusive o lado da Microsoft, que esta máquina não mede.
+
+**O que esta exceção NÃO autoriza:** nenhum outro desenho que gaste um processo por item, em lugar nenhum; nem o oráculo nesta máquina. Ampliar é decisão nova do líder.

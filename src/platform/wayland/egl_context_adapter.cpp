@@ -39,6 +39,9 @@
 #include "platform/wayland/drm_device_facts.hpp"
 #include "platform/wayland/drm_gpu_kind.hpp"
 #include "platform/wayland/egl_device_enumeration.hpp"
+#include "platform/wayland/egl_incoming_poll_step.hpp"
+#include "platform/wayland/incoming_poll_outcome.hpp"
+#include "platform/wayland/incoming_poll_reaction.hpp"
 #include "platform/wayland/window_adapter.hpp"
 #include "platform/window/window_state.hpp"
 
@@ -86,6 +89,26 @@ constexpr wl_callback_listener k_frame_callback_listener{
     .done = &wayland_egl_context_adapter::frame_callback_done,
 };
 
+} // namespace
+
+// CONT-WARMUP C-6, EMENDA (ordem do team-lead sobre o residual
+// declarado da primeira rodada de C-6): poll_and_dispatch_with_budget()
+// SAIU do namespace anônimo acima - antes disto, TU-local, sem linkage
+// externo, um arquivo de teste em OUTRA translation unit não tinha
+// como chamá-la, então só o átomo que ela consome
+// (is_incoming_poll_connection_fatal(), incoming_poll_reaction.hpp)
+// podia ser testado diretamente, nunca a fiação real em volta dele
+// (o `switch` inteiro). Agora vive direto em `namespace glintfx::
+// platform` (linkage externo comum, exatamente como qualquer método de
+// classe deste arquivo), declarada em `src/platform/wayland/egl_
+// incoming_poll_step.hpp` - um cabeçalho INTERNO (`src/`, nunca
+// `include/glintfx/`, GODS_LAWS.md L-19 intacto) que só
+// tests/incoming_poll_wiring_test.cpp e este `.cpp` incluem. Nada mais
+// deste arquivo referenciava esta função por fora do namespace
+// anônimo (só o call site dentro de swap_buffers(), mais abaixo, na
+// MESMA translation unit - continua resolvendo por nome comum, sem
+// precisar do cabeçalho novo).
+//
 // Local BUDGETED variant of wayland_display_adapter's own manpage-
 // blessed prepare_read/flush/poll/read_events sequence (display_
 // adapter.cpp, one directory over) - duplicated here rather than
@@ -115,8 +138,65 @@ constexpr wl_callback_listener k_frame_callback_listener{
 // budget" is NOT a failure, it is reported through frame_callback_
 // sequence.hpp's own decide_after_wait() instead, read by the caller
 // after this function returns.
-[[nodiscard]] bool poll_and_dispatch_with_budget(wl_display *display,
-                                                 std::uint32_t budget_ms) noexcept {
+//
+// CONT-WARMUP C-5 (revisao adversarial C-4, /var/tmp/glintfx-plan/
+// revisao-cont-warmup-C4.md, achado CRITICO-1/IMPORTANTE-1,
+// GODS_LAWS.md L-17 "gemeo"): the read-side wait below used to decide
+// with its OWN inline `poll_result <= 0 || (incoming.revents &
+// POLLIN) == 0` - the exact composite condition display_adapter.cpp's
+// own wait_for_incoming_data() had BEFORE 99b5138, and this file was
+// never touched by that fix. Two bugs, both closed now: (1) POLLHUP/
+// POLLERR without POLLIN, and POLLNVAL, were absorbed as "nothing to
+// read, success" instead of the fatal connection failure poll(2)'s own
+// contract calls for; (2) `poll_result <= 0` folded a REAL poll()
+// error (-1, any errno, EINTR included) into the SAME branch as
+// "budget merely exhausted" - a caller here would read that as
+// skipped_hidden (an ordinary, silent degrade), never the connection
+// failure it actually is. Both now route through classify_incoming_
+// poll() (platform/wayland/incoming_poll_outcome.hpp), the SAME atom
+// display_adapter.cpp's own wait_for_incoming_data() already uses.
+// EINTR retries WITH WHATEVER TIME IS LEFT of `budget_ms` (its own
+// `read_deadline`, computed the same way `write_deadline` above is) -
+// unlike wait_for_incoming_data(), which simply reports "nothing yet"
+// and lets the NEXT caller-driven pump retry: THIS function's own
+// caller (swap_buffers()) is mid-frame-wait, budgeted for one specific
+// frame, and a bare EINTR must not silently cost the whole remaining
+// budget the way a single non-retried "nothing yet" would - the same
+// "keep trying with whatever time is left" shape wait_for_writable_
+// until() above already uses for its own EINTR (poll(2)'s own manpage:
+// a signal arriving mid-wait is never a reason to declare the
+// connection unusable).
+//
+// CONT-WARMUP C-6 (revisao adversarial C-5, /var/tmp/glintfx-plan/
+// revisao-cont-warmup-c5.md, achado CRITICO-2): `case fatal:`/`case
+// poll_call_failed:` below used to decide "is this a real connection
+// failure?" with their OWN hand-written `return`s - nothing tested that
+// decision directly, and the review's OWN mutant (m-fatal-swallowed,
+// swapping those two returns to `return true`) survived every test that
+// existed: `egl_protocol_error_smoke`, the fixture that exists
+// SPECIFICALLY to provoke a real Wayland protocol error, detects it via
+// the `ready_to_read` branch (a real `wl_display_read_events()`/
+// `wl_display_dispatch_pending()` failure AFTER a genuine `POLLIN`) -
+// never via `fatal`/`poll_call_failed`, the SAME "cenario real vs. seam
+// sintetico" split incoming_poll_outcome.hpp's own header comment
+// already documents for display_adapter.cpp's side (measured four
+// times: this kernel never delivers POLLHUP/POLLNVAL/a real poll()
+// error without POLLIN alongside it). PROVA POR SEAM, NAO POR CENARIO
+// REAL, exactly like that header already says for the read-side atom
+// itself: the ramos `fatal`/`poll_call_failed` below are proven by
+// tests/incoming_poll_reaction_test.cpp's own unit + real-fabricated-fd
+// cases, never by this project's own container fixtures. Both cases now
+// share ONE call to is_incoming_poll_connection_fatal() (platform/
+// wayland/incoming_poll_reaction.hpp) - the SAME atom display_adapter.
+// cpp's own wait_for_incoming_data() (this same fatia) now calls too -
+// so the only way to reintroduce m-fatal-swallowed is to edit THAT atom
+// (caught by its own direct test) or to invert the call below (a
+// residual, DECLARED limitation - see that test file's own header
+// comment for the honest accounting of what real-kernel coverage
+// exists and what does not).
+[[nodiscard]] bool poll_and_dispatch_with_budget(wl_display *display, std::uint32_t budget_ms,
+                                                 incoming_poll_syscall_fn poll_impl,
+                                                 incoming_poll_reaction_fn reaction_impl) noexcept {
     while (wl_display_prepare_read(display) != 0) {
         if (wl_display_dispatch_pending(display) == -1) {
             return false;
@@ -143,21 +223,79 @@ constexpr wl_callback_listener k_frame_callback_listener{
         }
     }
 
-    pollfd incoming{.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
-    const int poll_result = poll(&incoming, 1, static_cast<int>(budget_ms));
-    if (poll_result <= 0 || (incoming.revents & POLLIN) == 0) {
-        // Budget exhausted with nothing to read - the mandatory other
-        // half of ARMADILHA 2's pairing, never a bare poll() left
-        // hanging without its matching cancel_read().
+    const auto read_deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(budget_ms);
+    for (;;) {
+        const auto remaining_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                      read_deadline - std::chrono::steady_clock::now())
+                                      .count();
+        const int wait_ms = remaining_ms > 0 ? static_cast<int>(remaining_ms) : 0;
+        pollfd incoming{.fd = wl_display_get_fd(display), .events = POLLIN, .revents = 0};
+        const int poll_result = poll_impl(&incoming, 1, wait_ms);
+        const incoming_poll_outcome outcome = classify_incoming_poll(poll_result, incoming.revents);
+        switch (outcome) {
+        case incoming_poll_outcome::fatal:
+        case incoming_poll_outcome::poll_call_failed: {
+            const bool errno_is_eintr =
+                outcome == incoming_poll_outcome::poll_call_failed && errno == EINTR;
+            if (errno_is_eintr && remaining_ms > 0) {
+                continue; // retry with whatever time is left of the budget
+            }
+            wl_display_cancel_read(display);
+            // CONT-WARMUP C-7 (revisao-cont-warmup-c6.md, achado
+            // m-eintr-budget-bypass): este `case` costumava ter um
+            // TERCEIRO caminho aqui - "EINTR com o orcamento ja
+            // esgotado" respondia com um `return true;` HARDCODED,
+            // nunca passando pelo atomo de decisao. Removido: os TRES
+            // desfechos deste `case` (EINTR-exhausted, outro errno,
+            // `fatal`/POLLNVAL) agora passam pela MESMA e UNICA chamada
+            // abaixo.
+            //
+            // CONT-WARMUP C-8 (revisao-cont-warmup-c7.md S2.4/S2.5): a
+            // frase que costumava estar aqui - "nao ha mais nenhum jeito
+            // de reintroduzir o bug original" - era FALSA, medida: o
+            // atalho hardcoded e o atomo de hoje concordam POR
+            // COINCIDENCIA para o par (poll_call_failed,
+            // errno_is_eintr==true) (`is_incoming_poll_connection_fatal`
+            // devolve `!true == false`, `!false == true`, o MESMO valor
+            // do atalho), entao reinserir o atalho e' um mutante
+            // EQUIVALENTE ao atomo real - nenhum teste de caixa-preta
+            // contra o atomo alcanca a diferenca. O que este arquivo
+            // prova agora e' mais estreito e honesto: `reaction_impl` (o
+            // atomo por tras de uma costura, egl_incoming_poll_step.hpp,
+            // padrao `&is_incoming_poll_connection_fatal`) e' de fato
+            // CONSULTADO aqui, nunca decidido por conta propria - prova
+            // por tests/incoming_poll_wiring_test.cpp injetando um atomo
+            // DIVERGENTE (que discorda do real de proposito) e exigindo
+            // que o resultado siga o injetado. Residual DECLARADO que
+            // continua aberto: um atalho hardcoded inserido DEPOIS desta
+            // chamada, ou que IGNORE o valor de retorno de
+            // `reaction_impl`, nao e' pego por nenhum teste existente.
+            return !reaction_impl(outcome, errno_is_eintr);
+        }
+        case incoming_poll_outcome::nothing_yet:
+            // Budget exhausted with nothing to read - the mandatory
+            // other half of ARMADILHA 2's pairing, never a bare poll()
+            // left hanging without its matching cancel_read().
+            wl_display_cancel_read(display);
+            return true;
+        case incoming_poll_outcome::ready_to_read:
+            if (wl_display_read_events(display) == -1) {
+                return false;
+            }
+            return wl_display_dispatch_pending(display) != -1;
+        }
+        // Unreachable (the switch above is exhaustive over incoming_
+        // poll_outcome's four enumerators) - GODS_LAWS.md L-22 style
+        // safety net only, never meant to be hit; treated as "nothing
+        // to read" rather than silently falling through with no
+        // return.
         wl_display_cancel_read(display);
         return true;
     }
-
-    if (wl_display_read_events(display) == -1) {
-        return false;
-    }
-    return wl_display_dispatch_pending(display) != -1;
 }
+
+namespace {
 
 // classify_current_gpu() - GL-GPU-KIND (docs/plano-w6b-fatias-5.md
 // sec. 4.1; docs/plano-w6b-fatias-5b-revisao.md sec. 1.5/3, D-W6b-30/

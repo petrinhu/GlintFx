@@ -733,3 +733,143 @@ virsh -c qemu:///session qemu-agent-command glintfx-win11-lab \
 - Fecho: binario real do GlintFx passa no Windows real; o mutante
   correspondente reprova, com falha nomeada. Fronteira container-constroi
   / maquina-virtual-executa fechada e provada pela primeira vez.
+
+## 19. Segundo fecho: o ciclo por cópia avulsa e o primeiro arranque real (22-23/09/2026)
+
+Esta seção narra o que aconteceu depois da seção 18: a máquina ficou desligada por dezesseis dias
+(último arranque real em 07/09/2026), e o item `WIN-RUNNER-PROPRIO` mudou de desenho - decisão do
+líder, 22/09/2026, por `AskUserQuestion`: **"dirigir daqui, sem ligar ao servidor"**, substituindo o
+desenho anterior (máquina alugada, registrada como runner do GitHub). Toda evidência bruta desta
+seção mora em `/var/tmp/glintfx-plan/win-lab-estreia/` (scratch de sessão, não versionado);
+esta seção resume, com o comando que confere cada afirmação.
+
+### 19.1. O ciclo novo: liga por cópia avulsa
+
+Ver a seção própria do `README.md` deste diretório ("O ciclo novo: liga por cópia avulsa, com três
+redireções") para o desenho completo. Resumo do que mudou desde a seção 18: `sessao.sh --ligar` gera
+uma cópia avulsa da definição do domínio (mesmo nome/identificador do permanente, que nunca é
+tocado), com três trocas - disco (sobreposição qcow2), NVRAM (cópia inteira) e estado do TPM (cópia
+inteira).
+
+`[FATO]` conferido em toda sessão desta seção: `sha256sum` do `virsh -c qemu:///session dumpxml
+--inactive glintfx-win11-lab` idêntico antes da primeira tentativa e depois da última - o permanente
+nunca mudou, apesar de **cinco lançamentos reais** (`virsh create`) terem ligado e desligado a
+máquina: as tentativas 1, 2 e 3, mais as sessões 4 e 5 (seções 19.2 e 19.3 abaixo).
+
+### 19.2. O defeito do NVRAM: duas tentativas reais, sem guest-ping, até a causa ser achada
+
+`[FATO]` As duas primeiras tentativas de arranque real (23/09/2026, ~19:21 e ~19:25) ligaram a
+máquina (`virsh create` aceitou a cópia avulsa sem recusar, `dominfo` confirmou `Persistente: sim`),
+mas o `qemu-ga` NUNCA respondeu ao `guest-ping`, mesmo com o prazo subindo de 180s para 600s. A
+captura de tela (`virsh -c qemu:///session screenshot`) mostrou "Display output is not active"
+durante toda a espera; o tempo de CPU do domínio (`virsh domstats --cpu-total`) subiu continuamente
+(73s → 681s de CPU em ~4 minutos de relógio) - a máquina estava trabalhando, não pendurada em
+silêncio, mas nunca chegou a um estado utilizável.
+
+`[FATO]` A causa: a linha de comando real do QEMU (`~/.cache/libvirt/qemu/log/glintfx-win11-lab.log`)
+mostra que libvirt abre o pflash do `<nvram>` da cópia avulsa com `"backing":null`, um só nó de
+blockdev - diferente do `<disk>`, que ganha dois nós com religa explícita
+(`"backing":"libvirt-N-format"`). O overlay de NVRAM que `sessao.sh` criava (mesmo mecanismo `qemu-img
+create -b/-F` do disco) tinha, sim, o ponteiro de backing certo gravado no próprio cabeçalho qcow2
+(confirmado offline, sem tocar a VM, com `qemu-img info` sobre uma cópia recém-criada) - mas
+libvirt/QEMU ignoram esse backing para pflash e abrem a cópia como um NVRAM vazio e independente. O
+convidado arrancava com a área de variáveis de firmware ZERADA (nem Secure Boot enrolado, nem ordem
+de arranque salva).
+
+`[FONTE]` `https://libvirt.org/kbase/backing_chains.html` (libvirt reconecta a cadeia de backing de
+DISCOS por um segundo passo, `blockdev-snapshot`, que não existe para NVRAM/pflash); patch em
+desenvolvimento no devel list do libvirt, "qemu: NVRAM template handling fixes and support for block
+device backed NVRAM" (o próprio título mostra que suporte a cadeia de backing para NVRAM é trabalho
+NOVO, não algo que já existia); `formatdomain.html` não promete cadeia de backing para `<nvram>`, nem
+na forma simples nem na estendida (desde a 8.5.0).
+
+**Conserto (sub-fatia V-5c):** o NVRAM por sessão passou a ser CÓPIA INTEIRA (`cp`), no mesmo molde
+que o estado do TPM já usava por não ser qcow2. O arquivo de VARS mede ~528 KiB; copiar inteiro por
+sessão é barato. TDD completo (vermelho contra o código antigo, verde depois do conserto, mutante que
+reverte para a sobreposição e é pego) em `tools/win-vm-lab/sessao.sh` (função `criar_copia_nvram`,
+`--selftest` cenário `V5C-NVRAM-SEM-BACKING`).
+
+`[FATO]` Terceira tentativa (23/09/2026, ~20:15), já com a V-5c: `guest-ping respondeu:
+{"return":{}}` - o conserto funcionou de primeira.
+
+### 19.3. A bateria completa (P0-P4, E3, E4, E9, E10), em duas sessões seguidas
+
+Depois do conserto do NVRAM, a bateria rodou de ponta a ponta (sessões 4 e 5, 23/09/2026, ~20:33) -
+P4 por último, com lista curta de tamanhos e parada na primeira falha (decisão do team-lead, depois
+que a terceira tentativa mostrou que o P4 antigo quebrava o canal para as provas seguintes).
+
+| Prova | Veredito | Como confirmar |
+|---|---|---|
+| P0 | passa | `virsh create` aceita a cópia; `sha256sum` do `dumpxml --inactive` igual antes/depois |
+| P1 | passa | `provar-isolamento.sh --file` sobre o `dumpxml` VIVO (sem `--inactive`), sete categorias zero |
+| P2 | passa | `qemu-agent-command ... guest-info`: versão presente, `guest-file-read`/`guest-exec`/`guest-exec-status` habilitados |
+| P3 | passa | par real/mutante recompilado do HEAD no container MSVC: real `exitcode=0`; mutante `exitcode=1`, falha em `win32_wgl_proc_address_test.cpp:126` |
+| P4 | medida (não passa/falha binário) | maior tamanho TESTADO que passou limpo: 2.097.152 bytes; ver seção 19.4 |
+| E3 | passa, com calibração | controle positivo (`C:\Windows\win.ini` abre) ANTES de julgar a marca ausente; motivo da ausência classificado como "arquivo inexistente", nunca "canal morto" |
+| E4 | passa, com calibração | `CALIB_LOCAL=True` (ouvinte local em 127.0.0.1) ANTES das três sondas de saída, que vêm `False`; adaptador `Disconnected`/`Disconnected` |
+| E9 | passa | `sha256sum` do `dumpxml --inactive`, do disco base, do `VARS.qcow2` e dos dois arquivos do estado do TPM, idênticos à soma-base de antes da primeira tentativa |
+| E10 | passa | `virsh start` com o domínio já ativo recusa; `lslocks -o COMMAND,PID,TYPE,PATH` mostra `OFDLCK` do `qemu-system-x86` sobre o disco base (só leitura) |
+
+**Achado à parte, não relacionado ao que a bateria mede**: a primeira leitura da E4 apontou
+"INCONCLUSIVA" por um defeito no roteiro de evidência (não no produto) - o PowerShell devolve linhas
+com CRLF, e a extração (`grep`+`cut`) deixava um `\r` grudado no valor lido, quebrando a comparação de
+string em bash (`"True\r" != "True"`). Confirmado com `cat -A` (`CALIB_LOCAL=True^M$`). Varredura
+completa de `tools/win-vm-lab/` não achou o mesmo defeito no produto: os dois únicos pontos que
+parseiam texto livre do convidado (`coletar-resultados.sh`, listagem `dir /b` e hash do `certutil`)
+já tiravam o `\r` desde antes (linhas 300 e 334), com cobertura exercitada pelo próprio `--selftest`
+(dublês que devolvem CRLF de propósito).
+
+### 19.4. P4: o número novo, com fonte (sub-fatia V-5d)
+
+`[FATO]` sequência medida (sessão 4): `65536` e `1.048.576` aceitos com `count` batendo; `2.097.152`
+aceito; `4.194.304` recusado com `"Unable to encode message payload"`.
+
+`[FONTE]` `https://github.com/libvirt/libvirt/blob/master/src/rpc/virnetprotocol.x`:
+`VIR_NET_MESSAGE_STRING_MAX = 4194304`, comentário *"This is an arbitrary limit designed to stop the
+decoder from trying to allocate unbounded amounts of memory when fed with a bad message"* - limite de
+um campo STRING individual dentro da mensagem RPC do libvirt, exatamente a categoria do campo que
+carrega o `buf-b64` da resposta do `guest-file-read` quando `libvirtd` embrulha essa resposta para
+devolver a `virsh`.
+
+**Aplicação (D-6 revisada pelo team-lead, 23/09/2026):** o bloco padrão do coletor é o maior tamanho
+TESTADO que passou limpo, **2.097.152 bytes**. `tools/win-vm-lab/coletar-resultados.sh` usa esse
+valor (`CHUNK_BYTES_PADRAO`) desde a sub-fatia V-5d, com `--selftest` provando o USO de verdade (o
+script rodado como subprocesso, sem `--chunk-bytes`, tem de pedir exatamente 2.097.152 no primeiro
+`guest-file-read` - não só a constante ter esse valor).
+
+**Não medido, declarado:** a fronteira exata (a conta reversa do base64,
+`4.194.304 × 3 ÷ 4 = 3.145.728` bytes crus, fica entre os dois pontos testados, mas não foi tentada
+diretamente). "48 MiB + 1 recusado" (a exigência original da D-6) não é mensurável por este caminho:
+o canal do agente quebra bem antes de chegar perto desse tamanho - a partir do primeiro pedido acima
+do `STRING_MAX`, toda chamada seguinte ao agente falha com "Guest agent is not responding" até o fim
+da sessão (medido na terceira tentativa, seção 19.2, com um tamanho diferente que bateu num limite de
+transporte mais alto e ainda mais cedo derrubou o canal).
+
+### 19.5. O caminho de consolidação, provado só em disco de brinquedo (sub-fatia V-6a)
+
+`tools/win-vm-lab/consolidar.sh` (novo, 23/09/2026) junta uma sobreposição de volta ao disco base
+(`qemu-img commit`), com três guardas: trava de exclusão mútua, máquina confirmada desligada, e cópia
+de segurança (`cp --reflink=always`) conferida por soma ANTES do commit. **Nunca toca o disco real de
+17 GiB**: o `--selftest` cria e apaga um par base/sobreposição de brinquedo.
+
+Prova por mutação, uma por guarda (`--selftest`, cada cenário isolado - tirar só uma guarda derruba
+só a prova correspondente, as outras continuam verdes): `RECUSA-MAQUINA-LIGADA`,
+`RECUSA-SEM-TRAVA`, `RECUSA-COPIA-CORROMPIDA` (dublê de `cp` que devolve cópia truncada, pega pela
+conferência de soma), e `CONSOLIDACAO-COMPLETA` (marca escrita na sobreposição migra para o base após
+o commit; a cópia de segurança, restaurada, reproduz o base de ANTES do commit byte a byte).
+
+A primeira consolidação REAL, no disco de 17 GiB, e qualquer instalação dentro do convidado
+continuam fora do alcance desta fronteira - item separado, `WIN-LAB-INSTALAR`, que exige aval
+explícito do líder (ações irreversíveis, L-01/L-51).
+
+### 19.6. Estado final desta seção
+
+- Permanente do domínio (`dumpxml --inactive`) intocado por cinco lançamentos reais (`virsh
+  create`) - mesma soma sha256 do início ao fim. Três dos cinco chegaram a conversar com o
+  convidado (`guest-ping` respondeu): tentativa 3, sessão 4, sessão 5.
+- Disco base, NVRAM e estado do TPM (arquivos fora do convidado) - mesma soma sha256 do início ao
+  fim.
+- `gh api repos/petrinhu/GlintFx/actions/runners --jq .total_count` = `0` (linha de base preservada).
+- `domstate` final: `desligado`; nenhum domínio transitório sobrando (`virsh list --all`).
+- Oito das nove provas da bateria (P0, P1, P2, P3, E3, E4, E9, E10) passam limpas; P4 rendeu uma
+  medida precisa (com fonte no código-fonte do libvirt) em vez de um passa/falha binário.

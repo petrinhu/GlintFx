@@ -40,7 +40,7 @@ cmake_minimum_required(VERSION 4.1)
 # example itself is a twin of tests/package/CMakeLists.txt's own
 # requested version - both move together, see that file's own comment
 # for why a stale copy of this number is not a hypothetical risk).
-project(glintfx VERSION 0.5.0.0 LANGUAGES CXX)
+project(glintfx VERSION 0.5.1.0 LANGUAGES CXX)
 
 # C, under UNIX only (WL-PROTO, GODS_LAWS.md L-05): the private-code
 # half of a wayland-scanner binding (cmake/GlintfxWaylandProtocols.cmake)
@@ -92,11 +92,23 @@ if(UNIX)
     include(GlintfxEgl)
 endif()
 
+# GL-CODEGEN-HOST-TOOL (D-11 of docs/plano-fecho-w7b.md): resolved
+# BEFORE add_subdirectory(tools/gl_registry_codegen) below - that
+# directory's own CMakeLists.txt reads GLINTFX_GL_CODEGEN_HOST_MODE to
+# decide whether the CROSS-compiled `gl_registry_codegen` executable
+# target is worth building at all (see that module's own header for
+# the full four-path resolution and why the order matters).
+include(GlintfxGlCodegenHostTool)
+glintfx_resolve_gl_codegen_host_mode()
+
 # Built unconditionally, not gated by GLINTFX_BUILD_TESTS (GL-LOADER,
 # GODS_LAWS.md L-07 EXCECAO No 1): src/render/CMakeLists.txt needs the
 # gl_registry_codegen executable target to exist to generate the GL 3.3
 # core function table at build time, whether or not the test suite is
-# also being built.
+# also being built. UNLESS GL-CODEGEN-HOST-TOOL resolved a mode that
+# does not need a CROSS-built copy of it at all (glintfx_resolve_gl_
+# codegen_host_mode() above already ran; that directory's own
+# CMakeLists.txt reads the result).
 add_subdirectory(tools/gl_registry_codegen)
 
 add_subdirectory(src)

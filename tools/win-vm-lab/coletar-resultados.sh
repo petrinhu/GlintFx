@@ -37,17 +37,25 @@
 # 0/1/2 - ver a tabela completa abaixo) se algum nome foi rejeitado, mesmo
 # que os demais arquivos tenham sido coletados com sucesso.
 #
-# [A VERIFICAR] O LIMITE REAL DE BYTES POR CHAMADA guest-file-read NAO FOI
-# MEDIDO NESTA MAQUINA -- a maquina esta desligada nesta sessao (ordem do
-# lider, "dirigir daqui, sem ligar ao servidor", 22/09/2026) e a medicao so
-# e' possivel com o convidado vivo. O default abaixo (CHUNK_BYTES_PADRAO)
-# reaproveita por PALPITE o mesmo valor que transferir-executar.sh (mesma
-# pasta) ja usa para guest-file-WRITE -- mas aquele valor foi medido para
-# ESCRITA, nao para LEITURA, e os dois lados do protocolo podem ter limites
-# diferentes. Nao presuma este numero como medido; --chunk-bytes existe
-# exatamente para nao cravar um palpite nao verificado no corpo do script.
-# A medicao real fica pendente para a sessao de arranque que ligar a
-# maquina (mesma pendencia que a secao 7 do plano ja nomeia).
+# LIMITE DE BYTES POR CHAMADA guest-file-read: MEDIDO em 23/09/2026, contra
+# a maquina real (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`,
+# secao "P4, em detalhe" - sub-fatia V-5, sessao 4). Sequencia testada:
+# 65536, 1 MiB e 2 MiB (2.097.152 bytes) ACEITOS, com `return.count` batendo
+# e nenhum erro; 4 MiB (4.194.304 bytes) RECUSADO pelo RPC do libvirt com
+# "Unable to encode message payload" - o campo que carrega o `buf-b64` da
+# resposta bate no teto de uma STRING individual dentro da mensagem RPC,
+# `VIR_NET_MESSAGE_STRING_MAX = 4194304`, definido em
+# `src/rpc/virnetprotocol.x` do libvirt
+# (https://github.com/libvirt/libvirt/blob/master/src/rpc/virnetprotocol.x),
+# com o comentario *"This is an arbitrary limit designed to stop the decoder
+# from trying to allocate unbounded amounts of memory when fed with a bad
+# message"*. O default abaixo (CHUNK_BYTES_PADRAO) passa a ser o MAIOR
+# tamanho TESTADO que passou limpo, **2.097.152 bytes (2 MiB)** - nao mais
+# palpite. A fronteira teorica exata (base64 de 3.145.728 bytes crus cruza
+# os 4.194.304 do STRING_MAX) fica so' como pista para quem quiser apertar
+# o numero depois; nao foi testada diretamente, e por isso nao vira o
+# default. `--chunk-bytes` continua existindo para quem precisar de outro
+# valor, mas o corpo do script deixa de citar um numero nao verificado.
 #
 # Codigos de saida (achado do team-lead, 22/09/2026: o codigo 2 chegou a
 # significar DUAS coisas - uso incorreto E rejeicao de nome hostil -, e
@@ -57,14 +65,33 @@
 # PROPRIO a cada fato, nunca reaproveitando um numero que outro caso ja
 # usa neste MESMO arquivo):
 #   0   sucesso - tudo encontrado foi coletado e conferido por md5
-#   1   diretorio vazio (piso de varredura), OU pelo menos um nome VALIDO
-#       nao bateu md5
+#   1   diretorio vazio (piso de varredura), pelo menos um nome VALIDO
+#       nao bateu md5, OU a listagem/pedido de hash falhou por um motivo
+#       GENERICO (o comando rodou dentro do convidado mas terminou com
+#       erro - ver a mensagem impressa, que traz o texto do Windows)
 #   2   USO INCORRETO (argumento faltando/invalido) - mesma convencao que
 #       rodar-caminho.sh/rodar-um.sh (mesma pasta) ja usam para uso
 #       incorreto; nunca reaproveitado para outro fato
 #   3   pelo menos um nome REJEITADO pela lista de permissao (travessia de
 #       caminho ou nome hostil - nunca vira caminho no hospedeiro) - EVENTO
 #       DE SEGURANCA, distinto de erro de digitacao de quem chamou
+#   5   SAIDA TRUNCADA (D-7, docs/plano-fecho-w7b.md, achado do
+#       team-lead, 23/09/2026 - mesmo defeito de rodar-caminho.sh/
+#       rodar-um.sh, mesma pasta): a LISTAGEM ou o PEDIDO DE HASH
+#       devolveram `out-truncated`/`err-truncated` = true na resposta de
+#       guest-exec-status - o TEXTO capturado (nomes de arquivo, ou o
+#       hash extraido do certutil) pode ter vindo cortado, e nenhum
+#       veredito tirado dele e' confiavel. MESMO NUMERO que os irmaos
+#       (5) por escolha deliberada - este arquivo nunca usou 5 para
+#       outro fato, entao nao ha colisao
+#   6   CANAL NAO RESPONDEU (D-8, mesmo achado, mesma pasta): a consulta
+#       a guest-exec-status falhou (virsh devolveu erro, ou JSON sem
+#       campo `.return`) - piso de tentativas seguidas, ou nenhuma
+#       resposta valida ate o prazo esgotar. Distinto do 1 generico
+#       (que exige que o comando tenha RODADO e TERMINADO, com ou sem
+#       erro, dentro do convidado) e distinto de "ESTOUROU o prazo" (que
+#       exige que o canal tenha RESPONDIDO com sucesso pelo menos uma
+#       vez). MESMO NUMERO que os irmaos (6), mesma razao
 #
 # Uso:
 #   coletar-resultados.sh <diretorio-windows> <diretorio-destino-local>
@@ -75,8 +102,15 @@ set -o pipefail
 
 DOM="glintfx-win11-lab"
 CONNECT="qemu:///session"
-CHUNK_BYTES_PADRAO=65536   # [A VERIFICAR] - ver o paragrafo acima, nao medido para LEITURA.
+CHUNK_BYTES_PADRAO=2097152   # 2 MiB - medido (V-5, D-6(a)), ver o paragrafo acima.
 PRAZO_PADRAO=60
+
+# Piso de tentativas (D-8), mesmo valor e mesma razao de rodar-caminho.sh/
+# rodar-um.sh (mesma pasta): quantas consultas SEGUIDAS a guest-exec-status
+# tem de falhar antes de _guest_exec_aguardar declarar o canal quebrado
+# (codigo 6) em vez de esperar o PRAZO inteiro - nao declara por uma
+# UNICA falha isolada.
+PISO_FALHAS_CONSULTA=3
 
 # Caminho absoluto do proprio script - usado so' pelo selftest de codigos
 # distintos (selftest_codigos_distintos) para invocar o SCRIPT COMO
@@ -114,6 +148,7 @@ _GE_RC=0
 _guest_exec_aguardar() {
   local path_exe="$1" args_json="$2" prazo="$3"
   local exec_res pid status_res exited i exitcode
+  local falhas_consulta=0 consulta_teve_sucesso="false" out_truncado err_truncado
 
   exec_res=$(virsh -c "$CONNECT" qemu-agent-command "$DOM" \
     "$(jq -n --arg p "$path_exe" --argjson a "$args_json" '{execute:"guest-exec",arguments:{path:$p,arg:$a,"capture-output":true}}')" 2>&1)
@@ -130,15 +165,51 @@ _guest_exec_aguardar() {
     sleep 1
     status_res=$(virsh -c "$CONNECT" qemu-agent-command "$DOM" \
       "$(jq -n --argjson p "$pid" '{execute:"guest-exec-status",arguments:{pid:$p}}')" 2>&1)
-    exited=$(echo "$status_res" | jq -r '.return.exited // false')
-    [ "$exited" = "true" ] && break
+
+    # D-8, mesmo criterio de rodar-caminho.sh/rodar-um.sh (mesma pasta):
+    # uma consulta so' conta como "respondeu" se virou JSON valido COM o
+    # campo `.return` - erro do virsh ou `{"error":...}` do QEMU nao tem
+    # esse campo, e os dois casos hoje se disfarçavam de "exited:false".
+    if echo "$status_res" | jq -e '.return != null' >/dev/null 2>&1; then
+      falhas_consulta=0
+      consulta_teve_sucesso="true"
+      exited=$(echo "$status_res" | jq -r '.return.exited // false')
+      [ "$exited" = "true" ] && break
+    else
+      falhas_consulta=$((falhas_consulta + 1))
+      if [ "$falhas_consulta" -ge "$PISO_FALHAS_CONSULTA" ]; then
+        _GE_RC=6
+        _GE_OUT=""
+        _GE_ERR="canal nao respondeu: ${falhas_consulta} consultas seguidas ao agente falharam (piso de tentativas atingido, D-8). Ultima resposta: ${status_res}"
+        return 6
+      fi
+    fi
   done
 
   if [ "$exited" != "true" ]; then
+    if [ "$consulta_teve_sucesso" != "true" ]; then
+      # o prazo esgotou sem que UMA UNICA consulta obtivesse resposta
+      # valida - o fato e' canal quebrado, nunca "processo ainda rodando".
+      _GE_RC=6
+      _GE_OUT=""
+      _GE_ERR="canal nao respondeu: nenhuma consulta ao agente obteve resposta valida dentro do prazo de ${prazo}s. Ultima resposta: ${status_res}"
+      return 6
+    fi
     _GE_RC=124
     _GE_OUT=""
     _GE_ERR="estourou o prazo de ${prazo}s"
     return 124
+  fi
+
+  # D-7: truncamento se checa ANTES do exitcode - se a captura veio
+  # cortada, o TEXTO nao e' confiavel mesmo que o exitcode em si seja.
+  out_truncado=$(echo "$status_res" | jq -r '.return["out-truncated"] // false')
+  err_truncado=$(echo "$status_res" | jq -r '.return["err-truncated"] // false')
+  if [ "$out_truncado" = "true" ] || [ "$err_truncado" = "true" ]; then
+    _GE_RC=5
+    _GE_OUT=""
+    _GE_ERR="saida truncada: out-truncated=${out_truncado} err-truncated=${err_truncado} (D-7) - a captura de stdout/stderr do convidado nao veio inteira"
+    return 5
   fi
 
   exitcode=$(echo "$status_res" | jq -r '.return.exitcode // "DESCONHECIDO"')
@@ -172,6 +243,8 @@ _rotulo_rc_guest_exec() {
     1) echo "falha ao INICIAR o comando no convidado" ;;
     124) echo "ESTOUROU o prazo" ;;
     3) echo "o comando TERMINOU com erro dentro do convidado (codigo de saida do convidado: ${_GE_RC})" ;;
+    5) echo "SAIDA TRUNCADA - a captura de stdout/stderr nao veio inteira (D-7)" ;;
+    6) echo "CANAL NAO RESPONDEU - a consulta ao agente falhou (D-8)" ;;
     *) echo "codigo de retorno desconhecido (${1})" ;;
   esac
 }
@@ -222,6 +295,12 @@ _dir_listar() {
 
   if [ "$rc" -ne 0 ]; then
     echo "ERRO: a LISTAGEM de '${diretorio_win}' no convidado FALHOU - $(_rotulo_rc_guest_exec "$rc"). Mensagem do convidado: ${_GE_ERR}" >&2
+    # D-7/D-8: os dois fatos novos (5 truncado, 6 canal quebrado) tem
+    # sinal PROPRIO - nunca decaem para o 1 generico que os demais
+    # motivos de falha de _guest_exec_aguardar ainda usam.
+    if [ "$rc" -eq 5 ] || [ "$rc" -eq 6 ]; then
+      return "$rc"
+    fi
     return 1
   fi
 
@@ -252,6 +331,11 @@ _hash_remoto() {
   local rc=$?
   if [ "$rc" -ne 0 ]; then
     echo "ERRO: o PEDIDO DE HASH remoto de '${caminho_win}' FALHOU - $(_rotulo_rc_guest_exec "$rc"). Mensagem do convidado: ${_GE_ERR}" >&2
+    # D-7/D-8: mesmo criterio de _dir_listar (mesmo arquivo) - 5 e 6 tem
+    # sinal proprio, nunca decaem para o 1 generico.
+    if [ "$rc" -eq 5 ] || [ "$rc" -eq 6 ]; then
+      return "$rc"
+    fi
     return 1
   fi
 
@@ -308,9 +392,14 @@ _ler_arquivo_remoto() {
 # --- coleta de UM arquivo, com a conferencia de md5 nas duas pontas --------
 coletar_um() {
   local caminho_win="$1" destino_local="$2" chunk_bytes="$3" prazo="$4"
-  local hash_remoto hash_local
+  local hash_remoto hash_local rc_hash
 
-  hash_remoto=$(_hash_remoto "$caminho_win" "$prazo") || return 1
+  hash_remoto=$(_hash_remoto "$caminho_win" "$prazo")
+  rc_hash=$?
+  if [ "$rc_hash" -ne 0 ]; then
+    # propaga 5/6 distintos (D-7/D-8); qualquer outro motivo continua 1.
+    return "$rc_hash"
+  fi
 
   if ! _ler_arquivo_remoto "$caminho_win" "$destino_local" "$chunk_bytes"; then
     return 1
@@ -338,12 +427,17 @@ coletar_um() {
 # incorreto - ver a tabela de codigos no cabecalho do arquivo).
 coletar_diretorio() {
   local diretorio_win="$1" destino_dir_local="$2" chunk_bytes="$3" prazo="$4"
-  local encontrados rejeitados coletados=0 arquivo
+  local encontrados rejeitados coletados=0 arquivo rc_listar rc_arquivo codigo_especial=0
 
   mkdir -p -- "$destino_dir_local"
 
-  if ! _dir_listar "$diretorio_win" "$prazo"; then
-    return 1
+  _dir_listar "$diretorio_win" "$prazo"
+  rc_listar=$?
+  if [ "$rc_listar" -ne 0 ]; then
+    # D-7/D-8: propaga 5/6 quando a LISTAGEM em si e' quem carrega o
+    # fato especifico (nunca decai para o 1 generico que os outros
+    # motivos ainda usam).
+    return "$rc_listar"
   fi
   rejeitados=${#_ARQUIVOS_REJEITADOS[@]}
   encontrados=$((${#_ARQUIVOS[@]} + rejeitados))
@@ -362,11 +456,25 @@ coletar_diretorio() {
   for arquivo in "${_ARQUIVOS[@]}"; do
     if coletar_um "${diretorio_win}\\${arquivo}" "${destino_dir_local}/${arquivo}" "$chunk_bytes" "$prazo"; then
       coletados=$((coletados + 1))
+    else
+      rc_arquivo=$?
+      # D-7/D-8: o fato mais especifico (5/6) nunca fica escondido atras
+      # do "so N de M coletados" generico - guarda o ultimo visto para
+      # decidir o codigo de saida DEPOIS da linha de contagem impressa
+      # (GODS_LAWS.md global L-40: contagem sempre sai, mesmo quando o
+      # motivo real e' mais especifico que ela).
+      if [ "$rc_arquivo" -eq 5 ] || [ "$rc_arquivo" -eq 6 ]; then
+        codigo_especial="$rc_arquivo"
+      fi
     fi
   done
 
   echo "encontrados=${encontrados} coletados=${coletados} rejeitados=${rejeitados}"
 
+  if [ "$codigo_especial" -ne 0 ]; then
+    echo "REPROVADO: pelo menos um arquivo teve um problema mais especifico que 'nao coletado' - $(_rotulo_rc_guest_exec "$codigo_especial")." >&2
+    return "$codigo_especial"
+  fi
   if [ "$rejeitados" -gt 0 ]; then
     echo "REPROVADO: pelo menos um nome hostil foi rejeitado - nunca sucesso silencioso com menos arquivos do que o convidado devolveu (GODS_LAWS.md global L-40)." >&2
     return 3
@@ -429,6 +537,12 @@ case "$EXECUTE" in
     ;;
   guest-file-read)
     COUNT=$(echo "$JSON" | jq -r '.arguments.count')
+    # V-5d (BLOCO-PADRAO-2MIB, achado do team-lead 23/09/2026: a prova
+    # anterior conferia o VALOR da constante, nunca o USO - grava cada
+    # count PEDIDO DE VERDADE, para quem chama poder conferir o que a
+    # producao realmente mandou, nao o que a constante diz que deveria
+    # mandar).
+    echo "$COUNT" >>"${STATE_DIR}/counts-recebidos"
     OFFSET_FILE="${STATE_DIR}/offset-77"
     OFFSET=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
     if [ "$CENARIO" = "truncado" ] && [ "$OFFSET" -gt 0 ]; then
@@ -509,6 +623,12 @@ case "$EXECUTE" in
     ;;
   guest-file-read)
     COUNT=$(echo "$JSON" | jq -r '.arguments.count')
+    # V-5d (BLOCO-PADRAO-2MIB, achado do team-lead 23/09/2026: a prova
+    # anterior conferia o VALOR da constante, nunca o USO - grava cada
+    # count PEDIDO DE VERDADE, para quem chama poder conferir o que a
+    # producao realmente mandou, nao o que a constante diz que deveria
+    # mandar).
+    echo "$COUNT" >>"${STATE_DIR}/counts-recebidos"
     OFFSET_FILE="${STATE_DIR}/offset-77"
     OFFSET=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
     TAMANHO=$(stat -c%s "$CONTEUDO")
@@ -771,12 +891,226 @@ selftest_e8() {
   return 1
 }
 
+# Duble DEDICADO de canal quebrado (D-8, achado do team-lead, 23/09/2026 -
+# mesmo gemeo de rodar-caminho.sh/rodar-um.sh, mesma pasta): guest-exec
+# inicia normalmente (devolve pid), mas TODA consulta de guest-exec-status
+# falha com o MESMO texto que o QEMU emite quando o agente convidado nao
+# responde (TODO.md:149) - nunca JSON valido, nunca campo `.return`.
+escrever_duble_virsh_canal_quebrado() {
+  local stub_dir="$1"
+  cat >"${stub_dir}/virsh" <<'STUB'
+#!/usr/bin/env bash
+set -u
+JSON="${*: -1}"
+EXECUTE=$(echo "$JSON" | jq -r '.execute')
+case "$EXECUTE" in
+  guest-exec)
+    echo '{"return":{"pid":6001}}'
+    ;;
+  guest-exec-status)
+    echo "error: Guest agent is not responding: QEMU guest agent is not connected" >&2
+    exit 1
+    ;;
+  *) echo '{"return":{}}' ;;
+esac
+STUB
+  chmod +x "${stub_dir}/virsh"
+}
+
+selftest_canal_quebrado() {
+  local work_dir="$1" stub_dir saida rc ok=1
+
+  stub_dir="${work_dir}/canal-bin"
+  mkdir -p "$stub_dir"
+  escrever_duble_virsh_canal_quebrado "$stub_dir"
+
+  echo ">>> CANAL-NAO-RESPONDEU, D-8: toda consulta a guest-exec-status falha (prazo=5s, maior que o piso de tentativas=${PISO_FALHAS_CONSULTA}, para provar o corte precoce) - esperado: codigo 6, NUNCA o 1 generico nem 'ESTOUROU o prazo'"
+  saida="$(PATH="${stub_dir}:$PATH" coletar_diretorio 'C:\Users\glintfx\resultados' "${work_dir}/canal-destino" 8 5 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> codigo obtido: ${rc}"
+
+  if [ "$rc" -ne 6 ]; then
+    echo "CANAL-NAO-RESPONDEU FALHOU: esperava codigo 6, obteve ${rc}."
+    ok=0
+  elif ! printf '%s' "$saida" | grep -qi "CANAL NAO RESPONDEU"; then
+    echo "CANAL-NAO-RESPONDEU FALHOU: codigo certo (6), mas o rotulo 'CANAL NAO RESPONDEU' nao apareceu na mensagem."
+    ok=0
+  elif printf '%s' "$saida" | grep -qi "ESTOUROU o prazo"; then
+    echo "CANAL-NAO-RESPONDEU FALHOU: a mensagem ainda diz 'ESTOUROU o prazo' - o canal quebrado nao pode se disfarcar de timeout."
+    ok=0
+  else
+    echo "CANAL-NAO-RESPONDEU OK: codigo 6, rotulo correto, nunca confundido com estouro de prazo."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
+# Duble DEDICADO de saida truncada (D-7, mesmo achado, mesma pasta): a
+# LISTAGEM roda e termina (exited:true, exitcode:0), mas com
+# out-truncated:true - o nome do arquivo devolvido pode ter vindo cortado.
+escrever_duble_virsh_truncado() {
+  local stub_dir="$1"
+  cat >"${stub_dir}/virsh" <<'STUB'
+#!/usr/bin/env bash
+set -u
+JSON="${*: -1}"
+EXECUTE=$(echo "$JSON" | jq -r '.execute')
+case "$EXECUTE" in
+  guest-exec)
+    echo '{"return":{"pid":6002}}'
+    ;;
+  guest-exec-status)
+    OUT_B64=$(printf 'resultado.log\r\n' | base64 -w0)
+    printf '{"return":{"exited":true,"exitcode":0,"out-data":"%s","err-data":"","out-truncated":true}}\n' "$OUT_B64"
+    ;;
+  *) echo '{"return":{}}' ;;
+esac
+STUB
+  chmod +x "${stub_dir}/virsh"
+}
+
+selftest_truncado() {
+  local work_dir="$1" stub_dir saida rc ok=1
+
+  stub_dir="${work_dir}/trunc-bin"
+  mkdir -p "$stub_dir"
+  escrever_duble_virsh_truncado "$stub_dir"
+
+  echo ">>> SAIDA-TRUNCADA, D-7: a LISTAGEM devolve out-truncated=true - esperado: codigo 5, NUNCA sucesso silencioso com uma lista de nomes possivelmente cortada"
+  saida="$(PATH="${stub_dir}:$PATH" coletar_diretorio 'C:\Users\glintfx\resultados' "${work_dir}/trunc-destino" 8 2 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> codigo obtido: ${rc}"
+
+  if [ "$rc" -ne 5 ]; then
+    echo "SAIDA-TRUNCADA FALHOU: esperava codigo 5, obteve ${rc}."
+    ok=0
+  elif ! printf '%s' "$saida" | grep -qi "SAIDA TRUNCADA"; then
+    echo "SAIDA-TRUNCADA FALHOU: codigo certo (5), mas o rotulo 'SAIDA TRUNCADA' nao apareceu na mensagem."
+    ok=0
+  else
+    echo "SAIDA-TRUNCADA OK: codigo 5, rotulo presente, nada coletado a partir de uma listagem que pode estar cortada."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
+# V-5d (docs/plano-fecho-w7b.md, D-6(a), decisao do team-lead 23/09/2026
+# 20:48): o bloco padrao do coletor deixa de ser palpite (65536, nunca
+# medido para LEITURA - o comentario de CHUNK_BYTES_PADRAO ja avisava
+# disso havia semanas) e passa a ser o maior tamanho MEDIDO limpo contra a
+# maquina real na V-5 (`/var/tmp/glintfx-plan/win-lab-estreia/
+# V5-RELATORIO.md`, secao "P4, em detalhe"): 2.097.152 bytes (2 MiB).
+# Tamanhos maiores (4 MiB) batem em VIR_NET_MESSAGE_STRING_MAX (constante
+# do libvirt, `src/rpc/virnetprotocol.x`, valor 4194304) e o RPC recusa
+# com "Unable to encode message payload" antes mesmo de chegar ao agente.
+# CONFERE O USO, NAO SO O VALOR (achado do team-lead, 23/09/2026: uma
+# prova que so olha a constante e' cega ao coletor IGNORAR a constante e
+# continuar pedindo 65536 na chamada real - "afirma que mede e nao mede").
+# SEGUNDO ACHADO do team-lead, na mesma tarde: a primeira versao desta
+# prova chamava `_ler_arquivo_remoto` DIRETO, pulando o DESPACHO da CLI
+# (o trecho final do script, que decide `CHUNK_BYTES="$CHUNK_BYTES_PADRAO"`
+# quando `--chunk-bytes` nao e' passado) - um mutante que trocasse esse
+# UM PONTO especifico (o despacho) por um literal continuaria passando,
+# porque a prova nunca exercitava aquele codigo. Corrigido: chama o
+# SCRIPT COMO SUBPROCESSO (`$SCRIPT_PATH`, mesmo padrao de
+# selftest_codigos_distintos acima), sem `--chunk-bytes` nenhum, com o
+# duble de virsh no PATH - exatamente como um usuario real chamaria.
+#
+# O duble de virsh (escrever_duble_virsh, acima) grava cada `count`
+# PEDIDO DE VERDADE em `${STATE_DIR}/counts-recebidos`; esta prova
+# compara o PRIMEIRO count recebido contra o numero ESPERADO fixo,
+# 2097152 -- nunca contra a propria variavel (se a variavel regredisse a
+# 65536, comparar contra ela mesma esconderia a regressao).
+selftest_bloco_padrao_2mib() {
+  local work_dir="$1" stub_dir state_dir conteudo destino_dir primeiro_count saida rc ok=1
+
+  stub_dir="${work_dir}/bloco-bin"
+  state_dir="${work_dir}/bloco-state"
+  destino_dir="${work_dir}/bloco-destino"
+  mkdir -p "$stub_dir" "$state_dir" "$destino_dir"
+  escrever_duble_virsh "$stub_dir"
+
+  conteudo="${state_dir}/conteudo.bin"
+  head -c 3145728 /dev/urandom >"$conteudo"   # 3 MiB: maior que os 2 MiB do bloco padrao
+
+  echo ">>> BLOCO-PADRAO-2MIB: o SCRIPT COMO SUBPROCESSO, sem --chunk-bytes, tem de PEDIR count=2097152 no primeiro guest-file-read (exercita o DESPACHO da CLI, nao so a funcao de leitura por dentro)"
+  saida="$(DUBLE_STATE_DIR="$state_dir" PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" 'C:\Users\glintfx\resultados' "$destino_dir" 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> rc do script (esperado 0): ${rc}"
+
+  primeiro_count="$(head -1 "${state_dir}/counts-recebidos" 2>/dev/null)"
+  echo "primeiro count PEDIDO DE VERDADE ao agente: ${primeiro_count} (esperado 2097152, literal fixo)"
+
+  if [ "$rc" -ne 0 ]; then
+    echo "BLOCO-PADRAO-2MIB FALHOU: o script (subprocesso) falhou (rc=${rc})."
+    ok=0
+  elif [ "$primeiro_count" != "2097152" ]; then
+    echo "BLOCO-PADRAO-2MIB FALHOU: o primeiro count pedido foi '${primeiro_count}', nao 2097152 -- ou a constante regrediu, ou o despacho/a chamada ignora a constante e usa outro valor."
+    ok=0
+  else
+    echo "BLOCO-PADRAO-2MIB OK: o despacho real, sem --chunk-bytes, pediu 2097152 de verdade."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
+# --CHUNK-BYTES EXPLICITO (achado da revisao independente, 23/09/2026,
+# INBOX resolvida aqui): BLOCO-PADRAO-2MIB acima so exercita o caminho
+# "sem a flag" (default). Um mutante que fizesse o despacho da CLI
+# IGNORAR `--chunk-bytes` explicito (`--chunk-bytes) shift 2 ;;`, sem
+# atribuir a `CHUNK_BYTES`) passava 100% sem ser pego - nenhum selftest
+# chamava o script COM a flag. Esta prova fecha o outro lado: chama
+# "$SCRIPT_PATH" com `--chunk-bytes` explicito, valor DIFERENTE do
+# padrao (para nao coincidir por acidente com 2097152), e exige que o
+# primeiro count pedido seja exatamente esse valor.
+selftest_chunk_bytes_explicito() {
+  local work_dir="$1" stub_dir state_dir conteudo destino_dir primeiro_count saida rc ok=1
+  local valor_explicito=131072   # 128 KiB - deliberadamente != CHUNK_BYTES_PADRAO (2 MiB)
+
+  stub_dir="${work_dir}/cbe-bin"
+  state_dir="${work_dir}/cbe-state"
+  destino_dir="${work_dir}/cbe-destino"
+  mkdir -p "$stub_dir" "$state_dir" "$destino_dir"
+  escrever_duble_virsh "$stub_dir"
+
+  conteudo="${state_dir}/conteudo.bin"
+  head -c 1048576 /dev/urandom >"$conteudo"   # 1 MiB: maior que o valor_explicito, para pedir mais de um bloco
+
+  echo ">>> CHUNK-BYTES-EXPLICITO: o SCRIPT COMO SUBPROCESSO, COM --chunk-bytes ${valor_explicito}, tem de PEDIR exatamente esse valor, nao o padrao"
+  saida="$(DUBLE_STATE_DIR="$state_dir" PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" 'C:\Users\glintfx\resultados' "$destino_dir" --chunk-bytes "$valor_explicito" 2>&1)"
+  rc=$?
+  echo "$saida"
+  echo ">>> rc do script (esperado 0): ${rc}"
+
+  primeiro_count="$(head -1 "${state_dir}/counts-recebidos" 2>/dev/null)"
+  echo "primeiro count PEDIDO DE VERDADE ao agente: ${primeiro_count} (esperado ${valor_explicito}, o valor explicito, nunca o padrao)"
+
+  if [ "$rc" -ne 0 ]; then
+    echo "CHUNK-BYTES-EXPLICITO FALHOU: o script (subprocesso) falhou (rc=${rc})."
+    ok=0
+  elif [ "$primeiro_count" != "$valor_explicito" ]; then
+    echo "CHUNK-BYTES-EXPLICITO FALHOU: o primeiro count pedido foi '${primeiro_count}', nao ${valor_explicito} -- o despacho ignorou a flag explicita."
+    ok=0
+  else
+    echo "CHUNK-BYTES-EXPLICITO OK: o despacho real respeitou --chunk-bytes explicito."
+  fi
+
+  [ "$ok" -eq 1 ] && return 0
+  return 1
+}
+
 selftest() {
   local work_dir ok=1
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
   trap 'rm -rf -- "$work_dir"' RETURN
 
-  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO) -- diretorio de trabalho: ${work_dir} ==="
+  echo "=== SELFTEST coletar-resultados.sh (E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA, BLOCO-PADRAO-2MIB) -- diretorio de trabalho: ${work_dir} ==="
   echo
   selftest_e6 "$work_dir" || ok=0
   echo
@@ -788,9 +1122,17 @@ selftest() {
   echo
   selftest_diagnostico_falha_convidado "$work_dir" || ok=0
   echo
+  selftest_canal_quebrado "$work_dir" || ok=0
+  echo
+  selftest_truncado "$work_dir" || ok=0
+  echo
+  selftest_bloco_padrao_2mib "$work_dir" || ok=0
+  echo
+  selftest_chunk_bytes_explicito "$work_dir" || ok=0
+  echo
 
   if [ "$ok" -eq 1 ]; then
-    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS e DIAGNOSTICO se comportaram como esperado."
+    echo "SELFTEST OK: E6, E8, SEGURANCA, CODIGOS-DISTINTOS, DIAGNOSTICO, CANAL-NAO-RESPONDEU, SAIDA-TRUNCADA, BLOCO-PADRAO-2MIB e CHUNK-BYTES-EXPLICITO se comportaram como esperado."
     return 0
   fi
   echo "SELFTEST FALHOU: pelo menos um cenario nao se comportou como esperado."

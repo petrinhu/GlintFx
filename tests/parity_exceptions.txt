@@ -8,10 +8,11 @@
 # Uma linha aqui declara que um nome de teste existe no inventario de
 # UM sistema e nao existe no do outro, POR QUE ISSO E ACEITAVEL AGORA -
 # nunca uma forma de calar o portao. Formato, um registro por linha,
-# quatro campos separados por "|" (comentarios com "#", linhas em
-# branco ignoradas):
+# quatro ou cinco campos separados por "|" (comentarios com "#",
+# linhas em branco ignoradas):
 #
 #   nome_do_teste | sistema_onde_falta | gemeo | item
+#   nome_do_teste | sistema_onde_falta | gemeo | item | PROVA-PARCIAL=<nome_do_teste_gemeo>
 #
 # - nome_do_teste: nome exato do caso ctest que falta de um lado.
 # - sistema_onde_falta: "linux" ou "windows" - o lado que NAO tem o
@@ -21,12 +22,26 @@
 #   nenhum (o caso e proprio de UM sistema por natureza, ex.: uma
 #   sonda do ambiente Win32 do proprio runner). "nenhum" so e honesto
 #   quando a ausencia e permanente por desenho - nunca use "nenhum"
-#   para uma lacuna real ainda sem par.
+#   para uma lacuna real ainda sem par. Este campo aceita PROSA LIVRE
+#   (nome de arquivo-fonte, explicacao) - nunca e conferido por
+#   maquina, so o quinto campo abaixo e.
 # - item: o ID do item em TODO.md que rastreia o fechamento desta
 #   lacuna, OU o sentinela SEM-PENDENCIA quando a assimetria e
 #   permanente por desenho e nenhum item precisa rastrea-la (exige
 #   gemeo=nenhum - GODS_LAWS.md L-32 proibe criar item novo em
 #   TODO.md so para isto).
+# - PROVA-PARCIAL=<nome_do_teste_gemeo> (quinto campo, opcional):
+#   diferente do campo "gemeo" acima (prosa livre, nunca conferida),
+#   este quinto campo cita um nome de ctest DE VERDADE, que tem de
+#   EXISTIR no inventario do sistema declarado em sistema_onde_falta -
+#   tests/tools/check_test_parity.py confere isso por maquina
+#   (validate_prova_parcial()) e reprova se o nome nao existir la.
+#   Use quando o gemeo existe como ctest registrado mas so prova uma
+#   PARTE do comportamento (ex.: compila limpo, nao executa a mutacao
+#   real) - nunca para declarar um gemeo que e' so um arquivo-fonte ou
+#   uma intencao futura (PARITY-ALIAS-HYGIENE, TODO.md W7-C, D10,
+#   23/09/2026: "o gemeo tem de existir no inventario do outro lado,
+#   conferido por maquina, coisa que a forma atual nunca confere").
 #
 # A REGRA que este arquivo existe para provar (verbatim do CTO,
 # TODO.md): "exececao que aponta para item marcado como concluido
@@ -225,6 +240,69 @@ bounded_output_wait_test|windows|nenhum|SEM-PENDENCIA
 # ganhou o atomo que faltava no link; esta e' a unica real.
 flush_retry_policy_test|windows|nenhum|SEM-PENDENCIA
 
+# incoming_poll_outcome_test (tests/incoming_poll_outcome_test.cpp,
+# tests/CMakeLists.txt, if(UNIX)) prova classify_incoming_poll() (src/
+# platform/wayland/incoming_poll_outcome.hpp) - o atomo puro que decide,
+# a partir do retorno bruto de um `::poll()` POSIX (int poll_result,
+# short revents), o que fazer no lado LEITURA da conexao (CONT-WARMUP
+# C-2, docs/plano-fecho-w7b.md D-10, GODS_LAWS.md L-17/L-20) - o gemeo
+# de leitura do atomo de escrita ja registrado nas duas entradas acima.
+# MESMA ausencia, MESMO motivo, um nivel abaixo do lado leitura em vez
+# do lado escrita: pump_events() do Windows (src/platform/win32/
+# display_adapter.cpp, win32_display_adapter::pump_events()) drena a
+# fila de mensagens via PeekMessageW(..., PM_REMOVE), que nunca produz
+# um par (poll_result, revents) porque nao existe `::poll()` nenhum
+# naquele caminho - toda a entrega de evento do Win32 e' por fila de
+# mensagens do sistema, nunca por um descritor Unix sondado com poll(2)
+# (mesma varredura de src/platform/win32/ ja citada acima: zero
+# ocorrencias de `poll(`/`select(`). Sem o par de entrada, nao ha
+# "decisao sobre esses valores" a testar do lado Windows - a ausencia
+# e' consequencia direta e permanente da ausencia de poll(2) naquela
+# API, nao um caso novo a decidir.
+incoming_poll_outcome_test|windows|nenhum|SEM-PENDENCIA
+
+# incoming_poll_reaction_test (tests/incoming_poll_reaction_test.cpp,
+# tests/CMakeLists.txt, if(UNIX)) prova is_incoming_poll_connection_
+# fatal() (src/platform/wayland/incoming_poll_reaction.hpp) - o atomo
+# puro que decide, a partir de um incoming_poll_outcome mais um
+# `errno_is_eintr` booleano, se a conexao esta realmente morta
+# (CONT-WARMUP C-6, revisao adversarial C-5, /var/tmp/glintfx-plan/
+# revisao-cont-warmup-c5.md, achado CRITICO-2, GODS_LAWS.md L-17/L-20) -
+# um nivel ACIMA do atomo ja excetuado na entrada logo acima
+# (incoming_poll_outcome_test|windows|nenhum|SEM-PENDENCIA), consumindo
+# o MESMO tipo (incoming_poll_outcome) que so existe do lado da leitura
+# via poll(2). MESMA ausencia, MESMO motivo, um nivel acima: pump_
+# events() do Windows nunca produz um incoming_poll_outcome porque nao
+# ha `::poll()` naquele caminho (varredura ja citada duas entradas
+# acima: zero ocorrencias de `poll(`/`select(` em src/platform/win32/).
+# Sem o valor de entrada, nao ha "decisao sobre esse valor" a testar do
+# lado Windows - a ausencia e' consequencia direta e permanente da
+# ausencia do atomo que ele consome, nao um caso novo a decidir (o
+# MESMO raciocinio, em cascata, que a entrada de flush_retry_policy_
+# test acima ja registra para o lado ESCRITA).
+incoming_poll_reaction_test|windows|nenhum|SEM-PENDENCIA
+
+# incoming_poll_wiring_test (tests/incoming_poll_wiring_test.cpp, tests/
+# CMakeLists.txt:1743-1792, if(UNIX)) e' a COSTURA: chama wait_for_
+# incoming_data() (src/platform/wayland/display_adapter.cpp) e poll_
+# and_dispatch_with_budget() (src/platform/wayland/egl_context_adapter.
+# cpp) REAIS, com um `::poll()` fabricado (a costura poll_impl, src/
+# platform/wayland/incoming_poll_syscall.hpp) devolvendo cada desfecho -
+# um nivel ACIMA das duas entradas logo acima (incoming_poll_outcome_
+# test e incoming_poll_reaction_test), exercitando os dois atomos la'
+# excetuados ATRAVES do ponto de uso real, no lugar de testa-los
+# isolados (CONT-WARMUP C-6, EMENDA, GODS_LAWS.md L-12/L-17/L-20/L-27).
+# MESMA ausencia, MESMO motivo, um nivel acima: pump_events() do Windows
+# (src/platform/win32/display_adapter.cpp) drena a fila de mensagens via
+# PeekMessageW(..., PM_REMOVE) - nao ha `::poll()` nenhum naquele
+# caminho pra fabricar (varredura confirmada: zero ocorrencias de
+# `poll(`/`select(`/`WSAPoll` em src/platform/win32/), entao nao ha
+# costura nenhuma a exercitar do lado Windows. A ausencia e' consequen-
+# cia direta e permanente da ausencia de poll(2) naquela API, nao um
+# caso novo a decidir - o MESMO raciocinio em cascata das duas entradas
+# acima, agora no nivel de integracao.
+incoming_poll_wiring_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do
@@ -309,12 +387,26 @@ window_smoke|windows|AUSENCIA MANTIDA, MAS A JUSTIFICATIVA ANTIGA FOI MEDIDA FAL
 # maquina (GetLastError=1400/ERROR_INVALID_WINDOW_HANDLE), nao uma
 # limitacao inventada agora para esta fatia.
 #
-# ⚠️ MORTE DESTA LINHA: quando WIN-RUNNER-PROPRIO (TODO.md, W7-B) puser
-# a maquina Windows propria no circuito, um fixture Windows real (mesma
-# forma de facade_pin_smoke/window_active_after_map_smoke, mutacao
-# incluida) fecha o par - so entao esta linha sai, nunca antes por
-# presuncao de que a compilacao limpa bastava.
-gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo ponto, mesma funcao compartilhada (gpu_kind_report.cpp) - PROVADO que compila limpo sob o cl.exe real da Microsoft; a mutacao por execucao real NAO foi provada no Windows nesta maquina (CreateWindowExW falha sob Wine headless, ja documentado em tools/msvc-container/README.md)|WIN-RUNNER-PROPRIO
+# ⚠️ MORTE DESTA LINHA: quando WIN-LAB-INSTALAR (TODO.md, W9) fizer a
+# instalacao real dentro do convidado Windows (V-7, dono trocado de
+# WIN-RUNNER-PROPRIO por decisao do main em 24/09/2026 - V-6b/V-7 saem
+# do item ja concluido e vao para WIN-LAB-INSTALAR, ainda pendente),
+# um fixture Windows real (mesma forma de facade_pin_smoke/window_
+# active_after_map_smoke, mutacao incluida) fecha o par - so entao esta
+# linha sai, nunca antes por presuncao de que a compilacao limpa
+# bastava.
+#
+# NAO usa o quinto campo PROVA-PARCIAL= (PARITY-ALIAS-HYGIENE, D10,
+# 23/09/2026): o "gemeo" acima cita um ARQUIVO-FONTE (wgl_context_
+# adapter.cpp), nunca um nome de ctest - `grep -n gpu_kind
+# tests/CMakeLists.txt` medido em 23/09/2026 confirma que nao existe
+# hoje nenhum ctest de compilacao-so registrado para o lado Windows
+# deste fixture. D10 e explicito: "se o gemeo nao existir [como ctest
+# no inventario do outro lado], a linha e uma ausencia e fica como
+# esta" - converter aqui sem esse ctest existir de verdade seria
+# reintroduzir a mesma prosa nao conferida que o quinto campo existe
+# para banir.
+gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo ponto, mesma funcao compartilhada (gpu_kind_report.cpp) - PROVADO que compila limpo sob o cl.exe real da Microsoft; a mutacao por execucao real NAO foi provada no Windows nesta maquina (CreateWindowExW falha sob Wine headless, ja documentado em tools/msvc-container/README.md)|WIN-LAB-INSTALAR
 
 # --- Historico: os sete nomes que faltavam par, todos fechados ---------
 #
@@ -410,7 +502,9 @@ gpu_kind_report_smoke|windows|wgl_context_adapter.cpp tem a mesma chamada, mesmo
 #
 # MORTE DESTA LINHA: nunca - a assimetria e' permanente por desenho,
 # nao lacuna temporaria esperando maquina/runner novo (distinto de
-# gpu_kind_report_smoke acima, cujo dono e' WIN-RUNNER-PROPRIO). Sem
+# gpu_kind_report_smoke acima, cujo dono e' WIN-LAB-INSTALAR desde
+# 24/09/2026 - antes WIN-RUNNER-PROPRIO, trocado quando esse item
+# fechou concluido e V-6b/V-7 saíram para WIN-LAB-INSTALAR). Sem
 # item para rastrear, mesmo padrao das demais linhas SEM-PENDENCIA
 # desta secao inicial do arquivo.
 win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
@@ -447,15 +541,18 @@ win_vm_lab_isolamento_selftest|windows|nenhum|SEM-PENDENCIA
 # dirige, nunca o inverso.
 #
 # win_vm_lab_sessao_selftest (tools/win-vm-lab/sessao.sh --selftest,
-# sub-fatia V-2, /var/tmp/glintfx-plan/win-runner-local.md secao 1) e' o
+# sub-fatias V-2 e V-5b, docs/plano-fecho-w7b.md secao 2.2.2) e' o
 # motorista de sessao: trava de exclusao mutua (`flock` sobre
-# .vm.lock), segunda verificacao independente por `virsh domstate`, e
+# .vm.lock), segunda verificacao independente por `virsh domstate`,
 # sobreposicao qcow2 descartavel (`qemu-img create -b/-F`) que nasce e
-# morre dentro da mesma posse da trava. As tres ferramentas que ele usa
-# (`flock`, `virsh`, `qemu-img`) sao do HOSPEDEIRO libvirt/QEMU; nao
-# existe, por desenho, um "motorista de sessao" do lado Windows porque
-# o lado Windows aqui e' sempre o CONVIDADO sendo dirigido, nunca quem
-# dirige.
+# morre dentro da mesma posse da trava, e (V-5b, 22/09/2026) o mecanismo
+# de ligar pela copia avulsa (D-2/D-3/D-4: fonte do disco, nvram e
+# estado do TPM trocados, nunca a definicao permanente), provado inteiro
+# contra dubles de `virsh`. As quatro ferramentas que ele usa (`flock`,
+# `virsh`, `qemu-img`, `xmlstarlet` desde V-5b) sao do HOSPEDEIRO
+# libvirt/QEMU; nao existe, por desenho, um "motorista de sessao" do
+# lado Windows porque o lado Windows aqui e' sempre o CONVIDADO sendo
+# dirigido, nunca quem dirige.
 #
 # MORTE DESTAS TRES LINHAS: nunca - mesma classe de assimetria
 # permanente por desenho que win_vm_lab_isolamento_selftest acima ja
@@ -483,6 +580,22 @@ win_vm_lab_sessao_selftest|windows|nenhum|SEM-PENDENCIA
 # o proprio laboratorio e' o host Linux/libvirt hospedando e dirigindo o
 # convidado Windows, nunca o inverso.
 win_vm_lab_coletar_resultados_selftest|windows|nenhum|SEM-PENDENCIA
+
+# win_vm_lab_consolidar_selftest (tools/win-vm-lab/consolidar.sh
+# --selftest, sub-fatia V-6a, docs/plano-fecho-w7b.md secao 2.2.2) prova,
+# contra um dublê de `virsh` (nunca libvirt/QEMU real) e um par
+# base/sobreposicao qcow2 de BRINQUEDO que o proprio autoteste cria e
+# apaga, o caminho de CONSOLIDACAO da sobreposicao (`qemu-img commit`):
+# recusa se a maquina nao estiver desligada, recusa sem a trava de
+# exclusao mutua, recusa (e apaga) uma copia de seguranca que saia
+# corrompida antes de chegar perto do commit, e confere que a marca escrita
+# na sobreposicao migra para o base e que a copia de seguranca, restaurada,
+# reproduz o base de ANTES do commit byte a byte. MESMA razao estrutural
+# dos cinco vizinhos acima (script POSIX `#!/usr/bin/env bash`, sem
+# interprete que os runners Windows da matriz reconhecam - add_test tambem
+# condicionado a if(UNIX)); o proprio laboratorio e' o host Linux/libvirt
+# hospedando e dirigindo o convidado Windows, nunca o inverso.
+win_vm_lab_consolidar_selftest|windows|nenhum|SEM-PENDENCIA
 
 # --- Sonda exclusiva de UM sistema, sem par possivel (11/09/2026,
 # item CONTAINER-LOG-SIGNAL-FIRST) -------------------------------------
@@ -530,6 +643,22 @@ container_exec_fixture_selftest|windows|nenhum|SEM-PENDENCIA
 # add_test tambem condicionado a if(UNIX). MORTE DESTA LINHA: nunca -
 # mesma assimetria permanente por desenho, sem item para rastrear.
 container_alloc_report_selftest|windows|nenhum|SEM-PENDENCIA
+
+# container_run_compositor_selftest (tests/container/run_compositor.sh
+# --selftest, registrado em tests/CMakeLists.txt dentro de if(UNIX),
+# item CONT-WARMUP) - MESMA assimetria que container_exec_fixture_
+# selftest/container_alloc_report_selftest logo acima, pelo mesmo
+# motivo: prova, com uma sonda dublada (sem Docker/kwin_wayland),
+# a logica do laco que espera o compositor aceitar conexao real antes
+# de declarar pronto - laco que so' existe porque run_compositor.sh e'
+# o ENTRYPOINT de uma imagem que so' o job `wayland-container` (Linux)
+# sobe. POSIX sh (`#!/usr/bin/env sh`), redefine funcao dentro de
+# subshell `nome() ( ... )` como mecanismo de isolamento entre casos -
+# nenhum runner Windows desta matriz tem `sh` nativo; add_test tambem
+# condicionado a if(UNIX), mesma forma dos dois vizinhos acima. MORTE
+# DESTA LINHA: nunca - mesma assimetria permanente por desenho, sem
+# item para rastrear.
+container_run_compositor_selftest|windows|nenhum|SEM-PENDENCIA
 
 # drm_device_facts_oom_test (tests/drm_device_facts_oom_test.cpp,
 # tests/CMakeLists.txt dentro de if(UNIX), NOEXCEPT-ALLOC-B8 fatia F2,

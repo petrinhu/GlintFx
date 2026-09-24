@@ -69,12 +69,35 @@ src/platform/wayland/display_adapter.cpp|open()|wl_display_roundtrip(display)|se
 src/platform/wayland/display_adapter.cpp|roundtrip()|wl_display_roundtrip(m_display)|sem-teto-fora-do-caminho
 src/platform/wayland/display_adapter.cpp|drain_pending_and_prepare_read()|wl_display_prepare_read(m_display)|nao-espera
 src/platform/wayland/display_adapter.cpp|flush_with_retry()|wl_display_flush(m_display)|nao-espera
-src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|poll(&incoming, 1, static_cast<int>(timeout_ms))|teto-nosso
+# CONT-WARMUP C-6, EMENDA (ordem do team-lead sobre o residual
+# declarado da primeira rodada: testar a FIACAO real, nao so' o atomo):
+# `poll(&incoming, ...)` virou `poll_impl(&incoming, ...)` - a mesma
+# chamada, atras de uma costura injetavel (src/platform/wayland/
+# incoming_poll_syscall.hpp, padrao `&::poll`) que
+# tests/incoming_poll_wiring_test.cpp usa para exercitar esta funcao
+# REAL com cada desfecho, sem depender do kernel. `check_wait_points.py`
+# ganhou a agulha `poll_impl(` (SIMPLE_NEEDLES) porque "poll(" nao e'
+# substring de "poll_impl(" - sem a agulha nova, este sitio teria
+# SUMIDO da varredura.
+src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|poll_impl(&incoming, 1, static_cast<int>(timeout_ms))|teto-nosso
+src/platform/wayland/display_adapter.cpp|wait_for_incoming_data()|classify_incoming_poll(poll_result, incoming.revents)|nao-espera
 src/platform/wayland/display_adapter.cpp|read_and_dispatch_incoming()|wl_display_read_events(m_display)|nao-espera
 
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_prepare_read(display)|nao-espera
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_flush(display)|nao-espera
-src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll(&incoming, 1, static_cast<int>(budget_ms))|teto-nosso
+# CONT-WARMUP C-5 (GODS_LAWS.md L-17 "gemeo" de display_adapter.cpp:72-73
+# acima): o texto do poll( mudou de `static_cast<int>(budget_ms)` para
+# `wait_ms` (o laco novo refaz o poll() com o que sobra do orcamento em
+# EINTR, nunca do zero) - e a linha nova, classify_incoming_poll(...),
+# e' o proprio mecanismo que prova o mutante "reverter para a condicao
+# antiga": tirar essa chamada do arquivo faz esta linha ficar "podre"
+# (trecho nao encontrado na arvore), e check_wait_points.py ja reprova
+# manifesto podre.
+# CONT-WARMUP C-6, EMENDA (mesma costura do lado display_adapter.cpp,
+# ver a nota acima): `poll(&incoming, 1, wait_ms)` virou `poll_impl(
+# &incoming, 1, wait_ms)`.
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|poll_impl(&incoming, 1, wait_ms)|teto-nosso
+src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|classify_incoming_poll(poll_result, incoming.revents)|nao-espera
 src/platform/wayland/egl_context_adapter.cpp|poll_and_dispatch_with_budget()|wl_display_read_events(display)|nao-espera
 # As duas chamadas abaixo sao o MESMO texto, uma em cada ramo de
 # swap_buffers() (vsync=off e o ramo pos-espera de vsync=on) - as duas

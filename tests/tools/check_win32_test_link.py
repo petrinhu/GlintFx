@@ -84,6 +84,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import NamedTuple
 
 SCRIPT_NAME = "check_win32_test_link.py"
 DEFAULT_IMAGE = "glintfx-msvc:latest"
@@ -275,6 +276,17 @@ def _extract_call_args(text, func_name, target_name):
 # _ELSE_RE/_ENDIF_RE, definidos logo depois desta funcao neste mesmo
 # modulo - Python resolve nomes de modulo em tempo de CHAMADA, nao de
 # definicao, entao a ordem textual nao importa aqui).
+#
+# WIN-CROSS-TESTS-LINK X-4 (achado do orquestrador, 23/09/2026): esta
+# regex NUNCA precisou de conserto - "\s*" ja atravessa quebra de linha
+# sozinha, sem precisar de re.DOTALL (que so' afeta "."). O defeito
+# vivia inteiro no CHAMADOR: extract_win32_test_targets() rodava esta
+# regex LINHA A LINHA (dentro do laco if/elseif/else/endif), entao uma
+# chamada `glintfx_add_test(\n    nome)` - CMake valido - nunca chegava
+# a casar, porque nenhuma `line` isolada carrega a quebra que a regex
+# precisaria atravessar. O alvo sumia em silencio, e a reconciliacao
+# antiga (_raw_add_test_grep_count(), por subtracao) rotulava o sumico
+# como "ruido de comentario/prosa" sem checar nada (GODS_LAWS.md L-40).
 _ADD_TEST_ANY_RE = re.compile(r"glintfx_add_test\(\s*(\w+)\s*\)")
 # Reaproveitado por collect_win32_library_layout() mais abaixo tambem
 # (_add_subdirectory_calls_for_win32) - UM so' padrao de "endif()" para
@@ -291,30 +303,16 @@ def _excludes_windows(condition_text):
     return condition_text.strip() in ("UNIX", "NOT WIN32")
 
 
-def extract_win32_test_targets(cmake_text):
-    """(targets, exclusion_counts) - targets e' TODO glintfx_add_test()
-    aplicavel ao Windows (incondicional + if(WIN32)), cada um com as
-    fontes extras (target_sources) e libs extras (target_link_
-    libraries) que o MESMO nome de alvo declara EM QUALQUER LUGAR do
-    arquivo (busca global por nome, nao mais so' dentro do bloco
-    if(WIN32) - convencao real deste projeto: target_sources/target_
-    link_libraries de um alvo sempre citam o MESMO nome que o
-    glintfx_add_test() dele, nunca um nome diferente). exclusion_counts
-    e' um dict {condicao_textual: quantidade} dos alvos EXCLUIDOS por
-    if(UNIX)/if(NOT WIN32) - sempre presente, mesmo vazio (piso de
-    FORMATO, GODS_LAWS.md L-40: o chamador confere sources+excluidos ==
-    total bruto). Zero alvos aplicaveis e' piso vazio, verificado pelo
-    chamador (run_link_check), nao aqui - esta funcao so reporta o que
-    encontrou."""
-    stripped_text = _strip_cmake_comments_from_text(cmake_text)
-    lines = stripped_text.splitlines()
-    targets = []
-    exclusion_counts = {}
+def _line_exclusion_reasons(lines):
+    """A razao de exclusao Windows (if(UNIX)/if(NOT WIN32)) vigente em
+    CADA linha de `lines`, ou None. Isolado do scan de chamadas
+    propriamente dito (WIN-CROSS-TESTS-LINK X-4): uma chamada pode
+    ABRIR numa linha e FECHAR em outra, entao o estado de exclusao
+    precisa estar disponivel por INDICE DE LINHA, nao mais amarrado ao
+    mesmo laco que faz o match da chamada."""
+    reasons = []
     stack = []
-
-    i = 0
-    while i < len(lines):
-        line = lines[i]
+    for i, line in enumerate(lines):
         if_match = _IF_RE.match(line)
         elseif_match = _ELSEIF_RE.match(line)
         else_match = _ELSE_RE.match(line)
@@ -333,40 +331,77 @@ def extract_win32_test_targets(cmake_text):
             if not stack:
                 fail(f"endif() sem if() correspondente em tests/CMakeLists.txt, linha {i + 1}")
             stack.pop()
-        else:
-            for match in _ADD_TEST_ANY_RE.finditer(line):
-                name = match.group(1)
-                excluding = [c for c in stack if _excludes_windows(c)]
-                if excluding:
-                    reason = excluding[-1]
-                    exclusion_counts[reason] = exclusion_counts.get(reason, 0) + 1
-                    continue
-                raw_sources = _extract_call_args(stripped_text, "target_sources", name)
-                raw_defines = _extract_call_args(stripped_text, "target_compile_definitions", name)
-                targets.append(
-                    {
-                        "name": name,
-                        "sources": [_resolve_project_source_dir_token(s) for s in raw_sources],
-                        "libs": _extract_call_args(stripped_text, "target_link_libraries", name),
-                        # target_compile_definitions - achado ao rodar S6 contra a
-                        # arvore real (10/09/2026): dois alvos "oracle" (log_
-                        # field_test, gfss_declaration_registry_doc_oracle_test)
-                        # citam macro GLTFX_..._SOURCE apontando para o proprio
-                        # arquivo-fonte deles, via ${PROJECT_SOURCE_DIR} - resolvido
-                        # para /src (o mount do container), igual sources/libs.
-                        # O VALOR nunca precisa ser um caminho Windows valido: este
-                        # estagio nunca EXECUTA o binario (S5), so compila - a
-                        # macro so precisa ser uma string literal valida em tempo
-                        # de compilacao.
-                        "defines": [
-                            d.replace("${PROJECT_SOURCE_DIR}", "/src") for d in raw_defines
-                        ],
-                    }
-                )
-        i += 1
-
+        excluding = [c for c in stack if _excludes_windows(c)]
+        reasons.append(excluding[-1] if excluding else None)
     if stack:
         fail(f"tests/CMakeLists.txt termina com {len(stack)} bloco(s) if() sem endif() correspondente")
+    return reasons
+
+
+def _add_test_matches_with_line_index(stripped_text):
+    """[(nome, indice_de_linha_0based)] de CADA 'glintfx_add_test(NOME)'
+    real no texto INTEIRO (nunca linha a linha - GODS_LAWS.md L-17/
+    WIN-CROSS-TESTS-LINK X-4): o indice e' o da linha onde o "(" abre,
+    usado pelo chamador para consultar _line_exclusion_reasons()."""
+    return [
+        (match.group(1), stripped_text.count("\n", 0, match.start()))
+        for match in _ADD_TEST_ANY_RE.finditer(stripped_text)
+    ]
+
+
+def _build_win32_test_target(stripped_text, name):
+    raw_sources = _extract_call_args(stripped_text, "target_sources", name)
+    raw_defines = _extract_call_args(stripped_text, "target_compile_definitions", name)
+    return {
+        "name": name,
+        "sources": [_resolve_project_source_dir_token(s) for s in raw_sources],
+        "libs": _extract_call_args(stripped_text, "target_link_libraries", name),
+        # target_compile_definitions - achado ao rodar S6 contra a
+        # arvore real (10/09/2026): dois alvos "oracle" (log_field_test,
+        # gfss_declaration_registry_doc_oracle_test) citam macro GLTFX_
+        # ..._SOURCE apontando para o proprio arquivo-fonte deles, via
+        # ${PROJECT_SOURCE_DIR} - resolvido para /src (o mount do
+        # container), igual sources/libs. O VALOR nunca precisa ser um
+        # caminho Windows valido: este estagio nunca EXECUTA o binario
+        # (S5), so compila - a macro so precisa ser uma string literal
+        # valida em tempo de compilacao.
+        "defines": [d.replace("${PROJECT_SOURCE_DIR}", "/src") for d in raw_defines],
+    }
+
+
+def extract_win32_test_targets(cmake_text):
+    """(targets, exclusion_counts) - targets e' TODO glintfx_add_test()
+    aplicavel ao Windows (incondicional + if(WIN32)), cada um com as
+    fontes extras (target_sources) e libs extras (target_link_
+    libraries) que o MESMO nome de alvo declara EM QUALQUER LUGAR do
+    arquivo (busca global por nome, nao mais so' dentro do bloco
+    if(WIN32) - convencao real deste projeto: target_sources/target_
+    link_libraries de um alvo sempre citam o MESMO nome que o
+    glintfx_add_test() dele, nunca um nome diferente). exclusion_counts
+    e' um dict {condicao_textual: quantidade} dos alvos EXCLUIDOS por
+    if(UNIX)/if(NOT WIN32) - sempre presente, mesmo vazio (piso de
+    FORMATO, GODS_LAWS.md L-40: o chamador confere sources+excluidos ==
+    total bruto). Zero alvos aplicaveis e' piso vazio, verificado pelo
+    chamador (run_link_check), nao aqui - esta funcao so reporta o que
+    encontrou.
+
+    WIN-CROSS-TESTS-LINK X-4: reconhece glintfx_add_test() partido em
+    varias linhas fisicas (e com comentario entre o "(" e o nome, ja
+    que o comentario foi removido antes de _add_test_matches_with_
+    line_index() rodar) - a chamada de UMA linha continua sendo o caso
+    comum, nunca deixou de funcionar."""
+    stripped_text = _strip_cmake_comments_from_text(cmake_text)
+    lines = stripped_text.splitlines()
+    exclusion_reasons = _line_exclusion_reasons(lines)
+
+    targets = []
+    exclusion_counts = {}
+    for name, line_index in _add_test_matches_with_line_index(stripped_text):
+        reason = exclusion_reasons[line_index]
+        if reason is not None:
+            exclusion_counts[reason] = exclusion_counts.get(reason, 0) + 1
+            continue
+        targets.append(_build_win32_test_target(stripped_text, name))
 
     return targets, exclusion_counts
 
@@ -1094,12 +1129,68 @@ def _raw_add_test_grep_count(repo_root):
     """Mesma convencao de `grep -c 'glintfx_add_test(' tests/CMakeLists.
     txt` (substring por LINHA, nao regex de nome) - inclui as poucas
     linhas de comentario/prosa que citam a chamada sem invoca-la
-    (medido: 5 em 10/09/2026). Usado so' para a contagem de "alvos
-    multiplataforma nao exercitados" enquanto WIN-CROSS-TESTS-LINK
-    (WIN-CROSS-STAGE S6) nao fecha com uma contagem exata por motivo de
-    exclusao - ver o comentario do proprio chamador."""
+    (medido: 5 em 10/09/2026, 9 em 23/09/2026). Usado so' para a
+    contagem bruta que o resumo de build_not_measured_block() reconcilia
+    contra alvos_encontrados + alvos_excluidos + comentario CONTADO de
+    verdade (_count_add_test_comment_mentions(), nunca mais deduzido por
+    subtracao - WIN-CROSS-TESTS-LINK X-4, 23/09/2026: a subtracao
+    antiga era tautologica, sempre fechava por definicao, e por isso
+    nunca podia morder um alvo multilinha perdido - ver o comentario de
+    _reconcile_add_test_counts() abaixo). WIN-CROSS-TESTS-LINK fechou
+    com essa contagem exata em 07c4310 (WIN-CROSS-STAGE S6), com a
+    estreia vermelha contra o defeito de 6e049ad provada em cima disso
+    em 23/09/2026 (WIN-CROSS-TESTS-LINK X-1..X-3)."""
     text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
     return sum(1 for line in text.splitlines() if "glintfx_add_test(" in line)
+
+
+def _add_test_call_line_index_set(cmake_text):
+    """Mesmo indice de linha que _add_test_matches_with_line_index()
+    devolve (acima, extract_win32_test_targets()), so' que como
+    conjunto - a reconciliacao so' precisa saber SE a linha bruta e'
+    onde uma chamada REAL comeca, nunca o nome dela."""
+    stripped_text = _strip_cmake_comments_from_text(cmake_text)
+    return {line_index for _name, line_index in _add_test_matches_with_line_index(stripped_text)}
+
+
+def _count_add_test_comment_mentions_in_text(cmake_text):
+    """Linhas cujo 'glintfx_add_test(' cru NAO e' o inicio de nenhuma
+    chamada real (fora do conjunto acima) - contadas UMA A UMA, nunca
+    deduzidas por subtracao (achado do orquestrador, INBOX 'win-cross:
+    checagem de reconciliacao morta', 23/09/2026, GODS_LAWS.md L-40)."""
+    real_call_lines = _add_test_call_line_index_set(cmake_text)
+    return sum(
+        1
+        for i, line in enumerate(cmake_text.splitlines())
+        if "glintfx_add_test(" in line and i not in real_call_lines
+    )
+
+
+def _count_add_test_comment_mentions(repo_root):
+    text = read_file(os.path.join(repo_root, "tests", "CMakeLists.txt"))
+    return _count_add_test_comment_mentions_in_text(text)
+
+
+def _reconcile_add_test_counts(bruto, encontrados, excluidos, comentario):
+    """bruto == encontrados + excluidos + comentario, sempre - a soma
+    tem de FECHAR, nunca so' 'explicar' a diferenca por definicao
+    (GODS_LAWS.md L-40). A subtracao antiga (ruido_comentario = bruto -
+    encontrados - excluidos) era uma tautologia: qualquer alvo perdido
+    pelo parser vazava para dentro do proprio "comentario" calculado, e
+    a soma sempre batia de volta - "portao que nunca mordeu"
+    (GODS_LAWS.md L-36). Esta funcao reprova nomeando a diferenca e o
+    que sobrou sem explicacao, em vez de deixar a aritmetica absorver
+    um alvo multilinha perdido como se fosse ruido de comentario (o
+    defeito latente que WIN-CROSS-TESTS-LINK X-4 fecha)."""
+    esperado = encontrados + excluidos + comentario
+    if bruto != esperado:
+        fail(
+            "reconciliacao do bloco 'NAO MEDIDO AQUI' nao fecha (GODS_LAWS.md L-40): "
+            f"bruto({bruto}) != encontrados({encontrados}) + excluidos({excluidos}) + "
+            f"comentario({comentario}) = {esperado} - sobraram {bruto - esperado} ocorrencia(s) "
+            "bruta(s) sem explicacao (chamada multilinha nao reconhecida, ou forma nova de mencao "
+            "ainda nao coberta aqui)"
+        )
 
 
 _NOT_MEASURED_ITEMS = (
@@ -1124,18 +1215,35 @@ def _not_measured_block_ok(text):
     return has_version_line and not_measured_count >= 6
 
 
-def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos):
-    cl_version = _read_cl_version(image, repo_root, timeout_seconds)
+# WIN-CROSS-TESTS-LINK X-4 (achado do lider em revisao, 23/09/2026,
+# GODS_LAWS.md L-17): image/repo_root/timeout_seconds sao um UNICO
+# conceito - "onde e como falar com o container MSVC" -, nunca tres
+# ideias separadas por acaso; andam juntos em quase toda funcao deste
+# arquivo que fala com o container. Agrupados aqui para tirar build_
+# not_measured_block() de 5 parametros (>4, violacao L-17) sem mudar
+# NENHUM comportamento - so' reempacota o que ja se passava solto.
+class _WinLinkExecContext(NamedTuple):
+    image: str
+    repo_root: str
+    timeout_seconds: int
+
+
+def build_not_measured_block(context, alvos_encontrados, alvos_excluidos):
+    cl_version = _read_cl_version(context.image, context.repo_root, context.timeout_seconds)
     version_text = cl_version if cl_version else "desconhecida (nao foi possivel ler 'cl' no container)"
     # WIN-CROSS-STAGE S6 fechou: extract_win32_test_targets() ja devolve
     # TODO alvo aplicavel, entao a diferenca contra a contagem bruta de
     # texto (`grep -c 'glintfx_add_test('`) nunca mais e' "nao
-    # exercitado" - e' so' a soma de duas coisas estruturais: exclusao
-    # explicita (if(UNIX)/if(NOT WIN32)) e as poucas linhas de
-    # comentario/prosa que citam a chamada sem invoca-la (5 em
-    # 10/09/2026). Declarado como o que E, nunca mais como pendencia.
-    raw_add_test_count = _raw_add_test_grep_count(repo_root)
-    ruido_comentario = raw_add_test_count - alvos_encontrados - alvos_excluidos
+    # exercitado" - e' so' a soma de tres coisas estruturais: exclusao
+    # explicita (if(UNIX)/if(NOT WIN32)), chamada real encontrada, e as
+    # poucas linhas de comentario/prosa que citam a chamada sem invoca-
+    # la. WIN-CROSS-TESTS-LINK X-4 (23/09/2026): a terceira parcela
+    # agora e' CONTADA de verdade (_count_add_test_comment_mentions()),
+    # nunca mais deduzida por subtracao, e _reconcile_add_test_counts()
+    # reprova se a soma nao fechar - ver o comentario dela.
+    raw_add_test_count = _raw_add_test_grep_count(context.repo_root)
+    ruido_comentario = _count_add_test_comment_mentions(context.repo_root)
+    _reconcile_add_test_counts(raw_add_test_count, alvos_encontrados, alvos_excluidos, ruido_comentario)
     lines = [
         f"{SCRIPT_NAME}: compilador deste estagio: cl.exe {version_text} - o servidor usa o MSVC de "
         "`windows-latest`, versao lida so no log do CI, NUNCA presumida igual"
@@ -1146,13 +1254,20 @@ def build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrado
         f"{SCRIPT_NAME}: NAO MEDIDO AQUI: {raw_add_test_count} ocorrencia(s) bruta(s) de "
         f"'glintfx_add_test(' no arquivo = {alvos_encontrados} aplicavel(is) e ligado(s) aqui + "
         f"{alvos_excluidos} excluido(s) estruturalmente (if(UNIX)/if(NOT WIN32)) + {ruido_comentario} "
-        "mencao(oes) em comentario/prosa (nunca invocam a chamada de verdade)"
+        "mencao(oes) em comentario/prosa (contadas uma a uma, nunca deduzidas por subtracao)"
     )
     return "\n".join(lines)
 
 
 def print_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos):
-    text = build_not_measured_block(image, repo_root, timeout_seconds, alvos_encontrados, alvos_excluidos)
+    # print_not_measured_block() em si continua com 5 parametros -
+    # PRE-EXISTENTE, fora do escopo desta fatia (so' build_not_measured_
+    # block() foi apontado); o contexto e' montado aqui so' para casar
+    # com a nova assinatura do chamado, sem propagar a mudanca para
+    # quem chama ESTA funcao (real_main() continua passando os tres
+    # soltos, comportamento identico).
+    context = _WinLinkExecContext(image, repo_root, timeout_seconds)
+    text = build_not_measured_block(context, alvos_encontrados, alvos_excluidos)
     if not _not_measured_block_ok(text):
         fail(
             "bloco 'NAO MEDIDO AQUI' malformado (GODS_LAWS.md L-40 aplicado ao formato do resumo) - "
@@ -1188,6 +1303,60 @@ def _selftest_not_measured_block_negative():
         )
         return False
     print("selftest: NOT-MEASURED-FORMATO-NEGATIVO OK (reprovado por faltar a linha de versao)")
+    return True
+
+
+# WIN-CROSS-TESTS-LINK X-4 (23/09/2026): os dois controles abaixo
+# cobrem a reconciliacao CONTADA (nunca mais deduzida por subtracao) do
+# bloco "NAO MEDIDO AQUI" - _count_add_test_comment_mentions_in_text()
+# em isolamento (sem tocar disco/repo_root) e _reconcile_add_test_
+# counts() nos dois sentidos (fecha quando bate, reprova quando nao).
+def _selftest_add_test_comment_mentions():
+    cmake_text = """
+# um exemplo de glintfx_add_test(nome_qualquer) so' em prosa, nunca invocado
+glintfx_add_test(fake_real_test)
+target_sources(fake_real_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/common/real.cpp"
+)
+# outro comentario que cita glintfx_add_test(outro_nome) de novo
+"""
+    count = _count_add_test_comment_mentions_in_text(cmake_text)
+    if count != 2:
+        print(
+            f"selftest: ADD-TEST-COMENTARIO FALHOU: esperava 2 mencoes em comentario, veio {count}",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: ADD-TEST-COMENTARIO OK (2 mencoes em comentario contadas, chamada real excluida)")
+    return True
+
+
+def _selftest_reconcile_add_test_counts():
+    # positivo: bruto bate exatamente com a soma das tres partes.
+    try:
+        _reconcile_add_test_counts(bruto=5, encontrados=3, excluidos=1, comentario=1)
+    except SystemExit:
+        print("selftest: RECONCILIA-ADD-TEST FALHOU (positivo reprovou quando deveria fechar)", file=sys.stderr)
+        return False
+
+    # mutante: comentario contado ERRADO (0 em vez de 2) - exatamente o
+    # defeito que a SUBTRACAO antiga nunca poderia pegar (ela deduzia
+    # esse valor por definicao, entao a soma sempre fechava - GODS_LAWS.
+    # md L-36, "portao que nunca mordeu"). A contagem real tem de morder
+    # aqui.
+    mordeu = False
+    try:
+        _reconcile_add_test_counts(bruto=5, encontrados=3, excluidos=1, comentario=0)
+    except SystemExit:
+        mordeu = True
+    if not mordeu:
+        print(
+            "selftest: RECONCILIA-ADD-TEST FALHOU (mutante com comentario contado errado nao reprovou)",
+            file=sys.stderr,
+        )
+        return False
+
+    print("selftest: RECONCILIA-ADD-TEST OK (fecha quando bate, reprova quando o contado esta errado)")
     return True
 
 
@@ -1627,6 +1796,56 @@ target_sources(fake_unknown_var_test PRIVATE
     return True
 
 
+# WIN-CROSS-TESTS-LINK X-4 (achado do orquestrador, 23/09/2026):
+# `glintfx_add_test(\n    nome)` e' CMake valido, e o parser antigo
+# (scan linha a linha) perdia o alvo em silencio - ele sumia do portao,
+# e a reconciliacao antiga (subtracao) rotulava o sumico como 'ruido de
+# comentario' sem checar nada. _ADD_TEST_ANY_RE em si nunca precisou de
+# conserto ("\s*" ja atravessa quebra de linha); quem precisava e' o
+# CHAMADOR nunca ter escaneado linha a linha. A fixture abaixo cobre as
+# duas formas: chamada partida em duas linhas, e chamada com comentario
+# entre o "(" e o nome (ja removido antes do match rodar).
+_MULTILINE_CALL_FIXTURE = """
+glintfx_add_test(
+    fake_multiline_test)
+target_sources(fake_multiline_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/common/multiline.cpp"
+)
+
+if(WIN32)
+    glintfx_add_test(
+        # comentario entre o parentese de abertura e o nome do alvo
+        fake_multiline_win32_test
+    )
+    target_link_libraries(fake_multiline_win32_test PRIVATE user32)
+endif()
+"""
+
+
+def _selftest_parsing_multiline_call():
+    targets, exclusion_counts = extract_win32_test_targets(_MULTILINE_CALL_FIXTURE)
+    by_name = {t["name"]: t for t in targets}
+    ok = (
+        "fake_multiline_test" in by_name
+        and by_name["fake_multiline_test"]["sources"] == ["src/common/multiline.cpp"]
+        and "fake_multiline_win32_test" in by_name
+        and by_name["fake_multiline_win32_test"]["libs"] == ["user32"]
+        and exclusion_counts == {}
+    )
+    if not ok:
+        print(
+            f"selftest: PARSING-MULTILINHA FALHOU: targets={sorted(by_name)} "
+            f"exclusion_counts={exclusion_counts}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARSING-MULTILINHA OK (chamada partida em duas linhas, com comentario no meio, "
+        "reconhecida)"
+    )
+    return True
+
+
 def _selftest_layout_respects_win32_branch(scratch):
     """src/ sintetico com o MESMO desenho if(UNIX)/elseif(WIN32) que
     src/platform/CMakeLists.txt usa de verdade: uma fonte incondicional,
@@ -1873,9 +2092,12 @@ def selftest_main(image, timeout_seconds):
     parsing_results = [
         ("parsing-positivo", _selftest_parsing_positive()),
         ("parsing-vazio", _selftest_parsing_empty_block()),
+        ("parsing-multilinha", _selftest_parsing_multiline_call()),
         ("current-source-dir-token", _selftest_current_source_dir_token()),
         ("not-measured-formato-positivo", _selftest_not_measured_block_positive()),
         ("not-measured-formato-negativo", _selftest_not_measured_block_negative()),
+        ("add-test-comentario", _selftest_add_test_comment_mentions()),
+        ("reconcilia-add-test", _selftest_reconcile_add_test_counts()),
         ("classify-compilacao-falhou", _selftest_classify_compile_error_falhou()),
         ("classify-link-falhou", _selftest_classify_link_error_falhou()),
         ("classify-ambiente-sem-diagnostico", _selftest_classify_ambiente_sem_diagnostico()),

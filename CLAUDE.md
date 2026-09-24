@@ -30,7 +30,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | criar repo, `LICENSE`, cabeçalho, publicar qualquer coisa | L-08 público, AGPL-3.0 |
 | ⚖ | rodar QUALQUER teste que executa (suíte, portão, demo, sanitizer), ou abrir janela / injetar input / capturar tela | L-09 container, nunca a sessão viva |
 | ⚖ | escolher entre abordagens, decidir design ou arquitetura | L-10 opções via AskUserQuestion |
-| ⚖ | `git push`, merge em `main`, criar tag, publicar release | L-11 push por onda, tag com aval |
+| ⚖ | `git push`, merge em `main`, criar tag, publicar release | L-11 push por onda; ao fim de onda com tudo verde, merge e marca sem perguntar, número pela L-26 |
 | ⚖ | escrever ou revisar código de produto | L-12 agente especialista, papéis distintos |
 | ⚖ | escrever qualquer mensagem ao líder | L-13 timestamp real |
 | ⚖ | instalar, remover ou atualizar pacote de sistema | L-14 pedir autorização |
@@ -53,8 +53,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | tocar contexto gráfico, shader ou carregador de GL | L-31 OpenGL 3.3 core |
 | ⚖ | escolher a próxima fatia, antes de a demo rodar | L-32 caminho principal sempre, mais no máximo UMA trilha paralela |
 | ⚖ | tocar qualquer coisa de mapa | L-33 avisar o `mapeditor`; se fora do ar, pelo bus |
-| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, fable planeja, main verifica, sonnet implementa |
-| ⚖ | operar em modo autônomo, ou sair dele | L-34 o `fable` decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
+| ⚖ | começar QUALQUER fatia ou onda | L-34 brainstorm com o líder, C-level opus (esforço alto) planeja, main verifica, sonnet implementa |
+| ⚖ | operar em modo autônomo, ou sair dele | L-34 o C-level `opus` (esforço alto), depois de pesquisar, decide no lugar do líder; o main registra em `DECISOES_AUTONOMAS.md` ao vivo |
 | ⚖ | tocar a superfície de entrada, ou a entrega de evento | L-35 entrega determinística, sem duplicar e sem reordenar; é promessa pública |
 | ⚖ | tocar cursor, áudio, gamepad ou compose | L-36 as quatro decisões de escopo de 23/08; nenhuma é mais pergunta |
 | ⚖ | o líder aprovar, rejeitar ou mudar algo, ou fechar item de alta prioridade | L-37 avisar o Gus Dragon sem ele perguntar |
@@ -64,6 +64,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | ⚖ | escrever qualquer coisa dirigida ao líder: mensagem, pergunta, relatório | L-41 explique pelo EFEITO, nunca pela implementação |
 | ⚖ | uma falha voltar para revisão pela segunda vez | L-42 buscar na web antes da terceira tentativa |
 | ⚖ | iniciar QUALQUER onda, antes de fatiar | L-43 buscar na web, no RmlUi e no SDL3 ANTES da primeira linha |
+| ⚖ | escrever teste que roda o compilador uma vez por fixture, ou mexer no oráculo do portão de camadas | L-45 oráculo diferencial só no CI do servidor, nunca nesta máquina; exceção fechada à L-11 global |
 
 ---
 

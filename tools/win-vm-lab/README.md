@@ -24,7 +24,7 @@ acidente, a receita aqui basta para reconstruir a máquina do zero; o
 único custo é baixar a imagem da Microsoft de novo e reconferir a
 assinatura.
 
-## O que esta fronteira PROVA, e o que ela NÃO prova (07/09/2026)
+## O que esta fronteira PROVA, e o que ela NÃO prova (atualizado 23/09/2026)
 
 **Provado, medido, não suposto:**
 
@@ -42,6 +42,49 @@ assinatura.
   (`provar-isolamento.sh`), cada uma provada mordendo por sabotagem antes
   de valer. A sétima (enlace de rede do convidado) entrou em 22/09/2026 -
   ver a seção "Rede do convidado" abaixo.
+- **O primeiro ARRANQUE REAL da máquina, pela cópia avulsa** (item
+  `WIN-RUNNER-PROPRIO`, sub-fatias V-5b/V-5c/V-5, 23/09/2026): `virsh
+  create` aceita uma cópia avulsa da definição, com o MESMO nome e
+  identificador do domínio persistente, sem tocar a definição permanente -
+  confirmado por `sha256sum` do `dumpxml --inactive` idêntico antes e
+  depois de **cinco lançamentos reais** do domínio (`virsh create`,
+  tentativas 1, 2 e 3, mais as sessões 4 e 5). **Três** desses cinco
+  chegaram a conversar com o convidado (`guest-ping` respondeu):
+  tentativa 3, sessão 4 e sessão 5. As duas primeiras tentativas ligaram a
+  máquina de verdade, mas nunca alcançaram o agente - o defeito do NVRAM
+  que a V-5c consertou (ver seção 19 do `RELATORIO.md`). Ver "O ciclo
+  novo: liga por cópia avulsa" logo abaixo.
+- **O par verde/vermelho, de novo, mas agora com o binário recompilado do
+  HEAD no container e executado na máquina real** (não mais um par
+  congelado de 07/09/2026): `wgl_proc_address_test.exe` sai com código 0
+  (4 casos, 0 falhas); o mutante correspondente
+  (`wgl_proc_address_test_MUTANT.exe`) sai com código 1, uma falha nomeada
+  em `win32_wgl_proc_address_test.cpp:126`.
+- **A área de trabalho de sessão não deixa rastro entre sessões (E3)**,
+  com controle positivo: uma marca escrita numa sessão é confirmada
+  AUSENTE na sessão seguinte, com o motivo da ausência classificado (erro
+  de "arquivo inexistente", nunca "canal morto" disfarçado de ausência) -
+  e um controle positivo (abrir `C:\Windows\win.ini`, que sempre existe)
+  prova que o canal estava vivo quando a marca foi checada.
+- **O convidado não alcança rede nenhuma (E4)**, com régua calibrada: as
+  três sondas de saída (hospedeiro, DNS da rede de usuário, destino
+  externo) falham, e um ouvinte TCP local em `127.0.0.1` (que não depende
+  do adaptador de rede) prova que a sonda em si funciona - sem essa
+  calibração, "falhou" não distinguiria enlace desligado de canal quebrado.
+- **O limite prático de bytes por chamada `guest-file-read`, medido, não
+  mais um palpite**: até 2 MiB (2.097.152 bytes) por chamada devolve
+  `count` batendo com o pedido; 4 MiB (4.194.304 bytes) é recusado pelo
+  RPC do libvirt com `"Unable to encode message payload"` -
+  `VIR_NET_MESSAGE_STRING_MAX`, constante do libvirt
+  (`src/rpc/virnetprotocol.x`) que limita um campo STRING dentro da
+  mensagem RPC, valor 4.194.304. `coletar-resultados.sh` usa 2 MiB como
+  bloco padrão desde a sub-fatia V-5d.
+- **A segunda camada contra "ligar a máquina à mão" (E10)**: com a máquina
+  já ligada pela cópia avulsa, `virsh start` do domínio permanente recusa
+  (o próprio libvirt, porque o identificador já está ativo), e `lslocks`
+  mostra a trava `OFDLCK` do processo `qemu-system-x86` sobre o disco base
+  - conferido só por leitura, nunca tentando escrever no disco base para
+  sondar a trava.
 
 **Não provado ainda, dito com todas as letras para não ficar calado:**
 
@@ -51,6 +94,27 @@ assinatura.
   `virtio-vga`, renderizado por software; nenhuma GPU foi repassada).
 - **Sanitizador** (ASan/UBSan de binário Windows dentro desta máquina,
   não tentado).
+- **O teto exato do limite de bytes do `guest-file-read`**: medido apenas
+  que 2 MiB passa e 4 MiB não passa; a fronteira teórica exata (onde o
+  texto base64 da resposta cruza os 4.194.304 bytes do
+  `VIR_NET_MESSAGE_STRING_MAX`, aritmeticamente perto de 3.145.728 bytes
+  crus) não foi testada ponto a ponto.
+- **"48 MiB + 1 recusado" (a exigência original da decisão D-6)**: o canal
+  do agente convidado quebra bem antes de chegar perto desse tamanho (a
+  partir de qualquer pedido acima do teto do `STRING_MAX`, toda chamada
+  seguinte ao agente falha com "Guest agent is not responding" até o fim
+  da sessão) - **não mensurável por este caminho**, ausência declarada.
+  Provar aquele ponto especificamente exigiria ler em blocos menores que
+  o `STRING_MAX` e comparar contra o tamanho real do arquivo, nunca uma
+  leitura de bloco único gigante.
+- **A primeira consolidação REAL** (juntar a sobreposição de uma sessão de
+  volta ao disco de 17 GiB) - o caminho está escrito e provado só contra
+  um par base/sobreposição de brinquedo (`consolidar.sh`, sub-fatia V-6a);
+  a consolidação real é item separado (`WIN-LAB-INSTALAR`), que exige aval
+  do líder (ação irreversível, L-01).
+- **Qualquer instalação dentro do convidado**, com o enlace de rede
+  religado só para isso - também `WIN-LAB-INSTALAR`, também exige aval do
+  líder (L-51).
 
 Relatório completo do primeiro fecho, com os números crus e a linha de
 comando literal de cada chamada: `RELATORIO.md` neste mesmo diretório.
@@ -66,11 +130,58 @@ comando literal de cada chamada: `RELATORIO.md` neste mesmo diretório.
 | `transferir-executar.sh` | Transfere um arquivo para o convidado pelo canal `org.qemu.guest_agent.0` (`guest-file-write`, em blocos, com contagem de bytes conferida). |
 | `rodar-caminho.sh` | Roda um binário Windows por CAMINHO completo via `guest-exec`, espera terminar e devolve o resultado no próprio código de saída do script (0 sucesso, 1 falha ao iniciar, 3 convidado terminou com erro, 124 estourou o prazo). Prazo configurável por argumento. Tem `--selftest`. |
 | `rodar-um.sh` | Mesma coisa que `rodar-caminho.sh`, mas recebe só o NOME do arquivo (resolvido para `C:\Users\glintfx\<nome>`). Tem `--selftest`. |
-| `sessao.sh` | Motorista de ciclo de vida (WIN-RUNNER-PROPRIO V-2): trava de exclusão mútua (`flock`), segunda verificação independente por `domstate`, sobreposição qcow2 descartável que nasce e morre dentro da mesma posse da trava, teardown incondicional por `trap`. Não liga a máquina nem altera a definição do domínio. Tem `--selftest`. |
-| `coletar-resultados.sh` | Coletor de resultado (WIN-RUNNER-PROPRIO V-3): traz de volta TODO arquivo de um diretório de resultados do convidado via `guest-file-read`, com md5 conferido nas duas pontas (hash pedido ao convidado por `certutil -hashfile` contra o hash da cópia local reconstruída), piso de varredura não-vazia (diretório vazio é recusa, nunca sucesso silencioso) e lista de PERMISSÃO para nome de arquivo (o convidado é não confiável por desenho; nome fora do padrão `^[A-Za-z0-9][A-Za-z0-9._-]*$` é rejeitado ANTES de virar caminho no hospedeiro, nunca por `continue` calado - código de saída próprio, 2). Tem `--selftest`. |
+| `sessao.sh` | Motorista de ciclo de vida (WIN-RUNNER-PROPRIO V-2/V-5b/V-5c): trava de exclusão mútua (`flock`), segunda verificação independente por `domstate`, sobreposição qcow2 descartável do disco que nasce e morre dentro da mesma posse da trava, teardown incondicional por `trap`. Com `--ligar`: gera uma CÓPIA AVULSA da definição (mesmo nome/identificador do domínio persistente, que nunca é tocado) e liga por ela - ver "O ciclo novo" abaixo. Tem `--selftest`. |
+| `consolidar.sh` | Caminho de CONSOLIDAÇÃO da sobreposição (WIN-RUNNER-PROPRIO V-6a): junta as mudanças de uma sobreposição de volta ao disco base dela (`qemu-img commit`), com três guardas - trava de exclusão mútua, máquina confirmada desligada, e cópia de segurança (`cp --reflink=always`) conferida por soma ANTES do commit. **Nunca toca o disco real de 17 GiB nesta sub-fatia**: o `--selftest` roda só contra um par base/sobreposição de brinquedo que ele mesmo cria e apaga. Tem `--selftest`. |
+| `coletar-resultados.sh` | Coletor de resultado (WIN-RUNNER-PROPRIO V-3/V-5d): traz de volta TODO arquivo de um diretório de resultados do convidado via `guest-file-read`, com md5 conferido nas duas pontas (hash pedido ao convidado por `certutil -hashfile` contra o hash da cópia local reconstruída), piso de varredura não-vazia (diretório vazio é recusa, nunca sucesso silencioso) e lista de PERMISSÃO para nome de arquivo (o convidado é não confiável por desenho; nome fora do padrão `^[A-Za-z0-9][A-Za-z0-9._-]*$` é rejeitado ANTES de virar caminho no hospedeiro, nunca por `continue` calado - código de saída próprio, 2). Bloco padrão de leitura: 2 MiB, medido contra a máquina real (V-5d) - ver "O que esta fronteira PROVA" acima. Tem `--selftest`. |
 | `autounattend.xml` | Arquivo de respostas do instalador do Windows, comentado linha a linha. **Senha substituída pelos marcadores `__ADMIN_PASSWORD__`/`__USER_PASSWORD__`**, nunca a senha real (ver seção própria abaixo). |
 | `fixtures/dominio-limpo.xml`, `fixtures/dominio-sabotado.xml` | Definições de VM usadas pelo `--selftest` do portão de isolamento. |
 | `RELATORIO.md` | Registro completo do primeiro fecho desta fronteira: decisões tomadas, defeitos achados e corrigidos (na própria receita, nunca escondidos), e o par verde/vermelho provado contra o Windows real. |
+
+## O ciclo novo: liga por cópia avulsa, com três redireções (V-5b/V-5c, 22-23/09/2026)
+
+Decisão do líder, 22/09/2026, por `AskUserQuestion`: **"cópia temporária da
+configuração"**. Em vez de apontar a definição PERSISTENTE do domínio para
+um disco descartável (o que exigiria alterá-la a cada sessão), `sessao.sh
+--ligar` gera uma CÓPIA AVULSA do XML - com o MESMO nome e identificador do
+domínio persistente - e liga por essa cópia via `virsh create`. A definição
+persistente nunca é tocada: só lida (`dumpxml --inactive`), nunca `define`,
+`edit`, nem `--config`.
+
+**A cópia troca EXATAMENTE TRÊS coisas** em relação ao permanente - nem
+menos, nem mais (`sessao.sh`, função `contar_diferencas_e_validar`, prova
+isso duas vezes antes de `virsh create` rodar: conta que são três, E
+reconstrói o que a cópia "deveria" ser a partir do permanente + as três
+trocas, comparando byte a byte):
+
+1. **Disco do sistema** → sobreposição qcow2 descartável (`qemu-img create
+   -b/-F`), mesmo mecanismo desde a V-2. O disco base fica **somente
+   leitura** durante a sessão (confirmado no `blockdev` real do QEMU:
+   `"read-only":true` no nó do disco base).
+2. **NVRAM (variáveis de firmware)** → **cópia INTEIRA** (`cp`), não
+   sobreposição. Achado da V-5c (primeiro arranque real, 23/09/2026):
+   libvirt abre o pflash do `<nvram>` com `"backing":null`, um só nó de
+   blockdev - diferente do `<disk>`, que ganha dois nós com religa
+   explícita. A cadeia de backing gravada no cabeçalho de um overlay de
+   NVRAM NUNCA é honrada em tempo de execução; o convidado arrancava com a
+   área de variáveis ZERADA (nem Secure Boot, nem ordem de arranque), e o
+   `qemu-ga` nunca chegava a responder. Corrigido no mesmo molde do item 3.
+3. **Estado do TPM emulado (swtpm)** → **cópia INTEIRA** (`cp -r` do
+   diretório), desde a V-2 - nunca foi qcow2, é um diretório de estado do
+   `swtpm`.
+
+As três cópias nascem e morrem dentro da MESMA posse da trava
+(`sessao.sh`), com teardown incondicional por `trap` em toda saída
+(normal, erro no meio, `SIGTERM`) - `SIGKILL` é a única exceção conhecida
+(nenhum `trap` a intercepta), e por isso a PRÓXIMA sessão recusa se achar
+uma sobreposição órfã, em vez de reaproveitar um disco cujo conteúdo não é
+confiável.
+
+**Prova de que as duas guardas antes de `virsh create` funcionam:**
+`sessao.sh --selftest` inclui `V5B-DIFF` (a cópia legítima aprova; listen
+exposto, enlace religado, uma quarta diferença qualquer, ou só DUAS das
+três trocas - todos reprovam) e `V5B-CREATE` (conta, com um duble de
+`virsh`, que uma cópia sabotada nunca chega a chamar `create`, e uma cópia
+legítima chama exatamente uma vez).
 
 ## Rede do convidado: desligada por padrão (22/09/2026)
 
@@ -118,12 +229,15 @@ sessão de agente:
   batendo com o horário do comando; o `nvram` do domínio manteve o `mtime`
   de antes (09:04:35) - nenhuma outra parte do domínio foi tocada.
 
-**Pendente, fora do alcance de leitura:**
-
-1. A metade VIVA de E4 (de dentro do convidado, tentar alcançar um destino
-   externo e ver falhar) só é possível com a máquina ligada - fica para a
-   sessão de arranque que ligar a VM, junto da medição do limite de bytes
-   por chamada `guest-file-read` (ver o cabeçalho de `coletar-resultados.sh`).
+**Já medido, atualizando o que este parágrafo chamava de "pendente" (V-5,
+23/09/2026):** a metade viva de E4 rodou contra a máquina real - as três
+sondas de saída (hospedeiro, DNS da rede de usuário, destino externo)
+falharam, com um ouvinte TCP local em `127.0.0.1` provando que a sonda em
+si funciona (régua calibrada, D-5) - e o limite de bytes por chamada
+`guest-file-read` foi medido (2 MiB passa limpo, 4 MiB é recusado pelo
+`VIR_NET_MESSAGE_STRING_MAX` do libvirt). Ver "O que esta fronteira PROVA"
+no topo deste arquivo, e o relatório completo em `/var/tmp/glintfx-plan/
+win-lab-estreia/V5-RELATORIO.md` (não versionado - evidência de sessão).
 
 **Para religar a rede numa sessão de instalação autorizada:**
 `virsh -c qemu:///session domif-setlink glintfx-win11-lab 52:54:00:fa:f5:80 up --config`

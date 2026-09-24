@@ -1533,6 +1533,8 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
     # wayland-client itself, resolved by the SAME plain pkg-config
     # variables glintfx_add_wayland_xdg_shell_binding() (cmake/
@@ -1573,6 +1575,8 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
     target_link_directories(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_bind_refusal_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1606,6 +1610,8 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
     target_link_directories(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
     target_link_libraries(display_native_display_test PRIVATE ${GlintfxWaylandClient_LIBRARIES})
@@ -1676,6 +1682,8 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
@@ -1708,6 +1716,8 @@ if(UNIX)
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
@@ -1729,6 +1739,57 @@ if(UNIX)
     )
     glintfx_add_wayland_xdg_shell_binding(gl_proc_address_oom_test)
     glintfx_add_egl(gl_proc_address_oom_test)
+
+    # incoming_poll_wiring_test - CONT-WARMUP C-6, EMENDA (ordem do
+    # team-lead sobre o residual declarado da primeira rodada de C-6,
+    # GODS_LAWS.md L-12/L-17/L-20/L-27): chama wait_for_incoming_data()
+    # (display_adapter.cpp) e poll_and_dispatch_with_budget() (egl_
+    # context_adapter.cpp) REAIS, com um `::poll()` fabricado (a
+    # costura poll_impl, incoming_poll_syscall.hpp) devolvendo cada
+    # desfecho - fecha o buraco que so' testar o atomo extraido
+    # (incoming_poll_reaction_test acima) deixava: o mutante "o ponto
+    # de uso inverte ou ignora o resultado" agora tem uma prova de
+    # execucao dedicada. MESMA lista de fontes de gl_proc_address_oom_
+    # test acima (egl_context_adapter.cpp e' uma translation unit so',
+    # precisa do proprio conjunto transitivo de callees inteiro) -
+    # nenhum compositor, nenhuma janela real: wl_display_connect_to_fd()
+    # sobre um socketpair() da as duas funcoes um wl_display* valido
+    # sem I/O de rede (ver o cabecalho do .cpp para o raciocinio
+    # completo e o risco de travamento que o desenho evita).
+    glintfx_add_test(incoming_poll_wiring_test)
+    target_include_directories(incoming_poll_wiring_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(incoming_poll_wiring_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_context_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/window_configure_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/display_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/global_catalog.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/connection_failure.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_requirements.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/shell_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/frame_callback_sequence.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_dedup.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_query.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_device_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/egl_device_enumeration.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_exclusion.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_seam.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gpu_kind_report.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_memory_facts.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/memory_separation_kind.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_version_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/gl/gl_surface_size_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_state.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/window_desc_validation.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/window/utf8_validation.cpp"
+    )
+    glintfx_add_wayland_xdg_shell_binding(incoming_poll_wiring_test)
+    glintfx_add_egl(incoming_poll_wiring_test)
 
     # NOEXCEPT-ALLOC-B8 fatia F2 (/var/tmp/glintfx-plan/plano-conserto-
     # noexcept.md sec. "F2", GODS_LAWS.md L-04/L-09/L-20/L-22): read_drm_
@@ -1797,6 +1858,8 @@ if(UNIX)
         # needs every callee linked alongside it" reasoning as bounded_
         # output_wait.cpp right above.
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/input/seat_capabilities.cpp"
     )
     target_link_directories(seat_adapter_listener_test PRIVATE ${GlintfxWaylandClient_LIBRARY_DIRS})
@@ -2899,6 +2962,57 @@ add_test(
 )
 set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 
+# ORACULO DIFERENCIAL DE CAMADAS (LAYERS-GATE-GFSS-GFUI sub-fatia L-5,
+# docs/plano-layers-l5.md, GODS_LAWS.md projeto L-45, decisao do lider
+# 23/09/2026): pergunta ao COMPILADOR DE VERDADE (-H no GCC/Clang,
+# /showIncludes no MSVC) o que cada fixture de check_layers.py de fato
+# puxa, e reprova quando o compilador viu cabecalho proibido ser puxado e
+# o portao, pra aquela MESMA fixture, deixou passar. A L-45 e' inequivoca:
+# o oraculo SO' roda no CI do servidor - registrado SEM guarda de sistema
+# (mesma forma de layers_test acima), pra dar PARIDADE DE INVENTARIO nos
+# dois lados do ctest -N em TODO sistema.
+#
+# NAO usa a propriedade DISABLED (DECISOES_AUTONOMAS.md 23/09/2026,
+# achado do implementador de L-5, MEDIDO: com DISABLED, `ctest -N` grava
+# o sufixo literal " (Disabled)" e tests/tools/check_test_parity.py
+# QUEBRAVA no parse dessa linha - nao uma paridade vermelha comum, um
+# crash do proprio parser, na primeira perna que alimentasse o trabalho
+# `parity` com um teste desligado; o portao de paridade ja foi corrigido
+# nesta mesma fatia pra reconhecer o sufixo, mas o mecanismo de
+# desligar TROCOU pra nao depender so' disso). Em vez disso: SKIP_
+# RETURN_CODE 77 (o valor convencional do CTest pra "pulado") - o teste
+# fica registrado IDENTICO em todo sistema, sem sufixo nenhum em `ctest
+# -N`, e o proprio `check_layers_oracle.py` decide em tempo de EXECUCAO
+# se roda ou pula, recebendo a opcao `GLINTFX_LAYERS_ORACLE` como quinto
+# argumento (`ON`/`OFF`, literal do CMake) - so' roda quando ela e' `ON`
+# **e** `GITHUB_ACTIONS` e' "true" ao mesmo tempo (skip_if_not_enabled(),
+# GODS_LAWS.md L-45: nem ligando a opcao a mao nesta maquina). Com a
+# opcao OFF (default, ou em qualquer perna/trabalho fora dos seis
+# escolhidos), o `ctest` local mostra "Skipped" - visivel (GODS_LAWS.md
+# L-40), nunca um pulo calado - e NENHUM processo do oraculo nasce.
+add_test(
+    NAME layers_oracle_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py"
+        "${CMAKE_SOURCE_DIR}" "${CMAKE_BINARY_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers.py"
+        "${CMAKE_CXX_COMPILER_FRONTEND_VARIANT}"
+        "${GLINTFX_LAYERS_ORACLE}"
+)
+set_tests_properties(layers_oracle_test PROPERTIES LABELS consume TIMEOUT 900 SKIP_RETURN_CODE 77)
+
+# Autoteste do oraculo - saidas ENLATADAS, ZERO compilador (docs/plano-
+# layers-l5.md §10.1, controle O-0: o executor real levanta excecao se
+# for chamado durante --selftest). Roda em TODO sistema, opcao ligada ou
+# nao - mesma taxonomia consume/selftest dos demais portoes deste
+# arquivo.
+add_test(
+    NAME layers_oracle_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_layers_oracle.py" --selftest
+)
+set_tests_properties(layers_oracle_selftest PROPERTIES LABELS selftest)
+
 # FACADE-PIN, G2 (docs/plano-conserto-fachadas-uaf.md sec. 9, GODS_
 # LAWS.md L-19/L-36): the portao G1 (the pinned_adapter<A> concept
 # every port now requires) structurally cannot reach - a class that
@@ -3691,6 +3805,33 @@ if(UNIX)
     )
     set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume)
 endif()
+
+# GL-CODEGEN-HOST-TOOL H-5 (D-11 of docs/plano-fecho-w7b.md, the Qt 6
+# QT_HOST_PATH dor that gate's own header cites): proves none of
+# GLINTFX_GL_CODEGEN_EXECUTABLE/GLINTFX_HOST_CXX_COMPILER/etc. leak
+# into the INSTALLED glintfx-config.cmake or glintfx.pc. python3, NOT
+# guarded by if(UNIX) (GATE-TREE-PARITY, the SAME shape x11_test/
+# check_pkgconfig_validate.py already proved works on all five
+# platforms - unlike its sh siblings above, this gate never shells out
+# to anything but `cmake` itself).
+add_test(
+    NAME gl_codegen_host_leak_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gl_codegen_host_leak.py"
+        "${PROJECT_SOURCE_DIR}"
+        "${CMAKE_CXX_COMPILER}"
+        "${CMAKE_GENERATOR}"
+)
+set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME gl_codegen_host_leak_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gl_codegen_host_leak.py" --selftest
+)
+set_tests_properties(gl_codegen_host_leak_selftest PROPERTIES
+    LABELS selftest
+    FAIL_REGULAR_EXPRESSION "FALHOU")
 
 # Output name gate (FIX-CONSUMO-3, achado QA-2-2): proves the
 # OUTPUT_NAME contract in cmake/GlintfxLibrary.cmake - the compiled
@@ -4632,6 +4773,34 @@ if(UNIX)
     set_tests_properties(container_alloc_report_selftest PROPERTIES LABELS selftest)
 endif()
 
+# CONT-WARMUP (TODO.md, GODS_LAWS.md L-35/L-36/L-40): run_compositor.sh's
+# own wait_for_compositor_ready() used to prove only that a process
+# named kwin_wayland EXISTS (`pgrep -x kwin_wayland`), never that it
+# already ACCEPTS a connection - measured live, 06/09/2026 (the first
+# real connection attempt failed with a platform error; later ones
+# passed seconds after, with the process already long visible to
+# pgrep). --selftest proves the fixed loop with two cases (a probe that
+# never accepts must reprove within budget; a probe that accepts only
+# after a fixed number of tries must be WAITED for, never declared
+# ready early) - both hermetic, no Docker/kwin_wayland involved, same
+# idiom container_exec_fixture_selftest/container_alloc_report_selftest
+# above already use.
+#
+# if(UNIX): mesmo motivo dos dois blocos acima - POSIX sh
+# (`#!/usr/bin/env sh`), e o job real que sobe este script como
+# ENTRYPOINT contra Docker so roda em `ubuntu-latest` de qualquer
+# forma. GATE-SELFTEST-ORFAO (tests/tools/check_selftest_orphan.py):
+# este registro e o que evita run_compositor.sh nascer orfao no mesmo
+# commit (o dispatcher `--selftest` dele e o padrao que aquele gate
+# procura).
+if(UNIX)
+    add_test(
+        NAME container_run_compositor_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/container/run_compositor.sh" --selftest
+    )
+    set_tests_properties(container_run_compositor_selftest PROPERTIES LABELS selftest)
+endif()
+
 # WIN-CROSS-STAGE, GATE-WIN32-TEST-LINK selftest orfao (achado do
 # revisor adversarial NOVO em 10/09/2026, segunda reprovacao da mesma
 # fatia): check_win32_test_link.py's own selftest_main() prova, entre
@@ -5013,6 +5182,48 @@ if(UNIX)
     target_sources(flush_retry_policy_test PRIVATE
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/bounded_output_wait.cpp"
         "${PROJECT_SOURCE_DIR}/src/platform/wayland/flush_retry_policy.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+    )
+endif()
+
+# incoming_poll_outcome_test - CONT-WARMUP C-2 (docs/plano-fecho-w7b.md
+# D-10; GODS_LAWS.md L-20): the red/green witness for the READ-side
+# twin of flush_retry_policy_test right above - the pure atom display_
+# adapter.cpp::wait_for_incoming_data() calls to decide what a
+# completed poll() means, proven with synthetic `revents` because the
+# real kwin_wayland kill-timing never delivers POLLHUP without POLLIN
+# live (see incoming_poll_outcome.hpp's own header comment). Pure data
+# in (an int and a short), pure enum out - <poll.h> is POSIX-only, same
+# if(UNIX) guard as bounded_output_wait_test/flush_retry_policy_test
+# right above.
+if(UNIX)
+    glintfx_add_test(incoming_poll_outcome_test)
+    target_include_directories(incoming_poll_outcome_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(incoming_poll_outcome_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+    )
+endif()
+
+# incoming_poll_reaction_test - CONT-WARMUP C-6 (revisao adversarial C-5,
+# /var/tmp/glintfx-plan/revisao-cont-warmup-c5.md, achado CRITICO-2;
+# GODS_LAWS.md L-17/L-20/L-27): the red/green witness for is_incoming_
+# poll_connection_fatal() (src/platform/wayland/incoming_poll_reaction.
+# hpp) - the atom that closes the exact gap CRITICO-2 named: the
+# decision "is a classify_incoming_poll() outcome a real connection
+# failure?" used to live, hand-written, inside EACH of the two read-side
+# adapters' own switch cases, with nothing testing it directly. Sources
+# both the new atom AND incoming_poll_outcome.cpp (this test's own real-
+# kernel cases chain a real ::poll() through classify_incoming_poll()
+# before ever reaching the atom under test - same shape as flush_retry_
+# policy_test right above needing bounded_output_wait.cpp). Same
+# if(UNIX) guard as every other atom test in this block - POSIX-only
+# (<poll.h>, socketpair(), pipe()), no wayland-client, no wl_display.
+if(UNIX)
+    glintfx_add_test(incoming_poll_reaction_test)
+    target_include_directories(incoming_poll_reaction_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(incoming_poll_reaction_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_outcome.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/incoming_poll_reaction.cpp"
     )
 endif()
 
@@ -5238,6 +5449,25 @@ if(UNIX)
     )
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+    # WIN-RUNNER-PROPRIO sub-fatia V-6a (23/09/2026, docs/plano-fecho-w7b.md
+    # secao 2.2.2): caminho de CONSOLIDACAO da sobreposicao qcow2 de volta
+    # ao disco base (`qemu-img commit`), com tres guardas -- trava de
+    # exclusao mutua, maquina confirmada desligada por `virsh domstate`, e
+    # copia de seguranca (`cp --reflink=always`) conferida por soma ANTES
+    # do commit. NUNCA toca o disco real de 17 GiB: o --selftest roda so'
+    # contra um par base/sobreposicao de BRINQUEDO que ele mesmo cria e
+    # apaga (a primeira consolidacao REAL e' item separado,
+    # `WIN-LAB-INSTALAR`, que exige aval do lider - L-01). MESMA forma
+    # hermetica dos cinco vizinhos acima (duble de virsh, nunca libvirt/
+    # QEMU real; SKIP_RETURN_CODE 77 para ferramenta ausente - aqui
+    # qemu-img/flock/sha256sum/cp, ver a guarda no topo do proprio script).
+    add_test(
+        NAME win_vm_lab_consolidar_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
+    )
+    set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Checagem estatica SERIAL em job Windows (GODS_LAWS.md L-23 item 3,

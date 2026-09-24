@@ -119,12 +119,35 @@ double parse_max_version_argument(int argc, char **argv) {
     return glintfx::gl_codegen::parse_decimal_number(third, "argumento max-version");
 }
 
+// GL-CODEGEN-HOST-TOOL (D-11 of docs/plano-fecho-w7b.md): the ABI
+// handshake a cross build's configure step calls BEFORE trusting a
+// host-provided binary (loader_codegen.hpp's own header comment has
+// the full rationale and the double-key literal this compares
+// against, elsewhere, in cmake/GlintfxGlCodegenHostTool.cmake).
+// Deliberately its OWN early return in main(), ahead of the `argc < 3`
+// usage check below: this flag takes NO other argument (no gl.xml
+// path, no output dir - the whole point is a configure-time probe
+// that needs neither), so requiring argc >= 3 first would make
+// `gl_registry_codegen --codegen-abi` alone fail the usage check
+// instead of ever reaching this branch.
+bool handle_codegen_abi_flag(int argc, char **argv) {
+    if (argc != 2 || std::string_view(argv[1]) != "--codegen-abi") {
+        return false;
+    }
+    (void)std::printf("%d\n", glintfx::gl_codegen::codegen_abi_version);
+    return true;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
+    if (handle_codegen_abi_flag(argc, argv)) {
+        return 0;
+    }
+
     if (argc < 3) {
-        fail(
-            "uso: gl_registry_codegen <gl.xml> <output-dir> [max-version] [--expect-sha256=<hex>]");
+        fail("uso: gl_registry_codegen <gl.xml> <output-dir> [max-version] [--expect-sha256=<hex>] "
+             "| gl_registry_codegen --codegen-abi");
     }
 
     // GODS_LAWS.md L-22 ("nenhuma exceção cruza a API pública") applied

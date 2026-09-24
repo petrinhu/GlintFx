@@ -121,6 +121,7 @@ EXPECTED = {
         "ps-syntax": "curta",
         "windows-lint": "estatica_windows",
         "sanitizer": "compilacao",
+        "gl-codegen-host-cross": "compilacao",
         "windows-sanitizer": "compilacao",
         "debug": "compilacao",
         "windows-debug": "compilacao",
@@ -643,9 +644,16 @@ def selftest_negativo_timeout_indentacao_de_passo():
 
 
 def selftest_arvore_real(dir_path):
-    """Sanidade final contra a arvore REAL (nao fixture): os 15
+    """Sanidade final contra a arvore REAL (nao fixture): os 16
     trabalhos de .github/workflows/ci.yml tem de aprovar hoje - se
-    este controle falhar, a fatia CI-TIMEOUTS regrediu."""
+    este controle falhar, a fatia CI-TIMEOUTS regrediu.
+
+    Numero atualizado para 16 em 23/09/2026 (GL-CODEGEN-HOST-TOOL,
+    rodada 2: job novo `gl-codegen-host-cross` classificado em EXPECTED
+    acima) - GODS_LAWS.md "DOC-ESTADO"/portao-que-congela-ambiente: este
+    literal e' o mesmo tipo de numero que apodrece a cada job novo, e a
+    unica forma honesta de o manter e' atualiza-lo NO MESMO commit que
+    muda a contagem real, nunca depois."""
     if not os.path.isdir(dir_path):
         print(f"selftest: ARVORE REAL - diretorio nao encontrado ({dir_path}), controle pulado")
         return True
@@ -653,7 +661,7 @@ def selftest_arvore_real(dir_path):
     if rc != 0:
         print(f"selftest: ARVORE REAL FALHOU: rc={rc} saida={saida!r}", file=sys.stderr)
         return False
-    if "15 job(s), 15 com teto declarado" not in saida:
+    if "16 job(s), 16 com teto declarado" not in saida:
         print(f"selftest: ARVORE REAL FALHOU (contagem inesperada): {saida!r}", file=sys.stderr)
         return False
     print(f"selftest: ARVORE REAL OK: {saida.strip()}")

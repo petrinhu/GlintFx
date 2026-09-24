@@ -4105,3 +4105,251 @@ gfss_shorthand_expand_test ......... Passed    <- com as duas propriedades TROCA
 **Armadilha que o revisor declarou sozinho, e é da L-27:** ao desfazer uma mutação com `mv arquivo.orig arquivo`, o restaurado ficou com **mtime mais antigo** que o `.o` do mutante — o `ninja` não recompilou, e o "binário limpo" ainda **era o mutante**. Ele percebeu, corrigiu com `touch` após cada revert, e conferiu os **seis** arquivos byte a byte contra o `HEAD` antes de confiar em qualquer resultado. É o *"prove que a mutação chegou ao código executado"* da lei, na forma inversa: **prove que ela SAIU**.
 
 **Três itens promovidos a `✅`.** Com isso a `W6` fica com só o portão de fechamento aberto, que espera o servidor.
+
+## 22/09/2026 - 23:02 | Fecho da `W7-B`: catorze decisões do C-level no lugar do líder
+
+**Quem decidiu:** C-level `opus`, esforço alto (L-34, emendada hoje), depois de pesquisar mais de trinta fontes, todas com URL. **Onde está o texto inteiro de cada decisão** (opções, a recomendada, o porquê e a fonte): `docs/plano-fecho-w7b.md`, seção 4, um bloco por decisão. Abaixo, só o que foi escolhido, para o líder ratificar ou reverter linha a linha.
+
+**Fatos do plano que o main conferiu antes de registrar** (L-12/L-18): o item de ligação cruzada dos testes do Windows já tinha sido entregue em `07c4310` (10/09/2026); a memória de firmware (`~/.config/libvirt/qemu/nvram/glintfx-win11-lab_VARS.qcow2`) e o estado do TPM (`~/.config/libvirt/qemu/swtpm/214f47ad-ab8d-4e57-bc50-7ea9ca995230`) existem e ficam **fora** do disco de sobreposição; `bounded_output_wait.cpp` trata queda de conexão como falha na ESCRITA, enquanto `display_adapter.cpp:327` a trata como "nada a ler" na LEITURA; a sonda `wayland-info` do `run_compositor.sh` não tem prazo por tentativa. **Divergência pequena, sem efeito em decisão:** o plano diz 23 commits da onda enviados direto ao principal; o main contou 19 no intervalo `61aa20c..98035e8`.
+
+- **D-1:** `WIN-RUNNER-PROPRIO` fecha sem a V-6b (consolidar no disco verdadeiro) e sem a V-7 (instalar no convidado); as duas **movidas** para item novo `WIN-LAB-INSTALAR`, onda W9.
+- **D-2:** a cópia avulsa da definição liga com o **mesmo nome e identificador** do domínio.
+- **D-3:** a sobreposição continua sendo nossa, explícita, e não o disco `<transient/>` do libvirt.
+- **D-4:** firmware (NVRAM) e TPM também ganham **cópia por sessão** - o "descartável" vazava por eles.
+- **D-5:** a prova de que o convidado não sai para a rede é por **TCP, com régua calibrada**, nunca por ICMP.
+- **D-6:** o critério do limite de bytes por leitura do agente convidado foi fixado **antes** de medir (teto de 16 MiB; um pedido de 48 MiB mais 1 byte tem de ser recusado).
+- **D-7:** saída truncada do convidado ganha **código de saída próprio**.
+- **D-8:** `CANAL-QUEBRADO-SE-DISFARCA-DE-PRAZO-ESTOURADO` sai da INBOX e entra na W7-B, **antes** da V-5.
+- **D-9:** `PORTAO-DE-CAMADA-NAO-CONHECE-CADEIA-BRUTA` sai da INBOX e entra em `LAYERS-GATE-GFSS-GFUI` (o Clang teve o mesmo defeito, PR #139504).
+- **D-10:** `CONT-WARMUP` **volta a pendente**: falta prazo por tentativa na sonda, e entra o **conserto de produto** do lado de leitura (a queda do compositor tem de ser fatal na primeira bombeada), mais o gêmeo em `wait_events`.
+- **D-11:** `GL-CODEGEN-HOST-TOOL` com quatro caminhos (variável, emulador pelo nome do alvo, construção nativa aninhada, falha alta), aperto de mão de versão, e portão contra vazamento para o instalado.
+- **D-12:** a prova de construção cruzada usa o **MinGW do Fedora**, já instalado; o compilador da Microsoft sob Wine trava na configuração.
+- **D-13:** número da marca ao fim da W7-B pela tabela da L-26: **`v0.5.1.0`** se o conserto de produto de leitura entrar (é mudança de comportamento observável), senão **`v0.5.0.1`**.
+- **D-14:** o pré-requisito `PKG-WIN-INTEROP` já está satisfeito.
+
+**O que continua exigindo o líder, mesmo em modo autônomo:** a V-6b (escrita irreversível no disco de 17 GiB; o plano informa que cópia por `reflink` em btrfs a tornaria reversível); a V-7 (instalar no convidado, L-51); a ratificação de D-1 a D-14; e **o desvio da L-11 já consumado** - código da onda enviado direto ao principal antes de existir o ramo `onda-w7b`, erro do main, relatado a ele em 22/09 às 22:18. **Pendência de lei, não alterada:** a L-18 ainda diz `fable`; a confirmação de hoje foi sobre a L-34.
+
+## 23/09/2026 - 06:43 | Plano da `W7-D`: dezessete decisões do C-level no lugar do líder, e uma decisão sua que nunca tinha sido aplicada
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois de pesquisar (SDL3, GLFW, raylib, sokol, bgfx, NanoVG e outras; licença conferida antes de ler código). **Texto inteiro de cada decisão:** `docs/plano-w7d.md`, seção 9, um bloco por decisão.
+
+**A decisão principal foi REFEITA depois de o main medir um erro de fato.** A primeira versão da D-W7D-01 dizia que os pré-requisitos de `INPUT-EVENTS` estavam "todos na W9". O main mediu a coluna: são quatro, dois na W9 (`WL-KEYBOARD`, `WL-POINTER`) e **dois na W11c** (`KEYMAP-MODSTATE`, `KEYMAP-UTF8`). Mover para a W9 só trocaria um bloqueio por outro. Refazendo, o C-level mediu a cadeia inteira e achou mais duas coisas: **um ciclo** (`WIN-INPUT`, na W9, depende de `INPUT-EVENTS`, que não fecha sem o lado Windows pela L-04) e **uma decisão do líder que nunca foi aplicada na tabela**: em 22/09/2026 às 09:20 (entrada acima neste arquivo, linha 3910), ao decidir que tecla e texto são dois eventos, o líder registrou que *"`INPUT-EVENTS` deixa de depender de `KEYMAP-MODSTATE`/`KEYMAP-UTF8`"*. O main conferiu a frase no arquivo.
+
+- **D-W7D-01 (refeita):** dividir pela dependência real. Na W9: um núcleo interno de entrada novo (`INPUT-SEQUENCE-CORE`, sem nada público, primeira linha da onda), depois teclado e ponteiro no Wayland e no Windows, depois `INPUT-EVENTS` com tecla física, ponteiro, foco e estado por passo. Na W11c, duas fatias novas: `INPUT-TEXT` (texto digitado) e `INPUT-KEY-LOGICAL` (modificador lógico e símbolo pelo leiaute), chegando por acréscimo compatível. **O que se perde, declarado:** até a W11c não há texto digitado nem estado da trava de maiúsculas; para jogo não falta, para caixa de texto falta.
+- **D-W7D-02:** a quina fica em fatia nova da trilha de mapa, `MAP-STEP-RESOLVE` (W11a), não numa grade mínima dentro da entrada.
+- **D-W7D-03:** teclado e controle pelo mesmo caminho numa camada própria, `INPUT-ACTIONS` (W11c).
+- **D-W7D-04:** entrada por evento **e** por estado, com contagem de descidas e subidas por passo - toque curto nunca some (defeito que raylib, GLFW e SDL têm).
+- **D-W7D-05:** identificador físico de tecla = uso HID, página 0x07.
+- **D-W7D-06:** o modo de economia do sistema vira fatia nova pós-demo, `GFX-POWER-SAVER` (W9-B).
+- **D-W7D-07:** `balanced` e `performance` continuam iguais, e isso é declarado.
+- **D-W7D-08:** o relato de falha do desenho sai uma única vez, em `finish_frame()`, chamado pelo consumidor antes de apresentar - **porta de mão única, ponto obrigatório da revisão de API**.
+- **D-W7D-09:** a transformação do lote é feita no processador, em precisão dupla; só a matriz pixel para recorte vai em precisão simples à placa (honra a decisão do líder sobre precisão).
+- **D-W7D-10:** ordem por chave única (camada, submissão), sem reordenar por textura; o otimizador vira fatia nova `R2D-BATCH-OPTIMIZER` (W9-B).
+- **D-W7D-11:** o desenhador não confia em estado de GL deixado pelo consumidor, e oferece `flush()` público.
+- **D-W7D-12:** a cor segue a opção `srgb_framebuffer`, com os dois caminhos provados.
+- **D-W7D-13:** peça inválida é descartada e contada; falta de memória vira erro no fim do quadro.
+- **D-W7D-14:** o desenho 2D mora numa camada nova, `src/draw2d` e `include/glintfx/draw2d`, acima de `platform/gl`.
+- **D-W7D-15:** o gerador do carregador de GL passa a emitir um resolvedor com contexto (`void *user`).
+- **D-W7D-16:** `fill_quad` entra na primeira versão, junto de `fill_rect`.
+- **D-W7D-17:** `GFX-PRESET` antes de `R2D-BATCH`, com as revisões de API adiantáveis em paralelo.
+
+**Marca ao fim da W7-D, pela tabela da L-26:** `v0.6.0.0` (recurso novo). **Continua exigindo o líder:** ratificar as dezessete, com destaque para D-W7D-01, D-W7D-02 e D-W7D-08. Nenhuma API pública congela antes das duas revisões de API dedicadas. Nenhuma lei muda; nenhum pacote a instalar. **As mudanças na tabela** (mover `INPUT-EVENTS`, criar as seis fatias novas, corrigir a coluna de pré-requisitos e o texto podre "bloqueado por GL-API" em `R2D-BATCH` e `DEMO-1`) entram quando a W7-D abrir, no ramo dela, com o portão pedido pelo plano: nenhum item depende de item de onda posterior, nenhum ciclo entre os itens de entrada.
+
+## 23/09/2026 - 06:44 | Plano da `W7-C`: vinte e duas decisões do C-level no lugar do líder
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois de pesquisar (regras do wlroots para confirmação de configuração, prática de portões de alegação e de paridade em projetos semelhantes). **Texto inteiro de cada decisão:** `docs/plano-w7c.md`. Medições brutas guardadas pelo planejador em `/var/tmp/glintfx-plan/w7c-medidas/` (não versionadas).
+
+**Fatos que o main conferiu antes de registrar:** `PLAN-SCOPE-REGEX-BLIND` e `LINK-PREFIX-SUBSTRING` estão ✅, mas o texto das duas linhas ainda diz que aguardam envio, e o commit `92d85a2` já é ancestral do principal remoto (texto podre, a corrigir); e `src/platform/wayland/window_adapter.cpp` tem **dois** pontos de `xdg_surface_ack_configure` (linhas 294 e 303), não um - o item `WL-ACK-SMOKE-BLUNT` é maior do que o escrito.
+
+- **D1 a D5:** a prova de que a janela confirma a configuração certa usa um **retransmissor estrito escrito em casa**, em C++, dentro do contêiner, sem pacote novo e sem `libwayland-server`: ele fica na frente do KWin aplicando as regras do wlroots, passa a rotear todas as fixturas, e uma configuração injetada exercita o segundo ponto de confirmação. `window_smoke` não se aposenta e vira exceção sem pendência. **Por que em casa:** as duas alternativas (um segundo compositor estrito instalado no contêiner, ou ligar `libwayland-server`) exigiriam o líder (L-14 e L-07).
+- **D6:** linha nova `LINK-PREFIX-RESIDUOS` (W7-C), absorvendo dois itens da INBOX.
+- **D7 a D10:** na paridade, apelido morto, apelido bilateral sem declaração e exceção morta passam a reprovar; entra a forma `PROVA-PARCIAL` (resolve `PARIDADE-EXCECAO-SEM-FORMA-PARA-PROVA-PARCIAL` da INBOX), com o gêmeo conferido no outro inventário. Medido pelo planejador: 30 apelidos, 0 mortos, 3 bilaterais; 28 exceções, 0 mortas.
+- **D11 a D15:** os portões de contagem e de alegação reusam a enumeração do portão de travessão; número em documento só com citação datada; seção já lançada do registro de mudanças conta como histórico; dois módulos compartilhados (gramática de citação e inventário de nomes de teste); `tests/claim_exceptions.txt` com regra de morte.
+- **D16:** o jargão em português nos cabeçalhos **não** entra agora (congelamento até `DEMO-1`).
+- **D17:** o portão de plano passa a ler tabela e coluna pelo cabeçalho, com ausência obrigatória e registro no `ctest`; absorve dois itens da INBOX. **Achado do planejador:** o portão de plano de hoje é cego ao plano inteiro do fecho da W7-B.
+- **D18 e D19:** as quatro chaves internas saem do cabeçalho público (tipo incompleto, com falha de compilação provada nos dois modos e nos dois sistemas). **É mudança de API pública**, e por isso a marca da W7-C sobe o segundo número pela L-26.
+- **D20:** o plano fica versionado em `docs/plano-w7c.md` (feito neste commit).
+- **D21:** `WL-RELAY-FAULTS` (compositor pendurado) fica registrado para depois de `DEMO-1`.
+- **D22:** `GFSS-VALUE-LAYOUT-ASSERT` fica na W10.
+
+**Continua exigindo o líder:** ratificar D1 a D22, **com destaque para D18 e D19** (remoção de símbolos do cabeçalho público: é a única desta onda que muda o que o consumidor externo compila); e uma pergunta que o planejador levantou e não é dele: o portão de travessão trata documentos internos como públicos, e corrigir isso **estreitaria** um portão - decisão do líder, não do modo autônomo. **As mudanças na tabela** entram quando a W7-C abrir, no ramo dela.
+
+## 23/09/2026 - 08:48 | Verificação do main: `PARITY-ALIAS-HYGIENE` aprovada pelo revisor, mas não fecha
+
+**Fato:** o revisor independente aprovou `5d0c173` com quatro mutações que chegaram. O main repetiu a verificação com sabotagem de outra família (L-12): numa cópia de `7beb354`, desligar o piso de varredura vazia do lado Windows deixou o `--selftest` verde, porque o único controle de inventário vazio esvazia só o lado Linux. Somado ao achado IMPORTANTE do revisor (declaração bilateral em apelido não bilateral passa calada, provado sem mutação), o item volta a ⏳ com a sub-fatia P-2.
+
+**Por que isto não é decisão no lugar do líder:** a ordem vigente dele (22/09/2026) manda buscar sempre o mais completo; fechar com dois buracos conhecidos seria o contrário. Nenhuma opção de desenho foi escolhida aqui; o desenho da P-2 é do implementador sob a especificação da fatia.
+
+## 23/09/2026 - 08:58 | Plano da sub-fatia L-4 de `LAYERS-GATE-GFSS-GFUI`: três decisões do C-level, uma delas trava numa lei
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois da busca na web obrigatória pela L-42 (segunda reprovação do item). Plano inteiro, com fontes e licenças: `docs/plano-layers-l4.md`. O planejador ampliou o achado do revisor: a tabela de macros guarda UM valor por nome, e cinco formas passam (não só `#if`/`#else`); a lista de agulhas deixou passar mais onze formas medidas nos dois compiladores.
+
+- **D-1 (adotada):** o portão troca a lista de PROIBIDOS por lista de PERMITIDOS fechada (biblioteca padrão do C++23 menos `fstream` e `filesystem`, cabeçalhos do projeto que existem nas camadas puras, os dois gerados, e inclusão relativa que resolve dentro delas). **Muda o que o portão promete detectar:** passa de "estes nomes de SO" para "só estes nomes".
+- **D-3 (adotada):** as duas lacunas da INBOX (`PORTAO-DE-CAMADA-CEGO-A-UTF16` e `PORTAO-DE-CAMADA-AGULHA-SO-MORDE-ANGULO`) entram na L-4.
+- **D-2 (NÃO adotada; espera o líder):** a sub-fatia L-5, um oráculo que compara o portão com o compilador real, gastaria um processo do compilador por fixture (cerca de 80 por rodada). A L-11 global diz, verbatim: *"PROIBIDO desenho que gasta um processo por item varrido"*. Pela LEI DAS LEIS, só o líder decide isso. A L-4 não depende da L-5; a pergunta fica para quando ele voltar, ou para um desenho da L-5 que não fira a lei.
+
+**Continua exigindo o líder:** ratificar D-1 e D-3; decidir D-2.
+
+## 23/09/2026 - 10:13 | Adendo da L-4 do portão de camada: quatro decisões do C-level, e o portão de hoje já é cego
+
+**Quem decidiu:** C-level `opus`, esforço alto, depois de nova busca pela L-42 (terceira reprovação do item). Texto inteiro: `docs/plano-layers-l4-adendo.md`.
+
+**Fato que o main reproduziu antes de registrar:** o portão que está HOJE na árvore (e também a L-4 congelada) passa com zero violações um arquivo cuja segunda linha é `#include <fstream>` comum, quando a primeira linha usa separador de dígito (`1'0`) seguido de uma cadeia com aspa simples: o léxico do portão desalinha do compilador e esconde a inclusão dentro de um comentário que só ele enxerga. O g++ puxa `<fstream>` na profundidade 1. O separador de dígito já aparece na biblioteca (`src/core/time.cpp:26`). O adendo mediu oito dessincronias assim, quatro delas sem nenhum aviso do compilador, e onze formas de `import` que passam.
+
+- **D-A1:** os tokens `import`, `module`, `_Pragma`, `__pragma` e as grafias de `asm` ficam proibidos nas camadas puras (zero ocorrências na árvore hoje). **Custo declarado:** uma camada pura não poderá usar módulos do C++ sem mudar o portão; é porta que se reabre com decisão, não por acidente.
+- **D-A2:** a regra de colagem `##` é aplicada por cadeia.
+- **D-A3:** `#pragma` vira lista de permitidos, só `once`.
+- **D-A4:** o léxico passa a tratar número de pré-processamento e nome de cabeçalho, e recusa literal não terminado na linha.
+
+**Continua exigindo o líder:** ratificar D-A1 a D-A4; e a D-2 (oráculo contra o compilador), que o planejador recomenda levar agora, com esta contagem de dessincronias como argumento.
+
+## 23/09/2026 - 11:32 | `GL-CODEGEN-HOST-TOOL`: o plano pedia um mecanismo que o portão da dependência zero proíbe
+
+**Fato:** a D-11 do plano do fecho da W7-B (`docs/plano-fecho-w7b.md`) escolheu `ExternalProject` do CMake para a construção nativa aninhada da ferramenta de geração (sub-fatia H-3). O portão da L-07 (`dep_zero_test`) proíbe `ExternalProject` em qualquer uso e reprovou a suíte do implementador às 11:31:57 (226 de 227). O planejador não conferiu o desenho contra os portões que já existem.
+
+**O que o main mandou, e por que não é decisão no lugar do líder:** trocar só o MECANISMO, mantendo tudo o que a H-3 promete: uma chamada ao próprio CMake sobre a pasta da nossa ferramenta, que é como o LLVM constrói as ferramentas de hospedeiro. Não se abriu exceção no portão, e não se mexeu na lei: a mensagem do portão diz que exceção é decisão do líder, e ela não é necessária, porque existe um caminho que cumpre a lei.
+
+**Lição de processo:** plano que escolhe mecanismo de build tem de ser conferido contra os portões existentes antes de virar ordem de serviço.
+
+## 23/09/2026 - 12:06 | O líder ratificou as decisões pendentes (`AskUserQuestion`)
+
+- **D-2 do portão de camadas (oráculo contra o compilador):** *"Só no CI do servidor"*. Registrado como L-45 em `GODS_LAWS.md`, exceção fechada à L-11 global. Vira a sub-fatia L-5 de `LAYERS-GATE-GFSS-GFUI`.
+- **D-1 (lista de permitidos) e D-A1 (import, module, _Pragma e asm proibidos nas camadas puras):** *"Ratificar as duas"*.
+- **W7-C, D18 e D19 (as quatro chaves internas saem do cabeçalho público; a marca sobe o segundo número):** *"Ratificar"*.
+- **Todas as demais decisões autônomas registradas** (D-1 a D-14 do fecho da W7-B; D-W7D-01 a 17; W7-C D1 a D17 e D20 a D22; D-A2 a D-A4 do portão): *"Ratificar em bloco"*.
+
+## 23/09/2026 - 13:24 | Plano da sub-fatia L-5 (oráculo do portão de camadas, só no CI pela L-45): três decisões do main
+
+**Plano:** `docs/plano-layers-l5.md` (C-level `opus`, esforço alto, com pesquisa e fonte em cada fato; nesta máquina rodou um único `g++ -H` de três linhas, nenhum oráculo). As três decisões que o planejador deixou ao orquestrador não mudam o que a biblioteca aceita nem entrega:
+- **D-L5-1:** a estreia vermelha do oráculo roda num ramo DESCARTÁVEL no servidor, com um defeito conhecido reintroduzido no portão, e o ramo é apagado logo depois. É a única forma de ver o oráculo reprovar, porque pela L-45 ele só roda no servidor; o mutante nunca vai ao ramo da onda nem a `main`. Há precedente de ramos de sonda no remoto, e a ação cabe na autorização de push do modo autônomo.
+- **D-L5-2:** se o tempo estourar o teto de `check_ci_timeouts.py`, primeiro o plano B (compilar as fixtures em lote no MSVC), antes de mexer em teto calibrado por medição.
+- **D-L5-3:** se o `ctest -N` omitir o teste desligado e a paridade Linux x Windows ficar vermelha (risco R-1), o par é declarado no mecanismo de paridade, em vez de carregar o trabalho Windows compartilhado, que está a um minuto do teto.
+
+## 23/09/2026 - 15:16 | L-5 do portão de camadas: como o teste desligado aparece no inventário (revisão da D-L5-3)
+
+**Fato medido pelo implementador:** com `DISABLED` no `add_test`, o `ctest -N` lista a linha `layers_oracle_test (Disabled)`, e `tests/tools/check_test_parity.py` QUEBRA no parse dessa linha antes de qualquer comparação. A D-L5-3 (declarar o par no mecanismo de paridade) não resolveria, porque o erro acontece antes.
+
+**Decisão do main (técnica, dentro da L-45 e da intenção do plano):** o teste não usa `DISABLED`. Fica registrado igual em todo sistema, com `SKIP_RETURN_CODE`; fora do CI, o próprio roteiro do oráculo sai com o código de pulado e imprime que está desligado pela L-45, sem chamar compilador. O inventário fica igual nos dois lados, e o `ctest` local mostra "Skipped", visível (L-40). Além disso, o portão de paridade passa a reconhecer o sufixo ` (Disabled)`, contando e imprimindo esses testes numa categoria própria, em vez de quebrar, para um teste desligado no futuro não derrubar o portão.
+
+## 23/09/2026 - 16:08 | CONT-WARMUP C-8: o mutante que reproduz o bug histórico sobrevive, por equivalência
+
+**Fato medido pelo revisor (`/var/tmp/glintfx-plan/revisao-cont-warmup-c7.md` §2.5), reconferido pelo main na árvore:** reinserir o antigo `if (errno_is_eintr) { return true; }` logo depois de `wl_display_cancel_read()` em `egl_context_adapter.cpp` passa 13/13. `errno_is_eintr` só é verdadeiro com `poll_call_failed`, e o átomo devolve "não fatal" para esse par. Então o atalho e o átomo dão a MESMA resposta: é um mutante equivalente com o átomo de hoje. Nenhum teste de caixa-preta consegue matá-lo. O comentário das linhas 244-263 afirma "não há mais nenhum jeito de reintroduzir o bug original", e isso é falso, medido.
+
+**Decisão do main (dentro da ordem do líder de 22/09, "NUNCA busque o caminho mais fácil"):** o caminho barato seria só corrigir o comentário e declarar o resíduo. Ele foi recusado como fecho único. O conserto completo põe o átomo atrás de uma porta com padrão, no MESMO molde da costura `poll_impl` que já existe (ponteiro de função com `&is_incoming_poll_connection_fatal` como padrão). Um teste injeta um átomo DIVERGENTE, que declara EINTR fatal, e exige que o adaptador obedeça. O desvio deixa de ser equivalente e morre. O comentário é reescrito para dizer o que o teste prova, e não mais do que isso. Confirmar retroativamente.
+
+## 23/09/2026 - 19:15 | V-5 autorizada de novo pelo líder (não é decisão autônoma)
+
+A autorização do primeiro arranque real da máquina virtual Windows (`WIN-RUNNER-PROPRIO` V-5, `docs/plano-fecho-w7b.md` §2.2.3) valia para a noite de 22/09. O main perguntou de novo por AskUserQuestion às 19:14 de 23/09, porque aprovação dada num contexto não vale para outro. Resposta do líder: **"Pode ligar (Recomendado)"**. Condições da pergunta: sessão única, sozinha na máquina, sem nenhum outro trabalho pesado ao mesmo tempo, rede desligada, disco descartável, sem placa de vídeo, desligamento incondicional no fim.
+
+## 23/09/2026 - 19:40 | L-5 do portão de camadas: adendo de calibração (C-level opus, depois da pesquisa L-42 e de um ataque independente)
+
+**Plano:** `docs/plano-layers-l5-adendo-calibracao.md` (Caetano/CTO, opus, esforço alto), emendado por um ataque de outra família de modelo (`/var/tmp/glintfx-plan/ataque-adendo-l5.md`, APROVA COM EMENDAS). Fatos que motivam: CI de 25579ed, run 35915733879, calibração GCC com `returncode 0` e o leitor parando na primeira linha fora do formato; pesquisa em `/var/tmp/glintfx-plan/pesquisa-calibracao-l5.md`. O main conferiu na árvore `check_layers_oracle.py:828` (pasta de inclusão errada) e o `break` do leitor. As decisões abaixo são as da §7 do adendo, transcritas; o texto integral e as fontes estão lá. Confirmar retroativamente.
+
+
+Formato do arquivo: título com data e hora reais, "Quem decidiu", pergunta, opções, escolha e porquê, porta de mão única, custo de reverter, fontes. Um bloco por decisão; nenhuma muda o que a biblioteca aceita ou entrega (todas são do instrumento de teste).
+
+**D-L5d-1: o falso negativo por sombra fecha por construção, com cabeçalhos padrão vazios só no julgamento dos casos.**
+Quem decidiu: Caetano (CTO, `opus`). Pergunta que teria ido ao líder: "o oráculo pode deixar passar uma inclusão proibida escrita depois de uma permitida que já a abriu por dentro; aceitamos o risco, fechamos só no Clang, ou fechamos nos três compiladores?" Opções: declarar e aceitar; `-fshow-skipped-includes` só no Clang; `-dI` no GCC e Clang; cascas por arquivo; **cabeçalhos padrão vazios na configuração de caso (escolhida)**. Porquê: única que fecha nos três com o mesmo mecanismo (L-04) e custo zero por caso; a semântica de união do portão impede violação falsa. Não é porta de mão única; reverter é barato (um diretório de inclusão). Fontes: cpplib Guard-Macros, Clang Command Line Reference, Microsoft `once`, pycparser, clang-tidy Contributing (URLs na seção 1).
+
+**D-L5d-2: resíduo declarado, `stdc-predef.h`.**
+Quem decidiu: Caetano. Pergunta: "a pré-inclusão implícita do GCC e do Clang no Linux esconde um nome; fechamos agora ou declaramos?" Opções: `-ffreestanding` (muda o compilador sob teste); **declarar e registrar `ORACULO-CAMADAS-PREINCLUDE` (escolhida)**. Porquê: um nome só, já reprovado pela lista de permitidos do portão; mudar o modo do compilador falsearia o resto. Reverter: barato.
+
+**D-L5d-3: o leitor do `-H` lê todas as linhas e conta as estranhas (C-1), em vez de silenciar avisos.**
+Quem decidiu: Caetano. Opções: `-w`/`-Wno-deprecated`; **ler tudo e contar (escolhida)**; as duas juntas. Porquê: silenciar tapa um aviso e deixa o próximo; é o que o Ninja faz. Reverter: barato.
+
+**D-L5e-1: o piso de 60 da calibração não muda; muda o universo em que é contado.**
+Quem decidiu: Caetano. Pergunta: "o piso fixado antes do dado se mostrou inatingível; baixamos o número ou consertamos o que ele conta?" Opções: baixar para caber no que a profundidade 1 mostra; **manter 60 e contar na árvore inteira com filtro de diretório (escolhida)**. Porquê: o mecanismo documentado dos três compiladores torna a profundidade 1 incompleta por desenho; baixar o número seria ajustar critério depois de ver resultado (L-43). Reverter: barato.
+
+**D-L5e-2: a calibração exige sentinela primeiro, folha e `<cstdint>` sob a sentinela, e perde a válvula "`<cstdint>` direto".**
+Quem decidiu: Caetano. Opções: só a folha (proposta do main); **folha e `<cstdint>`, sem válvula (escolhida)**. Porquê: a folha prova a atribuição de pai sem depender da biblioteca; o `<cstdint>` prova que um padrão sob arquivo do projeto aparece; a válvula só existia porque a sentinela vinha por último. Reverter: barato.
+
+**D-L5g-1: as pastas de inclusão vêm do `compile_commands.json`, remapeadas por regra fechada com a pasta de build antes da raiz do código-fonte, e `-include`/`/FI` reprovam.**
+Quem decidiu: Caetano, emendado depois do ataque independente de 23/09 (`/var/tmp/glintfx-plan/ataque-adendo-l5.md`, achado 1). Pergunta: "o oráculo procura cabeçalhos na pasta do repositório em vez da fixture, e sem a pasta `src/` do build; escrevemos as duas pastas no código ou lemos do build?" Opções: fixar `<raiz>/include` e `<raiz>/src` no código; **ler do build e remapear por regra fechada, a mais específica primeiro: pasta de build (vira a pasta dos gerados vazios), depois raiz do código-fonte (rebaseada na fixture), depois o resto (mantido) (escolhida)**. Porquê: segue o princípio do plano §3.3 (lido da fonte, nunca copiado) e acompanha sozinho qualquer pasta nova do build. A precedência existe porque, no CI, a pasta de build fica dentro do código-fonte (`ci.yml:470`, `CMakeLists.txt:73`); na ordem inversa, os dois cabeçalhos gerados sumiriam da comparação em silêncio. Prova: controle O-26 com build aninhado e mutante `M-O26d`. Reverter: barato.
+
+**D-L5-4: as quatro sub-fatias vão num push só, e a estreia de D-L5-1 espera uma rodada verde delas.**
+Quem decidiu: Caetano. Opções: um push por sub-fatia; **um push para as quatro (escolhida)**. Porquê: a rodada do servidor é a estreia comum das quatro, e o laboratório já prova cada uma por mutante; quatro rodadas custariam quatro CIs para o mesmo dado. Reverter: barato. A autorização de ramo descartável da D-L5-1 continua a mesma, sem ampliação.
+
+---
+
+
+## 23/09/2026 - 19:45 | WIN-RUNNER-PROPRIO V-5c: NVRAM por sessão vira cópia inteira, não sobreposição
+
+**Fato medido (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`):** as duas tentativas da V-5 ligaram a máquina (P0 passou, e o permanente ficou com a mesma soma antes e depois), mas o agente convidado nunca respondeu. A linha de comando real do QEMU abre a sobreposição qcow2 do NVRAM com `"backing":null`: o libvirt não reconecta a cadeia de apoio para pflash, só para disco. O firmware arranca com as variáveis ZERADAS. Fontes: libvirt.org/kbase/backing_chains.html; formatdomain.html não promete cadeia de apoio para `<nvram>`; há um patch em desenvolvimento na lista do libvirt ("NVRAM template handling fixes..."). Segunda falha, então a pesquisa (L-42) foi feita antes da terceira tentativa.
+
+**Decisão do main:** o NVRAM por sessão passa a ser CÓPIA INTEIRA (`cp`, 528 KiB), no mesmo molde da cópia do estado do TPM, que já funciona. O plano (`docs/plano-fecho-w7b.md` §2.2.2, V-5b) pedia "`<nvram>` para cópia por sessão"; a sobreposição foi escolha de implementação, e a cópia inteira volta ao texto do plano. Vira a sub-fatia V-5c, com autoteste, antes da terceira tentativa. Confirmar retroativamente.
+
+## 23/09/2026 - 20:30 | V-5: ordem da quarta sessão e o que a D-6 passa a medir
+
+**Fato (tentativa 3, `/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md`):** P0, P1, P2, P3, E9 e E10 PASSARAM. A leitura de 8 MiB falha no TRANSPORTE do libvirt (resposta maior que o buffer fixo de 10485760 bytes, base64 incluso), e depois dessa falha o canal do agente morre para a sessão inteira. Por isso E3 e E4 caíram sem medir nada. Leituras de 65536 bytes e 1 MiB passaram limpas.
+
+**Decisão do main (só ordem e cobertura; nenhum critério da §2.2.3 muda):**
+1. Quarta sessão, nesta ordem: P0 a P3; E4 (com a calibração da D-5); E10; marca da E3 escrita; e o P4 POR ÚLTIMO, subindo 65536, 1, 2, 4, 6 e 7 MiB, com PARADA na primeira falha. A quinta sessão, curta, só lê a marca da E3 e mede as somas da E9.
+2. D-6 (a) fica como está: o bloco do coletor é o maior tamanho testado que passa limpo, limitado a 16 MiB. O dado de hoje limita esse valor a menos de 8 MiB.
+3. A exigência adicional da D-6 ("48 MiB + 1 tem de ser RECUSADO") fica declarada como NÃO MENSURÁVEL por este caminho: o transporte do libvirt falha antes de o agente avaliar o tamanho, e a falha mata o canal. É ausência declarada e contada, não pulo calado.
+
+## 23/09/2026 - 20:48 | V-5 concluída; D-6 aplicada com o valor medido
+
+**Fato (`/var/tmp/glintfx-plan/win-lab-estreia/V5-RELATORIO.md` e `v5-sessoes-4-5-completo.log`, lidos pelo main):** P0, P1, P2, P3, E3, E4, E9 e E10 PASSAM. A E4 foi reclassificada de INCONCLUSIVA para PASSA pela leitura do dado cru: `CALIB_LOCAL=True`, as três sondas `False` e o adaptador `Disconnected`. O "inconclusiva" veio de um `\r` do PowerShell que o roteiro de evidência, fora da árvore, não removia (`cat -A`). P4 é medida: 65536, 1 MiB e 2 MiB foram aceitos com a contagem igual à pedida; 4 MiB foi recusado com "Unable to encode message payload". Limite: `VIR_NET_MESSAGE_STRING_MAX = 4194304` (libvirt, `src/rpc/virnetprotocol.x`), sobre o texto base64 da leitura.
+
+**Decisão do main (D-6 (a), sem mudar o critério):** o bloco padrão do coletor passa a ser **2097152 bytes (2 MiB)**, o maior tamanho testado que passou limpo. Troca de constante no coletor, com autoteste, como sub-fatia V-5d. "48 MiB + 1 recusado" fica declarado NÃO MENSURÁVEL por este caminho. Antes de consertar, o `\r` passa por varredura de gêmeos no produto (`tools/win-vm-lab/`).
+
+## 23/09/2026 - 22:00 | L-5h: o oráculo verde precisa ser OBSERVÁVEL, e "recusado" nos casos nomeados vira reprovação
+
+**Fato (run 35939021453, `/var/tmp/glintfx-plan/ci-l5dg-veredito.md`):** `layers_oracle_test` PASSOU em Fedora, Ubuntu, Arch, Clang e MSVC; o CachyOS não chegou a rodar (espelhos, consertado em 8dba1fa). Mas o `ctest --output-on-failure` só imprime a saída de teste que REPROVA, então os baldes, as sentinelas e o censo exigidos pela §5.1 do adendo não aparecem em log nenhum. E "recusado" nunca reprova, por desenho: um caso nomeado caindo em "recusado" em silêncio passaria verde.
+
+**Decisão do main (o caminho mais completo, pela ordem do líder):** a estreia vermelha NÃO é liberada com base num verde que não se pode ler. Sub-fatia L-5h: (a) o oráculo passa a REPROVAR se qualquer caso da lista nomeada pelo adendo (C14, C20, C21a, C21b, C23, C23b) cair em "recusado": o que era barreira de leitura humana vira trava na máquina, fail-closed; (b) o relatório completo do oráculo (comando, flags, pastas por regra, censo, sentinelas, baldes) vai SEMPRE para o `$GITHUB_STEP_SUMMARY` e para um artefato do job, passe ou reprove. Depois, uma rodada verde LIDA nos seis trabalhos, e só então a estreia. Confirmar retroativamente.
+
+## 24/09/2026 - 00:00 | A exceção de paridade de gpu_kind_report_smoke troca de dono: WIN-RUNNER-PROPRIO → WIN-LAB-INSTALAR
+
+**Fato (Caetano/CTO, medido só com leitura, conferido pelo main):** `tests/parity_exceptions.txt:406` aponta para WIN-RUNNER-PROPRIO, que o commit 84877aa marcou ✅. `validate_exceptions()` (check_test_parity.py:708-731) reprova exceção cujo item está concluído, então o CI de fechamento em 023e1c7 reprovaria no passo `check_test_parity.py --compare`. O comentário da própria linha (390-394) diz que ela só morre quando houver fixture Windows REAL com mutação. Isso não foi entregue: V-6b e V-7 saíram para WIN-LAB-INSTALAR (W9).
+
+**Decisão do main:** o dono da linha passa a ser WIN-LAB-INSTALAR, o item que liga o convidado para instalar e rodar coisa real. Os comentários 390-394 e 502-508 mudam junto, com o motivo. Apagar a linha seria mentira (o par Windows não existe), e deixar o item fechado com a linha apontando para ele reprova o portão, que foi feito exatamente para isso. Lição: o fecho de um item tem de varrer `tests/parity_exceptions.txt` e `tests/parity_aliases.txt` atrás do ID que está sendo fechado. Confirmar retroativamente.
+
+## 24/09/2026 - 00:20 | W7-C: revalidação do plano (Caetano/CTO) e ataque independente
+
+**Plano:** `docs/plano-w7c.md` (06:44 de 23/09), emendado por `docs/plano-w7c-adendo-revalidacao.md` (revalidação contra a árvore em 7d09889) e pelo ataque `/var/tmp/glintfx-plan/ataque-w7c.md` (APROVA COM EMENDAS, zero bloqueantes; emenda de F0 aplicada). As decisões abaixo são as da §6 do adendo, transcritas; o texto integral está lá. Confirmar retroativamente.
+
+
+Para o main registrar ao vivo. Quem decidiu: Caetano (CTO, `opus`, esforço alto), em modo autônomo. Nenhuma muda o que a biblioteca aceita ou entrega: todas são do instrumento de teste e da tabela. Todas: confirmar retroativamente.
+
+**D-A1: a linha `LINK-PREFIX-RESIDUOS` é registrada agora, antes de despachar.**
+Pergunta que teria ido ao líder: "a D6 do plano nunca foi executada; registramos a linha ou deixamos os resíduos na INBOX?" Opções: deixar na INBOX; **registrar agora (escolhida)**. Porquê: a D6 já foi decidida e ratificável; o que faltou foi execução, não decisão. Mão única: não. Reverter: barato. Fonte: F1 (medição).
+
+**D-A2: o relé mora em `tests/container/wire_relay/` e entra no banco de compilação por listagem explícita, não recursiva.**
+Opções: arquivos soltos em `tests/container/`; `GLOB_RECURSE`; **segunda listagem explícita (escolhida)**. Porquê: `GLOB_RECURSE` traria a pasta de encenação `_arch_ports_src/` (cópias de fontes do produto) em duplicata; arquivos soltos misturam o relé com as fixturas. Mão única: não. Reverter: barato. Fontes: N7 (medição do `pathspec` e da listagem); nenhuma externa necessária, a pergunta é da casa.
+
+**D-A3: a subida do compositor passa a ter duas sondas, antes e através do relé.**
+Opções: sonda só no relé; **as duas (escolhida)**. Porquê: sonda só no relé não distingue "compositor não subiu" de "relé quebrado"; a segunda sonda é a primeira prova viva do modo transparente. Mão única: não. Reverter: barato. Fonte: N5 (o desenho de prontidão que CONT-WARMUP já provou).
+
+**D-A4: o fim de conexão tem de sair igual com e sem relé; se não sair, a fixtura fica fora do relé, nunca ajustada.**
+Opções: aceitar a sequência nova; **exigir a mesma, com saída por lista fechada (escolhida)**. Porquê: `fatal_error_smoke` mede um comportamento do núcleo que o produto precisa tratar; um relé que o altere faria a fixtura medir o relé. Mão única: não. Reverter: barato. Fonte: N6.
+
+**D-A5: linha nova `PARITY-LOCAL-MIRROR`, com modo textual dos dois portões de paridade no `ctest` dos dois sistemas.**
+Pergunta: "o portão de paridade só morde no servidor; aceitamos, rodamos o portão inteiro local, ou rodamos localmente a metade que não depende de inventário?" Opções: aceitar; prever o inventário do Windows lendo o `CMakeLists`; **metade textual, com a outra metade declarada como perda (escolhida)**. Porquê: duas quedas medidas em dois dias (N2, N3); a previsão de inventário já foi medida enganosa ("`ctest -N` mede só metade"); a metade textual é idêntica em qualquer máquina. Mão única: não. Reverter: barato. Fontes: N2, N3, N4; ESLint e Rust (seção 2.C do plano: aviso é ignorado, reprovar é o remédio maduro) valem aqui também.
+
+**D-A6: `PARITY-ALIAS-HYGIENE` fecha com a revisão da P-4, sem sub-fatia nova.**
+Opções: acrescentar o modo local ao próprio item; **fechar e abrir linha própria (escolhida)**. Porquê: o item já passou por quatro sub-fatias e seus critérios estão cumpridos; o defeito novo é de outra natureza. Mão única: não. Reverter: barato.
+
+**D-A7: o portão de escopo de plano confere um esquema v1 declarado por nome de coluna, com lista de legado fechada que só encolhe; substitui o reconhecimento heurístico de D17.**
+Pergunta: "reconhecemos cada forma de tabela que os planos inventaram, reescrevemos os planos antigos, ou fixamos um esquema?" Opções: heurística (D17); reescrever os 16 planos; **esquema v1 + legado fechado + converter só o plano ainda não executado (`w7d`) (escolhida)**. Porquê: medido, a heurística alcança 5 de 16 e já perdeu um pela troca de uma palavra; plano executado é registro datado e não se reescreve; Sphinx-Needs e Doorstop mostram que a ferramenta madura exige esquema e reprova quem sai dele. Mão única: não. Reverter: barato. Fontes: 1.B; seção 2. **Emenda de 24/09 (ataque independente, achado IMPORTANTE):** cada linha da lista de legado traz categoria de lista fechada conferida contra o conteúdo do plano (`sem-tabela-de-fatia`, `tabela-fora-do-esquema`) e motivo com piso medível (vazio, menos de cinco palavras, marcador de lista fechada ou cópia de outra linha reprovam). Porquê: declaração em prosa não conferida é exatamente o defeito que `PARITY-ALIAS-HYGIENE` corrigiu em `bilateral=<motivo>`; a categoria conferida é a metade que a máquina garante, e o piso do motivo só barra o preenchimento vazio, declarado assim no cabeçalho.
+
+**D-A8: um analisador léxico de CMake só (`tests/tools/cmake_lexer.py`), consumido pelo inventário novo e pelos três leitores que existem; absorve `WIN-CROSS-GATE-CMAKE-LEXER`.**
+Opções: consertar só o leitor da INBOX; **átomo único e migração dos três (escolhida)**. Porquê: três leitores, três cortes de comentário diferentes, um deles com direção de verde falso (3.E); a regra de três está cumprida por medição. Mão única: não. Reverter: médio (três arquivos voltam ao corte próprio). Fonte: `cmake-language(7)`.
+
+**D-A9: o portão de contagem mantém o universo do portão de travessão, ganha a regra da data e nenhuma isenção nova.**
+Opções: estreitar o universo para `.md`; isentar texto entre aspas e parâmetro de desenho; **manter o universo, só a regra da data (escolhida)**. Porquê: estreitar afrouxa um portão; isenção por aspas é furo; a regra da data corrige um falso positivo medido sem abrir nada. Mão única: não. Reverter: barato. Fonte: F13, F14 (medição); Vale `existence` (seção 2.D do plano: vocabulário nomeado, exceção explícita).
+
+**D-A10: `WIN-CROSS-GATE-L17` não entra na onda; a função das 16 que E1c tocar sai dentro dos tetos no mesmo commit.**
+Opções: refatorar as 16 na W7-C; **regra do escoteiro só no que for tocado (escolhida)**; nada. Porquê: é débito de forma, sem defeito de medição (não é a família desta onda), num portão cujo autoteste mais pesado precisa do compilador real; a L-17 cobra a unidade tocada na revisão da fatia. Mão única: não. Reverter: barato. **Recomendação ao main, não decisão:** juntar `WIN-CROSS-GATE-L17` e `PARITY-GATE-DEBITO-L17-PRE-EXISTENTE` numa linha única de débito de forma dos portões, quando a tabela abrir espaço (congelamento de 27/08 até `DEMO-1`).
+
+**D-A11: linha nova `LAYERS-ORACLE-REPORT`, absorvendo três entradas da INBOX, com o conserto do buffer para todo portão Python.**
+Opções: consertar só o oráculo; deixar na INBOX; **linha própria, com o gêmeo de N9 incluído (escolhida)**. Porquê: J1 é verde falso no passo que existe para acusar ausência (N8); o buffer é o comportamento documentado do Python e atinge todos os portões (N9, L-17). Mão única: não. Reverter: barato. Fontes: `sys.stdout` e `-u` (seção 2); run `35946636755` (medido pela INBOX).
+
+**D-A12: `LAYERS-ORACULO-MSVC-CR-SOLITARIO` e `CENSO-STDLIB-GXX14-ACIMA-DO-PISO` ficam fora da W7-C.**
+Porquê: o primeiro é pergunta de desenho do portão de camadas com erro na direção segura: nos casos `M3` e `M15` (`check_layers.py:2891`, `:2964`), o portão reprova um `#include` que o MSVC nunca vê, porque ali o `\r` sozinho não quebra linha; é vermelho a mais no MSVC, nunca verde falso (`INF`, lido no código, não executado). O segundo é fato registrado "sem ação pendente" pela própria entrada. Mão única: não.
+
+**D-A13: ordem da onda com um implementador por vez na árvore (seção 5).**
+Opções: as duas pistas do plano; **fila única com laboratório do relé fora da árvore (escolhida)**. Porquê: é a restrição do pedido, e as colisões de arquivo medidas no plano (seção 8 dele) continuam valendo. Mão única: não. Reverter: barato.
+
+---
+

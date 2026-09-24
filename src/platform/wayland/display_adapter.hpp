@@ -7,6 +7,7 @@
 #include <glintfx/core/err.hpp>
 
 #include "platform/wayland/global_catalog.hpp"
+#include "platform/wayland/incoming_poll_syscall.hpp"
 
 // display_adapter.hpp - ARCH-PORTS (open/close/is_open) EXTENDED by
 // WL-DISPLAY fatia B (TODO.md, GODS_LAWS.md L-05): the same class now
@@ -299,8 +300,30 @@ class wayland_display_adapter {
     // already 0 when pump_events()'s own zero budget was spent whole
     // on the flush, and shrinks for wait_events()'s own budget by
     // however long the flush itself took.
-    [[nodiscard]] gltfx_rslt<bool> wait_for_incoming_data(std::uint32_t timeout_ms) noexcept;
+    //
+    // CONT-WARMUP C-6, EMENDA (ordem do team-lead, /var/tmp/glintfx-
+    // plan/impl-cont-warmup-c6.md's own "residual declarado" da
+    // primeira rodada): `poll_impl`, com `&::poll` como padrão, é a
+    // costura que tests/incoming_poll_wiring_test.cpp usa (via a
+    // `friend` abaixo) para chamar esta função REAL com cada desfecho
+    // do `::poll()` fabricado, sem depender do kernel - nenhum
+    // parâmetro novo muda o comportamento de nenhum chamador real
+    // (todos usam o padrão).
+    [[nodiscard]] gltfx_rslt<bool>
+    wait_for_incoming_data(std::uint32_t timeout_ms,
+                           incoming_poll_syscall_fn poll_impl = &::poll) noexcept;
     [[nodiscard]] gltfx_rslt<void> read_and_dispatch_incoming() noexcept;
+
+    // CONT-WARMUP C-6, EMENDA: acesso de teste, nada mais - o teste de
+    // fiação precisa chamar drain_pending_and_prepare_read() e
+    // wait_for_incoming_data() diretamente (os dois privados, por
+    // desenho: nenhum consumidor externo deveria chamá-los fora da
+    // sequência de quatro passos que dispatch_ready_events() garante)
+    // e precisa montar um m_display de teste via wl_display_connect_
+    // to_fd() (open() só conecta via wl_display_connect(nullptr) real).
+    // Nada disto sai de src/ nem toca include/glintfx/ - GODS_LAWS.md
+    // L-19 continua intacto.
+    friend struct incoming_poll_wiring_test_access;
 
     wl_display *m_display = nullptr;
     wl_registry *m_registry = nullptr;

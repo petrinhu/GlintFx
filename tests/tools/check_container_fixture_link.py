@@ -402,26 +402,77 @@ def is_wayland_scanner_line(subcommand):
 # inc" (flag de uma letra sem espaco, sintaxe GCC valida) saiam
 # intactas. `docs/plano-w7c.md` sugere a ancora `(?<![\w/.-])`, mas
 # ISSO NAO CASA "-I/build/inc" (medido: o "I" de "-I" E' \w, o
-# lookbehind bloqueia do mesmo jeito que a forma antiga) - o texto do
-# plano fica CORRIGIDO aqui, nao seguido as cegas (a mesma disciplina
-# que esta onda inteira cobra de todo portao). A distincao real nao e'
-# "que caractere vem antes", e' QUANTOS: uma UNICA letra colada (flag
-# curta: -I, -o, -L, -D) e' aceita; DUAS OU MAIS letras coladas (uma
-# palavra inglesa de verdade, como em "configure/build" ou "staging/
-# build/exec" - prosa real medida em comentarios desta arvore) ficam
-# bloqueadas, porque `\w\w` (dois caracteres de palavra em sequencia)
-# casa exatamente uma palavra continuando, nunca uma flag de uma letra
-# so'. `/` e `.` diretamente antes tambem bloqueiam (evita "//build" e
-# "../build" solto). O caso ja conhecido, host path tipo "/opt/tmp/
-# builds/.../g++", continua protegido pelo LOOKAHEAD sozinho, sem
-# depender do lookbehind (a forma "/builds" e' seguida de "s", nunca
-# de "/"/espaco/fim - a mesma barreira de antes, intocada).
-_BUILD_PREFIX_TOKEN_RE = re.compile(r"(?<![/.])(?<!\w\w)/build(?=/|\s|$)")
+# lookbehind bloqueia do mesmo jeito que a forma antiga).
+#
+# LINK-PREFIX-RESIDUOS B1b (revisao main de 24/09/2026 contra `2741c8c`,
+# SEGUNDA tentativa - GODS_LAWS.md L-22 pede web antes da terceira, nao
+# precisou): a PRIMEIRA tentativa deste conserto (`(?<!\w\w)`, "duas
+# letras coladas bloqueia, uma passa") tambem estava ERRADA, nas DUAS
+# direcoes - medido pela revisao em copia fora da arvore contra o blob
+# de `537166b`: "src/a/build/x", "cd a/build && make" e "ls x/build"
+# (segmento de caminho de UMA letra) viravam falso POSITIVO (reescritos
+# quando nao deveriam); "-isystem/build/inc" (opcao GCC de MUITAS
+# letras, sintaxe real, gemeo de "-I") ficava falso NEGATIVO (intocado
+# quando deveria reescrever). CONTAGEM DE LETRA COLADA NUNCA FOI A
+# REGRA CERTA - a regra real e' se o que precede "/build" e' uma OPCAO
+# INTEIRA (comeca em limite de token com "-" ou "--", nao importa
+# quantas letras o nome da opcao tem) ou uma CONTINUACAO DE CAMINHO
+# (comeca em limite de token com QUALQUER OUTRA COISA, nem que seja uma
+# unica letra). Essa distincao PRECISA de olhar pra tras um numero
+# VARIAVEL de caracteres (o nome da opcao pode ter qualquer tamanho -
+# "-I" tem uma letra, "-isystem" tem sete) - o modulo `re` da stdlib
+# SO' aceita lookbehind de LARGURA FIXA (`re.error: look-behind
+# requires fixed-width pattern`, medido tentando escrever isso como
+# regex antes de escrever a funcao abaixo), entao a decisao sai do
+# regex e vira funcao Python: _BUILD_PREFIX_CANDIDATE_RE so' acha os
+# CANDIDATOS (mesmo lookahead de sempre - protege "/builds"/"/buildtools"
+# sozinho, nunca mudou), e _is_build_prefix_boundary() decide, andando
+# PARA TRAS a partir de cada candidato, se ele e' prefixo de verdade.
+_BUILD_PREFIX_CANDIDATE_RE = re.compile(r"/build(?=/|\s|$)")
+
+
+def _is_build_prefix_boundary(text, match_start):
+    """True quando o "/build" que comeca em `match_start` e' o PREFIXO
+    do Containerfile - nunca continuacao de um caminho ja em andamento.
+    Aceita: inicio da string, espaco ou aspa direto antes (a forma
+    original); separador de valor "=" ou "," (--out=/build, -Wl,-rpath,
+    /build); ou uma OPCAO INTEIRA colada, de QUALQUER tamanho de nome
+    (anda para tras consumindo letras - "isystem" tem sete, "I" tem
+    uma - ate achar "-"/"--", que por sua vez tem de comecar num desses
+    MESMOS limites). Qualquer outra coisa colada direto (letra ou
+    digito que nao vem de uma opcao, "/", "."), mesmo um UNICO
+    caractere, e' continuacao de caminho - bloqueia."""
+    if match_start == 0:
+        return True
+    prev = text[match_start - 1]
+    if prev.isspace() or prev in ("'", '"'):
+        return True
+    if prev in ("=", ","):
+        return True
+    i = match_start
+    while i > 0 and text[i - 1].isalpha():
+        i -= 1
+    if i == match_start:
+        return False
+    if i == 0 or text[i - 1] != "-":
+        return False
+    j = i - 1
+    if j > 0 and text[j - 1] == "-":
+        j -= 1
+    return j == 0 or text[j - 1].isspace() or text[j - 1] in ("'", '"')
 
 
 def rewrite_build_prefix(subcommand, build_dir):
     build_dir_for_shell = build_dir.replace("\\", "/")
-    return _BUILD_PREFIX_TOKEN_RE.sub(lambda _m: build_dir_for_shell, subcommand)
+    pieces = []
+    last_end = 0
+    for match in _BUILD_PREFIX_CANDIDATE_RE.finditer(subcommand):
+        if _is_build_prefix_boundary(subcommand, match.start()):
+            pieces.append(subcommand[last_end:match.start()])
+            pieces.append(build_dir_for_shell)
+            last_end = match.end()
+    pieces.append(subcommand[last_end:])
+    return "".join(pieces)
 
 
 def run_subcommand(subcommand, build_dir):
@@ -882,43 +933,55 @@ def selftest_rewrite_build_prefix_ignores_unrelated_build_substring():
 # pelo motivo ERRADO ("Arquivo ou diretorio inexistente" em vez de
 # "undefined reference") - o MESMO mascaramento que LINK-PREFIX-
 # SUBSTRING corrigiu, residual nestas tres formas (F1 do adendo de
-# revalidacao). Ver o comentario junto de _BUILD_PREFIX_TOKEN_RE acima
-# para a correcao medida ao texto do plano e o raciocinio da ancora
-# nova (contagem de letras coladas, nao qual caractere).
+# revalidacao). Ver o comentario junto de _BUILD_PREFIX_CANDIDATE_RE e
+# _is_build_prefix_boundary() acima para a correcao medida ao texto do
+# plano E a correcao da PRIMEIRA tentativa deste proprio conserto
+# (B1b, revisao main de 24/09/2026): a regra real e' "opcao inteira
+# colada (qualquer tamanho de nome) reescreve; continuacao de caminho
+# (nem que seja UMA letra) nao reescreve".
 def selftest_rewrite_build_prefix_recognizes_glued_forms():
     build_dir = "/tmp/real-build-dir"
-    positive_cases = [
+    # (subcommand, forma esperada) - forma None significa "continua
+    # intocado" (negativo). Os quatro ultimos negativos e os dois
+    # ultimos positivos sao a estreia de B1b: medidos VERMELHOS contra
+    # o codigo de B1 (`537166b`) antes deste commit.
+    cases = [
         ("--out=/build/x", f"--out={build_dir}/x"),
         ("'/build/x'", f"'{build_dir}/x'"),
         ("-I/build/inc", f"-I{build_dir}/inc"),
-    ]
-    negative_cases = [
-        "the configure/build step that follows",
-        "verify the staging/build/exec chain works",
+        ("-isystem/build/inc", f"-isystem{build_dir}/inc"),
+        ("-Wl,-rpath,/build/lib", f"-Wl,-rpath,{build_dir}/lib"),
+        ("the configure/build step that follows", None),
+        ("verify the staging/build/exec chain works", None),
+        ("src/a/build/x", None),
+        ("cd a/build && make", None),
+        ("ls x/build", None),
+        ("x-y/build", None),
+        ("dir_1/build", None),
+        # Tres casos que a mutacao (L-27, copia fora da arvore) achou
+        # sem controle: sobreviviam trocando um `if` de dentro de
+        # _is_build_prefix_boundary() por `if False` sem nenhum destes
+        # doze casos acima notar.
+        ("--sysroot/build", f"--sysroot{build_dir}"),  # opcao LONGA colada, sem separador
+        ("-/build", None),  # dash solto, sem nome de opcao - nao e' flag
+        ("value/build", None),  # palavra colada desde o INICIO da string, sem espaco/dash antes
+        ("value/build x", None),  # idem, com sufixo - mata o mutante que usa indice negativo por engano
     ]
     ok = True
-    for subcommand, expected in positive_cases:
+    for subcommand, expected in cases:
         rewritten = rewrite_build_prefix(subcommand, build_dir)
-        if rewritten != expected:
+        wanted = subcommand if expected is None else expected
+        if rewritten != wanted:
             print(
-                f"selftest: GLUED-FORMS FALHOU (forma colada nao foi reescrita: {subcommand!r} -> "
-                f"{rewritten!r}, esperava {expected!r})",
-                file=sys.stderr,
-            )
-            ok = False
-    for prosa in negative_cases:
-        rewritten = rewrite_build_prefix(prosa, build_dir)
-        if rewritten != prosa:
-            print(
-                f"selftest: GLUED-FORMS FALHOU (prosa em ingles com '/build' dentro de palavra "
-                f"foi corrompida): {prosa!r} -> {rewritten!r}",
+                f"selftest: GLUED-FORMS FALHOU ({subcommand!r} -> {rewritten!r}, esperava "
+                f"{wanted!r})",
                 file=sys.stderr,
             )
             ok = False
     if ok:
         print(
-            "selftest: GLUED-FORMS OK (--out=/build/x, '/build/x' e -I/build/inc reescritos; "
-            "prosa inglesa com '/build' dentro de palavra continua intocada)"
+            f"selftest: GLUED-FORMS OK ({len(cases)} caso(s): opcao colada de nome curto e "
+            f"longo reescreve; prosa e segmento de caminho de uma letra continuam intocados)"
         )
     return ok
 

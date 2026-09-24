@@ -119,11 +119,31 @@ def find_row_line_and_number(plan_text, marker):
     """Mesma busca de find_row_line() (ver o docstring dela), mas devolve
     o PAR (numero de linha 1-indexado, texto da linha) - F1 (PLAN-SCOPE-
     COLUMNS, D-A7) precisa do numero para achar a tabela que contem essa
-    linha e ler o cabecalho real dela, em vez de supor posicao fixa."""
+    linha e ler o cabecalho real dela, em vez de supor posicao fixa.
+
+    CONSERTO (F5, achado do CTO 24/09/2026): a forma anterior (regex
+    `\\d+[a-z]*` no INICIO da linha) exigia digito - PLAN-SCOPE-REGEX-BLIND
+    ja tinha corrigido a metade "digito + letras" (`2a`, `5b`, `5c`), mas
+    continuava cega a identificador de LETRA PURA (`P1`, `B2`, `F0` -
+    docs/plano-w7d.md:159) e a retirada riscada (`~~V-6b~~`). D-A7 diz
+    "qualquer forma": o casamento agora NUNCA olha para a FORMA do
+    identificador - so' pergunta se a linha e' uma linha de CORPO de
+    alguma tabela markdown reconhecida (header+separador, a mesma regra
+    que find_table_columns_for_row() ja usa para achar o cabecalho de uma
+    linha - table_body_line_range(), reusada aqui, GODS_LAWS.md L-33/L-17
+    para as duas nunca divergirem sobre o que e' "corpo de tabela").
+    Cabecalho e linha separadora nunca entram no corpo por construcao
+    (corpo comeca 2 linhas depois do cabecalho da tabela) - mesmo que o
+    marcador apareca literalmente no NOME de uma coluna do cabecalho."""
+    lines = plan_text.splitlines()
+    body_line_numbers = set()
+    for table in parse_markdown_tables(plan_text):
+        body_first, body_last = table_body_line_range(plan_text, table)
+        body_line_numbers.update(range(body_first, body_last + 1))
     matches = [
         (line_no, line)
-        for line_no, line in enumerate(plan_text.splitlines(), start=1)
-        if re.match(r"^\|\s*\d+[a-z]*\s*\|", line) and marker in line
+        for line_no, line in enumerate(lines, start=1)
+        if line_no in body_line_numbers and marker in line
     ]
     if len(matches) == 0:
         fail(f"nenhuma linha de tabela (\"| N | ...\") contendo o marcador {marker!r} encontrada")
@@ -210,6 +230,16 @@ def cell_declares_absence(cell_text):
     """'—' é ausência declarada, com motivo na própria célula - a mesma
     convenção que as tabelas do esquema v1 já usam (D-A7, F0)."""
     return cell_text.strip().startswith("—")
+
+
+def is_withdrawn_identifier(identifier_cell):
+    """F5 (docs/plano-w7c.md:181, docs/plano-w7c-adendo-revalidacao.md:179):
+    'o identificador segue sendo a primeira célula, qualquer forma; `~~X~~`
+    continua retirada contada' - `~~X~~` = fatia RETIRADA: contada e
+    impressa, mas NUNCA conferida (nenhuma existência de caminho/teste é
+    checada para ela). Riscado nos dois lados, depois de tirar espaço."""
+    text = identifier_cell.strip()
+    return len(text) > 4 and text.startswith("~~") and text.endswith("~~")
 
 
 def path_exists_in_worktree(root, path):
@@ -404,6 +434,21 @@ def real_main(args):
     row_line_no, row_line = find_row_line_and_number(plan_text, parsed.marker)
     columns = split_row_columns(row_line)
 
+    # F5 (D-A7, docs/plano-w7c.md:181): "identificador = a primeira celula
+    # da linha, qualquer forma; `~~X~~` = fatia retirada, contada e
+    # impressa, nunca conferida" - columns[0] e' sempre a celula vazia
+    # ANTES do primeiro `|` (ver comentario logo abaixo), entao columns[1]
+    # e' a primeira celula REAL. Retirada sai aqui, ANTES de qualquer
+    # leitura de coluna por nome ou checagem de existencia - "nunca
+    # conferida" e' literal, nao so' "conferida e perdoada".
+    identifier_cell = columns[1] if len(columns) > 1 else ""
+    if is_withdrawn_identifier(identifier_cell):
+        print(
+            f"{SCRIPT_NAME}: fatia RETIRADA ({identifier_cell.strip()}) - identificador riscado, "
+            "contada e impressa, nunca conferida (D-A7, docs/plano-w7c.md:181)"
+        )
+        return
+
     # F1 (PLAN-SCOPE-COLUMNS, D-A7, docs/plano-w7c-adendo-revalidacao.md
     # secao 3.F): a coluna certa e' achada pelo NOME do cabecalho real da
     # tabela que contem esta linha, nunca por posicao fixa - F18 (TODO.md)
@@ -585,6 +630,26 @@ def parse_markdown_tables(text):
     return tables
 
 
+def table_body_line_range(plan_text, table):
+    """F5 (achado do CTO, 24/09/2026): extrai de find_table_columns_for_row()
+    o calculo do intervalo 1-indexado INCLUSIVO (body_first, body_last) das
+    linhas de CORPO (dados) de um `table` de parse_markdown_tables() - nunca
+    o cabecalho, nunca a linha separadora, e para no primeiro `|...|`
+    quebrado. Extraido para ser reusado por find_row_line_and_number()
+    tambem (GODS_LAWS.md L-33/L-17: as duas funcoes nunca podem divergir
+    sobre o que conta como "corpo de tabela" - a mesma armadilha que
+    motivou este achado: alargar so' um dos dois lugares alargaria so'
+    metade da regra)."""
+    lines = plan_text.splitlines()
+    body_first = table["line_no"] + 2  # 1-indexado: header, separador, entao o corpo
+    idx = body_first - 1  # 0-indexado
+    body_last = table["line_no"] + 1  # ainda sem corpo nenhum lido
+    while idx < len(lines) and _TABLE_ROW_RE.match(lines[idx].strip()):
+        body_last = idx + 1  # 1-indexado
+        idx += 1
+    return body_first, body_last
+
+
 def find_table_columns_for_row(plan_text, row_line_no):
     """F1 (PLAN-SCOPE-COLUMNS, D-A7): dado o numero de linha 1-indexado
     de UMA linha de dados de tabela, devolve a lista de NOMES de coluna
@@ -593,14 +658,8 @@ def find_table_columns_for_row(plan_text, row_line_no):
     tabela) de nenhuma tabela reconhecida por parse_markdown_tables().
     Substitui a suposicao antiga de posicao fixa (`columns[4]`, F18 -
     "a coluna certa e' lida por NOME, nunca por indice fixo")."""
-    lines = plan_text.splitlines()
     for table in parse_markdown_tables(plan_text):
-        body_first = table["line_no"] + 2  # 1-indexado: header, separador, entao o corpo
-        idx = body_first - 1  # 0-indexado
-        body_last = table["line_no"] + 1  # ainda sem corpo nenhum lido
-        while idx < len(lines) and _TABLE_ROW_RE.match(lines[idx].strip()):
-            body_last = idx + 1  # 1-indexado
-            idx += 1
+        body_first, body_last = table_body_line_range(plan_text, table)
         if body_first <= row_line_no <= body_last:
             return table["columns"]
     return None
@@ -1508,6 +1567,142 @@ def selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path):
     return False
 
 
+# --- F5 (achado do CTO, 24/09/2026, --compare cego a identificador de
+# LETRA): tests/tools/check_plan_scope_diff.py:127 usava
+# `re.match(r"^\|\s*\d+[a-z]*\s*\|", line)` - o conserto de PLAN-SCOPE-
+# REGEX-BLIND (acima) so' aceitava digito OBRIGATORIO no inicio, mais
+# letras minusculas depois ("2a", "5b", "5c"). Continuava cego a
+# `--compare docs/plano-w7d.md --marker '**P1**'` (identificador de letra
+# PURA) e a `~~V-6b~~` (retirada riscada) - o mesmo defeito de raiz
+# (regex sobre a FORMA do identificador em vez de reconhecer a linha
+# pela POSICAO dela dentro de uma tabela real), so' que a metade que
+# PLAN-SCOPE-REGEX-BLIND nao cobriu. D-A7 diz "qualquer forma".
+
+
+def selftest_letter_prefixed_fatia_id_found_and_absolved(tmp_path):
+    """Identificador de letra PURA (sem digito nenhum no inicio) - `P1`
+    (docs/plano-w7d.md:159, o caso real que abriu este achado), `B2`,
+    `F0` (a propria fatia F0 deste script, docs/plano-w7c-adendo-
+    revalidacao.md) - tem de ser encontrado e absolvido quando o caminho
+    prometido existe. Antes do conserto, o regex `\\d+[a-z]*` exige um
+    digito no INICIO e nenhuma das tres forma casa - mesmo defeito de
+    5C/V-5a que PLAN-SCOPE-REGEX-BLIND corrigiu pela metade."""
+    for letter_id in ("P1", "B2", "F0"):
+        good_path = f"src/f5/exists_{letter_id.lower()}.hpp"
+        (tmp_path / "src" / "f5").mkdir(parents=True, exist_ok=True)
+        (tmp_path / good_path).write_text("", encoding="utf-8")
+        marker = f"MARCADOR-{letter_id}"
+        plan_path = tmp_path / f"plano-{letter_id.lower()}.md"
+        plan_path.write_text(
+            "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
+            "|---|---|---|---|---|---|---|\n"
+            f"| **{letter_id}** | {marker} | comum | `{good_path}` | — | — | par |\n",
+            encoding="utf-8",
+        )
+        try:
+            real_main([str(plan_path), "--marker", marker, "--root", str(tmp_path)])
+        except SystemExit as exc:
+            print(
+                f"selftest: fatia de identificador letra pura ({letter_id!r}) com caminho "
+                f"existente reprovou inesperadamente (codigo {exc.code}) - find_row_line() "
+                "ainda cega para identificador sem digito no inicio",
+                file=sys.stderr,
+            )
+            return False
+    print("selftest: identificador de letra pura (P1, B2, F0) e' encontrado e absolvido - ok")
+    return True
+
+
+def selftest_strikethrough_identifier_is_retirada_never_conferred(tmp_path):
+    """D-A7 (docs/plano-w7c.md:181, docs/plano-w7c-adendo-revalidacao.md:179):
+    um identificador riscado (`~~V-6b~~`) e' fatia RETIRADA - contada e
+    impressa, NUNCA conferida. Prometer um caminho que nao existe numa
+    linha assim tem de PASSAR (exit 0, nunca reprovar), porque a linha
+    nunca chega a ser conferida - o oposto exato do '5c vivo' (controle
+    acima), que reprova por promessa descumprida. Antes do conserto, a
+    linha nem e' encontrada (mesmo defeito do identificador de letra)."""
+    marker = "MARCADOR-RETIRADA"
+    missing_path = "does/not/exist_retirada.hpp"
+    plan_path = tmp_path / "plano-retirada.md"
+    plan_path.write_text(
+        "| # | Fatia | Lado | Nasce / muda | Prova Linux | Prova Windows | Par |\n"
+        "|---|---|---|---|---|---|---|\n"
+        f"| ~~V-6b~~ | **{marker}** | comum | `{missing_path}` | — | — | par |\n",
+        encoding="utf-8",
+    )
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        try:
+            real_main([str(plan_path), "--marker", marker, "--root", str(tmp_path)])
+        except SystemExit as exc:
+            print(
+                f"selftest: fatia RETIRADA com caminho ausente reprovou (codigo {exc.code}) - "
+                "deveria ser contada e impressa, nunca conferida (D-A7)",
+                file=sys.stderr,
+            )
+            return False
+    stdout_text = buffer.getvalue()
+    if "retirada" not in stdout_text.lower():
+        print(
+            f"selftest: fatia retirada passou mas nao imprimiu 'retirada' - saida: {stdout_text!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: identificador riscado ('~~V-6b~~') e' retirada - contada, impressa, "
+        "nunca conferida - ok"
+    )
+    return True
+
+
+def selftest_header_and_separator_never_match_as_fatia_row(tmp_path):
+    """Armadilha nomeada no proprio achado (F5): alargar o casamento de
+    linha para 'qualquer forma' sem excluir cabecalho/separador faria o
+    proprio cabecalho da tabela (`| # | Fatia | ...|`) casar como se
+    fosse uma fatia. Aqui o marcador aparece tanto no NOME da coluna do
+    cabecalho ('Fatia') quanto dentro da celula real da fatia - so' a
+    linha real do CORPO pode casar; cabecalho e separador ficam de fora
+    mesmo fazendo parte da mesma tabela. Contra o codigo antigo (regex
+    de digito), esta mesma linha ja' reprova (P1 tambem nao casa o
+    digito) - vermelho pelo mesmo motivo geral do achado, nao por um
+    motivo novo."""
+    marker = "Fatia"
+    plan_path = tmp_path / "plano-header-trap.md"
+    plan_path.write_text(
+        "| # | Fatia | Nasce / muda | Prova | Par no portão |\n"
+        "|---|---|---|---|---|\n"
+        "| P1 | descreve a Fatia real | `existe_header_trap.hpp` | — | — |\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "existe_header_trap.hpp").write_text("", encoding="utf-8")
+    plan_text = plan_path.read_text(encoding="utf-8")
+    try:
+        row_line_no, row_line = find_row_line_and_number(plan_text, marker)
+    except SystemExit as exc:
+        print(
+            f"selftest: marcador presente no cabecalho E na linha real nao encontrou a linha "
+            f"certa (codigo {exc.code}) - cabecalho/separador podem estar contaminando o "
+            "casamento, ou o identificador de letra continua cego",
+            file=sys.stderr,
+        )
+        return False
+    if not row_line.strip().startswith("| P1"):
+        print(
+            f"selftest: casou a linha ERRADA (cabecalho ou separador?) - linha {row_line_no}: "
+            f"{row_line!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: cabecalho e separador nunca casam como fatia, mesmo com o marcador presente "
+        "no nome da coluna - so' a linha real do corpo casa - ok"
+    )
+    return True
+
+
 # --- selftests do esquema v1 e da lista de legado (F0) --------------------
 
 
@@ -1749,6 +1944,9 @@ def selftest_main():
             selftest_missing_nasce_muda_column_names_it(tmp_path),
             selftest_alphanumeric_fatia_id_found_and_absolved(tmp_path),
             selftest_alphanumeric_fatia_id_catches_real_gap(tmp_path),
+            selftest_letter_prefixed_fatia_id_found_and_absolved(tmp_path),
+            selftest_strikethrough_identifier_is_retirada_never_conferred(tmp_path),
+            selftest_header_and_separator_never_match_as_fatia_row(tmp_path),
             selftest_declared_absence_with_open_item_accepted(tmp_path),
             selftest_declared_absence_with_concluded_item_dies(tmp_path),
             selftest_undeclared_absence_reproves(tmp_path),

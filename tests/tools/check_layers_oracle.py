@@ -1146,20 +1146,31 @@ def _read_adendo_named_case_labels(adendo_path):
     return labels
 
 
-_CHECK_LAYERS_CASE_NAME_PATTERN = re.compile(r'Case\(\s*"([A-Za-z0-9_]+)"')
-
-
-def _read_check_layers_case_names(check_layers_path):
-    """Le `check_layers.py` como TEXTO - NUNCA import (docs/plano-
-    layers-l5.md §2, D-2: "o oraculo nao importa o portao, fala com
-    ele pela linha de comando e por manifesto"). Devolve o conjunto de
-    nomes literais `Case("NOME", ...)` encontrados - REPROVA se zero
-    (falha de instrumento, L-40)."""
-    with open(check_layers_path, "r", encoding="utf-8") as handle:
-        text = handle.read()
-    names = frozenset(_CHECK_LAYERS_CASE_NAME_PATTERN.findall(text))
+def _read_check_layers_case_names(check_layers_path, repo_root):
+    """Achado da RE-revisao independente (23/09/2026): uma regex sobre
+    o TEXTO de check_layers.py nao distingue `Case("X", ...)` REAL de
+    um dentro de COMENTARIO - um nome renomeado/errado que deixa
+    rastro num comentario passava como "existe" (medido: 36 controles
+    OK calado). A checagem certa le a VERDADE, nunca o texto: roda
+    `check_layers.py --export-fixtures <pasta-vazia>` - o MESMO
+    subprocesso que `oracle_main()` ja usa (nao e' import - docs/plano-
+    layers-l5.md §2, D-2; e nao e' o ORACULO, nenhum compilador
+    envolvido, so' check_layers() plantando texto - GODS_LAWS.md L-45
+    nao se aplica) - e le os nomes REAIS do manifesto exportado.
+    REPROVA se zero (falha de instrumento, L-40)."""
+    scratch = tempfile.mkdtemp(prefix="glintfx-layers-oracle-o31-", dir=os.environ.get("TMPDIR"))
+    try:
+        export_dir = os.path.join(scratch, "export")
+        subprocess.run(
+            [sys.executable, check_layers_path, "--export-fixtures", export_dir],
+            check=True, cwd=repo_root,
+        )
+        manifest = _load_manifest(export_dir)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    names = frozenset(case["caso"] for case in manifest["casos"])
     if not names:
-        raise _IncludeTreeError(f"check_layers.py: zero nomes de caso encontrados em {check_layers_path!r}")
+        raise _IncludeTreeError(f"check_layers.py --export-fixtures: zero casos exportados de {check_layers_path!r}")
     return names
 
 
@@ -2695,9 +2706,10 @@ def selftest_oracle_o31_named_cases_match_adendo_source(scratch, capture):
     secao 5.1 item 3) direto do disco com um extrator ESTRITO, e exige
     IGUALDADE DE CONJUNTO entre os rotulos curtos do adendo e os
     derivados da tupla (`_short_label`). Confere tambem que cada nome
-    COMPLETO da tupla existe de verdade nas tabelas de `check_layers.py`
-    (um nome digitado errado nunca casaria com caso nenhum, e a trava
-    nunca dispararia)."""
+    COMPLETO da tupla existe de verdade nas tabelas EXPORTADAS de
+    `check_layers.py` (via `--export-fixtures`, nunca regex sobre
+    texto - um nome so' existente em COMENTARIO nao conta mais como
+    "existe", achado da re-revisao independente)."""
     del scratch, capture
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     adendo_path = os.path.join(repo_root, "docs", "plano-layers-l5-adendo-calibracao.md")
@@ -2707,7 +2719,7 @@ def selftest_oracle_o31_named_cases_match_adendo_source(scratch, capture):
     tuple_labels = {_short_label(name) for name in _NAMED_CASES_ADENDO_5_1}
     labels_match = adendo_labels == tuple_labels
 
-    real_case_names = _read_check_layers_case_names(check_layers_path)
+    real_case_names = _read_check_layers_case_names(check_layers_path, repo_root)
     missing_from_real = [name for name in _NAMED_CASES_ADENDO_5_1 if name not in real_case_names]
 
     ok = labels_match and not missing_from_real

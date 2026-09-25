@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include <cerrno>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <string_view>
 #include <vector>
 
 #include <sys/socket.h>
@@ -206,6 +209,64 @@ struct egl_fake_display {
         }
     }
 };
+
+// EGL-DEAD-DISPLAY-GUARD S4 (docs/plano-egl-dead-display-guard.md sec.
+// 5): mesma codificacao de wl_display.error que tests/connection_
+// failure_test.cpp's own encode_wl_display_error_on_itself() ja usa -
+// reescrita aqui, nao incluida dali, pela MESMA razao que aquele
+// arquivo ja documenta (hermetico, sem puxar o motor do rele inteiro):
+// este e' so' o SEGUNDO lugar hermetico que precisa dela (a "regra de
+// 3" de CONTRACT.md so' pede extracao compartilhada na TERCEIRA
+// ocorrencia real - wire_error_injector.cpp, em tests/container/, e'
+// de uma familia deliberadamente separada, container-only).
+void append_u32(std::vector<std::uint8_t> &out, std::uint32_t value) {
+    const std::size_t offset = out.size();
+    out.resize(offset + sizeof(value));
+    std::memcpy(out.data() + offset, &value, sizeof(value));
+}
+
+void append_wire_string(std::vector<std::uint8_t> &out, std::string_view text) {
+    const auto stored_len = static_cast<std::uint32_t>(text.size() + 1); // + NUL
+    append_u32(out, stored_len);
+    const std::size_t offset = out.size();
+    out.resize(offset + text.size());
+    if (!text.empty()) {
+        std::memcpy(out.data() + offset, text.data(), text.size());
+    }
+    out.push_back(0); // NUL que stored_len ja contou
+    while (out.size() % 4 != 0) {
+        out.push_back(0); // padding do argumento para 4 bytes
+    }
+}
+
+// objeto ofensor 1 (o proprio wl_display) e codigo 3 (implementation),
+// como em S1 (connection_failure_test.cpp): so' implementation (3, ou
+// qualquer valor > 3) vira EPROTO quando o objeto ofensor e' o proprio
+// wl_display - 0/1/2 viram EINVAL/EINVAL/ENOMEM (medido por
+// desmontagem contra libwayland-client 1.26.0, mesmo achado de S1).
+std::vector<std::uint8_t> encode_wl_display_error_on_itself() {
+    constexpr std::uint32_t wl_display_object_id = 1;
+    constexpr std::uint32_t wl_display_error_event_opcode = 0;
+    constexpr std::size_t wire_header_size = 8;
+    constexpr std::uint32_t wl_display_error_code_implementation = 3;
+
+    std::vector<std::uint8_t> body;
+    append_u32(body, wl_display_object_id); // objeto ofensor: o proprio wl_display
+    append_u32(body, wl_display_error_code_implementation);
+    append_wire_string(body, "incoming_poll_wiring_test: erro fabricado");
+
+    std::vector<std::uint8_t> out;
+    append_u32(out, wl_display_object_id);
+    const auto opcode_and_size = wl_display_error_event_opcode |
+                                 (static_cast<std::uint32_t>(wire_header_size + body.size()) << 16);
+    append_u32(out, opcode_and_size);
+    const std::size_t offset = out.size();
+    out.resize(offset + body.size());
+    if (!body.empty()) {
+        std::memcpy(out.data() + offset, body.data(), body.size());
+    }
+    return out;
+}
 
 } // namespace
 
@@ -522,4 +583,33 @@ GLINTFX_TEST(poll_and_dispatch_with_budget_ready_to_read_with_real_data_is_not_f
     const bool result = poll_and_dispatch_with_budget(fd.display, 0);
 
     GLINTFX_CHECK(result == true);
+}
+
+GLINTFX_TEST(poll_and_dispatch_with_budget_ready_to_read_with_real_protocol_error_returns_false) {
+    // EGL-DEAD-DISPLAY-GUARD S4 (docs/plano-egl-dead-display-guard.md
+    // sec. 5): prova DETERMINISTICA deste ramo `ready_to_read` com um
+    // erro de protocolo REAL. Ate aqui essa cobertura so' existia em
+    // container (tests/container/egl_protocol_error_smoke.cpp),
+    // condicionada a o erro chegar dentro do orcamento antigo de duas
+    // trocas/100ms - a M-1 (24/09/2026, DECISOES_AUTONOMAS.md) mediu
+    // 12 de 20 rodadas pelo rele em que o erro nao chegava a tempo,
+    // mesmo com a conexao genuinamente morta (defeito de tempo, nao do
+    // guard da S2/S3). Aqui o evento wl_display.error e' escrito no
+    // socketpair ANTES da chamada (objeto 1, codigo 3 = implementation
+    // -> EPROTO, mesma codificacao de connection_failure_test.cpp's
+    // own encode_wl_display_error_on_itself(), S1) - o `::poll()` REAL
+    // encontra POLLIN de verdade sempre, entao este caso nunca depende
+    // de relogio nem de compositor: determinismo que o cenario em
+    // container nao conseguia dar.
+    const egl_fake_display fd;
+    GLINTFX_CHECK(fd.display != nullptr);
+
+    const std::vector<std::uint8_t> wire = encode_wl_display_error_on_itself();
+    GLINTFX_CHECK(::write(fd.peer_fd, wire.data(), wire.size()) ==
+                  static_cast<ssize_t>(wire.size()));
+
+    const bool result = poll_and_dispatch_with_budget(fd.display, 0);
+
+    GLINTFX_CHECK(result == false);
+    GLINTFX_CHECK(wl_display_get_error(fd.display) == EPROTO);
 }

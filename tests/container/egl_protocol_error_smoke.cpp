@@ -71,25 +71,44 @@ namespace {
 constexpr std::int32_t kWidth = 320;
 constexpr std::int32_t kHeight = 240;
 
-// Drains up to TWO swap_buffers() calls (the same 2-attempt budget
-// D-W6b-29's own mutation row for the removed ack_configure() names:
-// "no 2o swap com vsync=on" is exactly when a killed connection first
-// surfaces through this adapter, since the FIRST swap after a
-// provocation only flushes the request - the compositor's own error
-// event is read back on the NEXT swap's poll_and_dispatch_with_budget)
-// - returns true and fills `out_code`/`out_rejected` the instant one
-// fails, false if both attempts still returned `ok`.
-[[nodiscard]] bool swap_until_error(glintfx::platform::wayland_egl_context_adapter &context,
-                                    glintfx::gltfx_err_code &out_code, std::string &out_rejected) {
-    for (int attempt = 0; attempt < 2; ++attempt) {
-        const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
-        if (swapped.has_error()) {
-            out_code = swapped.err().code();
-            out_rejected = std::string(swapped.err().rejected_value());
-            return true;
-        }
+// EGL-DEAD-DISPLAY-GUARD S4 (docs/plano-egl-dead-display-guard.md sec.
+// 5, D-S7): replaces the old fixed 2-attempt/100ms swap_buffers()
+// budget (D-W6b-29) with wl_display_roundtrip() - the PROTOCOL's own
+// barrier (wayland.xml, wl_display.sync: "a barrier to ensure all
+// previous requests and the resulting events have been handled").
+// Blocks exactly until the compositor either answers the sync (>= 0,
+// the provocation was ACCEPTED) or never can, because the connection
+// already died trying (-1, REJECTED). The M-1 measurement (24/09/2026,
+// DECISOES_AUTONOMAS.md, 20 rounds through wire_relay, container novo
+// por rodada) found the old fixed budget missed the real error 12 of
+// 20 times - never because the S2/S3 guard was wrong (all 12 rounds
+// read wl_display_get_error()==0 on every attempt, never the S2
+// defect the guard closes), but because the error can legitimately
+// arrive later than two 100ms windows allow; 6 of those 12 even
+// misattributed the PRIMARY provocation's own late error to the
+// RESERVE one. A protocol barrier has no such window to miss.
+//
+// The barrier only says ACCEPTED/REJECTED - the actual gltfx_err_code/
+// rejected_value() this fixture asserts on still comes from
+// swap_buffers() itself: the S2/S3 guard at swap_buffers()'s own TOP
+// already read the exact same error the roundtrip just consumed
+// (connection_failure_if_dead(), S1), so this ONE call never touches
+// EGL again - it only turns the already-known error into the gltfx_err
+// this fixture's assertions expect (proved by S3b: the guard answers
+// identically, every time, once the connection is dead).
+[[nodiscard]] bool provoke_and_read_refusal(glintfx::platform::wayland_egl_context_adapter &context,
+                                            wl_display *display, glintfx::gltfx_err_code &out_code,
+                                            std::string &out_rejected) {
+    if (wl_display_roundtrip(display) != -1) {
+        return false; // the compositor answered the sync - accepted, not rejected
     }
-    return false;
+    const glintfx::gltfx_rslt<glintfx::gltfx_present_outcome> swapped = context.swap_buffers();
+    if (!swapped.has_error()) {
+        return false;
+    }
+    out_code = swapped.err().code();
+    out_rejected = std::string(swapped.err().rejected_value());
+    return true;
 }
 
 } // namespace
@@ -197,7 +216,8 @@ int main() {
 
     glintfx::gltfx_err_code primary_code{};
     std::string primary_rejected;
-    const bool primary_provoked = swap_until_error(context, primary_code, primary_rejected);
+    const bool primary_provoked =
+        provoke_and_read_refusal(context, adapter.native_display(), primary_code, primary_rejected);
     glintfx::container_fixture::checked_fprintf(
         stdout, "MEASURED egl_protocol_error_smoke.provoked=%d\n", primary_provoked ? 1 : 0);
 
@@ -241,7 +261,8 @@ int main() {
 
         glintfx::gltfx_err_code reserve_code{};
         std::string reserve_rejected;
-        const bool reserve_provoked = swap_until_error(context, reserve_code, reserve_rejected);
+        const bool reserve_provoked = provoke_and_read_refusal(context, adapter.native_display(),
+                                                               reserve_code, reserve_rejected);
         if (!reserve_provoked) {
             glintfx::container_fixture::checked_fprintf(
                 stderr, "egl_protocol_error_smoke: NENHUM dos dois provocadores foi acusado "

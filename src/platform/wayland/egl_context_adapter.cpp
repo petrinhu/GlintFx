@@ -173,17 +173,36 @@ constexpr wl_callback_listener k_frame_callback_listener{
 // failure?" with their OWN hand-written `return`s - nothing tested that
 // decision directly, and the review's OWN mutant (m-fatal-swallowed,
 // swapping those two returns to `return true`) survived every test that
-// existed: `egl_protocol_error_smoke`, the fixture that exists
-// SPECIFICALLY to provoke a real Wayland protocol error, detects it via
-// the `ready_to_read` branch (a real `wl_display_read_events()`/
-// `wl_display_dispatch_pending()` failure AFTER a genuine `POLLIN`) -
-// never via `fatal`/`poll_call_failed`, the SAME "cenario real vs. seam
-// sintetico" split incoming_poll_outcome.hpp's own header comment
-// already documents for display_adapter.cpp's side (measured four
-// times: this kernel never delivers POLLHUP/POLLNVAL/a real poll()
-// error without POLLIN alongside it). PROVA POR SEAM, NAO POR CENARIO
-// REAL, exactly like that header already says for the read-side atom
-// itself: the ramos `fatal`/`poll_call_failed` below are proven by
+// existed: the `ready_to_read` branch (a real `wl_display_read_events()`/
+// `wl_display_dispatch_pending()` failure AFTER a genuine `POLLIN`) is
+// what a real Wayland protocol error routes through - never via
+// `fatal`/`poll_call_failed`, the SAME "cenario real vs. seam sintetico"
+// split incoming_poll_outcome.hpp's own header comment already
+// documents for display_adapter.cpp's side (measured four times: this
+// kernel never delivers POLLHUP/POLLNVAL/a real poll() error without
+// POLLIN alongside it).
+//
+// EGL-DEAD-DISPLAY-GUARD S4 (docs/plano-egl-dead-display-guard.md sec.
+// 5, 24/09/2026): until S4, this ramo's ONLY proof against a real
+// protocol error was `egl_protocol_error_smoke` (tests/container/),
+// contingent on the compositor's error arriving inside a fixed 2-swap/
+// 100ms budget - the M-1 measurement found that budget missed the real
+// error 12 of 20 rounds through wire_relay (never this ramo being
+// wrong: all 12 read no error at all in every attempt, a timing gap,
+// not a routing bug). The DETERMINISTIC proof now lives in
+// tests/incoming_poll_wiring_test.cpp's own poll_and_dispatch_with_
+// budget_ready_to_read_with_real_protocol_error_returns_false - a real
+// wl_display.error event (object 1, code 3) written to the socket
+// BEFORE the call, so the real `::poll()` always finds genuine POLLIN,
+// never dependent on a compositor or a clock. `egl_protocol_error_
+// smoke` still exercises the SAME ramo end-to-end against a real
+// compositor (now synchronized by `wl_display_roundtrip()`, S4,
+// instead of racing a fixed budget), it just is no longer the ONLY
+// place this ramo's real-error behavior is proven.
+//
+// PROVA POR SEAM, NAO POR CENARIO REAL, exactly like that header
+// already says for the read-side atom itself: the ramos `fatal`/
+// `poll_call_failed` below are proven by
 // tests/incoming_poll_reaction_test.cpp's own unit + real-fabricated-fd
 // cases, never by this project's own container fixtures. Both cases now
 // share ONE call to is_incoming_poll_connection_fatal() (platform/

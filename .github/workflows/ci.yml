@@ -2330,18 +2330,33 @@ jobs:
       # significa fixture que nunca chegou a rodar por outro motivo
       # (cancelamento no meio, por exemplo). Contagem sempre impressa,
       # com ou sem falha (GODS_LAWS.md L-40/L-45).
+      #
+      # CI-SPLIT-PER-OS A2/gemeo esquecido (decisao do CTO, GODS_LAWS.md
+      # L-17, run 36096110117): a linha STATUS vai pra `parity_status.
+      # txt`, NUNCA `>> parity_inventory.txt` - tres leitores locais
+      # (check_alloc_report.sh, o ldd libasan, a contagem do sanitizer)
+      # tratam cada linha do inventario como nome de fixture, e um
+      # quarto leitor futuro esqueceria de filtrar do mesmo jeito que os
+      # tres primeiros esqueceram. `parity_inventory.txt` local volta ao
+      # contrato puro da P-0 - um nome de fixture por linha, nada mais -
+      # e nenhum consumidor local precisa saber que STATUS existe. O
+      # STATUS so' entra no arquivo PUBLICADO (passo "Publica o
+      # inventario do container" abaixo), que e' o unico lido pelo job
+      # `parity`/check_test_parity.py (docs/plano-ci-split-per-os.md:141
+      # continua cumprido: o inventario que o `parity` recebe carrega a
+      # linha STATUS dentro do mesmo arquivo).
       - name: Resultado agregado do container (P-0)
         if: ${{ !cancelled() }}
         run: |
           set -eu
           declarados=$(wc -l < parity_inventory.txt)
           if [ "${{ steps.build.outcome }}" != "success" ]; then
-            echo "STATUS: incompleto (pre-requisito=build)" >> parity_inventory.txt
+            echo "STATUS: incompleto (pre-requisito=build)" >> parity_status.txt
             echo "declarados: $declarados, executados: 0, passaram: 0, falharam: 0"
             echo "ERRO: pre-requisito 'build' (Sobe o compositor limpo) nao teve sucesso (outcome=${{ steps.build.outcome }}) - inventario incompleto por desenho, nunca 'N testes faltando' (GODS_LAWS.md L-40)" >&2
             exit 1
           fi
-          echo "STATUS: completo" >> parity_inventory.txt
+          echo "STATUS: completo" >> parity_status.txt
           executados=$(wc -l < results.tsv)
           passaram=$(awk -F'\t' '$2 == 0' results.tsv | wc -l)
           falharam=$(awk -F'\t' '$2 != 0' results.tsv | wc -l)
@@ -2507,18 +2522,51 @@ jobs:
       # recolhe este artefato sem nenhuma mudanca no proprio job de
       # download - so o `needs` muda (ver comentario do job `parity`).
       #
+      # CI-SPLIT-PER-OS A2/gemeo esquecido (decisao do CTO, GODS_LAWS.md
+      # L-17): so' AQUI, logo antes do upload, o STATUS entra no
+      # arquivo que sera publicado - o `parity_inventory.txt` de
+      # trabalho ja serviu aos tres leitores locais (leak-counter, ldd,
+      # sanitizer) PUROS, sem STATUS, mais acima neste mesmo job.
+      # Escreve num caminho SEPARADO (`publicado/parity_inventory.txt`),
+      # nunca sobrescrevendo o arquivo local - achado do main (revisao
+      # do desenho): um `mv` de volta pro nome local reabriria a mesma
+      # armadilha pra um QUINTO leitor que um dia seja posto depois
+      # deste passo, mesmo que hoje nao exista nenhum (o proprio motivo
+      # de nao filtrar nos leitores, aplicado tambem aqui).
+      - name: Monta o inventario publicado com STATUS (P-0)
+        if: ${{ !cancelled() && matrix.perna == 'plain' }}
+        run: |
+          set -eu
+          mkdir -p publicado
+          cat parity_inventory.txt parity_status.txt > publicado/parity_inventory.txt
+
       # SO' A PERNA `plain` PUBLICA (D-CAUDA-3): as duas pernas rodam o
       # MESMO conjunto de fixtures, entao um segundo inventario da perna
       # `asan` seria um duplicata, nunca um dado novo para o job
       # `parity` - e dois inventarios Linux-container com o MESMO padrao
       # de nome confundiriam a paridade contra o Windows (paridade
       # compara CONTEUDO de nomes, nao contagem de artefatos).
+      #
+      # `path: publicado/parity_inventory.txt` (arquivo unico dentro de
+      # subpasta, sem wildcard): a documentacao do actions/upload-
+      # artifact nao tem frase explicita cobrindo este caso exato -
+      # so' cobre wildcard ("a hierarquia de caminho e preservada apos
+      # o primeiro padrao") e multiplos paths ("o ancestral comum
+      # minimo... e usado como diretorio raiz do artefato"). INFERENCIA
+      # (nao fato confirmado por citacao literal), aplicando a regra do
+      # ancestral comum a um conjunto de UM elemento: o artefato baixado
+      # guarda so' o nome base `parity_inventory.txt` na raiz, sem o
+      # prefixo `publicado/`. Prova real fica para o job `parity` do
+      # proximo run: "Separar e unir inventarios por sistema" (ci.yml,
+      # `cat "$leg_dir/parity_inventory.txt"` sob `set -eu`, sem
+      # `|| true`) falha ruidosamente se a inferencia estiver errada -
+      # nunca passa calado.
       - name: Publica o inventario do container (P-0)
         if: ${{ !cancelled() && matrix.perna == 'plain' }}
         uses: actions/upload-artifact@v7
         with:
           name: parity-inv-fedora-container
-          path: parity_inventory.txt
+          path: publicado/parity_inventory.txt
           retention-days: 7
 
       # Tres controles negativos obrigatorios (revisao adversarial

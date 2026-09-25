@@ -710,6 +710,56 @@ selftest_growth_absent_from_inventory_control() {
     return 1
 }
 
+# CI-SPLIT-PER-OS A2/gemeo esquecido (decisao do CTO, GODS_LAWS.md
+# L-17, run 36096110117): a correcao do defeito real e' no PRODUTOR
+# (ci.yml, "Resultado agregado do container" passa a escrever STATUS
+# em parity_status.txt, nunca em parity_inventory.txt - o arquivo local
+# que os leitores consomem volta ao contrato puro da P-0, um nome de
+# fixture por linha), NAO neste consumidor - o CTO decidiu contra
+# filtrar em cada leitor (o quarto leitor futuro esqueceria do mesmo
+# jeito que os tres primeiros esqueceram). Este script continua sem
+# saber que STATUS existe, por desenho. O controle abaixo prova o
+# INVERSO do que um filtro provaria: se a linha "STATUS: completo"
+# vazar de volta pro arquivo local (regressao no produtor), este script
+# tem que continuar reprovando - a MESMA reprovacao "fixture sem
+# contador" que motivou a investigacao, agora como REDE DE SEGURANCA,
+# nao como bug. Nunca aceitar essa linha calada.
+selftest_status_line_leaking_into_local_inventory_reproves() {
+    log_file="$(mktemp "${scratch}/log-status-leak-XXXXXX")"
+    inv_file="$(mktemp "${scratch}/inv-status-leak-XXXXXX")"
+    i=1
+    while [ "$i" -le 18 ]; do
+        if [ "$i" -eq 18 ]; then
+            name="alloc_cycle_growth_smoke"
+        else
+            name="fixture_${i}"
+        fi
+        write_measured_lines "$name" 3 3 0 0 0 0 >>"$log_file"
+        if [ "$name" = "alloc_cycle_growth_smoke" ]; then
+            {
+                printf 'MEASURED %s.third_party_after_cycle_2=1188\n' "$name"
+                printf 'MEASURED %s.third_party_after_cycle_3=1188\n' "$name"
+                printf 'MEASURED %s.third_party_growth_c2_c3=0\n' "$name"
+            } >>"$log_file"
+        fi
+        echo "$name" >>"$inv_file"
+        i=$((i + 1))
+    done
+    echo "STATUS: completo" >>"$inv_file"
+    if out="$(real_main "$log_file" "$inv_file" 2>&1)"; then
+        echo "selftest: LINHA-STATUS-VAZADA FALHOU (deveria ter reprovado - a linha STATUS nunca pode ser aceita como fixture calada)" >&2
+        printf '%s\n' "$out" >&2
+        return 1
+    fi
+    if printf '%s\n' "$out" | grep -q 'STATUS: completo' && printf '%s\n' "$out" | grep -q 'fixture sem contador'; then
+        echo "selftest: LINHA-STATUS-VAZADA OK (se STATUS vazar pro arquivo local, este script reprova - rede de seguranca, nao filtro)"
+        return 0
+    fi
+    echo "selftest: LINHA-STATUS-VAZADA FALHOU (reprovou mas nao pela razao esperada)" >&2
+    printf '%s\n' "$out" >&2
+    return 1
+}
+
 # WL-ACK-SMOKE-BLUNT A3b (achado do servidor, run 36013138929): o par
 # do controle de FIXTURE SEM LINHA acima, mas para o nome NOMEADAMENTE
 # isento - wire_relay no inventario, ZERO linhas MEASURED (o mesmo
@@ -793,6 +843,9 @@ selftest_main() {
 
     exercitados=$((exercitados + 1))
     selftest_daemon_no_atexit_exempt_control || reprovados=$((reprovados + 1))
+
+    exercitados=$((exercitados + 1))
+    selftest_status_line_leaking_into_local_inventory_reproves || reprovados=$((reprovados + 1))
 
     echo "controles: ${exercitados} exercitados, ${reprovados} reprovados"
 

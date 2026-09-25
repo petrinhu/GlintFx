@@ -807,8 +807,9 @@ wire_relay|windows|nenhum|SEM-PENDENCIA
 
 # CI-SPLIT-PER-OS A1 (24/09/2026), categoria (b) da classificacao dos 215
 # problemas do run 36085750444 (job parity, d74d0b0), decisao do time-lead:
-# 18 fixtures do job wayland-container (confirmadas contra a lista de 24
-# fixtures de check_container_kill_order.py --compare), presentes em fedora
+# um subconjunto das fixtures do job wayland-container (confirmadas contra
+# a lista completa de check_container_kill_order.py --compare - meca com
+# esse comando, nunca leia um numero fixo aqui), presentes em fedora
 # (via o leg container) e em windows, mas ausentes de arch/cachyos/ubuntu -
 # essas tres distros nao rodam o job wayland-container hoje. Gap REAL, nao
 # defeito de portao: pela L-04, cobertura que falta nas outras distros; a
@@ -870,10 +871,11 @@ wire_relay|cachyos|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 pr
 wire_relay|ubuntu|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 
 # CI-SPLIT-PER-OS A1 (24/09/2026), correcao do 1faf373 (D-A11, divergencia
-# 18x25 medida e resolvida): 6 fixtures do job wayland-container que a
-# classificacao original tinha bucketado incorretamente em (a2) - o nome
-# aparecia em tests/parity_aliases.txt, mas o apelido so' explica a ausencia
-# do lado Windows, nunca a ausencia dentro da familia Linux (D-A11, regra ii).
+# entre a contagem do CTO e a do implementador medida e resolvida): as
+# fixtures do job wayland-container que a classificacao original tinha
+# bucketado incorretamente em (a2) - o nome aparecia em tests/parity_
+# aliases.txt, mas o apelido so' explica a ausencia do lado Windows, nunca
+# a ausencia dentro da familia Linux (D-A11, regra ii). Lista abaixo.
 egl_device_reader_probe|arch|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0) - achado que faltava no commit 1faf373, corrigido por medicao (D-A11, divergencia 18x25 do CTO): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 egl_device_reader_probe|cachyos|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0) - achado que faltava no commit 1faf373, corrigido por medicao (D-A11, divergencia 18x25 do CTO): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS
 egl_device_reader_probe|ubuntu|CI-SPLIT-PER-OS A1, categoria (b) da classificacao dos 215 problemas do run 36085750444 (job parity, d74d0b0) - achado que faltava no commit 1faf373, corrigido por medicao (D-A11, divergencia 18x25 do CTO): fixture do job wayland-container, hoje so' roda no Fedora (FATO do CTO, docs/plano-ci-split-per-os.md secao 2, "O container e' so' Fedora"); a fatia A8 de CI-SPLIT-PER-OS leva o container a cada sistema|CI-SPLIT-PER-OS

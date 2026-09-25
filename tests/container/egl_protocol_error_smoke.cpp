@@ -111,6 +111,62 @@ constexpr std::int32_t kHeight = 240;
     return true;
 }
 
+struct make_current_refusal_shape {
+    glintfx::gltfx_err_code code{};
+    std::string rejected_value;
+    std::int64_t os_error_code = 0;
+};
+
+// verify_make_current_refusal_stays_identical - EGL-DEAD-DISPLAY-GUARD
+// S5c (docs/plano-egl-dead-display-guard.md; achado da revisao de API
+// do CTO em c07c6ed: context.hpp promete "returns platform_failure and
+// keeps returning it" para make_current(), mas so' havia prova de UMA
+// chamada - corrigido por MEDICAO, nao por enfraquecer a promessa,
+// ordem permanente do lider de buscar sempre o caminho mais completo).
+// Mesmo padrao de tests/container/egl_error_read_inside_swap_smoke.
+// cpp's own verify_refusal_stays_identical() (S3b): dez chamadas
+// extras depois da primeira recusa, exigindo a MESMA forma - aqui
+// tres campos (code(), rejected_value(), os_error_code()), porque a
+// promessa publica de make_current() cita os tres.
+[[nodiscard]] bool
+verify_make_current_refusal_stays_identical(glintfx::platform::wayland_egl_context_adapter &context,
+                                            const make_current_refusal_shape &first_refusal) {
+    constexpr int kAdditionalCallsAfterFirstRefusal = 10;
+    for (int repeat = 1; repeat <= kAdditionalCallsAfterFirstRefusal; ++repeat) {
+        const glintfx::gltfx_rslt<void> result = context.make_current();
+        if (!result.has_error()) {
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_protocol_error_smoke: make_current() repeticao %d/%d depois da "
+                "primeira recusa (S5c) NAO recusou (voltou a suceder sobre conexao "
+                "morta)\n",
+                repeat, kAdditionalCallsAfterFirstRefusal);
+            return false;
+        }
+        if (result.err().code() != first_refusal.code ||
+            result.err().rejected_value() != first_refusal.rejected_value ||
+            result.err().os_error_code() != first_refusal.os_error_code) {
+            glintfx::container_fixture::checked_fprintf(
+                stderr,
+                "egl_protocol_error_smoke: make_current() repeticao %d/%d (S5c) recusou "
+                "diferente da primeira: code=%s rejected_value=%s os_error_code=%lld "
+                "(esperado %s/%s/%lld)\n",
+                repeat, kAdditionalCallsAfterFirstRefusal,
+                std::string(glintfx::gltfx_err_code_name(result.err().code())).c_str(),
+                std::string(result.err().rejected_value()).c_str(),
+                static_cast<long long>(result.err().os_error_code()),
+                std::string(glintfx::gltfx_err_code_name(first_refusal.code)).c_str(),
+                first_refusal.rejected_value.c_str(),
+                static_cast<long long>(first_refusal.os_error_code));
+            return false;
+        }
+    }
+    glintfx::container_fixture::checked_fprintf(
+        stdout, "MEASURED egl_protocol_error_smoke.make_current_repeats_after_refusal=%d\n",
+        kAdditionalCallsAfterFirstRefusal);
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -365,6 +421,18 @@ int main() {
     glintfx::container_fixture::checked_fprintf(
         stdout, "egl_protocol_error_smoke: make_current() sobre conexao ja morta (S3) "
                 "recusou, como esperado\n");
+
+    if (!verify_make_current_refusal_stays_identical(
+            context,
+            make_current_refusal_shape{make_current_on_dead.err().code(),
+                                       std::string(make_current_on_dead.err().rejected_value()),
+                                       make_current_on_dead.err().os_error_code()})) {
+        context.close();
+        window.close();
+        shell.close();
+        adapter.close();
+        return EXIT_FAILURE;
+    }
 
     glintfx::platform::wayland_egl_context_adapter second_context;
     const glintfx::gltfx_rslt<void> second_open =

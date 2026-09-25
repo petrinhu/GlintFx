@@ -228,10 +228,12 @@ class gltfx_gl_context {
     // `wl_surface`, never a sentence (docs/api-conventions.md R7);
     // otherwise (the connection simply closed) it reads back empty (R4).
     // Proved by: `egl_protocol_error_smoke` (protocol error: one call right
-    // after it, same interface the provocation established) and
+    // after it, same interface the provocation established, and kept
+    // identical - same `code()`, `rejected_value()`, `os_error_code()` -
+    // across ten more calls after that first refusal) and
     // `connection_failure_test` (closed connection: empty `rejected_value()`,
-    // `os_error_code()` == EPIPE), on the Wayland adapter this method
-    // forwards to unchanged.
+    // `os_error_code()` == EPIPE); the Wayland adapter this method forwards
+    // to returns that atom's error unchanged.
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> make_current() noexcept;
 
     // Presents the current frame - see this header's own top comment,

@@ -993,17 +993,33 @@ jobs:
             exit 1
           }
 
-          New-Item -ItemType Directory -Force -Path piso_probe | Out-Null
+          # CI-SPLIT-PER-OS, conserto pos-run 36116495207: a sonda do cl.exe
+          # ficava DENTRO do workspace (piso_probe/) e so' o "/Fe" era
+          # passado - sem "/Fo" explicito, o cl.exe grava o .obj no
+          # diretorio CORRENTE (a raiz do checkout), nunca em piso_probe/.
+          # O Remove-Item seguinte apagava so' a pasta piso_probe, e o
+          # main.obj sobrevivia na raiz - vendor_purity_test (L-07: "a
+          # excecao nao e' transitiva") reprovava com "[artefato binario]
+          # main.obj" fora da lista fechada de excecoes. Conserto: a sonda
+          # inteira (fonte, .obj e .exe, com /Fo E /Fe explicitos) mora em
+          # $env:RUNNER_TEMP, fora da arvore do git - nada aqui toca o
+          # workspace, entao nenhuma limpeza posterior precisa ser perfeita
+          # para o vendor_purity_test ficar limpo.
+          $probeDir = Join-Path $env:RUNNER_TEMP "glintfx-piso-probe"
+          New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
+          $probeSrc = Join-Path $probeDir "main.cpp"
+          $probeObj = Join-Path $probeDir "main.obj"
+          $probeExe = Join-Path $probeDir "probe.exe"
           @'
           #include <cstdio>
           int main() { std::printf("ok\n"); }
-          '@ | Set-Content piso_probe/main.cpp
-          cl.exe /std:c++latest /EHsc /nologo "/Fe:piso_probe\probe.exe" piso_probe\main.cpp | Out-Null
+          '@ | Set-Content $probeSrc
+          cl.exe /std:c++latest /EHsc /nologo "/Fe:$probeExe" "/Fo:$probeObj" $probeSrc | Out-Null
           if ($LASTEXITCODE -ne 0) {
             Write-Error "PISO NAO ATENDIDO: MSVC (cl.exe) nao aceitou /std:c++latest (codigo $LASTEXITCODE)"
             exit 1
           }
-          Remove-Item -Recurse -Force piso_probe
+          Remove-Item -Recurse -Force $probeDir
 
           $pythonOk = $false
           foreach ($nome in @("python3", "python")) {

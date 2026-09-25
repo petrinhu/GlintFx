@@ -679,10 +679,30 @@ def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
 # que validate_exceptions ja aplica via TODO.md, aqui aplicada
 # diretamente contra o inventario real, que e mais forte: pega mesmo
 # quando ninguem lembrou de marcar o item como Concluido).
+#
+# PARITY-LOCAL-WIN-INVENTORY (achado do lider/main, run 36089901011,
+# HEAD d47f358): `missing_on` de slug de distro (fedora/ubuntu/arch/
+# cachyos) e' FORA do escopo desta funcao. --compare so' conhece as
+# duas familias, "linux" (a UNIAO inteira) e "windows"; ele nao sabe
+# distinguir uma distro da outra. Antes deste conserto, qualquer
+# missing_on que nao fosse "windows" caia no `else linux_inventory` -
+# ou seja, uma excecao 'x|arch|...' era julgada contra a UNIAO Linux
+# inteira, e como x quase sempre existe em ALGUMA outra distro (e' por
+# isso que a excecao existe), ela era declarada morta por um modo que
+# nunca deveria opinar sobre distro nenhuma - MEDIDO: 75 exceções por
+# slug reprovaram assim no run citado. O julgamento por distro e' do
+# --per-system (D-A11, _format_per_system_exception_death_errors, que
+# ja aplica a morte por PAR, nunca por familia inteira).
+def _exceptions_out_of_compare_scope(exceptions):
+    return [exc for exc in exceptions if exc["missing_on"] not in ("linux", "windows")]
+
+
 def compute_exception_hygiene(exceptions, linux_inventory, windows_inventory):
     combined_inventory = linux_inventory | windows_inventory
     dead = []
     for exc in exceptions:
+        if exc["missing_on"] not in ("linux", "windows"):
+            continue
         test_name = exc["test_name"]
         missing_side_inventory = (
             windows_inventory if exc["missing_on"] == "windows" else linux_inventory
@@ -983,7 +1003,12 @@ def _print_real_main_counts(inputs):
         f"{len(alias_half_dead_suppressed)} meio-morto(s) suprimido(s) por irmao vivo"
     )
     exception_dead = compute_exception_hygiene(inputs.exceptions, inputs.linux_inventory, inputs.windows_inventory)
-    print(f"{SCRIPT_NAME}: {len(inputs.exceptions)} excecao(oes), {len(exception_dead)} morta(s)")
+    exceptions_fora_de_escopo = _exceptions_out_of_compare_scope(inputs.exceptions)
+    print(
+        f"{SCRIPT_NAME}: {len(inputs.exceptions)} excecao(oes), {len(exception_dead)} morta(s), "
+        f"{len(exceptions_fora_de_escopo)} fora do escopo de --compare (slug de distro, "
+        "julgadas so' por --per-system)"
+    )
 
 
 def _exit_with_verdict(errors, success_message="paridade OK - nenhuma lacuna sem excecao registrada"):
@@ -2528,6 +2553,112 @@ def selftest_exception_dead_orphaned_reproves():
     return True
 
 
+# PARITY-LOCAL-WIN-INVENTORY (achado do lider/main, run 36089901011,
+# HEAD d47f358, GODS_LAWS.md L-04): compute_exception_hygiene() so
+# conhece DUAS familias - `missing_on == "windows"` cai no lado
+# Windows, e QUALQUER outra coisa (inclusive um slug de distro como
+# "arch"/"cachyos"/"ubuntu") cai no `else linux_inventory`, que e a
+# UNIAO Linux inteira. Uma excecao 'x|arch|...' cujo x existe em
+# QUALQUER outra distro Linux (o caso normal - a excecao existe
+# justamente porque falta so' NAQUELA distro) e' julgada morta por um
+# modo que nao entende distro nenhuma - MEDIDO: 75 exceções por slug
+# reprovaram assim no run citado. O julgamento por distro e' do
+# --per-system (D-A11, _format_per_system_exception_death_errors, que
+# ja aplica a morte por PAR, nao por familia inteira) - --compare
+# passa a PULAR essas exceções, nunca julga-las.
+def selftest_exception_dead_ignores_distro_slug_missing_on():
+    linux_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    windows_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    exceptions = [
+        {
+            "test_name": "so_fedora_e_ubuntu_test",
+            "missing_on": "arch",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], {})
+    if errors:
+        print(
+            f"selftest: PARITY-LOCAL-WIN-INVENTORY FALHOU (excecao com missing_on='arch' "
+            f"nao pode ser julgada por --compare, que so conhece linux/windows): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARITY-LOCAL-WIN-INVENTORY OK (excecao de slug de distro nunca julgada "
+        "'morta' por --compare - o julgamento por distro e' do --per-system)"
+    )
+    return True
+
+
+# Gemeo negativo explicito, pedido pelo lider/main: a MESMA situacao
+# (teste existe na uniao Linux), mas com missing_on="linux" (familia
+# que o --compare DE FATO conhece) continua reprovando como morta -
+# prova que o pulo acima e' seletivo por slug de distro, nunca um
+# desligamento geral da checagem para a familia Linux inteira.
+def selftest_exception_dead_linux_family_still_reproves_negative_twin():
+    linux_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    windows_inv = {"a_test", "so_fedora_e_ubuntu_test"}
+    exceptions = [
+        {
+            "test_name": "so_fedora_e_ubuntu_test",
+            "missing_on": "linux",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    errors = run_comparison(linux_inv, windows_inv, exceptions, [], {})
+    if not _check_exception_dead_message(
+        errors, "so_fedora_e_ubuntu_test", "linux", "PARITY-LOCAL-WIN-INVENTORY-GEMEO-NEGATIVO"
+    ):
+        return False
+    print(
+        "selftest: PARITY-LOCAL-WIN-INVENTORY-GEMEO-NEGATIVO OK (missing_on='linux' "
+        "continua reprovando como morta - o pulo e' seletivo, so' para slug de distro)"
+    )
+    return True
+
+
+# PARITY-LOCAL-WIN-INVENTORY (item 2 do pedido): a contagem das
+# excecoes puladas por serem slug de distro tem de aparecer numa linha
+# de escopo SEMPRE, mesmo quando zero (GODS_LAWS.md L-40) - nunca um
+# pulo silencioso que ninguem consegue auditar.
+def selftest_exceptions_out_of_compare_scope_count_always_printed():
+    exceptions = [
+        {
+            "test_name": "so_fedora_e_ubuntu_test",
+            "missing_on": "arch",
+            "gemeo": "nenhum",
+            "item": SEM_PENDENCIA,
+            "prova_parcial_gemeo": None,
+        }
+    ]
+    fora_de_escopo = _exceptions_out_of_compare_scope(exceptions)
+    if len(fora_de_escopo) != 1:
+        print(
+            f"selftest: PARITY-LOCAL-WIN-INVENTORY-ESCOPO FALHOU (esperava 1 excecao fora do "
+            f"escopo, veio {len(fora_de_escopo)}): {fora_de_escopo}",
+            file=sys.stderr,
+        )
+        return False
+    fora_de_escopo_vazio = _exceptions_out_of_compare_scope([])
+    if fora_de_escopo_vazio != []:
+        print(
+            f"selftest: PARITY-LOCAL-WIN-INVENTORY-ESCOPO FALHOU (lista vazia de excecoes "
+            f"deveria dar 0 fora do escopo, veio {fora_de_escopo_vazio}): {fora_de_escopo_vazio}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PARITY-LOCAL-WIN-INVENTORY-ESCOPO OK (contagem de excecoes fora do "
+        "escopo de --compare calculavel e' 0 quando nao ha nenhuma, nunca ausente)"
+    )
+    return True
+
+
 # PARITY-ALIAS-HYGIENE C4a (VERMELHO): excecao com PROVA-PARCIAL
 # cujo gemeo citado NAO existe no inventario do sistema declarado em
 # missing_on - a forma nao pode ser aceita de leitura humana.
@@ -3517,6 +3648,9 @@ def _alias_hygiene_controls():
         selftest_alias_bilateral_false_declaration_reproves(),
         selftest_exception_dead_gap_closed_reproves(),
         selftest_exception_dead_orphaned_reproves(),
+        selftest_exception_dead_ignores_distro_slug_missing_on(),
+        selftest_exception_dead_linux_family_still_reproves_negative_twin(),
+        selftest_exceptions_out_of_compare_scope_count_always_printed(),
         selftest_prova_parcial_gemeo_absent_reproves(),
         selftest_prova_parcial_gemeo_present_control(),
     ]

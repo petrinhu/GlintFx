@@ -4526,3 +4526,12 @@ Estado de cada frente na pausa:
 - **Monitor anti-parada:** cron 16258ddf apagado (L-61: recriar na retomada).
 - **Watchcode:** o loop de leitura (cron 3718f75a) foi apagado. O `watchcode.sh off` foi negado pelo classificador de permissões, e o daemon continua no ar, gravando.
 - **Modo autônomo:** desligado pelo hook na pausa. Este commit fica só local, sem push.
+
+## 25/09/2026 - 07:50 | O líder ratificou as decisões pendentes (`AskUserQuestion`)
+
+Respostas verbatim do líder:
+- **Pop!_OS na 24.04 (plano v4 do CTO):** "Aprovar 24.04 (Recomendado)".
+- **Separação do CI por sistema** (D-A10, D-A11, D-A12 com a emenda, D-A13, D-A14, o conserto da linha STATUS e o ramo descartável de sabotagem da A2): "Aprovar todas (Recomendado)".
+- **Janela e contexto gráfico** (A3c relé multi-cliente, A3e sonda de prontidão e o aceite dela, e o plano EGL-DEAD-DISPLAY-GUARD D-S1 a D-S8): "Aprovar (Recomendado)".
+- **Revalidação da W7-D** (D-W7D-R1 a R10) e a reabertura de PLAN-SCOPE-COLUMNS: "Aprovar (Recomendado)".
+Nenhuma decisão desta lista segue pendente de confirmação.

@@ -32,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ci_systems  # noqa: E402
 from ci_systems import extract_job_block  # noqa: E402
+from check_pkg_dep_coverage import install_text_from_script, install_tokens  # noqa: E402
 
 SCRIPT_NAME = "check_ci_system_uniformity.py"
 
@@ -212,6 +213,54 @@ def _env_script_correspondence_errors(env_dir, systems):
     return errors
 
 
+# --- (5) todo script de familia linux instala python3/python -----------
+# B1 (revisao do CTO): o plano (secao 4.7) exige python3 explicito em
+# TODO script, sem excecao por "a imagem ja traz de fabrica" - "de
+# fabrica" e' fato do dia da medicao, nao garantia. tools/ci/env/
+# cachyos.sh chegou a essa fatia SEM o pacote, com essa mesma
+# justificativa (defeito real, corrigido no script). Reaproveita a
+# extracao de check_pkg_dep_coverage.py (install_text_from_script/
+# install_tokens), nunca reimplementada aqui - mesmo padrao de reduzir
+# divida em vez de aumentar (GODS_LAWS.md L-17).
+#
+# --- (6) A3c (D-A13), G4: todo script de familia linux instala git ----
+# tambem - mesma forma que (5), generalizada para nao triplicar a
+# mesma checagem. A regressao real (run 36110716884) foi exatamente
+# git faltando no momento em que um passo precisava dele; G1/G2
+# (check_ci_step_independence.py) provam a ORDEM certa no ci.yml, G4
+# prova que o PACOTE esta mesmo declarado no script de cada sistema.
+
+_PYTHON_PACKAGE_TOKENS = frozenset({"python3", "python"})
+_GIT_PACKAGE_TOKENS = frozenset({"git"})
+
+
+def _script_installs_package_errors(env_dir, systems, package_tokens, motivo):
+    errors = []
+    linux_slugs = sorted(ci_systems.slugs_of_family(systems, "linux"))
+    for slug in linux_slugs:
+        script_path = Path(env_dir) / f"{slug}.sh"
+        if not script_path.is_file():
+            continue  # ja reportado pelo item (3), nao duplica
+        script_text = script_path.read_text(encoding="utf-8", errors="replace")
+        tokens = install_tokens(install_text_from_script(script_text))
+        if not (tokens & package_tokens):
+            nomes = "/".join(sorted(package_tokens))
+            errors.append(f"tools/ci/env/{slug}.sh nao instala {nomes} explicitamente ({motivo})")
+    return errors
+
+
+def _script_installs_python_errors(env_dir, systems):
+    return _script_installs_package_errors(
+        env_dir, systems, _PYTHON_PACKAGE_TOKENS, "docs/plano-ci-split-per-os.md secao 4.7"
+    )
+
+
+def _script_installs_git_errors(env_dir, systems):
+    return _script_installs_package_errors(
+        env_dir, systems, _GIT_PACKAGE_TOKENS, "A3c/D-A13, G4 - regressao real do run 36110716884"
+    )
+
+
 # --- (4) todo alvo de tools/ci/systems.txt tem entrada, com piso -------
 # Restrito a familia LINUX pelo mesmo motivo do item (3) - o piso de
 # ferramentas (passo dedicado) so' existe no job `linux` nesta fatia.
@@ -257,6 +306,8 @@ def run_check(ci_yml_text, systems, env_dir):
         errors.extend(_matrix_key_uniformity_errors(job_name, ci_yml_text))
         errors.extend(_step_bifurca_por_sistema_errors(job_name, ci_yml_text))
     errors.extend(_env_script_correspondence_errors(env_dir, systems))
+    errors.extend(_script_installs_python_errors(env_dir, systems))
+    errors.extend(_script_installs_git_errors(env_dir, systems))
     errors.extend(_target_has_entry_and_floor_errors(ci_yml_text, systems))
     return errors
 
@@ -345,10 +396,20 @@ jobs:
 # caminho absoluto de sessao/maquina em arquivo versionado): cada
 # selftest ganha um diretorio TEMPORARIO proprio, nunca reaproveitado
 # entre selftests nem escrito num caminho fixo.
-def _fake_env_dir(rotulo, slugs):
+# B1 (revisao do CTO)/G4 (A3c): scripts fixture precisam de uma linha
+# de instalacao MINIMA com "python3" E "git", senao as checagens (5) e
+# (6) reprovam todo selftest que usa esta fixture, mesmo os que testam
+# outra coisa. `com_python=False`/`com_git=False` sao os casos
+# NEGATIVOS, usados so' pelos selftests dos proprios itens (5)/(6).
+def _fake_env_dir(rotulo, slugs, com_python=True, com_git=True):
     d = Path(tempfile.mkdtemp(prefix=f"glintfx-uniformity-selftest-{rotulo}-"))
+    pacotes = ["gcc"]
+    if com_python:
+        pacotes.append("python3")
+    if com_git:
+        pacotes.append("git")
     for slug in slugs:
-        (d / f"{slug}.sh").write_text("#!/usr/bin/env bash\n")
+        (d / f"{slug}.sh").write_text(f"#!/usr/bin/env bash\ndnf -y install {' '.join(pacotes)}\n")
     return str(d)
 
 
@@ -476,6 +537,55 @@ def selftest_missing_script_reproves():
     return True
 
 
+# item (5), B1 (revisao do CTO): mutante exato do CTO - "tirar o python
+# do arch.sh tem de reprovar no portao, sem imagem" (prova local, sem
+# baixar nenhuma imagem de distro - L-51).
+def selftest_script_without_python_reproves():
+    env_dir = _fake_env_dir("sem-python", ["fedora", "ubuntu"], com_python=True)
+    Path(env_dir, "fedora.sh").write_text("#!/usr/bin/env bash\ndnf -y install gcc\n")
+    errors = run_check(_FAKE_CI_YML_GOOD, _FAKE_SYSTEMS, env_dir)
+    if not any("fedora" in e and "python" in e for e in errors):
+        print(f"selftest: SEM-PYTHON FALHOU (deveria citar 'fedora' sem python3/python): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: SEM-PYTHON OK (mutante do CTO reproduzido e pego): {errors}")
+    return True
+
+
+# item (5), controle negativo: script COM python3 nao reprova (a
+# fixture positiva ja prova isso; este controle isola o motivo).
+def selftest_script_with_python_does_not_reprove():
+    env_dir = _fake_env_dir("com-python", ["fedora", "ubuntu"], com_python=True)
+    errors = run_check(_FAKE_CI_YML_GOOD, _FAKE_SYSTEMS, env_dir)
+    if any("python" in e for e in errors):
+        print(f"selftest: COM-PYTHON-CONTROLE FALHOU (script com python3 nao deveria reprovar): {errors}", file=sys.stderr)
+        return False
+    print("selftest: COM-PYTHON-CONTROLE OK (script com python3 nunca reprova)")
+    return True
+
+
+# item (6), A3c/G4, MO3 (revisao do CTO): "git tirado de um env script"
+# tem de reprovar - mesma forma do item (5), gemeo para o pacote git.
+def selftest_mo3_script_without_git_reproves():
+    env_dir = _fake_env_dir("sem-git", ["fedora", "ubuntu"], com_git=False)
+    errors = run_check(_FAKE_CI_YML_GOOD, _FAKE_SYSTEMS, env_dir)
+    if not any("fedora" in e and "git" in e for e in errors):
+        print(f"selftest: MO3-SEM-GIT FALHOU (deveria citar 'fedora' sem git): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: MO3-SEM-GIT OK (mutante do CTO reproduzido e pego): {errors}")
+    return True
+
+
+# item (6), controle negativo: script COM git nao reprova.
+def selftest_script_with_git_does_not_reprove():
+    env_dir = _fake_env_dir("com-git", ["fedora", "ubuntu"], com_git=True)
+    errors = run_check(_FAKE_CI_YML_GOOD, _FAKE_SYSTEMS, env_dir)
+    if any("nao instala git" in e for e in errors):
+        print(f"selftest: COM-GIT-CONTROLE FALHOU (script com git nao deveria reprovar): {errors}", file=sys.stderr)
+        return False
+    print("selftest: COM-GIT-CONTROLE OK (script com git nunca reprova)")
+    return True
+
+
 # item (4): slug de familia linux sem entrada de matriz nenhuma.
 def selftest_target_without_matrix_entry_reproves():
     systems_com_arch = dict(_FAKE_SYSTEMS)
@@ -528,6 +638,10 @@ def selftest_main():
         selftest_run_slug_composition_outside_preparo_does_not_reprove(),
         selftest_orphan_script_reproves(),
         selftest_missing_script_reproves(),
+        selftest_script_without_python_reproves(),
+        selftest_script_with_python_does_not_reprove(),
+        selftest_mo3_script_without_git_reproves(),
+        selftest_script_with_git_does_not_reprove(),
         selftest_target_without_matrix_entry_reproves(),
         selftest_missing_piso_step_reproves(),
         selftest_job_not_found_reproves(),

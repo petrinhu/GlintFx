@@ -208,10 +208,228 @@ def publish_step_errors(name, step_text):
     return []
 
 
+# --- A3c (D-A13): G1/G2 - checkout de bootstrap sem git, prova do -----
+# git logo depois do checkout final -------------------------------------
+#
+# A REGRESSAO real que estas duas regras existem para pegar (run
+# 36110716884, ci.yml de 4a3f1fd - MO2, o vermelho de estreia): um job
+# com `container:` fazia um UNICO checkout, ANTES de "Instalar
+# toolchain" - o container ainda nao tinha git nenhum, o checkout caia
+# no fallback REST API do actions/checkout (tarball, sem `.git`), e TODO
+# passo seguinte que usasse git morria com "git: command not found"/
+# "not a git repository". G1 exige que nenhum passo ANTES do checkout
+# FINAL (o ultimo checkout SEM `path:`) use git, e que todo checkout
+# ANTERIOR a ele (o de bootstrap) tenha `path:` - nunca dois checkouts
+# escrevendo no MESMO diretorio. G2 exige que o passo LOGO DEPOIS do
+# checkout final prove que ele e' um clone git de verdade (`git
+# rev-parse`), nunca assumido.
+
+_CONTAINER_KEY_RE = re.compile(r"^    container:\s*\S", re.MULTILINE)
+_CHECKOUT_USES_RE = re.compile(r"uses:\s*actions/checkout@")
+_PATH_KEY_RE = re.compile(r"^\s*path:\s*\S", re.MULTILINE)
+# "git" como INICIO de um comando shell (inicio de linha, ou logo apos
+# um separador de comando - ";"/"&&"/"||"/"|"/"$(") - nunca "git" como
+# PACOTE numa lista de instalacao (`dnf -y install ... git ...`, onde
+# ele aparece no MEIO/FIM de uma lista de argumentos de `install`,
+# nunca como primeiro token de um comando). Achado real: a forma
+# antiga ("git" solto em qualquer lugar da linha) dava falso positivo
+# nos 5 jobs de container fixo (lint/sanitizer/gl-codegen-host-cross/
+# debug/clang), cujo "Instalar toolchain" so' MENCIONA o pacote "git"
+# dentro de `dnf -y install ...` - main confirmou que esses 5 jobs ja
+# satisfazem G1 como estao (a ordem deles, instalar->checkout, nunca
+# muda: o checkout roda com git JA instalado, nao cai no fallback).
+_GIT_COMMAND_START_RE = re.compile(r"(?:^|[;&|]|\$\()\s*git\s+\S")
+_GIT_REV_PARSE_RE = re.compile(r"git rev-parse")
+_USES_LINE_RE = re.compile(r"^\s*-?\s*uses:", re.MULTILINE)
+
+
+def job_has_container(job_block_text):
+    return bool(_CONTAINER_KEY_RE.search(job_block_text))
+
+
+def is_checkout_step(step_text):
+    return bool(_CHECKOUT_USES_RE.search(step_text))
+
+
+def checkout_has_path(step_text):
+    return bool(_PATH_KEY_RE.search(step_text))
+
+
+_RUN_PREFIX_RE = re.compile(r"^(?:-\s*)?run:\s*(.*)$")
+
+
+def step_uses_git(step_text):
+    """Passo que roda algum comando git DENTRO do proprio run: - nunca
+    conta a linha `uses: actions/checkout@...` (e' a Action, nao um
+    comando git direto) nem comentario/linha em branco.
+
+    Achado real (revisao do main, MO1 verbatim da D-A13: mover
+    "Configurar diretorio seguro do git" para antes do checkout final
+    escapava): a forma de UMA linha `run: git config ...` tem o comando
+    de verdade DEPOIS do prefixo "run: " - _GIT_COMMAND_START_RE exige
+    "git" logo no INICIO da linha (ou apos ';'/'&&'/etc.), e a linha
+    inteira comeca com "run:", nunca com "git". O prefixo "run:" (ou
+    "- run:") e' removido ANTES de testar cada linha - cobre tanto a
+    forma de uma linha quanto `run: |` (onde a marca "|" sozinha vira
+    linha vazia, pulada, e as linhas seguintes do bloco ja vem SEM
+    prefixo, como antes)."""
+    for raw_line in step_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if _USES_LINE_RE.match(line):
+            continue
+        m = _RUN_PREFIX_RE.match(line)
+        if m:
+            line = m.group(1).strip()
+            if not line or line in ("|", ">-", ">", "|-"):
+                continue
+        if _GIT_COMMAND_START_RE.search(line):
+            return True
+    return False
+
+
+_PACKAGE_MANAGER_INSTALL_RE = re.compile(r"dnf -y install|apt-get install|pacman -Syu?[^\n]*--noconfirm")
+_GIT_PACKAGE_TOKEN_RE = re.compile(r"(?<![\w-])git(?![\w-])")
+
+
+def step_installs_git_package(step_text):
+    """Passo cujo `run:` instala o PACOTE 'git' via um gerenciador de
+    pacote conhecido (dnf/apt-get/pacman) - distinto de step_uses_git()
+    (que procura "git" como COMANDO): aqui "git" e' argumento de uma
+    lista de instalacao, nunca o primeiro token de um comando. Testa o
+    texto INTEIRO do passo achatado (nao linha a linha) - `run: >-` do
+    YAML dobra o comando de instalacao em VARIAS linhas fisicas (nome
+    do pacote/gerenciador podem cair em linhas de texto diferentes)."""
+    achatado = " ".join(step_text.split())
+    return bool(_PACKAGE_MANAGER_INSTALL_RE.search(achatado) and _GIT_PACKAGE_TOKEN_RE.search(achatado))
+
+
+def g1_errors(job_name, job_block_text, steps):
+    if not job_has_container(job_block_text):
+        return []
+    errors = []
+    checkout_indices = [i for i, (_n, t) in enumerate(steps) if is_checkout_step(t)]
+    checkouts_sem_path = [i for i in checkout_indices if not checkout_has_path(steps[i][1])]
+    if not checkouts_sem_path:
+        errors.append(
+            f"job {job_name!r}: nenhum checkout SEM 'path:' encontrado - G1 exige um checkout "
+            f"final (definitivo)"
+        )
+        return errors
+    final_idx = checkouts_sem_path[-1]
+
+    # MO2 (o vermelho de estreia real, ci.yml de 4a3f1fd, run
+    # 36110716884): UM UNICO checkout, sem separacao de bootstrap, ANTES
+    # de qualquer instalacao - o container ainda nao tinha git nenhum, e
+    # o checkout caia no fallback REST API. Achado real (main): os 5
+    # jobs de container fixo (lint/sanitizer/gl-codegen-host-cross/
+    # debug/clang) TAMBEM tem um checkout unico, sem bootstrap - mas sao
+    # CORRETOS, porque "Instalar toolchain" (que ja instala o pacote
+    # git) roda ANTES desse checkout unico. A distincao real nao e' "tem
+    # checkout de bootstrap ou nao" - e' "quando o checkout final e' o
+    # UNICO do job, existe ALGUM passo antes dele que instala o pacote
+    # git?". Com bootstrap (job `linux`) ou com instalacao antes do
+    # checkout unico (os 5 jobs fixos) - as DUAS formas satisfazem G1.
+    checkouts_antes = [i for i in checkout_indices if i < final_idx]
+    if not checkouts_antes:
+        instala_git_antes = any(step_installs_git_package(steps[i][1]) for i in range(final_idx))
+        if not instala_git_antes:
+            errors.append(
+                f"job {job_name!r}: o checkout final e' o UNICO checkout do job, e nenhum passo "
+                f"antes dele instala o pacote git - G1 (MO2: a forma que causou a regressao "
+                f"real, run 36110716884 - checkout caindo no fallback REST API antes do git "
+                f"existir)"
+            )
+
+    for i in range(final_idx):
+        nome, texto = steps[i]
+        if step_uses_git(texto):
+            errors.append(
+                f"job {job_name!r}, passo {nome!r}: usa git ANTES do checkout final (indice "
+                f"{i} < {final_idx}) - G1, GLINTFX-BOOTSTRAP-NOGIT"
+            )
+    for i in checkout_indices:
+        if i >= final_idx:
+            continue
+        nome, texto = steps[i]
+        if not checkout_has_path(texto):
+            errors.append(
+                f"job {job_name!r}, passo {nome!r}: checkout antes do preparo sem 'path:' - G1"
+            )
+    return errors
+
+
+def g2_errors(job_name, job_block_text, steps):
+    if not job_has_container(job_block_text):
+        return []
+    checkout_indices = [i for i, (_n, t) in enumerate(steps) if is_checkout_step(t)]
+    checkouts_sem_path = [i for i in checkout_indices if not checkout_has_path(steps[i][1])]
+    if not checkouts_sem_path:
+        return []  # ja reportado por G1
+    final_idx = checkouts_sem_path[-1]
+
+    # Restrito ao padrao de checkout DUPLO (bootstrap + final) - decisao
+    # explicada no relatorio da fatia, a confirmar por main: nos 5 jobs
+    # de container fixo (checkout UNICO, git instalado ANTES dele por
+    # "Instalar toolchain" - G1 ja confirma isso), o checkout ja roda
+    # com git garantido, entao a prova extra de G2 e' menos critica ali
+    # do que no padrao bootstrap (onde o checkout REAL precisa provar
+    # que nao caiu no mesmo fallback que o de bootstrap usa por
+    # desenho).
+    checkouts_antes = [i for i in checkout_indices if i < final_idx]
+    if not checkouts_antes:
+        return []
+
+    if final_idx + 1 >= len(steps):
+        return [
+            f"job {job_name!r}: checkout final e' o ULTIMO passo do job - G2 exige a prova do "
+            f"git logo depois"
+        ]
+    nome_prova, texto_prova = steps[final_idx + 1]
+    if not _GIT_REV_PARSE_RE.search(texto_prova):
+        return [
+            f"job {job_name!r}, passo {nome_prova!r}: nao prova git ('git rev-parse') logo "
+            f"apos o checkout final - G2"
+        ]
+    return []
+
+
+# --- A3c (D-A13): G3 - exatamente um id: prep por job, id: build -------
+# (quando existir) vem depois dele ---------------------------------------
+
+_STEP_ID_RE = re.compile(r"^\s*id:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def step_id(step_text):
+    m = _STEP_ID_RE.search(step_text)
+    return m.group(1) if m else None
+
+
+def g3_errors(job_name, steps):
+    prep_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
+    build_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "build"]
+    errors = []
+    if len(prep_indices) != 1:
+        errors.append(
+            f"job {job_name!r}: {len(prep_indices)} passo(s) com id: prep, esperado "
+            f"exatamente 1 - G3"
+        )
+        return errors
+    prep_idx = prep_indices[0]
+    for bi in build_indices:
+        if bi <= prep_idx:
+            errors.append(
+                f"job {job_name!r}: id: build (passo {steps[bi][0]!r}) nao vem DEPOIS de "
+                f"id: prep - G3"
+            )
+    return errors
+
+
 # --- veredito completo ----------------------------------------------
 
 
-def run_check(steps):
+def run_check(job_name, job_block_text, steps):
     """Retorna (contagens, erros) - contagens e' {'testes': N,
     'publicacoes': N} (GODS_LAWS.md L-40: piso de varredura impresso
     SEMPRE, mesmo passando)."""
@@ -222,6 +440,9 @@ def run_check(steps):
         errors.extend(test_step_errors(name, text))
     for name, text in publish_steps:
         errors.extend(publish_step_errors(name, text))
+    errors.extend(g1_errors(job_name, job_block_text, steps))
+    errors.extend(g2_errors(job_name, job_block_text, steps))
+    errors.extend(g3_errors(job_name, steps))
     counts = {"testes": len(test_steps), "publicacoes": len(publish_steps)}
     return counts, errors
 
@@ -285,7 +506,7 @@ def _check_one_job(ci_yml_path, ci_yml_text, job_name):
             f"varredura vazia: nenhum passo ('- name: ...') encontrado no job {job_name!r} de "
             f"{ci_yml_path} - GODS_LAWS.md L-40, isto e sinal de coleta quebrada"
         )
-    counts, errors = run_check(steps)
+    counts, errors = run_check(job_name, job_block, steps)
     print(
         f"{SCRIPT_NAME}: job {job_name!r} - {len(steps)} passo(s) total, "
         f"{counts['testes']} de teste, {counts['publicacoes']} de publicacao"
@@ -319,7 +540,30 @@ def real_main(args):
 
 _FIXTURE_CI_YML = """\
   wayland-container:
+    container: fedora:latest
     steps:
+      - name: Checkout de bootstrap (so' o preparo)
+        uses: actions/checkout@v7
+        with:
+          path: _bootstrap
+
+      - name: Instalar toolchain
+        run: bash _bootstrap/tools/ci/env/fedora.sh
+
+      - name: Remove o checkout de bootstrap
+        run: rm -rf _bootstrap
+
+      - uses: actions/checkout@v7
+
+      - name: Checkout e' repositorio git
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --is-inside-work-tree
+
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       - name: Sobe o compositor limpo
         id: build
         run: docker run -d --name c glintfx-wltest:ci
@@ -636,6 +880,258 @@ def selftest_step_without_name_is_recognized():
     return True
 
 
+# A3c (D-A13), MO2: o VERMELHO DE ESTREIA real - o ci.yml de 4a3f1fd
+# (run 36110716884) tinha UM UNICO checkout, sem separacao de
+# bootstrap, ANTES de "Instalar toolchain". Reproduzido aqui removendo
+# o checkout de bootstrap inteiro e o passo "Instalar toolchain"
+# continuando a depender do repo - a mesma forma real.
+def selftest_mo2_single_checkout_no_bootstrap_reproves():
+    quebrado = _FIXTURE_CI_YML.replace(
+        "      - name: Checkout de bootstrap (so' o preparo)\n"
+        "        uses: actions/checkout@v7\n"
+        "        with:\n"
+        "          path: _bootstrap\n\n"
+        "      - name: Instalar toolchain\n"
+        "        run: bash _bootstrap/tools/ci/env/fedora.sh\n\n"
+        "      - name: Remove o checkout de bootstrap\n"
+        "        run: rm -rf _bootstrap\n\n"
+        "      - uses: actions/checkout@v7\n",
+        "      - uses: actions/checkout@v7\n\n"
+        "      - name: Instalar toolchain\n"
+        "        run: bash tools/ci/env/fedora.sh\n",
+        1,
+    )
+    exit_code, output = _run_real_main_capturing(quebrado)
+    if exit_code != 1:
+        print(f"selftest: MO2-CHECKOUT-UNICO-SEM-BOOTSTRAP FALHOU (deveria ter reprovado): {output}", file=sys.stderr)
+        return False
+    if "nenhum passo antes dele instala o pacote git" not in output:
+        print(f"selftest: MO2-CHECKOUT-UNICO-SEM-BOOTSTRAP FALHOU (reprovou, mas nao pela causa certa): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: MO2-CHECKOUT-UNICO-SEM-BOOTSTRAP OK (vermelho de estreia real, run 36110716884, reproduzido e pego)")
+    return True
+
+
+# MO1: safe.directory (comando git) movido para DENTRO do passo
+# "Instalar toolchain" - que roda ANTES do checkout final. G1 tem de
+# pegar isso mesmo com o checkout de bootstrap presente.
+def selftest_mo1_git_before_final_checkout_reproves():
+    quebrado = _FIXTURE_CI_YML.replace(
+        "      - name: Instalar toolchain\n"
+        "        run: bash _bootstrap/tools/ci/env/fedora.sh\n",
+        "      - name: Instalar toolchain\n"
+        "        run: |\n"
+        "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
+        "          bash _bootstrap/tools/ci/env/fedora.sh\n",
+        1,
+    )
+    exit_code, output = _run_real_main_capturing(quebrado)
+    if exit_code != 1:
+        print(f"selftest: MO1-GIT-ANTES-DO-FINAL FALHOU (deveria ter reprovado): {output}", file=sys.stderr)
+        return False
+    if "'Instalar toolchain'" not in output or "usa git ANTES" not in output:
+        print(f"selftest: MO1-GIT-ANTES-DO-FINAL FALHOU (reprovou, mas nao pela causa certa): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: MO1-GIT-ANTES-DO-FINAL OK (passo com git antes do checkout final pego)")
+    return True
+
+
+# MO1b (achado REAL do main, revisao contra a arvore, forma exata do
+# CTO): o passo DEDICADO "Configurar diretorio seguro do git" (`run:
+# git config ...`, forma de UMA LINHA, nunca `run: |`) movido para
+# ANTES do checkout final - ESCAPAVA da forma antiga de step_uses_git()
+# porque a linha inteira comeca com "run:", nunca com "git" (o comando
+# de verdade vem DEPOIS do prefixo "run: ", que _GIT_COMMAND_START_RE
+# nao reconhecia como separador). Vermelho de estreia reproduzido com
+# a MESMA fixture que o main usou (mo1.yml).
+def selftest_mo1b_dedicated_safedirectory_step_before_final_checkout_reproves():
+    quebrado = _FIXTURE_CI_YML.replace(
+        "      - name: Remove o checkout de bootstrap\n"
+        "        run: rm -rf _bootstrap\n\n"
+        "      - uses: actions/checkout@v7\n\n"
+        "      - name: Checkout e' repositorio git\n"
+        "        run: |\n"
+        "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
+        "          git rev-parse --is-inside-work-tree\n\n",
+        "      - name: Remove o checkout de bootstrap\n"
+        "        run: rm -rf _bootstrap\n\n"
+        "      - name: Configurar diretorio seguro do git\n"
+        "        run: git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n\n"
+        "      - uses: actions/checkout@v7\n\n"
+        "      - name: Checkout e' repositorio git\n"
+        "        run: |\n"
+        "          git rev-parse --is-inside-work-tree\n\n",
+        1,
+    )
+    steps_extractor_ok = "Configurar diretorio seguro do git" in quebrado
+    assert steps_extractor_ok, "fixture MO1b mal formada"
+    exit_code, output = _run_real_main_capturing(quebrado)
+    if exit_code != 1:
+        print(f"selftest: MO1B-SAFEDIRECTORY-DEDICADO-ANTES-DO-FINAL FALHOU (deveria ter reprovado): {output}", file=sys.stderr)
+        return False
+    if "'Configurar diretorio seguro do git'" not in output or "usa git ANTES" not in output:
+        print(f"selftest: MO1B-SAFEDIRECTORY-DEDICADO-ANTES-DO-FINAL FALHOU (reprovou, mas nao pela causa certa): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: MO1B-SAFEDIRECTORY-DEDICADO-ANTES-DO-FINAL OK (achado real do main, mo1.yml, reproduzido e pego)")
+    return True
+
+
+# MO4: a prova do git (passo "Checkout e' repositorio git") removida -
+# G2 tem de pegar que o passo LOGO DEPOIS do checkout final nao prova
+# git nenhum.
+def selftest_mo4_git_proof_removed_reproves():
+    quebrado = _FIXTURE_CI_YML.replace(
+        "      - name: Checkout e' repositorio git\n"
+        "        run: |\n"
+        "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
+        "          git rev-parse --is-inside-work-tree\n\n",
+        "",
+        1,
+    )
+    exit_code, output = _run_real_main_capturing(quebrado)
+    if exit_code != 1:
+        print(f"selftest: MO4-PROVA-GIT-REMOVIDA FALHOU (deveria ter reprovado): {output}", file=sys.stderr)
+        return False
+    if "nao prova git" not in output:
+        print(f"selftest: MO4-PROVA-GIT-REMOVIDA FALHOU (reprovou, mas nao pela causa certa): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: MO4-PROVA-GIT-REMOVIDA OK (ausencia da prova do git logo apos o checkout final pega)")
+    return True
+
+
+# MO5: job sem `id: prep` nenhum - G3 tem de reprovar citando a
+# contagem (0, esperado exatamente 1).
+def selftest_mo5_job_without_prep_reproves():
+    quebrado = _FIXTURE_CI_YML.replace(
+        "      - name: Preparo concluido\n"
+        "        id: prep\n"
+        "        run: echo \"preparo concluido\"\n\n",
+        "",
+        1,
+    )
+    exit_code, output = _run_real_main_capturing(quebrado)
+    if exit_code != 1:
+        print(f"selftest: MO5-SEM-PREP FALHOU (deveria ter reprovado): {output}", file=sys.stderr)
+        return False
+    if "id: prep, esperado exatamente 1" not in output:
+        print(f"selftest: MO5-SEM-PREP FALHOU (reprovou, mas nao pela causa certa): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: MO5-SEM-PREP OK (job sem id: prep pego, G3)")
+    return True
+
+
+# G3, controle negativo/gemeo: `id: build` ANTES de `id: prep` (ordem
+# invertida) tem de reprovar - nao basta os dois existirem, a ORDEM
+# importa.
+def selftest_g3_build_before_prep_reproves():
+    quebrado = _FIXTURE_CI_YML.replace(
+        "      - name: Preparo concluido\n"
+        "        id: prep\n"
+        "        run: echo \"preparo concluido\"\n\n"
+        "      - name: Sobe o compositor limpo\n"
+        "        id: build\n"
+        "        run: docker run -d --name c glintfx-wltest:ci\n",
+        "      - name: Sobe o compositor limpo\n"
+        "        id: build\n"
+        "        run: docker run -d --name c glintfx-wltest:ci\n\n"
+        "      - name: Preparo concluido\n"
+        "        id: prep\n"
+        "        run: echo \"preparo concluido\"\n",
+        1,
+    )
+    exit_code, output = _run_real_main_capturing(quebrado)
+    if exit_code != 1:
+        print(f"selftest: G3-BUILD-ANTES-DE-PREP FALHOU (deveria ter reprovado): {output}", file=sys.stderr)
+        return False
+    if "nao vem DEPOIS de id: prep" not in output:
+        print(f"selftest: G3-BUILD-ANTES-DE-PREP FALHOU (reprovou, mas nao pela causa certa): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: G3-BUILD-ANTES-DE-PREP OK (id: build antes de id: prep pego)")
+    return True
+
+
+# G1, controle negativo: job SEM `container:` nunca e' varrido por
+# G1/G2 (a regra so' se aplica a jobs que rodam DENTRO de um container
+# - um job em runner nativo, ex. `windows`, checkout roda no host, que
+# ja tem git).
+# G1, controle positivo (achado real do main): job com CONTAINER e UM
+# UNICO checkout, mas com "Instalar toolchain" (que ja instala o
+# pacote git) ANTES desse checkout - o padrao real dos 5 jobs de
+# container fixo (lint/sanitizer/gl-codegen-host-cross/debug/clang) -
+# NUNCA pode reprovar. Repete o mutante MO2 ao contrario: mesma forma
+# de UM checkout so', mas com a instalacao de git ja tendo acontecido
+# antes dele - o que faz TODA a diferenca (o checkout roda com git ja
+# disponivel, nao cai no fallback REST API).
+def selftest_g1_single_checkout_with_prior_git_install_does_not_reprove():
+    job_block = """  lint:
+    container: fedora:latest
+    steps:
+      - name: Instalar toolchain e ferramentas de lint
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+          wayland-devel wayland-protocols-devel libglvnd-devel
+
+      - uses: actions/checkout@v7
+
+      - name: preci.sh --selftest
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --is-inside-work-tree
+
+      - name: Preparo concluido
+        id: prep
+        run: echo ok
+
+      - name: preci.sh --lint-only
+        id: build
+        run: tools/preci.sh --lint-only
+"""
+    steps = split_steps(job_block)
+    errors = g1_errors("lint", job_block, steps) + g2_errors("lint", job_block, steps)
+    if errors:
+        print(
+            f"selftest: G1-CHECKOUT-UNICO-COM-INSTALACAO-PREVIA FALHOU (padrao real dos 5 "
+            f"jobs de container fixo nao deveria reprovar): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: G1-CHECKOUT-UNICO-COM-INSTALACAO-PREVIA OK (checkout unico com git ja "
+        "instalado antes dele nunca reprova - o padrao real de lint/sanitizer/etc.)"
+    )
+    return True
+
+
+def selftest_g1_job_without_container_not_checked():
+    sem_container = """jobs:
+  windows:
+    steps:
+      - uses: actions/checkout@v7
+      - name: Instalar CMake
+        run: echo instala
+      - name: Preparo concluido
+        id: prep
+        run: echo ok
+      - name: Build
+        id: build
+        run: echo build
+      - name: Testes
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          echo "t" >> parity_inventory.txt
+          codigo=0
+          tests/container/exec_fixture.sh c t || codigo=$?
+          printf 't\\t%s\\n' "$codigo" >> results.tsv
+          exit "$codigo"
+"""
+    exit_code, output = _run_real_main_capturing(sem_container, job_name="windows")
+    if exit_code not in (None, 0):
+        print(f"selftest: G1-SEM-CONTAINER-CONTROLE FALHOU (job sem container: nao deveria acionar G1/G2): {output}", file=sys.stderr)
+        return False
+    print("selftest: G1-SEM-CONTAINER-CONTROLE OK (G1/G2 restritos a job com container:)")
+    return True
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -651,6 +1147,14 @@ def selftest_main():
         selftest_scoped_to_named_job(),
         selftest_publish_always_in_other_job_reproves(),
         selftest_step_without_name_is_recognized(),
+        selftest_mo2_single_checkout_no_bootstrap_reproves(),
+        selftest_mo1_git_before_final_checkout_reproves(),
+        selftest_mo1b_dedicated_safedirectory_step_before_final_checkout_reproves(),
+        selftest_mo4_git_proof_removed_reproves(),
+        selftest_mo5_job_without_prep_reproves(),
+        selftest_g3_build_before_prep_reproves(),
+        selftest_g1_single_checkout_with_prior_git_install_does_not_reprove(),
+        selftest_g1_job_without_container_not_checked(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -29,6 +29,7 @@
 
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 _LINE_RE = re.compile(r"^([a-z0-9][a-z0-9-]*)\|(linux|windows)$")
@@ -212,6 +213,77 @@ def slug_of_artifact_suffix(systems, resto):
 # parity.py --per-system).
 def args_per_system(systems, directory):
     return " ".join(f"{slug}={directory}/{slug}.txt" for slug in sorted(systems))
+
+
+# A3a-fix F1 (revisao do CTO, GODS_LAWS.md L-45 do projeto: "nenhum
+# outro desenho que gaste um processo por item, em lugar nenhum"): o
+# job `parity` chamava `python3 ... slug-of-artifact`/`family-of` UMA
+# VEZ POR ARTEFATO (E por arquivo, no laco interno do MEASURED) - um
+# processo Python por item varrido. `split_artifacts()` faz tudo num
+# UNICO processo: varre os "legs" baixados, resolve slug e familia de
+# cada um (mesma logica de slug_of_artifact_suffix()/slug_family(), sem
+# subprocess), concatena os arquivos que batem com `file_glob` no
+# arquivo por sistema e na uniao (linux/windows), e devolve os numeros
+# (legs encontrados, "Total Tests:" extraido de cada leg) para quem
+# chama decidir o piso de varredura (GODS_LAWS.md L-40) - nunca faz
+# I/O de disco alem de ler/escrever os proprios arquivos.
+class ArtifactSplitResult:
+    __slots__ = ("legs_found", "per_leg", "per_system_counts")
+
+    def __init__(self, legs_found, per_leg, per_system_counts):
+        self.legs_found = legs_found
+        self.per_leg = per_leg  # lista de (slug, leg_name, total_tests_or_None)
+        self.per_system_counts = per_system_counts  # {slug: bytes_escritos}
+
+
+def split_artifacts(
+    systems, artifacts_dir, prefix, per_system_dir, union_linux_path, union_windows_path, file_glob="*"
+):
+    import fnmatch
+    import os
+
+    os.makedirs(per_system_dir, exist_ok=True)
+    per_system_files = {}
+    union_files = {"linux": open(union_linux_path, "w", encoding="utf-8"), "windows": open(union_windows_path, "w", encoding="utf-8")}
+    per_leg = []
+    legs_found = 0
+    per_system_counts = {}
+    try:
+        for leg_dir in sorted(Path(artifacts_dir).iterdir()):
+            if not leg_dir.is_dir():
+                continue
+            leg_name = leg_dir.name
+            if not leg_name.startswith(prefix):
+                continue
+            resto = leg_name[len(prefix):]
+            slug = slug_of_artifact_suffix(systems, resto)
+            familia = slug_family(systems, slug)
+            legs_found += 1
+
+            if slug not in per_system_files:
+                per_system_files[slug] = open(Path(per_system_dir) / f"{slug}.txt", "a", encoding="utf-8")
+                per_system_counts.setdefault(slug, 0)
+
+            total_tests = None
+            arquivos = sorted(p for p in leg_dir.iterdir() if p.is_file() and fnmatch.fnmatch(p.name, file_glob))
+            for arquivo in arquivos:
+                conteudo = arquivo.read_text(encoding="utf-8", errors="replace")
+                per_system_files[slug].write(conteudo)
+                per_system_counts[slug] += len(conteudo)
+                union_files[familia].write(conteudo)
+                if total_tests is None:
+                    for line in conteudo.splitlines():
+                        if line.startswith("Total Tests:"):
+                            total_tests = line[len("Total Tests:"):].strip()
+                            break
+            per_leg.append((slug, leg_name, total_tests))
+    finally:
+        for handle in per_system_files.values():
+            handle.close()
+        for handle in union_files.values():
+            handle.close()
+
+    return ArtifactSplitResult(legs_found, per_leg, per_system_counts)
 
 
 # --- selftest -----------------------------------------------------
@@ -420,6 +492,92 @@ def selftest_args_per_system():
     return True
 
 
+# A3a-fix F1: split_artifacts() concatena os legs de um download (forma
+# "parity", um arquivo fixo por leg, com "Total Tests:") num UNICO
+# processo - nunca subprocess por leg (GODS_LAWS.md L-45 do projeto).
+def selftest_split_artifacts_parity_shape():
+    scratch = tempfile.mkdtemp(prefix="glintfx-ci-systems-selftest-")
+    artifacts_dir = Path(scratch) / "artifacts"
+    for nome, conteudo in (
+        ("parity-inv-fedora-compartilhado", "Test #1: foo\nTotal Tests: 5\n"),
+        ("parity-inv-windows-estatico", "Test #1: bar\nTotal Tests: 3\n"),
+    ):
+        leg = artifacts_dir / nome
+        leg.mkdir(parents=True)
+        (leg / "parity_inventory.txt").write_text(conteudo)
+
+    systems = {"fedora": "linux", "windows": "windows"}
+    per_system_dir = Path(scratch) / "persystem"
+    union_linux = Path(scratch) / "union_linux.txt"
+    union_windows = Path(scratch) / "union_windows.txt"
+    result = split_artifacts(
+        systems, str(artifacts_dir), "parity-inv-", str(per_system_dir), str(union_linux), str(union_windows),
+        file_glob="parity_inventory.txt",
+    )
+    ok = (
+        result.legs_found == 2
+        and set(result.per_system_counts) == {"fedora", "windows"}
+        and (per_system_dir / "fedora.txt").read_text() == "Test #1: foo\nTotal Tests: 5\n"
+        and union_windows.read_text() == "Test #1: bar\nTotal Tests: 3\n"
+        and any(slug == "fedora" and total == "5" for slug, _leg, total in result.per_leg)
+    )
+    if not ok:
+        print(f"selftest: SPLIT-ARTIFACTS-PARITY FALHOU: legs_found={result.legs_found}, per_leg={result.per_leg}")
+        return False
+    print(f"selftest: SPLIT-ARTIFACTS-PARITY OK: {result.legs_found} leg(s), {result.per_leg}")
+    return True
+
+
+# forma "measured": varios arquivos .txt por leg (glob "*.txt"), sem
+# "Total Tests:" - concatena todos dentro de um MESMO leg, ainda num
+# unico processo.
+def selftest_split_artifacts_measured_shape():
+    scratch = tempfile.mkdtemp(prefix="glintfx-ci-systems-selftest-")
+    artifacts_dir = Path(scratch) / "artifacts"
+    leg = artifacts_dir / "measured-fedora-compartilhado"
+    leg.mkdir(parents=True)
+    (leg / "a.txt").write_text("MEASURED foo=1\n")
+    (leg / "b.txt").write_text("MEASURED bar=2\n")
+
+    systems = {"fedora": "linux", "windows": "windows"}
+    per_system_dir = Path(scratch) / "persystem"
+    union_linux = Path(scratch) / "union_linux.txt"
+    union_windows = Path(scratch) / "union_windows.txt"
+    result = split_artifacts(
+        systems, str(artifacts_dir), "measured-", str(per_system_dir), str(union_linux), str(union_windows),
+        file_glob="*.txt",
+    )
+    conteudo = (per_system_dir / "fedora.txt").read_text()
+    if result.legs_found != 1 or "MEASURED foo=1" not in conteudo or "MEASURED bar=2" not in conteudo:
+        print(f"selftest: SPLIT-ARTIFACTS-MEASURED FALHOU: legs_found={result.legs_found}, conteudo={conteudo!r}")
+        return False
+    print("selftest: SPLIT-ARTIFACTS-MEASURED OK (dois arquivos do mesmo leg concatenados)")
+    return True
+
+
+# leg com slug desconhecido (nenhum slug de systems.txt e' prefixo do
+# resto) tem que reprovar via CiSystemsError, nunca ser ignorado em
+# silencio (GODS_LAWS.md L-40).
+def selftest_split_artifacts_unknown_slug_reproves():
+    scratch = tempfile.mkdtemp(prefix="glintfx-ci-systems-selftest-")
+    artifacts_dir = Path(scratch) / "artifacts"
+    leg = artifacts_dir / "parity-inv-manjaro-compartilhado"
+    leg.mkdir(parents=True)
+    (leg / "parity_inventory.txt").write_text("Total Tests: 1\n")
+
+    systems = {"fedora": "linux", "windows": "windows"}
+    if not _expect_error(
+        split_artifacts,
+        systems, str(artifacts_dir), "parity-inv-",
+        str(Path(scratch) / "persystem"), str(Path(scratch) / "ul.txt"), str(Path(scratch) / "uw.txt"),
+        "parity_inventory.txt",
+    ):
+        print("selftest: SPLIT-ARTIFACTS-SLUG-DESCONHECIDO FALHOU (deveria ter reprovado)")
+        return False
+    print("selftest: SPLIT-ARTIFACTS-SLUG-DESCONHECIDO OK (slug sem systems.txt correspondente reprova, nunca ignorado)")
+    return True
+
+
 # D-A12 parte (e) (achado do main): --selftest NUNCA toca o arquivo
 # real - D1, a A7 acrescentando uma distro nao pode mudar o resultado
 # de NENHUM --selftest deste projeto. O controle contra o arquivo REAL
@@ -444,6 +602,9 @@ def selftest_main():
         selftest_slug_of_artifact_suffix_hyphenated_slug(),
         selftest_slug_of_artifact_suffix_unknown_reproves(),
         selftest_args_per_system(),
+        selftest_split_artifacts_parity_shape(),
+        selftest_split_artifacts_measured_shape(),
+        selftest_split_artifacts_unknown_slug_reproves(),
     ]
     if not all(controls):
         print("ci_systems.py --selftest: FALHOU (ver acima)")
@@ -491,7 +652,10 @@ def real_main():
 # `parity` roda no CI, nunca contra fixture.
 def _tool_main(args):
     if not args:
-        print("usage: ci_systems.py --tool <args-per-system|family-of|slug-of-artifact> ...", file=sys.stderr)
+        print(
+            "usage: ci_systems.py --tool <args-per-system|family-of|slug-of-artifact|split-artifacts> ...",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
     subcomando, resto = args[0], args[1:]
     try:
@@ -516,6 +680,23 @@ def _tool_main(args):
                 print("usage: ci_systems.py --tool slug-of-artifact <resto-do-nome>", file=sys.stderr)
                 raise SystemExit(1)
             print(slug_of_artifact_suffix(systems, resto[0]))
+        elif subcomando == "split-artifacts":
+            if len(resto) not in (5, 6):
+                print(
+                    "usage: ci_systems.py --tool split-artifacts <artifacts_dir> <prefix> "
+                    "<per_system_dir> <union_linux> <union_windows> [file_glob]",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            artifacts_dir, prefix, per_system_dir, union_linux, union_windows = resto[:5]
+            file_glob = resto[5] if len(resto) == 6 else "*"
+            result = split_artifacts(
+                systems, artifacts_dir, prefix, per_system_dir, union_linux, union_windows, file_glob
+            )
+            for slug, leg_name, total_tests in result.per_leg:
+                print(f"{slug}\t{leg_name}\t{total_tests if total_tests is not None else ''}")
+            print(f"##legs_found\t{result.legs_found}")
+            print(f"##sistemas_separados\t{len(result.per_system_counts)}")
         else:
             print(f"ci_systems.py --tool: subcomando desconhecido {subcomando!r}", file=sys.stderr)
             raise SystemExit(1)

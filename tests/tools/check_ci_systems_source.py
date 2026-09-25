@@ -195,6 +195,22 @@ def extract_run_blocks(job_block_text):
 # slug). Cobre tanto "<slug>=" (forma antiga) quanto `for slug in
 # windows fedora ...` (S3) e qualquer outra forma futura de citar o
 # nome a mao.
+# A3a-fix, F2 (revisao do CTO, S3d): isentar a LINHA INTEIRA quando ela
+# continha "ci_systems.py" deixava passar uma linha que MISTURA a
+# chamada legitima do carregador com uma comparacao hardcoded no MESMO
+# comando composto - `slug=$(... ci_systems.py --tool slug-of-artifact
+# "$resto"); [ "$slug" = fedora ] && continue` tem os dois na mesma
+# linha, e o "fedora" hardcoded escapava. Conserto: dividir a linha por
+# delimitador de comando shell (`;`, `&&`, `||`, `|`) e aplicar a busca
+# de slug em CADA SEGMENTO - so' o segmento que de fato invoca
+# `ci_systems.py` fica isento, os outros continuam sob a regra.
+_COMMAND_SEPARATOR_RE = re.compile(r";|&&|\|\|(?!\|)|\|(?!\|)")
+
+
+def _split_shell_segments(line):
+    return [seg.strip() for seg in _COMMAND_SEPARATOR_RE.split(line) if seg.strip()]
+
+
 def _hardcoded_slug_assignment_errors(parity_job_block, systems):
     errors = []
     run_blocks = extract_run_blocks(parity_job_block)
@@ -205,14 +221,15 @@ def _hardcoded_slug_assignment_errors(parity_job_block, systems):
                 line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
-                if "ci_systems.py" in line:
-                    continue
-                if pattern.search(line):
-                    errors.append(
-                        f"job 'parity': linha cita o slug {slug!r} fora de ci_systems.py --tool "
-                        f"- os argumentos por sistema tem que vir do carregador em tempo de "
-                        f"execucao: {line!r}"
-                    )
+                for segment in _split_shell_segments(line):
+                    if "ci_systems.py" in segment:
+                        continue
+                    if pattern.search(segment):
+                        errors.append(
+                            f"job 'parity': linha cita o slug {slug!r} fora de ci_systems.py "
+                            f"--tool - os argumentos por sistema tem que vir do carregador em "
+                            f"tempo de execucao: {line!r}"
+                        )
     return errors
 
 
@@ -442,6 +459,23 @@ def selftest_s3_for_loop_without_equals_reproves():
     return True
 
 
+# A3a-fix F2 (S3d, achado real do CTO): a MESMA linha mistura a chamada
+# legitima do carregador com uma comparacao hardcoded no comando
+# composto seguinte (`;`) - a forma antiga isentava a LINHA INTEIRA por
+# conter "ci_systems.py", deixando o "fedora" apos o ";" escapar.
+def selftest_s3d_mixed_line_reproves():
+    ci_s3d = _FAKE_CI_YML_GOOD.replace(
+        "      - name: monta argumentos\n        run: |\n          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)\n",
+        "      - name: chama o portao\n        run: |\n          slug=$(python3 tests/tools/ci_systems.py --tool slug-of-artifact \"$resto\"); [ \"$slug\" = fedora ] && continue\n",
+    )
+    errors = run_check(ci_s3d, _FAKE_SYSTEMS)
+    if not any("fedora" in e for e in errors):
+        print(f"selftest: S3D-LINHA-MISTA FALHOU (deveria citar 'fedora' apos o ';'): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: S3D-LINHA-MISTA OK (achado real do CTO reproduzido e pego): {errors}")
+    return True
+
+
 # R2, controle negativo: chamar ci_systems.py --tool NAO reprova - e' o
 # uso LEGITIMO do carregador (a fixture positiva ja prova isso; este
 # controle isola o motivo, provando que 'args-per-system' sozinho na
@@ -498,6 +532,7 @@ def selftest_main():
         selftest_s2_wrong_slug_in_windows_leg_reproves(),
         selftest_hardcoded_slug_in_parity_reproves(),
         selftest_s3_for_loop_without_equals_reproves(),
+        selftest_s3d_mixed_line_reproves(),
         selftest_ci_systems_tool_call_does_not_reprove(),
         selftest_needs_field_outside_run_does_not_reprove(),
         selftest_job_not_found_reproves(),

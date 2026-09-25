@@ -310,20 +310,111 @@ jobs:
       # genuinamente tem etiquetas e reprovava por um checkout raso,
       # nunca por deriva real. Mesmo par usado no job version-tag.
       #
-      # ORDEM-A3B: o checkout MOVEU para antes de "Instalar toolchain"
-      # nesta fatia (CI-SPLIT-PER-OS A3b). Antes, "Instalar toolchain"
-      # vinha primeiro de todos os passos porque o comando inteiro
-      # (matrix.instalar) era uma string literal do proprio ci.yml, sem
-      # nenhuma dependencia do arquivo do repositorio. Agora que ele
-      # despacha para tools/ci/env/<slug>.sh (arquivo DENTRO do repo), o
-      # checkout precisa ter rodado antes - medido, nao suposto: sem
-      # isso o passo falharia com "No such file or directory" na
-      # primeira execucao real, porque o script simplesmente nao existe
-      # no filesystem do container antes do checkout.
+      # A3c (D-A13, revisao do CTO - conserto da regressao real da A3b,
+      # run 36110716884: 6 pernas Linux vermelhas, "git: command not
+      # found"/"not a git repository", CachyOS passou porque a imagem
+      # dele ja traz git de fabrica). A ORDEM antiga (A3b: checkout unico
+      # -> "Instalar toolchain") tinha uma falha estrutural: o checkout
+      # RODA DENTRO DO CONTAINER (job com `container:`), e o container
+      # ainda nao tem git nenhum ate "Instalar toolchain" rodar -
+      # `actions/checkout@v7` cai sozinho no fallback documentado
+      # ("When Git 2.18 or higher is not in your PATH, falls back to
+      # the REST API to download the files"), que baixa um TARBALL sem
+      # `.git` nenhum - todo comando git seguinte (safe.directory, os
+      # ~17 portoes do ctest que chamam git) morre.
+      #
+      # Conserto: DOIS checkouts. O de BOOTSTRAP (`path: _bootstrap`,
+      # raso, sem historico) tem o UNICO proposito de trazer
+      # tools/ci/env/<slug>.sh para o preparo rodar - ele MESMO cai no
+      # fallback REST API, por DESENHO (nao precisa de git, so' de
+      # arquivo). Depois do preparo instalar git de verdade, um
+      # checkout REAL (sem `path`, com historico completo) substitui o
+      # de bootstrap - esse sim vira um clone git de verdade, provado
+      # pelo passo "Checkout e' repositorio git" logo abaixo. Nenhum
+      # passo ANTES do checkout REAL pode usar git (G1 confere isso).
+      - name: Checkout de bootstrap (so' o preparo)
+        uses: actions/checkout@v7
+        with:
+          path: _bootstrap
+
+      # ROTACAO-ESPELHO-CACHYOS (GODS_LAWS.md L-42, pesquisado antes de
+      # consertar - segunda falha do mesmo motivo, runs 35937778448 e
+      # 35939021453: github.com/CachyOS/distribution#443 e o topico do
+      # forum CachyOS "Problems with pacman and CachyOS keyring"
+      # 27/09/2025, ambos com o MESMO sintoma). A logica de retry (ate
+      # 10 tentativas, rotacionando /etc/pacman.d/cachyos-mirrorlist
+      # quando o log acusa "signature from") MOROU aqui ate a fatia
+      # A3b (CI-SPLIT-PER-OS) - migrou para DENTRO de
+      # tools/ci/env/cachyos.sh, que e o UNICO script que ainda precisa
+      # dela (Fedora/Ubuntu/Arch continuam de tentativa unica, mesmo
+      # comportamento de antes). Este passo agora e so o DESPACHO por
+      # slug: cada script (fedora.sh/ubuntu.sh/arch.sh/cachyos.sh) e'
+      # responsavel pela propria logica de instalacao, retry incluido
+      # onde existir. A3c: le do checkout de BOOTSTRAP (`_bootstrap/`),
+      # nunca do checkout real (que ainda nao aconteceu).
+      - name: Instalar toolchain
+        shell: bash
+        run: bash _bootstrap/tools/ci/env/${{ matrix.slug }}.sh
+
+      - name: Remove o checkout de bootstrap
+        run: rm -rf _bootstrap
+
+      # Checkout REAL, definitivo - agora com git ja instalado pelo
+      # preparo acima. VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run
+      # 35455822838, 19/09/2026): esta matriz roda a suite ctest INTEIRA
+      # sem filtro de rotulo, e version_matches_tag_test (LABELS
+      # consume) esta nela - sem historico completo + etiquetas o script
+      # via "reachable_v_tags=0" numa arvore que genuinamente tem
+      # etiquetas e reprovava por um checkout raso, nunca por deriva
+      # real. Mesmo par usado no job version-tag.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # A3c (D-A13): prova de que o checkout ACIMA e' um clone git de
+      # verdade, nunca o fallback REST API que o de bootstrap usa por
+      # desenho - a REGRESSAO real da A3b (run 36110716884) era
+      # exatamente isto passando em silencio. Tres provas, cada uma
+      # imprime o proprio valor (nunca so' "ok" - GODS_LAWS.md L-40):
+      #   1. `git rev-parse --is-inside-work-tree` == "true";
+      #   2. `git rev-parse HEAD` == $GITHUB_SHA;
+      #   3. sha256sum do PROPRIO script de preparo que rodou
+      #      (GLINTFX_PREP_SHA, exportado por tools/ci/env/<slug>.sh)
+      #      == o hash do arquivo real neste checkout - prova que o
+      #      bootstrap rodou o MESMO conteudo que o repo real tem,
+      #      nunca uma copia divergente.
+      # safe.directory embutido AQUI, antes das provas (achado medido
+      # nesta fatia: `git rev-parse` dentro do container, como root,
+      # reprova por "dubious ownership" - CVE-2022-24765, mesma causa
+      # documentada no passo "Configurar diretorio seguro do git" logo
+      # abaixo - SEM safe.directory configurado ja neste ponto, nenhuma
+      # das tres provas rodaria). O passo nomeado "Configurar diretorio
+      # seguro do git" continua existindo na ordem que a D-A13 pede
+      # (idempotente - `git config --global --add safe.directory`
+      # rodar duas vezes nao tem efeito colateral).
+      - name: Checkout e' repositorio git
+        run: |
+          set -eu
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          inside="$(git rev-parse --is-inside-work-tree 2>&1)" || { echo "FALHOU: git rev-parse --is-inside-work-tree: $inside"; exit 1; }
+          if [ "$inside" != "true" ]; then
+            echo "FALHOU: --is-inside-work-tree devolveu '$inside', esperado 'true' - o checkout NAO e' um clone git real (provavel fallback REST API)"
+            exit 1
+          fi
+          head="$(git rev-parse HEAD 2>&1)" || { echo "FALHOU: git rev-parse HEAD: $head"; exit 1; }
+          if [ "$head" != "$GITHUB_SHA" ]; then
+            echo "FALHOU: HEAD='$head', GITHUB_SHA='$GITHUB_SHA' - divergem"
+            exit 1
+          fi
+          real_sha="$(sha256sum "tools/ci/env/${{ matrix.slug }}.sh" | awk '{print $1}')"
+          if [ "$real_sha" != "${GLINTFX_PREP_SHA:-}" ]; then
+            echo "FALHOU: prep-sha do script real ($real_sha) != GLINTFX_PREP_SHA do bootstrap (${GLINTFX_PREP_SHA:-<vazio>})"
+            exit 1
+          fi
+          echo "inside-work-tree=$inside"
+          echo "HEAD=$head"
+          echo "prep-sha=ok"
 
       # git config --global --add safe.directory (DEPZERO-TRACE, CAUSA 1
       # do bloqueador de estreia, GHA run 33248706044, branch
@@ -355,24 +446,6 @@ jobs:
       - name: Configurar diretorio seguro do git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      # ROTACAO-ESPELHO-CACHYOS (GODS_LAWS.md L-42, pesquisado antes de
-      # consertar - segunda falha do mesmo motivo, runs 35937778448 e
-      # 35939021453: github.com/CachyOS/distribution#443 e o topico do
-      # forum CachyOS "Problems with pacman and CachyOS keyring"
-      # 27/09/2025, ambos com o MESMO sintoma). A logica de retry (ate
-      # 10 tentativas, rotacionando /etc/pacman.d/cachyos-mirrorlist
-      # quando o log acusa "signature from") MOROU aqui ate a fatia
-      # A3b (CI-SPLIT-PER-OS) - migrou para DENTRO de
-      # tools/ci/env/cachyos.sh, que e o UNICO script que ainda precisa
-      # dela (Fedora/Ubuntu/Arch continuam de tentativa unica, mesmo
-      # comportamento de antes). Este passo agora e so o DESPACHO por
-      # slug: cada script (fedora.sh/ubuntu.sh/arch.sh/cachyos.sh) e'
-      # responsavel pela propria logica de instalacao, retry incluido
-      # onde existir.
-      - name: Instalar toolchain
-        shell: bash
-        run: bash tools/ci/env/${{ matrix.slug }}.sh
-
       # PISO-FERRAMENTAS (CI-SPLIT-PER-OS A3b, docs/plano-ci-split-per-
       # os.md secao 4.4): antes desta fatia, um GCC abaixo do piso do
       # projeto (14) so' falhava tarde, no proprio "cmake -S" do passo
@@ -384,15 +457,48 @@ jobs:
       - name: Piso de ferramentas
         run: |
           set -eu
-          gnuc_major="$("$CXX" -dM -E -x c++ /dev/null | awk '$2 == "__GNUC__" {print $3}')"
-          if [ -z "$gnuc_major" ] || [ "$gnuc_major" -lt 14 ]; then
-            echo "PISO NAO ATENDIDO: __GNUC__ = '${gnuc_major:-<vazio>}', piso do projeto e' 14 (CXX=$CXX)"
+          gnuc_major="$("$CXX" -dM -E -x c++ /dev/null 2>/dev/null | awk '$2 == "__GNUC__" {print $3}')"
+          case "$gnuc_major" in
+            ''|*[!0-9]*)
+              echo "PISO NAO ATENDIDO: __GNUC__ nao numerico ou ausente (saida: '${gnuc_major:-<vazio>}', CXX=$CXX) - compilador quebrado ou nao aceita -dM -E"
+              exit 1
+              ;;
+          esac
+          if [ "$gnuc_major" -lt 14 ]; then
+            echo "PISO NAO ATENDIDO: __GNUC__ = '$gnuc_major', piso do projeto e' 14 (CXX=$CXX)"
             exit 1
           fi
-          cmake_versao="$(cmake --version | head -1 | awk '{print $3}')"
+          # B2 (revisao do CTO): `cmake --version` falhando (comando
+          # quebrado, sai != 0) deixava cmake_versao/cmake_major/
+          # cmake_minor VAZIOS - `[ "" -lt 4 ]` nao e' erro FATAL sob
+          # `set -e` dentro de um `if` (o `if` trata o status != 0 do
+          # `[` como condicao falsa, nao aborta o script) - o piso
+          # IMPRIMIA "OK" com CMake vazio e saia rc=0. Medido: stub de
+          # cmake que sai 127 reproduzia exatamente isso antes deste
+          # conserto. `case` valida NUMERICO (major e minor) antes de
+          # qualquer comparacao `-lt`/`-eq`.
+          cmake_versao="$(cmake --version 2>/dev/null | head -1 | awk '{print $3}')"
+          case "$cmake_versao" in
+            '')
+              echo "PISO NAO ATENDIDO: 'cmake --version' nao devolveu versao nenhuma - cmake ausente ou quebrado"
+              exit 1
+              ;;
+          esac
           cmake_major="${cmake_versao%%.*}"
           cmake_minor="${cmake_versao#*.}"
           cmake_minor="${cmake_minor%%.*}"
+          case "$cmake_major" in
+            ''|*[!0-9]*)
+              echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', major nao numerico"
+              exit 1
+              ;;
+          esac
+          case "$cmake_minor" in
+            ''|*[!0-9]*)
+              echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', minor nao numerico"
+              exit 1
+              ;;
+          esac
           if [ "$cmake_major" -lt 4 ] || { [ "$cmake_major" -eq 4 ] && [ "$cmake_minor" -lt 1 ]; }; then
             echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', piso do projeto e' 4.1 (CMakeLists.txt)"
             exit 1
@@ -407,6 +513,13 @@ jobs:
             exit 1
           fi
           echo "piso de ferramentas OK: GCC $gnuc_major, CMake $cmake_versao, python presente, $xml presente"
+
+      # A3c (D-A13): marco `id: prep` - passo SEM logica (so' `echo`),
+      # logo depois do ULTIMO passo que so' PREPARA o ambiente (o piso).
+      # G3 confere que existe exatamente um `id: prep` por job.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
 
       # PKG-NATIVE: falha o job cedo e com mensagem clara se o passo
       # "Instalar toolchain" acima nao alcancou o piso que
@@ -517,11 +630,25 @@ jobs:
       # casos (teste passando OU reprovando) para nao virar um segundo
       # "log preservado nao encontrado" se algum teste comum reprovar
       # antes do de colisao de nome rodar.
-      - name: Build e testes (${{ matrix.modo }})
+      # A3c (D-A13): dividido em "Build" (`id: build`, so' configura e
+      # compila) e "Testes" (depende de `steps.build.outcome ==
+      # 'success'`, GODS_LAWS.md L-04 item 3 - a mesma regra de
+      # independencia de passo que check_ci_step_independence.py ja
+      # exige para os passos de teste do container). O PNC-FASES-
+      # SNAPSHOT continua atomico dentro do passo "Testes" (o unico que
+      # roda ctest - "Build" nao gera LastTest.log nenhum, entao nao ha'
+      # nada pra ele anexar antes do ctest rodar).
+      - name: Build (${{ matrix.modo }})
+        id: build
         run: |
           set -eux
           cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX" -DCMAKE_C_COMPILER="$CC" ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
+
+      - name: Testes (${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -eux
           set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
           ctest_ec=$?
@@ -842,6 +969,61 @@ jobs:
             }
           }
 
+      # B3 (revisao do CTO, A3a-fix): a promessa do plano ("o Windows
+      # ganha o passo de piso equivalente") nao tinha sido entregue -
+      # so' o job `linux` tinha "Piso de ferramentas". Mesma posicao
+      # relativa (logo depois do preparo - aqui, apos o MSVC x64 estar
+      # pronto - e antes de qualquer outro passo), mesma guarda B2
+      # (versao de CMake validada como NUMERICA antes de comparar,
+      # nunca `[ "" -lt 4 ]` silencioso). `/std:c++latest`, nao
+      # `/std:c++23`: e' o flag que o MSVC aceita mesmo em versoes onde
+      # o nome "c++23" ainda nao existe como opcao propria (superset).
+      - name: Piso de ferramentas (Windows)
+        shell: pwsh
+        run: |
+          $cmakeVersionLine = (cmake --version 2>$null | Select-Object -First 1)
+          if (-not ($cmakeVersionLine -match '(\d+)\.(\d+)')) {
+            Write-Error "PISO NAO ATENDIDO: 'cmake --version' nao devolveu versao numerica reconhecida (saida: '$cmakeVersionLine')"
+            exit 1
+          }
+          $cmakeMajor = [int]$matches[1]
+          $cmakeMinor = [int]$matches[2]
+          if ($cmakeMajor -lt 4 -or ($cmakeMajor -eq 4 -and $cmakeMinor -lt 1)) {
+            Write-Error "PISO NAO ATENDIDO: cmake --version = '$cmakeVersionLine', piso do projeto e' 4.1 (CMakeLists.txt)"
+            exit 1
+          }
+
+          New-Item -ItemType Directory -Force -Path piso_probe | Out-Null
+          @'
+          #include <cstdio>
+          int main() { std::printf("ok\n"); }
+          '@ | Set-Content piso_probe/main.cpp
+          cl.exe /std:c++latest /EHsc /nologo "/Fe:piso_probe\probe.exe" piso_probe\main.cpp | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "PISO NAO ATENDIDO: MSVC (cl.exe) nao aceitou /std:c++latest (codigo $LASTEXITCODE)"
+            exit 1
+          }
+          Remove-Item -Recurse -Force piso_probe
+
+          $pythonOk = $false
+          foreach ($nome in @("python3", "python")) {
+            if (Get-Command $nome -ErrorAction SilentlyContinue) { $pythonOk = $true; break }
+          }
+          if (-not $pythonOk) {
+            Write-Error "PISO NAO ATENDIDO: nem python3 nem python no PATH (DEPZERO-TRACE, tests/CMakeLists.txt exige um dos dois)"
+            exit 1
+          }
+
+          Write-Host "piso de ferramentas OK (Windows): CMake $cmakeMajor.$cmakeMinor, MSVC aceita /std:c++latest, python presente"
+
+      # A3c (D-A13): marco `id: prep` - passo SEM logica, logo depois
+      # do MSVC x64 e do piso do Windows (B3), que sao os dois ultimos
+      # passos que so' PREPARAM o ambiente deste job.
+      - name: Preparo concluido
+        id: prep
+        shell: pwsh
+        run: Write-Host "preparo concluido"
+
       # PKG-WIN-SCOPE: passo PERMANENTE, independente de matrix.builddir
       # (roda identico nas duas entradas, como "Padrao C++23 aceito"
       # abaixo) - colhe dado sobre pkg-config/pkgconf neste executor e
@@ -942,6 +1124,7 @@ jobs:
       # (Ninja) com o ambiente do compilador preparado antes
       # (vcvarsall x64, via CI-WIN-ENV acima).
       - name: Build (${{ matrix.modo }})
+        id: build
         shell: pwsh
         run: |
           cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON
@@ -1064,7 +1247,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: parity-inv-windows-${{ matrix.modo }}
+          name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
           retention-days: 7
 
@@ -1144,7 +1327,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: measured-windows-${{ matrix.modo }}
+          name: measured-${{ matrix.slug }}-${{ matrix.modo }}
           path: measured_windows.txt
           retention-days: 7
 
@@ -1278,6 +1461,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # A3c (D-A13): marco `id: prep` - job so' de agregacao/portao,
+      # sem instalacao nem build proprio.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3):
       # um download so, `parity-inv-*` (todo artefato, qualquer
       # sistema) - antes desta fatia eram dois downloads separados
@@ -1322,12 +1511,24 @@ jobs:
       # com `|| true`, testado pelo VALOR, nunca pelo status de saida do
       # `grep`) e L-40 (zero legs ou zero linhas `Total Tests`
       # encontradas reprova o passo, nunca passa em silencio).
+      # F1 (revisao do CTO, GODS_LAWS.md L-45 do projeto: "nenhum outro
+      # desenho que gaste um processo por item, em lugar nenhum"): o
+      # laco `for leg_dir in ...` chamava `python3 ... slug-of-
+      # artifact`/`family-of` UMA VEZ POR LEG - um processo Python por
+      # artefato baixado. `ci_systems.py --tool split-artifacts` faz
+      # tudo num UNICO processo (varre, resolve slug/familia, concatena
+      # nos arquivos por sistema e nas unioes) e devolve o resultado em
+      # TSV (uma linha por leg, mais duas linhas `##legs_found`/
+      # `##sistemas_separados`) - o bash so' FORMATA a saida, nunca
+      # invoca python de novo. Elimina tambem `if [ "$slug" = "windows"
+      # ]` (a familia ja vem resolvida do lado Python).
       - name: Separar e unir inventarios por sistema
         run: |
           set -eu
           mkdir -p /tmp/persystem
-          : > /tmp/parity_linux_union.txt
-          : > /tmp/parity_windows_union.txt
+          saida=$(python3 tests/tools/ci_systems.py --tool split-artifacts \
+            inventarios/todos parity-inv- /tmp/persystem \
+            /tmp/parity_linux_union.txt /tmp/parity_windows_union.txt parity_inventory.txt)
 
           {
             echo "### Total de casos registrados por perna"
@@ -1338,34 +1539,27 @@ jobs:
 
           legs_found=0
           totals_found=0
-          for leg_dir in inventarios/todos/*/; do
-            [ -d "$leg_dir" ] || continue
-            leg=$(basename "$leg_dir")
-            resto="${leg#parity-inv-}"
-            slug=$(python3 tests/tools/ci_systems.py --tool slug-of-artifact "$resto")
-            legs_found=$((legs_found + 1))
-
-            cat "$leg_dir/parity_inventory.txt" >> "/tmp/persystem/${slug}.txt"
-            if [ "$(python3 tests/tools/ci_systems.py --tool family-of "$slug")" = "windows" ]; then
-              cat "$leg_dir/parity_inventory.txt" >> /tmp/parity_windows_union.txt
-            else
-              cat "$leg_dir/parity_inventory.txt" >> /tmp/parity_linux_union.txt
-            fi
-
-            total=$(grep -m1 '^Total Tests:' "$leg_dir/parity_inventory.txt" | sed 's/^Total Tests: //') || true
-            if [ -n "$total" ]; then
-              totals_found=$((totals_found + 1))
-            else
-              total="(sem linha 'Total Tests:')"
-            fi
-            echo "| $slug | $leg | $total |" >> "$GITHUB_STEP_SUMMARY"
-          done
+          sistemas_separados=0
+          while IFS=$'\t' read -r a b c; do
+            case "$a" in
+              "##legs_found") legs_found="$b" ;;
+              "##sistemas_separados") sistemas_separados="$b" ;;
+              *)
+                if [ -n "$c" ]; then
+                  totals_found=$((totals_found + 1))
+                else
+                  c="(sem linha 'Total Tests:')"
+                fi
+                echo "| $a | $b | $c |" >> "$GITHUB_STEP_SUMMARY"
+                ;;
+            esac
+          done <<< "$saida"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "legs encontrados: $legs_found, com 'Total Tests:' extraido: $totals_found" >> "$GITHUB_STEP_SUMMARY"
 
           echo "Linux (uniao legado): $(wc -l < /tmp/parity_linux_union.txt) linha(s) brutas"
           echo "Windows (uniao legado): $(wc -l < /tmp/parity_windows_union.txt) linha(s) brutas"
-          echo "sistemas separados em /tmp/persystem: $(ls /tmp/persystem | wc -l)"
+          echo "sistemas separados em /tmp/persystem: $sistemas_separados"
 
           [ "$legs_found" -gt 0 ] || { echo "Separar e unir inventarios por sistema: varredura vazia - nenhum leg encontrado (GODS_LAWS.md L-40)" >&2; exit 1; }
           [ "$totals_found" -gt 0 ] || { echo "Separar e unir inventarios por sistema: varredura vazia - nenhuma linha 'Total Tests:' encontrada em $legs_found leg(s) (GODS_LAWS.md L-40)" >&2; exit 1; }
@@ -1422,28 +1616,28 @@ jobs:
           pattern: measured-*
           path: medidas/todos
 
+      # F1 (revisao do CTO): mesmo conserto do passo "Separar e unir
+      # inventarios por sistema" acima - UMA chamada a `ci_systems.py
+      # --tool split-artifacts`, nunca uma por leg nem uma por arquivo
+      # dentro do leg (o laco interno `for arquivo in "$leg_dir"*.txt`
+      # chamava family-of a cada iteracao - GODS_LAWS.md L-45 do
+      # projeto).
       - name: Separar MEASURED por sistema
         run: |
           set -eu
           mkdir -p /tmp/measured_persystem
-          : > /tmp/measured_linux_legado.txt
-          : > /tmp/measured_windows_legado.txt
-          for leg_dir in medidas/todos/*/; do
-            [ -d "$leg_dir" ] || continue
-            leg=$(basename "$leg_dir")
-            resto="${leg#measured-}"
-            slug=$(python3 tests/tools/ci_systems.py --tool slug-of-artifact "$resto")
-            for arquivo in "$leg_dir"*.txt; do
-              [ -f "$arquivo" ] || continue
-              cat "$arquivo" >> "/tmp/measured_persystem/${slug}.txt"
-              if [ "$(python3 tests/tools/ci_systems.py --tool family-of "$slug")" = "windows" ]; then
-                cat "$arquivo" >> /tmp/measured_windows_legado.txt
-              else
-                cat "$arquivo" >> /tmp/measured_linux_legado.txt
-              fi
-            done
-          done
-          echo "sistemas MEASURED separados: $(ls /tmp/measured_persystem | wc -l)"
+          saida=$(python3 tests/tools/ci_systems.py --tool split-artifacts \
+            medidas/todos measured- /tmp/measured_persystem \
+            /tmp/measured_linux_legado.txt /tmp/measured_windows_legado.txt '*.txt')
+
+          sistemas_separados=0
+          while IFS=$'\t' read -r a b c; do
+            case "$a" in
+              "##sistemas_separados") sistemas_separados="$b" ;;
+              *) ;;
+            esac
+          done <<< "$saida"
+          echo "sistemas MEASURED separados: $sistemas_separados"
 
       # check_measured_parity.py's proprio header comment explica as
       # tres secoes e por que este passo NUNCA reprova por divergencia
@@ -1567,6 +1761,12 @@ jobs:
 
       - uses: docker/setup-buildx-action@v4
 
+      # A3c (D-A13): marco `id: prep`, logo depois do setup-buildx (o
+      # ultimo passo que so' PREPARA o ambiente de build de imagem).
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # ARCH-PORTS, TDD case R4: stages the REAL wayland_display_
       # adapter/err.cpp/err_code.cpp sources into tests/container/
       # _arch_ports_src/ (gitignored, regenerated every run) so the
@@ -1585,7 +1785,12 @@ jobs:
       # sem registry externo. `load: true` poe a imagem no daemon
       # docker local do runner, porque os passos seguintes falam com
       # ela via `docker run`/`docker exec`, nao via `docker push`.
-      - uses: docker/build-push-action@v7
+      # A3c (D-A13): `id: build` - primeiro passo que de fato CONSTROI
+      # (a imagem Docker). O compositor (mais abaixo) ganha `id:
+      # compositor`, e as fixturas passam a depender dos DOIS.
+      - name: Build da imagem
+        id: build
+        uses: docker/build-push-action@v7
         with:
           context: tests/container
           file: tests/container/Containerfile
@@ -1696,8 +1901,12 @@ jobs:
       # publica DEPOIS de wait_for_relay_ready() ja ter passado - a
       # MESMA fonte de verdade que o proprio entrypoint usa, nunca uma
       # sonda independente.
+      # A3c (D-A13): `id: compositor` (era `id: build` ate esta fatia) -
+      # a imagem Docker ganhou o proprio `id: build` acima (docker/
+      # build-push-action). Fixturas abaixo dependem dos DOIS
+      # (steps.build.outcome E steps.compositor.outcome).
       - name: Sobe o compositor limpo (nenhuma montagem do host)
-        id: build
+        id: compositor
         run: |
           set -eux
           docker run -d --name glintfx-wltest-clean-${{ matrix.perna }} --cap-drop=ALL --cap-add=SYS_NICE glintfx-wltest:ci-${{ matrix.perna }}
@@ -1708,7 +1917,7 @@ jobs:
       # GODS_LAWS.md L-09 regra 5: provar o isolamento ANTES de
       # interagir. Este passo roda antes do smoke test de proposito.
       - name: Isolamento provado (controle positivo)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: tests/container/check_isolation.sh glintfx-wltest-clean-${{ matrix.perna }} glintfx-test
 
       # Controle negativo 5 (CONTAINER-LOG-SIGNAL-FIRST, TODO.md,
@@ -1725,7 +1934,7 @@ jobs:
       # passo reprova E FICA reprovado - nunca se ajusta o `grep` para
       # o que apareceu (GODS_LAWS.md L-43).
       - name: Controle negativo 5 - sinal nomeado antes do ruido
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu
           if tests/container/exec_fixture.sh glintfx-wltest-clean-${{ matrix.perna }} sh -c 'echo ruido-do-driver; kill -SEGV $$' > cn5.out 2>&1; then
@@ -1808,7 +2017,7 @@ jobs:
       # `docker exec` falhar ou nem chegar a rodar - um caso que falha
       # nunca aparece aqui como se tivesse passado).
       - name: Inicia o inventario de fixtures do container (P-0)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           rm -f parity_inventory.txt results.tsv
           touch parity_inventory.txt results.tsv
@@ -1827,7 +2036,7 @@ jobs:
       # esta vivo (PID + socket + lsof); este passo so registra o nome
       # no lugar certo da ordem.
       - name: Registra wire_relay no inventario (rele ja provado vivo por check_isolation.sh)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           echo "wire_relay" >> parity_inventory.txt
           printf 'wire_relay\t0\n' >> results.tsv
@@ -1843,7 +2052,7 @@ jobs:
       # olharia o codigo de saida do `tee`, que quase sempre sucede,
       # escondendo uma reprovacao real do `docker exec` atras dele.
       - name: Inicia a colheita MEASURED do container (MEASURED-COLLECTOR)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: rm -f container_measured_raw.log && touch container_measured_raw.log
 
       # ARCH-PORTS, TDD case R4 (GODS_LAWS.md L-09/L-20 - integracao
@@ -1854,7 +2063,7 @@ jobs:
       # vale para AQUELE processo, nao e herdado por um exec novo,
       # mesmo padrao que smoke.sh (acima) ja segue para wayland-info.
       - name: ARCH-PORTS - conecta e desconecta via o adaptador real (R4)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "arch_ports_connect_smoke" >> parity_inventory.txt
@@ -1873,7 +2082,7 @@ jobs:
       # reprova este passo do job, o mesmo mecanismo de bloqueio de
       # todo outro passo desta matriz.
       - name: WL-DISPLAY fatia B - registry real dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "registry_smoke" >> parity_inventory.txt
@@ -1891,7 +2100,7 @@ jobs:
       # own P-0 inventory). Roda logo apos o passo de registro acima,
       # antes de qualquer coisa que precise do compositor vivo abaixo.
       - name: WIN-WINDOW fatia 7 - dois displays no mesmo processo dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "two_displays_test" >> parity_inventory.txt
@@ -1905,7 +2114,7 @@ jobs:
       # precisa do compositor deste container ainda vivo, e a fatia C e
       # exatamente o passo que o mata.
       - name: WL-DISPLAY fatia D - pump nao-bloqueante dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "pump_smoke" >> parity_inventory.txt
@@ -1923,7 +2132,7 @@ jobs:
       # com evento provocado pelo proprio teste que acorda antes do
       # orcamento (wl_display_sync).
       - name: LOOP-RUN fatia 7 - wait_events com orcamento dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "wait_events_smoke" >> parity_inventory.txt
@@ -1938,7 +2147,7 @@ jobs:
       # fatia C abaixo pelo mesmo motivo do pump: precisa do compositor
       # deste container ainda vivo, e a fatia C e o passo que o mata.
       - name: WL-WINDOW fatia W-B - shell (wl_compositor/xdg_wm_base) dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "shell_smoke" >> parity_inventory.txt
@@ -1958,7 +2167,7 @@ jobs:
       # (xdg_surface.error.unconfigured_buffer) em vez de passar em
       # silencio - ver o header comment do proprio window_smoke.cpp.
       - name: WL-WINDOW fatia W-E - janela com buffer real dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "window_smoke" >> parity_inventory.txt
@@ -1977,7 +2186,7 @@ jobs:
       # alem de "rodou" (docs/plano-w6b-placa-e-laco.md sec. 5) - o
       # `docker exec` falhando e' o unico jeito deste passo reprovar.
       - name: GL-CONTEXT fatia 1 - sonda EGL/GL 3.3 core dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "egl_probe_smoke" >> parity_inventory.txt
@@ -1995,7 +2204,7 @@ jobs:
       # (WIN32)) registers as a normal ctest from the identical source
       # file (tests/parity/window_parity_test.cpp).
       - name: WL-WINDOW-HANDLE - paridade da API publica de janela dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "window_parity_test" >> parity_inventory.txt
@@ -2012,7 +2221,7 @@ jobs:
       # comment), nunca a API publica. Roda ANTES da fatia C abaixo pelo
       # mesmo motivo dos passos acima: precisa do compositor vivo.
       - name: GL-CONTEXT fatia 5 - erro de protocolo nomeado pelo adaptador EGL
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "egl_protocol_error_smoke" >> parity_inventory.txt
@@ -2033,7 +2242,7 @@ jobs:
       # hoje e o verde depois de S2 landar, nao a variante com mutacao
       # (essa mora numa copia fora da arvore, GODS_LAWS.md L-27).
       - name: EGL-DEAD-DISPLAY-GUARD S0 - erro lido dentro do proprio swap (vsync=off)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "egl_error_read_inside_swap_smoke" >> parity_inventory.txt
@@ -2056,7 +2265,7 @@ jobs:
       # CTO com arquivo:linha) - este passo fica VERMELHO ate esse
       # conserto (fora do escopo desta fatia, em outras fachadas) landar.
       - name: GL-CONTEXT fatia 5 - paridade do contexto GL dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "gl_context_parity_test" >> parity_inventory.txt
@@ -2087,7 +2296,7 @@ jobs:
       # o compositor de proposito - regra que hoje e portao de verdade
       # (tests/tools/check_container_kill_order.py), nao mais comentario.
       - name: LOOP-RUN fatia 8 (S4) - paridade do laco principal dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "loop_parity_test" >> parity_inventory.txt
@@ -2112,7 +2321,7 @@ jobs:
       # dez tiques depois de restaurar. Toda chave medida sai impressa
       # mesmo quando vale zero - silencio nao e dado.
       - name: LOOP-RUN fatia 8 (S4) - janela escondida nao desenha nem gira o processador
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "loop_hidden_test" >> parity_inventory.txt
@@ -2130,7 +2339,7 @@ jobs:
       # acima - sujeito ao MESMO bloqueio conhecido declarado no passo
       # anterior (window_facade.cpp) ate esse conserto landar.
       - name: GL-GPU-KIND - sonda de leitor EGL, valores crus (paridade com dxcore_reader_probe_test)
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "egl_device_reader_probe" >> parity_inventory.txt
@@ -2149,7 +2358,7 @@ jobs:
       # Roda ANTES da fatia C abaixo pelo mesmo motivo do shell/window:
       # precisa do compositor deste container ainda vivo.
       - name: WL-SEAT fatia S-B - seat (wl_seat) dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "seat_test" >> parity_inventory.txt
@@ -2169,7 +2378,7 @@ jobs:
       # test acima, antes de qualquer coisa que precise do compositor
       # vivo abaixo.
       - name: WIN-SEAT SF-1 - dois assentos no mesmo processo dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "two_seats_test" >> parity_inventory.txt
@@ -2190,7 +2399,7 @@ jobs:
       # abaixo pelo mesmo motivo dos passos acima: precisa do
       # compositor deste container ainda vivo.
       - name: FACADE-PIN T0/G3 - pino do adaptador provado contra o compositor real
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "facade_pin_smoke" >> parity_inventory.txt
@@ -2210,7 +2419,7 @@ jobs:
       # comportamento correto, nao so o mecanismo interno que T0 mede.
       # Roda ANTES da fatia C abaixo pelo mesmo motivo dos passos acima.
       - name: FACADE-PIN T1/G3 - janela ativa apos mapear dentro do orcamento
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "window_active_after_map_smoke" >> parity_inventory.txt
@@ -2229,7 +2438,7 @@ jobs:
       # chamada REAL, contra o compositor REAL deste container - ver
       # gpu_kind_report_smoke.cpp's own header comment.
       - name: CORE-LOG CL-7 - gpu_kind_resolved emitido pelo adaptador EGL real
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "gpu_kind_report_smoke" >> parity_inventory.txt
@@ -2249,7 +2458,7 @@ jobs:
       # contra o compositor REAL deste container - ver surface_size_
       # policy_adapter_test.cpp's own header comment.
       - name: SURFACE-SIZE-POLICY-ADAPTER-GAP - resize real (fullscreen) chega ao wl_egl_window_resize()
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "surface_size_policy_adapter_test" >> parity_inventory.txt
@@ -2282,7 +2491,7 @@ jobs:
       # em relacao a fatal_error_smoke e' carga (load-bearing), nao
       # estetica - nao mover para depois dele de novo.
       - name: CONTAINER-LEAK-COUNTER S4 - crescimento por ciclo dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "alloc_cycle_growth_smoke" >> parity_inventory.txt
@@ -2311,7 +2520,7 @@ jobs:
       # run_compositor.sh's own header comment) - entao a limpeza no
       # fim do job continua alcancando este container normalmente.
       - name: WL-DISPLAY fatia C - erro fatal dentro do container
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.compositor.outcome == 'success' }}
         run: |
           set -eu -o pipefail
           echo "fatal_error_smoke" >> parity_inventory.txt
@@ -2324,13 +2533,16 @@ jobs:
       # substitui o piso antigo (so' contava linhas) pelo RESULTADO
       # AGREGADO - ultimo passo do job, if: !cancelled() (roda mesmo
       # com fixture(s) vermelha(s) acima, nunca pulado). Cabecalho de
-      # completude ANTES de qualquer contagem: se o pre-requisito
-      # 'build' (id do passo "Sobe o compositor limpo") nao teve
+      # completude ANTES de qualquer contagem: se um dos DOIS pre-
+      # requisitos - 'build' (id do passo "Build da imagem") OU
+      # 'compositor' (id do passo "Sobe o compositor limpo") - nao teve
       # sucesso, NENHUMA fixture chegou a registrar nome (todas tem
-      # `if: steps.build.outcome == 'success'`), e o inventario e'
-      # INCOMPLETO por desenho - a linha STATUS diz isso explicitamente,
-      # com o nome do pre-requisito, nunca como "N testes faltando"
-      # (check_test_parity.py trata as duas causas de forma diferente).
+      # `if: steps.build.outcome == 'success' && steps.compositor.
+      # outcome == 'success'`, A3c/D-A13), e o inventario e' INCOMPLETO
+      # por desenho - a linha STATUS diz isso explicitamente, com o
+      # nome do pre-requisito que falhou, nunca como "N testes
+      # faltando" (check_test_parity.py trata as duas causas de forma
+      # diferente).
       # Com o pre-requisito satisfeito, "declarados" (linhas do
       # inventario, escritas ANTES de cada fixture rodar) tem de bater
       # com "executados" (linhas de results.tsv, escritas DEPOIS,
@@ -2361,7 +2573,13 @@ jobs:
           if [ "${{ steps.build.outcome }}" != "success" ]; then
             echo "STATUS: incompleto (pre-requisito=build)" >> parity_status.txt
             echo "declarados: $declarados, executados: 0, passaram: 0, falharam: 0"
-            echo "ERRO: pre-requisito 'build' (Sobe o compositor limpo) nao teve sucesso (outcome=${{ steps.build.outcome }}) - inventario incompleto por desenho, nunca 'N testes faltando' (GODS_LAWS.md L-40)" >&2
+            echo "ERRO: pre-requisito 'build' (Build da imagem) nao teve sucesso (outcome=${{ steps.build.outcome }}) - inventario incompleto por desenho, nunca 'N testes faltando' (GODS_LAWS.md L-40)" >&2
+            exit 1
+          fi
+          if [ "${{ steps.compositor.outcome }}" != "success" ]; then
+            echo "STATUS: incompleto (pre-requisito=compositor)" >> parity_status.txt
+            echo "declarados: $declarados, executados: 0, passaram: 0, falharam: 0"
+            echo "ERRO: pre-requisito 'compositor' (Sobe o compositor limpo) nao teve sucesso (outcome=${{ steps.compositor.outcome }}) - inventario incompleto por desenho, nunca 'N testes faltando' (GODS_LAWS.md L-40)" >&2
             exit 1
           fi
           echo "STATUS: completo" >> parity_status.txt
@@ -2698,10 +2916,19 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --selftest
 
+      # A3c (D-A13): marco `id: prep` - "preci.sh --selftest" acima
+      # ainda e' preparo (roda so' contra tests/preci_fixtures/, nunca
+      # contra o codigo do produto); "preci.sh --lint-only" abaixo e' o
+      # primeiro passo que de fato analisa o produto, e ganha `id: build`.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # GODS_LAWS.md L-23 portao 3 (analise estatica). Mesma logica de
       # estagio que tools/preci.sh roda localmente (TESTES.md T15.2) -
       # format, configure -Werror, build, clang-tidy, cppcheck, NOLINT.
       - name: preci.sh --lint-only
+        id: build
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -2798,6 +3025,12 @@ jobs:
           set -eux
           img="$(grep -oP "readonly GLINTFX_PS_IMAGE='\K[^']+" tools/preci.sh)"
           docker pull "$img"
+
+      # A3c (D-A13): marco `id: prep`, logo depois de popular o cache
+      # da imagem pwsh (o ultimo passo que so' PREPARA).
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
 
       - name: preci.sh --ps-syntax-only
         run: |
@@ -2908,6 +3141,14 @@ jobs:
             }
           }
 
+      # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
+      # job nao ganhou o piso B3 - decisao registrada no relatorio da
+      # fatia, a confirmar).
+      - name: Preparo concluido
+        id: prep
+        shell: pwsh
+        run: Write-Host "preparo concluido"
+
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
       # dentro - nunca precisa rodar "cmake --build", clang-tidy analisa
@@ -2988,6 +3229,7 @@ jobs:
       # clang-tidy da Microsoft nesta maquina) - o resultado dessa
       # execucao entra no commit que promove este alargamento.
       - name: clang-tidy - src/
+        id: build
         shell: pwsh
         run: |
           $arquivos = @(git ls-files -- 'src/*.cpp')
@@ -3208,6 +3450,14 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # A3c (D-A13): marco `id: prep` - este job nao tem um passo
+      # "--selftest" separado (ao contrario de `lint`); o unico passo
+      # seguinte ja e' o build/analise de verdade (com safe.directory
+      # embutido), entao o marco vem logo depois do checkout.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # GODS_LAWS.md L-23 portao 2 ("ASan e UBSan a cada fatia fechada").
       # `ctest -L unit` apenas (dentro de tools/preci.sh): os gates de
       # consumo (LABELS consume, tests/CMakeLists.txt) linkam um
@@ -3215,6 +3465,7 @@ jobs:
       # falha por construcao sob ASan - downgrade declarado, nao um
       # portao mais fraco escondido atras de um nome generico.
       - name: preci.sh --sanitizer-only
+        id: build
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -3265,7 +3516,15 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # A3c (D-A13): marco `id: prep`, logo depois de instalar e do
+      # checkout; `id: build` no unico passo seguinte, primeiro (e
+      # unico) que compila/analisa de verdade.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       - name: check_gl_codegen_host_cross.sh (Ninja)
+        id: build
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -3357,12 +3616,21 @@ jobs:
             }
           }
 
+      # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
+      # job nao ganhou o piso B3 - decisao registrada no relatorio da
+      # fatia, a confirmar).
+      - name: Preparo concluido
+        id: prep
+        shell: pwsh
+        run: Write-Host "preparo concluido"
+
       # -DGLINTFX_SANITIZE=address: o par Windows de
       # -DGLINTFX_SANITIZE=address,undefined do job `sanitizer` (Fedora)
       # acima - so o compartilhado (BUILD_SHARED_LIBS default ON), mesmo
       # escopo que o job irmao cobre (nenhum dos dois testa o modo
       # estatico sob sanitizer).
       - name: Configurar e compilar (Release, ASan)
+        id: build
         shell: pwsh
         run: |
           cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_SANITIZE=address
@@ -3442,6 +3710,14 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      # A3c (D-A13): marco `id: prep` - este job nao tem um passo
+      # "--selftest" separado; o unico passo seguinte ja e' o build de
+      # verdade (com safe.directory embutido), entao o marco vem logo
+      # depois do checkout.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # GODS_LAWS.md L-40 / TODO.md GATE-DEBUG / DECISOES_AUTONOMAS.md
       # D4: -DCMAKE_BUILD_TYPE=Release (todo OUTRO job desta matriz)
       # define NDEBUG, o que apaga todo assert() de produto - nenhum
@@ -3458,6 +3734,7 @@ jobs:
       # os gates de consumo (LABELS consume) rodam aqui como em
       # qualquer outro build nao-sanitizado.
       - name: preci.sh --debug-only
+        id: build
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -3556,6 +3833,14 @@ jobs:
             }
           }
 
+      # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
+      # job nao ganhou o piso B3 - decisao registrada no relatorio da
+      # fatia, a confirmar).
+      - name: Preparo concluido
+        id: prep
+        shell: pwsh
+        run: Write-Host "preparo concluido"
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40), mesma regra de
       # count_real_asserts_in_file/count_product_asserts de tools/
       # preci.sh (ver o cabecalho deste job): '(^|[^\w])assert\(' casa
@@ -3602,6 +3887,7 @@ jobs:
       # build Debug simples nao tem a restricao de interposicao de
       # runtime que obriga o downgrade do ASan.
       - name: Configurar e compilar (Debug)
+        id: build
         shell: pwsh
         run: |
           cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DGLINTFX_LAYERS_ORACLE=ON
@@ -3724,10 +4010,17 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      # A3c (D-A13): marco `id: prep`, logo depois de instalar e do
+      # checkout.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       - name: Versao do Clang
         run: clang++ --version
 
       - name: Build (${{ matrix.modo }})
+        id: build
         run: |
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -3857,6 +4150,11 @@ jobs:
       - name: Instalar gitleaks
         run: sudo apt-get update && sudo apt-get install -y gitleaks
 
+      # A3c (D-A13): marco `id: prep`, logo depois de instalar.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # GODS_LAWS.md L-23 portao 4. .gitleaksignore na raiz supre os dois
       # falsos positivos conhecidos (a chave de exemplo de CONTRACT.md
       # 7.1, documentacao do que NAO fazer) por fingerprint de commit -
@@ -3871,6 +4169,13 @@ jobs:
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
+
+      # A3c (D-A13): marco `id: prep` - job so' de portao/leitura, sem
+      # instalacao nem build proprio (a suite de verdade roda nos jobs
+      # `linux`/`windows`).
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
 
       # GODS_LAWS.md L-05 (Wayland puro) e L-06 (parser de keymap
       # proprio) NAO estao mais aqui. Item GATE-TREE-PARITY (GODS_LAWS.md
@@ -3966,6 +4271,11 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # A3c (D-A13): marco `id: prep` - job so' de portao/leitura.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
 
       - name: check_version_matches_tag.py
         run: python3 tests/tools/check_version_matches_tag.py .

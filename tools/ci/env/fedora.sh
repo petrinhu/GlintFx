@@ -5,7 +5,12 @@
 # per-os.md secao 4.4): preparo do alvo Fedora (primario, GODS_LAWS.md
 # L-04). TRES responsabilidades e nada mais (secao 4.4): instalar,
 # exportar CC/CXX para o passo seguinte ($GITHUB_ENV) e imprimir as
-# versoes. COMPORTAMENTO IDENTICO ao campo `instalar` que vivia na
+# versoes. A3c (D-A13): exporta tambem GLINTFX_PREP_SHA (sha256 do
+# PROPRIO script) - o passo "Checkout e' repositorio git" do ci.yml
+# confere esse valor contra o script real apos o checkout definitivo,
+# provando que o script que rodou (via checkout de bootstrap, sem git,
+# GLINTFX-BOOTSTRAP-NOGIT) e' byte-a-byte o mesmo que o repo real tem.
+# COMPORTAMENTO IDENTICO ao campo `instalar` que vivia na
 # matriz do job `linux` antes desta fatia (ci.yml, entradas "Fedora
 # (primario) - compartilhado/estatico") - mesmos pacotes, mesma ordem,
 # so' o LOCAL mudou.
@@ -37,6 +42,7 @@ dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git \
 {
     echo "CC=${CC_BIN}"
     echo "CXX=${CXX_BIN}"
+    echo "GLINTFX_PREP_SHA=$(sha256sum "$0" | awk '{print $1}')"
 } >> "$GITHUB_ENV"
 
 "$CC_BIN" --version

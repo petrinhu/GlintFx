@@ -4,10 +4,14 @@
 # tools/ci/env/ubuntu.sh - CI-SPLIT-PER-OS A3b (docs/plano-ci-split-
 # per-os.md secao 4.4): preparo do alvo Ubuntu. TRES responsabilidades
 # e nada mais (secao 4.4): instalar, exportar CC/CXX ($GITHUB_ENV) e
-# imprimir as versoes. COMPORTAMENTO IDENTICO ao campo `instalar` que
-# vivia na matriz do job `linux` antes desta fatia (ci.yml, entradas
-# "Ubuntu - compartilhado/estatico") - mesmos pacotes, mesma ordem, so'
-# o LOCAL mudou.
+# imprimir as versoes. A3c (D-A13): exporta tambem GLINTFX_PREP_SHA
+# (sha256 do PROPRIO script) - o passo "Checkout e' repositorio git" do
+# ci.yml confere esse valor contra o script real apos o checkout
+# definitivo, provando que o script que rodou (via checkout de
+# bootstrap, sem git) e' byte-a-byte o mesmo que o repo real tem.
+# COMPORTAMENTO IDENTICO ao campo `instalar` que vivia na matriz do job
+# `linux` antes desta fatia (ci.yml, entradas "Ubuntu - compartilhado/
+# estatico") - mesmos pacotes, mesma ordem, so' o LOCAL mudou.
 #
 # gcc-14/g++-14 explicitos (PKG-NATIVE, 27/08/2026): o g++ padrao do
 # 24.04 e' o 13.3 (C++23 parcial); o piso de toolchain do projeto e'
@@ -35,6 +39,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
 {
     echo "CC=${CC_BIN}"
     echo "CXX=${CXX_BIN}"
+    echo "GLINTFX_PREP_SHA=$(sha256sum "$0" | awk '{print $1}')"
 } >> "$GITHUB_ENV"
 
 "$CC_BIN" --version

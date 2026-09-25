@@ -579,11 +579,14 @@ def _parse_per_system_args(args):
     parser.add_argument("systems", nargs="*")
     parser.add_argument("--exceptions", default=None, help="tests/parity_exceptions.txt")
     parser.add_argument("--aliases", default=None, help="tests/parity_aliases.txt")
+    parser.add_argument("--measured-exceptions", default=None, help="tests/measured_exceptions.txt")
+    parser.add_argument("--todo", default=None, help="TODO.md - exigido junto de --measured-exceptions")
     parsed = parser.parse_args(args)
     if not parsed.systems:
         fail(
             "usage: check_measured_parity.py --per-system <slug>=<arquivo> "
-            "[<slug>=<arquivo> ...] [--exceptions <f>] [--aliases <f>]"
+            "[<slug>=<arquivo> ...] [--exceptions <f>] [--aliases <f>] "
+            "[--measured-exceptions <f>] [--todo <f>]"
         )
     system_paths = defaultdict(list)
     for entry in parsed.systems:
@@ -596,7 +599,7 @@ def _parse_per_system_args(args):
                 f"{PER_SYSTEM_SLUGS_ESPERADOS})"
             )
         system_paths[slug].append(path)
-    return dict(system_paths), parsed.exceptions, parsed.aliases
+    return dict(system_paths), parsed
 
 
 def _load_per_system_owners(exceptions_path, aliases_path):
@@ -673,26 +676,246 @@ def _print_per_system_report(system_values, classificacao):
             print(f"  [{secao.upper()}] {chave} ({motivo})")
 
 
+# --- CI-SPLIT-PER-OS A1b (D-A10): valor MEASURED entre N sistemas, --------
+# por UNANIMIDADE, sem arbitro nem maioria --------------------------------
+#
+# D-A10 (docs/plano-ci-split-per-os.md secao 4.3, decisao do CTO,
+# 24/09/2026): uma chave e' "igual" so' se TODOS os sistemas que a medem
+# dao o MESMO valor; qualquer diferenca e' divergencia; nao ha sistema
+# de referencia (nem Fedora, nem maioria) - a razao completa (por que
+# maioria e por que Fedora foram recusados) mora no proprio plano, nao
+# se repete aqui.
+#
+# LADO ganha vocabulario fechado (troca "ambos"): "todos" (o valor pode
+# diferir entre QUAISQUER sistemas E dentro de um sistema - metrica do
+# executor); "familias" (os sistemas Linux tem de concordar ENTRE SI; so'
+# Linux x Windows pode diferir; NAO cobre instabilidade dentro de um
+# sistema - so' "todos" cobre isso); "linux"/"windows"/slug/lista de
+# slugs (auséncia esperada, forma que ja' existia para o caso unilateral -
+# nao e' consumida por classify_unilateral(), que so' olha presenca no
+# dict, entao nao muda). "ambos" reprova como formato invalido.
+LADO_DIVERGENCE_KEYWORDS = ("todos", "familias")
+LINUX_FAMILY_SLUGS = frozenset(slug for slug in PER_SYSTEM_SLUGS_ESPERADOS if slug != "windows")
+
+
+def is_valid_lado_format(lado):
+    """Fechado: "todos", "familias", ou uma lista separada por virgula
+    de slugs/"linux"/"windows" - nunca "ambos" (M4: a migracao inteira
+    deste item existe para isso reprovar)."""
+    if lado in LADO_DIVERGENCE_KEYWORDS:
+        return True
+    tokens = [t.strip() for t in lado.split(",")]
+    valid_refs = set(PER_SYSTEM_SLUGS_ESPERADOS) | {"linux", "windows"}
+    return bool(tokens) and all(t and t in valid_refs for t in tokens)
+
+
+def _format_lado_errors(key_exceptions):
+    return [
+        f"{key}: lado {lado!r} fora do vocabulario fechado (tests/measured_exceptions.txt) - "
+        f"validos: {LADO_DIVERGENCE_KEYWORDS} ou lista separada por virgula de "
+        f"{sorted(set(PER_SYSTEM_SLUGS_ESPERADOS) | {'linux', 'windows'})} - 'ambos' nao existe mais (D-A10)"
+        for key, (lado, _item, _perm) in key_exceptions.items()
+        if not is_valid_lado_format(lado)
+    ]
+
+
+def compute_value_partition(key, system_values):
+    """Retorna (particao, instaveis) - particao = {valor: [slugs]} SO'
+    com sistemas cujo conjunto de valores para `key` tem EXATAMENTE 1
+    elemento (M2: nunca escolhe um sistema de referencia, cada sistema
+    entra por conta propria); instaveis = slugs cujo conjunto tem 2+
+    valores DISTINTOS - a mesma chave, pernas diferentes do MESMO
+    sistema, discordando entre si (M5: nunca colapsada escolhendo uma)."""
+    particao = defaultdict(list)
+    instaveis = []
+    for slug, valores_por_chave in system_values.items():
+        valores = valores_por_chave.get(key, set())
+        if len(valores) >= 2:
+            instaveis.append(slug)
+        elif len(valores) == 1:
+            particao[next(iter(valores))].append(slug)
+    return dict(particao), sorted(instaveis)
+
+
+def is_value_divergence_declared(lado, particao):
+    """M1 (voto de maioria proibido): nao ha contagem de votos aqui -
+    so' checa SE ha mais de um grupo, nunca QUANTOS slugs cada grupo
+    tem. M3 (familias != todos): com "familias", dois grupos que
+    incluem slug linux CADA UM (ubuntu num grupo, fedora noutro, por
+    exemplo) sao NAO declarados - so' Linux x Windows pode divergir."""
+    if lado == "todos":
+        return True
+    if lado == "familias":
+        linux_groups = [valor for valor, slugs in particao.items() if any(s in LINUX_FAMILY_SLUGS for s in slugs)]
+        return len(linux_groups) <= 1
+    return False
+
+
+def is_instability_declared(lado):
+    """So' "familias" bullet 2 do plano: "todos" cobre divergencia
+    "dentro de um sistema" explicitamente; "familias" nao menciona
+    instabilidade nenhuma - fica sempre nao declarada."""
+    return lado == "todos"
+
+
+def classify_key_value(key, system_values, key_exceptions):
+    """Retorna um dict com a classificacao completa desta chave -
+    'categoria' e' iguais/divergentes/instaveis_apenas (chave so' com
+    sistema(s) instavel(is), sem par estavel pra comparar), 'particao'
+    e 'instaveis' vem de compute_value_partition(), 'lado'/'declarada'
+    dizem se a divergencia (quando existir) esta coberta."""
+    particao, instaveis = compute_value_partition(key, system_values)
+    lado = key_exceptions.get(key, (None, None, None))[0]
+    if len(particao) <= 1:
+        categoria = "iguais" if particao else "instaveis_apenas"
+    else:
+        categoria = "divergentes"
+    return {
+        "categoria": categoria,
+        "particao": particao,
+        "instaveis": instaveis,
+        "lado": lado,
+        "divergencia_declarada": is_value_divergence_declared(lado, particao) if categoria == "divergentes" else None,
+        "instabilidade_declarada": is_instability_declared(lado) if instaveis else None,
+    }
+
+
+def compute_per_system_value_comparison(uniao_chaves, system_values, key_exceptions):
+    """Chaves presentes em MENOS de 2 sistemas nao entram aqui - nao ha
+    o que comparar (ja cobertas inteiramente por herdada/obrigatoria)."""
+    resultado = {}
+    for chave in sorted(uniao_chaves):
+        presencas = sum(1 for valores in system_values.values() if chave in valores)
+        if presencas < 2:
+            continue
+        resultado[chave] = classify_key_value(chave, system_values, key_exceptions)
+    return resultado
+
+
+def _group_value_comparison(comparacao):
+    """Retorna os cinco grupos que a secao imprime - separados aqui de
+    _print_per_system_value_report() (que so' imprime) pela mesma regra
+    de GODS_LAWS.md L-17 que ja divide o resto deste arquivo."""
+    iguais = {k: c for k, c in comparacao.items() if c["categoria"] == "iguais"}
+    divergentes = {k: c for k, c in comparacao.items() if c["categoria"] == "divergentes"}
+    div_decl = {k: c for k, c in divergentes.items() if c["divergencia_declarada"]}
+    div_nao = {k: c for k, c in divergentes.items() if not c["divergencia_declarada"]}
+    inst_decl, inst_nao = [], []
+    for chave, c in comparacao.items():
+        alvo_par = inst_decl if c["instabilidade_declarada"] else inst_nao
+        for slug in c["instaveis"]:
+            alvo_par.append((chave, slug))
+    return {
+        "iguais": iguais,
+        "divergentes_declaradas": div_decl,
+        "divergentes_nao_declaradas": div_nao,
+        "instaveis_declaradas": inst_decl,
+        "instaveis_nao_declaradas": inst_nao,
+    }
+
+
+def _format_particao(particao):
+    return " | ".join(f"{valor}: {','.join(sorted(slugs))}" for valor, slugs in sorted(particao.items()))
+
+
+def _print_per_system_value_report(grupos):
+    print("## MEASURED --per-system - valor por unanimidade (D-A10)")
+    print(f"### iguais ({len(grupos['iguais'])})")
+    print(f"### divergentes declaradas ({len(grupos['divergentes_declaradas'])})")
+    for chave, c in sorted(grupos["divergentes_declaradas"].items()):
+        print(f"  {chave}: {_format_particao(c['particao'])} (lado={c['lado']})")
+    print(f"### divergentes NAO declaradas ({len(grupos['divergentes_nao_declaradas'])})")
+    for chave, c in sorted(grupos["divergentes_nao_declaradas"].items()):
+        print(f"  {chave}: {_format_particao(c['particao'])}")
+    print(f"### instaveis declaradas ({len(grupos['instaveis_declaradas'])})")
+    for chave, slug in sorted(grupos["instaveis_declaradas"]):
+        print(f"  instavel no sistema {slug}: {chave}")
+    print(f"### instaveis NAO declaradas ({len(grupos['instaveis_nao_declaradas'])})")
+    for chave, slug in sorted(grupos["instaveis_nao_declaradas"]):
+        print(f"  instavel no sistema {slug}: {chave}")
+
+
+# GODS_LAWS.md L-40: linha de escopo SEMPRE impressa, mesmo com tudo
+# zerado - "chaves: N" e' o tamanho da uniao inteira (nao so' as >=2
+# sistemas que entram na comparacao de valor), "sistemas por chave" e'
+# o min/max de cobertura entre TODAS as chaves da uniao.
+def _print_value_scope_line(uniao_chaves, system_values, grupos, classificacao_presenca):
+    contagens = [sum(1 for valores in system_values.values() if chave in valores) for chave in uniao_chaves]
+    minimo = min(contagens) if contagens else 0
+    maximo = max(contagens) if contagens else 0
+    total_obrigatoria = sum(1 for linhas in classificacao_presenca.values() for row in linhas if row[1] == "obrigatoria")
+    total_herdada = sum(1 for linhas in classificacao_presenca.values() for row in linhas if row[1] == "herdada")
+    total_divergentes = len(grupos["divergentes_declaradas"]) + len(grupos["divergentes_nao_declaradas"])
+    total_instaveis = len(grupos["instaveis_declaradas"]) + len(grupos["instaveis_nao_declaradas"])
+    print(
+        f"{SCRIPT_NAME} --per-system: chaves: {len(uniao_chaves)}; sistemas por chave: "
+        f"{minimo}..{maximo}; iguais/divergentes/instaveis/herdada/obrigatoria: "
+        f"{len(grupos['iguais'])}/{total_divergentes}/{total_instaveis}/{total_herdada}/{total_obrigatoria}"
+    )
+
+
+def _load_per_system_measured_exceptions(measured_exceptions_path, todo_path):
+    """None quando --measured-exceptions nao foi dado - o modo por
+    valor fica desligado (so' presenca), nunca calado sobre o motivo:
+    per_system_main() avisa explicitamente quando isso acontece."""
+    if measured_exceptions_path is None:
+        return None, {}, ""
+    with open(measured_exceptions_path, "r", encoding="utf-8") as handle:
+        key_exceptions = parse_key_exceptions(handle.read())
+    todo_status, todo_text = {}, ""
+    if todo_path is not None:
+        with open(todo_path, "r", encoding="utf-8") as handle:
+            todo_text = handle.read()
+        todo_status = parse_todo_status(todo_text)
+    return key_exceptions, todo_status, todo_text
+
+
+def _run_value_mode(uniao, system_values, classificacao_presenca, parsed):
+    """A metade de per_system_main() que so' roda quando --measured-
+    exceptions foi dado - extraida so' para caber no teto de 40 linhas
+    de GODS_LAWS.md L-17, nao por responsabilidade nova."""
+    key_exceptions, todo_status, todo_text = _load_per_system_measured_exceptions(
+        parsed.measured_exceptions, parsed.todo
+    )
+    lado_errors = _format_lado_errors(key_exceptions)
+    if lado_errors:
+        fail(f"{len(lado_errors)} lado(s) invalido(s) em tests/measured_exceptions.txt:\n  " + "\n  ".join(lado_errors))
+    death_errors = validate_key_exception_deaths(key_exceptions, todo_status, todo_text)
+    if death_errors:
+        fail(
+            f"{len(death_errors)} excecao(oes) por chave morta(s) (tests/measured_"
+            "exceptions.txt):\n  " + "\n  ".join(death_errors)
+        )
+    comparacao = compute_per_system_value_comparison(uniao, system_values, key_exceptions)
+    grupos = _group_value_comparison(comparacao)
+    _print_per_system_value_report(grupos)
+    _print_value_scope_line(uniao, system_values, grupos, classificacao_presenca)
+    print(
+        f"{SCRIPT_NAME} --per-system: relatorio, nunca falha por divergencia/instabilidade/"
+        "obrigatoria/herdada (so' pelo piso de varredura vazia e pela regra de morte por chave) "
+        "- fechar e' decisao da onda (D-A10)"
+    )
+
+
 def per_system_main(args):
-    system_paths, exceptions_path, aliases_path = _parse_per_system_args(args)
+    system_paths, parsed = _parse_per_system_args(args)
     system_values = {slug: parse_measured_files(paths)[0] for slug, paths in system_paths.items()}
-    exception_owners, alias_owners = _load_per_system_owners(exceptions_path, aliases_path)
+    exception_owners, alias_owners = _load_per_system_owners(parsed.exceptions, parsed.aliases)
 
     errors = _per_system_piso_errors(system_values)
     if errors:
-        fail(
-            f"{len(errors)} problema(s) de piso (--per-system):\n  " + "\n  ".join(errors)
-        )
+        fail(f"{len(errors)} problema(s) de piso (--per-system):\n  " + "\n  ".join(errors))
 
-    _uniao, classificacao = compute_per_system_unilateral(system_values, exception_owners, alias_owners)
-    _print_per_system_report(system_values, classificacao)
-    total_obrigatoria = sum(1 for linhas in classificacao.values() for row in linhas if row[1] == "obrigatoria")
-    total_herdada = sum(1 for linhas in classificacao.values() for row in linhas if row[1] == "herdada")
-    print(
-        f"{SCRIPT_NAME} --per-system: {total_obrigatoria} obrigatoria(s), {total_herdada} "
-        "herdada(s), no total - relatorio, nunca falha por conteudo (ver LIMITACAO DECLARADA "
-        "no cabecalho desta secao)"
-    )
+    uniao, classificacao_presenca = compute_per_system_unilateral(system_values, exception_owners, alias_owners)
+    _print_per_system_report(system_values, classificacao_presenca)
+
+    if parsed.measured_exceptions is None:
+        print(
+            f"{SCRIPT_NAME} --per-system: --measured-exceptions nao foi dado - secao de VALOR "
+            "(iguais/divergentes/instaveis, D-A10) desligada, so' presenca (herdada/obrigatoria) acima"
+        )
+        return
+    _run_value_mode(uniao, system_values, classificacao_presenca, parsed)
 
 
 # --- selftest -----------------------------------------------------
@@ -1370,6 +1593,272 @@ def selftest_per_system_unexpected_slug_rejected():
     return True
 
 
+# --- CI-SPLIT-PER-OS A1b (D-A10): controles do modo --per-system, valor --
+
+
+def _write_five_systems(tmp_path, prefix, values_by_slug):
+    """values_by_slug: {slug: [valor, ...]} - mais de um valor por slug
+    simula pernas discordando (compartilhado/estatico) dentro do MESMO
+    sistema, o cenario M5. Slugs ausentes do dict ficam de fora (usado
+    por M2, fedora sem medir a chave nenhuma). Chave fixa "some_test.k" -
+    nenhum controle ainda precisou de outra (GODS_LAWS.md L-17, regra
+    de 3 - extrai-se um parametro so' na terceira ocorrencia real)."""
+    argv = []
+    for slug, valores in values_by_slug.items():
+        linhas = "\n".join(f"MEASURED some_test.k={v}" for v in valores) + "\n"
+        caminho = _write_temp(tmp_path, f"{prefix}_{slug}.txt", linhas)
+        argv.append(f"{slug}={caminho}")
+    return argv
+
+
+def selftest_per_system_value_unanimity_iguais_control(tmp_path):
+    argv = _write_five_systems(tmp_path, "unanime", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    exceptions_file = _write_temp(tmp_path, "exc_vazio.txt", "")
+    todo_file = _write_temp(tmp_path, "TODO_vazio.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-IGUAIS FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### iguais (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-IGUAIS FALHOU (esperava 1 igual): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-IGUAIS OK (cinco sistemas com o mesmo valor - iguais)")
+    return True
+
+
+# C2-gemeo de valor (docs/plano-ci-split-per-os.md secao 7, A1b): "chave
+# k = 1 em fedora, ubuntu, arch e windows, e 0 em cachyos, sem excecao" -
+# o TESTE VERMELHO DE ESTREIA da A1b. Antes desta fatia (ae5dd7e), o modo
+# por sistema nao dizia NADA do valor (so' presenca) - vermelho genuino.
+# Tambem mata M1 (voto de maioria): 4 sistemas concordam em "1" e 1 diverge
+# - um mutante de maioria classificaria "iguais" (4 > 1), este controle
+# exige "divergentes".
+def selftest_per_system_value_divergent_undeclared_reproves(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "diverge",
+        {"fedora": ["1"], "ubuntu": ["1"], "arch": ["1"], "windows": ["1"], "cachyos": ["0"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_vazio2.txt", "")
+    todo_file = _write_temp(tmp_path, "TODO_vazio2.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-DIVERGENTE FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### divergentes NAO declaradas (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-DIVERGENTE FALHOU (esperava 1 divergente nao declarada): {output!r}", file=sys.stderr)
+        return False
+    if "0: cachyos | 1: arch,fedora,ubuntu,windows" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-DIVERGENTE FALHOU (particao nao impressa como esperado): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-DIVERGENTE OK (4x1 nao vira iguais - unanimidade, nunca maioria)")
+    return True
+
+
+def selftest_per_system_value_divergent_todos_declared(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "declara",
+        {"fedora": ["1"], "ubuntu": ["1"], "arch": ["1"], "windows": ["1"], "cachyos": ["0"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_todos.txt", "some_test.k|todos|metrica do executor|SEM-PENDENCIA\n")
+    todo_file = _write_temp(tmp_path, "TODO_todos.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-TODOS-DECLARA FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### divergentes declaradas (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-TODOS-DECLARA FALHOU (esperava declarada com lado=todos): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-TODOS-DECLARA OK (lado=todos declara a mesma divergencia)")
+    return True
+
+
+# M2: "Fedora como referencia" proibido - fedora NUNCA mede a chave
+# (ausente do dict, nao so' com valor diferente), e ubuntu≠arch. Um
+# mutante que comparasse tudo contra fedora nao teria contra o que
+# comparar e deixaria a chave de fora (silenciosa) - aqui ela TEM de
+# aparecer como divergente.
+def selftest_per_system_value_without_reference_system_still_compares(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "semfedora",
+        {"ubuntu": ["1"], "arch": ["0"], "windows": ["1"], "cachyos": ["1"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_semfedora.txt", "")
+    todo_file = _write_temp(tmp_path, "TODO_semfedora.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["fedora=" + _write_temp(tmp_path, "semfedora_fedora.txt", "")]
+        + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-SEM-FEDORA FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### divergentes NAO declaradas (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-SEM-FEDORA FALHOU (fedora ausente nao pode impedir a comparacao): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-SEM-FEDORA OK (ubuntu x arch diverge mesmo sem fedora medir nada)")
+    return True
+
+
+# M3: "familias" tratado como "todos" e' proibido - ubuntu != fedora
+# (dois sistemas LINUX discordando entre si) tem de sair NAO declarada
+# mesmo com lado=familias, porque familias so' cobre Linux x Windows.
+def selftest_per_system_value_familias_linux_vs_linux_undeclared(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "familias_ll",
+        {"fedora": ["1"], "ubuntu": ["0"], "arch": ["1"], "windows": ["1"], "cachyos": ["1"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_familias_ll.txt", "some_test.k|familias|mecanismo Wayland x Win32|SEM-PENDENCIA\n")
+    todo_file = _write_temp(tmp_path, "TODO_familias_ll.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-FAMILIAS-LL FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### divergentes NAO declaradas (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-FAMILIAS-LL FALHOU (familias nao cobre linux x linux): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-FAMILIAS-LL OK (familias nao declara divergencia entre duas distros)")
+    return True
+
+
+def selftest_per_system_value_familias_linux_vs_windows_declared(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "familias_lw",
+        {"fedora": ["1"], "ubuntu": ["1"], "arch": ["1"], "cachyos": ["1"], "windows": ["0"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_familias_lw.txt", "some_test.k|familias|mecanismo Wayland x Win32|SEM-PENDENCIA\n")
+    todo_file = _write_temp(tmp_path, "TODO_familias_lw.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-FAMILIAS-LW FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### divergentes declaradas (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-FAMILIAS-LW FALHOU (linux unanime x windows tem de declarar): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-FAMILIAS-LW OK (linux unanime, so' windows diverge - familias declara)")
+    return True
+
+
+# M4: "ambos" nao existe mais - migracao completa, formato invalido.
+def selftest_per_system_value_ambos_format_rejected(tmp_path):
+    argv = _write_five_systems(tmp_path, "ambos", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    exceptions_file = _write_temp(tmp_path, "exc_ambos.txt", "some_test.k|ambos|forma antiga|SEM-PENDENCIA\n")
+    todo_file = _write_temp(tmp_path, "TODO_ambos.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code != 1:
+        print(f"selftest: PER-SYSTEM-VALOR-AMBOS-REJEITADO FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "formato invalido" not in output and "fora do vocabulario fechado" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-AMBOS-REJEITADO FALHOU (mensagem nao citou o motivo): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-AMBOS-REJEITADO OK ('ambos' reprova como formato invalido, D-A10)")
+    return True
+
+
+# M5: instabilidade DENTRO do mesmo sistema (fedora shared=1/static=0)
+# nunca pode ser colapsada escolhendo um valor - tem de sair em secao
+# propria, "instavel no sistema fedora", NAO declarada sem lado=todos.
+def selftest_per_system_value_instability_within_system_reproves(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "instavel",
+        {"fedora": ["1", "0"], "ubuntu": ["1"], "arch": ["1"], "windows": ["1"], "cachyos": ["1"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_instavel.txt", "")
+    todo_file = _write_temp(tmp_path, "TODO_instavel.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-INSTAVEL FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### instaveis NAO declaradas (1)" not in output or "instavel no sistema fedora: some_test.k" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-INSTAVEL FALHOU (instabilidade do fedora nao apareceu como esperado): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-INSTAVEL OK (fedora shared!=static aparece como instavel, nunca colapsado)")
+    return True
+
+
+def selftest_per_system_value_instability_declared_with_todos(tmp_path):
+    argv = _write_five_systems(
+        tmp_path, "instaveltodos",
+        {"fedora": ["1", "0"], "ubuntu": ["1"], "arch": ["1"], "windows": ["1"], "cachyos": ["1"]},
+    )
+    exceptions_file = _write_temp(tmp_path, "exc_instaveltodos.txt", "some_test.k|todos|tempo/contagem do executor|SEM-PENDENCIA\n")
+    todo_file = _write_temp(tmp_path, "TODO_instaveltodos.md", "")
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-INSTAVEL-TODOS FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### instaveis declaradas (1)" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-INSTAVEL-TODOS FALHOU (lado=todos tem de declarar a instabilidade): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-INSTAVEL-TODOS OK (lado=todos cobre instabilidade dentro de um sistema)")
+    return True
+
+
+def selftest_per_system_value_mode_optional_when_no_measured_exceptions(tmp_path):
+    argv = _write_five_systems(tmp_path, "semvalor", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    exit_code, output = _run_per_system_main_capturing(argv)
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-VALOR-MODO-OPCIONAL FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "secao de VALOR" not in output or "desligada" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-MODO-OPCIONAL FALHOU (aviso de modo desligado nao apareceu): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-MODO-OPCIONAL OK (sem --measured-exceptions, so' presenca, avisado)")
+    return True
+
+
+def selftest_per_system_value_exception_pointing_to_concluded_item_reproves(tmp_path):
+    argv = _write_five_systems(tmp_path, "concluido", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    exceptions_file = _write_temp(tmp_path, "exc_concluido.txt", "some_test.k|todos|motivo qualquer|ITEM-FECHADO\n")
+    todo_file = _write_temp(
+        tmp_path, "TODO_concluido.md",
+        "| WSJF | ID | Onda | Grupo | Descricao | Prioridade | Pre-requisito | Dificuldade | Status | Estado |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1.0 | ITEM-FECHADO | W1 | X | y | Alta | - | Media | ✅ Concluido | - |\n",
+    )
+    exit_code, output = _run_per_system_main_capturing(
+        argv + ["--measured-exceptions", exceptions_file, "--todo", todo_file]
+    )
+    if exit_code != 1:
+        print(f"selftest: PER-SYSTEM-VALOR-EXCECAO-CONCLUIDA FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "CONCLUIDO" not in output:
+        print(f"selftest: PER-SYSTEM-VALOR-EXCECAO-CONCLUIDA FALHOU (mensagem nao citou CONCLUIDO): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VALOR-EXCECAO-CONCLUIDA OK (regra de morte por chave vale no modo por sistema)")
+    return True
+
+
+def _per_system_value_controls():
+    return [
+        selftest_per_system_value_unanimity_iguais_control,
+        selftest_per_system_value_divergent_undeclared_reproves,
+        selftest_per_system_value_divergent_todos_declared,
+        selftest_per_system_value_without_reference_system_still_compares,
+        selftest_per_system_value_familias_linux_vs_linux_undeclared,
+        selftest_per_system_value_familias_linux_vs_windows_declared,
+        selftest_per_system_value_ambos_format_rejected,
+        selftest_per_system_value_instability_within_system_reproves,
+        selftest_per_system_value_instability_declared_with_todos,
+        selftest_per_system_value_mode_optional_when_no_measured_exceptions,
+        selftest_per_system_value_exception_pointing_to_concluded_item_reproves,
+    ]
+
+
 def selftest_main():
     import tempfile
     from pathlib import Path
@@ -1397,6 +1886,7 @@ def selftest_main():
             selftest_per_system_missing_system_reproves(tmp_path),
             selftest_per_system_empty_all_reproves(tmp_path),
             selftest_per_system_unexpected_slug_rejected(),
+            *(control(tmp_path) for control in _per_system_value_controls()),
         ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

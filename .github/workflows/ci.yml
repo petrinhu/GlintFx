@@ -636,7 +636,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: measured-linux-${{ strategy.job-index }}
+          name: measured-${{ matrix.slug }}-${{ matrix.modo }}
           path: measured_linux.txt
           retention-days: 7
 
@@ -1065,7 +1065,7 @@ jobs:
       - name: Publicar MEASURED (${{ matrix.modo }})
         uses: actions/upload-artifact@v7
         with:
-          name: measured-windows-${{ strategy.job-index }}
+          name: measured-windows-${{ matrix.modo }}
           path: measured_windows.txt
           retention-days: 7
 
@@ -1307,27 +1307,42 @@ jobs:
             arch=/tmp/persystem/arch.txt \
             cachyos=/tmp/persystem/cachyos.txt
 
-      # MEASURED-COLLECTOR's own reader (achado do time-lead,
-      # 06/09/2026, item 3 "o leitor tem nome: o trabalho de
-      # paridade"): `measured-linux-*` ja casa com `measured-linux-
-      # container` sem mudar o `pattern` - os artefatos MEASURED NAO
-      # foram renomeados por slug nesta fatia (CI-SPLIT-PER-OS A1
-      # limita o `--per-system` novo a check_measured_parity.py so' a
-      # classificacao de PRESENCA, ver LIMITACAO DECLARADA no proprio
-      # script; a comparacao de VALOR entre N sistemas volta ao
-      # planejamento antes de existir aqui), diferente dos inventarios
-      # `parity-inv-*` acima, que ja usam slug desde esta fatia.
-      - name: Baixar MEASURED Linux
+      # CI-SPLIT-PER-OS A1b (D-A10, docs/plano-ci-split-per-os.md secao
+      # 4.3): mesma reestruturacao que os inventarios `parity-inv-*`
+      # ja tiveram na A1 - os artefatos MEASURED agora tambem carregam
+      # o SLUG no nome (`measured-<slug>-<modo|container[-asan]>`), um
+      # download so' (`pattern: measured-*`) recolhe tudo, e o passo
+      # seguinte separa por sistema (para `--per-system`) e tambem
+      # escreve os dois arquivos legados (para o `--compare` que
+      # continua igual).
+      - name: Baixar MEASURED (todos os sistemas)
         uses: actions/download-artifact@v8
         with:
-          pattern: measured-linux-*
-          path: medidas/linux
+          pattern: measured-*
+          path: medidas/todos
 
-      - name: Baixar MEASURED Windows
-        uses: actions/download-artifact@v8
-        with:
-          pattern: measured-windows-*
-          path: medidas/windows
+      - name: Separar MEASURED por sistema
+        run: |
+          set -eu
+          mkdir -p /tmp/measured_persystem
+          : > /tmp/measured_linux_legado.txt
+          : > /tmp/measured_windows_legado.txt
+          for leg_dir in medidas/todos/*/; do
+            [ -d "$leg_dir" ] || continue
+            leg=$(basename "$leg_dir")
+            resto="${leg#measured-}"
+            slug="${resto%%-*}"
+            for arquivo in "$leg_dir"*.txt; do
+              [ -f "$arquivo" ] || continue
+              cat "$arquivo" >> "/tmp/measured_persystem/${slug}.txt"
+              if [ "$slug" = "windows" ]; then
+                cat "$arquivo" >> /tmp/measured_windows_legado.txt
+              else
+                cat "$arquivo" >> /tmp/measured_linux_legado.txt
+              fi
+            done
+          done
+          echo "sistemas MEASURED separados: $(ls /tmp/measured_persystem | wc -l)"
 
       # check_measured_parity.py's proprio header comment explica as
       # tres secoes e por que este passo NUNCA reprova por divergencia
@@ -1337,18 +1352,35 @@ jobs:
       # mesma extracao, so' que localmente).
       - name: check_measured_parity.py --compare
         run: |
-          set -eu -o pipefail
-          linux_files=$(find medidas/linux -type f -name '*.txt')
-          windows_files=$(find medidas/windows -type f -name '*.txt')
-          # shellcheck disable=SC2086 # linux_files/windows_files is a newline-separated list of paths, meant to word-split into separate --linux/--windows arguments
           python3 tests/tools/check_measured_parity.py --compare \
-            --linux $linux_files --windows $windows_files \
+            --linux /tmp/measured_linux_legado.txt --windows /tmp/measured_windows_legado.txt \
             --exceptions tests/parity_exceptions.txt --aliases tests/parity_aliases.txt \
             --measured-exceptions tests/measured_exceptions.txt --todo TODO.md \
             | tee /tmp/measured_parity_table.md
           {
             echo "## MEASURED-PARITY (PARITY-GATE)"
             cat /tmp/measured_parity_table.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # CI-SPLIT-PER-OS A1b (D-A10): valor MEASURED por unanimidade
+      # entre os cinco sistemas - o --compare acima so' enxerga dois
+      # lados; uma chave que diverge so' entre DUAS distros Linux fica
+      # invisivel nele. --measured-exceptions/--todo ligam a secao de
+      # VALOR (sem eles, per_system_main() so' reportaria presenca).
+      - name: check_measured_parity.py --per-system
+        run: |
+          python3 tests/tools/check_measured_parity.py --per-system \
+            windows=/tmp/measured_persystem/windows.txt \
+            fedora=/tmp/measured_persystem/fedora.txt \
+            ubuntu=/tmp/measured_persystem/ubuntu.txt \
+            arch=/tmp/measured_persystem/arch.txt \
+            cachyos=/tmp/measured_persystem/cachyos.txt \
+            --exceptions tests/parity_exceptions.txt --aliases tests/parity_aliases.txt \
+            --measured-exceptions tests/measured_exceptions.txt --todo TODO.md \
+            | tee /tmp/measured_parity_per_system.md
+          {
+            echo "## MEASURED-PARITY --per-system (D-A10)"
+            cat /tmp/measured_parity_per_system.md
           } >> "$GITHUB_STEP_SUMMARY"
 
   # GODS_LAWS.md L-09 / TEST-WLCONT: prova, em CI, que o container de
@@ -2230,7 +2262,7 @@ jobs:
       - name: Publicar MEASURED do container (MEASURED-COLLECTOR)
         uses: actions/upload-artifact@v7
         with:
-          name: measured-linux-container${{ matrix.perna == 'asan' && '-asan' || '' }}
+          name: measured-fedora-container${{ matrix.perna == 'asan' && '-asan' || '' }}
           path: measured_linux_container.txt
           retention-days: 7
 

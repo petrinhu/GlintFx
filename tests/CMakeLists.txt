@@ -4719,6 +4719,28 @@ add_test(
 )
 set_tests_properties(container_kill_order_selftest PROPERTIES LABELS selftest)
 
+# CI-SPLIT-PER-OS A2 (GODS_LAWS.md L-04 item 3, L-40): "um passo
+# vermelho nao esconde os passos seguintes do mesmo sistema" - medido
+# ao vivo no run 36036115151, 22 passos pulados atras de um vermelho
+# no job wayland-container. Registrado sem guarda de sistema, mesma
+# forma que container_kill_order_test acima - so' le ci.yml, texto
+# puro, nenhum Docker envolvido.
+add_test(
+    NAME ci_step_independence_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_step_independence.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+)
+set_tests_properties(ci_step_independence_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ci_step_independence_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_step_independence.py" --selftest
+)
+set_tests_properties(ci_step_independence_selftest PROPERTIES LABELS selftest)
+
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
 # spot the whole-tree rewrite of prepare_arch_ports_fixture.sh's own

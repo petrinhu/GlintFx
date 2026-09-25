@@ -220,6 +220,14 @@ _CTEST_NO_TESTS_FOUND = "No tests were found!!!"
 # sem ambiguidade).
 _CLEAN_LIST_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
+# CI-SPLIT-PER-OS A2 (docs/plano-ci-split-per-os.md secao 4.2):
+# cabecalho de completude - o passo agregador do job (nunca uma
+# fixture) escreve ESTA linha, uma vez, no fim do inventario. "STATUS"
+# maiusculo por desenho: nunca colide com _CLEAN_LIST_NAME_RE (que
+# exige minuscula) nem com um nome de fixture real (GODS_LAWS.md L-21:
+# todo identificador de codigo/teste e' snake_case, nunca MAIUSCULO).
+_STATUS_LINE_RE = re.compile(r"^STATUS:\s*(completo|incompleto)(?:\s*\(pre-requisito=([^)]+)\))?\s*$")
+
 
 # GODS_LAWS.md L-40 corolario (achado nesta mesma auditoria, 05/09/2026,
 # conserto de um SEGUNDO defeito medido no mesmo run 33995142570 - o
@@ -271,6 +279,8 @@ def parse_inventory_text(text, disabled_collector=None):
     for line in content_lines:
         if _CTEST_PROJECT_HEADER_RE.match(line):
             continue
+        if _STATUS_LINE_RE.match(line):
+            continue
         m = _CTEST_LINE_RE.match(line)
         if m:
             names.add(m.group(1))
@@ -293,6 +303,23 @@ def parse_inventory_text(text, disabled_collector=None):
             f"em snake_case): {line!r}"
         )
     return names
+
+
+# CI-SPLIT-PER-OS A2: le a linha STATUS (ver _STATUS_LINE_RE acima) do
+# MESMO texto bruto que parse_inventory_text() ja le - funcao PROPRIA,
+# nunca misturada com aquela (GODS_LAWS.md L-17: uma funcao, uma
+# pergunta - "quais nomes existem" e "o inventario e' confiavel" sao
+# perguntas diferentes). Retorna (status, pre_requisito) - status e'
+# "completo"/"incompleto", ou None quando a linha nao existe (forma
+# legada, linux/windows hoje: um unico `ctest -N`, sem passo que possa
+# escapar sozinho atras de um irmao vermelho - nunca ganhou o cabecalho
+# de completude, e ausencia da linha NAO e' erro).
+def parse_inventory_status(text):
+    for raw_line in text.splitlines():
+        m = _STATUS_LINE_RE.match(raw_line.strip())
+        if m:
+            return m.groups()
+    return None, None
 
 
 _PROVA_PARCIAL_PREFIX = "PROVA-PARCIAL="
@@ -1147,6 +1174,7 @@ def textual_main(args):
 @dataclass(frozen=True)
 class PerSystemInputs:
     system_inventories: dict  # {slug: frozenset(nomes)}
+    system_status: dict  # {slug: (status, pre_requisito)} - CI-SPLIT-PER-OS A2
     exceptions: list
     aliases: list
     todo_status: dict
@@ -1186,12 +1214,13 @@ def _parse_per_system_args(args):
 
 
 def _load_per_system_inputs(exceptions_path, todo_path, system_paths, aliases_path):
-    system_inventories = {
-        slug: frozenset(parse_inventory_text(_read_file(path))) for slug, path in system_paths.items()
-    }
+    system_texts = {slug: _read_file(path) for slug, path in system_paths.items()}
+    system_inventories = {slug: frozenset(parse_inventory_text(text)) for slug, text in system_texts.items()}
+    system_status = {slug: parse_inventory_status(text) for slug, text in system_texts.items()}
     aliases = parse_aliases_text(_read_file(aliases_path)) if aliases_path is not None else []
     return PerSystemInputs(
         system_inventories=system_inventories,
+        system_status=system_status,
         exceptions=parse_exceptions_text(_read_file(exceptions_path)),
         aliases=aliases,
         todo_status=parse_todo_status_text(_read_file(todo_path)),
@@ -1239,6 +1268,26 @@ def _per_system_piso_errors(system_inventories):
             errors.append(
                 f"varredura vazia: o inventario do sistema {slug!r} tem 0 testes - "
                 "GODS_LAWS.md L-40, isto e sinal de coleta quebrada, nunca de paridade"
+            )
+    return errors
+
+
+# CI-SPLIT-PER-OS A2 (docs/plano-ci-split-per-os.md secao 4.2): "perna
+# incompleta [e' tratada] como reprovacao propria, com o nome do pre-
+# requisito, e nao como N testes faltando" - um sistema cujo passo
+# agregador escreveu STATUS: incompleto (o pre-requisito do job, ex.
+# 'build', nao teve sucesso) tem o inventario DESCARTADO como fonte de
+# verdade, nunca comparado nome a nome contra a uniao (isso produziria
+# uma enxurrada de "N testes faltando" que esconderia a causa real).
+def _per_system_incomplete_errors(system_status):
+    errors = []
+    for slug in sorted(system_status):
+        status, pre_requisito = system_status[slug]
+        if status == "incompleto":
+            errors.append(
+                f"sistema {slug!r} incompleto: pre-requisito {pre_requisito!r} nao teve "
+                "sucesso - inventario nao e confiavel (GODS_LAWS.md L-04/A2), nunca tratado "
+                "como lacuna de teste"
             )
     return errors
 
@@ -1422,21 +1471,29 @@ def _print_per_system_scope_line(system_inventories, exceptions, aliases, lacuna
     )
 
 
-def run_per_system_comparison(system_inventories, exceptions, aliases, todo_status):
-    errors = _per_system_piso_errors(system_inventories)
+# CI-SPLIT-PER-OS A2, achado proprio (GODS_LAWS.md L-04): a linha
+# STATUS: incompleto (parse_inventory_status()) precisa de um QUINTO
+# dado (system_status) que os quatro parametros antigos desta funcao
+# ja tinham esgotado (GODS_LAWS.md L-17: no maximo 4). Recebe o
+# PerSystemInputs inteiro em vez de agrupar mais um solto - o mesmo
+# remedio que o resto do arquivo ja usa (AliasSiblingContext,
+# RealMainInputs) quando um conjunto de dados cresce junto.
+def run_per_system_comparison(inputs):
+    errors = _per_system_piso_errors(inputs.system_inventories)
+    errors.extend(_per_system_incomplete_errors(inputs.system_status))
     if errors:
-        # Sistema faltando ou vazio: a uniao ficaria mentirosa (um
-        # nome pareceria faltar em TODO MUNDO menos quem tem), entao
-        # nao compara - o mesmo desvio que run_comparison() ja faz
-        # quando um dos dois lados vem vazio.
+        # Sistema faltando, vazio ou incompleto: a uniao ficaria
+        # mentirosa (um nome pareceria faltar em TODO MUNDO menos quem
+        # tem), entao nao compara - o mesmo desvio que run_comparison()
+        # ja faz quando um dos dois lados vem vazio.
         return errors
-    errors.extend(validate_exceptions(exceptions, todo_status))
-    linux_uniao, windows_uniao = _family_unions(system_inventories)
-    errors.extend(_format_alias_hygiene_errors(aliases, linux_uniao, windows_uniao))
-    errors.extend(_format_per_system_exception_death_errors(exceptions, system_inventories))
-    _uniao, lacunas = compute_per_system_union_and_gaps(system_inventories, exceptions, aliases)
+    errors.extend(validate_exceptions(inputs.exceptions, inputs.todo_status))
+    linux_uniao, windows_uniao = _family_unions(inputs.system_inventories)
+    errors.extend(_format_alias_hygiene_errors(inputs.aliases, linux_uniao, windows_uniao))
+    errors.extend(_format_per_system_exception_death_errors(inputs.exceptions, inputs.system_inventories))
+    _uniao, lacunas = compute_per_system_union_and_gaps(inputs.system_inventories, inputs.exceptions, inputs.aliases)
     errors.extend(_format_per_system_gap_errors(lacunas))
-    _print_per_system_scope_line(system_inventories, exceptions, aliases, lacunas)
+    _print_per_system_scope_line(inputs.system_inventories, inputs.exceptions, inputs.aliases, lacunas)
     return errors
 
 
@@ -1444,9 +1501,7 @@ def per_system_main(args):
     exceptions_path, todo_path, system_paths, aliases_path = _parse_per_system_args(args)
     inputs = _load_per_system_inputs(exceptions_path, todo_path, system_paths, aliases_path)
     _print_per_system_counts(inputs)
-    errors = run_per_system_comparison(
-        inputs.system_inventories, inputs.exceptions, inputs.aliases, inputs.todo_status
-    )
+    errors = run_per_system_comparison(inputs)
     _exit_with_verdict(
         errors,
         "modo --per-system OK - nenhum sistema tem lacuna sem excecao registrada para ele",
@@ -2017,6 +2072,76 @@ def selftest_disabled_line_recognized_not_swallowed():
             "mesma linha cairia em fail() - o crash real medido pelo implementador de L-5)"
         )
     return ok
+
+
+# CI-SPLIT-PER-OS A2 (docs/plano-ci-split-per-os.md secao 4.2): parsing
+# puro de parse_inventory_status(), separado de qualquer coisa que
+# envolva run_per_system_comparison() (essa parte fica em
+# _per_system_mode_controls() mais abaixo - GODS_LAWS.md L-17, "quais
+# nomes existem" e "o inventario e' confiavel" sao perguntas
+# diferentes, e o CONTROLE de cada uma tambem). Tres formas na mesma
+# funcao (regra de 3 do L-17 nao se aplica aqui - sao 3 ramos do MESMO
+# regex, nao 3 abstracoes candidatas a extrair):
+def selftest_parse_inventory_status_control():
+    completo_status, completo_pre = parse_inventory_status("foo_test\nSTATUS: completo\n")
+    if (completo_status, completo_pre) != ("completo", None):
+        print(
+            f"selftest: STATUS-PARSE FALHOU (completo, sem pre-requisito): {(completo_status, completo_pre)!r}",
+            file=sys.stderr,
+        )
+        return False
+    incompleto_status, incompleto_pre = parse_inventory_status(
+        "foo_test\nSTATUS: incompleto (pre-requisito=build)\n"
+    )
+    if (incompleto_status, incompleto_pre) != ("incompleto", "build"):
+        print(
+            f"selftest: STATUS-PARSE FALHOU (incompleto, pre-requisito=build): "
+            f"{(incompleto_status, incompleto_pre)!r}",
+            file=sys.stderr,
+        )
+        return False
+    legado_status, legado_pre = parse_inventory_status("foo_test\nbar_test\n")
+    if (legado_status, legado_pre) != (None, None):
+        print(
+            f"selftest: STATUS-PARSE FALHOU (forma legada, sem linha STATUS nenhuma, "
+            f"tinha de vir (None, None)): {(legado_status, legado_pre)!r}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: STATUS-PARSE OK (completo, incompleto com pre-requisito, e a forma "
+        "legada sem linha STATUS - as tres formas que parse_inventory_status() aceita)"
+    )
+    return True
+
+
+# VERMELHO DE ESTREIA desta sub-fatia: ANTES de _STATUS_LINE_RE ser
+# tratada dentro de parse_inventory_text() (o `if _STATUS_LINE_RE.
+# match(line): continue` logo apos o cabecalho de ctest), uma linha
+# "STATUS: completo" nao batia em NENHUM ramo do parser (nao e'
+# cabecalho/rodape de ctest, nao e' "Test #N: nome", e _CLEAN_LIST_
+# NAME_RE exige minusculas - "STATUS:" tem maiuscula e dois-pontos) -
+# ou seja, cairia exatamente no mesmo fail() que ENTRADA-CORROMPIDA
+# testa acima. Visto vermelho de verdade (NameError/fail()) antes do
+# `continue` ser escrito. Este controle prova as duas metades juntas,
+# no MESMO texto: a linha STATUS nao quebra o parse E nao vira nome de
+# teste fantasma.
+def selftest_status_line_ignored_by_name_parser():
+    text = "foo_test\nbar_test\nSTATUS: incompleto (pre-requisito=build)\n"
+    names = parse_inventory_text(text)
+    if names != {"foo_test", "bar_test"}:
+        print(
+            f"selftest: STATUS-LINHA-IGNORADA-PELO-PARSER-DE-NOMES FALHOU (esperava "
+            f"{{'foo_test', 'bar_test'}}, veio {names} - a linha STATUS quebrou o parse "
+            "ou virou nome fantasma)",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: STATUS-LINHA-IGNORADA-PELO-PARSER-DE-NOMES OK (parse_inventory_text() "
+        "nunca quebra nem inventa nome por causa da linha STATUS)"
+    )
+    return True
 
 
 # PARITY-ALIAS-HYGIENE C1 (VERMELHO): um apelido cujos dois nomes nao
@@ -3242,9 +3367,23 @@ def _per_system_full_inventory(faltando_em=None, nome_faltante="b_test"):
     return inventario
 
 
+# Constroi o PerSystemInputs que run_per_system_comparison() agora
+# exige (GODS_LAWS.md L-17: a funcao passou a receber o pacote inteiro
+# em vez de 5 parametros soltos) - `system_status` vazio por padrao
+# (nenhum sistema incompleto), so' os poucos controles de A2 passam algo.
+def _per_system_inputs(inventario, exceptions=(), aliases=(), todo_status=None, system_status=None):
+    return PerSystemInputs(
+        system_inventories=inventario,
+        system_status=system_status or {},
+        exceptions=list(exceptions),
+        aliases=list(aliases),
+        todo_status=todo_status or {},
+    )
+
+
 def selftest_per_system_positive_control():
     inventario = _per_system_full_inventory()
-    errors = run_per_system_comparison(inventario, [], [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
     if errors:
         print(f"selftest: cinco sistemas identicos, sem lacuna, reprovou - erros: {errors}", file=sys.stderr)
         return False
@@ -3259,7 +3398,7 @@ def selftest_per_system_positive_control():
 # vermelho genuino, visto antes desta funcao ser escrita).
 def selftest_per_system_gap_only_in_one_system_reproves():
     inventario = _per_system_full_inventory(faltando_em="cachyos")
-    errors = run_per_system_comparison(inventario, [], [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
     encontrou = any("b_test" in e and "'cachyos'" in e for e in errors)
     if not encontrou:
         print(
@@ -3308,7 +3447,7 @@ def selftest_per_system_declared_exception_suppresses_gap():
             "prova_parcial_gemeo": None,
         }
     ]
-    errors = run_per_system_comparison(inventario, excecoes, [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
     if errors:
         print(f"selftest: excecao declarada para cachyos nao suprimiu a lacuna - erros: {errors}", file=sys.stderr)
         return False
@@ -3334,7 +3473,7 @@ def selftest_per_system_family_exception_covers_all_linux_slugs():
     excecoes = [
         {"test_name": "b_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
     ]
-    errors = run_per_system_comparison(inventario, excecoes, [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
     if errors:
         print(f"selftest: excecao de familia 'linux' nao cobriu todos os slugs Linux - erros: {errors}", file=sys.stderr)
         return False
@@ -3356,7 +3495,7 @@ def selftest_per_system_windows_exception_never_covers_linux_slug():
     excecoes = [
         {"test_name": "b_test", "missing_on": "windows", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
     ]
-    errors = run_per_system_comparison(inventario, excecoes, [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
     encontrou = any("b_test" in e and "'arch'" in e for e in errors)
     if not encontrou:
         print(f"selftest: excecao 'windows' cobriu indevidamente o slug 'arch' - erros: {errors}", file=sys.stderr)
@@ -3372,7 +3511,7 @@ def selftest_per_system_windows_exception_never_covers_linux_slug():
 def selftest_per_system_missing_system_reproves():
     inventario = _per_system_full_inventory()
     del inventario["windows"]
-    errors = run_per_system_comparison(inventario, [], [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
     encontrou = any("windows" in e for e in errors)
     if not encontrou:
         print(f"selftest: sistema esperado (windows) sem inventario nenhum nao reprovou - erros: {errors}", file=sys.stderr)
@@ -3384,7 +3523,7 @@ def selftest_per_system_missing_system_reproves():
 def selftest_per_system_empty_inventory_reproves():
     inventario = _per_system_full_inventory()
     inventario["arch"] = frozenset()
-    errors = run_per_system_comparison(inventario, [], [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario))
     encontrou = any("arch" in e and "0 testes" in e for e in errors)
     if not encontrou:
         print(f"selftest: sistema com inventario vazio (arch) nao reprovou - erros: {errors}", file=sys.stderr)
@@ -3417,12 +3556,104 @@ def selftest_per_system_exception_pointing_to_concluded_item_reproves():
         }
     ]
     todo_status = {"ITEM-FECHADO": {"status_text": "✅ Concluido", "concluded": True}}
-    errors = run_per_system_comparison(inventario, excecoes, [], todo_status)
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes, todo_status=todo_status))
     encontrou = any("CONCLUIDO" in e for e in errors)
     if not encontrou:
         print(f"selftest: excecao apontando para item concluido nao reprovou em --per-system - erros: {errors}", file=sys.stderr)
         return False
     print("selftest: PER-SYSTEM-EXCECAO-CONCLUIDA OK (regra de morte de --compare vale em --per-system)")
+    return True
+
+
+# --- CI-SPLIT-PER-OS A2: perna incompleta e' reprovacao propria -------
+#
+# docs/plano-ci-split-per-os.md secao 4.2: "check_test_parity.py trata
+# perna incompleta como reprovacao propria, com o nome do pre-
+# requisito, e nao como N testes faltando" - os tres controles abaixo
+# provam, respectivamente: (1) STATUS: completo em todos os sistemas
+# nao introduz erro nenhum por si so' (controle positivo do recurso
+# novo, distinto do positivo geral que ja existia antes de A2); (2)
+# STATUS: incompleto num sistema reprova UMA VEZ, citando o slug e o
+# pre-requisito, e _per_system_incomplete_errors() faz
+# run_per_system_comparison() retornar CEDO (mesma linha de
+# `if errors: return errors` que o piso ja usava) - entao NUNCA produz
+# a enxurrada "N testes faltando" que a comparacao nome-a-nome geraria
+# se comparasse um inventario que o proprio job disse ser nao-confiavel;
+# (3) a forma legada (nenhuma linha STATUS, `system_status={}` como os
+# controles anteriores a A2 sempre passaram) continua sem erro nenhum -
+# prova de retrocompatibilidade com linux/windows hoje.
+
+
+def selftest_per_system_status_completo_is_not_an_error():
+    inventario = _per_system_full_inventory()
+    system_status = {slug: ("completo", None) for slug in inventario}
+    errors = run_per_system_comparison(_per_system_inputs(inventario, system_status=system_status))
+    if errors:
+        print(
+            f"selftest: STATUS-COMPLETO-EM-TODOS FALHOU (esperava zero erros, veio {errors})",
+            file=sys.stderr,
+        )
+        return False
+    print("selftest: PER-SYSTEM-STATUS-COMPLETO OK (STATUS: completo em todo sistema, zero erro)")
+    return True
+
+
+def selftest_per_system_status_incompleto_reproves_citing_prerequisite():
+    # cachyos tambem perde 'b_test' aqui (_per_system_full_inventory),
+    # mas isso e' de proposito: prova que a lacuna NAO aparece na lista
+    # de erros quando o sistema esta incompleto - se comparasse nome a
+    # nome mesmo assim, 'b_test' apareceria como lacuna e este controle
+    # pegaria o regresso.
+    inventario = _per_system_full_inventory(faltando_em="cachyos")
+    system_status = {slug: ("completo", None) for slug in inventario}
+    system_status["cachyos"] = ("incompleto", "build")
+    errors = run_per_system_comparison(_per_system_inputs(inventario, system_status=system_status))
+    encontrou_incompleto = any(
+        "cachyos" in e and "build" in e and "incompleto" in e for e in errors
+    )
+    if not encontrou_incompleto:
+        print(
+            f"selftest: PER-SYSTEM-STATUS-INCOMPLETO FALHOU (nao reprovou citando slug e "
+            f"pre-requisito): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    vazou_lacuna_de_nome = any("b_test" in e and "existe na uniao" in e for e in errors)
+    if vazou_lacuna_de_nome:
+        print(
+            f"selftest: PER-SYSTEM-STATUS-INCOMPLETO FALHOU (perna incompleta virou 'N "
+            f"testes faltando' em vez de reprovacao propria - plano secao 4.2): {errors}",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PER-SYSTEM-STATUS-INCOMPLETO OK (sistema incompleto reprova citando "
+        "slug e pre-requisito, nunca vira lacuna nome-a-nome)"
+    )
+    return True
+
+
+def selftest_per_system_status_legacy_no_line_is_not_an_error():
+    # Forma real de linux/windows hoje: nenhuma linha STATUS no
+    # inventario, entao parse_inventory_status() devolve (None, None)
+    # para cada slug - simulado aqui em vez de _load_per_system_inputs()
+    # porque este controle testa run_per_system_comparison() isolada,
+    # nao a leitura de arquivo (essa ja e' o selftest STATUS-PARSE
+    # acima, _inventory_parsing_controls()).
+    inventario = _per_system_full_inventory()
+    system_status = {slug: (None, None) for slug in inventario}
+    errors = run_per_system_comparison(_per_system_inputs(inventario, system_status=system_status))
+    if errors:
+        print(
+            f"selftest: PER-SYSTEM-STATUS-LEGADO FALHOU (ausencia de linha STATUS nao "
+            f"pode virar erro - esperava zero, veio {errors})",
+            file=sys.stderr,
+        )
+        return False
+    print(
+        "selftest: PER-SYSTEM-STATUS-LEGADO OK (forma legada sem linha STATUS nenhuma, "
+        "retrocompativel com linux/windows de hoje)"
+    )
     return True
 
 
@@ -3451,7 +3682,7 @@ def selftest_per_system_alias_forgives_across_family_uniformly():
         fedora=["l_test"], ubuntu=["l_test"], arch=["l_test"], cachyos=["l_test"], windows=["w_test"]
     )
     aliases = [_alias_fixture("l_test", "w_test")]
-    errors = run_per_system_comparison(inventario, [], aliases, {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
     if errors:
         print(f"selftest: apelido L\\|W nao perdoou uniformemente todas as distros Linux - erros: {errors}", file=sys.stderr)
         return False
@@ -3468,7 +3699,7 @@ def selftest_per_system_alias_reappearing_partner_breaks_forgiveness():
         fedora=["l_test", "w_test"], ubuntu=["l_test"], arch=["l_test"], cachyos=["l_test"], windows=["w_test"]
     )
     aliases = [_alias_fixture("l_test", "w_test")]
-    errors = run_per_system_comparison(inventario, [], aliases, {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
     encontrou = any("w_test" in e and "'ubuntu'" in e for e in errors)
     if not encontrou:
         print(f"selftest: w_test reaparecendo no fedora nao quebrou o perdao em ubuntu - erros: {errors}", file=sys.stderr)
@@ -3487,7 +3718,7 @@ def selftest_per_system_alias_partner_must_be_in_the_slug_itself():
         cachyos=["l_test", "comum"], windows=["w_test", "comum"],
     )
     aliases = [_alias_fixture("l_test", "w_test")]
-    errors = run_per_system_comparison(inventario, [], aliases, {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
     tem_l = any("l_test" in e and "'ubuntu'" in e for e in errors)
     tem_w = any("w_test" in e and "'ubuntu'" in e for e in errors)
     if not (tem_l and tem_w):
@@ -3518,7 +3749,7 @@ def selftest_per_system_alias_second_partner_forgives_when_first_does_not():
         arch=["l2_test", "comum"], cachyos=["l2_test", "comum"], windows=["w_test", "comum"],
     )
     aliases = [_alias_fixture("l1_test", "w_test"), _alias_fixture("l2_test", "w_test")]
-    errors = run_per_system_comparison(inventario, [], aliases, {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
     encontrou = any("w_test" in e and "existe na uniao" in e for e in errors)
     if encontrou:
         print(f"selftest: w_test nao foi perdoado em todo slug Linux, mesmo com um parceiro presente em cada um - erros: {errors}", file=sys.stderr)
@@ -3539,7 +3770,7 @@ def selftest_per_system_exception_death_is_per_pair_not_per_family():
     excecoes = [
         {"test_name": "x_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
     ]
-    errors = run_per_system_comparison(inventario, excecoes, [], {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, exceptions=excecoes))
     morta_no_fedora = any("morta" in e and "x_test" in e and "'fedora'" in e for e in errors)
     morta_em_outro = any(
         "morta" in e and "x_test" in e and slug in e for e in errors for slug in ("'ubuntu'", "'arch'", "'cachyos'")
@@ -3561,7 +3792,7 @@ def selftest_per_system_alias_hygiene_stays_on_family_union():
         fedora=["l_test", "comum"], ubuntu=["comum"], arch=["comum"], cachyos=["comum"], windows=["w_test", "comum"]
     )
     aliases = [_alias_fixture("l_test", "w_test")]
-    errors = run_per_system_comparison(inventario, [], aliases, {})
+    errors = run_per_system_comparison(_per_system_inputs(inventario, aliases=aliases))
     encontrou_hygiene = any("meio-morto" in e or "morto" in e and "apelido" in e for e in errors)
     if encontrou_hygiene:
         print(f"selftest: higiene de apelido acusou meio-morto so' porque um slug Linux nao tem o nome - erros: {errors}", file=sys.stderr)
@@ -3593,6 +3824,9 @@ def _per_system_mode_controls():
         selftest_per_system_empty_inventory_reproves(),
         selftest_per_system_unexpected_slug_rejected(),
         selftest_per_system_exception_pointing_to_concluded_item_reproves(),
+        selftest_per_system_status_completo_is_not_an_error(),
+        selftest_per_system_status_incompleto_reproves_citing_prerequisite(),
+        selftest_per_system_status_legacy_no_line_is_not_an_error(),
         *_per_system_alias_controls(),
     ]
 
@@ -3630,6 +3864,8 @@ def _inventory_parsing_controls():
         selftest_mixed_ctest_and_clean_list_control(),
         selftest_corrupted_inventory_line_reproves(),
         selftest_disabled_line_recognized_not_swallowed(),
+        selftest_parse_inventory_status_control(),
+        selftest_status_line_ignored_by_name_parser(),
     ]
 
 

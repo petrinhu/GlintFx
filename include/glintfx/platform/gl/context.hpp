@@ -202,7 +202,12 @@ class gltfx_gl_context {
     GLINTFX_API gltfx_gl_context &operator=(gltfx_gl_context &&other) noexcept;
 
     // Closes on scope exit - RAII, the same contract every other
-    // handle in this library already gives.
+    // handle in this library already gives. Frees everything even
+    // after the connection make_current()/swap_buffers() below refuse
+    // over is gone (EGL-DEAD-DISPLAY-GUARD D-S3): this is the one
+    // call that keeps talking to the driver regardless, because
+    // skipping it would leak, never because the refusal above was
+    // wrong.
     GLINTFX_API ~gltfx_gl_context();
 
     [[nodiscard]] GLINTFX_API bool is_open() const noexcept;
@@ -213,6 +218,20 @@ class gltfx_gl_context {
     // than one thread over the same context's lifetime gets whatever
     // the underlying driver does, undocumented until a later fatia
     // names it.
+    //
+    // EGL-DEAD-DISPLAY-GUARD (D-S4, docs/plano-egl-dead-display-guard.
+    // md): once the connection this context depends on is gone (today
+    // only reachable through a backend that owns a real connection to
+    // talk to - the Wayland one; Win32 has none, this header's own
+    // "mechanism differs by platform" reasoning above), this call
+    // answers `platform_failure` with `rejected_value()` naming the
+    // interface that rejected it - an identifier, never a sentence
+    // (docs/api-conventions.md R7) - instead of entering the driver.
+    // Proved by: `egl_protocol_error_smoke` (one call, right after the
+    // connection dies, answers the SAME interface the live provocation
+    // already established). The context still closes cleanly on scope
+    // exit - only the calls that talk to a live driver are refused,
+    // never the ones that free resources.
     [[nodiscard]] GLINTFX_API gltfx_rslt<void> make_current() noexcept;
 
     // Presents the current frame - see this header's own top comment,
@@ -220,6 +239,14 @@ class gltfx_gl_context {
     // blocks indefinitely: a window this library cannot currently
     // repaint degrades to `skipped_hidden` within a bounded budget,
     // never a hang.
+    //
+    // EGL-DEAD-DISPLAY-GUARD (D-S4): the SAME `platform_failure`/
+    // `rejected_value()` refusal make_current() above documents
+    // applies here too, instead of ever presenting again - and here
+    // it is proved to stay IDENTICAL (same `code()`, same
+    // `rejected_value()`) across every call made after the first
+    // refusal, never just the first one. Proved by: `egl_error_read_
+    // inside_swap_smoke` (ten repeats deep, no crash).
     [[nodiscard]] GLINTFX_API gltfx_rslt<gltfx_present_outcome> swap_buffers() noexcept;
 
     // Resolves a GL function's address by name - an ordinary lookup,

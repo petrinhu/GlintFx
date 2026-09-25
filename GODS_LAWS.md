@@ -34,7 +34,7 @@
 | [L-08](#l-08) | criar repo, `LICENSE`, cabeçalho de arquivo, publicar | Público no GitHub, AGPL-3.0 |
 | [L-09](#l-09) | rodar teste que abre janela, injeta input ou captura tela | Container com compositor Wayland dentro; nunca a sessão viva |
 | [L-10](#l-10) | escolher entre duas abordagens, decidir design ou arquitetura | Opções ao líder via `AskUserQuestion`, sem painel lateral |
-| [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release | Push por onda completa; merge e tag só com aval no contexto |
+| [L-11](#l-11) | `git push`, merge em `main`, criar tag, publicar release, **ou apagar ramo remoto** | Push por onda completa; merge e tag só com aval no contexto; **ramo da onda apagado ao mesclar, provado ancestral de `main` antes** |
 | [L-12](#l-12) | escrever ou revisar código de produto | Agente especialista executa; implementer, reviewer e orquestrador são distintos |
 | [L-13](#l-13) | escrever qualquer mensagem ao líder | Timestamp real `[DD/MM/YY - HH:MM:SS]` obtido do `date` |
 | [L-14](#l-14) | instalar, remover ou atualizar pacote de sistema | Pedir autorização; não instalar sozinho |
@@ -294,6 +294,10 @@ servidor). O que sai da regra e apenas o que nenhum portao le.
 ⚠️ **Isto NÃO afrouxa nada:** merge em `main` por PR e criação de tag fora do fim de onda continuam exigindo **aval explícito no contexto** (ao fim de onda com tudo verde, ver a terceira emenda). O que a emenda faz é **criar um destino seguro** para o trabalho que antes ficava represado no local: em vez de esperar pela onda inteira, o trabalho vai para um ramo, fica publicado, sobrevive a queda de máquina, e o servidor o exercita **sem arriscar o `main`**.
 
 **Corolário de honestidade:** o agente **não decide** que "está verificado o bastante". Verificado significa **medido, com a saída à vista**; na dúvida, é ramo.
+
+**QUARTA EMENDA, de 25/09/2026, ordem do líder: o ramo da onda morre ao mesclar.** Nasceu de uma pergunta dele ao ver o remoto (*"11 branches???"*). Medido nesse momento: 8 dos 11 ramos remotos já estavam inteiros dentro de `main` (conferido um por um com `git merge-base --is-ancestor`), e um nono era sonda de sabotagem descartável. Levada a escolha por `AskUserQuestion`, ele respondeu *"Apagar ao mesclar (Recomendado)"* e, para o acúmulo daquele dia, *"Apagar as 7 já em main + a sonda (Recomendado)"*. O rótulo dizia 7, mas a pergunta nomeava os 8 ramos. Foram apagados os 8 e a sonda, e o remoto ficou com `main` e o ramo da onda viva.
+
+**A regra:** fechou a onda, o merge em `main` saiu e o servidor ficou verde no `main`, **o ramo remoto da onda é apagado no mesmo passo** (`git push origin --delete <ramo>`). Antes de apagar, prove com `git merge-base --is-ancestor origin/<ramo> origin/main` que nenhum commit dele fica de fora; se sobrar commit, o ramo não é apagado e a sobra vai ao líder. Ramo de sonda descartável (sabotagem, prova de vermelho) morre quando a prova termina. Depois, `git ls-remote --heads origin` mostra o que ficou.
 
 **Aplicação:** a mensagem do `push` mente; confirme o SHA no remoto por `git ls-remote <url> <branch>` sempre que o push importar. Confira também `git diff --cached --stat` antes de commitar e `git show --stat` depois: `git add` é atômico e um pathspec inválido derruba o add inteiro em silêncio.
 

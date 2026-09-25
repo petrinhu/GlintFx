@@ -315,6 +315,21 @@ incoming_poll_reaction_test|windows|nenhum|SEM-PENDENCIA
 # acima, agora no nivel de integracao.
 incoming_poll_wiring_test|windows|nenhum|SEM-PENDENCIA
 
+# connection_failure_test (tests/connection_failure_test.cpp, tests/
+# CMakeLists.txt:1803, dentro do MESMO bloco if(UNIX) de incoming_poll_
+# wiring_test logo acima) - EGL-DEAD-DISPLAY-GUARD S1 (docs/plano-egl-
+# dead-display-guard.md): prova connection_failure_if_dead() (src/
+# platform/wayland/connection_failure.cpp) hermeticamente, socketpair()
+# + wl_display_connect_to_fd() real, sem compositor. O atomo que ele
+# prova SO EXISTE no backend Wayland (D-S5 do plano: "o Windows nao
+# ganha fatia; nao ha fio nem erro fatal externo no Win32" -
+# connection_failure.cpp nunca e' compilado em src/platform/win32/).
+# Ausencia permanente por desenho, nao lacuna a fechar - MESMO
+# raciocinio da familia incoming_poll_* logo acima: sem o mecanismo
+# (aqui, a conexao Wayland em si), nao ha "decisao sobre a conexao"
+# para o lado Windows provar. MORTE DESTA LINHA: nunca.
+connection_failure_test|windows|nenhum|SEM-PENDENCIA
+
 # --- P-0 (docs/plano-w6a-janela.md fatia 1, D-W6a-19, 05/09/2026) ------
 #
 # Os quatro nomes abaixo sao os fixtures que ja rodavam dentro do
@@ -671,6 +686,20 @@ container_alloc_report_selftest|windows|nenhum|SEM-PENDENCIA
 # DESTA LINHA: nunca - mesma assimetria permanente por desenho, sem
 # item para rastrear.
 container_run_compositor_selftest|windows|nenhum|SEM-PENDENCIA
+
+# container_wait_for_ready_marker_selftest (tests/container/wait_for_
+# ready_marker.sh --selftest, registrado em tests/CMakeLists.txt dentro
+# de if(UNIX), WL-ACK-SMOKE-BLUNT A3e passo 2) - MESMA assimetria que
+# container_run_compositor_selftest logo acima, pelo mesmo motivo:
+# prova, com uma sonda dublada (marker_probe() redefinida dentro de
+# subshell, sem Docker), a logica do script que ESPERA o marcador de
+# prontidao que run_compositor.sh publica - script que so' existe
+# porque a imagem que ele espera e' a que so' o job `wayland-container`
+# (Linux) sobe. POSIX sh, nenhum runner Windows desta matriz tem `sh`
+# nativo; add_test tambem condicionado a if(UNIX), mesma forma do
+# vizinho acima. MORTE DESTA LINHA: nunca - mesma assimetria permanente
+# por desenho, sem item para rastrear.
+container_wait_for_ready_marker_selftest|windows|nenhum|SEM-PENDENCIA
 
 # drm_device_facts_oom_test (tests/drm_device_facts_oom_test.cpp,
 # tests/CMakeLists.txt dentro de if(UNIX), NOEXCEPT-ALLOC-B8 fatia F2,

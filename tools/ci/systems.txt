@@ -5,9 +5,17 @@
 # de CI (as cinco plataformas de ESCOPO.md paragrafo 1, GODS_LAWS.md
 # L-04). Formato: uma linha por sistema, "slug|familia" - slug em
 # minusculas ([a-z0-9-]+), familia e' sempre "linux" ou "windows".
-# "linux" e "windows" sozinhos NUNCA sao slug de sistema - sao os
-# nomes de familia, e ficam reservados (tests/tools/ci_systems.py
-# reprova um slug com esse nome).
+#
+# D-A12 parte 5 (emenda, R4 desta correcao): "linux" NUNCA e' slug de
+# sistema, incondicionalmente (M7) - e' so' o nome da familia. Um slug
+# IGUAL a um nome de familia (hoje so' "windows" - "linux" ja e'
+# proibido incondicionalmente acima) e' aceito SOMENTE quando (M9)
+# pertence a ESSA MESMA familia - nunca "windows|linux" - e (M8) e' o
+# UNICO sistema dela; no dia em que a familia windows ganhar um segundo
+# sistema, o slug literal "windows" reprova ate ser renomeado. A linha
+# `windows|windows` abaixo e' exatamente esse caso: aceita hoje porque
+# e' o unico membro da familia windows (tests/tools/ci_systems.py
+# valida isso, --selftest controles M7/M8/M9).
 #
 # MUDANCA SO POR DECISAO DO LIDER (GODS_LAWS.md L-04, ESCOPO.md S1):
 # acrescentar/remover um sistema aqui muda a matriz de CI inteira -

@@ -10,12 +10,39 @@
 # argumentos por sistema tem que vir de LER systems.txt em tempo de
 # execucao, nao de um texto fixo no ci.yml).
 #
+# A3A-FIX (revisao do CTO, mutation testing real contra a arvore, apos
+# a A3a aceita em 3d3969d): tres achados IMPORTANTES.
+#
+# R1: o portao antigo comparava o CONJUNTO de slugs entre a matriz e
+# systems.txt - uniao, nunca particao por job E por modo. Duas
+# sabotagens escaparam: S1, apagar a entrada "CachyOS - estatico" (o
+# CONJUNTO de slugs continuava {fedora,ubuntu,arch,cachyos,windows},
+# so' um MODO sumiu); S2, trocar o slug da perna estatica do Windows
+# por "fedora" (o conjunto por job ainda "batia" porque a uniao nao
+# distingue QUAL job tem QUAL par). Conserto: `_matrix_slug_modo_
+# errors()` compara PARES (slug, modo) - todo slug de familia linux
+# tem EXATAMENTE {"compartilhado","estatico"} no job `linux` e em
+# NENHUM outro job; o slug windows idem no job `windows`.
+#
+# R2: `_hardcoded_slug_assignment_errors()` antigo so' procurava a
+# forma literal "<slug>=". S3 escapou: `for slug in windows fedora
+# ubuntu arch cachyos; do` cita os cinco slugs sem nenhum "=" na mesma
+# linha. Conserto: qualquer TOKEN de slug solto (limite de palavra,
+# nunca substring - "ubuntu-latest" nao e' "ubuntu") dentro de um
+# bloco `run:` do job `parity`, fora de comentario e fora de uma linha
+# que invoca `ci_systems.py --tool` (o carregador, uso legitimo),
+# reprova. Restrito a blocos `run:` (extract_run_blocks) - varrer o
+# job inteiro pegaria falso positivo em campos legitimos do GHA (ex.:
+# `needs: [linux, windows, ...]`).
+#
 # LEITURA DE TEXTO puro do ci.yml (GODS_LAWS.md L-09, nunca executa
 # nada) - mesmo padrao de check_ci_step_independence.py/check_
 # container_fixture_inventory.py (extract_job_block ja e' a TERCEIRA
 # copia da mesma funcao nesses dois; aqui e' a QUARTA - extracao para
 # modulo compartilhado registrada como debito conhecido, GODS_LAWS.md
-# L-17 regra de 3, fora do escopo desta fatia, L-32).
+# L-17 regra de 3, fora do escopo desta fatia, L-32). extract_matrix_
+# entries importado de check_ci_system_uniformity.py (mesma logica de
+# indentacao relativa, nao reimplementada uma terceira vez).
 #
 # Usage:
 #   check_ci_systems_source.py --check <ci.yml> <systems.txt>
@@ -27,8 +54,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ci_systems  # noqa: E402
+from ci_systems import extract_job_block  # noqa: E402
+from check_ci_system_uniformity import extract_matrix_entries  # noqa: E402
 
 SCRIPT_NAME = "check_ci_systems_source.py"
+_MODOS_ESPERADOS = frozenset({"compartilhado", "estatico"})
 
 
 def fail(message):
@@ -36,45 +66,23 @@ def fail(message):
     sys.exit(1)
 
 
-# --- extracao do bloco do job -------------------------------------------
-
-_JOB_HEADER_RE = re.compile(r"^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
-
-
-def extract_job_block(ci_yml_text, job_name):
-    target_re = re.compile(r"^  " + re.escape(job_name) + r":\s*$")
-    lines = ci_yml_text.splitlines()
-    start = None
-    for i, line in enumerate(lines):
-        if start is None:
-            if target_re.match(line):
-                start = i
-            continue
-        if _JOB_HEADER_RE.match(line) and not target_re.match(line):
-            return "\n".join(lines[start:i])
-    if start is not None:
-        return "\n".join(lines[start:])
-    return None
-
-
-# --- slugs da matriz ---------------------------------------------------
+# --- slugs da matriz, agora por PAR (slug, modo) por job ---------------
 
 # M1 do plano: um portao que so comparasse a CONTAGEM de slugs nao
 # pegaria "arch" trocado por "manjaro" (mesma contagem, nome errado) -
-# devolve o CONJUNTO de nomes, nunca um numero.
-_SLUG_FIELD_RE = re.compile(r"^\s*(?:-\s*)?slug:\s*(\S+)\s*$")
+# devolve o CONJUNTO de nomes, nunca um numero. R1 (A3A-FIX): contagem
+# de SLUGS tambem nao pega S1/S2 (ver cabecalho) - precisa do PAR
+# (slug, modo).
 
 
-def extract_matrix_slugs(job_block_text):
-    slugs = set()
-    for line in job_block_text.splitlines():
-        m = _SLUG_FIELD_RE.match(line)
-        if m:
-            slugs.add(m.group(1))
-    return slugs
+def extract_matrix_slug_modo_pairs(job_block_text):
+    """Devolve a lista de (slug, modo) de cada entrada de matrix.include
+    - `slug`/`modo` podem ser None se a entrada nao tiver a chave (o
+    chamador decide como reportar)."""
+    return [(e.get("slug"), e.get("modo")) for e in extract_matrix_entries(job_block_text)]
 
 
-def _matrix_slug_errors(ci_yml_text, systems):
+def _matrix_slug_modo_errors(ci_yml_text, systems):
     errors = []
     linux_block = extract_job_block(ci_yml_text, "linux")
     windows_block = extract_job_block(ci_yml_text, "windows")
@@ -83,10 +91,12 @@ def _matrix_slug_errors(ci_yml_text, systems):
     if windows_block is None:
         fail("job 'windows' nao encontrado no ci.yml")
 
-    linux_matrix_slugs = extract_matrix_slugs(linux_block)
-    windows_matrix_slugs = extract_matrix_slugs(windows_block)
-    matrix_slugs = linux_matrix_slugs | windows_matrix_slugs
+    linux_pares = extract_matrix_slug_modo_pairs(linux_block)
+    windows_pares = extract_matrix_slug_modo_pairs(windows_block)
 
+    linux_slugs_matriz = {slug for slug, _ in linux_pares if slug}
+    windows_slugs_matriz = {slug for slug, _ in windows_pares if slug}
+    matrix_slugs = linux_slugs_matriz | windows_slugs_matriz
     systems_slugs = set(systems)
 
     so_na_matriz = sorted(matrix_slugs - systems_slugs)
@@ -98,43 +108,111 @@ def _matrix_slug_errors(ci_yml_text, systems):
     so_no_systems = sorted(systems_slugs - matrix_slugs)
     for slug in so_no_systems:
         errors.append(
-            f"slug {slug!r} existe em tools/ci/systems.txt mas nao aparece na matriz do ci.yml"
+            f"slug {slug!r} existe em tools/ci/systems.txt mas nao aparece em nenhuma matriz do ci.yml"
         )
 
-    # Familia certa: um slug presente nos dois lados, mas so' na matriz
-    # do sistema ERRADO (ex.: citado em 'windows:' quando systems.txt
-    # diz 'linux') - captura o caso "nome bate, familia nao".
-    for slug in sorted(matrix_slugs & systems_slugs):
-        familia_esperada = ci_systems.slug_family(systems, slug)
-        na_matriz_linux = slug in linux_matrix_slugs
-        na_matriz_windows = slug in windows_matrix_slugs
-        familia_na_matriz = "linux" if na_matriz_linux else "windows" if na_matriz_windows else None
-        if familia_esperada != familia_na_matriz:
+    linux_slugs_esperados = ci_systems.slugs_of_family(systems, "linux")
+    windows_slugs_esperados = ci_systems.slugs_of_family(systems, "windows")
+
+    # R1 (S1): todo slug de familia linux tem EXATAMENTE os dois modos
+    # no job 'linux' - nem a menos (S1, um modo sumiu), nem a mais.
+    for slug in sorted(linux_slugs_esperados):
+        modos = {modo for s, modo in linux_pares if s == slug}
+        if modos != _MODOS_ESPERADOS:
             errors.append(
-                f"slug {slug!r}: tools/ci/systems.txt diz familia {familia_esperada!r}, mas a "
-                f"matriz do ci.yml o cita no job {familia_na_matriz!r}"
+                f"slug {slug!r} (familia linux): job 'linux' tem os modos {sorted(m for m in modos if m)}, "
+                f"esperado exatamente {sorted(_MODOS_ESPERADOS)}"
             )
+        if slug in windows_slugs_matriz:
+            errors.append(f"slug {slug!r} (familia linux) aparece na matriz do job 'windows'")
+
+    # R1 (S2): mesma regra para o(s) slug(s) de familia windows - pega
+    # a perna estatica do Windows com slug trocado por 'fedora' (o par
+    # (windows, estatico) some do job windows, e 'fedora' - familia
+    # linux - aparece la, pego pela regra acima tambem).
+    for slug in sorted(windows_slugs_esperados):
+        modos = {modo for s, modo in windows_pares if s == slug}
+        if modos != _MODOS_ESPERADOS:
+            errors.append(
+                f"slug {slug!r} (familia windows): job 'windows' tem os modos {sorted(m for m in modos if m)}, "
+                f"esperado exatamente {sorted(_MODOS_ESPERADOS)}"
+            )
+        if slug in linux_slugs_matriz:
+            errors.append(f"slug {slug!r} (familia windows) aparece na matriz do job 'linux'")
+
     return errors
 
 
 # --- nenhum slug escrito a mao no job `parity` --------------------------
 
-# M3 do plano: uma lista `slug=` escrita a mao volta ao passo do
-# `parity` -> reprova. Procura, em CADA passo `run:` do job `parity`,
-# a forma literal "<slug>=" para cada slug conhecido de tools/ci/
-# systems.txt - se aparecer, o passo nao esta lendo o arquivo em tempo
-# de execucao, esta citando o nome fixo no proprio ci.yml.
+# R2 (A3A-FIX, S3): a forma antiga so' procurava "<slug>=" - `for slug
+# in windows fedora ubuntu arch cachyos; do` cita os cinco nomes sem
+# "=" nenhum e escapava. Restrito a blocos `run:` (nunca o job inteiro
+# - campos legitimos do GHA como `needs: [linux, windows, ...]`
+# citariam o nome do slug sem ser hardcode de argumento).
+_RUN_LINE_RE = re.compile(r"^(\s*)run:\s*(.*)$")
+
+
+def extract_run_blocks(job_block_text):
+    """Devolve uma lista de textos, um por bloco `run:` de cada step -
+    forma de uma linha (`run: comando`) e forma multilinha (`run: |` /
+    `run: >-`, linhas seguintes com indentacao MAIOR que a do `run:`)."""
+    lines = job_block_text.splitlines()
+    blocks = []
+    i = 0
+    while i < len(lines):
+        m = _RUN_LINE_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        indent = len(m.group(1))
+        resto = m.group(2).strip()
+        if resto and resto not in ("|", ">-", ">", "|-"):
+            blocks.append(resto)
+            i += 1
+            continue
+        bloco_linhas = []
+        i += 1
+        while i < len(lines):
+            prox = lines[i]
+            if not prox.strip():
+                bloco_linhas.append(prox)
+                i += 1
+                continue
+            prox_indent = len(prox) - len(prox.lstrip(" "))
+            if prox_indent <= indent:
+                break
+            bloco_linhas.append(prox)
+            i += 1
+        blocks.append("\n".join(bloco_linhas))
+    return blocks
+
+
+# M3 do plano (R2, alargado): qualquer TOKEN de slug solto (limite de
+# palavra) dentro de um bloco `run:` do job `parity` reprova, fora de
+# comentario e fora de uma linha que invoca `ci_systems.py --tool` (o
+# carregador - uso legitimo, a propria linha nunca cita o NOME do
+# slug). Cobre tanto "<slug>=" (forma antiga) quanto `for slug in
+# windows fedora ...` (S3) e qualquer outra forma futura de citar o
+# nome a mao.
 def _hardcoded_slug_assignment_errors(parity_job_block, systems):
     errors = []
+    run_blocks = extract_run_blocks(parity_job_block)
     for slug in sorted(systems):
-        pattern = re.compile(r"(?<![\w-])" + re.escape(slug) + r"=")
-        for raw_line in parity_job_block.splitlines():
-            line = raw_line.strip()
-            if pattern.search(line):
-                errors.append(
-                    f"job 'parity': linha cita {slug!r}= escrito a mao - os argumentos por "
-                    f"sistema tem que vir de ler tools/ci/systems.txt em tempo de execucao: {line!r}"
-                )
+        pattern = re.compile(r"(?<![\w-])" + re.escape(slug) + r"(?![\w-])")
+        for block in run_blocks:
+            for raw_line in block.splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "ci_systems.py" in line:
+                    continue
+                if pattern.search(line):
+                    errors.append(
+                        f"job 'parity': linha cita o slug {slug!r} fora de ci_systems.py --tool "
+                        f"- os argumentos por sistema tem que vir do carregador em tempo de "
+                        f"execucao: {line!r}"
+                    )
     return errors
 
 
@@ -142,7 +220,7 @@ def _hardcoded_slug_assignment_errors(parity_job_block, systems):
 
 
 def run_check(ci_yml_text, systems):
-    errors = _matrix_slug_errors(ci_yml_text, systems)
+    errors = _matrix_slug_modo_errors(ci_yml_text, systems)
     parity_block = extract_job_block(ci_yml_text, "parity")
     if parity_block is None:
         fail("job 'parity' nao encontrado no ci.yml")
@@ -188,6 +266,9 @@ def real_main(args):
 
 _FAKE_SYSTEMS = {"fedora": "linux", "ubuntu": "linux", "arch": "linux", "windows": "windows"}
 
+# Cada slug de familia linux com os DOIS modos (R1) - a fixture antiga
+# so' tinha uma entrada por slug, sem `modo:`, o que nunca teria
+# reproduzido S1/S2 (o par (slug,modo) e' o que a R1 confere).
 _FAKE_CI_YML_GOOD = """\
 jobs:
   linux:
@@ -195,20 +276,31 @@ jobs:
       matrix:
         include:
           - slug: fedora
+            modo: compartilhado
+          - slug: fedora
+            modo: estatico
           - slug: ubuntu
+            modo: compartilhado
+          - slug: ubuntu
+            modo: estatico
           - slug: arch
+            modo: compartilhado
+          - slug: arch
+            modo: estatico
   windows:
     strategy:
       matrix:
         include:
           - slug: windows
+            modo: compartilhado
+          - slug: windows
+            modo: estatico
   parity:
+    needs: [linux, windows]
     steps:
       - name: monta argumentos
         run: |
-          while IFS='|' read -r slug familia; do
-            args="$args ${slug}=/tmp/persystem/${slug}.txt"
-          done < tools/ci/systems.txt
+          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)
 """
 
 
@@ -224,7 +316,7 @@ def selftest_positive_control():
 # M1: 'arch' trocado por 'manjaro' - MESMA contagem, nome errado. Um
 # portao que so' contasse passaria calado.
 def selftest_wrong_name_same_count_reproves():
-    ci_yml_wrong_name = _FAKE_CI_YML_GOOD.replace("- slug: arch", "- slug: manjaro")
+    ci_yml_wrong_name = _FAKE_CI_YML_GOOD.replace("slug: arch", "slug: manjaro")
     errors = run_check(ci_yml_wrong_name, _FAKE_SYSTEMS)
     if not errors:
         print("selftest: M1-NOME-ERRADO FALHOU (deveria ter reprovado - nome trocado, mesma contagem)", file=sys.stderr)
@@ -237,7 +329,10 @@ def selftest_wrong_name_same_count_reproves():
 
 
 def selftest_extra_matrix_slug_reproves():
-    ci_yml_extra = _FAKE_CI_YML_GOOD.replace("- slug: arch\n", "- slug: arch\n          - slug: cachyos\n")
+    ci_yml_extra = _FAKE_CI_YML_GOOD.replace(
+        "          - slug: arch\n            modo: estatico\n",
+        "          - slug: arch\n            modo: estatico\n          - slug: cachyos\n            modo: compartilhado\n          - slug: cachyos\n            modo: estatico\n",
+    )
     errors = run_check(ci_yml_extra, _FAKE_SYSTEMS)
     if not any("cachyos" in e for e in errors):
         print(f"selftest: SLUG-EXTRA-NA-MATRIZ FALHOU (deveria citar 'cachyos'): {errors}", file=sys.stderr)
@@ -258,16 +353,16 @@ def selftest_missing_matrix_slug_reproves():
 
 
 def selftest_wrong_family_in_matrix_reproves():
-    """'windows' citado no job errado (linux) - nome bate, familia nao."""
+    """'windows' citado no job errado (linux), com os dois modos -
+    nome bate, familia nao."""
     ci_yml_wrong_family = _FAKE_CI_YML_GOOD.replace(
-        "  linux:\n    strategy:\n      matrix:\n        include:\n          - slug: fedora",
-        "  linux:\n    strategy:\n      matrix:\n        include:\n          - slug: windows\n          - slug: fedora",
+        "          - slug: fedora\n            modo: compartilhado\n",
+        "          - slug: windows\n            modo: compartilhado\n          - slug: windows\n            modo: estatico\n          - slug: fedora\n            modo: compartilhado\n",
     ).replace(
-        "  windows:\n    strategy:\n      matrix:\n        include:\n          - slug: windows\n",
-        "  windows:\n    strategy:\n      matrix:\n        include: []\n",
+        "          - slug: windows\n            modo: compartilhado\n          - slug: windows\n            modo: estatico\n  parity:",
+        "  parity:",
     )
-    systems_so_windows_extra = dict(_FAKE_SYSTEMS)
-    errors = run_check(ci_yml_wrong_family, systems_so_windows_extra)
+    errors = run_check(ci_yml_wrong_family, _FAKE_SYSTEMS)
     if not any("windows" in e and "familia" in e for e in errors):
         print(f"selftest: FAMILIA-ERRADA-NA-MATRIZ FALHOU: {errors}", file=sys.stderr)
         return False
@@ -275,10 +370,48 @@ def selftest_wrong_family_in_matrix_reproves():
     return True
 
 
-# M3: lista 'slug=' escrita a mao volta ao passo do parity.
+# --- R1: S1 e S2, as DUAS sabotagens reais do CTO que a contagem por
+# CONJUNTO deixava passar (rc=0 contra a arvore real, confirmado antes
+# do fix - ver o relatorio da A3a-fix) --------------------------------
+
+
+# S1: apaga o par (cachyos, estatico) - o CONJUNTO de slugs continua
+# {fedora,ubuntu,arch,windows} (cachyos nao esta em _FAKE_SYSTEMS, mas
+# o efeito e' o mesmo com arch): um modo sumiu, a contagem de slugs
+# nunca via isso.
+def selftest_s1_missing_modo_pair_reproves():
+    ci_s1 = _FAKE_CI_YML_GOOD.replace("          - slug: arch\n            modo: estatico\n", "")
+    errors = run_check(ci_s1, _FAKE_SYSTEMS)
+    if not any("arch" in e and "modos" in e for e in errors):
+        print(f"selftest: S1-MODO-FALTANDO FALHOU (deveria citar 'arch' com os modos incompletos): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: S1-MODO-FALTANDO OK (achado real do CTO reproduzido e pego): {errors}")
+    return True
+
+
+# S2: troca o slug da perna estatica do Windows por 'fedora' - o
+# CONJUNTO de slugs por job continuava "batendo" porque a uniao nao
+# distingue QUAL job tem QUAL par.
+def selftest_s2_wrong_slug_in_windows_leg_reproves():
+    ci_s2 = _FAKE_CI_YML_GOOD.replace(
+        "          - slug: windows\n            modo: estatico\n",
+        "          - slug: fedora\n            modo: estatico\n",
+    )
+    errors = run_check(ci_s2, _FAKE_SYSTEMS)
+    if not any("windows" in e and "modos" in e for e in errors):
+        print(f"selftest: S2-SLUG-TROCADO FALHOU (deveria citar 'windows' com os modos incompletos): {errors}", file=sys.stderr)
+        return False
+    if not any("fedora" in e and "familia linux" in e and "'windows'" in e for e in errors):
+        print(f"selftest: S2-SLUG-TROCADO FALHOU (deveria citar 'fedora' aparecendo no job windows): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: S2-SLUG-TROCADO OK (achado real do CTO reproduzido e pego, dupla causa): {errors}")
+    return True
+
+
+# M3/R2: lista 'slug=' escrita a mao volta ao passo do parity.
 def selftest_hardcoded_slug_in_parity_reproves():
     ci_yml_hardcoded = _FAKE_CI_YML_GOOD.replace(
-        "      - name: monta argumentos\n        run: |\n          while IFS='|' read -r slug familia; do\n            args=\"$args ${slug}=/tmp/persystem/${slug}.txt\"\n          done < tools/ci/systems.txt\n",
+        "      - name: monta argumentos\n        run: |\n          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)\n",
         "      - name: chama o portao\n        run: |\n          python3 tests/tools/check_test_parity.py --per-system e.txt t.md fedora=/tmp/persystem/fedora.txt ubuntu=/tmp/persystem/ubuntu.txt arch=/tmp/persystem/arch.txt windows=/tmp/persystem/windows.txt\n",
     )
     errors = run_check(ci_yml_hardcoded, _FAKE_SYSTEMS)
@@ -293,11 +426,58 @@ def selftest_hardcoded_slug_in_parity_reproves():
     return True
 
 
+# R2, S3: `for slug in windows fedora ubuntu arch cachyos; do` - os
+# cinco nomes sem NENHUM "=" na mesma linha, escapava do M3 antigo.
+def selftest_s3_for_loop_without_equals_reproves():
+    ci_s3 = _FAKE_CI_YML_GOOD.replace(
+        "      - name: monta argumentos\n        run: |\n          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)\n",
+        "      - name: monta argumentos\n        run: |\n          args=\"\"\n          for slug in windows fedora ubuntu arch cachyos; do\n            args=\"$args ${slug}=/tmp/persystem/${slug}.txt\"\n          done\n",
+    )
+    errors = run_check(ci_s3, _FAKE_SYSTEMS)
+    citados = {"windows", "fedora", "ubuntu", "arch"}
+    if not all(any(slug in e for e in errors) for slug in citados):
+        print(f"selftest: S3-FOR-SEM-IGUAL FALHOU (deveria citar os slugs soltos no 'for'): {errors}", file=sys.stderr)
+        return False
+    print(f"selftest: S3-FOR-SEM-IGUAL OK (achado real do CTO reproduzido e pego): {errors}")
+    return True
+
+
+# R2, controle negativo: chamar ci_systems.py --tool NAO reprova - e' o
+# uso LEGITIMO do carregador (a fixture positiva ja prova isso; este
+# controle isola o motivo, provando que 'args-per-system' sozinho na
+# linha nao dispara nenhum slug).
+def selftest_ci_systems_tool_call_does_not_reprove():
+    errors = _hardcoded_slug_assignment_errors(
+        "steps:\n  - name: x\n    run: |\n      args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)\n",
+        _FAKE_SYSTEMS,
+    )
+    if errors:
+        print(f"selftest: CI-SYSTEMS-TOOL-CONTROLE FALHOU (chamada ao carregador nao deveria reprovar): {errors}", file=sys.stderr)
+        return False
+    print("selftest: CI-SYSTEMS-TOOL-CONTROLE OK (uso legitimo de ci_systems.py --tool nunca reprova)")
+    return True
+
+
+# R2, controle negativo: campo `needs: [linux, windows, ...]` (fora de
+# qualquer `run:`) NAO reprova - restrito a blocos `run:`, nunca o job
+# inteiro (a fixture positiva ja tem `needs: [linux, windows]` e passa).
+def selftest_needs_field_outside_run_does_not_reprove():
+    errors = _hardcoded_slug_assignment_errors(
+        "needs: [linux, windows]\nsteps:\n  - name: x\n    run: echo ok\n",
+        _FAKE_SYSTEMS,
+    )
+    if errors:
+        print(f"selftest: NEEDS-FORA-DE-RUN-CONTROLE FALHOU (campo needs: nao deveria reprovar): {errors}", file=sys.stderr)
+        return False
+    print("selftest: NEEDS-FORA-DE-RUN-CONTROLE OK (campo needs:, fora de run:, nunca reprova)")
+    return True
+
+
 def selftest_job_not_found_reproves():
     """`run_check()` chama `fail()` (sys.exit) quando o job 'linux' ou
     'windows' nao existe no ci.yml - GODS_LAWS.md L-40, coleta quebrada
     nunca deve virar 'zero slug encontrado' calado."""
-    ci_sem_linux = "jobs:\n  windows:\n    strategy:\n      matrix:\n        include:\n          - slug: windows\n  parity:\n    steps: []\n"
+    ci_sem_linux = "jobs:\n  windows:\n    strategy:\n      matrix:\n        include:\n          - slug: windows\n            modo: compartilhado\n  parity:\n    steps: []\n"
     try:
         run_check(ci_sem_linux, _FAKE_SYSTEMS)
     except SystemExit:
@@ -314,7 +494,12 @@ def selftest_main():
         selftest_extra_matrix_slug_reproves(),
         selftest_missing_matrix_slug_reproves(),
         selftest_wrong_family_in_matrix_reproves(),
+        selftest_s1_missing_modo_pair_reproves(),
+        selftest_s2_wrong_slug_in_windows_leg_reproves(),
         selftest_hardcoded_slug_in_parity_reproves(),
+        selftest_s3_for_loop_without_equals_reproves(),
+        selftest_ci_systems_tool_call_does_not_reprove(),
+        selftest_needs_field_outside_run_does_not_reprove(),
         selftest_job_not_found_reproves(),
     ]
     if not all(controls):

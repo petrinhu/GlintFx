@@ -12,9 +12,13 @@
 # LEITURA DE TEXTO puro do ci.yml (GODS_LAWS.md L-09, nunca executa
 # nada) - mesmo padrao dos portoes irmaos (check_ci_systems_source.py,
 # check_ci_step_independence.py, check_container_fixture_inventory.py).
-# extract_job_block importado de check_ci_systems_source.py (a QUARTA
-# copia da mesma funcao virava a QUINTA; reaproveitar reduz a divida em
-# vez de aumenta-la, GODS_LAWS.md L-17 regra de 3).
+# extract_job_block importado de ci_systems.py (A3a-fix: morava em
+# check_ci_systems_source.py, mas esse modulo passou a importar
+# extract_matrix_entries() DAQUI - import circular real, medido
+# (ImportError). Movida para ci_systems.py, a biblioteca comum que os
+# dois portoes ja importavam sem ciclo; a QUARTA copia da mesma funcao
+# virava a QUINTA, reaproveitar reduz a divida em vez de aumenta-la,
+# GODS_LAWS.md L-17 regra de 3).
 #
 # Usage:
 #   check_ci_system_uniformity.py --check <ci.yml> <systems.txt> <env_dir>
@@ -27,7 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ci_systems  # noqa: E402
-from check_ci_systems_source import extract_job_block  # noqa: E402
+from ci_systems import extract_job_block  # noqa: E402
 
 SCRIPT_NAME = "check_ci_system_uniformity.py"
 

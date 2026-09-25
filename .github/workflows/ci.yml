@@ -1304,6 +1304,13 @@ jobs:
       # o nome do artefato) - nunca da lista de sistemas escrita a mao
       # aqui, para o piso "sistema sem inventario" (proximo passo) medir
       # o que REALMENTE chegou, nao o que o script espera encontrar.
+      # A3a-fix (R3, revisao do CTO): o corte `slug="${resto%%-*}"`
+      # (primeiro hifen) quebrava qualquer slug com hifen no proprio
+      # nome (medido: "rocky-9-compartilhado" virava slug "rocky", que
+      # nao existe) - `ci_systems.py --tool slug-of-artifact` casa pelo
+      # slug CONHECIDO mais longo que e' prefixo do resto, nunca corta
+      # cegamente. A familia (windows/linux) idem, via `--tool family-
+      # of`, nunca mais `if [ "$slug" = "windows" ]` escrito a mao.
       #
       # 06/09/2026 - o resumo do job (abaixo, `$GITHUB_STEP_SUMMARY`)
       # e' ONDE o total por perna passa a morar, agora que README.md
@@ -1335,11 +1342,11 @@ jobs:
             [ -d "$leg_dir" ] || continue
             leg=$(basename "$leg_dir")
             resto="${leg#parity-inv-}"
-            slug="${resto%%-*}"
+            slug=$(python3 tests/tools/ci_systems.py --tool slug-of-artifact "$resto")
             legs_found=$((legs_found + 1))
 
             cat "$leg_dir/parity_inventory.txt" >> "/tmp/persystem/${slug}.txt"
-            if [ "$slug" = "windows" ]; then
+            if [ "$(python3 tests/tools/ci_systems.py --tool family-of "$slug")" = "windows" ]; then
               cat "$leg_dir/parity_inventory.txt" >> /tmp/parity_windows_union.txt
             else
               cat "$leg_dir/parity_inventory.txt" >> /tmp/parity_linux_union.txt
@@ -1384,18 +1391,18 @@ jobs:
       # CI-SPLIT-PER-OS A3a (D-A12): a lista de argumentos por sistema
       # vem de LER tools/ci/systems.txt em tempo de execucao, nunca de
       # slugs escritos a mao aqui - conferido por check_ci_systems_
-      # source.py (M3). `#` no inicio de uma linha do arquivo e' sempre
-      # comentario (ci_systems.py's proprio parser ja ignora), pulado
-      # aqui do mesmo jeito.
+      # source.py (M3/R2). A3a-fix (R3, revisao do CTO): o laco bash
+      # `while IFS='|' read` era uma SEGUNDA implementacao da mesma
+      # regra de leitura que ci_systems.py ja tem (forma propria,
+      # divergente - achado do CTO), e sozinho nao protegia contra a
+      # forma alternativa `for slug in <lista>; do` (S3, sem "="). Um
+      # unico comando via `ci_systems.py --tool args-per-system`
+      # (mesmo carregador que valida tools/ci/systems.txt) substitui o
+      # laco inteiro - o portao R2 exige esse uso.
       - name: check_test_parity.py --per-system
         run: |
           set -eu
-          args=""
-          while IFS='|' read -r slug familia; do
-            [ -n "$slug" ] || continue
-            case "$slug" in \#*) continue ;; esac
-            args="$args ${slug}=/tmp/persystem/${slug}.txt"
-          done < tools/ci/systems.txt
+          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)
           python3 tests/tools/check_test_parity.py --per-system \
             tests/parity_exceptions.txt TODO.md \
             $args \
@@ -1425,11 +1432,11 @@ jobs:
             [ -d "$leg_dir" ] || continue
             leg=$(basename "$leg_dir")
             resto="${leg#measured-}"
-            slug="${resto%%-*}"
+            slug=$(python3 tests/tools/ci_systems.py --tool slug-of-artifact "$resto")
             for arquivo in "$leg_dir"*.txt; do
               [ -f "$arquivo" ] || continue
               cat "$arquivo" >> "/tmp/measured_persystem/${slug}.txt"
-              if [ "$slug" = "windows" ]; then
+              if [ "$(python3 tests/tools/ci_systems.py --tool family-of "$slug")" = "windows" ]; then
                 cat "$arquivo" >> /tmp/measured_windows_legado.txt
               else
                 cat "$arquivo" >> /tmp/measured_linux_legado.txt
@@ -1461,19 +1468,14 @@ jobs:
       # lados; uma chave que diverge so' entre DUAS distros Linux fica
       # invisivel nele. --measured-exceptions/--todo ligam a secao de
       # VALOR (sem eles, per_system_main() so' reportaria presenca).
-      # CI-SPLIT-PER-OS A3a (D-A12): mesma leitura dinamica de
-      # tools/ci/systems.txt que o passo check_test_parity.py --per-
-      # system acima ja faz - nenhum slug escrito a mao aqui tambem
-      # (check_ci_systems_source.py, M3).
+      # CI-SPLIT-PER-OS A3a (D-A12), A3a-fix (R3): mesmo carregador que
+      # o passo check_test_parity.py --per-system acima ja usa -
+      # `ci_systems.py --tool args-per-system`, nunca um laco bash
+      # proprio (nem `while IFS='|' read`, nem `for slug in <lista>`).
       - name: check_measured_parity.py --per-system
         run: |
           set -eu
-          args=""
-          while IFS='|' read -r slug familia; do
-            [ -n "$slug" ] || continue
-            case "$slug" in \#*) continue ;; esac
-            args="$args ${slug}=/tmp/measured_persystem/${slug}.txt"
-          done < tools/ci/systems.txt
+          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/measured_persystem)
           python3 tests/tools/check_measured_parity.py --per-system \
             $args \
             --exceptions tests/parity_exceptions.txt --aliases tests/parity_aliases.txt \

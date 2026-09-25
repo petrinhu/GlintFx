@@ -4788,6 +4788,29 @@ add_test(
 )
 set_tests_properties(ci_systems_source_selftest PROPERTIES LABELS selftest)
 
+# CI-SPLIT-PER-OS A3b (docs/plano-ci-split-per-os.md secao 4.4): matriz
+# enxuta so' varia nas chaves permitidas, nenhum passo fora do preparo
+# bifurca por sistema, tools/ci/env/*.sh corresponde a systems.txt (so'
+# familia linux - windows nao tem script proprio), e todo alvo linux
+# tem entrada + passo "Piso de ferramentas".
+add_test(
+    NAME ci_system_uniformity_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_system_uniformity.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+        "${CMAKE_SOURCE_DIR}/tools/ci/systems.txt"
+        "${CMAKE_SOURCE_DIR}/tools/ci/env"
+)
+set_tests_properties(ci_system_uniformity_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ci_system_uniformity_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_system_uniformity.py" --selftest
+)
+set_tests_properties(ci_system_uniformity_selftest PROPERTIES LABELS selftest)
+
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind
 # spot the whole-tree rewrite of prepare_arch_ports_fixture.sh's own

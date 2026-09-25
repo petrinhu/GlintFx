@@ -141,6 +141,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # MATRIZ ENXUTA (CI-SPLIT-PER-OS A3b, docs/plano-ci-split-per-
+          # os.md secao 4.4): os campos `cc`, `c_compiler` e `instalar`
+          # que existiam aqui MIGRARAM para `tools/ci/env/<slug>.sh` (um
+          # arquivo por sistema - fedora.sh/ubuntu.sh/arch.sh/cachyos.sh),
+          # despachados pelo `slug` de cada entrada no passo "Instalar
+          # toolchain" logo abaixo. O conteudo de cada script e' IDENTICO
+          # ao que estes tres campos continham (mesmos pacotes, mesmo CC/
+          # CXX, mesma logica de retry do CachyOS) - so' o LOCAL mudou.
+          # Os comentarios historicos abaixo (c_compiler, python3, etc.)
+          # continuam valendo: eles explicam o PORQUE de cada pacote e
+          # cada nome de compilador, e essa motivacao migrou junto para
+          # dentro de cada script (ver o cabecalho de cada um).
+          #
           # O g++ padrao do 24.04 e o 13.3, que da C++23 parcial
           # (__cplusplus=202100, sem <print>). Piso de toolchain do projeto
           # e GCC 14, medido em 21/08/2026: 14.2 devolve 202302.
@@ -213,24 +226,14 @@ jobs:
           # é a estreia que mede o nome certo, nao suposicao.
           - nome: Fedora (primario) - compartilhado
             slug: fedora
-            cc: c++
-            c_compiler: cc
             imagem: fedora:latest
-            instalar: >-
-              dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-              wayland-devel wayland-protocols-devel libglvnd-devel python3
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Fedora (primario) - estatico
             slug: fedora
-            cc: c++
-            c_compiler: cc
             imagem: fedora:latest
-            instalar: >-
-              dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
-              wayland-devel wayland-protocols-devel libglvnd-devel python3
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
@@ -258,134 +261,47 @@ jobs:
           # CI a partir desta fatia.
           - nome: Ubuntu - compartilhado
             slug: ubuntu
-            cc: g++-14
-            c_compiler: gcc-14
             imagem: ubuntu:latest
-            instalar: >-
-              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
-              g++-14 gcc-14 cmake ninja-build pkg-config git
-              libwayland-dev libwayland-bin wayland-protocols libegl-dev python3
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Ubuntu - estatico
             slug: ubuntu
-            cc: g++-14
-            c_compiler: gcc-14
             imagem: ubuntu:latest
-            instalar: >-
-              apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y
-              g++-14 gcc-14 cmake ninja-build pkg-config git
-              libwayland-dev libwayland-bin wayland-protocols libegl-dev python3
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: Arch - compartilhado
             slug: arch
-            cc: c++
-            c_compiler: cc
             imagem: archlinux:latest
-            instalar: >-
-              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols libglvnd python
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Arch - estatico
             slug: arch
-            cc: c++
-            c_compiler: cc
             imagem: archlinux:latest
-            instalar: >-
-              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols libglvnd python
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: CachyOS - compartilhado
             slug: cachyos
-            cc: c++
-            c_compiler: cc
             imagem: cachyos/cachyos:latest
-            instalar: >-
-              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols libglvnd
             modo: compartilhado
             builddir: build-shared
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: CachyOS - estatico
             slug: cachyos
-            cc: c++
-            c_compiler: cc
             imagem: cachyos/cachyos:latest
-            instalar: >-
-              pacman -Syu --noconfirm gcc cmake ninja pkgconf git
-              wayland wayland-protocols libglvnd
             modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
     steps:
-      # ROTACAO-ESPELHO-CACHYOS (GODS_LAWS.md L-42, pesquisado antes de
-      # consertar - segunda falha do mesmo motivo, runs 35937778448 e
-      # 35939021453: github.com/CachyOS/distribution#443 e o topico do
-      # forum CachyOS "Problems with pacman and CachyOS keyring"
-      # 27/09/2025, ambos com o MESMO sintoma). Reproduzido aqui em
-      # container local (23-24/09/2026): "error: cachyos: signature from
-      # CachyOS <admin@cachyos.org> is invalid" nos dois jobs CachyOS.
-      # Medido, nao suposto: o .db do repo cachyos e IDENTICO (mesmo
-      # md5sum) entre os espelhos testados, mas cada espelho reassina em
-      # horario proprio, e 2 dos 4 espelhos testados tinham assinatura
-      # BAD contra esse MESMO .db (gpg --verify direto), enquanto os
-      # outros dois tinham assinatura GOOD - nao e chave expirada nem
-      # keyring desatualizado no cliente, e o pacman NAO cai sozinho para
-      # o proximo espelho da lista quando a assinatura do banco de dados
-      # falha (so faz fallback em erro de download; confirmado aqui com
-      # dois Server explicitos, bom depois de ruim, e ele falhou no
-      # primeiro sem tentar o segundo). SigLevel = Never/TrustAll fica
-      # PROIBIDO (calaria o portao de seguranca da L-02/L-40) - a defesa
-      # e rotacionar cachyos-mirrorlist e tentar de novo, o que basta
-      # porque a dessincronia e por espelho e transitoria. Escopo restrito
-      # as imagens `cachyos/*`: Fedora/Ubuntu/Arch continuam com uma unica
-      # tentativa, mesmo comportamento de antes (nao mude o que nao
-      # falha).
-      - name: Instalar toolchain
-        shell: bash
-        run: |
-          set +e
-          maximo=1
-          if [[ "${{ matrix.imagem }}" == cachyos/* ]]; then
-            maximo=10
-          fi
-          tentativa=0
-          while [ "$tentativa" -lt "$maximo" ]; do
-            tentativa=$((tentativa + 1))
-            echo "=== instalar toolchain, tentativa $tentativa/$maximo ==="
-            ${{ matrix.instalar }} >/tmp/instalar_toolchain.log 2>&1
-            codigo=$?
-            cat /tmp/instalar_toolchain.log
-            if [ "$codigo" -eq 0 ]; then
-              exit 0
-            fi
-            if [ "$tentativa" -lt "$maximo" ] && grep -q "signature from" /tmp/instalar_toolchain.log; then
-              echo "::warning::assinatura do banco de dados CachyOS invalida (espelho dessincronizado), rotacionando cachyos-mirrorlist e tentando de novo"
-              lista=/etc/pacman.d/cachyos-mirrorlist
-              primeira=$(grep -n "^Server" "$lista" | head -1 | cut -d: -f1)
-              if [ -n "$primeira" ]; then
-                sed -n "${primeira}p" "$lista" >>"$lista"
-                sed -i "${primeira}d" "$lista"
-              fi
-              continue
-            fi
-            echo "falha em 'Instalar toolchain' (codigo $codigo), sem sinal de assinatura CachyOS invalida ou tentativas esgotadas"
-            exit "$codigo"
-          done
-
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
       # 19/09/2026): esta matriz roda a suite ctest INTEIRA sem filtro
       # de rotulo (ver "ctest --test-dir" abaixo), e version_matches_
@@ -393,6 +309,17 @@ jobs:
       # etiquetas o script via "reachable_v_tags=0" numa arvore que
       # genuinamente tem etiquetas e reprovava por um checkout raso,
       # nunca por deriva real. Mesmo par usado no job version-tag.
+      #
+      # ORDEM-A3B: o checkout MOVEU para antes de "Instalar toolchain"
+      # nesta fatia (CI-SPLIT-PER-OS A3b). Antes, "Instalar toolchain"
+      # vinha primeiro de todos os passos porque o comando inteiro
+      # (matrix.instalar) era uma string literal do proprio ci.yml, sem
+      # nenhuma dependencia do arquivo do repositorio. Agora que ele
+      # despacha para tools/ci/env/<slug>.sh (arquivo DENTRO do repo), o
+      # checkout precisa ter rodado antes - medido, nao suposto: sem
+      # isso o passo falharia com "No such file or directory" na
+      # primeira execucao real, porque o script simplesmente nao existe
+      # no filesystem do container antes do checkout.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -428,17 +355,75 @@ jobs:
       - name: Configurar diretorio seguro do git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      # ROTACAO-ESPELHO-CACHYOS (GODS_LAWS.md L-42, pesquisado antes de
+      # consertar - segunda falha do mesmo motivo, runs 35937778448 e
+      # 35939021453: github.com/CachyOS/distribution#443 e o topico do
+      # forum CachyOS "Problems with pacman and CachyOS keyring"
+      # 27/09/2025, ambos com o MESMO sintoma). A logica de retry (ate
+      # 10 tentativas, rotacionando /etc/pacman.d/cachyos-mirrorlist
+      # quando o log acusa "signature from") MOROU aqui ate a fatia
+      # A3b (CI-SPLIT-PER-OS) - migrou para DENTRO de
+      # tools/ci/env/cachyos.sh, que e o UNICO script que ainda precisa
+      # dela (Fedora/Ubuntu/Arch continuam de tentativa unica, mesmo
+      # comportamento de antes). Este passo agora e so o DESPACHO por
+      # slug: cada script (fedora.sh/ubuntu.sh/arch.sh/cachyos.sh) e'
+      # responsavel pela propria logica de instalacao, retry incluido
+      # onde existir.
+      - name: Instalar toolchain
+        shell: bash
+        run: bash tools/ci/env/${{ matrix.slug }}.sh
+
+      # PISO-FERRAMENTAS (CI-SPLIT-PER-OS A3b, docs/plano-ci-split-per-
+      # os.md secao 4.4): antes desta fatia, um GCC abaixo do piso do
+      # projeto (14) so' falhava tarde, no proprio "cmake -S" do passo
+      # de build, com mensagem que nao aponta pra causa real. Este passo
+      # roda logo apos o preparo e falha alto e cedo, com a causa
+      # explicita, se qualquer um dos quatro pisos nao for atendido:
+      # GCC >= 14 (__GNUC__), CMake >= 4.1, python3/python presente
+      # (DEPZERO-TRACE), e xdg-shell.xml presente (L-05, Wayland puro).
+      - name: Piso de ferramentas
+        run: |
+          set -eu
+          gnuc_major="$("$CXX" -dM -E -x c++ /dev/null | awk '$2 == "__GNUC__" {print $3}')"
+          if [ -z "$gnuc_major" ] || [ "$gnuc_major" -lt 14 ]; then
+            echo "PISO NAO ATENDIDO: __GNUC__ = '${gnuc_major:-<vazio>}', piso do projeto e' 14 (CXX=$CXX)"
+            exit 1
+          fi
+          cmake_versao="$(cmake --version | head -1 | awk '{print $3}')"
+          cmake_major="${cmake_versao%%.*}"
+          cmake_minor="${cmake_versao#*.}"
+          cmake_minor="${cmake_minor%%.*}"
+          if [ "$cmake_major" -lt 4 ] || { [ "$cmake_major" -eq 4 ] && [ "$cmake_minor" -lt 1 ]; }; then
+            echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', piso do projeto e' 4.1 (CMakeLists.txt)"
+            exit 1
+          fi
+          if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+            echo "PISO NAO ATENDIDO: nem python3 nem python no PATH (DEPZERO-TRACE, tests/CMakeLists.txt exige um dos dois)"
+            exit 1
+          fi
+          xml="$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml"
+          if [ ! -f "$xml" ]; then
+            echo "PISO NAO ATENDIDO: falta xdg-shell.xml em $xml (L-05, Wayland puro)"
+            exit 1
+          fi
+          echo "piso de ferramentas OK: GCC $gnuc_major, CMake $cmake_versao, python presente, $xml presente"
+
       # PKG-NATIVE: falha o job cedo e com mensagem clara se o passo
       # "Instalar toolchain" acima nao alcancou o piso que
       # cmake_minimum_required(VERSION 4.1) exige (CMakeLists.txt) - sem
       # este print explicito, um Ubuntu que ainda achasse o cmake velho
       # do apt so falharia bem mais tarde, no proprio "cmake -S" do passo
       # de build, com uma mensagem que nao aponta para este passo.
+      #
+      # $CC/$CXX (CI-SPLIT-PER-OS A3b): antes eram matrix.cc/matrix.
+      # c_compiler; agora sao exportados por tools/ci/env/<slug>.sh via
+      # $GITHUB_ENV no passo "Instalar toolchain" acima, disponiveis
+      # como variavel de ambiente em todo passo seguinte deste job.
       - name: Versoes da toolchain
         run: |
           set -eux
-          ${{ matrix.cc }} --version
-          ${{ matrix.c_compiler }} --version
+          "$CC" --version
+          "$CXX" --version
           cmake --version
           ninja --version
           pkg-config --modversion wayland-client
@@ -464,7 +449,7 @@ jobs:
           constexpr int f() { if consteval { return 23; } else { return 0; } }
           int main() { static_assert(f() == 23); std::printf("c++%ld\n", __cplusplus); }
           CPP
-          ${{ matrix.cc }} -std=c++23 -o /tmp/c23 /tmp/c23.cpp
+          "$CXX" -std=c++23 -o /tmp/c23 /tmp/c23.cpp
           /tmp/c23
 
       # O ctest aqui cobre tambem o gate de consumo (consume_test), o de
@@ -488,24 +473,25 @@ jobs:
       # compilacao em todo commit"), em todo build deste job a partir do
       # FUND-4 - ausente ate aqui (cmake/GlintfxOptions.cmake:11 tinha o
       # default OFF e nenhum passo deste arquivo o ligava).
-      # -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} (PKG-NATIVE, 27/08/2026):
-      # explicito em toda entrada agora, pelo mesmo motivo que
-      # CMAKE_CXX_COMPILER ja e - ver o proprio comentario de
-      # matrix.c_compiler acima pelo achado que forcou isso (o Ubuntu
-      # perdeu um "cc" que so existia de graca via dependencia transitiva
-      # do pacote apt "cmake", removido desta lista em favor do tarball
-      # oficial do Kitware).
-      # CC=${{ matrix.c_compiler }} (PKG-NATIVE, 27/08/2026): tests/tools/
-      # check_pkgconfig_validate.sh (pkgconfig_validate_test, run by the
-      # ctest line below) does its OWN separate `cmake -S`/`-B`
-      # reconfigures of a throwaway build directory - CMAKE_CXX_COMPILER
-      # reaches it as its second command-line argument
-      # (tests/CMakeLists.txt), but there was never a channel for a C
-      # compiler. Exporting CC here, at job-step level, is that channel:
-      # the script reads it from the environment (see its own
-      # "C_COMPILER_FLAG" comment) rather than tests/CMakeLists.txt
-      # growing a third positional argument this fatia's own file scope
-      # does not include.
+      # -DCMAKE_C_COMPILER=$CC (PKG-NATIVE, 27/08/2026; CANAL A3B): sempre
+      # explicito, pelo mesmo motivo que CMAKE_CXX_COMPILER ja e - o
+      # Ubuntu perdeu um "cc" que so existia de graca via dependencia
+      # transitiva do pacote apt "cmake", removido em favor do tarball
+      # oficial do Kitware (historico completo no comentario de
+      # c_compiler, no topo da matriz). Desde a A3b (CI-SPLIT-PER-OS),
+      # $CC/$CXX ja chegam aqui como variavel de ambiente GLOBAL do job -
+      # exportadas por tools/ci/env/<slug>.sh via $GITHUB_ENV no passo
+      # "Instalar toolchain" - entao o bloco `env: CC:` que existia neste
+      # passo (repetindo o mesmo valor) ficou redundante e foi removido.
+      # CC como canal para check_pkgconfig_validate.sh (PKG-NATIVE,
+      # 27/08/2026): pkgconfig_validate_test (tests/tools/
+      # check_pkgconfig_validate.sh, chamado pela linha ctest abaixo) faz
+      # seu PROPRIO `cmake -S`/`-B` de um build descartavel - CXX chega a
+      # ele como segundo argumento posicional (tests/CMakeLists.txt), mas
+      # nunca houve canal pro compilador C. $CC, ja exportado
+      # globalmente pelo script de preparo, cobre esse canal sem precisar
+      # de um `env:` dedicado neste passo nem de um terceiro argumento
+      # posicional.
       # PNC-FASES-SNAPSHOT (05/09/2026, GODS_LAWS.md L-40/L-17): o
       # `ctest -N` do passo "Inventario de paridade" logo abaixo
       # REESCREVE <builddir>/Testing/Temporary/LastTest.log - MEDIDO ao
@@ -532,11 +518,9 @@ jobs:
       # "log preservado nao encontrado" se algum teste comum reprovar
       # antes do de colisao de nome rodar.
       - name: Build e testes (${{ matrix.modo }})
-        env:
-          CC: ${{ matrix.c_compiler }}
         run: |
           set -eux
-          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
+          cmake -S . -B ${{ matrix.builddir }} -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER="$CXX" -DCMAKE_C_COMPILER="$CC" ${{ matrix.shared_flag }} -DGLINTFX_WERROR=ON ${{ matrix.oracle_flag }}
           cmake --build ${{ matrix.builddir }}
           set +e
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure

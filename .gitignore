@@ -88,3 +88,11 @@ tests/container/_arch_ports_src/
 # O settings.local.json e o lock de tarefa sao estado de maquina.
 .claude/*
 !.claude/settings.json
+
+# RNG (onda W9-D): a especificacao que o lider deixou na raiz fica fora do
+# git por decisao dele (25/09/2026 15:55, AskUserQuestion, verbatim:
+# "Ignorar rng.txt no git (Recomendado)"). O arquivo e dele e nao se move;
+# a copia versionada, byte a byte e com o md5 conferivel, e
+# docs/decisoes-rng-especificacao-do-lider.md. Ancorado na raiz de
+# proposito: so este arquivo, nunca um rng.txt em outro diretorio.
+/rng.txt

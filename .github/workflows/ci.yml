@@ -212,6 +212,7 @@ jobs:
           # Se a primeira execucao real no Windows reprovar aqui,
           # é a estreia que mede o nome certo, nao suposicao.
           - nome: Fedora (primario) - compartilhado
+            slug: fedora
             cc: c++
             c_compiler: cc
             imagem: fedora:latest
@@ -223,6 +224,7 @@ jobs:
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Fedora (primario) - estatico
+            slug: fedora
             cc: c++
             c_compiler: cc
             imagem: fedora:latest
@@ -255,6 +257,7 @@ jobs:
           # instala pelo apt dele) deixou de ser exercitada pelo nosso
           # CI a partir desta fatia.
           - nome: Ubuntu - compartilhado
+            slug: ubuntu
             cc: g++-14
             c_compiler: gcc-14
             imagem: ubuntu:latest
@@ -267,6 +270,7 @@ jobs:
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Ubuntu - estatico
+            slug: ubuntu
             cc: g++-14
             c_compiler: gcc-14
             imagem: ubuntu:latest
@@ -279,6 +283,7 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: Arch - compartilhado
+            slug: arch
             cc: c++
             c_compiler: cc
             imagem: archlinux:latest
@@ -290,6 +295,7 @@ jobs:
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: Arch - estatico
+            slug: arch
             cc: c++
             c_compiler: cc
             imagem: archlinux:latest
@@ -301,6 +307,7 @@ jobs:
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
             oracle_flag: ""
           - nome: CachyOS - compartilhado
+            slug: cachyos
             cc: c++
             c_compiler: cc
             imagem: cachyos/cachyos:latest
@@ -312,6 +319,7 @@ jobs:
             shared_flag: ""
             oracle_flag: "-DGLINTFX_LAYERS_ORACLE=ON"
           - nome: CachyOS - estatico
+            slug: cachyos
             cc: c++
             c_compiler: cc
             imagem: cachyos/cachyos:latest
@@ -558,7 +566,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: parity-inv-linux-${{ strategy.job-index }}
+          name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
           retention-days: 7
 
@@ -978,7 +986,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: parity-inv-windows-${{ strategy.job-index }}
+          name: parity-inv-windows-${{ matrix.modo }}
           path: parity_inventory.txt
           retention-days: 7
 
@@ -1158,26 +1166,30 @@ jobs:
   # quatro (`lint` incluido desde PARITY-LINT-INV, 09/09/2026)
   # terminam, ordem correta ou nao entre eles.
   #
-  # Uniao, nao interseccao, dentro de cada sistema: cada leg da
-  # matriz `linux` (Fedora/Ubuntu/Arch/CachyOS x compartilhado/
-  # estatico), cada leg de `windows`, o job `wayland-container`, e
-  # agora tambem o job `lint` (PARITY-LINT-INV, 09/09/2026) publicam
-  # cada um seu proprio inventario (parity-inv-linux-N /
-  # parity-inv-windows-N / parity-inv-linux-container /
-  # parity-inv-linux-lint, N = strategy.job-index - `lint` nao e
-  # matriz, entao usa nome literal em vez de indice); a comparacao e
-  # entre TODO teste que roda em QUALQUER leg Linux (incluindo o que o
-  # container executou de verdade e o que `lint` registrou com as tres
-  # ferramentas de analise presentes) contra TODO teste que roda em
-  # QUALQUER leg Windows - um nome que existe so numa distro Linux
-  # (nao em todas) ainda conta como "existe do lado Linux" para este
-  # portao, que compara SISTEMAS, nao distros. Perda declarada (ja no
-  # relatorio desta fatia, e ainda verdadeira depois do P-0): uma
-  # lacuna exclusiva de UMA distro dentro do lado Linux fica invisivel
-  # aqui, escondida dentro da uniao - o container e o `lint` sao mais
-  # uma fonte dentro do MESMO lado "Linux" da uniao, nao uma dimensao
-  # nova de comparacao, entao nenhum dos dois fecha nem agrava esse
-  # ponto cego especifico.
+  # CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3):
+  # DOIS portoes rodam aqui dentro, um por cima do outro, nunca um no
+  # lugar do outro. Cada leg da matriz `linux` (Fedora/Ubuntu/Arch/
+  # CachyOS x compartilhado/estatico), cada leg de `windows`, o job
+  # `wayland-container` e o job `lint` publicam cada um seu proprio
+  # inventario, agora nomeado por SLUG (`parity-inv-<slug>-<modo|
+  # container|lint>`; `slug` e' `fedora`/`ubuntu`/`arch`/`cachyos` para
+  # a matriz `linux`, `windows` para a matriz `windows`, `fedora` para
+  # `wayland-container` e `lint` - os dois rodam so' em Fedora hoje,
+  # ver `docs/plano-ci-split-per-os.md` secao 2, "O container e' so'
+  # Fedora").
+  #
+  # 1) `check_test_parity.py --compare` (uniao, nao interseccao, dentro
+  #    de cada LADO): continua exatamente como antes - TODO teste que
+  #    roda em QUALQUER leg Linux (qualquer distro) contra TODO teste
+  #    que roda em QUALQUER leg Windows. Perda declarada, e ainda
+  #    verdadeira: uma lacuna exclusiva de UMA distro dentro do lado
+  #    Linux fica invisivel AQUI, escondida dentro da uniao.
+  # 2) `check_test_parity.py --per-system` (fatia A1, o CONSERTO dessa
+  #    perda): compara CADA sistema (as quatro distros e o Windows)
+  #    contra a uniao de TODOS os sistemas - uma lacuna exclusiva de
+  #    UMA distro (por exemplo, so' no CachyOS) reprova AQUI, citando o
+  #    slug. Os dois portoes leem o MESMO download (passo "Baixar
+  #    inventarios (todos os sistemas)"), nenhum re-baixa nada.
   parity:
     name: Paridade Linux x Windows (PARITY-GATE, GODS_LAWS.md L-04)
     needs: [linux, windows, wayland-container, lint]
@@ -1187,20 +1199,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # `parity-inv-linux-*` ja casa com `parity-inv-linux-container`
-      # (P-0) sem mudar este `pattern` - nenhuma linha nova aqui, so o
-      # `needs` acima muda.
-      - name: Baixar inventarios Linux
+      # CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3):
+      # um download so, `parity-inv-*` (todo artefato, qualquer
+      # sistema) - antes desta fatia eram dois downloads separados
+      # (`parity-inv-linux-*`/`parity-inv-windows-*`) porque so' existia
+      # a dimensao Linux/Windows; agora o SLUG (fedora/ubuntu/arch/
+      # cachyos/windows) vive no proprio nome do artefato
+      # (`parity-inv-<slug>-<modo|container|lint>`), entao um pattern
+      # so' recolhe tudo, e o passo seguinte separa por sistema.
+      - name: Baixar inventarios (todos os sistemas)
         uses: actions/download-artifact@v8
         with:
-          pattern: parity-inv-linux-*
-          path: inventarios/linux
-
-      - name: Baixar inventarios Windows
-        uses: actions/download-artifact@v8
-        with:
-          pattern: parity-inv-windows-*
-          path: inventarios/windows
+          pattern: parity-inv-*
+          path: inventarios/todos
 
       # Uniao textual simples (GODS_LAWS.md L-45: `sort -u`, nunca
       # `grep -c` sem `|| true`) - cada arquivo baixado e a saida crua
@@ -1209,61 +1220,69 @@ jobs:
       # Tests: N" e de linha ja limpa, entao concatenar e suficiente
       # aqui, sem reimplementar aquele parser em shell.
       #
+      # O SLUG de cada leg baixado vem do proprio nome do diretorio
+      # (`parity-inv-<slug>-<resto>`, gravado por download-artifact com
+      # o nome do artefato) - nunca da lista de sistemas escrita a mao
+      # aqui, para o piso "sistema sem inventario" (proximo passo) medir
+      # o que REALMENTE chegou, nao o que o script espera encontrar.
+      #
       # 06/09/2026 - o resumo do job (abaixo, `$GITHUB_STEP_SUMMARY`)
       # e' ONDE o total por perna passa a morar, agora que README.md
       # nao declara mais nenhum numero (docs(readme), mesma onda): cada
       # `parity_inventory.txt` baixado JA carrega sua propria linha
       # `Total Tests: N` (escrita pelo `ctest -N` que o gerou nos jobs
-      # `linux`/`windows`/`wayland-container`), entao so' precisa ser
-      # extraida e impressa - GODS_LAWS.md L-45 (`grep -m1` fechado com
-      # `|| true`, testado pelo VALOR, nunca pelo status de saida do
+      # `linux`/`windows`/`wayland-container`/`lint`), entao so' precisa
+      # ser extraida e impressa - GODS_LAWS.md L-45 (`grep -m1` fechado
+      # com `|| true`, testado pelo VALOR, nunca pelo status de saida do
       # `grep`) e L-40 (zero legs ou zero linhas `Total Tests`
       # encontradas reprova o passo, nunca passa em silencio).
-      - name: Unir inventarios por sistema
+      - name: Separar e unir inventarios por sistema
         run: |
           set -eu
-          cat inventarios/linux/*/parity_inventory.txt > /tmp/parity_linux_union.txt
-          cat inventarios/windows/*/parity_inventory.txt > /tmp/parity_windows_union.txt
-          echo "Linux: $(wc -l < /tmp/parity_linux_union.txt) linha(s) brutas de $(ls inventarios/linux | wc -l) leg(s)"
-          echo "Windows: $(wc -l < /tmp/parity_windows_union.txt) linha(s) brutas de $(ls inventarios/windows | wc -l) leg(s)"
+          mkdir -p /tmp/persystem
+          : > /tmp/parity_linux_union.txt
+          : > /tmp/parity_windows_union.txt
 
           {
             echo "### Total de casos registrados por perna"
             echo
             echo "| Sistema | Leg | Total Tests |"
             echo "|---|---|---|"
-            legs_found=0
-            totals_found=0
-            for sistema in linux windows; do
-              for leg_dir in "inventarios/$sistema"/*/; do
-                [ -d "$leg_dir" ] || continue
-                leg=$(basename "$leg_dir")
-                legs_found=$((legs_found + 1))
-                total=$(grep -m1 '^Total Tests:' "$leg_dir/parity_inventory.txt" | sed 's/^Total Tests: //') || true
-                if [ -n "$total" ]; then
-                  totals_found=$((totals_found + 1))
-                else
-                  total="(sem linha 'Total Tests:')"
-                fi
-                echo "| $sistema | $leg | $total |"
-              done
-            done
-            echo
-            echo "legs encontrados: $legs_found, com 'Total Tests:' extraido: $totals_found"
           } >> "$GITHUB_STEP_SUMMARY"
 
           legs_found=0
           totals_found=0
-          for sistema in linux windows; do
-            for leg_dir in "inventarios/$sistema"/*/; do
-              [ -d "$leg_dir" ] || continue
-              legs_found=$((legs_found + 1))
-              total=$(grep -m1 '^Total Tests:' "$leg_dir/parity_inventory.txt") || true
-              [ -n "$total" ] && totals_found=$((totals_found + 1))
-            done
+          for leg_dir in inventarios/todos/*/; do
+            [ -d "$leg_dir" ] || continue
+            leg=$(basename "$leg_dir")
+            resto="${leg#parity-inv-}"
+            slug="${resto%%-*}"
+            legs_found=$((legs_found + 1))
+
+            cat "$leg_dir/parity_inventory.txt" >> "/tmp/persystem/${slug}.txt"
+            if [ "$slug" = "windows" ]; then
+              cat "$leg_dir/parity_inventory.txt" >> /tmp/parity_windows_union.txt
+            else
+              cat "$leg_dir/parity_inventory.txt" >> /tmp/parity_linux_union.txt
+            fi
+
+            total=$(grep -m1 '^Total Tests:' "$leg_dir/parity_inventory.txt" | sed 's/^Total Tests: //') || true
+            if [ -n "$total" ]; then
+              totals_found=$((totals_found + 1))
+            else
+              total="(sem linha 'Total Tests:')"
+            fi
+            echo "| $slug | $leg | $total |" >> "$GITHUB_STEP_SUMMARY"
           done
-          [ "$legs_found" -gt 0 ] || { echo "Unir inventarios por sistema: varredura vazia - nenhum leg encontrado (GODS_LAWS.md L-40)" >&2; exit 1; }
-          [ "$totals_found" -gt 0 ] || { echo "Unir inventarios por sistema: varredura vazia - nenhuma linha 'Total Tests:' encontrada em $legs_found leg(s) (GODS_LAWS.md L-40)" >&2; exit 1; }
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "legs encontrados: $legs_found, com 'Total Tests:' extraido: $totals_found" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Linux (uniao legado): $(wc -l < /tmp/parity_linux_union.txt) linha(s) brutas"
+          echo "Windows (uniao legado): $(wc -l < /tmp/parity_windows_union.txt) linha(s) brutas"
+          echo "sistemas separados em /tmp/persystem: $(ls /tmp/persystem | wc -l)"
+
+          [ "$legs_found" -gt 0 ] || { echo "Separar e unir inventarios por sistema: varredura vazia - nenhum leg encontrado (GODS_LAWS.md L-40)" >&2; exit 1; }
+          [ "$totals_found" -gt 0 ] || { echo "Separar e unir inventarios por sistema: varredura vazia - nenhuma linha 'Total Tests:' encontrada em $legs_found leg(s) (GODS_LAWS.md L-40)" >&2; exit 1; }
 
       - name: check_test_parity.py --compare
         run: |
@@ -1271,11 +1290,33 @@ jobs:
             /tmp/parity_linux_union.txt /tmp/parity_windows_union.txt \
             tests/parity_exceptions.txt tests/parity_aliases.txt TODO.md
 
+      # CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3, C2):
+      # --compare acima so' enxerga dois lados (uniao Linux, Windows) -
+      # uma lacuna exclusiva de UMA distro (ex.: falta so' no CachyOS)
+      # fica invisivel dentro da uniao Linux. --per-system compara CADA
+      # sistema contra a uniao de TODOS, e reprova citando o slug exato.
+      # Os cinco arquivos vem do MESMO download de cima (nenhuma leitura
+      # nova do disco alem do que "Separar e unir" ja escreveu).
+      - name: check_test_parity.py --per-system
+        run: |
+          python3 tests/tools/check_test_parity.py --per-system \
+            tests/parity_exceptions.txt TODO.md \
+            windows=/tmp/persystem/windows.txt \
+            fedora=/tmp/persystem/fedora.txt \
+            ubuntu=/tmp/persystem/ubuntu.txt \
+            arch=/tmp/persystem/arch.txt \
+            cachyos=/tmp/persystem/cachyos.txt
+
       # MEASURED-COLLECTOR's own reader (achado do time-lead,
       # 06/09/2026, item 3 "o leitor tem nome: o trabalho de
       # paridade"): `measured-linux-*` ja casa com `measured-linux-
-      # container` sem mudar o `pattern`, mesma forma que os
-      # inventarios `parity-inv-linux-*` acima ja usam.
+      # container` sem mudar o `pattern` - os artefatos MEASURED NAO
+      # foram renomeados por slug nesta fatia (CI-SPLIT-PER-OS A1
+      # limita o `--per-system` novo a check_measured_parity.py so' a
+      # classificacao de PRESENCA, ver LIMITACAO DECLARADA no proprio
+      # script; a comparacao de VALOR entre N sistemas volta ao
+      # planejamento antes de existir aqui), diferente dos inventarios
+      # `parity-inv-*` acima, que ja usam slug desde esta fatia.
       - name: Baixar MEASURED Linux
         uses: actions/download-artifact@v8
         with:
@@ -2140,7 +2181,7 @@ jobs:
           n=${n:-0}
           echo "relatorios de sanitizer: ${n}"
           f=$(wc -l < parity_inventory.txt)
-          # A perna `plain` publica parity-inv-linux-container (passo
+          # A perna `plain` publica parity-inv-fedora-container (passo
           # abaixo, if: matrix.perna == 'plain' - D-CAUDA-3: dois
           # inventarios confundiriam o job `parity`), entao esta perna
           # nao tem, dentro do MESMO job, um arquivo irmao para comparar
@@ -2193,14 +2234,14 @@ jobs:
           path: measured_linux_container.txt
           retention-days: 7
 
-      # Publica o inventario como uma TERCEIRA fonte Linux para o job
-      # `parity` - o padrao de nome (`parity-inv-linux-*`) e' o mesmo
-      # que os legs da matriz `linux` ja usam (linha "Publicar
-      # inventario de paridade" acima), entao o passo "Baixar
-      # inventarios Linux" do job `parity` (download-artifact com
-      # `pattern: parity-inv-linux-*`) ja recolhe este artefato sem
-      # nenhuma mudanca no proprio job de download - so o `needs`
-      # muda (ver comentario do job `parity`).
+      # Publica o inventario como uma fonte a mais do sistema "fedora"
+      # para o job `parity` - o slug (`parity-inv-fedora-container`) e'
+      # o mesmo que os legs Fedora da matriz `linux` ja usam (linha
+      # "Publicar inventario de paridade" acima; CI-SPLIT-PER-OS A1),
+      # entao o passo "Baixar inventarios (todos os sistemas)" do job
+      # `parity` (download-artifact com `pattern: parity-inv-*`) ja
+      # recolhe este artefato sem nenhuma mudanca no proprio job de
+      # download - so o `needs` muda (ver comentario do job `parity`).
       #
       # SO' A PERNA `plain` PUBLICA (D-CAUDA-3): as duas pernas rodam o
       # MESMO conjunto de fixtures, entao um segundo inventario da perna
@@ -2212,7 +2253,7 @@ jobs:
         if: matrix.perna == 'plain'
         uses: actions/upload-artifact@v7
         with:
-          name: parity-inv-linux-container
+          name: parity-inv-fedora-container
           path: parity_inventory.txt
           retention-days: 7
 
@@ -2346,7 +2387,7 @@ jobs:
       # `preci_selftest` (tests/CMakeLists.txt, if(UNIX)) so se registra
       # quando clang-format/clang-tidy/cppcheck estao TODOS presentes -
       # e o job `linux` (Fedora/Ubuntu/Arch/CachyOS, os quatro legs que
-      # publicam `parity-inv-linux-*`) instala so a cadeia de compilacao
+      # publicam `parity-inv-<slug>-<modo>`) instala so a cadeia de compilacao
       # pura, nunca as tres ferramentas, por desenho (evitar reprovacao
       # espuria por ferramenta ausente numa perna que nao existe para
       # isso). So este job `lint` tem as tres, mas nunca publicava
@@ -2373,7 +2414,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: parity-inv-linux-lint
+          name: parity-inv-fedora-lint
           path: parity_inventory.txt
           retention-days: 7
 

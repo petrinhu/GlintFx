@@ -15,8 +15,14 @@
 #   nome_do_teste | sistema_onde_falta | gemeo | item | PROVA-PARCIAL=<nome_do_teste_gemeo>
 #
 # - nome_do_teste: nome exato do caso ctest que falta de um lado.
-# - sistema_onde_falta: "linux" ou "windows" - o lado que NAO tem o
-#   caso.
+# - sistema_onde_falta: "linux" ou "windows" para o modo --compare (o
+#   LADO, uniao de todas as distros, que nao tem o caso); a partir de
+#   CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3),
+#   tambem aceita o SLUG de uma distro especifica ("fedora", "ubuntu",
+#   "arch", "cachyos") para o modo --per-system, quando a lacuna e' de
+#   UMA distro so' e nao do sistema operacional inteiro - "windows"
+#   serve aos dois modos, e' o mesmo slug nos dois. tests/tools/
+#   check_test_parity.py's own SISTEMAS_VALIDOS e' a lista fechada.
 # - gemeo: nome do mecanismo que cobre o mesmo comportamento no lado
 #   que falta, ou a palavra "nenhum" quando genuinamente nao ha
 #   nenhum (o caso e proprio de UM sistema por natureza, ex.: uma

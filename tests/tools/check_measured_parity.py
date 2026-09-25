@@ -546,6 +546,155 @@ def textual_main(args):
     )
 
 
+# --- per-system mode (CI-SPLIT-PER-OS A1, docs/plano-ci-split-per-os.md ---
+# secao 4.3: "check_measured_parity.py (idem)") ---------------------------
+#
+# "Idem" aqui e' a mesma ideia de check_test_parity.py's own --per-
+# system, ESCOPO REDUZIDO ao que generaliza sem desenho novo: --compare
+# (real_main() acima) so' conhece DOIS lados (Linux uniao, Windows), e
+# uma chave MEASURED que falta so' numa distro fica encoberta pela
+# uniao Linux, do mesmo jeito que check_test_parity.py's --compare
+# encobria uma lacuna so'-no-CachyOS antes da A1.
+#
+# LIMITACAO DECLARADA (GODS_LAWS.md L-40, mesmo principio do "WHAT THIS
+# SCRIPT DOES NOT DO" no topo do arquivo): --per-system SO classifica
+# PRESENCA por sistema (herdada/obrigatoria, reusando classify_
+# unilateral() sem copiar nem alterar - a funcao ja e' agnostica de
+# "qual lado", so' recebe uma chave e as duas tabelas de dono). Ele NAO
+# faz a comparacao de VALOR (iguais/divergentes) entre N sistemas: essa
+# generalizacao (o que "divergente" significa quando 4 de 5 sistemas
+# concordam e um diverge) e' desenho que este item nao especificou, e
+# escreve-la aqui seria inventar critério sem CTO - a mesma classe de
+# risco que GODS_LAWS.md L-01/L-34 pede que va ao planejamento antes.
+# --measured-exceptions/--todo (a regra de morte por chave) tambem
+# ficam de fora deste modo por hoje, pela mesma razao. Igual ao modo
+# --compare, --per-system e' um RELATORIO (nunca falha por conteudo
+# divergente ou unilateral) - so' falha pelo piso de varredura vazia
+# (GODS_LAWS.md L-40), generalizado por sistema.
+PER_SYSTEM_SLUGS_ESPERADOS = ("windows", "fedora", "ubuntu", "arch", "cachyos")
+
+
+def _parse_per_system_args(args):
+    parser = argparse.ArgumentParser(prog=f"{SCRIPT_NAME} --per-system", add_help=False)
+    parser.add_argument("systems", nargs="*")
+    parser.add_argument("--exceptions", default=None, help="tests/parity_exceptions.txt")
+    parser.add_argument("--aliases", default=None, help="tests/parity_aliases.txt")
+    parsed = parser.parse_args(args)
+    if not parsed.systems:
+        fail(
+            "usage: check_measured_parity.py --per-system <slug>=<arquivo> "
+            "[<slug>=<arquivo> ...] [--exceptions <f>] [--aliases <f>]"
+        )
+    system_paths = defaultdict(list)
+    for entry in parsed.systems:
+        if "=" not in entry:
+            fail(f"--per-system: argumento malformado (esperava 'slug=arquivo'): {entry!r}")
+        slug, path = entry.split("=", 1)
+        if slug not in PER_SYSTEM_SLUGS_ESPERADOS:
+            fail(
+                f"--per-system: slug de sistema invalido {slug!r} (validos: "
+                f"{PER_SYSTEM_SLUGS_ESPERADOS})"
+            )
+        system_paths[slug].append(path)
+    return dict(system_paths), parsed.exceptions, parsed.aliases
+
+
+def _load_per_system_owners(exceptions_path, aliases_path):
+    exception_owners = {}
+    if exceptions_path is not None:
+        with open(exceptions_path, "r", encoding="utf-8") as handle:
+            exception_owners = parse_exception_owners(handle.read())
+    alias_owners = set()
+    if aliases_path is not None:
+        with open(aliases_path, "r", encoding="utf-8") as handle:
+            alias_owners = parse_alias_owners(handle.read())
+    return exception_owners, alias_owners
+
+
+# GODS_LAWS.md L-04 item 2 + L-40 (piso de sistemas, gemeo do mesmo
+# controle acrescentado a check_test_parity.py's own --per-system na
+# mesma fatia): um sistema esperado que nunca recebeu slug=arquivo
+# nenhum e' coleta quebrada silenciosa, nao "nada a reportar dele".
+def _per_system_piso_errors(system_values):
+    recebidos = set(system_values)
+    esperados = set(PER_SYSTEM_SLUGS_ESPERADOS)
+    faltando = sorted(esperados - recebidos)
+    errors = []
+    if faltando:
+        errors.append(
+            "piso de sistemas (GODS_LAWS.md L-40): sistema(s) da lista de alvos sem "
+            f"arquivo MEASURED nenhum recebido, nunca pulado(s) em silencio: {faltando}"
+        )
+    inesperados = sorted(recebidos - esperados)
+    if inesperados:
+        errors.append(
+            f"sistema(s) fora da lista de alvos deste portao ({PER_SYSTEM_SLUGS_ESPERADOS}): "
+            f"{inesperados} - amplie PER_SYSTEM_SLUGS_ESPERADOS antes de usar um slug novo"
+        )
+    if not any(system_values.values()):
+        errors.append(
+            "0 chave(s) MEASURED em QUALQUER sistema recebido - varredura vazia "
+            "(GODS_LAWS.md L-40): a colheita de uma perna (ou de todas) esta quebrada, "
+            "nunca 'nada para comparar'"
+        )
+    return errors
+
+
+def compute_per_system_unilateral(system_values, exception_owners, alias_owners):
+    """Retorna (uniao_de_chaves, classificacao) - `classificacao` e'
+    {slug: [(chave, secao, motivo), ...]} para toda chave que falta
+    NESSE sistema mas existe em algum outro - `secao` e' "herdada" ou
+    "obrigatoria" (classify_unilateral(), reusada sem copiar)."""
+    uniao_chaves = set()
+    for valores in system_values.values():
+        uniao_chaves |= set(valores)
+    classificacao = {}
+    for slug, valores in system_values.items():
+        faltando = sorted(uniao_chaves - set(valores))
+        classificacao[slug] = [
+            (chave, *classify_unilateral(chave, {}, exception_owners, alias_owners)) for chave in faltando
+        ]
+    return uniao_chaves, classificacao
+
+
+def _print_per_system_report(system_values, classificacao):
+    for slug in sorted(system_values):
+        print(f"{SCRIPT_NAME} --per-system: sistema {slug!r} = {len(system_values[slug])} chave(s) MEASURED")
+    print(f"## MEASURED --per-system - obrigatoria/herdada por sistema")
+    for slug in sorted(classificacao):
+        linhas = classificacao[slug]
+        obrigatoria = [row for row in linhas if row[1] == "obrigatoria"]
+        herdada = [row for row in linhas if row[1] == "herdada"]
+        print(
+            f"### {slug}: {len(linhas)} chave(s) ausente(s) ({len(obrigatoria)} obrigatoria(s), "
+            f"{len(herdada)} herdada(s))"
+        )
+        for chave, secao, motivo in linhas:
+            print(f"  [{secao.upper()}] {chave} ({motivo})")
+
+
+def per_system_main(args):
+    system_paths, exceptions_path, aliases_path = _parse_per_system_args(args)
+    system_values = {slug: parse_measured_files(paths)[0] for slug, paths in system_paths.items()}
+    exception_owners, alias_owners = _load_per_system_owners(exceptions_path, aliases_path)
+
+    errors = _per_system_piso_errors(system_values)
+    if errors:
+        fail(
+            f"{len(errors)} problema(s) de piso (--per-system):\n  " + "\n  ".join(errors)
+        )
+
+    _uniao, classificacao = compute_per_system_unilateral(system_values, exception_owners, alias_owners)
+    _print_per_system_report(system_values, classificacao)
+    total_obrigatoria = sum(1 for linhas in classificacao.values() for row in linhas if row[1] == "obrigatoria")
+    total_herdada = sum(1 for linhas in classificacao.values() for row in linhas if row[1] == "herdada")
+    print(
+        f"{SCRIPT_NAME} --per-system: {total_obrigatoria} obrigatoria(s), {total_herdada} "
+        "herdada(s), no total - relatorio, nunca falha por conteudo (ver LIMITACAO DECLARADA "
+        "no cabecalho desta secao)"
+    )
+
+
 # --- selftest -----------------------------------------------------
 
 def _write_temp(tmp_path, name, content):
@@ -1091,6 +1240,136 @@ def selftest_textual_empty_todo_reproves(tmp_path):
     return True
 
 
+# --- CI-SPLIT-PER-OS A1: controles do modo --per-system -------------------
+
+
+def _run_per_system_main_capturing(argv):
+    import contextlib
+    import io
+
+    buffer = io.StringIO()
+    exit_code = None
+    with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+        try:
+            per_system_main(argv)
+        except SystemExit as exc:
+            exit_code = exc.code
+    return exit_code, buffer.getvalue()
+
+
+def selftest_per_system_positive_control(tmp_path):
+    caminho = _write_temp(tmp_path, "ps_pos.txt", "MEASURED a_test.k=1\n")
+    argv = [f"{slug}={caminho}" for slug in PER_SYSTEM_SLUGS_ESPERADOS]
+    exit_code, output = _run_per_system_main_capturing(argv)
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-POSITIVO FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "0 obrigatoria(s), 0 herdada(s)" not in output:
+        print(f"selftest: PER-SYSTEM-POSITIVO FALHOU (esperava 0/0): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-POSITIVO OK (cinco sistemas com a mesma chave, nada obrigatorio/herdado)")
+    return True
+
+
+# C2-gemeo (docs/plano-ci-split-per-os.md secao 4.3, "idem"): uma chave
+# que falta so' no cachyos, sem dono conhecido em parity_exceptions.txt
+# nem em parity_aliases.txt, tem de aparecer como "obrigatoria" SO' na
+# lista do cachyos - o defeito que --compare (dois lados so') nao pode
+# nem enxergar, porque nao existe "cachyos" nele.
+def selftest_per_system_gap_classified_by_system(tmp_path):
+    cheio = _write_temp(tmp_path, "ps_cheio.txt", "MEASURED a_test.k=1\nMEASURED b_test.k=2\n")
+    so_a = _write_temp(tmp_path, "ps_so_a.txt", "MEASURED a_test.k=1\n")
+    argv = [
+        f"windows={cheio}",
+        f"fedora={cheio}",
+        f"ubuntu={cheio}",
+        f"arch={cheio}",
+        f"cachyos={so_a}",
+    ]
+    exit_code, output = _run_per_system_main_capturing(argv)
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-LACUNA-POR-SISTEMA FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "### cachyos: 1 chave(s) ausente(s) (1 obrigatoria(s), 0 herdada(s))" not in output:
+        print(
+            f"selftest: PER-SYSTEM-LACUNA-POR-SISTEMA FALHOU (cachyos nao apareceu com 1 "
+            f"obrigatoria): {output!r}",
+            file=sys.stderr,
+        )
+        return False
+    for outro in ("windows", "fedora", "ubuntu", "arch"):
+        if f"### {outro}: 0 chave(s) ausente(s)" not in output:
+            print(
+                f"selftest: PER-SYSTEM-LACUNA-POR-SISTEMA FALHOU ({outro} deveria ter 0 "
+                f"chaves ausentes, so' cachyos perde b_test.k): {output!r}",
+                file=sys.stderr,
+            )
+            return False
+    print("selftest: PER-SYSTEM-LACUNA-POR-SISTEMA OK (chave ausente so' no cachyos classificada so' nele)")
+    return True
+
+
+def selftest_per_system_gap_herdada_when_owner_known(tmp_path):
+    cheio = _write_temp(tmp_path, "ps_cheio2.txt", "MEASURED a_test.k=1\nMEASURED tem_item_test.k=2\n")
+    so_a = _write_temp(tmp_path, "ps_so_a2.txt", "MEASURED a_test.k=1\n")
+    exceptions_file = _write_temp(tmp_path, "ps_exceptions.txt", "tem_item_test|linux|motivo qualquer|ITEM-ABERTO\n")
+    argv = [
+        f"windows={cheio}",
+        f"fedora={cheio}",
+        f"ubuntu={cheio}",
+        f"arch={cheio}",
+        f"cachyos={so_a}",
+        "--exceptions",
+        exceptions_file,
+    ]
+    exit_code, output = _run_per_system_main_capturing(argv)
+    if exit_code not in (None, 0):
+        print(f"selftest: PER-SYSTEM-HERDADA FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "[HERDADA] tem_item_test.k" not in output:
+        print(f"selftest: PER-SYSTEM-HERDADA FALHOU (dono conhecido devia virar herdada): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-HERDADA OK (dono com excecao em parity_exceptions.txt classifica como herdada)")
+    return True
+
+
+def selftest_per_system_missing_system_reproves(tmp_path):
+    caminho = _write_temp(tmp_path, "ps_faltando.txt", "MEASURED a_test.k=1\n")
+    argv = [f"{slug}={caminho}" for slug in PER_SYSTEM_SLUGS_ESPERADOS if slug != "windows"]
+    exit_code, output = _run_per_system_main_capturing(argv)
+    if exit_code != 1:
+        print(f"selftest: PER-SYSTEM-PISO-AUSENTE FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "windows" not in output:
+        print(f"selftest: PER-SYSTEM-PISO-AUSENTE FALHOU (mensagem nao citou 'windows'): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-PISO-AUSENTE OK (sistema esperado sem arquivo nenhum reprova)")
+    return True
+
+
+def selftest_per_system_empty_all_reproves(tmp_path):
+    vazio = _write_temp(tmp_path, "ps_vazio.txt", "")
+    argv = [f"{slug}={vazio}" for slug in PER_SYSTEM_SLUGS_ESPERADOS]
+    exit_code, output = _run_per_system_main_capturing(argv)
+    if exit_code != 1:
+        print(f"selftest: PER-SYSTEM-VARREDURA-VAZIA FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    if "varredura vazia" not in output:
+        print(f"selftest: PER-SYSTEM-VARREDURA-VAZIA FALHOU (mensagem sem 'varredura vazia'): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-VARREDURA-VAZIA OK (todo sistema com 0 chaves reprova)")
+    return True
+
+
+def selftest_per_system_unexpected_slug_rejected():
+    exit_code, output = _run_per_system_main_capturing(["bogus-slug=/tmp/x"])
+    if exit_code != 1:
+        print(f"selftest: PER-SYSTEM-SLUG-INVALIDO FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-SLUG-INVALIDO OK (slug fora da lista de alvos e' recusado)")
+    return True
+
+
 def selftest_main():
     import tempfile
     from pathlib import Path
@@ -1112,6 +1391,12 @@ def selftest_main():
             selftest_textual_nonexistent_item_reproves(tmp_path),
             selftest_textual_prose_only_item_accepted(tmp_path),
             selftest_textual_empty_todo_reproves(tmp_path),
+            selftest_per_system_positive_control(tmp_path),
+            selftest_per_system_gap_classified_by_system(tmp_path),
+            selftest_per_system_gap_herdada_when_owner_known(tmp_path),
+            selftest_per_system_missing_system_reproves(tmp_path),
+            selftest_per_system_empty_all_reproves(tmp_path),
+            selftest_per_system_unexpected_slug_rejected(),
         ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
@@ -1127,10 +1412,13 @@ def main():
         real_main(args[1:])
     elif args and args[0] == "--textual":
         textual_main(args[1:])
+    elif args and args[0] == "--per-system":
+        per_system_main(args[1:])
     else:
         fail(
             "usage: check_measured_parity.py --compare --linux <f1> [<f2> ...] --windows "
-            "<f1> [<f2> ...]  |  --textual <measured_exceptions.txt> <TODO.md>  |  --selftest"
+            "<f1> [<f2> ...]  |  --textual <measured_exceptions.txt> <TODO.md>  |  "
+            "--per-system <slug>=<arquivo> [...]  |  --selftest"
         )
 
 

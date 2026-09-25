@@ -4492,3 +4492,37 @@ O líder escreveu *"ligue modo autonomo"* (hook: modo autônomo ligado até 25/0
 - Critério no servidor, fixado antes: as 8 pernas linux com a prova do git verde, a contagem de testes igual à da A0, e zero "not a git repository".
 - Rejeitados: o download do script por API (exige curl e reimplementa a autenticação) e instalar o git antes do checkout (lógica por sistema fora do preparo, contra a 4.4).
 Texto da linha em /var/tmp/glintfx-plan/ci-split-A3c-texto.md (md5 fb88c13a…). Mão única: não.
+
+## 25/09/2026 - 06:08 | D-A14: G2 estendida e piso com fonte única por família (Caetano/CTO, confirmar retroativamente)
+
+**Fato:** o implementador deixou duas escolhas sem aceite na leva c3e3b64. A prova do .git ficou só nos jobs com bootstrap, e o piso do Windows só no job `windows`. Medido pelo CTO em c3e3b64: a instalação do CMake 4.1 do Windows está copiada 4 vezes (ci.yml:911, :3091, :3570, :3787), mas só o job windows prova o piso (:981), e os 5 jobs Linux de container fixo não têm piso. **Decisão:**
+- estender a prova do .git (G2) a todo job com `container:`;
+- todo job com `id: build` prova o piso antes do `id: prep`, a partir de uma fonte única por família (`tools/ci/floor.sh` e `tools/ci/windows/prep.ps1`), com o portão reprovando cópia à mão;
+- mutantes P1-P3.
+Entra como conserto pequeno sobre c3e3b64, na retomada. Texto em /var/tmp/glintfx-plan/ci-split-D-A14-texto.md (md5 15978e04…). Mão única: não.
+
+## 25/09/2026 - 06:15 | PAUSA ordenada pelo líder ("pause tudo 25/09/2026 06:15h AM horário local")
+
+Estado de cada frente na pausa:
+- **onda-w7c:** remoto = HEAD local = c3e3b64 (conferido por `git ls-remote`); árvore limpa.
+- **Fechadas no servidor:**
+  - A1/A1b/A1c: CI 36093524398, verde, 26/26;
+  - A2 com o conserto da linha STATUS: CI 36099771141, verde; C1/C4 provados no run sabotado 36096112039, branch apagada;
+  - A3a: CI 36103373287, verde.
+- **Leva A3c + A3a-fix + A3b-fix (fcd8e4f + c3e3b64):**
+  - aceita pelo main (preci rc=0; MO1, MO2, MO4 e MO5 mortos);
+  - CI 36116495207 ainda rodando na pausa: as 8 pernas linux passaram a prova do .git, sem falha até 06:15;
+  - pendente: a revisão do CTO e o resultado final do run.
+- **Na fila da retomada, em ordem:**
+  1. o run 36116495207;
+  2. a revisão do CTO da leva;
+  3. a D-A14;
+  4. a A4 (rerun_guard, que já tem o chão de `id: prep`);
+  5. A5, A6, A7a-e, B0-B3, A8, A9;
+  6. PLATFORMS-ASTRO-PARITY, WL-ACK A4-A6, DISPLAY-PASSKEY-CONTROL, CI-VERDE-W7C;
+  7. merge e tag;
+  8. W7-D e W8.
+- **Agentes:** impl-ci-split e cto-ci-speed em espera.
+- **Monitor anti-parada:** cron 16258ddf apagado (L-61: recriar na retomada).
+- **Watchcode:** o loop de leitura (cron 3718f75a) foi apagado. O `watchcode.sh off` foi negado pelo classificador de permissões, e o daemon continua no ar, gravando.
+- **Modo autônomo:** desligado pelo hook na pausa. Este commit fica só local, sem push.

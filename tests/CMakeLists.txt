@@ -4560,6 +4560,32 @@ set_tests_properties(round_order_selftest PROPERTIES LABELS selftest)
 # count.py's own --selftest already uses for cross-platform sentences
 # it cannot observe locally either. Unguarded by platform - same
 # GATE-TREE-PARITY shape as every other python3 gate in this file.
+# CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): fonte
+# unica de sistemas (tools/ci/systems.txt), carregada por ci_systems.py
+# - biblioteca importada por check_test_parity.py e check_measured_
+# parity.py. D1 (achado do main, GODS_LAWS.md L-40): --selftest so'
+# usa fixtura em memoria, NUNCA toca tools/ci/systems.txt - o unico
+# controle contra o arquivo real e' o --check abaixo, um add_test
+# SEPARADO (D-A12 parte e), pra A7 acrescentar uma distro sem mudar o
+# resultado de --selftest nenhum deste projeto.
+add_test(
+    NAME ci_systems_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_systems.py" --selftest
+)
+set_tests_properties(ci_systems_selftest PROPERTIES LABELS selftest)
+
+# D2 (achado do main): real_main() resolve tools/ci/systems.txt a
+# partir de Path(__file__), nunca do cwd - por isso este add_test NAO
+# precisa de WORKING_DIRECTORY (o ctest roda a partir do diretorio de
+# build por padrao, e o script encontra o arquivo real de qualquer jeito).
+add_test(
+    NAME ci_systems_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ci_systems.py" --check
+)
+set_tests_properties(ci_systems_test PROPERTIES LABELS consume)
+
 add_test(
     NAME test_parity_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4740,6 +4766,27 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_step_independence.py" --selftest
 )
 set_tests_properties(ci_step_independence_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): a matriz
+# do ci.yml tem de bater com tools/ci/systems.txt (fonte unica), e
+# nenhum slug pode ser escrito a mao no passo do job `parity` - mesma
+# forma que os outros portoes de leitura pura do ci.yml.
+add_test(
+    NAME ci_systems_source_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_systems_source.py"
+        --check
+        "${CMAKE_SOURCE_DIR}/.github/workflows/ci.yml"
+        "${CMAKE_SOURCE_DIR}/tools/ci/systems.txt"
+)
+set_tests_properties(ci_systems_source_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ci_systems_source_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_systems_source.py" --selftest
+)
+set_tests_properties(ci_systems_source_selftest PROPERTIES LABELS selftest)
 
 # Container fixture INCLUDES gate (06/09/2026, GODS_LAWS.md L-04/L-17/
 # L-36/L-40, conserto dos dois vermelhos da onda W6b): closes the blind

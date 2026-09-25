@@ -740,13 +740,19 @@ jobs:
       matrix:
         include:
           # Duas entradas, nao mais dois passos dentro de uma - mesma
-          # razao do job `linux` acima (CI-CONSUME).
+          # razao do job `linux` acima (CI-CONSUME). `slug: windows`
+          # (CI-SPLIT-PER-OS A3a, D-A12): mesmo padrao do job `linux`
+          # (`slug: fedora`/`ubuntu`/`arch`/`cachyos`) - o UNICO sistema
+          # da familia windows, conferido por check_ci_systems_source.py
+          # contra tools/ci/systems.txt.
           - modo: compartilhado
             builddir: build-shared
             shared_flag: ""
+            slug: windows
           - modo: estatico
             builddir: build-static
             shared_flag: "-DBUILD_SHARED_LIBS=OFF"
+            slug: windows
     steps:
       # VERSION-TAG-SYNC (GODS_LAWS.md L-40, GHA run 35455822838,
       # 19/09/2026): mesmo motivo do job `linux` acima - esta matriz
@@ -1391,15 +1397,24 @@ jobs:
       # Windows (tests/parity_aliases.txt) parava de valer no modo por
       # sistema, e foi exatamente a causa de 132 dos 215 problemas do
       # run 36085750444.
+      # CI-SPLIT-PER-OS A3a (D-A12): a lista de argumentos por sistema
+      # vem de LER tools/ci/systems.txt em tempo de execucao, nunca de
+      # slugs escritos a mao aqui - conferido por check_ci_systems_
+      # source.py (M3). `#` no inicio de uma linha do arquivo e' sempre
+      # comentario (ci_systems.py's proprio parser ja ignora), pulado
+      # aqui do mesmo jeito.
       - name: check_test_parity.py --per-system
         run: |
+          set -eu
+          args=""
+          while IFS='|' read -r slug familia; do
+            [ -n "$slug" ] || continue
+            case "$slug" in \#*) continue ;; esac
+            args="$args ${slug}=/tmp/persystem/${slug}.txt"
+          done < tools/ci/systems.txt
           python3 tests/tools/check_test_parity.py --per-system \
             tests/parity_exceptions.txt TODO.md \
-            windows=/tmp/persystem/windows.txt \
-            fedora=/tmp/persystem/fedora.txt \
-            ubuntu=/tmp/persystem/ubuntu.txt \
-            arch=/tmp/persystem/arch.txt \
-            cachyos=/tmp/persystem/cachyos.txt \
+            $args \
             --aliases tests/parity_aliases.txt
 
       # CI-SPLIT-PER-OS A1b (D-A10, docs/plano-ci-split-per-os.md secao
@@ -1462,14 +1477,21 @@ jobs:
       # lados; uma chave que diverge so' entre DUAS distros Linux fica
       # invisivel nele. --measured-exceptions/--todo ligam a secao de
       # VALOR (sem eles, per_system_main() so' reportaria presenca).
+      # CI-SPLIT-PER-OS A3a (D-A12): mesma leitura dinamica de
+      # tools/ci/systems.txt que o passo check_test_parity.py --per-
+      # system acima ja faz - nenhum slug escrito a mao aqui tambem
+      # (check_ci_systems_source.py, M3).
       - name: check_measured_parity.py --per-system
         run: |
+          set -eu
+          args=""
+          while IFS='|' read -r slug familia; do
+            [ -n "$slug" ] || continue
+            case "$slug" in \#*) continue ;; esac
+            args="$args ${slug}=/tmp/measured_persystem/${slug}.txt"
+          done < tools/ci/systems.txt
           python3 tests/tools/check_measured_parity.py --per-system \
-            windows=/tmp/measured_persystem/windows.txt \
-            fedora=/tmp/measured_persystem/fedora.txt \
-            ubuntu=/tmp/measured_persystem/ubuntu.txt \
-            arch=/tmp/measured_persystem/arch.txt \
-            cachyos=/tmp/measured_persystem/cachyos.txt \
+            $args \
             --exceptions tests/parity_exceptions.txt --aliases tests/parity_aliases.txt \
             --measured-exceptions tests/measured_exceptions.txt --todo TODO.md \
             | tee /tmp/measured_parity_per_system.md

@@ -87,6 +87,10 @@ import re
 import sys
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ci_systems  # noqa: E402
 
 # ENCODING-WIN (05/09/2026, GODS_LAWS.md L-40): TODO.md's own status
 # column carries markers outside the Basic Latin/Latin-1 range (`✅`
@@ -113,31 +117,98 @@ SCRIPT_NAME = "check_test_parity.py"
 
 SEM_PENDENCIA = "SEM-PENDENCIA"
 
-# CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3): antes
-# desta fatia so' "linux"/"windows" existiam - o modo --compare uniao
-# TODAS as pernas Linux (Fedora/Ubuntu/Arch/CachyOS x compartilhado/
-# estatico) num so conjunto antes de comparar contra Windows, e uma
-# lacuna exclusiva de UMA distro (ex.: um teste que roda em Fedora mas
-# falta so' no CachyOS) fica invisivel dentro dessa uniao - o "nome
-# ainda existe do lado Linux" porque outra distro o registrou. O modo
-# novo (--per-system, abaixo) compara cada sistema contra a uniao de
-# TODOS, e por isso os quatro slugs de distro entram como chave valida
-# de sistema tambem (tests/parity_exceptions.txt aceita as duas formas
-# ao mesmo tempo: "linux"/"windows" para --compare, os slugs para
-# --per-system - nenhuma exceção antiga precisa mudar).
-SISTEMAS_VALIDOS = ("linux", "windows", "fedora", "ubuntu", "arch", "cachyos")
+# CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): fonte
+# UNICA de sistemas, tools/ci/systems.txt via ci_systems.py - antes
+# desta fatia, esta lista (e mais cinco outras copias, redigitadas a
+# mao, no proprio arquivo e em check_measured_parity.py/ci.yml) vivia
+# escrita a mao aqui. Quando A7 acrescentar uma distro nova, edita SO'
+# tools/ci/systems.txt.
+#
+# D1 (achado do main): carregar no IMPORT (nivel de modulo) prendia
+# TODO selftest ao arquivo REAL - a A7, a primeira distro nova, mudaria
+# o resultado de autotestes que nunca deveriam depender do disco. D2
+# (achado do main): `load_systems("tools/ci/systems.txt")` resolve
+# relativo ao CWD do PROCESSO - o ctest roda a partir do diretorio de
+# build, nunca da raiz do repo, e o caminho relativo simplesmente nao
+# existe la. As tres pecas abaixo consertam os dois: a carga e' LAZY
+# (so' na primeira vez que _current_ci_systems() e' de fato chamada,
+# nunca no import), resolvida a partir de Path(__file__) (nunca do
+# cwd), e selftest_main() troca a fonte por uma FIXTURE via
+# set_ci_systems_override() antes de qualquer selftest rodar - nenhum
+# --selftest toca tools/ci/systems.txt, exceto o controle dedicado que
+# testa o arquivo real de proposito.
+_CI_SYSTEMS_CACHE = None
+_CI_SYSTEMS_OVERRIDE = None
 
-# A lista de alvos que --per-system EXIGE inventario, hoje - as cinco
-# plataformas de ESCOPO.md paragrafo 1 (Fedora/Ubuntu/Arch/CachyOS/
-# Windows), antes das distros do astrometrica (fatias A7a-A7e,
-# PLATFORMS-ASTRO-PARITY - fora do escopo da ordem que abriu esta
-# fatia). "linux" fica de fora: e' a chave AGREGADA que so' --compare
-# usa (a uniao que esta fatia existe para nao fazer mais); --per-
-# system nunca aceita "linux" como slug de sistema. Quando A7 acrescentar
-# uma distro nova, amplie SISTEMAS_VALIDOS e este tuple juntos - os
-# dois sempre andam emparelhados por construcao (ver o comentario
-# acima).
-SISTEMAS_PER_SYSTEM_ESPERADOS = tuple(s for s in SISTEMAS_VALIDOS if s != "linux")
+
+def set_ci_systems_override(systems):
+    """USADO SO' POR --selftest (selftest_main() chama isto antes de
+    qualquer controle rodar): troca a fonte de sistemas por uma
+    fixture em memoria, sem tocar o disco (D1). `None` restaura o
+    carregamento lazy do arquivo real."""
+    global _CI_SYSTEMS_OVERRIDE
+    _CI_SYSTEMS_OVERRIDE = systems
+
+
+def _load_real_ci_systems():
+    """Resolve tools/ci/systems.txt a partir da LOCALIZACAO DO PROPRIO
+    SCRIPT (D2), nunca do cwd do processo - este arquivo mora em
+    <raiz-do-repo>/tests/tools/, entao o terceiro pai de __file__
+    resolvido e' a raiz. Cache: carregado no maximo uma vez por
+    processo real (nunca durante --selftest, que usa o override)."""
+    global _CI_SYSTEMS_CACHE
+    if _CI_SYSTEMS_CACHE is None:
+        repo_root = Path(__file__).resolve().parents[2]
+        systems_path = repo_root / "tools" / "ci" / "systems.txt"
+        _CI_SYSTEMS_CACHE = ci_systems.load_systems(str(systems_path))
+    return _CI_SYSTEMS_CACHE
+
+
+def _current_ci_systems():
+    if _CI_SYSTEMS_OVERRIDE is not None:
+        return _CI_SYSTEMS_OVERRIDE
+    return _load_real_ci_systems()
+
+
+# CI-SPLIT-PER-OS A1 (docs/plano-ci-split-per-os.md secao 4.3): antes
+# da A1 so' "linux"/"windows" existiam - o modo --compare uniao TODAS
+# as pernas Linux (Fedora/Ubuntu/Arch/CachyOS x compartilhado/estatico)
+# num so conjunto antes de comparar contra Windows, e uma lacuna
+# exclusiva de UMA distro (ex.: um teste que roda em Fedora mas falta
+# so' no CachyOS) fica invisivel dentro dessa uniao - o "nome ainda
+# existe do lado Linux" porque outra distro o registrou. O modo novo
+# (--per-system, abaixo) compara cada sistema contra a uniao de TODOS,
+# e por isso os quatro slugs de distro entram como chave valida de
+# sistema tambem (tests/parity_exceptions.txt aceita as duas formas ao
+# mesmo tempo: "linux"/"windows" para --compare, os slugs para
+# --per-system - nenhuma exceção antiga precisa mudar). "linux" fica de
+# fora de _sistemas_per_system_esperados(): e' a chave AGREGADA que so'
+# --compare usa; --per-system nunca aceita "linux" como slug de
+# sistema (ci_systems.py ja proibe "linux" como slug, incondicional).
+#
+# As quatro funcoes abaixo substituem o que antes eram constantes de
+# MODULO (SISTEMAS_VALIDOS/SISTEMAS_PER_SYSTEM_ESPERADOS/FAMILIA_POR_
+# SLUG/_COMPARE_FAMILIES) - viram funcao, nunca mais valor fixado no
+# import, porque cada uma tem de reagir ao override de --selftest.
+def _sistemas_validos():
+    return ci_systems.missing_on_vocabulary(_current_ci_systems())
+
+
+def _sistemas_per_system_esperados():
+    return ci_systems.all_slugs(_current_ci_systems())
+
+
+def _familia_por_slug():
+    return ci_systems.familia_por_slug(_current_ci_systems())
+
+
+# CI-SPLIT-PER-OS A3a (D-A12): substitui a tupla ("linux", "windows")
+# escrita a mao duas vezes mais abaixo neste arquivo - as DUAS
+# familias agregadas que --compare conhece, derivadas da mesma fonte
+# unica (as chaves de ci_systems.familia_por_slug() sao sempre
+# exatamente essas duas, por construcao de ci_systems.py).
+def _compare_families():
+    return tuple(_familia_por_slug())
 
 
 def fail(message):
@@ -354,7 +425,7 @@ def parse_exceptions_text(text, source_label="tests/parity_exceptions.txt"):
                 f"{source_label}: linha malformada (esperava 4 ou 5 campos separados "
                 f"por '|', achou {len(parts)}): {line!r}"
             )
-        if missing_on not in SISTEMAS_VALIDOS:
+        if missing_on not in _sistemas_validos():
             fail(
                 f"{source_label}: sistema_onde_falta invalido {missing_on!r} para "
                 f"{test_name!r} (esperado 'linux' ou 'windows')"
@@ -721,14 +792,14 @@ def compute_alias_hygiene(aliases, linux_inventory, windows_inventory):
 # --per-system (D-A11, _format_per_system_exception_death_errors, que
 # ja aplica a morte por PAR, nunca por familia inteira).
 def _exceptions_out_of_compare_scope(exceptions):
-    return [exc for exc in exceptions if exc["missing_on"] not in ("linux", "windows")]
+    return [exc for exc in exceptions if exc["missing_on"] not in _compare_families()]
 
 
 def compute_exception_hygiene(exceptions, linux_inventory, windows_inventory):
     combined_inventory = linux_inventory | windows_inventory
     dead = []
     for exc in exceptions:
-        if exc["missing_on"] not in ("linux", "windows"):
+        if exc["missing_on"] not in _compare_families():
             continue
         test_name = exc["test_name"]
         missing_side_inventory = (
@@ -1202,10 +1273,10 @@ def _parse_per_system_args(args):
                 f"--per-system: argumento de sistema malformado (esperava 'slug=caminho'): {entry!r}"
             )
         slug, path = entry.split("=", 1)
-        if slug not in SISTEMAS_PER_SYSTEM_ESPERADOS:
+        if slug not in _sistemas_per_system_esperados():
             fail(
                 f"--per-system: slug de sistema invalido {slug!r} (validos: "
-                f"{SISTEMAS_PER_SYSTEM_ESPERADOS})"
+                f"{_sistemas_per_system_esperados()})"
             )
         if slug in system_paths:
             fail(f"--per-system: slug {slug!r} repetido")
@@ -1250,7 +1321,7 @@ def _print_per_system_counts(inputs):
 def _per_system_piso_errors(system_inventories):
     errors = []
     recebidos = set(system_inventories)
-    esperados = set(SISTEMAS_PER_SYSTEM_ESPERADOS)
+    esperados = set(_sistemas_per_system_esperados())
     faltando = sorted(esperados - recebidos)
     if faltando:
         errors.append(
@@ -1260,8 +1331,8 @@ def _per_system_piso_errors(system_inventories):
     inesperados = sorted(recebidos - esperados)
     if inesperados:
         errors.append(
-            f"sistema(s) fora da lista de alvos deste portao ({SISTEMAS_PER_SYSTEM_ESPERADOS}): "
-            f"{inesperados} - amplie SISTEMAS_PER_SYSTEM_ESPERADOS antes de usar um slug novo"
+            f"sistema(s) fora da lista de alvos deste portao ({_sistemas_per_system_esperados()}): "
+            f"{inesperados} - amplie tools/ci/systems.txt antes de usar um slug novo"
         )
     for slug in sorted(system_inventories):
         if not system_inventories[slug]:
@@ -1298,22 +1369,17 @@ def _per_system_incomplete_errors(system_status):
 # --per-system existir - ela cobria TODA distro Linux de uma vez, nunca
 # uma so'. Sem esta expansao, toda excecao linux/windows pre-existente
 # (tests/parity_exceptions.txt inteiro) parava de cobrir qualquer coisa
-# no modo por sistema, no dia em que ele nasceu.
-FAMILIA_POR_SLUG = {
-    "linux": frozenset(s for s in SISTEMAS_PER_SYSTEM_ESPERADOS if s != "windows"),
-    "windows": frozenset({"windows"}),
-}
-
-
+# no modo por sistema, no dia em que ele nasceu. CI-SPLIT-PER-OS A3a
+# (D-A12): _familia_por_slug() acima, nunca mais redigitado a mao.
 def _exception_covers_slug(nome, slug, exception_index):
     """Uma excecao cobre um slug se citar o slug exato OU a familia
-    dele (FAMILIA_POR_SLUG acima) - `missing_on="windows"` NUNCA cobre
-    um slug Linux, e vice-versa (a familia errada nao cobre nada)."""
+    dele (_familia_por_slug() acima) - `missing_on="windows"` NUNCA
+    cobre um slug Linux, e vice-versa (a familia errada nao cobre nada)."""
     if (nome, slug) in exception_index:
         return True
     return any(
         slug in slugs_da_familia and (nome, familia) in exception_index
-        for familia, slugs_da_familia in FAMILIA_POR_SLUG.items()
+        for familia, slugs_da_familia in _familia_por_slug().items()
     )
 
 
@@ -1324,8 +1390,14 @@ def _exception_covers_slug(nome, slug, exception_index):
 # vice-versa), nunca por que UMA distro Linux especifica nao tem o que
 # OUTRA distro Linux tem (isso e' lacuna real dentro da familia,
 # GODS_LAWS.md L-04 item 1: cobertura que some numa distro so').
+#
+# CI-SPLIT-PER-OS A3a (D-A12, vermelho de comportamento do plano): a
+# forma antiga (`"windows" if slug == "windows" else "linux"`) devolvia
+# "linux" para QUALQUER slug desconhecido, por construcao - um slug
+# digitado errado nunca reprovava, so' virava "linux" em silencio.
+# ci_systems.slug_family() reprova nomeando o slug (CiSystemsError).
 def _slug_family(slug):
-    return "windows" if slug == "windows" else "linux"
+    return ci_systems.slug_family(_current_ci_systems(), slug)
 
 
 def _alias_own_family(nome, aliases):
@@ -1418,7 +1490,7 @@ def _format_per_system_gap_errors(lacunas):
 # prometeu que TODO slug Linux teria o nome, so' que a familia tem).
 def _family_unions(system_inventories):
     linux_uniao = set()
-    for slug in FAMILIA_POR_SLUG["linux"]:
+    for slug in _familia_por_slug()["linux"]:
         linux_uniao |= system_inventories.get(slug, set())
     windows_uniao = set(system_inventories.get("windows", set()))
     return linux_uniao, windows_uniao
@@ -1433,7 +1505,7 @@ def _format_per_system_exception_death_errors(exceptions, system_inventories):
     errors = []
     for exc in exceptions:
         nome, missing_on = exc["test_name"], exc["missing_on"]
-        slugs_cobertos = sorted(FAMILIA_POR_SLUG.get(missing_on, {missing_on}))
+        slugs_cobertos = sorted(_familia_por_slug().get(missing_on, {missing_on}))
         for slug in slugs_cobertos:
             if slug in system_inventories and nome in system_inventories[slug]:
                 errors.append(
@@ -1453,7 +1525,7 @@ def _print_per_system_scope_line(system_inventories, exceptions, aliases, lacuna
     for nomes in system_inventories.values():
         uniao |= nomes
     exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
-    familias_expandidas = sum(1 for exc in exceptions if exc["missing_on"] in FAMILIA_POR_SLUG)
+    familias_expandidas = sum(1 for exc in exceptions if exc["missing_on"] in _familia_por_slug())
     perdoes_por_slug = {}
     for slug, nomes in system_inventories.items():
         faltando = sorted(uniao - nomes)
@@ -3361,7 +3433,7 @@ def _per_system_full_inventory(faltando_em=None, nome_faltante="b_test"):
     `faltando_em` (se dado), que perde `nome_faltante` - a fixtura
     compartilhada por quase todo controle abaixo, para nao repetir os
     cinco dicionarios em cada funcao (GODS_LAWS.md L-17, regra de 3)."""
-    inventario = {slug: frozenset({"a_test", "b_test"}) for slug in SISTEMAS_PER_SYSTEM_ESPERADOS}
+    inventario = {slug: frozenset({"a_test", "b_test"}) for slug in _sistemas_per_system_esperados()}
     if faltando_em is not None:
         inventario[faltando_em] = frozenset(inventario[faltando_em] - {nome_faltante})
     return inventario
@@ -3801,6 +3873,25 @@ def selftest_per_system_alias_hygiene_stays_on_family_union():
     return True
 
 
+# CI-SPLIT-PER-OS A3a (D-A12, vermelho de comportamento fixado no
+# plano): _slug_family("rocky-9") tinha que devolver "linux" em
+# silencio ANTES desta fatia (a forma antiga, `"windows" if slug ==
+# "windows" else "linux"`, nunca reprovava um slug desconhecido) -
+# depois, e' erro, nomeando o slug. Prova o defeito exato que
+# ci_systems.slug_family() (D-A12) existe para fechar.
+def selftest_slug_family_unknown_slug_is_error_not_linux_by_default():
+    try:
+        _slug_family("rocky-9")
+    except ci_systems.CiSystemsError as exc:
+        if "rocky-9" not in str(exc):
+            print(f"selftest: SLUG-FAMILY-DESCONHECIDO-NAO-VIRA-LINUX FALHOU (reprovou, mas nao citou o slug): {exc}", file=sys.stderr)
+            return False
+        print("selftest: SLUG-FAMILY-DESCONHECIDO-NAO-VIRA-LINUX OK (slug desconhecido e' erro, nunca 'linux' por omissao)")
+        return True
+    print("selftest: SLUG-FAMILY-DESCONHECIDO-NAO-VIRA-LINUX FALHOU (deveria ter reprovado - a regressao exata do _slug_family antigo)", file=sys.stderr)
+    return False
+
+
 def _per_system_alias_controls():
     return [
         selftest_per_system_alias_forgives_across_family_uniformly(),
@@ -3809,6 +3900,7 @@ def _per_system_alias_controls():
         selftest_per_system_alias_second_partner_forgives_when_first_does_not(),
         selftest_per_system_exception_death_is_per_pair_not_per_family(),
         selftest_per_system_alias_hygiene_stays_on_family_union(),
+        selftest_slug_family_unknown_slug_is_error_not_linux_by_default(),
     ]
 
 
@@ -3906,15 +3998,62 @@ def _parsing_guard_and_real_main_controls():
     ]
 
 
+# CI-SPLIT-PER-OS A3a (D-A12, D1 - achado do main): a fixture que
+# TODO o resto do --selftest usa - nenhum controle deste arquivo toca
+# tools/ci/systems.txt, exceto selftest_real_ci_systems_loads_from_
+# script_location() abaixo, que testa o arquivo real de proposito.
+# Acrescentar uma distro nova ao arquivo real nunca muda o resultado
+# de nenhum outro controle.
+_SELFTEST_CI_SYSTEMS = {
+    "fedora": "linux",
+    "ubuntu": "linux",
+    "arch": "linux",
+    "cachyos": "linux",
+    "windows": "windows",
+}
+
+
+# D2 (achado do main): o caminho resolvido a partir de Path(__file__)
+# tem de funcionar mesmo quando o processo roda de outro cwd - o
+# ctest roda a partir do diretorio de build, nunca da raiz do repo.
+# Chama _load_real_ci_systems() DIRETAMENTE (nunca via override), pra
+# provar o caminho de producao de verdade. Confere so' a FORMA (carrega
+# sem erro, tem pelo menos um sistema `windows` e um `linux`) - NUNCA o
+# conjunto exato de slugs (D1: a A7 acrescentando uma distro tem que
+# deixar este controle intacto, e' o mesmo cuidado que motivou D1).
+def selftest_real_ci_systems_loads_from_script_location():
+    global _CI_SYSTEMS_CACHE
+    _CI_SYSTEMS_CACHE = None  # forca recarregar, nunca confiar em cache de chamada anterior
+    try:
+        systems = _load_real_ci_systems()
+    except (OSError, ci_systems.CiSystemsError) as exc:
+        print(f"selftest: CI-SYSTEMS-CAMINHO-REAL FALHOU (tools/ci/systems.txt nao carregou): {exc}", file=sys.stderr)
+        return False
+    familias_presentes = set(systems.values())
+    if familias_presentes != {"linux", "windows"}:
+        print(f"selftest: CI-SYSTEMS-CAMINHO-REAL FALHOU (esperava as familias linux e windows, veio {familias_presentes})", file=sys.stderr)
+        return False
+    print(
+        "selftest: CI-SYSTEMS-CAMINHO-REAL OK (tools/ci/systems.txt real carrega via "
+        "Path(__file__), nao depende do cwd - D2)"
+    )
+    return True
+
+
 def selftest_main():
-    controls = [
-        *_core_controls(),
-        *_inventory_parsing_controls(),
-        *_alias_hygiene_controls(),
-        *_parsing_guard_and_real_main_controls(),
-        *_textual_mode_controls(),
-        *_per_system_mode_controls(),
-    ]
+    set_ci_systems_override(_SELFTEST_CI_SYSTEMS)
+    try:
+        controls = [
+            *_core_controls(),
+            *_inventory_parsing_controls(),
+            *_alias_hygiene_controls(),
+            *_parsing_guard_and_real_main_controls(),
+            *_textual_mode_controls(),
+            *_per_system_mode_controls(),
+            selftest_real_ci_systems_loads_from_script_location(),
+        ]
+    finally:
+        set_ci_systems_override(None)
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# tools/ci/systems.txt - CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-
+# split-per-os.md): a FONTE UNICA dos sistemas suportados pela matriz
+# de CI (as cinco plataformas de ESCOPO.md paragrafo 1, GODS_LAWS.md
+# L-04). Formato: uma linha por sistema, "slug|familia" - slug em
+# minusculas ([a-z0-9-]+), familia e' sempre "linux" ou "windows".
+# "linux" e "windows" sozinhos NUNCA sao slug de sistema - sao os
+# nomes de familia, e ficam reservados (tests/tools/ci_systems.py
+# reprova um slug com esse nome).
+#
+# MUDANCA SO POR DECISAO DO LIDER (GODS_LAWS.md L-04, ESCOPO.md S1):
+# acrescentar/remover um sistema aqui muda a matriz de CI inteira -
+# nao e' refatoracao de portao, e' decisao de produto/suporte.
+fedora|linux
+ubuntu|linux
+arch|linux
+cachyos|linux
+windows|windows

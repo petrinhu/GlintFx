@@ -90,6 +90,10 @@ import argparse
 import re
 import sys
 from collections import defaultdict
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ci_systems  # noqa: E402
 
 # GATE-ENV-SWEEP, categoria OUTPUT_ENCODING (TODO.md, mesmo remedio de
 # tests/tools/check_test_parity.py, arquivo inteiro por declaracao -
@@ -571,7 +575,43 @@ def textual_main(args):
 # --compare, --per-system e' um RELATORIO (nunca falha por conteudo
 # divergente ou unilateral) - so' falha pelo piso de varredura vazia
 # (GODS_LAWS.md L-40), generalizado por sistema.
-PER_SYSTEM_SLUGS_ESPERADOS = ("windows", "fedora", "ubuntu", "arch", "cachyos")
+#
+# CI-SPLIT-PER-OS A3a (D-A12): fonte UNICA de sistemas, tools/ci/
+# systems.txt via ci_systems.py - esta era uma copia INDEPENDENTE,
+# redigitada a mao, da mesma lista que check_test_parity.py ja tinha
+# (SISTEMAS_PER_SYSTEM_ESPERADOS) - nenhuma das duas lia a outra.
+#
+# D1/D2 (achados do main, mesmo conserto de check_test_parity.py):
+# carga LAZY (nunca no import - D1, prende --selftest ao arquivo real)
+# e resolvida a partir de Path(__file__) (nunca do cwd - D2, o ctest
+# roda a partir do diretorio de build). set_ci_systems_override() troca
+# a fonte por fixture, usado so' por --selftest.
+_CI_SYSTEMS_CACHE = None
+_CI_SYSTEMS_OVERRIDE = None
+
+
+def set_ci_systems_override(systems):
+    global _CI_SYSTEMS_OVERRIDE
+    _CI_SYSTEMS_OVERRIDE = systems
+
+
+def _load_real_ci_systems():
+    global _CI_SYSTEMS_CACHE
+    if _CI_SYSTEMS_CACHE is None:
+        repo_root = Path(__file__).resolve().parents[2]
+        systems_path = repo_root / "tools" / "ci" / "systems.txt"
+        _CI_SYSTEMS_CACHE = ci_systems.load_systems(str(systems_path))
+    return _CI_SYSTEMS_CACHE
+
+
+def _current_ci_systems():
+    if _CI_SYSTEMS_OVERRIDE is not None:
+        return _CI_SYSTEMS_OVERRIDE
+    return _load_real_ci_systems()
+
+
+def _per_system_slugs_esperados():
+    return ci_systems.all_slugs(_current_ci_systems())
 
 
 def _parse_per_system_args(args):
@@ -593,10 +633,10 @@ def _parse_per_system_args(args):
         if "=" not in entry:
             fail(f"--per-system: argumento malformado (esperava 'slug=arquivo'): {entry!r}")
         slug, path = entry.split("=", 1)
-        if slug not in PER_SYSTEM_SLUGS_ESPERADOS:
+        if slug not in _per_system_slugs_esperados():
             fail(
                 f"--per-system: slug de sistema invalido {slug!r} (validos: "
-                f"{PER_SYSTEM_SLUGS_ESPERADOS})"
+                f"{_per_system_slugs_esperados()})"
             )
         system_paths[slug].append(path)
     return dict(system_paths), parsed
@@ -620,7 +660,7 @@ def _load_per_system_owners(exceptions_path, aliases_path):
 # nenhum e' coleta quebrada silenciosa, nao "nada a reportar dele".
 def _per_system_piso_errors(system_values):
     recebidos = set(system_values)
-    esperados = set(PER_SYSTEM_SLUGS_ESPERADOS)
+    esperados = set(_per_system_slugs_esperados())
     faltando = sorted(esperados - recebidos)
     errors = []
     if faltando:
@@ -631,8 +671,8 @@ def _per_system_piso_errors(system_values):
     inesperados = sorted(recebidos - esperados)
     if inesperados:
         errors.append(
-            f"sistema(s) fora da lista de alvos deste portao ({PER_SYSTEM_SLUGS_ESPERADOS}): "
-            f"{inesperados} - amplie PER_SYSTEM_SLUGS_ESPERADOS antes de usar um slug novo"
+            f"sistema(s) fora da lista de alvos deste portao ({_per_system_slugs_esperados()}): "
+            f"{inesperados} - amplie tools/ci/systems.txt antes de usar um slug novo"
         )
     if not any(system_values.values()):
         errors.append(
@@ -695,7 +735,14 @@ def _print_per_system_report(system_values, classificacao):
 # nao e' consumida por classify_unilateral(), que so' olha presenca no
 # dict, entao nao muda). "ambos" reprova como formato invalido.
 LADO_DIVERGENCE_KEYWORDS = ("todos", "familias")
-LINUX_FAMILY_SLUGS = frozenset(slug for slug in PER_SYSTEM_SLUGS_ESPERADOS if slug != "windows")
+
+# CI-SPLIT-PER-OS A3a (D-A12): derivado de _current_ci_systems(),
+# nunca mais redigitado a mao (era a segunda copia independente da
+# mesma regra que _familia_por_slug()["linux"] ja calcula em
+# check_test_parity.py). Funcao, nunca constante - mesmo motivo D1 de
+# _per_system_slugs_esperados() acima.
+def _linux_family_slugs():
+    return ci_systems.slugs_of_family(_current_ci_systems(), "linux")
 
 
 def is_valid_lado_format(lado):
@@ -705,7 +752,7 @@ def is_valid_lado_format(lado):
     if lado in LADO_DIVERGENCE_KEYWORDS:
         return True
     tokens = [t.strip() for t in lado.split(",")]
-    valid_refs = set(PER_SYSTEM_SLUGS_ESPERADOS) | {"linux", "windows"}
+    valid_refs = set(ci_systems.missing_on_vocabulary(_current_ci_systems()))
     return bool(tokens) and all(t and t in valid_refs for t in tokens)
 
 
@@ -713,7 +760,7 @@ def _format_lado_errors(key_exceptions):
     return [
         f"{key}: lado {lado!r} fora do vocabulario fechado (tests/measured_exceptions.txt) - "
         f"validos: {LADO_DIVERGENCE_KEYWORDS} ou lista separada por virgula de "
-        f"{sorted(set(PER_SYSTEM_SLUGS_ESPERADOS) | {'linux', 'windows'})} - 'ambos' nao existe mais (D-A10)"
+        f"{sorted(ci_systems.missing_on_vocabulary(_current_ci_systems()))} - 'ambos' nao existe mais (D-A10)"
         for key, (lado, _item, _perm) in key_exceptions.items()
         if not is_valid_lado_format(lado)
     ]
@@ -746,7 +793,7 @@ def is_value_divergence_declared(lado, particao):
     if lado == "todos":
         return True
     if lado == "familias":
-        linux_groups = [valor for valor, slugs in particao.items() if any(s in LINUX_FAMILY_SLUGS for s in slugs)]
+        linux_groups = [valor for valor, slugs in particao.items() if any(s in _linux_family_slugs() for s in slugs)]
         return len(linux_groups) <= 1
     return False
 
@@ -1482,7 +1529,7 @@ def _run_per_system_main_capturing(argv):
 
 def selftest_per_system_positive_control(tmp_path):
     caminho = _write_temp(tmp_path, "ps_pos.txt", "MEASURED a_test.k=1\n")
-    argv = [f"{slug}={caminho}" for slug in PER_SYSTEM_SLUGS_ESPERADOS]
+    argv = [f"{slug}={caminho}" for slug in _per_system_slugs_esperados()]
     exit_code, output = _run_per_system_main_capturing(argv)
     if exit_code not in (None, 0):
         print(f"selftest: PER-SYSTEM-POSITIVO FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
@@ -1558,7 +1605,7 @@ def selftest_per_system_gap_herdada_when_owner_known(tmp_path):
 
 def selftest_per_system_missing_system_reproves(tmp_path):
     caminho = _write_temp(tmp_path, "ps_faltando.txt", "MEASURED a_test.k=1\n")
-    argv = [f"{slug}={caminho}" for slug in PER_SYSTEM_SLUGS_ESPERADOS if slug != "windows"]
+    argv = [f"{slug}={caminho}" for slug in _per_system_slugs_esperados() if slug != "windows"]
     exit_code, output = _run_per_system_main_capturing(argv)
     if exit_code != 1:
         print(f"selftest: PER-SYSTEM-PISO-AUSENTE FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
@@ -1572,7 +1619,7 @@ def selftest_per_system_missing_system_reproves(tmp_path):
 
 def selftest_per_system_empty_all_reproves(tmp_path):
     vazio = _write_temp(tmp_path, "ps_vazio.txt", "")
-    argv = [f"{slug}={vazio}" for slug in PER_SYSTEM_SLUGS_ESPERADOS]
+    argv = [f"{slug}={vazio}" for slug in _per_system_slugs_esperados()]
     exit_code, output = _run_per_system_main_capturing(argv)
     if exit_code != 1:
         print(f"selftest: PER-SYSTEM-VARREDURA-VAZIA FALHOU (esperava exit 1, veio {exit_code!r}): {output}", file=sys.stderr)
@@ -1612,7 +1659,7 @@ def _write_five_systems(tmp_path, prefix, values_by_slug):
 
 
 def selftest_per_system_value_unanimity_iguais_control(tmp_path):
-    argv = _write_five_systems(tmp_path, "unanime", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    argv = _write_five_systems(tmp_path, "unanime", {s: ["1"] for s in _per_system_slugs_esperados()})
     exceptions_file = _write_temp(tmp_path, "exc_vazio.txt", "")
     todo_file = _write_temp(tmp_path, "TODO_vazio.md", "")
     exit_code, output = _run_per_system_main_capturing(
@@ -1749,7 +1796,7 @@ def selftest_per_system_value_familias_linux_vs_windows_declared(tmp_path):
 
 # M4: "ambos" nao existe mais - migracao completa, formato invalido.
 def selftest_per_system_value_ambos_format_rejected(tmp_path):
-    argv = _write_five_systems(tmp_path, "ambos", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    argv = _write_five_systems(tmp_path, "ambos", {s: ["1"] for s in _per_system_slugs_esperados()})
     exceptions_file = _write_temp(tmp_path, "exc_ambos.txt", "some_test.k|ambos|forma antiga|SEM-PENDENCIA\n")
     todo_file = _write_temp(tmp_path, "TODO_ambos.md", "")
     exit_code, output = _run_per_system_main_capturing(
@@ -1809,7 +1856,7 @@ def selftest_per_system_value_instability_declared_with_todos(tmp_path):
 
 
 def selftest_per_system_value_mode_optional_when_no_measured_exceptions(tmp_path):
-    argv = _write_five_systems(tmp_path, "semvalor", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    argv = _write_five_systems(tmp_path, "semvalor", {s: ["1"] for s in _per_system_slugs_esperados()})
     exit_code, output = _run_per_system_main_capturing(argv)
     if exit_code not in (None, 0):
         print(f"selftest: PER-SYSTEM-VALOR-MODO-OPCIONAL FALHOU (codigo {exit_code!r}): {output}", file=sys.stderr)
@@ -1822,7 +1869,7 @@ def selftest_per_system_value_mode_optional_when_no_measured_exceptions(tmp_path
 
 
 def selftest_per_system_value_exception_pointing_to_concluded_item_reproves(tmp_path):
-    argv = _write_five_systems(tmp_path, "concluido", {s: ["1"] for s in PER_SYSTEM_SLUGS_ESPERADOS})
+    argv = _write_five_systems(tmp_path, "concluido", {s: ["1"] for s in _per_system_slugs_esperados()})
     exceptions_file = _write_temp(tmp_path, "exc_concluido.txt", "some_test.k|todos|motivo qualquer|ITEM-FECHADO\n")
     todo_file = _write_temp(
         tmp_path, "TODO_concluido.md",
@@ -1859,35 +1906,74 @@ def _per_system_value_controls():
     ]
 
 
+# CI-SPLIT-PER-OS A3a (D-A12, D1 - achado do main): mesma fixture de
+# check_test_parity.py - nenhum controle deste arquivo toca tools/ci/
+# systems.txt, exceto o controle dedicado que testa o arquivo real.
+_SELFTEST_CI_SYSTEMS = {
+    "fedora": "linux",
+    "ubuntu": "linux",
+    "arch": "linux",
+    "cachyos": "linux",
+    "windows": "windows",
+}
+
+
+# D2 (achado do main): prova que _load_real_ci_systems() resolve o
+# caminho a partir de Path(__file__), nunca do cwd - so' a FORMA
+# (familias linux/windows presentes), nunca o conjunto exato de slugs
+# (D1: a A7 acrescentando uma distro tem que deixar isto intacto).
+def selftest_real_ci_systems_loads_from_script_location():
+    global _CI_SYSTEMS_CACHE
+    _CI_SYSTEMS_CACHE = None
+    try:
+        systems = _load_real_ci_systems()
+    except (OSError, ci_systems.CiSystemsError) as exc:
+        print(f"selftest: CI-SYSTEMS-CAMINHO-REAL FALHOU (tools/ci/systems.txt nao carregou): {exc}", file=sys.stderr)
+        return False
+    familias_presentes = set(systems.values())
+    if familias_presentes != {"linux", "windows"}:
+        print(f"selftest: CI-SYSTEMS-CAMINHO-REAL FALHOU (esperava as familias linux e windows, veio {familias_presentes})", file=sys.stderr)
+        return False
+    print(
+        "selftest: CI-SYSTEMS-CAMINHO-REAL OK (tools/ci/systems.txt real carrega via "
+        "Path(__file__), nao depende do cwd - D2)"
+    )
+    return True
+
+
 def selftest_main():
     import tempfile
-    from pathlib import Path
 
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        controls = [
-            selftest_empty_both_sides_reproves(tmp_path),
-            selftest_five_sections_classify_correctly(tmp_path),
-            selftest_scancount_never_compared(tmp_path),
-            selftest_key_exception_accepted(tmp_path),
-            selftest_key_exception_with_concluded_item_reproves(tmp_path),
-            selftest_key_exception_with_nonexistent_item_reproves(tmp_path),
-            selftest_key_exception_with_prose_only_item_accepted(tmp_path),
-            selftest_declared_divergence_with_concluded_item_reproves(tmp_path),
-            selftest_one_side_empty_still_succeeds(tmp_path),
-            selftest_textual_positive_control(tmp_path),
-            selftest_textual_concluded_item_reproves(tmp_path),
-            selftest_textual_nonexistent_item_reproves(tmp_path),
-            selftest_textual_prose_only_item_accepted(tmp_path),
-            selftest_textual_empty_todo_reproves(tmp_path),
-            selftest_per_system_positive_control(tmp_path),
-            selftest_per_system_gap_classified_by_system(tmp_path),
-            selftest_per_system_gap_herdada_when_owner_known(tmp_path),
-            selftest_per_system_missing_system_reproves(tmp_path),
-            selftest_per_system_empty_all_reproves(tmp_path),
-            selftest_per_system_unexpected_slug_rejected(),
-            *(control(tmp_path) for control in _per_system_value_controls()),
-        ]
+    set_ci_systems_override(_SELFTEST_CI_SYSTEMS)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            controls = [
+                selftest_empty_both_sides_reproves(tmp_path),
+                selftest_five_sections_classify_correctly(tmp_path),
+                selftest_scancount_never_compared(tmp_path),
+                selftest_key_exception_accepted(tmp_path),
+                selftest_key_exception_with_concluded_item_reproves(tmp_path),
+                selftest_key_exception_with_nonexistent_item_reproves(tmp_path),
+                selftest_key_exception_with_prose_only_item_accepted(tmp_path),
+                selftest_declared_divergence_with_concluded_item_reproves(tmp_path),
+                selftest_one_side_empty_still_succeeds(tmp_path),
+                selftest_textual_positive_control(tmp_path),
+                selftest_textual_concluded_item_reproves(tmp_path),
+                selftest_textual_nonexistent_item_reproves(tmp_path),
+                selftest_textual_prose_only_item_accepted(tmp_path),
+                selftest_textual_empty_todo_reproves(tmp_path),
+                selftest_per_system_positive_control(tmp_path),
+                selftest_per_system_gap_classified_by_system(tmp_path),
+                selftest_per_system_gap_herdada_when_owner_known(tmp_path),
+                selftest_per_system_missing_system_reproves(tmp_path),
+                selftest_per_system_empty_all_reproves(tmp_path),
+                selftest_per_system_unexpected_slug_rejected(),
+                *(control(tmp_path) for control in _per_system_value_controls()),
+                selftest_real_ci_systems_loads_from_script_location(),
+            ]
+    finally:
+        set_ci_systems_override(None)
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)

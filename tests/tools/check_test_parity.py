@@ -1207,11 +1207,37 @@ def _per_system_piso_errors(system_inventories):
     return errors
 
 
+# CI-SPLIT-PER-OS A1, achado da classificacao dos 215 problemas do run
+# 36085750444 (categoria "a", 8 pares/2 nomes): uma excecao com
+# missing_on="linux" e' o AGREGADO que --compare ja usava ANTES de
+# --per-system existir - ela cobria TODA distro Linux de uma vez, nunca
+# uma so'. Sem esta expansao, toda excecao linux/windows pre-existente
+# (tests/parity_exceptions.txt inteiro) parava de cobrir qualquer coisa
+# no modo por sistema, no dia em que ele nasceu.
+FAMILIA_POR_SLUG = {
+    "linux": frozenset(s for s in SISTEMAS_PER_SYSTEM_ESPERADOS if s != "windows"),
+    "windows": frozenset({"windows"}),
+}
+
+
+def _exception_covers_slug(nome, slug, exception_index):
+    """Uma excecao cobre um slug se citar o slug exato OU a familia
+    dele (FAMILIA_POR_SLUG acima) - `missing_on="windows"` NUNCA cobre
+    um slug Linux, e vice-versa (a familia errada nao cobre nada)."""
+    if (nome, slug) in exception_index:
+        return True
+    return any(
+        slug in slugs_da_familia and (nome, familia) in exception_index
+        for familia, slugs_da_familia in FAMILIA_POR_SLUG.items()
+    )
+
+
 def compute_per_system_union_and_gaps(system_inventories, exceptions):
     """Retorna (uniao, lacunas) - `uniao` e' o conjunto de referencia
     (todo nome que aparece em QUALQUER sistema); `lacunas` e' {slug:
     [nomes]} com todo nome da uniao que falta EXATAMENTE nesse sistema
-    e nao tem excecao (test_name, slug) em tests/parity_exceptions.txt."""
+    e nao tem excecao (test_name, slug) NEM (test_name, familia-do-
+    slug) em tests/parity_exceptions.txt."""
     uniao = set()
     for nomes in system_inventories.values():
         uniao |= nomes
@@ -1219,7 +1245,9 @@ def compute_per_system_union_and_gaps(system_inventories, exceptions):
     lacunas = {}
     for slug, nomes in system_inventories.items():
         faltando = sorted(uniao - nomes)
-        lacunas[slug] = [nome for nome in faltando if (nome, slug) not in exception_index]
+        lacunas[slug] = [
+            nome for nome in faltando if not _exception_covers_slug(nome, slug, exception_index)
+        ]
     return uniao, lacunas
 
 
@@ -3017,6 +3045,43 @@ def selftest_per_system_declared_exception_suppresses_gap():
     return True
 
 
+# CI-SPLIT-PER-OS A1, achado da classificacao dos 215 do run
+# 36085750444 (categoria "a"): uma excecao com missing_on="linux" (o
+# AGREGADO que --compare ja usava) tem de cobrir QUALQUER slug Linux,
+# nunca so' um. O vermelho REAL que motivou este controle: `win32_
+# runner_probe_test|linux|...|SEM-PENDENCIA` (tests/parity_exceptions.txt)
+# nao cobria 'arch' no --per-system de ae5dd7e - 8 pares reprovaram
+# exatamente por isso na estreia do modo em produção.
+def selftest_per_system_family_exception_covers_all_linux_slugs():
+    inventario = _per_system_full_inventory(faltando_em="arch")
+    excecoes = [
+        {"test_name": "b_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
+    ]
+    errors = run_per_system_comparison(inventario, excecoes, {})
+    if errors:
+        print(f"selftest: excecao de familia 'linux' nao cobriu o slug 'arch' - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-FAMILIA-LINUX OK ('b_test|linux|...' cobre qualquer slug Linux)")
+    return True
+
+
+# Gemeo negativo: excecao de familia ERRADA (windows) nunca pode cobrir
+# um slug Linux - prova que a expansao e' por familia, nao "qualquer
+# excecao existente para este nome vale".
+def selftest_per_system_windows_exception_never_covers_linux_slug():
+    inventario = _per_system_full_inventory(faltando_em="arch")
+    excecoes = [
+        {"test_name": "b_test", "missing_on": "windows", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
+    ]
+    errors = run_per_system_comparison(inventario, excecoes, {})
+    encontrou = any("b_test" in e and "'arch'" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: excecao 'windows' cobriu indevidamente o slug 'arch' - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-FAMILIA-WINDOWS-NAO-VAZA OK (familia errada nunca cobre)")
+    return True
+
+
 # O outro mutante nomeado no plano: "piso de sistemas desligado -> um
 # sistema sem inventario passa calado". Aqui "windows" nunca recebe
 # --per-system slug=caminho nenhum (dict sem a chave, nao inventario
@@ -3084,6 +3149,8 @@ def _per_system_mode_controls():
         selftest_per_system_gap_only_in_one_system_reproves(),
         selftest_per_system_naive_union_would_miss_the_gap_control(),
         selftest_per_system_declared_exception_suppresses_gap(),
+        selftest_per_system_family_exception_covers_all_linux_slugs(),
+        selftest_per_system_windows_exception_never_covers_linux_slug(),
         selftest_per_system_missing_system_reproves(),
         selftest_per_system_empty_inventory_reproves(),
         selftest_per_system_unexpected_slug_rejected(),

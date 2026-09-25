@@ -1123,6 +1123,7 @@ def textual_main(args):
 class PerSystemInputs:
     system_inventories: dict  # {slug: frozenset(nomes)}
     exceptions: list
+    aliases: list
     todo_status: dict
 
 
@@ -1130,11 +1131,19 @@ def _parse_per_system_args(args):
     if len(args) < 3:
         fail(
             "usage: check_test_parity.py --per-system <exceptions.txt> <TODO.md> "
-            "<slug>=<inventario> [<slug>=<inventario> ...]"
+            "<slug>=<inventario> [<slug>=<inventario> ...] [--aliases <arquivo>]"
         )
     exceptions_path, todo_path = args[0], args[1]
+    aliases_path = None
     system_paths = {}
-    for entry in args[2:]:
+    resto = list(args[2:])
+    if "--aliases" in resto:
+        idx = resto.index("--aliases")
+        if idx + 1 >= len(resto):
+            fail("--per-system: --aliases exige um caminho de arquivo")
+        aliases_path = resto[idx + 1]
+        del resto[idx:idx + 2]
+    for entry in resto:
         if "=" not in entry:
             fail(
                 f"--per-system: argumento de sistema malformado (esperava 'slug=caminho'): {entry!r}"
@@ -1148,16 +1157,18 @@ def _parse_per_system_args(args):
         if slug in system_paths:
             fail(f"--per-system: slug {slug!r} repetido")
         system_paths[slug] = path
-    return exceptions_path, todo_path, system_paths
+    return exceptions_path, todo_path, system_paths, aliases_path
 
 
-def _load_per_system_inputs(exceptions_path, todo_path, system_paths):
+def _load_per_system_inputs(exceptions_path, todo_path, system_paths, aliases_path):
     system_inventories = {
         slug: frozenset(parse_inventory_text(_read_file(path))) for slug, path in system_paths.items()
     }
+    aliases = parse_aliases_text(_read_file(aliases_path)) if aliases_path is not None else []
     return PerSystemInputs(
         system_inventories=system_inventories,
         exceptions=parse_exceptions_text(_read_file(exceptions_path)),
+        aliases=aliases,
         todo_status=parse_todo_status_text(_read_file(todo_path)),
     )
 
@@ -1232,12 +1243,73 @@ def _exception_covers_slug(nome, slug, exception_index):
     )
 
 
-def compute_per_system_union_and_gaps(system_inventories, exceptions):
+# CI-SPLIT-PER-OS A1c (D-A11, docs/plano-ci-split-per-os.md secao 4.3):
+# "o apelido atravessa FAMILIA, nunca preenche buraco DENTRO dela." Um
+# apelido Linux/Windows (tests/parity_aliases.txt) casa um nome de CADA
+# lado - ele explica por que o lado Windows nao tem o nome Linux (e
+# vice-versa), nunca por que UMA distro Linux especifica nao tem o que
+# OUTRA distro Linux tem (isso e' lacuna real dentro da familia,
+# GODS_LAWS.md L-04 item 1: cobertura que some numa distro so').
+def _slug_family(slug):
+    return "windows" if slug == "windows" else "linux"
+
+
+def _alias_own_family(nome, aliases):
+    """(i): de qual familia `nome` e', segundo os apelidos declarados -
+    "linux" se `nome` e' o linux_name de algum par, "windows" se e' o
+    windows_name, None se `nome` nao aparece em apelido nenhum."""
+    for alias in aliases:
+        if alias["linux_name"] == nome:
+            return "linux"
+        if alias["windows_name"] == nome:
+            return "windows"
+    return None
+
+
+def _alias_partners_in_family(nome, familia, aliases):
+    """TODOS os parceiros de `nome` do lado `familia` - um nome pode
+    ter mais de um parceiro (achado real contra o run 36085750444:
+    `win32_facade_pin_test` tem DOIS - `facade_pin_smoke` e
+    `window_active_after_map_smoke` -, e `win32_display_connect_test`
+    tem TRES). Checar so' o primeiro encontrado esconderia um parceiro
+    que prova o comportamento onde o primeiro nao prova (regra iii)."""
+    parceiros = []
+    for alias in aliases:
+        if familia == "linux" and alias["windows_name"] == nome:
+            parceiros.append(alias["linux_name"])
+        if familia == "windows" and alias["linux_name"] == nome:
+            parceiros.append(alias["windows_name"])
+    return parceiros
+
+
+def _alias_forgives_gap(nome, slug, system_inventories, aliases):
+    """As tres regras (i)-(iii) de D-A11, cada uma nomeada por um
+    mutante do plano: (i) `nome` tem de ser da familia OPOSTA a de
+    `slug` (M-familia-errada); (ii) `nome` NAO pode estar em NENHUM
+    sistema da familia de `slug` - nunca so' checado contra `slug`
+    sozinho (M1: se `nome` reaparece em outro sistema da mesma
+    familia, a lacuna em `slug` continua real); (iii) PELO MENOS UM
+    parceiro de `nome`, do lado da familia de `slug`, tem de estar no
+    inventario do PROPRIO `slug` - nunca so' em algum lugar da familia
+    (M2), e nunca so' o PRIMEIRO parceiro encontrado quando ha mais
+    de um (achado real, ver _alias_partners_in_family)."""
+    familia_slug = _slug_family(slug)
+    familia_nome = _alias_own_family(nome, aliases)
+    if familia_nome is None or familia_nome == familia_slug:
+        return False
+    slugs_da_familia = [s for s in system_inventories if _slug_family(s) == familia_slug]
+    if any(nome in system_inventories[s] for s in slugs_da_familia):
+        return False
+    parceiros = _alias_partners_in_family(nome, familia_slug, aliases)
+    return any(parceiro in system_inventories.get(slug, set()) for parceiro in parceiros)
+
+
+def compute_per_system_union_and_gaps(system_inventories, exceptions, aliases):
     """Retorna (uniao, lacunas) - `uniao` e' o conjunto de referencia
     (todo nome que aparece em QUALQUER sistema); `lacunas` e' {slug:
-    [nomes]} com todo nome da uniao que falta EXATAMENTE nesse sistema
-    e nao tem excecao (test_name, slug) NEM (test_name, familia-do-
-    slug) em tests/parity_exceptions.txt."""
+    [nomes]} com todo nome da uniao que falta EXATAMENTE nesse sistema,
+    sem excecao (`_exception_covers_slug`) NEM apelido que perdoe
+    (`_alias_forgives_gap`, D-A11)."""
     uniao = set()
     for nomes in system_inventories.values():
         uniao |= nomes
@@ -1246,7 +1318,9 @@ def compute_per_system_union_and_gaps(system_inventories, exceptions):
     for slug, nomes in system_inventories.items():
         faltando = sorted(uniao - nomes)
         lacunas[slug] = [
-            nome for nome in faltando if not _exception_covers_slug(nome, slug, exception_index)
+            nome for nome in faltando
+            if not _exception_covers_slug(nome, slug, exception_index)
+            and not _alias_forgives_gap(nome, slug, system_inventories, aliases)
         ]
     return uniao, lacunas
 
@@ -1263,7 +1337,67 @@ def _format_per_system_gap_errors(lacunas):
     return errors
 
 
-def run_per_system_comparison(system_inventories, exceptions, todo_status):
+# D-A11: "a higiene de apelidos ... e' a de hoje, calculada sobre a
+# uniao da familia Linux contra o Windows, sem mudanca" (M4) - nunca
+# recalculada por sistema, que acusaria apelido normal de meio-morto
+# so' porque UM slug especifico nao tem o nome (o apelido nunca
+# prometeu que TODO slug Linux teria o nome, so' que a familia tem).
+def _family_unions(system_inventories):
+    linux_uniao = set()
+    for slug in FAMILIA_POR_SLUG["linux"]:
+        linux_uniao |= system_inventories.get(slug, set())
+    windows_uniao = set(system_inventories.get("windows", set()))
+    return linux_uniao, windows_uniao
+
+
+# D-A11: "morte de uma excecao e' por par (nome, sistema) ... relatada
+# no sistema onde aconteceu" (M5) - uma excecao 'X|linux|...' cobre
+# varios slugs Linux ao mesmo tempo, mas pode estar MORTA (o nome ja
+# existe la, a ausencia que ela prometia acabou) em alguns e VIVA nos
+# outros; nunca declarada morta ou viva pela familia inteira de uma vez.
+def _format_per_system_exception_death_errors(exceptions, system_inventories):
+    errors = []
+    for exc in exceptions:
+        nome, missing_on = exc["test_name"], exc["missing_on"]
+        slugs_cobertos = sorted(FAMILIA_POR_SLUG.get(missing_on, {missing_on}))
+        for slug in slugs_cobertos:
+            if slug in system_inventories and nome in system_inventories[slug]:
+                errors.append(
+                    f"excecao morta no sistema {slug!r}: {nome}|{missing_on}|... - {nome} ja "
+                    f"aparece no inventario de {slug!r} (tests/parity_exceptions.txt)"
+                )
+    return errors
+
+
+# D-A11: "linha de escopo sempre impressa: apelidos: N linhas; perdoes
+# aplicados: fedora a, ubuntu b, ...; excecoes expandidas por familia:
+# c; lacunas por sistema: ..." (GODS_LAWS.md L-40) - reusa os mesmos
+# predicados de compute_per_system_union_and_gaps() (nunca reimplementa
+# a regra), so' para CONTAR em vez de filtrar.
+def _print_per_system_scope_line(system_inventories, exceptions, aliases, lacunas):
+    uniao = set()
+    for nomes in system_inventories.values():
+        uniao |= nomes
+    exception_index = {(exc["test_name"], exc["missing_on"]) for exc in exceptions}
+    familias_expandidas = sum(1 for exc in exceptions if exc["missing_on"] in FAMILIA_POR_SLUG)
+    perdoes_por_slug = {}
+    for slug, nomes in system_inventories.items():
+        faltando = sorted(uniao - nomes)
+        perdoes_por_slug[slug] = sum(
+            1 for nome in faltando
+            if not _exception_covers_slug(nome, slug, exception_index)
+            and _alias_forgives_gap(nome, slug, system_inventories, aliases)
+        )
+    perdoes_txt = ", ".join(f"{slug} {perdoes_por_slug[slug]}" for slug in sorted(perdoes_por_slug))
+    lacunas_txt = ", ".join(f"{slug} {len(lacunas.get(slug, []))}" for slug in sorted(system_inventories))
+    print(
+        f"{SCRIPT_NAME} --per-system: apelidos: {len(aliases)} linha(s); perdoes aplicados: "
+        f"{perdoes_txt}; excecoes expandidas por familia: {familias_expandidas}; "
+        f"lacunas por sistema: {lacunas_txt}"
+    )
+
+
+def run_per_system_comparison(system_inventories, exceptions, aliases, todo_status):
     errors = _per_system_piso_errors(system_inventories)
     if errors:
         # Sistema faltando ou vazio: a uniao ficaria mentirosa (um
@@ -1272,16 +1406,22 @@ def run_per_system_comparison(system_inventories, exceptions, todo_status):
         # quando um dos dois lados vem vazio.
         return errors
     errors.extend(validate_exceptions(exceptions, todo_status))
-    _uniao, lacunas = compute_per_system_union_and_gaps(system_inventories, exceptions)
+    linux_uniao, windows_uniao = _family_unions(system_inventories)
+    errors.extend(_format_alias_hygiene_errors(aliases, linux_uniao, windows_uniao))
+    errors.extend(_format_per_system_exception_death_errors(exceptions, system_inventories))
+    _uniao, lacunas = compute_per_system_union_and_gaps(system_inventories, exceptions, aliases)
     errors.extend(_format_per_system_gap_errors(lacunas))
+    _print_per_system_scope_line(system_inventories, exceptions, aliases, lacunas)
     return errors
 
 
 def per_system_main(args):
-    exceptions_path, todo_path, system_paths = _parse_per_system_args(args)
-    inputs = _load_per_system_inputs(exceptions_path, todo_path, system_paths)
+    exceptions_path, todo_path, system_paths, aliases_path = _parse_per_system_args(args)
+    inputs = _load_per_system_inputs(exceptions_path, todo_path, system_paths, aliases_path)
     _print_per_system_counts(inputs)
-    errors = run_per_system_comparison(inputs.system_inventories, inputs.exceptions, inputs.todo_status)
+    errors = run_per_system_comparison(
+        inputs.system_inventories, inputs.exceptions, inputs.aliases, inputs.todo_status
+    )
     _exit_with_verdict(
         errors,
         "modo --per-system OK - nenhum sistema tem lacuna sem excecao registrada para ele",
@@ -2973,7 +3113,7 @@ def _per_system_full_inventory(faltando_em=None, nome_faltante="b_test"):
 
 def selftest_per_system_positive_control():
     inventario = _per_system_full_inventory()
-    errors = run_per_system_comparison(inventario, [], {})
+    errors = run_per_system_comparison(inventario, [], [], {})
     if errors:
         print(f"selftest: cinco sistemas identicos, sem lacuna, reprovou - erros: {errors}", file=sys.stderr)
         return False
@@ -2988,7 +3128,7 @@ def selftest_per_system_positive_control():
 # vermelho genuino, visto antes desta funcao ser escrita).
 def selftest_per_system_gap_only_in_one_system_reproves():
     inventario = _per_system_full_inventory(faltando_em="cachyos")
-    errors = run_per_system_comparison(inventario, [], {})
+    errors = run_per_system_comparison(inventario, [], [], {})
     encontrou = any("b_test" in e and "'cachyos'" in e for e in errors)
     if not encontrou:
         print(
@@ -3037,7 +3177,7 @@ def selftest_per_system_declared_exception_suppresses_gap():
             "prova_parcial_gemeo": None,
         }
     ]
-    errors = run_per_system_comparison(inventario, excecoes, {})
+    errors = run_per_system_comparison(inventario, excecoes, [], {})
     if errors:
         print(f"selftest: excecao declarada para cachyos nao suprimiu a lacuna - erros: {errors}", file=sys.stderr)
         return False
@@ -3053,13 +3193,19 @@ def selftest_per_system_declared_exception_suppresses_gap():
 # nao cobria 'arch' no --per-system de ae5dd7e - 8 pares reprovaram
 # exatamente por isso na estreia do modo em produção.
 def selftest_per_system_family_exception_covers_all_linux_slugs():
-    inventario = _per_system_full_inventory(faltando_em="arch")
+    # b_test genuinamente ausente de TODA a familia Linux (nunca so' de
+    # UM slug) - depois de A1c (M5, morte por par), uma excecao
+    # 'linux' truthful nao pode citar um nome que ja existe em algum
+    # membro da familia, senao ela mesma sai morta ali (por desenho).
+    inventario = _per_system_alias_inventory(
+        fedora=["a_test"], ubuntu=["a_test"], arch=["a_test"], cachyos=["a_test"], windows=["a_test", "b_test"]
+    )
     excecoes = [
         {"test_name": "b_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
     ]
-    errors = run_per_system_comparison(inventario, excecoes, {})
+    errors = run_per_system_comparison(inventario, excecoes, [], {})
     if errors:
-        print(f"selftest: excecao de familia 'linux' nao cobriu o slug 'arch' - erros: {errors}", file=sys.stderr)
+        print(f"selftest: excecao de familia 'linux' nao cobriu todos os slugs Linux - erros: {errors}", file=sys.stderr)
         return False
     print("selftest: PER-SYSTEM-EXCECAO-FAMILIA-LINUX OK ('b_test|linux|...' cobre qualquer slug Linux)")
     return True
@@ -3069,11 +3215,17 @@ def selftest_per_system_family_exception_covers_all_linux_slugs():
 # um slug Linux - prova que a expansao e' por familia, nao "qualquer
 # excecao existente para este nome vale".
 def selftest_per_system_windows_exception_never_covers_linux_slug():
-    inventario = _per_system_full_inventory(faltando_em="arch")
+    # b_test genuinamente ausente do Windows (nunca so' do arch) -
+    # torna a excecao 'windows' truthful, sem disparar a morte por par
+    # de A1c por um motivo alheio ao que este controle prova.
+    inventario = _per_system_alias_inventory(
+        fedora=["a_test", "b_test"], ubuntu=["a_test", "b_test"], arch=["a_test"],
+        cachyos=["a_test", "b_test"], windows=["a_test"],
+    )
     excecoes = [
         {"test_name": "b_test", "missing_on": "windows", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
     ]
-    errors = run_per_system_comparison(inventario, excecoes, {})
+    errors = run_per_system_comparison(inventario, excecoes, [], {})
     encontrou = any("b_test" in e and "'arch'" in e for e in errors)
     if not encontrou:
         print(f"selftest: excecao 'windows' cobriu indevidamente o slug 'arch' - erros: {errors}", file=sys.stderr)
@@ -3089,7 +3241,7 @@ def selftest_per_system_windows_exception_never_covers_linux_slug():
 def selftest_per_system_missing_system_reproves():
     inventario = _per_system_full_inventory()
     del inventario["windows"]
-    errors = run_per_system_comparison(inventario, [], {})
+    errors = run_per_system_comparison(inventario, [], [], {})
     encontrou = any("windows" in e for e in errors)
     if not encontrou:
         print(f"selftest: sistema esperado (windows) sem inventario nenhum nao reprovou - erros: {errors}", file=sys.stderr)
@@ -3101,7 +3253,7 @@ def selftest_per_system_missing_system_reproves():
 def selftest_per_system_empty_inventory_reproves():
     inventario = _per_system_full_inventory()
     inventario["arch"] = frozenset()
-    errors = run_per_system_comparison(inventario, [], {})
+    errors = run_per_system_comparison(inventario, [], [], {})
     encontrou = any("arch" in e and "0 testes" in e for e in errors)
     if not encontrou:
         print(f"selftest: sistema com inventario vazio (arch) nao reprovou - erros: {errors}", file=sys.stderr)
@@ -3134,13 +3286,168 @@ def selftest_per_system_exception_pointing_to_concluded_item_reproves():
         }
     ]
     todo_status = {"ITEM-FECHADO": {"status_text": "✅ Concluido", "concluded": True}}
-    errors = run_per_system_comparison(inventario, excecoes, todo_status)
+    errors = run_per_system_comparison(inventario, excecoes, [], todo_status)
     encontrou = any("CONCLUIDO" in e for e in errors)
     if not encontrou:
         print(f"selftest: excecao apontando para item concluido nao reprovou em --per-system - erros: {errors}", file=sys.stderr)
         return False
     print("selftest: PER-SYSTEM-EXCECAO-CONCLUIDA OK (regra de morte de --compare vale em --per-system)")
     return True
+
+
+# --- CI-SPLIT-PER-OS A1c (D-A11): apelidos e excecoes de familia -------
+
+
+def _per_system_alias_inventory(fedora=(), ubuntu=(), arch=(), cachyos=(), windows=()):
+    return {
+        "fedora": frozenset(fedora),
+        "ubuntu": frozenset(ubuntu),
+        "arch": frozenset(arch),
+        "cachyos": frozenset(cachyos),
+        "windows": frozenset(windows),
+    }
+
+
+# O VERMELHO REAL da A1c (docs/plano-ci-split-per-os.md secao 7, linha
+# A1c): apelido L|W, com L em TODAS as distros Linux e W so' no
+# Windows - o caso comum (win32_runner_probe_test e companhia). Antes
+# desta fatia (921f320/2f4de6b), --per-system nao aplicava apelido
+# nenhum: W apareceria como lacuna em fedora/ubuntu/arch/cachyos, e L
+# como lacuna em windows. Depois: zero erros - e' exatamente o padrao
+# que causou 132 dos 215 problemas do run 36085750444.
+def selftest_per_system_alias_forgives_across_family_uniformly():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test"], ubuntu=["l_test"], arch=["l_test"], cachyos=["l_test"], windows=["w_test"]
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(inventario, [], aliases, {})
+    if errors:
+        print(f"selftest: apelido L\\|W nao perdoou uniformemente todas as distros Linux - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-UNIFORME OK (L\\|W perdoa W em toda distro Linux e L no Windows)")
+    return True
+
+
+# M1: regra (ii) - w_test reaparece em fedora (visao "bilateral"), e a
+# ausencia em ubuntu deixa de ser perdoavel: w_test NAO esta mais
+# ausente de TODA a familia Linux, entao o perdao (que so vale para
+# ausencia total da familia oposta) nao se aplica mais.
+def selftest_per_system_alias_reappearing_partner_breaks_forgiveness():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test", "w_test"], ubuntu=["l_test"], arch=["l_test"], cachyos=["l_test"], windows=["w_test"]
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(inventario, [], aliases, {})
+    encontrou = any("w_test" in e and "'ubuntu'" in e for e in errors)
+    if not encontrou:
+        print(f"selftest: w_test reaparecendo no fedora nao quebrou o perdao em ubuntu - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-REGRA-II OK (parceiro reaparecendo em OUTRO slug Linux quebra o perdao)")
+    return True
+
+
+# M2: regra (iii) - l_test so' existe no fedora (nao no ubuntu), entao
+# o "parceiro no PROPRIO sistema" falha para ubuntu: nem l_test (lacuna
+# real, familia errada) nem w_test (parceiro ausente do proprio ubuntu)
+# podem ser perdoados ali.
+def selftest_per_system_alias_partner_must_be_in_the_slug_itself():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test", "comum"], ubuntu=["comum"], arch=["l_test", "comum"],
+        cachyos=["l_test", "comum"], windows=["w_test", "comum"],
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(inventario, [], aliases, {})
+    tem_l = any("l_test" in e and "'ubuntu'" in e for e in errors)
+    tem_w = any("w_test" in e and "'ubuntu'" in e for e in errors)
+    if not (tem_l and tem_w):
+        print(f"selftest: ubuntu sem l_test tinha de reportar l_test E w_test - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-REGRA-III OK (parceiro em OUTRO slug da familia nao perdoa o proprio slug)")
+    return True
+
+
+# Achado real contra o run 36085750444 (reprocessamento pos-A1c, 15
+# problemas remanescentes): `win32_facade_pin_test` tem DOIS parceiros
+# Linux (`facade_pin_smoke` e `window_active_after_map_smoke`) e
+# `win32_display_connect_test` tem TRES. Um nome com N>1 parceiros so'
+# precisa de UM presente no proprio slug - nunca so' o primeiro
+# encontrado na lista de apelidos (que pode ser, por azar de ordem,
+# exatamente o que NAO existe naquele slug).
+def selftest_per_system_alias_second_partner_forgives_when_first_does_not():
+    # w_test tem DOIS parceiros Linux (l1_test, l2_test) - fedora so'
+    # tem l1_test, ubuntu/arch/cachyos so' tem l2_test. w_test tem de
+    # sair perdoado em TODO slug Linux (cada um tem PELO MENOS um
+    # parceiro), mesmo que nenhum slug tenha os DOIS parceiros juntos.
+    # l1_test/l2_test em si continuam lacuna real onde faltam (regra i:
+    # sao da MESMA familia do slug, apelido nunca cobre isso) - so' o
+    # que este controle prova e' que w_test (a familia OPOSTA) nao
+    # aparece em erro nenhum.
+    inventario = _per_system_alias_inventory(
+        fedora=["l1_test", "comum"], ubuntu=["l2_test", "comum"],
+        arch=["l2_test", "comum"], cachyos=["l2_test", "comum"], windows=["w_test", "comum"],
+    )
+    aliases = [_alias_fixture("l1_test", "w_test"), _alias_fixture("l2_test", "w_test")]
+    errors = run_per_system_comparison(inventario, [], aliases, {})
+    encontrou = any("w_test" in e and "existe na uniao" in e for e in errors)
+    if encontrou:
+        print(f"selftest: w_test nao foi perdoado em todo slug Linux, mesmo com um parceiro presente em cada um - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-MULTIPLOS-PARCEIROS OK (perdoa com QUALQUER parceiro presente, nao so' o primeiro)")
+    return True
+
+
+# M5: morte de excecao por PAR (nome, sistema), nunca pela familia
+# inteira - x_test|linux declara ausencia em TODA distro Linux, mas
+# x_test na verdade existe no fedora: a excecao esta MORTA no fedora
+# (a ausencia que ela prometia acabou), e continua VIVA em ubuntu/
+# arch/cachyos (onde x_test genuinamente falta).
+def selftest_per_system_exception_death_is_per_pair_not_per_family():
+    inventario = _per_system_alias_inventory(
+        fedora=["x_test", "comum"], ubuntu=["comum"], arch=["comum"], cachyos=["comum"], windows=["comum"]
+    )
+    excecoes = [
+        {"test_name": "x_test", "missing_on": "linux", "gemeo": "nenhum", "item": SEM_PENDENCIA, "prova_parcial_gemeo": None}
+    ]
+    errors = run_per_system_comparison(inventario, excecoes, [], {})
+    morta_no_fedora = any("morta" in e and "x_test" in e and "'fedora'" in e for e in errors)
+    morta_em_outro = any(
+        "morta" in e and "x_test" in e and slug in e for e in errors for slug in ("'ubuntu'", "'arch'", "'cachyos'")
+    )
+    if not morta_no_fedora or morta_em_outro:
+        print(f"selftest: morte da excecao nao foi por par (nome,sistema) - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-EXCECAO-MORTE-POR-PAR OK (morta so' no sistema onde o nome reapareceu)")
+    return True
+
+
+# M4: higiene de apelidos continua calculada sobre a UNIAO da familia,
+# nunca por sistema - o cenario limpo (positive control acima) ja prova
+# isto indiretamente (zero erros totais), mas este controle isola a
+# alegacao: um apelido comum, com L em so' UM slug Linux (nao em
+# todos), nao pode virar "meio-morto" so' por causa disso.
+def selftest_per_system_alias_hygiene_stays_on_family_union():
+    inventario = _per_system_alias_inventory(
+        fedora=["l_test", "comum"], ubuntu=["comum"], arch=["comum"], cachyos=["comum"], windows=["w_test", "comum"]
+    )
+    aliases = [_alias_fixture("l_test", "w_test")]
+    errors = run_per_system_comparison(inventario, [], aliases, {})
+    encontrou_hygiene = any("meio-morto" in e or "morto" in e and "apelido" in e for e in errors)
+    if encontrou_hygiene:
+        print(f"selftest: higiene de apelido acusou meio-morto so' porque um slug Linux nao tem o nome - erros: {errors}", file=sys.stderr)
+        return False
+    print("selftest: PER-SYSTEM-APELIDO-HIGIENE-POR-FAMILIA OK (higiene nao penaliza cobertura parcial dentro da familia)")
+    return True
+
+
+def _per_system_alias_controls():
+    return [
+        selftest_per_system_alias_forgives_across_family_uniformly(),
+        selftest_per_system_alias_reappearing_partner_breaks_forgiveness(),
+        selftest_per_system_alias_partner_must_be_in_the_slug_itself(),
+        selftest_per_system_alias_second_partner_forgives_when_first_does_not(),
+        selftest_per_system_exception_death_is_per_pair_not_per_family(),
+        selftest_per_system_alias_hygiene_stays_on_family_union(),
+    ]
 
 
 def _per_system_mode_controls():
@@ -3155,6 +3462,7 @@ def _per_system_mode_controls():
         selftest_per_system_empty_inventory_reproves(),
         selftest_per_system_unexpected_slug_rejected(),
         selftest_per_system_exception_pointing_to_concluded_item_reproves(),
+        *_per_system_alias_controls(),
     ]
 
 

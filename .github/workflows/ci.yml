@@ -1297,6 +1297,11 @@ jobs:
       # sistema contra a uniao de TODOS, e reprova citando o slug exato.
       # Os cinco arquivos vem do MESMO download de cima (nenhuma leitura
       # nova do disco alem do que "Separar e unir" ja escreveu).
+      #
+      # A1c (D-A11): --aliases novo - sem ele, todo apelido Linux x
+      # Windows (tests/parity_aliases.txt) parava de valer no modo por
+      # sistema, e foi exatamente a causa de 132 dos 215 problemas do
+      # run 36085750444.
       - name: check_test_parity.py --per-system
         run: |
           python3 tests/tools/check_test_parity.py --per-system \
@@ -1305,7 +1310,8 @@ jobs:
             fedora=/tmp/persystem/fedora.txt \
             ubuntu=/tmp/persystem/ubuntu.txt \
             arch=/tmp/persystem/arch.txt \
-            cachyos=/tmp/persystem/cachyos.txt
+            cachyos=/tmp/persystem/cachyos.txt \
+            --aliases tests/parity_aliases.txt
 
       # CI-SPLIT-PER-OS A1b (D-A10, docs/plano-ci-split-per-os.md secao
       # 4.3): mesma reestruturacao que os inventarios `parity-inv-*`

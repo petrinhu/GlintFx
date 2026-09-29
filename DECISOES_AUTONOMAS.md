@@ -4641,3 +4641,22 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - Restringir aos `needs` exigiria uma tabela de nome de exibição para chave de job, mais uma cópia à mão, porque a API só devolve o nome expandido pela matriz.
   - Se o parity ficar instável, isso vira item.
 - **Estado:** a A4 fica fechada do lado da revisão; falta o CI do servidor sobre f389de6.
+
+## 29/09/2026 - 03:42 | D-A22: A5 em três etapas; etapa 2 retida até I1/I2/I3
+
+- **Fatiamento da A5 (decisão do main):**
+  - etapa 1: portão, trincos e declarações;
+  - etapa 2: `ctest --parallel` no CI, com o grau e as durações impressos;
+  - etapa 3: TIMEOUT e PROCESSORS calibrados com as durações medidas no servidor.
+  A razão é que o P1 e o P2 do plano só se medem no runner, e a máquina do líder só tem ~2G de folga sobre o piso de 10G livres da L-11.
+- **Decisões autônomas do CTO, a confirmar retroativamente:**
+  - o preci LOCAL fica serial por padrão, e o paralelo só vem por GLINTFX_CTEST_JOBS, limitado pela L-11; o plano dizia "mesmo grau";
+  - I1: os 7 portões de build aninhado ganham o trinco provisório `glintfx_nested_build` na etapa 2, trocado por `PROCESSORS n` medido na etapa 3. Sem ele, dois ou três Ninjas juntos num runner de 4 vCPUs estouram o TIMEOUT de 120 s (pkgconfig_validate 72,8 s e embed 72,6 s em série, medidos no run 36202987723).
+- **Retido antes do push da etapa 2:**
+  - I2: as recusas do preci falham abertas (docker falhando conta 0; MemAvailable vazio libera), e falta a checagem de "outro build do projeto no ar";
+  - I3: o JUnit tem de ser publicado como artefato, porque o P2 exige a duração de cada teste.
+- **Incidente de processo (L-11):**
+  - O build de revisão do CTO rodou junto com o preci-i do implementador, de 03:18 a 03:24.
+  - A culpa é do main, que despachou a revisão sem coordenar a janela.
+  - Regra adotada: trabalho local pesado do revisor só com liberação do main, e com aviso de começo e de fim.
+  - O preci-i saiu rc=0 mesmo assim.

@@ -3034,6 +3034,7 @@ set_tests_properties(layers_selftest PROPERTIES LABELS selftest)
 # opcao OFF (default, ou em qualquer perna/trabalho fora dos seis
 # escolhidos), o `ctest` local mostra "Skipped" - visivel (GODS_LAWS.md
 # L-40), nunca um pulo calado - e NENHUM processo do oraculo nasce.
+# glintfx-build-dir: reads-only - so' le compile_commands.json do build dir; escreve so' em fixtures temporarias (snapshot antes/depois: 0 alteracoes, 29/09/2026)
 add_test(
     NAME layers_oracle_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3400,7 +3401,9 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${PROJECT_BINARY_DIR}"
 )
-set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE)
+# glintfx-build-dir: escreve - reconfigura o build dir inteiro (MEDIDO 29/09/2026: 56 arquivos alterados). Mantem RUN_SERIAL (os leitores acima
+# leem compile_commands.json e CTestTestfile.cmake, que ele reescreve) e ganha o mesmo trinco dos outros escritores.
+set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE RESOURCE_LOCK glintfx_build_dir)
 
 # --selftest here runs entirely against DISPOSABLE fixtures under
 # mktemp (tests/tools/check_dep_zero_trace.py's own selftest_main(),
@@ -3695,6 +3698,7 @@ set_tests_properties(loop_mark_precondition_test PROPERTIES LABELS consume)
 # as layers_test above (Windows coverage is a dedicated CI step, not a
 # ctest case, because it does not have `sh` by default).
 if(UNIX)
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 29/09/2026: `cmake --install` escreve install_manifest.txt e GlintfxPkgConfigValidateScratch/glintfx.pc no build dir
     add_test(
         NAME consume_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_consume.sh"
@@ -3702,7 +3706,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(consume_test PROPERTIES LABELS consume)
+    set_tests_properties(consume_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 endif()
 
 # Embedding gate (FIX-CONSUMO, achado A7; FIX-CONSUMO-2, achado QA-2):
@@ -3907,6 +3911,7 @@ set_tests_properties(gl_codegen_host_leak_selftest PROPERTIES
 # the CMake target, so none of them would notice OUTPUT_NAME regressing.
 # POSIX sh; same declared downgrade as the other consumption gates above.
 if(UNIX)
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - MEDIDO 29/09/2026: `cmake --install` escreve install_manifest.txt e GlintfxPkgConfigValidateScratch/glintfx.pc no build dir
     add_test(
         NAME output_name_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_output_name.sh"
@@ -3914,7 +3919,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(output_name_test PROPERTIES LABELS consume)
+    set_tests_properties(output_name_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 endif()
 
 # Target name collision gate (FIX-CONSUMO-2, achado QA-3): proves an
@@ -4647,6 +4652,7 @@ endif()
 # if(UNIX): same reason as the add_subdirectory() above - the fixtures
 # this gate is about exist only under that guard.
 if(UNIX)
+    # glintfx-build-dir: reads-only - so' le compile_commands.json (snapshot antes/depois: 0 alteracoes, 29/09/2026)
     add_test(
         NAME container_smokes_in_compile_db_test
         COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4766,6 +4772,27 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ci_step_independence.py" --selftest
 )
 set_tests_properties(ci_step_independence_selftest PROPERTIES LABELS selftest)
+
+# CI-SPLIT-PER-OS A5 (docs/plano-ci-split-per-os.md 4.8): politica do ctest
+# paralelo (sem --repeat, grau impresso, todo add_test que recebe o build
+# dir declara RESOURCE_LOCK/RUN_SERIAL ou `reads-only`). Leitura de texto
+# pura; registrado sem guarda de sistema (le ci.yml e preci.sh).
+add_test(
+    NAME ctest_parallel_policy_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ctest_parallel_policy.py" --check
+        "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+        "${PROJECT_SOURCE_DIR}/.github/workflows/ci.yml"
+        "${PROJECT_SOURCE_DIR}/tools/preci.sh"
+)
+set_tests_properties(ctest_parallel_policy_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ctest_parallel_policy_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ctest_parallel_policy.py" --selftest
+)
+set_tests_properties(ctest_parallel_policy_selftest PROPERTIES LABELS selftest)
 
 # CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
 # roda o autoteste contra respostas REAIS da API do GitHub gravadas em
@@ -5184,6 +5211,8 @@ if(WIN32)
     )
     set_tests_properties(dep_zero_binary_win_selftest PROPERTIES LABELS selftest)
 
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-dep-zero-win.ps1 (nenhuma escrita); nao medido aqui (Windows)
+
     add_test(
         NAME dep_zero_binary_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5202,6 +5231,8 @@ if(WIN32)
             "${PROJECT_SOURCE_DIR}/tools/ci/check-port-privacy-win.ps1" -SelfTest
     )
     set_tests_properties(port_privacy_win_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-port-privacy-win.ps1 (nenhuma escrita); nao medido aqui (Windows)
 
     add_test(
         NAME port_privacy_win_test
@@ -5223,6 +5254,8 @@ if(WIN32)
             "${PROJECT_SOURCE_DIR}/tools/ci/check-exports-win.ps1" -SelfTest
     )
     set_tests_properties(exports_win_selftest PROPERTIES LABELS selftest)
+
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-exports-win.ps1 (nenhuma escrita); nao medido aqui (Windows)
 
     add_test(
         NAME exports_win_test
@@ -5256,6 +5289,8 @@ if(WIN32)
     )
     set_tests_properties(no_undef_glintfx_win_selftest PROPERTIES LABELS selftest)
 
+    # glintfx-build-dir: reads-only - INFERENCIA por leitura de tools/ci/check-no-undef-glintfx-win.ps1 (escreve so' objetos sinteticos em GetTempPath); nao medido aqui (Windows)
+
     add_test(
         NAME no_undef_glintfx_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5266,6 +5301,7 @@ if(WIN32)
 
     # CI-CONSUME (Concluido): par de consume_test (if(UNIX) acima,
     # tools/check_consume.sh) - ver tests/parity_aliases.txt.
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-consume.ps1 (`cmake --install $buildDir`, gemeo do consume_test); nao medido aqui
     add_test(
         NAME consume_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5273,7 +5309,7 @@ if(WIN32)
             -BuildDir "${PROJECT_BINARY_DIR}"
             -PackageSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/package"
     )
-    set_tests_properties(consume_win_test PROPERTIES LABELS consume)
+    set_tests_properties(consume_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 
     # CI-CONSUME (Concluido): par de embed_test (if(UNIX) acima,
     # tools/check_embed.sh) - ver tests/parity_aliases.txt.
@@ -5327,6 +5363,8 @@ if(WIN32)
     )
     set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume)
 
+    # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-output-name-win.ps1 (`cmake --install $buildDir`, gemeo do output_name_test); nao medido aqui
+
     add_test(
         NAME output_name_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5334,7 +5372,7 @@ if(WIN32)
             -BuildDir "${PROJECT_BINARY_DIR}"
             -ConsumerSrcFile "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
     )
-    set_tests_properties(output_name_win_test PROPERTIES LABELS consume)
+    set_tests_properties(output_name_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_build_dir)
 
     # Declarado NAO APLICAVEL de proposito (ver o cabecalho do script) -
     # nao recebe argumento nenhum, e nunca reprova nesta maquina.
@@ -5792,6 +5830,7 @@ set_tests_properties(check_ci_timeouts_selftest PROPERTIES LABELS selftest)
 # variavel a TODO teste do diretorio via a propriedade TESTS, nao so'
 # aos que "parecem" chamar Python (ver o cabecalho do script para o
 # mutante que isso mata).
+# glintfx-build-dir: reads-only - so' roda `ctest --show-only=json-v1` sobre o build dir (snapshot antes/depois: 0 alteracoes, 29/09/2026)
 add_test(
     NAME python_unbuffered_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"

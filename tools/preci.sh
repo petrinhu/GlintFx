@@ -838,7 +838,7 @@ pick_ctest_jobs() {
         0) ;;
         erro|'') echo "RECUSA: nao foi possivel varrer os processos - nao se sabe se ha outro build do projeto no ar (plano 4.8, item 5)"; return 1 ;;
         *[!0-9]*) echo "RECUSA: contagem de builds no ar ilegivel ('$other_builds')"; return 1 ;;
-        *) echo "RECUSA: ha $other_builds processo(s) cmake/ninja/ctest do projeto no ar - nenhum outro build do projeto pode rodar junto (plano 4.8, item 5)"; return 1 ;;
+        *) echo "RECUSA: ha $other_builds processo(s) cmake/ctest/ninja da maquina no ar (fora da arvore do preci) - nenhum outro build pode rodar junto (plano 4.8, item 5)"; return 1 ;;
     esac
     case "$nproc_now" in ''|*[!0-9]*) echo "RECUSA: nproc ilegivel ('$nproc_now')"; return 1 ;; esac
     cap=$((nproc_now - 3))
@@ -851,27 +851,38 @@ pick_ctest_jobs() {
     fi
 }
 
-# Conta processos cmake/ninja/ctest do PROJETO no ar, a partir de UMA listagem
-# `ps -eo pid=,args=` ja capturada (funcao pura, para o selftest): so' builtins
-# do bash sobre o texto - nenhum processo por item, e nada de pgrep (acha a si
-# mesmo). Ignora o pid dado (o proprio preci). Devolve o numero, ou "erro" se a
-# listagem estiver vazia (um ps que nao lista nem o init nao serve de evidencia).
+# Conta processos cmake/ctest/ninja/ninja-build da MAQUINA (qualquer caminho:
+# relativo, /usr/bin/ninja-build, copia em /var/tmp), a partir de UMA listagem
+# `ps -eo pid=,ppid=,args=` ja capturada (funcao pura, para o selftest), EXCETO a
+# arvore de processos do proprio preci ($2 e seus descendentes, pela cadeia de
+# ppid). So' builtins do bash sobre o texto: nenhum processo por item, nada de
+# pgrep (acha a si mesmo), `read -r` em vez de `set --` (que expande glob).
+# Listagem vazia = "erro" (um ps que nao lista nem o init nao serve de evidencia).
 count_project_builds() {
-    listing="$1"; root="$2"; self_pid="$3"
+    listing="$1"; self_pid="$2"
     [ -n "$listing" ] || { echo erro; return 0; }
-    n=0
+    declare -A ppid_of cmd_of
     while IFS= read -r line; do
-        set -- $line
-        pid="${1:-}"; cmd="${2:-}"
-        [ "$pid" = "$self_pid" ] && continue
-        case "${cmd##*/}" in
-            cmake|ninja|ctest) ;;
-            *) continue ;;
-        esac
-        case "$line" in *"$root"*) n=$((n + 1)) ;; esac
+        read -r pid ppid cmd _ <<<"$line"
+        [ -n "$pid" ] || continue
+        ppid_of[$pid]="$ppid"
+        cmd_of[$pid]="$cmd"
     done <<EOF_PS
 $listing
 EOF_PS
+    n=0
+    for pid in "${!cmd_of[@]}"; do
+        case "${cmd_of[$pid]##*/}" in
+            cmake|ctest|ninja|ninja-build) ;;
+            *) continue ;;
+        esac
+        cur="$pid"; propria=0; passos=0
+        while [ -n "$cur" ] && [ "$cur" != 0 ] && [ "$passos" -lt 64 ]; do
+            if [ "$cur" = "$self_pid" ]; then propria=1; break; fi
+            cur="${ppid_of[$cur]:-}"; passos=$((passos + 1))
+        done
+        [ "$propria" = 1 ] || n=$((n + 1))
+    done
     echo "$n"
 }
 
@@ -894,15 +905,15 @@ stage_ctest() {
     if [ "$requested" != "1" ] && [ -n "$requested" ]; then
         docker_state="$(docker_state_now)"
         mem_avail_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
-        if listing="$(ps -eo pid=,args= 2>/dev/null)"; then
-            other_builds="$(count_project_builds "$listing" "$ROOT_DIR" "$$")"
+        if listing="$(ps -eo pid=,ppid=,args= 2>/dev/null)"; then
+            other_builds="$(count_project_builds "$listing" "$$")"
         else
             other_builds="erro"
         fi
     fi
     jobs="$(pick_ctest_jobs "$requested" "$(nproc)" "$docker_state" "$mem_avail_kb" "$other_builds")" \
         || fail "estagio ctest recusado: $jobs"
-    echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker=$docker_state, MemAvailable_kB=$mem_avail_kb, outros builds do projeto no ar=$other_builds)"
+    echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker=$docker_state, MemAvailable_kB=$mem_avail_kb, outros cmake/ctest/ninja da maquina no ar=$other_builds)"
     if [ "$jobs" -gt 1 ]; then
         ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs"
     else
@@ -2053,17 +2064,23 @@ run_selftest_ctest_jobs_controls() {
     esperar "RECUSA com a varredura de processos falhando" "RECUSA" 8 16 0 20000000 erro
     esperar "RECUSA com contagem de builds vazia" "RECUSA" 8 16 0 20000000 ""
     esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000 0
-    ps_fixture="    1 /sbin/init
-  200 bash tools/preci.sh --fast
-  300 /usr/bin/cmake --build /home/x/proj/build
-  301 ninja -C /home/x/proj/build
-  302 /usr/bin/ctest --test-dir /home/x/proj/build-preci
-  400 /usr/bin/cmake --build /home/x/outro/build
-  500 cmake --version /home/x/proj"
-    [ "$(count_project_builds "$ps_fixture" /home/x/proj 999)" = 4 ] || fail "selftest count_project_builds: esperado 4 (cmake, ninja, ctest e cmake --version do projeto; nao o de outro caminho)"
-    [ "$(count_project_builds "$ps_fixture" /home/x/proj 300)" = 3 ] || fail "selftest count_project_builds: o pid proprio (300) deveria ser ignorado"
-    [ "$(count_project_builds "$ps_fixture" /home/x/naoexiste 999)" = 0 ] || fail "selftest count_project_builds: esperado 0 para outro caminho"
-    [ "$(count_project_builds "" /home/x/proj 999)" = erro ] || fail "selftest count_project_builds: listagem vazia deve ser 'erro' (fechado)"
+    # ordem das colunas: pid ppid args. J2 (CTO 29/09): conta QUALQUER cmake/ctest/
+    # ninja/ninja-build da maquina, seja qual for o caminho, exceto a ARVORE do proprio preci.
+    ps_fixture="    1     0 /sbin/init
+  900     1 bash tools/preci.sh --fast
+  901   900 /usr/bin/cmake --build build-preci
+  902   901 /usr/bin/ninja-build -C build-preci
+  903   902 /usr/bin/ctest --test-dir build-preci
+  600     1 cmake --build build
+  601     1 /usr/bin/ninja-build -C /home/x/proj/build
+  602     1 ninja -C /var/tmp/copia/proj/build
+  603     1 /usr/bin/ctest --test-dir /var/tmp/copia/proj/build-preci
+  700     1 bash -c cmake_wrapper
+  701     1 /usr/bin/python3 tools/x.py cmake"
+    [ "$(count_project_builds "$ps_fixture" 900)" = 4 ] || fail "selftest count_project_builds: esperado 4 (cmake relativo, ninja-build, ninja de copia fora da arvore e ctest de copia; a arvore do proprio preci e bash/python que so' citam 'cmake' nao contam)"
+    [ "$(count_project_builds "$ps_fixture" 999)" = 7 ] || fail "selftest count_project_builds: com outro pid como 'proprio', a arvore 900 deveria contar (esperado 7)"
+    [ "$(count_project_builds "    1     0 /sbin/init" 900)" = 0 ] || fail "selftest count_project_builds: listagem sem build deve ser 0"
+    [ "$(count_project_builds "" 900)" = erro ] || fail "selftest count_project_builds: listagem vazia deve ser 'erro' (fechado)"
     echo "selftest: count_project_builds OK"
     echo "selftest: pick_ctest_jobs OK"
 }

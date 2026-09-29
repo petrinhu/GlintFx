@@ -913,6 +913,7 @@ set_tests_properties(gl_sha256_test PROPERTIES LABELS unit)
 # no shell script needed. GLINTFX_GL_XML_SHA256 comes from src/render/
 # CMakeLists.txt's own file(SHA256 ...) call (CACHE INTERNAL, computed
 # once, single source of truth with the real build wiring).
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/real/ (MEDIDO 29/09/2026 pelo CTO: cria gl_functions.cpp e .hpp so' ali)
 add_test(
     NAME gl_registry_codegen_real_vendored_file_succeeds_test
     COMMAND gl_registry_codegen
@@ -923,6 +924,8 @@ add_test(
 )
 set_tests_properties(gl_registry_codegen_real_vendored_file_succeeds_test PROPERTIES LABELS unit)
 
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/sha_mismatch/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
+
 add_test(
     NAME gl_registry_codegen_sha_mismatch_reproves_test
     COMMAND gl_registry_codegen
@@ -932,6 +935,8 @@ add_test(
         "--expect-sha256=0000000000000000000000000000000000000000000000000000000000000000"
 )
 set_tests_properties(gl_registry_codegen_sha_mismatch_reproves_test PROPERTIES LABELS unit WILL_FAIL TRUE)
+
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/empty/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
 
 add_test(
     NAME gl_registry_codegen_empty_registry_reproves_test
@@ -957,6 +962,7 @@ set_tests_properties(gl_registry_codegen_empty_registry_reproves_test PROPERTIES
 # prints, naming both the culprit ARGUMENT ("argumento max-version")
 # and the culprit VALUE (the exact invalid text), never the generic
 # libstdc++ terminate() banner the crash used to print.
+# glintfx-build-dir: private-subdir - tests/gl_registry_codegen_cli_out/bad_max_version/ (subdiretorio proprio; reprova antes de escrever, medido 29/09/2026)
 add_test(
     NAME gl_registry_codegen_bad_max_version_argument_reproves_test
     COMMAND gl_registry_codegen
@@ -3826,6 +3832,7 @@ endif()
 #   - PATH: o `cmake` do processo aninhado ja vem de "${CMAKE_COMMAND}"
 #     (caminho absoluto resolvido pelo pai), nao de um `cmake` nu que
 #     dependeria do PATH do ambiente onde o teste roda.
+# glintfx-build-dir: private-subdir - tests/embed_dll_colocation_check/ (MEDIDO 29/09/2026 pelo CTO: configura um build aninhado so' ali, 9 arquivos)
 add_test(
     NAME embed_dll_colocation_test
     COMMAND "${CMAKE_COMMAND}"

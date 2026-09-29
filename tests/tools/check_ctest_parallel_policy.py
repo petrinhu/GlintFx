@@ -29,15 +29,22 @@
 #   check_ctest_parallel_policy.py --check <tests/CMakeLists.txt> <ci.yml> <preci.sh>
 #   check_ctest_parallel_policy.py --selftest
 
+import glob
+import os
 import re
 import sys
 
 SCRIPT_NAME = "check_ctest_parallel_policy.py"
 READS_ONLY_RE = re.compile(r"#\s*glintfx-build-dir:\s*reads-only\s*-\s*\S+")
-_BUILD_DIR_ARG_RE = re.compile(r'"\$\{(?:PROJECT|CMAKE)_BINARY_DIR\}(?:/[^"]*)?"')
-_CTEST_CALL_RE = re.compile(r"\bctest\b[^\n]*")
+PRIVATE_SUBDIR_RE = re.compile(r"#\s*glintfx-build-dir:\s*private-subdir\s*-\s*\S+")
+LOCK_NAME = "glintfx_build_dir"
+# Qualquer uso do diretorio de build num add_test, com ou sem aspas, como
+# argumento ou WORKING_DIRECTORY, inclusive o do subdiretorio do proprio
+# tests/ (CMAKE_CURRENT_BINARY_DIR) - CTO 29/09 (PM9, PM10, PM11).
+_BUILD_DIR_ARG_RE = re.compile(r"\$\{(?:PROJECT|CMAKE|CMAKE_CURRENT)_BINARY_DIR\}")
+_CTEST_CALL_RE = re.compile(r"(?:CTEST_PARALLEL_LEVEL[^\n]*|\bctest\b[^\n]*)")
 _REPEAT_RE = re.compile(r"--repeat\b")
-_PARALLEL_RE = re.compile(r"(?:--parallel\b|(?<![\w-])-j\s*\S)")
+_PARALLEL_RE = re.compile(r"(?:--parallel\b|(?<![\w-])-j\s*\S|CTEST_PARALLEL_LEVEL)")
 
 
 def fail(message):
@@ -84,7 +91,7 @@ def parallel_degree_errors(name, text):
     for bloco in _yaml_steps(text):
         chamadas = [l for l in _code_lines(bloco) if (m := _CTEST_CALL_RE.search(l)) and _PARALLEL_RE.search(m.group(0))]
         total += len(chamadas)
-        if chamadas and "paralelismo:" not in bloco:
+        if chamadas and "paralelismo:" not in "\n".join(_code_lines(bloco)):
             primeira = bloco.strip().splitlines()[0].strip()
             errors.append(
                 f"{name}: passo {primeira!r} chama ctest em paralelo e nao imprime 'paralelismo:' "
@@ -130,10 +137,23 @@ def _properties_of(cmake_text, name):
     return "\n".join(props)
 
 
+def _has_build_dir_lock(props):
+    """RESOURCE_LOCK com o nome EXATO glintfx_build_dir (CTO 29/09, PM8): os
+    tokens depois de RESOURCE_LOCK ate a proxima propriedade (palavra em
+    maiuscula) ou o fim."""
+    for m in re.finditer(r"RESOURCE_LOCK\s+", props):
+        for token in props[m.end():].split():
+            if re.fullmatch(r"[A-Z][A-Z_]{2,}", token):
+                break
+            if token.strip('")') == LOCK_NAME:
+                return True
+    return False
+
+
 def classify(cmake_text, nome, linha):
-    """'lock' | 'serial' | 'reads-only' | None."""
+    """'lock' | 'serial' | 'reads-only' | 'private-subdir' | None."""
     props = _properties_of(cmake_text, nome)
-    if "RESOURCE_LOCK" in props:
+    if _has_build_dir_lock(props):
         return "lock"
     if re.search(r"RUN_SERIAL\s+(?:TRUE|1|ON)", props):
         return "serial"
@@ -147,13 +167,15 @@ def classify(cmake_text, nome, linha):
         i -= 1
     if READS_ONLY_RE.search("\n".join(acima)):
         return "reads-only"
+    if PRIVATE_SUBDIR_RE.search("\n".join(acima)):
+        return "private-subdir"
     return None
 
 
 def build_dir_errors(cmake_text):
     """(erros, contagens)."""
     regs = registrations_receiving_build_dir(cmake_text)
-    contagens = {"total": len(regs), "lock": 0, "serial": 0, "reads-only": 0}
+    contagens = {"total": len(regs), "lock": 0, "serial": 0, "reads-only": 0, "private-subdir": 0}
     errors = []
     if not regs:
         return ["varredura vazia: nenhum add_test recebe o diretorio de build em tests/CMakeLists.txt - L-40, coleta quebrada"], contagens
@@ -162,8 +184,8 @@ def build_dir_errors(cmake_text):
         if via is None:
             errors.append(
                 f"tests/CMakeLists.txt:{linha}: {nome} recebe o diretorio de build e nao declara nada - "
-                f"ponha RESOURCE_LOCK glintfx_build_dir (escreve) ou `# glintfx-build-dir: reads-only - <motivo>` "
-                f"logo acima (so' le)"
+                f"ponha RESOURCE_LOCK glintfx_build_dir (escreve), `# glintfx-build-dir: reads-only - <motivo>` "
+                f"(so' le) ou `# glintfx-build-dir: private-subdir - <caminho>` (escreve so' num subdiretorio proprio) logo acima"
             )
         else:
             contagens[via] += 1
@@ -173,10 +195,11 @@ def build_dir_errors(cmake_text):
 # --- veredito ---------------------------------------------------------
 
 
-def run_check(cmake_text, ci_text, preci_text):
+def run_check(cmake_text, ci_text, preci_text, ps1_texts=None):
     errors, contagens = build_dir_errors(cmake_text)
     paralelas = 0
-    for name, text in (("ci.yml", ci_text), ("tools/preci.sh", preci_text)):
+    universo = [("ci.yml", ci_text), ("tools/preci.sh", preci_text)] + sorted((ps1_texts or {}).items())
+    for name, text in universo:
         errors.extend(repeat_errors(name, text))
         erros, n = parallel_degree_errors(name, text)
         errors.extend(erros)
@@ -184,15 +207,28 @@ def run_check(cmake_text, ci_text, preci_text):
     return errors, contagens, paralelas
 
 
+def _read_ps1(preci_path):
+    """tools/ci/**/*.ps1 ao lado de tools/preci.sh (gemeo do universo, L-17)."""
+    raiz = os.path.join(os.path.dirname(os.path.abspath(preci_path)), "ci")
+    return {
+        os.path.relpath(f, os.path.dirname(os.path.dirname(raiz))): read_text(f)
+        for f in glob.glob(os.path.join(raiz, "**", "*.ps1"), recursive=True)
+    }
+
+
 def real_main(args):
     if len(args) != 3:
         fail("usage: check_ctest_parallel_policy.py --check <tests/CMakeLists.txt> <ci.yml> <preci.sh>")
-    errors, c, paralelas = run_check(read_text(args[0]), read_text(args[1]), read_text(args[2]))
+    ps1 = _read_ps1(args[2])
+    errors, c, paralelas = run_check(read_text(args[0]), read_text(args[1]), read_text(args[2]), ps1)
     print(
         f"{SCRIPT_NAME}: add_test que recebem o diretorio de build: {c['total']} "
-        f"(RESOURCE_LOCK: {c['lock']}, RUN_SERIAL: {c['serial']}, reads-only: {c['reads-only']}); "
-        f"chamadas ctest paralelas em ci.yml/preci.sh: {paralelas}"
+        f"(RESOURCE_LOCK: {c['lock']}, RUN_SERIAL: {c['serial']}, reads-only: {c['reads-only']}, "
+        f"private-subdir: {c['private-subdir']}); universo das regras 1 e 2: ci.yml, preci.sh e "
+        f"{len(ps1)} .ps1 de tools/ci; chamadas ctest paralelas: {paralelas}"
     )
+    if not ps1:
+        errors.append("varredura vazia: nenhum tools/ci/**/*.ps1 lido - L-40, coleta quebrada")
     if errors:
         fail(f"{len(errors)} problema(s):\n  " + "\n  ".join(errors))
     print(f"{SCRIPT_NAME}: OK")
@@ -230,7 +266,7 @@ def _expect(nome, condicao, detalhe=""):
 def selftest_main():
     controls = []
     erros, c, p = run_check(_CMAKE_OK, _CI_OK, "ctest x\n")
-    controls.append(_expect("POSITIVO (lock, serial e reads-only declarados)", not erros and c == {"total": 3, "lock": 1, "serial": 1, "reads-only": 1}, str((erros, c))))
+    controls.append(_expect("POSITIVO (lock, serial e reads-only declarados)", not erros and c == {"total": 3, "lock": 1, "serial": 1, "reads-only": 1, "private-subdir": 0}, str((erros, c))))
     sem_decl = _CMAKE_OK.replace("# glintfx-build-dir: reads-only - so' le compile_commands.json (medido por snapshot)\n", "")
     erros, _c, _p = run_check(sem_decl, _CI_OK, "")
     controls.append(_expect("REGISTRO-SEM-DECLARACAO reprova, nomeando o teste", any("leitor_test" in e for e in erros), str(erros)))
@@ -249,6 +285,24 @@ def selftest_main():
             '      - run: ctest --parallel 8\n')
     erros, _c, p = run_check(_CMAKE_OK, dois, "")
     controls.append(_expect("GRAU-IMPRESSO-SO-EM-UM-DOS-PASSOS reprova (por passo, nao por arquivo)", any("passo" in e and "paralelismo:" in e for e in erros) and p == 2, str(erros)))
+    # CTO 29/09 (PM3, PM4, PM8..PM11 + private-subdir + ps1)
+    erros, _c, _p = run_check(_CMAKE_OK.replace("RESOURCE_LOCK glintfx_build_dir", "RESOURCE_LOCK outro_recurso"), _CI_OK, "")
+    controls.append(_expect("PM8-LOCK-COM-NOME-ERRADO reprova (so' glintfx_build_dir vale)", any("escritor_test" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK + "add_test(NAME sem_aspas COMMAND python3 x.py ${PROJECT_BINARY_DIR})\n", _CI_OK, "")
+    controls.append(_expect("PM9-BUILD-DIR-SEM-ASPAS reprova", any("sem_aspas" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK + 'add_test(NAME cur COMMAND python3 x.py "${CMAKE_CURRENT_BINARY_DIR}/x")\n', _CI_OK, "")
+    controls.append(_expect("PM10-CMAKE_CURRENT_BINARY_DIR reprova", any("cur" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK + "add_test(NAME wd COMMAND python3 x.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})\n", _CI_OK, "")
+    controls.append(_expect("PM11-WORKING_DIRECTORY reprova", any("wd" in e for e in erros), str(erros)))
+    priv = "# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME priv_test COMMAND python3 x.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n"
+    erros, c, _p = run_check(_CMAKE_OK + priv, _CI_OK, "")
+    controls.append(_expect("PRIVATE-SUBDIR declarado passa e e' contado", not erros and c.get("private-subdir") == 1, str((erros, c))))
+    erros, _c, p = run_check(_CMAKE_OK, "      - run: CTEST_PARALLEL_LEVEL=4 ctest\n", "")
+    controls.append(_expect("PM3-CTEST_PARALLEL_LEVEL sem grau impresso reprova", any("paralelismo:" in e for e in erros) and p == 1, str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK, "      - run: |\n          # paralelismo: 4\n          ctest -j 4\n", "")
+    controls.append(_expect("PM4-PARALELISMO-SO-EM-COMENTARIO reprova", any("paralelismo:" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK, _CI_OK, "", ps1_texts={"tools/ci/x.ps1": "ctest --repeat until-pass:2\n"})
+    controls.append(_expect("PS1-COM-REPEAT reprova (universo inclui tools/ci/**/*.ps1)", any("x.ps1" in e and "--repeat" in e for e in erros), str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, "      # ctest --repeat until-pass\n" + _CI_OK, "")
     controls.append(_expect("COMENTARIO com --repeat nao reprova", not erros, str(erros)))
     erros, c, _p = run_check("add_test(NAME x COMMAND echo)\n", _CI_OK, "")

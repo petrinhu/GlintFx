@@ -40,6 +40,15 @@ SCRIPT_NAME = "check_ci_step_independence.py"
 
 DEFAULT_JOB = "wayland-container"
 
+# Scripts que o ci.yml chama e que o portao le junto (D-A14): a prova do
+# clone git (G2), o piso Linux e o preparo Windows (G5). Caminho relativo
+# a raiz do repo - o portao deriva a raiz do proprio caminho do ci.yml
+# (`<raiz>/.github/workflows/ci.yml`).
+PROOF_SCRIPT = "tools/ci/prova_checkout.sh"
+FLOOR_SCRIPT = "tools/ci/floor.sh"
+PREP_PS1 = "tools/ci/windows/prep.ps1"
+_TRACKED_SCRIPTS = (PROOF_SCRIPT, FLOOR_SCRIPT, PREP_PS1)
+
 
 def fail(message):
     print(f"{SCRIPT_NAME}: {message}", file=sys.stderr)
@@ -239,7 +248,6 @@ _PATH_KEY_RE = re.compile(r"^\s*path:\s*\S", re.MULTILINE)
 # satisfazem G1 como estao (a ordem deles, instalar->checkout, nunca
 # muda: o checkout roda com git JA instalado, nao cai no fallback).
 _GIT_COMMAND_START_RE = re.compile(r"(?:^|[;&|]|\$\()\s*git\s+\S")
-_GIT_REV_PARSE_RE = re.compile(r"git rev-parse")
 _USES_LINE_RE = re.compile(r"^\s*-?\s*uses:", re.MULTILINE)
 
 
@@ -360,7 +368,36 @@ def g1_errors(job_name, job_block_text, steps):
     return errors
 
 
-def g2_errors(job_name, job_block_text, steps):
+# D-A14 item 1 (L-17 gemeo): a prova do clone git vale para TODO job com
+# `container:`, nao so' o de checkout duplo (bootstrap + final). Nos 5
+# jobs fixos (lint/sanitizer/gl-codegen-host-cross/debug/clang) o git
+# vem de uma lista de pacotes escrita no proprio ci.yml - se essa lista
+# perder o `git`, o checkout cai no fallback REST API (tarball sem
+# `.git`) e nada mais reclamava. A prova tem TRES partes, todas
+# obrigatorias: `git rev-parse --is-inside-work-tree` (== true), `git
+# rev-parse HEAD` e `$GITHUB_SHA` (a comparacao entre os dois). Pode
+# estar escrita no proprio passo ou vir do script `PROOF_SCRIPT` que o
+# passo chama (fonte unica das 6 pernas Linux) - nesse caso o portao
+# le o CONTEUDO do script, nunca confia so' na chamada.
+_PROOF_PARTS = (
+    ("git rev-parse --is-inside-work-tree", "--is-inside-work-tree"),
+    ("git rev-parse HEAD", "HEAD"),
+    ("GITHUB_SHA", "GITHUB_SHA"),
+)
+
+
+def _effective_proof_text(step_text, scripts):
+    if PROOF_SCRIPT in step_text:
+        return step_text + "\n" + (scripts or {}).get(PROOF_SCRIPT, "")
+    return step_text
+
+
+def _missing_proof_parts(step_text, scripts):
+    texto = _effective_proof_text(step_text, scripts)
+    return [label for needle, label in _PROOF_PARTS if needle not in texto]
+
+
+def g2_errors(job_name, job_block_text, steps, scripts=None):
     if not job_has_container(job_block_text):
         return []
     checkout_indices = [i for i, (_n, t) in enumerate(steps) if is_checkout_step(t)]
@@ -369,28 +406,17 @@ def g2_errors(job_name, job_block_text, steps):
         return []  # ja reportado por G1
     final_idx = checkouts_sem_path[-1]
 
-    # Restrito ao padrao de checkout DUPLO (bootstrap + final) - decisao
-    # explicada no relatorio da fatia, a confirmar por main: nos 5 jobs
-    # de container fixo (checkout UNICO, git instalado ANTES dele por
-    # "Instalar toolchain" - G1 ja confirma isso), o checkout ja roda
-    # com git garantido, entao a prova extra de G2 e' menos critica ali
-    # do que no padrao bootstrap (onde o checkout REAL precisa provar
-    # que nao caiu no mesmo fallback que o de bootstrap usa por
-    # desenho).
-    checkouts_antes = [i for i in checkout_indices if i < final_idx]
-    if not checkouts_antes:
-        return []
-
     if final_idx + 1 >= len(steps):
         return [
             f"job {job_name!r}: checkout final e' o ULTIMO passo do job - G2 exige a prova do "
             f"git logo depois"
         ]
     nome_prova, texto_prova = steps[final_idx + 1]
-    if not _GIT_REV_PARSE_RE.search(texto_prova):
+    faltam = _missing_proof_parts(texto_prova, scripts)
+    if faltam:
         return [
-            f"job {job_name!r}, passo {nome_prova!r}: nao prova git ('git rev-parse') logo "
-            f"apos o checkout final - G2"
+            f"job {job_name!r}, passo {nome_prova!r}: nao prova git logo apos o checkout final "
+            f"(faltam: {', '.join(faltam)}) - G2 (D-A14: vale para TODO job com container:)"
         ]
     return []
 
@@ -429,7 +455,7 @@ def g3_errors(job_name, steps):
 # --- veredito completo ----------------------------------------------
 
 
-def run_check(job_name, job_block_text, steps):
+def run_check(job_name, job_block_text, steps, scripts=None):
     """Retorna (contagens, erros) - contagens e' {'testes': N,
     'publicacoes': N} (GODS_LAWS.md L-40: piso de varredura impresso
     SEMPRE, mesmo passando)."""
@@ -441,7 +467,7 @@ def run_check(job_name, job_block_text, steps):
     for name, text in publish_steps:
         errors.extend(publish_step_errors(name, text))
     errors.extend(g1_errors(job_name, job_block_text, steps))
-    errors.extend(g2_errors(job_name, job_block_text, steps))
+    errors.extend(g2_errors(job_name, job_block_text, steps, scripts))
     errors.extend(g3_errors(job_name, steps))
     counts = {"testes": len(test_steps), "publicacoes": len(publish_steps)}
     return counts, errors
@@ -494,7 +520,7 @@ def _resolve_job_names(ci_yml_text, ci_yml_path, job_name):
     return job_names
 
 
-def _check_one_job(ci_yml_path, ci_yml_text, job_name):
+def _check_one_job(ci_yml_path, ci_yml_text, job_name, scripts):
     """(contagens, erros-com-prefixo-do-job) de UM job - extraida de
     real_main() pra caber em 40 linhas (GODS_LAWS.md L-17)."""
     job_block = extract_job_block(ci_yml_text, job_name)
@@ -506,7 +532,7 @@ def _check_one_job(ci_yml_path, ci_yml_text, job_name):
             f"varredura vazia: nenhum passo ('- name: ...') encontrado no job {job_name!r} de "
             f"{ci_yml_path} - GODS_LAWS.md L-40, isto e sinal de coleta quebrada"
         )
-    counts, errors = run_check(job_name, job_block, steps)
+    counts, errors = run_check(job_name, job_block, steps, scripts)
     print(
         f"{SCRIPT_NAME}: job {job_name!r} - {len(steps)} passo(s) total, "
         f"{counts['testes']} de teste, {counts['publicacoes']} de publicacao"
@@ -514,15 +540,32 @@ def _check_one_job(ci_yml_path, ci_yml_text, job_name):
     return counts, [f"{job_name}: {e}" for e in errors]
 
 
+def _load_scripts(ci_yml_path):
+    """Le os scripts que o ci.yml chama (`_TRACKED_SCRIPTS`), a partir
+    da raiz derivada do caminho do ci.yml (`<raiz>/.github/workflows/
+    ci.yml`). Script ausente simplesmente nao entra no dict - quem o
+    referencia reprova por nao provar o que promete (nunca presume)."""
+    from pathlib import Path
+
+    root = Path(ci_yml_path).resolve().parent.parent.parent
+    scripts = {}
+    for rel in _TRACKED_SCRIPTS:
+        candidate = root / rel
+        if candidate.is_file():
+            scripts[rel] = candidate.read_text(encoding="utf-8")
+    return scripts
+
+
 def real_main(args):
     ci_yml_path, job_name = _parse_real_main_args(args)
     ci_yml_text = _read_file(ci_yml_path)
     job_names = _resolve_job_names(ci_yml_text, ci_yml_path, job_name)
+    scripts = _load_scripts(ci_yml_path)
 
     total_testes = 0
     all_errors = []
     for jn in job_names:
-        counts, errors = _check_one_job(ci_yml_path, ci_yml_text, jn)
+        counts, errors = _check_one_job(ci_yml_path, ci_yml_text, jn, scripts)
         total_testes += counts["testes"]
         all_errors.extend(errors)
 
@@ -559,6 +602,7 @@ _FIXTURE_CI_YML = """\
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse --is-inside-work-tree
+          [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]
 
       - name: Preparo concluido
         id: prep
@@ -600,11 +644,14 @@ _FIXTURE_CI_YML = """\
 """
 
 
-def _run_real_main_capturing(ci_yml_text, job_name=DEFAULT_JOB):
+def _run_real_main_capturing(ci_yml_text, job_name=DEFAULT_JOB, extra_files=None):
     """`job_name=None` reproduz o CLI real sem `--job` nenhum (F2: o
     modo padrao varre TODOS os jobs do arquivo) - os selftests
     antigos, focados num job so', continuam passando `job_name`
-    explicito (comportamento antigo preservado por `--job`)."""
+    explicito (comportamento antigo preservado por `--job`).
+    `extra_files` ({caminho-relativo-a-raiz: texto}) monta uma arvore
+    de raiz falsa (`.github/workflows/ci.yml` + os scripts que o
+    ci.yml chama), do mesmo formato que real_main() le do repo real."""
     import contextlib
     import io
     import tempfile
@@ -613,8 +660,13 @@ def _run_real_main_capturing(ci_yml_text, job_name=DEFAULT_JOB):
     buffer = io.StringIO()
     exit_code = None
     with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "ci.yml"
+        path = Path(tmp) / ".github" / "workflows" / "ci.yml"
+        path.parent.mkdir(parents=True)
         path.write_text(ci_yml_text, encoding="utf-8")
+        for rel, text in (extra_files or {}).items():
+            target = Path(tmp) / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
         args = [str(path)] if job_name is None else [str(path), "--job", job_name]
         with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
             try:
@@ -952,7 +1004,8 @@ def selftest_mo1b_dedicated_safedirectory_step_before_final_checkout_reproves():
         "      - name: Checkout e' repositorio git\n"
         "        run: |\n"
         "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
-        "          git rev-parse --is-inside-work-tree\n\n",
+        "          git rev-parse --is-inside-work-tree\n"
+        "          [ \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\" ]\n\n",
         "      - name: Remove o checkout de bootstrap\n"
         "        run: rm -rf _bootstrap\n\n"
         "      - name: Configurar diretorio seguro do git\n"
@@ -960,7 +1013,8 @@ def selftest_mo1b_dedicated_safedirectory_step_before_final_checkout_reproves():
         "      - uses: actions/checkout@v7\n\n"
         "      - name: Checkout e' repositorio git\n"
         "        run: |\n"
-        "          git rev-parse --is-inside-work-tree\n\n",
+        "          git rev-parse --is-inside-work-tree\n"
+        "          [ \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\" ]\n\n",
         1,
     )
     steps_extractor_ok = "Configurar diretorio seguro do git" in quebrado
@@ -984,7 +1038,8 @@ def selftest_mo4_git_proof_removed_reproves():
         "      - name: Checkout e' repositorio git\n"
         "        run: |\n"
         "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
-        "          git rev-parse --is-inside-work-tree\n\n",
+        "          git rev-parse --is-inside-work-tree\n"
+        "          [ \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\" ]\n\n",
         "",
         1,
     )
@@ -1077,6 +1132,7 @@ def selftest_g1_single_checkout_with_prior_git_install_does_not_reprove():
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse --is-inside-work-tree
+          [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]
 
       - name: Preparo concluido
         id: prep
@@ -1099,6 +1155,105 @@ def selftest_g1_single_checkout_with_prior_git_install_does_not_reprove():
         "selftest: G1-CHECKOUT-UNICO-COM-INSTALACAO-PREVIA OK (checkout unico com git ja "
         "instalado antes dele nunca reprova - o padrao real de lint/sanitizer/etc.)"
     )
+    return True
+
+
+# D-A14 item 1 (G2 estendida): job com `container:` e checkout UNICO
+# (o padrao dos 5 jobs fixos) TAMBEM tem de provar o clone git logo
+# depois do checkout - sem a prova, um checkout que cai no fallback
+# REST API (sem .git) passaria calado.
+_FIXTURE_FIXED_JOB = """jobs:
+  lint:
+    container: fedora:latest
+    steps:
+      - name: Instalar toolchain
+        run: >-
+          dnf -y install gcc-c++ cmake ninja-build pkgconf-pkg-config git
+
+      - uses: actions/checkout@v7
+
+      - name: Checkout e' repositorio git
+        run: tools/ci/prova_checkout.sh
+
+      - name: Piso de ferramentas
+        run: tools/ci/floor.sh
+
+      - name: Preparo concluido
+        id: prep
+        run: echo ok
+
+      - name: preci.sh --lint-only
+        id: build
+        run: tools/preci.sh --lint-only
+
+      - name: fixture a
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: tests/container/exec_fixture.sh c a
+"""
+
+_PROOF_SCRIPT_OK = """#!/usr/bin/env bash
+set -eu
+git config --global --add safe.directory "$GITHUB_WORKSPACE"
+inside="$(git rev-parse --is-inside-work-tree)"
+head="$(git rev-parse HEAD)"
+[ "$head" = "$GITHUB_SHA" ] || exit 1
+echo "inside-work-tree=$inside"
+"""
+
+_FLOOR_SCRIPT_OK = "#!/usr/bin/env bash\necho piso\n"
+
+
+def _fixed_job_files(proof_script=_PROOF_SCRIPT_OK):
+    return {PROOF_SCRIPT: proof_script, FLOOR_SCRIPT: _FLOOR_SCRIPT_OK}
+
+
+def selftest_g2x_fixed_job_with_proof_script_passes():
+    exit_code, output = _run_real_main_capturing(
+        _FIXTURE_FIXED_JOB, job_name="lint", extra_files=_fixed_job_files()
+    )
+    if exit_code not in (None, 0):
+        print(f"selftest: G2X-POSITIVO FALHOU (job fixo correto reprovou): {output}", file=sys.stderr)
+        return False
+    print("selftest: G2X-POSITIVO OK (checkout unico + prova por script + piso, tudo presente, passa)")
+    return True
+
+
+def selftest_g2x_fixed_job_without_proof_reproves():
+    quebrado = _FIXTURE_FIXED_JOB.replace(
+        "      - name: Checkout e' repositorio git\n        run: tools/ci/prova_checkout.sh\n\n", "", 1
+    )
+    if quebrado == _FIXTURE_FIXED_JOB:
+        print("selftest: G2X-SEM-PROVA FALHOU (ancora do replace nao casou)", file=sys.stderr)
+        return False
+    exit_code, output = _run_real_main_capturing(quebrado, job_name="lint", extra_files=_fixed_job_files())
+    if exit_code != 1 or "nao prova git" not in output:
+        print(f"selftest: G2X-SEM-PROVA FALHOU (codigo {exit_code!r}): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: G2X-SEM-PROVA OK (job fixo, checkout unico, sem a prova do git reprova)")
+    return True
+
+
+def selftest_g2x_proof_script_without_head_reproves():
+    sem_head = "\n".join(
+        line for line in _PROOF_SCRIPT_OK.splitlines() if "HEAD" not in line and "GITHUB_SHA" not in line
+    )
+    exit_code, output = _run_real_main_capturing(
+        _FIXTURE_FIXED_JOB, job_name="lint", extra_files=_fixed_job_files(sem_head)
+    )
+    if exit_code != 1 or "HEAD" not in output:
+        print(f"selftest: G2X-SCRIPT-SEM-HEAD FALHOU (codigo {exit_code!r}): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: G2X-SCRIPT-SEM-HEAD OK (script de prova sem HEAD=$GITHUB_SHA reprova)")
+    return True
+
+
+def selftest_g2x_proof_script_missing_reproves():
+    files = {FLOOR_SCRIPT: _FLOOR_SCRIPT_OK}
+    exit_code, output = _run_real_main_capturing(_FIXTURE_FIXED_JOB, job_name="lint", extra_files=files)
+    if exit_code != 1 or "nao prova git" not in output:
+        print(f"selftest: G2X-SCRIPT-AUSENTE FALHOU (codigo {exit_code!r}): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: G2X-SCRIPT-AUSENTE OK (passo chama script de prova que nao existe: reprova)")
     return True
 
 
@@ -1155,6 +1310,10 @@ def selftest_main():
         selftest_g3_build_before_prep_reproves(),
         selftest_g1_single_checkout_with_prior_git_install_does_not_reprove(),
         selftest_g1_job_without_container_not_checked(),
+        selftest_g2x_fixed_job_with_proof_script_passes(),
+        selftest_g2x_fixed_job_without_proof_reproves(),
+        selftest_g2x_proof_script_without_head_reproves(),
+        selftest_g2x_proof_script_missing_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

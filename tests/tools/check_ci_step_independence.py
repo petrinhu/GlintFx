@@ -158,8 +158,16 @@ def split_steps(job_block_text):
 # --- classificacao de passo ----------------------------------------------
 
 
+# `ctest` que EXECUTA (linha de comando que comeca por `ctest`, sem `-N`,
+# que so' lista). CTO 29/09, achado 3: sem isto o job linux imprimia "0
+# de teste" e o passo "Testes" ficava fora de todas as regras.
+_CTEST_RUN_RE = re.compile(r"^\s*(?:run:\s*)?ctest\b(?![^\n]*\s-N\b)", re.MULTILINE)
+
+
 def is_test_step(step_text):
-    return "tests/container/exec_fixture.sh" in step_text
+    if "tests/container/exec_fixture.sh" in step_text:
+        return True
+    return bool(_CTEST_RUN_RE.search(_code_text(step_text)))
 
 
 def is_publish_step(step_text):
@@ -499,6 +507,28 @@ def step_id(step_text):
     return m.group(1) if m else None
 
 
+_STEPS_REF_RE = re.compile(r"\bsteps\.([A-Za-z_][A-Za-z0-9_-]*)\.")
+
+
+def g3b_errors(job_name, steps):
+    """Todo `steps.<id>.` citado num passo resolve para um `id: <id>` de
+    um passo ANTERIOR do mesmo job (CTO 29/09, achado 3, X6/X7/X8)."""
+    errors = []
+    definidos = set()
+    for nome, texto in steps:
+        for ref in sorted(set(_STEPS_REF_RE.findall(_code_text(texto)))):
+            if ref not in definidos:
+                errors.append(
+                    f"job {job_name!r}, passo {nome!r}: cita steps.{ref} mas nenhum passo "
+                    f"anterior do job tem 'id: {ref}' - o if: valeria sempre falso e o passo "
+                    f"pularia calado - G3b"
+                )
+        sid = step_id(texto)
+        if sid:
+            definidos.add(sid)
+    return errors
+
+
 def g3_errors(job_name, steps):
     prep_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
     build_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "build"]
@@ -647,6 +677,7 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(g1_errors(job_name, job_block_text, steps))
     errors.extend(g2_errors(job_name, job_block_text, steps, scripts))
     errors.extend(g3_errors(job_name, steps))
+    errors.extend(g3b_errors(job_name, steps))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
     counts = {
         "testes": len(test_steps),
@@ -1780,6 +1811,62 @@ def selftest_g1_var_prefixed_git_reproves():
 
 
 
+# CTO 29/09 achado 3 (mutantes X6, X7, X8): (G3b) todo `steps.<id>` que um
+# passo cita tem de resolver para um `id: <id>` de um passo ANTERIOR do
+# mesmo job. Um id apagado ou renomeado faz `steps.build.outcome ==
+# 'success'` valer sempre falso e o passo pula calado. E (is_test_step)
+# o passo que roda `ctest` (fora `ctest -N`, so' lista) e' passo de
+# teste: o portao imprimia "0 de teste" no job linux.
+def selftest_g3b_removed_id_reproves():
+    resultado = _g5_run(_FIXTURE_CI_YML, "wayland-container", lambda t: t.replace("        id: build\n", "", 1))
+    return _g5_expect("G3B-X6-ID-APAGADO", resultado, "wayland-container", "steps.build", "nenhum passo anterior")
+
+
+def selftest_g3b_renamed_id_reproves():
+    resultado = _g5_run(_FIXTURE_CI_YML, "wayland-container", lambda t: t.replace("        id: build\n", "        id: buildx\n", 1))
+    return _g5_expect("G3B-X7-ID-RENOMEADO", resultado, "wayland-container", "steps.build")
+
+
+def selftest_g3b_reference_before_id_reproves():
+    def mover(t):
+        bloco = "      - name: Sobe o compositor limpo\n        id: build\n        run: docker run -d --name c glintfx-wltest:ci\n\n"
+        t = t.replace(bloco, "", 1)
+        return t.replace("      - name: fixture a\n", "      - name: fixture a\n", 1).replace(
+            "      - name: Publica o inventario do container (P-0)\n", bloco + "      - name: Publica o inventario do container (P-0)\n", 1)
+    resultado = _g5_run(_FIXTURE_CI_YML, "wayland-container", mover)
+    return _g5_expect("G3B-REFERENCIA-ANTES-DO-ID", resultado, "wayland-container", "steps.build")
+
+
+_CTEST_STEP = (
+    "      - name: Testes\n        shell: pwsh\n        run: |\n"
+    "          ctest --test-dir build --output-on-failure\n\n"
+)
+
+
+def selftest_ctest_step_without_if_reproves():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace("      - name: fixture a\n", _CTEST_STEP + "      - name: fixture a\n", 1),
+    )
+    return _g5_expect("CTEST-SEM-IF", resultado, "windows-x", "'Testes'", "sem 'if:'")
+
+
+def selftest_ctest_list_only_is_not_a_test_step():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace(
+            "      - name: fixture a\n",
+            "      - name: Lista\n        shell: pwsh\n        run: ctest --test-dir build -N > inv.txt\n\n      - name: fixture a\n", 1),
+    )
+    exit_code, output = resultado
+    if exit_code not in (None, 0):
+        print(f"selftest: CTEST-N-NAO-E-TESTE FALHOU (ctest -N so' lista, nao e' passo de teste): {output!r}", file=sys.stderr)
+        return False
+    print("selftest: CTEST-N-NAO-E-TESTE OK")
+    return True
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -1827,6 +1914,11 @@ def selftest_main():
         selftest_g1_negated_git_reproves(),
         selftest_g1_env_prefixed_git_reproves(),
         selftest_g1_var_prefixed_git_reproves(),
+        selftest_g3b_removed_id_reproves(),
+        selftest_g3b_renamed_id_reproves(),
+        selftest_g3b_reference_before_id_reproves(),
+        selftest_ctest_step_without_if_reproves(),
+        selftest_ctest_list_only_is_not_a_test_step(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -255,7 +255,10 @@ function Invoke-AutotesteModosReais {
         $ciYml = Join-Path $raizRepo '.github/workflows/ci.yml'
         $texto = if (Test-Path $ciYml) { Get-Content -Raw $ciYml } else { '' }
         $corpos = @([regex]::Matches($texto, '(?m)^      - name: CMake pinado \(Windows\)\r?\n        shell: pwsh\r?\n        run: (?<c>tools/ci/windows/prep\.ps1 -VerifyCmake)\r?$') | ForEach-Object { $_.Groups['c'].Value })
-        Assert-Autoteste "ci.yml: ha passos 'CMake pinado (Windows)' para exercitar (encontrados=$($corpos.Count), esperado >= 1)" ($corpos.Count -ge 1)
+        # Esperado = numero de jobs Windows LIDO do ci.yml (`runs-on: windows*`),
+        # nunca escrito a mao: todo job Windows tem o seu passo (C1, CTO 29/09).
+        $jobsWindows = @([regex]::Matches($texto, '(?m)^    runs-on: windows')).Count
+        Assert-Autoteste "ci.yml: um passo 'CMake pinado (Windows)' por job Windows (passos=$($corpos.Count), jobs windows=$jobsWindows, piso >= 1)" (($jobsWindows -ge 1) -and ($corpos.Count -eq $jobsWindows))
         foreach ($caso in @(@('cmake version 4.1.6', $true, 0), @('cmake version 3.31.6', $false, 1))) {
             $fake = New-FakeCmakeDir $raiz $caso[0]
             $marcador = Join-Path $raiz ('marcador-' + ($caso[0] -replace '\W', '_'))

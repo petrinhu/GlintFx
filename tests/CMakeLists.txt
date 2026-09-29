@@ -3302,6 +3302,7 @@ add_test(
 set_tests_properties(dep_zero_test PROPERTIES LABELS consume)
 
 # glintfx-nested-build: heavy - o --selftest do check_dep_zero.py configura projetos CMake de fixtura (56,7 s no Windows estatico e 60,7 s no compartilhado sob --parallel, CI 36535342498, acima de 40 s); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
+# glintfx-blob: fora - configura projetos CMake de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME dep_zero_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3334,6 +3335,8 @@ add_test(
         --binary-only "${GLINTFX_DEP_ZERO_LIB_ARG}"
 )
 set_tests_properties(dep_zero_binary_test PROPERTIES LABELS consume)
+
+# glintfx-blob: fora - chama cmake/ferramentas de binario (pesado); coberto pelo ctest do preci
 
 add_test(
     NAME dep_zero_binary_selftest
@@ -3427,6 +3430,7 @@ set_tests_properties(dep_zero_trace PROPERTIES LABELS consume RUN_SERIAL TRUE RE
 # fixed in the sibling sh gates) does not share that specific failure
 # mode, but the belt costs nothing and keeps the taxonomy uniform
 # across every selftest in this file, sh or python3 alike.
+# glintfx-blob: fora - configura projetos CMake de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME dep_zero_trace_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3905,6 +3909,8 @@ add_test(
 )
 set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
+# glintfx-blob: fora - monta CMake + Ninja de fixtura (pesado); coberto pelo ctest do preci
+
 add_test(
     NAME gl_codegen_host_leak_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4098,6 +4104,7 @@ set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume RESOURCE_
 # enumeration, find/remove_library_artifacts, and rewrite_libdir_line).
 # No cmake configure, no compiler, no real install needed. Same shape
 # blank_install_dir_rejected_selftest already established.
+# glintfx-blob: fora - monta CMake de fixtura e valida .pc instalado (pesado); coberto pelo ctest do preci
 add_test(
     NAME pkgconfig_validate_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4148,6 +4155,7 @@ set_tests_properties(blank_install_dir_rejected_test PROPERTIES LABELS consume)
 # needed. Closes the same "own gate never proved against itself" gap
 # layers_selftest/public_name_collision_selftest already closed for
 # their siblings (GODS_LAWS.md L-40).
+# glintfx-blob: fora - roda cmake --install de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME blank_install_dir_rejected_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4181,6 +4189,7 @@ set_tests_properties(libdir_includedir_mix_rejected_test PROPERTIES LABELS consu
 # - no nested cmake configure, no compiler needed. Same
 # "own gate never proved against itself" closure as
 # blank_install_dir_rejected_selftest above (GODS_LAWS.md L-40).
+# glintfx-blob: fora - roda cmake --install de fixtura (pesado); coberto pelo ctest do preci
 add_test(
     NAME libdir_includedir_mix_rejected_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4299,6 +4308,7 @@ if(UNIX)
     find_program(GLINTFX_CLANG_TIDY_EXE clang-tidy)
     find_program(GLINTFX_CPPCHECK_EXE cppcheck)
     if(GLINTFX_CLANG_FORMAT_EXE AND GLINTFX_CLANG_TIDY_EXE AND GLINTFX_CPPCHECK_EXE)
+        # glintfx-blob: fora - roda tools/preci.sh --selftest, que exige clang-format/clang-tidy/cppcheck e docker
         add_test(
             NAME preci_selftest
             COMMAND "${PROJECT_SOURCE_DIR}/tools/preci.sh" --selftest
@@ -5133,6 +5143,7 @@ endif()
 # codigo de produto contra o container MSVC e so faz sentido dentro da
 # rodada completa do espelho (tools/preci.sh, estagio win32-link) ou do
 # job `windows` do CI - nunca em `ctest -N`.
+# glintfx-blob: fora - liga alvos win32 contra o cl.exe/link.exe (so' no Windows/container MSVC)
 add_test(
     NAME win32_test_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -5265,6 +5276,7 @@ if(WIN32)
     # achado (antes vivia EMBUTIDA dentro do dep_zero_test bundlado, e
     # por isso nao tinha gemeo para apontar). Ver tests/parity_
     # aliases.txt.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME dep_zero_binary_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5286,6 +5298,7 @@ if(WIN32)
     # selftest (if(UNIX) acima, tools/check_port_privacy.sh) - os dois
     # lados tem tanto o caso real quanto o proprio autoteste do script,
     # sob o mesmo par de nomes logicos; ver tests/parity_aliases.txt.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME port_privacy_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5309,6 +5322,7 @@ if(WIN32)
     # --selftest proprio na mesma fatia que fechou este achado
     # (check_exports.sh nunca tinha um, o irmao Windows ja tinha) -
     # ver tests/parity_aliases.txt para os dois pares.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME exports_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5343,6 +5357,7 @@ if(WIN32)
     # secao) - ver tests/parity_aliases.txt para o apelido, e
     # tests/parity_exceptions.txt onde a excecao antiga foi removida na
     # mesma fatia.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME no_undef_glintfx_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5393,6 +5408,7 @@ if(WIN32)
     # ci.yml, igual ao preci_selftest do lado Linux ja faz. Perde o
     # "falha rapida antes do build pesado"; ganha a paridade mecanica
     # que esta fatia existe para provar.
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME preci_win_selftest
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5716,6 +5732,7 @@ set_tests_properties(check_format_selftest PROPERTIES SKIP_RETURN_CODE 77)
 # orfao - a guarda de plataforma nao remove o registro, so restringe
 # onde ele conta.
 if(UNIX)
+    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_isolamento_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
@@ -5751,12 +5768,15 @@ endif()
 # como "Not Run" (pulo), nunca como falha - a mesma leitura que
 # check_format_selftest ja usa mais acima neste arquivo.
 if(UNIX)
+    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_rodar_caminho_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
     )
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES SKIP_RETURN_CODE 77)
+
+    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
 
     add_test(
         NAME win_vm_lab_rodar_um_selftest
@@ -5770,6 +5790,7 @@ if(UNIX)
     # MESMA forma hermetica dos tres vizinhos acima (registro incondicional
     # dentro de if(UNIX), SKIP_RETURN_CODE 77 para ferramenta ausente -
     # aqui qemu-img/flock, ver a guarda no topo do proprio script).
+    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_sessao_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
@@ -5786,6 +5807,7 @@ if(UNIX)
     # (duble de virsh, nunca libvirt/QEMU real; SKIP_RETURN_CODE 77 para
     # ferramenta ausente - aqui jq/md5sum/base64/dd/stat, ver a guarda no
     # topo do proprio script).
+    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_coletar_resultados_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
@@ -5805,6 +5827,7 @@ if(UNIX)
     # hermetica dos cinco vizinhos acima (duble de virsh, nunca libvirt/
     # QEMU real; SKIP_RETURN_CODE 77 para ferramenta ausente - aqui
     # qemu-img/flock/sha256sum/cp, ver a guarda no topo do proprio script).
+    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_consolidar_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest

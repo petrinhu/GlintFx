@@ -295,6 +295,21 @@ def _case_folga_reprova():
         FOLGA_REPROVA = anterior
 
 
+def _case_default_timeout():
+    """Caminho "sem TIMEOUT proprio" (cosmetico A5 do CTO): DEFAULT_TIMEOUT_S=3.0 dentro do
+    selftest faz lento_com_trinco (2 s, sem TIMEOUT no json-v1) entrar na linha de folga; com o
+    120 real ele nao entra. Mutante "o padrao de 120 e' ignorado" sobrevivia sem este caso."""
+    global DEFAULT_TIMEOUT_S
+    anterior = DEFAULT_TIMEOUT_S
+    DEFAULT_TIMEOUT_S = 3.0
+    try:
+        return _case("REGRA2: o TIMEOUT padrao (sem TIMEOUT proprio) e' o que decide - DEFAULT_TIMEOUT_S=3.0 inclui lento_com_trinco",
+                     1, "junit_slow.xml", "inventory_slow.txt", ["lento_com_trinco=2.0/3"],
+                     tests_json="show_slow.json", heavy_limit=1.0)
+    finally:
+        DEFAULT_TIMEOUT_S = anterior
+
+
 def selftest_main():
     real = read_text(_fixture("junit_allpass.xml"))
     if real is None:
@@ -340,6 +355,7 @@ def selftest_main():
         _case("REGRA2: a linha de folga sai tambem com ZERO", 0, "junit_allpass.xml", "inventory_allpass.txt",
               ["folga P2: 0 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
         _case_folga_reprova(),
+        _case_default_timeout(),
         _case("REGRA1: json ausente reprova (nao se cruza sem os dados)", 1, "junit_slow.xml", "inventory_slow.txt",
               ["ausente"], tests_json="nao_existe.json", heavy_limit=1.0),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),

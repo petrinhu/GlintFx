@@ -55,7 +55,11 @@ import xml.etree.ElementTree as ElementTree
 SCRIPT_NAME = "ctest_aggregate.py"
 JUNIT_NAME = "ctest-results-junit.xml"
 TOP_DURATIONS = 25
-HEAVY_LIMIT_S = 40.0  # TIMEOUT padrao / 3 (P2 do plano 4.8)
+HEAVY_LIMIT_S = 40.0  # regua ABSOLUTA de pesados (regra 1): duracao do JUnit, sem olhar o TIMEOUT
+DEFAULT_TIMEOUT_S = 120.0  # DART_TESTING_TIMEOUT: vale quando o teste nao tem TIMEOUT proprio
+# Interruptor da REGRA 2 (folga do P2: duracao > TIMEOUT/3). Etapa 2 da A5: so' IMPRIME; a etapa 3
+# passa a True (citado no plano 4.8). Constante no codigo, nao flag de CLI (decisao do CTO, 29/09).
+FOLGA_REPROVA = False
 NESTED_LOCK = "glintfx_nested_build"
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "ctest_probe")
 
@@ -148,30 +152,31 @@ def verdict(declared, counts, errors, motivos=()):
     return problems
 
 
-def heavy_errors(tests_json_path, duracoes, limite):
-    """J1 (CTO 29/09): todo teste acima do limite tem RESOURCE_LOCK
-    glintfx_nested_build ou PROCESSORS > 1 em `ctest --show-only=json-v1`
-    (P2 do plano 4.8, lista lida do proprio ctest, nunca escrita a mao)."""
+def _props_of(testes, nome):
+    return {p["name"]: p["value"] for p in testes.get(nome, {}).get("properties", [])}
+
+
+def _load_tests_json(tests_json_path):
+    """(testes_por_nome, erro)."""
     texto = read_text(tests_json_path)
     if texto is None:
-        return [f"{tests_json_path} ausente - sem `ctest --show-only=json-v1` nao se cruzam as duracoes com os trincos"]
+        return None, f"{tests_json_path} ausente - sem `ctest --show-only=json-v1` nao se cruzam as duracoes com os trincos"
     try:
-        dados = json.loads(texto)
-        testes = {t["name"]: t for t in dados["tests"]}
+        return {t["name"]: t for t in json.loads(texto)["tests"]}, None
     except (ValueError, KeyError, TypeError) as exc:
-        return [f"{tests_json_path} ilegivel como json-v1 do ctest ({exc})"]
+        return None, f"{tests_json_path} ilegivel como json-v1 do ctest ({exc})"
+
+
+def heavy_errors(testes, duracoes, limite):
+    """REGRA 1 (trinco, CTO 29/09): todo teste acima da regua ABSOLUTA de `limite`
+    segundos (duracao medida no JUnit, SEM olhar o TIMEOUT) tem RESOURCE_LOCK
+    glintfx_nested_build ou PROCESSORS > 1 no json-v1. A lista de pesados e' lida
+    do proprio ctest, nunca escrita a mao."""
     errors = []
     for nome, segundos in duracoes:
-        props = {p["name"]: p["value"] for p in testes.get(nome, {}).get("properties", [])}
-        # C2 (CTO 29/09): o limite de CADA teste e' o proprio TIMEOUT / 3 (P2 do
-        # plano 4.8), lido do json-v1; sem TIMEOUT proprio vale o padrao (120 s /
-        # 3 = `limite`, 40 s).
-        try:
-            limite_do_teste = float(props["TIMEOUT"]) / 3 if "TIMEOUT" in props else limite
-        except (TypeError, ValueError):
-            limite_do_teste = limite
-        if segundos <= limite_do_teste:
+        if segundos <= limite:
             continue
+        props = _props_of(testes, nome)
         travado = NESTED_LOCK in (props.get("RESOURCE_LOCK") or [])
         try:
             paralelo = int(props.get("PROCESSORS", 1)) > 1
@@ -179,10 +184,25 @@ def heavy_errors(tests_json_path, duracoes, limite):
             paralelo = False
         if not (travado or paralelo):
             errors.append(
-                f"teste {nome} levou {segundos:.1f} s (> {limite_do_teste:g} s = TIMEOUT/3) sem RESOURCE_LOCK {NESTED_LOCK} "
-                f"nem PROCESSORS - declare o trinco de pesados (P2 do plano 4.8)"
+                f"teste {nome} levou {segundos:.1f} s (> {limite:g} s, regua de pesados) sem "
+                f"RESOURCE_LOCK {NESTED_LOCK} nem PROCESSORS - disputa os nucleos"
             )
     return errors
+
+
+def slack_offenders(testes, duracoes):
+    """REGRA 2 (folga do P2): [(nome, duracao, timeout)] com duracao > TIMEOUT/3, o TIMEOUT
+    lido do proprio teste no json-v1 (120 s quando nao tem)."""
+    fora = []
+    for nome, segundos in duracoes:
+        props = _props_of(testes, nome)
+        try:
+            timeout = float(props["TIMEOUT"]) if "TIMEOUT" in props else DEFAULT_TIMEOUT_S
+        except (TypeError, ValueError):
+            timeout = DEFAULT_TIMEOUT_S
+        if segundos > timeout / 3:
+            fora.append((nome, segundos, timeout))
+    return fora
 
 
 def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=None):
@@ -207,7 +227,19 @@ def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=
         print(f"soma dos tempos: {sum(t for _n, t in duracoes):.1f} s")
     problems = verdict(declared, counts, errors, motivos)
     if tests_json is not None:
-        problems.extend(heavy_errors(tests_json, duracoes, HEAVY_LIMIT_S if heavy_limit is None else heavy_limit))
+        testes, erro_json = _load_tests_json(tests_json)
+        if erro_json:
+            problems.append(erro_json)
+        else:
+            problems.extend(heavy_errors(testes, duracoes, HEAVY_LIMIT_S if heavy_limit is None else heavy_limit))
+            folga = slack_offenders(testes, duracoes)
+            # SEMPRE impressa, inclusive com zero (L-40).
+            print(
+                f"folga P2: {len(folga)} teste(s) acima de TIMEOUT/3"
+                + (": " + " ".join(f"{n}={t:.1f}/{to:g}" for n, t, to in sorted(folga, key=lambda f: -f[1])) if folga else "")
+            )
+            if FOLGA_REPROVA:
+                problems.extend(f"teste {n} levou {t:.1f} s (> TIMEOUT/3 = {to / 3:g} s) - folga do P2" for n, t, to in folga)
     for problem in problems:
         print(f"{SCRIPT_NAME}: {problem}", file=sys.stderr)
     return 1 if problems else 0
@@ -251,6 +283,18 @@ def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, te
     return True
 
 
+def _case_folga_reprova():
+    """O interruptor FOLGA_REPROVA=True (etapa 3) transforma a folga em reprovacao."""
+    global FOLGA_REPROVA
+    anterior = FOLGA_REPROVA
+    FOLGA_REPROVA = True
+    try:
+        return _case("REGRA2 com FOLGA_REPROVA=True (etapa 3) reprova", 1, "junit_slow.xml", "inventory_slow.txt",
+                     ["folga P2:", "TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0)
+    finally:
+        FOLGA_REPROVA = anterior
+
+
 def selftest_main():
     real = read_text(_fixture("junit_allpass.xml"))
     if real is None:
@@ -280,19 +324,23 @@ def selftest_main():
               ["executados: 3", "passaram: 1", "falharam: 5", "pulados: 2", "desligados: 1", "nao_rodou: 3",
                "Unable to find executable", "Required Files Missing", "Fixture dependency failed",
                "duracoes (maiores primeiro, s): estoura=1.01", "soma dos tempos:"]),
-        # J1 (CTO 29/09): todo teste acima do limite de tempo tem de ter o trinco
-        # de pesados (RESOURCE_LOCK glintfx_nested_build) ou PROCESSORS > 1 - cruzando
-        # `ctest --show-only=json-v1` com as duracoes do JUnit. Fixtures REAIS (limite
-        # 1 s: os quatro testes lentos dormem 2 s; um deles tem RESOURCE_LOCK de OUTRO nome).
-        _case("PESADO-SEM-TRINCO (json-v1 e JUnit reais, limite 1 s)", 1, "junit_slow.xml", "inventory_slow.txt",
-              ["teste lento_sem_trinco levou", "teste lento_lock_de_outro_nome levou", "teste lento_timeout_curto levou", "sem RESOURCE_LOCK glintfx_nested_build nem PROCESSORS"],
+        # Regra 1 (trinco, CTO 29/09): REGUA ABSOLUTA sobre a duracao do JUnit, sem olhar o
+        # TIMEOUT. Fixtures REAIS (limite 1 s: os testes lentos dormem 2 s).
+        _case("REGRA1: pesado sem trinco reprova, TIMEOUT alto NAO isenta", 1, "junit_slow.xml", "inventory_slow.txt",
+              ["teste lento_sem_trinco levou", "teste lento_lock_de_outro_nome levou", "teste lento_timeout_curto levou",
+               "teste lento_timeout_longo levou", "regua de pesados", "disputa os nucleos"],
+              tests_json="show_slow.json", heavy_limit=1.0,
+              proibido=["lento_com_trinco", "lento_com_processors", "rapido", "lento_lock_composto", "lento_trinco_timeout_curto"]),
+        # Regra 2 (folga do P2): IMPRIME sempre; nao reprova enquanto FOLGA_REPROVA e' False.
+        _case("REGRA2: a linha de folga lista quem passa de TIMEOUT/3", 1, "junit_slow.xml", "inventory_slow.txt",
+              ["folga P2:", "lento_timeout_curto=2.0/3", "lento_trinco_timeout_curto=2.0/3"],
               tests_json="show_slow.json", heavy_limit=1.0),
-        _case("PESADO-COM-TRINCO-OU-PROCESSORS nao e' citado", 1, "junit_slow.xml", "inventory_slow.txt",
-              [], tests_json="show_slow.json", heavy_limit=1.0, proibido=["lento_com_trinco", "lento_com_processors", "rapido", "lento_lock_composto", "lento_timeout_longo"]),
-        _case("PESADO: limite padrao (40 s) so' cita o teste cujo TIMEOUT/3 e' menor que a duracao (C2)", 1, "junit_slow.xml", "inventory_slow.txt",
-              ["teste lento_timeout_curto levou", "TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0,
-              proibido=["lento_sem_trinco", "lento_lock_de_outro_nome", "lento_timeout_longo", "lento_lock_composto"]),
-        _case("PESADO: json ausente reprova (nao se cruza sem os dados)", 1, "junit_slow.xml", "inventory_slow.txt",
+        _case("REGRA2 sozinha nao reprova (limite alto, so' a folga): rc=0 com FOLGA_REPROVA=False", 0, "junit_slow.xml", "inventory_slow.txt",
+              ["folga P2: 2 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
+        _case("REGRA2: a linha de folga sai tambem com ZERO", 0, "junit_allpass.xml", "inventory_allpass.txt",
+              ["folga P2: 0 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
+        _case_folga_reprova(),
+        _case("REGRA1: json ausente reprova (nao se cruza sem os dados)", 1, "junit_slow.xml", "inventory_slow.txt",
               ["ausente"], tests_json="nao_existe.json", heavy_limit=1.0),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),
         _case("JUNIT-ILEGIVEL", 1, None, "inventory_allpass.txt", ["ilegivel"], junit_text="<testsuite"),

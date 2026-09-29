@@ -82,6 +82,15 @@
         "file" : 0,
         "line" : 16,
         "parent" : 14
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 18,
+        "parent" : 16
       }
     ]
   },
@@ -251,6 +260,34 @@
             "glintfx_build_dir",
             "glintfx_nested_build"
           ]
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 17,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_trinco_timeout_curto",
+      "properties" : 
+      [
+        {
+          "name" : "RESOURCE_LOCK",
+          "value" : 
+          [
+            "glintfx_nested_build"
+          ]
+        },
+        {
+          "name" : "TIMEOUT",
+          "value" : 3.0
         },
         {
           "name" : "WORKING_DIRECTORY",

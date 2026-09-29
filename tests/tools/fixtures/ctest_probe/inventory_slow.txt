@@ -8,5 +8,6 @@ Test project /probe/b
   Test #6: lento_timeout_curto
   Test #7: lento_timeout_longo
   Test #8: lento_lock_composto
+  Test #9: lento_trinco_timeout_curto
 
-Total Tests: 8
+Total Tests: 9

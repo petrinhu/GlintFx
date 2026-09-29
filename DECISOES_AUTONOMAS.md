@@ -4535,3 +4535,17 @@ Respostas verbatim do líder:
 - **Janela e contexto gráfico** (A3c relé multi-cliente, A3e sonda de prontidão e o aceite dela, e o plano EGL-DEAD-DISPLAY-GUARD D-S1 a D-S8): "Aprovar (Recomendado)".
 - **Revalidação da W7-D** (D-W7D-R1 a R10) e a reabertura de PLAN-SCOPE-COLUMNS: "Aprovar (Recomendado)".
 Nenhuma decisão desta lista segue pendente de confirmação.
+
+## 29/09/2026 - 00:18 | Retomada em modo autônomo
+
+- **Ordem do líder, verbatim:** "ligue modo autonomo". O hook registrou o modo ligado até 30/09/2026 00:18 (24h), com escopos push e clean. A pausa de 25/09 fica encerrada, e a ordem permanente de 22/09 ("continue até fechar w8") volta a valer.
+- **Feito entre a pausa e a retomada, por ordem direta do líder:**
+  - onda de RNG W9-D projetada e empurrada (f3e0f8b);
+  - conserto do `main.obj` do piso Windows (46b21c1), com CI 36202987723 VERDE em a149dc0: 25 trabalhos verdes e 1 pulado, Windows 251/251 nos dois modos;
+  - L-11 quarta emenda (a149dc0) e ramos remotos reduzidos a `main` e `onda-w7c`;
+  - pino do cloudflared para 2026.9.3, verificado contra a release oficial.
+- **Fila, na ordem:**
+  1. revisão do CTO da leva c3e3b64;
+  2. D-A14 (G2 estendida, `tools/ci/floor.sh`, `tools/ci/windows/prep.ps1`, mutantes P1-P3);
+  3. A4 em diante, conforme a entrada de 25/09 06:15.
+- **Agentes:** cto-ci-speed e impl-ci-split. Monitor anti-parada recriado (cron 846bb0c2, L-61) e watchcode ligado.

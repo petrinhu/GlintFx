@@ -1606,6 +1606,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: docker/setup-buildx-action@v4
+
+      # A3c (D-A13) + CTO 29/09 (achado 5): marco `id: prep` ANTES dos passos
+      # que rodam portao (a verificacao de fiacao abaixo e o build da
+      # imagem): uma reprovacao legitima deles nao pode contar como falha de
+      # preparo, senao a re-execucao automatica (A4) a repetiria.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # P-0's own declared blind spot, fechado nesta mesma fatia
       # (tests/tools/check_container_fixture_inventory.py's proprio
       # cabecalho): um fixture pode ganhar uma linha `COPY --from=...`
@@ -1622,14 +1632,6 @@ jobs:
         run: |
           python3 tests/tools/check_container_fixture_inventory.py --compare \
             tests/container/Containerfile .github/workflows/ci.yml
-
-      - uses: docker/setup-buildx-action@v4
-
-      # A3c (D-A13): marco `id: prep`, logo depois do setup-buildx (o
-      # ultimo passo que so' PREPARA o ambiente de build de imagem).
-      - name: Preparo concluido
-        id: prep
-        run: echo "preparo concluido"
 
       # ARCH-PORTS, TDD case R4: stages the REAL wayland_display_
       # adapter/err.cpp/err_code.cpp sources into tests/container/
@@ -2774,6 +2776,15 @@ jobs:
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
 
+      # A3c (D-A13) + CTO 29/09 (achado 5): marco `id: prep` ANTES de
+      # "preci.sh --selftest": o selftest e' portao (roda o proprio
+      # preci.sh), e uma reprovacao legitima dele nao pode contar como
+      # falha de preparo (a re-execucao da A4 a repetiria). O primeiro passo
+      # que analisa o produto, "preci.sh --lint-only", ganha `id: build`.
+      - name: Preparo concluido
+        id: prep
+        run: echo "preparo concluido"
+
       # PRECI-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40): tools/
       # preci.sh --selftest nunca rodava em lugar nenhum. O teste
       # registrado, `preci_selftest` (tests/CMakeLists.txt), so nasce
@@ -2795,14 +2806,6 @@ jobs:
           set -eux
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           tools/preci.sh --selftest
-
-      # A3c (D-A13): marco `id: prep` - "preci.sh --selftest" acima
-      # ainda e' preparo (roda so' contra tests/preci_fixtures/, nunca
-      # contra o codigo do produto); "preci.sh --lint-only" abaixo e' o
-      # primeiro passo que de fato analisa o produto, e ganha `id: build`.
-      - name: Preparo concluido
-        id: prep
-        run: echo "preparo concluido"
 
       # GODS_LAWS.md L-23 portao 3 (analise estatica). Mesma logica de
       # estagio que tools/preci.sh roda localmente (TESTES.md T15.2) -

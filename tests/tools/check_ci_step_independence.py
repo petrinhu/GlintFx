@@ -529,6 +529,28 @@ def g3b_errors(job_name, steps):
     return errors
 
 
+# `preci.sh --modo` (invocacao); ler o arquivo (grep no `Popular o cache`) nao conta.
+_GATE_CALL_RE = re.compile(r"tools/preci\.sh\s+--|tests/tools/check_\w+\.py")
+
+
+def g3c_errors(job_name, steps):
+    """Nenhum passo ANTES do marco `id: prep` roda portao ou teste
+    (CTO 29/09, achado 5)."""
+    prep = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
+    if len(prep) != 1:
+        return []  # ja reportado por G3
+    errors = []
+    for i in range(prep[0]):
+        nome, texto = steps[i]
+        codigo = _code_text(texto)
+        if is_test_step(texto) or _GATE_CALL_RE.search(codigo):
+            errors.append(
+                f"job {job_name!r}, passo {nome!r}: roda portao/teste ANTES do marco id: prep - "
+                f"uma falha dele contaria como falha de preparo (e a re-execucao da A4 a repetiria) - G3c"
+            )
+    return errors
+
+
 def g3_errors(job_name, steps):
     prep_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
     build_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "build"]
@@ -678,6 +700,7 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(g2_errors(job_name, job_block_text, steps, scripts))
     errors.extend(g3_errors(job_name, steps))
     errors.extend(g3b_errors(job_name, steps))
+    errors.extend(g3c_errors(job_name, steps))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
     counts = {
         "testes": len(test_steps),
@@ -1867,6 +1890,34 @@ def selftest_ctest_list_only_is_not_a_test_step():
 
 
 
+# CTO 29/09 achado 5: o marco `id: prep` fecha a fase de PREPARO. Passo
+# que RODA portao/teste (tools/preci.sh, tests/tools/check_*, ctest,
+# exec_fixture.sh) antes do marco faria uma falha de teste contar como
+# falha de preparo, e a re-execucao automatica (A4) rodaria de novo
+# uma reprovacao legitima.
+def selftest_g3c_gate_step_before_prep_reproves():
+    resultado = _g5_run(
+        _FIXTURE_CI_YML, "wayland-container",
+        lambda t: t.replace(
+            "      - name: Preparo concluido\n        id: prep\n",
+            "      - name: Verifica fiacao\n        run: python3 tests/tools/check_x.py --compare a b\n\n"
+            "      - name: Preparo concluido\n        id: prep\n", 1),
+    )
+    return _g5_expect("G3C-PORTAO-ANTES-DO-PREP", resultado, "wayland-container", "Verifica fiacao", "ANTES do marco")
+
+
+def selftest_g3c_preci_before_prep_reproves():
+    resultado = _g5_run(
+        _FIXTURE_CI_YML, "wayland-container",
+        lambda t: t.replace(
+            "      - name: Preparo concluido\n        id: prep\n",
+            "      - name: preci.sh --selftest\n        run: tools/preci.sh --selftest\n\n"
+            "      - name: Preparo concluido\n        id: prep\n", 1),
+    )
+    return _g5_expect("G3C-PRECI-ANTES-DO-PREP", resultado, "wayland-container", "preci.sh --selftest", "ANTES do marco")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -1919,6 +1970,8 @@ def selftest_main():
         selftest_g3b_reference_before_id_reproves(),
         selftest_ctest_step_without_if_reproves(),
         selftest_ctest_list_only_is_not_a_test_step(),
+        selftest_g3c_gate_step_before_prep_reproves(),
+        selftest_g3c_preci_before_prep_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

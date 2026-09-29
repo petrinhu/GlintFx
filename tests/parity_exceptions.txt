@@ -935,3 +935,8 @@ preci_win_selftest|ubuntu|nenhum|SEM-PENDENCIA
 # if(UNIX) em tests/CMakeLists.txt. MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
 blob_selftests_selftest|windows|nenhum|SEM-PENDENCIA
 armadilha_selftest|windows|nenhum|SEM-PENDENCIA
+# contido_selftest (tools/contido.sh --selftest, CI-SPLIT-PER-OS A5 C1a) prova a decisao pura do contido de
+# processos, que le cgroup v2 e conversa com systemd --user: mecanismo so' de host Linux; o analogo Windows
+# (Job Object) esta fora do escopo, declarado. Fica dentro de if(UNIX) em tests/CMakeLists.txt.
+# MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
+contido_selftest|windows|nenhum|SEM-PENDENCIA

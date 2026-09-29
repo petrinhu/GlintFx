@@ -4868,6 +4868,17 @@ if(UNIX)
     set_tests_properties(fase_sh_selftest PROPERTIES LABELS selftest)
 endif()
 
+# CI-SPLIT-PER-OS A5 C1a (PLANO-C1.md): tools/contido.sh decide, por funcao pura, se um comando roda
+# herdando o teto do cgroup, embrulhado num escopo novo, sem contencao (CI) ou recusado. So' Unix
+# (cgroup v2 e systemd --user); a excecao de paridade com o Windows esta em tests/parity_exceptions.txt.
+if(UNIX)
+    add_test(
+        NAME contido_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tools/contido.sh" --selftest
+    )
+    set_tests_properties(contido_selftest PROPERTIES LABELS selftest)
+endif()
+
 # So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,
 # e as fixtures `.sh` do selftest exigem um `bash` que o runner Windows nao tem (o `bash` de la e' o stub do
 # WSL). Excecao de paridade permanente em tests/parity_exceptions.txt.

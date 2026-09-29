@@ -4770,3 +4770,17 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - o FOLGA_REPROVA_FATOR e os TIMEOUTs ficam para depois da calibração nova;
   - P1, P2 e P3 não mudam.
 - **Pergunta ao líder:** os 2/3 valem também para o build do preci, que hoje usa o padrão do ninja, 18 tarefas, acima do teto de 13 da L-11? Resposta: "Vale para tudo (Recomendado)". Ou seja, a compilação e os testes do espelho local usam no máximo 10 núcleos.
+
+## 29/09/2026 - 10:38 | D-A28: veredito CTO da fatia D-A27; C-1 no qemu-img
+
+- **Fatia D-A27** (e915427, e090fc4, 3679533, c97f82d): REPROVADA por 1 CRÍTICO; o resto está ACEITO.
+  - Aceito: test:///default com domínio falso; os 3 mutantes de stub cortado reprovam nomeando a armadilha; os 6 add_test e o --blob passam pelo envoltório; R-1 e R-2.
+- **C-1:** a armadilha do qemu-img liberava o binário real pelo argv.
+  - Provado pelo CTO em bwrap, com um disco FALSO (o disco real de 33G, conferido antes e depois, ficou fora da sandbox): `qemu-img commit -- ov.qcow2` saiu com rc=0 e log vazio, e GRAVOU no disco base citado só no cabeçalho, a forma exata de consolidar.sh:162.
+  - Também liberam: `..`, caminho relativo, caminho dentro de opção, `-b=`, symlink e glob largo. Os três primeiros foram apontados pelo main na leitura; os outros, achados pelo CTO.
+- **Conserto (decisão do CTO, confirmar retroativamente):**
+  - o envoltório roda os 6 selftests DENTRO do bwrap, com /var/tmp, /run e /home privados e o isolamento provado antes;
+  - sem bwrap, sai 77 (o CI Linux já pula esses 6 por falta de qemu-img);
+  - o qemu-img perde a liberação.
+- **Pergunta do main respondida:** a alternativa de um qemu-img falso ficou dispensada pela sandbox.
+- **Integridade de relato:** o desvio 2 do implementador (a liberação) foi declarado e rejeitado.

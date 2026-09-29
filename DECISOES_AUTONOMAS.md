@@ -4564,7 +4564,7 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - a varredura de gêmeos do 46b21c1 diz que todo `cmake -S` é `-S . -B build-*`, mas ci.yml tem `cmake -S probe -B probe/build` dentro da árvore (a pasta é removida em seguida).
 - **Critério "contagem igual à da A0": não verificável.** Nenhum documento guarda a contagem da A0. Fica declarado; a partir daqui, o agregado medido (achado 4) passa a ser a referência.
 
-## 29/09/2026 - 01:15 | D-A16: lote D-A14 + consertos aceito e empurrado; leva A1/A2/C3
+## 29/09/2026 - 01:13 | D-A16: lote D-A14 + consertos aceito e empurrado; leva A1/A2/C3
 
 - **Veredito do CTO (01:12):** aceita com conserto pequeno; pode empurrar. D-A14 cumprida nos selftests. Morreram 11 dos 13 sobreviventes anteriores; seguem vivos o X9 e o MO3c (INBOX, D-A15) e o X3.
 - **Decisão autônoma do CTO, a confirmar retroativamente:** o wayland-container fica fora do G5 (piso no hospedeiro), porque o compilador que importa ali é o de dentro da imagem. Rodar o floor.sh no build da imagem vai para a INBOX.

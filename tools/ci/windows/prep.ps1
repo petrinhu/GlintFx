@@ -31,13 +31,16 @@
 # reprova por "[artefato binario] main.obj" (L-07: a excecao nao e'
 # transitiva). O -Autoteste abaixo prova as duas metades da garantia.
 #
+# -VerifyCmake: so' confere que `cmake --version` e' exatamente o CMake
+# pinado (ver Invoke-VerifyCmake); sem instalar nada.
+#
 # -Autoteste: roda so' as funcoes puras contra entradas FALSAS, sem
 # instalar nada e sem tocar a maquina; chamado pelo estagio de sintaxe
 # PowerShell (tools/preci.sh, stage_ps_syntax), no container pwsh.
 #
 # Cada funcao faz uma coisa (GODS_LAWS.md L-17).
 
-param([switch]$Autoteste)
+param([switch]$Autoteste, [switch]$VerifyCmake)
 
 $ErrorActionPreference = 'Stop'
 
@@ -60,6 +63,15 @@ function Get-CmakeFloorError([string]$VersionLine) {
         return "cmake --version = '$VersionLine', piso do projeto e' 4.1 (CMakeLists.txt)"
     }
     return $null
+}
+
+# $null quando a primeira linha de `cmake --version` e' EXATAMENTE o CMake
+# pinado ($Version); qualquer outra (inclusive 4.1.60 ou o 3.31 da imagem)
+# devolve a causa. Igualdade, nunca ">=": o objetivo e' provar que o
+# `cmake` que os passos seguintes enxergam e' o da Kitware, nao o do VS.
+function Get-CmakePinError([string]$VersionLine, [string]$Version) {
+    if ($VersionLine -ceq "cmake version $Version") { return $null }
+    return "cmake --version = '$VersionLine', esperado exatamente 'cmake version $Version' (o CMake pinado; o do Visual Studio ou da imagem esta na frente do PATH?)"
 }
 
 # Caminhos da sonda do cl.exe, todos DENTRO de $TempRoot.
@@ -143,6 +155,15 @@ function Assert-PythonPresent {
     }
 }
 
+# Modo -VerifyCmake: chamado como PRIMEIRA linha do primeiro passo depois do
+# marco `id: prep` (G5 confere), e reprova se o cmake visivel nao for o pinado.
+function Invoke-VerifyCmake {
+    $line = (cmake --version 2>$null | Select-Object -First 1)
+    $cause = Get-CmakePinError $line $CmakeVersion
+    if ($cause) { Stop-Floor $cause }
+    Write-Host "cmake pinado OK: $line"
+}
+
 function Invoke-Prep {
     if (-not $env:RUNNER_TEMP) { Stop-Floor 'RUNNER_TEMP nao definido' }
     Install-Cmake $CmakeVersion $env:RUNNER_TEMP
@@ -181,6 +202,12 @@ function Invoke-Autoteste {
     foreach ($chave in @('Dir', 'Src', 'Obj', 'Exe')) {
         if (-not $paths[$chave].StartsWith($fakeTemp)) { $todosDentro = $false }
     }
+    Assert-Autoteste 'pino: 4.1.6 exato atende' ($null -eq (Get-CmakePinError 'cmake version 4.1.6' '4.1.6'))
+    Assert-Autoteste 'pino: versao esperada diferente reprova (4.1.6 visto, 4.2.0 esperado)' ($null -ne (Get-CmakePinError 'cmake version 4.1.6' '4.2.0'))
+    Assert-Autoteste 'pino: o cmake da imagem (3.31.6) reprova' ($null -ne (Get-CmakePinError 'cmake version 3.31.6' '4.1.6'))
+    Assert-Autoteste 'pino: 4.1.60 nao e 4.1.6' ($null -ne (Get-CmakePinError 'cmake version 4.1.60' '4.1.6'))
+    Assert-Autoteste 'pino: saida vazia reprova' ($null -ne (Get-CmakePinError '' '4.1.6'))
+
     Assert-Autoteste 'sonda inteira (dir, fonte, obj, exe) dentro do temp, nunca do workspace' $todosDentro
 
     $argumentos = Get-ClArguments $paths
@@ -205,4 +232,4 @@ function Invoke-Autoteste {
     Write-Host "prep.ps1 -Autoteste: os $($script:AutotesteControles) controles OK"
 }
 
-if ($Autoteste) { Invoke-Autoteste } else { Invoke-Prep }
+if ($Autoteste) { Invoke-Autoteste } elseif ($VerifyCmake) { Invoke-VerifyCmake } else { Invoke-Prep }

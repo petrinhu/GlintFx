@@ -745,7 +745,9 @@ def _floor_script_errors(job_name, script, scripts):
 
 
 def _floor_position_errors(job_name, steps, script):
-    indices = [i for i, (_n, t) in enumerate(steps) if script in _code_text(t)]
+    indices = [
+        i for i, (_n, t) in enumerate(steps) if script in _code_text(t) and "-VerifyCmake" not in _code_text(t)
+    ]
     if not indices:
         return [
             f"job {job_name!r}: nenhum passo chama {script} - G5: todo job com id: build "
@@ -779,6 +781,36 @@ def _piso_universe(job_block_text, steps):
     return job_family(job_block_text) or "fora"
 
 
+_CMAKE_CALL_RE = re.compile(r"^(?:&\s*)?cmake\b")
+_VERIFY_CMD = PREP_PS1 + " -VerifyCmake"
+
+
+def _verify_cmake_errors(job_name, steps):
+    """O primeiro passo depois do marco `id: prep` que roda `cmake` comeca
+    por `prep.ps1 -VerifyCmake` + checagem de $LASTEXITCODE (um .ps1 que
+    sai != 0 nao para o passo do pwsh sozinho). Item (i) do CTO, 29/09."""
+    prep = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
+    if len(prep) != 1:
+        return []
+    for nome, texto in steps[prep[0] + 1:]:
+        comandos = _run_lines(_code_text(texto))
+        if not any(_CMAKE_CALL_RE.match(c) for c in comandos):
+            continue
+        if comandos[0] != _VERIFY_CMD:
+            return [
+                f"job {job_name!r}, passo {nome!r}: e' o primeiro passo depois do marco prep que roda "
+                f"cmake e nao comeca por '{_VERIFY_CMD}' - nada prova que ele enxerga o CMake pinado "
+                f"(e nao o do Visual Studio) - G5"
+            ]
+        if len(comandos) < 2 or "LASTEXITCODE" not in comandos[1]:
+            return [
+                f"job {job_name!r}, passo {nome!r}: '{_VERIFY_CMD}' sem checar $LASTEXITCODE na linha "
+                f"seguinte - o pwsh nao para o passo quando um .ps1 sai != 0 - G5"
+            ]
+        return []
+    return [f"job {job_name!r}: nenhum passo depois do marco prep roda cmake - G5 nao tem onde exigir {_VERIFY_CMD}"]
+
+
 def g5_errors(job_name, job_block_text, steps, scripts=None):
     if not any(step_id(t) == "build" for _n, t in steps):
         return []
@@ -790,6 +822,7 @@ def g5_errors(job_name, job_block_text, steps, scripts=None):
     errors.extend(_floor_script_errors(job_name, script, scripts))
     if familia == "windows":
         errors.extend(_handwritten_cmake_install_errors(job_name, steps))
+        errors.extend(_verify_cmake_errors(job_name, steps))
     return errors
 
 
@@ -1711,7 +1744,10 @@ _FIXTURE_WINDOWS_JOB = """jobs:
       - name: Compilar
         id: build
         shell: pwsh
-        run: cmake --build build
+        run: |
+          tools/ci/windows/prep.ps1 -VerifyCmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build
 
       - name: fixture a
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -2152,6 +2188,36 @@ def selftest_prep_probe_root_from_workspace_reproves():
 
 
 
+# Item (i) do CTO (29/09): nos jobs Windows, o PRIMEIRO passo depois do
+# marco `id: prep` que roda `cmake` comeca por `prep.ps1 -VerifyCmake`, que
+# REPROVA se `cmake --version` nao for exatamente o CMake pinado - sem
+# isso nada prova que os passos seguintes enxergam o CMake da Kitware e
+# nao o do Visual Studio.
+def selftest_verify_cmake_missing_reproves():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace("          tools/ci/windows/prep.ps1 -VerifyCmake\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n", "", 1),
+    )
+    return _g5_expect("VERIFYCMAKE-AUSENTE", resultado, "windows-x", "-VerifyCmake")
+
+
+def selftest_verify_cmake_wrong_step_reproves():
+    def mover(t):
+        t = t.replace("          tools/ci/windows/prep.ps1 -VerifyCmake\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n", "", 1)
+        return t.replace("      - name: Compilar\n", "      - name: Configurar\n        shell: pwsh\n        run: cmake -S . -B build\n\n      - name: Compilar\n", 1)
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", mover)
+    return _g5_expect("VERIFYCMAKE-NO-PASSO-ERRADO", resultado, "windows-x", "Configurar", "-VerifyCmake")
+
+
+def selftest_verify_cmake_without_exit_check_reproves():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace("          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n          cmake --build", "          cmake --build", 1),
+    )
+    return _g5_expect("VERIFYCMAKE-SEM-CHECAR-EXIT", resultado, "windows-x", "LASTEXITCODE")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2218,6 +2284,9 @@ def selftest_main():
         selftest_mandatory_aggregate_or_true_reproves(),
         selftest_mandatory_aggregate_if_false_reproves(),
         selftest_prep_probe_root_from_workspace_reproves(),
+        selftest_verify_cmake_missing_reproves(),
+        selftest_verify_cmake_wrong_step_reproves(),
+        selftest_verify_cmake_without_exit_check_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -910,6 +910,8 @@ jobs:
       - name: Padrao C++23 aceito
         shell: pwsh
         run: |
+          tools/ci/windows/prep.ps1 -VerifyCmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Force -Path probe | Out-Null
           @'
           #include <cstdio>
@@ -2985,6 +2987,8 @@ jobs:
       - name: Configurar (gera compile_commands.json)
         shell: pwsh
         run: |
+          tools/ci/windows/prep.ps1 -VerifyCmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake -S . -B build-lint -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -3480,6 +3484,8 @@ jobs:
         id: build
         shell: pwsh
         run: |
+          tools/ci/windows/prep.ps1 -VerifyCmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_SANITIZE=address
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-shared
@@ -3740,6 +3746,8 @@ jobs:
         id: build
         shell: pwsh
         run: |
+          tools/ci/windows/prep.ps1 -VerifyCmake
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DGLINTFX_LAYERS_ORACLE=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-debug

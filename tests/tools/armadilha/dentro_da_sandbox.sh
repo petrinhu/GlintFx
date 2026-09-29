@@ -13,11 +13,33 @@ raiz="$1"
 shift
 aqui="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+recusar() {
+  echo "dentro_da_sandbox.sh: ISOLAMENTO NAO PROVADO - recuso rodar o comando:" >&2
+  printf '  %s\n' "${erros[@]}" >&2
+  exit 1
+}
+
+# 1) checagens BARATAS primeiro (D-A27, decisao do CTO): sem varrer nada. Ao primeiro erro daqui a
+# auto-prova SAI 1, e o hospedeiro nunca e' varrido (fora da sandbox um find / atravessaria FUSE, a
+# sessao do lider, rede). Nao usar -xdev nas buscas de 2): dentro do bwrap a raiz e' bind com o st_dev
+# do hospedeiro e cegaria a busca do laboratorio.
 erros=()
 for d in /tmp /run /home; do
   tipo="$(stat -f -c %T "$d" 2>/dev/null)"
   [ "$tipo" = "tmpfs" ] || erros+=("$d nao e' tmpfs privado (tipo: ${tipo:-?}) - e' o do hospedeiro?")
 done
+[ ! -e /run/user ] || erros+=("/run/user VISIVEL")
+[ -z "${XDG_RUNTIME_DIR:-}" ] || erros+=("XDG_RUNTIME_DIR definido: ${XDG_RUNTIME_DIR}")
+if awk -F: 'NR>2 { gsub(/ /, "", $1); if ($1 != "lo") ruim = 1 } END { exit ruim }' /proc/net/dev; then :; else
+  erros+=("ha interface de rede alem de lo")
+fi
+if ( : >"$raiz/.probe-escrita" ) 2>/dev/null; then
+  rm -f -- "$raiz/.probe-escrita"
+  erros+=("a raiz do repositorio ($raiz) e' GRAVAVEL")
+fi
+[ "${#erros[@]}" -eq 0 ] || recusar
+
+# 2) buscas com find, so' numa vista que passou em tudo acima.
 # /var/tmp entra vazio, EXCETO o componente de topo do caminho da raiz do repositorio quando ela mora
 # sob /var/tmp (o --blob e os fake roots): o bind da raiz cria esse ponto de montagem. So' ele.
 topo=""
@@ -29,20 +51,7 @@ extras="$(find /var/tmp -mindepth 1 -maxdepth 1 ! -path "$topo" 2>/dev/null)"
 # `-maxdepth` conta a partir de /); /proc, /dev, /sys e /usr (ro-bind do sistema) ficam de fora.
 lab="$(find / \( -path /proc -o -path /dev -o -path /sys -o -path /usr \) -prune -o -name glintfx-win-lab -print -quit 2>/dev/null)"
 [ -z "$lab" ] || erros+=("glintfx-win-lab VISIVEL dentro da sandbox: $lab")
-[ ! -e /run/user ] || erros+=("/run/user VISIVEL")
-[ -z "${XDG_RUNTIME_DIR:-}" ] || erros+=("XDG_RUNTIME_DIR definido: ${XDG_RUNTIME_DIR}")
-if awk -F: 'NR>2 { gsub(/ /, "", $1); if ($1 != "lo") ruim = 1 } END { exit ruim }' /proc/net/dev; then :; else
-  erros+=("ha interface de rede alem de lo")
-fi
-if ( : >"$raiz/.probe-escrita" ) 2>/dev/null; then
-  rm -f -- "$raiz/.probe-escrita"
-  erros+=("a raiz do repositorio ($raiz) e' GRAVAVEL")
-fi
-if [ "${#erros[@]}" -gt 0 ]; then
-  echo "dentro_da_sandbox.sh: ISOLAMENTO NAO PROVADO - recuso rodar o comando:" >&2
-  printf '  %s\n' "${erros[@]}" >&2
-  exit 1
-fi
+[ "${#erros[@]}" -eq 0 ] || recusar
 
 log="$(mktemp /var/tmp/glintfx-armadilha-log.XXXXXX)" || exit 1
 PATH="$aqui/bin:$PATH" GLINTFX_ARMADILHA_LOG="$log" "$@"

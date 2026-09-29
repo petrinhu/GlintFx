@@ -80,14 +80,19 @@ g1_sem_bwrap_sai_77() {
 }
 
 g1_auto_prova_recusa_raiz_gravavel() {
-  # a auto-prova FORA da sandbox, com uma raiz GRAVAVEL: tem de recusar (rc 1), nomear GRAVAVEL e NAO
-  # rodar o comando (o marcador nao pode existir). Roda em todo Linux, sem bwrap.
+  # a auto-prova FORA da sandbox, com uma raiz GRAVAVEL: tem de recusar (rc 1), nomear GRAVAVEL, NAO rodar o
+  # comando (o marcador nao pode existir) e NAO varrer o hospedeiro: um `find` ARMADILHA na frente do PATH
+  # registra a chamada e sai 1, e o log dele tem de ficar VAZIO (as checagens baratas vem antes e saem 1).
   local saida rc
-  mkdir -p "$work/raizw"
-  saida="$(bash "$DIR/dentro_da_sandbox.sh" "$work/raizw" touch "$work/raizw/MARCADOR" 2>&1)"; rc=$?
+  mkdir -p "$work/raizw" "$work/trapfind"
+  printf '#!/bin/sh\necho "find $*" >> "%s/find.log"\nexit 1\n' "$work" >"$work/trapfind/find"
+  chmod +x "$work/trapfind/find"
+  : >"$work/find.log"
+  saida="$(PATH="$work/trapfind:$PATH" bash "$DIR/dentro_da_sandbox.sh" "$work/raizw" touch "$work/raizw/MARCADOR" 2>&1)"; rc=$?
   [ "$rc" -eq 1 ] || falha "a auto-prova com raiz gravavel deveria sair 1, obteve $rc: $saida"
   printf '%s' "$saida" | grep -q "GRAVAVEL" || falha "a auto-prova nao nomeou a raiz GRAVAVEL: $saida"
   [ ! -e "$work/raizw/MARCADOR" ] || falha "a auto-prova rodou o comando apesar de recusar (MARCADOR criado)"
+  [ ! -s "$work/find.log" ] || falha "find chamado pela auto-prova FORA da sandbox (varreu o hospedeiro): $(cat "$work/find.log")"
 }
 
 g1_duble_e_envoltorio_com_o_mesmo_contrato() {

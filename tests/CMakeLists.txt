@@ -4851,6 +4851,23 @@ set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
 
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
+# CI-SPLIT-PER-OS A5 F1 (DESENHO.md 3.3): helper de FASE nas tres linguagens, mesmo formato byte a byte
+# (tests/tools/fixtures/fase/). fase_py_selftest roda em todo sistema; fase_sh_selftest so' em Unix
+# (bash) e fase_ps1_selftest so' no Windows (pwsh, mais abaixo), gemeos por apelido em tests/parity_aliases.txt.
+add_test(
+    NAME fase_py_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/fase.py" --selftest
+)
+set_tests_properties(fase_py_selftest PROPERTIES LABELS selftest)
+if(UNIX)
+    add_test(
+        NAME fase_sh_selftest
+        COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/fase.sh" --selftest
+    )
+    set_tests_properties(fase_sh_selftest PROPERTIES LABELS selftest)
+endif()
+
 # So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,
 # e as fixtures `.sh` do selftest exigem um `bash` que o runner Windows nao tem (o `bash` de la e' o stub do
 # WSL). Excecao de paridade permanente em tests/parity_exceptions.txt.
@@ -5414,6 +5431,15 @@ if(WIN32)
     # ci.yml, igual ao preci_selftest do lado Linux ja faz. Perde o
     # "falha rapida antes do build pesado"; ganha a paridade mecanica
     # que esta fatia existe para provar.
+    # CI-SPLIT-PER-OS A5 F1: gemeo Windows de fase_sh_selftest (helper de FASE em PowerShell).
+    # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
+    add_test(
+        NAME fase_ps1_selftest
+        COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
+            "${PROJECT_SOURCE_DIR}/tools/ci/fase.ps1" -SelfTest
+    )
+    set_tests_properties(fase_ps1_selftest PROPERTIES LABELS selftest)
+
     # glintfx-blob: fora - pwsh (PowerShell), so' no Windows
     add_test(
         NAME preci_win_selftest

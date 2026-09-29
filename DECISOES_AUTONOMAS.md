@@ -4614,3 +4614,17 @@ Nenhuma decisão desta lista segue pendente de confirmação.
 - **CTO:** aceitou b4f3320..e7e79df (A3, A4, C1 e o conserto), sem achado importante e com 3 cosméticos.
 - **CI 36525037497 sobre e7e79df: VERDE**, 25 verdes e 1 pulado. No log: cmake pinado OK nos 5 Windows, probe de C++23 rodando e agregado com pulados à parte.
 - **Próximo:** os cosméticos C3 (rótulo "executados") e C1 (piso do autoteste), depois a fatia A4 (rerun_guard).
+
+## 29/09/2026 - 02:46 | D-A20: A4 (rerun_guard) aceita com conserto; C1/C3 cumpridos
+
+- **CTO (02:45):** C5 do plano cumprido (4 de 4 vereditos certos, selftest 20/20). As fixtures são respostas REAIS da API, conferidas contra o gh api ao vivo. As permissões estreitam o padrão do repositório; não alargam.
+- **Decisões autônomas do CTO, a confirmar retroativamente:**
+  - **Posição do guard:** ele fica logo antes do marco `id: prep`, e não como primeiro passo, porque o script só existe depois do checkout. É mudança feita pelo implementador no plano (§4.5 e linha A4), aqui ratificada, não aceita calada (L-18). O veredito não muda.
+  - **I1, o desenho do conserto:** o job com `needs:` declara `RERUN_DERIVADO: "1"`. Na tentativa 2 ele segue só se todos os OUTROS jobs que falharam na tentativa 1 falharam em preparo. Sem isso, o parity reprova toda reexecução legítima.
+- **Próxima leva, antes de declarar a A4 fechada:**
+  - I1: job derivado;
+  - I2: a mutação de preparo realista, com os passos `!cancelled()` falhando e "a primeira falha decide";
+  - I3: nome do marco igual a PREP_MARKER, importado do rerun_guard.py como fonte única;
+  - C-a: proibir `permissions:` dentro de job.
+  Os cosméticos C-b (run cancelado reprova, de propósito) e C-c ficam só documentados.
+- **Push:** c000bb0 e este registro vão para onda-w7c agora. Na tentativa 1 o guard é inerte.

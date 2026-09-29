@@ -4821,6 +4821,24 @@ add_test(
 )
 set_tests_properties(ctest_p1_compare_selftest PROPERTIES LABELS selftest)
 
+# Fixture que o .gitignore engole (ex.: build-shared/ casa `build-*/`) existe em
+# disco - o preci local, que roda sobre a working tree, passa - mas nao entra no
+# commit, e o CI (sobre o blob) reprova (achado do CTO, 29/09/2026, A5 etapa 3).
+# Le `git ls-files -o -i` sob tests/; util onde o arquivo ignorado existe.
+add_test(
+    NAME ignored_fixtures_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ignored_fixtures.py" "${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(ignored_fixtures_test PROPERTIES LABELS consume)
+
+add_test(
+    NAME ignored_fixtures_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ignored_fixtures.py" --selftest
+)
+set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
+
 # CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
 # roda o autoteste contra respostas REAIS da API do GitHub gravadas em
 # tests/tools/fixtures/rerun_guard/. Python puro, sem guarda de sistema.

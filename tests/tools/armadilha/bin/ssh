@@ -1,0 +1,4 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Armadilha de ssh (D-A27, L-09/L-50): registra e sai 97. Ver ../registrar.sh.
+exec "$(dirname "$0")/../registrar.sh" ssh "$@"

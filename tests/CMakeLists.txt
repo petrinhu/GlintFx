@@ -5732,13 +5732,26 @@ set_tests_properties(check_format_selftest PROPERTIES SKIP_RETURN_CODE 77)
 # orfao - a guarda de plataforma nao remove o registro, so restringe
 # onde ele conta.
 if(UNIX)
-    # glintfx-blob: fora - risco a VM real do lider: os selftests de tools/win-vm-lab passam PATH atras dos stubs de virsh e um stub furado alcanca o virsh REAL (qemu:///session, glintfx-win11-lab); fora ate a armadilha versionada (L-09/L-50)
     add_test(
         NAME win_vm_lab_isolamento_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
     )
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# D-A27 (CI-SPLIT-PER-OS, L-09/L-50): armadilha de ferramentas de VM/rede. Os seis
+# selftests de tools/win-vm-lab rodam SEMPRE por run_com_armadilha.sh, que poe virsh,
+# virt-install, qemu-system-*, qemu-img (fora de dir de selftest), ssh e scp na frente do
+# PATH (registram e saem 97) e reprova se o log nao estiver vazio. Este teste prova que a
+# armadilha morde; usa so' test:///default e dominio falso.
+if(UNIX)
+    add_test(
+        NAME armadilha_selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/armadilha_selftest.sh" --selftest
+    )
+    set_tests_properties(armadilha_selftest PROPERTIES LABELS selftest)
+    set_tests_properties(armadilha_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # WIN-RUNNER-PROPRIO sub-fatia V-1 (GODS_LAWS.md L-35/L-36/L-40/L-45,
@@ -5768,19 +5781,17 @@ endif()
 # como "Not Run" (pulo), nunca como falha - a mesma leitura que
 # check_format_selftest ja usa mais acima neste arquivo.
 if(UNIX)
-    # glintfx-blob: fora - risco a VM real do lider: os selftests de tools/win-vm-lab passam PATH atras dos stubs de virsh e um stub furado alcanca o virsh REAL (qemu:///session, glintfx-win11-lab); fora ate a armadilha versionada (L-09/L-50)
     add_test(
         NAME win_vm_lab_rodar_caminho_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
     )
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 
-    # glintfx-blob: fora - risco a VM real do lider: os selftests de tools/win-vm-lab passam PATH atras dos stubs de virsh e um stub furado alcanca o virsh REAL (qemu:///session, glintfx-win11-lab); fora ate a armadilha versionada (L-09/L-50)
     add_test(
         NAME win_vm_lab_rodar_um_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-um.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-um.sh" --selftest
     )
     set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_um_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5790,10 +5801,9 @@ if(UNIX)
     # MESMA forma hermetica dos tres vizinhos acima (registro incondicional
     # dentro de if(UNIX), SKIP_RETURN_CODE 77 para ferramenta ausente -
     # aqui qemu-img/flock, ver a guarda no topo do proprio script).
-    # glintfx-blob: fora - risco a VM real do lider: os selftests de tools/win-vm-lab passam PATH atras dos stubs de virsh e um stub furado alcanca o virsh REAL (qemu:///session, glintfx-win11-lab); fora ate a armadilha versionada (L-09/L-50)
     add_test(
         NAME win_vm_lab_sessao_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
     )
     set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_sessao_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5807,10 +5817,9 @@ if(UNIX)
     # (duble de virsh, nunca libvirt/QEMU real; SKIP_RETURN_CODE 77 para
     # ferramenta ausente - aqui jq/md5sum/base64/dd/stat, ver a guarda no
     # topo do proprio script).
-    # glintfx-blob: fora - risco a VM real do lider: os selftests de tools/win-vm-lab passam PATH atras dos stubs de virsh e um stub furado alcanca o virsh REAL (qemu:///session, glintfx-win11-lab); fora ate a armadilha versionada (L-09/L-50)
     add_test(
         NAME win_vm_lab_coletar_resultados_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
     )
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_coletar_resultados_selftest PROPERTIES SKIP_RETURN_CODE 77)
@@ -5827,10 +5836,9 @@ if(UNIX)
     # hermetica dos cinco vizinhos acima (duble de virsh, nunca libvirt/
     # QEMU real; SKIP_RETURN_CODE 77 para ferramenta ausente - aqui
     # qemu-img/flock/sha256sum/cp, ver a guarda no topo do proprio script).
-    # glintfx-blob: fora - risco a VM real do lider: os selftests de tools/win-vm-lab passam PATH atras dos stubs de virsh e um stub furado alcanca o virsh REAL (qemu:///session, glintfx-win11-lab); fora ate a armadilha versionada (L-09/L-50)
     add_test(
         NAME win_vm_lab_consolidar_selftest
-        COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
+        COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/run_com_armadilha.sh" "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
     )
     set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_consolidar_selftest PROPERTIES SKIP_RETURN_CODE 77)

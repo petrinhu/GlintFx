@@ -27,6 +27,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -161,7 +162,13 @@ def ensure_git(root):
 def _run_one(root, entrada):
     caminho = os.path.join(root, entrada["script"])
     cmd = [sys.executable, caminho, "--selftest"] if entrada["forma"] == "py" else ["bash", caminho, "--selftest"]
+    # D-A27 (L-09/L-50): todo selftest roda com a armadilha de ferramentas de VM/rede na frente
+    # do PATH; log nao vazio reprova, mesmo com rc 0. A armadilha vem do BLOB, nunca da working tree.
+    envoltorio = os.path.join(root, "tests", "tools", "armadilha", "run_com_armadilha.sh")
     t0 = time.monotonic()
+    if not os.path.isfile(envoltorio):
+        return False, 0.0, "tests/tools/armadilha/run_com_armadilha.sh ausente no blob - selftest nao roda sem a armadilha (D-A27)"
+    cmd = ["bash", envoltorio, *cmd]
     try:
         r = subprocess.run(
             cmd, cwd=root, capture_output=True, text=True, timeout=PER_SCRIPT_TIMEOUT_S,
@@ -238,6 +245,7 @@ def _fake_root(scripts, cmake_extra=""):
     'py' (`python x.py --selftest`), 'sh' (`x.sh --selftest`) ou 'pwsh'."""
     raiz = tempfile.mkdtemp(prefix="glintfx-blob-")
     os.makedirs(os.path.join(raiz, "tests", "tools"))
+    shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), "armadilha"), os.path.join(raiz, "tests", "tools", "armadilha"))
     cmake = []
     for nome, (conteudo, registrado, comentario, forma) in scripts.items():
         if conteudo is not None:
@@ -297,6 +305,10 @@ def selftest_main():
                             rc == 0 and "1 rodado(s)" in linhas[-1] and "0 fora" in linhas[-1], str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, True, "# glintfx-blob: fora - pesado (cmake)", "py")})
     controles.append(_check("B-3: 0 rodados REPROVA (tudo declarado fora nao e' verde)", rc == 1 and any("0 rodado" in l or "nenhum" in l for l in linhas), str(linhas)))
+    toca = "#!/usr/bin/env bash\nvirsh -c test:///default domstate duble-dom >/dev/null 2>&1\nexit 0\n"
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "t.sh": (toca, True, None, "sh")})
+    controles.append(_check("D-A27: selftest que sai 0 mas toca virsh REPROVA, nomeando ARMADILHA e virsh",
+                            rc == 1 and any("FALHOU t_selftest" in l and "ARMADILHA" in l and "virsh" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"sumiu.py": (None, True, None, "py"), "a.py": (ok_py, True, None, "py")})
     controles.append(_check("registrado mas AUSENTE no blob reprova (o defeito das fixtures)", rc == 1 and any("ausente no blob" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, False, None, "py")})

@@ -79,6 +79,27 @@ g1_sem_bwrap_sai_77() {
   printf '%s' "$saida" | grep -q "AUSENTE: bwrap (isolamento obrigatorio do laboratorio da VM, L-09/L-50)" || falha "sem bwrap a mensagem nao e a esperada: $saida"
 }
 
+g1_auto_prova_recusa_raiz_gravavel() {
+  # a auto-prova FORA da sandbox, com uma raiz GRAVAVEL: tem de recusar (rc 1), nomear GRAVAVEL e NAO
+  # rodar o comando (o marcador nao pode existir). Roda em todo Linux, sem bwrap.
+  local saida rc
+  mkdir -p "$work/raizw"
+  saida="$(bash "$DIR/dentro_da_sandbox.sh" "$work/raizw" touch "$work/raizw/MARCADOR" 2>&1)"; rc=$?
+  [ "$rc" -eq 1 ] || falha "a auto-prova com raiz gravavel deveria sair 1, obteve $rc: $saida"
+  printf '%s' "$saida" | grep -q "GRAVAVEL" || falha "a auto-prova nao nomeou a raiz GRAVAVEL: $saida"
+  [ ! -e "$work/raizw/MARCADOR" ] || falha "a auto-prova rodou o comando apesar de recusar (MARCADOR criado)"
+}
+
+g1_duble_e_envoltorio_com_o_mesmo_contrato() {
+  # C-1 (CTO): o duble do blob e o envoltorio real (dentro_da_sandbox.sh) carregam a mesma mensagem e a
+  # mesma forma de execucao do comando; divergencia de contrato nao passa calada
+  local duble="$DIR/../fixtures/armadilha_sem_bwrap/run_com_armadilha.sh" alvo
+  for alvo in "$duble" "$DIR/dentro_da_sandbox.sh"; do
+    grep -q 'ARMADILHA DISPAROU - o comando tocou ferramenta de VM/rede' "$alvo" || falha "$alvo nao tem a mensagem 'ARMADILHA DISPAROU - o comando tocou ferramenta de VM/rede'"
+    grep -q 'GLINTFX_ARMADILHA_LOG="$log" "$@"' "$alvo" || falha "$alvo nao executa o comando na forma GLINTFX_ARMADILHA_LOG=\"\$log\" \"\$@\""
+  done
+}
+
 # ---- GRUPO 2: exige bwrap ----------------------------------------------------
 
 g2_toca_virsh_reprova() {
@@ -110,7 +131,8 @@ g2_sentinela_do_hospedeiro_invisivel() {
 g2_lab_visivel_na_raiz_reprova() {
   # C-a (M1c do CTO): glintfx-win-lab em QUALQUER lugar visivel dentro da sandbox reprova a auto-prova
   local saida rc
-  mkdir -p "$work/raizlab/tests/tools/armadilha" "$work/raizlab/x/glintfx-win-lab"
+  # a ~12 niveis de profundidade: a auto-prova nao pode ter limite de profundidade (I-1 do CTO)
+  mkdir -p "$work/raizlab/tests/tools/armadilha" "$work/raizlab/a/b/c/d/e/f/g/h/i/j/k/l/glintfx-win-lab"
   cp -r "$DIR/." "$work/raizlab/tests/tools/armadilha/"
   saida="$("$work/raizlab/tests/tools/armadilha/run_com_armadilha.sh" /usr/bin/true 2>&1)"; rc=$?
   [ "$rc" -eq 1 ] || falha "glintfx-win-lab visivel dentro da raiz deveria REPROVAR a auto-prova (rc=1), obteve $rc: $saida"
@@ -171,7 +193,7 @@ g2_armadilha_na_frente_do_path() {
     || falha "virsh dentro do envoltorio nao resolve na armadilha"
 }
 
-GRUPO1=(g1_ferramentas_saem_97 g1_qemu_img_nao_e_armadilha g1_gates_estaticos_do_envoltorio g1_simulacao_so_neste_script g1_sem_bwrap_sai_77)
+GRUPO1=(g1_ferramentas_saem_97 g1_qemu_img_nao_e_armadilha g1_gates_estaticos_do_envoltorio g1_simulacao_so_neste_script g1_sem_bwrap_sai_77 g1_auto_prova_recusa_raiz_gravavel g1_duble_e_envoltorio_com_o_mesmo_contrato)
 GRUPO2=(g2_toca_virsh_reprova g2_rc_atravessa g2_sentinela_do_hospedeiro_invisivel g2_lab_visivel_na_raiz_reprova g2_raiz_por_symlink_resolve_fisico g2_reflink_dentro g2_raiz_sob_var_tmp g2_disco_do_hospedeiro_imune g2_armadilha_na_frente_do_path)
 
 roda_grupo() {  # roda_grupo <funcoes...>: imprime nada; devolve em $ok_grupo quantos controles passaram

@@ -25,9 +25,9 @@ case "$raiz" in /var/tmp/*) topo="/var/tmp/$(printf '%s' "${raiz#/var/tmp/}" | c
 extras="$(find /var/tmp -mindepth 1 -maxdepth 1 ! -path "$topo" 2>/dev/null)"
 [ -z "$extras" ] || erros+=("/var/tmp nao esta VAZIO ao entrar - e' o do hospedeiro? conteudo: $(printf '%s' "$extras" | head -3 | tr '\n' ' ')")
 # o laboratorio da VM (glintfx-win-lab) em QUALQUER lugar visivel reprova (C-a: uma raiz logica que
-# resolve para /var/tmp o deixaria so' leitura dentro da sandbox). /proc, /dev e /usr (ro-bind do
-# sistema) ficam de fora da varredura.
-lab="$(find / -maxdepth 8 \( -path /proc -o -path /dev -o -path /usr \) -prune -o -name glintfx-win-lab -print 2>/dev/null | head -3 | tr '\n' ' ')"
+# resolve para /var/tmp o deixaria so' leitura dentro da sandbox). SEM limite de profundidade (I-1 do CTO:
+# `-maxdepth` conta a partir de /); /proc, /dev, /sys e /usr (ro-bind do sistema) ficam de fora.
+lab="$(find / \( -path /proc -o -path /dev -o -path /sys -o -path /usr \) -prune -o -name glintfx-win-lab -print -quit 2>/dev/null)"
 [ -z "$lab" ] || erros+=("glintfx-win-lab VISIVEL dentro da sandbox: $lab")
 [ ! -e /run/user ] || erros+=("/run/user VISIVEL")
 [ -z "${XDG_RUNTIME_DIR:-}" ] || erros+=("XDG_RUNTIME_DIR definido: ${XDG_RUNTIME_DIR}")

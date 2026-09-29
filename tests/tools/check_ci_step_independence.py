@@ -247,7 +247,15 @@ _PATH_KEY_RE = re.compile(r"^\s*path:\s*\S", re.MULTILINE)
 # dentro de `dnf -y install ...` - main confirmou que esses 5 jobs ja
 # satisfazem G1 como estao (a ordem deles, instalar->checkout, nunca
 # muda: o checkout roda com git JA instalado, nao cai no fallback).
-_GIT_COMMAND_START_RE = re.compile(r"(?:^|[;&|]|\$\()\s*git\s+\S")
+# CTO 29/09 achado 2 (X5): alem do inicio de linha e dos separadores, o
+# `git` tambem inicia comando depois de uma palavra-chave de controle
+# (`if git`, `then git`, `while git`...), de `!`, de `env [VAR=x] git`,
+# de `VAR=x git` e de um prefixador (`command`/`exec`/`sudo`/`xargs`).
+_GIT_COMMAND_START_RE = re.compile(
+    r"(?:^|[;&|(]|\$\(|!\s|"
+    r"\b(?:if|then|elif|while|until|do|else|time|exec|command|sudo|xargs)\s+|"
+    r"\benv\s+(?:\w+=\S*\s+)*|\b\w+=\S*\s+)\s*git\s+\S"
+)
 _USES_LINE_RE = re.compile(r"^\s*-?\s*uses:", re.MULTILINE)
 
 
@@ -313,6 +321,32 @@ def step_installs_git_package(step_text):
     return bool(_PACKAGE_MANAGER_INSTALL_RE.search(achatado) and _GIT_PACKAGE_TOKEN_RE.search(achatado))
 
 
+_PATH_VALUE_RE = re.compile(r"^\s*path:\s*(\S+)", re.MULTILINE)
+
+
+def _bootstrap_toolchain_errors(job_name, steps, checkout_indices, final_idx):
+    """Com checkout de bootstrap: entre ele e o checkout final tem de
+    haver um passo cujo CODIGO chama `<path do bootstrap>/tools/ci/env/`
+    (o preparo que instala o git). Sem ele o checkout final roda sem git
+    e cai no fallback REST de novo (CTO 29/09, X1/X1b)."""
+    errors = []
+    for i in checkout_indices:
+        if i >= final_idx:
+            continue
+        m = _PATH_VALUE_RE.search(steps[i][1])
+        if not m:
+            continue
+        alvo = f"{m.group(1)}/tools/ci/env/"
+        roda = any(alvo in _code_text(steps[j][1]) for j in range(i + 1, final_idx))
+        if not roda:
+            errors.append(
+                f"job {job_name!r}: nenhum passo entre o bootstrap ({steps[i][0]!r}) e o "
+                f"checkout final chama {alvo} - o container nao tem git quando o checkout "
+                f"final roda - G1"
+            )
+    return errors
+
+
 def g1_errors(job_name, job_block_text, steps):
     if not job_has_container(job_block_text):
         return []
@@ -350,6 +384,7 @@ def g1_errors(job_name, job_block_text, steps):
                 f"existir)"
             )
 
+    errors.extend(_bootstrap_toolchain_errors(job_name, steps, checkout_indices, final_idx))
     for i in range(final_idx):
         nome, texto = steps[i]
         if step_uses_git(texto):
@@ -1692,6 +1727,59 @@ def selftest_g2_inside_not_compared_reproves():
 
 
 
+# CTO 29/09 achado 2 (mutantes X1, X1b, X5): (a) com checkout de
+# bootstrap, o passo que roda o preparo DO bootstrap (`<path>/tools/ci/
+# env/<slug>.sh`) tem de existir ENTRE o bootstrap e o checkout final -
+# sem ele (removido, ou movido para depois do final) o container nao
+# tem git quando o checkout final roda e ele cai no fallback REST de
+# novo; (b) o comando git antes do checkout final tambem e' pego em
+# `if git`, `! git` e `env X=1 git`.
+_BOOT_TOOLCHAIN = (
+    "      - name: Instalar toolchain\n"
+    "        run: bash _bootstrap/tools/ci/env/fedora.sh\n\n"
+)
+
+
+def selftest_g1_bootstrap_toolchain_removed_reproves():
+    resultado = _g5_run(_FIXTURE_CI_YML, "wayland-container", lambda t: t.replace(_BOOT_TOOLCHAIN, "", 1))
+    return _g5_expect("G1-X1B-PREPARO-DO-BOOTSTRAP-AUSENTE", resultado, "wayland-container", "tools/ci/env/")
+
+
+def selftest_g1_bootstrap_toolchain_after_final_checkout_reproves():
+    def mover(t):
+        t = t.replace(_BOOT_TOOLCHAIN, "", 1)
+        return t.replace("      - name: Piso de ferramentas\n", _BOOT_TOOLCHAIN + "      - name: Piso de ferramentas\n", 1)
+    resultado = _g5_run(_FIXTURE_CI_YML, "wayland-container", mover)
+    return _g5_expect("G1-X1-PREPARO-DEPOIS-DO-FINAL", resultado, "wayland-container", "tools/ci/env/")
+
+
+def _g1_git_form(nome, linha):
+    resultado = _g5_run(
+        _FIXTURE_CI_YML, "wayland-container",
+        lambda t: t.replace(
+            "        run: rm -rf _bootstrap\n",
+            "        run: |\n          " + linha + "\n          rm -rf _bootstrap\n", 1),
+    )
+    return _g5_expect(nome, resultado, "wayland-container", "usa git ANTES")
+
+
+def selftest_g1_if_git_reproves():
+    return _g1_git_form("G1-X5-IF-GIT", "if git rev-parse HEAD; then echo x; fi")
+
+
+def selftest_g1_negated_git_reproves():
+    return _g1_git_form("G1-GIT-NEGADO", "! git rev-parse HEAD")
+
+
+def selftest_g1_env_prefixed_git_reproves():
+    return _g1_git_form("G1-ENV-GIT", "env GIT_TRACE=1 git rev-parse HEAD")
+
+
+def selftest_g1_var_prefixed_git_reproves():
+    return _g1_git_form("G1-VAR-GIT", "GIT_TRACE=1 git rev-parse HEAD")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -1733,6 +1821,12 @@ def selftest_main():
         selftest_g2_or_true_reproves(),
         selftest_g2_sha_echoed_not_compared_reproves(),
         selftest_g2_inside_not_compared_reproves(),
+        selftest_g1_bootstrap_toolchain_removed_reproves(),
+        selftest_g1_bootstrap_toolchain_after_final_checkout_reproves(),
+        selftest_g1_if_git_reproves(),
+        selftest_g1_negated_git_reproves(),
+        selftest_g1_env_prefixed_git_reproves(),
+        selftest_g1_var_prefixed_git_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

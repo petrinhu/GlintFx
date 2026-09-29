@@ -4813,3 +4813,18 @@ Nenhuma decisão desta lista segue pendente de confirmação.
 - **Push:** onda-w7c = 352442e, provado por ls-remote. O CI é o run 36584047687 (workflow_dispatch).
 - **Próximo:** paralelo da A5 pelo /var/tmp/cto-a5-paralelo/DESENHO.md. O implementador fatia, e o CTO ataca o fatiamento antes do código.
 - **Aviso:** abriu uma sessão interativa glintfx-30 às ~11:34. Os agentes conferem `git status` antes de cada commit.
+
+## 29/09/2026 - 12:46 | D-A31: CI do 352442e vermelho, consertos, fim da janela da VM e pausa às 16:00
+
+- **CI 36584047687 (352442e): failure, 15 jobs.** Todos caem no blob_selftests_selftest ou na paridade:
+  - Linux: o controle D-A27 executava o envoltório real e o container não tem bwrap;
+  - Windows: as fixtures .sh rodavam com o bash do WSL;
+  - Paridade: o armadilha_selftest estava sem exceção.
+  - A família é "portão que congela um fato do ambiente": nem o CTO nem o main conferiram as instalações do ci.yml antes do aceite.
+- **Consertos, com decisões do CTO (confirmar retroativamente):**
+  - 2f501b2 (F0): o vazamento de raízes glintfx-blob-*; o main apagou 460 antigas;
+  - 39eb670: dublê do envoltório na raiz falsa; blob_selftests_selftest em if(UNIX); as 2 exceções de paridade; armadilha_selftest em dois grupos. Provado num container cachyos sem bwrap, com o vermelho do CI reproduzido;
+  - d04f908: auto-prova sem -maxdepth (I-1 do CTO, que corrige o aceite dele no 55cd3d5); grupo 1 com a raiz gravável e o contrato do dublê;
+  - 886a8ec: as checagens baratas vêm antes de qualquer find, com um find armadilha no 6º controle. É um achado do main: no d04f908 a auto-prova fora da sandbox varria o hospedeiro inteiro (só leitura de nomes, incluindo /home/petrus/VM-Windows e /run/user/1000), durante os preci de ~12:24 a ~12:45. O d04f908 foi aceito só com a condição de subir junto com o 886a8ec.
+- **VM:** a janela de 12h terminou às 12:25, com o standby-timeout-ac de volta a 15 min (conferido por /query). A VM continua ligada.
+- **Ordem do líder, verbatim:** "suspenda a janela de 12h, pode continuar trabalhando normalmente e pause somente 16:00h de hoje" e "16:00h horário de recife pernambuco brasil". Cron e56c483c às 16:00 America/Recife; o fuso da máquina foi conferido.

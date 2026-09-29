@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`CTEST-PARALLEL-GRAU-WRITE-HOST`: a validação do grau no passo pwsh de "Testes" (Windows) deveria usar `exit 1` puro, e o NB5 do CTO aponta `Write-Host` onde falta `exit`** (CTO 29/09/2026, NB5): conferir se toda validação de variável de grau em pwsh termina o passo, não só escreve.
+
 - **`PWSH-TESTES-EXIT-8-VIRA-1`: o passo pwsh de "Testes" (Windows) devolve rc=1 e nao o codigo do ctest** (ex.: ctest falso saindo 3 dava rc=1 sob `pwsh -command ". arquivo"`, medido no container em 29/09/2026); so' o nao-zero importa hoje, mas o codigo real some do log (CTO 29/09, exit 8 para 1; PN2 e PN3 da mesma revisao: texto nao recebido pelo implementador, o main detalha).
 
 - **`CTEST-SNAPMEASURE-NO-CI`: transformar o `snapmeasure` do CTO em passo do job da etapa 2 da A5 (rodada serial P1), reprovando se um teste declarado `reads-only` alterar o diretório de build** (CTO 29/09/2026).

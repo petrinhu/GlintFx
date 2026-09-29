@@ -4828,3 +4828,16 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - 886a8ec: as checagens baratas vêm antes de qualquer find, com um find armadilha no 6º controle. É um achado do main: no d04f908 a auto-prova fora da sandbox varria o hospedeiro inteiro (só leitura de nomes, incluindo /home/petrus/VM-Windows e /run/user/1000), durante os preci de ~12:24 a ~12:45. O d04f908 foi aceito só com a condição de subir junto com o 886a8ec.
 - **VM:** a janela de 12h terminou às 12:25, com o standby-timeout-ac de volta a 15 min (conferido por /query). A VM continua ligada.
 - **Ordem do líder, verbatim:** "suspenda a janela de 12h, pode continuar trabalhando normalmente e pause somente 16:00h de hoje" e "16:00h horário de recife pernambuco brasil". Cron e56c483c às 16:00 America/Recife; o fuso da máquina foi conferido.
+
+## 29/09/2026 - 13:5x | D-A32: a máquina travou (esgotamento de processos); modo autônomo religado
+
+- **Ordens do líder, verbatim:** "teve um erro tao intenso que precisei desligar o computador segurando o botao de desligar"; "ligue modo autonomo, corrija o que causaou o problema e continue o que estava fazendo com mais cuidado".
+- **Causa** (journal do boot -1 lido pelo main; detalhe em /var/tmp/glintfx-retomada-pos-crash.md):
+  - o controle 7 do shim de cmake (tests/tools/fase_shim/, código de um desenho REVOGADO pelo CTO às 13:20) foi rodado sem commit às 13:22;
+  - o dublê recursivo, com FAKE_NESTED herdado, esgotou os 4000 processos do usuário;
+  - caíram a VM (qemu SIGABRT às 13:22:23), o firefox, o brave e a sessão.
+- **Conserto da causa** (desenho do CTO em curso, /var/tmp/cto-a5-paralelo/CONTENCAO.md):
+  - todo preci e todo teste avulso de agente rodam dentro de `systemd-run --user --scope -p TasksMax`;
+  - contenção provada pelo main às 13:5x;
+  - todo dublê de chamada aninhada ganha trava de profundidade.
+- **Estado:** a VM ficou desligada pela trava (não religada). O watchcode foi religado. Os agentes da sessão anterior se perderam; o CTO foi redespachado.

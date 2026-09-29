@@ -69,12 +69,28 @@ def repeat_errors(name, text):
     return errors
 
 
+def _yaml_steps(text):
+    """Blocos de passo (`      - ...`) de um YAML de workflow; texto sem passo
+    (ex.: um .sh) devolve [text]."""
+    partes = re.split(r"(?m)^(?=      - )", text)
+    return [p for p in partes if p.strip()] if len(partes) > 1 else [text]
+
+
 def parallel_degree_errors(name, text):
-    """(erros, chamadas_paralelas)."""
-    chamadas = [l for l in _code_lines(text) if (m := _CTEST_CALL_RE.search(l)) and _PARALLEL_RE.search(m.group(0))]
-    if chamadas and "paralelismo:" not in text:
-        return [f"{name}: chama ctest em paralelo ({len(chamadas)}x) e nao imprime 'paralelismo:' (o grau e' a linha de escopo da secao 4.8)"], len(chamadas)
-    return [], len(chamadas)
+    """(erros, chamadas_paralelas). O grau tem de ser impresso NO MESMO passo
+    (ci.yml) ou no mesmo arquivo (preci.sh, sem passos)."""
+    errors = []
+    total = 0
+    for bloco in _yaml_steps(text):
+        chamadas = [l for l in _code_lines(bloco) if (m := _CTEST_CALL_RE.search(l)) and _PARALLEL_RE.search(m.group(0))]
+        total += len(chamadas)
+        if chamadas and "paralelismo:" not in bloco:
+            primeira = bloco.strip().splitlines()[0].strip()
+            errors.append(
+                f"{name}: passo {primeira!r} chama ctest em paralelo e nao imprime 'paralelismo:' "
+                f"(o grau e' a linha de escopo da secao 4.8)"
+            )
+    return errors, total
 
 
 # --- regra 3: registros que recebem o diretorio de build ---------------
@@ -229,6 +245,10 @@ def selftest_main():
     controls.append(_expect("GRAU-NAO-IMPRESSO (--parallel sem 'paralelismo:') reprova", any("paralelismo:" in e for e in erros) and p == 1, str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, '      - run: |\n          echo "paralelismo: 4"\n          ctest -j 4\n', "")
     controls.append(_expect("GRAU-IMPRESSO passa", not erros, str(erros)))
+    dois = ('      - run: |\n          echo "paralelismo: 4"\n          ctest -j 4\n'
+            '      - run: ctest --parallel 8\n')
+    erros, _c, p = run_check(_CMAKE_OK, dois, "")
+    controls.append(_expect("GRAU-IMPRESSO-SO-EM-UM-DOS-PASSOS reprova (por passo, nao por arquivo)", any("passo" in e and "paralelismo:" in e for e in erros) and p == 2, str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, "      # ctest --repeat until-pass\n" + _CI_OK, "")
     controls.append(_expect("COMENTARIO com --repeat nao reprova", not erros, str(erros)))
     erros, c, _p = run_check("add_test(NAME x COMMAND echo)\n", _CI_OK, "")

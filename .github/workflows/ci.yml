@@ -602,7 +602,11 @@ jobs:
         run: |
           set -eux
           set +e
-          ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml
+          # A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): ctest paralelo, grau = nproc
+          # do runner, lido na hora e IMPRESSO; cada teste roda UMA vez (sem --repeat).
+          paralelismo="$(nproc)"
+          echo "paralelismo: $paralelismo (nproc do runner)"
+          ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml --parallel "$paralelismo"
           ctest_ec=$?
           set -e
           cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
@@ -1071,7 +1075,11 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
         run: |
-          ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml
+          # A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): ctest paralelo, grau =
+          # NUMBER_OF_PROCESSORS do runner, lido na hora e IMPRESSO; sem --repeat.
+          $paralelismo = $env:NUMBER_OF_PROCESSORS
+          Write-Host "paralelismo: $paralelismo (NUMBER_OF_PROCESSORS do runner)"
+          ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml --parallel $paralelismo
           $ctest_ec = $LASTEXITCODE
           Copy-Item (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log") (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")
           if ($ctest_ec -ne 0) { exit $ctest_ec }

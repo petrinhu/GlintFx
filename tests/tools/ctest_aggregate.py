@@ -53,6 +53,7 @@ import xml.etree.ElementTree as ElementTree
 
 SCRIPT_NAME = "ctest_aggregate.py"
 JUNIT_NAME = "ctest-results-junit.xml"
+TOP_DURATIONS = 25
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "ctest_probe")
 
 _TOTAL_RE = re.compile(r"Total Tests: (\d+)")
@@ -99,23 +100,29 @@ def classify_case(case):
 
 
 def parse_junit(junit_path):
-    """({status: n}, motivos, erro) - erro e' None quando o JUnit foi lido;
-    motivos = por que cada notrun contou como falha."""
+    """({status: n}, motivos, erro, duracoes) - erro e' None quando o JUnit foi lido;
+    motivos = por que cada notrun contou como falha; duracoes = [(nome, segundos)]
+    (A5: as medidas reais que calibram TIMEOUT e PROCESSORS sob --parallel)."""
     text = read_text(junit_path)
     if text is None:
-        return None, [], f"{junit_path} ausente - o passo 'Testes' nao rodou ate o fim (ou nao usou --output-junit)"
+        return None, [], f"{junit_path} ausente - o passo 'Testes' nao rodou ate o fim (ou nao usou --output-junit)", []
     try:
         root = ElementTree.fromstring(text)
     except ElementTree.ParseError as exc:
-        return None, [], f"{junit_path} ilegivel ({exc})"
+        return None, [], f"{junit_path} ilegivel ({exc})", []
     counts = {"passou": 0, "falhou": 0, "pulou": 0, "desligado": 0}
     motivos = []
+    duracoes = []
     for case in root.iter("testcase"):
         status, motivo = classify_case(case)
         counts[status] += 1
         if motivo:
             motivos.append(motivo)
-    return counts, motivos, None
+        try:
+            duracoes.append((case.get("name", "?"), float(case.get("time", "0"))))
+        except ValueError:
+            pass
+    return counts, motivos, None, duracoes
 
 
 def verdict(declared, counts, errors, motivos=()):
@@ -141,7 +148,7 @@ def verdict(declared, counts, errors, motivos=()):
 def run(builddir, inventory_path, junit_path=None):
     junit_path = junit_path or os.path.join(builddir, JUNIT_NAME)
     declared, declared_error = parse_declared(inventory_path)
-    counts, motivos, junit_error = parse_junit(junit_path)
+    counts, motivos, junit_error, duracoes = parse_junit(junit_path)
     errors = [e for e in (declared_error, junit_error) if e]
     shown = "?" if declared is None else declared
     c = counts or {"passou": 0, "falhou": 0, "pulou": 0, "desligado": 0}
@@ -154,6 +161,10 @@ def run(builddir, inventory_path, junit_path=None):
         f"declarados: {shown}, executados: {c['passou'] + c['falhou'] - nao_rodou}, passaram: {c['passou']}, "
         f"falharam: {c['falhou']}, pulados: {c['pulou']}, desligados: {c['desligado']}, nao_rodou: {nao_rodou}"
     )
+    if duracoes:
+        maiores = sorted(duracoes, key=lambda d: -d[1])[:TOP_DURATIONS]
+        print("duracoes (maiores primeiro, s): " + " ".join(f"{n}={t:.2f}" for n, t in maiores))
+        print(f"soma dos tempos: {sum(t for _n, t in duracoes):.1f} s")
     problems = verdict(declared, counts, errors, motivos)
     for problem in problems:
         print(f"{SCRIPT_NAME}: {problem}", file=sys.stderr)
@@ -223,7 +234,8 @@ def selftest_main():
         # 1 desligado, 5 falhas - 3 delas notrun).
         _case("NOTRUN-NAO-E-PULADO (ctest real)", 1, "junit_notrun.xml", "inventory_notrun.txt",
               ["executados: 3", "passaram: 1", "falharam: 5", "pulados: 2", "desligados: 1", "nao_rodou: 3",
-               "Unable to find executable", "Required Files Missing", "Fixture dependency failed"]),
+               "Unable to find executable", "Required Files Missing", "Fixture dependency failed",
+               "duracoes (maiores primeiro, s): estoura=1.01", "soma dos tempos:"]),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),
         _case("JUNIT-ILEGIVEL", 1, None, "inventory_allpass.txt", ["ilegivel"], junit_text="<testsuite"),
         _case("RODAPE-AUSENTE", 1, "junit_allpass.xml", sem_rodape, ["Total Tests"]),

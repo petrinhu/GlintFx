@@ -803,10 +803,52 @@ stage_container_link() {
         fail "estagio container-link recusado: prepare_arch_ports_fixture.sh reprovou (ver acima) - GATE-CONT-LINK, GODS_LAWS.md L-17/L-36/L-40"
 }
 
+# A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): grau do ctest LOCAL. Padrao
+# SERIAL (1): nao ha medida local que mande outra coisa, e o P1 (paralelo x
+# serial, conjunto de aprovados identico) e' medido nos runners do CI. Quem
+# pede paralelo exporta GLINTFX_CTEST_JOBS=N, e o pedido e' LIMITADO pela
+# L-11 global (secao 5): no maximo 13 threads, 3 nucleos sempre livres
+# (N <= nproc - 3), e RECUSADO (nunca "roda assim mesmo") se houver container
+# no ar (`docker ps` nao vazio) ou se MemAvailable < 10 GiB (o piso de RAM
+# livre). Funcao pura: recebe os quatro fatos ja medidos, para o selftest.
+# Saida: o grau, ou "RECUSA: <motivo>" com codigo 1.
+pick_ctest_jobs() {
+    requested="$1"; nproc_now="$2"; docker_running="$3"; mem_avail_kb="$4"
+    case "$requested" in
+        ''|1) echo 1; return 0 ;;
+        *[!0-9]*|0) echo "RECUSA: GLINTFX_CTEST_JOBS='$requested' nao e' um inteiro positivo"; return 1 ;;
+    esac
+    if [ "$docker_running" -ne 0 ]; then
+        echo "RECUSA: ha $docker_running container(s) no ar (docker ps nao vazio) - rodada paralela exige a maquina isolada (plano 4.8, item 5)"
+        return 1
+    fi
+    if [ "$mem_avail_kb" -lt 10485760 ]; then
+        echo "RECUSA: MemAvailable=$((mem_avail_kb / 1024)) MiB, abaixo do piso de 10 GiB livres da L-11"
+        return 1
+    fi
+    cap=$((nproc_now - 3))
+    [ "$cap" -gt 13 ] && cap=13
+    [ "$cap" -lt 1 ] && cap=1
+    if [ "$requested" -gt "$cap" ]; then
+        echo "$cap"
+    else
+        echo "$requested"
+    fi
+}
+
 stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
-    ctest --test-dir "$BUILD_DIR" --output-on-failure
+    docker_running="$(docker ps -q 2>/dev/null | wc -l)"
+    mem_avail_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+    jobs="$(pick_ctest_jobs "${GLINTFX_CTEST_JOBS:-1}" "$(nproc)" "$docker_running" "$mem_avail_kb")" \
+        || fail "estagio ctest recusado: $jobs"
+    echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker no ar=$docker_running, MemAvailable=$((mem_avail_kb / 1024)) MiB)"
+    if [ "$jobs" -gt 1 ]; then
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs"
+    else
+        ctest --test-dir "$BUILD_DIR" --output-on-failure
+    fi
 
     # MEASURED-COLLECTOR, espelho local (achado do time-lead,
     # 06/09/2026, item 5 "o espelho local"): a mesma extracao que o CI
@@ -1923,6 +1965,29 @@ run_selftest_floor_controls() {
     echo "selftest: piso de ferramentas OK"
 }
 
+# A5 etapa 2: pick_ctest_jobs (funcao pura) - cada limite da L-11 recusa ou
+# recorta, e serial e' o padrao.
+run_selftest_ctest_jobs_controls() {
+    log "selftest: pick_ctest_jobs (grau do ctest local limitado pela L-11)"
+    esperar() {
+        nome="$1"; esperado="$2"; shift 2
+        obtido="$(pick_ctest_jobs "$@")" || true
+        case "$obtido" in
+            "$esperado"*) echo "selftest: ctest_jobs $nome OK" ;;
+            *) fail "selftest ctest_jobs $nome: esperado '$esperado', obtido '$obtido'" ;;
+        esac
+    }
+    esperar "padrao serial" 1 "" 16 0 20000000
+    esperar "pedido 1" 1 1 16 0 20000000
+    esperar "pedido 8 em 16 nucleos" 8 8 16 0 20000000
+    esperar "teto de 13 threads" 13 20 32 0 20000000
+    esperar "3 nucleos livres (8 nucleos -> 5)" 5 8 8 0 20000000
+    esperar "RECUSA com container no ar" "RECUSA" 8 16 1 20000000
+    esperar "RECUSA abaixo de 10 GiB livres" "RECUSA" 8 16 0 9000000
+    esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000
+    echo "selftest: pick_ctest_jobs OK"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -1934,6 +1999,7 @@ run_selftest() {
     run_selftest_win32_link_controls
     run_selftest_noexcept_alloc_controls
     run_selftest_floor_controls
+    run_selftest_ctest_jobs_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 

@@ -72,8 +72,22 @@ def _resolve(caminho):
 
 
 def toca_vm(texto):
-    """True se alguma linha que nao e' comentario cita o laboratorio da VM ou virsh/virt-install/qemu-*/ssh/scp."""
+    """LIMITE DECLARADO (C-2, CTO): so' ve o TEXTO do proprio script. Chamada INDIRETA (um helper.sh ou
+    outro script que chama virsh) e heredoc/string que vira comando nao sao vistos: o gate estatico e'
+    uma rede, nao uma prova; quem prende de verdade e' o isolamento do bwrap. True se alguma linha que nao e' comentario cita o laboratorio da VM ou virsh/virt-install/qemu-*/ssh/scp."""
     return any(_TOCA_VM_RE.search(linha) for linha in texto.split("\n") if not linha.lstrip().startswith("#"))
+
+
+def _sem_comentarios(texto):
+    """Apaga `#...` ate o fim da linha (cmake), preservando as demais linhas."""
+    return "\n".join(re.sub(r"#.*", "", linha) for linha in texto.split("\n"))
+
+
+def _primeiro_token_e_envoltorio(bloco):
+    """C-1 (CTO): o PRIMEIRO token do COMMAND e' run_com_armadilha.sh. Comentario ou argumento com o
+    nome do envoltorio nao envolve (o ctest rodaria o laboratorio no hospedeiro)."""
+    m = re.search(r'COMMAND\s+"?([^"\s)]+)"?', _sem_comentarios(bloco))
+    return bool(m) and m.group(1).endswith("/run_com_armadilha.sh")
 
 
 def _has_selftest_label(bloco):
@@ -142,7 +156,8 @@ def registered_selftests(cmake_text):
         acima = _comment_block_above(cmake_text, m.start())
         isento = _ISENTO_RE.search(acima)
         entradas.append({"nome": nome.group(1), "forma": forma, "script": script, "fora": fora,
-                         "envolvido": "run_com_armadilha.sh" in bloco,
+                         "envolvido": _primeiro_token_e_envoltorio(bloco),
+                         "comando_toca_vm": toca_vm(_sem_comentarios(bloco)),
                          "isento": None if not isento else (isento.group(1) or "").strip(),
                          "cond": _enclosing_condition(cmake_text, m.start())})
     return entradas, por_label
@@ -243,6 +258,7 @@ def run_all(root, ctest_json=None):
         erros.extend(crosscheck(entradas, nomes_ctest))
         linhas.extend(ausentes_condicionais(entradas, nomes_ctest))
     rodados = fora = 0
+    isentos = sum(1 for e in entradas if e.get("isento"))
     inicio = time.monotonic()
     nomes_add = {e["nome"] for e in entradas}
     for fantasma in sorted(por_label - nomes_add):
@@ -258,6 +274,9 @@ def run_all(root, ctest_json=None):
             continue
         if e["forma"] is None:
             erros.append(f"{nome}: forma nao rodavel (nem `python --selftest` nem `.sh --selftest`) e sem declaracao `# glintfx-blob: fora - <motivo>`")
+            continue
+        if e.get("isento") is not None and e.get("comando_toca_vm"):
+            erros.append(f"{nome}: `# glintfx-armadilha: isento` e' INVALIDO - o COMMAND executa o laboratorio da VM ou virsh/qemu-*/ssh/scp; use run_com_armadilha.sh (I-1)")
             continue
         if e.get("isento") is not None and not e["isento"]:
             erros.append(f"{nome}: `# glintfx-armadilha: isento` sem motivo (use `- <motivo>`) - declaracao fail-closed")
@@ -286,7 +305,7 @@ def run_all(root, ctest_json=None):
         erros.append(f"conta quebrada: {rodados} rodado(s) + {fora} fora != {registrados} registrado(s)")
     linhas.extend(f"ERRO {e}" for e in erros)
     linhas.append(
-        f"blob: {registrados} registrado(s), {rodados} rodado(s), {fora} fora (declarado), falharam {len(falharam)}, "
+        f"blob: {registrados} registrado(s), {rodados} rodado(s), {fora} fora (declarado), {isentos} isento(s) (declarado), falharam {len(falharam)}, "
         f"{len(erros)} erro(s) de declaracao, {total_s:.0f} s"
     )
     return (1 if (falharam or erros) else 0), linhas
@@ -315,6 +334,10 @@ def _fake_root(scripts, cmake_extra=""):
                 cmd = f'"${{GLINTFX_PYTHON3_EXECUTABLE}}"\n        "${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest'
             elif forma == "sh":
                 cmd = f'"${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest'
+            elif forma == "shcom":
+                cmd = f'"${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest\n        # run_com_armadilha.sh (so\' comentario)'
+            elif forma == "sharg":
+                cmd = f'"${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest "${{PROJECT_SOURCE_DIR}}/tests/tools/armadilha/run_com_armadilha.sh"'
             elif forma == "shw":
                 cmd = f'"${{PROJECT_SOURCE_DIR}}/tests/tools/armadilha/run_com_armadilha.sh" "${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest'
             else:
@@ -381,6 +404,20 @@ def selftest_main():
     controles.append(_check("C-b: `# glintfx-armadilha: isento - <motivo>` isenta", rc == 0, str(linhas)))
     rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "iso.sh": (toca, True, "# glintfx-armadilha: isento", "sh")})
     controles.append(_check("C-b: isento SEM motivo reprova", rc == 1 and any("iso_selftest" in l and "motivo" in l for l in linhas), str(linhas)))
+    # I-1 (CTO): isento NAO vale quando o COMMAND executa o laboratorio ou ferramenta de VM/rede
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"),
+                       "win-vm-lab/x.sh": (ok_sh, True, "# glintfx-armadilha: isento - qualquer motivo", "sh")})
+    controles.append(_check("I-1: `isento` acima de add_test que executa tools/win-vm-lab/ e' INVALIDO e reprova, nomeando",
+                            rc == 1 and any(l.startswith("ERRO ") and "x_selftest" in l and "isento" in l and "INVALIDO" in l for l in linhas), str(linhas)))
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "iso.sh": (toca, True, "# glintfx-armadilha: isento - so' cita fixture", "sh")})
+    controles.append(_check("I-1(b): a linha do blob CONTA os isentos", rc == 0 and "1 isento(s)" in linhas[-1], str(linhas)))
+    # C-1 (CTO): "envolvido" = o PRIMEIRO token do COMMAND e' o envoltorio
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "c.sh": (toca, True, None, "shcom")})
+    controles.append(_check("C-1: `run_com_armadilha.sh` so' em COMENTARIO do add_test nao envolve: reprova, nomeando",
+                            rc == 1 and any(l.startswith("ERRO c_selftest") and "run_com_armadilha.sh" in l for l in linhas), str(linhas)))
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "g.sh": (toca, True, None, "sharg")})
+    controles.append(_check("C-1: `run_com_armadilha.sh` como ARGUMENTO (nao primeiro token) nao envolve: reprova, nomeando",
+                            rc == 1 and any(l.startswith("ERRO g_selftest") and "run_com_armadilha.sh" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"sumiu.py": (None, True, None, "py"), "a.py": (ok_py, True, None, "py")})
     controles.append(_check("registrado mas AUSENTE no blob reprova (o defeito das fixtures)", rc == 1 and any("ausente no blob" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, False, None, "py")})

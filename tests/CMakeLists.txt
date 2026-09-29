@@ -4811,6 +4811,16 @@ add_test(
 )
 set_tests_properties(ctest_parallel_policy_selftest PROPERTIES LABELS selftest)
 
+# CI-SPLIT-PER-OS A5 etapa 3: comparador das 6 rodadas de calibracao (P1, P2,
+# regra 4 e P3), autoteste sobre rodadas REAIS de ctest gravadas em
+# tests/tools/fixtures/p1_rounds/. Python puro, sem guarda de sistema.
+add_test(
+    NAME ctest_p1_compare_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ctest_p1_compare.py" --selftest
+)
+set_tests_properties(ctest_p1_compare_selftest PROPERTIES LABELS selftest)
+
 # CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
 # roda o autoteste contra respostas REAIS da API do GitHub gravadas em
 # tests/tools/fixtures/rerun_guard/. Python puro, sem guarda de sistema.

@@ -692,7 +692,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
-          path: ${{ matrix.builddir }}/ctest-results-junit.xml
+          path: |
+            ${{ matrix.builddir }}/ctest-results-junit.xml
+            ctest-show.json
           retention-days: 7
 
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
@@ -1168,7 +1170,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
-          path: ${{ matrix.builddir }}/ctest-results-junit.xml
+          path: |
+            ${{ matrix.builddir }}/ctest-results-junit.xml
+            ctest-show.json
           retention-days: 7
 
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):

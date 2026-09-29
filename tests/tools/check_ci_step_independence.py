@@ -165,7 +165,7 @@ def split_steps(job_block_text):
 # `ctest` que EXECUTA (linha de comando que comeca por `ctest`, sem `-N`,
 # que so' lista). CTO 29/09, achado 3: sem isto o job linux imprimia "0
 # de teste" e o passo "Testes" ficava fora de todas as regras.
-_CTEST_RUN_RE = re.compile(r"^\s*(?:run:\s*)?ctest\b(?![^\n]*(?:\s-N\b|--show-only))", re.MULTILINE)
+_CTEST_RUN_RE = re.compile(r"^\s*(?:run:\s*)?ctest(?=\s|$)(?![^\n]*(?:\s-N\b|--show-only))", re.MULTILINE)
 
 
 def is_test_step(step_text):
@@ -2639,6 +2639,19 @@ def selftest_show_only_is_not_a_test_step():
 
 
 
+# Falso positivo achado ao publicar o ctest-show.json (A5 etapa 3): uma linha `ctest-show.json`
+# (path: de artefato) e' o COMANDO ctest para o `\bctest\b`. So' `ctest` seguido de espaco ou fim.
+def selftest_artifact_path_named_ctest_is_not_a_test_step():
+    publica = _JUNIT_PUBLISH.replace("          path: build/ctest-results-junit.xml\n", "          path: |\n            build/ctest-results-junit.xml\n            ctest-show.json\n")
+    exit_code, output = _run_real_main_capturing(_agg_fixture(_AGG_STEP, publica=publica))
+    if exit_code not in (None, 0):
+        print(f"selftest: CTEST-SHOW-JSON-NAO-E-COMANDO FALHOU: {output!r}", file=sys.stderr)
+        return False
+    print("selftest: CTEST-SHOW-JSON-NAO-E-COMANDO OK")
+    return True
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2700,6 +2713,7 @@ def selftest_main():
         selftest_aggregate_without_tests_json_reproves(),
         selftest_aggregate_json_not_produced_reproves(),
         selftest_show_only_is_not_a_test_step(),
+        selftest_artifact_path_named_ctest_is_not_a_test_step(),
         selftest_junit_artifact_missing_reproves(),
         selftest_junit_artifact_without_cancelled_reproves(),
         selftest_junit_artifact_wrong_name_reproves(),

@@ -204,6 +204,8 @@ def extract_run_blocks(job_block_text):
 # delimitador de comando shell (`;`, `&&`, `||`, `|`) e aplicar a busca
 # de slug em CADA SEGMENTO - so' o segmento que de fato invoca
 # `ci_systems.py` fica isento, os outros continuam sob a regra.
+# (CTO 29/09, achado 1: a isencao do segmento foi REMOVIDA - era codigo
+# morto no caso bom e furo no ruim, mutantes F2b/F2c.)
 _COMMAND_SEPARATOR_RE = re.compile(r";|&&|\|\|(?!\|)|\|(?!\|)")
 
 
@@ -222,8 +224,10 @@ def _hardcoded_slug_assignment_errors(parity_job_block, systems):
                 if not line or line.startswith("#"):
                     continue
                 for segment in _split_shell_segments(line):
-                    if "ci_systems.py" in segment:
-                        continue
+                    # Sem isencao para o segmento que chama ci_systems.py
+                    # (CTO 29/09, achado 1): o uso legitimo nunca cita o
+                    # nome de um slug; a isencao so' deixava passar o slug
+                    # escrito a mao como argumento da propria chamada.
                     if pattern.search(segment):
                         errors.append(
                             f"job 'parity': linha cita o slug {slug!r} fora de ci_systems.py "
@@ -476,6 +480,29 @@ def selftest_s3d_mixed_line_reproves():
     return True
 
 
+# CTO 29/09 achado 1 (mutantes F2b/F2c): a isencao "segmento que contem
+# ci_systems.py" deixava passar o slug escrito a mao como ARGUMENTO da
+# propria chamada do carregador (`ci_systems.py --tool family-of fedora`)
+# - um segmento unico, sem `;`/`&&`. O uso legitimo nunca cita o NOME de
+# um slug (os argumentos vem do carregador), entao a isencao era codigo
+# morto no caso bom e furo no caso ruim.
+def selftest_single_segment_slug_argument_reproves():
+    ci_f2b = _FAKE_CI_YML_GOOD.replace(
+        "          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)\n",
+        "          args=$(python3 tests/tools/ci_systems.py --tool args-per-system /tmp/persystem)\n"
+        "          [ \"$(python3 tests/tools/ci_systems.py --tool family-of fedora)\" = linux ] || exit 1\n",
+    )
+    if ci_f2b == _FAKE_CI_YML_GOOD:
+        print("selftest: F2B-SEGMENTO-UNICO FALHOU (ancora do replace nao casou)", file=sys.stderr)
+        return False
+    errors = run_check(ci_f2b, _FAKE_SYSTEMS)
+    if not any("fedora" in e for e in errors):
+        print(f"selftest: F2B-SEGMENTO-UNICO FALHOU (slug como argumento do carregador deveria reprovar): {errors}", file=sys.stderr)
+        return False
+    print("selftest: F2B-SEGMENTO-UNICO OK (slug escrito a mao dentro da chamada do carregador reprova)")
+    return True
+
+
 # R2, controle negativo: chamar ci_systems.py --tool NAO reprova - e' o
 # uso LEGITIMO do carregador (a fixture positiva ja prova isso; este
 # controle isola o motivo, provando que 'args-per-system' sozinho na
@@ -534,6 +561,7 @@ def selftest_main():
         selftest_s3_for_loop_without_equals_reproves(),
         selftest_s3d_mixed_line_reproves(),
         selftest_ci_systems_tool_call_does_not_reprove(),
+        selftest_single_segment_slug_argument_reproves(),
         selftest_needs_field_outside_run_does_not_reprove(),
         selftest_job_not_found_reproves(),
     ]

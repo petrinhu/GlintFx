@@ -813,19 +813,34 @@ stage_container_link() {
 # livre). Funcao pura: recebe os quatro fatos ja medidos, para o selftest.
 # Saida: o grau, ou "RECUSA: <motivo>" com codigo 1.
 pick_ctest_jobs() {
-    requested="$1"; nproc_now="$2"; docker_running="$3"; mem_avail_kb="$4"
+    requested="$1"; nproc_now="$2"; docker_state="$3"; mem_avail_kb="$4"; other_builds="$5"
     case "$requested" in
         ''|1) echo 1; return 0 ;;
         *[!0-9]*|0) echo "RECUSA: GLINTFX_CTEST_JOBS='$requested' nao e' um inteiro positivo"; return 1 ;;
     esac
-    if [ "$docker_running" -ne 0 ]; then
-        echo "RECUSA: ha $docker_running container(s) no ar (docker ps nao vazio) - rodada paralela exige a maquina isolada (plano 4.8, item 5)"
-        return 1
-    fi
+    # Toda recusa e' FECHADA: fato ausente, vazio ou nao numerico RECUSA, nunca
+    # libera (I2, CTO 29/09: `docker ps | wc -l` com o docker falhando dava 0 e
+    # MemAvailable vazio fazia o `[ -lt ]` dar erro e liberar o paralelo).
+    case "$docker_state" in
+        absent|0) ;;
+        erro) echo "RECUSA: docker presente mas 'docker ps' falhou - nao se sabe se ha container no ar (plano 4.8, item 5)"; return 1 ;;
+        *[!0-9]*|'') echo "RECUSA: estado do docker ilegivel ('$docker_state')"; return 1 ;;
+        *) echo "RECUSA: ha $docker_state container(s) no ar (docker ps nao vazio) - rodada paralela exige a maquina isolada (plano 4.8, item 5)"; return 1 ;;
+    esac
+    case "$mem_avail_kb" in
+        ''|*[!0-9]*) echo "RECUSA: MemAvailable ilegivel ('$mem_avail_kb') - sem o fato nao se libera o paralelo"; return 1 ;;
+    esac
     if [ "$mem_avail_kb" -lt 10485760 ]; then
         echo "RECUSA: MemAvailable=$((mem_avail_kb / 1024)) MiB, abaixo do piso de 10 GiB livres da L-11"
         return 1
     fi
+    case "$other_builds" in
+        0) ;;
+        erro|'') echo "RECUSA: nao foi possivel varrer os processos - nao se sabe se ha outro build do projeto no ar (plano 4.8, item 5)"; return 1 ;;
+        *[!0-9]*) echo "RECUSA: contagem de builds no ar ilegivel ('$other_builds')"; return 1 ;;
+        *) echo "RECUSA: ha $other_builds processo(s) cmake/ninja/ctest do projeto no ar - nenhum outro build do projeto pode rodar junto (plano 4.8, item 5)"; return 1 ;;
+    esac
+    case "$nproc_now" in ''|*[!0-9]*) echo "RECUSA: nproc ilegivel ('$nproc_now')"; return 1 ;; esac
     cap=$((nproc_now - 3))
     [ "$cap" -gt 13 ] && cap=13
     [ "$cap" -lt 1 ] && cap=1
@@ -836,14 +851,58 @@ pick_ctest_jobs() {
     fi
 }
 
+# Conta processos cmake/ninja/ctest do PROJETO no ar, a partir de UMA listagem
+# `ps -eo pid=,args=` ja capturada (funcao pura, para o selftest): so' builtins
+# do bash sobre o texto - nenhum processo por item, e nada de pgrep (acha a si
+# mesmo). Ignora o pid dado (o proprio preci). Devolve o numero, ou "erro" se a
+# listagem estiver vazia (um ps que nao lista nem o init nao serve de evidencia).
+count_project_builds() {
+    listing="$1"; root="$2"; self_pid="$3"
+    [ -n "$listing" ] || { echo erro; return 0; }
+    n=0
+    while IFS= read -r line; do
+        set -- $line
+        pid="${1:-}"; cmd="${2:-}"
+        [ "$pid" = "$self_pid" ] && continue
+        case "${cmd##*/}" in
+            cmake|ninja|ctest) ;;
+            *) continue ;;
+        esac
+        case "$line" in *"$root"*) n=$((n + 1)) ;; esac
+    done <<EOF_PS
+$listing
+EOF_PS
+    echo "$n"
+}
+
+# Fatos MEDIDOS agora para pick_ctest_jobs (so' quando o paralelo foi pedido).
+# docker: "absent" (nao instalado: 0 legitimo), "erro" (instalado e falhando) ou N.
+docker_state_now() {
+    command -v docker >/dev/null 2>&1 || { echo absent; return 0; }
+    if out="$(docker ps -q 2>/dev/null)"; then
+        if [ -z "$out" ]; then echo 0; else printf '%s\n' "$out" | grep -c .; fi
+    else
+        echo erro
+    fi
+}
+
 stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
-    docker_running="$(docker ps -q 2>/dev/null | wc -l)"
-    mem_avail_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
-    jobs="$(pick_ctest_jobs "${GLINTFX_CTEST_JOBS:-1}" "$(nproc)" "$docker_running" "$mem_avail_kb")" \
+    requested="${GLINTFX_CTEST_JOBS:-1}"
+    docker_state="nao-medido"; mem_avail_kb="nao-medido"; other_builds="nao-medido"
+    if [ "$requested" != "1" ] && [ -n "$requested" ]; then
+        docker_state="$(docker_state_now)"
+        mem_avail_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo 2>/dev/null || true)"
+        if listing="$(ps -eo pid=,args= 2>/dev/null)"; then
+            other_builds="$(count_project_builds "$listing" "$ROOT_DIR" "$$")"
+        else
+            other_builds="erro"
+        fi
+    fi
+    jobs="$(pick_ctest_jobs "$requested" "$(nproc)" "$docker_state" "$mem_avail_kb" "$other_builds")" \
         || fail "estagio ctest recusado: $jobs"
-    echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker no ar=$docker_running, MemAvailable=$((mem_avail_kb / 1024)) MiB)"
+    echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker=$docker_state, MemAvailable_kB=$mem_avail_kb, outros builds do projeto no ar=$other_builds)"
     if [ "$jobs" -gt 1 ]; then
         ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs"
     else
@@ -1968,7 +2027,7 @@ run_selftest_floor_controls() {
 # A5 etapa 2: pick_ctest_jobs (funcao pura) - cada limite da L-11 recusa ou
 # recorta, e serial e' o padrao.
 run_selftest_ctest_jobs_controls() {
-    log "selftest: pick_ctest_jobs (grau do ctest local limitado pela L-11)"
+    log "selftest: pick_ctest_jobs e count_project_builds (grau do ctest local limitado pela L-11, recusas fechadas)"
     esperar() {
         nome="$1"; esperado="$2"; shift 2
         obtido="$(pick_ctest_jobs "$@")" || true
@@ -1977,14 +2036,35 @@ run_selftest_ctest_jobs_controls() {
             *) fail "selftest ctest_jobs $nome: esperado '$esperado', obtido '$obtido'" ;;
         esac
     }
-    esperar "padrao serial" 1 "" 16 0 20000000
-    esperar "pedido 1" 1 1 16 0 20000000
-    esperar "pedido 8 em 16 nucleos" 8 8 16 0 20000000
-    esperar "teto de 13 threads" 13 20 32 0 20000000
-    esperar "3 nucleos livres (8 nucleos -> 5)" 5 8 8 0 20000000
-    esperar "RECUSA com container no ar" "RECUSA" 8 16 1 20000000
-    esperar "RECUSA abaixo de 10 GiB livres" "RECUSA" 8 16 0 9000000
-    esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000
+    # ordem: pedido nproc docker mem_kb outros_builds
+    esperar "padrao serial" 1 "" 16 0 20000000 0
+    esperar "pedido 1" 1 1 16 0 20000000 0
+    esperar "pedido 8 em 16 nucleos" 8 8 16 0 20000000 0
+    esperar "docker ausente e' 0 legitimo" 8 8 16 absent 20000000 0
+    esperar "teto de 13 threads" 13 20 32 0 20000000 0
+    esperar "3 nucleos livres (8 nucleos -> 5)" 5 8 8 0 20000000 0
+    esperar "RECUSA com container no ar" "RECUSA" 8 16 1 20000000 0
+    esperar "RECUSA com docker presente e falhando" "RECUSA" 8 16 erro 20000000 0
+    esperar "RECUSA com estado do docker vazio" "RECUSA" 8 16 "" 20000000 0
+    esperar "RECUSA abaixo de 10 GiB livres" "RECUSA" 8 16 0 9000000 0
+    esperar "RECUSA com MemAvailable vazio" "RECUSA" 8 16 0 "" 0
+    esperar "RECUSA com MemAvailable nao numerico" "RECUSA" 8 16 0 abc 0
+    esperar "RECUSA com outro build do projeto no ar" "RECUSA" 8 16 0 20000000 2
+    esperar "RECUSA com a varredura de processos falhando" "RECUSA" 8 16 0 20000000 erro
+    esperar "RECUSA com contagem de builds vazia" "RECUSA" 8 16 0 20000000 ""
+    esperar "RECUSA pedido nao numerico" "RECUSA" abc 16 0 20000000 0
+    ps_fixture="    1 /sbin/init
+  200 bash tools/preci.sh --fast
+  300 /usr/bin/cmake --build /home/x/proj/build
+  301 ninja -C /home/x/proj/build
+  302 /usr/bin/ctest --test-dir /home/x/proj/build-preci
+  400 /usr/bin/cmake --build /home/x/outro/build
+  500 cmake --version /home/x/proj"
+    [ "$(count_project_builds "$ps_fixture" /home/x/proj 999)" = 4 ] || fail "selftest count_project_builds: esperado 4 (cmake, ninja, ctest e cmake --version do projeto; nao o de outro caminho)"
+    [ "$(count_project_builds "$ps_fixture" /home/x/proj 300)" = 3 ] || fail "selftest count_project_builds: o pid proprio (300) deveria ser ignorado"
+    [ "$(count_project_builds "$ps_fixture" /home/x/naoexiste 999)" = 0 ] || fail "selftest count_project_builds: esperado 0 para outro caminho"
+    [ "$(count_project_builds "" /home/x/proj 999)" = erro ] || fail "selftest count_project_builds: listagem vazia deve ser 'erro' (fechado)"
+    echo "selftest: count_project_builds OK"
     echo "selftest: pick_ctest_jobs OK"
 }
 

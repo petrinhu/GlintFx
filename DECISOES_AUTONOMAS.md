@@ -4688,3 +4688,24 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - **Sistemas:** todos, nos dois modos. O pesado que só inflou no Windows prova que calibrar em um sistema só não basta (L-04).
   - **PROCESSORS:** calibrar com o trinco, que vira definitivo se o P3 fechar. A via (c), com CMAKE_BUILD_PARALLEL_LEVEL=n, só entra se o P3 falhar. Aviso registrado: os pesados somam ~408 de 450 s no Linux, e o P3 (≤50%) é quase inalcançável. Se não fechar, a régua não se move depois do dado (L-43), e manter o paralelo pelo ganho medido vai ao líder.
   - **P4 substituído ANTES da fase de CI**, por falta de poder estatístico e não por resultado: um trinco de escritor fica se, e só se, uma medição por snapshot mostrar 2 ou mais testes escrevendo o MESMO caminho.
+
+## 29/09/2026 - 05:31 | D-A25: etapa 3 aceita; calibração disparada
+
+- **CTO (05:29), lote d9baf3e..f5c3737: aceito.** Verificado FORA da working tree, sobre `git archive`, com todos os selftests rc=0.
+  - C-1: as fixtures do P1 estavam num `build-shared/` ignorado pelo .gitignore; foram para `bd/` (48 no blob).
+  - I-1: o P3 mede só "Testes (compartilhado)/(estatico)".
+  - I-2: plano alinhado.
+  - Trava nova: check_ignored_fixtures.
+- **Calibração disparada, SHA f5c3737**, ramos descartáveis `calib/a5-r0..r5` (apagar ao fim; L-11, quarta emenda):
+  - r0 (serial, ctest_paralelo=1): run 36543163345;
+  - r1: 36543167200;
+  - r2: 36543171161;
+  - r3: 36543176046;
+  - r4: 36543180063;
+  - r5: 36543183920.
+  Os artefatos `ctest-junit-*` ficam retidos por 7 dias: baixar logo que fecharem.
+- **Antes de rodar o ctest_p1_compare sobre essas rodadas:** o P3 com 0 jobs medidos (ou menos que as pernas do P1) tem de REPROVAR, porque é varredura vazia (L-40). Achado do CTO.
+- **Decisão autônoma do CTO, a confirmar retroativamente:** fazer `preci.sh --blob` DEPOIS da calibração.
+  - Ele roda os selftests Python sobre o ÍNDICE (`git checkout-index`), e não sobre `git archive HEAD`, que testaria o commit anterior.
+  - Entra no `--fast` por padrão, com o tempo impresso; o universo vem de `LABELS selftest` Python no CMakeLists.
+  - O mutante de estreia é uma fixture em pasta build-* sem `add -f`.

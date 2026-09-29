@@ -4727,3 +4727,12 @@ Nenhuma decisão desta lista segue pendente de confirmação.
     - **GitHub Actions:** paralelo no limite dos núcleos do runner, com os pesados deixando de ficar em fila única (via (c) do plano ou equivalente, desenho do CTO).
     - **A régua do P3 não se move:** a nova configuração é medida de novo em 6 rodadas.
 - **Estado dos ramos:** os `calib/a5-r0..r5` ficam até a nova calibração; apagar ao fim (L-11).
+
+## 29/09/2026 - 08:20 | Pausa ordenada pelo líder
+
+- Ordem verbatim: "pause quando forem 08:00h". Executada às 08:19, depois da resposta dele à pergunta do P3 (D-A26).
+- **Agentes parados:**
+  - cto-review com a revisão do ce0f4ff PARCIAL; o estado dele fica em /var/tmp/cto-review-a1/ESTADO.md;
+  - impl-da14 ocioso.
+- **Nada empurrado:** ce0f4ff ainda não foi aceito, e há 8 commits locais à frente de origin/onda-w7c.
+- **Crons:** o monitor anti-parada (846bb0c2) foi desligado; a restauração da suspensão da VM às 12:25 (43114180) continua.

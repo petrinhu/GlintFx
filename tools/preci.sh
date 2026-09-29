@@ -2159,9 +2159,9 @@ run_debug_only() {
 # exatamente o que o commit faria.
 stage_blob() {
     # R-2 (D-A27): o json do ctest vem do configure da WORKING TREE e o parse le o INDICE;
-    # tests/CMakeLists.txt fora do indice faria os dois divergirem por esquecimento de git add.
-    git -C "$ROOT_DIR" diff --quiet -- tests/CMakeLists.txt \
-        || fail "estagio --blob recusado: tests/CMakeLists.txt tem mudanca fora do indice - rode git add antes do preci"
+    # qualquer CMakeLists.txt (o configure le todos) fora do indice faria os dois divergirem por esquecimento de git add.
+    git -C "$ROOT_DIR" diff --quiet -- '*CMakeLists.txt' \
+        || fail "estagio --blob recusado: algum CMakeLists.txt tem mudanca fora do indice - rode git add antes do preci"
     blob_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-blob-XXXXXX")" \
         || fail "mktemp -d falhou preparando o estagio --blob"
     git -C "$ROOT_DIR" checkout-index -a -f --prefix="$blob_dir/" \

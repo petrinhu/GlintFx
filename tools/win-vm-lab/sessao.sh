@@ -711,7 +711,7 @@ STUB
   chmod +x "${stub_dir}/virsh"
 
   echo ">>> E2: domstate simulado 'executando' com a trava LIVRE (esperado: recusa mesmo assim)"
-  saida="$(PATH="${stub_dir}:$PATH" verificar_domstate_livre "duble-dom" "qemu:///session" 2>&1)"
+  saida="$(PATH="${stub_dir}:$PATH" verificar_domstate_livre "duble-dom" "test:///default" 2>&1)"
   rc=$?
   echo "$saida"
   echo ">>> codigo obtido: ${rc}"
@@ -742,7 +742,7 @@ STUB
 
   echo ">>> E7a 1/3: sobe a sessao em segundo plano, com 'sleep 10' como comando"
   (
-    PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+    PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
       --lock "$lock_file" --base "$base" --overlay "$overlay" -- sleep 10
   ) &
   pid=$!
@@ -774,7 +774,7 @@ STUB
   echo
   echo ">>> E7b (espelho SIGKILL) 1/3: sobe outra sessao e mata com SIGKILL (trap NAO roda)"
   (
-    PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+    PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
       --lock "$lock_file" --base "$base" --overlay "$overlay" -- sleep 10
   ) &
   pid=$!
@@ -793,7 +793,7 @@ STUB
   fi
 
   echo ">>> E7b 3/3: proxima execucao tem de RECUSAR por achar a sobreposicao orfa"
-  PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+  PATH="${stub_dir}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
     --lock "$lock_file" --base "$base" --overlay "$overlay" -- true
   rc=$?
   echo ">>> codigo da execucao seguinte: ${rc}"
@@ -924,7 +924,7 @@ STUB
 
   echo ">>> V5B-CREATE 1/2: copia SABOTADA -- 'virsh create' tem de ser chamado ZERO vezes"
   TEARDOWN_MAQUINA_LIGADA=0
-  PATH="${stub_dir}:$PATH" validar_e_ligar_maquina "duble-dom" "qemu:///session" "$permanente" "$copia_sabotada" >/dev/null 2>&1
+  PATH="${stub_dir}:$PATH" validar_e_ligar_maquina "duble-dom" "test:///default" "$permanente" "$copia_sabotada" >/dev/null 2>&1
   rc=$?
   chamadas_sabotada="$(wc -c <"$contador" | tr -d ' ')"
   echo ">>> codigo (esperado != 0): ${rc}; chamadas a 'virsh create' (esperado 0): ${chamadas_sabotada}"
@@ -932,7 +932,7 @@ STUB
   : >"$contador"
   TEARDOWN_MAQUINA_LIGADA=0
   echo ">>> V5B-CREATE 2/2: copia LEGITIMA -- 'virsh create' tem de ser chamado EXATAMENTE 1 vez"
-  PATH="${stub_dir}:$PATH" validar_e_ligar_maquina "duble-dom" "qemu:///session" "$permanente" "$copia_legitima" >/dev/null 2>&1
+  PATH="${stub_dir}:$PATH" validar_e_ligar_maquina "duble-dom" "test:///default" "$permanente" "$copia_legitima" >/dev/null 2>&1
   rc2=$?
   chamadas_legitima="$(wc -c <"$contador" | tr -d ' ')"
   echo ">>> codigo (esperado 0): ${rc2}; chamadas a 'virsh create' (esperado 1): ${chamadas_legitima}"
@@ -964,7 +964,7 @@ STUB
 
   echo ">>> V5B-PING 1/2: guest-ping SEMPRE falha -- tem de respeitar o prazo (2s) e reprovar"
   inicio="$(date +%s)"
-  PATH="${stub_falha}:$PATH" esperar_guest_ping "duble-dom" "qemu:///session" 2 >/dev/null 2>&1
+  PATH="${stub_falha}:$PATH" esperar_guest_ping "duble-dom" "test:///default" 2 >/dev/null 2>&1
   rc=$?
   fim="$(date +%s)"
   decorrido=$((fim - inicio))
@@ -986,7 +986,7 @@ STUB
 
   echo ">>> V5B-PING 2/2: guest-ping responde de primeira -- tem de aprovar sem esperar o prazo inteiro"
   inicio="$(date +%s)"
-  PATH="${stub_ok}:$PATH" esperar_guest_ping "duble-dom" "qemu:///session" 30 >/dev/null 2>&1
+  PATH="${stub_ok}:$PATH" esperar_guest_ping "duble-dom" "test:///default" 30 >/dev/null 2>&1
   rc2=$?
   fim="$(date +%s)"
   decorrido=$((fim - inicio))
@@ -1074,7 +1074,7 @@ STUB
 
   echo ">>> V5B-TRES-COPIAS A: termino normal, com a maquina ligada de verdade (via dublê)"
   local saida_a rc_a
-  saida_a="$(PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+  saida_a="$(PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
     --lock "$lock_a" --base "$base_disco" --overlay "$overlay_a" \
     --ligar --nvram-overlay "$nvram_a" --tpm-state-dir "$tpm_a" \
     --tpm-state-dir-permanente "$tpm_perm" --prazo-ping 5 \
@@ -1103,7 +1103,7 @@ STUB
 
   echo ">>> V5B-TRES-COPIAS B: SIGTERM no meio, com a maquina ja ligada (via dublê)"
   (
-    PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+    PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
       --lock "$lock_b" --base "$base_disco" --overlay "$overlay_b" \
       --ligar --nvram-overlay "$nvram_b" --tpm-state-dir "$tpm_b" \
       --tpm-state-dir-permanente "$tpm_perm" --prazo-ping 20 \
@@ -1134,7 +1134,7 @@ STUB
   mkdir -p "${work_dir}/v5b4-c"
 
   echo ">>> V5B-TRES-COPIAS C: erro no meio ('virsh create' recusa) -- copias criadas ANTES tem de sumir"
-  PATH="${bin_falha}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+  PATH="${bin_falha}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
     --lock "$lock_c" --base "$base_disco" --overlay "$overlay_c" \
     --ligar --nvram-overlay "$nvram_c" --tpm-state-dir "$tpm_c" \
     --tpm-state-dir-permanente "$tpm_perm" --prazo-ping 5 \
@@ -1260,7 +1260,7 @@ VERIFY
   echo "    (2) ter o MESMO tamanho em bytes da base;"
   echo "    (3) ter a MESMA soma sha256 da base (copia INTEIRA, nao so metadados)."
   local saida_c rc_c
-  saida_c="$(PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect qemu:///session \
+  saida_c="$(PATH="${bin_ok}:$PATH" "$SCRIPT_PATH" --dom duble-dom --connect test:///default \
     --lock "$lock_c" --base "$base_disco" --overlay "$overlay_c" \
     --ligar --nvram-overlay "$nvram_c" --tpm-state-dir "$tpm_c" \
     --tpm-state-dir-permanente "$tpm_perm" --prazo-ping 5 \

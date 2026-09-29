@@ -1106,6 +1106,10 @@ selftest_chunk_bytes_explicito() {
 }
 
 selftest() {
+  # D-A27: o selftest NUNCA fala com a VM real. `test:///default` e' o driver de
+  # teste do libvirt (em processo, sem daemon) e `duble-dom` nao existe nele: mesmo
+  # um virsh REAL atras do stub so' recusaria o dominio. Vale por escopo dinamico.
+  local DOM="duble-dom" CONNECT="test:///default"
   local work_dir ok=1
   work_dir="$(mktemp -d /var/tmp/glintfx-coletar-selftest.XXXXXX)"
   trap 'rm -rf -- "$work_dir"' RETURN

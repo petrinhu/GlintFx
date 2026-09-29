@@ -239,7 +239,7 @@ STUB
   # identicas, prova de que a deteccao estatica nao alcanca este
   # padrao).
   # shellcheck disable=SC2034
-  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  local -A cfg=([dom]="duble-dom" [connect]="test:///default" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
   saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -5
@@ -295,7 +295,7 @@ STUB
   # identicas, prova de que a deteccao estatica nao alcanca este
   # padrao).
   # shellcheck disable=SC2034
-  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  local -A cfg=([dom]="duble-dom" [connect]="test:///default" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
   saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -5
@@ -366,7 +366,7 @@ STUB
   # identicas, prova de que a deteccao estatica nao alcanca este
   # padrao).
   # shellcheck disable=SC2034
-  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  local -A cfg=([dom]="duble-dom" [connect]="test:///default" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
   saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -6
@@ -426,7 +426,7 @@ STUB
   # identicas, prova de que a deteccao estatica nao alcanca este
   # padrao).
   # shellcheck disable=SC2034
-  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base_passado" [overlay]="$overlay" [backup]="$backup")
+  local -A cfg=([dom]="duble-dom" [connect]="test:///default" [lock_file]="$lock_file" [base]="$base_passado" [overlay]="$overlay" [backup]="$backup")
   saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida" | tail -5
@@ -506,7 +506,7 @@ STUB
   # identicas, prova de que a deteccao estatica nao alcanca este
   # padrao).
   # shellcheck disable=SC2034
-  local -A cfg=([dom]="duble-dom" [connect]="qemu:///session" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
+  local -A cfg=([dom]="duble-dom" [connect]="test:///default" [lock_file]="$lock_file" [base]="$base" [overlay]="$overlay" [backup]="$backup")
   saida="$(PATH="${stub_dir}:$PATH" consolidar_overlay cfg 2>&1)"
   rc=$?
   echo "$saida"

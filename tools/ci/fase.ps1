@@ -133,7 +133,9 @@ function Fase-Selftest {
         $cmdC = ". '$esteScript'; function F { Fase-Registrar x 5; return 7 }; `$r = F; [Console]::Out.WriteLine('r=' + `$r + ' count=' + @(`$r).Count)"
         $saidaC = (& $pwsh -NoProfile -Command $cmdC | Out-String).Replace("`r", '')
         if ($saidaC -notlike "FASE x: 0.05 s`nr=7 count=1`n") { $erros += "o retorno da funcao foi sujo (esperado a linha FASE e r=7 count=1): [$saidaC]" }
-        # 5d. gate textual: nenhuma linha deste arquivo termina em crase (crase seguida de quebra real dentro de string quebra no Windows)
+        # 5d. gate textual: nenhuma linha deste arquivo termina em crase (crase seguida de quebra real dentro de string
+        #     quebra quando o checkout do Windows converte o fim de linha para CRLF; GODS_LAWS.md L-04, fato do ambiente).
+        #     Seguro nos dois fins de linha: o Get-Content ja tira o LF ou o CRLF de cada linha, e o \s*$ absorve um CR que sobrasse.
         $crase = @(Get-Content -LiteralPath $esteScript | Where-Object { $_ -match '`\s*$' })
         if ($crase.Count -gt 0) { $erros += "linha(s) do fase.ps1 terminam em crase: [$($crase -join ' | ')]" }
     } finally {

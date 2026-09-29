@@ -152,6 +152,10 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`ENV-SWEEP-LINE-ENDING-PS`: o vocabulário `LINE_ENDING` do env_sweep não vê a grafia do PowerShell (`` `r ``/`` `n `` em string; ex.: `fase.ps1:134`, `.Replace("`r",'')`); acrescentar ao regex, com mutante.** Achado do CTO (29/09/2026).
+
+- **`FASE-F2-PROIBIR-SUBSHELL`: F2: proibir `$(fase_` e `| fase_` nos pesados (o `exit` da falha fechada só encerra no shell principal).** Achado do CTO (29/09/2026).
+
 - **`SCRIPTS-PT-L21`: scripts de ferramenta com identificadores em português contra a L-21 (`fase.sh`, `preci.sh`...); decidir se migra.** Achado do CTO (29/09/2026): a L-21 do projeto manda identificador e comentário em inglês, os vizinhos diretos usam português em funções e mensagens. A C1 (`tools/contido.sh`) usa inglês nos identificadores novos até o main rotear o alcance da lei.
 
 - **`SYMLINK-NA-RAIZ-DO-CONFIGURE`: raiz do projeto acessada por symlink no `cmake -S`.** O envoltório do win-vm-lab já resolve a raiz por `pwd -P`; o configure real (`PROJECT_SOURCE_DIR`) pode guardar o caminho lógico e divergir do físico nos add_test. Achado do CTO (29/09/2026), sem medição do efeito.

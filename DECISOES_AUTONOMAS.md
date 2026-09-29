@@ -4563,3 +4563,14 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - o c3e3b64 diz "id: build em TODOS os 16 jobs", mas só 11 de 16 têm (parity, ps-syntax, gitleaks, leis e version-tag não têm);
   - a varredura de gêmeos do 46b21c1 diz que todo `cmake -S` é `-S . -B build-*`, mas ci.yml tem `cmake -S probe -B probe/build` dentro da árvore (a pasta é removida em seguida).
 - **Critério "contagem igual à da A0": não verificável.** Nenhum documento guarda a contagem da A0. Fica declarado; a partir daqui, o agregado medido (achado 4) passa a ser a referência.
+
+## 29/09/2026 - 01:15 | D-A16: lote D-A14 + consertos aceito e empurrado; leva A1/A2/C3
+
+- **Veredito do CTO (01:12):** aceita com conserto pequeno; pode empurrar. D-A14 cumprida nos selftests. Morreram 11 dos 13 sobreviventes anteriores; seguem vivos o X9 e o MO3c (INBOX, D-A15) e o X3.
+- **Decisão autônoma do CTO, a confirmar retroativamente:** o wayland-container fica fora do G5 (piso no hospedeiro), porque o compilador que importa ali é o de dentro da imagem. Rodar o floor.sh no build da imagem vai para a INBOX.
+- **Push:** onda-w7c = 3f2e3b8, provado por ls-remote. CI 36520626677 disparado.
+- **Próxima leva, antes da A4, com o mesmo implementador:**
+  - A1: o agregado conta Skipped/Disabled do ctest como "passou" (medido com ctest real); conserto pelo `--output-junit`, com status separado e selftest sobre log de ctest real;
+  - A2: regra única de "passo obrigatório efetivo" para a prova, o piso e o agregado (sem `continue-on-error`, sem `if:` que desligue, sem `||`, sem comentário de fim de linha enganando a busca);
+  - C3: trava em execução para a sonda do MSVC nunca cair no workspace.
+- **Não decidido nesta leva:** o piso de versão do Clang. O CTO registrou só o risco C2 (um job GCC trocado para clang perde o piso de GCC 14 sem aviso); a lacuna segue aberta.

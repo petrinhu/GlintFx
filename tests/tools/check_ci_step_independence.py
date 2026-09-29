@@ -559,10 +559,18 @@ def aggregate_errors(job_name, steps):
     """Passo "Resultado agregado*": chama ctest_aggregate.py e nao atribui
     executados a partir de declarados (CTO 29/09, achado 4)."""
     errors = []
+    tem_junit = any(
+        _CTEST_RUN_RE.search(_code_text(t)) and "--output-junit" in _code_text(t) for _n, t in steps
+    )
     for nome, texto in steps:
         if not nome.startswith("Resultado agregado"):
             continue
         codigo = _code_text(texto)
+        if nome.startswith("Resultado agregado (") and not tem_junit:
+            errors.append(
+                f"job {job_name!r}, passo {nome!r}: nenhum passo de ctest usa --output-junit - o "
+                f"agregado le o JUnit (LastTest.log conta pulado e desligado como passou)"
+            )
         # "Resultado agregado do container (P-0)" mede por results.tsv (ja
         # e' medido, nao atribuido) - so' o agregado de ctest exige o script.
         if nome.startswith("Resultado agregado (") and AGGREGATE_SCRIPT not in codigo:
@@ -1951,8 +1959,15 @@ _AGG_STEP = (
 )
 
 
-def _agg_fixture(step):
-    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", step + "      - name: fixture a\n", 1)
+_TESTES_JUNIT = (
+    "      - name: Testes (x)\n"
+    "        if: ${{ !cancelled() && steps.build.outcome == 'success' }}\n"
+    "        run: ctest --test-dir build --output-on-failure --output-junit ctest-results-junit.xml\n\n"
+)
+
+
+def _agg_fixture(step, testes=_TESTES_JUNIT):
+    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", testes + step + "      - name: fixture a\n", 1)
 
 
 def selftest_aggregate_with_script_passes():
@@ -1979,6 +1994,15 @@ def selftest_aggregate_tautology_alongside_script_reproves():
         "--inventory parity_inventory.txt\n", "--inventory parity_inventory.txt\n")
     resultado = _run_real_main_capturing(_agg_fixture(ambos))
     return _g5_expect("AGREGADO-TAUTOLOGIA-COM-SCRIPT", resultado, "Resultado agregado", "tautologia")
+
+
+
+# A1 (CTO 29/09): o agregado le o JUnit; sem `--output-junit` no passo de
+# testes o script nao tem o que medir (e o LastTest.log conta pulado e
+# desligado como "Test Passed.").
+def selftest_aggregate_without_junit_output_reproves():
+    resultado = _run_real_main_capturing(_agg_fixture(_AGG_STEP, _TESTES_JUNIT.replace(" --output-junit ctest-results-junit.xml", "")))
+    return _g5_expect("AGREGADO-SEM-OUTPUT-JUNIT", resultado, "Resultado agregado", "--output-junit")
 
 
 
@@ -2039,6 +2063,7 @@ def selftest_main():
         selftest_aggregate_with_script_passes(),
         selftest_aggregate_tautology_reproves(),
         selftest_aggregate_tautology_alongside_script_reproves(),
+        selftest_aggregate_without_junit_output_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

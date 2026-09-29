@@ -585,7 +585,7 @@ jobs:
         run: |
           set -eux
           set +e
-          ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml
           ctest_ec=$?
           set -e
           cp "${{ matrix.builddir }}/Testing/Temporary/LastTest.log" "${{ matrix.builddir }}/Testing/Temporary/LastTest.log.pnc-fases-snapshot"
@@ -630,8 +630,10 @@ jobs:
       # sozinho).
       # CTO 29/09 (achado 4): o corpo MOROU aqui e atribuia `executados=
       # $declarados` (tautologia: um teste pulado passava calado). Agora
-      # tests/tools/ctest_aggregate.py MEDE os executados no snapshot do
-      # LastTest.log, igual nos dois sistemas (L-04).
+      # tests/tools/ctest_aggregate.py MEDE por STATUS, lendo o JUnit que o
+      # passo "Testes" grava (`--output-junit`), igual nos dois sistemas
+      # (L-04): pulado e desligado NAO contam como passou (o LastTest.log
+      # grava "Test Passed." tambem para eles - medido com ctest real).
       - name: Resultado agregado (${{ matrix.modo }})
         if: ${{ !cancelled() }}
         run: python3 tests/tools/ctest_aggregate.py --builddir ${{ matrix.builddir }} --inventory parity_inventory.txt
@@ -1030,7 +1032,7 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
         run: |
-          ctest --test-dir ${{ matrix.builddir }} --output-on-failure
+          ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml
           $ctest_ec = $LASTEXITCODE
           Copy-Item (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log") (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")
           if ($ctest_ec -ne 0) { exit $ctest_ec }

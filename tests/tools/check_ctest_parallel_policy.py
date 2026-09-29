@@ -144,17 +144,21 @@ def _properties_of(cmake_text, name):
     return "\n".join(props)
 
 
-def _has_build_dir_lock(props):
-    """RESOURCE_LOCK com o nome EXATO glintfx_build_dir (CTO 29/09, PM8): os
-    tokens depois de RESOURCE_LOCK ate a proxima propriedade (palavra em
-    maiuscula) ou o fim."""
+def _lock_names(props):
+    """Nomes em RESOURCE_LOCK, com lista CMake partida por `;` e aspas retiradas
+    (C1, CTO 29/09): `RESOURCE_LOCK "a;b"` e `RESOURCE_LOCK a;b` sao dois trincos."""
+    nomes = []
     for m in re.finditer(r"RESOURCE_LOCK\s+", props):
         for token in props[m.end():].split():
             if re.fullmatch(r"[A-Z][A-Z_]{2,}", token):
                 break
-            if token.strip('")') == LOCK_NAME:
-                return True
-    return False
+            nomes.extend(n for n in re.split(r";", token.strip('")')) if n)
+    return nomes
+
+
+def _has_build_dir_lock(props):
+    """RESOURCE_LOCK com o nome EXATO glintfx_build_dir (PM8)."""
+    return LOCK_NAME in _lock_names(props)
 
 
 def classify(cmake_text, nome, linha):
@@ -184,13 +188,7 @@ NESTED_HEAVY_RE = re.compile(r"#\s*glintfx-nested-build:\s*heavy\s*-\s*\S+")
 
 
 def _has_lock(props, nome_lock):
-    for m in re.finditer(r"RESOURCE_LOCK\s+", props):
-        for token in props[m.end():].split():
-            if re.fullmatch(r"[A-Z][A-Z_]{2,}", token):
-                break
-            if token.strip('")') == nome_lock:
-                return True
-    return False
+    return nome_lock in _lock_names(props)
 
 
 def _comment_block_above(cmake_text, linha):
@@ -403,6 +401,16 @@ def selftest_main():
     ps_com = ps_sem.replace("          ctest --parallel $n", "          if (-not $n) { Write-Error 'sem grau'; exit 1 }\n          ctest --parallel $n")
     erros, _c, _p = run_check(_CMAKE_OK, ps_com, "")
     controls.append(_expect("PN-GRAU-POWERSHELL-VALIDADO passa", not erros, str(erros)))
+    # C1 (CTO 29/09): a lista de RESOURCE_LOCK e' partida por `;` (CMake), com ou sem aspas
+    comp = _CMAKE_OK.replace("RESOURCE_LOCK glintfx_build_dir", 'RESOURCE_LOCK "glintfx_build_dir;outro_recurso"')
+    erros, c, _p = run_check(comp, _CI_OK, "")
+    controls.append(_expect("C1-LOCK-COMPOSTO com aspas e ';' conta como trinco", not erros and c["lock"] == 1, str((erros, c))))
+    comp2 = _CMAKE_OK.replace("RESOURCE_LOCK glintfx_build_dir", "RESOURCE_LOCK outro_recurso;glintfx_build_dir")
+    erros, c, _p = run_check(comp2, _CI_OK, "")
+    controls.append(_expect("C1-LOCK-COMPOSTO sem aspas conta como trinco", not erros and c["lock"] == 1, str((erros, c))))
+    comp3 = _CMAKE_OK.replace("RESOURCE_LOCK glintfx_build_dir", 'RESOURCE_LOCK "glintfx_build_dir_x;outro"')
+    erros, _c, _p = run_check(comp3, _CI_OK, "")
+    controls.append(_expect("C1-LOCK-COMPOSTO sem o nome exato continua reprovando", any("escritor_test" in e for e in erros), str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, "      # ctest --repeat until-pass\n" + _CI_OK, "")
     controls.append(_expect("COMENTARIO com --repeat nao reprova", not erros, str(erros)))
     erros, c, _p = run_check("add_test(NAME x COMMAND echo)\n", _CI_OK, "")

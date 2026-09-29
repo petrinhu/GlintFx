@@ -5,5 +5,8 @@ Test project /probe/b
   Test #3: lento_com_trinco
   Test #4: lento_com_processors
   Test #5: lento_lock_de_outro_nome
+  Test #6: lento_timeout_curto
+  Test #7: lento_timeout_longo
+  Test #8: lento_lock_composto
 
-Total Tests: 5
+Total Tests: 8

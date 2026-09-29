@@ -162,9 +162,16 @@ def heavy_errors(tests_json_path, duracoes, limite):
         return [f"{tests_json_path} ilegivel como json-v1 do ctest ({exc})"]
     errors = []
     for nome, segundos in duracoes:
-        if segundos <= limite:
-            continue
         props = {p["name"]: p["value"] for p in testes.get(nome, {}).get("properties", [])}
+        # C2 (CTO 29/09): o limite de CADA teste e' o proprio TIMEOUT / 3 (P2 do
+        # plano 4.8), lido do json-v1; sem TIMEOUT proprio vale o padrao (120 s /
+        # 3 = `limite`, 40 s).
+        try:
+            limite_do_teste = float(props["TIMEOUT"]) / 3 if "TIMEOUT" in props else limite
+        except (TypeError, ValueError):
+            limite_do_teste = limite
+        if segundos <= limite_do_teste:
+            continue
         travado = NESTED_LOCK in (props.get("RESOURCE_LOCK") or [])
         try:
             paralelo = int(props.get("PROCESSORS", 1)) > 1
@@ -172,7 +179,7 @@ def heavy_errors(tests_json_path, duracoes, limite):
             paralelo = False
         if not (travado or paralelo):
             errors.append(
-                f"teste {nome} levou {segundos:.1f} s (> {limite:g} s) sem RESOURCE_LOCK {NESTED_LOCK} "
+                f"teste {nome} levou {segundos:.1f} s (> {limite_do_teste:g} s = TIMEOUT/3) sem RESOURCE_LOCK {NESTED_LOCK} "
                 f"nem PROCESSORS - declare o trinco de pesados (P2 do plano 4.8)"
             )
     return errors
@@ -278,12 +285,13 @@ def selftest_main():
         # `ctest --show-only=json-v1` com as duracoes do JUnit. Fixtures REAIS (limite
         # 1 s: os quatro testes lentos dormem 2 s; um deles tem RESOURCE_LOCK de OUTRO nome).
         _case("PESADO-SEM-TRINCO (json-v1 e JUnit reais, limite 1 s)", 1, "junit_slow.xml", "inventory_slow.txt",
-              ["teste lento_sem_trinco levou", "teste lento_lock_de_outro_nome levou", "sem RESOURCE_LOCK glintfx_nested_build nem PROCESSORS"],
+              ["teste lento_sem_trinco levou", "teste lento_lock_de_outro_nome levou", "teste lento_timeout_curto levou", "sem RESOURCE_LOCK glintfx_nested_build nem PROCESSORS"],
               tests_json="show_slow.json", heavy_limit=1.0),
         _case("PESADO-COM-TRINCO-OU-PROCESSORS nao e' citado", 1, "junit_slow.xml", "inventory_slow.txt",
-              [], tests_json="show_slow.json", heavy_limit=1.0, proibido=["lento_com_trinco", "lento_com_processors", "rapido"]),
-        _case("PESADO: limite alto (40 s) nao reprova nada", 0, "junit_slow.xml", "inventory_slow.txt",
-              [], tests_json="show_slow.json", heavy_limit=40.0),
+              [], tests_json="show_slow.json", heavy_limit=1.0, proibido=["lento_com_trinco", "lento_com_processors", "rapido", "lento_lock_composto", "lento_timeout_longo"]),
+        _case("PESADO: limite padrao (40 s) so' cita o teste cujo TIMEOUT/3 e' menor que a duracao (C2)", 1, "junit_slow.xml", "inventory_slow.txt",
+              ["teste lento_timeout_curto levou", "TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0,
+              proibido=["lento_sem_trinco", "lento_lock_de_outro_nome", "lento_timeout_longo", "lento_lock_composto"]),
         _case("PESADO: json ausente reprova (nao se cruza sem os dados)", 1, "junit_slow.xml", "inventory_slow.txt",
               ["ausente"], tests_json="nao_existe.json", heavy_limit=1.0),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),

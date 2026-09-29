@@ -55,6 +55,33 @@
         "file" : 0,
         "line" : 10,
         "parent" : 8
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 12,
+        "parent" : 10
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 14,
+        "parent" : 12
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 16,
+        "parent" : 14
       }
     ]
   },
@@ -156,6 +183,73 @@
           "value" : 
           [
             "outro_recurso"
+          ]
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 11,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_timeout_curto",
+      "properties" : 
+      [
+        {
+          "name" : "TIMEOUT",
+          "value" : 3.0
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 13,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_timeout_longo",
+      "properties" : 
+      [
+        {
+          "name" : "TIMEOUT",
+          "value" : 300.0
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 15,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_lock_composto",
+      "properties" : 
+      [
+        {
+          "name" : "RESOURCE_LOCK",
+          "value" : 
+          [
+            "glintfx_build_dir",
+            "glintfx_nested_build"
           ]
         },
         {

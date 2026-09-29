@@ -1050,6 +1050,7 @@ jobs:
       # porque ordem entre steps e' convencao que ninguem ve e um passo
       # novo inserido no meio no futuro reintroduziria o apagao.
       - name: Testes (${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
         run: |
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure
@@ -3556,6 +3557,7 @@ jobs:
           Write-Host "ok: $total teste(s) rotulado(s) 'unit'."
 
       - name: Testes (ASan, rotulo unit)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
         run: |
           ctest --test-dir build-shared -L '^unit$' --output-on-failure
@@ -3817,6 +3819,7 @@ jobs:
       # ANTES de decidir sair, senao o relatorio do oraculo (abaixo)
       # sumiria justo se a suite reprovasse.
       - name: Testes (Debug, suite inteira)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
         run: |
           ctest --test-dir build-debug --output-on-failure
@@ -3995,6 +3998,7 @@ jobs:
       # de saida REAL do ctest (GODS_LAWS.md L-45), nunca de variavel
       # perdida por `set -e` abortando a linha.
       - name: ctest (${{ matrix.modo }})
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -eux
           set +e

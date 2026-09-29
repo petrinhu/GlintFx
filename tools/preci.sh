@@ -2105,6 +2105,8 @@ run_selftest() {
 run_lint_only() {
     log "estagio 1: clang-format"
     stage_format
+    log "estagio 1c: selftests Python sobre o INDICE (--blob)"
+    stage_blob
     log "estagio 2: configure (-Werror)"
     stage_configure
     log "estagio 3: build"
@@ -2146,6 +2148,36 @@ run_debug_only() {
 # de CI proprio que roda direto no runner (sem `container:`), onde o
 # Docker do host ja esta disponivel sem nenhuma camada extra (mesmo
 # padrao do job `wayland-container`).
+# A5 etapa 3 (decisao do CTO, 29/09/2026): --blob. O preci local roda sobre a WORKING
+# TREE (onde existem arquivos ignorados pelo .gitignore, nao adicionados ou gerados) e o
+# CI roda sobre o BLOB commitado - foi assim que as fixtures do P1 (build-shared/,
+# engolido por `build-*/`) passaram no preci e reprovariam toda perna do CI. Este estagio
+# extrai o INDICE (git checkout-index, nao HEAD: o preci roda antes do commit) para um
+# diretorio temporario e roda ali os `--selftest` Python registrados com LABELS selftest
+# em tests/CMakeLists.txt (universo lido pelo proprio helper, nunca de lista a mao;
+# scripts que chamam cmake/docker/pwsh ficam de fora). Imprime "N achados, R rodados,
+# falharam K" e o tempo. Um arquivo novo precisa de `git add` para o blob enxerga-lo -
+# exatamente o que o commit faria.
+stage_blob() {
+    blob_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-blob-XXXXXX")" \
+        || fail "mktemp -d falhou preparando o estagio --blob"
+    git -C "$ROOT_DIR" checkout-index -a -f --prefix="$blob_dir/" \
+        || { rm -rf "$blob_dir"; fail "estagio --blob recusado (git checkout-index falhou)"; }
+    blob_inicio=$SECONDS
+    if ! python3 "$ROOT_DIR/tests/tools/blob_selftests.py" --root "$blob_dir"; then
+        rm -rf "$blob_dir"
+        fail "estagio --blob recusado (selftest reprovou sobre o INDICE; ver acima)"
+    fi
+    echo "preci.sh: estagio --blob levou $((SECONDS - blob_inicio)) s"
+    rm -rf "$blob_dir"
+}
+
+run_blob_only() {
+    log "estagio blob: --selftest Python sobre o INDICE (fonte = git checkout-index)"
+    stage_blob
+    echo "preci.sh --blob-only: VERDE"
+}
+
 run_ps_syntax_only() {
     log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
     stage_ps_syntax
@@ -2212,13 +2244,13 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
-_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
+_USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
     mode="${1:-}"
     extra="${2:-}"
     case "$mode" in
-        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--win32-link-only|--container-link-only|--selftest) ;;
+        ""|--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only|--container-link-only|--selftest) ;;
         *) fail "$_USAGE" ;;
     esac
     # --strict (WIN-CROSS-STAGE S4) so' e' valido como SEGUNDO argumento
@@ -2251,6 +2283,9 @@ main() {
             ;;
         --ps-syntax-only)
             run_ps_syntax_only
+            ;;
+        --blob-only)
+            run_blob_only
             ;;
         --win32-link-only)
             run_win32_link_only "$extra"

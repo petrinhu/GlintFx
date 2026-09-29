@@ -4839,6 +4839,15 @@ add_test(
 )
 set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
 
+# CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
+# INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
+add_test(
+    NAME blob_selftests_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --selftest
+)
+set_tests_properties(blob_selftests_selftest PROPERTIES LABELS selftest)
+
 # CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
 # roda o autoteste contra respostas REAIS da API do GitHub gravadas em
 # tests/tools/fixtures/rerun_guard/. Python puro, sem guarda de sistema.

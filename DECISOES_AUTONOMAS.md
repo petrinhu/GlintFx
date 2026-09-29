@@ -4841,3 +4841,23 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - contenção provada pelo main às 13:5x;
   - todo dublê de chamada aninhada ganha trava de profundidade.
 - **Estado:** a VM ficou desligada pela trava (não religada). O watchcode foi religado. Os agentes da sessão anterior se perderam; o CTO foi redespachado.
+
+## 29/09/2026 - 15:45 | D-A33: contenção desenhada e em curso; CI do d0a9806 vermelho por cmp; estado para a pausa das 16:00
+
+- **Contenção** (/var/tmp/cto-a5-paralelo/CONTENCAO.md, fatias C0-C4):
+  - M1 medida: pico do preci --fast de 42 tarefas, teto que não mordeu;
+  - N_PRECI=128, T_PRECI=1800 s;
+  - docker com GLINTFX_DOCKER_PIDS_LIMIT (fatia C3).
+- **Commits aceitos pelo CTO e empurrados** (onda-w7c = d0a9806):
+  - F1c 983f977;
+  - INBOX 3a333f6;
+  - C1a 6d1aed6;
+  - F1d d0a9806 (eol=lf nas fixtures de FASE e no fase.ps1; o CRLF volta a ser declarado no 5d).
+- **Commit local aceito, não empurrado:** C1a-fix f1b82e3.
+- **C1b:** STAGED, sem commit, preci rc 0. Pendentes: a prova dinâmica D0-D7 e o C-2 (a fixture v1 fraca, com o mutante y6 sobrevivendo). Retomada em /var/tmp/c1b-guardado/RETOMADA.md.
+- **CI 36611349824 (d0a9806): failure, 7 jobs Linux** (Arch, Fedora, Clang, Debug). Causa única: `cmp: command not found` no fase_sh_selftest, porque as imagens do CI não têm diffutils.
+  - É a família "ferramenta presente só aqui", pela 2ª vez no dia.
+  - As pernas Windows passaram, com o fase_ps1 e o fase_py rodando de verdade.
+  - O conserto foi decidido pelo CTO (confirmar retroativamente) em /var/tmp/cto-a5-paralelo/CI-CMP.md: comparação em bash puro, com o gêmeo do check_gl_codegen_host_cross.sh na mesma fatia. É a PRIMEIRA fatia ao retomar.
+- **Resíduo:** /var/tmp/cto-cicmp/ (vazio, root:root, criado por um `docker -v` com a fonte inexistente). Só root remove; é inofensivo.
+- **Sistema:** alertas do SELinux contra o containerd/dockerd (contexto não reconhecido depois do desligamento forçado), em ritmo baixo, com o Docker funcionando. Não mexido (L-60); informado ao líder.

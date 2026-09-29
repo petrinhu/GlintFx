@@ -3731,6 +3731,7 @@ endif()
 # the GLINTFX_INSTALL=ON opt-in genuinely installing them), invoked from
 # the `windows` job in .github/workflows/ci.yml (CI-CONSUME).
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME embed_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_embed.sh"
@@ -3738,7 +3739,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/embed"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(embed_test PROPERTIES LABELS consume)
+    set_tests_properties(embed_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # EMBED-DLL decision-logic gate: proves glintfx_colocate_embedded_
@@ -3853,13 +3854,14 @@ set_tests_properties(embed_dll_colocation_test PROPERTIES LABELS consume)
 # this ctest run is already part of). POSIX sh; same declared downgrade
 # as the other consumption gates above.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME install_includedir_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_includedir.sh"
             "${PROJECT_SOURCE_DIR}"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(install_includedir_test PROPERTIES LABELS consume)
+    set_tests_properties(install_includedir_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # Packager layout gate (FIX-CONSUMO-2, achado QA-4): proves
@@ -3870,6 +3872,7 @@ endif()
 # install_includedir_test above. POSIX sh; same declared downgrade as
 # the other consumption gates above.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME install_packager_layout_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_packager_layout.sh"
@@ -3877,7 +3880,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/package"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume)
+    set_tests_properties(install_packager_layout_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # GL-CODEGEN-HOST-TOOL H-5 (D-11 of docs/plano-fecho-w7b.md, the Qt 6
@@ -3888,6 +3891,7 @@ endif()
 # check_pkgconfig_validate.py already proved works on all five
 # platforms - unlike its sh siblings above, this gate never shells out
 # to anything but `cmake` itself).
+# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
 add_test(
     NAME gl_codegen_host_leak_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3896,7 +3900,7 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_GENERATOR}"
 )
-set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume)
+set_tests_properties(gl_codegen_host_leak_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 add_test(
     NAME gl_codegen_host_leak_selftest
@@ -3935,6 +3939,7 @@ endif()
 # library target (renamed to glintfx_library; see src/CMakeLists.txt).
 # POSIX sh; same declared downgrade as the other consumption gates above.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME no_target_collision_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_no_target_collision.sh"
@@ -3942,7 +3947,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(no_target_collision_test PROPERTIES LABELS consume)
+    set_tests_properties(no_target_collision_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 endif()
 
 # pkg-config gate (PKG-DIST): proves the INSTALLED glintfx.pc, not just
@@ -3971,6 +3976,7 @@ endif()
 # verify against). tests/parity_exceptions.txt's own entry for this test
 # carries the same correction, with the fuller reasoning.
 if(UNIX)
+    # glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
     add_test(
         NAME pkgconfig_test
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pkgconfig.sh"
@@ -3978,7 +3984,7 @@ if(UNIX)
             "${CMAKE_CURRENT_SOURCE_DIR}/raw_link/main.cpp"
             "${CMAKE_CXX_COMPILER}"
     )
-    set_tests_properties(pkgconfig_test PROPERTIES LABELS consume)
+    set_tests_properties(pkgconfig_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
     # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44,
     # same precedent as public_name_collision_test's own TIMEOUT 300
@@ -4071,6 +4077,7 @@ endif()
 # ever biting. The port reproves outright when that removal count comes
 # up zero (GODS_LAWS.md L-40), instead of trusting a later assertion to
 # catch it by accident. The old .sh is deleted in the same fatia.
+# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro num diretorio temporario (35 a 115 s serial, medido pelo CTO no run 36202987723); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
 add_test(
     NAME pkgconfig_validate_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -4078,7 +4085,7 @@ add_test(
         "${PROJECT_SOURCE_DIR}"
         "${CMAKE_CXX_COMPILER}"
 )
-set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume)
+set_tests_properties(pkgconfig_validate_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # --selftest: pure logic controls (normalize_wrapped_message's own
 # wrap-immunity across a range of widths - the fix that also closes the

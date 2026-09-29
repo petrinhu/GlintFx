@@ -172,6 +172,53 @@ def classify(cmake_text, nome, linha):
     return None
 
 
+NESTED_LOCK = "glintfx_nested_build"
+NESTED_HEAVY_RE = re.compile(r"#\s*glintfx-nested-build:\s*heavy\s*-\s*\S+")
+
+
+def _has_lock(props, nome_lock):
+    for m in re.finditer(r"RESOURCE_LOCK\s+", props):
+        for token in props[m.end():].split():
+            if re.fullmatch(r"[A-Z][A-Z_]{2,}", token):
+                break
+            if token.strip('")') == nome_lock:
+                return True
+    return False
+
+
+def _comment_block_above(cmake_text, linha):
+    linhas = cmake_text.splitlines()
+    acima = []
+    i = linha - 2
+    while i >= 0 and (linhas[i].lstrip().startswith("#") or not linhas[i].strip()):
+        acima.append(linhas[i])
+        i -= 1
+    return "\n".join(acima)
+
+
+def nested_build_errors(cmake_text):
+    """I1 (CTO 29/09): os portoes de build aninhado (montam um CMake + Ninja
+    inteiro) declaram `# glintfx-nested-build: heavy - <motivo>` e tem
+    RESOURCE_LOCK glintfx_nested_build (nome exato), e vice-versa. Trinco
+    PROVISORIO: na etapa 3 vira `PROCESSORS n` medido. (erros, quantos)."""
+    errors = []
+    heavy = 0
+    for m in re.finditer(r"add_test\s*\(", cmake_text):
+        bloco = _balanced_block(cmake_text, m.start())
+        nome = re.search(r"NAME\s+(\S+)", bloco)
+        if not nome:
+            continue
+        linha = cmake_text.count("\n", 0, m.start()) + 1
+        declarado = bool(NESTED_HEAVY_RE.search(_comment_block_above(cmake_text, linha)))
+        travado = _has_lock(_properties_of(cmake_text, nome.group(1)), NESTED_LOCK)
+        heavy += 1 if declarado and travado else 0
+        if declarado and not travado:
+            errors.append(f"tests/CMakeLists.txt:{linha}: {nome.group(1)} declara `glintfx-nested-build: heavy` e nao tem RESOURCE_LOCK {NESTED_LOCK} (nome exato)")
+        if travado and not declarado:
+            errors.append(f"tests/CMakeLists.txt:{linha}: {nome.group(1)} tem RESOURCE_LOCK {NESTED_LOCK} sem a declaracao `# glintfx-nested-build: heavy - <motivo>` logo acima")
+    return errors, heavy
+
+
 def build_dir_errors(cmake_text):
     """(erros, contagens)."""
     regs = registrations_receiving_build_dir(cmake_text)
@@ -197,6 +244,8 @@ def build_dir_errors(cmake_text):
 
 def run_check(cmake_text, ci_text, preci_text, ps1_texts=None):
     errors, contagens = build_dir_errors(cmake_text)
+    nested_erros, contagens["nested-heavy"] = nested_build_errors(cmake_text)
+    errors.extend(nested_erros)
     paralelas = 0
     universo = [("ci.yml", ci_text), ("tools/preci.sh", preci_text)] + sorted((ps1_texts or {}).items())
     for name, text in universo:
@@ -224,7 +273,7 @@ def real_main(args):
     print(
         f"{SCRIPT_NAME}: add_test que recebem o diretorio de build: {c['total']} "
         f"(RESOURCE_LOCK: {c['lock']}, RUN_SERIAL: {c['serial']}, reads-only: {c['reads-only']}, "
-        f"private-subdir: {c['private-subdir']}); universo das regras 1 e 2: ci.yml, preci.sh e "
+        f"private-subdir: {c['private-subdir']}); portoes de build aninhado com {NESTED_LOCK}: {c['nested-heavy']}; universo das regras 1 e 2: ci.yml, preci.sh e "
         f"{len(ps1)} .ps1 de tools/ci; chamadas ctest paralelas: {paralelas}"
     )
     if not ps1:
@@ -266,7 +315,7 @@ def _expect(nome, condicao, detalhe=""):
 def selftest_main():
     controls = []
     erros, c, p = run_check(_CMAKE_OK, _CI_OK, "ctest x\n")
-    controls.append(_expect("POSITIVO (lock, serial e reads-only declarados)", not erros and c == {"total": 3, "lock": 1, "serial": 1, "reads-only": 1, "private-subdir": 0}, str((erros, c))))
+    controls.append(_expect("POSITIVO (lock, serial e reads-only declarados)", not erros and c == {"total": 3, "lock": 1, "serial": 1, "reads-only": 1, "private-subdir": 0, "nested-heavy": 0}, str((erros, c))))
     sem_decl = _CMAKE_OK.replace("# glintfx-build-dir: reads-only - so' le compile_commands.json (medido por snapshot)\n", "")
     erros, _c, _p = run_check(sem_decl, _CI_OK, "")
     controls.append(_expect("REGISTRO-SEM-DECLARACAO reprova, nomeando o teste", any("leitor_test" in e for e in erros), str(erros)))
@@ -303,6 +352,19 @@ def selftest_main():
     controls.append(_expect("PM4-PARALELISMO-SO-EM-COMENTARIO reprova", any("paralelismo:" in e for e in erros), str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, _CI_OK, "", ps1_texts={"tools/ci/x.ps1": "ctest --repeat until-pass:2\n"})
     controls.append(_expect("PS1-COM-REPEAT reprova (universo inclui tools/ci/**/*.ps1)", any("x.ps1" in e and "--repeat" in e for e in erros), str(erros)))
+    # I1 (CTO 29/09): portoes de build aninhado ("heavy") tem o trinco provisorio
+    # glintfx_nested_build (nome exato), declarado por comentario.
+    heavy = ("# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro (35 a 115 s serial)\n"
+             "add_test(NAME pesado_test COMMAND check_x.sh)\n"
+             "set_tests_properties(pesado_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)\n")
+    erros, c, _p = run_check(_CMAKE_OK + heavy, _CI_OK, "")
+    controls.append(_expect("NESTED-BUILD declarado com o trinco exato passa e e' contado", not erros and c.get("nested-heavy") == 1, str((erros, c))))
+    erros, _c, _p = run_check(_CMAKE_OK + heavy.replace("glintfx_nested_build)", "outro_nome)"), _CI_OK, "")
+    controls.append(_expect("NESTED-BUILD com trinco de nome errado reprova", any("pesado_test" in e and "glintfx_nested_build" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK + heavy.replace(" RESOURCE_LOCK glintfx_nested_build", ""), _CI_OK, "")
+    controls.append(_expect("NESTED-BUILD declarado heavy SEM o trinco reprova", any("pesado_test" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK + heavy.replace("# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro (35 a 115 s serial)\n", ""), _CI_OK, "")
+    controls.append(_expect("TRINCO glintfx_nested_build SEM a declaracao heavy reprova", any("pesado_test" in e and "heavy" in e for e in erros), str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, "      # ctest --repeat until-pass\n" + _CI_OK, "")
     controls.append(_expect("COMENTARIO com --repeat nao reprova", not erros, str(erros)))
     erros, c, _p = run_check("add_test(NAME x COMMAND echo)\n", _CI_OK, "")

@@ -79,6 +79,11 @@ on:
     tags: ['v[0-9]*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      ctest_paralelo:
+        description: "Calibracao da A5: grau do ctest. Vazio = paralelo de producao (nproc / NUMBER_OF_PROCESSORS); 1 = serial; N = N."
+        required: false
+        default: ""
 
 # A4 (D-A4): o rerun_guard consulta a API do GitHub (jobs da tentativa 1) com o
 # GITHUB_TOKEN; `contents: read` explicito porque declarar `permissions:` zera
@@ -599,13 +604,18 @@ jobs:
 
       - name: Testes (${{ matrix.modo }})
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          CTEST_PARALELO: ${{ inputs.ctest_paralelo }}
         run: |
           set -eux
           set +e
-          # A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): ctest paralelo, grau = nproc
-          # do runner, lido na hora e IMPRESSO; cada teste roda UMA vez (sem --repeat).
-          paralelismo="$(nproc)"
-          echo "paralelismo: $paralelismo (nproc do runner)"
+          # A5 (docs/plano-ci-split-per-os.md 4.8): ctest paralelo, grau = input ctest_paralelo
+          # do dispatch (calibracao) ou o nproc do runner, lido na hora e IMPRESSO; gravado em
+          # GITHUB_ENV para a linha de escopo do agregado; cada teste roda UMA vez (sem --repeat).
+          paralelismo="${CTEST_PARALELO:-$(nproc)}"
+          case "$paralelismo" in ''|0|*[!0-9]*) echo "ctest_paralelo invalido: '$paralelismo'" >&2; exit 1 ;; esac
+          echo "paralelismo: $paralelismo (input ctest_paralelo='${CTEST_PARALELO}', nproc=$(nproc))"
+          echo "GLINTFX_PARALELISMO=$paralelismo" >> "$GITHUB_ENV"
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml --parallel "$paralelismo"
           ctest_ec=$?
           set -e
@@ -1092,12 +1102,17 @@ jobs:
       - name: Testes (${{ matrix.modo }})
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: pwsh
+        env:
+          CTEST_PARALELO: ${{ inputs.ctest_paralelo }}
         run: |
-          # A5 etapa 2 (docs/plano-ci-split-per-os.md 4.8): ctest paralelo, grau =
-          # NUMBER_OF_PROCESSORS do runner, lido na hora e IMPRESSO; sem --repeat.
-          $paralelismo = $env:NUMBER_OF_PROCESSORS
-          Write-Host "paralelismo: $paralelismo (NUMBER_OF_PROCESSORS do runner)"
-          if (-not $paralelismo) { Write-Error "NUMBER_OF_PROCESSORS vazio - nao se chama ctest --parallel sem numero"; exit 1 }
+          # A5 (docs/plano-ci-split-per-os.md 4.8): ctest paralelo, grau = input ctest_paralelo do
+          # dispatch (calibracao) ou NUMBER_OF_PROCESSORS do runner, lido na hora e IMPRESSO;
+          # gravado em GITHUB_ENV para a linha de escopo do agregado; sem --repeat.
+          $paralelismo = if ($env:CTEST_PARALELO) { $env:CTEST_PARALELO } else { $env:NUMBER_OF_PROCESSORS }
+          Write-Host "paralelismo: $paralelismo (input ctest_paralelo='$env:CTEST_PARALELO', NUMBER_OF_PROCESSORS=$env:NUMBER_OF_PROCESSORS)"
+          if (-not $paralelismo) { Write-Error "grau vazio (NUMBER_OF_PROCESSORS e ctest_paralelo vazios) - nao se chama ctest --parallel sem numero"; exit 1 }
+          if ($paralelismo -notmatch '^[1-9][0-9]*$') { Write-Error "ctest_paralelo invalido: '$paralelismo'"; exit 1 }
+          Add-Content -Path $env:GITHUB_ENV -Value "GLINTFX_PARALELISMO=$paralelismo"
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml --parallel $paralelismo
           $ctest_ec = $LASTEXITCODE
           Copy-Item (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log") (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")

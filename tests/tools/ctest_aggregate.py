@@ -205,7 +205,7 @@ def slack_offenders(testes, duracoes):
     return fora
 
 
-def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=None):
+def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=None, paralelismo=None):
     junit_path = junit_path or os.path.join(builddir, JUNIT_NAME)
     declared, declared_error = parse_declared(inventory_path)
     counts, motivos, junit_error, duracoes = parse_junit(junit_path)
@@ -231,6 +231,14 @@ def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=
         if erro_json:
             problems.append(erro_json)
         else:
+            grau = os.environ.get("GLINTFX_PARALELISMO", "") if paralelismo is None else paralelismo
+            n_proc = sum(1 for t in testes.values() if "PROCESSORS" in _props_of(testes, t["name"]))
+            n_lock = sum(1 for t in testes.values() if "RESOURCE_LOCK" in _props_of(testes, t["name"]))
+            # Linha de escopo do plano 4.8, SEMPRE impressa; o grau vem do passo "Testes"
+            # (GLINTFX_PARALELISMO, gravado em $GITHUB_ENV) e ausente reprova.
+            print(f"testes: {len(testes)}, com PROCESSORS: {n_proc}, com RESOURCE_LOCK: {n_lock}, paralelismo: {grau or '?'}")
+            if not grau:
+                problems.append("GLINTFX_PARALELISMO ausente - o passo 'Testes' nao gravou o grau (linha de escopo do plano 4.8)")
             problems.extend(heavy_errors(testes, duracoes, HEAVY_LIMIT_S if heavy_limit is None else heavy_limit))
             folga = slack_offenders(testes, duracoes)
             # SEMPRE impressa, inclusive com zero (L-40).
@@ -262,7 +270,7 @@ def _capture(runner):
     return rc, buffer.getvalue()
 
 
-def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, tests_json=None, heavy_limit=None, proibido=()):
+def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, tests_json=None, heavy_limit=None, proibido=(), paralelismo="1"):
     """Roda `run` contra fixtures reais. `junit_text` substitui o conteudo do
     JUnit (mutante feito sobre o arquivo REAL)."""
     import tempfile
@@ -273,7 +281,7 @@ def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, te
             with open(junit_path, "w", encoding="utf-8") as handle:
                 handle.write(junit_text if junit_text is not None else read_text(_fixture(junit)))
         json_path = _fixture(tests_json) if tests_json else None
-        rc, output = _capture(lambda: run(tmp, inventory if os.path.isabs(inventory) else _fixture(inventory), None, json_path, heavy_limit))
+        rc, output = _capture(lambda: run(tmp, inventory if os.path.isabs(inventory) else _fixture(inventory), None, json_path, heavy_limit, paralelismo))
     faltando = [t for t in expect_text if t not in output]
     citados = [t for t in proibido if t in output.split("duracoes")[0] or f"teste {t}" in output]
     if rc != expect_rc or faltando or citados:
@@ -352,6 +360,11 @@ def selftest_main():
               tests_json="show_slow.json", heavy_limit=1.0),
         _case("REGRA2 sozinha nao reprova (limite alto, so' a folga): rc=0 com FOLGA_REPROVA=False", 0, "junit_slow.xml", "inventory_slow.txt",
               ["folga P2: 2 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
+        # Linha de escopo do plano 4.8 (sempre impressa; contagens lidas do json-v1 real).
+        _case("ESCOPO: 'testes: N, com PROCESSORS: a, com RESOURCE_LOCK: b, paralelismo: j'", 1, "junit_slow.xml", "inventory_slow.txt",
+              ["testes: 9, com PROCESSORS: 1, com RESOURCE_LOCK: 4, paralelismo: 4"], tests_json="show_slow.json", heavy_limit=1.0, paralelismo="4"),
+        _case("ESCOPO: grau ausente reprova (nunca 'desconhecido' calado)", 1, "junit_allpass.xml", "inventory_allpass.txt",
+              ["GLINTFX_PARALELISMO ausente"], tests_json="show_slow.json", heavy_limit=40.0, paralelismo=""),
         _case("REGRA2: a linha de folga sai tambem com ZERO", 0, "junit_allpass.xml", "inventory_allpass.txt",
               ["folga P2: 0 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
         _case_folga_reprova(),

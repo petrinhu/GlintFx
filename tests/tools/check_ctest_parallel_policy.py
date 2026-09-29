@@ -98,6 +98,15 @@ def parallel_degree_errors(name, text):
                     f"{name}: o grau {v.group(1)} do ctest paralelo em PowerShell nao e' validado "
                     f"(`if (-not {v.group(1)}) {{ ... exit 1 }}`): variavel vazia chamaria --parallel sem numero - tem de validar"
                 )
+        if chamadas and name == "ci.yml":
+            codigo = "\n".join(_code_lines(bloco))
+            for exigido, porque in (
+                ("GLINTFX_PARALELISMO", "o agregado precisa do grau (linha de escopo do plano 4.8)"),
+                ("CTEST_PARALELO", "o grau vem do input ctest_paralelo do dispatch (calibracao da A5)"),
+            ):
+                if exigido not in codigo:
+                    primeira = bloco.strip().splitlines()[0].strip()
+                    errors.append(f"{name}: passo {primeira!r} chama ctest em paralelo sem {exigido}: {porque}")
         if chamadas and "paralelismo:" not in "\n".join(_code_lines(bloco)):
             primeira = bloco.strip().splitlines()[0].strip()
             errors.append(
@@ -290,11 +299,23 @@ def _read_ps1(preci_path):
     }
 
 
+def dispatch_input_errors(ci_text):
+    """O workflow_dispatch declara o input `ctest_paralelo` (calibracao da A5, decisao do
+    CTO 29/09): so' julga um workflow de verdade (com `on:`)."""
+    if not re.search(r"(?m)^on:\s*$", ci_text) or not re.search(r"(?m)^  workflow_dispatch:", ci_text):
+        return []
+    if not re.search(r"(?m)^    inputs:\s*\n(?:      .*\n)*?      ctest_paralelo:", ci_text):
+        return ["ci.yml: workflow_dispatch sem o input `ctest_paralelo` (vazio = paralelo de producao, 1 = serial)"]
+    return []
+
+
 def real_main(args):
     if len(args) != 3:
         fail("usage: check_ctest_parallel_policy.py --check <tests/CMakeLists.txt> <ci.yml> <preci.sh>")
     ps1 = _read_ps1(args[2])
-    errors, c, paralelas = run_check(read_text(args[0]), read_text(args[1]), read_text(args[2]), ps1)
+    ci_text = read_text(args[1])
+    errors, c, paralelas = run_check(read_text(args[0]), ci_text, read_text(args[2]), ps1)
+    errors.extend(dispatch_input_errors(ci_text))
     print(
         f"{SCRIPT_NAME}: add_test que recebem o diretorio de build: {c['total']} "
         f"(RESOURCE_LOCK: {c['lock']}, RUN_SERIAL: {c['serial']}, reads-only: {c['reads-only']}, "
@@ -353,7 +374,7 @@ def selftest_main():
     controls.append(_expect("REPEAT no preci.sh reprova", any("preci.sh" in e and "--repeat" in e for e in erros), str(erros)))
     erros, _c, p = run_check(_CMAKE_OK, "      - run: ctest --parallel 4\n", "")
     controls.append(_expect("GRAU-NAO-IMPRESSO (--parallel sem 'paralelismo:') reprova", any("paralelismo:" in e for e in erros) and p == 1, str(erros)))
-    erros, _c, _p = run_check(_CMAKE_OK, '      - run: |\n          echo "paralelismo: 4"\n          ctest -j 4\n', "")
+    erros, _c, _p = run_check(_CMAKE_OK, '      - run: |\n          echo "paralelismo: ${CTEST_PARALELO:-4}"\n          echo "GLINTFX_PARALELISMO=4" >> "$GITHUB_ENV"\n          ctest -j 4\n', "")
     controls.append(_expect("GRAU-IMPRESSO passa", not erros, str(erros)))
     dois = ('      - run: |\n          echo "paralelismo: 4"\n          ctest -j 4\n'
             '      - run: ctest --parallel 8\n')
@@ -395,7 +416,7 @@ def selftest_main():
            "# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p2_test COMMAND python3 y.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n")
     erros, _c, _p = run_check(_CMAKE_OK + dup, _CI_OK, "")
     controls.append(_expect("PN1-PRIVATE-SUBDIR-DUPLICADO reprova, nomeando os dois", any("p1_test" in e and "p2_test" in e for e in erros), str(erros)))
-    ps_sem = '      - shell: pwsh\n        run: |\n          $n = $env:NUMBER_OF_PROCESSORS\n          Write-Host "paralelismo: $n"\n          ctest --parallel $n\n'
+    ps_sem = '      - shell: pwsh\n        run: |\n          $n = $env:CTEST_PARALELO\n          Write-Host "paralelismo: $n"\n          Add-Content $env:GITHUB_ENV "GLINTFX_PARALELISMO=$n"\n          ctest --parallel $n\n'
     erros, _c, _p = run_check(_CMAKE_OK, ps_sem, "")
     controls.append(_expect("PN-GRAU-POWERSHELL-SEM-VALIDACAO reprova", any("$n" in e and "validar" in e for e in erros), str(erros)))
     ps_com = ps_sem.replace("          ctest --parallel $n", "          if (-not $n) { Write-Error 'sem grau'; exit 1 }\n          ctest --parallel $n")
@@ -411,6 +432,20 @@ def selftest_main():
     comp3 = _CMAKE_OK.replace("RESOURCE_LOCK glintfx_build_dir", 'RESOURCE_LOCK "glintfx_build_dir_x;outro"')
     erros, _c, _p = run_check(comp3, _CI_OK, "")
     controls.append(_expect("C1-LOCK-COMPOSTO sem o nome exato continua reprovando", any("escritor_test" in e for e in erros), str(erros)))
+    # Etapa 3: o grau vira env do job (GLINTFX_PARALELISMO em $GITHUB_ENV) e o dispatch tem o input.
+    passo_ok = ('      - run: |\n          paralelismo="${CTEST_PARALELO:-4}"\n          echo "paralelismo: $paralelismo"\n'
+                '          echo "GLINTFX_PARALELISMO=$paralelismo" >> "$GITHUB_ENV"\n          ctest --parallel "$paralelismo"\n')
+    erros, _c, _p = run_check(_CMAKE_OK, passo_ok, "")
+    controls.append(_expect("GRAU-EM-GITHUB_ENV passa", not erros, str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK, passo_ok.replace('          echo "GLINTFX_PARALELISMO=$paralelismo" >> "$GITHUB_ENV"\n', ""), "")
+    controls.append(_expect("GRAU-SEM-GITHUB_ENV reprova (o agregado precisa do grau)", any("GLINTFX_PARALELISMO" in e for e in erros), str(erros)))
+    erros, _c, _p = run_check(_CMAKE_OK, passo_ok.replace("${CTEST_PARALELO:-4}", "4"), "")
+    controls.append(_expect("GRAU-SEM-INPUT-CTEST_PARALELO reprova", any("CTEST_PARALELO" in e for e in erros), str(erros)))
+    dispatch = "on:\n  push:\n    branches: [main]\n  workflow_dispatch:\n"
+    erros = dispatch_input_errors(dispatch)
+    controls.append(_expect("DISPATCH-SEM-INPUT ctest_paralelo reprova", any("ctest_paralelo" in e for e in erros), str(erros)))
+    erros = dispatch_input_errors(dispatch + "    inputs:\n      ctest_paralelo:\n        default: ''\n")
+    controls.append(_expect("DISPATCH-COM-INPUT passa", not erros, str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, "      # ctest --repeat until-pass\n" + _CI_OK, "")
     controls.append(_expect("COMENTARIO com --repeat nao reprova", not erros, str(erros)))
     erros, c, _p = run_check("add_test(NAME x COMMAND echo)\n", _CI_OK, "")

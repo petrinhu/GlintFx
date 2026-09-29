@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`PKG-DEP-COVERAGE-COMENTARIO`: `check_pkg_dep_coverage.py:178` (`install_tokens`) conta pacote citado em comentário `#`** (revisão do CTO, 29/09/2026, achado 8); o G4 de `check_ci_system_uniformity.py` poderia também exigir que `tools/ci/env/<slug>.sh` exporte `GLINTFX_PREP_SHA` (mutante X9).
+
 - **`CTEST-TIMEOUT-FIXTURES`: teste sem teto de tempo prende o CI por minutos.** Medido em 24/09/2026: `gl_context_parity_test` ficou preso 650 s (`wchan=poll_schedule_timeout`) atrás do relé serial; nenhum teste de fio tem `TIMEOUT` no ctest, nenhum job passa `ctest --timeout`, e os passos do trabalho `wayland-container` do `ci.yml` não têm `timeout-minutes`. Lista completa por lei do gêmeo a medir. Origem: decisão do main de 24/09 12:25 em `DECISOES_AUTONOMAS.md`.
 
 - **`PARITY-SWAP-REFUSAL-GEMEO`: diagnóstico desigual em `gl_context_parity_test.cpp`.** O sítio `vsync_on_60_swaps` (`:526-545`) não chama `print_swap_tolerance_refusal` como os outros três (`:450`, `:492`, `:601`), e as mensagens de `:496`, `:537` e `:603` não imprimem `rejected_value`. Achado do plano de `EGL-DEAD-DISPLAY-GUARD` (24/09/2026); diagnóstico de teste, não comportamento.

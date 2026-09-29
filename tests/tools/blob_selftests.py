@@ -24,6 +24,7 @@
 #   blob_selftests.py --root <raiz-extraida-do-indice>
 #   blob_selftests.py --selftest
 
+import contextlib
 import json
 import os
 import re
@@ -314,10 +315,10 @@ def run_all(root, ctest_json=None):
 # --- selftest -----------------------------------------------------------
 
 
-def _fake_root(scripts, cmake_extra=""):
+def _fake_root(scripts, cmake_extra="", base=None):
     """scripts: {arquivo: (conteudo|None, registrado, comentario_acima|None, forma)}; forma
     'py' (`python x.py --selftest`), 'sh' (`x.sh --selftest`) ou 'pwsh'."""
-    raiz = tempfile.mkdtemp(prefix="glintfx-blob-")
+    raiz = tempfile.mkdtemp(prefix="glintfx-blob-", dir=base)
     os.makedirs(os.path.join(raiz, "tests", "tools"))
     shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), "armadilha"), os.path.join(raiz, "tests", "tools", "armadilha"))
     cmake = []
@@ -352,6 +353,17 @@ def _fake_root(scripts, cmake_extra=""):
     return raiz
 
 
+@contextlib.contextmanager
+def _raiz_falsa(scripts, cmake_extra="", base=None):
+    """Dona unica do CICLO DE VIDA da raiz falsa (F0): criada por _fake_root e REMOVIDA no finally,
+    SEM ignore_errors (falha de remocao reprova, nao some)."""
+    raiz = _fake_root(scripts, cmake_extra, base)
+    try:
+        yield raiz
+    finally:
+        shutil.rmtree(raiz)
+
+
 def _check(nome, condicao, detalhe=""):
     print(f"selftest: {nome} {'OK' if condicao else 'FALHOU'}" + ("" if condicao else f" - {detalhe}"))
     return condicao
@@ -365,9 +377,21 @@ def selftest_main():
     cita_cmake = "# este comentario cita cmake, docker e pwsh\nimport sys\nsys.exit(0)\n"
     controles = []
 
-    def roda(scripts, extra=""):
-        return run_all(_fake_root(scripts, extra))
+    def roda(scripts, extra="", base=None):
+        with _raiz_falsa(scripts, extra, base) as raiz:
+            return run_all(raiz)
 
+    # F0 (CTO): a raiz falsa que o roda() cria SOME ao fim (antes vazava ~18 diretorios por --selftest).
+    # Conta dentro de um diretorio PRIVADO do controle, nunca no $TMPDIR compartilhado (o stage_blob do
+    # preci e outra instancia do selftest criam glintfx-blob-* ao mesmo tempo e o delta mentiria).
+    privado = tempfile.mkdtemp(prefix="glintfx-blobpriv-")
+    try:
+        antes = len([n for n in os.listdir(privado) if n.startswith("glintfx-blob-")])
+        roda({"a.py": (ok_py, True, None, "py")}, base=privado)
+        depois = len([n for n in os.listdir(privado) if n.startswith("glintfx-blob-")])
+        controles.append(_check("F0: roda() nao deixa glintfx-blob-* para tras (delta 0 no diretorio privado)", antes == 0 and depois == 0, f"antes={antes} depois={depois}"))
+    finally:
+        shutil.rmtree(privado)
     rc, linhas = roda({"a.py": (ok_py, True, None, "py"), "b.py": (ok_py, True, None, "py")})
     controles.append(_check("POSITIVO (2 registrados, 2 rodados, 0 falharam)", rc == 0 and "2 rodado(s)" in linhas[-1] and "falharam 0" in linhas[-1], str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, True, None, "py"), "b.py": (ruim_py, True, None, "py")})
@@ -456,8 +480,8 @@ def selftest_main():
     controles.append(_check("R-1: a condicao envolvente sai certa (aninhada, fechada, comentario ignorado)",
                             (_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c")))
                             == ("UNIX E NOT (WIN32 AND FOO)", "UNIX", ""), str((_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c"))))))
-    raiz_x = _fake_root({"a.py": (ok_py, True, None, "py")})
-    rc_x, linhas_x = run_all(raiz_x, ctest_json=os.path.join(raiz_fx, "ctest-selftest-show.json"))
+    with _raiz_falsa({"a.py": (ok_py, True, None, "py")}) as raiz_x:
+        rc_x, linhas_x = run_all(raiz_x, ctest_json=os.path.join(raiz_fx, "ctest-selftest-show.json"))
     controles.append(_check("A-1: run_all com o json do ctest reprova quando o universo do blob difere do ctest (nomeando)",
                             rc_x == 1 and any("simples_selftest" in l or "propriedade_selftest" in l for l in linhas_x), str(linhas_x)))
     ok_preci = "run_full_pipeline() {\n    stage_format\n    stage_blob\n    stage_configure\n}\n\nrun_lint_only() {\n    stage_format\n}\n"

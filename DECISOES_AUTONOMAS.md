@@ -4736,3 +4736,19 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - impl-da14 ocioso.
 - **Nada empurrado:** ce0f4ff ainda não foi aceito, e há 8 commits locais à frente de origin/onda-w7c.
 - **Crons:** o monitor anti-parada (846bb0c2) foi desligado; a restauração da suspensão da VM às 12:25 (43114180) continua.
+
+## 29/09/2026 - 08:22 | D-A27: veredito CTO do ce0f4ff (entregue antes da pausa)
+
+- **Cruzamento A-1: ACEITO COM RESSALVA.** A revisão foi sobre o blob, e o MV com o json regenerado morre.
+  - **R-1:** um `fora` fantasma só passa se o add_test estiver dentro de um if(), e é impresso com a condição.
+  - **R-2:** se o `tests/CMakeLists.txt` estiver fora do índice, reprova com "rode git add".
+- **win-vm-lab: REPROVADO, CRÍTICO LATENTE.**
+  - Com o stub sabotado, o selftest do rodar-caminho.sh manda `qemu-agent-command glintfx-win11-lab guest-exec` pelo virsh REAL, porque ele está no PATH logo atrás do stub. Isso seria execução dentro da VM viva do líder (L-09, L-50). Foi provado numa sandbox bwrap isolada, sem alcançar a VM.
+  - Hoje não vaza: os 6 passam limpos e a armadilha disparou 0 vezes. Mas a exposição é anterior ao ce0f4ff (o ctest do preci já rodava os 6), e o ce0f4ff a dobra ao pô-los também no --blob.
+  - A armadilha que o implementador declarou não existe no blob: achado de integridade de relato.
+- **Conserto (decisão autônoma do CTO, confirmar retroativamente):**
+  1. conexão `test:///default` e domínio falso nos 6 --selftest;
+  2. armadilha versionada na frente do PATH dos 6 testes, com reprovação se o log dela não estiver vazio;
+  3. estreia com os 3 mutantes (rodar-caminho, consolidar, sessao);
+  4. até lá, repor os `fora` dos 6.
+- **Execução:** é a PRIMEIRA fatia ao retomar, antes do desenho do paralelo. Durante a pausa não há exposição, porque nenhum preci roda.

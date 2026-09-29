@@ -4709,3 +4709,21 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - Ele roda os selftests Python sobre o ÍNDICE (`git checkout-index`), e não sobre `git archive HEAD`, que testaria o commit anterior.
   - Entra no `--fast` por padrão, com o tempo impresso; o universo vem de `LABELS selftest` Python no CMakeLists.
   - O mutante de estreia é uma fixture em pasta build-* sem `add -f`.
+
+## 29/09/2026 - 08:18 | D-A26: calibração A5 medida; P3 reprovado; decisão do LÍDER sobre o grau
+
+- **Relatório:** `/var/tmp/calib-a5/RELATORIO.md`, do impl-da14. O main conferiu por conta própria as durações do passo "Testes" de Fedora-compartilhado e Windows-estático nas 6 rodadas, pelos jobs da API, e elas batem. Os critérios do plano 4.8 foram aplicados sem ajuste (L-43).
+  - **Artefatos:** 60 de 60.
+  - **P1: PASSA.** Conjunto de aprovados idêntico nas 10 pernas e nas 6 rodadas.
+  - **P2:** 11 testes sem folga contra TIMEOUT/3; a regra 4 dá o TIMEOUT novo de cada um.
+  - **P3: REPROVADO em 10 de 10.** O ganho medido ficou entre -58% e 15%, com mediana de -3%.
+  - **Causa medida:** os 12 testes com `glintfx_nested_build` são 90-93% da soma serial no Linux e 73-75% no Windows, e o trinco os serializa.
+  - **As 2 falhas da r1:**
+    - o flake FACADE-PIN T1/G3 da INBOX;
+    - a régua absoluta de 40 s acusando layers_selftest e dep_zero_trace_selftest numa parada de runner do Windows-estático. Essa segunda é um achado NOVO, a régua flaky, e vai ao CTO.
+- **Pergunta ao líder, feita por AskUserQuestion como manda o plano.** Resposta dele, verbatim: "Ocupe  até 2/3 dos núcleos em paralelo". No esclarecimento, verbatim: "Pensei que era no meu computador. No gha pode ir ao limite."
+  - **Leitura do main (preenchimento, L-07):**
+    - **Local (preci, máquina do líder, 16 núcleos):** paralelo de no máximo 2/3 dos núcleos, ou seja floor(16*2/3) = 10, abaixo do teto de 13 threads da L-11.
+    - **GitHub Actions:** paralelo no limite dos núcleos do runner, com os pesados deixando de ficar em fila única (via (c) do plano ou equivalente, desenho do CTO).
+    - **A régua do P3 não se move:** a nova configuração é medida de novo em 6 rodadas.
+- **Estado dos ramos:** os `calib/a5-r0..r5` ficam até a nova calibração; apagar ao fim (L-11).

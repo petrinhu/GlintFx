@@ -4628,3 +4628,16 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - C-a: proibir `permissions:` dentro de job.
   Os cosméticos C-b (run cancelado reprova, de propósito) e C-c ficam só documentados.
 - **Push:** c000bb0 e este registro vão para onda-w7c agora. Na tentativa 1 o guard é inerte.
+
+## 29/09/2026 - 03:00 | D-A21: consertos da A4 aceitos; risco aceito na regra do job derivado
+
+- **CTO (02:59), lote 3f18e3f..f389de6: aceito.**
+  - Selftests: rerun_guard 29/29 e step_independence 85/85.
+  - I1, I2, I3 e C-a cumpridos. RG6, G6e e G6l morrem, e os mutantes D1-D8 da regra do derivado também (D7 é equivalente).
+  - PREP_MARKER tem fonte única, importada pelo portão.
+- **Correção de texto na D-A20 (feita aqui, porque ela já foi empurrada):** lá está escrito que a regra do derivado olha "todos os OUTROS jobs que falharam". A regra é MAIS ESTRITA para outras falhas de teste e MAIS FROUXA para falhas de preparo fora dos `needs`. Medido: o parity com falha própria de teste, somado ao gitleaks (fora dos needs) falhando no checkout, SEGUE.
+- **Decisão autônoma do CTO, a confirmar retroativamente: risco aceito, com a prova acima.**
+  - Efeito máximo: uma execução extra para uma falha real do parity. Se ela for determinística, repete, e a tentativa 3 é bloqueada.
+  - Restringir aos `needs` exigiria uma tabela de nome de exibição para chave de job, mais uma cópia à mão, porque a API só devolve o nome expandido pela matriz.
+  - Se o parity ficar instável, isso vira item.
+- **Estado:** a A4 fica fechada do lado da revisão; falta o CI do servidor sobre f389de6.

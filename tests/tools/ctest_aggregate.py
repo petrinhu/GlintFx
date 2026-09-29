@@ -27,6 +27,8 @@
 #   passou    - qualquer outro.
 # "declarados" e' o rodape "Total Tests: N" do `ctest -N` (L-45).
 #
+# "executados" = passou + falhou de verdade; "nao_rodou" = notrun contado como falha.
+#
 # Reprova se: declarados == 0 (varredura vazia, L-40); JUnit ausente ou
 # ilegivel; casos no JUnit != declarados (caso nao reportado = pulado
 # calado); qualquer teste DESLIGADO; qualquer falha. Teste PULADO nao
@@ -143,9 +145,14 @@ def run(builddir, inventory_path, junit_path=None):
     errors = [e for e in (declared_error, junit_error) if e]
     shown = "?" if declared is None else declared
     c = counts or {"passou": 0, "falhou": 0, "pulou": 0, "desligado": 0}
+    # "executados" = os que o ctest de fato RODOU (passou + falhou de verdade);
+    # notrun contado como falha (sem executavel, arquivo faltando, dependencia
+    # de fixture) nunca executou e sai a parte em "nao_rodou" (C3, CTO 29/09:
+    # rotulo que nao correspondia ao conteudo).
+    nao_rodou = len(motivos)
     print(
-        f"declarados: {shown}, executados: {c['passou'] + c['falhou']}, passaram: {c['passou']}, "
-        f"falharam: {c['falhou']}, pulados: {c['pulou']}, desligados: {c['desligado']}"
+        f"declarados: {shown}, executados: {c['passou'] + c['falhou'] - nao_rodou}, passaram: {c['passou']}, "
+        f"falharam: {c['falhou']}, pulados: {c['pulou']}, desligados: {c['desligado']}, nao_rodou: {nao_rodou}"
     )
     problems = verdict(declared, counts, errors, motivos)
     for problem in problems:
@@ -198,7 +205,7 @@ def selftest_main():
     sem_rodape = os.path.join(FIXTURES, "junit_allpass.xml")  # arquivo sem "Total Tests:"
     controls = [
         _case("POSITIVO (3 passaram, JUnit real)", 0, "junit_allpass.xml", "inventory_allpass.txt",
-              ["declarados: 3, executados: 3, passaram: 3, falharam: 0, pulados: 0, desligados: 0"]),
+              ["declarados: 3, executados: 3, passaram: 3, falharam: 0, pulados: 0, desligados: 0, nao_rodou: 0"]),
         # A1: pulado NAO e' passou (1 passou + 1 pulado, ctest real).
         _case("PULADO-NAO-E-PASSOU (ctest real)", 0, "junit_skipped_only.xml", "inventory_skipped_only.txt",
               ["passaram: 1", "pulados: 1"]),
@@ -215,7 +222,7 @@ def selftest_main():
         # gerado por ctest real (9 casos: 1 passou, 2 pulados de verdade,
         # 1 desligado, 5 falhas - 3 delas notrun).
         _case("NOTRUN-NAO-E-PULADO (ctest real)", 1, "junit_notrun.xml", "inventory_notrun.txt",
-              ["passaram: 1", "falharam: 5", "pulados: 2", "desligados: 1",
+              ["executados: 3", "passaram: 1", "falharam: 5", "pulados: 2", "desligados: 1", "nao_rodou: 3",
                "Unable to find executable", "Required Files Missing", "Fixture dependency failed"]),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),
         _case("JUNIT-ILEGIVEL", 1, None, "inventory_allpass.txt", ["ilegivel"], junit_text="<testsuite"),

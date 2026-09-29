@@ -199,6 +199,13 @@ def compare(round_dirs, jobs_files=None):
             with open(caminho, "r", encoding="utf-8") as handle:
                 dados.append(json.load(handle))
         linhas, e3 = p3_report(dados)
+        # Piso de varredura (L-40): menos jobs medidos que pernas do P1 (ou zero) e' coleta
+        # quebrada, nunca "P3 ok" (CALIBRATION_STEPS com nomes inexistentes passava calado).
+        if len(linhas) < max(1, len(legs)):
+            e3.append(
+                f"P3: {len(linhas)} job(s) medido(s), menos que as {len(legs)} perna(s) do P1 - varredura vazia (L-40), "
+                f"coleta quebrada (o nome do passo de calibracao mudou?)"
+            )
         relatorio.append(f"P3: {len(linhas)} job(s) com passo de calibracao (Testes compartilhado/estatico) medido")
         relatorio.extend(f"P3 {j}: serial {s:.0f} s, pior paralela {p:.0f} s, ganho {g * 100:.0f}%" for j, s, p, g in linhas)
         erros.extend(e3)
@@ -248,6 +255,21 @@ def selftest_main():
                             rc == 0 and "P2 serial_lento" not in texto, texto + str(erros)))
     controles.append(_check("estrutura: menos de 6 rodadas reprova", compare(_rounds("ok")[:5])[0] == 1))
     controles.append(_check("varredura vazia: rodada sem pernas reprova", compare([FIXTURES] * ROUNDS)[0] == 1))
+    # P3 com 0 jobs medidos e' varredura vazia (L-40): CALIBRATION_STEPS com nomes inexistentes
+    # NAO pode passar calado; e menos jobs que pernas do P1 tambem reprova.
+    jobs_real = os.path.join(FIXTURES, "rerun_guard", "run36523231561_attempt1_jobs.json")
+    global CALIBRATION_STEPS
+    anteriores = CALIBRATION_STEPS
+    CALIBRATION_STEPS = ("passo que nao existe",)
+    try:
+        rc_vazio, _r, erros_vazio = compare(_rounds("ok"), [jobs_real] * ROUNDS)
+    finally:
+        CALIBRATION_STEPS = anteriores
+    controles.append(_check("P3: 0 jobs medidos (nomes de passo inexistentes) REPROVA, varredura vazia",
+                            rc_vazio == 1 and any("varredura vazia" in e and "P3" in e for e in erros_vazio), str(erros_vazio)))
+    rc_ok3, rel3, erros3 = compare(_rounds("ok"), [jobs_real] * ROUNDS)
+    controles.append(_check("P3: jobs medidos >= pernas do P1 nao dispara o piso (o P3 reprova so' pelo ganho 0%)",
+                            not any("varredura vazia" in e for e in erros3), str(erros3)))
     controles.extend(_selftest_p3())
     if not all(controles):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

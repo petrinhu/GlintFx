@@ -1329,6 +1329,7 @@ jobs:
       - name: Guarda de reexecucao (rerun_guard)
         env:
           GH_TOKEN: ${{ github.token }}
+          RERUN_DERIVADO: "1"
           RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
         run: python3 tools/ci/rerun_guard.py
 

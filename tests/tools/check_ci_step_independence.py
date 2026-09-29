@@ -664,7 +664,11 @@ def mandatory_errors(job_name, steps):
     return errors
 
 
-def rerun_guard_errors(job_name, steps):
+_JOB_NEEDS_RE = re.compile(r"^    needs:", re.MULTILINE)
+_RERUN_DERIVADO_RE = re.compile(r"RERUN_DERIVADO:\s*[\"']1[\"']")
+
+
+def rerun_guard_errors(job_name, steps, job_block_text=""):
     """A4 (D-A4): o passo `rerun_guard.py` esta IMEDIATAMENTE antes do marco
     `id: prep`, com GH_TOKEN e RERUN_CHECK_RUN_ID no env. So' julga job com
     exatamente um marco (G3 reporta o resto)."""
@@ -678,11 +682,19 @@ def rerun_guard_errors(job_name, steps):
         ]
     nome, texto = steps[prep[0] - 1]
     codigo = _code_text(texto)
-    return [
+    errors = [
         f"job {job_name!r}, passo {nome!r}: chama {RERUN_GUARD} sem {var} no env - G6"
         for var in ("GH_TOKEN", "RERUN_CHECK_RUN_ID")
         if var not in codigo
     ]
+    tem_needs = bool(_JOB_NEEDS_RE.search(job_block_text))
+    tem_env = bool(_RERUN_DERIVADO_RE.search(codigo))
+    if tem_needs != tem_env:
+        errors.append(
+            f"job {job_name!r}, passo {nome!r}: RERUN_DERIVADO: \"1\" no env se e so' se o job tem "
+            f"`needs:` (tem needs={tem_needs}, tem env={tem_env}) - I1, G6"
+        )
+    return errors
 
 
 _TOP_ON_RE = re.compile(r"^on:\s*$", re.MULTILINE)
@@ -940,7 +952,7 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(aggregate_errors(job_name, steps))
     errors.extend(mandatory_errors(job_name, steps))
     errors.extend(ps1_single_command_errors(job_name, steps))
-    errors.extend(rerun_guard_errors(job_name, steps))
+    errors.extend(rerun_guard_errors(job_name, steps, job_block_text))
     errors.extend(prep_marker_name_errors(job_name, steps))
     errors.extend(job_permissions_errors(job_name, job_block_text))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
@@ -2521,6 +2533,34 @@ def selftest_job_level_permissions_reproves():  # G6l
 
 
 
+# I1 (CTO 29/09): o guarda do job com `needs:` declara RERUN_DERIVADO: "1" (e
+# so' ele) - o job derivado que falha em teste porque a perna de que depende
+# falhou no preparo segue na tentativa 2. Sem a env, o parity reprovaria toda
+# reexecucao legitima; com a env num job sem `needs:`, uma falha de teste
+# propria seria perdoada.
+def selftest_derived_job_without_env_reproves():
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace("    container: fedora:latest\n", "    container: fedora:latest\n    needs: [outro]\n", 1))
+    return _g5_expect("I1-NEEDS-SEM-RERUN-DERIVADO", resultado, "lint", "RERUN_DERIVADO")
+
+
+def selftest_env_without_needs_reproves():
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace("          GH_TOKEN: ${{ github.token }}\n", "          GH_TOKEN: ${{ github.token }}\n          RERUN_DERIVADO: \"1\"\n", 1))
+    return _g5_expect("I1-RERUN-DERIVADO-SEM-NEEDS", resultado, "lint", "RERUN_DERIVADO")
+
+
+def selftest_derived_job_with_env_passes():
+    def derivar(t):
+        t = t.replace("    container: fedora:latest\n", "    container: fedora:latest\n    needs: [outro]\n", 1)
+        return t.replace("          GH_TOKEN: ${{ github.token }}\n", "          GH_TOKEN: ${{ github.token }}\n          RERUN_DERIVADO: \"1\"\n", 1)
+    exit_code, output = _run_real_main_capturing(derivar(_FIXTURE_FIXED_JOB), job_name="lint")
+    if exit_code not in (None, 0):
+        print(f"selftest: I1-DERIVADO-COM-ENV FALHOU: {output!r}", file=sys.stderr)
+        return False
+    print("selftest: I1-DERIVADO-COM-ENV OK")
+    return True
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2601,6 +2641,9 @@ def selftest_main():
         selftest_permissions_actions_read_present_passes(),
         selftest_prep_marker_renamed_reproves(),
         selftest_job_level_permissions_reproves(),
+        selftest_derived_job_without_env_reproves(),
+        selftest_env_without_needs_reproves(),
+        selftest_derived_job_with_env_passes(),
         selftest_pin_off_minimum_reproves(),
         selftest_minimum_drift_reproves(),
         selftest_floor_sh_threshold_drift_reproves(),

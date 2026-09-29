@@ -20,6 +20,12 @@
 #   Resposta vazia/404/ilegivel da API, job nao encontrado, job sem o marco
 #   ou falha sem passo identificavel: REPROVA, nunca "nao achei, entao pode".
 #
+# Job com `needs:` (RERUN_DERIVADO=1, o portao exige a env se e so' se o job
+# tem `needs:`): so' roda porque as pernas de que depende passaram. Se elas
+# falharam em preparo, ele falha em "teste" na tentativa 1 sem culpa propria
+# (ex.: parity). Na tentativa 2 ele segue se pelo menos um OUTRO job falhou e
+# TODOS os outros falharam em preparo; qualquer outra falha de teste reprova.
+#
 # O nome do job da tentativa atual vem de GET /actions/jobs/<check_run_id>
 # (RERUN_CHECK_RUN_ID = ${{ job.check_run_id }}), e a tentativa 1 de GET
 # /actions/runs/<run_id>/attempts/1/jobs (paginado).
@@ -78,9 +84,27 @@ def classify_failure(job):
     return fase, first.get("name", "?")
 
 
-def decide(attempt, attempt1_jobs, job_name):
+def _others_failed_only_in_prep(attempt1_jobs, this_job):
+    """(ok, motivo): existe pelo menos um OUTRO job que nao passou na
+    tentativa 1 e TODOS eles falharam em preparo (mesma classify_failure)."""
+    outros = [
+        j for j in attempt1_jobs
+        if j is not this_job and j.get("conclusion") in ("failure", "cancelled", "timed_out")
+    ]
+    if not outros:
+        return False, "nenhum outro job falhou na tentativa 1 - a falha de teste deste job e' dele"
+    for outro in outros:
+        fase, passo = classify_failure(outro)
+        if fase != "prep":
+            return False, f"o job {outro.get('name')!r} tambem falhou na tentativa 1 fora do preparo ({fase}: {passo})"
+    return True, f"{len(outros)} outro(s) job(s) falharam so' em preparo"
+
+
+def decide(attempt, attempt1_jobs, job_name, derivado=False):
     """(permite, mensagem). attempt1_jobs: lista de jobs da tentativa 1 ou
-    None quando a API nao respondeu com jobs."""
+    None quando a API nao respondeu com jobs. `derivado`: o job tem `needs:`
+    (RERUN_DERIVADO=1) - roda so' porque outras pernas passaram, entao a
+    falha dele em TESTE segue se as outras falharam so' em preparo (I1)."""
     if not isinstance(attempt, int) or attempt < 1:
         return False, f"github.run_attempt invalido: {attempt!r}"
     if attempt == 1:
@@ -97,6 +121,17 @@ def decide(attempt, attempt1_jobs, job_name):
     fase, passo = classify_failure(job)
     if fase == "prep":
         return True, f"falha de INFRAESTRUTURA na tentativa 1 (passo de preparo {passo!r}): reexecucao permitida"
+    if fase == "teste" and derivado:
+        ok, motivo = _others_failed_only_in_prep(attempt1_jobs, job)
+        if ok:
+            return True, (
+                f"job derivado (needs:) falhou em TESTE na tentativa 1 (passo {passo!r}), mas {motivo}: "
+                f"a falha veio das pernas de preparo, reexecucao permitida"
+            )
+        return False, (
+            f"falha de TESTE na tentativa 1 (passo {passo!r}) num job derivado, e {motivo} - "
+            f"a segunda falha e' tratada como real (D-A4)"
+        )
     if fase == "teste":
         return False, (
             f"falha de TESTE na tentativa 1 (passo {passo!r}): a segunda falha e' tratada como real, "
@@ -150,7 +185,8 @@ def run_guard(env, fetch):
     name = job_name_from_response(fetch(f"{api}/repos/{repo}/actions/jobs/{check_run_id}"))
     if name is None:
         return 1, f"{SCRIPT_NAME}: nao foi possivel ler o nome deste job pela API - nao se reexecuta sem saber qual job e' este"
-    permite, msg = decide(attempt, fetch_attempt1_jobs(api, repo, run_id, fetch), name)
+    derivado = env.get("RERUN_DERIVADO") == "1"
+    permite, msg = decide(attempt, fetch_attempt1_jobs(api, repo, run_id, fetch), name, derivado)
     return (0 if permite else 1), f"{SCRIPT_NAME}: {msg}"
 
 
@@ -171,17 +207,30 @@ def _jobs_named(data, prefix):
     return next(j for j in data["jobs"] if j["name"].startswith(prefix))
 
 
-def _mut_prep_failure(data, prefix):
-    """MUTACAO do arquivo real: o job passa a falhar no checkout (passo de
-    preparo) e o que vem depois vira 'skipped'."""
+def _mut_prep_failure(data, prefix, so_a_primeira=False):
+    """MUTACAO do arquivo real: o job falha no checkout (passo 2, preparo). No
+    real os passos seguintes com `if: !cancelled()` RODAM e FALHAM (I2, CTO
+    29/09) - entao todo passo seguinte que nao seja pos-processamento vira
+    'failure' tambem (a menos que so_a_primeira)."""
     novo = json.loads(json.dumps(data))
     job = _jobs_named(novo, prefix)
     job["conclusion"] = "failure"
     for passo in job["steps"]:
         if passo["number"] == 2:
             passo["conclusion"] = "failure"
-        elif passo["number"] > 2 and passo["name"] not in ("Complete job",) and not passo["name"].startswith("Post "):
-            passo["conclusion"] = "skipped"
+        elif passo["number"] > 2 and passo["name"] != "Complete job" and not passo["name"].startswith("Post "):
+            passo["conclusion"] = "skipped" if so_a_primeira else "failure"
+    return novo
+
+
+def _mut_test_failure(data, prefix, passo_nome):
+    """MUTACAO do arquivo real: o job falha no passo `passo_nome` (depois do marco)."""
+    novo = json.loads(json.dumps(data))
+    job = _jobs_named(novo, prefix)
+    job["conclusion"] = "failure"
+    for passo in job["steps"]:
+        if passo["name"] == passo_nome:
+            passo["conclusion"] = "failure"
     return novo
 
 
@@ -216,11 +265,71 @@ def selftest_main():
     controles.append(_check("nome do job pela API (resposta real de /actions/jobs/<id>)",
                             job_name_from_response(_load("job109260499103.json")) == lint_win))
     controles.append(_check("nome do job: 404 REAL nao da' nome", job_name_from_response(_load("run36523231561_attempt9_jobs_vazio.json")) is None))
+    controles.append(_check(
+        "I2: a PRIMEIRA falha decide (checkout falha, os passos seguintes tambem falham) permite",
+        decide(2, _mut_prep_failure(real, "Windows - Lint")["jobs"], lint_win)[0]))
+    controles.append(_check(
+        "I2: so' o checkout falhou (o resto skipped) tambem permite",
+        decide(2, _mut_prep_failure(real, "Windows - Lint", so_a_primeira=True)["jobs"], lint_win)[0]))
+    controles.extend(_selftest_derivado(real))
     controles.extend(_selftest_run_guard(real, lint_win))
     if not all(controles):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
         sys.exit(1)
     print(f"{SCRIPT_NAME} --selftest: os {len(controles)} controles OK")
+
+
+def _selftest_derivado(real):
+    """I1 (CTO 29/09): job com `needs:` (RERUN_DERIVADO=1) que falha em TESTE so'
+    porque uma perna falhou no preparo segue na tentativa 2; qualquer outra
+    falha de teste, ou nenhuma outra falha, reprova. Mutacoes dos arquivos reais."""
+    parity = _jobs_named(real, "Paridade")["name"]
+    fedora = _jobs_named(real, "Fedora (primario) - compartilhado")
+    # perna Fedora falha em "Instalar toolchain" (preparo, passo 4) e o parity
+    # falha em "Separar e unir inventarios por sistema" (passo 5, depois do marco).
+    # O run real tem 3 pernas Windows vermelhas (teste): a mutacao as CURA para
+    # isolar o cenario (so' a perna Fedora falha, em preparo).
+    curado = _heal(real)
+    base = _mut_test_failure(curado, "Paridade", "Separar e unir inventarios por sistema")
+    for passo in _jobs_named(base, "Fedora (primario) - compartilhado")["steps"]:
+        if passo["name"] == "Instalar toolchain":
+            passo["conclusion"] = "failure"
+    _jobs_named(base, "Fedora (primario) - compartilhado")["conclusion"] = "failure"
+    outra_teste = json.loads(json.dumps(base))  # + a perna windows-lint com a falha de TESTE REAL de volta
+    real_lint = _jobs_named(real, "Windows - Lint")
+    outra_teste["jobs"] = [real_lint if j["name"] == real_lint["name"] else j for j in outra_teste["jobs"]]
+    so_parity = _mut_test_failure(curado, "Paridade", "Separar e unir inventarios por sistema")
+    _selftest_derivado.cenario = (base, parity)
+    return [
+        _check("I1: derivado + so' pernas com falha de PREPARO segue",
+               decide(2, base["jobs"], parity, derivado=True)[0]),
+        _check("I1: derivado + outra perna com falha de TESTE (windows-lint real) reprova",
+               not decide(2, outra_teste["jobs"], parity, derivado=True)[0]),
+        _check("I1: derivado, sozinho a falhar em teste (nenhuma outra falha) reprova",
+               not decide(2, so_parity["jobs"], parity, derivado=True)[0]),
+        _check("I1: NAO derivado nao ganha a excecao (mesma resposta, derivado=False) reprova",
+               not decide(2, base["jobs"], parity, derivado=False)[0]),
+        _check("I1: outra perna cancelada nao conta como preparo (reprova)",
+               not decide(2, _cancel(base, "Arch - compartilhado")["jobs"], parity, derivado=True)[0]),
+    ]
+
+
+def _heal(data):
+    """MUTACAO do arquivo real: todo job/passo com falha vira success."""
+    novo = json.loads(json.dumps(data))
+    for job in novo["jobs"]:
+        if job.get("conclusion") == "failure":
+            job["conclusion"] = "success"
+        for passo in job.get("steps", []):
+            if passo.get("conclusion") in ("failure", "skipped"):
+                passo["conclusion"] = "success"
+    return novo
+
+
+def _cancel(data, prefix):
+    novo = json.loads(json.dumps(data))
+    _jobs_named(novo, prefix)["conclusion"] = "cancelled"
+    return novo
 
 
 def _selftest_run_guard(real, lint_win):
@@ -240,7 +349,14 @@ def _selftest_run_guard(real, lint_win):
     rc2x, _ = run_guard({**base, "GITHUB_RUN_ATTEMPT": "2"}, lambda u: None)
     rc2s, _ = run_guard({"GITHUB_RUN_ATTEMPT": "2"}, servir(real))
     rcbad, _ = run_guard({**base, "GITHUB_RUN_ATTEMPT": "abc"}, servir(real))
+    base_derivada, parity = _selftest_derivado.cenario
+    pj = {"name": parity}
+    fetch_d = lambda u: pj if "/actions/jobs/" in u else base_derivada
+    rcd1, _ = run_guard({**base, "GITHUB_RUN_ATTEMPT": "2", "RERUN_DERIVADO": "1"}, fetch_d)
+    rcd0, _ = run_guard({**base, "GITHUB_RUN_ATTEMPT": "2"}, fetch_d)
     return [
+        _check("run_guard: job derivado (RERUN_DERIVADO=1) com so' preparo nas outras pernas rc=0", rcd1 == 0),
+        _check("run_guard: o mesmo cenario SEM RERUN_DERIVADO rc=1", rcd0 == 1),
         _check("run_guard: tentativa 1 rc=0", rc1 == 0),
         _check("run_guard: tentativa 3 rc=1", rc3 == 1),
         _check("run_guard: tentativa 2 + falha de teste real rc=1", rc2t == 1),

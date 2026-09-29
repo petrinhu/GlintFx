@@ -74,32 +74,49 @@ def parse_declared(inventory_path):
     return int(_TOTAL_RE.search(inventory).group(1)), None
 
 
+# Unico <skipped> que e' PULO de verdade (SKIP_RETURN_CODE=<n> ou
+# SKIP_REGULAR_EXPRESSION). Qualquer outro <skipped> (status="notrun") -
+# "Unable to find executable", "Required Files Missing", "Fixture
+# dependency failed" - o ctest conta como FAILED (A4, CTO 29/09).
+_TRUE_SKIP_RE = re.compile(r"^(?:SKIP_RETURN_CODE=\d+|SKIP_REGULAR_EXPRESSION_MATCHED)$")
+
+
 def classify_case(case):
+    """(status, motivo) - motivo so' quando um notrun conta como falha."""
     if case.find("failure") is not None or case.find("error") is not None:
-        return "falhou"
-    if case.find("skipped") is not None:
-        return "pulou"
+        return "falhou", None
+    skipped = case.find("skipped")
+    if skipped is not None:
+        mensagem = skipped.get("message", "")
+        if _TRUE_SKIP_RE.match(mensagem):
+            return "pulou", None
+        return "falhou", f"{case.get('name')}: notrun '{mensagem or '<sem mensagem>'}' (o ctest conta como FAILED)"
     if case.get("status") == "disabled":
-        return "desligado"
-    return "passou"
+        return "desligado", None
+    return "passou", None
 
 
 def parse_junit(junit_path):
-    """({status: n}, erro) - erro e' None quando o JUnit foi lido."""
+    """({status: n}, motivos, erro) - erro e' None quando o JUnit foi lido;
+    motivos = por que cada notrun contou como falha."""
     text = read_text(junit_path)
     if text is None:
-        return None, f"{junit_path} ausente - o passo 'Testes' nao rodou ate o fim (ou nao usou --output-junit)"
+        return None, [], f"{junit_path} ausente - o passo 'Testes' nao rodou ate o fim (ou nao usou --output-junit)"
     try:
         root = ElementTree.fromstring(text)
     except ElementTree.ParseError as exc:
-        return None, f"{junit_path} ilegivel ({exc})"
+        return None, [], f"{junit_path} ilegivel ({exc})"
     counts = {"passou": 0, "falhou": 0, "pulou": 0, "desligado": 0}
+    motivos = []
     for case in root.iter("testcase"):
-        counts[classify_case(case)] += 1
-    return counts, None
+        status, motivo = classify_case(case)
+        counts[status] += 1
+        if motivo:
+            motivos.append(motivo)
+    return counts, motivos, None
 
 
-def verdict(declared, counts, errors):
+def verdict(declared, counts, errors, motivos=()):
     """Lista de causas de reprovacao (vazia = aprovado)."""
     problems = list(errors)
     if declared == 0:
@@ -115,13 +132,14 @@ def verdict(declared, counts, errors):
         problems.append(f"{counts['desligado']} teste(s) DESLIGADO(S) (DISABLED) - teste desligado nao conta como passou")
     if counts is not None and counts["falhou"] > 0:
         problems.append(f"{counts['falhou']} teste(s) falharam")
+    problems.extend(f"notrun contado como falha - {m}" for m in motivos)
     return problems
 
 
 def run(builddir, inventory_path, junit_path=None):
     junit_path = junit_path or os.path.join(builddir, JUNIT_NAME)
     declared, declared_error = parse_declared(inventory_path)
-    counts, junit_error = parse_junit(junit_path)
+    counts, motivos, junit_error = parse_junit(junit_path)
     errors = [e for e in (declared_error, junit_error) if e]
     shown = "?" if declared is None else declared
     c = counts or {"passou": 0, "falhou": 0, "pulou": 0, "desligado": 0}
@@ -129,7 +147,7 @@ def run(builddir, inventory_path, junit_path=None):
         f"declarados: {shown}, executados: {c['passou'] + c['falhou']}, passaram: {c['passou']}, "
         f"falharam: {c['falhou']}, pulados: {c['pulou']}, desligados: {c['desligado']}"
     )
-    problems = verdict(declared, counts, errors)
+    problems = verdict(declared, counts, errors, motivos)
     for problem in problems:
         print(f"{SCRIPT_NAME}: {problem}", file=sys.stderr)
     return 1 if problems else 0
@@ -191,6 +209,14 @@ def selftest_main():
         # Mutante sobre o arquivo REAL: um caso some do JUnit (teste pulado calado).
         _case("CASO-NAO-REPORTADO (JUnit real sem passa2)", 1, None, "inventory_allpass.txt",
               ["casos no JUnit (2) != declarados (3)"], junit_text=um_a_menos),
+        # A4 (CTO 29/09): o ctest real grava <skipped> status="notrun" tambem
+        # para "Unable to find executable", "Required Files Missing" e
+        # "Fixture dependency failed", que ELE conta como FAILED. Fixture
+        # gerado por ctest real (9 casos: 1 passou, 2 pulados de verdade,
+        # 1 desligado, 5 falhas - 3 delas notrun).
+        _case("NOTRUN-NAO-E-PULADO (ctest real)", 1, "junit_notrun.xml", "inventory_notrun.txt",
+              ["passaram: 1", "falharam: 5", "pulados: 2", "desligados: 1",
+               "Unable to find executable", "Required Files Missing", "Fixture dependency failed"]),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),
         _case("JUNIT-ILEGIVEL", 1, None, "inventory_allpass.txt", ["ilegivel"], junit_text="<testsuite"),
         _case("RODAPE-AUSENTE", 1, "junit_allpass.xml", sem_rodape, ["Total Tests"]),

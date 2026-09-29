@@ -1,0 +1,43 @@
+SPDX-License-Identifier: AGPL-3.0-or-later (saida REAL de ctest -N, cmake 4.3.0, 29/09/2026)
+Test project /probe/b
+  Test #1: passa
+  Test #2: pula77
+  Test #3: desligado (Disabled)
+Could not find executable /nao-existe-glintfx-xyz
+Looked in the following places:
+/nao-existe-glintfx-xyz
+/nao-existe-glintfx-xyz
+/Release/nao-existe-glintfx-xyz
+/Release/nao-existe-glintfx-xyz
+/Debug/nao-existe-glintfx-xyz
+/Debug/nao-existe-glintfx-xyz
+/MinSizeRel/nao-existe-glintfx-xyz
+/MinSizeRel/nao-existe-glintfx-xyz
+/RelWithDebInfo/nao-existe-glintfx-xyz
+/RelWithDebInfo/nao-existe-glintfx-xyz
+/Deployment/nao-existe-glintfx-xyz
+/Deployment/nao-existe-glintfx-xyz
+/Development/nao-existe-glintfx-xyz
+/Development/nao-existe-glintfx-xyz
+nao-existe-glintfx-xyz
+nao-existe-glintfx-xyz
+Release/nao-existe-glintfx-xyz
+Release/nao-existe-glintfx-xyz
+Debug/nao-existe-glintfx-xyz
+Debug/nao-existe-glintfx-xyz
+MinSizeRel/nao-existe-glintfx-xyz
+MinSizeRel/nao-existe-glintfx-xyz
+RelWithDebInfo/nao-existe-glintfx-xyz
+RelWithDebInfo/nao-existe-glintfx-xyz
+Deployment/nao-existe-glintfx-xyz
+Deployment/nao-existe-glintfx-xyz
+Development/nao-existe-glintfx-xyz
+Development/nao-existe-glintfx-xyz
+  Test #4: sem_exe
+  Test #5: arq_faltando
+  Test #6: setup_falha
+  Test #7: depende
+  Test #8: estoura
+  Test #9: regex_pula
+
+Total Tests: 9

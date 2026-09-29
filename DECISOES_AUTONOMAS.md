@@ -4674,3 +4674,17 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - C2: TIMEOUT/3 por teste, e não 40 s fixo;
   - C3: o encoding do json no pwsh, que só o servidor prova.
 - **Push:** a A5 etapas 1 e 2 vão agora para onda-w7c. O CI que roda sobre elas é a primeira rodada paralela real, e as durações dela (artefato JUnit) calibram a etapa 3.
+
+## 29/09/2026 - 04:49 | D-A24: decisões do CTO para a etapa 3 da A5; primeira rodada paralela
+
+- **CI 36535342498 (primeira rodada paralela, sobre 96ec956): VERMELHO só no Windows.**
+  - O cruzamento medido reprovou o dep_zero_selftest (56,7 e 60,7 s, sem trinco), exatamente para o que foi desenhado; a suíte passou 253/253.
+  - Conserto: 62df4f2.
+  - No Linux, só os 7 pesados passam de 40 s, todos já com trinco.
+  - Empurrado pela L-15 (0b41332), com o CI 36537812458 rodando.
+- **Decisões autônomas do CTO, a confirmar retroativamente:**
+  - **Régua de pesados separada da folga.** O trinco é exigido por uma régua absoluta de 40 s. A folga TIMEOUT/3 só imprime na etapa 2. Na etapa 3 ela reprova só em TIMEOUT/2 (FOLGA_REPROVA_FATOR=2), porque reprovar em /3 cairia em ~11% de margem pela regra 4.
+  - **Rodadas da etapa 3:** 6 ramos descartáveis `calib/a5-r0`..`r5`, no mesmo SHA e disparados juntos (o `concurrency` por ref cancelaria dispatches no mesmo ramo). Os ramos são apagados ao fim (L-11, quarta emenda).
+  - **Sistemas:** todos, nos dois modos. O pesado que só inflou no Windows prova que calibrar em um sistema só não basta (L-04).
+  - **PROCESSORS:** calibrar com o trinco, que vira definitivo se o P3 fechar. A via (c), com CMAKE_BUILD_PARALLEL_LEVEL=n, só entra se o P3 falhar. Aviso registrado: os pesados somam ~408 de 450 s no Linux, e o P3 (≤50%) é quase inalcançável. Se não fechar, a régua não se move depois do dado (L-43), e manter o paralelo pelo ganho medido vai ao líder.
+  - **P4 substituído ANTES da fase de CI**, por falta de poder estatístico e não por resultado: um trinco de escritor fica se, e só se, uma medição por snapshot mostrar 2 ou mais testes escrevendo o MESMO caminho.

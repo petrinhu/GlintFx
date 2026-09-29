@@ -47,7 +47,8 @@ DEFAULT_JOB = "wayland-container"
 PROOF_SCRIPT = "tools/ci/prova_checkout.sh"
 FLOOR_SCRIPT = "tools/ci/floor.sh"
 PREP_PS1 = "tools/ci/windows/prep.ps1"
-_TRACKED_SCRIPTS = (PROOF_SCRIPT, FLOOR_SCRIPT, PREP_PS1)
+CMAKELISTS = "CMakeLists.txt"
+_TRACKED_SCRIPTS = (PROOF_SCRIPT, FLOOR_SCRIPT, PREP_PS1, CMAKELISTS)
 
 
 def fail(message):
@@ -951,6 +952,34 @@ def _print_piso_universe(universo):
     )
 
 
+_MIN_REQUIRED_RE = re.compile(r"cmake_minimum_required\s*\(\s*VERSION\s+(\d+)\.(\d+)", re.IGNORECASE)
+
+
+def cmake_floor_source_errors(scripts):
+    """C1 (CTO 29/09): o pino do CMake e o piso escrito em floor.sh e
+    prep.ps1 sao a MESMA major.minor de `cmake_minimum_required(VERSION
+    X.Y)` do CMakeLists.txt (a fonte do piso) - nenhuma copia solta."""
+    fonte = _code_text((scripts or {}).get(CMAKELISTS, ""))
+    m = _MIN_REQUIRED_RE.search(fonte)
+    if not m:
+        return [f"{CMAKELISTS}: cmake_minimum_required(VERSION X.Y) nao encontrado - a fonte do piso do CMake (C1)"]
+    major, minor = m.group(1), m.group(2)
+    errors = []
+    prep = _code_text((scripts or {}).get(PREP_PS1, ""))
+    floor = _code_text((scripts or {}).get(FLOOR_SCRIPT, ""))
+    pino = re.search(r"\$CmakeVersion\s*=\s*'(\d+)\.(\d+)\.\d+'", prep)
+    if not pino or (pino.group(1), pino.group(2)) != (major, minor):
+        visto = f"{pino.group(1)}.{pino.group(2)}" if pino else "ausente"
+        errors.append(f"{PREP_PS1}: pino do CMake {visto} nao e' a major.minor {major}.{minor} de {CMAKELISTS} cmake_minimum_required (C1)")
+    prep_piso = f"$major -lt {major} -or ($major -eq {major} -and $minor -lt {minor})"
+    if prep_piso not in prep:
+        errors.append(f"{PREP_PS1}: piso do CMake diferente de {major}.{minor} (esperado `{prep_piso}`) - C1")
+    floor_piso = f'"$cmake_major" -lt {major} ] || {{ [ "$cmake_major" -eq {major} ] && [ "$cmake_minor" -lt {minor} ]; }}'
+    if floor_piso not in floor:
+        errors.append(f"{FLOOR_SCRIPT}: piso do CMake diferente de {major}.{minor} (esperado `{floor_piso}`) - C1")
+    return errors
+
+
 def real_main(args):
     ci_yml_path, job_name = _parse_real_main_args(args)
     ci_yml_text = _read_file(ci_yml_path)
@@ -967,6 +996,7 @@ def real_main(args):
         if counts["piso"] is not None:
             universo[jn] = counts["piso"]
     _print_piso_universe(universo)
+    all_errors.extend(cmake_floor_source_errors(scripts))
     if job_name is None and not universo:
         fail(
             f"varredura vazia: 0 job(s) com id: build em {len(job_names)} job(s) - G5, "
@@ -1615,6 +1645,7 @@ echo "inside-work-tree=$inside"
 _FLOOR_SCRIPT_OK = """#!/usr/bin/env bash
 gnuc="$("$CXX" -dM -E -x c++ /dev/null | awk '$2 == "__GNUC__" {print $3}')"
 cmake --version
+if [ "$cmake_major" -lt 4 ] || { [ "$cmake_major" -eq 4 ] && [ "$cmake_minor" -lt 1 ]; }; then :; fi
 command -v python3
 xml="$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml"
 """
@@ -1625,13 +1656,22 @@ function Get-ClArguments($Paths) {
     return @('/std:c++latest', "/Fe:$($Paths.Exe)", "/Fo:$($Paths.Obj)", $Paths.Src)
 }
 $probe = Join-Path $env:RUNNER_TEMP 'probe'
+$CmakeVersion = '4.1.6'
+if ($major -lt 4 -or ($major -eq 4 -and $minor -lt 1)) { }
 function Invoke-Prep {
     Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP
 }
 Get-Command python3
 """
 
-_DEFAULT_SCRIPTS = {PROOF_SCRIPT: _PROOF_SCRIPT_OK, FLOOR_SCRIPT: _FLOOR_SCRIPT_OK, PREP_PS1: _PREP_PS1_OK}
+_CMAKELISTS_OK = "cmake_minimum_required(VERSION 4.1)\n"
+
+_DEFAULT_SCRIPTS = {
+    PROOF_SCRIPT: _PROOF_SCRIPT_OK,
+    FLOOR_SCRIPT: _FLOOR_SCRIPT_OK,
+    PREP_PS1: _PREP_PS1_OK,
+    CMAKELISTS: _CMAKELISTS_OK,
+}
 
 
 def _fixed_job_files(proof_script=_PROOF_SCRIPT_OK):
@@ -2218,6 +2258,34 @@ def selftest_verify_cmake_without_exit_check_reproves():
 
 
 
+# C1 (CTO 29/09): o pino do CMake (prep.ps1) e o piso escrito em floor.sh e
+# prep.ps1 estao amarrados a major.minor de `cmake_minimum_required(VERSION
+# X.Y)` do CMakeLists.txt - a fonte do piso. Mutante Q4b: pino 4.3.0.
+def _c1(nome, files, *trechos):
+    resultado = _run_real_main_capturing(_FIXTURE_FIXED_JOB, job_name="lint", extra_files=files)
+    return _g5_expect(nome, resultado, *trechos)
+
+
+def selftest_pin_off_minimum_reproves():  # Q4b
+    return _c1("C1-Q4B-PINO-FORA-DO-MINIMO", {PREP_PS1: _PREP_PS1_OK.replace("'4.1.6'", "'4.3.0'")},
+               "CMakeLists.txt", "4.1", "pino do CMake 4.3")
+
+
+def selftest_minimum_drift_reproves():
+    return _c1("C1-MINIMO-MUDOU", {CMAKELISTS: "cmake_minimum_required(VERSION 4.2)\n"}, "CMakeLists.txt", "4.2")
+
+
+def selftest_floor_sh_threshold_drift_reproves():
+    return _c1("C1-PISO-FLOOR-SH-DIFERENTE", {FLOOR_SCRIPT: _FLOOR_SCRIPT_OK.replace('"$cmake_minor" -lt 1', '"$cmake_minor" -lt 0')},
+               "floor.sh", "piso")
+
+
+def selftest_prep_threshold_drift_reproves():
+    return _c1("C1-PISO-PREP-DIFERENTE", {PREP_PS1: _PREP_PS1_OK.replace("$minor -lt 1", "$minor -lt 0")},
+               "prep.ps1", "piso")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2287,6 +2355,10 @@ def selftest_main():
         selftest_verify_cmake_missing_reproves(),
         selftest_verify_cmake_wrong_step_reproves(),
         selftest_verify_cmake_without_exit_check_reproves(),
+        selftest_pin_off_minimum_reproves(),
+        selftest_minimum_drift_reproves(),
+        selftest_floor_sh_threshold_drift_reproves(),
+        selftest_prep_threshold_drift_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

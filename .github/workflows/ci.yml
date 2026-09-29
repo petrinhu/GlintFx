@@ -613,8 +613,8 @@ jobs:
           # do dispatch (calibracao) ou o nproc do runner, lido na hora e IMPRESSO; gravado em
           # GITHUB_ENV para a linha de escopo do agregado; cada teste roda UMA vez (sem --repeat).
           paralelismo="${CTEST_PARALELO:-$(nproc)}"
-          case "$paralelismo" in ''|0|*[!0-9]*) echo "ctest_paralelo invalido: '$paralelismo'" >&2; exit 1 ;; esac
           echo "paralelismo: $paralelismo (input ctest_paralelo='${CTEST_PARALELO}', nproc=$(nproc))"
+          case "$paralelismo" in ''|0|*[!0-9]*) echo "ctest_paralelo invalido: '$paralelismo'" >&2; exit 1 ;; esac
           echo "GLINTFX_PARALELISMO=$paralelismo" >> "$GITHUB_ENV"
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml --parallel "$paralelismo"
           ctest_ec=$?

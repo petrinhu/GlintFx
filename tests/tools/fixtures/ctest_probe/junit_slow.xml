@@ -1,47 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later (saida REAL de ctest com output-junit, cmake 4.3.0, 29/09/2026) -->
 <testsuite name="(empty)"
-	tests="9"
+	tests="10"
 	failures="0"
 	disabled="0"
 	skipped="0"
 	hostname=""
-	time="16"
-	timestamp="2026-09-29T04:28:37"
+	time="18"
+	timestamp="2026-09-29T04:52:01"
 	>
-	<testcase name="rapido" classname="rapido" time="0.00186211" status="run">
+	<testcase name="rapido" classname="rapido" time="0.00182065" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_sem_trinco" classname="lento_sem_trinco" time="2.00211" status="run">
+	<testcase name="lento_sem_trinco" classname="lento_sem_trinco" time="2.00195" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_com_trinco" classname="lento_com_trinco" time="2.0028" status="run">
+	<testcase name="lento_com_trinco" classname="lento_com_trinco" time="2.0026" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_com_processors" classname="lento_com_processors" time="2.00288" status="run">
+	<testcase name="lento_com_processors" classname="lento_com_processors" time="2.00256" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_lock_de_outro_nome" classname="lento_lock_de_outro_nome" time="2.00268" status="run">
+	<testcase name="lento_lock_de_outro_nome" classname="lento_lock_de_outro_nome" time="2.00265" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_timeout_curto" classname="lento_timeout_curto" time="2.00265" status="run">
+	<testcase name="lento_timeout_curto" classname="lento_timeout_curto" time="2.00201" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_timeout_longo" classname="lento_timeout_longo" time="2.00266" status="run">
+	<testcase name="lento_timeout_longo" classname="lento_timeout_longo" time="2.00279" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_lock_composto" classname="lento_lock_composto" time="2.00309" status="run">
+	<testcase name="lento_lock_composto" classname="lento_lock_composto" time="2.00293" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>
-	<testcase name="lento_trinco_timeout_curto" classname="lento_trinco_timeout_curto" time="2.00261" status="run">
+	<testcase name="lento_trinco_timeout_curto" classname="lento_trinco_timeout_curto" time="2.00279" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="lento_entre_terco_e_metade" classname="lento_entre_terco_e_metade" time="2.00272" status="run">
 		<properties/>
 		<system-out></system-out>
 	</testcase>

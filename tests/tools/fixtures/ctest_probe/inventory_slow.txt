@@ -1,13 +1,14 @@
 SPDX-License-Identifier: AGPL-3.0-or-later (saida REAL de ctest -N, cmake 4.3.0, 29/09/2026)
 Test project /probe/b
-  Test #1: rapido
-  Test #2: lento_sem_trinco
-  Test #3: lento_com_trinco
-  Test #4: lento_com_processors
-  Test #5: lento_lock_de_outro_nome
-  Test #6: lento_timeout_curto
-  Test #7: lento_timeout_longo
-  Test #8: lento_lock_composto
-  Test #9: lento_trinco_timeout_curto
+  Test  #1: rapido
+  Test  #2: lento_sem_trinco
+  Test  #3: lento_com_trinco
+  Test  #4: lento_com_processors
+  Test  #5: lento_lock_de_outro_nome
+  Test  #6: lento_timeout_curto
+  Test  #7: lento_timeout_longo
+  Test  #8: lento_lock_composto
+  Test  #9: lento_trinco_timeout_curto
+  Test #10: lento_entre_terco_e_metade
 
-Total Tests: 9
+Total Tests: 10

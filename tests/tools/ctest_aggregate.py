@@ -57,9 +57,12 @@ JUNIT_NAME = "ctest-results-junit.xml"
 TOP_DURATIONS = 25
 HEAVY_LIMIT_S = 40.0  # regua ABSOLUTA de pesados (regra 1): duracao do JUnit, sem olhar o TIMEOUT
 DEFAULT_TIMEOUT_S = 120.0  # DART_TESTING_TIMEOUT: vale quando o teste nao tem TIMEOUT proprio
-# Interruptor da REGRA 2 (folga do P2: duracao > TIMEOUT/3). Etapa 2 da A5: so' IMPRIME; a etapa 3
-# passa a True (citado no plano 4.8). Constante no codigo, nao flag de CLI (decisao do CTO, 29/09).
-FOLGA_REPROVA = False
+# Interruptor da REGRA 2 (folga do P2). A LISTA (duracao > TIMEOUT/3) e' impressa sempre. A
+# REPROVACAO e' so' acima de TIMEOUT/FOLGA_REPROVA_FATOR (correcao do CTO, 29/09: com /3 a
+# folga ficaria em ~11% pela regra 4, abaixo da variacao entre runners). None = nao reprova
+# (etapa 2); a etapa 3 passa a 2 DEPOIS de aplicada a regra 4 aos TIMEOUTs medidos. Constante no
+# codigo, nao flag de CLI, citada no plano 4.8 (item 4b).
+FOLGA_REPROVA_FATOR = None
 NESTED_LOCK = "glintfx_nested_build"
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "ctest_probe")
 
@@ -246,8 +249,11 @@ def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=
                 f"folga P2: {len(folga)} teste(s) acima de TIMEOUT/3"
                 + (": " + " ".join(f"{n}={t:.1f}/{to:g}" for n, t, to in sorted(folga, key=lambda f: -f[1])) if folga else "")
             )
-            if FOLGA_REPROVA:
-                problems.extend(f"teste {n} levou {t:.1f} s (> TIMEOUT/3 = {to / 3:g} s) - folga do P2" for n, t, to in folga)
+            if FOLGA_REPROVA_FATOR:
+                problems.extend(
+                    f"teste {n} levou {t:.1f} s (> TIMEOUT/{FOLGA_REPROVA_FATOR} = {to / FOLGA_REPROVA_FATOR:g} s) - folga do P2"
+                    for n, t, to in folga if t > to / FOLGA_REPROVA_FATOR
+                )
     for problem in problems:
         print(f"{SCRIPT_NAME}: {problem}", file=sys.stderr)
     return 1 if problems else 0
@@ -292,15 +298,23 @@ def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, te
 
 
 def _case_folga_reprova():
-    """O interruptor FOLGA_REPROVA=True (etapa 3) transforma a folga em reprovacao."""
-    global FOLGA_REPROVA
-    anterior = FOLGA_REPROVA
-    FOLGA_REPROVA = True
+    """O interruptor FOLGA_REPROVA_FATOR=2 (etapa 3) faz a folga REPROVAR so' acima de
+    TIMEOUT/2 (correcao do CTO, 29/09: com /3 a folga ficaria em ~11% pela regra 4,
+    abaixo da variacao entre runners); a lista continua em TIMEOUT/3."""
+    global FOLGA_REPROVA_FATOR
+    anterior = FOLGA_REPROVA_FATOR
+    FOLGA_REPROVA_FATOR = 2
     try:
-        return _case("REGRA2 com FOLGA_REPROVA=True (etapa 3) reprova", 1, "junit_slow.xml", "inventory_slow.txt",
-                     ["folga P2:", "TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0)
+        return all([
+            _case("REGRA2 com FOLGA_REPROVA_FATOR=2 reprova acima de TIMEOUT/2 (TIMEOUT 3, 2 s > 1,5 s)", 1, "junit_slow.xml", "inventory_slow.txt",
+                  ["teste lento_timeout_curto levou 2.0 s (> TIMEOUT/2 = 1.5 s)", "teste lento_trinco_timeout_curto levou 2.0 s (> TIMEOUT/2 = 1.5 s)"],
+                  tests_json="show_slow.json", heavy_limit=40.0,
+                  proibido=["lento_entre_terco_e_metade", "lento_com_trinco"]),
+            _case("REGRA2: entre TIMEOUT/3 e TIMEOUT/2 (2 s, TIMEOUT 5) entra na LISTA mas NAO reprova", 1, "junit_slow.xml", "inventory_slow.txt",
+                  ["lento_entre_terco_e_metade=2.0/5"], tests_json="show_slow.json", heavy_limit=40.0),
+        ])
     finally:
-        FOLGA_REPROVA = anterior
+        FOLGA_REPROVA_FATOR = anterior
 
 
 def _case_default_timeout():
@@ -358,11 +372,11 @@ def selftest_main():
         _case("REGRA2: a linha de folga lista quem passa de TIMEOUT/3", 1, "junit_slow.xml", "inventory_slow.txt",
               ["folga P2:", "lento_timeout_curto=2.0/3", "lento_trinco_timeout_curto=2.0/3"],
               tests_json="show_slow.json", heavy_limit=1.0),
-        _case("REGRA2 sozinha nao reprova (limite alto, so' a folga): rc=0 com FOLGA_REPROVA=False", 0, "junit_slow.xml", "inventory_slow.txt",
-              ["folga P2: 2 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
+        _case("REGRA2 sozinha nao reprova (limite alto, so' a folga): rc=0 com FOLGA_REPROVA_FATOR=None", 0, "junit_slow.xml", "inventory_slow.txt",
+              ["folga P2: 3 teste(s) acima de TIMEOUT/3"], tests_json="show_slow.json", heavy_limit=40.0),
         # Linha de escopo do plano 4.8 (sempre impressa; contagens lidas do json-v1 real).
         _case("ESCOPO: 'testes: N, com PROCESSORS: a, com RESOURCE_LOCK: b, paralelismo: j'", 1, "junit_slow.xml", "inventory_slow.txt",
-              ["testes: 9, com PROCESSORS: 1, com RESOURCE_LOCK: 4, paralelismo: 4"], tests_json="show_slow.json", heavy_limit=1.0, paralelismo="4"),
+              ["testes: 10, com PROCESSORS: 1, com RESOURCE_LOCK: 5, paralelismo: 4"], tests_json="show_slow.json", heavy_limit=1.0, paralelismo="4"),
         _case("ESCOPO: grau ausente reprova (nunca 'desconhecido' calado)", 1, "junit_allpass.xml", "inventory_allpass.txt",
               ["GLINTFX_PARALELISMO ausente"], tests_json="show_slow.json", heavy_limit=40.0, paralelismo=""),
         _case("REGRA2: a linha de folga sai tambem com ZERO", 0, "junit_allpass.xml", "inventory_allpass.txt",

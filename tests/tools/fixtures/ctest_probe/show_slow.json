@@ -91,6 +91,15 @@
         "file" : 0,
         "line" : 18,
         "parent" : 16
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 20,
+        "parent" : 18
       }
     ]
   },
@@ -288,6 +297,34 @@
         {
           "name" : "TIMEOUT",
           "value" : 3.0
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 19,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_entre_terco_e_metade",
+      "properties" : 
+      [
+        {
+          "name" : "RESOURCE_LOCK",
+          "value" : 
+          [
+            "glintfx_nested_build"
+          ]
+        },
+        {
+          "name" : "TIMEOUT",
+          "value" : 5.0
         },
         {
           "name" : "WORKING_DIRECTORY",

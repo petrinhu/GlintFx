@@ -655,9 +655,16 @@ jobs:
       # passo "Testes" grava (`--output-junit`), igual nos dois sistemas
       # (L-04): pulado e desligado NAO contam como passou (o LastTest.log
       # grava "Test Passed." tambem para eles - medido com ctest real).
+      # J1 (CTO 29/09): `ctest --show-only=json-v1` traz RESOURCE_LOCK e PROCESSORS de
+      # CADA teste; o agregado o cruza com as duracoes do JUnit e reprova todo teste
+      # acima de 40 s (TIMEOUT/3, P2) sem o trinco de pesados ou PROCESSORS.
+      - name: Propriedades dos testes (json-v1, ${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        run: ctest --test-dir ${{ matrix.builddir }} --show-only=json-v1 > ctest-show.json
+
       - name: Resultado agregado (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        run: python3 tests/tools/ctest_aggregate.py --builddir ${{ matrix.builddir }} --inventory parity_inventory.txt
+        run: python3 tests/tools/ctest_aggregate.py --builddir ${{ matrix.builddir }} --inventory parity_inventory.txt --tests-json ctest-show.json
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}
@@ -1116,12 +1123,18 @@ jobs:
       # CTO 29/09 (achado 4): gemeo do passo do job `linux` - a MESMA
       # medicao (tests/tools/ctest_aggregate.py), nunca `$executados =
       # $declarados`.
+      # J1 (CTO 29/09): gemeo do passo do job `linux` (L-04).
+      - name: Propriedades dos testes (json-v1, ${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: ctest --test-dir ${{ matrix.builddir }} --show-only=json-v1 > ctest-show.json
+
       - name: Resultado agregado (${{ matrix.modo }})
         if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           $py = if (Get-Command python3 -ErrorAction SilentlyContinue) { 'python3' } else { 'python' }
-          & $py tests/tools/ctest_aggregate.py --builddir "${{ matrix.builddir }}" --inventory parity_inventory.txt
+          & $py tests/tools/ctest_aggregate.py --builddir "${{ matrix.builddir }}" --inventory parity_inventory.txt --tests-json ctest-show.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})

@@ -2755,6 +2755,7 @@ set_tests_properties(vendor_purity_selftest PROPERTIES LABELS selftest)
 # resolved earlier in this file (hygiene_coverage_test's own
 # registration above) - find_program() is idempotent across repeated
 # calls with the same cache variable, so it is not re-called here.
+# glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (310,66 s serial no Windows compartilhado (TIMEOUT 900), run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 add_test(
     NAME public_name_collision_test
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -2763,7 +2764,7 @@ add_test(
         "${CMAKE_CXX_COMPILER}"
         "${CMAKE_CXX_COMPILER_ID}"
 )
-set_tests_properties(public_name_collision_test PROPERTIES LABELS consume)
+set_tests_properties(public_name_collision_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
 # TIMEOUT override, MEASURED not guessed (GODS_LAWS.md L-11/L-44, achado
 # real de 06/09/2026, CI run 34033291326): this test had been inheriting
@@ -5327,6 +5328,7 @@ if(WIN32)
 
     # CI-CONSUME (Concluido): par de embed_test (if(UNIX) acima,
     # tools/check_embed.sh) - ver tests/parity_aliases.txt.
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (75,24 s serial no Windows, com o TIMEOUT padrao de 120 s, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
     add_test(
         NAME embed_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
@@ -5334,7 +5336,7 @@ if(WIN32)
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
             -EmbedSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed"
     )
-    set_tests_properties(embed_win_test PROPERTIES LABELS consume)
+    set_tests_properties(embed_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
     # PRECI-WIN (Concluido): par de preci_selftest (if(UNIX) acima) -
     # ver tests/parity_aliases.txt. Custo aceito e declarado: no job
@@ -5360,13 +5362,16 @@ if(WIN32)
     # o quarto e uma convencao de empacotamento GNU/Linux que nao
     # existe no MSVC, e por isso e ausencia DECLARADA e CONTADA, nunca
     # um teste que some (GODS_LAWS.md L-40).
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (36,25 s serial no Windows, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
     add_test(
         NAME install_includedir_win_test
         COMMAND "${GLINTFX_PWSH_EXECUTABLE}" -NoProfile -File
             "${PROJECT_SOURCE_DIR}/tools/ci/check-install-includedir-win.ps1"
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
     )
-    set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume)
+    set_tests_properties(install_includedir_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
+
+    # glintfx-nested-build: heavy - monta um CMake + Ninja/MSVC inteiro num diretorio temporario (37,52 s serial no Windows, run 36202987723, medido pelo CTO); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5 (gemeo Windows do I1, L-04)
 
     add_test(
         NAME no_target_collision_win_test
@@ -5375,7 +5380,7 @@ if(WIN32)
             -GlintfxSourceDir "${PROJECT_SOURCE_DIR}"
             -FixtureSrcDir "${CMAKE_CURRENT_SOURCE_DIR}/embed_name_collision"
     )
-    set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume)
+    set_tests_properties(no_target_collision_win_test PROPERTIES LABELS consume RESOURCE_LOCK glintfx_nested_build)
 
     # glintfx-build-dir: escreve (RESOURCE_LOCK glintfx_build_dir) - INFERENCIA por leitura de check-output-name-win.ps1 (`cmake --install $buildDir`, gemeo do output_name_test); nao medido aqui
 

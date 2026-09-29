@@ -47,6 +47,7 @@
 #   ctest_aggregate.py --selftest
 
 import os
+import json
 import re
 import sys
 import xml.etree.ElementTree as ElementTree
@@ -54,6 +55,8 @@ import xml.etree.ElementTree as ElementTree
 SCRIPT_NAME = "ctest_aggregate.py"
 JUNIT_NAME = "ctest-results-junit.xml"
 TOP_DURATIONS = 25
+HEAVY_LIMIT_S = 40.0  # TIMEOUT padrao / 3 (P2 do plano 4.8)
+NESTED_LOCK = "glintfx_nested_build"
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "ctest_probe")
 
 _TOTAL_RE = re.compile(r"Total Tests: (\d+)")
@@ -145,7 +148,37 @@ def verdict(declared, counts, errors, motivos=()):
     return problems
 
 
-def run(builddir, inventory_path, junit_path=None):
+def heavy_errors(tests_json_path, duracoes, limite):
+    """J1 (CTO 29/09): todo teste acima do limite tem RESOURCE_LOCK
+    glintfx_nested_build ou PROCESSORS > 1 em `ctest --show-only=json-v1`
+    (P2 do plano 4.8, lista lida do proprio ctest, nunca escrita a mao)."""
+    texto = read_text(tests_json_path)
+    if texto is None:
+        return [f"{tests_json_path} ausente - sem `ctest --show-only=json-v1` nao se cruzam as duracoes com os trincos"]
+    try:
+        dados = json.loads(texto)
+        testes = {t["name"]: t for t in dados["tests"]}
+    except (ValueError, KeyError, TypeError) as exc:
+        return [f"{tests_json_path} ilegivel como json-v1 do ctest ({exc})"]
+    errors = []
+    for nome, segundos in duracoes:
+        if segundos <= limite:
+            continue
+        props = {p["name"]: p["value"] for p in testes.get(nome, {}).get("properties", [])}
+        travado = NESTED_LOCK in (props.get("RESOURCE_LOCK") or [])
+        try:
+            paralelo = int(props.get("PROCESSORS", 1)) > 1
+        except (TypeError, ValueError):
+            paralelo = False
+        if not (travado or paralelo):
+            errors.append(
+                f"teste {nome} levou {segundos:.1f} s (> {limite:g} s) sem RESOURCE_LOCK {NESTED_LOCK} "
+                f"nem PROCESSORS - declare o trinco de pesados (P2 do plano 4.8)"
+            )
+    return errors
+
+
+def run(builddir, inventory_path, junit_path=None, tests_json=None, heavy_limit=None):
     junit_path = junit_path or os.path.join(builddir, JUNIT_NAME)
     declared, declared_error = parse_declared(inventory_path)
     counts, motivos, junit_error, duracoes = parse_junit(junit_path)
@@ -166,6 +199,8 @@ def run(builddir, inventory_path, junit_path=None):
         print("duracoes (maiores primeiro, s): " + " ".join(f"{n}={t:.2f}" for n, t in maiores))
         print(f"soma dos tempos: {sum(t for _n, t in duracoes):.1f} s")
     problems = verdict(declared, counts, errors, motivos)
+    if tests_json is not None:
+        problems.extend(heavy_errors(tests_json, duracoes, HEAVY_LIMIT_S if heavy_limit is None else heavy_limit))
     for problem in problems:
         print(f"{SCRIPT_NAME}: {problem}", file=sys.stderr)
     return 1 if problems else 0
@@ -188,7 +223,7 @@ def _capture(runner):
     return rc, buffer.getvalue()
 
 
-def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None):
+def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None, tests_json=None, heavy_limit=None, proibido=()):
     """Roda `run` contra fixtures reais. `junit_text` substitui o conteudo do
     JUnit (mutante feito sobre o arquivo REAL)."""
     import tempfile
@@ -198,10 +233,12 @@ def _case(name, expect_rc, junit, inventory, expect_text=(), junit_text=None):
         if junit is not None or junit_text is not None:
             with open(junit_path, "w", encoding="utf-8") as handle:
                 handle.write(junit_text if junit_text is not None else read_text(_fixture(junit)))
-        rc, output = _capture(lambda: run(tmp, inventory if os.path.isabs(inventory) else _fixture(inventory)))
+        json_path = _fixture(tests_json) if tests_json else None
+        rc, output = _capture(lambda: run(tmp, inventory if os.path.isabs(inventory) else _fixture(inventory), None, json_path, heavy_limit))
     faltando = [t for t in expect_text if t not in output]
-    if rc != expect_rc or faltando:
-        print(f"selftest: {name} FALHOU (rc={rc}, esperado {expect_rc}; faltou {faltando}): {output!r}", file=sys.stderr)
+    citados = [t for t in proibido if t in output.split("duracoes")[0] or f"teste {t}" in output]
+    if rc != expect_rc or faltando or citados:
+        print(f"selftest: {name} FALHOU (rc={rc}, esperado {expect_rc}; faltou {faltando}; citou {citados}): {output!r}", file=sys.stderr)
         return False
     print(f"selftest: {name} OK")
     return True
@@ -236,6 +273,19 @@ def selftest_main():
               ["executados: 3", "passaram: 1", "falharam: 5", "pulados: 2", "desligados: 1", "nao_rodou: 3",
                "Unable to find executable", "Required Files Missing", "Fixture dependency failed",
                "duracoes (maiores primeiro, s): estoura=1.01", "soma dos tempos:"]),
+        # J1 (CTO 29/09): todo teste acima do limite de tempo tem de ter o trinco
+        # de pesados (RESOURCE_LOCK glintfx_nested_build) ou PROCESSORS > 1 - cruzando
+        # `ctest --show-only=json-v1` com as duracoes do JUnit. Fixtures REAIS (limite
+        # 1 s: os quatro testes lentos dormem 2 s; um deles tem RESOURCE_LOCK de OUTRO nome).
+        _case("PESADO-SEM-TRINCO (json-v1 e JUnit reais, limite 1 s)", 1, "junit_slow.xml", "inventory_slow.txt",
+              ["teste lento_sem_trinco levou", "teste lento_lock_de_outro_nome levou", "sem RESOURCE_LOCK glintfx_nested_build nem PROCESSORS"],
+              tests_json="show_slow.json", heavy_limit=1.0),
+        _case("PESADO-COM-TRINCO-OU-PROCESSORS nao e' citado", 1, "junit_slow.xml", "inventory_slow.txt",
+              [], tests_json="show_slow.json", heavy_limit=1.0, proibido=["lento_com_trinco", "lento_com_processors", "rapido"]),
+        _case("PESADO: limite alto (40 s) nao reprova nada", 0, "junit_slow.xml", "inventory_slow.txt",
+              [], tests_json="show_slow.json", heavy_limit=40.0),
+        _case("PESADO: json ausente reprova (nao se cruza sem os dados)", 1, "junit_slow.xml", "inventory_slow.txt",
+              ["ausente"], tests_json="nao_existe.json", heavy_limit=1.0),
         _case("JUNIT-AUSENTE", 1, None, "inventory_allpass.txt", ["ausente"]),
         _case("JUNIT-ILEGIVEL", 1, None, "inventory_allpass.txt", ["ilegivel"], junit_text="<testsuite"),
         _case("RODAPE-AUSENTE", 1, "junit_allpass.xml", sem_rodape, ["Total Tests"]),
@@ -247,9 +297,16 @@ def selftest_main():
 
 
 def _parse_real_args(args):
-    if len(args) == 4 and args[0] == "--builddir" and args[2] == "--inventory":
-        return args[1], args[3]
-    print(f"usage: {SCRIPT_NAME} --builddir <dir> --inventory <arquivo>  |  --selftest", file=sys.stderr)
+    """(builddir, inventory, tests_json|None)."""
+    if len(args) in (4, 6) and args[0] == "--builddir" and args[2] == "--inventory":
+        tests_json = None
+        if len(args) == 6:
+            if args[4] != "--tests-json":
+                print(f"usage: {SCRIPT_NAME} --builddir <dir> --inventory <arquivo> [--tests-json <json-v1>]  |  --selftest", file=sys.stderr)
+                sys.exit(2)
+            tests_json = args[5]
+        return args[1], args[3], tests_json
+    print(f"usage: {SCRIPT_NAME} --builddir <dir> --inventory <arquivo> [--tests-json <json-v1>]  |  --selftest", file=sys.stderr)
     sys.exit(2)
 
 
@@ -258,8 +315,8 @@ def main():
     if args and args[0] == "--selftest":
         selftest_main()
         return
-    builddir, inventory = _parse_real_args(args)
-    sys.exit(run(builddir, inventory))
+    builddir, inventory, tests_json = _parse_real_args(args)
+    sys.exit(run(builddir, inventory, None, tests_json))
 
 
 if __name__ == "__main__":

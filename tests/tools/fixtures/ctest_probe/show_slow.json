@@ -1,0 +1,173 @@
+{
+  "backtraceGraph" : 
+  {
+    "commands" : 
+    [
+      "add_test"
+    ],
+    "files" : 
+    [
+      "/probe/src/CMakeLists.txt"
+    ],
+    "nodes" : 
+    [
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 4,
+        "parent" : 0
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 5,
+        "parent" : 2
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 6,
+        "parent" : 4
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 8,
+        "parent" : 6
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 10,
+        "parent" : 8
+      }
+    ]
+  },
+  "kind" : "ctestInfo",
+  "tests" : 
+  [
+    {
+      "backtrace" : 1,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "exit 0"
+      ],
+      "name" : "rapido",
+      "properties" : 
+      [
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 3,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_sem_trinco",
+      "properties" : 
+      [
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 5,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_com_trinco",
+      "properties" : 
+      [
+        {
+          "name" : "RESOURCE_LOCK",
+          "value" : 
+          [
+            "glintfx_nested_build"
+          ]
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 7,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_com_processors",
+      "properties" : 
+      [
+        {
+          "name" : "PROCESSORS",
+          "value" : 4
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 9,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep 2"
+      ],
+      "name" : "lento_lock_de_outro_nome",
+      "properties" : 
+      [
+        {
+          "name" : "RESOURCE_LOCK",
+          "value" : 
+          [
+            "outro_recurso"
+          ]
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    }
+  ],
+  "version" : 
+  {
+    "major" : 1,
+    "minor" : 0
+  }
+}

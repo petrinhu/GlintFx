@@ -165,7 +165,7 @@ def split_steps(job_block_text):
 # `ctest` que EXECUTA (linha de comando que comeca por `ctest`, sem `-N`,
 # que so' lista). CTO 29/09, achado 3: sem isto o job linux imprimia "0
 # de teste" e o passo "Testes" ficava fora de todas as regras.
-_CTEST_RUN_RE = re.compile(r"^\s*(?:run:\s*)?ctest\b(?![^\n]*\s-N\b)", re.MULTILINE)
+_CTEST_RUN_RE = re.compile(r"^\s*(?:run:\s*)?ctest\b(?![^\n]*(?:\s-N\b|--show-only))", re.MULTILINE)
 
 
 def is_test_step(step_text):
@@ -592,6 +592,17 @@ def aggregate_errors(job_name, steps):
         if not nome.startswith("Resultado agregado"):
             continue
         codigo = _code_text(texto)
+        if nome.startswith("Resultado agregado (") and AGGREGATE_SCRIPT in codigo:
+            m = re.search(r"--tests-json\s+(\S+)", codigo)
+            if not m:
+                errors.append(f"job {job_name!r}, passo {nome!r}: o agregado nao recebe --tests-json (cruzamento das duracoes com os trincos, J1)")
+            elif not any(
+                "--show-only=json-v1" in _code_text(t) and m.group(1) in _code_text(t) for n2, t in steps if n2 != nome
+            ):
+                errors.append(
+                    f"job {job_name!r}, passo {nome!r}: --tests-json {m.group(1)} sem um passo que grave "
+                    f"`ctest --show-only=json-v1 > {m.group(1)}` - J1"
+                )
         if nome.startswith("Resultado agregado (") and not tem_publicacao:
             errors.append(
                 f"job {job_name!r}, passo {nome!r}: nenhum passo publica o JUnit como artefato "
@@ -2269,7 +2280,12 @@ def selftest_g3c_preci_before_prep_reproves():
 _AGG_STEP = (
     "      - name: Resultado agregado (x)\n"
     "        if: ${{ !cancelled() }}\n"
-    "        run: python3 tests/tools/ctest_aggregate.py --builddir build --inventory parity_inventory.txt\n\n"
+    "        run: python3 tests/tools/ctest_aggregate.py --builddir build --inventory parity_inventory.txt --tests-json ctest-show.json\n\n"
+)
+
+_SHOW_STEP = (
+    "      - name: Propriedades dos testes (json-v1)\n        if: ${{ !cancelled() }}\n"
+    "        run: ctest --test-dir build --show-only=json-v1 > ctest-show.json\n\n"
 )
 
 
@@ -2288,8 +2304,9 @@ _JUNIT_PUBLISH = (
 )
 
 
-def _agg_fixture(step, testes=_TESTES_JUNIT, publica=_JUNIT_PUBLISH):
-    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", testes + step + publica + "      - name: fixture a\n", 1)
+def _agg_fixture(step, testes=_TESTES_JUNIT, publica=_JUNIT_PUBLISH, show=None):
+    show = _SHOW_STEP if show is None else show
+    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", testes + show + step + publica + "      - name: fixture a\n", 1)
 
 
 def selftest_aggregate_with_script_passes():
@@ -2370,7 +2387,7 @@ def selftest_mandatory_continue_on_error_reproves():  # N15
 
 def selftest_mandatory_aggregate_or_true_reproves():  # N11
     return _mand("A2-N11-AGREGADO-OR-TRUE", _agg_fixture(_AGG_STEP), "wayland-container",
-                 "--inventory parity_inventory.txt\n", "--inventory parity_inventory.txt || true\n", "ctest_aggregate.py", "||")
+                 "--tests-json ctest-show.json\n", "--tests-json ctest-show.json || true\n", "ctest_aggregate.py", "||")
 
 
 def selftest_mandatory_aggregate_if_false_reproves():  # N16
@@ -2599,6 +2616,29 @@ def selftest_junit_artifact_wrong_name_reproves():
 
 
 
+# J1 (CTO 29/09): o agregado cruza as duracoes com `ctest --show-only=json-v1`
+# (lista de pesados lida do proprio ctest); um passo anterior grava o json e a
+# chamada do agregado o recebe por --tests-json.
+def selftest_aggregate_without_tests_json_reproves():
+    resultado = _run_real_main_capturing(_agg_fixture(_AGG_STEP.replace(" --tests-json ctest-show.json", "")))
+    return _g5_expect("J1-AGREGADO-SEM-TESTS-JSON", resultado, "Resultado agregado", "--tests-json")
+
+
+def selftest_aggregate_json_not_produced_reproves():
+    resultado = _run_real_main_capturing(_agg_fixture(_AGG_STEP, show=""))
+    return _g5_expect("J1-JSON-NAO-PRODUZIDO", resultado, "Resultado agregado", "show-only=json-v1")
+
+
+def selftest_show_only_is_not_a_test_step():
+    exit_code, output = _run_real_main_capturing(_agg_fixture(_AGG_STEP))
+    if exit_code not in (None, 0):
+        print(f"selftest: J1-SHOW-ONLY-NAO-E-TESTE FALHOU: {output!r}", file=sys.stderr)
+        return False
+    print("selftest: J1-SHOW-ONLY-NAO-E-TESTE OK (ctest --show-only so' lista)")
+    return True
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2657,6 +2697,9 @@ def selftest_main():
         selftest_aggregate_tautology_reproves(),
         selftest_aggregate_tautology_alongside_script_reproves(),
         selftest_aggregate_without_junit_output_reproves(),
+        selftest_aggregate_without_tests_json_reproves(),
+        selftest_aggregate_json_not_produced_reproves(),
+        selftest_show_only_is_not_a_test_step(),
         selftest_junit_artifact_missing_reproves(),
         selftest_junit_artifact_without_cancelled_reproves(),
         selftest_junit_artifact_wrong_name_reproves(),

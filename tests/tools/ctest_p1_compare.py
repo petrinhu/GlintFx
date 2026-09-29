@@ -121,9 +121,15 @@ def p2_report(maximos, timeouts):
     return fora
 
 
+# Passos que usam o grau de calibracao (I-1, CTO 29/09): so' os dois modos das pernas de
+# calibracao. "Testes (ASan, rotulo unit)" e "Testes (Debug, suite inteira)" (Windows
+# Sanitizer e Debug) sao passos de teste proprios, sem o grau, e reprovariam o P3 com 0%.
+CALIBRATION_STEPS = ("Testes (compartilhado)", "Testes (estatico)")
+
+
 def _step_seconds(job):
     for passo in job.get("steps", []):
-        if passo.get("name", "").startswith("Testes ("):
+        if passo.get("name", "") in CALIBRATION_STEPS:
             try:
                 ini = datetime.fromisoformat(passo["started_at"].replace("Z", "+00:00"))
                 fim = datetime.fromisoformat(passo["completed_at"].replace("Z", "+00:00"))
@@ -145,7 +151,7 @@ def p3_report(jobs_por_rodada):
             continue
         piores = [p.get(job) for p in paralelos if p.get(job) is not None]
         if not piores:
-            erros.append(f"P3 {job}: sem passo 'Testes (' nas rodadas paralelas")
+            erros.append(f"P3 {job}: sem passo de calibracao (Testes compartilhado/estatico) nas rodadas paralelas")
             continue
         pior = max(piores)
         ganho = 1 - pior / s if s > 0 else 0.0
@@ -193,7 +199,7 @@ def compare(round_dirs, jobs_files=None):
             with open(caminho, "r", encoding="utf-8") as handle:
                 dados.append(json.load(handle))
         linhas, e3 = p3_report(dados)
-        relatorio.append(f"P3: {len(linhas)} job(s) com passo 'Testes (' medido")
+        relatorio.append(f"P3: {len(linhas)} job(s) com passo de calibracao (Testes compartilhado/estatico) medido")
         relatorio.extend(f"P3 {j}: serial {s:.0f} s, pior paralela {p:.0f} s, ganho {g * 100:.0f}%" for j, s, p, g in linhas)
         erros.extend(e3)
     return (1 if erros else 0), relatorio, erros
@@ -236,6 +242,10 @@ def selftest_main():
         AGG.DEFAULT_TIMEOUT_S = anterior
     controles.append(_check("P2: o TIMEOUT padrao decide (DEFAULT_TIMEOUT_S=3.0 lista 'medio', 1 s, sem TIMEOUT proprio)",
                             "P2 medio" in "\n".join(rel), "\n".join(rel)))
+    rc, rel, erros = compare(_rounds("serial_diferente"))
+    texto = "\n".join(rel)
+    controles.append(_check("P2 usa so' as rodadas PARALELAS (serial_lento: 3 s na serial, 1 s nas paralelas, TIMEOUT 5)",
+                            rc == 0 and "P2 serial_lento" not in texto, texto + str(erros)))
     controles.append(_check("estrutura: menos de 6 rodadas reprova", compare(_rounds("ok")[:5])[0] == 1))
     controles.append(_check("varredura vazia: rodada sem pernas reprova", compare([FIXTURES] * ROUNDS)[0] == 1))
     controles.extend(_selftest_p3())
@@ -264,6 +274,23 @@ def _selftest_p3():
                 passo["completed_at"] = (ini + (fim - ini) * 0.4).isoformat().replace("+00:00", "Z")
     linhas, erros = p3_report([real] + [rapido] * (ROUNDS - 1))
     saida.append(_check("P3: paralela a 40% da serial (ganho 60%) passa", not erros and linhas, str(erros)))
+    # I-1 (CTO 29/09): so' "Testes (compartilhado)" e "Testes (estatico)" usam o grau de
+    # calibracao; "Testes (ASan, rotulo unit)" e "Testes (Debug, suite inteira)" (Windows
+    # Sanitizer e Debug) nao entram - com os dados REAIS da API reprovariam com 0% de ganho.
+    linhas0, erros0 = p3_report([real] * ROUNDS)
+    citados = " ".join(erros0) + " " + str(linhas0)
+    saida.append(_check("P3 I-1: Windows Sanitizer e Debug (passos de teste proprios) NAO entram no universo",
+                        "Sanitizer" not in citados and "Debug" not in citados, citados[:300]))
+    saida.append(_check("P3 I-1: os jobs de calibracao (Testes compartilhado/estatico) entram",
+                        bool(linhas0) and all(("compartilhado" in j or "estatico" in j) for j, *_ in linhas0), str(linhas0)))
+    lento_so_nos_outros = json.loads(json.dumps(rapido))
+    for job in lento_so_nos_outros["jobs"]:
+        for passo in job["steps"]:
+            if passo["name"] in ("Testes (ASan, rotulo unit)", "Testes (Debug, suite inteira)"):
+                ini = datetime.fromisoformat(passo["started_at"].replace("Z", "+00:00"))
+                passo["completed_at"] = (ini + __import__("datetime").timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    _l, erros_x = p3_report([real] + [lento_so_nos_outros] * (ROUNDS - 1))
+    saida.append(_check("P3 I-1: passos Sanitizer/Debug LENTOS nas paralelas nao reprovam o P3 (fora do universo)", not erros_x, str(erros_x)))
     return saida
 
 

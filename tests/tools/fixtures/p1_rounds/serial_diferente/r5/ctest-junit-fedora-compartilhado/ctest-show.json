@@ -1,0 +1,81 @@
+{
+  "backtraceGraph" : 
+  {
+    "commands" : 
+    [
+      "add_test"
+    ],
+    "files" : 
+    [
+      "/probe/src/CMakeLists.txt"
+    ],
+    "nodes" : 
+    [
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 4,
+        "parent" : 0
+      },
+      {
+        "file" : 0
+      },
+      {
+        "command" : 0,
+        "file" : 0,
+        "line" : 5,
+        "parent" : 2
+      }
+    ]
+  },
+  "kind" : "ctestInfo",
+  "tests" : 
+  [
+    {
+      "backtrace" : 1,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "exit 0"
+      ],
+      "name" : "rapido",
+      "properties" : 
+      [
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    },
+    {
+      "backtrace" : 3,
+      "command" : 
+      [
+        "/usr/bin/sh",
+        "-c",
+        "sleep $GLINTFX_SLEEP"
+      ],
+      "name" : "serial_lento",
+      "properties" : 
+      [
+        {
+          "name" : "TIMEOUT",
+          "value" : 5.0
+        },
+        {
+          "name" : "WORKING_DIRECTORY",
+          "value" : "/probe/b"
+        }
+      ]
+    }
+  ],
+  "version" : 
+  {
+    "major" : 1,
+    "minor" : 0
+  }
+}

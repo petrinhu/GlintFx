@@ -4660,3 +4660,17 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - A culpa é do main, que despachou a revisão sem coordenar a janela.
   - Regra adotada: trabalho local pesado do revisor só com liberação do main, e com aviso de começo e de fim.
   - O preci-i saiu rc=0 mesmo assim.
+
+## 29/09/2026 - 04:13 | D-A23: A5 etapas 1 e 2 aceitas com todos os consertos; push
+
+- **CTO (04:12), lote 61aff55..2c2171f: aceito.** Com isso fecham, nas duas etapas, os achados A/B, I1/I2/I3 e J1/J2.
+  - Pesados de Linux e Windows (11) com o trinco provisório glintfx_nested_build.
+  - Cruzamento MEDIDO duração×propriedade (json-v1 + JUnit) reprovando pesado sem trinco acima de 40 s, provado com ctest real.
+  - Recusas do preci fecham na falha.
+  - A varredura de build vê a máquina inteira (caminho relativo, ninja-build, cópia fora da árvore), com um único `ps`.
+  - JUnit como artefato por perna.
+- **Cosméticos para a etapa 3:**
+  - C1: o portão estático parte a lista de RESOURCE_LOCK por `;`;
+  - C2: TIMEOUT/3 por teste, e não 40 s fixo;
+  - C3: o encoding do json no pwsh, que só o servidor prova.
+- **Push:** a A5 etapas 1 e 2 vão agora para onda-w7c. O CI que roda sobre elas é a primeira rodada paralela real, e as durações dela (artefato JUnit) calibram a etapa 3.

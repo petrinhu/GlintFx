@@ -737,6 +737,8 @@ def _floor_script_errors(job_name, script, scripts):
     faltam = [n for n in _FAMILY_NEEDLES[script] if n not in codigo]
     if script == PREP_PS1:
         faltam.extend(_cl_arguments_missing(codigo))
+        if not re.search(r"Assert-MsvcAcceptsCxx23\s+\$env:RUNNER_TEMP\b", codigo):
+            faltam.append("Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP (a sonda do cl.exe nunca no workspace)")
     if faltam:
         return [f"job {job_name!r}: {script} nao checa {', '.join(faltam)} - o piso nao cobre o que promete (G5)"]
     return []
@@ -1590,6 +1592,9 @@ function Get-ClArguments($Paths) {
     return @('/std:c++latest', "/Fe:$($Paths.Exe)", "/Fo:$($Paths.Obj)", $Paths.Src)
 }
 $probe = Join-Path $env:RUNNER_TEMP 'probe'
+function Invoke-Prep {
+    Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP
+}
 Get-Command python3
 """
 
@@ -2138,6 +2143,15 @@ def selftest_mandatory_aggregate_if_false_reproves():  # N16
 
 
 
+# C3 (CTO 29/09, a razao do 46b21c1): a sonda do cl.exe recebe
+# $env:RUNNER_TEMP, nunca o diretorio corrente/workspace (mutante PSB).
+def selftest_prep_probe_root_from_workspace_reproves():
+    sabotado = _PREP_PS1_OK.replace("Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP", "Assert-MsvcAcceptsCxx23 (Get-Location).Path")
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", files={PREP_PS1: sabotado})
+    return _g5_expect("C3-PSB-SONDA-NO-WORKSPACE", resultado, PREP_PS1, "Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2203,6 +2217,7 @@ def selftest_main():
         selftest_mandatory_continue_on_error_reproves(),
         selftest_mandatory_aggregate_or_true_reproves(),
         selftest_mandatory_aggregate_if_false_reproves(),
+        selftest_prep_probe_root_from_workspace_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

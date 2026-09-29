@@ -78,6 +78,19 @@ function Get-ClArguments($Paths) {
     return @('/std:c++latest', '/EHsc', '/nologo', "/Fe:$($Paths.Exe)", "/Fo:$($Paths.Obj)", $Paths.Src)
 }
 
+# $true quando $Path esta DENTRO de $Workspace (fronteira de diretorio: a
+# raiz "C:\w\x" nao contem "C:\w\x2\y"). Sem workspace definido, $false.
+function Test-PathUnderWorkspace([string]$Path, [string]$Workspace) {
+    if (-not $Workspace) { return $false }
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $root = $Workspace.TrimEnd('\', '/')
+    $alvo = $Path.TrimEnd('\', '/')
+    if ($alvo -eq $root) { return $true }
+    return $alvo.StartsWith($root + $sep, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $alvo.StartsWith($root + '/', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $alvo.StartsWith($root + '\', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Test-AnyCommandPresent([string[]]$Names) {
     foreach ($name in $Names) {
         if (Get-Command $name -ErrorAction SilentlyContinue) { return $true }
@@ -109,6 +122,12 @@ function Assert-CmakeFloor {
 
 function Assert-MsvcAcceptsCxx23([string]$TempRoot) {
     $paths = Get-ProbePaths $TempRoot
+    # Trava em EXECUCAO (C3, CTO 29/09): a razao do commit 46b21c1. A
+    # sonda nunca nasce dentro do workspace do checkout - o .obj sobrevive
+    # e o vendor_purity_test reprova.
+    if (Test-PathUnderWorkspace $paths.Dir $env:GITHUB_WORKSPACE) {
+        Stop-Floor "a sonda do cl.exe ($($paths.Dir)) esta DENTRO do workspace ($env:GITHUB_WORKSPACE) - o .obj sobreviveria na arvore do git (vendor_purity_test, 46b21c1)"
+    }
     New-Item -ItemType Directory -Force -Path $paths.Dir | Out-Null
     "#include <cstdio>`nint main() { std::printf(`"ok\n`"); }" | Set-Content $paths.Src
     & cl.exe @(Get-ClArguments $paths) | Out-Null
@@ -167,6 +186,14 @@ function Invoke-Autoteste {
     $argumentos = Get-ClArguments $paths
     Assert-Autoteste 'cl.exe recebe /Fo explicito (46b21c1)' ($argumentos -contains "/Fo:$($paths.Obj)")
     Assert-Autoteste 'cl.exe recebe /Fe explicito' ($argumentos -contains "/Fe:$($paths.Exe)")
+
+    # C3: a trava da sonda no workspace (dois separadores, fronteira, sem workspace).
+    Assert-Autoteste 'trava: sonda dentro do workspace reprova (\\)' (Test-PathUnderWorkspace 'C:\w\x\glintfx-piso-probe' 'C:\w\x')
+    Assert-Autoteste 'trava: sonda dentro do workspace reprova (/)' (Test-PathUnderWorkspace '/w/x/glintfx-piso-probe' '/w/x/')
+    Assert-Autoteste 'trava: o proprio workspace reprova' (Test-PathUnderWorkspace '/w/x' '/w/x')
+    Assert-Autoteste 'trava: RUNNER_TEMP fora do workspace passa' (-not (Test-PathUnderWorkspace 'C:\_temp\glintfx-piso-probe' 'C:\w\x'))
+    Assert-Autoteste 'trava: fronteira de diretorio (x2 nao esta em x)' (-not (Test-PathUnderWorkspace '/w/x2/y' '/w/x'))
+    Assert-Autoteste 'trava: sem workspace definido nao trava' (-not (Test-PathUnderWorkspace '/w/x/y' ''))
 
     Assert-Autoteste 'python: comando inexistente reprova' (-not (Test-AnyCommandPresent @('glintfx-nao-existe-1', 'glintfx-nao-existe-2')))
     Assert-Autoteste 'python: comando presente atende' (Test-AnyCommandPresent @('glintfx-nao-existe-1', 'pwsh'))

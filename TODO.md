@@ -154,7 +154,9 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 - **`SYMLINK-NA-RAIZ-DO-CONFIGURE`: raiz do projeto acessada por symlink no `cmake -S`.** O envoltório do win-vm-lab já resolve a raiz por `pwd -P`; o configure real (`PROJECT_SOURCE_DIR`) pode guardar o caminho lógico e divergir do físico nos add_test. Achado do CTO (29/09/2026), sem medição do efeito.
 
-- **`win-vm-lab`: 6 selftests sem cobertura no CI (sem qemu-img/jq/xmlstarlet/bwrap nas imagens).** Medido pelo CTO (29/09/2026): `notrun` em todas as pernas Linux. Instalar nas imagens exige autorização do líder (L-51).
+- **`win-vm-lab`: 6 selftests e o `armadilha_selftest` sem cobertura de execução do envoltório no CI (sem qemu-img/jq/xmlstarlet/bwrap nas imagens).** Medido pelo CTO (29/09/2026): `notrun`/Skipped em todas as pernas Linux. Causa do bwrap ausente: provável `seccomp` do docker negando `unshare`, A MEDIR antes de qualquer pedido; instalar nas imagens exige autorização do líder (L-51).
+
+- **`--blob` e o código 77: divergência com o `SKIP_RETURN_CODE` do ctest** em host sem as ferramentas do laboratório (bwrap, qemu-img, jq). O ctest mostra Skipped; o `--blob` conta o 77 como FALHOU (fail-closed, mensagem "AUSENTE: bwrap"). Decidir antes de documentar o preci para contribuidor externo.
 
 - **`window_active_after_map_smoke` (FACADE-PIN T1/G3): o orçamento de 50 roundtrips esgota sem `window.state(active)`.** 1 falha em ~16 observações, calibração r1 asan, run 36543167200, job 109323188711. Investigar trocando 'contar roundtrips' por 'esperar o evento com prazo em tempo', prazo impresso; nunca reexecutar para ficar verde (CTO 29/09). Não é da A5.
 

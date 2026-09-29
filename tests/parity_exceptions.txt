@@ -923,3 +923,15 @@ win32_wgl_extension_loader_test|ubuntu|CI-SPLIT-PER-OS A1, categoria (b)-gemeo (
 preci_win_selftest|arch|nenhum|SEM-PENDENCIA
 preci_win_selftest|cachyos|nenhum|SEM-PENDENCIA
 preci_win_selftest|ubuntu|nenhum|SEM-PENDENCIA
+
+# --- Dois selftests POSIX do preci/laboratorio, sem par possivel (29/09/2026, CI 36584047687 do 352442e,
+# CI-SPLIT-PER-OS) ---------------------------------------------------------
+#
+# blob_selftests_selftest (tests/tools/blob_selftests.py --selftest) prova o estagio --blob do
+# tools/preci.sh; o preci.sh e' bash e nunca roda no Windows, e as fixtures `.sh` do selftest exigem um
+# `bash` que o runner Windows nao tem (o `bash` de la e' o stub do WSL). armadilha_selftest
+# (tests/tools/armadilha/armadilha_selftest.sh) prova o envoltorio bwrap do laboratorio da VM
+# (win-vm-lab), que e' de host Linux, mesma razao dos win_vm_lab_* acima. Os dois ficam dentro de
+# if(UNIX) em tests/CMakeLists.txt. MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
+blob_selftests_selftest|windows|nenhum|SEM-PENDENCIA
+armadilha_selftest|windows|nenhum|SEM-PENDENCIA

@@ -4851,13 +4851,18 @@ set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
 
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
-# glintfx-armadilha: isento - so' cita virsh em fixtures inofensivas (test:///default) e roda o proprio envoltorio nos controles; escreve na arvore, nao pode rodar so' leitura
-add_test(
-    NAME blob_selftests_selftest
-    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --selftest
-)
-set_tests_properties(blob_selftests_selftest PROPERTIES LABELS selftest)
+# So' em Unix (D-A27, CI do 352442e): o --blob e' estagio do preci.sh, que e' bash e nunca roda no Windows,
+# e as fixtures `.sh` do selftest exigem um `bash` que o runner Windows nao tem (o `bash` de la e' o stub do
+# WSL). Excecao de paridade permanente em tests/parity_exceptions.txt.
+if(UNIX)
+    # glintfx-armadilha: isento - so' cita virsh em fixtures inofensivas (test:///default) e roda o proprio envoltorio nos controles; escreve na arvore, nao pode rodar so' leitura
+    add_test(
+        NAME blob_selftests_selftest
+        COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --selftest
+    )
+    set_tests_properties(blob_selftests_selftest PROPERTIES LABELS selftest)
+endif()
 
 add_test(
     NAME preci_runs_blob_test

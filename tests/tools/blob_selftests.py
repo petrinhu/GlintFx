@@ -320,7 +320,11 @@ def _fake_root(scripts, cmake_extra="", base=None):
     'py' (`python x.py --selftest`), 'sh' (`x.sh --selftest`) ou 'pwsh'."""
     raiz = tempfile.mkdtemp(prefix="glintfx-blob-", dir=base)
     os.makedirs(os.path.join(raiz, "tests", "tools"))
-    shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), "armadilha"), os.path.join(raiz, "tests", "tools", "armadilha"))
+    aqui = os.path.dirname(os.path.abspath(__file__))
+    shutil.copytree(os.path.join(aqui, "armadilha"), os.path.join(raiz, "tests", "tools", "armadilha"))
+    # o envoltorio da raiz falsa e' o DUBLE sem bwrap: a logica do --blob e' provada igual em todo sistema
+    shutil.copy(os.path.join(aqui, "fixtures", "armadilha_sem_bwrap", "run_com_armadilha.sh"),
+                os.path.join(raiz, "tests", "tools", "armadilha", "run_com_armadilha.sh"))
     cmake = []
     for nome, (conteudo, registrado, comentario, forma) in scripts.items():
         if conteudo is not None:

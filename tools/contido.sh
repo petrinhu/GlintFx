@@ -18,10 +18,11 @@
 #   RECUSA: ... refuse, exit 70, nothing is run
 # Exit codes: 2 usage, 70 refusal or not implemented yet.
 #
-# Every fact is read with a shell builtin (`read`, `ulimit`), never a new process, except the
-# single `systemctl --user show` probe, which is skipped when the own cgroup already has a ceiling.
-# The cgroup root and /proc/self/cgroup are literal on purpose: no environment variable can forge
-# "already contained".
+# Every fact is read without creating a process (`read`, `printf -v`, the /proc/self/limits file),
+# except the single `systemctl --user show` probe, which is skipped when the own cgroup already has
+# a ceiling. The cgroup root and the cgroup file are literals passed by contido_main: no
+# environment variable can forge "already contained". The readers take them as arguments only so
+# the selftest can build a fake tree.
 #
 # Identifiers are English (project L-21); the printed messages are Portuguese and fixed.
 
@@ -116,61 +117,74 @@ contido_parse_args() {
     return 2
 }
 
-# contido_user_slice_path <own cgroup path> <uid>: the path of user-<uid>.slice found by climbing
-# the own cgroup path, or `ilegivel`. The component is derived from the uid, never written out.
+# contido_user_slice_path <own cgroup path> <uid>: sets REPLY to the path of user-<uid>.slice found by
+# climbing the own cgroup path, or to `ilegivel`. The component is derived from the uid, never
+# written out. No process is created (REPLY instead of a command substitution).
 contido_user_slice_path() {
-    local path="$1" uid="$2" want prefix
+    local path="$1" uid="$2" want
     want="user-${uid}.slice"
     case "$path" in
-        */"$want"|*/"$want"/*)
-            prefix="${path%%/"$want"*}"
-            echo "$prefix/$want"
-            ;;
-        *) echo "ilegivel" ;;
+        */"$want"|*/"$want"/*) REPLY="${path%%/"$want"*}/$want" ;;
+        *) REPLY="ilegivel" ;;
     esac
 }
 
-# contido_read_fact <file>: the first word of a file, or `ilegivel`; no process is created.
+# contido_read_fact <file> <variable name>: puts the first word of the file in the variable, or
+# `ilegivel` (never 0, never empty). No process is created (printf -v, no command substitution).
 contido_read_fact() {
     local value
-    if read -r value <"$1" 2>/dev/null && [ -n "$value" ]; then
-        echo "$value"
+    if read -r value 2>/dev/null <"$1" && [ -n "$value" ]; then
+        printf -v "$2" '%s' "$value"
     else
-        echo "ilegivel"
+        printf -v "$2" '%s' "ilegivel"
     fi
 }
 
-# contido_read_facts: fills P, U, C_USER, C_SLICE, CI, PROBE for the decision.
+# contido_read_facts <cgroup root> <cgroup file of the process>: fills FACT_P, FACT_U, FACT_C_USER,
+# FACT_C_SLICE and FACT_CI. The two paths are ARGUMENTS so the selftest can build a fake tree;
+# contido_main passes the literals /sys/fs/cgroup and /proc/self/cgroup, and no environment
+# variable can forge "already contained". The probe of systemd is separate (contido_probe_systemd).
 contido_read_facts() {
-    local root=/sys/fs/cgroup line own_path user_slice
+    local root="$1" cgroup_file="$2" line own_path="" limits_line
     FACT_P="ilegivel"; FACT_U="ilegivel"; FACT_C_USER="ilegivel"; FACT_C_SLICE="ilegivel"
-    FACT_CI="${GITHUB_ACTIONS:-}"; FACT_PROBE="nao-consultada"
+    FACT_CI="${GITHUB_ACTIONS:-}"
     while read -r line; do
         case "$line" in 0::*) own_path="${line#0::}" ;; esac
-    done </proc/self/cgroup
-    if [ -n "${own_path:-}" ]; then
-        FACT_P="$(contido_read_fact "$root$own_path/pids.max")"
-        user_slice="$(contido_user_slice_path "$own_path" "$UID")"
-        if [ "$user_slice" != "ilegivel" ]; then
-            FACT_C_USER="$(contido_read_fact "$root$user_slice/pids.current")"
-            # the slice sits under user@<uid>.service; a slice that does not exist yet is zero
-            local slice_dir="$root$user_slice/user@$UID.service/glintfx.slice/glintfx-agentes.slice"
+    done 2>/dev/null <"$cgroup_file"
+    if [ -n "$own_path" ]; then
+        contido_read_fact "$root$own_path/pids.max" FACT_P
+        contido_user_slice_path "$own_path" "$UID"
+        if [ "$REPLY" != "ilegivel" ]; then
+            local user_slice="$REPLY" slice_dir
+            contido_read_fact "$root$user_slice/pids.current" FACT_C_USER
+            # the slice sits under user@<uid>.service; a slice that does not exist yet is zero,
+            # but a slice that exists and cannot be read is `ilegivel`, never zero
+            slice_dir="$root$user_slice/user@$UID.service/glintfx.slice/glintfx-agentes.slice"
             if [ -d "$slice_dir" ]; then
-                FACT_C_SLICE="$(contido_read_fact "$slice_dir/pids.current")"
+                contido_read_fact "$slice_dir/pids.current" FACT_C_SLICE
             else
                 FACT_C_SLICE=0
             fi
         fi
     fi
-    local limit
-    limit="$(ulimit -u)"
-    case "$limit" in ''|*[!0-9]*) ;; *) FACT_U="$limit" ;; esac
-    if [ "$FACT_P" = "max" ]; then
-        if systemctl --user show --property=Version >/dev/null 2>&1; then
-            FACT_PROBE=ok
-        else
-            FACT_PROBE=falha
-        fi
+    # U: the soft "Max processes" of /proc/self/limits (what `ulimit -u` prints), read without a process
+    while read -r limits_line; do
+        case "$limits_line" in
+            "Max processes"*)
+                set -- ${limits_line#Max processes}
+                case "${1:-}" in ''|*[!0-9]*) ;; *) FACT_U="$1" ;; esac
+                ;;
+        esac
+    done </proc/self/limits
+}
+
+# contido_probe_systemd: sets FACT_PROBE (ok | falha). The ONLY process of the decision, and it is
+# skipped when the own cgroup already has a numeric ceiling (inheriting needs no probe).
+contido_probe_systemd() {
+    if systemctl --user show --property=Version >/dev/null 2>&1; then
+        FACT_PROBE=ok
+    else
+        FACT_PROBE=falha
     fi
 }
 
@@ -240,10 +254,51 @@ contido_selftest() {
     case_decide "args no args at all" "" 2 contido_parse_args
 
     # cgroup path helpers (pure): user slice of a cgroup path, uid fixture 2000
-    case_decide "user slice from an app scope" "/user.slice/user-2000.slice" 0 contido_user_slice_path /user.slice/user-2000.slice/user@2000.service/app.slice/x.scope 2000
-    case_decide "user slice from a session scope" "/user.slice/user-2000.slice" 0 contido_user_slice_path /user.slice/user-2000.slice/session-5.scope 2000
-    case_decide "user slice absent" "ilegivel" 0 contido_user_slice_path /system.slice/foo.service 2000
-    case_decide "user slice of another uid" "ilegivel" 0 contido_user_slice_path /user.slice/user-3000.slice/x.scope 2000
+    contido_user_slice_echo() { contido_user_slice_path "$@"; echo "$REPLY"; }
+    case_decide "user slice from an app scope" "/user.slice/user-2000.slice" 0 contido_user_slice_echo /user.slice/user-2000.slice/user@2000.service/app.slice/x.scope 2000
+    case_decide "user slice from a session scope" "/user.slice/user-2000.slice" 0 contido_user_slice_echo /user.slice/user-2000.slice/session-5.scope 2000
+    case_decide "user slice absent" "ilegivel" 0 contido_user_slice_echo /system.slice/foo.service 2000
+    case_decide "user slice of another uid" "ilegivel" 0 contido_user_slice_echo /user.slice/user-3000.slice/x.scope 2000
+
+    # the fact readers, on a FAKE cgroup tree (mktemp), root and cgroup file passed as arguments
+    local tree cg_dir uslice
+    tree="$(mktemp -d "${TMPDIR:-/var/tmp}/glintfx-contido-facts.XXXXXX")" || return 1
+    uslice="user.slice/user-$UID.slice"
+    cg_dir="$tree/$uslice/user@$UID.service/app.slice/x.scope"
+    # case_facts <name> <expected "P|C_user|C_fatia"> <cgroup file line>
+    case_facts() {
+        local name="$1" want="$2" line="$3" got
+        printf '%s\n' "$line" >"$tree/cgroup"
+        contido_read_facts "$tree" "$tree/cgroup"
+        got="$FACT_P|$FACT_C_USER|$FACT_C_SLICE"
+        cases=$((cases + 1))
+        if [ "$got" != "$want" ]; then
+            failures=$((failures + 1))
+            echo "contido --selftest: FALHOU - facts $name: esperado [$want], obtido [$got]" >&2
+        fi
+    }
+    local own_line="0::/$uslice/user@$UID.service/app.slice/x.scope" slice_dir
+    slice_dir="$tree/$uslice/user@$UID.service/glintfx.slice/glintfx-agentes.slice"
+    mkdir -p "$cg_dir"
+    echo max >"$cg_dir/pids.max"
+    echo 100 >"$tree/$uslice/pids.current"
+    case_facts "slice absent is zero" "max|100|0" "$own_line"
+    mkdir -p "$slice_dir"
+    case_facts "slice present without pids.current is ilegivel, never zero" "max|100|ilegivel" "$own_line"
+    echo 7 >"$slice_dir/pids.current"
+    case_facts "normal" "max|100|7" "$own_line"
+    echo 64 >"$cg_dir/pids.max"
+    case_facts "own ceiling numeric" "64|100|7" "$own_line"
+    rm "$cg_dir/pids.max"
+    case_facts "own pids.max absent is ilegivel" "ilegivel|100|7" "$own_line"
+    echo max >"$cg_dir/pids.max"
+    rm "$tree/$uslice/pids.current"
+    case_facts "user slice pids.current absent is ilegivel" "max|ilegivel|7" "$own_line"
+    case_facts "cgroup outside the user slice" "ilegivel|ilegivel|ilegivel" "0::/system.slice/foo.service"
+    case_facts "no 0:: line (cgroup v1)" "ilegivel|ilegivel|ilegivel" "1:name=systemd:/foo"
+    echo 300 >"$tree/pids.max"
+    case_facts "0::/ (container) reads the root pids.max" "300|ilegivel|ilegivel" "0::/"
+    case "$tree" in "${TMPDIR:-/var/tmp}"/glintfx-contido-facts.??????) rm -rf -- "$tree" ;; esac
 
     if [ "$cases" -eq 0 ]; then
         echo "contido --selftest: FALHOU - zero casos rodados (varredura vazia)" >&2
@@ -264,7 +319,9 @@ contido_main() {
         return 2
     fi
     read -r n s m <<<"$parsed"
-    contido_read_facts
+    contido_read_facts /sys/fs/cgroup /proc/self/cgroup
+    FACT_PROBE="nao-consultada"
+    [ "$FACT_P" = "max" ] && contido_probe_systemd
     decision="$(contido_decide "$FACT_P" "$FACT_U" "$FACT_C_USER" "$FACT_C_SLICE" "$n" "$FACT_CI" "$FACT_PROBE")"; rc=$?
     case "$FACT_U" in ''|*[!0-9]*) limit_slice=ilegivel ;; *) limit_slice=$((FACT_U / 2)) ;; esac
     echo "contido: decisao=${decision%% *}, pids.max_proprio=$FACT_P, N=$n, U=$FACT_U, C_user=$FACT_C_USER, C_fatia=$FACT_C_SLICE, T_fatia=$limit_slice, ci=${FACT_CI:-nao}, sonda=$FACT_PROBE" >&2

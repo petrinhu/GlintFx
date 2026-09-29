@@ -188,6 +188,60 @@ function Assert-Autoteste([string]$Nome, [bool]$Condicao) {
     }
 }
 
+# --- MODOS REAIS num pwsh filho (A3, CTO 29/09): as funcoes puras acima nao
+# provam a LIGACAO dos modos (trocar `Stop-Floor $cause` por `Write-Host
+# $cause` em Invoke-VerifyCmake, ou remover a trava do workspace, passava
+# calado). Aqui o script roda como roda no CI - `-VerifyCmake` e a funcao
+# Assert-MsvcAcceptsCxx23 - contra um cmake FALSO no PATH e um workspace
+# FALSO, e o codigo de saida e a mensagem sao conferidos. So' Linux (cmake
+# falso e' script sh); no Windows real este autoteste nunca roda.
+function Invoke-Filho([string[]]$PwshArgs, [hashtable]$EnvVars) {
+    $pwsh = (Get-Command pwsh).Source
+    $salvo = @{}
+    foreach ($k in $EnvVars.Keys) { $salvo[$k] = [System.Environment]::GetEnvironmentVariable($k); [System.Environment]::SetEnvironmentVariable($k, $EnvVars[$k]) }
+    try {
+        $saida = & $pwsh -NoProfile -NonInteractive @PwshArgs 2>&1 | Out-String
+        return @{ Rc = $LASTEXITCODE; Out = $saida }
+    } finally {
+        foreach ($k in $salvo.Keys) { [System.Environment]::SetEnvironmentVariable($k, $salvo[$k]) }
+    }
+}
+
+function New-FakeCmakeDir([string]$Root, [string]$VersionLine) {
+    $dir = Join-Path $Root ('fake-cmake-' + ($VersionLine -replace '\W', '_'))
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $exe = Join-Path $dir 'cmake'
+    "#!/bin/sh`necho `"$VersionLine`"" | Set-Content $exe
+    & chmod +x $exe
+    return $dir
+}
+
+function Invoke-AutotesteModosReais {
+    if (-not $IsLinux) {
+        Write-Host 'autoteste: modos reais PULADOS (so Linux; cmake falso e script sh)'
+        return
+    }
+    $raiz = Join-Path ([System.IO.Path]::GetTempPath()) ('glintfx-prep-modos-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $raiz | Out-Null
+    try {
+        $script = $PSCommandPath
+        foreach ($caso in @(@('cmake version 3.31.6', 1, 'PISO NAO ATENDIDO'), @('cmake version 4.1.6', 0, 'cmake pinado OK'))) {
+            $fake = New-FakeCmakeDir $raiz $caso[0]
+            $r = Invoke-Filho @('-File', $script, '-VerifyCmake') @{ PATH = "$fake$([System.IO.Path]::PathSeparator)$env:PATH" }
+            Assert-Autoteste "modo real -VerifyCmake com '$($caso[0])': rc=$($caso[1]) e mensagem '$($caso[2])'" (($r.Rc -eq $caso[1]) -and $r.Out.Contains($caso[2]))
+        }
+        # Trava do workspace: GITHUB_WORKSPACE = raiz do TempRoot => para em
+        # Stop-Floor ANTES de criar a pasta da sonda e de chamar o cl.exe.
+        $probe = (Get-ProbePaths $raiz).Dir
+        $r = Invoke-Filho @('-NoProfile', '-Command', ". '$script'; Assert-MsvcAcceptsCxx23 '$raiz'") @{ GITHUB_WORKSPACE = $raiz }
+        Assert-Autoteste 'modo real: sonda dentro do workspace para em Stop-Floor (rc=1, DENTRO do workspace, sem criar a pasta)' (($r.Rc -eq 1) -and $r.Out.Contains('DENTRO do workspace') -and -not (Test-Path $probe))
+        $r = Invoke-Filho @('-NoProfile', '-Command', ". '$script'; Assert-MsvcAcceptsCxx23 '$raiz'") @{ GITHUB_WORKSPACE = (Join-Path $raiz 'outro') }
+        Assert-Autoteste 'modo real: workspace em outro lugar NAO dispara a trava (segue ate o cl.exe)' (-not $r.Out.Contains('DENTRO do workspace'))
+    } finally {
+        Remove-Item -Recurse -Force $raiz -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-Autoteste {
     Assert-Autoteste 'cmake 4.1.6 atende' ($null -eq (Get-CmakeFloorError 'cmake version 4.1.6'))
     Assert-Autoteste 'cmake 5.0.0 atende' ($null -eq (Get-CmakeFloorError 'cmake version 5.0.0'))
@@ -222,6 +276,8 @@ function Invoke-Autoteste {
     Assert-Autoteste 'trava: fronteira de diretorio (x2 nao esta em x)' (-not (Test-PathUnderWorkspace '/w/x2/y' '/w/x'))
     Assert-Autoteste 'trava: sem workspace definido nao trava' (-not (Test-PathUnderWorkspace '/w/x/y' ''))
 
+    Invoke-AutotesteModosReais
+
     Assert-Autoteste 'python: comando inexistente reprova' (-not (Test-AnyCommandPresent @('glintfx-nao-existe-1', 'glintfx-nao-existe-2')))
     Assert-Autoteste 'python: comando presente atende' (Test-AnyCommandPresent @('glintfx-nao-existe-1', 'pwsh'))
 
@@ -231,5 +287,8 @@ function Invoke-Autoteste {
     }
     Write-Host "prep.ps1 -Autoteste: os $($script:AutotesteControles) controles OK"
 }
+
+# Dot-sourced (`. prep.ps1`, usado pelo autoteste dos modos reais): so' define as funcoes.
+if ($MyInvocation.InvocationName -eq '.') { return }
 
 if ($Autoteste) { Invoke-Autoteste } elseif ($VerifyCmake) { Invoke-VerifyCmake } else { Invoke-Prep }

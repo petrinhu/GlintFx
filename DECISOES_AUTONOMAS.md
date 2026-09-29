@@ -4574,3 +4574,14 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - A2: regra única de "passo obrigatório efetivo" para a prova, o piso e o agregado (sem `continue-on-error`, sem `if:` que desligue, sem `||`, sem comentário de fim de linha enganando a busca);
   - C3: trava em execução para a sonda do MSVC nunca cair no workspace.
 - **Não decidido nesta leva:** o piso de versão do Clang. O CTO registrou só o risco C2 (um job GCC trocado para clang perde o piso de GCC 14 sem aviso); a lacuna segue aberta.
+
+## 29/09/2026 - 01:15 | D-A17: decisões do CTO sobre X3, piso de Clang e critério do servidor
+
+- **X3, risco aceito com prova:** remover o passo "Remove o checkout de bootstrap" não tem efeito, porque o checkout final apaga o conteúdo do diretório quando falta `.git` na raiz. As provas são a fonte (actions/checkout, git-directory-helper.ts, prepareExistingDirectory) e o log do run 36202987723, job 108293407081 ("Deleting the contents of '/__w/GlintFx/GlintFx'"). A premissa cai se o checkout final ganhar `path:` (o G1 já reprova isso) ou se a raiz passar a ter `.git` antes dele.
+- **Piso de Clang: nenhum por enquanto.** O Clang é compilador de conferência no CI, não suportado declarado. O piso implícito vem do CMake: Clang >= 12 com -std=c++2b, -std=c++23 a partir do 17 (Clang.cmake:197-211). A árvore não usa recurso que force versão. Declarar suporte é decisão de produto do líder e vai para a INBOX como CLANG-SUPPORT-DECL, com a recomendação de piso 17 e job pinado, se ele declarar.
+- **Critério do servidor para a leva D-A14 + consertos (run 36520626677):**
+  - (i) `cmake --version` = 4.1.6 depois do prep nos 4 jobs Windows: não medível ainda; entra na próxima leva;
+  - (ii) vendor_purity_test verde nas 2 pernas windows, lido no log pelo nome;
+  - (iii) nas pernas windows, o agregado imprime "declarados: N, executados: N" com N medido;
+  - (iv) as 6 pernas Linux com container imprimem "inside-work-tree=true" e "HEAD=<sha>";
+  - além disso, os 10 jobs imprimem "piso de ferramentas OK".

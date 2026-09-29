@@ -82,8 +82,13 @@ def _enclosing_condition(cmake_text, offset):
     Comentarios sao apagados antes (offsets preservados): `# if(UNIX)` num comentario nao conta."""
     limpo = re.sub(r"#[^\n]*", lambda m: " " * len(m.group(0)), cmake_text[:offset])
     pilha = []
-    for m in re.finditer(r"\b(if|elseif|else|endif)\s*\(([^)]*)\)", limpo, re.IGNORECASE):
-        palavra, cond = m.group(1).lower(), " ".join(m.group(2).split())
+    for m in re.finditer(r"\b(if|elseif|else|endif)\s*\(", limpo, re.IGNORECASE):
+        # parenteses aninhados: `if(NOT (A AND B))` fecha no `)` que zera a profundidade
+        fundo, i = 1, m.end()
+        while i < len(limpo) and fundo:
+            fundo += (limpo[i] == "(") - (limpo[i] == ")")
+            i += 1
+        palavra, cond = m.group(1).lower(), " ".join(limpo[m.end():i - 1].split())
         if palavra == "if":
             pilha.append(cond)
         elif palavra in ("elseif", "else") and pilha:
@@ -188,13 +193,14 @@ def ensure_git(root):
 def _run_one(root, entrada):
     caminho = os.path.join(root, entrada["script"])
     cmd = [sys.executable, caminho, "--selftest"] if entrada["forma"] == "py" else ["bash", caminho, "--selftest"]
-    # D-A27 (L-09/L-50): todo selftest roda com a armadilha de ferramentas de VM/rede na frente
-    # do PATH; log nao vazio reprova, mesmo com rc 0. A armadilha vem do BLOB, nunca da working tree.
-    envoltorio = os.path.join(root, "tests", "tools", "armadilha", "run_com_armadilha.sh")
     t0 = time.monotonic()
-    if not os.path.isfile(envoltorio):
-        return False, 0.0, "tests/tools/armadilha/run_com_armadilha.sh ausente no blob - selftest nao roda sem a armadilha (D-A27)"
-    cmd = ["bash", envoltorio, *cmd]
+    # D-A27 (L-09/L-50, C-1): os selftests do laboratorio da VM (win-vm-lab) rodam DENTRO do bwrap
+    # de run_com_armadilha.sh, vindo do BLOB; os demais escrevem na arvore e nao tocam a VM.
+    if "win-vm-lab/" in entrada["script"]:
+        envoltorio = os.path.join(root, "tests", "tools", "armadilha", "run_com_armadilha.sh")
+        if not os.path.isfile(envoltorio):
+            return False, 0.0, "tests/tools/armadilha/run_com_armadilha.sh ausente no blob - o selftest do win-vm-lab nao roda sem o envoltorio (D-A27)"
+        cmd = ["bash", envoltorio, *cmd]
     try:
         r = subprocess.run(
             cmd, cwd=root, capture_output=True, text=True, timeout=PER_SCRIPT_TIMEOUT_S,
@@ -278,6 +284,7 @@ def _fake_root(scripts, cmake_extra=""):
     for nome, (conteudo, registrado, comentario, forma) in scripts.items():
         if conteudo is not None:
             caminho = os.path.join(raiz, "tests", "tools", nome)
+            os.makedirs(os.path.dirname(caminho), exist_ok=True)
             with open(caminho, "w", encoding="utf-8") as h:
                 h.write(conteudo)
             os.chmod(caminho, 0o755)
@@ -334,9 +341,9 @@ def selftest_main():
     rc, linhas = roda({"a.py": (ok_py, True, "# glintfx-blob: fora - pesado (cmake)", "py")})
     controles.append(_check("B-3: 0 rodados REPROVA (tudo declarado fora nao e' verde)", rc == 1 and any("0 rodado" in l or "nenhum" in l for l in linhas), str(linhas)))
     toca = "#!/usr/bin/env bash\nvirsh -c test:///default domstate duble-dom >/dev/null 2>&1\nexit 0\n"
-    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "t.sh": (toca, True, None, "sh")})
-    controles.append(_check("D-A27: selftest que sai 0 mas toca virsh REPROVA, nomeando ARMADILHA e virsh",
-                            rc == 1 and any("FALHOU t_selftest" in l and "ARMADILHA" in l and "virsh" in l for l in linhas), str(linhas)))
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "win-vm-lab/t.sh": (toca, True, None, "sh")})
+    controles.append(_check("D-A27: selftest do win-vm-lab que sai 0 mas toca virsh REPROVA, nomeando ARMADILHA e virsh",
+                            rc == 1 and any("FALHOU" in l and "t_selftest" in l and "ARMADILHA" in l and "virsh" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"sumiu.py": (None, True, None, "py"), "a.py": (ok_py, True, None, "py")})
     controles.append(_check("registrado mas AUSENTE no blob reprova (o defeito das fixtures)", rc == 1 and any("ausente no blob" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, False, None, "py")})
@@ -370,11 +377,11 @@ def selftest_main():
     controles.append(_check("R-1: declarado fora e ausente do ctest com add_test INCONDICIONAL REPROVA, nomeando",
                             any("fantasma_selftest" in e and "INCONDICIONAL" in e
                                 for e in crosscheck([{"nome": "fantasma_selftest", "forma": None, "script": None, "fora": "x", "cond": ""}], set()))))
-    cm = "# if(FALSO) so' num comentario\nif(UNIX)\n    if(WIN32)\n        add_test(NAME a_selftest COMMAND \"x\")\n    endif()\n    add_test(NAME b_selftest COMMAND \"x\")\nendif()\nadd_test(NAME c_selftest COMMAND \"x\")\n"
+    cm = "# if(FALSO) so' num comentario\nif(UNIX)\n    if(NOT (WIN32 AND FOO))\n        add_test(NAME a_selftest COMMAND \"x\")\n    endif()\n    add_test(NAME b_selftest COMMAND \"x\")\nendif()\nadd_test(NAME c_selftest COMMAND \"x\")\n"
     ofs = lambda n: cm.index(f"NAME {n}_selftest")
     controles.append(_check("R-1: a condicao envolvente sai certa (aninhada, fechada, comentario ignorado)",
                             (_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c")))
-                            == ("UNIX E WIN32", "UNIX", ""), str((_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c"))))))
+                            == ("UNIX E NOT (WIN32 AND FOO)", "UNIX", ""), str((_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c"))))))
     raiz_x = _fake_root({"a.py": (ok_py, True, None, "py")})
     rc_x, linhas_x = run_all(raiz_x, ctest_json=os.path.join(raiz_fx, "ctest-selftest-show.json"))
     controles.append(_check("A-1: run_all com o json do ctest reprova quando o universo do blob difere do ctest (nomeando)",

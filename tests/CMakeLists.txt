@@ -5740,11 +5740,12 @@ if(UNIX)
     set_tests_properties(win_vm_lab_isolamento_selftest PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
-# D-A27 (CI-SPLIT-PER-OS, L-09/L-50): armadilha de ferramentas de VM/rede. Os seis
-# selftests de tools/win-vm-lab rodam SEMPRE por run_com_armadilha.sh, que poe virsh,
-# virt-install, qemu-system-*, qemu-img (fora de dir de selftest), ssh e scp na frente do
-# PATH (registram e saem 97) e reprova se o log nao estiver vazio. Este teste prova que a
-# armadilha morde; usa so' test:///default e dominio falso.
+# D-A27 (CI-SPLIT-PER-OS, L-09/L-50, C-1 do CTO): os seis selftests de tools/win-vm-lab rodam
+# SEMPRE por run_com_armadilha.sh: DENTRO de um bwrap (--unshare-all, /var/tmp, /run e /home
+# privados, repositorio so' leitura), com o isolamento provado antes, virsh/virt-install/
+# qemu-system-*/ssh/scp na frente do PATH (registram e saem 97) e reprovacao se o log nao
+# estiver vazio; sem bwrap sai 77 (pulo). Este teste prova que o envoltorio morde; usa so'
+# test:///default, dominio falso e discos de 1 MiB dele mesmo.
 if(UNIX)
     add_test(
         NAME armadilha_selftest

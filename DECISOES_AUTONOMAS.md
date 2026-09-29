@@ -4861,3 +4861,13 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - O conserto foi decidido pelo CTO (confirmar retroativamente) em /var/tmp/cto-a5-paralelo/CI-CMP.md: comparação em bash puro, com o gêmeo do check_gl_codegen_host_cross.sh na mesma fatia. É a PRIMEIRA fatia ao retomar.
 - **Resíduo:** /var/tmp/cto-cicmp/ (vazio, root:root, criado por um `docker -v` com a fonte inexistente). Só root remove; é inofensivo.
 - **Sistema:** alertas do SELinux contra o containerd/dockerd (contexto não reconhecido depois do desligamento forçado), em ritmo baixo, com o Docker funcionando. Não mexido (L-60); informado ao líder.
+
+## 29/09/2026 - 15:59 | Pausa ordenada pelo líder
+
+- **Ordem verbatim:** "pause somente 16:00h de hoje" / "16:00h horário de recife pernambuco brasil".
+- **Agentes:** parados, sem preci no ar.
+  - impl-da14: a C1b STAGED, sem commit, com o estado em /var/tmp/c1b-guardado/RETOMADA.md;
+  - cto-review: o conserto do CI decidido em /var/tmp/cto-a5-paralelo/CI-CMP.md.
+- **Empurrado:** onda-w7c = af10a31 (C1a-fix f1b82e3, aceita pelo CTO, mais o D-A33).
+- **O CI do onda-w7c segue VERMELHO** (cmp ausente nas imagens). É a primeira fatia ao retomar.
+- **Crons:** o monitor anti-parada foi apagado e o tick do watchcode parado.

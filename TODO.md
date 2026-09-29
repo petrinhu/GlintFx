@@ -152,6 +152,10 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`CLANG-SUPPORT-DECL`: declarar ou não o Clang como compilador suportado para o consumidor é decisão de produto do líder (L-01/L-66).** Se sim, o piso candidato é o Clang 17 (primeiro com `-std=c++23`), com job pinado; o `floor.sh` passaria então a receber a família de compilador esperada do job (CTO 29/09, achado C2).
+
+- **`WAYLAND-CONTAINER-FLOOR`: rodar o `floor.sh` dentro do build da imagem do `wayland-container`** (CTO 29/09, decisão autônoma: o job ficou fora do G5 por construir a imagem no host, sem `container:`).
+
 - **`PKG-DEP-COVERAGE-COMENTARIO`: `check_pkg_dep_coverage.py:178` (`install_tokens`) conta pacote citado em comentário `#`** (revisão do CTO, 29/09/2026, achado 8); o G4 de `check_ci_system_uniformity.py` poderia também exigir que `tools/ci/env/<slug>.sh` exporte `GLINTFX_PREP_SHA` (mutante X9).
 
 - **`CTEST-TIMEOUT-FIXTURES`: teste sem teto de tempo prende o CI por minutos.** Medido em 24/09/2026: `gl_context_parity_test` ficou preso 650 s (`wchan=poll_schedule_timeout`) atrás do relé serial; nenhum teste de fio tem `TIMEOUT` no ctest, nenhum job passa `ctest --timeout`, e os passos do trabalho `wayland-container` do `ci.yml` não têm `timeout-minutes`. Lista completa por lei do gêmeo a medir. Origem: decisão do main de 24/09 12:25 em `DECISOES_AUTONOMAS.md`.

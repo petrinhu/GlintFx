@@ -51,6 +51,9 @@ def _block(text, start):
 
 
 _SH_RE = re.compile(r'"\$\{(?:CMAKE_CURRENT_SOURCE_DIR|PROJECT_SOURCE_DIR)\}/([^"]+\.sh)"\s+--selftest')
+_ISENTO_RE = re.compile(r"#\s*glintfx-armadilha:\s*isento\b[ \t]*(?:-[ \t]*(\S[^\n]*))?")
+# C-b: texto que EXECUTA o laboratorio da VM ou ferramenta de VM/rede (fora de comentario)
+_TOCA_VM_RE = re.compile(r"tools/win-vm-lab/|(?<![\w./-])(?:virsh|virt-install|qemu-[a-z0-9_-]+|ssh|scp)(?![\w-])")
 _DECL_RE = re.compile(r"#\s*glintfx-blob:\s*fora\b[ \t]*(?:-[ \t]*(\S[^\n]*))?")
 
 
@@ -66,6 +69,11 @@ def _comment_block_above(cmake_text, offset):
 
 def _resolve(caminho):
     return os.path.normpath(caminho.replace("${CMAKE_CURRENT_SOURCE_DIR}", "tests").replace("${PROJECT_SOURCE_DIR}", "."))
+
+
+def toca_vm(texto):
+    """True se alguma linha que nao e' comentario cita o laboratorio da VM ou virsh/virt-install/qemu-*/ssh/scp."""
+    return any(_TOCA_VM_RE.search(linha) for linha in texto.split("\n") if not linha.lstrip().startswith("#"))
 
 
 def _has_selftest_label(bloco):
@@ -131,7 +139,11 @@ def registered_selftests(cmake_text):
             forma, script = "sh", _resolve("${PROJECT_SOURCE_DIR}/" + sh.group(1)) if "PROJECT_SOURCE_DIR" in sh.group(0) else _resolve("${CMAKE_CURRENT_SOURCE_DIR}/" + sh.group(1))
         else:
             forma, script = None, None
+        acima = _comment_block_above(cmake_text, m.start())
+        isento = _ISENTO_RE.search(acima)
         entradas.append({"nome": nome.group(1), "forma": forma, "script": script, "fora": fora,
+                         "envolvido": "run_com_armadilha.sh" in bloco,
+                         "isento": None if not isento else (isento.group(1) or "").strip(),
                          "cond": _enclosing_condition(cmake_text, m.start())})
     return entradas, por_label
 
@@ -194,9 +206,9 @@ def _run_one(root, entrada):
     caminho = os.path.join(root, entrada["script"])
     cmd = [sys.executable, caminho, "--selftest"] if entrada["forma"] == "py" else ["bash", caminho, "--selftest"]
     t0 = time.monotonic()
-    # D-A27 (L-09/L-50, C-1): os selftests do laboratorio da VM (win-vm-lab) rodam DENTRO do bwrap
-    # de run_com_armadilha.sh, vindo do BLOB; os demais escrevem na arvore e nao tocam a VM.
-    if "win-vm-lab/" in entrada["script"]:
+    # D-A27 (L-09/L-50, C-1/C-b): o selftest cujo add_test usa run_com_armadilha.sh roda DENTRO do
+    # bwrap dele, vindo do BLOB; run_all EXIGE o envoltorio de todo selftest que toca a VM.
+    if entrada.get("envolvido"):
         envoltorio = os.path.join(root, "tests", "tools", "armadilha", "run_com_armadilha.sh")
         if not os.path.isfile(envoltorio):
             return False, 0.0, "tests/tools/armadilha/run_com_armadilha.sh ausente no blob - o selftest do win-vm-lab nao roda sem o envoltorio (D-A27)"
@@ -247,6 +259,15 @@ def run_all(root, ctest_json=None):
         if e["forma"] is None:
             erros.append(f"{nome}: forma nao rodavel (nem `python --selftest` nem `.sh --selftest`) e sem declaracao `# glintfx-blob: fora - <motivo>`")
             continue
+        if e.get("isento") is not None and not e["isento"]:
+            erros.append(f"{nome}: `# glintfx-armadilha: isento` sem motivo (use `- <motivo>`) - declaracao fail-closed")
+            continue
+        caminho_script = os.path.join(root, e["script"])
+        if os.path.isfile(caminho_script) and not e.get("envolvido") and e.get("isento") is None:
+            with open(caminho_script, "r", encoding="utf-8", errors="replace") as h:
+                if toca_vm(h.read()):
+                    erros.append(f"{nome}: o texto de {e['script']} executa o laboratorio da VM ou virsh/qemu-*/ssh/scp e o add_test NAO usa run_com_armadilha.sh (nem declara `# glintfx-armadilha: isento - <motivo>`)")
+                    continue
         if not os.path.isfile(os.path.join(root, e["script"])):
             falharam.append(nome)
             rodados += 1
@@ -294,6 +315,8 @@ def _fake_root(scripts, cmake_extra=""):
                 cmd = f'"${{GLINTFX_PYTHON3_EXECUTABLE}}"\n        "${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest'
             elif forma == "sh":
                 cmd = f'"${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest'
+            elif forma == "shw":
+                cmd = f'"${{PROJECT_SOURCE_DIR}}/tests/tools/armadilha/run_com_armadilha.sh" "${{CMAKE_CURRENT_SOURCE_DIR}}/tools/{nome}" --selftest'
             else:
                 cmd = f'"${{GLINTFX_PWSH_EXECUTABLE}}" -NoProfile -File "${{PROJECT_SOURCE_DIR}}/tools/{nome}" -SelfTest'
             acima = (comentario + "\n") if comentario else ""
@@ -341,9 +364,23 @@ def selftest_main():
     rc, linhas = roda({"a.py": (ok_py, True, "# glintfx-blob: fora - pesado (cmake)", "py")})
     controles.append(_check("B-3: 0 rodados REPROVA (tudo declarado fora nao e' verde)", rc == 1 and any("0 rodado" in l or "nenhum" in l for l in linhas), str(linhas)))
     toca = "#!/usr/bin/env bash\nvirsh -c test:///default domstate duble-dom >/dev/null 2>&1\nexit 0\n"
-    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "win-vm-lab/t.sh": (toca, True, None, "sh")})
-    controles.append(_check("D-A27: selftest do win-vm-lab que sai 0 mas toca virsh REPROVA, nomeando ARMADILHA e virsh",
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "t.sh": (toca, True, None, "shw")})
+    controles.append(_check("D-A27: selftest COM envoltorio que sai 0 mas toca virsh REPROVA, nomeando ARMADILHA e virsh",
                             rc == 1 and any("FALHOU" in l and "t_selftest" in l and "ARMADILHA" in l and "virsh" in l for l in linhas), str(linhas)))
+    # C-b: gate estatico - o selftest que toca a VM SEM envoltorio reprova (mutante: fixture fora do win-vm-lab)
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "fora.sh": (toca, True, None, "sh")})
+    controles.append(_check("C-b: selftest FORA do win-vm-lab que chama virsh SEM run_com_armadilha.sh REPROVA, nomeando",
+                            rc == 1 and any("fora_selftest" in l and "run_com_armadilha.sh" in l for l in linhas), str(linhas)))
+    lab = "#!/usr/bin/env bash\nbash tools/win-vm-lab/rodar-um.sh x\nexit 0\n"
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "lab.sh": (lab, True, None, "sh")})
+    controles.append(_check("C-b: selftest que EXECUTA tools/win-vm-lab/ sem envoltorio REPROVA",
+                            rc == 1 and any("lab_selftest" in l and "run_com_armadilha.sh" in l for l in linhas), str(linhas)))
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "cita.sh": ("#!/usr/bin/env bash\n# so cita virsh e ssh num comentario\nexit 0\n", True, None, "sh")})
+    controles.append(_check("C-b: script que so' cita virsh em COMENTARIO nao precisa de envoltorio", rc == 0, str(linhas)))
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "iso.sh": (toca, True, "# glintfx-armadilha: isento - so' cita a ferramenta em fixture inofensiva", "sh")})
+    controles.append(_check("C-b: `# glintfx-armadilha: isento - <motivo>` isenta", rc == 0, str(linhas)))
+    rc, linhas = roda({"a.sh": (ok_sh, True, None, "sh"), "iso.sh": (toca, True, "# glintfx-armadilha: isento", "sh")})
+    controles.append(_check("C-b: isento SEM motivo reprova", rc == 1 and any("iso_selftest" in l and "motivo" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"sumiu.py": (None, True, None, "py"), "a.py": (ok_py, True, None, "py")})
     controles.append(_check("registrado mas AUSENTE no blob reprova (o defeito das fixtures)", rc == 1 and any("ausente no blob" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, False, None, "py")})

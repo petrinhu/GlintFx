@@ -61,6 +61,21 @@ saida="$("$WRAP" bash -c "ls '$work/sentinela.d' 2>&1; echo rc-ls=\$?" 2>&1)"
 printf '%s' "$saida" | grep -q "rc-ls=0" && falha "o caminho do hospedeiro $work/sentinela.d esta VISIVEL dentro do envoltorio: $saida"
 printf '%s' "$saida" | grep -qiE "rc-ls=[1-9]" || falha "nao consegui ler o resultado do ls de ausencia: $saida"
 
+# 4d. C-a (M1c do CTO): o laboratorio (glintfx-win-lab) em QUALQUER lugar visivel dentro da sandbox
+#     reprova a auto-prova (antes ela so' olhava /var/tmp/glintfx-win-lab). Aqui ele mora DENTRO da raiz.
+mkdir -p "$work/raizlab/tests/tools/armadilha" "$work/raizlab/x/glintfx-win-lab"
+cp -r "$DIR/." "$work/raizlab/tests/tools/armadilha/"
+saida="$("$work/raizlab/tests/tools/armadilha/run_com_armadilha.sh" /usr/bin/true 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] || falha "glintfx-win-lab visivel dentro da raiz deveria REPROVAR a auto-prova (rc=1), obteve $rc: $saida"
+printf '%s' "$saida" | grep -q "glintfx-win-lab" || falha "a reprovacao nao nomeia glintfx-win-lab: $saida"
+
+# 4e. C-a: raiz LOGICA por symlink resolve para o caminho fisico (pwd -P): o que se liga e' o real
+mkdir -p "$work/real/tests/tools"
+cp -r "$DIR" "$work/real/tests/tools/armadilha"
+ln -s "$work/real" "$work/lnk"
+saida="$("$work/lnk/tests/tools/armadilha/run_com_armadilha.sh" bash -c 'echo "AQUI=$PWD"' 2>&1)"
+printf '%s' "$saida" | grep -q "AQUI=$work/real\$" || falha "raiz por symlink deveria resolver para o caminho fisico $work/real: $saida"
+
 # 4b. o /var/tmp de dentro e' privado MAS no mesmo sistema de arquivos do hospedeiro: o consolidar.sh
 #     faz `cp --reflink=always` (btrfs/xfs); um /var/tmp tmpfs o quebraria (medido: preci 29/09,
 #     "Operacao sem suporte"). So' vale onde o hospedeiro suporta reflink.
@@ -106,6 +121,7 @@ fi
 
 # 6b. gate estatico: o envoltorio tem de EXECUTAR bwrap (um mutante que o tirasse rodaria o comando no hospedeiro)
 grep -q '^bwrap "${args\[@\]}"' "$WRAP" || falha 'run_com_armadilha.sh nao executa bwrap - o comando rodaria sem isolamento'
+grep -q -- '--new-session' "$WRAP" || falha 'run_com_armadilha.sh nao usa --new-session (TIOCSTI: injecao de tecla na sessao do lider, L-50)'
 grep -q -- '--bind "$vt" /var/tmp' "$WRAP" || falha 'run_com_armadilha.sh nao liga um /var/tmp privado (--bind "$vt" /var/tmp)'
 
 # 7. sem bwrap: o envoltorio sai 77 e diz o motivo

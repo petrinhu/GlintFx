@@ -25,10 +25,10 @@ if ! bwrap --unshare-all --ro-bind / / true >/dev/null 2>&1; then
   exit 77
 fi
 self="${BASH_SOURCE[0]}"
-aqui="$(cd -- "${self%/*}" && pwd)"
-raiz="$(cd -- "$aqui/../../.." && pwd)"
+aqui="$(cd -- "${self%/*}" && pwd -P)"
+raiz="$(cd -- "$aqui/../../.." && pwd -P)"
 
-args=(--unshare-all --die-with-parent --ro-bind /usr /usr --ro-bind /etc /etc)
+args=(--unshare-all --die-with-parent --new-session --ro-bind /usr /usr --ro-bind /etc /etc)
 for d in bin sbin lib lib32 lib64; do
   if [ -L "/$d" ]; then
     args+=(--symlink "$(readlink "/$d")" "/$d")

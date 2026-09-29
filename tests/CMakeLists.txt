@@ -4851,6 +4851,7 @@ set_tests_properties(ignored_fixtures_selftest PROPERTIES LABELS selftest)
 
 # CI-SPLIT-PER-OS A5 etapa 3: `tools/preci.sh --blob` roda os --selftest Python sobre o
 # INDICE do git (nao a working tree); o universo e' lido deste arquivo (LABELS selftest).
+# glintfx-armadilha: isento - so' cita virsh em fixtures inofensivas (test:///default) e roda o proprio envoltorio nos controles; escreve na arvore, nao pode rodar so' leitura
 add_test(
     NAME blob_selftests_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -5747,6 +5748,7 @@ endif()
 # estiver vazio; sem bwrap sai 77 (pulo). Este teste prova que o envoltorio morde; usa so'
 # test:///default, dominio falso e discos de 1 MiB dele mesmo.
 if(UNIX)
+    # glintfx-armadilha: isento - e' o teste DO envoltorio: chama o run_com_armadilha.sh por dentro e so' toca ferramentas de VM em fixtures inofensivas (test:///default, discos de 1 MiB dele)
     add_test(
         NAME armadilha_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tests/tools/armadilha/armadilha_selftest.sh" --selftest

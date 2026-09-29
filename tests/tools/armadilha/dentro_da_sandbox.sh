@@ -24,7 +24,11 @@ topo=""
 case "$raiz" in /var/tmp/*) topo="/var/tmp/$(printf '%s' "${raiz#/var/tmp/}" | cut -d/ -f1)" ;; esac
 extras="$(find /var/tmp -mindepth 1 -maxdepth 1 ! -path "$topo" 2>/dev/null)"
 [ -z "$extras" ] || erros+=("/var/tmp nao esta VAZIO ao entrar - e' o do hospedeiro? conteudo: $(printf '%s' "$extras" | head -3 | tr '\n' ' ')")
-[ ! -e /var/tmp/glintfx-win-lab ] || erros+=("/var/tmp/glintfx-win-lab VISIVEL")
+# o laboratorio da VM (glintfx-win-lab) em QUALQUER lugar visivel reprova (C-a: uma raiz logica que
+# resolve para /var/tmp o deixaria so' leitura dentro da sandbox). /proc, /dev e /usr (ro-bind do
+# sistema) ficam de fora da varredura.
+lab="$(find / -maxdepth 8 \( -path /proc -o -path /dev -o -path /usr \) -prune -o -name glintfx-win-lab -print 2>/dev/null | head -3 | tr '\n' ' ')"
+[ -z "$lab" ] || erros+=("glintfx-win-lab VISIVEL dentro da sandbox: $lab")
 [ ! -e /run/user ] || erros+=("/run/user VISIVEL")
 [ -z "${XDG_RUNTIME_DIR:-}" ] || erros+=("XDG_RUNTIME_DIR definido: ${XDG_RUNTIME_DIR}")
 if awk -F: 'NR>2 { gsub(/ /, "", $1); if ($1 != "lo") ruim = 1 } END { exit ruim }' /proc/net/dev; then :; else

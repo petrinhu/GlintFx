@@ -4767,6 +4767,16 @@ add_test(
 )
 set_tests_properties(ci_step_independence_selftest PROPERTIES LABELS selftest)
 
+# CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
+# roda o autoteste contra respostas REAIS da API do GitHub gravadas em
+# tests/tools/fixtures/rerun_guard/. Python puro, sem guarda de sistema.
+add_test(
+    NAME rerun_guard_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${PROJECT_SOURCE_DIR}/tools/ci/rerun_guard.py" --selftest
+)
+set_tests_properties(rerun_guard_selftest PROPERTIES LABELS selftest)
+
 # CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
 # declarados/executados/passaram/falharam dos jobs de ctest e' medido por
 # este script nos dois sistemas (era `executados=$declarados`, uma

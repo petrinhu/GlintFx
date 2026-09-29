@@ -47,6 +47,7 @@ DEFAULT_JOB = "wayland-container"
 PROOF_SCRIPT = "tools/ci/prova_checkout.sh"
 FLOOR_SCRIPT = "tools/ci/floor.sh"
 PREP_PS1 = "tools/ci/windows/prep.ps1"
+RERUN_GUARD = "tools/ci/rerun_guard.py"
 CMAKELISTS = "CMakeLists.txt"
 _TRACKED_SCRIPTS = (PROOF_SCRIPT, FLOOR_SCRIPT, PREP_PS1, CMAKELISTS)
 
@@ -598,7 +599,7 @@ def aggregate_errors(job_name, steps):
     return errors
 
 
-_MANDATORY_SCRIPTS = (PROOF_SCRIPT, FLOOR_SCRIPT, PREP_PS1, AGGREGATE_SCRIPT)
+_MANDATORY_SCRIPTS = (PROOF_SCRIPT, FLOOR_SCRIPT, PREP_PS1, AGGREGATE_SCRIPT, RERUN_GUARD)
 _IF_LINE_RE = re.compile(r"^\s{8}if:\s*(.*)$", re.MULTILINE)
 _ASSIGN_LINE_RE = re.compile(r"^(?:set [-+]\w+|\$\w+\s*=.*)$")
 
@@ -659,6 +660,43 @@ def mandatory_errors(job_name, steps):
             if script in codigo:
                 errors.extend(_mandatory_step_errors(job_name, nome, script, codigo))
     return errors
+
+
+def rerun_guard_errors(job_name, steps):
+    """A4 (D-A4): o passo `rerun_guard.py` esta IMEDIATAMENTE antes do marco
+    `id: prep`, com GH_TOKEN e RERUN_CHECK_RUN_ID no env. So' julga job com
+    exatamente um marco (G3 reporta o resto)."""
+    prep = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
+    if len(prep) != 1:
+        return []
+    if prep[0] == 0 or RERUN_GUARD not in _code_text(steps[prep[0] - 1][1]):
+        return [
+            f"job {job_name!r}: o passo logo antes do marco prep tem de chamar {RERUN_GUARD} "
+            f"(D-A4: rerun_guard; sem ele 'no maximo uma reexecucao' e 'so' infraestrutura' sao pratica, nao trava) - G6"
+        ]
+    nome, texto = steps[prep[0] - 1]
+    codigo = _code_text(texto)
+    return [
+        f"job {job_name!r}, passo {nome!r}: chama {RERUN_GUARD} sem {var} no env - G6"
+        for var in ("GH_TOKEN", "RERUN_CHECK_RUN_ID")
+        if var not in codigo
+    ]
+
+
+_TOP_ON_RE = re.compile(r"^on:\s*$", re.MULTILINE)
+_TOP_PERMISSIONS_RE = re.compile(r"^permissions:\s*\n((?:[ ]+\S.*\n)+)", re.MULTILINE)
+
+
+def permissions_errors(ci_yml_text):
+    """O workflow declara `permissions: actions: read` (D-A4). So' julga um
+    workflow de verdade (com `on:`)."""
+    if not _TOP_ON_RE.search(ci_yml_text):
+        return []
+    m = _TOP_PERMISSIONS_RE.search(ci_yml_text)
+    bloco = m.group(1) if m else ""
+    if not re.search(r"^\s+actions:\s*read\s*$", bloco, re.MULTILINE):
+        return ["ci.yml: falta `permissions:` com `actions: read` no topo - o rerun_guard consulta a API (D-A4)"]
+    return []
 
 
 def g3_errors(job_name, steps):
@@ -868,6 +906,7 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(aggregate_errors(job_name, steps))
     errors.extend(mandatory_errors(job_name, steps))
     errors.extend(ps1_single_command_errors(job_name, steps))
+    errors.extend(rerun_guard_errors(job_name, steps))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
     counts = {
         "testes": len(test_steps),
@@ -1017,6 +1056,7 @@ def real_main(args):
             universo[jn] = counts["piso"]
     _print_piso_universe(universo)
     all_errors.extend(cmake_floor_source_errors(scripts))
+    all_errors.extend(permissions_errors(ci_yml_text))
     if job_name is None and not universo:
         fail(
             f"varredura vazia: 0 job(s) com id: build em {len(job_names)} job(s) - G5, "
@@ -1060,6 +1100,12 @@ _FIXTURE_CI_YML = """\
 
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
+
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       - name: Preparo concluido
         id: prep
@@ -1639,6 +1685,12 @@ _FIXTURE_FIXED_JOB = """jobs:
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
 
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       - name: Preparo concluido
         id: prep
         run: echo ok
@@ -1758,6 +1810,13 @@ def selftest_g1_job_without_container_not_checked():
       - uses: actions/checkout@v7
       - name: Instalar CMake
         run: echo instala
+      - name: Guarda de reexecucao (rerun_guard)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python tools/ci/rerun_guard.py
+
       - name: Preparo concluido
         id: prep
         run: echo ok
@@ -1797,6 +1856,13 @@ _FIXTURE_WINDOWS_JOB = """jobs:
         shell: pwsh
         run: tools/ci/windows/prep.ps1
 
+      - name: Guarda de reexecucao (rerun_guard)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python tools/ci/rerun_guard.py
+
       - name: Preparo concluido
         id: prep
         shell: pwsh
@@ -1822,6 +1888,12 @@ _FIXTURE_HOST_DOCKER_JOB = """jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       - name: Preparo concluido
         id: prep
@@ -2339,6 +2411,63 @@ def selftest_prep_without_explicit_exit_reproves():
 
 
 
+# --- A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard ----------
+# Todo job tem um passo `rerun_guard.py` IMEDIATAMENTE antes do marco `id:
+# prep` (o script mora no repo, entao vem depois do checkout; nos jobs com
+# container, depois do piso, que ja provou o python), com GH_TOKEN e
+# RERUN_CHECK_RUN_ID no env; e o workflow declara `permissions: actions:
+# read`. Sem a trava, "no maximo uma reexecucao" e "so' infraestrutura" sao
+# pratica, nao trava (memoria feedback_aviso_no_briefing_nao_e_portao).
+_GUARD_LNX = (
+    "      - name: Guarda de reexecucao (rerun_guard)\n        env:\n"
+    "          GH_TOKEN: ${{ github.token }}\n          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}\n"
+    "        run: python3 tools/ci/rerun_guard.py\n\n"
+)
+
+
+def selftest_rerun_guard_missing_reproves():
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace(_GUARD_LNX, "", 1))
+    return _g5_expect("A4-SEM-RERUN-GUARD", resultado, "lint", "rerun_guard")
+
+
+def selftest_rerun_guard_not_before_prep_reproves():
+    def afastar(t):
+        t = t.replace(_GUARD_LNX, "", 1)
+        return t.replace("      - name: Piso de ferramentas\n        run: tools/ci/floor.sh\n\n",
+                         _GUARD_LNX + "      - name: Piso de ferramentas\n        run: tools/ci/floor.sh\n\n", 1)
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", afastar)
+    return _g5_expect("A4-GUARDA-NAO-COLADA-NO-PREP", resultado, "lint", "rerun_guard")
+
+
+def selftest_rerun_guard_without_token_reproves():
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace("          GH_TOKEN: ${{ github.token }}\n", "", 1))
+    return _g5_expect("A4-GUARDA-SEM-GH-TOKEN", resultado, "lint", "GH_TOKEN")
+
+
+def selftest_rerun_guard_or_true_reproves():
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace("run: python3 tools/ci/rerun_guard.py", "run: python3 tools/ci/rerun_guard.py || true", 1))
+    return _g5_expect("A4-GUARDA-OR-TRUE", resultado, "lint", "rerun_guard.py", "||")
+
+
+_PERMISSIONS_CI = "name: CI\non:\n  push:\n    branches: [main]\n" + _FIXTURE_FIXED_JOB
+
+
+def selftest_permissions_actions_read_missing_reproves():
+    resultado = _run_real_main_capturing(_PERMISSIONS_CI, job_name="lint")
+    return _g5_expect("A4-SEM-PERMISSIONS-ACTIONS-READ", resultado, "permissions", "actions: read")
+
+
+def selftest_permissions_actions_read_present_passes():
+    texto = _PERMISSIONS_CI.replace("jobs:\n", "permissions:\n  contents: read\n  actions: read\n\njobs:\n", 1)
+    exit_code, output = _run_real_main_capturing(texto, job_name="lint")
+    if exit_code not in (None, 0):
+        print(f"selftest: A4-PERMISSIONS-PRESENTE FALHOU: {output!r}", file=sys.stderr)
+        return False
+    print("selftest: A4-PERMISSIONS-PRESENTE OK")
+    return True
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2411,6 +2540,12 @@ def selftest_main():
         selftest_ps1_call_followed_by_lines_reproves(),
         selftest_prep_select_object_on_native_reproves(),
         selftest_prep_without_explicit_exit_reproves(),
+        selftest_rerun_guard_missing_reproves(),
+        selftest_rerun_guard_not_before_prep_reproves(),
+        selftest_rerun_guard_without_token_reproves(),
+        selftest_rerun_guard_or_true_reproves(),
+        selftest_permissions_actions_read_missing_reproves(),
+        selftest_permissions_actions_read_present_passes(),
         selftest_pin_off_minimum_reproves(),
         selftest_minimum_drift_reproves(),
         selftest_floor_sh_threshold_drift_reproves(),

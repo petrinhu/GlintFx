@@ -80,6 +80,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A4 (D-A4): o rerun_guard consulta a API do GitHub (jobs da tentativa 1) com o
+# GITHUB_TOKEN; `contents: read` explicito porque declarar `permissions:` zera
+# o resto.
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -448,6 +455,16 @@ jobs:
       # de cmake vazia) vive la, com autoteste (`floor.sh --autoteste`).
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep` - passo SEM logica (so' `echo`),
       # logo depois do ULTIMO passo que so' PREPARA o ambiente (o piso).
@@ -857,6 +874,17 @@ jobs:
       - name: Piso de ferramentas (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep` - passo SEM logica, logo depois
       # do MSVC x64 e do piso do Windows (B3), que sao os dois ultimos
@@ -1294,6 +1322,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13): marco `id: prep` - job so' de agregacao/portao,
       # sem instalacao nem build proprio.
       - name: Preparo concluido
@@ -1576,6 +1614,16 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v4
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       # A3c (D-A13) + CTO 29/09 (achado 5): marco `id: prep` ANTES dos passos
       # que rodam portao (a verificacao de fiacao abaixo e o build da
@@ -2745,6 +2793,16 @@ jobs:
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13) + CTO 29/09 (achado 5): marco `id: prep` ANTES de
       # "preci.sh --selftest": o selftest e' portao (roda o proprio
       # preci.sh), e uma reprovacao legitima dele nao pode contar como
@@ -2878,6 +2936,16 @@ jobs:
           img="$(grep -oP "readonly GLINTFX_PS_IMAGE='\K[^']+" tools/preci.sh)"
           docker pull "$img"
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13): marco `id: prep`, logo depois de popular o cache
       # da imagem pwsh (o ultimo passo que so' PREPARA).
       - name: Preparo concluido
@@ -2980,6 +3048,17 @@ jobs:
       - name: Piso de ferramentas (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
       # job nao ganhou o piso B3 - decisao registrada no relatorio da
@@ -3317,6 +3396,16 @@ jobs:
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13): marco `id: prep` - este job nao tem um passo
       # "--selftest" separado (ao contrario de `lint`); o unico passo
       # seguinte ja e' o build/analise de verdade (com safe.directory
@@ -3398,6 +3487,16 @@ jobs:
       # tarde, dentro do cmake, sem apontar a causa.
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep`, logo depois de instalar e do
       # checkout; `id: build` no unico passo seguinte, primeiro (e
@@ -3484,6 +3583,17 @@ jobs:
       - name: Piso de ferramentas (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
       # job nao ganhou o piso B3 - decisao registrada no relatorio da
@@ -3607,6 +3717,16 @@ jobs:
       - name: Piso de ferramentas
         run: tools/ci/floor.sh
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13): marco `id: prep` - este job nao tem um passo
       # "--selftest" separado; o unico passo seguinte ja e' o build de
       # verdade (com safe.directory embutido), entao o marco vem logo
@@ -3715,6 +3835,17 @@ jobs:
       - name: Piso de ferramentas (Windows)
         shell: pwsh
         run: tools/ci/windows/prep.ps1
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
       # job nao ganhou o piso B3 - decisao registrada no relatorio da
@@ -3923,6 +4054,16 @@ jobs:
           CXX: clang++
         run: tools/ci/floor.sh
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13): marco `id: prep`, logo depois de instalar e do
       # checkout.
       - name: Preparo concluido
@@ -4064,6 +4205,16 @@ jobs:
       - name: Instalar gitleaks
         run: sudo apt-get update && sudo apt-get install -y gitleaks
 
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
+
       # A3c (D-A13): marco `id: prep`, logo depois de instalar.
       - name: Preparo concluido
         id: prep
@@ -4083,6 +4234,16 @@ jobs:
     if: github.ref_type != 'tag'  # VERSION-TAG-SYNC, ver on:push:tags acima
     steps:
       - uses: actions/checkout@v7
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep` - job so' de portao/leitura, sem
       # instalacao nem build proprio (a suite de verdade roda nos jobs
@@ -4185,6 +4346,16 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # A4 (D-A4, docs/plano-ci-split-per-os.md 4.5): rerun_guard. Com run_attempt 1 nao faz
+      # nada; com >= 3 reprova; com 2 so' deixa seguir se, na tentativa 1, este job falhou num
+      # passo de PREPARO (ate o marco abaixo). Falha de teste nao se reexecuta. Logo antes do
+      # marco `id: prep` (G6): o script mora no repo, entao vem depois do checkout.
+      - name: Guarda de reexecucao (rerun_guard)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RERUN_CHECK_RUN_ID: ${{ job.check_run_id }}
+        run: python3 tools/ci/rerun_guard.py
 
       # A3c (D-A13): marco `id: prep` - job so' de portao/leitura.
       - name: Preparo concluido

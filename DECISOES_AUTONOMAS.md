@@ -4598,3 +4598,19 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - A4: "Not Run" por executável ausente, arquivo requerido ausente ou fixture falha conta como falha, não como pulado; só SKIP_RETURN_CODE e SKIP_REGULAR_EXPRESSION_MATCHED contam como pulado;
   - C1: o pino do CMake no prep.ps1 amarrado a major.minor do `cmake_minimum_required`.
 - **Push:** onda-w7c = 92c7bf6 e CI disparado nesta mesma hora.
+
+## 29/09/2026 - 02:26 | D-A19: CI vermelho 36523231561 consertado; lote e7e79df aceito e verde
+
+- **Vermelho (run 36523231561, 3 jobs Windows):**
+  - FATO medido pelo CTO na fonte do actions/runner (ScriptHandlerHelpers.cs) e reproduzido em pwsh 7.4.2: o `Select-Object -First 1` sobre `cmake --version` deixava `$LASTEXITCODE` nulo, e `if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` encerrava o passo com rc=0 sem rodar o resto;
+  - nos 2 jobs `windows`, o probe de C++23 foi pulado calado (log confirmado);
+  - a revisão aceitou a leva porque todos os mutantes testavam só a falha, nunca o resto do passo depois de um sucesso (memória nova: caminho de sucesso do passo composto).
+- **Conserto (e7e79df):**
+  - -VerifyCmake em passo próprio de uma linha nos 4 jobs;
+  - `exit 0` explícito no prep.ps1 e nenhum `Select-Object` sobre nativo;
+  - portão proibindo linha depois de .ps1 do projeto;
+  - prova com marcador.
+  Foi empurrado antes da revisão, pela L-15 (ramo da onda, não main).
+- **CTO:** aceitou b4f3320..e7e79df (A3, A4, C1 e o conserto), sem achado importante e com 3 cosméticos.
+- **CI 36525037497 sobre e7e79df: VERDE**, 25 verdes e 1 pulado. No log: cmake pinado OK nos 5 Windows, probe de C++23 rodando e agregado com pulados à parte.
+- **Próximo:** os cosméticos C3 (rótulo "executados") e C1 (piso do autoteste), depois a fatia A4 (rerun_guard).

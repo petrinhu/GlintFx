@@ -7,6 +7,11 @@
 # de teste aprovado em 1024 bytes; so' o arquivo lateral e' confiavel). Formato identico nas tres
 # linguagens: tests/tools/fixtures/fase/esperado*.txt. Relogio: time.monotonic_ns, em centesimos.
 #
+# I-3 (CTO): o helper sempre ACRESCENTA ao lateral; a limpeza de <build>/fases/ antes do ctest e' de quem
+# orquestra (preci e ci.yml), e quem le (F4/F9) reprova FASE repetida e mais de uma linha de paralelismo.
+# FALHA FECHADA (I-1): erro ao gravar o lateral ou fim sem inicio ENCERRAM o script (excecao com o nome do
+# arquivo ou da fase); GLINTFX_FASES_DIR ausente segue em silencio (so' a saida padrao).
+#
 # Uso:  import fase; fase.inicio("configure"); ...; fase.fim("configure"); fase.paralelismo()
 #       python3 fase.py --selftest
 
@@ -28,9 +33,13 @@ def _emitir(linha):
     pasta = os.environ.get("GLINTFX_FASES_DIR")
     teste = os.environ.get("GLINTFX_FASES_TESTE")
     if pasta and teste:
-        os.makedirs(pasta, exist_ok=True)
-        with open(os.path.join(pasta, teste + ".txt"), "a", encoding="utf-8", newline="\n") as handle:
-            handle.write(linha + "\n")
+        arquivo = os.path.join(pasta, teste + ".txt")
+        try:
+            os.makedirs(pasta, exist_ok=True)
+            with open(arquivo, "a", encoding="utf-8", newline="\n") as handle:
+                handle.write(linha + "\n")
+        except OSError as exc:
+            raise OSError(f"fase.py: nao consegui gravar o arquivo lateral {arquivo}: {exc}") from exc
 
 
 def registrar(nome, centesimos):
@@ -123,6 +132,23 @@ def _selftest():
     r = _capturar("import fase; fase.fim('inexistente')", {})
     if r.returncode == 0:
         erros.append("fase.fim sem fase.inicio deveria falhar")
+    # 5b. FALHA FECHADA (I-1): lateral nao gravavel => rc != 0 com o nome do ARQUIVO .txt e a linha seguinte nao executa;
+    #     fim sem inicio => rc != 0 e a linha seguinte nao executa (um ARQUIVO como pai do diretorio nao grava em SO nenhum)
+    with tempfile.TemporaryDirectory(prefix="glintfx-fase-selftest-") as tmp4:
+        pai = os.path.join(tmp4, "arquivo_pai")
+        open(pai, "w").close()
+        arquivo_lateral = os.path.join(pai, "sub", "nao.txt")
+        r = _capturar("import fase; fase.registrar('x',5); print('SEGUINTE')",
+                      {"GLINTFX_FASES_DIR": os.path.join(pai, "sub"), "GLINTFX_FASES_TESTE": "nao"})
+        if r.returncode == 0:
+            erros.append("lateral nao gravavel deveria falhar (rc != 0)")
+        if arquivo_lateral not in r.stderr:
+            erros.append(f"a mensagem nao nomeia o arquivo lateral {arquivo_lateral}: {r.stderr!r}")
+        if "SEGUINTE" in r.stdout:
+            erros.append("a linha seguinte executou depois do erro de gravacao")
+    r = _capturar("import fase; fase.fim('inexistente'); print('SEGUINTE')", {})
+    if r.returncode == 0 or "inexistente" not in r.stderr or "SEGUINTE" in r.stdout:
+        erros.append(f"fim sem inicio deveria falhar nomeando a fase e sem executar a linha seguinte: rc={r.returncode} {r.stderr!r} {r.stdout!r}")
     for e in erros:
         print(f"fase.py --selftest: FALHOU - {e}", file=sys.stderr)
     if erros:

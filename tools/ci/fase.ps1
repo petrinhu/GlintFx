@@ -10,16 +10,25 @@
 #         Fase-Inicio configure; ...; Fase-Fim configure
 #         Fase-Paralelismo
 #       pwsh -NoProfile -File tools/ci/fase.ps1 -SelfTest
+# I-3 (CTO): o helper sempre ACRESCENTA ao lateral; a limpeza de <build>/fases/ antes do ctest e' de quem
+# orquestra (preci e ci.yml), e quem le (F4/F9) reprova FASE repetida e mais de uma linha de paralelismo.
+# FALHA FECHADA (I-1): erro ao gravar o lateral ou Fase-Fim sem Fase-Inicio ENCERRAM o script (throw com o
+# nome do arquivo ou da fase); GLINTFX_FASES_DIR ausente segue em silencio (so' a saida padrao).
+# I-2: a saida vai por [Console]::Out.WriteLine, NUNCA Write-Output (que suja o retorno de funcao).
 param([switch]$SelfTest)
 
 $script:FaseRelogios = @{}
 
 function Fase-Emitir([string]$Linha) {
-    Write-Output $Linha
+    [Console]::Out.WriteLine($Linha)
     if ($env:GLINTFX_FASES_DIR -and $env:GLINTFX_FASES_TESTE) {
-        New-Item -ItemType Directory -Force -Path $env:GLINTFX_FASES_DIR | Out-Null
         $arquivo = Join-Path $env:GLINTFX_FASES_DIR ($env:GLINTFX_FASES_TESTE + '.txt')
-        [System.IO.File]::AppendAllText($arquivo, $Linha + "`n", (New-Object System.Text.UTF8Encoding($false)))
+        try {
+            New-Item -ItemType Directory -Force -Path $env:GLINTFX_FASES_DIR -ErrorAction Stop | Out-Null
+            [System.IO.File]::AppendAllText($arquivo, $Linha + "`n", (New-Object System.Text.UTF8Encoding($false)))
+        } catch {
+            throw "fase.ps1: nao consegui gravar o arquivo lateral ${arquivo}: $($_.Exception.Message)"
+        }
     }
 }
 
@@ -89,7 +98,7 @@ function Fase-Selftest {
         if (-not ((LerFixture $comHash) -ceq $esperado)) { $erros += 'a fixture com linhas # deveria dar o mesmo conteudo que sem elas' }
         $realIntruso = ((@($l[0..1]) + @('# intruso') + $l[2..($l.Count - 1)]) -join "`n") + "`n"
         if ($realIntruso -ceq $esperado) { $erros += "uma linha # no MEIO da saida real foi descartada (o filtro so' pode valer para a fixture)" }
-        # 2. CMAKE_BUILD_PARALLEL_LEVEL ausente vira `ausente`
+        # 2. CMAKE_BUILD_PARALLEL_LEVEL ausente vira o texto ausente
         Rodar "Fase-Paralelismo" @{ GLINTFX_FASES_DIR = $lateral; GLINTFX_FASES_TESTE = 'ausente' } | Out-Null
         $arqAus = Join-Path $lateral 'ausente.txt'
         if (-not (Test-Path $arqAus) -or -not ([System.IO.File]::ReadAllText($arqAus) -ceq $ausente)) { $erros += "sem CMAKE_BUILD_PARALLEL_LEVEL o arquivo lateral deveria trazer 'ausente'" }
@@ -108,6 +117,25 @@ function Fase-Selftest {
         $falhou = $false
         try { Fase-Fim 'inexistente' } catch { $falhou = $true }
         if (-not $falhou) { $erros += 'Fase-Fim sem Fase-Inicio deveria falhar' }
+        # 5b. FALHA FECHADA (I-1): lateral nao gravavel => rc != 0 com o nome do arquivo e a linha seguinte nao executa;
+        #     fim sem inicio => rc != 0 e a linha seguinte nao executa (um ARQUIVO como pai do diretorio nao grava em SO nenhum)
+        $pai = Join-Path $tmp 'arquivo_pai'
+        New-Item -ItemType File -Path $pai | Out-Null
+        $cmdA = ". '$esteScript'; `$env:GLINTFX_FASES_DIR = '$(Join-Path $pai 'sub')'; `$env:GLINTFX_FASES_TESTE = 'nao'; Fase-Registrar x 5; Write-Output 'SEGUINTE'"
+        $saidaA = (& $pwsh -NoProfile -Command $cmdA 2>&1 | Out-String)
+        if ($LASTEXITCODE -eq 0) { $erros += 'lateral nao gravavel deveria falhar (rc != 0)' }
+        if ($saidaA -notlike "*nao consegui gravar o arquivo lateral*nao.txt*") { $erros += "a mensagem nao nomeia o arquivo lateral (nao.txt): [$saidaA]" }
+        if ($saidaA -like '*SEGUINTE*') { $erros += 'a linha seguinte executou depois do erro de gravacao' }
+        $cmdB = ". '$esteScript'; Fase-Fim inexistente; Write-Output 'SEGUINTE'"
+        $saidaB = (& $pwsh -NoProfile -Command $cmdB 2>&1 | Out-String)
+        if ($LASTEXITCODE -eq 0 -or $saidaB -notlike "*inexistente*" -or $saidaB -like '*SEGUINTE*') { $erros += "fim sem inicio deveria falhar nomeando a fase sem executar a linha seguinte: rc=$LASTEXITCODE [$saidaB]" }
+        # 5c. I-2: a saida de Fase-Registrar NAO suja o retorno de uma funcao (r=7, count 1) e a linha sai na saida padrao
+        $cmdC = ". '$esteScript'; function F { Fase-Registrar x 5; return 7 }; `$r = F; [Console]::Out.WriteLine('r=' + `$r + ' count=' + @(`$r).Count)"
+        $saidaC = (& $pwsh -NoProfile -Command $cmdC | Out-String).Replace("`r", '')
+        if ($saidaC -notlike "FASE x: 0.05 s`nr=7 count=1`n") { $erros += "o retorno da funcao foi sujo (esperado a linha FASE e r=7 count=1): [$saidaC]" }
+        # 5d. gate textual: nenhuma linha deste arquivo termina em crase (crase seguida de quebra real dentro de string quebra no Windows)
+        $crase = @(Get-Content -LiteralPath $esteScript | Where-Object { $_ -match '`\s*$' })
+        if ($crase.Count -gt 0) { $erros += "linha(s) do fase.ps1 terminam em crase: [$($crase -join ' | ')]" }
     } finally {
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
     }
@@ -116,7 +144,7 @@ function Fase-Selftest {
         $script:SelftestRc = 1
         return
     }
-    Write-Output 'fase.ps1 -SelfTest: OK - formato byte a byte (saida e lateral), ausente, sem lateral, relogio, fim sem inicio'
+    Write-Output 'fase.ps1 -SelfTest: OK - formato byte a byte (saida e lateral), ausente, sem lateral, relogio, fim sem inicio, falha fechada de gravacao, retorno limpo e sem crase de fim de linha'
     $script:SelftestRc = 0
 }
 

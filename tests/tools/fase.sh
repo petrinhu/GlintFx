@@ -13,6 +13,10 @@
 #         fase_inicio configure; ...; fase_fim configure
 #         fase_paralelismo
 #       bash tests/tools/fase.sh --selftest
+# I-3 (CTO): o helper sempre ACRESCENTA ao lateral; a limpeza de <build>/fases/ antes do ctest e' de quem
+# orquestra (preci e ci.yml), e quem le (F4/F9) reprova FASE repetida e mais de uma linha de paralelismo.
+# FALHA FECHADA (I-1): erro ao gravar o lateral ou fim sem inicio ENCERRAM o script (exit 3 / exit 2, com a
+# mensagem nomeando o arquivo ou a fase); GLINTFX_FASES_DIR ausente segue em silencio (so' a saida padrao).
 declare -gA _FASE_T0=()
 
 _fase_agora_cs() {
@@ -25,7 +29,10 @@ _fase_agora_cs() {
 _fase_emitir() {
   printf '%s\n' "$1"
   if [ -n "${GLINTFX_FASES_DIR:-}" ] && [ -n "${GLINTFX_FASES_TESTE:-}" ]; then
-    mkdir -p -- "$GLINTFX_FASES_DIR" && printf '%s\n' "$1" >>"$GLINTFX_FASES_DIR/$GLINTFX_FASES_TESTE.txt"
+    if ! { mkdir -p -- "$GLINTFX_FASES_DIR" && printf '%s\n' "$1" >>"$GLINTFX_FASES_DIR/$GLINTFX_FASES_TESTE.txt"; } 2>/dev/null; then
+      echo "fase.sh: nao consegui gravar o arquivo lateral $GLINTFX_FASES_DIR/$GLINTFX_FASES_TESTE.txt" >&2
+      exit 3
+    fi
   fi
 }
 
@@ -41,7 +48,7 @@ fase_fim() {  # fase_fim <nome>
   local t0="${_FASE_T0[$1]:-}"
   if [ -z "$t0" ]; then
     echo "fase.sh: fase_fim '$1' sem fase_inicio" >&2
-    return 2
+    exit 2
   fi
   fase_registrar "$1" "$(($(_fase_agora_cs) - t0))"
   unset "_FASE_T0[$1]"
@@ -105,6 +112,18 @@ _fase_selftest() {
   # 5. fase_fim sem fase_inicio reprova (rc 2)
   (fase_fim inexistente) >/dev/null 2>&1; rc=$?
   [ "$rc" -eq 2 ] || falha "fase_fim sem fase_inicio deveria sair 2, obteve $rc"
+
+  # 5b. FALHA FECHADA (I-1): lateral nao gravavel => rc 3 com a mensagem nomeando o arquivo; fim sem inicio
+  #     => rc 2 e a linha SEGUINTE nao executa. (Um ARQUIVO como pai do diretorio: nao grava em nenhum SO.)
+  : >"$tmp/arquivo_pai"
+  saida="$( (export GLINTFX_FASES_DIR="$tmp/arquivo_pai/sub" GLINTFX_FASES_TESTE=nao; fase_registrar x 5; echo SEGUINTE) 2>&1 )"; rc=$?
+  [ "$rc" -eq 3 ] || falha "lateral nao gravavel deveria sair 3, obteve $rc"
+  printf '%s' "$saida" | grep -q "nao consegui gravar o arquivo lateral $tmp/arquivo_pai/sub/nao.txt" || falha "a mensagem nao nomeia o arquivo lateral: $saida"
+  printf '%s' "$saida" | grep -q SEGUINTE && falha "a linha seguinte executou depois do erro de gravacao"
+  saida="$( (fase_fim inexistente; echo SEGUINTE) 2>&1 )"; rc=$?
+  [ "$rc" -eq 2 ] || falha "fim sem inicio deveria sair 2, obteve $rc"
+  printf '%s' "$saida" | grep -q "fase_fim 'inexistente' sem fase_inicio" || falha "a mensagem nao nomeia a fase: $saida"
+  printf '%s' "$saida" | grep -q SEGUINTE && falha "a linha seguinte executou depois do fim sem inicio"
 
   rm -rf -- "$tmp"
   if [ "$ok" -eq 1 ]; then

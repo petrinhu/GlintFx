@@ -4799,3 +4799,17 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - C-a: uma raiz lógica que resolve para /var/tmp expõe o laboratório, só-leitura (M1c). O conserto é `pwd -P` e a busca do glintfx-win-lab em qualquer lugar visível;
   - C-b: gate estático que exige o envoltório para todo selftest que execute o laboratório ou as ferramentas de VM/rede;
   - C-c: `--new-session`.
+
+## 29/09/2026 - 11:39 | D-A30: fatia D-A27 fechada e empurrada; paralelo da A5 aberto
+
+- **CTO aceitou o 352442e (I-1, C-1, C-2, C-3), com execução em bwrap externo:**
+  - controles C0, C0b e R0 verdes;
+  - os mutantes R1, R2, R3, K4, K5, K6 e K7 morreram;
+  - nenhum script do laboratório rodou fora do envoltório;
+  - o disco real de 33G continua intocado.
+- **Resíduos registrados só aqui, sem item:**
+  - (a) um isento vale quando o COMMAND não toca a VM, mesmo que o texto do script cite o laboratório: é o caso legítimo das fixtures;
+  - (b) `_primeiro_token_e_envoltorio` aceita um impostor com o mesmo nome de arquivo (artificial; o --blob usa o envoltório do blob).
+- **Push:** onda-w7c = 352442e, provado por ls-remote. O CI é o run 36584047687 (workflow_dispatch).
+- **Próximo:** paralelo da A5 pelo /var/tmp/cto-a5-paralelo/DESENHO.md. O implementador fatia, e o CTO ataca o fatiamento antes do código.
+- **Aviso:** abriu uma sessão interativa glintfx-30 às ~11:34. Os agentes conferem `git status` antes de cada commit.

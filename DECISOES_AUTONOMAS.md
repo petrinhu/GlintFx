@@ -4752,3 +4752,21 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   3. estreia com os 3 mutantes (rodar-caminho, consolidar, sessao);
   4. até lá, repor os `fora` dos 6.
 - **Execução:** é a PRIMEIRA fatia ao retomar, antes do desenho do paralelo. Durante a pausa não há exposição, porque nenhum preci roda.
+
+## 29/09/2026 - 10:16 | Retomada, desenho do paralelo e decisão do LÍDER sobre o build local
+
+- **Retomada:** ordem do líder, verbatim, "pode continuar. que fatia estamos?". O monitor anti-parada foi religado (cron 6e1fec13).
+- **Frentes abertas:**
+  - impl-da14 faz o conserto do win-vm-lab (D-A27), com os selftests rodando só em bwrap até a armadilha entrar;
+  - o CTO entregou o desenho do paralelo em /var/tmp/cto-a5-paralelo/DESENHO.md, com fontes.
+- **O desenho do CTO (decisão autônoma dele, confirmar retroativamente):**
+  - o trinco glintfx_nested_build sai;
+  - entram PROCESSORS n e CMAKE_BUILD_PARALLEL_LEVEL=n pelo mesmo helper, com COST alto nos pesados;
+  - grau: J = nproc no GHA e min(floor(nproc*2/3), 13) = 10 no local, com o preci paralelo por padrão;
+  - o n é fixado antes do dado, pela fração de um núcleo só dos pesados;
+  - critério P5 novo: o paralelismo aninhado efetivo é igual ao PROCESSORS;
+  - a régua de 40 s vira aviso por rodada e fica fatal só pela mediana das 5 rodadas;
+  - os 12 pesados atuais ficam;
+  - o FOLGA_REPROVA_FATOR e os TIMEOUTs ficam para depois da calibração nova;
+  - P1, P2 e P3 não mudam.
+- **Pergunta ao líder:** os 2/3 valem também para o build do preci, que hoje usa o padrão do ninja, 18 tarefas, acima do teto de 13 da L-11? Resposta: "Vale para tudo (Recomendado)". Ou seja, a compilação e os testes do espelho local usam no máximo 10 núcleos.

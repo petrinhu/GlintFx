@@ -4848,6 +4848,13 @@ add_test(
 )
 set_tests_properties(blob_selftests_selftest PROPERTIES LABELS selftest)
 
+add_test(
+    NAME preci_runs_blob_test
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/blob_selftests.py" --check-preci "${PROJECT_SOURCE_DIR}/tools/preci.sh"
+)
+set_tests_properties(preci_runs_blob_test PROPERTIES LABELS consume)
+
 # CI-SPLIT-PER-OS A4 (D-A4): a trava de reexecucao (tools/ci/rerun_guard.py)
 # roda o autoteste contra respostas REAIS da API do GitHub gravadas em
 # tests/tools/fixtures/rerun_guard/. Python puro, sem guarda de sistema.

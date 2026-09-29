@@ -2105,8 +2105,6 @@ run_selftest() {
 run_lint_only() {
     log "estagio 1: clang-format"
     stage_format
-    log "estagio 1c: selftests Python sobre o INDICE (--blob)"
-    stage_blob
     log "estagio 2: configure (-Werror)"
     stage_configure
     log "estagio 3: build"
@@ -2203,6 +2201,8 @@ run_full_pipeline() {
     stage_format
     log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
     stage_ps_syntax
+    log "estagio 1c: selftests Python sobre o INDICE (--blob)"
+    stage_blob
     log "estagio 2: configure (-Werror)"
     stage_configure
     log "estagio 3: build"

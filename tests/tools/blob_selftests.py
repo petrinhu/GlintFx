@@ -68,6 +68,18 @@ def registered_selftests(cmake_text):
     return total, python
 
 
+def preci_blob_errors(preci_text):
+    """`run_full_pipeline` (o que --fast e o modo vazio despacham) chama stage_blob: a
+    decisao do CTO e' que o --blob entre no --fast por padrao. Achado real: a primeira
+    insercao caiu em run_lint_only e ficou 'entregue' sem rodar nunca."""
+    m = re.search(r"^run_full_pipeline\(\) \{\n(.*?)^\}\n", preci_text, re.MULTILINE | re.DOTALL)
+    if not m:
+        return ["run_full_pipeline nao encontrado em tools/preci.sh - varredura vazia (L-40)"]
+    if not re.search(r"^\s+stage_blob\s*$", m.group(1), re.MULTILINE):
+        return ["run_full_pipeline (o --fast e o modo vazio) nao chama stage_blob - o estagio --blob nao roda no espelho local"]
+    return []
+
+
 def is_heavy(script_text):
     return bool(_HEAVY_RE.search(script_text))
 
@@ -172,6 +184,12 @@ def selftest_main():
     controles.append(_check("registrado mas AUSENTE no blob reprova (o defeito das fixtures)", rc == 1 and any("ausente no blob" in l for l in linhas), str(linhas)))
     rc, linhas = run_all(_fake_root({"a.py": (ok_py, False)}))
     controles.append(_check("VARREDURA VAZIA (nenhum selftest registrado) reprova", rc == 1 and "varredura vazia" in linhas[0], str(linhas)))
+    ok_preci = "run_full_pipeline() {\n    stage_format\n    stage_blob\n    stage_configure\n}\n\nrun_lint_only() {\n    stage_format\n}\n"
+    controles.append(_check("preci: run_full_pipeline chama stage_blob passa", not preci_blob_errors(ok_preci), str(preci_blob_errors(ok_preci))))
+    so_lint = "run_full_pipeline() {\n    stage_format\n    stage_configure\n}\n\nrun_lint_only() {\n    stage_format\n    stage_blob\n}\n"
+    controles.append(_check("preci: stage_blob so' no run_lint_only (o erro real) reprova",
+                            any("run_full_pipeline" in e for e in preci_blob_errors(so_lint)), str(preci_blob_errors(so_lint))))
+    controles.append(_check("preci: sem run_full_pipeline reprova (varredura vazia)", bool(preci_blob_errors("nada\n"))))
     controles.append(_check("a linha de escopo e' sempre impressa", "achado(s)" in run_all(_fake_root({"a.py": (ok_py, True)}))[1][-1]))
     if not all(controles):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)
@@ -184,11 +202,18 @@ def main():
     if args and args[0] == "--selftest":
         selftest_main()
         return
+    if len(args) == 2 and args[0] == "--check-preci":
+        with open(args[1], "r", encoding="utf-8") as handle:
+            erros = preci_blob_errors(handle.read())
+        for e in erros:
+            print(f"{SCRIPT_NAME}: {e}", file=sys.stderr)
+        print(f"{SCRIPT_NAME}: run_full_pipeline chama stage_blob: {'nao' if erros else 'sim'}")
+        sys.exit(1 if erros else 0)
     if len(args) == 2 and args[0] == "--root":
         rc, linhas = run_all(args[1])
         print("\n".join(linhas))
         sys.exit(rc)
-    print("usage: blob_selftests.py --root <raiz>  |  --selftest", file=sys.stderr)
+    print("usage: blob_selftests.py --root <raiz>  |  --check-preci <preci.sh>  |  --selftest", file=sys.stderr)
     sys.exit(2)
 
 

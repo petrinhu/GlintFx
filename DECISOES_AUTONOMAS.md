@@ -4553,3 +4553,13 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - push para o ramo da onda (`onda-w7c`) a cada leva verificada;
   - merge em `main` e tag `vA.B.C.D` (número pela L-26) só quando a W7-C fechar com tudo verde, conferido no `CI-VERDE-W7C`, seguidos da exclusão do ramo da onda (quarta emenda da L-11);
   - merge antes do fim da onda continua fora: seria quebrar a L-11, o que só o líder pode ordenar, com confirmação (LEI DAS LEIS).
+
+## 29/09/2026 - 00:30 | D-A15: revisão do CTO da leva c3e3b64 e roteamento dos achados
+
+- **Veredito do CTO (cto-review, 00:29):** aceita com conserto pequeno antes da A4. D-A13 cumprida no servidor (run 36202987723: 8 pernas linux com a prova do .git, sem nenhum "not a git repository"). Os seis mutantes do texto (MO1-MO6) morrem; o MO6 não tinha definição escrita, e o CTO o definiu como "id: build antes de id: prep" (INFERÊNCIA dele, registrada). Os 13 mutantes novos dele sobrevivem, com o harness em /var/tmp/cto-review-cisplit/.
+- **Conferido pelo main no blob HEAD:** a tautologia do agregado (ci.yml:699 `executados=$declarados` e :1234 no Windows) e o passo Testes do Windows sem `if:` (:1193, contra :637 no linux).
+- **Decisão:** os achados 1-7, que tocam check_ci_step_independence.py, check_ci_systems_source.py e ci.yml, vão para o mesmo implementador da D-A14, em commits próprios depois do núcleo dela; um agente paralelo no mesmo arquivo repetiria o erro de [dois agentes na mesma árvore]. O achado 4 (a tautologia, anterior à leva) entra no mesmo conserto por ser da família "afirma que mede e não mede". O achado 8 vai para a INBOX (L-63). Os consertos 3 e 5 são pré-requisito da A4.
+- **Achado 9 (texto de commits já publicados), correção registrada aqui porque commit publicado não se reescreve (L-25):**
+  - o c3e3b64 diz "id: build em TODOS os 16 jobs", mas só 11 de 16 têm (parity, ps-syntax, gitleaks, leis e version-tag não têm);
+  - a varredura de gêmeos do 46b21c1 diz que todo `cmake -S` é `-S . -B build-*`, mas ci.yml tem `cmake -S probe -B probe/build` dentro da árvore (a pasta é removida em seguida).
+- **Critério "contagem igual à da A0": não verificável.** Nenhum documento guarda a contagem da A0. Fica declarado; a partir daqui, o agregado medido (achado 4) passa a ser a referência.

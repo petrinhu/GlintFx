@@ -4549,7 +4549,7 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   2. D-A14 (G2 estendida, `tools/ci/floor.sh`, `tools/ci/windows/prep.ps1`, mutantes P1-P3);
   3. A4 em diante, conforme a entrada de 25/09 06:15.
 - **Agentes:** cto-ci-speed e impl-ci-split. Monitor anti-parada recriado (cron 846bb0c2, L-61) e watchcode ligado.
-- **29/09/2026 00:28, ordem do líder, verbatim:** "autorizo tag/push/merge". Aplicação pela L-11:
+- **29/09/2026 00:24, ordem do líder, verbatim:** "autorizo tag/push/merge". Aplicação pela L-11:
   - push para o ramo da onda (`onda-w7c`) a cada leva verificada;
   - merge em `main` e tag `vA.B.C.D` (número pela L-26) só quando a W7-C fechar com tudo verde, conferido no `CI-VERDE-W7C`, seguidos da exclusão do ramo da onda (quarta emenda da L-11);
   - merge antes do fim da onda continua fora: seria quebrar a L-11, o que só o líder pode ordenar, com confirmação (LEI DAS LEIS).

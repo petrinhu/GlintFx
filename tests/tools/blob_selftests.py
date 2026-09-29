@@ -77,6 +77,22 @@ def _has_selftest_label(bloco):
     return False
 
 
+def _enclosing_condition(cmake_text, offset):
+    """Condicao dos `if()` abertos no ponto `offset` ('' se o registro e' incondicional).
+    Comentarios sao apagados antes (offsets preservados): `# if(UNIX)` num comentario nao conta."""
+    limpo = re.sub(r"#[^\n]*", lambda m: " " * len(m.group(0)), cmake_text[:offset])
+    pilha = []
+    for m in re.finditer(r"\b(if|elseif|else|endif)\s*\(([^)]*)\)", limpo, re.IGNORECASE):
+        palavra, cond = m.group(1).lower(), " ".join(m.group(2).split())
+        if palavra == "if":
+            pilha.append(cond)
+        elif palavra in ("elseif", "else") and pilha:
+            pilha[-1] = f"{palavra}({cond})"
+        elif palavra == "endif" and pilha:
+            pilha.pop()
+    return " E ".join(pilha)
+
+
 def registered_selftests(cmake_text):
     """([entrada], nomes_por_label): toda `add_test` com `LABELS selftest`. Entrada =
     {nome, forma ('py' | 'sh' | None), script, fora (None | motivo | '' se declarada sem motivo)}.
@@ -110,7 +126,8 @@ def registered_selftests(cmake_text):
             forma, script = "sh", _resolve("${PROJECT_SOURCE_DIR}/" + sh.group(1)) if "PROJECT_SOURCE_DIR" in sh.group(0) else _resolve("${CMAKE_CURRENT_SOURCE_DIR}/" + sh.group(1))
         else:
             forma, script = None, None
-        entradas.append({"nome": nome.group(1), "forma": forma, "script": script, "fora": fora})
+        entradas.append({"nome": nome.group(1), "forma": forma, "script": script, "fora": fora,
+                         "cond": _enclosing_condition(cmake_text, m.start())})
     return entradas, por_label
 
 
@@ -126,7 +143,8 @@ def crosscheck(entradas, nomes_ctest):
     """Erros da comparacao IGUAL entre o parse e o ctest. (a) no ctest e fora do parse: o
     selftest SUMIU calado do universo do --blob (LABELS entre aspas, lista com `;`,
     set_property); (b) rodavel no parse e ausente no ctest. `fora` declarado pode faltar
-    no ctest (ex.: registrado so' sob if(WIN32))."""
+    no ctest SO' se o add_test esta dentro de um if() (R-1: registro incondicional que some
+    do ctest reprova); ausentes_condicionais() lista cada um com a condicao."""
     erros = []
     parseados = {e["nome"] for e in entradas}
     for nome in sorted(nomes_ctest - parseados):
@@ -134,7 +152,15 @@ def crosscheck(entradas, nomes_ctest):
     for e in entradas:
         if e["fora"] is None and e["nome"] not in nomes_ctest:
             erros.append(f"{e['nome']}: o --blob roda e o ctest nao lista como selftest (registro condicional ou LABELS diferente)")
+        if e["fora"] is not None and e["nome"] not in nomes_ctest and not e.get("cond", ""):
+            erros.append(f"{e['nome']}: declarado fora e ausente do ctest, mas o add_test e' INCONDICIONAL (sem if()) - registro que sumiu, nao teste de outra plataforma")
     return erros
+
+
+def ausentes_condicionais(entradas, nomes_ctest):
+    """Linhas impressas (R-1) para cada `fora` ausente do ctest sob if(): o leitor ve a condicao."""
+    return [f"fora ausente do ctest sob if({e['cond']}): {e['nome']}"
+            for e in entradas if e["fora"] is not None and e["nome"] not in nomes_ctest and e.get("cond", "")]
 
 
 def preci_blob_errors(preci_text):
@@ -195,7 +221,9 @@ def run_all(root, ctest_json=None):
     ensure_git(root)
     linhas, falharam, erros = [], [], []
     if ctest_json is not None:
-        erros.extend(crosscheck(entradas, ctest_selftest_names(ctest_json)))
+        nomes_ctest = ctest_selftest_names(ctest_json)
+        erros.extend(crosscheck(entradas, nomes_ctest))
+        linhas.extend(ausentes_condicionais(entradas, nomes_ctest))
     rodados = fora = 0
     inicio = time.monotonic()
     nomes_add = {e["nome"] for e in entradas}
@@ -336,8 +364,17 @@ def selftest_main():
     controles.append(_check("A-1: a forma simples nao e' acusada", not any("simples_selftest" in e for e in erros_x), str(erros_x)))
     controles.append(_check("A-1: diferenca no OUTRO sentido (rodavel no blob que o ctest nao lista) reprova, nomeando",
                             any("fantasma_selftest" in e for e in crosscheck([{"nome": "fantasma_selftest", "forma": "py", "script": "x", "fora": None}], set()))))
-    controles.append(_check("A-1: declarado fora e ausente do ctest (teste so' de Windows) NAO e' acusado",
-                            not crosscheck([{"nome": "win_selftest", "forma": None, "script": None, "fora": "pwsh"}], set())))
+    win = {"nome": "win_selftest", "forma": None, "script": None, "fora": "pwsh", "cond": "WIN32"}
+    controles.append(_check("R-1: declarado fora e ausente do ctest SOB if() NAO e' acusado, e e' impresso com a condicao",
+                            not crosscheck([win], set()) and ausentes_condicionais([win], set()) == ["fora ausente do ctest sob if(WIN32): win_selftest"]))
+    controles.append(_check("R-1: declarado fora e ausente do ctest com add_test INCONDICIONAL REPROVA, nomeando",
+                            any("fantasma_selftest" in e and "INCONDICIONAL" in e
+                                for e in crosscheck([{"nome": "fantasma_selftest", "forma": None, "script": None, "fora": "x", "cond": ""}], set()))))
+    cm = "# if(FALSO) so' num comentario\nif(UNIX)\n    if(WIN32)\n        add_test(NAME a_selftest COMMAND \"x\")\n    endif()\n    add_test(NAME b_selftest COMMAND \"x\")\nendif()\nadd_test(NAME c_selftest COMMAND \"x\")\n"
+    ofs = lambda n: cm.index(f"NAME {n}_selftest")
+    controles.append(_check("R-1: a condicao envolvente sai certa (aninhada, fechada, comentario ignorado)",
+                            (_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c")))
+                            == ("UNIX E WIN32", "UNIX", ""), str((_enclosing_condition(cm, ofs("a")), _enclosing_condition(cm, ofs("b")), _enclosing_condition(cm, ofs("c"))))))
     raiz_x = _fake_root({"a.py": (ok_py, True, None, "py")})
     rc_x, linhas_x = run_all(raiz_x, ctest_json=os.path.join(raiz_fx, "ctest-selftest-show.json"))
     controles.append(_check("A-1: run_all com o json do ctest reprova quando o universo do blob difere do ctest (nomeando)",

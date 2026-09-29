@@ -2158,6 +2158,10 @@ run_debug_only() {
 # reprova nomeando o teste). Imprime "N registrados, R rodados, F fora, falharam K" e o tempo. Um arquivo novo precisa de `git add` para o blob enxerga-lo -
 # exatamente o que o commit faria.
 stage_blob() {
+    # R-2 (D-A27): o json do ctest vem do configure da WORKING TREE e o parse le o INDICE;
+    # tests/CMakeLists.txt fora do indice faria os dois divergirem por esquecimento de git add.
+    git -C "$ROOT_DIR" diff --quiet -- tests/CMakeLists.txt \
+        || fail "estagio --blob recusado: tests/CMakeLists.txt tem mudanca fora do indice - rode git add antes do preci"
     blob_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-blob-XXXXXX")" \
         || fail "mktemp -d falhou preparando o estagio --blob"
     git -C "$ROOT_DIR" checkout-index -a -f --prefix="$blob_dir/" \
@@ -2171,7 +2175,6 @@ stage_blob() {
     blob_inicio=$SECONDS
     if ! python3 "$ROOT_DIR/tests/tools/blob_selftests.py" --root "$blob_dir" --ctest-json "$blob_json"; then
         rm -rf "$blob_dir" "$blob_json"
-        rm -rf "$blob_dir"
         fail "estagio --blob recusado (selftest reprovou sobre o INDICE; ver acima)"
     fi
     echo "preci.sh: estagio --blob levou $((SECONDS - blob_inicio)) s"

@@ -4784,3 +4784,18 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - o qemu-img perde a liberação.
 - **Pergunta do main respondida:** a alternativa de um qemu-img falso ficou dispensada pela sandbox.
 - **Integridade de relato:** o desvio 2 do implementador (a liberação) foi declarado e rejeitado.
+
+## 29/09/2026 - 11:07 | D-A29: conserto C-1 aceito com ressalva; os cosméticos entram antes do push
+
+- **Veredito do CTO sobre e2aabad e 31080ed: ACEITO COM RESSALVA**, sem CRÍTICO nem IMPORTANTE.
+  - Provado em bwrap externo, com um laboratório falso: o disco real de 33G continua intocado.
+  - `qemu-img commit` por cabeçalho e `qemu-io write` dão "No such file".
+  - O mutante `--bind /var/tmp /var/tmp` e a raiz sob glintfx-win-lab REPROVAM; o mutante sem o bind do vt cai no gate estático.
+- **Desvios aceitos (retroativos, do implementador):**
+  - o vt é descartável no FS do hospedeiro, e não tmpfs, porque o `cp --reflink` do consolidar.sh não funciona em tmpfs (medido);
+  - só o win-vm-lab passa pelo envoltório no --blob;
+  - os parênteses aninhados foram para o e2aabad.
+- **Cosméticos, que entram agora pela regra de não buscar o caminho mais fácil:**
+  - C-a: uma raiz lógica que resolve para /var/tmp expõe o laboratório, só-leitura (M1c). O conserto é `pwd -P` e a busca do glintfx-win-lab em qualquer lugar visível;
+  - C-b: gate estático que exige o envoltório para todo selftest que execute o laboratório ou as ferramentas de VM/rede;
+  - C-c: `--new-session`.

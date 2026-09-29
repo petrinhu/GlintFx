@@ -403,9 +403,30 @@ def _effective_proof_text(step_text, scripts):
     return codigo
 
 
+# Comparacao DENTRO de um `[ ... ]` (o teste do shell), com operador `=`
+# ou `!=`: citar o token em `echo`/atribuicao nao e' prova.
+_BRACKET_RE = re.compile(r"\[\s[^\]]*\]")
+_COMPARE_OP_RE = re.compile(r"!=|==|(?<![<>=!])=(?!=)")
+_OR_TRUE_RE = re.compile(r"\|\|\s*true\b")
+
+
+def _has_bracket_compare(codigo, token):
+    for bloco in _BRACKET_RE.findall(codigo):
+        if token in bloco and _COMPARE_OP_RE.search(bloco):
+            return True
+    return False
+
+
 def _missing_proof_parts(step_text, scripts):
     texto = _effective_proof_text(step_text, scripts)
-    return [label for needle, label in _PROOF_PARTS if needle not in texto]
+    faltam = [label for needle, label in _PROOF_PARTS if needle not in texto]
+    if not _has_bracket_compare(texto, "GITHUB_SHA"):
+        faltam.append("comparacao com GITHUB_SHA (dentro de [ ... ])")
+    if not _has_bracket_compare(texto, "true"):
+        faltam.append("comparacao com true (dentro de [ ... ])")
+    if _OR_TRUE_RE.search(texto):
+        faltam.append("'|| true' (proibido: engole a falha da prova)")
+    return faltam
 
 
 def g2_errors(job_name, job_block_text, steps, scripts=None):
@@ -749,7 +770,7 @@ _FIXTURE_CI_YML = """\
       - name: Checkout e' repositorio git
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git rev-parse --is-inside-work-tree
+          [ "$(git rev-parse --is-inside-work-tree)" = true ]
           [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]
 
       - name: Piso de ferramentas
@@ -1159,7 +1180,7 @@ def selftest_mo1b_dedicated_safedirectory_step_before_final_checkout_reproves():
         "      - name: Checkout e' repositorio git\n"
         "        run: |\n"
         "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
-        "          git rev-parse --is-inside-work-tree\n"
+        "          [ \"$(git rev-parse --is-inside-work-tree)\" = true ]\n"
         "          [ \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\" ]\n\n",
         "      - name: Remove o checkout de bootstrap\n"
         "        run: rm -rf _bootstrap\n\n"
@@ -1168,7 +1189,7 @@ def selftest_mo1b_dedicated_safedirectory_step_before_final_checkout_reproves():
         "      - uses: actions/checkout@v7\n\n"
         "      - name: Checkout e' repositorio git\n"
         "        run: |\n"
-        "          git rev-parse --is-inside-work-tree\n"
+        "          [ \"$(git rev-parse --is-inside-work-tree)\" = true ]\n"
         "          [ \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\" ]\n\n",
         1,
     )
@@ -1193,7 +1214,7 @@ def selftest_mo4_git_proof_removed_reproves():
         "      - name: Checkout e' repositorio git\n"
         "        run: |\n"
         "          git config --global --add safe.directory \"$GITHUB_WORKSPACE\"\n"
-        "          git rev-parse --is-inside-work-tree\n"
+        "          [ \"$(git rev-parse --is-inside-work-tree)\" = true ]\n"
         "          [ \"$(git rev-parse HEAD)\" = \"$GITHUB_SHA\" ]\n\n",
         "",
         1,
@@ -1286,7 +1307,7 @@ def selftest_g1_single_checkout_with_prior_git_install_does_not_reprove():
       - name: preci.sh --selftest
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git rev-parse --is-inside-work-tree
+          [ "$(git rev-parse --is-inside-work-tree)" = true ]
           [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]
 
       - name: Preparo concluido
@@ -1350,6 +1371,7 @@ _PROOF_SCRIPT_OK = """#!/usr/bin/env bash
 set -eu
 git config --global --add safe.directory "$GITHUB_WORKSPACE"
 inside="$(git rev-parse --is-inside-work-tree)"
+[ "$inside" = true ] || exit 1
 head="$(git rev-parse HEAD)"
 [ "$head" = "$GITHUB_SHA" ] || exit 1
 echo "inside-work-tree=$inside"
@@ -1627,6 +1649,49 @@ def selftest_g2_comment_mentioning_proof_is_not_a_proof():
 
 
 
+# CTO 29/09 achado 7 (mutante X4): G2 casa o MECANISMO, nao o rotulo. Uma
+# prova que so' CITA `git rev-parse` mas nao compara nada (ou engole o
+# resultado com `|| true`) passava. A prova tem de comparar o valor de
+# --is-inside-work-tree com `true` e o HEAD com $GITHUB_SHA, dentro de
+# um `[ ... ]`, e nao pode conter `|| true`.
+def _g2_mecanismo(nome, trocas, *trechos):
+    script = _PROOF_SCRIPT_OK
+    for velho, novo in trocas:
+        if velho not in script:
+            print(f"selftest: {nome} FALHOU (ancora do replace nao casou: {velho!r})", file=sys.stderr)
+            return False
+        script = script.replace(velho, novo, 1)
+    resultado = _run_real_main_capturing(
+        _FIXTURE_FIXED_JOB, job_name="lint", extra_files=_fixed_job_files(script)
+    )
+    return _g5_expect(nome, resultado, *trechos)
+
+
+def selftest_g2_or_true_reproves():
+    return _g2_mecanismo(
+        "G2-OR-TRUE (X4)",
+        [('inside="$(git rev-parse --is-inside-work-tree)"', 'inside="$(git rev-parse --is-inside-work-tree)" || true')],
+        "nao prova git", "|| true",
+    )
+
+
+def selftest_g2_sha_echoed_not_compared_reproves():
+    return _g2_mecanismo(
+        "G2-SHA-SO-CITADO",
+        [('[ "$head" = "$GITHUB_SHA" ] || exit 1', 'echo "$head $GITHUB_SHA"')],
+        "nao prova git", "comparacao com GITHUB_SHA",
+    )
+
+
+def selftest_g2_inside_not_compared_reproves():
+    return _g2_mecanismo(
+        "G2-INSIDE-SEM-COMPARAR-COM-TRUE",
+        [('[ "$inside" = true ] || exit 1\n', "")],
+        "nao prova git", "comparacao com true",
+    )
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -1665,6 +1730,9 @@ def selftest_main():
         selftest_g5_prep_ps1_missing_reproves(),
         selftest_g5_comment_mentioning_script_is_not_a_call(),
         selftest_g2_comment_mentioning_proof_is_not_a_proof(),
+        selftest_g2_or_true_reproves(),
+        selftest_g2_sha_echoed_not_compared_reproves(),
+        selftest_g2_inside_not_compared_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

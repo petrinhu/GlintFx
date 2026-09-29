@@ -5732,7 +5732,6 @@ set_tests_properties(check_format_selftest PROPERTIES SKIP_RETURN_CODE 77)
 # orfao - a guarda de plataforma nao remove o registro, so restringe
 # onde ele conta.
 if(UNIX)
-    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_isolamento_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/provar-isolamento.sh" --selftest
@@ -5768,7 +5767,6 @@ endif()
 # como "Not Run" (pulo), nunca como falha - a mesma leitura que
 # check_format_selftest ja usa mais acima neste arquivo.
 if(UNIX)
-    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_rodar_caminho_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/rodar-caminho.sh" --selftest
@@ -5776,7 +5774,6 @@ if(UNIX)
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES LABELS selftest)
     set_tests_properties(win_vm_lab_rodar_caminho_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
-    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
 
     add_test(
         NAME win_vm_lab_rodar_um_selftest
@@ -5790,7 +5787,6 @@ if(UNIX)
     # MESMA forma hermetica dos tres vizinhos acima (registro incondicional
     # dentro de if(UNIX), SKIP_RETURN_CODE 77 para ferramenta ausente -
     # aqui qemu-img/flock, ver a guarda no topo do proprio script).
-    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_sessao_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/sessao.sh" --selftest
@@ -5807,7 +5803,6 @@ if(UNIX)
     # (duble de virsh, nunca libvirt/QEMU real; SKIP_RETURN_CODE 77 para
     # ferramenta ausente - aqui jq/md5sum/base64/dd/stat, ver a guarda no
     # topo do proprio script).
-    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_coletar_resultados_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/coletar-resultados.sh" --selftest
@@ -5827,7 +5822,6 @@ if(UNIX)
     # hermetica dos cinco vizinhos acima (duble de virsh, nunca libvirt/
     # QEMU real; SKIP_RETURN_CODE 77 para ferramenta ausente - aqui
     # qemu-img/flock/sha256sum/cp, ver a guarda no topo do proprio script).
-    # glintfx-blob: fora - laboratorio da VM Windows do lider (tools/win-vm-lab); nunca na sessao viva (L-09/L-50)
     add_test(
         NAME win_vm_lab_consolidar_selftest
         COMMAND "${PROJECT_SOURCE_DIR}/tools/win-vm-lab/consolidar.sh" --selftest
@@ -6129,6 +6123,7 @@ if(UNIX)
     )
     target_link_libraries(wire_relay_selftest PRIVATE glintfx_test_harness)
     glintfx_apply_compile_options(wire_relay_selftest)
+    # glintfx-blob: fora - binario C++ (nao e' script --selftest); roda no estagio de build/ctest
     add_test(NAME wire_relay_selftest COMMAND wire_relay_selftest)
     # Both labels, on purpose (team-lead's finding, 24/09/2026): this
     # is a compiled C++ binary doing real low-level I/O (socketpair,

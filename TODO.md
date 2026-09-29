@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`window_active_after_map_smoke` (FACADE-PIN T1/G3): o orçamento de 50 roundtrips esgota sem `window.state(active)`.** 1 falha em ~16 observações, calibração r1 asan, run 36543167200, job 109323188711. Investigar trocando 'contar roundtrips' por 'esperar o evento com prazo em tempo', prazo impresso; nunca reexecutar para ficar verde (CTO 29/09). Não é da A5.
+
 - **`CTEST-PARALLEL-GRAU-WRITE-HOST`: a validação do grau no passo pwsh de "Testes" (Windows) deveria usar `exit 1` puro, e o NB5 do CTO aponta `Write-Host` onde falta `exit`** (CTO 29/09/2026, NB5): conferir se toda validação de variável de grau em pwsh termina o passo, não só escreve.
 
 - **`PWSH-TESTES-EXIT-8-VIRA-1`: o passo pwsh de "Testes" (Windows) devolve rc=1 e nao o codigo do ctest** (ex.: ctest falso saindo 3 dava rc=1 sob `pwsh -command ". arquivo"`, medido no container em 29/09/2026); so' o nao-zero importa hoje, mas o codigo real some do log (CTO 29/09, exit 8 para 1; PN2 e PN3 da mesma revisao: texto nao recebido pelo implementador, o main detalha).

@@ -24,6 +24,7 @@
 #   blob_selftests.py --root <raiz-extraida-do-indice>
 #   blob_selftests.py --selftest
 
+import json
 import os
 import re
 import subprocess
@@ -66,6 +67,15 @@ def _resolve(caminho):
     return os.path.normpath(caminho.replace("${CMAKE_CURRENT_SOURCE_DIR}", "tests").replace("${PROJECT_SOURCE_DIR}", "."))
 
 
+def _has_selftest_label(bloco):
+    """`LABELS selftest`, `LABELS "selftest"`, `LABELS "consume;selftest"` e a forma
+    `PROPERTY LABELS selftest` do set_property (A-1: o parse antigo so' lia a primeira)."""
+    for m in re.finditer(r'LABELS\s+(?:"([^"]*)"|([^\s)]+))', bloco):
+        if "selftest" in (m.group(1) or m.group(2) or "").split(";"):
+            return True
+    return False
+
+
 def registered_selftests(cmake_text):
     """([entrada], nomes_por_label): toda `add_test` com `LABELS selftest`. Entrada =
     {nome, forma ('py' | 'sh' | None), script, fora (None | motivo | '' se declarada sem motivo)}.
@@ -76,7 +86,13 @@ def registered_selftests(cmake_text):
         nome = re.match(r"set_tests_properties\s*\(\s*(\S+)", bloco)
         if nome:
             props[nome.group(1)] = props.get(nome.group(1), "") + bloco
-    por_label = {n for n, b in props.items() if re.search(r"LABELS\s+selftest\b", b)}
+    for m in re.finditer(r"set_property\s*\(\s*TEST\s+", cmake_text):
+        bloco = _block(cmake_text, m.start())
+        alvo = re.match(r"set_property\s*\(\s*TEST\s+(.+?)\s+(?:APPEND\s+)?PROPERTY\s+", bloco, re.DOTALL)
+        if alvo:
+            for nome in alvo.group(1).split():
+                props[nome] = props.get(nome, "") + bloco
+    por_label = {n for n, b in props.items() if _has_selftest_label(b)}
     entradas = []
     for m in re.finditer(r"add_test\s*\(", cmake_text):
         bloco = _block(cmake_text, m.start())
@@ -95,6 +111,29 @@ def registered_selftests(cmake_text):
             forma, script = None, None
         entradas.append({"nome": nome.group(1), "forma": forma, "script": script, "fora": fora})
     return entradas, por_label
+
+
+def ctest_selftest_names(json_path):
+    """Nomes que o ctest REAL lista para `-L '^selftest$' --show-only=json-v1` (fonte
+    independente do parse de texto: entende toda forma valida de CMake)."""
+    with open(json_path, "r", encoding="utf-8") as handle:
+        dados = json.load(handle)
+    return {t["name"] for t in dados.get("tests", [])}
+
+
+def crosscheck(entradas, nomes_ctest):
+    """Erros da comparacao IGUAL entre o parse e o ctest. (a) no ctest e fora do parse: o
+    selftest SUMIU calado do universo do --blob (LABELS entre aspas, lista com `;`,
+    set_property); (b) rodavel no parse e ausente no ctest. `fora` declarado pode faltar
+    no ctest (ex.: registrado so' sob if(WIN32))."""
+    erros = []
+    parseados = {e["nome"] for e in entradas}
+    for nome in sorted(nomes_ctest - parseados):
+        erros.append(f"{nome}: o ctest lista como selftest e o --blob nao enxerga (forma de LABELS que o parse nao le) - fora do universo, calado")
+    for e in entradas:
+        if e["fora"] is None and e["nome"] not in nomes_ctest:
+            erros.append(f"{e['nome']}: o --blob roda e o ctest nao lista como selftest (registro condicional ou LABELS diferente)")
+    return erros
 
 
 def preci_blob_errors(preci_text):
@@ -134,7 +173,7 @@ def _run_one(root, entrada):
     return ok, time.monotonic() - t0, saida.strip()[-300:]
 
 
-def run_all(root):
+def run_all(root, ctest_json=None):
     """(rc, linhas). Todo selftest registrado RODA, a menos que o add_test traga logo acima
     `# glintfx-blob: fora - <motivo>` (declaracao fail-closed: sem motivo reprova; forma nao
     rodavel sem declaracao reprova). Conta: rodados + fora == registrados (registrados =
@@ -148,6 +187,8 @@ def run_all(root):
         return 1, ["varredura vazia: nenhum selftest registrado com LABELS selftest (L-40)"]
     ensure_git(root)
     linhas, falharam, erros = [], [], []
+    if ctest_json is not None:
+        erros.extend(crosscheck(entradas, ctest_selftest_names(ctest_json)))
     rodados = fora = 0
     inicio = time.monotonic()
     nomes_add = {e["nome"] for e in entradas}
@@ -265,6 +306,30 @@ def selftest_main():
     controles.append(_check("B-3: LABELS selftest de um teste que nao tem add_test reprova (contagem independente)", rc == 1 and any("fantasma_selftest" in l for l in linhas), str(linhas)))
     rc, linhas = roda({"a.py": (ok_py, True, "# glintfx-blob: fora - motivo qualquer", "py"), "b.py": (ok_py, True, None, "py")})
     controles.append(_check("a linha de escopo soma: rodados + fora == registrados", "1 rodado(s), 1 fora" in linhas[-1] and "2 registrado(s)" in linhas[-1], str(linhas)))
+    # A-1 (CTO 29/09): fonte INDEPENDENTE - `ctest -L '^selftest$' --show-only=json-v1`. As tres
+    # formas validas do CMake (LABELS entre aspas, lista com `;`, set_property) sumiam calado do
+    # parse; o ctest REAL (fixture gerado por ctest 4.3.0) as lista.
+    raiz_fx = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "blob_probe")
+    with open(os.path.join(raiz_fx, "CMakeLists.txt"), "r", encoding="utf-8") as h:
+        entradas_probe, _labels = registered_selftests(h.read())
+    nomes_ctest = ctest_selftest_names(os.path.join(raiz_fx, "ctest-selftest-show.json"))
+    erros_x = crosscheck(entradas_probe, nomes_ctest)
+    controles.append(_check("A-1: o ctest REAL lista 4 selftests (simples, aspas, lista, set_property)", len(nomes_ctest) == 4, str(nomes_ctest)))
+    controles.append(_check("A-1: o parse le as 4 formas validas de LABELS e o cruzamento com o ctest fecha IGUAL",
+                            {e["nome"] for e in entradas_probe} == nomes_ctest and not crosscheck(entradas_probe, nomes_ctest), str(entradas_probe)))
+    so_simples = [e for e in entradas_probe if e["nome"] == "simples_selftest"]
+    erros_x = crosscheck(so_simples, nomes_ctest)
+    controles.append(_check("A-1: parse cego as 3 formas (o defeito do CTO) e' NOMEADO no cruzamento (aspas, lista, set_property)",
+                            all(any(n in e for e in erros_x) for n in ("aspas_selftest", "lista_selftest", "propriedade_selftest")), str(erros_x)))
+    controles.append(_check("A-1: a forma simples nao e' acusada", not any("simples_selftest" in e for e in erros_x), str(erros_x)))
+    controles.append(_check("A-1: diferenca no OUTRO sentido (rodavel no blob que o ctest nao lista) reprova, nomeando",
+                            any("fantasma_selftest" in e for e in crosscheck([{"nome": "fantasma_selftest", "forma": "py", "script": "x", "fora": None}], set()))))
+    controles.append(_check("A-1: declarado fora e ausente do ctest (teste so' de Windows) NAO e' acusado",
+                            not crosscheck([{"nome": "win_selftest", "forma": None, "script": None, "fora": "pwsh"}], set())))
+    raiz_x = _fake_root({"a.py": (ok_py, True, None, "py")})
+    rc_x, linhas_x = run_all(raiz_x, ctest_json=os.path.join(raiz_fx, "ctest-selftest-show.json"))
+    controles.append(_check("A-1: run_all com o json do ctest reprova quando o universo do blob difere do ctest (nomeando)",
+                            rc_x == 1 and any("simples_selftest" in l or "propriedade_selftest" in l for l in linhas_x), str(linhas_x)))
     ok_preci = "run_full_pipeline() {\n    stage_format\n    stage_blob\n    stage_configure\n}\n\nrun_lint_only() {\n    stage_format\n}\n"
     controles.append(_check("preci: run_full_pipeline chama stage_blob passa", not preci_blob_errors(ok_preci), str(preci_blob_errors(ok_preci))))
     so_lint = "run_full_pipeline() {\n    stage_format\n    stage_configure\n}\n\nrun_lint_only() {\n    stage_format\n    stage_blob\n}\n"
@@ -289,11 +354,12 @@ def main():
             print(f"{SCRIPT_NAME}: {e}", file=sys.stderr)
         print(f"{SCRIPT_NAME}: run_full_pipeline chama stage_blob: {'nao' if erros else 'sim'}")
         sys.exit(1 if erros else 0)
-    if len(args) == 2 and args[0] == "--root":
-        rc, linhas = run_all(args[1])
+    if len(args) in (2, 4) and args[0] == "--root":
+        ctest_json = args[3] if len(args) == 4 and args[2] == "--ctest-json" else None
+        rc, linhas = run_all(args[1], ctest_json)
         print("\n".join(linhas))
         sys.exit(rc)
-    print("usage: blob_selftests.py --root <raiz>  |  --check-preci <preci.sh>  |  --selftest", file=sys.stderr)
+    print("usage: blob_selftests.py --root <raiz> [--ctest-json <json>]  |  --check-preci <preci.sh>  |  --selftest", file=sys.stderr)
     sys.exit(2)
 
 

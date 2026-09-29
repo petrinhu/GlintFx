@@ -2152,26 +2152,35 @@ run_debug_only() {
 # engolido por `build-*/`) passaram no preci e reprovariam toda perna do CI. Este estagio
 # extrai o INDICE (git checkout-index, nao HEAD: o preci roda antes do commit) para um
 # diretorio temporario e roda ali os `--selftest` Python registrados com LABELS selftest
-# em tests/CMakeLists.txt (universo lido pelo proprio helper, nunca de lista a mao;
-# scripts que chamam cmake/docker/pwsh ficam de fora). Imprime "N achados, R rodados,
-# falharam K" e o tempo. Um arquivo novo precisa de `git add` para o blob enxerga-lo -
+# em tests/CMakeLists.txt (universo lido pelo proprio helper, nunca de lista a mao; fora
+# so' o que traz `# glintfx-blob: fora - <motivo>`), CRUZADO com `ctest -L '^selftest$'
+# --show-only=json-v1` (o ctest real, depois do configure: diferenca em qualquer sentido
+# reprova nomeando o teste). Imprime "N registrados, R rodados, F fora, falharam K" e o tempo. Um arquivo novo precisa de `git add` para o blob enxerga-lo -
 # exatamente o que o commit faria.
 stage_blob() {
     blob_dir="$(mktemp -d "${TMPDIR:-/tmp}/glintfx-blob-XXXXXX")" \
         || fail "mktemp -d falhou preparando o estagio --blob"
     git -C "$ROOT_DIR" checkout-index -a -f --prefix="$blob_dir/" \
         || { rm -rf "$blob_dir"; fail "estagio --blob recusado (git checkout-index falhou)"; }
+    # A-1: fonte INDEPENDENTE do universo - o ctest real (depois do configure), nunca o parse.
+    blob_json="$blob_dir.selftest-show.json"
+    if ! ctest --test-dir "$BUILD_DIR" -L '^selftest$' --show-only=json-v1 > "$blob_json"; then
+        rm -rf "$blob_dir" "$blob_json"
+        fail "estagio --blob recusado (ctest -L selftest --show-only=json-v1 falhou; o configure rodou antes?)"
+    fi
     blob_inicio=$SECONDS
-    if ! python3 "$ROOT_DIR/tests/tools/blob_selftests.py" --root "$blob_dir"; then
+    if ! python3 "$ROOT_DIR/tests/tools/blob_selftests.py" --root "$blob_dir" --ctest-json "$blob_json"; then
+        rm -rf "$blob_dir" "$blob_json"
         rm -rf "$blob_dir"
         fail "estagio --blob recusado (selftest reprovou sobre o INDICE; ver acima)"
     fi
     echo "preci.sh: estagio --blob levou $((SECONDS - blob_inicio)) s"
-    rm -rf "$blob_dir"
+    rm -rf "$blob_dir" "$blob_json"
 }
 
 run_blob_only() {
-    log "estagio blob: --selftest Python sobre o INDICE (fonte = git checkout-index)"
+    log "estagio blob: configure (o ctest real e' a fonte independente do universo) e --selftest Python sobre o INDICE"
+    stage_configure
     stage_blob
     echo "preci.sh --blob-only: VERDE"
 }
@@ -2201,10 +2210,10 @@ run_full_pipeline() {
     stage_format
     log "estagio 1b: sintaxe PowerShell (GATE-PS-SYNTAX)"
     stage_ps_syntax
-    log "estagio 1c: selftests Python sobre o INDICE (--blob)"
-    stage_blob
     log "estagio 2: configure (-Werror)"
     stage_configure
+    log "estagio 2b: selftests Python sobre o INDICE (--blob), cruzados com o ctest real"
+    stage_blob
     log "estagio 3: build"
     stage_build
     log "estagio 4: clang-tidy"

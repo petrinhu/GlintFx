@@ -534,6 +534,14 @@ GLINTFX_PS_SYNTAX_EOF
         fail "estagio sintaxe PowerShell recusado (ver saida acima; GATE-PS-SYNTAX)"
     fi
     rm -rf "$scratch_dir"
+
+    # CI-SPLIT-PER-OS D-A14 (item 2): o autoteste de prep.ps1 (piso do
+    # Windows: guarda de versao do CMake vazia/antiga, sonda do cl.exe
+    # com /Fo e /Fe dentro do temp) roda no MESMO container pwsh e no
+    # MESMO estagio - so' parseia-lo nao provaria que o piso reprova.
+    docker run --rm -v "${ROOT_DIR}:/glintfx-src:ro,z" "$GLINTFX_PS_IMAGE" \
+        pwsh -NoProfile -NonInteractive -File /glintfx-src/tools/ci/windows/prep.ps1 -Autoteste \
+        || fail "estagio sintaxe PowerShell recusado (prep.ps1 -Autoteste reprovou; ver saida acima; GATE-PS-SYNTAX)"
 }
 
 # -DGLINTFX_BUILD_TESTS=ON forced explicitly (defense in depth, not a
@@ -1900,6 +1908,21 @@ run_selftest_noexcept_alloc_controls() {
     echo "selftest: noexcept-alloc OK"
 }
 
+# CI-SPLIT-PER-OS D-A14 (item 2): tools/ci/floor.sh e' o piso de
+# ferramentas de 6 jobs Linux do CI. O --autoteste dele roda o proprio
+# script contra compilador, cmake e pkg-config FALSOS (nunca contra a
+# maquina) e prova que cada piso reprova quando deve, inclusive o
+# conserto B2 (cmake sem versao). Sem esta chamada o autoteste seria
+# orfao (nada mecanico o executaria) - e o --selftest e' o que o job
+# `lint` do CI roda.
+run_selftest_floor_controls() {
+    log "selftest: tools/ci/floor.sh --autoteste (piso de ferramentas contra compilador/cmake falsos)"
+    if ! bash "$ROOT_DIR/tools/ci/floor.sh" --autoteste; then
+        fail "selftest: floor.sh --autoteste reprovou (ver saida acima)"
+    fi
+    echo "selftest: piso de ferramentas OK"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -1910,6 +1933,7 @@ run_selftest() {
     run_selftest_assert_count_controls
     run_selftest_win32_link_controls
     run_selftest_noexcept_alloc_controls
+    run_selftest_floor_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 

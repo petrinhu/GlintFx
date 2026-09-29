@@ -442,65 +442,12 @@ jobs:
       # explicita, se qualquer um dos quatro pisos nao for atendido:
       # GCC >= 14 (__GNUC__), CMake >= 4.1, python3/python presente
       # (DEPZERO-TRACE), e xdg-shell.xml presente (L-05, Wayland puro).
+      # D-A14 (item 2): o corpo do passo MOROU aqui ate a A3c e migrou
+      # para tools/ci/floor.sh (fonte UNICA, chamada tambem pelos 5 jobs
+      # Linux fixos, que nao tinham piso nenhum); o conserto B2 (versao
+      # de cmake vazia) vive la, com autoteste (`floor.sh --autoteste`).
       - name: Piso de ferramentas
-        run: |
-          set -eu
-          gnuc_major="$("$CXX" -dM -E -x c++ /dev/null 2>/dev/null | awk '$2 == "__GNUC__" {print $3}')"
-          case "$gnuc_major" in
-            ''|*[!0-9]*)
-              echo "PISO NAO ATENDIDO: __GNUC__ nao numerico ou ausente (saida: '${gnuc_major:-<vazio>}', CXX=$CXX) - compilador quebrado ou nao aceita -dM -E"
-              exit 1
-              ;;
-          esac
-          if [ "$gnuc_major" -lt 14 ]; then
-            echo "PISO NAO ATENDIDO: __GNUC__ = '$gnuc_major', piso do projeto e' 14 (CXX=$CXX)"
-            exit 1
-          fi
-          # B2 (revisao do CTO): `cmake --version` falhando (comando
-          # quebrado, sai != 0) deixava cmake_versao/cmake_major/
-          # cmake_minor VAZIOS - `[ "" -lt 4 ]` nao e' erro FATAL sob
-          # `set -e` dentro de um `if` (o `if` trata o status != 0 do
-          # `[` como condicao falsa, nao aborta o script) - o piso
-          # IMPRIMIA "OK" com CMake vazio e saia rc=0. Medido: stub de
-          # cmake que sai 127 reproduzia exatamente isso antes deste
-          # conserto. `case` valida NUMERICO (major e minor) antes de
-          # qualquer comparacao `-lt`/`-eq`.
-          cmake_versao="$(cmake --version 2>/dev/null | head -1 | awk '{print $3}')"
-          case "$cmake_versao" in
-            '')
-              echo "PISO NAO ATENDIDO: 'cmake --version' nao devolveu versao nenhuma - cmake ausente ou quebrado"
-              exit 1
-              ;;
-          esac
-          cmake_major="${cmake_versao%%.*}"
-          cmake_minor="${cmake_versao#*.}"
-          cmake_minor="${cmake_minor%%.*}"
-          case "$cmake_major" in
-            ''|*[!0-9]*)
-              echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', major nao numerico"
-              exit 1
-              ;;
-          esac
-          case "$cmake_minor" in
-            ''|*[!0-9]*)
-              echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', minor nao numerico"
-              exit 1
-              ;;
-          esac
-          if [ "$cmake_major" -lt 4 ] || { [ "$cmake_major" -eq 4 ] && [ "$cmake_minor" -lt 1 ]; }; then
-            echo "PISO NAO ATENDIDO: cmake --version = '$cmake_versao', piso do projeto e' 4.1 (CMakeLists.txt)"
-            exit 1
-          fi
-          if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
-            echo "PISO NAO ATENDIDO: nem python3 nem python no PATH (DEPZERO-TRACE, tests/CMakeLists.txt exige um dos dois)"
-            exit 1
-          fi
-          xml="$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml"
-          if [ ! -f "$xml" ]; then
-            echo "PISO NAO ATENDIDO: falta xdg-shell.xml em $xml (L-05, Wayland puro)"
-            exit 1
-          fi
-          echo "piso de ferramentas OK: GCC $gnuc_major, CMake $cmake_versao, python presente, $xml presente"
+        run: tools/ci/floor.sh
 
       # A3c (D-A13): marco `id: prep` - passo SEM logica (so' `echo`),
       # logo depois do ULTIMO passo que so' PREPARA o ambiente (o piso).
@@ -875,48 +822,11 @@ jobs:
       # tinha aqui - agora roda junto com o resto da suite no passo
       # "Testes" abaixo, igual ao preci_selftest do lado Linux ja faz.
 
-      # PKG-NATIVE (27/08/2026, updated same day when the matrix moved to
-      # :latest): windows-latest is now the ONLY one of the five supported
-      # platforms (GODS_LAWS.md L-04) whose factory CMake does not reach
-      # the 4.1 floor cmake_pkg_config(IMPORT/POPULATE) needs
-      # (CMakeLists.txt's own cmake_minimum_required comment) - MEASURED,
-      # not assumed: actions/runner-images' own Windows2025-Readme.md
-      # (fetched 27/08/2026) names "CMake 3.31.6" as this image's bundled
-      # version. Ubuntu USED to need the same fix shape (the `linux` job's
-      # `ubuntu:24.04` entries), but that recipe was retired the same day
-      # the whole matrix moved to `:latest`: `ubuntu:latest` ships CMake
-      # above the floor already, measured (see the comment right above the
-      # Ubuntu matrix entries in the `linux` job). This step downloads the
-      # official Kitware zip from cmake.org/download, prepended to PATH
-      # via $GITHUB_PATH so every later step's plain "cmake" call (this
-      # whole job never spells out a full path) picks it up - no
-      # third-party GitHub Action (this project's own convention already
-      # states "sem action de terceiro: o proprio CMake localiza o
-      # MSVC", a few steps below). 4.1.6, a pinned patch release, for the
-      # same reason it always was: testing the true floor
-      # cmake_minimum_required declares, not a newer version that
-      # could mask a 4.1-only bug.
-      - name: Instalar CMake >= 4.1 (Windows)
-        shell: pwsh
-        run: |
-          $cmakeVersion = "4.1.6"
-          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
-          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
-          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
-          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
-          Expand-Archive -Path $zipPath -DestinationPath $extractDir
-          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
-          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
-          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
-            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
-            exit 1
-          }
-          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
-
-      - name: Versoes da toolchain
-        shell: pwsh
-        run: cmake --version
-
+      # PKG-NATIVE / D-A14 (item 2): a instalacao do CMake 4.1.6 (windows-latest
+      # traz 3.31.6, abaixo do piso 4.1 que cmake_pkg_config exige - medido
+      # em 27/08/2026) migrou para tools/ci/windows/prep.ps1, fonte UNICA
+      # dos 4 jobs Windows (era copiada 4 vezes). Ele roda DEPOIS do passo
+      # do MSVC x64 abaixo, junto do piso de ferramentas do Windows.
       # CI-WIN-ENV (27/08/2026, GODS_LAWS.md L-42): prepara o ambiente do
       # compilador ANTES de qualquer "cmake -S/-B" deste job. O gerador
       # que este job passa a usar abaixo (Ninja, ver CI-WIN-GEN mais
@@ -957,68 +867,17 @@ jobs:
             }
           }
 
-      # B3 (revisao do CTO, A3a-fix): a promessa do plano ("o Windows
-      # ganha o passo de piso equivalente") nao tinha sido entregue -
-      # so' o job `linux` tinha "Piso de ferramentas". Mesma posicao
-      # relativa (logo depois do preparo - aqui, apos o MSVC x64 estar
-      # pronto - e antes de qualquer outro passo), mesma guarda B2
-      # (versao de CMake validada como NUMERICA antes de comparar,
-      # nunca `[ "" -lt 4 ]` silencioso). `/std:c++latest`, nao
-      # `/std:c++23`: e' o flag que o MSVC aceita mesmo em versoes onde
-      # o nome "c++23" ainda nao existe como opcao propria (superset).
+      # B3 (revisao do CTO, A3a-fix) + D-A14 (item 2): o piso do Windows
+      # (CMake >= 4.1 com a guarda de versao vazia, MSVC aceita
+      # /std:c++latest, python no PATH) morou aqui ate a A3c; agora vive em
+      # tools/ci/windows/prep.ps1, junto da instalacao do CMake, e e' a
+      # mesma chamada nos 4 jobs Windows. Roda apos o MSVC x64 (precisa do
+      # cl.exe). A sonda do cl.exe (conserto pos-run 36116495207) mora em
+      # $env:RUNNER_TEMP com /Fo e /Fe explicitos - nada do piso toca o
+      # workspace, senao o vendor_purity_test reprova por main.obj na raiz.
       - name: Piso de ferramentas (Windows)
         shell: pwsh
-        run: |
-          $cmakeVersionLine = (cmake --version 2>$null | Select-Object -First 1)
-          if (-not ($cmakeVersionLine -match '(\d+)\.(\d+)')) {
-            Write-Error "PISO NAO ATENDIDO: 'cmake --version' nao devolveu versao numerica reconhecida (saida: '$cmakeVersionLine')"
-            exit 1
-          }
-          $cmakeMajor = [int]$matches[1]
-          $cmakeMinor = [int]$matches[2]
-          if ($cmakeMajor -lt 4 -or ($cmakeMajor -eq 4 -and $cmakeMinor -lt 1)) {
-            Write-Error "PISO NAO ATENDIDO: cmake --version = '$cmakeVersionLine', piso do projeto e' 4.1 (CMakeLists.txt)"
-            exit 1
-          }
-
-          # CI-SPLIT-PER-OS, conserto pos-run 36116495207: a sonda do cl.exe
-          # ficava DENTRO do workspace (piso_probe/) e so' o "/Fe" era
-          # passado - sem "/Fo" explicito, o cl.exe grava o .obj no
-          # diretorio CORRENTE (a raiz do checkout), nunca em piso_probe/.
-          # O Remove-Item seguinte apagava so' a pasta piso_probe, e o
-          # main.obj sobrevivia na raiz - vendor_purity_test (L-07: "a
-          # excecao nao e' transitiva") reprovava com "[artefato binario]
-          # main.obj" fora da lista fechada de excecoes. Conserto: a sonda
-          # inteira (fonte, .obj e .exe, com /Fo E /Fe explicitos) mora em
-          # $env:RUNNER_TEMP, fora da arvore do git - nada aqui toca o
-          # workspace, entao nenhuma limpeza posterior precisa ser perfeita
-          # para o vendor_purity_test ficar limpo.
-          $probeDir = Join-Path $env:RUNNER_TEMP "glintfx-piso-probe"
-          New-Item -ItemType Directory -Force -Path $probeDir | Out-Null
-          $probeSrc = Join-Path $probeDir "main.cpp"
-          $probeObj = Join-Path $probeDir "main.obj"
-          $probeExe = Join-Path $probeDir "probe.exe"
-          @'
-          #include <cstdio>
-          int main() { std::printf("ok\n"); }
-          '@ | Set-Content $probeSrc
-          cl.exe /std:c++latest /EHsc /nologo "/Fe:$probeExe" "/Fo:$probeObj" $probeSrc | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "PISO NAO ATENDIDO: MSVC (cl.exe) nao aceitou /std:c++latest (codigo $LASTEXITCODE)"
-            exit 1
-          }
-          Remove-Item -Recurse -Force $probeDir
-
-          $pythonOk = $false
-          foreach ($nome in @("python3", "python")) {
-            if (Get-Command $nome -ErrorAction SilentlyContinue) { $pythonOk = $true; break }
-          }
-          if (-not $pythonOk) {
-            Write-Error "PISO NAO ATENDIDO: nem python3 nem python no PATH (DEPZERO-TRACE, tests/CMakeLists.txt exige um dos dois)"
-            exit 1
-          }
-
-          Write-Host "piso de ferramentas OK (Windows): CMake $cmakeMajor.$cmakeMinor, MSVC aceita /std:c++latest, python presente"
+        run: tools/ci/windows/prep.ps1
 
       # A3c (D-A13): marco `id: prep` - passo SEM logica, logo depois
       # do MSVC x64 e do piso do Windows (B3), que sao os dois ultimos
@@ -1051,8 +910,8 @@ jobs:
       #
       # CI-WIN-GEN (27/08/2026, MEDIDO no run 33114884257; generator
       # trocado de Visual Studio para Ninja em 27/08/2026): sem -G, o
-      # CMake 4.1.6 recem-instalado (passo "Instalar CMake >= 4.1"
-      # acima) escolheu "NMake Makefiles" como generator padrao neste
+      # CMake 4.1.6 recem-instalado (tools/ci/windows/prep.ps1, passo
+      # "Piso de ferramentas (Windows)" acima) escolheu "NMake Makefiles" como generator padrao neste
       # shell pwsh comum (nao um Developer Command Prompt), e o passo
       # morreu com "'nmake' '-?' failed with: no such file or
       # directory" - nmake nao esta no PATH fora de um shell com
@@ -2906,6 +2765,14 @@ jobs:
       - name: Checkout e' repositorio git
         run: tools/ci/prova_checkout.sh
 
+      # D-A14 (item 2): piso de ferramentas (GCC/CMake/python/xdg-shell),
+      # fonte unica tools/ci/floor.sh, logo depois da prova do checkout e
+      # ANTES do marco `id: prep` (G5 confere). Antes deste passo, so' o
+      # job `linux` tinha piso - um toolchain abaixo do piso so' falhava
+      # tarde, dentro do cmake, sem apontar a causa.
+      - name: Piso de ferramentas
+        run: tools/ci/floor.sh
+
       # PRECI-SELFTEST (03/09/2026, GODS_LAWS.md L-36/L-40): tools/
       # preci.sh --selftest nunca rodava em lugar nenhum. O teste
       # registrado, `preci_selftest` (tests/CMakeLists.txt), so nasce
@@ -3100,28 +2967,9 @@ jobs:
       # piso 4.1 que este projeto declara, e o clang-tidy le o
       # compile_commands.json que o CMake escreve, nao o compilador em
       # si.
-      - name: Instalar CMake >= 4.1 (Windows)
-        shell: pwsh
-        run: |
-          $cmakeVersion = "4.1.6"
-          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
-          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
-          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
-          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
-          Expand-Archive -Path $zipPath -DestinationPath $extractDir
-          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
-          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
-          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
-            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
-            exit 1
-          }
-          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
-
       - name: Versoes da toolchain
         shell: pwsh
-        run: |
-          cmake --version
-          clang-tidy --version
+        run: clang-tidy --version
 
       # Mesmo passo CI-WIN-ENV do job `windows` acima: sem o ambiente do
       # MSVC preparado, o cl.exe que o CMake vai gravar dentro do
@@ -3152,6 +3000,13 @@ jobs:
               Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
             }
           }
+
+      # D-A14 (item 2): instala o CMake 4.1.6 e prova o piso de ferramentas
+      # (tools/ci/windows/prep.ps1, fonte unica dos 4 jobs Windows), logo
+      # depois do MSVC x64 (precisa do cl.exe) e ANTES do marco `id: prep`.
+      - name: Piso de ferramentas (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1
 
       # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
       # job nao ganhou o piso B3 - decisao registrada no relatorio da
@@ -3470,6 +3325,14 @@ jobs:
       - name: Checkout e' repositorio git
         run: tools/ci/prova_checkout.sh
 
+      # D-A14 (item 2): piso de ferramentas (GCC/CMake/python/xdg-shell),
+      # fonte unica tools/ci/floor.sh, logo depois da prova do checkout e
+      # ANTES do marco `id: prep` (G5 confere). Antes deste passo, so' o
+      # job `linux` tinha piso - um toolchain abaixo do piso so' falhava
+      # tarde, dentro do cmake, sem apontar a causa.
+      - name: Piso de ferramentas
+        run: tools/ci/floor.sh
+
       # A3c (D-A13): marco `id: prep` - este job nao tem um passo
       # "--selftest" separado (ao contrario de `lint`); o unico passo
       # seguinte ja e' o build/analise de verdade (com safe.directory
@@ -3544,6 +3407,14 @@ jobs:
       - name: Checkout e' repositorio git
         run: tools/ci/prova_checkout.sh
 
+      # D-A14 (item 2): piso de ferramentas (GCC/CMake/python/xdg-shell),
+      # fonte unica tools/ci/floor.sh, logo depois da prova do checkout e
+      # ANTES do marco `id: prep` (G5 confere). Antes deste passo, so' o
+      # job `linux` tinha piso - um toolchain abaixo do piso so' falhava
+      # tarde, dentro do cmake, sem apontar a causa.
+      - name: Piso de ferramentas
+        run: tools/ci/floor.sh
+
       # A3c (D-A13): marco `id: prep`, logo depois de instalar e do
       # checkout; `id: build` no unico passo seguinte, primeiro (e
       # unico) que compila/analisa de verdade.
@@ -3595,27 +3466,6 @@ jobs:
       - uses: actions/checkout@v7
 
       # Mesmo passo do job `windows` acima (CI-WIN-ENV/PKG-NATIVE).
-      - name: Instalar CMake >= 4.1 (Windows)
-        shell: pwsh
-        run: |
-          $cmakeVersion = "4.1.6"
-          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
-          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
-          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
-          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
-          Expand-Archive -Path $zipPath -DestinationPath $extractDir
-          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
-          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
-          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
-            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
-            exit 1
-          }
-          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
-
-      - name: Versoes da toolchain
-        shell: pwsh
-        run: cmake --version
-
       # Mesmo passo CI-WIN-ENV do job `windows` acima.
       - name: Preparar ambiente do compilador (MSVC x64)
         shell: pwsh
@@ -3643,6 +3493,13 @@ jobs:
               Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
             }
           }
+
+      # D-A14 (item 2): instala o CMake 4.1.6 e prova o piso de ferramentas
+      # (tools/ci/windows/prep.ps1, fonte unica dos 4 jobs Windows), logo
+      # depois do MSVC x64 (precisa do cl.exe) e ANTES do marco `id: prep`.
+      - name: Piso de ferramentas (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1
 
       # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
       # job nao ganhou o piso B3 - decisao registrada no relatorio da
@@ -3746,6 +3603,14 @@ jobs:
       - name: Checkout e' repositorio git
         run: tools/ci/prova_checkout.sh
 
+      # D-A14 (item 2): piso de ferramentas (GCC/CMake/python/xdg-shell),
+      # fonte unica tools/ci/floor.sh, logo depois da prova do checkout e
+      # ANTES do marco `id: prep` (G5 confere). Antes deste passo, so' o
+      # job `linux` tinha piso - um toolchain abaixo do piso so' falhava
+      # tarde, dentro do cmake, sem apontar a causa.
+      - name: Piso de ferramentas
+        run: tools/ci/floor.sh
+
       # A3c (D-A13): marco `id: prep` - este job nao tem um passo
       # "--selftest" separado; o unico passo seguinte ja e' o build de
       # verdade (com safe.directory embutido), entao o marco vem logo
@@ -3820,27 +3685,6 @@ jobs:
           fetch-tags: true
 
       # Mesmo passo do job `windows`/`windows-sanitizer` acima (CI-WIN-ENV/PKG-NATIVE).
-      - name: Instalar CMake >= 4.1 (Windows)
-        shell: pwsh
-        run: |
-          $cmakeVersion = "4.1.6"
-          $zipUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-windows-x86_64.zip"
-          $zipPath = Join-Path $env:RUNNER_TEMP "glintfx-cmake.zip"
-          $extractDir = Join-Path $env:RUNNER_TEMP "glintfx-cmake"
-          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
-          Expand-Archive -Path $zipPath -DestinationPath $extractDir
-          $cmakeRoot = Get-ChildItem -Path $extractDir -Directory | Select-Object -First 1
-          $cmakeBinDir = Join-Path $cmakeRoot.FullName "bin"
-          if (-not (Test-Path (Join-Path $cmakeBinDir "cmake.exe"))) {
-            Write-Error "cmake.exe not found under $cmakeBinDir after extracting $zipUrl"
-            exit 1
-          }
-          Add-Content -Path $env:GITHUB_PATH -Value $cmakeBinDir
-
-      - name: Versoes da toolchain
-        shell: pwsh
-        run: cmake --version
-
       # Mesmo passo CI-WIN-ENV do job `windows` acima.
       - name: Preparar ambiente do compilador (MSVC x64)
         shell: pwsh
@@ -3868,6 +3712,13 @@ jobs:
               Add-Content -Path $env:GITHUB_ENV -Value "$($matches[1])=$($matches[2])"
             }
           }
+
+      # D-A14 (item 2): instala o CMake 4.1.6 e prova o piso de ferramentas
+      # (tools/ci/windows/prep.ps1, fonte unica dos 4 jobs Windows), logo
+      # depois do MSVC x64 (precisa do cl.exe) e ANTES do marco `id: prep`.
+      - name: Piso de ferramentas (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1
 
       # A3c (D-A13): marco `id: prep`, logo depois do MSVC x64 (este
       # job nao ganhou o piso B3 - decisao registrada no relatorio da
@@ -4053,6 +3904,16 @@ jobs:
       # passaria calada. Fonte unica: tools/ci/prova_checkout.sh.
       - name: Checkout e' repositorio git
         run: tools/ci/prova_checkout.sh
+
+      # D-A14 (item 2): piso de ferramentas, fonte unica tools/ci/floor.sh.
+      # CXX=clang++ porque este job compila com Clang (o floor.sh nao
+      # aplica o piso de GCC a ele: `clang++` define __GNUC__=4). O
+      # projeto nao declara piso de versao de Clang - so' se valida e se
+      # imprime a versao; o numero, se houver, e' decisao do lider (L-01).
+      - name: Piso de ferramentas
+        env:
+          CXX: clang++
+        run: tools/ci/floor.sh
 
       # A3c (D-A13): marco `id: prep`, logo depois de instalar e do
       # checkout.

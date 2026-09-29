@@ -66,8 +66,9 @@ ship a CMake above the 4.1 floor on their own:
   official zip from [cmake.org/download](https://cmake.org/download/)
   (`cmake-<version>-windows-x86_64.zip`) and put its `bin/` directory on
   `PATH`. glintfx's own CI does exactly this - see
-  `.github/workflows/ci.yml`'s `windows` job, "Instalar CMake >= 4.1
-  (Windows)" step.
+  `tools/ci/windows/prep.ps1`, which every Windows job of
+  `.github/workflows/ci.yml` calls in its "Piso de ferramentas (Windows)"
+  step.
 
 **Fedora (this project's primary target, GODS_LAWS.md L-04), Ubuntu,
 Arch and CachyOS all ship a CMake above the 4.1 floor already**,

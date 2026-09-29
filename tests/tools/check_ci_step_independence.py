@@ -368,6 +368,16 @@ def g1_errors(job_name, job_block_text, steps):
     return errors
 
 
+def _code_text(text):
+    """O texto SEM as linhas de comentario (`# ...`). Um comentario que
+    cita `tools/ci/floor.sh`, `git rev-parse HEAD` ou o nome de um
+    script NAO e' uma chamada nem uma prova - e' o falso-verde medido
+    ao sabotar o proprio G5 (L-27): o comentario de um passo removido
+    grudava no passo anterior (o parser parte passos por `- `, e o
+    comentario antecede o passo a que pertence) e satisfazia a busca."""
+    return "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+
+
 # D-A14 item 1 (L-17 gemeo): a prova do clone git vale para TODO job com
 # `container:`, nao so' o de checkout duplo (bootstrap + final). Nos 5
 # jobs fixos (lint/sanitizer/gl-codegen-host-cross/debug/clang) o git
@@ -387,9 +397,10 @@ _PROOF_PARTS = (
 
 
 def _effective_proof_text(step_text, scripts):
-    if PROOF_SCRIPT in step_text:
-        return step_text + "\n" + (scripts or {}).get(PROOF_SCRIPT, "")
-    return step_text
+    codigo = _code_text(step_text)
+    if PROOF_SCRIPT in codigo:
+        return codigo + "\n" + _code_text((scripts or {}).get(PROOF_SCRIPT, ""))
+    return codigo
 
 
 def _missing_proof_parts(step_text, scripts):
@@ -452,6 +463,117 @@ def g3_errors(job_name, steps):
     return errors
 
 
+# --- D-A14 item 2 (G5): piso de ferramentas em todo job que compila -----
+#
+# "Todo job com `id: build` tem um passo que chama `tools/ci/floor.sh`
+# (familia Linux, job com `container:`) ou `tools/ci/windows/prep.ps1`
+# (familia Windows, `runs-on: windows-*`) DEPOIS do checkout e ANTES do
+# marco `id: prep`". A familia sai do que o bloco do job DECLARA, nunca
+# de uma lista de nomes: job com `id: build` e sem `container:` nem
+# `runs-on: windows-*` (ex.: o `wayland-container`, que constroi uma
+# imagem Docker no proprio runner) fica FORA do universo, e a fronteira
+# e' impressa (L-40). Nenhum job Windows pode ter a instalacao do CMake
+# escrita no proprio ci.yml (era copiada 4 vezes, regra de 3 estourada;
+# a sonda e' o download da Kitware, nunca o nome do passo). Os scripts
+# sao lidos pelo CONTEUDO: um piso que nao checa o que promete nao conta.
+
+_RUNS_ON_WINDOWS_RE = re.compile(r"^    runs-on:\s*windows", re.MULTILINE)
+_KITWARE_DOWNLOAD_RE = re.compile(r"Kitware/CMake/releases")
+
+_FLOOR_SCRIPT_NEEDLES = ("__GNUC__", "cmake --version", "python3", "xdg-shell.xml")
+_PREP_PS1_NEEDLES = ("cmake --version", "/std:c++latest", "python3", "RUNNER_TEMP")
+
+# A garantia do commit 46b21c1: a sonda do cl.exe leva /Fo E /Fe
+# explicitos. Procurados DENTRO da funcao que monta os argumentos do
+# cl.exe (`Get-ClArguments`), nunca no arquivo inteiro - o -Autoteste do
+# proprio script cita as duas flags, e uma busca no arquivo todo seria
+# satisfeita por ele mesmo com a garantia sabotada (medido em P4).
+_CL_ARGUMENTS_FN_RE = re.compile(r"function Get-ClArguments\b.*?^\}", re.DOTALL | re.MULTILINE)
+
+
+def _cl_arguments_missing(ps1_code):
+    m = _CL_ARGUMENTS_FN_RE.search(ps1_code)
+    if not m:
+        return ["function Get-ClArguments (monta os argumentos do cl.exe)"]
+    return [f"{flag} em Get-ClArguments" for flag in ("/Fo:", "/Fe:") if flag not in m.group(0)]
+
+
+def job_family(job_block_text):
+    """'linux' (container:), 'windows' (runs-on: windows-*) ou None
+    (fora do universo do piso)."""
+    if job_has_container(job_block_text):
+        return "linux"
+    if _RUNS_ON_WINDOWS_RE.search(job_block_text):
+        return "windows"
+    return None
+
+
+_FAMILY_FLOOR = {"linux": FLOOR_SCRIPT, "windows": PREP_PS1}
+_FAMILY_NEEDLES = {FLOOR_SCRIPT: _FLOOR_SCRIPT_NEEDLES, PREP_PS1: _PREP_PS1_NEEDLES}
+
+
+def _floor_script_errors(job_name, script, scripts):
+    texto = (scripts or {}).get(script)
+    if texto is None:
+        return [f"job {job_name!r}: {script} ausente - G5 le o CONTEUDO do piso, nunca so' a chamada"]
+    codigo = _code_text(texto)
+    faltam = [n for n in _FAMILY_NEEDLES[script] if n not in codigo]
+    if script == PREP_PS1:
+        faltam.extend(_cl_arguments_missing(codigo))
+    if faltam:
+        return [f"job {job_name!r}: {script} nao checa {', '.join(faltam)} - o piso nao cobre o que promete (G5)"]
+    return []
+
+
+def _floor_position_errors(job_name, steps, script):
+    indices = [i for i, (_n, t) in enumerate(steps) if script in _code_text(t)]
+    if not indices:
+        return [
+            f"job {job_name!r}: nenhum passo chama {script} - G5: todo job com id: build "
+            f"tem o piso de ferramentas (D-A14)"
+        ]
+    errors = []
+    prep = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
+    if prep and indices[0] > prep[0]:
+        errors.append(f"job {job_name!r}: o piso ({script}) vem DEPOIS do marco id: prep, tem de vir ANTES do marco - G5")
+    finais = [i for i, (_n, t) in enumerate(steps) if is_checkout_step(t) and not checkout_has_path(t)]
+    if finais and indices[0] < finais[-1]:
+        errors.append(f"job {job_name!r}: o piso ({script}) roda ANTES do checkout - o script mora no repo, tem de vir DEPOIS do checkout - G5")
+    return errors
+
+
+def _handwritten_cmake_install_errors(job_name, steps):
+    return [
+        f"job {job_name!r}, passo {nome!r}: instala o CMake a mao (download da Kitware) - "
+        f"G5: a instalacao mora so' em {PREP_PS1} (D-A14, regra de 3)"
+        for nome, texto in steps
+        if _KITWARE_DOWNLOAD_RE.search(_code_text(texto)) and PREP_PS1 not in _code_text(texto)
+    ]
+
+
+def _piso_universe(job_block_text, steps):
+    """Onde este job cai no universo do G5: None (sem id: build, nada a
+    exigir), 'linux'/'windows' (piso exigido) ou 'fora' (compila sem
+    container nem windows - fronteira impressa, nunca calada)."""
+    if not any(step_id(t) == "build" for _n, t in steps):
+        return None
+    return job_family(job_block_text) or "fora"
+
+
+def g5_errors(job_name, job_block_text, steps, scripts=None):
+    if not any(step_id(t) == "build" for _n, t in steps):
+        return []
+    familia = job_family(job_block_text)
+    if familia is None:
+        return []
+    script = _FAMILY_FLOOR[familia]
+    errors = _floor_position_errors(job_name, steps, script)
+    errors.extend(_floor_script_errors(job_name, script, scripts))
+    if familia == "windows":
+        errors.extend(_handwritten_cmake_install_errors(job_name, steps))
+    return errors
+
+
 # --- veredito completo ----------------------------------------------
 
 
@@ -469,7 +591,12 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(g1_errors(job_name, job_block_text, steps))
     errors.extend(g2_errors(job_name, job_block_text, steps, scripts))
     errors.extend(g3_errors(job_name, steps))
-    counts = {"testes": len(test_steps), "publicacoes": len(publish_steps)}
+    errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
+    counts = {
+        "testes": len(test_steps),
+        "publicacoes": len(publish_steps),
+        "piso": _piso_universe(job_block_text, steps),
+    }
     return counts, errors
 
 
@@ -556,6 +683,18 @@ def _load_scripts(ci_yml_path):
     return scripts
 
 
+def _print_piso_universe(universo):
+    """Piso de varredura do G5 (L-40): encontrados/exigidos por familia
+    e a fronteira (jobs com id: build fora do universo, NOMEADOS)."""
+    por_familia = {f: sorted(j for j, x in universo.items() if x == f) for f in ("linux", "windows", "fora")}
+    print(
+        f"{SCRIPT_NAME}: G5 piso de ferramentas - {len(universo)} job(s) com id: build; "
+        f"exigido em {len(por_familia['linux']) + len(por_familia['windows'])} "
+        f"(linux={len(por_familia['linux'])}, windows={len(por_familia['windows'])}); "
+        f"fora do universo (sem container: nem runs-on: windows): {por_familia['fora'] or 'nenhum'}"
+    )
+
+
 def real_main(args):
     ci_yml_path, job_name = _parse_real_main_args(args)
     ci_yml_text = _read_file(ci_yml_path)
@@ -564,10 +703,19 @@ def real_main(args):
 
     total_testes = 0
     all_errors = []
+    universo = {}
     for jn in job_names:
         counts, errors = _check_one_job(ci_yml_path, ci_yml_text, jn, scripts)
         total_testes += counts["testes"]
         all_errors.extend(errors)
+        if counts["piso"] is not None:
+            universo[jn] = counts["piso"]
+    _print_piso_universe(universo)
+    if job_name is None and not universo:
+        fail(
+            f"varredura vazia: 0 job(s) com id: build em {len(job_names)} job(s) - G5, "
+            "GODS_LAWS.md L-40, isto e sinal de coleta quebrada"
+        )
 
     if total_testes == 0:
         fail(
@@ -603,6 +751,9 @@ _FIXTURE_CI_YML = """\
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse --is-inside-work-tree
           [ "$(git rev-parse HEAD)" = "$GITHUB_SHA" ]
+
+      - name: Piso de ferramentas
+        run: tools/ci/floor.sh
 
       - name: Preparo concluido
         id: prep
@@ -644,14 +795,17 @@ _FIXTURE_CI_YML = """\
 """
 
 
-def _run_real_main_capturing(ci_yml_text, job_name=DEFAULT_JOB, extra_files=None):
+def _run_real_main_capturing(ci_yml_text, job_name=DEFAULT_JOB, extra_files=None, drop_defaults=False):
     """`job_name=None` reproduz o CLI real sem `--job` nenhum (F2: o
     modo padrao varre TODOS os jobs do arquivo) - os selftests
     antigos, focados num job so', continuam passando `job_name`
     explicito (comportamento antigo preservado por `--job`).
     `extra_files` ({caminho-relativo-a-raiz: texto}) monta uma arvore
     de raiz falsa (`.github/workflows/ci.yml` + os scripts que o
-    ci.yml chama), do mesmo formato que real_main() le do repo real."""
+    ci.yml chama), do mesmo formato que real_main() le do repo real.
+    Sem `extra_files`, monta os tres scripts corretos (`_DEFAULT_SCRIPTS`);
+    `extra_files` sobrepoe por caminho, e `drop_defaults=True` monta SO'
+    o que `extra_files` traz (para provar ausencia de script)."""
     import contextlib
     import io
     import tempfile
@@ -663,7 +817,8 @@ def _run_real_main_capturing(ci_yml_text, job_name=DEFAULT_JOB, extra_files=None
         path = Path(tmp) / ".github" / "workflows" / "ci.yml"
         path.parent.mkdir(parents=True)
         path.write_text(ci_yml_text, encoding="utf-8")
-        for rel, text in (extra_files or {}).items():
+        files = dict(extra_files or {}) if drop_defaults else {**_DEFAULT_SCRIPTS, **(extra_files or {})}
+        for rel, text in files.items():
             target = Path(tmp) / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8")
@@ -1200,11 +1355,27 @@ head="$(git rev-parse HEAD)"
 echo "inside-work-tree=$inside"
 """
 
-_FLOOR_SCRIPT_OK = "#!/usr/bin/env bash\necho piso\n"
+_FLOOR_SCRIPT_OK = """#!/usr/bin/env bash
+gnuc="$("$CXX" -dM -E -x c++ /dev/null | awk '$2 == "__GNUC__" {print $3}')"
+cmake --version
+command -v python3
+xml="$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml"
+"""
+
+_PREP_PS1_OK = """param([switch]$Autoteste)
+cmake --version
+function Get-ClArguments($Paths) {
+    return @('/std:c++latest', "/Fe:$($Paths.Exe)", "/Fo:$($Paths.Obj)", $Paths.Src)
+}
+$probe = Join-Path $env:RUNNER_TEMP 'probe'
+Get-Command python3
+"""
+
+_DEFAULT_SCRIPTS = {PROOF_SCRIPT: _PROOF_SCRIPT_OK, FLOOR_SCRIPT: _FLOOR_SCRIPT_OK, PREP_PS1: _PREP_PS1_OK}
 
 
 def _fixed_job_files(proof_script=_PROOF_SCRIPT_OK):
-    return {PROOF_SCRIPT: proof_script, FLOOR_SCRIPT: _FLOOR_SCRIPT_OK}
+    return {**_DEFAULT_SCRIPTS, PROOF_SCRIPT: proof_script}
 
 
 def selftest_g2x_fixed_job_with_proof_script_passes():
@@ -1248,8 +1419,10 @@ def selftest_g2x_proof_script_without_head_reproves():
 
 
 def selftest_g2x_proof_script_missing_reproves():
-    files = {FLOOR_SCRIPT: _FLOOR_SCRIPT_OK}
-    exit_code, output = _run_real_main_capturing(_FIXTURE_FIXED_JOB, job_name="lint", extra_files=files)
+    files = {k: v for k, v in _DEFAULT_SCRIPTS.items() if k != PROOF_SCRIPT}
+    exit_code, output = _run_real_main_capturing(
+        _FIXTURE_FIXED_JOB, job_name="lint", extra_files=files, drop_defaults=True
+    )
     if exit_code != 1 or "nao prova git" not in output:
         print(f"selftest: G2X-SCRIPT-AUSENTE FALHOU (codigo {exit_code!r}): {output!r}", file=sys.stderr)
         return False
@@ -1287,6 +1460,173 @@ def selftest_g1_job_without_container_not_checked():
     return True
 
 
+# --- D-A14 item 2 (G5): piso de ferramentas em todo job que compila -----
+
+_FIXTURE_WINDOWS_JOB = """jobs:
+  windows-x:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Preparar ambiente do compilador (MSVC x64)
+        shell: pwsh
+        run: echo msvc
+
+      - name: Piso de ferramentas (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1
+
+      - name: Preparo concluido
+        id: prep
+        shell: pwsh
+        run: Write-Host ok
+
+      - name: Compilar
+        id: build
+        shell: pwsh
+        run: cmake --build build
+
+      - name: fixture a
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: pwsh
+        run: tests/container/exec_fixture.sh c a
+"""
+
+_FIXTURE_HOST_DOCKER_JOB = """jobs:
+  imagem-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Preparo concluido
+        id: prep
+        run: echo ok
+
+      - name: Constroi a imagem
+        id: build
+        run: docker build .
+
+      - name: fixture a
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: tests/container/exec_fixture.sh c a
+"""
+
+
+def _g5_run(fixture, job, mutate=None, files=None, drop_defaults=False):
+    texto = fixture if mutate is None else mutate(fixture)
+    if mutate is not None and texto == fixture:
+        return None, "ancora do replace nao casou"
+    return _run_real_main_capturing(texto, job_name=job, extra_files=files, drop_defaults=drop_defaults)
+
+
+def _g5_expect(nome, resultado, *trechos):
+    exit_code, output = resultado
+    if exit_code != 1 or not all(t in output for t in trechos):
+        print(f"selftest: {nome} FALHOU (codigo {exit_code!r}, esperava {trechos}): {output!r}", file=sys.stderr)
+        return False
+    print(f"selftest: {nome} OK")
+    return True
+
+
+def selftest_g5_positives():
+    for fixture, job in ((_FIXTURE_FIXED_JOB, "lint"), (_FIXTURE_WINDOWS_JOB, "windows-x"), (_FIXTURE_HOST_DOCKER_JOB, "imagem-docker")):
+        exit_code, output = _run_real_main_capturing(fixture, job_name=job)
+        if exit_code not in (None, 0):
+            print(f"selftest: G5-POSITIVO ({job}) FALHOU: {output}", file=sys.stderr)
+            return False
+    print("selftest: G5-POSITIVOS OK (linux com container, windows e job de host sem container fora do universo)")
+    return True
+
+
+def selftest_g5_p1_windows_without_prep_reproves():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace("        run: tools/ci/windows/prep.ps1\n", "        run: echo sem piso\n", 1),
+    )
+    return _g5_expect("G5-P1-WINDOWS-SEM-PISO", resultado, "windows-x", "tools/ci/windows/prep.ps1")
+
+
+def selftest_g5_linux_without_floor_reproves():
+    resultado = _g5_run(
+        _FIXTURE_FIXED_JOB, "lint",
+        lambda t: t.replace("      - name: Piso de ferramentas\n        run: tools/ci/floor.sh\n\n", "", 1),
+    )
+    return _g5_expect("G5-LINUX-SEM-PISO", resultado, "lint", "tools/ci/floor.sh")
+
+
+def selftest_g5_p2_handwritten_cmake_install_reproves():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace(
+            "      - name: Preparar ambiente do compilador (MSVC x64)\n",
+            "      - name: Baixar CMake a mao\n        shell: pwsh\n"
+            "        run: Invoke-WebRequest -Uri https://github.com/Kitware/CMake/releases/download/v4.1.6/cmake.zip\n\n"
+            "      - name: Preparar ambiente do compilador (MSVC x64)\n", 1),
+    )
+    return _g5_expect("G5-P2-CMAKE-A-MAO", resultado, "windows-x", "Kitware")
+
+
+def selftest_g5_floor_after_prep_reproves():
+    def mover(t):
+        piso = "      - name: Piso de ferramentas (Windows)\n        shell: pwsh\n        run: tools/ci/windows/prep.ps1\n\n"
+        t = t.replace(piso, "", 1)
+        return t.replace("      - name: Compilar\n", piso + "      - name: Compilar\n", 1)
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", mover)
+    return _g5_expect("G5-PISO-DEPOIS-DO-PREP", resultado, "windows-x", "ANTES do marco")
+
+
+def selftest_g5_floor_before_checkout_reproves():
+    def mover(t):
+        piso = "      - name: Piso de ferramentas (Windows)\n        shell: pwsh\n        run: tools/ci/windows/prep.ps1\n\n"
+        t = t.replace(piso, "", 1)
+        return t.replace("      - uses: actions/checkout@v7\n\n", piso + "      - uses: actions/checkout@v7\n\n", 1)
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", mover)
+    return _g5_expect("G5-PISO-ANTES-DO-CHECKOUT", resultado, "windows-x", "DEPOIS do checkout")
+
+
+def selftest_g5_floor_script_without_cmake_check_reproves():
+    sem_cmake = _FLOOR_SCRIPT_OK.replace("cmake --version\n", "")
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", files={FLOOR_SCRIPT: sem_cmake})
+    return _g5_expect("G5-SCRIPT-SEM-CMAKE", resultado, FLOOR_SCRIPT, "cmake --version")
+
+
+def selftest_g5_prep_ps1_without_fo_reproves():
+    sem_fo = _PREP_PS1_OK.replace(' "/Fo:$($Paths.Obj)",', "")
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", files={PREP_PS1: sem_fo})
+    return _g5_expect("G5-PS1-SEM-FO", resultado, PREP_PS1, "/Fo: em Get-ClArguments")
+
+
+def selftest_g5_prep_ps1_missing_reproves():
+    files = {k: v for k, v in _DEFAULT_SCRIPTS.items() if k != PREP_PS1}
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", files=files, drop_defaults=True)
+    return _g5_expect("G5-PS1-AUSENTE", resultado, PREP_PS1)
+
+
+
+# Falso-verde medido ao sabotar o G5 contra o ci.yml real (L-27): tirar so'
+# o PASSO do piso deixava o COMENTARIO dele, que cita o script e gruda no
+# passo anterior. Comentario nao e' chamada: tem de reprovar igual.
+def selftest_g5_comment_mentioning_script_is_not_a_call():
+    resultado = _g5_run(
+        _FIXTURE_WINDOWS_JOB, "windows-x",
+        lambda t: t.replace(
+            "      - name: Piso de ferramentas (Windows)\n        shell: pwsh\n        run: tools/ci/windows/prep.ps1\n",
+            "      # piso: tools/ci/windows/prep.ps1 (so' comentario, sem passo)\n", 1),
+    )
+    return _g5_expect("G5-COMENTARIO-NAO-E-CHAMADA", resultado, "windows-x", "nenhum passo chama")
+
+
+def selftest_g2_comment_mentioning_proof_is_not_a_proof():
+    resultado = _g5_run(
+        _FIXTURE_FIXED_JOB, "lint",
+        lambda t: t.replace(
+            "        run: tools/ci/prova_checkout.sh\n",
+            "        run: echo sem prova\n        # git rev-parse --is-inside-work-tree, git rev-parse HEAD, GITHUB_SHA\n", 1),
+    )
+    return _g5_expect("G2-COMENTARIO-NAO-E-PROVA", resultado, "nao prova git")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -1314,6 +1654,17 @@ def selftest_main():
         selftest_g2x_fixed_job_without_proof_reproves(),
         selftest_g2x_proof_script_without_head_reproves(),
         selftest_g2x_proof_script_missing_reproves(),
+        selftest_g5_positives(),
+        selftest_g5_p1_windows_without_prep_reproves(),
+        selftest_g5_linux_without_floor_reproves(),
+        selftest_g5_p2_handwritten_cmake_install_reproves(),
+        selftest_g5_floor_after_prep_reproves(),
+        selftest_g5_floor_before_checkout_reproves(),
+        selftest_g5_floor_script_without_cmake_check_reproves(),
+        selftest_g5_prep_ps1_without_fo_reproves(),
+        selftest_g5_prep_ps1_missing_reproves(),
+        selftest_g5_comment_mentioning_script_is_not_a_call(),
+        selftest_g2_comment_mentioning_proof_is_not_a_proof(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

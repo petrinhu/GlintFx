@@ -125,8 +125,22 @@ function Install-Cmake([string]$Version, [string]$TempRoot) {
     $env:PATH = "$cmakeBinDir;$env:PATH"
 }
 
+# Primeira linha de `cmake --version`. NUNCA `| Select-Object -First 1` sobre o
+# comando nativo: interromper o pipeline mata o cmake no meio e deixa
+# $LASTEXITCODE nulo/imprevisivel (run 36523231561). Captura tudo, confere o
+# rc REAL do cmake e so' entao pega a linha 0.
+function Get-CmakeVersionLine {
+    $saida = @(cmake --version 2>$null)
+    $rc = $LASTEXITCODE
+    if ($rc -ne 0) {
+        Stop-Floor "'cmake --version' saiu com codigo $rc (cmake ausente ou quebrado)"
+    }
+    if ($saida.Count -eq 0) { return '' }
+    return [string]$saida[0]
+}
+
 function Assert-CmakeFloor {
-    $line = (cmake --version 2>$null | Select-Object -First 1)
+    $line = Get-CmakeVersionLine
     $cause = Get-CmakeFloorError $line
     if ($cause) { Stop-Floor $cause }
     return $line
@@ -158,7 +172,7 @@ function Assert-PythonPresent {
 # Modo -VerifyCmake: chamado como PRIMEIRA linha do primeiro passo depois do
 # marco `id: prep` (G5 confere), e reprova se o cmake visivel nao for o pinado.
 function Invoke-VerifyCmake {
-    $line = (cmake --version 2>$null | Select-Object -First 1)
+    $line = Get-CmakeVersionLine
     $cause = Get-CmakePinError $line $CmakeVersion
     if ($cause) { Stop-Floor $cause }
     Write-Host "cmake pinado OK: $line"
@@ -230,6 +244,32 @@ function Invoke-AutotesteModosReais {
             $r = Invoke-Filho @('-File', $script, '-VerifyCmake') @{ PATH = "$fake$([System.IO.Path]::PathSeparator)$env:PATH" }
             Assert-Autoteste "modo real -VerifyCmake com '$($caso[0])': rc=$($caso[1]) e mensagem '$($caso[2])'" (($r.Rc -eq $caso[1]) -and $r.Out.Contains($caso[2]))
         }
+        # CORPO LITERAL do passo do ci.yml (run 36523231561): extrai o `run:` de
+        # cada passo "CMake pinado (Windows)", acrescenta o que o CI escrevia
+        # depois (a checagem de $LASTEXITCODE) e uma linha MARCADORA, e roda
+        # como o runner roda (`pwsh -command ". arquivo"`) contra o cmake falso.
+        # 4.1.6: o marcador TEM de existir e rc=0; 3.31.6: o marcador NAO pode
+        # existir e rc=1. Sem `exit 0` no prep.ps1 o marcador some mesmo com
+        # 4.1.6 (o defeito real: $null -ne 0 encerra o passo com rc=0).
+        $raizRepo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $script)))
+        $ciYml = Join-Path $raizRepo '.github/workflows/ci.yml'
+        $texto = if (Test-Path $ciYml) { Get-Content -Raw $ciYml } else { '' }
+        $corpos = @([regex]::Matches($texto, '(?m)^      - name: CMake pinado \(Windows\)\r?\n        shell: pwsh\r?\n        run: (?<c>tools/ci/windows/prep\.ps1 -VerifyCmake)\r?$') | ForEach-Object { $_.Groups['c'].Value })
+        Assert-Autoteste "ci.yml: ha passos 'CMake pinado (Windows)' para exercitar (encontrados=$($corpos.Count), esperado >= 1)" ($corpos.Count -ge 1)
+        foreach ($caso in @(@('cmake version 4.1.6', $true, 0), @('cmake version 3.31.6', $false, 1))) {
+            $fake = New-FakeCmakeDir $raiz $caso[0]
+            $marcador = Join-Path $raiz ('marcador-' + ($caso[0] -replace '\W', '_'))
+            foreach ($corpo in $corpos) {
+                $caller = Join-Path $raiz 'caller.ps1'
+                "$corpo`nif (`$LASTEXITCODE -ne 0) { exit `$LASTEXITCODE }`nSet-Content -Path '$marcador' -Value ok" | Set-Content $caller
+                Remove-Item $marcador -ErrorAction SilentlyContinue
+                Push-Location $raizRepo
+                try {
+                    $r = Invoke-Filho @('-NoProfile', '-Command', ". '$caller'") @{ PATH = "$fake$([System.IO.Path]::PathSeparator)$env:PATH" }
+                } finally { Pop-Location }
+                Assert-Autoteste "corpo literal do ci.yml com '$($caso[0])': marcador existe=$($caso[1]), rc=$($caso[2])" (((Test-Path $marcador) -eq $caso[1]) -and ($r.Rc -eq $caso[2]))
+            }
+        }
         # Trava do workspace: GITHUB_WORKSPACE = raiz do TempRoot => para em
         # Stop-Floor ANTES de criar a pasta da sonda e de chamar o cl.exe.
         $probe = (Get-ProbePaths $raiz).Dir
@@ -292,3 +332,9 @@ function Invoke-Autoteste {
 if ($MyInvocation.InvocationName -eq '.') { return }
 
 if ($Autoteste) { Invoke-Autoteste } elseif ($VerifyCmake) { Invoke-VerifyCmake } else { Invoke-Prep }
+
+# `exit 0` EXPLICITO no sucesso (run 36523231561): um .ps1 que termina sem
+# `exit` deixa $LASTEXITCODE nulo no chamador, e `if ($LASTEXITCODE -ne 0)`
+# ($null -ne 0 e' verdadeiro) encerra o passo com 0 sem rodar o resto. Com
+# `exit 0`, $LASTEXITCODE e' 0 e a checagem do chamador funciona.
+exit 0

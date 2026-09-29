@@ -738,6 +738,10 @@ def _floor_script_errors(job_name, script, scripts):
     faltam = [n for n in _FAMILY_NEEDLES[script] if n not in codigo]
     if script == PREP_PS1:
         faltam.extend(_cl_arguments_missing(codigo))
+        if re.search(r"cmake\s+--version[^\n]*\|\s*Select-Object", codigo):
+            faltam.append("nada de `| Select-Object` sobre o cmake nativo (deixa $LASTEXITCODE nulo)")
+        if not re.search(r"^exit 0\s*$", codigo, re.MULTILINE):
+            faltam.append("`exit 0` explicito no fim do script")
         if not re.search(r"Assert-MsvcAcceptsCxx23\s+\$env:RUNNER_TEMP\b", codigo):
             faltam.append("Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP (a sonda do cl.exe nunca no workspace)")
     if faltam:
@@ -782,34 +786,49 @@ def _piso_universe(job_block_text, steps):
     return job_family(job_block_text) or "fora"
 
 
-_CMAKE_CALL_RE = re.compile(r"^(?:&\s*)?cmake\b")
 _VERIFY_CMD = PREP_PS1 + " -VerifyCmake"
+_PS1_CALL_RE = re.compile(r"^(?:&\s*)?tools/ci/\S+\.ps1\b")
 
 
 def _verify_cmake_errors(job_name, steps):
-    """O primeiro passo depois do marco `id: prep` que roda `cmake` comeca
-    por `prep.ps1 -VerifyCmake` + checagem de $LASTEXITCODE (um .ps1 que
-    sai != 0 nao para o passo do pwsh sozinho). Item (i) do CTO, 29/09."""
+    """O passo IMEDIATAMENTE depois do marco `id: prep` e' um passo PROPRIO
+    cujo unico comando e' `prep.ps1 -VerifyCmake` (item (i) do CTO e run
+    36523231561: como primeira linha de um passo que faz outra coisa, ele
+    encerrava o passo calado - ver ps1_single_command_errors)."""
     prep = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
     if len(prep) != 1:
         return []
-    for nome, texto in steps[prep[0] + 1:]:
-        comandos = _run_lines(_code_text(texto))
-        if not any(_CMAKE_CALL_RE.match(c) for c in comandos):
+    if prep[0] + 1 >= len(steps):
+        return [f"job {job_name!r}: o marco prep e' o ultimo passo - G5 exige '{_VERIFY_CMD}' logo depois"]
+    nome, texto = steps[prep[0] + 1]
+    if _run_lines(_code_text(texto)) != [_VERIFY_CMD]:
+        return [
+            f"job {job_name!r}, passo {nome!r}: o passo logo depois do marco prep tem de ser "
+            f"um passo proprio de uma linha so' ('{_VERIFY_CMD}') - nada prova que os passos "
+            f"seguintes enxergam o CMake pinado (e nao o do Visual Studio) - G5"
+        ]
+    return []
+
+
+def ps1_single_command_errors(job_name, steps):
+    """Nenhum `run:` pwsh tem linhas depois de uma chamada a tools/ci/**/*.ps1
+    (run 36523231561): um .ps1 chamado sem `exit` explicito deixa
+    $LASTEXITCODE nulo, e o `if ($LASTEXITCODE -ne 0) { exit ... }` da linha
+    seguinte sai com 0 - o resto do passo nunca roda e o passo fica verde."""
+    errors = []
+    for nome, texto in steps:
+        codigo = _code_text(texto)
+        if not re.search(r"^\s*shell:\s*pwsh\b", codigo, re.MULTILINE):
             continue
-        if comandos[0] != _VERIFY_CMD:
-            return [
-                f"job {job_name!r}, passo {nome!r}: e' o primeiro passo depois do marco prep que roda "
-                f"cmake e nao comeca por '{_VERIFY_CMD}' - nada prova que ele enxerga o CMake pinado "
-                f"(e nao o do Visual Studio) - G5"
-            ]
-        if len(comandos) < 2 or "LASTEXITCODE" not in comandos[1]:
-            return [
-                f"job {job_name!r}, passo {nome!r}: '{_VERIFY_CMD}' sem checar $LASTEXITCODE na linha "
-                f"seguinte - o pwsh nao para o passo quando um .ps1 sai != 0 - G5"
-            ]
-        return []
-    return [f"job {job_name!r}: nenhum passo depois do marco prep roda cmake - G5 nao tem onde exigir {_VERIFY_CMD}"]
+        comandos = _run_lines(codigo)
+        chamadas = [i for i, c in enumerate(comandos) if _PS1_CALL_RE.match(c)]
+        if chamadas and len(comandos) > 1:
+            errors.append(
+                f"job {job_name!r}, passo {nome!r}: chama {comandos[chamadas[0]].split()[0]} e tem mais "
+                f"{len(comandos) - 1} linha(s) no mesmo run: - o passo pwsh encerra calado quando "
+                f"$LASTEXITCODE fica nulo; o script tem de ser o UNICO comando do passo - G5"
+            )
+    return errors
 
 
 def g5_errors(job_name, job_block_text, steps, scripts=None):
@@ -848,6 +867,7 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(g3c_errors(job_name, steps))
     errors.extend(aggregate_errors(job_name, steps))
     errors.extend(mandatory_errors(job_name, steps))
+    errors.extend(ps1_single_command_errors(job_name, steps))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
     counts = {
         "testes": len(test_steps),
@@ -1662,6 +1682,7 @@ function Invoke-Prep {
     Assert-MsvcAcceptsCxx23 $env:RUNNER_TEMP
 }
 Get-Command python3
+exit 0
 """
 
 _CMAKELISTS_OK = "cmake_minimum_required(VERSION 4.1)\n"
@@ -1781,13 +1802,14 @@ _FIXTURE_WINDOWS_JOB = """jobs:
         shell: pwsh
         run: Write-Host ok
 
+      - name: CMake pinado (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1 -VerifyCmake
+
       - name: Compilar
         id: build
         shell: pwsh
-        run: |
-          tools/ci/windows/prep.ps1 -VerifyCmake
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cmake --build build
+        run: cmake --build build
 
       - name: fixture a
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -2228,34 +2250,49 @@ def selftest_prep_probe_root_from_workspace_reproves():
 
 
 
-# Item (i) do CTO (29/09): nos jobs Windows, o PRIMEIRO passo depois do
-# marco `id: prep` que roda `cmake` comeca por `prep.ps1 -VerifyCmake`, que
-# REPROVA se `cmake --version` nao for exatamente o CMake pinado - sem
-# isso nada prova que os passos seguintes enxergam o CMake da Kitware e
-# nao o do Visual Studio.
+# Item (i) do CTO (29/09) + run 36523231561: nos jobs Windows, o passo
+# IMEDIATAMENTE depois do marco `id: prep` e' um passo PROPRIO cujo unico
+# comando e' `prep.ps1 -VerifyCmake`. Como primeira linha de um passo que
+# faz outra coisa ele encerrava o passo calado: o .ps1 sem `exit` deixa
+# $LASTEXITCODE nulo, `$null -ne 0` e' verdadeiro e `exit $null` sai com 0
+# (windows-lint/sanitizer/debug ficaram verdes sem compilar).
+_VERIFY_STEP = (
+    "      - name: CMake pinado (Windows)\n        shell: pwsh\n"
+    "        run: tools/ci/windows/prep.ps1 -VerifyCmake\n\n"
+)
+
+
 def selftest_verify_cmake_missing_reproves():
-    resultado = _g5_run(
-        _FIXTURE_WINDOWS_JOB, "windows-x",
-        lambda t: t.replace("          tools/ci/windows/prep.ps1 -VerifyCmake\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n", "", 1),
-    )
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", lambda t: t.replace(_VERIFY_STEP, "", 1))
     return _g5_expect("VERIFYCMAKE-AUSENTE", resultado, "windows-x", "-VerifyCmake")
 
 
-def selftest_verify_cmake_wrong_step_reproves():
-    def mover(t):
-        t = t.replace("          tools/ci/windows/prep.ps1 -VerifyCmake\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n", "", 1)
-        return t.replace("      - name: Compilar\n", "      - name: Configurar\n        shell: pwsh\n        run: cmake -S . -B build\n\n      - name: Compilar\n", 1)
-    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", mover)
-    return _g5_expect("VERIFYCMAKE-NO-PASSO-ERRADO", resultado, "windows-x", "Configurar", "-VerifyCmake")
+def selftest_verify_cmake_mixed_step_reproves():
+    def misturar(t):
+        t = t.replace(_VERIFY_STEP, "", 1)
+        return t.replace(
+            "        run: cmake --build build\n",
+            "        run: |\n          tools/ci/windows/prep.ps1 -VerifyCmake\n          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n          cmake --build build\n", 1)
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", misturar)
+    return _g5_expect("VERIFYCMAKE-EM-PASSO-MISTO (o defeito do run 36523231561)", resultado, "windows-x", "-VerifyCmake")
 
 
-def selftest_verify_cmake_without_exit_check_reproves():
+def selftest_verify_cmake_not_right_after_prep_reproves():
+    def afastar(t):
+        return t.replace(
+            _VERIFY_STEP, "      - name: Antes\n        shell: pwsh\n        run: echo y\n\n" + _VERIFY_STEP, 1)
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", afastar)
+    return _g5_expect("VERIFYCMAKE-NAO-COLADO-NO-PREP", resultado, "windows-x", "-VerifyCmake")
+
+
+def selftest_ps1_call_followed_by_lines_reproves():
     resultado = _g5_run(
         _FIXTURE_WINDOWS_JOB, "windows-x",
-        lambda t: t.replace("          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }\n          cmake --build", "          cmake --build", 1),
+        lambda t: t.replace(
+            "      - name: Compilar\n",
+            "      - name: Diagnostico\n        shell: pwsh\n        run: |\n          tools/ci/diagnose-x.ps1 -BuildDir b\n          Write-Host depois\n\n      - name: Compilar\n", 1),
     )
-    return _g5_expect("VERIFYCMAKE-SEM-CHECAR-EXIT", resultado, "windows-x", "LASTEXITCODE")
-
+    return _g5_expect("PS1-CHAMADA-SEGUIDA-DE-LINHAS", resultado, "windows-x", "Diagnostico", "diagnose-x.ps1")
 
 
 # C1 (CTO 29/09): o pino do CMake (prep.ps1) e o piso escrito em floor.sh e
@@ -2283,6 +2320,22 @@ def selftest_floor_sh_threshold_drift_reproves():
 def selftest_prep_threshold_drift_reproves():
     return _c1("C1-PISO-PREP-DIFERENTE", {PREP_PS1: _PREP_PS1_OK.replace("$minor -lt 1", "$minor -lt 0")},
                "prep.ps1", "piso")
+
+
+
+# run 36523231561: `cmake --version | Select-Object -First 1` interrompe o
+# nativo e deixa $LASTEXITCODE nulo. E o `exit 0` explicito no fim do prep.ps1
+# e' o que torna a checagem do chamador confiavel.
+def selftest_prep_select_object_on_native_reproves():
+    sabotado = _PREP_PS1_OK.replace("cmake --version\n", "$l = (cmake --version 2>$null | Select-Object -First 1)\n", 1)
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", files={PREP_PS1: sabotado})
+    return _g5_expect("PS1-SELECT-OBJECT-SOBRE-NATIVO", resultado, PREP_PS1, "Select-Object")
+
+
+def selftest_prep_without_explicit_exit_reproves():
+    sabotado = _PREP_PS1_OK.replace("\nexit 0\n", "\n")
+    resultado = _g5_run(_FIXTURE_WINDOWS_JOB, "windows-x", files={PREP_PS1: sabotado})
+    return _g5_expect("PS1-SEM-EXIT-0-EXPLICITO", resultado, PREP_PS1, "exit 0")
 
 
 
@@ -2353,8 +2406,11 @@ def selftest_main():
         selftest_mandatory_aggregate_if_false_reproves(),
         selftest_prep_probe_root_from_workspace_reproves(),
         selftest_verify_cmake_missing_reproves(),
-        selftest_verify_cmake_wrong_step_reproves(),
-        selftest_verify_cmake_without_exit_check_reproves(),
+        selftest_verify_cmake_mixed_step_reproves(),
+        selftest_verify_cmake_not_right_after_prep_reproves(),
+        selftest_ps1_call_followed_by_lines_reproves(),
+        selftest_prep_select_object_on_native_reproves(),
+        selftest_prep_without_explicit_exit_reproves(),
         selftest_pin_off_minimum_reproves(),
         selftest_minimum_drift_reproves(),
         selftest_floor_sh_threshold_drift_reproves(),

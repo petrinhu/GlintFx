@@ -866,6 +866,17 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+      # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
+      # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
+      # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
+      # linha (ps1_single_command_errors, G5): como primeira linha de um passo
+      # que faz outra coisa, ele encerrava o passo calado (`$LASTEXITCODE` nulo
+      # depois de um .ps1 sem `exit`; `$null -ne 0` e' verdadeiro), e o
+      # configure/compilacao nunca rodava - os passos ficavam VERDES sem fazer nada.
+      - name: CMake pinado (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1 -VerifyCmake
+
       # PKG-WIN-SCOPE: passo PERMANENTE, independente de matrix.builddir
       # (roda identico nas duas entradas, como "Padrao C++23 aceito"
       # abaixo) - colhe dado sobre pkg-config/pkgconf neste executor e
@@ -910,8 +921,6 @@ jobs:
       - name: Padrao C++23 aceito
         shell: pwsh
         run: |
-          tools/ci/windows/prep.ps1 -VerifyCmake
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Force -Path probe | Out-Null
           @'
           #include <cstdio>
@@ -2980,6 +2989,17 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+      # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
+      # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
+      # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
+      # linha (ps1_single_command_errors, G5): como primeira linha de um passo
+      # que faz outra coisa, ele encerrava o passo calado (`$LASTEXITCODE` nulo
+      # depois de um .ps1 sem `exit`; `$null -ne 0` e' verdadeiro), e o
+      # configure/compilacao nunca rodava - os passos ficavam VERDES sem fazer nada.
+      - name: CMake pinado (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1 -VerifyCmake
+
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
       # dentro - nunca precisa rodar "cmake --build", clang-tidy analisa
@@ -2987,8 +3007,6 @@ jobs:
       - name: Configurar (gera compile_commands.json)
         shell: pwsh
         run: |
-          tools/ci/windows/prep.ps1 -VerifyCmake
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake -S . -B build-lint -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -3475,6 +3493,17 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+      # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
+      # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
+      # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
+      # linha (ps1_single_command_errors, G5): como primeira linha de um passo
+      # que faz outra coisa, ele encerrava o passo calado (`$LASTEXITCODE` nulo
+      # depois de um .ps1 sem `exit`; `$null -ne 0` e' verdadeiro), e o
+      # configure/compilacao nunca rodava - os passos ficavam VERDES sem fazer nada.
+      - name: CMake pinado (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1 -VerifyCmake
+
       # -DGLINTFX_SANITIZE=address: o par Windows de
       # -DGLINTFX_SANITIZE=address,undefined do job `sanitizer` (Fedora)
       # acima - so o compartilhado (BUILD_SHARED_LIBS default ON), mesmo
@@ -3484,8 +3513,6 @@ jobs:
         id: build
         shell: pwsh
         run: |
-          tools/ci/windows/prep.ps1 -VerifyCmake
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake -S . -B build-shared -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_SANITIZE=address
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-shared
@@ -3697,6 +3724,17 @@ jobs:
         shell: pwsh
         run: Write-Host "preparo concluido"
 
+      # Item (i) do CTO + run 36523231561: `cmake --version` DEPOIS do marco prep tem
+      # de ser exatamente o CMake pinado (nada mais prova que os passos seguintes
+      # enxergam o da Kitware e nao o do Visual Studio). Passo PROPRIO de UMA
+      # linha (ps1_single_command_errors, G5): como primeira linha de um passo
+      # que faz outra coisa, ele encerrava o passo calado (`$LASTEXITCODE` nulo
+      # depois de um .ps1 sem `exit`; `$null -ne 0` e' verdadeiro), e o
+      # configure/compilacao nunca rodava - os passos ficavam VERDES sem fazer nada.
+      - name: CMake pinado (Windows)
+        shell: pwsh
+        run: tools/ci/windows/prep.ps1 -VerifyCmake
+
       # Piso de varredura nao-vazia (GODS_LAWS.md L-40), mesma regra de
       # count_real_asserts_in_file/count_product_asserts de tools/
       # preci.sh (ver o cabecalho deste job): '(^|[^\w])assert\(' casa
@@ -3746,8 +3784,6 @@ jobs:
         id: build
         shell: pwsh
         run: |
-          tools/ci/windows/prep.ps1 -VerifyCmake
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake -S . -B build-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON -DGLINTFX_LAYERS_ORACLE=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cmake --build build-debug

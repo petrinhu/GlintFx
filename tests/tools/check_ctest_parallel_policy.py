@@ -91,6 +91,13 @@ def parallel_degree_errors(name, text):
     for bloco in _yaml_steps(text):
         chamadas = [l for l in _code_lines(bloco) if (m := _CTEST_CALL_RE.search(l)) and _PARALLEL_RE.search(m.group(0))]
         total += len(chamadas)
+        for linha in chamadas:
+            v = re.search(r"--parallel\s+(\$\w+)", linha)
+            if v and f"if (-not {v.group(1)})" not in bloco:
+                errors.append(
+                    f"{name}: o grau {v.group(1)} do ctest paralelo em PowerShell nao e' validado "
+                    f"(`if (-not {v.group(1)}) {{ ... exit 1 }}`): variavel vazia chamaria --parallel sem numero - tem de validar"
+                )
         if chamadas and "paralelismo:" not in "\n".join(_code_lines(bloco)):
             primeira = bloco.strip().splitlines()[0].strip()
             errors.append(
@@ -219,6 +226,25 @@ def nested_build_errors(cmake_text):
     return errors, heavy
 
 
+def private_subdir_path_errors(cmake_text):
+    """Cada `private-subdir - <caminho>` e' de UM registro (PN1, CTO 29/09): dois
+    registros no mesmo subdiretorio disputariam o que a declaracao diz que e' so' seu."""
+    donos = {}
+    for m in re.finditer(r"add_test\s*\(", cmake_text):
+        bloco = _balanced_block(cmake_text, m.start())
+        nome = re.search(r"NAME\s+(\S+)", bloco)
+        if not nome:
+            continue
+        linha = cmake_text.count("\n", 0, m.start()) + 1
+        d = re.search(r"#\s*glintfx-build-dir:\s*private-subdir\s*-\s*(\S+)", _comment_block_above(cmake_text, linha))
+        if d:
+            donos.setdefault(d.group(1), []).append(nome.group(1))
+    return [
+        f"private-subdir {caminho!r} declarado por mais de um registro ({', '.join(nomes)}) - cada subdiretorio privado e' de um so'"
+        for caminho, nomes in donos.items() if len(nomes) > 1
+    ]
+
+
 def build_dir_errors(cmake_text):
     """(erros, contagens)."""
     regs = registrations_receiving_build_dir(cmake_text)
@@ -246,6 +272,7 @@ def run_check(cmake_text, ci_text, preci_text, ps1_texts=None):
     errors, contagens = build_dir_errors(cmake_text)
     nested_erros, contagens["nested-heavy"] = nested_build_errors(cmake_text)
     errors.extend(nested_erros)
+    errors.extend(private_subdir_path_errors(cmake_text))
     paralelas = 0
     universo = [("ci.yml", ci_text), ("tools/preci.sh", preci_text)] + sorted((ps1_texts or {}).items())
     for name, text in universo:
@@ -365,6 +392,17 @@ def selftest_main():
     controls.append(_expect("NESTED-BUILD declarado heavy SEM o trinco reprova", any("pesado_test" in e for e in erros), str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK + heavy.replace("# glintfx-nested-build: heavy - monta um CMake + Ninja inteiro (35 a 115 s serial)\n", ""), _CI_OK, "")
     controls.append(_expect("TRINCO glintfx_nested_build SEM a declaracao heavy reprova", any("pesado_test" in e and "heavy" in e for e in erros), str(erros)))
+    # PN1 (CTO 29/09): caminhos private-subdir unicos; PN: variavel de grau do PowerShell validada
+    dup = ("# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p1_test COMMAND python3 x.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n"
+           "# glintfx-build-dir: private-subdir - tests/x_out/\nadd_test(NAME p2_test COMMAND python3 y.py \"${CMAKE_CURRENT_BINARY_DIR}/x_out\")\n")
+    erros, _c, _p = run_check(_CMAKE_OK + dup, _CI_OK, "")
+    controls.append(_expect("PN1-PRIVATE-SUBDIR-DUPLICADO reprova, nomeando os dois", any("p1_test" in e and "p2_test" in e for e in erros), str(erros)))
+    ps_sem = '      - shell: pwsh\n        run: |\n          $n = $env:NUMBER_OF_PROCESSORS\n          Write-Host "paralelismo: $n"\n          ctest --parallel $n\n'
+    erros, _c, _p = run_check(_CMAKE_OK, ps_sem, "")
+    controls.append(_expect("PN-GRAU-POWERSHELL-SEM-VALIDACAO reprova", any("$n" in e and "validar" in e for e in erros), str(erros)))
+    ps_com = ps_sem.replace("          ctest --parallel $n", "          if (-not $n) { Write-Error 'sem grau'; exit 1 }\n          ctest --parallel $n")
+    erros, _c, _p = run_check(_CMAKE_OK, ps_com, "")
+    controls.append(_expect("PN-GRAU-POWERSHELL-VALIDADO passa", not erros, str(erros)))
     erros, _c, _p = run_check(_CMAKE_OK, "      # ctest --repeat until-pass\n" + _CI_OK, "")
     controls.append(_expect("COMENTARIO com --repeat nao reprova", not erros, str(erros)))
     erros, c, _p = run_check("add_test(NAME x COMMAND echo)\n", _CI_OK, "")

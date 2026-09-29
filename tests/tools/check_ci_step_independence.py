@@ -182,7 +182,7 @@ def is_publish_step(step_text):
     condicoes, nao so' uma."""
     if "uses: actions/upload-artifact" not in step_text:
         return False
-    return bool(re.search(r"^\s*name: (parity-inv-|measured-)", step_text, re.MULTILINE))
+    return bool(re.search(r"^\s*name: (parity-inv-|measured-|ctest-junit-)", step_text, re.MULTILINE))
 
 
 # --- as duas regras --------------------------------------------------
@@ -583,10 +583,20 @@ def aggregate_errors(job_name, steps):
     tem_junit = any(
         _CTEST_RUN_RE.search(_code_text(t)) and "--output-junit" in _code_text(t) for _n, t in steps
     )
+    tem_publicacao = any(
+        "uses: actions/upload-artifact" in _code_text(t)
+        and re.search(r"^\s*name: ctest-junit-\S+", _code_text(t), re.MULTILINE)
+        for _n, t in steps
+    )
     for nome, texto in steps:
         if not nome.startswith("Resultado agregado"):
             continue
         codigo = _code_text(texto)
+        if nome.startswith("Resultado agregado (") and not tem_publicacao:
+            errors.append(
+                f"job {job_name!r}, passo {nome!r}: nenhum passo publica o JUnit como artefato "
+                f"`ctest-junit-<slug>-<modo>` - o P2 do plano exige a duracao de CADA teste (I3)"
+            )
         if nome.startswith("Resultado agregado (") and not tem_junit:
             errors.append(
                 f"job {job_name!r}, passo {nome!r}: nenhum passo de ctest usa --output-junit - o "
@@ -2270,8 +2280,16 @@ _TESTES_JUNIT = (
 )
 
 
-def _agg_fixture(step, testes=_TESTES_JUNIT):
-    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", testes + step + "      - name: fixture a\n", 1)
+_JUNIT_PUBLISH = (
+    "      - name: Publicar JUnit do ctest (x)\n        if: ${{ !cancelled() }}\n"
+    "        uses: actions/upload-artifact@v7\n        with:\n"
+    "          name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}\n"
+    "          path: build/ctest-results-junit.xml\n          retention-days: 7\n\n"
+)
+
+
+def _agg_fixture(step, testes=_TESTES_JUNIT, publica=_JUNIT_PUBLISH):
+    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", testes + step + publica + "      - name: fixture a\n", 1)
 
 
 def selftest_aggregate_with_script_passes():
@@ -2561,6 +2579,26 @@ def selftest_derived_job_with_env_passes():
 
 
 
+# I3 (CTO 29/09): o P2 do plano exige a duracao de CADA teste; o log so' traz
+# as 25 maiores. O job que mede (agregado) publica o JUnit inteiro como
+# artefato `ctest-junit-<slug>-<modo>`, `!cancelled()`, retention 7.
+def selftest_junit_artifact_missing_reproves():
+    resultado = _run_real_main_capturing(_agg_fixture(_AGG_STEP, publica=""))
+    return _g5_expect("I3-JUNIT-SEM-ARTEFATO", resultado, "Resultado agregado", "ctest-junit-")
+
+
+def selftest_junit_artifact_without_cancelled_reproves():
+    quebrado = _JUNIT_PUBLISH.replace("if: ${{ !cancelled() }}", "if: always()")
+    resultado = _run_real_main_capturing(_agg_fixture(_AGG_STEP, publica=quebrado))
+    return _g5_expect("I3-JUNIT-ARTEFATO-SEM-CANCELLED", resultado, "Publicar JUnit", "!cancelled()")
+
+
+def selftest_junit_artifact_wrong_name_reproves():
+    resultado = _run_real_main_capturing(_agg_fixture(_AGG_STEP, publica=_JUNIT_PUBLISH.replace("ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}", "junit")))
+    return _g5_expect("I3-JUNIT-ARTEFATO-NOME-ERRADO", resultado, "Resultado agregado", "ctest-junit-")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2619,6 +2657,9 @@ def selftest_main():
         selftest_aggregate_tautology_reproves(),
         selftest_aggregate_tautology_alongside_script_reproves(),
         selftest_aggregate_without_junit_output_reproves(),
+        selftest_junit_artifact_missing_reproves(),
+        selftest_junit_artifact_without_cancelled_reproves(),
+        selftest_junit_artifact_wrong_name_reproves(),
         selftest_mandatory_or_true_floor_reproves(),
         selftest_mandatory_script_as_argument_reproves(),
         selftest_mandatory_trailing_comment_reproves(),

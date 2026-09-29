@@ -667,6 +667,17 @@ jobs:
           path: parity_inventory.txt
           retention-days: 7
 
+      # A5 I3 (CTO 29/09): o P2 do plano (folga de tempo de cada teste sob
+      # --parallel) exige a duracao de CADA teste, e o log so' traz as 25
+      # maiores. O JUnit inteiro sai como artefato, igual nos dois sistemas.
+      - name: Publicar JUnit do ctest (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/ctest-results-junit.xml
+          retention-days: 7
+
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):
       # o passo "Build e testes" acima roda com --output-on-failure, que
       # so mostra a saida de teste que REPROVA - a saida de um portao
@@ -1079,6 +1090,7 @@ jobs:
           # NUMBER_OF_PROCESSORS do runner, lido na hora e IMPRESSO; sem --repeat.
           $paralelismo = $env:NUMBER_OF_PROCESSORS
           Write-Host "paralelismo: $paralelismo (NUMBER_OF_PROCESSORS do runner)"
+          if (-not $paralelismo) { Write-Error "NUMBER_OF_PROCESSORS vazio - nao se chama ctest --parallel sem numero"; exit 1 }
           ctest --test-dir ${{ matrix.builddir }} --output-on-failure --output-junit ctest-results-junit.xml --parallel $paralelismo
           $ctest_ec = $LASTEXITCODE
           Copy-Item (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log") (Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTest.log.pnc-fases-snapshot")
@@ -1118,6 +1130,17 @@ jobs:
         with:
           name: parity-inv-${{ matrix.slug }}-${{ matrix.modo }}
           path: parity_inventory.txt
+          retention-days: 7
+
+      # A5 I3 (CTO 29/09): o P2 do plano (folga de tempo de cada teste sob
+      # --parallel) exige a duracao de CADA teste, e o log so' traz as 25
+      # maiores. O JUnit inteiro sai como artefato, igual nos dois sistemas.
+      - name: Publicar JUnit do ctest (${{ matrix.modo }})
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ctest-junit-${{ matrix.slug }}-${{ matrix.modo }}
+          path: ${{ matrix.builddir }}/ctest-results-junit.xml
           retention-days: 7
 
       # PNC-FASES (INSTRUMENT-PNC, 05/09/2026, GODS_LAWS.md L-40 item 3):

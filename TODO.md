@@ -152,6 +152,8 @@ O número final de cada item vive na coluna `WSJF` da tabela abaixo — o status
 
 ## INBOX (descobertas não priorizadas)
 
+- **`PWSH-TESTES-EXIT-8-VIRA-1`: o passo pwsh de "Testes" (Windows) devolve rc=1 e nao o codigo do ctest** (ex.: ctest falso saindo 3 dava rc=1 sob `pwsh -command ". arquivo"`, medido no container em 29/09/2026); so' o nao-zero importa hoje, mas o codigo real some do log (CTO 29/09, exit 8 para 1; PN2 e PN3 da mesma revisao: texto nao recebido pelo implementador, o main detalha).
+
 - **`CTEST-SNAPMEASURE-NO-CI`: transformar o `snapmeasure` do CTO em passo do job da etapa 2 da A5 (rodada serial P1), reprovando se um teste declarado `reads-only` alterar o diretório de build** (CTO 29/09/2026).
 
 - **`CLANG-SUPPORT-DECL`: declarar ou não o Clang como compilador suportado para o consumidor é decisão de produto do líder (L-01/L-66).** Se sim, o piso candidato é o Clang 17 (primeiro com `-std=c++23`), com job pinado; o `floor.sh` passaria então a receber a família de compilador esperada do job (CTO 29/09, achado C2).

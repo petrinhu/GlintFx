@@ -4585,3 +4585,16 @@ Nenhuma decisão desta lista segue pendente de confirmação.
   - (iii) nas pernas windows, o agregado imprime "declarados: N, executados: N" com N medido;
   - (iv) as 6 pernas Linux com container imprimem "inside-work-tree=true" e "HEAD=<sha>";
   - além disso, os 10 jobs imprimem "piso de ferramentas OK".
+
+## 29/09/2026 - 01:47 | D-A18: leva A1/A2/C3/(i) aceita; próxima leva A3/A4/C1
+
+- **Veredito do CTO (01:47):** aceita com conserto pequeno.
+  - A1 cumprido contra ctest real: o DISABLED reprova até onde o próprio ctest sai com rc=0.
+  - Morrem os mutantes N4, N5, N10, N11, N12, N15, N16 e PSB.
+  - A versão errada do CMake reprova.
+- **Correção de mensagem de commit já publicada (L-25, não se reescreve):** o 117204a diz que o N1 é coberto por um selftest do próprio `prova_checkout.sh`. É falso: o script não tem selftest, e o N1 continua vivo (limite de portão textual, cosmético).
+- **Próxima leva, antes da A4, com o mesmo implementador:**
+  - A3: o autoteste do prep.ps1 passa a rodar os modos reais num pwsh filho; hoje trocar Stop-Floor por Write-Host anula o -VerifyCmake sem nenhum sinal (Q6), e a trava do workspace pode ser removida sem nada acusar (Q1);
+  - A4: "Not Run" por executável ausente, arquivo requerido ausente ou fixture falha conta como falha, não como pulado; só SKIP_RETURN_CODE e SKIP_REGULAR_EXPRESSION_MATCHED contam como pulado;
+  - C1: o pino do CMake no prep.ps1 amarrado a major.minor do `cmake_minimum_required`.
+- **Push:** onda-w7c = 92c7bf6 e CI disparado nesta mesma hora.

@@ -33,6 +33,8 @@
 #
 # Cada funcao faz uma coisa (GODS_LAWS.md L-17).
 
+import importlib.util
+import os
 import re
 import sys
 
@@ -699,6 +701,38 @@ def permissions_errors(ci_yml_text):
     return []
 
 
+def _load_rerun_guard():
+    """tools/ci/rerun_guard.py como modulo: fonte UNICA de PREP_MARKER (I3,
+    CTO 29/09) - o portao nunca escreve o nome do marco uma segunda vez."""
+    caminho = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tools", "ci", "rerun_guard.py"
+    )
+    spec = importlib.util.spec_from_file_location("glintfx_rerun_guard", caminho)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+PREP_MARKER = _load_rerun_guard().PREP_MARKER
+_JOB_PERMISSIONS_RE = re.compile(r"^    permissions:", re.MULTILINE)
+
+
+def prep_marker_name_errors(job_name, steps):
+    return [
+        f"job {job_name!r}: o passo com id: prep se chama {nome!r}, tem de ser EXATAMENTE "
+        f"{PREP_MARKER!r} (PREP_MARKER de tools/ci/rerun_guard.py, fonte unica) - o guarda "
+        f"classifica preparo x teste por esse nome - G6"
+        for nome, texto in steps
+        if step_id(texto) == "prep" and nome != PREP_MARKER
+    ]
+
+
+def job_permissions_errors(job_name, job_block_text):
+    if _JOB_PERMISSIONS_RE.search(job_block_text):
+        return [f"job {job_name!r}: declara `permissions:` proprio - so' o topo do workflow pode (o job ampliaria o token do rerun_guard) - G6"]
+    return []
+
+
 def g3_errors(job_name, steps):
     prep_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
     build_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "build"]
@@ -907,6 +941,8 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(mandatory_errors(job_name, steps))
     errors.extend(ps1_single_command_errors(job_name, steps))
     errors.extend(rerun_guard_errors(job_name, steps))
+    errors.extend(prep_marker_name_errors(job_name, steps))
+    errors.extend(job_permissions_errors(job_name, job_block_text))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
     counts = {
         "testes": len(test_steps),
@@ -2468,6 +2504,23 @@ def selftest_permissions_actions_read_present_passes():
 
 
 
+# I3 (CTO 29/09, mutante G6e): o nome do marco `id: prep` e' EXATAMENTE
+# PREP_MARKER de tools/ci/rerun_guard.py (fonte unica: o guarda classifica
+# preparo x teste por esse nome; um marco renomeado numa perna faria a
+# tentativa 2 reprovar como "job sem o marco"). C-a (mutante G6l): nenhum
+# job declara `permissions:` proprio - so' o topo, senao um job poderia
+# ampliar o token que o rerun_guard usa.
+def selftest_prep_marker_renamed_reproves():  # G6e
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace("      - name: Preparo concluido\n        id: prep\n", "      - name: Preparo concluido X\n        id: prep\n", 1))
+    return _g5_expect("I3-G6E-MARCO-RENOMEADO", resultado, "lint", "tools/ci/rerun_guard.py", "PREP_MARKER")
+
+
+def selftest_job_level_permissions_reproves():  # G6l
+    resultado = _g5_run(_FIXTURE_FIXED_JOB, "lint", lambda t: t.replace("    container: fedora:latest\n", "    container: fedora:latest\n    permissions:\n      contents: write\n", 1))
+    return _g5_expect("CA-G6L-PERMISSIONS-NO-JOB", resultado, "lint", "permissions")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -2546,6 +2599,8 @@ def selftest_main():
         selftest_rerun_guard_or_true_reproves(),
         selftest_permissions_actions_read_missing_reproves(),
         selftest_permissions_actions_read_present_passes(),
+        selftest_prep_marker_renamed_reproves(),
+        selftest_job_level_permissions_reproves(),
         selftest_pin_off_minimum_reproves(),
         selftest_minimum_drift_reproves(),
         selftest_floor_sh_threshold_drift_reproves(),

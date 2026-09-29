@@ -3301,6 +3301,7 @@ add_test(
 )
 set_tests_properties(dep_zero_test PROPERTIES LABELS consume)
 
+# glintfx-nested-build: heavy - o --selftest do check_dep_zero.py configura projetos CMake de fixtura (56,7 s no Windows estatico e 60,7 s no compartilhado sob --parallel, CI 36535342498, acima de 40 s); trinco PROVISORIO, vira `PROCESSORS n` medido na etapa 3 da A5
 add_test(
     NAME dep_zero_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
@@ -3312,6 +3313,7 @@ add_test(
 # the taxonomy uniform across every selftest in this file.
 set_tests_properties(dep_zero_selftest PROPERTIES
     LABELS selftest
+    RESOURCE_LOCK glintfx_nested_build
     FAIL_REGULAR_EXPRESSION "FAILED")
 
 # PARITY-GATE: sub-check (c) given a NAME OF ITS OWN, unconditional

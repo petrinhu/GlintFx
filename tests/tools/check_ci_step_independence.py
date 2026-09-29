@@ -551,6 +551,27 @@ def g3c_errors(job_name, steps):
     return errors
 
 
+_AGG_TAUTOLOGY_RE = re.compile(r"\$?executados\s*=\s*\$declarados\b")
+AGGREGATE_SCRIPT = "tests/tools/ctest_aggregate.py"
+
+
+def aggregate_errors(job_name, steps):
+    """Passo "Resultado agregado*": chama ctest_aggregate.py e nao atribui
+    executados a partir de declarados (CTO 29/09, achado 4)."""
+    errors = []
+    for nome, texto in steps:
+        if not nome.startswith("Resultado agregado"):
+            continue
+        codigo = _code_text(texto)
+        # "Resultado agregado do container (P-0)" mede por results.tsv (ja
+        # e' medido, nao atribuido) - so' o agregado de ctest exige o script.
+        if nome.startswith("Resultado agregado (") and AGGREGATE_SCRIPT not in codigo:
+            errors.append(f"job {job_name!r}, passo {nome!r}: nao chama {AGGREGATE_SCRIPT} - o agregado tem de MEDIR os executados")
+        if _AGG_TAUTOLOGY_RE.search(codigo):
+            errors.append(f"job {job_name!r}, passo {nome!r}: 'executados = declarados' e' tautologia - a checagem executados != declarados nunca dispararia")
+    return errors
+
+
 def g3_errors(job_name, steps):
     prep_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "prep"]
     build_indices = [i for i, (_n, t) in enumerate(steps) if step_id(t) == "build"]
@@ -701,6 +722,7 @@ def run_check(job_name, job_block_text, steps, scripts=None):
     errors.extend(g3_errors(job_name, steps))
     errors.extend(g3b_errors(job_name, steps))
     errors.extend(g3c_errors(job_name, steps))
+    errors.extend(aggregate_errors(job_name, steps))
     errors.extend(g5_errors(job_name, job_block_text, steps, scripts))
     counts = {
         "testes": len(test_steps),
@@ -1918,6 +1940,48 @@ def selftest_g3c_preci_before_prep_reproves():
 
 
 
+# CTO 29/09 achado 4: o passo "Resultado agregado" tem de MEDIR os
+# executados (tests/tools/ctest_aggregate.py, mesma medicao nos dois
+# sistemas), nunca atribui-los aos declarados - `executados=$declarados`
+# fazia a checagem `executados != declarados` uma tautologia.
+_AGG_STEP = (
+    "      - name: Resultado agregado (x)\n"
+    "        if: ${{ !cancelled() }}\n"
+    "        run: python3 tests/tools/ctest_aggregate.py --builddir build --inventory parity_inventory.txt\n\n"
+)
+
+
+def _agg_fixture(step):
+    return _FIXTURE_CI_YML.replace("      - name: fixture a\n", step + "      - name: fixture a\n", 1)
+
+
+def selftest_aggregate_with_script_passes():
+    exit_code, output = _run_real_main_capturing(_agg_fixture(_AGG_STEP))
+    if exit_code not in (None, 0):
+        print(f"selftest: AGREGADO-POSITIVO FALHOU: {output!r}", file=sys.stderr)
+        return False
+    print("selftest: AGREGADO-POSITIVO OK (passo que chama ctest_aggregate.py passa)")
+    return True
+
+
+def selftest_aggregate_tautology_reproves():
+    taut = (
+        "      - name: Resultado agregado (x)\n        if: ${{ !cancelled() }}\n"
+        "        run: |\n          declarados=3\n          executados=$declarados\n"
+        "          [ \"$executados\" -ne \"$declarados\" ] && exit 1\n\n"
+    )
+    resultado = _run_real_main_capturing(_agg_fixture(taut))
+    return _g5_expect("AGREGADO-TAUTOLOGIA", resultado, "Resultado agregado", "ctest_aggregate.py")
+
+
+def selftest_aggregate_tautology_alongside_script_reproves():
+    ambos = _AGG_STEP.replace("run: python3", "run: |\n          executados=$declarados\n          python3").replace(
+        "--inventory parity_inventory.txt\n", "--inventory parity_inventory.txt\n")
+    resultado = _run_real_main_capturing(_agg_fixture(ambos))
+    return _g5_expect("AGREGADO-TAUTOLOGIA-COM-SCRIPT", resultado, "Resultado agregado", "tautologia")
+
+
+
 def selftest_main():
     controls = [
         selftest_positive_control(),
@@ -1972,6 +2036,9 @@ def selftest_main():
         selftest_ctest_list_only_is_not_a_test_step(),
         selftest_g3c_gate_step_before_prep_reproves(),
         selftest_g3c_preci_before_prep_reproves(),
+        selftest_aggregate_with_script_passes(),
+        selftest_aggregate_tautology_reproves(),
+        selftest_aggregate_tautology_alongside_script_reproves(),
     ]
     if not all(controls):
         print(f"{SCRIPT_NAME} --selftest: FALHOU (ver acima)", file=sys.stderr)

@@ -4767,6 +4767,18 @@ add_test(
 )
 set_tests_properties(ci_step_independence_selftest PROPERTIES LABELS selftest)
 
+# CI-SPLIT-PER-OS (achado 4 da revisao do CTO, 29/09/2026): o agregado
+# declarados/executados/passaram/falharam dos jobs de ctest e' medido por
+# este script nos dois sistemas (era `executados=$declarados`, uma
+# tautologia). O autoteste inclui o mutante "teste pulado reprova".
+# Registrado sem guarda de sistema: python puro, roda igual no Windows.
+add_test(
+    NAME ctest_aggregate_selftest
+    COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/ctest_aggregate.py" --selftest
+)
+set_tests_properties(ctest_aggregate_selftest PROPERTIES LABELS selftest)
+
 # CI-SPLIT-PER-OS A3a (D-A12, docs/plano-ci-split-per-os.md): a matriz
 # do ci.yml tem de bater com tools/ci/systems.txt (fonte unica), e
 # nenhum slug pode ser escrito a mao no passo do job `parity` - mesma

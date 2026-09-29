@@ -628,36 +628,13 @@ jobs:
       # reescrito pelo `-N` (por isso aquele passo tira snapshot antes;
       # este arquivo nao precisa, porque foi medido que sobrevive
       # sozinho).
+      # CTO 29/09 (achado 4): o corpo MOROU aqui e atribuia `executados=
+      # $declarados` (tautologia: um teste pulado passava calado). Agora
+      # tests/tools/ctest_aggregate.py MEDE os executados no snapshot do
+      # LastTest.log, igual nos dois sistemas (L-04).
       - name: Resultado agregado (${{ matrix.modo }})
         if: ${{ !cancelled() }}
-        run: |
-          set -eu
-          declarados=$(grep -oE "Total Tests: [0-9]+" parity_inventory.txt | grep -oE "[0-9]+" || true)
-          if [ -z "$declarados" ]; then
-            echo "rodape 'Total Tests: N' nao encontrado em parity_inventory.txt - ctest -N nao terminou de escrever, ou o formato mudou (GODS_LAWS.md L-40)" >&2
-            exit 1
-          fi
-          falhas_log="${{ matrix.builddir }}/Testing/Temporary/LastTestsFailed.log"
-          if [ -f "$falhas_log" ]; then
-            falharam=$(grep -cE "^[0-9]+:" "$falhas_log" || true)
-          else
-            falharam=0
-          fi
-          executados=$declarados
-          passaram=$((executados - falharam))
-          echo "declarados: $declarados, executados: $executados, passaram: $passaram, falharam: $falharam"
-          if [ "$declarados" -eq 0 ]; then
-            echo "piso de varredura vazia (GODS_LAWS.md L-40): 'ctest -N' nao registrou teste nenhum" >&2
-            exit 1
-          fi
-          if [ "$executados" -ne "$declarados" ]; then
-            echo "executados ($executados) != declarados ($declarados) - teste declarado que nao foi contado no resultado" >&2
-            exit 1
-          fi
-          if [ "$falharam" -gt 0 ]; then
-            echo "$falharam teste(s) falharam" >&2
-            exit 1
-          fi
+        run: python3 tests/tools/ctest_aggregate.py --builddir ${{ matrix.builddir }} --inventory parity_inventory.txt
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}
@@ -1075,37 +1052,16 @@ jobs:
       # nos dois sistemas - ver o comentario la para o "porque" de cada
       # linha, incluindo a sonda que mediu o comportamento real de
       # LastTestsFailed.log).
+      # CTO 29/09 (achado 4): gemeo do passo do job `linux` - a MESMA
+      # medicao (tests/tools/ctest_aggregate.py), nunca `$executados =
+      # $declarados`.
       - name: Resultado agregado (${{ matrix.modo }})
         if: ${{ !cancelled() }}
         shell: pwsh
         run: |
-          $declaradosMatch = Select-String -Path parity_inventory.txt -Pattern 'Total Tests: (\d+)'
-          if (-not $declaradosMatch) {
-            Write-Error "rodape 'Total Tests: N' nao encontrado em parity_inventory.txt - ctest -N nao terminou de escrever, ou o formato mudou (GODS_LAWS.md L-40)"
-            exit 1
-          }
-          $declarados = [int]$declaradosMatch.Matches[0].Groups[1].Value
-          $falhasLog = Join-Path "${{ matrix.builddir }}" "Testing/Temporary/LastTestsFailed.log"
-          if (Test-Path $falhasLog) {
-            $falharam = @(Select-String -Path $falhasLog -Pattern '^\d+:').Count
-          } else {
-            $falharam = 0
-          }
-          $executados = $declarados
-          $passaram = $executados - $falharam
-          Write-Host "declarados: $declarados, executados: $executados, passaram: $passaram, falharam: $falharam"
-          if ($declarados -eq 0) {
-            Write-Error "piso de varredura vazia (GODS_LAWS.md L-40): 'ctest -N' nao registrou teste nenhum"
-            exit 1
-          }
-          if ($executados -ne $declarados) {
-            Write-Error "executados ($executados) != declarados ($declarados) - teste declarado que nao foi contado no resultado"
-            exit 1
-          }
-          if ($falharam -gt 0) {
-            Write-Error "$falharam teste(s) falharam"
-            exit 1
-          }
+          $py = if (Get-Command python3 -ErrorAction SilentlyContinue) { 'python3' } else { 'python' }
+          & $py tests/tools/ctest_aggregate.py --builddir "${{ matrix.builddir }}" --inventory parity_inventory.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Publicar inventario de paridade (${{ matrix.modo }})
         if: ${{ !cancelled() }}

@@ -5275,3 +5275,12 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Critério fixado antes:* veredito idêntico ao do 3413e66, os 20 controles do selftest, a sonda de 11 casos, até 1,5 s e nenhum lock novo.
 - *Lição:* a revisão provou que o portão acusa certo, mas não mediu o tempo dele. Só o CI pegou.
 - *Porta de mão única:* não.
+
+## 30/09/2026 - 13:27 | D-A57: a separação de tempo do selftest de prazos da contenção fica mais larga (CTO, L-34; errata §23, md5 d580e4d6)
+
+- *Fato:* o CI 36742575409 ficou vermelho num job (Arch estático). O caso 10c do contido_dentro_selftest_prazos levou 2,579 s contra o teto de 2,5 s, com o runner carregado. O caso separa o desconto do tempo decorrido (cerca de 2 s) do mutante de radix (cerca de 3 s), e a folga era de só 0,5 s contra uma sobrecarga medida de 0,58 s.
+- *Escolha:* alargar a separação. Janela [2,9 s, 4,0 s], com 1,0 s de folga, 1,7 vezes a pior sobrecarga medida. O mutante continua caindo, em cerca de 5 s.
+- *Recusados:* subir só o teto, porque encosta no mutante e o caso deixa de distinguir; e o RESOURCE_LOCK.
+- *Na mesma rodada,* o noexcept_alloc_test ficou em 3,07 s no servidor, contra 1,47 s antes da D-B4-3. O CTO aceitou: a inflação de carga explica.
+- É código da C1b, que o líder mandou fechar. Entra agora porque CI vermelho bloqueia a onda.
+- *Porta de mão única:* não.

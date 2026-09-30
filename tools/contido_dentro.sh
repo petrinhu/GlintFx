@@ -635,9 +635,13 @@ contido_inside_selftest() {
     #       machine does; the read right after the return must already find the grandchild dead.
     # (the stubs read a variable of THEIR OWN name: `dir` would be shadowed by the one of contido_inside_main)
     local selftest_scan_log="$dir/kill_tardio/scans"
+    # The stubs COUNT the passes and then run the REAL sweep (kept under another name): a stub that forced "1 live"
+    # would call a zombie a survivor, which is exactly what happens in a container whose PID 1 does not reap (the
+    # dead grandchild stays a zombie of the group, `kill -0` keeps answering, and the sweep is reached).
+    eval "selftest_real_live_in_group() $(declare -f contido_live_in_group | tail -n +2)"
     mkdir -p "$dir/kill_tardio"
     (
-        contido_live_in_group() { echo scan >>"$selftest_scan_log"; CONTIDO_LIVE=1; }
+        contido_live_in_group() { echo scan >>"$selftest_scan_log"; selftest_real_live_in_group "$@"; }
         kill() {
             if [ "$1" = -KILL ]; then
                 ( sleep 0.6; command kill -KILL -- "$3" ) >/dev/null 2>&1 &
@@ -667,14 +671,13 @@ contido_inside_selftest() {
     ) >/dev/null 2>"$dir/kill_tardio_g0/err"; rc=$?
     contido_alive "$(cat "$dir/kill_tardio_g0/pid" 2>/dev/null)"
     check "D-C1b-6: with G=0 the wait after the KILL still has a floor of 1 s (the grandchild is dead at the return)" "$([ $? -ne 0 ] && [ -s "$dir/kill_tardio_g0/pid" ] && [ "$rc" -eq 0 ] && echo 0 || echo 1)" "rc $rc, or the grandchild was alive when the contido returned"
-    # the fast path: while the group still answers kill -0 the sweep runs (the stub above says "1 live" for as
-    # long as the real group exists, so this case also proves the sweep is REACHED); in the normal case below
-    # (the group is already gone) it must not run at all
+    # the fast path: while the group still answers kill -0 the sweep runs (the counting stub above records that it
+    # is REACHED); in the normal case below (the group is already gone) it must not run at all
     check "D-C1b-6: the sweep runs while the group still answers kill -0" "$([ -s "$dir/kill_tardio/scans" ] && echo 0 || echo 1)" "no sweep happened"
     mkdir -p "$dir/rapido_varredura"
     selftest_scan_log="$dir/rapido_varredura/scans"
     (
-        contido_live_in_group() { echo scan >>"$selftest_scan_log"; CONTIDO_LIVE=1; }
+        contido_live_in_group() { echo scan >>"$selftest_scan_log"; selftest_real_live_in_group "$@"; }
         contido_inside_main herdado-pgid - 64 5 1 "$dir/rapido_varredura" -- true
     ) >/dev/null 2>"$dir/rapido_varredura/err"; rc=$?
     check "D-C1b-6: fast path, a group that is already gone is NOT swept" "$([ ! -e "$dir/rapido_varredura/scans" ] && [ "$rc" -eq 0 ] && echo 0 || echo 1)" "rc $rc scans: $(cat "$dir/rapido_varredura/scans" 2>/dev/null)"

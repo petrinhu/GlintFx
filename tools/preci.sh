@@ -556,7 +556,7 @@ GLINTFX_PS_SYNTAX_EOF
 # tests-off build uses plain `cmake` directly, not preci.sh, whose
 # entire purpose is running the test suite.
 stage_configure() {
-    cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
+    cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
 }
 
@@ -1229,7 +1229,7 @@ run_sanitizer_bite_controls() {
 # proving the mechanism before the real suite ran would still leave
 # open whether the real build's own configure matches production.
 stage_sanitizer() {
-    cmake -S "$ROOT_DIR" -B "$SANITIZE_BUILD_DIR" -G Ninja \
+    cmake -S "$ROOT_DIR" -B "$SANITIZE_BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON \
         -DGLINTFX_SANITIZE=address,undefined
     cmake --build "$SANITIZE_BUILD_DIR"
@@ -1358,7 +1358,7 @@ stage_debug() {
     require_nonempty_asserts "debug" "$count" \
         || fail "estagio debug recusado (varredura vazia de assert() de produto - GODS_LAWS.md L-40, GATE-DEBUG)"
 
-    cmake -S "$ROOT_DIR" -B "$DEBUG_BUILD_DIR" -G Ninja \
+    cmake -S "$ROOT_DIR" -B "$DEBUG_BUILD_DIR" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Debug -DGLINTFX_WERROR=ON -DGLINTFX_BUILD_TESTS=ON
     cmake --build "$DEBUG_BUILD_DIR"
 
@@ -2109,6 +2109,46 @@ run_selftest_ccache_controls() {
     esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
 }
 
+run_selftest_ccache_preconfigured_controls() {
+    log "selftest: arvore de build JA configurada segue a chave do ccache (o ambiente so vale no primeiro configure)"
+    dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-pre.XXXXXX")" \
+        || fail "selftest ccache preconfigurado: mktemp falhou"
+    printf 'cmake_minimum_required(VERSION 3.20)\nproject(x CXX)\nadd_library(x STATIC x.cpp)\n' > "$dir/CMakeLists.txt"
+    printf 'int x_fn() { return 0; }\n' > "$dir/x.cpp"
+    lido() { sed -n 's/^CMAKE_CXX_COMPILER_LAUNCHER:[A-Z]*=//p' "$dir/build/CMakeCache.txt"; }
+    # The state is proven by ccache's OWN counters, not by the message:
+    # zero compiler calls through it when off, more than zero when on.
+    chamadas() {
+        CCACHE_DIR="$dir/cc" ccache --print-stats | awk -F'\t' \
+            '$1=="direct_cache_hit"||$1=="preprocessed_cache_hit"||$1=="cache_miss"{n+=$2} END{print n+0}'
+    }
+    compilar() {
+        CCACHE_DIR="$dir/cc" ccache -z > /dev/null
+        CCACHE_DIR="$dir/cc" cmake --build "$dir/build" --clean-first > /dev/null 2>&1 || fail "selftest ccache preconfigurado: build da arvore falhou"
+    }
+    # State 1: tree first configured WITH the launcher, then the switch turns it off.
+    (ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
+     cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
+        || fail "selftest ccache preconfigurado: primeiro configure falhou"
+    [ "$(lido)" = "ccache" ] || fail "selftest ccache preconfigurado: arvore nao nasceu com o lancador (lido '$(lido)')"
+    (ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE=0 setup_ccache > /dev/null
+     cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
+        || fail "selftest ccache preconfigurado: reconfigure desligado falhou"
+    [ -z "$(lido)" ] || fail "selftest ccache preconfigurado: arvore com lancador NAO desligou (lido '$(lido)')"
+    compilar
+    [ "$(chamadas)" = "0" ] || fail "selftest ccache preconfigurado: desligado, mas o ccache contou $(chamadas) chamada(s)"
+    echo "selftest: ccache preconfigurado com lancador e depois desligado OK"
+    # State 2: tree first configured WITHOUT it, then the switch turns it on.
+    (ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
+     cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
+        || fail "selftest ccache preconfigurado: reconfigure ligado falhou"
+    [ "$(lido)" = "ccache" ] || fail "selftest ccache preconfigurado: arvore sem lancador NAO ligou (lido '$(lido)')"
+    compilar
+    [ "$(chamadas)" -gt 0 ] || fail "selftest ccache preconfigurado: ligado, mas o ccache contou ZERO chamadas"
+    echo "selftest: ccache preconfigurado sem lancador e depois ligado OK"
+    rm -rf "$dir"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -2122,6 +2162,7 @@ run_selftest() {
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
     run_selftest_ccache_controls
+    run_selftest_ccache_preconfigured_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -2294,7 +2335,17 @@ run_full_pipeline() {
 # the source tree alone the hot hit rate was 20.3%, with TMPDIR added
 # 100%). CCACHE_NOHASHDIR drops the working directory from the hash. The switch
 # is GLINTFX_PRECI_CCACHE=0; the state is printed EVERY run, never silent.
+#
+# CMake reads the *_COMPILER_LAUNCHER environment variables only at the
+# FIRST configure of a build tree, so a tree that already exists would
+# keep whatever launcher it first saw (never turning on, never turning
+# off). The product configures therefore also pass the launcher as an
+# explicit -D, through CCACHE_CMAKE_ARGS: the state of every tree follows
+# the switch, with the value (ccache, or empty) stated every time.
+CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
+
 setup_ccache() {
+    CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
     if [ "${GLINTFX_PRECI_CCACHE:-1}" = "0" ]; then
         unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
         echo "ccache: desligado (GLINTFX_PRECI_CCACHE=0)"
@@ -2307,6 +2358,7 @@ setup_ccache() {
     fi
     export CMAKE_C_COMPILER_LAUNCHER=ccache
     export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+    CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
     export CCACHE_DIR="${CCACHE_DIR:-/var/tmp/ccache-glintfx}"
     export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-3G}"
     export CCACHE_BASEDIR="${ROOT_DIR}:${TMPDIR:-/var/tmp}"

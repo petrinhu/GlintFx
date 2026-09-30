@@ -5074,3 +5074,20 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §9, md5 5ff5706f.
 - *Fontes:* o mesmo defeito e conserto em outros projetos de supervisão de processos, e o systemd, que espera depois do SIGKILL final e relata "Processes still around after final SIGKILL".
 - *Condição do main:* a varredura do /proc é só com comandos internos do bash, sem um processo por item (L-11 global).
 - *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 02:0x | D-A47: decisões da B3a e da B3b pelo CTO (L-34; errata §10 e §11)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
+
+- **B3a (o carregador GL com contexto):**
+  - o teste do helper novo entra na linha da B3a, porque sem ele o helper ficaria sem teste;
+  - o gerador perde a forma sem contexto, porque o único usuário dela era o próprio teste do gerador;
+  - a forma antiga do helper e o tipo `gl_proc_address_fn` ficam SEM consumidor de produção. Remover é decisão do líder (L-67), e a pergunta está na INBOX (GL-PROC-ADDRESS-SEM-CONSUMIDOR).
+- **B3b (o programa gráfico embutido do desenho 2D):**
+  - *Pergunta:* como provar a peça antes de existir a API pública que a usa?
+  - *Escolha:* um teste puro, com uma tabela de funções GL de mentira, que roda nos 5 alvos. Ele prova o nome de cada falha, nenhum objeto GL vazado, e a mensagem do driver chegando ao registro, com o truncamento visível.
+  - A prova no driver real passa para a B4, pela API pública.
+  - *O defeito era do plano do CTO:* pedia uma célula de paridade para uma peça ainda sem superfície pública.
+  - *Recusado:* recompilar fontes internas no alvo Windows, porque quebraria a pureza do teste de paridade.
+  - O tamanho da superfície vai para a B3c; a severidade do evento é `err`.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.

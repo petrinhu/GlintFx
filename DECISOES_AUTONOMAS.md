@@ -5214,3 +5214,38 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - **(c) Reserva com guarda de estouro,** e o teste do crescimento de uma vez só, que o CTO tinha anotado na B2c.
 - **(d) Extração do buffer de crescimento para um arquivo próprio,** por ser a quarta ocorrência (L-33, regra de 3).
 - *Porta de mão única:* (a) é texto de contrato público, revisado antes da publicação. *Custo de reverter:* baixo até a B4 sair.
+
+## 30/09/2026 - 11:09 | D-A53: a leitura adversarial da B4 antes do commit (CTO, L-34; errata §19 e adendo, md5 381bda3f)
+
+- **D-B4-1, a peça que não chegou à placa:** a regra pública do relatório de quadro dizia "três destinos" para toda peça enviada, e a peça que falhou no contexto ou na placa não caía em nenhum deles.
+  - *Opções:* (i) um contador novo, com a regra passando a quatro destinos; (ii) somar no descarte por falta de memória, o que mente sobre a causa; (iii) não contar a peça, o que a esconde.
+  - *Escolha:* (i). O nome e a posição foram corrigidos pelo revisor de API: `pieces_dropped_graphics_failure`, logo depois de `pieces_dropped_out_of_memory`, e este último passa a dizer "memória da própria lib".
+  - *Porta de mão única:* sim, mas o cabeçalho nasce nesta B4, então este é o momento mais barato de acertá-lo. O blob publicado (97e0963) tem o md5 06a3e039, o mesmo do arquivo do revisor.
+- **D-B4-2, a ordem de pintura sem depender de memória:** o código descartava em silêncio o resultado da ordenação, e a ordem por camada se perdia se faltasse memória.
+  - *Fonte:* `std::sort` ordena no lugar, sem alocar, e `std::stable_sort` tenta alocar (cppreference). A chave (camada, envio) já é única por construção.
+  - *Escolha:* ordenar a própria lista de peças no lugar, sem falha possível.
+  - *Consequência:* `sort_draw_keys()` ficou sem consumidor de produção. Foi para o INBOX como pergunta ao líder (L-67), e o agente não a declara morta.
+- **Os 5 pontos do implementador,** todos aceitos:
+  - o acesso ao contexto sobre o interior dele;
+  - a opção sRGB lida uma vez;
+  - a recusa do carregador numa função pura;
+  - a célula do contexto movido, que vai para a B5;
+  - o teste de paridade escrito na B4 e provado na B5.
+- **Os 7 mutantes do CTO que sobreviviam,** que eram lacunas de teste, viraram células no renderer_2d_impl_test.
+
+## 30/09/2026 - 11:57 | D-A54: o portão de alocação em noexcept resolve o receptor pelo tipo declarado (CTO, L-34; errata §20)
+
+- *Fato:* o portão acusava os `reserve` NOSSOS, que são `noexcept`, só por causa do nome, sem olhar o tipo.
+- *Fonte:* o `bugprone-exception-escape` do clang-tidy decide pelo tipo e pelo `noexcept` declarado de quem é chamado. O próprio portão já fazia isso para `string_view::substr`.
+- *Opções:*
+  - (a) renomear os nossos `reserve`, que é o caminho menos difícil e dobra o código ao defeito do portão;
+  - (b) resolver pelo tipo declarado;
+  - (c) exceção na catraca, que é proibida pela Decisão 13.
+- *Escolha:* (b). Na dúvida, o código continua acusado.
+- *Primeira revisão do CTO sobre o commit (14fc460): REPROVADA.* Havia 2 falsos negativos:
+  - FN-1: um `auto` com o mesmo nome era absolvido;
+  - FN-2: uma sobrecarga sem `noexcept` era absolvida.
+  - Conserto (3413e66): tipo não descoberto (auto, decltype, range-for, structured binding, init-capture) conta como acusado, e todas as sobrecargas precisam ser `noexcept`.
+- *Aceite:* sem condição. A sonda do CTO acertou 11 de 11, e o --selftest passa os 20 controles.
+- Empurrado às 12:27; o `ls-remote` confere com o HEAD.
+- *Porta de mão única:* não.

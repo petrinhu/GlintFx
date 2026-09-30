@@ -38,6 +38,7 @@
 #include "platform/wayland/connection_failure.hpp"
 #include "platform/wayland/drm_device_facts.hpp"
 #include "platform/wayland/drm_gpu_kind.hpp"
+#include "platform/wayland/egl_config_attribs.hpp"
 #include "platform/wayland/egl_device_enumeration.hpp"
 #include "platform/wayland/egl_incoming_poll_step.hpp"
 #include "platform/wayland/incoming_poll_outcome.hpp"
@@ -527,76 +528,41 @@ wayland_egl_context_adapter::choose_config(std::span<const gltfx_gfx_option_entr
         }
     }
 
-    // RGBA8+stencil8 always (D-W6b-4); EGL_SAMPLES/EGL_GL_COLORSPACE_
-    // KHR appended only when requested - a fixed-size array, never a
-    // heap allocation, this fatia's own open()-time path can afford
-    // (it runs once per context, never per frame).
-    auto try_choose = [this](std::int64_t samples, bool srgb, void *&config_out) noexcept -> bool {
-        EGLint attribs[16] = {
-            EGL_SURFACE_TYPE,
-            EGL_WINDOW_BIT,
-            EGL_RENDERABLE_TYPE,
-            EGL_OPENGL_BIT,
-            EGL_RED_SIZE,
-            8,
-            EGL_GREEN_SIZE,
-            8,
-            EGL_BLUE_SIZE,
-            8,
-            EGL_ALPHA_SIZE,
-            8,
-            EGL_STENCIL_SIZE,
-            8,
-            EGL_NONE,
-            EGL_NONE,
-        };
-        std::size_t next = 12;
-        if (samples > 0) {
-            attribs[next++] = EGL_SAMPLES;
-            attribs[next++] = static_cast<EGLint>(samples);
-        }
-        if (srgb) {
-            attribs[next++] = EGL_GL_COLORSPACE_KHR;
-            attribs[next++] = EGL_GL_COLORSPACE_SRGB_KHR;
-        }
-        attribs[next] = EGL_NONE;
-
+    // D-SRGB-1 (errata sec. 28): the colorspace is an attribute of a SURFACE
+    // (EGL_KHR_gl_colorspace, "New Tokens"), never of eglChooseConfig: this list is RGBA8, stencil8
+    // and EGL_SAMPLES only (see egl_config_attribs.hpp, where a test proves it). The sRGB surface
+    // is asked for, and VERIFIED, in create_egl_window() below. Asking the choose list for it made
+    // Mesa answer EGL_BAD_ATTRIBUTE, which this adapter used to read as "the driver has no sRGB".
+    auto try_choose = [this](std::int64_t samples, void *&config_out) noexcept -> bool {
+        const egl_attrib_list attribs = egl_choose_config_attribs(samples);
         EGLConfig config = nullptr;
         EGLint num_configs = 0;
-        const bool ok =
-            eglChooseConfig(m_egl_display, attribs, &config, 1, &num_configs) == EGL_TRUE &&
-            num_configs > 0;
+        const bool ok = eglChooseConfig(m_egl_display, attribs.values.data(), &config, 1,
+                                        &num_configs) == EGL_TRUE &&
+                        num_configs > 0;
         if (ok) {
             config_out = config;
         }
         return ok;
     };
 
-    void *full_config = nullptr;
-    if (try_choose(msaa_samples, srgb_framebuffer != 0, full_config)) {
-        out_config = full_config;
+    // What the DISPLAY advertises; with the option on, the surface is the real test
+    // (create_egl_window()).
+    const bool colorspace_extension = egl_extension_listed(
+        eglQueryString(m_egl_display, EGL_EXTENSIONS), "EGL_KHR_gl_colorspace");
+    m_srgb_supported = colorspace_extension;
+
+    void *chosen = nullptr;
+    if (try_choose(msaa_samples, chosen)) {
         m_msaa_supported = true;
-        m_srgb_supported = true;
+        if (srgb_framebuffer != 0 && !colorspace_extension) {
+            // Never degrade in silence (D-W6b-17): no extension, no sRGB surface, and a refusal
+            // that says so.
+            return gltfx_rslt<void>::err(
+                gltfx_err(gltfx_err_code::unsupported).with_rejected_value("srgb_framebuffer"));
+        }
+        out_config = chosen;
         return gltfx_rslt<void>::ok();
-    }
-
-    // D-W6b-17: never degrade in silence - isolate WHICH option this
-    // driver could not honor before refusing, one attempt at a time,
-    // rather than blaming the first one requested.
-    void *without_msaa = nullptr;
-    if (msaa_samples > 0 && try_choose(0, srgb_framebuffer != 0, without_msaa)) {
-        m_msaa_supported = false;
-        m_srgb_supported = true;
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::unsupported).with_rejected_value("msaa_samples"));
-    }
-
-    void *without_srgb = nullptr;
-    if (srgb_framebuffer != 0 && try_choose(msaa_samples, false, without_srgb)) {
-        m_msaa_supported = true;
-        m_srgb_supported = false;
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::unsupported).with_rejected_value("srgb_framebuffer"));
     }
 
     if (msaa_samples > 0) {
@@ -604,19 +570,14 @@ wayland_egl_context_adapter::choose_config(std::span<const gltfx_gfx_option_entr
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::unsupported).with_rejected_value("msaa_samples"));
     }
-    if (srgb_framebuffer != 0) {
-        m_srgb_supported = false;
-        return gltfx_rslt<void>::err(
-            gltfx_err(gltfx_err_code::unsupported).with_rejected_value("srgb_framebuffer"));
-    }
     return gltfx_rslt<void>::err(
         gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_config"));
 }
 
-gltfx_rslt<void>
-wayland_egl_context_adapter::create_egl_window(wl_surface &surface, void *config,
-                                               std::uint32_t pixel_width,
-                                               std::uint32_t pixel_height) noexcept {
+gltfx_rslt<void> wayland_egl_context_adapter::create_egl_window(wl_surface &surface, void *config,
+                                                                std::uint32_t pixel_width,
+                                                                std::uint32_t pixel_height,
+                                                                bool srgb) noexcept {
     // In PIXELS, never logical_size() (D-W6a-17's own distinction,
     // this file's own header comment) - the framebuffer a consumer
     // paints into is the window's own pixel_size(), read by open()
@@ -635,12 +596,35 @@ wayland_egl_context_adapter::create_egl_window(wl_surface &surface, void *config
     // it, never as a separate top-level step (egl_probe_smoke.cpp's
     // own header comment: the two are one indivisible mechanical step,
     // both needing this SAME `config`).
-    EGLSurface egl_surface = eglCreateWindowSurface(m_egl_display, config, m_egl_window, nullptr);
+    // D-SRGB-1: the sRGB colorspace is asked HERE, as an attribute of the surface, and only when
+    // the option is on. Refused with the attribute: unsupported - never a linear surface quietly
+    // labelled sRGB.
+    const egl_attrib_list surface_attribs = egl_window_surface_attribs(srgb);
+    EGLSurface egl_surface =
+        eglCreateWindowSurface(m_egl_display, config, m_egl_window, surface_attribs.values.data());
     if (egl_surface == EGL_NO_SURFACE) {
+        if (srgb) {
+            m_srgb_supported = false;
+            return gltfx_rslt<void>::err(
+                gltfx_err(gltfx_err_code::unsupported).with_rejected_value("srgb_framebuffer"));
+        }
         return gltfx_rslt<void>::err(
             gltfx_err(gltfx_err_code::platform_failure).with_rejected_value("egl_surface"));
     }
-    m_egl_surface = egl_surface;
+    m_egl_surface = egl_surface; // close() destroys it on any refusal below
+    if (srgb) {
+        // The driver may accept the attribute and still hand back a linear surface: the colorspace
+        // is READ BACK, and only a surface that says SRGB counts as one.
+        EGLint colorspace = 0;
+        if (eglQuerySurface(m_egl_display, m_egl_surface, EGL_GL_COLORSPACE_KHR, &colorspace) !=
+                EGL_TRUE ||
+            colorspace != EGL_GL_COLORSPACE_SRGB_KHR) {
+            m_srgb_supported = false;
+            return gltfx_rslt<void>::err(
+                gltfx_err(gltfx_err_code::unsupported).with_rejected_value("srgb_framebuffer"));
+        }
+        m_srgb_supported = true;
+    }
     return gltfx_rslt<void>::ok();
 }
 
@@ -829,9 +813,15 @@ wayland_egl_context_adapter::open(wayland_window_adapter &window,
         return config_ok;
     }
 
+    bool srgb_requested = false;
+    for (const gltfx_gfx_option_entry &entry : options) {
+        if (entry.id == gltfx_gfx_option::srgb_framebuffer) {
+            srgb_requested = entry.value != 0;
+        }
+    }
     const window_size pixel_size = window.state().pixel_size();
-    if (const gltfx_rslt<void> window_ok =
-            create_egl_window(*surface, config, pixel_size.width, pixel_size.height);
+    if (const gltfx_rslt<void> window_ok = create_egl_window(*surface, config, pixel_size.width,
+                                                             pixel_size.height, srgb_requested);
         window_ok.has_error()) {
         close();
         return window_ok;

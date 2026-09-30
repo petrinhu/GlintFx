@@ -1270,6 +1270,14 @@ target_sources(drm_gpu_kind_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/wayland/drm_gpu_kind.cpp"
 )
 
+# D-SRGB-1 (errata sec. 28): what the EGL adapter ASKS of EGL (the choose list without a colorspace, the window
+# surface list with it, the extension test), as pure functions over plain data. Linux only: the Win32 side gets
+# its sRGB from the pixel format, a different mechanism (a permanent, declared asymmetry).
+if(UNIX)
+    glintfx_add_test(egl_config_attribs_test)
+    target_include_directories(egl_config_attribs_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+endif()
+
 glintfx_add_test(egl_device_dedup_test)
 target_include_directories(egl_device_dedup_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(egl_device_dedup_test PRIVATE

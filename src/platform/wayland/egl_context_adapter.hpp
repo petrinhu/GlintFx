@@ -265,7 +265,8 @@ class wayland_egl_context_adapter {
                                                  void *&out_config) noexcept;
     [[nodiscard]] gltfx_rslt<void> create_egl_window(wl_surface &surface, void *config,
                                                      std::uint32_t pixel_width,
-                                                     std::uint32_t pixel_height) noexcept;
+                                                     std::uint32_t pixel_height,
+                                                     bool srgb) noexcept;
     // Runs AFTER create_egl_window() above has already produced
     // m_egl_surface: eglCreateContext(3.3 core) over `config`, make it
     // current, then validate_gl_context_version() (gl_version_policy.

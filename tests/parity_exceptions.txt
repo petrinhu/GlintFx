@@ -952,3 +952,9 @@ contido_dentro_selftest_varredura|windows|nenhum|SEM-PENDENCIA
 # runner. MORTE DESTA LINHA: nunca - assimetria permanente por desenho (o sistema de arquivos sysfs so'
 # existe no Linux).
 power_source_adapter_test|windows|nenhum|SEM-PENDENCIA
+
+# D-SRGB-1 (errata sec. 28): egl_config_attribs_test proves what the Wayland/EGL adapter ASKS of EGL (the choose
+# list without a colorspace, the window surface list with it). The Win32 side gets its sRGB surface from the
+# pixel format (WGL_ARB_framebuffer_sRGB), a different mechanism with no EGL attribute list to test.
+# MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
+egl_config_attribs_test|windows|nenhum|SEM-PENDENCIA

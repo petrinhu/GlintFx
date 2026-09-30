@@ -69,6 +69,8 @@ void describe_attribute(const render::gl_function_table &gl, GLuint index, int c
 struct buffer_upload {
     GLenum target = 0;
     GLuint buffer = 0;
+    // cppcheck-suppress uninitMemberVarNoCtor ; reason: a reference member has no default: every
+    // buffer_upload is built by aggregate initialization, which binds it
     std::size_t &capacity;
     const void *data = nullptr;
     std::size_t bytes = 0;

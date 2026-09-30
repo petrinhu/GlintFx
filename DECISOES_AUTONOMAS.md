@@ -5353,3 +5353,13 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - os analisadores da lista estão abandonados e não leem C++23;
   - o -Weffc++ segue regras de 2005.
 - *Escolha do líder (AskUserQuestion):* "Manter como está (Recomendado)". O ganho de tempo segue pela trilha paralela já decidida.
+
+## 30/09/2026 - 15:57 | D-A61: o sRGB no Windows é anunciado mas não aplicado; a biblioteca passa a conferir no próprio framebuffer (CTO, L-34 e L-44; errata §31, md5 840fead6)
+
+- *Fato, no CI 36759613878:* nos 3 jobs Windows, o draw2d_parity_test reprovou as mesmas 3 células com sRGB ligado.
+  - O contexto aceitou a opção (srgb_on_cells_absent=0), e o FRAMEBUFFER_SRGB estava ligado.
+  - O pixel meio branco deu 128, quando deveria dar cerca de 188.
+- *Mecanismo, pela especificação ARB_framebuffer_sRGB:* a conversão exige o enable e também um buffer de destino com codificação sRGB. O wglChoosePixelFormatARB aceitou WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, mas o buffer de trás veio linear. É o gêmeo do D-A59: lá o EGL recusava errado, aqui o WGL aceita errado.
+- *Escolha:* a fachada do contexto lê de volta o GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING do buffer de trás, com a mesma régua nos dois sistemas. Se a opção foi pedida e a resposta não é SRGB, o resultado é unsupported.
+- *Recusados:* confiar no que o formato de pixel diz; e declarar o Windows como ausência, que seria aceitar o anúncio falso.
+- *Próximo CI:* se a leitura der LINEAR, a lib recusa com honestidade no Windows e o sRGB fica provado no Linux. Se der SRGB com o pixel ainda em 128, o defeito é do driver do runner, e a VM Windows mede com outro driver, com liberação do team-lead.

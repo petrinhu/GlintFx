@@ -295,7 +295,11 @@ contido_selftest() {
     rm "$tree/$uslice/pids.current"
     case_facts "user slice pids.current absent is ilegivel" "max|ilegivel|7" "$own_line"
     case_facts "cgroup outside the user slice" "ilegivel|ilegivel|ilegivel" "0::/system.slice/foo.service"
-    case_facts "no 0:: line (cgroup v1)" "ilegivel|ilegivel|ilegivel" "1:name=systemd:/foo"
+    # cgroup v1: the path in the v1 line EXISTS in the fake tree, with every file readable, so a reader that
+    # accepted the v1 line as its own path would answer 64|100|7 instead of ilegivel
+    echo 64 >"$cg_dir/pids.max"
+    echo 100 >"$tree/$uslice/pids.current"
+    case_facts "no 0:: line (cgroup v1, path exists)" "ilegivel|ilegivel|ilegivel" "1:name=systemd:/$uslice/user@$UID.service/app.slice/x.scope"
     echo 300 >"$tree/pids.max"
     case_facts "0::/ (container) reads the root pids.max" "300|ilegivel|ilegivel" "0::/"
     case "$tree" in "${TMPDIR:-/var/tmp}"/glintfx-contido-facts.??????) rm -rf -- "$tree" ;; esac

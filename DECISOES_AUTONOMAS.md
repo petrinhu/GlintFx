@@ -4965,3 +4965,26 @@ Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 
   - as 6 linhas pendentes (CI-SPLIT-PER-OS, PLATFORMS-ASTRO-PARITY, WL-ACK-SMOKE-BLUNT, PLAN-SCOPE-COLUMNS, DISPLAY-PASSKEY-CONTROL, CI-VERDE-W7C) passam a ter Onda = INFRA-CI e vão para logo depois da CI-VERDE-W8;
   - as 9 linhas concluídas ficam como W7-C, registro do que já foi feito;
   - os IDs não mudam, porque os commits os citam.
+
+## 29/09/2026 - 22:5x | D-A40: plano da W7-D, o código do framework (CTO, L-34; verificado pelo main)
+
+Plano completo: /var/tmp/cto-w7d/PLANO.md, md5 892f16ce331c8d43cb37fc5f7d30f085. Cada decisão abaixo está no formato L-34 inteiro na §3 dele.
+
+**Contagem:**
+- 11 fatias de produto em `src/`/`include/`, cada uma com o teste vermelho antes: P1-P3 (predefinição gráfica) e B2a-B4 (desenho 2D);
+- 7 de revisão, prova ou texto;
+- ferramental novo: zero.
+
+**Decisões:**
+- **D-W7D-18:** o desenho 2D agrupa por triângulo indexado, que é como fazem o SDL3 (SDL_RenderGeometry), a interface de desenho do RmlUi 6 e o raylib. A API pública v1 fica só com retângulo e quadrilátero: a L-32 barra escopo novo antes da demo, e as leis vencem o desejo da comunidade. As formas mais pedidas pela comunidade (geometria livre, linha, contorno, elipse) viram o item R2D-SHAPES, logo depois da DEMO-1. Porta de mão única só na API v1, que a revisão B0 congela.
+- **D-W7D-19:** os portões novos dos planos de 23 e 24/09 vão para a INFRA-CI, depois da W8. A perda está declarada: até lá, a direção de camada do desenho é conferida por um `grep` com controles plantados na revisão B7.
+- **D-W7D-20:** a W7-C fecha com o recorte do líder, e o fluxo é:
+  - push, depois CI verde;
+  - PR e merge no main (commit de merge sem conflito, medido com `git merge-tree`);
+  - a marca v0.5.2.0, porque a guarda do EGL é correção de produto;
+  - onda-w7d nasce do main novo.
+  A autorização vem de "Autorizo push/tag/merge" e da L-11 do projeto. O fecho sem as 6 pendências é inferência do CTO a partir do recorte do líder, que as moveu para INFRA-CI.
+- **D-W7D-21:** o d8641c9 reprovado recebe um conserto mínimo por cima: sai o PASS_REGULAR_EXPRESSION e o rc volta a ser o veredito. A perda está declarada: a linha `pulados:` fica sem conferência até a INFRA-CI. Não se reverte, porque o revert jogaria fora o que a revisão aceitou.
+- **D-W7D-22:** a entrada é arrumada na tabela como já tinha sido ratificado em 24/09. INPUT-EVENTS vai para a W9, e o main aplica as linhas novas no primeiro commit de onda-w7d.
+
+**Ordem:** fecho da W7-C, depois a tabela, depois P1-P5, depois B2a-B2d, depois B3a-B7, depois CI-VERDE-W7D e v0.6.0.0. As revisões de API P0 e B0 já andam em paralelo, com o agente `api-review`, distinto do planejador e do implementador.

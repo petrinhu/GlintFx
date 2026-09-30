@@ -166,9 +166,12 @@ def selftest_main():
         # The fake test sleeps 4x longer than in the base, above the floor.
         _case(scratch, "teste de mentira 4x mais lento", {"dorminhoco": 2.0, "ok": 1.0}, {"dorminhoco": 8.0, "ok": 1.0},
               1, ["comparados 2", "reprovados 1", "dorminhoco ficou 4.0x mais lento", "base 2.00 s, agora 8.00 s"]),
-        # The real case of this trail: the noexcept_alloc gate went from 0.51 s to 21 s.
-        _case(scratch, "noexcept_alloc 0,51 s para 21 s", {"noexcept_alloc_test": 0.51}, {"noexcept_alloc_test": 21.0},
-              1, ["noexcept_alloc_test ficou 41.2x mais lento", "base 0.51 s, agora 21.00 s"]),
+        # The real case of this trail, MEASURED (30/09/2026, this machine, 3 runs each, the
+        # check_noexcept_alloc.py of each commit over its own archived tree, `git archive` into a
+        # scratch git repo): 05fc6c5 = 0.612/0.535/0.550 s, median 0.55; 3413e66 = 21.72/19.36/19.63 s,
+        # median 19.63. The gate became 35.7x slower and must reprove.
+        _case(scratch, "noexcept_alloc 0,55 s (05fc6c5) para 19,63 s (3413e66), medidos", {"noexcept_alloc_test": 0.55}, {"noexcept_alloc_test": 19.63},
+              1, ["noexcept_alloc_test ficou 35.7x mais lento", "base 0.55 s, agora 19.63 s"]),
         _case(scratch, "4x mas abaixo do piso de 5 s", {"rapido": 0.5}, {"rapido": 2.0},
               0, ["reprovados 0"]),
         _case(scratch, "acima do piso mas so 2x", {"medio": 3.0}, {"medio": 6.0},

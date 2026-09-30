@@ -1339,6 +1339,14 @@ if(UNIX)
     )
 endif()
 
+# R2D-BATCH (docs/plano-w7d.md sec. 4.3): the PURE atoms of src/draw2d/ - each test compiles the translation
+# units it proves (they are not exported), the same shape the atoms of src/platform/gl/ use.
+glintfx_add_test(quad_vertices_test)
+target_include_directories(quad_vertices_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(quad_vertices_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

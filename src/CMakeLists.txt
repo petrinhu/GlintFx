@@ -51,6 +51,10 @@ add_subdirectory(gfui)
 # CMakeLists.txt's own header comment for the full reasoning.
 add_subdirectory(render)
 
+# draw2d layer (R2D-BATCH, GODS_LAWS.md L-19): above platform/gl, never included by platform/. Added after
+# render/ because the layer talks GL through the generated loader header render/ produces.
+add_subdirectory(draw2d)
+
 # Unconditional as of ARCH-PORTS (GODS_LAWS.md L-19/L-40): the
 # UNIX/WIN32/unsupported branching that used to live in THIS if(UNIX)
 # guard now lives inside src/platform/CMakeLists.txt itself, as a

@@ -5121,3 +5121,17 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - Cosmético pendente para o próximo toque no arquivo: o comentário vai para a linha de cima do `if`.
 - **O Status 🔍 de GFX-PRESET saiu em commit separado (cfbd979), e não no da fatia (L-63).** A causa foi a mesma da P1.
   - *Regra desta onda, daqui em diante:* o Status sai no MESMO commit da fatia. A proibição de tocar o TODO.md que causou os dois desvios já foi retirada. Um desvio a mais, se houver, é falha nova, não parte desta regra.
+
+## 30/09/2026 - 05:5x | D-A49: o CI da W7-D e dois desvios aceitos na P2 (CTO, L-34; errata §13 e §14)
+
+- **D-P2-CI, o Windows Lint:** a regra pura de energia do Linux (`src/platform/wayland/power_supply_rule.cpp`) entra como sexto nome na lista fechada de exceções do portão do Windows, `$waylandDominioNaoSo`.
+  - *Pesquisa (L-34, feita DEPOIS da primeira escolha, e o CTO registrou a falha de ordem):*
+    - o "functional core, imperative shell" do Google Testing Blog;
+    - o GLFW, com os `null_*` como exceção nomeada compilada em toda plataforma: o mesmo desenho;
+    - o SDL3 e o raylib, sem teste da lógica de plataforma: o caminho que deixaria a regra sem prova no Windows;
+    - o sokol e o Godot, com prova em cada alvo.
+  - *Escolha:* o núcleo puro provado em todo alvo, com uma exceção nomeada no portão. Fontes com URL na errata §13 (adendo).
+- **O Clang:** constantes de teste sem uso nos 3 testes da P1. O g++ não avisa, o Clang avisa. Conserto: apagar as constantes, nunca `[[maybe_unused]]`. A causa-raiz é que a checagem local (preci) não compila com Clang; isso vai para a INBOX da INFRA-CI.
+- **Desvios aceitos na P2 (f88b1f8):**
+  - a guarda `dirfd < 0` sem teste vermelho (L-20): falha para o lado seguro e não é alcançável no glibc;
+  - o Status 🔍 de GFX-PRESET em commit separado (L-63). A causa (a minha proibição de tocar o TODO.md durante a arrumação da tabela) já foi retirada.

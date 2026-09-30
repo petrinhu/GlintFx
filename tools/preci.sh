@@ -2189,13 +2189,24 @@ run_selftest_ccache_controls() {
             *) fail "selftest ccache $nome: esperado '$esperado_estado' com lancadores [$esperado_lancador], obtido '$obtido'" ;;
         esac
     }
-    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$PATH"
+    # The CI `lint` job runs this --selftest in a container with no ccache:
+    # the "on" case uses a stub executable, never the real one.
+    stub_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-stub.XXXXXX")" \
+        || fail "selftest ccache: mktemp falhou"
+    printf '#!/bin/sh\nexit 0\n' > "$stub_dir/ccache"
+    chmod +x "$stub_dir/ccache"
+    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$stub_dir:$PATH"
+    rm -rf "$stub_dir"
     esperar "desligado pela chave" "ccache: desligado (GLINTFX_PRECI_CCACHE=0)" "|" 0 "$PATH"
     esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
 }
 
 run_selftest_ccache_preconfigured_controls() {
     log "selftest: arvore de build JA configurada segue a chave do ccache (o ambiente so vale no primeiro configure)"
+    if ! command -v ccache > /dev/null 2>&1; then
+        echo "selftest: ccache preconfigurado NAO APLICAVEL neste host (ccache ausente; 0 de 2 controles executados, declarado - nao reprova)"
+        return 0
+    fi
     dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-pre.XXXXXX")" \
         || fail "selftest ccache preconfigurado: mktemp falhou"
     printf 'cmake_minimum_required(VERSION 3.20)\nproject(x CXX)\nadd_library(x STATIC x.cpp)\n' > "$dir/CMakeLists.txt"

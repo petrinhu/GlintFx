@@ -5196,3 +5196,13 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - o R2D-TEXT vai para a W11b, cada um logo depois das suas dependências.
   - A W8 fica com a DEMO-1, as texturas e as formas.
   - Nenhuma data real muda. O pedido do Gus mora nas fatias de baixo do mapa, que continuam onde estavam.
+
+## 30/09/2026 - 10:10 | D-A51: condições do conserto da capacidade e a emenda E4 da API do desenho 2D (CTO, L-34; errata §17, md5 eddf1dcf)
+
+- **Célula gêmea do índice:** o teste do conserto da capacidade (c7ba029) provava só o buffer de vértices, e o reset do buffer de índices ficou sem prova (L-17). O CTO assumiu que o erro de prova era dele. A célula gêmea entra num commit de teste antes da B4.
+- **Emenda E4 (porta de mão única, mas só texto de contrato):**
+  - O texto congelado da API de desenho 2D não listava os erros que a parte interna já emite: vertex_array_create, index_upload e a falta de memória da placa, com o código GL.
+  - Pela regra R7, erro emitido e não escrito é contrato escondido. Os nomes entram nos comentários de open() e finish_frame().
+  - Sai o "draw", se a B4 não o emitir. Nem a API nem a ABI mudam.
+  - *Fonte:* o Vulkan separa a falta de memória do sistema da falta de memória do dispositivo. Aqui a distinção vai pelo código do sistema anexado ao erro, sem valor novo no enum.
+- *Achado por:* o revisor de API, antes de o código público existir.

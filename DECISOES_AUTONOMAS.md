@@ -5048,3 +5048,15 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §6 e §7, md5 37966018.
   - *Opções:* (i) constantes internas espalhadas; (ii) publicar os nomes fora de ordem; (iii) números mágicos; (iv) uma fonte interna única, `gfx_option_values.hpp`, apagada na P3.
   - *Escolha:* (iv). Nunca há duas fontes ao mesmo tempo, e os testes afirmam os números literais decididos em D-W6b-44, não as constantes do código.
 - *Porta de mão única:* não, porque tudo é interno. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 00:08 | D-A45: a P2 é refeita sem alocação e com o teste primeiro (CTO, L-34: D-P2-1 e D-P2-2)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §8, md5 6da49760.
+
+- **D-P2-1: redesenho sem alocação.**
+  - *Pergunta:* o leitor de energia do Linux usava `std::string`/`std::vector`, e o portão de alocação sob `noexcept` reprovava 6 pontos novos. Acrescentar os 6 à lista de tolerados, ou redesenhar?
+  - *Escolha:* redesenhar, com buffers de char fixos e leitura entrada a entrada; um valor longo vira "desconhecido" (falha fechada).
+  - *Por quê:* a Decisão 15 do líder mandou consertar essa família de defeito, não congelá-la, e a lista existe para não crescer. Aumentá-la seria o caminho menos difícil. O vocabulário do sysfs é curto e fechado, então o buffer fixo não perde nada.
+- **D-P2-2: a quebra declarada da L-20 não é aceita.** O teste do leitor foi escrito depois do código. No redesenho, o teste da forma nova vem primeiro e é visto vermelho.
+- *Custo declarado:* a P2 volta um passo; o lado Windows e as regras puras não mudam.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.

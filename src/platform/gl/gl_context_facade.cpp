@@ -19,6 +19,7 @@
 #include "platform/gl/gfx_option_registry.hpp"
 #include "platform/gl/gfx_option_validation.hpp"
 #include "platform/gl/gfx_preset_table.hpp"
+#include "platform/gl/gl_context_access.hpp"
 #include "platform/gl/gl_context_desc_validation.hpp"
 #include "platform/gl/gl_context_impl.hpp"
 #include "platform/gl/preset_expansion.hpp"
@@ -630,6 +631,20 @@ gltfx_gpu_info gltfx_gl_context::gpu() const noexcept {
            "gltfx_gl_context::gpu() called on a moved-from context - the object no longer owns "
            "an adapter");
     return m_impl->adapter.gpu();
+}
+
+// The interior-based access of the drawing layer (gl_context_access.hpp): each is one call over the
+// inline accessors of gl_context_impl.hpp, so there is no second copy of any of them.
+void *gl_context_interior_resolve(void *interior, const char *name) noexcept {
+    return gl_context_resolve_proc(interior, name);
+}
+
+std::pair<std::uint32_t, std::uint32_t> gl_context_interior_surface_size(void *interior) noexcept {
+    return gl_context_surface_pixel_size(interior);
+}
+
+gltfx_rslt<void> gl_context_interior_make_current(void *interior) noexcept {
+    return static_cast<gl_context_impl *>(interior)->adapter.make_current();
 }
 
 // gl_context_internal_access::get() - the ONLY definition of this

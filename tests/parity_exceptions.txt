@@ -952,3 +952,10 @@ contido_dentro_selftest_varredura|windows|nenhum|SEM-PENDENCIA
 # runner. MORTE DESTA LINHA: nunca - assimetria permanente por desenho (o sistema de arquivos sysfs so'
 # existe no Linux).
 power_source_adapter_test|windows|nenhum|SEM-PENDENCIA
+
+# R2D-BATCH B4 (errata sec. 19, point 5): draw2d_parity_test.cpp is written, compiled and registered on the
+# Windows side (tests/CMakeLists.txt, if(WIN32)). Its Linux side is a container fixture of the same name,
+# which B5 wires (Containerfile stage plus the ci.yml step, where the drawing layer's sources and the
+# generated GL loader join the fixture's link line) and reads. MORTE DESTA LINHA: quando a B5 fizer o
+# fixture existir no inventario P-0 do Linux.
+draw2d_parity_test|linux|fixture de container de mesmo nome (a B5 liga a Containerfile e o passo do ci.yml)|R2D-BATCH

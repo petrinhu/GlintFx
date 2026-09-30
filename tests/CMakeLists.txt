@@ -1438,6 +1438,33 @@ target_sources(vertex_stream_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+# R2D-BATCH B4: the frame machine behind the public handle, against a FAKE host and a table of FAKE GL functions.
+glintfx_add_test(renderer_2d_impl_test)
+add_dependencies(renderer_2d_impl_test glintfx_gl_functions_generated)
+target_include_directories(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${PROJECT_SOURCE_DIR}/src/render"
+    "${PROJECT_BINARY_DIR}/generated/render"
+)
+target_sources(renderer_2d_impl_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/renderer_2d_impl.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/embedded_program.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/gl_state_contract.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/vertex_stream.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_report_tally.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+)
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
+# standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
+# both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
+# win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
+target_compile_definitions(renderer_2d_impl_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE
@@ -2535,6 +2562,20 @@ if(WIN32)
     glintfx_copy_runtime_dlls_after_build(loop_parity_test)
     add_test(NAME loop_parity_test COMMAND loop_parity_test)
     set_tests_properties(loop_parity_test PROPERTIES LABELS consume)
+endif()
+
+# R2D-BATCH B4: draw2d_parity_test.cpp (tests/parity/) is the fourth member of the window_parity_test/
+# gl_context_parity_test/loop_parity_test family - ONE file, only-public-API, no-#if, proving the 2D drawing
+# layer (gltfx_renderer_2d) draws the same pixels on both systems, through the packaged library boundary. Same
+# mechanism as the others: linked against the PUBLIC glintfx::glintfx target, if(WIN32) only here - the Linux
+# side of this SAME name is the container fixture the paridade inventory picks up (B5 wires and reads it).
+if(WIN32)
+    add_executable(draw2d_parity_test "${CMAKE_CURRENT_SOURCE_DIR}/parity/draw2d_parity_test.cpp")
+    target_link_libraries(draw2d_parity_test PRIVATE glintfx::glintfx)
+    glintfx_apply_compile_options(draw2d_parity_test)
+    glintfx_copy_runtime_dlls_after_build(draw2d_parity_test)
+    add_test(NAME draw2d_parity_test COMMAND draw2d_parity_test)
+    set_tests_properties(draw2d_parity_test PROPERTIES LABELS consume)
 endif()
 
 # LOOP-RUN fatia 8, sub-fatia S4 (loop-fix.md sec. S4.6): loop_hidden_

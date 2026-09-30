@@ -330,6 +330,34 @@ def is_build_output_dir(dir_abs_path):
     return bool(entries & BUILD_MARKER_ENTRIES)
 
 
+def is_linked_worktree_of(root, dir_abs_path):
+    """Prune by MARKER, never by name (L-55, infra trail): true only
+    when the directory holds a `.git` FILE (not a directory) whose
+    first line is `gitdir: <path>` and whose path resolves, symlinks
+    followed, to an existing directory under <root>/.git/worktrees/.
+    A `.git` file pointing anywhere else (forged, or a worktree of
+    another repository) is not this repository's worktree and prunes
+    nothing. Unreadable or malformed means not pruned: fail toward
+    scanning.
+    """
+    marker = os.path.join(dir_abs_path, ".git")
+    if not os.path.isfile(marker):
+        return False
+    try:
+        with open(marker, "r", encoding="utf-8") as handle:
+            first_line = handle.readline().strip()
+    except (OSError, UnicodeDecodeError):
+        return False
+    prefix = "gitdir:"
+    if not first_line.startswith(prefix):
+        return False
+    target = os.path.realpath(
+        os.path.join(dir_abs_path, first_line[len(prefix):].strip())
+    )
+    worktrees_dir = os.path.realpath(os.path.join(root, ".git", "worktrees"))
+    return os.path.isdir(target) and os.path.dirname(target) == worktrees_dir
+
+
 def is_vendor_form_segment(name):
     return name.casefold() in VENDOR_FORM_VOCABULARY
 
@@ -400,11 +428,13 @@ def scan_tree(root):
     (forged or real) found inside an already-matched vendor-form
     subtree prunes nothing.
 
-    Returns (vendor_files, artifacts, pruned_build_dirs), all POSIX-
+    Returns (vendor_files, artifacts, pruned_build_dirs,
+    pruned_worktrees), all POSIX-
     relative to root, all de-duplicated and sorted.
     """
     vendor_dirs = []
     pruned_build_dirs = []
+    pruned_worktrees = []
     vendor_files = []
     artifacts = []
 
@@ -456,6 +486,9 @@ def scan_tree(root):
             if under_vendor_dir:
                 keep.append(name)
                 continue
+            if is_linked_worktree_of(root, os.path.join(dirpath, name)):
+                pruned_worktrees.append(_join_posix(rel_dirpath, name))
+                continue
             if is_build_output_dir(os.path.join(dirpath, name)):
                 pruned_build_dirs.append(_join_posix(rel_dirpath, name))
                 continue
@@ -474,6 +507,7 @@ def scan_tree(root):
         sorted(set(vendor_files)),
         sorted(set(artifacts)),
         sorted(set(pruned_build_dirs)),
+        sorted(set(pruned_worktrees)),
     )
 
 
@@ -505,7 +539,7 @@ def check_vendor_purity(root):
         )
         return False
 
-    vendor_files, artifacts, pruned_build_dirs = scan_tree(root)
+    vendor_files, artifacts, pruned_build_dirs, pruned_worktrees = scan_tree(root)
 
     # GODS_LAWS.md DECISAO AUTONOMA 2 (plan SS3.4): zero files under
     # ANY vendor-form directory is its own, DISTINCT reprove from the
@@ -549,7 +583,8 @@ def check_vendor_purity(root):
         f"{SCRIPT_NAME}: {universe_count} caminho(s) varrido(s) na arvore, "
         f"{len(vendor_files)} sob diretorio de forma vendorizada, "
         f"{len(KNOWN_VENDOR_FILES)} na lista fechada - nenhum intruso "
-        f"({len(pruned_build_dirs)} diretorio(s) build*/ podado(s))"
+        f"({len(pruned_build_dirs)} diretorio(s) build*/ podado(s), "
+        f"{len(pruned_worktrees)} copia(s) de trabalho ligada(s) podada(s))"
     )
     return True
 
@@ -1082,6 +1117,93 @@ def selftest_escape_via_known_vendor_files_edit(scratch):
     return True
 
 
+# Linked-worktree prune (L-55, infra trail, 30/09/2026). A linked git
+# worktree under <root>/worktrees/ holds a FULL checkout of the repo,
+# including the Khronos exception, at a path the closed list does not
+# name - without the prune, creating one turns this gate red at once.
+# The prune is by MARKER, like the build prune: the directory must hold
+# a `.git` FILE whose `gitdir:` resolves under <root>/.git/worktrees/.
+# A forged `.git` file pointing anywhere else must prune nothing.
+def _commit_fixture(root):
+    subprocess.run(["git", "-C", root, "add", "-A"], check=True)
+    subprocess.run(["git", "-C", root, "commit", "-q", "-m", "fixture"], check=True)
+
+
+# Control: a real linked worktree carrying a full copy of the vendored
+# files. Expected: passes, the worktree is reported as pruned.
+def selftest_linked_worktree_pruned_control(scratch, capture):
+    root = os.path.join(scratch, "linked-worktree")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    _commit_fixture(root)
+    subprocess.run(
+        ["git", "-C", root, "worktree", "add", "-q", os.path.join("worktrees", "wt"), "-b", "wt"],
+        check=True,
+    )
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if not outcome.result:
+        print(
+            "selftest: controle WORKTREE-LIGADA FALHOU (a copia de trabalho "
+            "ligada a este repositorio deveria ter sido podada)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    if "1 copia(s) de trabalho ligada(s) podada(s)" not in outcome.text:
+        print(
+            "selftest: controle WORKTREE-LIGADA FALHOU (aprovou, mas nao "
+            "declarou a poda - poda silenciosa e' buraco)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle WORKTREE-LIGADA OK (copia de trabalho real "
+        "podada por marcador e declarada)"
+    )
+    return True
+
+
+# Control: a directory with a FORGED `.git` file pointing outside this
+# repository, holding an intruder under a vendor form. Expected: NOT
+# pruned, the intruder is cited.
+def selftest_forged_worktree_marker_control(scratch, capture):
+    root = os.path.join(scratch, "forged-worktree")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    forged = os.path.join(root, "worktrees", "forged")
+    intruder_dir = os.path.join(forged, "third_party", "stb")
+    os.makedirs(intruder_dir, exist_ok=True)
+    with open(os.path.join(intruder_dir, "stb_image.h"), "w", encoding="utf-8") as handle:
+        handle.write("int stb_decode(void);\n")
+    with open(os.path.join(forged, ".git"), "w", encoding="utf-8") as handle:
+        handle.write("gitdir: " + os.path.join(scratch, "elsewhere", ".git", "worktrees", "x") + "\n")
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result:
+        print(
+            "selftest: controle WORKTREE-FORJADA FALHOU (um .git forjado "
+            "apontando para fora do repositorio podou o terceiro)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    if "worktrees/forged/third_party/stb/stb_image.h" not in outcome.text:
+        print(
+            "selftest: controle WORKTREE-FORJADA FALHOU (reprovou, mas nao "
+            "citou o intruso)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle WORKTREE-FORJADA OK (.git forjado para fora "
+        "do repositorio nao poda nada, o intruso e' citado)"
+    )
+    return True
+
+
 # Non-git control: a real directory with the clean fixture's files on
 # disk, but never `git init`ed. Expected: reproves by scan refusal,
 # never presumed empty - the same discipline check_spdx.py's own
@@ -1130,6 +1252,8 @@ def selftest_main():
             selftest_empty_vendor_scan_control(scratch, capture),
             selftest_escape_via_known_vendor_files_edit(scratch),
             selftest_non_git_control(scratch, capture),
+            selftest_linked_worktree_pruned_control(scratch, capture),
+            selftest_forged_worktree_marker_control(scratch, capture),
         ]
         if not all(controls):
             print("check_vendor_purity.py --selftest: FALHOU (ver acima)", file=sys.stderr)

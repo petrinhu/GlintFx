@@ -97,3 +97,7 @@ tests/container/_arch_ports_lib/
 # docs/decisoes-rng-especificacao-do-lider.md. Ancorado na raiz de
 # proposito: so este arquivo, nunca um rng.txt em outro diretorio.
 /rng.txt
+
+# Copias de trabalho (git worktree) do projeto: moram em subpasta (GODS_LAWS.md
+# L-55, condicao 2), so o codigo; o build fica em /var/tmp.
+/worktrees/

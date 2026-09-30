@@ -3,7 +3,7 @@ build/
 build-*/
 # Links simbolicos de build de uma copia de trabalho (L-55): `build-*/`
 # so casa diretorio, nunca o link para /var/tmp.
-build-*
+/build-*
 out/
 cmake-build-*/
 CMakeUserPresets.json

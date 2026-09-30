@@ -4988,3 +4988,15 @@ Plano completo: /var/tmp/cto-w7d/PLANO.md, md5 892f16ce331c8d43cb37fc5f7d30f085.
 - **D-W7D-22:** a entrada é arrumada na tabela como já tinha sido ratificado em 24/09. INPUT-EVENTS vai para a W9, e o main aplica as linhas novas no primeiro commit de onda-w7d.
 
 **Ordem:** fecho da W7-C, depois a tabela, depois P1-P5, depois B2a-B2d, depois B3a-B7, depois CI-VERDE-W7D e v0.6.0.0. As revisões de API P0 e B0 já andam em paralelo, com o agente `api-review`, distinto do planejador e do implementador.
+
+## 29/09/2026 - 22:5x | D-A41: definição de fechamento da W7-C depois do recorte do líder (L-24)
+
+- *Por que existe:* a L-24 diz que o critério de fechamento é o que a onda tem escrito, nunca o CI verde sozinho. O recorte do líder (612db94, e948847) tirou da W7-C as 6 pendências, e a linha CI-VERDE-W7C foi junto. Sem uma definição nova registrada, merge e marca não rodam.
+- **Definição de fechamento da W7-C (vigente):**
+  1. as 9 linhas que ficaram na W7-C estão ✅: EGL-DEAD-DISPLAY-GUARD, PLAN-SCOPE-REGEX-BLIND, LINK-PREFIX-SUBSTRING, LINK-PREFIX-RESIDUOS, PARITY-ALIAS-HYGIENE, PARITY-LOCAL-MIRROR, LAYERS-ORACLE-REPORT, DOCS-COUNT-VOCAB e CLAIM-CITATIONS;
+  2. as 6 pendentes ficam na INFRA-CI por ordem do líder;
+  3. o trabalho da contenção que o líder mandou fechar está commitado e aceito pelo CTO: a C1b (b626bef) e o C1b-fix;
+  4. o conserto mínimo do d8641c9 (D-W7D-21) está commitado e aceito pelo CTO;
+  5. o CI do SERVIDOR está verde no commit de fechamento, lido direto de `gh run view --json conclusion,jobs`, com a lista de jobs conferida contra o `ci.yml`. CI vermelho bloqueia (L-11).
+- *Depois disso:* PR, merge no main (commit de merge), a marca v0.5.2.0 no merge (L-26) e o ramo remoto onda-w7c apagado ao mesclar (L-11 do projeto).
+- *Autoridade:* "Autorizo push/tag/merge" (29/09) e a L-11 do projeto.

@@ -59,7 +59,25 @@ GLINTFX_TEST(header_declares_the_load_gl_functions_entry_point) {
     const std::string header = render_header(fixture_commands());
     GLINTFX_CHECK(contains(header,
                            "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> "
-                           "load_gl_functions(gl_proc_address_fn get_proc_address) noexcept;"));
+                           "load_gl_functions(gl_context_proc_address_fn get_proc_address, void "
+                           "*user) noexcept;"));
+}
+
+// D-W7D-15: the resolver has to know WHICH context it resolves for, so the loader takes a `void
+// *user` that it hands back to the resolver on every call. The form WITHOUT it is gone: nothing in
+// production called it, and keeping both would emit the 344 lines twice.
+GLINTFX_TEST(header_no_longer_declares_the_loader_without_a_user_pointer) {
+    const std::string header = render_header(fixture_commands());
+    GLINTFX_CHECK(!contains(header, "load_gl_functions(gl_proc_address_fn"));
+    GLINTFX_CHECK(!contains(header, "get_proc_address) noexcept;"));
+}
+
+GLINTFX_TEST(source_defines_the_loader_with_the_user_pointer_and_not_without_it) {
+    const std::string source = render_source(fixture_commands(), "gl_functions.hpp");
+    GLINTFX_CHECK(contains(source,
+                           "load_gl_functions(gl_context_proc_address_fn get_proc_address, void "
+                           "*user) noexcept"));
+    GLINTFX_CHECK(!contains(source, "load_gl_functions(gl_proc_address_fn"));
 }
 
 GLINTFX_TEST(header_carries_the_three_mandatory_attribution_lines) {
@@ -83,11 +101,12 @@ GLINTFX_TEST(source_includes_the_header_by_the_given_path) {
 
 GLINTFX_TEST(source_calls_try_assign_once_per_command_with_its_own_name) {
     const std::string source = render_source(fixture_commands(), "gl_functions.hpp");
-    GLINTFX_CHECK(contains(
-        source, "try_assign_gl_function_pointer(table.glFinish, get_proc_address, \"glFinish\")"));
-    GLINTFX_CHECK(contains(
-        source,
-        "try_assign_gl_function_pointer(table.glGetString, get_proc_address, \"glGetString\")"));
+    GLINTFX_CHECK(contains(source,
+                           "try_assign_gl_function_pointer(table.glFinish, get_proc_address, user, "
+                           "\"glFinish\")"));
+    GLINTFX_CHECK(contains(source,
+                           "try_assign_gl_function_pointer(table.glGetString, get_proc_address, "
+                           "user, \"glGetString\")"));
 }
 
 GLINTFX_TEST(source_returns_ok_with_the_populated_table_on_success) {

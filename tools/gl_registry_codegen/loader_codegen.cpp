@@ -91,13 +91,14 @@ std::string render_header(const std::vector<gl_command> &commands) {
     }
     out += "};\n\n";
 
-    out += "// Resolves every field of gl_function_table by calling get_proc_address()\n";
-    out += "// once per GL 3.3 core function - see gl_proc_address.hpp's own header\n";
-    out += "// comment for why get_proc_address is a plain function pointer. Defined in\n";
-    out += "// the GENERATED .cpp counterpart of this header.\n";
-    out +=
-        "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> load_gl_functions(gl_proc_address_fn "
-        "get_proc_address) noexcept;\n\n";
+    out += "// Resolves every field of gl_function_table by calling get_proc_address(user,\n";
+    out += "// name) once per GL 3.3 core function; `user` is handed back untouched, so\n";
+    out += "// the resolver knows WHICH context it resolves for - see gl_proc_address.hpp's\n";
+    out += "// own header comment for why get_proc_address is a plain function pointer.\n";
+    out += "// Defined in the GENERATED .cpp counterpart of this header.\n";
+    out += "[[nodiscard]] glintfx::gltfx_rslt<gl_function_table> "
+           "load_gl_functions(gl_context_proc_address_fn get_proc_address, void *user) "
+           "noexcept;\n\n";
     out += "} // namespace glintfx::render\n";
     return out;
 }
@@ -111,8 +112,8 @@ std::string render_source(const std::vector<gl_command> &commands,
     out += header_include_path;
     out += "\"\n\n";
     out += "namespace glintfx::render {\n\n";
-    out += "glintfx::gltfx_rslt<gl_function_table> load_gl_functions(gl_proc_address_fn "
-           "get_proc_address) noexcept "
+    out += "glintfx::gltfx_rslt<gl_function_table> "
+           "load_gl_functions(gl_context_proc_address_fn get_proc_address, void *user) noexcept "
            "{\n";
     out += "    gl_function_table table;\n";
     out += "    bool all_resolved = true;\n";
@@ -120,7 +121,7 @@ std::string render_source(const std::vector<gl_command> &commands,
 
     for (const gl_command &command : commands) {
         out += "    if (!try_assign_gl_function_pointer(table." + command.name +
-               ", get_proc_address, \"" + command.name + "\")) {\n";
+               ", get_proc_address, user, \"" + command.name + "\")) {\n";
         out += "        if (all_resolved) {\n";
         out += "            first_missing = \"" + command.name + "\";\n";
         out += "        }\n";

@@ -25,6 +25,12 @@ namespace glintfx::render {
 
 using gl_proc_address_fn = void *(*)(const char *name);
 
+// The resolver of a CONTEXT (D-W7D-15): the same plain function pointer, plus the `void *user` the
+// caller of the loader passes and gets handed back on every call, so the resolver can tell WHICH
+// context it resolves for (a method of gltfx_gl_context cannot be a plain pointer). This is the
+// form the generated loader takes.
+using gl_context_proc_address_fn = void *(*)(void *user, const char *name);
+
 // Resolves ONE function pointer by NAME through `get_proc_address`,
 // writing the result into `out` (cast to Out's own pointer type) and
 // returning whether the driver actually had it. This is the ENTIRE
@@ -45,6 +51,16 @@ template <typename Out>
 [[nodiscard]] bool try_assign_gl_function_pointer(Out &out, gl_proc_address_fn get_proc_address,
                                                   const char *name) noexcept {
     void *resolved = get_proc_address(name);
+    out = reinterpret_cast<Out>(resolved);
+    return resolved != nullptr;
+}
+
+// The same, through a resolver that carries the `void *user` of the context it resolves for.
+template <typename Out>
+[[nodiscard]] bool try_assign_gl_function_pointer(Out &out,
+                                                  gl_context_proc_address_fn get_proc_address,
+                                                  void *user, const char *name) noexcept {
+    void *resolved = get_proc_address(user, name);
     out = reinterpret_cast<Out>(resolved);
     return resolved != nullptr;
 }

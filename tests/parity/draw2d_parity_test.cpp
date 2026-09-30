@@ -194,9 +194,9 @@ struct pixel {
 struct cells_context {
     glintfx::gltfx_renderer_2d &renderer;
     const gl_api &gl;
-    bool srgb;
-    int height;
-    const char *mode; // "off" or "on", for the messages
+    bool srgb = false;
+    int height = 0;
+    const char *mode = ""; // "off" or "on", for the messages
 };
 
 int g_cells = 0;

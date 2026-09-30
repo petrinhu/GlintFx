@@ -209,6 +209,13 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
     // The errors of each buffer are read BEFORE the next buffer is touched, so each carries its own
     // token.
     const gl_errors_of_operation vertex_errors = read_gl_errors(gl);
+    if (vertex_errors.first != 0 || !vertices_sent) {
+        // send_to_buffer() recorded the grown capacity BEFORE glBufferData had answered: after a
+        // failure the buffer may not have it (an out-of-memory growth keeps the OLD store), and a
+        // later batch that "fits" the recorded capacity would map past the real store and fail for
+        // ever. Forget it: the next upload specifies the store again.
+        stream.vertex_capacity_bytes = 0;
+    }
     if (vertex_errors.first != 0) {
         return gltfx_rslt<void>::err(error_of_step(vertex_errors, k_reject_vertex_upload));
     }
@@ -219,6 +226,9 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
                                              stream.index_capacity_bytes, indices.data(),
                                              indices.size() * sizeof(std::uint32_t), technique);
     const gl_errors_of_operation index_errors = read_gl_errors(gl);
+    if (index_errors.first != 0 || !indices_sent) {
+        stream.index_capacity_bytes = 0; // the same, for the index buffer
+    }
     if (index_errors.first != 0) {
         return gltfx_rslt<void>::err(error_of_step(index_errors, k_reject_index_upload));
     }

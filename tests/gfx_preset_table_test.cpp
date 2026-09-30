@@ -49,14 +49,7 @@ constexpr std::int64_t k_preset_power_saving = 1;
 constexpr std::int64_t k_preset_balanced = 2;
 constexpr std::int64_t k_preset_performance = 3;
 constexpr std::int64_t k_preset_automatic = 4;
-constexpr std::int64_t k_vsync_off = 0;
 constexpr std::int64_t k_vsync_on = 1;
-constexpr std::int64_t k_auto_reason_none = 0;
-constexpr std::int64_t k_auto_reason_on_battery = 1;
-constexpr std::int64_t k_auto_reason_software_renderer = 2;
-constexpr std::int64_t k_auto_reason_shared_gpu = 3;
-constexpr std::int64_t k_auto_reason_dedicated_gpu = 4;
-constexpr std::int64_t k_auto_reason_unknown_gpu = 5;
 
 // One cell: preset `preset`, row `row_index`, expecting `{id, value}` exactly.
 [[nodiscard]] bool row_is(std::span<const gfx_preset_row> rows, std::size_t row_index,

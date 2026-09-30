@@ -47,12 +47,6 @@ constexpr std::int64_t k_preset_performance = 3;
 constexpr std::int64_t k_preset_automatic = 4;
 constexpr std::int64_t k_vsync_off = 0;
 constexpr std::int64_t k_vsync_on = 1;
-constexpr std::int64_t k_auto_reason_none = 0;
-constexpr std::int64_t k_auto_reason_on_battery = 1;
-constexpr std::int64_t k_auto_reason_software_renderer = 2;
-constexpr std::int64_t k_auto_reason_shared_gpu = 3;
-constexpr std::int64_t k_auto_reason_dedicated_gpu = 4;
-constexpr std::int64_t k_auto_reason_unknown_gpu = 5;
 
 constexpr gltfx_gfx_option vsync = gltfx_gfx_option::vsync;
 constexpr gltfx_gfx_option cap = gltfx_gfx_option::frame_rate_cap;

@@ -43,13 +43,9 @@ namespace {
 // through the constants the code itself uses, so that a renumbering of the
 // internal header - or the swap to the public k_gltfx_* constants in P3 - is
 // caught.
-constexpr std::int64_t k_preset_manual = 0;
 constexpr std::int64_t k_preset_power_saving = 1;
 constexpr std::int64_t k_preset_balanced = 2;
 constexpr std::int64_t k_preset_performance = 3;
-constexpr std::int64_t k_preset_automatic = 4;
-constexpr std::int64_t k_vsync_off = 0;
-constexpr std::int64_t k_vsync_on = 1;
 constexpr std::int64_t k_auto_reason_none = 0;
 constexpr std::int64_t k_auto_reason_on_battery = 1;
 constexpr std::int64_t k_auto_reason_software_renderer = 2;

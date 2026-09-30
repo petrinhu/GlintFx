@@ -5284,3 +5284,9 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Na mesma rodada,* o noexcept_alloc_test ficou em 3,07 s no servidor, contra 1,47 s antes da D-B4-3. O CTO aceitou: a inflação de carga explica.
 - É código da C1b, que o líder mandou fechar. Entra agora porque CI vermelho bloqueia a onda.
 - *Porta de mão única:* não.
+
+## 30/09/2026 - 13:41 | DECISÃO DO LÍDER (não autônoma): cmake e ninja-build na imagem Docker de teste (L-51)
+
+- *Contexto:* a prova do desenho 2D no container Linux falhou 3 vezes seguidas por peças que faltavam na lista de arquivos montada fora do CMake. O CTO decidiu (errata §25, md5 bb1ea1d8) que os fixtures de API pública constroem e instalam a lib pelo CMake dentro da imagem e ligam por `pkg-config`, como um consumidor. Assim o Linux prova o mesmo artefato que o Windows (L-04).
+- *Pergunta (AskUserQuestion):* autorizar o download de cmake e ninja-build pelo dnf, só dentro da imagem de teste.
+- *Escolha do líder:* "Autorizo (Recomendado)". Nada muda no sistema do host. O custo do docker build maior será medido e registrado.

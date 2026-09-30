@@ -5034,3 +5034,17 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §5, md5 29dd63f6.
   - `expand_preset` devolve um tipo de valor com `std::array` de capacidade igual às linhas do registro, garantida por `static_assert`.
   - Assim não existe caminho de "não coube", como o plano já fixava.
 - *Porta de mão única:* nenhuma das três, porque são internas. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 00:0x | D-A44: mais duas decisões da P1 pelo CTO (L-34): D-P1-4 e D-P1-5
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §6 e §7, md5 37966018.
+
+- **D-P1-4: a expansão da predefinição é imune a corte por construção.**
+  - O que muda: a saída tem no máximo uma entrada por opção, e com opção repetida vale a primeira, a mesma regra da validação que já existe.
+  - Por quê: a correção do átomo não pode depender de outra unidade validar antes; um chamador futuro que esquecesse a validação perderia a cauda da lista em silêncio.
+  - Na P3: a fachada ainda valida antes, e um teste prova a recusa da lista repetida.
+- **D-P1-5: os números das tabelas antes de os nomes públicos existirem.**
+  - *Pergunta:* os nomes públicos (`k_gltfx_*`) só nascem na P3, mas as tabelas da P1 e da P2 precisam dos números agora.
+  - *Opções:* (i) constantes internas espalhadas; (ii) publicar os nomes fora de ordem; (iii) números mágicos; (iv) uma fonte interna única, `gfx_option_values.hpp`, apagada na P3.
+  - *Escolha:* (iv). Nunca há duas fontes ao mesmo tempo, e os testes afirmam os números literais decididos em D-W6b-44, não as constantes do código.
+- *Porta de mão única:* não, porque tudo é interno. *Custo de reverter:* baixo.

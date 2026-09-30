@@ -3145,13 +3145,35 @@ jobs:
 
       # -DCMAKE_EXPORT_COMPILE_COMMANDS=ON: o unico proposito deste
       # configure e gerar compile_commands.json com o ramo WIN32 real
-      # dentro - nunca precisa rodar "cmake --build", clang-tidy analisa
-      # a partir da base de compilacao, nao do binario.
+      # dentro - o clang-tidy analisa a partir da base de compilacao, nao
+      # do binario, e por isso este job nunca constroi a biblioteca. A
+      # UNICA coisa que constroi esta no passo seguinte: as fontes GERADAS
+      # que a base de compilacao referencia (D-CI2-LINT).
       - name: Configurar (gera compile_commands.json)
         shell: pwsh
         run: |
           cmake -S . -B build-lint -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGLINTFX_WERROR=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # D-CI2-LINT (errata sec. 15, 30/09/2026): o clang-tidy inclui o
+      # gl_functions.hpp (embedded_program.hpp, e todo o src/draw2d/ depois),
+      # e ele so nasce no BUILD. O run 36696277806 reprovou com "'gl_functions.hpp'
+      # file not found" e, por consequencia, dois misc-use-internal-linkage.
+      # Constroi SO o alvo agregador de geracao (nunca uma lista de nomes),
+      # como o Chromium e o CMAKE_CXX_CLANG_TIDY: o que o tidy analisa tem de
+      # estar gerado antes. Passo PROPRIO (G5: a trava do $LASTEXITCODE).
+      - name: Gerar as fontes geradas (glintfx_generated_sources)
+        shell: pwsh
+        run: |
+          cmake --build build-lint --target glintfx_generated_sources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Piso de existencia (GODS_LAWS.md L-40): o alvo pode "passar" sem gerar nada.
+          $gerado = "build-lint/generated/render/gl_functions.hpp"
+          if (-not (Test-Path $gerado)) {
+            Write-Error "$gerado nao existe depois de construir glintfx_generated_sources - o clang-tidy nao acharia o cabecalho gerado (D-CI2-LINT)."
+            exit 1
+          }
+          Write-Host "gerado: $gerado"
 
       # PROVA que o clang-tidy ENXERGA o codigo de Windows (piso de
       # varredura nao-vazia, GODS_LAWS.md L-40) - nao basta o passo

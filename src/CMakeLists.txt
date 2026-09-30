@@ -69,6 +69,19 @@ add_subdirectory(draw2d)
 # absence).
 add_subdirectory(platform)
 
+# glintfx_generated_sources (D-CI2-LINT, errata sec. 15): ONE target that depends on EVERY generator of a
+# source the library includes but does not track - so a job that only CONFIGURES (the Windows Lint, whose
+# clang-tidy reads compile_commands.json and never builds) can build exactly this before the tidy and give
+# it the headers the build would. A NEW generator joins this list in the SAME commit that creates it.
+#   glintfx_gl_functions_generated      - gl_functions.hpp/.cpp (src/render/, every platform)
+#   glintfx_wayland_xdg_shell_binding   - the xdg-shell binding (only where Wayland is built)
+add_custom_target(glintfx_generated_sources)
+foreach(_glintfx_generator IN ITEMS glintfx_gl_functions_generated glintfx_wayland_xdg_shell_binding)
+    if(TARGET ${_glintfx_generator})
+        add_dependencies(glintfx_generated_sources ${_glintfx_generator})
+    endif()
+endforeach()
+
 glintfx_apply_compile_options(glintfx_library)
 glintfx_set_target_properties(glintfx_library)
 glintfx_apply_export_map(glintfx_library)

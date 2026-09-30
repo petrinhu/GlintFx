@@ -63,12 +63,26 @@ void describe_attribute(const render::gl_function_table &gl, GLuint index, int c
     gl.glVertexAttribPointer(index, components, k_gl_float, 0, k_stride, buffer_offset(offset));
 }
 
-// Sends `bytes` bytes to the buffer bound to `target`, growing its storage (doubling, never
+// One buffer of the stream and what goes into it (D-B7-1, Introduce Parameter Object): the GL
+// target and name, the capacity the stream has RECORDED for it (updated here), and the bytes to
+// send.
+struct buffer_upload {
+    GLenum target = 0;
+    GLuint buffer = 0;
+    std::size_t &capacity;
+    const void *data = nullptr;
+    std::size_t bytes = 0;
+};
+
+// Sends the bytes to the buffer bound to its target, growing its storage (doubling, never
 // shrinking) when they no longer fit. False when a mapping came back null or corrupted.
-[[nodiscard]] bool send_to_buffer(const render::gl_function_table &gl, GLenum target, GLuint buffer,
-                                  std::size_t &capacity, const void *data, std::size_t bytes,
+[[nodiscard]] bool send_to_buffer(const render::gl_function_table &gl, const buffer_upload &upload,
                                   vertex_upload_technique technique) noexcept {
-    gl.glBindBuffer(target, buffer);
+    const GLenum target = upload.target;
+    const void *data = upload.data;
+    const std::size_t bytes = upload.bytes;
+    std::size_t &capacity = upload.capacity;
+    gl.glBindBuffer(target, upload.buffer);
     const bool must_grow = bytes > capacity;
     if (must_grow) {
         capacity = std::max(bytes, capacity * 2);
@@ -192,6 +206,30 @@ void destroy_vertex_stream(const render::gl_function_table &gl, vertex_stream &s
     stream = vertex_stream{};
 }
 
+// Sends one buffer, reads ITS errors BEFORE the next buffer is touched (so each carries its own
+// token), and on any failure forgets the capacity: send_to_buffer() recorded the grown capacity
+// BEFORE glBufferData had answered, and after a failure the buffer may not have it (an
+// out-of-memory growth keeps the OLD store), so a later batch that "fits" the recorded capacity
+// would map past the real store and fail for ever. Forgetting it makes the next upload specify the
+// store again.
+[[nodiscard]] gltfx_rslt<void> upload_one_buffer(const render::gl_function_table &gl,
+                                                 const buffer_upload &upload,
+                                                 vertex_upload_technique technique,
+                                                 std::string_view token) noexcept {
+    const bool sent = send_to_buffer(gl, upload, technique);
+    const gl_errors_of_operation errors = read_gl_errors(gl);
+    if (errors.first != 0 || !sent) {
+        upload.capacity = 0;
+    }
+    if (errors.first != 0) {
+        return gltfx_rslt<void>::err(error_of_step(errors, token));
+    }
+    if (!sent) {
+        return gltfx_rslt<void>::err(error_without_gl_code(token));
+    }
+    return gltfx_rslt<void>::ok();
+}
+
 gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream &stream,
                               vertex_upload_technique technique,
                               const triangle_batch &batch) noexcept {
@@ -203,39 +241,19 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
     drain_prior_gl_errors(gl);
     // The array first, so the element-array binding below lands in ITS state.
     gl.glBindVertexArray(stream.vertex_array);
-    const bool vertices_sent =
-        send_to_buffer(gl, k_gl_array_buffer, stream.vertex_buffer, stream.vertex_capacity_bytes,
-                       vertices.data(), vertices.size() * sizeof(batch_vertex), technique);
-    // The errors of each buffer are read BEFORE the next buffer is touched, so each carries its own
-    // token.
-    const gl_errors_of_operation vertex_errors = read_gl_errors(gl);
-    if (vertex_errors.first != 0 || !vertices_sent) {
-        // send_to_buffer() recorded the grown capacity BEFORE glBufferData had answered: after a
-        // failure the buffer may not have it (an out-of-memory growth keeps the OLD store), and a
-        // later batch that "fits" the recorded capacity would map past the real store and fail for
-        // ever. Forget it: the next upload specifies the store again.
-        stream.vertex_capacity_bytes = 0;
+    const gltfx_rslt<void> vertices_sent = upload_one_buffer(
+        gl,
+        buffer_upload{k_gl_array_buffer, stream.vertex_buffer, stream.vertex_capacity_bytes,
+                      vertices.data(), vertices.size() * sizeof(batch_vertex)},
+        technique, k_reject_vertex_upload);
+    if (vertices_sent.has_error()) {
+        return vertices_sent;
     }
-    if (vertex_errors.first != 0) {
-        return gltfx_rslt<void>::err(error_of_step(vertex_errors, k_reject_vertex_upload));
-    }
-    if (!vertices_sent) {
-        return gltfx_rslt<void>::err(error_without_gl_code(k_reject_vertex_upload));
-    }
-    const bool indices_sent = send_to_buffer(gl, k_gl_element_array_buffer, stream.index_buffer,
-                                             stream.index_capacity_bytes, indices.data(),
-                                             indices.size() * sizeof(std::uint32_t), technique);
-    const gl_errors_of_operation index_errors = read_gl_errors(gl);
-    if (index_errors.first != 0 || !indices_sent) {
-        stream.index_capacity_bytes = 0; // the same, for the index buffer
-    }
-    if (index_errors.first != 0) {
-        return gltfx_rslt<void>::err(error_of_step(index_errors, k_reject_index_upload));
-    }
-    if (!indices_sent) {
-        return gltfx_rslt<void>::err(error_without_gl_code(k_reject_index_upload));
-    }
-    return gltfx_rslt<void>::ok();
+    return upload_one_buffer(gl,
+                             buffer_upload{k_gl_element_array_buffer, stream.index_buffer,
+                                           stream.index_capacity_bytes, indices.data(),
+                                           indices.size() * sizeof(std::uint32_t)},
+                             technique, k_reject_index_upload);
 }
 
 gltfx_rslt<std::uint64_t> draw_batch(const render::gl_function_table &gl,

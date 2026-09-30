@@ -201,6 +201,15 @@ contido_matar() {
     esac
 }
 
+# contido_refuse <dir> <reason> <message>: a refusal of THIS half (nothing ran, or nothing that mattered): the marker
+# says `recusa:<reason>` BEFORE the exit 71, so the caller maps the 71 by the marker and never by the bare number
+# (a bare 71 with the unit still active is a dead supervisor, not a refusal).
+contido_refuse() {
+    printf 'recusa:%s\n' "$2" >"$1/fim" 2>/dev/null
+    echo "$3" >&2
+    return 71
+}
+
 # contido_inside_main <mode> <arg> <N> <S> <G> <dir> -- command [args...]
 contido_inside_main() {
     local mode="${1:-}" arg="${2:-}" n="${3:-}" s="${4:-}" g="${5:-}" dir="${6:-}"
@@ -220,13 +229,13 @@ contido_inside_main() {
             # proof by the object BEFORE moving anywhere: the ceiling and the name of the scope contido.sh just made
             own_pids_max="$(contido_read_first "/sys/fs/cgroup$own_cgroup/pids.max")"
             if [ "$own_pids_max" != "$n" ] || [ "${own_cgroup##*/}" != "$arg.scope" ]; then
-                echo "contido: FALHA - escopo errado (pids.max=$own_pids_max, cgroup=${own_cgroup##*/}); nada foi executado" >&2
+                contido_refuse "$dir" escopo-errado "contido: FALHA - escopo errado (pids.max=$own_pids_max, cgroup=${own_cgroup##*/}); nada foi executado"
                 return 71
             fi
-            contido_setup_proprio "$own_cgroup" "$n" || { echo "contido: FALHA - nao consegui preparar supervisor/ e carga/ em $own_cgroup; nada foi executado" >&2; return 71; }
+            contido_setup_proprio "$own_cgroup" "$n" || { contido_refuse "$dir" preparo-falhou "contido: FALHA - nao consegui preparar supervisor/ e carga/ em $own_cgroup; nada foi executado"; return 71; }
             ;;
         ninho)
-            contido_setup_ninho "$arg" "$n" || { echo "contido: FALHA - escopo '$arg' nao e' delegado ou nao aceita subpasta; nada foi executado" >&2; return 71; }
+            contido_setup_ninho "$arg" "$n" || { contido_refuse "$dir" escopo-nao-delegado "contido: FALHA - escopo '$arg' nao e' delegado ou nao aceita subpasta; nada foi executado"; return 71; }
             ;;
         herdado-pgid)
             mode_label="herdado-pgid (sem delegacao: um setsid escapa do prazo, o teto do cgroup alheio continua valendo)"
@@ -254,7 +263,7 @@ contido_inside_main() {
     local tag value reported_pgrp pgrp="" outcome="" cmd_rc="" waited
     read -r -t "$s" -u "$pipe_fd" tag value reported_pgrp
     if [ "$tag" = erro ]; then
-        echo "contido: FALHA - o comando nao conseguiu entrar em $TARGET; nada foi executado" >&2
+        contido_refuse "$dir" mover-falhou "contido: FALHA - o comando nao conseguiu entrar em $TARGET; nada foi executado"
         contido_matar "$mode" "$g" "$TARGET"
         return 71
     fi
@@ -265,7 +274,7 @@ contido_inside_main() {
             local own_pgrp
             own_pgrp="$(contido_pgrp_of "$$")"
             if [ "$reported_pgrp" != "$pgrp" ] || [ "$reported_pgrp" = "$own_pgrp" ]; then
-                echo "contido: FALHA - o comando nao ficou num grupo de processos novo (pgrp=$reported_pgrp, o do chamador=$own_pgrp); nada foi morto" >&2
+                contido_refuse "$dir" pgrp-nao-novo "contido: FALHA - o comando nao ficou num grupo de processos novo (pgrp=$reported_pgrp, o do chamador=$own_pgrp); nada foi morto"
                 return 71
             fi
         fi
@@ -434,6 +443,8 @@ contido_inside_selftest() {
     check "proprio refusal did not run the command" "$([ ! -e "$dir/errado/marca" ] && echo 0 || echo 1)" "the marker exists"
     grep -q 'FALHA - escopo errado' "$dir/errado/err"
     check "proprio refusal message" "$?" "stderr: $(cat "$dir/errado/err")"
+    got="$(cat "$dir/errado/fim" 2>/dev/null)"
+    check "proprio refusal writes the marker recusa:escopo-errado" "$([ "$got" = "recusa:escopo-errado" ] && echo 0 || echo 1)" "got [$got]"
     # 12. invalid mode or a missing -- refuses with 2
     bash "$self" bogus - 64 5 1 "$dir" -- true >/dev/null 2>&1; rc=$?
     check "unknown mode refuses 2" "$([ "$rc" -eq 2 ] && echo 0 || echo 1)" "got $rc"
@@ -453,6 +464,11 @@ contido_inside_selftest() {
     bash "$self" ninho /nao/existe 64 5 1 "$dir/ninho_recusa" -- touch "$dir/ninho_recusa/marca" >/dev/null 2>&1; rc=$?
     check "ninho on a scope that is not delegated refuses 71" "$([ "$rc" -eq 71 ] && echo 0 || echo 1)" "got $rc"
     check "ninho refusal did not run the command" "$([ ! -e "$dir/ninho_recusa/marca" ] && echo 0 || echo 1)" "the marker exists"
+    got="$(cat "$dir/ninho_recusa/fim" 2>/dev/null)"
+    check "ninho refusal writes the marker recusa:escopo-nao-delegado" "$([ "$got" = "recusa:escopo-nao-delegado" ] && echo 0 || echo 1)" "got [$got]"
+    # an invalid marker directory is a usage error (2): no marker can exist and nothing runs
+    bash "$self" herdado-pgid - 64 5 1 "$dir/nao-existe" -- touch "$dir/marca-dir-invalido" >/dev/null 2>&1; rc=$?
+    check "invalid marker directory refuses 2, running nothing" "$([ "$rc" -eq 2 ] && [ ! -e "$dir/marca-dir-invalido" ] && echo 0 || echo 1)" "rc $rc"
     # 12e. the populated reader and the bounded wait, on a fake cgroup dir (no cgroup is touched)
     local fake="$dir/fake" tw0 tw1
     mkdir -p "$fake"

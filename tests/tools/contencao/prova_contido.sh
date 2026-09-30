@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # prova_contido.sh - the DYNAMIC proof of tools/contido.sh (CI-SPLIT-PER-OS A5, PLANO-C1.md and
-# L34-RETRO.md R2-final, C1b v2, proofs D0 to D12). It is NOT a ctest: creating a scope from inside a
+# L34-RETRO.md R2-final, C1b v2, proofs D0 to D13). It is NOT a ctest: creating a scope from inside a
 # ctest would escape the ceiling (P2), and the proof needs the `proprio` and `ninho` modes.
 #
 # Usage: tests/tools/contencao/prova_contido.sh [--contido <path>]
@@ -131,6 +131,7 @@ case "$out" in *"D7-RC=71"*) report D7-rc71 0 "" ;; *) report D7-rc71 1 "esperad
 # the refusal must be BY THE NAME: N alone matches here (16), and without the name check the run still ends in 71
 # (the setup fails on a cgroup that has processes), so the rc alone would not tell the two apart
 report D7-recusa-pelo-nome "$(grep -q 'FALHA - escopo errado (pids.max=16, cgroup=carga)' "$marker_dir/err" 2>/dev/null && echo 0 || echo 1)" "a recusa nao veio da conferencia do nome: $(cat "$marker_dir/err" 2>/dev/null)"
+report D7-marcador "$([ "$(cat "$marker_dir/fim" 2>/dev/null)" = "recusa:escopo-errado" ] && echo 0 || echo 1)" "o marcador deveria dizer recusa:escopo-errado, disse [$(cat "$marker_dir/fim" 2>/dev/null)]"
 report D7-nao-rodou "$([ ! -e "$marker_dir/marca" ] && echo 0 || echo 1)" "o comando rodou (a marca existe)"
 
 # D8: a grandchild that called setsid does NOT escape the deadline, in mode proprio and in mode ninho
@@ -254,6 +255,23 @@ kill -0 "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null
 report D12-setsid-morto "$([ $? -ne 0 ] && [ -s "$pidfile" ] && echo 0 || echo 1)" "o neto com setsid do ninho orfao sobreviveu (ou o pid nao foi registrado)"
 report D12-sem-varredura "$(grep -q 'varredura_final=nada' "$err" && echo 0 || echo 1)" "a matanca do fim nao alcancou o ninho; o stop teve de varrer: $(cat "$err")"
 
+# D13: a BARE 71 with the unit still ACTIVE is a dead supervisor, not a refusal. A stub of the inside half launches
+# a load and leaves with 71 and no marker; the real contido must sweep the scope (stop) and exit 73. A contido that
+# trusted the bare 71 would return 71 and leave the scope, and its load, behind. The stub sits beside a COPY of the
+# contido under proof, so the mutants (copies of contido.sh) are proved through it too.
+stubdir="$scratch/d13"; mkdir "$stubdir"
+cp "$contido" "$stubdir/contido.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'sleep 60 >/dev/null 2>&1 &' 'exit 71' >"$stubdir/contido_dentro.sh"
+chmod +x "$stubdir/contido.sh" "$stubdir/contido_dentro.sh"
+err="$scratch/d13.err"
+before="$(slice_current)"
+"$stubdir/contido.sh" --marcador d13 --graca 1 -- true >/dev/null 2>"$err"; got=$?
+report D13-rc "$([ "$got" -eq 73 ] && echo 0 || echo 1)" "esperado 73, obtido $got: $(cat "$err")"
+report D13-fim "$(grep -q 'fim=supervisor-morto, varredura_final=stop' "$err" && echo 0 || echo 1)" "esperado fim=supervisor-morto com varredura_final=stop: $(cat "$err")"
+pause 1
+after="$(slice_current)"
+report D13-limpo "$([ "$after" -le "$before" ] && echo 0 || echo 1)" "pids.current da fatia antes=$before depois=$after (a carga do stub sobrou?)"
+
 if [ "$checks" -eq 0 ]; then
     echo "prova_contido: FALHOU - zero provas rodadas" >&2
     exit 1
@@ -262,4 +280,4 @@ if [ "$failures" -gt 0 ]; then
     echo "prova_contido: FALHOU - $failures de $checks provas" >&2
     exit 1
 fi
-echo "prova_contido: OK - $checks provas (D0 a D12) contra $contido"
+echo "prova_contido: OK - $checks provas (D0 a D13) contra $contido"

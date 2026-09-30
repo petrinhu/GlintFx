@@ -231,17 +231,21 @@ contido_ceiling() {
 # "<fim> <rc> <sweep nada|stop> <reset 0|1>". The marker <dir>/fim rules when it exists; without it the
 # supervisor (the inside half, which IS the process systemd-run runs) died or hung: with Result=timeout it was
 # HUNG (prazo-encosto, 124); otherwise it is DEAD (supervisor-morto, 73, raw rc kept apart). A refusal of the
-# inside half (71) ran nothing and stays 71. The sweep is a `stop` whenever the unit is still active; a reset-failed
+# inside half (71) is told by its marker `recusa:<reason>`; a bare 71 counts only with the unit inactive. The sweep is a `stop` whenever the unit is still active; a reset-failed
 # only when it is `failed`.
 contido_wrap_outcome() {
     local marker="$1" state="$2" result="$3" rc="$4" sweep=nada reset=0
-    case "$state" in active|activating|deactivating|reloading) sweep=stop ;; failed) reset=1 ;; esac
+    # a state that is missing (no ActiveState= line) is NEVER read as inactive: fail closed, sweep with a stop
+    case "$state" in ''|active|activating|deactivating|reloading) sweep=stop ;; failed) reset=1 ;; esac
     case "$marker" in
         rc=*) REPLY="$marker ${marker#rc=} $sweep $reset" ;;
         prazo) REPLY="prazo 124 $sweep $reset" ;;
         relogio) REPLY="relogio 72 $sweep $reset" ;;
+        recusa:*) REPLY="$marker 71 $sweep $reset" ;;
         *)
-            if [ "$rc" = 71 ]; then REPLY="recusa 71 $sweep $reset"
+            # a bare 71 (no marker: the inside half could not write one) is a refusal ONLY when the unit is
+            # inactive; with the unit still active it is a supervisor that died after launching the load
+            if [ "$rc" = 71 ] && [ "$sweep" = nada ]; then REPLY="recusa 71 $sweep $reset"
             elif [ "$result" = timeout ]; then REPLY="prazo-encosto 124 $sweep $reset"
             else REPLY="supervisor-morto 73 $sweep $reset"
             fi
@@ -432,7 +436,13 @@ contido_selftest() {
     case_decide "wrap: no marker, Result=timeout is the systemd's deadline" "prazo-encosto 124 nada 1" 0 contido_wrap_outcome_echo "" failed timeout 143
     case_decide "wrap: no marker, dead supervisor with the unit still active" "supervisor-morto 73 stop 0" 0 contido_wrap_outcome_echo "" active success 137
     case_decide "wrap: no marker, dead supervisor with the unit gone" "supervisor-morto 73 nada 0" 0 contido_wrap_outcome_echo "" inactive success 137
-    case_decide "wrap: no marker, the inside half refused (71) ran nothing" "recusa 71 nada 0" 0 contido_wrap_outcome_echo "" inactive success 71
+    case_decide "wrap: no marker, a bare 71 with the unit INACTIVE is a refusal" "recusa 71 nada 0" 0 contido_wrap_outcome_echo "" inactive success 71
+    case_decide "wrap: no marker, a bare 71 with the unit ACTIVE is a dead supervisor (stop, 73)" "supervisor-morto 73 stop 0" 0 contido_wrap_outcome_echo "" active success 71
+    case_decide "wrap: marker recusa:<reason> maps to 71 by the marker" "recusa:escopo-errado 71 nada 0" 0 contido_wrap_outcome_echo recusa:escopo-errado inactive success 71
+    case_decide "wrap: marker recusa with the unit still active also gets the sweep" "recusa:preparo-falhou 71 stop 0" 0 contido_wrap_outcome_echo recusa:preparo-falhou active success 71
+    case_decide "wrap: a MISSING ActiveState is never inactive (fail closed: stop)" "supervisor-morto 73 stop 0" 0 contido_wrap_outcome_echo "" "" success 137
+    case_decide "wrap: a missing ActiveState with a marker still gets the sweep" "rc=0 0 stop 0" 0 contido_wrap_outcome_echo rc=0 "" "" 0
+    case_decide "wrap: a MISSING Result without a marker is a dead supervisor, never a timeout" "supervisor-morto 73 nada 0" 0 contido_wrap_outcome_echo "" inactive "" 137
     case_decide "wrap: failed unit is reset" "supervisor-morto 73 nada 1" 0 contido_wrap_outcome_echo "" failed exit-code 1
     case "$tree" in "${TMPDIR:-/var/tmp}"/glintfx-contido-facts.??????) rm -rf -- "$tree" ;; esac
 
@@ -497,6 +507,7 @@ contido_run_wrap() {
     while read -r line; do
         case "$line" in ActiveState=*) state="${line#ActiveState=}" ;; Result=*) result="${line#Result=}" ;; esac
     done <<<"$out"
+    [ -n "$state" ] && [ -n "$result" ] || echo "contido: AVISO: o systemctl show nao trouxe ActiveState= e Result=; a unidade e' tratada como ATIVA (varredura com stop)" >&2
     contido_wrap_outcome "$fim" "$state" "$result" "$rc"
     local verdict sweep reset out_rc
     read -r verdict out_rc sweep reset <<<"$REPLY"

@@ -332,6 +332,38 @@ contido_alive() {
     return 0
 }
 
+# contido_fabricate_zombie <dir>: makes a zombie DETERMINISTICALLY, for the selftest. Sets ZOMBIE_PARENT (a live
+# process that has become a `sleep` and will never reap) and ZOMBIE_PID (its child, held alive until the parent has
+# exec'ed and only then released, so it exits as the zombie of a parent that does not reap). Returns 0 when the child
+# is in state Z, 1 otherwise (every wait is bounded, on the clock descriptor). The earlier form (`sleep 0 &` then
+# `exec sleep`) raced: a child that exits BEFORE the parent's exec is reaped by the parent bash itself (its SIGCHLD
+# handler), and no zombie is left - measured 30 of 30 when the parent is delayed 50 ms, and seen once in the CI.
+# Needs CONTIDO_FD (the clock). The caller kills ZOMBIE_PARENT when done.
+contido_fabricate_zombie() {
+    local dir="$1" turn comm line state=""
+    rm -f "$dir/zumbi.pid" "$dir/zumbi.go"
+    ZOMBIE_PID=""
+    bash -c 'exec {c}<> <(:); ( for ((i = 0; i < 100; i++)); do [ -e "$1" ] && break; read -r -t 0.05 -u "$c" _; done ) & echo $! >"$0"; exec sleep 5' "$dir/zumbi.pid" "$dir/zumbi.go" >/dev/null 2>&1 &
+    ZOMBIE_PARENT=$!
+    for turn in {1..50}; do
+        read -r comm 2>/dev/null <"/proc/$ZOMBIE_PARENT/comm"
+        [ "$comm" = sleep ] && break
+        read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
+    done
+    [ "$comm" = sleep ] || return 1
+    read -r ZOMBIE_PID 2>/dev/null <"$dir/zumbi.pid" || return 1
+    : >"$dir/zumbi.go"
+    for turn in {1..50}; do
+        if read -r line 2>/dev/null <"/proc/$ZOMBIE_PID/stat"; then
+            line="${line##*) }"
+            state="${line%% *}"
+            [ "$state" = Z ] && return 0
+        fi
+        read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
+    done
+    return 1
+}
+
 # --- selftest -----------------------------------------------------------------------------
 # The cases run in mode `herdado-pgid`, which kills by process group and never touches cgroup.kill, so it is
 # safe in whatever cgroup the caller is in (the ctest, the preci). Mode `ninho` runs only when the own cgroup
@@ -525,9 +557,9 @@ contido_inside_selftest() {
     check "D10b: the grandchild is dead" "$([ $? -ne 0 ] && [ -s "$dir/d10b/pid" ] && echo 0 || echo 1)" "the grandchild survived"
     # 12g. contido_alive has POSITIVE controls too: every other use only asks "is it dead?", so a helper that
     #      always answered "dead" would pass them all. (1) this very shell is alive; (2) a live sleep is alive
-    #      BEFORE the kill; (3) a ZOMBIE made on purpose (the child exits, its parent became a `sleep` that never
-    #      reaps) still answers to `kill -0` but is NOT alive: this case fails on any host if the helper is a
-    #      bare `kill -0`, without needing a container that does not reap.
+    #      BEFORE the kill; (3) a ZOMBIE made on purpose (contido_fabricate_zombie: the child exits only AFTER its
+    #      parent became a `sleep` that never reaps) still answers to `kill -0` but is NOT alive: this case fails on
+    #      any host if the helper is a bare `kill -0`, without needing a container that does not reap.
     contido_alive "$$"
     check "contido_alive: this shell is alive" "$?" "rc $?"
     sleep 30 &
@@ -536,24 +568,14 @@ contido_inside_selftest() {
     check "contido_alive: a live sleep is alive before the kill" "$?" "rc $?"
     kill "$live_pid" 2>/dev/null
     wait "$live_pid" 2>/dev/null
-    bash -c 'sleep 0 & echo $! >"$0"; exec sleep 3' "$dir/zumbi.pid" >/dev/null 2>&1 &
-    local parent_pid=$! zombie_pid="" zombie_state="" zombie_line zturn
-    for zturn in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-        read -r zombie_pid 2>/dev/null <"$dir/zumbi.pid"
-        if [ -n "$zombie_pid" ] && read -r zombie_line <"/proc/$zombie_pid/stat" 2>/dev/null; then
-            zombie_line="${zombie_line##*) }"
-            zombie_state="${zombie_line%% *}"
-            [ "$zombie_state" = Z ] && break
-        fi
-        read -r -t 0.1 -u "$CONTIDO_FD" _ 2>/dev/null
-    done
-    check "zombie made on purpose reached state Z (bounded wait)" "$([ "$zombie_state" = Z ] && echo 0 || echo 1)" "state [$zombie_state]"
-    kill -0 "$zombie_pid" 2>/dev/null
+    contido_fabricate_zombie "$dir"; rc=$?
+    check "zombie made on purpose reached state Z (deterministic, bounded waits)" "$rc" "no zombie after the bounded wait"
+    kill -0 "$ZOMBIE_PID" 2>/dev/null
     check "a zombie still answers to kill -0" "$?" "kill -0 failed on the zombie"
-    contido_alive "$zombie_pid"; rc=$?
+    contido_alive "$ZOMBIE_PID"; rc=$?
     check "contido_alive says a zombie is NOT alive" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)" "rc $rc"
-    kill "$parent_pid" 2>/dev/null
-    wait "$parent_pid" 2>/dev/null
+    kill "$ZOMBIE_PARENT" 2>/dev/null
+    wait "$ZOMBIE_PARENT" 2>/dev/null
 
     # 13. mode ninho, only when the own cgroup is a child of a delegated contido scope
     local own_cg parent_cg skipped=0

@@ -5263,3 +5263,15 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - **B4-K5** (a proteção contra renderizador movido) entra na B5, gêmea do que as outras fachadas já fazem (L-17).
 - **Commits intermediários da B4:** não se exige o build completo de cada um. O CTO rodou os testes das partes tocadas em cada commit, e todos passaram. O risco residual está declarado: um portão de biblioteca inteira pode reprovar num intermediário.
 - *Porta de mão única:* não. *Custo de reverter:* baixo.
+
+## 30/09/2026 - 13:09 | D-A56: o portão de alocação em noexcept ficou 41 vezes mais lento; conserto por índice, sem lock (CTO, L-34; errata §22, md5 ba6b91d6)
+
+- *Fato:* o CI 36740173106 da B4 ficou vermelho em 8 jobs, com todos os testes verdes. A causa foi a régua de tempo de teste pesado: o noexcept_alloc_test passou de 0,64-1,47 s para 43-89 s, depois da D-B4-3.
+- *Medição do CTO (cProfile):* 19,4 dos 21 s estão na busca de declaração, que varre os 339 arquivos a cada sítio.
+- *Escolha:* um índice de declarações feito uma vez por rodada.
+- *Recusados:*
+  - pôr o teste sob o lock de pesado, que esconde a regressão;
+  - buscar só no arquivo do sítio, que reabre o falso negativo da D-A54.
+- *Critério fixado antes:* veredito idêntico ao do 3413e66, os 20 controles do selftest, a sonda de 11 casos, até 1,5 s e nenhum lock novo.
+- *Lição:* a revisão provou que o portão acusa certo, mas não mediu o tempo dele. Só o CI pegou.
+- *Porta de mão única:* não.

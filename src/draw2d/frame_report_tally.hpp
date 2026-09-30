@@ -72,7 +72,7 @@ class frame_tally {
     // The report of the last finish() that had a frame to close; all zero before the first.
     // cppcheck-suppress returnByReference ; reason: the report is a plain struct of counters
     // returned BY VALUE on purpose (B0-C2, B0-I10): the caller's copy stays valid after the next
-    // begin_frame(), which rewrites the member a reference would point at.
+    // finish(), which rewrites the member a reference would point at.
     [[nodiscard]] frame_report last_report() const noexcept;
 
   private:

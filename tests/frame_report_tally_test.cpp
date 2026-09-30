@@ -347,6 +347,23 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         GLINTFX_CHECK_EQ(tally.last_report().draw_calls, std::uint64_t{9});
         ++analyzed;
     }
+    // The report of the last finished frame survives a frame that is ABANDONED: frame A finishes
+    // with one piece, frame B gets three and is thrown away by a new begin_frame(); last_report()
+    // is still A's. (Only finish() rewrites the report, never begin_frame(): B0-C2.)
+    {
+        frame_tally tally;
+        tally.begin_frame();
+        tally.piece_drawn();
+        (void)tally.finish();
+        tally.begin_frame();
+        tally.piece_drawn();
+        tally.piece_drawn();
+        tally.piece_drawn();
+        tally.begin_frame(); // abandons B
+        GLINTFX_CHECK_EQ(tally.last_report().pieces_submitted, std::uint64_t{1});
+        GLINTFX_CHECK_EQ(tally.last_report().pieces_drawn, std::uint64_t{1});
+        ++analyzed;
+    }
     // A frame open after an error frame is a clean frame: no counts leak from the failed one.
     {
         frame_tally tally;
@@ -362,6 +379,6 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         ++analyzed;
     }
 
-    GLINTFX_CHECK_EQ(analyzed, 11);
+    GLINTFX_CHECK_EQ(analyzed, 12);
     std::println("frame_report_tally_test: {} celula(s) conferida(s) (quadro)", analyzed);
 }

@@ -652,6 +652,21 @@ contido_inside_selftest() {
     check "D-C1b-6: the late-KILL case keeps rc 0" "$([ "$rc" -eq 0 ] && echo 0 || echo 1)" "got $rc"
     grep -q 'sobreviventes_apos_kill=0$' "$dir/kill_tardio/err"
     check "D-C1b-6: the late-KILL case ends with sobreviventes_apos_kill=0" "$?" "stderr: $(cat "$dir/kill_tardio/err")"
+    # 12f2b. the FLOOR of the wait after the KILL: with G = 0 (no TERM grace) the wait is still max(1, G) = 1 s, so
+    #        the same late KILL is waited for. A wait of G would be zero turns and would return at once.
+    mkdir -p "$dir/kill_tardio_g0"
+    (
+        kill() {
+            if [ "$1" = -KILL ]; then
+                ( sleep 0.6; command kill -KILL -- "$3" ) >/dev/null 2>&1 &
+                return 0
+            fi
+            command kill "$@"
+        }
+        contido_inside_main herdado-pgid - 64 5 0 "$dir/kill_tardio_g0" -- bash -c '(trap "" TERM; exec sleep 30) >/dev/null 2>&1 & echo $! >"$0"; exit 0' "$dir/kill_tardio_g0/pid"
+    ) >/dev/null 2>"$dir/kill_tardio_g0/err"; rc=$?
+    contido_alive "$(cat "$dir/kill_tardio_g0/pid" 2>/dev/null)"
+    check "D-C1b-6: with G=0 the wait after the KILL still has a floor of 1 s (the grandchild is dead at the return)" "$([ $? -ne 0 ] && [ -s "$dir/kill_tardio_g0/pid" ] && [ "$rc" -eq 0 ] && echo 0 || echo 1)" "rc $rc, or the grandchild was alive when the contido returned"
     # the fast path: while the group still answers kill -0 the sweep runs (the stub above says "1 live" for as
     # long as the real group exists, so this case also proves the sweep is REACHED); in the normal case below
     # (the group is already gone) it must not run at all

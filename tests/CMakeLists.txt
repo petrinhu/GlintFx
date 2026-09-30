@@ -5270,13 +5270,14 @@ set_tests_properties(container_fixture_includes_selftest PROPERTIES LABELS selft
 # function's own comment for why CMAKE_CXX_COMPILER is rejected
 # outright when its ID is MSVC (Windows CI's own CXX compiler for the
 # PRODUCT build, incompatible with this fixture's GNU-flavored flags).
+# glintfx-nested-build: heavy - o --selftest roda o compilador e o ligador REAIS por controle (MinGW g++ e ld no Windows, onde criar processo e ligar sao caros e sensiveis ao hospedeiro): 0,52 s no Linux e 12,9 a 63,0 s em 7 runs no Windows (CI 36745583418 e anteriores, errata sec. 26); trinco PROVISORIO, vira `PROCESSORS n` medido; o proprio --selftest imprime o tempo de CADA controle
 add_test(
     NAME container_fixture_link_selftest
     COMMAND "${GLINTFX_PYTHON3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_container_fixture_link.py" --selftest
         "${CMAKE_CXX_COMPILER}" "${CMAKE_CXX_COMPILER_ID}"
 )
-set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest)
+set_tests_properties(container_fixture_link_selftest PROPERTIES LABELS selftest RESOURCE_LOCK glintfx_nested_build)
 set_tests_properties(container_fixture_link_selftest PROPERTIES SKIP_RETURN_CODE 77)
 
 # CONTAINER-LOG-SIGNAL-FIRST (TODO.md, GODS_LAWS.md L-40/L-45/L-49,

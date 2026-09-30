@@ -86,6 +86,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 SCRIPT_NAME = "check_container_fixture_link.py"
 STDERR_TAIL_LINES = 20
@@ -1386,45 +1387,49 @@ def selftest_main(cli_compiler=None, cli_compiler_id=None):
         )
 
     scratch = _make_scratch()
+    # D-CI3 (errata sec. 26): the wall time of EACH control and the total are printed ALWAYS (GODS_LAWS.md L-49,
+    # "instrumentar em vez de adivinhar"): on Windows the cost is the real compiler and linker per control
+    # (MinGW g++ and ld), and this is what says where the seconds go.
+    named_results = []
+    timings = []
+    t_start = time.monotonic()
+
+    def run(name, function, *args):
+        t0 = time.monotonic()
+        result = function(*args)
+        timings.append((name, time.monotonic() - t0))
+        named_results.append((name, result))
+
+    def skipped(name):
+        named_results.append((name, None))
+
     try:
-        named_results = [
-            ("empty", selftest_empty_containerfile_reproves(scratch)),
-            (
-                "rewrite-prefix",
-                selftest_rewrite_build_prefix_ignores_unrelated_build_substring(),
-            ),
-            (
-                "rewrite-prefix-glued-forms",
-                selftest_rewrite_build_prefix_recognizes_glued_forms(),
-            ),
-            ("lib-linked", selftest_lib_linked_classification()),
-            ("cmake-executado", selftest_cmake_failure_reproves(scratch)),
-        ]
+        run("empty", selftest_empty_containerfile_reproves, scratch)
+        run("rewrite-prefix", selftest_rewrite_build_prefix_ignores_unrelated_build_substring)
+        run("rewrite-prefix-glued-forms", selftest_rewrite_build_prefix_recognizes_glued_forms)
+        run("lib-linked", selftest_lib_linked_classification)
+        run("cmake-executado", selftest_cmake_failure_reproves, scratch)
         if compiler:
-            named_results.append(("positive", selftest_positive_control(scratch, compiler)))
-            named_results.append(("sanitize-token", selftest_sanitize_token_expands_empty(scratch, compiler)))
-            named_results.append(("missing-atom", selftest_missing_atom_reproves(scratch, compiler)))
-            named_results.append(("multi", selftest_accumulates_multiple_failures(scratch, compiler)))
-            named_results.append(("multi-estreia", selftest_multi_reproves_when_compiler_missing(scratch)))
-            named_results.append(
-                ("gancho-header", selftest_gancho_sibling_header_resolves(scratch, compiler))
-            )
-            named_results.append(
-                (
-                    "gancho-header-vermelho",
-                    selftest_gancho_sibling_header_missing_copy_reproves(scratch, compiler),
-                )
-            )
+            run("positive", selftest_positive_control, scratch, compiler)
+            run("sanitize-token", selftest_sanitize_token_expands_empty, scratch, compiler)
+            run("missing-atom", selftest_missing_atom_reproves, scratch, compiler)
+            run("multi", selftest_accumulates_multiple_failures, scratch, compiler)
+            run("multi-estreia", selftest_multi_reproves_when_compiler_missing, scratch)
+            run("gancho-header", selftest_gancho_sibling_header_resolves, scratch, compiler)
+            run("gancho-header-vermelho", selftest_gancho_sibling_header_missing_copy_reproves, scratch, compiler)
         else:
-            named_results.append(("positive", None))
-            named_results.append(("sanitize-token", None))
-            named_results.append(("missing-atom", None))
-            named_results.append(("multi", None))
-            named_results.append(("multi-estreia", None))
-            named_results.append(("gancho-header", None))
-            named_results.append(("gancho-header-vermelho", None))
+            for name in ("positive", "sanitize-token", "missing-atom", "multi", "multi-estreia", "gancho-header",
+                         "gancho-header-vermelho"):
+                skipped(name)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+    for name, seconds in timings:
+        print(f"{SCRIPT_NAME} --selftest: tempo do controle {name}: {seconds:.2f} s")
+    print(
+        f"{SCRIPT_NAME} --selftest: tempo total dos controles: {time.monotonic() - t_start:.2f} s "
+        f"({len(timings)} medido(s))"
+    )
 
     ran = [ok for _name, ok in named_results if ok is not None]
     skipped = [name for name, ok in named_results if ok is None]

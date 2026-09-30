@@ -5341,3 +5341,15 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - 0 funções acima de 40 linhas;
   - 0 funções acima de 4 parâmetros.
 - *Porta de mão única:* não, porque é código interno.
+
+## 30/09/2026 - 15:49 | DECISÃO DO LÍDER (não autônoma): nada de GoogleTest, Catch2 nem Doctest; o harness e os analisadores atuais ficam
+
+- *Pedido do líder:* ver se GoogleTest, Catch2 ou Doctest, e uma lista de analisadores estáticos (Oink, CCCC, Splint, Pork, Dehydra, -Weffc++), valem a pena e agilizam.
+- *Fatos apresentados:*
+  - o tempo medido não vai em escrever teste: 46% vai nas recompilações da lib, e o resto no ciclo do CI;
+  - o harness próprio já tem 925 casos em 149 arquivos;
+  - os três frameworks são código de terceiros, o que a L-07 proíbe;
+  - cppcheck, clang-tidy e o clang-analyzer já rodam em todo commit;
+  - os analisadores da lista estão abandonados e não leem C++23;
+  - o -Weffc++ segue regras de 2005.
+- *Escolha do líder (AskUserQuestion):* "Manter como está (Recomendado)". O ganho de tempo segue pela trilha paralela já decidida.

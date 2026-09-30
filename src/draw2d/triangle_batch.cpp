@@ -45,8 +45,15 @@ bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_
     }
 
     // Straight linear color in, premultiplied color stored (the one place it happens).
-    const glintfx::gltfx_rgba premultiplied = glintfx::gltfx_rgba_premultiplied(color);
+    const std::size_t first_index = index_store.size;
+    write_quad(corners, glintfx::gltfx_rgba_premultiplied(color));
+    record_run(state, first_index, starts_a_run);
+    return true;
+}
 
+// The four vertices and the six indices of one piece, room already made (D-B7-1, Extract Function).
+void triangle_batch::write_quad(const quad_corners_pixel &corners,
+                                glintfx::gltfx_rgba premultiplied) noexcept {
     // Texture coordinates by ROLE: top_left, top_right, bottom_right, bottom_left.
     constexpr float k_u[k_quad_vertices] = {0.0F, 1.0F, 1.0F, 0.0F};
     constexpr float k_v[k_quad_vertices] = {0.0F, 0.0F, 1.0F, 1.0F};
@@ -65,16 +72,18 @@ bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_
     for (std::size_t i = 0; i < k_quad_indices; ++i) {
         index_store.data[index_store.size + i] = triangles[i];
     }
-    const std::size_t first_index = index_store.size;
     index_store.size += k_quad_indices;
+}
 
+// The piece either opens a run of its own or extends the last one.
+void triangle_batch::record_run(batch_state state, std::size_t first_index,
+                                bool starts_a_run) noexcept {
     if (starts_a_run) {
         run_store.data[run_store.size] = draw_run{state, first_index, k_quad_indices};
         ++run_store.size;
     } else {
         run_store.data[run_store.size - 1].index_count += k_quad_indices;
     }
-    return true;
 }
 
 std::span<const batch_vertex> triangle_batch::vertices() const noexcept {

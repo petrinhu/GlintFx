@@ -105,6 +105,10 @@ class triangle_batch {
     void clear() noexcept;
 
   private:
+    // add_quad() in two steps (D-B7-1): the vertices and indices of one piece, and its run.
+    void write_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba premultiplied) noexcept;
+    void record_run(batch_state state, std::size_t first_index, bool starts_a_run) noexcept;
+
     batch_allocator allocator;
     pod_buffer<batch_vertex> vertex_store;
     pod_buffer<std::uint32_t> index_store;

@@ -5152,3 +5152,9 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - GL-PROC-ADDRESS-SEM-CONSUMIDOR: remover ou manter o helper antigo;
   - o B0-K1 da D-A42: `m_impl` em 128 lugares contra a L-21.
 - **Desvio de conduta registrado:** o implementador rodou uma vez dois preci ao mesmo tempo (L-11: um trabalho pesado por vez). Ele mesmo declarou, e as duas rodadas ficaram verdes.
+
+## 30/09/2026 - 07:58 | Retomada em modo autônomo até 17:00
+
+- *Ordem do líder, verbatim:* "ligue modo automático. Continue até 17:00 local".
+- *Flag:* ~/.claude/autonomo/GlintFx.json (escopos push e clean). A pausa das 17:00 está agendada pelo cron 36996f72, e o monitor anti-parada é o 67799e56.
+- *Retomada:* a B3c, com as condições §12 do CTO. Depois B4, B5, B6, B7, P4, P5 e o fechamento da W7-D (v0.6.0.0). As decisões de desenho seguem a L-34 com a emenda de 29/09: pesquisa na web e nas bibliotecas semelhantes antes de decidir.

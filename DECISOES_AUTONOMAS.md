@@ -5290,3 +5290,12 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Contexto:* a prova do desenho 2D no container Linux falhou 3 vezes seguidas por peças que faltavam na lista de arquivos montada fora do CMake. O CTO decidiu (errata §25, md5 bb1ea1d8) que os fixtures de API pública constroem e instalam a lib pelo CMake dentro da imagem e ligam por `pkg-config`, como um consumidor. Assim o Linux prova o mesmo artefato que o Windows (L-04).
 - *Pergunta (AskUserQuestion):* autorizar o download de cmake e ninja-build pelo dnf, só dentro da imagem de teste.
 - *Escolha do líder:* "Autorizo (Recomendado)". Nada muda no sistema do host. O custo do docker build maior será medido e registrado.
+
+## 30/09/2026 - 14:27 | D-A58: a lentidão do Windows foi variação do hospedeiro, e o container_fixture_link_selftest vira teste pesado (CTO, L-34; errata §24 e §26)
+
+- *§24, fixado antes do resultado:* no CI 36745583418, os dois jobs Windows rodaram no agente 20260901.588 e ficaram rápidos: dep_zero_trace 26 s, contra o timeout de 120 s no run lento. Pelo critério, foi variação da máquina do servidor, e o código não mudou.
+- *§26, o vermelho que sobrou:* o container_fixture_link_selftest levou 43,17 s no Windows estático. O mesmo selftest leva 0,52 s no Linux; no Windows, de 12,9 a 63,0 s, porque chama o compilador e o ligador MinGW reais a cada controle. É um build aninhado em miniatura.
+- *Escolha:* marcar como pesado com RESOURCE_LOCK glintfx_nested_build, como o gêmeo dep_zero_selftest, e imprimir o tempo por controle. O lock aqui descreve o recurso de verdade; na D-A56 e na D-A57, onde o teste só esperava, ele esconderia a regressão.
+- *Recusados:* cortar controles no Windows, SKIP, e mexer em timeout ou régua.
+- A causa exata no Windows foi para o INBOX como WINDOWS-CUSTO-POR-CONTROLE.
+- *Porta de mão única:* não.

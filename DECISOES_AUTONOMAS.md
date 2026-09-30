@@ -5181,3 +5181,18 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Pedido do líder, verbatim:* "mostre as decisoes tomadas autonomas para aprovar".
 - *Resposta (AskUserQuestion):* "Aprovar todas (Recomendado)".
 - As decisões autônomas D-A34 a D-A50, tomadas entre 29/09 às 21:21 e 30/09 às 08:1x, estão APROVADAS pelo líder, junto com os desvios registrados no mesmo período. As decisões do próprio líder (22:33 e 22:4x de 29/09) já eram dele.
+
+## 30/09/2026 - 10:04 | DECISÃO DO LÍDER (não autônoma): a W8 perde as 3 linhas que dependem de ondas posteriores
+
+- *O fato* (medido pelo CTO, /var/tmp/cto-w7d/opcoes-w8.md, md5 c4767c50): 11 dependências apontam para ondas posteriores, com 0 ciclos.
+  - A GFSS-INHERIT (W8) depende da GFSS-CASCADE (W10).
+  - O MAP-API (W8) depende de 7 fatias da W11a.
+  - O R2D-TEXT (W9-B) depende de 3 fatias da W11b.
+  - A DEMO-1 não é afetada.
+- *Pergunta (AskUserQuestion):* como realocar. Opções: mover as 3 dependentes; mover e adiantar a trilha de mapa; puxar as 18 dependências; partir a API de mapa.
+- *Escolha do líder:* "Mover as 3 dependentes (Recomendado)":
+  - a GFSS-INHERIT vai para a W10;
+  - o MAP-API vai para a W11a;
+  - o R2D-TEXT vai para a W11b, cada um logo depois das suas dependências.
+  - A W8 fica com a DEMO-1, as texturas e as formas.
+  - Nenhuma data real muda. O pedido do Gus mora nas fatias de baixo do mapa, que continuam onde estavam.

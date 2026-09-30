@@ -4906,3 +4906,15 @@ Texto completo no formato da lei, com URLs: /var/tmp/cto-a5-paralelo/L34-RETRO.m
   - Detalhe em /var/tmp/cto-a5-paralelo/L34-RETRO.md, §R2-final, md5 bceb624f.
 - *Porta de mão única:* não. *Custo de reverter:* moderado (refaz o contido_dentro.sh e o embrulho).
 - *Achado lateral:* o bash repete o fork em EAGAIN. Controle de "fork recusado" usa um processo que não repete.
+
+## 29/09/2026 - 22:05 | D-A36: dúvidas da C1b v2 decididas pelo CTO (L-34), mais um furo do R2-final corrigido
+
+Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 (md5 c03fe9c9). Nenhuma das duas é porta de mão única, e reverter é barato.
+
+- **Q1.** *Pergunta que teria ido ao líder:* "quando o teto pedido difere do herdado, quando avisar?"
+  - *Opções:* aviso por modo; recusar; sempre imprimir o teto efetivo e avisar quando ele difere do pedido.
+  - *Escolha:* sempre imprimir e avisar. Fontes: a doc de cgroup-v2 do kernel e a dor documentada do Bazel com limite que não se aplica calado.
+- **Q2.** *Pergunta:* "com o comando já terminado, espera-se a graça inteira antes do KILL?"
+  - *Opções:* sempre G; pular se o cgroup.procs estiver vazio; a semântica do systemd (esperar até G, sair em populated 0, KILL sempre depois).
+  - *Escolha:* a semântica do systemd. Fontes: o man do systemd.kill e do systemd.service, o kernel (populated), dois relatos de netos órfãos quando o KILL é pulado, e o MR do gitlab-runner.
+- **Furo corrigido pelo próprio CTO:** o ninho, irmão da carga, não era alcançado pela matança do proprio. O conserto mata no fim {carga, ninho-*}, adiciona o TimeoutStopSec=G e faz o `systemctl --user stop` como varredura final (prova D12).

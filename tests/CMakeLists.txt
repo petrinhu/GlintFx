@@ -4865,11 +4865,12 @@ if(UNIX)
         NAME fase_sh_selftest
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/fase.sh" --selftest
     )
-    # PASS_REGULAR_EXPRESSION: o ctest ignora o codigo de saida quando ele existe, mas a linha OK so' sai quando
-    # nada falhou; exigir a contagem de PULADOS impede que ela suma calada (os containers do CI rodam como root,
-    # onde os controles de chmod 000 nao valem: L-36, a ausencia e' declarada e contada, nunca um pulo calado)
+    # O codigo de saida e' o veredito (D-W7D-21). FAIL_REGULAR_EXPRESSION e' so' um cinto: a palavra FALHOU que o
+    # selftest imprime na falha reprova o teste mesmo se um dia o rc se perder. NAO usar PASS_REGULAR_EXPRESSION
+    # aqui: com ela o ctest IGNORA o rc (um OK seguido de exit 1 passaria verde, medido pelo CTO). PERDA DECLARADA:
+    # a linha `pulados: <k>` do selftest fica sem conferencia ate a onda INFRA-CI.
     set_tests_properties(fase_sh_selftest PROPERTIES LABELS selftest
-        PASS_REGULAR_EXPRESSION "fase.sh --selftest: OK - .*pulados: [0-9]+ \\(root: chmod 000 nao impede leitura\\)")
+        FAIL_REGULAR_EXPRESSION "FALHOU")
 endif()
 
 # CI-SPLIT-PER-OS A5 C1a (PLANO-C1.md): tools/contido.sh decide, por funcao pura, se um comando roda

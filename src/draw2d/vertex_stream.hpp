@@ -55,6 +55,7 @@ enum class vertex_upload_technique : std::uint8_t {
 inline constexpr std::string_view k_reject_vertex_array_create = "vertex_array_create";
 inline constexpr std::string_view k_reject_vertex_upload = "vertex_upload";
 inline constexpr std::string_view k_reject_index_upload = "index_upload";
+inline constexpr std::string_view k_reject_draw = "draw";
 
 inline constexpr std::string_view k_prior_gl_error_event = "draw2d_prior_gl_error";
 inline constexpr std::string_view k_gl_error_field = "gl_error";
@@ -87,8 +88,11 @@ void destroy_vertex_stream(const render::gl_function_table &gl, vertex_stream &s
                                                      const triangle_batch &batch) noexcept;
 
 // Issues one draw call per run of `batch`, in order, and returns how many were issued. The array
-// and the buffers must be bound (set_gl_state_for_drawing does it).
-[[nodiscard]] std::uint64_t draw_batch(const render::gl_function_table &gl,
-                                       const triangle_batch &batch) noexcept;
+// and the buffers must be bound (set_gl_state_for_drawing does it). The GL errors the calls left
+// are read (at most k_max_gl_error_reads, D-B3c-2) and mapped: GL_OUT_OF_MEMORY is `out_of_memory`,
+// anything else `platform_failure` with rejected_value() "draw" and the GL code in os_error_code().
+// An empty batch issues nothing and reads nothing.
+[[nodiscard]] glintfx::gltfx_rslt<std::uint64_t> draw_batch(const render::gl_function_table &gl,
+                                                            const triangle_batch &batch) noexcept;
 
 } // namespace glintfx::draw2d

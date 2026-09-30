@@ -96,6 +96,7 @@ struct fake_gl {
     bool also_out_of_memory_from_first_buffer_data =
         false; // a SECOND error, out-of-memory, behind the first
     int buffer_data_calls = 0;
+    GLenum error_from_draw = 0; // raised by glDrawElements
     int ignored_buffer_data_call =
         0; // CTO: this glBufferData raises OUT_OF_MEMORY and keeps the OLD store
     int get_error_calls = 0;
@@ -231,6 +232,9 @@ void GLINTFX_GL_APIENTRY fake_vertex_attrib_pointer(GLuint index, GLint size, GL
 void GLINTFX_GL_APIENTRY fake_draw_elements(GLenum mode, GLsizei count, GLenum type,
                                             const void *indices) {
     ++gl_state.gl_calls;
+    if (gl_state.error_from_draw != 0) {
+        gl_state.error_queue.push_back(gl_state.error_from_draw);
+    }
     gl_state.draws.push_back({mode, count, type, reinterpret_cast<std::uintptr_t>(indices)});
 }
 GLenum GLINTFX_GL_APIENTRY fake_get_error() {
@@ -488,7 +492,7 @@ GLINTFX_TEST(vertex_stream_an_empty_batch_sends_nothing_and_calls_no_gl_function
         GLINTFX_CHECK(upload_batch(table, stream, technique, empty).has_value());
     }
     GLINTFX_CHECK_EQ(gl_state.gl_calls, calls_before);
-    GLINTFX_CHECK_EQ(draw_batch(table, empty), std::uint64_t{0});
+    GLINTFX_CHECK_EQ(draw_batch(table, empty).value(), std::uint64_t{0});
     GLINTFX_CHECK_EQ(gl_state.draws.size(), std::size_t{0});
 }
 
@@ -583,7 +587,7 @@ GLINTFX_TEST(vertex_stream_draws_one_call_per_run_with_the_run_offsets) {
     triangle_batch batch;
     fill(batch, 5, true); // states alternate a b a b a: five runs of one piece
     GLINTFX_CHECK_EQ(batch.runs().size(), std::size_t{5});
-    GLINTFX_CHECK_EQ(draw_batch(table, batch), std::uint64_t{5});
+    GLINTFX_CHECK_EQ(draw_batch(table, batch).value(), std::uint64_t{5});
     GLINTFX_CHECK_EQ(gl_state.draws.size(), std::size_t{5});
     for (std::size_t i = 0; i < 5; ++i) {
         GLINTFX_CHECK_EQ(gl_state.draws[i].mode, k_triangles);
@@ -596,7 +600,7 @@ GLINTFX_TEST(vertex_stream_draws_one_call_per_run_with_the_run_offsets) {
     const gl_function_table table2 = fake_table();
     triangle_batch merged;
     fill(merged, 4, false); // one state: ONE run of 24 indices
-    GLINTFX_CHECK_EQ(draw_batch(table2, merged), std::uint64_t{1});
+    GLINTFX_CHECK_EQ(draw_batch(table2, merged).value(), std::uint64_t{1});
     GLINTFX_CHECK_EQ(gl_state.draws[0].count, 24);
     GLINTFX_CHECK_EQ(gl_state.draws[0].offset, std::uintptr_t{0});
 }
@@ -708,6 +712,32 @@ GLINTFX_TEST(vertex_stream_capacity_is_not_trusted_after_a_failed_growth) {
     GLINTFX_CHECK(after.has_value());
     GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.vertex_buffer], medium.vertices().data(),
                               medium.vertices().size() * sizeof(batch_vertex)));
+}
+
+// D-B3c-2 / E4: the GL errors the draw calls left are read and mapped, with the token "draw" and
+// the GL code in os_error_code(); an empty batch reads nothing.
+GLINTFX_TEST(vertex_stream_draw_reads_the_gl_errors_and_maps_them_with_the_token_draw) {
+    for (const GLenum raised : {GLenum{0x0505}, GLenum{0x0502}}) {
+        reset();
+        const gl_function_table table = fake_table();
+        triangle_batch batch;
+        fill(batch, 3, false);
+        gl_state.error_from_draw = raised;
+        auto failed = draw_batch(table, batch);
+        GLINTFX_CHECK(failed.has_error());
+        GLINTFX_CHECK(failed.err().code() == (raised == 0x0505 ? gltfx_err_code::out_of_memory
+                                                               : gltfx_err_code::platform_failure));
+        GLINTFX_CHECK(failed.err().rejected_value() == "draw");
+        GLINTFX_CHECK_EQ(failed.err().os_error_code(), static_cast<std::int64_t>(raised));
+        GLINTFX_CHECK_EQ(gl_state.draws.size(), std::size_t{1}); // the call WAS made
+    }
+    reset();
+    const gl_function_table table = fake_table();
+    triangle_batch empty;
+    gl_state.error_from_draw = 0x0502; // would be raised by a draw: there is none
+    auto nothing = draw_batch(table, empty);
+    GLINTFX_CHECK(nothing.has_value());
+    GLINTFX_CHECK_EQ(gl_state.get_error_calls, 0); // and nothing was read
 }
 
 // The twin for the INDEX buffer (L-17): its growth fails with OUT_OF_MEMORY while the vertex

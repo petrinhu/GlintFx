@@ -238,15 +238,22 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
     return gltfx_rslt<void>::ok();
 }
 
-std::uint64_t draw_batch(const render::gl_function_table &gl,
-                         const triangle_batch &batch) noexcept {
+gltfx_rslt<std::uint64_t> draw_batch(const render::gl_function_table &gl,
+                                     const triangle_batch &batch) noexcept {
     std::uint64_t calls = 0;
     for (const draw_run &run : batch.runs()) {
         gl.glDrawElements(k_gl_triangles, static_cast<GLsizei>(run.index_count), k_gl_unsigned_int,
                           buffer_offset(run.first_index * sizeof(std::uint32_t)));
         ++calls;
     }
-    return calls;
+    if (calls == 0) {
+        return gltfx_rslt<std::uint64_t>::ok(calls);
+    }
+    const gl_errors_of_operation errors = read_gl_errors(gl);
+    if (errors.first != 0) {
+        return gltfx_rslt<std::uint64_t>::err(error_of_step(errors, k_reject_draw));
+    }
+    return gltfx_rslt<std::uint64_t>::ok(calls);
 }
 
 } // namespace glintfx::draw2d

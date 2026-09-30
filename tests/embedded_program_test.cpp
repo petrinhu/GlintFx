@@ -182,7 +182,10 @@ void GLINTFX_GL_APIENTRY fake_delete_program(GLuint) {
     }
 }
 GLint GLINTFX_GL_APIENTRY fake_get_uniform_location(GLuint, const GLchar *name) {
-    return std::strcmp(name, "u_viewport_pixels") == 0 ? 7 : -1;
+    if (std::strcmp(name, "u_viewport_pixels") == 0) {
+        return 7;
+    }
+    return std::strcmp(name, "u_encode_srgb") == 0 ? 8 : -1;
 }
 
 gl_function_table fake_table() {
@@ -260,6 +263,7 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK(result.has_value());
     GLINTFX_CHECK_EQ(result.value().program, GLuint{40});
     GLINTFX_CHECK_EQ(result.value().viewport_location, 7);
+    GLINTFX_CHECK_EQ(result.value().encode_srgb_location, 8);
     GLINTFX_CHECK_EQ(driver.shaders_created, GLuint{2});
     GLINTFX_CHECK_EQ(driver.shader_type[1], k_vertex_shader);
     GLINTFX_CHECK_EQ(driver.shader_type[2], k_fragment_shader);
@@ -277,6 +281,7 @@ GLINTFX_TEST(embedded_program_success_links_and_leaves_only_the_program_alive) {
     GLINTFX_CHECK(!driver.program_alive);
     GLINTFX_CHECK_EQ(program.program, GLuint{0});
     GLINTFX_CHECK_EQ(program.viewport_location, -1);
+    GLINTFX_CHECK_EQ(program.encode_srgb_location, -1);
     disarm();
 }
 
@@ -403,6 +408,7 @@ GLINTFX_TEST(embedded_program_sources_are_glsl_330_core_with_the_agreed_interfac
     GLINTFX_CHECK(vertex.find("layout(location = 2) in vec4 a_color") != std::string_view::npos);
     GLINTFX_CHECK(vertex.find("uniform vec2 u_viewport_pixels") != std::string_view::npos);
     GLINTFX_CHECK(fragment.find("out vec4 frag_color") != std::string_view::npos);
+    GLINTFX_CHECK(fragment.find("uniform int u_encode_srgb") != std::string_view::npos);
     // the sources are NUL-terminated views (they are handed to glShaderSource as C strings)
     GLINTFX_CHECK(vertex.data()[vertex.size()] == '\0');
     GLINTFX_CHECK(fragment.data()[fragment.size()] == '\0');

@@ -45,14 +45,26 @@ constexpr char k_vertex_source[] =
     "    v_color = a_color;\n"
     "}\n";
 
-// The color is already premultiplied (triangle_batch.hpp): written as it is.
-constexpr char k_fragment_source[] = "#version 330 core\n"
-                                     "in vec2 v_texcoord;\n"
-                                     "in vec4 v_color;\n"
-                                     "out vec4 frag_color;\n"
-                                     "void main() {\n"
-                                     "    frag_color = v_color;\n"
-                                     "}\n";
+// The color is already premultiplied (triangle_batch.hpp). With the context option
+// `srgb_framebuffer` ON the surface encodes for us and the color is written as it is; with it OFF
+// (`u_encode_srgb` = 1) the program encodes to sRGB before the blend does its work, which is what
+// most 2D libraries do (D-W7D-12): un-premultiply, encode the straight color, premultiply again.
+constexpr char k_fragment_source[] =
+    "#version 330 core\n"
+    "in vec2 v_texcoord;\n"
+    "in vec4 v_color;\n"
+    "uniform int u_encode_srgb;\n"
+    "out vec4 frag_color;\n"
+    "void main() {\n"
+    "    vec4 color = v_color;\n"
+    "    if (u_encode_srgb != 0 && color.a > 0.0) {\n"
+    "        vec3 straight = color.rgb / color.a;\n"
+    "        vec3 low = straight * 12.92;\n"
+    "        vec3 high = 1.055 * pow(straight, vec3(1.0 / 2.4)) - 0.055;\n"
+    "        color.rgb = mix(low, high, step(vec3(0.0031308), straight)) * color.a;\n"
+    "    }\n"
+    "    frag_color = color;\n"
+    "}\n";
 
 // Sends the refusal to the log sink as the event draw2d_program_rejected: the driver's message
 // (already read into `text`, empty when the refusal was not the driver's own), the boolean that
@@ -182,6 +194,7 @@ gltfx_rslt<embedded_program> create_embedded_program(const render::gl_function_t
     embedded_program result;
     result.program = program;
     result.viewport_location = gl.glGetUniformLocation(program, "u_viewport_pixels");
+    result.encode_srgb_location = gl.glGetUniformLocation(program, "u_encode_srgb");
     return gltfx_rslt<embedded_program>::ok(result);
 }
 

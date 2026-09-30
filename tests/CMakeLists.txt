@@ -1353,6 +1353,13 @@ target_sources(draw_order_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
 )
 
+glintfx_add_test(triangle_batch_test)
+target_include_directories(triangle_batch_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(triangle_batch_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/triangle_batch.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

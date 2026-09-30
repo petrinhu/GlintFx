@@ -106,6 +106,9 @@ target_sources(glintfx_library PRIVATE
     dxcore_gpu_kind.cpp
     dxcore_adapter_enumeration.cpp
     gl_device_luid.cpp
+    power_status_rule.cpp
+    power_source_adapter.cpp
+    selected_power_source_adapter_check.cpp
 )
 
 # GEMEO (L-17): cmake/GlintfxInstall.cmake's own

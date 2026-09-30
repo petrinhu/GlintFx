@@ -941,3 +941,11 @@ armadilha_selftest|windows|nenhum|SEM-PENDENCIA
 # MORTE DESTA LINHA: nunca - assimetria permanente por desenho.
 contido_selftest|windows|nenhum|SEM-PENDENCIA
 contido_dentro_selftest|windows|nenhum|SEM-PENDENCIA
+# power_source_adapter_test (tests/power_source_adapter_test.cpp, GFX-PRESET P2): builds a FAKE
+# /sys/class/power_supply tree and reads it with the Linux reader (src/platform/wayland/
+# power_source_adapter.cpp), which does not exist on Windows. The Windows reader is one call to
+# GetSystemPowerStatus (kernel32) followed by the pure rule, and THAT rule is proved by
+# power_status_rule_test on all five systems; the call itself is exercised by the CI's own Windows
+# runner. MORTE DESTA LINHA: nunca - assimetria permanente por desenho (o sistema de arquivos sysfs so'
+# existe no Linux).
+power_source_adapter_test|windows|nenhum|SEM-PENDENCIA

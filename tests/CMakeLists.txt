@@ -1312,6 +1312,33 @@ target_sources(preset_expansion_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/platform/gl/gfx_preset_table.cpp"
 )
 
+# GFX-PRESET P2: the pure atoms of the power source, PLATFORM-AGNOSTIC like the sites they prove (power_supply_rule.cpp
+# and power_status_rule.cpp read plain data; only the two adapters that fill that data are one system each).
+glintfx_add_test(power_supply_rule_test)
+target_include_directories(power_supply_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(power_supply_rule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/wayland/power_supply_rule.cpp"
+)
+
+glintfx_add_test(power_status_rule_test)
+target_include_directories(power_status_rule_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(power_status_rule_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/platform/win32/power_status_rule.cpp"
+)
+
+# The reader of /sys/class/power_supply is Linux-only, and its test builds a FAKE tree under the temporary
+# directory (the real root is a literal only the adapter passes). The Windows reader (GetSystemPowerStatus)
+# has no runtime test of its own here: the pure rule above is its twin (parity_exceptions.txt), and the
+# real call runs on the CI's Windows runner.
+if(UNIX)
+    glintfx_add_test(power_source_adapter_test)
+    target_include_directories(power_source_adapter_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_sources(power_source_adapter_test PRIVATE
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/power_source_adapter.cpp"
+        "${PROJECT_SOURCE_DIR}/src/platform/wayland/power_supply_rule.cpp"
+    )
+endif()
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

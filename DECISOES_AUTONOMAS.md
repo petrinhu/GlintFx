@@ -5249,3 +5249,17 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Aceite:* sem condição. A sonda do CTO acertou 11 de 11, e o --selftest passa os 20 controles.
 - Empurrado às 12:27; o `ls-remote` confere com o HEAD.
 - *Porta de mão única:* não.
+
+## 30/09/2026 - 12:55 | D-A55: as seis decisões da B5, o destino da B4-K5 e os commits intermediários da B4 (CTO, L-34 com fontes; errata §21, md5 31fe19b0)
+
+- **Montagem do teste do desenho no container Linux:** mantém o padrão atual (F1), com a lista de arquivos gerada por script e o portão de ligação rodando antes do build da imagem.
+  - *Fontes:* o guia oficial do Docker para C++ e o blog da equipe de C++ da Microsoft recomendam construir com o sistema de build do próprio projeto.
+  - O caminho mais completo (F2: lib do CMake dentro da imagem) vale para TODOS os 23 fixtures de uma vez. Foi para o INBOX da INFRA-CI como CONTAINER-FIXTURE-LIB-CMAKE, e não para um só.
+- **Tolerâncias de cor:** peça opaca com valor exato, ±2 em 128 e em 188, e o valor medido sempre impresso.
+- **sRGB ligado e desligado:** se o driver não suportar sRGB, a ausência só vale declarada por plataforma e contada; ausência calada reprova.
+- **Estado GL hostil:** planta também um framebuffer do consumidor e relê a lista inteira depois do desenho, incluindo os 6 itens da E3.
+- **Mutantes por `docker cp` num container vivo:** aceito, sem montagem do host, com a conferência de isolamento antes e uma execução pesada por vez. O team-lead liberou o Docker às 12:56 com essas condições; a VM Windows não foi liberada.
+- **As 4 linhas "Proved by"** entram num commit próprio no fim, depois do verde nos dois sistemas.
+- **B4-K5** (a proteção contra renderizador movido) entra na B5, gêmea do que as outras fachadas já fazem (L-17).
+- **Commits intermediários da B4:** não se exige o build completo de cada um. O CTO rodou os testes das partes tocadas em cada commit, e todos passaram. O risco residual está declarado: um portão de biblioteca inteira pode reprovar num intermediário.
+- *Porta de mão única:* não. *Custo de reverter:* baixo.

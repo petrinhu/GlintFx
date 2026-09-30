@@ -4878,3 +4878,21 @@ Nenhuma decisão desta lista segue pendente de confirmação.
 - **Modo autônomo:** flag em ~/.claude/autonomo/GlintFx.json, válida até 30/09 21:21.
 - **Crons:** pausa em e93ea906 (06:30 de 30/09); monitor anti-parada em d58e756a.
 - **Agentes redespachados** (a sessão é nova): impl-da14 começa pelo CI-CMP (/var/tmp/cto-a5-paralelo/CI-CMP.md), depois a C1a-fix2 e a C1b; cto-review revisa com execução.
+
+## 29/09/2026 - 21:4x | D-A34: a L-34 aplicada de trás para frente às decisões do dia (CTO, pesquisa na web e nas bibliotecas semelhantes)
+
+Texto completo no formato da lei, com URLs: /var/tmp/cto-a5-paralelo/L34-RETRO.md (md5 c69f0465). Nenhuma das três é porta de mão única.
+
+- **R1, fatia CI-CMP.** *Pergunta que teria ido ao líder:* "Como os selftests comparam arquivos byte a byte sem depender do cmp, que falta nas imagens do CI?"
+  - *Opções:* builtin do bash; diffutils nas imagens; `cmake -E compare_files`.
+  - *Escolha:* `cmake -E compare_files` nos dois scripts. É o golden portátil da comunidade CMake, o CMake já é dependência declarada (L-03), e o diagnóstico mostra esperado contra obtido (lição do test_cmp do Git).
+  - *Custo de reverter:* barato. Substitui a forma de 25ae5e0 e 6022380 num commit novo (CI-CMP-3).
+- **R2, fatia C1b.** *Pergunta:* "Como o contido encerra o que ele contém no prazo, sem violar o systemd e sem deixar escapar netos?"
+  - *Opções:* (A) manter o staged; (B) remendar com systemctl kill e tempo de graça; (C) escopo com Delegate=pids, subpastas próprias, TERM seguido de graça e cgroup.kill da subpasta, e RuntimeMaxSec= como encosto.
+  - *Escolha:* (C). Fonte: a doc de delegação do systemd, "Never write to any of the attributes of a cgroup systemd created for you"; mais o Bazel e o nsjail.
+  - *Custo de reverter:* moderado. A C1b staged fica intocada até as sondas P5 a P7 darem o desenho final.
+- **R3, fatia C3.** *Pergunta:* "Como impedir que um container esgote os processos da máquina?"
+  - *Opções:* --pids-limit por container; default-pids-limit no daemon; limite por container mais teto de memória.
+  - *Escolha:* --pids-limit em todo docker run/create (CIS Docker Benchmark 5.28).
+  - *Para decisão do líder:* o default-pids-limit no daemon.json (exige root, vale para a máquina inteira) e uma fatia C3b de teto de memória.
+  - *Custo de reverter:* barato.

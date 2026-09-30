@@ -5105,3 +5105,10 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - Os erros já pendentes do consumidor são drenados ANTES, com limite, e cada um é registrado como evento `draw2d_prior_gl_error`: nunca são engolidos calados nem atribuídos à biblioteca.
   - Depois, todos são conferidos. Falta de memória vira `out_of_memory`; o resto vira `platform_failure`, com o token do passo e o código GL.
 - *Porta de mão única:* só a E3, que é texto de contrato público revisado antes da publicação (B4). *Custo de reverter:* baixo até lá.
+
+## 30/09/2026 - 02:5x | Desvio registrado: o Status de GFX-PRESET não saiu no commit da P1 (L-63/L-24)
+
+- *O quê:* o commit da P1 (e0787bb) cita GFX-PRESET, mas não toca o Status no TODO.md. A L-63 pede o Status no MESMO commit.
+- *Causa:* ordem do main. Eu tinha proibido o implementador de tocar o TODO.md enquanto aplicava a arrumação da tabela (D-W7D-22), para os dois não se atropelarem no mesmo arquivo. A liberação chegou a ele depois do commit.
+- *Tratamento:* o 🔍 de GFX-PRESET entra no commit da P2, nunca ✅. Não há amend: o commit já foi revisado pelo CTO e segue igual.
+- *Apontado por:* CTO, na revisão do e0787bb.

@@ -2085,6 +2085,30 @@ run_selftest_ctest_jobs_controls() {
     echo "selftest: pick_ctest_jobs OK"
 }
 
+run_selftest_ccache_controls() {
+    log "selftest: setup_ccache (ligado, desligado pela chave, ausente; o estado e' sempre impresso)"
+    # Each case runs in a subshell: setup_ccache exports, and the real
+    # environment of this run must stay untouched. The launcher is preset
+    # in the off cases, so "unset" is proven, not assumed.
+    esperar() {
+        nome="$1"; esperado_estado="$2"; esperado_lancador="$3"; chave="$4"; caminho="$5"
+        obtido="$(
+            ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE="$chave" \
+                CMAKE_CXX_COMPILER_LAUNCHER=preset CMAKE_C_COMPILER_LAUNCHER=preset
+            PATH="$caminho"
+            setup_ccache
+            echo "lancadores=[${CMAKE_C_COMPILER_LAUNCHER:-}|${CMAKE_CXX_COMPILER_LAUNCHER:-}]"
+        )"
+        case "$obtido" in
+            *"$esperado_estado"*"lancadores=[$esperado_lancador]"*) echo "selftest: ccache $nome OK" ;;
+            *) fail "selftest ccache $nome: esperado '$esperado_estado' com lancadores [$esperado_lancador], obtido '$obtido'" ;;
+        esac
+    }
+    esperar "ligado" "ccache: ligado" "ccache|ccache" 1 "$PATH"
+    esperar "desligado pela chave" "ccache: desligado (GLINTFX_PRECI_CCACHE=0)" "|" 0 "$PATH"
+    esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
+}
+
 run_selftest() {
     run_selftest_positive_control
     run_selftest_negative_control
@@ -2097,6 +2121,7 @@ run_selftest() {
     run_selftest_noexcept_alloc_controls
     run_selftest_floor_controls
     run_selftest_ctest_jobs_controls
+    run_selftest_ccache_controls
     echo "preci.sh --selftest: TODOS OS CONTROLES PASSARAM"
 }
 
@@ -2256,6 +2281,37 @@ run_full_pipeline() {
 # why: the real tree can legitimately have another agent's WIP
 # untracked *.cpp mid-onda, and --selftest has to stay usable by
 # anyone, any time, regardless of who else is mid-fatia).
+# ccache (infra trail, 30/09/2026): every compile the pipeline starts, the
+# nested-build tests' included, goes through ccache. It is wired ONLY
+# through this script's environment - nothing in CMakeLists.txt, and CI
+# does not change. CMake reads the *_COMPILER_LAUNCHER variables at the
+# first configure of each build tree, nested ones too. The cache lives in
+# /var/tmp (off the home and off the synced folder), capped at 3 GiB
+# (measured free disk at the time: 23.78 GiB). CCACHE_BASEDIR rewrites
+# absolute paths under the source tree to relative ones and
+# CCACHE_NOHASHDIR drops the working directory from the hash, so nested
+# builds, each in a different temporary directory, still hit. The switch
+# is GLINTFX_PRECI_CCACHE=0; the state is printed EVERY run, never silent.
+setup_ccache() {
+    if [ "${GLINTFX_PRECI_CCACHE:-1}" = "0" ]; then
+        unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
+        echo "ccache: desligado (GLINTFX_PRECI_CCACHE=0)"
+        return 0
+    fi
+    if ! command -v ccache > /dev/null 2>&1; then
+        unset CMAKE_C_COMPILER_LAUNCHER CMAKE_CXX_COMPILER_LAUNCHER
+        echo "ccache: desligado (ccache nao encontrado no PATH)"
+        return 0
+    fi
+    export CMAKE_C_COMPILER_LAUNCHER=ccache
+    export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+    export CCACHE_DIR="${CCACHE_DIR:-/var/tmp/ccache-glintfx}"
+    export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-3G}"
+    export CCACHE_BASEDIR="$ROOT_DIR"
+    export CCACHE_NOHASHDIR=true
+    echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
+}
+
 _USAGE="uso: preci.sh [--fast|--lint-only|--sanitizer-only|--debug-only|--ps-syntax-only|--blob-only|--win32-link-only [--strict]|--container-link-only|--selftest]"
 
 main() {
@@ -2271,6 +2327,8 @@ main() {
     if [ -n "$extra" ] && { [ "$mode" != "--win32-link-only" ] || [ "$extra" != "--strict" ]; }; then
         fail "$_USAGE"
     fi
+
+    setup_ccache
 
     if [ "$mode" != "--selftest" ]; then
         log "estagio 0: guarda de arquivo novo nao rastreado"

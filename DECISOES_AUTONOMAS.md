@@ -4956,3 +4956,12 @@ Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 
   - fecha-se só a contenção que impede outro travamento da máquina (a C1b, na checagem final);
   - segue-se direto ao framework: W7-D (desenho em lote, eventos de entrada, predefinição gráfica, escrita Wayland sem timeout fatal), depois W8 (demo, textura, API de mapa, herança de gfss);
   - o resto da trilha de CI e teste da W7-C (C1c-C4, o ctest paralelo F2-F13, A6-A9, B0-B3, e o CI-CMP-5 que conserta o d8641c9) fica para depois da W8.
+
+## 29/09/2026 - 22:4x | DECISÃO DO LÍDER (não autônoma): as pendências da W7-C viram a onda INFRA-CI, depois da W8
+
+- *Ordem do líder, verbatim:* "Troque o nome de w7-c para eu não me confundir e mude a posição na tabela".
+- *Perguntas (AskUserQuestion):* o nome novo e o alcance. *Respostas:* nome "INFRA-CI"; "Só as 6 pendentes (Recomendado)".
+- *Aplicado no TODO.md:*
+  - as 6 linhas pendentes (CI-SPLIT-PER-OS, PLATFORMS-ASTRO-PARITY, WL-ACK-SMOKE-BLUNT, PLAN-SCOPE-COLUMNS, DISPLAY-PASSKEY-CONTROL, CI-VERDE-W7C) passam a ter Onda = INFRA-CI e vão para logo depois da CI-VERDE-W8;
+  - as 9 linhas concluídas ficam como W7-C, registro do que já foi feito;
+  - os IDs não mudam, porque os commits os citam.

@@ -206,6 +206,8 @@ void destroy_vertex_stream(const render::gl_function_table &gl, vertex_stream &s
     stream = vertex_stream{};
 }
 
+namespace {
+
 // Sends one buffer, reads ITS errors BEFORE the next buffer is touched (so each carries its own
 // token), and on any failure forgets the capacity: send_to_buffer() recorded the grown capacity
 // BEFORE glBufferData had answered, and after a failure the buffer may not have it (an
@@ -230,6 +232,8 @@ void destroy_vertex_stream(const render::gl_function_table &gl, vertex_stream &s
     return gltfx_rslt<void>::ok();
 }
 
+} // namespace
+
 gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream &stream,
                               vertex_upload_technique technique,
                               const triangle_batch &batch) noexcept {
@@ -241,7 +245,7 @@ gltfx_rslt<void> upload_batch(const render::gl_function_table &gl, vertex_stream
     drain_prior_gl_errors(gl);
     // The array first, so the element-array binding below lands in ITS state.
     gl.glBindVertexArray(stream.vertex_array);
-    const gltfx_rslt<void> vertices_sent = upload_one_buffer(
+    gltfx_rslt<void> vertices_sent = upload_one_buffer(
         gl,
         buffer_upload{k_gl_array_buffer, stream.vertex_buffer, stream.vertex_capacity_bytes,
                       vertices.data(), vertices.size() * sizeof(batch_vertex)},

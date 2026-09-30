@@ -709,3 +709,27 @@ GLINTFX_TEST(vertex_stream_capacity_is_not_trusted_after_a_failed_growth) {
     GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.vertex_buffer], medium.vertices().data(),
                               medium.vertices().size() * sizeof(batch_vertex)));
 }
+
+// The twin for the INDEX buffer (L-17): its growth fails with OUT_OF_MEMORY while the vertex
+// buffer's succeeded; the next batch that fits the recorded index capacity must still upload.
+GLINTFX_TEST(vertex_stream_index_capacity_is_not_trusted_after_a_failed_growth) {
+    reset();
+    const gl_function_table table = fake_table();
+    vertex_stream stream = create_vertex_stream(table).value();
+    triangle_batch small;
+    fill(small, 1, false);
+    GLINTFX_CHECK(upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, small)
+                      .has_value());
+    triangle_batch big;
+    fill(big, 200, false);
+    gl_state.ignored_buffer_data_call = gl_state.buffer_data_calls + 2; // the index glBufferData
+    auto failed = upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, big);
+    GLINTFX_CHECK(failed.has_error() && failed.err().code() == gltfx_err_code::out_of_memory &&
+                  failed.err().rejected_value() == "index_upload");
+    triangle_batch medium;
+    fill(medium, 20, false);
+    auto after = upload_batch(table, stream, vertex_upload_technique::map_range_invalidate, medium);
+    GLINTFX_CHECK(after.has_value());
+    GLINTFX_CHECK(bytes_equal(gl_state.storage[stream.index_buffer], medium.indices().data(),
+                              medium.indices().size() * sizeof(std::uint32_t)));
+}

@@ -2175,6 +2175,13 @@ run_selftest_ccache_controls() {
     # Each case runs in a subshell: setup_ccache exports, and the real
     # environment of this run must stay untouched. The launcher is preset
     # in the off cases, so "unset" is proven, not assumed.
+    # The CI `lint` job runs this --selftest in a container with no ccache:
+    # the "on" case uses a stub executable, never the real one.
+    stub_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-stub.XXXXXX")" \
+        || fail "selftest ccache: mktemp falhou"
+    printf '#!/bin/sh\nexit 0\n' > "$stub_dir/ccache"
+    chmod +x "$stub_dir/ccache"
+    # `fail` exits at once: the stub is removed BEFORE it, on every failure path.
     esperar() {
         nome="$1"; esperado_estado="$2"; esperado_lancador="$3"; chave="$4"; caminho="$5"
         obtido="$(
@@ -2182,21 +2189,15 @@ run_selftest_ccache_controls() {
             GLINTFX_PRECI_CCACHE="$chave" \
                 CMAKE_CXX_COMPILER_LAUNCHER=preset CMAKE_C_COMPILER_LAUNCHER=preset
             PATH="$caminho"
-            setup_ccache
+            setup_ccache /selftest-root
             echo "lancadores=[${CMAKE_C_COMPILER_LAUNCHER:-}|${CMAKE_CXX_COMPILER_LAUNCHER:-}]"
         )"
         case "$obtido" in
             *"$esperado_estado"*"lancadores=[$esperado_lancador]"*) echo "selftest: ccache $nome OK" ;;
-            *) fail "selftest ccache $nome: esperado '$esperado_estado' com lancadores [$esperado_lancador], obtido '$obtido'" ;;
+            *) rm -rf "$stub_dir"; fail "selftest ccache $nome: esperado '$esperado_estado' com lancadores [$esperado_lancador], obtido '$obtido'" ;;
         esac
     }
-    # The CI `lint` job runs this --selftest in a container with no ccache:
-    # the "on" case uses a stub executable, never the real one.
-    stub_dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-stub.XXXXXX")" \
-        || fail "selftest ccache: mktemp falhou"
-    printf '#!/bin/sh\nexit 0\n' > "$stub_dir/ccache"
-    chmod +x "$stub_dir/ccache"
-    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=$ROOT_DIR:" "ccache|ccache" 1 "$stub_dir:$PATH"
+    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$stub_dir:$PATH"
     rm -rf "$stub_dir"
     esperar "desligado pela chave" "ccache: desligado (GLINTFX_PRECI_CCACHE=0)" "|" 0 "$PATH"
     esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
@@ -2210,6 +2211,7 @@ run_selftest_ccache_preconfigured_controls() {
     fi
     dir="$(mktemp -d "${TMPDIR}/glintfx-preci-ccache-pre.XXXXXX")" \
         || fail "selftest ccache preconfigurado: mktemp falhou"
+    falhar() { rm -rf "$dir"; fail "$@"; }
     printf 'cmake_minimum_required(VERSION 3.20)\nproject(x CXX)\nadd_library(x STATIC x.cpp)\n' > "$dir/CMakeLists.txt"
     printf 'int x_fn() { return 0; }\n' > "$dir/x.cpp"
     lido() { sed -n 's/^CMAKE_CXX_COMPILER_LAUNCHER:[A-Z]*=//p' "$dir/build/CMakeCache.txt"; }
@@ -2221,27 +2223,27 @@ run_selftest_ccache_preconfigured_controls() {
     }
     compilar() {
         CCACHE_DIR="$dir/cc" ccache -z > /dev/null
-        CCACHE_DIR="$dir/cc" cmake --build "$dir/build" --clean-first > /dev/null 2>&1 || fail "selftest ccache preconfigurado: build da arvore falhou"
+        CCACHE_DIR="$dir/cc" cmake --build "$dir/build" --clean-first > /dev/null 2>&1 || falhar "selftest ccache preconfigurado: build da arvore falhou"
     }
     # State 1: tree first configured WITH the launcher, then the switch turns it off.
-    (GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
+    (GLINTFX_PRECI_CCACHE=1 setup_ccache /selftest-root > /dev/null
      cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
-        || fail "selftest ccache preconfigurado: primeiro configure falhou"
-    [ "$(lido)" = "ccache" ] || fail "selftest ccache preconfigurado: arvore nao nasceu com o lancador (lido '$(lido)')"
-    (GLINTFX_PRECI_CCACHE=0 setup_ccache > /dev/null
+        || falhar "selftest ccache preconfigurado: primeiro configure falhou"
+    [ "$(lido)" = "ccache" ] || falhar "selftest ccache preconfigurado: arvore nao nasceu com o lancador (lido '$(lido)')"
+    (GLINTFX_PRECI_CCACHE=0 setup_ccache /selftest-root > /dev/null
      cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
-        || fail "selftest ccache preconfigurado: reconfigure desligado falhou"
-    [ -z "$(lido)" ] || fail "selftest ccache preconfigurado: arvore com lancador NAO desligou (lido '$(lido)')"
+        || falhar "selftest ccache preconfigurado: reconfigure desligado falhou"
+    [ -z "$(lido)" ] || falhar "selftest ccache preconfigurado: arvore com lancador NAO desligou (lido '$(lido)')"
     compilar
-    [ "$(chamadas)" = "0" ] || fail "selftest ccache preconfigurado: desligado, mas o ccache contou $(chamadas) chamada(s)"
+    [ "$(chamadas)" = "0" ] || falhar "selftest ccache preconfigurado: desligado, mas o ccache contou $(chamadas) chamada(s)"
     echo "selftest: ccache preconfigurado com lancador e depois desligado OK"
     # State 2: tree first configured WITHOUT it, then the switch turns it on.
-    (GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
+    (GLINTFX_PRECI_CCACHE=1 setup_ccache /selftest-root > /dev/null
      cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
-        || fail "selftest ccache preconfigurado: reconfigure ligado falhou"
-    [ "$(lido)" = "ccache" ] || fail "selftest ccache preconfigurado: arvore sem lancador NAO ligou (lido '$(lido)')"
+        || falhar "selftest ccache preconfigurado: reconfigure ligado falhou"
+    [ "$(lido)" = "ccache" ] || falhar "selftest ccache preconfigurado: arvore sem lancador NAO ligou (lido '$(lido)')"
     compilar
-    [ "$(chamadas)" -gt 0 ] || fail "selftest ccache preconfigurado: ligado, mas o ccache contou ZERO chamadas"
+    [ "$(chamadas)" -gt 0 ] || falhar "selftest ccache preconfigurado: ligado, mas o ccache contou ZERO chamadas"
     echo "selftest: ccache preconfigurado sem lancador e depois ligado OK"
     rm -rf "$dir"
 }
@@ -2250,6 +2252,7 @@ run_selftest_stage_times_controls() {
     log "selftest: tempo por estagio (uma linha por estagio, o arquivo concorda, contagem que nao fecha reprova)"
     dir="$(mktemp -d "${TMPDIR}/glintfx-preci-tempos.XXXXXX")" \
         || fail "selftest tempos: mktemp falhou"
+    falhar() { rm -rf "$dir"; fail "$@"; }
     estagio_lento() { sleep 1; }
     estagio_rapido() { :; }
     estagio_curto() { sleep 0.3; }
@@ -2261,13 +2264,13 @@ run_selftest_stage_times_controls() {
         timed_stage "b: rapido" estagio_rapido
         timed_stage "c: rapido" estagio_rapido
         report_stage_times
-    )" || fail "selftest tempos: pipeline de mentira reprovou: $saida"
+    )" || falhar "selftest tempos: pipeline de mentira reprovou: $saida"
     linhas="$(printf '%s\n' "$saida" | grep -c '^estagio .* levou [0-9.]* s$' || true)"
-    [ "$linhas" = "3" ] || fail "selftest tempos: esperadas 3 linhas 'levou', obtidas '$linhas'"
+    [ "$linhas" = "3" ] || falhar "selftest tempos: esperadas 3 linhas 'levou', obtidas '$linhas'"
     printf '%s\n' "$saida" | grep -q '^estagio a: lento levou 1\.[0-9] s$' \
-        || fail "selftest tempos: o estagio de 1 s nao foi medido como 1.x s: $saida"
+        || falhar "selftest tempos: o estagio de 1 s nao foi medido como 1.x s: $saida"
     printf '%s\n' "$saida" | grep -q '3 estagio(s) cronometrado(s) de 3 executado(s), 3 no arquivo' \
-        || fail "selftest tempos: linha de contagem ausente ou errada: $saida"
+        || falhar "selftest tempos: linha de contagem ausente ou errada: $saida"
     echo "selftest: tempos por estagio - 3 estagios, 3 linhas, arquivo concorda OK"
     # Sub-second precision: a 0.3 s stage must not come out as 0.0 under a
     # comma-decimal locale (pt_BR; a host without that locale measures in its
@@ -2280,7 +2283,7 @@ run_selftest_stage_times_controls() {
         timed_stage "d: curto" estagio_curto
     )"
     printf '%s\n' "$curto" | grep -q '^estagio d: curto levou 0\.[1-9] s$' \
-        || fail "selftest tempos: um estagio de 0.3 s nao foi medido com casa decimal (locale de virgula?): $curto"
+        || falhar "selftest tempos: um estagio de 0.3 s nao foi medido com casa decimal (locale de virgula?): $curto"
     echo "selftest: tempos por estagio - precisao de sub-segundo sob locale de virgula OK"
     # Negative: the file loses an entry behind the counters' back. The
     # count has to stop closing, never pass.
@@ -2293,12 +2296,12 @@ run_selftest_stage_times_controls() {
         printf '{"modo":"selftest","estagios":[]}\n' > "$STAGE_TIMES_FILE"
         report_stage_times
     ) > /dev/null 2>&1; then
-        fail "selftest tempos: arquivo sem estagios passou (a contagem nao foi conferida contra o arquivo)"
+        falhar "selftest tempos: arquivo sem estagios passou (a contagem nao foi conferida contra o arquivo)"
     fi
     echo "selftest: tempos por estagio - contagem que nao fecha reprova OK"
     rm -rf "$dir"
     python3 "$ROOT_DIR/tests/tools/preci_compare_times.py" --selftest \
-        || fail "selftest tempos: preci_compare_times.py --selftest reprovou"
+        || falhar "selftest tempos: preci_compare_times.py --selftest reprovou"
 }
 
 run_selftest_cache_state_controls() {
@@ -2572,6 +2575,7 @@ CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
 CCACHE_STATE="desligado"
 
 setup_ccache() {
+    _cc_root="$1"
     CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=)
     CCACHE_STATE="desligado"
     if [ "${GLINTFX_PRECI_CCACHE:-1}" = "0" ]; then
@@ -2589,7 +2593,7 @@ setup_ccache() {
     CCACHE_CMAKE_ARGS=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
     export CCACHE_DIR="${CCACHE_DIR:-/var/tmp/ccache-glintfx}"
     export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-3G}"
-    export CCACHE_BASEDIR="${ROOT_DIR}:${TMPDIR:-/var/tmp}"
+    export CCACHE_BASEDIR="${_cc_root}:${TMPDIR:-/var/tmp}"
     export CCACHE_NOHASHDIR=true
     CCACHE_STATE="ligado"
     echo "ccache: ligado (dir=$CCACHE_DIR, limite=$CCACHE_MAXSIZE, basedir=$CCACHE_BASEDIR)"
@@ -2611,7 +2615,7 @@ main() {
         fail "$_USAGE"
     fi
 
-    setup_ccache
+    setup_ccache "$ROOT_DIR"
 
     if [ "$mode" != "--selftest" ]; then
         case "$mode" in

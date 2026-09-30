@@ -5135,3 +5135,20 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - **Desvios aceitos na P2 (f88b1f8):**
   - a guarda `dirfd < 0` sem teste vermelho (L-20): falha para o lado seguro e não é alcançável no glibc;
   - o Status 🔍 de GFX-PRESET em commit separado (L-63). A causa (a minha proibição de tocar o TODO.md durante a arrumação da tabela) já foi retirada.
+
+## 30/09/2026 - 06:30 | PAUSA ordenada pelo líder ("Pause 06:30am em 30/09/2026")
+
+**Estado no instante da pausa:**
+- **W7-C:** FECHADA e mesclada no main (c5e8a70, PR #12); marca v0.5.2.0 publicada; CI verde no ramo, no PR, no main e na marca.
+- **W7-D (onda-w7d = 7006bdf, empurrada):** 9 fatias de código do framework estão no ramo, cada uma pré-revisada e depois conferida no commit pelo CTO:
+  - GFX-PRESET: P1 (e0787bb), P2 (f88b1f8), P3 (6de2339);
+  - R2D-BATCH: B2a (6c57b70), B2b (a030df1), B2c (832898d), B2d (4948293), B3a (7bc94ec), B3b (8c59c03);
+  - consertos: Clang da P1 (30b26a4), Windows Lint (4d77974), T9 da B2d (9982a8d);
+  - Status: GFX-PRESET e R2D-BATCH em 🔍.
+- **CI em curso:** run 36696277806, que prova os consertos do Clang e do Windows Lint.
+- **Próximo na fila, depois da pausa:** a B3c (em /var/tmp/b3c-work, pré-revisada e com as condições §12 do CTO), depois B4, B5, B6, B7, P4, P5 e o fechamento da W7-D (v0.6.0.0).
+- **Perguntas guardadas para o líder** (INBOX do TODO.md):
+  - W8-DEPS-EM-ONDA-POSTERIOR: a W8 não fecha como está alocada;
+  - GL-PROC-ADDRESS-SEM-CONSUMIDOR: remover ou manter o helper antigo;
+  - o B0-K1 da D-A42: `m_impl` em 128 lugares contra a L-21.
+- **Desvio de conduta registrado:** o implementador rodou uma vez dois preci ao mesmo tempo (L-11: um trabalho pesado por vez). Ele mesmo declarou, e as duas rodadas ficaram verdes.

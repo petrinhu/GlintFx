@@ -177,18 +177,18 @@ void renderer_2d_impl::fill_quad(const gltfx_quad_world &corners, gltfx_rgba col
     submit(world, color, layer, draw2d::refusal_of_quad(world, color));
 }
 
-void renderer_2d_impl::send_pending(bool explicit_barrier) noexcept {
-    if (explicit_barrier) {
-        tally.flushed();
+// The phases of a flush, each with a name of its own (D-B7-1, Extract Function): send_pending()
+// below only sequences them.
+
+void renderer_2d_impl::drop_pending_without_context() noexcept {
+    for (std::size_t i = 0; i < pieces.size(); ++i) {
+        tally.piece_dropped_graphics_failure();
     }
-    if (!gl_ready) {
-        for (std::size_t i = 0; i < pieces.size(); ++i) {
-            tally.piece_dropped_graphics_failure();
-        }
-        batch.clear();
-        pieces.clear();
-        return;
-    }
+    batch.clear();
+    pieces.clear();
+}
+
+std::size_t renderer_2d_impl::batch_pending_in_paint_order() noexcept {
     // Paint order: (layer, submission). In place, allocates nothing, cannot fail (D-B4-2).
     pieces.sort();
     std::size_t added = 0;
@@ -201,29 +201,33 @@ void renderer_2d_impl::send_pending(bool explicit_barrier) noexcept {
             tally.piece_dropped_out_of_memory();
         }
     }
-    bool drawn = false;
-    if (added > 0) {
-        const gltfx_rslt<void> uploaded = draw2d::upload_batch(
-            gl, stream, draw2d::vertex_upload_technique::orphan_and_sub_data, batch);
-        if (uploaded.has_error()) {
-            remember_error(uploaded.err());
-        } else {
-            draw2d::set_gl_state_for_drawing(
-                gl, draw2d::draw_state_request{program.program, stream.vertex_array,
-                                               stream.vertex_buffer, stream.index_buffer,
-                                               surface_width, surface_height, srgb_framebuffer});
-            gl.glUniform2f(program.viewport_location, static_cast<float>(surface_width),
-                           static_cast<float>(surface_height));
-            gl.glUniform1i(program.encode_srgb_location, srgb_framebuffer ? 0 : 1);
-            const gltfx_rslt<std::uint64_t> calls = draw2d::draw_batch(gl, batch);
-            if (calls.has_error()) {
-                remember_error(calls.err());
-            } else {
-                tally.draw_calls_issued(calls.value());
-                drawn = true;
-            }
-        }
+    return added;
+}
+
+bool renderer_2d_impl::upload_and_draw_batch() noexcept {
+    const gltfx_rslt<void> uploaded = draw2d::upload_batch(
+        gl, stream, draw2d::vertex_upload_technique::orphan_and_sub_data, batch);
+    if (uploaded.has_error()) {
+        remember_error(uploaded.err());
+        return false;
     }
+    draw2d::set_gl_state_for_drawing(
+        gl, draw2d::draw_state_request{program.program, stream.vertex_array, stream.vertex_buffer,
+                                       stream.index_buffer, surface_width, surface_height,
+                                       srgb_framebuffer});
+    gl.glUniform2f(program.viewport_location, static_cast<float>(surface_width),
+                   static_cast<float>(surface_height));
+    gl.glUniform1i(program.encode_srgb_location, srgb_framebuffer ? 0 : 1);
+    const gltfx_rslt<std::uint64_t> calls = draw2d::draw_batch(gl, batch);
+    if (calls.has_error()) {
+        remember_error(calls.err());
+        return false;
+    }
+    tally.draw_calls_issued(calls.value());
+    return true;
+}
+
+void renderer_2d_impl::settle_piece_counts(std::size_t added, bool drawn) noexcept {
     for (std::size_t i = 0; i < added; ++i) {
         if (drawn) {
             tally.piece_drawn();
@@ -231,6 +235,19 @@ void renderer_2d_impl::send_pending(bool explicit_barrier) noexcept {
             tally.piece_dropped_graphics_failure();
         }
     }
+}
+
+void renderer_2d_impl::send_pending(bool explicit_barrier) noexcept {
+    if (explicit_barrier) {
+        tally.flushed();
+    }
+    if (!gl_ready) {
+        drop_pending_without_context();
+        return;
+    }
+    const std::size_t added = batch_pending_in_paint_order();
+    const bool drawn = added > 0 && upload_and_draw_batch();
+    settle_piece_counts(added, drawn);
     // The closed list of what is left, after every flush and at the end of the frame, even an empty
     // one.
     draw2d::leave_gl_state_after_drawing(gl, surface_width, surface_height, srgb_framebuffer);

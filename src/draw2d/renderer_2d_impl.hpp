@@ -84,6 +84,15 @@ struct renderer_2d_impl {
     // Sends the pending pieces to the card, in paint order, and leaves GL as the closed list says.
     // `explicit_barrier` is true for flush(), false for the implicit one of finish_frame().
     void send_pending(bool explicit_barrier) noexcept;
+    // The phases send_pending() sequences (D-B7-1): the pieces of a frame with no current context
+    // are dropped and counted; the rest go into the batch in paint order (how many entered is
+    // returned), are uploaded and drawn (whether they were drawn is returned, and the first error
+    // of the frame is kept), and every piece that entered is counted as drawn or as dropped by the
+    // graphics side.
+    void drop_pending_without_context() noexcept;
+    [[nodiscard]] std::size_t batch_pending_in_paint_order() noexcept;
+    [[nodiscard]] bool upload_and_draw_batch() noexcept;
+    void settle_piece_counts(std::size_t added, bool drawn) noexcept;
     void remember_error(const gltfx_err &error) noexcept;
     [[nodiscard]] bool context_current() noexcept;
 

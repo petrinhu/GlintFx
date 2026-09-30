@@ -2252,6 +2252,7 @@ run_selftest_stage_times_controls() {
         || fail "selftest tempos: mktemp falhou"
     estagio_lento() { sleep 1; }
     estagio_rapido() { :; }
+    estagio_curto() { sleep 0.3; }
     saida="$(
         GLINTFX_PRECI_TEMPOS_DIR="$dir"
         STAGE_TIMES_MODO=selftest
@@ -2268,6 +2269,19 @@ run_selftest_stage_times_controls() {
     printf '%s\n' "$saida" | grep -q '3 estagio(s) cronometrado(s) de 3 executado(s), 3 no arquivo' \
         || fail "selftest tempos: linha de contagem ausente ou errada: $saida"
     echo "selftest: tempos por estagio - 3 estagios, 3 linhas, arquivo concorda OK"
+    # Sub-second precision: a 0.3 s stage must not come out as 0.0 under a
+    # comma-decimal locale (pt_BR; a host without that locale measures in its
+    # own, where the comma never appears).
+    curto="$(
+        LC_NUMERIC=pt_BR.UTF-8
+        GLINTFX_PRECI_TEMPOS_DIR="$dir"
+        STAGE_TIMES_MODO=selftest
+        stage_times_init selftest
+        timed_stage "d: curto" estagio_curto
+    )"
+    printf '%s\n' "$curto" | grep -q '^estagio d: curto levou 0\.[1-9] s$' \
+        || fail "selftest tempos: um estagio de 0.3 s nao foi medido com casa decimal (locale de virgula?): $curto"
+    echo "selftest: tempos por estagio - precisao de sub-segundo sob locale de virgula OK"
     # Negative: the file loses an entry behind the counters' back. The
     # count has to stop closing, never pass.
     if (
@@ -2475,9 +2489,12 @@ timed_stage() {
     _ts_nome="$1"; shift
     log "estagio $_ts_nome"
     STAGE_TIMES_EXPECTED=$((STAGE_TIMES_EXPECTED + 1))
-    _ts_inicio="$EPOCHREALTIME"
+    # EPOCHREALTIME uses the locale decimal separator (a comma in pt_BR): awk
+    # would read "1759250000,123" as 1759250000 and every stage would be
+    # measured in whole seconds, so the comma is turned into a point first.
+    _ts_inicio="${EPOCHREALTIME/,/.}"
     "$@"
-    _ts_fim="$EPOCHREALTIME"
+    _ts_fim="${EPOCHREALTIME/,/.}"
     _ts_duracao="$(awk -v a="$_ts_inicio" -v b="$_ts_fim" 'BEGIN { printf "%.1f", b - a }')"
     echo "estagio $_ts_nome levou $_ts_duracao s"
     STAGE_TIMES_NAMES+=("$_ts_nome")

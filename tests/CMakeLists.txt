@@ -4865,7 +4865,11 @@ if(UNIX)
         NAME fase_sh_selftest
         COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/fase.sh" --selftest
     )
-    set_tests_properties(fase_sh_selftest PROPERTIES LABELS selftest)
+    # PASS_REGULAR_EXPRESSION: o ctest ignora o codigo de saida quando ele existe, mas a linha OK so' sai quando
+    # nada falhou; exigir a contagem de PULADOS impede que ela suma calada (os containers do CI rodam como root,
+    # onde os controles de chmod 000 nao valem: L-36, a ausencia e' declarada e contada, nunca um pulo calado)
+    set_tests_properties(fase_sh_selftest PROPERTIES LABELS selftest
+        PASS_REGULAR_EXPRESSION "fase.sh --selftest: OK - .*pulados: [0-9]+ \\(root: chmod 000 nao impede leitura\\)")
 endif()
 
 # CI-SPLIT-PER-OS A5 C1a (PLANO-C1.md): tools/contido.sh decide, por funcao pura, se um comando roda

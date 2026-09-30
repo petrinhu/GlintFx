@@ -454,6 +454,7 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 
 - **`LAYERS-ORACULO-MSVC-CR-SOLITARIO`: o MSVC não trata um `\r` isolado (sem `\n` companheiro) como quebra de linha nas fixtures M3/M15 da estreia vermelha** — fato novo, medido na estreia (run 35946636755): GCC e Clang reprovam nomeando `M3_lone_cr_is_a_real_break` e `M15_three_breaks_lone_cr`; o MSVC não reproduz nenhuma violação para os mesmos dois casos. Pergunta em aberto: o portão de camadas deve modelar esse dialeto por compilador, ou é comportamento aceitável de divergência?
 - **`CENSO-STDLIB-GXX14-ACIMA-DO-PISO`: o censo de nomes padrão colhidos pelo g++-14 dá 102** (sem `flat_map`, `flat_set` e `mdspan`, ausentes da libstdc++ dessa versão), acima do piso mínimo exigido pela calibração L-5e — registrado como fato observado durante o fechamento de `LAYERS-GATE-GFSS-GFUI`, sem ação pendente.
+- **`GL-CODEGEN-COMPARADOR-SEM-SELFTEST`: `tests/tools/check_gl_codegen_host_cross.sh`: o comparador (`assert_same_file`) não tem selftest versionado; extrair a função para um arquivo testável ou dar ao script um `--selftest`** — os controles do CI-CMP-3 e do CI-CMP-4 (iguais, diferente, ausente, diretório, dois ilegíveis, diagnóstico com linha e tamanho, linha parcial, candidato maior) foram rodados só sobre a função extraída, em bash --posix, fora da árvore; o job GL-CODEGEN-HOST-TOOL exercita apenas o caminho verde.
 
 ## TABELA UNIFICADA
 

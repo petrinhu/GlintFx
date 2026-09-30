@@ -121,13 +121,21 @@ assert_same_file() {
         return 0
     fi
     size_golden=$(wc -c <"$golden"); size_candidate=$(wc -c <"$candidate")
-    diverge="nenhuma linha difere: so' a quebra final ou o fim do arquivo"
+    diverge="nenhuma linha difere: a diferenca esta em bytes que o read nao ve (NUL)"
     line_no=0
     exec 3<"$golden" 4<"$candidate"
-    while IFS= read -r golden_line <&3; do
+    while :; do
         line_no=$((line_no + 1))
-        IFS= read -r candidate_line <&4 || [ -n "$candidate_line" ] || candidate_line="<fim do arquivo>"
-        if [ "$golden_line" != "$candidate_line" ]; then
+        golden_line=""; candidate_line=""
+        IFS= read -r golden_line <&3 && golden_eol=1 || golden_eol=0
+        IFS= read -r candidate_line <&4 && candidate_eol=1 || candidate_eol=0
+        # a partial last line (no final newline) comes back with a nonzero status and data: it still counts
+        if [ "$golden_eol" = 0 ] && [ -z "$golden_line" ] && [ "$candidate_eol" = 0 ] && [ -z "$candidate_line" ]; then
+            break
+        fi
+        if [ "$golden_line" != "$candidate_line" ] || [ "$golden_eol" != "$candidate_eol" ]; then
+            [ "$golden_eol" = 1 ] || { [ -n "$golden_line" ] && golden_line="$golden_line<sem quebra final>"; } || golden_line="<fim do arquivo>"
+            [ "$candidate_eol" = 1 ] || { [ -n "$candidate_line" ] && candidate_line="$candidate_line<sem quebra final>"; } || candidate_line="<fim do arquivo>"
             diverge=$(printf 'linha %s: golden [%.160s] candidato [%.160s]' "$line_no" "$golden_line" "$candidate_line")
             break
         fi

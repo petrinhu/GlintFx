@@ -136,18 +136,29 @@ _fase_selftest() {
   ctl 1 "'x' contra '*' (glob nao casa; mata [[ \$a == \$b ]] sem aspas)" "$tmp/c_a" "$tmp/c_glob"
   ctl 0 "'*' contra '*'" "$tmp/c_glob" "$tmp/c_glob"
   ctl 0 "substituicao de processo igual" <(printf 'x\n') "$tmp/c_a"
-  if [ "${EUID:-1}" -ne 0 ]; then   # como root, chmod 000 nao impede a leitura: o controle so' vale sem root
+  # como root, chmod 000 nao impede a leitura (os containers do CI rodam como root): os 2 controles so' valem
+  # sem root, e a contagem dos PULADOS e' impressa SEMPRE (0 fora de root), exigida pelo ctest
+  local skipped=0
+  if [ "${EUID:-1}" -ne 0 ]; then
     : >"$tmp/c_000"; chmod 000 "$tmp/c_000"
     ctl 2 "arquivo ilegivel (chmod 000)" "$tmp/c_000" "$tmp/c_vazio"
     ctl 2 "DOIS arquivos ilegiveis (chmod 000)" "$tmp/c_000" "$tmp/c_000"
+  else
+    skipped=2
   fi
   # sob `set -e`, arquivos iguais NAO abortam o chamador
   saida="$( (set -e; _fase_same_bytes "$tmp/c_a" "$tmp/c_b"; echo VIVO) 2>&1 )"
   [ "$saida" = "VIVO" ] || falha "comparador sob set -e abortou com arquivos iguais: '$saida'"
-  # diagnostico esperado x obtido em TODA falha: rc 1 (diferentes) e rc 2 (ausente)
+  # diagnostico esperado x obtido em TODA falha: rc 1 (diferentes) e rc 2 (ausente). A ORIENTACAO conta: o que
+  # vem depois de "--- esperado" e' o conteudo do esperado, depois de "--- obtido" o do obtido, com o `$` do
+  # `cat -A` (mata rotulos trocados e `cat -A` trocado por `cat`)
   printf 'obtido-unico\n' >"$tmp/c_obt"; printf 'esperado-unico\n' >"$tmp/c_esp"
   saida="$(_fase_same_bytes "$tmp/c_obt" "$tmp/c_esp" 2>&1)"
-  case "$saida" in *obtido-unico*esperado-unico*|*esperado-unico*obtido-unico*) ;; *) falha "falha rc 1 sem o esperado e o obtido na mensagem: '$saida'" ;; esac
+  local esp_seg obt_seg
+  esp_seg="${saida#*--- esperado}"; esp_seg="${esp_seg%%--- obtido*}"; obt_seg="${saida#*--- obtido}"
+  case "$esp_seg" in *'esperado-unico$'*) ;; *) falha "rc 1: depois de '--- esperado' falta 'esperado-unico\$': '$saida'" ;; esac
+  case "$esp_seg" in *obtido-unico*) falha "rc 1: o conteudo do obtido apareceu sob '--- esperado' (rotulos trocados): '$saida'" ;; esac
+  case "$obt_seg" in *'obtido-unico$'*) ;; *) falha "rc 1: depois de '--- obtido' falta 'obtido-unico\$': '$saida'" ;; esac
   saida="$(_fase_same_bytes "$tmp/c_obt" "$tmp/c_ausente" 2>&1)"
   case "$saida" in *obtido-unico*) ;; *) falha "falha rc 2 sem o obtido na mensagem: '$saida'" ;; esac
   # a comparacao negada (linha 85): so' rc 1 exato conta como "diferem"; um arquivo APAGADO tem de reprovar
@@ -199,7 +210,7 @@ _fase_selftest() {
 
   rm -rf -- "$tmp"
   if [ "$ok" -eq 1 ]; then
-    echo "fase.sh --selftest: OK - formato byte a byte (saida e lateral), ausente, sem lateral, relogio, fim sem inicio"
+    echo "fase.sh --selftest: OK - formato byte a byte (saida e lateral), ausente, sem lateral, relogio, fim sem inicio; pulados: $skipped (root: chmod 000 nao impede leitura)"
     return 0
   fi
   return 1

@@ -12,6 +12,7 @@
 
 target_sources(glintfx_library PRIVATE
     quad_vertices.cpp
+    draw_order.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

@@ -1347,6 +1347,12 @@ target_sources(quad_vertices_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 
+glintfx_add_test(draw_order_test)
+target_include_directories(draw_order_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(draw_order_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
+)
+
 glintfx_add_test(memory_separation_kind_test)
 target_include_directories(memory_separation_kind_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(memory_separation_kind_test PRIVATE

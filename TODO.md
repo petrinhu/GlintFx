@@ -464,6 +464,7 @@ A revisão adversarial da mesma rodada acrescentou e fechou mais quatro: os dois
 - **`POINTER-LOCK`: trava e captura do ponteiro** (Wayland `pointer-constraints` e `relative-pointer`; Win32 `ClipCursor` e entrada crua). Nenhum item existe na tabela. Dor da comunidade medida no plano da W7-D de 23/09 (§2.2 item 6: Minecraft/GLFW, SDL#2105), dependente de compositor. Registrado em 30/09/2026 pela D-W7D-22 (fonte: `docs/plano-w7d.md` §8).
 
 - **`DRAW2D-RAW-GL-INTEROP-DOC`: nada a construir, registrar que o exemplo de interoperação com GL cru** (a barreira `flush()` do desenhador 2D) entra na `DEMO-1` ou num exemplo à parte, para o contrato R-B4 ter um uso real provado. Registrado em 30/09/2026 pela D-W7D-22 (fonte: `docs/plano-w7d.md` §8).
+- **`W8-DEPS-EM-ONDA-POSTERIOR` (pergunta ao líder, L-32: alocação de onda é dele): 11 dependências de legado apontam para uma onda POSTERIOR à da linha que depende delas, medidas pelo CTO em 30/09 (/var/tmp/cto-w7d/ordem.awk).** São a GFSS-INHERIT, as 7 do MAP-API e as 3 do R2D-TEXT. Como o MAP-API e a GFSS-INHERIT são da W8, a W8 não fecha como está alocada. A decisão (mover as dependências para antes ou mover as linhas para depois) tem de sair antes de a W8 abrir.
 
 ## TABELA UNIFICADA
 

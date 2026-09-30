@@ -61,6 +61,9 @@ section for what is still being built.
 - **[API Reference: Graphics Context](API-Graphics-Context)** - opening
   an OpenGL 3.3 core context on top of a window, and actually drawing
   something.
+- **[API Reference: Draw 2D](API-Draw-2D)** - filled rectangles and
+  quadrilaterals drawn into a graphics context, in layers, in as few draw
+  calls as the order allows, with one report per frame.
 - **[API Reference: Node View](API-Node-View)** - the one contract from
   the future style engine that is already public and stable: the table
   of callbacks your own UI tree implements so glintfx can inspect it.

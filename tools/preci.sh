@@ -897,6 +897,41 @@ docker_state_now() {
     fi
 }
 
+# The same aggregate the CI prints (tests/tools/ctest_aggregate.py, same
+# ruler: declared/executed/passed/failed/skipped, heavy tests, slack P2),
+# read from the JUnit this run just wrote, then the comparison of every
+# test's duration with the last GREEN run of the same mode. Runs AFTER the
+# MEASURED-COLLECTOR block above on purpose: `ctest -N` rewrites
+# LastTest.log. The scope line of both is printed even at zero.
+preci_tempos_dir() {
+    echo "${GLINTFX_PRECI_TEMPOS_DIR:-/var/tmp/glintfx-preci-tempos}"
+}
+
+stage_ctest_report() {
+    jobs_used="$1"; junit_path="$2"
+    ctest --test-dir "$BUILD_DIR" -N > "$BUILD_DIR/parity_inventory.txt" \
+        || fail "estagio ctest: 'ctest -N' falhou (inventario)"
+    ctest --test-dir "$BUILD_DIR" --show-only=json-v1 > "$BUILD_DIR/ctest-show.json" \
+        || fail "estagio ctest: 'ctest --show-only=json-v1' falhou"
+    if ! GLINTFX_PARALELISMO="$jobs_used" python3 "$ROOT_DIR/tests/tools/ctest_aggregate.py" \
+        --builddir "$BUILD_DIR" --inventory "$BUILD_DIR/parity_inventory.txt" \
+        --tests-json "$BUILD_DIR/ctest-show.json"; then
+        fail "estagio ctest: o agregado (mesma regua do CI) reprovou - ver acima"
+    fi
+    base_junit="$(preci_tempos_dir)/${STAGE_TIMES_MODO:-desconhecido}-ultima-verde.xml"
+    if ! python3 "$ROOT_DIR/tests/tools/preci_compare_times.py" --base "$base_junit" --now "$junit_path"; then
+        fail "estagio ctest: teste muito mais lento que na ultima rodada verde - ver acima"
+    fi
+}
+
+# Only a run that closed GREEN becomes the base of the next comparison.
+record_green_baseline() {
+    [ -f "$BUILD_DIR/ctest-results-junit.xml" ] || fail "base de tempos: JUnit desta rodada ausente"
+    cp "$BUILD_DIR/ctest-results-junit.xml" "$(preci_tempos_dir)/${STAGE_TIMES_MODO}-ultima-verde.xml" \
+        || fail "base de tempos: nao foi possivel gravar a base da rodada verde"
+    echo "base de tempos: rodada verde gravada em $(preci_tempos_dir)/${STAGE_TIMES_MODO}-ultima-verde.xml"
+}
+
 stage_ctest() {
     count="$(count_ctest_tests "$BUILD_DIR")"
     require_nonempty_tests "ctest" "$count" || fail "estagio ctest recusado (varredura vazia de testes)"
@@ -914,10 +949,11 @@ stage_ctest() {
     jobs="$(pick_ctest_jobs "$requested" "$(nproc)" "$docker_state" "$mem_avail_kb" "$other_builds")" \
         || fail "estagio ctest recusado: $jobs"
     echo "paralelismo: $jobs (GLINTFX_CTEST_JOBS=${GLINTFX_CTEST_JOBS:-<vazio, serial>}, nproc=$(nproc), docker=$docker_state, MemAvailable_kB=$mem_avail_kb, outros cmake/ctest/ninja da maquina no ar=$other_builds)"
+    junit="$BUILD_DIR/ctest-results-junit.xml"
     if [ "$jobs" -gt 1 ]; then
-        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs"
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$jobs" --output-junit "$junit"
     else
-        ctest --test-dir "$BUILD_DIR" --output-on-failure
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --output-junit "$junit"
     fi
 
     # MEASURED-COLLECTOR, espelho local (achado do time-lead,
@@ -946,6 +982,8 @@ stage_ctest() {
             log "collect_measured.py (espelho local): $(wc -l <"$measured_out") linha(s) MEASURED - ver $measured_out"
         fi
     fi
+
+    stage_ctest_report "$jobs" "$junit"
 }
 
 # --- GATE-ASAN-HALT bite controls (GODS_LAWS.md L-27/L-36/L-40) ---
@@ -2186,6 +2224,8 @@ run_selftest_stage_times_controls() {
     fi
     echo "selftest: tempos por estagio - contagem que nao fecha reprova OK"
     rm -rf "$dir"
+    python3 "$ROOT_DIR/tests/tools/preci_compare_times.py" --selftest \
+        || fail "selftest tempos: preci_compare_times.py --selftest reprovou"
 }
 
 run_selftest() {
@@ -2398,6 +2438,7 @@ run_full_pipeline() {
         timed_stage "10: container-link (check_container_fixture_link.py --exec real, GATE-CONT-LINK)" stage_container_link
     fi
     report_stage_times
+    record_green_baseline
     echo "preci.sh: TUDO VERDE"
 }
 

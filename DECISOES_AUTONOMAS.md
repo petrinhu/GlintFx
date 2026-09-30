@@ -5000,3 +5000,21 @@ Plano completo: /var/tmp/cto-w7d/PLANO.md, md5 892f16ce331c8d43cb37fc5f7d30f085.
   5. o CI do SERVIDOR está verde no commit de fechamento, lido direto de `gh run view --json conclusion,jobs`, com a lista de jobs conferida contra o `ci.yml`. CI vermelho bloqueia (L-11).
 - *Depois disso:* PR, merge no main (commit de merge), a marca v0.5.2.0 no merge (L-26) e o ramo remoto onda-w7c apagado ao mesclar (L-11 do projeto).
 - *Autoridade:* "Autorizo push/tag/merge" (29/09) e a L-11 do projeto.
+
+## 29/09/2026 - 23:16 | D-A42: revisão de API dedicada de P0 (predefinição gráfica) e B0 (desenho 2D), julgada pelo CTO (L-34)
+
+- *Quem:* o revisor `api-review`, agente distinto do planejador e do implementador (L-12), fez os pareceres; o CTO que planejou julgou cada achado.
+- *Pareceres:*
+  - /var/tmp/cto-w7d/auditoria-api-gfx-preset.md, md5 0f60cbf6: 0 crítico, 5 importantes, 2 cosméticos;
+  - /var/tmp/cto-w7d/auditoria-api-draw2d.md, md5 1006552f: 2 críticos, 10 importantes, 4 cosméticos.
+- *Errata do plano:* /var/tmp/cto-w7d/PLANO-errata.md, md5 bd4c9345. O PLANO.md segue congelado em bd73502a.
+- **Os dois críticos, aceitos (porta de mão única: API pública):**
+  - *B0-C1:* a câmera entrava em float e perdia precisão longe da origem. Medido: em 16 777 217, a peça sai no pixel 2 em vez de 1. Passa a entrar em double, com `begin_batch(gltfx_transform)`. O teste antigo usava 2^24, que é exato em float, e não pegava o defeito.
+  - *B0-C2:* o tipo resultado carrega valor OU erro, e a promessa era "erro com as contagens". O relato do quadro passa a ser lido também depois da falha, por `last_frame_report()`.
+- *D-API-01 a 10 (desenho 2D):* todas aceitas; o porquê de cada uma está na errata §2. Entre elas, a geometria pura do quadrilátero vai para o núcleo (`core/quad.hpp`, pela L-19), e a B4 publica 6 cabeçalhos.
+- *P0 (predefinição):*
+  - as 14 constantes públicas com nome e o parâmetro `row_index` foram aceitos;
+  - a **emenda E1 do CTO:** um índice fora da faixa não reescreve o rótulo do consumidor, porque o rótulo é dele;
+  - a **E2:** `vsync` ganha constantes públicas em P3; `gpu_preference` fica na INBOX (L-32: nada de escopo novo antes da demo).
+- *Para o líder, quando pedir o registro:* **B0-K1**. O código da árvore usa `m_impl` em 128 lugares, contra a regra de nomes da L-21 do projeto. O código novo segue a lei. O conflito entre a árvore e a lei é dele decidir (L-67); por ora está na INBOX como renomeação mecânica.
+- *Custo de reverter:* alto depois do commit de P3/B4 (API publicada) e baixo antes, que é por que a revisão veio antes do código.

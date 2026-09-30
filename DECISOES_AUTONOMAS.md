@@ -4928,3 +4928,13 @@ Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 
 - Texto completo: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q3, md5 aefbdc41.
 - *Porta de mão única:* não. *Custo de reverter:* barato.
 - O risco foi levantado pelo implementador, e a instância anterior do CTO tinha deixado o ramo incompleto.
+
+## 29/09/2026 - 22:24 | D-A38: pulo de controle declarado pelo próprio ctest, não por texto conferido por regex (CTO, L-34, §R1-Q4)
+
+- *Pergunta que teria ido ao líder:* "Como o ctest exige que os controles pulados (arquivo ilegível, que não vale como root no CI) fiquem declarados, sem perder o código de saída como veredito?"
+- *Opções:* (a) PASS_REGULAR_EXPRESSION sobre a linha `pulados:`; (b) FAIL_REGULAR_EXPRESSION mais o código de saída; (c) conferir a linha dentro do próprio selftest; (d) separar os controles de chmod 000 num teste próprio, `fase_sh_selftest_ilegivel`, que sai com 77 e o motivo quando roda como root, registrado com `SKIP_RETURN_CODE 77`.
+- *Escolha:* (d). O CTO derrubou a (a) com execução: o manual do CMake diz "The process exit code is ignored", e um selftest que imprime OK e sai com 1 ou 3 passava verde. A (b) deixava a declaração sumir calada, e a (c) deixa a conferência dentro do processo que pode mentir. Com a (d), o ctest imprime `***Skipped` e lista o teste em "did not run", e o pulo fica contado no log do CI.
+- *Fontes:* o manual do CMake (PASS_REGULAR_EXPRESSION, SKIP_RETURN_CODE), a convenção 77 do automake e os 25 usos de SKIP_RETURN_CODE que o projeto já tem.
+- Texto completo: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R1-Q4, md5 485009c9.
+- *Porta de mão única:* não. *Custo de reverter:* barato.
+- Efeito: o d8641c9 (CI-CMP-4) fica REPROVADO e não sobe sozinho. O conserto vem em commit novo por cima (CI-CMP-5), e os dois sobem juntos depois da revisão.

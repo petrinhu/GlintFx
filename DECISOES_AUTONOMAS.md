@@ -4938,3 +4938,11 @@ Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 
 - Texto completo: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R1-Q4, md5 485009c9.
 - *Porta de mão única:* não. *Custo de reverter:* barato.
 - Efeito: o d8641c9 (CI-CMP-4) fica REPROVADO e não sobe sozinho. O conserto vem em commit novo por cima (CI-CMP-5), e os dois sobem juntos depois da revisão.
+
+## 29/09/2026 - 22:28 | D-A39: dois desvios do implementador na C1b v2 aceitos pelo CTO (L-34)
+
+- *Pergunta que teria ido ao líder:* "O contido lê o estado da unidade do systemd pela posição das linhas ou pelo nome da chave? E quando o supervisor de dentro recusa a execução, o de fora devolve 'recusa' (71) ou 'supervisor morto' (73)?"
+- *Opções (1):* ler com `--value`, pela posição, ou sem `--value`, pela chave. *Escolha:* pela chave. O CTO mediu que, com `--value`, a ordem das linhas é a interna do systemd, não a pedida. Se faltar uma das chaves, a falha é fechada.
+- *Opções (2):* (a) todo 71 vira 73; (b) todo 71 vira recusa; (c) a recusa sai pelo marcador `fim=recusa:<motivo>`, e um 71 sem marcador só vale como recusa com a unidade já inativa. *Escolha:* (c). Um 71 com a unidade ainda ativa significa que algo rodou sem supervisor, e isso é 73 com `stop`.
+- *Fontes:* medição de `systemctl show` nesta máquina pelo CTO, e o contrato de marcador único da própria C1b (D-A35 a D-A37).
+- *Porta de mão única:* não. *Custo de reverter:* barato.

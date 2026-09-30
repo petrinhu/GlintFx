@@ -108,19 +108,38 @@ build_native_golden() {
         || fail "golden: build nativo falhou"
 }
 
+# assert_same_file <label> <golden> <candidate>: byte to byte, by `cmake -E compare_files` (the images may
+# lack diffutils, and CMake is a declared dependency). The `[ -f ]` and `[ -r ]` on both operands come first: an
+# empty directory against itself compares equal, and an absent file returns the same rc as a different one. On a mismatch it
+# prints both sizes and the first differing line (a read loop, no process per line): the golden is 80 KB, so
+# printing it whole would bury the cause. Never call it with `<(...)`: a pipe with equal content compares as different.
+assert_same_file() {
+    label="$1"; golden="$2"; candidate="$3"
+    [ -f "$golden" ] && [ -r "$golden" ] || fail "$label: golden $golden ausente, ilegivel ou nao e arquivo regular"
+    [ -f "$candidate" ] && [ -r "$candidate" ] || fail "$label: $candidate nao foi gerado (ou e ilegivel, ou nao e arquivo regular)"
+    if cmake -E compare_files "$golden" "$candidate"; then
+        return 0
+    fi
+    size_golden=$(wc -c <"$golden"); size_candidate=$(wc -c <"$candidate")
+    diverge="nenhuma linha difere: so' a quebra final ou o fim do arquivo"
+    line_no=0
+    exec 3<"$golden" 4<"$candidate"
+    while IFS= read -r golden_line <&3; do
+        line_no=$((line_no + 1))
+        IFS= read -r candidate_line <&4 || [ -n "$candidate_line" ] || candidate_line="<fim do arquivo>"
+        if [ "$golden_line" != "$candidate_line" ]; then
+            diverge=$(printf 'linha %s: golden [%.160s] candidato [%.160s]' "$line_no" "$golden_line" "$candidate_line")
+            break
+        fi
+    done
+    exec 3<&- 4<&-
+    fail "$label: $(basename "$candidate") difere do golden nativo (golden $size_golden bytes, candidato $size_candidate bytes; $diverge)"
+}
+
 assert_matches_golden() {
     label="$1"; candidate_hpp="$2"; candidate_cpp="$3"
-    [ -f "$candidate_hpp" ] || fail "$label: $candidate_hpp nao foi gerado"
-    [ -f "$candidate_cpp" ] || fail "$label: $candidate_cpp nao foi gerado"
-    [ -f "$CROSS_GOLDEN_HPP" ] || fail "$label: golden $CROSS_GOLDEN_HPP ausente"
-    [ -f "$CROSS_GOLDEN_CPP" ] || fail "$label: golden $CROSS_GOLDEN_CPP ausente"
-    # POSIX sh, sem comparador externo (o diffutils so' chegava aqui como dependencia transitiva do mingw). O `echo x`
-    # protege a quebra final, que a substituicao de comando cortaria; os `[ -f ]` acima cobrem o ausente
-    # nos DOIS lados (golden ausente + candidato vazio daria "iguais" sem eles).
-    [ "$(cat "$CROSS_GOLDEN_HPP"; echo x)" = "$(cat "$candidate_hpp"; echo x)" ] \
-        || fail "$label: gl_functions.hpp difere do golden nativo"
-    [ "$(cat "$CROSS_GOLDEN_CPP"; echo x)" = "$(cat "$candidate_cpp"; echo x)" ] \
-        || fail "$label: gl_functions.cpp difere do golden nativo"
+    assert_same_file "$label" "$CROSS_GOLDEN_HPP" "$candidate_hpp"
+    assert_same_file "$label" "$CROSS_GOLDEN_CPP" "$candidate_cpp"
 }
 
 # --- PATH 1: GLINTFX_GL_CODEGEN_EXECUTABLE ----------------------------

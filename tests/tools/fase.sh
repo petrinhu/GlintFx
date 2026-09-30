@@ -58,16 +58,38 @@ fase_paralelismo() {
   _fase_emitir "paralelismo aninhado: ${CMAKE_BUILD_PARALLEL_LEVEL:-ausente}"
 }
 
-# _fase_same_bytes <a> <b>: 0 = iguais byte a byte; 1 = diferentes; 2 = algum ilegivel. Em bash puro, sem
-# diffutils (as imagens Fedora e Arch do CI nao trazem diffutils). O `[ -r ]` e' obrigatorio: sem ele, dois
-# arquivos AUSENTES dariam "iguais" (os dois `read` falham e deixam as variaveis vazias). Limite: `read -d ''`
-# para no primeiro byte NUL; serve para texto (fixtures e saidas de FASE), nao para binario.
+# _fase_show <rotulo> <arquivo>: imprime o conteudo com os fins de linha visiveis (`cat -A`), ou o estado.
+_fase_show() {
+  echo "--- $1 ($2):"
+  if [ -f "$2" ] && [ -r "$2" ]; then cat -A "$2"; else echo "(ausente, ilegivel ou nao e' arquivo)"; fi
+}
+
+# _fase_same_bytes <obtido> <esperado>: 0 = iguais byte a byte; 1 = diferentes; 2 = algum ausente, ilegivel ou
+# DIRETORIO. Em toda falha imprime o esperado e o obtido em stderr (a licao do test_cmp do Git). Em bash puro,
+# sem diffutils (as imagens Fedora e Arch do CI nao trazem). Contrato de cada guarda: sem o `[ -r ]`, dois
+# ausentes dariam "iguais" (os dois `read` falham e deixam as variaveis vazias); sem o `[ -d ]`, um diretorio
+# contra um arquivo vazio dava "iguais". Aceita `<(...)`, que o `cmake -E compare_files` nao aceita. Limite:
+# `read -d ''` para no primeiro byte NUL; serve para texto (fixtures e saidas de FASE), nao para binario.
 _fase_same_bytes() {
   local a="" b=""
-  [ -r "$1" ] && [ -r "$2" ] || return 2
+  if [ -d "$1" ] || [ -d "$2" ] || [ ! -r "$1" ] || [ ! -r "$2" ]; then
+    echo "fase.sh: nao comparei '$1' com '$2': algum e' ausente, ilegivel ou diretorio" >&2
+    { _fase_show esperado "$2"; _fase_show obtido "$1"; } >&2
+    return 2
+  fi
   IFS= read -r -d '' a <"$1" || :   # `read -d ''` devolve 1 no EOF; sob `set -e` isso abortaria o chamador
   IFS= read -r -d '' b <"$2" || :
-  [ "$a" = "$b" ] || return 1
+  [ "$a" = "$b" ] && return 0
+  echo "fase.sh: '$1' difere de '$2'" >&2
+  { _fase_show esperado "$2"; _fase_show obtido "$1"; } >&2
+  return 1
+}
+
+# _fase_differs <a> <b>: 0 = os dois sao legiveis e DIFEREM (rc 1 do comparador, exato); 1 ou 2 = nao. O `-eq 1`
+# e' de proposito: um `-ne 0` deixaria um arquivo apagado (rc 2) passar como "diferente" numa comparacao negada.
+_fase_differs() {
+  _fase_same_bytes "$1" "$2" 2>/dev/null
+  [ "$?" -eq 1 ]
 }
 
 _fase_selftest() {
@@ -94,33 +116,45 @@ _fase_selftest() {
   { echo "# a"; sed -n 1,2p "$fx/esperado.txt"; echo "# b"; sed -n '3,$p' "$fx/esperado.txt"; echo "# c"; } >"$tmp/com_hash.txt"
   _fase_same_bytes <(grep -v '^#' "$tmp/com_hash.txt") "$fx/esperado.txt" || falha "a fixture com linhas # deveria dar o mesmo conteudo que sem elas"
   { sed -n 1,2p "$fx/esperado.txt"; echo "# intruso"; sed -n '3,$p' "$fx/esperado.txt"; } >"$tmp/real_intruso.txt"
-  _fase_same_bytes "$tmp/real_intruso.txt" "$fx/esperado.txt"; rc=$?
-  [ "$rc" -eq 1 ] || falha "uma linha # no MEIO da saida real foi descartada (o filtro so' pode valer para a fixture)"
+  _fase_differs "$tmp/real_intruso.txt" "$fx/esperado.txt" || falha "uma linha # no MEIO da saida real foi descartada (o filtro so' pode valer para a fixture)"
 
-  # 1c. controles do comparador: iguais (0); so' a quebra final difere (1); 1 byte (1); um ausente (2);
-  #     os DOIS ausentes (2, nunca 0); substituicao de processo
+  # 1c. controles do comparador (rc 0 = iguais; 1 = diferentes; 2 = ausente, ilegivel ou diretorio)
   printf 'x\n' >"$tmp/c_a"; printf 'x\n' >"$tmp/c_b"; printf 'x' >"$tmp/c_semquebra"; printf 'y\n' >"$tmp/c_y"
-  _fase_same_bytes "$tmp/c_a" "$tmp/c_b"; rc=$?
-  [ "$rc" -eq 0 ] || falha "comparador: arquivos iguais deveriam dar 0, deu $rc"
-  _fase_same_bytes "$tmp/c_a" "$tmp/c_semquebra"; rc=$?
-  [ "$rc" -eq 1 ] || falha "comparador: diferenca so' na quebra final deveria dar 1, deu $rc"
-  _fase_same_bytes "$tmp/c_a" "$tmp/c_y"; rc=$?
-  [ "$rc" -eq 1 ] || falha "comparador: 1 byte diferente deveria dar 1, deu $rc"
-  _fase_same_bytes "$tmp/c_a" "$tmp/c_ausente"; rc=$?
-  [ "$rc" -eq 2 ] || falha "comparador: um arquivo ausente deveria dar 2, deu $rc"
-  _fase_same_bytes "$tmp/c_ausente" "$tmp/c_ausente2"; rc=$?
-  [ "$rc" -eq 2 ] || falha "comparador: DOIS arquivos ausentes deveriam dar 2 (nunca 0), deu $rc"
-  _fase_same_bytes <(printf 'x\n') "$tmp/c_a"; rc=$?
-  [ "$rc" -eq 0 ] || falha "comparador: substituicao de processo igual deveria dar 0, deu $rc"
-  # metacaractere de glob no conteudo: `*` nao pode casar `x` (mata `[[ $a == $b ]]` sem aspas)
-  printf '*\n' >"$tmp/c_glob"
-  _fase_same_bytes "$tmp/c_a" "$tmp/c_glob"; rc=$?
-  [ "$rc" -eq 1 ] || falha "comparador: 'x' contra '*' deveria dar 1 (glob nao casa), deu $rc"
-  _fase_same_bytes "$tmp/c_glob" "$tmp/c_glob"; rc=$?
-  [ "$rc" -eq 0 ] || falha "comparador: '*' contra '*' deveria dar 0, deu $rc"
-  # sob `set -e`, arquivos iguais NAO abortam o chamador (o `read` interno devolve 1 no EOF)
+  printf '*\n' >"$tmp/c_glob"; : >"$tmp/c_vazio"; mkdir "$tmp/c_dir" "$tmp/c_dir2"
+  ctl() {  # ctl <rc esperado> <descricao> <obtido> <esperado>
+    _fase_same_bytes "$3" "$4" 2>/dev/null; rc=$?
+    [ "$rc" -eq "$1" ] || falha "comparador: $2 deveria dar $1, deu $rc"
+  }
+  ctl 0 "arquivos iguais" "$tmp/c_a" "$tmp/c_b"
+  ctl 1 "diferenca so' na quebra final" "$tmp/c_a" "$tmp/c_semquebra"
+  ctl 1 "1 byte diferente" "$tmp/c_a" "$tmp/c_y"
+  ctl 2 "um arquivo ausente" "$tmp/c_a" "$tmp/c_ausente"
+  ctl 2 "DOIS arquivos ausentes (nunca 0)" "$tmp/c_ausente" "$tmp/c_ausente2"
+  ctl 2 "diretorio contra arquivo vazio (dava 'iguais')" "$tmp/c_dir" "$tmp/c_vazio"
+  ctl 2 "arquivo vazio contra diretorio" "$tmp/c_vazio" "$tmp/c_dir"
+  ctl 2 "dois diretorios" "$tmp/c_dir" "$tmp/c_dir2"
+  ctl 1 "'x' contra '*' (glob nao casa; mata [[ \$a == \$b ]] sem aspas)" "$tmp/c_a" "$tmp/c_glob"
+  ctl 0 "'*' contra '*'" "$tmp/c_glob" "$tmp/c_glob"
+  ctl 0 "substituicao de processo igual" <(printf 'x\n') "$tmp/c_a"
+  if [ "${EUID:-1}" -ne 0 ]; then   # como root, chmod 000 nao impede a leitura: o controle so' vale sem root
+    : >"$tmp/c_000"; chmod 000 "$tmp/c_000"
+    ctl 2 "arquivo ilegivel (chmod 000)" "$tmp/c_000" "$tmp/c_vazio"
+    ctl 2 "DOIS arquivos ilegiveis (chmod 000)" "$tmp/c_000" "$tmp/c_000"
+  fi
+  # sob `set -e`, arquivos iguais NAO abortam o chamador
   saida="$( (set -e; _fase_same_bytes "$tmp/c_a" "$tmp/c_b"; echo VIVO) 2>&1 )"
   [ "$saida" = "VIVO" ] || falha "comparador sob set -e abortou com arquivos iguais: '$saida'"
+  # diagnostico esperado x obtido em TODA falha: rc 1 (diferentes) e rc 2 (ausente)
+  printf 'obtido-unico\n' >"$tmp/c_obt"; printf 'esperado-unico\n' >"$tmp/c_esp"
+  saida="$(_fase_same_bytes "$tmp/c_obt" "$tmp/c_esp" 2>&1)"
+  case "$saida" in *obtido-unico*esperado-unico*|*esperado-unico*obtido-unico*) ;; *) falha "falha rc 1 sem o esperado e o obtido na mensagem: '$saida'" ;; esac
+  saida="$(_fase_same_bytes "$tmp/c_obt" "$tmp/c_ausente" 2>&1)"
+  case "$saida" in *obtido-unico*) ;; *) falha "falha rc 2 sem o obtido na mensagem: '$saida'" ;; esac
+  # a comparacao negada (linha 85): so' rc 1 exato conta como "diferem"; um arquivo APAGADO tem de reprovar
+  _fase_differs "$tmp/c_a" "$tmp/c_y" || falha "_fase_differs: arquivos diferentes deveriam dar 0"
+  _fase_differs "$tmp/c_a" "$tmp/c_b" && falha "_fase_differs: arquivos iguais deveriam dar nao-zero"
+  _fase_differs "$tmp/c_ausente" "$tmp/c_a" && falha "_fase_differs: arquivo APAGADO passou como diferente (o real_intruso.txt apagado nao pode passar)"
+  _fase_differs "$tmp/c_dir" "$tmp/c_a" && falha "_fase_differs: diretorio passou como diferente"
 
   # 2. CMAKE_BUILD_PARALLEL_LEVEL ausente vira a palavra `ausente`
   (

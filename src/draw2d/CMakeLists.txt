@@ -18,6 +18,7 @@ target_sources(glintfx_library PRIVATE
     embedded_program.cpp
     gl_state_contract.cpp
     vertex_stream.cpp
+    frame_2d_report.cpp
 )
 
 target_include_directories(glintfx_library PRIVATE "${PROJECT_SOURCE_DIR}/src")

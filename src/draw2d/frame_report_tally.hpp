@@ -6,8 +6,8 @@
 #include <glintfx/core/color.hpp>
 #include <glintfx/core/rect.hpp>
 
-#include "draw2d/frame_report_values.hpp"
 #include "draw2d/quad_vertices.hpp"
+#include <glintfx/draw2d/frame_2d_report.hpp>
 
 // draw2d/frame_report_tally.hpp - R2D-BATCH, fatia B2d (docs/plano-w7d.md sec. 4.3, D-W7D-13 as
 // AMENDED by docs/auditoria-api-draw2d.md B0-C2): the PURE atom that counts what happened to one
@@ -32,12 +32,12 @@
 namespace glintfx::draw2d {
 
 // Why a quad in world position, with this color, is refused (`none` when it is not).
-[[nodiscard]] piece_refusal refusal_of_quad(const quad_corners_world &corners,
-                                            glintfx::gltfx_rgba color) noexcept;
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
+                                                    glintfx::gltfx_rgba color) noexcept;
 
 // The same for a rectangle in world position, which can also have a negative size.
-[[nodiscard]] piece_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
-                                            glintfx::gltfx_rgba color) noexcept;
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
+                                                    glintfx::gltfx_rgba color) noexcept;
 
 enum class finish_status : std::uint8_t {
     ok,
@@ -54,7 +54,11 @@ class frame_tally {
 
     // The three ends of a piece submitted while a frame is open (each also counts as submitted).
     void piece_drawn() noexcept;
-    void piece_refused(piece_refusal reason) noexcept;
+    // A piece that was accepted and never reached the card because the flush that carried it failed
+    // (the context could not be made current, or the card refused the data): submitted, and no
+    // other end.
+    void piece_dropped_graphics_failure() noexcept;
+    void piece_refused(gltfx_draw_2d_refusal reason) noexcept;
     void piece_dropped_out_of_memory() noexcept;
 
     // A piece submitted with NO frame open: counted in pieces_dropped_outside_frame of the next
@@ -73,11 +77,11 @@ class frame_tally {
     // cppcheck-suppress returnByReference ; reason: the report is a plain struct of counters
     // returned BY VALUE on purpose (B0-C2, B0-I10): the caller's copy stays valid after the next
     // finish(), which rewrites the member a reference would point at.
-    [[nodiscard]] frame_report last_report() const noexcept;
+    [[nodiscard]] gltfx_frame_2d_report last_report() const noexcept;
 
   private:
-    frame_report current;
-    frame_report last;
+    gltfx_frame_2d_report current;
+    gltfx_frame_2d_report last;
     bool frame_open = false;
     std::uint64_t abandoned_since_report = 0;
     std::uint64_t outside_since_report = 0;

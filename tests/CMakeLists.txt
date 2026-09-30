@@ -1367,8 +1367,14 @@ glintfx_add_test(frame_report_tally_test)
 target_include_directories(frame_report_tally_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_sources(frame_report_tally_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/frame_report_tally.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
+# standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
+# both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
+# win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
+target_compile_definitions(frame_report_tally_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
 
 # R2D-BATCH B3b: the embedded drawing program against a table of FAKE GL functions. The test needs the
 # generated loader header (gl_functions.hpp, build tree) and the hand-written gl_abi.hpp (src/render), and

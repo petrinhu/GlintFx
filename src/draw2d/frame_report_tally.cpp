@@ -9,34 +9,34 @@ namespace {
 // The reason a set of numbers is refused, in the order of the vocabulary: any NaN first, then any
 // infinity. `negative_size` is the caller's own test (only a rectangle has a size).
 template <typename... Values>
-[[nodiscard]] piece_refusal refusal_of_values(Values... values) noexcept {
+[[nodiscard]] gltfx_draw_2d_refusal refusal_of_values(Values... values) noexcept {
     if ((std::isnan(values) || ...)) {
-        return piece_refusal::not_a_number;
+        return gltfx_draw_2d_refusal::not_a_number;
     }
     if ((std::isinf(values) || ...)) {
-        return piece_refusal::infinite;
+        return gltfx_draw_2d_refusal::infinite;
     }
-    return piece_refusal::none;
+    return gltfx_draw_2d_refusal::none;
 }
 } // namespace
 
-piece_refusal refusal_of_quad(const quad_corners_world &corners,
-                              glintfx::gltfx_rgba color) noexcept {
+gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
+                                      glintfx::gltfx_rgba color) noexcept {
     return refusal_of_values(corners[0].x, corners[0].y, corners[1].x, corners[1].y, corners[2].x,
                              corners[2].y, corners[3].x, corners[3].y, color.red, color.green,
                              color.blue, color.alpha);
 }
 
-piece_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
-                              glintfx::gltfx_rgba color) noexcept {
-    const piece_refusal by_value =
+gltfx_draw_2d_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
+                                      glintfx::gltfx_rgba color) noexcept {
+    const gltfx_draw_2d_refusal by_value =
         refusal_of_values(rect.corner.x, rect.corner.y, rect.size.x, rect.size.y, color.red,
                           color.green, color.blue, color.alpha);
-    if (by_value != piece_refusal::none) {
+    if (by_value != gltfx_draw_2d_refusal::none) {
         return by_value;
     }
-    return (rect.size.x < 0.0 || rect.size.y < 0.0) ? piece_refusal::negative_size
-                                                    : piece_refusal::none;
+    return (rect.size.x < 0.0 || rect.size.y < 0.0) ? gltfx_draw_2d_refusal::negative_size
+                                                    : gltfx_draw_2d_refusal::none;
 }
 
 void frame_tally::begin_frame() noexcept {
@@ -44,7 +44,7 @@ void frame_tally::begin_frame() noexcept {
         ++abandoned_since_report; // the open frame is thrown away, undrawn; its pieces count
                                   // nowhere
     }
-    current = frame_report{};
+    current = gltfx_frame_2d_report{};
     current.batches = 1; // every frame starts with the pixel-direct batch
     frame_open = true;
 }
@@ -54,7 +54,12 @@ void frame_tally::piece_drawn() noexcept {
     ++current.pieces_drawn;
 }
 
-void frame_tally::piece_refused(piece_refusal reason) noexcept {
+void frame_tally::piece_dropped_graphics_failure() noexcept {
+    ++current.pieces_submitted;
+    ++current.pieces_dropped_graphics_failure;
+}
+
+void frame_tally::piece_refused(gltfx_draw_2d_refusal reason) noexcept {
     ++current.pieces_submitted;
     if (current.pieces_refused == 0) {
         current.first_refusal = reason; // the FIRST refusal names the reason, the later ones do not
@@ -89,6 +94,6 @@ finish_status frame_tally::finish() noexcept {
                                                      : finish_status::ok;
 }
 
-frame_report frame_tally::last_report() const noexcept { return last; }
+gltfx_frame_2d_report frame_tally::last_report() const noexcept { return last; }
 
 } // namespace glintfx::draw2d

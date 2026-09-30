@@ -40,13 +40,13 @@
 // RED, SEEN: before frame_report_tally.{hpp,cpp} existed, this file's own #include line failed to
 // compile; then, against a body that counted nothing, the cells below failed.
 
+using glintfx::gltfx_draw_2d_refusal;
+using glintfx::gltfx_draw_2d_refusal_name;
 using glintfx::gltfx_rect_world;
 using glintfx::gltfx_rgba;
 using glintfx::gltfx_vec2_world;
 using glintfx::draw2d::finish_status;
 using glintfx::draw2d::frame_tally;
-using glintfx::draw2d::piece_refusal;
-using glintfx::draw2d::piece_refusal_token;
 using glintfx::draw2d::quad_corners_world;
 using glintfx::draw2d::refusal_of_quad;
 using glintfx::draw2d::refusal_of_rect;
@@ -61,32 +61,34 @@ constexpr gltfx_rgba k_white{1.0F, 1.0F, 1.0F, 1.0F};
                               gltfx_vec2_world{x1, y1}, gltfx_vec2_world{x0, y1}};
 }
 
-[[nodiscard]] int number_of(piece_refusal reason) { return static_cast<int>(reason); }
+[[nodiscard]] int number_of(gltfx_draw_2d_refusal reason) { return static_cast<int>(reason); }
 } // namespace
 
 GLINTFX_TEST(frame_report_tally_refusal_cells) {
     int analyzed = 0;
 
     // The literal numbers and tokens of the vocabulary (frozen in B0), append-only.
-    GLINTFX_CHECK_EQ(number_of(piece_refusal::none), 0);
-    GLINTFX_CHECK_EQ(number_of(piece_refusal::not_a_number), 1);
-    GLINTFX_CHECK_EQ(number_of(piece_refusal::infinite), 2);
-    GLINTFX_CHECK_EQ(number_of(piece_refusal::negative_size), 3);
-    GLINTFX_CHECK(piece_refusal_token(piece_refusal::none) == "none");
-    GLINTFX_CHECK(piece_refusal_token(piece_refusal::not_a_number) == "not_a_number");
-    GLINTFX_CHECK(piece_refusal_token(piece_refusal::infinite) == "infinite");
-    GLINTFX_CHECK(piece_refusal_token(piece_refusal::negative_size) == "negative_size");
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::none), 0);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::not_a_number), 1);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::infinite), 2);
+    GLINTFX_CHECK_EQ(number_of(gltfx_draw_2d_refusal::negative_size), 3);
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::none) == "none");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::not_a_number) ==
+                  "not_a_number");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::infinite) == "infinite");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(gltfx_draw_2d_refusal::negative_size) ==
+                  "negative_size");
     // A value this build does not know reads "unknown" (R4), never undefined behavior.
     // Simulates a value a NEWER glintfx produced that this build's vocabulary has never heard of
     // (R4).
     //
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) reason: the cast is the case
-    GLINTFX_CHECK(piece_refusal_token(static_cast<piece_refusal>(200)) == "unknown");
+    GLINTFX_CHECK(gltfx_draw_2d_refusal_name(static_cast<gltfx_draw_2d_refusal>(200)) == "unknown");
     ++analyzed;
 
     // A finite quad is not refused - and a quad with ZERO area is drawn, it just covers no pixel.
-    GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 10, 10), k_white) == piece_refusal::none);
-    GLINTFX_CHECK(refusal_of_quad(quad(5, 5, 5, 5), k_white) == piece_refusal::none);
+    GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 10, 10), k_white) == gltfx_draw_2d_refusal::none);
+    GLINTFX_CHECK(refusal_of_quad(quad(5, 5, 5, 5), k_white) == gltfx_draw_2d_refusal::none);
     ++analyzed;
     // A NaN in ANY of the eight coordinates is refused, with the token not_a_number.
     for (int slot = 0; slot < 8; ++slot) {
@@ -94,7 +96,7 @@ GLINTFX_TEST(frame_report_tally_refusal_cells) {
         double *const coordinates[8] = {&q[0].x, &q[0].y, &q[1].x, &q[1].y,
                                         &q[2].x, &q[2].y, &q[3].x, &q[3].y};
         *coordinates[slot] = k_nan;
-        GLINTFX_CHECK(refusal_of_quad(q, k_white) == piece_refusal::not_a_number);
+        GLINTFX_CHECK(refusal_of_quad(q, k_white) == gltfx_draw_2d_refusal::not_a_number);
     }
     ++analyzed;
     // An infinity in a coordinate (either sign) is refused as `infinite`.
@@ -103,18 +105,18 @@ GLINTFX_TEST(frame_report_tally_refusal_cells) {
         plus[2].x = k_inf;
         quad_corners_world minus = quad(0, 0, 10, 10);
         minus[3].y = -k_inf;
-        GLINTFX_CHECK(refusal_of_quad(plus, k_white) == piece_refusal::infinite);
-        GLINTFX_CHECK(refusal_of_quad(minus, k_white) == piece_refusal::infinite);
+        GLINTFX_CHECK(refusal_of_quad(plus, k_white) == gltfx_draw_2d_refusal::infinite);
+        GLINTFX_CHECK(refusal_of_quad(minus, k_white) == gltfx_draw_2d_refusal::infinite);
         ++analyzed;
     }
     // The color is a value too: a channel that is not a finite number refuses the piece.
     {
         GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 1, 1),
                                       gltfx_rgba{1.0F, static_cast<float>(k_nan), 0.0F, 1.0F}) ==
-                      piece_refusal::not_a_number);
+                      gltfx_draw_2d_refusal::not_a_number);
         GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 1, 1),
                                       gltfx_rgba{static_cast<float>(k_inf), 0.0F, 0.0F, 1.0F}) ==
-                      piece_refusal::infinite);
+                      gltfx_draw_2d_refusal::infinite);
         ++analyzed;
     }
     // EVERY color channel is checked, alpha included (a quad or a rectangle whose ONLY problem is
@@ -131,10 +133,11 @@ GLINTFX_TEST(frame_report_tally_refusal_cells) {
                                       inf_channels[3]};
             const gltfx_rect_world fine{{0.0, 0.0}, {5.0, 5.0}};
             GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 1, 1), with_nan) ==
-                          piece_refusal::not_a_number);
-            GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 1, 1), with_inf) == piece_refusal::infinite);
-            GLINTFX_CHECK(refusal_of_rect(fine, with_nan) == piece_refusal::not_a_number);
-            GLINTFX_CHECK(refusal_of_rect(fine, with_inf) == piece_refusal::infinite);
+                          gltfx_draw_2d_refusal::not_a_number);
+            GLINTFX_CHECK(refusal_of_quad(quad(0, 0, 1, 1), with_inf) ==
+                          gltfx_draw_2d_refusal::infinite);
+            GLINTFX_CHECK(refusal_of_rect(fine, with_nan) == gltfx_draw_2d_refusal::not_a_number);
+            GLINTFX_CHECK(refusal_of_rect(fine, with_inf) == gltfx_draw_2d_refusal::infinite);
         }
         ++analyzed;
     }
@@ -144,10 +147,12 @@ GLINTFX_TEST(frame_report_tally_refusal_cells) {
         const gltfx_rect_world negative_height{{0.0, 0.0}, {5.0, -0.5}};
         const gltfx_rect_world zero{{0.0, 0.0}, {0.0, 0.0}};
         const gltfx_rect_world fine{{-3.0, -4.0}, {5.0, 5.0}};
-        GLINTFX_CHECK(refusal_of_rect(negative_width, k_white) == piece_refusal::negative_size);
-        GLINTFX_CHECK(refusal_of_rect(negative_height, k_white) == piece_refusal::negative_size);
-        GLINTFX_CHECK(refusal_of_rect(zero, k_white) == piece_refusal::none);
-        GLINTFX_CHECK(refusal_of_rect(fine, k_white) == piece_refusal::none);
+        GLINTFX_CHECK(refusal_of_rect(negative_width, k_white) ==
+                      gltfx_draw_2d_refusal::negative_size);
+        GLINTFX_CHECK(refusal_of_rect(negative_height, k_white) ==
+                      gltfx_draw_2d_refusal::negative_size);
+        GLINTFX_CHECK(refusal_of_rect(zero, k_white) == gltfx_draw_2d_refusal::none);
+        GLINTFX_CHECK(refusal_of_rect(fine, k_white) == gltfx_draw_2d_refusal::none);
         ++analyzed;
     }
     // A piece with several problems is refused for ONE reason, in the order of the vocabulary:
@@ -156,9 +161,11 @@ GLINTFX_TEST(frame_report_tally_refusal_cells) {
         const gltfx_rect_world nan_and_negative{{k_nan, 0.0}, {-1.0, 5.0}};
         const gltfx_rect_world inf_and_negative{{0.0, k_inf}, {-1.0, 5.0}};
         const gltfx_rect_world nan_and_inf{{k_nan, k_inf}, {1.0, 1.0}};
-        GLINTFX_CHECK(refusal_of_rect(nan_and_negative, k_white) == piece_refusal::not_a_number);
-        GLINTFX_CHECK(refusal_of_rect(inf_and_negative, k_white) == piece_refusal::infinite);
-        GLINTFX_CHECK(refusal_of_rect(nan_and_inf, k_white) == piece_refusal::not_a_number);
+        GLINTFX_CHECK(refusal_of_rect(nan_and_negative, k_white) ==
+                      gltfx_draw_2d_refusal::not_a_number);
+        GLINTFX_CHECK(refusal_of_rect(inf_and_negative, k_white) ==
+                      gltfx_draw_2d_refusal::infinite);
+        GLINTFX_CHECK(refusal_of_rect(nan_and_inf, k_white) == gltfx_draw_2d_refusal::not_a_number);
         ++analyzed;
     }
 
@@ -175,8 +182,8 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
     {
         frame_tally tally;
         tally.begin_frame();
-        tally.piece_refused(piece_refusal::not_a_number);
-        tally.piece_refused(piece_refusal::infinite);
+        tally.piece_refused(gltfx_draw_2d_refusal::not_a_number);
+        tally.piece_refused(gltfx_draw_2d_refusal::infinite);
         tally.piece_drawn();
         const finish_status status = tally.finish();
         GLINTFX_CHECK(status == finish_status::ok);
@@ -185,7 +192,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         GLINTFX_CHECK_EQ(r.pieces_drawn, std::uint64_t{1});
         GLINTFX_CHECK_EQ(r.pieces_refused, std::uint64_t{2});
         GLINTFX_CHECK_EQ(number_of(r.first_refusal), 1);
-        GLINTFX_CHECK(piece_refusal_token(r.first_refusal) == "not_a_number");
+        GLINTFX_CHECK(gltfx_draw_2d_refusal_name(r.first_refusal) == "not_a_number");
         GLINTFX_CHECK_EQ(r.pieces_dropped_out_of_memory, std::uint64_t{0});
         ++analyzed;
     }
@@ -203,6 +210,27 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         GLINTFX_CHECK_EQ(r.batches, std::uint64_t{1});
         ++analyzed;
     }
+    // A piece whose flush failed is submitted and ends in pieces_dropped_graphics_failure: not
+    // drawn, not refused, not dropped, and NOT an error of the tally (the error of the card is the
+    // renderer's).
+    {
+        frame_tally tally;
+        tally.begin_frame();
+        tally.piece_drawn();
+        tally.piece_dropped_graphics_failure();
+        tally.piece_dropped_graphics_failure();
+        const finish_status status = tally.finish();
+        const auto r = tally.last_report();
+        GLINTFX_CHECK(status == finish_status::ok);
+        GLINTFX_CHECK_EQ(r.pieces_submitted, std::uint64_t{3});
+        GLINTFX_CHECK_EQ(r.pieces_drawn, std::uint64_t{1});
+        GLINTFX_CHECK(r.pieces_refused == 0 && r.pieces_dropped_out_of_memory == 0);
+        GLINTFX_CHECK_EQ(r.pieces_dropped_graphics_failure, std::uint64_t{2});
+        GLINTFX_CHECK_EQ(r.pieces_submitted, r.pieces_drawn + r.pieces_refused +
+                                                 r.pieces_dropped_out_of_memory +
+                                                 r.pieces_dropped_graphics_failure);
+        ++analyzed;
+    }
     // Running out of memory becomes a COUNT and ONE error at the end: the status says
     // out_of_memory, and the counts are still readable AFTER the error (B0-C2).
     {
@@ -211,7 +239,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         tally.piece_drawn();
         tally.piece_dropped_out_of_memory();
         tally.piece_dropped_out_of_memory();
-        tally.piece_refused(piece_refusal::negative_size);
+        tally.piece_refused(gltfx_draw_2d_refusal::negative_size);
         const finish_status status = tally.finish();
         GLINTFX_CHECK(status == finish_status::out_of_memory);
         const auto r = tally.last_report();
@@ -231,7 +259,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         tally.begin_frame();
         for (int i = 0; i < 100; ++i) {
             if (i % 5 == 0) {
-                tally.piece_refused(piece_refusal::infinite);
+                tally.piece_refused(gltfx_draw_2d_refusal::infinite);
             } else if (i % 7 == 0) {
                 tally.piece_dropped_out_of_memory();
             } else {
@@ -275,7 +303,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         frame_tally tally;
         tally.begin_frame();
         tally.piece_drawn();
-        tally.piece_refused(piece_refusal::infinite);
+        tally.piece_refused(gltfx_draw_2d_refusal::infinite);
         tally.begin_frame(); // abandons the first
         tally.piece_drawn();
         (void)tally.finish();
@@ -330,7 +358,7 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         tally.begin_frame();
         tally.piece_drawn();
         tally.piece_drawn();
-        tally.piece_refused(piece_refusal::infinite);
+        tally.piece_refused(gltfx_draw_2d_refusal::infinite);
         (void)tally.finish();
         tally.begin_frame();
         for (int i = 0; i < 5; ++i) {
@@ -379,6 +407,6 @@ GLINTFX_TEST(frame_report_tally_frame_cells) {
         ++analyzed;
     }
 
-    GLINTFX_CHECK_EQ(analyzed, 12);
+    GLINTFX_CHECK_EQ(analyzed, 13);
     std::println("frame_report_tally_test: {} celula(s) conferida(s) (quadro)", analyzed);
 }

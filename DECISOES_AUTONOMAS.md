@@ -5325,3 +5325,19 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - falha vira unsupported, nunca superfície linear rotulada de sRGB.
 - *Prova exigida:* uma célula de seam vermelha no código de hoje, o sRGB ligado exercido no llvmpipe e o mutante vermelho no Linux.
 - *Lição:* ausência "declarada e medida" não prova limite da plataforma; o mecanismo precisa ser testado antes.
+
+## 30/09/2026 - 15:40 | D-A60: os 4 achados de tamanho da B7 são consertados dentro da W7-D, antes dos mutantes (CTO, L-34; errata §29, md5 44ae6b1d)
+
+- *Fato:* a revisão adversarial B7 (api-review) mediu 4 violações da L-17 no desenho 2D:
+  - send_pending com 60 linhas;
+  - create_embedded_program com 42 linhas;
+  - send_to_buffer com 7 parâmetros e renderer_2d_impl::create com 5;
+  - frame_report_tally juntando dois assuntos.
+- *Escolha:* consertar agora. Os limites de 40 linhas e 4 parâmetros são inegociáveis na L-17 do projeto, e não há opção de adiar.
+- *Ordem:* a refatoração vem antes dos mutantes da B7, porque mutante sobre código que vai mudar é trabalho perdido. Depois dela, o CTO reaplica os 8 mutantes da B4 para provar que a rede de testes ainda segura.
+- *Critério:*
+  - as asserções dos testes não mudam;
+  - tudo verde com g++ e clang++;
+  - 0 funções acima de 40 linhas;
+  - 0 funções acima de 4 parâmetros.
+- *Porta de mão única:* não, porque é código interno.

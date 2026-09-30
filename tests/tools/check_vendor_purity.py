@@ -335,9 +335,9 @@ def is_linked_worktree_of(root, dir_abs_path):
     when the directory holds a `.git` FILE (not a directory) whose
     first line is `gitdir: <path>` and whose path resolves, symlinks
     followed, to an existing directory under <root>/.git/worktrees/.
-    A `.git` file pointing anywhere else (forged, or a worktree of
-    another repository) is not this repository's worktree and prunes
-    nothing. Unreadable or malformed means not pruned: fail toward
+    The admin dir must also point back at this very `.git` file (its
+    `gitdir` file). A `.git` file pointing anywhere else, or at a real
+    admin dir it does not own (forged), prunes nothing. Unreadable or malformed means not pruned: fail toward
     scanning.
     """
     marker = os.path.join(dir_abs_path, ".git")
@@ -355,7 +355,18 @@ def is_linked_worktree_of(root, dir_abs_path):
         os.path.join(dir_abs_path, first_line[len(prefix):].strip())
     )
     worktrees_dir = os.path.realpath(os.path.join(root, ".git", "worktrees"))
-    return os.path.isdir(target) and os.path.dirname(target) == worktrees_dir
+    if not (os.path.isdir(target) and os.path.dirname(target) == worktrees_dir):
+        return False
+    # Back-pointer: a real worktree's admin dir records, in its own
+    # `gitdir` file, the path of the `.git` file that owns it. Any
+    # directory can POINT at a real admin dir, only the owner is pointed
+    # back at; a mismatch or unreadable file prunes nothing.
+    try:
+        with open(os.path.join(target, "gitdir"), "r", encoding="utf-8") as handle:
+            owner = handle.readline().strip()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return os.path.realpath(owner) == os.path.realpath(marker)
 
 
 def is_vendor_form_segment(name):
@@ -1204,6 +1215,44 @@ def selftest_forged_worktree_marker_control(scratch, capture):
     return True
 
 
+# Control: a REAL worktree exists, and a non-vendor-form directory holds
+# a forged `.git` file pointing at that real admin dir (so the target
+# exists and sits under .git/worktrees/), with an intruder inside.
+# Expected: the intruder is cited, the real worktree still pruned.
+def selftest_forged_worktree_to_real_admin_control(scratch, capture):
+    root = os.path.join(scratch, "forged-to-real-admin")
+    init_fixture_repo(root)
+    make_clean_fixture(root)
+    _commit_fixture(root)
+    subprocess.run(
+        ["git", "-C", root, "worktree", "add", "-q", os.path.join("worktrees", "real"), "-b", "real"],
+        check=True,
+    )
+    forged = os.path.join(root, "misc")
+    intruder_dir = os.path.join(forged, "third_party", "stb")
+    os.makedirs(intruder_dir, exist_ok=True)
+    with open(os.path.join(intruder_dir, "stb.h"), "w", encoding="utf-8") as handle:
+        handle.write("int stb_decode(void);\n")
+    with open(os.path.join(forged, ".git"), "w", encoding="utf-8") as handle:
+        handle.write("gitdir: " + os.path.join(root, ".git", "worktrees", "real") + "\n")
+
+    outcome = capture(lambda: check_vendor_purity(root))
+    if outcome.result or "misc/third_party/stb/stb.h" not in outcome.text:
+        print(
+            "selftest: controle WORKTREE-FORJADA-PARA-ADMIN-REAL FALHOU (um "
+            ".git forjado apontando para a administracao de uma worktree "
+            "real escondeu o terceiro)",
+            file=sys.stderr,
+        )
+        print(outcome.text, file=sys.stderr)
+        return False
+    print(
+        "selftest: controle WORKTREE-FORJADA-PARA-ADMIN-REAL OK (so o dono "
+        "da administracao e' podado, o forjado e' varrido e o intruso citado)"
+    )
+    return True
+
+
 # Non-git control: a real directory with the clean fixture's files on
 # disk, but never `git init`ed. Expected: reproves by scan refusal,
 # never presumed empty - the same discipline check_spdx.py's own
@@ -1254,6 +1303,7 @@ def selftest_main():
             selftest_non_git_control(scratch, capture),
             selftest_linked_worktree_pruned_control(scratch, capture),
             selftest_forged_worktree_marker_control(scratch, capture),
+            selftest_forged_worktree_to_real_admin_control(scratch, capture),
         ]
         if not all(controls):
             print("check_vendor_purity.py --selftest: FALHOU (ver acima)", file=sys.stderr)

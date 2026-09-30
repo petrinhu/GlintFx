@@ -5206,3 +5206,11 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
   - Sai o "draw", se a B4 não o emitir. Nem a API nem a ABI mudam.
   - *Fonte:* o Vulkan separa a falta de memória do sistema da falta de memória do dispositivo. Aqui a distinção vai pelo código do sistema anexado ao erro, sem valor novo no enum.
 - *Achado por:* o revisor de API, antes de o código público existir.
+
+## 30/09/2026 - 10:13 | D-A52: quatro dúvidas da B4 decididas pelo CTO (L-34; errata §18)
+
+- **(a) Erros GL depois do desenho:** a fachada lê os erros GL depois de desenhar, e o erro "draw" passa a ser emitido e fica no cabeçalho, estendendo a E4. O "não encontrado" do carregador vira "não suportado", com o nome da função.
+- **(b) Acesso ao contexto sem vazar o sistema:** um cabeçalho fino com 2 funções livres deixa o desenho 2D alcançar o contexto GL sem incluir <windows.h>. *Fonte:* o endereço de função livre do SDL3 e do GLFW. A B7 prova a direção das camadas por `-H` e grep, porque o portão de camada do desenho 2D foi para a INFRA-CI (D-W7D-19).
+- **(c) Reserva com guarda de estouro,** e o teste do crescimento de uma vez só, que o CTO tinha anotado na B2c.
+- **(d) Extração do buffer de crescimento para um arquivo próprio,** por ser a quarta ocorrência (L-33, regra de 3).
+- *Porta de mão única:* (a) é texto de contrato público, revisado antes da publicação. *Custo de reverter:* baixo até a B4 sair.

@@ -112,10 +112,15 @@ assert_matches_golden() {
     label="$1"; candidate_hpp="$2"; candidate_cpp="$3"
     [ -f "$candidate_hpp" ] || fail "$label: $candidate_hpp nao foi gerado"
     [ -f "$candidate_cpp" ] || fail "$label: $candidate_cpp nao foi gerado"
-    cmp -s "$CROSS_GOLDEN_HPP" "$candidate_hpp" \
-        || fail "$label: gl_functions.hpp difere do golden nativo (cmp)"
-    cmp -s "$CROSS_GOLDEN_CPP" "$candidate_cpp" \
-        || fail "$label: gl_functions.cpp difere do golden nativo (cmp)"
+    [ -f "$CROSS_GOLDEN_HPP" ] || fail "$label: golden $CROSS_GOLDEN_HPP ausente"
+    [ -f "$CROSS_GOLDEN_CPP" ] || fail "$label: golden $CROSS_GOLDEN_CPP ausente"
+    # POSIX sh, sem comparador externo (o diffutils so' chegava aqui como dependencia transitiva do mingw). O `echo x`
+    # protege a quebra final, que a substituicao de comando cortaria; os `[ -f ]` acima cobrem o ausente
+    # nos DOIS lados (golden ausente + candidato vazio daria "iguais" sem eles).
+    [ "$(cat "$CROSS_GOLDEN_HPP"; echo x)" = "$(cat "$candidate_hpp"; echo x)" ] \
+        || fail "$label: gl_functions.hpp difere do golden nativo"
+    [ "$(cat "$CROSS_GOLDEN_CPP"; echo x)" = "$(cat "$candidate_cpp"; echo x)" ] \
+        || fail "$label: gl_functions.cpp difere do golden nativo"
 }
 
 # --- PATH 1: GLINTFX_GL_CODEGEN_EXECUTABLE ----------------------------

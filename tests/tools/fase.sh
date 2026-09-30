@@ -58,6 +58,18 @@ fase_paralelismo() {
   _fase_emitir "paralelismo aninhado: ${CMAKE_BUILD_PARALLEL_LEVEL:-ausente}"
 }
 
+# _fase_same_bytes <a> <b>: 0 = iguais byte a byte; 1 = diferentes; 2 = algum ilegivel. Em bash puro, sem
+# diffutils (as imagens Fedora e Arch do CI nao trazem diffutils). O `[ -r ]` e' obrigatorio: sem ele, dois
+# arquivos AUSENTES dariam "iguais" (os dois `read` falham e deixam as variaveis vazias). Limite: `read -d ''`
+# para no primeiro byte NUL; serve para texto (fixtures e saidas de FASE), nao para binario.
+_fase_same_bytes() {
+  local a="" b=""
+  [ -r "$1" ] && [ -r "$2" ] || return 2
+  IFS= read -r -d '' a <"$1"
+  IFS= read -r -d '' b <"$2"
+  [ "$a" = "$b" ] || return 1
+}
+
 _fase_selftest() {
   local aqui fx tmp ok=1 saida rc cs
   aqui="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -74,15 +86,32 @@ _fase_selftest() {
     export GLINTFX_FASES_DIR="$tmp/fases" GLINTFX_FASES_TESTE=demo CMAKE_BUILD_PARALLEL_LEVEL=4
     fase_registrar configure 1234; fase_registrar build 3005; fase_registrar resto 110; fase_paralelismo
   ) >"$tmp/stdout.txt"
-  cmp -s "$tmp/stdout.txt" "$fx/esperado.txt" || falha "a saida padrao nao bate byte a byte com esperado.txt: $(cat "$tmp/stdout.txt")"
-  cmp -s "$tmp/fases/demo.txt" "$fx/esperado.txt" || falha "o arquivo lateral nao bate byte a byte com esperado.txt"
+  _fase_same_bytes "$tmp/stdout.txt" "$fx/esperado.txt" || falha "a saida padrao nao bate byte a byte com esperado.txt: $(cat "$tmp/stdout.txt")"
+  _fase_same_bytes "$tmp/fases/demo.txt" "$fx/esperado.txt" || falha "o arquivo lateral nao bate byte a byte com esperado.txt"
 
   # 1b. o filtro de `#` vale SO' para a FIXTURE: fixture com e sem linhas `#` (no topo, no meio e no fim)
   #     da a mesma comparacao; uma linha `#` no MEIO da saida REAL nao e' descartada (divergencia aparece)
   { echo "# a"; sed -n 1,2p "$fx/esperado.txt"; echo "# b"; sed -n '3,$p' "$fx/esperado.txt"; echo "# c"; } >"$tmp/com_hash.txt"
-  cmp -s <(grep -v '^#' "$tmp/com_hash.txt") "$fx/esperado.txt" || falha "a fixture com linhas # deveria dar o mesmo conteudo que sem elas"
+  _fase_same_bytes <(grep -v '^#' "$tmp/com_hash.txt") "$fx/esperado.txt" || falha "a fixture com linhas # deveria dar o mesmo conteudo que sem elas"
   { sed -n 1,2p "$fx/esperado.txt"; echo "# intruso"; sed -n '3,$p' "$fx/esperado.txt"; } >"$tmp/real_intruso.txt"
-  ! cmp -s "$tmp/real_intruso.txt" "$fx/esperado.txt" || falha "uma linha # no MEIO da saida real foi descartada (o filtro so' pode valer para a fixture)"
+  _fase_same_bytes "$tmp/real_intruso.txt" "$fx/esperado.txt"; rc=$?
+  [ "$rc" -eq 1 ] || falha "uma linha # no MEIO da saida real foi descartada (o filtro so' pode valer para a fixture)"
+
+  # 1c. controles do comparador: iguais (0); so' a quebra final difere (1); 1 byte (1); um ausente (2);
+  #     os DOIS ausentes (2, nunca 0); substituicao de processo
+  printf 'x\n' >"$tmp/c_a"; printf 'x\n' >"$tmp/c_b"; printf 'x' >"$tmp/c_semquebra"; printf 'y\n' >"$tmp/c_y"
+  _fase_same_bytes "$tmp/c_a" "$tmp/c_b"; rc=$?
+  [ "$rc" -eq 0 ] || falha "comparador: arquivos iguais deveriam dar 0, deu $rc"
+  _fase_same_bytes "$tmp/c_a" "$tmp/c_semquebra"; rc=$?
+  [ "$rc" -eq 1 ] || falha "comparador: diferenca so' na quebra final deveria dar 1, deu $rc"
+  _fase_same_bytes "$tmp/c_a" "$tmp/c_y"; rc=$?
+  [ "$rc" -eq 1 ] || falha "comparador: 1 byte diferente deveria dar 1, deu $rc"
+  _fase_same_bytes "$tmp/c_a" "$tmp/c_ausente"; rc=$?
+  [ "$rc" -eq 2 ] || falha "comparador: um arquivo ausente deveria dar 2, deu $rc"
+  _fase_same_bytes "$tmp/c_ausente" "$tmp/c_ausente2"; rc=$?
+  [ "$rc" -eq 2 ] || falha "comparador: DOIS arquivos ausentes deveriam dar 2 (nunca 0), deu $rc"
+  _fase_same_bytes <(printf 'x\n') "$tmp/c_a"; rc=$?
+  [ "$rc" -eq 0 ] || falha "comparador: substituicao de processo igual deveria dar 0, deu $rc"
 
   # 2. CMAKE_BUILD_PARALLEL_LEVEL ausente vira a palavra `ausente`
   (
@@ -90,7 +119,7 @@ _fase_selftest() {
     unset CMAKE_BUILD_PARALLEL_LEVEL
     fase_paralelismo
   ) >"$tmp/stdout2.txt"
-  cmp -s "$tmp/fases/ausente.txt" "$fx/esperado_ausente.txt" || falha "sem CMAKE_BUILD_PARALLEL_LEVEL o arquivo lateral deveria trazer 'ausente'"
+  _fase_same_bytes "$tmp/fases/ausente.txt" "$fx/esperado_ausente.txt" || falha "sem CMAKE_BUILD_PARALLEL_LEVEL o arquivo lateral deveria trazer 'ausente'"
 
   # 3. sem GLINTFX_FASES_DIR/TESTE: so' a saida padrao, nenhum arquivo
   (
@@ -98,7 +127,7 @@ _fase_selftest() {
     cd "$tmp" && fase_registrar x 5
   ) >"$tmp/stdout3.txt"
   [ "$(cat "$tmp/stdout3.txt")" = "FASE x: 0.05 s" ] || falha "saida padrao sem lateral: $(cat "$tmp/stdout3.txt")"
-  [ -z "$(ls -A "$tmp" | grep -v -e '^stdout' -e '^fases$' -e '^fixture$' -e '^com_hash' -e '^real_intruso')" ] || falha "sem as variaveis, algo foi gravado: $(ls -A "$tmp")"
+  [ -z "$(ls -A "$tmp" | grep -v -e '^stdout' -e '^fases$' -e '^fixture$' -e '^com_hash' -e '^real_intruso' -e '^c_')" ] || falha "sem as variaveis, algo foi gravado: $(ls -A "$tmp")"
 
   # 4. o relogio: ~0,25 s medido por fase_inicio/fase_fim fica entre 0,20 s e 2,00 s
   saida="$(fase_inicio relogio; sleep 0.25; fase_fim relogio)"

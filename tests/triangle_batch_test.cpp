@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <print>
 
 #include <glintfx/core/color.hpp>
@@ -61,10 +62,14 @@ struct armed_state {
     int calls = 0;
     int fail_at = 0;
     int failures = 0;
+    std::array<std::size_t, 8> requested{}; // the size asked at each call (the first eight)
 };
 thread_local armed_state g_armed;
 
 [[nodiscard]] void *armed_reallocate(void *block, std::size_t bytes) noexcept {
+    if (g_armed.calls < 8) {
+        g_armed.requested[static_cast<std::size_t>(g_armed.calls)] = bytes;
+    }
     ++g_armed.calls;
     if (g_armed.fail_at != 0 && g_armed.calls == g_armed.fail_at) {
         ++g_armed.failures;
@@ -304,4 +309,73 @@ GLINTFX_TEST(triangle_batch_out_of_memory_at_every_point) {
     std::println("triangle_batch_test: {} celula(s) conferida(s) (falta de memoria: {} pontos de "
                  "falha + o alocador que nunca aloca)",
                  analyzed, total_calls);
+}
+
+// reserve() (R2D-BATCH B4, `reserve_pieces` of the public descriptor): room for that many MORE
+// pieces, taken in one go, so that the fill that follows allocates nothing.
+GLINTFX_TEST(triangle_batch_reserve_cells) {
+    // 1. After reserve(100), a hundred pieces go in with NO further call to the allocator.
+    {
+        g_armed = armed_state{};
+        triangle_batch batch(armed());
+        GLINTFX_CHECK(batch.reserve(100));
+        const int after_reserve = g_armed.calls;
+        GLINTFX_CHECK_EQ(after_reserve, 3); // vertices, indices, runs: one each
+        for (int i = 0; i < 100; ++i) {
+            GLINTFX_CHECK(
+                batch.add_quad(square_at(static_cast<float>(i), 0, 1), k_white, k_state_a));
+        }
+        GLINTFX_CHECK_EQ(g_armed.calls, after_reserve);
+        GLINTFX_CHECK_EQ(batch.vertices().size(), std::size_t{400});
+    }
+    // 2. A request of MORE THAN DOUBLE the capacity in one call takes exactly what was asked, not
+    // the
+    //    doubled capacity (`grown = needed`): 1000 pieces from an empty batch are 4000 vertices of
+    //    32 bytes, 6000 indices of 4 bytes, and one run.
+    {
+        g_armed = armed_state{};
+        triangle_batch batch(armed());
+        GLINTFX_CHECK(batch.reserve(1000));
+        GLINTFX_CHECK_EQ(g_armed.requested[0], std::size_t{128000});
+        GLINTFX_CHECK_EQ(g_armed.requested[1], std::size_t{24000});
+        GLINTFX_CHECK(g_armed.requested[2] >= sizeof(glintfx::draw2d::draw_run));
+        // ... and they all fit: no more calls while a thousand pieces are added
+        const int after_reserve = g_armed.calls;
+        for (int i = 0; i < 1000; ++i) {
+            GLINTFX_CHECK(
+                batch.add_quad(square_at(static_cast<float>(i), 0, 1), k_white, k_state_a));
+        }
+        GLINTFX_CHECK_EQ(g_armed.calls, after_reserve);
+    }
+    // 3. An allocator that fails at EACH of the three points: reserve() says false, and the batch
+    // is
+    //    still usable and empty (the stores it did grow stay, harmlessly).
+    for (int point = 1; point <= 3; ++point) {
+        g_armed = armed_state{};
+        g_armed.fail_at = point;
+        triangle_batch batch(armed());
+        GLINTFX_CHECK(!batch.reserve(50));
+        GLINTFX_CHECK(batch.vertices().empty() && batch.indices().empty() && batch.runs().empty());
+        GLINTFX_CHECK(
+            batch.add_quad(square_at(0, 0, 1), k_white, k_state_a)); // allocator works again
+    }
+    // 4. A request that overflows the size arithmetic is refused without asking the allocator.
+    {
+        g_armed = armed_state{};
+        triangle_batch batch(armed());
+        GLINTFX_CHECK(!batch.reserve(std::numeric_limits<std::size_t>::max() / 2));
+        GLINTFX_CHECK_EQ(g_armed.calls, 0);
+        // 2^63 pieces: BOTH products (4 vertices and 6 indices per piece) wrap to zero, so without
+        // the explicit check the request would "succeed" having reserved nothing.
+        GLINTFX_CHECK(!batch.reserve(std::size_t{1} << 63));
+        GLINTFX_CHECK_EQ(g_armed.calls, 0);
+    }
+    // 5. reserve(0) is a no-op that succeeds.
+    {
+        g_armed = armed_state{};
+        triangle_batch batch(armed());
+        GLINTFX_CHECK(batch.reserve(0));
+        GLINTFX_CHECK_EQ(g_armed.calls, 0);
+    }
+    std::println("triangle_batch_test: reserve conferido (5 casos)");
 }

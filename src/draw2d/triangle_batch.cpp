@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "draw2d/triangle_batch.hpp"
 
+#include <limits>
+
 namespace glintfx::draw2d {
 
 namespace {
@@ -14,6 +16,18 @@ triangle_batch::~triangle_batch() {
     allocator.release(vertex_store.data);
     allocator.release(index_store.data);
     allocator.release(run_store.data);
+}
+
+bool triangle_batch::reserve(std::size_t pieces) noexcept {
+    if (pieces == 0) {
+        return true;
+    }
+    if (pieces > std::numeric_limits<std::size_t>::max() / k_quad_indices) {
+        return false; // 6 indices per piece would overflow the size arithmetic
+    }
+    return ensure_room<batch_vertex>(allocator, vertex_store, pieces * k_quad_vertices) &&
+           ensure_room<std::uint32_t>(allocator, index_store, pieces * k_quad_indices) &&
+           ensure_room<draw_run>(allocator, run_store, 1);
 }
 
 bool triangle_batch::add_quad(const quad_corners_pixel &corners, glintfx::gltfx_rgba color,

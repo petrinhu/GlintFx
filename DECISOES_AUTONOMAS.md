@@ -5299,3 +5299,16 @@ Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §10 e §11, md5 6864e942.
 - *Recusados:* cortar controles no Windows, SKIP, e mexer em timeout ou régua.
 - A causa exata no Windows foi para o INBOX como WINDOWS-CUSTO-POR-CONTROLE.
 - *Porta de mão única:* não.
+
+## 30/09/2026 - 15:14 | DECISÕES DO LÍDER (não autônomas): ccache instalado e uma trilha paralela de melhorias da verificação local
+
+- *Observação do líder, verbatim:* "vc passa mais tempo consertando os testes estáticos e dinâmicos do tocando em código do framework."
+- *Medido desde a ordem de 29/09 22:33, em 87 commits:* 4.684 linhas em src/ e include/, 6.206 em testes C++ do produto e 2.606 em CI, portões e container.
+- *Ordem do líder, verbatim:* "descubra se tem testes que pode instalar no computador que ganhemos tempo e eficiência."
+- *Levantamento do CTO* (/var/tmp/cto-w7d/ferramentas-tempo.md, md5 29af5ed7):
+  - 46% do tempo dos testes locais vai em 12 testes que recompilam a lib em série;
+  - 7 vermelhos de hoje só o servidor pegou, dos quais 4 seriam pegáveis aqui.
+- *Pergunta 1 (AskUserQuestion), instalar o ccache:* "Instalar ccache (Recomendado)". Instalado às 15:15: ccache 4.12.3-1.fc44, via `sudo -A dnf` (L-51). O stress-ng não foi autorizado.
+- *Pergunta 2, quando fazer as três melhorias que não exigem instalação* (Clang no preci, tempo por estágio com comparação, modo de carga do servidor): "Agora, em paralelo (Recomendado)".
+  - Um segundo implementador trabalha numa cópia separada (L-55), e o implementador atual fica só no código do framework.
+  - O CTO planeja a trilha.

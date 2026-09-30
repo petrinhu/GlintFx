@@ -6,6 +6,7 @@
 #include <glintfx/core/err_code.hpp>
 
 #include "draw2d/gl_state_contract.hpp"
+#include "draw2d/piece_refusal.hpp"
 #include "draw2d/srgb_encoding.hpp"
 
 namespace glintfx {

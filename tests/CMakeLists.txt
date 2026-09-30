@@ -1376,13 +1376,25 @@ target_include_directories(frame_report_tally_test PRIVATE "${PROJECT_SOURCE_DIR
 target_sources(frame_report_tally_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/frame_report_tally.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
-    "${PROJECT_SOURCE_DIR}/src/draw2d/quad_vertices.cpp"
 )
 # frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
 # standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
 # both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
 # win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
 target_compile_definitions(frame_report_tally_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
+
+# D-B7-1 (I4): which piece is refused, and why - a subject of its own, the cells moved from frame_report_tally_test.
+glintfx_add_test(piece_refusal_test)
+target_include_directories(piece_refusal_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_sources(piece_refusal_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_refusal.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
+)
+# frame_2d_report.cpp DEFINES a GLINTFX_API symbol (gltfx_draw_2d_refusal_name) and this target recompiles it
+# standalone: without GLINTFX_LIBRARY_STATIC_DEFINE, MSVC raises C4273 "inconsistent dll linkage" (a TU that
+# both imports and defines the symbol) and /WX makes it an error - the same reason loop_hidden_test and
+# win32_facade_pin_test define it (ACHADO C1 of check_win32_test_link.py).
+target_compile_definitions(piece_refusal_test PRIVATE GLINTFX_LIBRARY_STATIC_DEFINE)
 
 # R2D-BATCH B4: the list of pieces held until a flush (paint order by layer, then submission) and the sRGB curve
 # of the clear color, each a pure atom.
@@ -1464,6 +1476,7 @@ target_sources(renderer_2d_impl_test PRIVATE
     "${PROJECT_SOURCE_DIR}/src/draw2d/piece_list.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/draw_order.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/frame_report_tally.cpp"
+    "${PROJECT_SOURCE_DIR}/src/draw2d/piece_refusal.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/srgb_encoding.cpp"
     "${PROJECT_SOURCE_DIR}/src/draw2d/frame_2d_report.cpp"
 )

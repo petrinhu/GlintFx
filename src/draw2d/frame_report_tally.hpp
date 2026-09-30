@@ -3,15 +3,11 @@
 
 #include <cstdint>
 
-#include <glintfx/core/color.hpp>
-#include <glintfx/core/rect.hpp>
-
-#include "draw2d/quad_vertices.hpp"
 #include <glintfx/draw2d/frame_2d_report.hpp>
 
 // draw2d/frame_report_tally.hpp - R2D-BATCH, fatia B2d (docs/plano-w7d.md sec. 4.3, D-W7D-13 as
 // AMENDED by docs/auditoria-api-draw2d.md B0-C2): the PURE atom that counts what happened to one
-// frame, decides which piece is refused and why, and produces THE report - the ONE place a frame
+// frame and produces THE report - the ONE place a frame
 // reports anything (the leader's decision of 19/09/2026: drawing calls return nothing). It knows
 // nothing of GL or of the operating system, allocates nothing and can throw nothing, so it compiles
 // and runs on all five systems (GODS_LAWS.md L-19/L-22: src/draw2d/ never reaches src/platform/).
@@ -24,20 +20,8 @@
 //
 // WHAT COUNTS AS AN ERROR OF THE FRAME: only out_of_memory (a piece was dropped for lack of
 // memory). A refused piece is NOT an error: the frame is drawn without it and the report counts it.
-//
-// REFUSAL BY VALUE: a piece is refused when a value in it is not a finite number, or a rectangle
-// has a negative width or height. ONE reason per piece, in the order of the vocabulary:
-// not_a_number, then infinite, then negative_size. A quad with zero area is DRAWN (it covers no
-// pixel) - a shape, not a bad value. The report keeps the reason of the FIRST refused piece only.
+// Which piece is refused, and why, is decided by piece_refusal.hpp.
 namespace glintfx::draw2d {
-
-// Why a quad in world position, with this color, is refused (`none` when it is not).
-[[nodiscard]] gltfx_draw_2d_refusal refusal_of_quad(const quad_corners_world &corners,
-                                                    glintfx::gltfx_rgba color) noexcept;
-
-// The same for a rectangle in world position, which can also have a negative size.
-[[nodiscard]] gltfx_draw_2d_refusal refusal_of_rect(const glintfx::gltfx_rect_world &rect,
-                                                    glintfx::gltfx_rgba color) noexcept;
 
 enum class finish_status : std::uint8_t {
     ok,

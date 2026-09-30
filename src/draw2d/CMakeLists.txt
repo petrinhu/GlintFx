@@ -16,6 +16,7 @@ target_sources(glintfx_library PRIVATE
     draw_order.cpp
     triangle_batch.cpp
     frame_report_tally.cpp
+    piece_refusal.cpp
     embedded_program.cpp
     gl_state_contract.cpp
     vertex_stream.cpp

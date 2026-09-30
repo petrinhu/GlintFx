@@ -5018,3 +5018,19 @@ Plano completo: /var/tmp/cto-w7d/PLANO.md, md5 892f16ce331c8d43cb37fc5f7d30f085.
   - a **E2:** `vsync` ganha constantes públicas em P3; `gpu_preference` fica na INBOX (L-32: nada de escopo novo antes da demo).
 - *Para o líder, quando pedir o registro:* **B0-K1**. O código da árvore usa `m_impl` em 128 lugares, contra a regra de nomes da L-21 do projeto. O código novo segue a lei. O conflito entre a árvore e a lei é dele decidir (L-67); por ora está na INBOX como renomeação mecânica.
 - *Custo de reverter:* alto depois do commit de P3/B4 (API publicada) e baixo antes, que é por que a revisão veio antes do código.
+
+## 29/09/2026 - 23:5x | D-A43: três dúvidas de desenho da P1 decididas pelo CTO (L-34)
+
+Texto completo: /var/tmp/cto-w7d/PLANO-errata.md §5, md5 29dd63f6.
+
+- **D-P1-1: onde nasce o tipo da fonte de energia.**
+  - *Pergunta:* o tipo da fonte de energia é pedido pela P1, mas o plano o fazia nascer só na P2.
+  - *Opções:* (a) o cabeçalho da porta criado já em P1; (b) o enum na regra e movido depois; (c) inteiro com constantes locais.
+  - *Escolha do CTO:* um cabeçalho próprio de VALOR, `src/platform/port/power_source.hpp`, criado em P1, que a porta da P2 inclui. Isso evita misturar valor e porta num arquivo e evita o move.
+- **D-P1-2: a célula E1 vai para a P3.**
+  - O átomo interno devolve `std::optional`, que é ausência honesta.
+  - A política pública `{suggested_preset, manual}` mora na função pública, sem cópia temporária das constantes públicas. Isso corrige a errata §3.
+- **D-P1-3: o CTO contestou a saída por span proposta pelo implementador.**
+  - `expand_preset` devolve um tipo de valor com `std::array` de capacidade igual às linhas do registro, garantida por `static_assert`.
+  - Assim não existe caminho de "não coube", como o plano já fixava.
+- *Porta de mão única:* nenhuma das três, porque são internas. *Custo de reverter:* baixo.

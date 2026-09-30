@@ -312,10 +312,14 @@ RUN cmake -S /build/_arch_ports_lib -B /build/lib-build -G Ninja -DCMAKE_BUILD_T
     && cmake --build /build/lib-build \
     && cmake --install /build/lib-build
 # The public-API fixture: a consumer of the installed library. No -I, no source list, no library flag by hand:
-# everything comes from glintfx.pc (--static reads Libs.private).
+# everything comes from glintfx.pc (--static reads Libs.private). The two alloc_counter sources are the TEST
+# INSTRUMENT every fixture carries (the allocation hook the CI reads the leak report from, D-B5-2, errata sec.
+# 30), never a source of the library.
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -o /build/draw2d_parity_test \
         /build/_arch_ports_src/tests/parity/draw2d_parity_test.cpp \
+        /build/alloc_counter_classify.cpp \
+        /build/alloc_counter_hook.cpp \
         $(pkg-config --with-path=/build/lib-prefix/lib64/pkgconfig --with-path=/build/lib-prefix/lib/pkgconfig --static --cflags --libs glintfx)
 RUN g++ -std=c++23 -O2 -g $GLINTFX_FIXTURE_SANITIZE -Wall -Wextra -Werror \
         -I /build/_arch_ports_src/include -I /build/_arch_ports_src/src \

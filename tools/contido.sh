@@ -432,6 +432,8 @@ contido_selftest() {
     case_decide "wrap: marker rc=77 crosses" "rc=77 77 nada 0" 0 contido_wrap_outcome_echo rc=77 inactive success 77
     case_decide "wrap: marker prazo" "prazo 124 nada 0" 0 contido_wrap_outcome_echo prazo inactive success 124
     case_decide "wrap: marker relogio" "relogio 72 nada 0" 0 contido_wrap_outcome_echo relogio inactive success 72
+    case_decide "wrap: marker prazo with the unit still ACTIVE gets the final sweep" "prazo 124 stop 0" 0 contido_wrap_outcome_echo prazo active success 124
+    case_decide "wrap: marker relogio with the unit still ACTIVE gets the final sweep" "relogio 72 stop 0" 0 contido_wrap_outcome_echo relogio active success 72
     case_decide "wrap: marker but the unit is still active gets the final sweep" "rc=0 0 stop 0" 0 contido_wrap_outcome_echo rc=0 active success 0
     case_decide "wrap: no marker, Result=timeout is the systemd's deadline" "prazo-encosto 124 nada 1" 0 contido_wrap_outcome_echo "" failed timeout 143
     case_decide "wrap: no marker, dead supervisor with the unit still active" "supervisor-morto 73 stop 0" 0 contido_wrap_outcome_echo "" active success 137

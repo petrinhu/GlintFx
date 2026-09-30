@@ -54,10 +54,6 @@ constexpr char k_fragment_source[] = "#version 330 core\n"
                                      "    frag_color = v_color;\n"
                                      "}\n";
 
-std::span<const gltfx_log_field> return_prebuilt_fields(void *builder_context) noexcept {
-    return *static_cast<std::span<const gltfx_log_field> *>(builder_context);
-}
-
 // Sends the refusal to the log sink as the event draw2d_program_rejected: the driver's message
 // (already read into `text`, empty when the refusal was not the driver's own), the boolean that
 // says whether it was cut, and the token that says why. The message never enters the error.
@@ -67,9 +63,7 @@ void report_rejection(std::string_view reason, std::string_view text, bool trunc
         gltfx_log_field{k_driver_log_truncated_field, gltfx_log_value::make_boolean(truncated)},
         gltfx_log_field{k_reason_field, gltfx_log_value::make_text(reason)},
     };
-    std::span<const gltfx_log_field> view{fields};
-    log_emit(gltfx_log_severity::err, "draw2d", k_program_rejected_event, &return_prebuilt_fields,
-             &view);
+    log_emit_fields(gltfx_log_severity::err, "draw2d", k_program_rejected_event, fields);
 }
 
 [[nodiscard]] gltfx_err rejection(std::string_view token) noexcept {

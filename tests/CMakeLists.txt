@@ -5016,7 +5016,8 @@ if(UNIX)
     # D-CI2-SELFTEST (errata sec. 16): o selftest e' feito de ESPERAS (prazos e gracas), nao de CPU, e passou de
     # 40 s (a regua de pesados do ctest_aggregate.py) sob carga no CI. Nao se encurtam os prazos (foram
     # dimensionados contra a intermitencia do D10b) e nao se finge recurso (RESOURCE_LOCK): PARTE-SE em grupos,
-    # cada um uma entrada do ctest, com no maximo 20 s de parede numa maquina ociosa (medido antes de partir).
+    # cada um uma entrada do ctest, com no maximo 12 s de parede numa maquina ociosa (medido antes de partir; o CI
+    # infla o tempo ocioso em ~2,86x sob a carga paralela, 51,5 s contra 18 s, entao 20 s daria ~57 s, acima da regua de 40 s).
     # `--selftest` sem grupo roda todos, para o uso manual e para o preci; a contagem por grupo e o total saem
     # sempre (a soma dos grupos tem de igualar o total, e um grupo desconhecido da rc 2).
     # (quatro add_test literais, um por grupo: o --blob do preci le os literais, nunca um foreach)

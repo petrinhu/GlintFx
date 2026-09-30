@@ -445,7 +445,8 @@ contido_fabricate_zombie() {
 # contido_inside_selftest [group]: with no group, every group runs (manual use and the preci); with one, only
 # that one (a ctest entry each, D-CI2-SELFTEST: a long test of WAITS is split, never shortened - the deadlines
 # and graces were sized against the D10b intermittency). The groups were fixed by measurement BEFORE the split
-# (each at most 20 s of wall time on an idle machine): basico (exit codes, streams, the marker, refusals),
+# (each at most 12 s of wall time on an idle machine: the CI inflates the idle time by about 2.86x under
+# its parallel load, 51.5 s measured against 18 s, so 20 s here would be about 57 s there, over the 40 s ruler): basico (exit codes, streams, the marker, refusals),
 # prazos (deadlines, locales, the discount of elapsed time), graca (grace, the bounded wait, the KILL that
 # lands late), varredura (the /proc sweep, the positive controls of contido_alive, the ninho). The count of
 # cases per group and the total are ALWAYS printed, zero included.
@@ -827,6 +828,14 @@ contido_inside_selftest() {
     local group
     for group in $k_groups; do
         selftest_wants "$group" && echo "contido_dentro --selftest: grupo $group: ${group_cases[$group]} caso(s)" >&2
+    done
+    # L-40: a group that ran ZERO cases is a broken sweep, never a clean group (a block renamed by mistake
+    # would leave its ctest entry green while proving nothing).
+    for group in $k_groups; do
+        if selftest_wants "$group" && [ "${group_cases[$group]}" -eq 0 ]; then
+            echo "contido_dentro --selftest: FALHOU - o grupo '$group' rodou ZERO casos (varredura vazia)" >&2
+            return 1
+        fi
     done
     if [ "$cases" -eq 0 ]; then
         echo "contido_dentro --selftest: FALHOU - zero casos rodados (varredura vazia)" >&2

@@ -65,8 +65,8 @@ fase_paralelismo() {
 _fase_same_bytes() {
   local a="" b=""
   [ -r "$1" ] && [ -r "$2" ] || return 2
-  IFS= read -r -d '' a <"$1"
-  IFS= read -r -d '' b <"$2"
+  IFS= read -r -d '' a <"$1" || :   # `read -d ''` devolve 1 no EOF; sob `set -e` isso abortaria o chamador
+  IFS= read -r -d '' b <"$2" || :
   [ "$a" = "$b" ] || return 1
 }
 
@@ -112,6 +112,15 @@ _fase_selftest() {
   [ "$rc" -eq 2 ] || falha "comparador: DOIS arquivos ausentes deveriam dar 2 (nunca 0), deu $rc"
   _fase_same_bytes <(printf 'x\n') "$tmp/c_a"; rc=$?
   [ "$rc" -eq 0 ] || falha "comparador: substituicao de processo igual deveria dar 0, deu $rc"
+  # metacaractere de glob no conteudo: `*` nao pode casar `x` (mata `[[ $a == $b ]]` sem aspas)
+  printf '*\n' >"$tmp/c_glob"
+  _fase_same_bytes "$tmp/c_a" "$tmp/c_glob"; rc=$?
+  [ "$rc" -eq 1 ] || falha "comparador: 'x' contra '*' deveria dar 1 (glob nao casa), deu $rc"
+  _fase_same_bytes "$tmp/c_glob" "$tmp/c_glob"; rc=$?
+  [ "$rc" -eq 0 ] || falha "comparador: '*' contra '*' deveria dar 0, deu $rc"
+  # sob `set -e`, arquivos iguais NAO abortam o chamador (o `read` interno devolve 1 no EOF)
+  saida="$( (set -e; _fase_same_bytes "$tmp/c_a" "$tmp/c_b"; echo VIVO) 2>&1 )"
+  [ "$saida" = "VIVO" ] || falha "comparador sob set -e abortou com arquivos iguais: '$saida'"
 
   # 2. CMAKE_BUILD_PARALLEL_LEVEL ausente vira a palavra `ausente`
   (

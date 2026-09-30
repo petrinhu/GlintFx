@@ -32,6 +32,7 @@ using glintfx::gltfx_frame_2d_desc;
 using glintfx::gltfx_rgba;
 using glintfx::renderer_2d_host;
 using glintfx::renderer_2d_impl;
+using glintfx::renderer_2d_options;
 using glintfx::render::gl_function_table;
 using glintfx::render::GLbitfield;
 using glintfx::render::GLboolean;
@@ -291,7 +292,7 @@ gl_function_table fake_table() {
 // The renderer keeps its own copy of the table, so the local one may go away after create().
 renderer_2d_impl *make(bool srgb, std::size_t reserve = 16) {
     const gl_function_table table = fake_table();
-    auto created = renderer_2d_impl::create(fake_host(), table, srgb, reserve);
+    auto created = renderer_2d_impl::create(fake_host(), table, renderer_2d_options{srgb, reserve});
     GLINTFX_CHECK(created.has_value());
     return created.has_value() ? created.value() : nullptr;
 }
@@ -645,7 +646,8 @@ GLINTFX_TEST(renderer_2d_impl_a_failed_create_leaves_no_gl_object_alive) {
     reset();
     card.fail_compile = true;
     const gl_function_table table = fake_table();
-    const auto created = renderer_2d_impl::create(fake_host(), table, true, 16);
+    const auto created =
+        renderer_2d_impl::create(fake_host(), table, renderer_2d_options{true, 16});
     GLINTFX_CHECK(created.has_error());
     GLINTFX_CHECK_EQ(card.objects_deleted, card.objects_created);
 }
@@ -682,8 +684,9 @@ GLINTFX_TEST(renderer_2d_impl_a_piece_dropped_for_lack_of_memory_is_counted_and_
     deny_growth = false;
     const gl_function_table table = fake_table();
     auto created = renderer_2d_impl::create(
-        fake_host(), table, true, 1,
-        glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release});
+        fake_host(), table,
+        renderer_2d_options{true, 1,
+                            glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release}});
     GLINTFX_CHECK(created.has_value());
     renderer_2d_impl *renderer = created.value();
     renderer->begin_frame(gltfx_frame_2d_desc{});
@@ -780,8 +783,9 @@ GLINTFX_TEST(renderer_2d_impl_the_error_of_the_card_comes_before_out_of_memory) 
     deny_growth = false;
     const gl_function_table table = fake_table();
     auto created = renderer_2d_impl::create(
-        fake_host(), table, true, 1,
-        glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release});
+        fake_host(), table,
+        renderer_2d_options{true, 1,
+                            glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release}});
     GLINTFX_CHECK(created.has_value());
     renderer_2d_impl *renderer = created.value();
     renderer->begin_frame(gltfx_frame_2d_desc{});
@@ -809,8 +813,9 @@ GLINTFX_TEST(renderer_2d_impl_the_default_reserve_holds_a_thousand_pieces_withou
     deny_growth = false;
     const gl_function_table table = fake_table();
     auto created = renderer_2d_impl::create(
-        fake_host(), table, true, 0, // 0 lets the renderer choose
-        glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release});
+        fake_host(), table,
+        renderer_2d_options{true, 0, // 0 lets the renderer choose
+                            glintfx::draw2d::batch_allocator{&denying_reallocate, &plain_release}});
     GLINTFX_CHECK(created.has_value());
     renderer_2d_impl *renderer = created.value();
     renderer->begin_frame(gltfx_frame_2d_desc{});

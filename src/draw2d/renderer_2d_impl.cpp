@@ -48,9 +48,9 @@ renderer_2d_impl::renderer_2d_impl(const renderer_2d_host &host_in,
 
 gltfx_rslt<renderer_2d_impl *>
 renderer_2d_impl::create(const renderer_2d_host &host, const render::gl_function_table &gl,
-                         bool srgb_framebuffer, std::size_t reserve_pieces,
-                         draw2d::batch_allocator allocator) noexcept {
-    auto *impl = new (std::nothrow) renderer_2d_impl(host, gl, srgb_framebuffer, allocator);
+                         const renderer_2d_options &options) noexcept {
+    auto *impl =
+        new (std::nothrow) renderer_2d_impl(host, gl, options.srgb_framebuffer, options.allocator);
     if (impl == nullptr) {
         return gltfx_rslt<renderer_2d_impl *>::err(gltfx_err(gltfx_err_code::out_of_memory));
     }
@@ -67,7 +67,8 @@ renderer_2d_impl::create(const renderer_2d_host &host, const render::gl_function
         return gltfx_rslt<renderer_2d_impl *>::err(stream.err());
     }
     impl->stream = stream.value();
-    const std::size_t room = reserve_pieces == 0 ? k_default_reserve_pieces : reserve_pieces;
+    const std::size_t room =
+        options.reserve_pieces == 0 ? k_default_reserve_pieces : options.reserve_pieces;
     if (!impl->batch.reserve(room) || !impl->pieces.reserve(room)) {
         draw2d::destroy_vertex_stream(impl->gl, impl->stream);
         draw2d::destroy_embedded_program(impl->gl, impl->program);

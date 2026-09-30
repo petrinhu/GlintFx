@@ -47,15 +47,23 @@ struct renderer_2d_host {
     std::pair<std::uint32_t, std::uint32_t> (*surface_size)(void *context) noexcept = nullptr;
 };
 
+// What create() is told besides the host and the GL functions (D-B7-1, Introduce Parameter Object):
+// the surface encoding the context was opened with, how many pieces to make room for (0 lets the
+// renderer choose), and the allocator of the piece and batch storage (a test arms its own).
+struct renderer_2d_options {
+    bool srgb_framebuffer = false;
+    std::size_t reserve_pieces = 0;
+    draw2d::batch_allocator allocator = draw2d::default_batch_allocator();
+};
+
 struct renderer_2d_impl {
     // The context is current (the caller made it so) and `gl` is loaded. Builds the program and the
     // vertex stream and reserves `reserve_pieces` pieces (0 lets the renderer choose). Refusals as
     // the header of renderer_2d.hpp lists them for open(); a failed create leaves no GL object
     // alive.
     [[nodiscard]] static gltfx_rslt<renderer_2d_impl *>
-    create(const renderer_2d_host &host, const render::gl_function_table &gl, bool srgb_framebuffer,
-           std::size_t reserve_pieces,
-           draw2d::batch_allocator allocator = draw2d::default_batch_allocator()) noexcept;
+    create(const renderer_2d_host &host, const render::gl_function_table &gl,
+           const renderer_2d_options &options) noexcept;
 
     // Makes the context current, deletes the GL objects, deletes `impl` (null is harmless). Never
     // refused.

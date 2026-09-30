@@ -61,8 +61,8 @@ gltfx_rslt<gltfx_renderer_2d> gltfx_renderer_2d::open(gltfx_gl_context &context,
     const bool srgb_framebuffer = srgb.has_value() && srgb.value() != 0;
 
     const renderer_2d_host host{interior, &host_make_current, &host_surface_size};
-    auto created =
-        renderer_2d_impl::create(host, table.value(), srgb_framebuffer, desc.reserve_pieces);
+    auto created = renderer_2d_impl::create(
+        host, table.value(), renderer_2d_options{srgb_framebuffer, desc.reserve_pieces});
     if (created.has_error()) {
         return gltfx_rslt<gltfx_renderer_2d>::err(created.err());
     }

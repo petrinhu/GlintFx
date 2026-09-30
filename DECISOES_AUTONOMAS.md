@@ -4918,3 +4918,13 @@ Texto completo, com as fontes: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q1/Q2 
   - *Opções:* sempre G; pular se o cgroup.procs estiver vazio; a semântica do systemd (esperar até G, sair em populated 0, KILL sempre depois).
   - *Escolha:* a semântica do systemd. Fontes: o man do systemd.kill e do systemd.service, o kernel (populated), dois relatos de netos órfãos quando o KILL é pulado, e o MR do gitlab-runner.
 - **Furo corrigido pelo próprio CTO:** o ninho, irmão da carga, não era alcançado pela matança do proprio. O conserto mata no fim {carga, ninho-*}, adiciona o TimeoutStopSec=G e faz o `systemctl --user stop` como varredura final (prova D12).
+
+## 29/09/2026 - 22:08 | D-A37: C1b v2, supervisor morto derruba o escopo (CTO, L-34, §R2-Q3)
+
+- *Pergunta que teria ido ao líder:* "Se o supervisor do contido morre, o que acontece com o que ele supervisionava, e o que se reporta?"
+- *Opções:* (a) esperar o fim do escopo e ler o Result; (b) derrubar o escopo na hora e reportar um fim próprio; (c) 137 cru, com órfão até o prazo de encosto.
+- *Escolha:* (b), com rc 73 novo (`fim=supervisor-morto`).
+- *Fontes:* pid_namespaces(7), systemd.service ExitType=main, prctl PR_SET_PDEATHSIG, e relatos da comunidade sobre órfãos esgotando o teto de processos.
+- Texto completo: /var/tmp/cto-a5-paralelo/L34-RETRO.md §R2-Q3, md5 aefbdc41.
+- *Porta de mão única:* não. *Custo de reverter:* barato.
+- O risco foi levantado pelo implementador, e a instância anterior do CTO tinha deixado o ramo incompleto.

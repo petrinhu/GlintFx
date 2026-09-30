@@ -2178,7 +2178,8 @@ run_selftest_ccache_controls() {
     esperar() {
         nome="$1"; esperado_estado="$2"; esperado_lancador="$3"; chave="$4"; caminho="$5"
         obtido="$(
-            ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE="$chave" \
+            unset CCACHE_DIR CCACHE_MAXSIZE
+            GLINTFX_PRECI_CCACHE="$chave" \
                 CMAKE_CXX_COMPILER_LAUNCHER=preset CMAKE_C_COMPILER_LAUNCHER=preset
             PATH="$caminho"
             setup_ccache
@@ -2195,7 +2196,7 @@ run_selftest_ccache_controls() {
         || fail "selftest ccache: mktemp falhou"
     printf '#!/bin/sh\nexit 0\n' > "$stub_dir/ccache"
     chmod +x "$stub_dir/ccache"
-    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=/selftest-root:" "ccache|ccache" 1 "$stub_dir:$PATH"
+    esperar "ligado" "ccache: ligado (dir=/var/tmp/ccache-glintfx, limite=3G, basedir=$ROOT_DIR:" "ccache|ccache" 1 "$stub_dir:$PATH"
     rm -rf "$stub_dir"
     esperar "desligado pela chave" "ccache: desligado (GLINTFX_PRECI_CCACHE=0)" "|" 0 "$PATH"
     esperar "desligado por ausencia" "ccache: desligado (ccache nao encontrado" "|" 1 "/nonexistent"
@@ -2223,11 +2224,11 @@ run_selftest_ccache_preconfigured_controls() {
         CCACHE_DIR="$dir/cc" cmake --build "$dir/build" --clean-first > /dev/null 2>&1 || fail "selftest ccache preconfigurado: build da arvore falhou"
     }
     # State 1: tree first configured WITH the launcher, then the switch turns it off.
-    (ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
+    (GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
      cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
         || fail "selftest ccache preconfigurado: primeiro configure falhou"
     [ "$(lido)" = "ccache" ] || fail "selftest ccache preconfigurado: arvore nao nasceu com o lancador (lido '$(lido)')"
-    (ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE=0 setup_ccache > /dev/null
+    (GLINTFX_PRECI_CCACHE=0 setup_ccache > /dev/null
      cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
         || fail "selftest ccache preconfigurado: reconfigure desligado falhou"
     [ -z "$(lido)" ] || fail "selftest ccache preconfigurado: arvore com lancador NAO desligou (lido '$(lido)')"
@@ -2235,7 +2236,7 @@ run_selftest_ccache_preconfigured_controls() {
     [ "$(chamadas)" = "0" ] || fail "selftest ccache preconfigurado: desligado, mas o ccache contou $(chamadas) chamada(s)"
     echo "selftest: ccache preconfigurado com lancador e depois desligado OK"
     # State 2: tree first configured WITHOUT it, then the switch turns it on.
-    (ROOT_DIR=/selftest-root GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
+    (GLINTFX_PRECI_CCACHE=1 setup_ccache > /dev/null
      cmake -S "$dir" -B "$dir/build" -G Ninja "${CCACHE_CMAKE_ARGS[@]}" > /dev/null 2>&1) \
         || fail "selftest ccache preconfigurado: reconfigure ligado falhou"
     [ "$(lido)" = "ccache" ] || fail "selftest ccache preconfigurado: arvore sem lancador NAO ligou (lido '$(lido)')"
